@@ -1,0 +1,40 @@
+{
+  "protocol_id": "pulse_capture.v2",
+  "protocol_version": "2.0.0-draft",
+  "inherits": ["evb_evidence_layer"],
+  "locks": {
+    "Evolution": true,
+    "Capital": true,
+    "FINAL_OOS": true,
+    "LIVE": true,
+    "Survival_v1": true,
+    "reason": "No CPCV>=10 + true cost matrix + frozen protocol hash on PulseEvent classes yet. Running Survival now would fabricate PASS."
+  },
+  "unit": "PulseEvent",
+  "not_unit": ["Strategy", "ChampionGene", "DailyTradeSignal"],
+  "data_splits": {
+    "TRAIN": {"start": "1999-03-10", "end": "2015-12-31"},
+    "VALIDATION": {"start": "2016-01-01", "end": "2019-12-31"},
+    "CRISIS_STUDY": {"start": "2020-01-01", "end": "2022-12-31", "note": "leave-one-crisis material, not Frozen OOS"},
+    "UNPROVEN_WINDOW": {"start": "2023-01-01", "end": "2026-09-03", "former_label": "secondary_OOS", "current_label": "UNPROVEN_OOS"},
+    "FROZEN_OOS": null,
+    "SHADOW": "replay of any split, evidence_tag=HYPOTHETICAL",
+    "LIVE": "LOCKED"
+  },
+  "kill_chain": ["Family", "State", "Path", "Cost", "Crisis", "Survival"],
+  "execution_families": ["IMMEDIATE", "DELAYED", "NEXT_OPEN", "PULLBACK", "CONFIRMATION"],
+  "instruments_allowed_on_this_panel": ["SPOT_QQQ", "PAIR_QQQ_SPY", "CROSS_QQQ_VIX", "CROSS_QQQ_TLT", "CROSS_VIX_TERM"],
+  "instruments_missing": ["SINGLE_STOCK", "SECTOR_BASKET", "OPTIONS", "FX", "COMMODITY"],
+  "lookahead_forbidden": ["fwd5", "fwd10", "fwd15", "fwd20"],
+  "missing_policy": "tag MISSING, never impute as Observed",
+  "hard_fail": {
+    "cost_x3_death": "HARD_FAIL",
+    "crisis_not_beat_baseline": "HARD_FAIL",
+    "family_vote": "same skeleton+direction+regime = 1"
+  },
+  "forbidden_backflow": [
+    "shadow_pnl -> gene.fitness",
+    "shadow_pnl -> threshold",
+    "shadow_pnl -> protocol_tweak"
+  ]
+}

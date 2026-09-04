@@ -1,0 +1,100 @@
+{
+  "protocol_id": "pulse_capture.v2",
+  "status": "DRAFT_LOCKED_FOR_REVIEW",
+  "inherits": ["evb_evidence_layer", "pulse_capture.v1_keep_locks"],
+  "locks": ["Evolution", "Capital", "FINAL_OOS", "LIVE"],
+  "data_splits": ["TRAIN", "VALIDATION", "FROZEN_OOS", "SHADOW", "LIVE"],
+  "oos_rule": "A window is FROZEN_OOS only if protocol_hash was locked before the window start and no threshold was changed after seeing its results. 2023-2026 is UNPROVEN_OOS until proven.",
+  "pulse_event": {
+    "event_id": "string",
+    "event_class": "string|null",
+    "lifecycle": [
+      "QUIET",
+      "STATE_TRANSITION",
+      "PULSE_EVENT",
+      "ASYMMETRY_SCORE",
+      "ENTRY_ELIGIBLE",
+      "REJECTED",
+      "NO_TRADE",
+      "ACTIVE",
+      "HARVESTING",
+      "RUNNER",
+      "DECAY",
+      "EXIT",
+      "JOURNALED",
+      "ATTACKED"
+    ],
+    "verdict": [
+      "FALSE_PULSE",
+      "FRAGILE",
+      "INSUFFICIENT_SAMPLE",
+      "HARD_FAIL",
+      "SURVIVING_EVENT",
+      "RECURRING_CLASS"
+    ],
+    "must_answer": [
+      "what_changed",
+      "why_unusual",
+      "transition_strength",
+      "typical_duration",
+      "invalidation",
+      "pre_confirmation_loss",
+      "harvest_zones",
+      "runner_rule",
+      "death_rule"
+    ],
+    "search_levels": ["SINGLE", "PAIR", "BASKET", "CROSS", "COMPOSITE"],
+    "missing_axis_policy": "tag MISSING, never impute as Observed"
+  },
+  "execution": {
+    "timing_families": ["IMMEDIATE", "DELAYED", "NEXT_OPEN", "PULLBACK", "CONFIRMATION"],
+    "instruments": ["SPOT", "ETF", "PAIR", "BASKET", "OPTION", "HEDGE", "COMBO"],
+    "next_open_status": "EXECUTION_HYPOTHESIS",
+    "rule": "Signal engine must not choose timing. Execution engine compares families; no default champion."
+  },
+  "harvest": {
+    "inputs": ["MFE", "MAE", "time_to_MFE", "time_to_failure", "path_state", "liquidity", "spread", "unrealized_R"],
+    "outputs": ["harvest_fraction", "runner_allowed", "invalidation_price", "decay_reason"],
+    "forbidden": "fixed 25 percent without path evidence"
+  },
+  "kill_chain": ["Family", "State", "Path", "Cost", "Crisis", "Survival"],
+  "family_collapse": "same transition skeleton + direction + regime = one vote",
+  "trade_journal_min_fields": [
+    "event_id",
+    "event_class",
+    "signal_fingerprint",
+    "market_state_snapshot",
+    "entry_reason",
+    "expected_continuation",
+    "expected_duration",
+    "expected_upside",
+    "expected_downside",
+    "execution_family",
+    "instrument",
+    "fill",
+    "actual_path",
+    "MAE",
+    "MFE",
+    "harvest_actions",
+    "runner_duration",
+    "exit_reason",
+    "slippage",
+    "liquidity",
+    "prediction_error",
+    "data_split",
+    "protocol_hash",
+    "evidence_tag"
+  ],
+  "learning_path": ["Observed", "Experiment", "Validated", "Candidate"],
+  "forbidden_backflow": [
+    "shadow_pnl -> gene.fitness",
+    "shadow_pnl -> pulse_threshold",
+    "shadow_pnl -> protocol_tweak"
+  ],
+  "prior_run_verdicts": {
+    "trades_21_9W12L": "INSUFFICIENT_SAMPLE",
+    "paper_96556": "HYPOTHETICAL_NO_DECISION_VALUE",
+    "secondary_oos_2023_2026": "UNPROVEN_OOS",
+    "next_open_fill": "EXECUTION_HYPOTHESIS"
+  }
+}

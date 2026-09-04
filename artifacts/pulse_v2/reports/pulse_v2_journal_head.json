@@ -1,0 +1,1327 @@
+[
+  {
+    "event_id": "PULSE-1999-03-19-00000",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:RANGE->ACCEL_DOWN;rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "IMMEDIATE",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-22",
+      "price": 43.343038105390335,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.09295252451662273,
+      "mfe": 0.057108101714617554,
+      "time_to_mfe": 2,
+      "time_to_mae": 10,
+      "time_to_failure": 4,
+      "end_ret": -0.08110562388956644,
+      "decayed": true
+    },
+    "MAE": -0.09295252451662273,
+    "MFE": 0.057108101714617554,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": 0.004271191529511942,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.03710810171461755,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-19-00000",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:RANGE->ACCEL_DOWN;rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "NEXT_OPEN",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-22",
+      "price": 43.343038105390335,
+      "status": "EXECUTION_HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.09295252451662273,
+      "mfe": 0.057108101714617554,
+      "time_to_mfe": 2,
+      "time_to_mae": 10,
+      "time_to_failure": 4,
+      "end_ret": -0.08110562388956644,
+      "decayed": true
+    },
+    "MAE": -0.09295252451662273,
+    "MFE": 0.057108101714617554,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": 0.004271191529511942,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.03710810171461755,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-19-00000",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:RANGE->ACCEL_DOWN;rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "DELAYED",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-23",
+      "price": 42.39506334409823,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.11801315896449593,
+      "mfe": 0.03602456859316583,
+      "time_to_mfe": 1,
+      "time_to_mae": 10,
+      "time_to_failure": 2,
+      "end_ret": -0.09378954052026534,
+      "decayed": true
+    },
+    "MAE": -0.11801315896449593,
+    "MFE": 0.03602456859316583,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": -0.01769366798836114,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.01602456859316583,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-19-00000",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:RANGE->ACCEL_DOWN;rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "PULLBACK",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-22",
+      "price": 43.0292229385376,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.09295252451662273,
+      "mfe": 0.057108101714617554,
+      "time_to_mfe": 2,
+      "time_to_mae": 10,
+      "time_to_failure": 4,
+      "end_ret": -0.08110562388956644,
+      "decayed": true
+    },
+    "MAE": -0.09295252451662273,
+    "MFE": 0.057108101714617554,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": -0.0029999999999998916,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.03710810171461755,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-19-00000",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LEAD|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:RANGE->ACCEL_DOWN;rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "CONFIRMATION",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-23",
+      "price": 42.39506334409823,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.11801315896449593,
+      "mfe": 0.03602456859316583,
+      "time_to_mfe": 1,
+      "time_to_mae": 10,
+      "time_to_failure": 2,
+      "end_ret": -0.09378954052026534,
+      "decayed": true
+    },
+    "MAE": -0.11801315896449593,
+    "MFE": 0.03602456859316583,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": -0.01769366798836114,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.01602456859316583,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-22-00001",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:QQQ_LEAD->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "IMMEDIATE",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-23",
+      "price": 42.39506334409823,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.11801315896449593,
+      "mfe": 0.03602456859316583,
+      "time_to_mfe": 1,
+      "time_to_mae": 10,
+      "time_to_failure": 2,
+      "end_ret": -0.09378954052026534,
+      "decayed": true
+    },
+    "MAE": -0.11801315896449593,
+    "MFE": 0.03602456859316583,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": -0.005559230505068347,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.01602456859316583,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-22-00001",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:QQQ_LEAD->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "NEXT_OPEN",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-23",
+      "price": 42.39506334409823,
+      "status": "EXECUTION_HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.11801315896449593,
+      "mfe": 0.03602456859316583,
+      "time_to_mfe": 1,
+      "time_to_mae": 10,
+      "time_to_failure": 2,
+      "end_ret": -0.09378954052026534,
+      "decayed": true
+    },
+    "MAE": -0.11801315896449593,
+    "MFE": 0.03602456859316583,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": -0.005559230505068347,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.01602456859316583,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-22-00001",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:QQQ_LEAD->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "DELAYED",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-24",
+      "price": 41.49977575721387,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.14213240503103153,
+      "mfe": 0.015228426395939132,
+      "time_to_mfe": 0,
+      "time_to_mae": 9,
+      "time_to_failure": 0,
+      "end_ret": -0.12626907224444284,
+      "decayed": false
+    },
+    "MAE": -0.14213240503103153,
+    "MFE": 0.015228426395939132,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.8,
+        "runner_allowed": false,
+        "reason": "WEAK_PATH",
+        "invalidation": "no_runner_on_weak_path"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "WEAK_PATH",
+    "slippage": -0.026559564190015816,
+    "liquidity": "NORMAL",
+    "prediction_error": -0.0047715736040608685,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-22-00001",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:QQQ_LEAD->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "PULLBACK",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-23",
+      "price": 42.39506334409823,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.11801315896449593,
+      "mfe": 0.03602456859316583,
+      "time_to_mfe": 1,
+      "time_to_mae": 10,
+      "time_to_failure": 2,
+      "end_ret": -0.09378954052026534,
+      "decayed": true
+    },
+    "MAE": -0.11801315896449593,
+    "MFE": 0.03602456859316583,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": -0.005559230505068347,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.01602456859316583,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-22-00001",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_IN_LINE|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:QQQ_LEAD->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "CONFIRMATION",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-24",
+      "price": 41.49977575721387,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.14213240503103153,
+      "mfe": 0.015228426395939132,
+      "time_to_mfe": 0,
+      "time_to_mae": 9,
+      "time_to_failure": 0,
+      "end_ret": -0.12626907224444284,
+      "decayed": false
+    },
+    "MAE": -0.14213240503103153,
+    "MFE": 0.015228426395939132,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.8,
+        "runner_allowed": false,
+        "reason": "WEAK_PATH",
+        "invalidation": "no_runner_on_weak_path"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "WEAK_PATH",
+    "slippage": -0.026559564190015816,
+    "liquidity": "NORMAL",
+    "prediction_error": -0.0047715736040608685,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-23-00002",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LAG",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LAG|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LAG",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LAG",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "IMMEDIATE",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-24",
+      "price": 41.49977575721387,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.14213240503103153,
+      "mfe": 0.015228426395939132,
+      "time_to_mfe": 0,
+      "time_to_mae": 9,
+      "time_to_failure": 0,
+      "end_ret": -0.12626907224444284,
+      "decayed": false
+    },
+    "MAE": -0.14213240503103153,
+    "MFE": 0.015228426395939132,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.8,
+        "runner_allowed": false,
+        "reason": "WEAK_PATH",
+        "invalidation": "no_runner_on_weak_path"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "WEAK_PATH",
+    "slippage": 0.008963157131702593,
+    "liquidity": "NORMAL",
+    "prediction_error": -0.0047715736040608685,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-23-00002",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LAG",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LAG|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LAG",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LAG",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "NEXT_OPEN",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-24",
+      "price": 41.49977575721387,
+      "status": "EXECUTION_HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.14213240503103153,
+      "mfe": 0.015228426395939132,
+      "time_to_mfe": 0,
+      "time_to_mae": 9,
+      "time_to_failure": 0,
+      "end_ret": -0.12626907224444284,
+      "decayed": false
+    },
+    "MAE": -0.14213240503103153,
+    "MFE": 0.015228426395939132,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.8,
+        "runner_allowed": false,
+        "reason": "WEAK_PATH",
+        "invalidation": "no_runner_on_weak_path"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "WEAK_PATH",
+    "slippage": 0.008963157131702593,
+    "liquidity": "NORMAL",
+    "prediction_error": -0.0047715736040608685,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-23-00002",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LAG",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LAG|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LAG",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LAG",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "DELAYED",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-25",
+      "price": 43.18504543144928,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.09756139469793546,
+      "mfe": 0.006554878048780632,
+      "time_to_mfe": 0,
+      "time_to_mae": 8,
+      "time_to_failure": 0,
+      "end_ret": -0.08902465408427274,
+      "decayed": false
+    },
+    "MAE": -0.09756139469793546,
+    "MFE": 0.006554878048780632,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.8,
+        "runner_allowed": false,
+        "reason": "WEAK_PATH",
+        "invalidation": "no_runner_on_weak_path"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "WEAK_PATH",
+    "slippage": 0.04993627036206294,
+    "liquidity": "NORMAL",
+    "prediction_error": -0.013445121951219368,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-23-00002",
+    "event_class": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LAG",
+    "signal_fingerprint": "PRICE_ACCEL_DOWN+VOL_NORMAL+REL_QQQ_LAG|DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_DOWN",
+      "vol": "NORMAL",
+      "rel": "QQQ_LAG",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LAG",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "PULLBACK",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-24",
+      "price": 41.00771781158447,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.14213240503103153,
+      "mfe": 0.015228426395939132,
+      "time_to_mfe": 0,
+      "time_to_mae": 9,
+      "time_to_failure": 0,
+      "end_ret": -0.12626907224444284,
+      "decayed": false
+    },
+    "MAE": -0.14213240503103153,
+    "MFE": 0.015228426395939132,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.8,
+        "runner_allowed": false,
+        "reason": "WEAK_PATH",
+        "invalidation": "no_runner_on_weak_path"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "WEAK_PATH",
+    "slippage": -0.0030000000000000027,
+    "liquidity": "NORMAL",
+    "prediction_error": -0.0047715736040608685,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-24-00003",
+    "event_class": "PRICE_ACCEL_UP+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_UP+VOL_NORMAL+REL_IN_LINE|UP|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_UP",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:ACCEL_DOWN->ACCEL_UP;rel:QQQ_LAG->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "IMMEDIATE",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-25",
+      "price": 43.18504543144928,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.006554878048780632,
+      "mfe": 0.09756139469793546,
+      "time_to_mfe": 8,
+      "time_to_mae": 0,
+      "time_to_failure": null,
+      "end_ret": 0.08902465408427274,
+      "decayed": false
+    },
+    "MAE": -0.006554878048780632,
+    "MFE": 0.09756139469793546,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.4,
+        "runner_allowed": true,
+        "reason": "STRONG_EXCURSION",
+        "invalidation": "giveback_half_mfe"
+      }
+    ],
+    "runner_duration": 10,
+    "exit_reason": "STRONG_EXCURSION",
+    "slippage": 0.015479866584055646,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.07756139469793545,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-24-00003",
+    "event_class": "PRICE_ACCEL_UP+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_UP+VOL_NORMAL+REL_IN_LINE|UP|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_UP",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:ACCEL_DOWN->ACCEL_UP;rel:QQQ_LAG->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "NEXT_OPEN",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-25",
+      "price": 43.18504543144928,
+      "status": "EXECUTION_HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.006554878048780632,
+      "mfe": 0.09756139469793546,
+      "time_to_mfe": 8,
+      "time_to_mae": 0,
+      "time_to_failure": null,
+      "end_ret": 0.08902465408427274,
+      "decayed": false
+    },
+    "MAE": -0.006554878048780632,
+    "MFE": 0.09756139469793546,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.4,
+        "runner_allowed": true,
+        "reason": "STRONG_EXCURSION",
+        "invalidation": "giveback_half_mfe"
+      }
+    ],
+    "runner_duration": 10,
+    "exit_reason": "STRONG_EXCURSION",
+    "slippage": 0.015479866584055646,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.07756139469793545,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-24-00003",
+    "event_class": "PRICE_ACCEL_UP+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_UP+VOL_NORMAL+REL_IN_LINE|UP|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_UP",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:ACCEL_DOWN->ACCEL_UP;rel:QQQ_LAG->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "DELAYED",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-26",
+      "price": 43.71169841231931,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.0066265060240963125,
+      "mfe": 0.08433761247942928,
+      "time_to_mfe": 7,
+      "time_to_mae": 0,
+      "time_to_failure": null,
+      "end_ret": 0.06867484508750055,
+      "decayed": false
+    },
+    "MAE": -0.0066265060240963125,
+    "MFE": 0.08433761247942928,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.4,
+        "runner_allowed": true,
+        "reason": "STRONG_EXCURSION",
+        "invalidation": "giveback_half_mfe"
+      }
+    ],
+    "runner_duration": 10,
+    "exit_reason": "STRONG_EXCURSION",
+    "slippage": 0.027863910491081834,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.06433761247942928,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-24-00003",
+    "event_class": "PRICE_ACCEL_UP+VOL_NORMAL+REL_IN_LINE",
+    "signal_fingerprint": "PRICE_ACCEL_UP+VOL_NORMAL+REL_IN_LINE|UP|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_UP",
+      "vol": "NORMAL",
+      "rel": "IN_LINE",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "price:ACCEL_DOWN->ACCEL_UP;rel:QQQ_LAG->IN_LINE",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "CONFIRMATION",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-26",
+      "price": 43.71169841231931,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.0066265060240963125,
+      "mfe": 0.08433761247942928,
+      "time_to_mfe": 7,
+      "time_to_mae": 0,
+      "time_to_failure": null,
+      "end_ret": 0.06867484508750055,
+      "decayed": false
+    },
+    "MAE": -0.0066265060240963125,
+    "MFE": 0.08433761247942928,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.4,
+        "runner_allowed": true,
+        "reason": "STRONG_EXCURSION",
+        "invalidation": "giveback_half_mfe"
+      }
+    ],
+    "runner_duration": 10,
+    "exit_reason": "STRONG_EXCURSION",
+    "slippage": 0.027863910491081834,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.06433761247942928,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-25-00004",
+    "event_class": "PRICE_ACCEL_UP+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_UP+VOL_NORMAL+REL_QQQ_LEAD|UP|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_UP",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "IMMEDIATE",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-26",
+      "price": 43.71169841231931,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.0066265060240963125,
+      "mfe": 0.08433761247942928,
+      "time_to_mfe": 7,
+      "time_to_mae": 0,
+      "time_to_failure": null,
+      "end_ret": 0.06867484508750055,
+      "decayed": false
+    },
+    "MAE": -0.0066265060240963125,
+    "MFE": 0.08433761247942928,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.4,
+        "runner_allowed": true,
+        "reason": "STRONG_EXCURSION",
+        "invalidation": "giveback_half_mfe"
+      }
+    ],
+    "runner_duration": 10,
+    "exit_reason": "STRONG_EXCURSION",
+    "slippage": -0.008363063859935238,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.06433761247942928,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-25-00004",
+    "event_class": "PRICE_ACCEL_UP+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_UP+VOL_NORMAL+REL_QQQ_LEAD|UP|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_UP",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "NEXT_OPEN",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-26",
+      "price": 43.71169841231931,
+      "status": "EXECUTION_HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.0066265060240963125,
+      "mfe": 0.08433761247942928,
+      "time_to_mfe": 7,
+      "time_to_mae": 0,
+      "time_to_failure": null,
+      "end_ret": 0.06867484508750055,
+      "decayed": false
+    },
+    "MAE": -0.0066265060240963125,
+    "MFE": 0.08433761247942928,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.4,
+        "runner_allowed": true,
+        "reason": "STRONG_EXCURSION",
+        "invalidation": "giveback_half_mfe"
+      }
+    ],
+    "runner_duration": 10,
+    "exit_reason": "STRONG_EXCURSION",
+    "slippage": -0.008363063859935238,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.06433761247942928,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-25-00004",
+    "event_class": "PRICE_ACCEL_UP+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_UP+VOL_NORMAL+REL_QQQ_LEAD|UP|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_UP",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "DELAYED",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-29",
+      "price": 44.13301215360771,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.005966587112171906,
+      "mfe": 0.07398603405683346,
+      "time_to_mfe": 6,
+      "time_to_mae": 0,
+      "time_to_failure": null,
+      "end_ret": 0.04415279107198944,
+      "decayed": false
+    },
+    "MAE": -0.005966587112171906,
+    "MFE": 0.07398603405683346,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.4,
+        "runner_allowed": true,
+        "reason": "STRONG_EXCURSION",
+        "invalidation": "giveback_half_mfe"
+      }
+    ],
+    "runner_duration": 10,
+    "exit_reason": "STRONG_EXCURSION",
+    "slippage": 0.0011947955401743204,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.05398603405683346,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-03-25-00004",
+    "event_class": "PRICE_ACCEL_UP+VOL_NORMAL+REL_QQQ_LEAD",
+    "signal_fingerprint": "PRICE_ACCEL_UP+VOL_NORMAL+REL_QQQ_LEAD|UP|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "ACCEL_UP",
+      "vol": "NORMAL",
+      "rel": "QQQ_LEAD",
+      "regime": "STRESS_VOL",
+      "liq": "NORMAL",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LEAD",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "PULLBACK",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-03-26",
+      "price": 43.71169841231931,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.0066265060240963125,
+      "mfe": 0.08433761247942928,
+      "time_to_mfe": 7,
+      "time_to_mae": 0,
+      "time_to_failure": null,
+      "end_ret": 0.06867484508750055,
+      "decayed": false
+    },
+    "MAE": -0.0066265060240963125,
+    "MFE": 0.08433761247942928,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 0.4,
+        "runner_allowed": true,
+        "reason": "STRONG_EXCURSION",
+        "invalidation": "giveback_half_mfe"
+      }
+    ],
+    "runner_duration": 10,
+    "exit_reason": "STRONG_EXCURSION",
+    "slippage": -0.008363063859935238,
+    "liquidity": "NORMAL",
+    "prediction_error": 0.06433761247942928,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-04-12-00005",
+    "event_class": "PAIR_QQQ_SPY_QQQ_LAG",
+    "signal_fingerprint": "PAIR_QQQ_SPY_QQQ_LAG|REL_DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "RANGE",
+      "vol": "NORMAL",
+      "rel": "QQQ_LAG",
+      "regime": "STRESS_VOL",
+      "liq": "HEAVY",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LAG",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "IMMEDIATE",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-04-13",
+      "price": 47.00323997497559,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.0268908725857695,
+      "mfe": 0.12436976162720081,
+      "time_to_mfe": 5,
+      "time_to_mae": 10,
+      "time_to_failure": 9,
+      "end_ret": 0.0011203350679612756,
+      "decayed": true
+    },
+    "MAE": -0.0268908725857695,
+    "MFE": 0.12436976162720081,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": 0.006200496043995196,
+    "liquidity": "HEAVY",
+    "prediction_error": 0.10436976162720081,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-04-12-00005",
+    "event_class": "PAIR_QQQ_SPY_QQQ_LAG",
+    "signal_fingerprint": "PAIR_QQQ_SPY_QQQ_LAG|REL_DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "RANGE",
+      "vol": "NORMAL",
+      "rel": "QQQ_LAG",
+      "regime": "STRESS_VOL",
+      "liq": "HEAVY",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LAG",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "NEXT_OPEN",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-04-13",
+      "price": 47.00323997497559,
+      "status": "EXECUTION_HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.0268908725857695,
+      "mfe": 0.12436976162720081,
+      "time_to_mfe": 5,
+      "time_to_mae": 10,
+      "time_to_failure": 9,
+      "end_ret": 0.0011203350679612756,
+      "decayed": true
+    },
+    "MAE": -0.0268908725857695,
+    "MFE": 0.12436976162720081,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": 0.006200496043995196,
+    "liquidity": "HEAVY",
+    "prediction_error": 0.10436976162720081,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  },
+  {
+    "event_id": "PULSE-1999-04-12-00005",
+    "event_class": "PAIR_QQQ_SPY_QQQ_LAG",
+    "signal_fingerprint": "PAIR_QQQ_SPY_QQQ_LAG|REL_DOWN|STRESS_VOL",
+    "market_state_snapshot": {
+      "price": "RANGE",
+      "vol": "NORMAL",
+      "rel": "QQQ_LAG",
+      "regime": "STRESS_VOL",
+      "liq": "HEAVY",
+      "cross_vol": "VOL_NEUTRAL",
+      "cross_rates": "DURATION_FLAT"
+    },
+    "entry_reason": "rel:IN_LINE->QQQ_LAG",
+    "expected_continuation": "unknown_class_prior",
+    "expected_duration": "<=10 bars",
+    "expected_upside": 0.02,
+    "expected_downside": -0.02,
+    "execution_family": "DELAYED",
+    "instrument": "SPOT_QQQ",
+    "fill": {
+      "date": "1999-04-14",
+      "price": 46.66093950440898,
+      "status": "HYPOTHESIS"
+    },
+    "actual_path": {
+      "mae": -0.034424051999644156,
+      "mfe": 0.11794621667030936,
+      "time_to_mfe": 4,
+      "time_to_mae": 9,
+      "time_to_failure": 8,
+      "end_ret": 0.028217099511702926,
+      "decayed": true
+    },
+    "MAE": -0.034424051999644156,
+    "MFE": 0.11794621667030936,
+    "harvest_actions": [
+      {
+        "harvest_fraction": 1.0,
+        "runner_allowed": false,
+        "reason": "DECAY",
+        "invalidation": "excursion_gave_back_half"
+      }
+    ],
+    "runner_duration": null,
+    "exit_reason": "DECAY",
+    "slippage": -0.0011271456986503559,
+    "liquidity": "HEAVY",
+    "prediction_error": 0.09794621667030935,
+    "data_split": "TRAIN",
+    "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+    "evidence_tag": "Hypothetical"
+  }
+]

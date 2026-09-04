@@ -1,0 +1,42 @@
+{
+  "protocol_hash": "2f858fa53192058a9aadc72b6985eebc02f2bf939a1fd3ebd6751d407e6220d0",
+  "n_transitions": 1136,
+  "n_events": 1136,
+  "n_journal": 4711,
+  "family_collapse": {
+    "n_events": 1136,
+    "n_families": 68
+  },
+  "kill_summary": {
+    "FALSE_PULSE": 2589,
+    "FRAGILE": 0,
+    "INSUFFICIENT_SAMPLE": 1506,
+    "HARD_FAIL": 616,
+    "SURVIVING_EVENT": 0,
+    "ROBUST_EVENT": 0,
+    "PASS": 0
+  },
+  "split_counts": {
+    "TRAIN": 763,
+    "VALIDATION": 88,
+    "CRISIS_STUDY": 158,
+    "UNPROVEN_OOS": 127
+  },
+  "level_counts": {
+    "COMPOSITE": 798,
+    "PAIR": 338
+  },
+  "locks": [
+    "Evolution",
+    "Capital",
+    "FINAL_OOS",
+    "LIVE",
+    "Survival_v1"
+  ],
+  "claims_forbidden": [
+    "this_is_not_frozen_oos",
+    "next_open_is_not_default",
+    "no_edge_claimed",
+    "no_fitness_written"
+  ]
+}
