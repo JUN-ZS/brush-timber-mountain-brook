@@ -2,105 +2,121 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Panel, Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
-import {
-  DEFAULT_POLICY,
-  PROXY_STRATEGIES,
-  STRATEGIES,
-  coverage,
-  freezeChampion,
-  historicalBenchmark,
-  pareto,
-  runBacktest,
-  sampleWindow,
-  searchPolicies,
-  targetGate,
-  type StrategyId,
-} from "@/lib/pulse/backtest";
+import { frozenV22 as frozen } from "@/lib/pulse/v22-result";
+import { buyHoldQQQ, historicalBenchmark, sampleWindow, targetGate } from "@/lib/pulse/backtest";
+import { DEFAULT_PROTECTED, runProtected, type ProtectedSpec } from "@/lib/pulse/protected";
 import { fmtPct } from "@/lib/utils";
 
 export const Route = createFileRoute("/backtest")({ component: Page });
 
+type Frozen = typeof frozen & {
+  executed?: boolean;
+  oos?: { cagr: number; maxDd: number; sharpe: number; sortino: number; es: number };
+  validation?: { cagr: number; maxDd: number };
+  train?: { cagr: number; maxDd: number };
+  full?: { cagr: number; maxDd: number };
+  selectedSpec?: {
+    putDistance: number;
+    dte: number;
+    rollDays: number;
+    calmPut: number;
+    unstablePut: number;
+    tailPut: number;
+    recoveryPut: number;
+    buildingPut: number;
+  };
+  extras?: { validation?: { premiumDrag: number; protectionEfficiency: number }; oos?: { premiumDrag: number; protectionEfficiency: number } };
+  targetGate?: { final?: string; oos?: { pass: boolean; cagrPass: boolean; ddPass: boolean } };
+  buyHoldQQQ?: { oos: { cagr: number; maxDd: number }; full: { cagr: number; maxDd: number } };
+  dailyFloorProxy?: { oos: { cagr: number; maxDd: number } };
+  pareto?: Array<{
+    spec: { putDistance: number; dte: number; rollDays: number; tailPut: number };
+    valCagr: number;
+    valMaxDd: number;
+    valPrem: number;
+    valEff: number;
+    score: number;
+  }>;
+  dataLayer?: Record<string, string>;
+  searchedGrid?: { n: number };
+  proxyDisclaimer?: string;
+};
+
+const F = frozen as Frozen;
+
 function Page() {
-  const [strategy, setStrategy] = useState<StrategyId>("QQQ_VXX");
-  const [baseRisk, setBaseRisk] = useState(DEFAULT_POLICY.baseRisk);
-  const [unstableRisk, setUnstableRisk] = useState(DEFAULT_POLICY.unstableRisk);
-  const [tailRisk, setTailRisk] = useState(DEFAULT_POLICY.tailRisk);
-  const [recoveryRisk, setRecoveryRisk] = useState(DEFAULT_POLICY.recoveryRisk);
-  const [vxxHedge, setVxxHedge] = useState(DEFAULT_POLICY.vxxHedge);
-  const [ddBrake, setDdBrake] = useState(DEFAULT_POLICY.ddBrake);
-  const policy = { baseRisk, unstableRisk, tailRisk, recoveryRisk, vxxHedge, ddBrake };
+  const seed = F.selectedSpec;
+  const [putDistance, setPutDistance] = useState(seed?.putDistance ?? DEFAULT_PROTECTED.putDistance);
+  const [dte, setDte] = useState(seed?.dte ?? DEFAULT_PROTECTED.dte);
+  const [rollDays, setRollDays] = useState(seed?.rollDays ?? DEFAULT_PROTECTED.rollDays);
+  const [calmPut, setCalmPut] = useState(seed?.calmPut ?? DEFAULT_PROTECTED.calmPut);
+  const [unstablePut, setUnstablePut] = useState(seed?.unstablePut ?? DEFAULT_PROTECTED.unstablePut);
+  const [tailPut, setTailPut] = useState(seed?.tailPut ?? DEFAULT_PROTECTED.tailPut);
+  const [recoveryPut, setRecoveryPut] = useState(seed?.recoveryPut ?? DEFAULT_PROTECTED.recoveryPut);
+  const spec: ProtectedSpec = {
+    ...DEFAULT_PROTECTED,
+    putDistance,
+    dte,
+    rollDays,
+    calmPut,
+    unstablePut,
+    tailPut,
+    recoveryPut,
+  };
   const w = sampleWindow();
-  const cov = coverage();
-  const result = useMemo(
-    () => runBacktest(strategy, policy),
-    [strategy, baseRisk, unstableRisk, tailRisk, recoveryRisk, vxxHedge, ddBrake],
-  );
-  const grid = useMemo(() => searchPolicies(strategy), [strategy]);
-  const frozen = useMemo(() => freezeChampion(grid), [grid]);
-  const frontier = useMemo(() => pareto(grid).slice(0, 12), [grid]);
+  const live = useMemo(() => runProtected(spec), [putDistance, dte, rollDays, calmPut, unstablePut, tailPut, recoveryPut]);
+  const hold = useMemo(() => buyHoldQQQ(), []);
   const bench = historicalBenchmark();
-  const oosGate = targetGate(frozen.split.oos);
-  const proxy = PROXY_STRATEGIES.includes(strategy);
+  const liveGate = targetGate(live.split.oos);
+  const frozenGatePass = F.targetGate?.oos?.pass ?? false;
 
   return (
     <Shell>
       <div className="grid gap-4">
-        <Panel kicker="BACKTEST V2.1 · OOS FROZEN" title="Train → Validation → Frozen → OOS 一次">
+        <Panel kicker="BACKTEST V2.2 · PUT OVERLAY · OOS FROZEN" title="兩個控制器：QQQ 倉位獨立於 Put 倉位">
           <p className="max-w-4xl text-sm leading-relaxed text-muted">
-            12.52% / −23.51% 只是 historical benchmark，不是本引擎結果。Policy 只在 TRAIN+VALIDATION
-            上競爭；OOS 不進 ranking。QQQ_VXX = rQQQ − vxxHedge × rVXX，不再寫死 0.10。
+            不再每天把 QQQ 截在 −1.5%。這是持續 put overlay：strike / DTE / roll / 狀態決定 put 規模。QQQ
+            第一波鎖 100%——用 convexity 換回撤，不是用降倉換回撤。VIX 當 IV 是 Derived，10% 價差是
+            Estimated，<span className="text-fg">不是 OPRA 成交回測</span>。
           </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-5">
-            <Metric k="Benchmark CAGR" v={fmtPct(bench.cagr, 2)} />
-            <Metric k="Benchmark MaxDD" v={fmtPct(bench.maxDd, 2)} />
-            <Metric k="Frozen OOS CAGR" v={fmtPct(frozen.split.oos.cagr, 2)} />
-            <Metric k="Frozen OOS MaxDD" v={fmtPct(frozen.split.oos.maxDd, 2)} />
-            <Metric k="OOS Gate 12%/−5%" v={oosGate.pass ? "PASS" : "FAIL"} />
+            <Metric k="Observed QQQ OOS" v={`${fmtPct(F.buyHoldQQQ?.oos.cagr ?? hold.split.oos.cagr, 2)} / ${fmtPct(F.buyHoldQQQ?.oos.maxDd ?? hold.split.oos.maxDd, 2)}`} />
+            <Metric k="Frozen OOS CAGR" v={fmtPct(F.oos?.cagr ?? live.split.oos.cagr, 2)} />
+            <Metric k="Frozen OOS MaxDD" v={fmtPct(F.oos?.maxDd ?? live.split.oos.maxDd, 2)} />
+            <Metric k="Val prot. eff" v={(F.extras?.validation?.protectionEfficiency ?? live.extras.validation.protectionEfficiency).toFixed(2)} />
+            <Metric k="OOS Gate 12%/−5%" v={F.targetGate?.final ?? (liveGate.pass ? "PASS" : "FAIL")} />
           </div>
           <p className="mt-3 font-mono text-xs text-subtle">
             {w.trainDate} → train {w.trainEndDate} → val {w.valEndDate} → OOS {w.oosStartDate} → {w.endDate} · {w.nBars}{" "}
-            bars
+            bars · grid {F.searchedGrid?.n ?? "—"}
           </p>
           <p className="mt-1 font-mono text-xs text-subtle">
-            VXX {cov.vxxStart} → {cov.vxxEnd} · {cov.vxxBars} bars · missing VXX = 0 return · window not shrunk
+            {F.proxyDisclaimer ?? live.disclaimer} · leakage false
           </p>
         </Panel>
 
-        <Panel kicker="POLICY" title="Risk budget 由狀態決定，vxxHedge 是真實參數">
+        <Panel kicker="CONTROLLER B · PUT" title="狀態決定保護，不決定是否還拿著 QQQ">
           <div className="grid gap-4 md:grid-cols-3">
-            <Slider label="CALM risk" value={baseRisk} set={setBaseRisk} max={1} />
-            <Slider label="UNSTABLE risk" value={unstableRisk} set={setUnstableRisk} max={1} />
-            <Slider label="TAIL risk" value={tailRisk} set={setTailRisk} max={1} />
-            <Slider label="RECOVERY risk" value={recoveryRisk} set={setRecoveryRisk} max={1} />
-            <Slider label="VXX hedge" value={vxxHedge} set={setVxxHedge} max={0.3} />
-            <Slider label="DD brake" value={ddBrake} set={setDdBrake} max={0.08} />
+            <Slider label="OTM distance" value={putDistance} set={setPutDistance} max={0.08} />
+            <Slider label="DTE days" value={dte} set={setDte} max={90} step={1} asDays />
+            <Slider label="Roll remaining" value={rollDays} set={setRollDays} max={30} step={1} asDays />
+            <Slider label="CALM put" value={calmPut} set={setCalmPut} max={1.5} />
+            <Slider label="UNSTABLE put" value={unstablePut} set={setUnstablePut} max={1.5} />
+            <Slider label="TAIL put" value={tailPut} set={setTailPut} max={1.5} />
+            <Slider label="RECOVERY put" value={recoveryPut} set={setRecoveryPut} max={1.5} />
           </div>
+          <p className="mt-3 text-xs text-subtle">
+            BUILDING（vol 加速 / VIX 加速 / 5d 下跌）把 put 至少抬到 75%。Put 只加倉、減倉等到 roll。Controller A
+            第一波鎖 QQQ=100%。
+          </p>
         </Panel>
 
-        <Panel kicker="STRATEGY" title="候選結構競爭">
-          <div className="flex flex-wrap gap-2">
-            {STRATEGIES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStrategy(s)}
-                className={`min-h-11 rounded-md border px-3 py-2 text-xs font-mono ${
-                  strategy === s ? "border-accent bg-elevated text-fg" : "border-line text-muted"
-                }`}
-              >
-                {s}
-                {PROXY_STRATEGIES.includes(s) ? " · PROXY" : ""}
-              </button>
-            ))}
-          </div>
-          {proxy ? (
-            <p className="mt-3 text-xs text-accent">HYPOTHETICAL OPTION PROXY — 不是歷史期權成交回測。</p>
-          ) : null}
-          <div className="mt-4 overflow-x-auto">
+        <Panel kicker="LIVE SPEC" title="這一組參數的路徑（不是重新搜 OOS）">
+          <div className="overflow-x-auto">
             <table className="w-full min-w-[920px] text-left text-sm">
               <thead className="text-xs text-subtle">
                 <tr>
-                  {["split", "CAGR", "MaxDD", "Sharpe", "Sortino", "ES", "Vol"].map((x) => (
+                  {["split", "CAGR", "MaxDD", "Sharpe", "ES", "Prem drag", "Prot. eff"].map((x) => (
                     <th key={x} className="px-3 py-2">
                       {x}
                     </th>
@@ -110,87 +126,92 @@ function Page() {
               <tbody>
                 {(
                   [
-                    ["FULL", result.metrics],
-                    ["TRAIN", result.split.train],
-                    ["VALIDATION", result.split.validation],
-                    ["OOS", result.split.oos],
+                    ["FULL", live.metrics, live.extras.full],
+                    ["TRAIN", live.split.train, live.extras.train],
+                    ["VALIDATION", live.split.validation, live.extras.validation],
+                    ["OOS", live.split.oos, live.extras.oos],
                   ] as const
-                ).map(([n, m]) => (
+                ).map(([n, m, e]) => (
                   <tr key={n} className="border-t border-line">
                     <td className="px-3 py-2 font-mono">{n}</td>
                     <td className="px-3 py-2 font-mono">{fmtPct(m.cagr, 2)}</td>
                     <td className="px-3 py-2 font-mono">{fmtPct(m.maxDd, 2)}</td>
                     <td className="px-3 py-2 font-mono">{m.sharpe.toFixed(2)}</td>
-                    <td className="px-3 py-2 font-mono">{m.sortino.toFixed(2)}</td>
                     <td className="px-3 py-2 font-mono">{fmtPct(m.es, 2)}</td>
-                    <td className="px-3 py-2 font-mono">{fmtPct(m.volatility, 2)}</td>
+                    <td className="px-3 py-2 font-mono">{fmtPct(e.premiumDrag, 2)}</td>
+                    <td className="px-3 py-2 font-mono">{e.protectionEfficiency.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          <Badge tone={liveGate.pass ? "pass" : "lock"}>{liveGate.pass ? "LIVE OOS GATE PASS" : "LIVE OOS GATE FAIL"}</Badge>
         </Panel>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Panel kicker="VALIDATION PARETO" title="只看 VALIDATION，OOS 不排序">
+          <Panel kicker="VALIDATION PARETO" title="CAGR ↑ MaxDD ↓ Prem ↓ · OOS 不排序">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="text-xs text-subtle">
                   <tr>
-                    <th className="py-2">hedge</th>
-                    <th className="py-2">unst</th>
-                    <th className="py-2">tail</th>
+                    <th className="py-2">dist</th>
+                    <th className="py-2">dte</th>
+                    <th className="py-2">tail put</th>
                     <th className="py-2">Val CAGR</th>
                     <th className="py-2">Val DD</th>
-                    <th className="py-2">score</th>
+                    <th className="py-2">eff</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {frontier.map((r, i) => (
+                  {(F.pareto ?? []).slice(0, 10).map((r, i) => (
                     <tr key={i} className="border-t border-line">
-                      <td className="py-2 font-mono">{fmtPct(r.policy.vxxHedge, 0)}</td>
-                      <td className="py-2 font-mono">{fmtPct(r.policy.unstableRisk, 0)}</td>
-                      <td className="py-2 font-mono">{fmtPct(r.policy.tailRisk, 0)}</td>
-                      <td className="py-2 font-mono">{fmtPct(r.split.validation.cagr, 2)}</td>
-                      <td className="py-2 font-mono">{fmtPct(r.split.validation.maxDd, 2)}</td>
-                      <td className="py-2 font-mono">{r.score.toFixed(1)}</td>
+                      <td className="py-2 font-mono">{fmtPct(r.spec.putDistance, 0)}</td>
+                      <td className="py-2 font-mono">{r.spec.dte}</td>
+                      <td className="py-2 font-mono">{fmtPct(r.spec.tailPut, 0)}</td>
+                      <td className="py-2 font-mono">{fmtPct(r.valCagr, 2)}</td>
+                      <td className="py-2 font-mono">{fmtPct(r.valMaxDd, 2)}</td>
+                      <td className="py-2 font-mono">{r.valEff.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {!(F.pareto && F.pareto.length) ? (
+              <p className="text-xs text-subtle">跑完引擎後這裡會出現 validation Pareto。</p>
+            ) : null}
           </Panel>
           <Panel kicker="FROZEN CHAMPION" title="VALIDATION 勝出後才看一次 OOS">
             <div className="space-y-2 font-mono text-sm">
+              <div>distance {fmtPct(seed?.putDistance ?? spec.putDistance, 0)} · DTE {seed?.dte ?? spec.dte} · roll {seed?.rollDays ?? spec.rollDays}</div>
               <div>
-                {frozen.strategy}
-                {frozen.proxy ? " · HYPOTHETICAL OPTION PROXY" : ""}
+                put C/U/T/R {fmtPct(seed?.calmPut ?? 0, 0)} / {fmtPct(seed?.unstablePut ?? 0, 0)} / {fmtPct(seed?.tailPut ?? 0, 0)} /{" "}
+                {fmtPct(seed?.recoveryPut ?? 0, 0)}
               </div>
               <div>
-                vxxHedge {fmtPct(frozen.policy.vxxHedge, 0)} · tail {fmtPct(frozen.policy.tailRisk, 0)}
+                TRAIN {fmtPct(F.train?.cagr ?? live.split.train.cagr, 2)} / {fmtPct(F.train?.maxDd ?? live.split.train.maxDd, 2)}
               </div>
               <div>
-                TRAIN {fmtPct(frozen.split.train.cagr, 2)} / {fmtPct(frozen.split.train.maxDd, 2)}
+                VAL {fmtPct(F.validation?.cagr ?? live.split.validation.cagr, 2)} / {fmtPct(F.validation?.maxDd ?? live.split.validation.maxDd, 2)}
               </div>
               <div>
-                VAL {fmtPct(frozen.split.validation.cagr, 2)} / {fmtPct(frozen.split.validation.maxDd, 2)}
+                OOS {fmtPct(F.oos?.cagr ?? live.split.oos.cagr, 2)} / {fmtPct(F.oos?.maxDd ?? live.split.oos.maxDd, 2)}
               </div>
-              <div>
-                OOS {fmtPct(frozen.split.oos.cagr, 2)} / {fmtPct(frozen.split.oos.maxDd, 2)}
+              <div className="text-xs text-subtle">
+                Bench {fmtPct(bench.cagr, 2)} / {fmtPct(bench.maxDd, 2)} is not this run
               </div>
-              <Badge tone={oosGate.pass ? "pass" : "lock"}>{oosGate.pass ? "OOS GATE PASS" : "OOS GATE FAIL"}</Badge>
+              <Badge tone={frozenGatePass ? "pass" : "lock"}>{frozenGatePass ? "OOS GATE PASS" : "OOS GATE FAIL"}</Badge>
             </div>
           </Panel>
         </div>
 
-        <Panel kicker="AUDIT" title="V2.1 刻意不讓 12% / −5% 變成作弊答案">
+        <Panel kicker="AUDIT" title="V2.2 刻意不把 12% / −5% 做成調參答案">
           <ul className="space-y-2 text-sm text-muted">
-            <li>• OOS 不參與 policy generation / ranking / 參數優化。</li>
-            <li>• QQQ_VXX 使用 policy.vxxHedge，grid 含 0 / 8% / 12% / 18%。</li>
-            <li>• COVERED / PROTECTED / CONVEX 標成 HYPOTHETICAL OPTION PROXY。</li>
-            <li>• Target 12% CAGR 且 MaxDD ≥ −5% 只評估 Frozen OOS 一次。</li>
-            <li>• oosLeakage = false：selection window 止於 validation 末日。</li>
-            <li>• VXX 2018 之前缺值當 0 報酬，樣本沒有偷偷切短。</li>
+            <li>• 只搜 PROTECTED overlay。CONVEX / 每日 −1.5% floor 不進官方 ranking。</li>
+            <li>• Controller A（QQQ）第一波鎖 100%。Controller B（Put）跟狀態走，只加不減直到 roll。</li>
+            <li>• BUILDING 用 vol/VIX 加速度 + 5d 下跌提前加保護，不必等 VIX≥30。</li>
+            <li>• Score 含 Protection Efficiency = DD reduction / premium drag。Pareto 看 CAGR、MaxDD、prem。</li>
+            <li>• OOS 不參與 generation / ranking。oosLeakage = false。</li>
+            <li>• 沒有歷史 option chain：這是 Derived BS + Estimated spread，不是成交。</li>
           </ul>
         </Panel>
       </div>
@@ -212,22 +233,26 @@ function Slider({
   value,
   set,
   max,
+  step = 0.01,
+  asDays = false,
 }: {
   label: string;
   value: number;
   set: (n: number) => void;
   max: number;
+  step?: number;
+  asDays?: boolean;
 }) {
   return (
     <label className="grid gap-2 text-sm">
       <span className="font-mono text-xs text-subtle">
-        {label} · {fmtPct(value, 1)}
+        {label} · {asDays ? `${value.toFixed(0)}d` : fmtPct(value, 1)}
       </span>
       <input
         type="range"
         min={0}
         max={max}
-        step={0.01}
+        step={step}
         value={value}
         onChange={(e) => set(Number(e.target.value))}
         className="h-10 accent-accent"

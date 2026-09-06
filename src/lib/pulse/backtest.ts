@@ -163,32 +163,46 @@ export function coverage() {
 
 export function state(i: number): {
   regime: Regime;
+  building: boolean;
   vol: number;
+  vol5: number;
   vix: number | null;
+  vixAccel: number | null;
   dd20: number;
   mom60: number;
+  mom5: number;
 } {
   const q = universe.c.QQQ ?? [];
   const p = q[i] ?? 0;
   const r20: number[] = [];
+  const r5: number[] = [];
   for (let j = Math.max(1, i - 19); j <= i; j++) {
     const r = ret("QQQ", j);
-    if (r != null) r20.push(r);
+    if (r != null) {
+      r20.push(r);
+      if (j >= i - 4) r5.push(r);
+    }
   }
   const vol = stdev(r20) * Math.sqrt(DAYS);
+  const vol5 = stdev(r5) * Math.sqrt(DAYS);
   const p20 = i >= 20 && q[i - 20] ? p / q[i - 20] - 1 : 0;
   const p60 = i >= 60 && q[i - 60] ? p / q[i - 60] - 1 : 0;
+  const mom5 = i >= 5 && q[i - 5] ? p / q[i - 5] - 1 : 0;
   const vix = close("VIX", i);
+  const vixPrev = i >= 5 ? close("VIX", i - 5) : null;
+  const vixAccel = vix != null && vixPrev != null ? vix - vixPrev : null;
   const tail = (vix != null && vix >= 30) || vol >= 0.38 || p20 <= -0.08;
   const unstable = (vix != null && vix >= 20) || vol >= 0.25 || p20 < 0;
   const recovery = p20 > 0 && p60 < 0;
-  return {
-    regime: tail ? "TAIL" : recovery ? "RECOVERY" : unstable ? "UNSTABLE" : "CALM",
-    vol,
-    vix,
-    dd20: p20,
-    mom60: p60,
-  };
+  const regime: Regime = tail ? "TAIL" : recovery ? "RECOVERY" : unstable ? "UNSTABLE" : "CALM";
+  // Lead: danger forming, not yet TAIL. t-1 when called as state(i-1).
+  const building =
+    !tail &&
+    vix != null &&
+    vix >= 18 &&
+    mom5 < 0 &&
+    ((vol5 > vol * 1.15 && vol5 >= 0.18) || (vixAccel != null && vixAccel >= 2) || vol5 >= 0.28);
+  return { regime, building, vol, vol5, vix, vixAccel, dd20: p20, mom60: p60, mom5 };
 }
 
 export function rawReturn(strategy: StrategyId, i: number, policy: Policy): number | null {

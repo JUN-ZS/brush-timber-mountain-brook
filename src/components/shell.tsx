@@ -8,7 +8,7 @@ const NAV = [
   { to: "/", label: "雷達" },
   { to: "/rank", label: "排行" },
   { to: "/deploy", label: "結構競爭" },
-  { to: "/backtest", label: "回測 V2" },
+  { to: "/backtest", label: "回測 V2.2" },
   { to: "/matrix", label: "價×波" },
   { to: "/missing", label: "缺失" },
 ] as const;

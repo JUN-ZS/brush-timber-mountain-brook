@@ -1,16 +1,16 @@
-name: Backtest V2.1
+name: Backtest V2.2
 
 on:
   workflow_dispatch:
   push:
     paths:
       - "src/lib/pulse/backtest.ts"
+      - "src/lib/pulse/protected.ts"
+      - "src/lib/pulse/black-scholes.ts"
       - "src/lib/pulse/bars.ts"
       - "src/data/universe.json"
       - "scripts/run-backtest.ts"
       - ".github/workflows/backtest.yml"
-      - "package.json"
-      - "package-lock.json"
   schedule:
     - cron: "0 6 * * 1"
 
@@ -29,7 +29,7 @@ jobs:
           if npm ci --no-audit --no-fund; then
             echo "npm ci ok"
           else
-            echo "package-lock is out of sync with package.json (pre-existing ajv drift). Falling back to npm install so the engine still runs."
+            echo "lockfile out of sync; falling back to npm install"
             npm install --no-audit --no-fund
           fi
       - name: Run backtest engine
@@ -37,8 +37,9 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: backtest-v2-1
+          name: backtest-v2-2
           path: |
             artifacts/backtest-result.json
             artifacts/backtest-curve.csv
             artifacts/backtest-report.md
+            src/data/backtest-v2-2.json
