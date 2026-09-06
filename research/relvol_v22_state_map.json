@@ -1,0 +1,31 @@
+{
+  "module": "relvol_v22_state_map",
+  "asof": "2026-09-07",
+  "kind": "ASSOCIATION_ONLY",
+  "not": ["same_classifier", "annualized_optimization"],
+  "source_agent": "波動",
+  "source_note": "regime.ts classifyFromParts",
+  "relvol_regimes": ["DEAD_VOL", "STABLE_LOW_VOL", "STABLE_HIGH_VOL", "EXPANDING_VOL", "CHAOTIC_VOL", "EXTREME_TAIL", "UNCLASSIFIED"],
+  "dispersion_states": ["LOW_INDEX_LOW_DISPERSION", "LOW_INDEX_HIGH_DISPERSION", "HIGH_INDEX_LOW_DISPERSION", "HIGH_INDEX_HIGH_DISPERSION"],
+  "alert_prose": {
+    "green_ish": "index DEAD_VOL or STABLE_LOW_VOL",
+    "yellow_ish": "LOW_INDEX_HIGH_DISPERSION"
+  },
+  "association": {
+    "CALM": {"nearest": ["DEAD_VOL", "STABLE_LOW_VOL"], "market": "LOW_INDEX_* non-EXTREME", "caution": "own low percentile ≠ low VIX"},
+    "UNSTABLE": {"nearest": ["EXPANDING_VOL", "CHAOTIC_VOL"], "market": "HIGH_INDEX_HIGH_DISPERSION", "caution": "CHAOTIC ≠ one-way trend"},
+    "TAIL": {"nearest_strict": ["EXTREME_TAIL"], "nearest_secondary": ["EXPANDING_VOL"]},
+    "RECOVERY": {"nearest": null, "use": ["era.life REVERSING/STABILIZING", "Event Replay fade"], "do_not": "hard-map single RelVol regime"}
+  },
+  "join_keys": {
+    "index_leg": ["regime", "weekPct"],
+    "market_leg": ["dispersion.state"],
+    "recovery": ["era.life", "event_replay_fade"]
+  },
+  "example_2026_09_04": {
+    "QQQ": "DEAD_VOL week~P9",
+    "SPY": "STABLE_LOW week~P20",
+    "dispersion": "LOW_INDEX_HIGH_DISPERSION",
+    "read_as": "V2.2 CALM + dispersion yellow, not TAIL"
+  }
+}
