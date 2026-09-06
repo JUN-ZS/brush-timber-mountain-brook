@@ -3,3 +3,10 @@ node_modules/
 .github_repo
 .env
 .env.*
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+reports/*.txt
+reports/*.json
+!reports/.gitkeep

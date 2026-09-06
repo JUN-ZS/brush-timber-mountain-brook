@@ -1,0 +1,265 @@
+{
+  "module": "era_dd_return_matrix",
+  "asof": "2026-09-07",
+  "purpose": "Connect DD_EPISODES + Era geography + theoretical target band. Not annualized-return optimization.",
+  "labels": {
+    "THEORETICAL_TARGET_BAND": {
+      "cagr": "10\u201315%",
+      "maxdd_preferred": "<10%",
+      "preferred_cagr": "\u226512%",
+      "use": "research design region only"
+    },
+    "STRETCH_HYPOTHESIS": {
+      "cagr": "\u226512%",
+      "maxdd": "<5%",
+      "use": "not deliverable evidence; data-mine risk"
+    },
+    "CONSTRUCTED": "params found after seeing history",
+    "PRE_REGISTERED": "rules locked before unseen window",
+    "OOS_VALIDATED": "unseen data still holds",
+    "SYNTHETIC_BS": "Derived BS(VIX) put overlay \u2014 not OPRA"
+  },
+  "github_truth": {
+    "DD_EPISODES_landed": "https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/2 (commit d078c93 on pr-1)",
+    "NOT_on": "https://github.com/JUN-ZS/otter-leaf-yonder-king main still a086a7c Export from Grok",
+    "why_chatgpt_missed": "Wrong repo inspected (otter-leaf vs brush-timber). PR #2 is open against brush-timber main; main itself does not yet include d078c93 until merge."
+  },
+  "dd_episodes_pin": {
+    "pack_hash": "7ca13ce290d28db4",
+    "feature_hash": "e804cdb1f491b4d6",
+    "algorithm": "dd_episodes.v1",
+    "QQQ": 31,
+    "SPY": 36,
+    "VXX": 3
+  },
+  "known_labeled_results": [
+    {
+      "id": "V2.2_PROTECTED_DERIVED_BS",
+      "class": "SYNTHETIC_BS",
+      "full_cagr": 0.0702,
+      "full_maxdd": -0.5338,
+      "oos_cagr": 0.1164,
+      "oos_maxdd": -0.2859,
+      "gate_12_dd5": "FAIL",
+      "oos_leakage": false
+    },
+    {
+      "id": "BUYHOLD_QQQ_V22_WINDOW",
+      "class": "OBSERVED",
+      "full_cagr": 0.1512,
+      "full_maxdd": -0.534
+    },
+    {
+      "id": "DAILY_FLOOR_PROXY_TOY",
+      "class": "HYPOTHETICAL",
+      "full_cagr": 0.3965,
+      "full_maxdd": -0.1504,
+      "note": "not strategy evidence"
+    },
+    {
+      "id": "BENCHMARK_NOTE_12.52",
+      "class": "HISTORICAL_NOTE",
+      "cagr": 0.1252,
+      "maxdd": -0.2351,
+      "note": "not V2.2 output"
+    }
+  ],
+  "constructed_elsewhere_caution": [
+    {
+      "claim": "~12\u201319% constructed historical region",
+      "status": "CONSTRUCTED / study-only",
+      "examples_named_by_chat": [
+        "18.69% CAGR / MaxDD \u221231.86%",
+        "16.70% CAGR / MaxDD \u221226.91%"
+      ],
+      "note": "Not re-verified in this matrix run; DD never shown as <5%."
+    },
+    {
+      "claim": "OOS 37\u201340%",
+      "status": "REGIME_SPECIFIC / not stable evidence"
+    },
+    {
+      "claim": "12%+ and MaxDD <5% simultaneous",
+      "status": "STRETCH_HYPOTHESIS"
+    }
+  ],
+  "note_on_2008_episode_gap": "Peak-to-recovery scanner keeps 2000-03-27 until recover 2015-02-20, swallowing 2008. Era-local MaxDD (\u221249.4%) is the correct crisis geography.",
+  "eras": [
+    {
+      "era": "2000-2002",
+      "stress_label": "CRISIS",
+      "buyhold_cagr": -0.3648,
+      "era_local_maxdd": -0.8296,
+      "era_local_peak": "2000-03-27",
+      "era_local_trough": "2002-10-09",
+      "dd_episodes_overlap_n": 4,
+      "deepest_episode_dd": -0.8296,
+      "deepest_episode": "2000-03-27\u21922002-10-09",
+      "v22_derived_cagr": null,
+      "v22_derived_maxdd": null,
+      "v22_dominant_state": null,
+      "v22_state_counts": null,
+      "v22_coverage": null,
+      "hits_theoretical_band_10_15": null,
+      "hits_stretch_12_dd5": null,
+      "evidence_notes": [
+        "V2.2 curve starts 2004-03-30 \u2014 partial/missing strategy coverage"
+      ]
+    },
+    {
+      "era": "2003-2007",
+      "stress_label": "BULL",
+      "buyhold_cagr": 0.1553,
+      "era_local_maxdd": -0.1727,
+      "era_local_peak": "2006-01-11",
+      "era_local_trough": "2006-07-21",
+      "dd_episodes_overlap_n": 0,
+      "deepest_episode_dd": null,
+      "deepest_episode": null,
+      "v22_derived_cagr": 0.0801,
+      "v22_derived_maxdd": -0.1418,
+      "v22_dominant_state": "CALM",
+      "v22_state_counts": {
+        "UNSTABLE": 406,
+        "RECOVERY": 109,
+        "CALM": 418,
+        "TAIL": 13
+      },
+      "v22_coverage": "2004-03-30\u21922007-12-31 (n=946)",
+      "hits_theoretical_band_10_15": false,
+      "hits_stretch_12_dd5": false,
+      "evidence_notes": []
+    },
+    {
+      "era": "2008-2009",
+      "stress_label": "CRISIS",
+      "buyhold_cagr": -0.0431,
+      "era_local_maxdd": -0.494,
+      "era_local_peak": "2008-01-03",
+      "era_local_trough": "2008-11-20",
+      "dd_episodes_overlap_n": 0,
+      "deepest_episode_dd": null,
+      "deepest_episode": null,
+      "v22_derived_cagr": -0.1737,
+      "v22_derived_maxdd": -0.4853,
+      "v22_dominant_state": "TAIL",
+      "v22_state_counts": {
+        "UNSTABLE": 216,
+        "RECOVERY": 37,
+        "TAIL": 223,
+        "CALM": 29
+      },
+      "v22_coverage": "2008-01-02\u21922009-12-31 (n=505)",
+      "hits_theoretical_band_10_15": false,
+      "hits_stretch_12_dd5": false,
+      "evidence_notes": [
+        "Episode list missed this crisis because 2000 peak unrecovered until 2015; use era_local_maxdd",
+        "V2.2 Derived MaxDD far from stretch <5% in this era"
+      ]
+    },
+    {
+      "era": "2010-2019",
+      "stress_label": "BULL",
+      "buyhold_cagr": 0.1768,
+      "era_local_maxdd": -0.228,
+      "era_local_peak": "2018-08-29",
+      "era_local_trough": "2018-12-24",
+      "dd_episodes_overlap_n": 7,
+      "deepest_episode_dd": -0.228,
+      "deepest_episode": "2018-08-29\u21922018-12-24",
+      "v22_derived_cagr": 0.0972,
+      "v22_derived_maxdd": -0.1946,
+      "v22_dominant_state": "CALM",
+      "v22_state_counts": {
+        "UNSTABLE": 787,
+        "CALM": 1403,
+        "TAIL": 140,
+        "RECOVERY": 186
+      },
+      "v22_coverage": "2010-01-04\u21922019-12-31 (n=2516)",
+      "hits_theoretical_band_10_15": false,
+      "hits_stretch_12_dd5": false,
+      "evidence_notes": []
+    },
+    {
+      "era": "2020",
+      "stress_label": "SHOCK",
+      "buyhold_cagr": 0.4616,
+      "era_local_maxdd": -0.2856,
+      "era_local_peak": "2020-02-19",
+      "era_local_trough": "2020-03-16",
+      "dd_episodes_overlap_n": 2,
+      "deepest_episode_dd": -0.2856,
+      "deepest_episode": "2020-02-19\u21922020-03-16",
+      "v22_derived_cagr": 0.2103,
+      "v22_derived_maxdd": -0.1892,
+      "v22_dominant_state": "UNSTABLE",
+      "v22_state_counts": {
+        "CALM": 36,
+        "UNSTABLE": 128,
+        "TAIL": 81,
+        "RECOVERY": 8
+      },
+      "v22_coverage": "2020-01-02\u21922020-12-31 (n=253)",
+      "hits_theoretical_band_10_15": false,
+      "hits_stretch_12_dd5": false,
+      "evidence_notes": []
+    },
+    {
+      "era": "2021-2022",
+      "stress_label": "BEAR",
+      "buyhold_cagr": -0.067,
+      "era_local_maxdd": -0.3512,
+      "era_local_peak": "2021-12-27",
+      "era_local_trough": "2022-11-03",
+      "dd_episodes_overlap_n": 5,
+      "deepest_episode_dd": -0.3512,
+      "deepest_episode": "2021-12-27\u21922022-11-03",
+      "v22_derived_cagr": -0.1131,
+      "v22_derived_maxdd": -0.3524,
+      "v22_dominant_state": "UNSTABLE",
+      "v22_state_counts": {
+        "UNSTABLE": 215,
+        "TAIL": 101,
+        "CALM": 127,
+        "RECOVERY": 60
+      },
+      "v22_coverage": "2021-01-04\u21922022-12-30 (n=503)",
+      "hits_theoretical_band_10_15": false,
+      "hits_stretch_12_dd5": false,
+      "evidence_notes": [
+        "V2.2 Derived MaxDD far from stretch <5% in this era"
+      ]
+    },
+    {
+      "era": "2023-2026",
+      "stress_label": "CURRENT",
+      "buyhold_cagr": 0.3206,
+      "era_local_maxdd": -0.2277,
+      "era_local_peak": "2025-02-19",
+      "era_local_trough": "2025-04-08",
+      "dd_episodes_overlap_n": 6,
+      "deepest_episode_dd": -0.2277,
+      "deepest_episode": "2025-02-19\u21922025-04-08",
+      "v22_derived_cagr": 0.2217,
+      "v22_derived_maxdd": -0.1782,
+      "v22_dominant_state": "CALM",
+      "v22_state_counts": {
+        "TAIL": 46,
+        "UNSTABLE": 303,
+        "CALM": 525,
+        "RECOVERY": 47
+      },
+      "v22_coverage": "2023-01-03\u21922026-09-04 (n=921)",
+      "hits_theoretical_band_10_15": false,
+      "hits_stretch_12_dd5": false,
+      "evidence_notes": []
+    }
+  ],
+  "survival_pipeline_next": [
+    "COST_MULTIPLIER",
+    "OOS era holdout",
+    "CPCV",
+    "SURVIVAL vs STRETCH_HYPOTHESIS"
+  ]
+}

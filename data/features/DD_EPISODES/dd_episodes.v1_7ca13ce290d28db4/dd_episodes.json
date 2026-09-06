@@ -1,0 +1,541 @@
+{
+  "feature": "DD_EPISODES",
+  "algorithm_version": "dd_episodes.v1",
+  "algorithm_spec": {
+    "price_field": "adj_close",
+    "min_dd": -0.05,
+    "dd_formula": "(trough_px - peak_px) / peak_px",
+    "days": "bars from peak to trough inclusive",
+    "recover_date": "first bar with px >= peak_px after trough; null if open",
+    "forbidden": [
+      "CAGR",
+      "annualized_return",
+      "trade_signal",
+      "IV",
+      "options"
+    ]
+  },
+  "pack_id": "WAREHOUSE_L1_2026-09-06",
+  "manifest_hash": "7ca13ce290d28db4",
+  "pack_path": "DATA/replay/WAREHOUSE_L1_2026-09-06",
+  "data_asof": "2026-09-06",
+  "created_at": "2026-09-06T21:32:33Z",
+  "consumer": "QQQ_VXX_年化",
+  "symbols": {
+    "QQQ": {
+      "history_first_date": "1999-03-10",
+      "history_last_date": "2026-09-04",
+      "n_daily": 6916,
+      "n_episodes": 31,
+      "episodes": [
+        {
+          "peak_date": "1999-03-18",
+          "trough_date": "1999-03-23",
+          "dd": -0.07134364917635751,
+          "days": 4,
+          "recover_date": "1999-03-29"
+        },
+        {
+          "peak_date": "1999-04-09",
+          "trough_date": "1999-04-19",
+          "dd": -0.11254220092238144,
+          "days": 7,
+          "recover_date": "1999-04-26"
+        },
+        {
+          "peak_date": "1999-04-26",
+          "trough_date": "1999-05-25",
+          "dd": -0.11914906043189412,
+          "days": 22,
+          "recover_date": "1999-06-21"
+        },
+        {
+          "peak_date": "1999-07-16",
+          "trough_date": "1999-08-10",
+          "dd": -0.11812607401203801,
+          "days": 18,
+          "recover_date": "1999-08-25"
+        },
+        {
+          "peak_date": "1999-09-20",
+          "trough_date": "1999-09-29",
+          "dd": -0.06143060238920011,
+          "days": 8,
+          "recover_date": "1999-10-08"
+        },
+        {
+          "peak_date": "1999-10-11",
+          "trough_date": "1999-10-18",
+          "dd": -0.08566919408515457,
+          "days": 6,
+          "recover_date": "1999-10-29"
+        },
+        {
+          "peak_date": "1999-11-26",
+          "trough_date": "1999-11-30",
+          "dd": -0.05390233103414357,
+          "days": 3,
+          "recover_date": "1999-12-03"
+        },
+        {
+          "peak_date": "2000-01-03",
+          "trough_date": "2000-01-06",
+          "dd": -0.15468367615088752,
+          "days": 4,
+          "recover_date": "2000-01-19"
+        },
+        {
+          "peak_date": "2000-01-21",
+          "trough_date": "2000-01-28",
+          "dd": -0.10649357466349388,
+          "days": 6,
+          "recover_date": "2000-02-03"
+        },
+        {
+          "peak_date": "2000-03-09",
+          "trough_date": "2000-03-15",
+          "dd": -0.10543445441500952,
+          "days": 5,
+          "recover_date": "2000-03-23"
+        },
+        {
+          "peak_date": "2000-03-27",
+          "trough_date": "2002-10-09",
+          "dd": -0.8296390295762421,
+          "days": 637,
+          "recover_date": "2015-02-20"
+        },
+        {
+          "peak_date": "2015-07-20",
+          "trough_date": "2015-08-25",
+          "dd": -0.13941058864250458,
+          "days": 27,
+          "recover_date": "2015-10-28"
+        },
+        {
+          "peak_date": "2015-12-01",
+          "trough_date": "2016-02-09",
+          "dd": -0.16104410733437835,
+          "days": 48,
+          "recover_date": "2016-07-27"
+        },
+        {
+          "peak_date": "2018-01-26",
+          "trough_date": "2018-02-08",
+          "dd": -0.10226399297004349,
+          "days": 10,
+          "recover_date": "2018-03-09"
+        },
+        {
+          "peak_date": "2018-03-12",
+          "trough_date": "2018-04-02",
+          "dd": -0.10522586774538124,
+          "days": 15,
+          "recover_date": "2018-06-04"
+        },
+        {
+          "peak_date": "2018-08-29",
+          "trough_date": "2018-12-24",
+          "dd": -0.2279664102011629,
+          "days": 81,
+          "recover_date": "2019-04-12"
+        },
+        {
+          "peak_date": "2019-05-03",
+          "trough_date": "2019-06-03",
+          "dd": -0.10983232933939402,
+          "days": 21,
+          "recover_date": "2019-07-03"
+        },
+        {
+          "peak_date": "2019-07-26",
+          "trough_date": "2019-08-05",
+          "dd": -0.07455597737791818,
+          "days": 7,
+          "recover_date": "2019-10-25"
+        },
+        {
+          "peak_date": "2020-02-19",
+          "trough_date": "2020-03-16",
+          "dd": -0.2855935947869622,
+          "days": 19,
+          "recover_date": "2020-06-03"
+        },
+        {
+          "peak_date": "2020-09-02",
+          "trough_date": "2020-09-23",
+          "dd": -0.12749388390289135,
+          "days": 15,
+          "recover_date": "2020-12-01"
+        },
+        {
+          "peak_date": "2021-02-12",
+          "trough_date": "2021-03-08",
+          "dd": -0.10851527971064216,
+          "days": 16,
+          "recover_date": "2021-04-09"
+        },
+        {
+          "peak_date": "2021-04-16",
+          "trough_date": "2021-05-12",
+          "dd": -0.07344820872901431,
+          "days": 19,
+          "recover_date": "2021-06-14"
+        },
+        {
+          "peak_date": "2021-09-07",
+          "trough_date": "2021-10-04",
+          "dd": -0.07615370543021231,
+          "days": 20,
+          "recover_date": "2021-10-28"
+        },
+        {
+          "peak_date": "2021-11-19",
+          "trough_date": "2021-12-20",
+          "dd": -0.056471128469338945,
+          "days": 21,
+          "recover_date": "2021-12-27"
+        },
+        {
+          "peak_date": "2021-12-27",
+          "trough_date": "2022-11-03",
+          "dd": -0.3511871995730579,
+          "days": 217,
+          "recover_date": "2023-12-13"
+        },
+        {
+          "peak_date": "2024-03-22",
+          "trough_date": "2024-04-19",
+          "dd": -0.07108280108456828,
+          "days": 20,
+          "recover_date": "2024-05-15"
+        },
+        {
+          "peak_date": "2024-07-10",
+          "trough_date": "2024-08-07",
+          "dd": -0.13557739553521514,
+          "days": 21,
+          "recover_date": "2024-11-06"
+        },
+        {
+          "peak_date": "2024-12-16",
+          "trough_date": "2025-01-14",
+          "dd": -0.05997269208836173,
+          "days": 19,
+          "recover_date": "2025-02-14"
+        },
+        {
+          "peak_date": "2025-02-19",
+          "trough_date": "2025-04-08",
+          "dd": -0.22768317249200068,
+          "days": 35,
+          "recover_date": "2025-06-24"
+        },
+        {
+          "peak_date": "2025-10-29",
+          "trough_date": "2026-03-30",
+          "dd": -0.11964372276774389,
+          "days": 104,
+          "recover_date": "2026-04-15"
+        },
+        {
+          "peak_date": "2026-06-02",
+          "trough_date": "2026-07-29",
+          "dd": -0.11217806908394555,
+          "days": 40,
+          "recover_date": null
+        }
+      ]
+    },
+    "SPY": {
+      "history_first_date": "1993-01-29",
+      "history_last_date": "2026-09-04",
+      "n_daily": 8458,
+      "n_episodes": 36,
+      "episodes": [
+        {
+          "peak_date": "1994-02-02",
+          "trough_date": "1994-04-04",
+          "dd": -0.08536876605172011,
+          "days": 42,
+          "recover_date": "1994-08-30"
+        },
+        {
+          "peak_date": "1994-10-28",
+          "trough_date": "1994-12-08",
+          "dd": -0.058360487107061834,
+          "days": 29,
+          "recover_date": "1995-02-02"
+        },
+        {
+          "peak_date": "1996-05-22",
+          "trough_date": "1996-07-15",
+          "dd": -0.07624933536339892,
+          "days": 37,
+          "recover_date": "1996-09-13"
+        },
+        {
+          "peak_date": "1997-02-18",
+          "trough_date": "1997-04-11",
+          "dd": -0.10038516583900682,
+          "days": 38,
+          "recover_date": "1997-05-05"
+        },
+        {
+          "peak_date": "1997-08-06",
+          "trough_date": "1997-08-15",
+          "dd": -0.06508235895533458,
+          "days": 8,
+          "recover_date": "1997-10-02"
+        },
+        {
+          "peak_date": "1997-10-07",
+          "trough_date": "1997-10-27",
+          "dd": -0.11203066705731737,
+          "days": 15,
+          "recover_date": "1997-12-05"
+        },
+        {
+          "peak_date": "1997-12-05",
+          "trough_date": "1998-01-09",
+          "dd": -0.06324860464136617,
+          "days": 24,
+          "recover_date": "1998-02-02"
+        },
+        {
+          "peak_date": "1998-07-20",
+          "trough_date": "1998-08-31",
+          "dd": -0.19029998427103567,
+          "days": 31,
+          "recover_date": "1998-11-23"
+        },
+        {
+          "peak_date": "1999-01-08",
+          "trough_date": "1999-01-14",
+          "dd": -0.05112545712754834,
+          "days": 5,
+          "recover_date": "1999-03-08"
+        },
+        {
+          "peak_date": "1999-05-13",
+          "trough_date": "1999-05-27",
+          "dd": -0.06393633942201475,
+          "days": 11,
+          "recover_date": "1999-06-30"
+        },
+        {
+          "peak_date": "1999-07-16",
+          "trough_date": "1999-10-15",
+          "dd": -0.1169563160199681,
+          "days": 65,
+          "recover_date": "1999-11-17"
+        },
+        {
+          "peak_date": "1999-12-31",
+          "trough_date": "2000-01-06",
+          "dd": -0.062127979737079085,
+          "days": 5,
+          "recover_date": "2000-01-14"
+        },
+        {
+          "peak_date": "2000-01-19",
+          "trough_date": "2000-02-25",
+          "dd": -0.0930061336278239,
+          "days": 27,
+          "recover_date": "2000-03-17"
+        },
+        {
+          "peak_date": "2000-03-24",
+          "trough_date": "2002-10-09",
+          "dd": -0.47515840515545443,
+          "days": 638,
+          "recover_date": "2006-10-26"
+        },
+        {
+          "peak_date": "2007-02-20",
+          "trough_date": "2007-03-05",
+          "dd": -0.059503912086132454,
+          "days": 10,
+          "recover_date": "2007-04-16"
+        },
+        {
+          "peak_date": "2007-07-19",
+          "trough_date": "2007-08-15",
+          "dd": -0.09047547516503629,
+          "days": 20,
+          "recover_date": "2007-10-05"
+        },
+        {
+          "peak_date": "2007-10-09",
+          "trough_date": "2009-03-09",
+          "dd": -0.5518942465596564,
+          "days": 356,
+          "recover_date": "2012-08-16"
+        },
+        {
+          "peak_date": "2012-09-14",
+          "trough_date": "2012-11-15",
+          "dd": -0.07345581099241626,
+          "days": 43,
+          "recover_date": "2013-01-02"
+        },
+        {
+          "peak_date": "2013-05-21",
+          "trough_date": "2013-06-24",
+          "dd": -0.05550640851137551,
+          "days": 24,
+          "recover_date": "2013-07-11"
+        },
+        {
+          "peak_date": "2013-12-31",
+          "trough_date": "2014-02-03",
+          "dd": -0.05696003034779119,
+          "days": 23,
+          "recover_date": "2014-02-24"
+        },
+        {
+          "peak_date": "2014-09-18",
+          "trough_date": "2014-10-16",
+          "dd": -0.0727343842466564,
+          "days": 21,
+          "recover_date": "2014-10-31"
+        },
+        {
+          "peak_date": "2015-07-20",
+          "trough_date": "2016-02-11",
+          "dd": -0.1302289395902619,
+          "days": 144,
+          "recover_date": "2016-04-18"
+        },
+        {
+          "peak_date": "2016-06-08",
+          "trough_date": "2016-06-27",
+          "dd": -0.0552433703521158,
+          "days": 14,
+          "recover_date": "2016-07-08"
+        },
+        {
+          "peak_date": "2018-01-26",
+          "trough_date": "2018-02-08",
+          "dd": -0.10101921435888354,
+          "days": 10,
+          "recover_date": "2018-08-06"
+        },
+        {
+          "peak_date": "2018-09-20",
+          "trough_date": "2018-12-24",
+          "dd": -0.1934891475813409,
+          "days": 66,
+          "recover_date": "2019-04-12"
+        },
+        {
+          "peak_date": "2019-05-03",
+          "trough_date": "2019-06-03",
+          "dd": -0.06618366466682947,
+          "days": 21,
+          "recover_date": "2019-06-20"
+        },
+        {
+          "peak_date": "2019-07-26",
+          "trough_date": "2019-08-05",
+          "dd": -0.060229509275522376,
+          "days": 7,
+          "recover_date": "2019-10-25"
+        },
+        {
+          "peak_date": "2020-02-19",
+          "trough_date": "2020-03-23",
+          "dd": -0.337172709124672,
+          "days": 24,
+          "recover_date": "2020-08-10"
+        },
+        {
+          "peak_date": "2020-09-02",
+          "trough_date": "2020-09-23",
+          "dd": -0.09440455654642241,
+          "days": 15,
+          "recover_date": "2020-11-11"
+        },
+        {
+          "peak_date": "2021-09-02",
+          "trough_date": "2021-10-04",
+          "dd": -0.05114144433879618,
+          "days": 22,
+          "recover_date": "2021-10-20"
+        },
+        {
+          "peak_date": "2022-01-03",
+          "trough_date": "2022-10-12",
+          "dd": -0.24496400650373296,
+          "days": 196,
+          "recover_date": "2023-12-13"
+        },
+        {
+          "peak_date": "2024-03-27",
+          "trough_date": "2024-04-19",
+          "dd": -0.053539192939765515,
+          "days": 17,
+          "recover_date": "2024-05-14"
+        },
+        {
+          "peak_date": "2024-07-16",
+          "trough_date": "2024-08-05",
+          "dd": -0.08405618936617672,
+          "days": 15,
+          "recover_date": "2024-09-19"
+        },
+        {
+          "peak_date": "2025-02-19",
+          "trough_date": "2025-04-08",
+          "dd": -0.18755242718230267,
+          "days": 35,
+          "recover_date": "2025-06-26"
+        },
+        {
+          "peak_date": "2025-10-29",
+          "trough_date": "2025-11-20",
+          "dd": -0.05071345962427856,
+          "days": 17,
+          "recover_date": "2025-12-10"
+        },
+        {
+          "peak_date": "2026-01-27",
+          "trough_date": "2026-03-30",
+          "dd": -0.08884968175523739,
+          "days": 44,
+          "recover_date": "2026-04-14"
+        }
+      ]
+    },
+    "VXX": {
+      "history_first_date": "2018-01-25",
+      "history_last_date": "2026-09-04",
+      "n_daily": 2165,
+      "n_episodes": 3,
+      "episodes": [
+        {
+          "peak_date": "2018-01-31",
+          "trough_date": "2018-02-01",
+          "dd": -0.0503425542180191,
+          "days": 2,
+          "recover_date": "2018-02-02"
+        },
+        {
+          "peak_date": "2018-02-08",
+          "trough_date": "2020-01-16",
+          "dd": -0.7591518686416816,
+          "days": 488,
+          "recover_date": "2020-03-16"
+        },
+        {
+          "peak_date": "2020-03-18",
+          "trough_date": "2026-09-03",
+          "dd": -0.9960099635780721,
+          "days": 1625,
+          "recover_date": null
+        }
+      ]
+    }
+  },
+  "feature_hash": "e804cdb1f491b4d6"
+}

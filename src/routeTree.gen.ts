@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BacktestRouteImport } from './routes/backtest'
 import { Route as DeployRouteImport } from './routes/deploy'
+import { Route as LiveRouteImport } from './routes/live'
 import { Route as MatrixRouteImport } from './routes/matrix'
 import { Route as MissingRouteImport } from './routes/missing'
 import { Route as RankRouteImport } from './routes/rank'
@@ -20,9 +22,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BacktestRoute = BacktestRouteImport.update({
+  id: '/backtest',
+  path: '/backtest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DeployRoute = DeployRouteImport.update({
   id: '/deploy',
   path: '/deploy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MatrixRoute = MatrixRouteImport.update({
@@ -43,14 +55,18 @@ const RankRoute = RankRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/backtest': typeof BacktestRoute
   '/deploy': typeof DeployRoute
+  '/live': typeof LiveRoute
   '/matrix': typeof MatrixRoute
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/backtest': typeof BacktestRoute
   '/deploy': typeof DeployRoute
+  '/live': typeof LiveRoute
   '/matrix': typeof MatrixRoute
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
@@ -58,22 +74,35 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/backtest': typeof BacktestRoute
   '/deploy': typeof DeployRoute
+  '/live': typeof LiveRoute
   '/matrix': typeof MatrixRoute
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deploy' | '/matrix' | '/missing' | '/rank'
+  fullPaths:
+    '/' | '/backtest' | '/deploy' | '/live' | '/matrix' | '/missing' | '/rank'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deploy' | '/matrix' | '/missing' | '/rank'
-  id: '__root__' | '/' | '/deploy' | '/matrix' | '/missing' | '/rank'
+  to: '/' | '/backtest' | '/deploy' | '/live' | '/matrix' | '/missing' | '/rank'
+  id:
+    | '__root__'
+    | '/'
+    | '/backtest'
+    | '/deploy'
+    | '/live'
+    | '/matrix'
+    | '/missing'
+    | '/rank'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BacktestRoute: typeof BacktestRoute
   DeployRoute: typeof DeployRoute
+  LiveRoute: typeof LiveRoute
   MatrixRoute: typeof MatrixRoute
   MissingRoute: typeof MissingRoute
   RankRoute: typeof RankRoute
@@ -88,11 +117,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/backtest': {
+      id: '/backtest'
+      path: '/backtest'
+      fullPath: '/backtest'
+      preLoaderRoute: typeof BacktestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/deploy': {
       id: '/deploy'
       path: '/deploy'
       fullPath: '/deploy'
       preLoaderRoute: typeof DeployRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/matrix': {
@@ -121,7 +164,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BacktestRoute: BacktestRoute,
   DeployRoute: DeployRoute,
+  LiveRoute: LiveRoute,
   MatrixRoute: MatrixRoute,
   MissingRoute: MissingRoute,
   RankRoute: RankRoute,
