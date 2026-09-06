@@ -1,0 +1,35 @@
+name: Backtest V2.1
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "src/lib/pulse/backtest.ts"
+      - "src/lib/pulse/bars.ts"
+      - "src/data/universe.json"
+      - "scripts/run-backtest.ts"
+      - ".github/workflows/backtest.yml"
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Run backtest engine
+        run: npm run backtest
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-v2-1
+          path: |
+            artifacts/backtest-result.json
+            artifacts/backtest-curve.csv
+            artifacts/backtest-report.md

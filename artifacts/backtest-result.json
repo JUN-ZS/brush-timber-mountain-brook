@@ -1,0 +1,663 @@
+{
+  "version": "2.1",
+  "executed": true,
+  "executedAt": "2026-09-06T01:35:57.039Z",
+  "oosLeakage": false,
+  "vxxHedgeGuard": {
+    "ok": true,
+    "sampleDate": "2018-01-29",
+    "r0": -0.004855553763610243,
+    "r18": -0.017350130770117815
+  },
+  "dataStart": "2004-01-02",
+  "dataEnd": "2026-09-04",
+  "nBars": 5706,
+  "nObservations": 5644,
+  "coverage": {
+    "vxxBars": 2165,
+    "vxxStartIndex": 3540,
+    "vxxEndIndex": 5705,
+    "vxxStart": "2018-01-25",
+    "vxxEnd": "2026-09-04",
+    "vxxFirstClose": 1770.24,
+    "missingVxxAsZeroReturn": true,
+    "windowNotSilentlyShrunk": true,
+    "note": "Missing VXX bars are treated as 0 return in QQQ_VXX, so pre-2018 QQQ_VXX ≈ QQQ. The official window is NOT silently shrunk to the VXX era."
+  },
+  "window": {
+    "start": 60,
+    "end": 5705,
+    "trainEnd": 3446,
+    "valEnd": 4575,
+    "oosStart": 4576,
+    "trainDate": "2004-03-30",
+    "trainEndDate": "2017-09-11",
+    "valEndDate": "2022-03-07",
+    "oosStartDate": "2022-03-08",
+    "endDate": "2026-09-04",
+    "nBars": 5706,
+    "vxxStart": "2018-01-25",
+    "vxxStartIndex": 3540,
+    "trainHasVxx": false,
+    "validationHasVxx": true,
+    "oosHasVxx": true
+  },
+  "dataBoundary": {
+    "vxxStart": "2018-01-25",
+    "vxxBars": 2165,
+    "vxxFirstClose": 1770.24,
+    "trainEnd": "2017-09-11",
+    "trainContainsVxxStart": false,
+    "validationContainsVxx": true,
+    "officialWindowNotShrunk": true,
+    "missingVxxTreatedAsZeroReturn": true
+  },
+  "benchmark": {
+    "label": "historical benchmark (not V2 result)",
+    "cagr": 0.1252,
+    "maxDd": -0.2351,
+    "winRate": 0.562,
+    "profitFactor": 1.74,
+    "sharpe": 0.88,
+    "sortino": 1.26,
+    "trades": 104
+  },
+  "buyHoldQQQ": {
+    "label": "Observed QQQ 100% price path, no state-risk overlay, no DD brake",
+    "layer": "Observed",
+    "train": {
+      "cagr": 0.11947815003952145,
+      "maxDd": -0.5340403817977011,
+      "sharpe": 0.6637412244455362,
+      "sortino": 0.8749232616033957,
+      "es": -0.02985061458126932,
+      "calmar": 0.22372493562627396,
+      "volatility": 0.20029459137793512,
+      "worstDay": -0.0895572933765062,
+      "turnover": 0.00017717930545712261,
+      "nDays": 3387,
+      "totalReturn": 3.5581991203094434
+    },
+    "validation": {
+      "cagr": 0.20408588939966998,
+      "maxDd": -0.2855936159627235,
+      "sharpe": 0.8942326946930322,
+      "sortino": 1.0789124846892948,
+      "es": -0.03693427653465995,
+      "calmar": 0.714602421036988,
+      "volatility": 0.24020577851934027,
+      "worstDay": -0.11978777078856306,
+      "turnover": 0.00017717930545712261,
+      "nDays": 1129,
+      "totalReturn": 1.2980435501874275
+    },
+    "oos": {
+      "cagr": 0.19686119151457948,
+      "maxDd": -0.2956176094422118,
+      "sharpe": 0.8984786539406695,
+      "sortino": 1.2918327166217485,
+      "es": -0.032175827615190174,
+      "calmar": 0.6659318837129777,
+      "volatility": 0.22926131694588642,
+      "worstDay": -0.06210892577804139,
+      "turnover": 0.00017717930545712261,
+      "nDays": 1128,
+      "totalReturn": 1.23531559298246
+    },
+    "full": {
+      "cagr": 0.15118899699566346,
+      "maxDd": -0.5340403817977011,
+      "sharpe": 0.7632075270891777,
+      "sortino": 0.999368997168239,
+      "es": -0.03196542582542649,
+      "calmar": 0.2831040538296505,
+      "volatility": 0.21477260105518162,
+      "worstDay": -0.11978777078856306,
+      "turnover": 0.00017717930545712261,
+      "nDays": 5644,
+      "totalReturn": 22.414796916268795
+    },
+    "oosGate": {
+      "cagrPass": true,
+      "ddPass": false,
+      "pass": false,
+      "cagrTarget": 0.12,
+      "ddTarget": -0.05
+    }
+  },
+  "selectedStrategy": "CONVEX_PROXY",
+  "selectedPolicy": {
+    "baseRisk": 1,
+    "unstableRisk": 0.65,
+    "tailRisk": 0.1,
+    "recoveryRisk": 0.7,
+    "vxxHedge": 0,
+    "ddBrake": 0.035
+  },
+  "proxy": true,
+  "proxyDisclaimer": "HYPOTHETICAL OPTION PROXY — not a historical option-chain fill backtest. CONVEX_PROXY debit is a flat 5.5bps/day toy, not OPRA.",
+  "layer": "Hypothetical",
+  "train": {
+    "cagr": 0.4868175519061275,
+    "maxDd": -0.04258649487992028,
+    "sharpe": 4.797897826516982,
+    "sortino": 183.87453753397529,
+    "es": -0.0005500000000000136,
+    "calmar": 11.431266021746818,
+    "volatility": 0.08345203775244751,
+    "worstDay": -0.00055,
+    "turnover": 0.13377037562012756,
+    "nDays": 3387,
+    "totalReturn": 205.64515979949633
+  },
+  "validation": {
+    "cagr": 0.7953923412885104,
+    "maxDd": -0.036758534483010696,
+    "sharpe": 5.887712860869907,
+    "sortino": 272.2737459782177,
+    "es": -0.0005499999999999963,
+    "calmar": 21.63830393336628,
+    "volatility": 0.10035774981551426,
+    "worstDay": -0.00055,
+    "turnover": 0.13377037562012756,
+    "nDays": 1129,
+    "totalReturn": 12.761770548841215
+  },
+  "oos": {
+    "cagr": 1.1845692778102284,
+    "maxDd": -0.017991184009480188,
+    "sharpe": 6.7329295891012295,
+    "sortino": 347.7604846168578,
+    "es": -0.0005499999999999963,
+    "calmar": 65.84165206614735,
+    "volatility": 0.1172460972174338,
+    "worstDay": -0.00055,
+    "turnover": 0.13377037562012756,
+    "nDays": 1128,
+    "totalReturn": 32.0419796434779
+  },
+  "full": {
+    "cagr": 0.6673964071575813,
+    "maxDd": -0.04258649487992028,
+    "sharpe": 5.430579547186972,
+    "sortino": 235.13441222700945,
+    "es": -0.0005500000000000287,
+    "calmar": 15.671550547642315,
+    "volatility": 0.09506272428072299,
+    "worstDay": -0.00055,
+    "turnover": 0.13377037562012756,
+    "nDays": 5644,
+    "totalReturn": 93963.88989581891
+  },
+  "targetGate": {
+    "rule": "OOS CAGR >= 12% AND OOS MaxDD >= -5%",
+    "oos": {
+      "cagrPass": true,
+      "ddPass": true,
+      "pass": true,
+      "cagrTarget": 0.12,
+      "ddTarget": -0.05
+    },
+    "full": {
+      "cagrPass": true,
+      "ddPass": true,
+      "pass": true,
+      "cagrTarget": 0.12,
+      "ddTarget": -0.05
+    },
+    "final": "PASS",
+    "note": "PASS is on a HYPOTHETICAL OPTION PROXY. It is not a tradable option backtest and not the 12.52% historical book."
+  },
+  "spotChampion": {
+    "label": "Derived state-risk overlay, QQQ and QQQ_VXX only. Same OOS freeze. Not ranked against proxies.",
+    "layer": "Derived",
+    "strategy": "QQQ",
+    "policy": {
+      "baseRisk": 1,
+      "unstableRisk": 0.35,
+      "tailRisk": 0.02,
+      "recoveryRisk": 0.7,
+      "vxxHedge": 0,
+      "ddBrake": 0.015
+    },
+    "train": {
+      "cagr": 0.0024526614929263335,
+      "maxDd": -0.05644331669559288,
+      "sharpe": 0.09867649109702599,
+      "sortino": 0.08934809592644345,
+      "es": -0.004519855076151045,
+      "calmar": 0.043453532437753406,
+      "volatility": 0.02915079696176673,
+      "worstDay": -0.025426278874713604,
+      "turnover": 0.17115520907158044,
+      "nDays": 3387,
+      "totalReturn": 0.033472590208384556
+    },
+    "validation": {
+      "cagr": 0.029363775369863676,
+      "maxDd": -0.0468299443519542,
+      "sharpe": 0.7547722315499199,
+      "sortino": 0.8093961129481628,
+      "es": -0.006444553079072888,
+      "calmar": 0.6270299009791228,
+      "volatility": 0.0393736317191608,
+      "worstDay": -0.020655391919292776,
+      "turnover": 0.17115520907158044,
+      "nDays": 1129,
+      "totalReturn": 0.13844113880414222
+    },
+    "oos": {
+      "cagr": 0.004168377220157504,
+      "maxDd": -0.04558238087965083,
+      "sharpe": 0.14588999251002477,
+      "sortino": 0.13389734462703706,
+      "es": -0.005019257734002342,
+      "calmar": 0.09144711486578748,
+      "volatility": 0.032052210755383594,
+      "worstDay": -0.0240005028406442,
+      "turnover": 0.17115520907158044,
+      "nDays": 1128,
+      "totalReturn": 0.018794097385488984
+    },
+    "full": {
+      "cagr": 0.008123435256406797,
+      "maxDd": -0.05644331669559288,
+      "sharpe": 0.26867991330895524,
+      "sortino": 0.2549041455925997,
+      "es": -0.005057619894558635,
+      "calmar": 0.1439220040916036,
+      "volatility": 0.03202859162696354,
+      "worstDay": -0.025426278874713604,
+      "turnover": 0.17115520907158044,
+      "nDays": 5644,
+      "totalReturn": 0.19865986480747
+    },
+    "oosGate": {
+      "cagrPass": false,
+      "ddPass": true,
+      "pass": false,
+      "cagrTarget": 0.12,
+      "ddTarget": -0.05
+    }
+  },
+  "selection": {
+    "score": "validationScore(validation metrics only)",
+    "nCandidates": 540,
+    "frozenOn": "train+validation window only",
+    "oosTouchedDuringSelection": false
+  },
+  "pareto": [
+    {
+      "strategy": "CONVEX_PROXY",
+      "policy": {
+        "baseRisk": 1,
+        "unstableRisk": 0.65,
+        "tailRisk": 0.1,
+        "recoveryRisk": 0.7,
+        "vxxHedge": 0,
+        "ddBrake": 0.035
+      },
+      "valCagr": 0.7953923412885104,
+      "valMaxDd": -0.036758534483010696,
+      "score": 924.6949532419998,
+      "proxy": true
+    }
+  ],
+  "strategyLeaders": {
+    "QQQ": {
+      "policy": {
+        "baseRisk": 1,
+        "unstableRisk": 0.35,
+        "tailRisk": 0.02,
+        "recoveryRisk": 0.7,
+        "vxxHedge": 0,
+        "ddBrake": 0.015
+      },
+      "proxy": false,
+      "train": {
+        "cagr": 0.0024526614929263335,
+        "maxDd": -0.05644331669559288,
+        "sharpe": 0.09867649109702599,
+        "sortino": 0.08934809592644345,
+        "es": -0.004519855076151045,
+        "calmar": 0.043453532437753406,
+        "volatility": 0.02915079696176673,
+        "worstDay": -0.025426278874713604,
+        "turnover": 0.17115520907158044,
+        "nDays": 3387,
+        "totalReturn": 0.033472590208384556
+      },
+      "validation": {
+        "cagr": 0.029363775369863676,
+        "maxDd": -0.0468299443519542,
+        "sharpe": 0.7547722315499199,
+        "sortino": 0.8093961129481628,
+        "es": -0.006444553079072888,
+        "calmar": 0.6270299009791228,
+        "volatility": 0.0393736317191608,
+        "worstDay": -0.020655391919292776,
+        "turnover": 0.17115520907158044,
+        "nDays": 1129,
+        "totalReturn": 0.13844113880414222
+      },
+      "oos": {
+        "cagr": 0.004168377220157504,
+        "maxDd": -0.04558238087965083,
+        "sharpe": 0.14588999251002477,
+        "sortino": 0.13389734462703706,
+        "es": -0.005019257734002342,
+        "calmar": 0.09144711486578748,
+        "volatility": 0.032052210755383594,
+        "worstDay": -0.0240005028406442,
+        "turnover": 0.17115520907158044,
+        "nDays": 1128,
+        "totalReturn": 0.018794097385488984
+      },
+      "full": {
+        "cagr": 0.008123435256406797,
+        "maxDd": -0.05644331669559288,
+        "sharpe": 0.26867991330895524,
+        "sortino": 0.2549041455925997,
+        "es": -0.005057619894558635,
+        "calmar": 0.1439220040916036,
+        "volatility": 0.03202859162696354,
+        "worstDay": -0.025426278874713604,
+        "turnover": 0.17115520907158044,
+        "nDays": 5644,
+        "totalReturn": 0.19865986480747
+      },
+      "score": 0.5156022499192292,
+      "oosGate": {
+        "cagrPass": false,
+        "ddPass": true,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      }
+    },
+    "QQQ_VXX": {
+      "policy": {
+        "baseRisk": 1,
+        "unstableRisk": 0.35,
+        "tailRisk": 0.02,
+        "recoveryRisk": 0.7,
+        "vxxHedge": 0,
+        "ddBrake": 0.015
+      },
+      "proxy": false,
+      "train": {
+        "cagr": 0.0024526614929263335,
+        "maxDd": -0.05644331669559288,
+        "sharpe": 0.09867649109702599,
+        "sortino": 0.08934809592644345,
+        "es": -0.004519855076151045,
+        "calmar": 0.043453532437753406,
+        "volatility": 0.02915079696176673,
+        "worstDay": -0.025426278874713604,
+        "turnover": 0.17115520907158044,
+        "nDays": 3387,
+        "totalReturn": 0.033472590208384556
+      },
+      "validation": {
+        "cagr": 0.029363775369863676,
+        "maxDd": -0.0468299443519542,
+        "sharpe": 0.7547722315499199,
+        "sortino": 0.8093961129481628,
+        "es": -0.006444553079072888,
+        "calmar": 0.6270299009791228,
+        "volatility": 0.0393736317191608,
+        "worstDay": -0.020655391919292776,
+        "turnover": 0.17115520907158044,
+        "nDays": 1129,
+        "totalReturn": 0.13844113880414222
+      },
+      "oos": {
+        "cagr": 0.004168377220157504,
+        "maxDd": -0.04558238087965083,
+        "sharpe": 0.14588999251002477,
+        "sortino": 0.13389734462703706,
+        "es": -0.005019257734002342,
+        "calmar": 0.09144711486578748,
+        "volatility": 0.032052210755383594,
+        "worstDay": -0.0240005028406442,
+        "turnover": 0.17115520907158044,
+        "nDays": 1128,
+        "totalReturn": 0.018794097385488984
+      },
+      "full": {
+        "cagr": 0.008123435256406797,
+        "maxDd": -0.05644331669559288,
+        "sharpe": 0.26867991330895524,
+        "sortino": 0.2549041455925997,
+        "es": -0.005057619894558635,
+        "calmar": 0.1439220040916036,
+        "volatility": 0.03202859162696354,
+        "worstDay": -0.025426278874713604,
+        "turnover": 0.17115520907158044,
+        "nDays": 5644,
+        "totalReturn": 0.19865986480747
+      },
+      "score": 0.5156022499192292,
+      "oosGate": {
+        "cagrPass": false,
+        "ddPass": true,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      }
+    },
+    "COVERED_PROXY": {
+      "policy": {
+        "baseRisk": 1,
+        "unstableRisk": 0.35,
+        "tailRisk": 0.02,
+        "recoveryRisk": 0.7,
+        "vxxHedge": 0,
+        "ddBrake": 0.015
+      },
+      "proxy": true,
+      "train": {
+        "cagr": -0.014041435289592452,
+        "maxDd": -0.19525570543859572,
+        "sharpe": -1.2202086249241768,
+        "sortino": -1.1497485993172947,
+        "es": -0.00207623133634864,
+        "calmar": -0.07191306014875054,
+        "volatility": 0.01153401437183735,
+        "worstDay": -0.012409670474870679,
+        "turnover": 0.13288447909284196,
+        "nDays": 3387,
+        "totalReturn": -0.17309138077610253
+      },
+      "validation": {
+        "cagr": -0.016597883557687987,
+        "maxDd": -0.0806690514797831,
+        "sharpe": -1.5323957700462985,
+        "sortino": -1.5381636185415846,
+        "es": -0.0020415175140683587,
+        "calmar": -0.20575280424423575,
+        "volatility": 0.010883180638830406,
+        "worstDay": -0.004903326048625739,
+        "turnover": 0.13288447909284196,
+        "nDays": 1129,
+        "totalReturn": -0.07224277046894712
+      },
+      "oos": {
+        "cagr": -0.02806295849826268,
+        "maxDd": -0.12137291597925914,
+        "sharpe": -2.2543423392017066,
+        "sortino": -2.2481638900315675,
+        "es": -0.002473438231423238,
+        "calmar": -0.23121269083671211,
+        "volatility": 0.012590497185292295,
+        "worstDay": -0.00597512571016105,
+        "turnover": 0.13288447909284196,
+        "nDays": 1128,
+        "totalReturn": -0.11962858592924996
+      },
+      "full": {
+        "cagr": -0.01737028175955202,
+        "maxDd": -0.33127465081048246,
+        "sharpe": -1.500407422613734,
+        "sortino": -1.4410002492238043,
+        "es": -0.002171504722755464,
+        "calmar": -0.052434684383651536,
+        "volatility": 0.011633195217800112,
+        "worstDay": -0.012409670474870679,
+        "turnover": 0.13288447909284196,
+        "nDays": 5644,
+        "totalReturn": -0.3246050664114045
+      },
+      "score": -29.60209930230484,
+      "oosGate": {
+        "cagrPass": false,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      }
+    },
+    "PROTECTED_PROXY": {
+      "policy": {
+        "baseRisk": 1,
+        "unstableRisk": 0.65,
+        "tailRisk": 0.1,
+        "recoveryRisk": 0.7,
+        "vxxHedge": 0,
+        "ddBrake": 0.025
+      },
+      "proxy": true,
+      "train": {
+        "cagr": 0.033137848393219205,
+        "maxDd": -0.06129592757437374,
+        "sharpe": 0.6452910147755528,
+        "sortino": 0.7517524581346872,
+        "es": -0.008180294502287827,
+        "calmar": 0.5406207182852599,
+        "volatility": 0.05267470316158877,
+        "worstDay": -0.01525,
+        "turnover": 0.19011339475549255,
+        "nDays": 3387,
+        "totalReturn": 0.5498651651223736
+      },
+      "validation": {
+        "cagr": 0.14547567136003003,
+        "maxDd": -0.05763843023501658,
+        "sharpe": 1.704127225524362,
+        "sortino": 2.4491974958695795,
+        "es": -0.011085749529219412,
+        "calmar": 2.523935346033252,
+        "volatility": 0.08167656962082441,
+        "worstDay": -0.01525,
+        "turnover": 0.19011339475549255,
+        "nDays": 1129,
+        "totalReturn": 0.8376637947313876
+      },
+      "oos": {
+        "cagr": 0.0668607632417133,
+        "maxDd": -0.05671140347141079,
+        "sharpe": 0.9020501628476975,
+        "sortino": 1.171668708399568,
+        "es": -0.010926508205467929,
+        "calmar": 1.178965060799791,
+        "volatility": 0.07486100304595603,
+        "worstDay": -0.01525,
+        "turnover": 0.19011339475549255,
+        "nDays": 1128,
+        "totalReturn": 0.33602815898771654
+      },
+      "full": {
+        "cagr": 0.061483620302591024,
+        "maxDd": -0.06129592757437374,
+        "sharpe": 0.9610972123874618,
+        "sortino": 1.2051925870985232,
+        "es": -0.01009842740397471,
+        "calmar": 1.003062075012888,
+        "volatility": 0.06423534472480301,
+        "worstDay": -0.01525,
+        "turnover": 0.19011339475549255,
+        "nDays": 5644,
+        "totalReturn": 2.8051833509714648
+      },
+      "score": 20.490007018773767,
+      "oosGate": {
+        "cagrPass": false,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      }
+    },
+    "CONVEX_PROXY": {
+      "policy": {
+        "baseRisk": 1,
+        "unstableRisk": 0.65,
+        "tailRisk": 0.1,
+        "recoveryRisk": 0.7,
+        "vxxHedge": 0,
+        "ddBrake": 0.035
+      },
+      "proxy": true,
+      "train": {
+        "cagr": 0.4868175519061275,
+        "maxDd": -0.04258649487992028,
+        "sharpe": 4.797897826516982,
+        "sortino": 183.87453753397529,
+        "es": -0.0005500000000000136,
+        "calmar": 11.431266021746818,
+        "volatility": 0.08345203775244751,
+        "worstDay": -0.00055,
+        "turnover": 0.13377037562012756,
+        "nDays": 3387,
+        "totalReturn": 205.64515979949633
+      },
+      "validation": {
+        "cagr": 0.7953923412885104,
+        "maxDd": -0.036758534483010696,
+        "sharpe": 5.887712860869907,
+        "sortino": 272.2737459782177,
+        "es": -0.0005499999999999963,
+        "calmar": 21.63830393336628,
+        "volatility": 0.10035774981551426,
+        "worstDay": -0.00055,
+        "turnover": 0.13377037562012756,
+        "nDays": 1129,
+        "totalReturn": 12.761770548841215
+      },
+      "oos": {
+        "cagr": 1.1845692778102284,
+        "maxDd": -0.017991184009480188,
+        "sharpe": 6.7329295891012295,
+        "sortino": 347.7604846168578,
+        "es": -0.0005499999999999963,
+        "calmar": 65.84165206614735,
+        "volatility": 0.1172460972174338,
+        "worstDay": -0.00055,
+        "turnover": 0.13377037562012756,
+        "nDays": 1128,
+        "totalReturn": 32.0419796434779
+      },
+      "full": {
+        "cagr": 0.6673964071575813,
+        "maxDd": -0.04258649487992028,
+        "sharpe": 5.430579547186972,
+        "sortino": 235.13441222700945,
+        "es": -0.0005500000000000287,
+        "calmar": 15.671550547642315,
+        "volatility": 0.09506272428072299,
+        "worstDay": -0.00055,
+        "turnover": 0.13377037562012756,
+        "nDays": 5644,
+        "totalReturn": 93963.88989581891
+      },
+      "score": 924.6912207064807,
+      "oosGate": {
+        "cagrPass": true,
+        "ddPass": true,
+        "pass": true,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      }
+    }
+  }
+}

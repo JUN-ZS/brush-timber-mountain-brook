@@ -2,12 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Panel, Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
-import { DEFAULT_POLICY, historicalBenchmark, pareto, runBacktest, searchPolicies, targetGate, type StrategyId } from "@/lib/pulse/backtest";
+import {
+  DEFAULT_POLICY,
+  PROXY_STRATEGIES,
+  STRATEGIES,
+  coverage,
+  freezeChampion,
+  historicalBenchmark,
+  pareto,
+  runBacktest,
+  sampleWindow,
+  searchPolicies,
+  targetGate,
+  type StrategyId,
+} from "@/lib/pulse/backtest";
 import { fmtPct } from "@/lib/utils";
 
 export const Route = createFileRoute("/backtest")({ component: Page });
-
-const strategies: StrategyId[] = ["QQQ", "QQQ_VXX", "COVERED_PROXY", "PROTECTED_PROXY", "CONVEX_PROXY"];
 
 function Page() {
   const [strategy, setStrategy] = useState<StrategyId>("QQQ_VXX");
@@ -15,58 +26,212 @@ function Page() {
   const [unstableRisk, setUnstableRisk] = useState(DEFAULT_POLICY.unstableRisk);
   const [tailRisk, setTailRisk] = useState(DEFAULT_POLICY.tailRisk);
   const [recoveryRisk, setRecoveryRisk] = useState(DEFAULT_POLICY.recoveryRisk);
+  const [vxxHedge, setVxxHedge] = useState(DEFAULT_POLICY.vxxHedge);
   const [ddBrake, setDdBrake] = useState(DEFAULT_POLICY.ddBrake);
-  const policy = { baseRisk, unstableRisk, tailRisk, recoveryRisk, vxxHedge: 0.10, ddBrake };
-  const result = useMemo(() => runBacktest(strategy, policy), [strategy, baseRisk, unstableRisk, tailRisk, recoveryRisk, ddBrake]);
+  const policy = { baseRisk, unstableRisk, tailRisk, recoveryRisk, vxxHedge, ddBrake };
+  const w = sampleWindow();
+  const cov = coverage();
+  const result = useMemo(
+    () => runBacktest(strategy, policy),
+    [strategy, baseRisk, unstableRisk, tailRisk, recoveryRisk, vxxHedge, ddBrake],
+  );
   const grid = useMemo(() => searchPolicies(strategy), [strategy]);
-  const frontier = useMemo(() => pareto(grid).slice(0, 18), [grid]);
+  const frozen = useMemo(() => freezeChampion(grid), [grid]);
+  const frontier = useMemo(() => pareto(grid).slice(0, 12), [grid]);
   const bench = historicalBenchmark();
+  const oosGate = targetGate(frozen.split.oos);
+  const proxy = PROXY_STRATEGIES.includes(strategy);
 
-  return <Shell>
-    <div className="grid gap-4">
-      <Panel kicker="BACKTEST V2 · STATE CONTROL" title="不是找一組神參數，而是讓風險隨狀態改變">
-        <p className="max-w-4xl text-sm leading-relaxed text-muted">12.52% CAGR / −23.51% MaxDD 只作 historical benchmark。這個 App 把「12%+ / MaxDD &lt; 5%」當成可被擊敗的研究假設，而不是答案。所有 regime 判斷只使用前一日資料；最後 20% 固定為 OOS。</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-5">
-          <Metric k="Historical CAGR" v={fmtPct(bench.cagr, 2)} />
-          <Metric k="Historical MaxDD" v={fmtPct(bench.maxDd, 2)} />
-          <Metric k="Current CAGR" v={fmtPct(result.metrics.cagr, 2)} />
-          <Metric k="Current MaxDD" v={fmtPct(result.metrics.maxDd, 2)} />
-          <Metric k="Target Gate" v={targetGate(result) ? "PASS" : "FAIL"} />
-        </div>
-      </Panel>
-
-      <Panel kicker="POLICY" title="Risk Budget 是控制變數，不是事後統計">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Slider label="CALM risk" value={baseRisk} set={setBaseRisk} max={1} />
-          <Slider label="UNSTABLE risk" value={unstableRisk} set={setUnstableRisk} max={1} />
-          <Slider label="TAIL risk" value={tailRisk} set={setTailRisk} max={1} />
-          <Slider label="RECOVERY risk" value={recoveryRisk} set={setRecoveryRisk} max={1} />
-          <Slider label="DD brake" value={ddBrake} set={setDdBrake} max={0.08} />
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2"><Badge tone="pass">CALM {fmtPct(baseRisk, 0)}</Badge><Badge tone="fragile">UNSTABLE {fmtPct(unstableRisk, 0)}</Badge><Badge tone="lock">TAIL {fmtPct(tailRisk, 0)}</Badge><Badge tone="mute">RECOVERY {fmtPct(recoveryRisk, 0)}</Badge></div>
-      </Panel>
-
-      <Panel kicker="STRATEGY" title="Candidate structures compete">
-        <div className="flex flex-wrap gap-2">{strategies.map((s) => <button key={s} onClick={() => setStrategy(s)} className={`rounded-md border px-3 py-2 text-xs font-mono ${strategy === s ? "border-accent bg-elevated text-fg" : "border-line text-muted"}`}>{s}</button>)}</div>
-        <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="text-xs text-subtle"><tr>{["split","CAGR","MaxDD","Sharpe","Sortino","Vol","Calmar"].map(x => <th key={x} className="px-3 py-2">{x}</th>)}</tr></thead><tbody>{([["FULL",result.metrics],["TRAIN",result.split.train],["VALIDATION",result.split.validation],["OOS",result.split.oos]] as const).map(([n,m]) => <tr key={n} className="border-t border-line"><td className="px-3 py-2 font-mono">{n}</td><td className="px-3 py-2 font-mono">{fmtPct(m.cagr,2)}</td><td className="px-3 py-2 font-mono">{fmtPct(m.maxDd,2)}</td><td className="px-3 py-2 font-mono">{m.sharpe.toFixed(2)}</td><td className="px-3 py-2 font-mono">{m.sortino.toFixed(2)}</td><td className="px-3 py-2 font-mono">{fmtPct(m.volatility,2)}</td><td className="px-3 py-2 font-mono">{m.calmar.toFixed(2)}</td></tr>)}</tbody></table></div>
-      </Panel>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Panel kicker="PARETO FRONTIER" title="CAGR ↔ MaxDD">
-          <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-xs text-subtle"><tr><th className="py-2">unstable</th><th className="py-2">tail</th><th className="py-2">brake</th><th className="py-2">CAGR</th><th className="py-2">MaxDD</th><th className="py-2">OOS CAGR</th><th className="py-2">OOS DD</th></tr></thead><tbody>{frontier.map((r,i)=><tr key={i} className="border-t border-line"><td className="py-2 font-mono">{fmtPct(r.policy.unstableRisk,0)}</td><td className="py-2 font-mono">{fmtPct(r.policy.tailRisk,0)}</td><td className="py-2 font-mono">{fmtPct(r.policy.ddBrake,1)}</td><td className="py-2 font-mono">{fmtPct(r.metrics.cagr,2)}</td><td className="py-2 font-mono">{fmtPct(r.metrics.maxDd,2)}</td><td className="py-2 font-mono">{fmtPct(r.split.oos.cagr,2)}</td><td className="py-2 font-mono">{fmtPct(r.split.oos.maxDd,2)}</td></tr>)}</tbody></table></div>
+  return (
+    <Shell>
+      <div className="grid gap-4">
+        <Panel kicker="BACKTEST V2.1 · OOS FROZEN" title="Train → Validation → Frozen → OOS 一次">
+          <p className="max-w-4xl text-sm leading-relaxed text-muted">
+            12.52% / −23.51% 只是 historical benchmark，不是本引擎結果。Policy 只在 TRAIN+VALIDATION
+            上競爭；OOS 不進 ranking。QQQ_VXX = rQQQ − vxxHedge × rVXX，不再寫死 0.10。
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-5">
+            <Metric k="Benchmark CAGR" v={fmtPct(bench.cagr, 2)} />
+            <Metric k="Benchmark MaxDD" v={fmtPct(bench.maxDd, 2)} />
+            <Metric k="Frozen OOS CAGR" v={fmtPct(frozen.split.oos.cagr, 2)} />
+            <Metric k="Frozen OOS MaxDD" v={fmtPct(frozen.split.oos.maxDd, 2)} />
+            <Metric k="OOS Gate 12%/−5%" v={oosGate.pass ? "PASS" : "FAIL"} />
+          </div>
+          <p className="mt-3 font-mono text-xs text-subtle">
+            {w.trainDate} → train {w.trainEndDate} → val {w.valEndDate} → OOS {w.oosStartDate} → {w.endDate} · {w.nBars}{" "}
+            bars
+          </p>
+          <p className="mt-1 font-mono text-xs text-subtle">
+            VXX {cov.vxxStart} → {cov.vxxEnd} · {cov.vxxBars} bars · missing VXX = 0 return · window not shrunk
+          </p>
         </Panel>
-        <Panel kicker="REGIME MAP" title="風險預算如何移動">
-          <div className="space-y-3 text-sm"><Regime n="CALM" r={baseRisk} d="正常市場：保留主要 drift / carry" /><Regime n="UNSTABLE" r={unstableRisk} d="波動/動能惡化：先縮 risk，不預測方向" /><Regime n="TAIL" r={tailRisk} d="尾部條件：只留下很小 risk budget" /><Regime n="RECOVERY" r={recoveryRisk} d="反彈初期：逐步恢復，不一次滿倉" /><Regime n="DD BRAKE" r={Math.max(0,1 - ddBrake * 10)} d="自身 equity curve 惡化時再二次降槓桿" /></div>
+
+        <Panel kicker="POLICY" title="Risk budget 由狀態決定，vxxHedge 是真實參數">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Slider label="CALM risk" value={baseRisk} set={setBaseRisk} max={1} />
+            <Slider label="UNSTABLE risk" value={unstableRisk} set={setUnstableRisk} max={1} />
+            <Slider label="TAIL risk" value={tailRisk} set={setTailRisk} max={1} />
+            <Slider label="RECOVERY risk" value={recoveryRisk} set={setRecoveryRisk} max={1} />
+            <Slider label="VXX hedge" value={vxxHedge} set={setVxxHedge} max={0.3} />
+            <Slider label="DD brake" value={ddBrake} set={setDdBrake} max={0.08} />
+          </div>
+        </Panel>
+
+        <Panel kicker="STRATEGY" title="候選結構競爭">
+          <div className="flex flex-wrap gap-2">
+            {STRATEGIES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStrategy(s)}
+                className={`min-h-11 rounded-md border px-3 py-2 text-xs font-mono ${
+                  strategy === s ? "border-accent bg-elevated text-fg" : "border-line text-muted"
+                }`}
+              >
+                {s}
+                {PROXY_STRATEGIES.includes(s) ? " · PROXY" : ""}
+              </button>
+            ))}
+          </div>
+          {proxy ? (
+            <p className="mt-3 text-xs text-accent">HYPOTHETICAL OPTION PROXY — 不是歷史期權成交回測。</p>
+          ) : null}
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[920px] text-left text-sm">
+              <thead className="text-xs text-subtle">
+                <tr>
+                  {["split", "CAGR", "MaxDD", "Sharpe", "Sortino", "ES", "Vol"].map((x) => (
+                    <th key={x} className="px-3 py-2">
+                      {x}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(
+                  [
+                    ["FULL", result.metrics],
+                    ["TRAIN", result.split.train],
+                    ["VALIDATION", result.split.validation],
+                    ["OOS", result.split.oos],
+                  ] as const
+                ).map(([n, m]) => (
+                  <tr key={n} className="border-t border-line">
+                    <td className="px-3 py-2 font-mono">{n}</td>
+                    <td className="px-3 py-2 font-mono">{fmtPct(m.cagr, 2)}</td>
+                    <td className="px-3 py-2 font-mono">{fmtPct(m.maxDd, 2)}</td>
+                    <td className="px-3 py-2 font-mono">{m.sharpe.toFixed(2)}</td>
+                    <td className="px-3 py-2 font-mono">{m.sortino.toFixed(2)}</td>
+                    <td className="px-3 py-2 font-mono">{fmtPct(m.es, 2)}</td>
+                    <td className="px-3 py-2 font-mono">{fmtPct(m.volatility, 2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <Panel kicker="VALIDATION PARETO" title="只看 VALIDATION，OOS 不排序">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="text-xs text-subtle">
+                  <tr>
+                    <th className="py-2">hedge</th>
+                    <th className="py-2">unst</th>
+                    <th className="py-2">tail</th>
+                    <th className="py-2">Val CAGR</th>
+                    <th className="py-2">Val DD</th>
+                    <th className="py-2">score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {frontier.map((r, i) => (
+                    <tr key={i} className="border-t border-line">
+                      <td className="py-2 font-mono">{fmtPct(r.policy.vxxHedge, 0)}</td>
+                      <td className="py-2 font-mono">{fmtPct(r.policy.unstableRisk, 0)}</td>
+                      <td className="py-2 font-mono">{fmtPct(r.policy.tailRisk, 0)}</td>
+                      <td className="py-2 font-mono">{fmtPct(r.split.validation.cagr, 2)}</td>
+                      <td className="py-2 font-mono">{fmtPct(r.split.validation.maxDd, 2)}</td>
+                      <td className="py-2 font-mono">{r.score.toFixed(1)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
+          <Panel kicker="FROZEN CHAMPION" title="VALIDATION 勝出後才看一次 OOS">
+            <div className="space-y-2 font-mono text-sm">
+              <div>
+                {frozen.strategy}
+                {frozen.proxy ? " · HYPOTHETICAL OPTION PROXY" : ""}
+              </div>
+              <div>
+                vxxHedge {fmtPct(frozen.policy.vxxHedge, 0)} · tail {fmtPct(frozen.policy.tailRisk, 0)}
+              </div>
+              <div>
+                TRAIN {fmtPct(frozen.split.train.cagr, 2)} / {fmtPct(frozen.split.train.maxDd, 2)}
+              </div>
+              <div>
+                VAL {fmtPct(frozen.split.validation.cagr, 2)} / {fmtPct(frozen.split.validation.maxDd, 2)}
+              </div>
+              <div>
+                OOS {fmtPct(frozen.split.oos.cagr, 2)} / {fmtPct(frozen.split.oos.maxDd, 2)}
+              </div>
+              <Badge tone={oosGate.pass ? "pass" : "lock"}>{oosGate.pass ? "OOS GATE PASS" : "OOS GATE FAIL"}</Badge>
+            </div>
+          </Panel>
+        </div>
+
+        <Panel kicker="AUDIT" title="V2.1 刻意不讓 12% / −5% 變成作弊答案">
+          <ul className="space-y-2 text-sm text-muted">
+            <li>• OOS 不參與 policy generation / ranking / 參數優化。</li>
+            <li>• QQQ_VXX 使用 policy.vxxHedge，grid 含 0 / 8% / 12% / 18%。</li>
+            <li>• COVERED / PROTECTED / CONVEX 標成 HYPOTHETICAL OPTION PROXY。</li>
+            <li>• Target 12% CAGR 且 MaxDD ≥ −5% 只評估 Frozen OOS 一次。</li>
+            <li>• oosLeakage = false：selection window 止於 validation 末日。</li>
+            <li>• VXX 2018 之前缺值當 0 報酬，樣本沒有偷偷切短。</li>
+          </ul>
         </Panel>
       </div>
-
-      <Panel kicker="AUDIT" title="這個版本刻意不讓 12% / 5% 變成作弊答案">
-        <ul className="space-y-2 text-sm text-muted"><li>• benchmark 與 target 分開：12.52% / −23.51% 是歷史參考；12%+ / −5% 是 gate。</li><li>• state 使用 t−1 資料決定 t 日 risk，避免用當日結果倒推倉位。</li><li>• policy search 只在有限、預先定義的 grid 上掃，不搜尋數千個事後最佳參數。</li><li>• FULL / TRAIN / VALIDATION / OOS 同時顯示；OOS 不參與 policy 排序。</li><li>• options chain 仍然不是實盤 option fill：目前 option structures 是 proxy，不能宣稱真實期權交易結果。</li></ul>
-      </Panel>
-    </div>
-  </Shell>;
+    </Shell>
+  );
 }
 
-function Metric({ k, v }: { k: string; v: string }) { return <div className="rounded-md border border-line bg-elevated p-3"><div className="text-xs text-subtle">{k}</div><div className="mt-1 font-mono text-xl tabular-nums">{v}</div></div>; }
-function Slider({ label, value, set, max }: { label: string; value: number; set: (n:number)=>void; max:number }) { return <label className="grid gap-2 text-sm"><span className="font-mono text-xs text-subtle">{label} · {fmtPct(value,1)}</span><input type="range" min={0} max={max} step={0.01} value={value} onChange={e=>set(Number(e.target.value))} className="h-10 accent-accent" /></label>; }
-function Regime({ n, r, d }: { n:string; r:number; d:string }) { return <div className="rounded-md border border-line p-3"><div className="flex items-center justify-between"><span className="font-mono text-xs">{n}</span><span className="font-mono">{fmtPct(r,0)}</span></div><p className="mt-1 text-xs text-muted">{d}</p></div>; }
+function Metric({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="rounded-md border border-line bg-elevated p-3">
+      <div className="text-xs text-subtle">{k}</div>
+      <div className="mt-1 font-mono text-xl tabular-nums">{v}</div>
+    </div>
+  );
+}
+
+function Slider({
+  label,
+  value,
+  set,
+  max,
+}: {
+  label: string;
+  value: number;
+  set: (n: number) => void;
+  max: number;
+}) {
+  return (
+    <label className="grid gap-2 text-sm">
+      <span className="font-mono text-xs text-subtle">
+        {label} · {fmtPct(value, 1)}
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={0.01}
+        value={value}
+        onChange={(e) => set(Number(e.target.value))}
+        className="h-10 accent-accent"
+      />
+    </label>
+  );
+}
