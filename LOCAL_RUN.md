@@ -76,3 +76,17 @@ Grok 的 Linux 預覽環境到不了你的 `127.0.0.1:11111`，所以預覽頁 `
 - 不把缺失 IV 填成 0.25 再標 LIVE
 - 不重寫 V2.2 歷史引擎
 - 不要求你貼 source code
+
+## VIX note
+
+Futu index code is `US..VIX` (标普500波动率指数), not `US.VIX`. If OpenD returns `暂不支持美股指数`, that is missing US index quote permission — keep VIX `UNAVAILABLE`; do not use `US.VIXY` / `US.VXX` as a VIX substitute.
+
+## VIX proxy (when US indices unsupported)
+
+OpenAPI cannot quote `US..VIX`. Diagnostic keeps index FAIL honest, then builds a **DERIVED** VIX-units proxy:
+
+1. QQQ ~30D ATM put IV × 100 (preferred)
+2. else QQQ 20d realized vol × 100
+3. else universe EOD VIX
+
+`US.VIXY` may inform acceleration only — never used as the VIX level.

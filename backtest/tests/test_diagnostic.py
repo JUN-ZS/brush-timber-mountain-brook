@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from backtest.local_diagnostic import main, run_diagnostic
-from backtest.report import render_txt, write_reports
+from backtest.report import render_txt
 
 
 REQUIRED_SECTIONS = [
@@ -27,15 +27,23 @@ REQUIRED_SECTIONS = [
 
 
 class DiagnosticTests(unittest.TestCase):
-    def test_run_without_opend_does_not_crash(self):
+    def test_run_does_not_crash_whether_opend_up_or_down(self):
+        """OpenD may or may not be running on the developer machine."""
         doc = run_diagnostic("127.0.0.1", 11111, True)
         self.assertIn(doc["overall"], {"FAIL", "PARTIAL", "PASS"})
-        self.assertEqual(doc["opend"]["connection"], "NOT CONNECTED")
-        self.assertNotEqual(doc["qqq"].get("source"), "LIVE QUOTE")
+        self.assertIn(doc["opend"]["connection"], {"CONNECTED", "NOT CONNECTED"})
         self.assertTrue(doc["v22_untouched"])
         self.assertFalse(doc["live_orders"])
         self.assertFalse(doc["credentials_used"])
-        self.assertIn("NOT CONNECTED", doc["next_action"] + doc["opend"]["connection"])
+        if doc["opend"]["connection"] == "NOT CONNECTED":
+            self.assertNotEqual(doc["qqq"].get("source"), "LIVE QUOTE")
+            self.assertIn("NOT CONNECTED", doc["next_action"] + doc["opend"]["connection"])
+        else:
+            # Live path: index VIX may still fail; proxy must not be labeled LIVE VIX.
+            proxy = doc.get("vix_proxy") or {}
+            if proxy.get("value") is not None and not proxy.get("index_quote_ok"):
+                self.assertEqual(proxy.get("source"), "DERIVED")
+                self.assertNotEqual(proxy.get("source"), "LIVE QUOTE")
 
     def test_txt_has_required_sections(self):
         doc = run_diagnostic("127.0.0.1", 11111, True)
@@ -44,11 +52,14 @@ class DiagnosticTests(unittest.TestCase):
             self.assertIn(sec, txt)
         self.assertIn("connection_test:", txt)
         self.assertIn("quote_test:", txt)
+        self.assertIn("vix_test:", txt)
+        self.assertIn("vix_proxy_test:", txt)
         self.assertIn("chain_test:", txt)
         self.assertIn("option_quote_test:", txt)
         self.assertIn("surface_test:", txt)
         self.assertIn("state_test:", txt)
         self.assertIn("paper_portfolio_test:", txt)
+        self.assertIn("VIX_PROXY.method:", txt)
 
     def test_cli_writes_file_exit_zero(self):
         with tempfile.TemporaryDirectory() as td:
@@ -68,6 +79,10 @@ class DiagnosticTests(unittest.TestCase):
         q = doc.get("qqq") or {}
         if q.get("source") != "LIVE QUOTE":
             self.assertIsNone(q.get("last"))
+        # Never pretend VIXY/ETF last is LIVE index VIX.
+        vix = doc.get("vix") or {}
+        if vix.get("source") == "LIVE QUOTE":
+            self.assertEqual(vix.get("code"), "US..VIX")
 
 
 if __name__ == "__main__":

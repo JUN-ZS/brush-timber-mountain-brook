@@ -102,6 +102,9 @@ def run_state_risk(
     live_vix_closes: Optional[list[float]] = None,
     live_qqq_source: str = "UNAVAILABLE",
     live_vix_source: str = "UNAVAILABLE",
+    vix_method: Optional[str] = None,
+    vix_prev5_override: Optional[float] = None,
+    vix_reason: Optional[str] = None,
 ) -> dict[str, Any]:
     u = load_universe()
     source = "LIVE QUOTE"
@@ -116,17 +119,21 @@ def run_state_risk(
     if vix is None:
         vix = last_close("VIX", u)
         vix_src = "DERIVED"
-    vix_prev5 = None
+        vix_method = vix_method or "UNIVERSE_EOD_VIX"
+    vix_prev5 = vix_prev5_override
     vhist = list(live_vix_closes or [])
-    if len(vhist) >= 6:
+    if vix_prev5 is None and len(vhist) >= 6:
         vix_prev5 = vhist[-6]
-    else:
+    if vix_prev5 is None:
         vh = closes("VIX", 10, u)
         if len(vh) >= 6:
             vix_prev5 = vh[-6]
     st = classify_state(qqq, vix, vix_prev5)
     st["source"] = source
     st["vix_source"] = vix_src
+    st["vix_method"] = vix_method or ("US_INDEX_VIX" if vix_src == "LIVE QUOTE" else "UNIVERSE_EOD_VIX")
+    if vix_reason:
+        st["vix_reason"] = vix_reason
     st["qqq_source"] = live_qqq_source if live_qqq_source == "LIVE QUOTE" and source == "LIVE QUOTE" else source
     st["asof"] = last_date(u) if source == "DERIVED" else "live"
     st["reason"] = reason

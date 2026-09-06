@@ -52,6 +52,7 @@ def render_txt(doc: dict[str, Any]) -> str:
     opend = doc.get("opend") or {}
     qqq = doc.get("qqq") or {}
     vix = doc.get("vix") or {}
+    vix_proxy = doc.get("vix_proxy") or {}
     chain = doc.get("chain") or {}
     oq = doc.get("option_quote") or {}
     surface = doc.get("surface") or {}
@@ -103,10 +104,16 @@ def render_txt(doc: dict[str, Any]) -> str:
         f"source: {qqq.get('source') or 'UNAVAILABLE'}",
         f"reason: {qqq.get('reason') or ''}",
         "",
-        f"VIX: {vix.get('code') or 'US.VIX'}",
+        f"VIX: {vix.get('code') or 'US..VIX'}",
         f"VIX.last: {_s(vix.get('last'))}",
         f"VIX.source: {vix.get('source') or 'UNAVAILABLE'}",
         f"VIX.reason: {vix.get('reason') or ''}",
+        "",
+        f"VIX_PROXY.method: {vix_proxy.get('method') or (vix_proxy.get('proxy') or {}).get('method') or 'UNAVAILABLE'}",
+        f"VIX_PROXY.level: {_s(vix_proxy.get('value') if vix_proxy.get('value') is not None else (vix_proxy.get('proxy') or {}).get('level'))}",
+        f"VIX_PROXY.source: {vix_proxy.get('source') or 'UNAVAILABLE'}",
+        f"VIX_PROXY.reason: {vix_proxy.get('reason') or ''}",
+        f"VIXY.accel: {_s(((vix_proxy.get('vixy') or {}) if isinstance(vix_proxy.get('vixy'), dict) else {}).get('accel'))}",
         "",
         "## OPTION CHAIN",
         "",
@@ -147,6 +154,8 @@ def render_txt(doc: dict[str, Any]) -> str:
         f"state: {state.get('regime') or 'UNAVAILABLE'}",
         f"building: {_s(state.get('building'))}",
         f"VIX: {_s(state.get('vix'))}",
+        f"VIX.method: {_s(state.get('vix_method'))}",
+        f"VIX.source: {_s(state.get('vix_source'))}",
         f"QQQ return: {_s(state.get('qqq_return'))}",
         f"realized_vol: {_s(state.get('realized_vol'))}",
         f"momentum_20d: {_s(state.get('momentum_20d'))}",
@@ -212,6 +221,7 @@ def render_txt(doc: dict[str, Any]) -> str:
         "connection",
         "quote",
         "vix",
+        "vix_proxy",
         "chain",
         "option_quote",
         "surface",
@@ -232,6 +242,7 @@ def render_txt(doc: dict[str, Any]) -> str:
         "sdk": "sdk_test",
         "environment": "environment_test",
         "vix": "vix_test",
+        "vix_proxy": "vix_proxy_test",
         "risk": "risk_test",
         "scenario": "scenario_test",
         "selector": "selector_test",

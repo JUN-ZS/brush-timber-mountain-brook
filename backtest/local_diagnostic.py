@@ -29,12 +29,14 @@ from .surface import merge_quotes, pick_quote_targets, summarize
 from .types import (
     DEFAULT_HOST,
     DEFAULT_PORT,
+    VIX_CODE,
     Check,
     OptionContract,
     Quote,
     jsonable,
 )
 from .universe import last_close, load_universe
+from .vix_proxy import resolve_vix_input
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT = ROOT / "reports" / "local_run_result.txt"
@@ -151,6 +153,8 @@ def run_diagnostic(host: str, port: int, do_futu: bool) -> dict[str, Any]:
     live_vix_closes = None
     live_qqq_source = "UNAVAILABLE"
     live_vix_source = "UNAVAILABLE"
+    vix_resolved: dict[str, Any] = {}
+    quoted_for_proxy: list[OptionContract] = []
 
     if not do_futu:
         tests["connection"] = Check("connection", "SKIPPED", "--futu-test not set", None)
@@ -209,7 +213,7 @@ def run_diagnostic(host: str, port: int, do_futu: bool) -> dict[str, Any]:
         vix_q = step("vix", adapter.get_vix_quote)
         if vix_q is not None:
             if vix_q.source == "LIVE QUOTE" and vix_q.last is not None:
-                tests["vix"] = Check("vix", "PASS", f"US.VIX last={vix_q.last}", None)
+                tests["vix"] = Check("vix", "PASS", f"{VIX_CODE} last={vix_q.last}", None)
                 live_vix_source = "LIVE QUOTE"
             else:
                 tests["vix"] = Check(
@@ -283,26 +287,63 @@ def run_diagnostic(host: str, port: int, do_futu: bool) -> dict[str, Any]:
         if kl_q and kl_q.get("source") == "LIVE QUOTE" and len(kl_q.get("closes") or []) >= 25:
             live_qqq_closes = kl_q["closes"]
             live_qqq_source = "LIVE QUOTE"
-        kl_v = step("klines_vix", lambda: adapter.get_daily_closes("US.VIX", 80))
+        kl_v = step("klines_vix", lambda: adapter.get_daily_closes(VIX_CODE, 80))
         if kl_v and kl_v.get("source") == "LIVE QUOTE" and kl_v.get("closes"):
             live_vix_closes = kl_v["closes"]
+
+        quoted_for_proxy = list(quoted)
+        spot_for_proxy = qqq_q.last if qqq_q and qqq_q.source == "LIVE QUOTE" else None
+        try:
+            vix_resolved = resolve_vix_input(
+                live_vix=vix_q.last if vix_q and vix_q.source == "LIVE QUOTE" else None,
+                live_vix_source=live_vix_source,
+                live_vix_closes=live_vix_closes,
+                option_rows=quoted_for_proxy,
+                spot=spot_for_proxy,
+                live_qqq_closes=live_qqq_closes,
+                adapter=adapter,
+            )
+            if vix_resolved.get("index_quote_ok"):
+                tests["vix_proxy"] = Check("vix_proxy", "SKIPPED", "live US..VIX available; proxy unused", None)
+            elif vix_resolved.get("value") is not None:
+                tests["vix_proxy"] = Check(
+                    "vix_proxy",
+                    "PASS",
+                    f"{vix_resolved.get('method')}={vix_resolved.get('value'):.2f} source={vix_resolved.get('source')}",
+                    None,
+                    extra={"method": vix_resolved.get("method"), "reason": vix_resolved.get("reason")},
+                )
+            else:
+                tests["vix_proxy"] = Check(
+                    "vix_proxy",
+                    "FAIL",
+                    vix_resolved.get("reason") or "no usable VIX proxy",
+                    "DATA",
+                )
+        except Exception as e:
+            errors.append(f"vix_proxy: {type(e).__name__}: {e}")
+            tests["vix_proxy"] = Check("vix_proxy", "FAIL", f"{type(e).__name__}: {e}", "CODE")
+            vix_resolved = {}
 
         try:
             adapter.disconnect()
         except Exception:
             pass
 
-    for required in ("quote", "vix", "chain", "option_quote", "surface"):
+    for required in ("quote", "vix", "vix_proxy", "chain", "option_quote", "surface"):
         tests.setdefault(required, Check(required, "SKIPPED", "not reached", "ENVIRONMENT"))
 
     # Engines always run; they self-label DERIVED vs LIVE.
     try:
         engines = run_state_risk(
             live_qqq_closes=live_qqq_closes,
-            live_vix=vix_q.last if vix_q else None,
+            live_vix=vix_resolved.get("value") if vix_resolved else (vix_q.last if vix_q else None),
             live_vix_closes=live_vix_closes,
             live_qqq_source=live_qqq_source,
-            live_vix_source=live_vix_source,
+            live_vix_source=(vix_resolved.get("source") if vix_resolved and vix_resolved.get("value") is not None else live_vix_source),
+            vix_method=(vix_resolved.get("method") if vix_resolved else None),
+            vix_prev5_override=(vix_resolved.get("prev5") if vix_resolved else None),
+            vix_reason=(vix_resolved.get("reason") if vix_resolved else None),
         )
         st = engines["state"]
         risk = engines["risk"]
@@ -395,7 +436,8 @@ def run_diagnostic(host: str, port: int, do_futu: bool) -> dict[str, Any]:
         "environment": env,
         "opend": opend,
         "qqq": qqq_q.to_dict() if qqq_q else {"code": "US.QQQ", "source": "UNAVAILABLE", "last": None, "bid": None, "ask": None},
-        "vix": vix_q.to_dict() if vix_q else {"code": "US.VIX", "source": "UNAVAILABLE", "last": None},
+        "vix": vix_q.to_dict() if vix_q else {"code": VIX_CODE, "source": "UNAVAILABLE", "last": None},
+        "vix_proxy": vix_resolved or {"source": "UNAVAILABLE"},
         "chain": chain,
         "option_quote": option_quote_info,
         "surface": surface_sum,

@@ -50,6 +50,10 @@ def classify_error(message: str | None, *, connected: bool = False) -> str:
             "option right",
             "no access",
             "not entitled",
+            "暂不支持美股指数",
+            "暫不支持美股指數",
+            "不支持美股指数",
+            "不支持美股指數",
             "订阅额度",
             "subscribe limit",
             "quota",
@@ -160,12 +164,31 @@ def next_action(checks: dict) -> str:
             "Keep missing fields as UNAVAILABLE. Do not fill Black-Scholes and call it LIVE.\n"
             f"Reason: {reason('surface')}"
         )
+    proxy = st("vix_proxy")
     if vix != "PASS":
+        r = reason("vix")
+        if proxy == "PASS":
+            return (
+                "US..VIX index quote is unavailable (OpenAPI does not support US indices / entitlement). "
+                "State/risk now uses a DERIVED VIX-units proxy (prefer QQQ ~30D ATM IV*100; "
+                "VIXY only for acceleration aid). Do NOT treat the proxy as LIVE Cboe VIX.\n"
+                f"Index reason: {r}\n"
+                f"Proxy: {reason('vix_proxy')}\n"
+                "Next: keep running with proxy, or if Futu ever enables US index quotes, US..VIX will take priority."
+            )
+        if any(k in r for k in ("暂不支持美股指数", "暫不支持美股指數", "不支持美股指数", "不支持美股指數")):
+            return (
+                "QQQ live path is up. Correct VIX code is US..VIX, but this OpenD cannot quote US indices "
+                "(暂不支持美股指数). OpenAPI currently lists US indices as unsupported.\n"
+                "Proxy also failed — check option IV surface / QQQ closes.\n"
+                "Do NOT substitute US.VIXY/US.VXX last price as VIX level.\n"
+                f"Reason: {r} | proxy: {reason('vix_proxy')}"
+            )
         return (
-            "QQQ live path is up, VIX quote is not. State engine can still run with QQQ realized vol, "
-            "but BUILDING/TAIL thresholds that need VIX stay PARTIAL.\n"
-            f"Reason: {reason('vix')}\n"
-            "Next: confirm US.VIX (or the VIX index your OpenD exposes) and re-run the same command."
+            "QQQ live path is up, VIX quote is not, and VIX proxy is not ready.\n"
+            f"Reason: {r}\n"
+            f"Proxy: {reason('vix_proxy')}\n"
+            "Next: confirm option LIVE IV quotes exist near 30D ATM, then re-run."
         )
     return (
         "FUTU LIVE DATA PATH = READY.\n"
