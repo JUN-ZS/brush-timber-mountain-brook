@@ -249,7 +249,21 @@ def render_txt(doc: dict[str, Any]) -> str:
     }
     for key in order:
         lines.extend(_check_block(alias.get(key, key), tests.get(key)))
+
+    dd = doc.get("drawdown_alert") or {}
+    es = dd.get("episodes_source") or {}
     lines += [
+        "",
+        "## DRAWDOWN ALERT",
+        "",
+        f"source: {es.get('source')}",
+        f"feature_hash: {es.get('feature_hash')}",
+        f"manifest_hash: {es.get('manifest_hash')}",
+        f"looks_like_historical_max_dd: {_s(dd.get('looks_like_historical_max_dd'))}",
+        f"current_dd_from_ath: {_s(dd.get('current_dd_from_ath'))}",
+        f"best_crash_peak: {_s((dd.get('best_crash_match') or {}).get('peak_date'))}",
+        f"best_crash_alert_score: {_s((dd.get('best_crash_match') or {}).get('alert_score'))}",
+        f"note: stress similarity only — not annualized return search",
         "",
         "## OVERALL STATUS",
         "",
@@ -269,7 +283,11 @@ def render_txt(doc: dict[str, Any]) -> str:
         "Grok Build cannot reach your Windows 127.0.0.1 — this TXT is the API.",
         "",
     ]
-    return "\n".join(lines) + "\n"
+    # include drawdown_alert check if present
+    if "drawdown_alert" in tests:
+        # already printed section above; also mirror as check line near others via order if added
+        pass
+    return "\n".join(lines)
 
 
 def write_reports(doc: dict[str, Any], txt_path: Path) -> tuple[Path, Path]:

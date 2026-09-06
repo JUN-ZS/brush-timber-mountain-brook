@@ -36,6 +36,7 @@ from .types import (
     jsonable,
 )
 from .universe import last_close, load_universe
+from .drawdown_alert import alert_report as dd_alert_report
 from .vix_proxy import resolve_vix_input
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -429,6 +430,50 @@ def run_diagnostic(host: str, port: int, do_futu: bool) -> dict[str, Any]:
         scenario = {"status": "FAIL", "reason": str(e)}
         tests["scenario"] = Check("scenario", "FAIL", str(e), "CODE")
 
+
+    drawdown = {"module": "drawdown_alert", "status": "SKIPPED"}
+    try:
+        u_dd = load_universe()
+        dates = list(u_dd.get("dates") or [])
+        raw = (u_dd.get("c") or {}).get("QQQ") or []
+        vix_raw = (u_dd.get("c") or {}).get("VIX") or []
+        last = None
+        prices = []
+        for x in raw:
+            if isinstance(x, (int, float)) and x == x and x > 0:
+                last = float(x)
+            prices.append(last if last is not None else float("nan"))
+        last_v = None
+        vix_series = []
+        for x in vix_raw:
+            if isinstance(x, (int, float)) and x == x and x > 0:
+                last_v = float(x)
+            vix_series.append(last_v if last_v is not None else float("nan"))
+        start = next((i for i, x in enumerate(prices) if x == x), None)
+        if start is None:
+            raise RuntimeError("QQQ series empty")
+        drawdown = dd_alert_report(
+            dates[start:],
+            prices[start:],
+            vix_series[start:] if vix_series else None,
+            repo_root=ROOT,
+            symbol="QQQ",
+        )
+        src = (drawdown.get("episodes_source") or {}).get("source")
+        looks = drawdown.get("looks_like_historical_max_dd")
+        cur_dd = drawdown.get("current_dd_from_ath")
+        tests["drawdown_alert"] = Check(
+            "drawdown_alert",
+            "PASS" if src == "DD_EPISODES_CACHE" else "PARTIAL",
+            f"source={src} looks_like_max_dd={looks} ath_dd={None if cur_dd is None else round(cur_dd * 100, 2)}%",
+            None if src == "DD_EPISODES_CACHE" else "DATA",
+        )
+    except Exception as e:
+        warnings.append(f"drawdown_alert: {e}")
+        drawdown = {"module": "drawdown_alert", "status": "FAIL", "reason": str(e)}
+        tests["drawdown_alert"] = Check("drawdown_alert", "FAIL", str(e), "CODE")
+
+
     overall, overall_class, bottleneck = overall_of(tests)
     doc = {
         "run_id": uuid.uuid4().hex[:12],
@@ -447,6 +492,7 @@ def run_diagnostic(host: str, port: int, do_futu: bool) -> dict[str, Any]:
         "paper": paper,
         "scenario": {k: v for k, v in scenario.items() if k != "rows"},
         "scenario_rows": scenario.get("rows") or [],
+        "drawdown_alert": {k: v for k, v in drawdown.items() if k != "current_features"},
         "tests": {k: v.to_dict() for k, v in tests.items()},
         "errors": errors,
         "warnings": warnings,
