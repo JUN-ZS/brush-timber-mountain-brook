@@ -9,6 +9,7 @@ const NAV = [
   { to: "/rank", label: "排行" },
   { to: "/deploy", label: "結構競爭" },
   { to: "/backtest", label: "回測 V2.2" },
+  { to: "/live", label: "LIVE / PAPER" },
   { to: "/matrix", label: "價×波" },
   { to: "/missing", label: "缺失" },
 ] as const;
@@ -31,7 +32,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="flex flex-wrap gap-2">
             <Badge tone="fragile">{card?.split ?? "—"}</Badge>
             <Badge tone="lock">OPTIONS MISSING</Badge>
-            <Badge tone="lock">LIVE LOCKED</Badge>
+            <Badge tone="fragile">LIVE WAITING</Badge>
             <Badge tone="mute">{card?.date ?? "—"}</Badge>
           </div>
         </div>
