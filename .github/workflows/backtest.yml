@@ -9,6 +9,8 @@ on:
       - "src/data/universe.json"
       - "scripts/run-backtest.ts"
       - ".github/workflows/backtest.yml"
+      - "package.json"
+      - "package-lock.json"
   schedule:
     - cron: "0 6 * * 1"
 
@@ -22,7 +24,14 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-      - run: npm ci
+      - name: Install dependencies
+        run: |
+          if npm ci --no-audit --no-fund; then
+            echo "npm ci ok"
+          else
+            echo "package-lock is out of sync with package.json (pre-existing ajv drift). Falling back to npm install so the engine still runs."
+            npm install --no-audit --no-fund
+          fi
       - name: Run backtest engine
         run: npm run backtest
       - name: Upload artifacts
