@@ -1,0 +1,548 @@
+{
+  "module": "cost_oos_cpcv_survival",
+  "asof": "2026-09-07",
+  "purpose": "Attack STRETCH / examine TARGET band without carving new params",
+  "disclaimer": "All metrics are on FROZEN V2.2 Derived path. CPCV/LOO here = path sensitivity, not re-searched policies.",
+  "labels": {
+    "THEORETICAL_TARGET_BAND": "CAGR 10\u201315%, MaxDD preferred > -10%",
+    "STRETCH_HYPOTHESIS": "CAGR \u226512% and MaxDD > -5%"
+  },
+  "cost_multiplier": [
+    {
+      "cost_mult": 1.0,
+      "meaning": "1.0 = V2.2 estimated 10% spread baseline already in curve; >1 scales additional premium drag",
+      "cagr": 0.0701,
+      "maxdd": -0.5338,
+      "extra_drag_sum": 0.0,
+      "in_theoretical_band_cagr_and_dd": false,
+      "cagr_in_10_15": false,
+      "stretch_12_dd5": false
+    },
+    {
+      "cost_mult": 1.25,
+      "meaning": "1.0 = V2.2 estimated 10% spread baseline already in curve; >1 scales additional premium drag",
+      "cagr": 0.0409,
+      "maxdd": -0.5633,
+      "extra_drag_sum": 0.6127,
+      "in_theoretical_band_cagr_and_dd": false,
+      "cagr_in_10_15": false,
+      "stretch_12_dd5": false
+    },
+    {
+      "cost_mult": 1.5,
+      "meaning": "1.0 = V2.2 estimated 10% spread baseline already in curve; >1 scales additional premium drag",
+      "cagr": 0.0123,
+      "maxdd": -0.592,
+      "extra_drag_sum": 1.2253,
+      "in_theoretical_band_cagr_and_dd": false,
+      "cagr_in_10_15": false,
+      "stretch_12_dd5": false
+    },
+    {
+      "cost_mult": 2.0,
+      "meaning": "1.0 = V2.2 estimated 10% spread baseline already in curve; >1 scales additional premium drag",
+      "cagr": -0.043,
+      "maxdd": -0.7495,
+      "extra_drag_sum": 2.4507,
+      "in_theoretical_band_cagr_and_dd": false,
+      "cagr_in_10_15": false,
+      "stretch_12_dd5": false
+    },
+    {
+      "cost_mult": 3.0,
+      "meaning": "1.0 = V2.2 estimated 10% spread baseline already in curve; >1 scales additional premium drag",
+      "cagr": -0.1464,
+      "maxdd": -0.9773,
+      "extra_drag_sum": 4.9013,
+      "in_theoretical_band_cagr_and_dd": false,
+      "cagr_in_10_15": false,
+      "stretch_12_dd5": false
+    }
+  ],
+  "era_at_cost": [
+    {
+      "era": "2003-2007",
+      "stress_label": "BULL",
+      "cost_mult": 1.0,
+      "cagr": 0.0796,
+      "maxdd": -0.1418,
+      "n": 946,
+      "dominant_state": "CALM",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2004-03-30\u21922007-12-31"
+    },
+    {
+      "era": "2003-2007",
+      "stress_label": "BULL",
+      "cost_mult": 2.0,
+      "cagr": 0.041,
+      "maxdd": -0.153,
+      "n": 946,
+      "dominant_state": "CALM",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2004-03-30\u21922007-12-31"
+    },
+    {
+      "era": "2008-2009",
+      "stress_label": "CRISIS",
+      "cost_mult": 1.0,
+      "cagr": -0.1785,
+      "maxdd": -0.4902,
+      "n": 505,
+      "dominant_state": "TAIL",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2008-01-02\u21922009-12-31"
+    },
+    {
+      "era": "2008-2009",
+      "stress_label": "CRISIS",
+      "cost_mult": 2.0,
+      "cagr": -0.3054,
+      "maxdd": -0.6012,
+      "n": 505,
+      "dominant_state": "TAIL",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2008-01-02\u21922009-12-31"
+    },
+    {
+      "era": "2010-2019",
+      "stress_label": "BULL",
+      "cost_mult": 1.0,
+      "cagr": 0.0987,
+      "maxdd": -0.1946,
+      "n": 2516,
+      "dominant_state": "CALM",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2010-01-04\u21922019-12-31"
+    },
+    {
+      "era": "2010-2019",
+      "stress_label": "BULL",
+      "cost_mult": 2.0,
+      "cagr": 0.0331,
+      "maxdd": -0.2861,
+      "n": 2516,
+      "dominant_state": "CALM",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2010-01-04\u21922019-12-31"
+    },
+    {
+      "era": "2020",
+      "stress_label": "SHOCK",
+      "cost_mult": 1.0,
+      "cagr": 0.2304,
+      "maxdd": -0.1892,
+      "n": 253,
+      "dominant_state": "UNSTABLE",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2020-01-02\u21922020-12-31"
+    },
+    {
+      "era": "2020",
+      "stress_label": "SHOCK",
+      "cost_mult": 2.0,
+      "cagr": -0.1044,
+      "maxdd": -0.2525,
+      "n": 253,
+      "dominant_state": "UNSTABLE",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2020-01-02\u21922020-12-31"
+    },
+    {
+      "era": "2021-2022",
+      "stress_label": "BEAR",
+      "cost_mult": 1.0,
+      "cagr": -0.1192,
+      "maxdd": -0.3524,
+      "n": 503,
+      "dominant_state": "UNSTABLE",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2021-01-04\u21922022-12-30"
+    },
+    {
+      "era": "2021-2022",
+      "stress_label": "BEAR",
+      "cost_mult": 2.0,
+      "cagr": -0.3044,
+      "maxdd": -0.532,
+      "n": 503,
+      "dominant_state": "UNSTABLE",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2021-01-04\u21922022-12-30"
+    },
+    {
+      "era": "2023-2026",
+      "stress_label": "CURRENT",
+      "cost_mult": 1.0,
+      "cagr": 0.2204,
+      "maxdd": -0.1782,
+      "n": 921,
+      "dominant_state": "CALM",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2023-01-03\u21922026-09-04"
+    },
+    {
+      "era": "2023-2026",
+      "stress_label": "CURRENT",
+      "cost_mult": 2.0,
+      "cagr": 0.0266,
+      "maxdd": -0.3485,
+      "n": 921,
+      "dominant_state": "CALM",
+      "cagr_in_10_15": false,
+      "in_theoretical_band_cagr_and_dd": false,
+      "stretch_12_dd5": false,
+      "coverage": "2023-01-03\u21922026-09-04"
+    }
+  ],
+  "leave_one_era_out": [
+    {
+      "held_out_era": "2003-2007",
+      "held_out_label": "BULL",
+      "train_cagr": 0.0683,
+      "train_maxdd": -0.4902,
+      "holdout_cagr": 0.0796,
+      "holdout_maxdd": -0.1418,
+      "holdout_stretch": false,
+      "holdout_cagr_in_10_15": false,
+      "note": "FROZEN_V22_PATH_SENSITIVITY \u2014 not re-optimized CPCV"
+    },
+    {
+      "held_out_era": "2008-2009",
+      "held_out_label": "CRISIS",
+      "train_cagr": 0.089,
+      "train_maxdd": -0.3524,
+      "holdout_cagr": -0.1785,
+      "holdout_maxdd": -0.4902,
+      "holdout_stretch": false,
+      "holdout_cagr_in_10_15": false,
+      "note": "FROZEN_V22_PATH_SENSITIVITY \u2014 not re-optimized CPCV"
+    },
+    {
+      "held_out_era": "2010-2019",
+      "held_out_label": "BULL",
+      "train_cagr": 0.0262,
+      "train_maxdd": -0.5338,
+      "holdout_cagr": 0.0987,
+      "holdout_maxdd": -0.1946,
+      "holdout_stretch": false,
+      "holdout_cagr_in_10_15": false,
+      "note": "FROZEN_V22_PATH_SENSITIVITY \u2014 not re-optimized CPCV"
+    },
+    {
+      "held_out_era": "2020",
+      "held_out_label": "SHOCK",
+      "train_cagr": 0.0603,
+      "train_maxdd": -0.5338,
+      "holdout_cagr": 0.2304,
+      "holdout_maxdd": -0.1892,
+      "holdout_stretch": false,
+      "holdout_cagr_in_10_15": false,
+      "note": "FROZEN_V22_PATH_SENSITIVITY \u2014 not re-optimized CPCV"
+    },
+    {
+      "held_out_era": "2021-2022",
+      "held_out_label": "BEAR",
+      "train_cagr": 0.0822,
+      "train_maxdd": -0.5338,
+      "holdout_cagr": -0.1192,
+      "holdout_maxdd": -0.3524,
+      "holdout_stretch": false,
+      "holdout_cagr_in_10_15": false,
+      "note": "FROZEN_V22_PATH_SENSITIVITY \u2014 not re-optimized CPCV"
+    },
+    {
+      "held_out_era": "2023-2026",
+      "held_out_label": "CURRENT",
+      "train_cagr": 0.043,
+      "train_maxdd": -0.5338,
+      "holdout_cagr": 0.2204,
+      "holdout_maxdd": -0.1782,
+      "holdout_stretch": false,
+      "holdout_cagr_in_10_15": false,
+      "note": "FROZEN_V22_PATH_SENSITIVITY \u2014 not re-optimized CPCV"
+    }
+  ],
+  "cpcv_block": {
+    "summary": {
+      "method": "Combinatorial block CV on FROZEN V2.2 equity path (6 blocks, C(6,2) test pairs). Not a re-fit search.",
+      "n_folds": 15,
+      "test_cagr_mean": 0.0465,
+      "test_cagr_min": -0.0127,
+      "test_cagr_max": 0.1217,
+      "test_maxdd_mean": -0.3384,
+      "test_maxdd_worst": -0.5338,
+      "folds_stretch_pass": 0,
+      "folds_cagr_in_10_15": 2
+    },
+    "folds": [
+      {
+        "test_blocks": [
+          0,
+          1
+        ],
+        "test_span": "2004-03-30\u20262011-09-15",
+        "train_cagr": 0.114,
+        "train_maxdd": -0.3524,
+        "test_cagr": -0.0127,
+        "test_maxdd": -0.5338,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          0,
+          2
+        ],
+        "test_span": "2004-03-30\u20262015-06-15",
+        "train_cagr": 0.0448,
+        "train_maxdd": -0.4998,
+        "test_cagr": 0.0645,
+        "test_maxdd": -0.1852,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          0,
+          3
+        ],
+        "test_span": "2004-03-30\u20262019-03-11",
+        "train_cagr": 0.0492,
+        "train_maxdd": -0.4998,
+        "test_cagr": 0.0425,
+        "test_maxdd": -0.2059,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          0,
+          4
+        ],
+        "test_span": "2004-03-30\u20262022-12-01",
+        "train_cagr": 0.0559,
+        "train_maxdd": -0.4998,
+        "test_cagr": 0.0273,
+        "test_maxdd": -0.3512,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          0,
+          5
+        ],
+        "test_span": "2004-03-30\u20262026-09-04",
+        "train_cagr": 0.0408,
+        "train_maxdd": -0.4998,
+        "test_cagr": 0.042,
+        "test_maxdd": -0.1782,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          1,
+          2
+        ],
+        "test_span": "2007-12-21\u20262015-06-15",
+        "train_cagr": 0.0683,
+        "train_maxdd": -0.3524,
+        "test_cagr": 0.0052,
+        "test_maxdd": -0.4998,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          1,
+          3
+        ],
+        "test_span": "2007-12-21\u20262019-03-11",
+        "train_cagr": 0.072,
+        "train_maxdd": -0.3524,
+        "test_cagr": -0.0035,
+        "test_maxdd": -0.4998,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          1,
+          4
+        ],
+        "test_span": "2007-12-21\u20262022-12-01",
+        "train_cagr": 0.0778,
+        "train_maxdd": -0.1946,
+        "test_cagr": -0.0106,
+        "test_maxdd": -0.4998,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          1,
+          5
+        ],
+        "test_span": "2007-12-21\u20262026-09-04",
+        "train_cagr": 0.0698,
+        "train_maxdd": -0.3512,
+        "test_cagr": 0.0141,
+        "test_maxdd": -0.4998,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          2,
+          3
+        ],
+        "test_span": "2011-09-16\u20262019-03-11",
+        "train_cagr": 0.0346,
+        "train_maxdd": -0.5338,
+        "test_cagr": 0.1065,
+        "test_maxdd": -0.1946,
+        "test_stretch": false,
+        "test_cagr_in_10_15": true
+      },
+      {
+        "test_blocks": [
+          2,
+          4
+        ],
+        "test_span": "2011-09-16\u20262022-12-01",
+        "train_cagr": 0.0402,
+        "train_maxdd": -0.5338,
+        "test_cagr": 0.0584,
+        "test_maxdd": -0.3512,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          2,
+          5
+        ],
+        "test_span": "2011-09-16\u20262026-09-04",
+        "train_cagr": 0.0251,
+        "train_maxdd": -0.5338,
+        "test_cagr": 0.0732,
+        "test_maxdd": -0.1782,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          3,
+          4
+        ],
+        "test_span": "2015-06-16\u20262022-12-01",
+        "train_cagr": 0.0438,
+        "train_maxdd": -0.5338,
+        "test_cagr": 0.0777,
+        "test_maxdd": -0.3512,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          3,
+          5
+        ],
+        "test_span": "2015-06-16\u20262026-09-04",
+        "train_cagr": 0.0294,
+        "train_maxdd": -0.5338,
+        "test_cagr": 0.0912,
+        "test_maxdd": -0.1946,
+        "test_stretch": false,
+        "test_cagr_in_10_15": false
+      },
+      {
+        "test_blocks": [
+          4,
+          5
+        ],
+        "test_span": "2019-03-12\u20262026-09-04",
+        "train_cagr": 0.0452,
+        "train_maxdd": -0.5338,
+        "test_cagr": 0.1217,
+        "test_maxdd": -0.3524,
+        "test_stretch": false,
+        "test_cagr_in_10_15": true
+      }
+    ]
+  },
+  "survival": {
+    "subject": "V2.2 PROTECTED Derived BS(VIX) frozen path",
+    "gates": {
+      "THEORETICAL_TARGET_BAND_cagr_10_15_and_maxdd_gt_-10": {
+        "pass": false,
+        "observed": {
+          "cagr": 0.0701,
+          "maxdd": -0.5338
+        }
+      },
+      "STRETCH_12_and_maxdd_gt_-5": {
+        "pass": false,
+        "observed": {
+          "cagr": 0.0701,
+          "maxdd": -0.5338
+        }
+      },
+      "cost_mult_2x_still_cagr_in_10_15": {
+        "pass": false,
+        "observed": {
+          "cagr": -0.043,
+          "maxdd": -0.7495
+        }
+      },
+      "all_era_holdouts_avoid_stretch_claim": {
+        "pass": true,
+        "note": "Stretch must not appear as stable across eras"
+      },
+      "cpcv_stretch_fold_count_is_zero": {
+        "pass": true,
+        "folds_stretch_pass": 0
+      },
+      "crisis_era_2008_survives_without_blowup_definition": {
+        "definition": "Not ruin; MaxDD reported honestly",
+        "observed_maxdd": -0.4902,
+        "pass": true,
+        "note": "Pass means we record crisis DD; does NOT mean stretch survival"
+      }
+    },
+    "verdict": {
+      "THEORETICAL_TARGET_BAND": "NOT_SURVIVED as joint CAGR+DD band on frozen V2.2 full path",
+      "STRETCH_HYPOTHESIS": "REJECTED on frozen V2.2 (full, eras, cost\u00d72, CPCV folds)",
+      "useful_signal": "Era sensitivity is large; cost\u2191 hurts CAGR; crisis DD ~-48% dominates any <5% fantasy"
+    }
+  },
+  "github": {
+    "repo": "JUN-ZS/brush-timber-mountain-brook",
+    "branch": "pr-1",
+    "pr": "https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/2"
+  }
+}

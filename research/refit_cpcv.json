@@ -1,0 +1,621 @@
+{
+  "module": "refit_cpcv",
+  "asof": "2026-09-07",
+  "sample": {
+    "start": "2004-03-30",
+    "end": "2026-09-04",
+    "blocks": [
+      {
+        "id": 0,
+        "from": 60,
+        "to": 1000,
+        "fromDate": "2004-03-30",
+        "toDate": "2007-12-21"
+      },
+      {
+        "id": 1,
+        "from": 1001,
+        "to": 1941,
+        "fromDate": "2007-12-24",
+        "toDate": "2011-09-16"
+      },
+      {
+        "id": 2,
+        "from": 1942,
+        "to": 2882,
+        "fromDate": "2011-09-19",
+        "toDate": "2015-06-16"
+      },
+      {
+        "id": 3,
+        "from": 2883,
+        "to": 3823,
+        "fromDate": "2015-06-17",
+        "toDate": "2019-03-13"
+      },
+      {
+        "id": 4,
+        "from": 3824,
+        "to": 4764,
+        "fromDate": "2019-03-14",
+        "toDate": "2022-12-05"
+      },
+      {
+        "id": 5,
+        "from": 4765,
+        "to": 5705,
+        "fromDate": "2022-12-06",
+        "toDate": "2026-09-04"
+      }
+    ]
+  },
+  "summary": {
+    "method": "Re-fit: firstWaveGrid search with protectedScore(validation) on train-prefix windows only; test evaluated once. Walk-forward over 6 blocks + purged adjacent-block pairs. Embargo=21d before test. Non-contiguous post-hole train excluded to prevent path leak.",
+    "evidence_class": "REFIT_CPCV_TRAIN_ONLY_SELECTION",
+    "not": "frozen_curve_sensitivity",
+    "labels": {
+      "THEORETICAL_TARGET_BAND": "CAGR 10-15% and MaxDD >= -10%",
+      "STRETCH_HYPOTHESIS": "CAGR >= 12% and MaxDD >= -5%"
+    },
+    "grid_n": 648,
+    "embargo_days": 21,
+    "n_walk_forward": 5,
+    "n_purged_adjacent": 4,
+    "test_cagr_mean": 0.0784,
+    "test_cagr_min": -0.1003,
+    "test_cagr_max": 0.1949,
+    "test_maxdd_mean": -0.3317,
+    "test_maxdd_worst": -0.5581,
+    "folds_stretch_pass": 0,
+    "folds_cagr_in_10_15": 4,
+    "folds_joint_band": 0,
+    "verdict": {
+      "STRETCH_HYPOTHESIS": "REJECTED_ON_REFIT_TEST_FOLDS",
+      "THEORETICAL_JOINT_BAND": "NOT_SURVIVED_ON_REFIT_TEST_FOLDS"
+    }
+  },
+  "walk_forward": [
+    {
+      "label": "walk_forward_test_block_1",
+      "ms": 2072,
+      "window": {
+        "train": "2004-03-30→2006-12-21",
+        "val": "2006-12-22→2007-11-21",
+        "test": "2007-12-24→2011-09-16",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte45_roll7_c0_u0.75_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 45,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": 111.64109284452421,
+      "train": {
+        "cagr": 0.0659,
+        "maxDd": -0.1672,
+        "sharpe": 0.53,
+        "nDays": 690,
+        "totalReturn": 0.191
+      },
+      "validation": {
+        "cagr": 0.1152,
+        "maxDd": -0.0817,
+        "sharpe": 0.8497,
+        "nDays": 230,
+        "totalReturn": 0.1047
+      },
+      "test": {
+        "cagr": -0.1003,
+        "maxDd": -0.5581,
+        "sharpe": -0.4226,
+        "nDays": 941,
+        "totalReturn": -0.326
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": false,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": false,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    },
+    {
+      "label": "walk_forward_test_block_2",
+      "ms": 3869,
+      "window": {
+        "train": "2004-03-30→2009-10-12",
+        "val": "2009-10-13→2011-08-17",
+        "test": "2011-09-19→2015-06-16",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte21_roll7_c0_u0.25_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 21,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.25,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": 16.660698591801758,
+      "train": {
+        "cagr": -0.0628,
+        "maxDd": -0.6401,
+        "sharpe": -0.235,
+        "nDays": 1395,
+        "totalReturn": -0.3016
+      },
+      "validation": {
+        "cagr": 0.0592,
+        "maxDd": -0.1722,
+        "sharpe": 0.4345,
+        "nDays": 466,
+        "totalReturn": 0.1122
+      },
+      "test": {
+        "cagr": 0.1431,
+        "maxDd": -0.1268,
+        "sharpe": 1.017,
+        "nDays": 941,
+        "totalReturn": 0.6476
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": true,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": true,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    },
+    {
+      "label": "walk_forward_test_block_3",
+      "ms": 5759,
+      "window": {
+        "train": "2004-03-30→2012-07-31",
+        "val": "2012-08-01→2015-05-15",
+        "test": "2015-06-17→2019-03-13",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte21_roll7_c0_u0.25_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 21,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.25,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": 283.0881089016123,
+      "train": {
+        "cagr": -0.0273,
+        "maxDd": -0.6401,
+        "sharpe": -0.0545,
+        "nDays": 2101,
+        "totalReturn": -0.2062
+      },
+      "validation": {
+        "cagr": 0.1989,
+        "maxDd": -0.1207,
+        "sharpe": 1.4626,
+        "nDays": 701,
+        "totalReturn": 0.6564
+      },
+      "test": {
+        "cagr": 0.1218,
+        "maxDd": -0.2149,
+        "sharpe": 0.7996,
+        "nDays": 941,
+        "totalReturn": 0.5362
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": true,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": true,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    },
+    {
+      "label": "walk_forward_test_block_4",
+      "ms": 7001,
+      "window": {
+        "train": "2004-03-30→2015-05-22",
+        "val": "2015-05-26→2019-02-11",
+        "test": "2019-03-14→2022-12-05",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte45_roll7_c0_u0.75_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 45,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": 81.4722367496381,
+      "train": {
+        "cagr": 0.0347,
+        "maxDd": -0.58,
+        "sharpe": 0.2932,
+        "nDays": 2807,
+        "totalReturn": 0.4621
+      },
+      "validation": {
+        "cagr": 0.0892,
+        "maxDd": -0.17,
+        "sharpe": 0.6904,
+        "nDays": 936,
+        "totalReturn": 0.3736
+      },
+      "test": {
+        "cagr": 0.0288,
+        "maxDd": -0.3722,
+        "sharpe": 0.242,
+        "nDays": 941,
+        "totalReturn": 0.112
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": false,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": false,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    },
+    {
+      "label": "walk_forward_test_block_5",
+      "ms": 8492,
+      "window": {
+        "train": "2004-03-30→2018-03-13",
+        "val": "2018-03-14→2022-11-03",
+        "test": "2022-12-06→2026-09-04",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte45_roll7_c0.25_u0.75_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 45,
+        "rollDays": 7,
+        "calmPut": 0.25,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": -38.27468738784042,
+      "train": {
+        "cagr": 0.0495,
+        "maxDd": -0.5338,
+        "sharpe": 0.3927,
+        "nDays": 3513,
+        "totalReturn": 0.9614
+      },
+      "validation": {
+        "cagr": 0.0232,
+        "maxDd": -0.3512,
+        "sharpe": 0.2169,
+        "nDays": 1171,
+        "totalReturn": 0.1122
+      },
+      "test": {
+        "cagr": 0.1949,
+        "maxDd": -0.1782,
+        "sharpe": 1.1575,
+        "nDays": 939,
+        "totalReturn": 0.9415
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": false,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": true,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    }
+  ],
+  "purged_adjacent": [
+    {
+      "label": "purged_adjacent_blocks_1_2",
+      "ms": 1648,
+      "window": {
+        "train": "2004-03-30→2006-12-21",
+        "val": "2006-12-22→2007-11-21",
+        "test": "2007-12-24→2015-06-16",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte45_roll7_c0_u0.75_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 45,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": 111.64109284452421,
+      "train": {
+        "cagr": 0.0659,
+        "maxDd": -0.1672,
+        "sharpe": 0.53,
+        "nDays": 690,
+        "totalReturn": 0.191
+      },
+      "validation": {
+        "cagr": 0.1152,
+        "maxDd": -0.0817,
+        "sharpe": 0.8497,
+        "nDays": 230,
+        "totalReturn": 0.1047
+      },
+      "test": {
+        "cagr": 0.0087,
+        "maxDd": -0.5581,
+        "sharpe": 0.1358,
+        "nDays": 1882,
+        "totalReturn": 0.0668
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": false,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": false,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    },
+    {
+      "label": "purged_adjacent_blocks_2_3",
+      "ms": 3432,
+      "window": {
+        "train": "2004-03-30→2009-10-12",
+        "val": "2009-10-13→2011-08-17",
+        "test": "2011-09-19→2019-03-13",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte21_roll7_c0_u0.25_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 21,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.25,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": 16.660698591801758,
+      "train": {
+        "cagr": -0.0628,
+        "maxDd": -0.6401,
+        "sharpe": -0.235,
+        "nDays": 1395,
+        "totalReturn": -0.3016
+      },
+      "validation": {
+        "cagr": 0.0592,
+        "maxDd": -0.1722,
+        "sharpe": 0.4345,
+        "nDays": 466,
+        "totalReturn": 0.1122
+      },
+      "test": {
+        "cagr": 0.1324,
+        "maxDd": -0.2149,
+        "sharpe": 0.9,
+        "nDays": 1882,
+        "totalReturn": 1.531
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": true,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": true,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    },
+    {
+      "label": "purged_adjacent_blocks_3_4",
+      "ms": 5591,
+      "window": {
+        "train": "2004-03-30→2012-07-31",
+        "val": "2012-08-01→2015-05-15",
+        "test": "2015-06-17→2022-12-05",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte21_roll7_c0_u0.25_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 21,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.25,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": 283.0881089016123,
+      "train": {
+        "cagr": -0.0273,
+        "maxDd": -0.6401,
+        "sharpe": -0.0545,
+        "nDays": 2101,
+        "totalReturn": -0.2062
+      },
+      "validation": {
+        "cagr": 0.1989,
+        "maxDd": -0.1207,
+        "sharpe": 1.4626,
+        "nDays": 701,
+        "totalReturn": 0.6564
+      },
+      "test": {
+        "cagr": 0.0662,
+        "maxDd": -0.3901,
+        "sharpe": 0.4308,
+        "nDays": 1882,
+        "totalReturn": 0.6141
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": false,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": false,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    },
+    {
+      "label": "purged_adjacent_blocks_4_5",
+      "ms": 6951,
+      "window": {
+        "train": "2004-03-30→2015-05-22",
+        "val": "2015-05-26→2019-02-11",
+        "test": "2019-03-14→2026-09-04",
+        "embargoDays": 21
+      },
+      "selected": "d0.05_dte45_roll7_c0_u0.75_t0.75_r0.25",
+      "selectedSpec": {
+        "putDistance": 0.05,
+        "dte": 45,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqqCalm": 1,
+        "qqqUnstable": 1,
+        "qqqTail": 1,
+        "qqqRecovery": 1,
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "selectScore": 81.4722367496381,
+      "train": {
+        "cagr": 0.0347,
+        "maxDd": -0.58,
+        "sharpe": 0.2932,
+        "nDays": 2807,
+        "totalReturn": 0.4621
+      },
+      "validation": {
+        "cagr": 0.0892,
+        "maxDd": -0.17,
+        "sharpe": 0.6904,
+        "nDays": 936,
+        "totalReturn": 0.3736
+      },
+      "test": {
+        "cagr": 0.1097,
+        "maxDd": -0.3722,
+        "sharpe": 0.6545,
+        "nDays": 1880,
+        "totalReturn": 1.174
+      },
+      "test_stretch": false,
+      "test_cagr_in_10_15": true,
+      "test_joint_band_10_15_dd10": false,
+      "test_gate_official_12_dd5": {
+        "cagrPass": false,
+        "ddPass": false,
+        "pass": false,
+        "cagrTarget": 0.12,
+        "ddTarget": -0.05
+      },
+      "nGrid": 648
+    }
+  ]
+}
