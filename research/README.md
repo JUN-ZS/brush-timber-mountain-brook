@@ -12,3 +12,4 @@ GitHub: [PR #2](https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/2) on
 | `inertia_state_join_contract.md` | Inertia↔State ASSOCIATION join (Credit sealed) |
 | `state_return_slice.md` | V2.2 State×Return ASSOCIATION slice (Credit sealed) |
 | `relvol_state_return_desc.md` | RelVol weekly DESC × V2.2 Return (ASSOCIATION_ONLY) |
+| `phase1_association_handoff_join.md` | Phase-1 DESC labels × V2.2 geography (ASSOCIATION_ONLY) |

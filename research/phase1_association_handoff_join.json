@@ -1,0 +1,309 @@
+{
+  "module": "phase1_association_handoff_join",
+  "asof": "2026-09-08",
+  "contract": "ASSOCIATION_ONLY",
+  "credit_unlocked": false,
+  "option_ev": false,
+  "proto_eligible": false,
+  "sources": {
+    "handoff_dir": "/workspace/sp500-vol/output/RELEASE/RelVol_PHASE1_ASSOCIATION_HANDOFF/",
+    "pack_hash": "7ca13ce290d28db4",
+    "DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+    "n_tickers": 1490,
+    "partner": "\u6ce2\u52d5"
+  },
+  "nonclaims": [
+    "CRF \u2260 credit",
+    "candidates \u2260 trading signal",
+    "VALIDATION_PENDING / OOS_PENDING on discovery rows",
+    "no Option EV",
+    "no daily event calendar in this handoff \u2014 cannot yet slice V2.2 daily PnL by composite state_key"
+  ],
+  "regime_to_assoc_v22": {
+    "DEAD_VOL": "CALM",
+    "STABLE_LOW_VOL": "CALM",
+    "STABLE_HIGH_VOL": "UNMAPPED",
+    "EXPANDING_VOL": "UNSTABLE",
+    "CHAOTIC_VOL": "UNSTABLE",
+    "EXTREME_TAIL": "TAIL",
+    "UNCLASSIFIED": "UNMAPPED"
+  },
+  "top30_composition": {
+    "ladder": {
+      "REVERSING": 16,
+      "ACCELERATING": 2,
+      "MONOTONIC": 11,
+      "DECELERATING": 1
+    },
+    "horizon": {
+      "DAY": 30
+    },
+    "threshold": {
+      "P99": 15,
+      "P90": 4,
+      "P95": 9,
+      "P80": 2
+    },
+    "shape": {
+      "EXPANDING": 14,
+      "STRONGLY_EXPANDING": 12,
+      "*": 4
+    },
+    "regime": {
+      "UNCLASSIFIED": 9,
+      "DEAD_VOL": 10,
+      "STABLE_LOW_VOL": 7,
+      "*": 4
+    },
+    "assoc_v22": {
+      "UNMAPPED": 13,
+      "CALM": 17
+    }
+  },
+  "top30_by_assoc_v22": [
+    {
+      "assoc_v22": "CALM",
+      "n_state_keys": 17,
+      "mean_crf_across_keys": 0.8629,
+      "mean_delta_vs_baseline": -0.005,
+      "regimes": [
+        [
+          "DEAD_VOL",
+          10
+        ],
+        [
+          "STABLE_LOW_VOL",
+          7
+        ]
+      ],
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "assoc_v22": "UNMAPPED",
+      "n_state_keys": 13,
+      "mean_crf_across_keys": 0.8634,
+      "mean_delta_vs_baseline": -0.003,
+      "regimes": [
+        [
+          "*",
+          4
+        ],
+        [
+          "UNCLASSIFIED",
+          9
+        ]
+      ],
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    }
+  ],
+  "all80_by_assoc_v22": [
+    {
+      "assoc_v22": "CALM",
+      "n_state_keys": 32,
+      "mean_crf_across_keys": 0.8291,
+      "mean_delta_vs_baseline": -0.0021,
+      "regimes": [
+        [
+          "DEAD_VOL",
+          16
+        ],
+        [
+          "STABLE_LOW_VOL",
+          16
+        ]
+      ],
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "assoc_v22": "UNMAPPED",
+      "n_state_keys": 48,
+      "mean_crf_across_keys": 0.8327,
+      "mean_delta_vs_baseline": -0.0007,
+      "regimes": [
+        [
+          "*",
+          29
+        ],
+        [
+          "UNCLASSIFIED",
+          19
+        ]
+      ],
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    }
+  ],
+  "parallel_with_v22_frozen_path": [
+    {
+      "assoc_v22": "CALM",
+      "n_state_keys": 17,
+      "mean_crf_across_keys": 0.8629,
+      "mean_delta_vs_baseline": -0.005,
+      "regimes": [
+        [
+          "DEAD_VOL",
+          10
+        ],
+        [
+          "STABLE_LOW_VOL",
+          7
+        ]
+      ],
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false,
+      "v22_frozen_path": {
+        "cagr": 0.0623,
+        "maxdd": -0.164,
+        "mean_day": 0.000564,
+        "share_of_sample": 0.4497,
+        "n_days": 2538
+      },
+      "reading": "CRF is conditional_reversion_frequency cohort DESC \u2014 not strategy return; V2.2 path stats are separate ASSOCIATION geography"
+    },
+    {
+      "assoc_v22": "UNMAPPED",
+      "n_state_keys": 13,
+      "mean_crf_across_keys": 0.8634,
+      "mean_delta_vs_baseline": -0.003,
+      "regimes": [
+        [
+          "*",
+          4
+        ],
+        [
+          "UNCLASSIFIED",
+          9
+        ]
+      ],
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false,
+      "v22_frozen_path": null,
+      "reading": "CRF is conditional_reversion_frequency cohort DESC \u2014 not strategy return; V2.2 path stats are separate ASSOCIATION geography"
+    }
+  ],
+  "top10_state_keys": [
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|EXPANDING|UNCLASSIFIED",
+      "assoc_v22": "UNMAPPED",
+      "regime": "UNCLASSIFIED",
+      "n": 85,
+      "mean_crf": 0.8231,
+      "mean_delta_vs_baseline": -0.0753,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|EXPANDING|DEAD_VOL",
+      "assoc_v22": "CALM",
+      "regime": "DEAD_VOL",
+      "n": 72,
+      "mean_crf": 0.8163,
+      "mean_delta_vs_baseline": -0.0821,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|EXPANDING|STABLE_LOW_VOL",
+      "assoc_v22": "CALM",
+      "regime": "STABLE_LOW_VOL",
+      "n": 88,
+      "mean_crf": 0.8305,
+      "mean_delta_vs_baseline": -0.0679,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|STRONGLY_EXPANDING|STABLE_LOW_VOL",
+      "assoc_v22": "CALM",
+      "regime": "STABLE_LOW_VOL",
+      "n": 87,
+      "mean_crf": 0.8354,
+      "mean_delta_vs_baseline": -0.063,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|STRONGLY_EXPANDING|DEAD_VOL",
+      "assoc_v22": "CALM",
+      "regime": "DEAD_VOL",
+      "n": 51,
+      "mean_crf": 0.8522,
+      "mean_delta_vs_baseline": -0.0461,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|STRONGLY_EXPANDING|UNCLASSIFIED",
+      "assoc_v22": "UNMAPPED",
+      "regime": "UNCLASSIFIED",
+      "n": 88,
+      "mean_crf": 0.8505,
+      "mean_delta_vs_baseline": -0.0479,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|*|*|*",
+      "assoc_v22": "UNMAPPED",
+      "regime": "*",
+      "n": 506,
+      "mean_crf": 0.8356,
+      "mean_delta_vs_baseline": -0.0628,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|ACCELERATING|*|*|*",
+      "assoc_v22": "UNMAPPED",
+      "regime": "*",
+      "n": 63,
+      "mean_crf": 0.9555,
+      "mean_delta_vs_baseline": 0.0571,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|MONOTONIC|0-1|STRONGLY_EXPANDING|STABLE_LOW_VOL",
+      "assoc_v22": "CALM",
+      "regime": "STABLE_LOW_VOL",
+      "n": 107,
+      "mean_crf": 0.9456,
+      "mean_delta_vs_baseline": 0.0473,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    },
+    {
+      "state_key": "DAY|P99|MONOTONIC|0-1|EXPANDING|DEAD_VOL",
+      "assoc_v22": "CALM",
+      "regime": "DEAD_VOL",
+      "n": 55,
+      "mean_crf": 0.9422,
+      "mean_delta_vs_baseline": 0.0439,
+      "STATUS": "DISCOVERY",
+      "evidence_class": "ASSOCIATION",
+      "credit_unlocked": false
+    }
+  ],
+  "next_for_true_pnl_join": "Need state_key event calendar (ticker,date,state_key) to slice brush-timber curve; until then only label geography",
+  "verdict": {
+    "top_ladder_dominance": "REVERSING + DAY + P99 + EXPANDING dominate TOP30",
+    "crf_vs_baseline": "mean_delta_vs_baseline negative \u2192 less reversion / more continuation vs hz\u00d7thr baseline (DESC only)",
+    "assoc_v22_mix": {
+      "UNMAPPED": 13,
+      "CALM": 17
+    },
+    "stretch_or_credit": "NOT_EVALUATED_AS_CREDIT"
+  }
+}
