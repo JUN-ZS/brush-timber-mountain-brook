@@ -1,23 +1,69 @@
 {
-  "module": "inertia_state_join_contract",
-  "asof": "2026-09-07",
-  "kind": "ASSOCIATION_ONLY",
-  "credit_unlock": false,
-  "sizing_unlock": false,
-  "option_ev_unlock": false,
-  "inertia_allowed_outputs": ["ASSOCIATION", "field_map_labels", "OCCFIELD_DIAG_PASS_tags", "DESC_ONLY_maps"],
-  "inertia_forbidden_outputs": ["HOLD_EXIT_as_object", "CondEV_tradable", "Credit", "Option_EV", "STATEHOLD", "sizing"],
-  "inertia_status_notes": {
-    "OCCFIELD_DIAG": "PASS/DESIGN_OK",
-    "OCCFIELD_REGIME_RESID": "PARTIAL_REGIME_BORNE; G4 DESC_ONLY; G5 kill-cell",
-    "Credit_family": "SEALED"
+  "contract": "inertia_state_join_contract",
+  "mode": "ASSOCIATION_ONLY",
+  "pack_hash": "7ca13ce290d28db4",
+  "credit_unlocked": false,
+  "statehold_unsealed": false,
+  "proto_eligible": false,
+  "join_columns": [
+    "state_bin",
+    "era",
+    "delta_vs_null",
+    "assoc_v22",
+    "evidence_class",
+    "pack_hash",
+    "ticket",
+    "proto_eligible",
+    "credit_unlocked"
+  ],
+  "assoc_v22_enum": [
+    "CALM",
+    "UNSTABLE",
+    "TAIL",
+    "RECOVERY",
+    "UNMAPPED"
+  ],
+  "evidence_class_enum": [
+    "ASSOCIATION",
+    "DESC_ONLY",
+    "SEALED",
+    "FAIL_COUPLED",
+    "FAIL_SIGN_FLIP",
+    "FAIL_SIGN",
+    "FAIL_THIN",
+    "PARTIAL_REGIME_BORNE"
+  ],
+  "era_enum": [
+    "eraA",
+    "eraB",
+    "ROLL1",
+    "ROLL2"
+  ],
+  "occfield": {
+    "diag": "PASS_DESIGN_OK",
+    "grade": "PARTIAL_REGIME_BORNE",
+    "resid": "FAIL_SIGN",
+    "g4_vol_lowmem": "DESC_ONLY",
+    "g5_kill_cell": "ROLL1|MKT|SPY_RV_low|delta=-0.01234"
   },
-  "our_headers": {
-    "regime": ["DEAD_VOL", "STABLE_LOW_VOL", "STABLE_HIGH_VOL", "EXPANDING_VOL", "CHAOTIC_VOL", "EXTREME_TAIL", "UNCLASSIFIED"],
-    "weekPct": "float_0_1",
-    "dispersion.state": ["LOW_INDEX_LOW_DISPERSION", "LOW_INDEX_HIGH_DISPERSION", "HIGH_INDEX_LOW_DISPERSION", "HIGH_INDEX_HIGH_DISPERSION"],
-    "v22_state_assoc": ["CALM", "UNSTABLE", "TAIL", "RECOVERY"],
-    "suggested_join": ["state_bin", "era", "delta_vs_null", "assoc_v22", "evidence_class"]
+  "regime_to_assoc_v22": {
+    "DEAD_VOL": "CALM",
+    "STABLE_LOW_VOL": "CALM",
+    "STABLE_HIGH_VOL": "UNMAPPED",
+    "EXPANDING_VOL": "UNSTABLE",
+    "CHAOTIC_VOL": "UNSTABLE",
+    "EXTREME_TAIL": "TAIL",
+    "UNCLASSIFIED": "UNMAPPED"
   },
-  "source_relvol_map": "research/relvol_v22_state_map.json"
+  "illegal": [
+    "condEV_as_inertia",
+    "credit_unlock_from_association",
+    "recovery_as_occfield_bin",
+    "promote_regime_borne_to_proto_without_new_ticket"
+  ],
+  "paths": {
+    "fail_log": "/workspace/sp500-vol/output/INERTIA_FAIL_LOG.md",
+    "map": "/workspace/sp500-vol/output/INERTIA_FALSIFICATION_MAP_v1/MAP.md",
+    "stamp_dir": "/workspace/sp500-vol/output/INERTIA_OCCFIELD_REGIME_RESID_v1/"
+  }
 }
