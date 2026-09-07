@@ -1,0 +1,212 @@
+{
+  "ticket": "INERTIA_DISCOVERY_KERNEL_PHASE2",
+  "status": "PHASE2_EVENT_LEDGER_OK",
+  "credit_unlocked": false,
+  "option_ev": false,
+  "proto_eligible": false,
+  "statehold_sealed": true,
+  "proto_sealed": true,
+  "evidence_class": "DESC_ONLY",
+  "contract": "ASSOCIATION_ONLY",
+  "pack_hash": "7ca13ce290d28db4",
+  "DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+  "phase1_DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+  "n_tickers_board_framing": 1490,
+  "n_tickers_events": 1489,
+  "n_events_in": 406874,
+  "n_ledger_rows": 406874,
+  "min_n_discovery": 200,
+  "fwd_horizons": [
+    1,
+    5,
+    21
+  ],
+  "primary_object": "relation_state_cohort",
+  "dual_lift": true,
+  "abs_delta_primary_rank": false,
+  "month_daily": "OMITTED_no_month_range",
+  "baselines": {
+    "DAY|T+1": {
+      "p_continue": 0.459837250695521,
+      "p_revert": 0.5401627493044789,
+      "n": 191583
+    },
+    "DAY|T+5": {
+      "p_continue": 0.4167325711113323,
+      "p_revert": 0.5832674288886677,
+      "n": 190933
+    },
+    "DAY|T+21": {
+      "p_continue": 0.4139873730267036,
+      "p_revert": 0.5860126269732964,
+      "n": 188327
+    },
+    "WEEK|T+1": {
+      "p_continue": 0.7150824147570565,
+      "p_revert": 0.2849175852429435,
+      "n": 213918
+    },
+    "WEEK|T+5": {
+      "p_continue": 0.4403329815922148,
+      "p_revert": 0.5596670184077852,
+      "n": 213225
+    },
+    "WEEK|T+21": {
+      "p_continue": 0.42655489325322377,
+      "p_revert": 0.5734451067467763,
+      "n": 210545
+    }
+  },
+  "fwd_ok_rates": {
+    "T+1": 0.9966254909382266,
+    "T+5": 0.9933247147765647,
+    "T+21": 0.9803329777769039
+  },
+  "probability_ledger_rows": 216,
+  "probability_status_counts": {
+    "DISCOVERY": 198,
+    "INSUFFICIENT": 18
+  },
+  "top5_continue_lift": [
+    {
+      "relation_key": "DAY|P80|4+",
+      "fwd_h": 5,
+      "n": 23042,
+      "p_continue": 0.695338946272025,
+      "p_revert": 0.30466105372797503,
+      "baseline_p_continue": 0.4167325711113323,
+      "baseline_p_revert": 0.5832674288886677,
+      "continue_lift": 1.6685495554564214,
+      "revert_lift": 0.5223351050280022,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_key": "DAY|P80|4+",
+      "fwd_h": 21,
+      "n": 22343,
+      "p_continue": 0.686613256948485,
+      "p_revert": 0.31338674305151504,
+      "baseline_p_continue": 0.4139873730267036,
+      "baseline_p_revert": 0.5860126269732964,
+      "continue_lift": 1.6585367131576645,
+      "revert_lift": 0.5347781406522415,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_key": "WEEK|P80|4+",
+      "fwd_h": 21,
+      "n": 28078,
+      "p_continue": 0.702257995583731,
+      "p_revert": 0.29774200441626897,
+      "baseline_p_continue": 0.42655489325322377,
+      "baseline_p_revert": 0.5734451067467763,
+      "continue_lift": 1.646348469309052,
+      "revert_lift": 0.5192162264761409,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_key": "WEEK|P80|4+",
+      "fwd_h": 5,
+      "n": 28713,
+      "p_continue": 0.7060216626615122,
+      "p_revert": 0.29397833733848777,
+      "baseline_p_continue": 0.4403329815922148,
+      "baseline_p_revert": 0.5596670184077852,
+      "continue_lift": 1.603381286835669,
+      "revert_lift": 0.5252736496333771,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_key": "DAY|P80|4+",
+      "fwd_h": 1,
+      "n": 23177,
+      "p_continue": 0.7189023600983734,
+      "p_revert": 0.2810976399016266,
+      "baseline_p_continue": 0.459837250695521,
+      "baseline_p_revert": 0.5401627493044789,
+      "continue_lift": 1.5633843474207596,
+      "revert_lift": 0.5203943445999781,
+      "STATUS": "DISCOVERY"
+    }
+  ],
+  "top5_revert_lift": [
+    {
+      "relation_key": "DAY|P99|0-1",
+      "fwd_h": 5,
+      "n": 4847,
+      "p_continue": 0.0513719826696926,
+      "p_revert": 0.9486280173303074,
+      "baseline_p_continue": 0.4167325711113323,
+      "baseline_p_revert": 0.5832674288886677,
+      "continue_lift": 0.12327326019344984,
+      "revert_lift": 1.6264032077666017,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_key": "DAY|P99|0-1",
+      "fwd_h": 21,
+      "n": 4809,
+      "p_continue": 0.053025577043044295,
+      "p_revert": 0.9469744229569557,
+      "baseline_p_continue": 0.4139873730267036,
+      "baseline_p_revert": 0.5860126269732964,
+      "continue_lift": 0.12808501055326624,
+      "revert_lift": 1.6159624884671773,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_key": "WEEK|P99|0-1",
+      "fwd_h": 21,
+      "n": 8832,
+      "p_continue": 0.09658061594202899,
+      "p_revert": 0.9034193840579711,
+      "baseline_p_continue": 0.42655489325322377,
+      "baseline_p_revert": 0.5734451067467763,
+      "continue_lift": 0.22642013365603106,
+      "revert_lift": 1.5754243491293856,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_key": "WEEK|P99|0-1",
+      "fwd_h": 5,
+      "n": 9014,
+      "p_continue": 0.13989349900155315,
+      "p_revert": 0.8601065009984469,
+      "baseline_p_continue": 0.4403329815922148,
+      "baseline_p_revert": 0.5596670184077852,
+      "continue_lift": 0.3176993431100881,
+      "revert_lift": 1.5368182735609321,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_key": "WEEK|P95|0-1",
+      "fwd_h": 21,
+      "n": 28071,
+      "p_continue": 0.18688326030422855,
+      "p_revert": 0.8131167396957715,
+      "baseline_p_continue": 0.42655489325322377,
+      "baseline_p_revert": 0.5734451067467763,
+      "continue_lift": 0.43812241580191075,
+      "revert_lift": 1.4179504369802394,
+      "STATUS": "DISCOVERY"
+    }
+  ],
+  "outcome_definitions": {
+    "continuation": "vol-continuation: at forward trading day T+h, the same horizon vol proxy (DAY\u2192day_range, WEEK\u2192week_range) is still \u2265 the event-row threshold floor (p80/p90/p95/p99 matching event.threshold). MONTH omitted (no month_range).",
+    "reversion": "not continuation (vol proxy fell below event threshold floor at T+h).",
+    "flat": "not used in v1 primary metric (vol-threshold binary); reserved for return-based alt.",
+    "fwd_ret": "fwd_abs_day_sum_h = sum of returns.day over trading days (event_idx+1 .. event_idx+h). returns.day is non-negative absolute daily move in this archive (no signed return column); therefore max_favorable/max_adverse signed path metrics are N/A and omitted.",
+    "calendar": "ticker-local trading-day calendar from returns.csv (sorted by date).",
+    "baseline": "baseline_p_continue / baseline_p_revert = unconditional rates among ALL events with the same event-horizon (DAY or WEEK), for the same forward h. Lift is therefore interpretable vs same-horizon event base rate (not full returns universe).",
+    "lift": "continue_lift = p_continue / baseline_p_continue (equiv. (1-CRF)/(1-baseline_CRF) with CRF=p_revert); revert_lift = p_revert / baseline_p_revert. Primary rank uses these dual lifts \u2014 NOT abs(delta)."
+  },
+  "generated_at_hk": "2026-09-08T06:14:42+08:00",
+  "output_dir": "/workspace/sp500-vol/output/INERTIA_DISCOVERY_KERNEL_PHASE2",
+  "event_panel_sha256_16": "268e59b9c607edb0",
+  "returns_sha256_16": "f8849ab5cb00de97",
+  "next": [
+    "Historical Analog vector search",
+    "Relation Discovery",
+    "OOS survival"
+  ]
+}

@@ -1,0 +1,176 @@
+{
+  "ticket": "INERTIA_DISCOVERY_KERNEL_PHASE2_ANALOG_RELATION",
+  "status": "ANALOG_RELATION_OK",
+  "credit_unlocked": false,
+  "option_ev": false,
+  "proto_eligible": false,
+  "evidence_class": "DESC_ONLY",
+  "contract": "ASSOCIATION_ONLY",
+  "pack_hash": "7ca13ce290d28db4",
+  "DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+  "primary_object": "relation_analog_match",
+  "dual_lift": true,
+  "abs_delta_primary_rank": false,
+  "n_ledger_rows": 406874,
+  "n_relation_rows": 1227,
+  "relation_status_counts": {
+    "DISCOVERY": 948,
+    "INSUFFICIENT": 279
+  },
+  "n_oos_rows": 849,
+  "oos_status_counts": {
+    "VALIDATION_PASS": 698,
+    "WEAK": 89,
+    "FAIL": 50,
+    "INSUFFICIENT": 12
+  },
+  "oos_cut": "2024-01-01",
+  "analog_search_pool": 99997,
+  "analog_queries": 7,
+  "knn_backend": "numpy_brute_force",
+  "sklearn": false,
+  "top5_continue_lift": [
+    {
+      "relation_kind": "cross|run|day_week_ratio",
+      "relation_key": "DAY|4+|lt0.5",
+      "fwd_h": 5,
+      "n": 1667,
+      "p_continue": 0.76124775044991,
+      "p_revert": 0.23875224955008997,
+      "continue_lift": 1.8267056698252144,
+      "revert_lift": 0.40933581702821653,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_kind": "cross|run|day_week_ratio",
+      "relation_key": "DAY|4+|lt0.5",
+      "fwd_h": 1,
+      "n": 1673,
+      "p_continue": 0.8194859533771668,
+      "p_revert": 0.18051404662283324,
+      "continue_lift": 1.78212172271312,
+      "revert_lift": 0.3341845524432509,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_kind": "cross|run|day_week_ratio",
+      "relation_key": "DAY|4+|lt0.5",
+      "fwd_h": 21,
+      "n": 1586,
+      "p_continue": 0.7131147540983607,
+      "p_revert": 0.28688524590163933,
+      "continue_lift": 1.7225519437578651,
+      "revert_lift": 0.489554717247948,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_kind": "cross|run|day_week_ratio",
+      "relation_key": "DAY|4+|0.5-0.8",
+      "fwd_h": 5,
+      "n": 7360,
+      "p_continue": 0.7133152173913043,
+      "p_revert": 0.2866847826086957,
+      "continue_lift": 1.7116857832567602,
+      "revert_lift": 0.4915151582438477,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_kind": "hz|run|p99_over_p90",
+      "relation_key": "DAY|4+|lt0.3",
+      "fwd_h": 5,
+      "n": 1763,
+      "p_continue": 0.7090187180941577,
+      "p_revert": 0.2909812819058423,
+      "continue_lift": 1.7013758156780592,
+      "revert_lift": 0.4988814178433817,
+      "STATUS": "DISCOVERY"
+    }
+  ],
+  "top5_revert_lift": [
+    {
+      "relation_kind": "hz|thr|run|of_p99",
+      "relation_key": "WEEK|P99|2-3|1.0-1.2",
+      "fwd_h": 1,
+      "n": 665,
+      "p_continue": 0.49624060150375937,
+      "p_revert": 0.5037593984962406,
+      "continue_lift": 0.693962809408973,
+      "revert_lift": 1.768088122980177,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_kind": "hz|thr|run|of_p90",
+      "relation_key": "WEEK|P95|0-1|1.0-1.2",
+      "fwd_h": 1,
+      "n": 862,
+      "p_continue": 0.4988399071925754,
+      "p_revert": 0.5011600928074246,
+      "continue_lift": 0.6975977829940795,
+      "revert_lift": 1.7589651139998796,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_kind": "hz|thr|of_p90|of_p99",
+      "relation_key": "WEEK|P95|1.0-1.2|0.5-0.8",
+      "fwd_h": 1,
+      "n": 914,
+      "p_continue": 0.5153172866520788,
+      "p_revert": 0.48468271334792123,
+      "continue_lift": 0.7206404129335969,
+      "revert_lift": 1.7011330239045863,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_kind": "cross|thr|day_week_ratio",
+      "relation_key": "DAY|P99|ge2.0",
+      "fwd_h": 5,
+      "n": 1109,
+      "p_continue": 0.0351668169522092,
+      "p_revert": 0.9648331830477908,
+      "continue_lift": 0.0843870131351317,
+      "revert_lift": 1.6541866307984003,
+      "STATUS": "DISCOVERY"
+    },
+    {
+      "relation_kind": "hz|thr|run|of_p99",
+      "relation_key": "DAY|P99|0-1|1.2-1.5",
+      "fwd_h": 5,
+      "n": 1442,
+      "p_continue": 0.03952843273231623,
+      "p_revert": 0.9604715672676838,
+      "continue_lift": 0.0948532355580049,
+      "revert_lift": 1.6467087303292838,
+      "STATUS": "DISCOVERY"
+    }
+  ],
+  "analog_example_query": "PROTO_CONTINUE_DAY_P80_4plus",
+  "analog_example_k50": [
+    {
+      "fwd_h": 1,
+      "n": 50,
+      "p_continue": 0.72,
+      "continue_lift": 1.565771365653768,
+      "p_revert": 0.28,
+      "revert_lift": 0.5183622905513791
+    },
+    {
+      "fwd_h": 5,
+      "n": 49,
+      "p_continue": 0.6122448979591837,
+      "continue_lift": 1.469155377815715,
+      "p_revert": 0.3877551020408163,
+      "revert_lift": 0.6647981403309764
+    },
+    {
+      "fwd_h": 21,
+      "n": 48,
+      "p_continue": 0.5,
+      "continue_lift": 1.2077663053934458,
+      "p_revert": 0.5,
+      "revert_lift": 0.8532239357749951
+    }
+  ],
+  "generated_at_hk": "2026-09-08T06:20:08+08:00",
+  "output_dir": "/workspace/sp500-vol/output/INERTIA_DISCOVERY_KERNEL_PHASE2_ANALOG_RELATION",
+  "script": "/workspace/sp500-vol/scripts/run_inertia_analog_relation_discovery.py"
+}
