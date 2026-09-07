@@ -1,0 +1,23 @@
+{
+  "module": "inertia_state_join_contract",
+  "asof": "2026-09-07",
+  "kind": "ASSOCIATION_ONLY",
+  "credit_unlock": false,
+  "sizing_unlock": false,
+  "option_ev_unlock": false,
+  "inertia_allowed_outputs": ["ASSOCIATION", "field_map_labels", "OCCFIELD_DIAG_PASS_tags", "DESC_ONLY_maps"],
+  "inertia_forbidden_outputs": ["HOLD_EXIT_as_object", "CondEV_tradable", "Credit", "Option_EV", "STATEHOLD", "sizing"],
+  "inertia_status_notes": {
+    "OCCFIELD_DIAG": "PASS/DESIGN_OK",
+    "OCCFIELD_REGIME_RESID": "PARTIAL_REGIME_BORNE; G4 DESC_ONLY; G5 kill-cell",
+    "Credit_family": "SEALED"
+  },
+  "our_headers": {
+    "regime": ["DEAD_VOL", "STABLE_LOW_VOL", "STABLE_HIGH_VOL", "EXPANDING_VOL", "CHAOTIC_VOL", "EXTREME_TAIL", "UNCLASSIFIED"],
+    "weekPct": "float_0_1",
+    "dispersion.state": ["LOW_INDEX_LOW_DISPERSION", "LOW_INDEX_HIGH_DISPERSION", "HIGH_INDEX_LOW_DISPERSION", "HIGH_INDEX_HIGH_DISPERSION"],
+    "v22_state_assoc": ["CALM", "UNSTABLE", "TAIL", "RECOVERY"],
+    "suggested_join": ["state_bin", "era", "delta_vs_null", "assoc_v22", "evidence_class"]
+  },
+  "source_relvol_map": "research/relvol_v22_state_map.json"
+}

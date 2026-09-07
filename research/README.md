@@ -9,5 +9,4 @@ Honesty labels: `THEORETICAL_TARGET_BAND` / `STRETCH_HYPOTHESIS` / `SYNTHETIC_BS
 
 GitHub: [PR #2](https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/2) on `pr-1` (not otter-leaf main).
 | `relvol_v22_state_map.md` | RelVol ↔ V2.2 ASSOCIATION_ONLY (from 波動) |
-
-| `refit_cpcv.md` | Re-fit CPCV train-only selection (walk-forward + purged adjacent) |
+| `inertia_state_join_contract.md` | Inertia↔State ASSOCIATION join (Credit sealed) |
