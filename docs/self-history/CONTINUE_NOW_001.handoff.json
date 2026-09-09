@@ -1,0 +1,131 @@
+{
+  "run_id": "CONTINUE_NOW_001",
+  "protocol": "ORGAN_SELF_AUDIT_V0.1",
+  "asof": "2026-09-09T04:57:33Z",
+  "actor_role": "BRUSH",
+  "repo": "JUN-ZS/brush-timber-mountain-brook",
+  "head": "7482356",
+  "branch_docs_head_note": "docs-only branch head may drift; do not equate to artifact pin 7482356",
+  "contract_path": "docs/ORGAN_SELF_AUDIT_CONTRACT.md",
+  "envelope_mode": "DISARMED",
+  "authorization": "NONE",
+  "nerve": "STAR_ONLY",
+  "impersonate_organ": false,
+  "citation_only": true,
+  "not": [
+    "Decoder",
+    "Fusion",
+    "N3-N9",
+    "ARM",
+    "Signal",
+    "Credit",
+    "Order",
+    "Stretch",
+    "OPRA",
+    "refit",
+    "cost_oos",
+    "relvol"
+  ],
+  "avoided_set": [
+    "research/refit_cpcv.*",
+    "research/cost_oos_cpcv_survival.*",
+    "research/relvol_v22_state_map.*"
+  ],
+  "PRIMARY": {
+    "claim": "Credit / proto unlock may be inferred from inertia↔state ASSOCIATION join rows.",
+    "question_form": "歷史資料真正支持甚麼關係？",
+    "subject": "inertia_state_join_contract sealed ASSOCIATION_ONLY join",
+    "sources": [
+      {
+        "source_path": "research/inertia_state_join_contract.md",
+        "sha256": "9566e69db12491652dcdf092227ca5e4bc6bd01ad146f61310d477c04132c7c2",
+        "truth_class": "RESEARCH_ARTIFACT",
+        "evidence_status": "UNCERTAIN"
+      },
+      {
+        "source_path": "research/inertia_state_join_contract.json",
+        "sha256": "a48807973e6ce76e3e27d04e5c86be90639fa6f4aa3b22d34ea4b23626e805c9",
+        "truth_class": "RESEARCH_ARTIFACT",
+        "evidence_status": "UNCERTAIN"
+      }
+    ]
+  },
+  "SELF_AUDIT": {
+    "q1_relationship": "Pack defines ASSOCIATION_ONLY join columns + illegal list; not a credit/proto unlock relationship.",
+    "q2_truth_mix": "RESEARCH_ARTIFACT join contract; OCCFIELD grade PARTIAL_REGIME_BORNE; not OPRA OBSERVED fills.",
+    "q3_stretch_survival": "NOT_APPLICABLE — Stretch/OPRA/refit/cost_oos avoided by scope.",
+    "q4_association_only": "YES — mode=ASSOCIATION_ONLY; pack_hash=7ca13ce290d28db4; soft field-map labels only.",
+    "q5_credit_proto": "SEALED false — proto_eligible=false; credit_unlocked=false; illegal includes credit_unlock_from_association and promote_regime_borne_to_proto_without_new_ticket.",
+    "q6_core_edited": "NO — audit citation-only; no research core / locked path edits.",
+    "q7_direction_as_signal": "NOT_APPLICABLE / refused — no trade Signal decode.",
+    "verdict": "Credit/proto unlock from association REFUSED."
+  },
+  "COUNTER": {
+    "knives_fired": [
+      {
+        "knife": "dependency",
+        "locus": "pack_hash=7ca13ce290d28db4; OCCFIELD stamp PARTIAL_REGIME_BORNE + RESID FAIL_SIGN",
+        "outcome": "Association rows depend on Inertia OCCFIELD path; not credit authority"
+      },
+      {
+        "knife": "counterexample",
+        "locus": "illegal: condEV_as_inertia, credit_unlock_from_association, promote_regime_borne_to_proto_without_new_ticket",
+        "outcome": "Pack explicitly forbids unlock/promotion from association"
+      },
+      {
+        "knife": "Killed",
+        "locus": "proto_eligible=false; credit_unlocked=false; Credit/Option EV/STATEHOLD SEALED",
+        "outcome": "Unlock claim killed by sealed stamps"
+      },
+      {
+        "knife": "historical_failure",
+        "locus": "occfield.g5_kill_cell ROLL1|MKT|SPY_RV_low|delta=-0.01234; resid FAIL_SIGN",
+        "outcome": "Regime-borne partial grade already carries fail cell — not proto-ready"
+      },
+      {
+        "knife": "OOS",
+        "locus": "no OOS credit/proto unlock table on this association contract",
+        "outcome": "CANNOT_YET any unlock survival claim"
+      }
+    ],
+    "new_metric_created": false,
+    "new_backtest_opened": false
+  },
+  "CALIBRATION": {
+    "action": "Keep mode=ASSOCIATION_ONLY; hold proto_eligible=false and credit_unlocked=false; refuse Credit/proto unlock from association rows.",
+    "scope_narrow": "Inertia join contract only; Stretch/OPRA/refit/cost_oos/relvol not reopened.",
+    "promotion": "NONE — no Champion/Credit/Signal/proto"
+  },
+  "UNCERTAINTY": [
+    "ASSOCIATION_ONLY field maps are not uniqueness or unlock proofs.",
+    "PARTIAL_REGIME_BORNE + FAIL_SIGN resid leave proto promotion CANNOT_YET without new pre-registered ticket.",
+    "Artifact pin remains 7482356; docs branch HEAD may drift."
+  ],
+  "FIELD_QUESTION": [
+    {
+      "type": "SCOPE",
+      "text": "Confirm Credit/proto remain sealed citation-only for inertia association joins until Desk authorizes a new pre-registered knife/ticket.",
+      "not": [
+        "Signal",
+        "Credit",
+        "Order"
+      ]
+    },
+    {
+      "type": "REQUEST_RETEST",
+      "text": "Any proto eligibility or credit unlock protocol CANNOT_YET — authorize explicitly; BRUSH will not self-open.",
+      "not": [
+        "Signal",
+        "Credit",
+        "Order",
+        "Stretch",
+        "OPRA"
+      ]
+    }
+  ],
+  "truth_class": "RESEARCH_ARTIFACT",
+  "evidence_status": "UNCERTAIN",
+  "signal_role": "ASSOCIATION_ONLY",
+  "direction": "NOT_APPLICABLE",
+  "handoff_uri": "docs/self-history/CONTINUE_NOW_001.handoff.json"
+}
