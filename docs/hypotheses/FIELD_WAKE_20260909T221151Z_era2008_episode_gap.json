@@ -1,0 +1,37 @@
+{
+  "id": "FIELD_WAKE_20260909T221151Z_era2008_episode_gap",
+  "protocol": "PATH_C_SEEDLING",
+  "truth_class": "HYPOTHESIS",
+  "evidence_status": "HYPOTHESIS",
+  "signal_role": "NONE",
+  "direction": "NOT_APPLICABLE",
+  "repo": "JUN-ZS/brush-timber-mountain-brook",
+  "head_pin": "7482356",
+  "source_paths": [
+    "research/era_dd_return_matrix.json",
+    "research/era_dd_return_matrix.md"
+  ],
+  "source_sha256": {
+    "research/era_dd_return_matrix.json": "5f47fb642c05a4f73901111511dd99679b325d93b0349c330e75eac6688a8076",
+    "research/era_dd_return_matrix.md": "c2758cf5ad9090a1780644ab2bffc1879d5e9cb22fa3d35cd6ab104fb9ddf1fd"
+  },
+  "hypothesis": "For era 2008-2009, dd_episodes_overlap_n=0 while Era MaxDD remains large (~-49%) because a longer mega-episode (roughly 2000→2015 recovery window) already covers that stress in DD_EPISODES geography — i.e. zero new overlapping episode tags is an accounting/coverage fact, not evidence that 2008 lacked drawdown stress or that Stretch/target-band suddenly survives.",
+  "what_would_kill": [
+    "Ticketed recount of DD_EPISODES shows one or more episodes whose overlap with 2008-2009 is non-zero under the pack's own episode definitions (falsifies overlap_n=0 accounting).",
+    "Pack note_on_2008_episode_gap is shown to contradict eras[] numeric fields (era_local_maxdd / deepest_episode) under the same snapshot — internal inconsistency beyond labeling.",
+    "Any attempt to use this seedling to overturn Stretch/KILLED or invent a new survival metric (forbidden — would require separate ticket and is out of scope)."
+  ],
+  "not": [
+    "overwrite_KILLED_json",
+    "Stretch_retest",
+    "OPRA_retest",
+    "new_metric_to_overturn_Stretch",
+    "PULSE_as_signal",
+    "order",
+    "live_admit",
+    "empty_filler"
+  ],
+  "armed_ticket": null,
+  "citation_only_until_counter": true,
+  "grounded_in": ["era_dd GROW_ROUND UNCERTAINTY", "era_dd note_on_2008_episode_gap"]
+}
