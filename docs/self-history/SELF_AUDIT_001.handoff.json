@@ -1,0 +1,130 @@
+{
+  "run_id": "SELF_AUDIT_001",
+  "protocol": "ORGAN_SELF_AUDIT_V0.1",
+  "asof": "2026-09-09T03:55:20Z",
+  "actor_role": "BRUSH",
+  "repo": "JUN-ZS/brush-timber-mountain-brook",
+  "head": "7482356",
+  "contract_path": "docs/ORGAN_SELF_AUDIT_CONTRACT.md",
+  "envelope_mode": "DISARMED",
+  "authorization": "NONE",
+  "nerve": "STAR_ONLY",
+  "impersonate_organ": false,
+  "citation_only": true,
+  "not": [
+    "Decoder",
+    "Fusion",
+    "N3-N9",
+    "ARM",
+    "Signal",
+    "Credit",
+    "Order"
+  ],
+  "PRIMARY": {
+    "claim": "STRETCH_HYPOTHESIS on frozen V2.2 Derived BS(VIX) path (CAGR>=12% and MaxDD tighter than -5%) is historically supported as a surviving relationship.",
+    "question_form": "歷史資料真正支持甚麼關係？",
+    "subject": "V2.2 PROTECTED Derived path Stretch/target survival",
+    "sources": [
+      {
+        "source_path": "research/refit_cpcv.md",
+        "sha256": "07b31db62183e4e7f717378e18b64b7a36d5f1a09f3d4c4e9316cd144d4ea25d",
+        "truth_class": "DERIVED",
+        "evidence_status": "KILLED"
+      },
+      {
+        "source_path": "research/refit_cpcv.json",
+        "sha256": "8e7a5931a6cd35c0a8debbf88f354981b25a67de8e4295cc9c95762efe25d7c0",
+        "truth_class": "DERIVED",
+        "evidence_status": "KILLED"
+      },
+      {
+        "source_path": "research/cost_oos_cpcv_survival.md",
+        "sha256": "42846a32b44a6bd7fd6fddb645f03c730aa3fd3bcbd043774f7059081896942a",
+        "truth_class": "DERIVED",
+        "evidence_status": "KILLED"
+      },
+      {
+        "source_path": "research/cost_oos_cpcv_survival.json",
+        "sha256": "c2dca41bdc06e308904633afa9ac28a4d0caecacc1450b02dd847fb223f8d017",
+        "truth_class": "DERIVED",
+        "evidence_status": "KILLED"
+      }
+    ]
+  },
+  "SELF_AUDIT": {
+    "q1_relationship": "Claimed Stretch survival on frozen Derived path — cited refit_cpcv + cost_oos_cpcv_survival; evidence_status=KILLED.",
+    "q2_truth_mix": "DERIVED synthetic BS(VIX) path metrics; honesty labels THEORETICAL_TARGET_BAND / STRETCH_HYPOTHESIS / SYNTHETIC_BS. Not OPRA OBSERVED fills.",
+    "q3_stretch_survival": "YES fail: STRETCH REJECTED_ON_REFIT_TEST_FOLDS; Stretch passes=0; cost_oos gates STRETCH pass=false and THEORETICAL_TARGET_BAND pass=false.",
+    "q4_association_only": "NOT_APPLICABLE to this Stretch claim (RelVol/Inertia joins not primary subject).",
+    "q5_credit_proto": "NOT_APPLICABLE to this Stretch claim (inertia sealed fields not required here).",
+    "q6_core_edited": "NO — audit read-only; no research core / locked path edits.",
+    "q7_direction_as_signal": "NOT_APPLICABLE / refused — no trade Signal decode.",
+    "verdict": "PRIMARY claim NOT supported; Stretch relationship KILLED under existing packs."
+  },
+  "COUNTER": {
+    "knives_fired": [
+      {
+        "knife": "OOS",
+        "locus": "research/refit_cpcv.* walk-forward + purged adjacent test folds; research/cost_oos leave-one-era-out",
+        "outcome": "No Stretch pass on recorded test/holdout tables"
+      },
+      {
+        "knife": "Killed",
+        "locus": "refit verdict STRETCH REJECTED_ON_REFIT_TEST_FOLDS; cost_oos survival.gates STRETCH pass=false",
+        "outcome": "Claim killed"
+      },
+      {
+        "knife": "counterexample",
+        "locus": "walk_forward_test_block_1 Test CAGR -0.1003 MaxDD -0.5581 Stretch false; cost×2 CAGR -4.3%",
+        "outcome": "Concrete contrary folds/cost rows exist in pack"
+      },
+      {
+        "knife": "dependency",
+        "locus": "Frozen V2.2 Derived disclaimer; SYNTHETIC_BS ≠ OPRA; CPCV/LOO = path sensitivity not re-searched policies (cost_oos)",
+        "outcome": "Results depend on synthetic Derived path assumptions"
+      },
+      {
+        "knife": "historical_failure",
+        "locus": "era 2008-2009 / crisis rows Stretch false; Stretch passes=0 across refit summary",
+        "outcome": "Historical stress eras do not support Stretch"
+      }
+    ],
+    "new_metric_created": false,
+    "new_backtest_opened": false
+  },
+  "CALIBRATION": {
+    "action": "Keep Stretch/target-band claims at evidence_status=KILLED; do not retune V2.2 core to pass gates; treat THEORETICAL_TARGET_BAND as design region only (UNPROVEN/not survived), not Champion.",
+    "scope_narrow": "This audit covers Stretch survival claim only; does not re-litigate ASSOCIATION_ONLY joins.",
+    "promotion": "NONE — no Champion/Credit/Signal"
+  },
+  "UNCERTAINTY": [
+    "Pack metrics are on SYNTHETIC_BS Derived path — live OPRA surface relationship CANNOT_YET from these files alone.",
+    "cost_oos CPCV labeled path sensitivity, not full re-search; refit is separate train-only selection evidence.",
+    "Main pin remains 7482356 for artifact blobs; contract/self-history may live on feature branch until Desk merge."
+  ],
+  "FIELD_QUESTION": [
+    {
+      "type": "REQUEST_RETEST",
+      "text": "If Desk wants Stretch re-examined under a pre-registered non-Derived (e.g. OPRA) protocol, authorize explicitly — BRUSH will not self-open retest.",
+      "not": [
+        "Signal",
+        "Credit",
+        "Order"
+      ]
+    },
+    {
+      "type": "SCOPE",
+      "text": "Confirm whether THEORETICAL_TARGET_BAND should stay UNPROVEN citation-only (no revival) given joint NOT_SURVIVED on refit.",
+      "not": [
+        "Signal",
+        "Credit",
+        "Order"
+      ]
+    }
+  ],
+  "truth_class": "DERIVED",
+  "evidence_status": "KILLED",
+  "signal_role": "NONE",
+  "direction": "NOT_APPLICABLE",
+  "handoff_uri": "docs/self-history/SELF_AUDIT_001.handoff.json"
+}
