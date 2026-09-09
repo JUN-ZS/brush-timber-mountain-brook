@@ -1,0 +1,36 @@
+{
+  "id": "PATH_C_SHOOT_20260909T092132Z_method_block_count",
+  "protocol": "PATH_C_SHOOT",
+  "truth_class": "HYPOTHESIS",
+  "evidence_status": "HYPOTHESIS",
+  "signal_role": "NONE",
+  "direction": "NOT_APPLICABLE",
+  "repo": "JUN-ZS/brush-timber-mountain-brook",
+  "head_pin": "7482356",
+  "source_paths": [
+    "research/refit_cpcv.json",
+    "research/refit_cpcv.md"
+  ],
+  "source_sha256": {
+    "research/refit_cpcv.json": "8e7a5931a6cd35c0a8debbf88f354981b25a67de8e4295cc9c95762efe25d7c0",
+    "research/refit_cpcv.md": "e037f1c04e8a7b3acb3453803d94050a610908f38bdf9d7a63d2158b34a71664"
+  },
+  "hypothesis": "summary.method's 'Walk-forward over 6 blocks' counts raw calendar partitions before excluding non-contiguous post-hole train windows; summary.n_walk_forward=5 counts only retained contiguous-train folds (md Summary **5**). Label seam is documentation/partition accounting, not a change to Stretch/KILLED numeric verdicts.",
+  "what_would_kill": [
+    "Ticketed re-read of the refit generator/script shows raw calendar block count != 6, or exclusion step does not drop exactly one walk-forward fold.",
+    "Ticketed re-read shows the '6 blocks' string is a stale typo with no corresponding partition list in code/logs.",
+    "Any result that requires changing folds_stretch_pass / STRETCH REJECTED / THEORETICAL NOT_SURVIVED numbers (forbidden here — would need separate ticket, not this seedling)."
+  ],
+  "not": [
+    "overwrite_KILLED_json",
+    "CPCV_rerun",
+    "Stretch_retest",
+    "OPRA_retest",
+    "PULSE_as_signal",
+    "order",
+    "live_admit"
+  ],
+  "armed_ticket": null,
+  "replaces_old_hypothesis": null,
+  "citation_only_until_counter": true
+}
