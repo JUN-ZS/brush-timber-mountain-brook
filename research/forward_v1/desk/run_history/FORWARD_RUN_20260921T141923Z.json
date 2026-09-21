@@ -1,0 +1,100 @@
+{
+  "run_id": "FORWARD_RUN_20260921T141923Z",
+  "started_at": "2026-09-21T14:19:23Z",
+  "finished_at": "2026-09-21T14:19:26Z",
+  "started_at_hkt": "2026-09-21 22:19:23 HKT",
+  "finished_at_hkt": "2026-09-21 22:19:26 HKT",
+  "node": "desk",
+  "app_id": "xin_gu_inertia_desk",
+  "hub_name": "信股慣性台",
+  "model_version": "DESK_CORE_V1",
+  "evaluation_clock": "LIVE_FORWARD",
+  "benchmark": "QQQ",
+  "data_asof": "2026-09-18",
+  "engine_asof": [
+    "2026-09-18"
+  ],
+  "data_status": "DATA_FRESH",
+  "data_source": "PRIMARY+YAHOO_FALLBACK",
+  "yahoo_fallback": true,
+  "signal_status": "NO_NEW_SIGNAL",
+  "new_events": 0,
+  "new_executable_signals": 0,
+  "new_orders": 0,
+  "position_changes": 0,
+  "resolved_5d": 0,
+  "resolved_21d": 0,
+  "resolved_63d": 0,
+  "resolved_126d": 0,
+  "resolved_252d": 0,
+  "newly_resolved": 0,
+  "waiting": 7,
+  "open_positions": 0,
+  "closed_trades": 0,
+  "portfolio_value": null,
+  "realized_pnl": null,
+  "unrealized_pnl": null,
+  "total_pnl": null,
+  "net_pnl": "NOT_AVAILABLE",
+  "total_return_pct": null,
+  "benchmark_return_pct": null,
+  "excess_return_pct": null,
+  "status": "OK_CYCLE_COMPLETE",
+  "blocked_reason": "latest_bar=2026-09-18 already formalized as T0 market_bar_asof=2026-09-18; wait for NEW daily bar after US RTH close before T1+ LIVE_FORWARD events. This is NO_NEW_SIGNAL / SAME_BAR — NOT DATA_STALE.",
+  "event_class_counts": {
+    "BOOK_ACTION": 7
+  },
+  "t0_events": 7,
+  "t0_book_ADD": 7,
+  "t0_MARK_BUY": 0,
+  "t0_untouched": true,
+  "original_engine": {
+    "desk_run_warehouse_write": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/scripts/desk_run_warehouse_write.mts",
+    "live_scan_snapshot": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/scripts/live-scan-snapshot.mts",
+    "engine_dir_exists": true,
+    "write_script_exists": true,
+    "snap_script_exists": true
+  },
+  "event_file": "research/forward_v1/desk/T0_20260921T183800/events.jsonl",
+  "position_file": "research/forward_v1/desk/ledgers/positions.jsonl",
+  "trade_file": "research/forward_v1/desk/ledgers/trades.jsonl",
+  "signal_trade_map_file": "research/forward_v1/desk/ledgers/signal_trade_map.jsonl",
+  "portfolio_daily_file": "research/forward_v1/desk/ledgers/portfolio_daily.jsonl",
+  "shadow_book_file": "research/forward_v1/desk/shadow_book/SHADOW_BOOK_STATUS.json",
+  "analysis_file": "research/forward_v1/desk/reports/ANALYSIS_FORWARD_RUN_20260921T141923Z.json",
+  "report_file": "research/forward_v1/desk/reports/REPORT_FORWARD_RUN_20260921T141923Z.html",
+  "resolution_status_file": "research/forward_v1/desk/resolution/FORWARD_STATUS.json",
+  "honesty": [
+    "T0 immutable",
+    "book_ADD => BOOK_ACTION/OBSERVATION only — never auto MARK_BUY/ARMED/TRUST_UP",
+    "score/alignScore != probability",
+    "LIVE_FORWARD != REPLAY_FORWARD (no Cap-Rail/RelVol mix)",
+    "YAHOO_FALLBACK provenance labeled when used",
+    "fees/slippage NET_PNL = NOT_AVAILABLE without real source",
+    "no invented prices or trades from book_ADD"
+  ],
+  "tool_rcs": {
+    "data_bridge": 0,
+    "data_factory": 0,
+    "signal_capture": 0,
+    "resolve_5d": 0
+  },
+  "ledger_meta": {
+    "positions.jsonl": {
+      "rows": 0,
+      "note": "Empty by EXECUTION_POLICY — book_ADD is OBSERVATION only"
+    },
+    "trades.jsonl": {
+      "rows": 0,
+      "note": "No invented trades from book_ADD"
+    },
+    "signal_trade_map.jsonl": {
+      "rows": 0,
+      "note": "No trade mapping until EXECUTABLE signal"
+    },
+    "portfolio_daily.jsonl": {
+      "rows": 0,
+      "note": "No portfolio marks without positions; NET_PNL=NOT_AVAILABLE"
+    }
+  }
+}

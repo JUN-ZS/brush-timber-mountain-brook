@@ -1,0 +1,31 @@
+{
+  "schema": "desk.forward_analysis.v1",
+  "run_id": "FORWARD_RUN_20260921T141923Z",
+  "shadow_book": "EMPTY_BY_POLICY",
+  "reason": "T0: book_ADD=7 MARK_BUY=0; EXECUTION_POLICY: book_ADD=BOOK_ACTION/OBSERVATION only → EMPTY_BY_POLICY",
+  "signal_level_outcomes": {
+    "events_total": 7,
+    "waiting_slots": 7,
+    "resolved_5d": 0,
+    "newly_resolved": 0,
+    "benchmark": "QQQ",
+    "evaluation_clock": "LIVE_FORWARD",
+    "note": "OBSERVED research outcomes only — not trade P&L; not probability; never mix REPLAY"
+  },
+  "horizons": {
+    "5": "WAITING_FOR_FUTURE_BARS",
+    "21": "WAITING_FOR_FUTURE_BARS",
+    "63": "WAITING_FOR_FUTURE_BARS",
+    "126": "WAITING_FOR_FUTURE_BARS",
+    "252": "WAITING_FOR_FUTURE_BARS"
+  },
+  "portfolio": {
+    "open_positions": 0,
+    "closed_trades": 0,
+    "realized_pnl": null,
+    "unrealized_pnl": null,
+    "net_pnl": "NOT_AVAILABLE",
+    "note": "No executable signals → no shadow positions; NET_PNL not assumed; fees/slippage not invented"
+  },
+  "mix_policy": "NEVER_MIX_LIVE_FORWARD_WITH_REPLAY_FORWARD_WINRATE"
+}

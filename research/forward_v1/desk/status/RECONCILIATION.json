@@ -1,0 +1,17 @@
+{
+  "run_id": "FORWARD_RUN_20260921T142017Z",
+  "t0_event_count_expected": 7,
+  "t0_event_count_actual": 7,
+  "book_ADD": 7,
+  "MARK_BUY": 0,
+  "class_counts": {
+    "BOOK_ACTION": 7
+  },
+  "executable": 0,
+  "open_positions": 0,
+  "positions_must_be_zero": true,
+  "t0_path_untouched": true,
+  "evaluation_clock": "LIVE_FORWARD",
+  "no_replay_mix": true,
+  "pass": true
+}
