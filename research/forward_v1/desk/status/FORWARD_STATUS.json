@@ -1,0 +1,20 @@
+{
+  "schema": "FORWARD_STATUS.runner_overlay.v1",
+  "last_run_id": "FORWARD_RUN_20260921T142017Z",
+  "checked_at_utc": "2026-09-21T14:20:19Z",
+  "checked_at_hkt": "2026-09-21 22:20:19 HKT",
+  "evaluation_clock": "LIVE_FORWARD",
+  "data": "DATA_FRESH",
+  "signal": "NO_NEW_SIGNAL",
+  "event": "T0_IMMUTABLE",
+  "resolver": {
+    "resolved_5d": 0,
+    "waiting": 35,
+    "newly_resolved": 0,
+    "maturity_anchor": "2026-09-18"
+  },
+  "shadow_book": "EMPTY_BY_POLICY",
+  "blocked_reason": "latest_bar=2026-09-18 already formalized as T0 market_bar_asof=2026-09-18; wait for NEW daily bar after US RTH close before T1+ LIVE_FORWARD events. This is NO_NEW_SIGNAL / SAME_BAR — NOT DATA_STALE.",
+  "run_history": "research/forward_v1/desk/run_history/FORWARD_RUN_20260921T142017Z.json",
+  "report": "research/forward_v1/desk/reports/REPORT_FORWARD_RUN_20260921T142017Z.html"
+}
