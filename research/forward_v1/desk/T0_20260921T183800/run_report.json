@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "run_id": "desk_20260921T183800+0800",
+  "app_id": "xin_gu_inertia_desk",
+  "model_version": "DESK_CORE_V1",
+  "code_commit": "fd0e5d9",
+  "signal_timestamp": "2026-09-21T18:38:00+08:00",
+  "captured_at_hk": "2026-09-21 18:38:00 HKT",
+  "market_bar_asof": "2026-09-18",
+  "universe_id": "desk_DEFAULT_SYMBOLS",
+  "universe_asof": "FIXED_UNIVERSE_DEFAULT_SYMBOLS_fd0e5d9",
+  "n_scanned": 17,
+  "n_events": 7,
+  "n_by_signal_type": {
+    "MARK_BUY": 0,
+    "ARMED": 0,
+    "TRUST_UP": 0,
+    "book_ADD": 7
+  },
+  "n_MARK_BUY": 0,
+  "n_ARMED": 0,
+  "n_TRUST_UP": 0,
+  "n_book_ADD": 7,
+  "book_ADD_tickers": [
+    "SMH",
+    "MU",
+    "AMD",
+    "AAPL",
+    "TSM",
+    "GOOGL",
+    "IWM"
+  ],
+  "n_unique_tickers": 7,
+  "n_outcomes_waiting": 35,
+  "n_outcomes_resolved": 0,
+  "diversity_counts": {
+    "EXPERIMENT": 7
+  },
+  "events_jsonl": "/workspace/waffle-install/research/common_warehouse/events/desk_events_desk_20260921T183800+0800.jsonl",
+  "outcomes_jsonl": "/workspace/waffle-install/research/common_warehouse/outcomes/desk_outcomes_desk_20260921T183800+0800.jsonl",
+  "events_all": "/workspace/waffle-install/research/common_warehouse/events/events_all.jsonl",
+  "outcomes_all": "/workspace/waffle-install/research/common_warehouse/outcomes/outcomes_all.jsonl",
+  "run_index": "/workspace/waffle-install/research/common_warehouse/run_index.jsonl",
+  "journal_snapshot": "/workspace/juniper-kite/live/signals/20260921_183800_HKT.jsonl",
+  "journal_path": "/workspace/juniper-kite/live/signals/journal.jsonl",
+  "honesty": [
+    "alignScore / opportunity ≠ buy probability (NOT_A_PROBABILITY)",
+    "claimed_p is null for DESK_CORE_V1",
+    "MARK_BUY=0 recorded as 0; never promote book_ADD to MARK_BUY",
+    "universe_asof=FIXED_UNIVERSE_DEFAULT_SYMBOLS_fd0e5d9 — NOT RelVol pack; NOT FIXED_UNIVERSE_ASOF_2026-09-04",
+    "outcomes WAITING_FOR_FUTURE_BARS — no invented fills",
+    "immutable: never rewrite these events",
+    "formulas.ts untouched this run"
+  ]
+}
