@@ -1,0 +1,13 @@
+{
+  "run_id": "desk_resolve_20260921T121509Z",
+  "status": "OK",
+  "integrity_failures": [],
+  "evaluation_clock": "LIVE_FORWARD",
+  "notes": [
+    "LIVE_FORWARD desk T0: 7 book_ADD, price OK, maturity_anchor=2026-09-18; RESOLVED fills deferred until certified post-anchor multi-ticker bars (no invent)",
+    "append-only; T0 immutable",
+    "LIVE_FORWARD \u2260 REPLAY_FORWARD",
+    "book_ADD \u2260 MARK_BUY",
+    "score \u2260 probability"
+  ]
+}
