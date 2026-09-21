@@ -4,6 +4,7 @@
 DATA → original engine check → SIGNAL CAPTURE → IMMUTABLE EVENT
 → RESEARCH SHADOW BOOK (book_ADD gated) → OUTCOME RESOLUTION
 → RESEARCH MEMORY (profile → signal append → outcome join → analysis → report)
+→ RESEARCH EVOLUTION (discovery → freeze → evidence → DISCOVERY_RUN)
 → RUN HISTORY → STATUS → HTML REPORT
 
 T0 immutable. book_ADD ≠ MARK_BUY / ARMED / TRUST_UP.
@@ -140,9 +141,30 @@ def write_html_report(path: Path, run: dict, policy_text: str) -> None:
     rows = "".join(
         f"<tr><th>{key}</th><td><code>{json.dumps(val, ensure_ascii=False)}</code></td></tr>"
         for key, val in run.items()
-        if key not in {"honesty"}
+        if key not in {"honesty", "research_evolution", "research_memory"}
     )
     honesty = "".join(f"<li>{item}</li>" for item in (run.get("honesty") or []))
+    evo = run.get("research_evolution") or {}
+    dr = evo.get("discovery_run") or {}
+    evo_summary = {
+        "status": evo.get("status"),
+        "hypothesis_counts": evo.get("hypothesis_counts"),
+        "new_signals": dr.get("new_signals"),
+        "new_evidence": dr.get("new_evidence"),
+        "new_hypotheses": dr.get("new_hypotheses"),
+        "unchanged": dr.get("unchanged"),
+        "confirmed": dr.get("confirmed"),
+        "rejected": dr.get("rejected"),
+        "t0_integrity": evo.get("t0_integrity"),
+        "report": evo.get("report"),
+    }
+    evo_panel = (
+        "<h2>RESEARCH EVOLUTION</h2>"
+        "<p>DISCOVERY≠BUY · observed≠probability · Discovery≠Confirmation cohort</p>"
+        "<pre>" + json.dumps(evo_summary, ensure_ascii=False, indent=2) + "</pre>"
+        "<p>Full panel: <code>research/forward_v1/desk/research_evolution/REPORT_RESEARCH_EVOLUTION.html</code></p>"
+    )
+
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         f"""<!DOCTYPE html>
@@ -161,9 +183,11 @@ pre{{background:#161b22;padding:12px;border:1px solid #30363d;overflow:auto}}
 <h1>信股慣性台 / Desk — FORWARD RUN</h1>
 <p><span class="badge">{run.get('evaluation_clock')}</span>
 <span class="badge {'warn' if run.get('blocked_reason') else ''}">{run.get('status')}</span>
-<span class="badge">benchmark={run.get('benchmark')}</span></p>
-<p>score/alignScore = <b>NOT_A_PROBABILITY</b> · book_ADD ≠ MARK_BUY · T0 immutable · LIVE ≠ REPLAY</p>
+<span class="badge">benchmark={run.get('benchmark')}</span>
+<span class="badge">RESEARCH EVOLUTION V1</span></p>
+<p>score/alignScore = <b>NOT_A_PROBABILITY</b> · book_ADD ≠ MARK_BUY · T0 immutable · LIVE ≠ REPLAY · DISCOVERY≠BUY</p>
 <table>{rows}</table>
+{evo_panel}
 <h2>Honesty</h2><ul>{honesty}</ul>
 <h2>EXECUTION_POLICY</h2><pre>{policy_text}</pre>
 </body></html>
@@ -325,6 +349,20 @@ def main() -> int:
         except Exception:  # noqa: BLE001
             mem_status = {"status": "MEMORY_BUILD_PARSE_FAILED", "raw_tail": mem_out[-500:]}
 
+    # 9c RESEARCH EVOLUTION V1 — discovery/evidence even when NEW_SIGNAL=0
+    tool_rcs["research_evolution"], evo_out = run_py(
+        repo,
+        "research/forward_v1/desk/tools/research_evolution.py",
+        extra=["--run-id", run_id, "--new-signals", str(new_events)],
+        timeout=300,
+    )
+    evo_status = load_json(node_dir / "research_evolution/RESEARCH_EVOLUTION_STATUS.json")
+    if not evo_status and evo_out:
+        try:
+            evo_status = json.loads(evo_out.strip().splitlines()[-1])
+        except Exception:  # noqa: BLE001
+            evo_status = {"status": "EVOLUTION_PARSE_FAILED", "raw_tail": evo_out[-500:]}
+
     post_days = int(
         bridge.get("post_anchor_trading_days_qqq")
         or bridge.get("post_anchor_trading_days_min_t0_tickers")
@@ -448,6 +486,8 @@ def main() -> int:
         "research_memory": mem_status,
         "research_memory_report": "research/forward_v1/desk/research_memory/REPORT_RESEARCH_MEMORY.html",
         "research_profile": "research/forward_v1/desk/research_profile.json",
+        "research_evolution": evo_status,
+        "research_evolution_report": "research/forward_v1/desk/research_evolution/REPORT_RESEARCH_EVOLUTION.html",
         "honesty": [
             "T0 immutable",
             "book_ADD => BOOK_ACTION/OBSERVATION only — never auto MARK_BUY/ARMED/TRUST_UP",
@@ -457,6 +497,7 @@ def main() -> int:
             "fees/slippage NET_PNL = NOT_AVAILABLE without real source",
             "no invented prices or trades from book_ADD",
             "RESEARCH MEMORY append-only; profile versioned; no invented features",
+            "RESEARCH EVOLUTION: DISCOVERY≠BUY; NEVER confirm on discovery cohort; WAITING freeze ok",
         ],
         "tool_rcs": tool_rcs,
         "ledger_meta": {k: {"rows": v.get("rows"), "note": v.get("note")} for k, v in ledger_meta.items()},
@@ -498,6 +539,14 @@ def main() -> int:
                 "t0_integrity": (mem_status or {}).get("t0_integrity"),
                 "report": "research/forward_v1/desk/research_memory/REPORT_RESEARCH_MEMORY.html",
                 "profile": "research/forward_v1/desk/research_profile.json",
+            },
+            "research_evolution": {
+                "status": (evo_status or {}).get("status"),
+                "hypotheses_frozen": ((evo_status or {}).get("hypothesis_counts") or {}).get("frozen"),
+                "new_hypotheses": ((evo_status or {}).get("discovery_run") or {}).get("new_hypotheses"),
+                "new_evidence": ((evo_status or {}).get("discovery_run") or {}).get("new_evidence"),
+                "t0_integrity": (evo_status or {}).get("t0_integrity"),
+                "report": "research/forward_v1/desk/research_evolution/REPORT_RESEARCH_EVOLUTION.html",
             },
         }
     )
@@ -575,6 +624,10 @@ def main() -> int:
         "research_memory_rows": (mem_status or {}).get("signal_memory_total"),
         "research_memory_t0_integrity": (mem_status or {}).get("t0_integrity"),
         "research_memory_example_event_id": (mem_status or {}).get("example_event_id"),
+        "research_evolution_new_hypotheses": ((evo_status or {}).get("discovery_run") or {}).get("new_hypotheses"),
+        "research_evolution_new_evidence": ((evo_status or {}).get("discovery_run") or {}).get("new_evidence"),
+        "research_evolution_unchanged": ((evo_status or {}).get("discovery_run") or {}).get("unchanged"),
+        "research_evolution_t0_integrity": (evo_status or {}).get("t0_integrity"),
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if integrity["pass"] else 1

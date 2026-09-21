@@ -4,9 +4,9 @@
   "app_id": "xin_gu_inertia_desk",
   "model_version": "DESK_CORE_V1",
   "evaluation_clock": "LIVE_FORWARD",
-  "run_id": "desk_capture_20260921T151030Z",
-  "checked_at_utc": "2026-09-21T15:10:30Z",
-  "checked_at_hkt": "2026-09-21 23:10:30 HKT",
+  "run_id": "desk_capture_20260921T152739Z",
+  "checked_at_utc": "2026-09-21T15:27:39Z",
+  "checked_at_hkt": "2026-09-21 23:27:39 HKT",
   "t0_untouched": true,
   "t0_path": "research/forward_v1/desk/T0_20260921T183800/",
   "original_engine": {
