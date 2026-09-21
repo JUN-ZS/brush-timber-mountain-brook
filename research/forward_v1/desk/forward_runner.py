@@ -3,6 +3,7 @@
 
 DATA → original engine check → SIGNAL CAPTURE → IMMUTABLE EVENT
 → RESEARCH SHADOW BOOK (book_ADD gated) → OUTCOME RESOLUTION
+→ RESEARCH MEMORY (profile → signal append → outcome join → analysis → report)
 → RUN HISTORY → STATUS → HTML REPORT
 
 T0 immutable. book_ADD ≠ MARK_BUY / ARMED / TRUST_UP.
@@ -310,6 +311,20 @@ def main() -> int:
     newly_resolved = int(res.get("newly_resolved") or 0)
     waiting = int(res.get("waiting") or 0)
 
+    # 9b RESEARCH MEMORY V1 — always update even when NEW_SIGNAL=0
+    tool_rcs["research_memory_build"], mem_out = run_py(
+        repo,
+        "research/forward_v1/desk/tools/research_memory_build.py",
+        extra=["--run-id", run_id],
+        timeout=300,
+    )
+    mem_status = load_json(node_dir / "research_memory/MEMORY_STATUS.json")
+    if not mem_status and mem_out:
+        try:
+            mem_status = json.loads(mem_out.strip().splitlines()[-1])
+        except Exception:  # noqa: BLE001
+            mem_status = {"status": "MEMORY_BUILD_PARSE_FAILED", "raw_tail": mem_out[-500:]}
+
     post_days = int(
         bridge.get("post_anchor_trading_days_qqq")
         or bridge.get("post_anchor_trading_days_min_t0_tickers")
@@ -430,6 +445,9 @@ def main() -> int:
         "analysis_file": analysis_rel,
         "report_file": report_rel,
         "resolution_status_file": "research/forward_v1/desk/resolution/FORWARD_STATUS.json",
+        "research_memory": mem_status,
+        "research_memory_report": "research/forward_v1/desk/research_memory/REPORT_RESEARCH_MEMORY.html",
+        "research_profile": "research/forward_v1/desk/research_profile.json",
         "honesty": [
             "T0 immutable",
             "book_ADD => BOOK_ACTION/OBSERVATION only — never auto MARK_BUY/ARMED/TRUST_UP",
@@ -438,6 +456,7 @@ def main() -> int:
             "YAHOO_FALLBACK provenance labeled when used",
             "fees/slippage NET_PNL = NOT_AVAILABLE without real source",
             "no invented prices or trades from book_ADD",
+            "RESEARCH MEMORY append-only; profile versioned; no invented features",
         ],
         "tool_rcs": tool_rcs,
         "ledger_meta": {k: {"rows": v.get("rows"), "note": v.get("note")} for k, v in ledger_meta.items()},
@@ -474,6 +493,12 @@ def main() -> int:
             "report_file": report_rel,
             "evaluation_clock": EVAL_CLOCK,
             "execution_policy": "book_ADD=OBSERVATION; MARK_BUY/ARMED/TRUST_UP only if engine-emitted executable",
+            "research_memory": {
+                "signal_memory_total": (mem_status or {}).get("signal_memory_total"),
+                "t0_integrity": (mem_status or {}).get("t0_integrity"),
+                "report": "research/forward_v1/desk/research_memory/REPORT_RESEARCH_MEMORY.html",
+                "profile": "research/forward_v1/desk/research_profile.json",
+            },
         }
     )
     sys_path.parent.mkdir(parents=True, exist_ok=True)
@@ -547,6 +572,9 @@ def main() -> int:
         "hist": hist_rel,
         "report": report_rel,
         "integrity_pass": integrity["pass"],
+        "research_memory_rows": (mem_status or {}).get("signal_memory_total"),
+        "research_memory_t0_integrity": (mem_status or {}).get("t0_integrity"),
+        "research_memory_example_event_id": (mem_status or {}).get("example_event_id"),
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
     return 0 if integrity["pass"] else 1

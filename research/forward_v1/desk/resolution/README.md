@@ -10,7 +10,7 @@
 - 資料橋：`../data_bridge/`（PRIMARY → YAHOO_FALLBACK；Yahoo 永唔標 `ORIGINAL_LIVE`）
 
 ## Latest
-- run: `desk_resolve_20260921T142019Z`
+- run: `desk_resolve_20260921T151030Z`
 - resolved_5d: `0`
 - waiting: `35`
 - qqq_latest / post_anchor_days: `2026-09-18` / `0`

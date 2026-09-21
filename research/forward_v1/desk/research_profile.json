@@ -1,0 +1,553 @@
+{
+  "schema": "research_profile_v1",
+  "node": "desk",
+  "hub": "信股慣性台",
+  "app_id": "xin_gu_inertia_desk",
+  "model_version": "DESK_CORE_V1",
+  "profile_version": "research_profile_v1",
+  "evaluation_clock": "LIVE_FORWARD",
+  "forbidden_clocks": ["REPLAY_FORWARD"],
+  "benchmark": "QQQ",
+  "future_horizons": [5, 21, 63, 126, 252],
+  "execution_policy": "book_ADD => BOOK_ACTION / OBSERVATION; MARK_BUY=0 unless engine-emitted",
+  "score_policy": "NOT_A_PROBABILITY",
+  "claimed_p_policy": "MODEL_CLAIM_SEPARATE_FROM_OBSERVED_FORWARD_OUTCOME",
+  "t0_path": "research/forward_v1/desk/T0_20260921T183800",
+  "engine_sources": {
+    "types": "juniper-kite src/lib/desk/types.ts :: ScanRow / DeskState / Regime / ShapeLabel / BookNote",
+    "formulas": "juniper-kite src/lib/desk/formulas.ts :: scanSymbol / marketTape",
+    "warehouse_write": "juniper-kite scripts/desk_run_warehouse_write.mts",
+    "live_scan": "juniper-kite scripts/live-scan-snapshot.mts",
+    "t0_events": "research/forward_v1/desk/T0_20260921T183800/events.jsonl",
+    "capture": "research/forward_v1/desk/signal_capture/capture_as_emitted.py"
+  },
+  "signal_features": [
+    {
+      "name": "signal_type",
+      "source": "desk_run_warehouse_write.mts + T0",
+      "source_file": "scripts/desk_run_warehouse_write.mts",
+      "source_field": "signal_type",
+      "type": "enum",
+      "semantic": "desk.book_ADD | desk.MARK_BUY | desk.ARMED | desk.TRUST_UP — as emitted",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "rank",
+      "source": "warehouse write rankMap by alignScore",
+      "source_file": "scripts/desk_run_warehouse_write.mts",
+      "source_field": "rank",
+      "type": "int",
+      "semantic": "1-based alignScore rank within DEFAULT_SYMBOLS scan",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "score",
+      "source": "ScanRow.alignScore",
+      "source_file": "src/lib/desk/types.ts + warehouse write",
+      "source_field": "score / score_field=alignScore",
+      "type": "number|null",
+      "semantic": "alignScore copy; NOT_A_PROBABILITY",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "price_at_signal",
+      "source": "ScanRow.lastClose",
+      "source_file": "scripts/desk_run_warehouse_write.mts",
+      "source_field": "price_at_signal",
+      "type": "number|null",
+      "semantic": "lastClose at emit; never hindsight-filled",
+      "probability": false,
+      "t0_status": "PRESENT"
+    }
+  ],
+  "state_features": [
+    {
+      "name": "desk_state",
+      "source": "ScanRow.state",
+      "source_file": "src/lib/desk/types.ts DeskState",
+      "source_field": "state.desk_state",
+      "type": "enum",
+      "semantic": "DORMANT|WATCH|ARMED|MARK_BUY|MARK_SELL",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "shape",
+      "source": "ScanRow.shape.label",
+      "source_file": "src/lib/desk/types.ts ShapeLabel",
+      "source_field": "state.shape",
+      "type": "enum",
+      "semantic": "CONTINUE|CHOPPY|FADE|INSUFFICIENT",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "trustUp",
+      "source": "ScanRow.trustUp",
+      "source_file": "src/lib/desk/types.ts + formulas.ts",
+      "source_field": "state.trustUp",
+      "type": "bool",
+      "semantic": "I_up D/W/M gate; not buy probability",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "hot",
+      "source": "ScanRow.hot",
+      "source_file": "src/lib/desk/types.ts",
+      "source_field": "state.hot",
+      "type": "bool",
+      "semantic": "RelVol20≥1.0 or relState=LEADING",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "trend.rising",
+      "source": "ScanRow.trend.rising",
+      "source_file": "src/lib/desk/types.ts TrendWindows",
+      "source_field": "state['trend.rising']",
+      "type": "bool",
+      "semantic": "≥3 of 1M/2M/3M/6M/1Y windows up",
+      "probability": false,
+      "t0_status": "PRESENT"
+    }
+  ],
+  "ranking_features": [
+    {
+      "name": "alignScore",
+      "source": "ScanRow.alignScore",
+      "source_file": "src/lib/desk/types.ts + formulas.ts",
+      "source_field": "conditions_raw.alignScore",
+      "type": "number|null",
+      "semantic": "40×I(D)+35×I(W)+25×I(M); NOT_A_PROBABILITY",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "opportunity",
+      "source": "ScanRow.opportunity",
+      "source_file": "src/lib/desk/types.ts + formulas.ts",
+      "source_field": "conditions_raw.opportunity",
+      "type": "number|null",
+      "semantic": "research opportunity score; NOT_A_PROBABILITY",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "book_addScore",
+      "source": "ScanRow.book.addScore",
+      "source_file": "src/lib/desk/types.ts BookNote",
+      "source_field": "conditions_raw.book_addScore",
+      "type": "number|null",
+      "semantic": "距下沿近分 0–100; Estimated; 唔入 TRUST_UP/MARK_BUY",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "book_trimScore",
+      "source": "ScanRow.book.trimScore",
+      "source_file": "src/lib/desk/types.ts BookNote",
+      "source_field": "conditions_raw.book_trimScore",
+      "type": "number|null",
+      "semantic": "距上沿近分 0–100; Estimated",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "score_field",
+      "source": "warehouse write",
+      "source_file": "scripts/desk_run_warehouse_write.mts",
+      "source_field": "score_field",
+      "type": "string",
+      "semantic": "always alignScore for DESK_CORE_V1",
+      "probability": false,
+      "t0_status": "PRESENT"
+    }
+  ],
+  "regime_features": [
+    {
+      "name": "regime",
+      "source": "marketTape.regime",
+      "source_file": "src/lib/desk/types.ts Regime + formulas.ts marketTape",
+      "source_field": "state.regime",
+      "type": "enum",
+      "semantic": "RISK_ON_COMPAT|MIXED|RISK_OFF_COMPAT|STRESS|UNKNOWN",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "priceState",
+      "source": "marketTape.priceState",
+      "source_file": "src/lib/desk/types.ts PriceState",
+      "source_field": "conditions_raw.priceState",
+      "type": "enum",
+      "semantic": "RANGE|ACCEL_UP|ACCEL_DOWN|UNKNOWN",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "volState",
+      "source": "marketTape.volState",
+      "source_file": "src/lib/desk/types.ts VolState",
+      "source_field": "conditions_raw.volState",
+      "type": "enum",
+      "semantic": "QUIET|STIRRING|EXPANDED|UNKNOWN",
+      "probability": false,
+      "t0_status": "PRESENT"
+    }
+  ],
+  "execution_features": [
+    {
+      "name": "book_action",
+      "source": "ScanRow.book.action",
+      "source_file": "src/lib/desk/types.ts BookAction",
+      "source_field": "conditions_raw.book_action",
+      "type": "enum",
+      "semantic": "ADD|TRIM|HOLD|SKIP — BOOK_ACTION only; ≠ MARK_BUY",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "book_board",
+      "source": "ScanRow.book.board",
+      "source_file": "src/lib/desk/types.ts BookBoard",
+      "source_field": "conditions_raw.book_board",
+      "type": "enum",
+      "semantic": "DOWN|UP|HOLD|SKIP",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "book_line",
+      "source": "ScanRow.book.line",
+      "source_file": "src/lib/desk/types.ts",
+      "source_field": "conditions_raw.book_line",
+      "type": "string",
+      "semantic": "human book note; Estimated",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "markBuyLine",
+      "source": "ScanRow.markBuyLine",
+      "source_file": "src/lib/desk/formulas.ts",
+      "source_field": "conditions_raw.markBuyLine",
+      "type": "string",
+      "semantic": "MARK_BUY gate explanation text",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "whyNotBuy",
+      "source": "ScanRow.whyNotBuy",
+      "source_file": "src/lib/desk/formulas.ts",
+      "source_field": "whyNotBuy / conditions_raw.whyNotBuy",
+      "type": "string[]",
+      "semantic": "gate failure reasons",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "execution_class",
+      "source": "derived from signal_type + EXECUTION_POLICY",
+      "source_file": "EXECUTION_POLICY.md + forward_runner.classify_execution",
+      "source_field": "derived",
+      "type": "enum",
+      "semantic": "BOOK_ACTION|EXECUTABLE|RESEARCH_SIGNAL|AUDIT_ONLY",
+      "probability": false,
+      "t0_status": "DERIVED"
+    }
+  ],
+  "market_context_features": [
+    {
+      "name": "bandPosPct",
+      "source": "ScanRow.bandPosPct",
+      "source_file": "src/lib/desk/types.ts",
+      "source_field": "conditions_raw.bandPosPct",
+      "type": "number|null",
+      "semantic": "現價在（下壓，上壓）區間位置 0–100; MARK_BUY 要≤25",
+      "probability": false,
+      "t0_status": "PRESENT (nullable)"
+    },
+    {
+      "name": "relVol20",
+      "source": "ScanRow.relVol20",
+      "source_file": "src/lib/desk/types.ts",
+      "source_field": "conditions_raw.relVol20",
+      "type": "number|null",
+      "semantic": "最後一根量 / 20棒均量; Derived",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "market_bar_asof",
+      "source": "warehouse write",
+      "source_file": "scripts/desk_run_warehouse_write.mts",
+      "source_field": "market_bar_asof",
+      "type": "date",
+      "semantic": "LIVE_FORWARD maturity anchor",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "universe_id",
+      "source": "warehouse write",
+      "source_file": "scripts/desk_run_warehouse_write.mts",
+      "source_field": "universe_id",
+      "type": "string",
+      "semantic": "desk_DEFAULT_SYMBOLS",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "universe_asof",
+      "source": "warehouse write",
+      "source_file": "scripts/desk_run_warehouse_write.mts",
+      "source_field": "universe_asof",
+      "type": "string",
+      "semantic": "FIXED_UNIVERSE_DEFAULT_SYMBOLS_* — NOT RelVol pack",
+      "probability": false,
+      "t0_status": "PRESENT"
+    },
+    {
+      "name": "source",
+      "source": "ScanRow.source",
+      "source_file": "conditions_raw.source",
+      "source_field": "conditions_raw.source",
+      "type": "enum",
+      "semantic": "yahoo|csv|demo|none",
+      "probability": false,
+      "t0_status": "PRESENT"
+    }
+  ],
+  "feature_provenance": [
+    {
+      "name": "alignScore",
+      "source_file": "src/lib/desk/types.ts + formulas.ts",
+      "source_field": "ScanRow.alignScore",
+      "source_function_or_ui": "scanSymbol / ALIGN_WEIGHT",
+      "type": "number|null",
+      "meaning": "Inertia align 0–100; NOT a calibrated buy probability",
+      "probability": false
+    },
+    {
+      "name": "opportunity",
+      "source_file": "src/lib/desk/formulas.ts",
+      "source_field": "ScanRow.opportunity",
+      "source_function_or_ui": "scanSymbol",
+      "type": "number|null",
+      "meaning": "Opportunity research score; NOT_A_PROBABILITY",
+      "probability": false
+    },
+    {
+      "name": "bandPosPct",
+      "source_file": "src/lib/desk/formulas.ts",
+      "source_field": "ScanRow.bandPosPct",
+      "source_function_or_ui": "scanSymbol / pressure band position",
+      "type": "number|null",
+      "meaning": "Position in pressure band 0–100",
+      "probability": false
+    },
+    {
+      "name": "relVol20",
+      "source_file": "src/lib/desk/formulas.ts",
+      "source_field": "ScanRow.relVol20",
+      "source_function_or_ui": "scanSymbol",
+      "type": "number|null",
+      "meaning": "Relative volume 20-bar",
+      "probability": false
+    },
+    {
+      "name": "desk_state",
+      "source_file": "src/lib/desk/types.ts",
+      "source_field": "ScanRow.state → state.desk_state",
+      "source_function_or_ui": "scanSymbol state machine",
+      "type": "DeskState",
+      "meaning": "Desk state machine label",
+      "probability": false
+    },
+    {
+      "name": "regime",
+      "source_file": "src/lib/desk/formulas.ts marketTape",
+      "source_field": "MarketTape.regime",
+      "source_function_or_ui": "marketTape(QQQ,SPY,VIX)",
+      "type": "Regime",
+      "meaning": "Market regime from tape",
+      "probability": false
+    },
+    {
+      "name": "shape",
+      "source_file": "src/lib/desk/formulas.ts",
+      "source_field": "ScanRow.shape.label",
+      "source_function_or_ui": "shape efficiency",
+      "type": "ShapeLabel",
+      "meaning": "CONTINUE/CHOPPY/FADE shape",
+      "probability": false
+    },
+    {
+      "name": "book_action",
+      "source_file": "src/lib/desk/types.ts BookNote",
+      "source_field": "ScanRow.book.action",
+      "source_function_or_ui": "book note Estimated",
+      "type": "BookAction",
+      "meaning": "BOOK_ACTION observation; never auto MARK_BUY",
+      "probability": false
+    },
+    {
+      "name": "book_addScore",
+      "source_file": "src/lib/desk/types.ts BookNote",
+      "source_field": "ScanRow.book.addScore",
+      "source_function_or_ui": "book note",
+      "type": "number|null",
+      "meaning": "Near-lower-band score; Estimated; not MARK_BUY gate",
+      "probability": false
+    },
+    {
+      "name": "ATR",
+      "source_file": "src/lib/desk/types.ts TfMetrics.atr",
+      "source_field": "daily.atr (engine)",
+      "source_function_or_ui": "TfMetrics — NOT written into T0 conditions_raw",
+      "type": "number|null",
+      "meaning": "Exists on ScanRow.daily.atr in engine; absent on T0 conditions_raw → NOT_AVAILABLE in memory",
+      "probability": false
+    },
+    {
+      "name": "pressure_bands",
+      "source_file": "src/lib/desk/types.ts PressureBand / pressD",
+      "source_field": "upper/lower price+degree",
+      "source_function_or_ui": "pressBySet — NOT flattened into T0 conditions_raw",
+      "type": "object",
+      "meaning": "Structured pressure bands exist in engine; T0 only has markBuyLine text → NOT_AVAILABLE as structured fields",
+      "probability": false
+    },
+    {
+      "name": "relState",
+      "source_file": "src/lib/desk/types.ts RelState",
+      "source_field": "ScanRow.relState",
+      "source_function_or_ui": "scanSymbol — NOT on T0 state/conditions_raw",
+      "type": "RelState",
+      "meaning": "Engine field; not on T0 emit → NOT_AVAILABLE",
+      "probability": false
+    }
+  ],
+  "derived_features": [
+    {
+      "name": "alignScore_bucket",
+      "rule": "DECLARED_V1: align_lt_35 | align_35_55 | align_ge_55 | align_null",
+      "source": "alignScore",
+      "hindsight": false
+    },
+    {
+      "name": "bandPosPct_bucket",
+      "rule": "DECLARED_V1: band_le_25 | band_25_50 | band_50_75 | band_gt_75 | band_null",
+      "source": "bandPosPct",
+      "hindsight": false
+    },
+    {
+      "name": "signal_type_group",
+      "rule": "DECLARED_V1: raw signal_type string",
+      "source": "signal_type",
+      "hindsight": false
+    },
+    {
+      "name": "regime_group",
+      "rule": "DECLARED_V1: raw state.regime",
+      "source": "regime",
+      "hindsight": false
+    },
+    {
+      "name": "shape_group",
+      "rule": "DECLARED_V1: raw state.shape",
+      "source": "shape",
+      "hindsight": false
+    },
+    {
+      "name": "desk_state_group",
+      "rule": "DECLARED_V1: raw state.desk_state",
+      "source": "desk_state",
+      "hindsight": false
+    },
+    {
+      "name": "book_board_group",
+      "rule": "DECLARED_V1: raw book_board",
+      "source": "book_board",
+      "hindsight": false
+    }
+  ],
+  "non_probability_fields": [
+    "score",
+    "alignScore",
+    "opportunity",
+    "book_addScore",
+    "book_trimScore",
+    "bandPosPct",
+    "relVol20",
+    "claimed_p"
+  ],
+  "model_claim_fields": [
+    {
+      "name": "claimed_p",
+      "source_field": "claimed_p",
+      "note": "DESK_CORE_V1 always null — MODEL_CLAIM slot only"
+    }
+  ],
+  "observed_forward_fields": [
+    "absolute_hit / excess_hit per horizon",
+    "raw_return / benchmark_return / excess_return per horizon"
+  ],
+  "not_available_in_t0_conditions_raw": [
+    {"name": "ATR", "status": "NOT_AVAILABLE", "note": "engine TfMetrics.atr exists; not on T0 conditions_raw"},
+    {"name": "pressure_upper_price", "status": "NOT_AVAILABLE", "note": "engine PressureBand; only markBuyLine text on T0"},
+    {"name": "pressure_lower_price", "status": "NOT_AVAILABLE"},
+    {"name": "relState", "status": "NOT_AVAILABLE", "note": "engine ScanRow.relState; not on T0 state"},
+    {"name": "FIT", "status": "NOT_AVAILABLE"},
+    {"name": "confidence", "status": "NOT_AVAILABLE"},
+    {"name": "success_rate", "status": "NOT_AVAILABLE"},
+    {"name": "calibrated_probability", "status": "NOT_AVAILABLE"}
+  ],
+  "hypothesis_verification": {
+    "alignScore": "PRESENT",
+    "opportunity": "PRESENT",
+    "desk_state": "PRESENT",
+    "regime": "PRESENT",
+    "shape": "PRESENT",
+    "trend.rising": "PRESENT",
+    "trustUp": "PRESENT",
+    "hot": "PRESENT",
+    "bandPosPct": "PRESENT (nullable)",
+    "relVol20": "PRESENT",
+    "book_action": "PRESENT",
+    "book_board": "PRESENT",
+    "book_addScore": "PRESENT",
+    "book_trimScore": "PRESENT",
+    "whyNotBuy": "PRESENT",
+    "rank": "PRESENT",
+    "signal_type": "PRESENT",
+    "price_at_signal": "PRESENT",
+    "ATR": "NOT_AVAILABLE_ON_T0_conditions_raw",
+    "pressure_bands_structured": "NOT_AVAILABLE_ON_T0_conditions_raw",
+    "relState": "NOT_AVAILABLE_ON_T0"
+  },
+  "forbidden_inference": [
+    "Do not invent FIT / confidence / probability / success_rate",
+    "Do not treat score / alignScore / opportunity as calibrated probability",
+    "Do not upgrade book_ADD to MARK_BUY / ARMED / TRUST_UP",
+    "Do not invent portfolio P&L from BOOK_ACTION observations",
+    "Do not mix LIVE_FORWARD with REPLAY_FORWARD pools",
+    "Do not rewrite T0 or backfill old signal_memory rows with new profile fields",
+    "Do not invent missing engine fields — emit NOT_AVAILABLE",
+    "MODEL_CLAIM (claimed_p) must stay separate from OBSERVED_FORWARD_OUTCOME"
+  ],
+  "conditional_bucket_rules_version": "DECLARED_V1",
+  "honesty": [
+    "Features only from original Desk engine / T0 conditions_raw + state",
+    "append-only signal_memory",
+    "profile versioned — schema growth => research_profile_v2",
+    "book_ADD ≠ MARK_BUY",
+    "evaluation_clock = LIVE_FORWARD; benchmark = QQQ"
+  ],
+  "created_for": "RESEARCH_MEMORY_V1"
+}

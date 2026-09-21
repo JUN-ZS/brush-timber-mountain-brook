@@ -1,0 +1,21 @@
+{
+  "schema": "desk.conditional_analysis_v1",
+  "bucket_rule_version": "DECLARED_V1",
+  "evaluation_clock": "LIVE_FORWARD",
+  "benchmark": "QQQ",
+  "horizon": 5,
+  "note": "OBSERVED on RESOLVED formal only; THIN_SAMPLE if n<10; not probability; no hindsight rebucket; LIVE ≠ REPLAY",
+  "groups": {
+    "alignScore_bucket": {},
+    "bandPosPct_bucket": {},
+    "signal_type": {},
+    "regime": {},
+    "shape": {},
+    "desk_state": {},
+    "book_board": {},
+    "trustUp": {}
+  },
+  "n_formal_signals": 7,
+  "n_resolved_5d": 0,
+  "generated_at": "2026-09-21T15:10:30Z"
+}

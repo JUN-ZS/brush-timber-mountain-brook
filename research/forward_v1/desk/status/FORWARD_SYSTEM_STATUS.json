@@ -5,8 +5,8 @@
   "app_id": "xin_gu_inertia_desk",
   "evaluation_clock": "LIVE_FORWARD",
   "minimum_run": "V1.2",
-  "checked_at_utc": "2026-09-21T14:20:19Z",
-  "checked_at_hkt": "2026-09-21 22:20:19 HKT",
+  "checked_at_utc": "2026-09-21T15:10:30Z",
+  "checked_at_hkt": "2026-09-21 23:10:30 HKT",
   "market_state": "OPEN",
   "data_status": "DATA_FRESH",
   "data_bridge": {
@@ -173,8 +173,8 @@
     "node": "desk",
     "app_id": "xin_gu_inertia_desk",
     "evaluation_clock": "LIVE_FORWARD",
-    "checked_at_utc": "2026-09-21T14:20:19Z",
-    "checked_at_hkt": "2026-09-21 22:20:19 HKT",
+    "checked_at_utc": "2026-09-21T15:10:30Z",
+    "checked_at_hkt": "2026-09-21 23:10:30 HKT",
     "data_source": "yahoo_live_cache:/workspace/juniper-kite/cache/bars",
     "data_asof": "2026-09-18",
     "calendar_latest": "2026-09-18",
@@ -266,9 +266,9 @@
     "app_id": "xin_gu_inertia_desk",
     "model_version": "DESK_CORE_V1",
     "evaluation_clock": "LIVE_FORWARD",
-    "run_id": "desk_capture_20260921T142019Z",
-    "checked_at_utc": "2026-09-21T14:20:19Z",
-    "checked_at_hkt": "2026-09-21 22:20:19 HKT",
+    "run_id": "desk_capture_20260921T151030Z",
+    "checked_at_utc": "2026-09-21T15:10:30Z",
+    "checked_at_hkt": "2026-09-21 23:10:30 HKT",
     "t0_untouched": true,
     "t0_path": "research/forward_v1/desk/T0_20260921T183800/",
     "original_engine": {
@@ -373,15 +373,21 @@
     "NEXT_AUTOMATIC_ACTION": "When US session prints ≥5 trading days after 2026-09-18: data_bridge.py → resolve_5d.py → expect resolved_5d>0; T1 only on NEW bar after T0 asof (else NO_NEW_SIGNAL). Install Actions workflow when OAuth gains workflow scope."
   },
   "forward_runner": "V1.0",
-  "last_run_id": "FORWARD_RUN_20260921T142017Z",
-  "last_run_at_utc": "2026-09-21T14:20:19Z",
-  "last_run_at_hkt": "2026-09-21 22:20:19 HKT",
+  "last_run_id": "FORWARD_RUN_20260921T151030Z",
+  "last_run_at_utc": "2026-09-21T15:10:30Z",
+  "last_run_at_hkt": "2026-09-21 23:10:30 HKT",
   "last_run_status": "OK_CYCLE_COMPLETE",
   "last_blocked_reason": "latest_bar=2026-09-18 already formalized as T0 market_bar_asof=2026-09-18; wait for NEW daily bar after US RTH close before T1+ LIVE_FORWARD events. This is NO_NEW_SIGNAL / SAME_BAR — NOT DATA_STALE.",
   "shadow_book": "EMPTY_BY_POLICY",
   "new_events": 0,
   "new_orders": 0,
-  "run_history_file": "research/forward_v1/desk/run_history/FORWARD_RUN_20260921T142017Z.json",
-  "report_file": "research/forward_v1/desk/reports/REPORT_FORWARD_RUN_20260921T142017Z.html",
-  "execution_policy": "book_ADD=OBSERVATION; MARK_BUY/ARMED/TRUST_UP only if engine-emitted executable"
+  "run_history_file": "research/forward_v1/desk/run_history/FORWARD_RUN_20260921T151030Z.json",
+  "report_file": "research/forward_v1/desk/reports/REPORT_FORWARD_RUN_20260921T151030Z.html",
+  "execution_policy": "book_ADD=OBSERVATION; MARK_BUY/ARMED/TRUST_UP only if engine-emitted executable",
+  "research_memory": {
+    "signal_memory_total": 7,
+    "t0_integrity": "PASS",
+    "report": "research/forward_v1/desk/research_memory/REPORT_RESEARCH_MEMORY.html",
+    "profile": "research/forward_v1/desk/research_profile.json"
+  }
 }
