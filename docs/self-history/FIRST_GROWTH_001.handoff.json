@@ -1,0 +1,128 @@
+{
+  "run_id": "FIRST_GROWTH_001",
+  "protocol": "GROW_WITHIN_FIELD",
+  "asof": "2026-09-09T04:34:25Z",
+  "actor_role": "BRUSH",
+  "repo": "JUN-ZS/brush-timber-mountain-brook",
+  "head": "7482356",
+  "branch_docs_head_note": "9b52539+ docs only; do not equate to artifact pin",
+  "envelope_mode": "DISARMED",
+  "authorization": "NONE",
+  "grow_within_field": true,
+  "max_packets": 1,
+  "impersonate_organ": false,
+  "citation_only": true,
+  "not": [
+    "Decoder",
+    "Fusion",
+    "N3-N9",
+    "ARM",
+    "Signal",
+    "Credit",
+    "Order",
+    "Stretch_retest",
+    "OPRA_retest"
+  ],
+  "avoided_sa001_set": [
+    "research/refit_cpcv.*",
+    "research/cost_oos_cpcv_survival.*"
+  ],
+  "PRIMARY": {
+    "claim": "RelVol regimes and V2.2 states are the same classifier / may optimize annualized returns off the map.",
+    "question_form": "歷史資料真正支持甚麼關係？",
+    "subject": "RelVol↔V2.2 ASSOCIATION map",
+    "sources": [
+      {
+        "source_path": "research/relvol_v22_state_map.md",
+        "sha256": "98c30d5d2d869863febe443e50807ca5edae6353a0b3497f5697cf9192955240",
+        "truth_class": "RESEARCH_ARTIFACT",
+        "evidence_status": "UNCERTAIN"
+      },
+      {
+        "source_path": "research/relvol_v22_state_map.json",
+        "sha256": "cbf24c0d23c5a4e7a1504a08d77911684b199cae776a1deaa06f32f3350bae6e",
+        "truth_class": "RESEARCH_ARTIFACT",
+        "evidence_status": "UNCERTAIN"
+      }
+    ]
+  },
+  "SELF_AUDIT": {
+    "q1_relationship": "Pack stamps ASSOCIATION_ONLY soft nearest-map; not same classifier.",
+    "q2_truth_mix": "RESEARCH_ARTIFACT; source_agent=波動; not OPRA OBSERVED.",
+    "q3_stretch_survival": "NOT_APPLICABLE; Stretch/OPRA NOT_AUTHORIZED; SA_001 set avoided.",
+    "q4_association_only": "YES kind=ASSOCIATION_ONLY; not=[same_classifier, annualized_optimization].",
+    "q5_credit_proto": "NOT_APPLICABLE.",
+    "q6_core_edited": "NO.",
+    "q7_direction_as_signal": "NOT_APPLICABLE/refused.",
+    "verdict": "PRIMARY same-classifier/optimize claim REFUSED; soft association only; evidence_status=UNCERTAIN."
+  },
+  "COUNTER": {
+    "knives_fired": [
+      {
+        "knife": "dependency",
+        "locus": "source_agent=波動; join_keys; RECOVERY nearest=null",
+        "outcome": "Depends on external RelVol producer; not V2.2 identity"
+      },
+      {
+        "knife": "counterexample",
+        "locus": "own low pct ≠ low VIX; CHAOTIC ≠ one-way; RECOVERY null",
+        "outcome": "Breaks same-classifier/hard-map"
+      },
+      {
+        "knife": "historical_failure",
+        "locus": "alert_prose not enum",
+        "outcome": "Prose ≠ validated state machine"
+      },
+      {
+        "knife": "OOS",
+        "locus": "no OOS equivalence table on this pack",
+        "outcome": "CANNOT_YET hard equivalence"
+      },
+      {
+        "knife": "Killed",
+        "locus": "Stretch set avoided",
+        "outcome": "N/A no Stretch reopen"
+      }
+    ],
+    "new_metric_created": false,
+    "new_backtest_opened": false,
+    "complete_counter_volume": true
+  },
+  "CALIBRATION": {
+    "action": "Keep ASSOCIATION_ONLY/UNCERTAIN; forbid annualized optimize; forbid same-classifier promotion.",
+    "scope_narrow": "Association-map only; no Stretch/OPRA reopen.",
+    "promotion": "NONE"
+  },
+  "UNCERTAINTY": [
+    "Soft many-to-one maps are not uniqueness proofs.",
+    "No OOS hard-equivalence in this pair.",
+    "HEAD_DRIFT docs branch ≠ pin 7482356."
+  ],
+  "FIELD_QUESTION": [
+    {
+      "type": "SCOPE",
+      "text": "Treat ASSOCIATION_ONLY maps citation-only until pre-registered equivalence protocol authorized?",
+      "not": [
+        "Signal",
+        "Credit",
+        "Order"
+      ]
+    },
+    {
+      "type": "REQUEST_RETEST",
+      "text": "Equivalence/OOS for RelVol↔V2.2 CANNOT_YET — authorize explicitly; BRUSH will not self-open.",
+      "not": [
+        "Signal",
+        "Credit",
+        "Order",
+        "Stretch_retest",
+        "OPRA_retest"
+      ]
+    }
+  ],
+  "truth_class": "RESEARCH_ARTIFACT",
+  "evidence_status": "UNCERTAIN",
+  "signal_role": "ASSOCIATION_ONLY",
+  "direction": "NOT_APPLICABLE",
+  "handoff_uri": "docs/self-history/FIRST_GROWTH_001.handoff.json"
+}

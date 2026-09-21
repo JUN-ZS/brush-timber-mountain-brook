@@ -40,3 +40,5 @@ Grid: **648** specs (first wave). Embargo: **21** days.
 ## Method note
 
 Re-fit: firstWaveGrid search with protectedScore(validation) on train-prefix windows only; test evaluated once. Walk-forward over 6 blocks + purged adjacent-block pairs. Embargo=21d before test. Non-contiguous post-hole train excluded to prevent path leak.
+
+> **PATCH_GAP_001 (label/provenance only):** JSON `summary.method` prose says walk-forward over **6 blocks**, while `summary.n_walk_forward=5` and this md Summary lists walk-forward **5**. Treat that block-count labeling inconsistency as **UNKNOWN** (documentation seam). Do **not** reinterpret Stretch/KILLED numbers; no CPCV re-run in this patch.
