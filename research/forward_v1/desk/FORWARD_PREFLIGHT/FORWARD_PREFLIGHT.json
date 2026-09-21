@@ -1,0 +1,82 @@
+{
+  "source_of_truth": "github",
+  "github_repo": "JUN-ZS/brush-timber-mountain-brook",
+  "github_pr": 7,
+  "github_merged": true,
+  "merge_commit_sha": "86fc12a7304228b3499cd96176f4db900ce1b11d",
+  "t0_path": "research/forward_v1/desk/T0_20260921T183800/",
+  "t0_immutable": true,
+  "event_count": 7,
+  "unique_tickers": 7,
+  "tickers": [
+    "AAPL",
+    "AMD",
+    "GOOGL",
+    "IWM",
+    "MU",
+    "SMH",
+    "TSM"
+  ],
+  "outcome_count": 35,
+  "resolved_count": 0,
+  "waiting_count": 35,
+  "model_version": "DESK_CORE_V1",
+  "code_commit": "fd0e5d9",
+  "signal_timestamp": "2026-09-21T18:38:00+08:00",
+  "market_bar_asof": "2026-09-18",
+  "universe_asof": "FIXED_UNIVERSE_DEFAULT_SYMBOLS_fd0e5d9",
+  "universe_id": "desk_DEFAULT_SYMBOLS",
+  "app_id": "xin_gu_inertia_desk",
+  "run_id": "desk_20260921T183800+0800",
+  "provenance": "yahoo_live_scan",
+  "provenance_counts": {
+    "yahoo+scanSymbol": 7
+  },
+  "signal_type_counts": {
+    "desk.book_ADD": 7
+  },
+  "n_MARK_BUY": 0,
+  "n_ARMED": 0,
+  "n_TRUST_UP": 0,
+  "n_book_ADD": 7,
+  "price_reference_status": "OK",
+  "price_at_signal_present": 7,
+  "price_at_signal_missing": 0,
+  "stale_reference_count": 7,
+  "stale_reference_note": "signal_timestamp date > market_bar_asof — preserved as-is, not rewritten",
+  "event_id_unique": true,
+  "duplicate_event_ids": 0,
+  "duplicate_event_horizon": 0,
+  "horizons": [
+    5,
+    21,
+    63,
+    126,
+    252
+  ],
+  "horizon_counts": {
+    "5": 7,
+    "21": 7,
+    "63": 7,
+    "126": 7,
+    "252": 7
+  },
+  "benchmark": "QQQ",
+  "score_label": "NOT_A_PROBABILITY",
+  "claimed_p_all_null": true,
+  "audit_status": "PASS",
+  "gate": "PASS → B_MID",
+  "mismatches": [],
+  "forbidden_actions_ack": [
+    "no T0 rewrite",
+    "no re-scan replace",
+    "no hindsight price invent",
+    "no promote book_ADD to MARK_BUY",
+    "outcomes append-only only"
+  ],
+  "formal_mid_pool": {
+    "events": 7,
+    "exclude_demo_audit": 0,
+    "note": "All 7 events are desk.book_ADD from yahoo live scan; MARK_BUY/ARMED/TRUST_UP = 0 preserved"
+  }
+}
