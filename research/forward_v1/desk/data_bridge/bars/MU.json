@@ -1,0 +1,115 @@
+{
+  "schema": "DESK_DATA_BRIDGE_BARS.v1",
+  "ticker": "MU",
+  "evaluation_clock": "LIVE_FORWARD",
+  "maturity_anchor": "2026-09-18",
+  "frequency": "1d",
+  "retrieved_at": "2026-09-21T13:31:04Z",
+  "primary_cache": "/workspace/juniper-kite/cache/bars",
+  "primary_available": true,
+  "yahoo_fallback_attempted": true,
+  "yahoo_fallback_error": null,
+  "latest_bar": "2026-09-18",
+  "latest_bar_raw_including_incomplete": "2026-09-21",
+  "last_completed_us_session": "2026-09-18",
+  "post_anchor_trading_days": 0,
+  "post_anchor_dates": [],
+  "bar_counts": {
+    "primary_bars": 501,
+    "yahoo_fallback_bars": 1,
+    "post_anchor_primary": 0,
+    "post_anchor_yahoo_fallback": 0,
+    "post_anchor_total": 0,
+    "incomplete_bars": 1
+  },
+  "bars": [
+    {
+      "date": "2026-09-14",
+      "open": 906.030029296875,
+      "high": 932.2100219726562,
+      "low": 902.5999755859375,
+      "close": 924.030029296875,
+      "volume": 27141900.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/MU.json",
+      "frequency": "1d",
+      "ticker": "MU",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-15",
+      "open": 937.5,
+      "high": 944.9400024414062,
+      "low": 920.1300048828125,
+      "close": 927.5999755859375,
+      "volume": 20434700.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/MU.json",
+      "frequency": "1d",
+      "ticker": "MU",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-16",
+      "open": 934.22998046875,
+      "high": 941.2000122070312,
+      "low": 917.6400146484375,
+      "close": 926.5499877929688,
+      "volume": 20213000.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/MU.json",
+      "frequency": "1d",
+      "ticker": "MU",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-17",
+      "open": 954.5700073242188,
+      "high": 986.2000122070312,
+      "low": 953.5,
+      "close": 977.5,
+      "volume": 22091600.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/MU.json",
+      "frequency": "1d",
+      "ticker": "MU",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-18",
+      "open": 984.719970703125,
+      "high": 1016.4400024414062,
+      "low": 977.8300170898438,
+      "close": 1015.7999877929688,
+      "volume": 35656400.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/MU.json",
+      "frequency": "1d",
+      "ticker": "MU",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-21",
+      "open": 1044.75,
+      "high": 1048.3299560546875,
+      "low": 1040.489990234375,
+      "close": 1045.2005615234375,
+      "volume": 1982223.0,
+      "source": "YAHOO_FALLBACK",
+      "data_asof": "2026-09-21",
+      "retrieved_at": "2026-09-21T13:31:04Z",
+      "frequency": "1d",
+      "ticker": "MU",
+      "session_complete": false,
+      "session_note": "INCOMPLETE_OR_UNCLOSED vs last_completed_us_session=2026-09-18; excluded from post_anchor resolve calendar"
+    }
+  ],
+  "label_policy": {
+    "PRIMARY": "juniper-kite live cache bar",
+    "YAHOO_FALLBACK": "yfinance daily; NEVER ORIGINAL_LIVE",
+    "forbidden": [
+      "ORIGINAL_LIVE for yahoo rows",
+      "invented prices"
+    ]
+  }
+}

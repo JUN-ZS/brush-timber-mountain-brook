@@ -1,13 +1,16 @@
 {
-  "run_id": "desk_resolve_20260921T121509Z",
+  "run_id": "desk_resolve_20260921T133106Z",
+  "minimum_run": "V1.2",
   "status": "OK",
   "integrity_failures": [],
   "evaluation_clock": "LIVE_FORWARD",
   "notes": [
-    "LIVE_FORWARD desk T0: 7 book_ADD, price OK, maturity_anchor=2026-09-18; RESOLVED fills deferred until certified post-anchor multi-ticker bars (no invent)",
+    "LIVE_FORWARD desk T0: 7 book_ADD, price OK, maturity_anchor=2026-09-18; qqq_latest=2026-09-18 post_anchor_days=0; resolved_5d=0 newly_resolved=0; no invent",
     "append-only; T0 immutable",
     "LIVE_FORWARD \u2260 REPLAY_FORWARD",
     "book_ADD \u2260 MARK_BUY",
-    "score \u2260 probability"
+    "score \u2260 probability",
+    "calendar \u2260 price \u2014 both must validate",
+    "YAHOO_FALLBACK never ORIGINAL_LIVE"
   ]
 }

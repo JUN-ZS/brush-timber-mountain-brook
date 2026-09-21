@@ -1,0 +1,159 @@
+{
+  "schema": "DATA_BRIDGE_STATUS.v1",
+  "node": "desk",
+  "app_id": "xin_gu_inertia_desk",
+  "hub_name": "信股慣性台",
+  "evaluation_clock": "LIVE_FORWARD",
+  "minimum_run": "V1.2",
+  "checked_at_utc": "2026-09-21T13:31:04Z",
+  "checked_at_hkt": "2026-09-21 21:31:04 HKT",
+  "maturity_anchor": "2026-09-18",
+  "last_completed_us_session": "2026-09-18",
+  "t0_path": "research/forward_v1/desk/T0_20260921T183800/",
+  "t0_immutable": true,
+  "tickers": [
+    "AAPL",
+    "AMD",
+    "GOOGL",
+    "IWM",
+    "MU",
+    "SMH",
+    "TSM"
+  ],
+  "benchmark": "QQQ",
+  "symbols": [
+    "AAPL",
+    "AMD",
+    "GOOGL",
+    "IWM",
+    "MU",
+    "QQQ",
+    "SMH",
+    "TSM"
+  ],
+  "primary_cache": "/workspace/juniper-kite/cache/bars",
+  "primary_exists": true,
+  "yahoo_fallback": {
+    "provider": "yfinance",
+    "source_label": "YAHOO_FALLBACK",
+    "never": "ORIGINAL_LIVE",
+    "frequency": "1d",
+    "retrieved_at": "2026-09-21T13:31:04Z",
+    "window_start": "2026-09-13",
+    "window_end": "2026-09-21"
+  },
+  "latest_bar": "2026-09-18",
+  "latest_bar_by_symbol": {
+    "AAPL": "2026-09-18",
+    "AMD": "2026-09-18",
+    "GOOGL": "2026-09-18",
+    "IWM": "2026-09-18",
+    "MU": "2026-09-18",
+    "QQQ": "2026-09-18",
+    "SMH": "2026-09-18",
+    "TSM": "2026-09-18"
+  },
+  "post_anchor_trading_days_qqq": 0,
+  "post_anchor_trading_days_min_t0_tickers": 0,
+  "status": "DATA_FRESH",
+  "resolver_implication": "WAITING_FOR_FUTURE_BARS",
+  "note": "bridge FRESH through 2026-09-18=maturity_anchor; post_anchor_trading_days=0 — resolver must WAITING_FOR_FUTURE_BARS (resolved_5d=0 OK until ≥5 trading days after anchor)",
+  "failures": [],
+  "per_symbol": {
+    "AAPL": {
+      "path": "research/forward_v1/desk/data_bridge/bars/AAPL.json",
+      "latest_bar": "2026-09-18",
+      "post_anchor_trading_days": 0,
+      "post_anchor_dates": [],
+      "primary_bars": 501,
+      "yahoo_fallback_bars": 1,
+      "post_anchor_primary": 0,
+      "post_anchor_yahoo_fallback": 0,
+      "yahoo_fallback_error": null
+    },
+    "AMD": {
+      "path": "research/forward_v1/desk/data_bridge/bars/AMD.json",
+      "latest_bar": "2026-09-18",
+      "post_anchor_trading_days": 0,
+      "post_anchor_dates": [],
+      "primary_bars": 501,
+      "yahoo_fallback_bars": 1,
+      "post_anchor_primary": 0,
+      "post_anchor_yahoo_fallback": 0,
+      "yahoo_fallback_error": null
+    },
+    "GOOGL": {
+      "path": "research/forward_v1/desk/data_bridge/bars/GOOGL.json",
+      "latest_bar": "2026-09-18",
+      "post_anchor_trading_days": 0,
+      "post_anchor_dates": [],
+      "primary_bars": 501,
+      "yahoo_fallback_bars": 1,
+      "post_anchor_primary": 0,
+      "post_anchor_yahoo_fallback": 0,
+      "yahoo_fallback_error": null
+    },
+    "IWM": {
+      "path": "research/forward_v1/desk/data_bridge/bars/IWM.json",
+      "latest_bar": "2026-09-18",
+      "post_anchor_trading_days": 0,
+      "post_anchor_dates": [],
+      "primary_bars": 501,
+      "yahoo_fallback_bars": 1,
+      "post_anchor_primary": 0,
+      "post_anchor_yahoo_fallback": 0,
+      "yahoo_fallback_error": null
+    },
+    "MU": {
+      "path": "research/forward_v1/desk/data_bridge/bars/MU.json",
+      "latest_bar": "2026-09-18",
+      "post_anchor_trading_days": 0,
+      "post_anchor_dates": [],
+      "primary_bars": 501,
+      "yahoo_fallback_bars": 1,
+      "post_anchor_primary": 0,
+      "post_anchor_yahoo_fallback": 0,
+      "yahoo_fallback_error": null
+    },
+    "QQQ": {
+      "path": "research/forward_v1/desk/data_bridge/bars/QQQ.json",
+      "latest_bar": "2026-09-18",
+      "post_anchor_trading_days": 0,
+      "post_anchor_dates": [],
+      "primary_bars": 501,
+      "yahoo_fallback_bars": 1,
+      "post_anchor_primary": 0,
+      "post_anchor_yahoo_fallback": 0,
+      "yahoo_fallback_error": null
+    },
+    "SMH": {
+      "path": "research/forward_v1/desk/data_bridge/bars/SMH.json",
+      "latest_bar": "2026-09-18",
+      "post_anchor_trading_days": 0,
+      "post_anchor_dates": [],
+      "primary_bars": 501,
+      "yahoo_fallback_bars": 1,
+      "post_anchor_primary": 0,
+      "post_anchor_yahoo_fallback": 0,
+      "yahoo_fallback_error": null
+    },
+    "TSM": {
+      "path": "research/forward_v1/desk/data_bridge/bars/TSM.json",
+      "latest_bar": "2026-09-18",
+      "post_anchor_trading_days": 0,
+      "post_anchor_dates": [],
+      "primary_bars": 501,
+      "yahoo_fallback_bars": 1,
+      "post_anchor_primary": 0,
+      "post_anchor_yahoo_fallback": 0,
+      "yahoo_fallback_error": null
+    }
+  },
+  "hard_locks": [
+    "never rewrite T0",
+    "never invent prices",
+    "YAHOO_FALLBACK ≠ ORIGINAL_LIVE",
+    "book_ADD ≠ MARK_BUY",
+    "LIVE_FORWARD ≠ REPLAY_FORWARD win-rate"
+  ]
+}
