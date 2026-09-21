@@ -1,0 +1,29 @@
+# Desk LIVE LOOP — install under .github/workflows/ only after workflow-scope OAuth.
+# CURRENT BLOCK: token scopes are gist/read:org/repo — missing `workflow`.
+name: desk-live-loop
+on:
+  schedule:
+    # ~ after US RTH close weekdays → ~05:00 HKT next calendar day often used;
+    # also a mid-HKT status pass:
+    - cron: "5 21 * * 1-5"   # 21:05 UTC ≈ 05:05 HKT Tue–Sat
+    - cron: "40 12 * * 1-5"  # 12:40 UTC ≈ 20:40 HKT Mon–Fri status
+  workflow_dispatch:
+jobs:
+  live-loop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: DATA_FACTORY_STATUS
+        run: python research/forward_v1/desk/tools/data_factory_status.py --repo-root .
+      - name: SIGNAL_CAPTURE status gate
+        run: python research/forward_v1/desk/signal_capture/capture_as_emitted.py --repo-root . --mode status
+      - name: FORWARD_SYSTEM_STATUS
+        run: python research/forward_v1/desk/tools/write_forward_system_status.py --repo-root .
+      # live_engine + resolver are separate jobs; only run when DATA_FRESH and new bar
+      - name: Note
+        run: |
+          echo "If NO_NEW_SIGNAL: do not invent events."
+          echo "OUTCOME_RESOLVER stays on research/desk-forward-resolver-v1 until merged."
