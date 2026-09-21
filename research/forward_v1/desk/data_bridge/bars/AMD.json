@@ -1,0 +1,115 @@
+{
+  "schema": "DESK_DATA_BRIDGE_BARS.v1",
+  "ticker": "AMD",
+  "evaluation_clock": "LIVE_FORWARD",
+  "maturity_anchor": "2026-09-18",
+  "frequency": "1d",
+  "retrieved_at": "2026-09-21T13:31:04Z",
+  "primary_cache": "/workspace/juniper-kite/cache/bars",
+  "primary_available": true,
+  "yahoo_fallback_attempted": true,
+  "yahoo_fallback_error": null,
+  "latest_bar": "2026-09-18",
+  "latest_bar_raw_including_incomplete": "2026-09-21",
+  "last_completed_us_session": "2026-09-18",
+  "post_anchor_trading_days": 0,
+  "post_anchor_dates": [],
+  "bar_counts": {
+    "primary_bars": 501,
+    "yahoo_fallback_bars": 1,
+    "post_anchor_primary": 0,
+    "post_anchor_yahoo_fallback": 0,
+    "post_anchor_total": 0,
+    "incomplete_bars": 1
+  },
+  "bars": [
+    {
+      "date": "2026-09-14",
+      "open": 486.2799987792969,
+      "high": 498.3900146484375,
+      "low": 480.3299865722656,
+      "close": 493.4100036621094,
+      "volume": 24810100.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/AMD.json",
+      "frequency": "1d",
+      "ticker": "AMD",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-15",
+      "open": 501.70001220703125,
+      "high": 513.6699829101562,
+      "low": 497.510009765625,
+      "close": 504.20001220703125,
+      "volume": 17134000.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/AMD.json",
+      "frequency": "1d",
+      "ticker": "AMD",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-16",
+      "open": 517.3900146484375,
+      "high": 527.25,
+      "low": 506.04998779296875,
+      "close": 512.5,
+      "volume": 22317700.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/AMD.json",
+      "frequency": "1d",
+      "ticker": "AMD",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-17",
+      "open": 533.5999755859375,
+      "high": 551.4199829101562,
+      "low": 527.5999755859375,
+      "close": 545.0900268554688,
+      "volume": 28464700.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/AMD.json",
+      "frequency": "1d",
+      "ticker": "AMD",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-18",
+      "open": 547.3699951171875,
+      "high": 559.9099731445312,
+      "low": 541.530029296875,
+      "close": 559.8200073242188,
+      "volume": 31785700.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/AMD.json",
+      "frequency": "1d",
+      "ticker": "AMD",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-21",
+      "open": 583.9400024414062,
+      "high": 589.8800048828125,
+      "low": 583.8800048828125,
+      "close": 586.14501953125,
+      "volume": 2352186.0,
+      "source": "YAHOO_FALLBACK",
+      "data_asof": "2026-09-21",
+      "retrieved_at": "2026-09-21T13:31:04Z",
+      "frequency": "1d",
+      "ticker": "AMD",
+      "session_complete": false,
+      "session_note": "INCOMPLETE_OR_UNCLOSED vs last_completed_us_session=2026-09-18; excluded from post_anchor resolve calendar"
+    }
+  ],
+  "label_policy": {
+    "PRIMARY": "juniper-kite live cache bar",
+    "YAHOO_FALLBACK": "yfinance daily; NEVER ORIGINAL_LIVE",
+    "forbidden": [
+      "ORIGINAL_LIVE for yahoo rows",
+      "invented prices"
+    ]
+  }
+}

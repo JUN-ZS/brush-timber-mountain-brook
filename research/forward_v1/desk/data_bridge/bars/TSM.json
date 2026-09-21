@@ -1,0 +1,115 @@
+{
+  "schema": "DESK_DATA_BRIDGE_BARS.v1",
+  "ticker": "TSM",
+  "evaluation_clock": "LIVE_FORWARD",
+  "maturity_anchor": "2026-09-18",
+  "frequency": "1d",
+  "retrieved_at": "2026-09-21T13:31:04Z",
+  "primary_cache": "/workspace/juniper-kite/cache/bars",
+  "primary_available": true,
+  "yahoo_fallback_attempted": true,
+  "yahoo_fallback_error": null,
+  "latest_bar": "2026-09-18",
+  "latest_bar_raw_including_incomplete": "2026-09-21",
+  "last_completed_us_session": "2026-09-18",
+  "post_anchor_trading_days": 0,
+  "post_anchor_dates": [],
+  "bar_counts": {
+    "primary_bars": 501,
+    "yahoo_fallback_bars": 1,
+    "post_anchor_primary": 0,
+    "post_anchor_yahoo_fallback": 0,
+    "post_anchor_total": 0,
+    "incomplete_bars": 1
+  },
+  "bars": [
+    {
+      "date": "2026-09-14",
+      "open": 416.010009765625,
+      "high": 424.45001220703125,
+      "low": 416.010009765625,
+      "close": 418.010009765625,
+      "volume": 14305900.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/TSM.json",
+      "frequency": "1d",
+      "ticker": "TSM",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-15",
+      "open": 421.94000244140625,
+      "high": 421.94000244140625,
+      "low": 412.54998779296875,
+      "close": 413.75,
+      "volume": 9452600.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/TSM.json",
+      "frequency": "1d",
+      "ticker": "TSM",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-16",
+      "open": 418.20001220703125,
+      "high": 419.8500061035156,
+      "low": 413.8800048828125,
+      "close": 417.7200012207031,
+      "volume": 10490900.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/TSM.json",
+      "frequency": "1d",
+      "ticker": "TSM",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-17",
+      "open": 424.3999938964844,
+      "high": 430.5299987792969,
+      "low": 423.3900146484375,
+      "close": 430.260009765625,
+      "volume": 12447700.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/TSM.json",
+      "frequency": "1d",
+      "ticker": "TSM",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-18",
+      "open": 429.0400085449219,
+      "high": 434.82000732421875,
+      "low": 428.9800109863281,
+      "close": 434.6700134277344,
+      "volume": 12884300.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/TSM.json",
+      "frequency": "1d",
+      "ticker": "TSM",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-21",
+      "open": 429.0400085449219,
+      "high": 442.20001220703125,
+      "low": 438.7099914550781,
+      "close": 439.1499938964844,
+      "volume": 486496.0,
+      "source": "YAHOO_FALLBACK",
+      "data_asof": "2026-09-21",
+      "retrieved_at": "2026-09-21T13:31:04Z",
+      "frequency": "1d",
+      "ticker": "TSM",
+      "session_complete": false,
+      "session_note": "INCOMPLETE_OR_UNCLOSED vs last_completed_us_session=2026-09-18; excluded from post_anchor resolve calendar"
+    }
+  ],
+  "label_policy": {
+    "PRIMARY": "juniper-kite live cache bar",
+    "YAHOO_FALLBACK": "yfinance daily; NEVER ORIGINAL_LIVE",
+    "forbidden": [
+      "ORIGINAL_LIVE for yahoo rows",
+      "invented prices"
+    ]
+  }
+}

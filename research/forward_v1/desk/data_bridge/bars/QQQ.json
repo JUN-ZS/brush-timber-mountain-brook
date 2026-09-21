@@ -1,0 +1,115 @@
+{
+  "schema": "DESK_DATA_BRIDGE_BARS.v1",
+  "ticker": "QQQ",
+  "evaluation_clock": "LIVE_FORWARD",
+  "maturity_anchor": "2026-09-18",
+  "frequency": "1d",
+  "retrieved_at": "2026-09-21T13:31:04Z",
+  "primary_cache": "/workspace/juniper-kite/cache/bars",
+  "primary_available": true,
+  "yahoo_fallback_attempted": true,
+  "yahoo_fallback_error": null,
+  "latest_bar": "2026-09-18",
+  "latest_bar_raw_including_incomplete": "2026-09-21",
+  "last_completed_us_session": "2026-09-18",
+  "post_anchor_trading_days": 0,
+  "post_anchor_dates": [],
+  "bar_counts": {
+    "primary_bars": 501,
+    "yahoo_fallback_bars": 1,
+    "post_anchor_primary": 0,
+    "post_anchor_yahoo_fallback": 0,
+    "post_anchor_total": 0,
+    "incomplete_bars": 1
+  },
+  "bars": [
+    {
+      "date": "2026-09-14",
+      "open": 703.3300170898438,
+      "high": 712.9500122070312,
+      "low": 702.739990234375,
+      "close": 709.1799926757812,
+      "volume": 35219000.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/QQQ.json",
+      "frequency": "1d",
+      "ticker": "QQQ",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-15",
+      "open": 708.7999877929688,
+      "high": 709.530029296875,
+      "low": 703.6400146484375,
+      "close": 704.5399780273438,
+      "volume": 26631700.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/QQQ.json",
+      "frequency": "1d",
+      "ticker": "QQQ",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-16",
+      "open": 708.0,
+      "high": 711.8800048828125,
+      "low": 700.0,
+      "close": 704.719970703125,
+      "volume": 35688000.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/QQQ.json",
+      "frequency": "1d",
+      "ticker": "QQQ",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-17",
+      "open": 715.9500122070312,
+      "high": 718.0399780273438,
+      "low": 713.3200073242188,
+      "close": 716.9199829101562,
+      "volume": 37270300.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/QQQ.json",
+      "frequency": "1d",
+      "ticker": "QQQ",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-18",
+      "open": 718.8300170898438,
+      "high": 721.72998046875,
+      "low": 715.0800170898438,
+      "close": 721.4500122070312,
+      "volume": 48277100.0,
+      "source": "PRIMARY",
+      "primary_path": "/workspace/juniper-kite/cache/bars/QQQ.json",
+      "frequency": "1d",
+      "ticker": "QQQ",
+      "session_complete": true
+    },
+    {
+      "date": "2026-09-21",
+      "open": 727.9500122070312,
+      "high": 728.8400268554688,
+      "low": 727.9500122070312,
+      "close": 728.6199951171875,
+      "volume": 1787485.0,
+      "source": "YAHOO_FALLBACK",
+      "data_asof": "2026-09-21",
+      "retrieved_at": "2026-09-21T13:31:04Z",
+      "frequency": "1d",
+      "ticker": "QQQ",
+      "session_complete": false,
+      "session_note": "INCOMPLETE_OR_UNCLOSED vs last_completed_us_session=2026-09-18; excluded from post_anchor resolve calendar"
+    }
+  ],
+  "label_policy": {
+    "PRIMARY": "juniper-kite live cache bar",
+    "YAHOO_FALLBACK": "yfinance daily; NEVER ORIGINAL_LIVE",
+    "forbidden": [
+      "ORIGINAL_LIVE for yahoo rows",
+      "invented prices"
+    ]
+  }
+}
