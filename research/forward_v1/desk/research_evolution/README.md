@@ -15,5 +15,7 @@ Learning layer on RESEARCH MEMORY V1. Does **not** replace memory artifacts.
 - observed ≠ probability; score/alignScore ≠ probability
 - book_ADD = OBSERVATION only; never upgrade → MARK_BUY
 - T0 untouched; LIVE ≠ REPLAY mix
-- Discovery cohort (T0 market_bar_asof) ≠ confirmation cohort (EMPTY_UNTIL_T1)
-- When resolved_*=0: freeze WAITING dimension hypotheses — do not invent returns (BEAM #42)
+- Discovery cohort (T0 market_bar_asof) ≠ confirmation cohort (T1+ ONLY / EMPTY until genuine T1)
+- confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED
+- discovery_n never mixed into confirmed; never rewrite H formula after freeze
+- No new H mass-mint from T0 once frozen set exists (T1 stage → new_hypotheses=0)

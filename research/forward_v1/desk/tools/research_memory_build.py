@@ -250,13 +250,26 @@ def build_signal_rows(events: list, run_id: str) -> list:
                 "state": extract_state(e),
                 "conditions_raw": extract_conditions(e),
                 "provenance": {
-                    "source": "T0_EVENTS_AS_EMITTED",
+                    "source": (
+                        "T1_ENGINE_AS_EMITTED"
+                        if e.get("capture_wave") == "T1" or e.get("signal_cohort") == "confirmation"
+                        else "T0_EVENTS_AS_EMITTED"
+                    ),
                     "model_version": e.get("model_version"),
                     "data_source": e.get("data_source"),
                     "code_commit": e.get("code_commit"),
                     "app_id": e.get("app_id"),
                     "leakage": "NONE_EMIT_TIME_FIELDS_ONLY",
+                    "capture_wave": e.get("capture_wave") or "T0",
+                    "confirmation_cohort": e.get("confirmation_cohort"),
+                    "research_profile_snapshot_ref": e.get("t1_capture_run_id"),
                 },
+                "capture_wave": e.get("capture_wave") or "T0",
+                "signal_cohort": e.get("signal_cohort") or (
+                    "confirmation" if e.get("capture_wave") == "T1" else "discovery"
+                ),
+                "confirmation_cohort": e.get("confirmation_cohort"),
+                "price_at_signal": e.get("price_at_signal"),
                 "recorded_at": iso_z(),
                 "immutable": True,
             }
@@ -282,6 +295,10 @@ def load_outcomes(node: Path, repo: Path) -> dict:
     ingest(load_jsonl(repo / T0_OUTCOMES))
     for name in ("OUTCOME_APPEND.jsonl", "OUTCOME_APPEND_5D.jsonl"):
         ingest(load_jsonl(node / "resolution" / name))
+    # T1 outcome stubs (WAITING) — Yahoo resolves later when bars exist
+    for t1 in sorted(node.glob("T1_*")):
+        if (t1 / "outcomes.jsonl").exists():
+            ingest(load_jsonl(t1 / "outcomes.jsonl"))
     return by
 
 
@@ -549,12 +566,34 @@ def run_research_memory(repo: Path, run_id: str | None = None) -> dict:
 
     run_id = run_id or f"MEMORY_BUILD_{iso_z().replace(':', '').replace('-', '')}"
     events = load_jsonl(t0_ev)
-    # Also append any newer capture events if present (still append-only by event_id)
+    # Also append any newer capture / T1 events if present (still append-only by event_id)
+    event_paths: list[Path] = []
     capture_events = node / "signal_capture"
-    for path in sorted(capture_events.glob("*.jsonl")) if capture_events.exists() else []:
-        # only event-like files — skip status
-        if "STATUS" in path.name.upper():
+    if capture_events.exists():
+        for path in sorted(capture_events.glob("*.jsonl")):
+            if "STATUS" in path.name.upper():
+                continue
+            event_paths.append(path)
+        inbox = capture_events / "T1_ENGINE_INBOX"
+        if inbox.is_dir():
+            for path in sorted(inbox.rglob("events.jsonl")):
+                event_paths.append(path)
+            for path in sorted(inbox.rglob("*.jsonl")):
+                if "STATUS" in path.name.upper() or "OUTCOME" in path.name.upper():
+                    continue
+                if path.name == "events.jsonl" or path.name.startswith("desk_events_"):
+                    event_paths.append(path)
+    for t1 in sorted(node.glob("T1_*")):
+        if (t1 / "events.jsonl").exists():
+            event_paths.append(t1 / "events.jsonl")
+        if (t1 / "events").is_dir():
+            event_paths.extend(sorted((t1 / "events").glob("*.jsonl")))
+    seen_paths = set()
+    for path in event_paths:
+        key = str(path.resolve())
+        if key in seen_paths:
             continue
+        seen_paths.add(key)
         events.extend(load_jsonl(path))
 
     # Dedup source events by event_id (prefer first / T0)

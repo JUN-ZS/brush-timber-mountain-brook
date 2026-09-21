@@ -46,3 +46,12 @@ DATA →（原引擎檢查）→ SIGNAL CAPTURE → IMMUTABLE EVENT
 - `research_profile.json` — research_profile_v1 + provenance
 - `research_memory/` — signal_memory / signal_outcome_join / REPORT_RESEARCH_MEMORY.html
 - `conditional_analysis/CONDITIONAL_5D_DECLARED_V1.json` — DECLARED_V1 桶
+
+## T1 LIVE FORWARD + HYPOTHESIS CONFIRMATION V1
+
+- Gate: `market_bar_asof > formal previous asof` (T0 ≈ 2026-09-18) + original juniper-kite engine emit
+- Inbox: `signal_capture/T1_ENGINE_INBOX/` — accept AS_EMITTED only; never invent T1 from Yahoo
+- On genuine T1: immutable `T1_*` tree + research_profile snapshot + outcome stubs; open confirmation_cohort
+- Frozen H: discovery_n vs confirmation_n; status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED
+- Anti-loop: identical Run A then Run B → new_signals=0, new_evidence=0, KNOWLEDGE_DELTA=NONE (still write run history)
+- `new_hypotheses` from T0 discovery = 0 this stage (frozen set already exists)
