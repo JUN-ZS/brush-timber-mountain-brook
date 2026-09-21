@@ -1,0 +1,20 @@
+# Desk LIVE_FORWARD auto-resolver — install under .github/workflows/ after workflow-scope OAuth.
+name: desk-forward-resolver
+on:
+  schedule:
+    - cron: "17 13 * * 1-5"  # ~21:17 HKT weekdays
+  workflow_dispatch:
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run LIVE_FORWARD resolver
+        run: python research/forward_v1/desk/tools/live_forward_resolver.py --repo-root .
+      - name: Open PR if changes
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "Commit resolution/* and open PR research/forward-resolution-<timestamp> (manual or gh)."
