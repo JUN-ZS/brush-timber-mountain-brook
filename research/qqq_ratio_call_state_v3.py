@@ -856,3 +856,112 @@ def main():
 
     all_stats = []
     for risk_budget in RISK_BUDGETS:
+        for mode in ("BASELINE_TOUCH", "STATE_MACHINE"):
+            print(
+                f"RUN risk={risk_budget:.2%} mode={mode}",
+                flush=True,
+            )
+            trades, stats, eqdf = run_one(
+                und, quotes, selection, risk_budget, mode
+            )
+            all_stats.append(stats)
+
+            if trades:
+                pd.DataFrame([
+                    {
+                        **{
+                            k: v for k, v in t.items()
+                            if k not in ("events", "eq_rows")
+                        },
+                        "events_json": json.dumps(
+                            t["events"],
+                            ensure_ascii=False,
+                        ),
+                    }
+                    for t in trades
+                ]).to_csv(
+                    out / (
+                        f"trades_risk{int(risk_budget*100)}pct_"
+                        f"{mode}.csv"
+                    ),
+                    index=False,
+                )
+            if not eqdf.empty:
+                eqdf.to_csv(
+                    out / (
+                        f"equity_risk{int(risk_budget*100)}pct_"
+                        f"{mode}.csv"
+                    ),
+                    index=False,
+                )
+
+    report = {
+        "research_contract": {
+            "strategy": "1 ATM Long Call + N OTM Short Calls + N Far OTM Long Wings",
+            "N_selection": f"largest N in 1..{N_MAX} passing exact terminal max-loss risk gate",
+            "risk_budgets": list(RISK_BUDGETS),
+            "signal": "QQQ close/52-week high >= 0.98 AND close/200DMA - 1 >= 0.08",
+            "cooldown_days": COOLDOWN_DAYS,
+            "expiry_window_dte": [DTE_MIN, DTE_MAX],
+            "max_hold_days": HOLD_MAX,
+            "short_delta_entry": SHORT_DELTA_ENTRY,
+            "wing_delta_entry": WING_DELTA_ENTRY,
+            "approach": (
+                f"High >= {APPROACH_FRAC:.2f}*short strike OR "
+                f"observed short delta >= {APPROACH_DELTA:.2f}"
+            ),
+            "harvest": (
+                "next-day reversal plus executable pair profit >= "
+                f"{HARVEST_RECOVERY:.0%} of initial pair credit -> "
+                "close ceil(N_remaining/2) paired short+wing units"
+            ),
+            "continuation": (
+                "next-day Close >= approach-day Close -> "
+                "close all remaining paired short+wing units; keep ATM"
+            ),
+            "breakout": (
+                "same-day High >= short strike -> "
+                "close all remaining paired short+wing units; keep ATM"
+            ),
+            "late_delta_governor": (
+                f"observed short delta >= {DANGER_DELTA:.2f} -> "
+                "close exactly one paired unit"
+            ),
+            "downside_governor": (
+                f"daily package MTM P&L <= -{DOWNSIDE_STOP_FRACTION:.0%} "
+                "of initial package max-loss proxy -> liquidate whole package"
+            ),
+            "no_readd": True,
+            "baseline": "same dynamic entry N, whole package exits on first short-strike touch",
+            "entry_execution": "ATM Ask / Short Bid / Wing Ask",
+            "management_execution": "Short Ask / Wing Bid",
+            "daily_mark": "bid/ask midpoint",
+            "strict_quote_policy": "no interpolation; missing entry/final quotes reject trade",
+            "no_optimization": True,
+        },
+        "data": {
+            "source_repo": RELEASE_REPO,
+            "release_tag": RELEASE_TAG,
+            "options_sha256": sha256_file(opt_path),
+            "underlying_sha256": sha256_file(und_path),
+            "underlying_range": [
+                str(und["date"].min().date()),
+                str(und["date"].max().date()),
+            ],
+        },
+        "results": all_stats,
+    }
+
+    (out / "ratio_call_state_v3_result.json").write_text(
+        json.dumps(report, indent=2, default=str),
+        encoding="utf-8",
+    )
+    pd.DataFrame(all_stats).to_csv(
+        out / "ratio_call_state_v3_summary.csv",
+        index=False,
+    )
+    print(json.dumps(report, indent=2, default=str), flush=True)
+
+
+if __name__ == "__main__":
+    main()
