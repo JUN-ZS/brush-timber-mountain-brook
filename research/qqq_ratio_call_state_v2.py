@@ -571,11 +571,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                 )
                 eq_rows.append((dt, eq))
 
-        if acted_today and (
-            mode == "BASELINE_TOUCH"
-            or exit_reason == "SHORT_STRIKE_TOUCH"
-            or dt >= end_date
-        ):
+        if exit_reason == "SHORT_STRIKE_TOUCH" or dt >= end_date:
             break
 
         if (
