@@ -315,6 +315,14 @@ def main() -> int:
         signal_status = "T1_CAPTURED"
         new_events = int(t1_capture_status.get("new_events") or 0)
         signal_reason = (t1_capture_status.get("gate") or {}).get("reason") or signal_reason
+    elif t1_capture_status.get("T1_STATUS") == "CAPTURED_ALREADY":
+        signal_status = "NO_NEW_SIGNAL"
+        new_events = 0
+        signal_reason = (
+            (t1_capture_status.get("gate") or {}).get("reason")
+            or t1_capture_status.get("knowledge_note")
+            or "anti-reprocess: T1 emit already captured"
+        )
     else:
         # Prefer honest NO_NEW_SIGNAL / blocker; do not invent
         if signal_status not in {"SIGNAL_CAPTURE_BLOCKED", "SIGNAL_CAPTURE_BLOCKED_DATA_STALE", "SIGNAL_CAPTURE_BLOCKED_ENGINE_MISSING"}:
@@ -701,11 +709,19 @@ def main() -> int:
             "new_trades": 0,
             "status": (t1_capture_status or {}).get("T1_STATUS"),
             "blocked": (
-                None if (t1_capture_status or {}).get("T1_STATUS") == "CAPTURED"
+                None if (t1_capture_status or {}).get("T1_STATUS") in {"CAPTURED", "CAPTURED_ALREADY"}
                 else ((t1_capture_status or {}).get("gate") or {}).get("reason")
                 or (t1_capture_status or {}).get("knowledge_note")
                 or (t1_capture_status or {}).get("T1_STATUS")
             ),
+            "provenance_gate": (t1_capture_status or {}).get("provenance_gate")
+                or ((t1_capture_status or {}).get("gate") or {}).get("provenance_gate")
+                or "REQUIRED",
+            "engine_run_id": (t1_capture_status or {}).get("engine_run_id"),
+            "source_hash": (t1_capture_status or {}).get("source_hash"),
+            "market_bar_asof": (t1_capture_status or {}).get("market_bar_asof"),
+            "confirmation_cohort_id": (t1_capture_status or {}).get("confirmation_cohort_id")
+                or (t1_capture_status or {}).get("confirmation_cohort"),
         },
         "OUTCOME": {
             "new_5D": next((m.get("new_resolved") for m in (evo_dr.get("maturity_checks") or []) if m.get("horizon") == 5), 0),
@@ -767,6 +783,7 @@ def main() -> int:
         "research_evolution_t0_integrity": (evo_status or {}).get("t0_integrity"),
         "T1_STATUS": (t1_capture_status or {}).get("T1_STATUS"),
         "NEW_SIGNAL": (t1_capture_status or {}).get("NEW_SIGNAL"),
+        "provenance_gate": (t1_capture_status or {}).get("provenance_gate") or "REQUIRED",
         "KNOWLEDGE_DELTA": ((evo_status or {}).get("discovery_run") or {}).get("KNOWLEDGE_DELTA"),
         "confirmation_cohort": (t1_capture_status or {}).get("confirmation_cohort"),
         "section19": section19,
