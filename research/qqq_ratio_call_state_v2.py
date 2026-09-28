@@ -372,7 +372,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
     if daily.empty:
         return None, "NO_UNDERLYING_WINDOW"
 
-    exit_date = end_date
+    exit_date = pd.Timestamp(daily.iloc[-1]["date"])
     exit_reason = "TIME_OR_EXPIRY"
     eq_rows = []
 
@@ -550,7 +550,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                 exit_reason = "SHORT_STRIKE_TOUCH"
                 acted_today = True
 
-        if dt >= end_date:
+        if dt >= end_date or i == len(daily) - 1:
             exit_date = dt
             if exit_reason == "TIME_OR_EXPIRY":
                 exit_reason = "TIME_OR_EXPIRY"
