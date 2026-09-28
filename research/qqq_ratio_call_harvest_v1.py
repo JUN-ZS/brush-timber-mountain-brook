@@ -359,6 +359,7 @@ def process_one(und, quotes, entry_row, legs, n_initial, mode):
     harvest_events = []
     approach_armed = True
     last_approach_idx = None
+    pending_action = None
 
     daily = und[(und["date"] >= entry) & (und["date"] <= end_date)].copy().reset_index(drop=True)
     if daily.empty:
@@ -378,62 +379,98 @@ def process_one(und, quotes, entry_row, legs, n_initial, mode):
     for i, row in daily.iterrows():
         dt = pd.Timestamp(row["date"])
 
-        # Approach -> next-day reversal -> executable harvest.
-        if mode == "HARVEST50_REVERSAL" and dt > entry:
-            approach_now = float(row["high"]) >= APPROACH_FRAC * float(legs["short"]["strike"])
-            if approach_now and approach_armed and n_remaining > 0:
-                approach_armed = False
-                last_approach_idx = i
-            elif not approach_now:
-                approach_armed = True
-
-            if last_approach_idx is not None and i == last_approach_idx:
-                if i + 1 < len(daily) and n_remaining > 0:
-                    next_row = daily.iloc[i + 1]
-                    next_dt = pd.Timestamp(next_row["date"])
-                    next_close = float(next_row["close"])
-                    approach_close = float(row["close"])
-
-                    qs_next = q_at(quotes, next_dt, short_id)
-                    qw_next = q_at(quotes, next_dt, wing_id)
-                    bs_next = executable(qs_next, "BUY")
-                    sw_next = executable(qw_next, "SELL")
-
-                    if pd.notna(bs_next) and pd.notna(sw_next):
-                        pair_close_cost = bs_next - sw_next
+        # Path-managed rule:
+        #   approach on T -> observe T+1:
+        #     T+1 Close < T Close: harvest >=50% of initial pair credit by
+        #       closing ceil(N_remaining/2) paired short+wing units.
+        #     otherwise: continuation -> exit the whole package on T+1.
+        if mode in ("HARVEST50_REVERSAL", "HARVEST50_GOVERNED") and dt > entry:
+            if pending_action is not None and pd.Timestamp(pending_action["date"]) == dt:
+                action = pending_action["action"]
+                pending_action = None
+                if action == "CONTINUATION_EXIT":
+                    exit_date = dt
+                    exit_reason = "APPROACH_THEN_CONTINUATION_EXIT"
+                    is_final = True
+                elif action == "REVERSAL_HARVEST" and n_remaining > 0:
+                    qs_now = q_at(quotes, dt, short_id)
+                    qw_now = q_at(quotes, dt, wing_id)
+                    bs_now = executable(qs_now, "BUY")
+                    sw_now = executable(qw_now, "SELL")
+                    if pd.notna(bs_now) and pd.notna(sw_now):
+                        pair_close_cost = bs_now - sw_now
                         pair_profit = pair_entry_credit - pair_close_cost
-                        if pair_profit > 0.0:
+                        harvest_threshold = 0.50 * pair_entry_credit
+                        if pair_entry_credit > 0.0 and pair_profit >= harvest_threshold:
                             h = int(math.ceil(n_remaining / 2.0))
-                            harvest_cf = (-h * bs_next + h * sw_next) * 100.0
+                            harvest_cf = (-h * bs_now + h * sw_now) * 100.0
                             cash += harvest_cf
                             n_before = n_remaining
                             n_remaining -= h
                             harvest_events.append({
-                                "date": str(next_dt.date()),
+                                "date": str(dt.date()),
                                 "event": "HARVEST50_REVERSAL",
-                                "approach_date": str(dt.date()),
-                                "approach_close": approach_close,
-                                "reversal_close": next_close,
+                                "approach_date": str(action["approach_date"]),
+                                "approach_close": float(action["approach_close"]),
+                                "reversal_close": float(row["close"]),
                                 "n_before": n_before,
                                 "n_closed": h,
                                 "n_after": n_remaining,
                                 "harvest_fraction": h / n_before,
+                                "pair_entry_credit_usd": pair_entry_credit * 100.0,
+                                "harvest_threshold_usd": harvest_threshold * 100.0,
                                 "pair_profit_usd": pair_profit * 100.0,
                                 "realized_harvest_pnl_usd": h * pair_profit * 100.0,
                             })
-                            # Do not allow the same continuous approach to fire again.
-                            approach_armed = False
-                            last_approach_idx = None
+                        else:
+                            harvest_events.append({
+                                "date": str(dt.date()),
+                                "event": "REVERSAL_NO_HARVEST_THRESHOLD",
+                                "approach_date": str(action["approach_date"]),
+                                "approach_close": float(action["approach_close"]),
+                                "reversal_close": float(row["close"]),
+                                "pair_entry_credit_usd": pair_entry_credit * 100.0,
+                                "harvest_threshold_usd": harvest_threshold * 100.0,
+                                "pair_profit_usd": pair_profit * 100.0,
+                            })
+            else:
+                approach_now = float(row["high"]) >= APPROACH_FRAC * float(legs["short"]["strike"])
+                if approach_now and approach_armed and n_remaining > 0:
+                    approach_armed = False
+                    if i + 1 < len(daily):
+                        next_row = daily.iloc[i + 1]
+                        next_dt = pd.Timestamp(next_row["date"])
+                        next_close = float(next_row["close"])
+                        approach_close = float(row["close"])
+                        if next_close < approach_close:
+                            pending_action = {
+                                "date": next_dt,
+                                "action": "REVERSAL_HARVEST",
+                                "approach_date": dt,
+                                "approach_close": approach_close,
+                            }
+                        else:
+                            pending_action = {
+                                "date": next_dt,
+                                "action": "CONTINUATION_EXIT",
+                                "approach_date": dt,
+                                "approach_close": approach_close,
+                            }
+                elif not approach_now:
+                    approach_armed = True
 
         # Baseline: the original whole-package touch exit.
         if mode == "BASELINE_TOUCH" and dt > entry:
             if float(row["high"]) >= float(legs["short"]["strike"]):
                 exit_date = dt
                 exit_reason = "SHORT_STRIKE_TOUCH"
-                # Mark the exit day after execution below, then finish.
                 is_final = True
             else:
                 is_final = dt >= end_date
+        elif mode == "HARVEST50_REVERSAL":
+            is_final = locals().get("is_final", False) or dt >= end_date
+        elif mode == "HARVEST50_GOVERNED":
+            is_final = locals().get("is_final", False) or dt >= end_date
         else:
             is_final = dt >= end_date
 
@@ -625,7 +662,7 @@ def main():
 
     all_stats = []
     for n in args.n:
-        for mode in ("BASELINE_TOUCH", "HARVEST50_REVERSAL"):
+        for mode in ("BASELINE_TOUCH", "HARVEST50_REVERSAL", "HARVEST50_GOVERNED"):
             print(f"RUN N={n} MODE={mode}", flush=True)
             trades, stats, eqdf = run_mode(und, quotes, selection, n, mode)
             all_stats.append(stats)
@@ -650,9 +687,9 @@ def main():
             "wing_delta": WING_DELTA,
             "approach": f"daily High >= {APPROACH_FRAC:.2f} * selected short strike, edge-triggered",
             "reversal": "next trading-day Close < approach-day Close",
-            "harvest": "when pair block has positive executable PnL, close ceil(N_remaining/2) pairs at Short Ask / Wing Bid; keep ATM long",
+            "harvest": "on next-day reversal after approach, close ceil(N_remaining/2) pairs only when executable pair profit >= 50% of initial pair credit; Short Ask / Wing Bid; keep ATM long",
             "baseline_exit": "first post-entry day High >= short strike",
-            "new_exit": "time/expiry; no whole-package touch exit",
+            "new_exit": "HARVEST50_REVERSAL: time/expiry; HARVEST50_GOVERNED: approach then continuation exits whole package next trading day; reversal harvests only when pair profit >= 50% of initial pair credit",
             "entry_execution": "ATM buy Ask; short sell Bid; wing buy Ask",
             "mark": "daily Mid",
             "strict_quote_policy": "no interpolation; missing entry/exit quotes reject the trade",
