@@ -1,0 +1,387 @@
+{
+  "module": "full_handoff_association_integration",
+  "asof": "2026-09-08",
+  "contract": "ASSOCIATION_ONLY",
+  "credit_unlocked": false,
+  "option_ev": false,
+  "proto_eligible": false,
+  "evidence_class": "DESC_ONLY",
+  "sources": {
+    "full_handoff_dir": "/workspace/sp500-vol/output/RELEASE/RelVol_INERTIA_FULL_HANDOFF_LIGHT",
+    "full_handoff_zip": "/workspace/sp500-vol/output/RELEASE/RelVol_INERTIA_FULL_HANDOFF_LIGHT.zip",
+    "pack_hash": "7ca13ce290d28db4",
+    "DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+    "partner": "\u6ce2\u52d5",
+    "brush_timber_prior": [
+      "research/event_panel_state_return_geography.*",
+      "research/phase1_association_handoff_join.*",
+      "research/relvol_state_return_desc.*",
+      "research/state_return_slice.*"
+    ]
+  },
+  "locks": [
+    "NOT credit",
+    "NOT Option EV",
+    "NOT ticker scoreboard as product",
+    "DESC/ASSOCIATION/DISCOVERY research layers only"
+  ],
+  "phase1_status": {
+    "status": "PHASE1_SEED6_OK",
+    "n_tickers": 1490,
+    "deliverable_counts": {
+      "inertia_credit_surface": {
+        "rows": 17880,
+        "status": {
+          "DISCOVERY": 11728,
+          "INSUFFICIENT": 6152
+        }
+      },
+      "inertia_candidates": {
+        "rows": 753,
+        "status": {
+          "INSUFFICIENT": 632,
+          "DISCOVERY": 121
+        }
+      },
+      "inertia_transition_matrix": {
+        "rows": 271,
+        "status": {
+          "DESC_ONLY": 271
+        }
+      },
+      "inertia_stability": {
+        "rows": 87,
+        "status": {
+          "DESC_ONLY": 86,
+          "VALIDATION_PENDING": 1
+        }
+      },
+      "inertia_anti_overfit": {
+        "rows": 133,
+        "status": {
+          "DESC_ONLY": 85,
+          "DISCOVERY": 44,
+          "FAILED": 3,
+          "VALIDATION_PENDING": 1
+        }
+      }
+    },
+    "ladder_class_counts": {
+      "INSUFFICIENT": 2992,
+      "MONOTONIC": 682,
+      "REVERSING": 552,
+      "DECELERATING": 168,
+      "ACCELERATING": 66,
+      "NOISE": 10
+    },
+    "credit_unlocked": false,
+    "option_ev": false
+  },
+  "validation": {
+    "status": "VALIDATION_DONE",
+    "cut_date": "2024-01-01",
+    "counts": {
+      "VALIDATION_PASS": 50,
+      "VALIDATION_FAIL": 23,
+      "VALIDATION_WEAK": 7
+    },
+    "pass_rate": 0.625,
+    "fail_rate": 0.2875,
+    "discovery_artifact_flags": 0,
+    "pass_assoc_v22_soft": {
+      "UNMAPPED": 33,
+      "CALM": 17
+    },
+    "pass_ladder": {
+      "REVERSING": 15,
+      "MONOTONIC": 20,
+      "ACCELERATING": 3,
+      "DECELERATING": 7,
+      "RUNBIN": 5
+    },
+    "pass_threshold": {
+      "P99": 14,
+      "P90": 13,
+      "P95": 9,
+      "P80": 14
+    },
+    "top10_pass_by_abs_delta_val": [
+      {
+        "state_key": "DAY|P99|REVERSING|0-1|EXPANDING|UNCLASSIFIED",
+        "assoc_v22": "UNMAPPED",
+        "delta_disc": -0.09221400543508163,
+        "delta_val": -0.06225053581597928,
+        "n_val": "84",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P99|REVERSING|0-1|STRONGLY_EXPANDING|STABLE_LOW_VOL",
+        "assoc_v22": "CALM",
+        "delta_disc": -0.06779095693748949,
+        "delta_val": -0.061146511871423725,
+        "n_val": "86",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P90|ACCELERATING|*|*|*",
+        "assoc_v22": "UNMAPPED",
+        "delta_disc": -0.04177801255056812,
+        "delta_val": -0.06034472432634663,
+        "n_val": "63",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P99|REVERSING|0-1|STRONGLY_EXPANDING|DEAD_VOL",
+        "assoc_v22": "CALM",
+        "delta_disc": -0.050386293386781356,
+        "delta_val": -0.05356616851816676,
+        "n_val": "51",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P99|REVERSING|*|*|*",
+        "assoc_v22": "UNMAPPED",
+        "delta_disc": -0.07178592670246398,
+        "delta_val": -0.046187935919410394,
+        "n_val": "503",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P95|ACCELERATING|*|*|*",
+        "assoc_v22": "UNMAPPED",
+        "delta_disc": -0.014876086601964933,
+        "delta_val": -0.04021721224861152,
+        "n_val": "63",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P99|REVERSING|0-1|STRONGLY_EXPANDING|UNCLASSIFIED",
+        "assoc_v22": "UNMAPPED",
+        "delta_disc": -0.044320879609135,
+        "delta_val": -0.040126697969998903,
+        "n_val": "88",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P80|RUNBIN|2-3|*|*",
+        "assoc_v22": "UNMAPPED",
+        "delta_disc": -0.0028243190753219904,
+        "delta_val": -0.03809213902229325,
+        "n_val": "59",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P80|REVERSING|0-1|EXPANDING|STABLE_LOW_VOL",
+        "assoc_v22": "CALM",
+        "delta_disc": 0.0049442396072549855,
+        "delta_val": 0.03565984873801764,
+        "n_val": "88",
+        "STATUS": "VALIDATION_PASS"
+      },
+      {
+        "state_key": "DAY|P99|MONOTONIC|0-1|EXPANDING|UNCLASSIFIED",
+        "assoc_v22": "UNMAPPED",
+        "delta_disc": 0.04093548714014483,
+        "delta_val": 0.03359798339982145,
+        "n_val": "92",
+        "STATUS": "VALIDATION_PASS"
+      }
+    ]
+  },
+  "phase2": {
+    "status": "PHASE2_EVENT_LEDGER_OK",
+    "n_events": 406874,
+    "fwd_horizons": [
+      1,
+      5,
+      21
+    ],
+    "dual_lift": true,
+    "baselines_DAY": {
+      "DAY|T+1": {
+        "p_continue": 0.459837250695521,
+        "p_revert": 0.5401627493044789,
+        "n": 191583
+      },
+      "DAY|T+5": {
+        "p_continue": 0.4167325711113323,
+        "p_revert": 0.5832674288886677,
+        "n": 190933
+      },
+      "DAY|T+21": {
+        "p_continue": 0.4139873730267036,
+        "p_revert": 0.5860126269732964,
+        "n": 188327
+      }
+    },
+    "top5_continue_lift": [
+      {
+        "relation_key": "DAY|P80|4+",
+        "fwd_h": "5",
+        "n": "23042",
+        "continue_lift": 1.6685495554564214,
+        "p_continue": 0.695338946272025,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_key": "DAY|P80|4+",
+        "fwd_h": "21",
+        "n": "22343",
+        "continue_lift": 1.6585367131576645,
+        "p_continue": 0.686613256948485,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_key": "WEEK|P80|4+",
+        "fwd_h": "21",
+        "n": "28078",
+        "continue_lift": 1.646348469309052,
+        "p_continue": 0.702257995583731,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_key": "WEEK|P80|4+",
+        "fwd_h": "5",
+        "n": "28713",
+        "continue_lift": 1.603381286835669,
+        "p_continue": 0.7060216626615122,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_key": "DAY|P80|4+",
+        "fwd_h": "1",
+        "n": "23177",
+        "continue_lift": 1.5633843474207596,
+        "p_continue": 0.7189023600983734,
+        "STATUS": "DISCOVERY"
+      }
+    ],
+    "top5_revert_lift": [
+      {
+        "relation_key": "DAY|P99|0-1",
+        "fwd_h": "5",
+        "n": "4847",
+        "revert_lift": 1.6264032077666017,
+        "p_revert": 0.9486280173303074,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_key": "DAY|P99|0-1",
+        "fwd_h": "21",
+        "n": "4809",
+        "revert_lift": 1.6159624884671773,
+        "p_revert": 0.9469744229569557,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_key": "WEEK|P99|0-1",
+        "fwd_h": "21",
+        "n": "8832",
+        "revert_lift": 1.5754243491293856,
+        "p_revert": 0.9034193840579711,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_key": "WEEK|P99|0-1",
+        "fwd_h": "5",
+        "n": "9014",
+        "revert_lift": 1.5368182735609321,
+        "p_revert": 0.8601065009984469,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_key": "WEEK|P95|0-1",
+        "fwd_h": "21",
+        "n": "28071",
+        "revert_lift": 1.4179504369802394,
+        "p_revert": 0.8131167396957715,
+        "STATUS": "DISCOVERY"
+      }
+    ],
+    "validation_note": "Phase2 ledger rows still VALIDATION_PENDING / OOS_PENDING on preview tops"
+  },
+  "analog_relation": {
+    "status": "ANALOG_RELATION_OK",
+    "n_relation_rows": 1227,
+    "relation_status_counts": {
+      "DISCOVERY": 948,
+      "INSUFFICIENT": 279
+    },
+    "oos_status_counts": {
+      "VALIDATION_PASS": 698,
+      "WEAK": 89,
+      "FAIL": 50,
+      "INSUFFICIENT": 12
+    },
+    "oos_cut": "2024-01-01",
+    "primary_object": "relation_analog_match",
+    "top5_continue_lift_status": [
+      {
+        "relation_kind": "cross|run|day_week_ratio",
+        "relation_key": "DAY|4+|lt0.5",
+        "fwd_h": 5,
+        "n": 1667,
+        "p_continue": 0.76124775044991,
+        "p_revert": 0.23875224955008997,
+        "continue_lift": 1.8267056698252144,
+        "revert_lift": 0.40933581702821653,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_kind": "cross|run|day_week_ratio",
+        "relation_key": "DAY|4+|lt0.5",
+        "fwd_h": 1,
+        "n": 1673,
+        "p_continue": 0.8194859533771668,
+        "p_revert": 0.18051404662283324,
+        "continue_lift": 1.78212172271312,
+        "revert_lift": 0.3341845524432509,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_kind": "cross|run|day_week_ratio",
+        "relation_key": "DAY|4+|lt0.5",
+        "fwd_h": 21,
+        "n": 1586,
+        "p_continue": 0.7131147540983607,
+        "p_revert": 0.28688524590163933,
+        "continue_lift": 1.7225519437578651,
+        "revert_lift": 0.489554717247948,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_kind": "cross|run|day_week_ratio",
+        "relation_key": "DAY|4+|0.5-0.8",
+        "fwd_h": 5,
+        "n": 7360,
+        "p_continue": 0.7133152173913043,
+        "p_revert": 0.2866847826086957,
+        "continue_lift": 1.7116857832567602,
+        "revert_lift": 0.4915151582438477,
+        "STATUS": "DISCOVERY"
+      },
+      {
+        "relation_kind": "hz|run|p99_over_p90",
+        "relation_key": "DAY|4+|lt0.3",
+        "fwd_h": 5,
+        "n": 1763,
+        "p_continue": 0.7090187180941577,
+        "p_revert": 0.2909812819058423,
+        "continue_lift": 1.7013758156780592,
+        "revert_lift": 0.4988814178433817,
+        "STATUS": "DISCOVERY"
+      }
+    ]
+  },
+  "brush_timber_v22_geography_bridge": {
+    "QQQ_event_days_mean_day": -0.000186,
+    "QQQ_non_event_mean_day": 0.000501,
+    "reading": "QQQ threshold-event days underperform non-event on frozen V2.2 path \u2014 DESC geography consistent with stress/event tilt; NOT credit; NOT a reason to unlock Option EV."
+  },
+  "consumer_rules": [
+    "Use VALIDATION_PASS cohorts only for stronger DESC overlays; FAIL remains documented",
+    "Do not map CRF or continue_lift to strategy sizing",
+    "Do not invent Option EV (options_snapshots_rows=0)",
+    "Relation/Analog is the primary object \u2014 not ticker scoreboard"
+  ]
+}

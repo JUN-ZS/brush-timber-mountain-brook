@@ -1,0 +1,74 @@
+{
+  "DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+  "asof": {
+    "as_of": [
+      "2026-08-21",
+      "2026-09-04"
+    ],
+    "n_discovery_matched": 546,
+    "n_with_threshold_event": 588,
+    "path": "/workspace/sp500-vol/output/RELEASE/RelVol_PHASE1_ASSOCIATION_EVENT_PANEL/event_panel_asof_state_key.csv",
+    "rows": 4470,
+    "tickers": 1490
+  },
+  "contract": "ASSOCIATION_ONLY",
+  "credit_unlocked": false,
+  "daily": {
+    "full_date_max": "2026-09-04",
+    "full_date_min": "1980-06-25",
+    "full_note": "WRITTEN",
+    "full_path": "/workspace/sp500-vol/output/RELEASE/RelVol_PHASE1_ASSOCIATION_EVENT_PANEL/event_panel_daily_threshold.csv",
+    "full_rows": 555592,
+    "month_vol_proxy": "SKIPPED \u2014 no month_range; month_pct is rank not range",
+    "recent_date_max": "2026-09-04",
+    "recent_date_min": "2021-01-04",
+    "recent_path": "/workspace/sp500-vol/output/RELEASE/RelVol_PHASE1_ASSOCIATION_EVENT_PANEL/event_panel_daily_threshold_RECENT5Y.csv",
+    "recent_rows": 406874,
+    "run_len_def": "consecutive trading days with current_vol >= event threshold floor",
+    "tickers_seen": 1490
+  },
+  "evidence_class": "DESC_ONLY",
+  "files": {
+    "HANDOFF_META.json": {
+      "bytes": 2751,
+      "sha256": "0344b2f69b38ee8a1b56dd55464104e946f287d8cc5a21eedcc38d885fa6fba7"
+    },
+    "PROOF.txt": {
+      "bytes": 1122,
+      "sha256": "79c4caa88a000835744dfb1d0ca706872ee71061805ad0291fcc4e3aece9bee2"
+    },
+    "event_panel_asof_state_key.csv": {
+      "bytes": 2398170,
+      "sha256": "09fbe5b409c289a5881e30962bdbf5ca297f705d048f5bec42865bcf65167cc1"
+    },
+    "event_panel_daily_threshold.csv": {
+      "bytes": 230194383,
+      "sha256": "ef8d03e013cd671fad8261c60ff846a245509ce1725098a168606d7096ee849c"
+    },
+    "event_panel_daily_threshold_RECENT5Y.csv": {
+      "bytes": 170209766,
+      "sha256": "268e59b9c607edb05d92a4698514cfada9dca794aadd01d22fdee08bfa3de384"
+    },
+    "state_key_join_guide.md": {
+      "bytes": 3595,
+      "sha256": "abe53585daab15d8095f67e9f05cf19a62d4b36c4d4be1b2a1bb715062ca1a4f"
+    }
+  },
+  "generated_at_hk": "2026-09-08T06:04:41+08:00",
+  "guide": "/workspace/sp500-vol/output/RELEASE/RelVol_PHASE1_ASSOCIATION_EVENT_PANEL/state_key_join_guide.md",
+  "join_contract": "/workspace/sp500-vol/output/inertia_state_join_contract.md",
+  "month_vol_proxy": "SKIPPED \u2014 no month_range; month_pct is rank not range",
+  "nonclaims": [
+    "NOT credit",
+    "NOT Personality",
+    "NOT Option EV",
+    "NOT expectancy unlock",
+    "NOT HOLD/EXIT CondEV map",
+    "DESC/ASSOCIATION geography only"
+  ],
+  "option_ev": false,
+  "pack_hash": "7ca13ce290d28db4",
+  "proto_eligible": false,
+  "ticket_asof": "PHASE1_EVENT_PANEL_ASOF_v1",
+  "ticket_daily": "PHASE1_EVENT_PANEL_DAILY_v1"
+}

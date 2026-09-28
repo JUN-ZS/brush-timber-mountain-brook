@@ -1,0 +1,20 @@
+{
+  "contract": "ASSOCIATION_ONLY",
+  "credit_unlocked": false,
+  "option_ev": false,
+  "pack_hash": "7ca13ce290d28db4",
+  "DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+  "n_tickers": 1490,
+  "source_phase1": "/workspace/sp500-vol/output/INERTIA_DISCOVERY_KERNEL_PHASE1",
+  "weekly_desc_panel": "/workspace/sp500-vol/output/RELEASE/RelVol_WEEKLY_DESC_PANEL_SPY_QQQ_VXX.csv",
+  "join_contract": "/workspace/sp500-vol/output/inertia_state_join_contract.md",
+  "nonclaims": [
+    "NOT credit",
+    "NOT Personality",
+    "NOT Option EV",
+    "NOT expectancy unlock",
+    "DESC/ASSOCIATION labels only"
+  ],
+  "n_discovery_all": 121,
+  "n_discovery_excl_insufficient_ladder": 80
+}

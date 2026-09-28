@@ -1,0 +1,77 @@
+{
+  "title": "RelVol INERTIA FULL HANDOFF LIGHT",
+  "contract": "ASSOCIATION_ONLY",
+  "credit_unlocked": false,
+  "option_ev": false,
+  "proto_eligible": false,
+  "pack_hash": "7ca13ce290d28db4",
+  "DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+  "contents": [
+    {
+      "path": "analog_relation/RelVol_INERTIA_ANALOG_RELATION_LIGHT.zip",
+      "bytes": 152161,
+      "sha256": "3d479f77d7510b0acd4c77f1f5343d1a51d4fde42e51945dca95c37168b441a9"
+    },
+    {
+      "path": "association/RelVol_PHASE1_ASSOCIATION_EVENT_PANEL_LIGHT.zip",
+      "bytes": 22773527,
+      "sha256": "ca3f27906da43042d2031f3d41abdc4771c65e0ff3607f1fd33cc452583d34d2"
+    },
+    {
+      "path": "association/RelVol_PHASE1_ASSOCIATION_HANDOFF.zip",
+      "bytes": 21807,
+      "sha256": "726b93ed36fe951d95bebaacb78a2b682915db9269a53531a6c9f55f43cdf619"
+    },
+    {
+      "path": "docs/ANALOG_RELATION_SEED.md",
+      "bytes": 2414,
+      "sha256": "fc47f2705e75c5185f155ae8cab517a8a23a0a84145e1cfb5e03aebc673dbd53"
+    },
+    {
+      "path": "docs/PHASE1_SEED.md",
+      "bytes": 2670,
+      "sha256": "5fafd86188fc5a98c11eb9bd8ae5a9eb29ee1dd638fde07838470856294f76ea"
+    },
+    {
+      "path": "docs/PHASE2_SEED.md",
+      "bytes": 3193,
+      "sha256": "fa9851c580f0283fa0800690857287352b2067db2a254a59d07893c0884c5e93"
+    },
+    {
+      "path": "docs/inertia_state_join_contract.md",
+      "bytes": 4156,
+      "sha256": "9566e69db12491652dcdf092227ca5e4bc6bd01ad146f61310d477c04132c7c2"
+    },
+    {
+      "path": "phase1/RelVol_INERTIA_DISCOVERY_KERNEL_PHASE1_LIGHT.zip",
+      "bytes": 488279,
+      "sha256": "ade1c22d71ed690c74b11c527f6c1722b4de4837514eea558a56fdc2abcddd96"
+    },
+    {
+      "path": "phase1_validation/RelVol_INERTIA_DISCOVERY_KERNEL_PHASE1_VALIDATION_LIGHT.zip",
+      "bytes": 20792,
+      "sha256": "13bde75f2342514376cde3acfcdd3cda3fe7d35be53d4926a154aba1cd71d641"
+    },
+    {
+      "path": "phase2/RelVol_INERTIA_DISCOVERY_KERNEL_PHASE2_LIGHT.zip",
+      "bytes": 39019,
+      "sha256": "2648c7ca7254ab77ff07d182807b48c55e1da2ffde76298d9978b57ef085df40"
+    }
+  ],
+  "reading_order": [
+    "docs/PHASE1_SEED.md",
+    "docs/PHASE2_SEED.md",
+    "docs/ANALOG_RELATION_SEED.md",
+    "phase1/",
+    "phase1_validation/",
+    "phase2/",
+    "analog_relation/",
+    "association/"
+  ],
+  "nonclaims": [
+    "NOT credit",
+    "NOT Option EV",
+    "NOT ticker scoreboard as product",
+    "DESC/ASSOCIATION/DISCOVERY research layers only"
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "ticket": "INERTIA_DISCOVERY_KERNEL_PHASE1_VALIDATION",
+  "status": "VALIDATION_DONE",
+  "credit_unlocked": false,
+  "option_ev": false,
+  "options_snapshots_rows": 0,
+  "options_phase1": "BLOCKED",
+  "statehold_sealed": true,
+  "proto_sealed": true,
+  "no_personality_names": true,
+  "no_revive_F5_RUNLEN_OCCEDGE": true,
+  "no_972_cell_compete": true,
+  "archive_only": true,
+  "pack_hash": "7ca13ce290d28db4",
+  "DATA_HASH": "075f43bc66da900bdcedf47853375c55",
+  "n_tickers": 1489,
+  "n_candidates": 80,
+  "cut_date": "2024-01-01",
+  "status_counts": {
+    "VALIDATION_PASS": 50,
+    "VALIDATION_FAIL": 23,
+    "VALIDATION_WEAK": 7
+  },
+  "fail_rate": 0.2875,
+  "pass_rate": 0.625,
+  "discovery_artifact_flags": 0,
+  "top5_pass": [
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|EXPANDING|UNCLASSIFIED",
+      "n_val": 84,
+      "delta_disc": -0.09221400543508163,
+      "delta_val": -0.06225053581597928,
+      "STATUS": "VALIDATION_PASS"
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|STRONGLY_EXPANDING|STABLE_LOW_VOL",
+      "n_val": 86,
+      "delta_disc": -0.06779095693748949,
+      "delta_val": -0.061146511871423725,
+      "STATUS": "VALIDATION_PASS"
+    },
+    {
+      "state_key": "DAY|P90|ACCELERATING|*|*|*",
+      "n_val": 63,
+      "delta_disc": -0.04177801255056812,
+      "delta_val": -0.06034472432634663,
+      "STATUS": "VALIDATION_PASS"
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|0-1|STRONGLY_EXPANDING|DEAD_VOL",
+      "n_val": 51,
+      "delta_disc": -0.050386293386781356,
+      "delta_val": -0.05356616851816676,
+      "STATUS": "VALIDATION_PASS"
+    },
+    {
+      "state_key": "DAY|P99|REVERSING|*|*|*",
+      "n_val": 503,
+      "delta_disc": -0.07178592670246398,
+      "delta_val": -0.046187935919410394,
+      "STATUS": "VALIDATION_PASS"
+    }
+  ],
+  "top5_fail": [
+    {
+      "state_key": "DAY|P80|REVERSING|0-1|EXPANDING|DEAD_VOL",
+      "n_val": 72,
+      "delta_disc": -0.0016829391426737006,
+      "delta_val": 0.03221220102866351,
+      "delta_disc_phase1": 0.01072178534929,
+      "STATUS": "VALIDATION_FAIL"
+    },
+    {
+      "state_key": "DAY|P90|REVERSING|0-1|EXPANDING|DEAD_VOL",
+      "n_val": 72,
+      "delta_disc": -0.00566055400511889,
+      "delta_val": 0.03744213911930494,
+      "delta_disc_phase1": 0.0103964285808529,
+      "STATUS": "VALIDATION_FAIL"
+    },
+    {
+      "state_key": "DAY|P95|MONOTONIC|0-1|EXPANDING|STABLE_LOW_VOL",
+      "n_val": 83,
+      "delta_disc": -0.009608336987252719,
+      "delta_val": -0.0013802049653833803,
+      "delta_disc_phase1": -0.008548643716208,
+      "STATUS": "VALIDATION_FAIL"
+    },
+    {
+      "state_key": "DAY|P90|REVERSING|0-1|EXPANDING|STABLE_LOW_VOL",
+      "n_val": 88,
+      "delta_disc": -0.0015551048223702013,
+      "delta_val": 0.03049138429532694,
+      "delta_disc_phase1": 0.0082430299522617,
+      "STATUS": "VALIDATION_FAIL"
+    },
+    {
+      "state_key": "DAY|P90|MONOTONIC|0-1|EXPANDING|STABLE_LOW_VOL",
+      "n_val": 82,
+      "delta_disc": -0.014336021329842463,
+      "delta_val": 0.0058254711375953505,
+      "delta_disc_phase1": -0.0081503321050787,
+      "STATUS": "VALIDATION_FAIL"
+    }
+  ],
+  "asof_08_21_insufficient": true,
+  "asof_08_21_tickers": 1,
+  "temporal_kind": "TRUE_TEMPORAL_DATE_SPLIT",
+  "generated_at_hk": "2026-09-08T06:01:18+08:00",
+  "output_dir": "/workspace/sp500-vol/output/INERTIA_DISCOVERY_KERNEL_PHASE1_VALIDATION",
+  "light_zip": {
+    "path": "/workspace/sp500-vol/output/RELEASE/RelVol_INERTIA_DISCOVERY_KERNEL_PHASE1_VALIDATION_LIGHT.zip",
+    "bytes": 20792,
+    "sha256": "0d3645c442ac12c14106ab88c02b6c771420cff2bccb788a6e7307550c530bcc"
+  }
+}
