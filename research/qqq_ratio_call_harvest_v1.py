@@ -508,6 +508,8 @@ def process_one(und, quotes, entry_row, legs, n_initial, mode):
 
     harvest_cash = 0.0
     for ev in harvest_events:
+        if "n_closed" not in ev:
+            continue
         dt = pd.Timestamp(ev["date"])
         qs = q_at(quotes, dt, short_id)
         qw = q_at(quotes, dt, wing_id)
