@@ -137,7 +137,7 @@ def contract_max_loss(legs):
         payoff=np.maximum(grid-atm,0)-n*np.maximum(grid-st,0)+n*np.maximum(grid-wi,0)
     else:
         payoff=np.maximum(grid-atm,0)-n*np.maximum(st-grid,0)+n*np.maximum(wi-grid,0)
-    return max(0.,-float(np.min(et+payoff)*100.0))
+    return max(0.,-float(np.min(et + payoff*100.0)))
 
 
 def side_cashflow(legs):
