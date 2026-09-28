@@ -1,0 +1,70 @@
+{
+  "schema": "MINIMUM_DATA_REQUIRED_FOR_T1.v1",
+  "node": "desk",
+  "app_id": "xin_gu_inertia_desk",
+  "model_version": "DESK_CORE_V1",
+  "written_at_utc": "2026-09-28T10:35:00Z",
+  "written_at_hkt": "2026-09-28 18:35:00 HKT",
+  "EXISTING_T1_SUFFICIENT_FOR_CAPTURE": true,
+  "existing_t1": {
+    "market_bar_asof": "2026-09-25",
+    "events": 7,
+    "signal_type": "desk.book_ADD",
+    "MARK_BUY": 0,
+    "ARMED": 0,
+    "TRUST_UP": 0,
+    "engine_run_id": "desk_20260928T171851+0800",
+    "source_hash": "f5c8b8215dd69a38ad12be27b3b2d2d01f3396c3172fde5e3708b8baf14329d1",
+    "confirmation_cohort_id": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z",
+    "paths": {
+      "T1": "research/forward_v1/desk/T1/",
+      "T1_formal": "research/forward_v1/desk/T1_20260928T091900Z/",
+      "events": "research/forward_v1/desk/T1/events/events.jsonl",
+      "outcome_stubs": "research/forward_v1/desk/T1_20260928T091900Z/outcomes.jsonl"
+    },
+    "do_not": [
+      "rebuild data",
+      "mint new T1 from Yahoo",
+      "relabel T0 as T1",
+      "invent fills"
+    ]
+  },
+  "next_missing_for_progress": {
+    "what": "completed US daily bars AFTER T1 market_bar_asof=2026-09-25 for confirmation-cohort outcome maturity",
+    "horizons": [
+      5,
+      21,
+      63,
+      126,
+      252
+    ],
+    "required_per_horizon": "Nth trading day after asof with BOTH stock OHLC close AND QQQ OHLC close (calendar alone insufficient)",
+    "status_if_insufficient": "WAITING_FOR_FUTURE_BARS",
+    "knowledge_delta_if_insufficient": "NONE"
+  },
+  "data_already_available": [
+    "ORIGINAL_ENGINE T1 emit: 7× desk.book_ADD @ market_bar_asof=2026-09-25 with provenance + Desk geometry (T1/, T1_20260928T091900Z/)",
+    "T0 immutable discovery cohort @ market_bar_asof=2026-09-18 (7× book_ADD; discovery maturity ≠ T1 confirmation)",
+    "data_bridge bars through 2026-09-25 for AAPL/AMD/GOOGL/IWM/MU/QQQ/SMH/TSM (sufficient for T0 5D discovery resolve; NOT for T1 confirmation which needs post-2026-09-25)",
+    "FORWARD_CONTROL_PLANE_STATUS.json + T1_CAPTURE_STATUS.json + research_profile snapshot",
+    "35 T1 outcome stubs (7 events × 5 horizons) status=WAITING_FOR_FUTURE_BARS"
+  ],
+  "data_missing": [
+    "Any completed US daily bar with date > 2026-09-25 for T1 tickers + QQQ (as of write: bridge latest_bar=2026-09-25; box clock 2026-09-28 ~18:35 HKT ≈ pre-open US session — no post-anchor completed bar yet)"
+  ],
+  "minimum_to_have_captured_t1_originally": {
+    "note": "Already satisfied — listed for documentation only; do not re-acquire",
+    "items": [
+      "juniper-kite desk_run_warehouse_write.mts ORIGINAL_ENGINE emit with asof > 2026-09-18",
+      "machine-checkable provenance (source/engine_id/engine_version/engine_run_id/market_bar_asof/source_hash)",
+      "Desk geometry keys on emit (alignScore, desk_state, book_action, whyNotBuy, …)",
+      "NOT filename-only engine_emit_*.jsonl"
+    ]
+  },
+  "yahoo_policy": "OUTCOME ONLY — never invent Desk geometry or mint T1 signals from Yahoo",
+  "anti_loop": {
+    "identical_reinput": "CAPTURED_ALREADY",
+    "new_signals": 0,
+    "knowledge_delta": "NONE"
+  }
+}
