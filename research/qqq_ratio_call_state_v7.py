@@ -364,7 +364,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
     entry_cf = (atm_entry - n_initial * short_entry + n_initial * wing_entry) * 100.0
     pair_credit = short_entry - wing_entry
 
-    n_remaining = n_initial
+    n_short = n_initial
+    n_wing = n_initial
     cash = -entry_cf
     events = []
     pending_approach = None
@@ -410,8 +411,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                 mtm_pnl = (
                     cash
                     + ma0 * 100.0
-                    - n_remaining * ms0 * 100.0
-                    + n_remaining * mw0 * 100.0
+                    - n_short * ms0 * 100.0
+                    + n_wing * mw0 * 100.0
                 )
                 stop_loss = DOWNSIDE_STOP_FRACTION * package_max_loss(
                     legs, n_initial
@@ -487,9 +488,9 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
 
             if pd.notna(buy_short) and pd.notna(sell_wing):
                 if close >= float(action["strike"]):
-                    before = n_remaining
+                    before = n_short
                     cash += (-before * buy_short) * 100.0
-                    n_remaining = 0
+                    n_short = 0
                     events.append({
                         "date": str(dt.date()),
                         "event": "BREAKOUT_CONFIRMED_REMOVE_ALL_SHORT",
@@ -499,11 +500,12 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                         "n_short_before": before,
                         "n_short_closed": before,
                         "n_short_after": 0,
+                        "n_wing_retained": n_wing,
                     })
                 else:
-                    before = n_remaining
+                    before = n_short
                     cash += (-buy_short) * 100.0
-                    n_remaining -= 1
+                    n_short -= 1
                     events.append({
                         "date": str(dt.date()),
                         "event": "BREAKOUT_FAILED_REMOVE_ONE_SHORT",
@@ -512,7 +514,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                         "next_close": close,
                         "n_short_before": before,
                         "n_short_closed": 1,
-                        "n_short_after": n_remaining,
+                        "n_short_after": n_short,
+                        "n_wing_retained": n_wing,
                     })
                 acted_today = True
                 approach_armed = False
@@ -523,7 +526,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
             and (not terminal_today)
             and (not acted_today)
             and pending_breakout is None
-            and n_remaining > 0
+            and n_short > 0
             and dt > entry
             and high >= float(legs["short"]["strike"])
         ):
@@ -546,7 +549,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
             and (not acted_today)
             and pending_approach is not None
             and pd.Timestamp(pending_approach["date"]) == dt
-            and n_remaining > 0
+            and n_short > 0
         ):
             action = pending_approach
             pending_approach = None
@@ -581,9 +584,10 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                         and pair_profit >= threshold
                     ):
                         h = 1
-                        before = n_remaining
+                        before = n_short
                         cash += (-h * buy_short + h * sell_wing) * 100.0
-                        n_remaining -= h
+                        n_short -= h
+                        n_wing -= h
                         events.append({
                             "date": str(dt.date()),
                             "event": "REVERSAL_HARVEST_HALF_PAIRS",
@@ -592,7 +596,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                             "next_close": close,
                             "n_before": before,
                             "n_closed": h,
-                            "n_after": n_remaining,
+                            "n_after": n_short,
+                            "n_wing_after": n_wing,
                             "pair_credit_usd": pair_credit * 100.0,
                             "pair_profit_usd": pair_profit * 100.0,
                             "threshold_usd": threshold * 100.0,
@@ -622,7 +627,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
             and (not acted_today)
             and pending_breakout is None
             and pending_approach is None
-            and n_remaining > 0
+            and n_short > 0
             and dt > entry
         ):
             in_zone = (
@@ -646,22 +651,24 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
             mode == "STATE_MACHINE"
             and (not terminal_today)
             and (not acted_today)
-            and n_remaining > 0
+            and n_short > 0
             and pd.notna(short_delta)
             and short_delta >= DANGER_DELTA
         ):
             buy_short = executable(qs, "BUY")
             sell_wing = executable(qw, "SELL")
             if pd.notna(buy_short) and pd.notna(sell_wing):
-                before = n_remaining
+                before = n_short
                 cash += (-buy_short + sell_wing) * 100.0
-                n_remaining -= 1
+                n_short -= 1
+                n_wing -= 1
                 events.append({
                     "date": str(dt.date()),
                     "event": "LATE_DELTA_REMOVE_ONE_PAIR",
                     "n_before": before,
                     "n_closed": 1,
-                    "n_after": n_remaining,
+                    "n_after": n_short,
+                    "n_wing_after": n_wing,
                     "short_delta": short_delta,
                 })
                 acted_today = True
@@ -691,8 +698,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                     CAPITAL_USD
                     + cash
                     + ma * 100.0
-                    - n_remaining * ms * 100.0
-                    + n_remaining * mw * 100.0
+                    - n_short * ms * 100.0
+                    + n_wing * mw * 100.0
                 )
                 eq_rows.append((dt, eq))
 
@@ -704,7 +711,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
 
         if (
             mode == "STATE_MACHINE"
-            and n_remaining == 0
+            and n_short == 0
             and dt < end_date
         ):
             # Continue tracking the ATM core until final exit.
@@ -727,8 +734,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
 
     exit_cf = (
         sell_atm
-        - n_remaining * buy_short
-        + n_remaining * sell_wing
+        - n_short * buy_short
+        + n_wing * sell_wing
     ) * 100.0
 
     pnl = cash + exit_cf
@@ -742,7 +749,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
             else "STATE_MACHINE_FINAL"
         ),
         "n_initial": int(n_initial),
-        "n_final": int(n_remaining),
+        "n_short_final": int(n_short),
+        "n_wing_final": int(n_wing),
         "atm_strike": float(legs["atm"]["strike"]),
         "short_strike": float(legs["short"]["strike"]),
         "wing_strike": float(legs["wing"]["strike"]),
@@ -977,7 +985,7 @@ def main():
             "breakout_confirmation": (
                 "High >= short strike on T arms T+1 confirmation; "
                 "if Close[T+1] >= strike, close all remaining SHORT calls only; "
-                "otherwise close exactly one SHORT call; keep ATM + all WINGs"
+                "otherwise close exactly one SHORT call; retain all WINGs"
             ),
             "late_delta_governor": (
                 f"observed short delta >= {DANGER_DELTA:.2f} -> "
@@ -998,4 +1006,3 @@ def main():
         "data": {
             "source_repo": RELEASE_REPO,
             "release_tag": RELEASE_TAG,
-            "options_sha256": sha256_file(opt_path),
