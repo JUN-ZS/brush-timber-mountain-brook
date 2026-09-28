@@ -585,4 +585,43 @@ def main():
             if quotes.empty:
                 quotes=more
             else:
-                quotes=pd.concat([quotes,more]).~drop_duplicates(["date","contract_id"],keep="last").sort_index()
+                quotes=pd.concat([quotes,more]).drop_duplicates(["date","contract_id"],keep="last").sort_index()
+
+    trades, stats, eqdf = run_dynamic(und, quotes, selection, fresh_selection)
+    results=[stats]
+    pd.DataFrame([{
+        **{k:v for k,v in t.items() if k not in ("events","eq_rows")},
+        "events_json":json.dumps(t["events"],ensure_ascii=False)
+    } for t in trades]).to_csv(out/"trades_DYNAMIC_N_V7_FRESH_PAIRS.csv",index=False)
+    if not eqdf.empty:
+        eqdf.to_csv(out/"equity_DYNAMIC_N_V7_FRESH_PAIRS.csv",index=False)
+
+    report={
+        "research_contract":{
+            "strategy":"1 ATM Long Call + dynamic fresh N Short OTM Calls + matching fresh OTM wings",
+            "entry":"1x2x2; N0=2",
+            "fresh_add":"when live lead short delta <=0.10 for 2 sessions and >=5 sessions since last N change, add ONE NEW current-date short ~=20delta + wing ~=8delta on the original expiry, only if terminal risk remains <=2% NAV",
+            "pair_reduce":"when any active short delta >=0.35, close one highest-delta SHORT+WING pair",
+            "path":"approach High >=98% of closest short strike; next-day reversal harvest one lead SHORT when buyback <=50% entry premium; continuation closes one highest-delta SHORT+WING pair",
+            "downside_dd":"package loss >=25% of initial risk can close profitable SHORT only; wings stay",
+            "DTE":[DTE_MIN,DTE_MAX],"hold_max_days":HOLD_MAX,
+            "entry_execution":"ATM buy Ask; initial shorts sell Bid; initial wings buy Ask",
+            "management_execution":"short buyback Ask; wing sale Bid for pair reduction",
+            "daily_mark":"Mid","strict_quotes":True,"no_optimization":True,
+        },
+        "data":{
+            "source_repo":RELEASE_REPO,"release_tag":RELEASE_TAG,
+            "options_sha256":sha256_file(opt_path),"underlying_sha256":sha256_file(und_path),
+            "underlying_range":[str(und["date"].min().date()),str(und["date"].max().date())],
+            "selection_cache":len(selection),"fresh_key_count":len(fresh_selection),
+            "fresh_candidate_contracts":len(fresh_ids)
+        },
+        "results":results
+    }
+    (out/"ratio_call_dynamic_n_v7_result.json").write_text(json.dumps(report,indent=2,default=str),encoding="utf-8")
+    pd.DataFrame(results).to_csv(out/"ratio_call_dynamic_n_v7_summary.csv",index=False)
+    print(json.dumps(report,indent=2,default=str),flush=True)
+
+
+if __name__=="__main__":
+    main()
