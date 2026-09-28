@@ -1,0 +1,374 @@
+{
+  "schema": "TEMPORAL_SELF_AUDIT.v1",
+  "node": "desk",
+  "hub_name": "信股慣性台",
+  "app_id": "xin_gu_inertia_desk",
+  "model_version": "DESK_CORE_V1",
+  "pass": "TEMPORAL_SELF_AUDIT_V1",
+  "written_at_utc": "2026-09-28T12:48:00Z",
+  "written_at_hkt": "2026-09-28 20:48:00 HKT",
+  "evaluation_clock": "LIVE_FORWARD",
+  "benchmark": "QQQ",
+  "purpose": "Machine-readable temporal self-understanding of Desk from EXISTING artifacts only. Not a scheduler, not a new hypothesis, not a T1 invent.",
+  "evidence_sources": [
+    "research/forward_v1/desk/APP_INTENT_PROFILE.json",
+    "research/forward_v1/desk/APP_INTENT_PROFILE.md",
+    "research/forward_v1/desk/MINIMUM_DATA_REQUIRED_FOR_T1.json",
+    "research/forward_v1/desk/research_profile.json",
+    "research/forward_v1/desk/status/FORWARD_CONTROL_PLANE_STATUS.json",
+    "research/forward_v1/desk/status/OUTCOME_MATURITY_STATUS.json",
+    "research/forward_v1/desk/status/T1_CAPTURE_STATUS.json",
+    "research/forward_v1/desk/T1/ (market_bar_asof=2026-09-25)",
+    "research/forward_v1/desk/data_bridge/DATA_BRIDGE_STATUS.json (latest_bar=2026-09-25, frequency=1d)",
+    "juniper-kite desk types.ts/formulas.ts (MIN_BARS D/W/M, ALIGN_WEIGHT, resampleWeekly/Monthly, barDayKey=America/New_York) — read-only"
+  ],
+  "horizons_trading_days": [
+    5,
+    21,
+    63,
+    126,
+    252
+  ],
+  "t1_anchor": {
+    "market_bar_asof": "2026-09-25",
+    "bridge_latest_completed_bar": "2026-09-25",
+    "post_t1_asof_trading_days": 0,
+    "t1_outcome_stubs_total": 35,
+    "primary_outcome_state": "WAITING_FOR_FUTURE_BARS",
+    "T1_STATUS": "CAPTURED_ALREADY"
+  },
+  "Q1_SHORTEST_MEANINGFUL_CHANGE": {
+    "id": 1,
+    "question": "WHAT IS THE SHORTEST MEANINGFUL CHANGE THIS APP CAN OBSERVE?",
+    "answer": "ONE_COMPLETED_US_DAILY_BAR",
+    "prose": "Atomic observable unit is one completed US session 1d OHLC bar that can advance market_bar_asof / SeriesPack.daily. Weekly/monthly TFs are resampled from daily; no intraday bar contract exists in Desk engine or data_bridge (frequency=1d).",
+    "evidence": [
+      "APP_INTENT_PROFILE.WHAT_OBSERVE.bar_inputs: Daily OHLC(+volume); weekly/monthly via resampleWeekly/resampleMonthly; MIN_BARS D=60 W=26 M=12",
+      "maturity_anchor_field=market_bar_asof (last completed bar date)",
+      "data_bridge frequency=1d; session_complete on bars; last_completed_us_session"
+    ],
+    "not_observed": [
+      "intraday ticks",
+      "sub-daily OHLC",
+      "calendar-midnight alone without US session complete"
+    ]
+  },
+  "Q2_NATURAL_OBSERVATION_INTERVAL": {
+    "id": 2,
+    "question": "NATURAL OBSERVATION INTERVAL",
+    "answer": "ONE_US_TRADING_DAY_COMPLETED_BAR",
+    "interval": "1 completed US trading day (1d bar)",
+    "prose": "Natural observation clock is the completed US equity session bar (barDayKey=America/New_York), not HKT calendar day and not a blind scheduler wake. Observation becomes meaningful only when a new completed 1d bar exists for symbols+QQQ.",
+    "derived_not_preset": true,
+    "confidence": "HIGH",
+    "evidence": [
+      "juniper-kite hk-time.ts barDayKey uses America/New_York",
+      "data_bridge latest_bar / last_completed_us_session",
+      "APP_INTENT_PROFILE bar_inputs Daily OHLC"
+    ]
+  },
+  "Q3_NATURAL_SIGNAL_INTERVAL": {
+    "id": 3,
+    "question": "NATURAL SIGNAL INTERVAL",
+    "answer": "AT_MOST_ONCE_PER_NEW_market_bar_asof_WITH_ORIGINAL_ENGINE_EMIT",
+    "interval": "≤1 new ORIGINAL_ENGINE emit per new completed market_bar_asof",
+    "prose": "Signal capture is gated by (new completed bar asof > formal previous) AND ORIGINAL_ENGINE emit with provenance. Identical source_hash+engine_run_id+market_bar_asof → CAPTURED_ALREADY / new_signals=0. Engine may re-scan the same asof without new knowledge. Cadence≠every calendar day; cadence=new asof + genuine emit.",
+    "derived_not_preset": true,
+    "confidence": "HIGH",
+    "evidence": [
+      "REQUIRED_FOR_GENUINE_EMIT anti_loop + t1_asof_gate",
+      "T1_CAPTURE_STATUS CAPTURED_ALREADY on identical reinput",
+      "FORWARD_CONTROL_PLANE anti_loop"
+    ]
+  },
+  "Q4_SHORT_HORIZON_EVIDENCE": {
+    "id": 4,
+    "question": "SHORT-HORIZON EVIDENCE",
+    "horizons_trading_days": [
+      5
+    ],
+    "observations": [
+      "desk_state / book_action / alignScore(D component) / RelVol20 / bandPosPct / hot can change on each new daily bar",
+      "horizon=5 outcome stubs: require 5 trading days AFTER asof with stock+QQQ closes",
+      "T0 discovery asof=2026-09-18 already shows resolved_5d=7 (DISCOVERY_ONLY — not T1 confirmation)",
+      "T1 confirmation asof=2026-09-25: 5D still WAITING_FOR_FUTURE_BARS (post_t1_asof_trading_days=0)"
+    ],
+    "prose": "Short layer = daily geometry/signal deltas + 5D outcome maturity. Evidence exists that 5D discovery resolve works once 5 post-anchor bars land; T1 confirmation 5D has zero resolved at write time."
+  },
+  "Q5_MEDIUM_HORIZON_EVIDENCE": {
+    "id": 5,
+    "question": "MEDIUM-HORIZON EVIDENCE",
+    "horizons_trading_days": [
+      21,
+      63
+    ],
+    "observations": [
+      "alignScore mixes D/W/M (40/35/25); trustUp needs I_up D+W+M — weekly/monthly resample change slower than daily",
+      "MIN_BARS W=26 M=12 imply weekly/monthly geometry needs multi-week history",
+      "horizons 21≈~1 trading month, 63≈~1 quarter — all T1 stubs WAITING_FOR_FUTURE_BARS",
+      "No medium-horizon T1 confirmation resolved yet"
+    ],
+    "prose": "Medium layer couples weekly/monthly inertia alignment with 21D/63D outcome maturity. Within-week info gain for W/M is limited (at most ~1 new weekly bar)."
+  },
+  "Q6_LONG_HORIZON_EVIDENCE": {
+    "id": 6,
+    "question": "LONG-HORIZON EVIDENCE",
+    "horizons_trading_days": [
+      126,
+      252
+    ],
+    "observations": [
+      "research_profile future_horizons includes 126 and 252",
+      "35 T1 outcome stubs include 7×126 and 7×252 all WAITING_FOR_FUTURE_BARS",
+      "H confirmation (39 frozen H, all UNTESTED) depends on confirmation-cohort maturity — not short wakes",
+      "MARK_BUY/ARMED/TRUST_UP still 0 at T1 — executable family confirmation also long-gated by emit+maturity"
+    ],
+    "prose": "Long layer = half-year / full-year trading-day outcome maturity and H confirm/reject. No long outcome can move without ~126/252 post-asof completed bars."
+  },
+  "Q7_CAN_CHANGE_WITHIN_WEEK": {
+    "id": 7,
+    "question": "WHICH OBSERVATIONS CAN CHANGE WITHIN A WEEK?",
+    "items": [
+      "completed US daily bars (up to ~5 trading sessions in a calendar week)",
+      "market_bar_asof advance (if new sessions complete)",
+      "daily desk_state / shape / regime / hot / RelVol20 / bandPosPct / book_ADD scores",
+      "alignScore primarily via daily I_up / conflict scaling",
+      "new ORIGINAL_ENGINE signal capture IF new asof + new emit (not identical hash)",
+      "accumulation toward 5D maturity (partial bar count), and possibly first 5D resolves if ≥5 post-asof days land",
+      "T0 discovery pool further maturity (separate from T1 confirmation)"
+    ],
+    "prose": "Within ~1 calendar week the only guaranteed new info channel is new completed 1d bars and any engine emit on a new asof. Weekly TF may flip once; monthly rarely."
+  },
+  "Q8_CANNOT_GAIN_NEW_INFO_WITHIN_WEEK": {
+    "id": 8,
+    "question": "WHICH CANNOT GAIN NEW INFO WITHIN A WEEK?",
+    "items": [
+      "T1 confirmation outcomes at horizons 21 / 63 / 126 / 252 (need that many post-2026-09-25 trading days)",
+      "H_CONFIRMED / H_REJECTED for frozen hypotheses (need confirmation-cohort maturity)",
+      "monthly I_up / monthly pressure geometry (needs new monthly resample close — typically not within one week)",
+      "replaying identical T1 emit (anti-loop → knowledge_delta=NONE)",
+      "Yahoo-invented geometry or promoted book_ADD→MARK_BUY (forbidden — not 'new info', policy block)"
+    ],
+    "prose": "Anything requiring >~5 post-asof trading days, or identical reinput, cannot gain research knowledge inside a week."
+  },
+  "Q9_ONLY_WHEN_MATURITY_ARRIVES": {
+    "id": 9,
+    "question": "WHICH OUTCOMES ONLY MOVE WHEN MATURITY ARRIVES?",
+    "items": [
+      "outcomes_5d / 21d / 63d / 126d / 252d confirmation stubs (status leaves WAITING_FOR_FUTURE_BARS only when Nth post-asof trading day has stock+QQQ closes)",
+      "H_PENDING → H_CONFIRMED | H_REJECTED",
+      "confirmation_cohort close / WAIT_5D…WAIT_252D lifecycle exits",
+      "NET_PNL / trade PnL if ever executable (currently book_ADD observation-only; MARK_BUY=0)"
+    ],
+    "maturity_rule_existing": "Nth trading day after asof with BOTH stock OHLC close AND QQQ OHLC close (calendar alone insufficient) — from MINIMUM_DATA_REQUIRED_FOR_T1.json",
+    "prose": "Outcome and H state machines are maturity-gated; scheduler wakes without N post-asof bars do not move them."
+  },
+  "Q10_WAIT_EVEN_IF_SCHEDULER_WOKE": {
+    "id": 10,
+    "question": "WHEN SHOULD APP SAY WAIT EVEN IF GLOBAL SCHEDULER WOKE IT?",
+    "wait_when": [
+      "No completed US daily bar with date > current T1 market_bar_asof (now 2026-09-25) → WAIT_NEW_BAR / WAITING_FOR_FUTURE_BARS",
+      "Engine emit identical source_hash + engine_run_id + market_bar_asof → CAPTURED_ALREADY (do not re-capture)",
+      "No ORIGINAL_ENGINE emit present (filename-only / Yahoo geometry) → BLOCKED_PROVENANCE / BLOCKED_FILENAME_ONLY_EMIT",
+      "Maturity check requested but post_t1_asof_trading_days < horizon N → WAIT_OUTCOME_MATURITY",
+      "US session incomplete / session_complete=false on candidate latest bar",
+      "Attempting to treat T0 discovery resolved_5d as T1 confirmation (hard lock: discovery ≠ confirmation)"
+    ],
+    "prose": "Wake ≠ due. Desk should WAIT unless there is a new completed bar for observation/signal, or enough post-asof bars for a specific horizon maturity resolve."
+  },
+  "Q11_CADENCE_ORIGINAL_SEMANTICS_SUPPORT": {
+    "id": 11,
+    "question": "WHAT CADENCE DOES ORIGINAL APP SEMANTICS SUPPORT?",
+    "answer": "US_DAILY_COMPLETED_BAR_THEN_OPTIONAL_EMIT_AND_MATURITY_CHECK",
+    "supported_cadence": "After each completed US daily session: (a) observe/scan if new 1d bars; (b) capture signal only on new asof+ORIGINAL_ENGINE emit; (c) resolve outcomes only when horizon N post-asof trading days exist.",
+    "not_supported_as_native": [
+      "intraday / minute cadence",
+      "blind calendar-daily wake with no new bar",
+      "forcing daily H confirm",
+      "REPLAY_FORWARD clock mix"
+    ],
+    "derived_not_preset": true,
+    "confidence": "HIGH",
+    "note": "Do NOT equate 'daily bar semantics' with 'must run every calendar day'. Evidence supports US_session_complete daily atoms; weekend/holiday → natural WAIT.",
+    "prose": "Original Desk is a daily-bar LIVE_FORWARD scanner with multi-TF resample and multi-horizon maturity. Native cadence = completed US 1d bar boundary + asof/emit/maturity gates — not a preset Desk=daily scheduler answer."
+  },
+  "LAYERS": {
+    "SHORT": {
+      "name": "SHORT",
+      "horizons_trading_days": [
+        5
+      ],
+      "research_question": "On each new completed US daily bar, did Desk geometry/state/signal families change, and after 5 post-asof trading days do confirmation-cohort 5D outcomes resolve vs QQQ?",
+      "required_new_data": [
+        "completed 1d OHLC for DEFAULT_SYMBOLS tickers in cohort + QQQ with date > prior asof",
+        "OPTIONAL for signal: new ORIGINAL_ENGINE emit (provenance_gate=REQUIRED) on that asof",
+        "for 5D maturity: 5th trading day closes after T1 asof for stock+QQQ"
+      ],
+      "minimum_interval": "1 completed US trading day (observation/signal opportunity); 5 completed post-asof trading days (5D maturity)",
+      "maturity_rule": "horizon=5 → WAITING_FOR_FUTURE_BARS until 5 trading days after market_bar_asof with stock+QQQ session_complete closes",
+      "run_when": [
+        "new completed bar date > last observed / T1 asof",
+        "OR post_t1_asof_trading_days >= 5 and 5D stubs still waiting"
+      ],
+      "wait_when": [
+        "no new completed bar",
+        "identical engine emit (CAPTURED_ALREADY)",
+        "post_t1_asof_trading_days < 5 for maturity resolve"
+      ]
+    },
+    "MEDIUM": {
+      "name": "MEDIUM",
+      "horizons_trading_days": [
+        21,
+        63
+      ],
+      "research_question": "Do weekly/monthly inertia alignment (trustUp / alignScore W+M) and 21D/63D confirmation outcomes support or reject frozen H once medium maturity arrives?",
+      "required_new_data": [
+        "≥21 (resp. 63) completed post-asof US trading days with stock+QQQ closes",
+        "daily bars sufficient to resample new weekly (and approaching monthly) bars"
+      ],
+      "minimum_interval": "21 completed post-asof trading days (first medium maturity); 63 for quarter-scale",
+      "maturity_rule": "horizon=21|63 → resolve only when Nth post-asof trading day exists for stock+QQQ; W/M geometry updates on resample boundaries not on every wake",
+      "run_when": [
+        "post_t1_asof_trading_days >= 21 (or 63) and corresponding stubs waiting",
+        "new weekly resample close available for alignment diagnostics (observation only — not new H)"
+      ],
+      "wait_when": [
+        "post_t1_asof_trading_days < 21 (or <63)",
+        "no new weekly/monthly resample information and no medium maturity due"
+      ]
+    },
+    "LONG": {
+      "name": "LONG",
+      "horizons_trading_days": [
+        126,
+        252
+      ],
+      "research_question": "After half-year / full-year trading-day maturity, do confirmation-cohort outcomes move frozen H out of UNTESTED into CONFIRMED or REJECTED without inventing new H?",
+      "required_new_data": [
+        "≥126 (resp. 252) completed post-asof US trading days with stock+QQQ closes"
+      ],
+      "minimum_interval": "126 completed post-asof trading days (half-year); 252 for full-year",
+      "maturity_rule": "horizon=126|252 → WAIT_126D / WAIT_252D until Nth post-asof trading day; H stays UNTESTED/PENDING until confirmation outcomes mature",
+      "run_when": [
+        "post_t1_asof_trading_days >= 126 (or 252) and long stubs waiting"
+      ],
+      "wait_when": [
+        "post_t1_asof_trading_days < 126 (or <252)",
+        "any wake that only re-reads identical T1 without new long bars"
+      ]
+    }
+  },
+  "DUE_NOT_DUE_TEMPLATE": {
+    "evaluated_at_utc": "2026-09-28T12:48:00Z",
+    "evaluated_at_hkt": "2026-09-28 20:48:00 HKT",
+    "current_time_scale": "US_DAILY_COMPLETED_BAR",
+    "lifecycle_primary": "T1_CAPTURED",
+    "lifecycle_outcome": "WAITING_FOR_FUTURE_BARS",
+    "due_now": false,
+    "due_now_signal_capture": false,
+    "due_now_outcome_maturity_any_horizon": false,
+    "reason": "Write-time evidence: T1 market_bar_asof=2026-09-25; data_bridge latest_completed_bar=2026-09-25; post_t1_asof_trading_days=0; no completed bar > asof → maturity not due. Signal capture not due: identical emit already CAPTURED_ALREADY and no newer asof/engine emit. Box clock ~2026-09-28 HKT is calendar-later but US completed session still 2026-09-25 (weekend + Mon HKT evening may be US Mon open — incomplete bar does not count).",
+    "required_new_data": [
+      "At least one completed US daily bar with date > 2026-09-25 for T1 tickers + QQQ (session_complete=true)",
+      "For new signal capture: ORIGINAL_ENGINE emit on that new asof with provenance_gate keys + Desk geometry (not Yahoo invent)",
+      "For first maturity (5D): five such post-asof trading days"
+    ],
+    "next_due_condition": "IF new completed bar date > 2026-09-25 AND (new ORIGINAL_ENGINE emit with new asof OR post_t1_asof_trading_days reaches a horizon N in {5,21,63,126,252}) THEN due_now for that lane; ELSE remain WAIT / CAPTURED_ALREADY / WAITING_FOR_FUTURE_BARS",
+    "example_lanes": {
+      "signal_capture": {
+        "due_now": false,
+        "reason": "No new asof; CAPTURED_ALREADY on desk_20260928T171851+0800 / asof=2026-09-25"
+      },
+      "maturity_5d": {
+        "due_now": false,
+        "reason": "need 5 post-asof trading days; have 0"
+      },
+      "maturity_21d": {
+        "due_now": false,
+        "reason": "need 21; have 0"
+      },
+      "maturity_63d": {
+        "due_now": false,
+        "reason": "need 63; have 0"
+      },
+      "maturity_126d": {
+        "due_now": false,
+        "reason": "need 126; have 0"
+      },
+      "maturity_252d": {
+        "due_now": false,
+        "reason": "need 252; have 0"
+      }
+    }
+  },
+  "WHAT_I_OBSERVE": {
+    "universe": "DEFAULT_SYMBOLS (QQQ, SPY, SMH, NVDA, TSLA, MU, AMD, AAPL, AVGO, TSM, META, MSFT, AMZN, GOOGL, PLTR, IWM, TLT)",
+    "bar_atom": "completed US 1d OHLC(+volume)",
+    "scan_unit": "scanSymbol → ScanRow",
+    "signal_families": [
+      "desk.MARK_BUY",
+      "desk.ARMED",
+      "desk.TRUST_UP",
+      "desk.book_ADD"
+    ],
+    "maturity_anchor": "market_bar_asof",
+    "yahoo_role": "OUTCOME / bar feed only — never Desk geometry invent"
+  },
+  "WHAT_CAN_CHANGE_QUICKLY": [
+    "daily OHLC / RelVol20 / bandPosPct / hot",
+    "desk_state daily transitions (DORMANT/WATCH/ARMED/MARK_BUY/MARK_SELL)",
+    "book_action ADD/trim scores on daily pressure geometry",
+    "alignScore via daily I_up (W/M slower)",
+    "new signal capture on new asof+emit"
+  ],
+  "WHAT_CHANGES_SLOWLY": [
+    "weekly/monthly I_up and trustUp (needs W+M alignment)",
+    "21D/63D/126D/252D confirmation outcomes",
+    "frozen H confirm/reject",
+    "MIN_BARS-scale sample sufficiency shifts (D=60 already; structural)"
+  ],
+  "SHORT_CADENCE": "1 completed US trading day for observe/signal-opportunity; 5 post-asof trading days for 5D maturity",
+  "MEDIUM_CADENCE": "21 / 63 post-asof trading days (+ weekly resample boundary for W-TF diagnostics)",
+  "LONG_CADENCE": "126 / 252 post-asof trading days",
+  "DUE_RULE": "due only if (new completed bar > current asof AND engine emit for signal lane) OR (post_asof_trading_days >= horizon N for maturity lane)",
+  "WAIT_RULE": "WAIT if no new completed bar, or identical emit (CAPTURED_ALREADY), or post_asof_trading_days < N, or provenance/filename-only/Yahoo-geometry block, or discovery pooled as confirmation",
+  "REQUIRED_DATA": {
+    "observation": "completed 1d OHLC SeriesPack per symbol + QQQ/SPY/^VIX tape inputs as engine requires",
+    "signal_capture": "ORIGINAL_ENGINE emit with source/engine_id/engine_version/engine_run_id/market_bar_asof/source_hash + Desk geometry keys",
+    "outcome_maturity": "Nth trading day after asof with BOTH stock and QQQ session_complete closes",
+    "explicitly_not_required_to_invent": [
+      "new H",
+      "Yahoo geometry",
+      "fills",
+      "scheduler"
+    ]
+  },
+  "EVIDENCE_BASIS": [
+    "APP_INTENT_PROFILE.json/.md — observe/emit/horizons/hard locks",
+    "MINIMUM_DATA_REQUIRED_FOR_T1.json — post-asof bar requirement; EXISTING_T1_SUFFICIENT; knowledge_delta NONE if insufficient",
+    "OUTCOME_MATURITY_STATUS.json — all horizons WAITING_FOR_FUTURE_BARS; post_t1=0",
+    "FORWARD_CONTROL_PLANE_STATUS.json — lifecycle WAIT_OUTCOME_MATURITY; anti-loop",
+    "research_profile.json — future_horizons [5,21,63,126,252]; LIVE_FORWARD",
+    "data_bridge — frequency=1d; latest_bar=2026-09-25",
+    "juniper-kite types/formulas/hk-time — daily atom, resample W/M, NY bar day key"
+  ],
+  "KNOWLEDGE_DELTA": "DOCUMENTATION_OF_TEMPORAL_SELF_UNDERSTANDING",
+  "KNOWLEDGE_DELTA_NOTE": "This audit documents Desk's temporal self-understanding from existing contracts/code. It does not add market evidence, new bars, new signals, or new hypotheses.",
+  "research_knowledge_delta": "NONE",
+  "research_knowledge_delta_note": "No new market/outcome/signal knowledge; T1 still CAPTURED_ALREADY; post_t1_asof_trading_days still 0.",
+  "hard_locks_respected": [
+    "no scheduler implementation",
+    "no new hypotheses / no frozen H rewrite / no T0 rewrite / no T1 invent",
+    "no new data sources or pipelines",
+    "cadence DERIVED from evidence (US_DAILY_COMPLETED_BAR) — not blindly preset Desk=daily",
+    "book_ADD ≠ MARK_BUY",
+    "T0 ≠ T1; discovery ≠ confirmation",
+    "Yahoo ≠ Desk geometry"
+  ],
+  "honesty": [
+    "due_now=false at write time is evidence-backed, not assumed",
+    "If evidence had been insufficient for cadence, answer would be UNKNOWN — here daily-bar atom evidence is sufficient for HIGH confidence",
+    "Weekend/holiday gaps are natural WAIT under US session semantics"
+  ]
+}
