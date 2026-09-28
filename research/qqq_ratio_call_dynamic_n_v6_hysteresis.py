@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""
+"""QQQ Ratio-Call Dynamic-N V6 — hysteresis original-hook reconstruction.
+
 V6 only changes the N controller to reduce whipsaw:
 - LOW-DELTA add requires 2 consecutive qualifying sessions and >=5 trading
   sessions since the previous N change.
 - BREAKOUT continuation removes only ONE SHORT+WING pair, not all SHORTs.
 - Delta reduction remains monotone one-pair-per-threshold crossing.
 All other V5 rules remain frozen.
-"""QQQ Ratio-Call Dynamic-N V6 — hysteresis original-hook reconstruction.
 
 This run follows the earlier research hook more literally:
 
@@ -28,9 +28,9 @@ PATH STATES:
   - Approach: High >= 98% of short strike.
   - Next-day reversal: if Close falls AND short buyback Ask <= 50% of entry
     premium, close ceil(N_short/2) SHORT calls only. Wings remain.
-  - Next-day continuation: if Close >= approach Close, close all remaining SHORT.
-    ATM + wings remain.
-
+  - Next-day continuation: if Close >= approach Close, reduce one SHORT+WING pair;
+    if one pair remains, remove the last SHORT while keeping the wing.
+  
 DOWNSIDE DD:
   - If package MTM loss >=25% of initial risk, progressively recover
     SHORT-only, but only when the buyback Ask <= the entry short sale Bid.
