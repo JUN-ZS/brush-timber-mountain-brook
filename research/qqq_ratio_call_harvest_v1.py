@@ -378,6 +378,7 @@ def process_one(und, quotes, entry_row, legs, n_initial, mode):
 
     for i, row in daily.iterrows():
         dt = pd.Timestamp(row["date"])
+        is_final = False
 
         # Path-managed rule:
         #   approach on T -> observe T+1:
@@ -386,13 +387,13 @@ def process_one(und, quotes, entry_row, legs, n_initial, mode):
         #     otherwise: continuation -> exit the whole package on T+1.
         if mode in ("HARVEST50_REVERSAL", "HARVEST50_GOVERNED") and dt > entry:
             if pending_action is not None and pd.Timestamp(pending_action["date"]) == dt:
-                action = pending_action["action"]
+                action = pending_action
                 pending_action = None
-                if action == "CONTINUATION_EXIT":
+                if float(row["close"]) >= float(action["approach_close"]):
                     exit_date = dt
                     exit_reason = "APPROACH_THEN_CONTINUATION_EXIT"
                     is_final = True
-                elif action == "REVERSAL_HARVEST" and n_remaining > 0:
+                elif n_remaining > 0:
                     qs_now = q_at(quotes, dt, short_id)
                     qw_now = q_at(quotes, dt, wing_id)
                     bs_now = executable(qs_now, "BUY")
@@ -438,24 +439,13 @@ def process_one(und, quotes, entry_row, legs, n_initial, mode):
                 if approach_now and approach_armed and n_remaining > 0:
                     approach_armed = False
                     if i + 1 < len(daily):
-                        next_row = daily.iloc[i + 1]
-                        next_dt = pd.Timestamp(next_row["date"])
-                        next_close = float(next_row["close"])
+                        next_dt = pd.Timestamp(daily.iloc[i + 1]["date"])
                         approach_close = float(row["close"])
-                        if next_close < approach_close:
-                            pending_action = {
-                                "date": next_dt,
-                                "action": "REVERSAL_HARVEST",
-                                "approach_date": dt,
-                                "approach_close": approach_close,
-                            }
-                        else:
-                            pending_action = {
-                                "date": next_dt,
-                                "action": "CONTINUATION_EXIT",
-                                "approach_date": dt,
-                                "approach_close": approach_close,
-                            }
+                        pending_action = {
+                            "date": next_dt,
+                            "approach_date": dt,
+                            "approach_close": approach_close,
+                        }
                 elif not approach_now:
                     approach_armed = True
 
