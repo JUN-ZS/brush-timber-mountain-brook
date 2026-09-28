@@ -160,17 +160,126 @@ def max_loss_proxy(legs, n, spot):
 
 
 def build_selection_cache(con, opt_path, signal_dates):
+    if not signal_dates:
+        return {}, {}
+    # One parquet scan for all signal dates. Contract selection is identical
+    # to the lab logic, but implemented set-wise for speed.
+    date_list = [pd.Timestamp(d).date() for d in signal_dates]
+    rows = duck(con, """
+        SELECT
+            CAST(date AS DATE) AS date,
+            expiration,
+            strike,
+            bid,
+            ask,
+            mark,
+            volume,
+            delta,
+            DATEDIFF('day', CAST(date AS DATE), CAST(expiration AS DATE)) AS dte
+        FROM read_parquet(?)
+        WHERE CAST(date AS DATE) IN (SELECT * FROM UNNEST(?))
+          AND upper(type) = 'CALL'
+          AND delta IS NOT NULL
+          AND bid IS NOT NULL
+          AND ask IS NOT NULL
+          AND CAST(expiration AS DATE) BETWEEN
+              CAST(date AS DATE) + INTERVAL 18 DAY
+              AND CAST(date AS DATE) + INTERVAL 35 DAY
+    """, [str(opt_path), date_list])
+    if rows.empty:
+        return {}, {"NO_CHAIN_ROWS": len(date_list)}
+
+    rows["date"] = pd.to_datetime(rows["date"])
+    rows["expiration"] = pd.to_datetime(rows["expiration"])
+
+    # Same practical-expiry rule as the original lab: nearest DTE,
+    # volume descending as the tie-break.
+    rows = rows.sort_values(
+        ["date","dte","volume"],
+        ascending=[True,True,False]
+    )
+    chosen_exp = (
+        rows.drop_duplicates("date", keep="first")[["date","expiration"]]
+        .rename(columns={"expiration":"chosen_exp"})
+    )
+    chain = rows.merge(chosen_exp, on="date", how="inner")
+    chain = chain[chain["expiration"] == chain["chosen_exp"]].copy()
+
     cache = {}
-    rejects = {}
-    for dt in signal_dates:
-        legs = pick_legs(con, opt_path, dt)
-        if legs is None:
-            rejects["NO_LEGS"] = rejects.get("NO_LEGS", 0) + 1
+    for dt, g in chain.groupby("date", sort=True):
+        atm = g.iloc[(g["delta"] - 0.50).abs().argsort()[0]]
+        shorts = g[g["strike"] > float(atm["strike"])].copy()
+        if shorts.empty:
             continue
-        cache[dt] = legs
+        shorts["d_err"] = (shorts["delta"] - SHORT_DELTA).abs()
+        short = shorts.sort_values(["d_err","strike"]).iloc[0]
+
+        wings = g[g["strike"] > float(short["strike"])].copy()
+        if wings.empty:
+            continue
+        wings["d_err"] = (wings["delta"] - WING_DELTA).abs()
+        wing = wings.sort_values(["d_err","strike"]).iloc[0]
+
+        cache[pd.Timestamp(dt)] = {
+            "expiry": pd.Timestamp(atm["expiration"]),
+            "atm": {
+                "contract_id": None,
+                "strike": float(atm["strike"]),
+                "bid": float(atm["bid"]),
+                "ask": float(atm["ask"]),
+                "mark": float(atm["mark"]),
+                "delta": float(atm["delta"]),
+                "expiration": pd.Timestamp(atm["expiration"]),
+            },
+            "short": {
+                "contract_id": None,
+                "strike": float(short["strike"]),
+                "bid": float(short["bid"]),
+                "ask": float(short["ask"]),
+                "mark": float(short["mark"]),
+                "delta": float(short["delta"]),
+                "expiration": pd.Timestamp(short["expiration"]),
+            },
+            "wing": {
+                "contract_id": None,
+                "strike": float(wing["strike"]),
+                "bid": float(wing["bid"]),
+                "ask": float(wing["ask"]),
+                "mark": float(wing["mark"]),
+                "delta": float(wing["delta"]),
+                "expiration": pd.Timestamp(wing["expiration"]),
+            },
+        }
+
+    # Fetch contract_id exactly once for the three selected strikes.  The
+    # selection stage above intentionally did not group on contract_id.
+    lookup = duck(con, """
+        SELECT CAST(date AS DATE) AS date, expiration, strike, type, contract_id
+        FROM read_parquet(?)
+        WHERE CAST(date AS DATE) IN (SELECT * FROM UNNEST(?))
+          AND upper(type) = 'CALL'
+          AND expiration BETWEEN
+              CAST(date AS DATE) + INTERVAL 18 DAY
+              AND CAST(date AS DATE) + INTERVAL 35 DAY
+    """, [str(opt_path), date_list])
+    lookup["date"] = pd.to_datetime(lookup["date"])
+    lookup["expiration"] = pd.to_datetime(lookup["expiration"])
+
+    rejects = {}
+    for dt, legs in list(cache.items()):
+        for key in ("atm","short","wing"):
+            m = lookup[
+                (lookup["date"] == dt) &
+                (lookup["expiration"] == legs[key]["expiration"]) &
+                (lookup["strike"] == legs[key]["strike"]) &
+                (lookup["type"].str.upper() == "CALL")
+            ]
+            if m.empty:
+                cache.pop(dt, None)
+                rejects["MISSING_CONTRACT_ID"] = rejects.get("MISSING_CONTRACT_ID",0)+1
+                break
+            legs[key]["contract_id"] = str(m.iloc[0]["contract_id"])
     return cache, rejects
-
-
 def fetch_all_quotes(con, opt_path, selected):
     ids = sorted({
         legs["atm"]["contract_id"]
