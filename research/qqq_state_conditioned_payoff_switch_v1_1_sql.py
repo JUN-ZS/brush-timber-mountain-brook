@@ -88,14 +88,30 @@ def build_regime_selection(con,opt_path,und):
         AND o.ask IS NOT NULL
         AND o.delta IS NOT NULL
     ),
-    exp_rank AS (
-      SELECT *, ROW_NUMBER() OVER(
-        PARTITION BY date,regime ORDER BY dte, volume DESC NULLS LAST
-      ) AS rn_exp
+    expiry_stats AS (
+      SELECT date,regime,expiration,dte,
+             MAX(volume) AS max_volume
       FROM chain
+      GROUP BY date,regime,expiration,dte
+    ),
+    expiry_rank AS (
+      SELECT *,
+             ROW_NUMBER() OVER(
+               PARTITION BY date,regime
+               ORDER BY dte, max_volume DESC NULLS LAST
+             ) AS rn_exp
+      FROM expiry_stats
+    ),
+    chosen_expiry AS (
+      SELECT date,regime,expiration
+      FROM expiry_rank
+      WHERE rn_exp=1
     ),
     c AS (
-      SELECT * FROM exp_rank WHERE rn_exp=1
+      SELECT ch.*
+      FROM chain ch
+      INNER JOIN chosen_expiry e
+        ON ch.date=e.date AND ch.regime=e.regime AND ch.expiration=e.expiration
     ),
     atm AS (
       SELECT *,
