@@ -126,6 +126,7 @@ def process_shortonly(und, quotes, entry_row, legs, n_initial):
                         "short_entry_premium_usd": short_entry * 100.0,
                         "harvest_threshold_usd": threshold * 100.0,
                         "short_profit_usd": short_profit * 100.0,
+                        "short_buyback_usd": qshort_ask * 100.0,
                     })
             approach_armed = False
 
