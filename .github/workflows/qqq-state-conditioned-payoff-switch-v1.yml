@@ -37,9 +37,9 @@ jobs:
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
         env:
           GH_TOKEN: ${{ github.token }}
-      - name: Run frozen state-conditioned switch
+      - name: Run frozen state-conditioned SQL switch
         run: |
-          python research/qqq_state_conditioned_payoff_switch_v1.py \
+          python research/qqq_state_conditioned_payoff_switch_v1_1_sql.py \
             --data-dir data \
             --out artifacts
       - name: Upload artifacts
