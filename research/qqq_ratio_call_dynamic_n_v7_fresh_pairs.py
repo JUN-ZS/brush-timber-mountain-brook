@@ -585,7 +585,8 @@ def main():
             if quotes.empty:
                 quotes=more
             else:
-                quotes=pd.concat([quotes,more]).drop_duplicates(["date","contract_id"],keep="last").sort_index()
+                quotes=pd.concat([quotes,more])
+            quotes=quotes[~quotes.index.duplicated(keep="last")].sort_index()
 
     trades, stats, eqdf = run_dynamic(und, quotes, selection, fresh_selection)
     results=[stats]
