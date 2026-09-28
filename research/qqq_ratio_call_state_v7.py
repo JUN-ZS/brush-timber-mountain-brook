@@ -759,8 +759,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
         "events": events,
         "breakout_events": sum(
             e["event"] in (
-                "BREAKOUT_CONFIRMED_REMOVE_ALL_PAIRS",
-                "BREAKOUT_FAILED_REMOVE_ONE_PAIR",
+                "BREAKOUT_CONFIRMED_REMOVE_ALL_SHORT",
+                "BREAKOUT_FAILED_REMOVE_ONE_SHORT",
             )
             for e in events
         ),
