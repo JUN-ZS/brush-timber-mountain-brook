@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - research/qqq-ratio-call-harvest-v1-20260929
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
