@@ -1,37 +1,28 @@
 #!/usr/bin/env python3
-"""
-QQQ Ratio-Call Harvest V1
--------------------------
-Research-only, frozen-rule comparison:
-  BASELINE_TOUCH:
-    +1 ATM call - N x OTM short call + N x farther OTM long wings.
-    Exit whole package on first post-entry day whose underlying High touches
-    the short strike, otherwise exit at time/expiry.
+"""Frozen QQQ ratio-call HARVEST50 V1 replay.
 
-  HARVEST50_REVERSAL:
-    Same exact entry/contract-selection/risk gate.
-    Do NOT exit on short-strike touch.
-    If an approach event occurs (High >= 98% of short strike after being below)
-    and the NEXT trading day's Close is lower than the approach day's Close,
-    close at least half of the remaining short+wing pairs using executable
-    quotes (buy short at Ask, sell wing at Bid). Keep the ATM long.
-    Repeat on later fresh approach/reversal events.
-    Final exit at time/expiry.
+Comparison:
+  BASELINE_TOUCH
+    +1 ATM call - N*OTM short call + N*far OTM call wing.
+    Exit whole package on the first post-entry day whose underlying High
+    touches the selected short strike; otherwise exit at time/expiry.
 
-No parameter search or optimization is performed.
-Data: canonical data-v1 release from lambdaclass/options_portfolio_backtester.
-QQQ chain: 2011-03-23 through 2025-12-16 (dataset coverage).
+  HARVEST50_REVERSAL
+    Same entry and contract selection. Do not exit on short-strike touch.
+    An approach event is an edge-triggered day with High >= 98% of short strike.
+    If the NEXT trading day's Close is lower than the approach day's Close,
+    and the short+wing pair is profitable on executable close quotes, close
+    ceil(N_remaining/2) pairs (>= 50% of remaining pairs), keeping the ATM long.
+    Re-arm only after price leaves the approach zone. Final exit is time/expiry.
+
+No optimization, no OOS fitting, no synthetic option pricing.
+Data is the canonical data-v1 GitHub release.
 """
 
 import argparse
 import hashlib
 import json
 import math
-import os
-import subprocess
-import sys
-from dataclasses import dataclass
-from datetime import timedelta
 from pathlib import Path
 
 import duckdb
@@ -57,35 +48,9 @@ DTE_MAX = 35
 HOLD_MAX = 30
 
 APPROACH_FRAC = 0.98
-STRICT_QUOTES = True
-
 START_DATE = pd.Timestamp("2011-01-01")
 END_DATE = pd.Timestamp("2025-12-31")
 
-@dataclass
-class Position:
-    entry_date: pd.Timestamp
-    end_date: pd.Timestamp
-    expiry: pd.Timestamp
-    atm_id: str
-    short_id: str
-    wing_id: str
-    atm_k: float
-    short_k: float
-    wing_k: float
-    n_initial: int
-    n_remaining: int
-    cash: float
-    entry_cashflow: float
-    harvest_count: int = 0
-    realized_harvest_pnl: float = 0.0
-    approach_armed: bool = True
-    last_approach_close: float | None = None
-    last_approach_date: pd.Timestamp | None = None
-
-def run_cmd(cmd):
-    print("+", " ".join(cmd), flush=True)
-    subprocess.run(cmd, check=True)
 
 def sha256_file(path: Path) -> str:
     h = hashlib.sha256()
@@ -94,121 +59,160 @@ def sha256_file(path: Path) -> str:
             h.update(chunk)
     return h.hexdigest()
 
+
 def ensure_data(data_dir: Path):
     data_dir.mkdir(parents=True, exist_ok=True)
     opt = data_dir / "QQQ_options.parquet"
     und = data_dir / "QQQ_underlying.parquet"
     if not opt.exists() or not und.exists():
-        run_cmd([
-            "gh","release","download",RELEASE_TAG,"--repo",RELEASE_REPO,
-            "--pattern","QQQ_options.parquet","--pattern","QQQ_underlying.parquet",
-            "--dir",str(data_dir),
-        ])
+        raise FileNotFoundError("Canonical data files were not downloaded by the workflow.")
     return opt, und
+
+
+def duck(con, sql, params=None):
+    return con.execute(sql, params or {}).df()
+
 
 def load_underlying(path: Path):
     df = pd.read_parquet(path)
     df.columns = [c.lower() for c in df.columns]
-    dcol = "date" if "date" in df.columns else "datetime"
-    df["date"] = pd.to_datetime(df[dcol]).dt.tz_localize(None).dt.normalize()
+    if "date" not in df.columns:
+        raise ValueError("Underlying data missing date")
+    df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None).dt.normalize()
     df = df.sort_values("date").drop_duplicates("date")
     df = df[(df["date"] >= START_DATE) & (df["date"] <= END_DATE)].copy()
-    for c in ["open","high","low","close"]:
-        if c not in df.columns:
-            raise ValueError(f"Missing underlying field: {c}")
+    need = {"open", "high", "low", "close"}
+    missing = need - set(df.columns)
+    if missing:
+        raise ValueError(f"Underlying data missing {sorted(missing)}")
     df["dma200"] = df["close"].rolling(200, min_periods=200).mean()
     df["high52w"] = df["close"].rolling(252, min_periods=252).max()
     df["ext200"] = df["close"] / df["dma200"] - 1.0
     df["ratio52"] = df["close"] / df["high52w"]
     df["signal"] = (df["ratio52"] >= PCT_52W) & (df["ext200"] >= DMA_EXT)
-    return df[["date","open","high","low","close","dma200","high52w","ext200","ratio52","signal"]].reset_index(drop=True)
+    return df.reset_index(drop=True)
 
-def duck(con, sql, params=None):
-    return con.execute(sql, params or {}).df()
 
-def pick_legs(con, opt_path: Path, entry_date, spot):
+def pick_legs(con, opt_path: Path, entry_date: pd.Timestamp):
     lo = entry_date + pd.Timedelta(days=DTE_MIN)
     hi = entry_date + pd.Timedelta(days=DTE_MAX)
-    rows = duck(con, f"""
-        SELECT contract_id, expiration, strike, type, bid, ask, mark, volume,
-               open_interest, implied_volatility, delta
+    rows = duck(con, """
+        SELECT contract_id, expiration, strike, type, bid, ask, mark,
+               volume, open_interest, implied_volatility, delta
         FROM read_parquet(?)
         WHERE CAST(date AS DATE) = ?
           AND upper(type) = 'CALL'
           AND CAST(expiration AS DATE) BETWEEN ? AND ?
           AND delta IS NOT NULL
-          AND bid IS NOT NULL AND ask IS NOT NULL
+          AND bid IS NOT NULL
+          AND ask IS NOT NULL
     """, [str(opt_path), entry_date.date(), lo.date(), hi.date()])
     if rows.empty:
         return None
+
     rows["expiration"] = pd.to_datetime(rows["expiration"])
     rows["dte"] = (rows["expiration"] - entry_date).dt.days
-    exp = rows.sort_values(["dte","volume"], ascending=[True, False]).iloc[0]["expiration"]
+
+    # Same practical-expiry selection as the original lab:
+    exp = rows.sort_values(["dte", "volume"], ascending=[True, False]).iloc[0]["expiration"]
     chain = rows[rows["expiration"] == exp].copy()
     if chain.empty:
         return None
 
     atm = chain.iloc[(chain["delta"] - 0.50).abs().argsort()[:1]].iloc[0]
-    short_pool = chain[chain["strike"] > atm["strike"]].copy()
-    if short_pool.empty:
+    shorts = chain[chain["strike"] > atm["strike"]].copy()
+    if shorts.empty:
         return None
-    short_pool["d_err"] = (short_pool["delta"] - SHORT_DELTA).abs()
-    short_rows = short_pool.sort_values(["d_err","strike"]).head(1)
-    if short_rows.empty:
-        return None
-    short = short_rows.iloc[0]
+    shorts["d_err"] = (shorts["delta"] - SHORT_DELTA).abs()
+    short = shorts.sort_values(["d_err", "strike"]).iloc[0]
 
-    wing_pool = chain[chain["strike"] > float(short["strike"])].copy()
-    if wing_pool.empty:
+    wings = chain[chain["strike"] > short["strike"]].copy()
+    if wings.empty:
         return None
-    wing_pool["d_err"] = (wing_pool["delta"] - WING_DELTA).abs()
-    wing = wing_pool.sort_values(["d_err","strike"]).head(1)
-    if wing.empty:
-        return None
-    wing = wing.iloc[0]
+    wings["d_err"] = (wings["delta"] - WING_DELTA).abs()
+    wing = wings.sort_values(["d_err", "strike"]).iloc[0]
 
     return {
         "expiry": pd.Timestamp(atm["expiration"]),
-        "atm": atm.to_dict(),
-        "short": short.to_dict(),
-        "wing": wing.to_dict(),
+        "atm": {k: atm[k] for k in ["contract_id", "strike", "bid", "ask", "mark", "delta", "expiration"]},
+        "short": {k: short[k] for k in ["contract_id", "strike", "bid", "ask", "mark", "delta", "expiration"]},
+        "wing": {k: wing[k] for k in ["contract_id", "strike", "bid", "ask", "mark", "delta", "expiration"]},
     }
 
-def quote_map(con, opt_path: Path, ids, start_date, end_date):
-    ph = ",".join(["?"] * len(ids))
-    return duck(con, f"""
+
+def max_loss_proxy(legs, n, spot):
+    atm_k = float(legs["atm"]["strike"])
+    short_k = float(legs["short"]["strike"])
+    wing_k = float(legs["wing"]["strike"])
+    grid = np.linspace(max(1.0, spot * 0.20),
+                       max(spot * 2.5, wing_k * 1.25), 600)
+    initial = (
+        float(legs["atm"]["ask"])
+        - n * float(legs["short"]["bid"])
+        + n * float(legs["wing"]["ask"])
+    ) * 100.0
+    payoff = (
+        np.maximum(grid - atm_k, 0.0)
+        - n * np.maximum(grid - short_k, 0.0)
+        + n * np.maximum(grid - wing_k, 0.0)
+    ) * 100.0
+    return max(0.0, -float(np.min(payoff - initial)))
+
+
+def build_selection_cache(con, opt_path, signal_dates):
+    cache = {}
+    rejects = {}
+    for dt in signal_dates:
+        legs = pick_legs(con, opt_path, dt)
+        if legs is None:
+            rejects["NO_LEGS"] = rejects.get("NO_LEGS", 0) + 1
+            continue
+        cache[dt] = legs
+    return cache, rejects
+
+
+def fetch_all_quotes(con, opt_path, selected):
+    ids = sorted({
+        legs["atm"]["contract_id"]
+        for legs in selected.values()
+    } | {
+        legs["short"]["contract_id"]
+        for legs in selected.values()
+    } | {
+        legs["wing"]["contract_id"]
+        for legs in selected.values()
+    })
+    if not ids:
+        return pd.DataFrame()
+
+    # One parquet scan for every selected contract.  This replaces hundreds
+    # of repeated file scans while preserving exact EOD bid/ask/mark.
+    values = duck(con, """
         SELECT CAST(date AS DATE) AS date, contract_id, bid, ask, mark
         FROM read_parquet(?)
-        WHERE contract_id IN ({ph})
+        WHERE contract_id IN (SELECT * FROM UNNEST(?))
           AND CAST(date AS DATE) BETWEEN ? AND ?
-    """, [str(opt_path), *ids, start_date.date(), end_date.date()])
+    """, [str(opt_path), ids, START_DATE.date(), END_DATE.date()])
+    values["date"] = pd.to_datetime(values["date"])
+    values["contract_id"] = values["contract_id"].astype(str)
+    return values.set_index(["date", "contract_id"]).sort_index()
 
-def make_pivot(quotes):
-    if quotes.empty:
+
+def q_at(quotes, dt, cid):
+    try:
+        r = quotes.loc[(pd.Timestamp(dt), str(cid))]
+    except KeyError:
         return None
-    quotes["date"] = pd.to_datetime(quotes["date"])
-    return quotes.pivot_table(index="date", columns="contract_id",
-                              values=["bid","ask","mark"], aggfunc="last").sort_index()
+    return {"bid": float(r["bid"]), "ask": float(r["ask"]), "mark": float(r["mark"])}
 
-def leg_quote(pivot, cid, dt):
-    if pivot is None or dt not in pivot.index:
-        return None
-    r = pivot.loc[dt]
-    out = {}
-    for c in ["bid","ask","mark"]:
-        try:
-            out[c] = float(r[(c,cid)])
-        except Exception:
-            out[c] = np.nan
-    return out
 
-def exec_px(q, side):
-    b, a = q["bid"], q["ask"]
-    if pd.isna(b) or pd.isna(a):
+def executable(q, side):
+    if q is None or pd.isna(q["bid"]) or pd.isna(q["ask"]):
         return np.nan
-    return float(a if side == "BUY" else b)
+    return float(q["ask"] if side == "BUY" else q["bid"])
 
-def mid_px(q):
+
+def midpoint(q):
     if q is None:
         return np.nan
     if pd.notna(q["bid"]) and pd.notna(q["ask"]):
@@ -217,356 +221,268 @@ def mid_px(q):
         return float(q["mark"])
     return np.nan
 
-def max_loss_proxy(legs, n, spot):
-    atm_k = float(legs["atm"]["strike"])
-    short_k = float(legs["short"]["strike"])
-    wing_k = float(legs["wing"]["strike"])
-    grid = np.linspace(max(1.0, spot*0.20), max(spot*2.5, wing_k*1.25), 500)
-    # Actual execution-style initial cashflow: ATM buy at ask,
-    # short sell at bid, wing buy at ask.
-    premium = (
-        float(legs["atm"]["ask"])
-        - n*float(legs["short"]["bid"])
-        + n*float(legs["wing"]["ask"])
-    ) * 100.0
-    payoff = (
-        np.maximum(grid-atm_k, 0)
-        - n*np.maximum(grid-short_k, 0)
-        + n*np.maximum(grid-wing_k, 0)
-    ) * 100.0
-    terminal = payoff - premium
-    return max(0.0, -float(np.min(terminal)))
 
-def select_n(n_fixed):
-    return int(n_fixed)
-
-def entry_trade(con, opt_path, srow, n_fixed):
-    entry = pd.Timestamp(srow["date"])
-    spot = float(srow["close"])
-    legs = pick_legs(con, opt_path, entry, spot)
-    if legs is None:
-        return None, "NO_LEGS"
-    ml = max_loss_proxy(legs, n_fixed, spot)
-    if ml > CAPITAL_USD * (RISK_PCT/100.0):
-        return None, "RISK_GATE"
+def process_one(und, quotes, entry_row, legs, n_initial, mode):
+    entry = pd.Timestamp(entry_row["date"])
+    spot = float(entry_row["close"])
     expiry = pd.Timestamp(legs["expiry"])
     end_date = min(entry + pd.Timedelta(days=HOLD_MAX), expiry)
-    ids = [legs["atm"]["contract_id"], legs["short"]["contract_id"], legs["wing"]["contract_id"]]
-    q = quote_map(con, opt_path, ids, entry, end_date)
-    pivot = make_pivot(q)
-    if entry not in pivot.index:
+
+    atm_id = str(legs["atm"]["contract_id"])
+    short_id = str(legs["short"]["contract_id"])
+    wing_id = str(legs["wing"]["contract_id"])
+
+    qe_atm = q_at(quotes, entry, atm_id)
+    qe_short = q_at(quotes, entry, short_id)
+    qe_wing = q_at(quotes, entry, wing_id)
+    if any(x is None for x in (qe_atm, qe_short, qe_wing)):
         return None, "NO_ENTRY_QUOTES"
-    qa = leg_quote(pivot, ids[0], entry)
-    qs = leg_quote(pivot, ids[1], entry)
-    qw = leg_quote(pivot, ids[2], entry)
-    if any(x is None for x in (qa,qs,qw)):
+
+    buy_atm = executable(qe_atm, "BUY")
+    sell_short = executable(qe_short, "SELL")
+    buy_wing = executable(qe_wing, "BUY")
+    if any(pd.isna(x) for x in (buy_atm, sell_short, buy_wing)):
         return None, "NO_ENTRY_QUOTES"
-    buy_atm = exec_px(qa, "BUY")
-    sell_short = exec_px(qs, "SELL")
-    buy_wing = exec_px(qw, "BUY")
-    if any(pd.isna(x) for x in (buy_atm,sell_short,buy_wing)):
-        return None, "NO_ENTRY_QUOTES"
-    entry_cf = (buy_atm - n_fixed*sell_short + n_fixed*buy_wing) * 100.0
-    pos = Position(
-        entry_date=entry, end_date=end_date, expiry=expiry,
-        atm_id=ids[0], short_id=ids[1], wing_id=ids[2],
-        atm_k=float(legs["atm"]["strike"]),
-        short_k=float(legs["short"]["strike"]),
-        wing_k=float(legs["wing"]["strike"]),
-        n_initial=n_fixed, n_remaining=n_fixed,
-        cash=-entry_cf, entry_cashflow=entry_cf
-    )
-    return (pos, pivot, ml, legs), "OK"
 
-def terminal_close(pos, pivot, dt):
-    qa = leg_quote(pivot, pos.atm_id, dt)
-    qs = leg_quote(pivot, pos.short_id, dt)
-    qw = leg_quote(pivot, pos.wing_id, dt)
-    if any(x is None for x in (qa,qs,qw)):
-        return None
-    sa = exec_px(qa, "SELL")
-    bs = exec_px(qs, "BUY")
-    sw = exec_px(qw, "SELL")
-    if any(pd.isna(x) for x in (sa,bs,sw)):
-        return None
-    cf = (sa - pos.n_remaining*bs + pos.n_remaining*sw) * 100.0
-    return cf
+    entry_cf = (buy_atm - n_initial * sell_short + n_initial * buy_wing) * 100.0
+    pair_entry_credit = sell_short - buy_wing
+    n_remaining = int(n_initial)
+    harvest_events = []
+    approach_armed = True
+    last_approach_idx = None
 
-def pair_close_cost(pivot, pos, dt):
-    qs = leg_quote(pivot, pos.short_id, dt)
-    qw = leg_quote(pivot, pos.wing_id, dt)
-    if any(x is None for x in (qs,qw)):
-        return np.nan
-    bs = exec_px(qs, "BUY")
-    sw = exec_px(qw, "SELL")
-    if pd.isna(bs) or pd.isna(sw):
-        return np.nan
-    return bs - sw
+    daily = und[(und["date"] >= entry) & (und["date"] <= end_date)].copy().reset_index(drop=True)
+    if daily.empty:
+        return None, "NO_UNDERLYING_WINDOW"
 
-def pair_open_profit(pivot, pos, dt):
-    # Per pair profit using executable entry prices and executable close prices.
-    entry_pair_credit = (
-        pos.entry_cashflow/100.0 + float(legs_cache[pos.entry_date]["atm_entry_cost"])
-    ) / (-pos.n_initial) if False else None
-    # Actual pair basis from stored values:
-    return float(pair_entry_credit_cache[pos.entry_date] - pair_close_cost(pivot, pos, dt))
+    # Exact entry risk gate, same as the lab's defined-loss proxy.
+    ml = max_loss_proxy(legs, n_initial, spot)
+    if ml > CAPITAL_USD * (RISK_PCT / 100.0):
+        return None, "RISK_GATE"
 
-def daily_equity_for_trade(pos, pivot, und_slice, mode, trade_logs):
-    # Build daily mark-to-mid path and execute harvest/exit events.
-    # The outer caller supplies a mutable event log.
-    dates = list(und_slice["date"])
-    cash = pos.cash
-    n = pos.n_remaining
-    # Entry-side per-pair credit is stored in trade_logs metadata.
-    entry_pair_credit = trade_logs["_entry_pair_credit"]
-
-    realized_harvest = 0.0
-    exit_date = pos.end_date
-    exit_reason = "EXPIRY_OR_TIME"
-
+    cash = -entry_cf
     eq_rows = []
 
-    for i, dt in enumerate(dates):
-        dt = pd.Timestamp(dt)
-        qa = leg_quote(pivot, pos.atm_id, dt)
-        qs = leg_quote(pivot, pos.short_id, dt)
-        qw = leg_quote(pivot, pos.wing_id, dt)
-        if dt == pos.entry_date:
-            pass
+    exit_date = pd.Timestamp(end_date)
+    exit_reason = "EXPIRY_OR_TIME"
 
-        # New rule: approach edge today, check next day's Close.
-        if mode == "HARVEST50_REVERSAL" and dt > pos.entry_date and i+1 < len(dates):
-            high = float(und_slice.iloc[i]["high"])
-            close = float(und_slice.iloc[i]["close"])
-            approach_now = high >= APPROACH_FRAC * pos.short_k
-            approach_edge = approach_now and (not pos.approach_armed)
-            if approach_now and pos.approach_armed:
-                pos.approach_armed = False
-                pos.last_approach_close = close
-                pos.last_approach_date = dt
-            elif (not approach_now) and not pos.approach_armed:
-                pos.approach_armed = True
+    for i, row in daily.iterrows():
+        dt = pd.Timestamp(row["date"])
 
-            if pos.last_approach_date is not None and dt == pos.last_approach_date:
-                # evaluate tomorrow
-                tomorrow = pd.Timestamp(dates[i+1])
-                if tomorrow > dt:
-                    tomorrow_close = float(und_slice.iloc[i+1]["close"])
-                    if tomorrow_close < close and n > 0:
-                        cst = pair_close_cost(pivot, pos, tomorrow)
-                        if pd.notna(cst):
-                            pair_profit = entry_pair_credit - cst
-                            if pair_profit > 0:
-                                h = int(math.ceil(n / 2.0))
-                                qs2 = leg_quote(pivot, pos.short_id, tomorrow)
-                                qw2 = leg_quote(pivot, pos.wing_id, tomorrow)
-                                bs2 = exec_px(qs2, "BUY") if qs2 else np.nan
-                                sw2 = exec_px(qw2, "SELL") if qw2 else np.nan
-                                if pd.notna(bs2) and pd.notna(sw2):
-                                    cf = h*(bs2*-1.0 + sw2)*100.0
-                                    # Positive/negative cash flow correctly reflects closing:
-                                    # buy short costs -h*ask; sell wing yields +h*bid.
-                                    cash += cf
-                                    realized_harvest += h*pair_profit*100.0
-                                    trade_logs["events"].append({
-                                        "date": str(tomorrow.date()),
-                                        "event": "HARVEST50_REVERSAL",
-                                        "n_before": int(n),
-                                        "n_closed": int(h),
-                                        "n_after": int(n-h),
-                                        "approach_date": str(dt.date()),
-                                        "approach_close": close,
-                                        "reversal_close": tomorrow_close,
-                                        "pair_profit_executable": pair_profit,
-                                        "realized_pair_pnl_est": h*pair_profit*100.0,
-                                    })
-                                    n -= h
-                                    pos.n_remaining = n
-                                    pos.harvest_count += 1
-                                    pos.realized_harvest_pnl += h*pair_profit*100.0
-                                    pos.last_approach_date = None
-                                    pos.last_approach_close = None
-                                    # Prevent immediate re-arm until a subsequent away day.
-                                    pos.approach_armed = False
+        # Approach -> next-day reversal -> executable harvest.
+        if mode == "HARVEST50_REVERSAL" and dt > entry:
+            approach_now = float(row["high"]) >= APPROACH_FRAC * float(legs["short"]["strike"])
+            if approach_now and approach_armed and n_remaining > 0:
+                approach_armed = False
+                last_approach_idx = i
+            elif not approach_now:
+                approach_armed = True
 
-        # Baseline touch exit, checked after entry.
-        if mode == "BASELINE_TOUCH" and dt > pos.entry_date:
-            if float(und_slice.iloc[i]["high"]) >= pos.short_k:
+            if last_approach_idx is not None and i == last_approach_idx:
+                if i + 1 < len(daily) and n_remaining > 0:
+                    next_row = daily.iloc[i + 1]
+                    next_dt = pd.Timestamp(next_row["date"])
+                    next_close = float(next_row["close"])
+                    approach_close = float(row["close"])
+
+                    qs_next = q_at(quotes, next_dt, short_id)
+                    qw_next = q_at(quotes, next_dt, wing_id)
+                    bs_next = executable(qs_next, "BUY")
+                    sw_next = executable(qw_next, "SELL")
+
+                    if pd.notna(bs_next) and pd.notna(sw_next):
+                        pair_close_cost = bs_next - sw_next
+                        pair_profit = pair_entry_credit - pair_close_cost
+                        if pair_profit > 0.0:
+                            h = int(math.ceil(n_remaining / 2.0))
+                            harvest_cf = (-h * bs_next + h * sw_next) * 100.0
+                            cash += harvest_cf
+                            n_before = n_remaining
+                            n_remaining -= h
+                            harvest_events.append({
+                                "date": str(next_dt.date()),
+                                "event": "HARVEST50_REVERSAL",
+                                "approach_date": str(dt.date()),
+                                "approach_close": approach_close,
+                                "reversal_close": next_close,
+                                "n_before": n_before,
+                                "n_closed": h,
+                                "n_after": n_remaining,
+                                "harvest_fraction": h / n_before,
+                                "pair_profit_usd": pair_profit * 100.0,
+                                "realized_harvest_pnl_usd": h * pair_profit * 100.0,
+                            })
+                            # Do not allow the same continuous approach to fire again.
+                            approach_armed = False
+                            last_approach_idx = None
+
+        # Baseline: the original whole-package touch exit.
+        if mode == "BASELINE_TOUCH" and dt > entry:
+            if float(row["high"]) >= float(legs["short"]["strike"]):
                 exit_date = dt
                 exit_reason = "SHORT_STRIKE_TOUCH"
-                break
+                # Mark the exit day after execution below, then finish.
+                is_final = True
+            else:
+                is_final = dt >= end_date
+        else:
+            is_final = dt >= end_date
 
-        # Mark after any event on this date.
-        ma = mid_px(qa)
-        ms = mid_px(qs)
-        mw = mid_px(qw)
-        if any(pd.isna(x) for x in (ma,ms,mw)):
-            continue
-        equity = cash + ma*100.0 - n*ms*100.0 + n*mw*100.0
-        eq_rows.append((dt, equity))
+        # Mark-to-mid equity for daily drawdown.
+        qa = q_at(quotes, dt, atm_id)
+        qs = q_at(quotes, dt, short_id)
+        qw = q_at(quotes, dt, wing_id)
+        ma, ms, mw = midpoint(qa), midpoint(qs), midpoint(qw)
+        if not any(pd.isna(x) for x in (ma, ms, mw)):
+            eq = CAPITAL_USD + cash + ma * 100.0 - n_remaining * ms * 100.0 + n_remaining * mw * 100.0
+            eq_rows.append((dt, eq))
 
-        if dt >= pos.end_date:
-            exit_date = dt
+        if is_final:
             break
 
-    return cash, n, exit_date, exit_reason, eq_rows
-
-def process_trade(con, opt_path, und, srow, n_fixed, mode):
-    info, status = entry_trade(con, opt_path, srow, n_fixed)
-    if status != "OK":
-        return None, status
-    pos, pivot, ml, legs = info
-
-    entry_pair_credit = (
-        float(legs["short"]["bid"]) - float(legs["wing"]["ask"])
-    )
-    # Local event state. (Avoid mutable globals.)
-    logs = {"events": [], "_entry_pair_credit": entry_pair_credit}
-
-    und_slice = und[(und["date"] >= pos.entry_date) & (und["date"] <= pos.end_date)].copy().reset_index(drop=True)
-    _, n_before_final, exit_date, exit_reason, eq_rows = daily_equity_for_trade(
-        pos, pivot, und_slice, mode, logs
-    )
-
-    if pd.Timestamp(exit_date) not in pivot.index:
-        avail = pivot.index[pivot.index >= pd.Timestamp(exit_date)]
-        if len(avail):
-            exit_date = avail.min()
-        else:
+    qx_atm = q_at(quotes, exit_date, atm_id)
+    qx_short = q_at(quotes, exit_date, short_id)
+    qx_wing = q_at(quotes, exit_date, wing_id)
+    if any(x is None for x in (qx_atm, qx_short, qx_wing)):
+        # No interpolation: use first available quote date on/after the intended
+        # exit, but only if all three contracts are quoted on that same date.
+        candidates = sorted(set(
+            d for (d, cid) in quotes.index
+            if d >= exit_date and cid in {atm_id, short_id, wing_id}
+        ))
+        found = None
+        for d in candidates:
+            if all(q_at(quotes, d, cid) is not None for cid in (atm_id, short_id, wing_id)):
+                found = pd.Timestamp(d)
+                break
+        if found is None:
             return None, "NO_EXIT_QUOTES"
-    # Rebuild n after management.
-    n_final = pos.n_remaining
-    cf_exit = terminal_close(pos, pivot, pd.Timestamp(exit_date))
-    if cf_exit is None:
+        exit_date = found
+        qx_atm = q_at(quotes, exit_date, atm_id)
+        qx_short = q_at(quotes, exit_date, short_id)
+        qx_wing = q_at(quotes, exit_date, wing_id)
+
+    sell_atm = executable(qx_atm, "SELL")
+    buy_short = executable(qx_short, "BUY")
+    sell_wing = executable(qx_wing, "SELL")
+    if any(pd.isna(x) for x in (sell_atm, buy_short, sell_wing)):
         return None, "NO_EXIT_QUOTES"
 
-    # terminal_close currently includes ATM and remaining pairs.
-    total_pnl = pos.entry_cashflow * -1.0 + sum(
-        [
-            # Harvest cash flows already included in pos.cash via process loop;
-            # terminal CF is added to initial cash balance for exact accounting.
-        ]
-    )
-    # Exact realized cash accounting:
-    # pos.cash started at -entry_cf, then harvest cash flows were added to local cash,
-    # but daily_equity_for_trade does not return cash. Recompute realized harvest cash
-    # from events, then add final terminal exit cash.
+    exit_cf = (sell_atm - n_remaining * buy_short + n_remaining * sell_wing) * 100.0
+
     harvest_cash = 0.0
-    for e in logs["events"]:
-        # Reconstruct exact executable close cashflow from quotes on event date.
-        dt = pd.Timestamp(e["date"])
-        qs = leg_quote(pivot, pos.short_id, dt)
-        qw = leg_quote(pivot, pos.wing_id, dt)
-        h = int(e["n_closed"])
-        harvest_cash += (-h*exec_px(qs, "BUY") + h*exec_px(qw, "SELL")) * 100.0
+    for ev in harvest_events:
+        dt = pd.Timestamp(ev["date"])
+        qs = q_at(quotes, dt, short_id)
+        qw = q_at(quotes, dt, wing_id)
+        h = int(ev["n_closed"])
+        harvest_cash += (-h * executable(qs, "BUY") + h * executable(qw, "SELL")) * 100.0
 
-    realized_pnl = -pos.entry_cashflow + harvest_cash + cf_exit
-    tr = {
-        "entry": pos.entry_date,
+    pnl = -entry_cf + harvest_cash + exit_cf
+
+    # Replace the exit-date mark with executable terminal equity.
+    portfolio_terminal_eq = CAPITAL_USD + pnl
+    eq_rows.append((pd.Timestamp(exit_date), portfolio_terminal_eq))
+
+    return {
+        "entry": entry,
         "exit": pd.Timestamp(exit_date),
-        "reason": exit_reason if mode == "BASELINE_TOUCH" else ("HARVESTED_THEN_EXIT" if logs["events"] else "EXPIRY_OR_TIME"),
-        "n_initial": pos.n_initial,
-        "n_final": n_final,
-        "atm_strike": pos.atm_k,
-        "short_strike": pos.short_k,
-        "wing_strike": pos.wing_k,
-        "entry_cashflow_usd": pos.entry_cashflow,
-        "harvest_events": len(logs["events"]),
-        "harvest_cashflow_usd": harvest_cash,
-        "exit_cashflow_usd": cf_exit,
-        "pnl_usd": realized_pnl,
-        "max_loss_proxy_usd": ml,
-        "extension": float(srow["ext200"]),
-        "ratio52": float(srow["ratio52"]),
-        "expiry": pos.expiry,
-        "events": logs["events"],
+        "reason": exit_reason if mode == "BASELINE_TOUCH" else (
+            "HARVESTED_THEN_EXIT" if harvest_events else "EXPIRY_OR_TIME"
+        ),
+        "n_initial": int(n_initial),
+        "n_final": int(n_remaining),
+        "atm_strike": float(legs["atm"]["strike"]),
+        "short_strike": float(legs["short"]["strike"]),
+        "wing_strike": float(legs["wing"]["strike"]),
+        "entry_cashflow_usd": float(entry_cf),
+        "harvest_events": int(len(harvest_events)),
+        "harvest_cashflow_usd": float(harvest_cash),
+        "exit_cashflow_usd": float(exit_cf),
+        "pnl_usd": float(pnl),
+        "max_loss_proxy_usd": float(ml),
+        "extension": float(entry_row["ext200"]),
+        "ratio52": float(entry_row["ratio52"]),
+        "expiry": expiry,
+        "events": harvest_events,
         "eq_rows": eq_rows,
-    }
-    return tr, "OK"
+    }, "OK"
 
-def run_mode(opt_path, und, n_fixed, mode):
-    sig = und[und["signal"] & und["dma200"].notna()].copy()
-    con = duckdb.connect()
+
+def run_mode(und, quotes, selection, n_fixed, mode):
+    signal_rows = und[und["signal"] & und["dma200"].notna()].copy()
     trades = []
     rejects = {}
     next_allowed = None
-    for _, srow in sig.iterrows():
-        entry = pd.Timestamp(srow["date"])
+
+    for _, row in signal_rows.iterrows():
+        entry = pd.Timestamp(row["date"])
         if next_allowed is not None and entry <= next_allowed:
             continue
-        try:
-            tr, status = process_trade(con, opt_path, und, srow, n_fixed, mode)
-        except Exception as e:
-            print(f"TRADE ERROR {entry.date()} {mode}: {e}", file=sys.stderr)
-            tr, status = None, "ERROR"
+        legs = selection.get(entry)
+        if legs is None:
+            rejects["NO_LEGS"] = rejects.get("NO_LEGS", 0) + 1
+            continue
+
+        tr, status = process_one(und, quotes, row, legs, n_fixed, mode)
         if tr is None:
             rejects[status] = rejects.get(status, 0) + 1
             continue
         trades.append(tr)
-        next_allowed = pd.Timestamp(tr["exit"]) + pd.Timedelta(days=COOLDOWN_DAYS)
+        next_allowed = tr["exit"] + pd.Timedelta(days=COOLDOWN_DAYS)
 
     if not trades:
-        return [], {}, pd.DataFrame()
+        return [], {
+            "mode": mode, "N": n_fixed, "trades": 0,
+            "rejections": rejects, "harvest_events": 0
+        }, pd.DataFrame()
 
-    trdf = pd.DataFrame([{k:v for k,v in t.items() if k not in ("events","eq_rows")} for t in trades])
-    trdf = trdf.sort_values("entry").reset_index(drop=True)
-
-    # Daily portfolio equity using marked-to-mid trade rows + realized trade cash.
-    # Because trades do not overlap, stitch eq_rows between trade intervals.
-    eq = pd.Series(CAPITAL_USD, index=pd.DatetimeIndex(und["date"]), dtype=float)
-    cash_base = CAPITAL_USD
-    max_seen = CAPITAL_USD
-    realized = CAPITAL_USD
-    event_map = {}
+    trades.sort(key=lambda x: x["entry"])
+    rows = []
+    equity_points = []
     for t in trades:
-        for dt, val in t["eq_rows"]:
-            # t eq is measured from trade-local cash starting at -entry_cf,
-            # so convert to portfolio capital baseline.
-            pass
-    # Robust realized curve for comparable CAGR plus conservative daily MTM DD:
-    realized_curve = []
-    running_cash = CAPITAL_USD
-    for t in trades:
-        running_cash += t["pnl_usd"]
-        realized_curve.append((t["exit"], running_cash))
+        rows.append({k: v for k, v in t.items() if k not in ("events", "eq_rows")})
+        equity_points.extend(t["eq_rows"])
 
-    rc = pd.DataFrame(realized_curve, columns=["date","equity"])
-    rc["date"] = pd.to_datetime(rc["date"])
-    rc = rc.sort_values("date")
-    if not rc.empty:
-        rc["peak"] = rc["equity"].cummax()
-        rc["dd"] = rc["equity"]/rc["peak"] - 1.0
-        maxdd_realized = float(rc["dd"].min())
-        end_equity = float(rc["equity"].iloc[-1])
-        years = max((rc["date"].iloc[-1] - trdf["entry"].iloc[0]).days/365.25, 1/365.25)
-        total_ret = end_equity/CAPITAL_USD - 1.0
-        cagr = (1.0 + total_ret)**(1.0/years) - 1.0 if (1.0+total_ret) > 0 else -1.0
-    else:
-        maxdd_realized = 0.0; end_equity = CAPITAL_USD; total_ret=0.0; cagr=0.0; years=0
+    trdf = pd.DataFrame(rows).sort_values("entry").reset_index(drop=True)
+    eqdf = pd.DataFrame(equity_points, columns=["date", "equity"])
+    eqdf["date"] = pd.to_datetime(eqdf["date"])
+    # Multiple observations on the same exit day: keep terminal realized equity.
+    eqdf = eqdf.groupby("date", as_index=False)["equity"].last().sort_values("date")
+    eqdf["peak"] = eqdf["equity"].cummax()
+    eqdf["dd"] = eqdf["equity"] / eqdf["peak"] - 1.0
 
-    # Count approach/reversal events from trade event log.
-    events = []
-    for t in trades:
-        events.extend(t["events"])
-    wins = float((trdf["pnl_usd"] > 0).mean())
+    end_equity = float(CAPITAL_USD + trdf["pnl_usd"].sum())
+    years = max((trdf["exit"].iloc[-1] - trdf["entry"].iloc[0]).days / 365.25, 1/365.25)
+    total_ret = end_equity / CAPITAL_USD - 1.0
+    cagr = (1.0 + total_ret) ** (1.0 / years) - 1.0 if 1.0 + total_ret > 0 else -1.0
+
+    events = [ev for t in trades for ev in t["events"]]
     stats = {
         "mode": mode,
         "N": int(n_fixed),
         "trades": int(len(trdf)),
-        "win_rate": wins,
+        "win_rate": float((trdf["pnl_usd"] > 0).mean()),
         "avg_trade_usd": float(trdf["pnl_usd"].mean()),
         "worst_trade_usd": float(trdf["pnl_usd"].min()),
         "best_trade_usd": float(trdf["pnl_usd"].max()),
         "total_return": float(total_ret),
         "cagr": float(cagr),
-        "maxdd_realized": float(maxdd_realized),
+        "maxdd_daily_mtm": float(eqdf["dd"].min()),
+        "maxdd_realized": float(
+            (trdf["pnl_usd"].cumsum().add(CAPITAL_USD).div(
+                trdf["pnl_usd"].cumsum().add(CAPITAL_USD).cummax()
+            ) - 1.0).min()
+        ),
         "years": float(years),
-        "harvest_events": len(events),
+        "harvest_events": int(len(events)),
+        "profitable_harvest_events": int(sum(1 for e in events if e.get("pair_profit_usd", 0) > 0)),
         "rejections": rejects,
         "data_start": str(trdf["entry"].min().date()),
         "data_end": str(trdf["exit"].max().date()),
     }
-    return trades, stats, trdf
+    return trades, stats, eqdf
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -578,54 +494,80 @@ def main():
     data_dir = Path(args.data_dir)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+
     opt_path, und_path = ensure_data(data_dir)
-
-    print("OPTIONS_SHA256", sha256_file(opt_path))
-    print("UNDERLYING_SHA256", sha256_file(und_path))
-    print("OPTIONS_SIZE_BYTES", opt_path.stat().st_size)
-    print("UNDERLYING_SIZE_BYTES", und_path.stat().st_size)
-
+    opt_hash = sha256_file(opt_path)
+    und_hash = sha256_file(und_path)
     und = load_underlying(und_path)
-    print("UNDERLYING_ROWS", len(und), "FROM", und["date"].min().date(), "TO", und["date"].max().date())
-    print("SIGNAL_ROWS", int(und["signal"].sum()))
-    results = []
 
+    signal_dates = [pd.Timestamp(x) for x in und.loc[und["signal"], "date"].tolist()]
+    con = duckdb.connect()
+    selection, selection_rejects = build_selection_cache(con, opt_path, signal_dates)
+
+    print("OPTIONS_SHA256", opt_hash, flush=True)
+    print("UNDERLYING_SHA256", und_hash, flush=True)
+    print("UNDERLYING_ROWS", len(und), "FROM", und["date"].min().date(), "TO", und["date"].max().date(), flush=True)
+    print("SIGNAL_ROWS", len(signal_dates), flush=True)
+    print("SELECTION_CACHE", len(selection), "SELECTION_REJECTS", selection_rejects, flush=True)
+    print("BATCH_FETCH_QUOTES", flush=True)
+
+    quotes = fetch_all_quotes(con, opt_path, selection)
+    print("QUOTE_ROWS", len(quotes), flush=True)
+
+    all_stats = []
     for n in args.n:
-        for mode in ["BASELINE_TOUCH","HARVEST50_REVERSAL"]:
+        for mode in ("BASELINE_TOUCH", "HARVEST50_REVERSAL"):
             print(f"RUN N={n} MODE={mode}", flush=True)
-            trades, stats, trdf = run_mode(opt_path, und, n, mode)
-            results.append(stats)
-            pd.DataFrame([{
-                **{k:v for k,v in t.items() if k not in ("events","eq_rows")},
-                "events_json": json.dumps(t["events"], ensure_ascii=False),
-            } for t in trades]).to_csv(out / f"trades_N{n}_{mode}.csv", index=False)
+            trades, stats, eqdf = run_mode(und, quotes, selection, n, mode)
+            all_stats.append(stats)
+            pd.DataFrame([
+                {
+                    **{k: v for k, v in t.items() if k not in ("events", "eq_rows")},
+                    "events_json": json.dumps(t["events"], ensure_ascii=False),
+                }
+                for t in trades
+            ]).to_csv(out / f"trades_N{n}_{mode}.csv", index=False)
+            if not eqdf.empty:
+                eqdf.to_csv(out / f"equity_N{n}_{mode}.csv", index=False)
 
     report = {
         "research_contract": {
-            "date_range_underlying": [str(und["date"].min().date()), str(und["date"].max().date())],
-            "options_source": RELEASE_REPO,
-            "release_tag": RELEASE_TAG,
-            "no_optimization": True,
-            "signal": "QQQ close/high52w >= 0.98 AND close/200DMA - 1 >= 0.08",
+            "strategy": "1 ATM Long Call + N OTM Short Calls + N Far OTM Long Wings",
+            "signal": "QQQ close / 52-week high >= 0.98 AND close / 200DMA - 1 >= 0.08",
             "cooldown_days": COOLDOWN_DAYS,
-            "DTE": [DTE_MIN,DTE_MAX],
+            "DTE": [DTE_MIN, DTE_MAX],
             "hold_max_days": HOLD_MAX,
             "short_delta": SHORT_DELTA,
             "wing_delta": WING_DELTA,
-            "approach": f"daily High >= {APPROACH_FRAC:.2f} * short strike, edge-triggered",
-            "reversal": "next trading-day close < approach-day close",
-            "harvest": "close ceil(N_remaining/2) short+wing pairs at executable quotes; only when pair profit > 0",
+            "approach": f"daily High >= {APPROACH_FRAC:.2f} * selected short strike, edge-triggered",
+            "reversal": "next trading-day Close < approach-day Close",
+            "harvest": "when pair block has positive executable PnL, close ceil(N_remaining/2) pairs at Short Ask / Wing Bid; keep ATM long",
+            "baseline_exit": "first post-entry day High >= short strike",
+            "new_exit": "time/expiry; no whole-package touch exit",
             "entry_execution": "ATM buy Ask; short sell Bid; wing buy Ask",
-            "daily_mark": "Mid",
-            "risk_gate": f"entry max-loss proxy <= {RISK_PCT:.2f}% NAV",
+            "mark": "daily Mid",
+            "strict_quote_policy": "no interpolation; missing entry/exit quotes reject the trade",
+            "risk_gate": f"entry terminal-payoff max-loss proxy <= {RISK_PCT:.2f}% NAV",
             "capital_hkd": CAPITAL_HKD,
             "hkd_per_usd": HKD_PER_USD,
+            "no_optimization": True,
         },
-        "results": results,
+        "data": {
+            "source_repo": RELEASE_REPO,
+            "release_tag": RELEASE_TAG,
+            "options_sha256": opt_hash,
+            "underlying_sha256": und_hash,
+            "underlying_date_range": [str(und["date"].min().date()), str(und["date"].max().date())],
+            "options_expected_coverage": "2011-03-23 through 2025-12-16",
+        },
+        "results": all_stats,
     }
-    (out/"ratio_call_harvest_v1_result.json").write_text(json.dumps(report,indent=2,default=str),encoding="utf-8")
-    pd.DataFrame(results).to_csv(out/"ratio_call_harvest_v1_summary.csv",index=False)
-    print(json.dumps(report, indent=2, default=str))
+    (out / "ratio_call_harvest_v1_result.json").write_text(
+        json.dumps(report, indent=2, default=str), encoding="utf-8"
+    )
+    pd.DataFrame(all_stats).to_csv(out / "ratio_call_harvest_v1_summary.csv", index=False)
+    print(json.dumps(report, indent=2, default=str), flush=True)
+
 
 if __name__ == "__main__":
     main()
