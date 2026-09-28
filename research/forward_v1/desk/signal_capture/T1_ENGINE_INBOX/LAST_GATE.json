@@ -1,0 +1,7 @@
+{
+  "T1_STATUS": "BLOCKED_WAITING_NEW_BAR",
+  "reason": "No new completed daily bar with market_bar_asof > formal_previous_asof=2026-09-18. latest_completed_bar=2026-09-18. T0 re-emit ≠ T1. Do not invent T1 from Yahoo. (Honesty: RelVol #44 / BEAM #45 style blocker.)",
+  "formal_previous_asof": "2026-09-18",
+  "latest_completed_bar": "2026-09-18",
+  "checked_at_utc": "2026-09-21T15:43:18Z"
+}

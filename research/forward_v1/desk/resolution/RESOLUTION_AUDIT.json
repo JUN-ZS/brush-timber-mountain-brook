@@ -1,11 +1,11 @@
 {
-  "run_id": "desk_resolve_20260921T142019Z",
+  "run_id": "desk_resolve_20260928T092006Z",
   "minimum_run": "V1.2",
   "status": "OK",
   "integrity_failures": [],
   "evaluation_clock": "LIVE_FORWARD",
   "notes": [
-    "LIVE_FORWARD desk T0: 7 book_ADD, price OK, maturity_anchor=2026-09-18; qqq_latest=2026-09-18 post_anchor_days=0; resolved_5d=0 newly_resolved=0; no invent",
+    "LIVE_FORWARD desk T0: 7 book_ADD, price OK, maturity_anchor=2026-09-18; qqq_latest=2026-09-25 post_anchor_days=5; resolved_5d=7 newly_resolved=7; no invent",
     "append-only; T0 immutable",
     "LIVE_FORWARD \u2260 REPLAY_FORWARD",
     "book_ADD \u2260 MARK_BUY",

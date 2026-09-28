@@ -4,9 +4,9 @@
   "app_id": "xin_gu_inertia_desk",
   "model_version": "DESK_CORE_V1",
   "evaluation_clock": "LIVE_FORWARD",
-  "run_id": "desk_capture_20260921T142019Z",
-  "checked_at_utc": "2026-09-21T14:20:19Z",
-  "checked_at_hkt": "2026-09-21 22:20:19 HKT",
+  "run_id": "desk_capture_20260928T092006Z",
+  "checked_at_utc": "2026-09-28T09:20:06Z",
+  "checked_at_hkt": "2026-09-28 17:20:06 HKT",
   "t0_untouched": true,
   "t0_path": "research/forward_v1/desk/T0_20260921T183800/",
   "original_engine": {
@@ -18,7 +18,7 @@
     "how_to_call": "cd /workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get && npx --yes tsx scripts/desk_run_warehouse_write.mts"
   },
   "data_factory_status": "DATA_FRESH",
-  "data_factory_implication": "NO_NEW_SIGNAL_SAME_BAR_AS_T0",
+  "data_factory_implication": "LIVE_CAPTURE_ELIGIBLE_IF_NEW_BAR_VS_LAST_FORMAL",
   "required_event_fields": [
     "event_id",
     "run_id",
@@ -36,19 +36,17 @@
     "provenance",
     "conditions_raw"
   ],
+  "provenance_gate": "REQUIRED",
   "honesty": [
     "claimed_p=null for DESK_CORE_V1",
     "score/opportunity = NOT_A_PROBABILITY",
     "book_ADD never promoted to MARK_BUY/ARMED/TRUST_UP",
     "never rewrite immutable T0",
     "never invent prices or future bars",
+    "filename engine_emit_*.jsonl alone NEVER accepted without ORIGINAL_ENGINE provenance",
     "do not mix LIVE_FORWARD with REPLAY_FORWARD win-rate cohorts"
   ],
-  "status": "NO_NEW_SIGNAL",
+  "status": "LIVE_CAPTURE_ELIGIBLE",
   "events_written": 0,
-  "new_batch_path": null,
-  "latest_bar": "2026-09-18",
-  "t0_market_bar_asof": "2026-09-18",
-  "note": "latest_bar=2026-09-18 already formalized as T0 market_bar_asof=2026-09-18; wait for NEW daily bar after US RTH close before T1+ LIVE_FORWARD events. This is NO_NEW_SIGNAL / SAME_BAR — NOT DATA_STALE.",
-  "distinction": "NO_NEW_SIGNAL ≠ DATA_STALE. Data is fresh for last US session; formal T0 already covers this market_bar_asof. Wait for new daily bar."
+  "note": "Data gate passed. Re-run with --mode live_engine to invoke ORIGINAL desk_run_warehouse_write.mts (no second ranking logic)."
 }

@@ -1,0 +1,19 @@
+{
+  "new_signals": 0,
+  "new_resolved_outcomes": 0,
+  "new_hypotheses": 0,
+  "extended_hypotheses": 0,
+  "new_evidence": 0,
+  "confirmed": 0,
+  "rejected": 0,
+  "pending": 0,
+  "untested": 39,
+  "confirmation_cohort_n": 7,
+  "discovery_cohort_n": 7,
+  "knowledge_delta": "NONE",
+  "t1_status": "CAPTURED_ALREADY",
+  "t1_blocked_reason": null,
+  "note": "DATA WALL anti-loop — genuine T1 already captured (market_bar_asof=2026-09-25); provenance gate REQUIRED; no new H",
+  "run_id": "DATAWALL_B_20260928T092006Z",
+  "at": "2026-09-28T09:20:16Z"
+}
