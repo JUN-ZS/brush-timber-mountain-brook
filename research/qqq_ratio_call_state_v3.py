@@ -429,9 +429,47 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                     })
 
         # ------------------------------------------------------------
+        # Priority 0: downside package-loss governor.
+        # If the package MTM drawdown reaches 50% of its own initial max-loss
+        # proxy, terminate the package at this day's executable quotes.
+        # ------------------------------------------------------------
+        terminal_today = False
+        if (
+            mode == "STATE_MACHINE"
+            and dt > entry
+            and all(x is not None for x in (qa, qs, qw))
+        ):
+            ma0 = midpoint(qa)
+            ms0 = midpoint(qs)
+            mw0 = midpoint(qw)
+            if all(pd.notna(x) for x in (ma0, ms0, mw0)):
+                mtm_pnl = (
+                    cash
+                    + ma0 * 100.0
+                    - n_remaining * ms0 * 100.0
+                    + n_remaining * mw0 * 100.0
+                )
+                stop_loss = DOWNSIDE_STOP_FRACTION * package_max_loss(
+                    legs, n_initial
+                )
+                if stop_loss > 0.0 and mtm_pnl <= -stop_loss:
+                    exit_date = dt
+                    exit_reason = "DOWNSIDE_PACKAGE_STOP"
+                    terminal_today = True
+                    acted_today = True
+                    events.append({
+                        "date": str(dt.date()),
+                        "event": "DOWNSIDE_PACKAGE_STOP",
+                        "mtm_pnl_usd": float(mtm_pnl),
+                        "stop_loss_usd": float(stop_loss),
+                        "n_remaining": int(n_remaining),
+                    })
+
+        # ------------------------------------------------------------
         # Priority 1: breakout continuation governor.
         # ------------------------------------------------------------
         if (
+
             mode == "STATE_MACHINE"
             and (not terminal_today)
             and n_remaining > 0
@@ -818,31 +856,3 @@ def main():
 
     all_stats = []
     for risk_budget in RISK_BUDGETS:
-        for mode in ("BASELINE_TOUCH", "STATE_MACHINE"):
-            print(
-                f"RUN risk={risk_budget:.2%} mode={mode}",
-                flush=True,
-            )
-            trades, stats, eqdf = run_one(
-                und, quotes, selection, risk_budget, mode
-            )
-            all_stats.append(stats)
-
-            if trades:
-                pd.DataFrame([
-                    {
-                        **{
-                            k: v for k, v in t.items()
-                            if k not in ("events", "eq_rows")
-                        },
-                        "events_json": json.dumps(
-                            t["events"],
-                            ensure_ascii=False,
-                        ),
-                    }
-                    for t in trades
-                ]).to_csv(
-                    out / (
-                        f"trades_risk{int(risk_budget*100)}pct_"
-                        f"{mode}.csv"
-                    ),
