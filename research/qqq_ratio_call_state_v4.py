@@ -949,3 +949,21 @@ def main():
                 str(und["date"].min().date()),
                 str(und["date"].max().date()),
             ],
+            ],
+        },
+        "results": all_stats,
+    }
+
+    (out / "ratio_call_state_v4_result.json").write_text(
+        json.dumps(report, indent=2, default=str),
+        encoding="utf-8",
+    )
+    pd.DataFrame(all_stats).to_csv(
+        out / "ratio_call_state_v4_summary.csv",
+        index=False,
+    )
+    print(json.dumps(report, indent=2, default=str), flush=True)
+
+
+if __name__ == "__main__":
+    main()
