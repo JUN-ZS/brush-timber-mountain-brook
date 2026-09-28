@@ -1,0 +1,118 @@
+{
+  "schema": "SELF_DUE_STATUS.v1",
+  "node": "desk",
+  "hub_name": "信股慣性台",
+  "app_id": "xin_gu_inertia_desk",
+  "model_version": "DESK_CORE_V1",
+  "pass": "WEEKLY_WAKE_SELF_DUE_V1",
+  "wake_kind": "WEEKLY_WAKE",
+  "written_at_utc": "2026-09-28T13:11:25Z",
+  "written_at_hkt": "2026-09-28 21:11:25 HKT",
+  "evaluation_clock": "LIVE_FORWARD",
+  "source_of_truth": "research/forward_v1/desk/TEMPORAL_SELF_AUDIT.json",
+  "DUE_RULE": "due only if (new completed bar > current asof AND engine emit for signal lane) OR (post_asof_trading_days >= horizon N for maturity lane)",
+  "WAIT_RULE": "WAIT if no new completed bar, or identical emit (CAPTURED_ALREADY), or post_asof_trading_days < N, or provenance/filename-only/Yahoo-geometry block, or discovery pooled as confirmation",
+  "CADENCE_NE_WAKE_FREQUENCY": true,
+  "note_cadence": "CADENCE ≠ WAKE FREQUENCY. Weekly wake only ASKS self-due. SHORT/MEDIUM/LONG are information/maturity scales, not daily/every-N-day run commands.",
+  "t1_asof": "2026-09-25",
+  "bridge_latest_completed_bar": "2026-09-25",
+  "post_t1_asof_trading_days": 0,
+  "T1_STATUS": "CAPTURED_ALREADY",
+  "newer_engine_emit": null,
+  "due_now": false,
+  "due_lanes": [],
+  "wait_lanes": [
+    "signal_capture",
+    "maturity_5d",
+    "maturity_21d",
+    "maturity_63d",
+    "maturity_126d",
+    "maturity_252d"
+  ],
+  "lanes": {
+    "signal_capture": {
+      "due_now": false,
+      "reason": "No new completed bar > T1 asof=2026-09-25; bridge_latest=2026-09-25; T1_STATUS=CAPTURED_ALREADY (CAPTURED_ALREADY — anti-reprocess)",
+      "required_new_data": [
+        "completed US 1d bar date > 2026-09-25 for cohort + QQQ (session_complete=true)",
+        "ORIGINAL_ENGINE emit on that new asof with provenance_gate keys + Desk geometry"
+      ]
+    },
+    "maturity_5d": {
+      "due_now": false,
+      "reason": "need 5 post-asof trading days; have 0",
+      "horizon": 5,
+      "layer": "SHORT",
+      "post_t1_asof_trading_days": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    },
+    "maturity_21d": {
+      "due_now": false,
+      "reason": "need 21 post-asof trading days; have 0",
+      "horizon": 21,
+      "layer": "MEDIUM",
+      "post_t1_asof_trading_days": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    },
+    "maturity_63d": {
+      "due_now": false,
+      "reason": "need 63 post-asof trading days; have 0",
+      "horizon": 63,
+      "layer": "MEDIUM",
+      "post_t1_asof_trading_days": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    },
+    "maturity_126d": {
+      "due_now": false,
+      "reason": "need 126 post-asof trading days; have 0",
+      "horizon": 126,
+      "layer": "LONG",
+      "post_t1_asof_trading_days": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    },
+    "maturity_252d": {
+      "due_now": false,
+      "reason": "need 252 post-asof trading days; have 0",
+      "horizon": 252,
+      "layer": "LONG",
+      "post_t1_asof_trading_days": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    }
+  },
+  "reason": "Wake≠due. No due lanes. post_t1=0; bridge_latest=2026-09-25; T1 asof=2026-09-25; T1_STATUS=CAPTURED_ALREADY.",
+  "required_new_data": [
+    "completed US 1d bar date > 2026-09-25 for cohort + QQQ (session_complete=true)",
+    "ORIGINAL_ENGINE emit on that new asof with provenance_gate keys + Desk geometry",
+    "5 completed post-asof US trading days with stock+QQQ closes (have 0; asof=2026-09-25)",
+    "21 completed post-asof US trading days with stock+QQQ closes (have 0; asof=2026-09-25)",
+    "63 completed post-asof US trading days with stock+QQQ closes (have 0; asof=2026-09-25)",
+    "126 completed post-asof US trading days with stock+QQQ closes (have 0; asof=2026-09-25)",
+    "252 completed post-asof US trading days with stock+QQQ closes (have 0; asof=2026-09-25)"
+  ],
+  "next_due_condition": "IF new completed bar date > 2026-09-25 AND (new ORIGINAL_ENGINE emit with new asof OR post_t1_asof_trading_days reaches a horizon N in {5,21,63,126,252}) THEN due_now for that lane; ELSE remain WAIT / CAPTURED_ALREADY / WAITING_FOR_FUTURE_BARS",
+  "knowledge_delta": "NONE",
+  "action": "WAIT",
+  "anti_loop": {
+    "same_data_stops": true,
+    "rule": "identical bridge_latest + CAPTURED_ALREADY + post_days < all horizons → due_now=false → STOP",
+    "bridge_latest": "2026-09-25",
+    "t1_asof": "2026-09-25",
+    "T1_STATUS": "CAPTURED_ALREADY",
+    "post_t1_asof_trading_days": 0,
+    "triggered_stop": true
+  },
+  "hard_locks": [
+    "no formula change",
+    "no new H",
+    "no T0 rewrite",
+    "no T1 invent",
+    "no Yahoo-as-geometry",
+    "cadence ≠ wake frequency",
+    "discovery ≠ confirmation"
+  ]
+}
