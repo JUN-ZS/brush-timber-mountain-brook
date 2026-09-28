@@ -1,0 +1,1040 @@
+{
+  "run_id": "FORWARD_RUN_20260928T091911Z",
+  "started_at": "2026-09-28T09:19:11Z",
+  "finished_at": "2026-09-28T09:19:11Z",
+  "started_at_hkt": "2026-09-28 17:19:11 HKT",
+  "finished_at_hkt": "2026-09-28 17:19:11 HKT",
+  "node": "desk",
+  "app_id": "xin_gu_inertia_desk",
+  "hub_name": "信股慣性台",
+  "model_version": "DESK_CORE_V1",
+  "evaluation_clock": "LIVE_FORWARD",
+  "benchmark": "QQQ",
+  "data_asof": "2026-09-25",
+  "engine_asof": [
+    "2026-09-18"
+  ],
+  "data_status": "DATA_FRESH",
+  "data_source": "PRIMARY+YAHOO_FALLBACK",
+  "yahoo_fallback": true,
+  "signal_status": "T1_CAPTURED",
+  "new_events": 7,
+  "new_executable_signals": 0,
+  "new_orders": 0,
+  "position_changes": 0,
+  "resolved_5d": 7,
+  "resolved_21d": 0,
+  "resolved_63d": 0,
+  "resolved_126d": 0,
+  "resolved_252d": 0,
+  "newly_resolved": 7,
+  "waiting": 28,
+  "open_positions": 0,
+  "closed_trades": 0,
+  "portfolio_value": null,
+  "realized_pnl": null,
+  "unrealized_pnl": null,
+  "total_pnl": null,
+  "net_pnl": "NOT_AVAILABLE",
+  "total_return_pct": null,
+  "benchmark_return_pct": null,
+  "excess_return_pct": null,
+  "status": "OK_CYCLE_COMPLETE",
+  "blocked_reason": null,
+  "event_class_counts": {
+    "BOOK_ACTION": 7
+  },
+  "t0_events": 7,
+  "t0_book_ADD": 7,
+  "t0_MARK_BUY": 0,
+  "t0_untouched": true,
+  "original_engine": {
+    "desk_run_warehouse_write": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/scripts/desk_run_warehouse_write.mts",
+    "live_scan_snapshot": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/scripts/live-scan-snapshot.mts",
+    "engine_dir_exists": true,
+    "write_script_exists": true,
+    "snap_script_exists": true
+  },
+  "event_file": "research/forward_v1/desk/T0_20260921T183800/events.jsonl",
+  "position_file": "research/forward_v1/desk/ledgers/positions.jsonl",
+  "trade_file": "research/forward_v1/desk/ledgers/trades.jsonl",
+  "signal_trade_map_file": "research/forward_v1/desk/ledgers/signal_trade_map.jsonl",
+  "portfolio_daily_file": "research/forward_v1/desk/ledgers/portfolio_daily.jsonl",
+  "shadow_book_file": "research/forward_v1/desk/shadow_book/SHADOW_BOOK_STATUS.json",
+  "analysis_file": "research/forward_v1/desk/reports/ANALYSIS_FORWARD_RUN_20260928T091911Z.json",
+  "report_file": "research/forward_v1/desk/reports/REPORT_FORWARD_RUN_20260928T091911Z.html",
+  "resolution_status_file": "research/forward_v1/desk/resolution/FORWARD_STATUS.json",
+  "research_memory": {
+    "schema": "desk.research_memory.status_v1",
+    "node": "desk",
+    "version": "RESEARCH_MEMORY_V1",
+    "profile_version": "research_profile_v1",
+    "evaluation_clock": "LIVE_FORWARD",
+    "benchmark": "QQQ",
+    "signal_memory_total": 14,
+    "signal_memory_new_appended": 7,
+    "joins": 14,
+    "outcome_slots_waiting": 63,
+    "outcome_slots_resolved": 7,
+    "book_ADD": 14,
+    "MARK_BUY": 0,
+    "execution_policy": "book_ADD=BOOK_ACTION/OBSERVATION; MARK_BUY=0",
+    "t0_untouched": true,
+    "t0_events_sha256": "836b127b5d332e334b888fe06407353baf729211f13944f053abe26f914cebd6",
+    "t0_outcomes_sha256": "fbea6fdc6e4ddaad5977b91eeda044c0c9f474109b0720befeadc9bdfa2cac24",
+    "t0_integrity": "PASS",
+    "example_event_id": "evt_desk_20260921T183800+0800_d113be99ab9d4fe0",
+    "report": "research/forward_v1/desk/research_memory/REPORT_RESEARCH_MEMORY.html",
+    "built_at": "2026-09-28T09:19:11Z",
+    "run_id": "FORWARD_RUN_20260928T091911Z"
+  },
+  "research_memory_report": "research/forward_v1/desk/research_memory/REPORT_RESEARCH_MEMORY.html",
+  "research_profile": "research/forward_v1/desk/research_profile.json",
+  "research_evolution": {
+    "schema": "DESK_RESEARCH_EVOLUTION_STATUS.v1",
+    "status": "OK",
+    "node": "desk",
+    "version": "RESEARCH_EVOLUTION_V1_T1_CONFIRM",
+    "run_id": "FORWARD_RUN_20260928T091911Z",
+    "evolution_path": "research/forward_v1/desk/research_evolution/",
+    "research_state": {
+      "schema": "DESK_RESEARCH_STATE.v1",
+      "node": "desk",
+      "hub": "信股慣性台",
+      "version": "RESEARCH_EVOLUTION_V1_T1_CONFIRM",
+      "profile_version": "research_profile_v1",
+      "signals_total": 14,
+      "signals_live": 14,
+      "signals_replay": 0,
+      "joins_total": 14,
+      "resolved": {
+        "5": 7,
+        "21": 0,
+        "63": 0,
+        "126": 0,
+        "252": 0
+      },
+      "waiting": {
+        "5": 7,
+        "21": 14,
+        "63": 14,
+        "126": 14,
+        "252": 14
+      },
+      "resolved_5d": 7,
+      "resolved_21d": 0,
+      "resolved_63d": 0,
+      "resolved_126d": 0,
+      "resolved_252d": 0,
+      "hypotheses_total": 39,
+      "hypotheses_candidates": 0,
+      "hypotheses_frozen": 39,
+      "hypotheses_active": 39,
+      "hypotheses_untested": 39,
+      "hypotheses_pending": 0,
+      "hypotheses_confirmed": 0,
+      "hypotheses_rejected": 0,
+      "discovery_signals_n": 7,
+      "confirmation_signals_n": 7,
+      "confirmation_cohort_open": true,
+      "KNOWLEDGE_DELTA": "UPDATED",
+      "T1_STATUS": "CAPTURED",
+      "last_discovery_run": "FORWARD_RUN_20260928T091911Z",
+      "last_evidence_update": "2026-09-28T09:19:11Z",
+      "discovery_cohort": "T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET",
+      "confirmation_cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z",
+      "evaluation_clock": "LIVE_FORWARD",
+      "benchmark": "QQQ",
+      "execution_policy": "book_ADD => BOOK_ACTION / OBSERVATION; MARK_BUY=0 unless engine-emitted",
+      "locks": {
+        "DISCOVERY_NE_TRADING_RULE": true,
+        "HYPOTHESIS_NE_BUY": true,
+        "book_ADD_observation_only": true,
+        "T0_untouched": true,
+        "no_LIVE_REPLAY_mix": true,
+        "engine_untouched": true,
+        "never_confirm_on_discovery_cohort": true,
+        "score_alignScore_ne_probability": true,
+        "discovery_n_ne_confirmed": true,
+        "no_new_H_from_T0_once_frozen": true,
+        "confirmation_status_enum": "UNTESTED|PENDING|CONFIRMED|REJECTED"
+      },
+      "memory_paths_preserved": [
+        "research_profile.json",
+        "research_memory/signal_memory.jsonl",
+        "research_memory/signal_outcome_join.jsonl",
+        "research_memory/conditional_analysis/",
+        "research_memory/REPORT_RESEARCH_MEMORY.html",
+        "run_history/"
+      ],
+      "memory_intact": true,
+      "evolution_path": "research/forward_v1/desk/research_evolution/",
+      "t0_integrity": "PASS",
+      "t0_events_sha256": "836b127b5d332e334b888fe06407353baf729211f13944f053abe26f914cebd6",
+      "t0_outcomes_sha256": "fbea6fdc6e4ddaad5977b91eeda044c0c9f474109b0720befeadc9bdfa2cac24",
+      "updated_at_utc": "2026-09-28T09:19:11Z",
+      "research_progress": {
+        "BEFORE": {
+          "knew": [
+            "RESEARCH MEMORY V1 profile + feature provenance",
+            "signal_memory rows=7",
+            "outcome joins + resolved_5d=0",
+            "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+            "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+          ],
+          "hypotheses_total": 39,
+          "hypotheses_frozen": 39,
+          "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+        },
+        "NOW": [
+          "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+          "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+          "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+          "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+          "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+          "T1_STATUS=CAPTURED"
+        ],
+        "CHANGED": [
+          "new_signals=7"
+        ],
+        "UNTESTED": 39,
+        "WHAT WE KNEW BEFORE": {
+          "knew": [
+            "RESEARCH MEMORY V1 profile + feature provenance",
+            "signal_memory rows=7",
+            "outcome joins + resolved_5d=0",
+            "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+            "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+          ],
+          "hypotheses_total": 39,
+          "hypotheses_frozen": 39,
+          "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+        },
+        "WHAT WE KNOW NOW": [
+          "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+          "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+          "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+          "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+          "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+          "T1_STATUS=CAPTURED"
+        ],
+        "WHAT CHANGED": [
+          "new_signals=7"
+        ],
+        "WHAT REMAINS UNTESTED": 39,
+        "what_system_knew_before": {
+          "knew": [
+            "RESEARCH MEMORY V1 profile + feature provenance",
+            "signal_memory rows=7",
+            "outcome joins + resolved_5d=0",
+            "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+            "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+          ],
+          "hypotheses_total": 39,
+          "hypotheses_frozen": 39,
+          "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+        },
+        "what_system_knows_now_that_it_did_not_know_before": [
+          "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+          "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+          "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+          "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+          "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+          "T1_STATUS=CAPTURED"
+        ],
+        "KNOWLEDGE_DELTA": "UPDATED",
+        "learning_delta": {
+          "new_signals": 7,
+          "new_resolved_outcomes": 7,
+          "new_evidence": 0,
+          "new_hypotheses": 0,
+          "extended_hypotheses": 0,
+          "confirmed": 0,
+          "rejected": 0,
+          "unchanged": 39,
+          "KNOWLEDGE_DELTA": "UPDATED",
+          "T1_STATUS": "CAPTURED"
+        }
+      }
+    },
+    "hypothesis_counts": {
+      "total": 39,
+      "candidates": 0,
+      "frozen": 39,
+      "active": 39,
+      "untested": 39,
+      "pending": 0,
+      "confirmed": 0,
+      "rejected": 0
+    },
+    "evidence_log_rows_appended": 0,
+    "evidence_log_rows_total": 39,
+    "discovery_run_path": "research/forward_v1/desk/research_evolution/DISCOVERY_RUN_20260928T091911Z.json",
+    "discovery_run": {
+      "new_signals": 7,
+      "new_resolved_outcomes": 7,
+      "new_evidence": 0,
+      "new_hypotheses": 0,
+      "extended_hypotheses": 0,
+      "confirmed": 0,
+      "rejected": 0,
+      "unchanged": 39,
+      "untested": 39,
+      "pending": 0,
+      "KNOWLEDGE_DELTA": "UPDATED",
+      "T1_STATUS": "CAPTURED",
+      "confirmation_cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z",
+      "confirmation_cohort_open": true,
+      "example_hypothesis_id": "HYP_DESK_02bdbc259583",
+      "top_research_relationships": [
+        {
+          "hypothesis_id": "HYP_DESK_02bdbc259583",
+          "condition": "regime == RISK_ON_COMPAT",
+          "horizon": 5,
+          "n": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0,
+          "resolved_n": 0,
+          "waiting_n": 7,
+          "observed_return": null,
+          "observed_excess": null,
+          "confirmation_mean_excess": null,
+          "observed_hit_rate": null,
+          "observed_excess_hit_rate": null,
+          "sample_flag": "WAITING_NO_RETURNS",
+          "confirmation_status": "UNTESTED",
+          "label": "OBSERVED_NOT_PROBABILITY",
+          "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+        },
+        {
+          "hypothesis_id": "HYP_DESK_0d7016029e26",
+          "condition": "book_board == DOWN",
+          "horizon": 5,
+          "n": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0,
+          "resolved_n": 0,
+          "waiting_n": 7,
+          "observed_return": null,
+          "observed_excess": null,
+          "confirmation_mean_excess": null,
+          "observed_hit_rate": null,
+          "observed_excess_hit_rate": null,
+          "sample_flag": "WAITING_NO_RETURNS",
+          "confirmation_status": "UNTESTED",
+          "label": "OBSERVED_NOT_PROBABILITY",
+          "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+        },
+        {
+          "hypothesis_id": "HYP_DESK_1ab0eccb29ab",
+          "condition": "trustUp_bucket == trustUp_false",
+          "horizon": 5,
+          "n": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0,
+          "resolved_n": 0,
+          "waiting_n": 7,
+          "observed_return": null,
+          "observed_excess": null,
+          "confirmation_mean_excess": null,
+          "observed_hit_rate": null,
+          "observed_excess_hit_rate": null,
+          "sample_flag": "WAITING_NO_RETURNS",
+          "confirmation_status": "UNTESTED",
+          "label": "OBSERVED_NOT_PROBABILITY",
+          "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+        },
+        {
+          "hypothesis_id": "HYP_DESK_4b45e3a6226c",
+          "condition": "book_action == ADD",
+          "horizon": 5,
+          "n": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0,
+          "resolved_n": 0,
+          "waiting_n": 7,
+          "observed_return": null,
+          "observed_excess": null,
+          "confirmation_mean_excess": null,
+          "observed_hit_rate": null,
+          "observed_excess_hit_rate": null,
+          "sample_flag": "WAITING_NO_RETURNS",
+          "confirmation_status": "UNTESTED",
+          "label": "OBSERVED_NOT_PROBABILITY",
+          "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+        },
+        {
+          "hypothesis_id": "HYP_DESK_536a916d2841",
+          "condition": "signal_type == desk.book_ADD",
+          "horizon": 5,
+          "n": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0,
+          "resolved_n": 0,
+          "waiting_n": 7,
+          "observed_return": null,
+          "observed_excess": null,
+          "confirmation_mean_excess": null,
+          "observed_hit_rate": null,
+          "observed_excess_hit_rate": null,
+          "sample_flag": "WAITING_NO_RETURNS",
+          "confirmation_status": "UNTESTED",
+          "label": "OBSERVED_NOT_PROBABILITY",
+          "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+        },
+        {
+          "hypothesis_id": "HYP_DESK_8b4a80672bae",
+          "condition": "regime+shape == RISK_ON_COMPAT|CHOPPY",
+          "horizon": 5,
+          "n": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0,
+          "resolved_n": 0,
+          "waiting_n": 7,
+          "observed_return": null,
+          "observed_excess": null,
+          "confirmation_mean_excess": null,
+          "observed_hit_rate": null,
+          "observed_excess_hit_rate": null,
+          "sample_flag": "WAITING_NO_RETURNS",
+          "confirmation_status": "UNTESTED",
+          "label": "OBSERVED_NOT_PROBABILITY",
+          "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+        },
+        {
+          "hypothesis_id": "HYP_DESK_dfd3ebf6b6d3",
+          "condition": "whyNotBuy_bucket == whyNotBuy_ge_7",
+          "horizon": 5,
+          "n": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0,
+          "resolved_n": 0,
+          "waiting_n": 7,
+          "observed_return": null,
+          "observed_excess": null,
+          "confirmation_mean_excess": null,
+          "observed_hit_rate": null,
+          "observed_excess_hit_rate": null,
+          "sample_flag": "WAITING_NO_RETURNS",
+          "confirmation_status": "UNTESTED",
+          "label": "OBSERVED_NOT_PROBABILITY",
+          "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+        },
+        {
+          "hypothesis_id": "HYP_DESK_eb2100926c97",
+          "condition": "shape == CHOPPY",
+          "horizon": 5,
+          "n": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0,
+          "resolved_n": 0,
+          "waiting_n": 7,
+          "observed_return": null,
+          "observed_excess": null,
+          "confirmation_mean_excess": null,
+          "observed_hit_rate": null,
+          "observed_excess_hit_rate": null,
+          "sample_flag": "WAITING_NO_RETURNS",
+          "confirmation_status": "UNTESTED",
+          "label": "OBSERVED_NOT_PROBABILITY",
+          "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+        }
+      ],
+      "maturity_checks": [
+        {
+          "horizon": 5,
+          "resolved": 7,
+          "prev_resolved": 0,
+          "new_resolved": 7,
+          "waiting": 7,
+          "discovery_n": 7,
+          "confirmation_n": 0
+        },
+        {
+          "horizon": 21,
+          "resolved": 0,
+          "prev_resolved": 0,
+          "new_resolved": 0,
+          "waiting": 14,
+          "discovery_n": 0,
+          "confirmation_n": 0
+        },
+        {
+          "horizon": 63,
+          "resolved": 0,
+          "prev_resolved": 0,
+          "new_resolved": 0,
+          "waiting": 14,
+          "discovery_n": 0,
+          "confirmation_n": 0
+        },
+        {
+          "horizon": 126,
+          "resolved": 0,
+          "prev_resolved": 0,
+          "new_resolved": 0,
+          "waiting": 14,
+          "discovery_n": 0,
+          "confirmation_n": 0
+        },
+        {
+          "horizon": 252,
+          "resolved": 0,
+          "prev_resolved": 0,
+          "new_resolved": 0,
+          "waiting": 14,
+          "discovery_n": 0,
+          "confirmation_n": 0
+        }
+      ],
+      "research_progress": {
+        "BEFORE": {
+          "knew": [
+            "RESEARCH MEMORY V1 profile + feature provenance",
+            "signal_memory rows=7",
+            "outcome joins + resolved_5d=0",
+            "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+            "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+          ],
+          "hypotheses_total": 39,
+          "hypotheses_frozen": 39,
+          "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+        },
+        "NOW": [
+          "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+          "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+          "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+          "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+          "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+          "T1_STATUS=CAPTURED"
+        ],
+        "CHANGED": [
+          "new_signals=7"
+        ],
+        "UNTESTED": 39,
+        "WHAT WE KNEW BEFORE": {
+          "knew": [
+            "RESEARCH MEMORY V1 profile + feature provenance",
+            "signal_memory rows=7",
+            "outcome joins + resolved_5d=0",
+            "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+            "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+          ],
+          "hypotheses_total": 39,
+          "hypotheses_frozen": 39,
+          "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+        },
+        "WHAT WE KNOW NOW": [
+          "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+          "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+          "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+          "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+          "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+          "T1_STATUS=CAPTURED"
+        ],
+        "WHAT CHANGED": [
+          "new_signals=7"
+        ],
+        "WHAT REMAINS UNTESTED": 39,
+        "what_system_knew_before": {
+          "knew": [
+            "RESEARCH MEMORY V1 profile + feature provenance",
+            "signal_memory rows=7",
+            "outcome joins + resolved_5d=0",
+            "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+            "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+          ],
+          "hypotheses_total": 39,
+          "hypotheses_frozen": 39,
+          "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+        },
+        "what_system_knows_now_that_it_did_not_know_before": [
+          "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+          "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+          "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+          "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+          "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+          "T1_STATUS=CAPTURED"
+        ],
+        "KNOWLEDGE_DELTA": "UPDATED",
+        "learning_delta": {
+          "new_signals": 7,
+          "new_resolved_outcomes": 7,
+          "new_evidence": 0,
+          "new_hypotheses": 0,
+          "extended_hypotheses": 0,
+          "confirmed": 0,
+          "rejected": 0,
+          "unchanged": 39,
+          "KNOWLEDGE_DELTA": "UPDATED",
+          "T1_STATUS": "CAPTURED"
+        }
+      },
+      "waiting_dimension_freeze": false
+    },
+    "example_hypothesis": {
+      "hypothesis_id": "HYP_DESK_02bdbc259583",
+      "condition": {
+        "dimension": "regime",
+        "bucket": "RISK_ON_COMPAT",
+        "formula": "regime == RISK_ON_COMPAT",
+        "expression": "regime=RISK_ON_COMPAT"
+      },
+      "horizon": 5,
+      "discovery_stats": {
+        "n": 7,
+        "resolved_n": 0,
+        "waiting_n": 7,
+        "mean_return": null,
+        "median_return": null,
+        "mean_benchmark": null,
+        "mean_excess": null,
+        "hit_rate": null,
+        "excess_hit_rate": null,
+        "MFE": null,
+        "MAE": null,
+        "dispersion": null,
+        "time_period": "2026-09-18→+horizons",
+        "cohort": "T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET",
+        "evaluation_clock": "LIVE_FORWARD",
+        "benchmark": "QQQ",
+        "thin_sample": true,
+        "sample_flag": "WAITING_NO_RETURNS",
+        "returns_observable": false,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY",
+        "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+      },
+      "confirmation_stats": {
+        "n": 7,
+        "resolved_n": 0,
+        "waiting_n": 7,
+        "mean_return": null,
+        "median_return": null,
+        "mean_benchmark": null,
+        "mean_excess": null,
+        "hit_rate": null,
+        "excess_hit_rate": null,
+        "MFE": null,
+        "MAE": null,
+        "dispersion": null,
+        "time_period": "2026-09-25→+horizons",
+        "cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z",
+        "evaluation_clock": "LIVE_FORWARD",
+        "benchmark": "QQQ",
+        "thin_sample": true,
+        "sample_flag": "WAITING_NO_RETURNS",
+        "returns_observable": false,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY",
+        "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+      },
+      "current_stats": {
+        "n": 7,
+        "resolved_n": 0,
+        "waiting_n": 7,
+        "mean_return": null,
+        "median_return": null,
+        "mean_benchmark": null,
+        "mean_excess": null,
+        "hit_rate": null,
+        "excess_hit_rate": null,
+        "MFE": null,
+        "MAE": null,
+        "dispersion": null,
+        "time_period": "2026-09-18→+horizons",
+        "cohort": "T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET",
+        "evaluation_clock": "LIVE_FORWARD",
+        "benchmark": "QQQ",
+        "thin_sample": true,
+        "sample_flag": "WAITING_NO_RETURNS",
+        "returns_observable": false,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY",
+        "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
+      },
+      "discovery_n": 7,
+      "confirmation_n": 0,
+      "status": "HYPOTHESIS_FROZEN",
+      "confirmation_status": "UNTESTED",
+      "discovery_cohort": "T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET",
+      "confirmation_cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z",
+      "frozen_formula": {
+        "condition_dimension": "regime",
+        "condition_bucket": "RISK_ON_COMPAT",
+        "formula": "regime == RISK_ON_COMPAT",
+        "threshold": "RISK_ON_COMPAT",
+        "features": [
+          "regime"
+        ],
+        "horizon_trading_days": 5,
+        "frozen": true,
+        "rewrite_forbidden": true
+      }
+    },
+    "research_progress": {
+      "BEFORE": {
+        "knew": [
+          "RESEARCH MEMORY V1 profile + feature provenance",
+          "signal_memory rows=7",
+          "outcome joins + resolved_5d=0",
+          "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+          "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+        ],
+        "hypotheses_total": 39,
+        "hypotheses_frozen": 39,
+        "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+      },
+      "NOW": [
+        "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+        "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+        "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+        "T1_STATUS=CAPTURED"
+      ],
+      "CHANGED": [
+        "new_signals=7"
+      ],
+      "UNTESTED": 39,
+      "WHAT WE KNEW BEFORE": {
+        "knew": [
+          "RESEARCH MEMORY V1 profile + feature provenance",
+          "signal_memory rows=7",
+          "outcome joins + resolved_5d=0",
+          "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+          "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+        ],
+        "hypotheses_total": 39,
+        "hypotheses_frozen": 39,
+        "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+      },
+      "WHAT WE KNOW NOW": [
+        "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+        "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+        "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+        "T1_STATUS=CAPTURED"
+      ],
+      "WHAT CHANGED": [
+        "new_signals=7"
+      ],
+      "WHAT REMAINS UNTESTED": 39,
+      "what_system_knew_before": {
+        "knew": [
+          "RESEARCH MEMORY V1 profile + feature provenance",
+          "signal_memory rows=7",
+          "outcome joins + resolved_5d=0",
+          "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+          "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+        ],
+        "hypotheses_total": 39,
+        "hypotheses_frozen": 39,
+        "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+      },
+      "what_system_knows_now_that_it_did_not_know_before": [
+        "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+        "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+        "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+        "T1_STATUS=CAPTURED"
+      ],
+      "KNOWLEDGE_DELTA": "UPDATED",
+      "learning_delta": {
+        "new_signals": 7,
+        "new_resolved_outcomes": 7,
+        "new_evidence": 0,
+        "new_hypotheses": 0,
+        "extended_hypotheses": 0,
+        "confirmed": 0,
+        "rejected": 0,
+        "unchanged": 39,
+        "KNOWLEDGE_DELTA": "UPDATED",
+        "T1_STATUS": "CAPTURED"
+      }
+    },
+    "t0_integrity": "PASS",
+    "locks": {
+      "DISCOVERY_NE_TRADING_RULE": true,
+      "HYPOTHESIS_NE_BUY": true,
+      "book_ADD_observation_only": true,
+      "T0_untouched": true,
+      "no_LIVE_REPLAY_mix": true,
+      "engine_untouched": true,
+      "never_confirm_on_discovery_cohort": true,
+      "score_alignScore_ne_probability": true,
+      "discovery_n_ne_confirmed": true,
+      "no_new_H_from_T0_once_frozen": true,
+      "confirmation_status_enum": "UNTESTED|PENDING|CONFIRMED|REJECTED"
+    },
+    "report": "research/forward_v1/desk/research_evolution/REPORT_RESEARCH_EVOLUTION.html",
+    "updated_at_utc": "2026-09-28T09:19:11Z",
+    "t1_capture": {
+      "T1_STATUS": "CAPTURED",
+      "NEW_SIGNAL": 7,
+      "confirmation_cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z",
+      "confirmation_cohort_open": true,
+      "formal_previous_asof": "2026-09-18"
+    }
+  },
+  "research_evolution_report": "research/forward_v1/desk/research_evolution/REPORT_RESEARCH_EVOLUTION.html",
+  "t1_capture": {
+    "schema": "DESK_T1_CAPTURE_STATUS.v1",
+    "node": "desk",
+    "app_id": "xin_gu_inertia_desk",
+    "model_version": "DESK_CORE_V1",
+    "version": "T1_PROVENANCE_HARDEN_V1",
+    "run_id": "FORWARD_RUN_20260928T091911Z",
+    "written_at_utc": "2026-09-28T09:19:11Z",
+    "written_at_hkt": "2026-09-28 17:19:11 HKT",
+    "formal_previous_asof": "2026-09-18",
+    "gate": {
+      "schema": "DESK_T1_CAPTURE_GATE.v1",
+      "node": "desk",
+      "version": "T1_PROVENANCE_HARDEN_V1",
+      "formal_previous_asof": "2026-09-18",
+      "latest_completed_bar": "2026-09-25",
+      "t0_events_sha256": "836b127b5d332e334b888fe06407353baf729211f13944f053abe26f914cebd6",
+      "yahoo_signal_forbidden": true,
+      "yahoo_geometry_forbidden": true,
+      "t0_relabel_forbidden": true,
+      "filename_only_engine_emit_rejected": true,
+      "provenance_gate": "REQUIRED",
+      "required_provenance_keys": [
+        "source",
+        "engine_id",
+        "engine_version",
+        "engine_run_id",
+        "market_bar_asof",
+        "source_hash"
+      ],
+      "required_geometry_keys": [
+        "alignScore",
+        "opportunity",
+        "desk_state",
+        "regime",
+        "shape",
+        "trustUp",
+        "hot",
+        "bandPosPct",
+        "relVol20",
+        "book_addScore",
+        "book_trimScore",
+        "book_action",
+        "book_board",
+        "whyNotBuy"
+      ],
+      "original_engine": {
+        "desk_run_warehouse_write": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/scripts/desk_run_warehouse_write.mts",
+        "live_scan_snapshot": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/scripts/live-scan-snapshot.mts",
+        "engine_dir_exists": true,
+        "write_script_exists": true,
+        "snap_script_exists": true
+      },
+      "checked_at_utc": "2026-09-28T09:19:11Z",
+      "checked_at_hkt": "2026-09-28 17:19:11 HKT",
+      "T1_STATUS": "READY_TO_CAPTURE",
+      "gate_pass": true,
+      "NEW_SIGNAL": 7,
+      "new_events": 7,
+      "detected_bar_asof": "2026-09-25",
+      "detected_emit_path": "/workspace/brush-timber-mountain-brook/research/forward_v1/desk/signal_capture/T1_ENGINE_INBOX/ACCEPTED_T1_20260928T091900Z/events.jsonl",
+      "engine_emit": {
+        "path": "/workspace/brush-timber-mountain-brook/research/forward_v1/desk/signal_capture/T1_ENGINE_INBOX/ACCEPTED_T1_20260928T091900Z/events.jsonl",
+        "n_events": 7,
+        "market_bar_asof": "2026-09-25",
+        "sample_event_id": "evt_desk_20260928T171851+0800_3fcfc9d415ac17d2",
+        "source": "ORIGINAL_ENGINE",
+        "provenance": {
+          "source": "ORIGINAL_ENGINE",
+          "engine_id": "xin_gu_inertia_desk",
+          "engine_version": "DESK_CORE_V1",
+          "engine_run_id": "desk_20260928T171851+0800",
+          "market_bar_asof": "2026-09-25",
+          "source_hash": "f5c8b8215dd69a38ad12be27b3b2d2d01f3396c3172fde5e3708b8baf14329d1",
+          "geometry": {
+            "alignScore": 52.5,
+            "opportunity": 25,
+            "desk_state": "WATCH",
+            "regime": "RISK_ON_COMPAT",
+            "shape": "CHOPPY",
+            "trustUp": false,
+            "hot": true,
+            "relVol20": 0.72,
+            "book_action": "ADD",
+            "book_board": "DOWN",
+            "whyNotBuy": [
+              "標記與狀態皆為估計，不是買賣建議。ARMED ≠ 落盤。",
+              "狀態是 WATCH，不是可標記的近下壓延續。",
+              "未達 TRUST_UP（I_up 日／週／月未同時成立，或 Align<55）。",
+              "形狀偏震盪（CHOPPY），永遠不算慣性向上，否決信股與 ARMED。",
+              "日 I_up=1 但週或月 I_up=0（CONFLICT），Align×0.7，不得 TRUST_UP。",
+              "現價未落入下壓 + 0.35×ATR14，不得 MARK_BUY。",
+              "當日低點未觸及下壓 + 0.40×ATR14，不得 MARK_BUY。",
+              "月線 I_up=0，授權窗失敗，不得 TRUST_UP。"
+            ]
+          }
+        },
+        "provenance_check": {
+          "ok": true,
+          "errors": [],
+          "filename_only_pattern": false,
+          "required_keys": [
+            "source",
+            "engine_id",
+            "engine_version",
+            "engine_run_id",
+            "market_bar_asof",
+            "source_hash"
+          ],
+          "geometry_keys_found": [
+            "alignScore",
+            "book_action",
+            "book_board",
+            "desk_state",
+            "hot",
+            "opportunity",
+            "regime",
+            "relVol20",
+            "shape",
+            "trustUp",
+            "whyNotBuy"
+          ],
+          "provenance_gate": "REQUIRED"
+        }
+      },
+      "confirmation_cohort_open": true,
+      "inbox_rejected_count": 9,
+      "inbox_accepted_count": 3,
+      "reason": "Genuine newer market_bar_asof + ORIGINAL_ENGINE emit with machine-checkable provenance present — capture path may proceed."
+    },
+    "T1_STATUS": "CAPTURED",
+    "NEW_SIGNAL": 7,
+    "new_events": 7,
+    "new_trades": 0,
+    "confirmation_cohort_open": true,
+    "confirmation_cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z",
+    "confirmation_cohort_id": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z",
+    "engine_run_id": "desk_20260928T171851+0800",
+    "source_hash": "f5c8b8215dd69a38ad12be27b3b2d2d01f3396c3172fde5e3708b8baf14329d1",
+    "market_bar_asof": "2026-09-25",
+    "t1_path": "research/forward_v1/desk/T1_20260928T091911Z",
+    "t1_mirror_path": "research/forward_v1/desk/T1/",
+    "profile_snapshot_path": "research/forward_v1/desk/T1_20260928T091911Z/research_profile_snapshot.json",
+    "source_provenance_path": "research/forward_v1/desk/T1_20260928T091911Z/source_provenance.json",
+    "capture_status_path": "research/forward_v1/desk/T1_20260928T091911Z/capture_status.json",
+    "t0_untouched": true,
+    "yahoo_invented_signal": false,
+    "filename_only_engine_emit_rejected": true,
+    "provenance_gate": "REQUIRED",
+    "knowledge_note": "When BLOCKED_WAITING_NEW_BAR / BLOCKED_WAITING_ENGINE_EMIT: plumbing ready; confirmation_cohort stays EMPTY; NEW_SIGNAL=0; do not invent T1; filename engine_emit_*.jsonl alone is never accepted; T0 discovery hypotheses stay UNTESTED until genuine T1+ confirmation cohort.",
+    "events_path": "research/forward_v1/desk/T1_20260928T091911Z/events/desk_t1_events_20260928T091911Z.jsonl",
+    "outcomes_path": "research/forward_v1/desk/T1_20260928T091911Z/outcomes.jsonl"
+  },
+  "honesty": [
+    "T0 immutable",
+    "book_ADD => BOOK_ACTION/OBSERVATION only — never auto MARK_BUY/ARMED/TRUST_UP",
+    "score/alignScore != probability",
+    "LIVE_FORWARD != REPLAY_FORWARD (no Cap-Rail/RelVol mix)",
+    "YAHOO_FALLBACK provenance labeled when used",
+    "fees/slippage NET_PNL = NOT_AVAILABLE without real source",
+    "no invented prices or trades from book_ADD",
+    "RESEARCH MEMORY append-only; profile versioned; no invented features",
+    "RESEARCH EVOLUTION: DISCOVERY≠BUY; NEVER confirm on discovery cohort alone",
+    "T1 gate: market_bar_asof > formal previous asof + original engine emit; Yahoo must not invent Desk signals",
+    "confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED; discovery_n ≠ confirmation_n",
+    "Anti-loop: identical run → new T1=0, new evidence=0, KNOWLEDGE_DELTA=NONE",
+    "new_hypotheses from T0 discovery MUST be 0 this stage (frozen set already exists)"
+  ],
+  "tool_rcs": {
+    "data_bridge": 0,
+    "data_factory": 0,
+    "signal_capture": 0,
+    "t1_capture": 0,
+    "live_forward_resolver": 0,
+    "research_memory_build": 0,
+    "research_evolution": 0,
+    "write_system_status": 0
+  },
+  "ledger_meta": {
+    "positions.jsonl": {
+      "rows": 0,
+      "note": "Empty by EXECUTION_POLICY — book_ADD is OBSERVATION only"
+    },
+    "trades.jsonl": {
+      "rows": 0,
+      "note": "No invented trades from book_ADD"
+    },
+    "signal_trade_map.jsonl": {
+      "rows": 0,
+      "note": "No trade mapping until EXECUTABLE signal"
+    },
+    "portfolio_daily.jsonl": {
+      "rows": 0,
+      "note": "No portfolio marks without positions; NET_PNL=NOT_AVAILABLE"
+    }
+  },
+  "section19": {
+    "NODE": "desk",
+    "T1": {
+      "new_signals": 7,
+      "new_events": 7,
+      "new_trades": 0,
+      "status": "CAPTURED",
+      "blocked": null,
+      "provenance_gate": "REQUIRED",
+      "engine_run_id": "desk_20260928T171851+0800",
+      "source_hash": "f5c8b8215dd69a38ad12be27b3b2d2d01f3396c3172fde5e3708b8baf14329d1",
+      "market_bar_asof": "2026-09-25",
+      "confirmation_cohort_id": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z"
+    },
+    "OUTCOME": {
+      "new_5D": 7,
+      "new_21D": 0,
+      "new_63D": 0,
+      "new_126D": 0,
+      "new_252D": 0
+    },
+    "EVOLUTION": {
+      "new_evidence": 0,
+      "hypotheses_updated": 0,
+      "new_hypotheses": 0,
+      "confirmed": 0,
+      "rejected": 0,
+      "pending": 0,
+      "untested": 39,
+      "knowledge_delta": "UPDATED"
+    },
+    "CONFIRMATION_COHORT": {
+      "n": 7,
+      "id": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z",
+      "open": true
+    },
+    "RESEARCH_PROGRESS": {
+      "WHAT WE KNEW BEFORE": {
+        "knew": [
+          "RESEARCH MEMORY V1 profile + feature provenance",
+          "signal_memory rows=7",
+          "outcome joins + resolved_5d=0",
+          "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
+          "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
+        ],
+        "hypotheses_total": 39,
+        "hypotheses_frozen": 39,
+        "last_discovery_run": "FORWARD_RUN_20260921T154318Z"
+      },
+      "WHAT WE KNOW NOW": [
+        "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T091911Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=FORWARD_RUN_20260928T091911Z (temporal split; NEVER confirm on discovery cohort alone)",
+        "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
+        "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
+        "T1_STATUS=CAPTURED"
+      ],
+      "WHAT CHANGED": [
+        "new_signals=7"
+      ],
+      "WHAT REMAINS UNTESTED": 39
+    },
+    "T0_INTEGRITY": "PASS"
+  }
+}

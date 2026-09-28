@@ -17,6 +17,7 @@ Rules:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 import subprocess
@@ -49,22 +50,11 @@ def load_df(root: Path) -> dict:
 
 
 def next_tn_dirname(desk: Path, stamp: str) -> str:
-    """T1+ dirs under desk/; never reuse T0."""
-    existing = sorted(
-        d.name for d in desk.iterdir()
-        if d.is_dir() and (d.name.startswith("T") and "_" in d.name)
-    )
-    # count formal capture dirs beyond T0
-    n = 1
-    for name in existing:
-        if name.startswith("T0_"):
-            continue
-        if name.startswith("T") and name[1:2].isdigit():
-            try:
-                n = max(n, int(name.split("_")[0][1:]) + 1)
-            except ValueError:
-                pass
-    return f"T{n}_{stamp}"
+    """SIGNAL_CAPTURE batch dir under desk/; never reuse T0; never collide with formal T1_*.
+
+    Formal T1 trees are written only by tools/t1_capture.py after provenance gate.
+    """
+    return f"SIGNAL_CAPTURE_BATCH_{stamp}"
 
 
 def main() -> int:
@@ -124,18 +114,29 @@ def main() -> int:
             "universe_id", "universe_asof", "rank", "score", "claimed_p",
             "provenance", "conditions_raw",
         ],
+        "provenance_gate": "REQUIRED",
         "honesty": [
             "claimed_p=null for DESK_CORE_V1",
             "score/opportunity = NOT_A_PROBABILITY",
             "book_ADD never promoted to MARK_BUY/ARMED/TRUST_UP",
             "never rewrite immutable T0",
             "never invent prices or future bars",
+            "filename engine_emit_*.jsonl alone NEVER accepted without ORIGINAL_ENGINE provenance",
             "do not mix LIVE_FORWARD with REPLAY_FORWARD win-rate cohorts",
         ],
     }
 
     # --- Gate 1: DATA_STALE ---
-    if df.get("status") != "DATA_FRESH":
+    # Prefer data_bridge when PRIMARY juniper cache lags: bridge Yahoo is OK for
+    # bar-date freshness; ORIGINAL engine still refreshes its own Yahoo on live_engine.
+    bridge_path = desk / "data_bridge" / "DATA_BRIDGE_STATUS.json"
+    bridge = json.loads(bridge_path.read_text()) if bridge_path.exists() else {}
+    bridge_fresh = (
+        bridge.get("status") == "DATA_FRESH"
+        and str(bridge.get("latest_bar") or "")[:10] > str(df.get("t0_market_bar_asof") or "2026-09-18")[:10]
+    )
+    factory_fresh = df.get("status") == "DATA_FRESH"
+    if not factory_fresh and not bridge_fresh:
         report = {
             **base,
             "status": "SIGNAL_CAPTURE_BLOCKED_DATA_STALE",
@@ -146,6 +147,8 @@ def main() -> int:
                 "this is DATA_STALE — not NO_SIGNAL / not engine empty."
             ),
             "failure_reason": df.get("failure_reason"),
+            "bridge_status": bridge.get("status"),
+            "bridge_latest_bar": bridge.get("latest_bar"),
         }
         (out_dir / "SIGNAL_CAPTURE_STATUS.json").write_text(
             json.dumps(report, indent=2, ensure_ascii=False) + "\n"
@@ -159,9 +162,31 @@ def main() -> int:
         )
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 2
+    if not factory_fresh and bridge_fresh:
+        # Honest: primary cache stale, but bridge proves completed bar > T0;
+        # live_engine will fetch Yahoo itself — do NOT invent geometry from bridge OHLC.
+        base["data_factory_status"] = df.get("status")
+        base["data_bridge_unlock"] = {
+            "status": bridge.get("status"),
+            "latest_bar": bridge.get("latest_bar"),
+            "note": (
+                "PRIMARY cache STALE; bridge FRESH with latest_bar > T0. "
+                "Allow ORIGINAL engine live run (engine refreshes Yahoo). "
+                "Yahoo OHLC ≠ Desk geometry."
+            ),
+        }
 
     # --- Gate 2: same bar as T0 → NO_NEW_SIGNAL ---
-    same_bar = df.get("signal_capture_implication") == "NO_NEW_SIGNAL_SAME_BAR_AS_T0"
+    latest_for_gate = str(
+        (bridge.get("latest_bar") if bridge_fresh else None)
+        or df.get("latest_bar")
+        or ""
+    )[:10]
+    t0_bar = str(df.get("t0_market_bar_asof") or "2026-09-18")[:10]
+    same_bar = (
+        df.get("signal_capture_implication") == "NO_NEW_SIGNAL_SAME_BAR_AS_T0"
+        or (latest_for_gate and latest_for_gate <= t0_bar)
+    )
     if same_bar and not args.force_same_bar:
         report = {
             **base,
@@ -291,18 +316,35 @@ def main() -> int:
 
     # Materialize NEW immutable batch (never touch T0)
     batch_dir.mkdir(parents=True, exist_ok=False)
-    # Ensure provenance + claimed_p locks
+    engine_run_id = str(events[0].get("run_id") or run_id)
+    # content hash of raw engine emit before stamping (machine-checkable)
+    raw_body = ("\n".join(json.dumps(e, ensure_ascii=False) for e in events) + "\n").encode()
+    source_hash = hashlib.sha256(raw_body).hexdigest()
+    max_asof = max(str(b)[:10] for b in bars if b)
+
+    # Stamp machine-checkable ORIGINAL_ENGINE provenance (do NOT invent geometry —
+    # geometry already present from desk_run_warehouse_write conditions_raw/state)
     for e in events:
         e.setdefault("claimed_p", None)
         e.setdefault("score_label", "NOT_A_PROBABILITY")
-        e.setdefault("provenance", e.get("data_source") or "yahoo+scanSymbol")
         e["immutable"] = True
         e["evaluation_clock"] = "LIVE_FORWARD"
-        # semantic lock
-        st = e.get("signal_type") or ""
-        if st in ("MARK_BUY", "ARMED", "TRUST_UP") or st.endswith(".MARK_BUY"):
-            pass  # as-emitted only; do not invent
-        # never rewrite signal_type
+        e["source"] = "ORIGINAL_ENGINE"
+        e["engine_id"] = e.get("app_id") or APP_ID
+        e["engine_version"] = e.get("model_version") or MODEL
+        e["engine_run_id"] = engine_run_id
+        e["source_hash"] = source_hash
+        e["source_provenance"] = {
+            "source": "ORIGINAL_ENGINE",
+            "engine_id": e["engine_id"],
+            "engine_version": e["engine_version"],
+            "engine_run_id": engine_run_id,
+            "market_bar_asof": e.get("market_bar_asof"),
+            "source_hash": source_hash,
+        }
+        # Keep data_source label (yahoo+scanSymbol = engine bar feed) separate from provenance.source
+        e.setdefault("data_source", e.get("data_source") or "yahoo+scanSymbol")
+        e.setdefault("provenance", "ORIGINAL_ENGINE")
 
     events_path = batch_dir / "events.jsonl"
     with events_path.open("w") as f:
@@ -310,12 +352,18 @@ def main() -> int:
             f.write(json.dumps(e, ensure_ascii=False) + "\n")
 
     meta = {
-        "run_id": events[0].get("run_id") or run_id,
+        "run_id": engine_run_id,
         "batch_dir": str(batch_dir.relative_to(root)),
         "n_events": len(events),
         "market_bar_asof": sorted(bars),
         "signal_types": {},
         "t0_untouched": True,
+        "source": "ORIGINAL_ENGINE",
+        "engine_id": APP_ID,
+        "engine_version": MODEL,
+        "engine_run_id": engine_run_id,
+        "source_hash": source_hash,
+        "provenance_gate": "REQUIRED",
         "source_engine_events": str(newest_events),
         "journal": str(journal) if journal.exists() else None,
     }
@@ -324,12 +372,47 @@ def main() -> int:
     (batch_dir / "CAPTURE_META.json").write_text(
         json.dumps(meta, indent=2, ensure_ascii=False) + "\n"
     )
+    (batch_dir / "source_provenance.json").write_text(
+        json.dumps({
+            "source": "ORIGINAL_ENGINE",
+            "engine_id": APP_ID,
+            "engine_version": MODEL,
+            "engine_run_id": engine_run_id,
+            "market_bar_asof": max_asof,
+            "source_hash": source_hash,
+            "provenance_gate": "REQUIRED",
+            "note": "stamped by capture_as_emitted after ORIGINAL desk_run_warehouse_write",
+        }, indent=2, ensure_ascii=False) + "\n"
+    )
     # also mirror under signal_capture/
     mirror = out_dir / f"T_CAPTURE_{stamp}"
     mirror.mkdir(parents=True, exist_ok=True)
     shutil.copy2(events_path, mirror / "events.jsonl")
     (mirror / "CAPTURE_META.json").write_text(
         json.dumps(meta, indent=2, ensure_ascii=False) + "\n"
+    )
+    shutil.copy2(batch_dir / "source_provenance.json", mirror / "source_provenance.json")
+
+    # T1_ENGINE_INBOX — machine-checkable emit for t1_capture provenance gate
+    inbox = out_dir / "T1_ENGINE_INBOX"
+    inbox.mkdir(parents=True, exist_ok=True)
+    emit_name = f"engine_emit_{max_asof}_{engine_run_id}.jsonl"
+    emit_path = inbox / emit_name
+    with emit_path.open("w") as f:
+        for e in events:
+            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+    (inbox / "source_provenance.json").write_text(
+        json.dumps({
+            "source": "ORIGINAL_ENGINE",
+            "engine_id": APP_ID,
+            "engine_version": MODEL,
+            "engine_run_id": engine_run_id,
+            "market_bar_asof": max_asof,
+            "source_hash": source_hash,
+            "emit_file": emit_name,
+            "provenance_gate": "REQUIRED",
+            "geometry_note": "Desk geometry in each row conditions_raw/state (alignScore/opportunity/desk_state/...)",
+        }, indent=2, ensure_ascii=False) + "\n"
     )
 
     report = {
@@ -338,9 +421,14 @@ def main() -> int:
         "events_written": len(events),
         "new_batch_path": str(batch_dir.relative_to(root)),
         "mirror_path": str(mirror.relative_to(root)),
+        "t1_inbox_emit": str(emit_path.relative_to(root)),
         "signal_types": meta["signal_types"],
         "market_bar_asof": sorted(b for b in bars if b),
-        "note": "New immutable batch; T0 not rewritten",
+        "source": "ORIGINAL_ENGINE",
+        "engine_run_id": engine_run_id,
+        "source_hash": source_hash,
+        "provenance_gate": "REQUIRED",
+        "note": "New immutable batch with ORIGINAL_ENGINE provenance; T0 not rewritten",
     }
     (out_dir / "SIGNAL_CAPTURE_STATUS.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n"

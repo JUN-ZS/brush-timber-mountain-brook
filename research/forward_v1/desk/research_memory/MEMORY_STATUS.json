@@ -5,12 +5,12 @@
   "profile_version": "research_profile_v1",
   "evaluation_clock": "LIVE_FORWARD",
   "benchmark": "QQQ",
-  "signal_memory_total": 7,
+  "signal_memory_total": 14,
   "signal_memory_new_appended": 0,
-  "joins": 7,
-  "outcome_slots_waiting": 35,
-  "outcome_slots_resolved": 0,
-  "book_ADD": 7,
+  "joins": 14,
+  "outcome_slots_waiting": 63,
+  "outcome_slots_resolved": 7,
+  "book_ADD": 14,
   "MARK_BUY": 0,
   "execution_policy": "book_ADD=BOOK_ACTION/OBSERVATION; MARK_BUY=0",
   "t0_untouched": true,
@@ -19,6 +19,6 @@
   "t0_integrity": "PASS",
   "example_event_id": "evt_desk_20260921T183800+0800_d113be99ab9d4fe0",
   "report": "research/forward_v1/desk/research_memory/REPORT_RESEARCH_MEMORY.html",
-  "built_at": "2026-09-21T15:27:39Z",
-  "run_id": "FORWARD_RUN_20260921T152738Z"
+  "built_at": "2026-09-28T09:20:06Z",
+  "run_id": "FORWARD_RUN_20260928T092006Z"
 }

@@ -1,0 +1,20 @@
+{
+  "run_id": "desk_20260928T171851+0800",
+  "batch_dir": "research/forward_v1/desk/T1_20260928T171850+0800",
+  "n_events": 7,
+  "market_bar_asof": [
+    "2026-09-25"
+  ],
+  "signal_types": {
+    "desk.book_ADD": 7
+  },
+  "t0_untouched": true,
+  "source": "ORIGINAL_ENGINE",
+  "engine_id": "xin_gu_inertia_desk",
+  "engine_version": "DESK_CORE_V1",
+  "engine_run_id": "desk_20260928T171851+0800",
+  "source_hash": "f5c8b8215dd69a38ad12be27b3b2d2d01f3396c3172fde5e3708b8baf14329d1",
+  "provenance_gate": "REQUIRED",
+  "source_engine_events": "/workspace/waffle-install/research/common_warehouse/events/desk_events_desk_20260928T171851+0800.jsonl",
+  "journal": "/workspace/juniper-kite/live/signals/latest.json"
+}

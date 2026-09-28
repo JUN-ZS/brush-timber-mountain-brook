@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Desk（信股慣性台）RESEARCH EVOLUTION V1
+"""Desk（信股慣性台）RESEARCH EVOLUTION V1 + T1 HYPOTHESIS CONFIRMATION V1
 
 Learning layer on RESEARCH MEMORY V1.
 Reads memory artifacts; does NOT rewrite T0 / engine / EXECUTION_POLICY.
@@ -8,11 +8,12 @@ Locks:
 - DISCOVERY ≠ TRADING RULE / HYPOTHESIS ≠ BUY
 - observed ≠ probability; score/alignScore ≠ probability
 - evaluation_clock = LIVE_FORWARD; benchmark = QQQ
-- Discovery cohort (T0) ≠ confirmation cohort (T1+ ONLY / EMPTY_UNTIL_T1)
-- Never rewrite formula after HYPOTHESIS_FROZEN
+- Discovery cohort (T0) ≠ confirmation cohort (T1+ ONLY; temporal split)
+- confirmation_status ∈ {UNTESTED, PENDING, CONFIRMED, REJECTED} only
+- Never CONFIRMED from discovery cohort alone; never rewrite H formula
+- No new H mass-mint from T0 once frozen set exists (T1 stage → new_hypotheses=0)
 - Keep all MEMORY artifacts intact
 - book_ADD = observation only; never upgrade → MARK_BUY
-- Even when resolved_*=0: freeze WAITING dimension hypotheses (BEAM #42 honesty)
 """
 from __future__ import annotations
 
@@ -27,7 +28,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 NODE = "desk"
-VERSION = "RESEARCH_EVOLUTION_V1"
+VERSION = "RESEARCH_EVOLUTION_V1_T1_CONFIRM"
 EVAL_CLOCK = "LIVE_FORWARD"
 BENCHMARK = "QQQ"
 HORIZONS = [5, 21, 63, 126, 252]
@@ -536,8 +537,85 @@ def discovery_cohort_id(signals: list[dict]) -> str:
     return f"T0_DISCOVERY_COHORT|desk_market_bar_asof={asof}|mature_horizons=NONE_YET"
 
 
-def confirmation_cohort_id() -> str:
-    return "CONFIRMATION_COHORT|EMPTY_UNTIL_T1|T1_PLUS_ONLY"
+FORMAL_PREVIOUS_ASOF = "2026-09-18"
+
+
+def confirmation_cohort_id(t1_status: dict | None = None) -> str:
+    if t1_status and t1_status.get("confirmation_cohort_open") and t1_status.get("confirmation_cohort"):
+        return str(t1_status["confirmation_cohort"])
+    return "CONFIRMATION_COHORT|EMPTY"
+
+
+def is_discovery_signal(sig: dict, formal_asof: str = FORMAL_PREVIOUS_ASOF) -> bool:
+    if sig.get("signal_cohort") == "confirmation" or sig.get("capture_wave") == "T1":
+        return False
+    asof = str(sig.get("market_bar_asof") or "")[:10]
+    return (not asof) or asof <= formal_asof
+
+
+def is_confirmation_signal(sig: dict, formal_asof: str = FORMAL_PREVIOUS_ASOF) -> bool:
+    if sig.get("signal_cohort") == "confirmation" or sig.get("capture_wave") == "T1":
+        return True
+    asof = str(sig.get("market_bar_asof") or "")[:10]
+    return bool(asof and asof > formal_asof)
+
+
+def load_t1_events(desk: Path) -> list[dict]:
+    rows: list[dict] = []
+    for t1 in sorted(desk.glob("T1_*")):
+        for name in ("events.jsonl",):
+            p = t1 / name
+            if p.exists():
+                rows.extend(load_jsonl(p))
+        for p in sorted((t1 / "events").glob("*.jsonl")) if (t1 / "events").is_dir() else []:
+            rows.extend(load_jsonl(p))
+    # Accepted inbox mirrors
+    inbox = desk / "signal_capture" / "T1_ENGINE_INBOX"
+    if inbox.is_dir():
+        for p in sorted(inbox.rglob("events.jsonl")):
+            rows.extend(load_jsonl(p))
+    return rows
+
+
+def normalize_confirmation_status(raw: str | None, *, has_confirmation_cohort: bool, conf_n: int) -> str:
+    """Statuses allowed: UNTESTED | PENDING | CONFIRMED | REJECTED."""
+    allowed = {"UNTESTED", "PENDING", "CONFIRMED", "REJECTED"}
+    if raw in ("CONFIRMED", "REJECTED"):
+        return raw
+    if not has_confirmation_cohort or conf_n <= 0:
+        return "UNTESTED"
+    if raw in allowed:
+        return "PENDING" if raw in ("PENDING", "UNTESTED", None, "N/A", "WAITING") else raw
+    return "PENDING" if conf_n > 0 else "UNTESTED"
+
+
+def compute_stats_for_condition_joins(
+    signals: list[dict],
+    joins: list[dict],
+    *,
+    dimension: str,
+    bucket: str,
+    horizon: int,
+    cohort_id: str,
+    time_period: str,
+) -> dict[str, Any]:
+    """Accumulate join horizons for one frozen condition on a signal subset."""
+    present = set(PRIORITY_DIMS)
+    specs = {dim: getter for dim, getter in discovery_dim_specs(present) + combo_specs(present)}
+    getter = specs.get(dimension)
+    st = empty_stats()
+    join_by_eid = {j["event_id"]: j for j in joins if j.get("event_id")}
+    if getter is None:
+        return finalize_stats(st, time_period=time_period, cohort=cohort_id)
+    for sig in signals:
+        cond = conditions_of(sig)
+        key = getter(cond)
+        if key is None or str(key) != str(bucket):
+            continue
+        j = join_by_eid.get(sig.get("event_id"))
+        horizons = (j or {}).get("horizons") or {}
+        accumulate_horizon(st, horizons.get(str(horizon)))
+    return finalize_stats(st, time_period=time_period, cohort=cohort_id)
 
 
 def score_for_rank(stats: dict[str, Any]) -> float:
@@ -680,46 +758,37 @@ def compare_stats(prev: dict | None, cur: dict) -> dict[str, Any]:
 
 def decide_lifecycle(
     hyp: dict,
-    cur_stats: dict,
     *,
+    discovery_stats: dict,
+    confirmation_stats: dict,
     has_confirmation_cohort: bool,
+    prev_confirmation_resolved: int,
 ) -> tuple[str, str, str]:
     """
     Returns (status, confirmation_status, evidence_action).
-    Without T1 confirmation cohort: CONFIRM/REJECT stay PENDING; EXTEND_SAMPLE on new resolutions.
+    confirmation_status ∈ {UNTESTED, PENDING, CONFIRMED, REJECTED} only.
+    Discovery n never mixed into confirmed — CONFIRM/REJECT use confirmation_stats only.
     """
-    status = hyp.get("status") or "HYPOTHESIS_CANDIDATE"
-    conf = hyp.get("confirmation_status") or "PENDING"
-    prev_stats = hyp.get("current_stats") or hyp.get("discovery_stats") or {}
-    delta_res = (cur_stats.get("resolved_n") or 0) - (prev_stats.get("resolved_n") or 0)
+    prior = hyp.get("confirmation_status")
+    if prior in ("CONFIRMED", "REJECTED"):
+        return "HYPOTHESIS_FROZEN", prior, "UNCHANGED"
 
-    if status == "HYPOTHESIS_CANDIDATE":
-        return status, "N/A", "DISCOVERED"
+    cr = int(confirmation_stats.get("resolved_n") or 0)
+    if not has_confirmation_cohort or cr <= 0:
+        # Discovery maturity alone never promotes beyond UNTESTED
+        return "HYPOTHESIS_FROZEN", "UNTESTED", "UNCHANGED"
 
-    # Waiting lifecycle (Desk currently resolved_*=0)
-    if (cur_stats.get("resolved_n") or 0) == 0 and (cur_stats.get("waiting_n") or 0) > 0:
-        return "HYPOTHESIS_FROZEN", "WAITING", "UNCHANGED"
-
-    if not has_confirmation_cohort:
-        if delta_res > 0:
-            return "HYPOTHESIS_FROZEN", "PENDING", "EXTEND_SAMPLE"
-        return "HYPOTHESIS_FROZEN", "PENDING", "UNCHANGED"
-
-    # Future: confirmation cohort present — simple gates (observed only; not probability)
-    # CONFIRM if confirmation cohort mean_excess keeps sign and resolved_n>=THIN_N
-    # REJECT if opposite sign with resolved_n>=THIN_N
-    # else EXTEND_SAMPLE
-    conf_stats = hyp.get("confirmation_stats") or {}
-    cr = conf_stats.get("resolved_n") or 0
-    mex = conf_stats.get("mean_excess")
-    disc_mex = (hyp.get("discovery_stats") or {}).get("mean_excess")
-    if cr >= THIN_N and mex is not None and disc_mex is not None:
-        if (mex >= 0 and disc_mex >= 0) or (mex < 0 and disc_mex < 0):
+    disc_mex = discovery_stats.get("mean_excess")
+    conf_mex = confirmation_stats.get("mean_excess")
+    if cr >= THIN_N and disc_mex is not None and conf_mex is not None:
+        same_sign = (float(disc_mex) >= 0) == (float(conf_mex) >= 0)
+        if same_sign:
             return "HYPOTHESIS_FROZEN", "CONFIRMED", "CONFIRM"
         return "HYPOTHESIS_FROZEN", "REJECTED", "REJECT"
-    if delta_res > 0 or cr > (prev_stats.get("confirmation_resolved_n") or 0):
+
+    if cr > int(prev_confirmation_resolved or 0):
         return "HYPOTHESIS_FROZEN", "PENDING", "EXTEND_SAMPLE"
-    return "HYPOTHESIS_FROZEN", conf if conf != "N/A" else "PENDING", "UNCHANGED"
+    return "HYPOTHESIS_FROZEN", "PENDING" if cr > 0 else "UNTESTED", "UNCHANGED"
 
 
 def top_relationships(hypotheses: list[dict], limit: int = 8) -> list[dict]:
@@ -731,15 +800,19 @@ def top_relationships(hypotheses: list[dict], limit: int = 8) -> list[dict]:
     out = []
     for h in frozen[:limit]:
         st = h.get("current_stats") or h.get("discovery_stats") or {}
+        cst = h.get("confirmation_stats") or {}
         out.append({
             "hypothesis_id": h["hypothesis_id"],
             "condition": h.get("condition", {}).get("formula") or h.get("condition"),
             "horizon": h.get("horizon_trading_days"),
             "n": st.get("n"),
+            "discovery_n": h.get("discovery_n", st.get("resolved_n") or st.get("n")),
+            "confirmation_n": h.get("confirmation_n", cst.get("resolved_n") or 0),
             "resolved_n": st.get("resolved_n"),
             "waiting_n": st.get("waiting_n"),
             "observed_return": st.get("mean_return"),
             "observed_excess": st.get("mean_excess"),
+            "confirmation_mean_excess": cst.get("mean_excess"),
             "observed_hit_rate": st.get("hit_rate"),
             "observed_excess_hit_rate": st.get("excess_hit_rate"),
             "sample_flag": st.get("sample_flag"),
@@ -758,7 +831,7 @@ def research_progress(prev_state: dict | None, new_state: dict, run_summary: dic
             f"signal_memory rows={prev_state.get('signals_total') or 'MEMORY-only'}",
             f"outcome joins + resolved_5d={((prev_state.get('resolved') or {}).get('5'))}",
             "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
-            "No hypothesis lifecycle / no evidence log / no discovery-run deltas",
+            "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1",
         ],
         "hypotheses_total": prev_state.get("hypotheses_total", 0),
         "hypotheses_frozen": prev_state.get("hypotheses_frozen", prev_state.get("hypotheses_active", 0)),
@@ -766,52 +839,39 @@ def research_progress(prev_state: dict | None, new_state: dict, run_summary: dic
     }
     if not prev_state:
         before["knew"] = [
-            "RESEARCH MEMORY V1 only: profile, 7 book_ADD signals, 35 WAITING outcome slots, DECLARED_V1 conditional analysis",
+            "RESEARCH MEMORY V1 only: profile, 7 book_ADD signals, WAITING outcome slots",
             "No RESEARCH_STATE / HYPOTHESES / EVIDENCE_LOG / DISCOVERY_RUN",
             "No frozen condition→horizon hypotheses with confirmation cohort split",
-            "Forward runs could re-read T0 and reprint the same memory narrative without learning deltas",
-            "resolved_*=0 — returns not yet observable (LIVE_FORWARD post-anchor days insufficient)",
         ]
     now_new = [
         (
             f"Frozen hypotheses exist: total={new_state.get('hypotheses_total')} "
-            f"frozen={new_state.get('hypotheses_frozen')} active={new_state.get('hypotheses_active')} "
+            f"frozen={new_state.get('hypotheses_frozen')} "
+            f"untested={new_state.get('hypotheses_untested')} "
+            f"pending={new_state.get('hypotheses_pending')} "
             f"confirmed={new_state.get('hypotheses_confirmed')} rejected={new_state.get('hypotheses_rejected')} "
-            f"— each is condition→horizon→observed stats (DISCOVERY≠BUY)"
+            f"— DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED"
         ),
         (
             f"Evidence log + DISCOVERY_RUN deltas track learning across forward runs "
             f"(last_discovery_run={new_state.get('last_discovery_run')})"
         ),
         (
-            f"RESEARCH_STATE tracks resolved_5d={new_state.get('resolved_5d')} "
-            f"21d={new_state.get('resolved_21d')} 63d={new_state.get('resolved_63d')} "
-            f"126d={new_state.get('resolved_126d')} 252d={new_state.get('resolved_252d')}"
-        ),
-        (
             f"Discovery cohort={new_state.get('discovery_cohort')}; "
             f"Confirmation cohort={new_state.get('confirmation_cohort')} "
-            f"(temporal split; NEVER confirm on discovery cohort; EMPTY_UNTIL_T1)"
+            f"(temporal split; NEVER confirm on discovery cohort alone)"
         ),
         (
-            "Top research relationships list Desk condition→horizon with n / observed return / excess "
-            "(NOT probabilities; WAITING_NO_RETURNS when unresolved — BEAM #42 honesty)"
+            "Top research relationships show discovery_n vs confirmation_n split "
+            "(NOT probabilities; WAITING_NO_RETURNS when unresolved)"
         ),
     ]
-    if run_summary.get("waiting_freeze"):
-        now_new.insert(0,
-            "WAITING dimension freeze: returns not observable yet — do not invent returns; "
-            "confirm/reject reserved for T1+ ONLY"
-        )
     if run_summary.get("new_hypotheses", 0) > 0:
         now_new.insert(0,
-            f"This run froze {run_summary['new_hypotheses']} new HYPOTHESIS_FROZEN records "
-            f"(Desk dims; WAITING ok when resolved_n=0); DISCOVERY≠BUY"
+            f"This run froze {run_summary['new_hypotheses']} new HYPOTHESIS_FROZEN records; DISCOVERY≠BUY"
         )
     if run_summary.get("new_evidence", 0) > 0:
-        now_new.insert(0,
-            f"This run appended {run_summary['new_evidence']} evidence events"
-        )
+        now_new.insert(0, f"This run appended {run_summary['new_evidence']} evidence events")
     if run_summary.get("extended_hypotheses", 0) > 0:
         now_new.append(f"This run extended sample on {run_summary['extended_hypotheses']} frozen hypotheses")
     if run_summary.get("confirmed", 0) > 0:
@@ -827,11 +887,56 @@ def research_progress(prev_state: dict | None, new_state: dict, run_summary: dic
     ]):
         now_new.append(
             "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with "
-            "explicit unchanged counts (not a blank T0-only reprocess)"
+            "explicit unchanged counts (anti-loop / blocked waiting new bar)"
         )
+    t1 = run_summary.get("t1_status_label") or run_summary.get("T1_STATUS")
+    if t1 in ("BLOCKED_WAITING_NEW_BAR", "BLOCKED_WAITING_ENGINE_EMIT"):
+        now_new.append(
+            f"T1_STATUS={t1} — no genuine Desk T1 yet (need market_bar_asof > "
+            f"{FORMAL_PREVIOUS_ASOF} + original engine emit); confirmation_cohort EMPTY; "
+            "NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 "
+            "(honesty like RelVol #44 / BEAM #45)."
+        )
+    elif t1:
+        now_new.append(f"T1_STATUS={t1}")
+
+    kd_none = (
+        int(run_summary.get("new_signals") or 0) == 0
+        and int(run_summary.get("new_evidence") or 0) == 0
+        and int(run_summary.get("new_hypotheses") or 0) == 0
+        and int(run_summary.get("confirmed") or 0) == 0
+        and int(run_summary.get("rejected") or 0) == 0
+        and int(run_summary.get("extended_hypotheses") or 0) == 0
+    )
+    knowledge_delta = "NONE" if kd_none else "UPDATED"
+
+    untested_n = int(run_summary.get("untested") or new_state.get("hypotheses_untested") or 0)
+    changed = []
+    if run_summary.get("new_signals"):
+        changed.append(f"new_signals={run_summary['new_signals']}")
+    if run_summary.get("new_evidence"):
+        changed.append(f"new_evidence={run_summary['new_evidence']}")
+    if run_summary.get("confirmed"):
+        changed.append(f"confirmed={run_summary['confirmed']}")
+    if run_summary.get("rejected"):
+        changed.append(f"rejected={run_summary['rejected']}")
+    if run_summary.get("new_hypotheses"):
+        changed.append(f"new_hypotheses={run_summary['new_hypotheses']}")
+    if not changed:
+        changed.append("none (anti-loop / blocked waiting new bar)")
+
     return {
+        "BEFORE": before,
+        "NOW": now_new,
+        "CHANGED": changed,
+        "UNTESTED": untested_n,
+        "WHAT WE KNEW BEFORE": before,
+        "WHAT WE KNOW NOW": now_new,
+        "WHAT CHANGED": changed,
+        "WHAT REMAINS UNTESTED": untested_n,
         "what_system_knew_before": before,
         "what_system_knows_now_that_it_did_not_know_before": now_new,
+        "KNOWLEDGE_DELTA": knowledge_delta,
         "learning_delta": {
             "new_signals": run_summary.get("new_signals", 0),
             "new_resolved_outcomes": run_summary.get("new_resolved_outcomes", 0),
@@ -841,8 +946,11 @@ def research_progress(prev_state: dict | None, new_state: dict, run_summary: dic
             "confirmed": run_summary.get("confirmed", 0),
             "rejected": run_summary.get("rejected", 0),
             "unchanged": run_summary.get("unchanged", 0),
+            "KNOWLEDGE_DELTA": knowledge_delta,
+            "T1_STATUS": t1,
         },
     }
+
 
 
 def count_resolved(outcomes: list[dict]) -> dict[str, int]:
@@ -880,44 +988,49 @@ def _write_evolution_html(path: Path, status: dict, discovery_run: dict, state: 
         "discovery_run": discovery_run,
         "research_state": state,
         "disclaimer": (
-            "Desk RESEARCH EVOLUTION V1 — DISCOVERY≠BUY · observed≠probability · "
+            "Desk RESEARCH EVOLUTION V1 + T1 CONFIRM — DISCOVERY≠BUY · observed≠probability · "
             "score/alignScore≠probability · book_ADD=OBSERVATION · LIVE≠REPLAY · "
-            "Discovery cohort ≠ confirmation cohort (EMPTY_UNTIL_T1)"
+            "discovery_n ≠ confirmation_n · confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED"
         ),
     }
     data_js = json.dumps(payload, ensure_ascii=False)
     path.write_text(
         "<!DOCTYPE html>\n"
         "<html lang=\"zh-Hant\"><head><meta charset=\"utf-8\"/>\n"
-        "<title>Desk RESEARCH EVOLUTION V1</title>\n"
+        "<title>Desk RESEARCH EVOLUTION + T1 CONFIRM</title>\n"
         "<style>body{font-family:ui-monospace,monospace;margin:24px;background:#0b0f14;color:#e6edf3}"
         "h1,h2{color:#9ecbff}.badge{display:inline-block;padding:2px 8px;border-radius:6px;background:#1e2a44;margin-right:6px}"
-        ".warn{color:#ffb4a2}.card{background:#121a2e;border:1px solid #2a3b5c;border-radius:10px;padding:12px;margin-top:12px}"
+        ".warn{color:#ffb4a2}.ok{color:#7ee787}.card{background:#121a2e;border:1px solid #2a3b5c;border-radius:10px;padding:12px;margin-top:12px}"
         ".grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}pre{background:#111827;padding:12px;overflow:auto;border-radius:8px;max-height:420px}"
         ".note{color:#9aa8c7;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #2a3b5c;padding:6px 8px;font-size:12px}th{background:#152038}</style></head><body>\n"
-        "<h1>信股慣性台 / Desk — RESEARCH EVOLUTION <span class=\"badge\">V1</span></h1>\n"
+        "<h1>信股慣性台 / Desk — RESEARCH EVOLUTION <span class=\"badge\">V1</span> <span class=\"badge\">T1 CONFIRM</span></h1>\n"
         "<p class=\"note\" id=\"disclaimer\"></p>\n"
         "<p><span class=\"badge\">LIVE_FORWARD</span><span class=\"badge\">QQQ</span>"
-        "<span class=\"badge warn\">DISCOVERY≠BUY</span><span class=\"badge warn\">book_ADD=OBSERVATION</span></p>\n"
+        "<span class=\"badge warn\">DISCOVERY≠BUY</span><span class=\"badge warn\">discovery≠confirmation</span>"
+        "<span class=\"badge\">UNTESTED|PENDING|CONFIRMED|REJECTED</span></p>\n"
         "<div class=\"grid\"><div class=\"card\"><h2>RESEARCH_STATE</h2><pre id=\"state\"></pre></div>"
-        "<div class=\"card\"><h2>DISCOVERY_RUN</h2><pre id=\"run\"></pre></div></div>\n"
-        "<div class=\"card\"><h2>TOP RESEARCH RELATIONSHIPS</h2>"
-        "<table id=\"top\"><thead><tr><th>condition</th><th>hz</th><th>n</th><th>resolved</th><th>waiting</th>"
-        "<th>obs return</th><th>obs excess</th><th>flag</th><th>confirm</th></tr></thead><tbody></tbody></table></div>\n"
+        "<div class=\"card\"><h2>DISCOVERY_RUN + T1</h2><pre id=\"run\"></pre></div></div>\n"
+        "<div class=\"card\"><h2>DISCOVERY vs CONFIRMATION SPLIT</h2>"
+        "<table id=\"split\"><thead><tr><th>condition</th><th>hz</th><th>discovery_n</th><th>confirmation_n</th>"
+        "<th>disc excess</th><th>conf excess</th><th>flag</th><th>confirm_status</th></tr></thead><tbody></tbody></table>"
+        "<p class=\"note\">confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED. "
+        "UNTESTED while confirmation_cohort EMPTY / BLOCKED_WAITING_NEW_BAR. "
+        "Never CONFIRMED from discovery cohort alone.</p></div>\n"
         "<div class=\"card\"><h2>RESEARCH PROGRESS</h2><pre id=\"progress\"></pre></div>\n"
         "<div class=\"card\"><h2>Example hypothesis</h2><pre id=\"example\"></pre></div>\n"
         "<script>const DATA = " + data_js + ";\n"
         "document.getElementById('disclaimer').textContent = DATA.disclaimer;\n"
         "const st = DATA.research_state || {}; const dr = DATA.discovery_run || {};\n"
-        "document.getElementById('state').textContent = JSON.stringify({signals_total:st.signals_total,resolved:st.resolved,waiting:st.waiting,hypotheses_frozen:st.hypotheses_frozen,hypotheses_active:st.hypotheses_active,hypotheses_waiting:st.hypotheses_waiting,discovery_cohort:st.discovery_cohort,confirmation_cohort:st.confirmation_cohort,t0_integrity:st.t0_integrity,locks:st.locks},null,2);\n"
-        "document.getElementById('run').textContent = JSON.stringify({run_id:dr.run_id,new_signals:dr.new_signals,new_resolved_outcomes:dr.new_resolved_outcomes,new_evidence:dr.new_evidence,new_hypotheses:dr.new_hypotheses,unchanged:dr.unchanged,confirmed:dr.confirmed,rejected:dr.rejected,maturity_checks:dr.maturity_checks},null,2);\n"
+        "document.getElementById('state').textContent = JSON.stringify({signals_total:st.signals_total,discovery_signals_n:st.discovery_signals_n,confirmation_signals_n:st.confirmation_signals_n,resolved:st.resolved,waiting:st.waiting,hypotheses_frozen:st.hypotheses_frozen,hypotheses_untested:st.hypotheses_untested,hypotheses_pending:st.hypotheses_pending,hypotheses_confirmed:st.hypotheses_confirmed,hypotheses_rejected:st.hypotheses_rejected,discovery_cohort:st.discovery_cohort,confirmation_cohort:st.confirmation_cohort,confirmation_cohort_open:st.confirmation_cohort_open,T1_STATUS:st.T1_STATUS,KNOWLEDGE_DELTA:st.KNOWLEDGE_DELTA,t0_integrity:st.t0_integrity,locks:st.locks},null,2);\n"
+        "document.getElementById('run').textContent = JSON.stringify({run_id:dr.run_id,new_signals:dr.new_signals,new_resolved_outcomes:dr.new_resolved_outcomes,new_evidence:dr.new_evidence,new_hypotheses:dr.new_hypotheses,unchanged:dr.unchanged,confirmed:dr.confirmed,rejected:dr.rejected,pending:dr.pending,untested:dr.untested,KNOWLEDGE_DELTA:dr.KNOWLEDGE_DELTA,T1_STATUS:dr.T1_STATUS,confirmation_cohort:dr.confirmation_cohort,maturity_checks:dr.maturity_checks},null,2);\n"
         "document.getElementById('progress').textContent = JSON.stringify(dr.research_progress||st.research_progress,null,2);\n"
         "document.getElementById('example').textContent = JSON.stringify(dr.example_hypothesis,null,2);\n"
-        "const tb=document.querySelector('#top tbody');\n"
-        "(dr.top_research_relationships||[]).forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.condition}</td><td>${r.horizon}</td><td>${r.n}</td><td>${r.resolved_n}</td><td>${r.waiting_n}</td><td>${r.observed_return}</td><td>${r.observed_excess}</td><td>${r.sample_flag}</td><td>${r.confirmation_status}</td>`;tb.appendChild(tr);});\n"
+        "const tb=document.querySelector('#split tbody');\n"
+        "(dr.top_research_relationships||[]).forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${r.condition}</td><td>${r.horizon}</td><td>${r.discovery_n}</td><td>${r.confirmation_n}</td><td>${r.observed_excess}</td><td>${r.confirmation_mean_excess}</td><td>${r.sample_flag}</td><td>${r.confirmation_status}</td>`;tb.appendChild(tr);});\n"
         "</script></body></html>\n",
         encoding="utf-8",
     )
+
 
 
 def run_research_evolution(
@@ -926,6 +1039,7 @@ def run_research_evolution(
     run_id: str | None = None,
     new_signals: int | None = None,
     memory_status: dict | None = None,
+    t1_status: dict | None = None,
 ) -> dict:
     desk = desk_root(repo)
     mem = memory_dir(desk)
@@ -938,6 +1052,14 @@ def run_research_evolution(
     joins = load_jsonl(mem / "signal_outcome_join.jsonl")
     if not signals or not joins:
         raise SystemExit("research_memory missing signal/join rows — run RESEARCH MEMORY first")
+
+    # Merge T1 events into signal universe for confirmation stats (memory may lag)
+    t1_events = load_t1_events(desk)
+    seen_eids = {s.get("event_id") for s in signals}
+    for row in t1_events:
+        if row.get("event_id") not in seen_eids:
+            signals.append(row)
+            seen_eids.add(row.get("event_id"))
 
     outcomes = flatten_joins(joins)
 
@@ -960,9 +1082,22 @@ def run_research_evolution(
 
     now = utc_now()
     rid = run_id or f"EVO_{run_stamp(now)}"
-    disc_cohort = discovery_cohort_id(signals)
-    conf_cohort = confirmation_cohort_id()
-    has_confirmation_cohort = False  # EMPTY_UNTIL_T1
+    formal_asof = FORMAL_PREVIOUS_ASOF
+    disc_signals = [s for s in signals if is_discovery_signal(s, formal_asof)]
+    conf_signals = [s for s in signals if is_confirmation_signal(s, formal_asof)]
+
+    disc_cohort = discovery_cohort_id(disc_signals or signals)
+    conf_cohort = confirmation_cohort_id(t1_status)
+    if t1_status and t1_status.get("confirmation_cohort_open"):
+        conf_cohort = str(t1_status.get("confirmation_cohort") or conf_cohort)
+    elif conf_signals:
+        asofs = sorted({str(s.get("market_bar_asof"))[:10] for s in conf_signals if s.get("market_bar_asof")})
+        conf_cohort = f"CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof={asofs[0] if asofs else 'UNKNOWN'}"
+    has_confirmation_cohort = bool(
+        (t1_status and t1_status.get("confirmation_cohort_open")) or len(conf_signals) > 0
+    )
+    if not has_confirmation_cohort:
+        conf_cohort = "CONFIRMATION_COHORT|EMPTY"
 
     # Snapshot prior resolved counts for delta
     prev_resolved = (prev_state or {}).get("resolved") or {}
@@ -974,7 +1109,10 @@ def run_research_evolution(
 
     prev_signals_total = int((prev_state or {}).get("signals_total") or 0)
     if new_signals is None:
-        new_signals = max(0, len(signals) - prev_signals_total)
+        if t1_status is not None and "NEW_SIGNAL" in t1_status:
+            new_signals = int(t1_status.get("NEW_SIGNAL") or 0)
+        else:
+            new_signals = max(0, len(signals) - prev_signals_total)
 
     all_waiting = sum(cur_resolved.values()) == 0 and sum(cur_waiting.values()) > 0
 
@@ -987,17 +1125,35 @@ def run_research_evolution(
             "prev_resolved": int(prev_resolved.get(str(h), 0) or 0),
             "new_resolved": max(0, cur_resolved.get(str(h), 0) - int(prev_resolved.get(str(h), 0) or 0)),
             "waiting": cur_waiting.get(str(h), 0),
+            "discovery_n": sum(
+                1 for s in disc_signals
+                for o in outcomes
+                if o.get("event_id") == s.get("event_id")
+                and int(o.get("horizon_trading_days") or 0) == h
+                and o.get("status") == "RESOLVED"
+            ),
+            "confirmation_n": sum(
+                1 for s in conf_signals
+                for o in outcomes
+                if o.get("event_id") == s.get("event_id")
+                and int(o.get("horizon_trading_days") or 0) == h
+                and o.get("status") == "RESOLVED"
+            ),
         })
 
-    candidates = build_candidates(signals, joins, profile)
+    # Discovery candidates from T0 discovery signals only
+    candidates = build_candidates(disc_signals or signals, joins, profile)
     cand_by_id = {c["candidate_id"]: c for c in candidates}
 
-    # Freeze new candidates only when learning can advance (first run, new signals,
-    # or newly resolved outcomes). NO_NEW_SIGNAL + no new maturity → update only.
+    # HARD LOCK: no new H mass-mint from T0 once a frozen set already exists
+    already_frozen = sum(1 for h in existing.values() if h.get("status") == "HYPOTHESIS_FROZEN")
     allow_new_freeze = (
-        prev_state is None
-        or int(new_signals) > 0
-        or int(new_resolved_outcomes) > 0
+        already_frozen == 0
+        and (
+            prev_state is None
+            or int(new_signals) > 0
+            or int(new_resolved_outcomes) > 0
+        )
     )
     to_freeze = (
         pick_freeze_targets(candidates, existing, all_waiting=all_waiting)
@@ -1016,7 +1172,7 @@ def run_research_evolution(
     for c in to_freeze:
         hid = c["candidate_id"]
         formula = freeze_formula(c["condition"], c["horizon_trading_days"])
-        conf_status = "WAITING" if all_waiting or (c["stats"].get("resolved_n") or 0) == 0 else "PENDING"
+        conf_status = "UNTESTED"
         hyp = {
             "schema": "DESK_HYPOTHESIS.v1",
             "hypothesis_id": hid,
@@ -1033,7 +1189,17 @@ def run_research_evolution(
             "discovery_cohort": disc_cohort,
             "confirmation_cohort": conf_cohort,
             "discovery_stats": c["stats"],
+            "confirmation_stats": {
+                "n": 0, "resolved_n": 0, "waiting_n": 0,
+                "mean_return": None, "mean_excess": None,
+                "hit_rate": None, "excess_hit_rate": None,
+                "cohort": conf_cohort,
+                "sample_flag": "NO_CONFIRMATION_SAMPLES",
+                "label": "CONFIRMATION_EMPTY_UNTIL_T1",
+            },
             "current_stats": c["stats"],
+            "discovery_n": c["stats"].get("resolved_n") or c["stats"].get("n") or 0,
+            "confirmation_n": 0,
             "evaluation_clock": EVAL_CLOCK,
             "benchmark": BENCHMARK,
             "locks": {
@@ -1063,41 +1229,96 @@ def run_research_evolution(
             "discovery_cohort": disc_cohort,
             "confirmation_cohort": conf_cohort,
             "note": (
-                "Initial WAITING freeze on Desk T0 discovery cohort (resolved_n=0). "
-                "Returns not observable yet — do not invent. Confirmation reserved for T1+ ONLY."
-                if conf_status == "WAITING"
-                else "Initial freeze on discovery cohort. Confirmation reserved for T1+/future maturity."
+                "Initial freeze on Desk T0 discovery cohort. confirmation_status=UNTESTED "
+                "until T1+ confirmation cohort opens. Never confirm on discovery alone."
             ),
             "written_at_utc": utc_stamp(now),
         }
         evidence_rows.append(ev)
         new_evidence += 1
 
-    # Update all existing frozen / candidate hypotheses with current stats
+    # Update all existing frozen / candidate hypotheses with discovery vs confirmation stats
+    asofs_disc = sorted({s.get("market_bar_asof") for s in disc_signals if s.get("market_bar_asof")})
+    time_period_disc = f"{asofs_disc[0]}→+horizons" if asofs_disc else "DISCOVERY"
+    asofs_conf = sorted({s.get("market_bar_asof") for s in conf_signals if s.get("market_bar_asof")})
+    time_period_conf = f"{asofs_conf[0]}→+horizons" if asofs_conf else "CONFIRMATION_EMPTY"
+
     for hid, hyp in list(existing.items()):
         if hid in frozen_formulas:
             hyp["frozen_formula"] = dict(frozen_formulas[hid])
+
+        # Migrate legacy WAITING/PENDING → UNTESTED when confirmation cohort still empty
+        if not has_confirmation_cohort and hyp.get("confirmation_status") in ("WAITING", "PENDING", "N/A"):
+            hyp["confirmation_status"] = "UNTESTED"
+
+        cond = hyp.get("condition") or {}
+        dim = cond.get("dimension") or (hyp.get("frozen_formula") or {}).get("condition_dimension")
+        bucket = cond.get("bucket") or (hyp.get("frozen_formula") or {}).get("condition_bucket")
+        hz = int(hyp.get("horizon_trading_days") or (hyp.get("frozen_formula") or {}).get("horizon_trading_days") or 5)
+
         c = cand_by_id.get(hid)
-        if c is None:
-            # condition no longer matched any signal — keep frozen formula; mark unchanged
-            unchanged += 1
-            continue
-        cur_stats = c["stats"]
+        if c is not None:
+            disc_stats = c["stats"]
+        elif dim and bucket is not None:
+            disc_stats = compute_stats_for_condition_joins(
+                disc_signals, joins,
+                dimension=dim, bucket=str(bucket), horizon=hz,
+                cohort_id=disc_cohort, time_period=time_period_disc,
+            )
+        else:
+            disc_stats = hyp.get("discovery_stats") or empty_stats()
+
+        if dim and bucket is not None and conf_signals:
+            conf_stats = compute_stats_for_condition_joins(
+                conf_signals, joins,
+                dimension=dim, bucket=str(bucket), horizon=hz,
+                cohort_id=conf_cohort, time_period=time_period_conf,
+            )
+        else:
+            conf_stats = {
+                "n": 0, "resolved_n": 0, "waiting_n": 0,
+                "mean_return": None, "mean_excess": None,
+                "hit_rate": None, "excess_hit_rate": None,
+                "cohort": conf_cohort,
+                "sample_flag": "NO_CONFIRMATION_SAMPLES",
+                "label": "CONFIRMATION_EMPTY_UNTIL_T1_OR_MATURITY",
+            }
+
+        if hyp.get("discovery_stats") and hyp.get("status") == "HYPOTHESIS_FROZEN":
+            hyp["discovery_stats_refresh"] = disc_stats
+            frozen_disc = hyp["discovery_stats"]
+        else:
+            hyp["discovery_stats"] = disc_stats
+            frozen_disc = disc_stats
+
+        prev_conf_res = int((hyp.get("confirmation_stats") or {}).get("resolved_n") or 0)
+        hyp["confirmation_stats"] = conf_stats
+        hyp["discovery_n"] = int(frozen_disc.get("resolved_n") or frozen_disc.get("n") or 0)
+        hyp["confirmation_n"] = int(conf_stats.get("resolved_n") or 0)
+        hyp["current_stats"] = frozen_disc
+        hyp["confirmation_cohort"] = conf_cohort
+
         status, conf_status, action = decide_lifecycle(
-            hyp, cur_stats, has_confirmation_cohort=has_confirmation_cohort
+            hyp,
+            discovery_stats=frozen_disc,
+            confirmation_stats=conf_stats,
+            has_confirmation_cohort=has_confirmation_cohort,
+            prev_confirmation_resolved=prev_conf_res,
         )
-        # Skip re-FREEZE evidence for brand-new hyps already logged
+
         if hyp.get("creation_run") == rid and action in ("DISCOVERED", "UNCHANGED"):
             hyp["status"] = status
-            if conf_status != "N/A":
-                hyp["confirmation_status"] = conf_status
-            hyp["current_stats"] = cur_stats
+            hyp["confirmation_status"] = conf_status
             continue
 
-        delta = compare_stats(hyp.get("current_stats"), cur_stats)
+        delta = {
+            "discovery_resolved_delta": 0,
+            "confirmation_resolved_delta": int(conf_stats.get("resolved_n") or 0) - prev_conf_res,
+            "discovery_n": hyp["discovery_n"],
+            "confirmation_n": hyp["confirmation_n"],
+        }
         hyp["status"] = status
         hyp["confirmation_status"] = conf_status
-        hyp["current_stats"] = cur_stats
         hyp["updated_at_utc"] = utc_stamp(now)
         hyp["last_evidence_action"] = action
         hyp["last_evidence_run"] = rid
@@ -1112,8 +1333,10 @@ def run_research_evolution(
                 "run_id": rid,
                 "action": "EXTEND_SAMPLE",
                 "evidence_action": action,
+                "cohort": "confirmation",
                 "delta": delta,
-                "stats": cur_stats,
+                "discovery_stats": frozen_disc,
+                "confirmation_stats": conf_stats,
                 "confirmation_status": conf_status,
                 "written_at_utc": utc_stamp(now),
             })
@@ -1127,9 +1350,12 @@ def run_research_evolution(
                 "run_id": rid,
                 "action": "CONFIRM",
                 "evidence_action": action,
+                "cohort": "confirmation",
                 "delta": delta,
-                "stats": cur_stats,
+                "discovery_stats": frozen_disc,
+                "confirmation_stats": conf_stats,
                 "confirmation_status": conf_status,
+                "note": "CONFIRMED on confirmation cohort only — discovery n not mixed",
                 "written_at_utc": utc_stamp(now),
             })
         elif action == "REJECT":
@@ -1144,29 +1370,16 @@ def run_research_evolution(
                 "run_id": rid,
                 "action": "REJECT",
                 "evidence_action": action,
+                "cohort": "confirmation",
                 "delta": delta,
-                "stats": cur_stats,
+                "discovery_stats": frozen_disc,
+                "confirmation_stats": conf_stats,
                 "confirmation_status": "REJECTED",
+                "note": "REJECTED on confirmation cohort only — discovery n not mixed",
                 "written_at_utc": utc_stamp(now),
             })
         else:
             unchanged += 1
-            # Still log a lightweight maturity check evidence row on first evolution
-            # when prev_state was missing? Prefer explicit unchanged in DISCOVERY_RUN only.
-            if prev_state is None and hyp.get("creation_run") != rid:
-                new_evidence += 1
-                evidence_rows.append({
-                    "schema": "DESK_EVIDENCE.v1",
-                    "evidence_id": f"EV_{hid}_{run_stamp(now)}_BASE",
-                    "hypothesis_id": hid,
-                    "run_id": rid,
-                    "action": "BASELINE_ATTACH",
-                    "evidence_action": "UNCHANGED",
-                    "delta": delta,
-                    "stats": cur_stats,
-                    "confirmation_status": conf_status,
-                    "written_at_utc": utc_stamp(now),
-                })
 
     # Persist hypotheses (snapshot rewrite; formulas immutable per id — never rewrite formula)
     hyp_list = sorted(existing.values(), key=lambda h: h["hypothesis_id"])
@@ -1186,11 +1399,12 @@ def run_research_evolution(
         "active": sum(
             1 for h in hyp_list
             if h.get("status") == "HYPOTHESIS_FROZEN"
-            and h.get("confirmation_status") in ("PENDING", "CONFIRMED", "WAITING")
+            and h.get("confirmation_status") in ("UNTESTED", "PENDING", "CONFIRMED")
         ),
+        "untested": sum(1 for h in hyp_list if h.get("confirmation_status") == "UNTESTED"),
+        "pending": sum(1 for h in hyp_list if h.get("confirmation_status") == "PENDING"),
         "confirmed": sum(1 for h in hyp_list if h.get("confirmation_status") == "CONFIRMED"),
         "rejected": sum(1 for h in hyp_list if h.get("confirmation_status") == "REJECTED"),
-        "waiting": sum(1 for h in hyp_list if h.get("confirmation_status") == "WAITING"),
     }
 
     # Keep leftover candidates as reportable (not frozen) — write separate snapshot count
@@ -1208,10 +1422,24 @@ def run_research_evolution(
         "confirmed": int(confirmed),
         "rejected": int(rejected),
         "unchanged": int(unchanged),
+        "untested": hyp_counts["untested"],
+        "pending": hyp_counts["pending"],
         "discovery_candidates_scanned": len(candidates),
         "unfrozen_candidates_remaining": len(unfrozen_candidates),
         "waiting_freeze": bool(all_waiting and new_hypotheses > 0),
+        "T1_STATUS": (t1_status or {}).get("T1_STATUS"),
+        "t1_status_label": (t1_status or {}).get("T1_STATUS"),
+        "confirmation_cohort_open": has_confirmation_cohort,
     }
+    kd_none = (
+        run_summary["new_signals"] == 0
+        and run_summary["new_evidence"] == 0
+        and run_summary["new_hypotheses"] == 0
+        and run_summary["confirmed"] == 0
+        and run_summary["rejected"] == 0
+        and run_summary["extended_hypotheses"] == 0
+    )
+    run_summary["KNOWLEDGE_DELTA"] = "NONE" if kd_none else "UPDATED"
 
     # T0 integrity
     t0_ok = (
@@ -1255,9 +1483,15 @@ def run_research_evolution(
         "hypotheses_candidates": hyp_counts["candidates"],
         "hypotheses_frozen": hyp_counts["frozen"],
         "hypotheses_active": hyp_counts["active"],
+        "hypotheses_untested": hyp_counts["untested"],
+        "hypotheses_pending": hyp_counts["pending"],
         "hypotheses_confirmed": hyp_counts["confirmed"],
         "hypotheses_rejected": hyp_counts["rejected"],
-        "hypotheses_waiting": hyp_counts.get("waiting", 0),
+        "discovery_signals_n": len(disc_signals),
+        "confirmation_signals_n": len(conf_signals),
+        "confirmation_cohort_open": has_confirmation_cohort,
+        "KNOWLEDGE_DELTA": run_summary["KNOWLEDGE_DELTA"],
+        "T1_STATUS": (t1_status or {}).get("T1_STATUS"),
         "last_discovery_run": rid,
         "last_evidence_update": utc_stamp(now),
         "discovery_cohort": disc_cohort,
@@ -1274,6 +1508,9 @@ def run_research_evolution(
             "engine_untouched": True,
             "never_confirm_on_discovery_cohort": True,
             "score_alignScore_ne_probability": True,
+            "discovery_n_ne_confirmed": True,
+            "no_new_H_from_T0_once_frozen": True,
+            "confirmation_status_enum": "UNTESTED|PENDING|CONFIRMED|REJECTED",
         },
         "memory_paths_preserved": [
             "research_profile.json",
@@ -1319,9 +1556,14 @@ def run_research_evolution(
         "confirmed": run_summary["confirmed"],
         "rejected": run_summary["rejected"],
         "unchanged": run_summary["unchanged"],
+        "untested": run_summary["untested"],
+        "pending": run_summary["pending"],
+        "KNOWLEDGE_DELTA": run_summary["KNOWLEDGE_DELTA"],
+        "T1_STATUS": run_summary.get("T1_STATUS"),
         "maturity_checks": maturity_checks,
         "discovery_cohort": disc_cohort,
         "confirmation_cohort": conf_cohort,
+        "confirmation_cohort_open": has_confirmation_cohort,
         "top_research_relationships": top,
         "example_hypothesis_id": (example or {}).get("hypothesis_id"),
         "example_hypothesis": {
@@ -1329,7 +1571,10 @@ def run_research_evolution(
             "condition": (example or {}).get("condition"),
             "horizon": (example or {}).get("horizon_trading_days"),
             "discovery_stats": (example or {}).get("discovery_stats"),
+            "confirmation_stats": (example or {}).get("confirmation_stats"),
             "current_stats": (example or {}).get("current_stats"),
+            "discovery_n": (example or {}).get("discovery_n"),
+            "confirmation_n": (example or {}).get("confirmation_n"),
             "status": (example or {}).get("status"),
             "confirmation_status": (example or {}).get("confirmation_status"),
             "discovery_cohort": (example or {}).get("discovery_cohort"),
@@ -1386,8 +1631,10 @@ Learning layer on RESEARCH MEMORY V1. Does **not** replace memory artifacts.
 - observed ≠ probability; score/alignScore ≠ probability
 - book_ADD = OBSERVATION only; never upgrade → MARK_BUY
 - T0 untouched; LIVE ≠ REPLAY mix
-- Discovery cohort (T0 market_bar_asof) ≠ confirmation cohort (EMPTY_UNTIL_T1)
-- When resolved_*=0: freeze WAITING dimension hypotheses — do not invent returns (BEAM #42)
+- Discovery cohort (T0 market_bar_asof) ≠ confirmation cohort (T1+ ONLY / EMPTY until genuine T1)
+- confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED
+- discovery_n never mixed into confirmed; never rewrite H formula after freeze
+- No new H mass-mint from T0 once frozen set exists (T1 stage → new_hypotheses=0)
 """
     )
 
@@ -1415,9 +1662,16 @@ Learning layer on RESEARCH MEMORY V1. Does **not** replace memory artifacts.
             "confirmed": discovery_run["confirmed"],
             "rejected": discovery_run["rejected"],
             "unchanged": discovery_run["unchanged"],
+            "untested": discovery_run["untested"],
+            "pending": discovery_run["pending"],
+            "KNOWLEDGE_DELTA": discovery_run["KNOWLEDGE_DELTA"],
+            "T1_STATUS": discovery_run.get("T1_STATUS"),
+            "confirmation_cohort": discovery_run.get("confirmation_cohort"),
+            "confirmation_cohort_open": discovery_run.get("confirmation_cohort_open"),
             "example_hypothesis_id": discovery_run["example_hypothesis_id"],
             "top_research_relationships": top,
             "maturity_checks": maturity_checks,
+            "research_progress": progress,
         },
         "example_hypothesis": discovery_run["example_hypothesis"],
         "research_progress": progress,
@@ -1433,15 +1687,25 @@ Learning layer on RESEARCH MEMORY V1. Does **not** replace memory artifacts.
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Desk RESEARCH EVOLUTION V1")
+    ap = argparse.ArgumentParser(description="Desk RESEARCH EVOLUTION V1 + T1 CONFIRM")
     ap.add_argument("--repo-root", type=Path, default=Path("."))
     ap.add_argument("--run-id", type=str, default=None)
     ap.add_argument("--new-signals", type=int, default=None)
+    ap.add_argument("--t1-status-json", type=Path, default=None,
+                    help="Optional path to T1_CAPTURE_STATUS.json")
     args = ap.parse_args()
+    t1 = None
+    if args.t1_status_json and args.t1_status_json.exists():
+        t1 = load_json(args.t1_status_json)
+    else:
+        default_t1 = args.repo_root.resolve() / "research/forward_v1/desk/status/T1_CAPTURE_STATUS.json"
+        if default_t1.exists():
+            t1 = load_json(default_t1)
     status = run_research_evolution(
         args.repo_root.resolve(),
         run_id=args.run_id,
         new_signals=args.new_signals,
+        t1_status=t1,
     )
     print(json.dumps({
         "status": status["status"],
@@ -1450,6 +1714,8 @@ def main() -> None:
         "new_evidence": status["discovery_run"]["new_evidence"],
         "new_hypotheses": status["discovery_run"]["new_hypotheses"],
         "unchanged": status["discovery_run"]["unchanged"],
+        "KNOWLEDGE_DELTA": status["discovery_run"].get("KNOWLEDGE_DELTA"),
+        "T1_STATUS": status["discovery_run"].get("T1_STATUS"),
         "hypothesis_counts": status["hypothesis_counts"],
         "t0_integrity": status["t0_integrity"],
         "example_hypothesis_id": status["discovery_run"]["example_hypothesis_id"],

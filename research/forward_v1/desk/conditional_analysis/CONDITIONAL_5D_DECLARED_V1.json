@@ -6,16 +6,141 @@
   "horizon": 5,
   "note": "OBSERVED on RESOLVED formal only; THIN_SAMPLE if n<10; not probability; no hindsight rebucket; LIVE ≠ REPLAY",
   "groups": {
-    "alignScore_bucket": {},
-    "bandPosPct_bucket": {},
-    "signal_type": {},
-    "regime": {},
-    "shape": {},
-    "desk_state": {},
-    "book_board": {},
-    "trustUp": {}
+    "alignScore_bucket": {
+      "align_35_55": {
+        "n": 5,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 1.0,
+        "excess_hit_rate_RESOLVED_ONLY": 0.8,
+        "mean_absolute_return_RESOLVED_ONLY": 0.060374037706288596,
+        "mean_excess_return_RESOLVED_ONLY": 0.02842450911392619,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      },
+      "align_lt_35": {
+        "n": 2,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.0,
+        "excess_hit_rate_RESOLVED_ONLY": 0.0,
+        "mean_absolute_return_RESOLVED_ONLY": -0.011787795837832923,
+        "mean_excess_return_RESOLVED_ONLY": -0.04373732443019533,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      }
+    },
+    "bandPosPct_bucket": {
+      "band_25_50": {
+        "n": 1,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.0,
+        "excess_hit_rate_RESOLVED_ONLY": 0.0,
+        "mean_absolute_return_RESOLVED_ONLY": -0.016078235887925976,
+        "mean_excess_return_RESOLVED_ONLY": -0.04802776448028838,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      },
+      "band_50_75": {
+        "n": 2,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 1.0,
+        "excess_hit_rate_RESOLVED_ONLY": 0.5,
+        "mean_absolute_return_RESOLVED_ONLY": 0.025684090369435413,
+        "mean_excess_return_RESOLVED_ONLY": -0.0062654382229269945,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      },
+      "band_gt_75": {
+        "n": 2,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 1.0,
+        "excess_hit_rate_RESOLVED_ONLY": 1.0,
+        "mean_absolute_return_RESOLVED_ONLY": 0.06200745696797659,
+        "mean_excess_return_RESOLVED_ONLY": 0.030057928375614183,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      },
+      "band_null": {
+        "n": 2,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.5,
+        "excess_hit_rate_RESOLVED_ONLY": 0.5,
+        "mean_absolute_return_RESOLVED_ONLY": 0.05949486903443956,
+        "mean_excess_return_RESOLVED_ONLY": 0.02754534044207715,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      }
+    },
+    "signal_type": {
+      "desk.book_ADD": {
+        "n": 7,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.7142857142857143,
+        "excess_hit_rate_RESOLVED_ONLY": 0.5714285714285714,
+        "mean_absolute_return_RESOLVED_ONLY": 0.03975637097939674,
+        "mean_excess_return_RESOLVED_ONLY": 0.007806842387034329,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      }
+    },
+    "regime": {
+      "RISK_ON_COMPAT": {
+        "n": 7,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.7142857142857143,
+        "excess_hit_rate_RESOLVED_ONLY": 0.5714285714285714,
+        "mean_absolute_return_RESOLVED_ONLY": 0.03975637097939674,
+        "mean_excess_return_RESOLVED_ONLY": 0.007806842387034329,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      }
+    },
+    "shape": {
+      "CHOPPY": {
+        "n": 7,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.7142857142857143,
+        "excess_hit_rate_RESOLVED_ONLY": 0.5714285714285714,
+        "mean_absolute_return_RESOLVED_ONLY": 0.03975637097939674,
+        "mean_excess_return_RESOLVED_ONLY": 0.007806842387034329,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      }
+    },
+    "desk_state": {
+      "DORMANT": {
+        "n": 5,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.6,
+        "excess_hit_rate_RESOLVED_ONLY": 0.6,
+        "mean_absolute_return_RESOLVED_ONLY": 0.02742215729562269,
+        "mean_excess_return_RESOLVED_ONLY": -0.004527371296739714,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      },
+      "WATCH": {
+        "n": 2,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 1.0,
+        "excess_hit_rate_RESOLVED_ONLY": 0.5,
+        "mean_absolute_return_RESOLVED_ONLY": 0.07059190518883185,
+        "mean_excess_return_RESOLVED_ONLY": 0.038642376596469435,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      }
+    },
+    "book_board": {
+      "DOWN": {
+        "n": 7,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.7142857142857143,
+        "excess_hit_rate_RESOLVED_ONLY": 0.5714285714285714,
+        "mean_absolute_return_RESOLVED_ONLY": 0.03975637097939674,
+        "mean_excess_return_RESOLVED_ONLY": 0.007806842387034329,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      }
+    },
+    "trustUp": {
+      "False": {
+        "n": 7,
+        "sample_status": "THIN_SAMPLE",
+        "absolute_hit_rate_RESOLVED_ONLY": 0.7142857142857143,
+        "excess_hit_rate_RESOLVED_ONLY": 0.5714285714285714,
+        "mean_absolute_return_RESOLVED_ONLY": 0.03975637097939674,
+        "mean_excess_return_RESOLVED_ONLY": 0.007806842387034329,
+        "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY"
+      }
+    }
   },
-  "n_formal_signals": 7,
-  "n_resolved_5d": 0,
-  "generated_at": "2026-09-21T15:27:39Z"
+  "n_formal_signals": 14,
+  "n_resolved_5d": 7,
+  "generated_at": "2026-09-28T09:20:06Z"
 }
