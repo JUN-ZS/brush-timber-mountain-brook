@@ -300,8 +300,8 @@ def main():
     results = []
     for n in args.n:
         _, base_stats, _ = run_mode(und, quotes, selection, n, "BASELINE_TOUCH")
-        _, short_trades, eqdf = run_shortonly(und, quotes, selection, n)
-        results += [base_stats, short_trades]
+        short_trades, short_stats, eqdf = run_shortonly(und, quotes, selection, n)
+        results += [base_stats, short_stats]
         pd.DataFrame([{
             **{k:v for k,v in t.items() if k not in ("events","eq_rows")},
             "events_json": json.dumps(t["events"], ensure_ascii=False)
