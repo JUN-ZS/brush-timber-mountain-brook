@@ -1,0 +1,36 @@
+{
+  "schema": "WEEKLY_WAKE_REPORT.v1",
+  "node": "desk",
+  "pass": "WEEKLY_WAKE_SELF_DUE_V1",
+  "wake_kind": "WEEKLY_WAKE",
+  "written_at_utc": "2026-09-28T13:11:25Z",
+  "written_at_hkt": "2026-09-28 21:11:25 HKT",
+  "self_due_path": "research/forward_v1/desk/status/SELF_DUE_STATUS.json",
+  "due_now": false,
+  "action": "WAIT",
+  "due_lanes": [],
+  "wait_lanes": [
+    "signal_capture",
+    "maturity_5d",
+    "maturity_21d",
+    "maturity_63d",
+    "maturity_126d",
+    "maturity_252d"
+  ],
+  "knowledge_delta": "NONE",
+  "reason": "Wake≠due. No due lanes. post_t1=0; bridge_latest=2026-09-25; T1 asof=2026-09-25; T1_STATUS=CAPTURED_ALREADY.",
+  "anti_loop": {
+    "same_data_stops": true,
+    "rule": "identical bridge_latest + CAPTURED_ALREADY + post_days < all horizons → due_now=false → STOP",
+    "bridge_latest": "2026-09-25",
+    "t1_asof": "2026-09-25",
+    "T1_STATUS": "CAPTURED_ALREADY",
+    "post_t1_asof_trading_days": 0,
+    "triggered_stop": true
+  },
+  "CADENCE_NE_WAKE_FREQUENCY": true,
+  "ran": false,
+  "run_results": null,
+  "stopped": true,
+  "stop_reason": "WAIT: due_now=false — same data / maturity not reached; no reprocess (anti-loop)"
+}
