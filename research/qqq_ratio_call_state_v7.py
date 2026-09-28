@@ -427,7 +427,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                         "event": "DOWNSIDE_PACKAGE_STOP",
                         "mtm_pnl_usd": float(mtm_pnl),
                         "stop_loss_usd": float(stop_loss),
-                        "n_remaining": int(n_remaining),
+                        "n_short": int(n_short),
                     })
 
         # ------------------------------------------------------------
@@ -448,8 +448,8 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                 mtm_pnl = (
                     cash
                     + ma0 * 100.0
-                    - n_remaining * ms0 * 100.0
-                    + n_remaining * mw0 * 100.0
+                    - n_short * ms0 * 100.0
+                    + n_short * mw0 * 100.0
                 )
                 stop_loss = DOWNSIDE_STOP_FRACTION * package_max_loss(
                     legs, n_initial
@@ -464,7 +464,7 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                         "event": "DOWNSIDE_PACKAGE_STOP",
                         "mtm_pnl_usd": float(mtm_pnl),
                         "stop_loss_usd": float(stop_loss),
-                        "n_remaining": int(n_remaining),
+                        "n_short": int(n_short),
                     })
 
         # ------------------------------------------------------------
@@ -478,15 +478,14 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
             and (not acted_today)
             and pending_breakout is not None
             and pd.Timestamp(pending_breakout["date"]) == dt
-            and n_remaining > 0
+            and n_short > 0
         ):
             action = pending_breakout
             pending_breakout = None
 
             buy_short = executable(qs, "BUY")
-            sell_wing = executable(qw, "SELL")
 
-            if pd.notna(buy_short) and pd.notna(sell_wing):
+            if pd.notna(buy_short):
                 if close >= float(action["strike"]):
                     before = n_short
                     cash += (-before * buy_short) * 100.0
@@ -558,9 +557,9 @@ def manage_trade(und, quotes, row, legs, n_initial, mode):
                 buy_short = executable(qs, "BUY")
                 sell_wing = executable(qw, "SELL")
                 if pd.notna(buy_short) and pd.notna(sell_wing):
-                    before = n_remaining
+                    before = n_short
                     cash += (-before * buy_short + before * sell_wing) * 100.0
-                    n_remaining = 0
+                    n_short = 0
                     events.append({
                         "date": str(dt.date()),
                         "event": "CONTINUATION_REMOVE_ALL_PAIRS",
@@ -998,11 +997,3 @@ def main():
             "no_readd": True,
             "baseline": "same dynamic entry N, whole package exits on first short-strike touch",
             "entry_execution": "ATM Ask / Short Bid / Wing Ask",
-            "management_execution": "Short Ask / Wing Bid",
-            "daily_mark": "bid/ask midpoint",
-            "strict_quote_policy": "no interpolation; missing entry/final quotes reject trade",
-            "no_optimization": True,
-        },
-        "data": {
-            "source_repo": RELEASE_REPO,
-            "release_tag": RELEASE_TAG,
