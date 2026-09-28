@@ -1,0 +1,56 @@
+{
+  "schema": "OUTCOME_MATURITY_STATUS.v1",
+  "node": "desk",
+  "app_id": "xin_gu_inertia_desk",
+  "model_version": "DESK_CORE_V1",
+  "pass": "AUTONOMOUS_RESEARCH_ACQUISITION_V1",
+  "written_at_utc": "2026-09-28T10:36:13Z",
+  "written_at_hkt": "2026-09-28 18:36:13 HKT",
+  "forward_run_id": "FORWARD_RUN_20260928T103554Z",
+  "t1_confirmation_cohort": {
+    "id": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z",
+    "market_bar_asof": "2026-09-25",
+    "size": 7,
+    "signal_type": "desk.book_ADD",
+    "open": true
+  },
+  "bridge_latest_completed_bar": "2026-09-25",
+  "post_t1_asof_trading_days": 0,
+  "t1_outcome_stubs_total": 35,
+  "horizons": {
+    "5": {
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    },
+    "21": {
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    },
+    "63": {
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    },
+    "126": {
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    },
+    "252": {
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7,
+      "status": "WAITING_FOR_FUTURE_BARS"
+    }
+  },
+  "primary_outcome_state": "WAITING_FOR_FUTURE_BARS",
+  "anti_loop": {
+    "T1_STATUS": "CAPTURED_ALREADY",
+    "NEW_SIGNAL": 0,
+    "new_events": 0
+  },
+  "knowledge_delta": "NONE",
+  "note": "No completed US daily bars after T1 asof=2026-09-25 exist in data_bridge; do not invent fills. T0 discovery resolved_5d is NOT T1 confirmation.",
+  "t0_discovery_note": "Resolver may still report T0 discovery resolved_5d under maturity_anchor=2026-09-18 — that pool is DISCOVERY_ONLY and must not merge with confirmation."
+}

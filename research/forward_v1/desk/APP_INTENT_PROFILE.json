@@ -1,0 +1,228 @@
+{
+  "schema": "APP_INTENT_PROFILE.v1",
+  "node": "desk",
+  "hub_name": "信股慣性台",
+  "app_id": "xin_gu_inertia_desk",
+  "model_version": "DESK_CORE_V1",
+  "evaluation_clock": "LIVE_FORWARD",
+  "benchmark": "QQQ",
+  "written_at_utc": "2026-09-28T10:35:00Z",
+  "written_at_hkt": "2026-09-28 18:35:00 HKT",
+  "purpose": "Machine-readable documentation of what Desk actually observes/emits — claims only from juniper-kite Desk engine + forward_v1 desk runtime. Not a new hypothesis.",
+  "code_sources": {
+    "types": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/src/lib/desk/types.ts",
+    "formulas": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/src/lib/desk/formulas.ts",
+    "book": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/src/lib/desk/book.ts",
+    "warehouse_write": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/scripts/desk_run_warehouse_write.mts",
+    "live_scan": "/workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get/scripts/live-scan-snapshot.mts",
+    "execution_policy": "research/forward_v1/desk/EXECUTION_POLICY.md",
+    "research_profile": "research/forward_v1/desk/research_profile.json",
+    "t1_capture": "research/forward_v1/desk/tools/t1_capture.py",
+    "forward_runner": "research/forward_v1/desk/forward_runner.py"
+  },
+  "WHAT_OBSERVE": {
+    "universe": "DEFAULT_SYMBOLS (types.ts): QQQ, SPY, SMH, NVDA, TSLA, MU, AMD, AAPL, AVGO, TSM, META, MSFT, AMZN, GOOGL, PLTR, IWM, TLT",
+    "bar_inputs": "Daily OHLC(+volume) SeriesPack per symbol; weekly/monthly via resampleWeekly/resampleMonthly; MIN_BARS D=60 W=26 M=12",
+    "benchmarks_for_tape": "QQQ, SPY, ^VIX via marketTape()",
+    "scan_unit": "scanSymbol(pack, qqqDaily, tape) → ScanRow per symbol",
+    "maturity_anchor_field": "market_bar_asof (last completed bar date stamped at warehouse write)",
+    "yahoo_role": "OUTCOME / bar feed only — never Desk geometry invent; geometry comes from ORIGINAL_ENGINE ScanRow"
+  },
+  "WHAT_CREATES_SIGNAL": {
+    "emitter": "scripts/desk_run_warehouse_write.mts",
+    "candidate_gate_isCandidate": [
+      "row.state === MARK_BUY",
+      "row.state === ARMED",
+      "row.trustUp === true",
+      "row.book?.action === ADD"
+    ],
+    "signal_families_familiesFor": [
+      {
+        "family": "MARK_BUY",
+        "when": "row.state === MARK_BUY",
+        "diversity_tag": "CORE"
+      },
+      {
+        "family": "ARMED",
+        "when": "row.state === ARMED",
+        "diversity_tag": "CHALLENGER"
+      },
+      {
+        "family": "TRUST_UP",
+        "when": "row.trustUp === true",
+        "diversity_tag": "CHALLENGER"
+      },
+      {
+        "family": "book_ADD",
+        "when": "row.book?.action === ADD",
+        "diversity_tag": "EXPERIMENT"
+      }
+    ],
+    "emitted_signal_type_prefix": "desk.",
+    "genuine_t1_observed": {
+      "market_bar_asof": "2026-09-25",
+      "signal_type": "desk.book_ADD",
+      "count": 7,
+      "MARK_BUY": 0,
+      "ARMED": 0,
+      "TRUST_UP": 0,
+      "tickers": [
+        "SMH",
+        "MU",
+        "AMD",
+        "AAPL",
+        "TSM",
+        "GOOGL",
+        "IWM"
+      ],
+      "engine_run_id": "desk_20260928T171851+0800",
+      "source": "ORIGINAL_ENGINE"
+    },
+    "hard_locks": [
+      "book_ADD ≠ MARK_BUY — never promote (EXECUTION_POLICY.md + warehouse write comments)",
+      "alignScore / opportunity / score = NOT_A_PROBABILITY; claimed_p=null",
+      "BookNote Estimated — 唔入 TRUST_UP／ARMED／MARK_BUY (types.ts BookNote comment)",
+      "Yahoo ≠ Desk geometry for signal invent"
+    ]
+  },
+  "SEMANTIC_FEATURES_VS_UI_ONLY": {
+    "semantic_required_for_research_emit": [
+      "signal_type",
+      "ticker",
+      "market_bar_asof",
+      "price_at_signal (lastClose)",
+      "rank (alignScore rank within DEFAULT_SYMBOLS)",
+      "score / alignScore",
+      "desk_state",
+      "regime",
+      "shape",
+      "trustUp",
+      "hot",
+      "trend.rising",
+      "opportunity",
+      "bandPosPct",
+      "relVol20",
+      "book_action",
+      "book_board",
+      "book_line",
+      "book_addScore",
+      "book_trimScore",
+      "markBuyLine",
+      "whyNotBuy",
+      "priceState",
+      "volState",
+      "provenance: source/engine_id/engine_version/engine_run_id/source_hash"
+    ],
+    "ui_only_or_display_not_required_for_emit": [
+      "TableView locked|watch|star|strong",
+      "TypeScale sm|md|lg",
+      "ChartRange 6M|1Y|2Y",
+      "ChartMark / swings / ema20Series / ema60Series (chart)",
+      "DeskNotice toast copy",
+      "CSV book export UI (book.ts persist helpers)",
+      "DdAlert local persist UI",
+      "stick / wave / drawdown / swingRel display packs (Estimated; not flattened into T0/T1 conditions_raw as structured buy gates)",
+      "pressBySet B/C display triples (SET A drives scan/MARK_BUY; B/C are parallel display — types.ts)"
+    ],
+    "engine_present_but_not_on_t0_t1_conditions_raw": [
+      "ATR (TfMetrics.atr)",
+      "pressure_upper_price / pressure_lower_price structured",
+      "relState (ScanRow.relState)"
+    ]
+  },
+  "STATE": {
+    "desk_state_enum": [
+      "DORMANT",
+      "WATCH",
+      "ARMED",
+      "MARK_BUY",
+      "MARK_SELL"
+    ],
+    "shape_enum": [
+      "CONTINUE",
+      "CHOPPY",
+      "FADE",
+      "INSUFFICIENT"
+    ],
+    "regime_enum": [
+      "RISK_ON_COMPAT",
+      "MIXED",
+      "RISK_OFF_COMPAT",
+      "STRESS",
+      "UNKNOWN"
+    ],
+    "trustUp": "I_up D/W/M + Align gate (formulas.ts); bool, not buy probability",
+    "hot": "RelVol20≥1.0 or relState=LEADING",
+    "t1_observed_states": {
+      "WATCH": 5,
+      "DORMANT": 2,
+      "ARMED": 0,
+      "MARK_BUY": 0
+    }
+  },
+  "RANK": {
+    "field": "rank",
+    "basis": "1-based sort by alignScore within DEFAULT_SYMBOLS scan (warehouse write rankMap)",
+    "score_field": "alignScore",
+    "alignScore_formula": "40×I(D)+35×I(W)+25×I(M) (ALIGN_WEIGHT in types.ts)",
+    "NOT_A_PROBABILITY": true
+  },
+  "GEOMETRY": {
+    "pressure": "SET A structure bands (PRESS_SETS.A); MARK_BUY needs price near lower + 0.35×ATR14 and bandPosPct≤25 and RelVol≥0.70 (whyNotBuy / markBuyLine text)",
+    "book_geometry": "BookNote addScore/trimScore = distance-to-band Estimated scores 0–100; board DOWN|UP|HOLD|SKIP",
+    "yahoo_forbidden_as_geometry_source_for_invent": true,
+    "required_geometry_keys_for_t1_provenance_gate": [
+      "alignScore",
+      "opportunity",
+      "desk_state",
+      "regime",
+      "shape",
+      "trustUp",
+      "hot",
+      "bandPosPct",
+      "relVol20",
+      "book_addScore",
+      "book_trimScore",
+      "book_action",
+      "book_board",
+      "whyNotBuy"
+    ]
+  },
+  "EXECUTION": {
+    "policy": "BOOK_ACTION / OBSERVATION only by default",
+    "desk.book_ADD": "BOOK_ACTION / OBSERVATION — never auto-upgrade to MARK_BUY/ARMED/TRUST_UP",
+    "executable_only_when": "ORIGINAL_ENGINE already emitted MARK_BUY | ARMED | TRUST_UP",
+    "shadow_book_on_book_ADD_only": "EMPTY_BY_POLICY / observation-only ledger (no open)",
+    "promote_forbidden": true
+  },
+  "REQUIRED_FOR_GENUINE_EMIT": {
+    "provenance_gate": "REQUIRED",
+    "required_provenance_keys": [
+      "source=ORIGINAL_ENGINE",
+      "engine_id",
+      "engine_version",
+      "engine_run_id",
+      "market_bar_asof",
+      "source_hash"
+    ],
+    "t1_asof_gate": "market_bar_asof > formal previous asof (T0 ≈ 2026-09-18)",
+    "filename_only_engine_emit": "REJECTED",
+    "anti_loop": "identical source_hash + engine_run_id + market_bar_asof → CAPTURED_ALREADY; new_signals=0",
+    "yahoo_signal_forbidden": true,
+    "yahoo_geometry_forbidden": true,
+    "t0_relabel_forbidden": true
+  },
+  "horizons_for_outcome_maturity": [
+    5,
+    21,
+    63,
+    126,
+    252
+  ],
+  "new_hypotheses_from_T0": 0,
+  "honesty": [
+    "No invented meaning beyond types.ts / formulas.ts / warehouse write / EXECUTION_POLICY / research_profile",
+    "Documentation of truth only — not a feature PR",
+    "T0 ≠ T1; Discovery ≠ Confirmation; book_ADD ≠ MARK_BUY; H ≠ BUY"
+  ]
+}

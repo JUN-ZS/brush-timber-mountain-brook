@@ -6,8 +6,8 @@
   "model_version": "DESK_CORE_V1",
   "evaluation_clock": "LIVE_FORWARD",
   "control_plane_version": "DESK_FORWARD_CONTROL_PLANE_V1",
-  "written_at_utc": "2026-09-28T09:31:36Z",
-  "written_at_hkt": "2026-09-28 17:31:36 HKT",
+  "written_at_utc": "2026-09-28T10:36:13Z",
+  "written_at_hkt": "2026-09-28 18:36:13 HKT",
   "slice": "DESK_NODE_ONLY",
   "note": "Desk node slice of FORWARD RESEARCH CONTROL PLANE V1. Lands MEMORY(#13)+EVOLUTION(#14)+T1 LIVE(#15)+DATA WALL(#16) onto main. Does NOT invent T1/H; does NOT treat T0 discovery maturity as T1 confirmation.",
   "lifecycle": {
@@ -36,13 +36,14 @@
     "current_states": [
       "T0_FROZEN",
       "T1_CAPTURED",
+      "CAPTURED_ALREADY",
       "CONFIRMATION_OPEN",
       "WAIT_OUTCOME_MATURITY",
       "WAITING_FOR_FUTURE_BARS"
     ],
     "primary_state": "T1_CAPTURED",
     "confirmation_state": "CONFIRMATION_OPEN",
-    "outcome_state": "WAIT_OUTCOME_MATURITY",
+    "outcome_state": "WAITING_FOR_FUTURE_BARS",
     "anti_loop_state_on_identical_reinput": "CAPTURED_ALREADY"
   },
   "source_status": "OK",
@@ -132,7 +133,7 @@
     "note": "No new H added in CONTROL PLANE landing. confirmation_status remains UNTESTED until confirmation-cohort outcomes mature. discovery_n ≠ CONFIRMED."
   },
   "knowledge_delta": "NONE",
-  "knowledge_delta_note": "CONTROL PLANE alignment commit adds status slice only; does not re-capture T1 or invent evidence.",
+  "knowledge_delta_note": "AUTONOMOUS RESEARCH ACQUISITION V1: contracts documented; T1 already captured; no post-2026-09-25 completed bars → no confirmation outcome maturity; anti-loop CAPTURED_ALREADY.",
   "hard_locks": {
     "T0_immutable": true,
     "T0_neq_T1": true,
@@ -162,7 +163,8 @@
     "new_signals_on_identical_reinput": 0,
     "knowledge_delta_on_identical_reinput": "NONE",
     "verified_on_tip": true,
-    "last_observed_gate": "CAPTURED_ALREADY"
+    "last_observed_gate": "CAPTURED_ALREADY",
+    "last_forward_run_id": "FORWARD_RUN_20260928T103554Z"
   },
   "stack_landing": {
     "topology": "Desk #13 → #14 → #15 / T1 stack (+ #16 merged into tip) → MAIN",
@@ -186,5 +188,21 @@
     },
     "tip_branch": "research/desk-t1-live-confirm-v1",
     "target": "main"
+  },
+  "acquisition_v1": {
+    "pass": "AUTONOMOUS_RESEARCH_ACQUISITION_V1",
+    "EXISTING_T1_SUFFICIENT_FOR_CAPTURE": true,
+    "APP_INTENT_PROFILE": "research/forward_v1/desk/APP_INTENT_PROFILE.json",
+    "MINIMUM_DATA_REQUIRED_FOR_T1": "research/forward_v1/desk/MINIMUM_DATA_REQUIRED_FOR_T1.json",
+    "OUTCOME_MATURITY_STATUS": "research/forward_v1/desk/status/OUTCOME_MATURITY_STATUS.json",
+    "forward_run_id": "FORWARD_RUN_20260928T103554Z",
+    "T1_STATUS_on_rerun": "CAPTURED_ALREADY",
+    "NEW_SIGNAL": 0,
+    "t1_confirmation_resolved_any_horizon": 0,
+    "outcome_state": "WAITING_FOR_FUTURE_BARS",
+    "post_t1_asof_trading_days": 0,
+    "new_hypotheses_from_T0": 0,
+    "knowledge_delta": "NONE",
+    "note": "Documented intent+minimum-data contracts from actual code; advanced maturity path; insufficient post-anchor bars → WAITING_FOR_FUTURE_BARS."
   }
 }
