@@ -1,0 +1,190 @@
+{
+  "schema": "FORWARD_CONTROL_PLANE_STATUS.v1",
+  "node": "desk",
+  "hub_name": "信股慣性台",
+  "app_id": "xin_gu_inertia_desk",
+  "model_version": "DESK_CORE_V1",
+  "evaluation_clock": "LIVE_FORWARD",
+  "control_plane_version": "DESK_FORWARD_CONTROL_PLANE_V1",
+  "written_at_utc": "2026-09-28T09:31:36Z",
+  "written_at_hkt": "2026-09-28 17:31:36 HKT",
+  "slice": "DESK_NODE_ONLY",
+  "note": "Desk node slice of FORWARD RESEARCH CONTROL PLANE V1. Lands MEMORY(#13)+EVOLUTION(#14)+T1 LIVE(#15)+DATA WALL(#16) onto main. Does NOT invent T1/H; does NOT treat T0 discovery maturity as T1 confirmation.",
+  "lifecycle": {
+    "state_machine_enums": [
+      "T0_FROZEN",
+      "WAIT_NEW_SOURCE",
+      "WAIT_NEW_BAR",
+      "BLOCKED_WAITING_NEW_BAR",
+      "BLOCKED_PROVENANCE",
+      "BLOCKED_FILENAME_ONLY_EMIT",
+      "T1_CAPTURED",
+      "CAPTURED_ALREADY",
+      "CONFIRMATION_OPEN",
+      "WAIT_5D",
+      "WAIT_21D",
+      "WAIT_63D",
+      "WAIT_126D",
+      "WAIT_252D",
+      "WAIT_OUTCOME_MATURITY",
+      "WAITING_FOR_FUTURE_BARS",
+      "H_UNTESTED",
+      "H_PENDING",
+      "H_CONFIRMED",
+      "H_REJECTED"
+    ],
+    "current_states": [
+      "T0_FROZEN",
+      "T1_CAPTURED",
+      "CONFIRMATION_OPEN",
+      "WAIT_OUTCOME_MATURITY",
+      "WAITING_FOR_FUTURE_BARS"
+    ],
+    "primary_state": "T1_CAPTURED",
+    "confirmation_state": "CONFIRMATION_OPEN",
+    "outcome_state": "WAIT_OUTCOME_MATURITY",
+    "anti_loop_state_on_identical_reinput": "CAPTURED_ALREADY"
+  },
+  "source_status": "OK",
+  "engine_status": "OK",
+  "t1_status": "T1_CAPTURED",
+  "t1_cohort_size": 7,
+  "discovery_cohort_size": 7,
+  "confirmation_cohort_size": 7,
+  "t1_capture": {
+    "status": "T1_CAPTURED",
+    "last_gate_on_rerun": "CAPTURED_ALREADY",
+    "market_bar_asof": "2026-09-25",
+    "engine_run_id": "desk_20260928T171851+0800",
+    "source_hash": "f5c8b8215dd69a38ad12be27b3b2d2d01f3396c3172fde5e3708b8baf14329d1",
+    "confirmation_cohort_id": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z",
+    "confirmation_cohort_open": true,
+    "events": 7,
+    "signal_type": "desk.book_ADD",
+    "MARK_BUY": 0,
+    "ARMED": 0,
+    "TRUST_UP": 0,
+    "paths": {
+      "T1": "research/forward_v1/desk/T1/",
+      "T1_formal": "research/forward_v1/desk/T1_20260928T091900Z/",
+      "events": "research/forward_v1/desk/T1/events/events.jsonl",
+      "research_profile_snapshot": "research/forward_v1/desk/T1/research_profile_snapshot.json",
+      "source_provenance": "research/forward_v1/desk/T1/source_provenance.json"
+    },
+    "source": "ORIGINAL_ENGINE",
+    "provenance_gate": "REQUIRED"
+  },
+  "cohorts": {
+    "discovery": {
+      "id": "T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET",
+      "market_bar_asof": "2026-09-18",
+      "size": 7,
+      "role": "DISCOVERY_ONLY",
+      "note": "T0 discovery maturity (incl. any resolved_5d on T0 anchors) is NOT T1 confirmation."
+    },
+    "confirmation": {
+      "id": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z",
+      "market_bar_asof": "2026-09-25",
+      "size": 7,
+      "role": "CONFIRMATION_OPEN",
+      "open": true,
+      "note": "Opened by genuine T1 capture; outcomes still WAITING_FOR_FUTURE_BARS."
+    }
+  },
+  "outcomes": {
+    "outcomes_5d": {
+      "status": "WAITING_FOR_MATURITY",
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7,
+      "t0_discovery_resolved_5d": 7,
+      "t0_discovery_note": "resolved_5d=7 is T0 discovery maturity after market_bar_asof=2026-09-18 — NOT T1 confirmation. Do not merge pools."
+    },
+    "outcomes_21d": {
+      "status": "WAITING_FOR_FUTURE_BARS",
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7
+    },
+    "outcomes_63d": {
+      "status": "WAITING_FOR_FUTURE_BARS",
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7
+    },
+    "outcomes_126d": {
+      "status": "WAITING_FOR_FUTURE_BARS",
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7
+    },
+    "outcomes_252d": {
+      "status": "WAITING_FOR_FUTURE_BARS",
+      "t1_confirmation_resolved": 0,
+      "t1_confirmation_waiting": 7
+    },
+    "t1_outcome_stubs_total": 35,
+    "t1_outcome_stubs_status": "WAITING_FOR_FUTURE_BARS"
+  },
+  "h": {
+    "untested": 39,
+    "pending": 0,
+    "confirmed": 0,
+    "rejected": 0,
+    "frozen_total": 39,
+    "new_hypotheses_this_landing": 0,
+    "note": "No new H added in CONTROL PLANE landing. confirmation_status remains UNTESTED until confirmation-cohort outcomes mature. discovery_n ≠ CONFIRMED."
+  },
+  "knowledge_delta": "NONE",
+  "knowledge_delta_note": "CONTROL PLANE alignment commit adds status slice only; does not re-capture T1 or invent evidence.",
+  "hard_locks": {
+    "T0_immutable": true,
+    "T0_neq_T1": true,
+    "t0_maturity_is_not_t1_confirmation": true,
+    "book_ADD_is_not_mark_buy": true,
+    "Yahoo_neq_Desk_geometry": true,
+    "discovery_neq_confirmation_pools": true,
+    "no_new_H_on_landing": true,
+    "no_force_push_main": true,
+    "no_LIVE_REPLAY_mix": true,
+    "score_ne_probability": true,
+    "H_ne_BUY": true,
+    "frozen_H_immutable": true,
+    "anti_loop_identical_source_hash_engine_run_id_asof": "CAPTURED_ALREADY",
+    "filename_only_engine_emit_rejected": true,
+    "provenance_gate": "REQUIRED"
+  },
+  "t0_integrity": {
+    "status": "PASS",
+    "path": "research/forward_v1/desk/T0_20260921T183800/",
+    "events_sha256": "836b127b5d332e334b888fe06407353baf729211f13944f053abe26f914cebd6",
+    "outcomes_sha256": "fbea6fdc6e4ddaad5977b91eeda044c0c9f474109b0720befeadc9bdfa2cac24",
+    "diff_vs_main": "NONE"
+  },
+  "anti_loop": {
+    "rule": "identical source_hash + engine_run_id + market_bar_asof → CAPTURED_ALREADY",
+    "new_signals_on_identical_reinput": 0,
+    "knowledge_delta_on_identical_reinput": "NONE",
+    "verified_on_tip": true,
+    "last_observed_gate": "CAPTURED_ALREADY"
+  },
+  "stack_landing": {
+    "topology": "Desk #13 → #14 → #15 / T1 stack (+ #16 merged into tip) → MAIN",
+    "pr_chain": {
+      "13": {
+        "title": "RESEARCH MEMORY V1",
+        "state_at_write": "OPEN (base main)"
+      },
+      "14": {
+        "title": "RESEARCH EVOLUTION V1",
+        "state_at_write": "OPEN (base #13 branch)"
+      },
+      "15": {
+        "title": "T1 LIVE FORWARD + HYPOTHESIS CONFIRMATION V1",
+        "state_at_write": "OPEN (base #14 branch; tip includes #16)"
+      },
+      "16": {
+        "title": "BREAK T1 DATA WALL",
+        "state_at_write": "MERGED into research/desk-t1-live-confirm-v1 (NOT main)"
+      }
+    },
+    "tip_branch": "research/desk-t1-live-confirm-v1",
+    "target": "main"
+  }
+}
