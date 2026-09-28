@@ -959,7 +959,6 @@ def main():
         "research_contract": {
             "strategy": "1 ATM Long Call + N OTM Short Calls + N Far OTM Long Wings",
             "breakout_variation": "confirmed breakout removes all SHORT only; failed breakout removes one SHORT only; all WINGs are retained",
-            "variation": "same V6 rules, but breakout actions close SHORT calls only and retain all wings",
             "N_selection": f"largest N in 1..{N_MAX} passing exact terminal max-loss risk gate",
             "risk_budgets": list(RISK_BUDGETS),
             "signal": "QQQ close/52-week high >= 0.98 AND close/200DMA - 1 >= 0.08",
@@ -997,3 +996,34 @@ def main():
             "no_readd": True,
             "baseline": "same dynamic entry N, whole package exits on first short-strike touch",
             "entry_execution": "ATM Ask / Short Bid / Wing Ask",
+            "management_execution": "Short Ask / Wing Bid",
+            "daily_mark": "bid/ask midpoint",
+            "strict_quote_policy": "no interpolation; missing entry/final quotes reject trade",
+            "no_optimization": True,
+        },
+        "data": {
+            "source_repo": RELEASE_REPO,
+            "release_tag": RELEASE_TAG,
+            "options_sha256": sha256_file(opt_path),
+            "underlying_sha256": sha256_file(und_path),
+            "underlying_range": [
+                str(und["date"].min().date()),
+                str(und["date"].max().date()),
+            ],
+        },
+        "results": all_stats,
+    }
+
+    (out / "ratio_call_state_v7_result.json").write_text(
+        json.dumps(report, indent=2, default=str),
+        encoding="utf-8",
+    )
+    pd.DataFrame(all_stats).to_csv(
+        out / "ratio_call_state_v7_summary.csv",
+        index=False,
+    )
+    print(json.dumps(report, indent=2, default=str), flush=True)
+
+
+if __name__ == "__main__":
+    main()
