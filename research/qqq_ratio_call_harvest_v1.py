@@ -207,7 +207,7 @@ def build_selection_cache(con, opt_path, signal_dates):
 
     cache = {}
     for dt, g in chain.groupby("date", sort=True):
-        atm = g.iloc[(g["delta"] - 0.50).abs().argsort()[0]]
+        atm = g.loc[(g["delta"] - 0.50).abs().idxmin()]
         shorts = g[g["strike"] > float(atm["strike"])].copy()
         if shorts.empty:
             continue
