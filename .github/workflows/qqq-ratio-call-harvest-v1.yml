@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: qqq-ratio-call-harvest-v1
+  cancel-in-progress: true
+
 jobs:
   backtest:
     runs-on: ubuntu-latest
