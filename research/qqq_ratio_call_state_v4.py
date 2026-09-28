@@ -949,7 +949,6 @@ def main():
                 str(und["date"].min().date()),
                 str(und["date"].max().date()),
             ],
-            ],
         },
         "results": all_stats,
     }
