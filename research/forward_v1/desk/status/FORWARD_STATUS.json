@@ -1,20 +1,20 @@
 {
   "schema": "FORWARD_STATUS.runner_overlay.v1",
-  "last_run_id": "FORWARD_RUN_20260921T154318Z",
-  "checked_at_utc": "2026-09-21T15:43:19Z",
-  "checked_at_hkt": "2026-09-21 23:43:19 HKT",
+  "last_run_id": "FORWARD_RUN_20260928T092006Z",
+  "checked_at_utc": "2026-09-28T09:20:06Z",
+  "checked_at_hkt": "2026-09-28 17:20:06 HKT",
   "evaluation_clock": "LIVE_FORWARD",
   "data": "DATA_FRESH",
   "signal": "NO_NEW_SIGNAL",
   "event": "T0_IMMUTABLE",
   "resolver": {
-    "resolved_5d": 0,
-    "waiting": 35,
-    "newly_resolved": 0,
+    "resolved_5d": 7,
+    "waiting": 28,
+    "newly_resolved": 7,
     "maturity_anchor": "2026-09-18"
   },
   "shadow_book": "EMPTY_BY_POLICY",
-  "blocked_reason": "T1=BLOCKED_WAITING_NEW_BAR: No new completed daily bar with market_bar_asof > formal_previous_asof=2026-09-18. latest_completed_bar=2026-09-18. T0 re-emit ≠ T1. Do not invent T1 from Yahoo. (Honesty: RelVol #44 / BEAM #45 style blocker.)",
-  "run_history": "research/forward_v1/desk/run_history/FORWARD_RUN_20260921T154318Z.json",
-  "report": "research/forward_v1/desk/reports/REPORT_FORWARD_RUN_20260921T154318Z.html"
+  "blocked_reason": "Emit source_hash=f5c8b8215dd6… / event_ids already frozen into T1 — anti-reprocess: NEW_SIGNAL=0; do not re-capture identical engine emit.",
+  "run_history": "research/forward_v1/desk/run_history/FORWARD_RUN_20260928T092006Z.json",
+  "report": "research/forward_v1/desk/reports/REPORT_FORWARD_RUN_20260928T092006Z.html"
 }

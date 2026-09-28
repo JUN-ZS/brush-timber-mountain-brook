@@ -1,35 +1,42 @@
-# Desk T1_ENGINE_INBOX — LIVE FORWARD capture gate
+# T1_ENGINE_INBOX — Desk original-engine drop zone
 
-Accept **only** original juniper-kite Desk engine as-emitted payloads when:
+Drop **ORIGINAL** juniper-kite Desk engine emits here after a genuine new US daily bar.
 
-`market_bar_asof > last formal asof` (T0 formal ≈ `2026-09-18`)
+## Acceptance (machine-checkable — ALL required)
 
-## Hard locks
+Filename `engine_emit_*.jsonl` alone is **NEVER** enough.
 
-- T0 re-emit ≠ T1 (same bar as T0 → `NO_NEW_SIGNAL`)
-- Do **not** mint fake T1 from Yahoo; Yahoo is for outcomes only when bars exist
-- `book_ADD` ≠ `MARK_BUY` — observation only unless engine truly emits MARK_BUY/ARMED/TRUST_UP/BUY/SELL
-- score / alignScore ≠ probability; H ≠ BUY; LIVE ≠ REPLAY mix
+Each accepted emit must carry:
 
-## Drop format
+```
+source = ORIGINAL_ENGINE
+engine_id
+engine_version
+engine_run_id
+market_bar_asof   (> formal T0 asof 2026-09-18)
+source_hash
+```
 
-Place engine-emitted `events.jsonl` (or `desk_events_*.jsonl`) here after a genuine new completed daily bar + original engine run:
+Plus Desk geometry from the original emit (as available):
+
+`alignScore / opportunity / desk_state / regime / shape / trustUp / hot /
+ bandPosPct / relVol20 / book_addScore / book_trimScore / whyNotBuy`
+
+Prefer a sibling `source_provenance.json` next to the jsonl.
+
+## Rejects → BLOCKED_WAITING_ENGINE_EMIT
+
+- Yahoo-invented geometry / signals
+- T0 re-label / same-bar re-emit
+- Missing provenance keys
+- Filename-only `engine_emit_*.jsonl` without ORIGINAL_ENGINE content
+
+## How to produce
 
 ```
 cd /workspace/juniper-kite/juniper-kite-shadow-frost-up-down-get
 npx --yes tsx scripts/desk_run_warehouse_write.mts
-# then copy AS_EMITTED events into this inbox when market_bar_asof > 2026-09-18
+# then: capture_as_emitted.py --mode live_engine  (stamps provenance into this inbox)
 ```
 
-Required event fields (AS_EMITTED): `event_id`, `market_bar_asof`, `ticker`, `signal_type`, `price_at_signal`, …
-
-## Gate statuses
-
-| Status | Meaning |
-|--------|---------|
-| `BLOCKED_WAITING_NEW_BAR` | No completed daily bar newer than formal previous asof |
-| `BLOCKED_WAITING_ENGINE_EMIT` | Newer bar exists but no original engine emit in inbox / engine paths |
-| `READY_TO_CAPTURE` / `CAPTURED` | Genuine T1 — confirmation_cohort opens |
-| `NO_NEW_SIGNAL` | Same bar as T0 (data may be fresh) |
-
-Honesty: like RelVol #44 / BEAM #45 — document blocker; do not invent T1.
+Yahoo OK for outcome/OHLC maturity only — never for Desk ranking geometry.

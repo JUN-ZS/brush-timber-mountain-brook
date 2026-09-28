@@ -3,7 +3,7 @@
   "status": "OK",
   "node": "desk",
   "version": "RESEARCH_EVOLUTION_V1_T1_CONFIRM",
-  "run_id": "FORWARD_RUN_20260921T154318Z",
+  "run_id": "FORWARD_RUN_20260928T092006Z",
   "evolution_path": "research/forward_v1/desk/research_evolution/",
   "research_state": {
     "schema": "DESK_RESEARCH_STATE.v1",
@@ -11,12 +11,12 @@
     "hub": "信股慣性台",
     "version": "RESEARCH_EVOLUTION_V1_T1_CONFIRM",
     "profile_version": "research_profile_v1",
-    "signals_total": 7,
-    "signals_live": 7,
+    "signals_total": 14,
+    "signals_live": 14,
     "signals_replay": 0,
-    "joins_total": 7,
+    "joins_total": 14,
     "resolved": {
-      "5": 0,
+      "5": 7,
       "21": 0,
       "63": 0,
       "126": 0,
@@ -24,12 +24,12 @@
     },
     "waiting": {
       "5": 7,
-      "21": 7,
-      "63": 7,
-      "126": 7,
-      "252": 7
+      "21": 14,
+      "63": 14,
+      "126": 14,
+      "252": 14
     },
-    "resolved_5d": 0,
+    "resolved_5d": 7,
     "resolved_21d": 0,
     "resolved_63d": 0,
     "resolved_126d": 0,
@@ -43,14 +43,14 @@
     "hypotheses_confirmed": 0,
     "hypotheses_rejected": 0,
     "discovery_signals_n": 7,
-    "confirmation_signals_n": 0,
-    "confirmation_cohort_open": false,
+    "confirmation_signals_n": 7,
+    "confirmation_cohort_open": true,
     "KNOWLEDGE_DELTA": "NONE",
-    "T1_STATUS": "BLOCKED_WAITING_NEW_BAR",
-    "last_discovery_run": "FORWARD_RUN_20260921T154318Z",
-    "last_evidence_update": "2026-09-21T15:43:19Z",
+    "T1_STATUS": "CAPTURED_ALREADY",
+    "last_discovery_run": "FORWARD_RUN_20260928T092006Z",
+    "last_evidence_update": "2026-09-28T09:20:06Z",
     "discovery_cohort": "T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET",
-    "confirmation_cohort": "CONFIRMATION_COHORT|EMPTY",
+    "confirmation_cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z",
     "evaluation_clock": "LIVE_FORWARD",
     "benchmark": "QQQ",
     "execution_policy": "book_ADD => BOOK_ACTION / OBSERVATION; MARK_BUY=0 unless engine-emitted",
@@ -80,27 +80,27 @@
     "t0_integrity": "PASS",
     "t0_events_sha256": "836b127b5d332e334b888fe06407353baf729211f13944f053abe26f914cebd6",
     "t0_outcomes_sha256": "fbea6fdc6e4ddaad5977b91eeda044c0c9f474109b0720befeadc9bdfa2cac24",
-    "updated_at_utc": "2026-09-21T15:43:19Z",
+    "updated_at_utc": "2026-09-28T09:20:06Z",
     "research_progress": {
       "BEFORE": {
         "knew": [
           "RESEARCH MEMORY V1 profile + feature provenance",
-          "signal_memory rows=7",
-          "outcome joins + resolved_5d=0",
+          "signal_memory rows=14",
+          "outcome joins + resolved_5d=7",
           "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
           "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
         ],
         "hypotheses_total": 39,
         "hypotheses_frozen": 39,
-        "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+        "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
       },
       "NOW": [
         "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
         "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
         "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-        "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+        "T1_STATUS=CAPTURED_ALREADY"
       ],
       "CHANGED": [
         "none (anti-loop / blocked waiting new bar)"
@@ -109,22 +109,22 @@
       "WHAT WE KNEW BEFORE": {
         "knew": [
           "RESEARCH MEMORY V1 profile + feature provenance",
-          "signal_memory rows=7",
-          "outcome joins + resolved_5d=0",
+          "signal_memory rows=14",
+          "outcome joins + resolved_5d=7",
           "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
           "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
         ],
         "hypotheses_total": 39,
         "hypotheses_frozen": 39,
-        "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+        "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
       },
       "WHAT WE KNOW NOW": [
         "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
         "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
         "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-        "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+        "T1_STATUS=CAPTURED_ALREADY"
       ],
       "WHAT CHANGED": [
         "none (anti-loop / blocked waiting new bar)"
@@ -133,22 +133,22 @@
       "what_system_knew_before": {
         "knew": [
           "RESEARCH MEMORY V1 profile + feature provenance",
-          "signal_memory rows=7",
-          "outcome joins + resolved_5d=0",
+          "signal_memory rows=14",
+          "outcome joins + resolved_5d=7",
           "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
           "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
         ],
         "hypotheses_total": 39,
         "hypotheses_frozen": 39,
-        "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+        "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
       },
       "what_system_knows_now_that_it_did_not_know_before": [
         "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
         "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
         "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-        "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+        "T1_STATUS=CAPTURED_ALREADY"
       ],
       "KNOWLEDGE_DELTA": "NONE",
       "learning_delta": {
@@ -161,7 +161,7 @@
         "rejected": 0,
         "unchanged": 39,
         "KNOWLEDGE_DELTA": "NONE",
-        "T1_STATUS": "BLOCKED_WAITING_NEW_BAR"
+        "T1_STATUS": "CAPTURED_ALREADY"
       }
     }
   },
@@ -177,7 +177,7 @@
   },
   "evidence_log_rows_appended": 0,
   "evidence_log_rows_total": 39,
-  "discovery_run_path": "research/forward_v1/desk/research_evolution/DISCOVERY_RUN_20260921T154318Z.json",
+  "discovery_run_path": "research/forward_v1/desk/research_evolution/DISCOVERY_RUN_20260928T092006Z.json",
   "discovery_run": {
     "new_signals": 0,
     "new_resolved_outcomes": 0,
@@ -190,9 +190,9 @@
     "untested": 39,
     "pending": 0,
     "KNOWLEDGE_DELTA": "NONE",
-    "T1_STATUS": "BLOCKED_WAITING_NEW_BAR",
-    "confirmation_cohort": "CONFIRMATION_COHORT|EMPTY",
-    "confirmation_cohort_open": false,
+    "T1_STATUS": "CAPTURED_ALREADY",
+    "confirmation_cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z",
+    "confirmation_cohort_open": true,
     "example_hypothesis_id": "HYP_DESK_02bdbc259583",
     "top_research_relationships": [
       {
@@ -351,11 +351,11 @@
     "maturity_checks": [
       {
         "horizon": 5,
-        "resolved": 0,
-        "prev_resolved": 0,
+        "resolved": 7,
+        "prev_resolved": 7,
         "new_resolved": 0,
         "waiting": 7,
-        "discovery_n": 0,
+        "discovery_n": 7,
         "confirmation_n": 0
       },
       {
@@ -363,7 +363,7 @@
         "resolved": 0,
         "prev_resolved": 0,
         "new_resolved": 0,
-        "waiting": 7,
+        "waiting": 14,
         "discovery_n": 0,
         "confirmation_n": 0
       },
@@ -372,7 +372,7 @@
         "resolved": 0,
         "prev_resolved": 0,
         "new_resolved": 0,
-        "waiting": 7,
+        "waiting": 14,
         "discovery_n": 0,
         "confirmation_n": 0
       },
@@ -381,7 +381,7 @@
         "resolved": 0,
         "prev_resolved": 0,
         "new_resolved": 0,
-        "waiting": 7,
+        "waiting": 14,
         "discovery_n": 0,
         "confirmation_n": 0
       },
@@ -390,7 +390,7 @@
         "resolved": 0,
         "prev_resolved": 0,
         "new_resolved": 0,
-        "waiting": 7,
+        "waiting": 14,
         "discovery_n": 0,
         "confirmation_n": 0
       }
@@ -399,22 +399,22 @@
       "BEFORE": {
         "knew": [
           "RESEARCH MEMORY V1 profile + feature provenance",
-          "signal_memory rows=7",
-          "outcome joins + resolved_5d=0",
+          "signal_memory rows=14",
+          "outcome joins + resolved_5d=7",
           "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
           "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
         ],
         "hypotheses_total": 39,
         "hypotheses_frozen": 39,
-        "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+        "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
       },
       "NOW": [
         "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
         "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
         "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-        "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+        "T1_STATUS=CAPTURED_ALREADY"
       ],
       "CHANGED": [
         "none (anti-loop / blocked waiting new bar)"
@@ -423,22 +423,22 @@
       "WHAT WE KNEW BEFORE": {
         "knew": [
           "RESEARCH MEMORY V1 profile + feature provenance",
-          "signal_memory rows=7",
-          "outcome joins + resolved_5d=0",
+          "signal_memory rows=14",
+          "outcome joins + resolved_5d=7",
           "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
           "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
         ],
         "hypotheses_total": 39,
         "hypotheses_frozen": 39,
-        "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+        "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
       },
       "WHAT WE KNOW NOW": [
         "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
         "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
         "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-        "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+        "T1_STATUS=CAPTURED_ALREADY"
       ],
       "WHAT CHANGED": [
         "none (anti-loop / blocked waiting new bar)"
@@ -447,22 +447,22 @@
       "what_system_knew_before": {
         "knew": [
           "RESEARCH MEMORY V1 profile + feature provenance",
-          "signal_memory rows=7",
-          "outcome joins + resolved_5d=0",
+          "signal_memory rows=14",
+          "outcome joins + resolved_5d=7",
           "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
           "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
         ],
         "hypotheses_total": 39,
         "hypotheses_frozen": 39,
-        "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+        "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
       },
       "what_system_knows_now_that_it_did_not_know_before": [
         "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+        "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+        "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
         "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
         "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-        "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+        "T1_STATUS=CAPTURED_ALREADY"
       ],
       "KNOWLEDGE_DELTA": "NONE",
       "learning_delta": {
@@ -475,10 +475,10 @@
         "rejected": 0,
         "unchanged": 39,
         "KNOWLEDGE_DELTA": "NONE",
-        "T1_STATUS": "BLOCKED_WAITING_NEW_BAR"
+        "T1_STATUS": "CAPTURED_ALREADY"
       }
     },
-    "waiting_dimension_freeze": true
+    "waiting_dimension_freeze": false
   },
   "example_hypothesis": {
     "hypothesis_id": "HYP_DESK_02bdbc259583",
@@ -513,16 +513,27 @@
       "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
     },
     "confirmation_stats": {
-      "n": 0,
+      "n": 7,
       "resolved_n": 0,
-      "waiting_n": 0,
+      "waiting_n": 7,
       "mean_return": null,
+      "median_return": null,
+      "mean_benchmark": null,
       "mean_excess": null,
       "hit_rate": null,
       "excess_hit_rate": null,
-      "cohort": "CONFIRMATION_COHORT|EMPTY",
-      "sample_flag": "NO_CONFIRMATION_SAMPLES",
-      "label": "CONFIRMATION_EMPTY_UNTIL_T1_OR_MATURITY"
+      "MFE": null,
+      "MAE": null,
+      "dispersion": null,
+      "time_period": "2026-09-25→+horizons",
+      "cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z",
+      "evaluation_clock": "LIVE_FORWARD",
+      "benchmark": "QQQ",
+      "thin_sample": true,
+      "sample_flag": "WAITING_NO_RETURNS",
+      "returns_observable": false,
+      "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY",
+      "note": "returns NOT observable yet — WAITING_FOR_FUTURE_BARS; do not invent returns (same honesty as BEAM #42)"
     },
     "current_stats": {
       "n": 7,
@@ -552,7 +563,7 @@
     "status": "HYPOTHESIS_FROZEN",
     "confirmation_status": "UNTESTED",
     "discovery_cohort": "T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET",
-    "confirmation_cohort": "CONFIRMATION_COHORT|EMPTY",
+    "confirmation_cohort": "CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z",
     "frozen_formula": {
       "condition_dimension": "regime",
       "condition_bucket": "RISK_ON_COMPAT",
@@ -570,22 +581,22 @@
     "BEFORE": {
       "knew": [
         "RESEARCH MEMORY V1 profile + feature provenance",
-        "signal_memory rows=7",
-        "outcome joins + resolved_5d=0",
+        "signal_memory rows=14",
+        "outcome joins + resolved_5d=7",
         "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
         "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
       ],
       "hypotheses_total": 39,
       "hypotheses_frozen": 39,
-      "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+      "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
     },
     "NOW": [
       "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-      "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-      "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+      "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+      "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
       "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
       "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-      "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+      "T1_STATUS=CAPTURED_ALREADY"
     ],
     "CHANGED": [
       "none (anti-loop / blocked waiting new bar)"
@@ -594,22 +605,22 @@
     "WHAT WE KNEW BEFORE": {
       "knew": [
         "RESEARCH MEMORY V1 profile + feature provenance",
-        "signal_memory rows=7",
-        "outcome joins + resolved_5d=0",
+        "signal_memory rows=14",
+        "outcome joins + resolved_5d=7",
         "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
         "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
       ],
       "hypotheses_total": 39,
       "hypotheses_frozen": 39,
-      "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+      "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
     },
     "WHAT WE KNOW NOW": [
       "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-      "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-      "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+      "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+      "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
       "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
       "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-      "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+      "T1_STATUS=CAPTURED_ALREADY"
     ],
     "WHAT CHANGED": [
       "none (anti-loop / blocked waiting new bar)"
@@ -618,22 +629,22 @@
     "what_system_knew_before": {
       "knew": [
         "RESEARCH MEMORY V1 profile + feature provenance",
-        "signal_memory rows=7",
-        "outcome joins + resolved_5d=0",
+        "signal_memory rows=14",
+        "outcome joins + resolved_5d=7",
         "DECLARED_BUCKET conditional analysis (feature→horizon observed rates)",
         "Frozen T0 discovery hypotheses; confirmation cohort EMPTY until genuine T1"
       ],
       "hypotheses_total": 39,
       "hypotheses_frozen": 39,
-      "last_discovery_run": "FORWARD_RUN_20260921T154312Z"
+      "last_discovery_run": "FORWARD_RUN_20260928T092006Z"
     },
     "what_system_knows_now_that_it_did_not_know_before": [
       "Frozen hypotheses exist: total=39 frozen=39 untested=39 pending=0 confirmed=0 rejected=0 — DISCOVERY≠BUY; confirmation_status ∈ UNTESTED|PENDING|CONFIRMED|REJECTED",
-      "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260921T154318Z)",
-      "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|EMPTY (temporal split; NEVER confirm on discovery cohort alone)",
+      "Evidence log + DISCOVERY_RUN deltas track learning across forward runs (last_discovery_run=FORWARD_RUN_20260928T092006Z)",
+      "Discovery cohort=T0_DISCOVERY_COHORT|desk_market_bar_asof=2026-09-18|mature_horizons=NONE_YET; Confirmation cohort=CONFIRMATION_COHORT|T1_PLUS|desk_market_bar_asof=2026-09-25|opened_by=DATAWALL_CAPTURE_20260928T091900Z (temporal split; NEVER confirm on discovery cohort alone)",
       "Top research relationships show discovery_n vs confirmation_n split (NOT probabilities; WAITING_NO_RETURNS when unresolved)",
       "This run: NEW_SIGNAL=0 and no new resolutions — maturity/evidence checks ran with explicit unchanged counts (anti-loop / blocked waiting new bar)",
-      "T1_STATUS=BLOCKED_WAITING_NEW_BAR — no genuine Desk T1 yet (need market_bar_asof > 2026-09-18 + original engine emit); confirmation_cohort EMPTY; NEW_SIGNAL=0; did NOT invent T1 from Yahoo or re-label T0 (honesty like RelVol #44 / BEAM #45)."
+      "T1_STATUS=CAPTURED_ALREADY"
     ],
     "KNOWLEDGE_DELTA": "NONE",
     "learning_delta": {
@@ -646,7 +657,7 @@
       "rejected": 0,
       "unchanged": 39,
       "KNOWLEDGE_DELTA": "NONE",
-      "T1_STATUS": "BLOCKED_WAITING_NEW_BAR"
+      "T1_STATUS": "CAPTURED_ALREADY"
     }
   },
   "t0_integrity": "PASS",
@@ -664,5 +675,5 @@
     "confirmation_status_enum": "UNTESTED|PENDING|CONFIRMED|REJECTED"
   },
   "report": "research/forward_v1/desk/research_evolution/REPORT_RESEARCH_EVOLUTION.html",
-  "updated_at_utc": "2026-09-21T15:43:19Z"
+  "updated_at_utc": "2026-09-28T09:20:06Z"
 }
