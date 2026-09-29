@@ -7,6 +7,9 @@ on:
       - research/qqq_nplus50_one_and_done_v20.py
       - .github/workflows/qqq-nplus50-one-and-done-v20.yml
   workflow_dispatch:
+  pull_request:
+    branches:
+      - research/qqq-universal-harvest-bank-v19-all-realchain-20260929
 permissions:
   contents: read
 jobs:
