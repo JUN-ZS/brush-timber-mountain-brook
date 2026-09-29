@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - research/qqq-n10-seed-reverse-rights-v15-20260929
+  pull_request:
+    branches:
+      - research/qqq-opportunity-bank-v14-20260929
   workflow_dispatch:
 
 permissions:
