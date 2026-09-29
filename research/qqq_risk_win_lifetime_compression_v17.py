@@ -146,7 +146,7 @@ def simulate_v16_path(con,op,u,signals,cache):
         pnl=trade_pnl(pack,target)
         if pnl is None:
             continue
-        tr={"entry":dt,"exit":pd.Timestamp(pack["d"].iloc[-1].date()),
+        tr={"entry":dt,"exit":pd.Timestamp(pack["d"]["date"].iloc[-1]),
             "n":target,"pnl_usd":pnl,"reason":reason,
             "bank_before_usd":float(bank),
             "bank_after_usd":float(max(0.0,bank+pnl)),
