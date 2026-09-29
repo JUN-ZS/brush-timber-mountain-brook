@@ -144,10 +144,10 @@ def mid(q):
     return np.nan
 
 
-def max_loss_proxy(legs,n,spot):
+def max_loss_proxy(legs,n,spot,qa,qs,qw):
     atm_k=float(legs["atm"]["k"]); short_k=float(legs["short"]["k"]); wing_k=float(legs["wing"]["k"])
     grid=np.linspace(max(1.0,spot*0.2),max(spot*2.5,wing_k*1.25),1200)
-    initial=(float(legs["atm"]["ask"])-n*float(legs["short"]["bid"])+n*float(legs["wing"]["ask"]))*100
+    initial=(float(qa["ask"])-n*float(qs["bid"])+n*float(qw["ask"]))*100
     payoff=(np.maximum(grid-atm_k,0)-n*np.maximum(grid-short_k,0)+n*np.maximum(grid-wing_k,0))*100
     return max(0.0,-float(np.min(payoff-initial)))
 
@@ -164,7 +164,7 @@ def run_trade(con,opt_path,u,row,legs,n):
     vals=[ex(qa,"BUY"),ex(qs,"SELL"),ex(qw,"BUY")]
     if any(pd.isna(v) for v in vals):return None,"NO_ENTRY_QUOTES"
 
-    risk=max_loss_proxy(legs,n,float(row.close))
+    risk=max_loss_proxy(legs,n,float(row.close),qa,qs,qw)
     if risk>CAPITAL_USD*(RISK_PCT/100):return None,"RISK_GATE"
 
     entry_cf=(vals[0]-n*vals[1]+n*vals[2])*100
@@ -230,8 +230,8 @@ def main():
             desired=SEED_N
             reason="SEED_N_PLUS_50"
         else:
-            incremental=max(0.0,max_loss_proxy(legs,RECYCLE_N,float(row.close))
-                               -max_loss_proxy(legs,BASE_N,float(row.close)))
+            incremental=max(0.0,max_loss_proxy(legs,RECYCLE_N,float(row.close),qa,qs,qw)
+                               -max_loss_proxy(legs,BASE_N,float(row.close),qa,qs,qw))
             if credit>=incremental and credit>0:
                 desired=RECYCLE_N
                 reason="CREDIT_FUNDED_N_PLUS_20"
