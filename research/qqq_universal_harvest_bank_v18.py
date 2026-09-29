@@ -54,8 +54,8 @@ def ratio_pool(path):
 
 def conv_pool(path):
     x=pd.read_csv(path)
-    x["entry"]=pd.to_datetime(x["entry"])
-    x["exit"]=pd.to_datetime(x["exit"])
+    x["entry"]=pd.to_datetime(x["entry_date"])
+    x["exit"]=pd.to_datetime(x["exit_date"])
     x["risk"]=x["debit_usd"].astype(float)
     x["pnl"]=x["realized_pnl_usd"].astype(float)
     return x[["entry","exit","risk","pnl"]].assign(strategy="CONVEXITY_SHOCK")
