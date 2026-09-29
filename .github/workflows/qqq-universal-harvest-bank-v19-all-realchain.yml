@@ -93,7 +93,7 @@ jobs:
           python research/qqq_universal_harvest_bank_v19_all.py \
             --seed-ledger artifacts/v16/n10_seed_reverse_ledger.csv \
             --ratio-ledger artifacts/ratio/trades_N2_BASELINE_TOUCH.csv \
-            --convexity-ledger artifacts/conv/qqq_realchain_convexity_v1_cycles.csv \
+            --convexity-ledger artifacts/conv/qqq_hybrid_downside_convexity_v1_shock_gated_cycles.csv \
             --state-ledger artifacts/state/trades_STATE_ADAPTIVE_GEOMETRY.csv \
             --staggered-ledger artifacts/staggered/trades_1_LAYER_NO_OVERLAP.csv \
             --risk-ledger artifacts/risk/all_realchain_entry_risk.csv \
