@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/qqq-ratio-risk-ladder-v9-20260929
+      - research/qqq-ratio-risk-ladder-v9-fast-20260929
   workflow_dispatch:
 
 permissions:
