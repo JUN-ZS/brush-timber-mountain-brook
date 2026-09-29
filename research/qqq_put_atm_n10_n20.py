@@ -231,3 +231,5 @@ def main():
     print(json.dumps(report,indent=2,default=str),flush=True)
 
 if __name__=="__main__":main()
+
+# Trigger replay after workflow installation.
