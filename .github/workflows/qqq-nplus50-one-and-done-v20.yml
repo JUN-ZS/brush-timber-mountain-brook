@@ -7,11 +7,11 @@ on:
       - research/qqq_nplus50_one_and_done_v20.py
       - .github/workflows/qqq-nplus50-one-and-done-v20.yml
   workflow_dispatch:
-  pull_request:
-    branches:
-      - research/qqq-universal-harvest-bank-v19-all-realchain-20260929
 permissions:
   contents: read
+concurrency:
+  group: qqq-nplus50-one-and-done-v20
+  cancel-in-progress: true
 jobs:
   replay:
     runs-on: ubuntu-22.04
@@ -34,29 +34,28 @@ jobs:
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
         env:
           GH_TOKEN: ${{ github.token }}
-      - name: Run N+ matrix
+      - name: Run stopping-rule matrix
         run: |
           python research/qqq_nplus50_one_and_done_v20.py --data-dir data --out artifacts
           python - <<'PY'
           import json
-          from pathlib import Path
-          p=Path('artifacts/nplus50_matrix_result.json')
-          r=json.loads(p.read_text())
-          r.pop('top10_full_dump', None)
-          print(json.dumps({k:r[k] for k in r if k!='top10'}, indent=2))
-          print('TOP10')
-          for i,row in enumerate(r.get('top10',[]),1):
-              print(i, row)
+          r=json.loads(open('artifacts/nplus50_matrix_result.json').read())
+          print('reached_10_from_start', r['diagnostics']['configs_reached_10_from_start'], '/', r['diagnostics']['configs_total'])
+          print('TOP20_STOP')
+          for i,row in enumerate(r.get('top20_by_wins_before_first_loss',[]),1):
+              print(i, row.get('long_delta_target'), row.get('short_delta_target'), row.get('n'),
+                    'reached', row.get('from_start_reached_10'),
+                    'wins_before_stop', row.get('from_start_wins_before_stop'),
+                    'pnl', row.get('from_start_pnl_usd'),
+                    'wr', row.get('win_rate'))
           PY
-      - name: Upload small artifacts only
+      - name: Upload stopping artifacts
         uses: actions/upload-artifact@v4
         with:
           name: qqq-nplus50-one-and-done-v20
           path: |
             artifacts/nplus50_matrix_result.json
-            artifacts/nplus50_top_winrate.csv
-            artifacts/nplus50_top_10win.csv
-            artifacts/nplus50_ranked.csv
+            artifacts/nplus50_stopping_rank.csv
             artifacts/nplus50_matrix_summary.csv
           if-no-files-found: error
           continue-on-error: true
