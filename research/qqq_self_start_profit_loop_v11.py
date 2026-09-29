@@ -163,8 +163,8 @@ def main():
                 "total_return_pct":float(100*(e.nav.iloc[-1]/CAPITAL-1)),
                 "cagr":float((e.nav.iloc[-1]/CAPITAL)**(1/yrs)-1),
                 "maxdd_daily_mtm":float(e.dd.min()),
-                "max_extra_pairs":int(max([x["extra_pairs"] for x in ts],default=0)),
-                "funded_trades":int(sum(x["extra_pairs"]>0 for x in ts))}
+                "max_extra_pairs":int(max([x.get("extra_pairs",0) for x in ts],default=0)),
+                "funded_trades":int(sum(x.get("extra_pairs",0)>0 for x in ts))}
     sb=summ(base,eb,"STATIC_N2");sl=summ(ladder,el,"PROFIT_FUNDED_LADDER")
 
     pd.DataFrame(rows).to_csv(out/"profit_funded_ledger.csv",index=False)
