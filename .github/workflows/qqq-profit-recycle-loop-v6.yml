@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: qqq-profit-recycle-loop-v6-clean
+  group: research-qqq-profit-recycle-loop-v6-20260929-clean
   cancel-in-progress: true
 
 jobs:
