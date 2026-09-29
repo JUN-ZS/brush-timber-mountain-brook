@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - research/qqq-universal-harvest-bank-v18-20260929
+    paths:
+      - research/qqq_universal_harvest_bank_v18.py
+      - research/QQQ_UNIVERSAL_HARVEST_BANK_V18_README.md
+      - .github/workflows/qqq-universal-harvest-bank-v18.yml
   workflow_dispatch:
 
 concurrency:
@@ -16,7 +20,7 @@ permissions:
 jobs:
   replay:
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -47,10 +51,18 @@ jobs:
           python research/qqq_realchain_convexity_v1.py --data-dir data --out artifacts/conv
       - name: Run Universal Harvest Bank
         run: |
-          python research/qqq_universal_harvest_bank_v18.py --seed-ledger artifacts/v16/n10_seed_reverse_ledger.csv --ratio-ledger artifacts/ratio/trades_N2_BASELINE_TOUCH.csv --convexity-ledger artifacts/conv/qqq_realchain_convexity_v1_cycles.csv --out artifacts/universal
+          python research/qqq_universal_harvest_bank_v18.py \
+            --seed-ledger artifacts/v16/n10_seed_reverse_ledger.csv \
+            --ratio-ledger artifacts/ratio/trades_N2_BASELINE_TOUCH.csv \
+            --convexity-ledger artifacts/conv/qqq_realchain_convexity_v1_cycles.csv \
+            --out artifacts/universal
+          cat artifacts/universal/qqq_universal_harvest_bank_v18_result.json
       - name: Upload V18 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: qqq-universal-harvest-bank-v18
-          path: artifacts/
+          path: |
+            artifacts/universal/qqq_universal_harvest_bank_v18_result.json
+            artifacts/universal/universal_harvest_seed_summary.csv
+            artifacts/universal/universal_harvest_events.csv
           if-no-files-found: error
