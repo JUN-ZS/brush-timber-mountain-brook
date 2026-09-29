@@ -143,15 +143,47 @@ def main():
     entry=ent_l[["key","long_entry_bid","long_entry_ask"]].merge(ent_s[["key","short_entry_bid","short_entry_ask"]],on="key",how="outer")
 
     # Exit quote: exact intended date, else first common available quote within 5 days.
-    ex_l=specs[["key","exit_intended","long_id"]].rename(columns={"long_id":"cid","exit_intended":"date"}).sort_values(["cid","date"])
-    ex_s=specs[["key","exit_intended","short_id"]].rename(columns={"short_id":"cid","exit_intended":"date"}).sort_values(["cid","date"])
-    qr=q.sort_values(["cid","date"])
-    ex_l=pd.merge_asof(ex_l,qr,on="date",by="cid",direction="forward",tolerance=pd.Timedelta(days=5),allow_exact_matches=True)
-    ex_s=pd.merge_asof(ex_s,qr,on="date",by="cid",direction="forward",tolerance=pd.Timedelta(days=5),allow_exact_matches=True)
-    ex_l=ex_l.rename(columns={"date":"exit_quote_date","bid":"long_exit_bid","ask":"long_exit_ask"})
-    ex_s=ex_s.rename(columns={"date":"exit_quote_date_s","bid":"short_exit_bid","ask":"short_exit_ask"})
-    exitq=ex_l[["key","exit_quote_date","long_exit_bid","long_exit_ask"]].merge(
-        ex_s[["key","exit_quote_date_s","short_exit_bid","short_exit_ask"]],on="key",how="outer")
+    # Avoid merge_asof's multi-key sorting requirements by doing an explicit
+    # per-contract forward lookup against the already-loaded quote table.
+    qrows={}
+    for cid,grp in q.groupby("cid",sort=False):
+        g2=grp.sort_values("date")
+        qrows[str(cid)]=(
+            g2["date"].to_numpy(dtype="datetime64[ns]"),
+            g2["bid"].to_numpy(dtype=float),
+            g2["ask"].to_numpy(dtype=float),
+        )
+
+    def first_quote(cid, target):
+        arr=qrows.get(str(cid))
+        if arr is None:
+            return None
+        dates,bids,asks=arr
+        t=np.datetime64(pd.Timestamp(target).to_datetime64())
+        j=int(np.searchsorted(dates,t,side="left"))
+        if j>=len(dates):
+            return None
+        if dates[j] > t + np.timedelta64(5,"D"):
+            return None
+        return pd.Timestamp(dates[j]), float(bids[j]), float(asks[j])
+
+    exit_rows=[]
+    for rr in specs[["key","exit_intended","long_id","short_id"]].itertuples(index=False):
+        lq=first_quote(rr.long_id,rr.exit_intended)
+        sq=first_quote(rr.short_id,rr.exit_intended)
+        if lq is None or sq is None:
+            exit_rows.append({
+                "key":int(rr.key),"exit_quote_date":pd.NaT,"exit_quote_date_s":pd.NaT,
+                "long_exit_bid":np.nan,"long_exit_ask":np.nan,
+                "short_exit_bid":np.nan,"short_exit_ask":np.nan,
+            })
+        else:
+            exit_rows.append({
+                "key":int(rr.key),"exit_quote_date":lq[0],"exit_quote_date_s":sq[0],
+                "long_exit_bid":lq[1],"long_exit_ask":lq[2],
+                "short_exit_bid":sq[1],"short_exit_ask":sq[2],
+            })
+    exitq=pd.DataFrame(exit_rows)
     merged=specs.merge(entry,on="key",how="left").merge(exitq,on="key",how="left")
     before=len(merged)
     merged=merged.dropna(subset=["long_entry_ask","short_entry_bid","long_exit_bid","short_exit_ask"]).copy()
