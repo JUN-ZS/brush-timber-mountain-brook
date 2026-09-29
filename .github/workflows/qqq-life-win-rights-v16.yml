@@ -1,0 +1,64 @@
+name: QQQ Life-Win Rights V16
+
+on:
+  push:
+    branches:
+      - research/qqq-life-win-rights-v16-20260929
+    paths:
+      - research/qqq_life_win_rights_v16.py
+      - research/QQQ_LIFE_WIN_RIGHTS_V16_README.md
+      - .github/workflows/qqq-life-win-rights-v16.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-life-win-rights-v16
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install duckdb pandas pyarrow numpy
+      - name: Download canonical QQQ data-v1
+        run: |
+          mkdir -p data
+          gh release download data-v1 \
+            --repo lambdaclass/options_portfolio_backtester \
+            --pattern "QQQ_options.parquet" \
+            --pattern "QQQ_underlying.parquet" \
+            --dir data
+          sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Run V16 life-win rights
+        run: |
+          python research/qqq_life_win_rights_v16.py --data-dir data --out artifacts
+      - name: Show result json
+        run: |
+          if [ -f artifacts/qqq_life_win_rights_v16_result.json ]; then
+            cat artifacts/qqq_life_win_rights_v16_result.json
+          else
+            echo NO_RESULT_JSON
+            ls -la artifacts || true
+          fi
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-life-win-rights-v16
+          path: |
+            artifacts/qqq_life_win_rights_v16_result.json
+            artifacts/life_win_ledger.csv
+            artifacts/summary.csv
+            artifacts/equity_*.csv
+          if-no-files-found: error
