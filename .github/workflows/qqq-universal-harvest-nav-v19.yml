@@ -1,0 +1,70 @@
+name: QQQ Universal Harvest NAV V19
+
+on:
+  push:
+    branches:
+      - research/qqq-universal-harvest-nav-v19-20260930
+    paths:
+      - research/qqq_universal_harvest_nav_v19.py
+      - research/qqq_universal_harvest_bank_v18.py
+      - research/QQQ_UNIVERSAL_HARVEST_NAV_V19_README.md
+      - .github/workflows/qqq-universal-harvest-nav-v19.yml
+  workflow_dispatch:
+
+concurrency:
+  group: qqq-universal-harvest-nav-v19
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install duckdb pandas pyarrow numpy
+      - name: Download canonical QQQ data-v1
+        run: |
+          mkdir -p data
+          gh release download data-v1 --repo lambdaclass/options_portfolio_backtester --pattern "QQQ_options.parquet" --pattern "QQQ_underlying.parquet" --dir data
+          sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Run V16 seed path
+        run: |
+          mkdir -p artifacts/v16
+          python research/qqq_n10_seed_bank_only_reverse_v16.py --data-dir data --out artifacts/v16
+      - name: Run Ratio-Call Harvest N2
+        run: |
+          mkdir -p artifacts/ratio
+          python research/qqq_ratio_call_harvest_v1.py --data-dir data --n 2 --out artifacts/ratio
+      - name: Run Real-Chain Convexity
+        run: |
+          mkdir -p artifacts/conv
+          python research/qqq_realchain_convexity_v1.py --data-dir data --out artifacts/conv
+      - name: Run V19 NAV
+        run: |
+          python research/qqq_universal_harvest_nav_v19.py \
+            --seed-ledger artifacts/v16/n10_seed_reverse_ledger.csv \
+            --ratio-ledger artifacts/ratio/trades_N2_BASELINE_TOUCH.csv \
+            --convexity-ledger artifacts/conv/qqq_realchain_convexity_v1_cycles.csv \
+            --out artifacts/v19
+      - name: Upload V19 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-universal-harvest-nav-v19
+          path: |
+            artifacts/v19/qqq_universal_harvest_nav_v19_result.json
+            artifacts/v19/v19_per_seed_nav_stats.csv
+            artifacts/v19/v19_first_seed_isolated_equity.csv
+            artifacts/v19/v19_all_step_equity.csv
+            artifacts/v19/v19_events.csv
+          if-no-files-found: error
