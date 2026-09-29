@@ -116,7 +116,7 @@ def load_quotes(con,opt_path,seqs):
         AND bid IS NOT NULL AND ask IS NOT NULL AND ask>=bid AND bid>=0
     """,[str(opt_path),ids,min(starts).date(),max(ends).date()]).df()
     q["date"]=pd.to_datetime(q.date); q["cid"]=q.cid.astype(str)
-    return q.sort_values(["cid","date"]).drop_duplicates(["cid","date"])
+    return q.sort_values(["date","cid"]).drop_duplicates(["cid","date"])
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--data-dir",default="data"); ap.add_argument("--out",default="artifacts")
