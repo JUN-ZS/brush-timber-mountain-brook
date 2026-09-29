@@ -146,8 +146,8 @@ def main():
     ex_l=specs[["key","exit_intended","long_id"]].rename(columns={"long_id":"cid","exit_intended":"date"}).sort_values(["cid","date"])
     ex_s=specs[["key","exit_intended","short_id"]].rename(columns={"short_id":"cid","exit_intended":"date"}).sort_values(["cid","date"])
     qr=q.sort_values(["cid","date"])
-    ex_l=pd.merge_asof(ex_l,qr,on=["cid","date"],direction="forward",tolerance=pd.Timedelta(days=5),allow_exact_matches=True)
-    ex_s=pd.merge_asof(ex_s,qr,on=["cid","date"],direction="forward",tolerance=pd.Timedelta(days=5),allow_exact_matches=True)
+    ex_l=pd.merge_asof(ex_l,qr,on="date",by="cid",direction="forward",tolerance=pd.Timedelta(days=5),allow_exact_matches=True)
+    ex_s=pd.merge_asof(ex_s,qr,on="date",by="cid",direction="forward",tolerance=pd.Timedelta(days=5),allow_exact_matches=True)
     ex_l=ex_l.rename(columns={"date":"exit_quote_date","bid":"long_exit_bid","ask":"long_exit_ask"})
     ex_s=ex_s.rename(columns={"date":"exit_quote_date_s","bid":"short_exit_bid","ask":"short_exit_ask"})
     exitq=ex_l[["key","exit_quote_date","long_exit_bid","long_exit_ask"]].merge(
