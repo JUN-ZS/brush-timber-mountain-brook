@@ -131,7 +131,7 @@ def main():
 
     agg=[]
     for mode in ("ISOLATED","REPLENISH"):
-        z=df[df.mode==mode]
+        z=df[df["mode"]==mode]
         if z.empty: continue
         agg.append({
             "mode":mode,"seeds":len(z),
