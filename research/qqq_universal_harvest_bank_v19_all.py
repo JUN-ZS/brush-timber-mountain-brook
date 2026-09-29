@@ -8,7 +8,7 @@ Seed:
 
 Pool (real historical chain):
   RATIO_HARVEST_N2
-  CONVEXITY_REALCHAIN_ALWAYS_ON
+  CONVEXITY_SHOCK_GATED
   STATE_ADAPTIVE_GEOMETRY
   STAGGERED_1LAYER
 
@@ -63,7 +63,7 @@ def convexity_pool(path):
     return x.assign(
         risk=x["debit_usd"].astype(float),
         pnl=x["realized_pnl_usd"].astype(float),
-        strategy="CONVEXITY_REALCHAIN_ALWAYS_ON",
+        strategy="CONVEXITY_SHOCK_GATED",
     )[["entry", "exit", "risk", "pnl", "strategy"]]
 
 
@@ -128,7 +128,7 @@ def simulate(seed_row, pool, replenish):
         "future_opportunities": int(len(accepted)),
         "distinct_strategies": int(len({x["strategy"] for x in accepted})),
         "ratio_count": int(sum(x["strategy"] == "RATIO_HARVEST_N2" for x in accepted)),
-        "convexity_count": int(sum(x["strategy"] == "CONVEXITY_REALCHAIN_ALWAYS_ON" for x in accepted)),
+        "convexity_count": int(sum(x["strategy"] == "CONVEXITY_SHOCK_GATED" for x in accepted)),
         "state_count": int(sum(x["strategy"] == "STATE_ADAPTIVE_GEOMETRY" for x in accepted)),
         "staggered_count": int(sum(x["strategy"] == "STAGGERED_1LAYER" for x in accepted)),
         "gross_risk_traversed_usd": float(sum(float(x["risk"]) for x in accepted)),
@@ -160,7 +160,7 @@ def main():
         ratio_pool(args.ratio_ledger),
     ]
     priorities = {
-        "CONVEXITY_REALCHAIN_ALWAYS_ON": 0,
+        "CONVEXITY_SHOCK_GATED": 0,
         "STATE_ADAPTIVE_GEOMETRY": 1,
         "STAGGERED_1LAYER": 2,
         "RATIO_HARVEST_N2": 3,
@@ -233,13 +233,13 @@ def main():
         "source_runs": {
             "v16_seed": 36560796953,
             "ratio": 36550743553,
-            "convexity_always_on": 36550732916,
+            "convexity_shock_gated": 36550732916,
             "state_adaptive": "research/qqq-state-adaptive-geometry-v1-20260929",
             "staggered": 36550743641,
         },
         "strategies": [
             "RATIO_HARVEST_N2",
-            "CONVEXITY_REALCHAIN_ALWAYS_ON",
+            "CONVEXITY_SHOCK_GATED",
             "STATE_ADAPTIVE_GEOMETRY",
             "STAGGERED_1LAYER",
         ],
