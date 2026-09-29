@@ -44,7 +44,7 @@ def load_signal_chains(con,opt_path,dates):
              CAST(delta AS DOUBLE) AS delta
       FROM read_parquet(?)
       WHERE CAST(date AS DATE) IN (SELECT * FROM UNNEST(?))
-        AND UPPER("type")='CALL'
+        AND UPPER(\"type\")='CALL'
         AND delta IS NOT NULL AND bid IS NOT NULL AND ask IS NOT NULL
         AND ask>=bid AND bid>=0
         AND CAST(expiration AS DATE) BETWEEN
@@ -132,7 +132,7 @@ def one_and_done(vals, pnls, target=TARGET_WINS, prefix=""):
         else:
             first_loss=True
             break
-    pfx=prefix+
+    pfx=prefix
     return {
         f"{pfx}from_start_reached_10": bool(reached),
         f"{pfx}from_start_wins_before_stop": int(wins),
@@ -233,7 +233,6 @@ def main():
         "worst_pnl_usd":float(g.pnl_usd.min()),"total_pnl_usd":float(g.pnl_usd.sum()),
         "profit_factor":float(pos.sum()/abs(neg.sum())) if len(neg) else float("inf"),
         "longest_dollar_streak":int(longest),
-        # keep old names pointing at DOLLAR so prior artifacts stay comparable
         "win_rate":float(dollar.mean()),
         "from_start_reached_10": dstop["dollar_from_start_reached_10"],
         "from_start_wins_before_stop": dstop["dollar_from_start_wins_before_stop"],
