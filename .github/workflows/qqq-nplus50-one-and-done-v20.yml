@@ -33,18 +33,28 @@ jobs:
             https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
       - name: Run N+ matrix
         run: |
           python research/qqq_nplus50_one_and_done_v20.py --data-dir data --out artifacts
-          cat artifacts/nplus50_matrix_result.json
-      - name: Upload
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('artifacts/nplus50_matrix_result.json')
+          r=json.loads(p.read_text())
+          r.pop('top10_full_dump', None)
+          print(json.dumps({k:r[k] for k in r if k!='top10'}, indent=2))
+          print('TOP10')
+          for i,row in enumerate(r.get('top10',[]),1):
+              print(i, row)
+          PY
+      - name: Upload small artifacts only
         uses: actions/upload-artifact@v4
         with:
           name: qqq-nplus50-one-and-done-v20
           path: |
-            artifacts/nplus50_matrix_summary.csv
-            artifacts/nplus50_ranked.csv
-            artifacts/nplus50_trades.csv
             artifacts/nplus50_matrix_result.json
+            artifacts/nplus50_ranked.csv
+            artifacts/nplus50_matrix_summary.csv
           if-no-files-found: error
+          compression-level: 9
