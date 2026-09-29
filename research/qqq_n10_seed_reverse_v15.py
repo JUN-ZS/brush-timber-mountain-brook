@@ -65,16 +65,12 @@ def entry_quotes(con,opt_path,legs,dt):
     return ids,q,q_at(q,dt,ids[0]),q_at(q,dt,ids[1]),q_at(q,dt,ids[2])
 
 
-def run_trade(con,opt_path,u,row,legs,n,risk_budget_usd=0.0):
+def run_trade(con,opt_path,u,row,legs,n,d,q,ids,qa,qs,qw,risk_budget_usd=0.0):
     entry=pd.Timestamp(row.date)
-    end=min(entry+pd.Timedelta(days=30),pd.Timestamp(legs["expiry"]))
-    d=u[(u.date>=entry)&(u.date<=end)].copy().reset_index(drop=True)
-    if d.empty:return None,"NO_WINDOW"
-    ids,q,qa,qs,qw=entry_quotes(con,opt_path,legs,entry)
-    if any(v is None for v in (qa,qs,qw)):return None,"NO_ENTRY_QUOTES"
     risk=max_loss_proxy(legs,n,float(row.close),qa,qs,qw)
     base_gate=CAPITAL_USD*(RISK_PCT/100)
     if risk>base_gate+max(0.0,float(risk_budget_usd)):return None,"RISK_GATE"
+
     entry_cf=(ex(qa,"BUY")-n*ex(qs,"SELL")+n*ex(qw,"BUY"))*100.0
     cash=-entry_cf;eq=[]
     for _,r in d.iterrows():
@@ -82,6 +78,7 @@ def run_trade(con,opt_path,u,row,legs,n,risk_budget_usd=0.0):
         ma,ms,mw=mid(q_at(q,dt,ids[0])),mid(q_at(q,dt,ids[1])),mid(q_at(q,dt,ids[2]))
         if not any(pd.isna(v) for v in (ma,ms,mw)):
             eq.append((dt,CAPITAL+cash+ma*100-n*ms*100+n*mw*100))
+    if d.empty:return None,"NO_WINDOW"
     exit_dt=pd.Timestamp(d.iloc[-1].date)
     vals=[ex(q_at(q,exit_dt,ids[0]),"SELL"),
           ex(q_at(q,exit_dt,ids[1]),"BUY"),
@@ -93,7 +90,6 @@ def run_trade(con,opt_path,u,row,legs,n,risk_budget_usd=0.0):
     return {"entry":entry,"exit":exit_dt,"n":n,"pnl_usd":float(pnl),
             "return_pct":float(100*pnl/CAPITAL),"risk_proxy_usd":float(risk),
             "entry_cashflow_usd":float(entry_cf),"eq":eq},"OK"
-
 
 def seq(ts):
     if not ts:return pd.DataFrame()
@@ -120,22 +116,37 @@ def summary(ts,e,label):
             "funded_offspring_trades":int(sum(x.get("offspring",False) for x in ts))}
 
 
-def simulate(con,op,u,signals,mode):
+def simulate(con,op,u,signals,mode,cache):
     bank=0.0; parent_n=None; next_allowed=None; trades=[]; rows=[]; rejects={}; seed_seen=False
     for _,row in signals.iterrows():
         dt=pd.Timestamp(row.date)
         if next_allowed is not None and dt<=next_allowed: continue
 
-        legs=select_legs(con,op,dt)
-        if legs is None:
-            rejects["NO_ENTRY_LEGS"]=rejects.get("NO_ENTRY_LEGS",0)+1; continue
+        key=str(dt.date())
+        if key not in cache:
+            legs=select_legs(con,op,dt)
+            if legs is None:
+                cache[key]={"bad":"NO_ENTRY_LEGS"}
+            else:
+                ids=[legs["atm"]["id"],legs["short"]["id"],legs["wing"]["id"]]
+                end=min(dt+pd.Timedelta(days=30),pd.Timestamp(legs["expiry"]))
+                d=u[(u.date>=dt)&(u.date<=end)].copy().reset_index(drop=True)
+                q=quotes(con,op,ids,dt,end)
+                qa=q_at(q,dt,ids[0]);qs=q_at(q,dt,ids[1]);qw=q_at(q,dt,ids[2])
+                if d.empty:
+                    cache[key]={"bad":"NO_WINDOW"}
+                elif any(v is None for v in (qa,qs,qw)):
+                    cache[key]={"bad":"NO_ENTRY_QUOTES"}
+                else:
+                    r2=max_loss_proxy(legs,BASE_N,float(row.close),qa,qs,qw)
+                    risks={n:max_loss_proxy(legs,n,float(row.close),qa,qs,qw) for n in range(BASE_N,SEED_N+1)}
+                    cache[key]={"legs":legs,"ids":ids,"d":d,"q":q,"qa":qa,"qs":qs,"qw":qw,"r2":r2,"risks":risks}
+        pack=cache[key]
+        if "bad" in pack:
+            rejects[pack["bad"]]=rejects.get(pack["bad"],0)+1
+            continue
 
-        ids,q,qa,qs,qw=entry_quotes(con,op,legs,dt)
-        if any(v is None for v in (qa,qs,qw)):
-            rejects["NO_ENTRY_QUOTES"]=rejects.get("NO_ENTRY_QUOTES",0)+1; continue
-
-        r2=max_loss_proxy(legs,BASE_N,float(row.close),qa,qs,qw)
-        risks={n:max_loss_proxy(legs,n,float(row.close),qa,qs,qw) for n in range(BASE_N,SEED_N+1)}
+        legs,ids,d,q,qa,qs,qw,r2,risks=(pack[k] for k in ("legs","ids","d","q","qa","qs","qw","r2","risks"))
         base_gate=CAPITAL_USD*(RISK_PCT/100)
 
         if mode=="N10_SEED_REVERSE":
@@ -155,7 +166,7 @@ def simulate(con,op,u,signals,mode):
             rejects[reason]=rejects.get(reason,0)+1
             continue
 
-        tr,status=run_trade(con,op,u,row,legs,target,0.0 if not seed_seen else bank)
+        tr,status=run_trade(con,op,u,row,legs,target,d,q,ids,qa,qs,qw,0.0 if not seed_seen else bank)
         if tr is None:
             rejects[f"{reason}:{status}"]=rejects.get(f"{reason}:{status}",0)+1
             continue
@@ -186,7 +197,6 @@ def simulate(con,op,u,signals,mode):
     e=seq(trades)
     return trades,e,rows,rejects,bank
 
-
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--data-dir",default="data")
@@ -199,8 +209,9 @@ def main():
     signals=u[u.signal==True].copy().reset_index(drop=True)
     con=duckdb.connect()
 
-    dyn,e_dyn,rows_dyn,reject_dyn,bank_dyn=simulate(con,op,u,signals,"N10_SEED_REVERSE")
-    base,e_base,rows_base,reject_base,bank_base=simulate(con,op,u,signals,"STATIC_N2")
+    cache={}
+    dyn,e_dyn,rows_dyn,reject_dyn,bank_dyn=simulate(con,op,u,signals,"N10_SEED_REVERSE",cache)
+    base,e_base,rows_base,reject_base,bank_base=simulate(con,op,u,signals,"STATIC_N2",cache)
 
     sd=summary(dyn,e_dyn,"N10_SEED_REVERSE")
     sb=summary(base,e_base,"STATIC_N2")
