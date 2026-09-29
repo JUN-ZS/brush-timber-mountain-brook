@@ -1,9 +1,9 @@
-name: QQQ Self Start Profit Loop V11
+name: QQQ Profit Risk Budget Loop V12
 
 on:
   push:
     branches:
-      - research/qqq-self-start-profit-loop-v11-20260929
+      - research/qqq-profit-risk-budget-loop-v12-20260929
   workflow_dispatch:
 
 permissions:
@@ -25,18 +25,16 @@ jobs:
       - name: Download canonical QQQ data-v1
         run: |
           mkdir -p data
-          gh release download data-v1             --repo lambdaclass/options_portfolio_backtester             --pattern "QQQ_options.parquet"             --pattern "QQQ_underlying.parquet"             --dir data
+          gh release download data-v1 --repo lambdaclass/options_portfolio_backtester --pattern "QQQ_options.parquet" --pattern "QQQ_underlying.parquet" --dir data
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
         env:
           GH_TOKEN: ${{ github.token }}
-      - name: Run V11 self-start profit recycle replay
+      - name: Run V12 profit-risk-budget replay
         run: |
-          python research/qqq_self_start_profit_loop_v11.py             --data-dir data             --out artifacts
+          python research/qqq_self_start_profit_loop_v11.py --data-dir data --out artifacts
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qqq-self-start-profit-loop-v11
+          name: qqq-profit-risk-budget-loop-v12
           path: artifacts/
           if-no-files-found: error
-
-# trigger corrected replay
