@@ -119,8 +119,7 @@ def load_quotes(con,opt_path,seqs):
     q["date"]=pd.to_datetime(q.date); q["cid"]=q.cid.astype(str)
     return q.sort_values(["date","cid"]).drop_duplicates(["cid","date"])
 
-def one_and_done(vals, pnls, target=TARGET_WINS):
-    """From the first trade only: count WIN until first LOSS or target WINs, then stop."""
+def one_and_done(vals, pnls, target=TARGET_WINS, prefix=""):
     wins=0; stopped_at=0; pnl=0.0; first_loss=False; reached=False
     for i,(w,p) in enumerate(zip(vals, pnls), start=1):
         pnl += float(p)
@@ -133,12 +132,13 @@ def one_and_done(vals, pnls, target=TARGET_WINS):
         else:
             first_loss=True
             break
+    pfx=prefix+
     return {
-        "from_start_reached_10": bool(reached),
-        "from_start_wins_before_stop": int(wins),
-        "from_start_trades_used": int(stopped_at),
-        "from_start_hit_loss": bool(first_loss),
-        "from_start_pnl_usd": float(pnl),
+        f"{pfx}from_start_reached_10": bool(reached),
+        f"{pfx}from_start_wins_before_stop": int(wins),
+        f"{pfx}from_start_trades_used": int(stopped_at),
+        f"{pfx}from_start_hit_loss": bool(first_loss),
+        f"{pfx}from_start_pnl_usd": float(pnl),
     }
 
 def main():
@@ -206,54 +206,80 @@ def main():
     expanded["entry_cf_usd"]=(expanded.long_entry_ask-expanded.n*expanded.short_entry_bid)*100.0
     expanded["exit_cf_usd"]=(expanded.long_exit_bid-expanded.n*expanded.short_exit_ask)*100.0
     expanded["pnl_usd"]=-expanded.entry_cf_usd+expanded.exit_cf_usd
+    expanded["geo_win"]=(expanded.reason!="SHORT_TOUCH")
+    expanded["dollar_win"]=(expanded.pnl_usd>0)
     trades=expanded
 
     summaries=[]
     for (ld,sd,n),g in trades.groupby(["ld","sd","n"],sort=True):
       g=g.sort_values("entry").reset_index(drop=True)
-      vals=(g.pnl_usd>0).to_numpy()
+      dollar=(g.dollar_win).to_numpy()
+      geo=(g.geo_win).to_numpy()
       pnls=g.pnl_usd.to_numpy(dtype=float)
       longest=cur=0
-      for v in vals:
+      for v in dollar:
         cur=cur+1 if v else 0; longest=max(longest,cur)
-      stop=one_and_done(vals, pnls)
+      dstop=one_and_done(dollar, pnls, prefix="dollar_")
+      gstop=one_and_done(geo, pnls, prefix="geo_")
       neg=g.loc[g.pnl_usd<0,"pnl_usd"]; pos=g.loc[g.pnl_usd>0,"pnl_usd"]
       row={
         "long_delta_target":float(ld),"short_delta_target":float(sd),"n":int(n),"trades":int(len(g)),
-        "wins":int(vals.sum()),"losses":int((~vals).sum()),"win_rate":float(vals.mean()),
-        "avg_win_usd":float(pos.mean()) if len(pos) else 0.0,
-        "avg_loss_usd":float(neg.mean()) if len(neg) else 0.0,
-        "worst_pnl_usd":float(g.pnl_usd.min()),
-        "best_pnl_usd":float(g.pnl_usd.max()),
-        "total_pnl_usd":float(g.pnl_usd.sum()),
+        "dollar_win_rate":float(dollar.mean()),"geo_no_touch_rate":float(geo.mean()),
+        "short_touch_rate":float((g.reason=="SHORT_TOUCH").mean()),
+        "mean_short_entry_bid":float(g.short_entry_bid.mean()),
+        "mean_long_entry_ask":float(g.long_entry_ask.mean()),
+        "mean_entry_debit_usd":float(g.entry_cf_usd.mean()),
+        "wins_dollar":int(dollar.sum()),"wins_geo":int(geo.sum()),
+        "worst_pnl_usd":float(g.pnl_usd.min()),"total_pnl_usd":float(g.pnl_usd.sum()),
         "profit_factor":float(pos.sum()/abs(neg.sum())) if len(neg) else float("inf"),
-        "longest_win_streak":int(longest),
+        "longest_dollar_streak":int(longest),
+        # keep old names pointing at DOLLAR so prior artifacts stay comparable
+        "win_rate":float(dollar.mean()),
+        "from_start_reached_10": dstop["dollar_from_start_reached_10"],
+        "from_start_wins_before_stop": dstop["dollar_from_start_wins_before_stop"],
+        "from_start_pnl_usd": dstop["dollar_from_start_pnl_usd"],
       }
-      row.update(stop)
+      row.update(dstop); row.update(gstop)
       summaries.append(row)
     summary=pd.DataFrame(summaries)
     summary.to_csv(out/"nplus50_matrix_summary.csv",index=False)
-    stop_rank=summary.sort_values(
-        ["from_start_reached_10","from_start_wins_before_stop","from_start_pnl_usd","win_rate"],
+    geo_rank=summary.sort_values(
+        ["geo_from_start_reached_10","geo_from_start_wins_before_stop","geo_no_touch_rate","geo_from_start_pnl_usd"],
         ascending=[False,False,False,False]
     ).reset_index(drop=True)
-    stop_rank.to_csv(out/"nplus50_stopping_rank.csv",index=False)
-    reached=summary[summary.from_start_reached_10==True]
+    geo_rank.to_csv(out/"nplus50_geo_stopping_rank.csv",index=False)
+    dollar_rank=summary.sort_values(
+        ["dollar_from_start_reached_10","dollar_from_start_wins_before_stop","dollar_from_start_pnl_usd"],
+        ascending=[False,False,False]
+    ).reset_index(drop=True)
+    dollar_rank.to_csv(out/"nplus50_stopping_rank.csv",index=False)
+    by_sd=summary.groupby("short_delta_target").agg(
+        mean_geo=("geo_no_touch_rate","mean"),
+        max_geo=("geo_no_touch_rate","max"),
+        mean_dollar=("dollar_win_rate","mean"),
+        max_dollar=("dollar_win_rate","max"),
+        mean_short_bid=("mean_short_entry_bid","mean"),
+        mean_debit=("mean_entry_debit_usd","mean"),
+        geo_reached=("geo_from_start_reached_10","sum"),
+        dollar_reached=("dollar_from_start_reached_10","sum"),
+    ).reset_index()
     report={
-      "status":"REAL_QQQ_CHAIN_ONE_AND_DONE_FROM_START",
-      "metric":"from first trade, accumulate WIN until 10 WIN then EXIT, or stop at first LOSS",
-      "not_used":"rolling 10-trade window average",
+      "status":"REAL_QQQ_CHAIN_GEO_VS_DOLLAR_WIN",
+      "definitions":{
+        "geo_win":"underlying High never touched short strike during hold",
+        "dollar_win":"bid/ask cash P&L > 0",
+        "note":"N=50 FOTM raises geo_win; it does not automatically raise dollar_win because 1 ITM long is a large debit and FOTM short bid is often near 0"
+      },
       "data":{"options_sha256":sha256_file(od),"underlying_sha256":sha256_file(ud),
               "underlying_range":[str(u.date.min().date()),str(u.date.max().date())]},
-      "parameters":{"long_delta_targets":LONG_DELTAS,"short_delta_targets":SHORT_DELTAS,"N":NS,
-                    "target_wins":TARGET_WINS,"long_must_be_itm":True},
       "diagnostics":{"signal_count":int(len(signals)),"missing_legs_count":int(missing_legs),
                      "sequence_count":int(len(specs)),"quote_fail_sequence_count":int(quote_fail),
                      "trade_rows":int(len(trades)),
-                     "configs_reached_10_from_start":int(reached.shape[0]),
-                     "configs_total":int(len(summary))},
-      "reached_10_from_start":reached.sort_values(["from_start_pnl_usd","win_rate"],ascending=[False,False]).to_dict("records"),
-      "top20_by_wins_before_first_loss":stop_rank.head(20).to_dict("records")
+                     "geo_configs_reached_10":int(summary.geo_from_start_reached_10.sum()),
+                     "dollar_configs_reached_10":int(summary.dollar_from_start_reached_10.sum())},
+      "by_short_delta":by_sd.to_dict("records"),
+      "top15_geo_from_start":geo_rank.head(15).to_dict("records"),
+      "top15_dollar_from_start":dollar_rank.head(15).to_dict("records")
     }
     (out/"nplus50_matrix_result.json").write_text(json.dumps(report,indent=2,default=str),encoding="utf-8")
     print(json.dumps(report,indent=2,default=str),flush=True)
