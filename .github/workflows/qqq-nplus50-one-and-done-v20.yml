@@ -34,27 +34,25 @@ jobs:
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
         env:
           GH_TOKEN: ${{ github.token }}
-      - name: Run stopping-rule matrix
+      - name: Run geo vs dollar matrix
         run: |
           python research/qqq_nplus50_one_and_done_v20.py --data-dir data --out artifacts
           python - <<'PY'
           import json
           r=json.loads(open('artifacts/nplus50_matrix_result.json').read())
-          print('reached_10_from_start', r['diagnostics']['configs_reached_10_from_start'], '/', r['diagnostics']['configs_total'])
-          print('TOP20_STOP')
-          for i,row in enumerate(r.get('top20_by_wins_before_first_loss',[]),1):
-              print(i, row.get('long_delta_target'), row.get('short_delta_target'), row.get('n'),
-                    'reached', row.get('from_start_reached_10'),
-                    'wins_before_stop', row.get('from_start_wins_before_stop'),
-                    'pnl', row.get('from_start_pnl_usd'),
-                    'wr', row.get('win_rate'))
+          print('GEO_REACHED', r['diagnostics']['geo_configs_reached_10'])
+          print('DOLLAR_REACHED', r['diagnostics']['dollar_configs_reached_10'])
+          print('BY_SHORT')
+          for row in r['by_short_delta']:
+              print(row)
           PY
-      - name: Upload stopping artifacts
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: qqq-nplus50-one-and-done-v20
           path: |
             artifacts/nplus50_matrix_result.json
+            artifacts/nplus50_geo_stopping_rank.csv
             artifacts/nplus50_stopping_rank.csv
             artifacts/nplus50_matrix_summary.csv
           if-no-files-found: error
