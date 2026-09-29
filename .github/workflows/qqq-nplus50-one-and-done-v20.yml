@@ -54,7 +54,10 @@ jobs:
           name: qqq-nplus50-one-and-done-v20
           path: |
             artifacts/nplus50_matrix_result.json
+            artifacts/nplus50_top_winrate.csv
+            artifacts/nplus50_top_10win.csv
             artifacts/nplus50_ranked.csv
             artifacts/nplus50_matrix_summary.csv
           if-no-files-found: error
+          continue-on-error: true
           compression-level: 9
