@@ -220,6 +220,16 @@ def main():
     summary.to_csv(out/"nplus50_matrix_summary.csv",index=False)
     top=summary.sort_values(["ten_win_start_rate","win_rate","profit_factor","total_pnl_usd"],ascending=[False,False,False,False]).reset_index(drop=True)
     top.to_csv(out/"nplus50_ranked.csv",index=False)
+    top_wr=summary.sort_values(
+        ["win_rate","longest_win_streak","profit_factor","total_pnl_usd"],
+        ascending=[False,False,False,False]
+    ).reset_index(drop=True)
+    top_wr.to_csv(out/"nplus50_top_winrate.csv",index=False)
+    top_10=summary.sort_values(
+        ["ten_win_start_rate","win_rate","longest_win_streak","profit_factor"],
+        ascending=[False,False,False,False]
+    ).reset_index(drop=True)
+    top_10.to_csv(out/"nplus50_top_10win.csv",index=False)
     report={"status":"REAL_QQQ_CHAIN_MATRIX_REPLAY","data":{"options_sha256":sha256_file(od),"underlying_sha256":sha256_file(ud),
       "underlying_range":[str(u.date.min().date()),str(u.date.max().date())]},
       "parameters":{"long_delta_targets":LONG_DELTAS,"short_delta_targets":SHORT_DELTAS,"N":NS,
@@ -227,7 +237,8 @@ def main():
       "cooldown":COOLDOWN_DAYS,"long_must_be_itm":True,"exit":"first post-entry short-strike High touch, else 30d/expiry"},
       "diagnostics":{"signal_count":int(len(signals)),"missing_legs_count":int(missing_legs),"sequence_count":int(len(specs)),
       "quotes_rows":int(len(q)),"quote_fail_sequence_count":int(quote_fail),"trade_rows":int(len(trades))},
-      "top10":top.head(10).to_dict("records")}
+      "top10_by_10win":top_10.head(10).to_dict("records"),
+      "top10_by_win_rate":top_wr.head(10).to_dict("records")}
     (out/"nplus50_matrix_result.json").write_text(json.dumps(report,indent=2,default=str),encoding="utf-8")
     print(json.dumps(report,indent=2,default=str),flush=True)
 
