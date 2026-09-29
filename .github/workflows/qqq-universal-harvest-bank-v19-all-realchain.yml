@@ -11,6 +11,9 @@ on:
       - research/qqq_staggered_stack_v2.py
       - .github/workflows/qqq-universal-harvest-bank-v19-all-realchain.yml
   workflow_dispatch:
+  pull_request:
+    branches:
+      - research/qqq-universal-harvest-bank-v18-20260929
 
 concurrency:
   group: qqq-universal-harvest-bank-v19-all-realchain
