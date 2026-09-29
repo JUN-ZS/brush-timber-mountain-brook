@@ -8,7 +8,7 @@ CAPITAL_USD=500000.0/7.8
 START=pd.Timestamp("2011-01-01"); END=pd.Timestamp("2025-12-31")
 DTE_MIN=18; DTE_MAX=35; HOLD_MAX=30; COOLDOWN_DAYS=10
 PCT_52W=0.98; DMA_EXT=0.08
-LONG_DELTAS=(0.60,0.70,0.80,0.90)
+LONG_DELTAS=(0.55,0.60,0.70,0.80,0.90)
 SHORT_DELTAS=(0.01,0.02,0.03,0.05,0.08,0.10)
 NS=(2,3,4,5,8,10,15,20,30,40,50)
 
@@ -31,7 +31,7 @@ def load_underlying(path):
     x["signal"]=(x.ratio52>=PCT_52W)&(x.ext200>=DMA_EXT)
     return x.reset_index(drop=True)
 
-def select_chain(con,opt_path,entry_date,long_target,short_target):
+def select_chain(con,opt_path,entry_date,spot,long_target,short_target):
     lo=entry_date+pd.Timedelta(days=DTE_MIN); hi=entry_date+pd.Timedelta(days=DTE_MAX)
     q=con.execute("""
       SELECT CAST(expiration AS DATE) expiration,
@@ -51,7 +51,7 @@ def select_chain(con,opt_path,entry_date,long_target,short_target):
     q["expiration"]=pd.to_datetime(q.expiration); q["dte"]=(q.expiration-entry_date).dt.days
     ex=q.sort_values(["dte","volume"],ascending=[True,False]).iloc[0].expiration
     g=q[q.expiration==ex].copy()
-    longs=g[g.delta>=0.50].copy()
+    longs=g[(g.delta>=0.50)&(g.strike<float(spot))].copy()
     if longs.empty:return None
     longs["err"]=(longs.delta-float(long_target)).abs()
     lp=longs.sort_values(["err","volume","strike"],ascending=[True,False,True]).iloc[0]
@@ -115,13 +115,23 @@ def main():
     rows=[]; reject={}
     for ld in LONG_DELTAS:
       for sd in SHORT_DELTAS:
-        for _,row in signals.iterrows():
-          legs=select_chain(con,od,pd.Timestamp(row.date),ld,sd)
-          if legs is None: reject["NO_LEGS"]=reject.get("NO_LEGS",0)+1; continue
-          for n in NS:
+        for n in NS:
+          next_allowed=None
+          for _,row in signals.iterrows():
+            entry=pd.Timestamp(row.date)
+            if next_allowed is not None and entry<=next_allowed:
+              continue
+            legs=select_chain(con,od,entry,float(row.close),ld,sd)
+            if legs is None:
+              reject["NO_LEGS"]=reject.get("NO_LEGS",0)+1
+              continue
             tr,st=run_one(u,con,od,row,legs,n)
-            if tr is None: reject[st]=reject.get(st,0)+1; continue
-            tr.update(long_delta_target=ld,short_delta_target=sd); rows.append(tr)
+            if tr is None:
+              reject[st]=reject.get(st,0)+1
+              continue
+            tr.update(long_delta_target=ld,short_delta_target=sd)
+            rows.append(tr)
+            next_allowed=tr["exit"]+pd.Timedelta(days=COOLDOWN_DAYS)
     trades=pd.DataFrame(rows); trades.to_csv(out/"nplus50_trades.csv",index=False)
     summaries=[]
     for (ld,sd,n),g in trades.groupby(["long_delta_target","short_delta_target","n"],sort=True):
@@ -149,7 +159,7 @@ def main():
       "underlying_range":[str(u.date.min().date()),str(u.date.max().date())]},
       "parameters":{"long_delta_targets":LONG_DELTAS,"short_delta_targets":SHORT_DELTAS,"N":NS,
       "signal":"close/52w_high>=0.98 AND close/200dma-1>=0.08","expiry_dte":[DTE_MIN,DTE_MAX],"hold_max":HOLD_MAX,
-      "cooldown":COOLDOWN_DAYS,"exit":"first post-entry short-strike High touch, else 30d/expiry"},
+      "cooldown":COOLDOWN_DAYS,"long_must_be_itm":true,"exit":"first post-entry short-strike High touch, else 30d/expiry"},
       "rows":len(trades),"rejects":reject,"top10":top.head(10).to_dict("records")}
     (out/"nplus50_matrix_result.json").write_text(json.dumps(report,indent=2,default=str),encoding="utf-8")
     print(json.dumps(report,indent=2,default=str),flush=True)
