@@ -65,7 +65,7 @@ def entry_quotes(con,opt_path,legs,dt):
     return ids,q,q_at(q,dt,ids[0]),q_at(q,dt,ids[1]),q_at(q,dt,ids[2])
 
 
-def run_trade(con,opt_path,u,row,legs,n):
+def run_trade(con,opt_path,u,row,legs,n,risk_budget_usd=0.0):
     entry=pd.Timestamp(row.date)
     end=min(entry+pd.Timedelta(days=30),pd.Timestamp(legs["expiry"]))
     d=u[(u.date>=entry)&(u.date<=end)].copy().reset_index(drop=True)
@@ -74,7 +74,7 @@ def run_trade(con,opt_path,u,row,legs,n):
     if any(v is None for v in (qa,qs,qw)):return None,"NO_ENTRY_QUOTES"
     risk=max_loss_proxy(legs,n,float(row.close),qa,qs,qw)
     base_gate=CAPITAL_USD*(RISK_PCT/100)
-    if risk>base_gate:return None,"RISK_GATE"
+    if risk>base_gate+max(0.0,float(risk_budget_usd)):return None,"RISK_GATE"
     entry_cf=(ex(qa,"BUY")-n*ex(qs,"SELL")+n*ex(qw,"BUY"))*100.0
     cash=-entry_cf;eq=[]
     for _,r in d.iterrows():
@@ -155,7 +155,7 @@ def simulate(con,op,u,signals,mode):
             rejects[reason]=rejects.get(reason,0)+1
             continue
 
-        tr,status=run_trade(con,op,u,row,legs,target)
+        tr,status=run_trade(con,op,u,row,legs,target,0.0 if not seed_seen else bank)
         if tr is None:
             rejects[f"{reason}:{status}"]=rejects.get(f"{reason}:{status}",0)+1
             continue
