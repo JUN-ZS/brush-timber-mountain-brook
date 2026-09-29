@@ -121,7 +121,7 @@ def main():
         base.append(bt)
 
         # Deterministic affordability ladder, based only on previous realized profit.
-        qd=quotes(con,op,[legs["atm"]["id"],legs["short"]["id"],legs["wing"]["id"]],dt)
+        qd=quotes(con,op,[legs["atm"]["id"],legs["short"]["id"],legs["wing"]["id"]],dt,dt)
         qa=q_at(qd,dt,legs["atm"]["id"]);qs=q_at(qd,dt,legs["short"]["id"]);qw=q_at(qd,dt,legs["wing"]["id"])
         k=0
         affordability=[]
