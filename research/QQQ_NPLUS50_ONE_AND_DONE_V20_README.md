@@ -6,3 +6,6 @@ N: 2/3/4/5/8/10/15/20/30/40/50.
 Entry is long Ask minus N x short Bid. Exit is the existing BASELINE_TOUCH rule: first post-entry underlying High touching the selected short strike, else 30 days or expiry, using executable Bid/Ask.
 WIN = realized P&L > 0. The matrix reports win rate, P&L distribution, profit factor, longest win streak, and empirical 10-WIN completion rate.
 No BS, interpolation, optimization, or 2% risk gate is used; risk is reported through P&L/worst-loss rather than used to filter the win-rate question.
+
+
+CI execution trigger: base workflow installed on V19 research branch.
