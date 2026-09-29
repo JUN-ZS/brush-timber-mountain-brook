@@ -11,6 +11,7 @@ PCT_52W=0.98; DMA_EXT=0.08
 LONG_DELTAS=(0.55,0.60,0.70,0.80,0.90)
 SHORT_DELTAS=(0.01,0.02,0.03,0.05,0.08,0.10)
 NS=(2,3,4,5,8,10,15,20,30,40,50)
+TARGET_WINS=10
 
 def sha256_file(path):
     h=hashlib.sha256()
@@ -118,6 +119,28 @@ def load_quotes(con,opt_path,seqs):
     q["date"]=pd.to_datetime(q.date); q["cid"]=q.cid.astype(str)
     return q.sort_values(["date","cid"]).drop_duplicates(["cid","date"])
 
+def one_and_done(vals, pnls, target=TARGET_WINS):
+    """From the first trade only: count WIN until first LOSS or target WINs, then stop."""
+    wins=0; stopped_at=0; pnl=0.0; first_loss=False; reached=False
+    for i,(w,p) in enumerate(zip(vals, pnls), start=1):
+        pnl += float(p)
+        stopped_at=i
+        if w:
+            wins += 1
+            if wins >= target:
+                reached=True
+                break
+        else:
+            first_loss=True
+            break
+    return {
+        "from_start_reached_10": bool(reached),
+        "from_start_wins_before_stop": int(wins),
+        "from_start_trades_used": int(stopped_at),
+        "from_start_hit_loss": bool(first_loss),
+        "from_start_pnl_usd": float(pnl),
+    }
+
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--data-dir",default="data"); ap.add_argument("--out",default="artifacts")
     a=ap.parse_args(); out=Path(a.out); out.mkdir(parents=True,exist_ok=True)
@@ -134,17 +157,13 @@ def main():
     if q.empty:raise RuntimeError("No option quotes loaded")
 
     specs["key"]=np.arange(len(specs))
-    # Exact entry quote, one per contract/date.
     ent=specs[["key","entry","long_id","short_id"]].copy()
     ent_l=ent[["key","entry","long_id"]].rename(columns={"long_id":"cid","entry":"date"})
     ent_s=ent[["key","entry","short_id"]].rename(columns={"short_id":"cid","entry":"date"})
     ent_l=ent_l.merge(q,on=["cid","date"],how="left").rename(columns={"bid":"long_entry_bid","ask":"long_entry_ask"})
     ent_s=ent_s.merge(q,on=["cid","date"],how="left").rename(columns={"bid":"short_entry_bid","ask":"short_entry_ask"})
-    entry=ent_l[["key","long_entry_bid","long_entry_ask"]].merge(ent_s[["key","short_entry_bid","short_entry_ask"]],on="key",how="outer")
+    entry=ent_l[["key","long_entry_ask","long_entry_bid"]].merge(ent_s[["key","short_entry_bid","short_entry_ask"]],on="key",how="outer")
 
-    # Exit quote: exact intended date, else first common available quote within 5 days.
-    # Avoid merge_asof's multi-key sorting requirements by doing an explicit
-    # per-contract forward lookup against the already-loaded quote table.
     qrows={}
     for cid,grp in q.groupby("cid",sort=False):
         g2=grp.sort_values("date")
@@ -172,17 +191,9 @@ def main():
         lq=first_quote(rr.long_id,rr.exit_intended)
         sq=first_quote(rr.short_id,rr.exit_intended)
         if lq is None or sq is None:
-            exit_rows.append({
-                "key":int(rr.key),"exit_quote_date":pd.NaT,"exit_quote_date_s":pd.NaT,
-                "long_exit_bid":np.nan,"long_exit_ask":np.nan,
-                "short_exit_bid":np.nan,"short_exit_ask":np.nan,
-            })
+            exit_rows.append({"key":int(rr.key),"long_exit_bid":np.nan,"short_exit_ask":np.nan})
         else:
-            exit_rows.append({
-                "key":int(rr.key),"exit_quote_date":lq[0],"exit_quote_date_s":sq[0],
-                "long_exit_bid":lq[1],"long_exit_ask":lq[2],
-                "short_exit_bid":sq[1],"short_exit_ask":sq[2],
-            })
+            exit_rows.append({"key":int(rr.key),"long_exit_bid":lq[1],"short_exit_ask":sq[2]})
     exitq=pd.DataFrame(exit_rows)
     merged=specs.merge(entry,on="key",how="left").merge(exitq,on="key",how="left")
     before=len(merged)
@@ -196,49 +207,54 @@ def main():
     expanded["exit_cf_usd"]=(expanded.long_exit_bid-expanded.n*expanded.short_exit_ask)*100.0
     expanded["pnl_usd"]=-expanded.entry_cf_usd+expanded.exit_cf_usd
     trades=expanded
-    trades.to_csv(out/"nplus50_trades.csv",index=False)
 
     summaries=[]
     for (ld,sd,n),g in trades.groupby(["ld","sd","n"],sort=True):
-      g=g.sort_values("entry").reset_index(drop=True); vals=(g.pnl_usd>0).to_numpy()
+      g=g.sort_values("entry").reset_index(drop=True)
+      vals=(g.pnl_usd>0).to_numpy()
+      pnls=g.pnl_usd.to_numpy(dtype=float)
       longest=cur=0
       for v in vals:
         cur=cur+1 if v else 0; longest=max(longest,cur)
-      starts=max(len(vals)-9,0); ten=sum(bool(vals[i:i+10].all()) for i in range(starts))
-      neg=g.loc[g.pnl_usd<0,"pnl_usd"];pos=g.loc[g.pnl_usd>0,"pnl_usd"]
-      summaries.append({
+      stop=one_and_done(vals, pnls)
+      neg=g.loc[g.pnl_usd<0,"pnl_usd"]; pos=g.loc[g.pnl_usd>0,"pnl_usd"]
+      row={
         "long_delta_target":float(ld),"short_delta_target":float(sd),"n":int(n),"trades":int(len(g)),
         "wins":int(vals.sum()),"losses":int((~vals).sum()),"win_rate":float(vals.mean()),
-        "avg_pnl_usd":float(g.pnl_usd.mean()),"median_pnl_usd":float(g.pnl_usd.median()),
-        "best_pnl_usd":float(g.pnl_usd.max()),"worst_pnl_usd":float(g.pnl_usd.min()),
+        "avg_win_usd":float(pos.mean()) if len(pos) else 0.0,
+        "avg_loss_usd":float(neg.mean()) if len(neg) else 0.0,
+        "worst_pnl_usd":float(g.pnl_usd.min()),
+        "best_pnl_usd":float(g.pnl_usd.max()),
         "total_pnl_usd":float(g.pnl_usd.sum()),
         "profit_factor":float(pos.sum()/abs(neg.sum())) if len(neg) else float("inf"),
-        "longest_win_streak":int(longest),"ten_win_start_rate":float(ten/starts) if starts else 0.0,
-        "ten_win_completions":int(ten)
-      })
+        "longest_win_streak":int(longest),
+      }
+      row.update(stop)
+      summaries.append(row)
     summary=pd.DataFrame(summaries)
     summary.to_csv(out/"nplus50_matrix_summary.csv",index=False)
-    top=summary.sort_values(["ten_win_start_rate","win_rate","profit_factor","total_pnl_usd"],ascending=[False,False,False,False]).reset_index(drop=True)
-    top.to_csv(out/"nplus50_ranked.csv",index=False)
-    top_wr=summary.sort_values(
-        ["win_rate","longest_win_streak","profit_factor","total_pnl_usd"],
+    stop_rank=summary.sort_values(
+        ["from_start_reached_10","from_start_wins_before_stop","from_start_pnl_usd","win_rate"],
         ascending=[False,False,False,False]
     ).reset_index(drop=True)
-    top_wr.to_csv(out/"nplus50_top_winrate.csv",index=False)
-    top_10=summary.sort_values(
-        ["ten_win_start_rate","win_rate","longest_win_streak","profit_factor"],
-        ascending=[False,False,False,False]
-    ).reset_index(drop=True)
-    top_10.to_csv(out/"nplus50_top_10win.csv",index=False)
-    report={"status":"REAL_QQQ_CHAIN_MATRIX_REPLAY","data":{"options_sha256":sha256_file(od),"underlying_sha256":sha256_file(ud),
-      "underlying_range":[str(u.date.min().date()),str(u.date.max().date())]},
+    stop_rank.to_csv(out/"nplus50_stopping_rank.csv",index=False)
+    reached=summary[summary.from_start_reached_10==True]
+    report={
+      "status":"REAL_QQQ_CHAIN_ONE_AND_DONE_FROM_START",
+      "metric":"from first trade, accumulate WIN until 10 WIN then EXIT, or stop at first LOSS",
+      "not_used":"rolling 10-trade window average",
+      "data":{"options_sha256":sha256_file(od),"underlying_sha256":sha256_file(ud),
+              "underlying_range":[str(u.date.min().date()),str(u.date.max().date())]},
       "parameters":{"long_delta_targets":LONG_DELTAS,"short_delta_targets":SHORT_DELTAS,"N":NS,
-      "signal":"close/52w_high>=0.98 AND close/200dma-1>=0.08","expiry_dte":[DTE_MIN,DTE_MAX],"hold_max":HOLD_MAX,
-      "cooldown":COOLDOWN_DAYS,"long_must_be_itm":True,"exit":"first post-entry short-strike High touch, else 30d/expiry"},
-      "diagnostics":{"signal_count":int(len(signals)),"missing_legs_count":int(missing_legs),"sequence_count":int(len(specs)),
-      "quotes_rows":int(len(q)),"quote_fail_sequence_count":int(quote_fail),"trade_rows":int(len(trades))},
-      "top10_by_10win":top_10.head(10).to_dict("records"),
-      "top10_by_win_rate":top_wr.head(10).to_dict("records")}
+                    "target_wins":TARGET_WINS,"long_must_be_itm":True},
+      "diagnostics":{"signal_count":int(len(signals)),"missing_legs_count":int(missing_legs),
+                     "sequence_count":int(len(specs)),"quote_fail_sequence_count":int(quote_fail),
+                     "trade_rows":int(len(trades)),
+                     "configs_reached_10_from_start":int(reached.shape[0]),
+                     "configs_total":int(len(summary))},
+      "reached_10_from_start":reached.sort_values(["from_start_pnl_usd","win_rate"],ascending=[False,False]).to_dict("records"),
+      "top20_by_wins_before_first_loss":stop_rank.head(20).to_dict("records")
+    }
     (out/"nplus50_matrix_result.json").write_text(json.dumps(report,indent=2,default=str),encoding="utf-8")
     print(json.dumps(report,indent=2,default=str),flush=True)
 
