@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""QQQ Self-Start Profit Recycle Loop V11.
+"""QQQ Profit-Risk-Budget Loop V12.
 
-Self-started opportunity-right interpretation:
+Profit-funded risk-budget interpretation:
   - The first cycle is ordinary N=2; no unearned N+50 bootstrap is assumed.
   - After each cycle is realized, only its positive realized P&L is
     available to fund extra short-call/wing pairs on the next cycle.
@@ -13,7 +13,7 @@ Self-started opportunity-right interpretation:
     a bounded next-cycle opportunity.
 
 This is not an optimized k. It is a deterministic affordability rule.
-The existing 2% risk gate still applies to the whole selected ratio.
+The base N=2 trade remains under the original 2% gate. Previous positive realized P&L becomes a separate incremental risk budget for the next cycle.
 
 No look-ahead, Black-Scholes, interpolation or fitting.
 """
@@ -60,7 +60,7 @@ def select_legs(con,opt_path,dt):
             "wing":{"id":str(wing.contract_id),"k":float(wing.strike)}}
 
 
-def run_trade(con,opt_path,u,row,legs,n):
+def run_trade(con,opt_path,u,row,legs,n,risk_budget_usd=0.0):
     entry=pd.Timestamp(row.date)
     end=min(entry+pd.Timedelta(days=30),pd.Timestamp(legs["expiry"]))
     d=u[(u.date>=entry)&(u.date<=end)].copy().reset_index(drop=True)
@@ -72,7 +72,8 @@ def run_trade(con,opt_path,u,row,legs,n):
     if any(v is None for v in (qa,qs,qw)):return None,"NO_ENTRY_QUOTES"
 
     risk=max_loss_proxy(legs,n,float(row.close),qa,qs,qw)
-    if risk>CAPITAL_USD*(RISK_PCT/100):return None,"RISK_GATE"
+    allowed_risk=CAPITAL_USD*(RISK_PCT/100)+max(0.0,float(risk_budget_usd))
+    if risk>allowed_risk:return None,"RISK_GATE"
 
     entry_cf=(ex(qa,"BUY")-n*ex(qs,"SELL")+n*ex(qw,"BUY"))*100.0
     cash=-entry_cf;eq=[]
@@ -116,7 +117,7 @@ def main():
         legs=select_legs(con,op,dt)
         if legs is None:rejects["NO_ENTRY_LEGS"]=rejects.get("NO_ENTRY_LEGS",0)+1;continue
 
-        bt,bs=run_trade(con,op,u,row,legs,BASE_N)
+        bt,bs=run_trade(con,op,u,row,legs,BASE_N,0.0)
         if bt is None:rejects["BASE_"+bs]=rejects.get("BASE_"+bs,0)+1;continue
         base.append(bt)
 
@@ -138,7 +139,7 @@ def main():
             reason="BASE_N_PREV_PROFIT_INSUFFICIENT"
         else:
             reason=f"PROFIT_FUNDED_PLUS_{k}"
-        tr,status=run_trade(con,op,u,row,legs,target)
+        tr,status=run_trade(con,op,u,row,legs,target,prev_profit)
         if tr is None:
             rejects[f"{reason}:{status}"]=rejects.get(f"{reason}:{status}",0)+1
             # Previous profit is preserved because the funded attempt did not execute.
@@ -148,7 +149,7 @@ def main():
         tr["new_profit_usd"]=float(tr["pnl_usd"])
         ladder.append(tr)
         rows.append({"entry":str(dt.date()),"n":target,"extra_pairs":k,"reason":reason,
-                     "previous_profit_usd":prev_profit,"pnl_usd":tr["pnl_usd"],
+                     "previous_profit_usd":prev_profit,"risk_budget_usd":prev_profit,"allowed_risk_usd":CAPITAL_USD*(RISK_PCT/100)+prev_profit,"pnl_usd":tr["pnl_usd"],
                      "risk_proxy_usd":tr["risk_proxy_usd"]})
         prev_profit=max(0.0,float(tr["pnl_usd"]))
         next_allowed=bt["exit"]+pd.Timedelta(days=10)
@@ -170,18 +171,19 @@ def main():
     pd.DataFrame(rows).to_csv(out/"profit_funded_ledger.csv",index=False)
     pd.DataFrame([sb,sl]).to_csv(out/"summary.csv",index=False)
     if not el.empty:el.to_csv(out/"equity_profit_funded.csv",index=False)
-    report={"research_id":"QQQ_SELF_START_PROFIT_RECYCLE_LOOP_V11",
-            "status":"REAL_QQQ_CHAIN_PATH_DEPENDENT_INCREMENTAL_RATIO",
+    report={"research_id":"QQQ_PROFIT_RISK_BUDGET_LOOP_V12",
+            "status":"REAL_QQQ_CHAIN_PATH_DEPENDENT_PROFIT_FUNDED_RISK_BUDGET",
             "contract":{"base_n":2,"max_extra_pairs":20,
-                        "funding":"previous realized positive P&L only",
+                        "funding":"previous realized positive P&L is a separate incremental risk budget",
                         "rule":"largest integer extra-pair count whose incremental max-loss proxy is <= previous positive P&L",
-                        "risk_gate_usd":CAPITAL_USD*(RISK_PCT/100),
+                        "base_risk_gate_usd":CAPITAL_USD*(RISK_PCT/100),
+                        "effective_next_cycle_risk_budget":"base_risk_gate_usd + previous positive realized pnl",
                         "no_optimization":True,"black_scholes":False,"interpolation":False},
             "data":{"options_sha256":sha256_file(op),"underlying_sha256":sha256_file(up)},
             "results":{"static":sb,"ladder":sl,"final_previous_profit_credit":prev_profit,
                        "funded_trade_count":sum(x["extra_pairs"]>0 for x in ladder)},
             "rejections":rejects}
-    (out/"qqq_profit_funded_ratio_ladder_v10_result.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
+    (out/"qqq_profit_risk_budget_loop_v12_result.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print(json.dumps(report,indent=2),flush=True)
 
 if __name__=="__main__":main()
