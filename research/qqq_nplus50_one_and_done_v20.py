@@ -37,13 +37,13 @@ def select_chain(con,opt_path,entry_date,spot,long_target,short_target):
       SELECT CAST(expiration AS DATE) expiration,
              CAST(contract_id AS VARCHAR) contract_id,
              CAST(strike AS DOUBLE) strike,
-             UPPER(type) type, CAST(bid AS DOUBLE) bid,
+             UPPER("type") AS type_name, CAST(bid AS DOUBLE) bid,
              CAST(ask AS DOUBLE) ask, COALESCE(CAST(volume AS DOUBLE),0) volume,
              CAST(delta AS DOUBLE) delta
       FROM read_parquet(?)
       WHERE CAST(date AS DATE)=?
         AND CAST(expiration AS DATE) BETWEEN ? AND ?
-        AND UPPER(type)='CALL'
+        AND UPPER("type")='CALL'
         AND delta IS NOT NULL AND bid IS NOT NULL AND ask IS NOT NULL
         AND ask>=bid AND bid>=0
     """,[str(opt_path),entry_date.date(),lo.date(),hi.date()]).df()
