@@ -13,11 +13,11 @@ A single positive N>2 trade from the strict V16 path is used as an independent h
 | Node | Source | Entry-risk definition |
 | --- | --- | --- |
 | RATIO_HARVEST_N2 | real Bid/Ask replay | original terminal-payoff max-loss proxy |
-| CONVEXITY_REALCHAIN_ALWAYS_ON | real Bid/Ask replay | vertical debit = defined max loss |
+| CONVEXITY_SHOCK_GATED | real Bid/Ask replay | vertical debit = defined max loss |
 | STATE_ADAPTIVE_GEOMETRY | real Bid/Ask replay | reconstructed entry terminal max-loss proxy |
 | STAGGERED_1LAYER | real Bid/Ask replay | reconstructed entry terminal max-loss proxy |
 
-The Convexity node is deliberately named ALWAYS_ON here. V18 called it CONVEXITY_SHOCK, but its workflow actually passed qqq_realchain_convexity_v1_cycles.csv from the always-on component replay.
+The Convexity node is deliberately pinned to the frozen SHOCK_GATED artifact from GitHub Actions run 36550732916. This avoids the naming/stream mismatch found in V18.
 
 Short-only is not included in V19 because the current GitHub source state does not expose a verifiable branch/file for that implementation.
 
