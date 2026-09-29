@@ -118,14 +118,16 @@ def select_entry(con,opt_path,dt):
       "sp5":{"id":str(sp5.contract_id),"k":float(sp5.strike)},
     }
 
-def select_migration(con,opt_path,dt,legs,wave_no,current_call,current_put):
+def select_migration(con,opt_path,dt,legs,wave_no,current_call,current_put,spot):
     g=chain(con,opt_path,dt,legs["expiry"])
     if g.empty:return None
     c=g[g.type=="CALL"]; p=g[g.type=="PUT"]
     target_call=CALL_TARGETS[min(wave_no,len(CALL_TARGETS)-1)]
     target_put=PUT_TARGETS[min(wave_no,len(PUT_TARGETS)-1)]
-    nc=pick(c,target_call,gt=legs["atm"]["k"],lt=legs["wing"]["k"])
-    np_=pick(p,-target_put,lt=legs["lp"]["k"])
+    # The migrated Short Call must still be OTM relative to the actual T+1 spot.
+    nc=pick(c,target_call,gt=max(legs["atm"]["k"],spot),lt=legs["wing"]["k"])
+    # The Long Put remains the anchor; only the Short Put moves farther OTM.
+    np_=pick(p,-target_put,lt=min(legs["lp"]["k"],spot))
     if nc is None or np_ is None:return None
     return {
       "wave":wave_no,
@@ -200,7 +202,7 @@ def trade(con,opt_path,u,row,legs,adaptive):
             if pd.isna(atr) or wave>=2:continue
             if float(prev.close) < anchor + WAVE_MULT*atr:continue
             t1=pd.Timestamp(w.iloc[j].date)
-            m=select_migration(con,opt_path,t1,legs,wave+1,curc,curp)
+            m=select_migration(con,opt_path,t1,legs,wave+1,curc,curp,float(w.iloc[j].close))
             anchor=float(w.iloc[j].close)
             if m is None or not m["changed"]:continue
             migrations.append({**m,"date":t1})
