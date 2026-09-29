@@ -254,11 +254,23 @@ def trade(con,opt_path,u,row,legs,adaptive):
 
 def summary(trades,label):
     if not trades:return {"mode":label,"trades":0},pd.DataFrame()
-    t=pd.DataFrame([{k:v for k,v in x.items() if k not in ("eq","migrations")} for x in trades]).sort_values("entry")
+    t=pd.DataFrame([{k:v for k,v in x.items() if k not in ("eq","migrations")} for x in trades]).sort_values("entry").reset_index(drop=True)
     t["mult"]=1+t.pnl_usd/CAPITAL
     t["nav"]=CAPITAL*t.mult.cumprod()
-    pts=[p for x in trades for p in x["eq"]]
-    e=pd.DataFrame(pts,columns=["date","nav"]).groupby("date",as_index=False).nav.last().sort_values("date")
+
+    # Reconstruct a single sequential portfolio curve from the per-trade
+    # 100k-normalized MTM paths. Trades do not overlap.
+    nav0=CAPITAL
+    seq=[]
+    for _,tr in t.iterrows():
+        hit=[x for x in trades if pd.Timestamp(x["entry"])==pd.Timestamp(tr["entry"])]
+        if not hit:
+            continue
+        x=hit[0]
+        for dt,raw_nav in x["eq"]:
+            seq.append((pd.Timestamp(dt),nav0*(float(raw_nav)/CAPITAL)))
+        nav0=nav0*(1+float(tr["pnl_usd"])/CAPITAL)
+    e=pd.DataFrame(seq,columns=["date","nav"]).groupby("date",as_index=False).nav.last().sort_values("date")
     e["peak"]=e.nav.cummax(); e["dd"]=e.nav/e.peak-1
     yrs=max((t.exit.iloc[-1]-t.entry.iloc[0]).days/365.25,1/365.25)
     st={
