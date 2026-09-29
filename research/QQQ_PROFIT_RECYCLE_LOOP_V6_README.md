@@ -15,3 +15,6 @@ The opportunity credit is a risk/decision ledger, not extra NAV.
 The same signal conditions, DTE selection, historical Bid/Ask execution, daily Mid mark, 2% risk gate, and cooldown are retained.
 
 No Black-Scholes, interpolation, optimization, or look-ahead.
+
+
+<!-- runtime trigger: 2026-09-29 V6 replay -->
