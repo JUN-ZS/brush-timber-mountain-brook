@@ -1,0 +1,48 @@
+name: QQQ N+50 One-and-Done V20
+on:
+  push:
+    branches:
+      - research/qqq-nplus50-one-and-done-v20-20260930
+    paths:
+      - research/qqq_nplus50_one_and_done_v20.py
+      - .github/workflows/qqq-nplus50-one-and-done-v20.yml
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - research/qqq-universal-harvest-bank-v19-all-realchain-20260929
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install duckdb pandas pyarrow numpy
+      - name: Download canonical QQQ data-v1
+        run: |
+          mkdir -p data
+          gh release download data-v1 --repo lambdaclass/options_portfolio_backtester \
+            --pattern "QQQ_options.parquet" --pattern "QQQ_underlying.parquet" --dir data
+          sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
+        env:
+          GH_TOKEN: \${{ github.token }}
+      - name: Run N+ matrix
+        run: |
+          python research/qqq_nplus50_one_and_done_v20.py --data-dir data --out artifacts
+          cat artifacts/nplus50_matrix_result.json
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-nplus50-one-and-done-v20
+          path: |
+            artifacts/nplus50_matrix_summary.csv
+            artifacts/nplus50_ranked.csv
+            artifacts/nplus50_trades.csv
+            artifacts/nplus50_matrix_result.json
+          if-no-files-found: error
