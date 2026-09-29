@@ -23,7 +23,7 @@ import argparse,json
 from pathlib import Path
 import duckdb,numpy as np,pandas as pd
 
-from qqq_ratio_call_harvest_v6 import (
+from qqq_profit_recycle_loop_v6 import (
     ensure_data,load_underlying,chain,pick,quotes,q_at,ex,mid,max_loss_proxy,sha256_file
 )
 
