@@ -149,7 +149,7 @@ def main():
         tr["new_profit_usd"]=float(tr["pnl_usd"])
         ladder.append(tr)
         rows.append({"entry":str(dt.date()),"n":target,"extra_pairs":k,"reason":reason,
-                     "bank_before_usd":opportunity_bank,"risk_budget_usd":prev_profit,"allowed_risk_usd":CAPITAL_USD*(RISK_PCT/100)+prev_profit,"pnl_usd":tr["pnl_usd"],
+                     "bank_before_usd":opportunity_bank,"risk_budget_usd":opportunity_bank,"allowed_risk_usd":CAPITAL_USD*(RISK_PCT/100)+opportunity_bank,"pnl_usd":tr["pnl_usd"],
                      "risk_proxy_usd":tr["risk_proxy_usd"]})
         opportunity_bank=max(0.0,float(opportunity_bank)+float(tr["pnl_usd"]))
         next_allowed=bt["exit"]+pd.Timedelta(days=10)
@@ -171,10 +171,10 @@ def main():
     pd.DataFrame(rows).to_csv(out/"profit_funded_ledger.csv",index=False)
     pd.DataFrame([sb,sl]).to_csv(out/"summary.csv",index=False)
     if not el.empty:el.to_csv(out/"equity_profit_funded.csv",index=False)
-    report={"research_id":"QQQ_PROFIT_RISK_BUDGET_LOOP_V12",
+    report={"research_id":"QQQ_OPPORTUNITY_BANK_LOOP_V14",
             "status":"REAL_QQQ_CHAIN_PATH_DEPENDENT_PROFIT_FUNDED_RISK_BUDGET",
             "contract":{"base_n":2,"max_extra_pairs":20,
-                        "funding":"previous realized positive P&L is a separate incremental risk budget",
+                        "funding":"cumulative opportunity bank=max(0, bank + realized pnl)",
                         "rule":"largest integer extra-pair count whose incremental max-loss proxy is <= previous positive P&L",
                         "base_risk_gate_usd":CAPITAL_USD*(RISK_PCT/100),
                         "effective_next_cycle_risk_budget":"base_risk_gate_usd + cumulative opportunity bank",
