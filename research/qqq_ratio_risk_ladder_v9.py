@@ -68,6 +68,8 @@ def fetch_all_signal_chains(con,opt_path,dates):
              UPPER(type) AS type
       FROM read_parquet(?)
       WHERE CAST(date AS DATE) IN (SELECT * FROM UNNEST(?))
+        AND CAST(expiration AS DATE) BETWEEN CAST(date AS DATE)+INTERVAL 18 DAY
+        AND CAST(date AS DATE)+INTERVAL 35 DAY
         AND bid IS NOT NULL AND ask IS NOT NULL AND ask>=bid
         AND delta IS NOT NULL
     """,[str(opt_path),ds]).df()
