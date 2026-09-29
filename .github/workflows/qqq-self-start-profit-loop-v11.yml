@@ -38,3 +38,5 @@ jobs:
           name: qqq-self-start-profit-loop-v11
           path: artifacts/
           if-no-files-found: error
+
+# trigger corrected replay
