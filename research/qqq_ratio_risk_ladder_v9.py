@@ -53,17 +53,60 @@ def pick_legs(con,opt_path,dt):
     return {"expiry":pd.Timestamp(ex),"atm":{"id":str(atm.contract_id),"k":float(atm.strike)},
             "short":{"id":str(sc.contract_id),"k":float(sc.strike)},"wing":{"id":str(wing.contract_id),"k":float(wing.strike)}}
 
+def fetch_all_signal_chains(con,opt_path,dates):
+    ds=[pd.Timestamp(x).date() for x in dates]
+    q=con.execute("""
+      SELECT CAST(date AS DATE) AS date,
+             CAST(expiration AS DATE) AS expiration,
+             CAST(contract_id AS VARCHAR) AS contract_id,
+             CAST(strike AS DOUBLE) AS strike,
+             CAST(bid AS DOUBLE) AS bid,
+             CAST(ask AS DOUBLE) AS ask,
+             CAST(mark AS DOUBLE) AS mark,
+             CAST(delta AS DOUBLE) AS delta,
+             COALESCE(CAST(volume AS DOUBLE),0) AS volume,
+             UPPER(type) AS type
+      FROM read_parquet(?)
+      WHERE CAST(date AS DATE) IN (SELECT * FROM UNNEST(?))
+        AND bid IS NOT NULL AND ask IS NOT NULL AND ask>=bid
+        AND delta IS NOT NULL
+    """,[str(opt_path),ds]).df()
+    if q.empty:return {}
+    q["date"]=pd.to_datetime(q["date"])
+    q["expiration"]=pd.to_datetime(q["expiration"])
+    q["dte"]=(q["expiration"]-q["date"]).dt.days
+    return {d:g for d,g in q.groupby("date")}
+
+def pick_legs_from_chain(r):
+    if r is None or r.empty:return None
+    ex=(r[(r.dte>=18)&(r.dte<=35)]
+        .groupby("expiration",as_index=False).agg(dte=("dte","first"),mv=("volume","max"))
+        .sort_values(["dte","mv"],ascending=[True,False]).iloc[0]["expiration"])
+    g=r[r.expiration==pd.Timestamp(ex)]
+    c=g[g.type=="CALL"]
+    atm=pick(c,0.50)
+    if atm is None:return None
+    sc=pick(c,0.20,gt=atm.strike)
+    wing=pick(c,0.08,gt=sc.strike) if sc is not None else None
+    if sc is None or wing is None:return None
+    return {"expiry":pd.Timestamp(ex),
+            "atm":{"id":str(atm.contract_id),"k":float(atm.strike)},
+            "short":{"id":str(sc.contract_id),"k":float(sc.strike)},
+            "wing":{"id":str(wing.contract_id),"k":float(wing.strike)}}
+
 def main():
     ap=argparse.ArgumentParser();ap.add_argument("--data-dir",default="data");ap.add_argument("--out",default="artifacts")
     a=ap.parse_args();out=Path(a.out);out.mkdir(parents=True,exist_ok=True)
     op,up=ensure_data(Path(a.data_dir));u=load_underlying(up).copy().reset_index(drop=True);con=duckdb.connect()
     rows=[];rej={}
-    for _,r in u.iterrows():
-        if not bool(r.signal):continue
-        legs=pick_legs(con,op,r.date)
+    sig=u[u.signal.astype(bool)].copy()
+    chains=fetch_all_signal_chains(con,op,sig.date.tolist())
+    for _,r in sig.iterrows():
+        c=chains.get(pd.Timestamp(r.date))
+        legs=pick_legs_from_chain(c)
         if legs is None: rej["NO_ENTRY_LEGS"]=rej.get("NO_ENTRY_LEGS",0)+1; continue
-        q=fetch_entry_quotes(con,op,[legs["atm"]["id"],legs["short"]["id"],legs["wing"]["id"]],r.date)
-        qa=q_at(q,r.date,legs["atm"]["id"]);qs=q_at(q,r.date,legs["short"]["id"]);qw=q_at(q,r.date,legs["wing"]["id"])
+        entry=c[c["date"]==pd.Timestamp(r.date)].copy().set_index(["date","contract_id"])
+        qa=q_at(entry,r.date,legs["atm"]["id"]);qs=q_at(entry,r.date,legs["short"]["id"]);qw=q_at(entry,r.date,legs["wing"]["id"])
         if any(x is None for x in (qa,qs,qw)): rej["NO_ENTRY_QUOTES"]=rej.get("NO_ENTRY_QUOTES",0)+1; continue
         for n in NODES:
             rp=float(max_loss_proxy(legs,n,float(r.close),qa,qs,qw))
