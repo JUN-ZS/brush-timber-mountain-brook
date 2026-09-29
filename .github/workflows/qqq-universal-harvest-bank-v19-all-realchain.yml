@@ -21,6 +21,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   replay:
@@ -48,7 +49,7 @@ jobs:
             --dir data
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
 
       - name: Run strict V16 seed path
         run: |
@@ -62,11 +63,14 @@ jobs:
           python research/qqq_ratio_call_harvest_v1.py \
             --data-dir data --n 2 --out artifacts/ratio
 
-      - name: Run Real-Chain Convexity
+      - name: Fetch frozen shock-gated Convexity artifact
         run: |
           mkdir -p artifacts/conv
-          python research/qqq_realchain_convexity_v1.py \
-            --data-dir data --out artifacts/conv
+          gh run download 36550732916 \
+            --repo JUN-ZS/brush-timber-mountain-brook \
+            --name qqq-hybrid-downside-convexity-v1 \
+            --dir artifacts/conv
+          test -f artifacts/conv/qqq_hybrid_downside_convexity_v1_shock_gated_cycles.csv
 
       - name: Run State Adaptive Geometry
         run: |
@@ -98,7 +102,6 @@ jobs:
             --staggered-ledger artifacts/staggered/trades_1_LAYER_NO_OVERLAP.csv \
             --risk-ledger artifacts/risk/all_realchain_entry_risk.csv \
             --out artifacts/universal
-
           cat artifacts/universal/qqq_universal_harvest_bank_v19_all_result.json
 
       - name: Upload V19 artifacts
