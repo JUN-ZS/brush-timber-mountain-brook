@@ -40,3 +40,6 @@ For State Adaptive, the future migration path is not used to pre-price risk; onl
 ## Interpretation
 
 This remains a counterfactual rights/lifetime experiment. It does not prove that one WIN literally finances an indefinitely long live portfolio, and it does not calculate NAV/CAGR for the Universal Bank.
+
+
+CI trigger: V19 ALL real-chain replay requested after contract freeze.
