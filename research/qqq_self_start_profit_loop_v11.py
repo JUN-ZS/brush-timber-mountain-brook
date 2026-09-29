@@ -24,8 +24,16 @@ from pathlib import Path
 import duckdb,numpy as np,pandas as pd
 
 from qqq_profit_recycle_loop_v6 import (
-    ensure_data,load_underlying,chain,pick,quotes,q_at,ex,mid,max_loss_proxy,sha256_file
+    ensure_data,load_underlying,chain,pick,quotes,q_at,ex,mid,sha256_file
 )
+
+def max_loss_proxy(legs,n,spot,qa,qs,qw):
+    atm_k=float(legs["atm"]["k"]); short_k=float(legs["short"]["k"]); wing_k=float(legs["wing"]["k"])
+    grid=np.linspace(max(1.0,spot*0.2),max(spot*2.5,wing_k*1.25),1200)
+    initial=(float(qa["ask"])-n*float(qs["bid"])+n*float(qw["ask"]))*100
+    payoff=(np.maximum(grid-atm_k,0)-n*np.maximum(grid-short_k,0)+n*np.maximum(grid-wing_k,0))*100
+    return max(0.0,-float(np.min(payoff-initial)))
+
 
 BASE_N=2
 MAX_EXTRA=20
