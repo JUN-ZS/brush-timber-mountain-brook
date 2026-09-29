@@ -189,9 +189,9 @@ def trade(con,opt_path,u,row,legs,adaptive):
     if w.empty:return None,"NO_WINDOW"
     exit_date=pd.Timestamp(w.iloc[-1].date)
 
-    ids={k:legs[k]["id"] for k in ("atm","sc20","wing","lp","sp10")}
-    ids={"atm":ids["atm"],"sc":ids["sc20"],"wing":ids["wing"],
-         "lp":ids["lp"],"sp":ids["sp"]}
+    base_ids={k:legs[k]["id"] for k in ("atm","sc20","wing","lp","sp10")}
+    ids={"atm":base_ids["atm"],"sc":base_ids["sc20"],"wing":base_ids["wing"],
+         "lp":base_ids["lp"],"sp":base_ids["sp10"]}
     migrations=[]
     if adaptive:
         anchor=float(row.close); wave=0
