@@ -252,13 +252,15 @@ def plan(
         ]
 
         if spot >= far.strike:
-            legs = [{
-                "code": far.code,
-                "side": "BUY",
-                "qty": max(N_SHORT, far_qty),
-                "price": far.ask,
-                "why": "CLOSE_FAR_EMERGENCY",
-            }]
+            legs = []
+            if far_qty > 0:
+                legs.append({
+                    "code": far.code,
+                    "side": "BUY",
+                    "qty": far_qty,
+                    "price": far.ask,
+                    "why": "CLOSE_FAR_EMERGENCY",
+                })
             for p in near_pos:
                 q = quotes_by_code.get(p.code, {})
                 legs.append({
