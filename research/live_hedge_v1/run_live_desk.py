@@ -534,6 +534,14 @@ def main():
 
     campaign_active = campaign.get("state") != STATE_IDLE
     signal_active = bool(market.get("signal_active"))
+
+    # A campaign cannot remain logically active after every managed QQQ option is gone.
+    if campaign_active and not strict_positions and state.get("active_ticket") is None and not just_filled:
+        campaign["id"] = None
+        campaign["far_code"] = None
+        _transition(state, STATE_IDLE, now, store)
+        campaign_active = False
+
     unmanaged_short_block = (
         campaign.get("state") == STATE_IDLE and bool(qqq_shorts)
     )
