@@ -1,0 +1,44 @@
+name: QQQ Far10 Coverage Gamma V24
+on:
+  push:
+    branches: [research/qqq-far10-coverage-gamma-v24-20260930]
+    paths:
+      - research/qqq_far10_coverage_gamma_v24.py
+      - .github/workflows/qqq-far10-coverage-gamma-v24.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: qqq-far10-coverage-gamma-v24
+  cancel-in-progress: true
+jobs:
+  replay:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install duckdb pandas pyarrow numpy
+      - name: Download canonical QQQ data-v1
+        run: |
+          mkdir -p data artifacts
+          curl -L --fail --retry 3 -o data/QQQ_options.parquet \
+            https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl -L --fail --retry 3 -o data/QQQ_underlying.parquet \
+            https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+      - name: Run V24
+        run: python research/qqq_far10_coverage_gamma_v24.py --data-dir data --out artifacts
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-far10-coverage-gamma-v24
+          path: |
+            artifacts/v24_result.json
+            artifacts/v24_summary.csv
+            artifacts/v24_books.csv
+          if-no-files-found: error
+          continue-on-error: true
