@@ -19,23 +19,43 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Environment diagnostic
+        run: |
+          set -eux
+          python -V
+          python -c "import sys; print(sys.path)"
+          git rev-parse HEAD
       - name: Install
         run: |
+          set -eux
           python -m pip install --upgrade pip
           pip install duckdb pandas pyarrow numpy
+          python -c "import duckdb,pandas,pyarrow,numpy; print('deps-ok')"
       - name: Download canonical QQQ data-v1
         run: |
+          set -eux
           mkdir -p data
           curl -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
           curl -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          ls -lh data
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
-      - name: Run locked 30D/1.5x family OOS replay
+      - name: Compile V22 and OOS harness
         run: |
-          python research/qqq_dynamic_near_long_oos_family_v1.py --data-dir data --out artifacts/oos_family
+          set -eux
+          python -m py_compile research/qqq_dynamic_near_long_state_engine_v22.py research/qqq_dynamic_near_long_oos_family_v1.py
+          python -c "import sys; sys.path.insert(0,'research'); import qqq_dynamic_near_long_state_engine_v22 as v; import qqq_dynamic_near_long_oos_family_v1 as o; print(v.FAR_DTES, v.FAR_DELTAS); print(o.CANDIDATE_NEAR_DTE, o.CANDIDATE_COVERAGE)"
+      - name: Run locked 30D/1.5x family OOS replay
+        id: run
+        run: |
+          set -o pipefail
+          python research/qqq_dynamic_near_long_oos_family_v1.py --data-dir data --out artifacts/oos_family 2>&1 | tee artifacts/oos_run.log
           cat artifacts/oos_family/manifest.json
-      - name: Upload
+      - name: Upload diagnostics and OOS artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qqq-dynamic-near-long-oos-family-v1
-          path: artifacts/oos_family/
-          if-no-files-found: error
+          name: qqq-dynamic-near-long-oos-family-v1-diagnostics
+          path: |
+            artifacts/oos_run.log
+            artifacts/oos_family/
+          if-no-files-found: warn
