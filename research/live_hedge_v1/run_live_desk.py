@@ -25,8 +25,11 @@ def main():
     pos=[]
     for p in acct.get("positions",[]):
         meta=by.get(p["code"]);q=quotes.get(p["code"],{})
-        pos.append(Position(p["code"],p["side"],p["qty"],p["avg_cost"],meta.strike if meta else None,meta.expiry if meta else None,
-                            meta.dte if meta else None,q.get("delta"),q.get("gamma")))
+        pos.append(Position(p["code"],p["side"],p["qty"],p["avg_cost"],
+                            meta.strike if meta else q.get("strike"),
+                            meta.expiry if meta else q.get("expiry"),
+                            meta.dte if meta else q.get("dte"),
+                            q.get("delta"),q.get("gamma")))
     far_pos=next((p for p in pos if p.side=="SHORT" and ("QQQ" in p.code.upper() or p.code.upper().startswith("US.Q"))),None)
     far=None
     if far_pos:
