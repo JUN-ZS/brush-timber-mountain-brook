@@ -66,3 +66,25 @@ No order is submitted or modified.
 ## Scheduling
 
 With Futu OpenD on the same Windows PC, Windows Task Scheduler or the long-running \`watch\` mode is the direct primary recorder. GitHub Actions is not the raw recorder when OpenD is only reachable locally.
+
+## Offline / PC-off recovery
+
+The broker-side transaction record is recoverable after an outage. When the next cycle sees no prior cycle, or a gap of at least `--backfill-after-minutes` (default 10), the recorder asks Futu for historical live executions from the recovery date through today. Futu documents both historical orders and historical executed trades for live accounts. `deal_id` is used for deduplication, so a fill seen before and after the outage is not counted twice.
+
+What cannot be reconstructed exactly is the missed *market-state path*: the precise option bid/ask/Greek/risk state that would have existed at every 5-minute point while the recorder was offline. Those missing periods remain a DATA_GAP rather than invented snapshots.
+
+Therefore the evidence hierarchy is:
+
+```
+Broker deal/fill     -> recoverable
+Broker order history -> recoverable
+Current positions    -> recoverable
+Exact missed quote path -> NOT recoverable
+Strategy observation during outage -> NOT recoverable
+```
+
+A later backfill restores transaction truth; it does not manufacture missing historical market observations.
+
+## Cloud operation
+
+For 24/7 recording, put OpenD and this recorder on a VPS. The Windows PC then becomes a trading/monitoring terminal rather than the evidence recorder. A VPS scheduler such as Windows Task Scheduler, cron, or systemd timer is preferable to using a Grok/Cursor bot as the scheduler. Grok/Cursor can be used to inspect reports or maintain the deployment, but should not be the source of record.
