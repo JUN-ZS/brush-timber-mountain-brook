@@ -1,0 +1,49 @@
+name: QQQ V22 Locked OOS Family V2
+on:
+  push:
+    branches:
+      - research/qqq-v22-locked-oos-family-v2-20261001
+    paths:
+      - research/qqq_v22_locked_oos_family_v2.py
+      - .github/workflows/qqq-v22-locked-oos-family-v2.yml
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install duckdb pandas pyarrow numpy
+      - name: Download canonical QQQ data-v1
+        run: |
+          mkdir -p data
+          curl.exe -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl.exe -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          python -c "import hashlib; print('options',hashlib.sha256(open('data/QQQ_options.parquet','rb').read()).hexdigest()); print('underlying',hashlib.sha256(open('data/QQQ_underlying.parquet','rb').read()).hexdigest())"
+      - name: Pin frozen V22 engine source
+        run: |
+          curl.exe -L --fail --retry 3 -o research/qqq_dynamic_near_long_state_engine_v22_930c949.py https://raw.githubusercontent.com/JUN-ZS/brush-timber-mountain-brook/930c949ec5260865f2bf3ee1c6e030dab7b8e4c4/research/qqq_dynamic_near_long_state_engine_v22.py
+          python -c "import hashlib; p='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; print(hashlib.sha256(open(p,'rb').read()).hexdigest())"
+      - name: Verify and run locked 72-config family
+        run: |
+          python -m py_compile research/qqq_v22_locked_oos_family_v2.py research/qqq_dynamic_near_long_state_engine_v22_930c949.py
+          python research/qqq_v22_locked_oos_family_v2.py --data-dir data --out artifacts/oos_family
+          cat artifacts/oos_family/manifest.json
+      - name: Upload OOS artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-v22-locked-oos-family-v2
+          path: artifacts/oos_family/
+          if-no-files-found: warn
