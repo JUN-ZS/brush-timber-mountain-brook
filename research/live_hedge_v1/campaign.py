@@ -243,6 +243,8 @@ def build_ticket(
         "status": "OPEN",
         "issued_at": now,
         "reason": action.get("why"),
+        "lot_id": action.get("lot_id"),
+        "avg_cost": action.get("avg_cost"),
         "legs": legs,
         "fill": [],
         "manual_execution_only": True,
