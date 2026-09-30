@@ -14,7 +14,6 @@ STATE_RECONCILE_WAIT = "RECONCILE_WAIT"
 STATE_EMERGENCY_CLOSE = "EMERGENCY_CLOSE"
 
 ACTIVE_TICKET_STATUSES = {"OPEN", "PARTIAL"}
-TERMINAL_TICKET_STATUSES = {"FILLED", "STALE", "SUPERSEDED"}
 
 
 def utc_now() -> str:
@@ -56,10 +55,32 @@ def qty_for(snapshot: Dict[str, Dict[str, Any]], side: str, code: str) -> int:
     return int(snapshot.get(f"{side.upper()}:{code.upper()}", {}).get("qty", 0) or 0)
 
 
-def _fill_side(action: str) -> str:
-    if action in {"SELL_FAR", "HARVEST_NEAR", "REDUCE_NEAR", "CLOSE_FAR_EMERGENCY", "CLOSE_NEAR"}:
-        return "SELL"
-    return "BUY"
+def _parse_time(s: Any) -> Optional[datetime]:
+    if not s:
+        return None
+    raw = str(s).strip()
+    for candidate in (
+        raw,
+        raw.replace("Z", "+00:00"),
+    ):
+        try:
+            dt = datetime.fromisoformat(candidate)
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except Exception:
+            continue
+    return None
+
+
+def _is_after(created_at: Any, issued_at: Any) -> bool:
+    a = _parse_time(created_at)
+    b = _parse_time(issued_at)
+    if not b:
+        return True
+    if not a:
+        return False
+    return a >= b
 
 
 def _match_fill_price(
@@ -68,27 +89,32 @@ def _match_fill_price(
     orders: Iterable[Dict[str, Any]],
     deals: Iterable[Dict[str, Any]],
 ) -> tuple[Optional[float], str]:
-    issued = str(ticket.get("issued_at", ""))
     code = str(leg.get("code", "")).upper()
     side = str(leg.get("side", "")).upper()
     want = int(leg.get("qty", 0) or 0)
-
     candidates = []
+
     for d in deals:
         if str(d.get("code", "")).upper() != code:
             continue
         if str(d.get("side", "")).upper() != side:
             continue
-        if issued and str(d.get("created_at", "")) < issued:
+        if not _is_after(d.get("created_at"), ticket.get("issued_at")):
             continue
-        candidates.append(("DEAL", float(d.get("price", 0) or 0), int(float(d.get("qty", 0) or 0)), d.get("deal_id", "")))
+        price = float(d.get("price", 0) or 0)
+        qty = int(float(d.get("qty", 0) or 0))
+        if qty > 0 and price > 0:
+            candidates.append(("DEAL", price, qty, d.get("deal_id", "")))
 
     for o in orders:
         if str(o.get("code", "")).upper() != code:
             continue
         if str(o.get("side", "")).upper() != side:
             continue
-        if issued and str(o.get("created_at", o.get("updated_at", ""))) < issued:
+        if not _is_after(
+            o.get("created_at", o.get("updated_at", "")),
+            ticket.get("issued_at"),
+        ):
             continue
         dealt = int(float(o.get("dealt_qty", 0) or 0))
         avg = float(o.get("dealt_avg_price", 0) or 0)
@@ -96,14 +122,11 @@ def _match_fill_price(
             candidates.append(("ORDER", avg, dealt, o.get("order_id", "")))
 
     candidates.sort(key=lambda x: str(x[3]), reverse=True)
-    exact = [x for x in candidates if x[2] >= want and x[1] > 0]
+    exact = [x for x in candidates if x[2] >= want]
     if exact:
         return exact[0][1], exact[0][0]
     if candidates:
-        valid = [x for x in candidates if x[1] > 0]
-        if valid:
-            return valid[0][1], valid[0][0]
-
+        return candidates[0][1], candidates[0][0]
     return None, "NOT_OBSERVED"
 
 
@@ -137,8 +160,8 @@ def build_ticket(
     stamp = now.replace("-", "").replace(":", "").replace(".", "").replace("+00:00", "Z")
     ticket_id = f"T-{stamp}-{sequence:04d}"
     act = str(action.get("action", ""))
-
     legs = []
+
     if act == "ROLL_NEAR":
         old_code = str(action["code"])
         qty = int(action["qty"])
@@ -179,17 +202,27 @@ def build_ticket(
                     "target_qty": 0,
                 }
             )
+    elif act == "REPRICE_OR_CANCEL":
+        leg = {
+            "side": str(action.get("side", "")).upper(),
+            "code": str(action.get("code", "")),
+            "qty": int(action.get("qty", 0) or 0),
+            "price": action.get("current_price"),
+            "order_id": action.get("order_id"),
+        }
+        legs = [leg]
     else:
         code = str(action.get("code", ""))
         qty = int(action.get("qty", action.get("target_qty", 0)) or 0)
-        side = str(action.get("side") or ("SELL" if act in {
-            "SELL_FAR", "HARVEST_NEAR", "REDUCE_NEAR", "CLOSE_FAR_EMERGENCY", "CLOSE_NEAR"
-        } else "BUY")).upper()
-        expected_side = "SHORT" if act in {"SELL_FAR"} or (act == "REPAIR_FAR" and action.get("direction") == "ADD") else (
-            "LONG" if act in {"ADD_NEAR"} else ("SHORT" if act == "REPAIR_FAR" and action.get("direction") == "ADD" else "LONG")
+        side = str(action.get("side") or (
+            "SELL" if act in {
+                "SELL_FAR", "HARVEST_NEAR", "REDUCE_NEAR",
+                "CLOSE_FAR_EMERGENCY", "CLOSE_NEAR"
+            } else "BUY"
+        )).upper()
+        expected_side = "SHORT" if act == "SELL_FAR" else (
+            "SHORT" if act == "REPAIR_FAR" else "LONG"
         )
-        if act == "REPAIR_FAR":
-            expected_side = "SHORT"
         before = qty_for(before_positions, expected_side, code)
         if act == "REPAIR_FAR":
             target = int(action.get("target_qty", 10))
@@ -231,6 +264,9 @@ def reconcile_ticket(
     if not ticket or ticket.get("status") not in ACTIVE_TICKET_STATUSES:
         return {"filled": False, "partial": False, "events": events, "ticket": ticket}
 
+    if ticket.get("action") == "REPRICE_OR_CANCEL":
+        return {"filled": False, "partial": False, "events": events, "ticket": ticket}
+
     before = state.get("last_positions") or {}
     current = position_snapshot(current_positions)
     all_reached = True
@@ -239,7 +275,9 @@ def reconcile_ticket(
 
     for leg in ticket.get("legs", []):
         key = f'{leg["expected_side"]}:{str(leg["code"]).upper()}'
-        before_qty = int(leg.get("before_qty", qty_for(before, leg["expected_side"], leg["code"])) or 0)
+        before_qty = int(
+            leg.get("before_qty", qty_for(before, leg["expected_side"], leg["code"])) or 0
+        )
         now_qty = qty_for(current, leg["expected_side"], leg["code"])
         target_qty = int(leg.get("target_qty", now_qty) or 0)
         expected_delta = target_qty - before_qty
@@ -260,11 +298,11 @@ def reconcile_ticket(
         elif now_qty != target_qty:
             all_reached = False
 
-        if expected_delta > 0:
-            fill_qty = max(0, actual_delta)
-        else:
-            fill_qty = max(0, -actual_delta)
-
+        fill_qty = (
+            max(0, actual_delta)
+            if expected_delta > 0
+            else max(0, -actual_delta)
+        )
         if fill_qty > 0:
             price, source = _match_fill_price(ticket, leg, orders, deals)
             if price is None and expected_delta > 0:
@@ -275,7 +313,9 @@ def reconcile_ticket(
                 )
                 source = "DERIVED_POSITION_DELTA"
             ticket.setdefault("fill", [])
-            ticket["fill"] = [f for f in ticket["fill"] if f.get("code") != leg["code"]]
+            ticket["fill"] = [
+                f for f in ticket["fill"] if f.get("code") != leg["code"]
+            ]
             ticket["fill"].append({
                 "code": leg["code"],
                 "side": leg["side"],
@@ -326,9 +366,7 @@ def transition_for_action(state_name: str, action: str) -> str:
         return STATE_ROLLING
     if action in {"CLOSE_FAR_EMERGENCY", "CLOSE_CAMPAIGN_EMERGENCY"}:
         return STATE_EMERGENCY_CLOSE
-    if state_name in {STATE_ARMING, STATE_HARVESTING, STATE_REDUCING, STATE_ROLLING}:
-        return STATE_RECONCILE_WAIT
-    return state_name
+    return state_name if state_name != STATE_IDLE else STATE_OPEN
 
 
 def choose_primary_action(candidates: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
