@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
-from .campaign import (
+from research.live_hedge_v1.campaign import (
     STATE_OPEN,
     build_ticket,
     choose_primary_action,
@@ -11,7 +11,7 @@ from .campaign import (
     position_snapshot,
     reconcile_ticket,
 )
-from .engine import Contract, Order, Position, plan, quote_age_sec
+from research.live_hedge_v1.engine import Contract, Order, Position, plan, quote_age_sec
 
 
 def now_iso():
