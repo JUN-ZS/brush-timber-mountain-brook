@@ -310,3 +310,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# CI trigger: diagnostic replay uses the frozen 930c949 engine unchanged.
