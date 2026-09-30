@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>QQQ Shadow Desk V26 · DISARMED</title>
+<style>
+:root{--bg:#0e1114;--card:#171c21;--ink:#e8edf2;--mut:#8b97a3;--line:#2a333c;--go:#7dcea0;--stop:#e07a7a;--warn:#e2c36b;--dis:#6ea8d8;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 ui-sans-serif,system-ui,"PingFang TC","Noto Sans TC",sans-serif}
+header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+h1{margin:0;font-size:18px;letter-spacing:.04em}
+.pill{font-size:11px;padding:3px 8px;border:1px solid var(--stop);color:var(--stop);border-radius:999px}
+.wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;padding:16px;max-width:1200px}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+h2{margin:0 0 10px;font-size:13px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+label{display:block;font-size:11px;color:var(--mut);margin:8px 0 3px}
+input,select,textarea{width:100%;background:#10151a;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
+.row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button{cursor:pointer;border:0;border-radius:8px;padding:10px 14px;font-weight:650}
+.primary{background:var(--dis);color:#081018}
+.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.ticket{white-space:pre-wrap;font:13px/1.5 ui-monospace,Menlo,monospace;background:#0b0f13;border-radius:8px;padding:12px;min-height:220px}
+.act{font-size:28px;font-weight:750;margin:0 0 8px}
+.HOLD{color:var(--dis)}.STACK,.OPEN_FAR,.RELOAD{color:var(--go)}.HARVEST{color:var(--warn)}.GROUND,.NO_OPEN{color:var(--stop)}
+.note{color:var(--mut);font-size:12px;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid var(--line);padding:4px;text-align:left}
+.tabs{display:flex;gap:8px} .tabs button.on{background:var(--dis);color:#081018}
+</style>
+</head>
+<body>
+<header>
+  <h1>QQQ SHADOW DESK V26</h1>
+  <span class="pill">DISARMED · AUTO-ENTER OFF · NO BROKER</span>
+  <span class="note">研究對倉卡。不是 live signal。不下單。</span>
+</header>
+<div class="wrap">
+  <section class="card">
+    <h2>Book</h2>
+    <div class="tabs" id="bookTabs">
+      <button class="ghost on" data-book="AIRLINE">AIRLINE</button>
+      <button class="ghost" data-book="GAMMA">GAMMA</button>
+    </div>
+    <p class="note" id="bookHint"></p>
+    <h2>Market</h2>
+    <div class="row">
+      <div><label>Spot S</label><input id="s" type="number" step="0.01" value="480"></div>
+      <div><label>Today High</label><input id="high" type="number" step="0.01" value="481"></div>
+      <div><label>52w High</label><input id="h52" type="number" step="0.01" value="485"></div>
+    </div>
+    <div class="row">
+      <div><label>200DMA</label><input id="dma" type="number" step="0.01" value="440"></div>
+      <div><label>Capital USD</label><input id="cap" type="number" step="1" value="100000"></div>
+      <div><label>Gate %</label><input id="gate" type="number" step="0.1" value="2"></div>
+    </div>
+    <h2>Far short inventory</h2>
+    <div class="row">
+      <div><label>Qty</label><input id="fq" type="number" step="1" value="0"></div>
+      <div><label>Strike</label><input id="fk" type="number" step="0.5" value="520"></div>
+      <div><label>|Delta|</label><input id="fd" type="number" step="0.01" value="0.05"></div>
+    </div>
+    <div class="row">
+      <div><label>DTE</label><input id="fdte" type="number" step="1" value="90"></div>
+      <div><label>Bid</label><input id="fbid" type="number" step="0.01" value="0.30"></div>
+      <div><label>Ask</label><input id="fask" type="number" step="0.01" value="0.35"></div>
+    </div>
+    <h2>Near longs (qty,strike,delta,dte,entry,mark)</h2>
+    <textarea id="nears" rows="5" placeholder="1,480,0.50,30,8.20,9.10"></textarea>
+    <div class="row2" style="margin-top:10px">
+      <button class="primary" id="go">算 ACTION</button>
+      <button class="ghost" id="demo">填 DEMO</button>
+    </div>
+  </section>
+  <section class="card">
+    <h2>Ticket</h2>
+    <div id="act" class="act HOLD">HOLD</div>
+    <div class="ticket" id="ticket">填左面，按「算 ACTION」。</div>
+    <p class="note" id="cov"></p>
+    <table id="tbl"></table>
+  </section>
+</div>
+<script>
+const hint={
+  AIRLINE:"V25 已核。1×55Δ long + 2×3–5Δ short，禁收割保險，debit>儲備唔開。賣得起、薄利潤。",
+  GAMMA:"候選 10×遠月 short + Coverage 1.5× 近月堆/收 TP50。Run #3 未官方落地。唔当 live。"
+};
+let BOOK="AIRLINE";
+document.getElementById("bookHint").textContent=hint.AIRLINE;
+document.getElementById("bookTabs").onclick=e=>{
+  const b=e.target.dataset.book; if(!b) return;
+  BOOK=b;
+  [...document.getElementById("bookTabs").children].forEach(x=>x.classList.toggle("on",x.dataset.book===b));
+  document.getElementById("bookHint").textContent=hint[b];
+};
+function parseNears(text){
+  return text.split(/\n+/).map(l=>l.trim()).filter(Boolean).map(l=>{
+    const [q,k,d,dte,entry,mark]=l.split(",").map(Number);
+    return {q:q||0,k,d:Math.abs(d||0),dte:dte||0,entry:entry||0,mark:mark||0};
+  }).filter(x=>x.q>0);
+}
+function extreme(s,h52,dma){
+  if(!s||!h52||!dma) return false;
+  return (s/h52)>=0.98 && (s/dma-1)>=0.08;
+}
+function decide(){
+  const s=+document.getElementById("s").value;
+  const high=+document.getElementById("high").value;
+  const h52=+document.getElementById("h52").value;
+  const dma=+document.getElementById("dma").value;
+  const cap=+document.getElementById("cap").value||100000;
+  const gateP=+document.getElementById("gate").value||2;
+  const reserve=cap*(gateP/100);
+  const fq=+document.getElementById("fq").value||0;
+  const fk=+document.getElementById("fk").value;
+  const fd=Math.abs(+document.getElementById("fd").value||0);
+  const fdte=+document.getElementById("fdte").value||0;
+  const fbid=+document.getElementById("fbid").value||0;
+  const nears=parseNears(document.getElementById("nears").value);
+  const longExp=nears.reduce((a,x)=>a+x.q*x.d,0);
+  const den=Math.max((BOOK==="GAMMA"?10:Math.max(fq,2))*fd,1e-6);
+  const cov=longExp/den;
+  const gateOK=extreme(s,h52,dma);
+  const crash=fq>0 && high>=fk;
+  let action="HOLD", why=[], next="下一條 High / Coverage / TP";
+  if(crash){
+    action="GROUND"; why.push("High 碰到遠月 short strike"); next="停 20 日，唔補";
+  } else if(BOOK==="AIRLINE"){
+    const debitEst=/* rough */ Math.max(0,(8.0 - 2*fbid)*100);
+    if(fq<=0 && !gateOK){ action="NO_OPEN"; why.push("非極高網"); next="等 close/52w>=0.98 且 ext200>=8%"; }
+    else if(fq<=0 && debitEst>reserve){ action="NO_OPEN"; why.push("debit 估計 "+debitEst.toFixed(0)+" > 儲備 "+reserve.toFixed(0)); }
+    else if(fq<=0 && gateOK){ action="OPEN_FAR"; why.push("AIRLINE 開：1×~55Δ long + 2×3–5Δ short 同月"); next="全腳一起平；touch 或 30D"; }
+    else why.push("已有 AIRLINE 倉，保險禁收割");
+  } else {
+    if(fq<=0 && !gateOK){ action="NO_OPEN"; why.push("GAMMA 非極高網"); }
+    else if(fq<=0 && gateOK){ action="OPEN_FAR"; why.push("開 10 張遠月 FOTM short + 第一張近月 ATM"); next="見 Coverage"; }
+    else if(cov<1.5 && nears.length<15){ action="STACK"; why.push("Coverage "+cov.toFixed(2)+" < 1.5"); next="加 1 張 21–30D ATM long"; }
+    else {
+      const ripe=nears.find(x=>x.entry>0 && x.mark>=x.entry*1.5);
+      if(ripe){ action="HARVEST"; why.push("近月 TP50 strike "+ripe.k); next="只平該張近月，遠月不動"; }
+      else if(cov>2 && nears.length){ action="HARVEST"; why.push("Coverage "+cov.toFixed(2)+" > 2"); next="平最舊 1 張近月"; }
+      else why.push("Coverage "+cov.toFixed(2)+" 在帶內，唔改單");
+    }
+  }
+  const ticket=[
+    "MODE: SHADOW / AUTO-ENTER OFF",
+    "BOOK: "+BOOK,
+    "ACTION: "+action,
+    "S=" +s+ " High="+high+" 52w="+h52+" DMA200="+dma,
+    "GATE: "+(gateOK?"PASS":"FAIL")+"  RESERVE=$"+reserve.toFixed(0),
+    "FAR: qty="+fq+" K="+fk+" |Δ|="+fd+" DTE="+fdte,
+    "COVERAGE: "+cov.toFixed(3)+"  nearExp="+longExp.toFixed(3),
+    "WHY: "+why.join(" / "),
+    "NEXT: "+next,
+    "",
+    "TICKET (手動對倉，唔自動送券商)",
+    action==="OPEN_FAR" && BOOK==="AIRLINE" ? "BUY 1 CALL ~55Δ  + SELL 2 CALL 3–5Δ  SAME EXPIRY" : "",
+    action==="OPEN_FAR" && BOOK==="GAMMA" ? "SELL 10 CALL far FOTM  + BUY 1 CALL 21–30D ATM" : "",
+    action==="STACK" ? "BUY 1 CALL 21–30D ATM" : "",
+    action==="HARVEST" ? "SELL 1 existing NEAR long (not the far shorts)" : "",
+    action==="GROUND" ? "CLOSE ALL far shorts AND near longs" : ""
+  ].filter(x=>x!=="").join("\n");
+  const el=document.getElementById("act");
+  el.textContent=action; el.className="act "+action;
+  document.getElementById("ticket").textContent=ticket;
+  document.getElementById("cov").textContent="Coverage "+cov.toFixed(3)+" · longs "+nears.length+" · reserve $"+reserve.toFixed(0);
+  document.getElementById("tbl").innerHTML = nears.length? ("<tr><th>q</th><th>K</th><th>Δ</th><th>DTE</th><th>entry</th><th>mark</th><th>uP&L%</th></tr>"+
+    nears.map(x=>`<tr><td>${x.q}</td><td>${x.k}</td><td>${x.d}</td><td>${x.dte}</td><td>${x.entry}</td><td>${x.mark}</td><td>${x.entry?(((x.mark/x.entry-1)*100).toFixed(1)+"%"):"-"}</td></tr>`).join("")):"";
+}
+document.getElementById("go").onclick=decide;
+document.getElementById("demo").onclick=()=>{
+  document.getElementById("s").value=480;
+  document.getElementById("high").value=481;
+  document.getElementById("h52").value=482;
+  document.getElementById("dma").value=430;
+  document.getElementById("fq").value=BOOK==="GAMMA"?10:2;
+  document.getElementById("fk").value=510;
+  document.getElementById("fd").value=0.05;
+  document.getElementById("nears").value="1,478,0.52,28,7.80,8.10\n1,482,0.48,21,6.40,9.80";
+  decide();
+};
+</script>
+</body></html>
