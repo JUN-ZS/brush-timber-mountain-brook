@@ -463,3 +463,5 @@ def main():
     print(json.dumps(report,indent=2,default=str),flush=True)
 
 if __name__=="__main__":main()
+
+# CI trigger: execute canonical V21 replay after workflow installation.
