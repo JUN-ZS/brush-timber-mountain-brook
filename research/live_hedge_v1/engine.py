@@ -72,11 +72,17 @@ def _dt(s):
         return None
 
 
-def quote_age_sec(s, now=None):
+def quote_age_sec(s, now=None, naive_is_local=False):
     t = _dt(s)
     if t is None:
         return None
     now = now or datetime.now(timezone.utc)
+    if t.tzinfo is None:
+        if naive_is_local:
+            local_tz = datetime.now().astimezone().tzinfo or timezone.utc
+            t = t.replace(tzinfo=local_tz)
+        else:
+            t = t.replace(tzinfo=timezone.utc)
     return max(0, (now - t).total_seconds())
 
 
@@ -182,10 +188,10 @@ def plan(
     ]
     near_pos = [p for p in option_positions if p.side == "LONG"]
     far_positions = [p for p in option_positions if p.side == "SHORT"]
-    pending_statuses = {"FILLED", "CANCELLED", "REJECTED", "FAILED"}
+    terminal_statuses = {"FILLED", "FILLED_ALL", "CANCELLED", "CANCELLED_ALL", "REJECTED", "FAILED"}
     pending_codes = {
         o.code for o in orders
-        if is_qqq_option_code(o.code) and o.status.upper() not in pending_statuses
+        if is_qqq_option_code(o.code) and o.status.upper() not in terminal_statuses
     }
 
     actions = []
@@ -238,35 +244,11 @@ def plan(
         ]
 
         next_triggers += [
-            {
-                "type": "ADD_NEXT",
-                "when": "desired_stack > active_near",
-                "current": active_near,
-                "target": state["desired_stack"],
-                "effect": "ADD_NEAR up to target",
-            },
-            {
-                "type": "REDUCE_NOW",
-                "when": "active_near > desired_stack",
-                "current": active_near,
-                "target": state["desired_stack"],
-                "effect": "REDUCE_NEAR excess",
-            },
-            {
-                "type": "HARVEST",
-                "when": "near bid / recorded fill cost - 1 >= 50%",
-                "effect": "HARVEST_NEAR eligible lot",
-            },
-            {
-                "type": "ROLL",
-                "when": "near DTE <= 2",
-                "effect": "ROLL_NEAR into selected near contract",
-            },
-            {
-                "type": "SIGNAL_OFF",
-                "when": "entry signal becomes inactive",
-                "effect": "no automatic campaign close; keep managing until exit condition",
-            },
+            {"type": "ADD_NEXT", "when": "desired_stack > active_near", "current": active_near, "target": state["desired_stack"], "effect": "ADD_NEAR up to target"},
+            {"type": "REDUCE_NOW", "when": "active_near > desired_stack", "current": active_near, "target": state["desired_stack"], "effect": "REDUCE_NEAR excess"},
+            {"type": "HARVEST", "when": "near bid / recorded fill cost - 1 >= 50%", "effect": "HARVEST_NEAR eligible lot"},
+            {"type": "ROLL", "when": "near DTE <= 2", "effect": "ROLL_NEAR into selected near contract"},
+            {"type": "SIGNAL_OFF", "when": "entry signal becomes inactive", "effect": "no automatic campaign close; keep managing until exit condition"},
         ]
 
         if spot >= far.strike:
@@ -319,9 +301,7 @@ def plan(
                 q = quotes_by_code.get(p.code, {})
                 bid = q.get("bid")
                 cost = float(p.avg_cost or 0)
-                if bid is not None and cost > 0 and bid / cost - 1 >= NEAR_TP and not any(
-                    l.get("code") == p.code for _, l in eligible_harvest
-                ):
+                if bid is not None and cost > 0 and bid / cost - 1 >= NEAR_TP and not any(l.get("code") == p.code for _, l in eligible_harvest):
                     eligible_harvest.append((str(p.code), {
                         "lot_id": f"POSITION:{p.code}",
                         "code": p.code,
@@ -337,9 +317,10 @@ def plan(
                 actions.append({
                     "action": "HARVEST_NEAR",
                     "code": lot["code"],
-                    "qty": min(int(lot["qty"]), next(
-                        (p.qty for p in near_pos if p.code == lot["code"]), int(lot["qty"])
-                    )),
+                    "qty": min(
+                        int(lot["qty"]),
+                        next((p.qty for p in near_pos if p.code == lot["code"]), int(lot["qty"])),
+                    ),
                     "price": q.get("bid"),
                     "return_pct": q["bid"] / float(lot["avg_cost"]) - 1,
                     "lot_id": lot.get("lot_id"),
@@ -366,10 +347,7 @@ def plan(
 
             if active_near > state["desired_stack"]:
                 excess = active_near - state["desired_stack"]
-                for p in sorted(
-                    near_pos,
-                    key=lambda z: (z.avg_cost, z.dte if z.dte is not None else 999, z.code),
-                ):
+                for p in sorted(near_pos, key=lambda z: (z.avg_cost, z.dte if z.dte is not None else 999, z.code)):
                     if excess <= 0:
                         break
                     q = min(excess, p.qty)
@@ -399,12 +377,12 @@ def plan(
     for o in orders:
         if not is_qqq_option_code(o.code):
             continue
-        age = quote_age_sec(o.updated_at, now)
+        age = quote_age_sec(o.updated_at, now, naive_is_local=True)
         q = quotes_by_code.get(o.code, {})
         if (
             age is not None
             and age >= STALE_ORDER_SEC
-            and o.status.upper() not in pending_statuses
+            and o.status.upper() not in terminal_statuses
         ):
             actions.append({
                 "action": "REPRICE_OR_CANCEL",
@@ -430,7 +408,6 @@ def plan(
         "next_triggers": next_triggers,
         "risk_state": (
             risk_state(far, spot, gamma_baseline, previous_far_delta_abs)
-            if far_campaign_active and far
-            else None
+            if far_campaign_active and far else None
         ),
     }
