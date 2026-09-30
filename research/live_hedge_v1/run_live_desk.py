@@ -665,6 +665,26 @@ def main():
                 "deal_warning": acct.get("deal_warning"),
             },
         )
+        manual_events = [
+            e for e in reconcile_events
+            if str(e.get("type", "")).upper() in {
+                "MANUAL_POSITION_CHANGE",
+                "TICKET_SUPERSEDED_MANUAL_CHANGE",
+                "MANUAL_RECONCILE",
+            }
+        ]
+        if manual_events:
+            evidence.append(
+                "HUMAN_INTERVENTION",
+                cycle_id=cycle_id,
+                campaign_id=(state.get("campaign") or {}).get("id"),
+                timestamp_utc=now,
+                evidence_grade="HUMAN_REPORTED",
+                payload={
+                    "events": manual_events,
+                    "note": "Manual intervention/change is preserved separately from strategy outcome.",
+                },
+            )
 
     if reconcile.get("filled"):
         filled_ticket = reconcile.get("ticket") or {}
@@ -737,6 +757,24 @@ def main():
         },
     }
     snapshot_ref = write_snapshot(repo, cycle_id, snapshot_payload)
+    available_family_count = sum(
+        1 for row in family_observation["rows"] if row["status"] == "AVAILABLE"
+    )
+    if available_family_count < family_observation["family_count_expected"]:
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=campaign.get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={
+                "stage": "FAMILY_OBSERVATION",
+                "expected_family_members": family_observation["family_count_expected"],
+                "available_family_members": available_family_count,
+                "missing_family_members": family_observation["family_count_expected"] - available_family_count,
+                "note": "Unavailable family members remain explicit; no substitution or inference.",
+            },
+        )
     evidence.append(
         "PRE_DECISION_OBSERVATION",
         cycle_id=cycle_id,
