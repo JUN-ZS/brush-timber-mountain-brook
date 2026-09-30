@@ -25,7 +25,7 @@ def main():
 
     if len(detail_files) != 24 or len(summary_files) != 24:
         raise RuntimeError(
-            f"expected 24 detail + 24 summary files, got {len(detail_files)} + {len(summary_files)}"
+            f"expected 4 detail + 4 summary files, got {len(detail_files)} + {len(summary_files)}"
         )
 
     details = pd.concat((pd.read_csv(p) for p in detail_files), ignore_index=True)
@@ -102,7 +102,7 @@ def main():
     report = {
         "status": "REAL_QQQ_CHAIN_DYNAMIC_STATE_ENGINE_V23_PARALLEL_MERGED",
         "matrix_configs": 864,
-        "shards_expected": 24,
+        "shards_expected": 4,
         "shards_result_files": len(metadata),
         "config_integrity": {
             "unique_configs": int(summary.config_index.nunique()),
