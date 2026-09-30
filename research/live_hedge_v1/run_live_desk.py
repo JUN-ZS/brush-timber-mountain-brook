@@ -599,6 +599,21 @@ def main():
         or reconcile.get("superseded")
     )
 
+    if reconcile_events:
+        evidence.append(
+            "EXECUTION_OBSERVED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="BROKER_OBSERVED",
+            payload={
+                "reconcile_events": reconcile_events,
+                "ticket_after_reconcile": state.get("active_ticket"),
+                "broker_source": acct.get("source"),
+                "deal_warning": acct.get("deal_warning"),
+            },
+        )
+
     if reconcile.get("filled"):
         filled_ticket = reconcile.get("ticket") or {}
         _fill_lots(state, filled_ticket)
@@ -639,6 +654,57 @@ def main():
         if len(gamma_history) >= 3 else None
     )
     previous_delta = state.get("far_delta")
+
+    family_observation = build_family_snapshot(
+        contracts,
+        spot=float(market["spot"]),
+        signal_active=signal_active and not unmanaged_short_block,
+        campaign_active=campaign_active,
+        active_far_code=far.code if far else None,
+    )
+    snapshot_payload = {
+        "cycle_id": cycle_id,
+        "captured_at_utc": now,
+        "market": market,
+        "contracts": [x.__dict__ for x in contracts],
+        "quotes": quotes,
+        "account": {
+            "positions": _evidence_positions(positions),
+            "orders": _evidence_orders(acct_orders),
+            "deals": _evidence_deals(acct.get("deals", [])),
+            "source": acct.get("source"),
+            "deal_warning": acct.get("deal_warning"),
+        },
+        "campaign": campaign,
+        "family_observation": family_observation,
+        "engine_inputs": {
+            "gamma_baseline": gamma_baseline,
+            "previous_far_delta_abs": previous_delta,
+            "signal_active": signal_active,
+            "signal_active_for_plan": signal_active and not unmanaged_short_block,
+        },
+    }
+    snapshot_ref = write_snapshot(repo, cycle_id, snapshot_payload)
+    evidence.append(
+        "PRE_DECISION_OBSERVATION",
+        cycle_id=cycle_id,
+        campaign_id=campaign.get("id"),
+        timestamp_utc=now,
+        payload={
+            "snapshot": snapshot_ref,
+            "market": market,
+            "campaign_state": campaign.get("state"),
+            "positions": _evidence_positions(positions),
+            "far_candidate": far.__dict__ if far else None,
+            "near_candidate": near.__dict__ if near else None,
+            "family_observation_count": family_observation["config_count"],
+            "active_family_count": sum(
+                1 for x in family_observation["rows"] if x["active_family"]
+            ),
+            "engine_inputs": snapshot_payload["engine_inputs"],
+            "observation_is_pre_decision": True,
+        },
+    )
 
     p = plan(
         market=market,
@@ -759,6 +825,42 @@ def main():
     else:
         status = p.get("status", "HOLD")
         instruction = "HOLD — no primary ticket."
+
+    evidence.append(
+        "DECISION_EMITTED",
+        cycle_id=cycle_id,
+        campaign_id=campaign.get("id"),
+        timestamp_utc=now,
+        payload={
+            "status": status,
+            "signal_active": signal_active,
+            "plan_status": p.get("status"),
+            "risk_state": p.get("risk_state"),
+            "candidate_actions": p.get("candidate_actions", []),
+            "primary": primary,
+            "ticket": primary_ticket,
+            "next_triggers": p.get("next_triggers", []),
+            "reasons": p.get("reasons", []),
+            "family_observation_count": family_observation["config_count"],
+            "snapshot_sha256": snapshot_ref["snapshot_sha256"],
+        },
+    )
+
+    evidence.append(
+        "CYCLE_FINALIZED",
+        cycle_id=cycle_id,
+        campaign_id=campaign.get("id"),
+        timestamp_utc=now,
+        payload={
+            "status": status,
+            "instruction": instruction,
+            "campaign": campaign,
+            "active_ticket": state.get("active_ticket"),
+            "reconcile_event_count": len(reconcile_events),
+            "candidate_action_count": len(p.get("candidate_actions", [])),
+            "snapshot_sha256": snapshot_ref["snapshot_sha256"],
+        },
+    )
 
     output = {
         "status": status,
