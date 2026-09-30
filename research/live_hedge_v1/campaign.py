@@ -258,10 +258,22 @@ def reconcile_ticket(
     ticket = state.get("active_ticket")
     events = []
     if not ticket or ticket.get("status") not in ACTIVE_TICKET_STATUSES:
-        return {"filled": False, "partial": False, "events": events, "ticket": ticket}
+        return {
+            "filled": False,
+            "partial": False,
+            "superseded": False,
+            "events": events,
+            "ticket": ticket,
+        }
 
     if ticket.get("action") == "REPRICE_OR_CANCEL":
-        return {"filled": False, "partial": False, "events": events, "ticket": ticket}
+        return {
+            "filled": False,
+            "partial": False,
+            "superseded": False,
+            "events": events,
+            "ticket": ticket,
+        }
 
     before = state.get("last_positions") or {}
     current = position_snapshot(current_positions)
@@ -294,7 +306,11 @@ def reconcile_ticket(
         elif now_qty != target_qty:
             all_reached = False
 
-        fill_qty = max(0, actual_delta) if expected_delta > 0 else max(0, -actual_delta)
+        fill_qty = (
+            max(0, actual_delta)
+            if expected_delta > 0
+            else max(0, -actual_delta)
+        )
         if fill_qty > 0:
             price, source = _match_fill_price(ticket, leg, orders, deals)
             if price is None and expected_delta > 0:
@@ -320,11 +336,27 @@ def reconcile_ticket(
             })
 
     if unexpected:
+        ticket["status"] = "SUPERSEDED"
+        ticket["superseded_at"] = state.get("_now") or utc_now()
+        ticket["superseded_reason"] = "manual position change did not match ticket delta"
         events.append({
             "type": "MANUAL_POSITION_CHANGE",
             "ticket_id": ticket["ticket_id"],
             "changes": unexpected,
         })
+        events.append({
+            "type": "TICKET_SUPERSEDED",
+            "ticket_id": ticket["ticket_id"],
+            "reason": ticket["superseded_reason"],
+        })
+        state["active_ticket"] = None
+        return {
+            "filled": False,
+            "partial": False,
+            "superseded": True,
+            "events": events,
+            "ticket": ticket,
+        }
 
     if all_reached:
         ticket["status"] = "FILLED"
@@ -336,9 +368,15 @@ def reconcile_ticket(
             "fill": deepcopy(ticket.get("fill", [])),
         })
         state["active_ticket"] = None
-        return {"filled": True, "partial": False, "events": events, "ticket": ticket}
+        return {
+            "filled": True,
+            "partial": False,
+            "superseded": False,
+            "events": events,
+            "ticket": ticket,
+        }
 
-    if any_progress and not unexpected:
+    if any_progress:
         ticket["status"] = "PARTIAL"
         events.append({
             "type": "TICKET_PARTIAL_PROGRESS",
@@ -346,7 +384,13 @@ def reconcile_ticket(
             "fill": deepcopy(ticket.get("fill", [])),
         })
 
-    return {"filled": False, "partial": any_progress, "events": events, "ticket": ticket}
+    return {
+        "filled": False,
+        "partial": any_progress,
+        "superseded": False,
+        "events": events,
+        "ticket": ticket,
+    }
 
 
 def transition_for_action(state_name: str, action: str) -> str:
