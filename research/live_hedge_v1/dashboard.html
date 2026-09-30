@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="15">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QQQ Live Hedge Desk</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1200px;margin:24px auto;padding:0 18px;background:#0b0f14;color:#e6edf3}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin:12px 0}
+h1,h2{margin:0 0 10px}
+pre{white-space:pre-wrap;word-break:break-word}
+.action{padding:10px;border:1px solid #444;border-radius:8px;margin:7px 0;background:#0e141b}
+.meta{color:#8b949e}
+</style>
+</head>
+<body>
+<h1>QQQ LIVE HEDGE DESK</h1>
+<div id="app">loading…</div>
+<script>
+async function load(){
+ const r=await fetch('live_state.json?ts='+Date.now());
+ const s=await r.json();
+ let h='<div class="card"><h2>'+s.status+'</h2><div class="meta">timestamp='+s.timestamp+' · manual_execution_only='+s.manual_execution_only+'</div></div>';
+ const m=s.market||{};
+ h+='<div class="card"><h2>Market</h2><pre>'+JSON.stringify(m,null,2)+'</pre></div>';
+ if(s.far) h+='<div class="card"><h2>Far</h2><pre>'+JSON.stringify(s.far,null,2)+'</pre></div>';
+ if(s.near_candidate) h+='<div class="card"><h2>Near candidate</h2><pre>'+JSON.stringify(s.near_candidate,null,2)+'</pre></div>';
+ h+='<div class="card"><h2>Execution tickets</h2>';
+ (s.actions||[]).forEach(a=>h+='<div class="action"><b>'+a.action+'</b><pre>'+JSON.stringify(a,null,2)+'</pre></div>');
+ if(!(s.actions||[]).length) h+='<div class="action">HOLD / no change</div>';
+ h+='</div>';
+ h+='<div class="card"><h2>Why / state</h2><pre>'+JSON.stringify({reasons:s.reasons,next_triggers:s.next_triggers},null,2)+'</pre></div>';
+ document.getElementById('app').innerHTML=h;
+}
+load().catch(e=>document.getElementById('app').textContent='ERROR: '+e);
+setInterval(load,5000);
+</script>
+</body></html>
