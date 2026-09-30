@@ -285,7 +285,7 @@ def build_campaigns(u, candidates, far_quotes):
             out[(fd,fdel)]=rows
     return out
 
-def simulate_campaign(u, far_quotes, near_chains, near_q, camp, fd, fdel, nd, strategy):
+def simulate_campaign(u, far_quotes, near_chains, near_legs, near_q, camp, fd, fdel, nd, strategy):
     d0=camp["entry"]; far=camp["far"]; far_exit=camp["far_exit"]; fq=far_quotes.get(far["cid"])
     if fq is None or far_exit not in fq.index: return None
     spot_by=u.set_index("date")["close"]; ret_by=u.set_index("date")["ret1d"]
@@ -453,7 +453,7 @@ def run_matrix(od:Path,ud:Path,out:Path):
                 for strategy in STRATEGIES:
                     rows=[]
                     for camp in campaigns[(fd,fdel)]:
-                        r=simulate_campaign(u,far_q,near_chains,near_q,camp,fd,fdel,nd,strategy)
+                        r=simulate_campaign(u,far_q,near_chains,near_legs,near_q,camp,fd,fdel,nd,strategy)
                         if r is not None: rows.append(r)
                     if not rows: continue
                     df=pd.DataFrame(rows); detail_rows.append(df)
