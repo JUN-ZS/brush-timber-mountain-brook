@@ -1,0 +1,78 @@
+name: QQQ Virgin OOS Data Gate
+
+on:
+  push:
+    branches:
+      - research/qqq-virgin-oos-data-gate-20261001
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe local fresh QQQ option datasets
+        shell: powershell
+        run: |
+          $roots = @(
+            "$env:USERPROFILE\Downloads",
+            "$env:USERPROFILE\Desktop",
+            "$env:USERPROFILE\Documents",
+            "C:\data",
+            "C:\datasets",
+            "C:\QQQ",
+            "C:\actions-runner"
+          ) | Where-Object { Test-Path $_ }
+
+          $files = @()
+          foreach ($root in $roots) {
+            $files += Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object {
+                $_.Name -match '(?i)^QQQ.*option.*\.parquet$' -or
+                $_.Name -match '(?i)^QQQ.*underlying.*\.parquet$'
+              }
+          }
+
+          if (-not $files) {
+            Write-Host "FRESH_DATA_FILES_FOUND=0"
+            exit 0
+          }
+
+          $found = $files |
+            Sort-Object FullName -Unique |
+            ForEach-Object {
+              [PSCustomObject]@{
+                File = $_.Name
+                SizeMB = [math]::Round($_.Length / 1MB, 2)
+                Modified = $_.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+              }
+            }
+
+          Write-Host "FRESH_DATA_FILES_FOUND=$($found.Count)"
+          $found | Format-Table -AutoSize
+
+      - name: Probe Futu OpenD
+        shell: powershell
+        run: |
+          $p = Get-Process -ErrorAction SilentlyContinue |
+            Where-Object { $_.ProcessName -match '(?i)^OpenD$|Futu|Moomoo' }
+
+          if ($p) {
+            Write-Host "FUTU_PROCESS_FOUND=1"
+            $p | Select-Object ProcessName, Id, StartTime | Format-Table -AutoSize
+          } else {
+            Write-Host "FUTU_PROCESS_FOUND=0"
+          }
+
+          $t = Test-NetConnection 127.0.0.1 -Port 11111 -WarningAction SilentlyContinue
+          Write-Host "FUTU_PORT_11111=$($t.TcpTestSucceeded)"
+
+      - name: Probe Python Futu package
+        shell: powershell
+        run: |
+          python -c "import importlib.util; print('FUTU_PYTHON_PACKAGE=' + ('1' if importlib.util.find_spec('futu') else '0'))"
