@@ -37,6 +37,21 @@ priority：
 
 其餘條件留在 `candidate_actions` / `next_triggers`，只供觀察，不會同輪再發第二張單。
 
+## Position-delta semantics
+
+The ticket separates the strategy position delta from the broker transaction verb:
+
+- open far short: `SHORT 0 -> 10`; broker evidence may be `SELL_SHORT` or `SELL`
+- close far short: `SHORT 10 -> 0`; broker evidence may be `BUY_BACK` or `BUY`
+- add near long: `LONG n -> n+k`; broker evidence is `BUY`
+- harvest/reduce near long: `LONG n -> n-k`; broker evidence is `SELL`
+
+Futu documents `SELL_SHORT` and `BUY_BACK` as returned/display directions for US order/deal queries; place-order input should use `BUY` or `SELL`. citeturn625513search0turn625513search6
+
+## Partial fills
+
+A same-direction position change smaller than the ticket target is `PARTIAL` and keeps the ticket open. An opposite-direction change or an overfill is `SUPERSEDED` and recorded as a manual position change.
+
 ## Ticket / reconciliation
 
 每張 ticket 有：
