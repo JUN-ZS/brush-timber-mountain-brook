@@ -44,12 +44,7 @@ class FutuTradeReader:
         if isinstance(raw, bool):
             return "UNKNOWN"
         if isinstance(raw, (int, float)):
-            return {
-                1: "BUY",
-                2: "SELL",
-                3: "SELL_SHORT",
-                4: "BUY_BACK",
-            }.get(int(raw), "UNKNOWN")
+            return {1: "BUY", 2: "SELL", 3: "SELL_SHORT", 4: "BUY_BACK"}.get(int(raw), "UNKNOWN")
         s = str(raw or "").strip().upper()
         if s in {"BUY", "TRD_SIDE_BUY", "1"}:
             return "BUY"
@@ -63,13 +58,8 @@ class FutuTradeReader:
 
     @staticmethod
     def _avg_cost(row):
-        for key in (
-            "average_cost",
-            "average_cost_price",
-            "diluted_cost",
-            "diluted_cost_price",
-            "cost_price",
-        ):
+        for key in ("average_cost", "average_cost_price", "diluted_cost",
+                    "diluted_cost_price", "cost_price"):
             try:
                 value = float(row.get(key) or 0)
             except Exception:
@@ -78,21 +68,34 @@ class FutuTradeReader:
                 return value
         return 0.0
 
-    def read(self):
+    def _parse_deals(self, deal_df):
+        deals = []
+        if hasattr(deal_df, "iterrows"):
+            for _, row in deal_df.iterrows():
+                deals.append({
+                    "deal_id": str(row.get("deal_id", row.get("dealID", row.get("orderIDEx", "")))),
+                    "code": str(row.get("code", "")),
+                    "side": self._trade_side(row.get("trd_side", row.get("trdSide", ""))),
+                    "raw_side": str(row.get("trd_side", row.get("trdSide", "")) or ""),
+                    "qty": int(float(row.get("qty", 0) or 0)),
+                    "price": float(row.get("price", 0) or 0),
+                    "created_at": str(row.get("create_time", row.get("createTime", "")) or ""),
+                })
+        return deals
+
+    def read(self, history_start=None, history_end=None):
         self.connect()
         try:
             env = self.futu.TrdEnv.REAL if self.real else self.futu.TrdEnv.SIMULATE
 
             ret, pos = self.ctx.position_list_query(
-                position_market=self.futu.TrdMarket.US,
-                trd_env=env,
+                position_market=self.futu.TrdMarket.US, trd_env=env,
             )
             if ret != self.futu.RET_OK:
                 raise RuntimeError("position_list_query: " + str(pos))
 
             ret2, orders = self.ctx.order_list_query(
-                order_market=self.futu.TrdMarket.US,
-                trd_env=env,
+                order_market=self.futu.TrdMarket.US, trd_env=env,
             )
             if ret2 != self.futu.RET_OK:
                 raise RuntimeError("order_list_query: " + str(orders))
@@ -132,35 +135,59 @@ class FutuTradeReader:
 
             deals = []
             deal_warning = None
+            history_used = False
             try:
                 if hasattr(self.ctx, "deal_list_query"):
                     ret3, deal_df = self.ctx.deal_list_query(
-                        deal_market=self.futu.TrdMarket.US,
-                        trd_env=env,
+                        deal_market=self.futu.TrdMarket.US, trd_env=env,
                     )
-                    if ret3 == self.futu.RET_OK and hasattr(deal_df, "iterrows"):
-                        for _, row in deal_df.iterrows():
-                            deals.append({
-                                "deal_id": str(row.get("deal_id", row.get("dealID", ""))),
-                                "code": str(row.get("code", "")),
-                                "side": self._trade_side(row.get("trd_side", row.get("trdSide", ""))),
-                                "raw_side": str(row.get("trd_side", row.get("trdSide", "")) or ""),
-                                "qty": int(float(row.get("qty", 0) or 0)),
-                                "price": float(row.get("price", 0) or 0),
-                                "created_at": str(row.get("create_time", row.get("createTime", "")) or ""),
-                            })
-                    elif ret3 != self.futu.RET_OK:
+                    if ret3 == self.futu.RET_OK:
+                        deals.extend(self._parse_deals(deal_df))
+                    else:
                         deal_warning = str(deal_df)
                 else:
                     deal_warning = "deal_list_query unavailable in installed futu package"
             except Exception as exc:
                 deal_warning = repr(exc)
 
+            # Recovery path: after a recorder outage/restart, pull historical live
+            # executions so missed fills can be reconstructed from broker truth.
+            if history_start and self.real and hasattr(self.ctx, "history_deal_list_query"):
+                try:
+                    start = str(history_start)[:10]
+                    end = str(history_end or "")[:10]
+                    if not end:
+                        from datetime import date
+                        end = date.today().isoformat()
+                    ret4, hist_df = self.ctx.history_deal_list_query(
+                        deal_market=self.futu.TrdMarket.US,
+                        start=start,
+                        end=end,
+                        trd_env=env,
+                    )
+                    if ret4 == self.futu.RET_OK:
+                        history_used = True
+                        by_id = {str(d.get("deal_id")): d for d in deals if d.get("deal_id")}
+                        for d in self._parse_deals(hist_df):
+                            did = str(d.get("deal_id", ""))
+                            if did and did not in by_id:
+                                by_id[did] = d
+                        deals = list(by_id.values())
+                    else:
+                        deal_warning = (deal_warning + " | " if deal_warning else "") + "history_deal_list_query: " + str(hist_df)
+                except Exception as exc:
+                    deal_warning = (deal_warning + " | " if deal_warning else "") + "history_deal_list_query: " + repr(exc)
+            elif history_start and self.real:
+                deal_warning = (deal_warning + " | " if deal_warning else "") + "history_deal_list_query unavailable in installed futu package"
+
             return {
                 "source": "FUTU_TRADE_READ_ONLY",
                 "positions": ps,
                 "orders": os,
                 "deals": deals,
+                "history_backfill_used": history_used,
+                "history_start": str(history_start) if history_start else None,
+                "history_end": str(history_end) if history_end else None,
                 "deal_warning": deal_warning,
             }
         finally:
