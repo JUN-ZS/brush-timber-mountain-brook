@@ -61,6 +61,12 @@ def _safe_float(v) -> float:
         return 0.0
 
 
+def _ticket_baseline_positions(current_positions):
+    # A newly issued ticket freezes the account as seen at issuance.
+    # Never reuse the previous cycle snapshot as the new ticket baseline.
+    return position_snapshot(current_positions)
+
+
 def _format_price(v):
     return "NA" if v is None else f"{float(v):.4f}"
 
@@ -604,7 +610,7 @@ def main():
         ticket = build_ticket(
             action=primary,
             campaign_id=campaign.get("id"),
-            before_positions=state.get("last_positions") or position_snapshot(positions),
+            before_positions=_ticket_baseline_positions(positions),
             now=now,
             sequence=store.next_ticket_sequence(state),
         )

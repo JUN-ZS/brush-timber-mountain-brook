@@ -75,6 +75,7 @@ A same-direction position change smaller than the ticket target is `PARTIAL` and
 - broker deal evidence 以 `deal_id` 去重並跨 cycle 累積；broker order evidence 按 `order_id` 保存最新的 cumulative `dealt_qty/dealt_avg_price`。deal 與 order 兩個資料域不相加，避免同一成交被算兩次。
 - 沒有足夠 broker fill evidence 時，只在能由 aggregate position average cost 推算時使用 `DERIVED_TICKET_POSITION_DELTA`；不冒充 broker direct fill。
 - `TICKET_PARTIAL_PROGRESS` 的 `fill` 是自 ticket issuance 起的 cumulative snapshot，不是可跨事件逐行相加的 delta。
+- broker evidence 只有在累計 evidence 數量足以覆蓋當前 ticket fill 數量時才可作為完整 VWAP；不足時標成 `BROKER_EVIDENCE_INCOMPLETE`，不會把最後一筆 partial fill 當成整張票的價格。
 
 ## Lot ledger
 
