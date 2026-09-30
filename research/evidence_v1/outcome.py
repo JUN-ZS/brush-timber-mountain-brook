@@ -17,6 +17,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Append one immutable campaign outcome.")
     ap.add_argument("--repo-root", type=Path, default=Path.cwd())
     ap.add_argument("--campaign-id", required=True)
+    ap.add_argument("--family-id", default=None)
     ap.add_argument("--realized-pnl", type=float, required=True)
     ap.add_argument("--benchmark-return", type=float, default=None)
     ap.add_argument("--start-nav", type=float, default=None)
@@ -33,6 +34,12 @@ def main() -> int:
         repo / "research/evidence_v1/evidence.jsonl",
         identity=runtime_identity(repo),
     )
+    prior = ledger._rows()
+    matching = [r for r in prior if r.get("campaign_id") == args.campaign_id]
+    if not matching:
+        raise SystemExit(
+            f"UNKNOWN_CAMPAIGN_ID:{args.campaign_id}; outcome cannot be backfilled without prior evidence"
+        )
     cycle_id = f"OUTCOME_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
     row = ledger.append(
         "OUTCOME_RESOLVED",
@@ -41,6 +48,7 @@ def main() -> int:
         timestamp_utc=now_utc(),
         payload={
             "campaign_id": args.campaign_id,
+            "family_id": args.family_id,
             "realized_pnl": args.realized_pnl,
             "benchmark_return": args.benchmark_return,
             "start_nav": args.start_nav,
