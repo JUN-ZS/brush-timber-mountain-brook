@@ -168,15 +168,11 @@ def _match_fill_price(
     evidence_qty, evidence_notional = _accumulate_fill_evidence(
         ticket, leg, orders, deals
     )
-    if evidence_qty > 0:
+    if evidence_qty >= fill_qty and evidence_qty > 0:
         # This is deliberately cumulative, never a "latest row wins" price.
-        return (
-            evidence_notional / evidence_qty,
-            "BROKER_EVIDENCE_CUMULATIVE"
-            if evidence_qty >= fill_qty
-            else "BROKER_EVIDENCE_PARTIAL",
-        )
-    return None, "NOT_OBSERVED"
+        return evidence_notional / evidence_qty, "BROKER_EVIDENCE_CUMULATIVE"
+    # Partial broker evidence must not be promoted to a full-ticket price.
+    return None, "BROKER_EVIDENCE_INCOMPLETE"
 
 
 def _derived_fill_price(
@@ -339,6 +335,13 @@ def build_ticket(
     }
 
 
+def _safe_same_qty(a: Any, b: Any) -> bool:
+    try:
+        return int(float(a or 0)) == int(float(b or 0))
+    except Exception:
+        return False
+
+
 def reconcile_ticket(
     state: Dict[str, Any],
     current_positions: Iterable[Dict[str, Any]],
@@ -456,11 +459,14 @@ def reconcile_ticket(
                     ),
                     None,
                 )
-                if previous:
+                # A prior price can be retained only when the cumulative fill
+                # quantity did not advance this cycle. Once quantity advances,
+                # a prior partial price is not a valid final-ticket VWAP.
+                if previous and _safe_same_qty(previous.get("qty"), fill_qty):
                     price = previous.get("avg_price")
                     source = previous.get(
                         "price_source",
-                        "PRIOR_TICKET_FILL",
+                        "PRIOR_TICKET_FILL_UNCHANGED",
                     )
             ticket.setdefault("fill", [])
             ticket["fill"] = [
