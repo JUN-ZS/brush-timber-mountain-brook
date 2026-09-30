@@ -21,4 +21,4 @@ jobs:
       - name: Compile
         run: python -m py_compile research/live_hedge_v1/*.py
       - name: Unit tests
-        run: python -m unittest discover -s research/live_hedge_v1 -p 'test_*.py'
+        run: python -m unittest research.live_hedge_v1.test_live_hedge_v2
