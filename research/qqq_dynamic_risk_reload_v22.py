@@ -294,6 +294,7 @@ def simulate_campaign(u, far_quotes, near_chains, near_q, camp, fd, fdel, nd, st
     peak=REFERENCE_CAPITAL_USD; min_eq=REFERENCE_CAPITAL_USD; prev=None; camp_high=float(spot_by.loc[d0])
     reloads=0; harvests=0
     for dt in pd.date_range(d0, far_exit, freq="D"):
+        harvested_today = False
         if dt not in spot_by.index or dt not in fq.index: continue
         spot=float(spot_by.loc[dt]); r1d=float(ret_by.loc[dt]) if pd.notna(ret_by.loc[dt]) else 0.0
         camp_high=max(camp_high,spot)
@@ -322,7 +323,7 @@ def simulate_campaign(u, far_quotes, near_chains, near_q, camp, fd, fdel, nd, st
             if strategy=="PARTIAL_HARVEST":
                 if ret>=0.75: close=False; reason=None
             if close:
-                cash=close_pos(p,dt,bid,cash,reason); trades.append(p); harvests+=1
+                cash=close_pos(p,dt,bid,cash,reason); trades.append(p); harvests+=1; harvested_today=True
 
         active=[p for p in positions if not p.closed]
         if strategy=="PARTIAL_HARVEST" and active:
@@ -335,7 +336,7 @@ def simulate_campaign(u, far_quotes, near_chains, near_q, camp, fd, fdel, nd, st
             if cost>0 and bidv/cost-1.0>=0.50:
                 good=[x for x in vals if x[2]>0]
                 for p,b,_ in good[:max(1,len(good)//2)]:
-                    cash=close_pos(p,dt,b,cash,"PARTIAL_BOOK_50"); trades.append(p); harvests+=1
+                    cash=close_pos(p,dt,b,cash,"PARTIAL_BOOK_50"); trades.append(p); harvests+=1; harvested_today=True
                 active=[p for p in positions if not p.closed]
 
         # Coverage-driven reload: size to today's far-risk target.
@@ -344,14 +345,15 @@ def simulate_campaign(u, far_quotes, near_chains, near_q, camp, fd, fdel, nd, st
         target=st["desired_qty"]
         if strategy=="ASYMMETRIC_TP100" and prev is not None and st["risk_score"] <= prev["risk_score"]:
             target=min(target,len(active))
-        if dt==d0 or allow:
+        reload_ok=(not harvested_today) or strategy=="TIME_ROLL_TARGET"
+        if (dt==d0 or allow) and reload_ok:
             need=max(0,target-len(active))
             if need>0:
                 opened,cash=open_near(positions,near_chains.get(dt),near_q,dt,spot,nd,need,cash) if near_chains.get(dt) is not None else (0,cash)
                 reloads+=opened
 
         # Shock reload is allowed to overshoot the normal target temporarily.
-        if strategy in ("SHOCK_ADD_TP75","TRAIL_RELOAD","TIME_ROLL_TARGET","ASYMMETRIC_TP100") and st["delta_jump"]>=0.04:
+        if strategy in ("SHOCK_ADD_TP75","TRAIL_RELOAD","TIME_ROLL_TARGET","ASYMMETRIC_TP100") and st["delta_jump"]>=0.04 and ((not harvested_today) or strategy=="TIME_ROLL_TARGET"):
             active=[p for p in positions if not p.closed]
             extra=max(0,min(MAX_NEAR_QTY,target+2)-len(active))
             if extra>0 and near_chains.get(dt) is not None:
