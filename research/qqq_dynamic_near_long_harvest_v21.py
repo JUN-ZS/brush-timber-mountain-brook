@@ -17,6 +17,7 @@ LONG_DELTA=0.50
 NEAR_TP=0.75
 NEAR_MAX_HOLD=30
 MAX_STACK=5
+REFERENCE_CAPITAL_USD=500000.0/7.8
 
 STRATEGIES=(
     "SIGNAL_50",         # 1 near ATM long at campaign start, release at +50%, repeat only next signal
@@ -343,8 +344,8 @@ def simulate_strategy(u,far_candidates,near_chains,near_quotes_by_cid,far_dte,fa
         # Approximate campaign equity including far + near; compute DD from recorded marks.
         eq=pd.DataFrame(eq_rows,columns=["date","equity"]).drop_duplicates("date")
         if not eq.empty:
-            eq["equity"]+=far_entry_bid*N_SHORT*100.0
-            eq["drawdown"]=eq.equity/eq.equity.cummax()-1.0
+            eq["nav"]=REFERENCE_CAPITAL_USD+eq.equity
+            eq["drawdown"]=eq.nav/eq.nav.cummax()-1.0
             maxdd=float(eq.drawdown.min())
         else:maxdd=float("nan")
         results.append({
@@ -376,8 +377,10 @@ def main():
                 if (fd,fdel) not in legs or not legs[(fd,fdel)]: continue
                 end=min(legs[(fd,fdel)]["expiry"],d+pd.Timedelta(days=365))
                 sub=u[(u.date>d)&(u.date<=end)]
-                event_dates.update(pd.Timestamp(x) for x in sub.loc[sub.ret1d>=0.015,"date"])
-                # daily pullback candidates, sparse prefetch.
+                # Prefetch every active campaign date so state-dependent rules
+                # can select a same-day near contract without look-ahead.
+                event_dates.update(pd.Timestamp(x) for x in sub["date"])
+                # Daily pullback / burst triggers are still derived from this history.
                 hi=-np.inf
                 for _,r in sub.iterrows():
                     hi=max(hi,float(r.close))
