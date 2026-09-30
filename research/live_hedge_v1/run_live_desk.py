@@ -28,9 +28,17 @@ def main():
         pos.append(Position(p["code"],p["side"],p["qty"],p["avg_cost"],meta.strike if meta else None,meta.expiry if meta else None,
                             meta.dte if meta else None,q.get("delta"),q.get("gamma")))
     far_pos=next((p for p in pos if p.side=="SHORT" and ("QQQ" in p.code.upper() or p.code.upper().startswith("US.Q"))),None)
-    far=by.get(far_pos.code) if far_pos else select_far(contracts,float(market["spot"]),args.far_dte,args.far_delta)
-    if far is not None and far.code in quotes:
-        z=quotes[far.code];far=Contract(far.code,far.right,far.strike,far.expiry,far.dte,z.get("bid"),z.get("ask"),z.get("delta"),z.get("gamma"),z.get("iv"),far.lot_size)
+    far=None
+    if far_pos:
+        z=quotes.get(far_pos.code)
+        if z and z.get("strike") is not None and z.get("expiry"):
+            far=Contract(far_pos.code,"CALL",float(z["strike"]),str(z["expiry"]),int(z.get("dte") or 0),
+                         z.get("bid"),z.get("ask"),z.get("delta"),z.get("gamma"),z.get("iv"),int(z.get("lot_size") or 100))
+    if far is None:
+        far=select_far(contracts,float(market["spot"]),args.far_dte,args.far_delta)
+    elif far.code in quotes:
+        z=quotes[far.code]
+        far=Contract(far.code,far.right,far.strike,far.expiry,far.dte,z.get("bid"),z.get("ask"),z.get("delta"),z.get("gamma"),z.get("iv"),far.lot_size)
     near=select_near(contracts,float(market["spot"]),args.near_dte)
     if near is not None and near.code in quotes:
         z=quotes[near.code];near=Contract(near.code,near.right,near.strike,near.expiry,near.dte,z.get("bid"),z.get("ask"),z.get("delta"),z.get("gamma"),z.get("iv"),near.lot_size)
