@@ -26,6 +26,11 @@ from .engine import Contract, Order, Position, plan, select_far, select_near
 from .futu_reader import LiveFutuReader
 from .futu_trade_reader import FutuTradeReader
 from .state import StateStore
+from ..evidence_v1.family_snapshot import build_family_snapshot
+from ..evidence_v1.identity import runtime_identity
+from ..evidence_v1.ledger import EvidenceLedger
+from ..evidence_v1.snapshot import write_snapshot
+from ..evidence_v1.lock_guard import StrategyLockViolation, assert_runtime_lock
 
 
 def C(x):
@@ -59,6 +64,40 @@ def _safe_float(v) -> float:
         return float(v or 0)
     except Exception:
         return 0.0
+
+
+def _evidence_positions(items):
+    out = []
+    for p in items:
+        if hasattr(p, "__dict__"):
+            p = p.__dict__
+        out.append({
+            k: p.get(k)
+            for k in ("code", "side", "qty", "avg_cost", "strike", "expiry", "dte")
+        })
+    return out
+
+
+def _evidence_orders(items):
+    out = []
+    for o in items:
+        if hasattr(o, "__dict__"):
+            o = o.__dict__
+        out.append({
+            k: o.get(k)
+            for k in (
+                "order_id", "code", "side", "qty", "price", "status",
+                "created_at", "updated_at", "dealt_qty", "dealt_avg_price"
+            )
+        })
+    return out
+
+
+def _evidence_deals(items):
+    return [
+        {k: d.get(k) for k in ("deal_id", "code", "side", "qty", "price", "created_at")}
+        for d in items
+    ]
 
 
 def _ticket_baseline_positions(current_positions):
@@ -263,6 +302,7 @@ def main():
     args = ap.parse_args()
 
     now = _now()
+    repo = Path(__file__).resolve().parents[2]
     out_path = Path(args.out)
     store = StateStore(
         out_path.with_name("state.json"),
@@ -270,6 +310,58 @@ def main():
     )
     state = store.load()
     state["_now"] = now
+    cycle_id = f"QQQ_DESK_{now.replace(':','').replace('-','').replace('.','').replace('+00:00','Z')}"
+    evidence = EvidenceLedger(
+        repo / "research/evidence_v1/evidence.jsonl",
+        identity=runtime_identity(repo),
+    )
+    try:
+        lock_status = assert_runtime_lock(
+            repo,
+            far_dte=args.far_dte,
+            far_delta=args.far_delta,
+            near_dte=args.near_dte,
+        )
+    except StrategyLockViolation as exc:
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"stage": "STRATEGY_LOCK", "error": str(exc)},
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"status": "BLOCKED_STRATEGY_LOCK"},
+        )
+        print(json.dumps({
+            "status": "BLOCKED_STRATEGY_LOCK",
+            "timestamp": now,
+            "error": str(exc),
+        }, ensure_ascii=False, indent=2))
+        return 4
+
+    evidence.append(
+        "CYCLE_STARTED",
+        cycle_id=cycle_id,
+        campaign_id=(state.get("campaign") or {}).get("id"),
+        timestamp_utc=now,
+        payload={
+            "cli": {
+                "far_dte": args.far_dte,
+                "far_delta": args.far_delta,
+                "near_dte": args.near_dte,
+                "simulate_account": args.simulate_account,
+                "adopt_existing_far": args.adopt_existing_far,
+            },
+            "state_before": state.get("campaign"),
+        },
+    )
     state.setdefault("lots", [])
 
     campaign = state.setdefault(
@@ -303,6 +395,27 @@ def main():
 
     snap = LiveFutuReader(args.host, args.port).snapshot(sorted(set(extra)))
     if snap.get("status") != "OK":
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={
+                "stage": "MARKET_READER",
+                "status": snap.get("status"),
+                "reason": snap.get("reason") or snap.get("error") or "market snapshot unavailable",
+                "connection_status": (snap.get("connection") or {}).get("status"),
+            },
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"status": "BLOCKED_MARKET_READER"},
+        )
         output = {
             "status": "BLOCKED_MARKET_READER",
             "timestamp": now,
@@ -356,6 +469,26 @@ def main():
     qqq_shorts = [p for p in strict_positions if p.side == "SHORT"]
 
     if unknown_qqq_positions:
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={
+                "stage": "POSITION_RECONCILIATION",
+                "reason": "QQQ option position_side is missing or unrecognized",
+                "unknown_count": len(unknown_qqq_positions),
+            },
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"status": "BLOCKED_UNKNOWN_POSITION_SIDE"},
+        )
         output = {
             "status": "BLOCKED_UNKNOWN_POSITION_SIDE",
             "timestamp": now,
@@ -518,6 +651,41 @@ def main():
         or reconcile.get("superseded")
     )
 
+    if reconcile_events:
+        evidence.append(
+            "EXECUTION_OBSERVED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="BROKER_OBSERVED",
+            payload={
+                "reconcile_events": reconcile_events,
+                "ticket_after_reconcile": state.get("active_ticket"),
+                "broker_source": acct.get("source"),
+                "deal_warning": acct.get("deal_warning"),
+            },
+        )
+        manual_events = [
+            e for e in reconcile_events
+            if str(e.get("type", "")).upper() in {
+                "MANUAL_POSITION_CHANGE",
+                "TICKET_SUPERSEDED_MANUAL_CHANGE",
+                "MANUAL_RECONCILE",
+            }
+        ]
+        if manual_events:
+            evidence.append(
+                "HUMAN_INTERVENTION",
+                cycle_id=cycle_id,
+                campaign_id=(state.get("campaign") or {}).get("id"),
+                timestamp_utc=now,
+                evidence_grade="HUMAN_REPORTED",
+                payload={
+                    "events": manual_events,
+                    "note": "Manual intervention/change is preserved separately from strategy outcome.",
+                },
+            )
+
     if reconcile.get("filled"):
         filled_ticket = reconcile.get("ticket") or {}
         _fill_lots(state, filled_ticket)
@@ -558,6 +726,75 @@ def main():
         if len(gamma_history) >= 3 else None
     )
     previous_delta = state.get("far_delta")
+
+    family_observation = build_family_snapshot(
+        contracts,
+        spot=float(market["spot"]),
+        signal_active=signal_active and not unmanaged_short_block,
+        campaign_active=campaign_active,
+        active_far_code=far.code if far else None,
+    )
+    snapshot_payload = {
+        "cycle_id": cycle_id,
+        "captured_at_utc": now,
+        "market": market,
+        "contracts": [x.__dict__ for x in contracts],
+        "quotes": quotes,
+        "account": {
+            "positions": _evidence_positions(positions),
+            "orders": _evidence_orders(acct_orders),
+            "deals": _evidence_deals(acct.get("deals", [])),
+            "source": acct.get("source"),
+            "deal_warning": acct.get("deal_warning"),
+        },
+        "campaign": campaign,
+        "family_observation": family_observation,
+        "engine_inputs": {
+            "gamma_baseline": gamma_baseline,
+            "previous_far_delta_abs": previous_delta,
+            "signal_active": signal_active,
+            "signal_active_for_plan": signal_active and not unmanaged_short_block,
+        },
+    }
+    snapshot_ref = write_snapshot(repo, cycle_id, snapshot_payload)
+    available_family_count = sum(
+        1 for row in family_observation["rows"] if row["status"] == "AVAILABLE"
+    )
+    if available_family_count < family_observation["family_count_expected"]:
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=campaign.get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={
+                "stage": "FAMILY_OBSERVATION",
+                "expected_family_members": family_observation["family_count_expected"],
+                "available_family_members": available_family_count,
+                "missing_family_members": family_observation["family_count_expected"] - available_family_count,
+                "note": "Unavailable family members remain explicit; no substitution or inference.",
+            },
+        )
+    evidence.append(
+        "PRE_DECISION_OBSERVATION",
+        cycle_id=cycle_id,
+        campaign_id=campaign.get("id"),
+        timestamp_utc=now,
+        payload={
+            "snapshot": snapshot_ref,
+            "market": market,
+            "campaign_state": campaign.get("state"),
+            "positions": _evidence_positions(positions),
+            "far_candidate": far.__dict__ if far else None,
+            "near_candidate": near.__dict__ if near else None,
+            "family_observation_count": family_observation["config_count"],
+            "active_family_count": sum(
+                1 for x in family_observation["rows"] if x["active_family"]
+            ),
+            "engine_inputs": snapshot_payload["engine_inputs"],
+            "observation_is_pre_decision": True,
+        },
+    )
 
     p = plan(
         market=market,
@@ -678,6 +915,42 @@ def main():
     else:
         status = p.get("status", "HOLD")
         instruction = "HOLD — no primary ticket."
+
+    evidence.append(
+        "DECISION_EMITTED",
+        cycle_id=cycle_id,
+        campaign_id=campaign.get("id"),
+        timestamp_utc=now,
+        payload={
+            "status": status,
+            "signal_active": signal_active,
+            "plan_status": p.get("status"),
+            "risk_state": p.get("risk_state"),
+            "candidate_actions": p.get("candidate_actions", []),
+            "primary": primary,
+            "ticket": primary_ticket,
+            "next_triggers": p.get("next_triggers", []),
+            "reasons": p.get("reasons", []),
+            "family_observation_count": family_observation["config_count"],
+            "snapshot_sha256": snapshot_ref["snapshot_sha256"],
+        },
+    )
+
+    evidence.append(
+        "CYCLE_FINALIZED",
+        cycle_id=cycle_id,
+        campaign_id=campaign.get("id"),
+        timestamp_utc=now,
+        payload={
+            "status": status,
+            "instruction": instruction,
+            "campaign": campaign,
+            "active_ticket": state.get("active_ticket"),
+            "reconcile_event_count": len(reconcile_events),
+            "candidate_action_count": len(p.get("candidate_actions", [])),
+            "snapshot_sha256": snapshot_ref["snapshot_sha256"],
+        },
+    )
 
     output = {
         "status": status,

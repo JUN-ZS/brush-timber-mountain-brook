@@ -1,0 +1,49 @@
+{
+  "schema": "STRATEGY_LOCK.v1",
+  "strategy_id": "QQQ_DYNAMIC_NEAR_LONG_V22_CANDIDATE_FAMILY",
+  "strategy_version": "V22-family-30D-1.5x",
+  "selection_cutoff": "2025-12-15",
+  "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
+  "virgin_oos_status": "NOT_VIRGIN_YET",
+  "research_engine_commit": "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
+  "candidate_family": {
+    "near_dte": 30,
+    "coverage": 1.5,
+    "far_dte": [90, 120, 180],
+    "far_abs_delta": [0.05, 0.08, 0.10],
+    "long_delta": 0.50,
+    "policies": [
+      "TP50_IMMEDIATE",
+      "TP75_IMMEDIATE",
+      "TP100_IMMEDIATE",
+      "TRAIL20_IMMEDIATE",
+      "TP50_ON_RISK",
+      "TP75_ON_RISK",
+      "TRAIL20_ON_RISK",
+      "TP75_COOLDOWN3"
+    ],
+    "config_count": 72
+  },
+  "signal": {
+    "ratio52_gte": 0.98,
+    "ext200_gte": 0.08
+  },
+  "mutation_policy": {
+    "alpha_parameters": "FROZEN",
+    "family_membership": "FROZEN",
+    "policy_membership": "FROZEN",
+    "execution_and_recording_infrastructure": "MAY_EVOLVE_WITHOUT_RESELECTING_ALPHA",
+    "any_alpha_change": "INVALIDATES_CURRENT_EVIDENCE_CHAIN"
+  },
+  "evidence_policy": {
+    "pre_decision_capture": true,
+    "append_only": true,
+    "hash_chain": true,
+    "outcome_as_separate_event": true,
+    "human_intervention_as_separate_event": true,
+    "data_gap_is_evidence": true,
+    "counterfactual_family_vector": true,
+    "never_relabel_replay_as_virgin_oos": true,
+    "never_backfill_missing_observations_as_observed": true
+  }
+}

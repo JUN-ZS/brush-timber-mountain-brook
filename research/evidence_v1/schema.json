@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "STRATEGY_EVIDENCE.v1",
+  "type": "object",
+  "required": ["schema","schema_version","evidence_seq","evidence_id","cycle_id","timestamp_utc","event_type","evidence_grade","identity","previous_hash","payload","record_hash"],
+  "properties": {
+    "schema": {"const": "STRATEGY_EVIDENCE.v1"},
+    "schema_version": {"const": 1},
+    "evidence_seq": {"type": "integer", "minimum": 1},
+    "evidence_id": {"type": "string"},
+    "cycle_id": {"type": "string"},
+    "campaign_id": {"type": ["string", "null"]},
+    "timestamp_utc": {"type": "string"},
+    "event_type": {"enum": ["CYCLE_STARTED","PRE_DECISION_OBSERVATION","DECISION_EMITTED","EXECUTION_OBSERVED","OUTCOME_RESOLVED","DATA_GAP","HUMAN_INTERVENTION","CYCLE_FINALIZED"]},
+    "evidence_grade": {"enum": ["PROSPECTIVE_OBSERVED","BROKER_OBSERVED","PROSPECTIVE_OUTCOME","DATA_GAP","HUMAN_REPORTED"]},
+    "identity": {"type": "object"},
+    "previous_hash": {"type": "string", "minLength": 64, "maxLength": 64},
+    "payload": {"type": "object"},
+    "record_hash": {"type": "string", "minLength": 64, "maxLength": 64}
+  }
+}
