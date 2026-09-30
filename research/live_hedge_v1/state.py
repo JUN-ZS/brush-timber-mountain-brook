@@ -23,9 +23,11 @@ DEFAULT_STATE: Dict[str, Any] = {
     "active_ticket": None,
     "ticket_sequence": 0,
     "campaign_sequence": 0,
+    "event_sequence": 0,
     "last_positions": {},
     "last_target_stack": None,
     "last_risk_score": None,
+    "lots": [],
 }
 
 
@@ -41,24 +43,27 @@ class StateStore:
         state = json.loads(json.dumps(DEFAULT_STATE))
         if isinstance(raw, dict):
             state.update(raw)
-            if "schema_version" not in raw:
-                state["schema_version"] = 1
         if state.get("schema_version", 1) < SCHEMA_VERSION:
             state["schema_version"] = SCHEMA_VERSION
-            state.setdefault("campaign", json.loads(json.dumps(DEFAULT_STATE["campaign"])))
-            state.setdefault("active_ticket", None)
-            state.setdefault("ticket_sequence", 0)
-            state.setdefault("campaign_sequence", 0)
-            state.setdefault("last_positions", {})
-            state.setdefault("last_target_stack", None)
-            state.setdefault("last_risk_score", None)
+        state.setdefault("campaign", json.loads(json.dumps(DEFAULT_STATE["campaign"])))
+        state.setdefault("active_ticket", None)
+        state.setdefault("ticket_sequence", 0)
+        state.setdefault("campaign_sequence", 0)
+        state.setdefault("event_sequence", 0)
+        state.setdefault("last_positions", {})
+        state.setdefault("last_target_stack", None)
+        state.setdefault("last_risk_score", None)
+        state.setdefault("lots", [])
         state["schema_version"] = SCHEMA_VERSION
         return state
 
     def save(self, state: Dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+        tmp.write_text(
+            json.dumps(state, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
         os.replace(tmp, self.path)
 
     def append_event(self, event: Dict[str, Any]) -> None:
@@ -84,8 +89,10 @@ class StateStore:
         now: str,
         payload: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        n = int(state.get("event_sequence", 0) or 0) + 1
+        state["event_sequence"] = n
         event = {
-            "event_id": f"E-{now.replace(':','').replace('-','').replace('.','')}-{state.get('ticket_sequence',0):04d}",
+            "event_id": f"E-{now.replace(':','').replace('-','').replace('.','')}-{n:06d}",
             "timestamp": now,
             "type": event_type,
             "campaign_id": (state.get("campaign") or {}).get("id"),
