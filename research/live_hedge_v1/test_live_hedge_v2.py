@@ -280,6 +280,58 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(cycle3["ticket"]["fill"][0]["avg_price"], 9.0)
         self.assertIsNone(state["active_ticket"])
 
+    def test_deal_and_order_evidence_are_not_double_counted(self):
+        before = position_snapshot([{
+            "code": "US.QQQ261030C00500000",
+            "side": "LONG",
+            "qty": 2,
+            "avg_cost": 7.0,
+        }])
+        ticket = build_ticket(
+            action={
+                "action": "CLOSE_NEAR",
+                "code": "US.QQQ261030C00500000",
+                "qty": 2,
+                "side": "SELL",
+                "price": 9.0,
+                "why": "close",
+            },
+            campaign_id="C-TEST",
+            before_positions=before,
+            now="2026-10-01T00:00:00+00:00",
+            sequence=11,
+        )
+        state = {
+            "_now": "2026-10-01T00:01:00+00:00",
+            "active_ticket": ticket,
+            "last_positions": before,
+        }
+        result = reconcile_ticket(
+            state,
+            [],
+            [{
+                "order_id": "O1",
+                "code": "US.QQQ261030C00500000",
+                "side": "SELL",
+                "qty": 2,
+                "price": 9.0,
+                "status": "FILLED",
+                "created_at": "2026-10-01T00:00:30+00:00",
+                "dealt_qty": 2,
+                "dealt_avg_price": 10.0,
+            }],
+            [{
+                "deal_id": "D1",
+                "code": "US.QQQ261030C00500000",
+                "side": "SELL",
+                "qty": 2,
+                "price": 9.0,
+                "created_at": "2026-10-01T00:00:30+00:00",
+            }],
+        )
+        self.assertTrue(result["filled"])
+        self.assertEqual(result["ticket"]["fill"][0]["avg_price"], 9.0)
+
     def test_manual_change_supersedes_ticket(self):
         before = position_snapshot([
             {"code": "US.QQQ261030C00500000", "side": "LONG", "qty": 1, "avg_cost": 4.0},
