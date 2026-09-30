@@ -30,6 +30,7 @@ from ..evidence_v1.family_snapshot import build_family_snapshot
 from ..evidence_v1.identity import runtime_identity
 from ..evidence_v1.ledger import EvidenceLedger
 from ..evidence_v1.snapshot import write_snapshot
+from ..evidence_v1.lock_guard import StrategyLockViolation, assert_runtime_lock
 
 
 def C(x):
@@ -314,6 +315,37 @@ def main():
         repo / "research/evidence_v1/evidence.jsonl",
         identity=runtime_identity(repo),
     )
+    try:
+        lock_status = assert_runtime_lock(
+            repo,
+            far_dte=args.far_dte,
+            far_delta=args.far_delta,
+            near_dte=args.near_dte,
+        )
+    except StrategyLockViolation as exc:
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"stage": "STRATEGY_LOCK", "error": str(exc)},
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"status": "BLOCKED_STRATEGY_LOCK"},
+        )
+        print(json.dumps({
+            "status": "BLOCKED_STRATEGY_LOCK",
+            "timestamp": now,
+            "error": str(exc),
+        }, ensure_ascii=False, indent=2))
+        return 4
+
     evidence.append(
         "CYCLE_STARTED",
         cycle_id=cycle_id,
