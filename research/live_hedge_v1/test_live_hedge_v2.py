@@ -130,6 +130,25 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertTrue(result["filled"])
         self.assertEqual(result["ticket"]["fill"][0]["avg_price"], 2.0)
 
+    def test_far_close_accepts_buy_back_direction(self):
+        before = position_snapshot([
+            {"code":"US.QQQ260116C00600000","side":"SHORT","qty":10,"avg_cost":2.0},
+        ])
+        ticket = build_ticket(
+            action={"action":"CLOSE_CAMPAIGN_EMERGENCY","legs":[{"code":"US.QQQ260116C00600000","side":"BUY","qty":10,"price":3.0}],"why":"far strike touch"},
+            campaign_id="C-TEST", before_positions=before,
+            now="2026-10-01T00:00:00+00:00", sequence=5,
+        )
+        leg = ticket["legs"][0]
+        self.assertEqual(leg["target_qty"], 0)
+        self.assertIn("BUY_BACK", leg["broker_sides"])
+        state={"_now":"2026-10-01T00:01:00+00:00","active_ticket":ticket,"last_positions":before}
+        result=reconcile_ticket(
+            state, [], [],
+            [{"deal_id":"D-CLOSE","code":"US.QQQ260116C00600000","side":"BUY_BACK","qty":10,"price":3.0,"created_at":"2026-10-01T00:00:30+00:00"}],
+        )
+        self.assertTrue(result["filled"])
+        self.assertEqual(result["ticket"]["fill"][0]["avg_price"], 3.0)
     def test_partial_fill_is_partial_not_superseded(self):
         before=position_snapshot([{"code":"US.QQQ261030C00500000","side":"LONG","qty":1,"avg_cost":4.0}])
         ticket=build_ticket(
