@@ -54,3 +54,5 @@ jobs:
             artifacts/v22_dynamic_state_summary.csv
             artifacts/v22_dynamic_state_detail.csv
           if-no-files-found: error
+
+# V22 trigger commit: run the full dynamic-state matrix.
