@@ -80,52 +80,92 @@ def _is_after(created_at: Any, issued_at: Any) -> bool:
     return a >= b
 
 
-def _match_fill_price(
+def _accumulate_fill_evidence(
     ticket: Dict[str, Any],
     leg: Dict[str, Any],
     orders: Iterable[Dict[str, Any]],
     deals: Iterable[Dict[str, Any]],
-) -> tuple[Optional[float], str]:
+) -> tuple[int, float]:
+    """Accumulate unique broker fill evidence across cycles.
+
+    Deals are append-only observations, while order dealt_qty is a cumulative
+    snapshot per order_id. Keeping the evidence on the ticket prevents a later
+    empty/partial read from overwriting an earlier fill price.
+    """
     code = str(leg.get("code", "")).upper()
     side = str(leg.get("side", "")).upper()
-    want = int(leg.get("qty", 0) or 0)
-    candidates = []
+    allowed = set(leg.get("broker_sides", [side]))
+    evidence = leg.setdefault(
+        "fill_evidence",
+        {"deals": {}, "orders": {}},
+    )
 
     for d in deals:
         if str(d.get("code", "")).upper() != code:
             continue
         broker_side = str(d.get("side", "")).upper()
-        if broker_side not in set(leg.get("broker_sides", [side])):
+        if broker_side not in allowed:
             continue
         if not _is_after(d.get("created_at"), ticket.get("issued_at")):
             continue
+        deal_id = str(d.get("deal_id", "") or "")
         price = float(d.get("price", 0) or 0)
         qty = int(float(d.get("qty", 0) or 0))
-        if qty > 0 and price > 0:
-            candidates.append(("DEAL", price, qty, d.get("deal_id", "")))
+        if deal_id and qty > 0 and price > 0:
+            evidence["deals"][deal_id] = {
+                "qty": qty,
+                "price": price,
+            }
 
     for o in orders:
         if str(o.get("code", "")).upper() != code:
             continue
         broker_side = str(o.get("side", "")).upper()
-        if broker_side not in set(leg.get("broker_sides", [side])):
+        if broker_side not in allowed:
             continue
         if not _is_after(
             o.get("created_at", o.get("updated_at", "")),
             ticket.get("issued_at"),
         ):
             continue
+        order_id = str(o.get("order_id", "") or "")
         dealt = int(float(o.get("dealt_qty", 0) or 0))
         avg = float(o.get("dealt_avg_price", 0) or 0)
-        if dealt > 0 and avg > 0:
-            candidates.append(("ORDER", avg, dealt, o.get("order_id", "")))
+        if order_id and dealt > 0 and avg > 0:
+            evidence["orders"][order_id] = {
+                "qty": dealt,
+                "price": avg,
+            }
 
-    candidates.sort(key=lambda x: str(x[3]), reverse=True)
-    exact = [x for x in candidates if x[2] >= want]
-    if exact:
-        return exact[0][1], exact[0][0]
-    if candidates:
-        return candidates[0][1], candidates[0][0]
+    qty = 0
+    notional = 0.0
+    for row in evidence["deals"].values():
+        qty += int(row["qty"])
+        notional += float(row["qty"]) * float(row["price"])
+    for row in evidence["orders"].values():
+        qty += int(row["qty"])
+        notional += float(row["qty"]) * float(row["price"])
+    return qty, notional
+
+
+def _match_fill_price(
+    ticket: Dict[str, Any],
+    leg: Dict[str, Any],
+    orders: Iterable[Dict[str, Any]],
+    deals: Iterable[Dict[str, Any]],
+    fill_qty: int,
+) -> tuple[Optional[float], str]:
+    evidence_qty, evidence_notional = _accumulate_fill_evidence(
+        ticket, leg, orders, deals
+    )
+    if evidence_qty > 0:
+        # This is deliberately cumulative, never a "latest row wins" price.
+        return (
+            evidence_notional / evidence_qty,
+            "BROKER_EVIDENCE_CUMULATIVE"
+            if evidence_qty >= fill_qty
+            else "BROKER_EVIDENCE_PARTIAL",
+        )
     return None, "NOT_OBSERVED"
 
 
@@ -173,6 +213,11 @@ def build_ticket(
                 "price": action.get("price"),
                 "expected_side": "LONG",
                 "before_qty": qty_for(before_positions, "LONG", old_code),
+                "before_avg_cost": float(
+                    before_positions.get(
+                        f"LONG:{old_code.upper()}", {}
+                    ).get("avg_cost", 0) or 0
+                ),
                 "target_qty": max(0, qty_for(before_positions, "LONG", old_code) - qty),
             },
             {
@@ -182,6 +227,11 @@ def build_ticket(
                 "price": action.get("new_price"),
                 "expected_side": "LONG",
                 "before_qty": qty_for(before_positions, "LONG", new_code),
+                "before_avg_cost": float(
+                    before_positions.get(
+                        f"LONG:{new_code.upper()}", {}
+                    ).get("avg_cost", 0) or 0
+                ),
                 "target_qty": qty_for(before_positions, "LONG", new_code) + qty,
             },
         ]
@@ -237,6 +287,11 @@ def build_ticket(
             "price": action.get("price"),
             "expected_side": expected_side,
             "before_qty": before,
+            "before_avg_cost": float(
+                before_positions.get(
+                    f"{expected_side}:{code.upper()}", {}
+                ).get("avg_cost", 0) or 0
+            ),
             "target_qty": target,
         }]
 
@@ -352,14 +407,49 @@ def reconcile_ticket(
             else max(0, -actual_delta)
         )
         if fill_qty > 0:
-            price, source = _match_fill_price(ticket, leg, orders, deals)
-            if price is None and expected_delta > 0:
+            price, source = _match_fill_price(
+                ticket, leg, orders, deals, fill_qty
+            )
+            if (
+                price is None
+                and expected_delta > 0
+            ):
+                frozen_before = {
+                    "qty": before_qty,
+                    "avg_cost": float(leg.get("before_avg_cost", 0) or 0),
+                }
+                frozen_after = {
+                    "qty": now_qty,
+                    "avg_cost": float(
+                        current.get(key, {}).get("avg_cost", 0) or 0
+                    ),
+                }
                 price = _derived_fill_price(
-                    before.get(key, {"qty": before_qty, "avg_cost": 0}),
-                    current.get(key, {"qty": now_qty, "avg_cost": 0}),
+                    frozen_before,
+                    frozen_after,
                     fill_qty,
                 )
-                source = "DERIVED_POSITION_DELTA"
+                source = (
+                    "DERIVED_TICKET_POSITION_DELTA"
+                    if price is not None
+                    else "NOT_OBSERVED"
+                )
+
+            if price is None:
+                previous = next(
+                    (
+                        f for f in ticket.get("fill", [])
+                        if f.get("code") == leg["code"]
+                        and f.get("side") == leg["side"]
+                    ),
+                    None,
+                )
+                if previous:
+                    price = previous.get("avg_price")
+                    source = previous.get(
+                        "price_source",
+                        "PRIOR_TICKET_FILL",
+                    )
             ticket.setdefault("fill", [])
             ticket["fill"] = [
                 f for f in ticket["fill"]
@@ -422,6 +512,7 @@ def reconcile_ticket(
             "type": "TICKET_PARTIAL_PROGRESS",
             "ticket_id": ticket["ticket_id"],
             "fill": deepcopy(ticket.get("fill", [])),
+            "fill_semantics": "CUMULATIVE_SINCE_TICKET_ISSUE",
         })
 
     return {
