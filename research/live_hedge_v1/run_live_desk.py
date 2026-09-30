@@ -437,6 +437,26 @@ def main():
     qqq_shorts = [p for p in strict_positions if p.side == "SHORT"]
 
     if unknown_qqq_positions:
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={
+                "stage": "POSITION_RECONCILIATION",
+                "reason": "QQQ option position_side is missing or unrecognized",
+                "unknown_count": len(unknown_qqq_positions),
+            },
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"status": "BLOCKED_UNKNOWN_POSITION_SIDE"},
+        )
         output = {
             "status": "BLOCKED_UNKNOWN_POSITION_SIDE",
             "timestamp": now,
