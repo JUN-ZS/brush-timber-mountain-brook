@@ -31,12 +31,36 @@ class FutuTradeReader:
 
     @staticmethod
     def _position_side(raw: object) -> str:
+        if isinstance(raw, bool):
+            return "UNKNOWN"
+        if isinstance(raw, (int, float)):
+            value = int(raw)
+            if value == 0:
+                return "LONG"
+            if value == 1:
+                return "SHORT"
+            return "UNKNOWN"
+
         s = str(raw or "").strip().upper()
-        if s in {"LONG", "LONG_POSITION", "BUY"}:
+        if s in {"LONG", "LONG_POSITION", "POSITION_SIDE_LONG", "BUY"}:
             return "LONG"
-        if s in {"SHORT", "SHORT_POSITION", "SELL"}:
+        if s in {"SHORT", "SHORT_POSITION", "POSITION_SIDE_SHORT", "SELL"}:
             return "SHORT"
+        if s in {"UNKNOWN", "NONE", "POSITION_SIDE_UNKNOWN", "-1"}:
+            return "UNKNOWN"
         return "UNKNOWN"
+
+    @staticmethod
+    def _avg_cost(row) -> float:
+        for key in ("average_cost", "average_cost_price", "diluted_cost", "diluted_cost_price", "cost_price"):
+            value = row.get(key)
+            try:
+                value = float(value or 0)
+            except Exception:
+                value = 0
+            if value > 0:
+                return value
+        return 0.0
 
     def read(self):
         self.connect()
@@ -60,54 +84,35 @@ class FutuTradeReader:
             ps = []
             if hasattr(pos, "iterrows"):
                 for _, row in pos.iterrows():
-                    side = self._position_side(
-                        row.get("position_side", row.get("positionSide", ""))
-                    )
+                    raw_side = row.get("position_side", row.get("positionSide", ""))
+                    side = self._position_side(raw_side)
                     qty = int(float(row.get("qty", 0) or 0))
                     if not qty:
                         continue
-                    ps.append(
-                        {
-                            "code": str(row.get("code", "")),
-                            "side": side,
-                            "qty": qty,
-                            "avg_cost": float(
-                                row.get(
-                                    "average_cost_price",
-                                    row.get("cost_price", 0),
-                                )
-                                or 0
-                            ),
-                            "raw_position_side": str(
-                                row.get("position_side", row.get("positionSide", ""))
-                                or ""
-                            ),
-                        }
-                    )
+                    ps.append({
+                        "code": str(row.get("code", "")),
+                        "side": side,
+                        "qty": qty,
+                        "avg_cost": self._avg_cost(row),
+                        "raw_position_side": str(raw_side if raw_side is not None else ""),
+                    })
 
             os = []
             if hasattr(orders, "iterrows"):
                 for _, row in orders.iterrows():
-                    os.append(
-                        {
-                            "order_id": str(row.get("order_id", "")),
-                            "code": str(row.get("code", "")),
-                            "side": str(row.get("trd_side", "")).upper(),
-                            "qty": int(float(row.get("qty", 0) or 0)),
-                            "price": float(row.get("price", 0) or 0),
-                            "status": str(row.get("order_status", "")).upper(),
-                            "created_at": str(row.get("create_time", "") or ""),
-                            "updated_at": str(
-                                row.get("updated_time", row.get("create_time", "")) or ""
-                            ),
-                            "dealt_qty": int(float(row.get("dealt_qty", 0) or 0)),
-                            "dealt_avg_price": float(
-                                row.get("dealt_avg_price", 0) or 0
-                            )
-                            or None,
-                            "remark": str(row.get("remark", "") or ""),
-                        }
-                    )
+                    os.append({
+                        "order_id": str(row.get("order_id", "")),
+                        "code": str(row.get("code", "")),
+                        "side": str(row.get("trd_side", "")).upper(),
+                        "qty": int(float(row.get("qty", 0) or 0)),
+                        "price": float(row.get("price", 0) or 0),
+                        "status": str(row.get("order_status", "")).upper(),
+                        "created_at": str(row.get("create_time", "") or ""),
+                        "updated_at": str(row.get("updated_time", row.get("create_time", "")) or ""),
+                        "dealt_qty": int(float(row.get("dealt_qty", 0) or 0)),
+                        "dealt_avg_price": float(row.get("dealt_avg_price", 0) or 0) or None,
+                        "remark": str(row.get("remark", "") or ""),
+                    })
 
             deals = []
             deal_warning = None
@@ -119,26 +124,14 @@ class FutuTradeReader:
                     )
                     if ret3 == self.futu.RET_OK and hasattr(deal_df, "iterrows"):
                         for _, row in deal_df.iterrows():
-                            deals.append(
-                                {
-                                    "deal_id": str(
-                                        row.get("deal_id", row.get("dealID", ""))
-                                    ),
-                                    "code": str(row.get("code", "")),
-                                    "side": str(
-                                        row.get("trd_side", row.get("trdSide", ""))
-                                    ).upper(),
-                                    "qty": int(float(row.get("qty", 0) or 0)),
-                                    "price": float(row.get("price", 0) or 0),
-                                    "created_at": str(
-                                        row.get(
-                                            "create_time",
-                                            row.get("createTime", ""),
-                                        )
-                                        or ""
-                                    ),
-                                }
-                            )
+                            deals.append({
+                                "deal_id": str(row.get("deal_id", row.get("dealID", ""))),
+                                "code": str(row.get("code", "")),
+                                "side": str(row.get("trd_side", row.get("trdSide", ""))).upper(),
+                                "qty": int(float(row.get("qty", 0) or 0)),
+                                "price": float(row.get("price", 0) or 0),
+                                "created_at": str(row.get("create_time", row.get("createTime", "")) or ""),
+                            })
                     elif ret3 != self.futu.RET_OK:
                         deal_warning = str(deal_df)
                 else:
