@@ -137,15 +137,25 @@ def _accumulate_fill_evidence(
                 "price": avg,
             }
 
-    qty = 0
-    notional = 0.0
+    deal_qty = 0
+    deal_notional = 0.0
     for row in evidence["deals"].values():
-        qty += int(row["qty"])
-        notional += float(row["qty"]) * float(row["price"])
+        deal_qty += int(row["qty"])
+        deal_notional += float(row["qty"]) * float(row["price"])
+
+    order_qty = 0
+    order_notional = 0.0
     for row in evidence["orders"].values():
-        qty += int(row["qty"])
-        notional += float(row["qty"]) * float(row["price"])
-    return qty, notional
+        order_qty += int(row["qty"])
+        order_notional += float(row["qty"]) * float(row["price"])
+
+    # Deals are granular fills; orders expose cumulative dealt_qty. Never add
+    # the two domains together because they can describe the same execution.
+    if deal_qty > 0 and deal_qty >= order_qty:
+        return deal_qty, deal_notional
+    if order_qty > 0:
+        return order_qty, order_notional
+    return 0, 0.0
 
 
 def _match_fill_price(
@@ -407,13 +417,13 @@ def reconcile_ticket(
             else max(0, -actual_delta)
         )
         if fill_qty > 0:
-            price, source = _match_fill_price(
-                ticket, leg, orders, deals, fill_qty
-            )
-            if (
-                price is None
-                and expected_delta > 0
-            ):
+            price = None
+            source = "NOT_OBSERVED"
+
+            # For an increasing position the account's frozen-baseline cost
+            # gives the cumulative VWAP since ticket issuance. This must use
+            # leg.before_qty/before_avg_cost, not the moving last_positions.
+            if expected_delta > 0:
                 frozen_before = {
                     "qty": before_qty,
                     "avg_cost": float(leg.get("before_avg_cost", 0) or 0),
@@ -429,10 +439,12 @@ def reconcile_ticket(
                     frozen_after,
                     fill_qty,
                 )
-                source = (
-                    "DERIVED_TICKET_POSITION_DELTA"
-                    if price is not None
-                    else "NOT_OBSERVED"
+                if price is not None:
+                    source = "DERIVED_TICKET_POSITION_DELTA"
+
+            if price is None:
+                price, source = _match_fill_price(
+                    ticket, leg, orders, deals, fill_qty
                 )
 
             if price is None:
