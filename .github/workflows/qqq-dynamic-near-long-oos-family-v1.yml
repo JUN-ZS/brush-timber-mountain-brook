@@ -8,6 +8,9 @@ on:
       - .github/workflows/qqq-dynamic-near-long-oos-family-v1.yml
       - research/qqq_dynamic_near_long_state_engine_v22.py
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 permissions:
   contents: read
 jobs:
