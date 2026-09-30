@@ -2,38 +2,76 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="15">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QQQ Live Hedge Desk</title>
+<title>QQQ Live Hedge Desk V2</title>
 <style>
-body{font-family:system-ui,sans-serif;max-width:1200px;margin:24px auto;padding:0 18px;background:#0b0f14;color:#e6edf3}
+body{font-family:system-ui,sans-serif;max-width:1280px;margin:20px auto;padding:0 18px;background:#0b0f14;color:#e6edf3}
 .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 h1,h2{margin:0 0 10px}
-pre{white-space:pre-wrap;word-break:break-word}
-.action{padding:10px;border:1px solid #444;border-radius:8px;margin:7px 0;background:#0e141b}
+pre{white-space:pre-wrap;word-break:break-word;margin:0}
+.action{padding:12px;border:1px solid #444;border-radius:8px;margin:7px 0;background:#0e141b}
 .meta{color:#8b949e}
+table{width:100%;border-collapse:collapse}
+td,th{padding:8px;border-bottom:1px solid #30363d;text-align:left;vertical-align:top}
 </style>
 </head>
 <body>
-<h1>QQQ LIVE HEDGE DESK</h1>
+<h1>QQQ LIVE HEDGE DESK V2</h1>
 <div id="app">loading…</div>
 <script>
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const n=v=>v==null?'NA':Number(v).toFixed(4);
 async function load(){
- const r=await fetch('live_state.json?ts='+Date.now());
- const s=await r.json();
- let h='<div class="card"><h2>'+s.status+'</h2><div class="meta">timestamp='+s.timestamp+' · manual_execution_only='+s.manual_execution_only+'</div></div>';
- const m=s.market||{};
- h+='<div class="card"><h2>Market</h2><pre>'+JSON.stringify(m,null,2)+'</pre></div>';
- if(s.far) h+='<div class="card"><h2>Far</h2><pre>'+JSON.stringify(s.far,null,2)+'</pre></div>';
- if(s.near_candidate) h+='<div class="card"><h2>Near candidate</h2><pre>'+JSON.stringify(s.near_candidate,null,2)+'</pre></div>';
- h+='<div class="card"><h2>Execution tickets</h2>';
- (s.actions||[]).forEach(a=>h+='<div class="action"><b>'+a.action+'</b><pre>'+JSON.stringify(a,null,2)+'</pre></div>');
- if(!(s.actions||[]).length) h+='<div class="action">HOLD / no change</div>';
- h+='</div>';
- h+='<div class="card"><h2>Why / state</h2><pre>'+JSON.stringify({reasons:s.reasons,next_triggers:s.next_triggers},null,2)+'</pre></div>';
- document.getElementById('app').innerHTML=h;
+  const r=await fetch('live_state.json?ts='+Date.now());
+  const s=await r.json();
+  const c=s.campaign||{};
+  const t=s.active_ticket;
+  const rs=s.risk_state||{};
+  let h='<div class="grid">';
+  h+='<div class="card"><div class="meta">DESK STATUS</div><div><strong>'+esc(s.status)+'</strong></div><div>'+esc(s.instruction)+'</div></div>';
+  h+='<div class="card"><div class="meta">CAMPAIGN</div><div><strong>'+esc(c.state||'IDLE')+'</strong></div><div>id='+esc(c.id||'—')+'</div><div>far='+esc(c.far_code||'—')+'</div></div>';
+  h+='<div class="card"><div class="meta">QQQ / RISK</div><div><strong>spot '+n((s.market||{}).spot)+'</strong></div><div>risk='+esc(rs.risk_score??'—')+' · target near='+esc(rs.desired_stack??'—')+'</div></div>';
+  h+='<div class="card"><div class="meta">SAFETY</div><div>manual only='+esc(s.manual_execution_only)+' · one primary/cycle='+esc(s.one_primary_ticket_per_cycle)+'</div><div>source='+esc(s.source)+'</div></div>';
+  h+='</div>';
+
+  if(t){
+    h+='<div class="card"><h2>PRIMARY MANUAL TICKET</h2><div><strong>'+esc(t.action)+' · '+esc(t.status)+'</strong></div><div>'+esc(s.instruction)+'</div><pre>'+esc(JSON.stringify(t,null,2))+'</pre></div>';
+  }
+
+  h+='<div class="card"><h2>Next Triggers</h2><table><tr><th>Trigger</th><th>When</th><th>Effect</th></tr>';
+  (s.next_triggers||[]).forEach(x=>h+='<tr><td>'+esc(x.type)+'</td><td>'+esc(x.when)+'</td><td>'+esc(x.effect)+'</td></tr>');
+  h+='</table></div>';
+
+  h+='<div class="grid">';
+  h+='<div class="card"><h2>Far</h2><pre>'+esc(JSON.stringify(s.far,null,2))+'</pre></div>';
+  h+='<div class="card"><h2>Near Candidate</h2><pre>'+esc(JSON.stringify(s.near_candidate,null,2))+'</pre></div>';
+  h+='</div>';
+
+  h+='<div class="card"><h2>Managed Positions / Lots</h2><pre>'+esc(JSON.stringify({positions:s.positions,lots:s.lots},null,2))+'</pre></div>';
+  h+='<div class="card"><h2>Reasons</h2><pre>'+esc(JSON.stringify(s.reasons,null,2))+'</pre></div>';
+  h+='<div class="card"><h2>Latest Events</h2><div id="events">loading…</div></div>';
+
+  document.getElementById('app').innerHTML=h;
+
+  try{
+    const er=await fetch('events.jsonl?ts='+Date.now());
+    const txt=await er.text();
+    const rows=txt.split(/\r?\n/).filter(Boolean).slice(-25).reverse();
+    document.getElementById('events').innerHTML=rows.map(line=>{
+      try{
+        const e=JSON.parse(line);
+        return '<div class="action"><strong>'+esc(e.type)+'</strong> <span class="meta">'+esc(e.timestamp)+'</span><pre>'+esc(JSON.stringify(e.payload,null,2))+'</pre></div>';
+      }catch(_){
+        return '<div class="action">'+esc(line)+'</div>';
+      }
+    }).join('') || 'No events yet';
+  }catch(e){
+    document.getElementById('events').textContent='events.jsonl unavailable: '+e;
+  }
 }
 load().catch(e=>document.getElementById('app').textContent='ERROR: '+e);
-setInterval(load,5000);
+setInterval(()=>load().catch(e=>document.getElementById('app').textContent='ERROR: '+e),5000);
 </script>
-</body></html>
+</body>
+</html>
