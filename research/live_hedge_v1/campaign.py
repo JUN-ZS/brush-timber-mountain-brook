@@ -59,10 +59,7 @@ def _parse_time(s: Any) -> Optional[datetime]:
     if not s:
         return None
     raw = str(s).strip()
-    for candidate in (
-        raw,
-        raw.replace("Z", "+00:00"),
-    ):
+    for candidate in (raw, raw.replace("Z", "+00:00")):
         try:
             dt = datetime.fromisoformat(candidate)
             if dt.tzinfo is None:
@@ -203,14 +200,13 @@ def build_ticket(
                 }
             )
     elif act == "REPRICE_OR_CANCEL":
-        leg = {
+        legs = [{
             "side": str(action.get("side", "")).upper(),
             "code": str(action.get("code", "")),
             "qty": int(action.get("qty", 0) or 0),
             "price": action.get("current_price"),
             "order_id": action.get("order_id"),
-        }
-        legs = [leg]
+        }]
     else:
         code = str(action.get("code", ""))
         qty = int(action.get("qty", action.get("target_qty", 0)) or 0)
@@ -298,11 +294,7 @@ def reconcile_ticket(
         elif now_qty != target_qty:
             all_reached = False
 
-        fill_qty = (
-            max(0, actual_delta)
-            if expected_delta > 0
-            else max(0, -actual_delta)
-        )
+        fill_qty = max(0, actual_delta) if expected_delta > 0 else max(0, -actual_delta)
         if fill_qty > 0:
             price, source = _match_fill_price(ticket, leg, orders, deals)
             if price is None and expected_delta > 0:
@@ -314,11 +306,13 @@ def reconcile_ticket(
                 source = "DERIVED_POSITION_DELTA"
             ticket.setdefault("fill", [])
             ticket["fill"] = [
-                f for f in ticket["fill"] if f.get("code") != leg["code"]
+                f for f in ticket["fill"]
+                if not (f.get("code") == leg["code"] and f.get("side") == leg["side"])
             ]
             ticket["fill"].append({
                 "code": leg["code"],
                 "side": leg["side"],
+                "expected_side": leg.get("expected_side"),
                 "qty": fill_qty,
                 "avg_price": price,
                 "price_source": source,
