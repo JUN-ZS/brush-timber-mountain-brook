@@ -238,7 +238,7 @@ def should_reload(strategy, state, prev_state, spot, camp_high, ret1d):
         return prev_state is None or state["desired_qty"] > prev_state["desired_qty"] or state["risk_score"] > (prev_state["risk_score"] if prev_state else -1)
     return True
 
-def open_near(positions, leg, qmap, dt, qty, cash):
+def open_near(positions, leg, qmap, dt, target_dte, qty, cash):
     if qty <= 0 or leg is None:
         return 0, cash
     if leg is None:
@@ -348,7 +348,7 @@ def simulate_campaign(u, far_quotes, near_chains, near_legs, near_q, camp, fd, f
         if (dt==d0 or allow) and reload_ok:
             need=max(0,target-len(active))
             if need>0:
-                opened,cash=open_near(positions,near_legs.get((dt,nd)),near_q,dt,need,cash)
+                opened,cash=open_near(positions,near_legs.get((dt,nd)),near_q,dt,nd,need,cash)
                 reloads+=opened
 
         # Shock reload is allowed to overshoot the normal target temporarily.
@@ -356,7 +356,7 @@ def simulate_campaign(u, far_quotes, near_chains, near_legs, near_q, camp, fd, f
             active=[p for p in positions if not p.closed]
             extra=max(0,min(MAX_NEAR_QTY,target+2)-len(active))
             if extra>0 and near_chains.get(dt) is not None:
-                opened,cash=open_near(positions,near_legs.get((dt,nd)),near_q,dt,extra,cash); reloads+=opened
+                opened,cash=open_near(positions,near_legs.get((dt,nd)),near_q,dt,nd,extra,cash); reloads+=opened
 
         # Mark-to-market: near at bid, far short at ask.
         liq=cash
