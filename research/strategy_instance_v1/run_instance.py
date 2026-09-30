@@ -25,6 +25,10 @@ def after(a,b):
     da,db=dt(a),dt(b)
     return bool(da and db and da>db)
 
+def gap_minutes(a,b):
+    da,db=dt(a),dt(b)
+    return None if not da or not db else max(0.0,(da-db).total_seconds()/60.0)
+
 def sf(x):
     try:
         y=float(x); return y if math.isfinite(y) else 0.0
@@ -58,7 +62,7 @@ def load_instance(repo,i):
     if not m: raise SystemExit(f"UNKNOWN_INSTANCE_ID:{i}")
     if m.get("manifest_hash")!=mhash(m): raise SystemExit("INSTANCE_MANIFEST_TAMPERED_OR_MUTATED")
     s=load(spath(repo,i),{"schema":STATE_SCHEMA,"schema_version":1,"instance_id":i,
-        "processed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,
+        "processed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
         "last_snapshot_hash":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0})
     l=InstanceLedger(lpath(repo,i),{"instance_id":i,"manifest_hash":m["manifest_hash"],
        "strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
@@ -175,12 +179,19 @@ def cycle(args):
     repo=Path(args.repo_root).resolve(); m,s,l=load_instance(repo,args.instance_id); t=now()
     cid="CYCLE_"+t.replace(":","").replace("-","").replace(".",""); s["cycle_count"]=si(s.get("cycle_count"))+1
     try:
-        tr=FutuTradeReader(args.host,args.port,real=not args.simulate).read()
+        history_start = None
+        last_cycle = s.get("last_cycle_at")
+        if last_cycle is None:
+            history_start = m.get("created_at_utc")
+        elif gap_minutes(t, last_cycle) is not None and gap_minutes(t, last_cycle) >= args.backfill_after_minutes:
+            history_start = last_cycle
+        tr=FutuTradeReader(args.host,args.port,real=not args.simulate).read(history_start=history_start)
         snap=LiveFutuReader(args.host,args.port).snapshot([p.get("code") for p in tr.get("positions",[]) if p.get("code")])
     except Exception as e:
         s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"BROKER_READ","error":repr(e)},source="BROKER_OBSERVED")
         s["last_cycle_at"]=t; save(spath(repo,args.instance_id),s); print(json.dumps({"status":"DATA_GAP","error":repr(e)},ensure_ascii=False,indent=2)); return 2
     ps=tr.get("positions",[]); orders=tr.get("orders",[]); cmap=contracts_map(snap); quotes=snap.get("quotes",{})
+    history_used=bool(tr.get("history_backfill_used"))
     seen=set(map(str,s.get("processed_deal_ids",[]))); new=[]
     for d in tr.get("deals",[]):
         did=str(d.get("deal_id","") or "")
@@ -215,10 +226,10 @@ def cycle(args):
             s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"STRATEGY_PLAN","error":repr(e)})
     if tr.get("deal_warning"):
         s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"DEAL_FEED","warning":tr["deal_warning"]},source="BROKER_OBSERVED")
-    s["last_cycle_at"]=t; save(spath(repo,args.instance_id),s)
+    s["last_cycle_at"]=t; s["last_history_backfill_at"]=t if history_used else s.get("last_history_backfill_at"); save(spath(repo,args.instance_id),s)
     out={"status":"RECORDED","instance_id":args.instance_id,"cycle_id":cid,"timestamp_utc":t,
          "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],"gross_pnl":gross,
-         "reconcile":s["last_reconcile"],"data_gaps_total":s["data_gaps"],"snapshot_sha256":sh,"ledger_head":l.validate()["head_hash"]}
+         "reconcile":s["last_reconcile"],"history_backfill_used":history_used,"history_start":tr.get("history_start"),"data_gaps_total":s["data_gaps"],"snapshot_sha256":sh,"ledger_head":l.validate()["head_hash"]}
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
 def init_cmd(a):
@@ -276,7 +287,7 @@ def parser():
     x.add_argument("--research-engine-commit",default=None); x.add_argument("--strategy-lock-hash",default=None); x.add_argument("--start-at-utc",default=None)
     x.add_argument("--initial-cash",type=float,default=None); x.add_argument("--far-code",default=None); x.add_argument("--position",action="append",default=[]); x.add_argument("--note",default=""); x.set_defaults(fn=init_cmd)
     for name in ("cycle","watch"):
-        x=s.add_parser(name); x.add_argument("--instance-id",required=True); x.add_argument("--host",default="127.0.0.1"); x.add_argument("--port",type=int,default=11111); x.add_argument("--simulate",action="store_true"); x.add_argument("--observe-strategy-plan",action="store_true")
+        x=s.add_parser(name); x.add_argument("--instance-id",required=True); x.add_argument("--host",default="127.0.0.1"); x.add_argument("--port",type=int,default=11111); x.add_argument("--simulate",action="store_true"); x.add_argument("--observe-strategy-plan",action="store_true"); x.add_argument("--backfill-after-minutes",type=int,default=10)
         if name=="watch": x.add_argument("--interval",type=int,default=300); x.add_argument("--once",action="store_true"); x.add_argument("--stop-on-error",action="store_true")
         x.set_defaults(fn=cycle if name=="cycle" else watch)
     x=s.add_parser("note"); x.add_argument("--instance-id",required=True); x.add_argument("--text",required=True); x.add_argument("--tag",default="USER_MANUAL"); x.set_defaults(fn=note_cmd)
