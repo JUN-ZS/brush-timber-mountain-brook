@@ -263,6 +263,7 @@ def campaign_rows(u, far_candidates, far_dte, far_delta):
         rows.append({"entry": d0, "far": far, "start_spot": float(sr.close)})
 
         fq = None
+        # Actual far exit is determined later from the quote map.
         if far.get("expiry") is not None:
             next_allowed = d0 + pd.Timedelta(days=365)
     return rows
@@ -275,6 +276,7 @@ def target_from_state(
     delta_jump: float,
     coverage_mult: float,
 ):
+    # Each component is causal and bounded. Higher score means greater short-call risk.
     if far_delta_abs < 0.04:
         dscore = 1
     elif far_delta_abs < 0.06:
@@ -336,6 +338,7 @@ def should_harvest(policy: str, pos: Pos, dt: pd.Timestamp, bid: float, risk_sco
         if peak_ret >= 0.25 and bid <= pos.peak_bid * 0.80:
             return True
 
+    # Risk policies also harvest a profitable leg when the state score falls.
     if "ON_RISK" in policy and ret > 0 and risk_score <= 2.2:
         return True
 
@@ -349,6 +352,7 @@ def reload_gate(policy: str, dt: pd.Timestamp, last_harvest, state, prev_state, 
     if desired <= active_count:
         return False
 
+    # Avoid mechanically selling at the bid and rebuying the same chain on the same day.
     harvested_today = last_harvest is not None and dt == last_harvest
     if policy.endswith("IMMEDIATE"):
         return not harvested_today or (desired - active_count >= 2)
@@ -377,6 +381,7 @@ def close_excess(positions, target, dt, quote_maps_by_cid, cash_ref):
     if excess <= 0:
         return cash_ref
 
+    # Prefer profitable short-term winners first; otherwise use the oldest expiring layer.
     candidates = []
     for p in active:
         q = quote_maps_by_cid.get(p.cid)
@@ -437,6 +442,7 @@ def simulate(
         if fq is None or fq.empty:
             continue
 
+        # First underlying high touching the far short strike, otherwise expiry.
         end = far_exp
         subu = u[(u.date > d0) & (u.date <= end)]
         touch = subu[subu.high >= far_strike]
@@ -455,11 +461,14 @@ def simulate(
         far_exit_ask = float(fq_after.iloc[0].ask)
         far_pnl = N_SHORT * (far_entry_bid - far_exit_ask) * 100.0
 
+        # Reindex the far chain to underlying observation dates, carrying forward only known data.
         sub_dates = u[(u.date >= d0) & (u.date <= end)]["date"]
         fqd = fq.reindex(sub_dates, method="ffill").copy()
         if fqd.empty:
             continue
 
+        # Causal gamma: use actual gamma when present; otherwise derive a same-contract
+        # daily gamma proxy = |dDelta/dSpot| * Spot.
         spots = u.set_index("date").reindex(fqd.index)["close"]
         fqd["spot"] = spots
         fqd["delta_abs"] = fqd["delta"].abs()
@@ -511,6 +520,7 @@ def simulate(
 
             active = [p for p in positions if not p.closed]
 
+            # First mark peak and harvest existing near-long inventory.
             for p in active:
                 q = near_quotes_by_cid.get(p.cid)
                 if q is None or dt not in q.index:
@@ -527,6 +537,7 @@ def simulate(
 
             active = [p for p in positions if not p.closed]
 
+            # If state risk falls, actively shrink inventory; prefer profitable layers.
             if len(active) > desired:
                 before = len(active)
                 cash = close_excess(positions, desired, dt, near_quotes_by_cid, cash)
@@ -536,6 +547,7 @@ def simulate(
 
             active = [p for p in positions if not p.closed]
 
+            # Reload according to the policy-specific gate.
             if reload_gate(policy, dt, last_harvest, state, prev_state, desired, len(active)):
                 add_count = max(0, desired - len(active))
                 for _ in range(add_count):
@@ -563,6 +575,7 @@ def simulate(
                     cash -= ask * 100.0
                     opens += 1
 
+            # Daily mark-to-market.
             liq = cash
             for p in positions:
                 if p.closed:
@@ -571,11 +584,13 @@ def simulate(
                 if q is not None and dt in q.index:
                     liq += float(q.loc[dt, "bid"]) * 100.0
 
+            # Far short is a liability marked at ask.
             liq -= N_SHORT * float(row["ask"]) * 100.0
             eq_rows.append((dt, liq))
             peak_equity = max(peak_equity, liq)
             prev_state = state
 
+        # Force-close any remaining near long at far exit.
         for p in [x for x in positions if not x.closed]:
             q = near_quotes_by_cid.get(p.cid)
             if q is None or q.empty:
@@ -658,7 +673,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     od = Path(args.data_dir) / "QQQ_options.parquet"
-    ud = Path(args.data-dir) / "QQQ_underlying.parquet"
+    ud = Path(args.data_dir) / "QQQ_underlying.parquet"
 
     u = load_underlying(ud)
     con = duckdb.connect()
@@ -668,6 +683,8 @@ def main():
         raise RuntimeError("No far candidates")
     far_candidates, has_gamma = far_build
 
+    # Build the full set of daily dates that may be needed by stateful near-long
+    # decisions. No future chain rows are introduced into a decision date.
     event_dates = set(pd.Timestamp(d) for d in u.loc[u.signal & u.dma200.notna(), "date"])
     for legs in far_candidates.values():
         for leg in legs.values():
@@ -732,6 +749,7 @@ def main():
     all_rows = []
     summary_rows = []
 
+    # 9 far configurations x 4 near DTE x 3 dynamic coverage levels x 8 policies = 864.
     for fd in FAR_DTES:
         for fdel in FAR_DELTAS:
             for ndte in NEAR_DTES:
