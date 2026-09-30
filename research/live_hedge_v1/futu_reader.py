@@ -63,7 +63,11 @@ class LiveFutuReader:
                 ext=q.last/dma-1 if dma else None; ratio=q.last/high if high else None
                 sig=bool(ratio is not None and ratio>=.98 and ext is not None and ext>=.08)
             cs=self.contracts()
-            codes={c.code for c in cs}|set(extra_codes or [])
+            # Keep the quote request practical: near-ATM calls plus the far OTM region,
+            # while always including exact held/order codes for reconciliation.
+            spot=q.last or 0.0
+            tradable={c.code for c in cs if spot<=0 or (0.85*spot <= c.strike <= 1.60*spot)}
+            codes=tradable|set(extra_codes or [])
             quotes={x.code:x.to_dict() for x in self.a.get_option_quotes(list(codes))}
             return {"status":"OK","connection":conn,
                 "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":q.timestamp,"source":q.source,
