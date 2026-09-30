@@ -238,10 +238,9 @@ def should_reload(strategy, state, prev_state, spot, camp_high, ret1d):
         return prev_state is None or state["desired_qty"] > prev_state["desired_qty"] or state["risk_score"] > (prev_state["risk_score"] if prev_state else -1)
     return True
 
-def open_near(positions, chain, qmap, dt, spot, target_dte, qty, cash):
-    if qty <= 0:
+def open_near(positions, leg, qmap, dt, qty, cash):
+    if qty <= 0 or leg is None:
         return 0, cash
-    leg = pick_near(chain, spot, target_dte)
     if leg is None:
         return 0, cash
     q = qmap.get(leg["cid"])
@@ -349,7 +348,7 @@ def simulate_campaign(u, far_quotes, near_chains, near_q, camp, fd, fdel, nd, st
         if (dt==d0 or allow) and reload_ok:
             need=max(0,target-len(active))
             if need>0:
-                opened,cash=open_near(positions,near_chains.get(dt),near_q,dt,spot,nd,need,cash) if near_chains.get(dt) is not None else (0,cash)
+                opened,cash=open_near(positions,near_legs.get((dt,nd)),near_q,dt,need,cash)
                 reloads+=opened
 
         # Shock reload is allowed to overshoot the normal target temporarily.
@@ -357,7 +356,7 @@ def simulate_campaign(u, far_quotes, near_chains, near_q, camp, fd, fdel, nd, st
             active=[p for p in positions if not p.closed]
             extra=max(0,min(MAX_NEAR_QTY,target+2)-len(active))
             if extra>0 and near_chains.get(dt) is not None:
-                opened,cash=open_near(positions,near_chains[dt],near_q,dt,spot,nd,extra,cash); reloads+=opened
+                opened,cash=open_near(positions,near_legs.get((dt,nd)),near_q,dt,extra,cash); reloads+=opened
 
         # Mark-to-market: near at bid, far short at ask.
         liq=cash
@@ -429,6 +428,7 @@ def run_matrix(od:Path,ud:Path,out:Path):
     """,[[d.date() for d in sorted(event_dates)]])
     near["date"]=pd.to_datetime(near.date); near["expiration"]=pd.to_datetime(near.expiration)
     near_chains={d:g for d,g in near.groupby("date",sort=False)}
+    near_legs={}
     near_ids=set()
     for d,ch in near_chains.items():
         row=u.loc[u.date==d]
@@ -436,7 +436,9 @@ def run_matrix(od:Path,ud:Path,out:Path):
         spot=float(row.iloc[0].close)
         for nd in NEAR_DTES:
             leg=pick_near(ch,spot,nd)
-            if leg: near_ids.add(leg["cid"])
+            if leg:
+                near_legs[(d,nd)]=leg
+                near_ids.add(leg["cid"])
     cols=option_columns(con,od); has_gamma="gamma" in cols
     far_ids={leg["cid"] for legs in candidates.values() for leg in legs.values() if leg}
     far_q=get_quotes(con,od,far_ids,include_gamma=has_gamma)
