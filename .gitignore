@@ -16,3 +16,9 @@ reports/*.json
 research/evidence_v1/evidence.jsonl
 research/evidence_v1/snapshots/*
 research/evidence_v1/__pycache__/
+
+# Personal Strategy Instance raw broker/state evidence stays local-only.
+research/strategy_instance_v1/instances/*/ledger.jsonl
+research/strategy_instance_v1/instances/*/state.json
+research/strategy_instance_v1/instances/*/snapshots/*
+research/strategy_instance_v1/instances/*/*.tmp
