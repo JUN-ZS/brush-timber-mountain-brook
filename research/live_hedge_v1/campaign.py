@@ -94,7 +94,8 @@ def _match_fill_price(
     for d in deals:
         if str(d.get("code", "")).upper() != code:
             continue
-        if str(d.get("side", "")).upper() != side:
+        broker_side = str(d.get("side", "")).upper()
+        if broker_side not in set(leg.get("broker_sides", [side])):
             continue
         if not _is_after(d.get("created_at"), ticket.get("issued_at")):
             continue
@@ -106,7 +107,8 @@ def _match_fill_price(
     for o in orders:
         if str(o.get("code", "")).upper() != code:
             continue
-        if str(o.get("side", "")).upper() != side:
+        broker_side = str(o.get("side", "")).upper()
+        if broker_side not in set(leg.get("broker_sides", [side])):
             continue
         if not _is_after(
             o.get("created_at", o.get("updated_at", "")),
@@ -220,7 +222,9 @@ def build_ticket(
             "SHORT" if act == "REPAIR_FAR" else "LONG"
         )
         before = qty_for(before_positions, expected_side, code)
-        if act == "REPAIR_FAR":
+        if act == "SELL_FAR":
+            target = before + qty
+        elif act == "REPAIR_FAR":
             target = int(action.get("target_qty", 10))
             side = "SELL" if before < target else "BUY"
             qty = abs(target - before)
@@ -235,6 +239,25 @@ def build_ticket(
             "before_qty": before,
             "target_qty": target,
         }]
+
+    # Map strategy position deltas to Futu transaction-direction aliases.
+    for leg in legs:
+        if "expected_side" not in leg:
+            continue
+        before_qty = int(leg.get("before_qty", 0) or 0)
+        target_qty = int(leg.get("target_qty", 0) or 0)
+        delta = target_qty - before_qty
+        expected_side = str(leg.get("expected_side", "")).upper()
+        if expected_side == "SHORT" and delta > 0:
+            leg["broker_sides"] = ["SELL_SHORT", "SELL"]
+        elif expected_side == "SHORT" and delta < 0:
+            leg["broker_sides"] = ["BUY_BACK", "BUY"]
+        elif expected_side == "LONG" and delta > 0:
+            leg["broker_sides"] = ["BUY"]
+        elif expected_side == "LONG" and delta < 0:
+            leg["broker_sides"] = ["SELL"]
+        else:
+            leg["broker_sides"] = []
 
     return {
         "ticket_id": ticket_id,
@@ -295,8 +318,23 @@ def reconcile_ticket(
 
         if actual_delta != 0:
             any_progress = True
+        compatible_direction = (
+            actual_delta != 0
+            and expected_delta != 0
+            and (
+                (expected_delta > 0 and actual_delta > 0)
+                or (expected_delta < 0 and actual_delta < 0)
+            )
+            and abs(actual_delta) <= abs(expected_delta)
+        )
+
         if actual_delta != expected_delta:
-            if actual_delta != 0:
+            if actual_delta == 0:
+                all_reached = False
+            elif compatible_direction:
+                all_reached = False
+                any_progress = True
+            else:
                 unexpected.append({
                     "code": leg["code"],
                     "side": leg["expected_side"],
@@ -304,7 +342,7 @@ def reconcile_ticket(
                     "actual_delta": actual_delta,
                     "ticket_id": ticket["ticket_id"],
                 })
-            all_reached = False
+                all_reached = False
         elif now_qty != target_qty:
             all_reached = False
 
