@@ -1,5 +1,5 @@
 from __future__ import annotations
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 from backtest.futu_adapter import FutuOpenDAdapter
 from backtest.types import OptionContract, QQQ_CODE
@@ -53,7 +53,7 @@ class LiveFutuReader:
         conn=self.connect()
         if conn.get("status") not in {"PASS","PARTIAL"}:return {"status":"BLOCKED","connection":conn}
         try:
-            q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320)
+            q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc).isoformat()
             order=sorted(zip(hist.get("dates") or [],hist.get("closes") or []),key=lambda z:z[0])
             dates=[x[0] for x in order]; closes=[x[1] for x in order]
             ref=closes[:-1] if dates and str(dates[-1])[:10]==date.today().isoformat() else closes
@@ -70,7 +70,7 @@ class LiveFutuReader:
             codes=tradable|set(extra_codes or [])
             quotes={x.code:x.to_dict() for x in self.a.get_option_quotes(list(codes))}
             return {"status":"OK","connection":conn,
-                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":q.timestamp,"source":q.source,
+                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":collected_at,"source_timestamp":q.timestamp,"source":q.source,
                           "signal_active":sig,"ratio52":ratio,"ext200":ext,"history_source":hist.get("source")},
                 "contracts":[x.__dict__ for x in cs],"quotes":quotes,"source":"FUTU_OPEND_READ_ONLY"}
         finally:self.close()
