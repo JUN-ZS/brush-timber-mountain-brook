@@ -39,17 +39,17 @@ jobs:
       - name: Download canonical QQQ data-v1
         run: |
           mkdir -p data
-          curl -L --fail --retry 3 -o data/QQQ_options.parquet \\
+          curl -L --fail --retry 3 -o data/QQQ_options.parquet \
             https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
-          curl -L --fail --retry 3 -o data/QQQ_underlying.parquet \\
+          curl -L --fail --retry 3 -o data/QQQ_underlying.parquet \
             https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
       - name: Run shard
         run: |
-          python research/qqq_dynamic_near_long_state_engine_v23_parallel.py \\
-            --data-dir data \\
-            --out artifacts \\
-            --shard-index ${{ matrix.shard }} \\
+          python research/qqq_dynamic_near_long_state_engine_v23_parallel.py \
+            --data-dir data \
+            --out artifacts \
+            --shard-index ${{ matrix.shard }} \
             --shard-count 24
           ls -lh artifacts
       - name: Upload shard
