@@ -69,7 +69,12 @@ A same-direction position change smaller than the ticket target is `PARTIAL` and
 - qty 有變，但不是 ticket 所期待的 delta → `MANUAL_POSITION_CHANGE` + ticket `SUPERSEDED`
 - qty 無變 → ticket 繼續 OPEN
 
-成交價優先來自 broker deal/order；沒有足夠 broker fill evidence 時，只有能由 aggregate position average cost 推算才使用 `DERIVED_POSITION_DELTA`，不冒充 broker direct fill。
+成交價是「自 ticket issuance 起累計」的 fill VWAP，不是每個 cycle 的增量價。
+
+- 對增加持倉的 leg，優先用 ticket issuance 時凍結的 `before_qty + before_avg_cost` 與當前持倉均價計出累計成本；因此 `last_positions` 推進不會把累計成交量或價格重置。
+- broker deal evidence 以 `deal_id` 去重並跨 cycle 累積；broker order evidence 按 `order_id` 保存最新的 cumulative `dealt_qty/dealt_avg_price`。deal 與 order 兩個資料域不相加，避免同一成交被算兩次。
+- 沒有足夠 broker fill evidence 時，只在能由 aggregate position average cost 推算時使用 `DERIVED_TICKET_POSITION_DELTA`；不冒充 broker direct fill。
+- `TICKET_PARTIAL_PROGRESS` 的 `fill` 是自 ticket issuance 起的 cumulative snapshot，不是可跨事件逐行相加的 delta。
 
 ## Lot ledger
 
