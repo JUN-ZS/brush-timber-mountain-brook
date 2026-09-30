@@ -26,6 +26,10 @@ from .engine import Contract, Order, Position, plan, select_far, select_near
 from .futu_reader import LiveFutuReader
 from .futu_trade_reader import FutuTradeReader
 from .state import StateStore
+from ..evidence_v1.family_snapshot import build_family_snapshot
+from ..evidence_v1.identity import runtime_identity
+from ..evidence_v1.ledger import EvidenceLedger
+from ..evidence_v1.snapshot import write_snapshot
 
 
 def C(x):
@@ -59,6 +63,40 @@ def _safe_float(v) -> float:
         return float(v or 0)
     except Exception:
         return 0.0
+
+
+def _evidence_positions(items):
+    out = []
+    for p in items:
+        if hasattr(p, "__dict__"):
+            p = p.__dict__
+        out.append({
+            k: p.get(k)
+            for k in ("code", "side", "qty", "avg_cost", "strike", "expiry", "dte")
+        })
+    return out
+
+
+def _evidence_orders(items):
+    out = []
+    for o in items:
+        if hasattr(o, "__dict__"):
+            o = o.__dict__
+        out.append({
+            k: o.get(k)
+            for k in (
+                "order_id", "code", "side", "qty", "price", "status",
+                "created_at", "updated_at", "dealt_qty", "dealt_avg_price"
+            )
+        })
+    return out
+
+
+def _evidence_deals(items):
+    return [
+        {k: d.get(k) for k in ("deal_id", "code", "side", "qty", "price", "created_at")}
+        for d in items
+    ]
 
 
 def _ticket_baseline_positions(current_positions):
@@ -263,6 +301,7 @@ def main():
     args = ap.parse_args()
 
     now = _now()
+    repo = Path(__file__).resolve().parents[2]
     out_path = Path(args.out)
     store = StateStore(
         out_path.with_name("state.json"),
@@ -270,6 +309,27 @@ def main():
     )
     state = store.load()
     state["_now"] = now
+    cycle_id = f"QQQ_DESK_{now.replace(':','').replace('-','').replace('.','').replace('+00:00','Z')}"
+    evidence = EvidenceLedger(
+        repo / "research/evidence_v1/evidence.jsonl",
+        identity=runtime_identity(repo),
+    )
+    evidence.append(
+        "CYCLE_STARTED",
+        cycle_id=cycle_id,
+        campaign_id=(state.get("campaign") or {}).get("id"),
+        timestamp_utc=now,
+        payload={
+            "cli": {
+                "far_dte": args.far_dte,
+                "far_delta": args.far_delta,
+                "near_dte": args.near_dte,
+                "simulate_account": args.simulate_account,
+                "adopt_existing_far": args.adopt_existing_far,
+            },
+            "state_before": state.get("campaign"),
+        },
+    )
     state.setdefault("lots", [])
 
     campaign = state.setdefault(
@@ -303,6 +363,27 @@ def main():
 
     snap = LiveFutuReader(args.host, args.port).snapshot(sorted(set(extra)))
     if snap.get("status") != "OK":
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={
+                "stage": "MARKET_READER",
+                "status": snap.get("status"),
+                "reason": snap.get("reason") or snap.get("error") or "market snapshot unavailable",
+                "connection_status": (snap.get("connection") or {}).get("status"),
+            },
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"status": "BLOCKED_MARKET_READER"},
+        )
         output = {
             "status": "BLOCKED_MARKET_READER",
             "timestamp": now,
