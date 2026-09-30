@@ -459,7 +459,7 @@ def simulate(
 
         far_entry_bid = float(far["entry_bid"])
         far_exit_ask = float(fq_after.iloc[0].ask)
-        far_pnl = (far_entry_bid - N_SHORT * far_exit_ask) * 100.0
+        far_pnl = N_SHORT * (far_entry_bid - far_exit_ask) * 100.0
 
         # Reindex the far chain to underlying observation dates, carrying forward only known data.
         sub_dates = u[(u.date >= d0) & (u.date <= end)]["date"]
