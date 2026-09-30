@@ -2,8 +2,6 @@ from __future__ import annotations
 
 
 class FutuTradeReader:
-    """Read-only Futu US account reconciliation. Never unlocks or submits orders."""
-
     def __init__(self, host="127.0.0.1", port=11111, real=True):
         self.host = host
         self.port = port
@@ -13,7 +11,6 @@ class FutuTradeReader:
 
     def connect(self):
         import futu
-
         self.futu = futu
         self.ctx = futu.OpenSecTradeContext(
             host=self.host,
@@ -30,32 +27,51 @@ class FutuTradeReader:
             self.ctx = None
 
     @staticmethod
-    def _position_side(raw: object) -> str:
+    def _position_side(raw):
         if isinstance(raw, bool):
             return "UNKNOWN"
         if isinstance(raw, (int, float)):
-            value = int(raw)
-            if value == 0:
-                return "LONG"
-            if value == 1:
-                return "SHORT"
-            return "UNKNOWN"
-
+            return {0: "LONG", 1: "SHORT"}.get(int(raw), "UNKNOWN")
         s = str(raw or "").strip().upper()
-        if s in {"LONG", "LONG_POSITION", "POSITION_SIDE_LONG", "BUY"}:
+        if s in {"LONG", "LONG_POSITION", "POSITION_SIDE_LONG", "POSITION_SIDE_LONG()", "BUY", "0"}:
             return "LONG"
-        if s in {"SHORT", "SHORT_POSITION", "POSITION_SIDE_SHORT", "SELL"}:
+        if s in {"SHORT", "SHORT_POSITION", "POSITION_SIDE_SHORT", "POSITION_SIDE_SHORT()", "SELL", "1"}:
             return "SHORT"
-        if s in {"UNKNOWN", "NONE", "POSITION_SIDE_UNKNOWN", "-1"}:
-            return "UNKNOWN"
         return "UNKNOWN"
 
     @staticmethod
-    def _avg_cost(row) -> float:
-        for key in ("average_cost", "average_cost_price", "diluted_cost", "diluted_cost_price", "cost_price"):
-            value = row.get(key)
+    def _trade_side(raw):
+        if isinstance(raw, bool):
+            return "UNKNOWN"
+        if isinstance(raw, (int, float)):
+            return {
+                1: "BUY",
+                2: "SELL",
+                3: "SELL_SHORT",
+                4: "BUY_BACK",
+            }.get(int(raw), "UNKNOWN")
+        s = str(raw or "").strip().upper()
+        if s in {"BUY", "TRD_SIDE_BUY", "1"}:
+            return "BUY"
+        if s in {"SELL", "TRD_SIDE_SELL", "2"}:
+            return "SELL"
+        if s in {"SELL_SHORT", "TRD_SIDE_SELLSHORT", "3"}:
+            return "SELL_SHORT"
+        if s in {"BUY_BACK", "TRD_SIDE_BUYBACK", "4"}:
+            return "BUY_BACK"
+        return "UNKNOWN"
+
+    @staticmethod
+    def _avg_cost(row):
+        for key in (
+            "average_cost",
+            "average_cost_price",
+            "diluted_cost",
+            "diluted_cost_price",
+            "cost_price",
+        ):
             try:
-                value = float(value or 0)
+                value = float(row.get(key) or 0)
             except Exception:
                 value = 0
             if value > 0:
@@ -87,15 +103,14 @@ class FutuTradeReader:
                     raw_side = row.get("position_side", row.get("positionSide", ""))
                     side = self._position_side(raw_side)
                     qty = int(float(row.get("qty", 0) or 0))
-                    if not qty:
-                        continue
-                    ps.append({
-                        "code": str(row.get("code", "")),
-                        "side": side,
-                        "qty": qty,
-                        "avg_cost": self._avg_cost(row),
-                        "raw_position_side": str(raw_side if raw_side is not None else ""),
-                    })
+                    if qty:
+                        ps.append({
+                            "code": str(row.get("code", "")),
+                            "side": side,
+                            "qty": qty,
+                            "avg_cost": self._avg_cost(row),
+                            "raw_position_side": str(raw_side if raw_side is not None else ""),
+                        })
 
             os = []
             if hasattr(orders, "iterrows"):
@@ -103,7 +118,8 @@ class FutuTradeReader:
                     os.append({
                         "order_id": str(row.get("order_id", "")),
                         "code": str(row.get("code", "")),
-                        "side": str(row.get("trd_side", "")).upper(),
+                        "side": self._trade_side(row.get("trd_side", "")),
+                        "raw_side": str(row.get("trd_side", "") or ""),
                         "qty": int(float(row.get("qty", 0) or 0)),
                         "price": float(row.get("price", 0) or 0),
                         "status": str(row.get("order_status", "")).upper(),
@@ -127,7 +143,8 @@ class FutuTradeReader:
                             deals.append({
                                 "deal_id": str(row.get("deal_id", row.get("dealID", ""))),
                                 "code": str(row.get("code", "")),
-                                "side": str(row.get("trd_side", row.get("trdSide", ""))).upper(),
+                                "side": self._trade_side(row.get("trd_side", row.get("trdSide", ""))),
+                                "raw_side": str(row.get("trd_side", row.get("trdSide", "")) or ""),
                                 "qty": int(float(row.get("qty", 0) or 0)),
                                 "price": float(row.get("price", 0) or 0),
                                 "created_at": str(row.get("create_time", row.get("createTime", "")) or ""),
