@@ -20,7 +20,7 @@ jobs:
       - name: Run evidence tests
         shell: cmd
         run: |
-          python -m unittest research.evidence_v1.test_evidence
+          python -m unittest research.evidence_v1.test_evidence research.evidence_v1.test_lock_guard
       - name: Verify evidence ledger
         shell: cmd
         run: |
