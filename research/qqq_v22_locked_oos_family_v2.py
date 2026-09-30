@@ -251,7 +251,7 @@ def main():
     con = duckdb.connect()
 
     manifest = {
-        "engine_commit": "930c949ec5260865f2bf3ee1c6e030dab7b0bc9ce3245e5b5ed775f21",
+        "engine_commit": "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
         "candidate": "30D near + 1.50x coverage",
         "candidate_family_configs": 72,
         "family_definition": "9 far DTE×delta combinations × all 8 policies; no sub-selection inside OOS",
