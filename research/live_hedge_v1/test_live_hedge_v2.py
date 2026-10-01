@@ -222,7 +222,7 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(peak[0], 1)
 
 
-    def test_concurrent_live_event_emits_preserve_hash_chain():
+    def test_concurrent_live_event_emits_preserve_hash_chain(self):
         import tempfile
         import threading
         from research.live_hedge_v1.state import StateStore
