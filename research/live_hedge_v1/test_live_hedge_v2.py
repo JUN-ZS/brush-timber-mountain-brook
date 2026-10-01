@@ -504,10 +504,9 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(choose_primary_action(candidates)["action"], "HARVEST_NEAR")
 
     def test_plan_can_emit_candidates_but_wrapper_selects_one(self):
-        fixed_now = datetime.fromisoformat("2026-10-01T00:05:00+00:00")
         market = {
             "source": "LIVE QUOTE",
-            "timestamp": fixed_now.isoformat(),
+            "timestamp": now_iso(),
             "spot": 500.0,
             "signal_active": True,
         }
@@ -1394,9 +1393,10 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(out["candidate_actions"], [])
 
     def test_stale_partial_order_uses_remaining_quantity(self):
+        fixed_now = datetime.fromisoformat("2026-10-01T00:05:00+00:00")
         market = {
             "source": "LIVE QUOTE",
-            "timestamp": now_iso(),
+            "timestamp": fixed_now.isoformat(),
             "spot": 500.0,
             "signal_active": True,
         }
@@ -1428,7 +1428,7 @@ class LiveHedgeV2Test(unittest.TestCase):
             },
             previous_far_delta_abs=0.08,
             near_lots=[],
-            now=datetime.fromisoformat("2026-10-01T00:05:00+00:00"),
+            now=fixed_now,
         )
         reprice = next(x for x in out["candidate_actions"] if x["action"] == "REPRICE_OR_CANCEL")
         self.assertEqual(reprice["qty"], 3)
