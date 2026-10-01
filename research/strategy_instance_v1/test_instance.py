@@ -191,6 +191,31 @@ def test_strategy_mark_uses_owned_lot_cost_not_account_aggregate_cost():
     assert marked["unrealized_pnl"]==100.0
 
 
+def test_ownership_derived_close_uses_post_trade_snapshot():
+    from .run_instance import apply_strategy_ownership_close
+    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"LONG","qty":2,"avg_price":5.0,"lot_size":100,"status":"OPEN"}]
+    deal={"deal_id":"D-POST","code":"US.QQQ.TEST","side":"SELL","qty":1,"price":7.0,"lot_size":100}
+    consumed,pnl,reason=apply_strategy_ownership_close(lots,deal,[{"code":"US.QQQ.TEST","side":"LONG","qty":1}])
+    assert consumed==1
+    assert pnl==200.0
+    assert reason=="CLOSE_LONG_OWNERSHIP_DERIVED"
+    assert lots[0]["qty"]==1
+
+
+def test_ownership_derived_close_rejects_external_inventory():
+    from .run_instance import apply_strategy_ownership_close
+    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"LONG","qty":2,"avg_price":5.0,"lot_size":100,"status":"OPEN"}]
+    deal={"deal_id":"D-EXT","code":"US.QQQ.TEST","side":"SELL","qty":1,"price":7.0,"lot_size":100}
+    consumed,pnl,reason=apply_strategy_ownership_close(
+        lots,deal,
+        [{"code":"US.QQQ.TEST","side":"LONG","qty":1},
+         {"code":"US.QQQ.TEST","side":"LONG","qty":3}],
+    )
+    assert consumed==0
+    assert pnl==0.0
+    assert reason=="OWNERSHIP_SNAPSHOT_AMBIGUOUS"
+
+
 def test_strategy_attributed_buy_can_close_short_without_creating_long():
     from .run_instance import apply_strategy_attributed_deal
 
