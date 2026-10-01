@@ -61,7 +61,7 @@ class InstanceLedger:
                     else:
                         fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
-    def _rows(self):
+    def _rows_unlocked(self):
         if not self.path.exists(): return []
         out=[]
         for n,line in enumerate(self.path.read_text(encoding="utf-8").splitlines(),1):
@@ -70,8 +70,12 @@ class InstanceLedger:
             except json.JSONDecodeError as e: raise InstanceLedgerError(f"CORRUPT_JSON:{n}") from e
         return out
 
-    def validate(self):
-        prev=GENESIS; rows=self._rows()
+    def _rows(self):
+        with self._file_lock():
+            return self._rows_unlocked()
+
+    def _validate_unlocked(self):
+        prev=GENESIS; rows=self._rows_unlocked()
         for i,row in enumerate(rows,1):
             if row.get("schema") != SCHEMA: raise InstanceLedgerError(f"BAD_SCHEMA:{i}")
             if int(row.get("event_seq",-1)) != i: raise InstanceLedgerError(f"BAD_SEQUENCE:{i}")
@@ -83,16 +87,21 @@ class InstanceLedger:
             prev=rh
         return {"valid":True,"records":len(rows),"head_hash":prev,"path":str(self.path)}
 
+    def validate(self):
+        with self._file_lock():
+            return self._validate_unlocked()
+
     def append(self,event_type: str,*,instance_id: str,cycle_id: str,
                timestamp_utc: str,payload: dict[str,Any],source: str="SYSTEM"):
         if event_type not in EVENT_TYPES: raise InstanceLedgerError(f"UNKNOWN_EVENT:{event_type}")
-        v=self.validate(); seq=v["records"]+1
+        with self._file_lock():
+            v=self._validate_unlocked(); seq=v["records"]+1
         row={"schema":SCHEMA,"schema_version":1,"event_seq":seq,
              "event_id":f"IE-{timestamp_utc.replace(':','').replace('-','').replace('.','')}-{seq:06d}",
              "instance_id":instance_id,"cycle_id":cycle_id,"timestamp_utc":timestamp_utc,
              "event_type":event_type,"source":source,"identity":self.identity,
              "previous_hash":v["head_hash"],"payload":payload}
-        row["record_hash"]=sha256_json(row)
-        with self.path.open("a",encoding="utf-8",newline="\n") as f:
-            f.write(canonical_json(row)+"\n"); f.flush(); os.fsync(f.fileno())
-        return row
+            row["record_hash"]=sha256_json(row)
+            with self.path.open("a",encoding="utf-8",newline="\n") as f:
+                f.write(canonical_json(row)+"\n"); f.flush(); os.fsync(f.fileno())
+            return row
