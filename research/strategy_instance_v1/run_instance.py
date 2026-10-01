@@ -756,29 +756,43 @@ def attribute_broker_deal(rows,deal,used_plan_qty=None):
 
 
 def instance_far_position(m, positions, strategy_lots=None):
-    """Select a far short only when ownership is explicit in the instance."""
+    """Return only the broker far quantity that can be tied to strategy ownership."""
     shorts = [
         p for p in positions
         if str(p.get("side", "")).upper() == "SHORT"
         and is_qqq_option_code(p.get("code", ""))
     ]
     hint = str(m.get("far_code_hint") or "").upper()
-    if hint:
-        matches = [p for p in shorts if str(p.get("code", "")).upper() == hint]
-        return matches[0] if len(matches) == 1 else None
 
-    owned_codes = {
-        str(lot.get("code", "")).upper()
-        for lot in (strategy_lots or [])
-        if str(lot.get("status", "OPEN")).upper() == "OPEN"
-        and str(lot.get("side", "")).upper() == "SHORT"
-        and si(lot.get("qty")) > 0
-        and is_qqq_option_code(lot.get("code", ""))
-    }
-    if len(owned_codes) != 1:
+    owned={}
+    for lot in (strategy_lots or []):
+        if str(lot.get("status", "OPEN")).upper() != "OPEN":
+            continue
+        if str(lot.get("side", "")).upper() != "SHORT":
+            continue
+        if not is_qqq_option_code(lot.get("code", "")) or si(lot.get("qty")) <= 0:
+            continue
+        code=str(lot.get("code","")).upper()
+        owned[code]=owned.get(code,0)+si(lot.get("qty"))
+
+    candidate_code=hint if hint else (next(iter(owned)) if len(owned)==1 else "")
+    if not candidate_code or (hint and candidate_code not in owned):
         return None
-    matches = [p for p in shorts if str(p.get("code", "")).upper() in owned_codes]
-    return matches[0] if len(matches) == 1 else None
+
+    matches=[p for p in shorts if str(p.get("code","")).upper()==candidate_code]
+    if len(matches)!=1:
+        return None
+    broker=matches[0]
+    owned_qty=owned.get(candidate_code,0)
+    broker_qty=si(broker.get("qty"))
+    if owned_qty<=0 or broker_qty<=0:
+        return None
+    projected=dict(broker)
+    projected["qty"]=min(owned_qty,broker_qty)
+    projected["strategy_owned_qty"]=owned_qty
+    projected["broker_observed_qty"]=broker_qty
+    projected["ownership_source"]="STRATEGY_LOTS"
+    return projected
 
 
 def gamma_state_for_instance(state, far=None, spot=None):
@@ -823,7 +837,7 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
             "reason": (
                 "unscoped QQQ SHORT inventory detected; strategy ownership is not explicit"
                 if not far_hint
-                else "far_code_hint does not uniquely isolate a broker QQQ SHORT"
+                else "far_code_hint is present but no strategy-owned far quantity is established"
             ),
             "short_codes": [str(p.code) for p in shorts],
             "far_code_hint": far_hint or None,
@@ -834,6 +848,14 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
             "reason": "strategy far is known but extra broker QQQ SHORT inventory exists",
             "short_codes": [str(p.code) for p in shorts],
             "far_code_hint": far_hint or None,
+        }
+    if hinted_far is not None and si(hinted_far.get("broker_observed_qty")) != si(hinted_far.get("strategy_owned_qty")):
+        return {
+            "status": "DATA_GAP",
+            "reason": "broker far quantity differs from strategy-owned far baseline",
+            "far_code": hinted_far.get("code"),
+            "broker_qty": si(hinted_far.get("broker_observed_qty")),
+            "strategy_owned_qty": si(hinted_far.get("strategy_owned_qty")),
         }
     if far_candidates:
         p = far_candidates[0]
