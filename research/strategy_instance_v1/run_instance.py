@@ -382,7 +382,7 @@ def manual_position_snapshot(lots):
     return sorted(out.values(), key=lambda x:(x["side"],x["code"]))
 
 def mark_lots(lots, cmap, quotes):
-    rows=[]; unreal=0.0
+    rows=[]; unreal=0.0; signed_mv=0.0
     for l in lots:
         if l.get("status","OPEN")!="OPEN" or si(l.get("qty"))<=0:
             continue
@@ -398,8 +398,10 @@ def mark_lots(lots, cmap, quotes):
         px=sf(l.get("avg_price")); qty=si(l.get("qty")); side=str(l.get("side")).upper()
         u=((float(mid)-px) if side=="LONG" else (px-float(mid)))*qty*size
         unreal += u
+        signed_mv += (float(mid)*qty*size)*(1 if side=="LONG" else -1)
         rows.append({"code":code,"side":side,"qty":qty,"avg_cost":px,"lot_size":size,"mid":float(mid),"unrealized_pnl":u,"status":"MARKED"})
-    return {"rows":rows,"unrealized_pnl":unreal,"status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY")}
+    return {"rows":rows,"unrealized_pnl":unreal,"signed_market_value":signed_mv,
+            "status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY")}
 
 def option_positions(ps):
     return [p for p in ps if str(p.get("code","")).upper().startswith("US.QQQ") and str(p.get("code","")).upper()!="US.QQQ"
@@ -795,7 +797,11 @@ def _cycle_unlocked(args):
                       "orders":len(orders),"new_deals":len(new),"reconcile":s["last_reconcile"],"deal_warning":tr.get("deal_warning"),
                       "history_backfill_used":history_used,"history_start":tr.get("history_start"),"history_end":tr.get("history_end")},source="BROKER_OBSERVED")
     managed_ps=managed_position_view(ps,s["lots"])
-    mk=marks(managed_ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
+    broker_managed_mark=marks(managed_ps,cmap,quotes)
+    mk=mark_lots(s["lots"],cmap,quotes)
+    mk["broker_managed_unrealized_pnl"]=broker_managed_mark["unrealized_pnl"]
+    mk["broker_managed_signed_market_value"]=broker_managed_mark["signed_market_value"]
+    gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
     mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
     # These values are updated only after the read-only strategy observation
     # consumes the prior-state window. They must still exist when observation
