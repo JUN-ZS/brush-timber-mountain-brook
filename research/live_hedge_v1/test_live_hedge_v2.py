@@ -708,6 +708,60 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(recovered["campaign"]["far_code"], "US.QQQ260116C00600000")
             self.assertEqual(recovered["campaign"]["managed_far_qty"], 0)
 
+    def test_state_store_recovery_advances_far_ownership_from_fill_event(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "live_state.json"
+            store = StateStore(out.with_name("state.json"), out.with_name("events.jsonl"))
+            state = store.load()
+            state["campaign"] = {
+                "id": "C-RECOVER-0003",
+                "state": "ARMING",
+                "far_code": "US.QQQ260116C00600000",
+                "managed_far_qty": 0,
+            }
+            ticket = build_ticket(
+                action={
+                    "action": "SELL_FAR",
+                    "code": "US.QQQ260116C00600000",
+                    "qty": 10,
+                    "side": "SELL",
+                    "price": 2.0,
+                },
+                campaign_id="C-RECOVER-0003",
+                before_positions={},
+                now="2026-10-01T00:00:00+00:00",
+                sequence=3,
+            )
+            store.emit(
+                state,
+                "TICKET_ISSUED",
+                now="2026-10-01T00:00:00+00:00",
+                payload={"ticket": ticket},
+            )
+            store.emit(
+                state,
+                "TICKET_FILLED",
+                now="2026-10-01T00:01:00+00:00",
+                payload={
+                    "ticket_id": ticket["ticket_id"],
+                    "action": "SELL_FAR",
+                    "fill": [{
+                        "code": "US.QQQ260116C00600000",
+                        "side": "SELL",
+                        "expected_side": "SHORT",
+                        "qty": 10,
+                        "avg_price": 2.1,
+                        "price_source": "BROKER_EVIDENCE_CUMULATIVE",
+                    }],
+                },
+            )
+            recovered = store.load()
+            self.assertIsNone(recovered["active_ticket"])
+            self.assertEqual(recovered["campaign"]["managed_far_qty"], 10)
+            self.assertEqual(recovered["campaign"]["far_ownership_source"], "BROKER_EXECUTION_EVIDENCE")
+
     def test_state_store_terminal_event_clears_stale_ticket_on_recovery(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
