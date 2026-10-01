@@ -819,45 +819,51 @@ def _main_cycle(args, out_path):
         return 3
 
     if campaign.get("state") == STATE_IDLE and args.adopt_existing_far:
-        if len(qqq_shorts) != 1:
-            raise RuntimeError(
-                "--adopt-existing-far requires exactly one QQQ option short; "
-                f"found {len(qqq_shorts)}"
+        try:
+            if len(qqq_shorts) != 1:
+                raise RuntimeError(
+                    "--adopt-existing-far requires exactly one QQQ option short; "
+                    f"found {len(qqq_shorts)}"
+                )
+            adopted = qqq_shorts[0]
+            adopted_quote = quotes.get(adopted.code) or {}
+            adopted_right = str(adopted_quote.get("right") or "").upper()
+            if adopted_right != "CALL":
+                raise RuntimeError(
+                    "--adopt-existing-far requires a CALL; "
+                    f"found {adopted_right or 'UNKNOWN'} for {adopted.code}"
+                )
+            if adopted_quote.get("strike") is None or not adopted_quote.get("expiry") or adopted_quote.get("dte") is None:
+                raise RuntimeError(
+                    "--adopt-existing-far requires complete CALL quote metadata for the existing short"
+                )
+            campaign["id"] = make_campaign_id(
+                now,
+                store.next_campaign_sequence(state),
             )
-        adopted = qqq_shorts[0]
-        adopted_quote = quotes.get(adopted.code) or {}
-        adopted_right = str(adopted_quote.get("right") or "").upper()
-        if adopted_right != "CALL":
-            raise RuntimeError(
-                "--adopt-existing-far requires a CALL; "
-                f"found {adopted_right or 'UNKNOWN'} for {adopted.code}"
+            campaign["state"] = STATE_OPEN
+            campaign["far_code"] = qqq_shorts[0].code
+            campaign["started_at"] = now
+            campaign["last_transition_at"] = now
+            campaign["managed_far_qty"] = qqq_shorts[0].qty
+            campaign["far_ownership_source"] = "EXPLICIT_ADOPTION"
+            campaign["far_ownership_ticket_id"] = None
+            store.emit(
+                state,
+                "CAMPAIGN_ADOPTED_EXISTING_FAR",
+                now=now,
+                payload={
+                    "far_code": qqq_shorts[0].code,
+                    "qty": qqq_shorts[0].qty,
+                    "managed_far_qty": campaign["managed_far_qty"],
+                    "ownership_source": campaign["far_ownership_source"],
+                },
             )
-        if adopted_quote.get("strike") is None or not adopted_quote.get("expiry") or adopted_quote.get("dte") is None:
-            raise RuntimeError(
-                "--adopt-existing-far requires complete CALL quote metadata for the existing short"
+
+        except Exception as exc:
+            return _finalize_blocked_cycle(
+                evidence,state,cycle_id,now,out_path,"BLOCKED_ADOPT_EXISTING_FAR",exc
             )
-        campaign["id"] = make_campaign_id(
-            now,
-            store.next_campaign_sequence(state),
-        )
-        campaign["state"] = STATE_OPEN
-        campaign["far_code"] = qqq_shorts[0].code
-        campaign["started_at"] = now
-        campaign["last_transition_at"] = now
-        campaign["managed_far_qty"] = qqq_shorts[0].qty
-        campaign["far_ownership_source"] = "EXPLICIT_ADOPTION"
-        campaign["far_ownership_ticket_id"] = None
-        store.emit(
-            state,
-            "CAMPAIGN_ADOPTED_EXISTING_FAR",
-            now=now,
-            payload={
-                "far_code": qqq_shorts[0].code,
-                "qty": qqq_shorts[0].qty,
-                "managed_far_qty": campaign["managed_far_qty"],
-                "ownership_source": campaign["far_ownership_source"],
-            },
-        )
 
     if args.rebaseline_existing_far:
         if campaign.get("state") == STATE_IDLE:
