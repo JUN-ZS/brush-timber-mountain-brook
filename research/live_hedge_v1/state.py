@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -9,6 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 SCHEMA_VERSION = 2
+EVENT_SCHEMA = "LIVE_DESK_EVENT.v2"
+EVENT_GENESIS = "0" * 64
 
 DEFAULT_STATE: Dict[str, Any] = {
     "schema_version": SCHEMA_VERSION,
@@ -32,6 +35,7 @@ DEFAULT_STATE: Dict[str, Any] = {
     "ticket_sequence": 0,
     "campaign_sequence": 0,
     "event_sequence": 0,
+    "events_integrity": "UNKNOWN",
     "last_positions": {},
     "last_target_stack": None,
     "last_risk_score": None,
@@ -110,6 +114,7 @@ class StateStore:
         state.setdefault("lots", [])
         state["schema_version"] = SCHEMA_VERSION
         events = self._read_events()
+        state["events_integrity"] = self._validate_event_chain(events)
         self._recover_from_events(state)
         event_lots = self._replay_strategy_lots(events)
         ticket_events_exist = any(
@@ -125,6 +130,65 @@ class StateStore:
         if event_lots or ticket_events_exist:
             state["lots"] = event_lots
         return state
+
+    @staticmethod
+    def _event_record_hash(event: Dict[str, Any]) -> str:
+        body = dict(event)
+        body.pop("event_hash", None)
+        return hashlib.sha256(
+            json.dumps(
+                body,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+
+    def _validate_event_chain(self, rows: list[dict[str, Any]]) -> str:
+        """Validate new hash-chained events while preserving legacy recovery."""
+        previous = None
+        hashed_seen = False
+        legacy_seen = False
+        for idx, row in enumerate(rows, 1):
+            prev = row.get("previous_hash")
+            event_hash = row.get("event_hash")
+            schema = row.get("schema")
+            if prev is None and event_hash is None:
+                if hashed_seen:
+                    raise ValueError(f"LIVE_EVENT_CHAIN_LEGACY_AFTER_HASHED:{idx}")
+                legacy_seen = True
+                previous = self._event_record_hash(row)
+                continue
+            if not prev or not event_hash or schema != EVENT_SCHEMA:
+                raise ValueError(f"LIVE_EVENT_CHAIN_MALFORMED:{idx}")
+            expected_prev = previous if previous is not None else EVENT_GENESIS
+            if prev != expected_prev:
+                raise ValueError(f"LIVE_EVENT_CHAIN_BREAK:{idx}")
+            expected_hash = self._event_record_hash(row)
+            if event_hash != expected_hash:
+                raise ValueError(f"LIVE_EVENT_HASH_MISMATCH:{idx}")
+            previous = event_hash
+            hashed_seen = True
+        if hashed_seen:
+            return "HASHED"
+        if legacy_seen:
+            return "LEGACY_UNHASHED"
+        return "EMPTY"
+
+    def validate_events(self) -> Dict[str, Any]:
+        rows = self._read_events()
+        integrity = self._validate_event_chain(rows)
+        return {
+            "status": "PASS",
+            "records": len(rows),
+            "integrity": integrity,
+            "head_hash": (
+                rows[-1].get("event_hash")
+                if rows and rows[-1].get("event_hash")
+                else (self._event_record_hash(rows[-1]) if rows else EVENT_GENESIS)
+            ),
+        }
 
     def _read_events(self) -> list[dict[str, Any]]:
         if not self.events_path.exists():
@@ -143,7 +207,9 @@ class StateStore:
                     break
                 raise
 
-        return [row for row in rows if isinstance(row, dict)]
+        rows = [row for row in rows if isinstance(row, dict)]
+        self._validate_event_chain(rows)
+        return rows
 
     @staticmethod
     def _numeric_suffix(value: Any, width: int = 0) -> int:
@@ -549,14 +615,25 @@ class StateStore:
     ) -> Dict[str, Any]:
         n = int(state.get("event_sequence", 0) or 0) + 1
         state["event_sequence"] = n
+        rows = self._read_events()
+        previous_hash = (
+            rows[-1].get("event_hash")
+            if rows and rows[-1].get("event_hash")
+            else (self._event_record_hash(rows[-1]) if rows else EVENT_GENESIS)
+        )
         event = {
+            "schema": EVENT_SCHEMA,
+            "schema_version": 2,
             "event_id": f"E-{now.replace(':','').replace('-','').replace('.','')}-{n:06d}",
             "timestamp": now,
             "type": event_type,
             "campaign_id": (state.get("campaign") or {}).get("id"),
             "payload": payload or {},
+            "previous_hash": previous_hash,
         }
+        event["event_hash"] = self._event_record_hash(event)
         self.append_event(event)
+        state["events_integrity"] = "HASHED"
         return event
 
     def record_position_snapshot(self, state: Dict[str, Any], positions: Any) -> None:
