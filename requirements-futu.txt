@@ -1,3 +1,4 @@
 # Optional. Only needed on the Windows machine that talks to Futu OpenD.
 # The rest of V2.2 / V2.3 tests run without this package.
 futu-api
+tzdata>=2024.1
