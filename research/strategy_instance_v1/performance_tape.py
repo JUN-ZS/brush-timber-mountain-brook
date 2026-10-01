@@ -87,7 +87,6 @@ def build_performance_tape(trades):
         qty = _i(t.get("qty"))
         price = _f(t.get("price")) or 0.0
         lot = max(1, _i(t.get("lot_size")) or 100)
-        counts[rel] += 1
         ref = t.get("strategy_reference") or {}
         has_ticket = bool(ref.get("ticket_id"))
         s_qty = _i(ref.get("qty")) if has_ticket else None
@@ -98,6 +97,7 @@ def build_performance_tape(trades):
         # matching; opposite-action executions are operator-only, not
         # "adjusted size".
         rel = classify_relationship(action, code, qty, ref)
+        counts[rel] += 1
         qty_delta = None
         if rel in {"FOLLOW_STRATEGY", "ADJUST_SIZE"} and s_qty is not None:
             qty_delta = qty - s_qty
