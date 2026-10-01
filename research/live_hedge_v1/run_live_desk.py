@@ -387,6 +387,7 @@ def _strategy_position_analysis(positions, market, far, near, risk_state, contra
     near_longs = [
         p for p in qqq
         if p.side == "LONG"
+        and str(getattr(contracts_by_code.get(p.code), "right", "")).upper() == "CALL"
         and p.strike is not None
         and spot > 0
         and p.strike <= spot * 1.01
@@ -399,7 +400,7 @@ def _strategy_position_analysis(positions, market, far, near, risk_state, contra
     return {
         "definition": {
             "far_short": "QQQ CALL; fixed 10 contracts at campaign entry",
-            "near_call": "QQQ CALL; 7-35 DTE; strike <= 1.01×spot; selected around 0.50 delta",
+            "near_call": "QQQ CALL; 0-35 DTE including roll window; strike <= 1.01×spot; selected around 0.50 delta",
         },
         "far_short_contracts": actual_far,
         "far_short_target_contracts": N_SHORT,
