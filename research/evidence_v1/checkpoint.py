@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .ledger import EvidenceLedger, sha256_json
+from .identity import runtime_identity
 
 BENCHMARKS = {"SPY", "QQQ"}
 SOURCE_GRADES = {
@@ -23,6 +24,13 @@ def _parse_utc(value: str) -> datetime:
     if out.tzinfo is None:
         raise SystemExit(f"INVALID_EVIDENCE_TIMESTAMP_MUST_BE_AWARE:{value}")
     return out.astimezone(timezone.utc)
+
+
+def _safe_horizon(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _decision_candidate(prior, anchor_id, candidate_index, candidate_sha):
@@ -63,6 +71,17 @@ def _decision_candidate(prior, anchor_id, candidate_index, candidate_sha):
     return anchor, row
 
 
+
+
+
+def _assert_anchor_lineage(anchor, runtime):
+    identity = anchor.get("identity") or {}
+    for key in ("strategy_id", "strategy_version", "research_engine_commit", "strategy_lock_hash"):
+        expected = str(runtime.get(key) or "")
+        observed = str(identity.get(key) or "")
+        if not expected or observed != expected:
+            raise SystemExit(f"CHECKPOINT_ANCHOR_LINEAGE_MISMATCH:{key}")
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Append one multi-horizon forward candidate checkpoint.")
     ap.add_argument("--repo-root", type=Path, default=Path.cwd())
@@ -86,7 +105,11 @@ def main() -> int:
         raise SystemExit("CANDIDATE_RETURN_MUST_BE_FINITE")
 
     repo = args.repo_root.resolve()
-    ledger = EvidenceLedger(repo / "research/evidence_v1/evidence.jsonl")
+    runtime = runtime_identity(repo)
+    ledger = EvidenceLedger(
+        repo / "research/evidence_v1/evidence.jsonl",
+        identity=runtime,
+    )
     prior = ledger.rows()
     matching = [r for r in prior if r.get("campaign_id") == args.campaign_id]
     if not matching:
@@ -98,6 +121,7 @@ def main() -> int:
         args.candidate_index,
         args.candidate_sha256,
     )
+    _assert_anchor_lineage(anchor, runtime)
 
     anchor_time = _parse_utc(anchor.get("timestamp_utc"))
     now = datetime.now(timezone.utc)
@@ -110,7 +134,7 @@ def main() -> int:
         and (r.get("payload") or {}).get("anchor_evidence_id") == args.anchor_evidence_id
         and (r.get("payload") or {}).get("candidate_sha256") == args.candidate_sha256
         and (r.get("payload") or {}).get("benchmark") == args.benchmark
-        and int((r.get("payload") or {}).get("horizon_trading_days", -1)) == args.horizon_trading_days
+        and _safe_horizon((r.get("payload") or {}).get("horizon_trading_days")) == args.horizon_trading_days
     ]
     if same_scope:
         raise SystemExit("FORWARD_CHECKPOINT_ALREADY_RECORDED")
