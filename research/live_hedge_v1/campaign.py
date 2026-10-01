@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
+import hashlib
+import json
 from zoneinfo import ZoneInfo
 from typing import Any, Dict, Iterable, Optional
 
@@ -570,25 +572,57 @@ def transition_for_action(state_name: str, action: str) -> str:
     return state_name if state_name != STATE_IDLE else STATE_OPEN
 
 
+PRIMARY_ACTION_PRIORITY = (
+    "CLOSE_CAMPAIGN_EMERGENCY",
+    "CLOSE_FAR_EMERGENCY",
+    "CLOSE_NEAR",
+    "REPAIR_FAR",
+    "HARVEST_NEAR",
+    "ROLL_NEAR",
+    "REPRICE_OR_CANCEL",
+    "REDUCE_NEAR",
+    "ADD_NEAR",
+    "SELL_FAR",
+)
+
+
+def _candidate_sha256(candidate: Dict[str, Any]) -> str:
+    raw=json.dumps(
+        candidate,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def rank_candidates(candidates: Iterable[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    """Return a deterministic derived ranking without modifying raw candidates."""
+    actions=list(candidates)
+    priority={name:i+1 for i,name in enumerate(PRIMARY_ACTION_PRIORITY)}
+    ranked=[]
+    for index,candidate in enumerate(actions):
+        action=str(candidate.get("action") or "")
+        ranked.append({
+            "candidate_index":index,
+            "priority_rank":priority.get(action,len(PRIMARY_ACTION_PRIORITY)+1),
+            "action":action,
+            "candidate_sha256":_candidate_sha256(candidate),
+        })
+    ranked.sort(key=lambda row:(row["priority_rank"],row["candidate_index"]))
+    for rank,row in enumerate(ranked,1):
+        row["decision_rank"]=rank
+        row["is_primary"]=rank==1
+    return ranked
+
+
 def choose_primary_action(candidates: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    actions = list(candidates)
-    priority = [
-        "CLOSE_CAMPAIGN_EMERGENCY",
-        "CLOSE_FAR_EMERGENCY",
-        "CLOSE_NEAR",
-        "REPAIR_FAR",
-        "HARVEST_NEAR",
-        "ROLL_NEAR",
-        "REPRICE_OR_CANCEL",
-        "REDUCE_NEAR",
-        "ADD_NEAR",
-        "SELL_FAR",
-    ]
-    for name in priority:
-        for action in actions:
-            if action.get("action") == name:
-                return action
-    return None
+    actions=list(candidates)
+    ranked=rank_candidates(actions)
+    if not ranked:
+        return None
+    return deepcopy(actions[ranked[0]["candidate_index"]])
 
 
 def make_campaign_id(now: Optional[str] = None, sequence: int = 0) -> str:
