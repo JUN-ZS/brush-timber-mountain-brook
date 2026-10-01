@@ -108,6 +108,81 @@ def load(path,default=None):
 def mhash(m):
     x=dict(m); x.pop("manifest_hash",None); return sha256_json(x)
 
+def _recover_mutable_state_from_ledger(m, s, l):
+    """Rebuild mutable caches from the immutable instance ledger after crashes.
+
+    Event append and state-file replacement are separate filesystem operations.
+    On restart the ledger therefore wins for execution/manual history; the JSON
+    state remains a cache that can be reconstructed deterministically.
+    """
+    rows = l._rows()
+
+    broker_lots = init_lots(m)
+    processed = []
+    processed_set = set()
+    for row in rows:
+        if row.get("event_type") != "EXECUTION_DETECTED":
+            continue
+        deal = dict((row.get("payload") or {}).get("deal") or {})
+        did = str(deal.get("deal_id") or "")
+        if not did or did in processed_set:
+            continue
+        processed_set.add(did)
+        processed.append(did)
+        apply_deal(broker_lots, deal)
+
+    if processed:
+        s["lots"] = broker_lots
+        s["processed_deal_ids"] = processed
+        realized = 0.0
+        for row in rows:
+            if row.get("event_type") != "EXECUTION_DETECTED":
+                continue
+            deal = dict((row.get("payload") or {}).get("deal") or {})
+            did = str(deal.get("deal_id") or "")
+            if did not in processed_set:
+                continue
+            delta = (row.get("payload") or {}).get("realized_pnl_delta")
+            if delta is not None:
+                realized += sf(delta)
+            else:
+                # Legacy execution events did not persist the delta; replay the
+                # event stream below to recover the same realized total.
+                pass
+        if any(
+            row.get("event_type") == "EXECUTION_DETECTED"
+            and (row.get("payload") or {}).get("realized_pnl_delta") is None
+            for row in rows
+        ):
+            replay_lots = init_lots(m)
+            realized = 0.0
+            seen = set()
+            for row in rows:
+                if row.get("event_type") != "EXECUTION_DETECTED":
+                    continue
+                deal = dict((row.get("payload") or {}).get("deal") or {})
+                did = str(deal.get("deal_id") or "")
+                if not did or did in seen:
+                    continue
+                seen.add(did)
+                realized += apply_deal(replay_lots, deal)
+            broker_lots = replay_lots
+            s["lots"] = broker_lots
+        s["realized_pnl"] = sf(realized)
+
+    manual_rows = [
+        row for row in rows
+        if row.get("event_type") == "MANUAL_TRADE_RECORDED"
+    ]
+    if manual_rows:
+        payload = manual_rows[-1].get("payload") or {}
+        if isinstance(payload.get("lots_after"), list):
+            s["manual_lots"] = json.loads(json.dumps(payload["lots_after"]))
+        if payload.get("manual_realized_pnl_after") is not None:
+            s["manual_realized_pnl"] = sf(payload["manual_realized_pnl_after"])
+        s["manual_trade_count"] = len(manual_rows)
+
+
 def load_instance(repo,i):
     m=load(mpath(repo,i))
     if not m: raise SystemExit(f"UNKNOWN_INSTANCE_ID:{i}")
