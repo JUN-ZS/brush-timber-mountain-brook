@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QQQ Strategy Operator Console</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#0b0f14;color:#e6edf3;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:1500px;margin:0 auto;padding:20px}
+.header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+h1,h2,h3{margin:0 0 10px}.sub{color:#8b949e}.tiny{font-size:12px;color:#8b949e}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin:14px 0}
+.grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.card{background:#11161d;border:1px solid #30363d;border-radius:12px;padding:16px}
+.kpi{font-size:28px;font-weight:800;letter-spacing:-.02em}.label{font-size:12px;color:#8b949e;text-transform:uppercase;letter-spacing:.05em}
+button,input,select,textarea{font:inherit}
+button{background:#21262d;border:1px solid #484f58;color:#f0f6fc;padding:10px 14px;border-radius:9px;cursor:pointer}
+button:hover{background:#30363d}.primary{background:#238636;border-color:#2ea043}.primary:hover{background:#2ea043}
+.danger{background:#7d1c27;border-color:#da3633}.danger:hover{background:#a12632}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:12px;color:#8b949e}
+input,select,textarea{background:#0d1117;border:1px solid #30363d;color:#e6edf3;border-radius:8px;padding:9px}
+input:focus,select:focus,textarea:focus{outline:1px solid #58a6ff;border-color:#58a6ff}
+.num{text-align:right}.quick button{padding:6px 10px;font-size:12px}
+.action-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.action-tabs button.active{outline:2px solid #58a6ff}
+.preview{padding:12px;border:1px dashed #484f58;border-radius:9px;background:#0d1117}.preview strong{font-size:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px;border-bottom:1px solid #21262d;text-align:left;vertical-align:top}th{color:#8b949e}
+.scroll{max-height:370px;overflow:auto}.pill{display:inline-flex;padding:4px 8px;border-radius:999px;background:#21262d;font-size:12px}
+.green{color:#56d364}.red{color:#ff7b72}.yellow{color:#d29922}
+.notice{padding:10px 12px;border-radius:9px;background:#1c2128;border:1px solid #30363d;margin-top:12px}
+pre{white-space:pre-wrap;word-break:break-word;margin:0}
+@media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.wrap{padding:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div>
+      <h1>QQQ STRATEGY OPERATOR CONSOLE</h1>
+      <div class="sub">Locked Strategy Desk + Adjustable Manual Book</div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Instance</label><select id="instance"></select></div>
+      <button onclick="refreshAll()">↻ Refresh</button>
+      <button onclick="brokerRefresh()">Refresh Broker</button>
+    </div>
+  </div>
+
+  <div id="msg" class="notice">Loading…</div>
+
+  <div class="grid">
+    <div class="card"><div class="label">Manual Realized</div><div class="kpi" id="mRealized">—</div><div class="tiny">USER_MANUAL ledger only</div></div>
+    <div class="card"><div class="label">Manual Unrealized</div><div class="kpi" id="mUnrealized">—</div><div class="tiny" id="mMark">mark: —</div></div>
+    <div class="card"><div class="label">Manual Total</div><div class="kpi" id="mTotal">—</div><div class="tiny" id="mTrades">trades: —</div></div>
+    <div class="card"><div class="label">Broker Book</div><div class="kpi" id="bRealized">—</div><div class="tiny" id="bRecon">reconcile: —</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>LOCKED STRATEGY TICKET</h2>
+      <div id="strategyTicket">No live state yet.</div>
+      <div class="notice">
+        <strong>Execution boundary:</strong> this panel never submits or modifies a Futu order.
+        The locked strategy only emits a manual ticket; broker fills are reconciled separately.
+      </div>
+    </div>
+    <div class="card">
+      <h2>MANUAL ADJUSTMENT</h2>
+      <div class="action-tabs">
+        <button data-action="ADD" class="active" onclick="setAction('ADD')">＋ ADD LONG</button>
+        <button data-action="REDUCE" onclick="setAction('REDUCE')">− REDUCE LONG</button>
+        <button data-action="SELL_FAR" onclick="setAction('SELL_FAR')">SELL FAR</button>
+        <button data-action="BUY_BACK_FAR" onclick="setAction('BUY_BACK_FAR')">BUY BACK FAR</button>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Option Code</label><input id="code" list="codes" placeholder="US.QQQ..." autocomplete="off"></div>
+        <div class="field"><label>Quantity</label><input id="qty" class="num" type="number" min="1" step="1" value="1"></div>
+        <div class="field"><label>Execution Price</label><input id="price" class="num" type="number" min="0.0001" step="0.01" value="0.00"></div>
+      </div>
+      <datalist id="codes"></datalist>
+      <div class="row quick" style="margin:10px 0">
+        <span class="tiny">Qty:</span><button onclick="bumpQty(1)">+1</button><button onclick="bumpQty(5)">+5</button><button onclick="bumpQty(-1)">−1</button><button onclick="bumpQty(-5)">−5</button>
+      </div>
+      <div class="grid3">
+        <div class="field"><label>Lot Size</label><input id="lotSize" class="num" type="number" min="1" step="1" value="100"></div>
+        <div class="field"><label>Trade ID (optional)</label><input id="tradeId" placeholder="auto-generated"></div>
+        <div class="field"><label>Note</label><input id="note" placeholder="why I changed size"></div>
+      </div>
+      <div class="preview" style="margin-top:12px">
+        <div class="label">Preview Before Commit</div>
+        <div id="previewMain">Enter code, quantity and price.</div>
+        <div class="tiny" id="previewDetail"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" onclick="recordTrade()">RECORD MANUAL TRADE</button>
+        <button onclick="copyCommand()">COPY CMD</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>MANUAL POSITIONS</h2>
+      <div class="scroll"><table><thead><tr><th>Side</th><th>Code</th><th>Qty</th><th>Avg Cost</th><th>Mark</th><th>uPnL</th></tr></thead><tbody id="positions"></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2>RECENT MANUAL TRADES</h2>
+      <div class="scroll"><table><thead><tr><th>Time</th><th>Action</th><th>Code</th><th>Qty</th><th>Price</th><th>Realized Δ</th></tr></thead><tbody id="trades"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>LEDGER / STATE</h2>
+    <div class="grid3">
+      <div><div class="label">Instance</div><div id="metaInstance">—</div></div>
+      <div><div class="label">Strategy</div><div id="metaStrategy">—</div></div>
+      <div><div class="label">Ledger Head</div><div class="mono" id="metaHash" style="font-size:11px;word-break:break-all">—</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let action="ADD", state=null, strategy=null;
+const $=id=>document.getElementById(id);
+const money=v=>{if(v==null||Number.isNaN(Number(v)))return "—"; const n=Number(v); return (n>=0?"+$":"-$")+Math.abs(n).toFixed(2)};
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const fmt=v=>v==null?"—":Number(v).toFixed(4);
+
+function setMsg(s,kind=""){ $("msg").textContent=s; $("msg").className="notice "+kind; }
+function setAction(a){
+  action=a;
+  document.querySelectorAll("[data-action]").forEach(b=>b.classList.toggle("active",b.dataset.action===a));
+  preview();
+}
+function bumpQty(d){$("qty").value=Math.max(1,(Number($("qty").value)||1)+d); preview();}
+
+async function jsonFetch(url,opts={}){
+  const r=await fetch(url,opts); const j=await r.json(); if(!r.ok) throw new Error(j.error||j.status||("HTTP "+r.status)); return j;
+}
+
+async function loadInstances(){
+  const j=await jsonFetch("/api/instances");
+  const sel=$("instance"), old=new URLSearchParams(location.search).get("instance")||localStorage.getItem("operator_instance")||"";
+  sel.innerHTML=(j.instances||[]).map(x=>'<option value="'+esc(x.instance_id)+'">'+esc(x.instance_id)+'</option>').join("");
+  if(old && [...sel.options].some(o=>o.value===old)) sel.value=old;
+  sel.onchange=()=>{localStorage.setItem("operator_instance",sel.value); history.replaceState(null,"","?instance="+encodeURIComponent(sel.value)); refreshAll();};
+  if(sel.value) localStorage.setItem("operator_instance",sel.value);
+}
+
+async function loadInstance(){
+  const id=$("instance").value; if(!id) return;
+  state=await jsonFetch("/api/instance?instance_id="+encodeURIComponent(id));
+  renderState();
+  await loadStrategy();
+}
+async function loadStrategy(){
+  try{ const j=await jsonFetch("/api/strategy"); strategy=j.live||null; renderStrategy(); if(strategy) populateCodes(strategy); }catch(_){strategy=null; renderStrategy();}
+}
+function populateCodes(s){
+  const set=new Set();
+  (s.positions||[]).forEach(x=>x.code&&set.add(x.code));
+  (s.lots||[]).forEach(x=>x.code&&set.add(x.code));
+  (s.candidate_actions||[]).forEach(x=>x.code&&set.add(x.code));
+  ((state||{}).manual_book||{}).positions?.forEach(x=>x.code&&set.add(x.code));
+  $("codes").innerHTML=[...set].sort().map(x=>'<option value="'+esc(x)+'"></option>').join("");
+  if(!$("code").value && set.size) $("code").value=[...set][0];
+}
+function renderState(){
+  const m=state.manual_book||{}, b=state.broker_book||{};
+  $("mRealized").textContent=money(m.realized_pnl);
+  $("mUnrealized").textContent=money(m.unrealized_pnl);
+  $("mTotal").textContent=money(m.total_pnl);
+  $("mMark").textContent="mark: "+(m.mark_status||"—");
+  $("mTrades").textContent="trades: "+(m.trade_count??"—");
+  $("bRealized").textContent=money(b.realized_pnl);
+  $("bRecon").textContent="reconcile: "+((b.last_reconcile||{}).status||"—")+" · gaps: "+(b.data_gaps??"—");
+  $("metaInstance").textContent=state.instance_id||"—";
+  $("metaStrategy").textContent=(state.strategy_id||"—")+" · "+(state.strategy_version||"—");
+  $("metaHash").textContent=state.ledger_head_hash||"—";
+
+  $("positions").innerHTML=(m.positions||[]).map(p=>{
+    const mark=(m.marks||[]).find(x=>x.code===p.code&&x.side===p.side);
+    return '<tr><td>'+esc(p.side)+'</td><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.qty)+'</td><td>'+fmt(p.avg_cost)+'</td><td>'+fmt(mark?.mid)+'</td><td class="'+((mark?.unrealized_pnl||0)>=0?'green':'red')+'">'+money(mark?.unrealized_pnl)+'</td></tr>';
+  }).join("")||'<tr><td colspan="6" class="tiny">No manual positions.</td></tr>';
+
+  $("trades").innerHTML=(state.recent_manual_trades||[]).slice().reverse().map(t=>{
+    return '<tr><td class="tiny">'+esc(t.timestamp_utc||"")+'</td><td>'+esc(t.action||"")+'</td><td class="mono">'+esc(t.code||"")+'</td><td>'+esc(t.qty??"")+'</td><td>'+fmt(t.price)+'</td><td class="'+(Number(t.realized_pnl_delta||0)>=0?'green':'red')+'">'+money(t.realized_pnl_delta)+'</td></tr>';
+  }).join("")||'<tr><td colspan="6" class="tiny">No manual trades yet.</td></tr>';
+
+  $("lotSize").value=$("lotSize").value||100;
+  preview();
+}
+function renderStrategy(){
+  const s=strategy||{};
+  const t=s.action_card||{};
+  if(!s || !Object.keys(s).length){$("strategyTicket").textContent="No live strategy state.";return;}
+  let html='<div class="grid3"><div><div class="label">Desk</div><strong>'+esc(s.status||"—")+'</strong><div class="tiny">'+esc(s.instruction||"")+'</div></div>'+
+    '<div><div class="label">Risk</div><strong>'+esc((s.risk_state||{}).risk_score??"—")+'</strong><div class="tiny">target near '+esc((s.risk_state||{}).desired_stack??"—")+'</div></div>'+
+    '<div><div class="label">Spot</div><strong>'+esc(fmt((s.market||{}).spot))+'</strong><div class="tiny">source '+esc(s.source||"—")+'</div></div></div>';
+  if(t.action){
+    html+='<div class="preview"><div><span class="pill">'+esc(t.action)+'</span> <span class="pill">'+esc(t.status)+'</span></div><div style="margin-top:8px;font-weight:700">'+esc(t.ticket_id||"")+'</div><table><tr><th>Code</th><th>Side</th><th>Qty</th><th>Before→Target</th><th>Indicative</th></tr>';
+    (t.legs||[]).forEach(l=>html+='<tr><td class="mono">'+esc(l.code)+'</td><td>'+esc(l.side)+'</td><td>'+esc(l.qty)+'</td><td>'+esc(l.before_qty)+' → '+esc(l.target_qty)+'</td><td>'+esc(fmt(l.price))+'</td></tr>');
+    html+='</table></div>';
+  }else html+='<div class="notice">No current primary ticket. Strategy is not asking for a new manual execution at this snapshot.</div>';
+  $("strategyTicket").innerHTML=html;
+}
+
+async function preview(){
+  const id=$("instance").value, code=$("code").value.trim(), q=Number($("qty").value), px=Number($("price").value), lot=Number($("lotSize").value)||100;
+  if(!id||!code||!q||!px){$("previewMain").textContent="Enter code, quantity and price.";return;}
+  try{
+    const j=await jsonFetch("/api/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instance_id:id,action,code,qty:q,price:px,lot_size:lot})});
+    const p=j.preview||{};
+    if(p.remaining_unmatched>0){$("previewMain").innerHTML='<strong class="red">BLOCKED: not enough existing position</strong>';}
+    else {$("previewMain").innerHTML='<strong class="'+(Number(p.realized_pnl_preview||0)>=0?'green':'red')+'">'+money(p.realized_pnl_preview||0)+'</strong> projected realized P&L';}
+    $("previewDetail").textContent=action==="REDUCE"||action==="BUY_BACK_FAR" ? ("Matched "+p.matched_qty+" · Remaining unmatched "+p.remaining_unmatched) : ("New position: "+q+" × "+px+" × "+lot);
+  }catch(e){$("previewMain").innerHTML='<strong class="yellow">'+esc(e.message)+'</strong>';}
+}
+["code","qty","price","lotSize"].forEach(id=>$(id).addEventListener("input",preview));
+
+async function recordTrade(){
+  const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value};
+  if(!payload.instance_id||!payload.code||payload.qty<1||payload.price<=0){setMsg("Please enter instance, QQQ option code, quantity and positive price.","yellow");return;}
+  if((action==="REDUCE"||action==="BUY_BACK_FAR")) {
+    const p=state?.manual_book?.positions?.find(x=>x.code===payload.code&&((action==="REDUCE"&&x.side==="LONG")||(action==="BUY_BACK_FAR"&&x.side==="SHORT")));
+    if(!p || payload.qty>Number(p.qty)){setMsg("This action exceeds the current manual position. Preview is blocked too.","yellow");return;}
+  }
+  if(!confirm("Record "+action+" "+payload.qty+" "+payload.code+" @ "+payload.price+" as USER_MANUAL?")) return;
+  try{
+    const j=await jsonFetch("/api/manual",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    setMsg("Recorded "+j.trade_id+" · realized Δ "+money(j.realized_pnl_delta),"green");
+    $("tradeId").value=""; $("note").value="";
+    await loadInstance();
+  }catch(e){setMsg(e.message,"yellow");}
+}
+
+function copyCommand(){
+  const a=action, id=$("instance").value, code=$("code").value.trim(), q=$("qty").value, px=$("price").value, ls=$("lotSize").value, note=$("note").value.replace(/"/g,'\\"');
+  const cmd='python -m research.strategy_instance_v1.run_instance manual --instance-id '+id+' --action '+a+' --code '+code+' --qty '+q+' --price '+px+' --lot-size '+ls+' --note "'+note+'"';
+  navigator.clipboard?.writeText(cmd); setMsg("CMD copied: "+cmd);
+}
+async function brokerRefresh(){
+  const id=$("instance").value; if(!id)return;
+  setMsg("Reading Futu/OpenD…");
+  try{const j=await jsonFetch("/api/refresh",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instance_id:id})});setMsg("Broker refresh: "+(j.status||"RECORDED"),"green");await loadInstance();}
+  catch(e){setMsg("Broker refresh failed: "+e.message,"yellow");}
+}
+async function refreshAll(){
+  try{await loadInstances();await loadInstance();setMsg("Updated "+new Date().toLocaleTimeString(),"green");}
+  catch(e){setMsg("Load error: "+e.message,"yellow");}
+}
+refreshAll();
+setInterval(()=>loadInstance().catch(()=>{}),5000);
+setInterval(()=>loadStrategy().catch(()=>{}),5000);
+</script>
+</body>
+</html>
