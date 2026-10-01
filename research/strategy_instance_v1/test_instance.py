@@ -66,6 +66,13 @@ def test_strategy_plan_receives_persisted_dynamic_state_inputs():
 
 
 
+def test_futu_naive_us_timestamp_is_converted_to_utc_for_deal_order_filtering():
+    from .run_instance import dt
+    z = dt("2026-10-01 17:00:00")
+    assert z is not None
+    assert z.hour == 21
+    assert z.utcoffset().total_seconds() == 0
+
 def test_gamma_state_resets_unmarked_legacy_history():
     from .run_instance import gamma_state_for_instance
     state = {"gamma_history": [0.01, 0.012, 0.011, 0.015, 0.02], "far_delta_abs": 0.08}
