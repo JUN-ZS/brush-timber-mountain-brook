@@ -414,7 +414,7 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
              payload={"trade_id":trade_id,"action":action,"code":code,"qty":si(qty),"price":sf(price),
                       "lot_size":max(1,si(lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
                       "manual_realized_pnl_after":s["manual_realized_pnl"],"positions_after":positions,
-                      "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc},
+                      "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc,"lots_after":lots},
              source="USER_MANUAL")
     save(spath(Path(repo).resolve(),instance_id),s)
     return {"status":"MANUAL_TRADE_RECORDED","instance_id":instance_id,"trade_id":trade_id,
