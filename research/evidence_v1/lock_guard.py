@@ -118,8 +118,10 @@ def assert_runtime_lock(repo_root: Path, *, far_dte: int, far_delta: float, near
     engine_status = assert_engine_constants(repo_root)
     if lock.get("selection_cutoff") != "2025-12-15":
         raise StrategyLockViolation("LOCK_VIOLATION:SELECTION_CUTOFF")
-    if lock.get("virgin_oos_status") == "VIRGIN_PROVEN":
-        raise StrategyLockViolation("LOCK_VIOLATION:INVALID_OOS_STATE")
+    if lock.get("selection_status") != "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT":
+        raise StrategyLockViolation("LOCK_VIOLATION:SELECTION_STATUS")
+    if lock.get("virgin_oos_status") != "NOT_VIRGIN_YET":
+        raise StrategyLockViolation("LOCK_VIOLATION:VIRGIN_OOS_STATUS")
     return {
         "status": "PASS",
         "strategy_id": lock["strategy_id"],
