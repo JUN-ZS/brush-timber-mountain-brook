@@ -445,11 +445,27 @@ class StateStore:
                 if latest_ticket is not None:
                     fills = payload.get("fill") or latest_ticket.get("fill") or []
                     self._apply_far_execution_evidence(campaign, latest_ticket, fills)
+                    action = str(payload.get("action") or latest_ticket.get("action") or "").upper()
+                    if action != "CLOSE_CAMPAIGN_EMERGENCY" and campaign.get("state") != "IDLE":
+                        # Reconstruct the post-fill lifecycle transition that is
+                        # normally emitted immediately after lot application.
+                        campaign["state"] = "OPEN"
+                ticket_terminal = et
+                latest_ticket = None
+
+            elif et == "TICKET_SUPERSEDED":
+                if latest_ticket is not None:
+                    broker_complete = bool(payload.get("broker_execution_complete"))
+                    fills = payload.get("fill") or []
+                    if broker_complete:
+                        self._apply_far_execution_evidence(campaign, latest_ticket, fills)
+                        action = str(latest_ticket.get("action") or "").upper()
+                        if action != "CLOSE_CAMPAIGN_EMERGENCY" and campaign.get("state") != "IDLE":
+                            campaign["state"] = "OPEN"
                 ticket_terminal = et
                 latest_ticket = None
 
             elif et in {
-                "TICKET_SUPERSEDED",
                 "REPRICE_TICKET_SUPERSEDED",
                 "REPRICE_ORDER_TERMINAL",
                 "REPRICE_ORDER_CANCELLED",
