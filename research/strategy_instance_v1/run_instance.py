@@ -1069,7 +1069,6 @@ def _cycle_unlocked(args):
         did=str(d["deal_id"])
         s["unattributed_deal_ids"].append(did)
         s["processed_deal_ids"].append(did)
-        s["data_gaps"]=si(s.get("data_gaps"))+1
         l.append(
             "BROKER_EXECUTION_PRE_INSTANCE",
             instance_id=m["instance_id"],
@@ -1079,7 +1078,7 @@ def _cycle_unlocked(args):
                 "deal":d,
                 "economic_t0":m.get("start_at_utc"),
                 "instance_created_at":m["created_at_utc"],
-                "reason":"execution timestamp is at/before instance creation; immutable T0 baseline prevents safe automatic strategy attribution",
+                "reason":"execution timestamp is at/before economic T0; immutable USER_INITIAL baseline is authoritative and the execution is not strategy-attributed",
             },
             source="BROKER_OBSERVED",
         )
@@ -1101,7 +1100,8 @@ def _cycle_unlocked(args):
             key=potential["plan_key"]
             used_plan_qty[key]=used_plan_qty.get(key,0)+si(potential.get("qty"))
         s["unattributed_deal_ids"].append(did)
-        s["data_gaps"]=si(s.get("data_gaps"))+1
+        if str(potential.get("status") or "").upper()=="POTENTIAL_PREDECISION_MATCH":
+            s["data_gaps"]=si(s.get("data_gaps"))+1
         l.append(
             "BROKER_EXECUTION_UNATTRIBUTED",
             instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
