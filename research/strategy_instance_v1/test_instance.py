@@ -48,6 +48,28 @@ def test_runtime_lock_rejects_tampered_strategy_identity():
         lock_guard.load_lock=old
 
 
+def test_instance_init_does_not_silence_corrupt_runtime_identity():
+    from . import run_instance
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td)
+        old=run_instance.runtime_identity
+        run_instance.runtime_identity=lambda _repo: (_ for _ in ()).throw(ValueError("bad lock"))
+        try:
+            class A:
+                repo_root=repo; strategy_id=None; strategy_version=None
+                research_engine_commit=None; strategy_lock_hash=None
+                start_at_utc=None; instance_id="I"; position=[]; note=""; initial_cash=None
+                far_code=None
+            try:
+                run_instance._init_cmd_unlocked(A())
+            except SystemExit as exc:
+                assert str(exc)=="INSTANCE_RUNTIME_IDENTITY_INVALID:ValueError"
+            else:
+                raise AssertionError("corrupt runtime identity was silently accepted")
+        finally:
+            run_instance.runtime_identity=old
+
+
 def test_instance_init_rejects_lineage_override_against_locked_runtime():
     import tempfile
     from pathlib import Path
