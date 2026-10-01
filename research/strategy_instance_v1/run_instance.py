@@ -683,16 +683,15 @@ def gamma_state_for_instance(state, far=None, spot=None):
     previous_delta = state.get("far_delta_abs")
     return history, baseline, previous_delta
 def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=None,previous_far_delta_abs=None):
-    market=snap["market"]; pos=[]
+    market=snap["market"]
+    all_pos=[]
     for p in ps:
         c=cmap.get(str(p["code"])); q=quotes.get(str(p["code"]),{})
-        pos.append(Position(str(p["code"]),str(p["side"]).upper(),si(p["qty"]),sf(p["avg_cost"]),
+        all_pos.append(Position(str(p["code"]),str(p["side"]).upper(),si(p["qty"]),sf(p["avg_cost"]),
             c.strike if c else q.get("strike"),c.expiry if c else q.get("expiry"),c.dte if c else q.get("dte"),
             q.get("delta"),q.get("gamma")))
-    os=[Order(str(o.get("order_id","")),str(o.get("code","")),str(o.get("side","")).upper(),si(o.get("qty")),o.get("price"),
-              str(o.get("status","")).upper(),str(o.get("updated_at","")),str(o.get("created_at","")),si(o.get("dealt_qty")),o.get("dealt_avg_price")) for o in orders]
     unknown_qqq=[
-        p for p in pos
+        p for p in all_pos
         if is_qqq_option_code(p.code)
         and p.side not in {"LONG","SHORT"}
         and si(p.qty)>0
@@ -703,12 +702,12 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
             "reason":"QQQ option position has unknown/missing position_side; strategy planning is fail-closed",
             "unknown_positions":[p.__dict__ for p in unknown_qqq],
         }
-    shorts=[p for p in pos if p.side=="SHORT" and is_qqq_option_code(p.code)]
+    shorts=[p for p in all_pos if p.side=="SHORT" and is_qqq_option_code(p.code)]
     active=bool(shorts)
     far=None
     hinted_far = instance_far_position(
         m,
-        [p.__dict__ for p in pos],
+        [p.__dict__ for p in all_pos],
     )
     far_hint = str(m.get("far_code_hint") or "").upper()
     far_candidates = [hinted_far] if hinted_far is not None else []
@@ -737,6 +736,24 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
                 q.get("delta",c.delta),q.get("gamma",c.gamma),
                 q.get("iv",c.iv),c.lot_size,c.volume,
             )
+    # The account may contain unrelated QQQ LONG options. Only instance-owned
+    # LONG lots contribute to target-stack state; all-account shorts remain a
+    # separate safety fence above.
+    managed_near_raw=managed_position_view(
+        ps,
+        [x for x in (near_lots or []) if str(x.get("side","")).upper()=="LONG"],
+    )
+    strategy_ps=managed_near_raw
+    if hinted_far is not None:
+        strategy_ps.append(hinted_far)
+    pos=[]
+    for p in strategy_ps:
+        c=cmap.get(str(p["code"])); q=quotes.get(str(p["code"]),{})
+        pos.append(Position(str(p["code"]),str(p["side"]).upper(),si(p["qty"]),sf(p.get("avg_cost")),
+            c.strike if c else q.get("strike"),c.expiry if c else q.get("expiry"),c.dte if c else q.get("dte"),
+            q.get("delta"),q.get("gamma")))
+    os=[Order(str(o.get("order_id","")),str(o.get("code","")),str(o.get("side","")).upper(),si(o.get("qty")),o.get("price"),
+              str(o.get("status","")).upper(),str(o.get("updated_at","")),str(o.get("created_at","")),si(o.get("dealt_qty")),o.get("dealt_avg_price")) for o in orders]
     spot=sf(market.get("spot"))
     if far is None and not active:
         far=select_far(list(cmap.values()),spot,si(m.get("far_dte")) or 120,sf(m.get("far_delta")) or .08)
