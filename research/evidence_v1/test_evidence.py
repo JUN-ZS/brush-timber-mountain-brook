@@ -397,6 +397,22 @@ def test_hash_chain_and_tamper_detection():
             raise AssertionError("tampering must be detected")
 
 
+def test_cycle_finalize_requires_cycle_start():
+    with tempfile.TemporaryDirectory() as td:
+        path=Path(td)/"bad.jsonl"
+        ledger=EvidenceLedger(path)
+        ledger.append(
+            "CYCLE_FINALIZED",cycle_id="C-NO-START",
+            timestamp_utc="2026-10-01T00:00:00+00:00",payload={},
+        )
+        try:
+            ledger.validate()
+        except LedgerError as exc:
+            assert "FINALIZED_WITHOUT_START" in str(exc)
+        else:
+            raise AssertionError("finalization without cycle start must be rejected")
+
+
 def test_cycle_semantics_require_predecision_before_decision_and_finalize_last():
     with tempfile.TemporaryDirectory() as td:
         path=Path(td)/"evidence.jsonl"
