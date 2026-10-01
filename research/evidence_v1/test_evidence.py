@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 from research.evidence_v1.family_snapshot import build_family_snapshot
-from research.evidence_v1.ledger import EvidenceLedger, LedgerError
+from research.evidence_v1.ledger import EvidenceLedger, LedgerError, sha256_json
 from research.live_hedge_v1.engine import Contract
 
 
@@ -96,6 +96,57 @@ def test_hash_chain_and_tamper_detection():
             assert "HASH_MISMATCH" in str(exc)
         else:
             raise AssertionError("tampering must be detected")
+
+
+def test_cycle_semantics_require_predecision_before_decision_and_finalize_last():
+    with tempfile.TemporaryDirectory() as td:
+        path=Path(td)/"evidence.jsonl"
+        ledger=EvidenceLedger(path)
+        ledger.append(
+            "CYCLE_STARTED",cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:00+00:00",payload={},
+        )
+        ledger.append(
+            "PRE_DECISION_OBSERVATION",cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:01+00:00",payload={},
+        )
+        ledger.append(
+            "DECISION_EMITTED",cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:02+00:00",payload={},
+        )
+        ledger.append(
+            "CYCLE_FINALIZED",cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:03+00:00",payload={},
+        )
+        assert ledger.validate()["records"]==4
+
+        bad_path=Path(td)/"bad.jsonl"
+        bad=EvidenceLedger(bad_path)
+        bad.append(
+            "CYCLE_STARTED",cycle_id="C2",
+            timestamp_utc="2026-10-01T00:01:00+00:00",payload={},
+        )
+        row={
+            "schema":"STRATEGY_EVIDENCE.v1","schema_version":1,
+            "evidence_seq":2,"evidence_id":"EV-BAD-000002",
+            "cycle_id":"C2","campaign_id":None,
+            "timestamp_utc":"2026-10-01T00:01:01+00:00",
+            "event_type":"DECISION_EMITTED",
+            "evidence_grade":"PROSPECTIVE_OBSERVED",
+            "identity":{},
+            "previous_hash":bad.last()["record_hash"],
+            "payload":{},
+        }
+        row["record_hash"]=sha256_json(row)
+        with bad_path.open("a",encoding="utf-8") as fh:
+            import json
+            fh.write(json.dumps(row,separators=(",",":"))+"\n")
+        try:
+            bad.validate()
+        except LedgerError as exc:
+            assert "DECISION_BEFORE_PRE_DECISION" in str(exc)
+        else:
+            raise AssertionError("cycle chronology violation must be detected")
 
 
 def test_family_snapshot_is_exactly_72():
