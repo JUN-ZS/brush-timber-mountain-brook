@@ -1090,7 +1090,7 @@ def _main_cycle(args, out_path):
             "near_candidate": near.__dict__ if near else None,
             "family_observation_count": family_observation["config_count"],
             "active_family_count": sum(
-                1 for x in family_observation["rows"] if x["active_family"]
+                1 for x in family_observation["rows"] if x.get("active_family", False)
             ),
             "engine_inputs": snapshot_payload["engine_inputs"],
             "observation_is_pre_decision": True,
