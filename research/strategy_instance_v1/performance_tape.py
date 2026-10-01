@@ -200,7 +200,7 @@ def build_performance_tape(trades):
         "schema": "USER_MANUAL_PERFORMANCE_TAPE.v1",
         "grade": "Derived",
         "source": "USER_MANUAL",
-        "rule": "Observed fill P&L only. Untraded contracts have no counterfactual. Entry slippage versus the ticket indicative is Estimated, not outcome.",
+        "rule": "Observed fill P&L only. Untraded contracts have no counterfactual. Execution price versus the ticket indicative is Estimated, not outcome.",
         "trade_count": len(rows),
         "counts": counts,
         "opening_counts": opening_counts,
