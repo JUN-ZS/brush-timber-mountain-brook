@@ -9,8 +9,21 @@ from .identity import runtime_identity
 from .ledger import EvidenceLedger
 
 
+ANCHOR_EVENT_TYPES = {"PRE_DECISION_OBSERVATION", "DECISION_EMITTED", "CYCLE_FINALIZED"}
+
+
 def now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_utc(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise SystemExit(f"INVALID_EVIDENCE_TIMESTAMP:{value}") from exc
+    if parsed.tzinfo is None:
+        raise SystemExit(f"INVALID_EVIDENCE_TIMESTAMP_MUST_BE_AWARE:{value}")
+    return parsed.astimezone(timezone.utc)
 
 
 def main() -> int:
@@ -56,6 +69,11 @@ def main() -> int:
         raise SystemExit(
             f"INVALID_OUTCOME_ANCHOR:{args.anchor_evidence_id}; anchor must belong to campaign {args.campaign_id}"
         )
+    anchor_type = str(anchor.get("event_type") or "").upper()
+    if anchor_type not in ANCHOR_EVENT_TYPES:
+        raise SystemExit(
+            f"INVALID_OUTCOME_ANCHOR_TYPE:{anchor_type}; anchor must be PRE_DECISION_OBSERVATION, DECISION_EMITTED, or CYCLE_FINALIZED"
+        )
 
     outcome_rows = [r for r in matching if r.get("event_type") == "OUTCOME_RESOLVED"]
     if args.corrects_evidence_id:
@@ -72,7 +90,7 @@ def main() -> int:
             f"OUTCOME_ALREADY_RESOLVED:{args.campaign_id}; use --corrects-evidence-id for an append-only correction"
         )
 
-    anchor_time = datetime.fromisoformat(str(anchor.get("timestamp_utc")).replace("Z", "+00:00"))
+    anchor_time = _parse_utc(anchor.get("timestamp_utc"))
     outcome_time = datetime.now(timezone.utc)
     if outcome_time < anchor_time:
         raise SystemExit("OUTCOME_BEFORE_ANCHOR")
