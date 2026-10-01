@@ -504,6 +504,9 @@ def _main_unlocked():
     ap.add_argument("--out", default="research/live_hedge_v1/live_state.json")
     args = ap.parse_args()
 
+    if args.adopt_existing_far and args.rebaseline_existing_far:
+        raise SystemExit("--adopt-existing-far and --rebaseline-existing-far are mutually exclusive")
+
     out_path = Path(args.out)
     with live_desk_mutation_lock(out_path.with_name("state.json")):
         return _main_cycle(args, out_path)
@@ -565,6 +568,7 @@ def _main_cycle(args, out_path):
                 "near_dte": args.near_dte,
                 "simulate_account": args.simulate_account,
                 "adopt_existing_far": args.adopt_existing_far,
+                "rebaseline_existing_far": args.rebaseline_existing_far,
             },
             "state_before": state.get("campaign"),
         },
