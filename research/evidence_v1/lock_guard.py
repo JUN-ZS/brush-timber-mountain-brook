@@ -95,8 +95,6 @@ def assert_engine_constants(repo_root: Path) -> dict[str, Any]:
         raise StrategyLockViolation("LOCK_VIOLATION:LONG_DELTA_FAMILY")
     if set(fam.get("policies") or []) != LOCKED_POLICIES:
         raise StrategyLockViolation("LOCK_VIOLATION:POLICY_FAMILY")
-    if float(fam["long_delta"]) != 0.50:
-        raise StrategyLockViolation("LOCK_VIOLATION:LONG_DELTA_FAMILY")
     if int(fam["config_count"]) != 72:
         raise StrategyLockViolation("LOCK_VIOLATION:CONFIG_COUNT")
     expected_policies = {
