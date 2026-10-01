@@ -106,7 +106,8 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                             strategy_context = {
                                 "ticket_id":card.get("ticket_id"),
                                 "action":card.get("action"),
-                                "strategy_leg_action":leg.get("why"),
+                                "strategy_leg_action":leg.get("strategy_leg_action") or leg.get("why"),
+                                "direction":leg.get("direction"),
                                 "status":card.get("status"),
                                 "code":leg.get("code"),
                                 "qty":leg.get("qty"),
