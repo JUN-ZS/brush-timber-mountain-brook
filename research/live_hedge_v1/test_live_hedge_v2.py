@@ -13,6 +13,7 @@ from research.live_hedge_v1.campaign import (
 )
 from research.live_hedge_v1.engine import Contract, Order, Position, plan, quote_age_sec
 from research.live_hedge_v1.futu_reader import _compute_signal, _enrich_contracts_with_quotes
+from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
 from research.live_hedge_v1.run_live_desk import (
     _apply_signal_gate,
     _position_dicts,
@@ -27,6 +28,42 @@ def now_iso():
 
 
 class LiveHedgeV2Test(unittest.TestCase):
+    def test_explicit_account_id_is_required_before_trade_queries(self):
+        reader = FutuTradeReader(acc_id=None)
+        self.assertIsNone(reader.acc_id)
+
+    def test_account_verification_requires_exact_active_us_account(self):
+        class FakeEnv:
+            REAL = "REAL"
+
+        class FakeFutu:
+            RET_OK = 0
+            TrdEnv = FakeEnv
+
+        class FakeCtx:
+            def __init__(self, rows):
+                self.rows = rows
+            def get_acc_list(self):
+                return 0, self.rows
+
+        reader = FutuTradeReader(real=True, acc_id=123456)
+        reader.futu = FakeFutu
+        reader.ctx = FakeCtx([{
+            "acc_id": 123456,
+            "trd_env": "REAL",
+            "acc_status": "ACTIVE",
+            "trdmarket_auth": ["US"],
+            "card_num": "CARD0007",
+            "uni_card_num": "UNI0007",
+        }])
+        self.assertTrue(reader._verify_account())
+        self.assertEqual(reader.account["acc_id"], 123456)
+        self.assertEqual(reader.account["card_num_last4"], "0007")
+
+        reader.acc_id = 999999
+        self.assertFalse(reader._verify_account())
+        self.assertIn("NOT_FOUND", reader.account_error)
+
     def test_strict_qqq_universe(self):
         self.assertTrue(is_qqq_option_code("US.QQQ260116C00700000"))
         self.assertFalse(is_qqq_option_code("US.QQQ"))
