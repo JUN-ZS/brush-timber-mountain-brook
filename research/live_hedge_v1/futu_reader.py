@@ -16,22 +16,22 @@ class LiveFutuReader:
         if isinstance(row,dict): return row.get(name,default)
         try:return row[name]
         except Exception:return getattr(row,name,default)
-    def _expiry_targets(self,targets=(14,30,45,90,120,180)):
+    def _expiry_targets(self):
         ret_ok=getattr(self.a.futu,"RET_OK",0)
         ret,data=self.a.ctx.get_option_expiration_date(code=QQQ_CODE)
-        if ret!=ret_ok: raise RuntimeError(str(data))
+        if ret!=ret_ok:
+            raise RuntimeError(str(data))
         vals=[str(x)[:10] for x in data["strike_time"].tolist()] if hasattr(data,"columns") and "strike_time" in data.columns else [str(x)[:10] for x in data]
-        today=date.today(); ds=[]
+        today=date.today()
+        expiries=[]
         for e in vals:
-            try:d=(datetime.strptime(e,"%Y-%m-%d").date()-today).days
-            except Exception:continue
-            if 5<=d<=210:ds.append((d,e))
-        out=[]; used=set()
-        for t in targets:
-            if not ds:break
-            _,e=min(ds,key=lambda z:abs(z[0]-t))
-            if e not in used:out.append(e);used.add(e)
-        return out
+            try:
+                d=(datetime.strptime(e,"%Y-%m-%d").date()-today).days
+            except Exception:
+                continue
+            if 7 <= d <= 35 or 60 <= d <= 210:
+                expiries.append((d,e))
+        return [e for _,e in sorted(set(expiries), key=lambda z:(z[0],z[1]))]
     def contracts(self):
         futu=self.a.futu; ret_ok=getattr(futu,"RET_OK",0); ot=getattr(futu,"OptionType").CALL
         raw=[]
