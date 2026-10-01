@@ -444,6 +444,45 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertIsNone(state["active_ticket"])
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
 
+
+    def test_position_analysis_counts_call_near_legs_including_roll_window(self):
+        from research.live_hedge_v1.run_live_desk import _strategy_position_analysis
+
+        market = {"spot": 500.0}
+        far = Contract(
+            "US.QQQ261231C00600000", "CALL", 600.0, "2026-12-31", 90,
+            2.0, 2.2, 0.08, 0.01
+        )
+        near = Contract(
+            "US.QQQ261030C00500000", "CALL", 500.0, "2026-10-30", 30,
+            8.0, 8.2, 0.50, 0.03
+        )
+        positions = [
+            Position("US.QQQ261231C00600000", "SHORT", 10, 2.0, 600, "2026-12-31", 90),
+            Position("US.QQQ261003C00500000", "LONG", 2, 6.0, 500, "2026-10-03", 2),
+            Position("US.QQQ261030C00500000", "LONG", 1, 7.0, 500, "2026-10-30", 30),
+            Position("US.QQQ261030P00500000", "LONG", 9, 7.0, 500, "2026-10-30", 30),
+        ]
+        contracts_by_code = {
+            "US.QQQ261231C00600000": far,
+            "US.QQQ261003C00500000": Contract(
+                "US.QQQ261003C00500000", "CALL", 500.0, "2026-10-03", 2,
+                6.0, 6.2, 0.50, 0.03
+            ),
+            "US.QQQ261030C00500000": near,
+            "US.QQQ261030P00500000": Contract(
+                "US.QQQ261030P00500000", "PUT", 500.0, "2026-10-30", 30,
+                8.0, 8.2, -0.50, 0.03
+            ),
+        }
+        out = _strategy_position_analysis(
+            positions, market, far, near, {"desired_stack": 3}, contracts_by_code
+        )
+        self.assertEqual(out["far_short_contracts"], 10)
+        self.assertEqual(out["near_call_contracts"], 3)
+        self.assertEqual(out["near_call_target_contracts"], 3)
+        self.assertEqual(len(out["near_call_positions"]), 2)
+
     def test_naive_broker_timestamp_does_not_crash(self):
         age = quote_age_sec("2026-10-01 00:00:00", datetime.now(timezone.utc), naive_is_local=True)
         self.assertIsNotNone(age)
