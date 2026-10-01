@@ -714,9 +714,11 @@ def apply_strategy_ownership_close(lots, deal, broker_positions):
         if str(p.get("code","")).upper()==code
         and str(p.get("side","")).upper()==target_side
     )
-    if broker_qty != tracked:
+    # The broker snapshot is post-execution. A uniquely attributable close is
+    # one where adding this deal's quantity reconstructs the tracked quantity.
+    if broker_qty + q != tracked:
         return 0,0.0,"OWNERSHIP_SNAPSHOT_AMBIGUOUS"
-    consume=min(q,tracked)
+    consume=q
     if consume<=0:
         return 0,0.0,"NO_CONSUMPTION"
     pnl=close_fifo(lots,code,target_side,consume,px,size)[1]
