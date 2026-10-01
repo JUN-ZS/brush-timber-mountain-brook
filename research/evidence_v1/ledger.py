@@ -108,8 +108,41 @@ class EvidenceLedger:
                 raise LedgerError(f"LEDGER_CORRUPT_JSON:line={n}") from exc
         return rows
 
+    @staticmethod
+    def _validate_cycle_semantics(rows: list[dict[str, Any]]) -> None:
+        cycles: dict[str, dict[str, int]] = {}
+        for idx, row in enumerate(rows, 1):
+            cycle_id = str(row.get("cycle_id") or "")
+            et = str(row.get("event_type") or "").upper()
+            if not cycle_id:
+                continue
+            state = cycles.setdefault(cycle_id, {})
+            if state.get("finalized") is not None and idx > state["finalized"]:
+                raise LedgerError(f"LEDGER_EVENT_AFTER_FINALIZED:cycle={cycle_id}:seq={idx}")
+            if et == "CYCLE_STARTED":
+                if "started" in state:
+                    raise LedgerError(f"LEDGER_DUPLICATE_CYCLE_STARTED:cycle={cycle_id}")
+                state["started"] = idx
+            elif et == "PRE_DECISION_OBSERVATION":
+                if "pre_decision" in state:
+                    raise LedgerError(f"LEDGER_DUPLICATE_PRE_DECISION:cycle={cycle_id}")
+                if "started" not in state:
+                    raise LedgerError(f"LEDGER_PRE_DECISION_WITHOUT_START:cycle={cycle_id}")
+                state["pre_decision"] = idx
+            elif et == "DECISION_EMITTED":
+                if "decision" in state:
+                    raise LedgerError(f"LEDGER_DUPLICATE_DECISION:cycle={cycle_id}")
+                if "pre_decision" not in state:
+                    raise LedgerError(f"LEDGER_DECISION_BEFORE_PRE_DECISION:cycle={cycle_id}")
+                state["decision"] = idx
+            elif et == "CYCLE_FINALIZED":
+                if "finalized" in state:
+                    raise LedgerError(f"LEDGER_DUPLICATE_CYCLE_FINALIZED:cycle={cycle_id}")
+                state["finalized"] = idx
+
     def _validate_unlocked(self) -> dict[str, Any]:
         rows = self._rows()
+        self._validate_cycle_semantics(rows)
         previous = GENESIS
         for idx, row in enumerate(rows, 1):
             if row.get("schema") != SCHEMA:
