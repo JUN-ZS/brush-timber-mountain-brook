@@ -14,6 +14,7 @@ CODE_PATHS = (
     "research/live_hedge_v1/futu_trade_reader.py",
     "research/live_hedge_v1/state.py",
     "research/live_hedge_v1/run_live_desk.py",
+    "research/qqq_dynamic_near_long_state_engine_v22_930c949.py",
     "research/evidence_v1/ledger.py",
     "research/evidence_v1/identity.py",
     "research/evidence_v1/lock_guard.py",
