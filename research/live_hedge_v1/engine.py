@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from math import ceil
+from math import ceil, isfinite
 from statistics import median
 from typing import Any, Optional, Sequence
 
@@ -129,7 +129,7 @@ def ensure_gamma_history_schema(
             fv = float(v)
         except (TypeError, ValueError):
             continue
-        if fv != fv:  # NaN
+        if not isfinite(fv):
             continue
         hist.append(fv)
 
