@@ -585,6 +585,18 @@ def _plan_match_for_deal(rows,deal):
     return None
 
 
+def _consumed_plan_qty(rows, plan_key):
+    consumed=0
+    for row in rows or []:
+        if str(row.get("event_type") or "").upper()!="EXECUTION_DETECTED":
+            continue
+        payload=row.get("payload") or {}
+        attribution=payload.get("attribution") or {}
+        if attribution.get("plan_key") == plan_key:
+            consumed += si((payload.get("deal") or {}).get("qty"))
+    return consumed
+
+
 def attribute_broker_deal(rows,deal,used_plan_qty=None):
     q=si(deal.get("qty"))
     match=_plan_match_for_deal(rows,deal)
@@ -602,7 +614,8 @@ def attribute_broker_deal(rows,deal,used_plan_qty=None):
         str((match.get("candidate") or {}).get("code") or (match.get("candidate") or {}).get("new_code") or ""),
         str(deal.get("side") or "").upper(),
     )
-    already=si((used_plan_qty or {}).get(key))
+    persisted=_consumed_plan_qty(rows,key)
+    already=persisted + si((used_plan_qty or {}).get(key))
     remaining=max(0,expected-already)
     if remaining<=0:
         return {"status":"UNATTRIBUTED","qty":0,
