@@ -36,8 +36,7 @@ class LockGuardTest(unittest.TestCase):
     def test_lock_manifest_identity_is_part_of_runtime_fence(self):
         import json
         import tempfile
-        from unittest.mock import patch
-
+    
         with tempfile.TemporaryDirectory() as td:
             root=Path(td)
             path=root/"research/evidence_v1/STRATEGY_LOCK.json"
