@@ -154,6 +154,10 @@ def main() -> int:
             raise SystemExit(
                 f"INVALID_BROKER_SOURCE_EVIDENCE_TYPE:{source_type}; expected EXECUTION_OBSERVED"
             )
+        source_time = _parse_utc(source_evidence.get("timestamp_utc"))
+        anchor_time_for_source = _parse_utc(anchor.get("timestamp_utc"))
+        if source_time < anchor_time_for_source:
+            raise SystemExit("SOURCE_EVIDENCE_BEFORE_ANCHOR")
     elif args.outcome_source == "BROKER_RECONCILED":
         raise SystemExit("BROKER_RECONCILED_REQUIRES_SOURCE_EVIDENCE_ID")
 
