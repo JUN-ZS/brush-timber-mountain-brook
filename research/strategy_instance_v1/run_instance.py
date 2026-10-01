@@ -359,6 +359,21 @@ def reconcile(lots,ps):
     keys=set(a)|set(b)
     return [{"code":k[0],"side":k[1],"lot_qty":a.get(k,0),"broker_qty":b.get(k,0)} for k in sorted(keys) if a.get(k,0)!=b.get(k,0)]
 
+def instance_far_position(m, positions):
+    """Select the single strategy far position or return None on ambiguity."""
+    shorts = [
+        p for p in positions
+        if str(p.get("side", "")).upper() == "SHORT"
+        and str(p.get("code", "")).upper().startswith("US.QQQ")
+    ]
+    hint = str(m.get("far_code_hint") or "").upper()
+    if hint:
+        matches = [p for p in shorts if str(p.get("code", "")).upper() == hint]
+    else:
+        matches = shorts if len(shorts) == 1 else []
+    return matches[0] if len(matches) == 1 else None
+
+
 def gamma_state_for_instance(state, far=None, spot=None):
     """Return sanitized prior-window gamma state using the canonical engine migration."""
     history = ensure_gamma_history_schema(state, spot=spot)
@@ -377,11 +392,12 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
     shorts=[p for p in pos if p.side=="SHORT" and str(p.code).upper().startswith("US.QQQ")]
     active=bool(shorts)
     far=None
+    hinted_far = instance_far_position(
+        m,
+        [p.__dict__ for p in pos],
+    )
     far_hint = str(m.get("far_code_hint") or "").upper()
-    if far_hint:
-        far_candidates = [p for p in shorts if str(p.code).upper() == far_hint]
-    else:
-        far_candidates = shorts if len(shorts) == 1 else []
+    far_candidates = [hinted_far] if hinted_far is not None else []
     if active and len(far_candidates) != 1:
         return {
             "status": "DATA_GAP",
@@ -498,15 +514,7 @@ def _cycle_unlocked(args):
             current_far = None
             current_far_gamma_spot = None
             current_far_delta_abs = None
-            if ps:
-                current_far = next(
-                    (
-                        p for p in ps
-                        if str(p.get("side", "")).upper() == "SHORT"
-                        and str(p.get("code", "")).upper().startswith("US.QQQ")
-                    ),
-                    None,
-                )
+            current_far = instance_far_position(m, ps)
             if current_far:
                 q = quotes.get(str(current_far.get("code")), {})
                 spot_now = sf(snap.get("market", {}).get("spot"))
