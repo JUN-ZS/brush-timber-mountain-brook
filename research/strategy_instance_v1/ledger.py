@@ -7,7 +7,7 @@ SCHEMA = "STRATEGY_INSTANCE.v1"
 GENESIS = "0" * 64
 EVENT_TYPES = {"INSTANCE_CREATED","INITIAL_STATE_RECORDED","BROKER_CYCLE_OBSERVED",
                "STRATEGY_PLAN_OBSERVED","EXECUTION_DETECTED","MARK_TO_MARKET",
-               "DATA_GAP","HUMAN_NOTE"}
+               "DATA_GAP","HUMAN_NOTE","MANUAL_TRADE_RECORDED"}
 
 def canonical_json(v: Any) -> str:
     return json.dumps(v, ensure_ascii=False, sort_keys=True,
