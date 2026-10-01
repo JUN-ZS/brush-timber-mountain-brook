@@ -691,6 +691,18 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
             q.get("delta"),q.get("gamma")))
     os=[Order(str(o.get("order_id","")),str(o.get("code","")),str(o.get("side","")).upper(),si(o.get("qty")),o.get("price"),
               str(o.get("status","")).upper(),str(o.get("updated_at","")),str(o.get("created_at","")),si(o.get("dealt_qty")),o.get("dealt_avg_price")) for o in orders]
+    unknown_qqq=[
+        p for p in pos
+        if is_qqq_option_code(p.code)
+        and p.side not in {"LONG","SHORT"}
+        and si(p.qty)>0
+    ]
+    if unknown_qqq:
+        return {
+            "status":"BLOCKED_UNKNOWN_POSITION_SIDE",
+            "reason":"QQQ option position has unknown/missing position_side; strategy planning is fail-closed",
+            "unknown_positions":[p.__dict__ for p in unknown_qqq],
+        }
     shorts=[p for p in pos if p.side=="SHORT" and is_qqq_option_code(p.code)]
     active=bool(shorts)
     far=None
