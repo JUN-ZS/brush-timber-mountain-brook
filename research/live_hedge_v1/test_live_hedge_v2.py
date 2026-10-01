@@ -1014,7 +1014,7 @@ class GammaHistoryMigrationTests(unittest.TestCase):
         self.assertAlmostEqual(base, 4.2, places=6)
 
 
-    def test_schema2_gamma_spot_but_raw_scale_resets(self):
+    def test_schema2_gamma_spot_marker_is_authoritative(self):
         state = {
             "gamma_history": [0.01, 0.012, 0.011, 0.015, 0.02],
             "gamma_history_schema": 2,
@@ -1022,14 +1022,13 @@ class GammaHistoryMigrationTests(unittest.TestCase):
         }
         hist = ensure_gamma_history_schema(state, spot=500.0)
 
-        self.assertEqual(hist, [])
-        self.assertEqual(state["gamma_history"], [])
+        # Numeric magnitude is not provenance. Once the explicit schema marker
+        # says gamma_spot, the engine keeps the observations instead of guessing
+        # their unit from scale.
+        self.assertEqual(hist, state["gamma_history"])
         self.assertEqual(state["gamma_history_schema"], 2)
         self.assertEqual(state["gamma_history_unit"], "gamma_spot")
-        self.assertEqual(
-            state.get("gamma_history_reset_reason"),
-            "values_look_like_raw_abs_gamma",
-        )
+        self.assertNotIn("gamma_history_reset_reason", state)
 
 if __name__ == "__main__":
     unittest.main()
