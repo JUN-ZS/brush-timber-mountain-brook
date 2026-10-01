@@ -130,6 +130,7 @@ def _recover_mutable_state_from_ledger(m, s, l):
     processed = []
     strategy_ids = []
     unattributed_ids = []
+    partial_confirmations = set()
     seen = set()
     realized = 0.0
     for row in rows:
@@ -161,15 +162,18 @@ def _recover_mutable_state_from_ledger(m, s, l):
             confirmed=(row.get("payload") or {})
             expected_side=str(confirmed.get("expected_strategy_side") or "").upper()
             qty=si(confirmed.get("confirmed_qty"))
-            if expected_side in {"LONG","SHORT"} and qty>0 and did not in strategy_ids:
+            if expected_side in {"LONG","SHORT"} and qty>0:
                 confirmed_deal=dict(deal)
                 confirmed_deal["qty"]=qty
                 consumed,delta,_=apply_confirmed_strategy_deal(
                     broker_lots,confirmed_deal,expected_side
                 )
                 if consumed==qty:
-                    strategy_ids.append(did)
+                    if did not in strategy_ids:
+                        strategy_ids.append(did)
                     realized += delta
+                    if si(confirmed.get("unattributed_remaining_qty"))>0:
+                        partial_confirmations.add(did)
                 else:
                     raise SystemExit(f"INSTANCE_REPLAY_CONFIRMED_EXECUTION_FAILED:{did}")
         else:
@@ -181,7 +185,11 @@ def _recover_mutable_state_from_ledger(m, s, l):
             processed.append(did)
 
     if processed:
-        unattributed_ids=[did for did in unattributed_ids if did not in set(strategy_ids)]
+        strategy_set=set(strategy_ids)
+        unattributed_ids=[
+            did for did in unattributed_ids
+            if did not in strategy_set or did in partial_confirmations
+        ]
         s["lots"] = broker_lots
         s["processed_deal_ids"] = processed
         s["strategy_deal_ids"] = strategy_ids
@@ -1177,6 +1185,18 @@ def _record_manual_trade_unlocked(repo, *, instance_id, action, code, qty, price
             "manual_realized_pnl":s["manual_realized_pnl"],"manual_positions":positions,
             "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc}
 
+def _confirmed_qty_for_deal(rows,deal_id):
+    total=0
+    for row in rows or []:
+        if str(row.get("event_type") or "").upper()!="STRATEGY_EXECUTION_CONFIRMED":
+            continue
+        payload=row.get("payload") or {}
+        deal=payload.get("deal") or {}
+        if str(deal.get("deal_id") or "")==str(deal_id):
+            total += si(payload.get("confirmed_qty"))
+    return total
+
+
 def _find_observed_deal(rows,deal_id):
     target=str(deal_id or "")
     for row in reversed(rows or []):
@@ -1197,27 +1217,38 @@ def confirm_strategy_execution(repo, *, instance_id, deal_id, expected_strategy_
         if event_type=="BROKER_EXECUTION_PRE_INSTANCE":
             raise SystemExit("CANNOT_CONFIRM_PRE_INSTANCE_EXECUTION")
         did=str(deal.get("deal_id") or "")
-        if did in set(map(str,s.get("strategy_deal_ids",[]))):
-            raise SystemExit(f"STRATEGY_DEAL_ALREADY_CONFIRMED:{did}")
         expected=str(expected_strategy_side or "").upper()
         if expected not in {"LONG","SHORT"}:
             raise SystemExit("EXPECTED_STRATEGY_SIDE=LONG|SHORT")
-        requested=si(qty) if qty is not None else si(deal.get("qty"))
         available=si(deal.get("qty"))
-        if requested<=0 or requested>available:
-            raise SystemExit(f"CONFIRMED_QTY_OUT_OF_RANGE:{requested}:{available}")
+        previously_confirmed=_confirmed_qty_for_deal(l._rows(),did)
+        remaining=available-previously_confirmed
+        if remaining<=0:
+            raise SystemExit(f"STRATEGY_DEAL_ALREADY_FULLY_CONFIRMED:{did}")
+        requested=si(qty) if qty is not None else remaining
+        if requested<=0 or requested>remaining:
+            raise SystemExit(f"CONFIRMED_QTY_OUT_OF_RANGE:{requested}:{remaining}")
         confirmed=dict(deal); confirmed["qty"]=requested
         consumed,delta,application=apply_confirmed_strategy_deal(s["lots"],confirmed,expected)
         if consumed!=requested:
             raise SystemExit(f"CONFIRMED_EXECUTION_NOT_APPLICABLE:{application}")
-        s["strategy_deal_ids"].append(did)
-        s["unattributed_deal_ids"]=[x for x in s.get("unattributed_deal_ids",[]) if str(x)!=did]
+        if did not in set(map(str,s.get("strategy_deal_ids",[]))):
+            s["strategy_deal_ids"].append(did)
+        remaining_after=remaining-requested
+        if remaining_after>0:
+            if did not in s.get("unattributed_deal_ids",[]):
+                s["unattributed_deal_ids"].append(did)
+        else:
+            s["unattributed_deal_ids"]=[x for x in s.get("unattributed_deal_ids",[]) if str(x)!=did]
         s["realized_pnl"]=sf(s.get("realized_pnl"))+delta
         l.append(
             "STRATEGY_EXECUTION_CONFIRMED",
             instance_id=instance_id,cycle_id="CONFIRM_"+did,timestamp_utc=now(),
             payload={
                 "deal":deal,"confirmed_qty":requested,
+                "original_deal_qty":available,
+                "previously_confirmed_qty":previously_confirmed,
+                "unattributed_remaining_qty":remaining_after,
                 "expected_strategy_side":expected,
                 "realized_pnl_delta":delta,
                 "strategy_application":application,
