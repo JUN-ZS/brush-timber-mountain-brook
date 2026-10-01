@@ -50,14 +50,17 @@ async function load(){
   try{
     const r=await fetch('live_state.json?ts='+Date.now());
     const s=await r.json();
-    const c=s.campaign||{}, ac=s.action_card||{}, pm=s.position_mark||{}, rs=s.risk_state||{};
+    const c=s.campaign||{}, ac=s.action_card||{}, pm=s.position_mark||{}, rs=s.risk_state||{}, pa=s.position_analysis||{}, mk=s.market||{};
+    const farc=s.far||{}, nearc=s.near_candidate||{};
     let h='<div class="grid">';
     h+='<div class="card"><div class="meta">DESK STATUS</div><div class="big">'+esc(s.status)+'</div><div>'+esc(s.instruction)+'</div></div>';
-    h+='<div class="card"><div class="meta">CAMPAIGN</div><div><strong>'+esc(c.state||'IDLE')+'</strong></div><div>id='+esc(c.id||'—')+'</div><div>far='+esc(c.far_code||'—')+'</div></div>';
-    const activeNear=(s.positions||[]).filter(x=>String(x.side).toUpperCase()==='LONG').reduce((a,x)=>a+Number(x.qty||0),0);
-    h+='<div class="card"><div class="meta">QQQ / RISK</div><div><strong>spot '+n((s.market||{}).spot)+'</strong></div><div>risk='+esc(rs.risk_score??'—')+' · target near='+esc(rs.desired_stack??'—')+'</div><div>active near='+esc(activeNear)+'</div></div>';
+    h+='<div class="card"><div class="meta">SIGNAL / MARKET</div><div><strong>spot '+n(mk.spot)+'</strong></div><div>signal='+esc(String(mk.signal_active??'—'))+'</div><div>ratio52='+esc(n(mk.ratio52))+' · ext200='+esc(n(mk.ext200))+'</div></div>';
+    h+='<div class="card"><div class="meta">STRATEGY POSITION</div><div>far CALL '+esc(qty(pa.far_short_contracts))+' / '+esc(qty(pa.far_short_target_contracts))+' · gap '+esc(qty(pa.far_short_gap_contracts))+'</div><div>near CALL '+esc(qty(pa.near_call_contracts))+' / '+esc(qty(pa.near_call_target_contracts))+' · gap '+esc(qty(pa.near_call_gap_contracts))+'</div><div>campaign='+esc(c.state||'IDLE')+'</div></div>';
     h+='<div class="card"><div class="meta">POSITION MARK</div><div class="big">'+esc(usd(pm.unrealized_pnl))+'</div><div>realized = '+esc(String(pm.realized_pnl||'NOT_TRACKED_BY_LIVE_DESK'))+'</div><div>mark status = '+esc(pm.status||'—')+'</div></div>';
     h+='</div>';
+    if(!c.id && (Object.keys(farc).length || Object.keys(nearc).length)){
+      h+='<div class="card"><h2>ENTRY WATCH — NO ACTIVE CAMPAIGN</h2><div class="grid"><div><div class="meta">FAR CANDIDATE</div><div class="mono">'+esc(farc.code||'—')+'</div><div>strike '+esc(n(farc.strike))+' · DTE '+esc(qty(farc.dte))+' · Δ '+esc(n(farc.delta))+'</div><div>bid/ask '+esc(n(farc.bid))+' / '+esc(n(farc.ask))+'</div></div><div><div class="meta">NEAR CANDIDATE</div><div class="mono">'+esc(nearc.code||'—')+'</div><div>strike '+esc(n(nearc.strike))+' · DTE '+esc(qty(nearc.dte))+' · Δ '+esc(n(nearc.delta))+'</div><div>bid/ask '+esc(n(nearc.bid))+' / '+esc(n(nearc.ask))+'</div></div></div></div>';
+    }
     h+=actionCard(ac,s);
     h+='<div class="card"><h2>Strategy / Operator Separation</h2><div class="grid"><div><div class="meta">LOCKED STRATEGY ENGINE</div><div>Alpha parameters remain frozen. The dashboard exposes the engine ticket and broker reconciliation state.</div></div><div><div class="meta">ADJUSTABLE MANUAL BOOK</div><div>Use <span class="mono">strategy_instance_v1 manual</span> to record your independent ADD / REDUCE path. Its P&amp;L is deliberately kept separate from broker-observed P&amp;L.</div></div></div></div>';
     h+='<div class="card"><h2>Candidate Actions</h2><table><tr><th>Action</th><th>Code</th><th>Qty</th><th>Side</th><th>Why</th></tr>';
