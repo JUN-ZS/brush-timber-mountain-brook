@@ -663,6 +663,55 @@ def test_gamma_state_resets_unmarked_legacy_history():
     assert state["gamma_history_schema"] == 2
     assert state["gamma_history_unit"] == "gamma_spot"
 
+def test_state_cache_recovery_rebuilds_only_accepted_dynamic_observations():
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td); instance_id="I-DYNAMIC"
+        manifest={
+            "schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+            "instance_id":instance_id,
+            "created_at_utc":"2026-10-01T00:00:00+00:00",
+            "start_at_utc":"2026-10-01T00:00:00+00:00",
+            "strategy_id":"TEST","strategy_version":"V1",
+            "initial_positions":[],
+        }
+        manifest["manifest_hash"]=mhash(manifest)
+        save(mpath(repo,instance_id),manifest)
+        l=InstanceLedger(lpath(repo,instance_id),{
+            "instance_id":instance_id,
+            "manifest_hash":manifest["manifest_hash"],
+            "strategy_id":"TEST",
+            "strategy_version":"V1",
+        })
+        l.append("INSTANCE_CREATED",instance_id=instance_id,cycle_id="C0",
+                 timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        l.append("STRATEGY_PLAN_OBSERVED",instance_id=instance_id,cycle_id="C1",
+                 timestamp_utc="2026-10-01T00:01:00+00:00",
+                 payload={
+                     "strategy_observation_accepted":False,
+                     "gamma_spot_observed":99.0,
+                     "far_delta_abs_observed":0.50,
+                 },source="SYSTEM")
+        l.append("STRATEGY_PLAN_OBSERVED",instance_id=instance_id,cycle_id="C2",
+                 timestamp_utc="2026-10-01T00:02:00+00:00",
+                 payload={
+                     "strategy_observation_accepted":True,
+                     "gamma_spot_observed":10.0,
+                     "far_delta_abs_observed":0.08,
+                 },source="SYSTEM")
+        l.append("STRATEGY_PLAN_OBSERVED",instance_id=instance_id,cycle_id="C3",
+                 timestamp_utc="2026-10-01T00:03:00+00:00",
+                 payload={
+                     "strategy_observation_accepted":True,
+                     "gamma_spot_observed":12.0,
+                     "far_delta_abs_observed":0.10,
+                 },source="SYSTEM")
+        Path(spath(repo,instance_id)).write_text("{broken",encoding="utf-8")
+        _,state,_=load_instance(repo,instance_id)
+        assert state["gamma_history"]==[10.0,12.0]
+        assert state["far_delta_abs"]==0.10
+        assert state["gamma_history_schema"]==2
+        assert state["gamma_history_unit"]=="gamma_spot"
+
 def test_corrupt_instance_state_cache_recovers_from_ledger():
     with tempfile.TemporaryDirectory() as td:
         repo=Path(td); instance_id="I-CACHE"
