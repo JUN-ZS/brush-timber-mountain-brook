@@ -475,6 +475,8 @@ def main():
     ap.add_argument("--near-dte", type=int, default=30)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=11111)
+    ap.add_argument("--acc-id", type=int, default=None,
+                    help="Futu trading account ID; falls back to FUTU_ACC_ID; never selects by acc_index")
     ap.add_argument("--simulate-account", action="store_true")
     ap.add_argument(
         "--adopt-existing-far",
@@ -539,6 +541,7 @@ def main():
                 "far_dte": args.far_dte,
                 "far_delta": args.far_delta,
                 "near_dte": args.near_dte,
+                "acc_id": args.acc_id,
                 "simulate_account": args.simulate_account,
                 "adopt_existing_far": args.adopt_existing_far,
             },
@@ -570,11 +573,45 @@ def main():
         if lot.get("code"):
             extra.append(lot["code"])
 
-    acct = FutuTradeReader(
-        args.host,
-        args.port,
-        real=not args.simulate_account,
-    ).read()
+    try:
+        acct = FutuTradeReader(
+            args.host,
+            args.port,
+            real=not args.simulate_account,
+            acc_id=args.acc_id,
+        ).read()
+    except RuntimeError as exc:
+        reason = str(exc)
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"stage": "ACCOUNT_SELECTION", "reason": reason},
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"status": "BLOCKED_ACCOUNT_SELECTION", "reason": reason},
+        )
+        output = {
+            "status": "BLOCKED_ACCOUNT_SELECTION",
+            "timestamp": now,
+            "manual_execution_only": True,
+            "account": {"status": "BLOCKED", "reason": reason},
+            "instruction": "Set FUTU_ACC_ID (or pass --acc-id) to the exact Futu trading account ID. No account is guessed.",
+        }
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            json.dumps(output, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+        return 3
 
     snap = LiveFutuReader(args.host, args.port).snapshot(sorted(set(extra)))
     if snap.get("status") != "OK":
@@ -936,6 +973,7 @@ def main():
         "contracts": [x.__dict__ for x in contracts],
         "quotes": quotes,
         "account": {
+            "identity": acct.get("account"),
             "positions": _evidence_positions(positions),
             "orders": _evidence_orders(acct_orders),
             "deals": _evidence_deals(acct.get("deals", [])),
