@@ -146,7 +146,12 @@ def test_strategy_plan_attribution_is_bounded_and_cannot_reuse_quantity():
                 "action":"ADD_NEAR",
                 "code":"US.QQQ261030C00500000",
                 "qty":2,
-            }]
+            }],
+            "primary_candidate":{
+                "action":"ADD_NEAR",
+                "code":"US.QQQ261030C00500000",
+                "qty":2,
+            },
         }},
     }]
     used={}
@@ -158,6 +163,28 @@ def test_strategy_plan_attribution_is_bounded_and_cannot_reuse_quantity():
     second=attribute_broker_deal(rows,d,used)
     assert second["status"]=="UNATTRIBUTED"
     assert second["reason"]=="strategy_plan_quantity_already_consumed"
+
+
+def test_non_primary_candidate_is_not_auto_attributed():
+    from .run_instance import attribute_broker_deal
+    rows=[{
+        "event_seq":8,
+        "event_type":"STRATEGY_PLAN_OBSERVED",
+        "timestamp_utc":"2026-10-01T21:00:00+00:00",
+        "payload":{"plan":{
+            "candidate_actions":[
+                {"action":"HARVEST_NEAR","code":"US.QQQ261030C00500000","qty":1},
+                {"action":"ADD_NEAR","code":"US.QQQ261030C00500000","qty":2},
+            ],
+            "primary_candidate":{
+                "action":"HARVEST_NEAR","code":"US.QQQ261030C00500000","qty":1,
+            },
+        }},
+    }]
+    deal={"deal_id":"D2","code":"US.QQQ261030C00500000","side":"BUY","qty":2,"price":8.0,"created_at":"2026-10-01T21:01:00+00:00"}
+    out=attribute_broker_deal(rows,deal)
+    assert out["status"]=="UNATTRIBUTED"
+    assert out["reason"]=="no_recent_matching_strategy_plan"
 
 
 def test_instance_mutation_lock_serializes_threads():
