@@ -1275,6 +1275,33 @@ def _main_cycle(args, out_path):
     dynamic_observation = _persist_dynamic_state_observation(
         state, p, far, market
     )
+    if dynamic_observation["accepted"]:
+        risk = p.get("risk_state") or {}
+        store.emit(
+            state,
+            "DYNAMIC_STATE_OBSERVED",
+            now=now,
+            payload={
+                "far_code_observed": far.code if far else state.get("far_code"),
+                "far_delta_abs_observed": (
+                    abs(float(far.delta))
+                    if far is not None and far.delta is not None
+                    else None
+                ),
+                "gamma_spot_observed": (
+                    abs(float(far.gamma)) * float(market["spot"])
+                    if (
+                        far is not None
+                        and far.gamma is not None
+                        and market.get("spot") is not None
+                    )
+                    else None
+                ),
+                "desired_stack": risk.get("desired_stack"),
+                "risk_score": risk.get("risk_score"),
+                "accepted_reason": "ACTIONABLE_OR_HOLD",
+            },
+        )
     if dynamic_observation["accepted"] and dynamic_observation.get("target_change"):
         store.emit(
             state,
