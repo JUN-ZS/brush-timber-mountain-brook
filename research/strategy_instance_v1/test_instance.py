@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 from .ledger import InstanceLedger, InstanceLedgerError, sha256_json
 from .run_instance import apply_deal, manual_apply_trade, manual_position_snapshot, manual_book_pnl_preview
+from .performance_tape import build_performance_tape, classify_relationship
 
 def test_hash_chain():
     with tempfile.TemporaryDirectory() as td:
@@ -63,3 +64,35 @@ def test_manual_pnl_preview_blocks_over_reduce():
     p=manual_book_pnl_preview(lots,action="REDUCE",code="US.QQQ.TEST",qty=2,price=7.0,lot_size=100)
     assert p["remaining_unmatched"]==1
 
+
+
+def test_strategy_relationship_requires_semantic_action_match():
+    ref = {"ticket_id":"T1","code":"US.QQQ.TEST","action":"SELL_FAR","qty":10}
+    assert classify_relationship("SELL_FAR","US.QQQ.TEST",10,ref) == "FOLLOW_STRATEGY"
+    assert classify_relationship("SELL_FAR","US.QQQ.TEST",7,ref) == "ADJUST_SIZE"
+    assert classify_relationship("BUY_BACK_FAR","US.QQQ.TEST",10,ref) == "OPERATOR_ONLY"
+    assert classify_relationship("ADD","US.QQQ.OTHER",10,ref) == "OPERATOR_ONLY"
+
+
+def test_emergency_leg_maps_to_manual_action():
+    ref = {
+        "ticket_id":"T2","code":"US.QQQ.FAR","action":"CLOSE_CAMPAIGN_EMERGENCY",
+        "strategy_leg_action":"CLOSE_FAR_EMERGENCY","side":"BUY","qty":2
+    }
+    assert classify_relationship("BUY_BACK_FAR","US.QQQ.FAR",2,ref) == "FOLLOW_STRATEGY"
+    assert classify_relationship("BUY_BACK_FAR","US.QQQ.FAR",1,ref) == "ADJUST_SIZE"
+
+
+def test_performance_tape_recomputes_old_broad_follow_label():
+    trades = [{
+        "timestamp_utc":"2026-10-01T00:00:00+00:00","event_seq":1,"trade_id":"M1",
+        "action":"BUY_BACK_FAR","code":"US.QQQ.TEST","qty":2,"price":1.0,"lot_size":100,
+        "relationship_to_strategy":"FOLLOW_STRATEGY",
+        "strategy_reference":{"ticket_id":"T1","code":"US.QQQ.TEST","action":"SELL_FAR","qty":2,"price":2.0},
+        "realized_pnl_delta":0.0
+    }]
+    tape = build_performance_tape(trades)
+    assert tape["counts"]["OPERATOR_ONLY"] == 1
+    assert tape["counts"]["FOLLOW_STRATEGY"] == 0
+    assert tape["rows"][0]["relationship"] == "OPERATOR_ONLY"
+    assert tape["rows"][0]["execution_slippage_estimate"] == 200.0
