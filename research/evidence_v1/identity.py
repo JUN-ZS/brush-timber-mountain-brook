@@ -12,7 +12,14 @@ CODE_PATHS = (
     "research/live_hedge_v1/campaign.py",
     "research/live_hedge_v1/futu_reader.py",
     "research/live_hedge_v1/futu_trade_reader.py",
+    "research/live_hedge_v1/state.py",
     "research/live_hedge_v1/run_live_desk.py",
+    "research/evidence_v1/ledger.py",
+    "research/evidence_v1/identity.py",
+    "research/evidence_v1/lock_guard.py",
+    "research/strategy_instance_v1/run_instance.py",
+    "research/strategy_instance_v1/ledger.py",
+    "research/strategy_instance_v1/performance_tape.py",
 )
 
 
