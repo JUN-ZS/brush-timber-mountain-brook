@@ -470,6 +470,7 @@ class StateStore:
 
         latest_ticket = None
         ticket_terminal = None
+        recovered_dynamic = []
         campaign = state.setdefault("campaign", {})
 
         for event in events:
@@ -486,6 +487,9 @@ class StateStore:
                     campaign["managed_far_qty"] = None
                     campaign["far_ownership_source"] = None
                     campaign["far_ownership_ticket_id"] = None
+
+            elif et == "DYNAMIC_STATE_OBSERVED":
+                recovered_dynamic.append(payload)
 
             elif et == "CAMPAIGN_ADOPTED_EXISTING_FAR":
                 if event.get("campaign_id"):
@@ -620,6 +624,37 @@ class StateStore:
 
         state["campaign"] = campaign
 
+        if recovered_dynamic:
+            latest = recovered_dynamic[-1]
+            gamma_values = []
+            for observation in recovered_dynamic:
+                value = observation.get("gamma_spot_observed")
+                if value is None:
+                    continue
+                try:
+                    fv = float(value)
+                    if fv == fv and abs(fv) != float("inf"):
+                        gamma_values.append(fv)
+                except (TypeError, ValueError):
+                    continue
+            if gamma_values:
+                state["gamma_history"] = gamma_values[-20:]
+                state["gamma_history_schema"] = GAMMA_HISTORY_SCHEMA
+                state["gamma_history_unit"] = GAMMA_HISTORY_UNIT
+            if latest.get("far_delta_abs_observed") is not None:
+                try:
+                    state["far_delta"] = abs(float(latest["far_delta_abs_observed"]))
+                except (TypeError, ValueError):
+                    pass
+            if latest.get("far_code_observed"):
+                state["far_code"] = latest["far_code_observed"]
+            if "desired_stack" in latest:
+                state["last_target_stack"] = latest.get("desired_stack")
+                state.setdefault("campaign", {})["target_stack"] = latest.get("desired_stack")
+            if "risk_score" in latest:
+                state["last_risk_score"] = latest.get("risk_score")
+            state["dynamic_state_source"] = "EVENT_REPLAY"
+
         max_event_seq = max(
             (self._numeric_suffix(e.get("event_id"), 6) for e in events),
             default=0,
@@ -669,7 +704,22 @@ class StateStore:
             os.fsync(f.fileno())
 
     def append_event(self, event: Dict[str, Any]) -> None:
+        """Append only a valid LIVE_DESK_EVENT.v2 hash-chain record."""
+        if event.get("schema") != EVENT_SCHEMA or event.get("schema_version") != 2:
+            raise ValueError("LIVE_EVENT_V2_REQUIRED")
+        if not event.get("previous_hash") or not event.get("event_hash"):
+            raise ValueError("LIVE_EVENT_HASH_REQUIRED")
+        if self._event_record_hash(event) != event.get("event_hash"):
+            raise ValueError("LIVE_EVENT_HASH_MISMATCH")
         with live_event_mutation_lock(self.events_path):
+            rows = self._read_events()
+            previous = (
+                rows[-1].get("event_hash")
+                if rows and rows[-1].get("event_hash")
+                else (self._event_record_hash(rows[-1]) if rows else EVENT_GENESIS)
+            )
+            if event.get("previous_hash") != previous:
+                raise ValueError("LIVE_EVENT_PREVIOUS_HASH_MISMATCH")
             self._append_event_unlocked(event)
 
     def next_ticket_sequence(self, state: Dict[str, Any]) -> int:
