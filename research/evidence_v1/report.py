@@ -67,11 +67,20 @@ def main() -> int:
         latest_outcomes[key] = r
     outcomes = list(latest_outcomes.values())
     pnls = [float(r["payload"]["realized_pnl"]) for r in outcomes]
-    benchmarks = [
-        float(r["payload"]["benchmark_return"])
-        for r in outcomes
-        if r["payload"].get("benchmark_return") is not None
-    ]
+    benchmark_groups = defaultdict(list)
+    legacy_benchmarks = []
+    for r in outcomes:
+        payload = r.get("payload") or {}
+        br = payload.get("benchmark_return")
+        if br is None:
+            continue
+        benchmark = str(payload.get("benchmark") or "").upper()
+        horizon = payload.get("horizon_trading_days")
+        if benchmark in {"SPY","QQQ"} and isinstance(horizon, int) and horizon > 0:
+            benchmark_groups[f"{benchmark}|{horizon}D"].append(float(br))
+        else:
+            legacy_benchmarks.append(float(br))
+    benchmarks = [x for values in benchmark_groups.values() for x in values]
     outcomes_by_source = defaultdict(lambda: {"count": 0, "realized_pnl_sum": 0.0, "benchmark_observations": 0})
     for r in outcomes:
         payload = r.get("payload") or {}
@@ -211,7 +220,20 @@ def main() -> int:
             "realized_pnl_median": statistics.median(pnls) if pnls else None,
             "positive_outcome_rate": pct(sum(1 for x in pnls if x > 0), len(pnls)),
             "benchmark_observations": len(benchmarks),
-            "mean_benchmark_return": statistics.mean(benchmarks) if benchmarks else None,
+            "benchmark_groups": {
+                key: {
+                    "observations": len(values),
+                    "mean_return": statistics.mean(values),
+                    "median_return": statistics.median(values),
+                }
+                for key, values in sorted(benchmark_groups.items())
+            },
+            "legacy_unscoped_benchmark_observations": len(legacy_benchmarks),
+            "mean_benchmark_return": (
+                statistics.mean(benchmarks)
+                if len(benchmark_groups) == 1 and not legacy_benchmarks
+                else None
+            ),
         },
         "family_observation": {
             "unique_family_members_observed": len(family_counts),
