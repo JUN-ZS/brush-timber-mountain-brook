@@ -209,6 +209,50 @@ def test_broker_reconciled_outcome_requires_source_evidence():
                 raise AssertionError("broker outcome without source evidence must fail")
 
 
+def test_outcome_correction_cannot_change_source_provenance():
+    import json
+    import sys
+    from unittest.mock import patch
+    from research.evidence_v1 import outcome
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        lock=root/"research/evidence_v1/STRATEGY_LOCK.json"
+        lock.parent.mkdir(parents=True)
+        lock.write_text(json.dumps({
+            "strategy_id":"TEST","strategy_version":"V1",
+            "selection_cutoff":"2025-12-15","research_engine_commit":"TEST",
+            "evidence_policy":{},
+        }),encoding="utf-8")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        anchor=ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
+                             timestamp_utc="2026-10-01T00:00:01+00:00",payload={})
+        source=ledger.append("EXECUTION_OBSERVED",cycle_id="C1",campaign_id="CAMP1",
+                             timestamp_utc="2026-10-01T00:00:02+00:00",payload={"deal_id":"D1"})
+        first=ledger.append("OUTCOME_RESOLVED",cycle_id="C1",campaign_id="CAMP1",
+                            timestamp_utc="2026-10-01T01:00:00+00:00",
+                            payload={"campaign_id":"CAMP1","family_id":None,
+                                     "anchor_evidence_id":anchor["evidence_id"],
+                                     "corrects_evidence_id":None,
+                                     "realized_pnl":10.0,
+                                     "outcome_source":"USER_REPORTED",
+                                     "source_evidence_id":None})
+        with patch.object(sys,"argv",[
+            "outcome.py","--repo-root",str(root),
+            "--campaign-id","CAMP1","--anchor-evidence-id",anchor["evidence_id"],
+            "--realized-pnl","12","--outcome-source","BROKER_RECONCILED",
+            "--source-evidence-id",source["evidence_id"],
+            "--corrects-evidence-id",first["evidence_id"],
+        ]):
+            try:
+                outcome.main()
+            except SystemExit as exc:
+                assert "CORRECTION_CANNOT_RELABEL_OUTCOME_SOURCE" in str(exc)
+            else:
+                raise AssertionError("correction must not change outcome provenance")
+
+
 def test_broker_outcome_rejects_cycle_finalized_without_execution_evidence():
     import json
     import sys
