@@ -40,6 +40,9 @@ class OperatorHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _mutation_allowed(self) -> bool:
+        return self.headers.get(MUTATION_HEADER) == MUTATION_HEADER_VALUE
+
     def _body(self) -> dict:
         n = int(self.headers.get("Content-Length", "0") or 0)
         if n <= 0 or n > 1024 * 1024:
@@ -80,7 +83,7 @@ class OperatorHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if urlparse(self.path).path in MUTATING_PATHS:
-            if self.headers.get(MUTATION_HEADER) != MUTATION_HEADER_VALUE:
+            if not self._mutation_allowed():
                 self._json(403, {"status": "FORBIDDEN", "error": "OPERATOR_HEADER_REQUIRED"})
                 return
         try:
