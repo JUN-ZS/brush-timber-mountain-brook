@@ -133,7 +133,7 @@ def _recover_mutable_state_from_ledger(m, s, l):
     realized = 0.0
     for row in rows:
         et=str(row.get("event_type") or "").upper()
-        if et not in {"EXECUTION_DETECTED","BROKER_EXECUTION_UNATTRIBUTED"}:
+        if et not in {"EXECUTION_DETECTED","BROKER_EXECUTION_UNATTRIBUTED","BROKER_EXECUTION_PRE_INSTANCE"}:
             continue
         deal = dict((row.get("payload") or {}).get("deal") or {})
         did = str(deal.get("deal_id") or "")
@@ -704,7 +704,7 @@ def _cycle_unlocked(args):
         history_start = None
         last_cycle = s.get("last_cycle_at")
         if last_cycle is None:
-            history_start = m.get("created_at_utc")
+            history_start = m.get("start_at_utc") or m.get("created_at_utc")
         elif gap_minutes(t, last_cycle) is not None and gap_minutes(t, last_cycle) >= args.backfill_after_minutes:
             history_start = last_cycle
         tr=FutuTradeReader(args.host,args.port,real=not args.simulate).read(history_start=history_start)
@@ -717,12 +717,37 @@ def _cycle_unlocked(args):
         s["last_cycle_at"]=t; save(spath(repo,args.instance_id),s); print(json.dumps({"status":"DATA_GAP","error":repr(e)},ensure_ascii=False,indent=2)); return 2
     ps=tr.get("positions",[]); orders=tr.get("orders",[]); cmap=contracts_map(snap); quotes=snap.get("quotes",{})
     history_used=bool(tr.get("history_backfill_used"))
-    seen=set(map(str,s.get("processed_deal_ids",[]))); new=[]
+    seen=set(map(str,s.get("processed_deal_ids",[]))); new=[]; pre_instance=[]
     for d in tr.get("deals",[]):
         did=str(d.get("deal_id","") or "")
-        if not did or did in seen or not after(d.get("created_at"),m["created_at_utc"]): continue
+        if not did or did in seen or not after(d.get("created_at"),m.get("start_at_utc") or m["created_at_utc"]):
+            continue
         if is_qqq_option_code(d.get("code","")):
-            d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100; new.append(d)
+            d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100
+            deal_time=dt(d.get("created_at"))
+            created_time=dt(m["created_at_utc"])
+            if deal_time and created_time and deal_time<=created_time:
+                pre_instance.append(d)
+            else:
+                new.append(d)
+    for d in sorted(pre_instance,key=lambda x:(dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),str(x.get("deal_id")))):
+        did=str(d["deal_id"])
+        s["unattributed_deal_ids"].append(did)
+        s["processed_deal_ids"].append(did)
+        s["data_gaps"]=si(s.get("data_gaps"))+1
+        l.append(
+            "BROKER_EXECUTION_PRE_INSTANCE",
+            instance_id=m["instance_id"],
+            cycle_id=cid,
+            timestamp_utc=t,
+            payload={
+                "deal":d,
+                "economic_t0":m.get("start_at_utc"),
+                "instance_created_at":m["created_at_utc"],
+                "reason":"execution occurred after economic T0 but before instance recording existed; baseline cannot be reconstructed without relabeling",
+            },
+            source="BROKER_OBSERVED",
+        )
     realized_delta=0.0
     prior_rows=l._rows()
     plan_usage={}
