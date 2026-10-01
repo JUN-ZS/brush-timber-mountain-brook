@@ -91,6 +91,36 @@ The console provides:
 
 The console binds to `127.0.0.1` by default. Browser actions write only the `USER_MANUAL` instance ledger; they never submit broker orders.
 
+### Recommended operating flow
+
+1. Start Futu OpenD.
+2. Start the normal live desk watcher if you want the locked strategy to continue observing market state:
+
+```cmd
+python -m research.live_hedge_v1.watch_live_desk --interval 15
+```
+
+3. Start the local Operator Console:
+
+```cmd
+run_strategy_operator.cmd
+```
+
+4. Open the Operator Console and select your instance.
+5. When the locked strategy has a ticket, use **USE TICKET AS MANUAL TEMPLATE**. Change the quantity and/or price before recording when your actual execution differs.
+6. Press **Refresh Broker** after execution to update broker observations and the manual-book mark.
+
+The semantic split is:
+
+```
+LOCKED STRATEGY -> candidate/ticket -> BROKER OBSERVED P&L
+
+YOUR ADJUSTMENT -> USER_MANUAL trade -> MANUAL BOOK P&L
+```
+
+A manual trade also stores the strategy ticket visible at that moment, so later analysis can distinguish following the strategy from changing size or acting independently.
+
+
 ## Automatically recorded
 
 Broker positions/orders/deals, exact local snapshot plus SHA-256, newly observed executions, FIFO gross realized P&L, marked unrealized P&L, total gross P&L, broker-vs-instance reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
