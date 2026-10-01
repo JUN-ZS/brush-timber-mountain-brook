@@ -45,11 +45,45 @@ DEFAULT_STATE: Dict[str, Any] = {
 
 _LIVE_THREAD_LOCKS = {}
 _LIVE_THREAD_LOCKS_GUARD = threading.Lock()
+_LIVE_EVENT_THREAD_LOCKS = {}
+_LIVE_EVENT_THREAD_LOCKS_GUARD = threading.Lock()
 
 
 def _live_lock_path(path: Path) -> Path:
     key = __import__("hashlib").sha256(str(path.resolve()).encode("utf-8")).hexdigest()
     return Path(tempfile.gettempdir()) / f"qqq-live-desk-{key}.lock"
+
+
+@contextmanager
+def live_event_mutation_lock(path: str | Path):
+    """Serialize event read/hash/write across threads and processes."""
+    lock_path = Path(tempfile.gettempdir()) / f"qqq-live-event-{__import__('hashlib').sha256(str(Path(path).resolve()).encode('utf-8')).hexdigest()}.lock"
+    key = str(lock_path)
+    with _LIVE_EVENT_THREAD_LOCKS_GUARD:
+        thread_lock = _LIVE_EVENT_THREAD_LOCKS.setdefault(key, threading.Lock())
+    with thread_lock:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as fh:
+            fh.seek(0, os.SEEK_END)
+            if fh.tell() == 0:
+                fh.write(b"0")
+                fh.flush()
+                os.fsync(fh.fileno())
+            fh.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fh.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
 @contextmanager
@@ -607,12 +641,16 @@ class StateStore:
         )
         os.replace(tmp, self.path)
 
-    def append_event(self, event: Dict[str, Any]) -> None:
+    def _append_event_unlocked(self, event: Dict[str, Any]) -> None:
         self.events_path.parent.mkdir(parents=True, exist_ok=True)
         with self.events_path.open("a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
             f.flush()
             os.fsync(f.fileno())
+
+    def append_event(self, event: Dict[str, Any]) -> None:
+        with live_event_mutation_lock(self.events_path):
+            self._append_event_unlocked(event)
 
     def next_ticket_sequence(self, state: Dict[str, Any]) -> int:
         n = int(state.get("ticket_sequence", 0) or 0) + 1
@@ -632,30 +670,36 @@ class StateStore:
         now: str,
         payload: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        n = int(state.get("event_sequence", 0) or 0) + 1
-        state["event_sequence"] = n
-        rows = self._read_events()
-        if self._events_tail_corrupt:
-            raise ValueError("LIVE_EVENT_TAIL_CORRUPT")
-        previous_hash = (
-            rows[-1].get("event_hash")
-            if rows and rows[-1].get("event_hash")
-            else (self._event_record_hash(rows[-1]) if rows else EVENT_GENESIS)
-        )
-        event = {
-            "schema": EVENT_SCHEMA,
-            "schema_version": 2,
-            "event_id": f"E-{now.replace(':','').replace('-','').replace('.','')}-{n:06d}",
-            "timestamp": now,
-            "type": event_type,
-            "campaign_id": (state.get("campaign") or {}).get("id"),
-            "payload": payload or {},
-            "previous_hash": previous_hash,
-        }
-        event["event_hash"] = self._event_record_hash(event)
-        self.append_event(event)
-        state["events_integrity"] = "HASHED"
-        return event
+        with live_event_mutation_lock(self.events_path):
+            rows = self._read_events()
+            if self._events_tail_corrupt:
+                raise ValueError("LIVE_EVENT_TAIL_CORRUPT")
+            previous_hash = (
+                rows[-1].get("event_hash")
+                if rows and rows[-1].get("event_hash")
+                else (self._event_record_hash(rows[-1]) if rows else EVENT_GENESIS)
+            )
+            n = int(state.get("event_sequence", 0) or 0) + 1
+            if rows:
+                n=max(
+                    n,
+                    int(self._numeric_suffix(rows[-1].get("event_id"), 6))+1,
+                )
+            state["event_sequence"] = n
+            event = {
+                "schema": EVENT_SCHEMA,
+                "schema_version": 2,
+                "event_id": f"E-{now.replace(':','').replace('-','').replace('.','')}-{n:06d}",
+                "timestamp": now,
+                "type": event_type,
+                "campaign_id": (state.get("campaign") or {}).get("id"),
+                "payload": payload or {},
+                "previous_hash": previous_hash,
+            }
+            event["event_hash"] = self._event_record_hash(event)
+            self._append_event_unlocked(event)
+            state["events_integrity"] = "HASHED"
+            return event
 
     def record_position_snapshot(self, state: Dict[str, Any], positions: Any) -> None:
         from .campaign import position_snapshot
