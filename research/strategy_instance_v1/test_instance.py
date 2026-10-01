@@ -61,6 +61,26 @@ def test_unrelated_broker_qqq_execution_is_not_strategy_attributed():
     assert [(x["code"],x["qty"]) for x in owned] == [("US.QQQ261030C00500000",1)]
 
 
+def test_ownership_derived_close_requires_unique_account_snapshot():
+    from .run_instance import apply_strategy_ownership_close
+    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"LONG","qty":1,"avg_price":5.0,"lot_size":100,"status":"OPEN"}]
+    ambiguous=[
+        {"code":"US.QQQ.TEST","side":"LONG","qty":2},
+    ]
+    d={"deal_id":"D-CLOSE","code":"US.QQQ.TEST","side":"SELL","qty":1,"price":7.0,"lot_size":100}
+    consumed,pnl,reason=apply_strategy_ownership_close(lots,d,ambiguous)
+    assert consumed==0
+    assert pnl==0.0
+    assert reason=="OWNERSHIP_SNAPSHOT_AMBIGUOUS"
+    assert lots[0]["qty"]==1
+
+    unique=[{"code":"US.QQQ.TEST","side":"LONG","qty":1}]
+    consumed,pnl,reason=apply_strategy_ownership_close(lots,d,unique)
+    assert consumed==1
+    assert pnl==200.0
+    assert reason=="CLOSE_LONG_OWNERSHIP_DERIVED"
+
+
 def test_strategy_mark_uses_owned_lot_cost_not_account_aggregate_cost():
     from .run_instance import mark_lots
 
