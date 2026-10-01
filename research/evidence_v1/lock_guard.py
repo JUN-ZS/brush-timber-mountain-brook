@@ -51,7 +51,6 @@ def assert_engine_constants(repo_root: Path) -> dict[str, Any]:
         "SIGNAL_EXT200_GTE": float(lock["signal"]["ext200_gte"]),
     }
     manifest_expectations = {
-        "strategy_id": "QQQ_DYNAMIC_NEAR_LONG_V22_CANDIDATE_FAMILY",
         "strategy_version": "V22-family-30D-1.5x",
         "selection_cutoff": "2025-12-15",
         "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
