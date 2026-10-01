@@ -178,6 +178,134 @@ class StateStore:
             campaign["far_ownership_source"] = "BROKER_EXECUTION_EVIDENCE"
             campaign["far_ownership_ticket_id"] = ticket.get("ticket_id")
 
+    @staticmethod
+    def _replay_strategy_lots(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Rebuild live strategy near lots from durable ticket fill snapshots."""
+        from .campaign import is_qqq_option_code
+
+        tickets: dict[str, dict[str, Any]] = {}
+        lots: list[dict[str, Any]] = []
+        prior_fill_qty: dict[tuple[str, str, str, str], int] = {}
+
+        def reduce_long(code: str, qty: int, preferred_lot: str | None = None):
+            remaining = max(0, qty)
+            candidates = [
+                lot for lot in lots
+                if lot.get("status") == "OPEN"
+                and str(lot.get("code", "")).upper() == code
+                and (preferred_lot is None or lot.get("lot_id") == preferred_lot)
+            ]
+            if preferred_lot is None:
+                candidates = [
+                    lot for lot in lots
+                    if lot.get("status") == "OPEN"
+                    and str(lot.get("code", "")).upper() == code
+                ]
+                candidates.sort(key=lambda x: str(x.get("opened_at", "")))
+            for lot in candidates:
+                if remaining <= 0:
+                    break
+                take = min(remaining, int(float(lot.get("qty") or 0)))
+                lot["qty"] = int(float(lot.get("qty") or 0)) - take
+                remaining -= take
+                if lot["qty"] <= 0:
+                    lot["qty"] = 0
+                    lot["status"] = "CLOSED"
+
+        def apply_ticket_fills(ticket: dict[str, Any], fills: list[dict[str, Any]], *, terminal: bool = False):
+            action = str(ticket.get("action", "")).upper()
+            for fill in fills or []:
+                code = str(fill.get("code", "")).upper()
+                side = str(fill.get("side", "")).upper()
+                expected = str(fill.get("expected_side", "")).upper()
+                qty = int(float(fill.get("qty") or 0))
+                price = fill.get("avg_price")
+                if qty <= 0 or not is_qqq_option_code(code):
+                    continue
+                key = (
+                    str(ticket.get("ticket_id", "")),
+                    code,
+                    side,
+                    expected,
+                )
+                previous = prior_fill_qty.get(key, 0)
+                delta = max(0, qty - previous)
+                prior_fill_qty[key] = max(previous, qty)
+
+                leg = next(
+                    (
+                        leg for leg in ticket.get("legs", []) or []
+                        if str(leg.get("code", "")).upper() == code
+                        and str(leg.get("side", "")).upper() == side
+                        and str(leg.get("expected_side", "")).upper() == expected
+                    ),
+                    None,
+                )
+
+                if side == "BUY" and expected == "LONG" and delta > 0:
+                    lot_id = f'LOT-{ticket.get("ticket_id")}-{code}'
+                    existing = next((lot for lot in lots if lot.get("lot_id") == lot_id), None)
+                    if existing is None:
+                        lots.append({
+                            "lot_id": lot_id,
+                            "ticket_id": ticket.get("ticket_id"),
+                            "code": code,
+                            "qty": delta,
+                            "avg_cost": price,
+                            "opened_at": ticket.get("filled_at", ticket.get("issued_at")),
+                            "status": "OPEN",
+                            "price_source": fill.get("price_source", "BROKER_EVIDENCE_CUMULATIVE"),
+                        })
+                    else:
+                        existing["qty"] = int(float(existing.get("qty") or 0)) + delta
+                        if price is not None:
+                            existing["avg_cost"] = price
+                        existing["status"] = "OPEN"
+
+                elif side == "SELL" and expected == "LONG" and delta > 0:
+                    reduce_long(
+                        code,
+                        delta,
+                        str(ticket.get("lot_id") or "") or None,
+                    )
+
+            if terminal and action == "CLOSE_CAMPAIGN_EMERGENCY":
+                for lot in lots:
+                    if lot.get("status") == "OPEN":
+                        lot["qty"] = 0
+                        lot["status"] = "CLOSED"
+
+        for event in events:
+            et = str(event.get("type", "")).upper()
+            payload = event.get("payload") or {}
+
+            if et == "TICKET_ISSUED":
+                ticket = payload.get("ticket")
+                if isinstance(ticket, dict) and ticket.get("ticket_id"):
+                    tickets[str(ticket["ticket_id"])] = json.loads(json.dumps(ticket))
+
+            elif et in {"TICKET_PARTIAL_PROGRESS", "TICKET_WAITING_EXECUTION_EVIDENCE", "TICKET_FILLED", "TICKET_SUPERSEDED"}:
+                ticket_id = str(payload.get("ticket_id") or "")
+                ticket = tickets.get(ticket_id)
+                if ticket is None:
+                    continue
+                complete = et == "TICKET_FILLED" or (
+                    et == "TICKET_SUPERSEDED"
+                    and bool(payload.get("broker_execution_complete"))
+                )
+                apply_ticket_fills(
+                    ticket,
+                    payload.get("fill") or [],
+                    terminal=complete,
+                )
+                if et in {"TICKET_FILLED", "TICKET_SUPERSEDED"}:
+                    tickets.pop(ticket_id, None)
+
+        return [
+            lot for lot in lots
+            if lot.get("status") == "OPEN" and int(float(lot.get("qty") or 0)) > 0
+        ]
+
     def _recover_from_events(self, state: Dict[str, Any]) -> None:
         """Repair an unsaved state cache from the durable live event stream."""
         events = self._read_events()
