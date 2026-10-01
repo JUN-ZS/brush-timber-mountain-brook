@@ -21,6 +21,55 @@ def test_operator_mutation_endpoint_requires_header():
     assert MUTATION_HEADER_VALUE == "1"
 
 
+def test_unrelated_broker_qqq_execution_is_not_strategy_attributed():
+    from .run_instance import attribute_broker_deal, managed_position_view, reconcile
+
+    deal = {
+        "deal_id":"UNRELATED-1",
+        "code":"US.QQQ261230C00600000",
+        "side":"BUY",
+        "qty":5,
+        "price":2.0,
+        "created_at":"2026-10-01T21:01:00+00:00",
+    }
+    assert attribute_broker_deal([], deal)["status"] == "UNATTRIBUTED"
+
+    lots=[{"lot_id":"T0","code":"US.QQQ261030C00500000","side":"LONG","qty":1,"avg_price":5.0,"status":"OPEN","lot_size":100}]
+    positions=[
+        {"code":"US.QQQ261030C00500000","side":"LONG","qty":1,"avg_cost":5.0},
+        {"code":"US.QQQ261230C00600000","side":"LONG","qty":5,"avg_cost":2.0},
+    ]
+    assert reconcile(lots, positions) == []
+    owned=managed_position_view(positions,lots)
+    assert [(x["code"],x["qty"]) for x in owned] == [("US.QQQ261030C00500000",1)]
+
+
+def test_strategy_plan_attribution_is_bounded_and_cannot_reuse_quantity():
+    from .run_instance import attribute_broker_deal
+
+    rows=[{
+        "event_seq":7,
+        "event_type":"STRATEGY_PLAN_OBSERVED",
+        "timestamp_utc":"2026-10-01T21:00:00+00:00",
+        "payload":{"plan":{
+            "candidate_actions":[{
+                "action":"ADD_NEAR",
+                "code":"US.QQQ261030C00500000",
+                "qty":2,
+            }]
+        }},
+    }]
+    used={}
+    d={"deal_id":"D1","code":"US.QQQ261030C00500000","side":"BUY","qty":3,"price":8.0,"created_at":"2026-10-01T21:01:00+00:00"}
+    first=attribute_broker_deal(rows,d,used)
+    assert first["status"]=="MATCHED_PREDECISION_PLAN"
+    assert first["qty"]==2
+    used[first["plan_key"]]=first["qty"]
+    second=attribute_broker_deal(rows,d,used)
+    assert second["status"]=="UNATTRIBUTED"
+    assert second["reason"]=="strategy_plan_quantity_already_consumed"
+
+
 def test_instance_mutation_lock_serializes_threads():
     with tempfile.TemporaryDirectory() as td:
         events = []
