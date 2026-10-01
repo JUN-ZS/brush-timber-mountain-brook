@@ -444,6 +444,27 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(state["last_target_stack"],3)
         self.assertEqual(state["last_risk_score"],3.0)
 
+    def test_candidate_journal_binds_raw_candidate_to_context(self):
+        from research.live_hedge_v1.campaign import rank_candidates
+        candidates=[{"action":"ADD_NEAR","code":"US.QQQ.TEST","qty":2,"price":8.5,"why":"risk"}]
+        ranking=rank_candidates(candidates)
+        risk={"risk_score":4.2,"desired_stack":5}
+        journal=[{
+            "rank":ranking[0]["decision_rank"],
+            "priority_rank":ranking[0]["priority_rank"],
+            "candidate_sha256":ranking[0]["candidate_sha256"],
+            "raw_candidate":json.loads(json.dumps(candidates[0])),
+            "risk_score":risk["risk_score"],
+            "desired_stack":risk["desired_stack"],
+            "signal_active":True,
+            "market_quote_age_sec":3.0,
+            "option_freshness":{"US.QQQ.TEST":4.0},
+            "snapshot_sha256":"a"*64,
+        }]
+        assert journal[0]["raw_candidate"]==candidates[0]
+        assert journal[0]["candidate_sha256"]==ranking[0]["candidate_sha256"]
+        assert journal[0]["risk_score"]==4.2
+
     def test_candidate_ranking_preserves_raw_order_and_adds_derived_rank(self):
         from research.live_hedge_v1.campaign import rank_candidates, choose_primary_action
         candidates=[
