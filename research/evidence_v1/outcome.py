@@ -10,7 +10,8 @@ from .ledger import EvidenceLedger
 
 
 ANCHOR_EVENT_TYPES = {"PRE_DECISION_OBSERVATION", "DECISION_EMITTED", "CYCLE_FINALIZED"}
-OUTCOME_SOURCES = {"BROKER_RECONCILED", "USER_REPORTED", "EXTERNAL_RESEARCH" }
+OUTCOME_SOURCES = {"BROKER_RECONCILED", "USER_REPORTED", "EXTERNAL_RESEARCH"}
+BENCHMARKS = {"SPY", "QQQ"}
 BROKER_OUTCOME_ANCHOR_TYPES = {"EXECUTION_OBSERVED"}
 
 
@@ -82,6 +83,8 @@ def main() -> int:
     )
     ap.add_argument("--realized-pnl", type=float, required=True)
     ap.add_argument("--benchmark-return", type=float, default=None)
+    ap.add_argument("--benchmark", choices=sorted(BENCHMARKS), default=None)
+    ap.add_argument("--horizon-trading-days", type=int, default=None)
     ap.add_argument("--start-nav", type=float, default=None)
     ap.add_argument("--end-nav", type=float, default=None)
     ap.add_argument("--max-drawdown", type=float, default=None)
@@ -95,6 +98,12 @@ def main() -> int:
     )
     ap.add_argument("--note", default="")
     args = ap.parse_args()
+
+    if args.benchmark_return is not None:
+        if args.benchmark is None:
+            raise SystemExit("BENCHMARK_REQUIRED_WHEN_RETURN_SUPPLIED")
+        if args.horizon_trading_days is None or args.horizon_trading_days <= 0:
+            raise SystemExit("HORIZON_TRADING_DAYS_REQUIRED_WHEN_BENCHMARK_RETURN_SUPPLIED")
 
     repo = args.repo_root.resolve()
     ledger = EvidenceLedger(
@@ -186,6 +195,10 @@ def main() -> int:
             raise SystemExit(
                 "CORRECTION_CANNOT_RELABEL_OUTCOME_SOURCE"
             )
+        if args.benchmark != corrected_payload.get("benchmark"):
+            raise SystemExit("CORRECTION_CANNOT_RELABEL_BENCHMARK")
+        if args.horizon_trading_days != corrected_payload.get("horizon_trading_days"):
+            raise SystemExit("CORRECTION_CANNOT_RELABEL_HORIZON")
         if args.source_evidence_id != corrected_payload.get("source_evidence_id"):
             raise SystemExit(
                 "CORRECTION_CANNOT_RELABEL_SOURCE_EVIDENCE"
@@ -211,6 +224,8 @@ def main() -> int:
             "anchor_evidence_id": args.anchor_evidence_id,
             "corrects_evidence_id": args.corrects_evidence_id,
             "realized_pnl": args.realized_pnl,
+            "benchmark": args.benchmark,
+            "horizon_trading_days": args.horizon_trading_days,
             "benchmark_return": args.benchmark_return,
             "start_nav": args.start_nav,
             "end_nav": args.end_nav,
