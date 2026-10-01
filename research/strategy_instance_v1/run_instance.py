@@ -1391,6 +1391,47 @@ def confirm_strategy_execution(repo, *, instance_id, deal_id, expected_strategy_
                 "realized_pnl_delta":delta,"strategy_application":application}
 
 
+def pending_strategy_executions(repo, instance_id):
+    """Return explicit confirmation work items without mutating strategy state."""
+    repo_path=Path(repo).resolve()
+    _,state,ledger=load_instance(repo_path,instance_id)
+    rows=ledger._rows()
+    out={}
+    for row in rows:
+        et=str(row.get("event_type") or "").upper()
+        payload=row.get("payload") or {}
+        deal=payload.get("deal") or {}
+        did=str(deal.get("deal_id") or "")
+        if not did:
+            continue
+        if et in {"BROKER_EXECUTION_UNATTRIBUTED","BROKER_EXECUTION_PRE_INSTANCE"}:
+            out.setdefault(did,{
+                "deal_id":did,
+                "code":deal.get("code"),
+                "side":deal.get("side"),
+                "qty":si(deal.get("qty")),
+                "price":sf(deal.get("price")),
+                "created_at":deal.get("created_at"),
+                "event_type":et,
+                "latest_attribution":payload.get("attribution"),
+            })
+    results=[]
+    rows_again=rows
+    for did,item in out.items():
+        confirmed=_confirmed_qty_for_deal(rows_again,did)
+        item["confirmed_qty"]=confirmed
+        item["remaining_qty"]=max(0,si(item["qty"])-confirmed)
+        if item["remaining_qty"]>0 and item["event_type"]!="BROKER_EXECUTION_PRE_INSTANCE":
+            results.append(item)
+    results.sort(key=lambda x:(str(x.get("created_at") or ""),x["deal_id"]))
+    return {
+        "instance_id":instance_id,
+        "attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
+        "pending":results,
+        "count":len(results),
+    }
+
+
 def confirm_cmd(a):
     out=confirm_strategy_execution(
         a.repo_root,instance_id=a.instance_id,deal_id=a.deal_id,
