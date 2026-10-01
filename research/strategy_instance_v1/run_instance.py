@@ -525,7 +525,9 @@ def init_cmd(a):
     d=idir(repo,a.instance_id)
     if d.exists() and any(d.iterdir()): raise SystemExit(f"INSTANCE_ALREADY_EXISTS:{a.instance_id}")
     m["manifest_hash"]=mhash(m); st={"schema":STATE_SCHEMA,"schema_version":1,"instance_id":a.instance_id,"processed_deal_ids":[],
-       "lots":init_lots(m),"realized_pnl":0.0,"last_cycle_at":None,"last_snapshot_hash":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,
+       "lots":init_lots(m),"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,"last_snapshot_hash":None,
+       "last_reconcile":None,"cycle_count":0,"data_gaps":0,
+       "gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,
        "manual_lots":json.loads(json.dumps(init_lots(m))),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
     save(mpath(repo,a.instance_id),m); save(spath(repo,a.instance_id),st)
     l=InstanceLedger(lpath(repo,a.instance_id),{"instance_id":a.instance_id,"manifest_hash":m["manifest_hash"],"strategy_id":m["strategy_id"],"strategy_version":m["strategy_version"],"research_engine_commit":m["research_engine_commit"]})
