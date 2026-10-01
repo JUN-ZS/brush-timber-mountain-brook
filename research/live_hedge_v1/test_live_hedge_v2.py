@@ -53,12 +53,16 @@ class LiveHedgeV2Test(unittest.TestCase):
             def to_dict(self):
                 return {"status":"PARTIAL","reason":"qot_logined=False"}
         class FakeAdapter:
+            def __init__(self):
+                self.disconnected=False
             def connect(self):
                 return Check()
             def disconnect(self):
-                raise AssertionError("disconnect should not be needed before snapshot read")
-        reader.a=FakeAdapter()
+                self.disconnected=True
+        fake=FakeAdapter()
+        reader.a=fake
         out=reader.snapshot()
+        self.assertTrue(fake.disconnected)
         self.assertEqual(out["status"],"BLOCKED")
         self.assertEqual(out["reason"],"FUTU_CONNECTION_NOT_READY")
         self.assertEqual(out["connection"]["status"],"PARTIAL")
