@@ -95,6 +95,48 @@ def test_report_reads_only_validated_ledger_and_dedupes_corrections():
         assert report["outcome_metrics"]["realized_pnl_sum"]==80.0
 
 
+def test_snapshot_round_trip_hash_and_atomic_publish():
+    import json
+    import tempfile
+    from research.evidence_v1.snapshot import snapshot_sha256, write_snapshot
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        payload={"cycle_id":"C1","family_observation":{"rows":[{"family_id":"F1","status":"AVAILABLE"}]}}
+        ref=write_snapshot(root,"C1",payload)
+        saved=json.loads((root/ref["snapshot_ref"]).read_text(encoding="utf-8"))
+        assert ref["snapshot_sha256"]==snapshot_sha256(saved)
+        assert not (root/"research/evidence_v1/snapshots/C1.json.tmp").exists()
+
+
+def test_report_blocks_snapshot_hash_tamper():
+    import json
+    import sys
+    from unittest.mock import patch
+    from research.evidence_v1.report import main as report_main
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        ev=root/"research/evidence_v1/evidence.jsonl"
+        ledger=EvidenceLedger(ev)
+        snap=root/"research/evidence_v1/snapshots/C1.json"
+        snap.parent.mkdir(parents=True)
+        obj={"cycle_id":"C1","family_observation":{"rows":[]}}
+        snap.write_text(json.dumps(obj),encoding="utf-8")
+        from research.evidence_v1.snapshot import snapshot_sha256
+        good=snapshot_sha256(obj)
+        ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",timestamp_utc="2026-10-01T00:00:01+00:00",
+                      payload={"snapshot":{"snapshot_ref":"research/evidence_v1/snapshots/C1.json","snapshot_sha256":good}})
+        snap.write_text(json.dumps({"cycle_id":"C1","family_observation":{"rows":[{"tampered":True}]}}),encoding="utf-8")
+        with patch.object(sys,"argv",["report.py","--repo-root",str(root)]):
+            try:
+                rc=report_main()
+            except SystemExit:
+                rc=1
+        assert rc==2
+        report=json.loads((root/"research/evidence_v1/sealed/LONGITUDINAL_REPORT.json").read_text(encoding="utf-8"))
+        assert report["snapshot_integrity"]["status"]=="BLOCKED"
+
+
 def test_outcome_rows_api_is_locked_snapshot():
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "evidence.jsonl"
