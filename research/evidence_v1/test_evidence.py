@@ -371,6 +371,19 @@ def test_cycle_semantics_require_predecision_before_decision_and_finalize_last()
             raise AssertionError("cycle chronology violation must be detected")
 
 
+def test_family_snapshot_unavailable_members_keep_complete_schema():
+    obs = build_family_snapshot(
+        [],
+        spot=650,
+        signal_active=False,
+        campaign_active=False,
+    )
+    assert obs["config_count"] == 72
+    assert len(obs["rows"]) == 72
+    assert all(row["status"] == "UNAVAILABLE" for row in obs["rows"])
+    assert all(row["active_family"] is False for row in obs["rows"])
+
+
 def test_family_snapshot_is_exactly_72():
     contracts = []
     for dte in (90, 120, 180):
