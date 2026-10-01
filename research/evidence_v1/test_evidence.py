@@ -189,8 +189,12 @@ def test_broker_reconciled_outcome_requires_source_evidence():
             "research_engine_commit":"TEST","evidence_policy":{},
         }),encoding="utf-8")
         ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
+                      timestamp_utc="2026-10-01T00:00:01+00:00",payload={})
         anchor=ledger.append("DECISION_EMITTED",cycle_id="C1",campaign_id="CAMP1",
-                             timestamp_utc="2026-10-01T00:00:00+00:00",
+                             timestamp_utc="2026-10-01T00:00:02+00:00",
                              payload={"candidate_actions":[],"primary":None})
         with patch.object(sys,"argv",[
             "outcome.py","--repo-root",str(root),
