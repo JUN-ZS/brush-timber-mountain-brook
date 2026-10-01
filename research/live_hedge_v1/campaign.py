@@ -217,6 +217,7 @@ def build_ticket(
                 "code": old_code,
                 "qty": qty,
                 "price": action.get("price"),
+                "strategy_leg_action": "REDUCE_NEAR",
                 "expected_side": "LONG",
                 "before_qty": qty_for(before_positions, "LONG", old_code),
                 "before_avg_cost": float(
@@ -231,6 +232,7 @@ def build_ticket(
                 "code": new_code,
                 "qty": qty,
                 "price": action.get("new_price"),
+                "strategy_leg_action": "ADD_NEAR",
                 "expected_side": "LONG",
                 "before_qty": qty_for(before_positions, "LONG", new_code),
                 "before_avg_cost": float(
