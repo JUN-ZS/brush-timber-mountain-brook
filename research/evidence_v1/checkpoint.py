@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,10 +46,14 @@ def _decision_candidate(prior, anchor_id, candidate_index, candidate_sha):
     action_hash = sha256_json(actions[idx])
     if action_hash != str(candidate_sha):
         raise SystemExit("CANDIDATE_SHA256_MISMATCH_AT_ANCHOR")
-    row = next(
-        (x for x in journal if int(x.get("candidate_index", -1)) == idx),
-        None,
-    )
+    row = None
+    for x in journal:
+        try:
+            if int(x.get("candidate_index", -1)) == idx:
+                row = x
+                break
+        except (TypeError, ValueError):
+            continue
     if row is None or str(row.get("candidate_sha256") or "") != action_hash:
         raise SystemExit("CANDIDATE_NOT_PRESENT_IN_ANCHOR_JOURNAL")
     if not isinstance(row.get("raw_candidate"), dict):
@@ -75,6 +80,10 @@ def main() -> int:
 
     if args.horizon_trading_days <= 0:
         raise SystemExit("HORIZON_TRADING_DAYS_MUST_BE_POSITIVE")
+    if not math.isfinite(args.benchmark_return):
+        raise SystemExit("BENCHMARK_RETURN_MUST_BE_FINITE")
+    if args.candidate_return is not None and not math.isfinite(args.candidate_return):
+        raise SystemExit("CANDIDATE_RETURN_MUST_BE_FINITE")
 
     repo = args.repo_root.resolve()
     ledger = EvidenceLedger(repo / "research/evidence_v1/evidence.jsonl")
