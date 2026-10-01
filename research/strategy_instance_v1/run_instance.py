@@ -303,7 +303,7 @@ def assert_instance_strategy_lineage(repo,m):
     for key in ("strategy_id","strategy_version","research_engine_commit","strategy_lock_hash"):
         expected=m.get(key)
         actual=current.get(key)
-        if expected and actual and str(expected)!=str(actual):
+        if expected in (None,"") or actual in (None,"") or str(expected)!=str(actual):
             mismatches[key]={"instance":expected,"runtime":actual}
     if mismatches:
         raise SystemExit(
