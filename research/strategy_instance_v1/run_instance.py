@@ -1225,7 +1225,18 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
 
 def _record_manual_trade_unlocked(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None):
     m,s,l=load_instance(Path(repo).resolve(),instance_id)
-    t=timestamp_utc or now(); action=str(action).upper(); code=str(code).strip().upper()
+    t=timestamp_utc or now()
+    parsed_trade_time=dt(t)
+    if parsed_trade_time is None:
+        raise SystemExit("MANUAL_TRADE_TIMESTAMP_INVALID")
+    created_dt=dt(m.get("created_at_utc"))
+    start_dt=dt(m.get("start_at_utc"))
+    current_dt=dt(now())
+    if start_dt is not None and parsed_trade_time < start_dt:
+        raise SystemExit("MANUAL_TRADE_BEFORE_ECONOMIC_T0")
+    if current_dt is not None and parsed_trade_time > current_dt + __import__("datetime").timedelta(minutes=5):
+        raise SystemExit("MANUAL_TRADE_FUTURE")
+    action=str(action).upper(); code=str(code).strip().upper()
     if not is_qqq_option_code(code):
         raise SystemExit("MANUAL_CODE_MUST_BE_QQQ_OPTION")
     trade_id=trade_id or ("MANUAL_"+t.replace(":","").replace("-","").replace(".","").replace("+00:00","Z"))
