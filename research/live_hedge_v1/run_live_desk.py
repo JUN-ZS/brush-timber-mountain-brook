@@ -1093,6 +1093,9 @@ def _main_cycle(args, out_path):
             ),
             "engine_inputs": snapshot_payload["engine_inputs"],
             "observation_is_pre_decision": True,
+            "evaluation_clock": "LIVE_FORWARD",
+            "provenance": "LOCKED_RUNTIME",
+            "non_retroactive": True,
         },
     )
 
@@ -1225,6 +1228,10 @@ def _main_cycle(args, out_path):
             "reasons": p.get("reasons", []),
             "family_observation_count": family_observation["config_count"],
             "snapshot_sha256": snapshot_ref["snapshot_sha256"],
+            "contract": "AS_EMITTED_THEN_POSTHOC",
+            "evaluation_clock": "LIVE_FORWARD",
+            "non_retroactive": True,
+            "candidate_actions_are_verbatim": True,
         },
     )
 
