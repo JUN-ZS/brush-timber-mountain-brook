@@ -3,6 +3,11 @@ from __future__ import annotations
 import os
 
 
+def enum_name(value):
+    """Normalize Futu enum/string representations to their terminal name."""
+    return str(value or "").strip().upper().split(".")[-1]
+
+
 class FutuTradeReader:
     """Read-only trade/account observer with an explicit Futu account ID."""
 
@@ -63,8 +68,8 @@ class FutuTradeReader:
                 continue
 
             raw_env = self._cell(row, "trd_env", "trdEnv")
-            env = str(raw_env or "").upper()
-            status = str(self._cell(row, "acc_status", "accStatus") or "").upper()
+            env = enum_name(raw_env)
+            status = enum_name(self._cell(row, "acc_status", "accStatus"))
 
             # Keep the raw row for evidence, but validate the requested account
             # and trading environment before any position/order/deal query.
@@ -76,13 +81,13 @@ class FutuTradeReader:
             return False
 
         row, env, status = candidates[0]
-        expected_env = str(requested_env).split(".")[-1].upper()
-        if env and env not in {expected_env, str(requested_env).upper()}:
+        expected_env = enum_name(requested_env)
+        if env and env != expected_env:
             self.account_error = (
                 f"FUTU_ACC_ENV_MISMATCH:{self.acc_id}:expected={expected_env}:actual={env}"
             )
             return False
-        if status and status not in {"ACTIVE", "NORMAL"}:
+        if status and status != "ACTIVE":
             self.account_error = f"FUTU_ACC_NOT_ACTIVE:{self.acc_id}:{status}"
             return False
 
