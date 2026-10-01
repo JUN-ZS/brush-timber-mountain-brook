@@ -503,9 +503,10 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(choose_primary_action(candidates)["action"], "HARVEST_NEAR")
 
     def test_plan_can_emit_candidates_but_wrapper_selects_one(self):
+        fixed_now = datetime.fromisoformat("2026-10-01T00:05:00+00:00")
         market = {
             "source": "LIVE QUOTE",
-            "timestamp": now_iso(),
+            "timestamp": fixed_now.isoformat(),
             "spot": 500.0,
             "signal_active": True,
         }
