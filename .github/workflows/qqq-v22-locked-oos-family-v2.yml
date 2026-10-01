@@ -53,6 +53,14 @@ jobs:
         shell: cmd
         run: |
           python -c "from pathlib import Path; from research.evidence_v1.lock_guard import assert_runtime_lock; print(assert_runtime_lock(Path('.'), far_dte=120, far_delta=0.08, near_dte=30))"
+      - name: Verify immutable strategy lock
+        shell: bash
+        env:
+          EXPECTED_LOCK_BLOB_SHA: 1ba879f24e367570c3a4e3b04bca607450dc2b8d
+        run: |
+          actual=$(git hash-object research/evidence_v1/STRATEGY_LOCK.json)
+          echo "strategy_lock_blob_sha ${actual}"
+          test "${actual}" = "${EXPECTED_LOCK_BLOB_SHA}"
       - name: Verify frozen V22 engine source
         shell: bash
         env:
