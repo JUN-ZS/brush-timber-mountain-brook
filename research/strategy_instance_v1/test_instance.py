@@ -80,6 +80,29 @@ def test_operator_ticket_context_rejects_browser_tampering():
             raise AssertionError("browser-supplied ticket mutation must be rejected")
 
 
+def test_pending_strategy_executions_is_read_only_and_deals_are_explicit():
+    from .run_instance import pending_strategy_executions, save
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td); iid="I-PENDING"
+        manifest={"schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+                  "instance_id":iid,"created_at_utc":"2026-10-01T00:00:00+00:00",
+                  "start_at_utc":"2026-10-01T00:00:00+00:00","strategy_id":"TEST",
+                  "strategy_version":"V1","initial_positions":[]}
+        manifest["manifest_hash"]=mhash(manifest); save(mpath(repo,iid),manifest)
+        l=InstanceLedger(lpath(repo,iid),{"instance_id":iid,
+            "manifest_hash":manifest["manifest_hash"],"strategy_id":"TEST","strategy_version":"V1"})
+        deal={"deal_id":"D-P","code":"US.QQQ.TEST","side":"BUY","qty":3,
+              "price":5.0,"created_at":"2026-10-01T00:01:00+00:00"}
+        l.append("BROKER_EXECUTION_UNATTRIBUTED",instance_id=iid,cycle_id="C1",
+                 timestamp_utc="2026-10-01T00:01:01+00:00",
+                 payload={"deal":deal,"attribution":None},source="BROKER_OBSERVED")
+        out=pending_strategy_executions(repo,iid)
+        assert out["count"]==1
+        row=out["pending"][0]
+        assert row["deal_id"]=="D-P"
+        assert row["remaining_qty"]==3
+        assert out["attribution_policy"]=="EXPLICIT_USER_CONFIRMATION_ONLY"
+
 def test_operator_mutation_endpoint_requires_header():
     from .serve_operator import MUTATION_HEADER, MUTATION_HEADER_VALUE, MUTATING_PATHS
     assert "/api/manual" in MUTATING_PATHS
