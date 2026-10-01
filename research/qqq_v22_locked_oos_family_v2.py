@@ -98,6 +98,18 @@ def mask_campaigns(u_full: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp)
     return u
 
 
+def clip_quote_maps_to_window(quote_maps_by_cid, window_end: pd.Timestamp):
+    """Remove every post-cutoff quote before replay touches the quote map."""
+    out = {}
+    for cid, frame in quote_maps_by_cid.items():
+        if frame is None or frame.empty:
+            out[cid] = frame
+            continue
+        clipped = frame.loc[pd.to_datetime(frame.index) <= window_end].copy()
+        out[cid] = clipped
+    return out
+
+
 def run_family(u: pd.DataFrame, con, opt_path: Path, *, window_end: pd.Timestamp):
     far_build = build_far_candidates(u, con, opt_path)
     if not far_build:
@@ -168,8 +180,12 @@ def run_family(u: pd.DataFrame, con, opt_path: Path, *, window_end: pd.Timestamp
 
     fq = get_quotes(con, opt_path, far_ids, with_delta=True, with_gamma=has_gamma)
     nq = get_quotes(con, opt_path, near_ids)
-    far_quotes_by_cid = quote_maps(fq)
-    near_quotes_by_cid = quote_maps(nq)
+    far_quotes_by_cid = clip_quote_maps_to_window(
+        quote_maps(fq), window_end
+    )
+    near_quotes_by_cid = clip_quote_maps_to_window(
+        quote_maps(nq), window_end
+    )
 
     rows = []
     unresolved_excluded = 0
