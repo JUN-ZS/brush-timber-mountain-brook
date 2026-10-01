@@ -172,19 +172,18 @@ class OperatorHandler(SimpleHTTPRequestHandler):
 def main():
     ap = argparse.ArgumentParser(description="Local QQQ Strategy Operator Console")
     ap.add_argument("--port", type=int, default=8766)
-    ap.add_argument("--host", default="127.0.0.1")
     args = ap.parse_args()
 
     repo = Path(__file__).resolve().parents[2]
     os.chdir(repo)
 
-    httpd = ThreadingHTTPServer((args.host, args.port), OperatorHandler)
+    httpd = ThreadingHTTPServer(("127.0.0.1", args.port), OperatorHandler)
     httpd.repo_root = repo
     print(
-        f"Operator Console: http://{args.host}:{args.port}/research/strategy_instance_v1/operator_dashboard.html",
+        f"Operator Console: http://127.0.0.1:{args.port}/research/strategy_instance_v1/operator_dashboard.html",
         flush=True,
     )
-    print("LOCAL ONLY: this console records USER_MANUAL trades; it never submits broker orders.", flush=True)
+    print("LOCAL ONLY: this console records USER_MANUAL trades; it never submits broker orders. Remote bind is intentionally disabled.", flush=True)
     httpd.serve_forever()
 
 
