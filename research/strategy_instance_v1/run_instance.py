@@ -199,6 +199,38 @@ def _recover_mutable_state_from_ledger(m, s, l):
         s["unattributed_deal_ids"] = unattributed_ids
         s["realized_pnl"] = sf(realized)
 
+    # Dynamic state is reconstructed from durable accepted strategy observations.
+    recovered_gamma = []
+    recovered_far_delta = None
+    for row in rows:
+        if str(row.get("event_type") or "").upper() != "STRATEGY_PLAN_OBSERVED":
+            continue
+        payload = row.get("payload") or {}
+        if not bool(payload.get("strategy_observation_accepted")):
+            continue
+        gamma_value = payload.get("gamma_spot_observed")
+        if gamma_value is not None:
+            try:
+                fv = float(gamma_value)
+                if math.isfinite(fv):
+                    recovered_gamma.append(fv)
+            except (TypeError, ValueError):
+                pass
+        delta_value = payload.get("far_delta_abs_observed")
+        if delta_value is not None:
+            try:
+                fv = float(delta_value)
+                if math.isfinite(fv):
+                    recovered_far_delta = fv
+            except (TypeError, ValueError):
+                pass
+    if recovered_gamma:
+        s["gamma_history"] = recovered_gamma[-20:]
+        s["gamma_history_schema"] = 2
+        s["gamma_history_unit"] = "gamma_spot"
+    if recovered_far_delta is not None:
+        s["far_delta_abs"] = recovered_far_delta
+
     manual_rows = [
         row for row in rows
         if row.get("event_type") == "MANUAL_TRADE_RECORDED"
