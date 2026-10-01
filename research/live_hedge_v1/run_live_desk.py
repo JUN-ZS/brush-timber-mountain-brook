@@ -549,12 +549,6 @@ def _main_unlocked():
 def _main_cycle(args, out_path):
     now = _now()
     repo = Path(__file__).resolve().parents[2]
-    store = StateStore(
-        out_path.with_name("state.json"),
-        out_path.with_name("events.jsonl"),
-    )
-    state = store.load()
-    state["_now"] = now
     cycle_id = f"QQQ_DESK_{now.replace(':','').replace('-','').replace('.','').replace('+00:00','Z')}"
     evidence = EvidenceLedger(
         repo / "research/evidence_v1/evidence.jsonl",
@@ -578,6 +572,44 @@ def _main_cycle(args, out_path):
             "state_before": state.get("campaign"),
         },
     )
+    store = StateStore(
+        out_path.with_name("state.json"),
+        out_path.with_name("events.jsonl"),
+    )
+    try:
+        state = store.load()
+    except Exception as exc:
+        evidence.append(
+            "CYCLE_STARTED",
+            cycle_id=cycle_id,
+            campaign_id=None,
+            timestamp_utc=now,
+            payload={"stage":"LIVE_STATE_LOAD","status":"BLOCKED","error":repr(exc)},
+            evidence_grade="DATA_GAP",
+        )
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=None,
+            timestamp_utc=now,
+            payload={"stage":"LIVE_STATE_EVENT_LOG","error":repr(exc)},
+            evidence_grade="DATA_GAP",
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=None,
+            timestamp_utc=now,
+            payload={"status":"BLOCKED_LIVE_STATE"},
+            evidence_grade="DATA_GAP",
+        )
+        output={"status":"BLOCKED_LIVE_STATE","timestamp":now,
+                "manual_execution_only":True,"error":repr(exc)}
+        _publish_live_output(out_path, output)
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+        return 2
+
+    state["_now"] = now
     try:
         lock_status = assert_runtime_lock(
             repo,
