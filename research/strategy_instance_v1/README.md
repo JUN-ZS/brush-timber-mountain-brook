@@ -75,6 +75,14 @@ Operator Console:
 run_strategy_operator.cmd
 ```
 
+One-command local acceptance:
+
+```cmd
+run_operator_acceptance.cmd
+```
+
+This runs Python compilation, the evidence/instance unittest suite, and a source-level operator UI/safety wiring check. Only after those checks pass does it start the localhost Operator Console and open the browser. The acceptance launcher never submits or modifies a broker order.
+
 Open:
 
 `http://127.0.0.1:8766/research/strategy_instance_v1/operator_dashboard.html`
