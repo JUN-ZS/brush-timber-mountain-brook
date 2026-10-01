@@ -747,6 +747,67 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(recovered["campaign"]["far_code"], "US.QQQ260116C00600000")
             self.assertEqual(recovered["campaign"]["managed_far_qty"], 0)
 
+    def test_state_store_terminal_fill_reconstructs_open_campaign_lifecycle(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "live_state.json"
+            store = StateStore(out.with_name("state.json"), out.with_name("events.jsonl"))
+            state = store.load()
+            state["campaign"] = {
+                "id": "C-RECOVER-LIFE",
+                "state": "HARVESTING",
+                "far_code": "US.QQQ260116C00600000",
+                "managed_far_qty": 10,
+            }
+            ticket = build_ticket(
+                action={
+                    "action": "HARVEST_NEAR",
+                    "code": "US.QQQ261030C00500000",
+                    "qty": 1,
+                    "side": "SELL",
+                    "price": 12.0,
+                    "target_qty": 0,
+                },
+                campaign_id="C-RECOVER-LIFE",
+                before_positions={
+                    "LONG:US.QQQ261030C00500000": {
+                        "code": "US.QQQ261030C00500000",
+                        "side": "LONG",
+                        "qty": 1,
+                        "avg_cost": 8.0,
+                    }
+                },
+                now="2026-10-01T00:00:00+00:00",
+                sequence=5,
+            )
+            store.emit(
+                state,
+                "TICKET_ISSUED",
+                now="2026-10-01T00:00:00+00:00",
+                payload={"ticket": ticket},
+            )
+            store.emit(
+                state,
+                "TICKET_FILLED",
+                now="2026-10-01T00:01:00+00:00",
+                payload={
+                    "ticket_id": ticket["ticket_id"],
+                    "action": "HARVEST_NEAR",
+                    "fill": [{
+                        "code": "US.QQQ261030C00500000",
+                        "side": "SELL",
+                        "expected_side": "LONG",
+                        "qty": 1,
+                        "avg_price": 12.0,
+                        "price_source": "BROKER_EVIDENCE_CUMULATIVE",
+                    }],
+                },
+            )
+            recovered = store.load()
+            self.assertIsNone(recovered["active_ticket"])
+            self.assertEqual(recovered["campaign"]["state"], "OPEN")
+
     def test_state_store_recovery_advances_far_ownership_from_fill_event(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
