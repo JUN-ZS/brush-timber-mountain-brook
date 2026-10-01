@@ -321,21 +321,24 @@ def option_positions(ps):
 
 def contracts_map(snap):
     out={}
+    quotes=snap.get("quotes",{}) or {}
     for x in snap.get("contracts",[]):
         if x.get("code"):
-            out[str(x["code"])]=Contract(
-                str(x["code"]),
+            code=str(x["code"])
+            q=quotes.get(code,{}) or {}
+            out[code]=Contract(
+                code,
                 str(x.get("right","CALL")).upper(),
                 sf(x.get("strike")),
                 str(x.get("expiry","")),
                 si(x.get("dte")),
-                x.get("bid"),
-                x.get("ask"),
-                x.get("delta"),
-                x.get("gamma"),
-                x.get("iv"),
+                q.get("bid",x.get("bid")),
+                q.get("ask",x.get("ask")),
+                q.get("delta",x.get("delta")),
+                q.get("gamma",x.get("gamma")),
+                q.get("iv",x.get("iv")),
                 max(1,si(x.get("lot_size")) or 100),
-                x.get("volume"),
+                q.get("volume",x.get("volume")),
             )
     return out
 
