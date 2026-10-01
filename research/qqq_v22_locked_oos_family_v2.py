@@ -91,7 +91,9 @@ def mask_campaigns(u_full: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp)
     boundary is applied, so pre-window history remains available for causal
     lookbacks. No post-window underlying/option rows can enter the replay.
     """
-    u = u_full.loc[u_full["date"].between(start, end)].copy()
+    # Preserve pre-window rows for causal lookbacks, but remove every
+    # post-window row so no future quote/position path can affect the replay.
+    u = u_full.loc[u_full["date"] <= end].copy()
     u["signal"] = u["signal"] & u["date"].between(start, end)
     return u
 
