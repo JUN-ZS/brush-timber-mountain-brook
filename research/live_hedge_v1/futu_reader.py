@@ -41,6 +41,44 @@ def _enrich_contracts_with_quotes(contracts, quote_objects):
 
 
 class LiveFutuReader:
+def _compute_signal(last, history):
+    dates = [x[0] for x in history]
+    closes = [x[1] for x in history]
+    today = date.today().isoformat()
+    ref = closes[:-1] if dates and str(dates[-1])[:10] == today else closes
+    if last is None:
+        return {
+            "status": "DATA_GAP",
+            "active": None,
+            "ratio52": None,
+            "ext200": None,
+            "reference_count": len(ref),
+            "reason": "QQQ spot unavailable",
+        }
+    if len(ref) < 252:
+        return {
+            "status": "DATA_GAP",
+            "active": None,
+            "ratio52": None,
+            "ext200": None,
+            "reference_count": len(ref),
+            "reason": f"need >=252 reference daily closes; got {len(ref)}",
+        }
+    dma = sum(ref[-199:] + [last]) / 200
+    high = max(ref[-251:] + [last])
+    ext = last / dma - 1 if dma else None
+    ratio = last / high if high else None
+    active = bool(ratio is not None and ratio >= .98 and ext is not None and ext >= .08)
+    return {
+        "status": "OK",
+        "active": active,
+        "ratio52": ratio,
+        "ext200": ext,
+        "reference_count": len(ref),
+        "reason": None,
+    }
+
+
     """Live QQQ quote/chain reader. Never places or modifies orders."""
     def __init__(self,host="127.0.0.1",port=11111):
         self.a=FutuOpenDAdapter(host,port)
@@ -91,13 +129,7 @@ class LiveFutuReader:
         try:
             q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc).isoformat()
             order=sorted(zip(hist.get("dates") or [],hist.get("closes") or []),key=lambda z:z[0])
-            dates=[x[0] for x in order]; closes=[x[1] for x in order]
-            ref=closes[:-1] if dates and str(dates[-1])[:10]==date.today().isoformat() else closes
-            sig=False; ext=None; ratio=None
-            if q.last is not None and len(ref)>=252:
-                dma=sum(ref[-199:]+[q.last])/200; high=max(ref[-251:]+[q.last])
-                ext=q.last/dma-1 if dma else None; ratio=q.last/high if high else None
-                sig=bool(ratio is not None and ratio>=.98 and ext is not None and ext>=.08)
+            signal=_compute_signal(q.last, order)
             cs=self.contracts()
             # Keep the quote request practical: near-ATM calls plus the far OTM region,
             # while always including exact held/order codes for reconciliation.
@@ -109,6 +141,14 @@ class LiveFutuReader:
             live_contracts = _enrich_contracts_with_quotes(cs, quote_objects)
             return {"status":"OK","connection":conn,
                 "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":collected_at,"source_timestamp":q.timestamp,"source":q.source,
-                          "signal_active":sig,"ratio52":ratio,"ext200":ext,"history_source":hist.get("source")},
+                          "signal_active":signal["active"],"signal_status":signal["status"],
+                          "ratio52":signal["ratio52"],"ext200":signal["ext200"],
+                          "history_source":hist.get("source"),
+                          "history_reference_count":signal["reference_count"],
+                          "history_requested":hist.get("requested"),
+                          "history_available":hist.get("available"),
+                          "history_start":hist.get("history_start"),
+                          "history_end":hist.get("history_end"),
+                          "history_reason":hist.get("reason") or signal["reason"]},
                 "contracts":[x.__dict__ for x in live_contracts],"quotes":quotes,"source":"FUTU_OPEND_READ_ONLY"}
         finally:self.close()
