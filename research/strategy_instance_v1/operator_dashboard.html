@@ -200,6 +200,27 @@ function renderState(){
   $("lotSize").value=$("lotSize").value||100;
   preview();
 }
+function useStrategyTicket(){
+  const t=strategy?.action_card||{};
+  const leg=(t.legs||[])[0];
+  if(!t.action||!leg){setMsg("No usable strategy ticket.","yellow");return;}
+  const map={
+    "ADD_NEAR":"ADD",
+    "REDUCE_NEAR":"REDUCE",
+    "HARVEST_NEAR":"REDUCE",
+    "SELL_FAR":"SELL_FAR",
+    "CLOSE_FAR_EMERGENCY":"BUY_BACK_FAR"
+  };
+  const mapped=map[t.action];
+  if(!mapped || t.action==="ROLL_NEAR" || t.action==="CLOSE_CAMPAIGN_EMERGENCY"){
+    setMsg("This ticket is multi-leg or structurally different; enter the manual adjustment explicitly.","yellow");
+    return;
+  }
+  setAction(mapped); $("code").value=leg.code||"";
+  $("qty").value=leg.qty||1; $("price").value=leg.price||0;
+  preview(); setMsg("Strategy template loaded. You may change quantity/price before recording.","green");
+}
+
 function renderStrategy(){
   const s=strategy||{};
   const t=s.action_card||{};
@@ -210,7 +231,7 @@ function renderStrategy(){
   if(t.action){
     html+='<div class="preview"><div><span class="pill">'+esc(t.action)+'</span> <span class="pill">'+esc(t.status)+'</span></div><div style="margin-top:8px;font-weight:700">'+esc(t.ticket_id||"")+'</div><table><tr><th>Code</th><th>Side</th><th>Qty</th><th>Before→Target</th><th>Indicative</th></tr>';
     (t.legs||[]).forEach(l=>html+='<tr><td class="mono">'+esc(l.code)+'</td><td>'+esc(l.side)+'</td><td>'+esc(l.qty)+'</td><td>'+esc(l.before_qty)+' → '+esc(l.target_qty)+'</td><td>'+esc(fmt(l.price))+'</td></tr>');
-    html+='</table></div>';
+    html+='</table><div style="margin-top:10px"><button onclick="useStrategyTicket()">USE TICKET AS MANUAL TEMPLATE</button></div></div>';
   }else html+='<div class="notice">No current primary ticket. Strategy is not asking for a new manual execution at this snapshot.</div>';
   $("strategyTicket").innerHTML=html;
 }
@@ -240,7 +261,7 @@ async function recordTrade(){
   try{
     const j=await jsonFetch("/api/manual",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
     setMsg("Recorded "+j.trade_id+" · realized Δ "+money(j.realized_pnl_delta),"green");
-    $("tradeId").value=""; $("note").value="";
+    $("tradeId").value=""; $("note").value=""; $("tradeTime").value="";
     await loadInstance();
   }catch(e){setMsg(e.message,"yellow");}
 }
