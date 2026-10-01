@@ -181,7 +181,8 @@ def test_cycle_semantics_require_predecision_before_decision_and_finalize_last()
         )
         ledger.append(
             "DECISION_EMITTED",cycle_id="C1",
-            timestamp_utc="2026-10-01T00:00:02+00:00",payload={},
+            timestamp_utc="2026-10-01T00:00:02+00:00",
+            payload={"candidate_actions":[],"primary":None},
         )
         ledger.append(
             "CYCLE_FINALIZED",cycle_id="C1",
@@ -204,7 +205,7 @@ def test_cycle_semantics_require_predecision_before_decision_and_finalize_last()
             "evidence_grade":"PROSPECTIVE_OBSERVED",
             "identity":{},
             "previous_hash":bad.last()["record_hash"],
-            "payload":{},
+            "payload":{"candidate_actions":[]},
         }
         row["record_hash"]=sha256_json(row)
         with bad_path.open("a",encoding="utf-8") as fh:
