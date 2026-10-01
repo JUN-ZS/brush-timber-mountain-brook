@@ -682,7 +682,8 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
         }
     if far_candidates:
         p = far_candidates[0]
-        c=cmap.get(p.code); q=quotes.get(p.code,{})
+        p_code = str(p.get("code") if isinstance(p, dict) else p.code)
+        c=cmap.get(p_code); q=quotes.get(p_code,{})
         if c:
             far=Contract(
                 c.code,c.right,c.strike,c.expiry,c.dte,
