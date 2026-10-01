@@ -279,7 +279,10 @@ def cycle(args):
         elif gap_minutes(t, last_cycle) is not None and gap_minutes(t, last_cycle) >= args.backfill_after_minutes:
             history_start = last_cycle
         tr=FutuTradeReader(args.host,args.port,real=not args.simulate).read(history_start=history_start)
-        snap=LiveFutuReader(args.host,args.port).snapshot([p.get("code") for p in tr.get("positions",[]) if p.get("code")])
+        broker_codes=[p.get("code") for p in tr.get("positions",[]) if p.get("code")]
+        manual_codes=[x.get("code") for x in s.get("manual_lots",[]) if x.get("code")]
+        snapshot_codes=sorted(set(str(x) for x in broker_codes+manual_codes if x))
+        snap=LiveFutuReader(args.host,args.port).snapshot(snapshot_codes)
     except Exception as e:
         s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"BROKER_READ","error":repr(e)},source="BROKER_OBSERVED")
         s["last_cycle_at"]=t; save(spath(repo,args.instance_id),s); print(json.dumps({"status":"DATA_GAP","error":repr(e)},ensure_ascii=False,indent=2)); return 2
@@ -396,6 +399,7 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
     pnl_delta,_=manual_apply_trade(lots,action=action,code=code,qty=qty,price=price,lot_size=lot_size,trade_id=trade_id,timestamp=t)
     s["manual_lots"]=lots; s["manual_realized_pnl"]=sf(s.get("manual_realized_pnl"))+sf(pnl_delta)
     s["manual_trade_count"]=si(s.get("manual_trade_count"))+1
+    s["manual_last_mark"]={"unrealized_pnl":None,"status":"STALE_AFTER_MANUAL_TRADE","rows":[],"marked_at_utc":t}
     positions=manual_position_snapshot(lots)
     l.append("MANUAL_TRADE_RECORDED",instance_id=instance_id,cycle_id="MANUAL_"+trade_id,timestamp_utc=t,
              payload={"trade_id":trade_id,"action":action,"code":code,"qty":si(qty),"price":sf(price),
@@ -434,8 +438,8 @@ def instance_summary(repo, instance_id):
         "created_at_utc":m.get("created_at_utc"),
         "manual_book":{
             "realized_pnl":sf(s.get("manual_realized_pnl")),
-            "unrealized_pnl":sf(mark.get("unrealized_pnl")),
-            "total_pnl":sf(s.get("manual_realized_pnl"))+sf(mark.get("unrealized_pnl")),
+            "unrealized_pnl":sf(mark.get("unrealized_pnl")) if mark.get("status")=="OK" else None,
+            "total_pnl":(sf(s.get("manual_realized_pnl"))+sf(mark.get("unrealized_pnl"))) if mark.get("status")=="OK" else None,
             "mark_status":mark.get("status"),
             "trade_count":si(s.get("manual_trade_count")),
             "positions":manual_position_snapshot(s.get("manual_lots",[])),
