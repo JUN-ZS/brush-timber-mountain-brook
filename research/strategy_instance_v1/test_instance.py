@@ -248,6 +248,15 @@ def test_manual_pnl_preview_blocks_over_reduce():
 
 
 
+def test_strategy_cycle_far_observation_does_not_pick_first_ambiguous_short():
+    from .run_instance import instance_far_position
+    positions = [
+        {"code": "US.QQQ261230C00600000", "side": "SHORT", "qty": 10},
+        {"code": "US.QQQ261230C00610000", "side": "SHORT", "qty": 5},
+    ]
+    assert instance_far_position({}, positions) is None
+    assert instance_far_position({"far_code_hint": positions[1]["code"]}, positions)["code"] == positions[1]["code"]
+
 def test_strategy_plan_refuses_ambiguous_far_short_ownership():
     from .run_instance import strategy_plan
     from research.live_hedge_v1.engine import Contract
