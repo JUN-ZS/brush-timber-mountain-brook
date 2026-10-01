@@ -597,6 +597,34 @@ def _consumed_plan_qty(rows, plan_key):
     return consumed
 
 
+def apply_strategy_ownership_close(lots, deal):
+    """Close only already-owned strategy lots; never open a new position.
+    
+    This preserves the actual T0 campaign P&L without claiming that the user
+    intended a discretionary close because of a strategy signal.
+    """
+    code=str(deal.get("code","")).upper()
+    side=str(deal.get("side","")).upper()
+    q=si(deal.get("qty"))
+    px=sf(deal.get("price"))
+    size=max(1,si(deal.get("lot_size")) or 100)
+    if q<=0 or px<=0 or not code:
+        return 0,0.0,"INVALID"
+    if side=="SELL":
+        available=_open_lot_qty(lots,code,"LONG")
+        consume=min(q,available)
+        if consume<=0:
+            return 0,0.0,"NO_MANAGED_LONG"
+        return consume,close_fifo(lots,code,"LONG",consume,px,size)[1],"CLOSE_LONG_OWNERSHIP_DERIVED"
+    if side in {"BUY","BUY_BACK"}:
+        available=_open_lot_qty(lots,code,"SHORT")
+        consume=min(q,available)
+        if consume<=0:
+            return 0,0.0,"NO_MANAGED_SHORT"
+        return consume,close_fifo(lots,code,"SHORT",consume,px,size)[1],"CLOSE_SHORT_OWNERSHIP_DERIVED"
+    return 0,0.0,"SIDE_NOT_CLOSE"
+
+
 def attribute_broker_deal(rows,deal,used_plan_qty=None):
     q=si(deal.get("qty"))
     match=_plan_match_for_deal(rows,deal)
