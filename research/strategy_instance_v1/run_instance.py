@@ -959,6 +959,7 @@ def _cycle_unlocked(args):
     mk["broker_managed_unrealized_pnl"]=broker_managed_mark["unrealized_pnl"]
     mk["broker_managed_signed_market_value"]=broker_managed_mark["signed_market_value"]
     gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
+    pnl_observation_status="OBSERVED_MATCHED" if not mism and mk["status"]=="OK" else "DATA_GAP"
     mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
     # These values are updated only after the read-only strategy observation
     # consumes the prior-state window. They must still exist when observation
@@ -969,7 +970,7 @@ def _cycle_unlocked(args):
     s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
     l.append("MARK_TO_MARKET",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={
         "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],
-        "gross_pnl":gross,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
+        "gross_pnl":gross,"pnl_observation_status":pnl_observation_status,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
     strategy_observation_ok = False
     if args.observe_strategy_plan and snap.get("status")=="OK":
         try:
@@ -1018,9 +1019,12 @@ def _cycle_unlocked(args):
         s["far_delta_abs"] = current_far_delta_abs
     if tr.get("deal_warning"):
         s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"DEAL_FEED","warning":tr["deal_warning"]},source="BROKER_OBSERVED")
+    s["last_pnl_observation_status"]=pnl_observation_status
     s["last_cycle_at"]=t; s["last_history_backfill_at"]=t if history_used else s.get("last_history_backfill_at"); save(spath(repo,args.instance_id),s)
     out={"status":"RECORDED","instance_id":args.instance_id,"cycle_id":cid,"timestamp_utc":t,
-         "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],"gross_pnl":gross,"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"] if mmk["status"]=="OK" else None,"total_pnl":(s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"])) if mmk["status"]=="OK" else None,"trade_count":s["manual_trade_count"],"mark_status":mmk["status"],"positions":manual_position_snapshot(s.get("manual_lots",[]))},
+         "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],"gross_pnl":gross,
+         "pnl_observation_status":pnl_observation_status,
+         "strategy_book_scope":"STRATEGY_ATTRIBUTED_EXECUTIONS_ONLY","manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"] if mmk["status"]=="OK" else None,"total_pnl":(s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"])) if mmk["status"]=="OK" else None,"trade_count":s["manual_trade_count"],"mark_status":mmk["status"],"positions":manual_position_snapshot(s.get("manual_lots",[]))},
          "reconcile":s["last_reconcile"],"history_backfill_used":history_used,"history_start":tr.get("history_start"),"data_gaps_total":s["data_gaps"],"snapshot_sha256":sh,"ledger_head":l.validate()["head_hash"]}
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
@@ -1034,10 +1038,29 @@ def _init_cmd_unlocked(a):
     repo=Path(a.repo_root).resolve()
     try: r=runtime_identity(repo)
     except Exception: r={}
+    locked_id=r.get("strategy_id")
+    locked_version=r.get("strategy_version")
+    locked_engine=r.get("research_engine_commit")
+    locked_hash=r.get("strategy_lock_hash")
+    supplied={"strategy_id":a.strategy_id,"strategy_version":a.strategy_version,
+              "research_engine_commit":a.research_engine_commit,"strategy_lock_hash":a.strategy_lock_hash}
+    if locked_id and a.strategy_id and a.strategy_id!=locked_id:
+        raise SystemExit("INSTANCE_LINEAGE_MISMATCH:strategy_id")
+    if locked_version and a.strategy_version and a.strategy_version!=locked_version:
+        raise SystemExit("INSTANCE_LINEAGE_MISMATCH:strategy_version")
+    if locked_engine and a.research_engine_commit and a.research_engine_commit!=locked_engine:
+        raise SystemExit("INSTANCE_LINEAGE_MISMATCH:research_engine_commit")
+    if locked_hash and a.strategy_lock_hash and a.strategy_lock_hash!=locked_hash:
+        raise SystemExit("INSTANCE_LINEAGE_MISMATCH:strategy_lock_hash")
+    if not locked_id:
+        supplied["strategy_id"]=a.strategy_id
+        supplied["strategy_version"]=a.strategy_version
+        supplied["research_engine_commit"]=a.research_engine_commit
+        supplied["strategy_lock_hash"]=a.strategy_lock_hash
     start=a.start_at_utc or now(); created=now(); ps=[pos_spec(x) for x in a.position]
     m={"schema":MANIFEST_SCHEMA,"schema_version":1,"instance_id":a.instance_id,"created_at_utc":created,"start_at_utc":start,
-       "strategy_id":a.strategy_id or r.get("strategy_id") or "UNSPECIFIED","strategy_version":a.strategy_version or r.get("strategy_version") or "UNSPECIFIED",
-       "research_engine_commit":a.research_engine_commit or r.get("research_engine_commit"),"strategy_lock_hash":a.strategy_lock_hash or r.get("strategy_lock_hash"),
+       "strategy_id":a.strategy_id or locked_id or "UNSPECIFIED","strategy_version":a.strategy_version or locked_version or "UNSPECIFIED",
+       "research_engine_commit":a.research_engine_commit or locked_engine,"strategy_lock_hash":a.strategy_lock_hash or locked_hash,
        "far_dte":120,"far_delta":.08,"near_dte":30,"coverage_mult":1.50,"initial_cash":a.initial_cash,
        "far_code_hint":a.far_code,"initial_positions":ps,"notes":a.note,
        "mutation_rule":"T0 and alpha lineage are immutable; material changes require a new instance."}
@@ -1045,7 +1068,7 @@ def _init_cmd_unlocked(a):
     if d.exists() and any(d.iterdir()): raise SystemExit(f"INSTANCE_ALREADY_EXISTS:{a.instance_id}")
     m["manifest_hash"]=mhash(m); st={"schema":STATE_SCHEMA,"schema_version":1,"instance_id":a.instance_id,"processed_deal_ids":[],
        "lots":init_lots(m),"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,"last_snapshot_hash":None,
-       "last_reconcile":None,"cycle_count":0,"data_gaps":0,
+       "last_reconcile":None,"last_pnl_observation_status":"DATA_GAP","cycle_count":0,"data_gaps":0,
        "gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,
        "strategy_deal_ids":[],"unattributed_deal_ids":[],
        "manual_lots":json.loads(json.dumps(init_lots(m))),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
@@ -1053,7 +1076,7 @@ def _init_cmd_unlocked(a):
     l=InstanceLedger(lpath(repo,a.instance_id),{"instance_id":a.instance_id,"manifest_hash":m["manifest_hash"],"strategy_id":m["strategy_id"],"strategy_version":m["strategy_version"],"research_engine_commit":m["research_engine_commit"]})
     c="INIT_"+created.replace(":","").replace("-","").replace(".","")
     l.append("INSTANCE_CREATED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=created,payload={"economic_t0":start,"manifest_hash":m["manifest_hash"],"note":a.note},source="USER_INITIAL")
-    l.append("INITIAL_STATE_RECORDED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=created,payload={"initial_cash":a.initial_cash,"initial_positions":ps,"economic_t0":start,"observation_t0":created},source="USER_INITIAL")
+    l.append("INITIAL_STATE_RECORDED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=created,payload={"initial_cash":a.initial_cash,"initial_positions":ps,"economic_t0":start,"observation_t0":created,"strategy_lineage":{"strategy_id":m["strategy_id"],"strategy_version":m["strategy_version"],"research_engine_commit":m["research_engine_commit"],"strategy_lock_hash":m["strategy_lock_hash"]}},source="USER_INITIAL")
     print(json.dumps({"status":"INSTANCE_CREATED","instance_id":a.instance_id,"start_at_utc":start,"created_at_utc":created,"manifest_hash":m["manifest_hash"],"path":str(d)},ensure_ascii=False,indent=2)); return 0
 
 def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
@@ -1217,6 +1240,7 @@ def report(a):
              "policy":"only recent pre-decision strategy-plan matches enter strategy P&L; all other broker QQQ executions remain observed but unattributed",
          },
          "realized_pnl_gross":s.get("realized_pnl"),"manual_book":{"realized_pnl":s.get("manual_realized_pnl",0.0),"unrealized_pnl":((s.get("manual_last_mark") or {}).get("unrealized_pnl") if (s.get("manual_last_mark") or {}).get("status")=="OK" else None),"total_pnl":(sf(s.get("manual_realized_pnl"))+sf((s.get("manual_last_mark") or {}).get("unrealized_pnl"))) if (s.get("manual_last_mark") or {}).get("status")=="OK" else None,"trade_count":s.get("manual_trade_count",0),"mark_status":(s.get("manual_last_mark") or {}).get("status"),"positions":manual_position_snapshot(s.get("manual_lots",[]))},
+         "pnl_observation_status":s.get("last_pnl_observation_status"),
          "last_reconcile":s.get("last_reconcile"),"data_gaps_total":s.get("data_gaps"),"open_lots":[x for x in s.get("lots",[]) if x.get("status","OPEN")=="OPEN" and si(x.get("qty"))>0],
          "ledger_head_hash":l.validate()["head_hash"],
          "performance_tape":build_performance_tape(
