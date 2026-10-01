@@ -428,6 +428,21 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(state["last_target_stack"],3)
         self.assertEqual(state["last_risk_score"],3.0)
 
+    def test_candidate_ranking_preserves_raw_order_and_adds_derived_rank(self):
+        from research.live_hedge_v1.campaign import rank_candidates, choose_primary_action
+        candidates=[
+            {"action":"ADD_NEAR","code":"US.QQQ.ADD","qty":1,"price":8.0},
+            {"action":"HARVEST_NEAR","code":"US.QQQ.HARV","qty":1,"price":12.0},
+            {"action":"REPAIR_FAR","code":"US.QQQ.FAR","qty":2,"price":2.0},
+        ]
+        ranked=rank_candidates(candidates)
+        assert [x["candidate_index"] for x in ranked]==[2,1,0]
+        assert [x["decision_rank"] for x in ranked]==[1,2,3]
+        assert choose_primary_action(candidates)==candidates[2]
+        assert candidates[0]["action"]=="ADD_NEAR"
+        assert "decision_rank" not in candidates[0]
+        assert all(len(x["candidate_sha256"])==64 for x in ranked)
+
     def test_action_card_preserves_explicit_roll_leg_semantics(self):
         ticket = {
             "status": "OPEN",
