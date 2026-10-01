@@ -168,6 +168,24 @@ class StateStore:
         state["events_integrity"] = event_integrity
         if state_cache_corrupt:
             state["state_cache_integrity"] = "CORRUPT_RECOVERED_FROM_EVENTS"
+        if event_integrity in {"LEGACY_UNVERIFIED","EMPTY"}:
+            legacy_dynamic_present = any(
+                state.get(key) not in (None, [], {})
+                for key in (
+                    "gamma_history",
+                    "far_delta",
+                    "last_target_stack",
+                    "last_risk_score",
+                )
+            )
+            if legacy_dynamic_present:
+                state["gamma_history"] = []
+                state["gamma_history_schema"] = None
+                state["gamma_history_unit"] = None
+                state["far_delta"] = None
+                state["last_target_stack"] = None
+                state["last_risk_score"] = None
+                state["dynamic_state_source"] = "LEGACY_STATE_CACHE_UNVERIFIED"
         self._recover_from_events(state)
         event_lots = self._replay_strategy_lots(events)
         ticket_events_exist = any(
