@@ -54,7 +54,8 @@ async function load(){
     let h='<div class="grid">';
     h+='<div class="card"><div class="meta">DESK STATUS</div><div class="big">'+esc(s.status)+'</div><div>'+esc(s.instruction)+'</div></div>';
     h+='<div class="card"><div class="meta">CAMPAIGN</div><div><strong>'+esc(c.state||'IDLE')+'</strong></div><div>id='+esc(c.id||'—')+'</div><div>far='+esc(c.far_code||'—')+'</div></div>';
-    h+='<div class="card"><div class="meta">QQQ / RISK</div><div><strong>spot '+n((s.market||{}).spot)+'</strong></div><div>risk='+esc(rs.risk_score??'—')+' · target near='+esc(rs.desired_stack??'—')+'</div><div>active near='+esc((ac.legs||[]).reduce((a,x)=>a+0,0))+'</div></div>';
+    const activeNear=(s.positions||[]).filter(x=>String(x.side).toUpperCase()==='LONG').reduce((a,x)=>a+Number(x.qty||0),0);
+    h+='<div class="card"><div class="meta">QQQ / RISK</div><div><strong>spot '+n((s.market||{}).spot)+'</strong></div><div>risk='+esc(rs.risk_score??'—')+' · target near='+esc(rs.desired_stack??'—')+'</div><div>active near='+esc(activeNear)+'</div></div>';
     h+='<div class="card"><div class="meta">POSITION MARK</div><div class="big">'+esc(usd(pm.unrealized_pnl))+'</div><div>realized = '+esc(String(pm.realized_pnl||'NOT_TRACKED_BY_LIVE_DESK'))+'</div><div>mark status = '+esc(pm.status||'—')+'</div></div>';
     h+='</div>';
     h+=actionCard(ac,s);
