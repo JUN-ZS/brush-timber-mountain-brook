@@ -93,15 +93,28 @@ class InstanceLedger:
 
     def append(self,event_type: str,*,instance_id: str,cycle_id: str,
                timestamp_utc: str,payload: dict[str,Any],source: str="SYSTEM"):
-        if event_type not in EVENT_TYPES: raise InstanceLedgerError(f"UNKNOWN_EVENT:{event_type}")
+        if event_type not in EVENT_TYPES:
+            raise InstanceLedgerError(f"UNKNOWN_EVENT:{event_type}")
         with self._file_lock():
-            v=self._validate_unlocked(); seq=v["records"]+1
-        row={"schema":SCHEMA,"schema_version":1,"event_seq":seq,
-             "event_id":f"IE-{timestamp_utc.replace(':','').replace('-','').replace('.','')}-{seq:06d}",
-             "instance_id":instance_id,"cycle_id":cycle_id,"timestamp_utc":timestamp_utc,
-             "event_type":event_type,"source":source,"identity":self.identity,
-             "previous_hash":v["head_hash"],"payload":payload}
+            v=self._validate_unlocked()
+            seq=v["records"]+1
+            row={
+                "schema":SCHEMA,
+                "schema_version":1,
+                "event_seq":seq,
+                "event_id":f"IE-{timestamp_utc.replace(':','').replace('-','').replace('.','')}-{seq:06d}",
+                "instance_id":instance_id,
+                "cycle_id":cycle_id,
+                "timestamp_utc":timestamp_utc,
+                "event_type":event_type,
+                "source":source,
+                "identity":self.identity,
+                "previous_hash":v["head_hash"],
+                "payload":payload,
+            }
             row["record_hash"]=sha256_json(row)
             with self.path.open("a",encoding="utf-8",newline="\n") as f:
-                f.write(canonical_json(row)+"\n"); f.flush(); os.fsync(f.fileno())
+                f.write(canonical_json(row)+"\n")
+                f.flush()
+                os.fsync(f.fileno())
             return row
