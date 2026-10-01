@@ -19,6 +19,13 @@ jobs:
         run: |
           git status --short
           python --version
+      - name: Compile evidence, live desk and operator console
+        shell: cmd
+        run: |
+          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/evidence_v1').glob('*.py')]"
+          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
+          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/strategy_instance_v1').glob('*.py')]"
+
       - name: Run evidence and instance tests
         shell: cmd
         run: |
