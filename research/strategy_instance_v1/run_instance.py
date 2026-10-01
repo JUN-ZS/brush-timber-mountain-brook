@@ -107,12 +107,15 @@ def save(path,obj):
     path.parent.mkdir(parents=True,exist_ok=True)
     tmp=path.with_suffix(path.suffix+".tmp")
     tmp.write_text(json.dumps(obj,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    with tmp.open("r+b") as fh:
+        fh.flush()
+        os.fsync(fh.fileno())
     tmp.replace(path)
 
 def load(path,default=None):
     if not path.exists(): return {} if default is None else default
     try: return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as e: raise SystemExit(f"INVALID_JSON:{path}") from e
+    except (OSError, json.JSONDecodeError) as e: raise SystemExit(f"INVALID_JSON:{path}") from e
 
 def mhash(m):
     x=dict(m); x.pop("manifest_hash",None); return sha256_json(x)
@@ -220,15 +223,32 @@ def _recover_mutable_state_from_ledger(m, s, l):
 
 
 def load_instance(repo,i):
+    repo=Path(repo).resolve()
     m=load(mpath(repo,i))
     if not m: raise SystemExit(f"UNKNOWN_INSTANCE_ID:{i}")
     if m.get("manifest_hash")!=mhash(m): raise SystemExit("INSTANCE_MANIFEST_TAMPERED_OR_MUTATED")
-    s=load(spath(repo,i),{"schema":STATE_SCHEMA,"schema_version":1,"instance_id":i,
-        "processed_deal_ids":[],"strategy_deal_ids":[],"unattributed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
-        "last_snapshot_hash":None,"gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,"manual_lots":init_lots(m),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None})
     l=InstanceLedger(lpath(repo,i),{"instance_id":i,"manifest_hash":m["manifest_hash"],
        "strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
        "research_engine_commit":m.get("research_engine_commit")})
+    state_defaults={"schema":STATE_SCHEMA,"schema_version":1,"instance_id":i,
+        "processed_deal_ids":[],"strategy_deal_ids":[],"unattributed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
+        "last_snapshot_hash":None,"gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,
+        "manual_lots":init_lots(m),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
+    state_cache_corrupt=False
+    try:
+        raw_state=json.loads(spath(repo,i).read_text(encoding="utf-8")) if spath(repo,i).exists() else state_defaults
+    except (OSError,json.JSONDecodeError):
+        raw_state=state_defaults
+        state_cache_corrupt=True
+    if not isinstance(raw_state,dict):
+        raw_state=state_defaults
+        state_cache_corrupt=True
+    if state_cache_corrupt and not l._rows():
+        raise SystemExit("INSTANCE_STATE_CACHE_CORRUPT_NO_LEDGER")
+    s=json.loads(json.dumps(state_defaults))
+    s.update(raw_state)
+    if state_cache_corrupt:
+        s["state_cache_integrity"]="CORRUPT_RECOVERED_FROM_LEDGER"
     if "manual_lots" not in s or not isinstance(s.get("manual_lots"), list):
         s["manual_lots"]=init_lots(m)
     elif s["manual_lots"] and "avg_price" not in s["manual_lots"][0] and "avg_cost" in s["manual_lots"][0]:
