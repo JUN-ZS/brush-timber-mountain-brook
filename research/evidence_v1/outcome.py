@@ -56,6 +56,15 @@ def _anchor_family_ids(prior, anchor, repo: Path):
         return set()
 
 
+def _assert_anchor_lineage(anchor, runtime):
+    identity = anchor.get("identity") or {}
+    for key in ("strategy_id", "strategy_version", "research_engine_commit", "strategy_lock_hash"):
+        expected = str(runtime.get(key) or "")
+        observed = str(identity.get(key) or "")
+        if not expected or observed != expected:
+            raise SystemExit(f"OUTCOME_ANCHOR_LINEAGE_MISMATCH:{key}")
+
+
 def _parse_utc(value: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
@@ -106,9 +115,10 @@ def main() -> int:
             raise SystemExit("HORIZON_TRADING_DAYS_REQUIRED_WHEN_BENCHMARK_RETURN_SUPPLIED")
 
     repo = args.repo_root.resolve()
+    runtime = runtime_identity(repo)
     ledger = EvidenceLedger(
         repo / "research/evidence_v1/evidence.jsonl",
-        identity=runtime_identity(repo),
+        identity=runtime,
     )
     prior = ledger.rows()
     matching = [r for r in prior if r.get("campaign_id") == args.campaign_id]
@@ -122,6 +132,7 @@ def main() -> int:
         raise SystemExit(
             f"INVALID_OUTCOME_ANCHOR:{args.anchor_evidence_id}; anchor must belong to campaign {args.campaign_id}"
         )
+    _assert_anchor_lineage(anchor, runtime)
     anchor_type = str(anchor.get("event_type") or "").upper()
     if anchor_type not in ANCHOR_EVENT_TYPES:
         raise SystemExit(
