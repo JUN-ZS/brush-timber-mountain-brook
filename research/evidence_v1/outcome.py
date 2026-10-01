@@ -10,6 +10,8 @@ from .ledger import EvidenceLedger
 
 
 ANCHOR_EVENT_TYPES = {"PRE_DECISION_OBSERVATION", "DECISION_EMITTED", "CYCLE_FINALIZED"}
+OUTCOME_SOURCES = {"BROKER_RECONCILED", "USER_REPORTED", "EXTERNAL_RESEARCH" }
+BROKER_OUTCOME_ANCHOR_TYPES = {"EXECUTION_OBSERVED", "CYCLE_FINALIZED"}
 
 
 def now_utc() -> str:
@@ -48,7 +50,12 @@ def main() -> int:
     ap.add_argument("--max-drawdown", type=float, default=None)
     ap.add_argument("--mfe", type=float, default=None)
     ap.add_argument("--mae", type=float, default=None)
-    ap.add_argument("--outcome-source", default="BROKER_RECONCILED")
+    ap.add_argument("--outcome-source", choices=sorted(OUTCOME_SOURCES), default="USER_REPORTED")
+    ap.add_argument(
+        "--source-evidence-id",
+        default=None,
+        help="Evidence row supporting the declared outcome source; required for BROKER_RECONCILED.",
+    )
     ap.add_argument("--note", default="")
     args = ap.parse_args()
 
@@ -74,6 +81,24 @@ def main() -> int:
         raise SystemExit(
             f"INVALID_OUTCOME_ANCHOR_TYPE:{anchor_type}; anchor must be PRE_DECISION_OBSERVATION, DECISION_EMITTED, or CYCLE_FINALIZED"
         )
+
+    source_evidence = None
+    if args.source_evidence_id:
+        source_evidence = next(
+            (r for r in matching if r.get("evidence_id") == args.source_evidence_id),
+            None,
+        )
+        if source_evidence is None:
+            raise SystemExit(
+                f"INVALID_SOURCE_EVIDENCE_ID:{args.source_evidence_id}; source evidence must belong to campaign {args.campaign_id}"
+            )
+        source_type = str(source_evidence.get("event_type") or "").upper()
+        if args.outcome_source == "BROKER_RECONCILED" and source_type not in BROKER_OUTCOME_ANCHOR_TYPES:
+            raise SystemExit(
+                f"INVALID_BROKER_SOURCE_EVIDENCE_TYPE:{source_type}; expected EXECUTION_OBSERVED or CYCLE_FINALIZED"
+            )
+    elif args.outcome_source == "BROKER_RECONCILED":
+        raise SystemExit("BROKER_RECONCILED_REQUIRES_SOURCE_EVIDENCE_ID")
 
     outcome_rows = [r for r in matching if r.get("event_type") == "OUTCOME_RESOLVED"]
     current_outcomes = []
@@ -128,11 +153,19 @@ def main() -> int:
             "mfe": args.mfe,
             "mae": args.mae,
             "outcome_source": args.outcome_source,
+            "source_evidence_id": args.source_evidence_id,
+            "source_evidence_event_type": source_evidence.get("event_type") if source_evidence else None,
             "note": args.note,
             "label": "OBSERVED_FORWARD_OUTCOME_NOT_PROBABILITY",
             "non_retroactive": True
         },
-        evidence_grade="BROKER_OBSERVED" if "BROKER" in args.outcome_source else "PROSPECTIVE_OUTCOME",
+        evidence_grade=(
+            "BROKER_OBSERVED"
+            if args.outcome_source == "BROKER_RECONCILED"
+            else "USER_REPORTED"
+            if args.outcome_source == "USER_REPORTED"
+            else "EXTERNAL_RESEARCH"
+        ),
     )
     print(json.dumps({
         "status": "APPENDED",
