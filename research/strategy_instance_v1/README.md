@@ -132,7 +132,7 @@ LOCKED STRATEGY -> candidate/ticket -> BROKER OBSERVED P&L
 YOUR ADJUSTMENT -> USER_MANUAL trade -> MANUAL BOOK P&L
 ```
 
-A manual trade also stores the strategy ticket visible at that moment, so later analysis can distinguish following the strategy from changing size or acting independently.
+A manual trade can store the global locked-desk ticket explicitly selected by the operator for the current instance. The stored `OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE` context is an operator-selected reference, not broker evidence and not proof that the trade was caused by the strategy.
 
 ### Performance tape semantics
 
