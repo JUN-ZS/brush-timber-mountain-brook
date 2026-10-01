@@ -142,11 +142,19 @@ def _recover_mutable_state_from_ledger(m, s, l):
 
         if et=="EXECUTION_DETECTED":
             deal_status=str(deal.get("attribution_status") or "").upper()
-            if deal_status=="MATCHED_PREDECISION_PLAN" and did not in strategy_ids:
-                strategy_ids.append(did)
-                realized += apply_deal(broker_lots, deal)
-            elif deal_status!="MATCHED_PREDECISION_PLAN" and did not in unattributed_ids:
-                # Legacy execution rows were created before attribution was fenced.
+            attribution=(row.get("payload") or {}).get("attribution") or {}
+            match=attribution.get("match") if isinstance(attribution,dict) else None
+            if deal_status=="MATCHED_PREDECISION_PLAN" and did not in strategy_ids and isinstance(match,dict):
+                consumed,delta,_=apply_strategy_attributed_deal(broker_lots,deal,match)
+                if consumed==si(deal.get("qty")):
+                    strategy_ids.append(did)
+                    realized += delta
+                elif did not in unattributed_ids:
+                    # Immutable history exists, but the replay state cannot reproduce
+                    # the recorded application safely; do not invent a new position.
+                    unattributed_ids.append(did)
+            elif did not in unattributed_ids:
+                # Legacy or incomplete execution rows are quarantined.
                 # Never silently promote them into the new strategy P&L lineage.
                 unattributed_ids.append(did)
         else:
