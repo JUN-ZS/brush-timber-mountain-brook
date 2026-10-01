@@ -113,7 +113,7 @@ def _evidence_deals(items):
 def _ticket_baseline_positions(current_positions):
     # A newly issued ticket freezes the account as seen at issuance.
     # Never reuse the previous cycle snapshot as the new ticket baseline.
-    return position_snapshot(current_positions)
+    return position_snapshot(_position_dicts(current_positions))
 
 
 def _format_price(v):
