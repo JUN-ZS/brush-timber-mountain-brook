@@ -628,7 +628,7 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
             q.get("delta"),q.get("gamma")))
     os=[Order(str(o.get("order_id","")),str(o.get("code","")),str(o.get("side","")).upper(),si(o.get("qty")),o.get("price"),
               str(o.get("status","")).upper(),str(o.get("updated_at","")),str(o.get("created_at","")),si(o.get("dealt_qty")),o.get("dealt_avg_price")) for o in orders]
-    shorts=[p for p in pos if p.side=="SHORT" and str(p.code).upper().startswith("US.QQQ")]
+    shorts=[p for p in pos if p.side=="SHORT" and is_qqq_option_code(p.code)]
     active=bool(shorts)
     far=None
     hinted_far = instance_far_position(
@@ -709,7 +709,7 @@ def _cycle_unlocked(args):
     for d in tr.get("deals",[]):
         did=str(d.get("deal_id","") or "")
         if not did or did in seen or not after(d.get("created_at"),m["created_at_utc"]): continue
-        if str(d.get("code","")).upper().startswith("US.QQQ"):
+        if is_qqq_option_code(d.get("code","")):
             d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100; new.append(d)
     realized_delta=0.0
     prior_rows=l._rows()
