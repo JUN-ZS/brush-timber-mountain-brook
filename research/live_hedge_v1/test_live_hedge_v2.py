@@ -222,6 +222,29 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(peak[0], 1)
 
 
+    def test_concurrent_live_event_emits_preserve_hash_chain():
+        import tempfile
+        import threading
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            events=Path(td)/"events.jsonl"
+            store=StateStore(Path(td)/"state.json",events)
+            errors=[]
+            def worker(i):
+                try:
+                    store.emit({}, "TEST_EVENT", now=f"2026-10-01T21:00:{i:02d}+00:00", payload={"i":i})
+                except Exception as exc:
+                    errors.append(exc)
+            threads=[threading.Thread(target=worker,args=(i,)) for i in range(20)]
+            for t in threads: t.start()
+            for t in threads: t.join()
+            self.assertFalse(errors)
+            checked=store.validate_events()
+            self.assertEqual(checked["status"],"PASS")
+            self.assertEqual(checked["integrity"],"HASHED")
+            self.assertEqual(checked["records"],20)
+
     def test_corrupt_live_event_tail_blocks_mutation(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
