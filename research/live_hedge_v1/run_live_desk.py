@@ -169,9 +169,11 @@ def _publish_live_output(out_path, output):
 
 
 def _persist_dynamic_state_observation(state, plan_output, far, market):
-    """Persist dynamic inputs only when the strategy actually accepted the observation."""
+    """Persist dynamic inputs only after a non-blocked strategy observation."""
     if str((plan_output or {}).get("status", "")).upper().startswith("BLOCKED"):
-        return False
+        return {"accepted": False, "reason": "PLAN_BLOCKED"}
+
+    target_change = None
     if far is not None:
         state["far_code"] = far.code
         if far.delta is not None:
@@ -188,18 +190,16 @@ def _persist_dynamic_state_observation(state, plan_output, far, market):
         new_risk = risk_state_value.get("risk_score")
         old_target = state.get("last_target_stack")
         if old_target is not None and new_target != old_target:
-            return {
-                "accepted": True,
-                "target_changed": True,
+            target_change = {
                 "from": old_target,
                 "to": new_target,
                 "risk_score": new_risk,
             }
         state["last_target_stack"] = new_target
         state["last_risk_score"] = new_risk
-        campaign = state.setdefault("campaign", {})
-        campaign["target_stack"] = new_target
-    return True
+        state.setdefault("campaign", {})["target_stack"] = new_target
+
+    return {"accepted": True, "target_change": target_change}
 
 
 def _format_price(v):
@@ -1171,37 +1171,16 @@ def _main_cycle(args, out_path):
             },
         )
 
-    observation_accepted = not str(p.get("status", "")).upper().startswith("BLOCKED")
-    if observation_accepted and far:
-        state["far_code"] = far.code
-        if far.delta is not None:
-            state["far_delta"] = abs(float(far.delta))
-        if far.gamma is not None and market.get("spot") is not None:
-            hist = state.setdefault("gamma_history", [])
-            # Store gamma_spot = abs(gamma)*spot (research parity), not raw abs(gamma).
-            hist.append(abs(float(far.gamma)) * float(market["spot"]))
-            state["gamma_history"] = hist[-20:]
-            state["gamma_history_schema"] = GAMMA_HISTORY_SCHEMA
-            state["gamma_history_unit"] = GAMMA_HISTORY_UNIT
-
-    if observation_accepted and p.get("risk_state"):
-        new_target = p["risk_state"].get("desired_stack")
-        new_risk = p["risk_state"].get("risk_score")
-        old_target = state.get("last_target_stack")
-        if old_target is not None and new_target != old_target:
-            store.emit(
-                state,
-                "TARGET_STACK_CHANGE",
-                now=now,
-                payload={
-                    "from": old_target,
-                    "to": new_target,
-                    "risk_score": new_risk,
-                },
-            )
-        state["last_target_stack"] = new_target
-        state["last_risk_score"] = new_risk
-        campaign["target_stack"] = new_target
+    dynamic_observation = _persist_dynamic_state_observation(
+        state, p, far, market
+    )
+    if dynamic_observation["accepted"] and dynamic_observation.get("target_change"):
+        store.emit(
+            state,
+            "TARGET_STACK_CHANGE",
+            now=now,
+            payload=dynamic_observation["target_change"],
+        )
 
     store.record_position_snapshot(state, positions)
     state.pop("_now", None)
