@@ -253,6 +253,13 @@ def test_outcome_correction_cannot_relabel_anchor_or_family():
     from research.evidence_v1.snapshot import write_snapshot
     with tempfile.TemporaryDirectory() as td:
         root=Path(td)
+        lock=root/"research/evidence_v1/STRATEGY_LOCK.json"
+        lock.parent.mkdir(parents=True)
+        lock.write_text(json.dumps({
+            "strategy_id":"TEST","strategy_version":"V1",
+            "selection_cutoff":"2025-12-15","research_engine_commit":"TEST",
+            "evidence_policy":{},
+        }),encoding="utf-8")
         snap_ref=write_snapshot(
             root,"C1",
             {"cycle_id":"C1","campaign_id":"CAMP1",
@@ -296,6 +303,13 @@ def test_outcome_rejects_unobserved_family_relabeling():
     from research.evidence_v1.snapshot import write_snapshot
     with tempfile.TemporaryDirectory() as td:
         root=Path(td)
+        lock=root/"research/evidence_v1/STRATEGY_LOCK.json"
+        lock.parent.mkdir(parents=True)
+        lock.write_text(json.dumps({
+            "strategy_id":"TEST","strategy_version":"V1",
+            "selection_cutoff":"2025-12-15","research_engine_commit":"TEST",
+            "evidence_policy":{},
+        }),encoding="utf-8")
         snap_ref=write_snapshot(
             root,"C1",
             {"cycle_id":"C1","campaign_id":"CAMP1",
