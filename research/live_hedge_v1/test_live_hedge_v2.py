@@ -46,6 +46,20 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(parsed.hour, 21)
         self.assertTrue(_is_after("2026-10-01 17:00:00", "2026-10-01T18:00:00+00:00"))
 
+    def test_partial_futu_connection_is_blocked_before_market_read(self):
+        from research.live_hedge_v1.futu_reader import LiveFutuReader
+        reader=object.__new__(LiveFutuReader)
+        class FakeAdapter:
+            def connect(self):
+                return {"status":"PARTIAL","reason":"qot_logined=False"}
+            def disconnect(self):
+                raise AssertionError("disconnect should not be needed before snapshot read")
+        reader.a=FakeAdapter()
+        out=reader.snapshot()
+        self.assertEqual(out["status"],"BLOCKED")
+        self.assertEqual(out["reason"],"FUTU_CONNECTION_NOT_READY")
+        self.assertEqual(out["connection"]["status"],"PARTIAL")
+
     def test_invalid_broker_timestamp_disables_signal(self):
         # Structural contract: an untrusted source timestamp cannot produce a genuine signal.
         from research.live_hedge_v1 import futu_reader
