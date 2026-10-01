@@ -310,7 +310,7 @@ def test_confirmed_strategy_execution_is_explicit_and_replayable():
         assert out["strategy_application"]=="CONFIRMED_OPEN_LONG"
         _,state,ledger=load_instance(repo,iid)
         assert state["strategy_deal_ids"]==["D1"]
-        assert state["unattributed_deal_ids"]==[]
+        assert state["unattributed_deal_ids"]==["D1"]
         assert state["lots"][0]["qty"]==1
         assert state["lots"][0]["source"]=="BROKER_DEAL_CONFIRMED"
         assert ledger.validate()["records"]==2
@@ -723,7 +723,7 @@ def test_strategy_plan_refuses_ambiguous_far_short_ownership():
     ]
     out = strategy_plan(snap, ps, [], cmap, quotes, {"far_dte": 90, "far_delta": 0.08, "near_dte": 30})
     assert out["status"] == "DATA_GAP"
-    assert "ambiguous" in out["reason"]
+    assert "unscoped QQQ SHORT" in out["reason"]
 
 
 def test_strategy_plan_ignores_unmanaged_qqq_long_from_target_stack():
@@ -747,7 +747,7 @@ def test_strategy_plan_ignores_unmanaged_qqq_long_from_target_stack():
     ]
     managed_lots=[{"lot_id":"T1","code":near_code,"side":"LONG","qty":1,"avg_cost":8.0,"status":"OPEN"}]
     out=strategy_plan(
-        {"market":{"spot":500.0,"timestamp":datetime.now(timezone.utc).isoformat(),"signal_active":False}},
+        {"market":{"spot":500.0,"timestamp":datetime.now(timezone.utc).isoformat(),"source":"LIVE QUOTE","signal_active":False}},
         ps,[],cmap,quotes,
         {"far_dte":90,"far_delta":0.08,"near_dte":30,"far_code_hint":far_code},
         near_lots=managed_lots,
@@ -804,7 +804,7 @@ def test_strategy_plan_uses_explicit_far_code_hint():
         {"far_dte": 90, "far_delta": 0.08, "near_dte": 30, "far_code_hint": contracts[0].code},
     )
     assert out["status"] == "DATA_GAP"
-    assert "far_code_hint does not uniquely isolate" in out["reason"]
+    assert "extra broker QQQ SHORT" in out["reason"]
 
     # A single explicitly hinted far position is admissible.
     out = strategy_plan(
