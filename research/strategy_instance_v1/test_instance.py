@@ -44,6 +44,67 @@ def test_unrelated_broker_qqq_execution_is_not_strategy_attributed():
     assert [(x["code"],x["qty"]) for x in owned] == [("US.QQQ261030C00500000",1)]
 
 
+def test_strategy_attributed_buy_can_close_short_without_creating_long():
+    from .run_instance import apply_strategy_attributed_deal
+
+    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"SHORT","qty":2,"avg_price":7.0,"lot_size":100,"status":"OPEN"}]
+    match={
+        "action":"CLOSE_CAMPAIGN_EMERGENCY",
+        "candidate":{"code":"US.QQQ.TEST","side":"BUY","qty":1},
+    }
+    deal={"deal_id":"D-COVER","code":"US.QQQ.TEST","side":"BUY","qty":1,"price":4.0,"lot_size":100}
+    consumed,pnl,application=apply_strategy_attributed_deal(lots,deal,match)
+    assert consumed==1
+    assert pnl==300.0
+    assert application=="CLOSE_SHORT"
+    assert sum(x["qty"] for x in lots if x["side"]=="SHORT" and x["status"]=="OPEN")==1
+    assert not any(x["side"]=="LONG" and x["status"]=="OPEN" for x in lots)
+
+
+def test_legacy_execution_without_attribution_is_not_replayed_into_strategy_book():
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td)
+        instance_id="I-LEGACY"
+        manifest={
+            "schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+            "instance_id":instance_id,
+            "created_at_utc":"2026-10-01T00:00:00+00:00",
+            "start_at_utc":"2026-10-01T00:00:00+00:00",
+            "strategy_id":"TEST","strategy_version":"V1",
+            "initial_positions":[],
+        }
+        manifest["manifest_hash"]=mhash(manifest)
+        save(mpath(repo,instance_id),manifest)
+        stale={
+            "schema":"STRATEGY_INSTANCE_STATE.v1","schema_version":1,
+            "instance_id":instance_id,"processed_deal_ids":[],
+            "lots":[],"realized_pnl":0.0,"last_cycle_at":None,
+            "last_history_backfill_at":None,"last_snapshot_hash":None,
+            "last_reconcile":None,"cycle_count":0,"data_gaps":0,
+            "manual_lots":[],"manual_realized_pnl":0.0,
+            "manual_trade_count":0,"manual_last_mark":None,
+        }
+        save(spath(repo,instance_id),stale)
+        ledger=InstanceLedger(
+            repo/"research/strategy_instance_v1/instances"/instance_id/"ledger.jsonl",
+            {"instance_id":instance_id,"manifest_hash":manifest["manifest_hash"],
+             "strategy_id":"TEST","strategy_version":"V1"},
+        )
+        ledger.append(
+            "EXECUTION_DETECTED",instance_id=instance_id,cycle_id="C1",
+            timestamp_utc="2026-10-01T00:01:00+00:00",
+            payload={"deal":{
+                "deal_id":"OLD","code":"US.QQQ.TEST","side":"BUY",
+                "qty":1,"price":2.0,"lot_size":100,
+                "created_at":"2026-10-01T00:01:00+00:00",
+            }},
+        )
+        _,state,_=load_instance(repo,instance_id)
+        assert state["realized_pnl"]==0.0
+        assert state["lots"]==[]
+        assert state["unattributed_deal_ids"]==["OLD"]
+
+
 def test_strategy_plan_attribution_is_bounded_and_cannot_reuse_quantity():
     from .run_instance import attribute_broker_deal
 
