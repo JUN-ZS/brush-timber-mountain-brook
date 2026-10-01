@@ -45,6 +45,18 @@ def test_instance_contract_map_preserves_volume():
     })
     assert cmap["US.QQQ.TEST"].volume == 1234
 
+
+
+
+def test_strategy_plan_receives_persisted_dynamic_state_inputs():
+    from .run_instance import gamma_state_for_instance
+    state = {"gamma_history": [10.0, 11.0, 12.0, 13.0, 14.0], "far_delta_abs": 0.08}
+    hist, baseline, prev = gamma_state_for_instance(state, None, 500.0)
+    assert hist == [10.0, 11.0, 12.0, 13.0, 14.0]
+    assert baseline == 12.0
+    assert prev == 0.08
+
+
 def test_hash_chain():
     with tempfile.TemporaryDirectory() as td:
         p=Path(td)/"ledger.jsonl"; l=InstanceLedger(p,{"instance_id":"I"})
