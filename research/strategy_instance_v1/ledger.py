@@ -75,10 +75,20 @@ class InstanceLedger:
             return self._rows_unlocked()
 
     def _validate_unlocked(self):
-        prev=GENESIS; rows=self._rows_unlocked()
+        prev=GENESIS; rows=self._rows_unlocked(); previous_time=None
+        from datetime import datetime, timezone
         for i,row in enumerate(rows,1):
             if row.get("schema") != SCHEMA: raise InstanceLedgerError(f"BAD_SCHEMA:{i}")
             if int(row.get("event_seq",-1)) != i: raise InstanceLedgerError(f"BAD_SEQUENCE:{i}")
+            try:
+                parsed=datetime.fromisoformat(str(row.get("timestamp_utc","")).replace("Z","+00:00"))
+            except (TypeError,ValueError) as exc:
+                raise InstanceLedgerError(f"BAD_TIMESTAMP:{i}") from exc
+            if parsed.tzinfo is None: raise InstanceLedgerError(f"NAIVE_TIMESTAMP:{i}")
+            parsed=parsed.astimezone(timezone.utc)
+            if previous_time is not None and parsed < previous_time:
+                raise InstanceLedgerError(f"TIMESTAMP_REGRESSION:{i}")
+            previous_time=parsed
             if row.get("previous_hash") != prev: raise InstanceLedgerError(f"CHAIN_BREAK:{i}")
             rh=row.get("record_hash")
             if not rh: raise InstanceLedgerError(f"MISSING_HASH:{i}")
