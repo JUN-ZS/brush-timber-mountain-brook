@@ -498,7 +498,7 @@ def reconcile_ticket(
             "ticket": ticket,
         }
 
-    if all_reached:
+    if all_reached and evidence_complete:
         ticket["status"] = "FILLED"
         ticket["filled_at"] = state.get("_now") or utc_now()
         events.append({
@@ -512,14 +512,21 @@ def reconcile_ticket(
             "filled": True,
             "partial": False,
             "superseded": False,
-            "broker_execution_complete": evidence_complete,
+            "broker_execution_complete": True,
             "evidence_by_leg": evidence_by_leg,
             "events": events,
             "ticket": ticket,
         }
 
-    if any_progress:
+    if any_progress or all_reached:
         ticket["status"] = "PARTIAL"
+        if all_reached and not evidence_complete:
+            events.append({
+                "type": "TICKET_WAITING_EXECUTION_EVIDENCE",
+                "ticket_id": ticket["ticket_id"],
+                "reason": "position target reached but broker execution evidence is incomplete",
+                "evidence_by_leg": evidence_by_leg,
+            })
         events.append({
             "type": "TICKET_PARTIAL_PROGRESS",
             "ticket_id": ticket["ticket_id"],
@@ -532,7 +539,7 @@ def reconcile_ticket(
         "filled": False,
         "partial": any_progress,
         "superseded": False,
-        "broker_execution_complete": evidence_complete and bool(ticket.get("fill")),
+        "broker_execution_complete": evidence_complete,
         "evidence_by_leg": evidence_by_leg,
         "events": events,
         "ticket": ticket,
