@@ -358,6 +358,9 @@ def manual_cmd(a):
         raise SystemExit("MANUAL_CODE_MUST_BE_QQQ_OPTION")
     a.code=code
     trade_id=a.trade_id or ("MANUAL_"+t.replace(":","").replace("-","").replace(".","").replace("+00:00","Z"))
+    existing_manual_ids={str(r.get("payload",{}).get("trade_id")) for r in l._rows() if r.get("event_type")=="MANUAL_TRADE_RECORDED"}
+    if trade_id in existing_manual_ids:
+        raise SystemExit(f"MANUAL_TRADE_ID_EXISTS:{trade_id}")
     lots=json.loads(json.dumps(s.get("manual_lots",[])))
     pnl_delta,_=manual_apply_trade(
         lots,
