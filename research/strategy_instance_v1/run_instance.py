@@ -514,7 +514,7 @@ def reconcile(lots,ps):
     ]
 
 
-def pnl_observation_status(mismatches, mark_status):
+def derive_pnl_observation_status(mismatches, mark_status):
     if mismatches:
         return "DATA_GAP"
     status=str(mark_status or "").upper()
@@ -987,7 +987,7 @@ def _cycle_unlocked(args):
     mk["broker_managed_unrealized_pnl"]=broker_managed_mark["unrealized_pnl"]
     mk["broker_managed_signed_market_value"]=broker_managed_mark["signed_market_value"]
     gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
-    pnl_observation_status=pnl_observation_status(mism,mk["status"])
+    pnl_observation_status=derive_pnl_observation_status(mism,mk["status"])
     mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
     # These values are updated only after the read-only strategy observation
     # consumes the prior-state window. They must still exist when observation
