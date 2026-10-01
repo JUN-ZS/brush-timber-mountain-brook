@@ -270,29 +270,29 @@ class StateStore:
                 if latest_ticket is not None:
                     evidence = payload.get("broker_execution_evidence") or {}
                     fills = []
-                    for row in evidence.values():
-                        if not isinstance(row, dict):
+                    for key, row in evidence.items():
+                        if not isinstance(row, dict) or ":" not in str(key):
                             continue
                         qty = int(float(row.get("evidence_qty") or 0))
                         if qty <= 0:
                             continue
-                        key = str(row.get("side") or "") + ":" + str(row.get("code") or "").upper()
-                        side, code = key.split(":", 1) if ":" in key else ("", "")
-                        if side and code:
-                            fills.append({
-                                "code": code,
-                                "side": side,
-                                "expected_side": next(
-                                    (
-                                        leg.get("expected_side")
-                                        for leg in latest_ticket.get("legs", []) or []
-                                        if str(leg.get("code") or "").upper() == code
-                                        and str(leg.get("side") or "").upper() == side
-                                    ),
-                                    None,
+                        side, code = str(key).split(":", 1)
+                        side = side.upper()
+                        code = code.upper()
+                        fills.append({
+                            "code": code,
+                            "side": side,
+                            "expected_side": next(
+                                (
+                                    leg.get("expected_side")
+                                    for leg in latest_ticket.get("legs", []) or []
+                                    if str(leg.get("code") or "").upper() == code
+                                    and str(leg.get("side") or "").upper() == side
                                 ),
-                                "qty": qty,
-                            })
+                                None,
+                            ),
+                            "qty": qty,
+                        })
                     self._apply_far_execution_evidence(campaign, latest_ticket, fills)
 
             elif et == "TICKET_FILLED":
