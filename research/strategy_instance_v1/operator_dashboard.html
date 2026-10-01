@@ -86,8 +86,10 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
       </div>
       <div class="grid3">
         <div class="field"><label>Lot Size</label><input id="lotSize" class="num" type="number" min="1" step="1" value="100"></div>
+        <div class="field"><label>Execution Time (optional)</label><input id="tradeTime" type="datetime-local"></div>
         <div class="field"><label>Trade ID (optional)</label><input id="tradeId" placeholder="auto-generated"></div>
-        <div class="field"><label>Note</label><input id="note" placeholder="why I changed size"></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Note</label><input id="note" placeholder="why I changed size">
       </div>
       <div class="preview" style="margin-top:12px">
         <div class="label">Preview Before Commit</div>
@@ -227,7 +229,8 @@ async function preview(){
 ["code","qty","price","lotSize"].forEach(id=>$(id).addEventListener("input",preview));
 
 async function recordTrade(){
-  const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value};
+  const localTime=$("tradeTime").value;
+  const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null};
   if(!payload.instance_id||!payload.code||payload.qty<1||payload.price<=0){setMsg("Please enter instance, QQQ option code, quantity and positive price.","yellow");return;}
   if((action==="REDUCE"||action==="BUY_BACK_FAR")) {
     const p=state?.manual_book?.positions?.find(x=>x.code===payload.code&&((action==="REDUCE"&&x.side==="LONG")||(action==="BUY_BACK_FAR"&&x.side==="SHORT")));
