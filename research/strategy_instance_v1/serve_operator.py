@@ -33,6 +33,8 @@ def explicit_strategy_context(body):
         return {}
     if str(raw.get("instance_id","")).strip() != instance_id:
         return {}
+    if str(raw.get("context_source") or "") != "OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE":
+        return {}
     leg=raw.get("leg")
     if not isinstance(leg,dict) or not str(leg.get("code","")).strip():
         return {}
@@ -50,7 +52,7 @@ def explicit_strategy_context(body):
         "target_qty":leg.get("target_qty"),
         "price":leg.get("price"),
         "captured_at_utc":raw.get("captured_at_utc"),
-        "context_source":"OPERATOR_SELECTED_TICKET_SNAPSHOT",
+        "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
     }
 
 
