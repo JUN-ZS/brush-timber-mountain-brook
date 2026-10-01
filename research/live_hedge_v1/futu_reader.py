@@ -40,6 +40,18 @@ def _enrich_contracts_with_quotes(contracts, quote_objects):
     return out
 
 
+def _source_age_sec(quote, now=None):
+    now = now or datetime.now(timezone.utc)
+    extra = getattr(quote, "extra", {}) or {}
+    ts = extra.get("update_timestamp")
+    try:
+        if ts is None:
+            return None
+        return max(0.0, now.timestamp() - float(ts))
+    except (TypeError, ValueError):
+        return None
+
+
 def _compute_signal(last, history):
     dates = [x[0] for x in history]
     closes = [x[1] for x in history]
@@ -127,7 +139,8 @@ class LiveFutuReader:
         conn=self.connect()
         if conn.get("status") not in {"PASS","PARTIAL"}:return {"status":"BLOCKED","connection":conn}
         try:
-            q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc).isoformat()
+            q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc)
+            source_age = _source_age_sec(q, collected_at)
             order=sorted(zip(hist.get("dates") or [],hist.get("closes") or []),key=lambda z:z[0])
             signal=_compute_signal(q.last, order)
             cs=self.contracts()
@@ -140,8 +153,9 @@ class LiveFutuReader:
             quotes={x.code:x.to_dict() for x in quote_objects}
             live_contracts = _enrich_contracts_with_quotes(cs, quote_objects)
             return {"status":"OK","connection":conn,
-                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":collected_at,"source_timestamp":q.timestamp,"source":q.source,
+                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":collected_at.isoformat(),"source_timestamp":q.timestamp,"source":q.source,
                           "signal_active":signal["active"],"signal_status":signal["status"],
+                          "source_age_sec":source_age,
                           "ratio52":signal["ratio52"],"ext200":signal["ext200"],
                           "history_source":hist.get("source"),
                           "history_reference_count":signal["reference_count"],
