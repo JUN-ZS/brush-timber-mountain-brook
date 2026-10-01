@@ -50,12 +50,23 @@ def test_instance_contract_map_preserves_volume():
 
 def test_strategy_plan_receives_persisted_dynamic_state_inputs():
     from .run_instance import gamma_state_for_instance
-    state = {"gamma_history": [10.0, 11.0, 12.0, 13.0, 14.0], "far_delta_abs": 0.08}
+    state = {"gamma_history": [10.0, 11.0, 12.0, 13.0, 14.0], "gamma_history_schema": 2, "gamma_history_unit": "gamma_spot", "far_delta_abs": 0.08}
     hist, baseline, prev = gamma_state_for_instance(state, None, 500.0)
     assert hist == [10.0, 11.0, 12.0, 13.0, 14.0]
     assert baseline == 12.0
     assert prev == 0.08
 
+
+
+def test_gamma_state_resets_unmarked_legacy_history():
+    from .run_instance import gamma_state_for_instance
+    state = {"gamma_history": [0.01, 0.012, 0.011, 0.015, 0.02], "far_delta_abs": 0.08}
+    hist, baseline, prev = gamma_state_for_instance(state, None, 500.0)
+    assert hist == []
+    assert baseline is None
+    assert prev == 0.08
+    assert state["gamma_history_schema"] == 2
+    assert state["gamma_history_unit"] == "gamma_spot"
 
 def test_hash_chain():
     with tempfile.TemporaryDirectory() as td:
