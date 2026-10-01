@@ -988,7 +988,7 @@ def _cycle_unlocked(args):
                          "primary_candidate":primary_candidate,
                          "attribution_basis":"PRIMARY_CANDIDATE_ONLY",
                      },source="SYSTEM")
-            strategy_observation_ok = True
+            strategy_observation_ok = str(sp.get("status", "")).upper() in {"ACTIONABLE", "HOLD"}
         except Exception as e:
             s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"STRATEGY_PLAN","error":repr(e)})
     # Persist current observation only after the strategy plan consumed the prior window.
