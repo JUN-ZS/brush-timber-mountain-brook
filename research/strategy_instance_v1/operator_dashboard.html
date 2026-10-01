@@ -116,10 +116,22 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
 
   <div class="card">
     <h2>PERFORMANCE TAPE · USER_MANUAL ↔ LOCKED TICKET</h2>
+    <div class="grid3" id="tapeStats">
+      <div class="preview"><div class="label">FOLLOW · attributed realized</div><div class="kpi" id="tFollowPnl">—</div><div class="tiny" id="tFollowN">open decisions: —</div></div>
+      <div class="preview"><div class="label">ADJUST · attributed realized</div><div class="kpi" id="tAdjustPnl">—</div><div class="tiny" id="tAdjustN">open decisions: —</div></div>
+      <div class="preview"><div class="label">OPERATOR · attributed realized</div><div class="kpi" id="tOperatorPnl">—</div><div class="tiny" id="tOperatorN">open decisions: —</div></div>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div class="field" style="flex:1;min-width:220px"><label>Search code / trade / ticket / note</label><input id="tapeSearch" placeholder="e.g. US.QQQ…"></div>
+      <div class="field"><label>Relation</label><select id="tapeRelation"><option value="ALL">ALL</option><option>FOLLOW_STRATEGY</option><option>ADJUST_SIZE</option><option>OPERATOR_ONLY</option></select></div>
+      <div class="field"><label>Flow</label><select id="tapeFlow"><option value="ALL">ALL</option><option value="OPEN">OPEN</option><option value="CLOSE">CLOSE</option></select></div>
+      <button onclick="clearTapeFilters()">Clear</button>
+    </div>
     <div id="tapeSummary" class="notice">No tape data.</div>
     <div class="scroll" style="margin-top:10px"><table><thead><tr>
-      <th>#</th><th>Time</th><th>Relation</th><th>Actual</th><th>Ticket</th><th>Qty Δ</th><th>Exec / Ticket</th><th>Realized</th><th>Attributed</th>
+      <th>#</th><th>Time</th><th>Relation</th><th>Actual</th><th>Ticket</th><th>Qty Δ</th><th>Exec / Ticket</th><th>Realized</th><th>Attributed</th><th></th>
     </tr></thead><tbody id="tape"></tbody></table></div>
+    <div id="tapeDetail" class="preview" style="display:none;margin-top:12px"></div>
   </div>
 
   <div class="card">
@@ -138,7 +150,7 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
 </div>
 
 <script>
-let action="ADD", state=null, strategy=null;
+let action="ADD", state=null, strategy=null, tapeRows=[];
 const $=id=>document.getElementById(id);
 const money=v=>{if(v==null||Number.isNaN(Number(v)))return "—"; const n=Number(v); return (n>=0?"+$":"-$")+Math.abs(n).toFixed(2)};
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
@@ -206,27 +218,76 @@ function renderState(){
   }).join("")||'<tr><td colspan="7" class="tiny">No manual trades yet.</td></tr>';
 
   const tape=state.performance_tape||{};
+  tapeRows=tape.rows||[];
   const a=tape.attributed_realized||{};
+  $("tFollowPnl").textContent=money(a.FOLLOW_STRATEGY??0);
+  $("tAdjustPnl").textContent=money(a.ADJUST_SIZE??0);
+  $("tOperatorPnl").textContent=money(a.OPERATOR_ONLY??0);
+  $("tFollowN").textContent="open decisions: "+(tape.opening_counts?.FOLLOW_STRATEGY??0)+" · closing executions: "+(tape.closing_counts?.FOLLOW_STRATEGY??0);
+  $("tAdjustN").textContent="open decisions: "+(tape.opening_counts?.ADJUST_SIZE??0)+" · closing executions: "+(tape.closing_counts?.ADJUST_SIZE??0);
+  $("tOperatorN").textContent="open decisions: "+(tape.opening_counts?.OPERATOR_ONLY??0)+" · closing executions: "+(tape.closing_counts?.OPERATOR_ONLY??0);
   $("tapeSummary").textContent =
     "rows "+(tape.trade_count??0)+
-    " · FOLLOW "+(tape.counts?.FOLLOW_STRATEGY??0)+
-    " · ADJUST "+(tape.counts?.ADJUST_SIZE??0)+
-    " · OPERATOR "+(tape.counts?.OPERATOR_ONLY??0)+
+    " · observed realized "+money(tape.observed_realized??0)+
+    " · attribution "+(tape.attribution_status||"—")+
+    " · delta "+money(tape.attribution_delta??0)+
+    " · unmatched close qty "+(tape.unmatched_close_qty??0)+
     " · size gap "+(tape.size_gap_contracts??0)+" contracts"+
-    " · execution slippage (Estimated) "+money(tape.execution_slippage_estimate??0)+
-    " · attributed realized FOLLOW "+money(a.FOLLOW_STRATEGY??0)+
-    " / ADJUST "+money(a.ADJUST_SIZE??0)+
-    " / OPERATOR "+money(a.OPERATOR_ONLY??0);
-  $("tape").innerHTML=(tape.rows||[]).slice().reverse().map(t=>{
-    const ticket=t.strategy_ticket_id ? (t.strategy_action||"")+" × "+(t.strategy_qty??"") : "—";
-    const ex=t.strategy_price==null ? "—" : fmt(t.price)+" / "+fmt(t.strategy_price);
-    const realized=Number(t.realized_pnl_delta||0);
-    return '<tr><td>'+esc(t.seq??"")+'</td><td class="tiny">'+esc(t.timestamp_utc||"")+'</td><td><span class="pill">'+esc(t.relationship||"OPERATOR_ONLY")+'</span></td><td>'+esc(t.action||"")+" "+esc(t.qty??"")+'<div class="tiny mono">'+esc(t.code||"")+'</div></td><td>'+esc(ticket)+'<div class="tiny mono">'+esc(t.strategy_ticket_id||"")+'</div></td><td>'+esc(t.qty_delta??"—")+'</td><td>'+ex+'<div class="tiny">Estimated</div></td><td class="'+(realized>=0?'green':'red')+'">'+money(realized)+'</td><td class="'+(Number(t.attributed_close_pnl||0)>=0?'green':'red')+'">'+money(t.attributed_close_pnl||0)+'</td></tr>';
-  }).join("")||'<tr><td colspan="9" class="tiny">No performance tape yet.</td></tr>';
+    " · execution slippage (Estimated) "+money(tape.execution_slippage_estimate??0);
+  renderTapeTable();
 
   $("lotSize").value=$("lotSize").value||100;
   preview();
 }
+function tapeFlow(t){ return ["ADD","SELL_FAR"].includes(String(t.action||"").toUpperCase()) ? "OPEN" : "CLOSE"; }
+function tapeMatches(t){
+  const q=($("tapeSearch").value||"").trim().toLowerCase();
+  const rel=$("tapeRelation").value;
+  const flow=$("tapeFlow").value;
+  if(rel!=="ALL" && t.relationship!==rel) return false;
+  if(flow!=="ALL" && tapeFlow(t)!==flow) return false;
+  if(q){
+    const hay=[t.code,t.trade_id,t.strategy_ticket_id,t.note,t.strategy_action,t.strategy_expected_manual_action,t.read].join(" ").toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+function renderTapeTable(){
+  const rows=tapeRows.filter(tapeMatches).slice().reverse();
+  $("tape").innerHTML=rows.map(t=>{
+    const ticket=t.strategy_ticket_id ? (t.strategy_action||"")+" → "+(t.strategy_expected_manual_action||"—")+" × "+(t.strategy_qty??"") : "—";
+    const ex=t.strategy_price==null ? "—" : fmt(t.price)+" / "+fmt(t.strategy_price);
+    const realized=Number(t.realized_pnl_delta||0);
+    const attr=Number(t.attributed_close_pnl||0);
+    return '<tr><td>'+esc(t.seq??"")+'</td><td class="tiny">'+esc(t.timestamp_utc||"")+'</td><td><span class="pill">'+esc(t.relationship||"OPERATOR_ONLY")+'</span></td><td>'+esc(t.action||"")+" "+esc(t.qty??"")+'<div class="tiny mono">'+esc(t.code||"")+'</div></td><td>'+esc(ticket)+'<div class="tiny mono">'+esc(t.strategy_ticket_id||"")+'</div></td><td>'+esc(t.qty_delta??"—")+'</td><td>'+ex+(ex==="—"?"":'<div class="tiny">Estimated</div>')+'</td><td class="'+(realized>=0?'green':'red')+'">'+money(realized)+'</td><td class="'+(attr>=0?'green':'red')+'">'+money(attr)+'</td><td><button onclick="showTapeDetail('+Number(t.seq)+')">DETAIL</button></td></tr>';
+  }).join("")||'<tr><td colspan="10" class="tiny">No tape rows match the current filter.</td></tr>';
+}
+function showTapeDetail(seq){
+  const t=tapeRows.find(x=>Number(x.seq)===Number(seq));
+  if(!t) return;
+  const matches=t.close_matches||[];
+  $("tapeDetail").style.display="block";
+  $("tapeDetail").innerHTML='<div class="label">TAPE ROW '+esc(t.seq)+'</div>'+
+    '<div style="margin-top:7px"><strong>'+esc(t.relationship||"OPERATOR_ONLY")+'</strong> · '+esc(t.action||"")+' '+esc(t.qty??"")+' · '+esc(t.code||"")+'</div>'+
+    '<div class="tiny" style="margin-top:7px">'+esc(t.read||"")+'</div>'+
+    '<table style="margin-top:10px"><tr><th>Strategy</th><td>'+esc(t.strategy_ticket_id||"—")+'</td></tr>'+
+    '<tr><th>Semantic</th><td>'+esc(t.strategy_action||"—")+' → '+esc(t.strategy_expected_manual_action||"—")+'</td></tr>'+
+    '<tr><th>Quantity</th><td>actual '+esc(t.qty??"—")+' · ticket '+esc(t.strategy_qty??"—")+' · Δ '+esc(t.qty_delta??"—")+'</td></tr>'+
+    '<tr><th>Price</th><td>actual '+esc(fmt(t.price))+' · ticket '+esc(fmt(t.strategy_price))+' · slippage '+esc(money(t.execution_slippage_estimate))+' (Estimated)</td></tr>'+
+    '<tr><th>Realized Δ</th><td>'+esc(money(t.realized_pnl_delta))+'</td></tr>'+
+    '<tr><th>Attributed to opening</th><td>'+esc(money(t.attributed_close_pnl))+'</td></tr>'+
+    '<tr><th>Open qty remaining</th><td>'+esc(t.open_qty_remaining??0)+'</td></tr>'+
+    '<tr><th>FIFO close matches</th><td>'+esc(JSON.stringify(matches))+'</td></tr>'+
+    '<tr><th>Note</th><td>'+esc(t.note||"—")+'</td></tr></table>';
+  $("tapeDetail").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function clearTapeFilters(){
+  $("tapeSearch").value=""; $("tapeRelation").value="ALL"; $("tapeFlow").value="ALL"; renderTapeTable();
+}
+$("tapeSearch").addEventListener("input",renderTapeTable);
+$("tapeRelation").addEventListener("change",renderTapeTable);
+$("tapeFlow").addEventListener("change",renderTapeTable);
+
 function useStrategyTicket(){
   const t=strategy?.action_card||{};
   const leg=(t.legs||[])[0];
