@@ -135,10 +135,14 @@ class EvidenceLedger:
                 if "pre_decision" not in state:
                     raise LedgerError(f"LEDGER_DECISION_BEFORE_PRE_DECISION:cycle={cycle_id}")
                 payload = row.get("payload") or {}
-                if not isinstance(payload.get("candidate_actions"), list):
-                    raise LedgerError(f"LEDGER_DECISION_MISSING_CANDIDATE_ACTIONS:cycle={cycle_id}")
-                if "primary" not in payload:
-                    raise LedgerError(f"LEDGER_DECISION_MISSING_PRIMARY:cycle={cycle_id}")
+                # Backward compatibility: pre-hardening historical decisions may
+                # lack the explicit AS_EMITTED_THEN_POSTHOC contract. New records
+                # opt into strict capture and must retain the full candidate set.
+                if payload.get("contract") == "AS_EMITTED_THEN_POSTHOC":
+                    if not isinstance(payload.get("candidate_actions"), list):
+                        raise LedgerError(f"LEDGER_DECISION_MISSING_CANDIDATE_ACTIONS:cycle={cycle_id}")
+                    if "primary" not in payload:
+                        raise LedgerError(f"LEDGER_DECISION_MISSING_PRIMARY:cycle={cycle_id}")
                 state["decision"] = idx
             elif et == "CYCLE_FINALIZED":
                 if "finalized" in state:
