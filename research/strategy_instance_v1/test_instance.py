@@ -865,6 +865,20 @@ def test_manual_trade_timestamp_cannot_precede_t0_or_jump_future():
             raise AssertionError("future manual trade must be blocked")
 
 
+def test_partial_strategy_confirmations_merge_into_one_lot():
+    from .run_instance import apply_confirmed_strategy_deal
+    lots=[]
+    deal={"deal_id":"D-PART","code":"US.QQQ.TEST","side":"BUY","qty":1,
+          "price":5.0,"lot_size":100,"created_at":"2026-10-01T00:00:10+00:00"}
+    used1,_,_=apply_confirmed_strategy_deal(lots,deal,"LONG")
+    used2,_,_=apply_confirmed_strategy_deal(lots,deal,"LONG")
+    assert used1==1 and used2==1
+    assert len(lots)==1
+    assert lots[0]["lot_id"]=="D-D-PART-L"
+    assert lots[0]["qty"]==2
+    assert lots[0]["avg_price"]==5.0
+
+
 def test_strategy_confirmation_rejects_side_conflict():
     with tempfile.TemporaryDirectory() as td:
         repo=Path(td); instance_id="I-CONFLICT"
