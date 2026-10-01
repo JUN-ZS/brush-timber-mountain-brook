@@ -82,6 +82,24 @@ def main() -> int:
         if payload.get("benchmark_return") is not None:
             bucket["benchmark_observations"] += 1
 
+    attribution_by_grade = Counter()
+    attribution_unattributed_qty = 0
+    for r in rows:
+        if r.get("event_type") == "EXECUTION_DETECTED":
+            payload = r.get("payload") or {}
+            deal = payload.get("deal") or {}
+            grade = str(
+                payload.get("attribution", {}).get("attribution_grade")
+                or deal.get("attribution_grade")
+                or deal.get("attribution_status")
+                or "UNKNOWN"
+            )
+            attribution_by_grade[grade] += 1
+        elif r.get("event_type") == "BROKER_EXECUTION_UNATTRIBUTED":
+            payload = r.get("payload") or {}
+            attribution_by_grade["UNATTRIBUTED"] += 1
+            attribution_unattributed_qty += float(payload.get("unattributed_qty") or payload.get("deal", {}).get("qty") or 0)
+
     campaign_ids = {
         r.get("campaign_id")
         for r in rows
@@ -169,6 +187,12 @@ def main() -> int:
             "errors": outcome_chain_errors,
         },
         "records": len(rows),
+        "execution_attribution": {
+            "event_count_by_grade": dict(attribution_by_grade),
+            "unattributed_broker_qty_observed": attribution_unattributed_qty,
+            "scope": "DESCRIPTIVE_ONLY",
+            "intent_inference": "FORBIDDEN",
+        },
         "cycles": cycles,
         "campaign_ids_seen": len(campaign_ids),
         "event_counts": dict(by_type),
