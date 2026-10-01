@@ -45,6 +45,32 @@ def git_head(repo_root: Path) -> str | None:
         return None
 
 
+def git_worktree_identity(repo_root: Path) -> dict:
+    """Expose dirty-state provenance; HEAD alone cannot describe uncommitted code."""
+    try:
+        status=subprocess.check_output(
+            ["git", "status", "--porcelain=v1"],
+            cwd=str(repo_root),
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5,
+        )
+        diff=subprocess.check_output(
+            ["git", "diff", "--no-ext-diff"],
+            cwd=str(repo_root),
+            stderr=subprocess.DEVNULL,
+            text=False,
+            timeout=10,
+        )
+        return {
+            "dirty": bool(status.strip()),
+            "status_lines": len([x for x in status.splitlines() if x.strip()]),
+            "diff_sha256": hashlib.sha256(diff).hexdigest(),
+        }
+    except Exception as exc:
+        return {"dirty": None, "status_lines": None, "diff_sha256": None, "error": type(exc).__name__}
+
+
 def strategy_lock(repo_root: Path) -> tuple[dict, str]:
     path = repo_root / "research" / "evidence_v1" / "STRATEGY_LOCK.json"
     obj = json.loads(path.read_text(encoding="utf-8"))
@@ -69,6 +95,7 @@ def runtime_identity(repo_root: Path) -> dict:
         "research_engine_commit": lock["research_engine_commit"],
         "strategy_lock_hash": lock_hash,
         "git_head": git_head(repo_root),
+        "git_worktree": git_worktree_identity(repo_root),
         "code_hashes": code_hashes,
         "evidence_policy": lock["evidence_policy"],
     }
