@@ -261,6 +261,16 @@ def test_instance_input_rejects_non_qqq_option_codes():
         raise AssertionError("non-QQQ option must not enter instance")
 
 
+def test_unverified_strategy_pnl_is_not_presented_as_observed():
+    from .run_instance import derive_pnl_observation_status
+    assert derive_pnl_observation_status(
+        [{"code":"US.QQQ.TEST","side":"LONG","lot_qty":1,"broker_qty":0}],
+        "OK",
+    ) == "DATA_GAP"
+    assert derive_pnl_observation_status([], "OK") == "OBSERVED_MATCHED"
+    assert derive_pnl_observation_status([], "EMPTY") == "OBSERVED_MATCHED_CLOSED"
+
+
 def test_unmanaged_broker_qqq_short_is_reconciliation_gap():
     from .run_instance import reconcile
     lots=[{"lot_id":"T0","code":"US.QQQ261230C00600000","side":"LONG","qty":1,"avg_price":5.0,"status":"OPEN","lot_size":100}]
