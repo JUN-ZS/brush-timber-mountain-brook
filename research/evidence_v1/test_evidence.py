@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import tempfile
+import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from research.evidence_v1.family_snapshot import build_family_snapshot
 from research.evidence_v1.ledger import EvidenceLedger, LedgerError, sha256_json
@@ -70,7 +72,7 @@ def test_outcome_rows_api_is_locked_snapshot():
         assert rows[0]["campaign_id"] == "CAMP1"
 
 
-def test_outcome_requires_anchor_and_rejects_duplicate_without_correction(monkeypatch):
+def test_outcome_requires_anchor_and_rejects_duplicate_without_correction():
     import json
     import sys
     from research.evidence_v1 import outcome
@@ -103,8 +105,8 @@ def test_outcome_requires_anchor_and_rejects_duplicate_without_correction(monkey
                 "--anchor-evidence-id",anchor["evidence_id"],
                 "--realized-pnl","100",
             ]+list(extra)
-            monkeypatch.setattr(sys,"argv",argv)
-            return outcome.main()
+            with patch.object(sys,"argv",argv):
+                return outcome.main()
 
         assert run()==0
         try:
@@ -249,3 +251,13 @@ if __name__ == "__main__":
     test_hash_chain_and_tamper_detection()
     test_family_snapshot_is_exactly_72()
     print("PASS")
+
+
+
+def load_tests(loader, tests, pattern):
+    """Allow unittest CI to execute this module's top-level test functions."""
+    suite = unittest.TestSuite(tests)
+    for name, obj in sorted(globals().items()):
+        if name.startswith("test_") and callable(obj):
+            suite.addTest(unittest.FunctionTestCase(obj, description=name))
+    return suite
