@@ -82,18 +82,18 @@ class FutuTradeReader:
 
         row, env, status = candidates[0]
         expected_env = enum_name(requested_env)
-        if env and env != expected_env:
+        if env != expected_env:
             self.account_error = (
-                f"FUTU_ACC_ENV_MISMATCH:{self.acc_id}:expected={expected_env}:actual={env}"
+                f"FUTU_ACC_ENV_MISMATCH:{self.acc_id}:expected={expected_env}:actual={env or 'MISSING'}"
             )
             return False
-        if status and status != "ACTIVE":
-            self.account_error = f"FUTU_ACC_NOT_ACTIVE:{self.acc_id}:{status}"
+        if status != "ACTIVE":
+            self.account_error = f"FUTU_ACC_NOT_ACTIVE:{self.acc_id}:{status or 'MISSING'}"
             return False
 
         auth = self._cell(row, "trdmarket_auth", "trdMarketAuthList")
         auth_text = str(auth or "").upper()
-        if auth_text and "US" not in auth_text:
+        if "US" not in auth_text:
             self.account_error = f"FUTU_ACC_NO_US_AUTH:{self.acc_id}"
             return False
 
