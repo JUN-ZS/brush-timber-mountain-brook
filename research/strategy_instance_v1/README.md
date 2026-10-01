@@ -48,6 +48,18 @@ Manual note:
 python -m research.strategy_instance_v1.run_instance note --instance-id MY_001 --text "manual roll because spread widened"
 \`\`\`
 
+Adjustable manual strategy book:
+
+\`\`\`cmd
+python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action ADD --code US.QQQ260116C00600000 --qty 2 --price 8.50 --note "manual add"
+python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action REDUCE --code US.QQQ260116C00600000 --qty 1 --price 10.25 --note "manual harvest"
+python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action SELL_FAR --code US.QQQ260116C00600000 --qty 10 --price 2.10 --note "manual far short"
+python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action BUY_BACK_FAR --code US.QQQ260116C00600000 --qty 2 --price 3.40 --note "manual far cover"
+\`\`\`
+
+The \`manual\` commands create a separate adjustable operator book. They do not alter the broker-observed \`lots\`, broker realized P&L, or broker reconciliation. This keeps USER_MANUAL input separate from Futu observations. The report shows broker-observed P&L and manual-book P&L side by side.
+
+
 Report / verify:
 
 \`\`\`cmd
@@ -59,7 +71,7 @@ The launcher \`run_strategy_instance.cmd\` lets you omit the module prefix when 
 
 ## Automatically recorded
 
-Broker positions/orders/deals, exact local snapshot plus SHA-256, newly observed executions, FIFO gross realized P&L, marked unrealized P&L, total gross P&L, broker-vs-instance reconciliation, read-only strategy-plan observations, manual notes, and DATA_GAPs.
+Broker positions/orders/deals, exact local snapshot plus SHA-256, newly observed executions, FIFO gross realized P&L, marked unrealized P&L, total gross P&L, broker-vs-instance reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
 
 No order is submitted or modified.
 
