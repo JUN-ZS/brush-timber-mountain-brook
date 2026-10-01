@@ -444,6 +444,16 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(state["last_target_stack"],3)
         self.assertEqual(state["last_risk_score"],3.0)
 
+    def test_decision_evidence_id_is_separate_from_raw_candidate(self):
+        candidate={"action":"ADD_NEAR","code":"US.QQQ.TEST","qty":2}
+        journal={"raw_candidate":json.loads(json.dumps(candidate)),
+                 "candidate_sha256":"a"*64,
+                 "snapshot_sha256":"b"*64,
+                 "decision_evidence_id":"EV-123"}
+        assert journal["raw_candidate"]==candidate
+        assert journal["decision_evidence_id"]=="EV-123"
+        assert journal["candidate_sha256"]=="a"*64
+
     def test_candidate_journal_binds_raw_candidate_to_context(self):
         from research.live_hedge_v1.campaign import rank_candidates
         candidates=[{"action":"ADD_NEAR","code":"US.QQQ.TEST","qty":2,"price":8.5,"why":"risk"}]
