@@ -875,6 +875,12 @@ def _cycle_unlocked(args):
 
 def init_cmd(a):
     repo=Path(a.repo_root).resolve()
+    with instance_mutation_lock(repo,a.instance_id):
+        return _init_cmd_unlocked(a)
+
+
+def _init_cmd_unlocked(a):
+    repo=Path(a.repo_root).resolve()
     try: r=runtime_identity(repo)
     except Exception: r={}
     start=a.start_at_utc or now(); created=now(); ps=[pos_spec(x) for x in a.position]
