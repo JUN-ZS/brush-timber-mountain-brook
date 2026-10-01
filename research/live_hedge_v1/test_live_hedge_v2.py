@@ -49,9 +49,12 @@ class LiveHedgeV2Test(unittest.TestCase):
     def test_partial_futu_connection_is_blocked_before_market_read(self):
         from research.live_hedge_v1.futu_reader import LiveFutuReader
         reader=object.__new__(LiveFutuReader)
+        class Check:
+            def to_dict(self):
+                return {"status":"PARTIAL","reason":"qot_logined=False"}
         class FakeAdapter:
             def connect(self):
-                return {"status":"PARTIAL","reason":"qot_logined=False"}
+                return Check()
             def disconnect(self):
                 raise AssertionError("disconnect should not be needed before snapshot read")
         reader.a=FakeAdapter()
