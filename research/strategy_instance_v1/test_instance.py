@@ -98,3 +98,39 @@ def test_performance_tape_recomputes_old_broad_follow_label():
     assert tape["rows"][0]["qty_delta"] is None
     assert tape["size_gap_contracts"] == 0
     assert tape["rows"][0]["execution_slippage_estimate"] is None
+
+
+def test_performance_tape_fifo_attributes_close_to_opening_decisions():
+    trades = [
+        {
+            "timestamp_utc":"2026-10-01T00:00:00+00:00","event_seq":1,"trade_id":"M1",
+            "action":"ADD","code":"US.QQQ.TEST","qty":2,"price":5.0,"lot_size":100,
+            "strategy_reference":{"ticket_id":"T1","code":"US.QQQ.TEST","action":"ADD_NEAR","qty":2,"price":5.0},
+            "realized_pnl_delta":0.0,
+        },
+        {
+            "timestamp_utc":"2026-10-01T00:01:00+00:00","event_seq":2,"trade_id":"M2",
+            "action":"ADD","code":"US.QQQ.TEST","qty":3,"price":6.0,"lot_size":100,
+            "strategy_reference":{"ticket_id":"T2","code":"US.QQQ.TEST","action":"ADD_NEAR","qty":5,"price":6.0},
+            "realized_pnl_delta":0.0,
+        },
+        {
+            "timestamp_utc":"2026-10-01T00:02:00+00:00","event_seq":3,"trade_id":"M3",
+            "action":"REDUCE","code":"US.QQQ.TEST","qty":4,"price":8.0,"lot_size":100,
+            "strategy_reference":{},
+            "realized_pnl_delta":1000.0,
+        },
+    ]
+    tape = build_performance_tape(trades)
+    assert tape["opening_counts"]["FOLLOW_STRATEGY"] == 1
+    assert tape["opening_counts"]["ADJUST_SIZE"] == 1
+    assert tape["closing_counts"]["OPERATOR_ONLY"] == 1
+    assert tape["attributed_realized"]["FOLLOW_STRATEGY"] == 600.0
+    assert tape["attributed_realized"]["ADJUST_SIZE"] == 400.0
+    assert tape["observed_realized"] == 1000.0
+    assert tape["attribution_delta"] == 0.0
+    assert tape["unmatched_close_qty"] == 0
+    assert tape["attribution_status"] == "CONSISTENT"
+    rows = {x["trade_id"]: x for x in tape["rows"]}
+    assert rows["M1"]["attributed_close_pnl"] == 600.0
+    assert rows["M2"]["attributed_close_pnl"] == 400.0
