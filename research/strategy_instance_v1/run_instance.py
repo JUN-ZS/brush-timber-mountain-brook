@@ -1044,6 +1044,12 @@ def _init_cmd_unlocked(a):
     repo=Path(a.repo_root).resolve()
     try: r=runtime_identity(repo)
     except Exception: r={}
+    if r.get("strategy_id"):
+        from ..evidence_v1.lock_guard import assert_runtime_lock
+        try:
+            assert_runtime_lock(repo, far_dte=120, far_delta=0.08, near_dte=30)
+        except Exception as exc:
+            raise SystemExit(f"INSTANCE_LOCK_INVALID:{exc}") from exc
     locked_id=r.get("strategy_id")
     locked_version=r.get("strategy_version")
     locked_engine=r.get("research_engine_commit")
