@@ -1081,6 +1081,7 @@ def _cycle_unlocked(args):
             primary_candidate=choose_primary_action(sp.get("candidate_actions",[]) or [])
             sp_observed=json.loads(json.dumps(sp))
             sp_observed["primary_candidate"]=primary_candidate
+            strategy_observation_ok = str(sp.get("status", "")).upper() in {"ACTIONABLE", "HOLD"}
             l.append("STRATEGY_PLAN_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
                      payload={
                          "plan":sp_observed,
@@ -1089,8 +1090,11 @@ def _cycle_unlocked(args):
                          "attribution_window_minutes":PLAN_MATCH_MAX_MINUTES,
                          "primary_candidate":primary_candidate,
                          "attribution_basis":"PRIMARY_CANDIDATE_ONLY",
+                         "strategy_observation_accepted":strategy_observation_ok,
+                         "gamma_spot_observed":current_far_gamma_spot if strategy_observation_ok else None,
+                         "far_delta_abs_observed":current_far_delta_abs if strategy_observation_ok else None,
+                         "dynamic_state_order":"POST_PLAN_OBSERVATION",
                      },source="SYSTEM")
-            strategy_observation_ok = str(sp.get("status", "")).upper() in {"ACTIONABLE", "HOLD"}
         except Exception as e:
             s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"STRATEGY_PLAN","error":repr(e)})
     # Persist current observation only after the strategy plan consumed the prior window.
