@@ -980,6 +980,7 @@ def _cycle_unlocked(args):
         )
     realized_delta=0.0
     prior_rows=l._rows()
+    used_plan_qty={}
     for d in sorted(
         new,
         key=lambda x: (
@@ -1021,7 +1022,10 @@ def _cycle_unlocked(args):
                              "reason":"close_exceeded_or_ambiguous_strategy_ownership",
                              "attribution_grade":"DERIVED_NO_INTENT_PROOF"},source="BROKER_OBSERVED")
         else:
-            potential=attribute_broker_deal(prior_rows,d)
+            potential=attribute_broker_deal(prior_rows,d,used_plan_qty)
+            if potential.get("plan_key") and potential.get("qty"):
+                key=potential["plan_key"]
+                used_plan_qty[key]=used_plan_qty.get(key,0)+si(potential.get("qty"))
             s["unattributed_deal_ids"].append(did); s["data_gaps"]=si(s.get("data_gaps"))+1
             l.append(
                 "BROKER_EXECUTION_UNATTRIBUTED",
