@@ -295,7 +295,8 @@ def main():
         "candidate": "30D near + 1.50x coverage",
         "candidate_family_configs": 72,
         "family_definition": "9 far DTE×delta combinations × all 8 policies; no sub-selection inside OOS",
-        "window_semantics": "ENTRY_COHORT; outcome simulation may extend beyond cohort end to the canonical dataset boundary; this is a stress cohort, not virgin OOS",
+        "window_semantics": "ENTRY_COHORT_WITH_CUTOFF; only campaigns whose far exit is on/before the declared window end enter reported aggregates; unresolved campaigns are excluded, never censored with post-cutoff data",
+
         "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
         "virgin_oos_status": "NOT_VIRGIN_BECAUSE_PRIOR_SELECTION_USED_FULL_V22_SAMPLE",
         "windows": {},
