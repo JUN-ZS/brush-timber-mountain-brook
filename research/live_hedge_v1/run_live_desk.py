@@ -169,9 +169,10 @@ def _publish_live_output(out_path, output):
 
 
 def _persist_dynamic_state_observation(state, plan_output, far, market):
-    """Persist dynamic inputs only after a non-blocked strategy observation."""
-    if str((plan_output or {}).get("status", "")).upper().startswith("BLOCKED"):
-        return {"accepted": False, "reason": "PLAN_BLOCKED"}
+    """Persist dynamic inputs only after an accepted strategy observation."""
+    status = str((plan_output or {}).get("status", "")).upper()
+    if status not in {"ACTIONABLE", "HOLD"}:
+        return {"accepted": False, "reason": f"PLAN_STATUS_NOT_ACCEPTED:{status or 'MISSING'}"}
 
     target_change = None
     if far is not None:
