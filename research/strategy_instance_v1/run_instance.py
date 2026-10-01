@@ -119,55 +119,22 @@ def _recover_mutable_state_from_ledger(m, s, l):
 
     broker_lots = init_lots(m)
     processed = []
-    processed_set = set()
+    seen = set()
+    realized = 0.0
     for row in rows:
         if row.get("event_type") != "EXECUTION_DETECTED":
             continue
         deal = dict((row.get("payload") or {}).get("deal") or {})
         did = str(deal.get("deal_id") or "")
-        if not did or did in processed_set:
+        if not did or did in seen:
             continue
-        processed_set.add(did)
+        seen.add(did)
         processed.append(did)
-        apply_deal(broker_lots, deal)
+        realized += apply_deal(broker_lots, deal)
 
     if processed:
         s["lots"] = broker_lots
         s["processed_deal_ids"] = processed
-        realized = 0.0
-        for row in rows:
-            if row.get("event_type") != "EXECUTION_DETECTED":
-                continue
-            deal = dict((row.get("payload") or {}).get("deal") or {})
-            did = str(deal.get("deal_id") or "")
-            if did not in processed_set:
-                continue
-            delta = (row.get("payload") or {}).get("realized_pnl_delta")
-            if delta is not None:
-                realized += sf(delta)
-            else:
-                # Legacy execution events did not persist the delta; replay the
-                # event stream below to recover the same realized total.
-                pass
-        if any(
-            row.get("event_type") == "EXECUTION_DETECTED"
-            and (row.get("payload") or {}).get("realized_pnl_delta") is None
-            for row in rows
-        ):
-            replay_lots = init_lots(m)
-            realized = 0.0
-            seen = set()
-            for row in rows:
-                if row.get("event_type") != "EXECUTION_DETECTED":
-                    continue
-                deal = dict((row.get("payload") or {}).get("deal") or {})
-                did = str(deal.get("deal_id") or "")
-                if not did or did in seen:
-                    continue
-                seen.add(did)
-                realized += apply_deal(replay_lots, deal)
-            broker_lots = replay_lots
-            s["lots"] = broker_lots
         s["realized_pnl"] = sf(realized)
 
     manual_rows = [
@@ -175,12 +142,22 @@ def _recover_mutable_state_from_ledger(m, s, l):
         if row.get("event_type") == "MANUAL_TRADE_RECORDED"
     ]
     if manual_rows:
-        payload = manual_rows[-1].get("payload") or {}
-        if isinstance(payload.get("lots_after"), list):
-            s["manual_lots"] = json.loads(json.dumps(payload["lots_after"]))
-        if payload.get("manual_realized_pnl_after") is not None:
-            s["manual_realized_pnl"] = sf(payload["manual_realized_pnl_after"])
-        s["manual_trade_count"] = len(manual_rows)
+        # One trade_id is the idempotency key; use the latest unique event.
+        unique_manual = {}
+        order = []
+        for row in manual_rows:
+            payload = row.get("payload") or {}
+            trade_id = str(payload.get("trade_id") or "")
+            key = trade_id or f"__SEQ__{row.get('event_seq')}"
+            if key not in unique_manual:
+                order.append(key)
+            unique_manual[key] = payload
+        latest = unique_manual[order[-1]]
+        if isinstance(latest.get("lots_after"), list):
+            s["manual_lots"] = json.loads(json.dumps(latest["lots_after"]))
+        if latest.get("manual_realized_pnl_after") is not None:
+            s["manual_realized_pnl"] = sf(latest["manual_realized_pnl_after"])
+        s["manual_trade_count"] = len(order)
 
 
 def load_instance(repo,i):
