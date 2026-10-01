@@ -30,6 +30,35 @@ def now_iso():
 
 
 class LiveHedgeV2Test(unittest.TestCase):
+    def test_reader_expiry_universe_includes_all_research_windows(self):
+        from research.live_hedge_v1.futu_reader import LiveFutuReader
+        reader = object.__new__(LiveFutuReader)
+        class FakeFutu:
+            RET_OK = 0
+        class FakeCtx:
+            def get_option_expiration_date(self, code):
+                class D:
+                    columns = ["strike_time"]
+                    def __init__(self):
+                        self.data = {
+                            "strike_time": [
+                                "2026-10-08", "2026-10-15", "2026-10-22",
+                                "2026-10-29", "2026-11-12", "2026-12-01"
+                            ]
+                    def __getitem__(self, key):
+                        return self.data[key]
+                return 0, D()
+        class FakeAdapter:
+            futu = FakeFutu()
+            ctx = FakeCtx()
+        reader.a = FakeAdapter()
+        got = reader._expiry_targets()
+        self.assertEqual(
+            got,
+            ["2026-10-08","2026-10-15","2026-10-22","2026-10-29","2026-11-12","2026-12-01"],
+        )
+
+
     def test_strict_qqq_universe(self):
         self.assertTrue(is_qqq_option_code("US.QQQ260116C00700000"))
         self.assertFalse(is_qqq_option_code("US.QQQ"))
