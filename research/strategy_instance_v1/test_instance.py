@@ -362,6 +362,45 @@ def test_instance_strategy_lineage_rejects_missing_runtime_lock_fields():
         ri.runtime_identity=original
 
 
+def test_operator_ticket_context_rejects_missing_lineage_identity():
+    from .serve_operator import explicit_strategy_context
+    # A real instance manifest must not bind to evidence that omits any
+    # strategy lineage component. The helper is fail-closed at this boundary.
+    import tempfile, json
+    from .ledger import InstanceLedger, sha256_json
+
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td)
+        iid="I-MISSING-LINEAGE"
+        d=repo/"research/strategy_instance_v1/instances"/iid
+        d.mkdir(parents=True)
+        manifest={
+            "schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+            "instance_id":iid,"created_at_utc":"2026-10-01T20:00:00+00:00",
+            "start_at_utc":"2026-10-01T20:00:00+00:00",
+            "strategy_id":"S1","strategy_version":"V1",
+            "research_engine_commit":"ENG1","strategy_lock_hash":"LOCK1",
+            "initial_positions":[],
+        }
+        manifest["manifest_hash"]=sha256_json(manifest)
+        (d/"manifest.json").write_text(json.dumps(manifest),encoding="utf-8")
+        # No usable decision evidence is created; the test verifies that the
+        # helper does not silently waive missing lineage fields.
+        body={
+            "instance_id":iid,
+            "ticket_id":"T-MISSING",
+            "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+            "action":"ADD_NEAR","status":"OPEN",
+            "leg":{"code":"US.QQQ.TEST","side":"BUY","qty":1},
+        }
+        try:
+            explicit_strategy_context(repo,body)
+        except ValueError as exc:
+            assert str(exc)=="STRATEGY_CONTEXT_TICKET_NOT_VERIFIED"
+        else:
+            raise AssertionError("unverified context must be rejected")
+
+
 def test_instance_strategy_lineage_rejects_engine_or_lock_drift():
     import tempfile
     import research.strategy_instance_v1.run_instance as ri
