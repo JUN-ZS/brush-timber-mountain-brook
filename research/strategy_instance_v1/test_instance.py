@@ -37,7 +37,7 @@ def test_instance_init_rejects_lineage_override_against_locked_runtime():
         try:
             class A:
                 strategy_id="OTHER"; strategy_version=None; research_engine_commit=None
-                strategy_lock_hash=None; start_at_utc=None; instance_id="I"
+                strategy_lock_hash=None; start_at_utc=None; instance_id="I"; repo_root=repo
                 position=[]; note=""; initial_cash=None
                 far_code=None
             try:
@@ -51,9 +51,10 @@ def test_instance_init_rejects_lineage_override_against_locked_runtime():
 
 
 def test_pnl_observation_status_requires_position_reconciliation():
-    from .run_instance import _aggregate_lot_qty
-    lots=[{"code":"US.QQQ.TEST","side":"LONG","qty":1,"status":"OPEN"}]
-    assert _aggregate_lot_qty(lots)[("US.QQQ.TEST","LONG")]==1
+    from .run_instance import pnl_observation_status
+    assert pnl_observation_status([], "OK") == "OBSERVED_MATCHED_CLOSED"
+    assert pnl_observation_status([{"code":"US.QQQ.TEST","side":"LONG","lot_qty":1,"broker_qty":0}], "OK") == "DATA_GAP"
+    assert pnl_observation_status([], "PARTIAL") == "DATA_GAP"
 
 
 def test_instance_input_rejects_non_qqq_option_codes():
