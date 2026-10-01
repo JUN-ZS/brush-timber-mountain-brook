@@ -262,6 +262,31 @@ class LiveHedgeV2Test(unittest.TestCase):
             with self.assertRaises(ValueError):
                 store.load()
 
+    def test_state_event_corrupt_tail_fails_closed():
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            base=Path(td)
+            path=base/"events.jsonl"
+            path.write_text(
+                '{"schema":"LIVE_DESK_EVENT.v2","schema_version":2,'
+                '"event_id":"E-1","timestamp":"2026-10-01T00:00:00+00:00",'
+                '"type":"TICKET_ISSUED","campaign_id":null,"payload":{},'
+                '"previous_hash":"'+"0"*64+'","event_hash":"bad"}
+'
+                '{"truncated"',
+                encoding="utf-8",
+            )
+            store=StateStore(base/"state.json",path)
+            try:
+                store.load()
+            except ValueError as exc:
+                self.assertIn("LIVE_EVENT_TAIL_CORRUPT",str(exc))
+            else:
+                raise AssertionError("corrupt live event tail must fail closed")
+
+
     def test_state_event_integrity_marks_legacy_then_hashed_as_mixed():
         import tempfile
         from research.live_hedge_v1.state import StateStore
