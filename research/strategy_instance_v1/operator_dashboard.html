@@ -329,9 +329,17 @@ function renderStrategy(){
   const s=strategy||{};
   const t=s.action_card||{};
   if(!s || !Object.keys(s).length){$("strategyTicket").textContent="No live strategy state.";return;}
+  const pa=s.position_analysis||{};
   let html='<div class="grid3"><div><div class="label">Desk</div><strong>'+esc(s.status||"—")+'</strong><div class="tiny">'+esc(s.instruction||"")+'</div></div>'+
     '<div><div class="label">Risk</div><strong>'+esc((s.risk_state||{}).risk_score??"—")+'</strong><div class="tiny">target near '+esc((s.risk_state||{}).desired_stack??"—")+'</div></div>'+
-    '<div><div class="label">Spot</div><strong>'+esc(fmt((s.market||{}).spot))+'</strong><div class="tiny">source '+esc(s.source||"—")+'</div></div></div>';
+    '<div><div class="label">Spot</div><strong>'+esc(fmt((s.market||{}).spot))+'</strong><div class="tiny">source '+esc(s.source||"—")+'</div></div></div>'+
+    '<div class="preview" style="margin-top:12px"><div class="label">CURRENT STRATEGY POSITION</div>'+
+      '<table><tr><th>Leg</th><th>Current</th><th>Target</th><th>Gap</th><th>Meaning</th></tr>'+
+      '<tr><td>FAR SHORT CALL</td><td>'+esc(pa.far_short_contracts??"—")+'</td><td>'+esc(pa.far_short_target_contracts??"—")+'</td><td>'+esc(pa.far_short_gap_contracts??"—")+'</td><td>fixed campaign far</td></tr>'+
+      '<tr><td>NEAR / ATM-LIKE CALL</td><td>'+esc(pa.near_call_contracts??"—")+'</td><td>'+esc(pa.near_call_target_contracts??"—")+'</td><td>'+esc(pa.near_call_gap_contracts??"—")+'</td><td>dynamic coverage</td></tr></table></div>';
+  if((pa.far_short_positions||[]).length || (pa.near_call_positions||[]).length){
+    html+='<div class="notice"><strong>Held contracts</strong><pre style="margin-top:8px">'+esc(JSON.stringify({far_short_positions:pa.far_short_positions||[],near_call_positions:pa.near_call_positions||[]},null,2))+'</pre></div>';
+  }
   if(t.action){
     html+='<div class="preview"><div><span class="pill">'+esc(t.action)+'</span> <span class="pill">'+esc(t.status)+'</span></div><div style="margin-top:8px;font-weight:700">'+esc(t.ticket_id||"")+'</div><table><tr><th>Code</th><th>Side</th><th>Qty</th><th>Before→Target</th><th>Indicative</th></tr>';
     (t.legs||[]).forEach(l=>html+='<tr><td class="mono">'+esc(l.code)+'</td><td>'+esc(l.side)+'</td><td>'+esc(l.qty)+'</td><td>'+esc(l.before_qty)+' → '+esc(l.target_qty)+'</td><td>'+esc(fmt(l.price))+'</td></tr>');
