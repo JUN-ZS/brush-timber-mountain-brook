@@ -6,6 +6,7 @@ from pathlib import Path
 from .ledger import InstanceLedger, sha256_json
 from .performance_tape import build_performance_tape, classify_relationship
 from ..evidence_v1.identity import runtime_identity
+from ..live_hedge_v1.campaign import is_qqq_option_code
 from ..live_hedge_v1.engine import (
     Contract,
     Order,
@@ -212,7 +213,9 @@ def pos_spec(x):
     if len(p) not in (4,5): raise SystemExit("POSITION_FORMAT=CODE,SIDE,QTY,AVG_COST[,LOT_SIZE]")
     side=p[1].upper()
     if side not in ("LONG","SHORT"): raise SystemExit("POSITION_SIDE=LONG|SHORT")
-    return {"code":p[0],"side":side,"qty":max(0,si(p[2])),"avg_cost":max(0,sf(p[3])),
+    code=p[0].upper()
+    if not is_qqq_option_code(code): raise SystemExit("POSITION_CODE_MUST_BE_QQQ_OPTION")
+    return {"code":code,"side":side,"qty":max(0,si(p[2])),"avg_cost":max(0,sf(p[3])),
             "lot_size":max(1,si(p[4]) if len(p)==5 else 100),"source":"USER_INITIAL"}
 
 def init_lots(m):
@@ -404,8 +407,12 @@ def mark_lots(lots, cmap, quotes):
             "status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY")}
 
 def option_positions(ps):
-    return [p for p in ps if str(p.get("code","")).upper().startswith("US.QQQ") and str(p.get("code","")).upper()!="US.QQQ"
-            and str(p.get("side","")).upper() in ("LONG","SHORT") and si(p.get("qty"))>0]
+    return [
+        p for p in ps
+        if is_qqq_option_code(p.get("code",""))
+        and str(p.get("side","")).upper() in ("LONG","SHORT")
+        and si(p.get("qty"))>0
+    ]
 
 def contracts_map(snap):
     out={}
@@ -596,7 +603,7 @@ def instance_far_position(m, positions):
     shorts = [
         p for p in positions
         if str(p.get("side", "")).upper() == "SHORT"
-        and str(p.get("code", "")).upper().startswith("US.QQQ")
+        and is_qqq_option_code(p.get("code", ""))
     ]
     hint = str(m.get("far_code_hint") or "").upper()
     if hint:
@@ -932,7 +939,7 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
 def _record_manual_trade_unlocked(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None):
     m,s,l=load_instance(Path(repo).resolve(),instance_id)
     t=timestamp_utc or now(); action=str(action).upper(); code=str(code).strip().upper()
-    if not code.startswith("US.QQQ") or code=="US.QQQ":
+    if not is_qqq_option_code(code):
         raise SystemExit("MANUAL_CODE_MUST_BE_QQQ_OPTION")
     trade_id=trade_id or ("MANUAL_"+t.replace(":","").replace("-","").replace(".","").replace("+00:00","Z"))
     existing_manual_ids={str(r.get("payload",{}).get("trade_id")) for r in l._rows() if r.get("event_type")=="MANUAL_TRADE_RECORDED"}
