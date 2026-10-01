@@ -785,7 +785,6 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
             "unknown_positions":[p.__dict__ for p in unknown_qqq],
         }
     shorts=[p for p in all_pos if p.side=="SHORT" and is_qqq_option_code(p.code)]
-    active=bool(hinted_far)
     far=None
     hinted_far = instance_far_position(
         m,
@@ -794,6 +793,7 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
     )
     far_hint = str(m.get("far_code_hint") or "").upper()
     far_candidates = [hinted_far] if hinted_far is not None else []
+    active=bool(hinted_far)
     if shorts and hinted_far is None:
         return {
             "status": "DATA_GAP",
