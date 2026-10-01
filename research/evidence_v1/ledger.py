@@ -155,10 +155,21 @@ class EvidenceLedger:
                         raise LedgerError(f"LEDGER_DECISION_MISSING_PRIMARY:cycle={cycle_id}")
                     if not isinstance(journal, list):
                         raise LedgerError(f"LEDGER_DECISION_MISSING_CANDIDATE_JOURNAL:cycle={cycle_id}")
+                    if len(journal) != len(actions):
+                        raise LedgerError(f"LEDGER_CANDIDATE_JOURNAL_COVERAGE_MISMATCH:cycle={cycle_id}")
+                    journal_indexes = []
                     for j in journal:
                         if not isinstance(j, dict):
                             raise LedgerError(f"LEDGER_BAD_CANDIDATE_JOURNAL_ROW:cycle={cycle_id}")
                         raw = j.get("raw_candidate")
+                        if j.get("observed_at_utc") is None:
+                            raise LedgerError(f"LEDGER_CANDIDATE_TIMESTAMP_MISSING:cycle={cycle_id}")
+                        if j.get("candidate_index") is None:
+                            raise LedgerError(f"LEDGER_CANDIDATE_INDEX_MISSING:cycle={cycle_id}")
+                        try:
+                            journal_indexes.append(int(j.get("candidate_index")))
+                        except (TypeError, ValueError) as exc:
+                            raise LedgerError(f"LEDGER_CANDIDATE_INDEX_INVALID:cycle={cycle_id}") from exc
                         if not isinstance(raw, dict):
                             raise LedgerError(f"LEDGER_CANDIDATE_RAW_MISSING:cycle={cycle_id}")
                         digest = j.get("candidate_sha256")
@@ -173,6 +184,8 @@ class EvidenceLedger:
                                     raise LedgerError(f"LEDGER_CANDIDATE_EMIT_MISMATCH:cycle={cycle_id}")
                             except (TypeError, ValueError) as exc:
                                 raise LedgerError(f"LEDGER_CANDIDATE_INDEX_INVALID:cycle={cycle_id}") from exc
+                    if sorted(journal_indexes) != list(range(len(actions))):
+                        raise LedgerError(f"LEDGER_CANDIDATE_JOURNAL_INDEX_COVERAGE:cycle={cycle_id}")
                 state["decision"] = idx
             elif et == "CYCLE_FINALIZED":
                 if "finalized" in state:
