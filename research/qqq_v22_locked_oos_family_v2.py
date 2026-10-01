@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
@@ -250,8 +251,24 @@ def main():
     u_full = load_underlying(ud)
     con = duckdb.connect()
 
+    def sha256_file(path: Path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    lock_path = Path("research/evidence_v1/STRATEGY_LOCK.json")
+    lock_obj = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock_hash = hashlib.sha256(
+        json.dumps(lock_obj, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    frozen_engine = Path("research/qqq_dynamic_near_long_state_engine_v22_930c949.py")
+
     manifest = {
         "engine_commit": "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
+        "frozen_engine_sha256": sha256_file(frozen_engine),
+        "strategy_lock_hash": lock_hash,
+        "canonical_data_sha256": {
+            "QQQ_options.parquet": sha256_file(od),
+            "QQQ_underlying.parquet": sha256_file(ud),
+        },
         "candidate": "30D near + 1.50x coverage",
         "candidate_family_configs": 72,
         "family_definition": "9 far DTE×delta combinations × all 8 policies; no sub-selection inside OOS",
