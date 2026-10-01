@@ -17,6 +17,7 @@ from .campaign import (
     STATE_ROLLING,
     build_ticket,
     choose_primary_action,
+    rank_candidates,
     is_qqq_option_code,
     make_campaign_id,
     position_snapshot,
@@ -1204,13 +1205,15 @@ def _main_cycle(args, out_path):
             "use --adopt-existing-far only after verifying ownership",
         ] + list(p.get("reasons", []))
 
+    raw_candidates = p.get("candidate_actions", []) or []
+    candidate_ranking = rank_candidates(raw_candidates)
     primary = None
     if (
         not just_filled
         and state.get("active_ticket") is None
         and campaign.get("state") != STATE_EMERGENCY_CLOSE
     ):
-        primary = choose_primary_action(p.get("candidate_actions", []))
+        primary = choose_primary_action(raw_candidates)
 
     if primary:
         action_name = str(primary.get("action"))
@@ -1311,6 +1314,7 @@ def _main_cycle(args, out_path):
             "evaluation_clock": "LIVE_FORWARD",
             "non_retroactive": True,
             "candidate_actions_are_verbatim": True,
+            "candidate_ranking": candidate_ranking,
         },
     )
 
