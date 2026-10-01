@@ -1366,6 +1366,8 @@ def _main_cycle(args, out_path):
         "far": p.get("far"),
         "near_candidate": p.get("near_candidate"),
         "risk_state": p.get("risk_state"),
+        "candidate_ranking": candidate_ranking,
+        "candidate_journal": candidate_journal,
         "positions": [
             {
                 "code": x.code,
