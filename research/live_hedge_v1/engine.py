@@ -298,6 +298,13 @@ def select_near(cs, spot, dte_target):
     return z[0]
 
 
+def _safe_positive_qty(value) -> bool:
+    try:
+        return int(float(value or 0)) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def plan(
     *,
     market,
@@ -337,7 +344,39 @@ def plan(
         p for p in positions
         if is_qqq_option_code(p.code) and p.side in {"LONG", "SHORT"} and p.qty > 0
     ]
-    near_pos = [p for p in option_positions if p.side == "LONG"]
+    near_pos_all = [p for p in option_positions if p.side == "LONG"]
+    managed_near_by_code = {}
+    for lot in near_lots:
+        if (str(lot.get("status", "OPEN")).upper() != "OPEN"
+                or not _safe_positive_qty(lot.get("qty"))
+                or not is_qqq_option_code(lot.get("code", "")):
+            continue
+        code = str(lot.get("code", "")).upper()
+        managed_near_by_code[code] = managed_near_by_code.get(code, 0) + int(lot.get("qty", 0) or 0)
+    observed_near_by_code = {}
+    for p in near_pos_all:
+        code = p.code.upper()
+        observed_near_by_code[code] = observed_near_by_code.get(code, 0) + int(p.qty)
+    near_mismatches = {
+        code: {"position_qty": observed_near_by_code.get(code, 0), "tracked_lot_qty": managed_near_by_code.get(code, 0)}
+        for code in set(observed_near_by_code) | set(managed_near_by_code)
+        if observed_near_by_code.get(code, 0) != managed_near_by_code.get(code, 0)
+    }
+    if far_campaign_active and near_mismatches:
+        return {
+            "status": "BLOCKED_NEAR_OWNERSHIP_MISMATCH",
+            "timestamp": now.isoformat(),
+            "candidate_actions": [],
+            "next_triggers": [],
+            "reasons": [
+                "observed QQQ LONG inventory does not match tracked strategy near lots",
+                "desk refuses to attribute or modify unmatched LONG inventory",
+                "resolve manual/out-of-band/state mismatch before campaign management continues",
+            ],
+            "near_ownership_mismatches": near_mismatches,
+            "market": market,
+        }
+    near_pos = [p for p in near_pos_all if p.code.upper() in managed_near_by_code]
     far_positions = [p for p in option_positions if p.side == "SHORT"]
     terminal_statuses = {"FILLED", "FILLED_ALL", "CANCELLED", "CANCELLED_ALL", "REJECTED", "FAILED"}
     pending_codes = {
@@ -450,19 +489,6 @@ def plan(
                 cost = float(lot.get("avg_cost", 0) or 0)
                 if bid is not None and cost > 0 and bid / cost - 1 >= NEAR_TP:
                     eligible_harvest.append((str(lot.get("opened_at", "")), lot))
-            for p in near_pos:
-                q = quotes_by_code.get(p.code, {})
-                bid = q.get("bid")
-                cost = float(p.avg_cost or 0)
-                if bid is not None and cost > 0 and bid / cost - 1 >= NEAR_TP and not any(l.get("code") == p.code for _, l in eligible_harvest):
-                    eligible_harvest.append((str(p.code), {
-                        "lot_id": f"POSITION:{p.code}",
-                        "code": p.code,
-                        "qty": p.qty,
-                        "avg_cost": cost,
-                        "status": "OPEN",
-                        "source": "POSITION_FALLBACK",
-                    }))
             if eligible_harvest:
                 eligible_harvest.sort(key=lambda x: x[0])
                 lot = eligible_harvest[0][1]
