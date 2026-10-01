@@ -57,6 +57,16 @@ def test_last_is_consistent_with_append():
         assert last["event_type"] == "DATA_GAP"
 
 
+def _write_test_snapshot(root, cycle_id="C1", campaign_id="CAMP1"):
+    from research.evidence_v1.snapshot import write_snapshot
+    return write_snapshot(
+        root,
+        cycle_id,
+        {"cycle_id": cycle_id, "campaign_id": campaign_id,
+         "family_observation": {"rows": []}},
+    )
+
+
 def test_report_reads_only_validated_ledger_and_dedupes_corrections():
     import json
     import tempfile
@@ -73,6 +83,18 @@ def test_report_reads_only_validated_ledger_and_dedupes_corrections():
         ]:
             payload={"candidate_actions":[],"primary":None} if et=="DECISION_EMITTED" else {}
             ledger.append(et,cycle_id="C1",campaign_id="CAMP1",timestamp_utc=t,payload=payload)
+        snap_ref=_write_test_snapshot(root)
+        # Attach a real, hash-verified pre-decision snapshot to the first cycle.
+        rows_before_outcome=ledger.rows()
+        pre=rows_before_outcome[1]
+        pre["payload"]["snapshot"]=snap_ref
+        # The fixture only needs a valid ledger record for report processing;
+        # rebuild that pre-decision row in a dedicated ledger below.
+        ev.unlink()
+        ledger=EvidenceLedger(ev)
+        ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",timestamp_utc="2026-10-01T00:00:01+00:00",payload={"snapshot":snap_ref})
+        ledger.append("DECISION_EMITTED",cycle_id="C1",campaign_id="CAMP1",timestamp_utc="2026-10-01T00:00:02+00:00",payload={"candidate_actions":[],"primary":None})
         first=ledger.append(
             "OUTCOME_RESOLVED",cycle_id="O1",campaign_id="CAMP1",
             timestamp_utc="2026-10-01T01:00:00+00:00",
