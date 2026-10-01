@@ -339,6 +339,29 @@ def test_operator_ticket_context_rejects_cross_lineage_evidence():
             raise AssertionError("cross-lineage decision evidence must not be usable")
 
 
+def test_instance_strategy_lineage_rejects_missing_runtime_lock_fields():
+    from pathlib import Path
+    import research.strategy_instance_v1.run_instance as ri
+    from .run_instance import assert_instance_strategy_lineage
+
+    manifest={"strategy_id":"S1","strategy_version":"V1",
+              "research_engine_commit":"ENG1","strategy_lock_hash":"LOCK1"}
+    original=ri.runtime_identity
+    try:
+        ri.runtime_identity=lambda repo: {
+            "strategy_id":"S1","strategy_version":"V1",
+            "research_engine_commit":None,"strategy_lock_hash":"LOCK1",
+        }
+        try:
+            assert_instance_strategy_lineage(Path("."),manifest)
+        except SystemExit as exc:
+            assert "research_engine_commit" in str(exc)
+        else:
+            raise AssertionError("missing runtime lineage must block")
+    finally:
+        ri.runtime_identity=original
+
+
 def test_instance_strategy_lineage_rejects_engine_or_lock_drift():
     import tempfile
     import research.strategy_instance_v1.run_instance as ri
