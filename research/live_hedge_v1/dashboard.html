@@ -55,7 +55,12 @@ async function load(){
     let h='<div class="grid">';
     h+='<div class="card"><div class="meta">DESK STATUS</div><div class="big">'+esc(s.status)+'</div><div>'+esc(s.instruction)+'</div></div>';
     h+='<div class="card"><div class="meta">SIGNAL / MARKET</div><div><strong>spot '+n(mk.spot)+'</strong></div><div>signal='+esc(String(mk.signal_active??'—'))+'</div><div>ratio52='+esc(n(mk.ratio52))+' · ext200='+esc(n(mk.ext200))+'</div></div>';
-    h+='<div class="card"><div class="meta">STRATEGY POSITION</div><div>far CALL '+esc(qty(pa.far_short_contracts))+' / '+esc(qty(pa.far_short_target_contracts))+' · gap '+esc(qty(pa.far_short_gap_contracts))+'</div><div>near CALL '+esc(qty(pa.near_call_contracts))+' / '+esc(qty(pa.near_call_target_contracts))+' · gap '+esc(qty(pa.near_call_gap_contracts))+'</div><div>campaign='+esc(c.state||'IDLE')+'</div></div>';
+    const idle = !c.id && (c.state||'IDLE')==='IDLE';
+    h+='<div class="card"><div class="meta">STRATEGY POSITION</div>'+
+      (idle
+        ? '<div>far CALL held '+esc(qty(pa.far_short_contracts))+' · entry target '+esc(qty(pa.far_short_target_contracts))+' when signal activates</div><div>near CALL held '+esc(qty(pa.near_call_contracts))+' · dynamic target starts after campaign entry</div>'
+        : '<div>far CALL '+esc(qty(pa.far_short_contracts))+' / '+esc(qty(pa.far_short_target_contracts))+' · gap '+esc(qty(pa.far_short_gap_contracts))+'</div><div>near CALL '+esc(qty(pa.near_call_contracts))+' / '+esc(qty(pa.near_call_target_contracts))+' · gap '+esc(qty(pa.near_call_gap_contracts))+'</div>')+
+      '<div>campaign='+esc(c.state||'IDLE')+'</div></div>';
     h+='<div class="card"><div class="meta">POSITION MARK</div><div class="big">'+esc(usd(pm.unrealized_pnl))+'</div><div>realized = '+esc(String(pm.realized_pnl||'NOT_TRACKED_BY_LIVE_DESK'))+'</div><div>mark status = '+esc(pm.status||'—')+'</div></div>';
     h+='</div>';
     if(!c.id && (Object.keys(farc).length || Object.keys(nearc).length)){
