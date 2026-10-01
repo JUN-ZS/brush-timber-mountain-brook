@@ -377,9 +377,32 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
     shorts=[p for p in pos if p.side=="SHORT" and str(p.code).upper().startswith("US.QQQ")]
     active=bool(shorts)
     far=None
-    for p in shorts:
+    far_hint = str(m.get("far_code_hint") or "").upper()
+    if far_hint:
+        far_candidates = [p for p in shorts if str(p.code).upper() == far_hint]
+    else:
+        far_candidates = shorts if len(shorts) == 1 else []
+    if active and len(far_candidates) != 1:
+        return {
+            "status": "DATA_GAP",
+            "reason": (
+                "far ownership ambiguous; provide manifest far_code_hint"
+                if not far_hint
+                else "manifest far_code_hint does not uniquely match broker SHORT"
+            ),
+            "short_codes": [str(p.code) for p in shorts],
+            "far_code_hint": far_hint or None,
+        }
+    if far_candidates:
+        p = far_candidates[0]
         c=cmap.get(p.code); q=quotes.get(p.code,{})
-        if c: far=Contract(c.code,c.right,c.strike,c.expiry,c.dte,q.get("bid",c.bid),q.get("ask",c.ask),q.get("delta",c.delta),q.get("gamma",c.gamma),q.get("iv",c.iv),c.lot_size); break
+        if c:
+            far=Contract(
+                c.code,c.right,c.strike,c.expiry,c.dte,
+                q.get("bid",c.bid),q.get("ask",c.ask),
+                q.get("delta",c.delta),q.get("gamma",c.gamma),
+                q.get("iv",c.iv),c.lot_size,c.volume,
+            )
     spot=sf(market.get("spot"))
     if far is None and not active:
         far=select_far(list(cmap.values()),spot,si(m.get("far_dte")) or 120,sf(m.get("far_delta")) or .08)
