@@ -539,8 +539,25 @@ def _aggregate_lot_qty(lots):
 
 
 def managed_position_view(ps,lots):
-    """Project account positions onto strategy-owned quantities only."""
+    """Project account positions onto strategy-owned quantities only.
+
+    Cost basis comes from strategy lots, never from an account-wide position
+    average that may include unrelated/manual quantity of the same option.
+    """
     tracked=_aggregate_lot_qty(lots)
+    tracked_cost={}
+    tracked_size={}
+    for lot in lots or []:
+        if str(lot.get("status","OPEN")).upper()!="OPEN" or si(lot.get("qty"))<=0:
+            continue
+        code=str(lot.get("code","")).upper()
+        side=str(lot.get("side","")).upper()
+        if not code or side not in {"LONG","SHORT"}:
+            continue
+        key=(code,side)
+        q=si(lot.get("qty"))
+        tracked_cost[key]=tracked_cost.get(key,0.0)+q*sf(lot.get("avg_price",lot.get("avg_cost")))
+        tracked_size[key]=max(tracked_size.get(key,0),max(1,si(lot.get("lot_size")) or 100))
     observed={}
     for p in option_positions(ps):
         key=(str(p.get("code","")).upper(),str(p.get("side","")).upper())
@@ -552,12 +569,14 @@ def managed_position_view(ps,lots):
         qty=min(tracked_qty,broker_qty)
         if qty<=0:
             continue
-        src=next((p for p in ps if str(p.get("code","")).upper()==code and str(p.get("side","")).upper()==side),{})
+        broker_row=next((p for p in ps if str(p.get("code","")).upper()==code and str(p.get("side","")).upper()==side),{})
+        avg_cost=tracked_cost.get((code,side),0.0)/tracked_qty if tracked_qty else 0.0
         out.append({
             "code":code,"side":side,"qty":qty,
-            "avg_cost":sf(src.get("avg_cost")),
-            "lot_size":max(1,si(src.get("lot_size")) or 100),
+            "avg_cost":avg_cost,
+            "lot_size":tracked_size.get((code,side)) or max(1,si(broker_row.get("lot_size")) or 100),
             "source":"BROKER_OBSERVED_STRATEGY_OWNED",
+            "cost_basis_source":"STRATEGY_LOTS",
         })
     return out
 
