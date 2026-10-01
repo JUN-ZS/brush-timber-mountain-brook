@@ -261,6 +261,22 @@ def test_instance_input_rejects_non_qqq_option_codes():
         raise AssertionError("non-QQQ option must not enter instance")
 
 
+def test_unmanaged_broker_qqq_short_is_reconciliation_gap():
+    from .run_instance import reconcile
+    lots=[{"lot_id":"T0","code":"US.QQQ261230C00600000","side":"LONG","qty":1,"avg_price":5.0,"status":"OPEN","lot_size":100}]
+    positions=[
+        {"code":"US.QQQ261230C00600000","side":"LONG","qty":1,"avg_cost":5.0},
+        {"code":"US.QQQ261230C00610000","side":"SHORT","qty":3,"avg_cost":1.0},
+    ]
+    gaps=reconcile(lots,positions)
+    assert any(
+        x["reason"]=="UNMANAGED_QQQ_SHORT"
+        and x["code"]=="US.QQQ261230C00610000"
+        and x["broker_qty"]==3
+        for x in gaps
+    )
+
+
 def test_unrelated_broker_qqq_execution_is_not_strategy_attributed():
     from .run_instance import attribute_broker_deal, managed_position_view, reconcile
 
