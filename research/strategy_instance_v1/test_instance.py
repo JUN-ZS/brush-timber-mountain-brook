@@ -18,6 +18,7 @@ from .performance_tape import build_performance_tape, classify_relationship
 def test_operator_ticket_context_is_verified_from_evidence():
     import json
     from .serve_operator import explicit_strategy_context
+    from ..evidence_v1.ledger import EvidenceLedger
     with tempfile.TemporaryDirectory() as td:
         root=Path(td)
         ticket={
@@ -28,7 +29,7 @@ def test_operator_ticket_context_is_verified_from_evidence():
                 "price":8.5,
             }],
         }
-        ledger=InstanceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl",{})
         ledger.append("CYCLE_STARTED",instance_id="I",cycle_id="C1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         decision=ledger.append(
@@ -53,6 +54,7 @@ def test_operator_ticket_context_is_verified_from_evidence():
 def test_operator_ticket_context_rejects_browser_tampering():
     import tempfile
     from .serve_operator import explicit_strategy_context
+    from ..evidence_v1.ledger import EvidenceLedger
     with tempfile.TemporaryDirectory() as td:
         root=Path(td)
         ticket={"ticket_id":"TICKET-2","action":"ADD_NEAR","status":"OPEN",
@@ -88,6 +90,7 @@ def test_operator_mutation_endpoint_requires_header():
 def test_operator_strategy_context_must_be_instance_scoped():
     import tempfile
     from .serve_operator import explicit_strategy_context
+    from ..evidence_v1.ledger import EvidenceLedger
     with tempfile.TemporaryDirectory() as td:
         root=Path(td)
         ticket={"ticket_id":"T1","action":"ADD_NEAR","status":"OPEN",
