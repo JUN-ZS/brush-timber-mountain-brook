@@ -1014,6 +1014,17 @@ class GammaHistoryMigrationTests(unittest.TestCase):
         self.assertAlmostEqual(base, 4.2, places=6)
 
 
+    def test_non_finite_gamma_history_is_discarded_not_used(self):
+        state = {
+            "gamma_history": [5.0, float("inf"), 5.2, float("-inf"), 5.1],
+            "gamma_history_schema": 2,
+            "gamma_history_unit": "gamma_spot",
+        }
+        hist = ensure_gamma_history_schema(state, spot=500.0)
+        self.assertEqual(hist, [5.0, 5.2, 5.1])
+        self.assertTrue(all(v == v and abs(v) < float("inf") for v in hist))
+        self.assertAlmostEqual(gamma_baseline_from_history([1, 2, 3, 4, float("inf")]) or 0, 3.0)
+
     def test_schema2_gamma_spot_marker_is_authoritative(self):
         state = {
             "gamma_history": [0.01, 0.012, 0.011, 0.015, 0.02],
