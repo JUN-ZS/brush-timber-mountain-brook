@@ -33,9 +33,9 @@ class FutuTradeReader:
         if isinstance(raw, (int, float)):
             return {0: "LONG", 1: "SHORT"}.get(int(raw), "UNKNOWN")
         s = str(raw or "").strip().upper()
-        if s in {"LONG", "LONG_POSITION", "POSITION_SIDE_LONG", "POSITION_SIDE_LONG()", "BUY", "0"}:
+        if s in {"LONG", "LONG_POSITION", "POSITION_SIDE_LONG", "POSITION_SIDE_LONG()", "0"}:
             return "LONG"
-        if s in {"SHORT", "SHORT_POSITION", "POSITION_SIDE_SHORT", "POSITION_SIDE_SHORT()", "SELL", "1"}:
+        if s in {"SHORT", "SHORT_POSITION", "POSITION_SIDE_SHORT", "POSITION_SIDE_SHORT()", "1"}:
             return "SHORT"
         return "UNKNOWN"
 
