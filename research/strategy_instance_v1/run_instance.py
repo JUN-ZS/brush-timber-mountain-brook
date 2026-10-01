@@ -398,27 +398,29 @@ def _cycle_unlocked(args):
         "gross_pnl":gross,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
     if args.observe_strategy_plan and snap.get("status")=="OK":
         try:
-            _, gamma_baseline, previous_far_delta_abs = gamma_state_for_instance(s, None, sf(snap.get("market", {}).get("spot")))
+            gamma_history, gamma_baseline, previous_far_delta_abs = gamma_state_for_instance(
+                s, None, sf(snap.get("market", {}).get("spot"))
+            )
+            current_far = None
+            current_far_gamma_spot = None
+            current_far_delta_abs = None
             if ps:
                 current_far = next(
-                    (p for p in ps if str(p.get("side", "")).upper() == "SHORT" and str(p.get("code", "")).upper().startswith("US.QQQ")),
+                    (
+                        p for p in ps
+                        if str(p.get("side", "")).upper() == "SHORT"
+                        and str(p.get("code", "")).upper().startswith("US.QQQ")
+                    ),
                     None,
                 )
-                if current_far:
-                    q = quotes.get(str(current_far.get("code")), {})
-                    gamma = q.get("gamma")
-                    spot_now = sf(snap.get("market", {}).get("spot"))
-                    if gamma is not None and spot_now > 0:
-                        hist = s.setdefault("gamma_history", [])
-                        hist.append(abs(float(gamma)) * spot_now)
-                        s["gamma_history"] = hist[-20:]
-                        gamma_baseline = (
-                            float(__import__("statistics").median(s["gamma_history"]))
-                            if len(s["gamma_history"]) >= 5 else None
-                        )
-                    if q.get("delta") is not None:
-                        previous_far_delta_abs = s.get("far_delta_abs")
-                        s["far_delta_abs"] = abs(float(q["delta"]))
+            if current_far:
+                q = quotes.get(str(current_far.get("code")), {})
+                spot_now = sf(snap.get("market", {}).get("spot"))
+                if q.get("gamma") is not None and spot_now > 0:
+                    current_far_gamma_spot = abs(float(q["gamma"])) * spot_now
+                if q.get("delta") is not None:
+                    current_far_delta_abs = abs(float(q["delta"]))
+                    previous_far_delta_abs = s.get("far_delta_abs")
             sp=strategy_plan(
                 snap, ps, orders, cmap, quotes, m,
                 near_lots=s.get("lots", []),
@@ -429,6 +431,13 @@ def _cycle_unlocked(args):
                      payload={"plan":sp,"execution":"READ_ONLY_OBSERVATION"},source="SYSTEM")
         except Exception as e:
             s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"STRATEGY_PLAN","error":repr(e)})
+    # Persist current observation only after the strategy plan consumed the prior window.
+    if current_far_gamma_spot is not None:
+        s["gamma_history"] = (gamma_history + [current_far_gamma_spot])[-20:]
+        s["gamma_history_schema"] = 2
+        s["gamma_history_unit"] = "gamma_spot"
+    if current_far_delta_abs is not None:
+        s["far_delta_abs"] = current_far_delta_abs
     if tr.get("deal_warning"):
         s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"DEAL_FEED","warning":tr["deal_warning"]},source="BROKER_OBSERVED")
     s["last_cycle_at"]=t; s["last_history_backfill_at"]=t if history_used else s.get("last_history_backfill_at"); save(spath(repo,args.instance_id),s)
