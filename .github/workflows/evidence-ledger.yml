@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - "research/evidence_v1/**"
-      - "research/live_hedge_v1/**"
       - "research/strategy_instance_v1/**"
       - "run_strategy_instance.cmd"
       - ".github/workflows/evidence-ledger.yml"
