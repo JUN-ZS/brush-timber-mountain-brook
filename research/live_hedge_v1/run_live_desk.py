@@ -338,6 +338,53 @@ def _action_card(ticket):
         "manual_execution_only":True,
     }
 
+def _strategy_position_analysis(positions, market, far, near, risk_state):
+    spot = _safe_float((market or {}).get("spot"))
+    qqq = [
+        p for p in positions
+        if is_qqq_option_code(p.code) and p.qty > 0 and p.side in {"LONG", "SHORT"}
+    ]
+    far_code = getattr(far, "code", None)
+    far_shorts = [
+        p for p in qqq
+        if p.side == "SHORT" and (far_code is None or p.code == far_code)
+    ]
+    near_longs = [
+        p for p in qqq
+        if p.side == "LONG"
+        and p.strike is not None
+        and spot > 0
+        and p.strike <= spot * 1.01
+        and p.dte is not None
+        and 7 <= int(p.dte) <= 35
+    ]
+    desired_near = _safe_int(risk_state.get("desired_stack")) if risk_state else None
+    actual_far = sum(_safe_int(p.qty) for p in far_shorts)
+    actual_near = sum(_safe_int(p.qty) for p in near_longs)
+    return {
+        "definition": {
+            "far_short": "QQQ CALL; fixed 10 contracts at campaign entry",
+            "near_call": "QQQ CALL; 7-35 DTE; strike <= 1.01×spot; selected around 0.50 delta",
+        },
+        "far_short_contracts": actual_far,
+        "far_short_target_contracts": N_SHORT,
+        "far_short_gap_contracts": N_SHORT - actual_far,
+        "far_short_positions": [
+            {"code": p.code, "qty": p.qty, "avg_cost": p.avg_cost, "strike": p.strike, "dte": p.dte}
+            for p in far_shorts
+        ],
+        "near_call_contracts": actual_near,
+        "near_call_target_contracts": desired_near,
+        "near_call_gap_contracts": None if desired_near is None else desired_near - actual_near,
+        "near_call_positions": [
+            {"code": p.code, "qty": p.qty, "avg_cost": p.avg_cost, "strike": p.strike, "dte": p.dte}
+            for p in near_longs
+        ],
+        "all_qqq_long_option_contracts": sum(_safe_int(p.qty) for p in qqq if p.side == "LONG"),
+        "selected_near_candidate": near.__dict__ if near else None,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--far-dte", type=int, default=120)
@@ -970,6 +1017,13 @@ def main():
         instruction = "HOLD — no primary ticket."
 
     mark_summary = _mark_position_summary(strict_positions, quotes, by)
+    position_analysis = _strategy_position_analysis(
+        strict_positions,
+        market,
+        far,
+        near,
+        p.get("risk_state"),
+    )
     action_card = _action_card(primary_ticket)
 
     evidence.append(
@@ -1018,6 +1072,7 @@ def main():
         "primary_ticket": primary_ticket,
         "action_card": action_card,
         "position_mark": mark_summary,
+        "position_analysis": position_analysis,
         "one_primary_ticket_per_cycle": True,
         "market": market,
         "far": p.get("far"),
