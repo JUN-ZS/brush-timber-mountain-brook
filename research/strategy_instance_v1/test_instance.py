@@ -25,12 +25,13 @@ def test_operator_mutation_endpoint_requires_header():
 
 def test_operator_strategy_context_must_be_instance_scoped():
     from .serve_operator import explicit_strategy_context
-    raw={"instance_id":"I1","ticket_id":"T1","action":"ADD_NEAR","status":"OPEN",
+    raw={"instance_id":"I1","ticket_id":"T1","context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE","action":"ADD_NEAR","status":"OPEN",
          "leg":{"code":"US.QQQ.TEST","qty":1,"side":"BUY","strategy_leg_action":"ADD_NEAR"},
          "captured_at_utc":"2026-10-01T21:00:00+00:00"}
     ok=explicit_strategy_context({"instance_id":"I1","strategy_context_snapshot":raw})
     assert ok["ticket_id"]=="T1"
     assert ok["context_source"]=="OPERATOR_SELECTED_TICKET_SNAPSHOT"
+    assert ok["strategy_instance_id"]=="I1"
     assert explicit_strategy_context({"instance_id":"I2","strategy_context_snapshot":raw})=={}
     assert explicit_strategy_context({"instance_id":"I1","strategy_context_snapshot":{"instance_id":"I1"}})=={}
 
