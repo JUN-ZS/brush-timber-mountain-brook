@@ -177,6 +177,26 @@ class LiveHedgeV2Test(unittest.TestCase):
             with self.assertRaises(ValueError):
                 store.validate_events()
 
+    def test_blocked_plan_does_not_advance_dynamic_state():
+        from research.live_hedge_v1.run_live_desk import _persist_dynamic_state_observation
+        state={"far_code":"OLD","far_delta":0.08,"gamma_history":[4.0],
+               "gamma_history_schema":2,"gamma_history_unit":"gamma_spot",
+               "last_target_stack":3,"last_risk_score":3.0}
+        far=Contract(
+            code="US.QQQ261230C00600000", right="CALL", strike=600.0,
+            expiry="2026-12-30", dte=90, bid=1.0, ask=1.1,
+            delta=0.08, gamma=0.01,
+        )
+        p={"status":"BLOCKED_NEAR_OWNERSHIP_MISMATCH",
+           "risk_state":{"desired_stack":5,"risk_score":5.0}}
+        out=_persist_dynamic_state_observation(state,p,far,{"spot":500.0})
+        self.assertFalse(out)
+        self.assertEqual(state["far_code"],"OLD")
+        self.assertEqual(state["far_delta"],0.08)
+        self.assertEqual(state["gamma_history"],[4.0])
+        self.assertEqual(state["last_target_stack"],3)
+        self.assertEqual(state["last_risk_score"],3.0)
+
     def test_action_card_preserves_explicit_roll_leg_semantics(self):
         ticket = {
             "status": "OPEN",
