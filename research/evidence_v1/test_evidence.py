@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from research.evidence_v1.family_snapshot import build_family_snapshot
-from research.evidence_v1.ledger import EvidenceLedger, LedgerError, sha256_json
+from research.evidence_v1.ledger import EvidenceLedger, LedgerError, canonical_json, sha256_json
 from research.live_hedge_v1.engine import Contract
 
 
