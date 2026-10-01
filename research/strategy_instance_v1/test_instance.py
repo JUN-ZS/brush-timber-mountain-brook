@@ -712,6 +712,79 @@ def test_state_cache_recovery_rebuilds_only_accepted_dynamic_observations():
         assert state["gamma_history_schema"]==2
         assert state["gamma_history_unit"]=="gamma_spot"
 
+def test_manual_trade_timestamp_cannot_precede_t0_or_jump_future():
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td); instance_id="I-TIME"
+        manifest={
+            "schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+            "instance_id":instance_id,
+            "created_at_utc":"2026-10-01T00:00:00+00:00",
+            "start_at_utc":"2026-10-01T01:00:00+00:00",
+            "strategy_id":"TEST","strategy_version":"V1","initial_positions":[],
+        }
+        manifest["manifest_hash"]=mhash(manifest)
+        save(mpath(repo,instance_id),manifest)
+        l=InstanceLedger(lpath(repo,instance_id),{
+            "instance_id":instance_id,"manifest_hash":manifest["manifest_hash"],
+            "strategy_id":"TEST","strategy_version":"V1"})
+        l.append("INSTANCE_CREATED",instance_id=instance_id,cycle_id="C0",
+                 timestamp_utc="2026-10-01T01:00:00+00:00",payload={})
+        try:
+            from .run_instance import record_manual_trade
+            record_manual_trade(repo,instance_id=instance_id,action="ADD",
+                code="US.QQQ.TEST",qty=1,price=5.0,
+                timestamp_utc="2026-10-01T00:30:00+00:00")
+        except SystemExit as exc:
+            assert str(exc)=="MANUAL_TRADE_BEFORE_ECONOMIC_T0"
+        else:
+            raise AssertionError("pre-T0 manual trade must be blocked")
+
+        future=(datetime.now(timezone.utc)+__import__("datetime").timedelta(minutes=10)).isoformat()
+        try:
+            record_manual_trade(repo,instance_id=instance_id,action="ADD",
+                code="US.QQQ.TEST",qty=1,price=5.0,timestamp_utc=future)
+        except SystemExit as exc:
+            assert str(exc)=="MANUAL_TRADE_FUTURE"
+        else:
+            raise AssertionError("future manual trade must be blocked")
+
+
+def test_strategy_confirmation_rejects_side_conflict():
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td); instance_id="I-CONFLICT"
+        manifest={
+            "schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+            "instance_id":instance_id,
+            "created_at_utc":"2026-10-01T00:00:00+00:00",
+            "start_at_utc":"2026-10-01T00:00:00+00:00",
+            "strategy_id":"TEST","strategy_version":"V1","initial_positions":[],
+        }
+        manifest["manifest_hash"]=mhash(manifest)
+        save(mpath(repo,instance_id),manifest)
+        l=InstanceLedger(lpath(repo,instance_id),{
+            "instance_id":instance_id,"manifest_hash":manifest["manifest_hash"],
+            "strategy_id":"TEST","strategy_version":"V1"})
+        l.append("INSTANCE_CREATED",instance_id=instance_id,cycle_id="C0",
+                 timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        deal={"deal_id":"D1","code":"US.QQQ.TEST","side":"BUY","qty":2,
+              "price":5.0,"lot_size":100,"created_at":"2026-10-01T00:00:10+00:00"}
+        l.append("BROKER_EXECUTION_UNATTRIBUTED",instance_id=instance_id,cycle_id="C1",
+                 timestamp_utc="2026-10-01T00:00:11+00:00",
+                 payload={"deal":deal,"attribution":None},source="BROKER_OBSERVED")
+        l.append("STRATEGY_EXECUTION_CONFIRMED",instance_id=instance_id,cycle_id="C2",
+                 timestamp_utc="2026-10-01T00:00:12+00:00",
+                 payload={"deal":deal,"confirmed_qty":1,
+                          "expected_strategy_side":"LONG","unattributed_remaining_qty":1},
+                 source="USER_MANUAL")
+        try:
+            from .run_instance import confirm_strategy_execution
+            confirm_strategy_execution(repo,instance_id=instance_id,deal_id="D1",
+                expected_strategy_side="SHORT",qty=1)
+        except SystemExit as exc:
+            assert str(exc).startswith("STRATEGY_CONFIRMATION_SIDE_CONFLICT:D1:")
+        else:
+            raise AssertionError("conflicting strategy side confirmation must be blocked")
+
 def test_corrupt_instance_state_cache_recovers_from_ledger():
     with tempfile.TemporaryDirectory() as td:
         repo=Path(td); instance_id="I-CACHE"
