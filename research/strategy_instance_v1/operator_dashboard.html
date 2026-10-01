@@ -274,7 +274,7 @@ function renderState(){
   $("mMark").textContent="mark: "+(m.mark_status||"—");
   $("mTrades").textContent="trades: "+(m.trade_count??"—");
   $("bRealized").textContent=money(b.realized_pnl);
-  $("bRecon").textContent="reconcile: "+((b.last_reconcile||{}).status||"—")+" · gaps: "+(b.data_gaps??"—");
+  $("bRecon").textContent="reconcile: "+((b.last_reconcile||{}).status||"—")+" · gaps: "+(b.data_gaps??"—")+" · unattributed: "+(b.unattributed_deal_count??"—");
   $("metaInstance").textContent=state.instance_id||"—";
   $("metaStrategy").textContent=(state.strategy_id||"—")+" · "+(state.strategy_version||"—");
   $("metaHash").textContent=state.ledger_head_hash||"—";
@@ -282,7 +282,7 @@ function renderState(){
   const bStatus=((b.last_reconcile||{}).status||"—");
   $("brokerStatus").textContent=bStatus;
   $("brokerDot").className="status-dot "+statusClass(bStatus);
-  $("brokerMeta").textContent="reconcile "+bStatus+" · gaps "+(b.data_gaps??"—");
+  $("brokerMeta").textContent="strategy-owned reconcile "+bStatus+" · gaps "+(b.data_gaps??"—")+" · unattributed "+(b.unattributed_deal_count??"—");
   $("manualStatus").textContent=money(m.total_pnl);
   $("manualMeta").textContent=(m.mark_status||"mark —")+" · "+(m.trade_count??0)+" trades";
   $("attrStatus").textContent=tape.attribution_status||"—";
