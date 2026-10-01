@@ -74,6 +74,12 @@ class InstanceLedger:
         with self._file_lock():
             return self._rows_unlocked()
 
+    def rows(self):
+        """Return a locked immutable snapshot of validated instance ledger rows."""
+        with self._file_lock():
+            self._validate_unlocked()
+            return self._rows_unlocked()
+
     def _validate_unlocked(self):
         prev=GENESIS; rows=self._rows_unlocked()
         from datetime import datetime, timezone
