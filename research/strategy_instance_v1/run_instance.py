@@ -3,6 +3,7 @@ import argparse, json, math, time
 from datetime import datetime, timezone
 from pathlib import Path
 from .ledger import InstanceLedger, sha256_json
+from .performance_tape import build_performance_tape, classify_relationship
 from ..evidence_v1.identity import runtime_identity
 from ..live_hedge_v1.engine import Contract, Order, Position, plan, select_far, select_near
 from ..live_hedge_v1.futu_reader import LiveFutuReader
@@ -406,10 +407,7 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
     strategy_action=sc.get("action")
     strategy_code=sc.get("code")
     strategy_qty=si(sc.get("qty"))
-    if strategy_ticket_id and strategy_code==code and strategy_action:
-        relationship="FOLLOW_STRATEGY" if strategy_qty==si(qty) and strategy_action in {action,"ADD_NEAR","REDUCE_NEAR","SELL_FAR","CLOSE_NEAR","CLOSE_CAMPAIGN_EMERGENCY"} else "ADJUST_SIZE"
-    else:
-        relationship="OPERATOR_ONLY"
+    relationship = classify_relationship(action, code, qty, sc)
     l.append("MANUAL_TRADE_RECORDED",instance_id=instance_id,cycle_id="MANUAL_"+trade_id,timestamp_utc=t,
              payload={"trade_id":trade_id,"action":action,"code":code,"qty":si(qty),"price":sf(price),
                       "lot_size":max(1,si(lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
@@ -460,6 +458,10 @@ def instance_summary(repo, instance_id):
             "data_gaps":si(s.get("data_gaps")),
         },
         "recent_manual_trades":[r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")} for r in recent],
+        "performance_tape":build_performance_tape(
+            [r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")}
+             for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"]
+        ),
         "ledger_head_hash":l.validate()["head_hash"],
     }
 
