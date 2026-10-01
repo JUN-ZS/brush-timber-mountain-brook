@@ -87,22 +87,25 @@ def build_performance_tape(trades):
         qty = _i(t.get("qty"))
         price = _f(t.get("price")) or 0.0
         lot = max(1, _i(t.get("lot_size")) or 100)
-        # Recompute the decision class from the immutable ticket snapshot and
-        # the actual manual action. Do not trust the historical classifier,
-        # so old records with an overly-broad FOLLOW_STRATEGY label are
-        # corrected in the derived tape without mutating the ledger.
-        rel = classify_relationship(action, code, qty, t.get("strategy_reference") or {})
         counts[rel] += 1
         ref = t.get("strategy_reference") or {}
         has_ticket = bool(ref.get("ticket_id"))
         s_qty = _i(ref.get("qty")) if has_ticket else None
         s_px = _f(ref.get("price")) if has_ticket else None
-        qty_delta = None if s_qty is None else qty - s_qty
-        if qty_delta:
-            size_gap += abs(qty_delta)
+
+        # The relationship is canonicalized from the ticket snapshot and the
+        # actual execution. A size gap exists only after semantic action
+        # matching; opposite-action executions are operator-only, not
+        # "adjusted size".
+        rel = classify_relationship(action, code, qty, ref)
+        qty_delta = None
+        if rel in {"FOLLOW_STRATEGY", "ADJUST_SIZE"} and s_qty is not None:
+            qty_delta = qty - s_qty
+            if rel == "ADJUST_SIZE":
+                size_gap += abs(qty_delta)
 
         execution_slip = None
-        if s_px is not None and qty and price:
+        if rel in {"FOLLOW_STRATEGY", "ADJUST_SIZE"} and s_px is not None and qty and price:
             sign = -1 if action in {"ADD", "BUY_BACK_FAR"} else 1
             execution_slip = round((price - s_px) * qty * lot * sign, 4)
             slippage += execution_slip
