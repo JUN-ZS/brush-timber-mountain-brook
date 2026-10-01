@@ -677,13 +677,24 @@ def reconcile(lots,ps):
     broker={}
     for p in option_positions(ps):
         key=(str(p.get("code","")).upper(),str(p.get("side","")).upper())
-        if key in tracked:
-            broker[key]=broker.get(key,0)+si(p.get("qty"))
-    return [
-        {"code":code,"side":side,"lot_qty":tracked[(code,side)],"broker_qty":broker.get((code,side),0)}
+        broker[key]=broker.get(key,0)+si(p.get("qty"))
+
+    mismatches=[
+        {"code":code,"side":side,"lot_qty":tracked[(code,side)],
+         "broker_qty":broker.get((code,side),0),"reason":"STRATEGY_OWNED_POSITION_MISMATCH"}
         for code,side in sorted(tracked)
         if tracked[(code,side)]!=broker.get((code,side),0)
     ]
+
+    # Unmanaged QQQ SHORTs are a strategy-safety issue even when they do not
+    # overlap a tracked lot. Unrelated QQQ LONGs remain outside this instance.
+    for code,side in sorted(broker):
+        if side=="SHORT" and (code,side) not in tracked:
+            mismatches.append({
+                "code":code,"side":side,"lot_qty":0,"broker_qty":broker[(code,side)],
+                "reason":"UNMANAGED_QQQ_SHORT",
+            })
+    return mismatches
 
 
 def derive_pnl_observation_status(mismatches, mark_status):
