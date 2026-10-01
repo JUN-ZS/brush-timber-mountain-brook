@@ -43,7 +43,7 @@ def mask_campaigns(u_full: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp)
     return u
 
 
-def run_family(u: pd.DataFrame, con, opt_path: Path):
+def run_family(u: pd.DataFrame, con, opt_path: Path, *, window_end: pd.Timestamp):
     far_build = build_far_candidates(u, con, opt_path)
     if not far_build:
         raise RuntimeError("No far candidates")
@@ -117,6 +117,7 @@ def run_family(u: pd.DataFrame, con, opt_path: Path):
     near_quotes_by_cid = quote_maps(nq)
 
     rows = []
+    unresolved_excluded = 0
     for fd in FAR_DTES:
         for fdel in FAR_DELTAS:
             for policy in POLICIES:
@@ -135,6 +136,15 @@ def run_family(u: pd.DataFrame, con, opt_path: Path):
                 )
                 if df.empty:
                     continue
+                # A holdout window must never consume outcome data after its
+                # declared end. Campaigns still open at cutoff are unresolved
+                # observations and are excluded rather than censored at an
+                # invented exit price.
+                complete = pd.to_datetime(df["far_exit"]) <= window_end
+                unresolved_excluded += int((~complete).sum())
+                df = df.loc[complete].copy()
+                if df.empty:
+                    continue
                 df["data_gamma_mode"] = (
                     "OBSERVED_GAMMA" if has_gamma else "DERIVED_DDELTA_DSPOT"
                 )
@@ -142,7 +152,7 @@ def run_family(u: pd.DataFrame, con, opt_path: Path):
 
     if not rows:
         raise RuntimeError("No family results")
-    return pd.concat(rows, ignore_index=True), has_gamma
+    return pd.concat(rows, ignore_index=True), has_gamma, unresolved_excluded
 
 
 def aggregate(detail: pd.DataFrame):
@@ -295,7 +305,7 @@ def main():
         start = pd.Timestamp(start_s)
         end = pd.Timestamp(end_s)
         u = mask_campaigns(u_full, start, end)
-        detail, has_gamma = run_family(u, con, od)
+        detail, has_gamma, unresolved_excluded = run_family(u, con, od, window_end=end)
         family, cfg, policy, far, yearly = aggregate(detail)
 
         expected_configs = {
@@ -327,6 +337,8 @@ def main():
             "start": start_s,
             "end": end_s,
             "gamma_mode": "OBSERVED_GAMMA" if has_gamma else "DERIVED_DDELTA_DSPOT",
+            "unresolved_campaigns_excluded_at_cutoff": unresolved_excluded,
+            "censoring_rule": "exclude_campaign_if_far_exit_after_window_end; never use post-cutoff outcome data",
             "family": family,
         }
 
