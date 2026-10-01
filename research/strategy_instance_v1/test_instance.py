@@ -66,6 +66,21 @@ def test_manual_pnl_preview_blocks_over_reduce():
 
 
 
+def test_strategy_plan_preserves_signal_data_gap():
+    from .run_instance import strategy_plan
+
+    snap = {
+        "market": {
+            "signal_status": "DATA_GAP",
+            "signal_active": None,
+            "history_reason": "need >=252 reference daily closes; got 247",
+        }
+    }
+    out = strategy_plan(snap, [], [], {}, {}, {})
+    assert out["status"] == "DATA_GAP"
+    assert "247" in out["reason"]
+
+
 def test_strategy_relationship_requires_semantic_action_match():
     ref = {"ticket_id":"T1","code":"US.QQQ.TEST","action":"SELL_FAR","qty":10}
     assert classify_relationship("SELL_FAR","US.QQQ.TEST",10,ref) == "FOLLOW_STRATEGY"
