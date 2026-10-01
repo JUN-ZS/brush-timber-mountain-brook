@@ -108,8 +108,13 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
     </div>
     <div class="card">
       <h2>RECENT MANUAL TRADES</h2>
-      <div class="scroll"><table><thead><tr><th>Time</th><th>Action</th><th>Code</th><th>Qty</th><th>Price</th><th>Realized Δ</th></tr></thead><tbody id="trades"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Time</th><th>Action</th><th>Code</th><th>Qty</th><th>Price</th><th>Realized Δ</th><th>Relation</th></tr></thead><tbody id="trades"></tbody></table></div>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>DECISION LINEAGE</h2>
+    <div class="notice">每次手動成交都會保存當刻可見的 strategy ticket。<strong>FOLLOW_STRATEGY</strong> = 同 ticket/code/qty；<strong>ADJUST_SIZE</strong> = 同 code 但你改了數量；<strong>OPERATOR_ONLY</strong> = 當刻沒有相符策略 ticket。</div>
   </div>
 
   <div class="card">
@@ -187,8 +192,8 @@ function renderState(){
   }).join("")||'<tr><td colspan="6" class="tiny">No manual positions.</td></tr>';
 
   $("trades").innerHTML=(state.recent_manual_trades||[]).slice().reverse().map(t=>{
-    return '<tr><td class="tiny">'+esc(t.timestamp_utc||"")+'</td><td>'+esc(t.action||"")+'</td><td class="mono">'+esc(t.code||"")+'</td><td>'+esc(t.qty??"")+'</td><td>'+fmt(t.price)+'</td><td class="'+(Number(t.realized_pnl_delta||0)>=0?'green':'red')+'">'+money(t.realized_pnl_delta)+'</td></tr>';
-  }).join("")||'<tr><td colspan="6" class="tiny">No manual trades yet.</td></tr>';
+    return '<tr><td class="tiny">'+esc(t.timestamp_utc||"")+'</td><td>'+esc(t.action||"")+'</td><td class="mono">'+esc(t.code||"")+'</td><td>'+esc(t.qty??"")+'</td><td>'+fmt(t.price)+'</td><td class="'+(Number(t.realized_pnl_delta||0)>=0?'green':'red')+'">'+money(t.realized_pnl_delta)+'</td><td><span class="pill">'+esc(t.relationship_to_strategy||"OPERATOR_ONLY")+'</span></td></tr>';
+  }).join("")||'<tr><td colspan="7" class="tiny">No manual trades yet.</td></tr>';
 
   $("lotSize").value=$("lotSize").value||100;
   preview();
