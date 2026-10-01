@@ -42,6 +42,7 @@ from ..evidence_v1.identity import runtime_identity
 from ..evidence_v1.ledger import EvidenceLedger
 from ..evidence_v1.snapshot import write_snapshot
 from ..evidence_v1.lock_guard import StrategyLockViolation, assert_runtime_lock
+from .state import live_desk_mutation_lock
 
 
 def C(x):
@@ -388,7 +389,7 @@ def _action_card(ticket):
         "manual_execution_only":True,
     }
 
-def main():
+def _main_unlocked():
     ap = argparse.ArgumentParser()
     ap.add_argument("--far-dte", type=int, default=120)
     ap.add_argument("--far-delta", type=float, default=0.08)
@@ -404,9 +405,13 @@ def main():
     ap.add_argument("--out", default="research/live_hedge_v1/live_state.json")
     args = ap.parse_args()
 
+    out_path = Path(args.out)
+    with live_desk_mutation_lock(out_path.with_name("state.json")):
+        return _main_cycle(args, out_path)
+
+def _main_cycle(args, out_path):
     now = _now()
     repo = Path(__file__).resolve().parents[2]
-    out_path = Path(args.out)
     store = StateStore(
         out_path.with_name("state.json"),
         out_path.with_name("events.jsonl"),
@@ -1118,13 +1123,16 @@ def main():
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
+    tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
+    tmp_out.write_text(
         json.dumps(output, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    os.replace(tmp_out, out_path)
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0
 
 
 if __name__ == "__main__":
+    _main_unlocked()
     raise SystemExit(main())
