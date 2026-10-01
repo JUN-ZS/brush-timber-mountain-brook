@@ -10,6 +10,48 @@ OPEN_ACTIONS = {"ADD", "SELL_FAR"}
 CLOSE_ACTIONS = {"REDUCE", "BUY_BACK_FAR"}
 KNOWN = {"FOLLOW_STRATEGY", "ADJUST_SIZE", "OPERATOR_ONLY"}
 
+# Canonical semantic mapping from a live strategy ticket/leg to the
+# corresponding manual operator action. A different semantic action is not
+# a size adjustment; it is an operator-only execution relative to that ticket.
+STRATEGY_TO_MANUAL = {
+    "ADD_NEAR": "ADD",
+    "HARVEST_NEAR": "REDUCE",
+    "REDUCE_NEAR": "REDUCE",
+    "SELL_FAR": "SELL_FAR",
+    "CLOSE_FAR_EMERGENCY": "BUY_BACK_FAR",
+    "CLOSE_NEAR_AFTER_FAR_STRIKE_TOUCH": "REDUCE",
+}
+
+
+def canonical_manual_action(strategy_ref):
+    ref = strategy_ref or {}
+    leg_action = str(ref.get("strategy_leg_action") or "").upper()
+    top_action = str(ref.get("action") or "").upper()
+    side = str(ref.get("side") or "").upper()
+    if leg_action in STRATEGY_TO_MANUAL:
+        return STRATEGY_TO_MANUAL[leg_action]
+    if top_action in STRATEGY_TO_MANUAL:
+        return STRATEGY_TO_MANUAL[top_action]
+    if top_action == "CLOSE_CAMPAIGN_EMERGENCY":
+        if side == "BUY":
+            return "BUY_BACK_FAR"
+        if side == "SELL":
+            return "REDUCE"
+    return None
+
+
+def classify_relationship(trade_action, trade_code, trade_qty, strategy_ref):
+    ref = strategy_ref or {}
+    ticket_id = str(ref.get("ticket_id") or "")
+    ref_code = str(ref.get("code") or "").upper()
+    if not ticket_id or ref_code != str(trade_code or "").upper():
+        return "OPERATOR_ONLY"
+    expected = canonical_manual_action(ref)
+    if expected != str(trade_action or "").upper():
+        return "OPERATOR_ONLY"
+    ref_qty = _i(ref.get("qty"))
+    return "FOLLOW_STRATEGY" if ref_qty == _i(trade_qty) else "ADJUST_SIZE"
+
 
 def _f(x):
     try:
@@ -45,9 +87,11 @@ def build_performance_tape(trades):
         qty = _i(t.get("qty"))
         price = _f(t.get("price")) or 0.0
         lot = max(1, _i(t.get("lot_size")) or 100)
-        rel = str(t.get("relationship_to_strategy") or "OPERATOR_ONLY")
-        if rel not in KNOWN:
-            rel = "OPERATOR_ONLY"
+        # Recompute the decision class from the immutable ticket snapshot and
+        # the actual manual action. Do not trust the historical classifier,
+        # so old records with an overly-broad FOLLOW_STRATEGY label are
+        # corrected in the derived tape without mutating the ledger.
+        rel = classify_relationship(action, code, qty, t.get("strategy_reference") or {})
         counts[rel] += 1
         ref = t.get("strategy_reference") or {}
         has_ticket = bool(ref.get("ticket_id"))
@@ -57,11 +101,11 @@ def build_performance_tape(trades):
         if qty_delta:
             size_gap += abs(qty_delta)
 
-        entry_slip = None
+        execution_slip = None
         if s_px is not None and qty and price:
             sign = -1 if action in {"ADD", "BUY_BACK_FAR"} else 1
-            entry_slip = round((price - s_px) * qty * lot * sign, 4)
-            slippage += entry_slip
+            execution_slip = round((price - s_px) * qty * lot * sign, 4)
+            slippage += execution_slip
 
         realized = round(_f(t.get("realized_pnl_delta")) or 0.0, 4)
         matched = []
@@ -120,7 +164,7 @@ def build_performance_tape(trades):
             "strategy_qty": s_qty,
             "strategy_price": s_px,
             "qty_delta": qty_delta,
-            "entry_slippage_estimate": entry_slip,
+            "execution_slippage_estimate": execution_slip,
             "realized_pnl_delta": realized,
             "close_matches": matched,
             "note": t.get("note") or "",
@@ -145,7 +189,7 @@ def build_performance_tape(trades):
         "trade_count": len(rows),
         "counts": counts,
         "attributed_realized": attributed,
-        "entry_slippage_estimate": round(slippage, 4),
+        "execution_slippage_estimate": round(slippage, 4),
         "size_gap_contracts": size_gap,
         "rows": rows,
     }
