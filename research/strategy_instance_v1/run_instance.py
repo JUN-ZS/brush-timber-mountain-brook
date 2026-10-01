@@ -1015,9 +1015,24 @@ def cycle(args):
 
 def _cycle_unlocked(args):
     repo=Path(args.repo_root).resolve(); m,s,l=load_instance(repo,args.instance_id)
-    runtime_lineage=assert_instance_strategy_lineage(repo,m)
     t=now()
     cid="CYCLE_"+t.replace(":","").replace("-","").replace(".",""); s["cycle_count"]=si(s.get("cycle_count"))+1
+    try:
+        runtime_lineage=assert_instance_strategy_lineage(repo,m)
+    except SystemExit as exc:
+        s["data_gaps"]=si(s.get("data_gaps"))+1
+        l.append(
+            "DATA_GAP",
+            instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
+            payload={"stage":"STRATEGY_LINEAGE","error":str(exc)},
+            source="SYSTEM",
+        )
+        s["last_pnl_observation_status"]="DATA_GAP"
+        s["last_strategy_unrealized_pnl"]=None
+        s["last_cycle_at"]=t
+        save(spath(repo,args.instance_id),s)
+        print(json.dumps({"status":"DATA_GAP","error":str(exc),"stage":"STRATEGY_LINEAGE"},ensure_ascii=False,indent=2))
+        return 3
     try:
         history_start = None
         last_cycle = s.get("last_cycle_at")
@@ -1110,6 +1125,7 @@ def _cycle_unlocked(args):
     l.append("BROKER_CYCLE_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
              payload={"snapshot_sha256":sh,"snapshot_ref":str(sr.relative_to(repo)),"positions":len(ps),
                       "orders":len(orders),"new_deals":len(new),"reconcile":s["last_reconcile"],"deal_warning":tr.get("deal_warning"),
+                      "runtime_lineage":runtime_lineage,
                       "history_backfill_used":history_used,"history_start":tr.get("history_start"),"history_end":tr.get("history_end")},source="BROKER_OBSERVED")
     managed_ps=managed_position_view(ps,s["lots"])
     broker_managed_mark=marks(managed_ps,cmap,quotes)
