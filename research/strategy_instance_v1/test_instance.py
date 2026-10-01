@@ -23,6 +23,29 @@ def test_operator_mutation_endpoint_requires_header():
     assert MUTATION_HEADER_VALUE == "1"
 
 
+def test_runtime_lock_rejects_tampered_strategy_identity():
+    from . import run_instance
+    from ..evidence_v1 import lock_guard
+    old=lock_guard.load_lock
+    lock_guard.load_lock=lambda _repo: {
+        "strategy_id":"TAMPERED",
+        "strategy_version":"V22-family-30D-1.5x",
+        "research_engine_commit":"930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
+        "candidate_family":{"near_dte":30,"coverage":1.5,"far_dte":[90,120,180],"far_abs_delta":[0.05,0.08,0.10],"long_delta":0.50,
+                           "policies":sorted(lock_guard.LOCKED_POLICIES)},
+        "signal":{"ratio52_gte":0.98,"ext200_gte":0.08},
+    }
+    try:
+        try:
+            lock_guard.assert_runtime_lock(Path("."),far_dte=120,far_delta=0.08,near_dte=30)
+        except lock_guard.StrategyLockViolation as exc:
+            assert str(exc)=="LOCK_VIOLATION:STRATEGY_ID"
+        else:
+            raise AssertionError("tampered strategy identity accepted")
+    finally:
+        lock_guard.load_lock=old
+
+
 def test_instance_init_rejects_lineage_override_against_locked_runtime():
     import tempfile
     from pathlib import Path
