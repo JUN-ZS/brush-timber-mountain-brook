@@ -619,6 +619,18 @@ def main():
                 "--adopt-existing-far requires exactly one QQQ option short; "
                 f"found {len(qqq_shorts)}"
             )
+        adopted = qqq_shorts[0]
+        adopted_quote = quotes.get(adopted.code) or {}
+        adopted_right = str(adopted_quote.get("right") or "").upper()
+        if adopted_right != "CALL":
+            raise RuntimeError(
+                "--adopt-existing-far requires a CALL; "
+                f"found {adopted_right or 'UNKNOWN'} for {adopted.code}"
+            )
+        if adopted_quote.get("strike") is None or not adopted_quote.get("expiry") or adopted_quote.get("dte") is None:
+            raise RuntimeError(
+                "--adopt-existing-far requires complete CALL quote metadata for the existing short"
+            )
         campaign["id"] = make_campaign_id(
             now,
             store.next_campaign_sequence(state),
