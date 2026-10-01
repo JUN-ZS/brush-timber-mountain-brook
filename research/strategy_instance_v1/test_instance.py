@@ -51,10 +51,10 @@ def test_instance_init_rejects_lineage_override_against_locked_runtime():
 
 
 def test_pnl_observation_status_requires_position_reconciliation():
-    from .run_instance import pnl_observation_status
-    assert pnl_observation_status([], "OK") == "OBSERVED_MATCHED_CLOSED"
-    assert pnl_observation_status([{"code":"US.QQQ.TEST","side":"LONG","lot_qty":1,"broker_qty":0}], "OK") == "DATA_GAP"
-    assert pnl_observation_status([], "PARTIAL") == "DATA_GAP"
+    from .run_instance import derive_pnl_observation_status
+    assert derive_pnl_observation_status([], "OK") == "OBSERVED_MATCHED_CLOSED"
+    assert derive_pnl_observation_status([{"code":"US.QQQ.TEST","side":"LONG","lot_qty":1,"broker_qty":0}], "OK") == "DATA_GAP"
+    assert derive_pnl_observation_status([], "PARTIAL") == "DATA_GAP"
 
 
 def test_instance_input_rejects_non_qqq_option_codes():
