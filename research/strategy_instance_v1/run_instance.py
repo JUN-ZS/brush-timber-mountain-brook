@@ -141,8 +141,14 @@ def _recover_mutable_state_from_ledger(m, s, l):
         seen.add(did)
         processed.append(did)
         if et=="EXECUTION_DETECTED":
-            strategy_ids.append(did)
-            realized += apply_deal(broker_lots, deal)
+            deal_status=str(deal.get("attribution_status") or "").upper()
+            if deal_status=="MATCHED_PREDECISION_PLAN":
+                strategy_ids.append(did)
+                realized += apply_deal(broker_lots, deal)
+            else:
+                # Legacy execution rows were created before attribution was fenced.
+                # Never silently promote them into the new strategy P&L lineage.
+                unattributed_ids.append(did)
         else:
             unattributed_ids.append(did)
 
@@ -862,6 +868,7 @@ def init_cmd(a):
        "lots":init_lots(m),"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,"last_snapshot_hash":None,
        "last_reconcile":None,"cycle_count":0,"data_gaps":0,
        "gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,
+       "strategy_deal_ids":[],"unattributed_deal_ids":[],
        "manual_lots":json.loads(json.dumps(init_lots(m))),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
     save(mpath(repo,a.instance_id),m); save(spath(repo,a.instance_id),st)
     l=InstanceLedger(lpath(repo,a.instance_id),{"instance_id":a.instance_id,"manifest_hash":m["manifest_hash"],"strategy_id":m["strategy_id"],"strategy_version":m["strategy_version"],"research_engine_commit":m["research_engine_commit"]})
