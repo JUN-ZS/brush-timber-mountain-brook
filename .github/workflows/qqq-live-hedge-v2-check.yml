@@ -6,10 +6,17 @@ on:
       - '**'
     paths:
       - 'research/live_hedge_v1/**'
+      - 'research/strategy_instance_v1/**'
+      - 'research/parity_v1/**'
+      - 'research/evidence_v1/**'
       - '.github/workflows/qqq-live-hedge-v2-check.yml'
   pull_request:
     paths:
       - 'research/live_hedge_v1/**'
+      - 'research/strategy_instance_v1/**'
+      - 'research/parity_v1/**'
+      - 'research/evidence_v1/**'
+      - '.github/workflows/qqq-live-hedge-v2-check.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
