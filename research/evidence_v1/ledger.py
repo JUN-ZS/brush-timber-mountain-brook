@@ -147,10 +147,32 @@ class EvidenceLedger:
                 # lack the explicit AS_EMITTED_THEN_POSTHOC contract. New records
                 # opt into strict capture and must retain the full candidate set.
                 if payload.get("contract") == "AS_EMITTED_THEN_POSTHOC":
-                    if not isinstance(payload.get("candidate_actions"), list):
+                    actions = payload.get("candidate_actions")
+                    journal = payload.get("candidate_journal")
+                    if not isinstance(actions, list):
                         raise LedgerError(f"LEDGER_DECISION_MISSING_CANDIDATE_ACTIONS:cycle={cycle_id}")
                     if "primary" not in payload:
                         raise LedgerError(f"LEDGER_DECISION_MISSING_PRIMARY:cycle={cycle_id}")
+                    if not isinstance(journal, list):
+                        raise LedgerError(f"LEDGER_DECISION_MISSING_CANDIDATE_JOURNAL:cycle={cycle_id}")
+                    for j in journal:
+                        if not isinstance(j, dict):
+                            raise LedgerError(f"LEDGER_BAD_CANDIDATE_JOURNAL_ROW:cycle={cycle_id}")
+                        raw = j.get("raw_candidate")
+                        if not isinstance(raw, dict):
+                            raise LedgerError(f"LEDGER_CANDIDATE_RAW_MISSING:cycle={cycle_id}")
+                        digest = j.get("candidate_sha256")
+                        if not digest or sha256_json(raw) != digest:
+                            raise LedgerError(f"LEDGER_CANDIDATE_DIGEST_MISMATCH:cycle={cycle_id}")
+                        cidx = j.get("candidate_index")
+                        if cidx is not None:
+                            try:
+                                if int(cidx) < 0 or int(cidx) >= len(actions):
+                                    raise LedgerError(f"LEDGER_CANDIDATE_INDEX_INVALID:cycle={cycle_id}")
+                                if sha256_json(actions[int(cidx)]) != digest:
+                                    raise LedgerError(f"LEDGER_CANDIDATE_EMIT_MISMATCH:cycle={cycle_id}")
+                            except (TypeError, ValueError) as exc:
+                                raise LedgerError(f"LEDGER_CANDIDATE_INDEX_INVALID:cycle={cycle_id}") from exc
                 state["decision"] = idx
             elif et == "CYCLE_FINALIZED":
                 if "finalized" in state:
