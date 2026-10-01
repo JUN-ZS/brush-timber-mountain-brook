@@ -180,28 +180,24 @@ class StateStore:
             return "LEGACY_UNHASHED"
         return "EMPTY"
 
-    def _read_events(self) -> list[dict[str, Any]]:
-        self._events_tail_corrupt = False
-        if not self.events_path.exists():
-            return []
-        rows = []
-        lines = self.events_path.read_text(encoding="utf-8").splitlines()
-        for idx, line in enumerate(lines):
-            if not line.strip():
-                continue
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError as exc:
-                if idx == len(lines) - 1:
-                    # A partial final append is not a valid event. Do not silently
-                    # resume from it: provenance is safer when mutation is blocked.
-                    self._events_tail_corrupt = True
-                    break
-                raise ValueError(f"LIVE_EVENT_CORRUPT:{idx + 1}") from exc
-
-        rows = [row for row in rows if isinstance(row, dict)]
-        self._validate_event_chain(rows)
-        return rows
+    def validate_events(self) -> Dict[str, Any]:
+        rows = self._read_events()
+        if self._events_tail_corrupt:
+            return {
+                "status": "BLOCKED",
+                "records": len(rows),
+                "integrity": "CORRUPT_TAIL",
+                "head_hash": (
+                    rows[-1].get("event_hash")
+                    if rows and rows[-1].get("event_hash")
+                    else (self._event_record_hash(rows[-1]) if rows else EVENT_GENESIS)
+                ),
+            }
+        integrity = self._validate_event_chain(rows)
+        return {
+            "status": "PASS",
+            "records": len(rows),
+            "integrity": integrity,
             "head_hash": (
                 rows[-1].get("event_hash")
                 if rows and rows[-1].get("event_hash")
@@ -222,8 +218,8 @@ class StateStore:
                 rows.append(json.loads(line))
             except json.JSONDecodeError as exc:
                 if idx == len(lines) - 1:
-                    # A partial final append is not a valid event. Do not silently
-                    # resume from it: provenance is safer when mutation is blocked.
+                    # A partial final append is invalid. Do not silently recover
+                    # from a state that has an incomplete provenance tail.
                     self._events_tail_corrupt = True
                     break
                 raise ValueError(f"LIVE_EVENT_CORRUPT:{idx + 1}") from exc
