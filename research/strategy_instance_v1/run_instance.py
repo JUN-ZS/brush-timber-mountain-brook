@@ -181,6 +181,7 @@ def _recover_mutable_state_from_ledger(m, s, l):
             processed.append(did)
 
     if processed:
+        unattributed_ids=[did for did in unattributed_ids if did not in set(strategy_ids)]
         s["lots"] = broker_lots
         s["processed_deal_ids"] = processed
         s["strategy_deal_ids"] = strategy_ids
