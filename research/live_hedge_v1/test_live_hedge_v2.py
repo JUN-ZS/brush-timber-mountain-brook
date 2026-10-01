@@ -451,6 +451,31 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
 
 
+    def test_open_ticket_defers_fresh_planner_actions(self):
+        from research.live_hedge_v1.run_live_desk import _defer_actions_for_active_ticket
+
+        plan_result = {
+            "status": "ACTIONABLE",
+            "candidate_actions": [
+                {"action": "REPAIR_FAR", "qty": 10},
+                {"action": "ADD_NEAR", "qty": 3},
+            ],
+            "reasons": ["RISK_SCORE=2.50"],
+        }
+        ticket = {
+            "ticket_id": "T-TEST",
+            "status": "OPEN",
+            "action": "SELL_FAR",
+        }
+        out = _defer_actions_for_active_ticket(plan_result, ticket)
+        self.assertEqual(out["status"], "WAITING_ACTIVE_TICKET")
+        self.assertEqual(out["candidate_actions"], [])
+        self.assertEqual(
+            [x["action"] for x in out["deferred_candidate_actions"]],
+            ["REPAIR_FAR", "ADD_NEAR"],
+        )
+        self.assertTrue(any("ACTIVE_TICKET_OPEN:T-TEST" in r for r in out["reasons"]))
+
     def test_signal_reports_history_data_gap_instead_of_false(self):
         dates = [f"2026-01-{i:02d}" for i in range(1, 11)]
         history = list(zip(dates, [100.0] * 10))
