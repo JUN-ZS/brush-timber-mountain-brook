@@ -338,7 +338,7 @@ def _action_card(ticket):
         "manual_execution_only":True,
     }
 
-def _strategy_position_analysis(positions, market, far, near, risk_state):
+def _strategy_position_analysis(positions, market, far, near, risk_state, contracts_by_code):
     spot = _safe_float((market or {}).get("spot"))
     qqq = [
         p for p in positions
@@ -347,7 +347,9 @@ def _strategy_position_analysis(positions, market, far, near, risk_state):
     far_code = getattr(far, "code", None)
     far_shorts = [
         p for p in qqq
-        if p.side == "SHORT" and (far_code is None or p.code == far_code)
+        if p.side == "SHORT"
+        and (far_code is None or p.code == far_code)
+        and str(getattr(contracts_by_code.get(p.code), "right", "")).upper() == "CALL"
     ]
     near_longs = [
         p for p in qqq
@@ -1023,6 +1025,7 @@ def main():
         far,
         near,
         p.get("risk_state"),
+        by,
     )
     action_card = _action_card(primary_ticket)
 
