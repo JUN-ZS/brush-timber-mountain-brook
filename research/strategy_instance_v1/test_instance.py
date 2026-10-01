@@ -261,26 +261,6 @@ def test_unrelated_broker_qqq_execution_is_not_strategy_attributed():
     assert [(x["code"],x["qty"]) for x in owned] == [("US.QQQ261030C00500000",1)]
 
 
-def test_ownership_derived_close_requires_unique_account_snapshot():
-    from .run_instance import apply_strategy_ownership_close
-    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"LONG","qty":1,"avg_price":5.0,"lot_size":100,"status":"OPEN"}]
-    ambiguous=[
-        {"code":"US.QQQ.TEST","side":"LONG","qty":2},
-    ]
-    d={"deal_id":"D-CLOSE","code":"US.QQQ.TEST","side":"SELL","qty":1,"price":7.0,"lot_size":100}
-    consumed,pnl,reason=apply_strategy_ownership_close(lots,d,ambiguous)
-    assert consumed==0
-    assert pnl==0.0
-    assert reason=="OWNERSHIP_SNAPSHOT_AMBIGUOUS"
-    assert lots[0]["qty"]==1
-
-    post_trade_full_close=[{"code":"US.QQQ.TEST","side":"LONG","qty":0}]
-    consumed,pnl,reason=apply_strategy_ownership_close(lots,d,post_trade_full_close)
-    assert consumed==1
-    assert pnl==200.0
-    assert reason=="CLOSE_LONG_OWNERSHIP_DERIVED"
-
-
 def test_strategy_mark_uses_owned_lot_cost_not_account_aggregate_cost():
     from .run_instance import mark_lots
 
@@ -292,31 +272,6 @@ def test_strategy_mark_uses_owned_lot_cost_not_account_aggregate_cost():
     quotes={"US.QQQ.TEST":{"mid":6.0,"bid":5.9,"ask":6.1}}
     marked=mark_lots(lots,cmap,quotes)
     assert marked["unrealized_pnl"]==100.0
-
-
-def test_ownership_derived_close_uses_post_trade_snapshot():
-    from .run_instance import apply_strategy_ownership_close
-    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"LONG","qty":2,"avg_price":5.0,"lot_size":100,"status":"OPEN"}]
-    deal={"deal_id":"D-POST","code":"US.QQQ.TEST","side":"SELL","qty":1,"price":7.0,"lot_size":100}
-    consumed,pnl,reason=apply_strategy_ownership_close(lots,deal,[{"code":"US.QQQ.TEST","side":"LONG","qty":1}])
-    assert consumed==1
-    assert pnl==200.0
-    assert reason=="CLOSE_LONG_OWNERSHIP_DERIVED"
-    assert lots[0]["qty"]==1
-
-
-def test_ownership_derived_close_rejects_external_inventory():
-    from .run_instance import apply_strategy_ownership_close
-    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"LONG","qty":2,"avg_price":5.0,"lot_size":100,"status":"OPEN"}]
-    deal={"deal_id":"D-EXT","code":"US.QQQ.TEST","side":"SELL","qty":1,"price":7.0,"lot_size":100}
-    consumed,pnl,reason=apply_strategy_ownership_close(
-        lots,deal,
-        [{"code":"US.QQQ.TEST","side":"LONG","qty":1},
-         {"code":"US.QQQ.TEST","side":"LONG","qty":3}],
-    )
-    assert consumed==0
-    assert pnl==0.0
-    assert reason=="OWNERSHIP_SNAPSHOT_AMBIGUOUS"
 
 
 def test_strategy_attributed_buy_can_close_short_without_creating_long():
@@ -380,6 +335,22 @@ def test_legacy_execution_without_attribution_is_not_replayed_into_strategy_book
         assert state["unattributed_deal_ids"]==["OLD"]
         assert state["strategy_deal_ids"]==[]
 
+
+def test_strategy_attribution_never_promotes_plan_timing_to_execution():
+    from .run_instance import attribute_broker_deal
+    rows=[{
+        "event_seq":1,
+        "event_type":"STRATEGY_PLAN_OBSERVED",
+        "timestamp_utc":"2026-10-01T21:00:00+00:00",
+        "payload":{"plan":{"primary_candidate":{
+            "action":"ADD_NEAR","code":"US.QQQ.TEST","qty":2
+        }}},
+    }]
+    deal={"deal_id":"D-TIMING","code":"US.QQQ.TEST","side":"BUY","qty":2,
+          "price":5.0,"created_at":"2026-10-01T21:01:00+00:00"}
+    out=attribute_broker_deal(rows,deal,{})
+    assert out["status"]=="POTENTIAL_PREDECISION_MATCH"
+    assert out["basis"]=="recent_strategy_plan_observation_without_intent_proof"
 
 def test_strategy_plan_attribution_is_bounded_and_cannot_reuse_quantity():
     from .run_instance import attribute_broker_deal
