@@ -285,7 +285,7 @@ def _filled_summary(events):
     return None
 
 
-def _mark_position_summary(positions, quotes):
+def _mark_position_summary(positions, quotes, contracts_by_code=None):
     rows=[]; unrealized=0.0
     for p in positions:
         q=quotes.get(p.code,{})
@@ -296,7 +296,8 @@ def _mark_position_summary(positions, quotes):
         if mid is None:
             rows.append({"code":p.code,"side":p.side,"qty":p.qty,"avg_cost":p.avg_cost,"status":"NO_MARK"})
             continue
-        size=100
+        meta=(contracts_by_code or {}).get(p.code)
+        size=max(1, _safe_int(getattr(meta, "lot_size", 100)) or 100)
         qty=_safe_int(p.qty); avg=_safe_float(p.avg_cost); side=str(p.side).upper()
         u=((float(mid)-avg) if side=="LONG" else (avg-float(mid)))*qty*size
         unrealized += u
@@ -968,7 +969,7 @@ def main():
         status = p.get("status", "HOLD")
         instruction = "HOLD — no primary ticket."
 
-    mark_summary = _mark_position_summary(strict_positions, quotes)
+    mark_summary = _mark_position_summary(strict_positions, quotes, by)
     action_card = _action_card(primary_ticket)
 
     evidence.append(
