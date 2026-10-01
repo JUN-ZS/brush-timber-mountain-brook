@@ -41,19 +41,6 @@ jobs:
         run: |
           python -m unittest research.parity_v1.test_research_live_parity
       - name: Safety surface audit
-        shell: bash
+        shell: cmd
         run: |
-          python - <<'PY'
-          import pathlib, re, sys
-          rx = re.compile(r"\b(?:place_order|modify_order|unlock_trade)\s*\(")
-          hits = []
-          for p in pathlib.Path("research/live_hedge_v1").glob("*.py"):
-              for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
-                  if rx.search(line):
-                      hits.append(f"{p}:{i}:{line.strip()}")
-          if hits:
-              print("BROKER_WRITE_API_DETECTED")
-              print("\n".join(hits))
-              sys.exit(1)
-          print("BROKER_WRITE_API_AUDIT=PASS")
-          PY
+          python -c "from pathlib import Path; import re,sys; rx=re.compile(r'\b(?:place_order|modify_order|unlock_trade)\s*\('); hits=[f'{p}:{i}:{line.strip()}' for p in Path('research/live_hedge_v1').glob('*.py') for i,line in enumerate(p.read_text(encoding='utf-8').splitlines(),1) if rx.search(line)]; print('BROKER_WRITE_API_AUDIT=PASS' if not hits else 'BROKER_WRITE_API_DETECTED\n'+'\n'.join(hits)); sys.exit(1 if hits else 0)"
