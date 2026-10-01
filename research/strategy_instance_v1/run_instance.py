@@ -719,7 +719,9 @@ def _plan_match_for_deal(rows,deal):
         if hit is not None:
             return {
                 "event_seq":event.get("event_seq"),
+                "event_id":event.get("event_id"),
                 "candidate_index":0,
+                "candidate_sha256":sha256_json(primary),
                 "observed_at_utc":event.get("timestamp_utc"),
                 "action":str(primary.get("action","")).upper(),
                 "candidate":hit,
@@ -733,12 +735,18 @@ def _plan_match_for_deal(rows,deal):
 def _consumed_plan_qty(rows, plan_key):
     consumed=0
     for row in rows or []:
-        if str(row.get("event_type") or "").upper()!="EXECUTION_DETECTED":
+        event_type=str(row.get("event_type") or "").upper()
+        if event_type not in {"EXECUTION_DETECTED","BROKER_EXECUTION_UNATTRIBUTED"}:
             continue
         payload=row.get("payload") or {}
         attribution=payload.get("attribution") or {}
-        if attribution.get("plan_key") == plan_key:
-            consumed += si((payload.get("deal") or {}).get("qty"))
+        if attribution.get("plan_key") != plan_key:
+            continue
+        consumed += (
+            si((payload.get("deal") or {}).get("qty"))
+            if event_type=="EXECUTION_DETECTED"
+            else si(attribution.get("qty"))
+        )
     return consumed
 
 
@@ -1090,6 +1098,7 @@ def _cycle_unlocked(args):
                          "attribution_window_minutes":PLAN_MATCH_MAX_MINUTES,
                          "primary_candidate":primary_candidate,
                          "attribution_basis":"PRIMARY_CANDIDATE_ONLY",
+                         "primary_candidate_sha256":sha256_json(primary_candidate) if isinstance(primary_candidate,dict) else None,
                          "strategy_observation_accepted":strategy_observation_ok,
                          "gamma_spot_observed":current_far_gamma_spot if strategy_observation_ok else None,
                          "far_delta_abs_observed":current_far_delta_abs if strategy_observation_ok else None,
