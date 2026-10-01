@@ -13,6 +13,14 @@ from .run_instance import (
 from .run_instance import instance_mutation_lock, mhash, mpath, spath
 from .performance_tape import build_performance_tape, classify_relationship
 
+def test_operator_mutation_endpoint_requires_header():
+    from .serve_operator import MUTATION_HEADER, MUTATION_HEADER_VALUE, MUTATING_PATHS
+    assert "/api/manual" in MUTATING_PATHS
+    assert "/api/refresh" in MUTATING_PATHS
+    assert MUTATION_HEADER == "X-QQQ-Operator"
+    assert MUTATION_HEADER_VALUE == "1"
+
+
 def test_instance_mutation_lock_serializes_threads():
     with tempfile.TemporaryDirectory() as td:
         events = []
