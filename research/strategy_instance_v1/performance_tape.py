@@ -98,6 +98,7 @@ def build_performance_tape(trades):
         # "adjusted size".
         rel = classify_relationship(action, code, qty, ref)
         counts[rel] += 1
+        expected_action = canonical_manual_action(ref)
         qty_delta = None
         if rel in {"FOLLOW_STRATEGY", "ADJUST_SIZE"} and s_qty is not None:
             qty_delta = qty - s_qty
@@ -143,10 +144,12 @@ def build_performance_tape(trades):
                 if sl["qty"] <= 0:
                     q.pop(0)
 
-        if not has_ticket:
-            read = "OPERATOR_ONLY: no matching strategy ticket at record time."
+        if rel == "OPERATOR_ONLY":
+            read = ("OPERATOR_ONLY: no matching strategy ticket/action at record time."
+                    if has_ticket else
+                    "OPERATOR_ONLY: no strategy ticket was captured at record time.")
         elif qty_delta == 0:
-            read = "FOLLOW_STRATEGY: same code and quantity as the ticket. Outcome is the observed fill, not a rewritten strategy path."
+            read = "FOLLOW_STRATEGY: same code, semantic action and quantity as the ticket. Outcome is the observed fill, not a rewritten strategy path."
         elif qty_delta and qty_delta > 0:
             read = "ADJUST_SIZE up: extra contracts are observed only. The ticket quantity not exceeded has no separate path."
         else:
@@ -164,6 +167,7 @@ def build_performance_tape(trades):
             "relationship": rel,
             "strategy_ticket_id": ref.get("ticket_id"),
             "strategy_action": ref.get("action"),
+            "strategy_expected_manual_action": expected_action,
             "strategy_qty": s_qty,
             "strategy_price": s_px,
             "qty_delta": qty_delta,
