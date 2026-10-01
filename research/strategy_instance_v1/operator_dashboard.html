@@ -446,6 +446,7 @@ function useStrategyTicket(){
   strategyContextSnapshot={
     instance_id:$("instance").value,
     ticket_id:t.ticket_id||null,
+    context_source:"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
     action:t.action||null,
     status:t.status||null,
     leg:JSON.parse(JSON.stringify(leg)),
