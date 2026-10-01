@@ -60,7 +60,7 @@ def test_operator_ticket_context_rejects_browser_tampering():
         ticket={"ticket_id":"TICKET-2","action":"ADD_NEAR","status":"OPEN",
                 "legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":2,
                          "strategy_leg_action":"ADD_NEAR"}]}
-        ledger=InstanceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl",{})
         ledger.append("DECISION_EMITTED",instance_id="I",cycle_id="C1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",
                       payload={"ticket":ticket})
@@ -96,7 +96,7 @@ def test_operator_strategy_context_must_be_instance_scoped():
         ticket={"ticket_id":"T1","action":"ADD_NEAR","status":"OPEN",
                 "legs":[{"code":"US.QQQ.TEST","qty":1,"side":"BUY",
                          "strategy_leg_action":"ADD_NEAR"}]}
-        ledger=InstanceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl",{})
         ledger.append("DECISION_EMITTED",instance_id="I2",cycle_id="C1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",
                       payload={"ticket":ticket,"snapshot_sha256":"S1"})
