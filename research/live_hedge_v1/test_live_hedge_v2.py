@@ -45,6 +45,7 @@ class LiveHedgeV2Test(unittest.TestCase):
                                 "2026-10-08", "2026-10-15", "2026-10-22",
                                 "2026-10-29", "2026-11-12", "2026-12-01"
                             ]
+                        }
                     def __getitem__(self, key):
                         return self.data[key]
                 return 0, D()
