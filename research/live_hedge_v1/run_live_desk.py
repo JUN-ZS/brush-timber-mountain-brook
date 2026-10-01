@@ -155,6 +155,10 @@ def _ticket_baseline_positions(current_positions):
     return position_snapshot(current_positions)
 
 
+def _publish_live_output(out_path, output):
+    _publish_live_output(out_path, output)
+
+
 def _format_price(v):
     return "NA" if v is None else f"{float(v):.4f}"
 
@@ -532,11 +536,7 @@ def _main_cycle(args, out_path):
             "account": acct,
             "market": snap,
         }
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(
-            json.dumps(output, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        _publish_live_output(out_path, output)
         print(json.dumps(output, indent=2, ensure_ascii=False))
         return 2
 
@@ -610,11 +610,7 @@ def _main_cycle(args, out_path):
                 "desk refuses to infer LONG/SHORT",
             ],
         }
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(
-            json.dumps(output, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        _publish_live_output(out_path, output)
         print(json.dumps(output, indent=2, ensure_ascii=False))
         return 3
 
@@ -1134,5 +1130,4 @@ def _main_cycle(args, out_path):
 
 
 if __name__ == "__main__":
-    _main_unlocked()
-    raise SystemExit(main())
+    raise SystemExit(_main_unlocked())
