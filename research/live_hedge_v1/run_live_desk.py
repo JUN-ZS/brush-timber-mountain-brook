@@ -168,6 +168,40 @@ def _publish_live_output(out_path, output):
     os.replace(tmp_out, out_path)
 
 
+def _persist_dynamic_state_observation(state, plan_output, far, market):
+    """Persist dynamic inputs only when the strategy actually accepted the observation."""
+    if str((plan_output or {}).get("status", "")).upper().startswith("BLOCKED"):
+        return False
+    if far is not None:
+        state["far_code"] = far.code
+        if far.delta is not None:
+            state["far_delta"] = abs(float(far.delta))
+        if far.gamma is not None and market.get("spot") is not None:
+            hist = state.setdefault("gamma_history", [])
+            hist.append(abs(float(far.gamma)) * float(market["spot"]))
+            state["gamma_history"] = hist[-20:]
+            state["gamma_history_schema"] = GAMMA_HISTORY_SCHEMA
+            state["gamma_history_unit"] = GAMMA_HISTORY_UNIT
+    if (plan_output or {}).get("risk_state"):
+        risk_state_value = plan_output["risk_state"]
+        new_target = risk_state_value.get("desired_stack")
+        new_risk = risk_state_value.get("risk_score")
+        old_target = state.get("last_target_stack")
+        if old_target is not None and new_target != old_target:
+            return {
+                "accepted": True,
+                "target_changed": True,
+                "from": old_target,
+                "to": new_target,
+                "risk_score": new_risk,
+            }
+        state["last_target_stack"] = new_target
+        state["last_risk_score"] = new_risk
+        campaign = state.setdefault("campaign", {})
+        campaign["target_stack"] = new_target
+    return True
+
+
 def _format_price(v):
     return "NA" if v is None else f"{float(v):.4f}"
 
