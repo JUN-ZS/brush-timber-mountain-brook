@@ -214,12 +214,45 @@ def test_strategy_plan_attribution_is_bounded_and_cannot_reuse_quantity():
     used={}
     d={"deal_id":"D1","code":"US.QQQ261030C00500000","side":"BUY","qty":3,"price":8.0,"created_at":"2026-10-01T21:01:00+00:00"}
     first=attribute_broker_deal(rows,d,used)
-    assert first["status"]=="MATCHED_PREDECISION_PLAN"
+    assert first["status"]=="POTENTIAL_PREDECISION_MATCH"
     assert first["qty"]==2
     used[first["plan_key"]]=first["qty"]
     second=attribute_broker_deal(rows,d,used)
     assert second["status"]=="UNATTRIBUTED"
     assert second["reason"]=="strategy_plan_quantity_already_consumed"
+
+
+def test_confirmed_strategy_execution_is_explicit_and_replayable():
+    import tempfile
+    from .run_instance import confirm_strategy_execution, init_lots, save
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td); iid="I-CONF"
+        manifest={"schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+                  "instance_id":iid,"created_at_utc":"2026-10-01T00:00:00+00:00",
+                  "start_at_utc":"2026-10-01T00:00:00+00:00","strategy_id":"TEST",
+                  "strategy_version":"V1","initial_positions":[]}
+        manifest["manifest_hash"]=mhash(manifest)
+        save(mpath(repo,iid),manifest)
+        st={"schema":"STRATEGY_INSTANCE_STATE.v1","schema_version":1,"instance_id":iid,
+            "processed_deal_ids":["D1"],"strategy_deal_ids":[],"unattributed_deal_ids":["D1"],
+            "lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
+            "last_snapshot_hash":None,"last_reconcile":None,"cycle_count":1,"data_gaps":1,
+            "gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,
+            "manual_lots":[],"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
+        save(spath(repo,iid),st)
+        l=InstanceLedger(lpath(repo,iid),{"instance_id":iid,"manifest_hash":manifest["manifest_hash"],"strategy_id":"TEST","strategy_version":"V1"})
+        l.append("BROKER_EXECUTION_UNATTRIBUTED",instance_id=iid,cycle_id="C1",
+                 timestamp_utc="2026-10-01T00:01:00+00:00",
+                 payload={"deal":{"deal_id":"D1","code":"US.QQQ.TEST","side":"BUY","qty":2,"price":5.0,"lot_size":100,"created_at":"2026-10-01T00:01:00+00:00"},
+                          "reason":"strategy_execution_requires_explicit_user_confirmation"})
+        out=confirm_strategy_execution(repo,instance_id=iid,deal_id="D1",expected_strategy_side="LONG",qty=1,note="verified")
+        assert out["confirmed_qty"]==1
+        assert out["strategy_application"]=="CONFIRMED_OPEN_LONG"
+        _,state,ledger=load_instance(repo,iid)
+        assert state["strategy_deal_ids"]==["D1"]
+        assert state["lots"][0]["qty"]==1
+        assert state["lots"][0]["source"]=="BROKER_DEAL_CONFIRMED"
+        assert ledger.validate()["records"]==2
 
 
 def test_strategy_plan_quantity_cannot_be_reused_across_cycles():
