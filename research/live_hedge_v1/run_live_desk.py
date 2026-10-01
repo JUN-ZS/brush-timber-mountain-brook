@@ -285,6 +285,58 @@ def _filled_summary(events):
     return None
 
 
+def _mark_position_summary(positions, quotes):
+    rows=[]; unrealized=0.0
+    for p in positions:
+        q=quotes.get(p.code,{})
+        mid=q.get("mid")
+        bid=q.get("bid"); ask=q.get("ask")
+        if mid is None and bid is not None and ask is not None and float(ask)>=float(bid):
+            mid=(float(bid)+float(ask))/2
+        if mid is None:
+            rows.append({"code":p.code,"side":p.side,"qty":p.qty,"avg_cost":p.avg_cost,"status":"NO_MARK"})
+            continue
+        size=100
+        qty=_safe_int(p.qty); avg=_safe_float(p.avg_cost); side=str(p.side).upper()
+        u=((float(mid)-avg) if side=="LONG" else (avg-float(mid)))*qty*size
+        unrealized += u
+        rows.append({"code":p.code,"side":side,"qty":qty,"avg_cost":avg,"mid":float(mid),"unrealized_pnl":u,"status":"MARKED"})
+    return {
+        "status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY"),
+        "unrealized_pnl":unrealized,
+        "rows":rows,
+        "realized_pnl":"NOT_TRACKED_BY_LIVE_DESK",
+        "total_pnl":"NOT_TRACKED_BY_LIVE_DESK",
+    }
+
+def _action_card(ticket):
+    if not ticket:
+        return {"status":"NO_PRIMARY_TICKET","action":"HOLD","legs":[]}
+    legs=[]
+    for leg in ticket.get("legs",[]) or []:
+        before=_safe_int(leg.get("before_qty"))
+        target=_safe_int(leg.get("target_qty"))
+        legs.append({
+            "code":leg.get("code"),
+            "side":leg.get("side"),
+            "qty":_safe_int(leg.get("qty")),
+            "before_qty":before,
+            "target_qty":target,
+            "delta_qty":target-before,
+            "price":leg.get("price"),
+            "expected_side":leg.get("expected_side"),
+        })
+    return {
+        "status":ticket.get("status"),
+        "action":ticket.get("action"),
+        "ticket_id":ticket.get("ticket_id"),
+        "campaign_id":ticket.get("campaign_id"),
+        "reason":ticket.get("reason"),
+        "issued_at":ticket.get("issued_at"),
+        "legs":legs,
+        "manual_execution_only":True,
+    }
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--far-dte", type=int, default=120)
@@ -898,7 +950,7 @@ def main():
     store.save(state)
 
     filled_message = _filled_summary(reconcile_events)
-    primary_ticket = state.get("active_ticket") if primary else None
+    primary_ticket = state.get("active_ticket")
 
     if primary_ticket:
         status = "WAITING_MANUAL_TICKET"
@@ -915,6 +967,9 @@ def main():
     else:
         status = p.get("status", "HOLD")
         instruction = "HOLD — no primary ticket."
+
+    mark_summary = _mark_position_summary(strict_positions, quotes)
+    action_card = _action_card(primary_ticket)
 
     evidence.append(
         "DECISION_EMITTED",
@@ -960,6 +1015,8 @@ def main():
         "campaign": campaign,
         "active_ticket": state.get("active_ticket"),
         "primary_ticket": primary_ticket,
+        "action_card": action_card,
+        "position_mark": mark_summary,
         "one_primary_ticket_per_cycle": True,
         "market": market,
         "far": p.get("far"),
