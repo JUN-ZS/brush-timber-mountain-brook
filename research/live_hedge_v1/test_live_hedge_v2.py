@@ -46,7 +46,7 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(parsed.hour, 21)
         self.assertTrue(_is_after("2026-10-01 17:00:00", "2026-10-01T18:00:00+00:00"))
 
-    def test_invalid_broker_timestamp_disables_signal():
+    def test_invalid_broker_timestamp_disables_signal(self):
         # Structural contract: an untrusted source timestamp cannot produce a genuine signal.
         from research.live_hedge_v1 import futu_reader
         class Q:
