@@ -87,6 +87,33 @@ def test_operator_mutation_endpoint_requires_header():
     assert MUTATION_HEADER_VALUE == "1"
 
 
+def test_operator_ticket_context_rejects_structural_leg_tampering():
+    import tempfile
+    from .serve_operator import explicit_strategy_context
+    from ..evidence_v1.ledger import EvidenceLedger
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        ticket={"ticket_id":"T-STRUCT","action":"ADD_NEAR","status":"OPEN",
+                "legs":[{"code":"US.QQQ.TEST","qty":2,"side":"BUY",
+                         "strategy_leg_action":"ADD_NEAR",
+                         "before_qty":1,"target_qty":3,"price":8.5}]}
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger.append("DECISION_EMITTED",instance_id="I",cycle_id="C1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",
+                      payload={"ticket":ticket})
+        forged=json.loads(json.dumps(ticket["legs"][0]))
+        forged["before_qty"]=0
+        try:
+            explicit_strategy_context(root,{"instance_id":"I",
+                "strategy_context_snapshot":{
+                    "instance_id":"I","ticket_id":"T-STRUCT",
+                    "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+                    "action":"ADD_NEAR","status":"OPEN","leg":forged}})
+        except ValueError as exc:
+            assert str(exc)=="STRATEGY_CONTEXT_TICKET_TAMPERED"
+        else:
+            raise AssertionError("structural ticket mutation must be rejected")
+
 def test_operator_strategy_context_must_be_instance_scoped():
     import tempfile
     from .serve_operator import explicit_strategy_context
