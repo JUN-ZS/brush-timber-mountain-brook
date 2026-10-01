@@ -374,7 +374,7 @@ def _action_card(ticket):
             "delta_qty":target-before,
             "price":leg.get("price"),
             "expected_side":leg.get("expected_side"),
-            "strategy_leg_action":leg.get("why"),
+            "strategy_leg_action":leg.get("strategy_leg_action") or leg.get("why"),
             "direction":leg.get("direction"),
         })
     return {
