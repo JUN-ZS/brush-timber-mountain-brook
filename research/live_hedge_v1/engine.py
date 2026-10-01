@@ -35,6 +35,7 @@ class Contract:
     iv: Optional[float] = None
     lot_size: int = 100
     volume: Optional[float] = None
+    quote_timestamp: Optional[str] = None
 
     @property
     def mid(self):
