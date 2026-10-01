@@ -54,6 +54,22 @@ def test_last_is_consistent_with_append():
         assert last["event_type"] == "DATA_GAP"
 
 
+def test_outcome_rows_api_is_locked_snapshot():
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "evidence.jsonl"
+        ledger = EvidenceLedger(path)
+        ledger.append(
+            "CYCLE_STARTED",
+            cycle_id="C1",
+            campaign_id="CAMP1",
+            timestamp_utc="2026-10-01T00:00:00+00:00",
+            payload={},
+        )
+        rows = ledger.rows()
+        assert len(rows) == 1
+        assert rows[0]["campaign_id"] == "CAMP1"
+
+
 def test_seal_publishes_without_leaving_partial_file():
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "evidence.jsonl"
