@@ -449,6 +449,35 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
 
 
+    def test_position_object_normalizes_for_campaign_reconciliation(self):
+        from research.live_hedge_v1.run_live_desk import _position_dicts
+
+        positions = [
+            Position(
+                "US.QQQ261030C00500000",
+                "LONG",
+                2,
+                7.0,
+                500,
+                "2026-10-30",
+                30,
+            )
+        ]
+        self.assertEqual(
+            _position_dicts(positions),
+            [{
+                "code": "US.QQQ261030C00500000",
+                "side": "LONG",
+                "qty": 2,
+                "avg_cost": 7.0,
+                "strike": 500,
+                "expiry": "2026-10-30",
+                "dte": 30,
+                "delta": None,
+                "gamma": None,
+            }],
+        )
+
     def test_position_analysis_counts_call_near_legs_including_roll_window(self):
         from research.live_hedge_v1.run_live_desk import _strategy_position_analysis
 
