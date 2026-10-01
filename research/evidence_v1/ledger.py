@@ -3,6 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import tempfile
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +42,46 @@ class LedgerError(RuntimeError):
     pass
 
 
+_EVIDENCE_THREAD_LOCKS = {}
+_EVIDENCE_THREAD_LOCKS_GUARD = threading.Lock()
+
+
+def _evidence_lock_path(path: Path) -> Path:
+    key = hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()
+    return Path(tempfile.gettempdir()) / f"qqq-evidence-ledger-{key}.lock"
+
+
+@contextmanager
+def evidence_ledger_lock(path: str | Path):
+    """Serialize append/seal operations on one shared evidence ledger."""
+    lock_path = _evidence_lock_path(Path(path))
+    key = str(lock_path)
+    with _EVIDENCE_THREAD_LOCKS_GUARD:
+        thread_lock = _EVIDENCE_THREAD_LOCKS.setdefault(key, threading.Lock())
+    with thread_lock:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as fh:
+            fh.seek(0, os.SEEK_END)
+            if fh.tell() == 0:
+                fh.write(b"0")
+                fh.flush()
+            fh.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fh.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+
 class EvidenceLedger:
     """Append-only hash-chained evidence ledger.
 
@@ -65,7 +108,7 @@ class EvidenceLedger:
                 raise LedgerError(f"LEDGER_CORRUPT_JSON:line={n}") from exc
         return rows
 
-    def validate(self) -> dict[str, Any]:
+    def _validate_unlocked(self) -> dict[str, Any]:
         rows = self._rows()
         previous = GENESIS
         for idx, row in enumerate(rows, 1):
@@ -92,6 +135,10 @@ class EvidenceLedger:
             "path": str(self.path),
         }
 
+    def validate(self) -> dict[str, Any]:
+        with evidence_ledger_lock(self.path):
+            return self._validate_unlocked()
+
     def last(self) -> dict[str, Any] | None:
         rows = self._rows()
         return rows[-1] if rows else None
@@ -110,7 +157,29 @@ class EvidenceLedger:
         if event_type not in EVENT_TYPES:
             raise LedgerError(f"UNKNOWN_EVENT_TYPE:{event_type}")
 
-        validation = self.validate()
+        with evidence_ledger_lock(self.path):
+            return self._append_unlocked(
+                event_type,
+                cycle_id=cycle_id,
+                timestamp_utc=timestamp_utc,
+                payload=payload,
+                campaign_id=campaign_id,
+                evidence_id=evidence_id,
+                evidence_grade=evidence_grade,
+            )
+
+    def _append_unlocked(
+        self,
+        event_type: str,
+        *,
+        cycle_id: str,
+        timestamp_utc: str,
+        payload: dict[str, Any],
+        campaign_id: str | None = None,
+        evidence_id: str | None = None,
+        evidence_grade: str = "PROSPECTIVE_OBSERVED",
+    ) -> dict[str, Any]:
+        validation = self._validate_unlocked()
         seq = int(validation["records"]) + 1
         previous_hash = str(validation["head_hash"])
         eid = evidence_id or f"EV-{timestamp_utc.replace(':','').replace('-','').replace('.','')}-{seq:06d}"
@@ -138,19 +207,21 @@ class EvidenceLedger:
         return row
 
     def seal(self, seal_path: str | Path | None = None, *, note: str = "") -> dict[str, Any]:
-        validation = self.validate()
-        last = self.last()
-        seal = {
-            "schema": "STRATEGY_EVIDENCE_SEAL.v1",
-            "sealed_at_utc": last.get("timestamp_utc") if last else None,
-            "ledger": str(self.path),
-            "records": validation["records"],
-            "head_hash": validation["head_hash"],
-            "strategy_lock_hash": self.identity.get("strategy_lock_hash"),
-            "code_hashes": self.identity.get("code_hashes", {}),
-            "note": note,
-        }
-        target = Path(seal_path) if seal_path else self.path.with_suffix(".seal.json")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(seal, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        with evidence_ledger_lock(self.path):
+            validation = self._validate_unlocked()
+            rows = self._rows()
+            last = rows[-1] if rows else None
+            seal = {
+                "schema": "STRATEGY_EVIDENCE_SEAL.v1",
+                "sealed_at_utc": last.get("timestamp_utc") if last else None,
+                "ledger": str(self.path),
+                "records": validation["records"],
+                "head_hash": validation["head_hash"],
+                "strategy_lock_hash": self.identity.get("strategy_lock_hash"),
+                "code_hashes": self.identity.get("code_hashes", {}),
+                "note": note,
+            }
+            target = Path(seal_path) if seal_path else self.path.with_suffix(".seal.json")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(seal, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         return seal
