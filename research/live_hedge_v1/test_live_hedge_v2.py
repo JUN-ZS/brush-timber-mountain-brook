@@ -29,6 +29,29 @@ def now_iso():
 
 class LiveHedgeV2Test(unittest.TestCase):
     def test_explicit_account_id_is_required_before_trade_queries(self):
+    def test_account_verification_fails_closed_on_missing_us_auth(self):
+        class FakeEnv:
+            REAL = "REAL"
+
+        class FakeFutu:
+            RET_OK = 0
+            TrdEnv = FakeEnv
+
+        class FakeCtx:
+            def get_acc_list(self):
+                return 0, [{
+                    "acc_id": 123456,
+                    "trd_env": "REAL",
+                    "acc_status": "ACTIVE",
+                    "trdmarket_auth": [],
+                }]
+
+        reader = FutuTradeReader(real=True, acc_id=123456)
+        reader.futu = FakeFutu
+        reader.ctx = FakeCtx()
+        self.assertFalse(reader._verify_account())
+        self.assertIn("NO_US_AUTH", reader.account_error)
+
         reader = FutuTradeReader(acc_id=None)
         self.assertIsNone(reader.acc_id)
 
