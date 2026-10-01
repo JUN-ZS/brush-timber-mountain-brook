@@ -217,6 +217,10 @@ def _finalize_blocked_cycle(evidence, state, cycle_id, now, out_path, status, er
         evidence_grade=evidence_grade,
         payload={"stage":"LIVE_DESK_CONTROL","status":status,"error":repr(error)},
     )
+    decision_evidence_id = decision_event.get("evidence_id") if isinstance(decision_event, dict) else None
+    for row in candidate_journal:
+        row["decision_evidence_id"] = decision_evidence_id
+
     evidence.append(
         "CYCLE_FINALIZED",
         cycle_id=cycle_id,
@@ -1309,7 +1313,7 @@ def _main_cycle(args, out_path):
     mark_summary = _mark_position_summary(strict_positions, quotes, by)
     action_card = _action_card(primary_ticket)
 
-    evidence.append(
+    decision_event = evidence.append(
         "DECISION_EMITTED",
         cycle_id=cycle_id,
         campaign_id=campaign.get("id"),
@@ -1332,6 +1336,7 @@ def _main_cycle(args, out_path):
             "candidate_actions_are_verbatim": True,
             "candidate_ranking": candidate_ranking,
             "candidate_journal": candidate_journal,
+        "decision_evidence_id": decision_evidence_id,
         },
     )
 
