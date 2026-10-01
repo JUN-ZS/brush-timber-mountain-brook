@@ -15,10 +15,15 @@ DEFAULT_STATE: Dict[str, Any] = {
     "far_code": None,
     "far_delta": None,
     "gamma_history": [],
+    "gamma_history_schema": 2,
+    "gamma_history_unit": "gamma_spot",
     "campaign": {
         "id": None,
         "state": "IDLE",
         "far_code": None,
+        "managed_far_qty": None,
+        "far_ownership_source": None,
+        "far_ownership_ticket_id": None,
         "started_at": None,
         "last_transition_at": None,
         "target_stack": None,
@@ -98,7 +103,149 @@ class StateStore:
         state.setdefault("last_risk_score", None)
         state.setdefault("lots", [])
         state["schema_version"] = SCHEMA_VERSION
+        self._recover_from_events(state)
         return state
+
+    def _read_events(self) -> list[dict[str, Any]]:
+        if not self.events_path.exists():
+            return []
+        rows = []
+        lines = self.events_path.read_text(encoding="utf-8").splitlines()
+        for idx, line in enumerate(lines):
+            if not line.strip():
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                # A crash can leave only the final append partially written.
+                # Earlier complete events remain usable for deterministic recovery.
+                if idx == len(lines) - 1:
+                    break
+                raise
+
+        return [row for row in rows if isinstance(row, dict)]
+
+    @staticmethod
+    def _numeric_suffix(value: Any, width: int = 0) -> int:
+        raw = str(value or "")
+        if width:
+            tail = raw[-width:]
+            return int(tail) if tail.isdigit() else 0
+        digits = ""
+        for ch in reversed(raw):
+            if ch.isdigit():
+                digits = ch + digits
+            elif digits:
+                break
+        return int(digits) if digits else 0
+
+    def _recover_from_events(self, state: Dict[str, Any]) -> None:
+        """Repair an unsaved state cache from the durable live event stream."""
+        events = self._read_events()
+        if not events:
+            return
+
+        latest_ticket = None
+        ticket_terminal = None
+        latest_campaign_state = None
+        latest_campaign_id = None
+        adopted = None
+        ownership = None
+
+        for event in events:
+            et = str(event.get("type", "")).upper()
+            payload = event.get("payload") or {}
+            campaign_id = event.get("campaign_id")
+            if campaign_id:
+                latest_campaign_id = campaign_id
+
+            if et == "CAMPAIGN_TRANSITION":
+                latest_campaign_state = (payload.get("to"), event.get("timestamp"))
+            elif et == "CAMPAIGN_ADOPTED_EXISTING_FAR":
+                adopted = (campaign_id, payload)
+            elif et == "FAR_OWNERSHIP_REBASELINED":
+                ownership = payload
+            elif et == "TICKET_ISSUED":
+                latest_ticket = payload.get("ticket")
+                ticket_terminal = None
+            elif et in {"TICKET_PARTIAL_PROGRESS", "TICKET_WAITING_EXECUTION_EVIDENCE"}:
+                if latest_ticket is not None:
+                    latest_ticket = json.loads(json.dumps(latest_ticket))
+                    latest_ticket["status"] = "PARTIAL"
+                    if et == "TICKET_PARTIAL_PROGRESS" and payload.get("fill") is not None:
+                        latest_ticket["fill"] = payload.get("fill")
+            elif et in {
+                "TICKET_FILLED",
+                "TICKET_SUPERSEDED",
+                "REPRICE_TICKET_SUPERSEDED",
+                "REPRICE_ORDER_TERMINAL",
+                "REPRICE_ORDER_CANCELLED",
+            }:
+                ticket_terminal = et
+                latest_ticket = None
+
+        if latest_ticket is not None:
+            current = state.get("active_ticket")
+            if current is None or current.get("ticket_id") == latest_ticket.get("ticket_id"):
+                state["active_ticket"] = latest_ticket
+        elif ticket_terminal is not None:
+            current = state.get("active_ticket")
+            if current is not None:
+                state["active_ticket"] = None
+
+        campaign = state.setdefault("campaign", {})
+        if latest_campaign_state:
+            campaign["state"] = latest_campaign_state[0]
+            campaign["last_transition_at"] = latest_campaign_state[1]
+        if adopted is not None:
+            cid, payload = adopted
+            if cid:
+                campaign["id"] = cid
+            if payload.get("far_code"):
+                campaign["far_code"] = payload["far_code"]
+            if payload.get("managed_far_qty") is not None:
+                campaign["managed_far_qty"] = payload["managed_far_qty"]
+            elif payload.get("qty") is not None:
+                campaign["managed_far_qty"] = payload["qty"]
+            campaign["far_ownership_source"] = payload.get("ownership_source") or "EXPLICIT_ADOPTION"
+        if ownership is not None:
+            if ownership.get("far_code"):
+                campaign["far_code"] = ownership["far_code"]
+            if ownership.get("managed_far_qty") is not None:
+                campaign["managed_far_qty"] = ownership["managed_far_qty"]
+            campaign["far_ownership_source"] = ownership.get("ownership_source") or "EXPLICIT_REBASELINE"
+        if latest_campaign_id and not campaign.get("id"):
+            campaign["id"] = latest_campaign_id
+
+        active = state.get("active_ticket")
+        if active and campaign.get("state") not in {"IDLE", None}:
+            if not campaign.get("far_code"):
+                for leg in active.get("legs", []) or []:
+                    if str(leg.get("expected_side", "")).upper() == "SHORT" and leg.get("code"):
+                        campaign["far_code"] = leg["code"]
+                        break
+            if campaign.get("managed_far_qty") is None:
+                for leg in active.get("legs", []) or []:
+                    if str(leg.get("expected_side", "")).upper() == "SHORT":
+                        campaign["managed_far_qty"] = int(leg.get("before_qty", 0) or 0)
+                        campaign["far_ownership_source"] = "TICKET_BASELINE"
+                        campaign["far_ownership_ticket_id"] = active.get("ticket_id")
+                        break
+
+        max_event_seq = max((self._numeric_suffix(e.get("event_id"), 6) for e in events), default=0)
+        state["event_sequence"] = max(int(state.get("event_sequence", 0) or 0), max_event_seq)
+        max_ticket_seq = max(
+            (self._numeric_suffix(e.get("payload", {}).get("ticket", {}).get("ticket_id"), 4)
+             for e in events if e.get("type") == "TICKET_ISSUED"),
+            default=0,
+        )
+        state["ticket_sequence"] = max(int(state.get("ticket_sequence", 0) or 0), max_ticket_seq)
+        max_campaign_seq = max(
+            (self._numeric_suffix(e.get("campaign_id"), 4)
+             for e in events if e.get("campaign_id")),
+            default=0,
+        )
+        state["campaign_sequence"] = max(int(state.get("campaign_sequence", 0) or 0), max_campaign_seq)
 
     def save(self, state: Dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
