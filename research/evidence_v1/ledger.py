@@ -139,9 +139,13 @@ class EvidenceLedger:
         with evidence_ledger_lock(self.path):
             return self._validate_unlocked()
 
-    def last(self) -> dict[str, Any] | None:
+    def _last_unlocked(self) -> dict[str, Any] | None:
         rows = self._rows()
         return rows[-1] if rows else None
+
+    def last(self) -> dict[str, Any] | None:
+        with evidence_ledger_lock(self.path):
+            return self._last_unlocked()
 
     def append(
         self,
@@ -223,5 +227,13 @@ class EvidenceLedger:
             }
             target = Path(seal_path) if seal_path else self.path.with_suffix(".seal.json")
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps(seal, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            tmp = target.with_suffix(target.suffix + ".tmp")
+            tmp.write_text(
+                json.dumps(seal, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            with tmp.open("r+b") as fh:
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, target)
         return seal
