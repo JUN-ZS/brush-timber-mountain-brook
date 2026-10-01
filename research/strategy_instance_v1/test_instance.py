@@ -21,6 +21,22 @@ def test_operator_mutation_endpoint_requires_header():
     assert MUTATION_HEADER_VALUE == "1"
 
 
+def test_instance_input_rejects_non_qqq_option_codes():
+    from .run_instance import pos_spec
+    try:
+        pos_spec("US.QQQ,LONG,1,5.0")
+    except SystemExit as exc:
+        assert str(exc)=="POSITION_CODE_MUST_BE_QQQ_OPTION"
+    else:
+        raise AssertionError("QQQ underlying must not enter option instance")
+    try:
+        pos_spec("US.QCOM261030C00500000,LONG,1,5.0")
+    except SystemExit as exc:
+        assert str(exc)=="POSITION_CODE_MUST_BE_QQQ_OPTION"
+    else:
+        raise AssertionError("non-QQQ option must not enter instance")
+
+
 def test_unrelated_broker_qqq_execution_is_not_strategy_attributed():
     from .run_instance import attribute_broker_deal, managed_position_view, reconcile
 
