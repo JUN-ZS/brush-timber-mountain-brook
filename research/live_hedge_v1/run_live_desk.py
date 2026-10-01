@@ -172,6 +172,51 @@ def _format_price(v):
     return "NA" if v is None else f"{float(v):.4f}"
 
 
+def _sync_managed_far_ownership(campaign, ticket, reconcile):
+    """Project broker-confirmed far execution onto the frozen ownership baseline.
+
+    The current broker position is never used to invent ownership. For an
+    active ticket, only cumulative broker execution evidence since issuance can
+    move the managed far quantity. Manual/out-of-band position changes therefore
+    remain visible as an ownership mismatch on the next planning pass.
+    """
+    if not campaign or not ticket:
+        return
+    far_code = str(campaign.get("far_code") or "").upper()
+    if not far_code:
+        return
+    evidence_by_leg = reconcile.get("evidence_by_leg") or {}
+    for key, evidence in evidence_by_leg.items():
+        leg = next(
+            (
+                x for x in ticket.get("legs", []) or []
+                if f'{str(x.get("expected_side", "")).upper()}:{str(x.get("code", "")).upper()}' == key
+            ),
+            None,
+        )
+        if not leg:
+            continue
+        if str(leg.get("expected_side", "")).upper() != "SHORT":
+            continue
+        if str(leg.get("code", "")).upper() != far_code:
+            continue
+        required = _safe_int(evidence.get("required_qty"))
+        confirmed = _safe_int(evidence.get("evidence_qty"))
+        if confirmed <= 0:
+            continue
+        confirmed = min(confirmed, required) if required > 0 else confirmed
+        before = _safe_int(leg.get("before_qty"))
+        side = str(leg.get("side", "")).upper()
+        if side == "SELL":
+            managed = before + confirmed
+        elif side == "BUY":
+            managed = max(0, before - confirmed)
+        else:
+            continue
+        campaign["managed_far_qty"] = managed
+        campaign["far_ownership_source"] = "BROKER_EXECUTION_EVIDENCE"
+        campaign["far_ownership_ticket_id"] = ticket.get("ticket_id")
+
 def _fill_lots(state, ticket):
     state.setdefault("lots", [])
 
