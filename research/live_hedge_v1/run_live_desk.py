@@ -866,29 +866,35 @@ def _main_cycle(args, out_path):
             )
 
     if args.rebaseline_existing_far:
-        if campaign.get("state") == STATE_IDLE:
-            raise RuntimeError("--rebaseline-existing-far requires an active campaign")
-        if state.get("active_ticket") is not None:
-            raise RuntimeError("--rebaseline-existing-far cannot run while an active ticket exists")
-        far_code_for_rebaseline = str(campaign.get("far_code") or "").upper()
-        matching = [p for p in qqq_shorts if p.code.upper() == far_code_for_rebaseline]
-        if not far_code_for_rebaseline or len(qqq_shorts) != 1 or len(matching) != 1:
-            raise RuntimeError(
-                "--rebaseline-existing-far requires exactly one QQQ option short and it must match campaign.far_code"
+        try:
+            if campaign.get("state") == STATE_IDLE:
+                raise RuntimeError("--rebaseline-existing-far requires an active campaign")
+            if state.get("active_ticket") is not None:
+                raise RuntimeError("--rebaseline-existing-far cannot run while an active ticket exists")
+            far_code_for_rebaseline = str(campaign.get("far_code") or "").upper()
+            matching = [p for p in qqq_shorts if p.code.upper() == far_code_for_rebaseline]
+            if not far_code_for_rebaseline or len(qqq_shorts) != 1 or len(matching) != 1:
+                raise RuntimeError(
+                    "--rebaseline-existing-far requires exactly one QQQ option short and it must match campaign.far_code"
+                )
+            campaign["managed_far_qty"] = matching[0].qty
+            campaign["far_ownership_source"] = "EXPLICIT_REBASELINE"
+            campaign["far_ownership_ticket_id"] = None
+            store.emit(
+                state,
+                "FAR_OWNERSHIP_REBASELINED",
+                now=now,
+                payload={
+                    "far_code": matching[0].code,
+                    "managed_far_qty": campaign["managed_far_qty"],
+                    "ownership_source": campaign["far_ownership_source"],
+                },
             )
-        campaign["managed_far_qty"] = matching[0].qty
-        campaign["far_ownership_source"] = "EXPLICIT_REBASELINE"
-        campaign["far_ownership_ticket_id"] = None
-        store.emit(
-            state,
-            "FAR_OWNERSHIP_REBASELINED",
-            now=now,
-            payload={
-                "far_code": matching[0].code,
-                "managed_far_qty": campaign["managed_far_qty"],
-                "ownership_source": campaign["far_ownership_source"],
-            },
-        )
+
+        except Exception as exc:
+            return _finalize_blocked_cycle(
+                evidence,state,cycle_id,now,out_path,"BLOCKED_REBASELINE_EXISTING_FAR",exc
+            )
 
     far_position = None
     far_code = campaign.get("far_code")
