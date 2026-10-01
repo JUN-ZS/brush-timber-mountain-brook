@@ -685,6 +685,14 @@ def test_strategy_cycle_far_observation_does_not_pick_first_ambiguous_short():
     assert instance_far_position({}, positions) is None
     assert instance_far_position({"far_code_hint": positions[1]["code"]}, positions)["code"] == positions[1]["code"]
 
+def test_explicit_far_code_hint_is_allowed_only_for_single_broker_row():
+    from .run_instance import instance_far_position
+    p={"code":"US.QQQ261230C00600000","side":"SHORT","qty":10}
+    out=instance_far_position({"far_code_hint":p["code"]},[p],[])
+    assert out["qty"]==10
+    assert out["ownership_source"]=="EXPLICIT_FAR_CODE_HINT_SINGLE_BROKER_ROW"
+
+
 def test_strategy_plan_blocks_extra_same_code_far_quantity():
     from .run_instance import strategy_plan
     from research.live_hedge_v1.engine import Contract
