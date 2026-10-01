@@ -76,6 +76,17 @@ def main() -> int:
         )
 
     outcome_rows = [r for r in matching if r.get("event_type") == "OUTCOME_RESOLVED"]
+    current_outcomes = []
+    superseded_ids = {
+        str(r.get("payload", {}).get("corrects_evidence_id"))
+        for r in outcome_rows
+        if r.get("payload", {}).get("corrects_evidence_id")
+    }
+    current_outcomes = [r for r in outcome_rows if str(r.get("evidence_id")) not in superseded_ids]
+    if len(current_outcomes) > 1:
+        raise SystemExit(
+            f"INVALID_OUTCOME_CORRECTION_CHAIN:{args.campaign_id}; multiple active outcomes exist"
+        )
     if args.corrects_evidence_id:
         corrected = next(
             (r for r in outcome_rows if r.get("evidence_id") == args.corrects_evidence_id),
@@ -84,6 +95,10 @@ def main() -> int:
         if corrected is None:
             raise SystemExit(
                 f"INVALID_CORRECTION_TARGET:{args.corrects_evidence_id}; target must be an existing OUTCOME_RESOLVED for this campaign"
+            )
+        if not current_outcomes or corrected.get("evidence_id") != current_outcomes[0].get("evidence_id"):
+            raise SystemExit(
+                f"INVALID_CORRECTION_TARGET:{args.corrects_evidence_id}; corrections must target the current unsuperseded outcome"
             )
     elif outcome_rows:
         raise SystemExit(
