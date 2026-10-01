@@ -83,6 +83,18 @@ class LiveHedgeV2Test(unittest.TestCase):
         ratio=0.99; ext=0.20
         assert not (futu_reader._normalize_quote_timestamp(Q.timestamp) is not None and ratio>=futu_reader.SIGNAL_RATIO52_GTE and ext>=futu_reader.SIGNAL_EXT200_GTE)
 
+    def test_market_date_uses_exchange_local_date_not_utc_calendar_date(self):
+        from research.live_hedge_v1.futu_reader import LiveFutuReader
+        reader = LiveFutuReader.__new__(LiveFutuReader)
+        self.assertEqual(
+            reader._quote_date("2026-10-02T00:30:00+00:00").isoformat(),
+            "2026-10-01",
+        )
+        self.assertEqual(
+            reader._quote_date("2026-10-01 17:00:00").isoformat(),
+            "2026-10-01",
+        )
+
     def test_quote_timestamp_normalizes_naive_us_time_to_utc(self):
         from research.live_hedge_v1.futu_reader import _normalize_quote_timestamp
         self.assertEqual(
