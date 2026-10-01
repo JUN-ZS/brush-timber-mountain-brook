@@ -46,6 +46,42 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(parsed.hour, 21)
         self.assertTrue(_is_after("2026-10-01 17:00:00", "2026-10-01T18:00:00+00:00"))
 
+    def test_quote_timestamp_normalizes_naive_us_time_to_utc(self):
+        from research.live_hedge_v1.futu_reader import _normalize_quote_timestamp
+        self.assertEqual(
+            _normalize_quote_timestamp("2026-10-01 17:00:00"),
+            "2026-10-01T21:00:00+00:00",
+        )
+
+    def test_plan_blocks_stale_broker_quote_timestamp(self):
+        from research.live_hedge_v1.engine import plan
+        far = Contract(
+            code="US.QQQ261230C00600000",
+            right="CALL",
+            strike=600.0,
+            expiry="2026-12-30",
+            dte=90,
+            bid=1.0,
+            ask=1.1,
+            delta=0.08,
+            gamma=0.01,
+        )
+        out = plan(
+            market={
+                "source": "LIVE QUOTE",
+                "spot": 500.0,
+                "timestamp": "2026-10-01T20:00:00+00:00",
+            },
+            far=far,
+            near=None,
+            positions=[],
+            orders=[],
+            signal_active=False,
+            far_campaign_active=False,
+            now=datetime.fromisoformat("2026-10-01T21:00:00+00:00"),
+        )
+        self.assertEqual(out["status"], "BLOCKED_STALE_MARKET")
+
     def test_stale_order_age_uses_us_exchange_timezone(self):
         from research.live_hedge_v1.engine import quote_age_sec
         now = datetime.fromisoformat("2026-10-01T21:02:00+00:00")
@@ -56,6 +92,14 @@ class LiveHedgeV2Test(unittest.TestCase):
         )
         # 17:00 New York = 21:00 UTC on this date.
         self.assertAlmostEqual(age, 120.0, places=6)
+
+    def test_runtime_lock_checks_locked_signal_constants(self):
+        from research.evidence_v1.lock_guard import assert_runtime_lock
+        repo = Path(__file__).resolve().parents[2]
+        out = assert_runtime_lock(repo, far_dte=120, far_delta=0.08, near_dte=30)
+        self.assertEqual(out["status"], "PASS")
+        self.assertEqual(out["engine"]["checked"]["SIGNAL_RATIO52_GTE"], 0.98)
+        self.assertEqual(out["engine"]["checked"]["SIGNAL_EXT200_GTE"], 0.08)
 
     def test_trade_reader_does_not_fallback_deal_id_to_order_id(self):
         from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
