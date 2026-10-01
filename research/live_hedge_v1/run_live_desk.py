@@ -60,6 +60,7 @@ def C(x):
         iv=x.get("iv"),
         lot_size=int(x.get("lot_size") or 100),
         volume=x.get("volume"),
+        quote_timestamp=x.get("quote_timestamp"),
     )
 
 
@@ -75,6 +76,7 @@ def _enrich_contracts_from_quotes(contracts, quotes):
         gamma = q.get("gamma", c.gamma)
         iv = q.get("iv", c.iv)
         volume = q.get("volume", c.volume)
+        quote_timestamp = q.get("timestamp", c.quote_timestamp)
         if q.get("dte") is not None:
             dte = int(q.get("dte"))
         else:
@@ -93,6 +95,7 @@ def _enrich_contracts_from_quotes(contracts, quotes):
                 iv=iv,
                 lot_size=c.lot_size,
                 volume=volume,
+                quote_timestamp=quote_timestamp,
             )
         )
     return out
