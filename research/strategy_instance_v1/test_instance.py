@@ -12,7 +12,7 @@ from .run_instance import (
     save,
     init_lots,
 )
-from .run_instance import instance_mutation_lock, mhash, mpath, spath
+from .run_instance import instance_mutation_lock, mhash, mpath, spath, lpath
 from .performance_tape import build_performance_tape, classify_relationship
 
 def test_operator_mutation_endpoint_requires_header():
@@ -30,6 +30,8 @@ def test_runtime_lock_rejects_tampered_strategy_identity():
     lock_guard.load_lock=lambda _repo: {
         "strategy_id":"TAMPERED",
         "strategy_version":"V22-family-30D-1.5x",
+        "selection_cutoff":"2025-12-15",
+        "selection_status":"LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
         "research_engine_commit":"930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
         "candidate_family":{"near_dte":30,"coverage":1.5,"far_dte":[90,120,180],"far_abs_delta":[0.05,0.08,0.10],"long_delta":0.50,
                            "policies":sorted(lock_guard.LOCKED_POLICIES)},
@@ -75,7 +77,8 @@ def test_instance_init_rejects_lineage_override_against_locked_runtime():
 
 def test_pnl_observation_status_requires_position_reconciliation():
     from .run_instance import derive_pnl_observation_status
-    assert derive_pnl_observation_status([], "OK") == "OBSERVED_MATCHED_CLOSED"
+    assert derive_pnl_observation_status([], "OK") == "OBSERVED_MATCHED"
+    assert derive_pnl_observation_status([], "EMPTY") == "OBSERVED_MATCHED_CLOSED"
     assert derive_pnl_observation_status([{"code":"US.QQQ.TEST","side":"LONG","lot_qty":1,"broker_qty":0}], "OK") == "DATA_GAP"
     assert derive_pnl_observation_status([], "PARTIAL") == "DATA_GAP"
 
@@ -529,9 +532,11 @@ def test_load_recovers_broker_state_from_immutable_execution_ledger():
             source="BROKER_OBSERVED",
         )
         _, state, _ = load_instance(repo, instance_id)
-        assert state["realized_pnl"] == 200.0
+        assert state["realized_pnl"] == 0.0
         assert state["processed_deal_ids"] == ["D1"]
-        assert all(x["qty"] == 0 for x in state["lots"] if x["code"] == "US.QQQ261030C00500000")
+        assert state["strategy_deal_ids"] == []
+        assert state["unattributed_deal_ids"] == ["D1"]
+        assert all(x["qty"] == 1 for x in state["lots"] if x["code"] == "US.QQQ261030C00500000")
 
 def test_instance_ledger_concurrent_append_preserves_chain():
     with tempfile.TemporaryDirectory() as td:
