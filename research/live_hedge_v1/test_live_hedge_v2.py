@@ -38,6 +38,14 @@ def now_iso():
 
 
 class LiveHedgeV2Test(unittest.TestCase):
+    def test_futu_naive_us_timestamp_is_interpreted_as_exchange_local(self):
+        from research.live_hedge_v1.campaign import _is_after, _parse_time
+        # 17:00 New York on 2026-10-01 is 21:00 UTC (EDT).
+        parsed = _parse_time("2026-10-01 17:00:00")
+        self.assertEqual(parsed.utcoffset().total_seconds(), 0)
+        self.assertEqual(parsed.hour, 21)
+        self.assertTrue(_is_after("2026-10-01 17:00:00", "2026-10-01T18:00:00+00:00"))
+
     def test_position_side_does_not_infer_from_trade_words(self):
         from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
         self.assertEqual(FutuTradeReader._position_side("BUY"), "UNKNOWN")
