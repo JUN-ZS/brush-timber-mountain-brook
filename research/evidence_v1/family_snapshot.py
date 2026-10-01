@@ -31,7 +31,7 @@ def build_family_snapshot(
     contracts: Iterable[Contract],
     *,
     spot: float,
-    signal_active: bool,
+    signal_active: bool | None,
     campaign_active: bool,
     active_far_code: str | None = None,
 ) -> dict[str, Any]:
