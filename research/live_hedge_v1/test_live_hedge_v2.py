@@ -350,6 +350,22 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(checked["integrity"],"HASHED")
             self.assertEqual(checked["records"],20)
 
+    def test_corrupt_live_state_cache_recovers_from_event_ledger(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+        with tempfile.TemporaryDirectory() as td:
+            base=Path(td)
+            store=StateStore(base/"state.json",base/"events.jsonl")
+            state={}
+            store.emit(state,"TICKET_ISSUED",now="2026-10-01T21:00:00+00:00",
+                       payload={"ticket":{"ticket_id":"T-RECOVER"}})
+            store.save({"schema_version":2,"campaign":{"state":"OPEN"}})
+            (base/"state.json").write_text("{broken",encoding="utf-8")
+            recovered=store.load()
+            self.assertEqual(recovered["events_integrity"],"HASHED")
+            self.assertEqual(recovered["state_cache_integrity"],"CORRUPT_RECOVERED_FROM_EVENTS")
+            self.assertEqual(recovered["active_ticket"]["ticket_id"],"T-RECOVER")
+
     def test_corrupt_live_event_tail_blocks_mutation(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
