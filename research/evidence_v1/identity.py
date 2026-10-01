@@ -97,11 +97,11 @@ def runtime_identity(repo_root: Path) -> dict:
     return {
         "strategy_id": lock["strategy_id"],
         "strategy_version": lock["strategy_version"],
-        "selection_cutoff": lock["selection_cutoff"],
-        "research_engine_commit": lock["research_engine_commit"],
+        "selection_cutoff": lock.get("selection_cutoff"),
+        "research_engine_commit": lock.get("research_engine_commit"),
         "strategy_lock_hash": lock_hash,
         "git_head": git_head(repo_root),
         "git_worktree": git_worktree_identity(repo_root),
         "code_hashes": code_hashes,
-        "evidence_policy": lock["evidence_policy"],
+        "evidence_policy": lock.get("evidence_policy", {}),
     }
