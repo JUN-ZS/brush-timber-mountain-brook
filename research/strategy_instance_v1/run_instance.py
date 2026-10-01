@@ -697,18 +697,28 @@ def _cycle_unlocked(args):
     realized_delta=0.0
     prior_rows=l._rows()
     plan_usage={}
-    for d in sorted(new,key=lambda x:(dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),str(x.get("deal_id")))):
+    for d in sorted(
+        new,
+        key=lambda x: (
+            dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),
+            str(x.get("deal_id")),
+        ),
+    ):
         did=str(d["deal_id"])
         original_qty=si(d.get("qty"))
         attribution=attribute_broker_deal(prior_rows,d,plan_usage)
+
         if attribution.get("status")=="MATCHED_PREDECISION_PLAN":
             match=attribution.get("match") or {}
-            attr_qty=si(attribution.get("qty"))
+            requested_qty=si(attribution.get("qty"))
             attr_deal=dict(d)
-            attr_deal["qty"]=attr_qty
+            attr_deal["qty"]=requested_qty
             attr_deal["attribution_status"]="MATCHED_PREDECISION_PLAN"
             attr_deal["attribution"]=match
-            consumed,delta,application=apply_strategy_attributed_deal(s["lots"],attr_deal,match)
+
+            consumed,delta,application=apply_strategy_attributed_deal(
+                s["lots"],attr_deal,match
+            )
             if consumed>0:
                 key=attribution.get("plan_key")
                 plan_usage[key]=si(plan_usage.get(key))+consumed
@@ -721,10 +731,15 @@ def _cycle_unlocked(args):
                     instance_id=m["instance_id"],
                     cycle_id=cid,
                     timestamp_utc=t,
-                    payload={"deal":attr_deal,"original_deal_qty":original_qty,"attribution":attribution,
-                             "realized_pnl_delta":delta},
+                    payload={
+                        "deal":attr_deal,
+                        "original_deal_qty":original_qty,
+                        "attribution":attribution,
+                        "realized_pnl_delta":delta,
+                    },
                     source="BROKER_OBSERVED",
                 )
+
             extra=original_qty-consumed
             if extra>0:
                 s["unattributed_deal_ids"].append(did)
@@ -734,22 +749,13 @@ def _cycle_unlocked(args):
                     instance_id=m["instance_id"],
                     cycle_id=cid,
                     timestamp_utc=t,
-                    payload={"deal":d,"attributed_qty":consumed,"unattributed_qty":extra,
-                             "reason":"quantity_exceeded_plan_or_managed_position",
-                             "attribution":attribution},
-                    source="BROKER_OBSERVED",
-                )
-        else:
-                s["unattributed_deal_ids"].append(did)
-                s["data_gaps"]=si(s.get("data_gaps"))+1
-                l.append(
-                    "BROKER_EXECUTION_UNATTRIBUTED",
-                    instance_id=m["instance_id"],
-                    cycle_id=cid,
-                    timestamp_utc=t,
-                    payload={"deal":d,"attributed_qty":attr_qty,"unattributed_qty":extra,
-                             "reason":"broker deal quantity exceeded recent strategy plan quantity",
-                             "attribution":attribution},
+                    payload={
+                        "deal":d,
+                        "attributed_qty":consumed,
+                        "unattributed_qty":extra,
+                        "reason":"quantity_exceeded_plan_or_managed_position",
+                        "attribution":attribution,
+                    },
                     source="BROKER_OBSERVED",
                 )
         else:
@@ -760,8 +766,11 @@ def _cycle_unlocked(args):
                 instance_id=m["instance_id"],
                 cycle_id=cid,
                 timestamp_utc=t,
-                payload={"deal":d,"attribution":attribution,
-                         "reason":attribution.get("reason","no_strategy_attribution") if attribution else "no_strategy_attribution"},
+                payload={
+                    "deal":d,
+                    "attribution":attribution,
+                    "reason":attribution.get("reason","no_strategy_attribution"),
+                },
                 source="BROKER_OBSERVED",
             )
         s["processed_deal_ids"].append(did)
