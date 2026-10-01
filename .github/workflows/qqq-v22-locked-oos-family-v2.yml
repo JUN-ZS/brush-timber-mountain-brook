@@ -23,7 +23,7 @@ permissions:
   contents: read
 jobs:
   replay:
-    runs-on: [self-hosted, windows, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
@@ -35,20 +35,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install duckdb pandas pyarrow numpy
       - name: Download canonical QQQ data-v1
+        shell: bash
         run: |
-          New-Item -ItemType Directory -Force -Path data | Out-Null
-          curl.exe -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
-          curl.exe -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
-          python -c "import hashlib; print('options',hashlib.sha256(open('data/QQQ_options.parquet','rb').read()).hexdigest()); print('underlying',hashlib.sha256(open('data/QQQ_underlying.parquet','rb').read()).hexdigest())"
+          mkdir -p data
+          curl -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          sha256sum data/QQQ_options.parquet
+          sha256sum data/QQQ_underlying.parquet
       - name: Verify frozen V22 engine source
+        shell: bash
         run: |
           python -c "import hashlib; p='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; print('engine_copy',hashlib.sha256(open(p,'rb').read()).hexdigest())"
           python -c "import pathlib; p=pathlib.Path('research/qqq_dynamic_near_long_state_engine_v22_930c949.py'); assert p.exists(); print('frozen_engine_present', p.stat().st_size)"
       - name: Verify and run locked 72-config family
+        shell: bash
         run: |
           python -m py_compile research/qqq_v22_locked_oos_family_v2.py research/qqq_dynamic_near_long_state_engine_v22_930c949.py
           python research/qqq_v22_locked_oos_family_v2.py --data-dir data --out artifacts/oos_family
-          Get-Content artifacts/oos_family/manifest.json
+          cat artifacts/oos_family/manifest.json
       - name: Upload OOS artifacts
         if: always()
         uses: actions/upload-artifact@v4
