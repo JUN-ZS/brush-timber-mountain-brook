@@ -86,11 +86,17 @@ class StateStore:
 
     def load(self) -> Dict[str, Any]:
         raw = {}
-        if self.path.exists():
+        has_disk_state = self.path.exists()
+        if has_disk_state:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
         state = json.loads(json.dumps(DEFAULT_STATE))
         if isinstance(raw, dict):
             state.update(raw)
+            # Explicit provenance markers are mandatory. Do not let DEFAULT_STATE
+            # turn an old unmarked gamma_history into falsely trusted gamma_spot.
+            if "gamma_history_schema" not in raw or "gamma_history_unit" not in raw:
+                state["gamma_history_schema"] = None
+                state["gamma_history_unit"] = None
         if state.get("schema_version", 1) < SCHEMA_VERSION:
             state["schema_version"] = SCHEMA_VERSION
         state.setdefault("campaign", json.loads(json.dumps(DEFAULT_STATE["campaign"])))
