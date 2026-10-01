@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, Iterable, Optional
 
 STATE_IDLE = "IDLE"
@@ -55,16 +56,22 @@ def qty_for(snapshot: Dict[str, Dict[str, Any]], side: str, code: str) -> int:
     return int(snapshot.get(f"{side.upper()}:{code.upper()}", {}).get("qty", 0) or 0)
 
 
+_US_EXCHANGE_TZ = ZoneInfo("America/New_York")
+
+
 def _parse_time(s: Any) -> Optional[datetime]:
     if not s:
         return None
     raw = str(s).strip()
     for candidate in (raw, raw.replace("Z", "+00:00")):
         try:
-            dt = datetime.fromisoformat(candidate)
-            if dt.tzinfo is None:
-                return dt.replace(tzinfo=timezone.utc)
-            return dt.astimezone(timezone.utc)
+            parsed = datetime.fromisoformat(candidate)
+            if parsed.tzinfo is None:
+                # Futu US-trading timestamps are exchange-local wall-clock
+                # values. Treat them as America/New_York; explicit offsets
+                # remain authoritative when present.
+                parsed = parsed.replace(tzinfo=_US_EXCHANGE_TZ)
+            return parsed.astimezone(timezone.utc)
         except Exception:
             continue
     return None
