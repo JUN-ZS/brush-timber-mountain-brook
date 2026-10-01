@@ -409,7 +409,12 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
     near=select_near(list(cmap.values()),spot,si(m.get("near_dte")) or 30)
     if near:
         q=quotes.get(near.code,{})
-        near=Contract(near.code,near.right,near.strike,near.expiry,near.dte,q.get("bid",near.bid),q.get("ask",near.ask),q.get("delta",near.delta),q.get("gamma",near.gamma),q.get("iv",near.iv),near.lot_size)
+        near=Contract(
+            near.code,near.right,near.strike,near.expiry,near.dte,
+            q.get("bid",near.bid),q.get("ask",near.ask),
+            q.get("delta",near.delta),q.get("gamma",near.gamma),
+            q.get("iv",near.iv),near.lot_size,near.volume,
+        )
     if active and far is None: return {"status":"DATA_GAP","reason":"active short far quote unavailable"}
     return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=bool(market.get("signal_active")),
                 far_campaign_active=active,quotes_by_code=quotes,near_lots=near_lots or [],
