@@ -8,6 +8,13 @@ from typing import Any
 ALLOWED_FAR_DTE = {90, 120, 180}
 ALLOWED_FAR_DELTA = {0.05, 0.08, 0.10}
 LOCKED_NEAR_DTE = 30
+LOCKED_STRATEGY_ID = "QQQ_DYNAMIC_NEAR_LONG_V22_CANDIDATE_FAMILY"
+LOCKED_STRATEGY_VERSION = "V22-family-30D-1.5x"
+LOCKED_RESEARCH_ENGINE_COMMIT = "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4"
+LOCKED_POLICIES = {
+    "TP50_IMMEDIATE","TP75_IMMEDIATE","TP100_IMMEDIATE","TRAIL20_IMMEDIATE",
+    "TP50_ON_RISK","TP75_ON_RISK","TRAIL20_ON_RISK","TP75_COOLDOWN3",
+}
 
 
 class StrategyLockViolation(RuntimeError):
@@ -70,6 +77,13 @@ def assert_engine_constants(repo_root: Path) -> dict[str, Any]:
             "LOCK_VIOLATION:ENGINE_CONSTANTS:" + json.dumps(mismatches, sort_keys=True)
         )
 
+    if lock.get("strategy_id") != LOCKED_STRATEGY_ID:
+        raise StrategyLockViolation("LOCK_VIOLATION:STRATEGY_ID")
+    if lock.get("strategy_version") != LOCKED_STRATEGY_VERSION:
+        raise StrategyLockViolation("LOCK_VIOLATION:STRATEGY_VERSION")
+    if lock.get("research_engine_commit") != LOCKED_RESEARCH_ENGINE_COMMIT:
+        raise StrategyLockViolation("LOCK_VIOLATION:RESEARCH_ENGINE_COMMIT")
+
     fam = lock["candidate_family"]
     if fam["near_dte"] != LOCKED_NEAR_DTE or float(fam["coverage"]) != 1.50:
         raise StrategyLockViolation("LOCK_VIOLATION:LOCK_MANIFEST_FAMILY")
@@ -77,6 +91,10 @@ def assert_engine_constants(repo_root: Path) -> dict[str, Any]:
         raise StrategyLockViolation("LOCK_VIOLATION:FAR_DTE_FAMILY")
     if set(float(x) for x in fam["far_abs_delta"]) != set(ALLOWED_FAR_DELTA):
         raise StrategyLockViolation("LOCK_VIOLATION:FAR_DELTA_FAMILY")
+    if float(fam.get("long_delta")) != 0.50:
+        raise StrategyLockViolation("LOCK_VIOLATION:LONG_DELTA_FAMILY")
+    if set(fam.get("policies") or []) != LOCKED_POLICIES:
+        raise StrategyLockViolation("LOCK_VIOLATION:POLICY_FAMILY")
     if float(fam["long_delta"]) != 0.50:
         raise StrategyLockViolation("LOCK_VIOLATION:LONG_DELTA_FAMILY")
     if int(fam["config_count"]) != 72:
