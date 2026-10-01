@@ -103,7 +103,7 @@ For broker deals that were observed but intentionally left unattributed, strateg
 python -m research.strategy_instance_v1.run_instance confirm --instance-id MY_001 --deal-id DEAL_ID --expected-strategy-side LONG --qty 1 --note "verified as strategy execution"
 ```
 
-The confirmation command is a post-observation human attribution step. A timing match to a strategy candidate remains `POTENTIAL_ONLY_NO_INTENT_PROOF` until explicitly confirmed.
+The confirmation command is a post-observation human attribution step. A timing match to a strategy candidate remains `POTENTIAL_ONLY_NO_INTENT_PROOF` until explicitly confirmed. A partial confirmation is allowed for a deal that combined strategy and non-strategy quantity; the unconfirmed remainder stays quarantined as `BROKER_EXECUTION_UNATTRIBUTED`.
 
 ### Recommended operating flow
 
