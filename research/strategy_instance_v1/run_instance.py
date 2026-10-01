@@ -814,6 +814,8 @@ def _cycle_unlocked(args):
             attr_deal=dict(d)
             attr_deal["qty"]=requested_qty
             attr_deal["attribution_status"]="MATCHED_PREDECISION_PLAN"
+            attr_deal["attribution_grade"]="DERIVED_NO_INTENT_PROOF"
+            attr_deal["attribution_basis"]="RECENT_PRIMARY_DECISION_TIMING_MATCH"
             attr_deal["attribution"]=match
 
             consumed,delta,application=apply_strategy_attributed_deal(
@@ -859,20 +861,67 @@ def _cycle_unlocked(args):
                     source="BROKER_OBSERVED",
                 )
         else:
-            s["unattributed_deal_ids"].append(did)
-            s["data_gaps"]=si(s.get("data_gaps"))+1
-            l.append(
-                "BROKER_EXECUTION_UNATTRIBUTED",
-                instance_id=m["instance_id"],
-                cycle_id=cid,
-                timestamp_utc=t,
-                payload={
-                    "deal":d,
-                    "attribution":attribution,
-                    "reason":attribution.get("reason","no_strategy_attribution"),
-                },
-                source="BROKER_OBSERVED",
-            )
+            # A close against an already-owned strategy lot remains part of the
+            # actual campaign economics even when no recent strategy decision
+            # proves intent. Mark it as ownership-derived, never FOLLOW_STRATEGY.
+            close_qty,close_pnl,close_application=apply_strategy_ownership_close(s["lots"],d)
+            if close_qty>0:
+                attr_deal=dict(d)
+                attr_deal["qty"]=close_qty
+                attr_deal["attribution_status"]="MATCHED_STRATEGY_OWNERSHIP_DERIVED"
+                attr_deal["attribution_grade"]="DERIVED_NO_INTENT_PROOF"
+                attr_deal["attribution_basis"]="STRATEGY_OWNED_LOT_CLOSE_SCOPE"
+                attr_deal["strategy_application"]=close_application
+                realized_delta += close_pnl
+                s["strategy_deal_ids"].append(did)
+                l.append(
+                    "EXECUTION_DETECTED",
+                    instance_id=m["instance_id"],
+                    cycle_id=cid,
+                    timestamp_utc=t,
+                    payload={
+                        "deal":attr_deal,
+                        "original_deal_qty":si(d.get("qty")),
+                        "attribution":{
+                            "status":"MATCHED_STRATEGY_OWNERSHIP_DERIVED",
+                            "qty":close_qty,
+                            "attribution_grade":"DERIVED_NO_INTENT_PROOF",
+                            "attribution_basis":"STRATEGY_OWNED_LOT_CLOSE_SCOPE",
+                        },
+                        "realized_pnl_delta":close_pnl,
+                    },
+                    source="BROKER_OBSERVED",
+                )
+                extra=si(d.get("qty"))-close_qty
+                if extra>0:
+                    s["unattributed_deal_ids"].append(did)
+                    s["data_gaps"]=si(s.get("data_gaps"))+1
+                    l.append(
+                        "BROKER_EXECUTION_UNATTRIBUTED",
+                        instance_id=m["instance_id"],
+                        cycle_id=cid,
+                        timestamp_utc=t,
+                        payload={"deal":d,"attributed_qty":close_qty,"unattributed_qty":extra,
+                                 "reason":"close_exceeded_managed_strategy_ownership",
+                                 "attribution_grade":"DERIVED_NO_INTENT_PROOF"},
+                        source="BROKER_OBSERVED",
+                    )
+            else:
+                s["unattributed_deal_ids"].append(did)
+                s["data_gaps"]=si(s.get("data_gaps"))+1
+                l.append(
+                    "BROKER_EXECUTION_UNATTRIBUTED",
+                    instance_id=m["instance_id"],
+                    cycle_id=cid,
+                    timestamp_utc=t,
+                    payload={
+                        "deal":d,
+                        "attribution":attribution,
+                        "reason":attribution.get("reason","no_strategy_attribution"),
+                        "attribution_grade":"NO_ATTRIBUTION",
+                    },
+                    source="BROKER_OBSERVED",
+                )
         s["processed_deal_ids"].append(did)
     s["realized_pnl"]=sf(s.get("realized_pnl"))+realized_delta
     mism=reconcile(s["lots"],ps); s["last_reconcile"]={"status":"MATCH" if not mism else "DATA_GAP","mismatches":mism,"checked_at_utc":t}
