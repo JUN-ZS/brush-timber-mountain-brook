@@ -262,6 +262,20 @@ class LiveHedgeV2Test(unittest.TestCase):
             with self.assertRaises(ValueError):
                 store.load()
 
+    def test_state_event_integrity_marks_legacy_then_hashed_as_mixed():
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            store = StateStore(base / "state.json", base / "events.jsonl")
+            legacy = {"event_id":"LEGACY-1","timestamp":"2026-10-01T00:00:00+00:00","type":"TICKET_ISSUED","payload":{}}
+            store.events_path.write_text(json.dumps(legacy,separators=(",",":"))+"\n",encoding="utf-8")
+            state = store.load()
+            store.emit(state, "TICKET_FILLED", now="2026-10-01T00:00:01+00:00", payload={})
+            self.assertEqual(store.validate_events()["integrity"], "MIXED_LEGACY_HASHED")
+
+
     def test_state_events_are_hash_chained_and_tamper_detectable(self):
         import json
         import tempfile
