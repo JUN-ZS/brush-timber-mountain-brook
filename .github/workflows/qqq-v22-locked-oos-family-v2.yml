@@ -40,16 +40,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install duckdb pandas pyarrow numpy
       - name: Download canonical QQQ data-v1
-        shell: pwsh
+        shell: cmd
         run: |
-          New-Item -ItemType Directory -Force -Path data | Out-Null
+          if not exist data mkdir data
           curl.exe -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
           curl.exe -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
-          python -c "import hashlib; print('options',hashlib.sha256(open('data/QQQ_options.parquet','rb').read()).hexdigest()); print('underlying',hashlib.sha256(open('data/QQQ_underlying.parquet','rb').read()).hexdigest())"
-          $opt = (Get-FileHash data/QQQ_options.parquet -Algorithm SHA256).Hash.ToLower()
-          $und = (Get-FileHash data/QQQ_underlying.parquet -Algorithm SHA256).Hash.ToLower()
-          if ($opt -ne '1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734') { throw "options hash mismatch: $opt" }
-          if ($und -ne '78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351') { throw "underlying hash mismatch: $und" }
+          python -c "import hashlib,sys; opt=hashlib.sha256(open('data/QQQ_options.parquet','rb').read()).hexdigest(); und=hashlib.sha256(open('data/QQQ_underlying.parquet','rb').read()).hexdigest(); print('options',opt); print('underlying',und); sys.exit(0 if opt=='1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734' and und=='78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351' else 1)"
       - name: Verify locked strategy manifest
         shell: cmd
         run: |
