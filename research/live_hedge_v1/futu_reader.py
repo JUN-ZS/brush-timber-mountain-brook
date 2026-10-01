@@ -4,6 +4,42 @@ from typing import Any
 from backtest.futu_adapter import FutuOpenDAdapter
 from backtest.types import OptionContract, QQQ_CODE
 
+def _enrich_contracts_with_quotes(contracts, quote_objects):
+    """Attach LIVE option quote/greek fields to chain metadata before selection."""
+    by_code = {str(q.code): q for q in quote_objects}
+    out = []
+    for c in contracts:
+        q = by_code.get(str(c.code))
+        if q is None:
+            out.append(c)
+            continue
+        out.append(
+            OptionContract(
+                code=c.code,
+                underlying=c.underlying,
+                right=c.right,
+                strike=c.strike,
+                expiry=c.expiry,
+                dte=c.dte,
+                lot_size=c.lot_size,
+                bid=q.bid,
+                ask=q.ask,
+                last=q.last,
+                iv=q.iv,
+                delta=q.delta,
+                gamma=q.gamma,
+                theta=q.theta,
+                vega=q.vega,
+                oi=q.oi,
+                volume=q.volume,
+                source=q.source,
+                field_sources=q.field_sources,
+                reason=q.reason,
+            )
+        )
+    return out
+
+
 class LiveFutuReader:
     """Live QQQ quote/chain reader. Never places or modifies orders."""
     def __init__(self,host="127.0.0.1",port=11111):
@@ -68,9 +104,11 @@ class LiveFutuReader:
             spot=q.last or 0.0
             tradable={c.code for c in cs if spot<=0 or (0.85*spot <= c.strike <= 1.60*spot)}
             codes=tradable|set(extra_codes or [])
-            quotes={x.code:x.to_dict() for x in self.a.get_option_quotes(list(codes))}
+            quote_objects = self.a.get_option_quotes(list(codes))
+            quotes={x.code:x.to_dict() for x in quote_objects}
+            live_contracts = _enrich_contracts_with_quotes(cs, quote_objects)
             return {"status":"OK","connection":conn,
                 "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":collected_at,"source_timestamp":q.timestamp,"source":q.source,
                           "signal_active":sig,"ratio52":ratio,"ext200":ext,"history_source":hist.get("source")},
-                "contracts":[x.__dict__ for x in cs],"quotes":quotes,"source":"FUTU_OPEND_READ_ONLY"}
+                "contracts":[x.__dict__ for x in live_contracts],"quotes":quotes,"source":"FUTU_OPEND_READ_ONLY"}
         finally:self.close()
