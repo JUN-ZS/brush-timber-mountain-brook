@@ -14,7 +14,7 @@ This is a separate personal campaign ledger.
 
 Initial positions/cost basis are immutable USER_INITIAL input. Broker transactions are observed account-wide, but a post-T0 execution enters the strategy book only when it matches a recent pre-decision strategy-plan observation. Same-code coincidence is not enough; unmatched or over-quantity executions remain `BROKER_EXECUTION_UNATTRIBUTED` and create a DATA_GAP rather than being folded into strategy P&L.
 
-Legacy `EXECUTION_DETECTED` rows without explicit attribution are quarantined on recovery and are never silently promoted into the new strategy lineage.
+Legacy `EXECUTION_DETECTED` rows without explicit attribution are quarantined on recovery and are never silently promoted into the new strategy lineage. On the first cycle, the recorder also asks for history back to economic T0; transactions after T0 but before the instance was created are preserved as `BROKER_EXECUTION_PRE_INSTANCE` DATA_GAP events rather than silently disappearing.
 
 Changing initial state materially means creating a new instance, not rewriting the old one.
 
