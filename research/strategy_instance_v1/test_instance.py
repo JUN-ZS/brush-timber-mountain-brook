@@ -134,3 +134,34 @@ def test_performance_tape_fifo_attributes_close_to_opening_decisions():
     rows = {x["trade_id"]: x for x in tape["rows"]}
     assert rows["M1"]["attributed_close_pnl"] == 600.0
     assert rows["M2"]["attributed_close_pnl"] == 400.0
+
+
+def test_performance_tape_t0_close_is_baseline_not_mismatch():
+    trades = [{
+        "timestamp_utc":"2026-10-01T00:01:00+00:00","event_seq":2,"trade_id":"M1",
+        "action":"REDUCE","code":"US.QQQ.TEST","qty":1,"price":8.0,"lot_size":100,
+        "strategy_reference":{},
+        "realized_pnl_delta":300.0,
+    }]
+    baseline = [{
+        "lot_id":"T0-0001","code":"US.QQQ.TEST","side":"LONG",
+        "qty":1,"avg_price":5.0,"lot_size":100
+    }]
+    tape = build_performance_tape(trades, baseline_lots=baseline)
+    assert tape["baseline_t0_realized"] == 300.0
+    assert tape["baseline_t0_close_qty"] == 1
+    assert tape["observed_realized"] == 300.0
+    assert tape["attribution_delta"] == 0.0
+    assert tape["unmatched_close_qty"] == 0
+    assert tape["attribution_status"] == "CONSISTENT"
+
+
+def test_repair_far_direction_maps_to_correct_manual_action():
+    assert classify_relationship(
+        "SELL_FAR","US.QQQ.TEST",10,
+        {"ticket_id":"T3","code":"US.QQQ.TEST","action":"REPAIR_FAR","direction":"ADD","qty":10}
+    ) == "FOLLOW_STRATEGY"
+    assert classify_relationship(
+        "BUY_BACK_FAR","US.QQQ.TEST",2,
+        {"ticket_id":"T4","code":"US.QQQ.TEST","action":"REPAIR_FAR","direction":"REDUCE","qty":2}
+    ) == "FOLLOW_STRATEGY"
