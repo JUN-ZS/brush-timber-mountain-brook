@@ -536,6 +536,7 @@ def reconcile_ticket(
                 "ticket_id": ticket["ticket_id"],
                 "reason": "position target reached but broker execution evidence is incomplete",
                 "evidence_by_leg": evidence_by_leg,
+                "fill": deepcopy(ticket.get("fill", [])),
             })
         events.append({
             "type": "TICKET_PARTIAL_PROGRESS",
