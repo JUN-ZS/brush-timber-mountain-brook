@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from math import ceil, isfinite
+from zoneinfo import ZoneInfo
 from statistics import median
 from typing import Any, Optional, Sequence
 
@@ -67,6 +68,9 @@ class Order:
     dealt_avg_price: Optional[float] = None
 
 
+_US_EXCHANGE_TZ = ZoneInfo("America/New_York")
+
+
 def _dt(s):
     try:
         return datetime.fromisoformat(str(s).replace("Z", "+00:00"))
@@ -81,8 +85,9 @@ def quote_age_sec(s, now=None, naive_is_local=False):
     now = now or datetime.now(timezone.utc)
     if t.tzinfo is None:
         if naive_is_local:
-            local_tz = datetime.now().astimezone().tzinfo or timezone.utc
-            t = t.replace(tzinfo=local_tz)
+            # Futu US-trading order timestamps are exchange-local wall-clock
+            # values, not the machine's timezone.
+            t = t.replace(tzinfo=_US_EXCHANGE_TZ)
         else:
             t = t.replace(tzinfo=timezone.utc)
     return max(0, (now - t).total_seconds())
