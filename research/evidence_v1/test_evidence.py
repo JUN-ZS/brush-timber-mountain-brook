@@ -495,6 +495,43 @@ def test_hash_chain_and_tamper_detection():
             raise AssertionError("tampering must be detected")
 
 
+def test_evidence_rejects_invalid_grade_and_timestamp_regression():
+    with tempfile.TemporaryDirectory() as td:
+        path=Path(td)/"evidence.jsonl"
+        ledger=EvidenceLedger(path)
+        ledger.append(
+            "CYCLE_STARTED",cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:00+00:00",payload={},
+        )
+        ledger.append(
+            "PRE_DECISION_OBSERVATION",cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:01+00:00",payload={},
+        )
+        rows=ledger.rows()
+        rows[1]["evidence_grade"]="NOT_A_GRADE"
+        bad=Path(td)/"bad-grade.jsonl"
+        bad.write_text("\n".join(json.dumps(x,separators=(",",":")) for x in rows)+"\n",encoding="utf-8")
+        try:
+            EvidenceLedger(bad).validate()
+        except LedgerError as exc:
+            assert "BAD_EVIDENCE_GRADE" in str(exc)
+        else:
+            raise AssertionError("invalid evidence grade must be rejected")
+
+        reg=EvidenceLedger(Path(td)/"regression.jsonl")
+        reg.append("CYCLE_STARTED",cycle_id="R",timestamp_utc="2026-10-01T00:00:02+00:00",payload={})
+        reg.append("DATA_GAP",cycle_id="R",timestamp_utc="2026-10-01T00:00:03+00:00",payload={})
+        rows=reg.rows()
+        rows[1]["timestamp_utc"]="2026-09-30T23:59:59+00:00"
+        bad_reg=Path(td)/"bad-time.jsonl"
+        bad_reg.write_text("\n".join(json.dumps(x,separators=(",",":")) for x in rows)+"\n",encoding="utf-8")
+        try:
+            EvidenceLedger(bad_reg).validate()
+        except LedgerError as exc:
+            assert "TIMESTAMP_REGRESSION" in str(exc)
+        else:
+            raise AssertionError("timestamp regression must be rejected")
+
 def test_cycle_finalize_requires_cycle_start():
     with tempfile.TemporaryDirectory() as td:
         path=Path(td)/"bad.jsonl"
