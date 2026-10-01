@@ -134,6 +134,11 @@ class EvidenceLedger:
                     raise LedgerError(f"LEDGER_DUPLICATE_DECISION:cycle={cycle_id}")
                 if "pre_decision" not in state:
                     raise LedgerError(f"LEDGER_DECISION_BEFORE_PRE_DECISION:cycle={cycle_id}")
+                payload = row.get("payload") or {}
+                if not isinstance(payload.get("candidate_actions"), list):
+                    raise LedgerError(f"LEDGER_DECISION_MISSING_CANDIDATE_ACTIONS:cycle={cycle_id}")
+                if "primary" not in payload:
+                    raise LedgerError(f"LEDGER_DECISION_MISSING_PRIMARY:cycle={cycle_id}")
                 state["decision"] = idx
             elif et == "CYCLE_FINALIZED":
                 if "finalized" in state:
