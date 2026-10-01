@@ -89,6 +89,39 @@ class LiveHedgeV2Test(unittest.TestCase):
             "2026-10-01T21:00:00+00:00",
         )
 
+    def test_plan_blocks_stale_tracked_near_lot_quote(self):
+        far = Contract(
+            "US.QQQ261230C00600000", "CALL", 600.0, "2026-12-30", 90,
+            2.0, 2.5, 0.08, 0.01,
+            quote_timestamp="2026-10-01T21:00:00+00:00",
+        )
+        near = Contract(
+            "US.QQQ261030C00500000", "CALL", 500.0, "2026-10-30", 28,
+            10.0, 10.5, 0.50, 0.02,
+            quote_timestamp="2026-10-01T21:00:00+00:00",
+        )
+        out = plan(
+            market={"source":"LIVE QUOTE","spot":500.0,
+                    "timestamp":"2026-10-01T21:00:00+00:00"},
+            far=far, near=near, positions=[], orders=[],
+            signal_active=False, far_campaign_active=True,
+            quotes_by_code={
+                far.code: {"source":"LIVE QUOTE","timestamp":"2026-10-01T21:00:00+00:00"},
+                near.code: {"source":"LIVE QUOTE","timestamp":"2026-10-01T21:00:00+00:00"},
+                "US.QQQ260930C00500000": {
+                    "source":"LIVE QUOTE","timestamp":"2026-10-01T20:00:00+00:00"
+                },
+            },
+            near_lots=[{
+                "lot_id":"LOT-1","code":"US.QQQ260930C00500000",
+                "side":"LONG","qty":1,"avg_cost":5.0,"status":"OPEN"
+            }],
+            far_ownership_enforced=False,
+            now=datetime.fromisoformat("2026-10-01T21:00:00+00:00"),
+        )
+        self.assertEqual(out["status"], "BLOCKED_STALE_OPTION_QUOTE")
+
+
     def test_plan_blocks_missing_live_option_quote_timestamp(self):
         far = Contract(
             "US.QQQ261230C00600000", "CALL", 600.0, "2026-12-30", 90,
