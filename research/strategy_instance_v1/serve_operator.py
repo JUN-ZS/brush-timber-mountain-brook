@@ -20,6 +20,11 @@ from .run_instance import (
 )
 
 
+MUTATION_HEADER = "X-QQQ-Operator"
+MUTATION_HEADER_VALUE = "1"
+MUTATING_PATHS = {"/api/manual", "/api/refresh"}
+
+
 class OperatorHandler(SimpleHTTPRequestHandler):
     server_version = "QQQOperator/1.0"
 
@@ -74,6 +79,10 @@ class OperatorHandler(SimpleHTTPRequestHandler):
             self._json(400, {"status": "ERROR", "error": str(exc)})
 
     def do_POST(self):
+        if urlparse(self.path).path in MUTATING_PATHS:
+            if self.headers.get(MUTATION_HEADER) != MUTATION_HEADER_VALUE:
+                self._json(403, {"status": "FORBIDDEN", "error": "OPERATOR_HEADER_REQUIRED"})
+                return
         try:
             body = self._body()
 
