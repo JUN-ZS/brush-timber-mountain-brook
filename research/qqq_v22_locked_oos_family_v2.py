@@ -249,6 +249,13 @@ def main():
     ud = Path(args.data_dir) / "QQQ_underlying.parquet"
 
     u_full = load_underlying(ud)
+    from research.evidence_v1.lock_guard import assert_runtime_lock
+    assert_runtime_lock(
+        Path("."),
+        far_dte=120,
+        far_delta=0.08,
+        near_dte=CANDIDATE_NEAR_DTE,
+    )
     con = duckdb.connect()
 
     def sha256_file(path: Path):
