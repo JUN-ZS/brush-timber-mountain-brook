@@ -223,7 +223,7 @@ class LiveHedgeV2Test(unittest.TestCase):
            "risk_state":{"desired_stack":5,"risk_score":5.0}}
         out=_persist_dynamic_state_observation(state,p,far,{"spot":500.0})
         self.assertFalse(out["accepted"])
-        self.assertEqual(out["reason"],"PLAN_BLOCKED")
+        self.assertEqual(out["reason"],"PLAN_STATUS_NOT_ACCEPTED:BLOCKED_NEAR_OWNERSHIP_MISMATCH")
         self.assertEqual(state["far_code"],"OLD")
         self.assertEqual(state["far_delta"],0.08)
         self.assertEqual(state["gamma_history"],[4.0])
