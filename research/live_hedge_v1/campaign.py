@@ -441,20 +441,21 @@ def reconcile_ticket(
                 if previous and _safe_same_qty(previous.get("qty"), fill_qty):
                     price = previous.get("avg_price")
                     source = previous.get("price_source", "PRIOR_TICKET_FILL_UNCHANGED")
-            ticket.setdefault("fill", [])
-            ticket["fill"] = [
-                f for f in ticket["fill"]
-                if not (f.get("code") == leg["code"] and f.get("side") == leg["side"])
-            ]
-            ticket["fill"].append({
-                "code": leg["code"],
-                "side": leg["side"],
-                "expected_side": leg.get("expected_side"),
-                "qty": fill_qty,
-                "avg_price": price,
-                "price_source": source,
-                "observed_at": state.get("_now") or utc_now(),
-            })
+            if price is not None and float(price) > 0:
+                ticket.setdefault("fill", [])
+                ticket["fill"] = [
+                    f for f in ticket["fill"]
+                    if not (f.get("code") == leg["code"] and f.get("side") == leg["side"])
+                ]
+                ticket["fill"].append({
+                    "code": leg["code"],
+                    "side": leg["side"],
+                    "expected_side": leg.get("expected_side"),
+                    "qty": fill_qty,
+                    "avg_price": price,
+                    "price_source": source,
+                    "observed_at": state.get("_now") or utc_now(),
+                })
 
         if leg_complete and required_qty > 0 and evidence_qty > 0:
             ticket.setdefault("fill", [])
