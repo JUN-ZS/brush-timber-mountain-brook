@@ -206,6 +206,36 @@ def _persist_dynamic_state_observation(state, plan_output, far, market):
     return {"accepted": True, "target_change": target_change}
 
 
+def _finalize_blocked_cycle(evidence, state, cycle_id, now, out_path, status, error, *, evidence_grade="DATA_GAP"):
+    campaign_id=(state.get("campaign") or {}).get("id")
+    evidence.append(
+        "DATA_GAP",
+        cycle_id=cycle_id,
+        campaign_id=campaign_id,
+        timestamp_utc=now,
+        evidence_grade=evidence_grade,
+        payload={"stage":"LIVE_DESK_CONTROL","status":status,"error":repr(error)},
+    )
+    evidence.append(
+        "CYCLE_FINALIZED",
+        cycle_id=cycle_id,
+        campaign_id=campaign_id,
+        timestamp_utc=now,
+        evidence_grade=evidence_grade,
+        payload={"status":status},
+    )
+    output={
+        "status":status,
+        "timestamp":now,
+        "manual_execution_only":True,
+        "error":repr(error),
+        "campaign":state.get("campaign"),
+    }
+    _publish_live_output(out_path,output)
+    print(json.dumps(output,indent=2,ensure_ascii=False))
+    return 2
+
+
 def _format_price(v):
     return "NA" if v is None else f"{float(v):.4f}"
 
