@@ -770,6 +770,61 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(recovered["campaign"]["managed_far_qty"], 10)
             self.assertEqual(recovered["campaign"]["far_ownership_source"], "BROKER_EXECUTION_EVIDENCE")
 
+    def test_state_store_replays_strategy_near_lots_after_state_crash(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "live_state.json"
+            store = StateStore(out.with_name("state.json"), out.with_name("events.jsonl"))
+            state = store.load()
+            state["campaign"] = {
+                "id": "C-RECOVER-LOT",
+                "state": "HARVESTING",
+                "far_code": "US.QQQ260116C00600000",
+                "managed_far_qty": 10,
+            }
+            ticket = build_ticket(
+                action={
+                    "action": "ADD_NEAR",
+                    "code": "US.QQQ261030C00500000",
+                    "qty": 2,
+                    "side": "BUY",
+                    "price": 8.0,
+                },
+                campaign_id="C-RECOVER-LOT",
+                before_positions={},
+                now="2026-10-01T00:00:00+00:00",
+                sequence=4,
+            )
+            store.emit(
+                state,
+                "TICKET_ISSUED",
+                now="2026-10-01T00:00:00+00:00",
+                payload={"ticket": ticket},
+            )
+            store.emit(
+                state,
+                "TICKET_FILLED",
+                now="2026-10-01T00:01:00+00:00",
+                payload={
+                    "ticket_id": ticket["ticket_id"],
+                    "action": "ADD_NEAR",
+                    "fill": [{
+                        "code": "US.QQQ261030C00500000",
+                        "side": "BUY",
+                        "expected_side": "LONG",
+                        "qty": 2,
+                        "avg_price": 8.25,
+                        "price_source": "BROKER_EVIDENCE_CUMULATIVE",
+                    }],
+                },
+            )
+            recovered = store.load()
+            assert len(recovered["lots"]) == 1
+            assert recovered["lots"][0]["code"] == "US.QQQ261030C00500000"
+            assert recovered["lots"][0]["qty"] == 2
+            assert recovered["lots"][0]["avg_cost"] == 8.25
+
     def test_state_store_terminal_event_clears_stale_ticket_on_recovery(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
