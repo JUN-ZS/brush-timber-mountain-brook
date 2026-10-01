@@ -13,7 +13,9 @@ V2 不改 alpha。`risk_state()`、far/near 合約選擇、dynamic target stack�
 - 不呼叫 `modify_order`
 - 不代替你在 Futu 送出任何 order
 
-它只讀 Futu/OpenD 的即時行情、期權鏈、持倉、open orders，以及 live account 可取得的今日 deals，然後產生一張 manual ticket。
+它只讀 Futu/OpenD 的即時行情、期權鏈、持倉、open orders，以及 live account 可取得的 deals。若 ticket 在 watcher restart / outage 之間可能漏掉今日 deal，active ticket 會以 ticket issuance timestamp 作為 historical-deal recovery 起點；recovery 仍是 broker observation，不是推測。
+
+它也維持兩層 ownership fence：near LONG 必須與 strategy lot 對得上；far SHORT 必須有明確的 managed baseline。任何未解釋的 broker/manual position change 都會先 BLOCK，而不是自動 repair。
 
 ## State machine
 
@@ -71,6 +73,8 @@ A same-direction position change smaller than the ticket target is `PARTIAL` and
 
 成交價是「自 ticket issuance 起累計」的 fill VWAP，不是每個 cycle 的增量價。
 
+Completed ticket application is crash-idempotent：重跑同一 completed ticket 不會重複建立 near lot 或再次扣減 LONG lot。Far ownership 只由 broker execution evidence 推進，不由 current position 反推。
+
 - 對增加持倉的 leg，優先用 ticket issuance 時凍結的 `before_qty + before_avg_cost` 與當前持倉均價計出累計成本；因此 `last_positions` 推進不會把累計成交量或價格重置。
 - broker deal evidence 以 `deal_id` 去重並跨 cycle 累積；broker order evidence 按 `order_id` 保存最新的 cumulative `dealt_qty/dealt_avg_price`。deal 與 order 兩個資料域不相加，避免同一成交被算兩次。
 - 沒有足夠 broker fill evidence 時，只在能由 aggregate position average cost 推算時使用 `DERIVED_TICKET_POSITION_DELTA`；不冒充 broker direct fill。
@@ -102,6 +106,14 @@ python -m research.live_hedge_v1.run_live_desk --adopt-existing-far
 ```
 
 只接受「剛好一張 QQQ option short」的 adopt。
+
+若升級前已有 active campaign，而舊 state 沒有 `managed_far_qty` ownership baseline，desk 不會從當前持倉自動猜 baseline，會 `BLOCKED_FAR_OWNERSHIP_UNBASELINED`。人工核實 broker 持倉後才可顯式 rebaseline：
+
+```cmd
+python -m research.live_hedge_v1.run_live_desk --rebaseline-existing-far
+```
+
+這個 rebaseline 只接受：campaign 已 active、沒有 active ticket、而且 broker 只有一張 QQQ option short 且 code 正好等於 `campaign.far_code`。rebaseline 會留下 `FAR_OWNERSHIP_REBASELINED` event。
 
 ## Files
 
