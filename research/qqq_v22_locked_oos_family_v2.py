@@ -132,11 +132,26 @@ def run_family(u: pd.DataFrame, con, opt_path: Path, *, window_end: pd.Timestamp
 
     rows = []
     unresolved_excluded = 0
+    signal_dates = [pd.Timestamp(d) for d in u.loc[u.signal & u.dma200.notna(), "date"]]
     for fd in FAR_DTES:
         for fdel in FAR_DELTAS:
+            # Exclude entries whose locked far contract cannot resolve by the
+            # declared cutoff before calling the frozen simulator. This keeps
+            # post-cutoff quote/outcome data out of the actual simulation path.
+            eligible_entries = {
+                d for d in signal_dates
+                if (
+                    far_candidates.get(d, {}).get((fd, fdel))
+                    and pd.Timestamp(
+                        far_candidates[d][(fd, fdel)]["expiry"]
+                    ) <= window_end
+                )
+            }
+            u_config = u.copy()
+            u_config["signal"] = u["signal"] & u["date"].isin(eligible_entries)
             for policy in POLICIES:
                 df = simulate(
-                    u=u,
+                    u=u_config,
                     far_candidates=far_candidates,
                     near_chains=near_chains,
                     far_quotes_by_cid=far_quotes_by_cid,
