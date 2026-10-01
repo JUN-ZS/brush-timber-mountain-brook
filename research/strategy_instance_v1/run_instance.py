@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from .ledger import InstanceLedger, sha256_json
 from .performance_tape import build_performance_tape, classify_relationship
+from ..live_hedge_v1.campaign import choose_primary_action
 from ..evidence_v1.identity import runtime_identity
 from ..live_hedge_v1.campaign import is_qqq_option_code
 from ..live_hedge_v1.engine import (
@@ -566,17 +567,20 @@ def _plan_match_for_deal(rows,deal):
         if age is None or age>PLAN_MATCH_MAX_MINUTES:
             break
         plan_obj=(event.get("payload") or {}).get("plan") or {}
-        for idx,candidate in enumerate(plan_obj.get("candidate_actions",[]) or []):
-            hit=_candidate_match(candidate,side,code)
-            if hit is not None:
-                return {
-                    "event_seq":event.get("event_seq"),
-                    "candidate_index":idx,
-                    "observed_at_utc":event.get("timestamp_utc"),
-                    "action":str(candidate.get("action","")).upper(),
-                    "candidate":hit,
-                    "age_minutes":age,
-                }
+        primary=plan_obj.get("primary_candidate")
+        if not isinstance(primary,dict):
+            return None
+        hit=_candidate_match(primary,side,code)
+        if hit is not None:
+            return {
+                "event_seq":event.get("event_seq"),
+                "candidate_index":0,
+                "observed_at_utc":event.get("timestamp_utc"),
+                "action":str(primary.get("action","")).upper(),
+                "candidate":hit,
+                "age_minutes":age,
+                "match_basis":"PRIMARY_CANDIDATE_ONLY",
+            }
         break
     return None
 
@@ -881,12 +885,17 @@ def _cycle_unlocked(args):
                 gamma_baseline=gamma_baseline,
                 previous_far_delta_abs=previous_far_delta_abs,
             )
+            primary_candidate=choose_primary_action(sp.get("candidate_actions",[]) or [])
+            sp_observed=json.loads(json.dumps(sp))
+            sp_observed["primary_candidate"]=primary_candidate
             l.append("STRATEGY_PLAN_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
                      payload={
-                         "plan":sp,
+                         "plan":sp_observed,
                          "execution":"READ_ONLY_OBSERVATION",
                          "pre_decision_snapshot_sha256":sh,
                          "attribution_window_minutes":PLAN_MATCH_MAX_MINUTES,
+                         "primary_candidate":primary_candidate,
+                         "attribution_basis":"PRIMARY_CANDIDATE_ONLY",
                      },source="SYSTEM")
             strategy_observation_ok = True
         except Exception as e:
