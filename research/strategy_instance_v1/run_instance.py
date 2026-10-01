@@ -845,7 +845,12 @@ def _cycle_unlocked(args):
                 previous_far_delta_abs=previous_far_delta_abs,
             )
             l.append("STRATEGY_PLAN_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
-                     payload={"plan":sp,"execution":"READ_ONLY_OBSERVATION"},source="SYSTEM")
+                     payload={
+                         "plan":sp,
+                         "execution":"READ_ONLY_OBSERVATION",
+                         "pre_decision_snapshot_sha256":sh,
+                         "attribution_window_minutes":PLAN_MATCH_MAX_MINUTES,
+                     },source="SYSTEM")
             strategy_observation_ok = True
         except Exception as e:
             s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"STRATEGY_PLAN","error":repr(e)})
