@@ -495,7 +495,7 @@ def test_hash_chain_and_tamper_detection():
             raise AssertionError("tampering must be detected")
 
 
-def test_evidence_rejects_invalid_grade_and_timestamp_regression():
+def test_evidence_rejects_invalid_grade_and_naive_timestamp():
     with tempfile.TemporaryDirectory() as td:
         path=Path(td)/"evidence.jsonl"
         ledger=EvidenceLedger(path)
@@ -518,19 +518,43 @@ def test_evidence_rejects_invalid_grade_and_timestamp_regression():
         else:
             raise AssertionError("invalid evidence grade must be rejected")
 
-        reg=EvidenceLedger(Path(td)/"regression.jsonl")
-        reg.append("CYCLE_STARTED",cycle_id="R",timestamp_utc="2026-10-01T00:00:02+00:00",payload={})
-        reg.append("DATA_GAP",cycle_id="R",timestamp_utc="2026-10-01T00:00:03+00:00",payload={})
-        rows=reg.rows()
-        rows[1]["timestamp_utc"]="2026-09-30T23:59:59+00:00"
-        bad_reg=Path(td)/"bad-time.jsonl"
-        bad_reg.write_text("\n".join(json.dumps(x,separators=(",",":")) for x in rows)+"\n",encoding="utf-8")
+        rows=ledger.rows()
+        rows[1]["timestamp_utc"]="2026-10-01T00:00:01"
+        bad_time=Path(td)/"bad-time.jsonl"
+        bad_time.write_text("\n".join(json.dumps(x,separators=(",",":")) for x in rows)+"\n",encoding="utf-8")
         try:
-            EvidenceLedger(bad_reg).validate()
+            EvidenceLedger(bad_time).validate()
         except LedgerError as exc:
-            assert "TIMESTAMP_REGRESSION" in str(exc)
+            assert "NAIVE_TIMESTAMP" in str(exc)
         else:
-            raise AssertionError("timestamp regression must be rejected")
+            raise AssertionError("naive timestamp must be rejected")
+
+
+def test_user_reported_outcome_uses_human_reported_grade():
+    import sys
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        lock=root/"research/evidence_v1/STRATEGY_LOCK.json"
+        lock.parent.mkdir(parents=True)
+        lock.write_text(json.dumps({
+            "strategy_id":"TEST","strategy_version":"V1",
+            "selection_cutoff":"2025-12-15","research_engine_commit":"TEST",
+            "evidence_policy":{},
+        }),encoding="utf-8")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        anchor=ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
+                             timestamp_utc="2026-10-01T00:00:01+00:00",payload={})
+        with patch.object(sys,"argv",[
+            "outcome.py","--repo-root",str(root),
+            "--campaign-id","CAMP1","--anchor-evidence-id",anchor["evidence_id"],
+            "--realized-pnl","1","--outcome-source","USER_REPORTED",
+        ]):
+            from research.evidence_v1.outcome import main
+            assert main()==0
+        row=next(r for r in ledger.rows() if r["event_type"]=="OUTCOME_RESOLVED")
+        assert row["evidence_grade"]=="HUMAN_REPORTED"
 
 def test_cycle_finalize_requires_cycle_start():
     with tempfile.TemporaryDirectory() as td:
