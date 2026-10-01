@@ -150,6 +150,36 @@ def test_load_recovers_broker_state_from_immutable_execution_ledger():
         assert state["processed_deal_ids"] == ["D1"]
         assert all(x["qty"] == 0 for x in state["lots"] if x["code"] == "US.QQQ261030C00500000")
 
+def test_instance_ledger_concurrent_append_preserves_chain():
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "ledger.jsonl"
+        ledger = InstanceLedger(path, {"instance_id": "I-CONC"})
+        errors = []
+
+        def worker(i):
+            try:
+                ledger.append(
+                    "HUMAN_NOTE",
+                    instance_id="I-CONC",
+                    cycle_id=f"C{i}",
+                    timestamp_utc=f"2026-10-01T00:00:{i:02d}+00:00",
+                    payload={"i": i},
+                    source="USER_MANUAL",
+                )
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(12)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert not errors
+        result = ledger.validate()
+        assert result["records"] == 12
+
+
 def test_hash_chain():
     with tempfile.TemporaryDirectory() as td:
         p=Path(td)/"ledger.jsonl"; l=InstanceLedger(p,{"instance_id":"I"})
