@@ -1267,6 +1267,17 @@ def _record_manual_trade_unlocked(repo, *, instance_id, action, code, qty, price
             "manual_realized_pnl":s["manual_realized_pnl"],"manual_positions":positions,
             "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc}
 
+def _detected_qty_for_deal(rows,deal_id):
+    total=0
+    for row in rows or []:
+        if str(row.get("event_type") or "").upper()!="EXECUTION_DETECTED":
+            continue
+        deal=(row.get("payload") or {}).get("deal") or {}
+        if str(deal.get("deal_id") or "")==str(deal_id):
+            total += si(deal.get("qty"))
+    return total
+
+
 def _confirmed_qty_for_deal(rows,deal_id):
     total=0
     for row in rows or []:
