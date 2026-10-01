@@ -1347,6 +1347,7 @@ def instance_summary(repo, instance_id):
             "realized_pnl":sf(s.get("realized_pnl")),
             "strategy_deal_count":len(s.get("strategy_deal_ids",[])),
             "unattributed_deal_count":len(s.get("unattributed_deal_ids",[])),
+            "attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
             "last_reconcile":s.get("last_reconcile"),
             "data_gaps":si(s.get("data_gaps")),
         },
@@ -1383,7 +1384,7 @@ def report(a):
          "execution_attribution":{
              "strategy_deals":len(s.get("strategy_deal_ids",[])),
              "unattributed_deals":len(s.get("unattributed_deal_ids",[])),
-             "policy":"only explicit user confirmations or uniquely provable strategy-owned closes enter strategy P&L; plan timing matches remain potential-only evidence",
+             "policy":"only explicit user confirmations enter strategy P&L; plan timing/code matches remain potential-only evidence",
          },
          "realized_pnl_gross":s.get("realized_pnl"),"manual_book":{"realized_pnl":s.get("manual_realized_pnl",0.0),"unrealized_pnl":((s.get("manual_last_mark") or {}).get("unrealized_pnl") if (s.get("manual_last_mark") or {}).get("status")=="OK" else None),"total_pnl":(sf(s.get("manual_realized_pnl"))+sf((s.get("manual_last_mark") or {}).get("unrealized_pnl"))) if (s.get("manual_last_mark") or {}).get("status")=="OK" else None,"trade_count":s.get("manual_trade_count",0),"mark_status":(s.get("manual_last_mark") or {}).get("status"),"positions":manual_position_snapshot(s.get("manual_lots",[]))},
          "pnl_observation_status":s.get("last_pnl_observation_status"),
