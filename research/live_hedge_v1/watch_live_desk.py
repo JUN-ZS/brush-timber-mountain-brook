@@ -17,6 +17,8 @@ def main():
     ap.add_argument("--near-dte", type=int, default=30)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=11111)
+    ap.add_argument("--acc-id", type=int, default=None,
+                    help="Futu trading account ID; falls back to FUTU_ACC_ID")
     args = ap.parse_args()
 
     if args.interval < 5:
@@ -39,6 +41,8 @@ def main():
             "--port",
             str(args.port),
         ]
+        if args.acc_id is not None:
+            cmd.extend(["--acc-id", str(args.acc_id)])
         result = subprocess.run(cmd, text=True, capture_output=True)
 
         log = Path("research/live_hedge_v1/live_cycles.jsonl")
