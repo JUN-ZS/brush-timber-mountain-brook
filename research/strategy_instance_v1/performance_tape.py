@@ -1,0 +1,151 @@
+"""USER_MANUAL performance tape.
+
+Derived from recorded manual trades plus the strategy ticket snapshot stored
+with each trade. Not broker evidence. Contracts the operator did not trade
+have no observable counterfactual path.
+"""
+from __future__ import annotations
+
+OPEN_ACTIONS = {"ADD", "SELL_FAR"}
+CLOSE_ACTIONS = {"REDUCE", "BUY_BACK_FAR"}
+KNOWN = {"FOLLOW_STRATEGY", "ADJUST_SIZE", "OPERATOR_ONLY"}
+
+
+def _f(x):
+    try:
+        y = float(x)
+        return y if y == y else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _i(x):
+    try:
+        return int(float(x or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def build_performance_tape(trades):
+    ordered = sorted(
+        trades or [],
+        key=lambda r: (str(r.get("timestamp_utc") or ""), _i(r.get("event_seq"))),
+    )
+    queues = {}
+    open_attr = {}
+    rows = []
+    attributed = {k: 0.0 for k in KNOWN}
+    counts = {k: 0 for k in KNOWN}
+    slippage = 0.0
+    size_gap = 0
+
+    for n, t in enumerate(ordered, 1):
+        action = str(t.get("action") or "").upper()
+        code = str(t.get("code") or "").upper()
+        qty = _i(t.get("qty"))
+        price = _f(t.get("price")) or 0.0
+        lot = max(1, _i(t.get("lot_size")) or 100)
+        rel = str(t.get("relationship_to_strategy") or "OPERATOR_ONLY")
+        if rel not in KNOWN:
+            rel = "OPERATOR_ONLY"
+        counts[rel] += 1
+        ref = t.get("strategy_reference") or {}
+        has_ticket = bool(ref.get("ticket_id"))
+        s_qty = _i(ref.get("qty")) if has_ticket else None
+        s_px = _f(ref.get("price")) if has_ticket else None
+        qty_delta = None if s_qty is None else qty - s_qty
+        if qty_delta:
+            size_gap += abs(qty_delta)
+
+        entry_slip = None
+        if s_px is not None and qty and price:
+            sign = -1 if action in {"ADD", "BUY_BACK_FAR"} else 1
+            entry_slip = round((price - s_px) * qty * lot * sign, 4)
+            slippage += entry_slip
+
+        realized = round(_f(t.get("realized_pnl_delta")) or 0.0, 4)
+        matched = []
+        if action in OPEN_ACTIONS:
+            side = "LONG" if action == "ADD" else "SHORT"
+            queues.setdefault((code, side), []).append({
+                "trade_id": t.get("trade_id"),
+                "qty": qty,
+                "price": price,
+                "lot": lot,
+                "rel": rel,
+            })
+        elif action in CLOSE_ACTIONS:
+            side = "LONG" if action == "REDUCE" else "SHORT"
+            q = queues.setdefault((code, side), [])
+            rem = qty
+            while rem and q:
+                sl = q[0]
+                take = min(rem, sl["qty"])
+                pnl = ((price - sl["price"]) if side == "LONG" else (sl["price"] - price)) * take * sl["lot"]
+                pnl = round(pnl, 4)
+                attributed[sl["rel"]] = round(attributed.get(sl["rel"], 0.0) + pnl, 4)
+                open_attr[sl["trade_id"]] = round(open_attr.get(sl["trade_id"], 0.0) + pnl, 4)
+                matched.append({
+                    "open_trade_id": sl["trade_id"],
+                    "qty": take,
+                    "relationship": sl["rel"],
+                    "realized": pnl,
+                })
+                sl["qty"] -= take
+                rem -= take
+                if sl["qty"] <= 0:
+                    q.pop(0)
+
+        if not has_ticket:
+            read = "OPERATOR_ONLY: no matching strategy ticket at record time."
+        elif qty_delta == 0:
+            read = "FOLLOW_STRATEGY: same code and quantity as the ticket. Outcome is the observed fill, not a rewritten strategy path."
+        elif qty_delta and qty_delta > 0:
+            read = "ADJUST_SIZE up: extra contracts are observed only. The ticket quantity not exceeded has no separate path."
+        else:
+            read = "ADJUST_SIZE down: skipped contracts have no observable counterfactual. Only the traded quantity has P&L."
+
+        rows.append({
+            "seq": n,
+            "timestamp_utc": t.get("timestamp_utc"),
+            "trade_id": t.get("trade_id"),
+            "action": action,
+            "code": code,
+            "qty": qty,
+            "price": price,
+            "lot_size": lot,
+            "relationship": rel,
+            "strategy_ticket_id": ref.get("ticket_id"),
+            "strategy_action": ref.get("action"),
+            "strategy_qty": s_qty,
+            "strategy_price": s_px,
+            "qty_delta": qty_delta,
+            "entry_slippage_estimate": entry_slip,
+            "realized_pnl_delta": realized,
+            "close_matches": matched,
+            "note": t.get("note") or "",
+            "read": read,
+            "grade": "Derived",
+        })
+
+    open_left = {}
+    for slices in queues.values():
+        for sl in slices:
+            if sl["qty"] > 0:
+                open_left[sl["trade_id"]] = open_left.get(sl["trade_id"], 0) + sl["qty"]
+    for row in rows:
+        row["open_qty_remaining"] = open_left.get(row["trade_id"], 0)
+        row["attributed_close_pnl"] = open_attr.get(row["trade_id"], 0.0)
+
+    return {
+        "schema": "USER_MANUAL_PERFORMANCE_TAPE.v1",
+        "grade": "Derived",
+        "source": "USER_MANUAL",
+        "rule": "Observed fill P&L only. Untraded contracts have no counterfactual. Entry slippage versus the ticket indicative is Estimated, not outcome.",
+        "trade_count": len(rows),
+        "counts": counts,
+        "attributed_realized": attributed,
+        "entry_slippage_estimate": round(slippage, 4),
+        "size_gap_contracts": size_gap,
+        "rows": rows,
+    }
