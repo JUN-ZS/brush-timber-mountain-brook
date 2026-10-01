@@ -323,6 +323,32 @@ def plan(
 
     spot = float(market["spot"])
     quotes_by_code = quotes_by_code or {}
+    option_freshness = {}
+    for label, contract in (("far", far), ("near", near)):
+        if contract is None:
+            continue
+        quote = quotes_by_code.get(contract.code) or {}
+        live_expected = (
+            str(quote.get("source") or "").upper() == "LIVE QUOTE"
+            or contract.quote_timestamp is not None
+        )
+        if not live_expected:
+            continue
+        ts = quote.get("timestamp", contract.quote_timestamp)
+        age = quote_age_sec(ts, now, naive_is_local=True)
+        option_freshness[label] = age
+        if age is None or age > MAX_QUOTE_AGE_SEC:
+            return {
+                "status": "BLOCKED_STALE_OPTION_QUOTE",
+                "timestamp": now.isoformat(),
+                "candidate_actions": [],
+                "next_triggers": [],
+                "reasons": [
+                    f"{label} option quote timestamp is missing, invalid, stale, or materially future-dated"
+                ],
+                "option_freshness": option_freshness,
+                "market": market,
+            }
     near_lots = near_lots or []
 
     option_positions = [
