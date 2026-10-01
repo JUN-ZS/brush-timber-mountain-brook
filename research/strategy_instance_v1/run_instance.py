@@ -509,6 +509,7 @@ def contracts_map(snap):
                 q.get("iv",x.get("iv")),
                 max(1,si(x.get("lot_size")) or 100),
                 q.get("volume",x.get("volume")),
+                q.get("timestamp",x.get("quote_timestamp")),
             )
     return out
 
@@ -879,7 +880,7 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
                 c.code,c.right,c.strike,c.expiry,c.dte,
                 q.get("bid",c.bid),q.get("ask",c.ask),
                 q.get("delta",c.delta),q.get("gamma",c.gamma),
-                q.get("iv",c.iv),c.lot_size,c.volume,
+                q.get("iv",c.iv),c.lot_size,c.volume,q.get("timestamp",c.quote_timestamp),
             )
     # The account may contain unrelated QQQ LONG options. Only instance-owned
     # LONG lots contribute to target-stack state; all-account shorts remain a
@@ -909,7 +910,7 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
             near.code,near.right,near.strike,near.expiry,near.dte,
             q.get("bid",near.bid),q.get("ask",near.ask),
             q.get("delta",near.delta),q.get("gamma",near.gamma),
-            q.get("iv",near.iv),near.lot_size,near.volume,
+            q.get("iv",near.iv),near.lot_size,near.volume,q.get("timestamp",near.quote_timestamp),
         )
     if active and far is None: return {"status":"DATA_GAP","reason":"active short far quote unavailable"}
     return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=bool(market.get("signal_active")),
