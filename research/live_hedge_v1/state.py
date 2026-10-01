@@ -139,6 +139,45 @@ class StateStore:
                 break
         return int(digits) if digits else 0
 
+    @staticmethod
+    def _apply_far_execution_evidence(campaign: Dict[str, Any], ticket: Dict[str, Any], fill_rows) -> None:
+        """Update managed far qty from cumulative broker-confirmed ticket fills."""
+        if not campaign or not ticket:
+            return
+        far_code = str(campaign.get("far_code") or "").upper()
+        if not far_code:
+            return
+        for fill in fill_rows or []:
+            code = str(fill.get("code") or "").upper()
+            if code != far_code:
+                continue
+            if str(fill.get("expected_side") or "").upper() != "SHORT":
+                continue
+            qty = int(float(fill.get("qty") or 0))
+            if qty <= 0:
+                continue
+            side = str(fill.get("side") or "").upper()
+            leg = next(
+                (
+                    x for x in ticket.get("legs", []) or []
+                    if str(x.get("code") or "").upper() == code
+                    and str(x.get("side") or "").upper() == side
+                    and str(x.get("expected_side") or "").upper() == "SHORT"
+                ),
+                None,
+            )
+            if leg is None:
+                continue
+            before = int(float(leg.get("before_qty") or 0))
+            if side == "SELL":
+                campaign["managed_far_qty"] = before + qty
+            elif side == "BUY":
+                campaign["managed_far_qty"] = max(0, before - qty)
+            else:
+                continue
+            campaign["far_ownership_source"] = "BROKER_EXECUTION_EVIDENCE"
+            campaign["far_ownership_ticket_id"] = ticket.get("ticket_id")
+
     def _recover_from_events(self, state: Dict[str, Any]) -> None:
         """Repair an unsaved state cache from the durable live event stream."""
         events = self._read_events()
@@ -161,6 +200,8 @@ class StateStore:
                     campaign["id"] = None
                     campaign["far_code"] = None
                     campaign["managed_far_qty"] = None
+                    campaign["far_ownership_source"] = None
+                    campaign["far_ownership_ticket_id"] = None
                     campaign["far_ownership_source"] = None
                     campaign["far_ownership_ticket_id"] = None
 
@@ -219,9 +260,49 @@ class StateStore:
                     latest_ticket["status"] = "PARTIAL"
                     if et == "TICKET_PARTIAL_PROGRESS" and payload.get("fill") is not None:
                         latest_ticket["fill"] = payload.get("fill")
+                        self._apply_far_execution_evidence(
+                            campaign,
+                            latest_ticket,
+                            payload.get("fill"),
+                        )
+
+            elif et == "MANUAL_POSITION_CHANGE":
+                if latest_ticket is not None:
+                    evidence = payload.get("broker_execution_evidence") or {}
+                    fills = []
+                    for row in evidence.values():
+                        if not isinstance(row, dict):
+                            continue
+                        qty = int(float(row.get("evidence_qty") or 0))
+                        if qty <= 0:
+                            continue
+                        key = str(row.get("side") or "") + ":" + str(row.get("code") or "").upper()
+                        side, code = key.split(":", 1) if ":" in key else ("", "")
+                        if side and code:
+                            fills.append({
+                                "code": code,
+                                "side": side,
+                                "expected_side": next(
+                                    (
+                                        leg.get("expected_side")
+                                        for leg in latest_ticket.get("legs", []) or []
+                                        if str(leg.get("code") or "").upper() == code
+                                        and str(leg.get("side") or "").upper() == side
+                                    ),
+                                    None,
+                                ),
+                                "qty": qty,
+                            })
+                    self._apply_far_execution_evidence(campaign, latest_ticket, fills)
+
+            elif et == "TICKET_FILLED":
+                if latest_ticket is not None:
+                    fills = payload.get("fill") or latest_ticket.get("fill") or []
+                    self._apply_far_execution_evidence(campaign, latest_ticket, fills)
+                ticket_terminal = et
+                latest_ticket = None
 
             elif et in {
-                "TICKET_FILLED",
                 "TICKET_SUPERSEDED",
                 "REPRICE_TICKET_SUPERSEDED",
                 "REPRICE_ORDER_TERMINAL",
