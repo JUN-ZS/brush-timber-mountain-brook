@@ -15,6 +15,68 @@ from .run_instance import (
 from .run_instance import instance_mutation_lock, mhash, mpath, spath, lpath
 from .performance_tape import build_performance_tape, classify_relationship
 
+def test_operator_ticket_context_is_verified_from_evidence():
+    import json
+    from .serve_operator import explicit_strategy_context
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        ticket={
+            "ticket_id":"TICKET-1","action":"ADD_NEAR","status":"OPEN",
+            "legs":[{
+                "code":"US.QQQ.TEST","side":"BUY","qty":2,
+                "strategy_leg_action":"ADD_NEAR","before_qty":0,"target_qty":2,
+                "price":8.5,
+            }],
+        }
+        ledger=InstanceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger.append("CYCLE_STARTED",instance_id="I",cycle_id="C1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        decision=ledger.append(
+            "DECISION_EMITTED",instance_id="I",cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:05+00:00",
+            payload={"ticket":ticket,"snapshot_sha256":"SNAP-1"},
+        )
+        body={"instance_id":"I","strategy_context_snapshot":{
+            "instance_id":"I",
+            "ticket_id":"TICKET-1",
+            "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+            "action":"ADD_NEAR","status":"OPEN",
+            "leg":dict(ticket["legs"][0]),
+        }}
+        ctx=explicit_strategy_context(root,body)
+        assert ctx["source_evidence_id"]==decision["evidence_id"]
+        assert ctx["pre_decision_snapshot_sha256"]=="SNAP-1"
+        assert ctx["ticket_snapshot"]==ticket
+        assert ctx["ticket_snapshot_sha256"]==sha256_json(ticket)
+
+
+def test_operator_ticket_context_rejects_browser_tampering():
+    import tempfile
+    from .serve_operator import explicit_strategy_context
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        ticket={"ticket_id":"TICKET-2","action":"ADD_NEAR","status":"OPEN",
+                "legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":2,
+                         "strategy_leg_action":"ADD_NEAR"}]}
+        ledger=InstanceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger.append("DECISION_EMITTED",instance_id="I",cycle_id="C1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",
+                      payload={"ticket":ticket})
+        body={"instance_id":"I","strategy_context_snapshot":{
+            "instance_id":"I","ticket_id":"TICKET-2",
+            "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+            "action":"ADD_NEAR","status":"OPEN",
+            "leg":{"code":"US.QQQ.TEST","side":"BUY","qty":99,
+                   "strategy_leg_action":"ADD_NEAR"},
+        }}
+        try:
+            explicit_strategy_context(root,body)
+        except ValueError as exc:
+            assert str(exc)=="STRATEGY_CONTEXT_TICKET_TAMPERED"
+        else:
+            raise AssertionError("browser-supplied ticket mutation must be rejected")
+
+
 def test_operator_mutation_endpoint_requires_header():
     from .serve_operator import MUTATION_HEADER, MUTATION_HEADER_VALUE, MUTATING_PATHS
     assert "/api/manual" in MUTATING_PATHS
