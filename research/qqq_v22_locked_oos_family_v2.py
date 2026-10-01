@@ -6,6 +6,12 @@ import hashlib
 import json
 from pathlib import Path
 
+# The locked replay is intentionally executable both as a file and as a module.
+# Direct execution puts research/ on sys.path; add the repo root before package imports.
+if __package__ in (None, ""):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import duckdb
 import pandas as pd
 
