@@ -166,6 +166,35 @@ def test_strategy_plan_attribution_is_bounded_and_cannot_reuse_quantity():
     assert second["reason"]=="strategy_plan_quantity_already_consumed"
 
 
+def test_strategy_plan_quantity_cannot_be_reused_across_cycles():
+    from .run_instance import attribute_broker_deal
+    plan_key=("7",0,"ADD_NEAR","US.QQQ261030C00500000","BUY")
+    rows=[
+        {
+            "event_seq":7,
+            "event_type":"STRATEGY_PLAN_OBSERVED",
+            "timestamp_utc":"2026-10-01T21:00:00+00:00",
+            "payload":{"plan":{
+                "candidate_actions":[{"action":"ADD_NEAR","code":"US.QQQ261030C00500000","qty":2}],
+                "primary_candidate":{"action":"ADD_NEAR","code":"US.QQQ261030C00500000","qty":2},
+            }},
+        },
+        {
+            "event_seq":8,
+            "event_type":"EXECUTION_DETECTED",
+            "timestamp_utc":"2026-10-01T21:01:00+00:00",
+            "payload":{
+                "deal":{"deal_id":"D1","code":"US.QQQ261030C00500000","side":"BUY","qty":2,"price":8.0},
+                "attribution":{"plan_key":plan_key,"qty":2},
+            },
+        },
+    ]
+    d={"deal_id":"D2","code":"US.QQQ261030C00500000","side":"BUY","qty":1,"price":8.0,"created_at":"2026-10-01T21:05:00+00:00"}
+    out=attribute_broker_deal(rows,d)
+    assert out["status"]=="UNATTRIBUTED"
+    assert out["reason"]=="strategy_plan_quantity_already_consumed"
+
+
 def test_non_primary_candidate_is_not_auto_attributed():
     from .run_instance import attribute_broker_deal
     rows=[{
