@@ -808,6 +808,44 @@ class LiveHedgeV2Test(unittest.TestCase):
         reprice = next(x for x in out["candidate_actions"] if x["action"] == "REPRICE_OR_CANCEL")
         self.assertEqual(reprice["qty"], 3)
 
+    def test_far_ownership_sync_uses_broker_evidence_not_position(self):
+        from research.live_hedge_v1.run_live_desk import _sync_managed_far_ownership
+        campaign = {"far_code": "US.QQQ260116C00600000", "managed_far_qty": 10}
+        ticket = build_ticket(
+            action={
+                "action": "REPAIR_FAR",
+                "code": "US.QQQ260116C00600000",
+                "target_qty": 10,
+                "current_qty": 7,
+                "direction": "ADD",
+                "side": "SELL",
+                "qty": 3,
+                "price": 2.0,
+            },
+            campaign_id="C-OWN",
+            before_positions={
+                "SHORT:US.QQQ260116C00600000": {
+                    "code": "US.QQQ260116C00600000",
+                    "side": "SHORT",
+                    "qty": 7,
+                    "avg_cost": 2.0,
+                }
+            },
+            now="2026-10-01T00:00:00+00:00",
+            sequence=20,
+        )
+        reconcile = {
+            "evidence_by_leg": {
+                "SHORT:US.QQQ260116C00600000": {
+                    "required_qty": 3,
+                    "evidence_qty": 3,
+                }
+            }
+        }
+        _sync_managed_far_ownership(campaign, ticket, reconcile)
+        self.assertEqual(campaign["managed_far_qty"], 10)
+        self.assertEqual(campaign["far_ownership_source"], "BROKER_EXECUTION_EVIDENCE")
+
 class GammaHistoryMigrationTests(unittest.TestCase):
     """Legacy raw |γ| must not mix with gamma_spot; schema markers gate warm-up."""
 
