@@ -2,7 +2,7 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 from .ledger import InstanceLedger, InstanceLedgerError, sha256_json
-from .run_instance import apply_deal, manual_apply_trade, manual_position_snapshot
+from .run_instance import apply_deal, manual_apply_trade, manual_position_snapshot, manual_book_pnl_preview
 
 def test_hash_chain():
     with tempfile.TemporaryDirectory() as td:
@@ -49,4 +49,17 @@ def test_manual_far_short_book_tracks_cover_pnl():
     pos=manual_position_snapshot(lots)
     assert pos[0]["side"]=="SHORT"
     assert pos[0]["qty"]==6
+
+def test_manual_pnl_preview_does_not_mutate_book():
+    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"LONG","qty":2,"avg_price":5.0,"lot_size":100,"status":"OPEN"}]
+    p=manual_book_pnl_preview(lots,action="REDUCE",code="US.QQQ.TEST",qty=1,price=7.0,lot_size=100)
+    assert p["realized_pnl_preview"]==200.0
+    assert p["matched_qty"]==1
+    assert lots[0]["qty"]==2
+
+
+def test_manual_pnl_preview_blocks_over_reduce():
+    lots=[{"lot_id":"T0","code":"US.QQQ.TEST","side":"LONG","qty":1,"avg_price":5.0,"lot_size":100,"status":"OPEN"}]
+    p=manual_book_pnl_preview(lots,action="REDUCE",code="US.QQQ.TEST",qty=2,price=7.0,lot_size=100)
+    assert p["remaining_unmatched"]==1
 
