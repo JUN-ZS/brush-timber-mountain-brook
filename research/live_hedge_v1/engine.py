@@ -314,9 +314,12 @@ def plan(
     near_pos_all = [p for p in option_positions if p.side == "LONG"]
     managed_near_by_code = {}
     for lot in near_lots:
-        if (str(lot.get("status", "OPEN")).upper() != "OPEN"
-                or not _safe_positive_qty(lot.get("qty"))
-                or not is_qqq_option_code(lot.get("code", ""))):
+        if (
+            str(lot.get("status", "OPEN")).upper() != "OPEN"
+            or str(lot.get("side", "LONG")).upper() != "LONG"
+            or not _safe_positive_qty(lot.get("qty"))
+            or not is_qqq_option_code(lot.get("code", ""))
+        ):
             continue
         code = str(lot.get("code", "")).upper()
         managed_near_by_code[code] = managed_near_by_code.get(code, 0) + int(lot.get("qty", 0) or 0)
