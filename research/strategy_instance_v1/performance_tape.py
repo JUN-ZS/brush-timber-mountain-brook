@@ -28,10 +28,16 @@ def canonical_manual_action(strategy_ref):
     leg_action = str(ref.get("strategy_leg_action") or "").upper()
     top_action = str(ref.get("action") or "").upper()
     side = str(ref.get("side") or "").upper()
+    direction = str(ref.get("direction") or "").upper()
     if leg_action in STRATEGY_TO_MANUAL:
         return STRATEGY_TO_MANUAL[leg_action]
     if top_action in STRATEGY_TO_MANUAL:
         return STRATEGY_TO_MANUAL[top_action]
+    if top_action == "REPAIR_FAR":
+        if direction == "ADD" or side == "SELL":
+            return "SELL_FAR"
+        if direction == "REDUCE" or side == "BUY":
+            return "BUY_BACK_FAR"
     if top_action == "CLOSE_CAMPAIGN_EMERGENCY":
         if side == "BUY":
             return "BUY_BACK_FAR"
