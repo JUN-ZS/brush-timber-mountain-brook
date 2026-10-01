@@ -534,7 +534,7 @@ def test_strategy_plan_uses_explicit_far_code_hint():
         {"far_dte": 90, "far_delta": 0.08, "near_dte": 30, "far_code_hint": contracts[0].code},
     )
     assert out["status"] == "DATA_GAP"
-    assert "extra unmanaged" in out["reason"]
+    assert "far_code_hint does not uniquely isolate" in out["reason"]
 
     # A single explicitly hinted far position is admissible.
     out = strategy_plan(
@@ -649,7 +649,7 @@ def test_roll_ticket_legs_carry_semantic_actions():
     before = {
         "LONG:US.QQQ.OLD": {"code": "US.QQQ.OLD", "side": "LONG", "qty": 2, "avg_cost": 5.0},
     }
-    from .run_instance import build_ticket
+    from ..live_hedge_v1.campaign import build_ticket
     ticket = build_ticket(
         action={
             "action": "ROLL_NEAR",
