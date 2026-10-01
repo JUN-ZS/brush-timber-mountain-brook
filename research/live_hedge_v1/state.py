@@ -87,6 +87,7 @@ class StateStore:
     def __init__(self, path="research/live_hedge_v1/state.json", events_path=None):
         self.path = Path(path)
         self.events_path = Path(events_path) if events_path else self.path.with_name("events.jsonl")
+        self._events_tail_corrupt = False
 
     def load(self) -> Dict[str, Any]:
         raw = {}
@@ -114,6 +115,9 @@ class StateStore:
         state.setdefault("lots", [])
         state["schema_version"] = SCHEMA_VERSION
         events = self._read_events()
+        if self._events_tail_corrupt:
+            state["events_integrity"] = "CORRUPT_TAIL"
+            raise ValueError("LIVE_EVENT_TAIL_CORRUPT")
         state["events_integrity"] = self._validate_event_chain(events)
         self._recover_from_events(state)
         event_lots = self._replay_strategy_lots(events)
@@ -176,21 +180,8 @@ class StateStore:
             return "LEGACY_UNHASHED"
         return "EMPTY"
 
-    def validate_events(self) -> Dict[str, Any]:
-        rows = self._read_events()
-        integrity = self._validate_event_chain(rows)
-        return {
-            "status": "PASS",
-            "records": len(rows),
-            "integrity": integrity,
-            "head_hash": (
-                rows[-1].get("event_hash")
-                if rows and rows[-1].get("event_hash")
-                else (self._event_record_hash(rows[-1]) if rows else EVENT_GENESIS)
-            ),
-        }
-
     def _read_events(self) -> list[dict[str, Any]]:
+        self._events_tail_corrupt = False
         if not self.events_path.exists():
             return []
         rows = []
@@ -200,12 +191,42 @@ class StateStore:
                 continue
             try:
                 rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                # A crash can leave only the final append partially written.
-                # Earlier complete events remain usable for deterministic recovery.
+            except json.JSONDecodeError as exc:
                 if idx == len(lines) - 1:
+                    # A partial final append is not a valid event. Do not silently
+                    # resume from it: provenance is safer when mutation is blocked.
+                    self._events_tail_corrupt = True
                     break
-                raise
+                raise ValueError(f"LIVE_EVENT_CORRUPT:{idx + 1}") from exc
+
+        rows = [row for row in rows if isinstance(row, dict)]
+        self._validate_event_chain(rows)
+        return rows
+            "head_hash": (
+                rows[-1].get("event_hash")
+                if rows and rows[-1].get("event_hash")
+                else (self._event_record_hash(rows[-1]) if rows else EVENT_GENESIS)
+            ),
+        }
+
+    def _read_events(self) -> list[dict[str, Any]]:
+        self._events_tail_corrupt = False
+        if not self.events_path.exists():
+            return []
+        rows = []
+        lines = self.events_path.read_text(encoding="utf-8").splitlines()
+        for idx, line in enumerate(lines):
+            if not line.strip():
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError as exc:
+                if idx == len(lines) - 1:
+                    # A partial final append is not a valid event. Do not silently
+                    # resume from it: provenance is safer when mutation is blocked.
+                    self._events_tail_corrupt = True
+                    break
+                raise ValueError(f"LIVE_EVENT_CORRUPT:{idx + 1}") from exc
 
         rows = [row for row in rows if isinstance(row, dict)]
         self._validate_event_chain(rows)
@@ -616,6 +637,8 @@ class StateStore:
         n = int(state.get("event_sequence", 0) or 0) + 1
         state["event_sequence"] = n
         rows = self._read_events()
+        if self._events_tail_corrupt:
+            raise ValueError("LIVE_EVENT_TAIL_CORRUPT")
         previous_hash = (
             rows[-1].get("event_hash")
             if rows and rows[-1].get("event_hash")
