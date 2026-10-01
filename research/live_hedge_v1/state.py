@@ -281,8 +281,10 @@ class StateStore:
 
     def append_event(self, event: Dict[str, Any]) -> None:
         self.events_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.events_path.open("a", encoding="utf-8") as f:
+        with self.events_path.open("a", encoding="utf-8", newline="\n") as f:
             f.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
 
     def next_ticket_sequence(self, state: Dict[str, Any]) -> int:
         n = int(state.get("ticket_sequence", 0) or 0) + 1
