@@ -182,6 +182,14 @@ def main() -> int:
             raise SystemExit(
                 "CORRECTION_CANNOT_RELABEL_ANCHOR"
             )
+        if args.outcome_source != corrected_payload.get("outcome_source"):
+            raise SystemExit(
+                "CORRECTION_CANNOT_RELABEL_OUTCOME_SOURCE"
+            )
+        if args.source_evidence_id != corrected_payload.get("source_evidence_id"):
+            raise SystemExit(
+                "CORRECTION_CANNOT_RELABEL_SOURCE_EVIDENCE"
+            )
     elif outcome_rows:
         raise SystemExit(
             f"OUTCOME_ALREADY_RESOLVED:{args.campaign_id}; use --corrects-evidence-id for an append-only correction"
