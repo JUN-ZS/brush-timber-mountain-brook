@@ -124,10 +124,27 @@ class StateStore:
         self._events_tail_corrupt = False
 
     def load(self) -> Dict[str, Any]:
+        events = self._read_events()
+        if self._events_tail_corrupt:
+            raise ValueError("LIVE_EVENT_TAIL_CORRUPT")
+        event_integrity = self._validate_event_chain(events)
+
         raw = {}
+        state_cache_corrupt = False
         has_disk_state = self.path.exists()
         if has_disk_state:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            try:
+                candidate = json.loads(self.path.read_text(encoding="utf-8"))
+                if isinstance(candidate, dict):
+                    raw = candidate
+                else:
+                    state_cache_corrupt = True
+            except (OSError, json.JSONDecodeError):
+                state_cache_corrupt = True
+
+        if state_cache_corrupt and not events:
+            raise ValueError("LIVE_STATE_CACHE_CORRUPT_NO_EVENT_LEDGER")
+
         state = json.loads(json.dumps(DEFAULT_STATE))
         if isinstance(raw, dict):
             state.update(raw)
@@ -148,11 +165,9 @@ class StateStore:
         state.setdefault("last_risk_score", None)
         state.setdefault("lots", [])
         state["schema_version"] = SCHEMA_VERSION
-        events = self._read_events()
-        if self._events_tail_corrupt:
-            state["events_integrity"] = "CORRUPT_TAIL"
-            raise ValueError("LIVE_EVENT_TAIL_CORRUPT")
-        state["events_integrity"] = self._validate_event_chain(events)
+        state["events_integrity"] = event_integrity
+        if state_cache_corrupt:
+            state["state_cache_integrity"] = "CORRUPT_RECOVERED_FROM_EVENTS"
         self._recover_from_events(state)
         event_lots = self._replay_strategy_lots(events)
         ticket_events_exist = any(
@@ -641,6 +656,9 @@ class StateStore:
             json.dumps(state, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
+        with tmp.open("r+b") as fh:
+            fh.flush()
+            os.fsync(fh.fileno())
         os.replace(tmp, self.path)
 
     def _append_event_unlocked(self, event: Dict[str, Any]) -> None:
