@@ -667,6 +667,8 @@ def plan(
         "signal_active": signal_active,
         "far_campaign_active": far_campaign_active,
         "market": market,
+        "market_quote_age_sec": qage,
+        "option_freshness": option_freshness,
         "far": asdict(far) if far else None,
         "near_candidate": asdict(near) if near else None,
         "candidate_actions": actions,
