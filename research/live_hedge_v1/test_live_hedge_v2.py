@@ -157,7 +157,10 @@ class LiveHedgeV2Test(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base=Path(td)
             events=base/"events.jsonl"
-            events.write_text('{"schema":"LIVE_DESK_EVENT.v2","schema_version":2,"event_id":"E1","timestamp":"2026-10-01T21:00:00+00:00","type":"TICKET_ISSUED","campaign_id":null,"payload":{},"previous_hash":"'+("0"*64)+'","event_hash":"'+("1"*64)+'"}\n{"partial":',encoding="utf-8")
+            store=StateStore(base/"state.json",events)
+            store.emit({}, "TICKET_ISSUED", now="2026-10-01T21:00:00+00:00", payload={})
+            with events.open("a", encoding="utf-8") as fh:
+                fh.write('{"partial":')
             store=StateStore(base/"state.json",events)
             checked=store.validate_events()
             self.assertEqual(checked["status"],"BLOCKED")
