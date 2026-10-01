@@ -82,6 +82,8 @@ class LiveFutuReader:
         if conn.get("status") not in {"PASS","PARTIAL"}:return {"status":"BLOCKED","connection":conn}
         try:
             q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc).isoformat()
+            normalized_timestamp=_normalize_quote_timestamp(getattr(q, "timestamp", None))
+            timestamp_ok=normalized_timestamp is not None
             order=sorted(zip(hist.get("dates") or [],hist.get("closes") or []),key=lambda z:z[0])
             dates=[x[0] for x in order]; closes=[x[1] for x in order]
             market_date=self._quote_date(getattr(q, "timestamp", None)) or date.today()
@@ -90,7 +92,7 @@ class LiveFutuReader:
             if q.last is not None and len(ref)>=252:
                 dma=sum(ref[-199:]+[q.last])/200; high=max(ref[-251:]+[q.last])
                 ext=q.last/dma-1 if dma else None; ratio=q.last/high if high else None
-                sig=bool(ratio is not None and ratio>=SIGNAL_RATIO52_GTE and ext is not None and ext>=SIGNAL_EXT200_GTE)
+                sig=bool(timestamp_ok and ratio is not None and ratio>=SIGNAL_RATIO52_GTE and ext is not None and ext>=SIGNAL_EXT200_GTE)
             cs=self.contracts(asof_date=market_date)
             # Keep the quote request practical: near-ATM calls plus the far OTM region,
             # while always including exact held/order codes for reconciliation.
@@ -99,7 +101,8 @@ class LiveFutuReader:
             codes=tradable|set(extra_codes or [])
             quotes={x.code:x.to_dict() for x in self.a.get_option_quotes(list(codes))}
             return {"status":"OK","connection":conn,
-                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":_normalize_quote_timestamp(getattr(q, "timestamp", None)),"collected_at_utc":collected_at,"source_timestamp":q.timestamp,"source":q.source,
+                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":normalized_timestamp,"collected_at_utc":collected_at,"source_timestamp":q.timestamp,"source":q.source,
+                          "market_timestamp_status":"VALID" if timestamp_ok else "INVALID_OR_MISSING",
                           "signal_active":sig,"ratio52":ratio,"ext200":ext,"history_source":hist.get("source")},
                 "contracts":[x.__dict__ for x in cs],"quotes":quotes,"source":"FUTU_OPEND_READ_ONLY"}
         finally:self.close()
