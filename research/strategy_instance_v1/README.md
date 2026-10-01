@@ -57,6 +57,14 @@ python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001
 python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action REDUCE --code US.QQQ260116C00600000 --qty 1 --price 10.25 --note "manual harvest"
 python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action SELL_FAR --code US.QQQ260116C00600000 --qty 10 --price 2.10 --note "manual far short"
 python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action BUY_BACK_FAR --code US.QQQ260116C00600000 --qty 2 --price 3.40 --note "manual far cover"
+
+For a broker fill that was observed but not safely attributable to the strategy, confirm only the quantity you have manually verified:
+
+```cmd
+python -m research.strategy_instance_v1.run_instance confirm --instance-id MY_001 --deal-id DEAL_ID --expected-strategy-side LONG --qty 1 --note "verified as strategy execution"
+```
+
+A recent strategy-ticket/code/side/time match remains evidence only. It does not create a strategy lot until the execution is uniquely provable from ownership state or explicitly confirmed by the user.
 \`\`\`
 
 The \`manual\` commands create a separate adjustable operator book. They do not alter the broker-observed \`lots\`, broker realized P&L, or broker reconciliation. This keeps USER_MANUAL input separate from Futu observations. The report shows broker-observed P&L and manual-book P&L side by side.
