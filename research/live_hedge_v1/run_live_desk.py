@@ -1221,13 +1221,7 @@ def _main_cycle(args, out_path):
         "manual_execution_only": True,
     }
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
-    tmp_out.write_text(
-        json.dumps(output, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-    os.replace(tmp_out, out_path)
+    _publish_live_output(out_path, output)
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0
 
