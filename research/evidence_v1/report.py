@@ -109,6 +109,21 @@ def main() -> int:
             attribution_by_grade["UNATTRIBUTED"] += 1
             attribution_unattributed_qty += float(payload.get("unattributed_qty") or payload.get("deal", {}).get("qty") or 0)
 
+    checkpoint_groups = defaultdict(list)
+    checkpoint_bad_scope = 0
+    for r in rows:
+        if r.get("event_type") != "FORWARD_CHECKPOINT_OBSERVED":
+            continue
+        payload = r.get("payload") or {}
+        benchmark = str(payload.get("benchmark") or "").upper()
+        horizon = payload.get("horizon_trading_days")
+        candidate_sha = str(payload.get("candidate_sha256") or "")
+        if benchmark not in {"SPY","QQQ"} or not isinstance(horizon, int) or horizon <= 0 or not candidate_sha:
+            checkpoint_bad_scope += 1
+            continue
+        key = f"{candidate_sha}|{benchmark}|{horizon}D"
+        checkpoint_groups[key].append(payload)
+
     campaign_ids = {
         r.get("campaign_id")
         for r in rows
@@ -234,6 +249,43 @@ def main() -> int:
                 if len(benchmark_groups) == 1 and not legacy_benchmarks
                 else None
             ),
+        },
+        "forward_checkpoint_observation": {
+            "records": sum(len(v) for v in checkpoint_groups.values()),
+            "bad_scope_records": checkpoint_bad_scope,
+            "status": "PASS" if checkpoint_bad_scope == 0 else "BLOCKED",
+            "groups": {
+                key: {
+                    "observations": len(values),
+                    "mean_benchmark_return": statistics.mean(
+                        float(x["benchmark_return"]) for x in values
+                    ),
+                    "median_benchmark_return": statistics.median(
+                        float(x["benchmark_return"]) for x in values
+                    ),
+                    "candidate_return_observations": sum(
+                        1 for x in values if x.get("candidate_return") is not None
+                    ),
+                    "mean_candidate_return": (
+                        statistics.mean(
+                            float(x["candidate_return"])
+                            for x in values if x.get("candidate_return") is not None
+                        )
+                        if any(x.get("candidate_return") is not None for x in values)
+                        else None
+                    ),
+                    "median_candidate_return": (
+                        statistics.median(
+                            float(x["candidate_return"])
+                            for x in values if x.get("candidate_return") is not None
+                        )
+                        if any(x.get("candidate_return") is not None for x in values)
+                        else None
+                    ),
+                }
+                for key, values in sorted(checkpoint_groups.items())
+            },
+            "scope_key": "candidate_sha256|benchmark|horizon_trading_days",
         },
         "family_observation": {
             "unique_family_members_observed": len(family_counts),
