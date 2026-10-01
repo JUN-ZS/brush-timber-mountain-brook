@@ -1,6 +1,7 @@
-from __future__ import annotations
+import argparse, hashlib, json, math, os, tempfile, threading, time
 import argparse, json, math, time
 from datetime import datetime, timezone
+from contextlib import contextmanager
 from pathlib import Path
 from .ledger import InstanceLedger, sha256_json
 from .performance_tape import build_performance_tape, classify_relationship
@@ -38,6 +39,47 @@ def sf(x):
 def si(x):
     try: return int(float(x or 0))
     except Exception: return 0
+
+
+_INSTANCE_THREAD_LOCKS = {}
+_INSTANCE_THREAD_LOCKS_GUARD = threading.Lock()
+
+def _instance_lock_path(repo, instance_id):
+    key = hashlib.sha256(
+        f"{Path(repo).resolve()}::{str(instance_id)}".encode("utf-8")
+    ).hexdigest()
+    return Path(tempfile.gettempdir()) / f"qqq-strategy-instance-{key}.lock"
+
+
+@contextmanager
+def instance_mutation_lock(repo, instance_id):
+    """Serialize one strategy-instance mutation across threads and processes."""
+    lock_path = _instance_lock_path(repo, instance_id)
+    key = str(lock_path)
+    with _INSTANCE_THREAD_LOCKS_GUARD:
+        thread_lock = _INSTANCE_THREAD_LOCKS.setdefault(key, threading.Lock())
+    with thread_lock:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as fh:
+            fh.seek(0, os.SEEK_END)
+            if fh.tell() == 0:
+                fh.write(b"0")
+                fh.flush()
+            fh.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fh.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 def idir(repo,i): return repo/ROOT/i
 def mpath(repo,i): return idir(repo,i)/"manifest.json"
@@ -270,6 +312,12 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m):
                 far_campaign_active=active,quotes_by_code=quotes,now=datetime.now(timezone.utc))
 
 def cycle(args):
+    repo = Path(args.repo_root).resolve()
+    with instance_mutation_lock(repo, args.instance_id):
+        return _cycle_unlocked(args)
+
+
+def _cycle_unlocked(args):
     repo=Path(args.repo_root).resolve(); m,s,l=load_instance(repo,args.instance_id); t=now()
     cid="CYCLE_"+t.replace(":","").replace("-","").replace(".",""); s["cycle_count"]=si(s.get("cycle_count"))+1
     try:
@@ -384,6 +432,24 @@ def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
             "matched_qty":q,"remaining_unmatched":0,"realized_pnl_preview":0.0,"lots":[]}
 
 def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None):
+    repo_path = Path(repo).resolve()
+    with instance_mutation_lock(repo_path, instance_id):
+        return _record_manual_trade_unlocked(
+            repo_path,
+            instance_id=instance_id,
+            action=action,
+            code=code,
+            qty=qty,
+            price=price,
+            lot_size=lot_size,
+            timestamp_utc=timestamp_utc,
+            trade_id=trade_id,
+            note=note,
+            strategy_context=strategy_context,
+        )
+
+
+def _record_manual_trade_unlocked(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None):
     m,s,l=load_instance(Path(repo).resolve(),instance_id)
     t=timestamp_utc or now(); action=str(action).upper(); code=str(code).strip().upper()
     if not code.startswith("US.QQQ") or code=="US.QQQ":
