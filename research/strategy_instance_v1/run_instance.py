@@ -487,7 +487,12 @@ def report(a):
          "start_at_utc":m.get("start_at_utc"),"created_at_utc":m.get("created_at_utc"),"manifest_hash":m.get("manifest_hash"),
          "records":len(rows),"event_counts":counts,"cycle_count":s.get("cycle_count"),"realized_pnl_gross":s.get("realized_pnl"),"manual_book":{"realized_pnl":s.get("manual_realized_pnl",0.0),"unrealized_pnl":((s.get("manual_last_mark") or {}).get("unrealized_pnl") if (s.get("manual_last_mark") or {}).get("status")=="OK" else None),"total_pnl":(sf(s.get("manual_realized_pnl"))+sf((s.get("manual_last_mark") or {}).get("unrealized_pnl"))) if (s.get("manual_last_mark") or {}).get("status")=="OK" else None,"trade_count":s.get("manual_trade_count",0),"mark_status":(s.get("manual_last_mark") or {}).get("status"),"positions":manual_position_snapshot(s.get("manual_lots",[]))},
          "last_reconcile":s.get("last_reconcile"),"data_gaps_total":s.get("data_gaps"),"open_lots":[x for x in s.get("lots",[]) if x.get("status","OPEN")=="OPEN" and si(x.get("qty"))>0],
-         "ledger_head_hash":l.validate()["head_hash"],"rule":"Descriptive only; no strategy retuning or performance prediction."}
+         "ledger_head_hash":l.validate()["head_hash"],
+         "performance_tape":build_performance_tape(
+             [r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")}
+              for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"]
+         ),
+         "rule":"Descriptive only; no strategy retuning or performance prediction."}
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
 def verify(a):
