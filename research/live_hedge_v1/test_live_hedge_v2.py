@@ -660,6 +660,96 @@ class LiveHedgeV2Test(unittest.TestCase):
         )
 
 
+    def test_live_state_publisher_writes_valid_json_atomically(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "live_state.json"
+            _publish_live_output(out, {"status": "HOLD", "manual_execution_only": True})
+            self.assertEqual(json.loads(out.read_text(encoding="utf-8"))["status"], "HOLD")
+            self.assertFalse((Path(str(out) + ".tmp")).exists())
+
+    def test_near_ownership_ignores_short_strategy_lots(self):
+        market = {
+            "source": "LIVE QUOTE",
+            "timestamp": now_iso(),
+            "spot": 500.0,
+            "signal_active": True,
+        }
+        far = Contract(
+            "US.QQQ260116C00600000", "CALL", 600.0, "2026-01-16", 100,
+            2.0, 2.5, 0.08, 0.01,
+        )
+        near = Contract(
+            "US.QQQ261030C00500000", "CALL", 500.0, "2026-10-30", 30,
+            8.0, 8.5, 0.50, 0.03,
+        )
+        positions = [
+            Position("US.QQQ260116C00600000", "SHORT", 10, 2.0, 600, "2026-01-16", 100),
+            Position("US.QQQ261003C00500000", "LONG", 5, 4.0, 500, "2026-10-03", 2),
+        ]
+        out = plan(
+            market=market, far=far, near=near, positions=positions, orders=[],
+            signal_active=True, far_campaign_active=True,
+            quotes_by_code={
+                "US.QQQ261003C00500000": {"bid": 7.0},
+                "US.QQQ260116C00600000": {"bid": 2.0, "ask": 2.5},
+            },
+            previous_far_delta_abs=0.08,
+            near_lots=[{
+                "lot_id": "FAR-SAME-CODE",
+                "code": "US.QQQ261003C00500000",
+                "side": "SHORT",
+                "qty": 5,
+                "status": "OPEN",
+            }],
+        )
+        self.assertEqual(out["status"], "BLOCKED_NEAR_OWNERSHIP_MISMATCH")
+        self.assertEqual(
+            out["near_ownership_mismatches"]["US.QQQ261003C00500000"]["tracked_lot_qty"],
+            0,
+        )
+
+    def test_stale_partial_order_uses_remaining_quantity(self):
+        market = {
+            "source": "LIVE QUOTE",
+            "timestamp": now_iso(),
+            "spot": 500.0,
+            "signal_active": True,
+        }
+        far = Contract(
+            "US.QQQ260116C00600000", "CALL", 600.0, "2026-01-16", 100,
+            2.0, 2.5, 0.08, 0.01,
+        )
+        near = Contract(
+            "US.QQQ261030C00500000", "CALL", 500.0, "2026-10-30", 30,
+            8.0, 8.5, 0.50, 0.03,
+        )
+        stale = Order(
+            "O-PARTIAL", "US.QQQ261030C00500000", "BUY", 10, 8.5, "SUBMITTED",
+            "2026-10-01T00:00:00+00:00",
+            "2026-10-01T00:00:00+00:00",
+            dealt_qty=7,
+            dealt_avg_price=8.4,
+        )
+        out = plan(
+            market=market, far=far, near=near,
+            positions=[
+                Position("US.QQQ260116C00600000", "SHORT", 10, 2.0, 600, "2026-01-16", 100),
+            ],
+            orders=[stale],
+            signal_active=True, far_campaign_active=True,
+            quotes_by_code={
+                "US.QQQ260116C00600000": {"bid": 2.0, "ask": 2.5},
+                "US.QQQ261030C00500000": {"bid": 8.0, "ask": 8.5},
+            },
+            previous_far_delta_abs=0.08,
+            near_lots=[],
+            now=datetime.fromisoformat("2026-10-01T00:05:00+00:00"),
+        )
+        reprice = next(x for x in out["candidate_actions"] if x["action"] == "REPRICE_OR_CANCEL")
+        self.assertEqual(reprice["qty"], 3)
+
 class GammaHistoryMigrationTests(unittest.TestCase):
     """Legacy raw |γ| must not mix with gamma_spot; schema markers gate warm-up."""
 
