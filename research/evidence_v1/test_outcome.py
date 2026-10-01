@@ -72,6 +72,47 @@ class OutcomeTests(unittest.TestCase):
                 finally:
                     sys.argv = argv
 
+    def test_outcome_rejects_cross_lineage_anchor(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            ledger, _ = _seed_campaign(repo)
+            # Rebuild the anchor as a second lineage only for this test.
+            ledger.append(
+                "CYCLE_STARTED",
+                cycle_id="CROSS",
+                campaign_id="CROSS",
+                timestamp_utc="2026-10-01T20:01:00+00:00",
+                payload={},
+            )
+            anchor = ledger.append(
+                "DECISION_EMITTED",
+                cycle_id="CROSS",
+                campaign_id="CROSS",
+                timestamp_utc="2026-10-01T20:01:01+00:00",
+                payload={"candidate_actions":[], "candidate_journal":[], "primary":None,
+                         "contract":"AS_EMITTED_THEN_POSTHOC"},
+            )
+            rows = ledger.rows()
+            # Replace only the anchor identity in a controlled malformed ledger
+            # would invalidate its record hash; instead mock the runtime lineage.
+            cross_runtime = dict(RUNTIME_IDENTITY)
+            cross_runtime["research_engine_commit"] = "ENG2"
+            with patch.object(outcome, "runtime_identity", lambda repo_root: cross_runtime):
+                argv = sys.argv
+                try:
+                    sys.argv = [
+                        "outcome.py", "--repo-root", str(repo),
+                        "--campaign-id", "CROSS",
+                        "--anchor-evidence-id", anchor["evidence_id"],
+                        "--realized-pnl", "1",
+                    ]
+                    with self.assertRaises(SystemExit) as exc:
+                        outcome.main()
+                    self.assertIn("OUTCOME_ANCHOR_LINEAGE_MISMATCH:research_engine_commit", str(exc.exception))
+                finally:
+                    sys.argv = argv
+
+
     def test_valid_benchmark_outcome_persists_benchmark_and_horizon(self):
         with tempfile.TemporaryDirectory() as td:
             repo = Path(td)
