@@ -38,6 +38,7 @@ def explicit_strategy_context(body):
         return {}
     return {
         "ticket_id":raw.get("ticket_id"),
+        "strategy_instance_id":instance_id,
         "action":raw.get("action"),
         "strategy_leg_action":leg.get("strategy_leg_action") or leg.get("why"),
         "direction":leg.get("direction"),
