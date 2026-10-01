@@ -227,10 +227,12 @@ class StateStore:
             hashed_seen = True
         if hashed_seen and legacy_seen:
             return "MIXED_LEGACY_HASHED"
+        if hashed_seen and legacy_seen:
+            return "HASHED_WITH_LEGACY_UNVERIFIED_PREFIX"
         if hashed_seen:
             return "HASHED"
         if legacy_seen:
-            return "LEGACY_UNHASHED"
+            return "LEGACY_UNVERIFIED"
         return "EMPTY"
 
     def validate_events(self) -> Dict[str, Any]:
