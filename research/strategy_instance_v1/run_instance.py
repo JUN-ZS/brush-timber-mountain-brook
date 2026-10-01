@@ -460,7 +460,8 @@ def instance_summary(repo, instance_id):
         "recent_manual_trades":[r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")} for r in recent],
         "performance_tape":build_performance_tape(
             [r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")}
-             for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"]
+             for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"],
+            baseline_lots=init_lots(m),
         ),
         "ledger_head_hash":l.validate()["head_hash"],
     }
@@ -490,7 +491,8 @@ def report(a):
          "ledger_head_hash":l.validate()["head_hash"],
          "performance_tape":build_performance_tape(
              [r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")}
-              for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"]
+              for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"],
+             baseline_lots=init_lots(m),
          ),
          "rule":"Descriptive only; no strategy retuning or performance prediction."}
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
