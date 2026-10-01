@@ -30,6 +30,7 @@ jobs:
       - name: Compile
         shell: bash
         run: |
+          python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('backtest').glob('*.py') if p.name != '__init__.py']"
           python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
       - name: Unit tests
         shell: bash
