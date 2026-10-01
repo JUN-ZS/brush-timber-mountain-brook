@@ -1059,8 +1059,7 @@ def _cycle_unlocked(args):
         if is_qqq_option_code(d.get("code","")):
             d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100
             deal_time=dt(d.get("created_at"))
-            created_time=dt(m["created_at_utc"])
-            if deal_time is None or economic_t0 is None or deal_time < economic_t0:
+            if deal_time is None or economic_t0 is None:
                 continue
             if deal_time <= economic_t0:
                 pre_instance.append(d)
