@@ -15,6 +15,7 @@ from .run_instance import (
     instance_summary,
     list_instances,
     load_instance,
+    dt,
     manual_book_pnl_preview,
     record_manual_trade,
 )
@@ -51,13 +52,13 @@ def explicit_strategy_context(repo, body):
         raise ValueError("STRATEGY_CONTEXT_NOT_VERIFIABLE")
 
     manifest, _, _ = load_instance(Path(repo), instance_id)
-    instance_created = str(manifest.get("created_at_utc") or "")
-    instance_start = str(manifest.get("start_at_utc") or "")
-    instance_floor = max(
-        [x for x in (instance_created, instance_start) if x],
-        key=lambda x: str(x),
-        default="",
-    )
+    instance_times = [
+        z for z in (
+            dt(manifest.get("created_at_utc")),
+            dt(manifest.get("start_at_utc")),
+        ) if z is not None
+    ]
+    instance_floor_dt = max(instance_times) if instance_times else None
     ledger = EvidenceLedger(Path(repo) / "research/evidence_v1/evidence.jsonl")
     matching = []
     for row in ledger.rows():
@@ -66,10 +67,10 @@ def explicit_strategy_context(repo, body):
         row_instance_id = str(row.get("instance_id") or "").strip()
         if row_instance_id and row_instance_id != instance_id:
             continue
-        decision_ts = str(row.get("timestamp_utc") or "")
-        if instance_floor and (
-            not decision_ts
-            or decision_ts < instance_floor
+        decision_dt = dt(row.get("timestamp_utc"))
+        if instance_floor_dt is not None and (
+            decision_dt is None
+            or decision_dt < instance_floor_dt
         ):
             continue
         ticket = (row.get("payload") or {}).get("ticket")
