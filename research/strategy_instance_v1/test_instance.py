@@ -366,6 +366,58 @@ def test_instance_strategy_lineage_rejects_missing_runtime_lock_fields():
         ri.runtime_identity=original
 
 
+def test_operator_ticket_context_rejects_future_ticket_for_backdated_trade():
+    import json
+    import tempfile
+    from .serve_operator import explicit_strategy_context
+    from .ledger import InstanceLedger, sha256_json
+
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td)
+        iid="I-FUTURE-TICKET"
+        d=repo/"research/strategy_instance_v1/instances"/iid
+        d.mkdir(parents=True)
+        manifest={
+            "schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+            "instance_id":iid,"created_at_utc":"2026-10-01T20:00:00+00:00",
+            "start_at_utc":"2026-10-01T20:00:00+00:00",
+            "strategy_id":"S1","strategy_version":"V1",
+            "research_engine_commit":"ENG1","strategy_lock_hash":"LOCK1",
+            "initial_positions":[],
+        }
+        manifest["manifest_hash"]=sha256_json(manifest)
+        (d/"manifest.json").write_text(json.dumps(manifest),encoding="utf-8")
+        ledger=InstanceLedger(d/"ledger.jsonl",{
+            "instance_id":iid,"manifest_hash":manifest["manifest_hash"],
+            "strategy_id":"S1","strategy_version":"V1","research_engine_commit":"ENG1",
+        })
+        ticket={
+            "ticket_id":"T-FUTURE","action":"ADD_NEAR","status":"OPEN",
+            "legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":1}],
+        }
+        ledger.append(
+            "DECISION_EMITTED",instance_id=iid,cycle_id="C2",
+            timestamp_utc="2026-10-02T10:00:00+00:00",
+            payload={"ticket":ticket},
+        )
+        body={
+            "instance_id":iid,
+            "timestamp_utc":"2026-10-02T09:00:00+00:00",
+            "strategy_context_snapshot":{
+                "instance_id":iid,"ticket_id":"T-FUTURE",
+                "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+                "action":"ADD_NEAR","status":"OPEN",
+                "leg":ticket["legs"][0],
+            },
+        }
+        try:
+            explicit_strategy_context(repo,body)
+        except ValueError as exc:
+            assert str(exc)=="STRATEGY_CONTEXT_TICKET_NOT_VERIFIED"
+        else:
+            raise AssertionError("future ticket was used for a backdated trade")
+
+
 def test_operator_ticket_context_rejects_missing_lineage_identity():
     from .serve_operator import explicit_strategy_context
     # A real instance manifest must not bind to evidence that omits any
