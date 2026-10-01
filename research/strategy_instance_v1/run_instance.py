@@ -1278,17 +1278,6 @@ def _detected_qty_for_deal(rows,deal_id):
     return total
 
 
-def _detected_qty_for_deal(rows,deal_id):
-    total=0
-    for row in rows or []:
-        if str(row.get("event_type") or "").upper()!="EXECUTION_DETECTED":
-            continue
-        deal=(row.get("payload") or {}).get("deal") or {}
-        if str(deal.get("deal_id") or "")==str(deal_id):
-            total += si(deal.get("qty"))
-    return total
-
-
 def _confirmed_qty_for_deal(rows,deal_id):
     total=0
     for row in rows or []:
