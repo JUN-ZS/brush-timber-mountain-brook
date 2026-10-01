@@ -22,7 +22,7 @@ from .campaign import (
     reconcile_ticket,
     transition_for_action,
 )
-from .engine import Contract, Order, Position, plan, select_far, select_near
+from .engine import N_SHORT, Contract, Order, Position, plan, select_far, select_near
 from .futu_reader import LiveFutuReader
 from .futu_trade_reader import FutuTradeReader
 from .state import StateStore
@@ -358,7 +358,7 @@ def _strategy_position_analysis(positions, market, far, near, risk_state, contra
         and spot > 0
         and p.strike <= spot * 1.01
         and p.dte is not None
-        and 7 <= int(p.dte) <= 35
+        and 0 <= int(p.dte) <= 35
     ]
     desired_near = _safe_int(risk_state.get("desired_stack")) if risk_state else None
     actual_far = sum(_safe_int(p.qty) for p in far_shorts)
