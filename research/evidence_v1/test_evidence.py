@@ -11,6 +11,81 @@ from research.evidence_v1.ledger import EvidenceLedger, LedgerError, sha256_json
 from research.live_hedge_v1.engine import Contract
 
 
+def test_strict_decision_preserves_candidate_journal_hash_and_index():
+    from .ledger import EvidenceLedger, LedgerError
+
+    with tempfile.TemporaryDirectory() as td:
+        ledger = EvidenceLedger(Path(td) / "evidence.jsonl", identity={"strategy_id":"TEST"})
+        actions=[
+            {"action":"ADD_NEAR","code":"US.QQQ.TEST","qty":2,"price":8.5},
+            {"action":"REDUCE_NEAR","code":"US.QQQ.TEST","qty":1,"price":12.0},
+        ]
+        journal=[{
+            "candidate_index":0,
+            "candidate_sha256":sha256_json(actions[0]),
+            "raw_candidate":actions[0],
+            "decision_rank":1,
+            "priority_rank":1,
+        }]
+        ledger.append(
+            "CYCLE_STARTED",cycle_id="C1",timestamp_utc="2026-10-01T21:00:00+00:00",
+            payload={"x":1},
+        )
+        ledger.append(
+            "PRE_DECISION_OBSERVATION",cycle_id="C1",timestamp_utc="2026-10-01T21:00:01+00:00",
+            payload={"x":1},
+        )
+        ledger.append(
+            "DECISION_EMITTED",cycle_id="C1",timestamp_utc="2026-10-01T21:00:02+00:00",
+            payload={
+                "contract":"AS_EMITTED_THEN_POSTHOC",
+                "candidate_actions":actions,
+                "candidate_journal":journal,
+                "primary":actions[0],
+            },
+        )
+        assert ledger.validate()["valid"]
+
+
+def test_strict_decision_rejects_candidate_journal_digest_mismatch():
+    from .ledger import EvidenceLedger, LedgerError
+
+    with tempfile.TemporaryDirectory() as td:
+        ledger = EvidenceLedger(Path(td) / "evidence.jsonl", identity={"strategy_id":"TEST"})
+        actions=[{"action":"ADD_NEAR","code":"US.QQQ.TEST","qty":2}]
+        ledger.append("CYCLE_STARTED",cycle_id="C1",timestamp_utc="2026-10-01T21:00:00+00:00",payload={})
+        ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",timestamp_utc="2026-10-01T21:00:01+00:00",payload={})
+        # Construct a malformed row directly so validation, not append, is tested.
+        import json
+        path=Path(td)/"evidence.jsonl"
+        row={
+            "schema":"STRATEGY_EVIDENCE.v1","schema_version":1,"evidence_seq":3,
+            "evidence_id":"EV-3","cycle_id":"C1","campaign_id":None,"instance_id":None,
+            "timestamp_utc":"2026-10-01T21:00:02+00:00","event_type":"DECISION_EMITTED",
+            "evidence_grade":"PROSPECTIVE_OBSERVED","identity":{"strategy_id":"TEST"},
+            "previous_hash":ledger.last()["record_hash"],
+            "payload":{
+                "contract":"AS_EMITTED_THEN_POSTHOC",
+                "candidate_actions":actions,
+                "candidate_journal":[{
+                    "candidate_index":0,
+                    "candidate_sha256":"bad",
+                    "raw_candidate":actions[0],
+                }],
+                "primary":actions[0],
+            },
+        }
+        row["record_hash"]=sha256_json(row)
+        with path.open("a",encoding="utf-8") as fh:
+            fh.write(canonical_json(row)+"\n")
+        try:
+            ledger.validate()
+        except LedgerError as exc:
+            assert "LEDGER_CANDIDATE_DIGEST_MISMATCH" in str(exc)
+        else:
+            raise AssertionError("candidate journal digest mismatch was accepted")
+
+
 def test_evidence_ledger_concurrent_appends():
     import threading
     with tempfile.TemporaryDirectory() as td:
