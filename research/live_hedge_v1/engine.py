@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from math import ceil
-from typing import Any, Optional
+from statistics import median
+from typing import Any, Optional, Sequence
 
 from .campaign import is_qqq_option_code
 
@@ -30,6 +31,7 @@ class Contract:
     gamma: Optional[float]
     iv: Optional[float] = None
     lot_size: int = 100
+    volume: Optional[float] = None
 
     @property
     def mid(self):
@@ -86,12 +88,110 @@ def quote_age_sec(s, now=None, naive_is_local=False):
     return max(0, (now - t).total_seconds())
 
 
+def gamma_baseline_from_history(history: Sequence[float]) -> Optional[float]:
+    """Match research: shift(1).rolling(20, min_periods=5).median() on gamma_spot.
+
+    Call with history that does NOT yet include the current bar (shift-1 semantics).
+    Values in history should be gamma_spot = abs(gamma) * spot.
+    """
+    hist = list(history or [])
+    if len(hist) < 5:
+        return None
+    window = hist[-20:]
+    return float(median(window))
+
+
+
+# Persisted gamma_history must be gamma_spot only (never mix with legacy raw |γ|).
+GAMMA_HISTORY_SCHEMA = 2
+GAMMA_HISTORY_UNIT = "gamma_spot"
+
+
+def gamma_history_looks_like_raw_abs(
+    history: Sequence[float],
+    spot: Optional[float] = None,
+) -> bool:
+    """Heuristic: legacy warm-up stored abs(gamma); current unit is abs(gamma)*spot."""
+    vals: list[float] = []
+    for v in history or []:
+        try:
+            fv = float(v)
+        except (TypeError, ValueError):
+            continue
+        if fv != fv:  # NaN
+            continue
+        vals.append(abs(fv))
+    if not vals:
+        return False
+    mx = max(vals)
+    if spot is not None:
+        try:
+            s = float(spot)
+        except (TypeError, ValueError):
+            s = 0.0
+        if s > 0:
+            # Raw |γ| << spot; gamma_spot is typically O(spot * 1e-3 .. 1e-1+).
+            # If every observation is below spot*1e-3, treat as legacy raw |γ|.
+            return mx < s * 1e-3
+    # Without spot: equity-option |γ| almost never exceeds ~0.05 in warm-up;
+    # gamma_spot for QQQ frequently does.
+    return mx < 0.05
+
+
+def ensure_gamma_history_schema(
+    state: dict,
+    *,
+    spot: Optional[float] = None,
+) -> list[float]:
+    """Ensure gamma_history is gamma_spot-only with explicit schema markers.
+
+    If state lacks gamma_history_schema==2 / gamma_history_unit=="gamma_spot",
+    or values look like legacy raw abs(gamma), discard warm-up history and stamp
+    schema markers. Fresh baseline requires >=5 new observations via
+    gamma_baseline_from_history (median of last 20, prior-observation / shift-1).
+    Mutates state in place; returns the (possibly empty) history list.
+    """
+    schema = state.get("gamma_history_schema")
+    unit = state.get("gamma_history_unit")
+    hist: list[float] = []
+    for v in state.get("gamma_history") or []:
+        try:
+            fv = float(v)
+        except (TypeError, ValueError):
+            continue
+        if fv != fv:  # NaN
+            continue
+        hist.append(fv)
+
+    markers_ok = schema == GAMMA_HISTORY_SCHEMA and unit == GAMMA_HISTORY_UNIT
+    scale_bad = bool(hist) and gamma_history_looks_like_raw_abs(hist, spot)
+    if (not markers_ok) or scale_bad:
+        hist = []
+        state["gamma_history"] = hist
+        state["gamma_history_reset_reason"] = (
+            "missing_or_wrong_markers" if not markers_ok else "values_look_like_raw_abs_gamma"
+        )
+    else:
+        hist = hist[-20:]
+        state["gamma_history"] = hist
+        state.pop("gamma_history_reset_reason", None)
+
+    state["gamma_history_schema"] = GAMMA_HISTORY_SCHEMA
+    state["gamma_history_unit"] = GAMMA_HISTORY_UNIT
+    return hist
+
+
 def risk_state(far, spot, gamma_baseline=None, prev_delta=None):
     da = abs(float(far.delta or 0))
     dist = (far.strike - spot) / spot if spot > 0 else 0
     ds = 1 if da < 0.04 else 2 if da < 0.06 else 3 if da < 0.08 else 4 if da < 0.10 else 5
     xs = 1 if dist > 0.10 else 2 if dist > 0.07 else 3 if dist > 0.04 else 4 if dist > 0.02 else 5
-    gr = 1.0 if not gamma_baseline or not far.gamma else abs(float(far.gamma)) / gamma_baseline
+    # gamma_rel uses gamma_spot / baseline (research parity); baseline is median of prior gamma_spot.
+    if gamma_baseline and far.gamma is not None:
+        gamma_spot = abs(float(far.gamma)) * float(spot)
+        gr = gamma_spot / gamma_baseline if gamma_baseline else 1.0
+    else:
+        gr = 1.0
     dj = 0 if prev_delta is None else abs(da - prev_delta)
     gs = 1 if gr < 1.20 and dj < 0.01 else 2 if gr < 1.50 and dj < 0.02 else 3
     score = 0.50 * ds + 0.30 * xs + 0.20 * gs
@@ -113,7 +213,17 @@ def risk_state(far, spot, gamma_baseline=None, prev_delta=None):
     }
 
 
+def _volume_or_zero(c) -> float:
+    try:
+        if c.volume is None:
+            return 0.0
+        return float(c.volume)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def select_far(cs, spot, dte_target, delta_target):
+    """Two-stage far selection matching research pick_far."""
     xs = [
         c for c in cs
         if c.right == "CALL"
@@ -122,29 +232,70 @@ def select_far(cs, spot, dte_target, delta_target):
         and c.bid is not None
         and c.ask is not None
         and c.ask >= c.bid
+        and c.bid >= 0
         and c.delta is not None
     ]
     if not xs:
         return None
-    xs.sort(key=lambda c: (abs(c.dte - dte_target), abs(abs(c.delta) - delta_target), c.strike))
-    return xs[0]
+    by_exp: dict[str, list] = {}
+    for c in xs:
+        by_exp.setdefault(c.expiry, []).append(c)
+
+    def exp_sort_key(exp: str):
+        group = by_exp[exp]
+        dte = group[0].dte
+        vol = sum(_volume_or_zero(c) for c in group)
+        return (abs(dte - dte_target), -vol)
+
+    best_exp = min(by_exp.keys(), key=exp_sort_key)
+    z = list(by_exp[best_exp])
+    z.sort(
+        key=lambda c: (
+            abs(abs(c.delta) - delta_target),
+            -_volume_or_zero(c),
+            c.strike,
+        )
+    )
+    return z[0]
 
 
 def select_near(cs, spot, dte_target):
+    """Two-stage near selection matching research pick_near (1.02 pool then 1.01)."""
     xs = [
         c for c in cs
         if c.right == "CALL"
-        and c.strike <= spot * 1.01
+        and c.strike <= spot * 1.02
         and 7 <= c.dte <= 35
         and c.bid is not None
         and c.ask is not None
         and c.ask >= c.bid
+        and c.bid >= 0
         and c.delta is not None
     ]
     if not xs:
         return None
-    xs.sort(key=lambda c: (abs(c.dte - dte_target), abs(abs(c.delta) - LONG_DELTA), c.strike))
-    return xs[0]
+    by_exp: dict[str, list] = {}
+    for c in xs:
+        by_exp.setdefault(c.expiry, []).append(c)
+
+    def exp_sort_key(exp: str):
+        group = by_exp[exp]
+        dte = group[0].dte
+        vol = sum(_volume_or_zero(c) for c in group)
+        return (abs(dte - dte_target), -vol)
+
+    best_exp = min(by_exp.keys(), key=exp_sort_key)
+    z = [c for c in by_exp[best_exp] if c.strike <= spot * 1.01]
+    if not z:
+        return None
+    z.sort(
+        key=lambda c: (
+            abs(abs(c.delta) - LONG_DELTA),
+            -_volume_or_zero(c),
+            c.strike,
+        )
+    )
+    return z[0]
 
 
 def plan(

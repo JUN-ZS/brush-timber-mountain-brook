@@ -11,7 +11,17 @@ from research.live_hedge_v1.campaign import (
     position_snapshot,
     reconcile_ticket,
 )
-from research.live_hedge_v1.engine import Contract, Order, Position, plan, quote_age_sec
+from research.live_hedge_v1.engine import (
+    Contract,
+    Order,
+    Position,
+    GAMMA_HISTORY_SCHEMA,
+    GAMMA_HISTORY_UNIT,
+    ensure_gamma_history_schema,
+    gamma_baseline_from_history,
+    plan,
+    quote_age_sec,
+)
 from research.live_hedge_v1.run_live_desk import _ticket_baseline_positions
 
 
@@ -448,6 +458,95 @@ class LiveHedgeV2Test(unittest.TestCase):
         age = quote_age_sec("2026-10-01 00:00:00", datetime.now(timezone.utc), naive_is_local=True)
         self.assertIsNotNone(age)
 
+
+
+
+class GammaHistoryMigrationTests(unittest.TestCase):
+    """Legacy raw |γ| must not mix with gamma_spot; schema markers gate warm-up."""
+
+    def test_old_schema_resets_history(self):
+        state = {
+            "gamma_history": [0.01, 0.012, 0.011, 0.015, 0.02, 0.018],
+            "gamma_history_schema": 1,
+            "gamma_history_unit": "raw_abs_gamma",
+        }
+        hist = ensure_gamma_history_schema(state, spot=500.0)
+        self.assertEqual(hist, [])
+        self.assertEqual(state["gamma_history"], [])
+        self.assertEqual(state["gamma_history_schema"], GAMMA_HISTORY_SCHEMA)
+        self.assertEqual(state["gamma_history_unit"], GAMMA_HISTORY_UNIT)
+        self.assertEqual(state.get("gamma_history_reset_reason"), "missing_or_wrong_markers")
+        self.assertIsNone(gamma_baseline_from_history(hist))
+
+    def test_schema2_gamma_spot_keeps_history(self):
+        vals = [5.0, 5.2, 4.8, 5.1, 5.3, 5.0]
+        state = {
+            "gamma_history": list(vals),
+            "gamma_history_schema": 2,
+            "gamma_history_unit": "gamma_spot",
+        }
+        hist = ensure_gamma_history_schema(state, spot=500.0)
+        self.assertEqual(hist, vals)
+        self.assertIsNone(state.get("gamma_history_reset_reason"))
+        self.assertIsNotNone(gamma_baseline_from_history(hist))
+        self.assertAlmostEqual(gamma_baseline_from_history(hist), 5.05, places=6)
+
+    def test_missing_unit_resets_even_if_schema2(self):
+        state = {
+            "gamma_history": [5.0, 5.2, 4.8, 5.1, 5.3],
+            "gamma_history_schema": 2,
+        }
+        hist = ensure_gamma_history_schema(state, spot=500.0)
+        self.assertEqual(hist, [])
+        self.assertEqual(state["gamma_history_unit"], GAMMA_HISTORY_UNIT)
+        self.assertEqual(state.get("gamma_history_reset_reason"), "missing_or_wrong_markers")
+
+    def test_mixed_or_wrong_unit_resets(self):
+        state = {
+            "gamma_history": [0.01, 5.0, 0.02],
+            "gamma_history_schema": 2,
+            "gamma_history_unit": "abs_gamma",
+        }
+        hist = ensure_gamma_history_schema(state, spot=500.0)
+        self.assertEqual(hist, [])
+        self.assertEqual(state["gamma_history_schema"], 2)
+        self.assertEqual(state["gamma_history_unit"], "gamma_spot")
+
+    def test_fresh_baseline_only_after_five_observations(self):
+        state = {
+            "gamma_history": [0.01, 0.012, 0.011, 0.015, 0.02],
+            # no schema markers -> legacy reset
+        }
+        ensure_gamma_history_schema(state, spot=500.0)
+        self.assertEqual(state["gamma_history"], [])
+        for i in range(4):
+            state["gamma_history"].append(4.0 + 0.1 * i)
+            self.assertIsNone(
+                gamma_baseline_from_history(state["gamma_history"]),
+                msg=f"baseline must stay None while fresh_count={i+1} < 5",
+            )
+        state["gamma_history"].append(4.5)
+        base = gamma_baseline_from_history(state["gamma_history"])
+        self.assertIsNotNone(base)
+        self.assertAlmostEqual(base, 4.2, places=6)
+
+
+    def test_schema2_gamma_spot_but_raw_scale_resets(self):
+        state = {
+            "gamma_history": [0.01, 0.012, 0.011, 0.015, 0.02],
+            "gamma_history_schema": 2,
+            "gamma_history_unit": "gamma_spot",
+        }
+        hist = ensure_gamma_history_schema(state, spot=500.0)
+
+        self.assertEqual(hist, [])
+        self.assertEqual(state["gamma_history"], [])
+        self.assertEqual(state["gamma_history_schema"], 2)
+        self.assertEqual(state["gamma_history_unit"], "gamma_spot")
+        self.assertEqual(
+            state.get("gamma_history_reset_reason"),
+            "values_look_like_raw_abs_gamma",
+        )
 
 if __name__ == "__main__":
     unittest.main()

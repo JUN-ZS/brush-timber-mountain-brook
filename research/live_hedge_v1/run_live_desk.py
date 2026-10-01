@@ -22,7 +22,18 @@ from .campaign import (
     reconcile_ticket,
     transition_for_action,
 )
-from .engine import Contract, Order, Position, plan, select_far, select_near
+from .engine import (
+    Contract,
+    Order,
+    Position,
+    GAMMA_HISTORY_SCHEMA,
+    GAMMA_HISTORY_UNIT,
+    ensure_gamma_history_schema,
+    gamma_baseline_from_history,
+    plan,
+    select_far,
+    select_near,
+)
 from .futu_reader import LiveFutuReader
 from .futu_trade_reader import FutuTradeReader
 from .state import StateStore
@@ -45,7 +56,44 @@ def C(x):
         delta=x.get("delta"),
         gamma=x.get("gamma"),
         iv=x.get("iv"),
+        lot_size=int(x.get("lot_size") or 100),
+        volume=x.get("volume"),
     )
+
+
+def _enrich_contracts_from_quotes(contracts, quotes):
+    """Merge live quote fields (incl. volume) onto chain contracts used by selectors."""
+    quotes = quotes or {}
+    out = []
+    for c in contracts:
+        q = quotes.get(c.code) or {}
+        bid = q.get("bid", c.bid)
+        ask = q.get("ask", c.ask)
+        delta = q.get("delta", c.delta)
+        gamma = q.get("gamma", c.gamma)
+        iv = q.get("iv", c.iv)
+        volume = q.get("volume", c.volume)
+        if q.get("dte") is not None:
+            dte = int(q.get("dte"))
+        else:
+            dte = c.dte
+        out.append(
+            Contract(
+                code=c.code,
+                right=c.right,
+                strike=float(q.get("strike", c.strike) if q.get("strike") is not None else c.strike),
+                expiry=str(q.get("expiry") or c.expiry),
+                dte=dte,
+                bid=bid,
+                ask=ask,
+                delta=delta,
+                gamma=gamma,
+                iv=iv,
+                lot_size=c.lot_size,
+                volume=volume,
+            )
+        )
+    return out
 
 
 def _now() -> str:
@@ -488,8 +536,11 @@ def main():
         return 2
 
     market = snap["market"]
-    contracts = [C(x) for x in snap["contracts"]]
     quotes = snap.get("quotes", {})
+    contracts = _enrich_contracts_from_quotes(
+        [C(x) for x in snap["contracts"]],
+        quotes,
+    )
     by = {c.code: c for c in contracts}
 
     positions = []
@@ -612,6 +663,7 @@ def main():
                 z.get("delta"),
                 z.get("gamma"),
                 z.get("iv"),
+                volume=z.get("volume"),
             )
 
     if far is None and campaign.get("state") == STATE_IDLE and not qqq_shorts:
@@ -636,6 +688,7 @@ def main():
                 z.get("delta"),
                 z.get("gamma"),
                 z.get("iv"),
+                volume=z.get("volume"),
             )
 
     near = select_near(
@@ -656,6 +709,7 @@ def main():
             z.get("delta"),
             z.get("gamma"),
             z.get("iv"),
+            volume=z.get("volume", near.volume),
         )
 
     acct_orders = [
@@ -775,11 +829,11 @@ def main():
         campaign.get("state") == STATE_IDLE and bool(qqq_shorts)
     )
 
-    gamma_history = state.get("gamma_history") or []
-    gamma_baseline = (
-        sum(gamma_history[-20:]) / len(gamma_history[-20:])
-        if len(gamma_history) >= 3 else None
-    )
+    # Migrate/reset legacy raw |γ| history before baseline; stamp gamma_spot schema markers.
+    gamma_history = ensure_gamma_history_schema(state, spot=market.get("spot"))
+    # Research parity: median of prior gamma_spot window (shift-1 / rolling20 / min5).
+    # After reset, baseline stays None until fresh_count (=len(history)) >= 5.
+    gamma_baseline = gamma_baseline_from_history(gamma_history)
     previous_delta = state.get("far_delta")
 
     family_observation = build_family_snapshot(
@@ -924,10 +978,13 @@ def main():
         state["far_code"] = far.code
         if far.delta is not None:
             state["far_delta"] = abs(float(far.delta))
-        if far.gamma is not None:
+        if far.gamma is not None and market.get("spot") is not None:
             hist = state.setdefault("gamma_history", [])
-            hist.append(abs(float(far.gamma)))
+            # Store gamma_spot = abs(gamma)*spot (research parity), not raw abs(gamma).
+            hist.append(abs(float(far.gamma)) * float(market["spot"]))
             state["gamma_history"] = hist[-20:]
+            state["gamma_history_schema"] = GAMMA_HISTORY_SCHEMA
+            state["gamma_history_unit"] = GAMMA_HISTORY_UNIT
 
     if p.get("risk_state"):
         new_target = p["risk_state"].get("desired_stack")
