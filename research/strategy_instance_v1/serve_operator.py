@@ -94,6 +94,29 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                 return
 
             if self.path == "/api/manual":
+                strategy_context = {}
+                live_path = self._repo() / "research" / "live_hedge_v1" / "live_state.json"
+                if live_path.exists():
+                    try:
+                        live = json.loads(live_path.read_text(encoding="utf-8"))
+                        card = live.get("action_card") or {}
+                        legs = card.get("legs") or []
+                        leg = next((x for x in legs if str(x.get("code","")).upper()==str(body.get("code","")).upper()), None)
+                        if leg:
+                            strategy_context = {
+                                "ticket_id":card.get("ticket_id"),
+                                "action":card.get("action"),
+                                "status":card.get("status"),
+                                "code":leg.get("code"),
+                                "qty":leg.get("qty"),
+                                "side":leg.get("side"),
+                                "before_qty":leg.get("before_qty"),
+                                "target_qty":leg.get("target_qty"),
+                                "price":leg.get("price"),
+                                "captured_at_utc":live.get("timestamp"),
+                            }
+                    except Exception:
+                        strategy_context = {}
                 out = record_manual_trade(
                     self._repo(),
                     instance_id=str(body.get("instance_id", "")).strip(),
@@ -105,6 +128,7 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                     timestamp_utc=body.get("timestamp_utc"),
                     trade_id=body.get("trade_id"),
                     note=body.get("note", ""),
+                    strategy_context=strategy_context,
                 )
                 self._json(200, out)
                 return
