@@ -55,6 +55,8 @@ def explicit_strategy_context(repo, body):
     for row in ledger.rows():
         if str(row.get("event_type") or "").upper() != "DECISION_EMITTED":
             continue
+        if str(row.get("instance_id") or "").strip() != instance_id:
+            continue
         ticket = (row.get("payload") or {}).get("ticket")
         if not isinstance(ticket, dict) or str(ticket.get("ticket_id") or "") != ticket_id:
             continue
