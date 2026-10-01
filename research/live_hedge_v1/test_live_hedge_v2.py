@@ -1023,7 +1023,7 @@ class GammaHistoryMigrationTests(unittest.TestCase):
         hist = ensure_gamma_history_schema(state, spot=500.0)
         self.assertEqual(hist, [5.0, 5.2, 5.1])
         self.assertTrue(all(v == v and abs(v) < float("inf") for v in hist))
-        self.assertAlmostEqual(gamma_baseline_from_history([1, 2, 3, 4, float("inf")]) or 0, 3.0)
+        self.assertIsNone(gamma_baseline_from_history([1, 2, 3, 4, float("inf")]))
 
     def test_schema2_gamma_spot_marker_is_authoritative(self):
         state = {
