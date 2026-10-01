@@ -663,6 +663,31 @@ def test_gamma_state_resets_unmarked_legacy_history():
     assert state["gamma_history_schema"] == 2
     assert state["gamma_history_unit"] == "gamma_spot"
 
+def test_corrupt_instance_state_cache_recovers_from_ledger():
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td); instance_id="I-CACHE"
+        manifest={
+            "schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+            "instance_id":instance_id,
+            "created_at_utc":"2026-10-01T00:00:00+00:00",
+            "start_at_utc":"2026-10-01T00:00:00+00:00",
+            "strategy_id":"TEST","strategy_version":"V1",
+            "initial_positions":[],
+        }
+        manifest["manifest_hash"]=mhash(manifest)
+        save(mpath(repo,instance_id),manifest)
+        l=InstanceLedger(lpath(repo,instance_id),{
+            "instance_id":instance_id,"manifest_hash":manifest["manifest_hash"],
+            "strategy_id":"TEST","strategy_version":"V1"})
+        l.append("INSTANCE_CREATED",instance_id=instance_id,cycle_id="C0",
+                 timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        save(spath(repo,instance_id),{"schema":"BROKEN"})
+        Path(spath(repo,instance_id)).write_text("{broken",encoding="utf-8")
+        m,state,_=load_instance(repo,instance_id)
+        assert m["instance_id"]==instance_id
+        assert state["state_cache_integrity"]=="CORRUPT_RECOVERED_FROM_LEDGER"
+        assert state["instance_id"]==instance_id
+
 def test_load_recovers_broker_state_from_immutable_execution_ledger():
     with tempfile.TemporaryDirectory() as td:
         repo = Path(td)
