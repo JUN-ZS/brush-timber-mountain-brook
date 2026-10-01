@@ -726,6 +726,22 @@ def test_strategy_plan_refuses_ambiguous_far_short_ownership():
     assert "unscoped QQQ SHORT" in out["reason"]
 
 
+def test_strategy_mark_cost_basis_ignores_unmanaged_same_code_lots():
+    from .run_instance import managed_position_view
+    ps=[
+        {"code":"US.QQQ.TEST","side":"LONG","qty":11,"avg_cost":9.0,"lot_size":100},
+    ]
+    lots=[
+        {"lot_id":"S1","code":"US.QQQ.TEST","side":"LONG","qty":1,"avg_price":5.0,"lot_size":100,"status":"OPEN"},
+    ]
+    view=managed_position_view(ps,lots)
+    assert view==[{
+        "code":"US.QQQ.TEST","side":"LONG","qty":1,"avg_cost":5.0,
+        "lot_size":100,"source":"BROKER_OBSERVED_STRATEGY_OWNED",
+        "cost_basis_source":"STRATEGY_LOTS",
+    }]
+
+
 def test_strategy_plan_ignores_unmanaged_qqq_long_from_target_stack():
     from .run_instance import strategy_plan
     from research.live_hedge_v1.engine import Contract
