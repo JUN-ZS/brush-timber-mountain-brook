@@ -776,22 +776,33 @@ def instance_far_position(m, positions, strategy_lots=None):
         owned[code]=owned.get(code,0)+si(lot.get("qty"))
 
     candidate_code=hint if hint else (next(iter(owned)) if len(owned)==1 else "")
-    if not candidate_code or (hint and candidate_code not in owned):
+    if not candidate_code:
         return None
 
     matches=[p for p in shorts if str(p.get("code","")).upper()==candidate_code]
     if len(matches)!=1:
         return None
     broker=matches[0]
-    owned_qty=owned.get(candidate_code,0)
     broker_qty=si(broker.get("qty"))
-    if owned_qty<=0 or broker_qty<=0:
+    owned_qty=owned.get(candidate_code,0)
+    if broker_qty<=0:
         return None
+
     projected=dict(broker)
-    projected["qty"]=min(owned_qty,broker_qty)
-    projected["strategy_owned_qty"]=owned_qty
+    if owned_qty>0:
+        projected["qty"]=min(owned_qty,broker_qty)
+        projected["strategy_owned_qty"]=owned_qty
+        projected["ownership_source"]="STRATEGY_LOTS"
+    elif hint:
+        # Explicit operator-provided code hint is an ownership declaration when
+        # exactly one broker QQQ SHORT row exists. Same-code quantity cannot be
+        # decomposed without a lot/baseline, so the declaration covers that row.
+        projected["qty"]=broker_qty
+        projected["strategy_owned_qty"]=broker_qty
+        projected["ownership_source"]="EXPLICIT_FAR_CODE_HINT_SINGLE_BROKER_ROW"
+    else:
+        return None
     projected["broker_observed_qty"]=broker_qty
-    projected["ownership_source"]="STRATEGY_LOTS"
     return projected
 
 
