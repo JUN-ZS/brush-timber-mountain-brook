@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import socket
 import traceback
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any, Optional, Protocol
 
 from .classify import classify_error
@@ -555,7 +555,19 @@ class FutuOpenDAdapter:
             kl = getattr(self.futu, "KLType").K_DAY
             ret_ok = getattr(self.futu, "RET_OK", 0)
             if hasattr(self.ctx, "request_history_kline"):
-                ret, data, _page = self.ctx.request_history_kline(code, ktype=kl, max_count=n)
+                # Futu's None/None date range is only the previous 365 calendar
+                # days. That can be fewer than 252 trading sessions after
+                # weekends/US holidays, so it is unsafe for this strategy's
+                # 200-DMA/52-week signal. Ask for a wider calendar window.
+                start = (date.today() - timedelta(days=max(420, int(n * 1.75)))).isoformat()
+                end = date.today().isoformat()
+                ret, data, _page = self.ctx.request_history_kline(
+                    code,
+                    start=start,
+                    end=end,
+                    ktype=kl,
+                    max_count=max(400, int(n)),
+                )
             else:
                 ret, data = self.ctx.get_cur_kline(code, n, kl)
             if ret != ret_ok:
@@ -577,7 +589,16 @@ class FutuOpenDAdapter:
                         if v is not None:
                             closes.append(v)
                             dates.append(str(row[col_t])[:10] if col_t else "")
-            return {"code": code, "source": "LIVE QUOTE", "closes": closes, "dates": dates}
+            return {
+                "code": code,
+                "source": "LIVE QUOTE",
+                "closes": closes,
+                "dates": dates,
+                "requested": int(n),
+                "available": len(closes),
+                "history_start": start if hasattr(self.ctx, "request_history_kline") else None,
+                "history_end": end if hasattr(self.ctx, "request_history_kline") else None,
+            }
         except Exception as e:
             return {
                 "code": code,
