@@ -38,6 +38,39 @@ def test_evidence_ledger_concurrent_appends():
         assert result["records"] == 8
 
 
+def test_last_is_consistent_with_append():
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "evidence.jsonl"
+        ledger = EvidenceLedger(path)
+        ledger.append(
+            "DATA_GAP",
+            cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:00+00:00",
+            payload={"n": 1},
+        )
+        last = ledger.last()
+        assert last is not None
+        assert last["evidence_seq"] == 1
+        assert last["event_type"] == "DATA_GAP"
+
+
+def test_seal_publishes_without_leaving_partial_file():
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "evidence.jsonl"
+        seal_path = Path(td) / "evidence.seal.json"
+        ledger = EvidenceLedger(path)
+        ledger.append(
+            "DATA_GAP",
+            cycle_id="C1",
+            timestamp_utc="2026-10-01T00:00:00+00:00",
+            payload={"n": 1},
+        )
+        seal = ledger.seal(seal_path)
+        assert seal_path.exists()
+        assert not Path(str(seal_path) + ".tmp").exists()
+        assert json.loads(seal_path.read_text(encoding="utf-8"))["records"] == 1
+
+
 def test_hash_chain_and_tamper_detection():
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "evidence.jsonl"
