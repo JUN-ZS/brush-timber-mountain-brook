@@ -12,7 +12,9 @@ This is a separate personal campaign ledger.
 
 \`created_at_utc\` is when the instance record was created.
 
-Initial positions/cost basis are immutable USER_INITIAL input. Broker deals are applied only when their timestamp is **after created_at_utc**, so the original entry is not double-counted.
+Initial positions/cost basis are immutable USER_INITIAL input. Broker transactions are observed account-wide, but a post-T0 execution enters the strategy book only when it matches a recent pre-decision strategy-plan observation. Same-code coincidence is not enough; unmatched or over-quantity executions remain `BROKER_EXECUTION_UNATTRIBUTED` and create a DATA_GAP rather than being folded into strategy P&L.
+
+Legacy `EXECUTION_DETECTED` rows without explicit attribution are quarantined on recovery and are never silently promoted into the new strategy lineage.
 
 Changing initial state materially means creating a new instance, not rewriting the old one.
 
@@ -142,7 +144,7 @@ FIFO attribution belongs to the actual manual opening decision that supplied the
 
 ## Automatically recorded
 
-Broker positions/orders/deals, exact local snapshot plus SHA-256, newly observed executions, FIFO gross realized P&L, marked unrealized P&L, total gross P&L, broker-vs-instance reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
+Broker account positions/orders/deals, exact local snapshot plus SHA-256, strategy-attributed executions only when linked to a recent pre-decision plan, unattributed broker executions, FIFO strategy gross realized P&L, strategy-owned marked unrealized P&L, total strategy gross P&L, strategy-vs-broker-owned reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
 
 No order is submitted or modified.
 
