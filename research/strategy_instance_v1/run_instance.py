@@ -980,7 +980,7 @@ def _cycle_unlocked(args):
             created_time=dt(m["created_at_utc"])
             if deal_time is None or economic_t0 is None or deal_time < economic_t0:
                 continue
-            if deal_time<=created_time:
+            if deal_time <= economic_t0:
                 pre_instance.append(d)
             else:
                 new.append(d)
