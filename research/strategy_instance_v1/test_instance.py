@@ -327,10 +327,14 @@ def test_operator_ticket_context_rejects_cross_lineage_evidence():
         el.append("DECISION_EMITTED",cycle_id="C1",campaign_id=None,
                   timestamp_utc="2026-10-01T20:01:00+00:00",
                   payload={"ticket":ticket})
-        body={"instance_id":iid,"ticket_id":"T-L",
-              "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
-              "action":"ADD_NEAR","status":"OPEN",
-              "leg":ticket["legs"][0]}
+        body={"instance_id":iid,
+              "strategy_context_snapshot":{
+                  "instance_id":iid,
+                  "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+                  "ticket_id":"T-L",
+                  "action":"ADD_NEAR","status":"OPEN",
+                  "leg":ticket["legs"][0],
+              }}
         try:
             explicit_strategy_context(repo,body)
         except ValueError as exc:
@@ -388,10 +392,13 @@ def test_operator_ticket_context_rejects_missing_lineage_identity():
         # helper does not silently waive missing lineage fields.
         body={
             "instance_id":iid,
-            "ticket_id":"T-MISSING",
-            "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
-            "action":"ADD_NEAR","status":"OPEN",
-            "leg":{"code":"US.QQQ.TEST","side":"BUY","qty":1},
+            "strategy_context_snapshot":{
+                "instance_id":iid,
+                "ticket_id":"T-MISSING",
+                "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+                "action":"ADD_NEAR","status":"OPEN",
+                "leg":{"code":"US.QQQ.TEST","side":"BUY","qty":1},
+            },
         }
         try:
             explicit_strategy_context(repo,body)
