@@ -38,6 +38,12 @@ def now_iso():
 
 
 class LiveHedgeV2Test(unittest.TestCase):
+    def test_position_side_does_not_infer_from_trade_words(self):
+        from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
+        self.assertEqual(FutuTradeReader._position_side("BUY"), "UNKNOWN")
+        self.assertEqual(FutuTradeReader._position_side("SELL"), "UNKNOWN")
+
+
     def test_live_desk_mutation_lock_serializes_threads(self):
         import tempfile
         import threading
