@@ -11,7 +11,7 @@ from .ledger import EvidenceLedger
 
 ANCHOR_EVENT_TYPES = {"PRE_DECISION_OBSERVATION", "DECISION_EMITTED", "CYCLE_FINALIZED"}
 OUTCOME_SOURCES = {"BROKER_RECONCILED", "USER_REPORTED", "EXTERNAL_RESEARCH" }
-BROKER_OUTCOME_ANCHOR_TYPES = {"EXECUTION_OBSERVED", "CYCLE_FINALIZED"}
+BROKER_OUTCOME_ANCHOR_TYPES = {"EXECUTION_OBSERVED"}
 
 
 def now_utc() -> str:
@@ -143,7 +143,7 @@ def main() -> int:
         source_type = str(source_evidence.get("event_type") or "").upper()
         if args.outcome_source == "BROKER_RECONCILED" and source_type not in BROKER_OUTCOME_ANCHOR_TYPES:
             raise SystemExit(
-                f"INVALID_BROKER_SOURCE_EVIDENCE_TYPE:{source_type}; expected EXECUTION_OBSERVED or CYCLE_FINALIZED"
+                f"INVALID_BROKER_SOURCE_EVIDENCE_TYPE:{source_type}; expected EXECUTION_OBSERVED"
             )
     elif args.outcome_source == "BROKER_RECONCILED":
         raise SystemExit("BROKER_RECONCILED_REQUIRES_SOURCE_EVIDENCE_ID")
