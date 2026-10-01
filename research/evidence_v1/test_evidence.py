@@ -527,6 +527,7 @@ def test_outcome_requires_anchor_and_rejects_duplicate_without_correction():
             timestamp_utc="2026-10-01T00:00:02+00:00",
             payload={
                 "candidate_actions": [],
+                "candidate_journal": [],
                 "primary": None,
                 "contract": "AS_EMITTED_THEN_POSTHOC",
             },
