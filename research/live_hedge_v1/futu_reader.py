@@ -16,13 +16,20 @@ class LiveFutuReader:
         if isinstance(row,dict): return row.get(name,default)
         try:return row[name]
         except Exception:return getattr(row,name,default)
-    def _expiry_targets(self):
+    def _quote_date(self, timestamp):
+        raw = str(timestamp or "").strip()
+        try:
+            return datetime.strptime(raw[:10], "%Y-%m-%d").date()
+        except Exception:
+            return None
+
+    def _expiry_targets(self, asof_date=None):
         ret_ok=getattr(self.a.futu,"RET_OK",0)
         ret,data=self.a.ctx.get_option_expiration_date(code=QQQ_CODE)
         if ret!=ret_ok:
             raise RuntimeError(str(data))
         vals=[str(x)[:10] for x in data["strike_time"].tolist()] if hasattr(data,"columns") and "strike_time" in data.columns else [str(x)[:10] for x in data]
-        today=date.today()
+        today=asof_date or date.today()
         expiries=[]
         for e in vals:
             try:
@@ -32,13 +39,13 @@ class LiveFutuReader:
             if 7 <= d <= 35 or 60 <= d <= 210:
                 expiries.append((d,e))
         return [e for _,e in sorted(set(expiries), key=lambda z:(z[0],z[1]))]
-    def contracts(self):
+    def contracts(self, asof_date=None):
         futu=self.a.futu; ret_ok=getattr(futu,"RET_OK",0); ot=getattr(futu,"OptionType").CALL
         raw=[]
-        for exp in self._expiry_targets():
+        for exp in self._expiry_targets(asof_date=asof_date):
             ret,data=self.a.ctx.get_option_chain(code=QQQ_CODE,start=exp,end=exp,option_type=ot)
             if ret!=ret_ok:continue
-            dte=(datetime.strptime(exp,"%Y-%m-%d").date()-date.today()).days
+            dte=(datetime.strptime(exp,"%Y-%m-%d").date()-(asof_date or date.today())).days
             for row in self.a._iter_rows(data):
                 code=str(self._row(row,"code",""))
                 if not code:continue
@@ -56,13 +63,14 @@ class LiveFutuReader:
             q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc).isoformat()
             order=sorted(zip(hist.get("dates") or [],hist.get("closes") or []),key=lambda z:z[0])
             dates=[x[0] for x in order]; closes=[x[1] for x in order]
-            ref=closes[:-1] if dates and str(dates[-1])[:10]==date.today().isoformat() else closes
+            market_date=self._quote_date(getattr(q, "timestamp", None)) or date.today()
+            ref=closes[:-1] if dates and str(dates[-1])[:10]==market_date.isoformat() else closes
             sig=False; ext=None; ratio=None
             if q.last is not None and len(ref)>=252:
                 dma=sum(ref[-199:]+[q.last])/200; high=max(ref[-251:]+[q.last])
                 ext=q.last/dma-1 if dma else None; ratio=q.last/high if high else None
                 sig=bool(ratio is not None and ratio>=.98 and ext is not None and ext>=.08)
-            cs=self.contracts()
+            cs=self.contracts(asof_date=market_date)
             # Keep the quote request practical: near-ATM calls plus the far OTM region,
             # while always including exact held/order codes for reconciliation.
             spot=q.last or 0.0
