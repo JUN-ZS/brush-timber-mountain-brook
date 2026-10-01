@@ -8,6 +8,12 @@ from unittest.mock import patch
 from research.evidence_v1 import checkpoint
 from research.evidence_v1.ledger import EvidenceLedger, sha256_json
 
+RUNTIME_IDENTITY={
+    "strategy_id":"TEST","strategy_version":"V1",
+    "selection_cutoff":"2025-12-15","research_engine_commit":"ENG1",
+    "strategy_lock_hash":"LOCK1","code_hashes":{},"evidence_policy":{},
+}
+
 
 def _seed():
     actions = [
@@ -46,9 +52,10 @@ def test_forward_checkpoint_requires_exact_candidate_identity():
                 "primary":actions[0],
             },
         )
-        argv=sys.argv
-        try:
-            sys.argv=[
+        with patch.object(checkpoint, "runtime_identity", lambda repo_root: RUNTIME_IDENTITY):
+            argv=sys.argv
+            try:
+                sys.argv=[
                     "checkpoint.py","--repo-root",str(root),
                     "--campaign-id","CAMP1",
                     "--anchor-evidence-id",anchor["evidence_id"],
@@ -64,8 +71,8 @@ def test_forward_checkpoint_requires_exact_candidate_identity():
                 assert "CANDIDATE_SHA256_MISMATCH_AT_ANCHOR" in str(exc)
             else:
                 raise AssertionError("forged candidate identity was accepted")
-        finally:
-            sys.argv=argv
+                finally:
+                    sys.argv=argv
 
 
 def test_forward_checkpoint_persists_scope_and_candidate_identity():
@@ -88,9 +95,10 @@ def test_forward_checkpoint_persists_scope_and_candidate_identity():
                 "primary":actions[0],
             },
         )
-        argv=sys.argv
-        try:
-            sys.argv=[
+        with patch.object(checkpoint, "runtime_identity", lambda repo_root: RUNTIME_IDENTITY):
+            argv=sys.argv
+            try:
+                sys.argv=[
                     "checkpoint.py","--repo-root",str(root),
                     "--campaign-id","CAMP1",
                     "--anchor-evidence-id",anchor["evidence_id"],
@@ -102,8 +110,8 @@ def test_forward_checkpoint_persists_scope_and_candidate_identity():
                     "--candidate-return","0.18",
                 ]
             assert checkpoint.main()==0
-        finally:
-            sys.argv=argv
+                finally:
+                    sys.argv=argv
         rows=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl").rows()
         payload=rows[-1]["payload"]
         assert rows[-1]["event_type"]=="FORWARD_CHECKPOINT_OBSERVED"
@@ -145,15 +153,16 @@ def test_forward_checkpoint_rejects_duplicate_scope():
             "--horizon-trading-days","5",
             "--benchmark-return","0.10",
         ]
-        with patch.object(sys,"argv",args):
-            assert checkpoint.main()==0
-        with patch.object(sys,"argv",args):
-            try:
+        with patch.object(checkpoint, "runtime_identity", lambda repo_root: RUNTIME_IDENTITY):
+            with patch.object(sys,"argv",args):
+                assert checkpoint.main()==0
+            with patch.object(sys,"argv",args):
+                try:
                 checkpoint.main()
-            except SystemExit as exc:
-                assert "FORWARD_CHECKPOINT_ALREADY_RECORDED" in str(exc)
-            else:
-                raise AssertionError("duplicate checkpoint was accepted")
+                except SystemExit as exc:
+                    assert "FORWARD_CHECKPOINT_ALREADY_RECORDED" in str(exc)
+                else:
+                    raise AssertionError("duplicate checkpoint was accepted")
 
 
 def test_report_groups_forward_checkpoints_by_candidate_benchmark_and_horizon():
