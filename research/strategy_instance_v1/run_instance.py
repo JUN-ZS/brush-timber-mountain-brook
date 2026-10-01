@@ -726,8 +726,9 @@ def attribute_broker_deal(rows,deal,used_plan_qty=None):
                 "reason":"strategy_plan_quantity_already_consumed",
                 "match":match,"plan_key":key}
     qty=min(q,remaining)
-    return {"status":"MATCHED_PREDECISION_PLAN","qty":qty,
-            "unattributed_qty":q-qty,"match":match,"basis":"recent_strategy_plan_observation",
+    return {"status":"POTENTIAL_PREDECISION_MATCH","qty":qty,
+            "unattributed_qty":q-qty,"match":match,
+            "basis":"recent_strategy_plan_observation_without_intent_proof",
             "plan_key":key,"plan_remaining_before":remaining}
 
 
@@ -1052,12 +1053,6 @@ def _init_cmd_unlocked(a):
     repo=Path(a.repo_root).resolve()
     try: r=runtime_identity(repo)
     except Exception: r={}
-    if r.get("strategy_id"):
-        from ..evidence_v1.lock_guard import assert_runtime_lock
-        try:
-            assert_runtime_lock(repo, far_dte=120, far_delta=0.08, near_dte=30)
-        except Exception as exc:
-            raise SystemExit(f"INSTANCE_LOCK_INVALID:{exc}") from exc
     locked_id=r.get("strategy_id")
     locked_version=r.get("strategy_version")
     locked_engine=r.get("research_engine_commit")
@@ -1072,6 +1067,12 @@ def _init_cmd_unlocked(a):
         raise SystemExit("INSTANCE_LINEAGE_MISMATCH:research_engine_commit")
     if locked_hash and a.strategy_lock_hash and a.strategy_lock_hash!=locked_hash:
         raise SystemExit("INSTANCE_LINEAGE_MISMATCH:strategy_lock_hash")
+    if r.get("strategy_id"):
+        from ..evidence_v1.lock_guard import assert_runtime_lock
+        try:
+            assert_runtime_lock(repo, far_dte=120, far_delta=0.08, near_dte=30)
+        except Exception as exc:
+            raise SystemExit(f"INSTANCE_LOCK_INVALID:{exc}") from exc
     if not locked_id:
         supplied["strategy_id"]=a.strategy_id
         supplied["strategy_version"]=a.strategy_version
