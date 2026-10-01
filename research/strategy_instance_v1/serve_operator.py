@@ -18,6 +18,7 @@ from .run_instance import (
     manual_book_pnl_preview,
     record_manual_trade,
 )
+from ..evidence_v1.ledger import EvidenceLedger, sha256_json
 
 
 MUTATION_HEADER = "X-QQQ-Operator"
@@ -25,34 +26,81 @@ MUTATION_HEADER_VALUE = "1"
 MUTATING_PATHS = {"/api/manual", "/api/refresh"}
 
 
-def explicit_strategy_context(body):
-    """Use only a ticket snapshot explicitly selected in this operator session."""
-    raw=body.get("strategy_context_snapshot")
-    instance_id=str(body.get("instance_id","")).strip()
-    if not isinstance(raw,dict) or not instance_id:
+def explicit_strategy_context(repo, body):
+    """Verify an operator-selected ticket against immutable DECISION_EMITTED evidence.
+
+    Browser-supplied ticket fields are hints only. The authoritative ticket,
+    decision timestamp, and pre-decision snapshot hash come from the evidence
+    ledger; a forged or altered client snapshot is rejected.
+    """
+    raw = body.get("strategy_context_snapshot")
+    instance_id = str(body.get("instance_id", "")).strip()
+    if raw is None:
         return {}
-    if str(raw.get("instance_id","")).strip() != instance_id:
-        return {}
+    if not isinstance(raw, dict) or not instance_id:
+        raise ValueError("STRATEGY_CONTEXT_NOT_VERIFIABLE")
+    if str(raw.get("instance_id", "")).strip() != instance_id:
+        raise ValueError("STRATEGY_CONTEXT_INSTANCE_MISMATCH")
     if str(raw.get("context_source") or "") != "OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE":
-        return {}
-    leg=raw.get("leg")
-    if not isinstance(leg,dict) or not str(leg.get("code","")).strip():
-        return {}
+        raise ValueError("STRATEGY_CONTEXT_SOURCE_INVALID")
+
+    ticket_id = str(raw.get("ticket_id") or "").strip()
+    leg_raw = raw.get("leg")
+    code = str((leg_raw or {}).get("code") or "").upper()
+    if not ticket_id or not isinstance(leg_raw, dict) or not code:
+        raise ValueError("STRATEGY_CONTEXT_NOT_VERIFIABLE")
+
+    ledger = EvidenceLedger(Path(repo) / "research/evidence_v1/evidence.jsonl")
+    matching = []
+    for row in ledger.rows():
+        if str(row.get("event_type") or "").upper() != "DECISION_EMITTED":
+            continue
+        ticket = (row.get("payload") or {}).get("ticket")
+        if not isinstance(ticket, dict) or str(ticket.get("ticket_id") or "") != ticket_id:
+            continue
+        legs = ticket.get("legs") or []
+        verified_leg = next(
+            (leg for leg in legs if str(leg.get("code") or "").upper() == code),
+            None,
+        )
+        if verified_leg is not None:
+            matching.append((row, ticket, verified_leg))
+
+    if not matching:
+        raise ValueError("STRATEGY_CONTEXT_TICKET_NOT_VERIFIED")
+
+    source_row, ticket, verified_leg = matching[-1]
+    checks = (
+        str(raw.get("action") or "") == str(ticket.get("action") or "")
+        and str(raw.get("status") or "") == str(ticket.get("status") or "")
+        and str(leg_raw.get("side") or "") == str(verified_leg.get("side") or "")
+        and str(leg_raw.get("qty") or "") == str(verified_leg.get("qty") or "")
+        and str(leg_raw.get("strategy_leg_action") or leg_raw.get("why") or "")
+            == str(verified_leg.get("strategy_leg_action") or verified_leg.get("why") or "")
+    )
+    if not checks:
+        raise ValueError("STRATEGY_CONTEXT_TICKET_TAMPERED")
+
+    payload = source_row.get("payload") or {}
     return {
-        "ticket_id":raw.get("ticket_id"),
-        "strategy_instance_id":instance_id,
-        "action":raw.get("action"),
-        "strategy_leg_action":leg.get("strategy_leg_action") or leg.get("why"),
-        "direction":leg.get("direction"),
-        "status":raw.get("status"),
-        "code":leg.get("code"),
-        "qty":leg.get("qty"),
-        "side":leg.get("side"),
-        "before_qty":leg.get("before_qty"),
-        "target_qty":leg.get("target_qty"),
-        "price":leg.get("price"),
-        "captured_at_utc":raw.get("captured_at_utc"),
-        "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+        "ticket_id": ticket.get("ticket_id"),
+        "strategy_instance_id": instance_id,
+        "action": ticket.get("action"),
+        "strategy_leg_action": verified_leg.get("strategy_leg_action") or verified_leg.get("why"),
+        "direction": verified_leg.get("direction"),
+        "status": ticket.get("status"),
+        "code": verified_leg.get("code"),
+        "qty": verified_leg.get("qty"),
+        "side": verified_leg.get("side"),
+        "before_qty": verified_leg.get("before_qty"),
+        "target_qty": verified_leg.get("target_qty"),
+        "price": verified_leg.get("price"),
+        "captured_at_utc": source_row.get("timestamp_utc"),
+        "source_evidence_id": source_row.get("evidence_id"),
+        "pre_decision_snapshot_sha256": payload.get("snapshot_sha256"),
+        "ticket_snapshot_sha256": sha256_json(ticket),
+        "ticket_snapshot": json.loads(json.dumps(ticket, ensure_ascii=False)),
+        "context_source": "VERIFIED_DECISION_EMITTED_EVIDENCE",
     }
 
 
@@ -137,7 +185,7 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                 return
 
             if self.path == "/api/manual":
-                strategy_context = explicit_strategy_context(body)
+                strategy_context = explicit_strategy_context(self._repo(), body)
                 out = record_manual_trade(
                     self._repo(),
                     instance_id=str(body.get("instance_id", "")).strip(),
