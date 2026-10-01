@@ -74,11 +74,21 @@ class LiveHedgeV2Test(unittest.TestCase):
             futu = FakeFutu()
             ctx = FakeCtx()
         reader.a = FakeAdapter()
-        got = reader._expiry_targets()
+        got = reader._expiry_targets(asof_date=datetime.strptime("2026-10-01", "%Y-%m-%d").date())
         self.assertEqual(
             got,
             ["2026-10-08","2026-10-15","2026-10-22","2026-10-29","2026-11-12","2026-12-01"],
         )
+
+
+    def test_quote_date_is_used_as_live_asof_date(self):
+        from research.live_hedge_v1.futu_reader import LiveFutuReader
+        reader = object.__new__(LiveFutuReader)
+        self.assertEqual(
+            reader._quote_date("2026-10-01 21:30:00"),
+            datetime.strptime("2026-10-01", "%Y-%m-%d").date(),
+        )
+        self.assertIsNone(reader._quote_date("not-a-date"))
 
 
     def test_strict_qqq_universe(self):
