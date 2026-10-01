@@ -67,11 +67,11 @@ def load_instance(repo,i):
     l=InstanceLedger(lpath(repo,i),{"instance_id":i,"manifest_hash":m["manifest_hash"],
        "strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
        "research_engine_commit":m.get("research_engine_commit")})
-    s.setdefault("manual_lots", json.loads(json.dumps(m.get("initial_positions", []))))
-    if not s.get("manual_lots") and m.get("initial_positions"):
+    if "manual_lots" not in s or not isinstance(s.get("manual_lots"), list):
         s["manual_lots"]=init_lots(m)
-    # Normalize legacy/manual-less instances without touching broker lots.
-    if s.get("manual_lots") and not isinstance(s.get("manual_lots")[0], dict):
+    elif s["manual_lots"] and "avg_price" not in s["manual_lots"][0] and "avg_cost" in s["manual_lots"][0]:
+        # Legacy/partially initialized state: derive the separate manual book
+        # from immutable T0, never from mutable broker lots.
         s["manual_lots"]=init_lots(m)
     s.setdefault("manual_realized_pnl",0.0)
     s.setdefault("manual_trade_count",0)
