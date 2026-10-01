@@ -807,7 +807,7 @@ def main():
                 },
             )
 
-    if reconcile.get("filled"):
+    if reconcile.get("filled") or reconcile.get("broker_execution_complete"):
         filled_ticket = reconcile.get("ticket") or {}
         _fill_lots(state, filled_ticket)
 
