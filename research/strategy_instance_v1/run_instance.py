@@ -380,7 +380,7 @@ def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
     return {"action":action,"code":code,"qty":q,"price":px,"lot_size":size,
             "matched_qty":q,"remaining_unmatched":0,"realized_pnl_preview":0.0,"lots":[]}
 
-def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note=""):
+def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None):
     m,s,l=load_instance(Path(repo).resolve(),instance_id)
     t=timestamp_utc or now(); action=str(action).upper(); code=str(code).strip().upper()
     if not code.startswith("US.QQQ") or code=="US.QQQ":
@@ -401,18 +401,27 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
     s["manual_trade_count"]=si(s.get("manual_trade_count"))+1
     s["manual_last_mark"]={"unrealized_pnl":None,"status":"STALE_AFTER_MANUAL_TRADE","rows":[],"marked_at_utc":t}
     positions=manual_position_snapshot(lots)
+    sc=strategy_context or {}
+    strategy_ticket_id=sc.get("ticket_id")
+    strategy_action=sc.get("action")
+    strategy_code=sc.get("code")
+    strategy_qty=si(sc.get("qty"))
+    if strategy_ticket_id and strategy_code==code and strategy_action:
+        relationship="FOLLOW_STRATEGY" if strategy_qty==si(qty) and strategy_action in {action,"ADD_NEAR","REDUCE_NEAR","SELL_FAR","CLOSE_NEAR","CLOSE_CAMPAIGN_EMERGENCY"} else "ADJUST_SIZE"
+    else:
+        relationship="OPERATOR_ONLY"
     l.append("MANUAL_TRADE_RECORDED",instance_id=instance_id,cycle_id="MANUAL_"+trade_id,timestamp_utc=t,
              payload={"trade_id":trade_id,"action":action,"code":code,"qty":si(qty),"price":sf(price),
                       "lot_size":max(1,si(lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
                       "manual_realized_pnl_after":s["manual_realized_pnl"],"positions_after":positions,
-                      "pnl_preview":preview,"note":note},
+                      "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc},
              source="USER_MANUAL")
     save(spath(Path(repo).resolve(),instance_id),s)
     return {"status":"MANUAL_TRADE_RECORDED","instance_id":instance_id,"trade_id":trade_id,
             "timestamp_utc":t,"action":action,"code":code,"qty":si(qty),"price":sf(price),
             "lot_size":max(1,si(lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
             "manual_realized_pnl":s["manual_realized_pnl"],"manual_positions":positions,
-            "pnl_preview":preview,"note":note}
+            "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc}
 
 def manual_cmd(a):
     out=record_manual_trade(
