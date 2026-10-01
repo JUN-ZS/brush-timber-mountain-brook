@@ -151,7 +151,7 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(peak[0], 1)
 
 
-    def test_corrupt_live_event_tail_blocks_mutation():
+    def test_corrupt_live_event_tail_blocks_mutation(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
         with tempfile.TemporaryDirectory() as td:
