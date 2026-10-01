@@ -1357,6 +1357,7 @@ def confirm_strategy_execution(repo, *, instance_id, deal_id, expected_strategy_
         requested=si(qty) if qty is not None else remaining
         if requested<=0 or requested>remaining:
             raise SystemExit(f"CONFIRMED_QTY_OUT_OF_RANGE:{requested}:{remaining}")
+        plan_match=_plan_match_for_deal(rows,deal)
         confirmed=dict(deal); confirmed["qty"]=requested
         consumed,delta,application=apply_confirmed_strategy_deal(s["lots"],confirmed,expected)
         if consumed!=requested:
@@ -1383,6 +1384,16 @@ def confirm_strategy_execution(repo, *, instance_id, deal_id, expected_strategy_
                 "strategy_application":application,
                 "note":note,
                 "confirmation_basis":"USER_EXPLICIT_POST_OBSERVATION_CONFIRMATION",
+                "source_strategy_observation": (
+                    {
+                        "event_seq":plan_match.get("event_seq"),
+                        "event_id":plan_match.get("event_id"),
+                        "observed_at_utc":plan_match.get("observed_at_utc"),
+                        "candidate_sha256":plan_match.get("candidate_sha256"),
+                        "match_basis":plan_match.get("match_basis"),
+                    }
+                    if plan_match else None
+                ),
             },source="USER_MANUAL",
         )
         save(spath(repo_path,instance_id),s)
