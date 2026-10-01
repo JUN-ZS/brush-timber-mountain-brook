@@ -244,7 +244,13 @@ def reconcile(lots,ps):
     return [{"code":k[0],"side":k[1],"lot_qty":a.get(k,0),"broker_qty":b.get(k,0)} for k in sorted(keys) if a.get(k,0)!=b.get(k,0)]
 
 def strategy_plan(snap,ps,orders,cmap,quotes,m):
-    market=snap["market"]; pos=[]
+    market=snap["market"]
+    if str(market.get("signal_status", "OK")).upper() != "OK" or market.get("signal_active") is None:
+        return {
+            "status": "DATA_GAP",
+            "reason": market.get("history_reason") or "signal history unavailable",
+        }
+    pos=[]
     for p in ps:
         c=cmap.get(str(p["code"])); q=quotes.get(str(p["code"]),{})
         pos.append(Position(str(p["code"]),str(p["side"]).upper(),si(p["qty"]),sf(p["avg_cost"]),
@@ -266,7 +272,7 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m):
         q=quotes.get(near.code,{})
         near=Contract(near.code,near.right,near.strike,near.expiry,near.dte,q.get("bid",near.bid),q.get("ask",near.ask),q.get("delta",near.delta),q.get("gamma",near.gamma),q.get("iv",near.iv),near.lot_size)
     if active and far is None: return {"status":"DATA_GAP","reason":"active short far quote unavailable"}
-    return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=bool(market.get("signal_active")),
+    return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=(market.get("signal_active") is True),
                 far_campaign_active=active,quotes_by_code=quotes,now=datetime.now(timezone.utc))
 
 def cycle(args):
