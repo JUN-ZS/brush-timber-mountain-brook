@@ -18,13 +18,15 @@ from .run_instance import (
     dt,
     manual_book_pnl_preview,
     record_manual_trade,
+    confirm_strategy_execution,
+    pending_strategy_executions,
 )
 from ..evidence_v1.ledger import EvidenceLedger, sha256_json
 
 
 MUTATION_HEADER = "X-QQQ-Operator"
 MUTATION_HEADER_VALUE = "1"
-MUTATING_PATHS = {"/api/manual", "/api/refresh"}
+MUTATING_PATHS = {"/api/manual", "/api/refresh", "/api/confirm"}
 
 
 def explicit_strategy_context(repo, body):
@@ -179,6 +181,14 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                 self._json(200, {"status": "OK", "live": json.loads(path.read_text(encoding="utf-8"))})
                 return
 
+            if parsed.path == "/api/attribution":
+                q = parse_qs(parsed.query)
+                instance_id = str((q.get("instance_id") or [""])[0]).strip()
+                if not instance_id:
+                    raise ValueError("INSTANCE_ID_REQUIRED")
+                self._json(200, {"status": "OK", **pending_strategy_executions(self._repo(), instance_id)})
+                return
+
             return super().do_GET()
         except FileNotFoundError:
             self._json(404, {"status": "NOT_FOUND"})
@@ -207,6 +217,24 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                     lot_size=body.get("lot_size", 100),
                 )
                 self._json(200, {"status": "OK", "preview": preview})
+                return
+
+            if self.path == "/api/confirm":
+                instance_id = str(body.get("instance_id", "")).strip()
+                if not instance_id:
+                    raise ValueError("INSTANCE_ID_REQUIRED")
+                expected_side = str(body.get("expected_strategy_side", "")).strip().upper()
+                if expected_side not in {"LONG","SHORT"}:
+                    raise ValueError("EXPECTED_STRATEGY_SIDE=LONG|SHORT")
+                out = confirm_strategy_execution(
+                    self._repo(),
+                    instance_id=instance_id,
+                    deal_id=body.get("deal_id"),
+                    expected_strategy_side=expected_side,
+                    qty=body.get("qty"),
+                    note=body.get("note", ""),
+                )
+                self._json(200, out)
                 return
 
             if self.path == "/api/manual":
