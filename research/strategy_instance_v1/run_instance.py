@@ -509,6 +509,7 @@ def _cycle_unlocked(args):
     l.append("MARK_TO_MARKET",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={
         "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],
         "gross_pnl":gross,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
+    strategy_observation_ok = False
     if args.observe_strategy_plan and snap.get("status")=="OK":
         try:
             gamma_history, gamma_baseline, previous_far_delta_abs = gamma_state_for_instance(
@@ -534,14 +535,15 @@ def _cycle_unlocked(args):
             )
             l.append("STRATEGY_PLAN_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
                      payload={"plan":sp,"execution":"READ_ONLY_OBSERVATION"},source="SYSTEM")
+            strategy_observation_ok = True
         except Exception as e:
             s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"STRATEGY_PLAN","error":repr(e)})
     # Persist current observation only after the strategy plan consumed the prior window.
-    if current_far_gamma_spot is not None:
+    if strategy_observation_ok and current_far_gamma_spot is not None:
         s["gamma_history"] = (gamma_history + [current_far_gamma_spot])[-20:]
         s["gamma_history_schema"] = 2
         s["gamma_history_unit"] = "gamma_spot"
-    if current_far_delta_abs is not None:
+    if strategy_observation_ok and current_far_delta_abs is not None:
         s["far_delta_abs"] = current_far_delta_abs
     if tr.get("deal_warning"):
         s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"DEAL_FEED","warning":tr["deal_warning"]},source="BROKER_OBSERVED")
