@@ -547,6 +547,30 @@ class LiveHedgeV2Test(unittest.TestCase):
                 7.0,
             )
 
+    def test_ticket_baseline_accepts_position_objects(self):
+        from research.live_hedge_v1.run_live_desk import _ticket_baseline_positions
+
+        positions = [
+            Position(
+                "US.QQQ261030C00500000",
+                "LONG",
+                2,
+                7.0,
+                500,
+                "2026-10-30",
+                30,
+            )
+        ]
+        baseline = _ticket_baseline_positions(positions)
+        self.assertEqual(
+            baseline["LONG:US.QQQ261030C00500000"]["qty"],
+            2,
+        )
+        self.assertEqual(
+            baseline["LONG:US.QQQ261030C00500000"]["avg_cost"],
+            7.0,
+        )
+
     def test_position_object_normalizes_for_campaign_reconciliation(self):
         from research.live_hedge_v1.run_live_desk import _position_dicts
 
