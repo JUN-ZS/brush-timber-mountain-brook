@@ -22,7 +22,7 @@ from research.live_hedge_v1.engine import (
     plan,
     quote_age_sec,
 )
-from research.live_hedge_v1.run_live_desk import _ticket_baseline_positions
+from research.live_hedge_v1.run_live_desk import _ticket_baseline_positions, _action_card
 
 
 def now_iso():
@@ -30,6 +30,23 @@ def now_iso():
 
 
 class LiveHedgeV2Test(unittest.TestCase):
+    def test_action_card_preserves_explicit_roll_leg_semantics(self):
+        ticket = {
+            "status": "OPEN",
+            "action": "ROLL_NEAR",
+            "ticket_id": "T-ROLL",
+            "legs": [
+                {"code": "US.QQQ.OLD", "side": "SELL", "qty": 2, "before_qty": 2, "target_qty": 0,
+                 "strategy_leg_action": "REDUCE_NEAR", "why": "near expiry risk"},
+                {"code": "US.QQQ.NEW", "side": "BUY", "qty": 2, "before_qty": 0, "target_qty": 2,
+                 "strategy_leg_action": "ADD_NEAR"},
+            ],
+        }
+        card = _action_card(ticket)
+        self.assertEqual(card["legs"][0]["strategy_leg_action"], "REDUCE_NEAR")
+        self.assertEqual(card["legs"][1]["strategy_leg_action"], "ADD_NEAR")
+
+
     def test_reader_expiry_universe_includes_all_research_windows(self):
         from research.live_hedge_v1.futu_reader import LiveFutuReader
         reader = object.__new__(LiveFutuReader)
