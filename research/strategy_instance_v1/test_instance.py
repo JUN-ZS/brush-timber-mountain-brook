@@ -44,6 +44,19 @@ def test_unrelated_broker_qqq_execution_is_not_strategy_attributed():
     assert [(x["code"],x["qty"]) for x in owned] == [("US.QQQ261030C00500000",1)]
 
 
+def test_strategy_mark_uses_owned_lot_cost_not_account_aggregate_cost():
+    from .run_instance import mark_lots
+
+    lots=[{
+        "lot_id":"T0","code":"US.QQQ.TEST","side":"LONG",
+        "qty":1,"avg_price":5.0,"lot_size":100,"status":"OPEN",
+    }]
+    cmap={"US.QQQ.TEST": type("C",(),{"lot_size":100})()}
+    quotes={"US.QQQ.TEST":{"mid":6.0,"bid":5.9,"ask":6.1}}
+    marked=mark_lots(lots,cmap,quotes)
+    assert marked["unrealized_pnl"]==100.0
+
+
 def test_strategy_attributed_buy_can_close_short_without_creating_long():
     from .run_instance import apply_strategy_attributed_deal
 
