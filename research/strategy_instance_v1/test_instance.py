@@ -1,3 +1,4 @@
+import unittest
 import tempfile, threading, time
 from pathlib import Path
 from .ledger import InstanceLedger, InstanceLedgerError, sha256_json
@@ -655,3 +656,13 @@ def test_roll_manual_legs_are_classified_by_leg_semantics():
     }
     assert classify_relationship("REDUCE", "US.QQQ.OLD", 2, old_ref) == "FOLLOW_STRATEGY"
     assert classify_relationship("ADD", "US.QQQ.NEW", 2, new_ref) == "FOLLOW_STRATEGY"
+
+
+
+def load_tests(loader, tests, pattern):
+    """Allow unittest CI to execute this module's top-level test functions."""
+    suite = unittest.TestSuite(tests)
+    for name, obj in sorted(globals().items()):
+        if name.startswith("test_") and callable(obj):
+            suite.addTest(unittest.FunctionTestCase(obj, description=name))
+    return suite
