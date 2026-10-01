@@ -203,6 +203,7 @@ def load_instance(repo,i):
     s.setdefault("manual_trade_count",0)
     s.setdefault("manual_last_mark",None)
     l.validate()
+    _recover_mutable_state_from_ledger(m, s, l)
     return m,s,l
 
 def pos_spec(x):
