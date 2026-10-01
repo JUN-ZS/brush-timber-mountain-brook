@@ -49,16 +49,26 @@ def test_instance_mutation_lock_serializes_threads():
         assert events[3].endswith("-end")
 
 
-def test_instance_contract_map_preserves_volume():
+def test_instance_contract_map_merges_live_quote_fields():
     from .run_instance import contracts_map
     cmap = contracts_map({
         "contracts": [{
             "code": "US.QQQ.TEST", "right": "CALL", "strike": 500.0,
             "expiry": "2026-10-30", "dte": 30,
-            "bid": 8.0, "ask": 8.5, "delta": 0.50, "gamma": 0.03, "iv": 0.25,
-            "lot_size": 100, "volume": 1234,
-        }]
+            "bid": None, "ask": None, "delta": None, "gamma": None, "iv": None,
+            "lot_size": 100, "volume": None,
+        }],
+        "quotes": {
+            "US.QQQ.TEST": {
+                "bid": 8.0, "ask": 8.5, "delta": 0.50, "gamma": 0.03,
+                "iv": 0.25, "volume": 1234,
+            }
+        },
     })
+    assert cmap["US.QQQ.TEST"].bid == 8.0
+    assert cmap["US.QQQ.TEST"].delta == 0.50
+    assert cmap["US.QQQ.TEST"].gamma == 0.03
+    assert cmap["US.QQQ.TEST"].iv == 0.25
     assert cmap["US.QQQ.TEST"].volume == 1234
 
 
