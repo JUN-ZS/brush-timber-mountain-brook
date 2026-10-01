@@ -323,20 +323,35 @@ def plan(
 
     spot = float(market["spot"])
     quotes_by_code = quotes_by_code or {}
+    near_lots = near_lots or []
     option_freshness = {}
-    for label, contract in (("far", far), ("near", near)):
-        if contract is None:
-            continue
-        quote = quotes_by_code.get(contract.code) or {}
+
+    # Validate every LIVE QUOTE code that can become an actionable strategy leg,
+    # including already-owned near lots. Do not use account-wide unrelated QQQ
+    # positions as freshness obligations.
+    required_codes = set()
+    if far is not None:
+        required_codes.add(far.code)
+    if near is not None:
+        required_codes.add(near.code)
+    for lot in near_lots:
+        if str(lot.get("status", "OPEN")).upper() == "OPEN" and _safe_positive_qty(lot.get("qty")):
+            code = str(lot.get("code", "")).upper()
+            if is_qqq_option_code(code):
+                required_codes.add(code)
+
+    for code in sorted(required_codes):
+        quote = quotes_by_code.get(code) or {}
+        contract = far if far is not None and far.code == code else (near if near is not None and near.code == code else None)
         live_expected = (
             str(quote.get("source") or "").upper() == "LIVE QUOTE"
-            or contract.quote_timestamp is not None
+            or (contract is not None and contract.quote_timestamp is not None)
         )
         if not live_expected:
             continue
-        ts = quote.get("timestamp", contract.quote_timestamp)
+        ts = quote.get("timestamp", contract.quote_timestamp if contract is not None else None)
         age = quote_age_sec(ts, now, naive_is_local=True)
-        option_freshness[label] = age
+        option_freshness[code] = age
         if age is None or age > MAX_QUOTE_AGE_SEC:
             return {
                 "status": "BLOCKED_STALE_OPTION_QUOTE",
@@ -344,12 +359,11 @@ def plan(
                 "candidate_actions": [],
                 "next_triggers": [],
                 "reasons": [
-                    f"{label} option quote timestamp is missing, invalid, stale, or materially future-dated"
+                    f"strategy option quote {code} is missing, invalid, stale, or materially future-dated"
                 ],
                 "option_freshness": option_freshness,
                 "market": market,
             }
-    near_lots = near_lots or []
 
     option_positions = [
         p for p in positions
