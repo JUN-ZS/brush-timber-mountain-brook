@@ -579,6 +579,26 @@ def test_instance_mutation_lock_serializes_threads():
         assert events[3].endswith("-end")
 
 
+def test_instance_contract_map_merges_live_quote_timestamp():
+    from .run_instance import contracts_map
+    cmap = contracts_map({
+        "contracts": [{
+            "code": "US.QQQ.TEST", "right": "CALL", "strike": 500.0,
+            "expiry": "2026-10-30", "dte": 30,
+            "bid": None, "ask": None, "delta": None, "gamma": None, "iv": None,
+            "lot_size": 100, "volume": None,
+        }],
+        "quotes": {
+            "US.QQQ.TEST": {
+                "bid": 8.0, "ask": 8.5, "delta": 0.50, "gamma": 0.03,
+                "iv": 0.25, "volume": 1234,
+                "timestamp": "2026-10-01T21:00:00+00:00",
+            }
+        },
+    })
+    assert cmap["US.QQQ.TEST"].quote_timestamp == "2026-10-01T21:00:00+00:00"
+
+
 def test_instance_contract_map_merges_live_quote_fields():
     from .run_instance import contracts_map
     cmap = contracts_map({
