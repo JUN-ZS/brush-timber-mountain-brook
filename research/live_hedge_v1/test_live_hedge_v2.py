@@ -46,6 +46,17 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(parsed.hour, 21)
         self.assertTrue(_is_after("2026-10-01 17:00:00", "2026-10-01T18:00:00+00:00"))
 
+    def test_stale_order_age_uses_us_exchange_timezone(self):
+        from research.live_hedge_v1.engine import quote_age_sec
+        now = datetime.fromisoformat("2026-10-01T21:02:00+00:00")
+        age = quote_age_sec(
+            "2026-10-01 17:00:00",
+            now=now,
+            naive_is_local=True,
+        )
+        # 17:00 New York = 21:00 UTC on this date.
+        self.assertAlmostEqual(age, 120.0, places=6)
+
     def test_trade_reader_does_not_fallback_deal_id_to_order_id(self):
         from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
         class Row:
