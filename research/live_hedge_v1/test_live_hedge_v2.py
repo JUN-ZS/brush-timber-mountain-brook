@@ -451,6 +451,21 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
 
 
+    def test_signal_data_gap_never_becomes_inactive_signal(self):
+        from research.live_hedge_v1.run_live_desk import _apply_signal_gate
+
+        plan_result = {
+            "status": "ACTIONABLE",
+            "candidate_actions": [
+                {"action": "SELL_FAR", "qty": 10},
+            ],
+            "reasons": ["NO_ACTIVE_CAMPAIGN_BUT_ENTRY_SIGNAL_ACTIVE"],
+        }
+        out = _apply_signal_gate(plan_result, None, "DATA_GAP")
+        self.assertEqual(out["status"], "BLOCKED_SIGNAL_DATA_GAP")
+        self.assertEqual(out["candidate_actions"], [])
+        self.assertIn("history/data gap", out["reasons"][0])
+
     def test_open_ticket_defers_fresh_planner_actions(self):
         from research.live_hedge_v1.run_live_desk import _defer_actions_for_active_ticket
 
