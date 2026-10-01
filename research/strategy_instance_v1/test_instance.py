@@ -95,4 +95,6 @@ def test_performance_tape_recomputes_old_broad_follow_label():
     assert tape["counts"]["OPERATOR_ONLY"] == 1
     assert tape["counts"]["FOLLOW_STRATEGY"] == 0
     assert tape["rows"][0]["relationship"] == "OPERATOR_ONLY"
-    assert tape["rows"][0]["execution_slippage_estimate"] == 200.0
+    assert tape["rows"][0]["qty_delta"] is None
+    assert tape["size_gap_contracts"] == 0
+    assert tape["rows"][0]["execution_slippage_estimate"] is None
