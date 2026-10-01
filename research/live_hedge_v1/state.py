@@ -104,6 +104,18 @@ class StateStore:
         state.setdefault("lots", [])
         state["schema_version"] = SCHEMA_VERSION
         self._recover_from_events(state)
+        event_lots = self._replay_strategy_lots(self._read_events())
+        if event_lots or any(
+            str(e.get("type", "")).upper() in {
+                "TICKET_ISSUED",
+                "TICKET_PARTIAL_PROGRESS",
+                "TICKET_WAITING_EXECUTION_EVIDENCE",
+                "TICKET_FILLED",
+                "TICKET_SUPERSEDED",
+            }
+            for e in self._read_events()
+        ):
+            state["lots"] = event_lots
         return state
 
     def _read_events(self) -> list[dict[str, Any]]:
