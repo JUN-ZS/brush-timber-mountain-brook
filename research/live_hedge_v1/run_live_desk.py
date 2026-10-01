@@ -594,11 +594,15 @@ def _main_cycle(args, out_path):
         if lot.get("code"):
             extra.append(lot["code"])
 
+    history_start = (active_ticket or {}).get("issued_at") if active_ticket else None
     acct = FutuTradeReader(
         args.host,
         args.port,
         real=not args.simulate_account,
-    ).read()
+    ).read(
+        history_start=history_start,
+        history_end=now if history_start else None,
+    )
 
     snap = LiveFutuReader(args.host, args.port).snapshot(sorted(set(extra)))
     if snap.get("status") != "OK":
@@ -1001,6 +1005,9 @@ def _main_cycle(args, out_path):
             "deals": _evidence_deals(acct.get("deals", [])),
             "source": acct.get("source"),
             "deal_warning": acct.get("deal_warning"),
+            "history_backfill_used": acct.get("history_backfill_used"),
+            "history_start": acct.get("history_start"),
+            "history_end": acct.get("history_end"),
         },
         "campaign": campaign,
         "family_observation": family_observation,
