@@ -1248,6 +1248,23 @@ class GammaHistoryMigrationTests(unittest.TestCase):
         self.assertTrue(all(v == v and abs(v) < float("inf") for v in hist))
         self.assertIsNone(gamma_baseline_from_history([1, 2, 3, 4, float("inf")]))
 
+    def test_state_store_does_not_trust_unmarked_legacy_gamma_history(self):
+        import json
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+        with tempfile.TemporaryDirectory() as td:
+            state_path = Path(td) / "state.json"
+            state_path.write_text(
+                json.dumps({"schema_version": 1, "gamma_history": [5.0, 5.1, 5.2]}),
+                encoding="utf-8",
+            )
+            store = StateStore(state_path, Path(td) / "events.jsonl")
+            state = store.load()
+            self.assertEqual(state["gamma_history"], [5.0, 5.1, 5.2])
+            hist = ensure_gamma_history_schema(state, spot=500.0)
+            self.assertEqual(hist, [])
+            self.assertEqual(state["gamma_history"], [])
+
     def test_schema2_gamma_spot_marker_is_authoritative(self):
         state = {
             "gamma_history": [0.01, 0.012, 0.011, 0.015, 0.02],
