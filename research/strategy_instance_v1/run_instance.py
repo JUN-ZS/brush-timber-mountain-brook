@@ -890,15 +890,18 @@ def _cycle_unlocked(args):
     ps=tr.get("positions",[]); orders=tr.get("orders",[]); cmap=contracts_map(snap); quotes=snap.get("quotes",{})
     history_used=bool(tr.get("history_backfill_used"))
     seen=set(map(str,s.get("processed_deal_ids",[]))); new=[]; pre_instance=[]
+    economic_t0=dt(m.get("start_at_utc") or m["created_at_utc"])
     for d in tr.get("deals",[]):
         did=str(d.get("deal_id","") or "")
-        if not did or did in seen or not after(d.get("created_at"),m.get("start_at_utc") or m["created_at_utc"]):
+        if not did or did in seen:
             continue
         if is_qqq_option_code(d.get("code","")):
             d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100
             deal_time=dt(d.get("created_at"))
             created_time=dt(m["created_at_utc"])
-            if deal_time and created_time and deal_time<=created_time:
+            if deal_time is None or economic_t0 is None or deal_time < economic_t0:
+                continue
+            if deal_time<=created_time:
                 pre_instance.append(d)
             else:
                 new.append(d)
@@ -916,7 +919,7 @@ def _cycle_unlocked(args):
                 "deal":d,
                 "economic_t0":m.get("start_at_utc"),
                 "instance_created_at":m["created_at_utc"],
-                "reason":"execution occurred after economic T0 but before instance recording existed; baseline cannot be reconstructed without relabeling",
+                "reason":"execution timestamp is at/before instance creation; immutable T0 baseline prevents safe automatic strategy attribution",
             },
             source="BROKER_OBSERVED",
         )
