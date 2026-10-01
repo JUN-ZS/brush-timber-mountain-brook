@@ -306,6 +306,21 @@ def test_load_recovers_broker_state_from_immutable_execution_ledger():
                     "created_at": "2026-10-01T00:01:00+00:00",
                     "attribution_status": "MATCHED_PREDECISION_PLAN",
                 },
+                "attribution": {
+                    "status": "MATCHED_PREDECISION_PLAN",
+                    "match": {
+                        "event_seq": 3,
+                        "candidate_index": 0,
+                        "observed_at_utc": "2026-10-01T00:00:30+00:00",
+                        "action": "REDUCE_NEAR",
+                        "candidate": {
+                            "action": "REDUCE_NEAR",
+                            "code": "US.QQQ261030C00500000",
+                            "qty": 1,
+                        },
+                        "age_minutes": 0.5,
+                    },
+                },
                 "realized_pnl_delta": 200.0,
             },
             source="BROKER_OBSERVED",
