@@ -279,6 +279,39 @@ def test_confirmed_strategy_execution_is_explicit_and_replayable():
         assert ledger.validate()["records"]==2
 
 
+def test_confirmed_strategy_execution_supports_partial_qty_without_losing_remainder():
+    import tempfile
+    from .run_instance import confirm_strategy_execution, save
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td); iid="I-CONF-PART"
+        manifest={"schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+                  "instance_id":iid,"created_at_utc":"2026-10-01T00:00:00+00:00",
+                  "start_at_utc":"2026-10-01T00:00:00+00:00","strategy_id":"TEST",
+                  "strategy_version":"V1","initial_positions":[]}
+        manifest["manifest_hash"]=mhash(manifest)
+        save(mpath(repo,iid),manifest)
+        st={"schema":"STRATEGY_INSTANCE_STATE.v1","schema_version":1,"instance_id":iid,
+            "processed_deal_ids":["D2"],"strategy_deal_ids":[],"unattributed_deal_ids":["D2"],
+            "lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
+            "last_snapshot_hash":None,"last_reconcile":None,"cycle_count":1,"data_gaps":1,
+            "gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,
+            "manual_lots":[],"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
+        save(spath(repo,iid),st)
+        ledger=InstanceLedger(lpath(repo,iid),{"instance_id":iid,"manifest_hash":manifest["manifest_hash"],"strategy_id":"TEST","strategy_version":"V1"})
+        ledger.append("BROKER_EXECUTION_UNATTRIBUTED",instance_id=iid,cycle_id="C1",
+                      timestamp_utc="2026-10-01T00:01:00+00:00",
+                      payload={"deal":{"deal_id":"D2","code":"US.QQQ.TEST","side":"BUY","qty":5,"price":4.0,"lot_size":100,"created_at":"2026-10-01T00:01:00+00:00"},
+                               "reason":"strategy_execution_requires_explicit_user_confirmation"})
+        out=confirm_strategy_execution(repo,instance_id=iid,deal_id="D2",expected_strategy_side="LONG",qty=2,note="first confirmed slice")
+        assert out["confirmed_qty"]==2
+        assert out["strategy_application"]=="CONFIRMED_OPEN_LONG"
+        _,state,_=load_instance(repo,iid)
+        assert state["strategy_deal_ids"]==["D2"]
+        assert state["unattributed_deal_ids"]==["D2"]
+        assert state["lots"][0]["qty"]==2
+        assert state["lots"][0]["source"]=="BROKER_DEAL_CONFIRMED"
+
+
 def test_strategy_plan_quantity_cannot_be_reused_across_cycles():
     from .run_instance import attribute_broker_deal
     plan_key=("7",0,"ADD_NEAR","US.QQQ261030C00500000","BUY")
