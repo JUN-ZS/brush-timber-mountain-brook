@@ -50,7 +50,7 @@ def _anchor_family_ids(prior, anchor, repo: Path):
         return {
             str(row.get("family_id"))
             for row in (obj.get("family_observation") or {}).get("rows",[])
-            if row.get("family_id")
+            if row.get("family_id") and row.get("status") == "AVAILABLE"
         }
     except Exception:
         return set()
