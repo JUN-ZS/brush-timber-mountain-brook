@@ -79,7 +79,8 @@ class LiveFutuReader:
         return raw
     def snapshot(self,extra_codes=None):
         conn=self.connect()
-        if conn.get("status") not in {"PASS","PARTIAL"}:return {"status":"BLOCKED","connection":conn}
+        if conn.get("status") != "PASS":
+            return {"status":"BLOCKED","connection":conn,"reason":"FUTU_CONNECTION_NOT_READY"}
         try:
             q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc).isoformat()
             normalized_timestamp=_normalize_quote_timestamp(getattr(q, "timestamp", None))
