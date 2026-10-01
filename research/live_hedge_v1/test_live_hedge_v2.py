@@ -14,6 +14,7 @@ from research.live_hedge_v1.campaign import (
 from research.live_hedge_v1.engine import Contract, Order, Position, plan, quote_age_sec
 from research.live_hedge_v1.futu_reader import _compute_signal, _enrich_contracts_with_quotes
 from research.live_hedge_v1.run_live_desk import (
+    _apply_signal_gate,
     _position_dicts,
     _strategy_position_analysis,
     _strategy_positions_for_plan,
