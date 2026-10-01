@@ -173,6 +173,15 @@ def main() -> int:
             raise SystemExit(
                 f"INVALID_CORRECTION_TARGET:{args.corrects_evidence_id}; corrections must target the current unsuperseded outcome"
             )
+        corrected_payload=corrected.get("payload") or {}
+        if args.family_id != corrected_payload.get("family_id"):
+            raise SystemExit(
+                "CORRECTION_CANNOT_RELABEL_FAMILY"
+            )
+        if args.anchor_evidence_id != corrected_payload.get("anchor_evidence_id"):
+            raise SystemExit(
+                "CORRECTION_CANNOT_RELABEL_ANCHOR"
+            )
     elif outcome_rows:
         raise SystemExit(
             f"OUTCOME_ALREADY_RESOLVED:{args.campaign_id}; use --corrects-evidence-id for an append-only correction"
