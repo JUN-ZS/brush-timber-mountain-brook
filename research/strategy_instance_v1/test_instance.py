@@ -498,6 +498,19 @@ def test_manual_pnl_preview_blocks_over_reduce():
 
 
 
+def test_strategy_plan_fails_closed_on_unknown_qqq_position_side():
+    from .run_instance import strategy_plan
+    from research.live_hedge_v1.engine import Contract
+    c=Contract("US.QQQ261230C00600000","CALL",600.0,"2026-12-30",90,2.0,2.5,0.08,0.01,0.2,100,100)
+    out=strategy_plan(
+        {"market":{"spot":500.0,"timestamp":"2026-10-01T21:00:00+00:00","signal_active":True}},
+        [{"code":c.code,"side":"UNKNOWN","qty":10,"avg_cost":2.0}],
+        [], {c.code:c}, {c.code:{"bid":2.0,"ask":2.5,"delta":0.08,"gamma":0.01}},
+        {"far_dte":90,"far_delta":0.08,"near_dte":30,"far_code_hint":c.code},
+    )
+    assert out["status"]=="BLOCKED_UNKNOWN_POSITION_SIDE"
+
+
 def test_strategy_cycle_far_observation_does_not_pick_first_ambiguous_short():
     from .run_instance import instance_far_position
     positions = [
