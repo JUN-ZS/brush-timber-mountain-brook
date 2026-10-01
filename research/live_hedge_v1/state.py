@@ -398,7 +398,7 @@ class StateStore:
                 if latest_ticket is not None:
                     latest_ticket = json.loads(json.dumps(latest_ticket))
                     latest_ticket["status"] = "PARTIAL"
-                    if et == "TICKET_PARTIAL_PROGRESS" and payload.get("fill") is not None:
+                    if payload.get("fill") is not None:
                         latest_ticket["fill"] = payload.get("fill")
                         self._apply_far_execution_evidence(
                             campaign,
