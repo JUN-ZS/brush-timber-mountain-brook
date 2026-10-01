@@ -231,6 +231,7 @@ class FutuOpenDAdapter:
         bid = finite(_row_get(row, "bid_price", "bid", "bid_price_1"))
         ask = finite(_row_get(row, "ask_price", "ask", "ask_price_1"))
         ts = _row_get(row, "update_time", "data_time", "time")
+        update_ts = finite(_row_get(row, "update_timestamp", "updateTimestamp"))
         vol = finite(_row_get(row, "volume"))
         prev = finite(_row_get(row, "prev_close_price", "last_close_price", "prev_close"))
         if last is None and bid is None and ask is None:
@@ -244,6 +245,7 @@ class FutuOpenDAdapter:
             source="LIVE QUOTE",
             volume=vol,
             prev_close=prev,
+            extra={"update_timestamp": update_ts} if update_ts is not None else {},
         )
 
     def _iter_rows(self, data: Any):
