@@ -12,7 +12,7 @@ This is a separate personal campaign ledger.
 
 \`created_at_utc\` is when the instance record was created.
 
-Initial positions/cost basis are immutable USER_INITIAL input. Broker transactions are observed account-wide, but a post-T0 execution enters the strategy book only when it matches a recent pre-decision strategy-plan observation. Same-code coincidence is not enough; unmatched or over-quantity executions remain `BROKER_EXECUTION_UNATTRIBUTED` and create a DATA_GAP rather than being folded into strategy P&L.
+Initial positions/cost basis are immutable USER_INITIAL input. Broker transactions are observed account-wide. A post-T0 execution enters the strategy book only through either (a) a strategy-owned close that is uniquely provable from the current broker snapshot, or (b) an explicit `STRATEGY_EXECUTION_CONFIRMED` user attribution. A recent strategy-plan timing/code match is evidence for later review only, never proof of intent. Unmatched or unconfirmed executions remain `BROKER_EXECUTION_UNATTRIBUTED` and create a DATA_GAP rather than being folded into strategy P&L.
 
 Legacy `EXECUTION_DETECTED` rows without explicit attribution are quarantined on recovery and are never silently promoted into the new strategy lineage. On the first cycle, the recorder also asks for history back to economic T0; transactions after T0 but before the instance was created are preserved as `BROKER_EXECUTION_PRE_INSTANCE` DATA_GAP events rather than silently disappearing.
 
