@@ -9,10 +9,15 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - research/qqq_v22_locked_oos_family_v2.py
+      - research/qqq_dynamic_near_long_state_engine_v22_930c949.py
+      - research/evidence_v1/STRATEGY_LOCK.json
+      - .github/workflows/qqq-v22-locked-oos-family-v2.yml
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -37,13 +42,25 @@ jobs:
           mkdir -p data
           curl -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
           curl -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
-          python -c "import hashlib; print('options',hashlib.sha256(open('data/QQQ_options.parquet','rb').read()).hexdigest()); print('underlying',hashlib.sha256(open('data/QQQ_underlying.parquet','rb').read()).hexdigest())"
+          options_sha256=$(sha256sum data/QQQ_options.parquet | awk '{print $1}')
+          underlying_sha256=$(sha256sum data/QQQ_underlying.parquet | awk '{print $1}')
+          echo "options ${options_sha256}"
+          echo "underlying ${underlying_sha256}"
+          test "${options_sha256}" = "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734"
+          test "${underlying_sha256}" = "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351"
       - name: Verify frozen V22 engine source
         shell: bash
+        env:
+          ENGINE_COMMIT: 930c949ec5260865f2bf3ee1c6e030dab7b8e4c4
+          ENGINE_PATH: research/qqq_dynamic_near_long_state_engine_v22_930c949.py
         run: |
           . .venv/bin/activate
+          git cat-file -e "${ENGINE_COMMIT}^{commit}"
+          git cat-file -e "${ENGINE_COMMIT}:${ENGINE_PATH}"
+          git diff --quiet "${ENGINE_COMMIT}" -- "${ENGINE_PATH}"
           python -c "import hashlib; p='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; print('engine_copy',hashlib.sha256(open(p,'rb').read()).hexdigest())"
           python -c "import pathlib; p=pathlib.Path('research/qqq_dynamic_near_long_state_engine_v22_930c949.py'); assert p.exists(); print('frozen_engine_present', p.stat().st_size)"
+          echo "frozen_engine_match=PASS"
       - name: Verify and run locked 72-config family
         shell: bash
         run: |
