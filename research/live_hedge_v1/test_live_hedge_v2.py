@@ -12,7 +12,7 @@ from research.live_hedge_v1.campaign import (
     reconcile_ticket,
 )
 from research.live_hedge_v1.engine import Contract, Order, Position, plan, quote_age_sec
-from research.live_hedge_v1.futu_reader import _enrich_contracts_with_quotes
+from research.live_hedge_v1.futu_reader import _compute_signal, _enrich_contracts_with_quotes
 from research.live_hedge_v1.run_live_desk import (
     _position_dicts,
     _strategy_position_analysis,
@@ -450,6 +450,24 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertIsNone(state["active_ticket"])
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
 
+
+    def test_signal_reports_history_data_gap_instead_of_false(self):
+        dates = [f"2026-01-{i:02d}" for i in range(1, 11)]
+        history = list(zip(dates, [100.0] * 10))
+        out = _compute_signal(110.0, history)
+        self.assertEqual(out["status"], "DATA_GAP")
+        self.assertIsNone(out["active"])
+        self.assertEqual(out["reference_count"], 10)
+        self.assertIn("need >=252", out["reason"])
+
+    def test_signal_computes_from_252_reference_closes(self):
+        dates = [f"2025-01-{(i % 28)+1:02d} {i//28:02d}" for i in range(252)]
+        history = list(zip(dates, [100.0] * 252))
+        out = _compute_signal(110.0, history)
+        self.assertEqual(out["status"], "OK")
+        self.assertTrue(out["active"])
+        self.assertAlmostEqual(out["ext200"], 0.1, places=8)
+        self.assertAlmostEqual(out["ratio52"], 1.1, places=8)
 
     def test_live_quote_greeks_enrich_chain_before_selection(self):
         from backtest.types import OptionContract
