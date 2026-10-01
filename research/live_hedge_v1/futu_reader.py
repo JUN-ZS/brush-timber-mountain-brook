@@ -38,10 +38,12 @@ class LiveFutuReader:
         try:return row[name]
         except Exception:return getattr(row,name,default)
     def _quote_date(self, timestamp):
-        raw = str(timestamp or "").strip()
+        normalized=_normalize_quote_timestamp(timestamp)
+        if not normalized:
+            return None
         try:
-            return datetime.strptime(raw[:10], "%Y-%m-%d").date()
-        except Exception:
+            return datetime.fromisoformat(normalized).astimezone(_US_EXCHANGE_TZ).date()
+        except (TypeError,ValueError):
             return None
 
     def _expiry_targets(self, asof_date=None):
