@@ -24,6 +24,12 @@ CODE_PATHS = (
     "research/strategy_instance_v1/run_instance.py",
     "research/strategy_instance_v1/ledger.py",
     "research/strategy_instance_v1/performance_tape.py",
+    "research/strategy_instance_v1/serve_operator.py",
+    "research/evidence_v1/family_snapshot.py",
+    "research/evidence_v1/snapshot.py",
+    "research/evidence_v1/report.py",
+    "research/evidence_v1/outcome.py",
+    "research/evidence_v1/seal.py",
 )
 
 
