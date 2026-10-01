@@ -40,6 +40,8 @@ def assert_engine_constants(repo_root: Path) -> dict[str, Any]:
         "COVERAGE_MULT": 1.50,
         "NEAR_TP": 0.50,
         "NEAR_ROLL_DTE": 2,
+        "SIGNAL_RATIO52_GTE": float(lock["signal"]["ratio52_gte"]),
+        "SIGNAL_EXT200_GTE": float(lock["signal"]["ext200_gte"]),
     }
     actual = {k: getattr(engine, k, None) for k in expected}
     mismatches = {
@@ -55,6 +57,14 @@ def assert_engine_constants(repo_root: Path) -> dict[str, Any]:
     fam = lock["candidate_family"]
     if fam["near_dte"] != LOCKED_NEAR_DTE or float(fam["coverage"]) != 1.50:
         raise StrategyLockViolation("LOCK_VIOLATION:LOCK_MANIFEST_FAMILY")
+    if set(int(x) for x in fam["far_dte"]) != set(ALLOWED_FAR_DTE):
+        raise StrategyLockViolation("LOCK_VIOLATION:FAR_DTE_FAMILY")
+    if set(float(x) for x in fam["far_abs_delta"]) != set(ALLOWED_FAR_DELTA):
+        raise StrategyLockViolation("LOCK_VIOLATION:FAR_DELTA_FAMILY")
+    if float(lock["signal"]["ratio52_gte"]) != 0.98 or float(lock["signal"]["ext200_gte"]) != 0.08:
+        raise StrategyLockViolation("LOCK_VIOLATION:SIGNAL_MANIFEST")
+    expected["SIGNAL_RATIO52_GTE"] = float(lock["signal"]["ratio52_gte"])
+    expected["SIGNAL_EXT200_GTE"] = float(lock["signal"]["ext200_gte"])
     return {"status": "PASS", "checked": expected, "strategy_id": lock["strategy_id"]}
 
 
