@@ -248,6 +248,55 @@ def test_manual_pnl_preview_blocks_over_reduce():
 
 
 
+def test_strategy_plan_refuses_ambiguous_far_short_ownership():
+    from .run_instance import strategy_plan
+    from research.live_hedge_v1.engine import Contract
+    snap = {
+        "market": {"spot": 500.0, "signal_active": False},
+    }
+    contracts = [
+        Contract("US.QQQ261230C00600000","CALL",600.0,"2026-12-30",90,2.0,2.5,0.08,0.01,0.2,100,100),
+        Contract("US.QQQ261230C00610000","CALL",610.0,"2026-12-30",90,1.5,2.0,0.05,0.01,0.2,100,100),
+    ]
+    cmap = {c.code: c for c in contracts}
+    quotes = {c.code: {"bid": c.bid, "ask": c.ask, "delta": c.delta, "gamma": c.gamma} for c in contracts}
+    ps = [
+        {"code": contracts[0].code, "side": "SHORT", "qty": 10, "avg_cost": 2.0},
+        {"code": contracts[1].code, "side": "SHORT", "qty": 5, "avg_cost": 1.8},
+    ]
+    out = strategy_plan(snap, ps, [], cmap, quotes, {"far_dte": 90, "far_delta": 0.08, "near_dte": 30})
+    assert out["status"] == "DATA_GAP"
+    assert "ambiguous" in out["reason"]
+
+
+def test_strategy_plan_uses_explicit_far_code_hint():
+    from .run_instance import strategy_plan
+    from research.live_hedge_v1.engine import Contract
+    snap = {
+        "market": {"spot": 500.0, "signal_active": False},
+    }
+    contracts = [
+        Contract("US.QQQ261230C00600000","CALL",600.0,"2026-12-30",90,2.0,2.5,0.08,0.01,0.2,100,100),
+        Contract("US.QQQ261230C00610000","CALL",610.0,"2026-12-30",90,1.5,2.0,0.05,0.01,0.2,100,100),
+    ]
+    cmap = {c.code: c for c in contracts}
+    quotes = {c.code: {"bid": c.bid, "ask": c.ask, "delta": c.delta, "gamma": c.gamma} for c in contracts}
+    ps = [
+        {"code": contracts[0].code, "side": "SHORT", "qty": 10, "avg_cost": 2.0},
+        {"code": contracts[1].code, "side": "SHORT", "qty": 5, "avg_cost": 1.8},
+    ]
+    out = strategy_plan(
+        snap, ps, [], cmap, quotes,
+        {"far_dte": 90, "far_delta": 0.08, "near_dte": 30},
+    )
+    # This test is intentionally covered by a second call with a manifest hint.
+    assert out["status"] == "DATA_GAP"
+    out = strategy_plan(
+        snap, ps, [], cmap, quotes,
+        {"far_dte": 90, "far_delta": 0.08, "near_dte": 30, "far_code_hint": contracts[0].code},
+    )
+    assert out["far"]["code"] == contracts[0].code
+
 def test_strategy_relationship_requires_semantic_action_match():
     ref = {"ticket_id":"T1","code":"US.QQQ.TEST","action":"SELL_FAR","qty":10}
     assert classify_relationship("SELL_FAR","US.QQQ.TEST",10,ref) == "FOLLOW_STRATEGY"
