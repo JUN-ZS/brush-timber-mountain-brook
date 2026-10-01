@@ -214,6 +214,7 @@ def test_load_recovers_broker_state_from_immutable_execution_ledger():
                     "price": 7.0,
                     "lot_size": 100,
                     "created_at": "2026-10-01T00:01:00+00:00",
+                    "attribution_status": "MATCHED_PREDECISION_PLAN",
                 },
                 "realized_pnl_delta": 200.0,
             },
