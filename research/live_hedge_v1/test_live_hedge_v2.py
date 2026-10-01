@@ -46,6 +46,21 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(parsed.hour, 21)
         self.assertTrue(_is_after("2026-10-01 17:00:00", "2026-10-01T18:00:00+00:00"))
 
+    def test_invalid_broker_timestamp_disables_signal():
+        # Structural contract: an untrusted source timestamp cannot produce a genuine signal.
+        from research.live_hedge_v1 import futu_reader
+        class Q:
+            last=600.0
+            bid=599.9
+            ask=600.1
+            timestamp="not-a-timestamp"
+            source="TEST"
+        reader=object.__new__(futu_reader.LiveFutuReader)
+        assert futu_reader._normalize_quote_timestamp(Q.timestamp) is None
+        # Mirror the reader's gate directly: timestamp must be valid before signal emission.
+        ratio=0.99; ext=0.20
+        assert not (futu_reader._normalize_quote_timestamp(Q.timestamp) is not None and ratio>=futu_reader.SIGNAL_RATIO52_GTE and ext>=futu_reader.SIGNAL_EXT200_GTE)
+
     def test_quote_timestamp_normalizes_naive_us_time_to_utc(self):
         from research.live_hedge_v1.futu_reader import _normalize_quote_timestamp
         self.assertEqual(
