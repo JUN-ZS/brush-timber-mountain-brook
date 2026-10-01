@@ -152,7 +152,7 @@ FIFO attribution belongs to the actual manual opening decision that supplied the
 
 ## Automatically recorded
 
-Broker account positions/orders/deals, exact local snapshot plus SHA-256, strategy-attributed executions only when linked to a recent pre-decision plan, unattributed broker executions, FIFO strategy gross realized P&L, strategy-owned marked unrealized P&L, total strategy gross P&L, strategy-vs-broker-owned reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
+Broker account positions/orders/deals, exact local snapshot plus SHA-256, strategy-attributed executions only when explicitly confirmed by the user or uniquely proven as strategy-owned closes, potential plan matches/unattributed broker executions, FIFO strategy gross realized P&L, strategy-owned marked unrealized P&L, total strategy gross P&L, strategy-vs-broker-owned reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
 
 No order is submitted or modified.
 
