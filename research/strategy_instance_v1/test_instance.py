@@ -1,8 +1,16 @@
 import tempfile, threading, time
 from pathlib import Path
 from .ledger import InstanceLedger, InstanceLedgerError, sha256_json
-from .run_instance import apply_deal, manual_apply_trade, manual_position_snapshot, manual_book_pnl_preview
-from .run_instance import instance_mutation_lock
+from .run_instance import (
+    apply_deal,
+    load_instance,
+    manual_apply_trade,
+    manual_position_snapshot,
+    manual_book_pnl_preview,
+    save,
+    init_lots,
+)
+from .run_instance import instance_mutation_lock, mhash, mpath, spath
 from .performance_tape import build_performance_tape, classify_relationship
 
 def test_instance_mutation_lock_serializes_threads():
@@ -67,6 +75,80 @@ def test_gamma_state_resets_unmarked_legacy_history():
     assert prev == 0.08
     assert state["gamma_history_schema"] == 2
     assert state["gamma_history_unit"] == "gamma_spot"
+
+def test_load_recovers_broker_state_from_immutable_execution_ledger():
+    with tempfile.TemporaryDirectory() as td:
+        repo = Path(td)
+        instance_id = "I-RECOVER"
+        manifest = {
+            "schema": "STRATEGY_INSTANCE_MANIFEST.v1",
+            "schema_version": 1,
+            "instance_id": instance_id,
+            "created_at_utc": "2026-10-01T00:00:00+00:00",
+            "start_at_utc": "2026-10-01T00:00:00+00:00",
+            "strategy_id": "TEST",
+            "strategy_version": "V1",
+            "initial_positions": [{
+                "code": "US.QQQ261030C00500000",
+                "side": "LONG",
+                "qty": 1,
+                "avg_cost": 5.0,
+                "lot_size": 100,
+            }],
+        }
+        manifest["manifest_hash"] = mhash(manifest)
+        save(mpath(repo, instance_id), manifest)
+        stale = {
+            "schema": "STRATEGY_INSTANCE_STATE.v1",
+            "schema_version": 1,
+            "instance_id": instance_id,
+            "processed_deal_ids": [],
+            "lots": init_lots(manifest),
+            "realized_pnl": 0.0,
+            "last_cycle_at": None,
+            "last_snapshot_hash": None,
+            "last_reconcile": None,
+            "cycle_count": 0,
+            "data_gaps": 0,
+            "manual_lots": init_lots(manifest),
+            "manual_realized_pnl": 0.0,
+            "manual_trade_count": 0,
+            "manual_last_mark": None,
+        }
+        save(spath(repo, instance_id), stale)
+        from .ledger import InstanceLedger
+        ledger = InstanceLedger(
+            repo / "research/strategy_instance_v1/instances" / instance_id / "ledger.jsonl",
+            {
+                "instance_id": instance_id,
+                "manifest_hash": manifest["manifest_hash"],
+                "strategy_id": "TEST",
+                "strategy_version": "V1",
+            },
+        )
+        ledger.append(
+            "EXECUTION_DETECTED",
+            instance_id=instance_id,
+            cycle_id="C1",
+            timestamp_utc="2026-10-01T00:01:00+00:00",
+            payload={
+                "deal": {
+                    "deal_id": "D1",
+                    "code": "US.QQQ261030C00500000",
+                    "side": "SELL",
+                    "qty": 1,
+                    "price": 7.0,
+                    "lot_size": 100,
+                    "created_at": "2026-10-01T00:01:00+00:00",
+                },
+                "realized_pnl_delta": 200.0,
+            },
+            source="BROKER_OBSERVED",
+        )
+        _, state, _ = load_instance(repo, instance_id)
+        assert state["realized_pnl"] == 200.0
+        assert state["processed_deal_ids"] == ["D1"]
+        assert all(x["qty"] == 0 for x in state["lots"] if x["code"] == "US.QQQ261030C00500000")
 
 def test_hash_chain():
     with tempfile.TemporaryDirectory() as td:
