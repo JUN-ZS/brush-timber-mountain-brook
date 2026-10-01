@@ -88,6 +88,10 @@ The console provides:
 - one-click manual ledger recording
 - broker refresh (read-only Futu/OpenD cycle)
 - manual positions, marks, recent manual trades, and ledger hash
+- a derived performance tape linking each USER_MANUAL fill to the strategy ticket snapshot captured at record time
+- tape filters by relation (FOLLOW_STRATEGY / ADJUST_SIZE / OPERATOR_ONLY), open/close flow, and code/trade/ticket search
+- per-row FIFO close attribution, execution-vs-ticket estimate, decision readout, and detail drill-down
+- attribution consistency status; CHECK_REQUIRED flags unmatched close quantity or an observed-vs-attributed realized-P&L mismatch
 
 The console binds to `127.0.0.1` by default. Browser actions write only the `USER_MANUAL` instance ledger; they never submit broker orders.
 
@@ -119,6 +123,21 @@ YOUR ADJUSTMENT -> USER_MANUAL trade -> MANUAL BOOK P&L
 ```
 
 A manual trade also stores the strategy ticket visible at that moment, so later analysis can distinguish following the strategy from changing size or acting independently.
+
+### Performance tape semantics
+
+The tape is a derived research view over immutable USER_MANUAL ledger events. It recomputes the relationship from the stored ticket snapshot rather than trusting a historical relationship label.
+
+`FOLLOW_STRATEGY` requires the same ticket, same option code, same semantic action, and same quantity.
+
+`ADJUST_SIZE` requires the same ticket, same option code, and same semantic action, but a different quantity. Only the traded contracts are observed; skipped or extra contracts do not create a counterfactual profit path.
+
+`OPERATOR_ONLY` is used when there is no ticket/code match or when the manual action is semantically different from the stored ticket. A different action is never converted into a size adjustment.
+
+Semantic mappings include `ADD_NEAR -> ADD`, `HARVEST_NEAR -> REDUCE`, `REDUCE_NEAR -> REDUCE`, `SELL_FAR -> SELL_FAR`, and `CLOSE_FAR_EMERGENCY -> BUY_BACK_FAR`. Campaign emergency legs are interpreted by leg side.
+
+FIFO attribution belongs to the actual manual opening decision that supplied the lot. It does not construct a hypothetical strategy P&L path.
+
 
 
 ## Automatically recorded
