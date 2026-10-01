@@ -101,10 +101,7 @@ def explicit_strategy_context(repo, body):
     checks = (
         str(raw.get("action") or "") == str(ticket.get("action") or "")
         and str(raw.get("status") or "") == str(ticket.get("status") or "")
-        and str(leg_raw.get("side") or "") == str(verified_leg.get("side") or "")
-        and str(leg_raw.get("qty") or "") == str(verified_leg.get("qty") or "")
-        and str(leg_raw.get("strategy_leg_action") or leg_raw.get("why") or "")
-            == str(verified_leg.get("strategy_leg_action") or verified_leg.get("why") or "")
+        and sha256_json(leg_raw) == sha256_json(verified_leg)
     )
     if not checks:
         raise ValueError("STRATEGY_CONTEXT_TICKET_TAMPERED")
