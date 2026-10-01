@@ -882,7 +882,13 @@ def main():
             _transition(state, STATE_OPEN, now, store)
 
     campaign_active = campaign.get("state") != STATE_IDLE
-    signal_active = bool(market.get("signal_active"))
+    signal_active = market.get("signal_active")
+    signal_status = str(market.get("signal_status", "OK")).upper()
+
+    # Preserve tri-state signal semantics: DATA_GAP/unknown is not equivalent
+    # to an inactive signal. Unknown signal data must never open a new campaign.
+    if signal_status != "OK" or signal_active is None:
+        signal_active = None
 
     # A campaign cannot remain logically active after every managed QQQ option is gone.
     if campaign_active and not strict_positions and state.get("active_ticket") is None and not just_filled:
@@ -981,7 +987,7 @@ def main():
         near=near,
         positions=planner_positions,
         orders=acct_orders,
-        signal_active=(signal_active and not unmanaged_short_block),
+        signal_active=(signal_active is True and not unmanaged_short_block),
         far_campaign_active=campaign_active,
         quotes_by_code=quotes,
         gamma_baseline=gamma_baseline,
@@ -995,6 +1001,14 @@ def main():
     # while that ticket is awaiting manual execution/reconciliation.
     active_ticket_for_gate = state.get("active_ticket")
     p = _defer_actions_for_active_ticket(p, active_ticket_for_gate)
+
+    if signal_active is None:
+        p["status"] = "BLOCKED_SIGNAL_DATA_GAP"
+        p["candidate_actions"] = []
+        p["reasons"] = [
+            "signal unavailable: history/data gap",
+            "no new campaign decision is permitted until signal data is complete",
+        ] + list(p.get("reasons", []))
 
     if unmanaged_short_block and not campaign_active:
         p["status"] = "BLOCKED_UNMANAGED_QQQ_SHORT"
