@@ -81,19 +81,21 @@ def _dt(s):
         return None
 
 
-def quote_age_sec(s, now=None, naive_is_local=False):
+def quote_age_sec(s, now=None, naive_is_local=False, max_future_sec=5):
     t = _dt(s)
     if t is None:
         return None
     now = now or datetime.now(timezone.utc)
     if t.tzinfo is None:
         if naive_is_local:
-            # Futu US-trading order timestamps are exchange-local wall-clock
-            # values, not the machine's timezone.
+            # Futu US-trading timestamps are exchange-local wall-clock values.
             t = t.replace(tzinfo=_US_EXCHANGE_TZ)
         else:
             t = t.replace(tzinfo=timezone.utc)
-    return max(0, (now - t).total_seconds())
+    age = (now - t).total_seconds()
+    if age < -float(max_future_sec):
+        return None
+    return max(0, age)
 
 
 def gamma_baseline_from_history(history: Sequence[float]) -> Optional[float]:
