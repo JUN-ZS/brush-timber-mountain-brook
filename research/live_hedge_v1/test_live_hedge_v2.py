@@ -151,6 +151,19 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(peak[0], 1)
 
 
+    def test_corrupt_live_event_tail_blocks_mutation():
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            base=Path(td)
+            events=base/"events.jsonl"
+            events.write_text('{"schema":"LIVE_DESK_EVENT.v2","schema_version":2,"event_id":"E1","timestamp":"2026-10-01T21:00:00+00:00","type":"TICKET_ISSUED","campaign_id":null,"payload":{},"previous_hash":"'+("0"*64)+'","event_hash":"'+("1"*64)+'"}\n{"partial":',encoding="utf-8")
+            store=StateStore(base/"state.json",events)
+            checked=store.validate_events()
+            self.assertEqual(checked["status"],"BLOCKED")
+            self.assertEqual(checked["integrity"],"CORRUPT_TAIL")
+            with self.assertRaises(ValueError):
+                store.load()
+
     def test_state_events_are_hash_chained_and_tamper_detectable(self):
         import json
         import tempfile
