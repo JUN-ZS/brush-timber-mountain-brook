@@ -538,6 +538,39 @@ class LiveHedgeV2Test(unittest.TestCase):
                 })
 
 
+    def test_dynamic_state_replay_does_not_clear_unobserved_fields(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            store=StateStore(Path(td)/"state.json",Path(td)/"events.jsonl")
+            st={}
+            store.emit(
+                st,"DYNAMIC_STATE_OBSERVED",
+                now="2026-10-01T21:00:00+00:00",
+                payload={
+                    "far_code_observed":"US.QQQ.TEST",
+                    "far_delta_abs_observed":0.08,
+                    "gamma_spot_observed":4.0,
+                    "desired_stack":2,
+                    "risk_score":3.4,
+                },
+            )
+            store.emit(
+                st,"DYNAMIC_STATE_OBSERVED",
+                now="2026-10-01T21:00:05+00:00",
+                payload={
+                    "far_code_observed":"US.QQQ.TEST",
+                    "accepted_reason":"ACTIONABLE_OR_HOLD",
+                },
+            )
+            recovered=store.load()
+            self.assertEqual(recovered["far_delta"],0.08)
+            self.assertEqual(recovered["gamma_history"],[4.0])
+            self.assertEqual(recovered["last_target_stack"],2)
+            self.assertEqual(recovered["last_risk_score"],3.4)
+
+
     def test_live_dynamic_state_replay_overrides_tampered_cache(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
