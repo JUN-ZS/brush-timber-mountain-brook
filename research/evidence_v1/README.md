@@ -70,6 +70,9 @@ Create a checkpoint:
 
 Resolve a mature campaign:
 
-    python -m research.evidence_v1.outcome --campaign-id CAMPAIGN_ID --realized-pnl 1234.50 --benchmark-return 0.021
+    python -m research.evidence_v1.outcome --campaign-id CAMPAIGN_ID --anchor-evidence-id EVIDENCE_ID --realized-pnl 1234.50 --benchmark-return 0.021
+
+Corrections are append-only:
+python -m research.evidence_v1.outcome --campaign-id CAMPAIGN_ID --anchor-evidence-id EVIDENCE_ID --corrects-evidence-id PRIOR_OUTCOME_ID --realized-pnl 1200.00 --benchmark-return 0.018
 
 The outcome command appends; it never edits the original observation.
