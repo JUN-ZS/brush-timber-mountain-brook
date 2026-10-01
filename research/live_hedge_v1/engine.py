@@ -350,8 +350,11 @@ def plan(
     far_positions = [p for p in option_positions if p.side == "SHORT"]
     terminal_statuses = {"FILLED", "FILLED_ALL", "CANCELLED", "CANCELLED_ALL", "REJECTED", "FAILED"}
     pending_codes = {
-        o.code for o in orders
-        if is_qqq_option_code(o.code) and o.status.upper() not in terminal_statuses
+        o.code
+        for o in orders
+        if is_qqq_option_code(o.code)
+        and o.status.upper() not in terminal_statuses
+        and max(0, int(o.qty) - max(0, int(o.dealt_qty))) > 0
     }
 
     actions = []
@@ -526,6 +529,9 @@ def plan(
     for o in orders:
         if not is_qqq_option_code(o.code):
             continue
+        remaining_qty = max(0, int(o.qty) - max(0, int(o.dealt_qty)))
+        if remaining_qty <= 0:
+            continue
         age = quote_age_sec(o.updated_at, now, naive_is_local=True)
         q = quotes_by_code.get(o.code, {})
         if (
@@ -537,7 +543,7 @@ def plan(
                 "action": "REPRICE_OR_CANCEL",
                 "order_id": o.order_id,
                 "code": o.code,
-                "qty": o.qty,
+                "qty": remaining_qty,
                 "side": o.side,
                 "current_price": o.price,
                 "suggested_price": q.get("mid"),
