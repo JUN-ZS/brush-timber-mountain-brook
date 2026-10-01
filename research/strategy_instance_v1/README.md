@@ -12,7 +12,7 @@ This is a separate personal campaign ledger.
 
 \`created_at_utc\` is when the instance record was created.
 
-Initial positions/cost basis are immutable USER_INITIAL input. Broker transactions are observed account-wide. A post-T0 execution enters the strategy book only through either (a) a strategy-owned close that is uniquely provable from the current broker snapshot, or (b) an explicit `STRATEGY_EXECUTION_CONFIRMED` user attribution. A recent strategy-plan timing/code match is evidence for later review only, never proof of intent. Unmatched or unconfirmed executions remain `BROKER_EXECUTION_UNATTRIBUTED` and create a DATA_GAP rather than being folded into strategy P&L.
+Initial positions/cost basis are immutable USER_INITIAL input. Broker transactions are observed account-wide. A post-T0 execution enters the strategy book only through an explicit `STRATEGY_EXECUTION_CONFIRMED` user attribution. A recent strategy-plan timing/code match is evidence for later review only, never proof of intent; account-level same-code position arithmetic cannot establish intent. Unmatched or unconfirmed executions remain `BROKER_EXECUTION_UNATTRIBUTED` and create a DATA_GAP rather than being folded into strategy P&L.
 
 Legacy `EXECUTION_DETECTED` rows without explicit attribution are quarantined on recovery and are never silently promoted into the new strategy lineage. On the first cycle, the recorder also asks for history back to economic T0; transactions after T0 but before the instance was created are preserved as `BROKER_EXECUTION_PRE_INSTANCE` DATA_GAP events rather than silently disappearing.
 
@@ -64,7 +64,7 @@ For a broker fill that was observed but not safely attributable to the strategy,
 python -m research.strategy_instance_v1.run_instance confirm --instance-id MY_001 --deal-id DEAL_ID --expected-strategy-side LONG --qty 1 --note "verified as strategy execution"
 ```
 
-A recent strategy-ticket/code/side/time match remains evidence only. It does not create a strategy lot until the execution is uniquely provable from ownership state or explicitly confirmed by the user.
+A recent strategy-ticket/code/side/time match remains evidence only. It does not create a strategy lot until explicitly confirmed by the user.
 \`\`\`
 
 The \`manual\` commands create a separate adjustable operator book. They do not alter the broker-observed \`lots\`, broker realized P&L, or broker reconciliation. This keeps USER_MANUAL input separate from Futu observations. The report shows broker-observed P&L and manual-book P&L side by side.
@@ -160,7 +160,7 @@ FIFO attribution belongs to the actual manual opening decision that supplied the
 
 ## Automatically recorded
 
-Broker account positions/orders/deals, exact local snapshot plus SHA-256, strategy-attributed executions only when explicitly confirmed by the user or uniquely proven as strategy-owned closes, potential plan matches/unattributed broker executions, FIFO strategy gross realized P&L, strategy-owned marked unrealized P&L, total strategy gross P&L, strategy-vs-broker-owned reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
+Broker account positions/orders/deals, exact local snapshot plus SHA-256, strategy-attributed executions only when explicitly confirmed by the user, potential plan matches/unattributed broker executions, FIFO strategy gross realized P&L, strategy-owned marked unrealized P&L, total strategy gross P&L, strategy-vs-broker-owned reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
 
 No order is submitted or modified.
 
