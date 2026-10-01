@@ -513,6 +513,31 @@ class LiveHedgeV2Test(unittest.TestCase):
         assert "decision_rank" not in candidates[0]
         assert all(len(x["candidate_sha256"])==64 for x in ranked)
 
+    def test_blocked_cycle_finalizer_has_no_unbound_decision_context(self):
+        import json
+        import tempfile
+
+        from research.live_hedge_v1.run_live_desk import _finalize_blocked_cycle
+
+        class Evidence:
+            def __init__(self):
+                self.events = []
+            def append(self, event_type, **kwargs):
+                self.events.append((event_type, kwargs))
+                return {"evidence_id": f"E{len(self.events)}"}
+
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "live_state.json"
+            result = _finalize_blocked_cycle(
+                Evidence(), {"campaign": {"state": "IDLE"}},
+                "C1", "2026-10-01T21:00:00+00:00", out,
+                "BLOCKED_TEST", RuntimeError("x"),
+            )
+            self.assertEqual(result, 2)
+            payload = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(payload["status"], "BLOCKED_TEST")
+
+
     def test_action_card_preserves_explicit_roll_leg_semantics(self):
         ticket = {
             "status": "OPEN",
