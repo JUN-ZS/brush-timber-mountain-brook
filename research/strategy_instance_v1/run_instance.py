@@ -26,11 +26,16 @@ STATE_SCHEMA="STRATEGY_INSTANCE_STATE.v1"
 def now():
     return datetime.now(timezone.utc).isoformat()
 
+_US_EXCHANGE_TZ = ZoneInfo("America/New_York")
+
+
 def dt(x):
     try:
         z=datetime.fromisoformat(str(x).replace("Z","+00:00"))
-        return z.replace(tzinfo=timezone.utc) if z.tzinfo is None else z.astimezone(timezone.utc)
-    except Exception: return None
+        if z.tzinfo is None:
+            z=z.replace(tzinfo=_US_EXCHANGE_TZ)
+        return z.astimezone(timezone.utc)
+    except (TypeError, ValueError): return None
 
 def after(a,b):
     da,db=dt(a),dt(b)
