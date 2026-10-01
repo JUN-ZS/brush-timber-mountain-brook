@@ -210,6 +210,8 @@ class StateStore:
                 raise ValueError(f"LIVE_EVENT_HASH_MISMATCH:{idx}")
             previous = event_hash
             hashed_seen = True
+        if hashed_seen and legacy_seen:
+            return "MIXED_LEGACY_HASHED"
         if hashed_seen:
             return "HASHED"
         if legacy_seen:
