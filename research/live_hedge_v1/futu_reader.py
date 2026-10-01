@@ -40,7 +40,6 @@ def _enrich_contracts_with_quotes(contracts, quote_objects):
     return out
 
 
-class LiveFutuReader:
 def _compute_signal(last, history):
     dates = [x[0] for x in history]
     closes = [x[1] for x in history]
@@ -79,6 +78,7 @@ def _compute_signal(last, history):
     }
 
 
+class LiveFutuReader:
     """Live QQQ quote/chain reader. Never places or modifies orders."""
     def __init__(self,host="127.0.0.1",port=11111):
         self.a=FutuOpenDAdapter(host,port)
