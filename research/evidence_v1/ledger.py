@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 import threading
+from datetime import datetime, timezone
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -165,6 +166,19 @@ class EvidenceLedger:
                         raw = j.get("raw_candidate")
                         if j.get("observed_at_utc") is None:
                             raise LedgerError(f"LEDGER_CANDIDATE_TIMESTAMP_MISSING:cycle={cycle_id}")
+                        try:
+                            observed_at = datetime.fromisoformat(
+                                str(j.get("observed_at_utc")).replace("Z", "+00:00")
+                            )
+                            decision_at = datetime.fromisoformat(
+                                str(row.get("timestamp_utc")).replace("Z", "+00:00")
+                            )
+                        except (TypeError, ValueError) as exc:
+                            raise LedgerError(f"LEDGER_CANDIDATE_TIMESTAMP_INVALID:cycle={cycle_id}") from exc
+                        if observed_at.tzinfo is None or decision_at.tzinfo is None:
+                            raise LedgerError(f"LEDGER_CANDIDATE_TIMESTAMP_MUST_BE_AWARE:cycle={cycle_id}")
+                        if observed_at.astimezone(timezone.utc) > decision_at.astimezone(timezone.utc):
+                            raise LedgerError(f"LEDGER_CANDIDATE_TIMESTAMP_AFTER_DECISION:cycle={cycle_id}")
                         if j.get("candidate_index") is None:
                             raise LedgerError(f"LEDGER_CANDIDATE_INDEX_MISSING:cycle={cycle_id}")
                         try:
