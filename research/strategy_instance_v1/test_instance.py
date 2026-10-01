@@ -205,3 +205,46 @@ def test_repair_far_direction_maps_to_correct_manual_action():
         "BUY_BACK_FAR","US.QQQ.TEST",2,
         {"ticket_id":"T4","code":"US.QQQ.TEST","action":"REPAIR_FAR","direction":"REDUCE","qty":2}
     ) == "FOLLOW_STRATEGY"
+
+
+
+def test_roll_ticket_legs_carry_semantic_actions():
+    before = {
+        "LONG:US.QQQ.OLD": {"code": "US.QQQ.OLD", "side": "LONG", "qty": 2, "avg_cost": 5.0},
+    }
+    from .run_instance import build_ticket
+    ticket = build_ticket(
+        action={
+            "action": "ROLL_NEAR",
+            "code": "US.QQQ.OLD",
+            "qty": 2,
+            "price": 6.0,
+            "new_code": "US.QQQ.NEW",
+            "new_price": 7.0,
+        },
+        campaign_id="C-ROLL",
+        before_positions=before,
+        now="2026-10-01T00:00:00+00:00",
+        sequence=1,
+    )
+    assert ticket["legs"][0]["strategy_leg_action"] == "REDUCE_NEAR"
+    assert ticket["legs"][1]["strategy_leg_action"] == "ADD_NEAR"
+
+
+def test_roll_manual_legs_are_classified_by_leg_semantics():
+    old_ref = {
+        "ticket_id": "T-ROLL",
+        "action": "ROLL_NEAR",
+        "strategy_leg_action": "REDUCE_NEAR",
+        "code": "US.QQQ.OLD",
+        "qty": 2,
+    }
+    new_ref = {
+        "ticket_id": "T-ROLL",
+        "action": "ROLL_NEAR",
+        "strategy_leg_action": "ADD_NEAR",
+        "code": "US.QQQ.NEW",
+        "qty": 2,
+    }
+    assert classify_relationship("REDUCE", "US.QQQ.OLD", 2, old_ref) == "FOLLOW_STRATEGY"
+    assert classify_relationship("ADD", "US.QQQ.NEW", 2, new_ref) == "FOLLOW_STRATEGY"
