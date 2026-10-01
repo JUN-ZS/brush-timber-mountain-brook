@@ -54,14 +54,18 @@ class LiveHedgeV2Test(unittest.TestCase):
             RET_OK = 0
         class FakeCtx:
             def get_option_expiration_date(self, code):
+                class Column(list):
+                    def tolist(self):
+                        return list(self)
+
                 class D:
                     columns = ["strike_time"]
                     def __init__(self):
                         self.data = {
-                            "strike_time": [
+                            "strike_time": Column([
                                 "2026-10-08", "2026-10-15", "2026-10-22",
                                 "2026-10-29", "2026-11-12", "2026-12-01"
-                            ]
+                            ])
                         }
                     def __getitem__(self, key):
                         return self.data[key]
