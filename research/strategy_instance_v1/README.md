@@ -69,6 +69,28 @@ python -m research.strategy_instance_v1.run_instance verify --instance-id MY_001
 
 The launcher \`run_strategy_instance.cmd\` lets you omit the module prefix when desired.
 
+Operator Console:
+
+```cmd
+run_strategy_operator.cmd
+```
+
+Open:
+
+`http://127.0.0.1:8766/research/strategy_instance_v1/operator_dashboard.html`
+
+The console provides:
+- instance selector
+- locked strategy ticket / risk snapshot
+- manual ADD / REDUCE / SELL_FAR / BUY_BACK_FAR controls
+- +1 / +5 / -1 / -5 quantity shortcuts
+- realized-P&L preview before commit
+- one-click manual ledger recording
+- broker refresh (read-only Futu/OpenD cycle)
+- manual positions, marks, recent manual trades, and ledger hash
+
+The console binds to `127.0.0.1` by default. Browser actions write only the `USER_MANUAL` instance ledger; they never submit broker orders.
+
 ## Automatically recorded
 
 Broker positions/orders/deals, exact local snapshot plus SHA-256, newly observed executions, FIFO gross realized P&L, marked unrealized P&L, total gross P&L, broker-vs-instance reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
