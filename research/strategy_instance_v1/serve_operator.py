@@ -5,6 +5,7 @@ import io
 import json
 import os
 import traceback
+from datetime import datetime, timezone
 from contextlib import redirect_stdout
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -47,6 +48,10 @@ def explicit_strategy_context(repo, body):
     if str(raw.get("context_source") or "") != "OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE":
         raise ValueError("STRATEGY_CONTEXT_SOURCE_INVALID")
 
+    trade_dt = dt(body.get("timestamp_utc")) if body.get("timestamp_utc") else datetime.now(timezone.utc)
+    if trade_dt is None:
+        raise ValueError("STRATEGY_CONTEXT_TRADE_TIMESTAMP_INVALID")
+
     ticket_id = str(raw.get("ticket_id") or "").strip()
     leg_raw = raw.get("leg")
     code = str((leg_raw or {}).get("code") or "").upper()
@@ -80,9 +85,10 @@ def explicit_strategy_context(repo, body):
             # strategy instance has a durable T0/creation boundary.
             continue
         decision_dt = dt(row.get("timestamp_utc"))
+        if decision_dt is None or decision_dt > trade_dt:
+            continue
         if not row_instance_id and (
-            decision_dt is None
-            or decision_dt < instance_floor_dt
+            decision_dt < instance_floor_dt
         ):
             continue
         if instance_manifest and any(
