@@ -972,6 +972,19 @@ def main():
         now=datetime.fromisoformat(now),
     )
 
+    # An open strategy ticket already represents the current intended delta.
+    # Do not expose the planner's next-state repairs/additions as fresh actions
+    # while that ticket is awaiting manual execution/reconciliation.
+    active_ticket_for_gate = state.get("active_ticket")
+    if active_ticket_for_gate and str(active_ticket_for_gate.get("status", "")).upper() in {"OPEN", "PARTIAL"}:
+        p["deferred_candidate_actions"] = list(p.get("candidate_actions", []))
+        p["candidate_actions"] = []
+        p["status"] = "WAITING_ACTIVE_TICKET"
+        p["reasons"] = list(p.get("reasons", [])) + [
+            f"ACTIVE_TICKET_OPEN:{active_ticket_for_gate.get('ticket_id')}",
+            "candidate actions deferred until the active ticket is reconciled",
+        ]
+
     if unmanaged_short_block and not campaign_active:
         p["status"] = "BLOCKED_UNMANAGED_QQQ_SHORT"
         p["candidate_actions"] = []
@@ -1153,6 +1166,7 @@ def main():
         ],
         "lots": state.get("lots", []),
         "candidate_actions": p.get("candidate_actions", []),
+        "deferred_candidate_actions": p.get("deferred_candidate_actions", []),
         "next_triggers": p.get("next_triggers", []),
         "reasons": p.get("reasons", []),
         "reconcile_events": reconcile_events,
