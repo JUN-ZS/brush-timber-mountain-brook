@@ -271,6 +271,23 @@ def test_unverified_strategy_pnl_is_not_presented_as_observed():
     assert derive_pnl_observation_status([], "EMPTY") == "OBSERVED_MATCHED_CLOSED"
 
 
+def test_instance_listing_does_not_hide_corrupt_instance():
+    import tempfile
+    from pathlib import Path
+    from .run_instance import list_instances
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td)
+        instance_dir=repo/"research/strategy_instance_v1/instances"/"BROKEN"
+        instance_dir.mkdir(parents=True)
+        (instance_dir/"manifest.json").write_text("{broken",encoding="utf-8")
+        rows=list_instances(repo)
+        assert rows==[{
+            "instance_id":"BROKEN",
+            "status":"ERROR",
+            "error":"INVALID_JSON:"+str(instance_dir/"manifest.json"),
+        }]
+
+
 def test_instance_strategy_lineage_rejects_engine_or_lock_drift():
     import tempfile
     import research.strategy_instance_v1.run_instance as ri
