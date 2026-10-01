@@ -427,6 +427,7 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertTrue(result["partial"])
         self.assertFalse(result["broker_execution_complete"])
         self.assertEqual(state["active_ticket"]["status"], "PARTIAL")
+        self.assertFalse(result["ticket"]["fill"])
         self.assertTrue(
             any(
                 e["type"] == "TICKET_WAITING_EXECUTION_EVIDENCE"
