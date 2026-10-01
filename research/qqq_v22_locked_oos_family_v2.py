@@ -15,18 +15,32 @@ if __package__ in (None, ""):
 import duckdb
 import pandas as pd
 
-from qqq_dynamic_near_long_state_engine_v22_930c949 import (
-    FAR_DELTAS,
-    FAR_DTES,
-    POLICIES,
-    build_far_candidates,
-    get_quotes,
-    load_underlying,
-    pick_near,
-    quote_maps,
-    read_options,
-    simulate,
-)
+if __package__ in (None, ""):
+    from qqq_dynamic_near_long_state_engine_v22_930c949 import (
+        FAR_DELTAS,
+        FAR_DTES,
+        POLICIES,
+        build_far_candidates,
+        get_quotes,
+        load_underlying,
+        pick_near,
+        quote_maps,
+        read_options,
+        simulate,
+    )
+else:
+    from .qqq_dynamic_near_long_state_engine_v22_930c949 import (
+        FAR_DELTAS,
+        FAR_DTES,
+        POLICIES,
+        build_far_candidates,
+        get_quotes,
+        load_underlying,
+        pick_near,
+        quote_maps,
+        read_options,
+        simulate,
+    )
 
 CANDIDATE_NEAR_DTE = 30
 CANDIDATE_COVERAGE = 1.50
