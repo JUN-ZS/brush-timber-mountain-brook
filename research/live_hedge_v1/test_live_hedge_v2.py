@@ -668,6 +668,92 @@ class LiveHedgeV2Test(unittest.TestCase):
         )
 
 
+    def test_state_store_recovers_unsaved_active_ticket_from_event_log(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "live_state.json"
+            store = StateStore(out.with_name("state.json"), out.with_name("events.jsonl"))
+            state = store.load()
+            state["campaign"] = {
+                "id": "C-RECOVER-0001",
+                "state": "ARMING",
+                "far_code": "US.QQQ260116C00600000",
+                "managed_far_qty": 0,
+            }
+            ticket = build_ticket(
+                action={
+                    "action": "SELL_FAR",
+                    "code": "US.QQQ260116C00600000",
+                    "qty": 10,
+                    "side": "SELL",
+                    "price": 2.0,
+                },
+                campaign_id="C-RECOVER-0001",
+                before_positions={},
+                now="2026-10-01T00:00:00+00:00",
+                sequence=1,
+            )
+            store.emit(
+                state,
+                "TICKET_ISSUED",
+                now="2026-10-01T00:00:00+00:00",
+                payload={"ticket": ticket},
+            )
+            # Simulate a crash before state.save(): disk state has no ticket.
+            recovered = store.load()
+            self.assertIsNotNone(recovered["active_ticket"])
+            self.assertEqual(recovered["active_ticket"]["ticket_id"], ticket["ticket_id"])
+            self.assertEqual(recovered["campaign"]["id"], "C-RECOVER-0001")
+            self.assertEqual(recovered["campaign"]["far_code"], "US.QQQ260116C00600000")
+            self.assertEqual(recovered["campaign"]["managed_far_qty"], 0)
+
+    def test_state_store_terminal_event_clears_stale_ticket_on_recovery(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "live_state.json"
+            store = StateStore(out.with_name("state.json"), out.with_name("events.jsonl"))
+            state = store.load()
+            state["campaign"] = {
+                "id": "C-RECOVER-0002",
+                "state": "OPEN",
+                "far_code": "US.QQQ260116C00600000",
+                "managed_far_qty": 10,
+            }
+            ticket = build_ticket(
+                action={
+                    "action": "REPAIR_FAR",
+                    "code": "US.QQQ260116C00600000",
+                    "target_qty": 10,
+                    "current_qty": 9,
+                    "side": "SELL",
+                    "qty": 1,
+                    "price": 2.0,
+                },
+                campaign_id="C-RECOVER-0002",
+                before_positions={
+                    "SHORT:US.QQQ260116C00600000": {
+                        "code": "US.QQQ260116C00600000",
+                        "side": "SHORT",
+                        "qty": 9,
+                        "avg_cost": 2.0,
+                    }
+                },
+                now="2026-10-01T00:00:00+00:00",
+                sequence=2,
+            )
+            state["active_ticket"] = ticket
+            store.save(state)
+            store.emit(
+                state,
+                "TICKET_FILLED",
+                now="2026-10-01T00:01:00+00:00",
+                payload={"ticket_id": ticket["ticket_id"], "action": ticket["action"], "fill": []},
+            )
+            recovered = store.load()
+            self.assertIsNone(recovered["active_ticket"])
+
     def test_live_state_publisher_writes_valid_json_atomically(self):
         import json
         import tempfile
