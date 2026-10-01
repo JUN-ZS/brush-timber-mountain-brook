@@ -227,6 +227,72 @@ def close_fifo(lots,code,side,qty,price,lot_size):
         rem-=take
     return rem,pnl
 
+def _open_lot_qty(lots,code,side):
+    return sum(
+        si(x.get("qty"))
+        for x in lots
+        if str(x.get("status","OPEN")).upper()=="OPEN"
+        and str(x.get("code","")).upper()==str(code).upper()
+        and str(x.get("side","")).upper()==str(side).upper()
+    )
+
+
+def apply_strategy_attributed_deal(lots,d,match):
+    """Apply a plan-linked broker deal using the plan's expected position side.
+
+    The broker transaction verb alone is not enough to know whether BUY closes a
+    short or opens a long. The matched strategy leg supplies that semantic side.
+    Close quantities are capped by currently managed lots so overfills cannot
+    manufacture an opposite strategy position.
+    """
+    code=str(d.get("code","")).upper()
+    broker_side=str(d.get("side","")).upper()
+    q=si(d.get("qty"))
+    px=sf(d.get("price"))
+    size=max(1,si(d.get("lot_size")) or 100)
+    candidate=(match or {}).get("candidate") or {}
+    action=str((match or {}).get("action") or "").upper()
+    if q<=0 or px<=0 or not code:
+        return 0,0.0,"INVALID"
+    if action=="CLOSE_CAMPAIGN_EMERGENCY":
+        expected_side=str(candidate.get("expected_side") or "").upper()
+    elif action=="SELL_FAR" or (
+        action=="REPAIR_FAR" and str(candidate.get("direction","")).upper()=="ADD"
+    ):
+        expected_side="SHORT"
+    elif action=="REPAIR_FAR" and str(candidate.get("direction","")).upper()=="REDUCE":
+        expected_side="SHORT"
+    else:
+        expected_side="LONG"
+
+    if expected_side=="LONG":
+        if broker_side=="BUY":
+            apply_deal(lots,dict(d))
+            return q,0.0,"OPEN_LONG"
+        if broker_side=="SELL":
+            avail=_open_lot_qty(lots,code,"LONG")
+            consume=min(q,avail)
+            if consume<=0:
+                return 0,0.0,"NO_MANAGED_LONG"
+            pnl=close_fifo(lots,code,"LONG",consume,px,size)[1]
+            return consume,pnl,"CLOSE_LONG"
+    elif expected_side=="SHORT":
+        if broker_side in {"SELL","SELL_SHORT"}:
+            lot={"lot_id":f"D-{d.get('deal_id','X')}-S","code":code,"side":"SHORT",
+                 "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
+                 "source":"BROKER_DEAL","status":"OPEN"}
+            lots.append(lot)
+            return q,0.0,"OPEN_SHORT"
+        if broker_side in {"BUY","BUY_BACK"}:
+            avail=_open_lot_qty(lots,code,"SHORT")
+            consume=min(q,avail)
+            if consume<=0:
+                return 0,0.0,"NO_MANAGED_SHORT"
+            pnl=close_fifo(lots,code,"SHORT",consume,px,size)[1]
+            return consume,pnl,"CLOSE_SHORT"
+    return 0,0.0,"SIDE_MISMATCH"
+
+
 def apply_deal(lots,d):
     code=str(d.get("code","")); side=str(d.get("side","")).upper(); q=si(d.get("qty")); px=sf(d.get("price")); size=max(1,si(d.get("lot_size")) or 100)
     if not code or q<=0 or px<=0: return 0.0
@@ -633,29 +699,47 @@ def _cycle_unlocked(args):
     plan_usage={}
     for d in sorted(new,key=lambda x:(dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),str(x.get("deal_id")))):
         did=str(d["deal_id"])
+        original_qty=si(d.get("qty"))
         attribution=attribute_broker_deal(prior_rows,d,plan_usage)
         if attribution.get("status")=="MATCHED_PREDECISION_PLAN":
-            key=attribution.get("plan_key")
-            plan_usage[key]=si(plan_usage.get(key))+si(attribution.get("qty"))
-        if attribution.get("status")=="MATCHED_PREDECISION_PLAN":
+            match=attribution.get("match") or {}
             attr_qty=si(attribution.get("qty"))
             attr_deal=dict(d)
             attr_deal["qty"]=attr_qty
             attr_deal["attribution_status"]="MATCHED_PREDECISION_PLAN"
-            attr_deal["attribution"]=attribution.get("match")
-            delta=apply_deal(s["lots"],attr_deal)
-            realized_delta += delta
-            s["strategy_deal_ids"].append(did)
-            l.append(
-                "EXECUTION_DETECTED",
-                instance_id=m["instance_id"],
-                cycle_id=cid,
-                timestamp_utc=t,
-                payload={"deal":attr_deal,"original_deal_qty":si(d.get("qty")),"attribution":attribution,"realized_pnl_delta":delta},
-                source="BROKER_OBSERVED",
-            )
-            extra=si(attribution.get("unattributed_qty"))
+            attr_deal["attribution"]=match
+            consumed,delta,application=apply_strategy_attributed_deal(s["lots"],attr_deal,match)
+            if consumed>0:
+                key=attribution.get("plan_key")
+                plan_usage[key]=si(plan_usage.get(key))+consumed
+                realized_delta += delta
+                s["strategy_deal_ids"].append(did)
+                attr_deal["qty"]=consumed
+                attr_deal["strategy_application"]=application
+                l.append(
+                    "EXECUTION_DETECTED",
+                    instance_id=m["instance_id"],
+                    cycle_id=cid,
+                    timestamp_utc=t,
+                    payload={"deal":attr_deal,"original_deal_qty":original_qty,"attribution":attribution,
+                             "realized_pnl_delta":delta},
+                    source="BROKER_OBSERVED",
+                )
+            extra=original_qty-consumed
             if extra>0:
+                s["unattributed_deal_ids"].append(did)
+                s["data_gaps"]=si(s.get("data_gaps"))+1
+                l.append(
+                    "BROKER_EXECUTION_UNATTRIBUTED",
+                    instance_id=m["instance_id"],
+                    cycle_id=cid,
+                    timestamp_utc=t,
+                    payload={"deal":d,"attributed_qty":consumed,"unattributed_qty":extra,
+                             "reason":"quantity_exceeded_plan_or_managed_position",
+                             "attribution":attribution},
+                    source="BROKER_OBSERVED",
+                )
+        else:
                 s["unattributed_deal_ids"].append(did)
                 s["data_gaps"]=si(s.get("data_gaps"))+1
                 l.append(
