@@ -176,6 +176,11 @@ class EvidenceLedger:
         rows = self._rows()
         return rows[-1] if rows else None
 
+    def rows(self) -> list[dict[str, Any]]:
+        """Return a locked snapshot of the immutable ledger rows for posthoc analysis."""
+        with evidence_ledger_lock(self.path):
+            return self._rows()
+
     def last(self) -> dict[str, Any] | None:
         with evidence_ledger_lock(self.path):
             return self._last_unlocked()
