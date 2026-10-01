@@ -227,7 +227,7 @@ def main() -> int:
         evidence_grade=(
             "BROKER_OBSERVED"
             if args.outcome_source == "BROKER_RECONCILED"
-            else "USER_REPORTED"
+            else "HUMAN_REPORTED"
             if args.outcome_source == "USER_REPORTED"
             else "EXTERNAL_RESEARCH"
         ),
