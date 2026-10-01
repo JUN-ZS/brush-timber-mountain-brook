@@ -103,9 +103,10 @@ class StateStore:
         state.setdefault("last_risk_score", None)
         state.setdefault("lots", [])
         state["schema_version"] = SCHEMA_VERSION
+        events = self._read_events()
         self._recover_from_events(state)
-        event_lots = self._replay_strategy_lots(self._read_events())
-        if event_lots or any(
+        event_lots = self._replay_strategy_lots(events)
+        ticket_events_exist = any(
             str(e.get("type", "")).upper() in {
                 "TICKET_ISSUED",
                 "TICKET_PARTIAL_PROGRESS",
@@ -113,8 +114,9 @@ class StateStore:
                 "TICKET_FILLED",
                 "TICKET_SUPERSEDED",
             }
-            for e in self._read_events()
-        ):
+            for e in events
+        )
+        if event_lots or ticket_events_exist:
             state["lots"] = event_lots
         return state
 
@@ -340,8 +342,6 @@ class StateStore:
                     campaign["id"] = None
                     campaign["far_code"] = None
                     campaign["managed_far_qty"] = None
-                    campaign["far_ownership_source"] = None
-                    campaign["far_ownership_ticket_id"] = None
                     campaign["far_ownership_source"] = None
                     campaign["far_ownership_ticket_id"] = None
 
