@@ -137,21 +137,25 @@ def _recover_mutable_state_from_ledger(m, s, l):
             continue
         deal = dict((row.get("payload") or {}).get("deal") or {})
         did = str(deal.get("deal_id") or "")
-        if not did or did in seen:
+        if not did:
             continue
-        seen.add(did)
-        processed.append(did)
+
         if et=="EXECUTION_DETECTED":
             deal_status=str(deal.get("attribution_status") or "").upper()
-            if deal_status=="MATCHED_PREDECISION_PLAN":
+            if deal_status=="MATCHED_PREDECISION_PLAN" and did not in strategy_ids:
                 strategy_ids.append(did)
                 realized += apply_deal(broker_lots, deal)
-            else:
+            elif deal_status!="MATCHED_PREDECISION_PLAN" and did not in unattributed_ids:
                 # Legacy execution rows were created before attribution was fenced.
                 # Never silently promote them into the new strategy P&L lineage.
                 unattributed_ids.append(did)
         else:
-            unattributed_ids.append(did)
+            if did not in unattributed_ids:
+                unattributed_ids.append(did)
+
+        if did not in seen:
+            seen.add(did)
+            processed.append(did)
 
     if processed:
         s["lots"] = broker_lots
