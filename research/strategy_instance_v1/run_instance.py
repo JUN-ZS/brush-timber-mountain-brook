@@ -732,8 +732,8 @@ def attribute_broker_deal(rows,deal,used_plan_qty=None):
             "plan_key":key,"plan_remaining_before":remaining}
 
 
-def instance_far_position(m, positions):
-    """Select the single strategy far position or return None on ambiguity."""
+def instance_far_position(m, positions, strategy_lots=None):
+    """Select a far short only when ownership is explicit in the instance."""
     shorts = [
         p for p in positions
         if str(p.get("side", "")).upper() == "SHORT"
@@ -742,8 +742,19 @@ def instance_far_position(m, positions):
     hint = str(m.get("far_code_hint") or "").upper()
     if hint:
         matches = [p for p in shorts if str(p.get("code", "")).upper() == hint]
-    else:
-        matches = shorts if len(shorts) == 1 else []
+        return matches[0] if len(matches) == 1 else None
+
+    owned_codes = {
+        str(lot.get("code", "")).upper()
+        for lot in (strategy_lots or [])
+        if str(lot.get("status", "OPEN")).upper() == "OPEN"
+        and str(lot.get("side", "")).upper() == "SHORT"
+        and si(lot.get("qty")) > 0
+        and is_qqq_option_code(lot.get("code", ""))
+    }
+    if len(owned_codes) != 1:
+        return None
+    matches = [p for p in shorts if str(p.get("code", "")).upper() in owned_codes]
     return matches[0] if len(matches) == 1 else None
 
 
@@ -774,25 +785,30 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
             "unknown_positions":[p.__dict__ for p in unknown_qqq],
         }
     shorts=[p for p in all_pos if p.side=="SHORT" and is_qqq_option_code(p.code)]
-    active=bool(shorts)
+    active=bool(hinted_far)
     far=None
     hinted_far = instance_far_position(
         m,
         [p.__dict__ for p in all_pos],
+        near_lots or [],
     )
     far_hint = str(m.get("far_code_hint") or "").upper()
     far_candidates = [hinted_far] if hinted_far is not None else []
-    if active and (
-        len(shorts) != 1
-        or len(far_candidates) != 1
-    ):
+    if shorts and hinted_far is None:
         return {
             "status": "DATA_GAP",
             "reason": (
-                "far ownership ambiguous or extra unmanaged QQQ SHORT exists"
+                "unscoped QQQ SHORT inventory detected; strategy ownership is not explicit"
                 if not far_hint
-                else "far_code_hint does not uniquely isolate the single managed QQQ SHORT"
+                else "far_code_hint does not uniquely isolate a broker QQQ SHORT"
             ),
+            "short_codes": [str(p.code) for p in shorts],
+            "far_code_hint": far_hint or None,
+        }
+    if hinted_far is not None and len(shorts) != 1:
+        return {
+            "status": "DATA_GAP",
+            "reason": "strategy far is known but extra broker QQQ SHORT inventory exists",
             "short_codes": [str(p.code) for p in shorts],
             "far_code_hint": far_hint or None,
         }
@@ -995,7 +1011,7 @@ def _cycle_unlocked(args):
             current_far = None
             current_far_gamma_spot = None
             current_far_delta_abs = None
-            current_far = instance_far_position(m, ps)
+            current_far = instance_far_position(m, ps, s.get("lots", []))
             if current_far:
                 q = quotes.get(str(current_far.get("code")), {})
                 spot_now = sf(snap.get("market", {}).get("spot"))
@@ -1286,8 +1302,11 @@ def manual_cmd(a):
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
 def note_cmd(a):
-    repo=Path(a.repo_root).resolve(); m,s,l=load_instance(repo,a.instance_id); t=now(); c="NOTE_"+t.replace(":","").replace("-","").replace(".","")
-    l.append("HUMAN_NOTE",instance_id=a.instance_id,cycle_id=c,timestamp_utc=t,payload={"note":a.text,"tag":a.tag},source="USER_MANUAL")
+    repo=Path(a.repo_root).resolve()
+    with instance_mutation_lock(repo,a.instance_id):
+        m,s,l=load_instance(repo,a.instance_id)
+        t=now(); c="NOTE_"+t.replace(":","").replace("-","").replace(".","")
+        l.append("HUMAN_NOTE",instance_id=a.instance_id,cycle_id=c,timestamp_utc=t,payload={"note":a.text,"tag":a.tag},source="USER_MANUAL")
     print(json.dumps({"status":"NOTE_RECORDED","instance_id":a.instance_id,"timestamp_utc":t},ensure_ascii=False,indent=2)); return 0
 
 def instance_summary(repo, instance_id):
