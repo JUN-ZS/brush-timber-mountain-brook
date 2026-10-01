@@ -12,7 +12,9 @@ from research.live_hedge_v1.campaign import (
     reconcile_ticket,
 )
 from research.live_hedge_v1.engine import Contract, Order, Position, plan, quote_age_sec
+from research.live_hedge_v1.futu_reader import _enrich_contracts_with_quotes
 from research.live_hedge_v1.run_live_desk import (
+    _position_dicts,
     _strategy_position_analysis,
     _strategy_positions_for_plan,
     _ticket_baseline_positions,
@@ -448,6 +450,55 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertIsNone(state["active_ticket"])
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
 
+
+    def test_live_quote_greeks_enrich_chain_before_selection(self):
+        from backtest.types import OptionContract
+
+        raw = OptionContract(
+            code="US.QQQ261030C00500000",
+            underlying="US.QQQ",
+            right="CALL",
+            strike=500.0,
+            expiry="2026-10-30",
+            dte=30,
+            lot_size=100,
+            bid=None,
+            ask=None,
+            last=None,
+            iv=None,
+            delta=None,
+            gamma=None,
+            theta=None,
+            vega=None,
+            oi=None,
+            volume=None,
+            source="LIVE QUOTE",
+        )
+        quote = OptionContract(
+            code="US.QQQ261030C00500000",
+            underlying="US.QQQ",
+            right="CALL",
+            strike=500.0,
+            expiry="2026-10-30",
+            dte=30,
+            lot_size=100,
+            bid=8.0,
+            ask=8.2,
+            last=8.1,
+            iv=0.21,
+            delta=0.50,
+            gamma=0.03,
+            theta=-0.1,
+            vega=0.2,
+            oi=1000,
+            volume=50,
+            source="LIVE QUOTE",
+        )
+        out = _enrich_contracts_with_quotes([raw], [quote])
+        self.assertEqual(out[0].delta, 0.50)
+        self.assertEqual(out[0].gamma, 0.03)
+        self.assertEqual(out[0].bid, 8.0)
+        self.assertEqual(out[0].ask, 8.2)
 
     def test_state_snapshot_accepts_position_objects(self):
         import tempfile
