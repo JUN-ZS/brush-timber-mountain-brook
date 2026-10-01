@@ -1,4 +1,8 @@
 name: QQQ V22 Locked OOS Family V2
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 on:
   push:
     branches:
