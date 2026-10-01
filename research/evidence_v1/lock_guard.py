@@ -43,6 +43,22 @@ def assert_engine_constants(repo_root: Path) -> dict[str, Any]:
         "SIGNAL_RATIO52_GTE": float(lock["signal"]["ratio52_gte"]),
         "SIGNAL_EXT200_GTE": float(lock["signal"]["ext200_gte"]),
     }
+    manifest_expectations = {
+        "strategy_id": "QQQ_DYNAMIC_NEAR_LONG_V22_CANDIDATE_FAMILY",
+        "strategy_version": "V22-family-30D-1.5x",
+        "selection_cutoff": "2025-12-15",
+        "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
+        "research_engine_commit": "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
+    }
+    manifest_mismatches = {
+        k: {"expected": v, "actual": lock.get(k)}
+        for k, v in manifest_expectations.items()
+        if lock.get(k) != v
+    }
+    if manifest_mismatches:
+        raise StrategyLockViolation(
+            "LOCK_VIOLATION:MANIFEST:" + json.dumps(manifest_mismatches, sort_keys=True)
+        )
     actual = {k: getattr(engine, k, None) for k in expected}
     mismatches = {
         k: {"expected": v, "actual": actual.get(k)}
@@ -61,6 +77,16 @@ def assert_engine_constants(repo_root: Path) -> dict[str, Any]:
         raise StrategyLockViolation("LOCK_VIOLATION:FAR_DTE_FAMILY")
     if set(float(x) for x in fam["far_abs_delta"]) != set(ALLOWED_FAR_DELTA):
         raise StrategyLockViolation("LOCK_VIOLATION:FAR_DELTA_FAMILY")
+    if float(fam["long_delta"]) != 0.50:
+        raise StrategyLockViolation("LOCK_VIOLATION:LONG_DELTA_FAMILY")
+    if int(fam["config_count"]) != 72:
+        raise StrategyLockViolation("LOCK_VIOLATION:CONFIG_COUNT")
+    expected_policies = {
+        "TP50_IMMEDIATE","TP75_IMMEDIATE","TP100_IMMEDIATE","TRAIL20_IMMEDIATE",
+        "TP50_ON_RISK","TP75_ON_RISK","TRAIL20_ON_RISK","TP75_COOLDOWN3",
+    }
+    if set(fam["policies"]) != expected_policies:
+        raise StrategyLockViolation("LOCK_VIOLATION:POLICY_FAMILY")
     if float(lock["signal"]["ratio52_gte"]) != 0.98 or float(lock["signal"]["ext200_gte"]) != 0.08:
         raise StrategyLockViolation("LOCK_VIOLATION:SIGNAL_MANIFEST")
     expected["SIGNAL_RATIO52_GTE"] = float(lock["signal"]["ratio52_gte"])
