@@ -244,7 +244,7 @@ async function loadInstances(){
   const sel=$("instance"), old=new URLSearchParams(location.search).get("instance")||localStorage.getItem("operator_instance")||"";
   sel.innerHTML=(j.instances||[]).map(x=>'<option value="'+esc(x.instance_id)+'">'+esc(x.instance_id)+'</option>').join("");
   if(old && [...sel.options].some(o=>o.value===old)) sel.value=old;
-  sel.onchange=()=>{localStorage.setItem("operator_instance",sel.value); history.replaceState(null,"","?instance="+encodeURIComponent(sel.value)); refreshAll();};
+  sel.onchange=()=>{strategyContextSnapshot=null; localStorage.setItem("operator_instance",sel.value); history.replaceState(null,"","?instance="+encodeURIComponent(sel.value)); refreshAll();};
   if(sel.value) localStorage.setItem("operator_instance",sel.value);
 }
 
@@ -489,8 +489,12 @@ async function preview(){
 
 async function recordTrade(){
   const localTime=$("tradeTime").value;
-  const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null,
-    strategy_context_snapshot:strategyContextSnapshot};
+  const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null};
+  payload.strategy_context_snapshot=(
+    strategyContextSnapshot
+    && strategyContextSnapshot.instance_id===payload.instance_id
+    && String(strategyContextSnapshot.leg?.code||"").toUpperCase()===payload.code.toUpperCase()
+  ) ? strategyContextSnapshot : null;
   if(!payload.instance_id||!payload.code||payload.qty<1||payload.price<=0){setMsg("Please enter instance, QQQ option code, quantity and positive price.","yellow");return;}
   if((action==="REDUCE"||action==="BUY_BACK_FAR")) {
     const p=state?.manual_book?.positions?.find(x=>x.code===payload.code&&((action==="REDUCE"&&x.side==="LONG")||(action==="BUY_BACK_FAR"&&x.side==="SHORT")));
