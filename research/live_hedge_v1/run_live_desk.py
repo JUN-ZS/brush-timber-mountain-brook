@@ -1137,7 +1137,8 @@ def _main_cycle(args, out_path):
             },
         )
 
-    if far:
+    observation_accepted = not str(p.get("status", "")).upper().startswith("BLOCKED")
+    if observation_accepted and far:
         state["far_code"] = far.code
         if far.delta is not None:
             state["far_delta"] = abs(float(far.delta))
@@ -1149,7 +1150,7 @@ def _main_cycle(args, out_path):
             state["gamma_history_schema"] = GAMMA_HISTORY_SCHEMA
             state["gamma_history_unit"] = GAMMA_HISTORY_UNIT
 
-    if p.get("risk_state"):
+    if observation_accepted and p.get("risk_state"):
         new_target = p["risk_state"].get("desired_stack")
         new_risk = p["risk_state"].get("risk_score")
         old_target = state.get("last_target_stack")
