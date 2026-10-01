@@ -272,6 +272,7 @@ def main():
         "candidate": "30D near + 1.50x coverage",
         "candidate_family_configs": 72,
         "family_definition": "9 far DTE×delta combinations × all 8 policies; no sub-selection inside OOS",
+        "window_semantics": "ENTRY_COHORT; outcome simulation may extend beyond cohort end to the canonical dataset boundary; this is a stress cohort, not virgin OOS",
         "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
         "virgin_oos_status": "NOT_VIRGIN_BECAUSE_PRIOR_SELECTION_USED_FULL_V22_SAMPLE",
         "windows": {},
@@ -283,6 +284,24 @@ def main():
         u = mask_campaigns(u_full, start, end)
         detail, has_gamma = run_family(u, con, od)
         family, cfg, policy, far, yearly = aggregate(detail)
+
+        expected_configs = {
+            (int(fd), float(fdel), str(policy_name))
+            for fd in FAR_DTES
+            for fdel in FAR_DELTAS
+            for policy_name in POLICIES
+        }
+        actual_configs = {
+            (int(row.far_dte_target), float(row.far_delta_target), str(row.policy))
+            for row in cfg.itertuples(index=False)
+        }
+        missing_configs = sorted(expected_configs - actual_configs)
+        if missing_configs:
+            raise RuntimeError(
+                "LOCKED_FAMILY_CONFIG_GAP:" + json.dumps(missing_configs)
+            )
+        if family["n_configs"] != 72:
+            raise RuntimeError(f"LOCKED_FAMILY_CONFIG_COUNT:{family['n_configs']}")
 
         prefix = out / name
         detail.to_csv(prefix.with_suffix(".detail.csv"), index=False)
