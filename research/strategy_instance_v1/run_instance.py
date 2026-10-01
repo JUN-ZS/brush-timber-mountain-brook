@@ -67,6 +67,15 @@ def load_instance(repo,i):
     l=InstanceLedger(lpath(repo,i),{"instance_id":i,"manifest_hash":m["manifest_hash"],
        "strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
        "research_engine_commit":m.get("research_engine_commit")})
+    s.setdefault("manual_lots", json.loads(json.dumps(m.get("initial_positions", []))))
+    if not s.get("manual_lots") and m.get("initial_positions"):
+        s["manual_lots"]=init_lots(m)
+    # Normalize legacy/manual-less instances without touching broker lots.
+    if s.get("manual_lots") and not isinstance(s.get("manual_lots")[0], dict):
+        s["manual_lots"]=init_lots(m)
+    s.setdefault("manual_realized_pnl",0.0)
+    s.setdefault("manual_trade_count",0)
+    s.setdefault("manual_last_mark",None)
     l.validate()
     return m,s,l
 
@@ -331,7 +340,8 @@ def init_cmd(a):
     d=idir(repo,a.instance_id)
     if d.exists() and any(d.iterdir()): raise SystemExit(f"INSTANCE_ALREADY_EXISTS:{a.instance_id}")
     m["manifest_hash"]=mhash(m); st={"schema":STATE_SCHEMA,"schema_version":1,"instance_id":a.instance_id,"processed_deal_ids":[],
-       "lots":init_lots(m),"realized_pnl":0.0,"last_cycle_at":None,"last_snapshot_hash":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0}
+       "lots":init_lots(m),"realized_pnl":0.0,"last_cycle_at":None,"last_snapshot_hash":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,
+       "manual_lots":json.loads(json.dumps(init_lots(m))),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
     save(mpath(repo,a.instance_id),m); save(spath(repo,a.instance_id),st)
     l=InstanceLedger(lpath(repo,a.instance_id),{"instance_id":a.instance_id,"manifest_hash":m["manifest_hash"],"strategy_id":m["strategy_id"],"strategy_version":m["strategy_version"],"research_engine_commit":m["research_engine_commit"]})
     c="INIT_"+created.replace(":","").replace("-","").replace(".","")
@@ -343,6 +353,10 @@ def manual_cmd(a):
     repo=Path(a.repo_root).resolve(); m,s,l=load_instance(repo,a.instance_id)
     t=a.timestamp_utc or now()
     action=str(a.action).upper()
+    code=str(a.code).strip().upper()
+    if not code.startswith("US.QQQ") or code == "US.QQQ":
+        raise SystemExit("MANUAL_CODE_MUST_BE_QQQ_OPTION")
+    a.code=code
     trade_id=a.trade_id or ("MANUAL_"+t.replace(":","").replace("-","").replace(".","").replace("+00:00","Z"))
     lots=json.loads(json.dumps(s.get("manual_lots",[])))
     pnl_delta,_=manual_apply_trade(
