@@ -488,6 +488,61 @@ def test_outcome_rejects_unobserved_family_relabeling():
                 raise AssertionError("unobserved family relabel must be rejected")
 
 
+def test_outcome_rejects_unavailable_family_relabeling():
+    import json
+    import sys
+    from unittest.mock import patch
+    from research.evidence_v1 import outcome
+    from research.evidence_v1.snapshot import write_snapshot
+
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        lock=root/"research/evidence_v1/STRATEGY_LOCK.json"
+        lock.parent.mkdir(parents=True)
+        lock.write_text(json.dumps({
+            "strategy_id":"TEST","strategy_version":"V1",
+            "selection_cutoff":"2025-12-15","research_engine_commit":"TEST",
+            "evidence_policy":{},
+        }),encoding="utf-8")
+        snap_ref=write_snapshot(
+            root,
+            "C1",
+            {
+                "cycle_id":"C1",
+                "campaign_id":"CAMP1",
+                "family_observation":{
+                    "rows":[
+                        {"family_id":"F_OK","status":"AVAILABLE"},
+                        {"family_id":"F_MISSING","status":"UNAVAILABLE"},
+                    ]
+                },
+            },
+        )
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger.append(
+            "CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
+            timestamp_utc="2026-10-01T00:00:00+00:00",payload={},
+        )
+        anchor=ledger.append(
+            "PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
+            timestamp_utc="2026-10-01T00:00:01+00:00",
+            payload={"snapshot":snap_ref},
+        )
+        args=[
+            "outcome.py","--repo-root",str(root),
+            "--campaign-id","CAMP1",
+            "--anchor-evidence-id",anchor["evidence_id"],
+            "--family-id","F_MISSING","--realized-pnl","1",
+        ]
+        with patch.object(outcome.sys,"argv",args):
+            try:
+                outcome.main()
+            except SystemExit as exc:
+                assert "FAMILY_ID_NOT_PRESENT_AT_ANCHOR" in str(exc)
+            else:
+                raise AssertionError("unavailable family member was accepted")
+
+
 def test_outcome_requires_anchor_and_rejects_duplicate_without_correction():
     import json
     import sys
