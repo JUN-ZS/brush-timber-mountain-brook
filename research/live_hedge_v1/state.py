@@ -85,9 +85,9 @@ class StateStore:
         self.events_path = Path(events_path) if events_path else self.path.with_name("events.jsonl")
 
     def load(self) -> Dict[str, Any]:
-        if not self.path.exists():
-            return json.loads(json.dumps(DEFAULT_STATE))
-        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        raw = {}
+        if self.path.exists():
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
         state = json.loads(json.dumps(DEFAULT_STATE))
         if isinstance(raw, dict):
             state.update(raw)
