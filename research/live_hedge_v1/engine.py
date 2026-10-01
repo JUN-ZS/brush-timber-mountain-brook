@@ -349,7 +349,7 @@ def plan(
     for lot in near_lots:
         if (str(lot.get("status", "OPEN")).upper() != "OPEN"
                 or not _safe_positive_qty(lot.get("qty"))
-                or not is_qqq_option_code(lot.get("code", "")):
+                or not is_qqq_option_code(lot.get("code", ""))):
             continue
         code = str(lot.get("code", "")).upper()
         managed_near_by_code[code] = managed_near_by_code.get(code, 0) + int(lot.get("qty", 0) or 0)
@@ -390,7 +390,7 @@ def plan(
         {
             "type": "EMERGENCY_CLOSE",
             "when": "spot >= far strike",
-            "effect": "close far short and all campaign near longs",
+            "effect": "close far short and all tracked campaign near longs",
         },
     ]
 
