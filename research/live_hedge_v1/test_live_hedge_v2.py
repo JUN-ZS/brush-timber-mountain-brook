@@ -76,6 +76,12 @@ class LiveHedgeV2Test(unittest.TestCase):
                 "US.QQQ260116C00600000": {"bid": 2.0, "ask": 2.5},
             },
             previous_far_delta_abs=0.08,
+            near_lots=[{
+                "lot_id": "LOT-TEST",
+                "code": "US.QQQ261003C00500000",
+                "qty": 5,
+                "status": "OPEN",
+            }],
         )
         self.assertIn("candidate_actions", out)
         self.assertTrue(out["next_triggers"])
@@ -459,6 +465,52 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertIsNotNone(age)
 
 
+
+
+    def test_plan_blocks_near_ownership_mismatch(self):
+        market = {
+            "source": "LIVE QUOTE",
+            "timestamp": now_iso(),
+            "spot": 500.0,
+            "signal_active": True,
+        }
+        far = Contract(
+            "US.QQQ260116C00600000", "CALL", 600.0, "2026-01-16", 100,
+            2.0, 2.5, 0.08, 0.01
+        )
+        near = Contract(
+            "US.QQQ261030C00500000", "CALL", 500.0, "2026-10-30", 30,
+            8.0, 8.5, 0.50, 0.03
+        )
+        positions = [
+            Position("US.QQQ260116C00600000", "SHORT", 10, 2.0, 600, "2026-01-16", 100),
+            Position("US.QQQ261003C00500000", "LONG", 5, 4.0, 500, "2026-10-03", 2),
+        ]
+        out = plan(
+            market=market, far=far, near=near, positions=positions, orders=[],
+            signal_active=True, far_campaign_active=True,
+            quotes_by_code={
+                "US.QQQ261003C00500000": {"bid": 7.0},
+                "US.QQQ260116C00600000": {"bid": 2.0, "ask": 2.5},
+            },
+            previous_far_delta_abs=0.08,
+            near_lots=[{
+                "lot_id": "LOT-TEST",
+                "code": "US.QQQ261003C00500000",
+                "qty": 4,
+                "status": "OPEN",
+            }],
+        )
+        self.assertEqual(out["status"], "BLOCKED_NEAR_OWNERSHIP_MISMATCH")
+        self.assertEqual(out["candidate_actions"], [])
+        self.assertEqual(
+            out["near_ownership_mismatches"]["US.QQQ261003C00500000"]["position_qty"],
+            5,
+        )
+        self.assertEqual(
+            out["near_ownership_mismatches"]["US.QQQ261003C00500000"]["tracked_lot_qty"],
+            4,
+        )
 
 
 class GammaHistoryMigrationTests(unittest.TestCase):
