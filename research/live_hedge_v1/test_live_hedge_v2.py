@@ -46,6 +46,26 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(parsed.hour, 21)
         self.assertTrue(_is_after("2026-10-01 17:00:00", "2026-10-01T18:00:00+00:00"))
 
+    def test_trade_reader_does_not_fallback_deal_id_to_order_id(self):
+        from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
+        class Row:
+            def __init__(self, value):
+                self.value = value
+            def get(self, key, default=None):
+                return self.value if key == "code" else {
+                    "orderIDEx": "ORDER-123",
+                    "code": "US.QQQ260116C00600000",
+                    "trd_side": "SELL_SHORT",
+                    "qty": 1,
+                    "price": 2.0,
+                    "create_time": "2026-10-01 17:00:00",
+                }.get(key, default)
+        class DF:
+            def iterrows(self):
+                yield 0, Row(None)
+        parsed = FutuTradeReader()._parse_deals(DF())
+        self.assertEqual(parsed[0]["deal_id"], "")
+
     def test_position_side_does_not_infer_from_trade_words(self):
         from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
         self.assertEqual(FutuTradeReader._position_side("BUY"), "UNKNOWN")
