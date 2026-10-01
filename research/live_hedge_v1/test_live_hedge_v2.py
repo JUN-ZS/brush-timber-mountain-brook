@@ -194,7 +194,7 @@ class LiveHedgeV2Test(unittest.TestCase):
             with self.assertRaises(ValueError):
                 store.validate_events()
 
-    def test_blocked_plan_does_not_advance_dynamic_state():
+    def test_blocked_plan_does_not_advance_dynamic_state(self):
         from research.live_hedge_v1.run_live_desk import _persist_dynamic_state_observation
         state={"far_code":"OLD","far_delta":0.08,"gamma_history":[4.0],
                "gamma_history_schema":2,"gamma_history_unit":"gamma_spot",
