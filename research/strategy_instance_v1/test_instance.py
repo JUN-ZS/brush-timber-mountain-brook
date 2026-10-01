@@ -23,6 +23,39 @@ def test_operator_mutation_endpoint_requires_header():
     assert MUTATION_HEADER_VALUE == "1"
 
 
+def test_instance_init_rejects_lineage_override_against_locked_runtime():
+    import tempfile
+    from pathlib import Path
+    from . import run_instance
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td)
+        old=run_instance.runtime_identity
+        run_instance.runtime_identity=lambda _repo: {
+            "strategy_id":"LOCKED","strategy_version":"V1",
+            "research_engine_commit":"ENG1","strategy_lock_hash":"HASH1",
+        }
+        try:
+            class A:
+                strategy_id="OTHER"; strategy_version=None; research_engine_commit=None
+                strategy_lock_hash=None; start_at_utc=None; instance_id="I"
+                position=[]; note=""; initial_cash=None
+                far_code=None
+            try:
+                run_instance._init_cmd_unlocked(A())
+            except SystemExit as exc:
+                assert str(exc)=="INSTANCE_LINEAGE_MISMATCH:strategy_id"
+            else:
+                raise AssertionError("lineage override was accepted")
+        finally:
+            run_instance.runtime_identity=old
+
+
+def test_pnl_observation_status_requires_position_reconciliation():
+    from .run_instance import _aggregate_lot_qty
+    lots=[{"code":"US.QQQ.TEST","side":"LONG","qty":1,"status":"OPEN"}]
+    assert _aggregate_lot_qty(lots)[("US.QQQ.TEST","LONG")]==1
+
+
 def test_instance_input_rejects_non_qqq_option_codes():
     from .run_instance import pos_spec
     try:
@@ -154,6 +187,7 @@ def test_legacy_execution_without_attribution_is_not_replayed_into_strategy_book
         assert state["realized_pnl"]==0.0
         assert state["lots"]==[]
         assert state["unattributed_deal_ids"]==["OLD"]
+        assert state["strategy_deal_ids"]==[]
 
 
 def test_strategy_plan_attribution_is_bounded_and_cannot_reuse_quantity():
