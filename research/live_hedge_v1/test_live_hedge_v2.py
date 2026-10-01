@@ -12,7 +12,11 @@ from research.live_hedge_v1.campaign import (
     reconcile_ticket,
 )
 from research.live_hedge_v1.engine import Contract, Order, Position, plan, quote_age_sec
-from research.live_hedge_v1.run_live_desk import _ticket_baseline_positions
+from research.live_hedge_v1.run_live_desk import (
+    _strategy_position_analysis,
+    _strategy_positions_for_plan,
+    _ticket_baseline_positions,
+)
 
 
 def now_iso():
@@ -482,6 +486,39 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(out["near_call_contracts"], 3)
         self.assertEqual(out["near_call_target_contracts"], 3)
         self.assertEqual(len(out["near_call_positions"]), 2)
+
+    def test_planner_excludes_unrelated_long_options(self):
+        far = Contract(
+            "US.QQQ261231C00600000", "CALL", 600.0, "2026-12-31", 90,
+            2.0, 2.2, 0.08, 0.01
+        )
+        near = Contract(
+            "US.QQQ261030C00500000", "CALL", 500.0, "2026-10-30", 30,
+            8.0, 8.2, 0.50, 0.03
+        )
+        put = Contract(
+            "US.QQQ261030P00500000", "PUT", 500.0, "2026-10-30", 30,
+            8.0, 8.2, -0.50, 0.03
+        )
+        positions = [
+            Position("US.QQQ261231C00600000", "SHORT", 10, 2.0, 600, "2026-12-31", 90),
+            Position("US.QQQ261030C00500000", "LONG", 2, 7.0, 500, "2026-10-30", 30),
+            Position("US.QQQ261030P00500000", "LONG", 8, 7.0, 500, "2026-10-30", 30),
+        ]
+        scoped = _strategy_positions_for_plan(
+            positions, 500.0, {
+                far.code: far,
+                near.code: near,
+                put.code: put,
+            }
+        )
+        self.assertEqual(
+            [(p.code, p.side, p.qty) for p in scoped],
+            [
+                ("US.QQQ261231C00600000", "SHORT", 10),
+                ("US.QQQ261030C00500000", "LONG", 2),
+            ],
+        )
 
     def test_naive_broker_timestamp_does_not_crash(self):
         age = quote_age_sec("2026-10-01 00:00:00", datetime.now(timezone.utc), naive_is_local=True)
