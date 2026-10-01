@@ -690,42 +690,6 @@ def _consumed_plan_qty(rows, plan_key):
     return consumed
 
 
-def apply_strategy_ownership_close(lots, deal, broker_positions):
-    """Close owned lots only when the current account snapshot uniquely matches them.
-
-    This preserves observable T0 economics while refusing to infer which lot an
-    aggregated account close consumed when external same-code inventory exists.
-    """
-    code=str(deal.get("code","")).upper()
-    side=str(deal.get("side","")).upper()
-    q=si(deal.get("qty"))
-    px=sf(deal.get("price"))
-    size=max(1,si(deal.get("lot_size")) or 100)
-    if q<=0 or px<=0 or not code:
-        return 0,0.0,"INVALID"
-    target_side="LONG" if side=="SELL" else "SHORT" if side in {"BUY","BUY_BACK"} else ""
-    if not target_side:
-        return 0,0.0,"SIDE_NOT_CLOSE"
-    tracked=_open_lot_qty(lots,code,target_side)
-    if tracked<=0:
-        return 0,0.0,f"NO_MANAGED_{target_side}"
-    broker_qty=sum(
-        si(p.get("qty"))
-        for p in option_positions(broker_positions or [])
-        if str(p.get("code","")).upper()==code
-        and str(p.get("side","")).upper()==target_side
-    )
-    # The broker snapshot is post-execution. A uniquely attributable close is
-    # one where adding this deal's quantity reconstructs the tracked quantity.
-    if broker_qty + q != tracked:
-        return 0,0.0,"OWNERSHIP_SNAPSHOT_AMBIGUOUS"
-    consume=q
-    if consume<=0:
-        return 0,0.0,"NO_CONSUMPTION"
-    pnl=close_fifo(lots,code,target_side,consume,px,size)[1]
-    return consume,pnl,f"CLOSE_{target_side}_OWNERSHIP_DERIVED"
-
-
 def attribute_broker_deal(rows,deal,used_plan_qty=None):
     """Classify a broker execution for post-hoc evidence only; never proves intent."""
     q=si(deal.get("qty"))
@@ -991,52 +955,22 @@ def _cycle_unlocked(args):
         did=str(d["deal_id"])
         original_qty=si(d.get("qty"))
 
-        # A unique strategy-owned lot close is stronger evidence than a timing
-        # coincidence with the plan. Use ownership-derived attribution first.
-        close_qty,close_pnl,close_application=apply_strategy_ownership_close(s["lots"],d,ps)
-        if close_qty>0:
-            attr_deal=dict(d)
-            attr_deal["qty"]=close_qty
-            attr_deal["attribution_status"]="MATCHED_STRATEGY_OWNERSHIP_DERIVED"
-            attr_deal["attribution_grade"]="DERIVED_NO_INTENT_PROOF"
-            attr_deal["attribution_basis"]="STRATEGY_OWNED_LOT_CLOSE_SCOPE"
-            attr_deal["strategy_application"]=close_application
-            realized_delta += close_pnl
-            s["strategy_deal_ids"].append(did)
-            l.append(
-                "EXECUTION_DETECTED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
-                payload={
-                    "deal":attr_deal,"original_deal_qty":original_qty,
-                    "attribution":{"status":"MATCHED_STRATEGY_OWNERSHIP_DERIVED","qty":close_qty,
-                                   "attribution_grade":"DERIVED_NO_INTENT_PROOF",
-                                   "attribution_basis":"STRATEGY_OWNED_LOT_CLOSE_SCOPE"},
-                    "realized_pnl_delta":close_pnl,
-                },source="BROKER_OBSERVED",
-            )
-            extra=original_qty-close_qty
-            if extra>0:
-                s["unattributed_deal_ids"].append(did); s["data_gaps"]=si(s.get("data_gaps"))+1
-                l.append(
-                    "BROKER_EXECUTION_UNATTRIBUTED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
-                    payload={"deal":d,"attributed_qty":close_qty,"unattributed_qty":extra,
-                             "reason":"close_exceeded_or_ambiguous_strategy_ownership",
-                             "attribution_grade":"DERIVED_NO_INTENT_PROOF"},source="BROKER_OBSERVED")
-        else:
-            potential=attribute_broker_deal(prior_rows,d,used_plan_qty)
-            if potential.get("plan_key") and potential.get("qty"):
-                key=potential["plan_key"]
-                used_plan_qty[key]=used_plan_qty.get(key,0)+si(potential.get("qty"))
-            s["unattributed_deal_ids"].append(did); s["data_gaps"]=si(s.get("data_gaps"))+1
-            l.append(
-                "BROKER_EXECUTION_UNATTRIBUTED",
-                instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
-                payload={
-                    "deal":d,
-                    "attribution":potential,
-                    "reason":"strategy_execution_requires_explicit_user_confirmation",
-                    "attribution_grade":"POTENTIAL_ONLY_NO_INTENT_PROOF",
-                },source="BROKER_OBSERVED",
-            )
+        potential=attribute_broker_deal(prior_rows,d,used_plan_qty)
+        if potential.get("plan_key") and potential.get("qty"):
+            key=potential["plan_key"]
+            used_plan_qty[key]=used_plan_qty.get(key,0)+si(potential.get("qty"))
+        s["unattributed_deal_ids"].append(did)
+        s["data_gaps"]=si(s.get("data_gaps"))+1
+        l.append(
+            "BROKER_EXECUTION_UNATTRIBUTED",
+            instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
+            payload={
+                "deal":d,
+                "attribution":potential,
+                "reason":"strategy_execution_requires_explicit_user_confirmation",
+                "attribution_grade":"POTENTIAL_ONLY_NO_INTENT_PROOF",
+            },source="BROKER_OBSERVED",
+        )
         s["processed_deal_ids"].append(did)
     s["realized_pnl"]=sf(s.get("realized_pnl"))+realized_delta
     mism=reconcile(s["lots"],ps); s["last_reconcile"]={"status":"MATCH" if not mism else "DATA_GAP","mismatches":mism,"checked_at_utc":t}
@@ -1121,6 +1055,7 @@ def _cycle_unlocked(args):
     out={"status":"RECORDED","instance_id":args.instance_id,"cycle_id":cid,"timestamp_utc":t,
          "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],"gross_pnl":gross,
          "pnl_observation_status":pnl_observation_status,
+         "strategy_attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
          "strategy_book_scope":"STRATEGY_ATTRIBUTED_EXECUTIONS_ONLY","manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"] if mmk["status"]=="OK" else None,"total_pnl":(s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"])) if mmk["status"]=="OK" else None,"trade_count":s["manual_trade_count"],"mark_status":mmk["status"],"positions":manual_position_snapshot(s.get("manual_lots",[]))},
          "reconcile":s["last_reconcile"],"history_backfill_used":history_used,"history_start":tr.get("history_start"),"data_gaps_total":s["data_gaps"],"snapshot_sha256":sh,"ledger_head":l.validate()["head_hash"]}
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
@@ -1459,7 +1394,8 @@ def report(a):
               for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"],
              baseline_lots=init_lots(m),
          ),
-         "rule":"Descriptive only; no strategy retuning or performance prediction."}
+         "rule":"Descriptive only; no strategy retuning or performance prediction.",
+         "strategy_attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY"}
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
 def verify(a):
