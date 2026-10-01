@@ -210,9 +210,10 @@ def build_performance_tape(trades, baseline_lots=None):
             "strategy_ticket_id": ref.get("ticket_id"),
             "strategy_action": ref.get("action"),
             "strategy_context_source": context_source or ("LEGACY_UNSCOPED_CONTEXT" if has_ticket else None),
+            "strategy_instance_id": ref.get("strategy_instance_id"),
             "relationship_basis": (
-                "EXPLICIT_INSTANCE_SCOPED_TICKET_SNAPSHOT"
-                if context_source == "OPERATOR_SELECTED_TICKET_SNAPSHOT"
+                "OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE"
+                if context_source == "OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE"
                 else ("LEGACY_UNSCOPED_TICKET_REFERENCE" if has_ticket else "NO_TICKET_CONTEXT")
             ),
             "strategy_expected_manual_action": expected_action,
