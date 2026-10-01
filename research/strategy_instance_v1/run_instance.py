@@ -1331,6 +1331,20 @@ def confirm_strategy_execution(repo, *, instance_id, deal_id, expected_strategy_
         remaining=available-previously_detected-previously_confirmed
         if remaining<=0:
             raise SystemExit(f"STRATEGY_DEAL_ALREADY_FULLY_CONFIRMED:{did}")
+        prior_confirm_rows=[
+            r for r in rows
+            if str(r.get("event_type") or "").upper()=="STRATEGY_EXECUTION_CONFIRMED"
+            and str((r.get("payload") or {}).get("deal",{}).get("deal_id") or "")==did
+        ]
+        prior_sides={
+            str((r.get("payload") or {}).get("expected_strategy_side") or "").upper()
+            for r in prior_confirm_rows
+        }
+        prior_sides.discard("")
+        if prior_sides and expected not in prior_sides:
+            raise SystemExit(
+                f"STRATEGY_CONFIRMATION_SIDE_CONFLICT:{did}:{sorted(prior_sides)}:{expected}"
+            )
         requested=si(qty) if qty is not None else remaining
         if requested<=0 or requested>remaining:
             raise SystemExit(f"CONFIRMED_QTY_OUT_OF_RANGE:{requested}:{remaining}")
