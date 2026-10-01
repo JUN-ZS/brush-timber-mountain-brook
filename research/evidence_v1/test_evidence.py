@@ -82,6 +82,7 @@ def test_report_reads_only_validated_ledger_and_dedupes_corrections():
             "OUTCOME_RESOLVED",cycle_id="O2",campaign_id="CAMP1",
             timestamp_utc="2026-10-01T02:00:00+00:00",
             payload={"realized_pnl":80.0,"benchmark_return":0.008,
+                     "anchor_evidence_id":"DECISION-TEST",
                      "corrects_evidence_id":first["evidence_id"]},
         )
         import sys
