@@ -214,6 +214,14 @@ class LiveHedgeV2Test(unittest.TestCase):
         )
         self.assertEqual(out["status"], "BLOCKED_STALE_MARKET")
 
+    def test_materially_future_broker_timestamp_is_not_fresh(self):
+        from research.live_hedge_v1.engine import quote_age_sec
+        now=datetime.fromisoformat("2026-10-01T21:00:00+00:00")
+        self.assertIsNone(
+            quote_age_sec("2026-10-01T21:01:00+00:00", now=now)
+        )
+
+
     def test_stale_order_age_uses_us_exchange_timezone(self):
         from research.live_hedge_v1.engine import quote_age_sec
         now = datetime.fromisoformat("2026-10-01T21:02:00+00:00")
