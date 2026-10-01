@@ -51,24 +51,34 @@ def explicit_strategy_context(repo, body):
     if not ticket_id or not isinstance(leg_raw, dict) or not code:
         raise ValueError("STRATEGY_CONTEXT_NOT_VERIFIABLE")
 
-    manifest, _, _ = load_instance(Path(repo), instance_id)
-    instance_times = [
-        z for z in (
-            dt(manifest.get("created_at_utc")),
-            dt(manifest.get("start_at_utc")),
-        ) if z is not None
-    ]
-    instance_floor_dt = max(instance_times) if instance_times else None
+    instance_manifest = None
+    manifest_path = Path(repo) / "research/strategy_instance_v1" / "instances" / instance_id / "manifest.json"
+    if manifest_path.exists():
+        instance_manifest, _, _ = load_instance(Path(repo), instance_id)
+    instance_floor_dt = None
+    if instance_manifest:
+        instance_times = [
+            z for z in (
+                dt(instance_manifest.get("created_at_utc")),
+                dt(instance_manifest.get("start_at_utc")),
+            ) if z is not None
+        ]
+        instance_floor_dt = max(instance_times) if instance_times else None
     ledger = EvidenceLedger(Path(repo) / "research/evidence_v1/evidence.jsonl")
     matching = []
     for row in ledger.rows():
         if str(row.get("event_type") or "").upper() != "DECISION_EMITTED":
             continue
         row_instance_id = str(row.get("instance_id") or "").strip()
-        if row_instance_id and row_instance_id != instance_id:
+        if row_instance_id:
+            if row_instance_id != instance_id:
+                continue
+        elif instance_floor_dt is None:
+            # Global system evidence is only safely bindable when the selected
+            # strategy instance has a durable T0/creation boundary.
             continue
         decision_dt = dt(row.get("timestamp_utc"))
-        if instance_floor_dt is not None and (
+        if not row_instance_id and (
             decision_dt is None
             or decision_dt < instance_floor_dt
         ):
