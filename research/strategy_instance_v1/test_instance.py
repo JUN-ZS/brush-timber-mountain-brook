@@ -491,7 +491,7 @@ def test_strategy_plan_refuses_ambiguous_far_short_ownership():
     from .run_instance import strategy_plan
     from research.live_hedge_v1.engine import Contract
     snap = {
-        "market": {"spot": 500.0, "signal_active": False},
+        "market": {"spot": 500.0, "timestamp": "2026-10-01T21:00:00+00:00", "signal_active": False},
     }
     contracts = [
         Contract("US.QQQ261230C00600000","CALL",600.0,"2026-12-30",90,2.0,2.5,0.08,0.01,0.2,100,100),
