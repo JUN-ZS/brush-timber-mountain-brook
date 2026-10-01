@@ -349,50 +349,121 @@ def init_cmd(a):
     l.append("INITIAL_STATE_RECORDED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=created,payload={"initial_cash":a.initial_cash,"initial_positions":ps,"economic_t0":start,"observation_t0":created},source="USER_INITIAL")
     print(json.dumps({"status":"INSTANCE_CREATED","instance_id":a.instance_id,"start_at_utc":start,"created_at_utc":created,"manifest_hash":m["manifest_hash"],"path":str(d)},ensure_ascii=False,indent=2)); return 0
 
-def manual_cmd(a):
-    repo=Path(a.repo_root).resolve(); m,s,l=load_instance(repo,a.instance_id)
-    t=a.timestamp_utc or now()
-    action=str(a.action).upper()
-    code=str(a.code).strip().upper()
-    if not code.startswith("US.QQQ") or code == "US.QQQ":
+def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
+    action=str(action).upper(); code=str(code).strip().upper(); q=si(qty); px=sf(price)
+    size=max(1,si(lot_size) or 100)
+    if action=="REDUCE":
+        remaining=q; pnl=0.0; matched=0; entries=[]
+        for lot in lots:
+            if remaining<=0: break
+            if lot.get("status","OPEN")!="OPEN" or str(lot.get("code","")).upper()!=code or str(lot.get("side","")).upper()!="LONG":
+                continue
+            take=min(remaining,si(lot.get("qty"))); entry=sf(lot.get("avg_price")); s=max(1,si(lot.get("lot_size")) or size)
+            pnl += (px-entry)*take*s; matched += take; entries.append({"lot_id":lot.get("lot_id"),"qty":take,"entry_price":entry,"pnl":(px-entry)*take*s})
+            remaining-=take
+        return {"action":action,"code":code,"qty":q,"price":px,"lot_size":size,"matched_qty":matched,
+                "remaining_unmatched":remaining,"realized_pnl_preview":pnl,"lots":entries}
+    if action=="BUY_BACK_FAR":
+        remaining=q; pnl=0.0; matched=0; entries=[]
+        for lot in lots:
+            if remaining<=0: break
+            if lot.get("status","OPEN")!="OPEN" or str(lot.get("code","")).upper()!=code or str(lot.get("side","")).upper()!="SHORT":
+                continue
+            take=min(remaining,si(lot.get("qty"))); entry=sf(lot.get("avg_price")); s=max(1,si(lot.get("lot_size")) or size)
+            pnl += (entry-px)*take*s; matched += take; entries.append({"lot_id":lot.get("lot_id"),"qty":take,"entry_price":entry,"pnl":(entry-px)*take*s})
+            remaining-=take
+        return {"action":action,"code":code,"qty":q,"price":px,"lot_size":size,"matched_qty":matched,
+                "remaining_unmatched":remaining,"realized_pnl_preview":pnl,"lots":entries}
+    return {"action":action,"code":code,"qty":q,"price":px,"lot_size":size,
+            "matched_qty":q,"remaining_unmatched":0,"realized_pnl_preview":0.0,"lots":[]}
+
+def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note=""):
+    m,s,l=load_instance(Path(repo).resolve(),instance_id)
+    t=timestamp_utc or now(); action=str(action).upper(); code=str(code).strip().upper()
+    if not code.startswith("US.QQQ") or code=="US.QQQ":
         raise SystemExit("MANUAL_CODE_MUST_BE_QQQ_OPTION")
-    a.code=code
-    trade_id=a.trade_id or ("MANUAL_"+t.replace(":","").replace("-","").replace(".","").replace("+00:00","Z"))
+    trade_id=trade_id or ("MANUAL_"+t.replace(":","").replace("-","").replace(".","").replace("+00:00","Z"))
     existing_manual_ids={str(r.get("payload",{}).get("trade_id")) for r in l._rows() if r.get("event_type")=="MANUAL_TRADE_RECORDED"}
     if trade_id in existing_manual_ids:
         raise SystemExit(f"MANUAL_TRADE_ID_EXISTS:{trade_id}")
     lots=json.loads(json.dumps(s.get("manual_lots",[])))
-    pnl_delta,_=manual_apply_trade(
-        lots,
-        action=action,
-        code=a.code,
-        qty=a.qty,
-        price=a.price,
-        lot_size=a.lot_size,
-        trade_id=trade_id,
-        timestamp=t,
-    )
-    s["manual_lots"]=lots
-    s["manual_realized_pnl"]=sf(s.get("manual_realized_pnl"))+sf(pnl_delta)
+    preview=manual_book_pnl_preview(lots,action=action,code=code,qty=qty,price=price,lot_size=lot_size)
+    if preview["remaining_unmatched"]>0:
+        if action=="REDUCE":
+            raise SystemExit(f"MANUAL_REDUCE_EXCEEDS_POSITION:{code}:{preview['remaining_unmatched']}")
+        if action=="BUY_BACK_FAR":
+            raise SystemExit(f"MANUAL_COVER_EXCEEDS_POSITION:{code}:{preview['remaining_unmatched']}")
+    pnl_delta,_=manual_apply_trade(lots,action=action,code=code,qty=qty,price=price,lot_size=lot_size,trade_id=trade_id,timestamp=t)
+    s["manual_lots"]=lots; s["manual_realized_pnl"]=sf(s.get("manual_realized_pnl"))+sf(pnl_delta)
     s["manual_trade_count"]=si(s.get("manual_trade_count"))+1
     positions=manual_position_snapshot(lots)
-    c="MANUAL_"+trade_id
-    l.append("MANUAL_TRADE_RECORDED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=t,
-             payload={"trade_id":trade_id,"action":action,"code":a.code,"qty":si(a.qty),"price":sf(a.price),
-                      "lot_size":max(1,si(a.lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
+    l.append("MANUAL_TRADE_RECORDED",instance_id=instance_id,cycle_id="MANUAL_"+trade_id,timestamp_utc=t,
+             payload={"trade_id":trade_id,"action":action,"code":code,"qty":si(qty),"price":sf(price),
+                      "lot_size":max(1,si(lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
                       "manual_realized_pnl_after":s["manual_realized_pnl"],"positions_after":positions,
-                      "note":a.note},
+                      "pnl_preview":preview,"note":note},
              source="USER_MANUAL")
-    save(spath(repo,a.instance_id),s)
-    print(json.dumps({"status":"MANUAL_TRADE_RECORDED","instance_id":a.instance_id,"trade_id":trade_id,
-                      "action":action,"code":a.code,"qty":si(a.qty),"price":sf(a.price),
-                      "realized_pnl_delta":sf(pnl_delta),"manual_realized_pnl":s["manual_realized_pnl"],
-                      "manual_positions":positions},ensure_ascii=False,indent=2)); return 0
+    save(spath(Path(repo).resolve(),instance_id),s)
+    return {"status":"MANUAL_TRADE_RECORDED","instance_id":instance_id,"trade_id":trade_id,
+            "timestamp_utc":t,"action":action,"code":code,"qty":si(qty),"price":sf(price),
+            "lot_size":max(1,si(lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
+            "manual_realized_pnl":s["manual_realized_pnl"],"manual_positions":positions,
+            "pnl_preview":preview,"note":note}
+
+def manual_cmd(a):
+    out=record_manual_trade(
+        a.repo_root,instance_id=a.instance_id,action=a.action,code=a.code,qty=a.qty,price=a.price,
+        lot_size=a.lot_size,timestamp_utc=a.timestamp_utc,trade_id=a.trade_id,note=a.note
+    )
+    print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
 def note_cmd(a):
     repo=Path(a.repo_root).resolve(); m,s,l=load_instance(repo,a.instance_id); t=now(); c="NOTE_"+t.replace(":","").replace("-","").replace(".","")
     l.append("HUMAN_NOTE",instance_id=a.instance_id,cycle_id=c,timestamp_utc=t,payload={"note":a.text,"tag":a.tag},source="USER_MANUAL")
     print(json.dumps({"status":"NOTE_RECORDED","instance_id":a.instance_id,"timestamp_utc":t},ensure_ascii=False,indent=2)); return 0
+
+def instance_summary(repo, instance_id):
+    repo=Path(repo).resolve(); m,s,l=load_instance(repo,instance_id)
+    mark=s.get("manual_last_mark") or {}
+    rows=l._rows(); recent=[r for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"][-20:]
+    return {
+        "instance_id":instance_id,
+        "strategy_id":m.get("strategy_id"),
+        "strategy_version":m.get("strategy_version"),
+        "start_at_utc":m.get("start_at_utc"),
+        "created_at_utc":m.get("created_at_utc"),
+        "manual_book":{
+            "realized_pnl":sf(s.get("manual_realized_pnl")),
+            "unrealized_pnl":sf(mark.get("unrealized_pnl")),
+            "total_pnl":sf(s.get("manual_realized_pnl"))+sf(mark.get("unrealized_pnl")),
+            "mark_status":mark.get("status"),
+            "trade_count":si(s.get("manual_trade_count")),
+            "positions":manual_position_snapshot(s.get("manual_lots",[])),
+            "marks":mark.get("rows",[]),
+        },
+        "broker_book":{
+            "realized_pnl":sf(s.get("realized_pnl")),
+            "last_reconcile":s.get("last_reconcile"),
+            "data_gaps":si(s.get("data_gaps")),
+        },
+        "recent_manual_trades":[r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")} for r in recent],
+        "ledger_head_hash":l.validate()["head_hash"],
+    }
+
+def list_instances(repo):
+    root=Path(repo).resolve()/ROOT
+    if not root.exists(): return []
+    out=[]
+    for d in sorted(root.iterdir()):
+        if d.is_dir() and (d/"manifest.json").exists():
+            try:
+                m,s,l=load_instance(Path(repo).resolve(),d.name)
+                out.append({"instance_id":d.name,"strategy_id":m.get("strategy_id"),"start_at_utc":m.get("start_at_utc"),
+                            "manual_realized_pnl":sf(s.get("manual_realized_pnl")),
+                            "manual_trade_count":si(s.get("manual_trade_count"))})
+            except Exception:
+                continue
+    return out
 
 def report(a):
     repo=Path(a.repo_root).resolve(); m,s,l=load_instance(repo,a.instance_id); rows=l._rows(); counts={}
@@ -426,6 +497,7 @@ def parser():
         if name=="watch": x.add_argument("--interval",type=int,default=300); x.add_argument("--once",action="store_true"); x.add_argument("--stop-on-error",action="store_true")
         x.set_defaults(fn=cycle if name=="cycle" else watch)
     x=s.add_parser("manual"); x.add_argument("--instance-id",required=True); x.add_argument("--action",required=True,choices=["ADD","REDUCE","SELL_FAR","BUY_BACK_FAR"]); x.add_argument("--code",required=True); x.add_argument("--qty",type=int,required=True); x.add_argument("--price",type=float,required=True); x.add_argument("--lot-size",type=int,default=100); x.add_argument("--timestamp-utc",default=None); x.add_argument("--trade-id",default=None); x.add_argument("--note",default=""); x.set_defaults(fn=manual_cmd)
+    x=s.add_parser("instances"); x.set_defaults(fn=lambda a: print(json.dumps({"instances":list_instances(a.repo_root)},ensure_ascii=False,indent=2)) or 0)
     x=s.add_parser("note"); x.add_argument("--instance-id",required=True); x.add_argument("--text",required=True); x.add_argument("--tag",default="USER_MANUAL"); x.set_defaults(fn=note_cmd)
     for name,fn in (("report",report),("verify",verify)):
         x=s.add_parser(name); x.add_argument("--instance-id",required=True); x.set_defaults(fn=fn)
