@@ -1051,8 +1051,12 @@ def init_cmd(a):
 
 def _init_cmd_unlocked(a):
     repo=Path(a.repo_root).resolve()
-    try: r=runtime_identity(repo)
-    except Exception: r={}
+    try:
+        r=runtime_identity(repo)
+    except FileNotFoundError:
+        r={}
+    except Exception as exc:
+        raise SystemExit(f"INSTANCE_RUNTIME_IDENTITY_INVALID:{type(exc).__name__}") from exc
     locked_id=r.get("strategy_id")
     locked_version=r.get("strategy_version")
     locked_engine=r.get("research_engine_commit")
@@ -1200,11 +1204,15 @@ def _confirmed_qty_for_deal(rows,deal_id):
 
 def _find_observed_deal(rows,deal_id):
     target=str(deal_id or "")
+    allowed={"EXECUTION_DETECTED","BROKER_EXECUTION_UNATTRIBUTED","BROKER_EXECUTION_PRE_INSTANCE"}
     for row in reversed(rows or []):
+        event_type=str(row.get("event_type") or "").upper()
+        if event_type not in allowed:
+            continue
         payload=row.get("payload") or {}
         deal=payload.get("deal") or {}
         if str(deal.get("deal_id") or "")==target:
-            return dict(deal), str(row.get("event_type") or "").upper()
+            return dict(deal), event_type
     return None, None
 
 
