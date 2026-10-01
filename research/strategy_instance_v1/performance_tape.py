@@ -244,7 +244,7 @@ def build_performance_tape(trades, baseline_lots=None):
         "attributed_realized": attributed,
         "attribution_delta": round(observed_realized - baseline_realized - sum(attributed.values()), 4),
         "unmatched_close_qty": unmatched_close_qty,
-        "attribution_status": "CONSISTENT" if unmatched_close_qty == 0 and abs(observed_realized - sum(attributed.values())) < 0.01 else "CHECK_REQUIRED",
+        "attribution_status": "CONSISTENT" if unmatched_close_qty == 0 and abs(observed_realized - baseline_realized - sum(attributed.values())) < 0.01 else "CHECK_REQUIRED",
         "execution_slippage_estimate": round(slippage, 4),
         "size_gap_contracts": size_gap,
         "rows": rows,
