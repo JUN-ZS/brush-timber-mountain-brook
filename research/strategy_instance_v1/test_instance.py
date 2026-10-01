@@ -508,6 +508,26 @@ def test_strategy_plan_refuses_ambiguous_far_short_ownership():
     assert "ambiguous" in out["reason"]
 
 
+def test_strategy_plan_explicit_far_hint_accepts_single_dict_position():
+    from .run_instance import strategy_plan
+    from research.live_hedge_v1.engine import Contract
+    contract=Contract(
+        "US.QQQ261230C00600000","CALL",600.0,"2026-12-30",90,
+        2.0,2.5,0.08,0.01,0.2,100,100,
+    )
+    cmap={contract.code:contract}
+    quotes={contract.code:{"bid":2.0,"ask":2.5,"delta":0.08,"gamma":0.01}}
+    out=strategy_plan(
+        {"market":{"spot":500.0,"signal_active":False}},
+        [{"code":contract.code,"side":"SHORT","qty":10,"avg_cost":2.0}],
+        [],
+        cmap,
+        quotes,
+        {"far_dte":90,"far_delta":0.08,"near_dte":30,"far_code_hint":contract.code},
+    )
+    assert out["far"]["code"]==contract.code
+
+
 def test_strategy_plan_uses_explicit_far_code_hint():
     from .run_instance import strategy_plan
     from research.live_hedge_v1.engine import Contract
