@@ -449,8 +449,17 @@ def _cycle_unlocked(args):
             d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100; new.append(d)
     realized_delta=0.0
     for d in sorted(new,key=lambda x:(dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),str(x.get("deal_id")))):
-        realized_delta+=apply_deal(s["lots"],d); s["processed_deal_ids"].append(str(d["deal_id"]))
-        l.append("EXECUTION_DETECTED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"deal":d},source="BROKER_OBSERVED")
+        delta = apply_deal(s["lots"], d)
+        realized_delta += delta
+        s["processed_deal_ids"].append(str(d["deal_id"]))
+        l.append(
+            "EXECUTION_DETECTED",
+            instance_id=m["instance_id"],
+            cycle_id=cid,
+            timestamp_utc=t,
+            payload={"deal": d, "realized_pnl_delta": delta},
+            source="BROKER_OBSERVED",
+        )
     s["realized_pnl"]=sf(s.get("realized_pnl"))+realized_delta
     mism=reconcile(s["lots"],ps); s["last_reconcile"]={"status":"MATCH" if not mism else "DATA_GAP","mismatches":mism,"checked_at_utc":t}
     if mism:
