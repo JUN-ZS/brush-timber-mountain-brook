@@ -121,6 +121,7 @@ def build_performance_tape(trades, baseline_lots=None):
         price = _f(t.get("price")) or 0.0
         lot = max(1, _i(t.get("lot_size")) or 100)
         ref = t.get("strategy_reference") or {}
+        context_source = str(ref.get("context_source") or "").upper()
         has_ticket = bool(ref.get("ticket_id"))
         s_qty = _i(ref.get("qty")) if has_ticket else None
         s_px = _f(ref.get("price")) if has_ticket else None
@@ -208,6 +209,12 @@ def build_performance_tape(trades, baseline_lots=None):
             "relationship": rel,
             "strategy_ticket_id": ref.get("ticket_id"),
             "strategy_action": ref.get("action"),
+            "strategy_context_source": context_source or ("LEGACY_UNSCOPED_CONTEXT" if has_ticket else None),
+            "relationship_basis": (
+                "EXPLICIT_INSTANCE_SCOPED_TICKET_SNAPSHOT"
+                if context_source == "OPERATOR_SELECTED_TICKET_SNAPSHOT"
+                else ("LEGACY_UNSCOPED_TICKET_REFERENCE" if has_ticket else "NO_TICKET_CONTEXT")
+            ),
             "strategy_expected_manual_action": expected_action,
             "strategy_qty": s_qty,
             "strategy_price": s_px,
@@ -233,7 +240,7 @@ def build_performance_tape(trades, baseline_lots=None):
         "schema": "USER_MANUAL_PERFORMANCE_TAPE.v1",
         "grade": "Derived",
         "source": "USER_MANUAL",
-        "rule": "Observed fill P&L only. Untraded contracts have no counterfactual. Execution price versus the ticket indicative is Estimated, not outcome.",
+        "rule": "Observed fill P&L only. Untraded contracts have no counterfactual. Execution price versus the ticket indicative is Estimated, not outcome. FOLLOW_STRATEGY/ADJUST_SIZE describe execution alignment to a stored ticket snapshot; they do not prove operator intent.",
         "trade_count": len(rows),
         "counts": counts,
         "opening_counts": opening_counts,
