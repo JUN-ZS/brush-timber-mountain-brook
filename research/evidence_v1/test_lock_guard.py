@@ -46,7 +46,7 @@ class LockGuardTest(unittest.TestCase):
             path.write_text(json.dumps(lock),encoding="utf-8")
             with self.assertRaises(StrategyLockViolation) as ctx:
                 assert_runtime_lock(root, far_dte=120, far_delta=0.08, near_dte=30)
-            self.assertIn("MANIFEST", str(ctx.exception))
+            self.assertIn("STRATEGY_ID", str(ctx.exception))
 
 
 if __name__ == "__main__":
