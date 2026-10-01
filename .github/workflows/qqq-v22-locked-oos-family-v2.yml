@@ -52,14 +52,16 @@ jobs:
         shell: bash
         env:
           ENGINE_COMMIT: 930c949ec5260865f2bf3ee1c6e030dab7b8e4c4
-          ENGINE_PATH: research/qqq_dynamic_near_long_state_engine_v22_930c949.py
+          SOURCE_ENGINE_PATH: research/qqq_dynamic_near_long_state_engine_v22.py
+          ENGINE_COPY_PATH: research/qqq_dynamic_near_long_state_engine_v22_930c949.py
         run: |
           . .venv/bin/activate
           git cat-file -e "${ENGINE_COMMIT}^{commit}"
-          git cat-file -e "${ENGINE_COMMIT}:${ENGINE_PATH}"
-          git diff --quiet "${ENGINE_COMMIT}" -- "${ENGINE_PATH}"
+          git cat-file -e "${ENGINE_COMMIT}:${SOURCE_ENGINE_PATH}"
+          test -f "${ENGINE_COPY_PATH}"
+          git show "${ENGINE_COMMIT}:${SOURCE_ENGINE_PATH}" | cmp -s - "${ENGINE_COPY_PATH}"
           python -c "import hashlib; p='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; print('engine_copy',hashlib.sha256(open(p,'rb').read()).hexdigest())"
-          python -c "import pathlib; p=pathlib.Path('research/qqq_dynamic_near_long_state_engine_v22_930c949.py'); assert p.exists(); print('frozen_engine_present', p.stat().st_size)"
+          python -c "import pathlib; p=pathlib.Path('research/qqq_dynamic_near_long_state_engine_v22_930c949.py'); print('frozen_engine_present', p.stat().st_size)"
           echo "frozen_engine_match=PASS"
       - name: Verify and run locked 72-config family
         shell: bash
