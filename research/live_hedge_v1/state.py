@@ -147,33 +147,79 @@ class StateStore:
 
         latest_ticket = None
         ticket_terminal = None
-        latest_campaign_state = None
-        latest_campaign_id = None
-        adopted = None
-        ownership = None
+        campaign = state.setdefault("campaign", {})
 
         for event in events:
             et = str(event.get("type", "")).upper()
             payload = event.get("payload") or {}
-            campaign_id = event.get("campaign_id")
-            if campaign_id:
-                latest_campaign_id = campaign_id
 
             if et == "CAMPAIGN_TRANSITION":
-                latest_campaign_state = (payload.get("to"), event.get("timestamp"))
+                to_state = payload.get("to")
+                campaign["state"] = to_state
+                campaign["last_transition_at"] = event.get("timestamp")
+                if to_state == "IDLE":
+                    campaign["id"] = None
+                    campaign["far_code"] = None
+                    campaign["managed_far_qty"] = None
+                    campaign["far_ownership_source"] = None
+                    campaign["far_ownership_ticket_id"] = None
+
             elif et == "CAMPAIGN_ADOPTED_EXISTING_FAR":
-                adopted = (campaign_id, payload)
+                if event.get("campaign_id"):
+                    campaign["id"] = event.get("campaign_id")
+                campaign["state"] = "OPEN"
+                campaign["started_at"] = campaign.get("started_at") or event.get("timestamp")
+                if payload.get("far_code"):
+                    campaign["far_code"] = payload["far_code"]
+                if payload.get("managed_far_qty") is not None:
+                    campaign["managed_far_qty"] = payload["managed_far_qty"]
+                elif payload.get("qty") is not None:
+                    campaign["managed_far_qty"] = payload["qty"]
+                campaign["far_ownership_source"] = payload.get("ownership_source") or "EXPLICIT_ADOPTION"
+                campaign["far_ownership_ticket_id"] = None
+
             elif et == "FAR_OWNERSHIP_REBASELINED":
-                ownership = payload
+                if event.get("campaign_id"):
+                    campaign["id"] = event.get("campaign_id")
+                if payload.get("far_code"):
+                    campaign["far_code"] = payload["far_code"]
+                if payload.get("managed_far_qty") is not None:
+                    campaign["managed_far_qty"] = payload["managed_far_qty"]
+                campaign["far_ownership_source"] = payload.get("ownership_source") or "EXPLICIT_REBASELINE"
+                campaign["far_ownership_ticket_id"] = None
+
             elif et == "TICKET_ISSUED":
                 latest_ticket = payload.get("ticket")
                 ticket_terminal = None
+                ticket = latest_ticket or {}
+                if event.get("campaign_id"):
+                    campaign["id"] = event.get("campaign_id")
+                legs = ticket.get("legs", []) or []
+                far_leg = next(
+                    (
+                        leg for leg in legs
+                        if str(leg.get("expected_side", "")).upper() == "SHORT"
+                        and leg.get("code")
+                    ),
+                    None,
+                )
+                if far_leg is not None:
+                    campaign["far_code"] = far_leg.get("code")
+                    if campaign.get("managed_far_qty") is None:
+                        campaign["managed_far_qty"] = int(far_leg.get("before_qty", 0) or 0)
+                        campaign["far_ownership_source"] = "TICKET_BASELINE"
+                    campaign["far_ownership_ticket_id"] = ticket.get("ticket_id")
+                if campaign.get("state") == "IDLE":
+                    campaign["state"] = "OPEN"
+                campaign["started_at"] = campaign.get("started_at") or ticket.get("issued_at")
+
             elif et in {"TICKET_PARTIAL_PROGRESS", "TICKET_WAITING_EXECUTION_EVIDENCE"}:
                 if latest_ticket is not None:
                     latest_ticket = json.loads(json.dumps(latest_ticket))
                     latest_ticket["status"] = "PARTIAL"
                     if et == "TICKET_PARTIAL_PROGRESS" and payload.get("fill") is not None:
                         latest_ticket["fill"] = payload.get("fill")
+
             elif et in {
                 "TICKET_FILLED",
                 "TICKET_SUPERSEDED",
@@ -193,56 +239,33 @@ class StateStore:
             if current is not None:
                 state["active_ticket"] = None
 
-        campaign = state.setdefault("campaign", {})
-        if latest_campaign_state:
-            campaign["state"] = latest_campaign_state[0]
-            campaign["last_transition_at"] = latest_campaign_state[1]
-        if adopted is not None:
-            cid, payload = adopted
-            if cid:
-                campaign["id"] = cid
-            if payload.get("far_code"):
-                campaign["far_code"] = payload["far_code"]
-            if payload.get("managed_far_qty") is not None:
-                campaign["managed_far_qty"] = payload["managed_far_qty"]
-            elif payload.get("qty") is not None:
-                campaign["managed_far_qty"] = payload["qty"]
-            campaign["far_ownership_source"] = payload.get("ownership_source") or "EXPLICIT_ADOPTION"
-        if ownership is not None:
-            if ownership.get("far_code"):
-                campaign["far_code"] = ownership["far_code"]
-            if ownership.get("managed_far_qty") is not None:
-                campaign["managed_far_qty"] = ownership["managed_far_qty"]
-            campaign["far_ownership_source"] = ownership.get("ownership_source") or "EXPLICIT_REBASELINE"
-        if latest_campaign_id and not campaign.get("id"):
-            campaign["id"] = latest_campaign_id
+        state["campaign"] = campaign
 
-        active = state.get("active_ticket")
-        if active and campaign.get("state") not in {"IDLE", None}:
-            if not campaign.get("far_code"):
-                for leg in active.get("legs", []) or []:
-                    if str(leg.get("expected_side", "")).upper() == "SHORT" and leg.get("code"):
-                        campaign["far_code"] = leg["code"]
-                        break
-            if campaign.get("managed_far_qty") is None:
-                for leg in active.get("legs", []) or []:
-                    if str(leg.get("expected_side", "")).upper() == "SHORT":
-                        campaign["managed_far_qty"] = int(leg.get("before_qty", 0) or 0)
-                        campaign["far_ownership_source"] = "TICKET_BASELINE"
-                        campaign["far_ownership_ticket_id"] = active.get("ticket_id")
-                        break
-
-        max_event_seq = max((self._numeric_suffix(e.get("event_id"), 6) for e in events), default=0)
+        max_event_seq = max(
+            (self._numeric_suffix(e.get("event_id"), 6) for e in events),
+            default=0,
+        )
         state["event_sequence"] = max(int(state.get("event_sequence", 0) or 0), max_event_seq)
+
         max_ticket_seq = max(
-            (self._numeric_suffix(e.get("payload", {}).get("ticket", {}).get("ticket_id"), 4)
-             for e in events if e.get("type") == "TICKET_ISSUED"),
+            (
+                self._numeric_suffix(
+                    e.get("payload", {}).get("ticket", {}).get("ticket_id"),
+                    4,
+                )
+                for e in events
+                if e.get("type") == "TICKET_ISSUED"
+            ),
             default=0,
         )
         state["ticket_sequence"] = max(int(state.get("ticket_sequence", 0) or 0), max_ticket_seq)
+
         max_campaign_seq = max(
-            (self._numeric_suffix(e.get("campaign_id"), 4)
-             for e in events if e.get("campaign_id")),
+            (
+                self._numeric_suffix(e.get("campaign_id"), 4)
+                for e in events
+                if e.get("campaign_id")
+            ),
             default=0,
         )
         state["campaign_sequence"] = max(int(state.get("campaign_sequence", 0) or 0), max_campaign_seq)
