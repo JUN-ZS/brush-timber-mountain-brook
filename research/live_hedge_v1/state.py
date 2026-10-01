@@ -103,4 +103,8 @@ class StateStore:
 
     def record_position_snapshot(self, state: Dict[str, Any], positions: Any) -> None:
         from .campaign import position_snapshot
-        state["last_positions"] = position_snapshot(positions)
+        normalized = [
+            dict(p.__dict__) if hasattr(p, "__dict__") else dict(p)
+            for p in positions
+        ]
+        state["last_positions"] = position_snapshot(normalized)
