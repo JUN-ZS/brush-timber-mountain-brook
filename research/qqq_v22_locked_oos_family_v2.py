@@ -184,6 +184,28 @@ def run_family(u: pd.DataFrame, con, opt_path: Path, *, window_end: pd.Timestamp
     return pd.concat(rows, ignore_index=True), has_gamma, unresolved_excluded
 
 
+def validate_family_grid(detail: pd.DataFrame) -> None:
+    expected = {
+        (int(fd), float(fdel), str(policy))
+        for fd in FAR_DTES
+        for fdel in FAR_DELTAS
+        for policy in POLICIES
+    }
+    actual = {
+        (int(row["far_dte_target"]), float(row["far_delta_target"]), str(row["policy"]))
+        for _, row in detail.iterrows()
+    }
+    missing = sorted(expected - actual)
+    extra = sorted(actual - expected)
+    if missing or extra:
+        raise RuntimeError(
+            "LOCKED_FAMILY_CONFIG_GRID_INCOMPLETE:"
+            + json.dumps({"expected":len(expected),"actual":len(actual),"missing":missing,"extra":extra}, sort_keys=True)
+        )
+    if (pd.to_datetime(detail["campaign_entry"]) > pd.Timestamp.max).any():
+        raise RuntimeError("INVALID_CAMPAIGN_ENTRY_TIMESTAMP")
+
+
 def aggregate(detail: pd.DataFrame):
     key = ["far_dte_target", "far_delta_target", "policy"]
     cfg = (
@@ -336,6 +358,7 @@ def main():
         end = pd.Timestamp(end_s)
         u = mask_campaigns(u_full, start, end)
         detail, has_gamma, unresolved_excluded = run_family(u, con, od, window_end=end)
+        validate_family_grid(detail)
         family, cfg, policy, far, yearly = aggregate(detail)
 
         expected_configs = {
