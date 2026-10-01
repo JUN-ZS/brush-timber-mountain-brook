@@ -348,6 +348,20 @@ def _action_card(ticket):
         "manual_execution_only":True,
     }
 
+def _apply_signal_gate(plan_result, signal_active, signal_status):
+    """Block new decisions when signal state is unknown/incomplete."""
+    out = dict(plan_result)
+    status = str(signal_status or "OK").upper()
+    if signal_active is None or status != "OK":
+        out["status"] = "BLOCKED_SIGNAL_DATA_GAP"
+        out["candidate_actions"] = []
+        out["reasons"] = [
+            "signal unavailable: history/data gap",
+            "no new campaign decision is permitted until signal data is complete",
+        ] + list(out.get("reasons", []))
+    return out
+
+
 def _defer_actions_for_active_ticket(plan_result, active_ticket):
     """Prevent a live ticket from being shadowed by fresh planner actions."""
     if not active_ticket:
@@ -1002,13 +1016,7 @@ def main():
     active_ticket_for_gate = state.get("active_ticket")
     p = _defer_actions_for_active_ticket(p, active_ticket_for_gate)
 
-    if signal_active is None:
-        p["status"] = "BLOCKED_SIGNAL_DATA_GAP"
-        p["candidate_actions"] = []
-        p["reasons"] = [
-            "signal unavailable: history/data gap",
-            "no new campaign decision is permitted until signal data is complete",
-        ] + list(p.get("reasons", []))
+    p = _apply_signal_gate(p, signal_active, signal_status)
 
     if unmanaged_short_block and not campaign_active:
         p["status"] = "BLOCKED_UNMANAGED_QQQ_SHORT"
