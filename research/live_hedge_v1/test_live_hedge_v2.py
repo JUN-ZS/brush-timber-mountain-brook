@@ -481,6 +481,56 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(leg["before_avg_cost"], 9.0)
         self.assertEqual(leg["target_qty"], 7)
 
+    def test_broker_complete_ticket_becomes_filled_after_manual_offset(self):
+        before = position_snapshot([])
+        ticket = build_ticket(
+            action={
+                "action": "ADD_NEAR",
+                "code": "US.QQQ261030C00500000",
+                "qty": 5,
+                "side": "BUY",
+                "price": 8.5,
+            },
+            campaign_id="C-TEST",
+            before_positions=before,
+            now="2026-10-01T00:00:00+00:00",
+            sequence=1,
+        )
+        state = {
+            "_now": "2026-10-01T00:03:00+00:00",
+            "active_ticket": ticket,
+            "last_positions": before,
+        }
+        result = reconcile_ticket(
+            state,
+            [{
+                "code": "US.QQQ261030C00500000",
+                "side": "LONG",
+                "qty": 3,
+                "avg_cost": 8.5,
+            }],
+            [],
+            [{
+                "deal_id": "D1",
+                "code": "US.QQQ261030C00500000",
+                "side": "BUY",
+                "qty": 5,
+                "price": 8.5,
+                "created_at": "2026-10-01T00:01:00+00:00",
+            }],
+        )
+        self.assertTrue(result["filled"])
+        self.assertTrue(result["superseded"])
+        self.assertTrue(result["broker_execution_complete"])
+        self.assertIsNone(state["active_ticket"])
+        self.assertEqual(result["ticket"]["fill"][0]["qty"], 5)
+        self.assertEqual(
+            result["ticket"]["fill"][0]["price_source"],
+            "BROKER_EVIDENCE_CUMULATIVE",
+        )
+        self.assertEqual(result["events"][0]["type"], "MANUAL_POSITION_CHANGE")
+        self.assertEqual(result["events"][1]["type"], "TICKET_SUPERSEDED")
+
     def test_manual_change_supersedes_ticket(self):
         before = position_snapshot([
             {"code": "US.QQQ261030C00500000", "side": "LONG", "qty": 1, "avg_cost": 4.0},
