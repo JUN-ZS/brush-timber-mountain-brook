@@ -285,6 +285,9 @@ def plan(
     gamma_baseline=None,
     previous_far_delta_abs=None,
     near_lots=None,
+    far_ownership_enforced=False,
+    managed_far_qty=None,
+    managed_far_code=None,
     now=None,
 ):
     now = now or datetime.now(timezone.utc)
@@ -348,6 +351,59 @@ def plan(
         }
     near_pos = [p for p in near_pos_all if p.code.upper() in managed_near_by_code]
     far_positions = [p for p in option_positions if p.side == "SHORT"]
+
+    if far_campaign_active and far_ownership_enforced:
+        managed_code = str(managed_far_code or "").upper()
+        observed_far_by_code = {}
+        for p in far_positions:
+            code = p.code.upper()
+            observed_far_by_code[code] = observed_far_by_code.get(code, 0) + int(p.qty)
+        extra_far_codes = sorted(
+            code for code in observed_far_by_code
+            if managed_code and code != managed_code
+        )
+        if managed_code == "" or managed_far_qty is None:
+            return {
+                "status": "BLOCKED_FAR_OWNERSHIP_UNBASELINED",
+                "timestamp": now.isoformat(),
+                "candidate_actions": [],
+                "next_triggers": [],
+                "reasons": [
+                    "active campaign has no explicit managed far ownership baseline",
+                    "desk refuses to infer far ownership from current broker position",
+                    "explicit rebaseline is required before campaign management continues",
+                ],
+                "far_ownership": {
+                    "status": "UNBASELINED",
+                    "managed_far_code": managed_code or None,
+                    "managed_far_qty": None,
+                    "observed_far_by_code": observed_far_by_code,
+                },
+                "market": market,
+            }
+        expected_far_qty = max(0, int(managed_far_qty))
+        observed_far_qty = observed_far_by_code.get(managed_code, 0)
+        if extra_far_codes or observed_far_qty != expected_far_qty:
+            return {
+                "status": "BLOCKED_FAR_OWNERSHIP_MISMATCH",
+                "timestamp": now.isoformat(),
+                "candidate_actions": [],
+                "next_triggers": [],
+                "reasons": [
+                    "observed QQQ SHORT inventory does not match tracked strategy far ownership",
+                    "desk refuses to attribute or modify unmatched SHORT inventory",
+                    "resolve manual/out-of-band/state mismatch before campaign management continues",
+                ],
+                "far_ownership": {
+                    "status": "MISMATCH",
+                    "managed_far_code": managed_code,
+                    "managed_far_qty": expected_far_qty,
+                    "observed_far_qty": observed_far_qty,
+                    "observed_far_by_code": observed_far_by_code,
+                    "extra_far_codes": extra_far_codes,
+                },
+                "market": market,
+            }
     terminal_statuses = {"FILLED", "FILLED_ALL", "CANCELLED", "CANCELLED_ALL", "REJECTED", "FAILED"}
     pending_codes = {
         o.code
