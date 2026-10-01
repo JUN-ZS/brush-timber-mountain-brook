@@ -255,8 +255,20 @@ def contracts_map(snap):
     out={}
     for x in snap.get("contracts",[]):
         if x.get("code"):
-            out[str(x["code"])]=Contract(str(x["code"]),str(x.get("right","CALL")).upper(),sf(x.get("strike")),str(x.get("expiry","")),
-                si(x.get("dte")),x.get("bid"),x.get("ask"),x.get("delta"),x.get("gamma"),x.get("iv"),max(1,si(x.get("lot_size")) or 100))
+            out[str(x["code"])]=Contract(
+                str(x["code"]),
+                str(x.get("right","CALL")).upper(),
+                sf(x.get("strike")),
+                str(x.get("expiry","")),
+                si(x.get("dte")),
+                x.get("bid"),
+                x.get("ask"),
+                x.get("delta"),
+                x.get("gamma"),
+                x.get("iv"),
+                max(1,si(x.get("lot_size")) or 100),
+                x.get("volume"),
+            )
     return out
 
 def marks(ps,cmap,quotes):
@@ -284,7 +296,7 @@ def reconcile(lots,ps):
     keys=set(a)|set(b)
     return [{"code":k[0],"side":k[1],"lot_qty":a.get(k,0),"broker_qty":b.get(k,0)} for k in sorted(keys) if a.get(k,0)!=b.get(k,0)]
 
-def strategy_plan(snap,ps,orders,cmap,quotes,m):
+def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None):
     market=snap["market"]; pos=[]
     for p in ps:
         c=cmap.get(str(p["code"])); q=quotes.get(str(p["code"]),{})
@@ -308,7 +320,8 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m):
         near=Contract(near.code,near.right,near.strike,near.expiry,near.dte,q.get("bid",near.bid),q.get("ask",near.ask),q.get("delta",near.delta),q.get("gamma",near.gamma),q.get("iv",near.iv),near.lot_size)
     if active and far is None: return {"status":"DATA_GAP","reason":"active short far quote unavailable"}
     return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=bool(market.get("signal_active")),
-                far_campaign_active=active,quotes_by_code=quotes,now=datetime.now(timezone.utc))
+                far_campaign_active=active,quotes_by_code=quotes,near_lots=near_lots or [],
+                now=datetime.now(timezone.utc))
 
 def cycle(args):
     repo = Path(args.repo_root).resolve()
@@ -366,7 +379,7 @@ def _cycle_unlocked(args):
         "gross_pnl":gross,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
     if args.observe_strategy_plan and snap.get("status")=="OK":
         try:
-            sp=strategy_plan(snap,ps,orders,cmap,quotes,m)
+            sp=strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=s.get("lots", []))
             l.append("STRATEGY_PLAN_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
                      payload={"plan":sp,"execution":"READ_ONLY_OBSERVATION"},source="SYSTEM")
         except Exception as e:
