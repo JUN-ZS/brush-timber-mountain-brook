@@ -710,6 +710,64 @@ class LiveHedgeV2Test(unittest.TestCase):
             0,
         )
 
+    def test_far_ownership_requires_explicit_baseline(self):
+        market = {
+            "source": "LIVE QUOTE",
+            "timestamp": now_iso(),
+            "spot": 500.0,
+            "signal_active": True,
+        }
+        far = Contract(
+            "US.QQQ260116C00600000", "CALL", 600.0, "2026-01-16", 100,
+            2.0, 2.5, 0.08, 0.01,
+        )
+        out = plan(
+            market=market, far=far, near=None,
+            positions=[
+                Position("US.QQQ260116C00600000", "SHORT", 10, 2.0, 600, "2026-01-16", 100),
+            ],
+            orders=[],
+            signal_active=True,
+            far_campaign_active=True,
+            far_ownership_enforced=True,
+            managed_far_qty=None,
+            managed_far_code=far.code,
+            quotes_by_code={far.code: {"bid": 2.0, "ask": 2.5}},
+        )
+        self.assertEqual(out["status"], "BLOCKED_FAR_OWNERSHIP_UNBASELINED")
+        self.assertEqual(out["candidate_actions"], [])
+
+    def test_far_ownership_blocks_same_code_and_extra_short_mismatch(self):
+        market = {
+            "source": "LIVE QUOTE",
+            "timestamp": now_iso(),
+            "spot": 500.0,
+            "signal_active": False,
+        }
+        far = Contract(
+            "US.QQQ260116C00600000", "CALL", 600.0, "2026-01-16", 100,
+            2.0, 2.5, 0.08, 0.01,
+        )
+        out = plan(
+            market=market, far=far, near=None,
+            positions=[
+                Position("US.QQQ260116C00600000", "SHORT", 12, 2.0, 600, "2026-01-16", 100),
+                Position("US.QQQ261030C00700000", "SHORT", 1, 1.0, 700, "2026-10-30", 120),
+            ],
+            orders=[],
+            signal_active=False,
+            far_campaign_active=True,
+            far_ownership_enforced=True,
+            managed_far_qty=10,
+            managed_far_code=far.code,
+            quotes_by_code={
+                far.code: {"bid": 2.0, "ask": 2.5},
+                "US.QQQ261030C00700000": {"bid": 1.0, "ask": 1.2},
+            },
+        )
+        self.assertEqual(out["status"], "BLOCKED_FAR_OWNERSHIP_MISMATCH")
+        self.assertEqual(out["candidate_actions"], [])
+
     def test_stale_partial_order_uses_remaining_quantity(self):
         market = {
             "source": "LIVE QUOTE",
