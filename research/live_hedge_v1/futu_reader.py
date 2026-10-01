@@ -1,8 +1,29 @@
 from __future__ import annotations
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any
+
+from .engine import SIGNAL_EXT200_GTE, SIGNAL_RATIO52_GTE
 from backtest.futu_adapter import FutuOpenDAdapter
 from backtest.types import OptionContract, QQQ_CODE
+
+_US_EXCHANGE_TZ = ZoneInfo("America/New_York")
+
+
+def _normalize_quote_timestamp(timestamp):
+    raw = str(timestamp or "").strip()
+    if not raw:
+        return None
+    for candidate in (raw, raw.replace("Z", "+00:00")):
+        try:
+            parsed = datetime.fromisoformat(candidate)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=_US_EXCHANGE_TZ)
+            return parsed.astimezone(timezone.utc).isoformat()
+        except (TypeError, ValueError):
+            continue
+    return None
+
 
 class LiveFutuReader:
     """Live QQQ quote/chain reader. Never places or modifies orders."""
@@ -69,7 +90,7 @@ class LiveFutuReader:
             if q.last is not None and len(ref)>=252:
                 dma=sum(ref[-199:]+[q.last])/200; high=max(ref[-251:]+[q.last])
                 ext=q.last/dma-1 if dma else None; ratio=q.last/high if high else None
-                sig=bool(ratio is not None and ratio>=.98 and ext is not None and ext>=.08)
+                sig=bool(ratio is not None and ratio>=SIGNAL_RATIO52_GTE and ext is not None and ext>=SIGNAL_EXT200_GTE)
             cs=self.contracts(asof_date=market_date)
             # Keep the quote request practical: near-ATM calls plus the far OTM region,
             # while always including exact held/order codes for reconciliation.
@@ -78,7 +99,7 @@ class LiveFutuReader:
             codes=tradable|set(extra_codes or [])
             quotes={x.code:x.to_dict() for x in self.a.get_option_quotes(list(codes))}
             return {"status":"OK","connection":conn,
-                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":collected_at,"source_timestamp":q.timestamp,"source":q.source,
+                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":_normalize_quote_timestamp(getattr(q, "timestamp", None)),"collected_at_utc":collected_at,"source_timestamp":q.timestamp,"source":q.source,
                           "signal_active":sig,"ratio52":ratio,"ext200":ext,"history_source":hist.get("source")},
                 "contracts":[x.__dict__ for x in cs],"quotes":quotes,"source":"FUTU_OPEND_READ_ONLY"}
         finally:self.close()
