@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -127,12 +128,30 @@ def test_outcome_requires_anchor_and_rejects_duplicate_without_correction():
         }),encoding="utf-8")
         path=root/"research/evidence_v1/evidence.jsonl"
         ledger=EvidenceLedger(path)
+        ledger.append(
+            "CYCLE_STARTED",
+            cycle_id="C1",
+            campaign_id="CAMP1",
+            timestamp_utc="2026-10-01T00:00:00+00:00",
+            payload={},
+        )
+        ledger.append(
+            "PRE_DECISION_OBSERVATION",
+            cycle_id="C1",
+            campaign_id="CAMP1",
+            timestamp_utc="2026-10-01T00:00:01+00:00",
+            payload={"observation":"TEST"},
+        )
         anchor=ledger.append(
             "DECISION_EMITTED",
             cycle_id="C1",
             campaign_id="CAMP1",
-            timestamp_utc="2026-10-01T00:00:00+00:00",
-            payload={"decision":"TEST"},
+            timestamp_utc="2026-10-01T00:00:02+00:00",
+            payload={
+                "candidate_actions": [],
+                "primary": None,
+                "contract": "AS_EMITTED_THEN_POSTHOC",
+            },
         )
 
         def run(*extra):
