@@ -209,6 +209,42 @@ def test_broker_reconciled_outcome_requires_source_evidence():
                 raise AssertionError("broker outcome without source evidence must fail")
 
 
+def test_broker_outcome_rejects_cycle_finalized_without_execution_evidence():
+    import json
+    import sys
+    from unittest.mock import patch
+    from research.evidence_v1 import outcome
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        lock=root/"research/evidence_v1/STRATEGY_LOCK.json"
+        lock.parent.mkdir(parents=True)
+        lock.write_text(json.dumps({
+            "strategy_id":"TEST","strategy_version":"V1",
+            "selection_cutoff":"2025-12-15",
+            "research_engine_commit":"TEST","evidence_policy":{},
+        }),encoding="utf-8")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        anchor=ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
+                             timestamp_utc="2026-10-01T00:00:01+00:00",payload={})
+        final=ledger.append("CYCLE_FINALIZED",cycle_id="C1",campaign_id="CAMP1",
+                            timestamp_utc="2026-10-01T00:00:02+00:00",
+                            payload={"status":"HOLD"})
+        with patch.object(sys,"argv",[
+            "outcome.py","--repo-root",str(root),
+            "--campaign-id","CAMP1","--anchor-evidence-id",anchor["evidence_id"],
+            "--realized-pnl","10","--outcome-source","BROKER_RECONCILED",
+            "--source-evidence-id",final["evidence_id"],
+        ]):
+            try:
+                outcome.main()
+            except SystemExit as exc:
+                assert "INVALID_BROKER_SOURCE_EVIDENCE_TYPE:CYCLE_FINALIZED" in str(exc)
+            else:
+                raise AssertionError("broker outcome must require execution evidence")
+
+
 def test_outcome_correction_cannot_relabel_anchor_or_family():
     import json
     import sys
