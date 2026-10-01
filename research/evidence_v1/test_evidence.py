@@ -225,6 +225,7 @@ def test_outcome_requires_anchor_and_rejects_duplicate_without_correction():
                 "--campaign-id","CAMP1",
                 "--anchor-evidence-id",anchor["evidence_id"],
                 "--realized-pnl","100",
+                "--outcome-source","USER_REPORTED",
             ]+list(extra)
             with patch.object(sys,"argv",argv):
                 return outcome.main()
