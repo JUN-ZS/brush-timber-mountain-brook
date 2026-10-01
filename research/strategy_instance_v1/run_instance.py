@@ -344,11 +344,30 @@ def apply_confirmed_strategy_deal(lots,d,expected_strategy_side):
         return 0,0.0,"INVALID_CONFIRMATION"
     if expected=="LONG":
         if side=="BUY":
-            lots.append({
-                "lot_id":f"D-{d.get('deal_id','X')}-L","code":code,"side":"LONG",
-                "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
-                "source":"BROKER_DEAL_CONFIRMED","status":"OPEN",
-            })
+            lot_id=f"D-{d.get('deal_id','X')}-L"
+            existing=next(
+                (
+                    lot for lot in lots
+                    if lot.get("lot_id")==lot_id
+                    and str(lot.get("code","")).upper()==code
+                    and str(lot.get("side","")).upper()=="LONG"
+                ),
+                None,
+            )
+            if existing is None:
+                lots.append({
+                    "lot_id":lot_id,"code":code,"side":"LONG",
+                    "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
+                    "source":"BROKER_DEAL_CONFIRMED","status":"OPEN",
+                })
+            else:
+                prior_qty=si(existing.get("qty"))
+                total_qty=prior_qty+q
+                prior_cost=prior_qty*sf(existing.get("avg_price"))
+                existing["qty"]=total_qty
+                existing["avg_price"]=(prior_cost+q*px)/total_qty if total_qty else px
+                existing["lot_size"]=size
+                existing["status"]="OPEN"
             return q,0.0,"CONFIRMED_OPEN_LONG"
         if side=="SELL":
             avail=_open_lot_qty(lots,code,"LONG")
@@ -358,11 +377,30 @@ def apply_confirmed_strategy_deal(lots,d,expected_strategy_side):
             return take,close_fifo(lots,code,"LONG",take,px,size)[1],"CONFIRMED_CLOSE_LONG"
     if expected=="SHORT":
         if side in {"SELL","SELL_SHORT"}:
-            lots.append({
-                "lot_id":f"D-{d.get('deal_id','X')}-S","code":code,"side":"SHORT",
-                "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
-                "source":"BROKER_DEAL_CONFIRMED","status":"OPEN",
-            })
+            lot_id=f"D-{d.get('deal_id','X')}-S"
+            existing=next(
+                (
+                    lot for lot in lots
+                    if lot.get("lot_id")==lot_id
+                    and str(lot.get("code","")).upper()==code
+                    and str(lot.get("side","")).upper()=="SHORT"
+                ),
+                None,
+            )
+            if existing is None:
+                lots.append({
+                    "lot_id":lot_id,"code":code,"side":"SHORT",
+                    "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
+                    "source":"BROKER_DEAL_CONFIRMED","status":"OPEN",
+                })
+            else:
+                prior_qty=si(existing.get("qty"))
+                total_qty=prior_qty+q
+                prior_cost=prior_qty*sf(existing.get("avg_price"))
+                existing["qty"]=total_qty
+                existing["avg_price"]=(prior_cost+q*px)/total_qty if total_qty else px
+                existing["lot_size"]=size
+                existing["status"]="OPEN"
             return q,0.0,"CONFIRMED_OPEN_SHORT"
         if side in {"BUY","BUY_BACK"}:
             avail=_open_lot_qty(lots,code,"SHORT")
