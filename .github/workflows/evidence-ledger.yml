@@ -30,6 +30,7 @@ jobs:
           python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/evidence_v1').glob('*.py')]"
           python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
           python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/strategy_instance_v1').glob('*.py')]"
+          python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('backtest').glob('*.py') if p.name != '__init__.py']"
       - name: Run evidence and instance tests
         shell: bash
         run: |
