@@ -70,6 +70,57 @@ def test_outcome_rows_api_is_locked_snapshot():
         assert rows[0]["campaign_id"] == "CAMP1"
 
 
+def test_outcome_requires_anchor_and_rejects_duplicate_without_correction(monkeypatch):
+    import json
+    import sys
+    from research.evidence_v1 import outcome
+
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        lock=root/"research/evidence_v1/STRATEGY_LOCK.json"
+        lock.parent.mkdir(parents=True)
+        lock.write_text(json.dumps({
+            "strategy_id":"TEST",
+            "strategy_version":"V1",
+            "selection_cutoff":"2025-12-15",
+            "research_engine_commit":"TEST",
+            "evidence_policy":{},
+        }),encoding="utf-8")
+        path=root/"research/evidence_v1/evidence.jsonl"
+        ledger=EvidenceLedger(path)
+        anchor=ledger.append(
+            "DECISION_EMITTED",
+            cycle_id="C1",
+            campaign_id="CAMP1",
+            timestamp_utc="2026-10-01T00:00:00+00:00",
+            payload={"decision":"TEST"},
+        )
+
+        def run(*extra):
+            argv=[
+                "outcome.py","--repo-root",str(root),
+                "--campaign-id","CAMP1",
+                "--anchor-evidence-id",anchor["evidence_id"],
+                "--realized-pnl","100",
+            ]+list(extra)
+            monkeypatch.setattr(sys,"argv",argv)
+            return outcome.main()
+
+        assert run()==0
+        try:
+            run()
+        except SystemExit as exc:
+            assert "OUTCOME_ALREADY_RESOLVED" in str(exc)
+        else:
+            raise AssertionError("duplicate outcome must be rejected")
+
+        rows=ledger.rows()
+        prior_outcome=next(r for r in rows if r["event_type"]=="OUTCOME_RESOLVED")
+        assert prior_outcome["payload"]["anchor_evidence_id"]==anchor["evidence_id"]
+
+        assert run("--corrects-evidence-id",prior_outcome["evidence_id"])==0
+
+
 def test_seal_publishes_without_leaving_partial_file():
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "evidence.jsonl"
