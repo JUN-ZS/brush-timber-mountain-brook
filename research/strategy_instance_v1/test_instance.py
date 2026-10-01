@@ -1,9 +1,38 @@
-from __future__ import annotations
+import tempfile, threading, time
 import tempfile
 from pathlib import Path
 from .ledger import InstanceLedger, InstanceLedgerError, sha256_json
 from .run_instance import apply_deal, manual_apply_trade, manual_position_snapshot, manual_book_pnl_preview
+from .run_instance import instance_mutation_lock
 from .performance_tape import build_performance_tape, classify_relationship
+
+def test_instance_mutation_lock_serializes_threads():
+    with tempfile.TemporaryDirectory() as td:
+        events = []
+        active = [0]
+        peak = [0]
+        guard = threading.Lock()
+
+        def worker(name):
+            with instance_mutation_lock(Path(td), "I-LOCK"):
+                with guard:
+                    active[0] += 1
+                    peak[0] = max(peak[0], active[0])
+                    events.append(name + "-start")
+                time.sleep(0.02)
+                with guard:
+                    events.append(name + "-end")
+                    active[0] -= 1
+
+        a = threading.Thread(target=worker, args=("A",))
+        b = threading.Thread(target=worker, args=("B",))
+        a.start(); b.start(); a.join(); b.join()
+        assert peak[0] == 1
+        assert events[0].endswith("-start")
+        assert events[1].endswith("-end")
+        assert events[2].endswith("-start")
+        assert events[3].endswith("-end")
+
 
 def test_hash_chain():
     with tempfile.TemporaryDirectory() as td:
