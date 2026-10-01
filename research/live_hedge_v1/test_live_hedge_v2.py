@@ -26,7 +26,9 @@ from research.live_hedge_v1.engine import (
 from research.live_hedge_v1.state import live_desk_mutation_lock
 from research.live_hedge_v1.run_live_desk import (
     _action_card,
+    _fill_lots,
     _publish_live_output,
+    _sync_managed_far_ownership,
     _ticket_baseline_positions,
 )
 
@@ -807,6 +809,96 @@ class LiveHedgeV2Test(unittest.TestCase):
         )
         reprice = next(x for x in out["candidate_actions"] if x["action"] == "REPRICE_OR_CANCEL")
         self.assertEqual(reprice["qty"], 3)
+
+    def test_strategy_lot_application_is_idempotent_after_retry(self):
+        state = {"lots": []}
+        ticket = build_ticket(
+            action={
+                "action": "ADD_NEAR",
+                "code": "US.QQQ261030C00500000",
+                "qty": 2,
+                "side": "BUY",
+                "price": 8.5,
+            },
+            campaign_id="C-IDEM",
+            before_positions={},
+            now="2026-10-01T00:00:00+00:00",
+            sequence=21,
+        )
+        ticket["status"] = "FILLED"
+        ticket["filled_at"] = "2026-10-01T00:01:00+00:00"
+        ticket["fill"] = [{
+            "code": "US.QQQ261030C00500000",
+            "side": "BUY",
+            "expected_side": "LONG",
+            "qty": 2,
+            "avg_price": 8.4,
+            "price_source": "BROKER_EVIDENCE_CUMULATIVE",
+        }]
+        _fill_lots(state, ticket)
+        _fill_lots(state, ticket)
+        self.assertEqual(len(state["lots"]), 1)
+        self.assertEqual(state["lots"][0]["qty"], 2)
+        self.assertEqual(state["lots"][0]["avg_cost"], 8.4)
+
+    def test_roll_reduction_is_idempotent_after_retry(self):
+        state = {
+            "lots": [{
+                "lot_id": "OLD",
+                "ticket_id": "T0",
+                "code": "US.QQQ261030C00500000",
+                "qty": 2,
+                "avg_cost": 5.0,
+                "opened_at": "2026-10-01T00:00:00+00:00",
+                "status": "OPEN",
+            }]
+        }
+        ticket = build_ticket(
+            action={
+                "action": "ROLL_NEAR",
+                "code": "US.QQQ261030C00500000",
+                "qty": 2,
+                "price": 7.0,
+                "new_code": "US.QQQ261100C00505000",
+                "new_price": 8.0,
+            },
+            campaign_id="C-ROLL-IDEM",
+            before_positions=position_snapshot([{
+                "code": "US.QQQ261030C00500000",
+                "side": "LONG",
+                "qty": 2,
+                "avg_cost": 5.0,
+            }]),
+            now="2026-10-01T00:00:00+00:00",
+            sequence=22,
+        )
+        ticket["fill"] = [
+            {
+                "code": "US.QQQ261030C00500000",
+                "side": "SELL",
+                "expected_side": "LONG",
+                "qty": 2,
+                "avg_price": 7.0,
+                "price_source": "BROKER_EVIDENCE_CUMULATIVE",
+            },
+            {
+                "code": "US.QQQ261100C00505000",
+                "side": "BUY",
+                "expected_side": "LONG",
+                "qty": 2,
+                "avg_price": 8.0,
+                "price_source": "BROKER_EVIDENCE_CUMULATIVE",
+            },
+        ]
+        _fill_lots(state, ticket)
+        _fill_lots(state, ticket)
+        self.assertFalse(any(
+            x["status"] == "OPEN" and x["code"] == "US.QQQ261030C00500000"
+            for x in state["lots"]
+        ))
+        new_lots = [x for x in state["lots"] if x["code"] == "US.QQQ261100C00505000"]
+        self.assertEqual(len(new_lots), 1)
+        self.assertEqual(new_lots[0]["qty"], 2)
 
     def test_far_ownership_sync_uses_broker_evidence_not_position(self):
         from research.live_hedge_v1.run_live_desk import _sync_managed_far_ownership
