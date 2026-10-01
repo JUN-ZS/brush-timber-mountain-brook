@@ -20,6 +20,8 @@ if __package__ in (None, ""):
         FAR_DELTAS,
         FAR_DTES,
         POLICIES,
+        SIGNAL_PCT_52W,
+        SIGNAL_EXT200,
         build_far_candidates,
         get_quotes,
         load_underlying,
@@ -44,6 +46,37 @@ else:
 
 CANDIDATE_NEAR_DTE = 30
 CANDIDATE_COVERAGE = 1.50
+
+def sha256_json(value) -> str:
+    raw=json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def load_and_validate_lock(repo_root: Path) -> tuple[dict, str]:
+    lock_path=repo_root / "research" / "evidence_v1" / "STRATEGY_LOCK.json"
+    lock=json.loads(lock_path.read_text(encoding="utf-8"))
+    lock_hash=sha256_json(lock)
+    if lock.get("research_engine_commit") != "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4":
+        raise RuntimeError("LOCK_ENGINE_COMMIT_MISMATCH")
+    fam=lock.get("candidate_family") or {}
+    if int(fam.get("near_dte",-1)) != CANDIDATE_NEAR_DTE:
+        raise RuntimeError("LOCK_NEAR_DTE_MISMATCH")
+    if float(fam.get("coverage",-1)) != CANDIDATE_COVERAGE:
+        raise RuntimeError("LOCK_COVERAGE_MISMATCH")
+    if tuple(sorted(int(x) for x in fam.get("far_dte",[]))) != tuple(sorted(int(x) for x in FAR_DTES)):
+        raise RuntimeError("LOCK_FAR_DTE_MISMATCH")
+    if tuple(sorted(float(x) for x in fam.get("far_abs_delta",[]))) != tuple(sorted(float(x) for x in FAR_DELTAS)):
+        raise RuntimeError("LOCK_FAR_DELTA_MISMATCH")
+    signal=lock.get("signal") or {}
+    if float(signal.get("ratio52_gte",-1)) != float(SIGNAL_PCT_52W):
+        raise RuntimeError("LOCK_RATIO52_MISMATCH")
+    if float(signal.get("ext200_gte",-1)) != float(SIGNAL_EXT200):
+        raise RuntimeError("LOCK_EXT200_MISMATCH")
+    expected_configs=len(FAR_DTES)*len(FAR_DELTAS)*len(POLICIES)
+    if int(fam.get("config_count",expected_configs)) != expected_configs:
+        raise RuntimeError("LOCK_CONFIG_COUNT_MISMATCH")
+    return lock,lock_hash
+
 
 OOS_WINDOWS = {
     "forward_holdout_2022-03-08_to_2025-12-15": ("2022-03-08", "2025-12-15"),
@@ -311,6 +344,9 @@ def main():
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+
+    repo_root = Path(__file__).resolve().parents[1]
+    lock, strategy_lock_hash = load_and_validate_lock(repo_root)
 
     od = Path(args.data_dir) / "QQQ_options.parquet"
     ud = Path(args.data_dir) / "QQQ_underlying.parquet"
