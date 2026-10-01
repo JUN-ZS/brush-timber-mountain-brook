@@ -389,6 +389,12 @@ def _cycle_unlocked(args):
                       "history_backfill_used":history_used,"history_start":tr.get("history_start"),"history_end":tr.get("history_end")},source="BROKER_OBSERVED")
     mk=marks(ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
     mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
+    # These values are updated only after the read-only strategy observation
+    # consumes the prior-state window. They must still exist when observation
+    # is disabled, because state persistence below is unconditional.
+    gamma_history = list(s.get("gamma_history") or [])
+    current_far_gamma_spot = None
+    current_far_delta_abs = None
     s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
     l.append("MARK_TO_MARKET",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={
         "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],
