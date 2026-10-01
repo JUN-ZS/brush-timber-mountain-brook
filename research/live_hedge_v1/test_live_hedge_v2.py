@@ -384,7 +384,7 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertEqual(cycle3["ticket"]["fill"][0]["avg_price"], 9.0)
         self.assertIsNone(state["active_ticket"])
 
-    def test_incomplete_broker_evidence_does_not_become_full_price(self):
+    def test_position_target_without_complete_broker_evidence_stays_partial(self):
         before = position_snapshot([])
         ticket = build_ticket(
             action={
@@ -423,13 +423,18 @@ class LiveHedgeV2Test(unittest.TestCase):
                 "created_at": "2026-10-01T00:05:30+00:00",
             }],
         )
-        self.assertTrue(result["filled"])
-        self.assertEqual(result["ticket"]["fill"][0]["qty"], 2)
-        self.assertIsNone(result["ticket"]["fill"][0]["avg_price"])
-        self.assertEqual(
-            result["ticket"]["fill"][0]["price_source"],
-            "BROKER_EVIDENCE_INCOMPLETE",
+        self.assertFalse(result["filled"])
+        self.assertTrue(result["partial"])
+        self.assertFalse(result["broker_execution_complete"])
+        self.assertEqual(state["active_ticket"]["status"], "PARTIAL")
+        self.assertTrue(
+            any(
+                e["type"] == "TICKET_WAITING_EXECUTION_EVIDENCE"
+                for e in result["events"]
+            )
         )
+        self.assertFalse(result["ticket"]["fill"])
+
 
     def test_deal_and_order_evidence_are_not_double_counted(self):
         before = position_snapshot([{
