@@ -338,6 +338,34 @@ def _action_card(ticket):
         "manual_execution_only":True,
     }
 
+def _strategy_positions_for_plan(positions, spot, contracts_by_code):
+    """
+    Restrict the planner's LONG side to the strategy-managed near CALL universe.
+    Unrelated QQQ long options (for example PUTs or longer-dated CALLs) must remain
+    visible in broker exposure but must not be harvested/reduced by the V22 desk.
+    FAR SHORTs remain available to the planner; it already matches the anchored far code.
+    """
+    out = []
+    for p in positions:
+        if p.side == "SHORT":
+            out.append(p)
+            continue
+        if p.side != "LONG" or p.qty <= 0:
+            continue
+        meta = contracts_by_code.get(p.code)
+        right = str(getattr(meta, "right", "")).upper()
+        if (
+            right == "CALL"
+            and p.strike is not None
+            and spot > 0
+            and p.strike <= spot * 1.01
+            and p.dte is not None
+            and 0 <= int(p.dte) <= 35
+        ):
+            out.append(p)
+    return out
+
+
 def _strategy_position_analysis(positions, market, far, near, risk_state, contracts_by_code):
     spot = _safe_float((market or {}).get("spot"))
     qqq = [
@@ -350,6 +378,11 @@ def _strategy_position_analysis(positions, market, far, near, risk_state, contra
         if p.side == "SHORT"
         and (far_code is None or p.code == far_code)
         and str(getattr(contracts_by_code.get(p.code), "right", "")).upper() == "CALL"
+    ]
+    all_qqq_shorts = [p for p in qqq if p.side == "SHORT"]
+    unmanaged_shorts = [
+        p for p in all_qqq_shorts
+        if far_code is None or p.code != far_code
     ]
     near_longs = [
         p for p in qqq
@@ -374,6 +407,11 @@ def _strategy_position_analysis(positions, market, far, near, risk_state, contra
         "far_short_positions": [
             {"code": p.code, "qty": p.qty, "avg_cost": p.avg_cost, "strike": p.strike, "dte": p.dte}
             for p in far_shorts
+        ],
+        "unmanaged_qqq_short_contracts": sum(_safe_int(p.qty) for p in unmanaged_shorts),
+        "unmanaged_qqq_short_positions": [
+            {"code": p.code, "qty": p.qty, "avg_cost": p.avg_cost, "strike": p.strike, "dte": p.dte}
+            for p in unmanaged_shorts
         ],
         "near_call_contracts": actual_near,
         "near_call_target_contracts": desired_near,
@@ -856,6 +894,10 @@ def main():
             "previous_far_delta_abs": previous_delta,
             "signal_active": signal_active,
             "signal_active_for_plan": signal_active and not unmanaged_short_block,
+            "planner_position_scope": "QQQ SHORTs + strategy-managed near CALL LONGs only",
+            "planner_long_positions": _evidence_positions(
+                [p for p in planner_positions if p.side == "LONG"]
+            ),
         },
     }
     snapshot_ref = write_snapshot(repo, cycle_id, snapshot_payload)
@@ -898,11 +940,16 @@ def main():
         },
     )
 
+    planner_positions = _strategy_positions_for_plan(
+        positions,
+        float(market["spot"]),
+        by,
+    )
     p = plan(
         market=market,
         far=far,
         near=near,
-        positions=positions,
+        positions=planner_positions,
         orders=acct_orders,
         signal_active=(signal_active and not unmanaged_short_block),
         far_campaign_active=campaign_active,
