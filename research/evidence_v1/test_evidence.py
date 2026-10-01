@@ -8,6 +8,36 @@ from research.evidence_v1.ledger import EvidenceLedger, LedgerError
 from research.live_hedge_v1.engine import Contract
 
 
+def test_evidence_ledger_concurrent_appends():
+    import threading
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "evidence.jsonl"
+        errors = []
+
+        def worker(i):
+            try:
+                ledger = EvidenceLedger(path, identity={"strategy_id": f"T{i}"})
+                ledger.append(
+                    "DATA_GAP",
+                    cycle_id=f"C{i}",
+                    timestamp_utc=f"2026-10-01T00:00:{i:02d}+00:00",
+                    payload={"i": i},
+                )
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert not errors
+        result = EvidenceLedger(path).validate()
+        assert result["valid"] is True
+        assert result["records"] == 8
+
+
 def test_hash_chain_and_tamper_detection():
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "evidence.jsonl"
