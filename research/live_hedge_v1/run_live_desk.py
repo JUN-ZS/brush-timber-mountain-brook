@@ -460,6 +460,11 @@ def _main_unlocked():
         action="store_true",
         help="adopt exactly one existing QQQ option short as the campaign far; never auto-adopt by default",
     )
+    ap.add_argument(
+        "--rebaseline-existing-far",
+        action="store_true",
+        help="explicitly rebaseline an already-active campaign to the currently observed far short; never infer ownership automatically",
+    )
     ap.add_argument("--out", default="research/live_hedge_v1/live_state.json")
     args = ap.parse_args()
 
@@ -694,6 +699,9 @@ def _main_cycle(args, out_path):
         campaign["far_code"] = qqq_shorts[0].code
         campaign["started_at"] = now
         campaign["last_transition_at"] = now
+        campaign["managed_far_qty"] = qqq_shorts[0].qty
+        campaign["far_ownership_source"] = "EXPLICIT_ADOPTION"
+        campaign["far_ownership_ticket_id"] = None
         store.emit(
             state,
             "CAMPAIGN_ADOPTED_EXISTING_FAR",
@@ -701,6 +709,33 @@ def _main_cycle(args, out_path):
             payload={
                 "far_code": qqq_shorts[0].code,
                 "qty": qqq_shorts[0].qty,
+                "managed_far_qty": campaign["managed_far_qty"],
+                "ownership_source": campaign["far_ownership_source"],
+            },
+        )
+
+    if args.rebaseline_existing_far:
+        if campaign.get("state") == STATE_IDLE:
+            raise RuntimeError("--rebaseline-existing-far requires an active campaign")
+        if state.get("active_ticket") is not None:
+            raise RuntimeError("--rebaseline-existing-far cannot run while an active ticket exists")
+        far_code_for_rebaseline = str(campaign.get("far_code") or "").upper()
+        matching = [p for p in qqq_shorts if p.code.upper() == far_code_for_rebaseline]
+        if not far_code_for_rebaseline or len(qqq_shorts) != 1 or len(matching) != 1:
+            raise RuntimeError(
+                "--rebaseline-existing-far requires exactly one QQQ option short and it must match campaign.far_code"
+            )
+        campaign["managed_far_qty"] = matching[0].qty
+        campaign["far_ownership_source"] = "EXPLICIT_REBASELINE"
+        campaign["far_ownership_ticket_id"] = None
+        store.emit(
+            state,
+            "FAR_OWNERSHIP_REBASELINED",
+            now=now,
+            payload={
+                "far_code": matching[0].code,
+                "managed_far_qty": campaign["managed_far_qty"],
+                "ownership_source": campaign["far_ownership_source"],
             },
         )
 
@@ -802,6 +837,11 @@ def _main_cycle(args, out_path):
         [o.__dict__ for o in acct_orders],
         acct.get("deals", []),
     )
+    _sync_managed_far_ownership(
+        campaign,
+        reconcile.get("ticket") or state.get("active_ticket"),
+        reconcile,
+    )
     for event in reconcile.get("events", []):
         event_type = event.pop("type")
         reconcile_events.append(
@@ -875,6 +915,9 @@ def _main_cycle(args, out_path):
                 for p in positions
             ):
                 campaign["far_code"] = None
+                campaign["managed_far_qty"] = None
+                campaign["far_ownership_source"] = None
+                campaign["far_ownership_ticket_id"] = None
                 campaign["id"] = None
                 _transition(state, STATE_IDLE, now, store)
             else:
@@ -984,6 +1027,9 @@ def _main_cycle(args, out_path):
         gamma_baseline=gamma_baseline,
         previous_far_delta_abs=previous_delta,
         near_lots=state.get("lots", []),
+        far_ownership_enforced=True,
+        managed_far_qty=campaign.get("managed_far_qty"),
+        managed_far_code=campaign.get("far_code"),
         now=datetime.fromisoformat(now),
     )
 
@@ -1012,6 +1058,9 @@ def _main_cycle(args, out_path):
                 store.next_campaign_sequence(state),
             )
             campaign["far_code"] = primary["code"]
+            campaign["managed_far_qty"] = 0
+            campaign["far_ownership_source"] = "BROKER_EXECUTION_EVIDENCE_PENDING"
+            campaign["far_ownership_ticket_id"] = None
             campaign["started_at"] = now
 
         new_state = transition_for_action(
