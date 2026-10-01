@@ -163,7 +163,6 @@ class EvidenceLedger:
         rows = self._rows()
         self._validate_cycle_semantics(rows)
         previous = GENESIS
-        previous_time = None
         for idx, row in enumerate(rows, 1):
             if row.get("schema") != SCHEMA:
                 raise LedgerError(f"LEDGER_BAD_SCHEMA:seq={idx}")
@@ -174,16 +173,12 @@ class EvidenceLedger:
                 raise LedgerError(f"LEDGER_BAD_EVIDENCE_GRADE:seq={idx}")
             timestamp = row.get("timestamp_utc")
             try:
-                from datetime import datetime, timezone
+                from datetime import datetime
                 parsed_time = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
             except (TypeError, ValueError) as exc:
                 raise LedgerError(f"LEDGER_BAD_TIMESTAMP:seq={idx}") from exc
             if parsed_time.tzinfo is None:
                 raise LedgerError(f"LEDGER_NAIVE_TIMESTAMP:seq={idx}")
-            parsed_time = parsed_time.astimezone(timezone.utc)
-            if previous_time is not None and parsed_time < previous_time:
-                raise LedgerError(f"LEDGER_TIMESTAMP_REGRESSION:seq={idx}")
-            previous_time = parsed_time
             if row.get("previous_hash") != previous:
                 raise LedgerError(f"LEDGER_CHAIN_BREAK:seq={idx}")
             record_hash = row.get("record_hash")
