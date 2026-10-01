@@ -25,6 +25,34 @@ MUTATION_HEADER_VALUE = "1"
 MUTATING_PATHS = {"/api/manual", "/api/refresh"}
 
 
+def explicit_strategy_context(body):
+    """Use only a ticket snapshot explicitly selected in this operator session."""
+    raw=body.get("strategy_context_snapshot")
+    instance_id=str(body.get("instance_id","")).strip()
+    if not isinstance(raw,dict) or not instance_id:
+        return {}
+    if str(raw.get("instance_id","")).strip() != instance_id:
+        return {}
+    leg=raw.get("leg")
+    if not isinstance(leg,dict) or not str(leg.get("code","")).strip():
+        return {}
+    return {
+        "ticket_id":raw.get("ticket_id"),
+        "action":raw.get("action"),
+        "strategy_leg_action":leg.get("strategy_leg_action") or leg.get("why"),
+        "direction":leg.get("direction"),
+        "status":raw.get("status"),
+        "code":leg.get("code"),
+        "qty":leg.get("qty"),
+        "side":leg.get("side"),
+        "before_qty":leg.get("before_qty"),
+        "target_qty":leg.get("target_qty"),
+        "price":leg.get("price"),
+        "captured_at_utc":raw.get("captured_at_utc"),
+        "context_source":"OPERATOR_SELECTED_TICKET_SNAPSHOT",
+    }
+
+
 class OperatorHandler(SimpleHTTPRequestHandler):
     server_version = "QQQOperator/1.0"
 
@@ -106,31 +134,7 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                 return
 
             if self.path == "/api/manual":
-                strategy_context = {}
-                live_path = self._repo() / "research" / "live_hedge_v1" / "live_state.json"
-                if live_path.exists():
-                    try:
-                        live = json.loads(live_path.read_text(encoding="utf-8"))
-                        card = live.get("action_card") or {}
-                        legs = card.get("legs") or []
-                        leg = next((x for x in legs if str(x.get("code","")).upper()==str(body.get("code","")).upper()), None)
-                        if leg:
-                            strategy_context = {
-                                "ticket_id":card.get("ticket_id"),
-                                "action":card.get("action"),
-                                "strategy_leg_action":leg.get("strategy_leg_action") or leg.get("why"),
-                                "direction":leg.get("direction"),
-                                "status":card.get("status"),
-                                "code":leg.get("code"),
-                                "qty":leg.get("qty"),
-                                "side":leg.get("side"),
-                                "before_qty":leg.get("before_qty"),
-                                "target_qty":leg.get("target_qty"),
-                                "price":leg.get("price"),
-                                "captured_at_utc":live.get("timestamp"),
-                            }
-                    except Exception:
-                        strategy_context = {}
+                strategy_context = explicit_strategy_context(body)
                 out = record_manual_trade(
                     self._repo(),
                     instance_id=str(body.get("instance_id", "")).strip(),
