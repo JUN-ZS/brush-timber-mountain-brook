@@ -107,37 +107,6 @@ GAMMA_HISTORY_SCHEMA = 2
 GAMMA_HISTORY_UNIT = "gamma_spot"
 
 
-def gamma_history_looks_like_raw_abs(
-    history: Sequence[float],
-    spot: Optional[float] = None,
-) -> bool:
-    """Heuristic: legacy warm-up stored abs(gamma); current unit is abs(gamma)*spot."""
-    vals: list[float] = []
-    for v in history or []:
-        try:
-            fv = float(v)
-        except (TypeError, ValueError):
-            continue
-        if fv != fv:  # NaN
-            continue
-        vals.append(abs(fv))
-    if not vals:
-        return False
-    mx = max(vals)
-    if spot is not None:
-        try:
-            s = float(spot)
-        except (TypeError, ValueError):
-            s = 0.0
-        if s > 0:
-            # Raw |γ| << spot; gamma_spot is typically O(spot * 1e-3 .. 1e-1+).
-            # If every observation is below spot*1e-3, treat as legacy raw |γ|.
-            return mx < s * 1e-3
-    # Without spot: equity-option |γ| almost never exceeds ~0.05 in warm-up;
-    # gamma_spot for QQQ frequently does.
-    return mx < 0.05
-
-
 def ensure_gamma_history_schema(
     state: dict,
     *,
@@ -145,11 +114,12 @@ def ensure_gamma_history_schema(
 ) -> list[float]:
     """Ensure gamma_history is gamma_spot-only with explicit schema markers.
 
-    If state lacks gamma_history_schema==2 / gamma_history_unit=="gamma_spot",
-    or values look like legacy raw abs(gamma), discard warm-up history and stamp
-    schema markers. Fresh baseline requires >=5 new observations via
-    gamma_baseline_from_history (median of last 20, prior-observation / shift-1).
-    Mutates state in place; returns the (possibly empty) history list.
+    Unit is determined by the persisted schema marker, never guessed from the
+    magnitude of the numbers. Missing/wrong markers are treated as
+    untrusted legacy state and the warm-up is discarded. Once schema=2 and
+    unit=gamma_spot are present, finite observations are retained (last 20).
+    Fresh baseline requires >=5 prior observations via
+    gamma_baseline_from_history (shift-1 semantics).
     """
     schema = state.get("gamma_history_schema")
     unit = state.get("gamma_history_unit")
@@ -164,13 +134,10 @@ def ensure_gamma_history_schema(
         hist.append(fv)
 
     markers_ok = schema == GAMMA_HISTORY_SCHEMA and unit == GAMMA_HISTORY_UNIT
-    scale_bad = bool(hist) and gamma_history_looks_like_raw_abs(hist, spot)
-    if (not markers_ok) or scale_bad:
+    if not markers_ok:
         hist = []
         state["gamma_history"] = hist
-        state["gamma_history_reset_reason"] = (
-            "missing_or_wrong_markers" if not markers_ok else "values_look_like_raw_abs_gamma"
-        )
+        state["gamma_history_reset_reason"] = "missing_or_wrong_markers"
     else:
         hist = hist[-20:]
         state["gamma_history"] = hist
