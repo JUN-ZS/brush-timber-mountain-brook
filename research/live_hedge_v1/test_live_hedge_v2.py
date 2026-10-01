@@ -262,7 +262,7 @@ class LiveHedgeV2Test(unittest.TestCase):
             with self.assertRaises(ValueError):
                 store.load()
 
-    def test_state_event_integrity_marks_legacy_then_hashed_as_mixed():
+    def test_state_event_integrity_marks_legacy_then_hashed_as_mixed(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
 
