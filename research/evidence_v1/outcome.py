@@ -18,6 +18,43 @@ def now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _anchor_family_ids(prior, anchor, repo: Path):
+    """Return family ids demonstrably present in the anchored pre-decision snapshot."""
+    candidates=[]
+    anchor_type=str(anchor.get("event_type") or "").upper()
+    if anchor_type=="PRE_DECISION_OBSERVATION":
+        candidates=[anchor]
+    else:
+        candidates=[
+            r for r in prior
+            if str(r.get("event_type") or "").upper()=="PRE_DECISION_OBSERVATION"
+            and r.get("cycle_id")==anchor.get("cycle_id")
+            and r.get("campaign_id")==anchor.get("campaign_id")
+        ]
+    if not candidates:
+        return set()
+    ref=(candidates[-1].get("payload") or {}).get("snapshot") or {}
+    snapshot_ref=str(ref.get("snapshot_ref") or "")
+    expected=str(ref.get("snapshot_sha256") or "")
+    if not snapshot_ref or not expected:
+        return set()
+    path=repo/snapshot_ref
+    if not path.exists():
+        return set()
+    try:
+        obj=json.loads(path.read_text(encoding="utf-8"))
+        from .snapshot import snapshot_sha256
+        if snapshot_sha256(obj)!=expected:
+            return set()
+        return {
+            str(row.get("family_id"))
+            for row in (obj.get("family_observation") or {}).get("rows",[])
+            if row.get("family_id")
+        }
+    except Exception:
+        return set()
+
+
 def _parse_utc(value: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
@@ -81,6 +118,17 @@ def main() -> int:
         raise SystemExit(
             f"INVALID_OUTCOME_ANCHOR_TYPE:{anchor_type}; anchor must be PRE_DECISION_OBSERVATION, DECISION_EMITTED, or CYCLE_FINALIZED"
         )
+
+    if args.family_id:
+        observed_family_ids = _anchor_family_ids(prior, anchor, repo)
+        if not observed_family_ids:
+            raise SystemExit(
+                "FAMILY_ID_REQUIRES_VERIFIABLE_PRE_DECISION_SNAPSHOT"
+            )
+        if args.family_id not in observed_family_ids:
+            raise SystemExit(
+                f"FAMILY_ID_NOT_PRESENT_AT_ANCHOR:{args.family_id}"
+            )
 
     source_evidence = None
     if args.source_evidence_id:
