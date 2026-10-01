@@ -175,6 +175,36 @@ def test_outcome_rows_api_is_locked_snapshot():
         assert rows[0]["campaign_id"] == "CAMP1"
 
 
+def test_broker_reconciled_outcome_requires_source_evidence():
+    import json
+    import sys
+    from research.evidence_v1 import outcome
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        lock=root/"research/evidence_v1/STRATEGY_LOCK.json"
+        lock.parent.mkdir(parents=True)
+        lock.write_text(json.dumps({
+            "strategy_id":"TEST","strategy_version":"V1",
+            "selection_cutoff":"2025-12-15",
+            "research_engine_commit":"TEST","evidence_policy":{},
+        }),encoding="utf-8")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        anchor=ledger.append("DECISION_EMITTED",cycle_id="C1",campaign_id="CAMP1",
+                             timestamp_utc="2026-10-01T00:00:00+00:00",
+                             payload={"candidate_actions":[],"primary":None})
+        with patch.object(sys,"argv",[
+            "outcome.py","--repo-root",str(root),
+            "--campaign-id","CAMP1","--anchor-evidence-id",anchor["evidence_id"],
+            "--realized-pnl","10","--outcome-source","BROKER_RECONCILED",
+        ]):
+            try:
+                outcome.main()
+            except SystemExit as exc:
+                assert "BROKER_RECONCILED_REQUIRES_SOURCE_EVIDENCE_ID" in str(exc)
+            else:
+                raise AssertionError("broker outcome without source evidence must fail")
+
+
 def test_outcome_requires_anchor_and_rejects_duplicate_without_correction():
     import json
     import sys
