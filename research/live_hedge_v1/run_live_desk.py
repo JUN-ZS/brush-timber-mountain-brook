@@ -560,6 +560,24 @@ def _main_cycle(args, out_path):
         repo / "research/evidence_v1/evidence.jsonl",
         identity=runtime_identity(repo),
     )
+    # Every invocation gets a cycle-start marker, including fail-closed lock failures.
+    evidence.append(
+        "CYCLE_STARTED",
+        cycle_id=cycle_id,
+        campaign_id=(state.get("campaign") or {}).get("id"),
+        timestamp_utc=now,
+        payload={
+            "cli": {
+                "far_dte": args.far_dte,
+                "far_delta": args.far_delta,
+                "near_dte": args.near_dte,
+                "simulate_account": args.simulate_account,
+                "adopt_existing_far": args.adopt_existing_far,
+                "rebaseline_existing_far": args.rebaseline_existing_far,
+            },
+            "state_before": state.get("campaign"),
+        },
+    )
     try:
         lock_status = assert_runtime_lock(
             repo,
@@ -591,23 +609,6 @@ def _main_cycle(args, out_path):
         }, ensure_ascii=False, indent=2))
         return 4
 
-    evidence.append(
-        "CYCLE_STARTED",
-        cycle_id=cycle_id,
-        campaign_id=(state.get("campaign") or {}).get("id"),
-        timestamp_utc=now,
-        payload={
-            "cli": {
-                "far_dte": args.far_dte,
-                "far_delta": args.far_delta,
-                "near_dte": args.near_dte,
-                "simulate_account": args.simulate_account,
-                "adopt_existing_far": args.adopt_existing_far,
-                "rebaseline_existing_far": args.rebaseline_existing_far,
-            },
-            "state_before": state.get("campaign"),
-        },
-    )
     state.setdefault("lots", [])
 
     campaign = state.setdefault(
