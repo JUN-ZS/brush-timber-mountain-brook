@@ -500,6 +500,7 @@ def test_manual_pnl_preview_blocks_over_reduce():
 
 def test_strategy_plan_fails_closed_on_unknown_qqq_position_side():
     from .run_instance import strategy_plan
+    from datetime import datetime, timezone
     from research.live_hedge_v1.engine import Contract
     c=Contract("US.QQQ261230C00600000","CALL",600.0,"2026-12-30",90,2.0,2.5,0.08,0.01,0.2,100,100)
     out=strategy_plan(
@@ -551,7 +552,7 @@ def test_strategy_plan_explicit_far_hint_accepts_single_dict_position():
     cmap={contract.code:contract}
     quotes={contract.code:{"bid":2.0,"ask":2.5,"delta":0.08,"gamma":0.01}}
     out=strategy_plan(
-        {"market":{"spot":500.0,"signal_active":False}},
+        {"market":{"spot":500.0,"timestamp":datetime.now(timezone.utc).isoformat(),"signal_active":False}},
         [{"code":contract.code,"side":"SHORT","qty":10,"avg_cost":2.0}],
         [],
         cmap,
@@ -565,7 +566,7 @@ def test_strategy_plan_uses_explicit_far_code_hint():
     from .run_instance import strategy_plan
     from research.live_hedge_v1.engine import Contract
     snap = {
-        "market": {"spot": 500.0, "signal_active": False},
+        "market": {"spot": 500.0, "timestamp": datetime.now(timezone.utc).isoformat(), "signal_active": False},
     }
     contracts = [
         Contract("US.QQQ261230C00600000","CALL",600.0,"2026-12-30",90,2.0,2.5,0.08,0.01,0.2,100,100),
