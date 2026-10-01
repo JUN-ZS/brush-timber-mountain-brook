@@ -85,21 +85,12 @@ def explicit_strategy_context(repo, body):
             or decision_dt < instance_floor_dt
         ):
             continue
-        if instance_manifest:
-            identity=row.get("identity") or {}
-            for key in ("strategy_id","strategy_version","strategy_lock_hash","research_engine_commit"):
-                expected=instance_manifest.get(key)
-                observed=identity.get(key)
-                if expected and observed and str(expected)!=str(observed):
-                    break
-            else:
-                pass
-            if any(
-                instance_manifest.get(key)
-                and str((row.get("identity") or {}).get(key)) != str(instance_manifest.get(key))
-                for key in ("strategy_id","strategy_version","strategy_lock_hash","research_engine_commit")
-            ):
-                continue
+        if instance_manifest and any(
+            instance_manifest.get(key)
+            and str((row.get("identity") or {}).get(key)) != str(instance_manifest.get(key))
+            for key in ("strategy_id","strategy_version","strategy_lock_hash","research_engine_commit")
+        ):
+            continue
         ticket = (row.get("payload") or {}).get("ticket")
         if not isinstance(ticket, dict) or str(ticket.get("ticket_id") or "") != ticket_id:
             continue
