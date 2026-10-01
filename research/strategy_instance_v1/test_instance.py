@@ -774,6 +774,14 @@ def test_state_cache_recovery_rebuilds_only_accepted_dynamic_observations():
         assert state["gamma_history_schema"]==2
         assert state["gamma_history_unit"]=="gamma_spot"
 
+def test_economic_t0_is_strict_broker_attribution_boundary():
+    # The cycle partition must treat executions at/before economic T0 as
+    # outside the strategy instance, even when the instance file was created earlier.
+    src = Path(__file__).resolve().parents[2] / "research" / "strategy_instance_v1" / "run_instance.py"
+    text = src.read_text(encoding="utf-8")
+    assert 'if deal_time <= economic_t0:' in text
+    assert 'pre_instance.append(d)' in text
+
 def test_manual_trade_timestamp_cannot_precede_t0_or_jump_future():
     with tempfile.TemporaryDirectory() as td:
         repo=Path(td); instance_id="I-TIME"
