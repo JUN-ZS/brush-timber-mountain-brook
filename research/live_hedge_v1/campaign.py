@@ -494,6 +494,8 @@ def reconcile_ticket(
             "type": "TICKET_SUPERSEDED",
             "ticket_id": ticket["ticket_id"],
             "reason": ticket["superseded_reason"],
+            "broker_execution_complete": evidence_complete,
+            "fill": deepcopy(ticket.get("fill", [])),
         })
         state["active_ticket"] = None
         return {
