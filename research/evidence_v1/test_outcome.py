@@ -5,7 +5,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
+import unittest
 
 from research.evidence_v1.ledger import EvidenceLedger
 from research.evidence_v1 import outcome
@@ -55,13 +55,16 @@ def test_outcome_requires_benchmark_scope_when_return_is_present(monkeypatch):
                 "outcome.py",
                 "--repo-root", str(repo),
                 "--campaign-id", "C1",
-                "--anchor-evidence-id", "EV-MISSING",  # fails before scope check in real flow
+                "--anchor-evidence-id", anchor,
                 "--realized-pnl", "10",
                 "--benchmark-return", "0.05",
             ]
-            with pytest.raises(SystemExit) as exc:
+            try:
                 outcome.main()
-            assert "INVALID_OUTCOME_ANCHOR" in str(exc.value)
+            except SystemExit as exc:
+                assert "BENCHMARK_REQUIRED_WHEN_RETURN_SUPPLIED" in str(exc.value)
+            else:
+                raise AssertionError("benchmark scope was not required")
         finally:
             sys.argv = argv
 
