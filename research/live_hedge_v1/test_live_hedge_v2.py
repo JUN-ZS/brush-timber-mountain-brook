@@ -90,7 +90,7 @@ class LiveHedgeV2Test(unittest.TestCase):
                         self.data = {
                             "strike_time": Column([
                                 "2026-10-08", "2026-10-15", "2026-10-22",
-                                "2026-10-29", "2026-11-12", "2026-12-01"
+                                "2026-10-29", "2026-11-30", "2026-12-30"
                             ])
                         }
                     def __getitem__(self, key):
@@ -103,7 +103,7 @@ class LiveHedgeV2Test(unittest.TestCase):
         got = reader._expiry_targets(asof_date=datetime.strptime("2026-10-01", "%Y-%m-%d").date())
         self.assertEqual(
             got,
-            ["2026-10-08","2026-10-15","2026-10-22","2026-10-29","2026-11-12","2026-12-01"],
+            ["2026-10-08","2026-10-15","2026-10-22","2026-10-29","2026-11-30","2026-12-30"],
         )
 
 
