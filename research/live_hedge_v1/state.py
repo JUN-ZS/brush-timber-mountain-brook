@@ -159,6 +159,8 @@ class StateStore:
             event_hash = row.get("event_hash")
             schema = row.get("schema")
             if prev is None and event_hash is None:
+                if schema == EVENT_SCHEMA or int(row.get("schema_version", 0) or 0) >= 2:
+                    raise ValueError(f"LIVE_EVENT_CHAIN_V2_MISSING_HASH:{idx}")
                 if hashed_seen:
                     raise ValueError(f"LIVE_EVENT_CHAIN_LEGACY_AFTER_HASHED:{idx}")
                 legacy_seen = True
