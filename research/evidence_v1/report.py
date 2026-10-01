@@ -72,6 +72,15 @@ def main() -> int:
         for r in outcomes
         if r["payload"].get("benchmark_return") is not None
     ]
+    outcomes_by_source = defaultdict(lambda: {"count": 0, "realized_pnl_sum": 0.0, "benchmark_observations": 0})
+    for r in outcomes:
+        payload = r.get("payload") or {}
+        source = str(payload.get("outcome_source") or "UNKNOWN")
+        bucket = outcomes_by_source[source]
+        bucket["count"] += 1
+        bucket["realized_pnl_sum"] += float(payload.get("realized_pnl") or 0.0)
+        if payload.get("benchmark_return") is not None:
+            bucket["benchmark_observations"] += 1
 
     campaign_ids = {
         r.get("campaign_id")
@@ -172,6 +181,7 @@ def main() -> int:
         },
         "outcome_metrics": {
             "resolved_outcomes": len(pnls),
+            "by_outcome_source": dict(outcomes_by_source),
             "realized_pnl_sum": sum(pnls) if pnls else None,
             "realized_pnl_mean": statistics.mean(pnls) if pnls else None,
             "realized_pnl_median": statistics.median(pnls) if pnls else None,
