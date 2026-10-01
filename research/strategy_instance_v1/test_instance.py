@@ -1,5 +1,5 @@
 import tempfile, threading, time
-import tempfile
+import tempfile, threading, time
 from pathlib import Path
 from .ledger import InstanceLedger, InstanceLedgerError, sha256_json
 from .run_instance import apply_deal, manual_apply_trade, manual_position_snapshot, manual_book_pnl_preview
@@ -33,6 +33,18 @@ def test_instance_mutation_lock_serializes_threads():
         assert events[2].endswith("-start")
         assert events[3].endswith("-end")
 
+
+def test_instance_contract_map_preserves_volume():
+    from .run_instance import contracts_map
+    cmap = contracts_map({
+        "contracts": [{
+            "code": "US.QQQ.TEST", "right": "CALL", "strike": 500.0,
+            "expiry": "2026-10-30", "dte": 30,
+            "bid": 8.0, "ask": 8.5, "delta": 0.50, "gamma": 0.03, "iv": 0.25,
+            "lot_size": 100, "volume": 1234,
+        }]
+    })
+    assert cmap["US.QQQ.TEST"].volume == 1234
 
 def test_hash_chain():
     with tempfile.TemporaryDirectory() as td:
