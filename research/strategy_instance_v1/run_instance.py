@@ -597,11 +597,11 @@ def _consumed_plan_qty(rows, plan_key):
     return consumed
 
 
-def apply_strategy_ownership_close(lots, deal):
-    """Close only already-owned strategy lots; never open a new position.
-    
-    This preserves the actual T0 campaign P&L without claiming that the user
-    intended a discretionary close because of a strategy signal.
+def apply_strategy_ownership_close(lots, deal, broker_positions):
+    """Close owned lots only when the current account snapshot uniquely matches them.
+
+    This preserves observable T0 economics while refusing to infer which lot an
+    aggregated account close consumed when external same-code inventory exists.
     """
     code=str(deal.get("code","")).upper()
     side=str(deal.get("side","")).upper()
@@ -610,19 +610,25 @@ def apply_strategy_ownership_close(lots, deal):
     size=max(1,si(deal.get("lot_size")) or 100)
     if q<=0 or px<=0 or not code:
         return 0,0.0,"INVALID"
-    if side=="SELL":
-        available=_open_lot_qty(lots,code,"LONG")
-        consume=min(q,available)
-        if consume<=0:
-            return 0,0.0,"NO_MANAGED_LONG"
-        return consume,close_fifo(lots,code,"LONG",consume,px,size)[1],"CLOSE_LONG_OWNERSHIP_DERIVED"
-    if side in {"BUY","BUY_BACK"}:
-        available=_open_lot_qty(lots,code,"SHORT")
-        consume=min(q,available)
-        if consume<=0:
-            return 0,0.0,"NO_MANAGED_SHORT"
-        return consume,close_fifo(lots,code,"SHORT",consume,px,size)[1],"CLOSE_SHORT_OWNERSHIP_DERIVED"
-    return 0,0.0,"SIDE_NOT_CLOSE"
+    target_side="LONG" if side=="SELL" else "SHORT" if side in {"BUY","BUY_BACK"} else ""
+    if not target_side:
+        return 0,0.0,"SIDE_NOT_CLOSE"
+    tracked=_open_lot_qty(lots,code,target_side)
+    if tracked<=0:
+        return 0,0.0,f"NO_MANAGED_{target_side}"
+    broker_qty=sum(
+        si(p.get("qty"))
+        for p in option_positions(broker_positions or [])
+        if str(p.get("code","")).upper()==code
+        and str(p.get("side","")).upper()==target_side
+    )
+    if broker_qty != tracked:
+        return 0,0.0,"OWNERSHIP_SNAPSHOT_AMBIGUOUS"
+    consume=min(q,tracked)
+    if consume<=0:
+        return 0,0.0,"NO_CONSUMPTION"
+    pnl=close_fifo(lots,code,target_side,consume,px,size)[1]
+    return consume,pnl,f"CLOSE_{target_side}_OWNERSHIP_DERIVED"
 
 
 def attribute_broker_deal(rows,deal,used_plan_qty=None):
@@ -864,7 +870,7 @@ def _cycle_unlocked(args):
             # A close against an already-owned strategy lot remains part of the
             # actual campaign economics even when no recent strategy decision
             # proves intent. Mark it as ownership-derived, never FOLLOW_STRATEGY.
-            close_qty,close_pnl,close_application=apply_strategy_ownership_close(s["lots"],d)
+            close_qty,close_pnl,close_application=apply_strategy_ownership_close(s["lots"],d,ps)
             if close_qty>0:
                 attr_deal=dict(d)
                 attr_deal["qty"]=close_qty
@@ -902,7 +908,7 @@ def _cycle_unlocked(args):
                         cycle_id=cid,
                         timestamp_utc=t,
                         payload={"deal":d,"attributed_qty":close_qty,"unattributed_qty":extra,
-                                 "reason":"close_exceeded_managed_strategy_ownership",
+                                 "reason":"close_exceeded_or_ambiguous_strategy_ownership",
                                  "attribution_grade":"DERIVED_NO_INTENT_PROOF"},
                         source="BROKER_OBSERVED",
                     )
