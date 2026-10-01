@@ -22,6 +22,7 @@ from research.live_hedge_v1.engine import (
     plan,
     quote_age_sec,
 )
+from research.live_hedge_v1.state import live_desk_mutation_lock
 from research.live_hedge_v1.run_live_desk import _ticket_baseline_positions, _action_card
 
 
@@ -30,6 +31,30 @@ def now_iso():
 
 
 class LiveHedgeV2Test(unittest.TestCase):
+    def test_live_desk_mutation_lock_serializes_threads(self):
+        import tempfile
+        import threading
+        with tempfile.TemporaryDirectory() as td:
+            active = [0]
+            peak = [0]
+            guard = threading.Lock()
+
+            def worker():
+                with live_desk_mutation_lock(Path(td) / "state.json"):
+                    with guard:
+                        active[0] += 1
+                        peak[0] = max(peak[0], active[0])
+                    import time
+                    time.sleep(0.02)
+                    with guard:
+                        active[0] -= 1
+
+            a = threading.Thread(target=worker)
+            b = threading.Thread(target=worker)
+            a.start(); b.start(); a.join(); b.join()
+            self.assertEqual(peak[0], 1)
+
+
     def test_action_card_preserves_explicit_roll_leg_semantics(self):
         ticket = {
             "status": "OPEN",
