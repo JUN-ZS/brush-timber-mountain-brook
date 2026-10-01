@@ -316,9 +316,10 @@ def main():
     ud = Path(args.data_dir) / "QQQ_underlying.parquet"
 
     u_full = load_underlying(ud)
+    repo_root = Path(__file__).resolve().parents[1]
     from research.evidence_v1.lock_guard import assert_runtime_lock
     assert_runtime_lock(
-        Path("."),
+        repo_root,
         far_dte=120,
         far_delta=0.08,
         near_dte=CANDIDATE_NEAR_DTE,
@@ -328,7 +329,7 @@ def main():
     def sha256_file(path: Path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
-    lock_path = Path("research/evidence_v1/STRATEGY_LOCK.json")
+    lock_path = repo_root / "research/evidence_v1/STRATEGY_LOCK.json"
     lock_obj = json.loads(lock_path.read_text(encoding="utf-8"))
     lock_hash = hashlib.sha256(
         json.dumps(lock_obj, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
