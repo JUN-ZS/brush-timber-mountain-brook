@@ -97,6 +97,14 @@ The console provides:
 
 The console binds to `127.0.0.1` by default. Browser actions write only the `USER_MANUAL` instance ledger; they never submit broker orders.
 
+For broker deals that were observed but intentionally left unattributed, strategy ownership can be confirmed explicitly from the observed deal id. Confirmation uses the broker-observed price/side/quantity and records a separate immutable `STRATEGY_EXECUTION_CONFIRMED` event; it never guesses intent from time/code coincidence:
+
+```cmd
+python -m research.strategy_instance_v1.run_instance confirm --instance-id MY_001 --deal-id DEAL_ID --expected-strategy-side LONG --qty 1 --note "verified as strategy execution"
+```
+
+The confirmation command is a post-observation human attribution step. A timing match to a strategy candidate remains `POTENTIAL_ONLY_NO_INTENT_PROOF` until explicitly confirmed.
+
 ### Recommended operating flow
 
 1. Start Futu OpenD.
