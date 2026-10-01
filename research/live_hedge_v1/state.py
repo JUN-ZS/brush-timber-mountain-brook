@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -29,6 +32,46 @@ DEFAULT_STATE: Dict[str, Any] = {
     "last_risk_score": None,
     "lots": [],
 }
+
+
+_LIVE_THREAD_LOCKS = {}
+_LIVE_THREAD_LOCKS_GUARD = threading.Lock()
+
+
+def _live_lock_path(path: Path) -> Path:
+    key = __import__("hashlib").sha256(str(path.resolve()).encode("utf-8")).hexdigest()
+    return Path(tempfile.gettempdir()) / f"qqq-live-desk-{key}.lock"
+
+
+@contextmanager
+def live_desk_mutation_lock(path: str | Path):
+    """Serialize one live desk state across duplicate watcher processes."""
+    lock_path = _live_lock_path(Path(path))
+    key = str(lock_path)
+    with _LIVE_THREAD_LOCKS_GUARD:
+        thread_lock = _LIVE_THREAD_LOCKS.setdefault(key, threading.Lock())
+    with thread_lock:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as fh:
+            fh.seek(0, os.SEEK_END)
+            if fh.tell() == 0:
+                fh.write(b"0")
+                fh.flush()
+            fh.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fh.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
 class StateStore:
