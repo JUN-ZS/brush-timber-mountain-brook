@@ -1207,6 +1207,22 @@ def _main_cycle(args, out_path):
 
     raw_candidates = p.get("candidate_actions", []) or []
     candidate_ranking = rank_candidates(raw_candidates)
+    risk_context = p.get("risk_state") or {}
+    candidate_journal = [
+        {
+            "rank": row["decision_rank"],
+            "priority_rank": row["priority_rank"],
+            "candidate_sha256": row["candidate_sha256"],
+            "raw_candidate": json.loads(json.dumps(raw_candidates[row["candidate_index"]], ensure_ascii=False)),
+            "risk_score": risk_context.get("risk_score"),
+            "desired_stack": risk_context.get("desired_stack"),
+            "signal_active": bool(p.get("signal_active", signal_active)),
+            "market_quote_age_sec": p.get("market_quote_age_sec"),
+            "option_freshness": p.get("option_freshness", {}),
+            "snapshot_sha256": snapshot_ref["snapshot_sha256"],
+        }
+        for row in candidate_ranking
+    ]
     primary = None
     if (
         not just_filled
@@ -1315,6 +1331,7 @@ def _main_cycle(args, out_path):
             "non_retroactive": True,
             "candidate_actions_are_verbatim": True,
             "candidate_ranking": candidate_ranking,
+            "candidate_journal": candidate_journal,
         },
     )
 
