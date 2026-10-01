@@ -30,7 +30,7 @@ Each live cycle can contain:
 4. Strategy state before decision: signal, campaign state, candidates, risk inputs, and quote freshness.
 5. The engine output: every candidate action and the emitted primary ticket.
 6. Broker reconciliation: fills, partial fills, superseded tickets, and manual/broker intervention.
-7. Later outcome: realized P&L, benchmark return, MAE/MFE and drawdown, appended as a new record.
+7. Later outcome: realized P&L, benchmark return, MAE/MFE and drawdown, appended as a new record; exact forward checkpoints can also be recorded per candidate, benchmark, and trading-day horizon.
 8. A hash-chain linking every record to the previous record.
 
 ## Why it can become more informative than a virgin OOS report
@@ -70,9 +70,12 @@ Create a checkpoint:
 
 Resolve a mature campaign:
 
-    python -m research.evidence_v1.outcome --campaign-id CAMPAIGN_ID --anchor-evidence-id EVIDENCE_ID --realized-pnl 1234.50 --benchmark-return 0.021
+    python -m research.evidence_v1.outcome --campaign-id CAMPAIGN_ID --anchor-evidence-id EVIDENCE_ID --realized-pnl 1234.50 --benchmark QQQ --horizon-trading-days 21 --benchmark-return 0.021
 
-Corrections are append-only:
-python -m research.evidence_v1.outcome --campaign-id CAMPAIGN_ID --anchor-evidence-id EVIDENCE_ID --corrects-evidence-id PRIOR_OUTCOME_ID --realized-pnl 1200.00 --benchmark-return 0.018
+Record a forward candidate checkpoint:
 
-The outcome command appends; it never edits the original observation.
+    python -m research.evidence_v1.checkpoint --campaign-id CAMPAIGN_ID --anchor-evidence-id DECISION_EVIDENCE_ID --candidate-index 3 --candidate-sha256 CANDIDATE_SHA256 --benchmark QQQ --horizon-trading-days 21 --benchmark-return 0.021 --candidate-return 0.083
+
+The checkpoint is keyed to the exact emitted candidate digest plus benchmark and horizon; it does not infer operator intent or create a hypothetical trade path.
+
+Corrections are append-only. The outcome command never edits the original observation.
