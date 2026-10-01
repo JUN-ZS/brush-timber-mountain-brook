@@ -576,6 +576,38 @@ def test_strategy_plan_refuses_ambiguous_far_short_ownership():
     assert "ambiguous" in out["reason"]
 
 
+def test_strategy_plan_ignores_unmanaged_qqq_long_from_target_stack():
+    from .run_instance import strategy_plan
+    from research.live_hedge_v1.engine import Contract
+
+    near_code="US.QQQ261130C00500000"
+    other_code="US.QQQ261130C00510000"
+    far_code="US.QQQ261230C00600000"
+    contracts=[
+        Contract(near_code,"CALL",500.0,"2026-11-30",30,8.0,8.5,0.50,0.01,0.2,100,100),
+        Contract(other_code,"CALL",510.0,"2026-11-30",30,7.0,7.5,0.45,0.01,0.2,100,100),
+        Contract(far_code,"CALL",600.0,"2026-12-30",90,2.0,2.5,0.08,0.01,0.2,100,100),
+    ]
+    cmap={c.code:c for c in contracts}
+    quotes={c.code:{"bid":c.bid,"ask":c.ask,"delta":c.delta,"gamma":c.gamma} for c in contracts}
+    ps=[
+        {"code":near_code,"side":"LONG","qty":1,"avg_cost":8.0},
+        {"code":other_code,"side":"LONG","qty":20,"avg_cost":7.0},
+        {"code":far_code,"side":"SHORT","qty":10,"avg_cost":2.0},
+    ]
+    managed_lots=[{"lot_id":"T1","code":near_code,"side":"LONG","qty":1,"avg_cost":8.0,"status":"OPEN"}]
+    out=strategy_plan(
+        {"market":{"spot":500.0,"timestamp":datetime.now(timezone.utc).isoformat(),"signal_active":False}},
+        ps,[],cmap,quotes,
+        {"far_dte":90,"far_delta":0.08,"near_dte":30,"far_code_hint":far_code},
+        near_lots=managed_lots,
+    )
+    assert out["status"] in {"ACTIONABLE","HOLD"}
+    assert "ACTIVE_NEAR=1" in out.get("reasons",[])
+    assert all(x.get("code")!=other_code for x in out.get("candidate_actions",[]))
+
+
+
 def test_strategy_plan_explicit_far_hint_accepts_single_dict_position():
     from .run_instance import strategy_plan
     from research.live_hedge_v1.engine import Contract
