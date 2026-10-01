@@ -22,6 +22,7 @@ from ..live_hedge_v1.futu_trade_reader import FutuTradeReader
 ROOT=Path("research/strategy_instance_v1/instances")
 MANIFEST_SCHEMA="STRATEGY_INSTANCE_MANIFEST.v1"
 STATE_SCHEMA="STRATEGY_INSTANCE_STATE.v1"
+PLAN_MATCH_MAX_MINUTES = 15
 
 def now():
     return datetime.now(timezone.utc).isoformat()
@@ -125,10 +126,13 @@ def _recover_mutable_state_from_ledger(m, s, l):
 
     broker_lots = init_lots(m)
     processed = []
+    strategy_ids = []
+    unattributed_ids = []
     seen = set()
     realized = 0.0
     for row in rows:
-        if row.get("event_type") != "EXECUTION_DETECTED":
+        et=str(row.get("event_type") or "").upper()
+        if et not in {"EXECUTION_DETECTED","BROKER_EXECUTION_UNATTRIBUTED"}:
             continue
         deal = dict((row.get("payload") or {}).get("deal") or {})
         did = str(deal.get("deal_id") or "")
@@ -136,11 +140,17 @@ def _recover_mutable_state_from_ledger(m, s, l):
             continue
         seen.add(did)
         processed.append(did)
-        realized += apply_deal(broker_lots, deal)
+        if et=="EXECUTION_DETECTED":
+            strategy_ids.append(did)
+            realized += apply_deal(broker_lots, deal)
+        else:
+            unattributed_ids.append(did)
 
     if processed:
         s["lots"] = broker_lots
         s["processed_deal_ids"] = processed
+        s["strategy_deal_ids"] = strategy_ids
+        s["unattributed_deal_ids"] = unattributed_ids
         s["realized_pnl"] = sf(realized)
 
     manual_rows = [
@@ -171,7 +181,7 @@ def load_instance(repo,i):
     if not m: raise SystemExit(f"UNKNOWN_INSTANCE_ID:{i}")
     if m.get("manifest_hash")!=mhash(m): raise SystemExit("INSTANCE_MANIFEST_TAMPERED_OR_MUTATED")
     s=load(spath(repo,i),{"schema":STATE_SCHEMA,"schema_version":1,"instance_id":i,
-        "processed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
+        "processed_deal_ids":[],"strategy_deal_ids":[],"unattributed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
         "last_snapshot_hash":None,"gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,"manual_lots":init_lots(m),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None})
     l=InstanceLedger(lpath(repo,i),{"instance_id":i,"manifest_hash":m["manifest_hash"],
        "strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
@@ -356,16 +366,137 @@ def marks(ps,cmap,quotes):
     return {"rows":rows,"unrealized_pnl":unreal,"signed_market_value":signed_mv,
             "status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY")}
 
-def reconcile(lots,ps):
-    a={}
-    for l in lots:
-        if l.get("status","OPEN")!="OPEN": continue
-        k=(str(l["code"]).upper(),str(l["side"]).upper()); a[k]=a.get(k,0)+si(l["qty"])
-    b={}
+def _aggregate_lot_qty(lots):
+    out={}
+    for lot in lots or []:
+        if str(lot.get("status","OPEN")).upper()!="OPEN" or si(lot.get("qty"))<=0:
+            continue
+        code=str(lot.get("code","")).upper()
+        side=str(lot.get("side","")).upper()
+        if code and side in {"LONG","SHORT"}:
+            out[(code,side)]=out.get((code,side),0)+si(lot.get("qty"))
+    return out
+
+
+def managed_position_view(ps,lots):
+    """Project account positions onto strategy-owned quantities only."""
+    tracked=_aggregate_lot_qty(lots)
+    observed={}
     for p in option_positions(ps):
-        k=(str(p["code"]).upper(),str(p["side"]).upper()); b[k]=b.get(k,0)+si(p["qty"])
-    keys=set(a)|set(b)
-    return [{"code":k[0],"side":k[1],"lot_qty":a.get(k,0),"broker_qty":b.get(k,0)} for k in sorted(keys) if a.get(k,0)!=b.get(k,0)]
+        key=(str(p.get("code","")).upper(),str(p.get("side","")).upper())
+        if key in tracked:
+            observed[key]=observed.get(key,0)+si(p.get("qty"))
+    out=[]
+    for (code,side),tracked_qty in tracked.items():
+        broker_qty=observed.get((code,side),0)
+        qty=min(tracked_qty,broker_qty)
+        if qty<=0:
+            continue
+        src=next((p for p in ps if str(p.get("code","")).upper()==code and str(p.get("side","")).upper()==side),{})
+        out.append({
+            "code":code,"side":side,"qty":qty,
+            "avg_cost":sf(src.get("avg_cost")),
+            "lot_size":max(1,si(src.get("lot_size")) or 100),
+            "source":"BROKER_OBSERVED_STRATEGY_OWNED",
+        })
+    return out
+
+
+def reconcile(lots,ps):
+    tracked=_aggregate_lot_qty(lots)
+    broker={}
+    for p in option_positions(ps):
+        key=(str(p.get("code","")).upper(),str(p.get("side","")).upper())
+        if key in tracked:
+            broker[key]=broker.get(key,0)+si(p.get("qty"))
+    return [
+        {"code":code,"side":side,"lot_qty":tracked[(code,side)],"broker_qty":broker.get((code,side),0)}
+        for code,side in sorted(tracked)
+        if tracked[(code,side)]!=broker.get((code,side),0)
+    ]
+
+
+def _candidate_match(candidate,side,code):
+    action=str(candidate.get("action","")).upper()
+    code=str(code).upper()
+    side=str(side).upper()
+    c=str(candidate.get("code","")).upper()
+    if action=="ROLL_NEAR":
+        if side=="SELL" and code==c:
+            return dict(candidate)
+        if side=="BUY" and code==str(candidate.get("new_code","")).upper():
+            return dict(candidate)
+        return None
+    if action=="CLOSE_CAMPAIGN_EMERGENCY":
+        for leg in candidate.get("legs",[]) or []:
+            if str(leg.get("code","")).upper()==code and str(leg.get("side","")).upper()==side:
+                hit=dict(leg); hit["action"]=action; return hit
+        return None
+    if c!=code:
+        return None
+    expected={
+        "ADD_NEAR":"BUY",
+        "HARVEST_NEAR":"SELL",
+        "REDUCE_NEAR":"SELL",
+        "SELL_FAR":"SELL",
+    }.get(action)
+    if expected=="BUY":
+        return candidate if side=="BUY" else None
+    if expected=="SELL":
+        return candidate if side in {"SELL","SELL_SHORT"} else None
+    if action=="REPAIR_FAR":
+        direction=str(candidate.get("direction","")).upper()
+        if direction=="ADD" and side in {"SELL","SELL_SHORT"}:
+            return candidate
+        if direction=="REDUCE" and side in {"BUY","BUY_BACK"}:
+            return candidate
+    return None
+
+
+def _plan_match_for_deal(rows,deal):
+    code=str(deal.get("code","")).upper()
+    side=str(deal.get("side","")).upper()
+    deal_time=dt(deal.get("created_at"))
+    if not code or not deal_time:
+        return None
+    for event in reversed(rows or []):
+        if str(event.get("event_type","")).upper()!="STRATEGY_PLAN_OBSERVED":
+            continue
+        event_time=dt(event.get("timestamp_utc"))
+        if not event_time or event_time>deal_time:
+            continue
+        age=gap_minutes(deal.get("created_at"),event.get("timestamp_utc"))
+        if age is None or age>PLAN_MATCH_MAX_MINUTES:
+            break
+        plan_obj=(event.get("payload") or {}).get("plan") or {}
+        for candidate in plan_obj.get("candidate_actions",[]) or []:
+            hit=_candidate_match(candidate,side,code)
+            if hit is not None:
+                return {
+                    "event_seq":event.get("event_seq"),
+                    "observed_at_utc":event.get("timestamp_utc"),
+                    "action":str(candidate.get("action","")).upper(),
+                    "candidate":hit,
+                    "age_minutes":age,
+                }
+        break
+    return None
+
+
+def attribute_broker_deal(rows,deal):
+    q=si(deal.get("qty"))
+    match=_plan_match_for_deal(rows,deal)
+    if q<=0:
+        return {"status":"UNATTRIBUTED","qty":0,"reason":"non_positive_quantity"}
+    if not match:
+        return {"status":"UNATTRIBUTED","qty":0,"reason":"no_recent_matching_strategy_plan"}
+    expected=si((match.get("candidate") or {}).get("qty"))
+    if expected<=0:
+        return {"status":"UNATTRIBUTED","qty":0,"reason":"matched_candidate_has_no_positive_qty","match":match}
+    qty=min(q,expected)
+    return {"status":"MATCHED_PREDECISION_PLAN","qty":qty,"unattributed_qty":q-qty,
+            "match":match,"basis":"recent_strategy_plan_observation"}
+
 
 def instance_far_position(m, positions):
     """Select the single strategy far position or return None on ambiguity."""
@@ -481,18 +612,54 @@ def _cycle_unlocked(args):
         if str(d.get("code","")).upper().startswith("US.QQQ"):
             d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100; new.append(d)
     realized_delta=0.0
+    prior_rows=l._rows()
     for d in sorted(new,key=lambda x:(dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),str(x.get("deal_id")))):
-        delta = apply_deal(s["lots"], d)
-        realized_delta += delta
-        s["processed_deal_ids"].append(str(d["deal_id"]))
-        l.append(
-            "EXECUTION_DETECTED",
-            instance_id=m["instance_id"],
-            cycle_id=cid,
-            timestamp_utc=t,
-            payload={"deal": d, "realized_pnl_delta": delta},
-            source="BROKER_OBSERVED",
-        )
+        did=str(d["deal_id"])
+        attribution=attribute_broker_deal(prior_rows,d)
+        if attribution.get("status")=="MATCHED_PREDECISION_PLAN":
+            attr_qty=si(attribution.get("qty"))
+            attr_deal=dict(d)
+            attr_deal["qty"]=attr_qty
+            attr_deal["attribution_status"]="MATCHED_PREDECISION_PLAN"
+            attr_deal["attribution"]=attribution.get("match")
+            delta=apply_deal(s["lots"],attr_deal)
+            realized_delta += delta
+            s["strategy_deal_ids"].append(did)
+            l.append(
+                "EXECUTION_DETECTED",
+                instance_id=m["instance_id"],
+                cycle_id=cid,
+                timestamp_utc=t,
+                payload={"deal":attr_deal,"original_deal_qty":si(d.get("qty")),"attribution":attribution,"realized_pnl_delta":delta},
+                source="BROKER_OBSERVED",
+            )
+            extra=si(attribution.get("unattributed_qty"))
+            if extra>0:
+                s["unattributed_deal_ids"].append(did)
+                s["data_gaps"]=si(s.get("data_gaps"))+1
+                l.append(
+                    "BROKER_EXECUTION_UNATTRIBUTED",
+                    instance_id=m["instance_id"],
+                    cycle_id=cid,
+                    timestamp_utc=t,
+                    payload={"deal":d,"attributed_qty":attr_qty,"unattributed_qty":extra,
+                             "reason":"broker deal quantity exceeded recent strategy plan quantity",
+                             "attribution":attribution},
+                    source="BROKER_OBSERVED",
+                )
+        else:
+            s["unattributed_deal_ids"].append(did)
+            s["data_gaps"]=si(s.get("data_gaps"))+1
+            l.append(
+                "BROKER_EXECUTION_UNATTRIBUTED",
+                instance_id=m["instance_id"],
+                cycle_id=cid,
+                timestamp_utc=t,
+                payload={"deal":d,"attribution":attribution,
+                         "reason":attribution.get("reason","no_strategy_attribution") if attribution else "no_strategy_attribution"},
+                source="BROKER_OBSERVED",
+            )
+        s["processed_deal_ids"].append(did)
     s["realized_pnl"]=sf(s.get("realized_pnl"))+realized_delta
     mism=reconcile(s["lots"],ps); s["last_reconcile"]={"status":"MATCH" if not mism else "DATA_GAP","mismatches":mism,"checked_at_utc":t}
     if mism:
@@ -505,7 +672,8 @@ def _cycle_unlocked(args):
              payload={"snapshot_sha256":sh,"snapshot_ref":str(sr.relative_to(repo)),"positions":len(ps),
                       "orders":len(orders),"new_deals":len(new),"reconcile":s["last_reconcile"],"deal_warning":tr.get("deal_warning"),
                       "history_backfill_used":history_used,"history_start":tr.get("history_start"),"history_end":tr.get("history_end")},source="BROKER_OBSERVED")
-    mk=marks(ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
+    managed_ps=managed_position_view(ps,s["lots"])
+    mk=marks(managed_ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
     mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
     # These values are updated only after the read-only strategy observation
     # consumes the prior-state window. They must still exist when observation
