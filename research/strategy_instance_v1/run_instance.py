@@ -1212,7 +1212,7 @@ def _cycle_unlocked(args):
     s["last_strategy_unrealized_pnl"]=strategy_unrealized_observed
     s["last_cycle_at"]=t; s["last_history_backfill_at"]=t if history_used else s.get("last_history_backfill_at"); save(spath(repo,args.instance_id),s)
     out={"status":"RECORDED","instance_id":args.instance_id,"cycle_id":cid,"timestamp_utc":t,
-         "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],"gross_pnl":gross,
+         "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":strategy_unrealized_observed,"gross_pnl":gross,
          "pnl_observation_status":pnl_observation_status,
          "strategy_unrealized_pnl_observed":strategy_unrealized_observed,
          "strategy_attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
