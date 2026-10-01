@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -156,7 +157,15 @@ def _ticket_baseline_positions(current_positions):
 
 
 def _publish_live_output(out_path, output):
-    _publish_live_output(out_path, output)
+    """Atomically publish the operator snapshot so readers never see a partial JSON file."""
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
+    tmp_out.write_text(
+        json.dumps(output, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    os.replace(tmp_out, out_path)
 
 
 def _format_price(v):
