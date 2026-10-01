@@ -6,6 +6,8 @@ on:
       - '**'
     paths:
       - 'research/live_hedge_v1/**'
+      - '.github/workflows/qqq-live-hedge-v2-check.yml'
+      - '.github/workflows/qqq-live-hedge-v2-check.yml'
   pull_request:
     paths:
       - 'research/live_hedge_v1/**'
