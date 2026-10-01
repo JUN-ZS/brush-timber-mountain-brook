@@ -10,6 +10,7 @@
     "evidence_id": {"type": "string"},
     "cycle_id": {"type": "string"},
     "campaign_id": {"type": ["string", "null"]},
+    "instance_id": {"type": ["string", "null"]},
     "timestamp_utc": {"type": "string"},
     "event_type": {"enum": ["CYCLE_STARTED","PRE_DECISION_OBSERVATION","DECISION_EMITTED","EXECUTION_OBSERVED","OUTCOME_RESOLVED","DATA_GAP","HUMAN_INTERVENTION","CYCLE_FINALIZED"]},
     "evidence_grade": {"enum": ["PROSPECTIVE_OBSERVED","BROKER_OBSERVED","PROSPECTIVE_OUTCOME","DATA_GAP","HUMAN_REPORTED"]},
