@@ -147,6 +147,22 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
     </div>
   </div>
 
+  <div class="card view-desk">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <h2 style="margin-bottom:2px">BROKER EXECUTIONS AWAITING ATTRIBUTION</h2>
+        <div class="tiny">Broker deals are observed facts. A timing/code match is never treated as intent. Only an explicit operator confirmation enters strategy-owned P&amp;L.</div>
+      </div>
+      <span class="pill" id="attributionSummary">—</span>
+    </div>
+    <div class="scroll" style="max-height:240px;margin-top:8px">
+      <table>
+        <thead><tr><th>Time</th><th>Deal</th><th>Broker Side</th><th>Code</th><th>Price</th><th>Remaining</th><th>Explicit attribution</th></tr></thead>
+        <tbody id="attributionQueue"><tr><td colspan="7" class="tiny">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="grid2 view-desk">
     <div class="card">
       <h2>MANUAL POSITIONS</h2>
@@ -203,6 +219,48 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
 
 <script>
 let action="ADD", state=null, strategy=null, tapeRows=[], currentView="desk", strategyContextSnapshot=null;
+async function loadAttribution(){
+  const id=$("instance").value;
+  if(!id){
+    $("attributionQueue").innerHTML='<tr><td colspan="7" class="tiny">Select an instance.</td></tr>';
+    $("attributionSummary").textContent="—";
+    return;
+  }
+  try{
+    const j=await jsonFetch("/api/attribution?instance_id="+encodeURIComponent(id));
+    const rows=j.pending||[];
+    $("attributionSummary").textContent=(j.count??rows.length)+" pending";
+    $("attributionQueue").innerHTML=rows.map(x=>{
+      const dealId=String(x.deal_id||"");
+      const qty=Number(x.remaining_qty||0);
+      return '<tr><td class="tiny">'+esc(x.created_at||"")+'</td><td class="mono">'+esc(dealId)+'</td><td>'+esc(x.side||"")+'</td><td class="mono">'+esc(x.code||"")+'</td><td>'+fmt(x.price)+'</td><td>'+qty+'</td><td><button onclick="confirmBrokerDeal('+JSON.stringify(dealId)+',\'LONG\','+qty+')">CONFIRM LONG</button> <button onclick="confirmBrokerDeal('+JSON.stringify(dealId)+',\'SHORT\','+qty+')">CONFIRM SHORT</button></td></tr>';
+    }).join("") || '<tr><td colspan="7" class="tiny">No broker executions awaiting explicit attribution.</td></tr>';
+  }catch(e){
+    $("attributionSummary").textContent="ERROR";
+    $("attributionQueue").innerHTML='<tr><td colspan="7" class="tiny yellow">'+esc(e.message)+'</td></tr>';
+  }
+}
+
+async function confirmBrokerDeal(dealId,side,qty){
+  const id=$("instance").value;
+  if(!id||!dealId||!qty) return;
+  if(!confirm(
+    "Explicitly attribute broker deal "+dealId+" ("+qty+" contracts) to this strategy as "+side+"?\n\nThis is a human attribution, not an automatic inference."
+  )) return;
+  try{
+    const j=await jsonFetch("/api/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      instance_id:id,
+      deal_id:dealId,
+      expected_strategy_side:side,
+      qty:qty,
+      note:"Operator Console explicit attribution"
+    })});
+    setMsg("Confirmed "+dealId+" · "+side+" × "+j.confirmed_qty,"green");
+    await loadInstance();
+    await loadAttribution();
+  }catch(e){setMsg("Attribution failed: "+e.message,"yellow");}
+}
+
 function setView(view){
   currentView=view;
   document.querySelectorAll(".view-desk").forEach(el=>el.classList.toggle("hidden",view!=="desk"));
@@ -522,12 +580,16 @@ async function brokerRefresh(){
   catch(e){setMsg("Broker refresh failed: "+e.message,"yellow");}
 }
 async function refreshAll(){
-  try{await loadInstances();await loadInstance();setMsg("Updated "+new Date().toLocaleTimeString(),"green");}
-  catch(e){setMsg("Load error: "+e.message,"yellow");}
+  try{
+    await loadInstances();
+    await loadInstance();
+    await loadAttribution();
+    setMsg("Updated "+new Date().toLocaleTimeString(),"green");
+  }catch(e){setMsg("Load error: "+e.message,"yellow");}
 }
 setView("desk");
 refreshAll();
-setInterval(()=>loadInstance().catch(()=>{}),5000);
+setInterval(()=>{loadInstance().catch(()=>{});loadAttribution().catch(()=>{});},5000);
 setInterval(()=>loadStrategy().catch(()=>{}),5000);
 </script>
 </body>
