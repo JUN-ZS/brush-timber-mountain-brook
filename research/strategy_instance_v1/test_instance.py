@@ -171,8 +171,8 @@ def test_ownership_derived_close_requires_unique_account_snapshot():
     assert reason=="OWNERSHIP_SNAPSHOT_AMBIGUOUS"
     assert lots[0]["qty"]==1
 
-    unique=[{"code":"US.QQQ.TEST","side":"LONG","qty":1}]
-    consumed,pnl,reason=apply_strategy_ownership_close(lots,d,unique)
+    post_trade_full_close=[{"code":"US.QQQ.TEST","side":"LONG","qty":0}]
+    consumed,pnl,reason=apply_strategy_ownership_close(lots,d,post_trade_full_close)
     assert consumed==1
     assert pnl==200.0
     assert reason=="CLOSE_LONG_OWNERSHIP_DERIVED"
