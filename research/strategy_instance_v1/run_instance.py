@@ -5,7 +5,16 @@ from pathlib import Path
 from .ledger import InstanceLedger, sha256_json
 from .performance_tape import build_performance_tape, classify_relationship
 from ..evidence_v1.identity import runtime_identity
-from ..live_hedge_v1.engine import Contract, Order, Position, plan, select_far, select_near
+from ..live_hedge_v1.engine import (
+    Contract,
+    Order,
+    Position,
+    ensure_gamma_history_schema,
+    gamma_baseline_from_history,
+    plan,
+    select_far,
+    select_near,
+)
 from ..live_hedge_v1.futu_reader import LiveFutuReader
 from ..live_hedge_v1.futu_trade_reader import FutuTradeReader
 
@@ -296,24 +305,12 @@ def reconcile(lots,ps):
     keys=set(a)|set(b)
     return [{"code":k[0],"side":k[1],"lot_qty":a.get(k,0),"broker_qty":b.get(k,0)} for k in sorted(keys) if a.get(k,0)!=b.get(k,0)]
 
-def gamma_state_for_instance(state, far, spot):
-    history = []
-    for value in state.get("gamma_history") or []:
-        try:
-            fv = float(value)
-        except (TypeError, ValueError):
-            continue
-        if math.isfinite(fv):
-            history.append(fv)
-    history = history[-20:]
-    baseline = None
-    if len(history) >= 5:
-        from statistics import median
-        baseline = float(median(history[-20:]))
+def gamma_state_for_instance(state, far=None, spot=None):
+    """Return sanitized prior-window gamma state using the canonical engine migration."""
+    history = ensure_gamma_history_schema(state, spot=spot)
+    baseline = gamma_baseline_from_history(history)
     previous_delta = state.get("far_delta_abs")
     return history, baseline, previous_delta
-
-
 def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=None,previous_far_delta_abs=None):
     market=snap["market"]; pos=[]
     for p in ps:
