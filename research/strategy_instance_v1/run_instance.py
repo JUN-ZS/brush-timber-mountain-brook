@@ -1610,7 +1610,7 @@ def list_instances(repo):
                 out.append({"instance_id":d.name,"strategy_id":m.get("strategy_id"),"start_at_utc":m.get("start_at_utc"),
                             "manual_realized_pnl":sf(s.get("manual_realized_pnl")),
                             "manual_trade_count":si(s.get("manual_trade_count"))})
-            except Exception as exc:
+            except (Exception, SystemExit) as exc:
                 # Never hide a corrupt/tampered instance from the operator.
                 out.append({
                     "instance_id":d.name,
