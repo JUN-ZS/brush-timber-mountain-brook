@@ -218,10 +218,17 @@ def _sync_managed_far_ownership(campaign, ticket, reconcile):
         campaign["far_ownership_ticket_id"] = ticket.get("ticket_id")
 
 def _fill_lots(state, ticket):
-    state.setdefault("lots", [])
+    """Apply a broker-confirmed ticket to strategy lots idempotently.
 
-    for fill in ticket.get("fill", []) or []:
-        code = str(fill.get("code", ""))
+    Strategy lots are derived from ticket execution, not current manual
+    position. Re-running the same completed ticket after a process crash must
+    not duplicate a BUY lot or double-apply a LONG reduction.
+    """
+    state.setdefault("lots", [])
+    fills = ticket.get("fill", []) or []
+
+    for fill in fills:
+        code = str(fill.get("code", "")).upper()
         qty = _safe_int(fill.get("qty"))
         side = str(fill.get("side", "")).upper()
         expected_side = str(fill.get("expected_side", "")).upper()
@@ -230,57 +237,86 @@ def _fill_lots(state, ticket):
         if qty <= 0 or not is_qqq_option_code(code):
             continue
 
-        # Only a BUY that establishes/increases a LONG near position creates a strategy lot.
+        leg = next(
+            (
+                x for x in ticket.get("legs", []) or []
+                if str(x.get("code", "")).upper() == code
+                and str(x.get("side", "")).upper() == side
+                and str(x.get("expected_side", "")).upper() == expected_side
+            ),
+            None,
+        )
+
+        # Only a BUY that establishes/increases a LONG near position creates
+        # a deterministic strategy lot. The lot id is ticket-derived so a
+        # retry cannot append the same execution twice.
         if side == "BUY" and expected_side == "LONG":
             lot_id = f'LOT-{ticket["ticket_id"]}-{code}'
-            state["lots"].append({
-                "lot_id": lot_id,
-                "ticket_id": ticket["ticket_id"],
-                "code": code,
-                "qty": qty,
-                "avg_cost": price,
-                "opened_at": ticket.get("filled_at", ticket.get("issued_at")),
-                "status": "OPEN",
-                "price_source": source,
-            })
+            existing = next(
+                (lot for lot in state["lots"] if lot.get("lot_id") == lot_id),
+                None,
+            )
+            if existing is None:
+                state["lots"].append({
+                    "lot_id": lot_id,
+                    "ticket_id": ticket["ticket_id"],
+                    "code": code,
+                    "qty": qty,
+                    "avg_cost": price,
+                    "opened_at": ticket.get("filled_at", ticket.get("issued_at")),
+                    "status": "OPEN",
+                    "price_source": source,
+                })
+            else:
+                # Completed-ticket fill is cumulative; restore the exact
+                # confirmed quantity instead of adding it again.
+                existing["qty"] = qty
+                existing["avg_cost"] = price
+                existing["status"] = "OPEN"
+                existing["price_source"] = source
             continue
 
-        if side != "SELL" or expected_side != "LONG":
-            continue
-
-        remaining = qty
-        preferred = ticket.get("lot_id")
-        candidates = [
-            lot for lot in state["lots"]
-            if lot.get("status") == "OPEN"
-            and lot.get("code") == code
-            and (preferred is None or lot.get("lot_id") == preferred)
-        ]
-        if not preferred:
-            candidates = [
+        if side == "SELL" and expected_side == "LONG":
+            # Reduce the strategy book to the ticket's frozen target. This is
+            # idempotent across crashes and does not use the mutable broker
+            # position as execution evidence.
+            target_qty = (
+                _safe_int(leg.get("target_qty"))
+                if leg is not None
+                else None
+            )
+            code_lots = [
                 lot for lot in state["lots"]
-                if lot.get("status") == "OPEN" and lot.get("code") == code
+                if lot.get("status") == "OPEN"
+                and str(lot.get("code", "")).upper() == code
             ]
-            candidates.sort(key=lambda x: str(x.get("opened_at", "")))
-
-        for lot in candidates:
-            if remaining <= 0:
-                break
-            take = min(remaining, _safe_int(lot.get("qty")))
-            lot["qty"] = _safe_int(lot.get("qty")) - take
-            remaining -= take
-            if lot["qty"] <= 0:
-                lot["qty"] = 0
-                lot["status"] = "CLOSED"
+            current_qty = sum(_safe_int(lot.get("qty")) for lot in code_lots)
+            if target_qty is None:
+                target_qty = max(0, current_qty - qty)
+            remaining = max(0, current_qty - max(0, target_qty))
+            for lot in sorted(code_lots, key=lambda x: str(x.get("opened_at", ""))):
+                if remaining <= 0:
+                    break
+                take = min(remaining, _safe_int(lot.get("qty")))
+                lot["qty"] = _safe_int(lot.get("qty")) - take
+                remaining -= take
+                if lot["qty"] <= 0:
+                    lot["qty"] = 0
+                    lot["status"] = "CLOSED"
 
     if ticket.get("action") == "CLOSE_CAMPAIGN_EMERGENCY":
+        # The emergency ticket is only handed here when broker execution
+        # evidence is complete for all required legs, so closing the remaining
+        # tracked near lots is deterministic and repeat-safe.
         for lot in state["lots"]:
             if lot.get("status") == "OPEN":
                 lot["qty"] = 0
                 lot["status"] = "CLOSED"
 
-    state["lots"] = [lot for lot in state["lots"] if lot.get("status") == "OPEN"]
-
+    state["lots"] = [
+        lot for lot in state["lots"]
+        if lot.get("status") == "OPEN" and _safe_int(lot.get("qty")) > 0
+    ]
 
 def _transition(state, new_state, now, store):
     camp = state.setdefault("campaign", {})
