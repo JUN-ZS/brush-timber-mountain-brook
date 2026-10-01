@@ -154,3 +154,58 @@ def test_forward_checkpoint_rejects_duplicate_scope():
                 assert "FORWARD_CHECKPOINT_ALREADY_RECORDED" in str(exc)
             else:
                 raise AssertionError("duplicate checkpoint was accepted")
+
+
+def test_report_groups_forward_checkpoints_by_candidate_benchmark_and_horizon():
+    from research.evidence_v1 import report
+
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        path=root/"research/evidence_v1/evidence.jsonl"
+        ledger=EvidenceLedger(path)
+        for i,payload in enumerate([
+            {
+                "campaign_id":"C1",
+                "anchor_evidence_id":"A1",
+                "candidate_sha256":"HASH-A",
+                "candidate_index":0,
+                "benchmark":"QQQ",
+                "horizon_trading_days":5,
+                "benchmark_return":0.05,
+                "candidate_return":0.08,
+            },
+            {
+                "campaign_id":"C1",
+                "anchor_evidence_id":"A1",
+                "candidate_sha256":"HASH-A",
+                "candidate_index":0,
+                "benchmark":"QQQ",
+                "horizon_trading_days":21,
+                "benchmark_return":0.10,
+                "candidate_return":0.15,
+            },
+        ]):
+            ledger.append(
+                "FORWARD_CHECKPOINT_OBSERVED",
+                cycle_id=f"CHK{i}",
+                campaign_id="C1",
+                timestamp_utc=f"2026-10-02T00:0{i}:00+00:00",
+                payload=payload,
+                evidence_grade="HUMAN_REPORTED",
+            )
+        import sys
+        argv=sys.argv
+        try:
+            sys.argv=["report.py","--repo-root",str(root)]
+            assert report.main()==0
+        finally:
+            sys.argv=argv
+        obj=json.loads(
+            (root/"research/evidence_v1/sealed/LONGITUDINAL_REPORT.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        groups=obj["forward_checkpoint_observation"]["groups"]
+        assert set(groups)=={"HASH-A|QQQ|5D","HASH-A|QQQ|21D"}
+        assert groups["HASH-A|QQQ|5D"]["mean_benchmark_return"]==0.05
+        assert groups["HASH-A|QQQ|21D"]["mean_candidate_return"]==0.15
