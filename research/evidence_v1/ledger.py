@@ -147,6 +147,8 @@ class EvidenceLedger:
             elif et == "CYCLE_FINALIZED":
                 if "finalized" in state:
                     raise LedgerError(f"LEDGER_DUPLICATE_CYCLE_FINALIZED:cycle={cycle_id}")
+                if "started" not in state:
+                    raise LedgerError(f"LEDGER_FINALIZED_WITHOUT_START:cycle={cycle_id}")
                 state["finalized"] = idx
 
     def _validate_unlocked(self) -> dict[str, Any]:
