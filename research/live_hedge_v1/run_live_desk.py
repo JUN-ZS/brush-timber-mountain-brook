@@ -743,6 +743,12 @@ def main():
             z.get("iv"),
         )
 
+    planner_positions = _strategy_positions_for_plan(
+        positions,
+        float(market["spot"]),
+        by,
+    )
+
     acct_orders = [
         Order(
             order_id=str(o.get("order_id", "")),
@@ -940,11 +946,6 @@ def main():
         },
     )
 
-    planner_positions = _strategy_positions_for_plan(
-        positions,
-        float(market["spot"]),
-        by,
-    )
     p = plan(
         market=market,
         far=far,
