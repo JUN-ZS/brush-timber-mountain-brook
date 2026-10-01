@@ -449,6 +449,35 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
 
 
+    def test_state_snapshot_accepts_position_objects(self):
+        import tempfile
+        from pathlib import Path
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            store = StateStore(Path(td) / "state.json", Path(td) / "events.jsonl")
+            state = {}
+            positions = [
+                Position(
+                    "US.QQQ261030C00500000",
+                    "LONG",
+                    2,
+                    7.0,
+                    500,
+                    "2026-10-30",
+                    30,
+                )
+            ]
+            store.record_position_snapshot(state, positions)
+            self.assertEqual(
+                state["last_positions"]["LONG:US.QQQ261030C00500000"]["qty"],
+                2,
+            )
+            self.assertEqual(
+                state["last_positions"]["LONG:US.QQQ261030C00500000"]["avg_cost"],
+                7.0,
+            )
+
     def test_position_object_normalizes_for_campaign_reconciliation(self):
         from research.live_hedge_v1.run_live_desk import _position_dicts
 
