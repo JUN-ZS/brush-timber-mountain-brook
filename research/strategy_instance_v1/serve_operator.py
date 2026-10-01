@@ -50,12 +50,27 @@ def explicit_strategy_context(repo, body):
     if not ticket_id or not isinstance(leg_raw, dict) or not code:
         raise ValueError("STRATEGY_CONTEXT_NOT_VERIFIABLE")
 
+    manifest, _, _ = load_instance(Path(repo), instance_id)
+    instance_created = str(manifest.get("created_at_utc") or "")
+    instance_start = str(manifest.get("start_at_utc") or "")
+    instance_floor = max(
+        [x for x in (instance_created, instance_start) if x],
+        key=lambda x: str(x),
+        default="",
+    )
     ledger = EvidenceLedger(Path(repo) / "research/evidence_v1/evidence.jsonl")
     matching = []
     for row in ledger.rows():
         if str(row.get("event_type") or "").upper() != "DECISION_EMITTED":
             continue
-        if str(row.get("instance_id") or "").strip() != instance_id:
+        row_instance_id = str(row.get("instance_id") or "").strip()
+        if row_instance_id and row_instance_id != instance_id:
+            continue
+        decision_ts = str(row.get("timestamp_utc") or "")
+        if instance_floor and (
+            not decision_ts
+            or decision_ts < instance_floor
+        ):
             continue
         ticket = (row.get("payload") or {}).get("ticket")
         if not isinstance(ticket, dict) or str(ticket.get("ticket_id") or "") != ticket_id:
