@@ -1318,8 +1318,10 @@ def confirm_strategy_execution(repo, *, instance_id, deal_id, expected_strategy_
         if expected not in {"LONG","SHORT"}:
             raise SystemExit("EXPECTED_STRATEGY_SIDE=LONG|SHORT")
         available=si(deal.get("qty"))
-        previously_confirmed=_confirmed_qty_for_deal(l._rows(),did)
-        remaining=available-previously_confirmed
+        rows=l._rows()
+        previously_detected=_detected_qty_for_deal(rows,did)
+        previously_confirmed=_confirmed_qty_for_deal(rows,did)
+        remaining=available-previously_detected-previously_confirmed
         if remaining<=0:
             raise SystemExit(f"STRATEGY_DEAL_ALREADY_FULLY_CONFIRMED:{did}")
         requested=si(qty) if qty is not None else remaining
