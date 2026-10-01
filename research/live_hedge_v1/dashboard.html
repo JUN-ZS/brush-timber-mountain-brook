@@ -54,7 +54,10 @@ async function load(){
     const farc=s.far||{}, nearc=s.near_candidate||{};
     let h='<div class="grid">';
     h+='<div class="card"><div class="meta">DESK STATUS</div><div class="big">'+esc(s.status)+'</div><div>'+esc(s.instruction)+'</div></div>';
-    h+='<div class="card"><div class="meta">SIGNAL / MARKET</div><div><strong>spot '+n(mk.spot)+'</strong></div><div>signal='+esc(String(mk.signal_active??'—'))+'</div><div>ratio52='+esc(n(mk.ratio52))+' · ext200='+esc(n(mk.ext200))+'</div></div>';
+    const sigText = mk.signal_status==='DATA_GAP'
+      ? 'DATA GAP'
+      : String(mk.signal_active??'—');
+    h+='<div class="card"><div class="meta">SIGNAL / MARKET</div><div><strong>spot '+n(mk.spot)+'</strong></div><div>signal='+esc(sigText)+'</div><div>ratio52='+esc(n(mk.ratio52))+' · ext200='+esc(n(mk.ext200))+'</div><div class="meta" style="margin-top:7px">history '+esc(qty(mk.history_reference_count))+' refs · '+esc(mk.history_reason||'OK')+'</div></div>';
     const idle = !c.id && (c.state||'IDLE')==='IDLE';
     h+='<div class="card"><div class="meta">STRATEGY POSITION</div>'+
       (idle
