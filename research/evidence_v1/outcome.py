@@ -18,6 +18,16 @@ def main() -> int:
     ap.add_argument("--repo-root", type=Path, default=Path.cwd())
     ap.add_argument("--campaign-id", required=True)
     ap.add_argument("--family-id", default=None)
+    ap.add_argument(
+        "--anchor-evidence-id",
+        required=True,
+        help="Existing evidence row that this posthoc outcome resolves from.",
+    )
+    ap.add_argument(
+        "--corrects-evidence-id",
+        default=None,
+        help="Existing OUTCOME_RESOLVED evidence id being corrected; correction is append-only.",
+    )
     ap.add_argument("--realized-pnl", type=float, required=True)
     ap.add_argument("--benchmark-return", type=float, default=None)
     ap.add_argument("--start-nav", type=float, default=None)
@@ -34,13 +44,39 @@ def main() -> int:
         repo / "research/evidence_v1/evidence.jsonl",
         identity=runtime_identity(repo),
     )
-    prior = ledger._rows()
+    prior = ledger.rows()
     matching = [r for r in prior if r.get("campaign_id") == args.campaign_id]
     if not matching:
         raise SystemExit(
             f"UNKNOWN_CAMPAIGN_ID:{args.campaign_id}; outcome cannot be backfilled without prior evidence"
         )
-    cycle_id = f"OUTCOME_{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+
+    anchor = next((r for r in prior if r.get("evidence_id") == args.anchor_evidence_id), None)
+    if anchor is None or anchor.get("campaign_id") != args.campaign_id:
+        raise SystemExit(
+            f"INVALID_OUTCOME_ANCHOR:{args.anchor_evidence_id}; anchor must belong to campaign {args.campaign_id}"
+        )
+
+    outcome_rows = [r for r in matching if r.get("event_type") == "OUTCOME_RESOLVED"]
+    if args.corrects_evidence_id:
+        corrected = next(
+            (r for r in outcome_rows if r.get("evidence_id") == args.corrects_evidence_id),
+            None,
+        )
+        if corrected is None:
+            raise SystemExit(
+                f"INVALID_CORRECTION_TARGET:{args.corrects_evidence_id}; target must be an existing OUTCOME_RESOLVED for this campaign"
+            )
+    elif outcome_rows:
+        raise SystemExit(
+            f"OUTCOME_ALREADY_RESOLVED:{args.campaign_id}; use --corrects-evidence-id for an append-only correction"
+        )
+
+    anchor_time = datetime.fromisoformat(str(anchor.get("timestamp_utc")).replace("Z", "+00:00"))
+    outcome_time = datetime.now(timezone.utc)
+    if outcome_time < anchor_time:
+        raise SystemExit("OUTCOME_BEFORE_ANCHOR")
+    cycle_id = f"OUTCOME_{outcome_time.strftime('%Y%m%dT%H%M%SZ')}"
     row = ledger.append(
         "OUTCOME_RESOLVED",
         cycle_id=cycle_id,
@@ -49,6 +85,8 @@ def main() -> int:
         payload={
             "campaign_id": args.campaign_id,
             "family_id": args.family_id,
+            "anchor_evidence_id": args.anchor_evidence_id,
+            "corrects_evidence_id": args.corrects_evidence_id,
             "realized_pnl": args.realized_pnl,
             "benchmark_return": args.benchmark_return,
             "start_nav": args.start_nav,
