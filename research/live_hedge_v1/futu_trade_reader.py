@@ -73,7 +73,7 @@ class FutuTradeReader:
         if hasattr(deal_df, "iterrows"):
             for _, row in deal_df.iterrows():
                 deals.append({
-                    "deal_id": str(row.get("deal_id", row.get("dealID", row.get("orderIDEx", "")))),
+                    "deal_id": str(row.get("deal_id", row.get("dealID", "")) or ""),
                     "code": str(row.get("code", "")),
                     "side": self._trade_side(row.get("trd_side", row.get("trdSide", ""))),
                     "raw_side": str(row.get("trd_side", row.get("trdSide", "")) or ""),
@@ -143,6 +143,12 @@ class FutuTradeReader:
                     )
                     if ret3 == self.futu.RET_OK:
                         deals.extend(self._parse_deals(deal_df))
+                        missing_deal_ids = sum(1 for d in deals if not d.get("deal_id"))
+                        if missing_deal_ids:
+                            deal_warning = (
+                                f"{missing_deal_ids} broker deal row(s) missing deal_id; "
+                                "rows are excluded from durable execution attribution"
+                            )
                     else:
                         deal_warning = str(deal_df)
                 else:
