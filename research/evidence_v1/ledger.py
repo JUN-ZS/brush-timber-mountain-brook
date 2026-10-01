@@ -204,6 +204,7 @@ class EvidenceLedger:
         timestamp_utc: str,
         payload: dict[str, Any],
         campaign_id: str | None = None,
+        instance_id: str | None = None,
         evidence_id: str | None = None,
         evidence_grade: str = "PROSPECTIVE_OBSERVED",
     ) -> dict[str, Any]:
@@ -217,6 +218,7 @@ class EvidenceLedger:
                 timestamp_utc=timestamp_utc,
                 payload=payload,
                 campaign_id=campaign_id,
+                instance_id=instance_id,
                 evidence_id=evidence_id,
                 evidence_grade=evidence_grade,
             )
@@ -229,6 +231,7 @@ class EvidenceLedger:
         timestamp_utc: str,
         payload: dict[str, Any],
         campaign_id: str | None = None,
+        instance_id: str | None = None,
         evidence_id: str | None = None,
         evidence_grade: str = "PROSPECTIVE_OBSERVED",
     ) -> dict[str, Any]:
@@ -244,6 +247,7 @@ class EvidenceLedger:
             "evidence_id": eid,
             "cycle_id": cycle_id,
             "campaign_id": campaign_id,
+            "instance_id": instance_id,
             "timestamp_utc": timestamp_utc,
             "event_type": event_type,
             "evidence_grade": evidence_grade,
