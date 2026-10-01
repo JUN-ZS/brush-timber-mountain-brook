@@ -296,6 +296,22 @@ def load_instance(repo,i):
     _recover_mutable_state_from_ledger(m, s, l)
     return m,s,l
 
+def assert_instance_strategy_lineage(repo,m):
+    """Guard alpha lineage while allowing recording-infrastructure evolution."""
+    current=runtime_identity(Path(repo).resolve())
+    mismatches={}
+    for key in ("strategy_id","strategy_version","research_engine_commit","strategy_lock_hash"):
+        expected=m.get(key)
+        actual=current.get(key)
+        if expected and actual and str(expected)!=str(actual):
+            mismatches[key]={"instance":expected,"runtime":actual}
+    if mismatches:
+        raise SystemExit(
+            "INSTANCE_STRATEGY_LINEAGE_DRIFT:" + json.dumps(mismatches,sort_keys=True)
+        )
+    return current
+
+
 def pos_spec(x):
     p=[a.strip() for a in x.split(",")]
     if len(p) not in (4,5): raise SystemExit("POSITION_FORMAT=CODE,SIDE,QTY,AVG_COST[,LOT_SIZE]")
@@ -998,7 +1014,9 @@ def cycle(args):
 
 
 def _cycle_unlocked(args):
-    repo=Path(args.repo_root).resolve(); m,s,l=load_instance(repo,args.instance_id); t=now()
+    repo=Path(args.repo_root).resolve(); m,s,l=load_instance(repo,args.instance_id)
+    runtime_lineage=assert_instance_strategy_lineage(repo,m)
+    t=now()
     cid="CYCLE_"+t.replace(":","").replace("-","").replace(".",""); s["cycle_count"]=si(s.get("cycle_count"))+1
     try:
         history_start = None
