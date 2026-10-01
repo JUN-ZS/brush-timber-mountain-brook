@@ -337,7 +337,7 @@ def main():
             "start": start_s,
             "end": end_s,
             "gamma_mode": "OBSERVED_GAMMA" if has_gamma else "DERIVED_DDELTA_DSPOT",
-            "unresolved_campaigns_excluded_at_cutoff": unresolved_excluded,
+            "unresolved_config_rows_excluded_at_cutoff": unresolved_excluded,
             "censoring_rule": "exclude_campaign_if_far_exit_after_window_end; never use post-cutoff outcome data",
             "family": family,
         }
