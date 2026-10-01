@@ -292,7 +292,11 @@ def apply_confirmed_strategy_deal(lots,d,expected_strategy_side):
         return 0,0.0,"INVALID_CONFIRMATION"
     if expected=="LONG":
         if side=="BUY":
-            apply_deal(lots,dict(d))
+            lots.append({
+                "lot_id":f"D-{d.get('deal_id','X')}-L","code":code,"side":"LONG",
+                "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
+                "source":"BROKER_DEAL_CONFIRMED","status":"OPEN",
+            })
             return q,0.0,"CONFIRMED_OPEN_LONG"
         if side=="SELL":
             avail=_open_lot_qty(lots,code,"LONG")
