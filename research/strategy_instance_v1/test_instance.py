@@ -250,6 +250,7 @@ def test_confirmed_strategy_execution_is_explicit_and_replayable():
         assert out["strategy_application"]=="CONFIRMED_OPEN_LONG"
         _,state,ledger=load_instance(repo,iid)
         assert state["strategy_deal_ids"]==["D1"]
+        assert state["unattributed_deal_ids"]==[]
         assert state["lots"][0]["qty"]==1
         assert state["lots"][0]["source"]=="BROKER_DEAL_CONFIRMED"
         assert ledger.validate()["records"]==2
