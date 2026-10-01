@@ -5,15 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QQQ Live Hedge Desk V2</title>
 <style>
-body{font-family:system-ui,sans-serif;max-width:1280px;margin:20px auto;padding:0 18px;background:#0b0f14;color:#e6edf3}
+body{font-family:system-ui,sans-serif;max-width:1320px;margin:20px auto;padding:0 18px;background:#0b0f14;color:#e6edf3}
 .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin:12px 0}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
-h1,h2{margin:0 0 10px}
+h1,h2{margin:0 0 10px} h2{font-size:18px}
 pre{white-space:pre-wrap;word-break:break-word;margin:0}
+.action-card{border-width:2px}
 .action{padding:12px;border:1px solid #444;border-radius:8px;margin:7px 0;background:#0e141b}
-.meta{color:#8b949e}
-table{width:100%;border-collapse:collapse}
-td,th{padding:8px;border-bottom:1px solid #30363d;text-align:left;vertical-align:top}
+.meta{color:#8b949e;font-size:12px;letter-spacing:.04em}
+.big{font-size:24px;font-weight:750}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+button{padding:8px 12px;border-radius:7px;border:1px solid #484f58;background:#21262d;color:#e6edf3;cursor:pointer}
+button:hover{background:#30363d}
+table{width:100%;border-collapse:collapse} td,th{padding:8px;border-bottom:1px solid #30363d;text-align:left;vertical-align:top}
+.good{font-weight:700}.warn{font-weight:700}
 </style>
 </head>
 <body>
@@ -22,56 +27,56 @@ td,th{padding:8px;border-bottom:1px solid #30363d;text-align:left;vertical-align
 <script>
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const n=v=>v==null?'NA':Number(v).toFixed(4);
-async function load(){
-  const r=await fetch('live_state.json?ts='+Date.now());
-  const s=await r.json();
-  const c=s.campaign||{};
-  const t=s.active_ticket;
-  const rs=s.risk_state||{};
-  let h='<div class="grid">';
-  h+='<div class="card"><div class="meta">DESK STATUS</div><div><strong>'+esc(s.status)+'</strong></div><div>'+esc(s.instruction)+'</div></div>';
-  h+='<div class="card"><div class="meta">CAMPAIGN</div><div><strong>'+esc(c.state||'IDLE')+'</strong></div><div>id='+esc(c.id||'—')+'</div><div>far='+esc(c.far_code||'—')+'</div></div>';
-  h+='<div class="card"><div class="meta">QQQ / RISK</div><div><strong>spot '+n((s.market||{}).spot)+'</strong></div><div>risk='+esc(rs.risk_score??'—')+' · target near='+esc(rs.desired_stack??'—')+'</div></div>';
-  h+='<div class="card"><div class="meta">SAFETY</div><div>manual only='+esc(s.manual_execution_only)+' · one primary/cycle='+esc(s.one_primary_ticket_per_cycle)+'</div><div>source='+esc(s.source)+'</div></div>';
-  h+='</div>';
-
-  if(t){
-    h+='<div class="card"><h2>PRIMARY MANUAL TICKET</h2><div><strong>'+esc(t.action)+' · '+esc(t.status)+'</strong></div><div>'+esc(s.instruction)+'</div><pre>'+esc(JSON.stringify(t,null,2))+'</pre></div>';
-  }
-
-  h+='<div class="card"><h2>Next Triggers</h2><table><tr><th>Trigger</th><th>When</th><th>Effect</th></tr>';
-  (s.next_triggers||[]).forEach(x=>h+='<tr><td>'+esc(x.type)+'</td><td>'+esc(x.when)+'</td><td>'+esc(x.effect)+'</td></tr>');
-  h+='</table></div>';
-
-  h+='<div class="grid">';
-  h+='<div class="card"><h2>Far</h2><pre>'+esc(JSON.stringify(s.far,null,2))+'</pre></div>';
-  h+='<div class="card"><h2>Near Candidate</h2><pre>'+esc(JSON.stringify(s.near_candidate,null,2))+'</pre></div>';
-  h+='</div>';
-
-  h+='<div class="card"><h2>Managed Positions / Lots</h2><pre>'+esc(JSON.stringify({positions:s.positions,lots:s.lots},null,2))+'</pre></div>';
-  h+='<div class="card"><h2>Reasons</h2><pre>'+esc(JSON.stringify(s.reasons,null,2))+'</pre></div>';
-  h+='<div class="card"><h2>Latest Events</h2><div id="events">loading…</div></div>';
-
-  document.getElementById('app').innerHTML=h;
-
-  try{
-    const er=await fetch('events.jsonl?ts='+Date.now());
-    const txt=await er.text();
-    const rows=txt.split(/\r?\n/).filter(Boolean).slice(-25).reverse();
-    document.getElementById('events').innerHTML=rows.map(line=>{
-      try{
-        const e=JSON.parse(line);
-        return '<div class="action"><strong>'+esc(e.type)+'</strong> <span class="meta">'+esc(e.timestamp)+'</span><pre>'+esc(JSON.stringify(e.payload,null,2))+'</pre></div>';
-      }catch(_){
-        return '<div class="action">'+esc(line)+'</div>';
-      }
-    }).join('') || 'No events yet';
-  }catch(e){
-    document.getElementById('events').textContent='events.jsonl unavailable: '+e;
-  }
+const usd=v=>v==null||typeof v!=='number'?'NA':(v<0?'-$':'+$')+Math.abs(v).toFixed(2);
+const qty=v=>v==null?'NA':String(Number(v));
+async function copyText(text){
+  try{await navigator.clipboard.writeText(String(text||''));alert('Instruction copied');}
+  catch(_){alert(String(text||''));}
 }
-load().catch(e=>document.getElementById('app').textContent='ERROR: '+e);
-setInterval(()=>load().catch(e=>document.getElementById('app').textContent='ERROR: '+e),5000);
+function actionCard(ac,s){
+  if(!ac||ac.action==='HOLD'){
+    return '<div class="card action-card"><div class="meta">PRIMARY ACTION</div><div class="big">HOLD</div><div>No ticket is waiting for manual execution.</div></div>';
+  }
+  let legs=(ac.legs||[]).map(l=>'<tr><td>'+esc(l.code)+'</td><td>'+esc(l.side)+'</td><td>'+esc(qty(l.qty))+'</td><td>'+esc(qty(l.before_qty))+' → '+esc(qty(l.target_qty))+'</td><td>'+esc(n(l.price))+'</td></tr>').join('');
+  const instr=s.instruction||ac.action;
+  return '<div class="card action-card"><div class="grid">'+
+    '<div><div class="meta">ACTION</div><div class="big">'+esc(ac.action)+' · '+esc(ac.status)+'</div><div class="mono">'+esc(ac.ticket_id||'—')+'</div></div>'+
+    '<div><div class="meta">REASON</div><div>'+esc(ac.reason||'—')+'</div><div class="meta" style="margin-top:8px">ISSUED</div><div>'+esc(ac.issued_at||'—')+'</div></div></div>'+
+    '<table><tr><th>Code</th><th>Broker Side</th><th>Qty</th><th>Position</th><th>Indicative</th></tr>'+legs+'</table>'+
+    '<div class="action"><div class="meta">MANUAL INSTRUCTION</div><div class="mono">'+esc(instr)+'</div><div style="margin-top:8px"><button onclick="copyText('+JSON.stringify(instr)+')">COPY INSTRUCTION</button></div></div>'+
+    '<div class="meta">No order is submitted by this page. Execute in Futu, then let the next cycle reconcile the broker position.</div></div>';
+}
+async function load(){
+  try{
+    const r=await fetch('live_state.json?ts='+Date.now());
+    const s=await r.json();
+    const c=s.campaign||{}, ac=s.action_card||{}, pm=s.position_mark||{}, rs=s.risk_state||{};
+    let h='<div class="grid">';
+    h+='<div class="card"><div class="meta">DESK STATUS</div><div class="big">'+esc(s.status)+'</div><div>'+esc(s.instruction)+'</div></div>';
+    h+='<div class="card"><div class="meta">CAMPAIGN</div><div><strong>'+esc(c.state||'IDLE')+'</strong></div><div>id='+esc(c.id||'—')+'</div><div>far='+esc(c.far_code||'—')+'</div></div>';
+    h+='<div class="card"><div class="meta">QQQ / RISK</div><div><strong>spot '+n((s.market||{}).spot)+'</strong></div><div>risk='+esc(rs.risk_score??'—')+' · target near='+esc(rs.desired_stack??'—')+'</div><div>active near='+esc((ac.legs||[]).reduce((a,x)=>a+0,0))+'</div></div>';
+    h+='<div class="card"><div class="meta">POSITION MARK</div><div class="big">'+esc(usd(pm.unrealized_pnl))+'</div><div>realized = '+esc(String(pm.realized_pnl||'NOT_TRACKED_BY_LIVE_DESK'))+'</div><div>mark status = '+esc(pm.status||'—')+'</div></div>';
+    h+='</div>';
+    h+=actionCard(ac,s);
+    h+='<div class="card"><h2>Strategy / Operator Separation</h2><div class="grid"><div><div class="meta">LOCKED STRATEGY ENGINE</div><div>Alpha parameters remain frozen. The dashboard exposes the engine ticket and broker reconciliation state.</div></div><div><div class="meta">ADJUSTABLE MANUAL BOOK</div><div>Use <span class="mono">strategy_instance_v1 manual</span> to record your independent ADD / REDUCE path. Its P&amp;L is deliberately kept separate from broker-observed P&amp;L.</div></div></div></div>';
+    h+='<div class="card"><h2>Candidate Actions</h2><table><tr><th>Action</th><th>Code</th><th>Qty</th><th>Side</th><th>Why</th></tr>';
+    (s.candidate_actions||[]).forEach(x=>h+='<tr><td><strong>'+esc(x.action)+'</strong></td><td>'+esc(x.code||'—')+'</td><td>'+esc(x.qty??x.target_qty??'—')+'</td><td>'+esc(x.side||'—')+'</td><td>'+esc(x.why||'—')+'</td></tr>');
+    h+='</table></div>';
+    h+='<div class="card"><h2>Next Triggers</h2><table><tr><th>Trigger</th><th>When</th><th>Effect</th></tr>';
+    (s.next_triggers||[]).forEach(x=>h+='<tr><td>'+esc(x.type)+'</td><td>'+esc(x.when)+'</td><td>'+esc(x.effect)+'</td></tr>');
+    h+='</table></div>';
+    h+='<div class="grid">';
+    h+='<div class="card"><h2>Far</h2><pre>'+esc(JSON.stringify(s.far,null,2))+'</pre></div>';
+    h+='<div class="card"><h2>Near Candidate</h2><pre>'+esc(JSON.stringify(s.near_candidate,null,2))+'</pre></div>';
+    h+='</div>';
+    h+='<div class="card"><h2>Managed Positions / Lots</h2><pre>'+esc(JSON.stringify({positions:s.positions,lots:s.lots},null,2))+'</pre></div>';
+    h+='<div class="card"><h2>Position Mark Detail</h2><pre>'+esc(JSON.stringify(pm.rows||[],null,2))+'</pre></div>';
+    h+='<div class="card"><h2>Reasons</h2><pre>'+esc(JSON.stringify(s.reasons||[],null,2))+'</pre></div>';
+    h+='<div class="card"><h2>Latest Events</h2><pre>'+esc(JSON.stringify(s.reconcile_events||[],null,2))+'</pre></div>';
+    document.getElementById('app').innerHTML=h;
+  }catch(e){document.getElementById('app').innerHTML='<div class="card"><strong>Dashboard read error</strong><pre>'+esc(String(e))+'</pre></div>';}
+}
+load(); setInterval(load,5000);
 </script>
 </body>
 </html>
