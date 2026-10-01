@@ -397,6 +397,29 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(store.validate_events()["integrity"], "MIXED_LEGACY_HASHED")
 
 
+    def test_legacy_live_event_prefix_is_not_reported_as_fully_hashed(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+        with tempfile.TemporaryDirectory() as td:
+            base=Path(td)
+            events=base/"events.jsonl"
+            legacy={
+                "event_id":"E-LEGACY",
+                "timestamp":"2026-10-01T21:00:00+00:00",
+                "type":"NOTE",
+                "campaign_id":None,
+                "payload":{"x":1},
+            }
+            events.write_text(json.dumps(legacy,separators=(",",":"))+"\n",encoding="utf-8")
+            legacy2=dict(legacy)
+            legacy2["event_id"]="E-HASHED"
+            store=StateStore(base/"state.json",events)
+            # Appending a new event upgrades the chain while preserving honest
+            # disclosure that its prefix predates stored event hashes.
+            state={}
+            store.emit(state,"NOTE",now="2026-10-01T21:00:01+00:00",payload={"y":2})
+            self.assertEqual(store.validate_events()["integrity"],"HASHED_WITH_LEGACY_UNVERIFIED_PREFIX")
+
     def test_state_events_are_hash_chained_and_tamper_detectable(self):
         import json
         import tempfile
