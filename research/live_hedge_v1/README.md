@@ -17,6 +17,8 @@ V2 不改 alpha。`risk_state()`、far/near 合約選擇、dynamic target stack�
 
 它也維持兩層 ownership fence：near LONG 必須與 strategy lot 對得上；far SHORT 必須有明確的 managed baseline。任何未解釋的 broker/manual position change 都會先 BLOCK，而不是自動 repair。
 
+Market freshness 使用 broker quote 的原始 timestamp（先正規化到 UTC），不是 reader 自己的 collection time；若 broker timestamp 缺失/無法解析，strategy plan 會因 quote age 無法證明而 BLOCK。Operator Console 的 `/api/manual` 與 `/api/refresh` 亦要求明確 operator header，避免 localhost 外源頁面直接觸發 mutation。
+
 ## State machine
 
 `IDLE → ARMING → OPEN → HARVESTING / REDUCING / ROLLING`
@@ -124,7 +126,7 @@ python -m research.live_hedge_v1.run_live_desk --rebaseline-existing-far
 - `run_live_desk.py` — single cycle
 - `watch_live_desk.py` — default 15s loop
 - `dashboard.html` — 5s polling dashboard
-- `events.jsonl` — 邊沿事件 ledger
+- `events.jsonl` — 邊沿事件 ledger；新事件採 `LIVE_DESK_EVENT.v2` hash chain，舊未 hash event 仍可 recovery，但 integrity 會標為 `LEGACY_UNHASHED`
 - `live_cycles.jsonl` — raw watcher cycle log
 - `state.json` — persistent campaign/ticket/lot state
 - `live_state.json` — current desk snapshot
