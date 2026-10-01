@@ -256,6 +256,8 @@ def apply_strategy_attributed_deal(lots,d,match):
         return 0,0.0,"INVALID"
     if action=="CLOSE_CAMPAIGN_EMERGENCY":
         expected_side=str(candidate.get("expected_side") or "").upper()
+        if not expected_side:
+            expected_side="SHORT" if broker_side=="BUY" else "LONG" if broker_side=="SELL" else ""
     elif action=="SELL_FAR" or (
         action=="REPAIR_FAR" and str(candidate.get("direction","")).upper()=="ADD"
     ):
