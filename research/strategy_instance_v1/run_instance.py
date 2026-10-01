@@ -398,13 +398,16 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=Non
     )
     far_hint = str(m.get("far_code_hint") or "").upper()
     far_candidates = [hinted_far] if hinted_far is not None else []
-    if active and len(far_candidates) != 1:
+    if active and (
+        len(shorts) != 1
+        or len(far_candidates) != 1
+    ):
         return {
             "status": "DATA_GAP",
             "reason": (
-                "far ownership ambiguous; provide manifest far_code_hint"
+                "far ownership ambiguous or extra unmanaged QQQ SHORT exists"
                 if not far_hint
-                else "manifest far_code_hint does not uniquely match broker SHORT"
+                else "far_code_hint does not uniquely isolate the single managed QQQ SHORT"
             ),
             "short_codes": [str(p.code) for p in shorts],
             "far_code_hint": far_hint or None,
