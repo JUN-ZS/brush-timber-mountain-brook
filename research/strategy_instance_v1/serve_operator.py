@@ -86,8 +86,7 @@ def explicit_strategy_context(repo, body):
         ):
             continue
         if instance_manifest and any(
-            instance_manifest.get(key)
-            and str((row.get("identity") or {}).get(key)) != str(instance_manifest.get(key))
+            str(instance_manifest.get(key) or "") != str((row.get("identity") or {}).get(key) or "")
             for key in ("strategy_id","strategy_version","strategy_lock_hash","research_engine_commit")
         ):
             continue
