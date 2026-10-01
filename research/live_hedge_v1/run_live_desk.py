@@ -348,6 +348,24 @@ def _action_card(ticket):
         "manual_execution_only":True,
     }
 
+def _defer_actions_for_active_ticket(plan_result, active_ticket):
+    """Prevent a live ticket from being shadowed by fresh planner actions."""
+    if not active_ticket:
+        return plan_result
+    status = str(active_ticket.get("status", "")).upper()
+    if status not in {"OPEN", "PARTIAL"}:
+        return plan_result
+    plan_result = dict(plan_result)
+    plan_result["deferred_candidate_actions"] = list(plan_result.get("candidate_actions", []))
+    plan_result["candidate_actions"] = []
+    plan_result["status"] = "WAITING_ACTIVE_TICKET"
+    plan_result["reasons"] = list(plan_result.get("reasons", [])) + [
+        f"ACTIVE_TICKET_OPEN:{active_ticket.get('ticket_id')}",
+        "candidate actions deferred until the active ticket is reconciled",
+    ]
+    return plan_result
+
+
 def _strategy_positions_for_plan(positions, spot, contracts_by_code):
     """
     Restrict the planner's LONG side to the strategy-managed near CALL universe.
@@ -976,14 +994,7 @@ def main():
     # Do not expose the planner's next-state repairs/additions as fresh actions
     # while that ticket is awaiting manual execution/reconciliation.
     active_ticket_for_gate = state.get("active_ticket")
-    if active_ticket_for_gate and str(active_ticket_for_gate.get("status", "")).upper() in {"OPEN", "PARTIAL"}:
-        p["deferred_candidate_actions"] = list(p.get("candidate_actions", []))
-        p["candidate_actions"] = []
-        p["status"] = "WAITING_ACTIVE_TICKET"
-        p["reasons"] = list(p.get("reasons", [])) + [
-            f"ACTIVE_TICKET_OPEN:{active_ticket_for_gate.get('ticket_id')}",
-            "candidate actions deferred until the active ticket is reconciled",
-        ]
+    p = _defer_actions_for_active_ticket(p, active_ticket_for_gate)
 
     if unmanaged_short_block and not campaign_active:
         p["status"] = "BLOCKED_UNMANAGED_QQQ_SHORT"
