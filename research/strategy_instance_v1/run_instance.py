@@ -105,7 +105,7 @@ def load_instance(repo,i):
     if m.get("manifest_hash")!=mhash(m): raise SystemExit("INSTANCE_MANIFEST_TAMPERED_OR_MUTATED")
     s=load(spath(repo,i),{"schema":STATE_SCHEMA,"schema_version":1,"instance_id":i,
         "processed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
-        "last_snapshot_hash":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,"manual_lots":init_lots(m),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None})
+        "last_snapshot_hash":None,"gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,"manual_lots":init_lots(m),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None})
     l=InstanceLedger(lpath(repo,i),{"instance_id":i,"manifest_hash":m["manifest_hash"],
        "strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
        "research_engine_commit":m.get("research_engine_commit")})
@@ -296,7 +296,25 @@ def reconcile(lots,ps):
     keys=set(a)|set(b)
     return [{"code":k[0],"side":k[1],"lot_qty":a.get(k,0),"broker_qty":b.get(k,0)} for k in sorted(keys) if a.get(k,0)!=b.get(k,0)]
 
-def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None):
+def gamma_state_for_instance(state, far, spot):
+    history = []
+    for value in state.get("gamma_history") or []:
+        try:
+            fv = float(value)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(fv):
+            history.append(fv)
+    history = history[-20:]
+    baseline = None
+    if len(history) >= 5:
+        from statistics import median
+        baseline = float(median(history[-20:]))
+    previous_delta = state.get("far_delta_abs")
+    return history, baseline, previous_delta
+
+
+def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=None,previous_far_delta_abs=None):
     market=snap["market"]; pos=[]
     for p in ps:
         c=cmap.get(str(p["code"])); q=quotes.get(str(p["code"]),{})
@@ -321,6 +339,7 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None):
     if active and far is None: return {"status":"DATA_GAP","reason":"active short far quote unavailable"}
     return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=bool(market.get("signal_active")),
                 far_campaign_active=active,quotes_by_code=quotes,near_lots=near_lots or [],
+                gamma_baseline=gamma_baseline,previous_far_delta_abs=previous_far_delta_abs,
                 now=datetime.now(timezone.utc))
 
 def cycle(args):
@@ -379,7 +398,33 @@ def _cycle_unlocked(args):
         "gross_pnl":gross,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
     if args.observe_strategy_plan and snap.get("status")=="OK":
         try:
-            sp=strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=s.get("lots", []))
+            _, gamma_baseline, previous_far_delta_abs = gamma_state_for_instance(s, None, sf(snap.get("market", {}).get("spot")))
+            if ps:
+                current_far = next(
+                    (p for p in ps if str(p.get("side", "")).upper() == "SHORT" and str(p.get("code", "")).upper().startswith("US.QQQ")),
+                    None,
+                )
+                if current_far:
+                    q = quotes.get(str(current_far.get("code")), {})
+                    gamma = q.get("gamma")
+                    spot_now = sf(snap.get("market", {}).get("spot"))
+                    if gamma is not None and spot_now > 0:
+                        hist = s.setdefault("gamma_history", [])
+                        hist.append(abs(float(gamma)) * spot_now)
+                        s["gamma_history"] = hist[-20:]
+                        gamma_baseline = (
+                            float(__import__("statistics").median(s["gamma_history"]))
+                            if len(s["gamma_history"]) >= 5 else None
+                        )
+                    if q.get("delta") is not None:
+                        previous_far_delta_abs = s.get("far_delta_abs")
+                        s["far_delta_abs"] = abs(float(q["delta"]))
+            sp=strategy_plan(
+                snap, ps, orders, cmap, quotes, m,
+                near_lots=s.get("lots", []),
+                gamma_baseline=gamma_baseline,
+                previous_far_delta_abs=previous_far_delta_abs,
+            )
             l.append("STRATEGY_PLAN_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
                      payload={"plan":sp,"execution":"READ_ONLY_OBSERVATION"},source="SYSTEM")
         except Exception as e:
