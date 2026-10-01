@@ -94,7 +94,14 @@ def gamma_baseline_from_history(history: Sequence[float]) -> Optional[float]:
     Call with history that does NOT yet include the current bar (shift-1 semantics).
     Values in history should be gamma_spot = abs(gamma) * spot.
     """
-    hist = list(history or [])
+    hist = []
+    for value in history or []:
+        try:
+            fv = float(value)
+        except (TypeError, ValueError):
+            continue
+        if isfinite(fv):
+            hist.append(fv)
     if len(hist) < 5:
         return None
     window = hist[-20:]
