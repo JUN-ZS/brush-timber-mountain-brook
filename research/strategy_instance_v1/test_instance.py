@@ -343,6 +343,36 @@ def test_confirmed_strategy_execution_is_explicit_and_replayable():
         assert ledger.validate()["records"]==2
 
 
+def test_confirm_rejects_already_attributed_execution():
+    import tempfile
+    from .run_instance import confirm_strategy_execution, save
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td); iid="I-CONF-BLOCK"
+        manifest={"schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+                  "instance_id":iid,"created_at_utc":"2026-10-01T00:00:00+00:00",
+                  "start_at_utc":"2026-10-01T00:00:00+00:00","strategy_id":"TEST",
+                  "strategy_version":"V1","initial_positions":[]}
+        manifest["manifest_hash"]=mhash(manifest)
+        save(mpath(repo,iid),manifest)
+        st={"schema":"STRATEGY_INSTANCE_STATE.v1","schema_version":1,"instance_id":iid,
+            "processed_deal_ids":[],"strategy_deal_ids":["D-EX"],"unattributed_deal_ids":[],
+            "lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
+            "last_snapshot_hash":None,"last_reconcile":None,"cycle_count":1,"data_gaps":0,
+            "gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,
+            "manual_lots":[],"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
+        save(spath(repo,iid),st)
+        ledger=InstanceLedger(lpath(repo,iid),{"instance_id":iid,"manifest_hash":manifest["manifest_hash"],"strategy_id":"TEST","strategy_version":"V1"})
+        ledger.append("EXECUTION_DETECTED",instance_id=iid,cycle_id="C1",
+                      timestamp_utc="2026-10-01T00:01:00+00:00",
+                      payload={"deal":{"deal_id":"D-EX","code":"US.QQQ.TEST","side":"BUY","qty":1,"price":5.0,"lot_size":100,"created_at":"2026-10-01T00:01:00+00:00"}})
+        try:
+            confirm_strategy_execution(repo,instance_id=iid,deal_id="D-EX",expected_strategy_side="LONG",qty=1,note="double")
+        except SystemExit as exc:
+            assert str(exc)=="STRATEGY_DEAL_ALREADY_FULLY_CONFIRMED:D-EX"
+        else:
+            raise AssertionError("already attributed execution was confirmable")
+
+
 def test_confirmed_strategy_execution_supports_partial_qty_without_losing_remainder():
     import tempfile
     from .run_instance import confirm_strategy_execution, save
