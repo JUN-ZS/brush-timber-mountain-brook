@@ -452,6 +452,30 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
 
 
+    def test_plan_blocks_stale_source_quote_even_when_read_is_recent(self):
+        market = {
+            "source": "LIVE QUOTE",
+            "timestamp": now_iso(),
+            "source_age_sec": 46.0,
+            "spot": 500.0,
+        }
+        far = Contract(
+            "US.QQQ261231C00600000", "CALL", 600.0, "2026-12-31", 90,
+            2.0, 2.2, 0.08, 0.01
+        )
+        out = plan(
+            market=market,
+            far=far,
+            near=None,
+            positions=[],
+            orders=[],
+            signal_active=True,
+            far_campaign_active=True,
+            now=datetime.now(timezone.utc),
+        )
+        self.assertEqual(out["status"], "BLOCKED_STALE_MARKET")
+        self.assertEqual(out["candidate_actions"], [])
+
     def test_signal_data_gap_never_becomes_inactive_signal(self):
         from research.live_hedge_v1.run_live_desk import _apply_signal_gate
 
