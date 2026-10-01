@@ -202,7 +202,7 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
 </div>
 
 <script>
-let action="ADD", state=null, strategy=null, tapeRows=[], currentView="desk";
+let action="ADD", state=null, strategy=null, tapeRows=[], currentView="desk", strategyContextSnapshot=null;
 function setView(view){
   currentView=view;
   document.querySelectorAll(".view-desk").forEach(el=>el.classList.toggle("hidden",view!=="desk"));
@@ -443,7 +443,15 @@ function useStrategyTicket(){
   }
   setAction(mapped); $("code").value=leg.code||"";
   $("qty").value=leg.qty||1; $("price").value=leg.price||0;
-  preview(); setMsg("Strategy template loaded. You may change quantity/price before recording.","green");
+  strategyContextSnapshot={
+    instance_id:$("instance").value,
+    ticket_id:t.ticket_id||null,
+    action:t.action||null,
+    status:t.status||null,
+    leg:JSON.parse(JSON.stringify(leg)),
+    captured_at_utc:strategy?.timestamp||new Date().toISOString(),
+  };
+  preview(); setMsg("Strategy ticket snapshot captured for this instance. You may change quantity/price before recording.","green");
 }
 
 function renderStrategy(){
@@ -481,7 +489,8 @@ async function preview(){
 
 async function recordTrade(){
   const localTime=$("tradeTime").value;
-  const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null};
+  const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null,
+    strategy_context_snapshot:strategyContextSnapshot};
   if(!payload.instance_id||!payload.code||payload.qty<1||payload.price<=0){setMsg("Please enter instance, QQQ option code, quantity and positive price.","yellow");return;}
   if((action==="REDUCE"||action==="BUY_BACK_FAR")) {
     const p=state?.manual_book?.positions?.find(x=>x.code===payload.code&&((action==="REDUCE"&&x.side==="LONG")||(action==="BUY_BACK_FAR"&&x.side==="SHORT")));
