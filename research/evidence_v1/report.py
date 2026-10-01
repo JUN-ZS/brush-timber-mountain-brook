@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .ledger import EvidenceLedger
+from .snapshot import snapshot_sha256
 
 
 def load_rows(path: Path, ledger: EvidenceLedger | None = None):
@@ -39,17 +40,31 @@ def main() -> int:
         and isinstance(r.get("payload"), dict)
         and r["payload"].get("realized_pnl") is not None
     ]
-    superseded = {
-        str(r.get("payload", {}).get("corrects_evidence_id"))
-        for r in outcome_rows
-        if r.get("payload", {}).get("corrects_evidence_id")
-    }
     latest_outcomes = {}
+    outcome_chain_errors = []
     for r in outcome_rows:
-        if r.get("evidence_id") in superseded:
-            continue
         campaign = str(r.get("campaign_id") or r.get("payload", {}).get("campaign_id") or "")
-        latest_outcomes[campaign or str(r.get("evidence_id"))] = r
+        key = campaign or str(r.get("evidence_id"))
+        correction = str(r.get("payload", {}).get("corrects_evidence_id") or "")
+        current = latest_outcomes.get(key)
+        if correction:
+            if current is None or correction != str(current.get("evidence_id")):
+                outcome_chain_errors.append({
+                    "campaign_id": key,
+                    "evidence_id": r.get("evidence_id"),
+                    "corrects_evidence_id": correction,
+                    "expected_current_outcome": current.get("evidence_id") if current else None,
+                })
+                continue
+        elif current is not None:
+            outcome_chain_errors.append({
+                "campaign_id": key,
+                "evidence_id": r.get("evidence_id"),
+                "reason": "OUTCOME_ALREADY_EXISTS_WITHOUT_CORRECTION",
+                "expected_current_outcome": current.get("evidence_id"),
+            })
+            continue
+        latest_outcomes[key] = r
     outcomes = list(latest_outcomes.values())
     pnls = [float(r["payload"]["realized_pnl"]) for r in outcomes]
     benchmarks = [
@@ -75,18 +90,46 @@ def main() -> int:
 
     family_counts = Counter()
     family_active_counts = Counter()
+    snapshot_failures = []
     for r in rows:
         if r["event_type"] != "PRE_DECISION_OBSERVATION":
             continue
         ref = r.get("payload") or {}
         snap = ref.get("snapshot") or {}
-        # Family vector lives in the immutable snapshot, not in a result-picked report.
-        spath = repo / str(snap.get("snapshot_ref", ""))
+        snapshot_ref = str(snap.get("snapshot_ref") or "")
+        expected_sha = str(snap.get("snapshot_sha256") or "")
+        if not snapshot_ref or not expected_sha:
+            snapshot_failures.append({
+                "cycle_id": r.get("cycle_id"),
+                "reason": "MISSING_SNAPSHOT_REFERENCE_OR_HASH",
+            })
+            continue
+        spath = repo / snapshot_ref
         if not spath.exists():
+            snapshot_failures.append({
+                "cycle_id": r.get("cycle_id"),
+                "snapshot_ref": snapshot_ref,
+                "reason": "SNAPSHOT_MISSING",
+            })
             continue
         try:
             obj = json.loads(spath.read_text(encoding="utf-8"))
-        except Exception:
+            actual_sha = snapshot_sha256(obj)
+        except Exception as exc:
+            snapshot_failures.append({
+                "cycle_id": r.get("cycle_id"),
+                "snapshot_ref": snapshot_ref,
+                "reason": f"SNAPSHOT_INVALID_JSON:{exc}",
+            })
+            continue
+        if actual_sha != expected_sha:
+            snapshot_failures.append({
+                "cycle_id": r.get("cycle_id"),
+                "snapshot_ref": snapshot_ref,
+                "expected_sha256": expected_sha,
+                "actual_sha256": actual_sha,
+                "reason": "SNAPSHOT_HASH_MISMATCH",
+            })
             continue
         for fr in (obj.get("family_observation") or {}).get("rows", []):
             fid = fr.get("family_id")
@@ -107,6 +150,15 @@ def main() -> int:
         "record_integrity_scope": "DESCRIPTIVE_ONLY_NO_RESELECTION",
         "ledger_integrity": integrity,
         "ledger_head_hash": integrity["head_hash"],
+        "snapshot_integrity": {
+            "checked_pre_decision_snapshots": sum(1 for r in rows if r.get("event_type") == "PRE_DECISION_OBSERVATION"),
+            "failures": snapshot_failures,
+            "status": "PASS" if not snapshot_failures else "BLOCKED",
+        },
+        "outcome_chain_integrity": {
+            "status": "PASS" if not outcome_chain_errors else "BLOCKED",
+            "errors": outcome_chain_errors,
+        },
         "records": len(rows),
         "cycles": cycles,
         "campaign_ids_seen": len(campaign_ids),
@@ -141,7 +193,7 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    return 0
+    return 2 if snapshot_failures or outcome_chain_errors else 0
 
 
 if __name__ == "__main__":
