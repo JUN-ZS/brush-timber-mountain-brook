@@ -298,10 +298,17 @@ def test_strategy_plan_uses_explicit_far_code_hint():
         snap, ps, [], cmap, quotes,
         {"far_dte": 90, "far_delta": 0.08, "near_dte": 30},
     )
-    # This test is intentionally covered by a second call with a manifest hint.
     assert out["status"] == "DATA_GAP"
     out = strategy_plan(
         snap, ps, [], cmap, quotes,
+        {"far_dte": 90, "far_delta": 0.08, "near_dte": 30, "far_code_hint": contracts[0].code},
+    )
+    assert out["status"] == "DATA_GAP"
+    assert "extra unmanaged" in out["reason"]
+
+    # A single explicitly hinted far position is admissible.
+    out = strategy_plan(
+        snap, [ps[0]], [], cmap, quotes,
         {"far_dte": 90, "far_delta": 0.08, "near_dte": 30, "far_code_hint": contracts[0].code},
     )
     assert out["far"]["code"] == contracts[0].code
