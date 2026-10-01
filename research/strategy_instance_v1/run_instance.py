@@ -1098,8 +1098,17 @@ def _cycle_unlocked(args):
     mk=mark_lots(s["lots"],cmap,quotes)
     mk["broker_managed_unrealized_pnl"]=broker_managed_mark["unrealized_pnl"]
     mk["broker_managed_signed_market_value"]=broker_managed_mark["signed_market_value"]
-    gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
     pnl_observation_status=derive_pnl_observation_status(mism,mk["status"])
+    strategy_unrealized_observed = (
+        sf(mk["unrealized_pnl"])
+        if pnl_observation_status in {"OBSERVED_MATCHED","OBSERVED_MATCHED_CLOSED"}
+        else None
+    )
+    gross=(
+        sf(s["realized_pnl"])+strategy_unrealized_observed
+        if strategy_unrealized_observed is not None
+        else None
+    )
     mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
     # These values are updated only after the read-only strategy observation
     # consumes the prior-state window. They must still exist when observation
@@ -1109,8 +1118,10 @@ def _cycle_unlocked(args):
     current_far_delta_abs = None
     s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
     l.append("MARK_TO_MARKET",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={
-        "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],
-        "gross_pnl":gross,"pnl_observation_status":pnl_observation_status,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
+        "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":strategy_unrealized_observed,
+        "gross_pnl":gross,"pnl_observation_status":pnl_observation_status,
+        "unverified_strategy_book_mark": mk if pnl_observation_status=="DATA_GAP" else None,
+        "signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
     strategy_observation_ok = False
     if args.observe_strategy_plan and snap.get("status")=="OK":
         try:
@@ -1165,10 +1176,12 @@ def _cycle_unlocked(args):
     if tr.get("deal_warning"):
         s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"DEAL_FEED","warning":tr["deal_warning"]},source="BROKER_OBSERVED")
     s["last_pnl_observation_status"]=pnl_observation_status
+    s["last_strategy_unrealized_pnl"]=strategy_unrealized_observed
     s["last_cycle_at"]=t; s["last_history_backfill_at"]=t if history_used else s.get("last_history_backfill_at"); save(spath(repo,args.instance_id),s)
     out={"status":"RECORDED","instance_id":args.instance_id,"cycle_id":cid,"timestamp_utc":t,
          "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],"gross_pnl":gross,
          "pnl_observation_status":pnl_observation_status,
+         "strategy_unrealized_pnl_observed":strategy_unrealized_observed,
          "strategy_attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
          "strategy_book_scope":"STRATEGY_ATTRIBUTED_EXECUTIONS_ONLY","manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"] if mmk["status"]=="OK" else None,"total_pnl":(s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"])) if mmk["status"]=="OK" else None,"trade_count":s["manual_trade_count"],"mark_status":mmk["status"],"positions":manual_position_snapshot(s.get("manual_lots",[]))},
          "reconcile":s["last_reconcile"],"history_backfill_used":history_used,"history_start":tr.get("history_start"),"data_gaps_total":s["data_gaps"],"snapshot_sha256":sh,"ledger_head":l.validate()["head_hash"]}
@@ -1539,6 +1552,8 @@ def instance_summary(repo, instance_id):
             "strategy_deal_count":len(s.get("strategy_deal_ids",[])),
             "unattributed_deal_count":len(s.get("unattributed_deal_ids",[])),
             "attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
+            "pnl_observation_status":s.get("last_pnl_observation_status","DATA_GAP"),
+            "strategy_unrealized_pnl_observed":s.get("last_strategy_unrealized_pnl"),
             "last_reconcile":s.get("last_reconcile"),
             "data_gaps":si(s.get("data_gaps")),
         },
