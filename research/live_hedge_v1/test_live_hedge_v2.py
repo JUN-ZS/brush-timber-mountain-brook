@@ -136,6 +136,41 @@ class LiveHedgeV2Test(unittest.TestCase):
         parsed = FutuTradeReader()._parse_deals(DF())
         self.assertEqual(parsed[0]["deal_id"], "")
 
+    def test_trade_reader_warns_on_missing_timestamp_and_unknown_side(self):
+        from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
+        class Row:
+            def get(self, key, default=None):
+                return {
+                    "deal_id":"D1",
+                    "code":"US.QQQ261230C00600000",
+                    "trd_side":"SELL",
+                    "qty":1,
+                    "price":2.0,
+                    "create_time":"",
+                }.get(key, default)
+        class DF:
+            def iterrows(self):
+                yield 0, Row()
+        parsed=FutuTradeReader()._parse_deals(DF())
+        self.assertEqual(parsed[0]["created_at"], "")
+
+        class UnknownRow:
+            def get(self, key, default=None):
+                return {
+                    "deal_id":"D2",
+                    "code":"US.QQQ261230C00600000",
+                    "trd_side":"MYSTERY",
+                    "qty":1,
+                    "price":2.0,
+                    "create_time":"2026-10-01 17:00:00",
+                }.get(key, default)
+        class UnknownDF:
+            def iterrows(self):
+                yield 0, UnknownRow()
+        parsed2=FutuTradeReader()._parse_deals(UnknownDF())
+        self.assertEqual(parsed2[0]["side"], "UNKNOWN")
+
+
     def test_position_side_does_not_infer_from_trade_words(self):
         from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
         self.assertEqual(FutuTradeReader._position_side("BUY"), "UNKNOWN")
