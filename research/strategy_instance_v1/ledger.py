@@ -1,5 +1,6 @@
 from __future__ import annotations
-import hashlib, json, os
+import hashlib, json, os, tempfile, threading
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -19,9 +20,46 @@ def sha256_json(v: Any) -> str:
 class InstanceLedgerError(RuntimeError): pass
 
 class InstanceLedger:
+    _THREAD_LOCKS = {}
+    _THREAD_LOCKS_GUARD = threading.Lock()
+
     def __init__(self, path: str | Path, identity: dict[str, Any] | None = None):
         self.path = Path(path); self.identity = identity or {}
         self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _lock_path(self) -> Path:
+        digest = hashlib.sha256(str(self.path.resolve()).encode("utf-8")).hexdigest()
+        return Path(tempfile.gettempdir()) / f"qqq-instance-ledger-{digest}.lock"
+
+    @contextmanager
+    def _file_lock(self):
+        lock_path = self._lock_path()
+        key = str(lock_path)
+        with self._THREAD_LOCKS_GUARD:
+            thread_lock = self._THREAD_LOCKS.setdefault(key, threading.Lock())
+        with thread_lock:
+            lock_path.parent.mkdir(parents=True, exist_ok=True)
+            with lock_path.open("a+b") as fh:
+                fh.seek(0, os.SEEK_END)
+                if fh.tell() == 0:
+                    fh.write(b"0")
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                fh.seek(0)
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fh.seek(0)
+                    if os.name == "nt":
+                        msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:
+                        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
     def _rows(self):
         if not self.path.exists(): return []
