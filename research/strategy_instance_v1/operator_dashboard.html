@@ -390,7 +390,12 @@ async function brokerRefresh(){
   catch(e){setMsg("Broker refresh failed: "+e.message,"yellow");}
 }
 async function refreshAll(){
-  try{await loadInstances();await loadInstance();setMsg("Updated "+new Date().toLocaleTimeString(),"green");}
+  try{
+    await loadInstances();
+    if($("instance").value) await loadInstance();
+    else await loadStrategy();
+    setMsg($("instance").value ? "Updated "+new Date().toLocaleTimeString() : "No manual instance yet; showing live strategy state.","green");
+  }
   catch(e){setMsg("Load error: "+e.message,"yellow");}
 }
 refreshAll();
