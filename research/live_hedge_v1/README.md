@@ -126,7 +126,7 @@ python -m research.live_hedge_v1.run_live_desk --rebaseline-existing-far
 - `run_live_desk.py` — single cycle
 - `watch_live_desk.py` — default 15s loop
 - `dashboard.html` — 5s polling dashboard
-- `events.jsonl` — 邊沿事件 ledger；新事件採 `LIVE_DESK_EVENT.v2` hash chain，舊未 hash event 仍可 recovery，但 integrity 會標為 `LEGACY_UNHASHED`
+- `events.jsonl` — 邊沿事件 ledger；新事件採 `LIVE_DESK_EVENT.v2` hash chain。只有全新 hash chain 才標 `HASHED`；舊未 hash event 混入後會標 `HASHED_WITH_LEGACY_UNVERIFIED_PREFIX`，純 legacy 則標 `LEGACY_UNVERIFIED`，避免把不可驗證的舊前綴說成已完整防竄改
 - `live_cycles.jsonl` — raw watcher cycle log
 - `state.json` — persistent campaign/ticket/lot state
 - `live_state.json` — current desk snapshot
