@@ -66,6 +66,16 @@ def _safe_float(v) -> float:
         return 0.0
 
 
+def _position_dicts(items):
+    """Normalize engine Position objects to the dict shape used by campaign.py."""
+    out = []
+    for p in items:
+        if hasattr(p, "__dict__"):
+            p = p.__dict__
+        out.append(dict(p))
+    return out
+
+
 def _evidence_positions(items):
     out = []
     for p in items:
@@ -769,7 +779,7 @@ def main():
     reconcile_events = []
     reconcile = reconcile_ticket(
         state,
-        positions,
+        _position_dicts(positions),
         [o.__dict__ for o in acct_orders],
         acct.get("deals", []),
     )
