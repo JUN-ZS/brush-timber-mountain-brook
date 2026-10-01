@@ -525,6 +525,53 @@ class LiveHedgeV2Test(unittest.TestCase):
         assert "decision_rank" not in candidates[0]
         assert all(len(x["candidate_sha256"])==64 for x in ranked)
 
+    def test_live_append_event_rejects_unhashed_manual_event(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            store=StateStore(Path(td)/"state.json",Path(td)/"events.jsonl")
+            with self.assertRaises(ValueError):
+                store.append_event({
+                    "type":"MANUAL_BAD_EVENT",
+                    "timestamp":"2026-10-01T21:00:00+00:00",
+                })
+
+
+    def test_live_dynamic_state_replay_overrides_tampered_cache(self):
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            state_path=Path(td)/"state.json"
+            events_path=Path(td)/"events.jsonl"
+            store=StateStore(state_path,events_path)
+            st={}
+            store.emit(
+                st,"DYNAMIC_STATE_OBSERVED",
+                now="2026-10-01T21:00:00+00:00",
+                payload={
+                    "far_code_observed":"US.QQQ.TEST",
+                    "far_delta_abs_observed":0.08,
+                    "gamma_spot_observed":4.0,
+                    "desired_stack":2,
+                    "risk_score":3.4,
+                },
+            )
+            st.update({
+                "far_delta":0.50,
+                "gamma_history":[999.0],
+                "last_target_stack":5,
+                "last_risk_score":1.0,
+            })
+            store.save(st)
+            recovered=store.load()
+            self.assertEqual(recovered["far_delta"],0.08)
+            self.assertEqual(recovered["gamma_history"],[4.0])
+            self.assertEqual(recovered["last_target_stack"],2)
+            self.assertEqual(recovered["last_risk_score"],3.4)
+
+
     def test_blocked_cycle_finalizer_has_no_unbound_decision_context(self):
         import json
         import tempfile
