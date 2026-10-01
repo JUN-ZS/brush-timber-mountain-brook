@@ -55,27 +55,13 @@ jobs:
         run: |
           python -c "from pathlib import Path; from research.evidence_v1.lock_guard import assert_runtime_lock; print(assert_runtime_lock(Path('.'), far_dte=120, far_delta=0.08, near_dte=30))"
       - name: Verify immutable strategy lock
-        shell: bash
-        env:
-          EXPECTED_LOCK_BLOB_SHA: 1ba879f24e367570c3a4e3b04bca607450dc2b8d
+        shell: cmd
         run: |
-          actual=$(git hash-object research/evidence_v1/STRATEGY_LOCK.json)
-          echo "strategy_lock_blob_sha ${actual}"
-          test "${actual}" = "${EXPECTED_LOCK_BLOB_SHA}"
+          python -c "import subprocess; actual=subprocess.check_output(['git','hash-object','research/evidence_v1/STRATEGY_LOCK.json'],text=True).strip(); expected='1ba879f24e367570c3a4e3b04bca607450dc2b8d'; print('strategy_lock_blob_sha',actual); raise SystemExit(0 if actual==expected else 'STRATEGY_LOCK_BLOB_MISMATCH')"
       - name: Verify frozen V22 engine source
-        shell: bash
-        env:
-          ENGINE_COMMIT: 930c949ec5260865f2bf3ee1c6e030dab7b8e4c4
-          SOURCE_ENGINE_PATH: research/qqq_dynamic_near_long_state_engine_v22.py
-          ENGINE_COPY_PATH: research/qqq_dynamic_near_long_state_engine_v22_930c949.py
+        shell: cmd
         run: |
-          git cat-file -e "${ENGINE_COMMIT}^{commit}"
-          git cat-file -e "${ENGINE_COMMIT}:${SOURCE_ENGINE_PATH}"
-          test -f "${ENGINE_COPY_PATH}"
-          git show "${ENGINE_COMMIT}:${SOURCE_ENGINE_PATH}" | cmp -s - "${ENGINE_COPY_PATH}"
-          python -c "import hashlib; p='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; print('engine_copy',hashlib.sha256(open(p,'rb').read()).hexdigest())"
-          python -c "import pathlib; p=pathlib.Path('research/qqq_dynamic_near_long_state_engine_v22_930c949.py'); print('frozen_engine_present', p.stat().st_size)"
-          echo "frozen_engine_match=PASS"
+          python -c "import pathlib,subprocess,hashlib; commit='930c949ec5260865f2bf3ee1c6e030dab7b8e4c4'; src='research/qqq_dynamic_near_long_state_engine_v22.py'; copy='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; subprocess.run(['git','cat-file','-e',commit+'^{commit}'],check=True); subprocess.run(['git','cat-file','-e',commit+':'+src],check=True); data=subprocess.check_output(['git','show',commit+':'+src]); actual=pathlib.Path(copy).read_bytes(); print('engine_copy',hashlib.sha256(actual).hexdigest()); print('frozen_engine_present',len(actual)); raise SystemExit(0 if data==actual else 'FROZEN_ENGINE_MISMATCH')"
       - name: Verify and run locked 72-config family
         shell: cmd
         run: |
