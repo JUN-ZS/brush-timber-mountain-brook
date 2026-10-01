@@ -192,6 +192,8 @@ def load_instance(repo,i):
         # Legacy/partially initialized state: derive the separate manual book
         # from immutable T0, never from mutable broker lots.
         s["manual_lots"]=init_lots(m)
+    s.setdefault("strategy_deal_ids",[])
+    s.setdefault("unattributed_deal_ids",[])
     s.setdefault("manual_realized_pnl",0.0)
     s.setdefault("manual_trade_count",0)
     s.setdefault("manual_last_mark",None)
@@ -469,11 +471,12 @@ def _plan_match_for_deal(rows,deal):
         if age is None or age>PLAN_MATCH_MAX_MINUTES:
             break
         plan_obj=(event.get("payload") or {}).get("plan") or {}
-        for candidate in plan_obj.get("candidate_actions",[]) or []:
+        for idx,candidate in enumerate(plan_obj.get("candidate_actions",[]) or []):
             hit=_candidate_match(candidate,side,code)
             if hit is not None:
                 return {
                     "event_seq":event.get("event_seq"),
+                    "candidate_index":idx,
                     "observed_at_utc":event.get("timestamp_utc"),
                     "action":str(candidate.get("action","")).upper(),
                     "candidate":hit,
@@ -483,7 +486,7 @@ def _plan_match_for_deal(rows,deal):
     return None
 
 
-def attribute_broker_deal(rows,deal):
+def attribute_broker_deal(rows,deal,used_plan_qty=None):
     q=si(deal.get("qty"))
     match=_plan_match_for_deal(rows,deal)
     if q<=0:
@@ -493,9 +496,23 @@ def attribute_broker_deal(rows,deal):
     expected=si((match.get("candidate") or {}).get("qty"))
     if expected<=0:
         return {"status":"UNATTRIBUTED","qty":0,"reason":"matched_candidate_has_no_positive_qty","match":match}
-    qty=min(q,expected)
-    return {"status":"MATCHED_PREDECISION_PLAN","qty":qty,"unattributed_qty":q-qty,
-            "match":match,"basis":"recent_strategy_plan_observation"}
+    key=(
+        str(match.get("event_seq")),
+        int(match.get("candidate_index",0)),
+        str(match.get("action") or ""),
+        str((match.get("candidate") or {}).get("code") or (match.get("candidate") or {}).get("new_code") or ""),
+        str(deal.get("side") or "").upper(),
+    )
+    already=si((used_plan_qty or {}).get(key))
+    remaining=max(0,expected-already)
+    if remaining<=0:
+        return {"status":"UNATTRIBUTED","qty":0,
+                "reason":"strategy_plan_quantity_already_consumed",
+                "match":match,"plan_key":key}
+    qty=min(q,remaining)
+    return {"status":"MATCHED_PREDECISION_PLAN","qty":qty,
+            "unattributed_qty":q-qty,"match":match,"basis":"recent_strategy_plan_observation",
+            "plan_key":key,"plan_remaining_before":remaining}
 
 
 def instance_far_position(m, positions):
@@ -613,9 +630,13 @@ def _cycle_unlocked(args):
             d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100; new.append(d)
     realized_delta=0.0
     prior_rows=l._rows()
+    plan_usage={}
     for d in sorted(new,key=lambda x:(dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),str(x.get("deal_id")))):
         did=str(d["deal_id"])
-        attribution=attribute_broker_deal(prior_rows,d)
+        attribution=attribute_broker_deal(prior_rows,d,plan_usage)
+        if attribution.get("status")=="MATCHED_PREDECISION_PLAN":
+            key=attribution.get("plan_key")
+            plan_usage[key]=si(plan_usage.get(key))+si(attribution.get("qty"))
         if attribution.get("status")=="MATCHED_PREDECISION_PLAN":
             attr_qty=si(attribution.get("qty"))
             attr_deal=dict(d)
@@ -872,7 +893,10 @@ def instance_summary(repo, instance_id):
             "marks":mark.get("rows",[]),
         },
         "broker_book":{
+            "scope":"STRATEGY_OWNED_ONLY",
             "realized_pnl":sf(s.get("realized_pnl")),
+            "strategy_deal_count":len(s.get("strategy_deal_ids",[])),
+            "unattributed_deal_count":len(s.get("unattributed_deal_ids",[])),
             "last_reconcile":s.get("last_reconcile"),
             "data_gaps":si(s.get("data_gaps")),
         },
@@ -905,7 +929,13 @@ def report(a):
     for r in rows: counts[r["event_type"]]=counts.get(r["event_type"],0)+1
     out={"schema":"STRATEGY_INSTANCE_REPORT.v1","instance_id":a.instance_id,"strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
          "start_at_utc":m.get("start_at_utc"),"created_at_utc":m.get("created_at_utc"),"manifest_hash":m.get("manifest_hash"),
-         "records":len(rows),"event_counts":counts,"cycle_count":s.get("cycle_count"),"realized_pnl_gross":s.get("realized_pnl"),"manual_book":{"realized_pnl":s.get("manual_realized_pnl",0.0),"unrealized_pnl":((s.get("manual_last_mark") or {}).get("unrealized_pnl") if (s.get("manual_last_mark") or {}).get("status")=="OK" else None),"total_pnl":(sf(s.get("manual_realized_pnl"))+sf((s.get("manual_last_mark") or {}).get("unrealized_pnl"))) if (s.get("manual_last_mark") or {}).get("status")=="OK" else None,"trade_count":s.get("manual_trade_count",0),"mark_status":(s.get("manual_last_mark") or {}).get("status"),"positions":manual_position_snapshot(s.get("manual_lots",[]))},
+         "records":len(rows),"event_counts":counts,"cycle_count":s.get("cycle_count"),
+         "execution_attribution":{
+             "strategy_deals":len(s.get("strategy_deal_ids",[])),
+             "unattributed_deals":len(s.get("unattributed_deal_ids",[])),
+             "policy":"only recent pre-decision strategy-plan matches enter strategy P&L; all other broker QQQ executions remain observed but unattributed",
+         },
+         "realized_pnl_gross":s.get("realized_pnl"),"manual_book":{"realized_pnl":s.get("manual_realized_pnl",0.0),"unrealized_pnl":((s.get("manual_last_mark") or {}).get("unrealized_pnl") if (s.get("manual_last_mark") or {}).get("status")=="OK" else None),"total_pnl":(sf(s.get("manual_realized_pnl"))+sf((s.get("manual_last_mark") or {}).get("unrealized_pnl"))) if (s.get("manual_last_mark") or {}).get("status")=="OK" else None,"trade_count":s.get("manual_trade_count",0),"mark_status":(s.get("manual_last_mark") or {}).get("status"),"positions":manual_position_snapshot(s.get("manual_lots",[]))},
          "last_reconcile":s.get("last_reconcile"),"data_gaps_total":s.get("data_gaps"),"open_lots":[x for x in s.get("lots",[]) if x.get("status","OPEN")=="OPEN" and si(x.get("qty"))>0],
          "ledger_head_hash":l.validate()["head_hash"],
          "performance_tape":build_performance_tape(
