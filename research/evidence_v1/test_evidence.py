@@ -56,6 +56,43 @@ def test_last_is_consistent_with_append():
         assert last["event_type"] == "DATA_GAP"
 
 
+def test_report_reads_only_validated_ledger_and_dedupes_corrections():
+    import json
+    import tempfile
+    from research.evidence_v1.report import main as report_main
+
+    with tempfile.TemporaryDirectory() as td:
+        root=Path(td)
+        ev=root/"research/evidence_v1/evidence.jsonl"
+        ledger=EvidenceLedger(ev)
+        for et,t in [
+            ("CYCLE_STARTED","2026-10-01T00:00:00+00:00"),
+            ("PRE_DECISION_OBSERVATION","2026-10-01T00:00:01+00:00"),
+            ("DECISION_EMITTED","2026-10-01T00:00:02+00:00"),
+        ]:
+            payload={"candidate_actions":[],"primary":None} if et=="DECISION_EMITTED" else {}
+            ledger.append(et,cycle_id="C1",campaign_id="CAMP1",timestamp_utc=t,payload=payload)
+        first=ledger.append(
+            "OUTCOME_RESOLVED",cycle_id="O1",campaign_id="CAMP1",
+            timestamp_utc="2026-10-01T01:00:00+00:00",
+            payload={"realized_pnl":100.0,"benchmark_return":0.01},
+        )
+        second=ledger.append(
+            "OUTCOME_RESOLVED",cycle_id="O2",campaign_id="CAMP1",
+            timestamp_utc="2026-10-01T02:00:00+00:00",
+            payload={"realized_pnl":80.0,"benchmark_return":0.008,
+                     "corrects_evidence_id":first["evidence_id"]},
+        )
+        import sys
+        from unittest.mock import patch
+        with patch.object(sys,"argv",["report.py","--repo-root",str(root)]):
+            assert report_main()==0
+        report=json.loads((root/"research/evidence_v1/sealed/LONGITUDINAL_REPORT.json").read_text(encoding="utf-8"))
+        assert report["ledger_head_hash"]==ledger.validate()["head_hash"]
+        assert report["outcome_metrics"]["resolved_outcomes"]==1
+        assert report["outcome_metrics"]["realized_pnl_sum"]==80.0
+
+
 def test_outcome_rows_api_is_locked_snapshot():
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "evidence.jsonl"
