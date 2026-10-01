@@ -85,7 +85,13 @@ OOS_WINDOWS = {
 
 
 def mask_campaigns(u_full: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
-    u = u_full.copy()
+    """Clip the entire evaluation dataset to the declared holdout window.
+
+    Signal indicators were computed on the full historical series before this
+    boundary is applied, so pre-window history remains available for causal
+    lookbacks. No post-window underlying/option rows can enter the replay.
+    """
+    u = u_full.loc[u_full["date"].between(start, end)].copy()
     u["signal"] = u["signal"] & u["date"].between(start, end)
     return u
 
@@ -387,6 +393,8 @@ def main():
 
         "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
         "virgin_oos_status": "NOT_VIRGIN_BECAUSE_PRIOR_SELECTION_USED_FULL_V22_SAMPLE",
+        "evaluation_window_rule": "DATA_CLIPPED_TO_WINDOW_END; CAMPAIGNS_WITHOUT_AN_OBSERVABLE_FAR_EXIT_BY_WINDOW_END_ARE_NOT_SCORED",
+        "post_window_data_used": False,
         "windows": {},
     }
 
