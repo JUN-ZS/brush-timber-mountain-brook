@@ -151,6 +151,32 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(peak[0], 1)
 
 
+    def test_state_events_are_hash_chained_and_tamper_detectable(self):
+        import json
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            state_path = base / "state.json"
+            events_path = base / "events.jsonl"
+            store = StateStore(state_path, events_path)
+            state = {}
+            first = store.emit(state, "TICKET_ISSUED", now="2026-10-01T21:00:00+00:00", payload={"x": 1})
+            second = store.emit(state, "TARGET_STACK_CHANGE", now="2026-10-01T21:00:01+00:00", payload={"from": 1, "to": 2})
+            self.assertEqual(first["previous_hash"], "0" * 64)
+            self.assertEqual(second["previous_hash"], first["event_hash"])
+            self.assertEqual(store.validate_events()["integrity"], "HASHED")
+
+            rows = [json.loads(line) for line in events_path.read_text(encoding="utf-8").splitlines()]
+            rows[0]["payload"]["x"] = 999
+            events_path.write_text(
+                "\n".join(json.dumps(x, ensure_ascii=False, separators=(",", ":")) for x in rows) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                store.validate_events()
+
     def test_action_card_preserves_explicit_roll_leg_semantics(self):
         ticket = {
             "status": "OPEN",
