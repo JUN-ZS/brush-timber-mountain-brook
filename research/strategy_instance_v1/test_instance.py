@@ -271,6 +271,30 @@ def test_unverified_strategy_pnl_is_not_presented_as_observed():
     assert derive_pnl_observation_status([], "EMPTY") == "OBSERVED_MATCHED_CLOSED"
 
 
+def test_instance_strategy_lineage_rejects_engine_or_lock_drift():
+    import tempfile
+    import research.strategy_instance_v1.run_instance as ri
+    from .run_instance import assert_instance_strategy_lineage
+
+    manifest={"strategy_id":"S1","strategy_version":"V1",
+              "research_engine_commit":"ENG1","strategy_lock_hash":"LOCK1"}
+    with tempfile.TemporaryDirectory() as td:
+        original=ri.runtime_identity
+        try:
+            ri.runtime_identity=lambda repo: {
+                "strategy_id":"S1","strategy_version":"V1",
+                "research_engine_commit":"ENG2","strategy_lock_hash":"LOCK1",
+            }
+            try:
+                assert_instance_strategy_lineage(Path(td),manifest)
+            except SystemExit as exc:
+                assert "research_engine_commit" in str(exc)
+            else:
+                raise AssertionError("engine lineage drift must block the cycle")
+        finally:
+            ri.runtime_identity=original
+
+
 def test_unmanaged_broker_qqq_short_is_reconciliation_gap():
     from .run_instance import reconcile
     lots=[{"lot_id":"T0","code":"US.QQQ261230C00600000","side":"LONG","qty":1,"avg_price":5.0,"status":"OPEN","lot_size":100}]
