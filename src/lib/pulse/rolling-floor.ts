@@ -77,6 +77,7 @@ export type CoupledSignal = {
     target: number | null;
     agreement: number;
     nSignals: number;
+    responseProfile: DeploymentResponseProfile | null;
   }>;
   robustTarget: number | null;
   agreement: number;
@@ -461,17 +462,22 @@ export function couple(
     );
     const xs = scaleSignals.map((s) => s.target as number);
     const c = robustConsensus(xs);
-    const profiles = scaleSignals.map((s) => s.floorProfile).filter(Boolean) as FloorProfile[];
-    const profile =
-      profiles.length > 0
+    const responseProfiles = scaleSignals
+      .map((s) => s.responseProfile)
+      .filter(Boolean) as DeploymentResponseProfile[];
+    const responseProfile =
+      responseProfiles.length > 0
         ? {
-            probabilities: profiles[0].probabilities,
-            requiredFrontLoad: profiles[0].probabilities.map((_, i) =>
-              median(profiles.map((p) => p.requiredFrontLoad[i])) ?? 0
+            deploymentFractions: responseProfiles[0].deploymentFractions,
+            q05Terminal: responseProfiles[0].deploymentFractions.map((_, i) =>
+              median(responseProfiles.map((p) => p.q05Terminal[i])) ?? 0
             ),
-            meanRequiredFrontLoad:
-              profiles.reduce((sum, p) => sum + p.meanRequiredFrontLoad, 0) / profiles.length,
-            maxRequiredFrontLoad: Math.max(...profiles.map((p) => p.maxRequiredFrontLoad)),
+            pNonLoss: responseProfiles[0].deploymentFractions.map((_, i) =>
+              median(responseProfiles.map((p) => p.pNonLoss[i])) ?? 0
+            ),
+            meanTerminal: responseProfiles[0].deploymentFractions.map((_, i) =>
+              median(responseProfiles.map((p) => p.meanTerminal[i])) ?? 0
+            ),
           }
         : null;
     return {
@@ -479,7 +485,7 @@ export function couple(
       target: c.center,
       agreement: c.agreement,
       nSignals: xs.length,
-      profile,
+      responseProfile,
     };
   }).filter((x) => x.nSignals > 0);
 
