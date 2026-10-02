@@ -13,35 +13,141 @@ on:
       - ".github/workflows/rolling-floor.yml"
 
 jobs:
-  rolling-floor:
-    runs-on: [self-hosted, windows, x64]
+  shard:
+    name: Shard / ${{ matrix.channel }} / ${{ matrix.lane }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lane: windows
+            channel: QQQ
+            runs_on: '["self-hosted","windows","x64"]'
+          - lane: linux
+            channel: NDX
+            runs_on: '["self-hosted","linux","x64"]'
+          - lane: hub-web
+            channel: NASDAQCOM
+            runs_on: '["ubuntu-latest"]'
+    runs-on: ${{ fromJSON(matrix.runs_on) }}
     timeout-minutes: 20
-    defaults:
-      run:
-        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-      - name: Install dependencies
+          check-latest: false
+      - name: Verify Node-only research runtime
+        shell: bash
         run: |
-          if npm ci --no-audit --no-fund; then
-            echo "npm ci ok"
-          else
-            echo "lockfile out of sync; falling back to npm install"
-            npm install --no-audit --no-fund
-          fi
-      - name: Unit tests
-        run: node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts
-      - name: Rolling floor replay
-        run: node --experimental-strip-types scripts/run-rolling-floor.ts
-      - name: Upload research artifacts
+          node --version
+          test -f scripts/run-rolling-floor.ts
+          test -f src/lib/pulse/rolling-floor.ts
+      - name: Compute channel shard
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rolling-floor-shard"
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode shard \
+            --channel "${{ matrix.channel }}" \
+            --out-dir "$RUNNER_TEMP/rolling-floor-shard"
+      - name: Verify shard JSON
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const p = process.env.RUNNER_TEMP + "/rolling-floor-shard/${{ matrix.channel }}.json";
+          const x = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (x.kind !== "CHANNEL_SHARD") throw new Error("bad shard kind");
+          if (x.channel !== "${{ matrix.channel }}") throw new Error("bad channel");
+          if (!Array.isArray(x.signals) || x.signals.length === 0) throw new Error("empty signals");
+          console.log("PASS", x.channel, "signals=", x.signals.length);
+          NODE
+      - name: Upload channel shard
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rolling-10y-floor
+          name: rolling-floor-shard-${{ matrix.channel }}
+          path: ${{ runner.temp }}/rolling-floor-shard/${{ matrix.channel }}.json
+          if-no-files-found: error
+
+  bridge:
+    name: Bridge / coupled replay
+    if: ${{ always() }}
+    needs: shard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Collect three channel shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rolling-floor-shard-*
+          path: inputs/rolling_floor_shards
+          merge-multiple: true
+      - name: Verify three-channel bridge inputs
+        shell: bash
+        run: |
+          test -s inputs/rolling_floor_shards/QQQ.json
+          test -s inputs/rolling_floor_shards/NDX.json
+          test -s inputs/rolling_floor_shards/NASDAQCOM.json
+          node - <<'NODE'
+          const fs = require("node:fs");
+          for (const c of ["QQQ","NDX","NASDAQCOM"]) {
+            const p = "inputs/rolling_floor_shards/" + c + ".json";
+            const x = JSON.parse(fs.readFileSync(p, "utf8"));
+            if (x.kind !== "CHANNEL_SHARD" || x.channel !== c) throw new Error("bad shard "+c);
+            console.log("bridge input", c, "signals=", x.signals.length);
+          }
+          NODE
+      - name: Bridge and replay
+        shell: bash
+        run: |
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode bridge \
+            --input-dir inputs/rolling_floor_shards \
+            --out-dir research/rolling_10y_floor
+      - name: Verify bridge outputs are runnable JSON
+        shell: bash
+        run: |
+          test -s research/rolling_10y_floor/rolling_floor_result.json
+          test -s research/rolling_10y_floor/rolling_floor_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_report.md
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const x = JSON.parse(fs.readFileSync("research/rolling_10y_floor/rolling_floor_result.json","utf8"));
+          if (x.version !== "rolling-floor.v2") throw new Error("wrong result version");
+          if (x.replay?.n <= 0) throw new Error("no replay rows");
+          console.log("PASS bridge", x.replay.n, "replays");
+          NODE
+      - name: Assemble offline portable rerun bundle
+        shell: bash
+        run: |
+          rm -rf portable
+          mkdir -p portable/scripts portable/src/lib/pulse portable/src/data portable/inputs/rolling_floor_shards portable/output
+          cp scripts/run-rolling-floor.ts portable/scripts/run-rolling-floor.ts
+          cp src/lib/pulse/rolling-floor.ts portable/src/lib/pulse/rolling-floor.ts
+          cp src/lib/pulse/bars.ts portable/src/lib/pulse/bars.ts
+          cp src/data/universe.json portable/src/data/universe.json
+          cp inputs/rolling_floor_shards/*.json portable/inputs/rolling_floor_shards/
+          cp research/rolling_10y_floor/rolling_floor_result.json portable/output/rolling_floor_result.json
+          cp research/rolling_10y_floor/rolling_floor_replays.jsonl portable/output/rolling_floor_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_report.md portable/output/rolling_floor_report.md
+          cp research/rolling_10y_floor/PORTABLE_RUN.md portable/PORTABLE_RUN.md
+          cp research/rolling_10y_floor/portable/RUN.cmd portable/RUN.cmd
+          cp research/rolling_10y_floor/portable/RUN.sh portable/RUN.sh
+          chmod +x portable/RUN.sh
+      - name: Upload final research + portable bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rolling-10y-floor-final
           path: |
             research/rolling_10y_floor/rolling_floor_result.json
             research/rolling_10y_floor/rolling_floor_replays.jsonl
             research/rolling_10y_floor/rolling_floor_report.md
+            portable/
+          if-no-files-found: error
