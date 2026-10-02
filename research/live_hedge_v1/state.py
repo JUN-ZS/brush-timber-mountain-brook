@@ -661,18 +661,30 @@ class StateStore:
                 state["gamma_history"] = gamma_values[-20:]
                 state["gamma_history_schema"] = GAMMA_HISTORY_SCHEMA
                 state["gamma_history_unit"] = GAMMA_HISTORY_UNIT
-            if latest.get("far_delta_abs_observed") is not None:
-                try:
-                    state["far_delta"] = abs(float(latest["far_delta_abs_observed"]))
-                except (TypeError, ValueError):
-                    pass
-            if latest.get("far_code_observed"):
-                state["far_code"] = latest["far_code_observed"]
-            if "desired_stack" in latest:
-                state["last_target_stack"] = latest.get("desired_stack")
-                state.setdefault("campaign", {})["target_stack"] = latest.get("desired_stack")
-            if "risk_score" in latest:
-                state["last_risk_score"] = latest.get("risk_score")
+
+            # Dynamic observations are sparse field updates. A later event may
+            # intentionally omit a field; replay the latest non-null value for
+            # each field rather than treating omission as deletion.
+            for field, state_key in (
+                ("far_delta_abs_observed", "far_delta"),
+                ("far_code_observed", "far_code"),
+                ("desired_stack", "last_target_stack"),
+                ("risk_score", "last_risk_score"),
+            ):
+                for observation in reversed(recovered_dynamic):
+                    if field not in observation or observation.get(field) is None:
+                        continue
+                    value = observation.get(field)
+                    if field == "far_delta_abs_observed":
+                        try:
+                            state[state_key] = abs(float(value))
+                        except (TypeError, ValueError):
+                            pass
+                    else:
+                        state[state_key] = value
+                    if field == "desired_stack":
+                        state.setdefault("campaign", {})["target_stack"] = value
+                    break
             state["dynamic_state_source"] = "EVENT_REPLAY"
 
         max_event_seq = max(
