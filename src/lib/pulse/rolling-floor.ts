@@ -49,9 +49,12 @@ export type ChannelScaleSignal = {
   status: "OK" | "INSUFFICIENT_HISTORY";
 };
 
+export type DivergenceState = "CONVERGENT" | "TENSION" | "DIVERGENT" | "THIN";
+
 export type CoupledSignal = {
   asof: string;
   clockTarget: number;
+  divergenceState: DivergenceState;
   signals: ChannelScaleSignal[];
   perScale: Array<{
     scaleYears: TrapScale;
@@ -93,6 +96,8 @@ const MIN_ANALOGS = 8;
 const MAX_ANALOGS = 24;
 const ANALOG_STRIDE_MONTHS = 3;
 const AGREEMENT_MAD_SCALE = 0.15;
+const TENSION_AGREEMENT = 0.80;
+const DIVERGENT_AGREEMENT = 0.50;
 
 function clamp(x: number, lo = 0, hi = 1) {
   return Math.max(lo, Math.min(hi, x));
@@ -342,6 +347,19 @@ function robustConsensus(targets: number[]) {
   return { center, agreement };
 }
 
+export function divergenceState(scaleCount: number, agreement: number): DivergenceState {
+  if (scaleCount < 2) return "THIN";
+  if (agreement >= TENSION_AGREEMENT) return "CONVERGENT";
+  if (agreement >= DIVERGENT_AGREEMENT) return "TENSION";
+  return "DIVERGENT";
+}
+
+function stateAuthority(state: DivergenceState, agreement: number) {
+  if (state === "CONVERGENT") return agreement;
+  if (state === "TENSION") return agreement * 0.5;
+  return 0;
+}
+
 export function couple(
   asof: string,
   elapsedMonths: number,
@@ -369,7 +387,8 @@ export function couple(
   // The trap is only allowed to pull capital forward when at least two
   // independent historical scales agree. One available scale is descriptive,
   // not a consensus signal, so authority returns to the clock.
-  const signalAuthority = scaleTargets.length >= 2 ? finalConsensus.agreement : 0;
+  const divergence = divergenceState(scaleTargets.length, finalConsensus.agreement);
+  const signalAuthority = stateAuthority(divergence, finalConsensus.agreement);
   const coupledTarget =
     finalConsensus.center == null
       ? clockTarget
@@ -378,6 +397,7 @@ export function couple(
   return {
     asof,
     clockTarget,
+    divergenceState: divergence,
     signals,
     perScale,
     robustTarget: finalConsensus.center,
