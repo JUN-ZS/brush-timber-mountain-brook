@@ -16,6 +16,9 @@ type LedgerEntry = {
   asOf: string;
   month: number;
   amount: number;
+  price?: number | null;
+  priceObservedAt?: string | null;
+  priceSource?: "YAHOO_FINANCE_CHART" | "UNAVAILABLE";
 };
 
 type RiskBaselineProfileView = {
@@ -342,6 +345,9 @@ function Page() {
         asOf: snapshot.current.asOf,
         month,
         amount: actualNow,
+        price: liveContext.find((x) => x.symbol === "QQQ")?.price ?? null,
+        priceObservedAt: liveContext.find((x) => x.symbol === "QQQ")?.regularMarketTime ?? null,
+        priceSource: liveContext.find((x) => x.symbol === "QQQ")?.price != null ? "YAHOO_FINANCE_CHART" : "UNAVAILABLE",
       },
     ]);
     setActualNow(0);
@@ -1252,7 +1258,7 @@ function LedgerTable({
   if (!entries.length) {
     return (
       <p className="mt-4 rounded-md border border-dashed border-line p-4 text-sm text-muted">
-        尚未記錄投入點。你在上面的「Actual cash invested now」輸入數字時，圖表會即時預覽。
+        尚未記錄投入點。輸入 Actual cash invested now 只會改變 SIM 預覽；按「記錄今次實際投入」時，系統會額外封存當下可取得的 QQQ Yahoo 價格與觀測時間。
       </p>
     );
   }
@@ -1285,6 +1291,7 @@ function LedgerTable({
           <tr>
             <th className="py-2">month</th>
             <th className="py-2">投入</th>
+            <th className="py-2">QQQ price</th>
             <th className="py-2">累積</th>
             <th className="py-2">clock</th>
             <th className="py-2">delta</th>
@@ -1296,6 +1303,9 @@ function LedgerTable({
             <tr key={entry.id} className="border-t border-line">
               <td className="py-2 font-mono tabular-nums">{entry.month + 1}</td>
               <td className="py-2 font-mono tabular-nums">{fmtUsd(entry.amount, 2)}</td>
+              <td className="py-2 font-mono tabular-nums">
+                {entry.price == null ? "—" : fmtUsd(entry.price, 2)}
+              </td>
               <td className="py-2 font-mono tabular-nums">{fmtPct(fraction, 2)}</td>
               <td className="py-2 font-mono tabular-nums">{fmtPct(clock, 2)}</td>
               <td className="py-2 font-mono tabular-nums">{fmtPct(fraction - clock, 2)}</td>
