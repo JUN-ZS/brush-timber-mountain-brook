@@ -248,7 +248,8 @@ function Page() {
                   type="button"
                   onClick={() => {
                     setLedger([]);
-                    setAlreadyDeployed(0);
+                    setStartingDeployed(0);
+                    setActualNow(0);
                   }}
                   className="min-h-11 rounded-md border border-line px-4 text-sm text-subtle hover:text-fg"
                 >
