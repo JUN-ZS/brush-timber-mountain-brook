@@ -1,0 +1,81 @@
+{
+  "schema": "QQQ_LOCKED_OOS_ATTESTATION.v1",
+  "purpose": "Archive one successful heavyweight locked-OOS replay so infrastructure-only PR edits do not force repeated full replay.",
+  "source": {
+    "workflow": "QQQ V22 Locked OOS Family V2",
+    "run_id": 37017887690,
+    "run_number": 603,
+    "artifact_id": 11232466135,
+    "artifact_digest": "sha256:f539edaa90aa1523ccd8e5373c7d52faa4f647270e55648dd2fc436165ab0b16",
+    "head_sha": "d6b1f33d86351cf12d2b218909c54a16ac12ddd2",
+    "completed_at_utc": "2026-10-02T14:15:13Z"
+  },
+  "immutable_inputs": {
+    "engine_commit": "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
+    "frozen_engine_sha256": "56bff3fc5240871df7dff010c55a8f01f1fe8ac22d6f45036958723a68e3e15e",
+    "strategy_lock_hash": "26adeb6f55149c367903af27b953dafeb657d1470455b8f7c42e99a63c3d8460",
+    "strategy_lock_blob_sha": "1ba879f24e367570c3a4e3b04bca607450dc2b8d",
+    "canonical_data_sha256": {
+      "QQQ_options.parquet": "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734",
+      "QQQ_underlying.parquet": "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351"
+    }
+  },
+  "replay_definition": {
+    "candidate": "30D near + 1.50x coverage",
+    "candidate_family_configs": 72,
+    "family_definition": "9 far DTE×delta combinations × all 8 policies; no sub-selection inside OOS",
+    "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
+    "virgin_oos_status": "NOT_VIRGIN_BECAUSE_PRIOR_SELECTION_USED_FULL_V22_SAMPLE",
+    "window_semantics": "ENTRY_COHORT_WITH_CUTOFF",
+    "post_window_data_used": false,
+    "evaluation_window_rule": "DATA_CLIPPED_TO_WINDOW_END; CAMPAIGNS_WITHOUT_AN_OBSERVABLE_FAR_EXIT_BY_WINDOW_END_ARE_NOT_SCORED"
+  },
+  "windows": {
+    "forward_holdout_2022-03-08_to_2025-12-15": {
+      "start": "2022-03-08",
+      "end": "2025-12-15",
+      "gamma_mode": "OBSERVED_GAMMA",
+      "unresolved_config_rows_excluded_at_cutoff": 0,
+      "n_configs": 72,
+      "n_campaign_rows": 464,
+      "positive_config_ratio": 0.8888888888888888,
+      "median_config_total_pnl_usd": 9313,
+      "q25_config_total_pnl_usd": 5295.250000000003,
+      "q75_config_total_pnl_usd": 16193.500000000002,
+      "positive_campaign_ratio": 0.6724137931034483,
+      "median_campaign_pnl_usd": 1316,
+      "mean_campaign_maxdd": -0.05453381917676749,
+      "worst_campaign_pnl_usd": -9827,
+      "worst_campaign_maxdd": -0.18178627187582197,
+      "total_pnl_usd": 752996,
+      "far_pnl_usd": -644800,
+      "near_realized_pnl_usd": 1397796,
+      "near_trades": 7056,
+      "near_win_rate": 0.6866496598639455
+    },
+    "late_holdout_2024-01-02_to_2025-12-15": {
+      "start": "2024-01-02",
+      "end": "2025-12-15",
+      "gamma_mode": "OBSERVED_GAMMA",
+      "unresolved_config_rows_excluded_at_cutoff": 0,
+      "n_configs": 72,
+      "n_campaign_rows": 336,
+      "positive_config_ratio": 1,
+      "median_config_total_pnl_usd": 10732.5,
+      "q25_config_total_pnl_usd": 6503.500000000002,
+      "q75_config_total_pnl_usd": 15420.25,
+      "positive_campaign_ratio": 0.8363095238095238,
+      "median_campaign_pnl_usd": 2223.9999999999995,
+      "mean_campaign_maxdd": -0.04659079760689949,
+      "worst_campaign_pnl_usd": -9827,
+      "worst_campaign_maxdd": -0.18178627187582197,
+      "total_pnl_usd": 852234,
+      "far_pnl_usd": 187040,
+      "near_realized_pnl_usd": 665194,
+      "near_trades": 4639,
+      "near_win_rate": 0.6497089890062513
+    }
+  },
+  "status": "ARCHIVED_INPUT_MATCH_REQUIRED",
+  "rule": "This attestation is valid only while immutable input hashes match. Any alpha/lock/frozen-engine change invalidates it and requires a fresh heavyweight replay. Infrastructure-only changes do not."
+}
