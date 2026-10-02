@@ -5,12 +5,10 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    paths:
-      - "src/lib/pulse/rolling-floor.ts"
-      - "src/lib/pulse/rolling-floor.test.ts"
-      - "scripts/run-rolling-floor.ts"
-      - ".github/workflows/rolling-floor.yml"
+
+concurrency:
+  group: rolling-floor-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   shard:
