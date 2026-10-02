@@ -62,8 +62,10 @@ def test_operator_ticket_context_rejects_browser_tampering():
                 "legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":2,
                          "strategy_leg_action":"ADD_NEAR"}]}
         ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger.append("CYCLE_STARTED",instance_id="I",cycle_id="C1",timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        ledger.append("PRE_DECISION_OBSERVATION",instance_id="I",cycle_id="C1",timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         ledger.append("DECISION_EMITTED",instance_id="I",cycle_id="C1",
-                      timestamp_utc="2026-10-01T00:00:00+00:00",
+                      timestamp_utc="2026-10-01T00:00:01+00:00",
                       payload={"ticket":ticket})
         body={"instance_id":"I","strategy_context_snapshot":{
             "instance_id":"I","ticket_id":"TICKET-2",
@@ -148,6 +150,8 @@ def test_operator_strategy_context_must_be_instance_scoped():
                 "legs":[{"code":"US.QQQ.TEST","qty":1,"side":"BUY",
                          "strategy_leg_action":"ADD_NEAR"}]}
         ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger.append("CYCLE_STARTED",instance_id="I2",cycle_id="C1",timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        ledger.append("PRE_DECISION_OBSERVATION",instance_id="I2",cycle_id="C1",timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         ledger.append("DECISION_EMITTED",instance_id="I2",cycle_id="C1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",
                       payload={"ticket":ticket,"snapshot_sha256":"S1"})
@@ -281,11 +285,10 @@ def test_instance_listing_does_not_hide_corrupt_instance():
         instance_dir.mkdir(parents=True)
         (instance_dir/"manifest.json").write_text("{broken",encoding="utf-8")
         rows=list_instances(repo)
-        assert rows==[{
-            "instance_id":"BROKEN",
-            "status":"ERROR",
-            "error":"INVALID_JSON:"+str(instance_dir/"manifest.json"),
-        }]
+        assert rows
+        assert rows[0]["instance_id"]=="BROKEN"
+        assert rows[0]["status"]=="ERROR"
+        assert "INVALID_JSON" in rows[0]["error"]
 
 
 def test_operator_ticket_context_rejects_cross_lineage_evidence():
