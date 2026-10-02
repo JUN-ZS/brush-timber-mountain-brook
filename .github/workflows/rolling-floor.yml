@@ -1,0 +1,44 @@
+name: Rolling 10Y Capital Floor
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "src/lib/pulse/rolling-floor.ts"
+      - "src/lib/pulse/rolling-floor.test.ts"
+      - "scripts/run-rolling-floor.ts"
+      - ".github/workflows/rolling-floor.yml"
+
+jobs:
+  rolling-floor:
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install dependencies
+        run: |
+          if npm ci --no-audit --no-fund; then
+            echo "npm ci ok"
+          else
+            echo "lockfile out of sync; falling back to npm install"
+            npm install --no-audit --no-fund
+          fi
+      - name: Unit tests
+        run: node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts
+      - name: Rolling floor replay
+        run: node --experimental-strip-types scripts/run-rolling-floor.ts
+      - name: Upload research artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rolling-10y-floor
+          path: |
+            research/rolling_10y_floor/rolling_floor_result.json
+            research/rolling_10y_floor/rolling_floor_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_report.md
