@@ -48,22 +48,10 @@ jobs:
                 done
           done
 
-  shard:
-    name: Shard / ${{ matrix.channel }} / ${{ matrix.lane }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - lane: windows
-            channel: QQQ
-            runs_on: '["self-hosted","windows","x64"]'
-          - lane: linux
-            channel: NDX
-            runs_on: '["self-hosted","linux","x64"]'
-          - lane: hub-web
-            channel: NASDAQCOM
-            runs_on: '["ubuntu-latest"]'
-    runs-on: ${{ fromJSON(matrix.runs_on) }}
+  qqq-windows-audit:
+    name: Worker / QQQ / Windows audit
+    runs-on: [self-hosted, windows, x64]
+    continue-on-error: true
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -77,38 +65,67 @@ jobs:
           node --version
           test -f scripts/run-rolling-floor.ts
           test -f src/lib/pulse/rolling-floor.ts
-      - name: Compute channel shard
+      - name: Compute QQQ audit shard
         shell: bash
         run: |
-          mkdir -p "$RUNNER_TEMP/rolling-floor-shard"
+          mkdir -p "$RUNNER_TEMP/rolling-floor-qqq-audit"
           node --experimental-strip-types scripts/run-rolling-floor.ts \
             --mode shard \
-            --channel "${{ matrix.channel }}" \
-            --out-dir "$RUNNER_TEMP/rolling-floor-shard"
-      - name: Verify shard JSON
-        shell: bash
-        run: |
-          node - <<'NODE'
-          const fs = require("node:fs");
-          const p = process.env.RUNNER_TEMP + "/rolling-floor-shard/${{ matrix.channel }}.json";
-          const x = JSON.parse(fs.readFileSync(p, "utf8"));
-          if (x.kind !== "CHANNEL_SHARD") throw new Error("bad shard kind");
-          if (x.channel !== "${{ matrix.channel }}") throw new Error("bad channel");
-          if (!Array.isArray(x.signals) || x.signals.length === 0) throw new Error("empty signals");
-          console.log("PASS", x.channel, "signals=", x.signals.length);
-          NODE
-      - name: Upload channel shard
+            --channel QQQ \
+            --out-dir "$RUNNER_TEMP/rolling-floor-qqq-audit"
+      - name: Upload QQQ audit shard
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rolling-floor-shard-${{ matrix.channel }}
-          path: ${{ runner.temp }}/rolling-floor-shard/${{ matrix.channel }}.json
+          name: rolling-floor-qqq-audit
+          path: ${{ runner.temp }}/rolling-floor-qqq-audit/QQQ.json
+          if-no-files-found: warn
+
+  ndx-linux:
+    name: Worker / NDX / Linux
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Verify Node-only research runtime
+        shell: bash
+        run: |
+          node --version
+          test -f scripts/run-rolling-floor.ts
+          test -f src/lib/pulse/rolling-floor.ts
+      - name: Compute NDX proxy shard
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rolling-floor-ndx"
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode shard \
+            --channel NDX \
+            --out-dir "$RUNNER_TEMP/rolling-floor-ndx"
+      - name: Verify NDX shard JSON
+        shell: bash
+        run: |
+          test -s "$RUNNER_TEMP/rolling-floor-ndx/NDX.json"
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const p = process.env.RUNNER_TEMP + "/rolling-floor-ndx/NDX.json";
+          const x = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (x.kind !== "CHANNEL_SHARD" || x.channel !== "NDX") throw new Error("bad NDX shard");
+          if (!Array.isArray(x.signals) || x.signals.length === 0) throw new Error("empty NDX signals");
+          console.log("PASS NDX signals=", x.signals.length);
+          NODE
+      - name: Upload NDX shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: rolling-floor-shard-NDX
+          path: ${{ runner.temp }}/rolling-floor-ndx/NDX.json
           if-no-files-found: error
 
-  bridge:
-    name: Bridge / coupled replay
-    if: ${{ always() }}
-    needs: shard
+  hub-web:
+    name: Worker / NASDAQCOM / HUB-Web
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -117,21 +134,65 @@ jobs:
         with:
           node-version: "22"
           check-latest: false
-      - name: Collect three channel shards
+      - name: Verify Node-only research runtime
+        shell: bash
+        run: |
+          node --version
+          test -f scripts/run-rolling-floor.ts
+          test -f src/lib/pulse/rolling-floor.ts
+      - name: Compute NASDAQ Composite proxy shard
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rolling-floor-nasdaqcom"
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode shard \
+            --channel NASDAQCOM \
+            --out-dir "$RUNNER_TEMP/rolling-floor-nasdaqcom"
+      - name: Verify NASDAQCOM shard JSON
+        shell: bash
+        run: |
+          test -s "$RUNNER_TEMP/rolling-floor-nasdaqcom/NASDAQCOM.json"
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const p = process.env.RUNNER_TEMP + "/rolling-floor-nasdaqcom/NASDAQCOM.json";
+          const x = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (x.kind !== "CHANNEL_SHARD" || x.channel !== "NASDAQCOM") throw new Error("bad NASDAQCOM shard");
+          if (!Array.isArray(x.signals) || x.signals.length === 0) throw new Error("empty NASDAQCOM signals");
+          console.log("PASS NASDAQCOM signals=", x.signals.length);
+          NODE
+      - name: Upload NASDAQCOM shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: rolling-floor-shard-NASDAQCOM
+          path: ${{ runner.temp }}/rolling-floor-nasdaqcom/NASDAQCOM.json
+          if-no-files-found: error
+
+  bridge:
+    name: Bridge / coupled QQQ replay
+    if: ${{ always() && !cancelled() }}
+    needs: [ndx-linux, hub-web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Collect required proxy shards
         uses: actions/download-artifact@v4
         with:
           pattern: rolling-floor-shard-*
           path: inputs/rolling_floor_shards
           merge-multiple: true
-      - name: Verify three-channel bridge inputs
+      - name: Verify proxy bridge inputs
         shell: bash
         run: |
-          test -s inputs/rolling_floor_shards/QQQ.json
           test -s inputs/rolling_floor_shards/NDX.json
           test -s inputs/rolling_floor_shards/NASDAQCOM.json
           node - <<'NODE'
           const fs = require("node:fs");
-          for (const c of ["QQQ","NDX","NASDAQCOM"]) {
+          for (const c of ["NDX","NASDAQCOM"]) {
             const p = "inputs/rolling_floor_shards/" + c + ".json";
             const x = JSON.parse(fs.readFileSync(p, "utf8"));
             if (x.kind !== "CHANNEL_SHARD" || x.channel !== c) throw new Error("bad shard "+c);
@@ -156,6 +217,7 @@ jobs:
           const x = JSON.parse(fs.readFileSync("research/rolling_10y_floor/rolling_floor_result.json","utf8"));
           if (x.version !== "rolling-floor.v2") throw new Error("wrong result version");
           if (x.replay?.n <= 0) throw new Error("no replay rows");
+          if (x.topology?.windowsAudit !== "NONBLOCKING") throw new Error("QQQ Windows audit must be nonblocking");
           console.log("PASS bridge", x.replay.n, "replays");
           NODE
       - name: Assemble offline portable rerun bundle
