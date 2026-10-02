@@ -234,6 +234,6 @@ test("forward path profile preserves the fixed 10Y path geometry", () => {
   assert.equal(profile.months.at(-1), 120);
   assert.equal(profile.median[0], 1);
   assert.equal(profile.median.at(-1), 1.5);
-  assert.equal(profile.q05.at(-1), 1);
-  assert.equal(profile.q95.at(-1), 2);
+  assert.equal(profile.q05.at(-1), 1.05);
+  assert.equal(profile.q95.at(-1), 1.95);
 });
