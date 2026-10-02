@@ -452,7 +452,7 @@ def main():
     paired = a.merge(
         b,
         on="campaign_entry",
-        how="outer",
+        how="inner",
         suffixes=("_n10", "_n5"),
     )
     if not paired.empty:
@@ -505,6 +505,8 @@ def main():
         "results": summaries,
         "paired_dynamic": {
             "campaigns": int(len(paired)),
+            "entry_schedule_campaigns": int(len(entry_dates)),
+            "nonpaired_execution_campaigns": int(len(entry_dates) - len(paired)),
             "total_pnl_n5_minus_n10_usd": float(paired["delta_total_pnl_usd_n5_minus_n10"].sum()) if not paired.empty else None,
             "mean_pnl_delta_usd": float(paired["delta_total_pnl_usd_n5_minus_n10"].mean()) if not paired.empty else None,
             "median_pnl_delta_usd": float(paired["delta_total_pnl_usd_n5_minus_n10"].median()) if not paired.empty else None,
