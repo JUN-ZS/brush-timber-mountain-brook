@@ -419,6 +419,8 @@ function Page() {
             modelTarget: cumulativeModelTarget,
             ledger,
             startingDeployed: startingDeployed / safeCapital,
+            marketTape,
+            capital: safeCapital,
           })
         : null,
     [
@@ -430,6 +432,7 @@ function Page() {
       ledger,
       startingDeployed,
       safeCapital,
+      marketTape,
     ],
   );
 
@@ -1416,7 +1419,8 @@ function buildStrategySimulation({
     capital,
   );
 
-  const actual = [...marketTape]
+  const tape = Array.isArray(marketTape) ? marketTape : [];
+  const actual = [...tape]
     .filter((x) => x.month <= currentMonth)
     .sort((a, b) => a.month - b.month || a.marketDate.localeCompare(b.marketDate))
     .map((tapePoint, index, all) => {

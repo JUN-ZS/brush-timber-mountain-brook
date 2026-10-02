@@ -18,6 +18,7 @@ import { Route as MatrixRouteImport } from './routes/matrix'
 import { Route as MissingRouteImport } from './routes/missing'
 import { Route as RankRouteImport } from './routes/rank'
 import { Route as StrategyRouteImport } from './routes/strategy'
+import { Route as ApiYahooRouteImport } from './routes/api/yahoo'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +65,11 @@ const StrategyRoute = StrategyRouteImport.update({
   path: '/strategy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiYahooRoute = ApiYahooRouteImport.update({
+  id: '/api/yahoo',
+  path: '/api/yahoo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
+  '/api/yahoo': typeof ApiYahooRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
+  '/api/yahoo': typeof ApiYahooRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,13 +106,33 @@ export interface FileRoutesById {
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
+  '/api/yahoo': typeof ApiYahooRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/backtest' | '/deploy' | '/floor' | '/live' | '/matrix' | '/missing' | '/rank' | '/strategy'
+    | '/'
+    | '/backtest'
+    | '/deploy'
+    | '/floor'
+    | '/live'
+    | '/matrix'
+    | '/missing'
+    | '/rank'
+    | '/strategy'
+    | '/api/yahoo'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/backtest' | '/deploy' | '/floor' | '/live' | '/matrix' | '/missing' | '/rank' | '/strategy'
+  to:
+    | '/'
+    | '/backtest'
+    | '/deploy'
+    | '/floor'
+    | '/live'
+    | '/matrix'
+    | '/missing'
+    | '/rank'
+    | '/strategy'
+    | '/api/yahoo'
   id:
     | '__root__'
     | '/'
@@ -116,6 +144,7 @@ export interface FileRouteTypes {
     | '/missing'
     | '/rank'
     | '/strategy'
+    | '/api/yahoo'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -127,6 +156,8 @@ export interface RootRouteChildren {
   MatrixRoute: typeof MatrixRoute
   MissingRoute: typeof MissingRoute
   RankRoute: typeof RankRoute
+  StrategyRoute: typeof StrategyRoute
+  ApiYahooRoute: typeof ApiYahooRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -194,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StrategyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/yahoo': {
+      id: '/api/yahoo'
+      path: '/api/yahoo'
+      fullPath: '/api/yahoo'
+      preLoaderRoute: typeof ApiYahooRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -207,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   MissingRoute: MissingRoute,
   RankRoute: RankRoute,
   StrategyRoute: StrategyRoute,
+  ApiYahooRoute: ApiYahooRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
