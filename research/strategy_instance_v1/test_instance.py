@@ -379,6 +379,46 @@ def test_instance_strategy_lineage_rejects_missing_runtime_lock_fields():
         ri.runtime_identity=original
 
 
+def test_operator_ticket_context_uses_latest_decision_by_timestamp_not_append_order():
+    import json
+    import tempfile
+    from .serve_operator import explicit_strategy_context
+    from ..evidence_v1.ledger import EvidenceLedger, sha256_json
+    from .run_instance import mhash
+
+    with tempfile.TemporaryDirectory() as td:
+        repo=Path(td)
+        iid="I-CHRONO-TICKET"
+        d=repo/"research/strategy_instance_v1/instances"/iid
+        d.mkdir(parents=True)
+        manifest={
+            "schema":"STRATEGY_INSTANCE_MANIFEST.v1","schema_version":1,
+            "instance_id":iid,"created_at_utc":"2026-10-01T20:00:00+00:00",
+            "start_at_utc":"2026-10-01T20:00:00+00:00",
+            "strategy_id":"S1","strategy_version":"V1",
+            "research_engine_commit":"ENG1","strategy_lock_hash":"LOCK1","initial_positions":[],
+        }
+        manifest["manifest_hash"]=mhash(manifest)
+        (d/"manifest.json").write_text(json.dumps(manifest),encoding="utf-8")
+        identity={"strategy_id":"S1","strategy_version":"V1","research_engine_commit":"ENG1","strategy_lock_hash":"LOCK1"}
+        ledger=EvidenceLedger(repo/"research/evidence_v1/evidence.jsonl",identity=identity)
+        t_old={"ticket_id":"T-OLD","action":"ADD_NEAR","status":"OPEN","legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":1}]}
+        t_new={"ticket_id":"T-NEW","action":"ADD_NEAR","status":"OPEN","legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":2}]}
+        for cycle,tstamp,ticket in [("C1","2026-10-02T10:00:02+00:00",t_new),("C2","2026-10-02T10:00:01+00:00",t_old)]:
+            ledger.append("CYCLE_STARTED",cycle_id=cycle,campaign_id=iid,timestamp_utc=tstamp,payload={})
+            ledger.append("PRE_DECISION_OBSERVATION",cycle_id=cycle,campaign_id=iid,timestamp_utc=tstamp,payload={})
+            ledger.append("DECISION_EMITTED",cycle_id=cycle,campaign_id=iid,timestamp_utc=tstamp,payload={"ticket":ticket})
+        body={
+            "instance_id":iid,"timestamp_utc":"2026-10-02T10:00:03+00:00",
+            "strategy_context_snapshot":{
+                "instance_id":iid,"ticket_id":"T-NEW",
+                "context_source":"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+                "action":"ADD_NEAR","status":"OPEN","leg":t_new["legs"][0],
+            },
+        }
+        out=explicit_strategy_context(repo,body)
+        assert out["ticket_id"]=="T-NEW"
+
 def test_operator_ticket_context_rejects_future_ticket_for_backdated_trade():
     import json
     import tempfile
