@@ -84,6 +84,13 @@ class OutcomeTests(unittest.TestCase):
                 timestamp_utc="2026-10-01T20:01:00+00:00",
                 payload={},
             )
+            ledger.append(
+                "PRE_DECISION_OBSERVATION",
+                cycle_id="CROSS",
+                campaign_id="CROSS",
+                timestamp_utc="2026-10-01T20:01:00+00:00",
+                payload={},
+            )
             anchor = ledger.append(
                 "DECISION_EMITTED",
                 cycle_id="CROSS",
