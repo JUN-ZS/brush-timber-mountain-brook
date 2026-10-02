@@ -568,6 +568,130 @@ export function replayOne(
   };
 }
 
+
+export type StatePathSummary = {
+  state: DivergenceState;
+  observations: number;
+  shareOfObservedMonths: number;
+  meanDeployed: number;
+  medianDeployed: number;
+  meanClockTarget: number;
+  meanAheadOfClock: number;
+  medianAheadOfClock: number;
+  q05AheadOfClock: number;
+  q95AheadOfClock: number;
+  meanAbsoluteAhead: number;
+  meanCoupledTargetDelta: number;
+  episodes: number;
+  meanEpisodeMonths: number;
+  medianEpisodeMonths: number;
+  maxEpisodeMonths: number;
+  meanEpisodePeakAhead: number;
+  meanEpisodeEndAhead: number;
+};
+
+type StateEpisode = {
+  state: DivergenceState;
+  months: number;
+  peakAhead: number;
+  endAhead: number;
+};
+
+function episodesFromReplay(result: ReplayResult): StateEpisode[] {
+  const episodes: StateEpisode[] = [];
+  let currentState: DivergenceState | null = null;
+  let months = 0;
+  let peakAhead = 0;
+
+  for (const trade of result.trades) {
+    const ahead = trade.deployed - trade.clockTarget;
+    if (currentState !== trade.divergenceState) {
+      if (currentState != null) {
+        episodes.push({ state: currentState, months, peakAhead, endAhead: 0 });
+        const last = episodes[episodes.length - 1];
+        if (last) last.endAhead = episodes[episodes.length - 1].endAhead;
+      }
+      currentState = trade.divergenceState;
+      months = 0;
+      peakAhead = ahead;
+    }
+    months++;
+    peakAhead = Math.max(peakAhead, ahead);
+
+    if (episodes.length > 0 && episodes[episodes.length - 1].state === currentState) {
+      episodes[episodes.length - 1].endAhead = ahead;
+    }
+  }
+
+  if (currentState != null) {
+    episodes.push({ state: currentState, months, peakAhead, endAhead: 0 });
+    const last = episodes[episodes.length - 1];
+    if (last) {
+      const trade = result.trades.at(-1);
+      last.endAhead = trade ? trade.deployed - trade.clockTarget : 0;
+    }
+  }
+
+  return episodes;
+}
+
+export function summarizeStatePath(results: ReplayResult[]) {
+  const rows: Record<DivergenceState, {
+    ahead: number[];
+    deployed: number[];
+    clock: number[];
+    coupledDelta: number[];
+    episodes: StateEpisode[];
+  }> = {
+    CONVERGENT: { ahead: [], deployed: [], clock: [], coupledDelta: [], episodes: [] },
+    TENSION: { ahead: [], deployed: [], clock: [], coupledDelta: [], episodes: [] },
+    DIVERGENT: { ahead: [], deployed: [], clock: [], coupledDelta: [], episodes: [] },
+    THIN: { ahead: [], deployed: [], clock: [], coupledDelta: [], episodes: [] },
+  };
+
+  for (const result of results) {
+    for (const trade of result.trades) {
+      const row = rows[trade.divergenceState];
+      const ahead = trade.deployed - trade.clockTarget;
+      row.ahead.push(ahead);
+      row.deployed.push(trade.deployed);
+      row.clock.push(trade.clockTarget);
+      row.coupledDelta.push(trade.coupledTarget - trade.clockTarget);
+    }
+    for (const ep of episodesFromReplay(result)) rows[ep.state].episodes.push(ep);
+  }
+
+  const total = Object.values(rows).reduce((n, row) => n + row.ahead.length, 0);
+
+  return (Object.keys(rows) as DivergenceState[]).map((state): StatePathSummary => {
+    const row = rows[state];
+    const episodes = row.episodes;
+    const episodeMonths = episodes.map((x) => x.months);
+    const peakAhead = episodes.map((x) => x.peakAhead);
+    const endAhead = episodes.map((x) => x.endAhead);
+    return {
+      state,
+      observations: row.ahead.length,
+      shareOfObservedMonths: row.ahead.length / Math.max(1, total),
+      meanDeployed: row.deployed.reduce((a, b) => a + b, 0) / Math.max(1, row.deployed.length),
+      medianDeployed: median(row.deployed) ?? 0,
+      meanClockTarget: row.clock.reduce((a, b) => a + b, 0) / Math.max(1, row.clock.length),
+      meanAheadOfClock: row.ahead.reduce((a, b) => a + b, 0) / Math.max(1, row.ahead.length),
+      medianAheadOfClock: median(row.ahead) ?? 0,
+      q05AheadOfClock: quantile(row.ahead, 0.05) ?? 0,
+      q95AheadOfClock: quantile(row.ahead, 0.95) ?? 0,
+      meanAbsoluteAhead: row.ahead.reduce((a, b) => a + Math.abs(b), 0) / Math.max(1, row.ahead.length),
+      meanCoupledTargetDelta: row.coupledDelta.reduce((a, b) => a + b, 0) / Math.max(1, row.coupledDelta.length),
+      episodes: episodes.length,
+      meanEpisodeMonths: episodeMonths.reduce((a, b) => a + b, 0) / Math.max(1, episodeMonths.length),
+      medianEpisodeMonths: median(episodeMonths) ?? 0,
+      maxEpisodeMonths: episodeMonths.length ? Math.max(...episodeMonths) : 0,
+      meanEpisodePeakAhead: peakAhead.reduce((a, b) => a + b, 0) / Math.max(1, peakAhead.length),
+      meanEpisodeEndAhead: endAhead.reduce((a, b) => a + b, 0) / Math.max(1, endAhead.length),
+    };
+  });
+}
+
 export function summarizeReplays(results: ReplayResult[]) {
   const ws = results.map((r) => r.terminalWealth);
   const nonLoss = ws.filter((x) => x >= 1).length / Math.max(1, ws.length);
