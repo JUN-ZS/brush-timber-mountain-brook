@@ -58,10 +58,11 @@ The runner must reject the tape if any of the following fail:
 - every expiry is strictly after the trade date;
 - finite IV / delta / gamma / vega / theta;
 - calibration source date is strictly earlier than trade date;
-- call prices decrease with strike inside each date/expiry;
-- put prices increase with strike;
-- call delta decreases with strike;
-- put delta increases with strike;
+- raw CALL price surfaces are projected to a monotone/convex no-arbitrage curve;
+- projected CALL prices decrease with strike inside each date/expiry;
+- projected PUT prices increase with strike;
+- projected CALL/PUT share one implied-volatility surface and satisfy put-call parity;
+- delta monotonicity is diagnostic only, not a hard gate, because strike-dependent smiles can make Black delta locally non-monotone even when price shape is valid;
 - every family/date state is represented exactly once.
 
 ## Two-runner verification
@@ -78,7 +79,10 @@ synthetic tape is allowed into later research.
 ## Important interpretation
 
 The canonical fingerprint proves reproducibility of **our model**, not truth
-of the historical VXX tape.
+of the historical VXX tape. The regression test deliberately reproduces the
+previous aggressive-wing failure and verifies that the explicit no-arbitrage
+projection removes the strike-price violation without changing the frozen V22
+strategy.
 
 The next research stage should compare Hybrid outcomes across all four surfaces,
 keeping V22 strategy logic frozen and keeping this synthetic VXX layer outside
