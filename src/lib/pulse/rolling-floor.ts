@@ -78,6 +78,17 @@ export type ReplayTrade = {
   divergenceState: DivergenceState;
 };
 
+export type ReplayPathPoint = {
+  date: string;
+  action: number;
+  deployed: number;
+  cash: number;
+  coupledTarget: number;
+  clockTarget: number;
+  agreement: number;
+  divergenceState: DivergenceState;
+};
+
 export type ReplayResult = {
   startDate: string;
   endDate: string;
@@ -90,6 +101,7 @@ export type ReplayResult = {
   forcedCatchUpMonths: number;
   totalInvested: number;
   trades: ReplayTrade[];
+  path: ReplayPathPoint[];
 };
 
 const ACTION_GRID = Array.from({ length: 21 }, (_, i) => i / 20);
@@ -487,6 +499,7 @@ export function replayOne(
   let forcedCatchUpMonths = 0;
   const lots: { amount: number; entry: number }[] = [];
   const trades: ReplayTrade[] = [];
+  const path: ReplayPathPoint[] = [];
   const curve: number[] = [1];
 
   for (let j = 0; j < FLOOR_HORIZON_MONTHS; j++) {
@@ -536,6 +549,17 @@ export function replayOne(
       lots.reduce((s, lot) => s + lot.amount * (currentPx / lot.entry), 0);
     peak = Math.max(peak, equity);
     curve.push(equity);
+
+    path.push({
+      date,
+      action,
+      deployed: 1 - cash,
+      cash,
+      coupledTarget: lagTarget,
+      clockTarget,
+      agreement: signalAgreement,
+      divergenceState: divergence,
+    });
   }
 
   const finalPx = qqq[endIndex].value;
@@ -565,6 +589,7 @@ export function replayOne(
     forcedCatchUpMonths,
     totalInvested,
     trades,
+    path,
   };
 }
 
@@ -604,10 +629,10 @@ function episodesFromReplay(result: ReplayResult): StateEpisode[] {
   let peakAhead = 0;
   let endAhead = 0;
 
-  for (const trade of result.trades) {
-    const ahead = trade.deployed - trade.clockTarget;
+  for (const point of result.path) {
+    const ahead = point.deployed - point.clockTarget;
 
-    if (currentState !== trade.divergenceState) {
+    if (currentState !== point.divergenceState) {
       if (currentState != null) {
         episodes.push({
           state: currentState,
@@ -616,7 +641,7 @@ function episodesFromReplay(result: ReplayResult): StateEpisode[] {
           endAhead,
         });
       }
-      currentState = trade.divergenceState;
+      currentState = point.divergenceState;
       months = 0;
       peakAhead = ahead;
       endAhead = ahead;
@@ -654,13 +679,13 @@ export function summarizeStatePath(results: ReplayResult[]) {
   };
 
   for (const result of results) {
-    for (const trade of result.trades) {
-      const row = rows[trade.divergenceState];
-      const ahead = trade.deployed - trade.clockTarget;
+    for (const point of result.path) {
+      const row = rows[point.divergenceState];
+      const ahead = point.deployed - point.clockTarget;
       row.ahead.push(ahead);
-      row.deployed.push(trade.deployed);
-      row.clock.push(trade.clockTarget);
-      row.coupledDelta.push(trade.coupledTarget - trade.clockTarget);
+      row.deployed.push(point.deployed);
+      row.clock.push(point.clockTarget);
+      row.coupledDelta.push(point.coupledTarget - point.clockTarget);
     }
     for (const ep of episodesFromReplay(result)) rows[ep.state].episodes.push(ep);
   }
