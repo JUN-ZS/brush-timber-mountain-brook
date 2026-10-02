@@ -571,6 +571,36 @@ class LiveHedgeV2Test(unittest.TestCase):
             self.assertEqual(recovered["last_risk_score"],3.4)
 
 
+    def test_legacy_dynamic_event_is_not_replayed_as_trusted_state(self):
+        import json
+        import tempfile
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            state_path=Path(td)/"state.json"
+            events_path=Path(td)/"events.jsonl"
+            legacy={
+                "event_id":"E-LEGACY",
+                "timestamp":"2026-10-01T21:00:00+00:00",
+                "type":"DYNAMIC_STATE_OBSERVED",
+                "campaign_id":None,
+                "payload":{
+                    "far_code_observed":"US.QQQ.FAKE",
+                    "far_delta_abs_observed":0.08,
+                    "gamma_spot_observed":999.0,
+                    "desired_stack":5,
+                    "risk_score":5.0,
+                },
+            }
+            events_path.write_text(json.dumps(legacy,separators=(",",":"))+"\n",encoding="utf-8")
+            recovered=StateStore(state_path,events_path).load()
+            self.assertEqual(recovered["events_integrity"],"LEGACY_UNVERIFIED")
+            self.assertEqual(recovered["gamma_history"],[])
+            self.assertIsNone(recovered["far_delta"])
+            self.assertIsNone(recovered["last_target_stack"])
+            self.assertIsNone(recovered["last_risk_score"])
+            self.assertEqual(recovered["dynamic_state_source"],"LEGACY_STATE_CACHE_UNVERIFIED")
+
     def test_legacy_dynamic_cache_is_not_trusted_without_events(self):
         import tempfile
         from research.live_hedge_v1.state import StateStore
