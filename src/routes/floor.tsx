@@ -692,6 +692,7 @@ function Page() {
                 <MetricCard kicker="MODEL TARGET" title={fmtPct(cumulativeModelTarget, 2)} detail="cumulative capital phase" />
                 <MetricCard kicker="ACTUAL" title={fmtPct(cumulativeBeforePreview / safeCapital, 2)} detail="before preview" />
                 <MetricCard kicker="GAP" title={fmtPct(Math.max(0, modelGap), 2)} detail={modelGap > 0 ? "still below target" : "no new capital required"} />
+                <MetricCard kicker="RISK BALANCE" title={riskBalance ? fmtPct(riskBalance.currentValue, 0) : "—"} detail="weighted GAR ↔ MaxDD relative position" />
                 <MetricCard kicker="NOW / HISTORY" title={nearestAnalogDistance == null ? "—" : nearestAnalogDistance.toFixed(2)} detail="nearest state distance · lower = closer" />
               </div>
               <p className="mt-3 text-xs text-subtle">
