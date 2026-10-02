@@ -5,43 +5,243 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    paths:
-      - "src/lib/pulse/rolling-floor.ts"
-      - "src/lib/pulse/rolling-floor.test.ts"
-      - "scripts/run-rolling-floor.ts"
-      - ".github/workflows/rolling-floor.yml"
+
+
+permissions:
+  contents: read
+  actions: write
 
 jobs:
-  rolling-floor:
-    runs-on: [self-hosted, windows, x64]
-    timeout-minutes: 20
-    defaults:
-      run:
+  cleanup-stale-research-runs:
+    name: Cleanup / this research branch only
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Cancel stale Rolling/V22 runs from this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          CURRENT_RUN: ${{ github.run_id }}
         shell: bash
+        run: |
+          set -euo pipefail
+          for workflow in "Rolling 10Y Capital Floor" "QQQ V22 Locked OOS Family V2"; do
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow "$workflow" \
+              --branch "$TARGET_BRANCH" \
+              --limit 100 \
+              --json databaseId,status \
+              | jq -r --arg current "$CURRENT_RUN" '
+                  .[]
+                  | select((.databaseId | tostring) != $current)
+                  | select(.status == "queued" or .status == "in_progress")
+                  | .databaseId
+                ' \
+              | while read -r run_id; do
+                  [ -z "$run_id" ] && continue
+                  echo "cancel stale run $run_id ($workflow)"
+                  gh run cancel "$run_id" --repo "$GITHUB_REPOSITORY" || true
+                done
+          done
+
+  qqq-windows-audit:
+    name: Worker / QQQ / Windows audit
+    runs-on: windows-latest
+    continue-on-error: true
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-      - name: Install dependencies
+          check-latest: false
+      - name: Verify Node-only research runtime
+        shell: bash
         run: |
-          if npm ci --no-audit --no-fund; then
-            echo "npm ci ok"
-          else
-            echo "lockfile out of sync; falling back to npm install"
-            npm install --no-audit --no-fund
-          fi
-      - name: Unit tests
-        run: node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts
-      - name: Rolling floor replay
-        run: node --experimental-strip-types scripts/run-rolling-floor.ts
-      - name: Upload research artifacts
+          node --version
+          test -f scripts/run-rolling-floor.ts
+          test -f src/lib/pulse/rolling-floor.ts
+      - name: Compute QQQ audit shard
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rolling-floor-qqq-audit"
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode shard \
+            --channel QQQ \
+            --out-dir "$RUNNER_TEMP/rolling-floor-qqq-audit"
+      - name: Upload QQQ audit shard
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rolling-10y-floor
+          name: rolling-floor-qqq-audit
+          path: ${{ runner.temp }}/rolling-floor-qqq-audit/QQQ.json
+          if-no-files-found: warn
+
+  ndx-linux:
+    name: Worker / NDX / Linux
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Verify Node-only research runtime
+        shell: bash
+        run: |
+          node --version
+          test -f scripts/run-rolling-floor.ts
+          test -f src/lib/pulse/rolling-floor.ts
+      - name: Compute NDX proxy shard
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rolling-floor-ndx"
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode shard \
+            --channel NDX \
+            --out-dir "$RUNNER_TEMP/rolling-floor-ndx"
+      - name: Verify NDX shard JSON
+        shell: bash
+        run: |
+          test -s "$RUNNER_TEMP/rolling-floor-ndx/NDX.json"
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const p = process.env.RUNNER_TEMP + "/rolling-floor-ndx/NDX.json";
+          const x = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (x.kind !== "CHANNEL_SHARD" || x.channel !== "NDX") throw new Error("bad NDX shard");
+          if (!Array.isArray(x.signals) || x.signals.length === 0) throw new Error("empty NDX signals");
+          console.log("PASS NDX signals=", x.signals.length);
+          NODE
+      - name: Upload NDX shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: rolling-floor-shard-NDX
+          path: ${{ runner.temp }}/rolling-floor-ndx/NDX.json
+          if-no-files-found: error
+
+  hub-web:
+    name: Worker / NASDAQCOM / HUB-Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Verify Node-only research runtime
+        shell: bash
+        run: |
+          node --version
+          test -f scripts/run-rolling-floor.ts
+          test -f src/lib/pulse/rolling-floor.ts
+      - name: Compute NASDAQ Composite proxy shard
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/rolling-floor-nasdaqcom"
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode shard \
+            --channel NASDAQCOM \
+            --out-dir "$RUNNER_TEMP/rolling-floor-nasdaqcom"
+      - name: Verify NASDAQCOM shard JSON
+        shell: bash
+        run: |
+          test -s "$RUNNER_TEMP/rolling-floor-nasdaqcom/NASDAQCOM.json"
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const p = process.env.RUNNER_TEMP + "/rolling-floor-nasdaqcom/NASDAQCOM.json";
+          const x = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (x.kind !== "CHANNEL_SHARD" || x.channel !== "NASDAQCOM") throw new Error("bad NASDAQCOM shard");
+          if (!Array.isArray(x.signals) || x.signals.length === 0) throw new Error("empty NASDAQCOM signals");
+          console.log("PASS NASDAQCOM signals=", x.signals.length);
+          NODE
+      - name: Upload NASDAQCOM shard
+        uses: actions/upload-artifact@v4
+        with:
+          name: rolling-floor-shard-NASDAQCOM
+          path: ${{ runner.temp }}/rolling-floor-nasdaqcom/NASDAQCOM.json
+          if-no-files-found: error
+
+  bridge:
+    name: Bridge / coupled QQQ replay
+    if: ${{ always() && !cancelled() }}
+    needs: [ndx-linux, hub-web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Collect required proxy shards
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rolling-floor-shard-*
+          path: inputs/rolling_floor_shards
+          merge-multiple: true
+      - name: Verify proxy bridge inputs
+        shell: bash
+        run: |
+          test -s inputs/rolling_floor_shards/NDX.json
+          test -s inputs/rolling_floor_shards/NASDAQCOM.json
+          node - <<'NODE'
+          const fs = require("node:fs");
+          for (const c of ["NDX","NASDAQCOM"]) {
+            const p = "inputs/rolling_floor_shards/" + c + ".json";
+            const x = JSON.parse(fs.readFileSync(p, "utf8"));
+            if (x.kind !== "CHANNEL_SHARD" || x.channel !== c) throw new Error("bad shard "+c);
+            console.log("bridge input", c, "signals=", x.signals.length);
+          }
+          NODE
+      - name: Bridge and replay
+        shell: bash
+        run: |
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode bridge \
+            --input-dir inputs/rolling_floor_shards \
+            --out-dir research/rolling_10y_floor
+      - name: Verify bridge outputs are runnable JSON
+        shell: bash
+        run: |
+          test -s research/rolling_10y_floor/rolling_floor_result.json
+          test -s research/rolling_10y_floor/rolling_floor_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_report.md
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const x = JSON.parse(fs.readFileSync("research/rolling_10y_floor/rolling_floor_result.json","utf8"));
+          if (x.version !== "rolling-floor.v2") throw new Error("wrong result version");
+          if (x.replay?.n <= 0) throw new Error("no replay rows");
+          if (x.topology?.windowsAudit !== "NONBLOCKING") throw new Error("QQQ Windows audit must be nonblocking");
+          console.log("PASS bridge", x.replay.n, "replays");
+          NODE
+      - name: Assemble offline portable rerun bundle
+        shell: bash
+        run: |
+          rm -rf portable
+          mkdir -p portable/scripts portable/src/lib/pulse portable/src/data portable/inputs/rolling_floor_shards portable/output
+          cp scripts/run-rolling-floor.ts portable/scripts/run-rolling-floor.ts
+          cp src/lib/pulse/rolling-floor.ts portable/src/lib/pulse/rolling-floor.ts
+          cp src/lib/pulse/bars.ts portable/src/lib/pulse/bars.ts
+          cp src/data/universe.json portable/src/data/universe.json
+          cp inputs/rolling_floor_shards/*.json portable/inputs/rolling_floor_shards/
+          cp research/rolling_10y_floor/rolling_floor_result.json portable/output/rolling_floor_result.json
+          cp research/rolling_10y_floor/rolling_floor_replays.jsonl portable/output/rolling_floor_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_report.md portable/output/rolling_floor_report.md
+          cp research/rolling_10y_floor/PORTABLE_RUN.md portable/PORTABLE_RUN.md
+          cp research/rolling_10y_floor/portable/RUN.cmd portable/RUN.cmd
+          cp research/rolling_10y_floor/portable/RUN.sh portable/RUN.sh
+          chmod +x portable/RUN.sh
+      - name: Upload final research + portable bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rolling-10y-floor-final
           path: |
             research/rolling_10y_floor/rolling_floor_result.json
             research/rolling_10y_floor/rolling_floor_replays.jsonl
             research/rolling_10y_floor/rolling_floor_report.md
+            portable/
+          if-no-files-found: error

@@ -276,7 +276,7 @@ function buildAnalogs(
   const minDate = addYears(asofDate, -scaleYears);
   const matureCutoff = addYears(asofDate, -FLOOR_HORIZON_YEARS);
   const maxIndex = statePoints.findIndex((p) => p.date > matureCutoff);
-  const upperExclusive = maxIndex < 0 ? points.length : maxIndex;
+  const upperExclusive = maxIndex < 0 ? statePoints.length : maxIndex;
 
   const candidates: Analog[] = [];
   for (let i = 36; i < upperExclusive; i += ANALOG_STRIDE_MONTHS) {
@@ -459,8 +459,6 @@ export function buildSignalPanel(channels: Channel[], targetDates: string[]) {
       for (const scaleYears of TRAP_SCALES_YEARS) {
         const outcomePoints =
           channels.find((candidate) => candidate.id === "QQQ")?.points ?? channel.points;
-        const outcomeIndex = outcomeIndexByMonth(outcomePoints, asof);
-        if (outcomeIndex < 0) continue;
         const s = recommendForScale(channel.points, outcomePoints, idx, scaleYears);
         s.channel = channel.id;
         s.layer = channel.layer;
