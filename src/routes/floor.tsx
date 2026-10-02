@@ -862,8 +862,6 @@ function Page() {
           )}
         </Panel>
 
-        </Panel>
-
         <Panel kicker="CAPITAL TAPE / RULE CORRIDOR" title="你輸入的數字會立即反映在這條 10Y 路徑">
           <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
             <div className="overflow-x-auto">
