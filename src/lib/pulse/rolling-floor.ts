@@ -319,7 +319,7 @@ export function requiredFrontLoadFraction(path: number[], floor = 1) {
   return clamp((floor - zero) / slope);
 }
 
-function objective(paths: number[], a: number) {
+function objective(paths: number[][], a: number) {
   const ws = paths.map((p) => terminalForDeployment(a, p));
   const q05 = quantile(ws, 0.05) ?? 0;
   const pNonLoss = ws.filter((w) => w >= 1).length / ws.length;
@@ -327,7 +327,7 @@ function objective(paths: number[], a: number) {
   return { q05, pNonLoss, mean };
 }
 
-export function deploymentResponseProfile(paths: number[]): DeploymentResponseProfile {
+export function deploymentResponseProfile(paths: number[][]): DeploymentResponseProfile {
   const deploymentFractions = Array.from({ length: 21 }, (_, i) => i / 20);
   const rows = deploymentFractions.map((a) => objective(paths, a));
   return {
@@ -338,7 +338,7 @@ export function deploymentResponseProfile(paths: number[]): DeploymentResponsePr
   };
 }
 
-export function floorProfile(paths: number[]): FloorProfile {
+export function floorProfile(paths: number[][]): FloorProfile {
   const required = paths.map((path) => requiredFrontLoadFraction(path, 1));
   const ordered = [...required].sort((a, b) => a - b);
   const requiredFrontLoad = FLOOR_PROFILE_PROBABILITIES.map((p) => {
@@ -355,7 +355,7 @@ export function floorProfile(paths: number[]): FloorProfile {
   };
 }
 
-function floorTarget(paths: number[]) {
+function floorTarget(paths: number[][]) {
   const profile = floorProfile(paths);
   const index = FLOOR_PROFILE_PROBABILITIES.indexOf(0.95);
   // Keep the established scalar 95% floor controller unchanged. The extra
