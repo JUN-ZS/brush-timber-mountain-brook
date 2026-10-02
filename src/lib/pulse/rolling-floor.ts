@@ -49,6 +49,14 @@ export type DeploymentResponseProfile = {
   meanTerminal: number[];
 };
 
+export type MutualChaseTopology = {
+  state: DivergenceState;
+  localDirections: Array<"FORWARD" | "BACKWARD" | "FLAT" | "MIXED">;
+  leaderScaleBySegment: Array<TrapScale | null>;
+  leaderChanges: number;
+  pairwiseCurveCrossings: number;
+};
+
 export type ChannelScaleSignal = {
   channel: string;
   layer: Channel["layer"];
@@ -68,6 +76,7 @@ export type ChannelScaleSignal = {
 export type DivergenceState = "CONVERGENT" | "TENSION" | "DIVERGENT" | "THIN";
 
 export type CoupledSignal = {
+
   asof: string;
   clockTarget: number;
   divergenceState: DivergenceState;
@@ -82,6 +91,10 @@ export type CoupledSignal = {
   robustTarget: number | null;
   agreement: number;
   coupledTarget: number;
+  mutualChase: Array<{
+    channel: string;
+    topology: MutualChaseTopology;
+  }>;
 };
 
 export type ReplayTrade = {
@@ -427,6 +440,92 @@ export function recommendForScale(
   };
 }
 
+function responseSlope(profile: DeploymentResponseProfile, i: number) {
+  const a = profile.q05Terminal[i];
+  const b = profile.q05Terminal[i + 1];
+  const da = profile.deploymentFractions[i];
+  const db = profile.deploymentFractions[i + 1];
+  const width = db - da;
+  return width > 0 ? (b - a) / width : 0;
+}
+
+export function mutualChaseTopology(
+  profiles: Array<{ scaleYears: TrapScale; profile: DeploymentResponseProfile }>,
+): MutualChaseTopology {
+  if (profiles.length < 2) {
+    return {
+      state: "THIN",
+      localDirections: [],
+      leaderScaleBySegment: [],
+      leaderChanges: 0,
+      pairwiseCurveCrossings: 0,
+    };
+  }
+
+  const segments = Math.min(
+    ...profiles.map((x) => x.profile.q05Terminal.length - 1),
+  );
+  const leaderScaleBySegment: Array<TrapScale | null> = [];
+  const localDirections: Array<"FORWARD" | "BACKWARD" | "FLAT" | "MIXED"> = [];
+
+  for (let i = 0; i < segments; i++) {
+    const slopes = profiles.map((x) => ({
+      scaleYears: x.scaleYears,
+      slope: responseSlope(x.profile, i),
+    }));
+    const positive = slopes.some((x) => x.slope > 1e-12);
+    const negative = slopes.some((x) => x.slope < -1e-12);
+
+    if (positive && negative) localDirections.push("MIXED");
+    else if (positive) localDirections.push("FORWARD");
+    else if (negative) localDirections.push("BACKWARD");
+    else localDirections.push("FLAT");
+
+    const leader = slopes
+      .filter((x) => Math.abs(x.slope) > 1e-12)
+      .sort((a, b) => Math.abs(b.slope) - Math.abs(a.slope))[0];
+    leaderScaleBySegment.push(leader?.scaleYears ?? null);
+  }
+
+  let leaderChanges = 0;
+  for (let i = 1; i < leaderScaleBySegment.length; i++) {
+    const a = leaderScaleBySegment[i - 1];
+    const b = leaderScaleBySegment[i];
+    if (a != null && b != null && a !== b) leaderChanges++;
+  }
+
+  let pairwiseCurveCrossings = 0;
+  for (let a = 0; a < profiles.length; a++) {
+    for (let b = a + 1; b < profiles.length; b++) {
+      const left = profiles[a].profile.q05Terminal;
+      const right = profiles[b].profile.q05Terminal;
+      let lastSign = 0;
+      for (let i = 0; i < Math.min(left.length, right.length); i++) {
+        const d = left[i] - right[i];
+        const sign = d > 1e-10 ? 1 : d < -1e-10 ? -1 : 0;
+        if (sign !== 0 && lastSign !== 0 && sign !== lastSign) pairwiseCurveCrossings++;
+        if (sign !== 0) lastSign = sign;
+      }
+    }
+  }
+
+  const hasMixedDirection = localDirections.includes("MIXED");
+  const hasDirectionalDisagreement = leaderChanges > 0 || pairwiseCurveCrossings > 0;
+  const state = hasMixedDirection
+    ? "DIVERGENT"
+    : hasDirectionalDisagreement
+      ? "TENSION"
+      : "CONVERGENT";
+
+  return {
+    state,
+    localDirections,
+    leaderScaleBySegment,
+    leaderChanges,
+    pairwiseCurveCrossings,
+  };
+}
+
 function robustConsensus(targets: number[]) {
   if (!targets.length) return { center: null, agreement: 0 };
   const center = median(targets) ?? 0;
@@ -504,6 +603,31 @@ export function couple(
       ? clockTarget
       : clamp(clockTarget + signalAuthority * (finalConsensus.center - clockTarget));
 
+  const mutualChase = [...new Set(signals.map((s) => s.channel))].map((channel) => {
+    const profiles = TRAP_SCALES_YEARS
+      .map((scaleYears) => {
+        const signal = signals.find(
+          (s) =>
+            s.channel === channel &&
+            s.scaleYears === scaleYears &&
+            s.status === "OK" &&
+            s.responseProfile != null,
+        );
+        return signal?.responseProfile
+          ? { scaleYears, profile: signal.responseProfile }
+          : null;
+      })
+      .filter(Boolean) as Array<{
+        scaleYears: TrapScale;
+        profile: DeploymentResponseProfile;
+      }>;
+
+    return {
+      channel,
+      topology: mutualChaseTopology(profiles),
+    };
+  });
+
   return {
     asof,
     clockTarget,
@@ -513,6 +637,7 @@ export function couple(
     robustTarget: finalConsensus.center,
     agreement: signalAuthority,
     coupledTarget,
+    mutualChase,
   };
 }
 
