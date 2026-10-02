@@ -95,7 +95,7 @@ class OutcomeTests(unittest.TestCase):
             rows = ledger.rows()
             # Replace only the anchor identity in a controlled malformed ledger
             # would invalidate its record hash; instead mock the runtime lineage.
-            cross_runtime = dict(RUNTIME_IDENTITY)
+            cross_runtime = dict(TEST_IDENTITY)
             cross_runtime["research_engine_commit"] = "ENG2"
             with patch.object(outcome, "runtime_identity", lambda repo_root: cross_runtime):
                 argv = sys.argv
