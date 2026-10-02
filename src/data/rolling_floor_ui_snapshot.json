@@ -1,0 +1,29 @@
+{
+  "version": "rolling-floor.v2",
+  "evidenceClass": "RESEARCH_ONLY",
+  "asOf": "2026-09-04",
+  "asset": "QQQ",
+  "horizonYears": 10,
+  "horizonMonths": 120,
+  "decisionCadence": "monthly",
+  "current": {
+    "asOf": "2026-09-04",
+    "clockFirstMonthTarget": 0.008333333333333333,
+    "robustTargetAtPhaseZero": 0,
+    "agreementAtPhaseZero": 1,
+    "divergenceStateAtPhaseZero": "CONVERGENT",
+    "coupledTargetAtPhaseZero": 0,
+    "firstInjectionFraction": 0.008333333333333333,
+    "signalCount": 9,
+    "perScale": [
+      {"scaleYears":20,"target":0,"responseProfile":{"deploymentFractions":[0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1],"q05Terminal":[2.1502295701,2.2675414611,2.3920337915,2.5122512857,2.5739772575,2.6165766806,2.6580438912,2.6978509474,2.7376580036,2.7774650598,2.8126815279,2.8598197789,2.9069580300,2.9540962810,2.9999714886,3.0425709117,3.0851703348,3.1277697579,3.1703691811,3.2129686042,3.2555680273]}},
+      {"scaleYears":30,"target":0,"responseProfile":{"deploymentFractions":[0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1],"q05Terminal":[2.0496778254,2.0868043263,2.1205392041,2.1565570437,2.1930153073,2.2294735709,2.2659318346,2.3023900982,2.3388483618,2.3753066254,2.4117648890,2.4482231526,2.4846814162,2.5211396799,2.5575979435,2.5940562071,2.6305144707,2.6669727343,2.7034309979,2.7398892615,2.7763475252]}},
+      {"scaleYears":50,"target":0,"responseProfile":{"deploymentFractions":[0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95,1],"q05Terminal":[2.0496778254,2.0868043263,2.1205392041,2.1565570437,2.1930153073,2.2294735709,2.2659318346,2.3023900982,2.3388483618,2.3753066254,2.4117648890,2.4482231526,2.4846814162,2.5211396799,2.5575979435,2.5940562071,2.6305144707,2.6669727343,2.7034309979,2.7398892615,2.7763475252]}}
+    ],
+    "mutualChase": [
+      {"channel":"NDX","topology":{"state":"TENSION","leaderScaleBySegment":[20,20,20,20,20,20,20,20,20,30,30,30,30,30,30,30,30,30,30,30],"leaderChanges":1,"pairwiseCurveCrossings":0}},
+      {"channel":"NASDAQCOM","topology":{"state":"CONVERGENT","leaderScaleBySegment":[20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20],"leaderChanges":0,"pairwiseCurveCrossings":0}}
+    ]
+  },
+  "note": "Snapshot from verified Rolling 10Y Capital Floor run #63. QQQ is the observed outcome target. NDX/NASDAQ Composite are proxy state channels. The floor evidence is historical research evidence, not a guarantee of break-even."
+}
