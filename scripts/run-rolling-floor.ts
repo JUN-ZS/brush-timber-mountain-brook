@@ -9,6 +9,7 @@ import {
   recommendForScale,
   replayOne,
   summarizeReplays,
+  summarizeStatePath,
   TRAP_SCALES_YEARS,
   type ChannelScaleSignal,
   type Channel,
@@ -380,6 +381,7 @@ function writeOutputs(
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
     },
+    statePath: summarizeStatePath(replay.replays),
     provenance: {
       runner: "scripts/run-rolling-floor.ts",
       mode: "BRIDGE",
@@ -396,6 +398,10 @@ function writeOutputs(
   writeFileSync(
     join(outDir, "rolling_floor_replays.jsonl"),
     replay.replays.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_state_path.json"),
+    JSON.stringify(summarizeStatePath(replay.replays), null, 2),
   );
 
   const report = [
@@ -415,6 +421,26 @@ function writeOutputs(
     "",
     "- The portable bundle contains the exact runner source, QQQ source snapshot, required proxy shards, and the prior output.",
     "- RUN.cmd / RUN.sh invoke Node 22 directly; npm and FRED network access are not required for bridge replay.",
+    "",
+    "## State-conditioned capital path",
+    "",
+    "The state analysis is descriptive: it compares cumulative deployed capital with the hard clock target without changing any controller rule.",
+    "",
+    ...payload.statePath.map((s) =>
+      [
+        "- " + s.state +
+          ": observations=" + s.observations +
+          ", share=" + (s.shareOfObservedMonths * 100).toFixed(1) + "%" +
+          ", mean ahead-of-clock=" + (s.meanAheadOfClock * 100).toFixed(2) + "%" +
+          ", q05/q95 ahead=" + (s.q05AheadOfClock * 100).toFixed(2) +
+          "%/" + (s.q95AheadOfClock * 100).toFixed(2) + "%" +
+          ", episodes=" + s.episodes +
+          ", mean episode=" + s.meanEpisodeMonths.toFixed(1) + "m" +
+          ", max episode=" + s.maxEpisodeMonths + "m",
+      ].join("")
+    ),
+    "",
+    "Interpretation: CONVERGENT records where scale consensus is permitted to pull capital ahead of the deadline; TENSION records partial authority; DIVERGENT removes historical pull and returns to the clock; THIN means insufficient scale evidence.",
     "",
     "## Replay",
     "",
