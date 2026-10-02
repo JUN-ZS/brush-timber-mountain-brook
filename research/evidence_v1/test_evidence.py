@@ -87,7 +87,7 @@ def test_strict_decision_rejects_incomplete_candidate_journal():
             "raw_candidate":actions[0],
             "observed_at_utc":"2026-10-01T21:00:02+00:00",
         }]
-        with self.assertRaises(LedgerError):
+        with unittest.TestCase().assertRaises(LedgerError):
             ledger.append(
                 "DECISION_EMITTED",
                 cycle_id="C1",
@@ -109,7 +109,7 @@ def test_strict_decision_rejects_candidate_observed_after_decision():
         action={"action":"ADD_NEAR","code":"US.QQQ.TEST","qty":1}
         ledger.append("CYCLE_STARTED",cycle_id="C1",timestamp_utc="2026-10-01T21:00:00+00:00",payload={})
         ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",timestamp_utc="2026-10-01T21:00:01+00:00",payload={})
-        with self.assertRaises(LedgerError) as exc:
+        with unittest.TestCase().assertRaises(LedgerError) as exc:
             ledger.append(
                 "DECISION_EMITTED",
                 cycle_id="C1",
