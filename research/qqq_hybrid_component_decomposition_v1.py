@@ -238,7 +238,8 @@ if __name__=='__main__':
     values={}; rows=[]
     for mask in __import__('itertools').product([0,1], repeat=4):
         inc=dict(zip(layers,[bool(x) for x in mask]))
-        s,e=simulate(args.spots_path,False,inc)
+        cagr,maxdd,final_nav,opens,closes,events,e=simulate(args.spots_path,False,inc)
+        s={'cagr':cagr,'maxdd_daily_mtm':maxdd,'final_nav':final_nav,'opens':len(opens),'closes':len(closes),'events':len(events)}
         values[mask]=s
         rows.append({'mask':''.join(map(str,mask)),**s,**inc})
         e.to_csv(out/f"equity_mask_{''.join(map(str,mask))}.csv",index=False)
