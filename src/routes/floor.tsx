@@ -1209,6 +1209,13 @@ type RiskBalanceData = {
   currentValue: number;
 };
 
+function medianNumbers(xs: number[]) {
+  if (!xs.length) return null;
+  const sorted = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2;
+}
+
 function normalizedPosition(value: number, lo: number, hi: number) {
   if (!Number.isFinite(value) || !Number.isFinite(lo) || !Number.isFinite(hi)) return 0.5;
   if (Math.abs(hi - lo) < 1e-12) return 0.5;
@@ -1432,9 +1439,6 @@ function buildStrategySimulation({
         price: tapePoint.price,
       };
     });
-
-  const byMonth = <T extends { month: number; equity: number }>(rows: T[]) =>
-    new Map(rows.map((row) => [row.month, row.equity]));
 
   return {
     months: Array.from({ length: 121 }, (_, i) => i),
