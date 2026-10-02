@@ -325,6 +325,7 @@ function writeOutputs(
           lane: "windows",
           channel: "QQQ",
           runner: '["self-hosted","windows","x64"]',
+          role: "AUDIT_ONLY",
         },
         {
           lane: "linux",
@@ -338,6 +339,7 @@ function writeOutputs(
         },
       ],
       bridge: "ubuntu-latest",
+      windowsAudit: "NONBLOCKING",
     },
     target: {
       asset: "QQQ",
@@ -403,15 +405,15 @@ function writeOutputs(
     "",
     "## Execution topology",
     "",
-    "- One matrix job definition spawns three parallel channel workers.",
-    "- Windows self-hosted computes QQQ observed state signals.",
+    "- One workflow launches three parallel machine workers.",
+    "- Windows self-hosted computes a non-blocking QQQ audit shard; Bridge uses the repo QQQ snapshot as canonical target input.",
     "- Linux self-hosted computes NASDAQ-100 proxy state signals.",
     "- HUB-Web (ubuntu-latest) computes NASDAQ Composite proxy state signals.",
-    "- A separate Bridge collector on ubuntu-latest joins the three immutable shards, applies the coupling state machine, and performs the QQQ replay.",
+    "- A separate Bridge collector on ubuntu-latest joins the required immutable NDX/NASDAQCOM shards with the canonical QQQ snapshot, applies the coupling state machine, and performs the QQQ replay.",
     "",
     "## Offline rerun",
     "",
-    "- The portable bundle contains the exact runner source, QQQ source snapshot, all three channel shards, and the prior output.",
+    "- The portable bundle contains the exact runner source, QQQ source snapshot, required proxy shards, and the prior output.",
     "- RUN.cmd / RUN.sh invoke Node 22 directly; npm and FRED network access are not required for bridge replay.",
     "",
     "## Replay",
@@ -481,9 +483,11 @@ async function main() {
 
   let shards: ShardPayload[];
   if (mode === "bridge") {
-    shards = (["QQQ", "NDX", "NASDAQCOM"] as ChannelId[]).map((id) =>
+    const canonicalQqq = await makeShard("QQQ");
+    const proxyShards = (["NDX", "NASDAQCOM"] as ChannelId[]).map((id) =>
       readJson<ShardPayload>(join(inputDir, id + ".json")),
     );
+    shards = [canonicalQqq, ...proxyShards];
   } else {
     shards = await Promise.all(
       (["QQQ", "NDX", "NASDAQCOM"] as ChannelId[]).map(makeShard),
