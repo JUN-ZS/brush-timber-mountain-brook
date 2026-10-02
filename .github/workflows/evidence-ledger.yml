@@ -16,25 +16,78 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: [self-hosted, windows, x64]
+    name: verify (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux
+            runs_on_json: '["self-hosted","Linux","X64","grokbot-box"]'
+          - target: windows
+            runs_on_json: '["self-hosted","Windows","X64"]'
+          - target: hub-web
+            runs_on_json: '"ubuntu-latest"'
+    runs-on: ${{ fromJSON(matrix.runs_on_json) }}
+    defaults:
+      run:
+        shell: bash
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python (hub-web)
+        if: matrix.target == 'hub-web'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          check-latest: false
+
+      - name: Resolve Python launcher
+        id: py
+        run: |
+          set -euo pipefail
+          if command -v python3 >/dev/null 2>&1; then
+            BIN=python3
+          elif command -v python >/dev/null 2>&1; then
+            BIN=python
+          elif command -v py >/dev/null 2>&1; then
+            printf '%s\n' '#!/usr/bin/env bash' 'exec py -3 "$@"' > "$RUNNER_TEMP/pywrap.sh"
+            chmod +x "$RUNNER_TEMP/pywrap.sh"
+            BIN="$RUNNER_TEMP/pywrap.sh"
+          else
+            echo "No python3/python/py on PATH" >&2
+            exit 1
+          fi
+          echo "bin=$BIN" >> "$GITHUB_OUTPUT"
+          echo "Using: $BIN"
+          "$BIN" --version
+
       - name: Verify workspace
-        shell: cmd
+        env:
+          PYBIN: ${{ steps.py.outputs.bin }}
         run: |
+          set -euo pipefail
           git status --short
-          python --version
+          "$PYBIN" --version
+
       - name: Compile evidence, live desk and operator console
-        shell: cmd
+        env:
+          PYBIN: ${{ steps.py.outputs.bin }}
         run: |
-          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/evidence_v1').glob('*.py')]"
-          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
-          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/strategy_instance_v1').glob('*.py')]"
+          set -euo pipefail
+          "$PYBIN" -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/evidence_v1').glob('*.py')]"
+          "$PYBIN" -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
+          "$PYBIN" -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/strategy_instance_v1').glob('*.py')]"
 
       - name: Run evidence and instance tests
-        shell: cmd
+        env:
+          PYBIN: ${{ steps.py.outputs.bin }}
         run: |
-          python -m unittest research.evidence_v1.test_evidence research.evidence_v1.test_lock_guard research.strategy_instance_v1.test_instance
+          set -euo pipefail
+          "$PYBIN" -m unittest research.evidence_v1.test_evidence research.evidence_v1.test_lock_guard research.strategy_instance_v1.test_instance
+
       - name: Verify evidence ledger
-        shell: cmd
+        env:
+          PYBIN: ${{ steps.py.outputs.bin }}
         run: |
-          python -m research.evidence_v1.seal
+          set -euo pipefail
+          "$PYBIN" -m research.evidence_v1.seal
