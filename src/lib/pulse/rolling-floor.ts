@@ -236,6 +236,13 @@ function pathFrom(points: MonthlyPoint[], index: number): number[] | null {
   return out;
 }
 
+function outcomeIndexByMonth(points: MonthlyPoint[], date: string) {
+  const key = monthKey(date);
+  const exact = points.findIndex((p) => monthKey(p.date) === key);
+  if (exact >= 0) return exact;
+  return indexAtOrBefore(points, date);
+}
+
 function terminalForDeployment(a: number, path: number[]) {
   const h = FLOOR_HORIZON_MONTHS;
   const terminalGrowth = path[h];
@@ -257,25 +264,27 @@ function objective(paths: number[], a: number) {
 }
 
 function buildAnalogs(
-  points: MonthlyPoint[],
+  statePoints: MonthlyPoint[],
+  outcomePoints: MonthlyPoint[],
   asofIndex: number,
   scaleYears: TrapScale,
 ): Analog[] {
-  const current = stateAt(points, asofIndex);
+  const current = stateAt(statePoints, asofIndex);
   if (!current) return [];
 
-  const asofDate = points[asofIndex].date;
+  const asofDate = statePoints[asofIndex].date;
   const minDate = addYears(asofDate, -scaleYears);
   const matureCutoff = addYears(asofDate, -FLOOR_HORIZON_YEARS);
-  const maxIndex = points.findIndex((p) => p.date > matureCutoff);
+  const maxIndex = statePoints.findIndex((p) => p.date > matureCutoff);
   const upperExclusive = maxIndex < 0 ? points.length : maxIndex;
 
   const candidates: Analog[] = [];
   for (let i = 36; i < upperExclusive; i += ANALOG_STRIDE_MONTHS) {
-    const p = points[i];
+    const p = statePoints[i];
     if (p.date < minDate || p.date >= matureCutoff) continue;
-    const state = stateAt(points, i);
-    const path = pathFrom(points, i);
+    const state = stateAt(statePoints, i);
+    const outcomeIndex = outcomeIndexByMonth(outcomePoints, p.date);
+    const path = outcomeIndex >= 0 ? pathFrom(outcomePoints, outcomeIndex) : null;
     if (!state || !path) continue;
     const distance = featureDistance(current, state);
     const weight = Math.exp(-0.5 * distance * distance);
@@ -287,12 +296,13 @@ function buildAnalogs(
 }
 
 export function recommendForScale(
-  points: MonthlyPoint[],
+  statePoints: MonthlyPoint[],
+  outcomePoints: MonthlyPoint[],
   asofIndex: number,
   scaleYears: TrapScale,
 ): ChannelScaleSignal {
-  const asof = points[asofIndex]?.date ?? "";
-  const analogs = buildAnalogs(points, asofIndex, scaleYears);
+  const asof = statePoints[asofIndex]?.date ?? "";
+  const analogs = buildAnalogs(statePoints, outcomePoints, asofIndex, scaleYears);
   const usable = analogs.filter((a) => a.weight > 0.001);
   const effectiveN = usable.length / 4;
   if (usable.length < MIN_ANALOGS) {
@@ -445,7 +455,11 @@ export function buildSignalPanel(channels: Channel[], targetDates: string[]) {
       const idx = indexAtOrBefore(channel.points, asof);
       if (idx < 0) continue;
       for (const scaleYears of TRAP_SCALES_YEARS) {
-        const s = recommendForScale(channel.points, idx, scaleYears);
+        const outcomePoints =
+          channels.find((candidate) => candidate.id === "QQQ")?.points ?? channel.points;
+        const outcomeIndex = outcomeIndexByMonth(outcomePoints, asof);
+        if (outcomeIndex < 0) continue;
+        const s = recommendForScale(channel.points, outcomePoints, idx, scaleYears);
         s.channel = channel.id;
         s.layer = channel.layer;
         signals.push(s);
