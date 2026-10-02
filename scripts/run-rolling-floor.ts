@@ -169,17 +169,16 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
   if (startIndex + h >= q.length) return null;
   let cash = 1;
   const lots: { amount: number; entry: number }[] = [];
+  const curve: number[] = [1];
+  let peak = 1;
+  let maxDd = 0;
+
   for (let j = 0; j < h; j++) {
     const amount = cash / (h - j);
     const px = q[startIndex + j].value;
     lots.push({ amount, entry: px });
     cash -= amount;
-  }
-  const curve: number[] = [];
-  let peak = 1;
-  let maxDd = 0;
-  for (let j = 0; j <= h; j++) {
-    const px = q[startIndex + j].value;
+
     const e =
       cash +
       lots.reduce((s, lot) => s + lot.amount * (px / lot.entry), 0);
@@ -187,8 +186,17 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
     peak = Math.max(peak, e);
     maxDd = Math.min(maxDd, e / peak - 1);
   }
+
+  const finalPx = q[startIndex + h].value;
+  const terminal =
+    cash +
+    lots.reduce((s, lot) => s + lot.amount * (finalPx / lot.entry), 0);
+  curve.push(terminal);
+  peak = Math.max(peak, terminal);
+  maxDd = Math.min(maxDd, terminal / peak - 1);
+
   return {
-    terminalWealth: curve.at(-1) ?? 1,
+    terminalWealth: terminal,
     maxDrawdown: maxDd,
   };
 }
