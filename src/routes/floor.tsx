@@ -353,6 +353,8 @@ function Page() {
                   q05: profile.maxDdQ05,
                   q95: profile.maxDdQ95,
                 },
+                response: s.responseProfile ?? null,
+                forward: s.forwardPathProfile ?? null,
               }
             : null;
         })
@@ -361,6 +363,13 @@ function Page() {
         xs: number[];
         gar: { median: number[]; q05: number[]; q95: number[] };
         maxDd: { median: number[]; q05: number[]; q95: number[] };
+        response: {
+          deploymentFractions: number[];
+          q05Terminal: number[];
+          pNonLoss: number[];
+          meanTerminal: number[];
+        } | null;
+        forward: ForwardPathProfile | null;
       }>,
     [activePerScale],
   );
@@ -393,6 +402,37 @@ function Page() {
     [riskBaselineCurves, cumulativeNowFraction],
   );
 
+  const riskBalance = useMemo(
+    () => buildWeightedRiskBalance(riskBaselineCurves, cumulativeNowFraction),
+    [riskBaselineCurves, cumulativeNowFraction],
+  );
+
+  const livePrice = liveContext.find((x) => x.symbol === "QQQ")?.price ?? null;
+  const simulation = useMemo(
+    () =>
+      livePrice != null
+        ? buildStrategySimulation({
+            curves: riskBaselineCurves,
+            currentMonth: month,
+            currentPrice: livePrice,
+            cumulativeNowFraction,
+            modelTarget: cumulativeModelTarget,
+            ledger,
+            startingDeployed: startingDeployed / safeCapital,
+          })
+        : null,
+    [
+      riskBaselineCurves,
+      month,
+      livePrice,
+      cumulativeNowFraction,
+      cumulativeModelTarget,
+      ledger,
+      startingDeployed,
+      safeCapital,
+    ],
+  );
+
   const ndxLeaderAtSim = leaderAtPhase(ndx?.topology.leaderScaleBySegment, cumulativeNowFraction);
   const compositeLeaderAtSim = leaderAtPhase(composite?.topology.leaderScaleBySegment, cumulativeNowFraction);
   const nearestAnalogDistance = medianNumbers(
@@ -417,7 +457,7 @@ function Page() {
       {
         id: globalThis.crypto?.randomUUID?.() ?? String(Date.now()),
         recordedAt: new Date().toISOString(),
-        asOf: snapshot.current.asOf,
+        asOf: activeAsOf,
         month,
         amount: actualNow,
         price: liveContext.find((x) => x.symbol === "QQQ")?.price ?? null,
