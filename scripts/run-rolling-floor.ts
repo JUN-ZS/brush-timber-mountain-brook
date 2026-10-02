@@ -384,6 +384,7 @@ function writeOutputs(
       firstInjectionFraction: Math.max(1 / 120, current.coupledTarget),
       signalCount: current.signals.length,
       perScale: current.perScale,
+      mutualChase: current.mutualChase,
     },
     replay: {
       n: replay.replays.length,
@@ -392,6 +393,7 @@ function writeOutputs(
       lumpNow: baselineSummary(replay.lump),
     },
     statePath: summarizeStatePath(replay.replays),
+    mutualChasePath: summarizeStatePath(replay.replays, "mutualChaseState"),
     provenance: {
       runner: "scripts/run-rolling-floor.ts",
       mode: "BRIDGE",
@@ -451,6 +453,21 @@ function writeOutputs(
     ),
     "",
     "Interpretation: CONVERGENT records where scale consensus is permitted to pull capital ahead of the deadline; TENSION records partial authority; DIVERGENT removes historical pull and returns to the clock; THIN means insufficient scale evidence.",
+    "",
+    "## Mutual-chase topology",
+    "",
+    ...payload.mutualChasePath.map((s) =>
+      [
+        "- " + s.state +
+          ": observations=" + s.observations +
+          ", share=" + (s.shareOfObservedMonths * 100).toFixed(1) + "%" +
+          ", mean ahead-of-clock=" + (s.meanAheadOfClock * 100).toFixed(2) + "%" +
+          ", episodes=" + s.episodes +
+          ", mean episode=" + s.meanEpisodeMonths.toFixed(1) + "m",
+      ].join("")
+    ),
+    "",
+    "Mutual-chase state is diagnostic only; it does not alter the replay action.",
     "",
     "## Replay",
     "",
