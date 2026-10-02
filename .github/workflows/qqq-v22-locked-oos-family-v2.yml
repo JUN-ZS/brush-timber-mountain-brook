@@ -5,13 +5,21 @@ on:
       - research/qqq-v22-locked-oos-family-v2-20261001
     paths:
       - research/qqq_v22_locked_oos_family_v2.py
+      - research/qqq_dynamic_near_long_state_engine_v22_930c949.py
       - .github/workflows/qqq-v22-locked-oos-family-v2.yml
   pull_request:
     branches:
       - main
+    paths:
+      - research/qqq_v22_locked_oos_family_v2.py
+      - research/qqq_dynamic_near_long_state_engine_v22_930c949.py
+      - .github/workflows/qqq-v22-locked-oos-family-v2.yml
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: qqq-v22-locked-oos-family-v2-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   replay:
     runs-on: [self-hosted, windows, x64]
