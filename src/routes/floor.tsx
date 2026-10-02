@@ -17,39 +17,159 @@ type LedgerEntry = {
   amount: number;
 };
 
-const LEDGER_KEY = "qqq-rolling-floor-ledger-v2";
+const LEDGER_KEY_V2 = "qqq-rolling-floor-ledger-v2";
+const FLOOR_STATE_KEY = "qqq-rolling-floor-state-v3";
+
+const DEFAULT_CAPITAL = 100000;
+const DEFAULT_STARTING_DEPLOYED = 0;
+const DEFAULT_MONTH = 0;
+
+type FloorPersistedState = {
+  capital: number;
+  startingDeployed: number;
+  month: number;
+  entries: LedgerEntry[];
+};
+
+function defaultFloorState(): FloorPersistedState {
+  return {
+    capital: DEFAULT_CAPITAL,
+    startingDeployed: DEFAULT_STARTING_DEPLOYED,
+    month: DEFAULT_MONTH,
+    entries: [],
+  };
+}
+
+function clampMonth(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_MONTH;
+  return Math.max(0, Math.min(119, Math.round(n)));
+}
+
+function normalizeFloorState(raw: unknown): FloorPersistedState | null {
+  if (raw == null) return null;
+
+  // Legacy v2: array-only ledger
+  if (Array.isArray(raw)) {
+    return {
+      ...defaultFloorState(),
+      entries: raw.filter(validLedgerEntry),
+    };
+  }
+
+  if (typeof raw !== "object") return null;
+  const obj = raw as Record<string, unknown>;
+
+  const capitalRaw = Number(obj.capital);
+  const capital =
+    Number.isFinite(capitalRaw) && capitalRaw >= 1 ? capitalRaw : DEFAULT_CAPITAL;
+
+  const startingRaw = Number(obj.startingDeployed);
+  const startingDeployed =
+    Number.isFinite(startingRaw) && startingRaw >= 0
+      ? startingRaw
+      : DEFAULT_STARTING_DEPLOYED;
+
+  const month = clampMonth(obj.month);
+
+  const entriesSource = Array.isArray(obj.entries)
+    ? obj.entries
+    : Array.isArray(obj.ledger)
+      ? obj.ledger
+      : [];
+  const entries = entriesSource.filter(validLedgerEntry);
+
+  return { capital, startingDeployed, month, entries };
+}
+
+function loadFloorState(): FloorPersistedState {
+  if (typeof window === "undefined") return defaultFloorState();
+
+  try {
+    const v3raw = window.localStorage.getItem(FLOOR_STATE_KEY);
+    if (v3raw) {
+      const parsed = normalizeFloorState(JSON.parse(v3raw));
+      if (parsed) return parsed;
+    }
+
+    const v2raw = window.localStorage.getItem(LEDGER_KEY_V2);
+    if (v2raw) {
+      const parsed = normalizeFloorState(JSON.parse(v2raw));
+      if (parsed) return parsed;
+    }
+  } catch {
+    try {
+      window.localStorage.removeItem(FLOOR_STATE_KEY);
+    } catch {}
+  }
+
+  return defaultFloorState();
+}
+
+function writeFloorState(state: FloorPersistedState) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      FLOOR_STATE_KEY,
+      JSON.stringify({
+        capital: state.capital,
+        startingDeployed: state.startingDeployed,
+        month: state.month,
+        entries: state.entries,
+      }),
+    );
+    // Prefer v3 as source of truth after migrate/write.
+    window.localStorage.removeItem(LEDGER_KEY_V2);
+  } catch {}
+}
 
 function Page() {
-  const [capital, setCapital] = useState(100000);
-  const [startingDeployed, setStartingDeployed] = useState(0);
+  const [capital, setCapital] = useState(DEFAULT_CAPITAL);
+  const [startingDeployed, setStartingDeployed] = useState(DEFAULT_STARTING_DEPLOYED);
   const [actualNow, setActualNow] = useState(0);
-  const [month, setMonth] = useState(0);
+  const [month, setMonth] = useState(DEFAULT_MONTH);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [copied, setCopied] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
+  // Hydrate from localStorage before any persist write.
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(LEDGER_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) setLedger(parsed.filter(validLedgerEntry));
-    } catch {
-      window.localStorage.removeItem(LEDGER_KEY);
-    }
+    const loaded = loadFloorState();
+    setCapital(loaded.capital);
+    setStartingDeployed(loaded.startingDeployed);
+    setMonth(loaded.month);
+    setLedger(loaded.entries);
+    setHasHydrated(true);
   }, []);
 
+  // Persist one blob after hydrate — never write the initial empty defaults.
   useEffect(() => {
-    try {
-      window.localStorage.setItem(LEDGER_KEY, JSON.stringify(ledger));
-    } catch {}
-  }, [ledger]);
+    if (!hasHydrated) return;
+    writeFloorState({
+      capital,
+      startingDeployed,
+      month,
+      entries: ledger,
+    });
+  }, [hasHydrated, capital, startingDeployed, month, ledger]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== LEDGER_KEY) return;
+      if (event.key !== FLOOR_STATE_KEY && event.key !== LEDGER_KEY_V2) return;
       try {
-        const parsed = event.newValue ? JSON.parse(event.newValue) : [];
-        setLedger(Array.isArray(parsed) ? parsed.filter(validLedgerEntry) : []);
+        if (!event.newValue) {
+          setCapital(DEFAULT_CAPITAL);
+          setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
+          setMonth(DEFAULT_MONTH);
+          setLedger([]);
+          return;
+        }
+        const parsed = normalizeFloorState(JSON.parse(event.newValue));
+        if (!parsed) return;
+        setCapital(parsed.capital);
+        setStartingDeployed(parsed.startingDeployed);
+        setMonth(parsed.month);
+        setLedger(parsed.entries);
       } catch {}
     };
     window.addEventListener("storage", onStorage);
@@ -119,20 +239,25 @@ function Page() {
   }
 
   function clearLocal() {
+    // Match prior CLEAR UX: wipe ledger + starting + live preview.
+    // capital/month reset to defaults; persisted blob rewritten by save effect.
     setLedger([]);
-    setStartingDeployed(0);
+    setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
     setActualNow(0);
+    setCapital(DEFAULT_CAPITAL);
+    setMonth(DEFAULT_MONTH);
   }
 
   function copyLedger() {
     const payload = JSON.stringify(
       {
-        version: "rolling-floor-ledger.v2",
+        version: "rolling-floor-ledger.v3",
         asset: snapshot.asset,
         modelAsOf: snapshot.asOf,
         horizonYears: snapshot.horizonYears,
         totalCapital: safeCapital,
         startingDeployed,
+        month,
         entries: ledger,
       },
       null,
