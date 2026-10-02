@@ -1176,6 +1176,414 @@ function MetricCard({
   );
 }
 
+
+function responseSlopeAt(profile: { deploymentFractions: number[]; q05Terminal: number[] } | null, phase: number) {
+  if (!profile || profile.q05Terminal.length < 2) return 0;
+  let i = Math.floor(Math.max(0, Math.min(0.999999, phase)) * (profile.q05Terminal.length - 1));
+  i = Math.max(0, Math.min(profile.q05Terminal.length - 2, i));
+  const x1 = profile.deploymentFractions[i] ?? 0;
+  const x2 = profile.deploymentFractions[i + 1] ?? x1;
+  const y1 = profile.q05Terminal[i] ?? 0;
+  const y2 = profile.q05Terminal[i + 1] ?? y1;
+  return x2 > x1 ? (y2 - y1) / (x2 - x1) : 0;
+}
+
+function scaleWeightsAtPhase(
+  curves: Array<{
+    scale: number;
+    xs: number[];
+    response: { deploymentFractions: number[]; q05Terminal: number[]; pNonLoss: number[]; meanTerminal: number[] } | null;
+  }>,
+  phase: number,
+) {
+  const raw = curves.map((c) => Math.abs(responseSlopeAt(c.response, phase)));
+  const sum = raw.reduce((a, b) => a + b, 0);
+  if (sum > 1e-12) return raw.map((x) => x / sum);
+  return raw.map(() => 1 / Math.max(1, raw.length));
+}
+
+type RiskBalanceData = {
+  xs: number[];
+  scaleLines: Array<{ scale: number; values: number[] }>;
+  weighted: number[];
+  envelopeLow: number[];
+  envelopeHigh: number[];
+  currentValue: number;
+};
+
+function normalizedPosition(value: number, lo: number, hi: number) {
+  if (!Number.isFinite(value) || !Number.isFinite(lo) || !Number.isFinite(hi)) return 0.5;
+  if (Math.abs(hi - lo) < 1e-12) return 0.5;
+  return Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
+}
+
+function buildWeightedRiskBalance(
+  curves: Array<{
+    scale: number;
+    xs: number[];
+    gar: { median: number[]; q05: number[]; q95: number[] };
+    maxDd: { median: number[]; q05: number[]; q95: number[] };
+    response: { deploymentFractions: number[]; q05Terminal: number[]; pNonLoss: number[]; meanTerminal: number[] } | null;
+    forward: ForwardPathProfile | null;
+  }>,
+  currentX: number,
+): RiskBalanceData | null {
+  if (!curves.length) return null;
+  const xs = curves[0].xs;
+  const scaleLines = curves.map((curve) => ({
+    scale: curve.scale,
+    values: xs.map((_, i) => {
+      const gar = normalizedPosition(curve.gar.median[i] ?? 0, curve.gar.q05[i] ?? 0, curve.gar.q95[i] ?? 0);
+      const dd = normalizedPosition(curve.maxDd.median[i] ?? 0, curve.maxDd.q05[i] ?? 0, curve.maxDd.q95[i] ?? 0);
+      return (gar + dd) / 2;
+    }),
+  }));
+  const weighted = xs.map((_, i) => {
+    const phase = xs[i] ?? 0;
+    const weights = scaleWeightsAtPhase(curves, phase);
+    return scaleLines.reduce((sum, line, j) => sum + (line.values[i] ?? 0) * (weights[j] ?? 0), 0);
+  });
+  const envelopeLow = xs.map((_, i) => Math.min(...scaleLines.map((line) => line.values[i] ?? 0)));
+  const envelopeHigh = xs.map((_, i) => Math.max(...scaleLines.map((line) => line.values[i] ?? 0)));
+
+  return {
+    xs,
+    scaleLines,
+    weighted,
+    envelopeLow,
+    envelopeHigh,
+    currentValue: interpolateAt(xs, weighted, currentX),
+  };
+}
+
+type StrategySimulation = {
+  months: number[];
+  projectedMedian: Array<number | null>;
+  projectedQ05: Array<number | null>;
+  projectedQ95: Array<number | null>;
+  observed: Array<{ month: number; equity: number; price: number }>;
+  currentMonth: number;
+  currentEquity: number;
+};
+
+function portfolioEquity(price: number, cash: number, lots: Array<{ amount: number; entry: number }>) {
+  return cash + lots.reduce((sum, lot) => sum + lot.amount * (price / Math.max(1e-12, lot.entry)), 0);
+}
+
+function baseLotsAtCurrent(
+  currentPrice: number,
+  startingFraction: number,
+  ledger: LedgerEntry[],
+  capitalFraction: number,
+  currentMonth: number,
+) {
+  const lots: Array<{ amount: number; entry: number }> = [];
+  if (startingFraction > 0) lots.push({ amount: startingFraction, entry: currentPrice });
+  for (const entry of ledger) {
+    if (entry.month <= currentMonth && entry.amount > 0) {
+      lots.push({
+        amount: entry.amount / Math.max(1, capitalFraction),
+        entry: entry.price && entry.price > 0 ? entry.price : currentPrice,
+      });
+    }
+  }
+  return lots;
+}
+
+function buildProjectedPortfolio(
+  path: number[],
+  currentPrice: number,
+  currentMonth: number,
+  currentDeployed: number,
+  modelTarget: number,
+  startingFraction: number,
+  ledger: LedgerEntry[],
+  capitalFraction: number,
+) {
+  const points: Array<{ month: number; equity: number }> = [];
+  const lots = baseLotsAtCurrent(currentPrice, startingFraction, ledger, capitalFraction, currentMonth);
+  let cash = Math.max(0, 1 - currentDeployed);
+  const currentEquity = portfolioEquity(currentPrice, cash, [
+    ...lots,
+    { amount: Math.max(0, currentDeployed - (startingFraction + ledger.filter((e) => e.month <= currentMonth).reduce((s, e) => s + e.amount / Math.max(1, capitalFraction), 0))), entry: currentPrice },
+  ].filter((x) => x.amount > 0));
+  points.push({ month: currentMonth, equity: currentEquity });
+
+  let deployed = currentDeployed;
+  const actualRecordedFraction =
+    startingFraction +
+    ledger
+      .filter((entry) => entry.month <= currentMonth)
+      .reduce((sum, entry) => sum + Math.max(0, entry.amount) / Math.max(1, capitalFraction), 0);
+  const previewFraction = Math.max(0, currentDeployed - actualRecordedFraction);
+  if (previewFraction > 0) lots.push({ amount: previewFraction, entry: currentPrice });
+
+  cash = Math.max(0, 1 - deployed);
+  for (let month = currentMonth + 1; month <= 120; month++) {
+    const offset = month - currentMonth;
+    const price = currentPrice * (path[offset] ?? path.at(-1) ?? 1);
+    const clock = month / 120;
+    const target = Math.min(1, Math.max(deployed, clock, modelTarget));
+    const add = Math.max(0, target - deployed);
+    if (add > 0) {
+      lots.push({ amount: add, entry: price });
+      cash -= add;
+      deployed += add;
+    }
+    points.push({ month, equity: portfolioEquity(price, cash, lots) });
+  }
+  return points;
+}
+
+function buildStrategySimulation({
+  curves,
+  currentMonth,
+  currentPrice,
+  cumulativeNowFraction,
+  modelTarget,
+  ledger,
+  startingDeployed,
+  marketTape,
+  capital,
+}: {
+  curves: Array<{
+    scale: number;
+    xs: number[];
+    response: { deploymentFractions: number[]; q05Terminal: number[]; pNonLoss: number[]; meanTerminal: number[] } | null;
+    forward: ForwardPathProfile | null;
+    gar: { median: number[]; q05: number[]; q95: number[] };
+    maxDd: { median: number[]; q05: number[]; q95: number[] };
+  }>;
+  currentMonth: number;
+  currentPrice: number;
+  cumulativeNowFraction: number;
+  modelTarget: number;
+  ledger: LedgerEntry[];
+  startingDeployed: number;
+  marketTape: MarketTapeEntry[];
+  capital: number;
+}): StrategySimulation | null {
+  const forwardCurves = curves.filter((c) => c.forward?.median.length === 121);
+  if (!forwardCurves.length) return null;
+
+  const weights = scaleWeightsAtPhase(forwardCurves, cumulativeNowFraction);
+  const project = (kind: "median" | "q05" | "q95") =>
+    Array.from({ length: 121 }, (_, i) =>
+      forwardCurves.reduce(
+        (sum, curve, j) => sum + (curve.forward?.[kind][i] ?? 1) * (weights[j] ?? 0),
+        0,
+      ),
+    );
+
+  const medianPath = project("median");
+  const q05Path = project("q05");
+  const q95Path = project("q95");
+
+  const medianProjected = buildProjectedPortfolio(
+    medianPath,
+    currentPrice,
+    currentMonth,
+    cumulativeNowFraction,
+    modelTarget,
+    startingDeployed,
+    ledger,
+    capital,
+  );
+  const lowProjected = buildProjectedPortfolio(
+    q05Path,
+    currentPrice,
+    currentMonth,
+    cumulativeNowFraction,
+    modelTarget,
+    startingDeployed,
+    ledger,
+    capital,
+  );
+  const highProjected = buildProjectedPortfolio(
+    q95Path,
+    currentPrice,
+    currentMonth,
+    cumulativeNowFraction,
+    modelTarget,
+    startingDeployed,
+    ledger,
+    capital,
+  );
+
+  const actual = [...marketTape]
+    .filter((x) => x.month <= currentMonth)
+    .sort((a, b) => a.month - b.month || a.marketDate.localeCompare(b.marketDate))
+    .map((tapePoint, index, all) => {
+      const firstPrice = all[0]?.price ?? currentPrice;
+      const lots = baseLotsAtCurrent(
+        firstPrice,
+        startingDeployed,
+        ledger,
+        capital,
+        tapePoint.month,
+      );
+      const deployed =
+        startingDeployed +
+        ledger
+          .filter((entry) => entry.month <= tapePoint.month)
+          .reduce((sum, entry) => sum + Math.max(0, entry.amount) / Math.max(1, capital), 0);
+      const cash = Math.max(0, 1 - deployed);
+      return {
+        month: tapePoint.month,
+        equity: portfolioEquity(tapePoint.price, cash, lots),
+        price: tapePoint.price,
+      };
+    });
+
+  const byMonth = <T extends { month: number; equity: number }>(rows: T[]) =>
+    new Map(rows.map((row) => [row.month, row.equity]));
+
+  return {
+    months: Array.from({ length: 121 }, (_, i) => i),
+    projectedMedian: medianProjected.map((row) => row.equity),
+    projectedQ05: lowProjected.map((row) => row.equity),
+    projectedQ95: highProjected.map((row) => row.equity),
+    observed: actual,
+    currentMonth,
+    currentEquity: medianProjected[0]?.equity ?? 1,
+  };
+}
+
+function CombinedRiskChart({
+  balance,
+  currentX,
+}: {
+  balance: RiskBalanceData;
+  currentX: number;
+}) {
+  const W = 1000, H = 360, L = 58, R = 24, T = 22, B = 48;
+  const plotW = W - L - R, plotH = H - T - B;
+  const x = (v: number) => L + Math.max(0, Math.min(1, v)) * plotW;
+  const y = (v: number) => T + (1 - Math.max(0, Math.min(1, v))) * plotH;
+  const band = balance.xs
+    .map((v, i) => [x(v), y(balance.envelopeHigh[i] ?? 0)])
+    .concat(
+      balance.xs
+        .slice()
+        .reverse()
+        .map((v, i) => [x(v), y(balance.envelopeLow[balance.envelopeLow.length - 1 - i] ?? 0)]),
+    )
+    .map((p) => p.join(","))
+    .join(" ");
+  const palette = ["var(--color-accent)", "var(--color-fragile)", "var(--color-muted)"];
+
+  return (
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="Weighted GAR MaxDD relative balance">
+      <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
+      {[0, 0.25, 0.5, 0.75, 1].map((v) => (
+        <g key={v}>
+          <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--color-line)" />
+          <text x={L - 8} y={y(v) + 4} textAnchor="end" fill="var(--color-subtle)" fontSize="11">{Math.round(v * 100)}%</text>
+        </g>
+      ))}
+      <polygon points={band} fill="var(--color-accent)" opacity="0.08" />
+      {balance.scaleLines.map((line, idx) => (
+        <polyline
+          key={line.scale}
+          points={balance.xs.map((v, i) => x(v) + "," + y(line.values[i] ?? 0)).join(" ")}
+          fill="none"
+          stroke={palette[idx] ?? "var(--color-fg)"}
+          strokeWidth="1.7"
+          opacity="0.72"
+        />
+      ))}
+      <polyline
+        points={balance.xs.map((v, i) => x(v) + "," + y(balance.weighted[i] ?? 0)).join(" ")}
+        fill="none"
+        stroke="var(--color-fg)"
+        strokeWidth="4"
+      />
+      <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={T + plotH} stroke="var(--color-fragile)" strokeDasharray="4 4" />
+      <text x={Math.min(W - 150, x(currentX) + 6)} y={T + 16} fill="var(--color-fragile)" fontSize="11">SIM {fmtPct(currentX, 1)}</text>
+      <text x={L} y={H - 22} fill="var(--color-subtle)" fontSize="11">0–100% cumulative deployment phase</text>
+      {balance.scaleLines.map((line, idx) => (
+        <text key={"legend-" + line.scale} x={W - 220 + idx * 62} y={H - 22} fill={palette[idx] ?? "var(--color-fg)"} fontSize="11">{line.scale}Y</text>
+      ))}
+      <text x={L} y={H - 5} fill="var(--color-subtle)" fontSize="10">normalized GAR / MaxDD historical position · dynamic mutual-chase weights</text>
+    </svg>
+  );
+}
+
+function SimulationChart({
+  simulation,
+  currentX,
+}: {
+  simulation: StrategySimulation;
+  currentX: number;
+}) {
+  const W = 1000, H = 390, L = 64, R = 24, T = 22, B = 48;
+  const plotW = W - L - R, plotH = H - T - B;
+  const values = [
+    ...simulation.projectedQ05,
+    ...simulation.projectedQ95,
+    ...simulation.projectedMedian,
+    ...simulation.observed.map((x) => x.equity),
+  ].filter((x): x is number => Number.isFinite(x));
+  const lo = Math.min(...values, 0.5);
+  const hi = Math.max(...values, 1.1);
+  const pad = Math.max(0.05, (hi - lo) * 0.08);
+  const domain: [number, number] = [lo - pad, hi + pad];
+  const x = (month: number) => L + Math.max(0, Math.min(120, month)) / 120 * plotW;
+  const y = (value: number) =>
+    T + (domain[1] - value) / Math.max(0.0001, domain[1] - domain[0]) * plotH;
+
+  const projectedBand = simulation.months
+    .filter((m) => m >= simulation.currentMonth)
+    .map((m) => [x(m), y(simulation.projectedQ95[m] ?? 1)])
+    .concat(
+      simulation.months
+        .filter((m) => m >= simulation.currentMonth)
+        .reverse()
+        .map((m) => [x(m), y(simulation.projectedQ05[m] ?? 1)]),
+    )
+    .map((p) => p.join(","))
+    .join(" ");
+
+  return (
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="10 year hybrid observed and simulated portfolio path">
+      <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
+      {[0.75, 1, 1.25, 1.5, 2].filter((v) => v >= domain[0] && v <= domain[1]).map((v) => (
+        <g key={v}>
+          <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--color-line)" />
+          <text x={L - 10} y={y(v) + 4} textAnchor="end" fill="var(--color-subtle)" fontSize="11">{v.toFixed(2)}×</text>
+        </g>
+      ))}
+      <polygon points={projectedBand} fill="var(--color-accent)" opacity="0.1" />
+      <polyline
+        points={simulation.months.map((m) => x(m) + "," + y(simulation.projectedMedian[m] ?? 1)).join(" ")}
+        fill="none"
+        stroke="var(--color-accent)"
+        strokeWidth="3"
+        strokeDasharray="7 4"
+      />
+      {simulation.observed.length > 0 ? (
+        <>
+          <polyline
+            points={simulation.observed.map((p) => x(p.month) + "," + y(p.equity)).join(" ")}
+            fill="none"
+            stroke="var(--color-fg)"
+            strokeWidth="3"
+          />
+          {simulation.observed.map((p) => (
+            <circle key={String(p.month) + "-" + p.price} cx={x(p.month)} cy={y(p.equity)} r="4" fill="var(--color-fg)" />
+          ))}
+        </>
+      ) : null}
+      <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={T + plotH} stroke="var(--color-fragile)" strokeDasharray="4 4" opacity="0.9" />
+      <text x={Math.min(W - 150, x(currentX) + 6)} y={T + 16} fill="var(--color-fragile)" fontSize="11">NOW · month {currentX + 1}</text>
+      {[0, 24, 48, 72, 96, 120].map((m) => (
+        <text key={m} x={x(m)} y={H - 22} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">{m}m</text>
+      ))}
+      <text x={L} y={H - 5} fill="var(--color-subtle)" fontSize="10">solid = observed tape · dashed = live analog simulation · band = analog q05–q95</text>
+    </svg>
+  );
+}
+
 function RiskBaselineChart({
   curves,
   currentX,
