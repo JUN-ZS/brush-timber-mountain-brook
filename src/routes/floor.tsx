@@ -321,12 +321,12 @@ function Page() {
   return (
     <Shell>
       <div className="grid gap-4">
-        <Panel kicker="10Y CAPITAL FLOOR / CONTROL PLANE" title="第一步：按現況訊號決定今期投入">
+        <Panel kicker="10Y CAPITAL FLOOR / CONTROL PLANE" title="第一步：按現況訊號決定目前累積投入">
           <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
               <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <p className="font-mono text-xs text-subtle">本期需再投入</p>
+                  <p className="font-mono text-xs text-subtle">目前最低累積投入（非固定單月）</p>
                   <p className="mt-1 text-4xl font-semibold tabular-nums">{fmtUsd(additionalSuggested, 2)}</p>
                 </div>
                 <Badge tone={additionalSuggested > 0 ? "pass" : "mute"}>
