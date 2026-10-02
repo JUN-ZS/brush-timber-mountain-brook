@@ -31,6 +31,18 @@ jobs:
       - name: Verify fixture
         run: |
           sha256sum src/data/universe.json
+          python - <<'PY'
+          import json
+          from datetime import date
+          d=json.load(open('src/data/universe.json',encoding='utf-8'))
+          dates=d['dates']; c=d['c']
+          lo=date.fromisoformat('2018-03-01'); hi=date.fromisoformat('2026-09-04')
+          idx=[i for i,x in enumerate(dates) if lo <= date.fromisoformat(x) <= hi]
+          for s in ('QQQ','VXX','VIX'):
+              miss=[dates[i] for i in idx if c[s][i] is None]
+              print(s, 'missing_count=', len(miss), 'dates=', miss[:50])
+          print('window_rows=', len(idx))
+          PY
       - name: Run component decomposition
         run: |
           python research/qqq_hybrid_component_decomposition_v1.py             --spots-path src/data/universe.json             --out artifacts
