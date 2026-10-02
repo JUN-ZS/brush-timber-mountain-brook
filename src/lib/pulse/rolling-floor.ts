@@ -357,7 +357,7 @@ function riskMetricsForDeployment(a: number, path: number[]) {
   };
 }
 
-export function riskBaselineProfile(paths: number[][]): RiskBaselineProfile {
+export function buildRiskBaselineProfile(paths: number[][]): RiskBaselineProfile {
   const deploymentFractions = Array.from({ length: 21 }, (_, i) => i / 20);
   const rows = deploymentFractions.map((a) => {
     const metrics = paths.map((path) => riskMetricsForDeployment(a, path));
@@ -504,7 +504,7 @@ export function recommendForScale(
   const paths = usable.map((x) => x.path);
   const profile = floorProfile(paths);
   const responseProfile = deploymentResponseProfile(paths);
-  const riskBaselineProfile = riskBaselineProfile(paths);
+  const riskBaselineProfile = buildRiskBaselineProfile(paths);
   const target = floorTarget(paths);
   const scored = objective(paths, target);
 
