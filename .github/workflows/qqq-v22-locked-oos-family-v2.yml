@@ -14,7 +14,6 @@ on:
       - research/qqq_dynamic_near_long_state_engine_v22_930c949.py
       - research/test_qqq_v22_locked_oos_family_v2.py
       - research/evidence_v1/STRATEGY_LOCK.json
-      - research/evidence_v1/test_evidence.py
       - .github/workflows/qqq-v22-locked-oos-family-v2.yml
   workflow_dispatch:
 
