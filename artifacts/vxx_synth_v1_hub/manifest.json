@@ -1,0 +1,154 @@
+{
+  "research_id": "VXX_SYNTHETIC_OPTION_TAPE_V1",
+  "status": "MODEL_DERIVED",
+  "source": "MODEL_DERIVED_VXX_OPTION_TAPE",
+  "historical_vxx_opra_available": false,
+  "do_not_treat_as_live_or_opra": true,
+  "date_range": {
+    "start": "2018-02-26",
+    "end": "2025-12-15",
+    "days": 1959
+  },
+  "families": [
+    "CONSERVATIVE",
+    "CENTRAL",
+    "HIGH_SKEW",
+    "STRESS"
+  ],
+  "dte_targets": [
+    14,
+    21,
+    30,
+    45,
+    60,
+    90,
+    120,
+    150,
+    180
+  ],
+  "moneyness_grid": [
+    -0.25,
+    -0.2,
+    -0.175,
+    -0.15,
+    -0.125,
+    -0.1,
+    -0.075,
+    -0.05,
+    -0.025,
+    0.0,
+    0.025,
+    0.05,
+    0.075,
+    0.1,
+    0.125,
+    0.15,
+    0.175,
+    0.2,
+    0.25,
+    0.3,
+    0.35,
+    0.4
+  ],
+  "calibration": {
+    "causal_shift": "one prior observation",
+    "qqq_reference_sampling": "stratified 5 delta bands x 6 rows/day, 20-40 DTE nearest 30D",
+    "references": [
+      "observed VXX/VIX/QQQ daily path",
+      "causal VXX RV20/RV60",
+      "causal VIX z-score/prior acceleration",
+      "observed historical QQQ option bid/ask/delta/IV surface",
+      "causal QQQ RV20"
+    ]
+  },
+  "input_sha256": {
+    "spots": "f80002db109f76ce6a84f51471cecf6051df91aa6cab466ccc99e0ef7cc45d4d",
+    "qqq_options": "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734",
+    "qqq_underlying": "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351"
+  },
+  "families_definition": {
+    "CONSERVATIVE": {
+      "atm": 1.02,
+      "call": 0.72,
+      "put": 0.85,
+      "tail": 0.45,
+      "spr": 0.85,
+      "vrp": 0.1,
+      "jump": 0.55
+    },
+    "CENTRAL": {
+      "atm": 1.1,
+      "call": 1.0,
+      "put": 1.0,
+      "tail": 0.7,
+      "spr": 1.0,
+      "vrp": 0.2,
+      "jump": 0.8
+    },
+    "HIGH_SKEW": {
+      "atm": 1.1,
+      "call": 1.4,
+      "put": 1.1,
+      "tail": 0.95,
+      "spr": 1.15,
+      "vrp": 0.2,
+      "jump": 0.95
+    },
+    "STRESS": {
+      "atm": 1.25,
+      "call": 1.8,
+      "put": 1.35,
+      "tail": 1.35,
+      "spr": 1.7,
+      "vrp": 0.3,
+      "jump": 1.25
+    }
+  },
+  "family_meta": {
+    "CONSERVATIVE": {
+      "rows": 775764,
+      "days": 1959,
+      "tape_fingerprint": "ae2c61ca9d9a35f66d2bee4923b1d703e08ba94a4e61ff2b619847a33edef875"
+    },
+    "CENTRAL": {
+      "rows": 775764,
+      "days": 1959,
+      "tape_fingerprint": "f76670fc9634ca95cb08342cf805b5e2c6a0a1625fa04d408f41951ba3c4bd2b"
+    },
+    "HIGH_SKEW": {
+      "rows": 775764,
+      "days": 1959,
+      "tape_fingerprint": "60fc106bb1c623704633b45d8d4468dd3f79d581e2022a047c29c900c6f7e1b9"
+    },
+    "STRESS": {
+      "rows": 775764,
+      "days": 1959,
+      "tape_fingerprint": "870d2bd813952451199dddbafe41c933bc5ee7ea47804d205deda780bf1a8069"
+    }
+  },
+  "quality_gate": {
+    "status": "PASS",
+    "regression_test": "PASS",
+    "blocks_checked": 70524,
+    "regression_details": {
+      "raw_max_call_price_diff": 0.22647615190739678,
+      "projected_max_call_price_diff": 0.0,
+      "projected_min_second_slope_diff": 0.0
+    },
+    "static_shape_rule": "CALL decreasing + convex; PUT increasing + convex"
+  },
+  "surface_integrity": {
+    "common_iv_for_call_put": true,
+    "put_call_parity_convention": "C-P = S-K*exp(-rT), zero dividend",
+    "raw_surface_projected_to_no_arb_price_curve": true,
+    "projected_price_monotonicity": "hard gate",
+    "projected_discrete_convexity": "hard gate",
+    "delta_monotonicity": "diagnostic_only_not_hard_gate"
+  },
+  "state_fingerprint": "b1b009abbfd5e7e5ca6661dad8538c567c97ae93c3e8f74cfc40103cfc47808c",
+  "family_fingerprint": "7489a6f388feffcf7562babb1970de36ed4687bc50b659dc20174fd10031f5b6",
+  "canonical_fingerprint": "59fe75db1e180e4cb01786577ef42b28c51ae11a1c159817f3d109185be6661f",
+  "script_sha256": "2fd0afdbcbe2adf52d08df965b5b0110449b7a47e079a9eac9c6ace41d1a6c14",
+  "python": "3.10.21",
+  "platform": "Linux-6.12.8+-x86_64-with-glibc2.36"
+}
