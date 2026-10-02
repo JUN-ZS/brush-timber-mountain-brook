@@ -42,6 +42,13 @@ export type FloorProfile = {
   maxRequiredFrontLoad: number;
 };
 
+export type DeploymentResponseProfile = {
+  deploymentFractions: number[];
+  q05Terminal: number[];
+  pNonLoss: number[];
+  meanTerminal: number[];
+};
+
 export type ChannelScaleSignal = {
   channel: string;
   layer: Channel["layer"];
@@ -49,6 +56,7 @@ export type ChannelScaleSignal = {
   asof: string;
   target: number | null;
   floorProfile: FloorProfile | null;
+  responseProfile: DeploymentResponseProfile | null;
   q05: number | null;
   pNonLoss: number | null;
   mean: number | null;
@@ -299,6 +307,17 @@ function objective(paths: number[], a: number) {
   return { q05, pNonLoss, mean };
 }
 
+export function deploymentResponseProfile(paths: number[]): DeploymentResponseProfile {
+  const deploymentFractions = Array.from({ length: 21 }, (_, i) => i / 20);
+  const rows = deploymentFractions.map((a) => objective(paths, a));
+  return {
+    deploymentFractions,
+    q05Terminal: rows.map((x) => x.q05),
+    pNonLoss: rows.map((x) => x.pNonLoss),
+    meanTerminal: rows.map((x) => x.mean),
+  };
+}
+
 export function floorProfile(paths: number[]): FloorProfile {
   const required = paths.map((path) => requiredFrontLoadFraction(path, 1));
   const ordered = [...required].sort((a, b) => a - b);
@@ -374,6 +393,7 @@ export function recommendForScale(
       asof,
       target: null,
       floorProfile: null,
+      responseProfile: null,
       q05: null,
       pNonLoss: null,
       mean: null,
@@ -385,6 +405,7 @@ export function recommendForScale(
 
   const paths = usable.map((x) => x.path);
   const profile = floorProfile(paths);
+  const responseProfile = deploymentResponseProfile(paths);
   const target = floorTarget(paths);
   const scored = objective(paths, target);
 
@@ -395,6 +416,7 @@ export function recommendForScale(
     asof,
     target,
     floorProfile: profile,
+    responseProfile,
     q05: scored.q05,
     pNonLoss: scored.pNonLoss,
     mean: scored.mean,
