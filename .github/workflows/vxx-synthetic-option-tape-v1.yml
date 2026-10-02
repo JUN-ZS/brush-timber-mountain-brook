@@ -69,6 +69,41 @@ jobs:
         run: |
           python3 -m pip install --break-system-packages --upgrade pip
           python3 -m pip install --break-system-packages duckdb pandas pyarrow numpy scipy
+      - name: Validate bounded DuckDB arg_min selector
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import duckdb
+          con=duckdb.connect()
+          x=con.execute("""
+          WITH b AS (
+            SELECT * FROM (VALUES
+              (DATE '2026-01-01',1,30,100.0,0.50),
+              (DATE '2026-01-01',1,31,200.0,0.49),
+              (DATE '2026-01-01',1,29,300.0,0.51),
+              (DATE '2026-01-01',1,35,50.0,0.30)
+            ) AS t(date,band,dte,volume,delta)
+          ),
+          g AS (
+            SELECT date,band,
+              arg_min(
+                struct_pack(dte:=dte,volume:=volume,delta:=delta),
+                struct_pack(
+                  dte_dist:=ABS(dte-30),
+                  neg_volume:=-volume,
+                  delta_dist:=ABS(ABS(delta)-0.50)
+                ),
+                2
+              ) AS picks
+            FROM b
+            GROUP BY date,band
+          )
+          SELECT (UNNEST(picks)).dte FROM g
+          ORDER BY 1
+          """).fetchall()
+          assert x == [(29,), (30,)], x
+          print("DUCKDB_ARG_MIN_SELECTOR_PASS", x)
+          PY
       - name: Prepare canonical inputs
         shell: bash
         run: |
