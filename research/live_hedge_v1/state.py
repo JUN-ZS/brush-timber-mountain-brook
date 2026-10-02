@@ -278,7 +278,7 @@ class StateStore:
             ),
         }
 
-    def _read_events(self) -> list[dict[str, Any]]:
+    def _read_events_unlocked(self) -> list[dict[str, Any]]:
         self._events_tail_corrupt = False
         if not self.events_path.exists():
             return []
@@ -300,6 +300,13 @@ class StateStore:
         rows = [row for row in rows if isinstance(row, dict)]
         self._validate_event_chain(rows)
         return rows
+
+    def _read_events(self) -> list[dict[str, Any]]:
+        # Reads use the same inter-process lock as append/emit so a watcher
+        # cannot observe a half-written final event and mistake a transient
+        # filesystem boundary for corruption.
+        with live_event_mutation_lock(self.events_path):
+            return self._read_events_unlocked()
 
     @staticmethod
     def _numeric_suffix(value: Any, width: int = 0) -> int:
@@ -744,7 +751,7 @@ class StateStore:
         if self._event_record_hash(event) != event.get("event_hash"):
             raise ValueError("LIVE_EVENT_HASH_MISMATCH")
         with live_event_mutation_lock(self.events_path):
-            rows = self._read_events()
+            rows = self._read_events_unlocked()
             previous = (
                 rows[-1].get("event_hash")
                 if rows and rows[-1].get("event_hash")
