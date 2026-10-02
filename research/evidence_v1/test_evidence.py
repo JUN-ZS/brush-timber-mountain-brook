@@ -16,7 +16,7 @@ TEST_IDENTITY = {
     "strategy_version":"V1",
     "selection_cutoff":"2025-12-15",
     "research_engine_commit":"TEST",
-    "strategy_lock_hash":"LOCK1",
+    "strategy_lock_hash":"a697a808ccc78eadd8b1699515f470078d89f78372d29ed121ecb90071243bca",
     "code_hashes":{},
     "evidence_policy":{},
 }
