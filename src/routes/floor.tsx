@@ -320,6 +320,9 @@ function Page() {
     [riskBaselineCurves, cumulativeNowFraction],
   );
 
+  const ndxLeaderAtSim = leaderAtPhase(ndx?.topology.leaderScaleBySegment, cumulativeNowFraction);
+  const compositeLeaderAtSim = leaderAtPhase(composite?.topology.leaderScaleBySegment, cumulativeNowFraction);
+
   const capitalPoints = buildCapitalPoints(
     ledger,
     startingDeployed,
@@ -611,10 +614,30 @@ function Page() {
                   </tbody>
                 </table>
               </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="rounded-md border border-line bg-elevated p-3">
+                  <p className="font-mono text-[11px] text-subtle">MUTUAL CHASE @ SIM</p>
+                  <p className="mt-1 font-mono text-sm tabular-nums">
+                    NDX {ndx?.topology.state ?? "THIN"} · leader {ndxLeaderAtSim == null ? "—" : ndxLeaderAtSim + "Y"}
+                  </p>
+                  <p className="mt-1 font-mono text-xs text-muted">
+                    NASDAQCOM {composite?.topology.state ?? "THIN"} · leader {compositeLeaderAtSim == null ? "—" : compositeLeaderAtSim + "Y"}
+                  </p>
+                </div>
+                <div className="rounded-md border border-line bg-elevated p-3">
+                  <p className="font-mono text-[11px] text-subtle">VERIFIED BASELINE</p>
+                  <p className="mt-1 font-mono text-sm tabular-nums">
+                    run #{snapVerifiedRun()} · as-of {snapshot.current.asOf}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    baseline follows the verified bridge artifact; no live value is mixed into this historical layer.
+                  </p>
+                </div>
+              </div>
               <p className="mt-3 text-xs text-subtle">
                 實線 = 每個 Y 層級自己的歷史 GAR / MaxDD 中位基線；淡區 = 同一歷史樣本的 q05–q95
                 出現範圍；粗淡區 = 三尺度共同 envelope。SIM 線隨目前實際累積投入移動，MODEL 線是現有
-                10Y floor controller 的位置。這層只觀測，不改 controller。
+                10Y floor controller 的位置。互追 leader 只描述相對 response 斜率，不控制資金。
               </p>
             </>
           ) : (
@@ -790,6 +813,17 @@ function leaderHandoff(leaders: Array<number | null>) {
     }
   }
   return null;
+}
+
+function leaderAtPhase(leaders: Array<number | null> | undefined, phase: number) {
+  if (!leaders?.length) return null;
+  const index = Math.max(0, Math.min(leaders.length - 1, Math.floor(Math.max(0, Math.min(0.999999, phase)) * leaders.length)));
+  return leaders[index] ?? null;
+}
+
+function snapVerifiedRun() {
+  const run = (snapshot as typeof snapshot & { verifiedSource?: { runNumber?: number } }).verifiedSource?.runNumber;
+  return Number.isFinite(run) ? run : "—";
 }
 
 function interpolateAt(xs: number[], ys: number[], x: number) {
