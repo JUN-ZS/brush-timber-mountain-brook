@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { median, couple, divergenceState, requiredFrontLoadFraction, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
+import { median, couple, deploymentResponseProfile, divergenceState, floorProfile, requiredFrontLoadFraction, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
 
 test("median", () => assert.equal(median([0.1, 0.2, 0.25, 0.9]), 0.225));
 
@@ -18,6 +18,8 @@ test("divergence removes forward-pull authority instead of disabling the clock",
     scaleYears: s,
     asof: "2026-01-01",
     target: t,
+    floorProfile: null,
+    responseProfile: null,
     q05: 1,
     pNonLoss: 0.5,
     mean: 1.1,
@@ -43,6 +45,8 @@ test("single available scale is THIN, not evidence of convergence", () => {
     scaleYears: 20,
     asof: "2026-01-01",
     target: 0.95,
+    floorProfile: null,
+    responseProfile: null,
     q05: 1,
     pNonLoss: 0.5,
     mean: 1.1,
