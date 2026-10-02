@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { median, couple, deploymentResponseProfile, divergenceState, floorProfile, requiredFrontLoadFraction, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
+import { median, couple, deploymentResponseProfile, divergenceState, floorProfile, requiredFrontLoadFraction, riskBaselineProfile, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
 
 test("median", () => assert.equal(median([0.1, 0.2, 0.25, 0.9]), 0.225));
 
@@ -179,4 +179,29 @@ test("deployment response profile keeps the conservative terminal-floor curve", 
   assert.equal(profile.q05Terminal.length, 21);
   assert.equal(profile.pNonLoss[0], 1);
   assert.equal(profile.pNonLoss.at(-1), 1);
+});
+
+
+test("GAR / MaxDD baseline profile is diagnostic and aligned to the existing deployment-response grid", () => {
+  const rising = Array.from({ length: 121 }, (_, i) => 1 + i / 60);
+  const falling = Array.from({ length: 121 }, (_, i) => Math.max(0.5, 1 - i / 240));
+  const profile = riskBaselineProfile([rising, falling]);
+
+  assert.deepEqual(profile.deploymentFractions.slice(0, 3), [0, 0.05, 0.1]);
+  assert.equal(profile.deploymentFractions.at(-1), 1);
+  assert.equal(profile.garMedian.length, 21);
+  assert.equal(profile.garQ05.length, 21);
+  assert.equal(profile.garQ95.length, 21);
+  assert.equal(profile.maxDdMedian.length, 21);
+  assert.equal(profile.maxDdQ05.length, 21);
+  assert.equal(profile.maxDdQ95.length, 21);
+
+  for (const x of profile.garMedian.concat(profile.garQ05, profile.garQ95, profile.maxDdMedian, profile.maxDdQ05, profile.maxDdQ95)) {
+    assert.ok(Number.isFinite(x));
+  }
+
+  assert.ok(profile.garQ05[20] <= profile.garMedian[20]);
+  assert.ok(profile.garMedian[20] <= profile.garQ95[20]);
+  assert.ok(profile.maxDdQ05[20] <= profile.maxDdMedian[20]);
+  assert.ok(profile.maxDdMedian[20] <= profile.maxDdQ95[20]);
 });
