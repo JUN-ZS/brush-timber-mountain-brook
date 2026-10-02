@@ -280,15 +280,42 @@ function Page() {
   const cumulativeNowFraction = cumulativeNowAmount / safeCapital;
 
   const currentClock = clockTarget(month);
-  const signalFloorAnchor = Math.max(0, Number(snapshot.current.coupledTargetAtPhaseZero) || 0);
+  const activePerScale = (liveFloor?.perScale ?? snapshot.current.perScale) as Array<{
+    scaleYears: 20 | 30 | 50;
+    target: number | null;
+    agreement: number;
+    nSignals: number;
+    responseProfile?: {
+      deploymentFractions: number[];
+      q05Terminal: number[];
+      pNonLoss: number[];
+      meanTerminal: number[];
+    } | null;
+    riskBaselineProfile?: RiskBaselineProfileView | null;
+    forwardPathProfile?: ForwardPathProfile | null;
+    nearestAnalogDistance?: number | null;
+  }>;
+  const activeMutualChase = liveFloor?.mutualChase ?? snapshot.current.mutualChase;
+  const activeAsOf = liveFloor?.asof ?? snapshot.current.asOf;
+  const signalFloorAnchor = Math.max(
+    0,
+    Number(liveFloor?.coupledTarget ?? snapshot.current.coupledTargetAtPhaseZero) || 0,
+  );
   const cumulativeModelTarget = Math.min(1, Math.max(currentClock, signalFloorAnchor));
   const additionalSuggested = Math.max(0, cumulativeModelTarget * safeCapital - cumulativeBeforePreview);
   const remainingCapital = Math.max(0, safeCapital - cumulativeBeforePreview);
   const currentStatus = statusFor(cumulativeNowFraction, currentClock, cumulativeNowAmount, safeCapital);
+  const modelGap = cumulativeModelTarget - cumulativeBeforePreview / safeCapital;
+  const strategyAction: FloorAction =
+    !liveFloor && !liveLoading
+      ? "WAIT FOR LIVE MODEL"
+      : modelGap > 1e-9
+        ? "BUY / ADD"
+        : "HOLD / NO NEW BUY";
 
   const responseCurves = useMemo(
     () =>
-      (snapshot.current.perScale ?? [])
+      activePerScale
         .filter(
           (s) =>
             s.responseProfile?.deploymentFractions?.length &&
@@ -296,10 +323,10 @@ function Page() {
         )
         .map((s) => ({
           scale: s.scaleYears,
-          xs: s.responseProfile.deploymentFractions,
-          ys: s.responseProfile.q05Terminal,
+          xs: s.responseProfile!.deploymentFractions,
+          ys: s.responseProfile!.q05Terminal,
         })),
-    [],
+    [activePerScale],
   );
 
   const maxResponse = responseCurves.length
@@ -309,11 +336,9 @@ function Page() {
 
   const riskBaselineCurves = useMemo(
     () =>
-      (snapshot.current.perScale ?? [])
+      activePerScale
         .map((s) => {
-          const profile = (s as typeof s & {
-            riskBaselineProfile?: RiskBaselineProfileView | null;
-          }).riskBaselineProfile;
+          const profile = s.riskBaselineProfile;
           return profile
             ? {
                 scale: s.scaleYears,
@@ -337,11 +362,11 @@ function Page() {
         gar: { median: number[]; q05: number[]; q95: number[] };
         maxDd: { median: number[]; q05: number[]; q95: number[] };
       }>,
-    [],
+    [activePerScale],
   );
 
-  const ndx = snapshot.current.mutualChase?.find((x) => x.channel === "NDX");
-  const composite = snapshot.current.mutualChase?.find((x) => x.channel === "NASDAQCOM");
+  const ndx = activeMutualChase?.find((x) => x.channel === "NDX");
+  const composite = activeMutualChase?.find((x) => x.channel === "NASDAQCOM");
   const ndxHandoff = ndx ? leaderHandoff(ndx.topology.leaderScaleBySegment) : null;
 
   const riskCurrentRows = useMemo(
@@ -370,6 +395,11 @@ function Page() {
 
   const ndxLeaderAtSim = leaderAtPhase(ndx?.topology.leaderScaleBySegment, cumulativeNowFraction);
   const compositeLeaderAtSim = leaderAtPhase(composite?.topology.leaderScaleBySegment, cumulativeNowFraction);
+  const nearestAnalogDistance = medianNumbers(
+    activePerScale
+      .map((s) => s.nearestAnalogDistance)
+      .filter((x): x is number => Number.isFinite(x)),
+  );
 
   const capitalPoints = buildCapitalPoints(
     ledger,
