@@ -106,6 +106,9 @@ export type ReplayTrade = {
   clockTarget: number;
   agreement: number;
   divergenceState: DivergenceState;
+  mutualChaseState: DivergenceState;
+  mutualLeaderChanges: number;
+  mutualCurveCrossings: number;
 };
 
 export type ReplayPathPoint = {
@@ -117,6 +120,9 @@ export type ReplayPathPoint = {
   clockTarget: number;
   agreement: number;
   divergenceState: DivergenceState;
+  mutualChaseState: DivergenceState;
+  mutualLeaderChanges: number;
+  mutualCurveCrossings: number;
 };
 
 export type ReplayResult = {
@@ -449,6 +455,14 @@ function responseSlope(profile: DeploymentResponseProfile, i: number) {
   return width > 0 ? (b - a) / width : 0;
 }
 
+export function overallMutualChaseState(topologies: MutualChaseTopology[]): DivergenceState {
+  const usable = topologies.filter((x) => x.state !== "THIN");
+  if (usable.length === 0) return "THIN";
+  if (usable.some((x) => x.state === "DIVERGENT")) return "DIVERGENT";
+  if (usable.some((x) => x.state === "TENSION")) return "TENSION";
+  return "CONVERGENT";
+}
+
 export function mutualChaseTopology(
   profiles: Array<{ scaleYears: TrapScale; profile: DeploymentResponseProfile }>,
 ): MutualChaseTopology {
@@ -724,6 +738,10 @@ export function replayOne(
     const robustTarget = sig?.robustTarget ?? null;
     const signalAgreement = sig?.agreement ?? 0;
     const divergence = sig?.divergenceState ?? "THIN";
+    const topologies = sig?.mutualChase.map((x) => x.topology) ?? [];
+    const mutualState = overallMutualChaseState(topologies);
+    const mutualLeaderChanges = topologies.reduce((sum, x) => sum + x.leaderChanges, 0);
+    const mutualCurveCrossings = topologies.reduce((sum, x) => sum + x.pairwiseCurveCrossings, 0);
     const lagTarget =
       robustTarget == null
         ? clockTarget
@@ -750,6 +768,9 @@ export function replayOne(
         clockTarget,
         agreement: signalAgreement,
         divergenceState: divergence,
+        mutualChaseState: mutualState,
+        mutualLeaderChanges,
+        mutualCurveCrossings,
       });
     }
 
@@ -769,6 +790,9 @@ export function replayOne(
       clockTarget,
       agreement: signalAgreement,
       divergenceState: divergence,
+      mutualChaseState: mutualState,
+      mutualLeaderChanges,
+      mutualCurveCrossings,
     });
   }
 
@@ -832,7 +856,10 @@ type StateEpisode = {
   endAhead: number;
 };
 
-function episodesFromReplay(result: ReplayResult): StateEpisode[] {
+function episodesFromReplay(
+  result: ReplayResult,
+  stateField: "divergenceState" | "mutualChaseState" = "divergenceState",
+): StateEpisode[] {
   const episodes: StateEpisode[] = [];
   let currentState: DivergenceState | null = null;
   let months = 0;
@@ -841,8 +868,9 @@ function episodesFromReplay(result: ReplayResult): StateEpisode[] {
 
   for (const point of result.path) {
     const ahead = point.deployed - point.clockTarget;
+    const state = point[stateField];
 
-    if (currentState !== point.divergenceState) {
+    if (currentState !== state) {
       if (currentState != null) {
         episodes.push({
           state: currentState,
@@ -851,7 +879,7 @@ function episodesFromReplay(result: ReplayResult): StateEpisode[] {
           endAhead,
         });
       }
-      currentState = point.divergenceState;
+      currentState = state;
       months = 0;
       peakAhead = ahead;
       endAhead = ahead;
@@ -874,7 +902,10 @@ function episodesFromReplay(result: ReplayResult): StateEpisode[] {
   return episodes;
 }
 
-export function summarizeStatePath(results: ReplayResult[]) {
+export function summarizeStatePath(
+  results: ReplayResult[],
+  stateField: "divergenceState" | "mutualChaseState" = "divergenceState",
+) {
   const rows: Record<DivergenceState, {
     ahead: number[];
     deployed: number[];
@@ -890,14 +921,14 @@ export function summarizeStatePath(results: ReplayResult[]) {
 
   for (const result of results) {
     for (const point of result.path) {
-      const row = rows[point.divergenceState];
+      const row = rows[point[stateField]];
       const ahead = point.deployed - point.clockTarget;
       row.ahead.push(ahead);
       row.deployed.push(point.deployed);
       row.clock.push(point.clockTarget);
       row.coupledDelta.push(point.coupledTarget - point.clockTarget);
     }
-    for (const ep of episodesFromReplay(result)) rows[ep.state].episodes.push(ep);
+    for (const ep of episodesFromReplay(result, stateField)) rows[ep.state].episodes.push(ep);
   }
 
   const total = Object.values(rows).reduce((n, row) => n + row.ahead.length, 0);
