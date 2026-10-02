@@ -97,22 +97,15 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
     """
     Bounded-memory causal QQQ surface reference.
 
-    The canonical QQQ option parquet is large (~369MB compressed). Do not
-    materialize it into pandas or iterate batches into a growing dictionary.
-    DuckDB scans the parquet with a strict memory cap and spills to a local temp
-    directory, returning only the deterministic 6-row representative per
-    date/delta band needed by the model.
+    The QQQ parquet is large. Read it strictly as Arrow record batches and
+    retain only six representatives per (date, delta-band). No full relation,
+    window, sort, or growing candidate table is materialized.
     """
-    con.execute("PRAGMA threads=1")
-    con.execute("PRAGMA memory_limit='256MB'")
-    con.execute("PRAGMA temp_directory='.duckdb_tmp'")
-    con.execute("PRAGMA preserve_insertion_order=false")
+    import pyarrow.parquet as pq
 
-    schema=con.execute(
-        "DESCRIBE SELECT * FROM read_parquet(?)", [str(opt)]
-    ).fetchdf()
-    names=schema["column_name"].astype(str).tolist()
-    lower={n.lower():n for n in names}
+    pf=pq.ParquetFile(opt)
+    names=pf.schema_arrow.names
+    lower={str(n).lower():str(n) for n in names}
 
     def pick(*cands, required=True):
         for x in cands:
@@ -134,159 +127,154 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
     c_volume=pick("volume",required=False)
     c_iv=pick("iv","implied_volatility","impliedvolatility",required=False)
 
-    def ident(name):
-        return '"' + str(name).replace('"','""') + '"'
+    wanted=[c_date,c_exp,c_strike,c_type,c_bid,c_ask,c_delta]
+    if c_volume:
+        wanted.append(c_volume)
+    if c_iv:
+        wanted.append(c_iv)
 
-    vdate=ident(c_date)
-    vexp=ident(c_exp)
-    vstrike=ident(c_strike)
-    vtype=ident(c_type)
-    vbid=ident(c_bid)
-    vask=ident(c_ask)
-    vdelta=ident(c_delta)
-    vvolume=ident(c_volume) if c_volume else "0.0"
-    viv=ident(c_iv) if c_iv else "NULL"
-
-    q=f"""
-    WITH base AS (
-      SELECT
-        CAST({vdate} AS DATE) AS date,
-        CAST({vexp} AS DATE) AS expiration,
-        TRY_CAST({vstrike} AS DOUBLE) AS strike,
-        UPPER(CAST({vtype} AS VARCHAR)) AS type_norm,
-        TRY_CAST({vbid} AS DOUBLE) AS bid,
-        TRY_CAST({vask} AS DOUBLE) AS ask,
-        TRY_CAST({vdelta} AS DOUBLE) AS delta,
-        COALESCE(TRY_CAST({vvolume} AS DOUBLE),0.0) AS volume,
-        TRY_CAST({viv} AS DOUBLE) AS iv_obs,
-        DATEDIFF('day',CAST({vdate} AS DATE),CAST({vexp} AS DATE)) AS dte
-      FROM read_parquet(?)
-      WHERE CAST({vdate} AS DATE) BETWEEN DATE '2018-01-25' AND DATE '2026-09-01'
-        AND UPPER(CAST({vtype} AS VARCHAR))='CALL'
-        AND TRY_CAST({vstrike} AS DOUBLE)>0
-        AND TRY_CAST({vbid} AS DOUBLE)>0
-        AND TRY_CAST({vask} AS DOUBLE)>=TRY_CAST({vbid} AS DOUBLE)
-        AND TRY_CAST({vdelta} AS DOUBLE) IS NOT NULL
-        AND ABS(TRY_CAST({vdelta} AS DOUBLE)) BETWEEN 0.15 AND 0.85
-        AND CAST({vexp} AS DATE)>CAST({vdate} AS DATE)
-        AND DATEDIFF('day',CAST({vdate} AS DATE),CAST({vexp} AS DATE)) BETWEEN 20 AND 40
-        -- Deterministic pre-sample before aggregation keeps the complete
-        -- 369MB parquet from becoming an in-memory relation on small runners.
-        AND MOD(
-          HASH(
-            CAST({vdate} AS VARCHAR) || '|' ||
-            CAST({vexp} AS VARCHAR) || '|' ||
-            CAST(TRY_CAST({vstrike} AS DOUBLE) AS VARCHAR)
-          ),
-          32
-        ) = 0
-    ),
-    bands AS (
-      SELECT *,
-        CASE
-          WHEN ABS(delta)<=0.30 THEN 1
-          WHEN ABS(delta)<=0.45 THEN 2
-          WHEN ABS(delta)<=0.55 THEN 3
-          WHEN ABS(delta)<=0.70 THEN 4
-          ELSE 5
-        END AS band
-      FROM base
-    ),
-    grouped AS (
-      SELECT
-        date,
-        band,
-        arg_min(
-          struct_pack(
-            expiration:=expiration,
-            strike:=strike,
-            type_norm:=type_norm,
-            bid:=bid,
-            ask:=ask,
-            delta:=delta,
-            volume:=volume,
-            iv_obs:=iv_obs,
-            dte:=dte
-          ),
-          struct_pack(
-            dte_dist:=ABS(dte-30),
-            neg_volume:=-volume,
-            delta_dist:=ABS(ABS(delta)-0.50),
-            expiration:=expiration,
-            strike:=strike
-          ),
-          6
-        ) AS picks
-      FROM bands
-      GROUP BY date,band
+    u=pd.read_parquet(
+        under,
+        columns=["date","close"]
     )
-    SELECT
-      date,
-      pick.expiration AS expiration,
-      pick.strike AS strike,
-      pick.type_norm AS type_norm,
-      pick.bid AS bid,
-      pick.ask AS ask,
-      pick.delta AS delta,
-      pick.volume AS volume,
-      pick.iv_obs AS iv_obs,
-      pick.dte AS dte
-    FROM grouped
-    CROSS JOIN UNNEST(picks) AS u(pick)
-    ORDER BY date,band
-    """
-
-    z=con.execute(q,[str(opt)]).fetchdf()
-    if z.empty:
-        raise RuntimeError(
-            "QQQ DuckDB deterministic pre-sample found no qualifying rows"
-        )
-
-    u=pd.read_parquet(under,columns=["date","close"])
     u["date"]=pd.to_datetime(u["date"]).dt.tz_localize(None).dt.normalize()
     u["close"]=pd.to_numeric(u["close"],errors="coerce")
     u=u[u.date.between(START,END)].copy()
     spot_map=dict(zip(u.date,u.close))
 
-    z["date"]=pd.to_datetime(z["date"]).dt.normalize()
-    z["expiration"]=pd.to_datetime(z["expiration"]).dt.normalize()
+    candidates={}
+    batch_rows=0
+
+    for table in pf.iter_batches(batch_size=50_000,columns=wanted):
+        z=table.to_pandas()
+        batch_rows += len(z)
+        z.columns=[str(x).lower() for x in z.columns]
+        z["date"]=pd.to_datetime(z[c_date.lower()],errors="coerce").dt.normalize()
+        z["expiration"]=pd.to_datetime(z[c_exp.lower()],errors="coerce").dt.normalize()
+        z["strike"]=pd.to_numeric(z[c_strike.lower()],errors="coerce")
+        z["type_norm"]=z[c_type.lower()].astype(str).str.upper()
+        z["bid"]=pd.to_numeric(z[c_bid.lower()],errors="coerce")
+        z["ask"]=pd.to_numeric(z[c_ask.lower()],errors="coerce")
+        z["delta"]=pd.to_numeric(z[c_delta.lower()],errors="coerce")
+        if c_volume:
+            z["volume"]=pd.to_numeric(
+                z[c_volume.lower()],errors="coerce"
+            ).fillna(0.0)
+        else:
+            z["volume"]=0.0
+        if c_iv:
+            z["iv_obs"]=pd.to_numeric(z[c_iv.lower()],errors="coerce")
+        else:
+            z["iv_obs"]=np.nan
+
+        z=z[
+            z.date.between(START,END)
+            & z.type_norm.eq("CALL")
+            & z.strike.gt(0)
+            & z.bid.notna() & z.ask.notna()
+            & z.ask.ge(z.bid) & z.bid.gt(0)
+            & z.delta.notna()
+            & z.delta.abs().between(.15,.85)
+            & z.expiration.gt(z.date)
+        ].copy()
+        if z.empty:
+            continue
+
+        z["dte"]=(z.expiration-z.date).dt.days
+        z=z[z.dte.between(20,40)].copy()
+        if z.empty:
+            continue
+
+        z["delta_abs"]=z.delta.abs()
+        z["band"]=pd.cut(
+            z.delta_abs,
+            bins=[.149,.30,.45,.55,.70,.851],
+            labels=False,
+            include_lowest=True
+        )
+        z=z.dropna(subset=["band"]).copy()
+        z["band"]=z["band"].astype(np.int8)
+        z["dte_dist"]=(z.dte-30).abs()
+        z["delta_dist"]=(z.delta_abs-.50).abs()
+
+        # At most six winners per group from each batch. The retained state
+        # is bounded by (#dates x 5 bands x 6 rows), independent of parquet size.
+        z=z.sort_values(
+            ["date","band","dte_dist","volume","delta_dist","expiration","strike"],
+            ascending=[True,True,True,False,True,True,True],
+            kind="mergesort"
+        )
+        z=z.groupby(["date","band"],sort=False,group_keys=False).head(6)
+
+        for (dt,band),g in z.groupby(["date","band"],sort=False):
+            key=(pd.Timestamp(dt),int(band))
+            keep=g.head(6).copy()
+            prev=candidates.get(key)
+            if prev is not None:
+                keep=pd.concat([prev,keep],ignore_index=True)
+                keep=keep.sort_values(
+                    ["dte_dist","volume","delta_dist","expiration","strike"],
+                    ascending=[True,False,True,True,True],
+                    kind="mergesort"
+                ).head(6).reset_index(drop=True)
+            candidates[key]=keep
+
+    if not candidates:
+        raise RuntimeError("QQQ streaming reference found no qualifying rows")
+
+    z=pd.concat(list(candidates.values()),ignore_index=True)
+
     z["spot"]=z.date.map(spot_map)
     z["m"]=np.log(z.strike/z.spot)
     z["mid"]=(z.bid+z.ask)/2
+
     if c_iv:
         z["iv_n"]=np.where(z.iv_obs>3,z.iv_obs/100,z.iv_obs)
     else:
         z["iv_n"]=[
-            _iv_from_mid(float(r.spot),float(r.strike),float(r.dte)/365.0,float(r.mid))
+            _iv_from_mid(
+                float(r.spot),
+                float(r.strike),
+                float(r.dte)/365.0,
+                float(r.mid)
+            )
             for r in z.itertuples(index=False)
         ]
+
     z=z[z.iv_n.notna() & z.iv_n.between(.02,3.5) & z.m.notna()].copy()
     if z.empty:
-        raise RuntimeError("QQQ DuckDB reference has no usable IV rows")
+        raise RuntimeError("QQQ streaming reference has no usable IV rows")
 
     out=[]
     for dt,g in z.groupby("date",sort=True):
         atm=g[g.m.abs()<=.03].iv_n
         if atm.empty:
-            atm=g.iloc[(g.delta.abs()-.5).abs().argsort()[:6]].iv_n
+            atm=g.iloc[(g.delta_abs-.5).abs().argsort()[:6]].iv_n
         cs=g[(g.m>0)&(g.m<=.25)]
         ps=g[(g.m<0)&(g.m>=-.25)]
+
         def slope(x):
             if len(x)<3:
                 return 0.0
             try:
                 w=np.sqrt(x.volume.to_numpy(float)+1.0)
-                return float(np.polyfit(x.m.to_numpy(float),x.iv_n.to_numpy(float),1,w=w)[0])
+                return float(
+                    np.polyfit(x.m.to_numpy(float),x.iv_n.to_numpy(float),1,w=w)[0]
+                )
             except Exception:
                 return 0.0
+
         out.append({
             "date":dt,
             "qqq_atm_iv":float(atm.median()),
             "qqq_call_slope":slope(cs),
             "qqq_put_slope":-slope(ps),
-            "qqq_rel_spread":float(((g.ask-g.bid)/g.mid).clip(0,2).median()),
+            "qqq_rel_spread":float(
+                ((g.ask-g.bid)/g.mid).clip(0,2).median()
+            ),
             "qqq_reference_rows":int(len(g)),
         })
+
     r=pd.DataFrame(out).sort_values("date")
     cols=[x for x in r.columns if x!="date"]
     r[cols]=r[cols].shift(1)
