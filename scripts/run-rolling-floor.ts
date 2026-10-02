@@ -104,9 +104,6 @@ async function fetchFred(id: string, start: string) {
     }
   }
   const monthly = monthlyize(points);
-  if (monthly.length < 600) {
-    throw new Error("FRED " + id + " returned too little history: " + monthly.length + " months");
-  }
   return { points: monthly, sha256_16, source: url };
 }
 
