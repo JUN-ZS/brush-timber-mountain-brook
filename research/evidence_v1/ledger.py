@@ -326,6 +326,12 @@ class EvidenceLedger:
         }
         row["record_hash"] = sha256_json(row)
 
+        # Validate the prospective ledger including the new row before the
+        # append reaches disk. This makes strict cycle semantics fail-closed at
+        # write time instead of only being discovered on a later validate().
+        prospective = self._rows() + [row]
+        self._validate_cycle_semantics(prospective)
+
         with self.path.open("a", encoding="utf-8", newline="\n") as fh:
             fh.write(canonical_json(row) + "\n")
             fh.flush()
