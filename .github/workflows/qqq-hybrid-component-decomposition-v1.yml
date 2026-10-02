@@ -43,9 +43,17 @@ jobs:
               print(s, 'missing_count=', len(miss), 'dates=', miss[:50])
           print('window_rows=', len(idx))
           PY
+      - name: Run source-logic control replay on repo fixture
+        run: |
+          mkdir -p artifacts/control
+          python research/qqq_hybrid_dynamic_deployment_repo_fixture_v1.py \
+            --spots-path src/data/universe.json \
+            --out artifacts/control
       - name: Run component decomposition
         run: |
-          python research/qqq_hybrid_component_decomposition_v1.py             --spots-path src/data/universe.json             --out artifacts
+          python research/qqq_hybrid_component_decomposition_v1.py \
+            --spots-path src/data/universe.json \
+            --out artifacts
       - name: Upload research artifacts
         uses: actions/upload-artifact@v4
         with:
