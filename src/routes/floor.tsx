@@ -109,13 +109,18 @@ function Page() {
       null,
       2,
     );
-    navigator.clipboard?.writeText(payload).then(
-      () => {
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1400);
-      },
-      () => window.alert(payload),
-    );
+    const write = navigator.clipboard?.writeText(payload);
+    if (write) {
+      write.then(
+        () => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1400);
+        },
+        () => window.alert(payload),
+      );
+    } else {
+      window.alert(payload);
+    }
   }
 
   return (
@@ -218,16 +223,29 @@ function Page() {
               >
                 記錄今次實際投入
               </button>
-              <button
-                type="button"
-                onClick={exportLedger}
-                className="min-h-11 rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
-              >
-                {copied ? "LEDGER COPIED" : "COPY LEDGER JSON"}
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={exportLedger}
+                  className="min-h-11 rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
+                >
+                  {copied ? "LEDGER COPIED" : "COPY LEDGER JSON"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLedger([]);
+                    setAlreadyDeployed(0);
+                  }}
+                  className="min-h-11 rounded-md border border-line px-4 text-sm text-subtle hover:text-fg"
+                >
+                  CLEAR LOCAL
+                </button>
+              </div>
             </div>
           </div>
           <LedgerTable entries={ledger} />
+          <p className="mt-3 text-xs text-subtle">Ledger 儲存在此 browser 的 localStorage；換裝置不會自動同步。JSON 可自行匯出作為後續研究紀錄。</p>
         </Panel>
 
         <div className="grid gap-4 lg:grid-cols-2">
