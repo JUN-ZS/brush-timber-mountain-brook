@@ -92,8 +92,8 @@ def sha256_file(path):
 
 def simulate(spots_path, dynamic=False):
     data=json.load(open(spots_path, encoding='utf-8'))
-    if not {'dates','qqq','vxx','vix'}.issubset(data):
-        raise ValueError('Input JSON must contain dates, qqq, vxx, vix arrays')
+    if not {'dates','c'}.issubset(data):
+        raise ValueError('Input JSON must contain dates and c series map')
     df=pd.DataFrame({'date':pd.to_datetime(data['dates']),'qqq':data['c']['QQQ'],'vxx':data['c']['VXX'],'vix':data['c']['VIX']})
     df=df[(df['date']>=pd.Timestamp('2018-03-01')) & (df['date']<=pd.Timestamp('2026-09-04'))].copy()
     missing=df.loc[df[['qqq','vxx','vix']].isna().any(axis=1),'date'].dt.strftime('%Y-%m-%d').tolist()
