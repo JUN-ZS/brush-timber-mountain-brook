@@ -324,7 +324,7 @@ function writeOutputs(
         {
           lane: "windows",
           channel: "QQQ",
-          runner: '["self-hosted","windows","x64"]',
+          runner: 'windows-latest',
           role: "AUDIT_ONLY",
         },
         {
@@ -406,7 +406,7 @@ function writeOutputs(
     "## Execution topology",
     "",
     "- One workflow launches three parallel machine workers.",
-    "- Windows self-hosted computes a non-blocking QQQ audit shard; Bridge uses the repo QQQ snapshot as canonical target input.",
+    "- Windows (windows-latest) computes a non-blocking QQQ audit shard; Bridge uses the repo QQQ snapshot as canonical target input.",
     "- Linux self-hosted computes NASDAQ-100 proxy state signals.",
     "- HUB-Web (ubuntu-latest) computes NASDAQ Composite proxy state signals.",
     "- A separate Bridge collector on ubuntu-latest joins the required immutable NDX/NASDAQCOM shards with the canonical QQQ snapshot, applies the coupling state machine, and performs the QQQ replay.",
