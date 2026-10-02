@@ -1,0 +1,60 @@
+{
+  "engine_commit": "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
+  "candidate": "30D near + 1.50x coverage",
+  "candidate_family_configs": 72,
+  "family_definition": "9 far DTE\u00d7delta combinations \u00d7 all 8 policies; no sub-selection inside OOS",
+  "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
+  "virgin_oos_status": "NOT_VIRGIN_BECAUSE_PRIOR_SELECTION_USED_FULL_V22_SAMPLE",
+  "windows": {
+    "forward_holdout_2022-03-08_to_2025-12-15": {
+      "start": "2022-03-08",
+      "end": "2025-12-15",
+      "gamma_mode": "OBSERVED_GAMMA",
+      "family": {
+        "n_configs": 72,
+        "n_campaign_rows": 464,
+        "positive_config_ratio": 0.8888888888888888,
+        "median_config_total_pnl_usd": 9313.0,
+        "q25_config_total_pnl_usd": 5295.250000000002,
+        "q75_config_total_pnl_usd": 16193.5,
+        "positive_campaign_ratio": 0.6724137931034483,
+        "median_campaign_pnl_usd": 1316.0,
+        "mean_campaign_maxdd": -0.05453381917676749,
+        "worst_campaign_pnl_usd": -9827.0,
+        "worst_campaign_maxdd": -0.18178627187582197,
+        "total_pnl_usd": 752996.0,
+        "far_pnl_usd": -644800.0,
+        "near_realized_pnl_usd": 1397796.0,
+        "near_trades": 7056,
+        "near_win_rate": 0.6866496598639455,
+        "positive_policy_count_by_median": 8,
+        "positive_far_cell_count_by_median": 9
+      }
+    },
+    "late_holdout_2024-01-02_to_2025-12-15": {
+      "start": "2024-01-02",
+      "end": "2025-12-15",
+      "gamma_mode": "OBSERVED_GAMMA",
+      "family": {
+        "n_configs": 72,
+        "n_campaign_rows": 336,
+        "positive_config_ratio": 1.0,
+        "median_config_total_pnl_usd": 10732.5,
+        "q25_config_total_pnl_usd": 6503.500000000002,
+        "q75_config_total_pnl_usd": 15420.25,
+        "positive_campaign_ratio": 0.8363095238095238,
+        "median_campaign_pnl_usd": 2223.9999999999995,
+        "mean_campaign_maxdd": -0.04659079760689949,
+        "worst_campaign_pnl_usd": -9827.0,
+        "worst_campaign_maxdd": -0.18178627187582197,
+        "total_pnl_usd": 852234.0,
+        "far_pnl_usd": 187040.0,
+        "near_realized_pnl_usd": 665194.0,
+        "near_trades": 4639,
+        "near_win_rate": 0.6497089890062513,
+        "positive_policy_count_by_median": 8,
+        "positive_far_cell_count_by_median": 9
+      }
+    }
+  }
+}
