@@ -29,7 +29,7 @@ RESEARCH_ONLY. No claim of live suitability or guaranteed non-loss is made from 
 
 The controller is now split into a three-worker shard stage plus a Bridge stage:
 
-- Windows self-hosted: observed QQQ channel.
+- Windows CI worker (windows-latest): non-blocking QQQ audit channel; the Bridge uses the repo QQQ snapshot as canonical target.
 - Linux self-hosted: NASDAQ-100 proxy channel.
 - HUB-Web (GitHub-hosted ubuntu-latest): NASDAQ Composite proxy channel.
 - Bridge (GitHub-hosted ubuntu-latest): schema/hash validation, coupling, and QQQ rolling replay.
