@@ -557,8 +557,13 @@ function Page() {
         <div className="grid gap-4 lg:grid-cols-3">
           <MetricCard
             kicker="MARKET STATE"
-            title={snapshot.current.divergenceStateAtPhaseZero}
-            detail={"signals " + snapshot.current.signalCount + " · agreement " + fmtPct(snapshot.current.agreementAtPhaseZero, 0)}
+            title={liveFloor?.divergenceState ?? snapshot.current.divergenceStateAtPhaseZero}
+            detail={
+              "signals " +
+              (liveFloor?.signals.length ?? snapshot.current.signalCount) +
+              " · agreement " +
+              fmtPct(liveFloor?.agreement ?? snapshot.current.agreementAtPhaseZero, 0)
+            }
           />
           <MetricCard
             kicker="MUTUAL CHASE"
@@ -571,8 +576,8 @@ function Page() {
           />
           <MetricCard
             kicker="DATA"
-            title={snapshot.current.asOf}
-            detail="research snapshot · not live market feed"
+            title={activeAsOf}
+            detail={liveFloor ? "LIVE MODEL · Yahoo + FRED + repo QQQ" : "verified snapshot · live model unavailable"}
           />
         </div>
 
@@ -671,6 +676,53 @@ function Page() {
           </p>
         </Panel>
 
+        <Panel kicker="LIVE STRATEGY / NOW RELATIVE VALUE" title="Refresh 後：此刻應否加碼">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+            <div className="rounded-md border border-line bg-elevated p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">CURRENT ACTION</p>
+                  <p className="mt-1 text-3xl font-semibold">{strategyAction}</p>
+                </div>
+                <Badge tone={strategyAction === "BUY / ADD" ? "pass" : strategyAction === "WAIT FOR LIVE MODEL" ? "mute" : "fragile"}>
+                  {liveFloor ? "LIVE MODEL" : "FALLBACK"}
+                </Badge>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                <MetricCard kicker="MODEL TARGET" title={fmtPct(cumulativeModelTarget, 2)} detail="cumulative capital phase" />
+                <MetricCard kicker="ACTUAL" title={fmtPct(cumulativeBeforePreview / safeCapital, 2)} detail="before preview" />
+                <MetricCard kicker="GAP" title={fmtPct(Math.max(0, modelGap), 2)} detail={modelGap > 0 ? "still below target" : "no new capital required"} />
+                <MetricCard kicker="NOW / HISTORY" title={nearestAnalogDistance == null ? "—" : nearestAnalogDistance.toFixed(2)} detail="nearest state distance · lower = closer" />
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                Action is generated from the existing cumulative-floor rule after the live NOW state is re-evaluated.
+                It is not a short-term price prediction. SELL/EXIT is deliberately not emitted because the current
+                controller has no validated negative-deployment rule.
+              </p>
+            </div>
+            <div className="rounded-md border border-line bg-elevated p-4">
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">RELATIVE STATE</p>
+              <div className="mt-3 grid gap-2">
+                {riskCurrentRows.map((row) => (
+                  <div key={row.scale} className="grid grid-cols-[55px_1fr_auto] items-center gap-3">
+                    <span className="font-mono text-xs">{row.scale}Y</span>
+                    <div className="grid gap-1">
+                      <div className="h-1 overflow-hidden rounded bg-line">
+                        <div className="h-full bg-accent" style={{ width: pctWidth(row.garRangePosition) }} />
+                      </div>
+                      <div className="h-1 overflow-hidden rounded bg-line">
+                        <div className="h-full bg-fragile" style={{ width: pctWidth(row.maxDdRangePosition) }} />
+                      </div>
+                    </div>
+                    <span className="font-mono text-[11px] tabular-nums">GAR {fmtPct(row.garRangePosition, 0)} · DD {fmtPct(row.maxDdRangePosition, 0)}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-subtle">上條 = GAR 在自己的歷史 q05–q95 區間位置；下條 = MaxDD 在自己的歷史 q05–q95 區間位置。這是相對值，不改 controller。</p>
+            </div>
+          </div>
+        </Panel>
+
         <Panel kicker="MUTUAL-CHASE GEOMETRY" title="20Y / 30Y / 50Y：追趕參考線">
           {responseCurves.length ? (
             <>
@@ -766,6 +818,50 @@ function Page() {
           ) : (
             <EmptyState text="目前 snapshot 尚未帶入 GAR / MaxDD baseline；不猜資料，待同一模型重跑後顯示。" />
           )}
+        </Panel>
+
+        <Panel kicker="WEIGHTED GAR ↔ MAXDD" title="三尺度合權後：相對風險－回報互追區間">
+          {riskBalance ? (
+            <>
+              <div className="overflow-x-auto">
+                <CombinedRiskChart
+                  balance={riskBalance}
+                  currentX={cumulativeNowFraction}
+                />
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                每個 Y 層先把 GAR 與 MaxDD 轉成自己的歷史相對位置，再用當前 response slope 所隱含的
+                mutual-chase 權重合成。灰帶是 20Y/30Y/50Y 的歷史 envelope；粗線是動態合權線；
+                白色 SIM 線跟隨你的實際累積投入。它只做相對觀測，不回寫資金 controller。
+              </p>
+            </>
+          ) : (
+            <EmptyState text="GAR / MaxDD combined geometry unavailable。" />
+          )}
+        </Panel>
+
+        <Panel kicker="10Y PATH SIMULATOR" title="現實紀錄 × NOW analog → 10Y 模擬走勢">
+          {simulation ? (
+            <>
+              <div className="overflow-x-auto">
+                <SimulationChart simulation={simulation} currentX={month} />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
+                <span className="font-mono">CURRENT MONTH {month + 1}/120</span>
+                <span className="font-mono">QQQ {livePrice == null ? "—" : fmtUsd(livePrice, 2)}</span>
+                <span className="font-mono">MARKET TAPE {marketTape.length} obs</span>
+                <span className="font-mono">SIM MODEL {liveFloor ? "LIVE" : "FALLBACK UNAVAILABLE"}</span>
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                已觀測月份使用 market tape；目前月份以 Yahoo 現價錨定；未來段用 NOW 匹配得到的歷史
+                10Y analog path 投影。每次 refresh、月份推進、實際投入與實際買入價都會改變這條線。
+              </p>
+            </>
+          ) : (
+            <EmptyState text="等待 LIVE rolling-floor model 與 forward analog path；未取得就不猜 10Y 曲線。" />
+          )}
+        </Panel>
+
         </Panel>
 
         <Panel kicker="CAPITAL TAPE / RULE CORRIDOR" title="你輸入的數字會立即反映在這條 10Y 路徑">
