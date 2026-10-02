@@ -332,7 +332,8 @@ function equityCurveForDeployment(a: number, path: number[]) {
   for (let j = 1; j <= h; j++) {
     const px = path[j];
     if (!Number.isFinite(px) || px <= 0) return curve;
-    let equity = initial * px + (1 - initial);
+    const cash = Math.max(0, (1 - initial) - monthlyRemainder * j);
+    let equity = initial * px + cash;
     for (let k = 1; k <= j; k++) {
       const entry = path[k];
       if (!Number.isFinite(entry) || entry <= 0) return curve;
