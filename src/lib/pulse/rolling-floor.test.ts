@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { median, couple, divergenceState, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
+import { median, couple, divergenceState, requiredFrontLoadFraction, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
 
 test("median", () => assert.equal(median([0.1, 0.2, 0.25, 0.9]), 0.225));
 
@@ -124,4 +124,17 @@ test("state-conditioned path summary observes displacement from the clock", () =
   assert.equal(Number(divergent.meanAheadOfClock.toFixed(4)), 0);
   assert.equal(convergent.episodes, 1);
   assert.equal(convergent.maxEpisodeMonths, 2);
+});
+
+
+test("capital-floor target asks for required front-load, not maximum terminal wealth", () => {
+  const flat = Array.from({ length: 121 }, () => 1);
+  assert.equal(requiredFrontLoadFraction(flat), 0);
+
+  const path = Array.from({ length: 121 }, (_, i) => (i === 120 ? 1.2 : 2));
+  const required = requiredFrontLoadFraction(path);
+  assert.equal(Number(required.toFixed(6)), Number((2 / 3).toFixed(6)));
+
+  const unrecoverable = Array.from({ length: 121 }, (_, i) => (i === 120 ? 0.8 : 2));
+  assert.equal(requiredFrontLoadFraction(unrecoverable), 1);
 });
