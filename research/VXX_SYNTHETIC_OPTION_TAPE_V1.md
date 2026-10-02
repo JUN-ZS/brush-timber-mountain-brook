@@ -65,13 +65,26 @@ The runner must reject the tape if any of the following fail:
 - delta monotonicity is diagnostic only, not a hard gate, because strike-dependent smiles can make Black delta locally non-monotone even when price shape is valid;
 - every family/date state is represented exactly once.
 
-## Two-runner verification
+## Three-way runner verification
 
-The workflow intentionally uses both available self-hosted runner classes:
+The workflow deliberately separates computation across three execution surfaces,
+with the three producer jobs independent of one another:
 
-- Windows x64 builds the complete tape and uploads the manifest/artifact.
-- Linux x64 independently rebuilds and must match the Windows canonical
-  fingerprint.
+- **Windows self-hosted x64** builds the complete tape and is the canonical
+  artifact producer.
+- **Linux self-hosted x64** independently rebuilds the causal manifest under the
+  low-memory self-hosted environment.
+- **HUB WEB (ubuntu-latest)** independently rebuilds the same manifest on a
+  GitHub-hosted environment.
+
+A fourth lightweight **HUB WEB gate** runs only after those three producers
+finish. It downloads the three manifests and requires equality of canonical,
+family, and state fingerprints.
+
+The purpose is architectural separation: a slow or occupied self-hosted runner
+does not become the verification surface itself, while the hosted runner gives
+an independent platform reference. Runner availability can still queue an
+individual producer, but the jobs do not depend on one another for execution.
 
 This catches platform-dependent numerical or serialization drift before the
 synthetic tape is allowed into later research.
