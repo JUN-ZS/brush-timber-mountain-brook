@@ -24,7 +24,7 @@ const LEDGER_KEY = "qqq-rolling-floor-ledger-v1";
 
 function Page() {
   const [capital, setCapital] = useState(100000);
-  const [alreadyDeployed, setAlreadyDeployed] = useState(0);
+  const [startingDeployed, setStartingDeployed] = useState(0);
   const [actualNow, setActualNow] = useState(0);
   const [month, setMonth] = useState(0);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
@@ -47,11 +47,22 @@ function Page() {
     snapshot.current.clockFirstMonthTarget,
     snapshot.current.coupledTargetAtPhaseZero,
   );
-  const currentAlreadyDeployed = alreadyDeployed / Math.max(capital, 1);
-  const requiredExtraFraction = Math.max(0, suggestedFraction - currentAlreadyDeployed);
-  const suggestedAmount = requiredExtraFraction * capital;
+  const safeCapital = Math.max(1, capital);
+  const recordedAmount = ledger.reduce((sum, x) => sum + Math.max(0, x.amount), 0);
+  const cumulativeBeforePreview = Math.max(0, startingDeployed) + recordedAmount;
+  const cumulativeNowAmount = cumulativeBeforePreview + Math.max(0, actualNow);
+  const currentAlreadyDeployed = cumulativeBeforePreview / safeCapital;
   const currentClock = clockTarget(month);
-  const capitalPath = buildCapitalPath(ledger, capital);
+  const cumulativeModelTarget = Math.max(currentClock, suggestedFraction);
+  const requiredExtraFraction = Math.max(
+    0,
+    cumulativeModelTarget - currentAlreadyDeployed,
+  );
+  const suggestedAmount = requiredExtraFraction * safeCapital;
+  const capitalPath = buildCapitalPath(ledger, startingDeployed, capital, {
+    month,
+    cumulativeAmount: cumulativeNowAmount,
+  });
   const responseCurves = snapshot.current.perScale.map((s) => ({
     scale: s.scaleYears,
     xs: s.responseProfile.deploymentFractions,
@@ -63,12 +74,10 @@ function Page() {
   const composite = snapshot.current.mutualChase.find((x) => x.channel === "NASDAQCOM");
   const ndxHandoff = ndx ? leaderHandoff(ndx.topology.leaderScaleBySegment) : null;
 
-  const bandText = useMemo(() => {
-    const actual = currentAlreadyDeployed;
-    if (actual < currentClock - 0.005) return "BELOW CLOCK";
-    if (actual > currentClock + 0.005) return "AHEAD";
-    return "ON CLOCK";
-  }, [currentAlreadyDeployed, currentClock]);
+  const currentStatus = useMemo(
+    () => statusFor(cumulativeNowAmount / safeCapital, currentClock, cumulativeNowAmount, safeCapital),
+    [cumulativeNowAmount, safeCapital, currentClock],
+  );
 
   function recordPoint() {
     if (!Number.isFinite(actualNow) || actualNow < 0) return;
@@ -172,8 +181,8 @@ function Page() {
           />
           <MetricCard
             kicker="RULE CHECK"
-            title={bandText}
-            detail={fmtPct(currentClock, 3) + " minimum cumulative deployment by month " + month}
+            title={currentStatus}
+            detail={fmtPct(currentClock, 3) + " minimum cumulative deployment · month " + month}
           />
         </div>
 
@@ -202,7 +211,11 @@ function Page() {
         <Panel kicker="CAPITAL TAPE / 10Y RULE CHECK" title="實際投入點 vs hard deadline rail">
           <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
             <div className="overflow-x-auto">
-              <CapitalChart points={capitalPath} suggestedFraction={suggestedFraction} />
+              <CapitalChart
+                points={capitalPath}
+                currentClock={currentClock}
+                currentStatus={currentStatus}
+              />
             </div>
             <div className="grid gap-3 content-start">
               <InputRow
@@ -371,14 +384,35 @@ function ResponseChart({
   );
 }
 
-function CapitalChart({ points, suggestedFraction }: { points: Array<{ month: number; fraction: number }>; suggestedFraction: number }) {
-  const W = 1000, H = 330, L = 54, R = 24, T = 20, B = 42;
+function CapitalChart({
+  points,
+  currentClock,
+  currentStatus,
+}: {
+  points: Array<{ month: number; fraction: number; preview?: boolean }>;
+  currentClock: number;
+  currentStatus: EntryStatus;
+}) {
+  const W = 1000, H = 340, L = 58, R = 24, T = 20, B = 44;
   const plotW = W - L - R, plotH = H - T - B;
-  const x = (m: number) => L + (m / 120) * plotW;
-  const y = (v: number) => T + (1 - v) * plotH;
+  const x = (month: number) => L + (Math.max(0, Math.min(120, month)) / 120) * plotW;
+  const y = (fraction: number) => T + (1 - Math.max(0, Math.min(1, fraction))) * plotH;
+
+  const rail = Array.from({ length: 121 }, (_, m) => Math.min(1, (m + 1) / 120));
+  const corridor = [
+    [x(0), y(0)],
+    ...rail.map((v, m) => [x(m), y(v)]),
+    [x(120), y(1)],
+    [x(0), y(1)],
+  ].map((p) => p.join(",")).join(" ");
+
+  const actual = points.filter((p) => !p.preview);
+  const preview = points.find((p) => p.preview);
+
   return (
-    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="capital deployment versus deadline rail">
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="10 year capital corridor and recorded deployment">
       <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
+      <polygon points={corridor} fill="var(--color-pass)" opacity="0.06" />
       {[0, 0.25, 0.5, 0.75, 1].map((v) => (
         <g key={v}>
           <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--color-line)" />
@@ -386,26 +420,42 @@ function CapitalChart({ points, suggestedFraction }: { points: Array<{ month: nu
         </g>
       ))}
       <polyline
-        points={Array.from({ length: 121 }, (_, m) => x(m) + "," + y(Math.min(1, (m + 1) / 120))).join(" ")}
+        points={rail.map((v, m) => x(m) + "," + y(v)).join(" ")}
         fill="none"
         stroke="var(--color-fragile)"
-        strokeWidth="2"
+        strokeWidth="3"
         strokeDasharray="5 5"
       />
-      <circle cx={x(0)} cy={y(suggestedFraction)} r="6" fill="var(--color-accent)" />
-      <text x={x(0) + 8} y={y(suggestedFraction) - 8} fill="var(--color-accent)" fontSize="11">MODEL NOW</text>
-      {points.length > 0 ? (
+      {actual.length ? (
         <>
-          <polyline points={points.map((p) => x(p.month) + "," + y(p.fraction)).join(" ")} fill="none" stroke="var(--color-fg)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-          {points.map((p) => (
-            <circle key={String(p.month) + "-" + String(p.fraction)} cx={x(p.month)} cy={y(p.fraction)} r="5" fill="var(--color-fg)" />
+          <polyline
+            points={actual.map((p) => x(p.month) + "," + y(p.fraction)).join(" ")}
+            fill="none"
+            stroke="var(--color-fg)"
+            strokeWidth="3"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          {actual.map((p, index) => (
+            <circle key={String(p.month) + "-" + String(index)} cx={x(p.month)} cy={y(p.fraction)} r="5" fill="var(--color-fg)" />
           ))}
         </>
       ) : null}
+      {preview ? (
+        <>
+          <line x1={x(preview.month)} x2={x(preview.month)} y1={T} y2={T + plotH} stroke="var(--color-accent)" strokeDasharray="2 3" opacity="0.7" />
+          <circle cx={x(preview.month)} cy={y(preview.fraction)} r="7" fill="var(--color-accent)" />
+          <text x={Math.min(W - 145, x(preview.month) + 8)} y={y(preview.fraction) - 10} fill="var(--color-accent)" fontSize="11">
+            PREVIEW · {currentStatus}
+          </text>
+        </>
+      ) : null}
       {[0, 24, 48, 72, 96, 120].map((m) => (
-        <text key={m} x={x(m)} y={H - 18} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">{m}m</text>
+        <text key={m} x={x(m)} y={H - 20} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">{m}m</text>
       ))}
-      <text x={L} y={H - 2} fill="var(--color-subtle)" fontSize="11">lower rail = hard deadline minimum</text>
+      <text x={L} y={H - 4} fill="var(--color-subtle)" fontSize="11">
+        shaded area = compliant zone above hard deadline rail · dots = actual recorded capital
+      </text>
     </svg>
   );
 }
