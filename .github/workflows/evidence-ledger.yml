@@ -1,1 +1,40 @@
-PLACEHOLDER
+name: evidence-ledger
+
+on:
+  pull_request:
+    paths:
+      - "research/evidence_v1/**"
+      - "research/live_hedge_v1/**"
+      - "research/strategy_instance_v1/**"
+      - "run_strategy_instance.cmd"
+      - ".github/workflows/evidence-ledger.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: [self-hosted, windows, x64]
+    steps:
+      - name: Verify workspace
+        shell: cmd
+        run: |
+          git status --short
+          python --version
+      - name: Compile evidence, live desk and operator console
+        shell: cmd
+        run: |
+          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/evidence_v1').glob('*.py')]"
+          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
+          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/strategy_instance_v1').glob('*.py')]"
+
+      - name: Run evidence and instance tests
+        shell: cmd
+        run: |
+          python -m unittest research.evidence_v1.test_evidence research.evidence_v1.test_lock_guard research.strategy_instance_v1.test_instance
+      - name: Verify evidence ledger
+        shell: cmd
+        run: |
+          python -m research.evidence_v1.seal

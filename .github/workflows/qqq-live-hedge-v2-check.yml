@@ -12,6 +12,10 @@ on:
     paths:
       - 'research/live_hedge_v1/**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     runs-on: [self-hosted, windows, x64]
