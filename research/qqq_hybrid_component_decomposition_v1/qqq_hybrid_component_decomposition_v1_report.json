@@ -1,0 +1,74 @@
+{
+  "research_id": "QQQ_HYBRID_COMPONENT_DECOMPOSITION_V1",
+  "status": "DERIVED_REPLAY",
+  "pricing_model": "DERIVED_BS_VIX",
+  "not_opra": true,
+  "data_sha256": "cda9aa4a57ca6d330f80e71a852fc7c8d3a980a2d6df5331ffe072d206f9d549",
+  "rules": {
+    "source_logic_control": "exact repo-fixture adaptation of QQQ_HYBRID_DYNAMIC_DEPLOYMENT_V1_1",
+    "no_parameter_search": true,
+    "window": "2018-03-01 to 2026-09-04",
+    "missing_rows": "drop synchronized market holiday rows only; no fill"
+  },
+  "full": {
+    "cagr": 0.13568275888952042,
+    "maxdd_daily_mtm": -0.23021284900789996,
+    "final_nav": 295048.08176620584,
+    "opens": 416,
+    "closes": 413,
+    "events": 420
+  },
+  "leave_one_out": [
+    {
+      "layer": "core",
+      "full_final_nav": 295048.08176620584,
+      "without_final_nav": 134362.25213994316,
+      "delta_final_nav": 160685.82962626268,
+      "full_cagr": 0.13568275888952042,
+      "without_cagr": 0.03534421980923885,
+      "delta_cagr": 0.10033853908028156,
+      "full_maxdd": -0.23021284900789996,
+      "without_maxdd": -0.15701480504056453
+    },
+    {
+      "layer": "qcc",
+      "full_final_nav": 295048.08176620584,
+      "without_final_nav": 289323.2503273417,
+      "delta_final_nav": 5724.831438864116,
+      "full_cagr": 0.13568275888952042,
+      "without_cagr": 0.13306901362856638,
+      "delta_cagr": 0.002613745260954037,
+      "full_maxdd": -0.23021284900789996,
+      "without_maxdd": -0.2377128957544542
+    },
+    {
+      "layer": "vxx_short",
+      "full_final_nav": 295048.08176620584,
+      "without_final_nav": 267384.5271313017,
+      "delta_final_nav": 27663.55463490414,
+      "full_cagr": 0.13568275888952042,
+      "without_cagr": 0.12261044920317787,
+      "delta_cagr": 0.013072309686342543,
+      "full_maxdd": -0.23021284900789996,
+      "without_maxdd": -0.21744200562908167
+    },
+    {
+      "layer": "vxx_cc",
+      "full_final_nav": 295048.08176620584,
+      "without_final_nav": 274510.2050033581,
+      "delta_final_nav": 20537.876762847765,
+      "full_cagr": 0.13568275888952042,
+      "without_cagr": 0.1260878592923771,
+      "delta_cagr": 0.009594899597143325,
+      "full_maxdd": -0.23021284900789996,
+      "without_maxdd": -0.2225167771677644
+    }
+  ],
+  "shapley_final_nav": {
+    "core": 154205.86060677207,
+    "qcc": 2708.4855388119477,
+    "vxx_short": 24631.480121080676,
+    "vxx_cc": 13502.255499541146
+  },
+  "fixture_note": "Canonical universe fixture has QQQ/VXX null on 2026-05-25; that calendar row is excluded consistently from every mask."
+}
