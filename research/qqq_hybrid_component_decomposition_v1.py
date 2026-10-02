@@ -98,8 +98,10 @@ def simulate(spots_path, include):
         'vix': data['c']['VIX'],
     })
     df = df[(df['date'] >= pd.Timestamp('2018-03-01')) & (df['date'] <= pd.Timestamp('2026-09-04'))].copy().reset_index(drop=True)
-    if df[['qqq', 'vxx', 'vix']].isna().any().any():
-        raise ValueError('2018-03-01 to 2026-09-04 fixture contains missing QQQ/VXX/VIX observations')
+    missing_rows = df.loc[df[['qqq', 'vxx', 'vix']].isna().any(axis=1), 'date'].dt.strftime('%Y-%m-%d').tolist()
+    # The canonical fixture contains one calendar row (2026-05-25) with no QQQ/VXX
+    # observation; retain only synchronized market sessions and never fill it.
+    df = df.dropna(subset=['qqq', 'vxx', 'vix']).reset_index(drop=True)
     df['rQ'] = df.qqq.pct_change().fillna(0)
     df['rV'] = df.vxx.pct_change().fillna(0)
     df['vixma'] = df.vix.rolling(20).mean()
@@ -223,6 +225,8 @@ def simulate(spots_path, include):
         'years': float(years),
         'opens': len(opens),
         'closes': len(closes),
+        'missing_market_rows_dropped': len(missing_rows),
+        'missing_market_dates': missing_rows,
     }, e
 
 def shapley(values, baseline_key):
