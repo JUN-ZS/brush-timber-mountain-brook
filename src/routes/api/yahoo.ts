@@ -1,6 +1,58 @@
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  couple,
+  monthlyize,
+  qqqMonthly,
+  recommendForScale,
+  TRAP_SCALES_YEARS,
+  type ChannelScaleSignal,
+  type CoupledSignal,
+  type MonthlyPoint,
+} from "@/lib/pulse/rolling-floor";
 
 const ALLOWED = new Set(["QQQ", "^VIX", "^NDX", "^IXIC"]);
+
+type LiveRollingFloorPayload = {
+  asOf: string;
+  coupled: CoupledSignal;
+  source: "YAHOO_FINANCE_CHART + REPO_QQQ + FRED_PROXY_HISTORY";
+};
+
+function appendLivePoint(points: MonthlyPoint[], asOf: string, price: number) {
+  const key = asOf.slice(0, 7);
+  const out = points.filter((p) => p.date.slice(0, 7) !== key);
+  out.push({ date: asOf, value: price });
+  return monthlyize(out);
+}
+
+async function fetchFredMonthly(id: string, start: string, end: string) {
+  const url =
+    "https://fred.stlouisfed.org/graph/fredgraph.csv?" +
+    new URLSearchParams({ id, cosd: start, coed: end });
+  const res = await fetch(url, {
+    headers: { "User-Agent": "rolling-floor-live/1.0" },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("FRED " + id + " HTTP " + res.status);
+  const raw = await res.text();
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  const points: MonthlyPoint[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const comma = lines[i].indexOf(",");
+    if (comma < 0) continue;
+    const date = lines[i].slice(0, comma).trim();
+    const value = Number(lines[i].slice(comma + 1).trim());
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(value) && value > 0) {
+      points.push({ date, value });
+    }
+  }
+  return monthlyize(points);
+}
+
+function latestLiveDate(series: { regularMarketTime?: string | null; bars?: Array<{ date: string }> }) {
+  if (series.regularMarketTime) return series.regularMarketTime.slice(0, 10);
+  return series.bars?.at(-1)?.date ?? new Date().toISOString().slice(0, 10);
+}
 
 type YahooChartResult = {
   chart?: {
@@ -80,12 +132,73 @@ export const Route = createFileRoute("/api/yahoo")({
           }
         }
 
+        let rollingFloor: LiveRollingFloorPayload | null = null;
+        try {
+          const qqqLive = results.find((x) => x.symbol === "QQQ");
+          const ndxLive = results.find((x) => x.symbol === "^NDX");
+          const compositeLive = results.find((x) => x.symbol === "^IXIC");
+          if (qqqLive?.price && ndxLive?.price && compositeLive?.price) {
+            const asOf = latestLiveDate(qqqLive);
+            const qqq = appendLivePoint(qqqMonthly(), asOf, qqqLive.price);
+            const ndx = appendLivePoint(
+              await fetchFredMonthly("NASDAQ100", "1986-01-02", asOf),
+              asOf,
+              ndxLive.price,
+            );
+            const nasdaqCom = appendLivePoint(
+              await fetchFredMonthly("NASDAQCOM", "1971-02-05", asOf),
+              asOf,
+              compositeLive.price,
+            );
+
+            const channels: Array<{
+              id: "QQQ" | "NDX" | "NASDAQCOM";
+              points: MonthlyPoint[];
+              layer: "OBSERVED" | "PROXY_PRICE";
+            }> = [
+              { id: "QQQ", points: qqq, layer: "OBSERVED" },
+              { id: "NDX", points: ndx, layer: "PROXY_PRICE" },
+              { id: "NASDAQCOM", points: nasdaqCom, layer: "PROXY_PRICE" },
+            ];
+
+            const signals: ChannelScaleSignal[] = [];
+            for (const channel of channels) {
+              const idx = channel.points.findIndex((p) => p.date === asOf);
+              if (idx < 0) continue;
+              for (const scaleYears of TRAP_SCALES_YEARS) {
+                const signal = recommendForScale( 
+                  channel.points,
+                  qqqMonthly(),
+                  idx,
+                  scaleYears,
+                );
+                signal.channel = channel.id;
+                signal.layer = channel.layer;
+                signals.push(signal);
+              }
+            }
+
+            rollingFloor = {
+              asOf,
+              coupled: couple(asOf, 0, signals),
+              source: "YAHOO_FINANCE_CHART + REPO_QQQ + FRED_PROXY_HISTORY",
+            };
+          } else {
+            warnings.push("rolling floor: live QQQ/NDX/NASDAQCOM prices incomplete");
+          }
+        } catch (error) {
+          warnings.push(
+            "rolling floor: " + (error instanceof Error ? error.message : "build failed"),
+          );
+        }
+
         return Response.json({
           source: "YAHOO_FINANCE_CHART",
           fetchedAt,
           interval: "1d",
           range: "5y",
           symbols: results,
+          rollingFloor,
           warnings,
         });
       },
