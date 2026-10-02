@@ -59,6 +59,13 @@ export type RiskBaselineProfile = {
   maxDdQ95: number[];
 };
 
+export type ForwardPathProfile = {
+  months: number[];
+  median: number[];
+  q05: number[];
+  q95: number[];
+};
+
 export type MutualChaseTopology = {
   state: DivergenceState;
   localDirections: Array<"FORWARD" | "BACKWARD" | "FLAT" | "MIXED">;
@@ -76,6 +83,8 @@ export type ChannelScaleSignal = {
   floorProfile: FloorProfile | null;
   responseProfile: DeploymentResponseProfile | null;
   riskBaselineProfile: RiskBaselineProfile | null;
+  forwardPathProfile: ForwardPathProfile | null;
+  nearestAnalogDistance: number | null;
   q05: number | null;
   pNonLoss: number | null;
   mean: number | null;
@@ -99,6 +108,8 @@ export type CoupledSignal = {
     nSignals: number;
     responseProfile: DeploymentResponseProfile | null;
     riskBaselineProfile: RiskBaselineProfile | null;
+    forwardPathProfile: ForwardPathProfile | null;
+    nearestAnalogDistance: number | null;
   }>;
   robustTarget: number | null;
   agreement: number;
@@ -387,6 +398,16 @@ export function buildRiskBaselineProfile(paths: number[][]): RiskBaselineProfile
   };
 }
 
+export function buildForwardPathProfile(paths: number[][]): ForwardPathProfile {
+  const months = Array.from({ length: FLOOR_HORIZON_MONTHS + 1 }, (_, i) => i);
+  return {
+    months,
+    median: months.map((i) => median(paths.map((p) => p[i] ?? 1)) ?? 1),
+    q05: months.map((i) => quantile(paths.map((p) => p[i] ?? 1), 0.05) ?? 1),
+    q95: months.map((i) => quantile(paths.map((p) => p[i] ?? 1), 0.95) ?? 1),
+  };
+}
+
 export function requiredFrontLoadFraction(path: number[], floor = 1) {
   const { zero, one } = terminalAtZeroAndOne(path);
   if (zero >= floor) return 0;
@@ -493,6 +514,8 @@ export function recommendForScale(
       floorProfile: null,
       responseProfile: null,
       riskBaselineProfile: null,
+      forwardPathProfile: null,
+      nearestAnalogDistance: null,
       q05: null,
       pNonLoss: null,
       mean: null,
@@ -506,6 +529,7 @@ export function recommendForScale(
   const profile = floorProfile(paths);
   const responseProfile = deploymentResponseProfile(paths);
   const riskBaselineProfile = buildRiskBaselineProfile(paths);
+  const forwardPathProfile = buildForwardPathProfile(paths);
   const target = floorTarget(paths);
   const scored = objective(paths, target);
 
@@ -518,6 +542,8 @@ export function recommendForScale(
     floorProfile: profile,
     responseProfile,
     riskBaselineProfile,
+    forwardPathProfile,
+    nearestAnalogDistance: usable[0]?.distance ?? null,
     q05: scored.q05,
     pNonLoss: scored.pNonLoss,
     mean: scored.mean,
@@ -702,6 +728,29 @@ export function couple(
             ),
           }
         : null;
+
+    const forwardProfiles = scaleSignals
+      .map((s) => s.forwardPathProfile)
+      .filter(Boolean) as ForwardPathProfile[];
+    const forwardPathProfile =
+      forwardProfiles.length > 0
+        ? {
+            months: forwardProfiles[0].months,
+            median: forwardProfiles[0].months.map((_, i) =>
+              median(forwardProfiles.map((p) => p.median[i])) ?? 1
+            ),
+            q05: forwardProfiles[0].months.map((_, i) =>
+              median(forwardProfiles.map((p) => p.q05[i])) ?? 1
+            ),
+            q95: forwardProfiles[0].months.map((_, i) =>
+              median(forwardProfiles.map((p) => p.q95[i])) ?? 1
+            ),
+          }
+        : null;
+
+    const nearestDistances = scaleSignals
+      .map((s) => s.nearestAnalogDistance)
+      .filter((x): x is number => Number.isFinite(x));
     return {
       scaleYears,
       target: c.center,
@@ -709,6 +758,8 @@ export function couple(
       nSignals: xs.length,
       responseProfile,
       riskBaselineProfile,
+      forwardPathProfile,
+      nearestAnalogDistance: nearestDistances.length ? median(nearestDistances) : null,
     };
   }).filter((x) => x.nSignals > 0);
 
