@@ -34,7 +34,16 @@ def _anchor_family_ids(prior, anchor, repo: Path):
         ]
     if not candidates:
         return set()
-    ref=(candidates[-1].get("payload") or {}).get("snapshot") or {}
+    def _predecision_order(row):
+        raw=row.get("timestamp_utc")
+        try:
+            ts=_parse_utc(raw)
+        except SystemExit:
+            ts=datetime.min.replace(tzinfo=timezone.utc)
+        return (ts, int(row.get("evidence_seq") or 0))
+
+    anchor_snapshot_row=max(candidates, key=_predecision_order)
+    ref=(anchor_snapshot_row.get("payload") or {}).get("snapshot") or {}
     snapshot_ref=str(ref.get("snapshot_ref") or "")
     expected=str(ref.get("snapshot_sha256") or "")
     if not snapshot_ref or not expected:
