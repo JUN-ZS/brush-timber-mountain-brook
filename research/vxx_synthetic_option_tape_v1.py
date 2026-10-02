@@ -322,13 +322,20 @@ def build_family(market,family,out_file,write_tape=True):
                 if not good:
                     raise RuntimeError(f"{family} quote/greek gate failed on {rr.date} {expiry} {right}")
                 sortb=block.sort_values("strike")
-                d1=np.diff(sortb.mid.to_numpy())
-                d2=np.diff(sortb.mid.to_numpy(),n=2)
+                strikes=sortb.strike.to_numpy(float)
+                prices=sortb.mid.to_numpy(float)
+                d1=np.diff(prices)
+                # Strike grid is intentionally non-uniform, so raw second
+                # differences are not a valid convexity test. Use finite
+                # difference slopes dPrice/dStrike instead.
+                dk=np.diff(strikes)
+                slope=np.diff(prices)/np.maximum(dk,1e-12)
+                convex_ok=bool(np.diff(slope).min()>=-1e-6)
                 if right=="CALL":
-                    if d1.max()>1e-8 or d2.min()<-1e-7:
+                    if d1.max()>1e-8 or not convex_ok:
                         raise RuntimeError(f"{family} CALL price/convexity gate failed on {rr.date} {expiry}")
                 else:
-                    if d1.min()<-1e-8 or d2.min()<-1e-7:
+                    if d1.min()<-1e-8 or not convex_ok:
                         raise RuntimeError(f"{family} PUT price/convexity gate failed on {rr.date} {expiry}")
 
                 if right=="PUT":
