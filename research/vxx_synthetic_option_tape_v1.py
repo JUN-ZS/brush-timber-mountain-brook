@@ -94,14 +94,24 @@ def load_spots(p: Path) -> pd.DataFrame:
 
 
 def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
-    # Fully streaming reference reader. The QQQ parquet is ~369MB compressed on
-    # the canonical fixture, so even a DuckDB projection can exceed the memory
-    # envelope of a small self-hosted runner. PyArrow iterates row batches and we
-    # retain only a bounded 6-row representative per date/delta band.
-    import pyarrow.parquet as pq
+    """
+    Bounded-memory causal QQQ surface reference.
 
-    pf=pq.ParquetFile(opt)
-    names=pf.schema_arrow.names
+    The canonical QQQ option parquet is large (~369MB compressed). Do not
+    materialize it into pandas or iterate batches into a growing dictionary.
+    DuckDB scans the parquet with a strict memory cap and spills to a local temp
+    directory, returning only the deterministic 6-row representative per
+    date/delta band needed by the model.
+    """
+    con.execute("PRAGMA threads=1")
+    con.execute("PRAGMA memory_limit='256MB'")
+    con.execute("PRAGMA temp_directory='.duckdb_tmp'")
+    con.execute("PRAGMA preserve_insertion_order=false")
+
+    schema=con.execute(
+        "DESCRIBE SELECT * FROM read_parquet(?)", [str(opt)]
+    ).fetchdf()
+    names=schema["column_name"].astype(str).tolist()
     lower={n.lower():n for n in names}
 
     def pick(*cands, required=True):
@@ -109,7 +119,9 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
             if x in lower:
                 return lower[x]
         if required:
-            raise RuntimeError(f"QQQ parquet missing one of {cands}; columns={names[:40]}")
+            raise RuntimeError(
+                f"QQQ parquet missing one of {cands}; columns={names[:40]}"
+            )
         return None
 
     c_date=pick("date")
@@ -122,9 +134,72 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
     c_volume=pick("volume",required=False)
     c_iv=pick("iv","implied_volatility","impliedvolatility",required=False)
 
-    wanted=[c_date,c_exp,c_strike,c_type,c_bid,c_ask,c_delta]
-    if c_volume: wanted.append(c_volume)
-    if c_iv: wanted.append(c_iv)
+    def ident(name):
+        return '"' + str(name).replace('"','""') + '"'
+
+    vdate=ident(c_date)
+    vexp=ident(c_exp)
+    vstrike=ident(c_strike)
+    vtype=ident(c_type)
+    vbid=ident(c_bid)
+    vask=ident(c_ask)
+    vdelta=ident(c_delta)
+    vvolume=ident(c_volume) if c_volume else "0.0"
+    viv=ident(c_iv) if c_iv else "NULL"
+
+    q=f"""
+    WITH base AS (
+      SELECT
+        CAST({vdate} AS DATE) AS date,
+        CAST({vexp} AS DATE) AS expiration,
+        TRY_CAST({vstrike} AS DOUBLE) AS strike,
+        UPPER(CAST({vtype} AS VARCHAR)) AS type_norm,
+        TRY_CAST({vbid} AS DOUBLE) AS bid,
+        TRY_CAST({vask} AS DOUBLE) AS ask,
+        TRY_CAST({vdelta} AS DOUBLE) AS delta,
+        COALESCE(TRY_CAST({vvolume} AS DOUBLE),0.0) AS volume,
+        TRY_CAST({viv} AS DOUBLE) AS iv_obs,
+        DATEDIFF('day',CAST({vdate} AS DATE),CAST({vexp} AS DATE)) AS dte
+      FROM read_parquet(?)
+      WHERE CAST({vdate} AS DATE) BETWEEN DATE '2018-01-25' AND DATE '2026-09-01'
+        AND UPPER(CAST({vtype} AS VARCHAR))='CALL'
+        AND TRY_CAST({vstrike} AS DOUBLE)>0
+        AND TRY_CAST({vbid} AS DOUBLE)>0
+        AND TRY_CAST({vask} AS DOUBLE)>=TRY_CAST({vbid} AS DOUBLE)
+        AND TRY_CAST({vdelta} AS DOUBLE) IS NOT NULL
+        AND ABS(TRY_CAST({vdelta} AS DOUBLE)) BETWEEN 0.15 AND 0.85
+        AND CAST({vexp} AS DATE)>CAST({vdate} AS DATE)
+    ),
+    bands AS (
+      SELECT *,
+        CASE
+          WHEN ABS(delta)<=0.30 THEN 1
+          WHEN ABS(delta)<=0.45 THEN 2
+          WHEN ABS(delta)<=0.55 THEN 3
+          WHEN ABS(delta)<=0.70 THEN 4
+          ELSE 5
+        END AS band
+      FROM base
+      WHERE dte BETWEEN 20 AND 40
+    ),
+    ranked AS (
+      SELECT *,
+        ROW_NUMBER() OVER(
+          PARTITION BY date,band
+          ORDER BY ABS(dte-30), volume DESC, ABS(ABS(delta)-0.50),
+                   expiration, strike
+        ) AS rn
+      FROM bands
+    )
+    SELECT date,expiration,strike,type_norm,bid,ask,delta,volume,iv_obs,dte
+    FROM ranked
+    WHERE rn<=6
+    ORDER BY date,band,rn
+    """
+
+    z=con.execute(q,[str(opt)]).fetchdf()
+    if z.empty:
+        raise RuntimeError("QQQ DuckDB reference found no qualifying rows")
 
     u=pd.read_parquet(under,columns=["date","close"])
     u["date"]=pd.to_datetime(u["date"]).dt.tz_localize(None).dt.normalize()
@@ -132,85 +207,11 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
     u=u[u.date.between(START,END)].copy()
     spot_map=dict(zip(u.date,u.close))
 
-    candidates={}
-    batch_rows=0
-    for table in pf.iter_batches(batch_size=200_000,columns=wanted):
-        z=table.to_pandas()
-        batch_rows += len(z)
-        z.columns=[str(x).lower() for x in z.columns]
-        z["date"]=pd.to_datetime(z[c_date.lower()]).dt.normalize()
-        z["expiration"]=pd.to_datetime(z[c_exp.lower()]).dt.normalize()
-        z["strike"]=pd.to_numeric(z[c_strike.lower()],errors="coerce")
-        z["type_norm"]=z[c_type.lower()].astype(str).str.upper()
-        z["bid"]=pd.to_numeric(z[c_bid.lower()],errors="coerce")
-        z["ask"]=pd.to_numeric(z[c_ask.lower()],errors="coerce")
-        z["delta"]=pd.to_numeric(z[c_delta.lower()],errors="coerce")
-        z["volume"]=(
-            pd.to_numeric(z[c_volume.lower()],errors="coerce").fillna(0)
-            if c_volume else 0.0
-        )
-        if c_iv:
-            z["iv_obs"]=pd.to_numeric(z[c_iv.lower()],errors="coerce")
-        else:
-            z["iv_obs"]=np.nan
-
-        z=z[
-            z.date.between(START,END)
-            & z.type_norm.eq("CALL")
-            & z.strike.gt(0)
-            & z.bid.notna() & z.ask.notna()
-            & z.ask.ge(z.bid) & z.bid.gt(0)
-            & z.delta.notna()
-            & z.delta.abs().between(.15,.85)
-            & z.expiration.gt(z.date)
-        ].copy()
-        if z.empty:
-            continue
-        z["dte"]=(z.expiration-z.date).dt.days
-        z=z[z.dte.between(20,40)].copy()
-        if z.empty:
-            continue
-        z["delta_abs"]=z.delta.abs()
-        z["band"]=pd.cut(
-            z.delta_abs,bins=[.149,.30,.45,.55,.70,.851],
-            labels=False,include_lowest=True
-        )
-        z["dte_dist"]=(z.dte-30).abs()
-        z["delta_dist"]=(z.delta_abs-.50).abs()
-        z=z.dropna(subset=["band"]).copy()
-
-        # Keep at most 12 per date/band in this batch; 6 survive globally.
-        z=z.sort_values(
-            ["date","band","dte_dist","volume","delta_dist"],
-            ascending=[True,True,True,False,True]
-        )
-        z=z.groupby(["date","band"],group_keys=False).head(12)
-        for (d,band),g in z.groupby(["date","band"],sort=False):
-            key=(pd.Timestamp(d),int(band))
-            keep=g.head(12)
-            prior=candidates.get(key)
-            if prior is None:
-                candidates[key]=keep
-            else:
-                candidates[key]=pd.concat([prior,keep],ignore_index=True).sort_values(
-                    ["dte_dist","volume","delta_dist"],
-                    ascending=[True,False,True]
-                ).head(12).reset_index(drop=True)
-
-    if not candidates:
-        raise RuntimeError("QQQ streaming reference found no qualifying rows")
-
-    parts=[]
-    for key,g in candidates.items():
-        parts.append(
-            g.sort_values(["dte_dist","volume","delta_dist"],ascending=[True,False,True])
-             .head(6)
-        )
-    z=pd.concat(parts,ignore_index=True)
+    z["date"]=pd.to_datetime(z["date"]).dt.normalize()
+    z["expiration"]=pd.to_datetime(z["expiration"]).dt.normalize()
     z["spot"]=z.date.map(spot_map)
     z["m"]=np.log(z.strike/z.spot)
     z["mid"]=(z.bid+z.ask)/2
-
     if c_iv:
         z["iv_n"]=np.where(z.iv_obs>3,z.iv_obs/100,z.iv_obs)
     else:
@@ -220,24 +221,25 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
         ]
     z=z[z.iv_n.notna() & z.iv_n.between(.02,3.5) & z.m.notna()].copy()
     if z.empty:
-        raise RuntimeError("QQQ streaming reference has no usable IV rows")
+        raise RuntimeError("QQQ DuckDB reference has no usable IV rows")
 
     out=[]
-    for d,g in z.groupby("date",sort=True):
+    for dt,g in z.groupby("date",sort=True):
         atm=g[g.m.abs()<=.03].iv_n
         if atm.empty:
-            atm=g.iloc[(g.delta_abs-.5).abs().argsort()[:6]].iv_n
+            atm=g.iloc[(g.delta.abs()-.5).abs().argsort()[:6]].iv_n
         cs=g[(g.m>0)&(g.m<=.25)]
         ps=g[(g.m<0)&(g.m>=-.25)]
-        def slope(a):
-            if len(a)<3: return 0.0
+        def slope(x):
+            if len(x)<3:
+                return 0.0
             try:
-                w=np.sqrt(a.volume.to_numpy(float)+1.0)
-                return float(np.polyfit(a.m.to_numpy(float),a.iv_n.to_numpy(float),1,w=w)[0])
+                w=np.sqrt(x.volume.to_numpy(float)+1.0)
+                return float(np.polyfit(x.m.to_numpy(float),x.iv_n.to_numpy(float),1,w=w)[0])
             except Exception:
                 return 0.0
         out.append({
-            "date":d,
+            "date":dt,
             "qqq_atm_iv":float(atm.median()),
             "qqq_call_slope":slope(cs),
             "qqq_put_slope":-slope(ps),
@@ -245,7 +247,7 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
             "qqq_reference_rows":int(len(g)),
         })
     r=pd.DataFrame(out).sort_values("date")
-    cols=[c for c in r.columns if c!="date"]
+    cols=[x for x in r.columns if x!="date"]
     r[cols]=r[cols].shift(1)
     r["calibration_source_date"]=r.date.shift(1)
     return r
