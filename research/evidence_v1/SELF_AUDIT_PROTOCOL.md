@@ -81,7 +81,7 @@ The project should prefer:
 - heavyweight replay only when its immutable inputs require it,
 - explicit/manual replay for archived OOS re-verification.
 
-A runner cancellation, timeout, queue, or scheduling problem is infrastructure telemetry. It is not evidence about strategy quality.
+A runner cancellation, timeout, queue, or scheduling problem is infrastructure telemetry. It is not evidence about strategy quality. Multiple rapid cancellations are a signal to fix the workflow topology, not a reason to create more strategy commits.
 
 ## 8. Stop conditions
 
