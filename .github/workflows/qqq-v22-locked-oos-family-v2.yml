@@ -71,3 +71,5 @@ jobs:
           name: qqq-v22-locked-oos-family-v2
           path: artifacts/oos_family/
           if-no-files-found: warn
+
+# CI lane is intentionally isolated from the Futu/OpenD local recorder.
