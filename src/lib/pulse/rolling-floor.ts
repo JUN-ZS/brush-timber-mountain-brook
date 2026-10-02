@@ -493,28 +493,42 @@ export function replayOne(
     const i = startIndex + j;
     const date = qqq[i].date;
     const sig = panel.get(date);
-    if (!sig) continue;
-
     const monthsLeft = FLOOR_HORIZON_MONTHS - j;
     const mandatoryAdd = monthsLeft > 0 ? cash / monthsLeft : cash;
     const clockTarget = clamp((j + 1) / FLOOR_HORIZON_MONTHS);
+
+    // Missing/insufficient history never disables the deadline clock.
+    const robustTarget = sig?.robustTarget ?? null;
+    const signalAgreement = sig?.agreement ?? 0;
+    const divergence = sig?.divergenceState ?? "THIN";
     const lagTarget =
-      sig.robustTarget == null
+      robustTarget == null
         ? clockTarget
-        : clamp(clockTarget + sig.agreement * (sig.robustTarget - clockTarget));
+        : clamp(clockTarget + signalAgreement * (robustTarget - clockTarget));
     const desiredAdd = Math.max(0, lagTarget - (1 - cash));
     const action = Math.min(cash, Math.max(mandatoryAdd, desiredAdd));
 
-    if (action <= 1e-12) continue;
+    if (action > 1e-12) {
+      if (action <= mandatoryAdd + 1e-9 && desiredAdd < mandatoryAdd - 1e-9) {
+        forcedCatchUpMonths++;
+      }
 
-    if (action <= mandatoryAdd + 1e-9 && desiredAdd < mandatoryAdd - 1e-9) {
-      forcedCatchUpMonths++;
+      const entry = qqq[i].value;
+      lots.push({ amount: action, entry });
+      cash -= action;
+      totalInvested += action;
+
+      trades.push({
+        date,
+        action,
+        deployed: 1 - cash,
+        cash,
+        coupledTarget: lagTarget,
+        clockTarget,
+        agreement: signalAgreement,
+        divergenceState: divergence,
+      });
     }
-
-    const entry = qqq[i].value;
-    lots.push({ amount: action, entry });
-    cash -= action;
-    totalInvested += action;
 
     const currentPx = qqq[i].value;
     equity =
@@ -522,27 +536,22 @@ export function replayOne(
       lots.reduce((s, lot) => s + lot.amount * (currentPx / lot.entry), 0);
     peak = Math.max(peak, equity);
     curve.push(equity);
-
-    trades.push({
-      date,
-      action,
-      deployed: 1 - cash,
-      cash,
-      coupledTarget: lagTarget,
-      clockTarget,
-      agreement: sig.agreement,
-    });
   }
 
   const finalPx = qqq[endIndex].value;
   equity =
     cash +
     lots.reduce((s, lot) => s + lot.amount * (finalPx / lot.entry), 0);
+  peak = Math.max(peak, equity);
   curve.push(equity);
   const stats = equityStats(curve);
 
-  const half = trades.find((t) => monthsBetween(qqq[startIndex].date, t.date) >= 60);
-  const year8 = trades.find((t) => monthsBetween(qqq[startIndex].date, t.date) >= 96);
+  const halfwayTarget = FLOOR_HORIZON_MONTHS / 2;
+  const year8Target = FLOOR_HORIZON_MONTHS * 0.8;
+  const deployedAtHalfway =
+    trades.filter((t) => monthsBetween(qqq[startIndex].date, t.date) <= halfwayTarget).at(-1)?.deployed ?? 0;
+  const deployedAtYear8 =
+    trades.filter((t) => monthsBetween(qqq[startIndex].date, t.date) <= year8Target).at(-1)?.deployed ?? 0;
 
   return {
     startDate: qqq[startIndex].date,
@@ -551,8 +560,8 @@ export function replayOne(
     terminalReturn: equity - 1,
     maxDrawdown: stats.maxDd,
     minEquity: stats.minEquity,
-    deployedAtHalfway: half?.deployed ?? 0,
-    deployedAtYear8: year8?.deployed ?? 0,
+    deployedAtHalfway,
+    deployedAtYear8,
     forcedCatchUpMonths,
     totalInvested,
     trades,
