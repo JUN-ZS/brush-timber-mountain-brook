@@ -15,6 +15,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: vxx-synthetic-tape-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build_windows:
     name: Build VXX synthetic tape (Windows)
