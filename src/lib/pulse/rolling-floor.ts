@@ -597,39 +597,43 @@ type StateEpisode = {
   endAhead: number;
 };
 
-function episodesFromReplay(result: ReplayResult): StateEpisode[] {
+function episodesFromReplay(result: ReplayResult[]): StateEpisode[] {
   const episodes: StateEpisode[] = [];
   let currentState: DivergenceState | null = null;
   let months = 0;
   let peakAhead = 0;
+  let endAhead = 0;
 
   for (const trade of result.trades) {
     const ahead = trade.deployed - trade.clockTarget;
+
     if (currentState !== trade.divergenceState) {
       if (currentState != null) {
-        episodes.push({ state: currentState, months, peakAhead, endAhead: 0 });
-        const last = episodes[episodes.length - 1];
-        if (last) last.endAhead = episodes[episodes.length - 1].endAhead;
+        episodes.push({
+          state: currentState,
+          months,
+          peakAhead,
+          endAhead,
+        });
       }
       currentState = trade.divergenceState;
       months = 0;
       peakAhead = ahead;
+      endAhead = ahead;
     }
+
     months++;
     peakAhead = Math.max(peakAhead, ahead);
-
-    if (episodes.length > 0 && episodes[episodes.length - 1].state === currentState) {
-      episodes[episodes.length - 1].endAhead = ahead;
-    }
+    endAhead = ahead;
   }
 
   if (currentState != null) {
-    episodes.push({ state: currentState, months, peakAhead, endAhead: 0 });
-    const last = episodes[episodes.length - 1];
-    if (last) {
-      const trade = result.trades.at(-1);
-      last.endAhead = trade ? trade.deployed - trade.clockTarget : 0;
-    }
+    episodes.push({
+      state: currentState,
+      months,
+      peakAhead,
+      endAhead,
+    });
   }
 
   return episodes;
