@@ -1,9 +1,9 @@
-name: QQQ Ratio-Call Harvest V1
+name: QQQ Ratio-Call Harvest N=1..6 Research
 
 on:
   push:
     branches:
-      - research/qqq-ratio-call-harvest-v1-20260929
+      - research/qqq-ratio-call-harvest-n1-6-20261002
   pull_request:
     branches:
       - main
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: qqq-ratio-call-harvest-v1
+  group: qqq-ratio-call-harvest-n1-6-20261002
   cancel-in-progress: true
 
 jobs:
@@ -36,26 +36,19 @@ jobs:
       - name: Download canonical QQQ data-v1 release
         run: |
           mkdir -p data
-          gh release download data-v1 \
-            --repo lambdaclass/options_portfolio_backtester \
-            --pattern "QQQ_options.parquet" \
-            --pattern "QQQ_underlying.parquet" \
-            --dir data
+          gh release download data-v1             --repo lambdaclass/options_portfolio_backtester             --pattern "QQQ_options.parquet"             --pattern "QQQ_underlying.parquet"             --dir data
           ls -lh data
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Run frozen V1 comparison
+      - name: Run frozen N=1..6 comparison
         run: |
-          python research/qqq_ratio_call_harvest_v1.py \
-            --data-dir data \
-            --n 2 3 4 \
-            --out artifacts
+          python research/qqq_ratio_call_harvest_v1.py             --data-dir data             --n 1 2 3 4 5 6             --out artifacts
 
-      - name: Upload V1 research artifacts
+      - name: Upload N=1..6 research artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: qqq-ratio-call-harvest-v1
+          name: qqq-ratio-call-harvest-n1-6
           path: artifacts/
           if-no-files-found: error
