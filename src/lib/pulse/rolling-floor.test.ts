@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { median, couple, deploymentResponseProfile, divergenceState, floorProfile, requiredFrontLoadFraction, buildRiskBaselineProfile, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
+import { median, couple, deploymentResponseProfile, divergenceState, floorProfile, requiredFrontLoadFraction, buildRiskBaselineProfile, buildForwardPathProfile, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
 
 test("median", () => assert.equal(median([0.1, 0.2, 0.25, 0.9]), 0.225));
 
@@ -21,6 +21,8 @@ test("divergence removes forward-pull authority instead of disabling the clock",
     floorProfile: null,
     responseProfile: null,
     riskBaselineProfile: null,
+    forwardPathProfile: null,
+    nearestAnalogDistance: 0.1,
     q05: 1,
     pNonLoss: 0.5,
     mean: 1.1,
@@ -49,6 +51,8 @@ test("single available scale is THIN, not evidence of convergence", () => {
     floorProfile: null,
     responseProfile: null,
     riskBaselineProfile: null,
+    forwardPathProfile: null,
+    nearestAnalogDistance: 0.1,
     q05: 1,
     pNonLoss: 0.5,
     mean: 1.1,
@@ -217,4 +221,19 @@ test("GAR / MaxDD baseline profile is diagnostic and aligned to the existing dep
   assert.ok(profile.garMedian[20] <= profile.garQ95[20]);
   assert.ok(profile.maxDdQ05[20] <= profile.maxDdMedian[20]);
   assert.ok(profile.maxDdMedian[20] <= profile.maxDdQ95[20]);
+});
+
+
+test("forward path profile preserves the fixed 10Y path geometry", () => {
+  const flat = Array.from({ length: 121 }, () => 1);
+  const rising = Array.from({ length: 121 }, (_, i) => 1 + i / 120);
+  const profile = buildForwardPathProfile([flat, rising]);
+
+  assert.equal(profile.months.length, 121);
+  assert.equal(profile.months[0], 0);
+  assert.equal(profile.months.at(-1), 120);
+  assert.equal(profile.median[0], 1);
+  assert.equal(profile.median.at(-1), 1.5);
+  assert.equal(profile.q05.at(-1), 1);
+  assert.equal(profile.q95.at(-1), 2);
 });
