@@ -94,17 +94,37 @@ def load_spots(p: Path) -> pd.DataFrame:
 
 
 def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
-    # Memory-safe reference extraction. A deterministic hash sample is applied
-    # before any Python materialization; no window/sort over the full chain.
-    oc={str(v).lower() for v in con.execute(
-        "DESCRIBE SELECT * FROM read_parquet(?)",[str(opt)]
-    ).df().column_name}
-    iv_name=next((c for c in ("iv","implied_volatility","impliedvolatility") if c in oc),None)
+    # Fully streaming reference reader. The QQQ parquet is ~369MB compressed on
+    # the canonical fixture, so even a DuckDB projection can exceed the memory
+    # envelope of a small self-hosted runner. PyArrow iterates row batches and we
+    # retain only a bounded 6-row representative per date/delta band.
+    import pyarrow.parquet as pq
 
-    # Keep DuckDB bounded on the small self-hosted runners.
-    con.execute("PRAGMA threads=2")
-    con.execute("PRAGMA memory_limit='512MB'")
-    con.execute("PRAGMA temp_directory='.duckdb_tmp'")
+    pf=pq.ParquetFile(opt)
+    names=pf.schema_arrow.names
+    lower={n.lower():n for n in names}
+
+    def pick(*cands, required=True):
+        for x in cands:
+            if x in lower:
+                return lower[x]
+        if required:
+            raise RuntimeError(f"QQQ parquet missing one of {cands}; columns={names[:40]}")
+        return None
+
+    c_date=pick("date")
+    c_exp=pick("expiration","expiry","exp")
+    c_strike=pick("strike")
+    c_type=pick("type","option_type","right")
+    c_bid=pick("bid")
+    c_ask=pick("ask")
+    c_delta=pick("delta")
+    c_volume=pick("volume",required=False)
+    c_iv=pick("iv","implied_volatility","impliedvolatility",required=False)
+
+    wanted=[c_date,c_exp,c_strike,c_type,c_bid,c_ask,c_delta]
+    if c_volume: wanted.append(c_volume)
+    if c_iv: wanted.append(c_iv)
 
     u=pd.read_parquet(under,columns=["date","close"])
     u["date"]=pd.to_datetime(u["date"]).dt.tz_localize(None).dt.normalize()
@@ -112,57 +132,87 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
     u=u[u.date.between(START,END)].copy()
     spot_map=dict(zip(u.date,u.close))
 
-    iv_expr=f'CAST(o."{iv_name}" AS DOUBLE)' if iv_name else "NULL::DOUBLE"
-    sql=f"""
-      SELECT CAST(o.date AS DATE) AS date,
-             CAST(o.expiration AS DATE) AS expiration,
-             CAST(o.strike AS DOUBLE) AS strike,
-             CAST(o.bid AS DOUBLE) AS bid,
-             CAST(o.ask AS DOUBLE) AS ask,
-             CAST(o.delta AS DOUBLE) AS delta,
-             COALESCE(CAST(o.volume AS DOUBLE),0) AS volume,
-             {iv_expr} AS iv
-      FROM read_parquet(?) o
-      WHERE CAST(o.date AS DATE) BETWEEN DATE '2018-01-25' AND DATE '2026-09-01'
-        AND UPPER(o.type)='CALL'
-        AND CAST(o.expiration AS DATE) BETWEEN CAST(o.date AS DATE)+INTERVAL 20 DAY
-                                         AND CAST(o.date AS DATE)+INTERVAL 40 DAY
-        AND o.bid IS NOT NULL AND o.ask IS NOT NULL
-        AND o.ask >= o.bid AND o.bid > 0
-        AND o.delta IS NOT NULL
-        AND ABS(CAST(o.delta AS DOUBLE)) BETWEEN 0.15 AND 0.85
-        AND MOD(
-          HASH(
-            CAST(o.date AS VARCHAR)||'|'||
-            CAST(o.expiration AS VARCHAR)||'|'||
-            CAST(o.strike AS VARCHAR)
-          ), 64
-        )=0
-    """
-    z=con.execute(sql,[str(opt)]).df()
-    if z.empty:
-        raise RuntimeError("QQQ deterministic reference sample is empty")
-    z["date"]=pd.to_datetime(z.date)
-    z["expiration"]=pd.to_datetime(z.expiration)
+    candidates={}
+    batch_rows=0
+    for table in pf.iter_batches(batch_size=200_000,columns=wanted):
+        z=table.to_pandas()
+        batch_rows += len(z)
+        z.columns=[str(x).lower() for x in z.columns]
+        z["date"]=pd.to_datetime(z[c_date.lower()]).dt.normalize()
+        z["expiration"]=pd.to_datetime(z[c_exp.lower()]).dt.normalize()
+        z["strike"]=pd.to_numeric(z[c_strike.lower()],errors="coerce")
+        z["type_norm"]=z[c_type.lower()].astype(str).str.upper()
+        z["bid"]=pd.to_numeric(z[c_bid.lower()],errors="coerce")
+        z["ask"]=pd.to_numeric(z[c_ask.lower()],errors="coerce")
+        z["delta"]=pd.to_numeric(z[c_delta.lower()],errors="coerce")
+        z["volume"]=(
+            pd.to_numeric(z[c_volume.lower()],errors="coerce").fillna(0)
+            if c_volume else 0.0
+        )
+        if c_iv:
+            z["iv_obs"]=pd.to_numeric(z[c_iv.lower()],errors="coerce")
+        else:
+            z["iv_obs"]=np.nan
+
+        z=z[
+            z.date.between(START,END)
+            & z.type_norm.eq("CALL")
+            & z.strike.gt(0)
+            & z.bid.notna() & z.ask.notna()
+            & z.ask.ge(z.bid) & z.bid.gt(0)
+            & z.delta.notna()
+            & z.delta.abs().between(.15,.85)
+            & z.expiration.gt(z.date)
+        ].copy()
+        if z.empty:
+            continue
+        z["dte"]=(z.expiration-z.date).dt.days
+        z=z[z.dte.between(20,40)].copy()
+        if z.empty:
+            continue
+        z["delta_abs"]=z.delta.abs()
+        z["band"]=pd.cut(
+            z.delta_abs,bins=[.149,.30,.45,.55,.70,.851],
+            labels=False,include_lowest=True
+        )
+        z["dte_dist"]=(z.dte-30).abs()
+        z["delta_dist"]=(z.delta_abs-.50).abs()
+        z=z.dropna(subset=["band"]).copy()
+
+        # Keep at most 12 per date/band in this batch; 6 survive globally.
+        z=z.sort_values(
+            ["date","band","dte_dist","volume","delta_dist"],
+            ascending=[True,True,True,False,True]
+        )
+        z=z.groupby(["date","band"],group_keys=False).head(12)
+        for (d,band),g in z.groupby(["date","band"],sort=False):
+            key=(pd.Timestamp(d),int(band))
+            keep=g.head(12)
+            prior=candidates.get(key)
+            if prior is None:
+                candidates[key]=keep
+            else:
+                candidates[key]=pd.concat([prior,keep],ignore_index=True).sort_values(
+                    ["dte_dist","volume","delta_dist"],
+                    ascending=[True,False,True]
+                ).head(12).reset_index(drop=True)
+
+    if not candidates:
+        raise RuntimeError("QQQ streaming reference found no qualifying rows")
+
+    parts=[]
+    for key,g in candidates.items():
+        parts.append(
+            g.sort_values(["dte_dist","volume","delta_dist"],ascending=[True,False,True])
+             .head(6)
+        )
+    z=pd.concat(parts,ignore_index=True)
     z["spot"]=z.date.map(spot_map)
-    z["dte"]=(z.expiration-z.date).dt.days
-    z["mid"]=(z.bid+z.ask)/2
     z["m"]=np.log(z.strike/z.spot)
+    z["mid"]=(z.bid+z.ask)/2
 
-    # Stratify after the hash sample: five delta bands, six observations each.
-    z["delta_abs"]=z.delta.abs()
-    z["delta_band"]=pd.cut(
-        z.delta_abs,bins=[0.149,0.30,0.45,0.55,0.70,0.851],
-        labels=False,include_lowest=True
-    )
-    z=z.sort_values(
-        ["date","delta_band","dte","volume","delta_abs"],
-        ascending=[True,True,True,False,True]
-    )
-    z=z.groupby(["date","delta_band"],group_keys=False).head(6).copy()
-
-    if iv_name:
-        z["iv_n"]=np.where(z.iv>3,z.iv/100,z.iv)
+    if c_iv:
+        z["iv_n"]=np.where(z.iv_obs>3,z.iv_obs/100,z.iv_obs)
     else:
         z["iv_n"]=[
             _iv_from_mid(float(r.spot),float(r.strike),float(r.dte)/365.0,float(r.mid))
@@ -170,7 +220,7 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
         ]
     z=z[z.iv_n.notna() & z.iv_n.between(.02,3.5) & z.m.notna()].copy()
     if z.empty:
-        raise RuntimeError("QQQ deterministic reference has no usable IV rows")
+        raise RuntimeError("QQQ streaming reference has no usable IV rows")
 
     out=[]
     for d,g in z.groupby("date",sort=True):
@@ -186,13 +236,13 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
                 return float(np.polyfit(a.m.to_numpy(float),a.iv_n.to_numpy(float),1,w=w)[0])
             except Exception:
                 return 0.0
-        sp=((g.ask-g.bid)/g.mid).clip(0,2)
         out.append({
             "date":d,
             "qqq_atm_iv":float(atm.median()),
             "qqq_call_slope":slope(cs),
             "qqq_put_slope":-slope(ps),
-            "qqq_rel_spread":float(sp.median()),
+            "qqq_rel_spread":float(((g.ask-g.bid)/g.mid).clip(0,2).median()),
+            "qqq_reference_rows":int(len(g)),
         })
     r=pd.DataFrame(out).sort_values("date")
     cols=[c for c in r.columns if c!="date"]
