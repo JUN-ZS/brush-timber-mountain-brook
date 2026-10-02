@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Panel, Shell } from "@/components/shell";
 import { fmtPct, fmtUsd } from "@/lib/utils";
@@ -167,6 +167,8 @@ function Page() {
   const [liveFloor, setLiveFloor] = useState<CoupledSignal | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const importRef = useRef<HTMLInputElement | null>(null);
+  const [transferNotice, setTransferNotice] = useState<string | null>(null);
 
   async function refreshYahoo() {
     setLiveLoading(true);
@@ -482,29 +484,77 @@ function Page() {
     setMonth(DEFAULT_MONTH);
   }
 
-  function copyLedger() {
-    const payload = JSON.stringify(
-      {
-        version: "rolling-floor-ledger.v3",
-        asset: snapshot.asset,
-        modelAsOf: snapshot.asOf,
-        horizonYears: snapshot.horizonYears,
-        totalCapital: safeCapital,
-        startingDeployed,
-        month,
-        entries: ledger,
-        marketTape,
-      },
-      null,
-      2,
-    );
+  function buildTransferPayload() {
+    return {
+      schema: "rolling-floor.state.v4",
+      exportedAt: new Date().toISOString(),
+      asset: snapshot.asset,
+      modelSnapshotAsOf: snapshot.asOf,
+      horizonYears: snapshot.horizonYears,
+      totalCapital: safeCapital,
+      startingDeployed,
+      month,
+      entries: ledger,
+      marketTape,
+    };
+  }
 
+  function downloadText(filename: string, text: string, mime = "application/json") {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function pushState() {
+    downloadText(
+      "rolling-floor-state-" + new Date().toISOString().slice(0, 10) + ".json",
+      JSON.stringify(buildTransferPayload(), null, 2),
+    );
+    setTransferNotice("PUSH complete · full simulator state exported");
+  }
+
+  function pushCsv() {
+    const header = ["month","recordedAt","asOf","amount","price","priceObservedAt","priceSource","cumulativeFraction","clockFraction"].join(",");
+    const rows = ledger
+      .slice()
+      .sort((a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt))
+      .reduce<string[]>((out, entry) => {
+        const previous = out.length
+          ? Number(out.at(-1)?.split(",")[7] ?? 0)
+          : startingDeployed / Math.max(1, safeCapital);
+        const cumulative = previous + entry.amount / Math.max(1, safeCapital);
+        out.push([
+          entry.month + 1,
+          JSON.stringify(entry.recordedAt),
+          JSON.stringify(entry.asOf),
+          entry.amount.toFixed(2),
+          entry.price == null ? "" : entry.price.toFixed(4),
+          JSON.stringify(entry.priceObservedAt ?? ""),
+          JSON.stringify(entry.priceSource ?? ""),
+          cumulative.toFixed(8),
+          ((entry.month + 1) / 120).toFixed(8),
+        ].join(","));
+        return out;
+      }, []);
+    downloadText(
+      "rolling-floor-ledger-" + new Date().toISOString().slice(0, 10) + ".csv",
+      [header, ...rows].join("\n") + "\n",
+      "text/csv;charset=utf-8",
+    );
+    setTransferNotice("PUSH CSV complete · ledger exported");
+  }
+
+  function copyLedger() {
+    const payload = JSON.stringify(buildTransferPayload(), null, 2);
     const write = navigator.clipboard?.writeText(payload);
     if (!write) {
       window.alert(payload);
       return;
     }
-
     write.then(
       () => {
         setCopied(true);
@@ -512,6 +562,38 @@ function Page() {
       },
       () => window.alert(payload),
     );
+  }
+
+  function openPull() {
+    importRef.current?.click();
+  }
+
+  async function pullState(file: File) {
+    try {
+      const raw = JSON.parse(await file.text());
+      const parsed = normalizeFloorState(raw);
+      if (!parsed) throw new Error("invalid rolling-floor state");
+      if (parsed.capital < 1 || parsed.startingDeployed > parsed.capital) {
+        throw new Error("capital / startingDeployed invalid");
+      }
+      setCapital(parsed.capital);
+      setStartingDeployed(parsed.startingDeployed);
+      setMonth(parsed.month);
+      setLedger(parsed.entries);
+      setMarketTape(parsed.marketTape);
+      setTransferNotice(
+        "PULL complete · " +
+        parsed.entries.length +
+        " ledger rows · " +
+        parsed.marketTape.length +
+        " market observations",
+      );
+    } catch (error) {
+      setTransferNotice(
+        "PULL failed · " +
+        (error instanceof Error ? error.message : "invalid JSON"),
+      );
+    }
   }
 
   return (
@@ -727,7 +809,7 @@ function Page() {
           </div>
         </Panel>
 
-        <Panel kicker="MUTUAL-CHASE GEOMETRY" title="20Y / 30Y / 50Y：追趕參考線">
+        <Panel kicker="MUTUAL-CHASE GEOMETRY" title="20Y ↔ 30Y ↔ 50Y：追趕場 / leader handoff / crossings">
           {responseCurves.length ? (
             <>
               <div className="overflow-x-auto">
@@ -736,6 +818,7 @@ function Page() {
                   domain={responseDomain}
                   currentX={cumulativeNowFraction}
                   handoff={ndxHandoff}
+                  mutualChase={activeMutualChase}
                 />
               </div>
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
@@ -750,8 +833,9 @@ function Page() {
             <EmptyState text="response curve 不完整；停止畫圖，不猜資料。" />
           )}
           <p className="mt-3 text-xs text-subtle">
-            填色 = 三尺度目前 response envelope；白線 = 你目前累積投入位置；黃色虛線 =
-            已驗證的 leader handoff。互追目前是監視層，未直接控制資金。
+            主圖 = 三尺度 response 曲線；底部兩條 leader lane = NDX / NASDAQCOM 在每個 5% phase
+            的相對領跑層；圓點 = pairwise curve crossing；右側讀數 = CURRENT phase 的 response slope
+            排名。SIM 只定位你現在的位置，不等於「應投資百分比」。
           </p>
         </Panel>
 
@@ -824,7 +908,7 @@ function Page() {
           )}
         </Panel>
 
-        <Panel kicker="WEIGHTED GAR ↔ MAXDD" title="三尺度合權後：相對風險－回報互追區間">
+        <Panel kicker="WEIGHTED GAR ↔ MAXDD" title="三尺度合權後：相對風險－回報互追區間（非資金比例）">
           {riskBalance ? (
             <>
               <div className="overflow-x-auto">
@@ -834,9 +918,10 @@ function Page() {
                 />
               </div>
               <p className="mt-3 text-xs text-subtle">
-                每個 Y 層先把 GAR 與 MaxDD 轉成自己的歷史相對位置，再用當前 response slope 所隱含的
-                mutual-chase 權重合成。灰帶是 20Y/30Y/50Y 的歷史 envelope；粗線是動態合權線；
-                白色 SIM 線跟隨你的實際累積投入。它只做相對觀測，不回寫資金 controller。
+                X 軸 = cumulative deployment phase（0–100%）；Y 軸 = GAR / MaxDD 在各自歷史 q05–q95
+                中的相對位置（0–100%），所以左端出現 30% / 40% 並不代表已投入 30% / 40% 資金。
+                灰帶 = 三尺度 envelope；粗線 = response-slope dynamic weight 後的 GAR↔MaxDD 合權線；
+                SIM 垂線 = 你目前實際累積投入位置。這張圖不回寫 controller。
               </p>
             </>
           ) : (
@@ -911,22 +996,57 @@ function Page() {
                 記錄今次實際投入
               </button>
 
-              <div className="grid grid-cols-2 gap-2">
+              <input
+                ref={importRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void pullState(file);
+                  event.currentTarget.value = "";
+                }}
+              />
+              <div className="grid gap-2 sm:grid-cols-4">
+                <button
+                  type="button"
+                  onClick={pushState}
+                  className="min-h-11 rounded-md border border-accent/60 bg-accent/10 px-3 text-xs font-medium text-fg hover:bg-accent/20"
+                >
+                  PUSH JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={openPull}
+                  className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-fg"
+                >
+                  PULL JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={pushCsv}
+                  className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-fg"
+                >
+                  DOWNLOAD CSV
+                </button>
                 <button
                   type="button"
                   onClick={copyLedger}
                   className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-fg"
                 >
-                  {copied ? "COPIED" : "COPY LEDGER"}
-                </button>
-                <button
-                  type="button"
-                  onClick={clearLocal}
-                  className="min-h-11 rounded-md border border-line px-3 text-xs text-subtle hover:text-fg"
-                >
-                  CLEAR LOCAL
+                  {copied ? "COPIED" : "COPY JSON"}
                 </button>
               </div>
+              {transferNotice ? (
+                <p className="font-mono text-[11px] text-subtle">{transferNotice}</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={clearLocal}
+                className="min-h-11 rounded-md border border-line px-3 text-xs text-subtle hover:text-fg"
+              >
+                CLEAR LOCAL
+              </button>
             </div>
           </div>
 
@@ -936,7 +1056,7 @@ function Page() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Panel kicker="CURRENT REFERENCE" title="三尺度現在的基準位置">
             <div className="grid gap-2">
-              {(snapshot.current.perScale ?? []).map((s) => (
+              {activePerScale.map((s) => (
                 <div key={s.scaleYears} className="grid grid-cols-[70px_1fr_auto] items-center gap-3 rounded-md border border-line px-3 py-2">
                   <span className="font-mono text-sm">{s.scaleYears}Y</span>
                   <div className="h-1.5 overflow-hidden rounded-full bg-elevated">
@@ -1506,7 +1626,9 @@ function CombinedRiskChart({
         strokeWidth="4"
       />
       <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={T + plotH} stroke="var(--color-fragile)" strokeDasharray="4 4" />
-      <text x={Math.min(W - 150, x(currentX) + 6)} y={T + 16} fill="var(--color-fragile)" fontSize="11">SIM {fmtPct(currentX, 1)}</text>
+      <circle cx={x(currentX)} cy={y(balance.currentValue)} r="6" fill="var(--color-fg)" />
+      <text x={Math.min(W - 170, x(currentX) + 6)} y={T + 16} fill="var(--color-fragile)" fontSize="11">SIM PHASE {fmtPct(currentX, 1)}</text>
+      <text x={Math.min(W - 180, x(currentX) + 6)} y={y(balance.currentValue) - 10} fill="var(--color-fg)" fontSize="11">RELATIVE {fmtPct(balance.currentValue, 0)}</text>
       <text x={L} y={H - 22} fill="var(--color-subtle)" fontSize="11">0–100% cumulative deployment phase</text>
       {balance.scaleLines.map((line, idx) => (
         <text key={"legend-" + line.scale} x={W - 220 + idx * 62} y={H - 22} fill={palette[idx] ?? "var(--color-fg)"} fontSize="11">{line.scale}Y</text>
@@ -1739,20 +1861,31 @@ function ResponseChart({
   domain,
   currentX,
   handoff,
+  mutualChase,
 }: {
   curves: Array<{ scale: number; xs: number[]; ys: number[] }>;
   domain: number[];
   currentX: number;
   handoff: { from: number; to: number; at: number } | null;
+  mutualChase?: Array<{
+    channel: string;
+    topology: {
+      state: string;
+      leaderScaleBySegment: Array<number | null>;
+      leaderChanges: number;
+      pairwiseCurveCrossings: number;
+    };
+  }>;
 }) {
   if (!curves.length) return <EmptyState text="沒有 response curve 資料。" />;
 
-  const W = 1000, H = 380, L = 64, R = 24, T = 24, B = 48;
-  const plotW = W - L - R, plotH = H - T - B;
+  const W = 1120, H = 500, L = 68, R = 250, T = 24, B = 108;
+  const plotW = W - L - R, plotH = 320;
   const x = (v: number) => L + Math.max(0, Math.min(1, v)) * plotW;
   const y = (v: number) =>
     T + (domain[1] - v) / Math.max(0.0001, domain[1] - domain[0]) * plotH;
   const palette = ["var(--color-accent)", "var(--color-fragile)", "var(--color-muted)"];
+
   const top = curves[0].xs.map((_, i) =>
     Math.max(...curves.map((c) => Number(c.ys[i]) || domain[0])),
   );
@@ -1770,26 +1903,48 @@ function ResponseChart({
     .map((p) => p.join(","))
     .join(" ");
 
+  const currentSlopes = curves
+    .map((curve) => {
+      const i = Math.max(0, Math.min(curve.xs.length - 2, Math.floor(currentX * (curve.xs.length - 1))));
+      const dx = (curve.xs[i + 1] ?? 0) - (curve.xs[i] ?? 0);
+      const dy = (curve.ys[i + 1] ?? 0) - (curve.ys[i] ?? 0);
+      return { scale: curve.scale, slope: dx > 0 ? dy / dx : 0 };
+    })
+    .sort((a, b) => Math.abs(b.slope) - Math.abs(a.slope));
+
+  const crossings: number[] = [];
+  for (let a = 0; a < curves.length; a++) {
+    for (let b = a + 1; b < curves.length; b++) {
+      for (let i = 1; i < curves[a].xs.length; i++) {
+        const d1 = (curves[a].ys[i - 1] ?? 0) - (curves[b].ys[i - 1] ?? 0);
+        const d2 = (curves[a].ys[i] ?? 0) - (curves[b].ys[i] ?? 0);
+        if (d1 === 0 || d1 * d2 < 0) crossings.push(curves[a].xs[i - 1] ?? 0);
+      }
+    }
+  }
+
+  const leaderOf = (channel: string) =>
+    mutualChase?.find((x) => x.channel === channel)?.topology.leaderScaleBySegment ?? [];
+  const leaderRows = [
+    { channel: "NDX", leaders: leaderOf("NDX"), color: "var(--color-accent)" },
+    { channel: "NASDAQCOM", leaders: leaderOf("NASDAQCOM"), color: "var(--color-fragile)" },
+  ];
+
+  const laneY = (row: number) => T + plotH + 36 + row * 28;
+  const leaderColor = (scale: number | null) =>
+    scale === 20 ? "var(--color-accent)" : scale === 30 ? "var(--color-fragile)" : scale === 50 ? "var(--color-pass)" : "var(--color-muted)";
+
   return (
-    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="Mutual chase response envelope">
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[980px] w-full" role="img" aria-label="Mutual chase response field with leader lanes and curve crossings">
       <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
       {[1, 1.5, 2, 2.5, 3].filter((v) => v <= domain[1] + 0.01).map((v) => (
         <g key={v}>
-          <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--color-line)" />
+          <line x1={L} x2={L + plotW} y1={y(v)} y2={y(v)} stroke="var(--color-line)" />
           <text x={L - 10} y={y(v) + 4} textAnchor="end" fill="var(--color-subtle)" fontSize="11">{v.toFixed(1)}×</text>
         </g>
       ))}
+
       <polygon points={band} fill="var(--color-accent)" opacity="0.08" />
-      <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={T + plotH} stroke="var(--color-fg)" strokeDasharray="4 4" opacity="0.8" />
-      <text x={Math.min(W - 120, x(currentX) + 6)} y={T + 14} fill="var(--color-fg)" fontSize="11">NOW {fmtPct(currentX, 2)}</text>
-      {handoff ? (
-        <>
-          <line x1={x(handoff.at)} x2={x(handoff.at)} y1={T} y2={T + plotH} stroke="var(--color-fragile)" strokeDasharray="2 3" opacity="0.9" />
-          <text x={Math.min(W - 120, x(handoff.at) + 6)} y={H - 18} fill="var(--color-fragile)" fontSize="11">
-            {handoff.from}Y → {handoff.to}Y
-          </text>
-        </>
-      ) : null}
       {curves.map((curve, idx) => (
         <polyline
           key={curve.scale}
@@ -1801,10 +1956,75 @@ function ResponseChart({
           strokeLinecap="round"
         />
       ))}
-      {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-        <text key={v} x={x(v)} y={H - 22} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">{Math.round(v * 100)}%</text>
+
+      {crossings.map((phase, i) => (
+        <circle key={"cross-" + i} cx={x(phase)} cy={T + 14} r="4" fill="var(--color-pass)" />
       ))}
-      <text x={L} y={H - 4} fill="var(--color-subtle)" fontSize="11">cumulative deployment / response cross-section</text>
+
+      <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={laneY(1) + 12} stroke="var(--color-fg)" strokeDasharray="4 4" opacity="0.9" />
+      <text x={Math.min(L + plotW - 90, x(currentX) + 6)} y={T + 14} fill="var(--color-fg)" fontSize="11">SIM {fmtPct(currentX, 1)}</text>
+
+      {handoff ? (
+        <>
+          <line x1={x(handoff.at)} x2={x(handoff.at)} y1={T} y2={laneY(1) + 12} stroke="var(--color-fragile)" strokeDasharray="2 3" opacity="0.95" />
+          <text x={Math.min(L + plotW - 120, x(handoff.at) + 6)} y={T + 30} fill="var(--color-fragile)" fontSize="11">
+            handoff {handoff.from}Y → {handoff.to}Y
+          </text>
+        </>
+      ) : null}
+
+      {leaderRows.map((row, rowIndex) => (
+        <g key={row.channel}>
+          <text x={L - 10} y={laneY(rowIndex) + 14} textAnchor="end" fill="var(--color-subtle)" fontSize="11">{row.channel}</text>
+          {Array.from({ length: 20 }, (_, i) => {
+            const lead = row.leaders[i] ?? null;
+            const start = i / 20;
+            return (
+              <rect
+                key={row.channel + "-" + i}
+                x={x(start)}
+                y={laneY(rowIndex)}
+                width={plotW / 20 + 0.5}
+                height="18"
+                rx="3"
+                fill={leaderColor(lead)}
+                opacity={lead == null ? 0.1 : 0.55}
+              />
+            );
+          })}
+        </g>
+      ))}
+
+      <g>
+        <text x={W - R + 10} y={T + 4} fill="var(--color-subtle)" fontSize="11">CURRENT SLOPE RANK</text>
+        {currentSlopes.map((row, idx) => (
+          <g key={row.scale} transform={"translate(" + (W - R + 10) + "," + (T + 20 + idx * 38) + ")"}>
+            <text x="0" y="0" fill={palette[curves.findIndex((c) => c.scale === row.scale)] ?? "var(--color-fg)"} fontSize="12" fontWeight="600">
+              {idx + 1}. {row.scale}Y
+            </text>
+            <text x="0" y="16" fill="var(--color-muted)" fontSize="11">
+              slope {row.slope.toFixed(3)}
+            </text>
+            <rect x="78" y="-10" width="110" height="8" rx="4" fill="var(--color-line)" />
+            <rect x="78" y="-10" width={Math.min(110, Math.abs(row.slope) * 24)} height="8" rx="4" fill={palette[curves.findIndex((c) => c.scale === row.scale)] ?? "var(--color-fg)"} opacity="0.8" />
+          </g>
+        ))}
+      </g>
+
+      <g>
+        <text x={L} y={H - 30} fill="var(--color-subtle)" fontSize="11">0%</text>
+        <text x={x(0.5)} y={H - 30} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">50%</text>
+        <text x={x(1)} y={H - 30} textAnchor="end" fill="var(--color-subtle)" fontSize="11">100%</text>
+        <text x={L} y={H - 12} fill="var(--color-subtle)" fontSize="10">
+          X = deployment phase · leader lane = relative response slope leader · ● = curve crossing
+        </text>
+        {[[20,"20Y"],[30,"30Y"],[50,"50Y"]].map(([scale,label],i) => (
+          <g key={String(scale)}>
+            <rect x={L + i * 82} y={H - 55} width="12" height="12" rx="2" fill={leaderColor(scale as number)} />
+            <text x={L + 18 + i * 82} y={H - 45} fill="var(--color-subtle)" fontSize="10">{label}</text>
+          </g>
+        ))}
+      </g>
     </svg>
   );
 }
