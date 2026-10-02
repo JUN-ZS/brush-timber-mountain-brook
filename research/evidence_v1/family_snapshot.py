@@ -60,6 +60,7 @@ def build_family_snapshot(
                         "status": "UNAVAILABLE",
                         "signal_active": signal_active,
                         "campaign_active": campaign_active,
+                        "active_family": False,
                         "live_far_reference_match": False,
                         "live_policy_mapping": "UNMAPPED",
                         "far_code": None,
@@ -69,6 +70,7 @@ def build_family_snapshot(
                         "far_bid": None,
                         "far_ask": None,
                         "far_source": "LIVE_QUOTE_CHAIN" if contracts else "MISSING",
+                        "far_quote_timestamp": None,
                     })
                     continue
 
@@ -95,6 +97,7 @@ def build_family_snapshot(
                         else _pct((far.ask - far.bid) / ((far.ask + far.bid) / 2))
                     ),
                     "far_source": "LIVE_QUOTE_CHAIN",
+                    "far_quote_timestamp": far.quote_timestamp,
                 })
 
     return {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -16,13 +17,25 @@ from .campaign import (
     STATE_ROLLING,
     build_ticket,
     choose_primary_action,
+    rank_candidates,
     is_qqq_option_code,
     make_campaign_id,
     position_snapshot,
     reconcile_ticket,
     transition_for_action,
 )
-from .engine import Contract, Order, Position, plan, select_far, select_near
+from .engine import (
+    Contract,
+    Order,
+    Position,
+    GAMMA_HISTORY_SCHEMA,
+    GAMMA_HISTORY_UNIT,
+    ensure_gamma_history_schema,
+    gamma_baseline_from_history,
+    plan,
+    select_far,
+    select_near,
+)
 from .futu_reader import LiveFutuReader
 from .futu_trade_reader import FutuTradeReader
 from .state import StateStore
@@ -31,6 +44,7 @@ from ..evidence_v1.identity import runtime_identity
 from ..evidence_v1.ledger import EvidenceLedger
 from ..evidence_v1.snapshot import write_snapshot
 from ..evidence_v1.lock_guard import StrategyLockViolation, assert_runtime_lock
+from .state import live_desk_mutation_lock
 
 
 def C(x):
@@ -45,7 +59,47 @@ def C(x):
         delta=x.get("delta"),
         gamma=x.get("gamma"),
         iv=x.get("iv"),
+        lot_size=int(x.get("lot_size") or 100),
+        volume=x.get("volume"),
+        quote_timestamp=x.get("quote_timestamp"),
     )
+
+
+def _enrich_contracts_from_quotes(contracts, quotes):
+    """Merge live quote fields (incl. volume) onto chain contracts used by selectors."""
+    quotes = quotes or {}
+    out = []
+    for c in contracts:
+        q = quotes.get(c.code) or {}
+        bid = q.get("bid", c.bid)
+        ask = q.get("ask", c.ask)
+        delta = q.get("delta", c.delta)
+        gamma = q.get("gamma", c.gamma)
+        iv = q.get("iv", c.iv)
+        volume = q.get("volume", c.volume)
+        quote_timestamp = q.get("timestamp", c.quote_timestamp)
+        if q.get("dte") is not None:
+            dte = int(q.get("dte"))
+        else:
+            dte = c.dte
+        out.append(
+            Contract(
+                code=c.code,
+                right=c.right,
+                strike=float(q.get("strike", c.strike) if q.get("strike") is not None else c.strike),
+                expiry=str(q.get("expiry") or c.expiry),
+                dte=dte,
+                bid=bid,
+                ask=ask,
+                delta=delta,
+                gamma=gamma,
+                iv=iv,
+                lot_size=c.lot_size,
+                volume=volume,
+                quote_timestamp=quote_timestamp,
+            )
+        )
+    return out
 
 
 def _now() -> str:
@@ -106,15 +160,144 @@ def _ticket_baseline_positions(current_positions):
     return position_snapshot(current_positions)
 
 
+def _publish_live_output(out_path, output):
+    """Atomically publish the operator snapshot so readers never see a partial JSON file."""
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_out = out_path.with_suffix(out_path.suffix + ".tmp")
+    tmp_out.write_text(
+        json.dumps(output, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    os.replace(tmp_out, out_path)
+
+
+def _persist_dynamic_state_observation(state, plan_output, far, market):
+    """Persist dynamic inputs only after an accepted strategy observation."""
+    status = str((plan_output or {}).get("status", "")).upper()
+    if status not in {"ACTIONABLE", "HOLD"}:
+        return {"accepted": False, "reason": f"PLAN_STATUS_NOT_ACCEPTED:{status or 'MISSING'}"}
+
+    target_change = None
+    if far is not None:
+        state["far_code"] = far.code
+        if far.delta is not None:
+            state["far_delta"] = abs(float(far.delta))
+        if far.gamma is not None and market.get("spot") is not None:
+            hist = state.setdefault("gamma_history", [])
+            hist.append(abs(float(far.gamma)) * float(market["spot"]))
+            state["gamma_history"] = hist[-20:]
+            state["gamma_history_schema"] = GAMMA_HISTORY_SCHEMA
+            state["gamma_history_unit"] = GAMMA_HISTORY_UNIT
+    if (plan_output or {}).get("risk_state"):
+        risk_state_value = plan_output["risk_state"]
+        new_target = risk_state_value.get("desired_stack")
+        new_risk = risk_state_value.get("risk_score")
+        old_target = state.get("last_target_stack")
+        if old_target is not None and new_target != old_target:
+            target_change = {
+                "from": old_target,
+                "to": new_target,
+                "risk_score": new_risk,
+            }
+        state["last_target_stack"] = new_target
+        state["last_risk_score"] = new_risk
+        state.setdefault("campaign", {})["target_stack"] = new_target
+
+    return {"accepted": True, "target_change": target_change}
+
+
+def _finalize_blocked_cycle(evidence, state, cycle_id, now, out_path, status, error, *, evidence_grade="DATA_GAP"):
+    campaign_id=(state.get("campaign") or {}).get("id")
+    evidence.append(
+        "DATA_GAP",
+        cycle_id=cycle_id,
+        campaign_id=campaign_id,
+        timestamp_utc=now,
+        evidence_grade=evidence_grade,
+        payload={"stage":"LIVE_DESK_CONTROL","status":status,"error":repr(error)},
+    )
+    evidence.append(
+        "CYCLE_FINALIZED",
+        cycle_id=cycle_id,
+        campaign_id=campaign_id,
+        timestamp_utc=now,
+        evidence_grade=evidence_grade,
+        payload={"status":status},
+    )
+    output={
+        "status":status,
+        "timestamp":now,
+        "manual_execution_only":True,
+        "error":repr(error),
+        "campaign":state.get("campaign"),
+    }
+    _publish_live_output(out_path,output)
+    print(json.dumps(output,indent=2,ensure_ascii=False))
+    return 2
+
+
 def _format_price(v):
     return "NA" if v is None else f"{float(v):.4f}"
 
 
-def _fill_lots(state, ticket):
-    state.setdefault("lots", [])
+def _sync_managed_far_ownership(campaign, ticket, reconcile):
+    """Project broker-confirmed far execution onto the frozen ownership baseline.
 
-    for fill in ticket.get("fill", []) or []:
-        code = str(fill.get("code", ""))
+    The current broker position is never used to invent ownership. For an
+    active ticket, only cumulative broker execution evidence since issuance can
+    move the managed far quantity. Manual/out-of-band position changes therefore
+    remain visible as an ownership mismatch on the next planning pass.
+    """
+    if not campaign or not ticket:
+        return
+    far_code = str(campaign.get("far_code") or "").upper()
+    if not far_code:
+        return
+    evidence_by_leg = reconcile.get("evidence_by_leg") or {}
+    for key, evidence in evidence_by_leg.items():
+        leg = next(
+            (
+                x for x in ticket.get("legs", []) or []
+                if f'{str(x.get("expected_side", "")).upper()}:{str(x.get("code", "")).upper()}' == key
+            ),
+            None,
+        )
+        if not leg:
+            continue
+        if str(leg.get("expected_side", "")).upper() != "SHORT":
+            continue
+        if str(leg.get("code", "")).upper() != far_code:
+            continue
+        required = _safe_int(evidence.get("required_qty"))
+        confirmed = _safe_int(evidence.get("evidence_qty"))
+        if confirmed <= 0:
+            continue
+        confirmed = min(confirmed, required) if required > 0 else confirmed
+        before = _safe_int(leg.get("before_qty"))
+        side = str(leg.get("side", "")).upper()
+        if side == "SELL":
+            managed = before + confirmed
+        elif side == "BUY":
+            managed = max(0, before - confirmed)
+        else:
+            continue
+        campaign["managed_far_qty"] = managed
+        campaign["far_ownership_source"] = "BROKER_EXECUTION_EVIDENCE"
+        campaign["far_ownership_ticket_id"] = ticket.get("ticket_id")
+
+def _fill_lots(state, ticket):
+    """Apply a broker-confirmed ticket to strategy lots idempotently.
+
+    Strategy lots are derived from ticket execution, not current manual
+    position. Re-running the same completed ticket after a process crash must
+    not duplicate a BUY lot or double-apply a LONG reduction.
+    """
+    state.setdefault("lots", [])
+    fills = ticket.get("fill", []) or []
+
+    for fill in fills:
+        code = str(fill.get("code", "")).upper()
         qty = _safe_int(fill.get("qty"))
         side = str(fill.get("side", "")).upper()
         expected_side = str(fill.get("expected_side", "")).upper()
@@ -123,57 +306,86 @@ def _fill_lots(state, ticket):
         if qty <= 0 or not is_qqq_option_code(code):
             continue
 
-        # Only a BUY that establishes/increases a LONG near position creates a strategy lot.
+        leg = next(
+            (
+                x for x in ticket.get("legs", []) or []
+                if str(x.get("code", "")).upper() == code
+                and str(x.get("side", "")).upper() == side
+                and str(x.get("expected_side", "")).upper() == expected_side
+            ),
+            None,
+        )
+
+        # Only a BUY that establishes/increases a LONG near position creates
+        # a deterministic strategy lot. The lot id is ticket-derived so a
+        # retry cannot append the same execution twice.
         if side == "BUY" and expected_side == "LONG":
             lot_id = f'LOT-{ticket["ticket_id"]}-{code}'
-            state["lots"].append({
-                "lot_id": lot_id,
-                "ticket_id": ticket["ticket_id"],
-                "code": code,
-                "qty": qty,
-                "avg_cost": price,
-                "opened_at": ticket.get("filled_at", ticket.get("issued_at")),
-                "status": "OPEN",
-                "price_source": source,
-            })
+            existing = next(
+                (lot for lot in state["lots"] if lot.get("lot_id") == lot_id),
+                None,
+            )
+            if existing is None:
+                state["lots"].append({
+                    "lot_id": lot_id,
+                    "ticket_id": ticket["ticket_id"],
+                    "code": code,
+                    "qty": qty,
+                    "avg_cost": price,
+                    "opened_at": ticket.get("filled_at", ticket.get("issued_at")),
+                    "status": "OPEN",
+                    "price_source": source,
+                })
+            else:
+                # Completed-ticket fill is cumulative; restore the exact
+                # confirmed quantity instead of adding it again.
+                existing["qty"] = qty
+                existing["avg_cost"] = price
+                existing["status"] = "OPEN"
+                existing["price_source"] = source
             continue
 
-        if side != "SELL" or expected_side != "LONG":
-            continue
-
-        remaining = qty
-        preferred = ticket.get("lot_id")
-        candidates = [
-            lot for lot in state["lots"]
-            if lot.get("status") == "OPEN"
-            and lot.get("code") == code
-            and (preferred is None or lot.get("lot_id") == preferred)
-        ]
-        if not preferred:
-            candidates = [
+        if side == "SELL" and expected_side == "LONG":
+            # Reduce the strategy book to the ticket's frozen target. This is
+            # idempotent across crashes and does not use the mutable broker
+            # position as execution evidence.
+            target_qty = (
+                _safe_int(leg.get("target_qty"))
+                if leg is not None
+                else None
+            )
+            code_lots = [
                 lot for lot in state["lots"]
-                if lot.get("status") == "OPEN" and lot.get("code") == code
+                if lot.get("status") == "OPEN"
+                and str(lot.get("code", "")).upper() == code
             ]
-            candidates.sort(key=lambda x: str(x.get("opened_at", "")))
-
-        for lot in candidates:
-            if remaining <= 0:
-                break
-            take = min(remaining, _safe_int(lot.get("qty")))
-            lot["qty"] = _safe_int(lot.get("qty")) - take
-            remaining -= take
-            if lot["qty"] <= 0:
-                lot["qty"] = 0
-                lot["status"] = "CLOSED"
+            current_qty = sum(_safe_int(lot.get("qty")) for lot in code_lots)
+            if target_qty is None:
+                target_qty = max(0, current_qty - qty)
+            remaining = max(0, current_qty - max(0, target_qty))
+            for lot in sorted(code_lots, key=lambda x: str(x.get("opened_at", ""))):
+                if remaining <= 0:
+                    break
+                take = min(remaining, _safe_int(lot.get("qty")))
+                lot["qty"] = _safe_int(lot.get("qty")) - take
+                remaining -= take
+                if lot["qty"] <= 0:
+                    lot["qty"] = 0
+                    lot["status"] = "CLOSED"
 
     if ticket.get("action") == "CLOSE_CAMPAIGN_EMERGENCY":
+        # The emergency ticket is only handed here when broker execution
+        # evidence is complete for all required legs, so closing the remaining
+        # tracked near lots is deterministic and repeat-safe.
         for lot in state["lots"]:
             if lot.get("status") == "OPEN":
                 lot["qty"] = 0
                 lot["status"] = "CLOSED"
 
-    state["lots"] = [lot for lot in state["lots"] if lot.get("status") == "OPEN"]
-
+    state["lots"] = [
+        lot for lot in state["lots"]
+        if lot.get("status") == "OPEN" and _safe_int(lot.get("qty")) > 0
+    ]
 
 def _transition(state, new_state, now, store):
     camp = state.setdefault("campaign", {})
@@ -326,6 +538,8 @@ def _action_card(ticket):
             "delta_qty":target-before,
             "price":leg.get("price"),
             "expected_side":leg.get("expected_side"),
+            "strategy_leg_action":leg.get("strategy_leg_action") or leg.get("why"),
+            "direction":leg.get("direction"),
         })
     return {
         "status":ticket.get("status"),
@@ -338,7 +552,7 @@ def _action_card(ticket):
         "manual_execution_only":True,
     }
 
-def main():
+def _main_unlocked():
     ap = argparse.ArgumentParser()
     ap.add_argument("--far-dte", type=int, default=120)
     ap.add_argument("--far-delta", type=float, default=0.08)
@@ -351,22 +565,84 @@ def main():
         action="store_true",
         help="adopt exactly one existing QQQ option short as the campaign far; never auto-adopt by default",
     )
+    ap.add_argument(
+        "--rebaseline-existing-far",
+        action="store_true",
+        help="explicitly rebaseline an already-active campaign to the currently observed far short; never infer ownership automatically",
+    )
     ap.add_argument("--out", default="research/live_hedge_v1/live_state.json")
     args = ap.parse_args()
 
+    if args.adopt_existing_far and args.rebaseline_existing_far:
+        raise SystemExit("--adopt-existing-far and --rebaseline-existing-far are mutually exclusive")
+
+    out_path = Path(args.out)
+    with live_desk_mutation_lock(out_path.with_name("state.json")):
+        return _main_cycle(args, out_path)
+
+def _main_cycle(args, out_path):
     now = _now()
     repo = Path(__file__).resolve().parents[2]
-    out_path = Path(args.out)
-    store = StateStore(
-        out_path.with_name("state.json"),
-        out_path.with_name("events.jsonl"),
-    )
-    state = store.load()
-    state["_now"] = now
     cycle_id = f"QQQ_DESK_{now.replace(':','').replace('-','').replace('.','').replace('+00:00','Z')}"
     evidence = EvidenceLedger(
         repo / "research/evidence_v1/evidence.jsonl",
         identity=runtime_identity(repo),
+    )
+    store = StateStore(
+        out_path.with_name("state.json"),
+        out_path.with_name("events.jsonl"),
+    )
+    try:
+        state = store.load()
+    except Exception as exc:
+        evidence.append(
+            "CYCLE_STARTED",
+            cycle_id=cycle_id,
+            campaign_id=None,
+            timestamp_utc=now,
+            payload={"stage":"LIVE_STATE_LOAD","status":"BLOCKED","error":repr(exc)},
+            evidence_grade="DATA_GAP",
+        )
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=None,
+            timestamp_utc=now,
+            payload={"stage":"LIVE_STATE_EVENT_LOG","error":repr(exc)},
+            evidence_grade="DATA_GAP",
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=None,
+            timestamp_utc=now,
+            payload={"status":"BLOCKED_LIVE_STATE"},
+            evidence_grade="DATA_GAP",
+        )
+        output={"status":"BLOCKED_LIVE_STATE","timestamp":now,
+                "manual_execution_only":True,"error":repr(exc)}
+        _publish_live_output(out_path, output)
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+        return 2
+
+    state["_now"] = now
+    # Every invocation gets a cycle-start marker, including fail-closed lock failures.
+    evidence.append(
+        "CYCLE_STARTED",
+        cycle_id=cycle_id,
+        campaign_id=(state.get("campaign") or {}).get("id"),
+        timestamp_utc=now,
+        payload={
+            "cli": {
+                "far_dte": args.far_dte,
+                "far_delta": args.far_delta,
+                "near_dte": args.near_dte,
+                "simulate_account": args.simulate_account,
+                "adopt_existing_far": args.adopt_existing_far,
+                "rebaseline_existing_far": args.rebaseline_existing_far,
+            },
+            "state_before": state.get("campaign"),
+        },
     )
     try:
         lock_status = assert_runtime_lock(
@@ -399,22 +675,6 @@ def main():
         }, ensure_ascii=False, indent=2))
         return 4
 
-    evidence.append(
-        "CYCLE_STARTED",
-        cycle_id=cycle_id,
-        campaign_id=(state.get("campaign") or {}).get("id"),
-        timestamp_utc=now,
-        payload={
-            "cli": {
-                "far_dte": args.far_dte,
-                "far_delta": args.far_delta,
-                "near_dte": args.near_dte,
-                "simulate_account": args.simulate_account,
-                "adopt_existing_far": args.adopt_existing_far,
-            },
-            "state_before": state.get("campaign"),
-        },
-    )
     state.setdefault("lots", [])
 
     campaign = state.setdefault(
@@ -440,11 +700,15 @@ def main():
         if lot.get("code"):
             extra.append(lot["code"])
 
+    history_start = (active_ticket or {}).get("issued_at") if active_ticket else None
     acct = FutuTradeReader(
         args.host,
         args.port,
         real=not args.simulate_account,
-    ).read()
+    ).read(
+        history_start=history_start,
+        history_end=now if history_start else None,
+    )
 
     snap = LiveFutuReader(args.host, args.port).snapshot(sorted(set(extra)))
     if snap.get("status") != "OK":
@@ -477,17 +741,16 @@ def main():
             "account": acct,
             "market": snap,
         }
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(
-            json.dumps(output, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        _publish_live_output(out_path, output)
         print(json.dumps(output, indent=2, ensure_ascii=False))
         return 2
 
     market = snap["market"]
-    contracts = [C(x) for x in snap["contracts"]]
     quotes = snap.get("quotes", {})
+    contracts = _enrich_contracts_from_quotes(
+        [C(x) for x in snap["contracts"]],
+        quotes,
+    )
     by = {c.code: c for c in contracts}
 
     positions = []
@@ -552,37 +815,87 @@ def main():
                 "desk refuses to infer LONG/SHORT",
             ],
         }
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(
-            json.dumps(output, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        _publish_live_output(out_path, output)
         print(json.dumps(output, indent=2, ensure_ascii=False))
         return 3
 
     if campaign.get("state") == STATE_IDLE and args.adopt_existing_far:
-        if len(qqq_shorts) != 1:
-            raise RuntimeError(
-                "--adopt-existing-far requires exactly one QQQ option short; "
-                f"found {len(qqq_shorts)}"
+        try:
+            if len(qqq_shorts) != 1:
+                raise RuntimeError(
+                    "--adopt-existing-far requires exactly one QQQ option short; "
+                    f"found {len(qqq_shorts)}"
+                )
+            adopted = qqq_shorts[0]
+            adopted_quote = quotes.get(adopted.code) or {}
+            adopted_right = str(adopted_quote.get("right") or "").upper()
+            if adopted_right != "CALL":
+                raise RuntimeError(
+                    "--adopt-existing-far requires a CALL; "
+                    f"found {adopted_right or 'UNKNOWN'} for {adopted.code}"
+                )
+            if adopted_quote.get("strike") is None or not adopted_quote.get("expiry") or adopted_quote.get("dte") is None:
+                raise RuntimeError(
+                    "--adopt-existing-far requires complete CALL quote metadata for the existing short"
+                )
+            campaign["id"] = make_campaign_id(
+                now,
+                store.next_campaign_sequence(state),
             )
-        campaign["id"] = make_campaign_id(
-            now,
-            store.next_campaign_sequence(state),
-        )
-        campaign["state"] = STATE_OPEN
-        campaign["far_code"] = qqq_shorts[0].code
-        campaign["started_at"] = now
-        campaign["last_transition_at"] = now
-        store.emit(
-            state,
-            "CAMPAIGN_ADOPTED_EXISTING_FAR",
-            now=now,
-            payload={
-                "far_code": qqq_shorts[0].code,
-                "qty": qqq_shorts[0].qty,
-            },
-        )
+            campaign["state"] = STATE_OPEN
+            campaign["far_code"] = qqq_shorts[0].code
+            campaign["started_at"] = now
+            campaign["last_transition_at"] = now
+            campaign["managed_far_qty"] = qqq_shorts[0].qty
+            campaign["far_ownership_source"] = "EXPLICIT_ADOPTION"
+            campaign["far_ownership_ticket_id"] = None
+            store.emit(
+                state,
+                "CAMPAIGN_ADOPTED_EXISTING_FAR",
+                now=now,
+                payload={
+                    "far_code": qqq_shorts[0].code,
+                    "qty": qqq_shorts[0].qty,
+                    "managed_far_qty": campaign["managed_far_qty"],
+                    "ownership_source": campaign["far_ownership_source"],
+                },
+            )
+
+        except Exception as exc:
+            return _finalize_blocked_cycle(
+                evidence,state,cycle_id,now,out_path,"BLOCKED_ADOPT_EXISTING_FAR",exc
+            )
+
+    if args.rebaseline_existing_far:
+        try:
+            if campaign.get("state") == STATE_IDLE:
+                raise RuntimeError("--rebaseline-existing-far requires an active campaign")
+            if state.get("active_ticket") is not None:
+                raise RuntimeError("--rebaseline-existing-far cannot run while an active ticket exists")
+            far_code_for_rebaseline = str(campaign.get("far_code") or "").upper()
+            matching = [p for p in qqq_shorts if p.code.upper() == far_code_for_rebaseline]
+            if not far_code_for_rebaseline or len(qqq_shorts) != 1 or len(matching) != 1:
+                raise RuntimeError(
+                    "--rebaseline-existing-far requires exactly one QQQ option short and it must match campaign.far_code"
+                )
+            campaign["managed_far_qty"] = matching[0].qty
+            campaign["far_ownership_source"] = "EXPLICIT_REBASELINE"
+            campaign["far_ownership_ticket_id"] = None
+            store.emit(
+                state,
+                "FAR_OWNERSHIP_REBASELINED",
+                now=now,
+                payload={
+                    "far_code": matching[0].code,
+                    "managed_far_qty": campaign["managed_far_qty"],
+                    "ownership_source": campaign["far_ownership_source"],
+                },
+            )
+
+        except Exception as exc:
+            return _finalize_blocked_cycle(
+                evidence,state,cycle_id,now,out_path,"BLOCKED_REBASELINE_EXISTING_FAR",exc
+            )
 
     far_position = None
     far_code = campaign.get("far_code")
@@ -610,6 +923,7 @@ def main():
                 z.get("delta"),
                 z.get("gamma"),
                 z.get("iv"),
+                volume=z.get("volume"),
             )
 
     if far is None and campaign.get("state") == STATE_IDLE and not qqq_shorts:
@@ -634,6 +948,7 @@ def main():
                 z.get("delta"),
                 z.get("gamma"),
                 z.get("iv"),
+                volume=z.get("volume"),
             )
 
     near = select_near(
@@ -654,6 +969,7 @@ def main():
             z.get("delta"),
             z.get("gamma"),
             z.get("iv"),
+            volume=z.get("volume", near.volume),
         )
 
     acct_orders = [
@@ -678,6 +994,11 @@ def main():
         positions,
         [o.__dict__ for o in acct_orders],
         acct.get("deals", []),
+    )
+    _sync_managed_far_ownership(
+        campaign,
+        reconcile.get("ticket") or state.get("active_ticket"),
+        reconcile,
     )
     for event in reconcile.get("events", []):
         event_type = event.pop("type")
@@ -739,7 +1060,7 @@ def main():
                 },
             )
 
-    if reconcile.get("filled"):
+    if reconcile.get("filled") or reconcile.get("broker_execution_complete"):
         filled_ticket = reconcile.get("ticket") or {}
         _fill_lots(state, filled_ticket)
 
@@ -752,6 +1073,9 @@ def main():
                 for p in positions
             ):
                 campaign["far_code"] = None
+                campaign["managed_far_qty"] = None
+                campaign["far_ownership_source"] = None
+                campaign["far_ownership_ticket_id"] = None
                 campaign["id"] = None
                 _transition(state, STATE_IDLE, now, store)
             else:
@@ -773,11 +1097,11 @@ def main():
         campaign.get("state") == STATE_IDLE and bool(qqq_shorts)
     )
 
-    gamma_history = state.get("gamma_history") or []
-    gamma_baseline = (
-        sum(gamma_history[-20:]) / len(gamma_history[-20:])
-        if len(gamma_history) >= 3 else None
-    )
+    # Migrate/reset legacy raw |γ| history before baseline; stamp gamma_spot schema markers.
+    gamma_history = ensure_gamma_history_schema(state, spot=market.get("spot"))
+    # Research parity: median of prior gamma_spot window (shift-1 / rolling20 / min5).
+    # After reset, baseline stays None until fresh_count (=len(history)) >= 5.
+    gamma_baseline = gamma_baseline_from_history(gamma_history)
     previous_delta = state.get("far_delta")
 
     family_observation = build_family_snapshot(
@@ -799,6 +1123,9 @@ def main():
             "deals": _evidence_deals(acct.get("deals", [])),
             "source": acct.get("source"),
             "deal_warning": acct.get("deal_warning"),
+            "history_backfill_used": acct.get("history_backfill_used"),
+            "history_start": acct.get("history_start"),
+            "history_end": acct.get("history_end"),
         },
         "campaign": campaign,
         "family_observation": family_observation,
@@ -842,10 +1169,13 @@ def main():
             "near_candidate": near.__dict__ if near else None,
             "family_observation_count": family_observation["config_count"],
             "active_family_count": sum(
-                1 for x in family_observation["rows"] if x["active_family"]
+                1 for x in family_observation["rows"] if x.get("active_family", False)
             ),
             "engine_inputs": snapshot_payload["engine_inputs"],
             "observation_is_pre_decision": True,
+            "evaluation_clock": "LIVE_FORWARD",
+            "provenance": "LOCKED_RUNTIME",
+            "non_retroactive": True,
         },
     )
 
@@ -861,6 +1191,9 @@ def main():
         gamma_baseline=gamma_baseline,
         previous_far_delta_abs=previous_delta,
         near_lots=state.get("lots", []),
+        far_ownership_enforced=True,
+        managed_far_qty=campaign.get("managed_far_qty"),
+        managed_far_code=campaign.get("far_code"),
         now=datetime.fromisoformat(now),
     )
 
@@ -872,13 +1205,37 @@ def main():
             "use --adopt-existing-far only after verifying ownership",
         ] + list(p.get("reasons", []))
 
+    raw_candidates = p.get("candidate_actions", []) or []
+    candidate_ranking = rank_candidates(raw_candidates)
+    risk_context = p.get("risk_state") or {}
+    candidate_journal = [
+        {
+            "rank": row["decision_rank"],
+            "priority_rank": row["priority_rank"],
+            "candidate_sha256": row["candidate_sha256"],
+            "candidate_index": row["candidate_index"],
+            "raw_candidate": json.loads(json.dumps(raw_candidates[row["candidate_index"]], ensure_ascii=False)),
+            "observed_at_utc": now,
+            "candidate_code": raw_candidates[row["candidate_index"]].get("code"),
+            "candidate_price": raw_candidates[row["candidate_index"]].get("price"),
+            "candidate_score": raw_candidates[row["candidate_index"]].get("score"),
+            "candidate_conditions": raw_candidates[row["candidate_index"]].get("conditions"),
+            "risk_score": risk_context.get("risk_score"),
+            "desired_stack": risk_context.get("desired_stack"),
+            "signal_active": bool(p.get("signal_active", signal_active)),
+            "market_quote_age_sec": p.get("market_quote_age_sec"),
+            "option_freshness": p.get("option_freshness", {}),
+            "snapshot_sha256": snapshot_ref["snapshot_sha256"],
+        }
+        for row in candidate_ranking
+    ]
     primary = None
     if (
         not just_filled
         and state.get("active_ticket") is None
         and campaign.get("state") != STATE_EMERGENCY_CLOSE
     ):
-        primary = choose_primary_action(p.get("candidate_actions", []))
+        primary = choose_primary_action(raw_candidates)
 
     if primary:
         action_name = str(primary.get("action"))
@@ -889,6 +1246,9 @@ def main():
                 store.next_campaign_sequence(state),
             )
             campaign["far_code"] = primary["code"]
+            campaign["managed_far_qty"] = 0
+            campaign["far_ownership_source"] = "BROKER_EXECUTION_EVIDENCE_PENDING"
+            campaign["far_ownership_ticket_id"] = None
             campaign["started_at"] = now
 
         new_state = transition_for_action(
@@ -918,33 +1278,35 @@ def main():
             },
         )
 
-    if far:
-        state["far_code"] = far.code
-        if far.delta is not None:
-            state["far_delta"] = abs(float(far.delta))
-        if far.gamma is not None:
-            hist = state.setdefault("gamma_history", [])
-            hist.append(abs(float(far.gamma)))
-            state["gamma_history"] = hist[-20:]
-
-    if p.get("risk_state"):
-        new_target = p["risk_state"].get("desired_stack")
-        new_risk = p["risk_state"].get("risk_score")
-        old_target = state.get("last_target_stack")
-        if old_target is not None and new_target != old_target:
-            store.emit(
-                state,
-                "TARGET_STACK_CHANGE",
-                now=now,
-                payload={
-                    "from": old_target,
-                    "to": new_target,
-                    "risk_score": new_risk,
-                },
-            )
-        state["last_target_stack"] = new_target
-        state["last_risk_score"] = new_risk
-        campaign["target_stack"] = new_target
+    dynamic_observation = _persist_dynamic_state_observation(
+        state, p, far, market
+    )
+    if dynamic_observation["accepted"]:
+        risk = p.get("risk_state") or {}
+        dynamic_payload = {
+            "far_code_observed": far.code if far else state.get("far_code"),
+            "accepted_reason": "ACTIONABLE_OR_HOLD",
+        }
+        if far is not None and far.delta is not None:
+            dynamic_payload["far_delta_abs_observed"] = abs(float(far.delta))
+        if far is not None and far.gamma is not None and market.get("spot") is not None:
+            dynamic_payload["gamma_spot_observed"] = abs(float(far.gamma)) * float(market["spot"])
+        if risk:
+            dynamic_payload["desired_stack"] = risk.get("desired_stack")
+            dynamic_payload["risk_score"] = risk.get("risk_score")
+        store.emit(
+            state,
+            "DYNAMIC_STATE_OBSERVED",
+            now=now,
+            payload=dynamic_payload,
+        )
+    if dynamic_observation["accepted"] and dynamic_observation.get("target_change"):
+        store.emit(
+            state,
+            "TARGET_STACK_CHANGE",
+            now=now,
+            payload=dynamic_observation["target_change"],
+        )
 
     store.record_position_snapshot(state, positions)
     state.pop("_now", None)
@@ -972,7 +1334,7 @@ def main():
     mark_summary = _mark_position_summary(strict_positions, quotes, by)
     action_card = _action_card(primary_ticket)
 
-    evidence.append(
+    decision_event = evidence.append(
         "DECISION_EMITTED",
         cycle_id=cycle_id,
         campaign_id=campaign.get("id"),
@@ -989,8 +1351,16 @@ def main():
             "reasons": p.get("reasons", []),
             "family_observation_count": family_observation["config_count"],
             "snapshot_sha256": snapshot_ref["snapshot_sha256"],
+            "contract": "AS_EMITTED_THEN_POSTHOC",
+            "evaluation_clock": "LIVE_FORWARD",
+            "non_retroactive": True,
+            "candidate_actions_are_verbatim": True,
+            "candidate_ranking": candidate_ranking,
+            "candidate_journal": candidate_journal,
         },
     )
+    for row in candidate_journal:
+        row["decision_evidence_id"] = decision_event.get("evidence_id")
 
     evidence.append(
         "CYCLE_FINALIZED",
@@ -1023,6 +1393,8 @@ def main():
         "far": p.get("far"),
         "near_candidate": p.get("near_candidate"),
         "risk_state": p.get("risk_state"),
+        "candidate_ranking": candidate_ranking,
+        "candidate_journal": candidate_journal,
         "positions": [
             {
                 "code": x.code,
@@ -1046,14 +1418,10 @@ def main():
         "manual_execution_only": True,
     }
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(
-        json.dumps(output, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    _publish_live_output(out_path, output)
     print(json.dumps(output, indent=2, ensure_ascii=False))
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_main_unlocked())

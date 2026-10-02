@@ -5,6 +5,7 @@ import io
 import json
 import os
 import traceback
+from datetime import datetime, timezone
 from contextlib import redirect_stdout
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -15,9 +16,135 @@ from .run_instance import (
     instance_summary,
     list_instances,
     load_instance,
+    dt,
     manual_book_pnl_preview,
     record_manual_trade,
+    confirm_strategy_execution,
+    pending_strategy_executions,
 )
+from ..evidence_v1.ledger import EvidenceLedger, sha256_json
+
+
+MUTATION_HEADER = "X-QQQ-Operator"
+MUTATION_HEADER_VALUE = "1"
+MUTATING_PATHS = {"/api/manual", "/api/refresh", "/api/confirm"}
+
+
+def explicit_strategy_context(repo, body):
+    """Verify an operator-selected ticket against immutable DECISION_EMITTED evidence.
+
+    Browser-supplied ticket fields are hints only. The authoritative ticket,
+    decision timestamp, and pre-decision snapshot hash come from the evidence
+    ledger; a forged or altered client snapshot is rejected.
+    """
+    raw = body.get("strategy_context_snapshot")
+    instance_id = str(body.get("instance_id", "")).strip()
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict) or not instance_id:
+        raise ValueError("STRATEGY_CONTEXT_NOT_VERIFIABLE")
+    if str(raw.get("instance_id", "")).strip() != instance_id:
+        raise ValueError("STRATEGY_CONTEXT_INSTANCE_MISMATCH")
+    if str(raw.get("context_source") or "") != "OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE":
+        raise ValueError("STRATEGY_CONTEXT_SOURCE_INVALID")
+
+    trade_dt = dt(body.get("timestamp_utc")) if body.get("timestamp_utc") else datetime.now(timezone.utc)
+    if trade_dt is None:
+        raise ValueError("STRATEGY_CONTEXT_TRADE_TIMESTAMP_INVALID")
+
+    ticket_id = str(raw.get("ticket_id") or "").strip()
+    leg_raw = raw.get("leg")
+    code = str((leg_raw or {}).get("code") or "").upper()
+    if not ticket_id or not isinstance(leg_raw, dict) or not code:
+        raise ValueError("STRATEGY_CONTEXT_NOT_VERIFIABLE")
+
+    instance_manifest = None
+    manifest_path = Path(repo) / "research/strategy_instance_v1" / "instances" / instance_id / "manifest.json"
+    if manifest_path.exists():
+        instance_manifest, _, _ = load_instance(Path(repo), instance_id)
+    instance_floor_dt = None
+    if instance_manifest:
+        instance_times = [
+            z for z in (
+                dt(instance_manifest.get("created_at_utc")),
+                dt(instance_manifest.get("start_at_utc")),
+            ) if z is not None
+        ]
+        instance_floor_dt = max(instance_times) if instance_times else None
+    ledger = EvidenceLedger(Path(repo) / "research/evidence_v1/evidence.jsonl")
+    matching = []
+    for row in ledger.rows():
+        if str(row.get("event_type") or "").upper() != "DECISION_EMITTED":
+            continue
+        row_instance_id = str(row.get("instance_id") or "").strip()
+        if row_instance_id:
+            if row_instance_id != instance_id:
+                continue
+        elif instance_floor_dt is None:
+            # Global system evidence is only safely bindable when the selected
+            # strategy instance has a durable T0/creation boundary.
+            continue
+        decision_dt = dt(row.get("timestamp_utc"))
+        if decision_dt is None or decision_dt > trade_dt:
+            continue
+        if not row_instance_id and (
+            decision_dt < instance_floor_dt
+        ):
+            continue
+        if instance_manifest and any(
+            str(instance_manifest.get(key) or "") != str((row.get("identity") or {}).get(key) or "")
+            for key in ("strategy_id","strategy_version","strategy_lock_hash","research_engine_commit")
+        ):
+            continue
+        ticket = (row.get("payload") or {}).get("ticket")
+        if not isinstance(ticket, dict) or str(ticket.get("ticket_id") or "") != ticket_id:
+            continue
+        legs = ticket.get("legs") or []
+        verified_leg = next(
+            (leg for leg in legs if str(leg.get("code") or "").upper() == code),
+            None,
+        )
+        if verified_leg is not None:
+            matching.append((row, ticket, verified_leg))
+
+    if not matching:
+        raise ValueError("STRATEGY_CONTEXT_TICKET_NOT_VERIFIED")
+
+    def _decision_order(item):
+        row, _ticket, _leg = item
+        parsed = dt(row.get("timestamp_utc"))
+        return (parsed or datetime.min.replace(tzinfo=timezone.utc), int(row.get("evidence_seq") or 0))
+
+    source_row, ticket, verified_leg = max(matching, key=_decision_order)
+    checks = (
+        str(raw.get("action") or "") == str(ticket.get("action") or "")
+        and str(raw.get("status") or "") == str(ticket.get("status") or "")
+        and sha256_json(leg_raw) == sha256_json(verified_leg)
+    )
+    if not checks:
+        raise ValueError("STRATEGY_CONTEXT_TICKET_TAMPERED")
+
+    payload = source_row.get("payload") or {}
+    return {
+        "ticket_id": ticket.get("ticket_id"),
+        "strategy_instance_id": instance_id,
+        "action": ticket.get("action"),
+        "strategy_leg_action": verified_leg.get("strategy_leg_action") or verified_leg.get("why"),
+        "direction": verified_leg.get("direction"),
+        "status": ticket.get("status"),
+        "code": verified_leg.get("code"),
+        "qty": verified_leg.get("qty"),
+        "side": verified_leg.get("side"),
+        "before_qty": verified_leg.get("before_qty"),
+        "target_qty": verified_leg.get("target_qty"),
+        "price": verified_leg.get("price"),
+        "captured_at_utc": source_row.get("timestamp_utc"),
+        "source_evidence_id": source_row.get("evidence_id"),
+        "pre_decision_snapshot_sha256": payload.get("snapshot_sha256"),
+        "ticket_snapshot_sha256": sha256_json(ticket),
+        "ticket_snapshot": json.loads(json.dumps(ticket, ensure_ascii=False)),
+        "context_source": "VERIFIED_DECISION_EMITTED_EVIDENCE",
+    }
 
 
 class OperatorHandler(SimpleHTTPRequestHandler):
@@ -34,6 +161,9 @@ class OperatorHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(raw)))
         self.end_headers()
         self.wfile.write(raw)
+
+    def _mutation_allowed(self) -> bool:
+        return self.headers.get(MUTATION_HEADER) == MUTATION_HEADER_VALUE
 
     def _body(self) -> dict:
         n = int(self.headers.get("Content-Length", "0") or 0)
@@ -67,6 +197,14 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                 self._json(200, {"status": "OK", "live": json.loads(path.read_text(encoding="utf-8"))})
                 return
 
+            if parsed.path == "/api/attribution":
+                q = parse_qs(parsed.query)
+                instance_id = str((q.get("instance_id") or [""])[0]).strip()
+                if not instance_id:
+                    raise ValueError("INSTANCE_ID_REQUIRED")
+                self._json(200, {"status": "OK", **pending_strategy_executions(self._repo(), instance_id)})
+                return
+
             return super().do_GET()
         except FileNotFoundError:
             self._json(404, {"status": "NOT_FOUND"})
@@ -74,6 +212,10 @@ class OperatorHandler(SimpleHTTPRequestHandler):
             self._json(400, {"status": "ERROR", "error": str(exc)})
 
     def do_POST(self):
+        if urlparse(self.path).path in MUTATING_PATHS:
+            if not self._mutation_allowed():
+                self._json(403, {"status": "FORBIDDEN", "error": "OPERATOR_HEADER_REQUIRED"})
+                return
         try:
             body = self._body()
 
@@ -93,31 +235,26 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                 self._json(200, {"status": "OK", "preview": preview})
                 return
 
+            if self.path == "/api/confirm":
+                instance_id = str(body.get("instance_id", "")).strip()
+                if not instance_id:
+                    raise ValueError("INSTANCE_ID_REQUIRED")
+                expected_side = str(body.get("expected_strategy_side", "")).strip().upper()
+                if expected_side not in {"LONG","SHORT"}:
+                    raise ValueError("EXPECTED_STRATEGY_SIDE=LONG|SHORT")
+                out = confirm_strategy_execution(
+                    self._repo(),
+                    instance_id=instance_id,
+                    deal_id=body.get("deal_id"),
+                    expected_strategy_side=expected_side,
+                    qty=body.get("qty"),
+                    note=body.get("note", ""),
+                )
+                self._json(200, out)
+                return
+
             if self.path == "/api/manual":
-                strategy_context = {}
-                live_path = self._repo() / "research" / "live_hedge_v1" / "live_state.json"
-                if live_path.exists():
-                    try:
-                        live = json.loads(live_path.read_text(encoding="utf-8"))
-                        card = live.get("action_card") or {}
-                        legs = card.get("legs") or []
-                        leg = next((x for x in legs if str(x.get("code","")).upper()==str(body.get("code","")).upper()), None)
-                        if leg:
-                            strategy_context = {
-                                "ticket_id":card.get("ticket_id"),
-                                "action":card.get("action"),
-                                "strategy_leg_action":leg.get("why"),
-                                "status":card.get("status"),
-                                "code":leg.get("code"),
-                                "qty":leg.get("qty"),
-                                "side":leg.get("side"),
-                                "before_qty":leg.get("before_qty"),
-                                "target_qty":leg.get("target_qty"),
-                                "price":leg.get("price"),
-                                "captured_at_utc":live.get("timestamp"),
-                            }
-                    except Exception:
-                        strategy_context = {}
+                strategy_context = explicit_strategy_context(self._repo(), body)
                 out = record_manual_trade(
                     self._repo(),
                     instance_id=str(body.get("instance_id", "")).strip(),

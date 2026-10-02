@@ -415,6 +415,7 @@ class FutuOpenDAdapter:
         vega = finite(_row_get(row, "option_vega", "vega"))
         oi = finite(_row_get(row, "option_open_interest", "open_interest", "oi"))
         vol = finite(_row_get(row, "volume"))
+        timestamp = _row_get(row, "update_time", "data_time", "time")
         strike = finite(_row_get(row, "option_strike_price", "strike_price", "strike"))
         expiry = _row_get(row, "strike_time", "expiry")
         right = _right(_row_get(row, "option_type"))
@@ -455,6 +456,7 @@ class FutuOpenDAdapter:
             volume=vol,
             source="LIVE QUOTE" if any(v is not None for v in (bid, ask, last, iv, delta)) else "UNAVAILABLE",
             field_sources=fs,
+            timestamp=str(timestamp) if timestamp is not None else None,
             reason=None if any(v is not None for v in (bid, ask, last)) else "snapshot had no bid/ask/last",
         )
 

@@ -33,6 +33,21 @@ class LockGuardTest(unittest.TestCase):
         out = assert_runtime_lock(ROOT, far_dte=120, far_delta=0.08, near_dte=30)
         self.assertEqual(out["status"], "PASS")
 
+    def test_lock_manifest_identity_is_part_of_runtime_fence(self):
+        import json
+        import tempfile
+    
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            path=root/"research/evidence_v1/STRATEGY_LOCK.json"
+            path.parent.mkdir(parents=True)
+            lock=json.loads((ROOT/"research/evidence_v1/STRATEGY_LOCK.json").read_text(encoding="utf-8"))
+            lock["strategy_id"]="MUTATED"
+            path.write_text(json.dumps(lock),encoding="utf-8")
+            with self.assertRaises(StrategyLockViolation) as ctx:
+                assert_runtime_lock(root, far_dte=120, far_delta=0.08, near_dte=30)
+            self.assertIn("STRATEGY_ID", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

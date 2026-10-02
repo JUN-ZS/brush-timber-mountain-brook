@@ -28,10 +28,16 @@ def canonical_manual_action(strategy_ref):
     leg_action = str(ref.get("strategy_leg_action") or "").upper()
     top_action = str(ref.get("action") or "").upper()
     side = str(ref.get("side") or "").upper()
+    direction = str(ref.get("direction") or "").upper()
     if leg_action in STRATEGY_TO_MANUAL:
         return STRATEGY_TO_MANUAL[leg_action]
     if top_action in STRATEGY_TO_MANUAL:
         return STRATEGY_TO_MANUAL[top_action]
+    if top_action == "REPAIR_FAR":
+        if direction == "ADD" or side == "SELL":
+            return "SELL_FAR"
+        if direction == "REDUCE" or side == "BUY":
+            return "BUY_BACK_FAR"
     if top_action == "CLOSE_CAMPAIGN_EMERGENCY":
         if side == "BUY":
             return "BUY_BACK_FAR"
@@ -68,7 +74,7 @@ def _i(x):
         return 0
 
 
-def build_performance_tape(trades):
+def build_performance_tape(trades, baseline_lots=None):
     ordered = sorted(
         trades or [],
         key=lambda r: (str(r.get("timestamp_utc") or ""), _i(r.get("event_seq"))),
@@ -84,6 +90,29 @@ def build_performance_tape(trades):
     size_gap = 0
     unmatched_close_qty = 0
     observed_realized = 0.0
+    baseline_realized = 0.0
+    baseline_close_qty = 0
+
+    # T0 positions belong to the manual book but were not created by a
+    # USER_MANUAL decision in this tape. Queue them only for FIFO attribution
+    # so later closes do not become a false CHECK_REQUIRED mismatch.
+    for lot in baseline_lots or []:
+        q = _i(lot.get("qty"))
+        if q <= 0:
+            continue
+        side = str(lot.get("side") or "").upper()
+        if side not in {"LONG", "SHORT"}:
+            continue
+        code = str(lot.get("code") or "").upper()
+        if not code:
+            continue
+        queues.setdefault((code, side), []).append({
+            "trade_id": "BASELINE_T0:" + str(lot.get("lot_id") or code),
+            "qty": q,
+            "price": _f(lot.get("avg_price")) or 0.0,
+            "lot": max(1, _i(lot.get("lot_size")) or 100),
+            "rel": "BASELINE_T0",
+        })
 
     for n, t in enumerate(ordered, 1):
         action = str(t.get("action") or "").upper()
@@ -92,6 +121,7 @@ def build_performance_tape(trades):
         price = _f(t.get("price")) or 0.0
         lot = max(1, _i(t.get("lot_size")) or 100)
         ref = t.get("strategy_reference") or {}
+        context_source = str(ref.get("context_source") or "").upper()
         has_ticket = bool(ref.get("ticket_id"))
         s_qty = _i(ref.get("qty")) if has_ticket else None
         s_px = _f(ref.get("price")) if has_ticket else None
@@ -138,8 +168,12 @@ def build_performance_tape(trades):
                 take = min(rem, sl["qty"])
                 pnl = ((price - sl["price"]) if side == "LONG" else (sl["price"] - price)) * take * sl["lot"]
                 pnl = round(pnl, 4)
-                attributed[sl["rel"]] = round(attributed.get(sl["rel"], 0.0) + pnl, 4)
-                open_attr[sl["trade_id"]] = round(open_attr.get(sl["trade_id"], 0.0) + pnl, 4)
+                if sl["rel"] == "BASELINE_T0":
+                    baseline_realized = round(baseline_realized + pnl, 4)
+                    baseline_close_qty += take
+                else:
+                    attributed[sl["rel"]] = round(attributed.get(sl["rel"], 0.0) + pnl, 4)
+                    open_attr[sl["trade_id"]] = round(open_attr.get(sl["trade_id"], 0.0) + pnl, 4)
                 matched.append({
                     "open_trade_id": sl["trade_id"],
                     "qty": take,
@@ -175,6 +209,13 @@ def build_performance_tape(trades):
             "relationship": rel,
             "strategy_ticket_id": ref.get("ticket_id"),
             "strategy_action": ref.get("action"),
+            "strategy_context_source": context_source or ("LEGACY_UNSCOPED_CONTEXT" if has_ticket else None),
+            "strategy_instance_id": ref.get("strategy_instance_id"),
+            "relationship_basis": (
+                "OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE"
+                if context_source == "OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE"
+                else ("LEGACY_UNSCOPED_TICKET_REFERENCE" if has_ticket else "NO_TICKET_CONTEXT")
+            ),
             "strategy_expected_manual_action": expected_action,
             "strategy_qty": s_qty,
             "strategy_price": s_px,
@@ -200,16 +241,18 @@ def build_performance_tape(trades):
         "schema": "USER_MANUAL_PERFORMANCE_TAPE.v1",
         "grade": "Derived",
         "source": "USER_MANUAL",
-        "rule": "Observed fill P&L only. Untraded contracts have no counterfactual. Execution price versus the ticket indicative is Estimated, not outcome.",
+        "rule": "Observed fill P&L only. Untraded contracts have no counterfactual. Execution price versus the ticket indicative is Estimated, not outcome. FOLLOW_STRATEGY/ADJUST_SIZE describe execution alignment to a stored ticket snapshot; they do not prove operator intent.",
         "trade_count": len(rows),
         "counts": counts,
         "opening_counts": opening_counts,
         "closing_counts": closing_counts,
         "observed_realized": round(observed_realized, 4),
+        "baseline_t0_realized": round(baseline_realized, 4),
+        "baseline_t0_close_qty": baseline_close_qty,
         "attributed_realized": attributed,
-        "attribution_delta": round(observed_realized - sum(attributed.values()), 4),
+        "attribution_delta": round(observed_realized - baseline_realized - sum(attributed.values()), 4),
         "unmatched_close_qty": unmatched_close_qty,
-        "attribution_status": "CONSISTENT" if unmatched_close_qty == 0 and abs(observed_realized - sum(attributed.values())) < 0.01 else "CHECK_REQUIRED",
+        "attribution_status": "CONSISTENT" if unmatched_close_qty == 0 and abs(observed_realized - baseline_realized - sum(attributed.values())) < 0.01 else "CHECK_REQUIRED",
         "execution_slippage_estimate": round(slippage, 4),
         "size_gap_contracts": size_gap,
         "rows": rows,

@@ -1,30 +1,44 @@
 name: QQQ Live Hedge Desk V2 Checks
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'research/live_hedge_v1/**'
-      - '.github/workflows/qqq-live-hedge-v2-check.yml'
-      - '.github/workflows/qqq-live-hedge-v2-check.yml'
   pull_request:
     paths:
       - 'research/live_hedge_v1/**'
+      - 'research/strategy_instance_v1/**'
+      - 'research/parity_v1/**'
+      - 'research/evidence_v1/**'
+      - '.github/workflows/qqq-live-hedge-v2-check.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   checks:
-    runs-on: [self-hosted, windows, x64]
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.12"
+          check-latest: false
+      - name: Install test/runtime dependencies
+        shell: cmd
+        run: python -m pip install "tzdata>=2024.1" numpy pandas
       - name: Compile
         shell: cmd
         run: |
+          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('backtest').glob('*.py') if p.name != '__init__.py']"
           python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
       - name: Unit tests
         shell: cmd
         run: |
           python -m unittest research.live_hedge_v1.test_live_hedge_v2
+      - name: Research ↔ live parity
+        shell: cmd
+        run: |
+          python -m unittest research.parity_v1.test_research_live_parity
+      - name: Safety surface audit
+        shell: cmd
+        run: |
+          python -c "from pathlib import Path; import re,sys; rx=re.compile(r'\b(?:place_order|modify_order|unlock_trade)\s*\('); hits=[f'{p}:{i}:{line.strip()}' for p in Path('research/live_hedge_v1').glob('*.py') for i,line in enumerate(p.read_text(encoding='utf-8').splitlines(),1) if rx.search(line)]; print('BROKER_WRITE_API_AUDIT=PASS' if not hits else 'BROKER_WRITE_API_DETECTED\n'+'\n'.join(hits)); sys.exit(1 if hits else 0)"

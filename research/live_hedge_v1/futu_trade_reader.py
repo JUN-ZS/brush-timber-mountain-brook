@@ -33,9 +33,9 @@ class FutuTradeReader:
         if isinstance(raw, (int, float)):
             return {0: "LONG", 1: "SHORT"}.get(int(raw), "UNKNOWN")
         s = str(raw or "").strip().upper()
-        if s in {"LONG", "LONG_POSITION", "POSITION_SIDE_LONG", "POSITION_SIDE_LONG()", "BUY", "0"}:
+        if s in {"LONG", "LONG_POSITION", "POSITION_SIDE_LONG", "POSITION_SIDE_LONG()", "0"}:
             return "LONG"
-        if s in {"SHORT", "SHORT_POSITION", "POSITION_SIDE_SHORT", "POSITION_SIDE_SHORT()", "SELL", "1"}:
+        if s in {"SHORT", "SHORT_POSITION", "POSITION_SIDE_SHORT", "POSITION_SIDE_SHORT()", "1"}:
             return "SHORT"
         return "UNKNOWN"
 
@@ -73,7 +73,7 @@ class FutuTradeReader:
         if hasattr(deal_df, "iterrows"):
             for _, row in deal_df.iterrows():
                 deals.append({
-                    "deal_id": str(row.get("deal_id", row.get("dealID", row.get("orderIDEx", "")))),
+                    "deal_id": str(row.get("deal_id", row.get("dealID", "")) or ""),
                     "code": str(row.get("code", "")),
                     "side": self._trade_side(row.get("trd_side", row.get("trdSide", ""))),
                     "raw_side": str(row.get("trd_side", row.get("trdSide", "")) or ""),
@@ -143,6 +143,30 @@ class FutuTradeReader:
                     )
                     if ret3 == self.futu.RET_OK:
                         deals.extend(self._parse_deals(deal_df))
+                        missing_deal_ids = sum(1 for d in deals if not d.get("deal_id"))
+                        missing_timestamps = sum(1 for d in deals if d.get("deal_id") and not d.get("created_at"))
+                        unknown_sides = sum(
+                            1 for d in deals
+                            if d.get("deal_id") and d.get("created_at") and d.get("side") == "UNKNOWN"
+                        )
+                        warnings = []
+                        if missing_deal_ids:
+                            warnings.append(
+                                f"{missing_deal_ids} broker deal row(s) missing deal_id; "
+                                "rows are excluded from durable execution attribution"
+                            )
+                        if missing_timestamps:
+                            warnings.append(
+                                f"{missing_timestamps} broker deal row(s) missing execution timestamp; "
+                                "rows are excluded from durable time-window attribution"
+                            )
+                        if unknown_sides:
+                            warnings.append(
+                                f"{unknown_sides} broker deal row(s) have unknown trade side; "
+                                "rows are retained but cannot be treated as directional execution evidence"
+                            )
+                        if warnings:
+                            deal_warning = " | ".join(warnings)
                     else:
                         deal_warning = str(deal_df)
                 else:

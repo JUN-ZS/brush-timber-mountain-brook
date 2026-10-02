@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime, timezone
+import hashlib
+import json
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, Iterable, Optional
 
 STATE_IDLE = "IDLE"
@@ -55,16 +58,22 @@ def qty_for(snapshot: Dict[str, Dict[str, Any]], side: str, code: str) -> int:
     return int(snapshot.get(f"{side.upper()}:{code.upper()}", {}).get("qty", 0) or 0)
 
 
+_US_EXCHANGE_TZ = ZoneInfo("America/New_York")
+
+
 def _parse_time(s: Any) -> Optional[datetime]:
     if not s:
         return None
     raw = str(s).strip()
     for candidate in (raw, raw.replace("Z", "+00:00")):
         try:
-            dt = datetime.fromisoformat(candidate)
-            if dt.tzinfo is None:
-                return dt.replace(tzinfo=timezone.utc)
-            return dt.astimezone(timezone.utc)
+            parsed = datetime.fromisoformat(candidate)
+            if parsed.tzinfo is None:
+                # Futu US-trading timestamps are exchange-local wall-clock
+                # values. Treat them as America/New_York; explicit offsets
+                # remain authoritative when present.
+                parsed = parsed.replace(tzinfo=_US_EXCHANGE_TZ)
+            return parsed.astimezone(timezone.utc)
         except Exception:
             continue
     return None
@@ -217,6 +226,7 @@ def build_ticket(
                 "code": old_code,
                 "qty": qty,
                 "price": action.get("price"),
+                "strategy_leg_action": "REDUCE_NEAR",
                 "expected_side": "LONG",
                 "before_qty": qty_for(before_positions, "LONG", old_code),
                 "before_avg_cost": float(
@@ -231,6 +241,7 @@ def build_ticket(
                 "code": new_code,
                 "qty": qty,
                 "price": action.get("new_price"),
+                "strategy_leg_action": "ADD_NEAR",
                 "expected_side": "LONG",
                 "before_qty": qty_for(before_positions, "LONG", new_code),
                 "before_avg_cost": float(
@@ -351,57 +362,64 @@ def reconcile_ticket(
     ticket = state.get("active_ticket")
     events = []
     if not ticket or ticket.get("status") not in ACTIVE_TICKET_STATUSES:
-        return {
-            "filled": False,
-            "partial": False,
-            "superseded": False,
-            "events": events,
-            "ticket": ticket,
-        }
+        return {"filled": False, "partial": False, "superseded": False, "events": events, "ticket": ticket}
 
     if ticket.get("action") == "REPRICE_OR_CANCEL":
-        return {
-            "filled": False,
-            "partial": False,
-            "superseded": False,
-            "events": events,
-            "ticket": ticket,
-        }
+        return {"filled": False, "partial": False, "superseded": False, "events": events, "ticket": ticket}
 
     before = state.get("last_positions") or {}
     current = position_snapshot(current_positions)
     all_reached = True
     any_progress = False
     unexpected = []
+    evidence_complete = True
+    evidence_by_leg = {}
 
     for leg in ticket.get("legs", []):
         key = f'{leg["expected_side"]}:{str(leg["code"]).upper()}'
-        before_qty = int(
-            leg.get("before_qty", qty_for(before, leg["expected_side"], leg["code"])) or 0
-        )
+        before_qty = int(leg.get("before_qty", qty_for(before, leg["expected_side"], leg["code"])) or 0)
         now_qty = qty_for(current, leg["expected_side"], leg["code"])
         target_qty = int(leg.get("target_qty", now_qty) or 0)
         expected_delta = target_qty - before_qty
         actual_delta = now_qty - before_qty
 
-        if actual_delta != 0:
-            any_progress = True
+        evidence_qty, evidence_notional = _accumulate_fill_evidence(ticket, leg, orders, deals)
+        required_qty = abs(expected_delta)
+        leg_complete = required_qty == 0 or evidence_qty >= required_qty
+        evidence_by_leg[key] = {
+            "required_qty": required_qty,
+            "evidence_qty": evidence_qty,
+            "notional": evidence_notional,
+            "complete": leg_complete,
+        }
+        if not leg_complete:
+            evidence_complete = False
+
+        any_progress = any_progress or actual_delta != 0
+
         compatible_direction = (
             actual_delta != 0
             and expected_delta != 0
-            and (
-                (expected_delta > 0 and actual_delta > 0)
-                or (expected_delta < 0 and actual_delta < 0)
-            )
+            and ((expected_delta > 0 and actual_delta > 0) or (expected_delta < 0 and actual_delta < 0))
             and abs(actual_delta) <= abs(expected_delta)
         )
 
         if actual_delta != expected_delta:
-            if actual_delta == 0:
+            if leg_complete and expected_delta != 0:
+                unexpected.append({
+                    "code": leg["code"],
+                    "side": leg["expected_side"],
+                    "expected_delta": expected_delta,
+                    "actual_delta": actual_delta,
+                    "ticket_id": ticket["ticket_id"],
+                    "broker_evidence_qty": evidence_qty,
+                    "reason": "broker_fill_complete_but_position_delta_differs",
+                })
+                all_reached = False
+            elif actual_delta == 0:
                 all_reached = False
             elif compatible_direction:
                 all_reached = False
-                any_progress = True
             else:
                 unexpected.append({
                     "code": leg["code"],
@@ -411,63 +429,44 @@ def reconcile_ticket(
                     "ticket_id": ticket["ticket_id"],
                 })
                 all_reached = False
-        elif now_qty != target_qty:
-            all_reached = False
 
-        fill_qty = (
-            max(0, actual_delta)
-            if expected_delta > 0
-            else max(0, -actual_delta)
-        )
+        fill_qty = max(0, actual_delta) if expected_delta > 0 else max(0, -actual_delta)
         if fill_qty > 0:
-            price = None
-            source = "NOT_OBSERVED"
-
-            # For an increasing position the account's frozen-baseline cost
-            # gives the cumulative VWAP since ticket issuance. This must use
-            # leg.before_qty/before_avg_cost, not the moving last_positions.
-            if expected_delta > 0:
-                frozen_before = {
-                    "qty": before_qty,
-                    "avg_cost": float(leg.get("before_avg_cost", 0) or 0),
-                }
-                frozen_after = {
-                    "qty": now_qty,
-                    "avg_cost": float(
-                        current.get(key, {}).get("avg_cost", 0) or 0
-                    ),
-                }
+            price, source = _match_fill_price(ticket, leg, orders, deals, fill_qty)
+            if price is None and expected_delta > 0:
                 price = _derived_fill_price(
-                    frozen_before,
-                    frozen_after,
+                    {"qty": before_qty, "avg_cost": float(leg.get("before_avg_cost", 0) or 0)},
+                    {"qty": now_qty, "avg_cost": float(current.get(key, {}).get("avg_cost", 0) or 0)},
                     fill_qty,
                 )
                 if price is not None:
                     source = "DERIVED_TICKET_POSITION_DELTA"
-
-            if price is None:
-                price, source = _match_fill_price(
-                    ticket, leg, orders, deals, fill_qty
-                )
-
             if price is None:
                 previous = next(
-                    (
-                        f for f in ticket.get("fill", [])
-                        if f.get("code") == leg["code"]
-                        and f.get("side") == leg["side"]
-                    ),
+                    (f for f in ticket.get("fill", [])
+                     if f.get("code") == leg["code"] and f.get("side") == leg["side"]),
                     None,
                 )
-                # A prior price can be retained only when the cumulative fill
-                # quantity did not advance this cycle. Once quantity advances,
-                # a prior partial price is not a valid final-ticket VWAP.
                 if previous and _safe_same_qty(previous.get("qty"), fill_qty):
                     price = previous.get("avg_price")
-                    source = previous.get(
-                        "price_source",
-                        "PRIOR_TICKET_FILL_UNCHANGED",
-                    )
+                    source = previous.get("price_source", "PRIOR_TICKET_FILL_UNCHANGED")
+            if price is not None and float(price) > 0:
+                ticket.setdefault("fill", [])
+                ticket["fill"] = [
+                    f for f in ticket["fill"]
+                    if not (f.get("code") == leg["code"] and f.get("side") == leg["side"])
+                ]
+                ticket["fill"].append({
+                    "code": leg["code"],
+                    "side": leg["side"],
+                    "expected_side": leg.get("expected_side"),
+                    "qty": fill_qty,
+                    "avg_price": price,
+                    "price_source": source,
+                    "observed_at": state.get("_now") or utc_now(),
+                })
+
+        if leg_complete and required_qty > 0 and evidence_qty > 0:
             ticket.setdefault("fill", [])
             ticket["fill"] = [
                 f for f in ticket["fill"]
@@ -477,36 +476,41 @@ def reconcile_ticket(
                 "code": leg["code"],
                 "side": leg["side"],
                 "expected_side": leg.get("expected_side"),
-                "qty": fill_qty,
-                "avg_price": price,
-                "price_source": source,
+                "qty": required_qty,
+                "avg_price": evidence_notional / evidence_qty,
+                "price_source": "BROKER_EVIDENCE_CUMULATIVE",
                 "observed_at": state.get("_now") or utc_now(),
             })
 
     if unexpected:
         ticket["status"] = "SUPERSEDED"
         ticket["superseded_at"] = state.get("_now") or utc_now()
-        ticket["superseded_reason"] = "manual position change did not match ticket delta"
+        ticket["superseded_reason"] = "position changed relative to broker-confirmed ticket execution"
         events.append({
             "type": "MANUAL_POSITION_CHANGE",
             "ticket_id": ticket["ticket_id"],
             "changes": unexpected,
+            "broker_execution_evidence": evidence_by_leg,
         })
         events.append({
             "type": "TICKET_SUPERSEDED",
             "ticket_id": ticket["ticket_id"],
             "reason": ticket["superseded_reason"],
+            "broker_execution_complete": evidence_complete,
+            "fill": deepcopy(ticket.get("fill", [])),
         })
         state["active_ticket"] = None
         return {
-            "filled": False,
-            "partial": False,
+            "filled": evidence_complete,
+            "partial": any_progress and not evidence_complete,
             "superseded": True,
+            "broker_execution_complete": evidence_complete,
+            "evidence_by_leg": evidence_by_leg,
             "events": events,
             "ticket": ticket,
         }
 
-    if all_reached:
+    if all_reached and evidence_complete:
         ticket["status"] = "FILLED"
         ticket["filled_at"] = state.get("_now") or utc_now()
         events.append({
@@ -520,27 +524,39 @@ def reconcile_ticket(
             "filled": True,
             "partial": False,
             "superseded": False,
+            "broker_execution_complete": True,
+            "evidence_by_leg": evidence_by_leg,
             "events": events,
             "ticket": ticket,
         }
 
-    if any_progress:
+    if any_progress or all_reached:
         ticket["status"] = "PARTIAL"
+        if all_reached and not evidence_complete:
+            events.append({
+                "type": "TICKET_WAITING_EXECUTION_EVIDENCE",
+                "ticket_id": ticket["ticket_id"],
+                "reason": "position target reached but broker execution evidence is incomplete",
+                "evidence_by_leg": evidence_by_leg,
+                "fill": deepcopy(ticket.get("fill", [])),
+            })
         events.append({
             "type": "TICKET_PARTIAL_PROGRESS",
             "ticket_id": ticket["ticket_id"],
             "fill": deepcopy(ticket.get("fill", [])),
             "fill_semantics": "CUMULATIVE_SINCE_TICKET_ISSUE",
+            "evidence_by_leg": evidence_by_leg,
         })
 
     return {
         "filled": False,
         "partial": any_progress,
         "superseded": False,
+        "broker_execution_complete": evidence_complete,
+        "evidence_by_leg": evidence_by_leg,
         "events": events,
         "ticket": ticket,
     }
-
 
 def transition_for_action(state_name: str, action: str) -> str:
     if action == "SELL_FAR":
@@ -556,25 +572,57 @@ def transition_for_action(state_name: str, action: str) -> str:
     return state_name if state_name != STATE_IDLE else STATE_OPEN
 
 
+PRIMARY_ACTION_PRIORITY = (
+    "CLOSE_CAMPAIGN_EMERGENCY",
+    "CLOSE_FAR_EMERGENCY",
+    "CLOSE_NEAR",
+    "REPAIR_FAR",
+    "HARVEST_NEAR",
+    "ROLL_NEAR",
+    "REPRICE_OR_CANCEL",
+    "REDUCE_NEAR",
+    "ADD_NEAR",
+    "SELL_FAR",
+)
+
+
+def _candidate_sha256(candidate: Dict[str, Any]) -> str:
+    raw=json.dumps(
+        candidate,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def rank_candidates(candidates: Iterable[Dict[str, Any]]) -> list[Dict[str, Any]]:
+    """Return a deterministic derived ranking without modifying raw candidates."""
+    actions=list(candidates)
+    priority={name:i+1 for i,name in enumerate(PRIMARY_ACTION_PRIORITY)}
+    ranked=[]
+    for index,candidate in enumerate(actions):
+        action=str(candidate.get("action") or "")
+        ranked.append({
+            "candidate_index":index,
+            "priority_rank":priority.get(action,len(PRIMARY_ACTION_PRIORITY)+1),
+            "action":action,
+            "candidate_sha256":_candidate_sha256(candidate),
+        })
+    ranked.sort(key=lambda row:(row["priority_rank"],row["candidate_index"]))
+    for rank,row in enumerate(ranked,1):
+        row["decision_rank"]=rank
+        row["is_primary"]=rank==1
+    return ranked
+
+
 def choose_primary_action(candidates: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    actions = list(candidates)
-    priority = [
-        "CLOSE_CAMPAIGN_EMERGENCY",
-        "CLOSE_FAR_EMERGENCY",
-        "CLOSE_NEAR",
-        "REPAIR_FAR",
-        "HARVEST_NEAR",
-        "ROLL_NEAR",
-        "REPRICE_OR_CANCEL",
-        "REDUCE_NEAR",
-        "ADD_NEAR",
-        "SELL_FAR",
-    ]
-    for name in priority:
-        for action in actions:
-            if action.get("action") == name:
-                return action
-    return None
+    actions=list(candidates)
+    ranked=rank_candidates(actions)
+    if not ranked:
+        return None
+    return deepcopy(actions[ranked[0]["candidate_index"]])
 
 
 def make_campaign_id(now: Optional[str] = None, sequence: int = 0) -> str:

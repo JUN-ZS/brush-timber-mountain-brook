@@ -12,9 +12,22 @@ CODE_PATHS = (
     "research/live_hedge_v1/campaign.py",
     "research/live_hedge_v1/futu_reader.py",
     "research/live_hedge_v1/futu_trade_reader.py",
+    "research/live_hedge_v1/state.py",
     "research/live_hedge_v1/run_live_desk.py",
+    "research/qqq_dynamic_near_long_state_engine_v22_930c949.py",
+    "research/evidence_v1/ledger.py",
+    "research/evidence_v1/identity.py",
+    "research/evidence_v1/lock_guard.py",
+    "research/evidence_v1/family_snapshot.py",
+    "research/evidence_v1/snapshot.py",
+    "research/evidence_v1/report.py",
+    "research/evidence_v1/outcome.py",
+    "research/evidence_v1/seal.py",
+    "research/strategy_instance_v1/run_instance.py",
+    "research/strategy_instance_v1/ledger.py",
+    "research/strategy_instance_v1/performance_tape.py",
+    "research/strategy_instance_v1/serve_operator.py",
 )
-
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -32,6 +45,32 @@ def git_head(repo_root: Path) -> str | None:
         return out.strip() or None
     except Exception:
         return None
+
+
+def git_worktree_identity(repo_root: Path) -> dict:
+    """Expose dirty-state provenance; HEAD alone cannot describe uncommitted code."""
+    try:
+        status=subprocess.check_output(
+            ["git", "status", "--porcelain=v1"],
+            cwd=str(repo_root),
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=5,
+        )
+        diff=subprocess.check_output(
+            ["git", "diff", "--no-ext-diff"],
+            cwd=str(repo_root),
+            stderr=subprocess.DEVNULL,
+            text=False,
+            timeout=10,
+        )
+        return {
+            "dirty": bool(status.strip()),
+            "status_lines": len([x for x in status.splitlines() if x.strip()]),
+            "diff_sha256": hashlib.sha256(diff).hexdigest(),
+        }
+    except Exception as exc:
+        return {"dirty": None, "status_lines": None, "diff_sha256": None, "error": type(exc).__name__}
 
 
 def strategy_lock(repo_root: Path) -> tuple[dict, str]:
@@ -54,10 +93,11 @@ def runtime_identity(repo_root: Path) -> dict:
     return {
         "strategy_id": lock["strategy_id"],
         "strategy_version": lock["strategy_version"],
-        "selection_cutoff": lock["selection_cutoff"],
-        "research_engine_commit": lock["research_engine_commit"],
+        "selection_cutoff": lock.get("selection_cutoff"),
+        "research_engine_commit": lock.get("research_engine_commit"),
         "strategy_lock_hash": lock_hash,
         "git_head": git_head(repo_root),
+        "git_worktree": git_worktree_identity(repo_root),
         "code_hashes": code_hashes,
-        "evidence_policy": lock["evidence_policy"],
+        "evidence_policy": lock.get("evidence_policy", {}),
     }

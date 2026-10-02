@@ -2,27 +2,81 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
+
+# The locked replay is intentionally executable both as a file and as a module.
+# Direct execution puts research/ on sys.path; add the repo root before package imports.
+if __package__ in (None, ""):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import duckdb
 import pandas as pd
 
-from qqq_dynamic_near_long_state_engine_v22_930c949 import (
-    FAR_DELTAS,
-    FAR_DTES,
-    POLICIES,
-    build_far_candidates,
-    get_quotes,
-    load_underlying,
-    pick_near,
-    quote_maps,
-    read_options,
-    simulate,
-)
+if __package__ in (None, ""):
+    from qqq_dynamic_near_long_state_engine_v22_930c949 import (
+        FAR_DELTAS,
+        FAR_DTES,
+        POLICIES,
+        SIGNAL_PCT_52W,
+        SIGNAL_EXT200,
+        build_far_candidates,
+        get_quotes,
+        load_underlying,
+        pick_near,
+        quote_maps,
+        read_options,
+        simulate,
+    )
+else:
+    from .qqq_dynamic_near_long_state_engine_v22_930c949 import (
+        FAR_DELTAS,
+        FAR_DTES,
+        POLICIES,
+        build_far_candidates,
+        get_quotes,
+        load_underlying,
+        pick_near,
+        quote_maps,
+        read_options,
+        simulate,
+    )
 
 CANDIDATE_NEAR_DTE = 30
 CANDIDATE_COVERAGE = 1.50
+
+def sha256_json(value) -> str:
+    raw=json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def load_and_validate_lock(repo_root: Path) -> tuple[dict, str]:
+    lock_path=repo_root / "research" / "evidence_v1" / "STRATEGY_LOCK.json"
+    lock=json.loads(lock_path.read_text(encoding="utf-8"))
+    lock_hash=sha256_json(lock)
+    if lock.get("research_engine_commit") != "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4":
+        raise RuntimeError("LOCK_ENGINE_COMMIT_MISMATCH")
+    fam=lock.get("candidate_family") or {}
+    if int(fam.get("near_dte",-1)) != CANDIDATE_NEAR_DTE:
+        raise RuntimeError("LOCK_NEAR_DTE_MISMATCH")
+    if float(fam.get("coverage",-1)) != CANDIDATE_COVERAGE:
+        raise RuntimeError("LOCK_COVERAGE_MISMATCH")
+    if tuple(sorted(int(x) for x in fam.get("far_dte",[]))) != tuple(sorted(int(x) for x in FAR_DTES)):
+        raise RuntimeError("LOCK_FAR_DTE_MISMATCH")
+    if tuple(sorted(float(x) for x in fam.get("far_abs_delta",[]))) != tuple(sorted(float(x) for x in FAR_DELTAS)):
+        raise RuntimeError("LOCK_FAR_DELTA_MISMATCH")
+    signal=lock.get("signal") or {}
+    if float(signal.get("ratio52_gte",-1)) != float(SIGNAL_PCT_52W):
+        raise RuntimeError("LOCK_RATIO52_MISMATCH")
+    if float(signal.get("ext200_gte",-1)) != float(SIGNAL_EXT200):
+        raise RuntimeError("LOCK_EXT200_MISMATCH")
+    expected_configs=len(FAR_DTES)*len(FAR_DELTAS)*len(POLICIES)
+    if int(fam.get("config_count",expected_configs)) != expected_configs:
+        raise RuntimeError("LOCK_CONFIG_COUNT_MISMATCH")
+    return lock,lock_hash
+
 
 OOS_WINDOWS = {
     "forward_holdout_2022-03-08_to_2025-12-15": ("2022-03-08", "2025-12-15"),
@@ -31,12 +85,32 @@ OOS_WINDOWS = {
 
 
 def mask_campaigns(u_full: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
-    u = u_full.copy()
+    """Clip the entire evaluation dataset to the declared holdout window.
+
+    Signal indicators were computed on the full historical series before this
+    boundary is applied, so pre-window history remains available for causal
+    lookbacks. No post-window underlying/option rows can enter the replay.
+    """
+    # Preserve pre-window rows for causal lookbacks, but remove every
+    # post-window row so no future quote/position path can affect the replay.
+    u = u_full.loc[u_full["date"] <= end].copy()
     u["signal"] = u["signal"] & u["date"].between(start, end)
     return u
 
 
-def run_family(u: pd.DataFrame, con, opt_path: Path):
+def clip_quote_maps_to_window(quote_maps_by_cid, window_end: pd.Timestamp):
+    """Remove every post-cutoff quote before replay touches the quote map."""
+    out = {}
+    for cid, frame in quote_maps_by_cid.items():
+        if frame is None or frame.empty:
+            out[cid] = frame
+            continue
+        clipped = frame.loc[pd.to_datetime(frame.index) <= window_end].copy()
+        out[cid] = clipped
+    return out
+
+
+def run_family(u: pd.DataFrame, con, opt_path: Path, *, window_end: pd.Timestamp):
     far_build = build_far_candidates(u, con, opt_path)
     if not far_build:
         raise RuntimeError("No far candidates")
@@ -106,15 +180,35 @@ def run_family(u: pd.DataFrame, con, opt_path: Path):
 
     fq = get_quotes(con, opt_path, far_ids, with_delta=True, with_gamma=has_gamma)
     nq = get_quotes(con, opt_path, near_ids)
-    far_quotes_by_cid = quote_maps(fq)
-    near_quotes_by_cid = quote_maps(nq)
+    far_quotes_by_cid = clip_quote_maps_to_window(
+        quote_maps(fq), window_end
+    )
+    near_quotes_by_cid = clip_quote_maps_to_window(
+        quote_maps(nq), window_end
+    )
 
     rows = []
+    unresolved_excluded = 0
+    signal_dates = [pd.Timestamp(d) for d in u.loc[u.signal & u.dma200.notna(), "date"]]
     for fd in FAR_DTES:
         for fdel in FAR_DELTAS:
+            # Exclude entries whose locked far contract cannot resolve by the
+            # declared cutoff before calling the frozen simulator. This keeps
+            # post-cutoff quote/outcome data out of the actual simulation path.
+            eligible_entries = {
+                d for d in signal_dates
+                if (
+                    far_candidates.get(d, {}).get((fd, fdel))
+                    and pd.Timestamp(
+                        far_candidates[d][(fd, fdel)]["expiry"]
+                    ) <= window_end
+                )
+            }
+            u_config = u.copy()
+            u_config["signal"] = u["signal"] & u["date"].isin(eligible_entries)
             for policy in POLICIES:
                 df = simulate(
-                    u=u,
+                    u=u_config,
                     far_candidates=far_candidates,
                     near_chains=near_chains,
                     far_quotes_by_cid=far_quotes_by_cid,
@@ -128,6 +222,15 @@ def run_family(u: pd.DataFrame, con, opt_path: Path):
                 )
                 if df.empty:
                     continue
+                # A holdout window must never consume outcome data after its
+                # declared end. Campaigns still open at cutoff are unresolved
+                # observations and are excluded rather than censored at an
+                # invented exit price.
+                complete = pd.to_datetime(df["far_exit"]) <= window_end
+                unresolved_excluded += int((~complete).sum())
+                df = df.loc[complete].copy()
+                if df.empty:
+                    continue
                 df["data_gamma_mode"] = (
                     "OBSERVED_GAMMA" if has_gamma else "DERIVED_DDELTA_DSPOT"
                 )
@@ -135,7 +238,29 @@ def run_family(u: pd.DataFrame, con, opt_path: Path):
 
     if not rows:
         raise RuntimeError("No family results")
-    return pd.concat(rows, ignore_index=True), has_gamma
+    return pd.concat(rows, ignore_index=True), has_gamma, unresolved_excluded
+
+
+def validate_family_grid(detail: pd.DataFrame) -> None:
+    expected = {
+        (int(fd), float(fdel), str(policy))
+        for fd in FAR_DTES
+        for fdel in FAR_DELTAS
+        for policy in POLICIES
+    }
+    actual = {
+        (int(row["far_dte_target"]), float(row["far_delta_target"]), str(row["policy"]))
+        for _, row in detail.iterrows()
+    }
+    missing = sorted(expected - actual)
+    extra = sorted(actual - expected)
+    if missing or extra:
+        raise RuntimeError(
+            "LOCKED_FAMILY_CONFIG_GRID_INCOMPLETE:"
+            + json.dumps({"expected":len(expected),"actual":len(actual),"missing":missing,"extra":extra}, sort_keys=True)
+        )
+    if (pd.to_datetime(detail["campaign_entry"]) > pd.Timestamp.max).any():
+        raise RuntimeError("INVALID_CAMPAIGN_ENTRY_TIMESTAMP")
 
 
 def aggregate(detail: pd.DataFrame):
@@ -244,19 +369,50 @@ def main():
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
+    repo_root = Path(__file__).resolve().parents[1]
+    lock, strategy_lock_hash = load_and_validate_lock(repo_root)
+
     od = Path(args.data_dir) / "QQQ_options.parquet"
     ud = Path(args.data_dir) / "QQQ_underlying.parquet"
 
     u_full = load_underlying(ud)
+    repo_root = Path(__file__).resolve().parents[1]
+    from research.evidence_v1.lock_guard import assert_runtime_lock
+    assert_runtime_lock(
+        repo_root,
+        far_dte=120,
+        far_delta=0.08,
+        near_dte=CANDIDATE_NEAR_DTE,
+    )
     con = duckdb.connect()
+
+    def sha256_file(path: Path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    lock_path = repo_root / "research/evidence_v1/STRATEGY_LOCK.json"
+    lock_obj = json.loads(lock_path.read_text(encoding="utf-8"))
+    lock_hash = hashlib.sha256(
+        json.dumps(lock_obj, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    frozen_engine = Path("research/qqq_dynamic_near_long_state_engine_v22_930c949.py")
 
     manifest = {
         "engine_commit": "930c949ec5260865f2bf3ee1c6e030dab7b8e4c4",
+        "frozen_engine_sha256": sha256_file(frozen_engine),
+        "strategy_lock_hash": lock_hash,
+        "canonical_data_sha256": {
+            "QQQ_options.parquet": sha256_file(od),
+            "QQQ_underlying.parquet": sha256_file(ud),
+        },
         "candidate": "30D near + 1.50x coverage",
         "candidate_family_configs": 72,
         "family_definition": "9 far DTE×delta combinations × all 8 policies; no sub-selection inside OOS",
+        "window_semantics": "ENTRY_COHORT_WITH_CUTOFF; only campaigns whose far exit is on/before the declared window end enter reported aggregates; unresolved campaigns are excluded, never censored with post-cutoff data",
+
         "selection_status": "LOCKED_FROM_PRIOR_FULL_SAMPLE_V22_AUDIT",
         "virgin_oos_status": "NOT_VIRGIN_BECAUSE_PRIOR_SELECTION_USED_FULL_V22_SAMPLE",
+        "evaluation_window_rule": "DATA_CLIPPED_TO_WINDOW_END; CAMPAIGNS_WITHOUT_AN_OBSERVABLE_FAR_EXIT_BY_WINDOW_END_ARE_NOT_SCORED",
+        "post_window_data_used": False,
         "windows": {},
     }
 
@@ -264,8 +420,27 @@ def main():
         start = pd.Timestamp(start_s)
         end = pd.Timestamp(end_s)
         u = mask_campaigns(u_full, start, end)
-        detail, has_gamma = run_family(u, con, od)
+        detail, has_gamma, unresolved_excluded = run_family(u, con, od, window_end=end)
+        validate_family_grid(detail)
         family, cfg, policy, far, yearly = aggregate(detail)
+
+        expected_configs = {
+            (int(fd), float(fdel), str(policy_name))
+            for fd in FAR_DTES
+            for fdel in FAR_DELTAS
+            for policy_name in POLICIES
+        }
+        actual_configs = {
+            (int(row.far_dte_target), float(row.far_delta_target), str(row.policy))
+            for row in cfg.itertuples(index=False)
+        }
+        missing_configs = sorted(expected_configs - actual_configs)
+        if missing_configs:
+            raise RuntimeError(
+                "LOCKED_FAMILY_CONFIG_GAP:" + json.dumps(missing_configs)
+            )
+        if family["n_configs"] != 72:
+            raise RuntimeError(f"LOCKED_FAMILY_CONFIG_COUNT:{family['n_configs']}")
 
         prefix = out / name
         detail.to_csv(prefix.with_suffix(".detail.csv"), index=False)
@@ -278,6 +453,8 @@ def main():
             "start": start_s,
             "end": end_s,
             "gamma_mode": "OBSERVED_GAMMA" if has_gamma else "DERIVED_DDELTA_DSPOT",
+            "unresolved_config_rows_excluded_at_cutoff": unresolved_excluded,
+            "censoring_rule": "exclude_campaign_if_far_exit_after_window_end; never use post-cutoff outcome data",
             "family": family,
         }
 

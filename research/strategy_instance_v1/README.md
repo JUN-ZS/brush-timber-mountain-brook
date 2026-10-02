@@ -12,7 +12,9 @@ This is a separate personal campaign ledger.
 
 \`created_at_utc\` is when the instance record was created.
 
-Initial positions/cost basis are immutable USER_INITIAL input. Broker deals are applied only when their timestamp is **after created_at_utc**, so the original entry is not double-counted.
+Initial positions/cost basis are immutable USER_INITIAL input. Broker transactions are observed account-wide. A post-T0 execution enters the strategy book only through an explicit `STRATEGY_EXECUTION_CONFIRMED` user attribution. A recent strategy-plan timing/code match is evidence for later review only, never proof of intent; account-level same-code position arithmetic cannot establish intent. Unmatched or unconfirmed executions remain `BROKER_EXECUTION_UNATTRIBUTED` and create a DATA_GAP rather than being folded into strategy P&L.
+
+Legacy `EXECUTION_DETECTED` rows without explicit attribution are quarantined on recovery and are never silently promoted into the new strategy lineage. On the first cycle, the recorder also asks for history back to economic T0; transactions after T0 but before the instance was created are preserved as `BROKER_EXECUTION_PRE_INSTANCE` DATA_GAP events rather than silently disappearing.
 
 Changing initial state materially means creating a new instance, not rewriting the old one.
 
@@ -55,6 +57,14 @@ python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001
 python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action REDUCE --code US.QQQ260116C00600000 --qty 1 --price 10.25 --note "manual harvest"
 python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action SELL_FAR --code US.QQQ260116C00600000 --qty 10 --price 2.10 --note "manual far short"
 python -m research.strategy_instance_v1.run_instance manual --instance-id MY_001 --action BUY_BACK_FAR --code US.QQQ260116C00600000 --qty 2 --price 3.40 --note "manual far cover"
+
+For a broker fill that was observed but not safely attributable to the strategy, confirm only the quantity you have manually verified:
+
+```cmd
+python -m research.strategy_instance_v1.run_instance confirm --instance-id MY_001 --deal-id DEAL_ID --expected-strategy-side LONG --qty 1 --note "verified as strategy execution"
+```
+
+A recent strategy-ticket/code/side/time match remains evidence only. It does not create a strategy lot until explicitly confirmed by the user.
 \`\`\`
 
 The \`manual\` commands create a separate adjustable operator book. They do not alter the broker-observed \`lots\`, broker realized P&L, or broker reconciliation. This keeps USER_MANUAL input separate from Futu observations. The report shows broker-observed P&L and manual-book P&L side by side.
@@ -95,6 +105,14 @@ The console provides:
 
 The console binds to `127.0.0.1` by default. Browser actions write only the `USER_MANUAL` instance ledger; they never submit broker orders.
 
+For broker deals that were observed but intentionally left unattributed, strategy ownership can be confirmed explicitly from the observed deal id. Confirmation uses the broker-observed price/side/quantity and records a separate immutable `STRATEGY_EXECUTION_CONFIRMED` event; it never guesses intent from time/code coincidence:
+
+```cmd
+python -m research.strategy_instance_v1.run_instance confirm --instance-id MY_001 --deal-id DEAL_ID --expected-strategy-side LONG --qty 1 --note "verified as strategy execution"
+```
+
+The confirmation command is a post-observation human attribution step. A timing match to a strategy candidate remains `POTENTIAL_ONLY_NO_INTENT_PROOF` until explicitly confirmed. A partial confirmation is allowed for a deal that combined strategy and non-strategy quantity; the unconfirmed remainder stays quarantined as `BROKER_EXECUTION_UNATTRIBUTED`.
+
 ### Recommended operating flow
 
 1. Start Futu OpenD.
@@ -122,7 +140,13 @@ LOCKED STRATEGY -> candidate/ticket -> BROKER OBSERVED P&L
 YOUR ADJUSTMENT -> USER_MANUAL trade -> MANUAL BOOK P&L
 ```
 
-A manual trade also stores the strategy ticket visible at that moment, so later analysis can distinguish following the strategy from changing size or acting independently.
+### Heavyweight OOS replay vs. daily self-audit
+
+The locked V22 OOS replay is intentionally **not** a per-commit CI loop. A verified successful replay is archived in `research/evidence_v1/LOCKED_OOS_ATTESTATION.json`, keyed to the frozen engine, strategy lock, and canonical data hashes. Normal infrastructure/test commits validate that attestation instead of rerunning the full 72-config replay.
+
+When any alpha parameter, family membership, policy membership, frozen engine, strategy lock, or canonical data input changes, the attestation must fail closed and a fresh manual/workflow-dispatched heavyweight replay is required. This keeps CI as a verifier of invariants rather than the driver of strategy iteration.
+
+A manual trade can store the global locked-desk ticket explicitly selected by the operator for the current instance. The stored `OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE` context is an operator-selected reference, not broker evidence and not proof that the trade was caused by the strategy.
 
 ### Performance tape semantics
 
@@ -142,7 +166,7 @@ FIFO attribution belongs to the actual manual opening decision that supplied the
 
 ## Automatically recorded
 
-Broker positions/orders/deals, exact local snapshot plus SHA-256, newly observed executions, FIFO gross realized P&L, marked unrealized P&L, total gross P&L, broker-vs-instance reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
+Broker account positions/orders/deals, exact local snapshot plus SHA-256, strategy-attributed executions only when explicitly confirmed by the user, potential plan matches/unattributed broker executions, FIFO strategy gross realized P&L, strategy-owned marked unrealized P&L, total strategy gross P&L, strategy-vs-broker-owned reconciliation, read-only strategy-plan observations, the separate manual-book mark/P&L, manual trade events, manual notes, and DATA_GAPs.
 
 No order is submitted or modified.
 

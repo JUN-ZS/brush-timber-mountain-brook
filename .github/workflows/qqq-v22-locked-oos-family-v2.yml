@@ -1,45 +1,58 @@
 name: QQQ V22 Locked OOS Family V2
 on:
+  workflow_dispatch:
   push:
     branches:
       - research/qqq-v22-locked-oos-family-v2-20261001
     paths:
       - research/qqq_v22_locked_oos_family_v2.py
+      - research/qqq_dynamic_near_long_state_engine_v22_930c949.py
+      - research/evidence_v1/STRATEGY_LOCK.json
       - .github/workflows/qqq-v22-locked-oos-family-v2.yml
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
-permissions:
-  contents: read
 jobs:
   replay:
-    runs-on: [self-hosted, windows, x64]
+    runs-on: windows-latest
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install runtime timezone data
+        shell: cmd
+        run: python -m pip install "tzdata>=2024.1"
       - name: Install dependencies
+        shell: cmd
         run: |
           python -m pip install --upgrade pip
           pip install duckdb pandas pyarrow numpy
       - name: Download canonical QQQ data-v1
+        shell: cmd
         run: |
-          New-Item -ItemType Directory -Force -Path data | Out-Null
+          if not exist data mkdir data
           curl.exe -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
           curl.exe -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
-          python -c "import hashlib; print('options',hashlib.sha256(open('data/QQQ_options.parquet','rb').read()).hexdigest()); print('underlying',hashlib.sha256(open('data/QQQ_underlying.parquet','rb').read()).hexdigest())"
-      - name: Verify frozen V22 engine source
+          python -c "import hashlib,sys; opt=hashlib.sha256(open('data/QQQ_options.parquet','rb').read()).hexdigest(); und=hashlib.sha256(open('data/QQQ_underlying.parquet','rb').read()).hexdigest(); print('options',opt); print('underlying',und); sys.exit(0 if opt=='1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734' and und=='78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351' else 1)"
+      - name: Verify locked strategy manifest
+        shell: cmd
         run: |
-          python -c "import hashlib; p='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; print('engine_copy',hashlib.sha256(open(p,'rb').read()).hexdigest())"
-          python -c "import pathlib; p=pathlib.Path('research/qqq_dynamic_near_long_state_engine_v22_930c949.py'); assert p.exists(); print('frozen_engine_present', p.stat().st_size)"
+          python -c "from pathlib import Path; from research.evidence_v1.lock_guard import assert_runtime_lock; print(assert_runtime_lock(Path('.'), far_dte=120, far_delta=0.08, near_dte=30))"
+      - name: Verify immutable strategy lock
+        shell: cmd
+        run: |
+          python -c "import subprocess; actual=subprocess.check_output(['git','hash-object','research/evidence_v1/STRATEGY_LOCK.json'],text=True).strip(); expected='1ba879f24e367570c3a4e3b04bca607450dc2b8d'; print('strategy_lock_blob_sha',actual); raise SystemExit(0 if actual==expected else 'STRATEGY_LOCK_BLOB_MISMATCH')"
+      - name: Verify frozen V22 engine source
+        shell: cmd
+        run: |
+          python -c "import pathlib,subprocess,hashlib; commit='930c949ec5260865f2bf3ee1c6e030dab7b8e4c4'; src='research/qqq_dynamic_near_long_state_engine_v22.py'; copy='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; subprocess.run(['git','cat-file','-e',commit+'^{commit}'],check=True); subprocess.run(['git','cat-file','-e',commit+':'+src],check=True); data=subprocess.check_output(['git','show',commit+':'+src]); actual=pathlib.Path(copy).read_bytes(); data=data.replace(bytes((13,10)),bytes((10,))); actual=actual.replace(bytes((13,10)),bytes((10,))); print('engine_copy_sha256',hashlib.sha256(actual).hexdigest()); print('frozen_engine_present',len(actual)); raise SystemExit(0 if data==actual else 'FROZEN_ENGINE_MISMATCH')"
       - name: Verify and run locked 72-config family
+        shell: cmd
         run: |
           python -m py_compile research/qqq_v22_locked_oos_family_v2.py research/qqq_dynamic_near_long_state_engine_v22_930c949.py
           python research/qqq_v22_locked_oos_family_v2.py --data-dir data --out artifacts/oos_family
-          Get-Content artifacts/oos_family/manifest.json
+          type artifacts\\oos_family\\manifest.json
       - name: Upload OOS artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -47,3 +60,5 @@ jobs:
           name: qqq-v22-locked-oos-family-v2
           path: artifacts/oos_family/
           if-no-files-found: warn
+
+# CI lane is intentionally isolated from the Futu/OpenD local recorder.

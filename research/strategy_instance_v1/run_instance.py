@@ -1,26 +1,44 @@
-from __future__ import annotations
-import argparse, json, math, time
+import argparse, hashlib, json, math, os, tempfile, threading, time
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+from contextlib import contextmanager
 from pathlib import Path
 from .ledger import InstanceLedger, sha256_json
 from .performance_tape import build_performance_tape, classify_relationship
+from ..live_hedge_v1.campaign import choose_primary_action
 from ..evidence_v1.identity import runtime_identity
-from ..live_hedge_v1.engine import Contract, Order, Position, plan, select_far, select_near
+from ..live_hedge_v1.campaign import is_qqq_option_code
+from ..live_hedge_v1.engine import (
+    Contract,
+    Order,
+    Position,
+    ensure_gamma_history_schema,
+    gamma_baseline_from_history,
+    plan,
+    select_far,
+    select_near,
+)
 from ..live_hedge_v1.futu_reader import LiveFutuReader
 from ..live_hedge_v1.futu_trade_reader import FutuTradeReader
 
 ROOT=Path("research/strategy_instance_v1/instances")
 MANIFEST_SCHEMA="STRATEGY_INSTANCE_MANIFEST.v1"
 STATE_SCHEMA="STRATEGY_INSTANCE_STATE.v1"
+PLAN_MATCH_MAX_MINUTES = 15
 
 def now():
     return datetime.now(timezone.utc).isoformat()
 
+_US_EXCHANGE_TZ = ZoneInfo("America/New_York")
+
+
 def dt(x):
     try:
         z=datetime.fromisoformat(str(x).replace("Z","+00:00"))
-        return z.replace(tzinfo=timezone.utc) if z.tzinfo is None else z.astimezone(timezone.utc)
-    except Exception: return None
+        if z.tzinfo is None:
+            z=z.replace(tzinfo=_US_EXCHANGE_TZ)
+        return z.astimezone(timezone.utc)
+    except (TypeError, ValueError): return None
 
 def after(a,b):
     da,db=dt(a),dt(b)
@@ -39,6 +57,47 @@ def si(x):
     try: return int(float(x or 0))
     except Exception: return 0
 
+
+_INSTANCE_THREAD_LOCKS = {}
+_INSTANCE_THREAD_LOCKS_GUARD = threading.Lock()
+
+def _instance_lock_path(repo, instance_id):
+    key = hashlib.sha256(
+        f"{Path(repo).resolve()}::{str(instance_id)}".encode("utf-8")
+    ).hexdigest()
+    return Path(tempfile.gettempdir()) / f"qqq-strategy-instance-{key}.lock"
+
+
+@contextmanager
+def instance_mutation_lock(repo, instance_id):
+    """Serialize one strategy-instance mutation across threads and processes."""
+    lock_path = _instance_lock_path(repo, instance_id)
+    key = str(lock_path)
+    with _INSTANCE_THREAD_LOCKS_GUARD:
+        thread_lock = _INSTANCE_THREAD_LOCKS.setdefault(key, threading.Lock())
+    with thread_lock:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+b") as fh:
+            fh.seek(0, os.SEEK_END)
+            if fh.tell() == 0:
+                fh.write(b"0")
+                fh.flush()
+            fh.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(fh.fileno(), msvcrt.LK_LOCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fh.seek(0)
+                if os.name == "nt":
+                    msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
 def idir(repo,i): return repo/ROOT/i
 def mpath(repo,i): return idir(repo,i)/"manifest.json"
 def spath(repo,i): return idir(repo,i)/"state.json"
@@ -48,44 +107,219 @@ def save(path,obj):
     path.parent.mkdir(parents=True,exist_ok=True)
     tmp=path.with_suffix(path.suffix+".tmp")
     tmp.write_text(json.dumps(obj,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    with tmp.open("r+b") as fh:
+        fh.flush()
+        os.fsync(fh.fileno())
     tmp.replace(path)
 
 def load(path,default=None):
     if not path.exists(): return {} if default is None else default
     try: return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as e: raise SystemExit(f"INVALID_JSON:{path}") from e
+    except (OSError, json.JSONDecodeError) as e: raise SystemExit(f"INVALID_JSON:{path}") from e
 
 def mhash(m):
     x=dict(m); x.pop("manifest_hash",None); return sha256_json(x)
 
+def _recover_mutable_state_from_ledger(m, s, l):
+    """Rebuild mutable caches from the immutable instance ledger after crashes.
+
+    Event append and state-file replacement are separate filesystem operations.
+    On restart the ledger therefore wins for execution/manual history; the JSON
+    state remains a cache that can be reconstructed deterministically.
+    """
+    rows = l._rows()
+
+    broker_lots = init_lots(m)
+    processed = []
+    strategy_ids = []
+    unattributed_ids = []
+    partial_confirmations = set()
+    seen = set()
+    realized = 0.0
+    for row in rows:
+        et=str(row.get("event_type") or "").upper()
+        if et not in {"EXECUTION_DETECTED","STRATEGY_EXECUTION_CONFIRMED","BROKER_EXECUTION_UNATTRIBUTED","BROKER_EXECUTION_PRE_INSTANCE"}:
+            continue
+        deal = dict((row.get("payload") or {}).get("deal") or {})
+        did = str(deal.get("deal_id") or "")
+        if not did:
+            continue
+
+        if et=="EXECUTION_DETECTED":
+            deal_status=str(deal.get("attribution_status") or "").upper()
+            if deal_status=="MATCHED_STRATEGY_OWNERSHIP_DERIVED" and did not in strategy_ids:
+                delta=sf((row.get("payload") or {}).get("realized_pnl_delta"))
+                if delta==0.0:
+                    _,delta,_=apply_strategy_attributed_deal(
+                        broker_lots,deal,{
+                            "action":"CLOSE_CAMPAIGN_EMERGENCY" if str((row.get("payload") or {}).get("attribution",{}).get("attribution_basis","")).startswith("STRATEGY_OWNED") else "HARVEST_NEAR",
+                            "candidate":{"code":deal.get("code"),"qty":deal.get("qty"),
+                                        "side":deal.get("side")},
+                        }
+                    )
+                strategy_ids.append(did)
+                realized += delta
+            elif did not in unattributed_ids:
+                unattributed_ids.append(did)
+        elif et=="STRATEGY_EXECUTION_CONFIRMED":
+            confirmed=(row.get("payload") or {})
+            expected_side=str(confirmed.get("expected_strategy_side") or "").upper()
+            qty=si(confirmed.get("confirmed_qty"))
+            if expected_side in {"LONG","SHORT"} and qty>0:
+                confirmed_deal=dict(deal)
+                confirmed_deal["qty"]=qty
+                consumed,delta,_=apply_confirmed_strategy_deal(
+                    broker_lots,confirmed_deal,expected_side
+                )
+                if consumed==qty:
+                    if did not in strategy_ids:
+                        strategy_ids.append(did)
+                    realized += delta
+                    if si(confirmed.get("unattributed_remaining_qty"))>0:
+                        partial_confirmations.add(did)
+                else:
+                    raise SystemExit(f"INSTANCE_REPLAY_CONFIRMED_EXECUTION_FAILED:{did}")
+        else:
+            if did not in unattributed_ids:
+                unattributed_ids.append(did)
+
+        if did not in seen:
+            seen.add(did)
+            processed.append(did)
+
+    if processed:
+        strategy_set=set(strategy_ids)
+        unattributed_ids=[
+            did for did in unattributed_ids
+            if did not in strategy_set or did in partial_confirmations
+        ]
+        s["lots"] = broker_lots
+        s["processed_deal_ids"] = processed
+        s["strategy_deal_ids"] = strategy_ids
+        s["unattributed_deal_ids"] = unattributed_ids
+        s["realized_pnl"] = sf(realized)
+
+    # Dynamic state is reconstructed from durable accepted strategy observations.
+    recovered_gamma = []
+    recovered_far_delta = None
+    for row in rows:
+        if str(row.get("event_type") or "").upper() != "STRATEGY_PLAN_OBSERVED":
+            continue
+        payload = row.get("payload") or {}
+        if not bool(payload.get("strategy_observation_accepted")):
+            continue
+        gamma_value = payload.get("gamma_spot_observed")
+        if gamma_value is not None:
+            try:
+                fv = float(gamma_value)
+                if math.isfinite(fv):
+                    recovered_gamma.append(fv)
+            except (TypeError, ValueError):
+                pass
+        delta_value = payload.get("far_delta_abs_observed")
+        if delta_value is not None:
+            try:
+                fv = float(delta_value)
+                if math.isfinite(fv):
+                    recovered_far_delta = fv
+            except (TypeError, ValueError):
+                pass
+    if recovered_gamma:
+        s["gamma_history"] = recovered_gamma[-20:]
+        s["gamma_history_schema"] = 2
+        s["gamma_history_unit"] = "gamma_spot"
+    if recovered_far_delta is not None:
+        s["far_delta_abs"] = recovered_far_delta
+
+    manual_rows = [
+        row for row in rows
+        if row.get("event_type") == "MANUAL_TRADE_RECORDED"
+    ]
+    if manual_rows:
+        # One trade_id is the idempotency key; use the latest unique event.
+        unique_manual = {}
+        order = []
+        for row in manual_rows:
+            payload = row.get("payload") or {}
+            trade_id = str(payload.get("trade_id") or "")
+            key = trade_id or f"__SEQ__{row.get('event_seq')}"
+            if key not in unique_manual:
+                order.append(key)
+            unique_manual[key] = payload
+        latest = unique_manual[order[-1]]
+        if isinstance(latest.get("lots_after"), list):
+            s["manual_lots"] = json.loads(json.dumps(latest["lots_after"]))
+        if latest.get("manual_realized_pnl_after") is not None:
+            s["manual_realized_pnl"] = sf(latest["manual_realized_pnl_after"])
+        s["manual_trade_count"] = len(order)
+
+
 def load_instance(repo,i):
+    repo=Path(repo).resolve()
     m=load(mpath(repo,i))
     if not m: raise SystemExit(f"UNKNOWN_INSTANCE_ID:{i}")
     if m.get("manifest_hash")!=mhash(m): raise SystemExit("INSTANCE_MANIFEST_TAMPERED_OR_MUTATED")
-    s=load(spath(repo,i),{"schema":STATE_SCHEMA,"schema_version":1,"instance_id":i,
-        "processed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
-        "last_snapshot_hash":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,"manual_lots":init_lots(m),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None})
     l=InstanceLedger(lpath(repo,i),{"instance_id":i,"manifest_hash":m["manifest_hash"],
        "strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
        "research_engine_commit":m.get("research_engine_commit")})
+    state_defaults={"schema":STATE_SCHEMA,"schema_version":1,"instance_id":i,
+        "processed_deal_ids":[],"strategy_deal_ids":[],"unattributed_deal_ids":[],"lots":[],"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,
+        "last_snapshot_hash":None,"gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,
+        "manual_lots":init_lots(m),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
+    state_cache_corrupt=False
+    try:
+        raw_state=json.loads(spath(repo,i).read_text(encoding="utf-8")) if spath(repo,i).exists() else state_defaults
+    except (OSError,json.JSONDecodeError):
+        raw_state=state_defaults
+        state_cache_corrupt=True
+    if not isinstance(raw_state,dict):
+        raw_state=state_defaults
+        state_cache_corrupt=True
+    if state_cache_corrupt and not l._rows():
+        raise SystemExit("INSTANCE_STATE_CACHE_CORRUPT_NO_LEDGER")
+    s=json.loads(json.dumps(state_defaults))
+    s.update(raw_state)
+    if state_cache_corrupt:
+        s["state_cache_integrity"]="CORRUPT_RECOVERED_FROM_LEDGER"
     if "manual_lots" not in s or not isinstance(s.get("manual_lots"), list):
         s["manual_lots"]=init_lots(m)
     elif s["manual_lots"] and "avg_price" not in s["manual_lots"][0] and "avg_cost" in s["manual_lots"][0]:
         # Legacy/partially initialized state: derive the separate manual book
         # from immutable T0, never from mutable broker lots.
         s["manual_lots"]=init_lots(m)
+    s.setdefault("strategy_deal_ids",[])
+    s.setdefault("unattributed_deal_ids",[])
     s.setdefault("manual_realized_pnl",0.0)
     s.setdefault("manual_trade_count",0)
     s.setdefault("manual_last_mark",None)
     l.validate()
+    _recover_mutable_state_from_ledger(m, s, l)
     return m,s,l
+
+def assert_instance_strategy_lineage(repo,m):
+    """Guard alpha lineage while allowing recording-infrastructure evolution."""
+    current=runtime_identity(Path(repo).resolve())
+    mismatches={}
+    for key in ("strategy_id","strategy_version","research_engine_commit","strategy_lock_hash"):
+        expected=m.get(key)
+        actual=current.get(key)
+        if expected in (None,"") or actual in (None,"") or str(expected)!=str(actual):
+            mismatches[key]={"instance":expected,"runtime":actual}
+    if mismatches:
+        raise SystemExit(
+            "INSTANCE_STRATEGY_LINEAGE_DRIFT:" + json.dumps(mismatches,sort_keys=True)
+        )
+    return current
+
 
 def pos_spec(x):
     p=[a.strip() for a in x.split(",")]
     if len(p) not in (4,5): raise SystemExit("POSITION_FORMAT=CODE,SIDE,QTY,AVG_COST[,LOT_SIZE]")
     side=p[1].upper()
     if side not in ("LONG","SHORT"): raise SystemExit("POSITION_SIDE=LONG|SHORT")
-    return {"code":p[0],"side":side,"qty":max(0,si(p[2])),"avg_cost":max(0,sf(p[3])),
+    code=p[0].upper()
+    if not is_qqq_option_code(code): raise SystemExit("POSITION_CODE_MUST_BE_QQQ_OPTION")
+    return {"code":code,"side":side,"qty":max(0,si(p[2])),"avg_cost":max(0,sf(p[3])),
             "lot_size":max(1,si(p[4]) if len(p)==5 else 100),"source":"USER_INITIAL"}
 
 def init_lots(m):
@@ -105,6 +339,151 @@ def close_fifo(lots,code,side,qty,price,lot_size):
         if l["qty"]<=0: l["qty"]=0; l["status"]="CLOSED"
         rem-=take
     return rem,pnl
+
+def _open_lot_qty(lots,code,side):
+    return sum(
+        si(x.get("qty"))
+        for x in lots
+        if str(x.get("status","OPEN")).upper()=="OPEN"
+        and str(x.get("code","")).upper()==str(code).upper()
+        and str(x.get("side","")).upper()==str(side).upper()
+    )
+
+
+def apply_confirmed_strategy_deal(lots,d,expected_strategy_side):
+    """Apply an execution only after the user explicitly confirms strategy ownership."""
+    side=str(d.get("side","")).upper()
+    expected=str(expected_strategy_side or "").upper()
+    q=si(d.get("qty")); px=sf(d.get("price")); code=str(d.get("code","")).upper()
+    size=max(1,si(d.get("lot_size")) or 100)
+    if expected not in {"LONG","SHORT"} or q<=0 or px<=0 or not code:
+        return 0,0.0,"INVALID_CONFIRMATION"
+    if expected=="LONG":
+        if side=="BUY":
+            lot_id=f"D-{d.get('deal_id','X')}-L"
+            existing=next(
+                (
+                    lot for lot in lots
+                    if lot.get("lot_id")==lot_id
+                    and str(lot.get("code","")).upper()==code
+                    and str(lot.get("side","")).upper()=="LONG"
+                ),
+                None,
+            )
+            if existing is None:
+                lots.append({
+                    "lot_id":lot_id,"code":code,"side":"LONG",
+                    "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
+                    "source":"BROKER_DEAL_CONFIRMED","status":"OPEN",
+                })
+            else:
+                prior_qty=si(existing.get("qty"))
+                total_qty=prior_qty+q
+                prior_cost=prior_qty*sf(existing.get("avg_price"))
+                existing["qty"]=total_qty
+                existing["avg_price"]=(prior_cost+q*px)/total_qty if total_qty else px
+                existing["lot_size"]=size
+                existing["status"]="OPEN"
+            return q,0.0,"CONFIRMED_OPEN_LONG"
+        if side=="SELL":
+            avail=_open_lot_qty(lots,code,"LONG")
+            take=min(q,avail)
+            if take<=0:
+                return 0,0.0,"NO_MANAGED_LONG"
+            return take,close_fifo(lots,code,"LONG",take,px,size)[1],"CONFIRMED_CLOSE_LONG"
+    if expected=="SHORT":
+        if side in {"SELL","SELL_SHORT"}:
+            lot_id=f"D-{d.get('deal_id','X')}-S"
+            existing=next(
+                (
+                    lot for lot in lots
+                    if lot.get("lot_id")==lot_id
+                    and str(lot.get("code","")).upper()==code
+                    and str(lot.get("side","")).upper()=="SHORT"
+                ),
+                None,
+            )
+            if existing is None:
+                lots.append({
+                    "lot_id":lot_id,"code":code,"side":"SHORT",
+                    "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
+                    "source":"BROKER_DEAL_CONFIRMED","status":"OPEN",
+                })
+            else:
+                prior_qty=si(existing.get("qty"))
+                total_qty=prior_qty+q
+                prior_cost=prior_qty*sf(existing.get("avg_price"))
+                existing["qty"]=total_qty
+                existing["avg_price"]=(prior_cost+q*px)/total_qty if total_qty else px
+                existing["lot_size"]=size
+                existing["status"]="OPEN"
+            return q,0.0,"CONFIRMED_OPEN_SHORT"
+        if side in {"BUY","BUY_BACK"}:
+            avail=_open_lot_qty(lots,code,"SHORT")
+            take=min(q,avail)
+            if take<=0:
+                return 0,0.0,"NO_MANAGED_SHORT"
+            return take,close_fifo(lots,code,"SHORT",take,px,size)[1],"CONFIRMED_CLOSE_SHORT"
+    return 0,0.0,"SIDE_MISMATCH"
+
+
+def apply_strategy_attributed_deal(lots,d,match):
+    """Apply a plan-linked broker deal using the plan's expected position side.
+
+    The broker transaction verb alone is not enough to know whether BUY closes a
+    short or opens a long. The matched strategy leg supplies that semantic side.
+    Close quantities are capped by currently managed lots so overfills cannot
+    manufacture an opposite strategy position.
+    """
+    code=str(d.get("code","")).upper()
+    broker_side=str(d.get("side","")).upper()
+    q=si(d.get("qty"))
+    px=sf(d.get("price"))
+    size=max(1,si(d.get("lot_size")) or 100)
+    candidate=(match or {}).get("candidate") or {}
+    action=str((match or {}).get("action") or "").upper()
+    if q<=0 or px<=0 or not code:
+        return 0,0.0,"INVALID"
+    if action=="CLOSE_CAMPAIGN_EMERGENCY":
+        expected_side=str(candidate.get("expected_side") or "").upper()
+        if not expected_side:
+            expected_side="SHORT" if broker_side=="BUY" else "LONG" if broker_side=="SELL" else ""
+    elif action=="SELL_FAR" or (
+        action=="REPAIR_FAR" and str(candidate.get("direction","")).upper()=="ADD"
+    ):
+        expected_side="SHORT"
+    elif action=="REPAIR_FAR" and str(candidate.get("direction","")).upper()=="REDUCE":
+        expected_side="SHORT"
+    else:
+        expected_side="LONG"
+
+    if expected_side=="LONG":
+        if broker_side=="BUY":
+            apply_deal(lots,dict(d))
+            return q,0.0,"OPEN_LONG"
+        if broker_side=="SELL":
+            avail=_open_lot_qty(lots,code,"LONG")
+            consume=min(q,avail)
+            if consume<=0:
+                return 0,0.0,"NO_MANAGED_LONG"
+            pnl=close_fifo(lots,code,"LONG",consume,px,size)[1]
+            return consume,pnl,"CLOSE_LONG"
+    elif expected_side=="SHORT":
+        if broker_side in {"SELL","SELL_SHORT"}:
+            lot={"lot_id":f"D-{d.get('deal_id','X')}-S","code":code,"side":"SHORT",
+                 "qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),
+                 "source":"BROKER_DEAL","status":"OPEN"}
+            lots.append(lot)
+            return q,0.0,"OPEN_SHORT"
+        if broker_side in {"BUY","BUY_BACK"}:
+            avail=_open_lot_qty(lots,code,"SHORT")
+            consume=min(q,avail)
+            if consume<=0:
+                return 0,0.0,"NO_MANAGED_SHORT"
+            pnl=close_fifo(lots,code,"SHORT",consume,px,size)[1]
+            return consume,pnl,"CLOSE_SHORT"
+    return 0,0.0,"SIDE_MISMATCH"
+
 
 def apply_deal(lots,d):
     code=str(d.get("code","")); side=str(d.get("side","")).upper(); q=si(d.get("qty")); px=sf(d.get("price")); size=max(1,si(d.get("lot_size")) or 100)
@@ -187,7 +566,7 @@ def manual_position_snapshot(lots):
     return sorted(out.values(), key=lambda x:(x["side"],x["code"]))
 
 def mark_lots(lots, cmap, quotes):
-    rows=[]; unreal=0.0
+    rows=[]; unreal=0.0; signed_mv=0.0
     for l in lots:
         if l.get("status","OPEN")!="OPEN" or si(l.get("qty"))<=0:
             continue
@@ -203,19 +582,41 @@ def mark_lots(lots, cmap, quotes):
         px=sf(l.get("avg_price")); qty=si(l.get("qty")); side=str(l.get("side")).upper()
         u=((float(mid)-px) if side=="LONG" else (px-float(mid)))*qty*size
         unreal += u
+        signed_mv += (float(mid)*qty*size)*(1 if side=="LONG" else -1)
         rows.append({"code":code,"side":side,"qty":qty,"avg_cost":px,"lot_size":size,"mid":float(mid),"unrealized_pnl":u,"status":"MARKED"})
-    return {"rows":rows,"unrealized_pnl":unreal,"status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY")}
+    return {"rows":rows,"unrealized_pnl":unreal,"signed_market_value":signed_mv,
+            "status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY")}
 
 def option_positions(ps):
-    return [p for p in ps if str(p.get("code","")).upper().startswith("US.QQQ") and str(p.get("code","")).upper()!="US.QQQ"
-            and str(p.get("side","")).upper() in ("LONG","SHORT") and si(p.get("qty"))>0]
+    return [
+        p for p in ps
+        if is_qqq_option_code(p.get("code",""))
+        and str(p.get("side","")).upper() in ("LONG","SHORT")
+        and si(p.get("qty"))>0
+    ]
 
 def contracts_map(snap):
     out={}
+    quotes=snap.get("quotes",{}) or {}
     for x in snap.get("contracts",[]):
         if x.get("code"):
-            out[str(x["code"])]=Contract(str(x["code"]),str(x.get("right","CALL")).upper(),sf(x.get("strike")),str(x.get("expiry","")),
-                si(x.get("dte")),x.get("bid"),x.get("ask"),x.get("delta"),x.get("gamma"),x.get("iv"),max(1,si(x.get("lot_size")) or 100))
+            code=str(x["code"])
+            q=quotes.get(code,{}) or {}
+            out[code]=Contract(
+                code,
+                str(x.get("right","CALL")).upper(),
+                sf(x.get("strike")),
+                str(x.get("expiry","")),
+                si(x.get("dte")),
+                q.get("bid",x.get("bid")),
+                q.get("ask",x.get("ask")),
+                q.get("delta",x.get("delta")),
+                q.get("gamma",x.get("gamma")),
+                q.get("iv",x.get("iv")),
+                max(1,si(x.get("lot_size")) or 100),
+                q.get("volume",x.get("volume")),
+                q.get("timestamp",x.get("quote_timestamp")),
+            )
     return out
 
 def marks(ps,cmap,quotes):
@@ -232,51 +633,411 @@ def marks(ps,cmap,quotes):
     return {"rows":rows,"unrealized_pnl":unreal,"signed_market_value":signed_mv,
             "status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY")}
 
-def reconcile(lots,ps):
-    a={}
-    for l in lots:
-        if l.get("status","OPEN")!="OPEN": continue
-        k=(str(l["code"]).upper(),str(l["side"]).upper()); a[k]=a.get(k,0)+si(l["qty"])
-    b={}
-    for p in option_positions(ps):
-        k=(str(p["code"]).upper(),str(p["side"]).upper()); b[k]=b.get(k,0)+si(p["qty"])
-    keys=set(a)|set(b)
-    return [{"code":k[0],"side":k[1],"lot_qty":a.get(k,0),"broker_qty":b.get(k,0)} for k in sorted(keys) if a.get(k,0)!=b.get(k,0)]
+def _aggregate_lot_qty(lots):
+    out={}
+    for lot in lots or []:
+        if str(lot.get("status","OPEN")).upper()!="OPEN" or si(lot.get("qty"))<=0:
+            continue
+        code=str(lot.get("code","")).upper()
+        side=str(lot.get("side","")).upper()
+        if code and side in {"LONG","SHORT"}:
+            out[(code,side)]=out.get((code,side),0)+si(lot.get("qty"))
+    return out
 
-def strategy_plan(snap,ps,orders,cmap,quotes,m):
-    market=snap["market"]; pos=[]
+
+def managed_position_view(ps,lots):
+    """Project account positions onto strategy-owned quantities only.
+
+    Cost basis comes from strategy lots, never from an account-wide position
+    average that may include unrelated/manual quantity of the same option.
+    """
+    tracked=_aggregate_lot_qty(lots)
+    tracked_cost={}
+    tracked_size={}
+    for lot in lots or []:
+        if str(lot.get("status","OPEN")).upper()!="OPEN" or si(lot.get("qty"))<=0:
+            continue
+        code=str(lot.get("code","")).upper()
+        side=str(lot.get("side","")).upper()
+        if not code or side not in {"LONG","SHORT"}:
+            continue
+        key=(code,side)
+        q=si(lot.get("qty"))
+        tracked_cost[key]=tracked_cost.get(key,0.0)+q*sf(lot.get("avg_price",lot.get("avg_cost")))
+        tracked_size[key]=max(tracked_size.get(key,0),max(1,si(lot.get("lot_size")) or 100))
+    observed={}
+    for p in option_positions(ps):
+        key=(str(p.get("code","")).upper(),str(p.get("side","")).upper())
+        if key in tracked:
+            observed[key]=observed.get(key,0)+si(p.get("qty"))
+    out=[]
+    for (code,side),tracked_qty in tracked.items():
+        broker_qty=observed.get((code,side),0)
+        qty=min(tracked_qty,broker_qty)
+        if qty<=0:
+            continue
+        broker_row=next((p for p in ps if str(p.get("code","")).upper()==code and str(p.get("side","")).upper()==side),{})
+        avg_cost=tracked_cost.get((code,side),0.0)/tracked_qty if tracked_qty else 0.0
+        out.append({
+            "code":code,"side":side,"qty":qty,
+            "avg_cost":avg_cost,
+            "lot_size":tracked_size.get((code,side)) or max(1,si(broker_row.get("lot_size")) or 100),
+            "source":"BROKER_OBSERVED_STRATEGY_OWNED",
+            "cost_basis_source":"STRATEGY_LOTS",
+        })
+    return out
+
+
+def reconcile(lots,ps):
+    tracked=_aggregate_lot_qty(lots)
+    broker={}
+    for p in option_positions(ps):
+        key=(str(p.get("code","")).upper(),str(p.get("side","")).upper())
+        broker[key]=broker.get(key,0)+si(p.get("qty"))
+
+    mismatches=[
+        {"code":code,"side":side,"lot_qty":tracked[(code,side)],
+         "broker_qty":broker.get((code,side),0),"reason":"STRATEGY_OWNED_POSITION_MISMATCH"}
+        for code,side in sorted(tracked)
+        if tracked[(code,side)]!=broker.get((code,side),0)
+    ]
+
+    # Unmanaged QQQ SHORTs are a strategy-safety issue even when they do not
+    # overlap a tracked lot. Unrelated QQQ LONGs remain outside this instance.
+    for code,side in sorted(broker):
+        if side=="SHORT" and (code,side) not in tracked:
+            mismatches.append({
+                "code":code,"side":side,"lot_qty":0,"broker_qty":broker[(code,side)],
+                "reason":"UNMANAGED_QQQ_SHORT",
+            })
+    return mismatches
+
+
+def derive_pnl_observation_status(mismatches, mark_status):
+    if mismatches:
+        return "DATA_GAP"
+    status=str(mark_status or "").upper()
+    if status=="OK":
+        return "OBSERVED_MATCHED"
+    if status=="EMPTY":
+        return "OBSERVED_MATCHED_CLOSED"
+    return "DATA_GAP"
+
+
+def _candidate_match(candidate,side,code):
+    action=str(candidate.get("action","")).upper()
+    code=str(code).upper()
+    side=str(side).upper()
+    c=str(candidate.get("code","")).upper()
+    if action=="ROLL_NEAR":
+        if side=="SELL" and code==c:
+            return dict(candidate)
+        if side=="BUY" and code==str(candidate.get("new_code","")).upper():
+            return dict(candidate)
+        return None
+    if action=="CLOSE_CAMPAIGN_EMERGENCY":
+        for leg in candidate.get("legs",[]) or []:
+            if str(leg.get("code","")).upper()==code and str(leg.get("side","")).upper()==side:
+                hit=dict(leg); hit["action"]=action; return hit
+        return None
+    if c!=code:
+        return None
+    expected={
+        "ADD_NEAR":"BUY",
+        "HARVEST_NEAR":"SELL",
+        "REDUCE_NEAR":"SELL",
+        "SELL_FAR":"SELL",
+    }.get(action)
+    if expected=="BUY":
+        return candidate if side=="BUY" else None
+    if expected=="SELL":
+        return candidate if side in {"SELL","SELL_SHORT"} else None
+    if action=="REPAIR_FAR":
+        direction=str(candidate.get("direction","")).upper()
+        if direction=="ADD" and side in {"SELL","SELL_SHORT"}:
+            return candidate
+        if direction=="REDUCE" and side in {"BUY","BUY_BACK"}:
+            return candidate
+    return None
+
+
+def _plan_match_for_deal(rows,deal):
+    code=str(deal.get("code","")).upper()
+    side=str(deal.get("side","")).upper()
+    deal_time=dt(deal.get("created_at"))
+    if not code or not deal_time:
+        return None
+    for event in reversed(rows or []):
+        if str(event.get("event_type","")).upper()!="STRATEGY_PLAN_OBSERVED":
+            continue
+        event_time=dt(event.get("timestamp_utc"))
+        if not event_time or event_time>deal_time:
+            continue
+        age=gap_minutes(deal.get("created_at"),event.get("timestamp_utc"))
+        if age is None or age>PLAN_MATCH_MAX_MINUTES:
+            break
+        plan_obj=(event.get("payload") or {}).get("plan") or {}
+        primary=plan_obj.get("primary_candidate")
+        if not isinstance(primary,dict):
+            return None
+        hit=_candidate_match(primary,side,code)
+        if hit is not None:
+            return {
+                "event_seq":event.get("event_seq"),
+                "event_id":event.get("event_id"),
+                "candidate_index":0,
+                "candidate_sha256":sha256_json(primary),
+                "observed_at_utc":event.get("timestamp_utc"),
+                "action":str(primary.get("action","")).upper(),
+                "candidate":hit,
+                "age_minutes":age,
+                "match_basis":"PRIMARY_CANDIDATE_ONLY",
+            }
+        break
+    return None
+
+
+def _consumed_plan_qty(rows, plan_key):
+    consumed=0
+    for row in rows or []:
+        event_type=str(row.get("event_type") or "").upper()
+        if event_type not in {"EXECUTION_DETECTED","BROKER_EXECUTION_UNATTRIBUTED"}:
+            continue
+        payload=row.get("payload") or {}
+        attribution=payload.get("attribution") or {}
+        if attribution.get("plan_key") != plan_key:
+            continue
+        consumed += (
+            si((payload.get("deal") or {}).get("qty"))
+            if event_type=="EXECUTION_DETECTED"
+            else si(attribution.get("qty"))
+        )
+    return consumed
+
+
+def attribute_broker_deal(rows,deal,used_plan_qty=None):
+    """Classify a broker execution for post-hoc evidence only; never proves intent."""
+    q=si(deal.get("qty"))
+    match=_plan_match_for_deal(rows,deal)
+    if q<=0:
+        return {"status":"UNATTRIBUTED","qty":0,"reason":"non_positive_quantity"}
+    if not match:
+        return {"status":"UNATTRIBUTED","qty":0,"reason":"no_recent_matching_strategy_plan"}
+    expected=si((match.get("candidate") or {}).get("qty"))
+    if expected<=0:
+        return {"status":"UNATTRIBUTED","qty":0,"reason":"matched_candidate_has_no_positive_qty","match":match}
+    key=(
+        str(match.get("event_seq")),
+        int(match.get("candidate_index",0)),
+        str(match.get("action") or ""),
+        str((match.get("candidate") or {}).get("code") or (match.get("candidate") or {}).get("new_code") or ""),
+        str(deal.get("side") or "").upper(),
+    )
+    persisted=_consumed_plan_qty(rows,key)
+    already=persisted + si((used_plan_qty or {}).get(key))
+    remaining=max(0,expected-already)
+    if remaining<=0:
+        return {"status":"UNATTRIBUTED","qty":0,
+                "reason":"strategy_plan_quantity_already_consumed",
+                "match":match,"plan_key":key}
+    qty=min(q,remaining)
+    return {"status":"POTENTIAL_PREDECISION_MATCH","qty":qty,
+            "unattributed_qty":q-qty,"match":match,
+            "basis":"recent_strategy_plan_observation_without_intent_proof",
+            "plan_key":key,"plan_remaining_before":remaining}
+
+
+def instance_far_position(m, positions, strategy_lots=None):
+    """Return only the broker far quantity that can be tied to strategy ownership."""
+    shorts = [
+        p for p in positions
+        if str(p.get("side", "")).upper() == "SHORT"
+        and is_qqq_option_code(p.get("code", ""))
+    ]
+    hint = str(m.get("far_code_hint") or "").upper()
+
+    owned={}
+    for lot in (strategy_lots or []):
+        if str(lot.get("status", "OPEN")).upper() != "OPEN":
+            continue
+        if str(lot.get("side", "")).upper() != "SHORT":
+            continue
+        if not is_qqq_option_code(lot.get("code", "")) or si(lot.get("qty")) <= 0:
+            continue
+        code=str(lot.get("code","")).upper()
+        owned[code]=owned.get(code,0)+si(lot.get("qty"))
+
+    candidate_code=hint if hint else (next(iter(owned)) if len(owned)==1 else "")
+    if not candidate_code:
+        return None
+
+    matches=[p for p in shorts if str(p.get("code","")).upper()==candidate_code]
+    if len(matches)!=1:
+        return None
+    broker=matches[0]
+    broker_qty=si(broker.get("qty"))
+    owned_qty=owned.get(candidate_code,0)
+    if broker_qty<=0:
+        return None
+
+    projected=dict(broker)
+    if owned_qty>0:
+        projected["qty"]=min(owned_qty,broker_qty)
+        projected["strategy_owned_qty"]=owned_qty
+        projected["ownership_source"]="STRATEGY_LOTS"
+    elif hint:
+        # Explicit operator-provided code hint is an ownership declaration when
+        # exactly one broker QQQ SHORT row exists. Same-code quantity cannot be
+        # decomposed without a lot/baseline, so the declaration covers that row.
+        projected["qty"]=broker_qty
+        projected["strategy_owned_qty"]=broker_qty
+        projected["ownership_source"]="EXPLICIT_FAR_CODE_HINT_SINGLE_BROKER_ROW"
+    else:
+        return None
+    projected["broker_observed_qty"]=broker_qty
+    return projected
+
+
+def gamma_state_for_instance(state, far=None, spot=None):
+    """Return sanitized prior-window gamma state using the canonical engine migration."""
+    history = ensure_gamma_history_schema(state, spot=spot)
+    baseline = gamma_baseline_from_history(history)
+    previous_delta = state.get("far_delta_abs")
+    return history, baseline, previous_delta
+def strategy_plan(snap,ps,orders,cmap,quotes,m,near_lots=None,gamma_baseline=None,previous_far_delta_abs=None):
+    market=snap["market"]
+    all_pos=[]
     for p in ps:
         c=cmap.get(str(p["code"])); q=quotes.get(str(p["code"]),{})
-        pos.append(Position(str(p["code"]),str(p["side"]).upper(),si(p["qty"]),sf(p["avg_cost"]),
+        all_pos.append(Position(str(p["code"]),str(p["side"]).upper(),si(p["qty"]),sf(p["avg_cost"]),
+            c.strike if c else q.get("strike"),c.expiry if c else q.get("expiry"),c.dte if c else q.get("dte"),
+            q.get("delta"),q.get("gamma")))
+    unknown_qqq=[
+        p for p in all_pos
+        if is_qqq_option_code(p.code)
+        and p.side not in {"LONG","SHORT"}
+        and si(p.qty)>0
+    ]
+    if unknown_qqq:
+        return {
+            "status":"BLOCKED_UNKNOWN_POSITION_SIDE",
+            "reason":"QQQ option position has unknown/missing position_side; strategy planning is fail-closed",
+            "unknown_positions":[p.__dict__ for p in unknown_qqq],
+        }
+    shorts=[p for p in all_pos if p.side=="SHORT" and is_qqq_option_code(p.code)]
+    far=None
+    hinted_far = instance_far_position(
+        m,
+        [p.__dict__ for p in all_pos],
+        near_lots or [],
+    )
+    far_hint = str(m.get("far_code_hint") or "").upper()
+    far_candidates = [hinted_far] if hinted_far is not None else []
+    active=bool(hinted_far)
+    if shorts and hinted_far is None:
+        return {
+            "status": "DATA_GAP",
+            "reason": (
+                "unscoped QQQ SHORT inventory detected; strategy ownership is not explicit"
+                if not far_hint
+                else "far_code_hint is present but no strategy-owned far quantity is established"
+            ),
+            "short_codes": [str(p.code) for p in shorts],
+            "far_code_hint": far_hint or None,
+        }
+    if hinted_far is not None and len(shorts) != 1:
+        return {
+            "status": "DATA_GAP",
+            "reason": "strategy far is known but extra broker QQQ SHORT inventory exists",
+            "short_codes": [str(p.code) for p in shorts],
+            "far_code_hint": far_hint or None,
+        }
+    if hinted_far is not None and si(hinted_far.get("broker_observed_qty")) != si(hinted_far.get("strategy_owned_qty")):
+        return {
+            "status": "DATA_GAP",
+            "reason": "broker far quantity differs from strategy-owned far baseline",
+            "far_code": hinted_far.get("code"),
+            "broker_qty": si(hinted_far.get("broker_observed_qty")),
+            "strategy_owned_qty": si(hinted_far.get("strategy_owned_qty")),
+        }
+    if far_candidates:
+        p = far_candidates[0]
+        p_code = str(p.get("code") if isinstance(p, dict) else p.code)
+        c=cmap.get(p_code); q=quotes.get(p_code,{})
+        if c:
+            far=Contract(
+                c.code,c.right,c.strike,c.expiry,c.dte,
+                q.get("bid",c.bid),q.get("ask",c.ask),
+                q.get("delta",c.delta),q.get("gamma",c.gamma),
+                q.get("iv",c.iv),c.lot_size,c.volume,q.get("timestamp",c.quote_timestamp),
+            )
+    # The account may contain unrelated QQQ LONG options. Only instance-owned
+    # LONG lots contribute to target-stack state; all-account shorts remain a
+    # separate safety fence above.
+    managed_near_raw=managed_position_view(
+        ps,
+        [x for x in (near_lots or []) if str(x.get("side","")).upper()=="LONG"],
+    )
+    strategy_ps=managed_near_raw
+    if hinted_far is not None:
+        strategy_ps.append(hinted_far)
+    pos=[]
+    for p in strategy_ps:
+        c=cmap.get(str(p["code"])); q=quotes.get(str(p["code"]),{})
+        pos.append(Position(str(p["code"]),str(p["side"]).upper(),si(p["qty"]),sf(p.get("avg_cost")),
             c.strike if c else q.get("strike"),c.expiry if c else q.get("expiry"),c.dte if c else q.get("dte"),
             q.get("delta"),q.get("gamma")))
     os=[Order(str(o.get("order_id","")),str(o.get("code","")),str(o.get("side","")).upper(),si(o.get("qty")),o.get("price"),
               str(o.get("status","")).upper(),str(o.get("updated_at","")),str(o.get("created_at","")),si(o.get("dealt_qty")),o.get("dealt_avg_price")) for o in orders]
-    shorts=[p for p in pos if p.side=="SHORT" and str(p.code).upper().startswith("US.QQQ")]
-    active=bool(shorts)
-    far=None
-    for p in shorts:
-        c=cmap.get(p.code); q=quotes.get(p.code,{})
-        if c: far=Contract(c.code,c.right,c.strike,c.expiry,c.dte,q.get("bid",c.bid),q.get("ask",c.ask),q.get("delta",c.delta),q.get("gamma",c.gamma),q.get("iv",c.iv),c.lot_size); break
     spot=sf(market.get("spot"))
     if far is None and not active:
         far=select_far(list(cmap.values()),spot,si(m.get("far_dte")) or 120,sf(m.get("far_delta")) or .08)
     near=select_near(list(cmap.values()),spot,si(m.get("near_dte")) or 30)
     if near:
         q=quotes.get(near.code,{})
-        near=Contract(near.code,near.right,near.strike,near.expiry,near.dte,q.get("bid",near.bid),q.get("ask",near.ask),q.get("delta",near.delta),q.get("gamma",near.gamma),q.get("iv",near.iv),near.lot_size)
+        near=Contract(
+            near.code,near.right,near.strike,near.expiry,near.dte,
+            q.get("bid",near.bid),q.get("ask",near.ask),
+            q.get("delta",near.delta),q.get("gamma",near.gamma),
+            q.get("iv",near.iv),near.lot_size,near.volume,q.get("timestamp",near.quote_timestamp),
+        )
     if active and far is None: return {"status":"DATA_GAP","reason":"active short far quote unavailable"}
     return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=bool(market.get("signal_active")),
-                far_campaign_active=active,quotes_by_code=quotes,now=datetime.now(timezone.utc))
+                far_campaign_active=active,quotes_by_code=quotes,near_lots=near_lots or [],
+                gamma_baseline=gamma_baseline,previous_far_delta_abs=previous_far_delta_abs,
+                now=datetime.now(timezone.utc))
 
 def cycle(args):
-    repo=Path(args.repo_root).resolve(); m,s,l=load_instance(repo,args.instance_id); t=now()
+    repo = Path(args.repo_root).resolve()
+    with instance_mutation_lock(repo, args.instance_id):
+        return _cycle_unlocked(args)
+
+
+def _cycle_unlocked(args):
+    repo=Path(args.repo_root).resolve(); m,s,l=load_instance(repo,args.instance_id)
+    t=now()
     cid="CYCLE_"+t.replace(":","").replace("-","").replace(".",""); s["cycle_count"]=si(s.get("cycle_count"))+1
+    try:
+        runtime_lineage=assert_instance_strategy_lineage(repo,m)
+    except SystemExit as exc:
+        s["data_gaps"]=si(s.get("data_gaps"))+1
+        l.append(
+            "DATA_GAP",
+            instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
+            payload={"stage":"STRATEGY_LINEAGE","error":str(exc)},
+            source="SYSTEM",
+        )
+        s["last_pnl_observation_status"]="DATA_GAP"
+        s["last_strategy_unrealized_pnl"]=None
+        s["last_cycle_at"]=t
+        save(spath(repo,args.instance_id),s)
+        print(json.dumps({"status":"DATA_GAP","error":str(exc),"stage":"STRATEGY_LINEAGE"},ensure_ascii=False,indent=2))
+        return 3
     try:
         history_start = None
         last_cycle = s.get("last_cycle_at")
         if last_cycle is None:
-            history_start = m.get("created_at_utc")
+            history_start = m.get("start_at_utc") or m.get("created_at_utc")
         elif gap_minutes(t, last_cycle) is not None and gap_minutes(t, last_cycle) >= args.backfill_after_minutes:
             history_start = last_cycle
         tr=FutuTradeReader(args.host,args.port,real=not args.simulate).read(history_start=history_start)
@@ -289,16 +1050,69 @@ def cycle(args):
         s["last_cycle_at"]=t; save(spath(repo,args.instance_id),s); print(json.dumps({"status":"DATA_GAP","error":repr(e)},ensure_ascii=False,indent=2)); return 2
     ps=tr.get("positions",[]); orders=tr.get("orders",[]); cmap=contracts_map(snap); quotes=snap.get("quotes",{})
     history_used=bool(tr.get("history_backfill_used"))
-    seen=set(map(str,s.get("processed_deal_ids",[]))); new=[]
+    seen=set(map(str,s.get("processed_deal_ids",[]))); new=[]; pre_instance=[]
+    economic_t0=dt(m.get("start_at_utc") or m["created_at_utc"])
     for d in tr.get("deals",[]):
         did=str(d.get("deal_id","") or "")
-        if not did or did in seen or not after(d.get("created_at"),m["created_at_utc"]): continue
-        if str(d.get("code","")).upper().startswith("US.QQQ"):
-            d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100; new.append(d)
+        if not did or did in seen:
+            continue
+        if is_qqq_option_code(d.get("code","")):
+            d=dict(d); c=cmap.get(str(d["code"])); d["lot_size"]=c.lot_size if c else 100
+            deal_time=dt(d.get("created_at"))
+            if deal_time is None or economic_t0 is None:
+                continue
+            if deal_time <= economic_t0:
+                pre_instance.append(d)
+            else:
+                new.append(d)
+    for d in sorted(pre_instance,key=lambda x:(dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),str(x.get("deal_id")))):
+        did=str(d["deal_id"])
+        s["unattributed_deal_ids"].append(did)
+        s["processed_deal_ids"].append(did)
+        l.append(
+            "BROKER_EXECUTION_PRE_INSTANCE",
+            instance_id=m["instance_id"],
+            cycle_id=cid,
+            timestamp_utc=t,
+            payload={
+                "deal":d,
+                "economic_t0":m.get("start_at_utc"),
+                "instance_created_at":m["created_at_utc"],
+                "reason":"execution timestamp is at/before economic T0; immutable USER_INITIAL baseline is authoritative and the execution is not strategy-attributed",
+            },
+            source="BROKER_OBSERVED",
+        )
     realized_delta=0.0
-    for d in sorted(new,key=lambda x:(dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),str(x.get("deal_id")))):
-        realized_delta+=apply_deal(s["lots"],d); s["processed_deal_ids"].append(str(d["deal_id"]))
-        l.append("EXECUTION_DETECTED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"deal":d},source="BROKER_OBSERVED")
+    prior_rows=l._rows()
+    used_plan_qty={}
+    for d in sorted(
+        new,
+        key=lambda x: (
+            dt(x.get("created_at")) or datetime.max.replace(tzinfo=timezone.utc),
+            str(x.get("deal_id")),
+        ),
+    ):
+        did=str(d["deal_id"])
+        original_qty=si(d.get("qty"))
+
+        potential=attribute_broker_deal(prior_rows,d,used_plan_qty)
+        if potential.get("plan_key") and potential.get("qty"):
+            key=potential["plan_key"]
+            used_plan_qty[key]=used_plan_qty.get(key,0)+si(potential.get("qty"))
+        s["unattributed_deal_ids"].append(did)
+        if str(potential.get("status") or "").upper()=="POTENTIAL_PREDECISION_MATCH":
+            s["data_gaps"]=si(s.get("data_gaps"))+1
+        l.append(
+            "BROKER_EXECUTION_UNATTRIBUTED",
+            instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
+            payload={
+                "deal":d,
+                "attribution":potential,
+                "reason":"strategy_execution_requires_explicit_user_confirmation",
+                "attribution_grade":"POTENTIAL_ONLY_NO_INTENT_PROOF",
+            },source="BROKER_OBSERVED",
+        )
+        s["processed_deal_ids"].append(did)
     s["realized_pnl"]=sf(s.get("realized_pnl"))+realized_delta
     mism=reconcile(s["lots"],ps); s["last_reconcile"]={"status":"MATCH" if not mism else "DATA_GAP","mismatches":mism,"checked_at_utc":t}
     if mism:
@@ -310,47 +1124,161 @@ def cycle(args):
     l.append("BROKER_CYCLE_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
              payload={"snapshot_sha256":sh,"snapshot_ref":str(sr.relative_to(repo)),"positions":len(ps),
                       "orders":len(orders),"new_deals":len(new),"reconcile":s["last_reconcile"],"deal_warning":tr.get("deal_warning"),
+                      "runtime_lineage":runtime_lineage,
                       "history_backfill_used":history_used,"history_start":tr.get("history_start"),"history_end":tr.get("history_end")},source="BROKER_OBSERVED")
-    mk=marks(ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])\n    mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)\n    s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
+    managed_ps=managed_position_view(ps,s["lots"])
+    broker_managed_mark=marks(managed_ps,cmap,quotes)
+    mk=mark_lots(s["lots"],cmap,quotes)
+    mk["broker_managed_unrealized_pnl"]=broker_managed_mark["unrealized_pnl"]
+    mk["broker_managed_signed_market_value"]=broker_managed_mark["signed_market_value"]
+    pnl_observation_status=derive_pnl_observation_status(mism,mk["status"])
+    strategy_unrealized_observed = (
+        sf(mk["unrealized_pnl"])
+        if pnl_observation_status in {"OBSERVED_MATCHED","OBSERVED_MATCHED_CLOSED"}
+        else None
+    )
+    gross=(
+        sf(s["realized_pnl"])+strategy_unrealized_observed
+        if strategy_unrealized_observed is not None
+        else None
+    )
+    mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
+    # These values are updated only after the read-only strategy observation
+    # consumes the prior-state window. They must still exist when observation
+    # is disabled, because state persistence below is unconditional.
+    gamma_history = list(s.get("gamma_history") or [])
+    current_far_gamma_spot = None
+    current_far_delta_abs = None
+    s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
     l.append("MARK_TO_MARKET",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={
-        "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],
-        "gross_pnl":gross,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
+        "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":strategy_unrealized_observed,
+        "gross_pnl":gross,"pnl_observation_status":pnl_observation_status,
+        "unverified_strategy_book_mark": mk if pnl_observation_status=="DATA_GAP" else None,
+        "signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
+    strategy_observation_ok = False
     if args.observe_strategy_plan and snap.get("status")=="OK":
         try:
-            sp=strategy_plan(snap,ps,orders,cmap,quotes,m)
+            gamma_history, gamma_baseline, previous_far_delta_abs = gamma_state_for_instance(
+                s, None, sf(snap.get("market", {}).get("spot"))
+            )
+            current_far = None
+            current_far_gamma_spot = None
+            current_far_delta_abs = None
+            current_far = instance_far_position(m, ps, s.get("lots", []))
+            if current_far:
+                q = quotes.get(str(current_far.get("code")), {})
+                spot_now = sf(snap.get("market", {}).get("spot"))
+                if q.get("gamma") is not None and spot_now > 0:
+                    current_far_gamma_spot = abs(float(q["gamma"])) * spot_now
+                if q.get("delta") is not None:
+                    current_far_delta_abs = abs(float(q["delta"]))
+                    previous_far_delta_abs = s.get("far_delta_abs")
+            sp=strategy_plan(
+                snap, ps, orders, cmap, quotes, m,
+                near_lots=s.get("lots", []),
+                gamma_baseline=gamma_baseline,
+                previous_far_delta_abs=previous_far_delta_abs,
+            )
+            primary_candidate=choose_primary_action(sp.get("candidate_actions",[]) or [])
+            sp_observed=json.loads(json.dumps(sp))
+            sp_observed["primary_candidate"]=primary_candidate
+            strategy_observation_ok = str(sp.get("status", "")).upper() in {"ACTIONABLE", "HOLD"}
             l.append("STRATEGY_PLAN_OBSERVED",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,
-                     payload={"plan":sp,"execution":"READ_ONLY_OBSERVATION"},source="SYSTEM")
+                     payload={
+                         "plan":sp_observed,
+                         "execution":"READ_ONLY_OBSERVATION",
+                         "pre_decision_snapshot_sha256":sh,
+                         "attribution_window_minutes":PLAN_MATCH_MAX_MINUTES,
+                         "primary_candidate":primary_candidate,
+                         "attribution_basis":"PRIMARY_CANDIDATE_ONLY",
+                         "primary_candidate_sha256":sha256_json(primary_candidate) if isinstance(primary_candidate,dict) else None,
+                         "strategy_observation_accepted":strategy_observation_ok,
+                         "gamma_spot_observed":current_far_gamma_spot if strategy_observation_ok else None,
+                         "far_delta_abs_observed":current_far_delta_abs if strategy_observation_ok else None,
+                         "dynamic_state_order":"POST_PLAN_OBSERVATION",
+                     },source="SYSTEM")
         except Exception as e:
             s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"STRATEGY_PLAN","error":repr(e)})
+    # Persist current observation only after the strategy plan consumed the prior window.
+    if strategy_observation_ok and current_far_gamma_spot is not None:
+        s["gamma_history"] = (gamma_history + [current_far_gamma_spot])[-20:]
+        s["gamma_history_schema"] = 2
+        s["gamma_history_unit"] = "gamma_spot"
+    if strategy_observation_ok and current_far_delta_abs is not None:
+        s["far_delta_abs"] = current_far_delta_abs
     if tr.get("deal_warning"):
         s["data_gaps"]=si(s.get("data_gaps"))+1; l.append("DATA_GAP",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={"stage":"DEAL_FEED","warning":tr["deal_warning"]},source="BROKER_OBSERVED")
+    s["last_pnl_observation_status"]=pnl_observation_status
+    s["last_strategy_unrealized_pnl"]=strategy_unrealized_observed
     s["last_cycle_at"]=t; s["last_history_backfill_at"]=t if history_used else s.get("last_history_backfill_at"); save(spath(repo,args.instance_id),s)
     out={"status":"RECORDED","instance_id":args.instance_id,"cycle_id":cid,"timestamp_utc":t,
-         "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],"gross_pnl":gross,"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"] if mmk["status"]=="OK" else None,"total_pnl":(s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"])) if mmk["status"]=="OK" else None,"trade_count":s["manual_trade_count"],"mark_status":mmk["status"],"positions":manual_position_snapshot(s.get("manual_lots",[]))},
+         "realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":strategy_unrealized_observed,"gross_pnl":gross,
+         "pnl_observation_status":pnl_observation_status,
+         "strategy_unrealized_pnl_observed":strategy_unrealized_observed,
+         "strategy_attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
+         "strategy_book_scope":"STRATEGY_ATTRIBUTED_EXECUTIONS_ONLY","manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"] if mmk["status"]=="OK" else None,"total_pnl":(s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"])) if mmk["status"]=="OK" else None,"trade_count":s["manual_trade_count"],"mark_status":mmk["status"],"positions":manual_position_snapshot(s.get("manual_lots",[]))},
          "reconcile":s["last_reconcile"],"history_backfill_used":history_used,"history_start":tr.get("history_start"),"data_gaps_total":s["data_gaps"],"snapshot_sha256":sh,"ledger_head":l.validate()["head_hash"]}
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
 def init_cmd(a):
     repo=Path(a.repo_root).resolve()
-    try: r=runtime_identity(repo)
-    except Exception: r={}
+    with instance_mutation_lock(repo,a.instance_id):
+        return _init_cmd_unlocked(a)
+
+
+def _init_cmd_unlocked(a):
+    repo=Path(a.repo_root).resolve()
+    try:
+        r=runtime_identity(repo)
+    except FileNotFoundError:
+        r={}
+    except Exception as exc:
+        raise SystemExit(f"INSTANCE_RUNTIME_IDENTITY_INVALID:{type(exc).__name__}") from exc
+    locked_id=r.get("strategy_id")
+    locked_version=r.get("strategy_version")
+    locked_engine=r.get("research_engine_commit")
+    locked_hash=r.get("strategy_lock_hash")
+    supplied={"strategy_id":a.strategy_id,"strategy_version":a.strategy_version,
+              "research_engine_commit":a.research_engine_commit,"strategy_lock_hash":a.strategy_lock_hash}
+    if locked_id and a.strategy_id and a.strategy_id!=locked_id:
+        raise SystemExit("INSTANCE_LINEAGE_MISMATCH:strategy_id")
+    if locked_version and a.strategy_version and a.strategy_version!=locked_version:
+        raise SystemExit("INSTANCE_LINEAGE_MISMATCH:strategy_version")
+    if locked_engine and a.research_engine_commit and a.research_engine_commit!=locked_engine:
+        raise SystemExit("INSTANCE_LINEAGE_MISMATCH:research_engine_commit")
+    if locked_hash and a.strategy_lock_hash and a.strategy_lock_hash!=locked_hash:
+        raise SystemExit("INSTANCE_LINEAGE_MISMATCH:strategy_lock_hash")
+    if r.get("strategy_id"):
+        from ..evidence_v1.lock_guard import assert_runtime_lock
+        try:
+            assert_runtime_lock(repo, far_dte=120, far_delta=0.08, near_dte=30)
+        except Exception as exc:
+            raise SystemExit(f"INSTANCE_LOCK_INVALID:{exc}") from exc
+    if not locked_id:
+        supplied["strategy_id"]=a.strategy_id
+        supplied["strategy_version"]=a.strategy_version
+        supplied["research_engine_commit"]=a.research_engine_commit
+        supplied["strategy_lock_hash"]=a.strategy_lock_hash
     start=a.start_at_utc or now(); created=now(); ps=[pos_spec(x) for x in a.position]
     m={"schema":MANIFEST_SCHEMA,"schema_version":1,"instance_id":a.instance_id,"created_at_utc":created,"start_at_utc":start,
-       "strategy_id":a.strategy_id or r.get("strategy_id") or "UNSPECIFIED","strategy_version":a.strategy_version or r.get("strategy_version") or "UNSPECIFIED",
-       "research_engine_commit":a.research_engine_commit or r.get("research_engine_commit"),"strategy_lock_hash":a.strategy_lock_hash or r.get("strategy_lock_hash"),
+       "strategy_id":a.strategy_id or locked_id or "UNSPECIFIED","strategy_version":a.strategy_version or locked_version or "UNSPECIFIED",
+       "research_engine_commit":a.research_engine_commit or locked_engine,"strategy_lock_hash":a.strategy_lock_hash or locked_hash,
        "far_dte":120,"far_delta":.08,"near_dte":30,"coverage_mult":1.50,"initial_cash":a.initial_cash,
        "far_code_hint":a.far_code,"initial_positions":ps,"notes":a.note,
        "mutation_rule":"T0 and alpha lineage are immutable; material changes require a new instance."}
     d=idir(repo,a.instance_id)
     if d.exists() and any(d.iterdir()): raise SystemExit(f"INSTANCE_ALREADY_EXISTS:{a.instance_id}")
     m["manifest_hash"]=mhash(m); st={"schema":STATE_SCHEMA,"schema_version":1,"instance_id":a.instance_id,"processed_deal_ids":[],
-       "lots":init_lots(m),"realized_pnl":0.0,"last_cycle_at":None,"last_snapshot_hash":None,"last_reconcile":None,"cycle_count":0,"data_gaps":0,
+       "lots":init_lots(m),"realized_pnl":0.0,"last_cycle_at":None,"last_history_backfill_at":None,"last_snapshot_hash":None,
+       "last_reconcile":None,"last_pnl_observation_status":"DATA_GAP","cycle_count":0,"data_gaps":0,
+       "gamma_history":[],"gamma_history_schema":2,"gamma_history_unit":"gamma_spot","far_delta_abs":None,
+       "strategy_deal_ids":[],"unattributed_deal_ids":[],
        "manual_lots":json.loads(json.dumps(init_lots(m))),"manual_realized_pnl":0.0,"manual_trade_count":0,"manual_last_mark":None}
     save(mpath(repo,a.instance_id),m); save(spath(repo,a.instance_id),st)
     l=InstanceLedger(lpath(repo,a.instance_id),{"instance_id":a.instance_id,"manifest_hash":m["manifest_hash"],"strategy_id":m["strategy_id"],"strategy_version":m["strategy_version"],"research_engine_commit":m["research_engine_commit"]})
     c="INIT_"+created.replace(":","").replace("-","").replace(".","")
     l.append("INSTANCE_CREATED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=created,payload={"economic_t0":start,"manifest_hash":m["manifest_hash"],"note":a.note},source="USER_INITIAL")
-    l.append("INITIAL_STATE_RECORDED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=created,payload={"initial_cash":a.initial_cash,"initial_positions":ps,"economic_t0":start,"observation_t0":created},source="USER_INITIAL")
+    l.append("INITIAL_STATE_RECORDED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=created,payload={"initial_cash":a.initial_cash,"initial_positions":ps,"economic_t0":start,"observation_t0":created,"strategy_lineage":{"strategy_id":m["strategy_id"],"strategy_version":m["strategy_version"],"research_engine_commit":m["research_engine_commit"],"strategy_lock_hash":m["strategy_lock_hash"]}},source="USER_INITIAL")
     print(json.dumps({"status":"INSTANCE_CREATED","instance_id":a.instance_id,"start_at_utc":start,"created_at_utc":created,"manifest_hash":m["manifest_hash"],"path":str(d)},ensure_ascii=False,indent=2)); return 0
 
 def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
@@ -382,9 +1310,38 @@ def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
             "matched_qty":q,"remaining_unmatched":0,"realized_pnl_preview":0.0,"lots":[]}
 
 def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None):
+    repo_path = Path(repo).resolve()
+    with instance_mutation_lock(repo_path, instance_id):
+        return _record_manual_trade_unlocked(
+            repo_path,
+            instance_id=instance_id,
+            action=action,
+            code=code,
+            qty=qty,
+            price=price,
+            lot_size=lot_size,
+            timestamp_utc=timestamp_utc,
+            trade_id=trade_id,
+            note=note,
+            strategy_context=strategy_context,
+        )
+
+
+def _record_manual_trade_unlocked(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None):
     m,s,l=load_instance(Path(repo).resolve(),instance_id)
-    t=timestamp_utc or now(); action=str(action).upper(); code=str(code).strip().upper()
-    if not code.startswith("US.QQQ") or code=="US.QQQ":
+    t=timestamp_utc or now()
+    parsed_trade_time=dt(t)
+    if parsed_trade_time is None:
+        raise SystemExit("MANUAL_TRADE_TIMESTAMP_INVALID")
+    created_dt=dt(m.get("created_at_utc"))
+    start_dt=dt(m.get("start_at_utc"))
+    current_dt=dt(now())
+    if start_dt is not None and parsed_trade_time < start_dt:
+        raise SystemExit("MANUAL_TRADE_BEFORE_ECONOMIC_T0")
+    if current_dt is not None and parsed_trade_time > current_dt + __import__("datetime").timedelta(minutes=5):
+        raise SystemExit("MANUAL_TRADE_FUTURE")
+    action=str(action).upper(); code=str(code).strip().upper()
+    if not is_qqq_option_code(code):
         raise SystemExit("MANUAL_CODE_MUST_BE_QQQ_OPTION")
     trade_id=trade_id or ("MANUAL_"+t.replace(":","").replace("-","").replace(".","").replace("+00:00","Z"))
     existing_manual_ids={str(r.get("payload",{}).get("trade_id")) for r in l._rows() if r.get("event_type")=="MANUAL_TRADE_RECORDED"}
@@ -421,6 +1378,173 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
             "manual_realized_pnl":s["manual_realized_pnl"],"manual_positions":positions,
             "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc}
 
+def _detected_qty_for_deal(rows,deal_id):
+    total=0
+    for row in rows or []:
+        if str(row.get("event_type") or "").upper()!="EXECUTION_DETECTED":
+            continue
+        deal=(row.get("payload") or {}).get("deal") or {}
+        if str(deal.get("deal_id") or "")==str(deal_id):
+            total += si(deal.get("qty"))
+    return total
+
+
+def _confirmed_qty_for_deal(rows,deal_id):
+    total=0
+    for row in rows or []:
+        if str(row.get("event_type") or "").upper()!="STRATEGY_EXECUTION_CONFIRMED":
+            continue
+        payload=row.get("payload") or {}
+        deal=payload.get("deal") or {}
+        if str(deal.get("deal_id") or "")==str(deal_id):
+            total += si(payload.get("confirmed_qty"))
+    return total
+
+
+def _find_observed_deal(rows,deal_id):
+    target=str(deal_id or "")
+    allowed={"EXECUTION_DETECTED","BROKER_EXECUTION_UNATTRIBUTED","BROKER_EXECUTION_PRE_INSTANCE"}
+    for row in reversed(rows or []):
+        event_type=str(row.get("event_type") or "").upper()
+        if event_type not in allowed:
+            continue
+        payload=row.get("payload") or {}
+        deal=payload.get("deal") or {}
+        if str(deal.get("deal_id") or "")==target:
+            return dict(deal), event_type
+    return None, None
+
+
+def confirm_strategy_execution(repo, *, instance_id, deal_id, expected_strategy_side, qty=None, note=""):
+    repo_path=Path(repo).resolve()
+    with instance_mutation_lock(repo_path,instance_id):
+        m,s,l=load_instance(repo_path,instance_id)
+        deal,event_type=_find_observed_deal(l._rows(),deal_id)
+        if deal is None:
+            raise SystemExit(f"BROKER_DEAL_NOT_OBSERVED:{deal_id}")
+        if event_type=="BROKER_EXECUTION_PRE_INSTANCE":
+            raise SystemExit("CANNOT_CONFIRM_PRE_INSTANCE_EXECUTION")
+        did=str(deal.get("deal_id") or "")
+        expected=str(expected_strategy_side or "").upper()
+        if expected not in {"LONG","SHORT"}:
+            raise SystemExit("EXPECTED_STRATEGY_SIDE=LONG|SHORT")
+        available=si(deal.get("qty"))
+        rows=l._rows()
+        previously_detected=_detected_qty_for_deal(rows,did)
+        previously_confirmed=_confirmed_qty_for_deal(rows,did)
+        remaining=available-previously_detected-previously_confirmed
+        if remaining<=0:
+            raise SystemExit(f"STRATEGY_DEAL_ALREADY_FULLY_CONFIRMED:{did}")
+        prior_confirm_rows=[
+            r for r in rows
+            if str(r.get("event_type") or "").upper()=="STRATEGY_EXECUTION_CONFIRMED"
+            and str((r.get("payload") or {}).get("deal",{}).get("deal_id") or "")==did
+        ]
+        prior_sides={
+            str((r.get("payload") or {}).get("expected_strategy_side") or "").upper()
+            for r in prior_confirm_rows
+        }
+        prior_sides.discard("")
+        if prior_sides and expected not in prior_sides:
+            raise SystemExit(
+                f"STRATEGY_CONFIRMATION_SIDE_CONFLICT:{did}:{sorted(prior_sides)}:{expected}"
+            )
+        requested=si(qty) if qty is not None else remaining
+        if requested<=0 or requested>remaining:
+            raise SystemExit(f"CONFIRMED_QTY_OUT_OF_RANGE:{requested}:{remaining}")
+        plan_match=_plan_match_for_deal(rows,deal)
+        confirmed=dict(deal); confirmed["qty"]=requested
+        consumed,delta,application=apply_confirmed_strategy_deal(s["lots"],confirmed,expected)
+        if consumed!=requested:
+            raise SystemExit(f"CONFIRMED_EXECUTION_NOT_APPLICABLE:{application}")
+        if did not in set(map(str,s.get("strategy_deal_ids",[]))):
+            s["strategy_deal_ids"].append(did)
+        remaining_after=remaining-requested
+        if remaining_after>0:
+            if did not in s.get("unattributed_deal_ids",[]):
+                s["unattributed_deal_ids"].append(did)
+        else:
+            s["unattributed_deal_ids"]=[x for x in s.get("unattributed_deal_ids",[]) if str(x)!=did]
+        s["realized_pnl"]=sf(s.get("realized_pnl"))+delta
+        l.append(
+            "STRATEGY_EXECUTION_CONFIRMED",
+            instance_id=instance_id,cycle_id="CONFIRM_"+did,timestamp_utc=now(),
+            payload={
+                "deal":deal,"confirmed_qty":requested,
+                "original_deal_qty":available,
+                "previously_confirmed_qty":previously_confirmed,
+                "unattributed_remaining_qty":remaining_after,
+                "expected_strategy_side":expected,
+                "realized_pnl_delta":delta,
+                "strategy_application":application,
+                "note":note,
+                "confirmation_basis":"USER_EXPLICIT_POST_OBSERVATION_CONFIRMATION",
+                "source_strategy_observation": (
+                    {
+                        "event_seq":plan_match.get("event_seq"),
+                        "event_id":plan_match.get("event_id"),
+                        "observed_at_utc":plan_match.get("observed_at_utc"),
+                        "candidate_sha256":plan_match.get("candidate_sha256"),
+                        "match_basis":plan_match.get("match_basis"),
+                    }
+                    if plan_match else None
+                ),
+            },source="USER_MANUAL",
+        )
+        save(spath(repo_path,instance_id),s)
+        return {"status":"STRATEGY_EXECUTION_CONFIRMED","instance_id":instance_id,
+                "deal_id":did,"confirmed_qty":requested,"expected_strategy_side":expected,
+                "realized_pnl_delta":delta,"strategy_application":application}
+
+
+def pending_strategy_executions(repo, instance_id):
+    """Return explicit confirmation work items without mutating strategy state."""
+    repo_path=Path(repo).resolve()
+    _,state,ledger=load_instance(repo_path,instance_id)
+    rows=ledger._rows()
+    out={}
+    for row in rows:
+        et=str(row.get("event_type") or "").upper()
+        payload=row.get("payload") or {}
+        deal=payload.get("deal") or {}
+        did=str(deal.get("deal_id") or "")
+        if not did:
+            continue
+        if et in {"BROKER_EXECUTION_UNATTRIBUTED","BROKER_EXECUTION_PRE_INSTANCE"}:
+            out.setdefault(did,{
+                "deal_id":did,
+                "code":deal.get("code"),
+                "side":deal.get("side"),
+                "qty":si(deal.get("qty")),
+                "price":sf(deal.get("price")),
+                "created_at":deal.get("created_at"),
+                "event_type":et,
+                "latest_attribution":payload.get("attribution"),
+            })
+    results=[]
+    rows_again=rows
+    for did,item in out.items():
+        confirmed=_confirmed_qty_for_deal(rows_again,did)
+        item["confirmed_qty"]=confirmed
+        item["remaining_qty"]=max(0,si(item["qty"])-confirmed)
+        if item["remaining_qty"]>0 and item["event_type"]!="BROKER_EXECUTION_PRE_INSTANCE":
+            results.append(item)
+    results.sort(key=lambda x:(str(x.get("created_at") or ""),x["deal_id"]))
+    return {
+        "instance_id":instance_id,
+        "attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
+        "pending":results,
+        "count":len(results),
+    }
+
+
+def confirm_cmd(a):
+    out=confirm_strategy_execution(
+        a.repo_root,instance_id=a.instance_id,deal_id=a.deal_id,
+        expected_strategy_side=a.expected_strategy_side,qty=a.qty,note=a.note
+    )
+    print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
+
 def manual_cmd(a):
     out=record_manual_trade(
         a.repo_root,instance_id=a.instance_id,action=a.action,code=a.code,qty=a.qty,price=a.price,
@@ -429,8 +1553,11 @@ def manual_cmd(a):
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
 def note_cmd(a):
-    repo=Path(a.repo_root).resolve(); m,s,l=load_instance(repo,a.instance_id); t=now(); c="NOTE_"+t.replace(":","").replace("-","").replace(".","")
-    l.append("HUMAN_NOTE",instance_id=a.instance_id,cycle_id=c,timestamp_utc=t,payload={"note":a.text,"tag":a.tag},source="USER_MANUAL")
+    repo=Path(a.repo_root).resolve()
+    with instance_mutation_lock(repo,a.instance_id):
+        m,s,l=load_instance(repo,a.instance_id)
+        t=now(); c="NOTE_"+t.replace(":","").replace("-","").replace(".","")
+        l.append("HUMAN_NOTE",instance_id=a.instance_id,cycle_id=c,timestamp_utc=t,payload={"note":a.text,"tag":a.tag},source="USER_MANUAL")
     print(json.dumps({"status":"NOTE_RECORDED","instance_id":a.instance_id,"timestamp_utc":t},ensure_ascii=False,indent=2)); return 0
 
 def instance_summary(repo, instance_id):
@@ -453,14 +1580,21 @@ def instance_summary(repo, instance_id):
             "marks":mark.get("rows",[]),
         },
         "broker_book":{
+            "scope":"STRATEGY_OWNED_ONLY",
             "realized_pnl":sf(s.get("realized_pnl")),
+            "strategy_deal_count":len(s.get("strategy_deal_ids",[])),
+            "unattributed_deal_count":len(s.get("unattributed_deal_ids",[])),
+            "attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY",
+            "pnl_observation_status":s.get("last_pnl_observation_status","DATA_GAP"),
+            "strategy_unrealized_pnl_observed":s.get("last_strategy_unrealized_pnl"),
             "last_reconcile":s.get("last_reconcile"),
             "data_gaps":si(s.get("data_gaps")),
         },
         "recent_manual_trades":[r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")} for r in recent],
         "performance_tape":build_performance_tape(
             [r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")}
-             for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"]
+             for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"],
+            baseline_lots=init_lots(m),
         ),
         "ledger_head_hash":l.validate()["head_hash"],
     }
@@ -476,8 +1610,13 @@ def list_instances(repo):
                 out.append({"instance_id":d.name,"strategy_id":m.get("strategy_id"),"start_at_utc":m.get("start_at_utc"),
                             "manual_realized_pnl":sf(s.get("manual_realized_pnl")),
                             "manual_trade_count":si(s.get("manual_trade_count"))})
-            except Exception:
-                continue
+            except (Exception, SystemExit) as exc:
+                # Never hide a corrupt/tampered instance from the operator.
+                out.append({
+                    "instance_id":d.name,
+                    "status":"ERROR",
+                    "error":str(exc),
+                })
     return out
 
 def report(a):
@@ -485,14 +1624,23 @@ def report(a):
     for r in rows: counts[r["event_type"]]=counts.get(r["event_type"],0)+1
     out={"schema":"STRATEGY_INSTANCE_REPORT.v1","instance_id":a.instance_id,"strategy_id":m.get("strategy_id"),"strategy_version":m.get("strategy_version"),
          "start_at_utc":m.get("start_at_utc"),"created_at_utc":m.get("created_at_utc"),"manifest_hash":m.get("manifest_hash"),
-         "records":len(rows),"event_counts":counts,"cycle_count":s.get("cycle_count"),"realized_pnl_gross":s.get("realized_pnl"),"manual_book":{"realized_pnl":s.get("manual_realized_pnl",0.0),"unrealized_pnl":((s.get("manual_last_mark") or {}).get("unrealized_pnl") if (s.get("manual_last_mark") or {}).get("status")=="OK" else None),"total_pnl":(sf(s.get("manual_realized_pnl"))+sf((s.get("manual_last_mark") or {}).get("unrealized_pnl"))) if (s.get("manual_last_mark") or {}).get("status")=="OK" else None,"trade_count":s.get("manual_trade_count",0),"mark_status":(s.get("manual_last_mark") or {}).get("status"),"positions":manual_position_snapshot(s.get("manual_lots",[]))},
+         "records":len(rows),"event_counts":counts,"cycle_count":s.get("cycle_count"),
+         "execution_attribution":{
+             "strategy_deals":len(s.get("strategy_deal_ids",[])),
+             "unattributed_deals":len(s.get("unattributed_deal_ids",[])),
+             "policy":"only explicit user confirmations enter strategy P&L; plan timing/code matches remain potential-only evidence",
+         },
+         "realized_pnl_gross":s.get("realized_pnl"),"manual_book":{"realized_pnl":s.get("manual_realized_pnl",0.0),"unrealized_pnl":((s.get("manual_last_mark") or {}).get("unrealized_pnl") if (s.get("manual_last_mark") or {}).get("status")=="OK" else None),"total_pnl":(sf(s.get("manual_realized_pnl"))+sf((s.get("manual_last_mark") or {}).get("unrealized_pnl"))) if (s.get("manual_last_mark") or {}).get("status")=="OK" else None,"trade_count":s.get("manual_trade_count",0),"mark_status":(s.get("manual_last_mark") or {}).get("status"),"positions":manual_position_snapshot(s.get("manual_lots",[]))},
+         "pnl_observation_status":s.get("last_pnl_observation_status"),
          "last_reconcile":s.get("last_reconcile"),"data_gaps_total":s.get("data_gaps"),"open_lots":[x for x in s.get("lots",[]) if x.get("status","OPEN")=="OPEN" and si(x.get("qty"))>0],
          "ledger_head_hash":l.validate()["head_hash"],
          "performance_tape":build_performance_tape(
              [r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")}
-              for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"]
+              for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"],
+             baseline_lots=init_lots(m),
          ),
-         "rule":"Descriptive only; no strategy retuning or performance prediction."}
+         "rule":"Descriptive only; no strategy retuning or performance prediction.",
+         "strategy_attribution_policy":"EXPLICIT_USER_CONFIRMATION_ONLY"}
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
 def verify(a):
@@ -516,6 +1664,7 @@ def parser():
         x=s.add_parser(name); x.add_argument("--instance-id",required=True); x.add_argument("--host",default="127.0.0.1"); x.add_argument("--port",type=int,default=11111); x.add_argument("--simulate",action="store_true"); x.add_argument("--observe-strategy-plan",action="store_true"); x.add_argument("--backfill-after-minutes",type=int,default=10)
         if name=="watch": x.add_argument("--interval",type=int,default=300); x.add_argument("--once",action="store_true"); x.add_argument("--stop-on-error",action="store_true")
         x.set_defaults(fn=cycle if name=="cycle" else watch)
+    x=s.add_parser("confirm"); x.add_argument("--instance-id",required=True); x.add_argument("--deal-id",required=True); x.add_argument("--expected-strategy-side",required=True,choices=["LONG","SHORT"]); x.add_argument("--qty",type=int,default=None); x.add_argument("--note",default=""); x.set_defaults(fn=confirm_cmd)
     x=s.add_parser("manual"); x.add_argument("--instance-id",required=True); x.add_argument("--action",required=True,choices=["ADD","REDUCE","SELL_FAR","BUY_BACK_FAR"]); x.add_argument("--code",required=True); x.add_argument("--qty",type=int,required=True); x.add_argument("--price",type=float,required=True); x.add_argument("--lot-size",type=int,default=100); x.add_argument("--timestamp-utc",default=None); x.add_argument("--trade-id",default=None); x.add_argument("--note",default=""); x.set_defaults(fn=manual_cmd)
     x=s.add_parser("instances"); x.set_defaults(fn=lambda a: print(json.dumps({"instances":list_instances(a.repo_root)},ensure_ascii=False,indent=2)) or 0)
     x=s.add_parser("note"); x.add_argument("--instance-id",required=True); x.add_argument("--text",required=True); x.add_argument("--tag",default="USER_MANUAL"); x.set_defaults(fn=note_cmd)

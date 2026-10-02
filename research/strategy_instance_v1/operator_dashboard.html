@@ -33,6 +33,28 @@ table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px;borde
 pre{white-space:pre-wrap;word-break:break-word;margin:0}
 @media(max-width:1100px){.grid{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.grid3{grid-template-columns:1fr}}
 @media(max-width:650px){.grid{grid-template-columns:1fr}.wrap{padding:12px}}
+
+/* Operator Desk V2 */
+.section-kicker{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.statusbar{display:grid;grid-template-columns:repeat(4,minmax(170px,1fr));gap:10px;margin:12px 0}
+.status-item{background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:10px 12px}
+.status-value{font-weight:800;font-size:16px}.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#8b949e;margin-right:7px}.status-dot.ok{background:#3fb950}.status-dot.warn{background:#d29922}.status-dot.bad{background:#f85149}
+.view-tabs{display:flex;gap:8px;margin:12px 0}.view-tabs button.active{outline:2px solid #58a6ff;background:#30363d}
+.view-audit{display:block}.view-desk{display:block}
+.view-audit.hidden,.view-desk.hidden{display:none}
+.action-center{border-color:#58a6ff;background:linear-gradient(180deg,#111a24,#11161d)}
+.action-center.empty{border-color:#30363d}
+.gap-table td,.gap-table th{padding:7px 8px}
+.gap-positive{color:#d29922;font-weight:700}.gap-zero{color:#56d364}.gap-negative{color:#ff7b72;font-weight:700}
+.inline-actions{display:flex;gap:5px;flex-wrap:wrap}.inline-actions button{padding:5px 8px;font-size:11px}
+.price-helper{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}.price-helper button{padding:5px 9px;font-size:11px}
+.audit-health{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:8px;margin-top:10px}
+.health-item{background:#0d1117;border:1px solid #30363d;border-radius:9px;padding:9px}
+.health-value{font-weight:800;margin-top:3px}
+.muted{color:#8b949e}
+@media(max-width:900px){.statusbar,.audit-health{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.statusbar,.audit-health{grid-template-columns:1fr}.view-tabs{overflow:auto}}
+
 </style>
 </head>
 <body>
@@ -50,16 +72,34 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
   </div>
 
   <div id="msg" class="notice">Loading…</div>
+  <div class="statusbar">
+    <div class="status-item"><div class="section-kicker">Strategy</div><div class="status-value"><span id="strategyDot" class="status-dot"></span><span id="strategyStatus">—</span></div><div class="tiny" id="strategyTicketMeta">ticket —</div></div>
+    <div class="status-item"><div class="section-kicker">Broker</div><div class="status-value"><span id="brokerDot" class="status-dot"></span><span id="brokerStatus">—</span></div><div class="tiny" id="brokerMeta">reconcile —</div></div>
+    <div class="status-item"><div class="section-kicker">Manual Book</div><div class="status-value" id="manualStatus">—</div><div class="tiny" id="manualMeta">mark —</div></div>
+    <div class="status-item"><div class="section-kicker">Attribution</div><div class="status-value"><span id="attrDot" class="status-dot"></span><span id="attrStatus">—</span></div><div class="tiny" id="attrMeta">delta —</div></div>
+  </div>
+  <div class="view-tabs">
+    <button id="deskTab" class="active" onclick="setView('desk')">DESK</button>
+    <button id="auditTab" onclick="setView('audit')">AUDIT</button>
+  </div>
 
-  <div class="grid">
+  <div class="grid view-desk">
     <div class="card"><div class="label">Manual Realized</div><div class="kpi" id="mRealized">—</div><div class="tiny">USER_MANUAL ledger only</div></div>
     <div class="card"><div class="label">Manual Unrealized</div><div class="kpi" id="mUnrealized">—</div><div class="tiny" id="mMark">mark: —</div></div>
     <div class="card"><div class="label">Manual Total</div><div class="kpi" id="mTotal">—</div><div class="tiny" id="mTrades">trades: —</div></div>
-    <div class="card"><div class="label">Broker Book</div><div class="kpi" id="bRealized">—</div><div class="tiny" id="bRecon">reconcile: —</div></div>
+    <div class="card"><div class="label">Strategy Book · Broker Evidence</div><div class="kpi" id="bRealized">—</div><div class="tiny" id="bRecon">reconcile: —</div></div>
   </div>
 
-  <div class="grid2">
-    <div class="card">
+  <div id="strategyGapCard" class="card view-desk">
+    <div class="row" style="justify-content:space-between">
+      <div><h2 style="margin-bottom:2px">MANUAL ↔ LIVE POSITION GAP</h2><div class="tiny">Derived as Manual Book − Live Desk Position; this is reconciliation, not the strategy ticket target. No broker order is submitted.</div></div>
+      <span class="pill" id="gapSummary">—</span>
+    </div>
+    <div class="scroll" style="max-height:220px;margin-top:8px"><table class="gap-table"><thead><tr><th>Code</th><th>Side</th><th>Live Position</th><th>Manual Book</th><th>Gap</th><th></th></tr></thead><tbody id="strategyGap"></tbody></table></div>
+  </div>
+
+  <div class="grid2 view-desk">
+    <div class="card action-center">
       <h2>LOCKED STRATEGY TICKET</h2>
       <div id="strategyTicket">No live state yet.</div>
       <div class="notice">
@@ -79,6 +119,10 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
         <div class="field"><label>Option Code</label><input id="code" list="codes" placeholder="US.QQQ..." autocomplete="off"></div>
         <div class="field"><label>Quantity</label><input id="qty" class="num" type="number" min="1" step="1" value="1"></div>
         <div class="field"><label>Execution Price</label><input id="price" class="num" type="number" min="0.0001" step="0.01" value="0.00"></div>
+      </div>
+      <div class="price-helper">
+        <button onclick="useTicketPrice()">USE TICKET PRICE</button>
+        <span class="tiny" id="ticketPriceHint">No ticket price loaded.</span>
       </div>
       <datalist id="codes"></datalist>
       <div class="row quick" style="margin:10px 0">
@@ -103,10 +147,26 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
     </div>
   </div>
 
-  <div class="grid2">
+  <div class="card view-desk">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <h2 style="margin-bottom:2px">BROKER EXECUTIONS AWAITING ATTRIBUTION</h2>
+        <div class="tiny">Broker deals are observed facts. A timing/code match is never treated as intent. Only an explicit operator confirmation enters strategy-owned P&amp;L.</div>
+      </div>
+      <span class="pill" id="attributionSummary">—</span>
+    </div>
+    <div class="scroll" style="max-height:240px;margin-top:8px">
+      <table>
+        <thead><tr><th>Time</th><th>Deal</th><th>Broker Side</th><th>Code</th><th>Price</th><th>Remaining</th><th>Explicit attribution</th></tr></thead>
+        <tbody id="attributionQueue"><tr><td colspan="7" class="tiny">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid2 view-desk">
     <div class="card">
       <h2>MANUAL POSITIONS</h2>
-      <div class="scroll"><table><thead><tr><th>Side</th><th>Code</th><th>Qty</th><th>Avg Cost</th><th>Mark</th><th>uPnL</th></tr></thead><tbody id="positions"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Side</th><th>Code</th><th>Qty</th><th>Avg Cost</th><th>Mark</th><th>uPnL</th><th>Action</th></tr></thead><tbody id="positions"></tbody></table></div>
     </div>
     <div class="card">
       <h2>RECENT MANUAL TRADES</h2>
@@ -114,8 +174,15 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
     </div>
   </div>
 
-  <div class="card">
+  <div class="card view-audit">
     <h2>PERFORMANCE TAPE · USER_MANUAL ↔ LOCKED TICKET</h2>
+    <div class="audit-health">
+      <div class="health-item"><div class="label">Observed</div><div class="health-value" id="hObserved">—</div></div>
+      <div class="health-item"><div class="label">T0 Baseline</div><div class="health-value" id="hBaseline">—</div></div>
+      <div class="health-item"><div class="label">Delta</div><div class="health-value" id="hDelta">—</div></div>
+      <div class="health-item"><div class="label">Unmatched Close</div><div class="health-value" id="hUnmatched">—</div></div>
+      <div class="health-item"><div class="label">Size Gap</div><div class="health-value" id="hSizeGap">—</div></div>
+    </div>
     <div class="grid3" id="tapeStats">
       <div class="preview"><div class="label">FOLLOW · attributed realized</div><div class="kpi" id="tFollowPnl">—</div><div class="tiny" id="tFollowN">open decisions: —</div></div>
       <div class="preview"><div class="label">ADJUST · attributed realized</div><div class="kpi" id="tAdjustPnl">—</div><div class="tiny" id="tAdjustN">open decisions: —</div></div>
@@ -135,12 +202,12 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
     <div id="tapeDetail" class="preview" style="display:none;margin-top:12px"></div>
   </div>
 
-  <div class="card">
+  <div class="card view-audit">
     <h2>DECISION LINEAGE</h2>
     <div class="notice">每次手動成交都保存當刻可見的 strategy ticket snapshot。<strong>FOLLOW_STRATEGY</strong> = 同 ticket + 同 code + 同語義 action + 同 qty；<strong>ADJUST_SIZE</strong> = 同 ticket + 同 code + 同語義 action，但 qty 不同；<strong>OPERATOR_ONLY</strong> = 沒有可匹配的 ticket/語義 action。未成交張數沒有 counterfactual path。</div>
   </div>
 
-  <div class="card">
+  <div class="card view-audit">
     <h2>LEDGER / STATE</h2>
     <div class="grid3">
       <div><div class="label">Instance</div><div id="metaInstance">—</div></div>
@@ -151,7 +218,66 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
 </div>
 
 <script>
-let action="ADD", state=null, strategy=null, tapeRows=[];
+let action="ADD", state=null, strategy=null, tapeRows=[], currentView="desk", strategyContextSnapshot=null;
+async function loadAttribution(){
+  const id=$("instance").value;
+  if(!id){
+    $("attributionQueue").innerHTML='<tr><td colspan="7" class="tiny">Select an instance.</td></tr>';
+    $("attributionSummary").textContent="—";
+    return;
+  }
+  try{
+    const j=await jsonFetch("/api/attribution?instance_id="+encodeURIComponent(id));
+    const rows=j.pending||[];
+    $("attributionSummary").textContent=(j.count??rows.length)+" pending";
+    $("attributionQueue").innerHTML=rows.map(x=>{
+      const dealId=String(x.deal_id||"");
+      const qty=Number(x.remaining_qty||0);
+      return '<tr><td class="tiny">'+esc(x.created_at||"")+'</td><td class="mono">'+esc(dealId)+'</td><td>'+esc(x.side||"")+'</td><td class="mono">'+esc(x.code||"")+'</td><td>'+fmt(x.price)+'</td><td>'+qty+'</td><td><button onclick="confirmBrokerDeal('+JSON.stringify(dealId)+',\'LONG\','+qty+')">CONFIRM LONG</button> <button onclick="confirmBrokerDeal('+JSON.stringify(dealId)+',\'SHORT\','+qty+')">CONFIRM SHORT</button></td></tr>';
+    }).join("") || '<tr><td colspan="7" class="tiny">No broker executions awaiting explicit attribution.</td></tr>';
+  }catch(e){
+    $("attributionSummary").textContent="ERROR";
+    $("attributionQueue").innerHTML='<tr><td colspan="7" class="tiny yellow">'+esc(e.message)+'</td></tr>';
+  }
+}
+
+async function confirmBrokerDeal(dealId,side,qty){
+  const id=$("instance").value;
+  if(!id||!dealId||!qty) return;
+  if(!confirm(
+    "Explicitly attribute broker deal "+dealId+" ("+qty+" contracts) to this strategy as "+side+"?\n\nThis is a human attribution, not an automatic inference."
+  )) return;
+  try{
+    const j=await jsonFetch("/api/confirm",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      instance_id:id,
+      deal_id:dealId,
+      expected_strategy_side:side,
+      qty:qty,
+      note:"Operator Console explicit attribution"
+    })});
+    setMsg("Confirmed "+dealId+" · "+side+" × "+j.confirmed_qty,"green");
+    await loadInstance();
+    await loadAttribution();
+  }catch(e){setMsg("Attribution failed: "+e.message,"yellow");}
+}
+
+function setView(view){
+  currentView=view;
+  document.querySelectorAll(".view-desk").forEach(el=>el.classList.toggle("hidden",view!=="desk"));
+  document.querySelectorAll(".view-audit").forEach(el=>el.classList.toggle("hidden",view!=="audit"));
+  $("deskTab").classList.toggle("active",view==="desk");
+  $("auditTab").classList.toggle("active",view==="audit");
+}
+function statusClass(v){
+  const s=String(v||"").toUpperCase();
+  if(["OK","LIVE","OPEN","CONNECTED","CONSISTENT","PASS"].some(x=>s.includes(x))) return "ok";
+  if(["STALE","WARN","CHECK","MISSING","DEGRADED"].some(x=>s.includes(x))) return "warn";
+  if(["ERROR","FAIL","DISCONNECTED","BLOCKED"].some(x=>s.includes(x))) return "bad";
+  return "";
+}
+function setDot(id,status){
+  $(id).className="status-dot "+statusClass(status);
+}
 const $=id=>document.getElementById(id);
 const money=v=>{if(v==null||Number.isNaN(Number(v)))return "—"; const n=Number(v); return (n>=0?"+$":"-$")+Math.abs(n).toFixed(2)};
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
@@ -166,6 +292,8 @@ function setAction(a){
 function bumpQty(d){$("qty").value=Math.max(1,(Number($("qty").value)||1)+d); preview();}
 
 async function jsonFetch(url,opts={}){
+  const method=String(opts.method||"GET").toUpperCase();
+  opts.headers=Object.assign({},opts.headers||{},method==="POST"?{"X-QQQ-Operator":"1"}:{});
   const r=await fetch(url,opts); const j=await r.json(); if(!r.ok) throw new Error(j.error||j.status||("HTTP "+r.status)); return j;
 }
 
@@ -174,7 +302,7 @@ async function loadInstances(){
   const sel=$("instance"), old=new URLSearchParams(location.search).get("instance")||localStorage.getItem("operator_instance")||"";
   sel.innerHTML=(j.instances||[]).map(x=>'<option value="'+esc(x.instance_id)+'">'+esc(x.instance_id)+'</option>').join("");
   if(old && [...sel.options].some(o=>o.value===old)) sel.value=old;
-  sel.onchange=()=>{localStorage.setItem("operator_instance",sel.value); history.replaceState(null,"","?instance="+encodeURIComponent(sel.value)); refreshAll();};
+  sel.onchange=()=>{strategyContextSnapshot=null; localStorage.setItem("operator_instance",sel.value); history.replaceState(null,"","?instance="+encodeURIComponent(sel.value)); refreshAll();};
   if(sel.value) localStorage.setItem("operator_instance",sel.value);
 }
 
@@ -204,22 +332,38 @@ function renderState(){
   $("mMark").textContent="mark: "+(m.mark_status||"—");
   $("mTrades").textContent="trades: "+(m.trade_count??"—");
   $("bRealized").textContent=money(b.realized_pnl);
-  $("bRecon").textContent="reconcile: "+((b.last_reconcile||{}).status||"—")+" · gaps: "+(b.data_gaps??"—");
+  $("bRecon").textContent="reconcile: "+((b.last_reconcile||{}).status||"—")+" · gaps: "+(b.data_gaps??"—")+" · unattributed: "+(b.unattributed_deal_count??"—");
   $("metaInstance").textContent=state.instance_id||"—";
   $("metaStrategy").textContent=(state.strategy_id||"—")+" · "+(state.strategy_version||"—");
   $("metaHash").textContent=state.ledger_head_hash||"—";
+  const tape=state.performance_tape||{};
+  const bStatus=((b.last_reconcile||{}).status||"—");
+  $("brokerStatus").textContent=bStatus;
+  $("brokerDot").className="status-dot "+statusClass(bStatus);
+  $("brokerMeta").textContent="strategy-owned reconcile "+bStatus+" · gaps "+(b.data_gaps??"—")+" · unattributed "+(b.unattributed_deal_count??"—");
+  $("manualStatus").textContent=money(m.total_pnl);
+  $("manualMeta").textContent=(m.mark_status||"mark —")+" · "+(m.trade_count??0)+" trades";
+  $("attrStatus").textContent=tape.attribution_status||"—";
+  $("attrDot").className="status-dot "+statusClass(tape.attribution_status);
+  $("attrMeta").textContent="delta "+money(tape.attribution_delta??0)+" · unmatched "+(tape.unmatched_close_qty??0);
 
   $("positions").innerHTML=(m.positions||[]).map(p=>{
     const mark=(m.marks||[]).find(x=>x.code===p.code&&x.side===p.side);
-    return '<tr><td>'+esc(p.side)+'</td><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.qty)+'</td><td>'+fmt(p.avg_cost)+'</td><td>'+fmt(mark?.mid)+'</td><td class="'+((mark?.unrealized_pnl||0)>=0?'green':'red')+'">'+money(mark?.unrealized_pnl)+'</td></tr>';
+    const canReduce=p.side==="LONG"||p.side==="SHORT";
+    const act=p.side==="LONG"?"REDUCE":"BUY_BACK_FAR";
+    return '<tr><td>'+esc(p.side)+'</td><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.qty)+'</td><td>'+fmt(p.avg_cost)+'</td><td>'+fmt(mark?.mid)+'</td><td class="'+((mark?.unrealized_pnl||0)>=0?'green':'red')+'">'+money(mark?.unrealized_pnl)+'</td><td><div class="inline-actions">'+(canReduce?'<button onclick="usePosition('+JSON.stringify(p.code)+','+JSON.stringify(act)+','+Number(p.qty)+')">'+(act==="REDUCE"?"REDUCE":"BUY BACK")+'</button>':"")+'</div></td></tr>';
   }).join("")||'<tr><td colspan="6" class="tiny">No manual positions.</td></tr>';
 
   $("trades").innerHTML=(state.recent_manual_trades||[]).slice().reverse().map(t=>{
     return '<tr><td class="tiny">'+esc(t.timestamp_utc||"")+'</td><td>'+esc(t.action||"")+'</td><td class="mono">'+esc(t.code||"")+'</td><td>'+esc(t.qty??"")+'</td><td>'+fmt(t.price)+'</td><td class="'+(Number(t.realized_pnl_delta||0)>=0?'green':'red')+'">'+money(t.realized_pnl_delta)+'</td><td><span class="pill">'+esc(t.relationship_to_strategy||"OPERATOR_ONLY")+'</span></td></tr>';
   }).join("")||'<tr><td colspan="7" class="tiny">No manual trades yet.</td></tr>';
 
-  const tape=state.performance_tape||{};
   tapeRows=tape.rows||[];
+  $("hObserved").textContent=money(tape.observed_realized??0);
+  $("hBaseline").textContent=money(tape.baseline_t0_realized??0);
+  $("hDelta").textContent=money(tape.attribution_delta??0);
+  $("hUnmatched").textContent=String(tape.unmatched_close_qty??0);
+  $("hSizeGap").textContent=String(tape.size_gap_contracts??0)+" contracts";
   const a=tape.attributed_realized||{};
   $("tFollowPnl").textContent=money(a.FOLLOW_STRATEGY??0);
   $("tAdjustPnl").textContent=money(a.ADJUST_SIZE??0);
@@ -230,6 +374,7 @@ function renderState(){
   $("tapeSummary").textContent =
     "rows "+(tape.trade_count??0)+
     " · observed realized "+money(tape.observed_realized??0)+
+    " · T0 baseline "+money(tape.baseline_t0_realized??0)+
     " · attribution "+(tape.attribution_status||"—")+
     " · delta "+money(tape.attribution_delta??0)+
     " · unmatched close qty "+(tape.unmatched_close_qty??0)+
@@ -239,6 +384,39 @@ function renderState(){
 
   $("lotSize").value=$("lotSize").value||100;
   preview();
+}
+function usePosition(code,side,qty){
+  setAction(side==="REDUCE"?"REDUCE":"BUY_BACK_FAR");
+  $("code").value=code; $("qty").value=qty||1;
+  const p=(state?.manual_book?.positions||[]).find(x=>x.code===code&&x.side===(side==="REDUCE"?"LONG":"SHORT"));
+  const mark=(state?.manual_book?.marks||[]).find(x=>x.code===code&&x.side===(side==="REDUCE"?"LONG":"SHORT"));
+  if(mark?.mid!=null) $("price").value=Number(mark.mid).toFixed(2);
+  preview();
+  setMsg("Loaded "+side+" action for "+code+". Review preview before recording.","green");
+}
+function useTicketPrice(){
+  const leg=(strategy?.action_card?.legs||[])[0];
+  if(leg?.price!=null){ $("price").value=Number(leg.price).toFixed(2); preview(); setMsg("Loaded indicative ticket price. Verify the actual execution price before recording.","green"); }
+  else setMsg("No ticket price is available at this snapshot.","yellow");
+}
+function renderGap(){
+  const manual=(state?.manual_book?.positions||[]);
+  const live=(strategy?.positions||[]);
+  const smap=new Map(), mmap=new Map();
+  live.forEach(x=>{if(!x.code)return; const k=x.code+"|"+(x.side||""); smap.set(k,(smap.get(k)||0)+Number(x.qty||0));});
+  manual.forEach(x=>{if(!x.code)return; const k=x.code+"|"+(x.side||""); mmap.set(k,(mmap.get(k)||0)+Number(x.qty||0));});
+  const keys=[...new Set([...smap.keys(),...mmap.keys()])].sort();
+  const rows=keys.map(k=>{
+    const [code,side]=k.split("|"), liveQty=smap.get(k)||0,mq=mmap.get(k)||0,g=mq-liveQty;
+    return {code,side,sq:liveQty,mq,g};
+  });
+  $("strategyGap").innerHTML=rows.map(x=>{
+    const cls=x.g===0?"gap-zero":x.g>0?"gap-positive":"gap-negative";
+    const action=x.side==="LONG"?"REDUCE":"BUY_BACK_FAR";
+    return '<tr><td class="mono">'+esc(x.code)+'</td><td>'+esc(x.side)+'</td><td>'+x.sq+'</td><td>'+x.mq+'</td><td class="'+cls+'">'+(x.g>0?"+":"")+x.g+'</td><td>'+(x.g>0?'<button onclick="usePosition('+JSON.stringify(x.code)+','+JSON.stringify(action)+','+x.g+')">'+(action==="REDUCE"?"REDUCE":"BUY BACK")+'</button>':"")+'</td></tr>';
+  }).join("")||'<tr><td colspan="6" class="tiny">No strategy/manual position gap data available.</td></tr>';
+  const nonzero=rows.filter(x=>x.g!==0);
+  $("gapSummary").textContent=rows.length?("positions "+rows.length+" · non-zero gaps "+nonzero.length):"No position data";
 }
 function tapeFlow(t){ return ["ADD","SELL_FAR"].includes(String(t.action||"").toUpperCase()) ? "OPEN" : "CLOSE"; }
 function tapeMatches(t){
@@ -291,8 +469,7 @@ function exportTapeCsv(){
   if(!rows.length){setMsg("No tape rows match the current filter.","yellow");return;}
   const head=["seq","timestamp_utc","relationship","action","code","qty","strategy_ticket_id","strategy_action","strategy_expected_manual_action","strategy_qty","qty_delta","price","strategy_price","execution_slippage_estimate","realized_pnl_delta","attributed_close_pnl","open_qty_remaining","note"];
   const cell=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const csv=[head.join(","),...rows.map(t=>head.map(k=>cell(t[k])).join(","))].join("
-");
+  const csv=[head.join(","),...rows.map(t=>head.map(k=>cell(t[k])).join(","))].join("\r\n");
   const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
@@ -315,20 +492,34 @@ function useStrategyTicket(){
     "SELL_FAR":"SELL_FAR",
     "CLOSE_FAR_EMERGENCY":"BUY_BACK_FAR"
   };
-  const mapped=map[t.action];
-  if(!mapped || t.action==="ROLL_NEAR" || t.action==="CLOSE_CAMPAIGN_EMERGENCY"){
+  const mapped=t.action==="REPAIR_FAR"
+    ? ((leg.direction==="ADD"||leg.side==="SELL")?"SELL_FAR":(leg.direction==="REDUCE"||leg.side==="BUY")?"BUY_BACK_FAR":null)
+    : map[t.action];
+  if(!mapped || t.action==="ROLL_NEAR"){
     setMsg("This ticket is multi-leg or structurally different; enter the manual adjustment explicitly.","yellow");
     return;
   }
   setAction(mapped); $("code").value=leg.code||"";
   $("qty").value=leg.qty||1; $("price").value=leg.price||0;
-  preview(); setMsg("Strategy template loaded. You may change quantity/price before recording.","green");
+  strategyContextSnapshot={
+    instance_id:$("instance").value,
+    ticket_id:t.ticket_id||null,
+    context_source:"OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE",
+    action:t.action||null,
+    status:t.status||null,
+    leg:JSON.parse(JSON.stringify(leg)),
+    captured_at_utc:strategy?.timestamp||new Date().toISOString(),
+  };
+  preview(); setMsg("Strategy ticket snapshot captured for this instance. You may change quantity/price before recording.","green");
 }
 
 function renderStrategy(){
   const s=strategy||{};
   const t=s.action_card||{};
-  if(!s || !Object.keys(s).length){$("strategyTicket").textContent="No live strategy state.";return;}
+  if(!s || !Object.keys(s).length){$("strategyTicket").textContent="No live strategy state."; $("strategyStatus").textContent="NO LIVE STATE"; $("strategyDot").className="status-dot warn"; $("strategyTicketMeta").textContent="ticket —"; renderGap(); return; }
+  $("strategyStatus").textContent=s.status||"—";
+  $("strategyDot").className="status-dot "+statusClass(s.status);
+  $("strategyTicketMeta").textContent="ticket "+(t.ticket_id||"—");
   let html='<div class="grid3"><div><div class="label">Desk</div><strong>'+esc(s.status||"—")+'</strong><div class="tiny">'+esc(s.instruction||"")+'</div></div>'+
     '<div><div class="label">Risk</div><strong>'+esc((s.risk_state||{}).risk_score??"—")+'</strong><div class="tiny">target near '+esc((s.risk_state||{}).desired_stack??"—")+'</div></div>'+
     '<div><div class="label">Spot</div><strong>'+esc(fmt((s.market||{}).spot))+'</strong><div class="tiny">source '+esc(s.source||"—")+'</div></div></div>';
@@ -338,6 +529,8 @@ function renderStrategy(){
     html+='</table><div style="margin-top:10px"><button onclick="useStrategyTicket()">USE TICKET AS MANUAL TEMPLATE</button></div></div>';
   }else html+='<div class="notice">No current primary ticket. Strategy is not asking for a new manual execution at this snapshot.</div>';
   $("strategyTicket").innerHTML=html;
+  $("ticketPriceHint").textContent=t.legs?.[0]?.price!=null ? ("ticket indicative "+fmt(t.legs[0].price)) : "No ticket price loaded.";
+  renderGap();
 }
 
 async function preview(){
@@ -356,6 +549,11 @@ async function preview(){
 async function recordTrade(){
   const localTime=$("tradeTime").value;
   const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null};
+  payload.strategy_context_snapshot=(
+    strategyContextSnapshot
+    && strategyContextSnapshot.instance_id===payload.instance_id
+    && String(strategyContextSnapshot.leg?.code||"").toUpperCase()===payload.code.toUpperCase()
+  ) ? strategyContextSnapshot : null;
   if(!payload.instance_id||!payload.code||payload.qty<1||payload.price<=0){setMsg("Please enter instance, QQQ option code, quantity and positive price.","yellow");return;}
   if((action==="REDUCE"||action==="BUY_BACK_FAR")) {
     const p=state?.manual_book?.positions?.find(x=>x.code===payload.code&&((action==="REDUCE"&&x.side==="LONG")||(action==="BUY_BACK_FAR"&&x.side==="SHORT")));
@@ -382,11 +580,16 @@ async function brokerRefresh(){
   catch(e){setMsg("Broker refresh failed: "+e.message,"yellow");}
 }
 async function refreshAll(){
-  try{await loadInstances();await loadInstance();setMsg("Updated "+new Date().toLocaleTimeString(),"green");}
-  catch(e){setMsg("Load error: "+e.message,"yellow");}
+  try{
+    await loadInstances();
+    await loadInstance();
+    await loadAttribution();
+    setMsg("Updated "+new Date().toLocaleTimeString(),"green");
+  }catch(e){setMsg("Load error: "+e.message,"yellow");}
 }
+setView("desk");
 refreshAll();
-setInterval(()=>loadInstance().catch(()=>{}),5000);
+setInterval(()=>{loadInstance().catch(()=>{});loadAttribution().catch(()=>{});},5000);
 setInterval(()=>loadStrategy().catch(()=>{}),5000);
 </script>
 </body>
