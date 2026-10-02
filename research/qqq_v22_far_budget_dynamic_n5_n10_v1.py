@@ -22,6 +22,7 @@ NEAR_DTE = 30
 COVERAGE_MULT = 1.50
 POLICY = "TP50_IMMEDIATE"
 N_VALUES = (10, 5)
+COMMON_BUDGET_REFERENCE_N = 5
 
 
 def sha256_file(path: Path) -> str:
@@ -137,7 +138,7 @@ def build_budget_dynamic_far(
         if z.empty:
             continue
 
-        target_total = float(base["entry_bid"]) * float(v22.N_SHORT) * 100.0
+        target_total = float(base["entry_bid"]) * float(COMMON_BUDGET_REFERENCE_N) * 100.0
         target_each = target_total / float(n_short * 100.0)
 
         # Core rule:
@@ -360,8 +361,9 @@ def main():
     nq = v22.get_quotes(con, od, near_ids)
     near_quotes = v22.quote_maps(nq)
 
-    # Establish one fixed entry schedule from the frozen N10 fixed-8Δ control.
-    # Every comparison case is then run one campaign at a time on those exact dates.
+    # Establish the common entry schedule from the frozen N10 fixed-8Δ control,
+    # then intersect with all four candidate maps. Every reported campaign is therefore
+    # executable under every case on the same entry date/path.
     v22.N_SHORT = 10
     baseline_probe = v22.simulate(
         u=u,
@@ -378,14 +380,20 @@ def main():
     )
     if baseline_probe.empty:
         raise RuntimeError("No baseline campaigns to define a common entry path")
-    entry_dates = [pd.Timestamp(x) for x in baseline_probe["campaign_entry"].tolist()]
 
-    runs = [
-        ("N10_FIXED_8D", 10, fixed_maps[10]),
-        ("N5_FIXED_8D", 5, fixed_maps[5]),
-        ("N10_BUDGET_DYNAMIC", 10, dynamic_maps[10]),
-        ("N5_BUDGET_DYNAMIC", 5, dynamic_maps[5]),
+    baseline_dates = [pd.Timestamp(x) for x in baseline_probe["campaign_entry"].tolist()]
+    candidate_maps = [
+        fixed_maps[10],
+        fixed_maps[5],
+        dynamic_maps[10],
+        dynamic_maps[5],
     ]
+    entry_dates = [
+        d for d in baseline_dates
+        if all(bool(m.get(d, {}).get((FAR_DTE, FAR_DELTA))) for m in candidate_maps)
+    ]
+    if not entry_dates:
+        raise RuntimeError("No common campaign entry dates across all cases")
 
     summaries = []
     details = {}
@@ -459,14 +467,15 @@ def main():
         "pricing": "actual QQQ options Bid/Ask; frozen V22 simulator",
         "not_opra": False,
         "common_path": {
-            "entry_schedule_source": "N10 fixed 8Δ frozen V22 control",
-            "entry_schedule_campaigns": int(len(entry_dates)),
+            "entry_schedule_source": "intersection of N10 fixed 8Δ baseline and all four candidate maps",
+            "baseline_candidate_dates": int(len(baseline_dates)),
+            "common_entry_campaigns": int(len(entry_dates)),
             "all_cases_forced_to_same_entry_dates": True,
             "future_path_data_preserved": True,
         },
         "anti_leakage": {
             "far_selection_uses": "entry-date chain only",
-            "budget_target": "N10 fixed 8-delta entry Bid total premium on the same entry date",
+            "budget_target": "N5 fixed 8-delta entry Bid total premium on the same entry date, used identically for N5 and N10",
             "dynamic_rule": "same selected expiration bucket as baseline; choose farthest OTM strike whose N x Bid still reaches the frozen aggregate financing target",
             "fallback": "highest-premium OTM contract in the selected expiration when target cannot be reached",
         },
@@ -489,7 +498,7 @@ def main():
         "results": summaries,
         "paired_dynamic": {
             "campaigns": int(len(paired)),
-            "total_pnl_n5_minus_n10_usd": float(paired["delta_total_pnl_n5_minus_n10"].sum()) if not paired.empty else None,
+            "total_pnl_n5_minus_n10_usd": float(paired["delta_total_pnl_usd_n5_minus_n10"].sum()) if not paired.empty else None,
             "mean_pnl_delta_usd": float(paired["delta_total_pnl_n5_minus_n10"].mean()) if not paired.empty else None,
             "median_pnl_delta_usd": float(paired["delta_total_pnl_n5_minus_n10"].median()) if not paired.empty else None,
             "n5_minus_n10_maxdd_delta_mean": float(paired["delta_maxdd_n5_minus_n10"].mean()) if not paired.empty else None,
