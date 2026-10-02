@@ -353,7 +353,9 @@ export function recommendForScale(
 function robustConsensus(targets: number[]) {
   if (!targets.length) return { center: null, agreement: 0 };
   const center = median(targets) ?? 0;
-  const dispersion = mad(targets, center);
+  // MAD is 0 when a majority sits on the median, so one far scale is invisible.
+  // Cross-scale authority uses the farthest scale: an outlier must not pull.
+  const dispersion = Math.max(mad(targets, center), ...targets.map((x) => Math.abs(x - center)));
   const agreement = 1 - clamp(dispersion / AGREEMENT_MAD_SCALE);
   return { center, agreement };
 }
