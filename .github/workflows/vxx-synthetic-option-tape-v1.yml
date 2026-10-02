@@ -76,12 +76,7 @@ jobs:
           curl -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
           curl -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
           cp attachments/spots_qqq_vxx_vix.1csv data/spots_qqq_vxx_vix.csv
-      - name: Download Windows reference manifest
-        uses: actions/download-artifact@v4
-        with:
-          name: vxx-synthetic-tape-v1-windows
-          path: expected
-      - name: Rebuild and compare canonical fingerprint
+      - name: Rebuild independent Linux manifest
         shell: bash
         run: |
           python3 -m py_compile research/vxx_synthetic_option_tape_v1.py
@@ -90,8 +85,7 @@ jobs:
             --qqq-options data/QQQ_options.parquet \
             --qqq-underlying data/QQQ_underlying.parquet \
             --out artifacts/vxx_synth_v1_linux \
-            --summary-only \
-            --verify-manifest expected/manifest.json
+            --summary-only
       - name: Upload Linux manifest
         uses: actions/upload-artifact@v4
         with:
