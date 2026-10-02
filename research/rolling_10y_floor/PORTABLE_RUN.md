@@ -44,13 +44,15 @@ The command regenerates:
 
 ## Three-machine topology
 
-One workflow defines one matrix job with three parallel workers:
+One workflow launches three parallel workers:
 
-1. Windows self-hosted — QQQ observed channel
-2. Linux self-hosted — NDX proxy channel
-3. HUB-Web ubuntu-latest — NASDAQ Composite proxy channel
+1. Windows (windows-latest) — QQQ audit channel, non-blocking
+2. Linux self-hosted — NDX proxy channel, required
+3. HUB-Web (ubuntu-latest) — NASDAQ Composite proxy channel, required
 
-A separate ubuntu-latest Bridge job downloads all three immutable shards, validates their schema and shared QQQ snapshot hash, then performs the coupling and rolling replay.
+A separate ubuntu-latest Bridge job downloads the two required immutable proxy shards, reconstructs the canonical QQQ shard directly from the bundled/repository QQQ snapshot, validates schema and shared QQQ hash, then performs the coupling and rolling replay.
+
+The Windows QQQ worker is audit-only. It never substitutes for the canonical QQQ target and never blocks the Bridge.
 
 A failed or missing shard is not silently substituted by another channel.
 
