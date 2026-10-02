@@ -97,3 +97,37 @@ jobs:
           name: vxx-synthetic-tape-v1-linux-manifest
           path: artifacts/vxx_synth_v1_linux/manifest.json
           if-no-files-found: error
+
+
+  compare_manifests:
+    name: Cross-runner fingerprint lock
+    needs: [build_windows, reproduce_linux]
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Windows manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-windows
+          path: windows
+      - name: Download Linux manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-linux-manifest
+          path: linux
+      - name: Compare fingerprints
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          w=json.loads(Path("windows/manifest.json").read_text())
+          l=json.loads(Path("linux/manifest.json").read_text())
+          assert w["canonical_fingerprint"] == l["canonical_fingerprint"], (w["canonical_fingerprint"], l["canonical_fingerprint"])
+          assert w["quality_gate"]["status"] == "PASS"
+          assert l["quality_gate"]["status"] == "PASS"
+          print("WINDOWS_FINGERPRINT", w["canonical_fingerprint"])
+          print("LINUX_FINGERPRINT", l["canonical_fingerprint"])
+          print("CROSS_RUNNER_FINGERPRINT_MATCH", w["canonical_fingerprint"])
+          PY
