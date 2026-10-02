@@ -61,7 +61,7 @@ jobs:
       - name: Verify frozen V22 engine source
         shell: cmd
         run: |
-          python -c "import pathlib,subprocess,hashlib; commit='930c949ec5260865f2bf3ee1c6e030dab7b8e4c4'; src='research/qqq_dynamic_near_long_state_engine_v22.py'; copy='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; subprocess.run(['git','cat-file','-e',commit+'^{commit}'],check=True); subprocess.run(['git','cat-file','-e',commit+':'+src],check=True); data=subprocess.check_output(['git','show',commit+':'+src]); actual=pathlib.Path(copy).read_bytes(); print('engine_copy',hashlib.sha256(actual).hexdigest()); print('frozen_engine_present',len(actual)); raise SystemExit(0 if data==actual else 'FROZEN_ENGINE_MISMATCH')"
+          python -c "import pathlib,subprocess,hashlib; commit='930c949ec5260865f2bf3ee1c6e030dab7b8e4c4'; src='research/qqq_dynamic_near_long_state_engine_v22.py'; copy='research/qqq_dynamic_near_long_state_engine_v22_930c949.py'; subprocess.run(['git','cat-file','-e',commit+'^{commit}'],check=True); subprocess.run(['git','cat-file','-e',commit+':'+src],check=True); data=subprocess.check_output(['git','show',commit+':'+src]); actual=pathlib.Path(copy).read_bytes(); data=data.replace(b'\\r\\n',b'\\n'); actual=actual.replace(b'\\r\\n',b'\\n'); print('engine_copy_sha256',hashlib.sha256(actual).hexdigest()); print('frozen_engine_present',len(actual)); raise SystemExit(0 if data==actual else 'FROZEN_ENGINE_MISMATCH')"
       - name: Verify and run locked 72-config family
         shell: cmd
         run: |
