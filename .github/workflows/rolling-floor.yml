@@ -50,7 +50,7 @@ jobs:
 
   qqq-windows-audit:
     name: Worker / QQQ / Windows audit
-    runs-on: [self-hosted, windows, x64]
+    runs-on: windows-latest
     continue-on-error: true
     timeout-minutes: 20
     steps:
