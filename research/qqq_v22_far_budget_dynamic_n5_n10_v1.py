@@ -125,7 +125,7 @@ def build_budget_dynamic_far(
 
     for d0, g in ch.groupby("date", sort=False):
         spot = float(u.loc[u.date == d0, "close"].iloc[0])
-        base = baseline.get(d0)
+        base = baseline.get(d0, {}).get((FAR_DTE, FAR_DELTA))
         if base is None:
             continue
 
