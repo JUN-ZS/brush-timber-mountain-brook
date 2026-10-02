@@ -352,6 +352,8 @@ function writeOutputs(
       scalesYears: [...TRAP_SCALES_YEARS],
       rule:
         "10Y is terminal horizon; 20/30/50Y are parallel historical context scales. An analog is admitted only after its following QQQ 10Y path is fully mature.",
+      signalObjective:
+        "For each scale, target is the nearest-rank 95% fraction of front-loaded capital required for the analog paths to reach terminal principal under the fixed 10Y deployment ladder. This is a floor requirement, not a terminal-return maximizer.",
       divergence:
         "Scale disagreement is a first-class state; CONVERGENT permits forward pull, TENSION halves it, DIVERGENT/THIN return authority to the deadline clock.",
     },
@@ -443,6 +445,8 @@ function writeOutputs(
     "Interpretation: CONVERGENT records where scale consensus is permitted to pull capital ahead of the deadline; TENSION records partial authority; DIVERGENT removes historical pull and returns to the clock; THIN means insufficient scale evidence.",
     "",
     "## Replay",
+    "",
+    "Signal objective: 95% terminal-principal floor front-load requirement, not maximum terminal wealth.",
     "",
     "Coupled replays: " + replay.replays.length,
     "Coupled non-loss rate: " +
