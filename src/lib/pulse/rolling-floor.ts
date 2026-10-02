@@ -49,6 +49,16 @@ export type DeploymentResponseProfile = {
   meanTerminal: number[];
 };
 
+export type RiskBaselineProfile = {
+  deploymentFractions: number[];
+  garMedian: number[];
+  garQ05: number[];
+  garQ95: number[];
+  maxDdMedian: number[];
+  maxDdQ05: number[];
+  maxDdQ95: number[];
+};
+
 export type MutualChaseTopology = {
   state: DivergenceState;
   localDirections: Array<"FORWARD" | "BACKWARD" | "FLAT" | "MIXED">;
@@ -65,6 +75,7 @@ export type ChannelScaleSignal = {
   target: number | null;
   floorProfile: FloorProfile | null;
   responseProfile: DeploymentResponseProfile | null;
+  riskBaselineProfile: RiskBaselineProfile | null;
   q05: number | null;
   pNonLoss: number | null;
   mean: number | null;
@@ -87,6 +98,7 @@ export type CoupledSignal = {
     agreement: number;
     nSignals: number;
     responseProfile: DeploymentResponseProfile | null;
+    riskBaselineProfile: RiskBaselineProfile | null;
   }>;
   robustTarget: number | null;
   agreement: number;
@@ -309,6 +321,71 @@ function terminalAtZeroAndOne(path: number[]) {
   };
 }
 
+function equityCurveForDeployment(a: number, path: number[]) {
+  const h = FLOOR_HORIZON_MONTHS;
+  if (path.length <= h || h <= 0) return [1];
+
+  const initial = clamp(a);
+  const monthlyRemainder = (1 - initial) / h;
+  const curve = [1];
+
+  for (let j = 1; j <= h; j++) {
+    const px = path[j];
+    if (!Number.isFinite(px) || px <= 0) return curve;
+    let equity = initial * px + (1 - initial);
+    for (let k = 1; k <= j; k++) {
+      const entry = path[k];
+      if (!Number.isFinite(entry) || entry <= 0) return curve;
+      equity += monthlyRemainder * (px / entry);
+    }
+    curve.push(equity);
+  }
+
+  return curve;
+}
+
+function garFromTerminal(terminal: number) {
+  return Math.pow(Math.max(1e-12, terminal), 1 / FLOOR_HORIZON_YEARS) - 1;
+}
+
+function riskMetricsForDeployment(a: number, path: number[]) {
+  const terminal = terminalForDeployment(a, path);
+  const maxDd = equityStats(equityCurveForDeployment(a, path)).maxDd;
+  return {
+    gar: garFromTerminal(terminal),
+    maxDd,
+  };
+}
+
+export function riskBaselineProfile(paths: number[][]): RiskBaselineProfile {
+  const deploymentFractions = Array.from({ length: 21 }, (_, i) => i / 20);
+  const rows = deploymentFractions.map((a) => {
+    const metrics = paths.map((path) => riskMetricsForDeployment(a, path));
+    return {
+      gar: {
+        median: median(metrics.map((x) => x.gar)) ?? 0,
+        q05: quantile(metrics.map((x) => x.gar), 0.05) ?? 0,
+        q95: quantile(metrics.map((x) => x.gar), 0.95) ?? 0,
+      },
+      maxDd: {
+        median: median(metrics.map((x) => x.maxDd)) ?? 0,
+        q05: quantile(metrics.map((x) => x.maxDd), 0.05) ?? 0,
+        q95: quantile(metrics.map((x) => x.maxDd), 0.95) ?? 0,
+      },
+    };
+  });
+
+  return {
+    deploymentFractions,
+    garMedian: rows.map((x) => x.gar.median),
+    garQ05: rows.map((x) => x.gar.q05),
+    garQ95: rows.map((x) => x.gar.q95),
+    maxDdMedian: rows.map((x) => x.maxDd.median),
+    maxDdQ05: rows.map((x) => x.maxDd.q05),
+    maxDdQ95: rows.map((x) => x.maxDd.q95),
+  };
+}
+
 export function requiredFrontLoadFraction(path: number[], floor = 1) {
   const { zero, one } = terminalAtZeroAndOne(path);
   if (zero >= floor) return 0;
@@ -414,6 +491,7 @@ export function recommendForScale(
       target: null,
       floorProfile: null,
       responseProfile: null,
+      riskBaselineProfile: null,
       q05: null,
       pNonLoss: null,
       mean: null,
@@ -426,6 +504,7 @@ export function recommendForScale(
   const paths = usable.map((x) => x.path);
   const profile = floorProfile(paths);
   const responseProfile = deploymentResponseProfile(paths);
+  const riskBaselineProfile = riskBaselineProfile(paths);
   const target = floorTarget(paths);
   const scored = objective(paths, target);
 
@@ -437,6 +516,7 @@ export function recommendForScale(
     target,
     floorProfile: profile,
     responseProfile,
+    riskBaselineProfile,
     q05: scored.q05,
     pNonLoss: scored.pNonLoss,
     mean: scored.mean,
@@ -593,12 +673,41 @@ export function couple(
             ),
           }
         : null;
+
+    const riskProfiles = scaleSignals
+      .map((s) => s.riskBaselineProfile)
+      .filter(Boolean) as RiskBaselineProfile[];
+    const riskBaselineProfile =
+      riskProfiles.length > 0
+        ? {
+            deploymentFractions: riskProfiles[0].deploymentFractions,
+            garMedian: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.garMedian[i])) ?? 0
+            ),
+            garQ05: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.garQ05[i])) ?? 0
+            ),
+            garQ95: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.garQ95[i])) ?? 0
+            ),
+            maxDdMedian: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.maxDdMedian[i])) ?? 0
+            ),
+            maxDdQ05: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.maxDdQ05[i])) ?? 0
+            ),
+            maxDdQ95: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.maxDdQ95[i])) ?? 0
+            ),
+          }
+        : null;
     return {
       scaleYears,
       target: c.center,
       agreement: c.agreement,
       nSignals: xs.length,
       responseProfile,
+      riskBaselineProfile,
     };
   }).filter((x) => x.nSignals > 0);
 
