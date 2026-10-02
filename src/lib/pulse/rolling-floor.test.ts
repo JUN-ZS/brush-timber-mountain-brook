@@ -110,7 +110,7 @@ test("state-conditioned path summary observes displacement from the clock", () =
         divergenceState: "DIVERGENT",
       },
     ],
-    path: [{ date: "2010-01-01", action: 0.5, deployed: 0.5, cash: 0.5, coupledTarget: 0.5, clockTarget: 0.5, agreement: 1, divergenceState: "CONVERGENT" }, { date: "2010-02-01", action: 0.25, deployed: 0.75, cash: 0.25, coupledTarget: 0.5, clockTarget: 0.5, agreement: 1, divergenceState: "CONVERGENT" }, { date: "2010-03-01", action: 0.05, deployed: 0.8, cash: 0.19999999999999996, coupledTarget: 0.75, clockTarget: 0.75, agreement: 0.65, divergenceState: "TENSION" }, { date: "2010-04-01", action: 0.2, deployed: 1, cash: 0, coupledTarget: 1, clockTarget: 1, agreement: 0, divergenceState: "DIVERGENT" }],
+    path: [{ date: "2010-01-01", action: 0.5, deployed: 0.5, cash: 0.5, coupledTarget: 0.5, clockTarget: 0.25, agreement: 1, divergenceState: "CONVERGENT" }, { date: "2010-02-01", action: 0.25, deployed: 0.75, cash: 0.25, coupledTarget: 0.5, clockTarget: 0.5, agreement: 1, divergenceState: "CONVERGENT" }, { date: "2010-03-01", action: 0.05, deployed: 0.8, cash: 0.19999999999999996, coupledTarget: 0.75, clockTarget: 0.75, agreement: 0.65, divergenceState: "TENSION" }, { date: "2010-04-01", action: 0.2, deployed: 1, cash: 0, coupledTarget: 1, clockTarget: 1, agreement: 0, divergenceState: "DIVERGENT" }],
   };
 
   const summary = summarizeStatePath([result]);
