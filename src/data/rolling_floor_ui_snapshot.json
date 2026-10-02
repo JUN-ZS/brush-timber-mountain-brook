@@ -724,12 +724,12 @@
       }
     ]
   },
-  "note": "UI snapshot seeded from verified Rolling 10Y Capital Floor run #95. GAR/MaxDD baselines use the same immutable analog construction and corrected cash-accounting as the current diagnostic implementation. QQQ remains the observed outcome target; NDX/NASDAQ Composite remain proxy state channels. Risk baseline is historical research evidence, not a guarantee or a controller override.",
+  "note": "Fallback UI snapshot provenance points to verified Rolling 10Y Capital Floor run #109. LIVE refresh now rebuilds the same rolling-floor model from the current Yahoo observation plus the validated QQQ/NDX/NASDAQCOM history. Risk baseline and forward path are diagnostic simulation layers and do not override the original controller.",
   "verifiedSource": {
     "workflow": "Rolling 10Y Capital Floor",
-    "runNumber": 95,
-    "runId": 37075267545,
-    "headSha": "41e8e48ef4ec296b29524dbfc08e1c950da24fe3",
+    "runNumber": 109,
+    "runId": 37077324984,
+    "headSha": "2df07431939c3f19c94d29206c6dcba51eb666d0",
     "artifact": "rolling-10y-floor-final",
     "asOf": "2026-09-04"
   }
