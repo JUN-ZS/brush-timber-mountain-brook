@@ -213,6 +213,57 @@ def friday_expiry(d: pd.Timestamp, target: int) -> pd.Timestamp:
     return x
 
 
+
+def repair_iv_shape(
+    s: np.ndarray, k: np.ndarray, t: np.ndarray, iv: np.ndarray, right: str
+) -> np.ndarray:
+    """Minimal deterministic no-arbitrage repair along the strike axis.
+
+    The raw VXX tail surface is allowed to be intentionally aggressive. If
+    that makes call prices rise with strike or put prices fall with strike,
+    reduce/increase only the offending IV until monotonicity is restored.
+    The repair is reported explicitly and is never treated as calibration data.
+    """
+    out = iv.copy()
+    prev = None
+    for i in range(len(out)):
+        px = float(bs(s[i:i+1], k[i:i+1], t[i:i+1], out[i:i+1], right)[0][0])
+        if prev is not None:
+            bad = px > prev + 1e-10 if right == "CALL" else px < prev - 1e-10
+            if bad:
+                if right == "CALL":
+                    lo, hi = IV_LO, float(out[i])
+                    for _ in range(45):
+                        mid = (lo + hi) * 0.5
+                        q = float(bs(
+                            s[i:i+1], k[i:i+1], t[i:i+1],
+                            np.array([mid]), right
+                        )[0][0])
+                        if q > prev:
+                            hi = mid
+                        else:
+                            lo = mid
+                    out[i] = lo
+                else:
+                    lo, hi = float(out[i]), IV_HI
+                    for _ in range(45):
+                        mid = (lo + hi) * 0.5
+                        q = float(bs(
+                            s[i:i+1], k[i:i+1], t[i:i+1],
+                            np.array([mid]), right
+                        )[0][0])
+                        if q < prev:
+                            lo = mid
+                        else:
+                            hi = mid
+                    out[i] = hi
+                px = float(bs(
+                    s[i:i+1], k[i:i+1], t[i:i+1],
+                    np.array([out[i]]), right
+                )[0][0])
+        prev = px
+    return np.clip(out, IV_LO, IV_HI)
+
 def build_family(m: pd.DataFrame, family: str) -> tuple[pd.DataFrame,pd.DataFrame]:
     f=FAMILIES[family]
     states=[]
@@ -260,13 +311,15 @@ def build_family(m: pd.DataFrame, family: str) -> tuple[pd.DataFrame,pd.DataFram
         for expiry in exps:
             dte=int((expiry-pd.Timestamp(r.date)).days)
             t=np.full(len(k),max(dte,1)/365.0)
-            iv=atm+np.where(lm>=0,call_w*lm+quad*lm*lm,
-                            put_w*(-lm)+.70*quad*lm*lm)
-            iv=np.where(lm>0,
-                        iv+f["tail"]*.045*tail_score*np.minimum(lm/.20,2.0),
-                        iv)
-            iv=np.clip(iv,IV_LO,IV_HI)
+            iv_raw=atm+np.where(lm>=0,call_w*lm+quad*lm*lm,
+                                put_w*(-lm)+.70*quad*lm*lm)
+            iv_raw=np.where(lm>0,
+                            iv_raw+f["tail"]*.045*tail_score*np.minimum(lm/.20,2.0),
+                            iv_raw)
+            iv_raw=np.clip(iv_raw,IV_LO,IV_HI)
             for right in ("CALL","PUT"):
+                iv=repair_iv_shape(s,k,t,iv_raw,right)
+                iv_repair_abs=np.abs(iv-iv_raw)
                 price,delta,gamma,vega,theta=bs(
                     s,t*0+k,t,iv,right
                 )
@@ -280,6 +333,7 @@ def build_family(m: pd.DataFrame, family: str) -> tuple[pd.DataFrame,pd.DataFram
                     "underlying":"VXX","type":right,"strike":k,
                     "bid":bid,"ask":ask,"mid":price,"iv":iv,
                     "delta":delta,"gamma":gamma,"vega":vega,"theta":theta,
+                    "iv_raw":iv_raw,"iv_repair_abs":iv_repair_abs,
                     "volume":np.nan,"open_interest":np.nan,
                     "model_family":family,"model_derived":True,
                     "source":"MODEL_DERIVED_VXX_OPTION_TAPE",
@@ -298,6 +352,7 @@ def quality(t: pd.DataFrame,s: pd.DataFrame)->dict:
       "iv_bounds":bool(t.iv.between(IV_LO,IV_HI).all()),
       "expiry_after":bool((t.expiration>t.date).all()),
       "greeks_finite":bool(np.isfinite(t[["iv","delta","gamma","vega","theta"]]).all().all()),
+      "surface_repair_finite":bool(np.isfinite(t[["iv_raw","iv_repair_abs"]]).all().all()),
       "causal":bool(t.calibration_source_date.notna().all() and (t.calibration_source_date<t.date).all()),
     }
     cmono=pmono=cdmono=pdmono=True
