@@ -182,19 +182,48 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
       FROM base
       WHERE dte BETWEEN 20 AND 40
     ),
-    ranked AS (
-      SELECT *,
-        ROW_NUMBER() OVER(
-          PARTITION BY date,band
-          ORDER BY ABS(dte-30), volume DESC, ABS(ABS(delta)-0.50),
-                   expiration, strike
-        ) AS rn
+    grouped AS (
+      SELECT
+        date,
+        band,
+        arg_min(
+          struct_pack(
+            expiration:=expiration,
+            strike:=strike,
+            type_norm:=type_norm,
+            bid:=bid,
+            ask:=ask,
+            delta:=delta,
+            volume:=volume,
+            iv_obs:=iv_obs,
+            dte:=dte
+          ),
+          struct_pack(
+            dte_dist:=ABS(dte-30),
+            neg_volume:=-volume,
+            delta_dist:=ABS(ABS(delta)-0.50),
+            expiration:=expiration,
+            strike:=strike
+          ),
+          6
+        ) AS picks
       FROM bands
+      GROUP BY date,band
     )
-    SELECT date,expiration,strike,type_norm,bid,ask,delta,volume,iv_obs,dte
-    FROM ranked
-    WHERE rn<=6
-    ORDER BY date,band,rn
+    SELECT
+      date,
+      pick.expiration AS expiration,
+      pick.strike AS strike,
+      pick.type_norm AS type_norm,
+      pick.bid AS bid,
+      pick.ask AS ask,
+      pick.delta AS delta,
+      pick.volume AS volume,
+      pick.iv_obs AS iv_obs,
+      pick.dte AS dte
+    FROM grouped
+    CROSS JOIN UNNEST(picks) AS u(pick)
+    ORDER BY date,band
     """
 
     z=con.execute(q,[str(opt)]).fetchdf()
