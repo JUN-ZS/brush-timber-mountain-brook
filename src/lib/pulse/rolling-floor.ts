@@ -75,6 +75,7 @@ export type ReplayTrade = {
   coupledTarget: number;
   clockTarget: number;
   agreement: number;
+  divergenceState: DivergenceState;
 };
 
 export type ReplayResult = {
