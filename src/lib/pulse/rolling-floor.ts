@@ -2,7 +2,7 @@ import { universe } from "./bars.ts";
 
 export const FLOOR_HORIZON_YEARS = 10;
 export const FLOOR_HORIZON_MONTHS = FLOOR_HORIZON_YEARS * 12;
-export const TRAP_SCALES_YEARS = [10, 20, 30, 50] as const;
+export const TRAP_SCALES_YEARS = [20, 30, 50] as const;
 
 export type TrapScale = (typeof TRAP_SCALES_YEARS)[number];
 
@@ -366,8 +366,10 @@ export function couple(
     .map((x) => x.target as number);
   const finalConsensus = robustConsensus(scaleTargets);
 
-  // Disagreement is not averaged away. It explicitly hands authority back to the clock.
-  const signalAuthority = finalConsensus.agreement;
+  // The trap is only allowed to pull capital forward when at least two
+  // independent historical scales agree. One available scale is descriptive,
+  // not a consensus signal, so authority returns to the clock.
+  const signalAuthority = scaleTargets.length >= 2 ? finalConsensus.agreement : 0;
   const coupledTarget =
     finalConsensus.center == null
       ? clockTarget
