@@ -153,3 +153,14 @@ test("full floor-response profile preserves tail shape beyond the 95% scalar tar
   assert.equal(profile.requiredFrontLoad[2], 0);
   assert.ok(profile.maxRequiredFrontLoad > profile.requiredFrontLoad[3]);
 });
+
+
+test("deployment response profile keeps the conservative terminal-floor curve", () => {
+  const flat = Array.from({ length: 121 }, () => 1);
+  const profile = deploymentResponseProfile([flat]);
+  assert.deepEqual(profile.deploymentFractions.slice(0, 3), [0, 0.05, 0.1]);
+  assert.equal(profile.deploymentFractions.at(-1), 1);
+  assert.equal(profile.q05Terminal.length, 21);
+  assert.equal(profile.pNonLoss[0], 1);
+  assert.equal(profile.pNonLoss.at(-1), 1);
+});
