@@ -266,13 +266,38 @@ function terminalForDeployment(a: number, path: number[]) {
   return a * terminalGrowth + ((1 - a) / h) * ladder;
 }
 
+function terminalAtZeroAndOne(path: number[]) {
+  return {
+    zero: terminalForDeployment(0, path),
+    one: terminalForDeployment(1, path),
+  };
+}
+
+export function requiredFrontLoadFraction(path: number[], floor = 1) {
+  const { zero, one } = terminalAtZeroAndOne(path);
+  if (zero >= floor) return 0;
+  if (one < floor) return 1;
+
+  const slope = one - zero;
+  if (slope <= 0) return 1;
+  return clamp((floor - zero) / slope);
+}
+
 function objective(paths: number[], a: number) {
   const ws = paths.map((p) => terminalForDeployment(a, p));
   const q05 = quantile(ws, 0.05) ?? 0;
   const pNonLoss = ws.filter((w) => w >= 1).length / ws.length;
   const mean = ws.reduce((x, y) => x + y, 0) / ws.length;
-  // Terminal floor dominates. P(non-loss) and mean break ties only.
   return { q05, pNonLoss, mean };
+}
+
+function floorTarget(paths: number[]) {
+  const required = paths.map((path) => requiredFrontLoadFraction(path, 1));
+  const ordered = [...required].sort((a, b) => a - b);
+  // Nearest-rank 95% requirement: enough front-load for at least 95% of analogs
+  // to reach the terminal principal floor under the same 10Y ladder rule.
+  const index = Math.max(0, Math.ceil(0.95 * ordered.length) - 1);
+  return ordered[index] ?? 1;
 }
 
 function buildAnalogs(
@@ -333,29 +358,19 @@ export function recommendForScale(
     };
   }
 
-  const scored = ACTION_GRID.map((a) => ({
-    a,
-    ...objective(usable.map((x) => x.path), a),
-  }));
+  const paths = usable.map((x) => x.path);
+  const target = floorTarget(paths);
+  const scored = objective(paths, target);
 
-  scored.sort(
-    (x, y) =>
-      y.q05 - x.q05 ||
-      y.pNonLoss - x.pNonLoss ||
-      y.mean - x.mean ||
-      x.a - y.a,
-  );
-
-  const best = scored[0];
   return {
     channel: "",
     layer: "OBSERVED",
     scaleYears,
     asof,
-    target: best.a,
-    q05: best.q05,
-    pNonLoss: best.pNonLoss,
-    mean: best.mean,
+    target,
+    q05: scored.q05,
+    pNonLoss: scored.pNonLoss,
+    mean: scored.mean,
     nAnalogs: usable.length,
     effectiveN,
     status: "OK",
