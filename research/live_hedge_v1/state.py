@@ -516,7 +516,11 @@ class StateStore:
                     campaign["far_ownership_ticket_id"] = None
 
             elif et == "DYNAMIC_STATE_OBSERVED":
-                recovered_dynamic.append(payload)
+                # Only hashed events have verifiable event provenance. A legacy
+                # event prefix may still recover campaign/ticket structure, but
+                # its dynamic state must never silently become trusted state.
+                if event.get("event_hash"):
+                    recovered_dynamic.append(payload)
 
             elif et == "CAMPAIGN_ADOPTED_EXISTING_FAR":
                 if event.get("campaign_id"):
