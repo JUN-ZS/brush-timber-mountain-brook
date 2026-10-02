@@ -104,7 +104,6 @@ export type ReplayResult = {
   path: ReplayPathPoint[];
 };
 
-const ACTION_GRID = Array.from({ length: 21 }, (_, i) => i / 20);
 const MIN_ANALOGS = 8;
 const MAX_ANALOGS = 24;
 const ANALOG_STRIDE_MONTHS = 3;
