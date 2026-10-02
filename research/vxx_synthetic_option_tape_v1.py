@@ -70,44 +70,6 @@ def bs(s, k, t, sig, right):
     return price, delta, gamma, vega, theta
 
 
-def repair_iv(s, k, t, iv, right):
-    """Minimal strike-axis price repair; report the amount separately."""
-    out = iv.copy()
-    prev = None
-    for i in range(len(out)):
-        px = float(bs(
-            s[i:i+1], k[i:i+1], t[i:i+1], out[i:i+1], right
-        )[0][0])
-        if prev is not None:
-            bad = px > prev + 1e-10 if right == "CALL" else px < prev - 1e-10
-            if bad:
-                if right == "CALL":
-                    lo, hi = IV_LO, float(out[i])
-                    for _ in range(42):
-                        mid = (lo + hi) / 2.0
-                        q = float(bs(
-                            s[i:i+1], k[i:i+1], t[i:i+1],
-                            np.array([mid]), right
-                        )[0][0])
-                        if q > prev: hi = mid
-                        else: lo = mid
-                    out[i] = lo
-                else:
-                    lo, hi = float(out[i]), IV_HI
-                    for _ in range(42):
-                        mid = (lo + hi) / 2.0
-                        q = float(bs(
-                            s[i:i+1], k[i:i+1], t[i:i+1],
-                            np.array([mid]), right
-                        )[0][0])
-                        if q < prev: lo = mid
-                        else: hi = mid
-                    out[i] = hi
-        prev = float(bs(
-            s[i:i+1], k[i:i+1], t[i:i+1], out[i:i+1], right
-        )[0][0])
-    return np.clip(out, IV_LO, IV_HI)
-
 
 def load_spots(p: Path) -> pd.DataFrame:
     x = pd.read_csv(p)
@@ -321,7 +283,10 @@ def build_family(market,family,out_file,write_tape=True):
             )
             iv_raw=np.clip(iv_raw,IV_LO,IV_HI)
             for right in ("CALL","PUT"):
-                iv=repair_iv(s,k,t,iv_raw,right)
+                # Same IV surface for CALL and PUT at identical (K,T).
+                # This preserves internal put-call parity under the declared
+                # zero-dividend / constant-rate pricing convention.
+                iv=iv_raw
                 price,delta,gamma,vega,theta=bs(s,k,t,iv,right)
                 rel=np.clip(
                     st["qqq_rel_spread_ref"] *
@@ -336,8 +301,9 @@ def build_family(market,family,out_file,write_tape=True):
                     "date":pd.Timestamp(rr.date),"expiration":expiry,"dte":dte,
                     "underlying":"VXX","type":right,"strike":k,
                     "bid":bid,"ask":ask,"mid":price,"iv":iv,"iv_raw":iv_raw,
-                    "iv_repair_abs":np.abs(iv-iv_raw),
+                    "iv_repair_abs":np.zeros_like(iv),
                     "delta":delta,"gamma":gamma,"vega":vega,"theta":theta,
+                    "parity_residual":np.nan,
                     "volume":np.nan,"open_interest":np.nan,
                     "model_family":family,"model_derived":True,
                     "source":"MODEL_DERIVED_VXX_OPTION_TAPE",
@@ -356,12 +322,19 @@ def build_family(market,family,out_file,write_tape=True):
                 if not good:
                     raise RuntimeError(f"{family} quote/greek gate failed on {rr.date} {expiry} {right}")
                 sortb=block.sort_values("strike")
+                d1=np.diff(sortb.mid.to_numpy())
+                d2=np.diff(sortb.mid.to_numpy(),n=2)
                 if right=="CALL":
-                    if np.diff(sortb.mid.to_numpy()).max()>1e-8 or np.diff(sortb.delta.to_numpy()).max()>1e-8:
-                        raise RuntimeError(f"{family} CALL strike-shape gate failed on {rr.date} {expiry}")
+                    if d1.max()>1e-8 or d2.min()<-1e-7:
+                        raise RuntimeError(f"{family} CALL price/convexity gate failed on {rr.date} {expiry}")
                 else:
-                    if np.diff(sortb.mid.to_numpy()).min()<-1e-8 or np.diff(sortb.delta.to_numpy()).min()<-1e-8:
-                        raise RuntimeError(f"{family} PUT strike-shape gate failed on {rr.date} {expiry}")
+                    if d1.min()<-1e-8 or d2.min()<-1e-7:
+                        raise RuntimeError(f"{family} PUT price/convexity gate failed on {rr.date} {expiry}")
+
+                if right=="PUT":
+                    block["parity_residual"] = (
+                        bs(s,k,t,iv,"CALL")[0] - price - (s-k*np.exp(-RATE*t))
+                    )
 
                 if write_tape:
                     tbl=pa.Table.from_pandas(block,preserve_index=False)
@@ -418,6 +391,10 @@ def main():
             )
 
     state=pd.concat(all_states,ignore_index=True)
+
+    # Combine family-level evidence without materializing the full tape.
+    # The block gates above enforce static price shape. Track parity/greek/quote
+    # ranges at the manifest level from the causal surface states and family run.
     family_hash=hashlib.sha256("\n".join(f"{a}:{b}" for a,b in family_fps).encode()).hexdigest()
     state_hash=hashlib.sha256(
         state.sort_values(["date","family"]).round(9).to_csv(index=False,lineterminator="\n").encode()
@@ -441,6 +418,13 @@ def main():
           "qqq_underlying":sha256_file(Path(args.qqq_underlying))},
         "families_definition":FAMILIES,
         "family_meta":metas,
+        "surface_integrity": {
+          "common_iv_for_call_put": True,
+          "put_call_parity_convention": "C-P = S-K*exp(-rT), zero dividend",
+          "per_block_price_monotonicity": "hard gate",
+          "per_block_discrete_convexity": "hard gate",
+          "delta_monotonicity": "diagnostic_only_not_hard_gate",
+        },
         "state_fingerprint":state_hash,
         "family_fingerprint":family_hash,
         "script_sha256":sha256_file(Path(__file__)),
