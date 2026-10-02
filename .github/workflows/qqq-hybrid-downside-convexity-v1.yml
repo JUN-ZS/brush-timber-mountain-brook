@@ -8,6 +8,13 @@ on:
       - research/qqq_hybrid_downside_convexity_v1.py
       - research/QQQ_HYBRID_DOWNSIDE_CONVEXITY_V1_README.md
       - .github/workflows/qqq-hybrid-downside-convexity-v1.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - research/qqq_hybrid_downside_convexity_v1.py
+      - research/QQQ_HYBRID_DOWNSIDE_CONVEXITY_V1_README.md
+      - .github/workflows/qqq-hybrid-downside-convexity-v1.yml
   workflow_dispatch:
 
 permissions:
