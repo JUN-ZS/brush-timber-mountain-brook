@@ -5,6 +5,7 @@ import { Panel, Shell } from "@/components/shell";
 import { fmtPct, fmtUsd } from "@/lib/utils";
 import snapshot from "@/data/rolling_floor_ui_snapshot.json";
 import { buildLiveHistoryMatch, type LiveHistoryMatch, type YahooSeries } from "@/lib/floor/yahoo-live";
+import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floor";
 
 export const Route = createFileRoute("/floor")({ component: Page });
 
@@ -20,6 +21,15 @@ type LedgerEntry = {
   priceObservedAt?: string | null;
   priceSource?: "YAHOO_FINANCE_CHART" | "UNAVAILABLE";
 };
+
+type MarketTapeEntry = {
+  observedAt: string;
+  marketDate: string;
+  month: number;
+  price: number;
+};
+
+type FloorAction = "BUY / ADD" | "HOLD / NO NEW BUY" | "WAIT FOR LIVE MODEL";
 
 type RiskBaselineProfileView = {
   deploymentFractions: number[];
@@ -43,6 +53,7 @@ type FloorPersistedState = {
   startingDeployed: number;
   month: number;
   entries: LedgerEntry[];
+  marketTape: MarketTapeEntry[];
 };
 
 function defaultFloorState(): FloorPersistedState {
@@ -51,6 +62,7 @@ function defaultFloorState(): FloorPersistedState {
     startingDeployed: DEFAULT_STARTING_DEPLOYED,
     month: DEFAULT_MONTH,
     entries: [],
+    marketTape: [],
   };
 }
 
@@ -92,8 +104,10 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
       ? obj.ledger
       : [];
   const entries = entriesSource.filter(validLedgerEntry);
+  const marketTapeSource = Array.isArray(obj.marketTape) ? obj.marketTape : [];
+  const marketTape = marketTapeSource.filter(validMarketTapeEntry);
 
-  return { capital, startingDeployed, month, entries };
+  return { capital, startingDeployed, month, entries, marketTape };
 }
 
 function loadFloorState(): FloorPersistedState {
@@ -130,6 +144,7 @@ function writeFloorState(state: FloorPersistedState) {
         startingDeployed: state.startingDeployed,
         month: state.month,
         entries: state.entries,
+        marketTape: state.marketTape,
       }),
     );
     // Prefer v3 as source of truth after migrate/write.
@@ -143,11 +158,13 @@ function Page() {
   const [actualNow, setActualNow] = useState(0);
   const [month, setMonth] = useState(DEFAULT_MONTH);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [marketTape, setMarketTape] = useState<MarketTapeEntry[]>([]);
   const [copied, setCopied] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [liveMatch, setLiveMatch] = useState<LiveHistoryMatch | null>(null);
   const [liveContext, setLiveContext] = useState<YahooSeries[]>([]);
   const [liveFetchedAt, setLiveFetchedAt] = useState<string | null>(null);
+  const [liveFloor, setLiveFloor] = useState<CoupledSignal | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
 
@@ -161,6 +178,7 @@ function Page() {
         source?: string;
         fetchedAt?: string;
         symbols?: YahooSeries[];
+        rollingFloor?: { asOf: string; coupled: CoupledSignal } | null;
         warnings?: string[];
       };
       const symbols = Array.isArray(payload.symbols) ? payload.symbols : [];
@@ -169,6 +187,7 @@ function Page() {
       if (!match) throw new Error("Yahoo QQQ history insufficient");
       setLiveContext(symbols);
       setLiveMatch(match);
+      setLiveFloor(payload.rollingFloor?.coupled ?? null);
       setLiveFetchedAt(payload.fetchedAt ?? new Date().toISOString());
       if (payload.warnings?.length) setLiveError(payload.warnings.join(" · "));
     } catch (error) {
@@ -189,6 +208,7 @@ function Page() {
     setStartingDeployed(loaded.startingDeployed);
     setMonth(loaded.month);
     setLedger(loaded.entries);
+    setMarketTape(loaded.marketTape);
     setHasHydrated(true);
   }, []);
 
@@ -200,8 +220,31 @@ function Page() {
       startingDeployed,
       month,
       entries: ledger,
+      marketTape,
     });
-  }, [hasHydrated, capital, startingDeployed, month, ledger]);
+  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape]);
+
+  // Each successful Yahoo refresh seals one observed QQQ market point at the current cycle month.
+  // This tape is the bridge between real-time passage and the forward 10Y simulation.
+  useEffect(() => {
+    if (!hasHydrated || !liveFetchedAt) return;
+    const qqq = liveContext.find((x) => x.symbol === "QQQ");
+    if (!qqq?.price) return;
+    const marketDate = qqq.regularMarketTime?.slice(0, 10) ?? qqq.bars.at(-1)?.date;
+    if (!marketDate) return;
+
+    setMarketTape((current) => {
+      const next = current.filter((x) => !(x.marketDate === marketDate && x.month === month));
+      next.push({
+        observedAt: liveFetchedAt,
+        marketDate,
+        month,
+        price: qqq.price,
+      });
+      next.sort((a, b) => a.month - b.month || a.marketDate.localeCompare(b.marketDate));
+      return next.slice(-240);
+    });
+  }, [hasHydrated, liveFetchedAt, liveContext, month]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
@@ -214,6 +257,7 @@ function Page() {
           setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
           setMonth(DEFAULT_MONTH);
           setLedger([]);
+          setMarketTape([]);
           return;
         }
         const parsed = normalizeFloorState(JSON.parse(event.newValue));
@@ -222,6 +266,7 @@ function Page() {
         setStartingDeployed(parsed.startingDeployed);
         setMonth(parsed.month);
         setLedger(parsed.entries);
+        setMarketTape(parsed.marketTape);
       } catch {}
     };
     window.addEventListener("storage", onStorage);
@@ -357,6 +402,7 @@ function Page() {
     // Match prior CLEAR UX: wipe ledger + starting + live preview.
     // capital/month reset to defaults; persisted blob rewritten by save effect.
     setLedger([]);
+    setMarketTape([]);
     setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
     setActualNow(0);
     setCapital(DEFAULT_CAPITAL);
@@ -374,6 +420,7 @@ function Page() {
         startingDeployed,
         month,
         entries: ledger,
+        marketTape,
       },
       null,
       2,
@@ -765,6 +812,20 @@ function validLedgerEntry(value: unknown): value is LedgerEntry {
     Number.isFinite(x.amount) &&
     x.month >= 0 &&
     x.month <= 119
+  );
+}
+
+function validMarketTapeEntry(value: unknown): value is MarketTapeEntry {
+  if (!value || typeof value !== "object") return false;
+  const x = value as Partial<MarketTapeEntry>;
+  return (
+    typeof x.observedAt === "string" &&
+    typeof x.marketDate === "string" &&
+    Number.isFinite(x.month) &&
+    Number.isFinite(x.price) &&
+    x.month >= 0 &&
+    x.month <= 119 &&
+    x.price > 0
   );
 }
 
