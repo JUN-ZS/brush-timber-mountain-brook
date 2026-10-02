@@ -1,0 +1,42 @@
+name: QQQ Hybrid Component Decomposition V1
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - research/qqq-hybrid-component-decomposition-v1-20261002
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-hybrid-component-decomposition-v1-20261002
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas scipy
+      - name: Verify fixture
+        run: |
+          sha256sum src/data/universe.json
+      - name: Run component decomposition
+        run: |
+          python research/qqq_hybrid_component_decomposition_v1.py             --spots-path src/data/universe.json             --out artifacts
+      - name: Upload research artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-hybrid-component-decomposition-v1
+          path: artifacts/
+          if-no-files-found: error
