@@ -69,7 +69,14 @@ function lumpReplay(q: MonthlyPoint[], startIndex: number) {
   if (startIndex + h >= q.length) return null;
   const startPx = q[startIndex].value;
   const endPx = q[startIndex + h].value;
-  return { terminalWealth: endPx / startPx, maxDrawdown: 0 };
+  let peak = 1;
+  let maxDd = 0;
+  for (let j = 0; j <= h; j++) {
+    const e = q[startIndex + j].value / startPx;
+    peak = Math.max(peak, e);
+    maxDd = Math.min(maxDd, e / peak - 1);
+  }
+  return { terminalWealth: endPx / startPx, maxDrawdown: maxDd };
 }
 
 async function main() {
@@ -117,7 +124,7 @@ async function main() {
       dataAsOf: latestDate,
     },
     trap: {
-      scalesYears: [10, 20, 30, 50],
+      scalesYears: [20, 30, 50],
       rule: "Each scale sees only past analog anchors whose full 10Y path was already known at the as-of date. No future anchor is eligible.",
       balance: "Robust median across available channels/scales; MAD disagreement reduces signal authority and returns control to the clock.",
     },
@@ -178,7 +185,7 @@ async function main() {
     "## Architecture",
     "",
     "- 10Y = fixed terminal horizon.",
-    "- 10/20/30/50Y = parallel historical-context trap scales.",
+    "- 20/30/50Y = parallel historical-context trap scales; 10Y is only the terminal target horizon.",
     "- Analog futures are admitted only after their own 10Y future has matured.",
     "- Scale disagreement is preserved; it reduces signal authority instead of being averaged away.",
     "- Clock is the hard backstop: remaining cash is forced into equal catch-up slices as the deadline approaches.",
