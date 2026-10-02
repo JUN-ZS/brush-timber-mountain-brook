@@ -124,9 +124,13 @@ jobs:
           w=json.loads(Path("windows/manifest.json").read_text())
           l=json.loads(Path("linux/manifest.json").read_text())
           assert w["canonical_fingerprint"] == l["canonical_fingerprint"], (w["canonical_fingerprint"], l["canonical_fingerprint"])
+          assert w["family_fingerprint"] == l["family_fingerprint"]
+          assert w["state_fingerprint"] == l["state_fingerprint"]
           assert w["quality_gate"]["status"] == "PASS"
           assert l["quality_gate"]["status"] == "PASS"
-          print("WINDOWS_FINGERPRINT", w["canonical_fingerprint"])
-          print("LINUX_FINGERPRINT", l["canonical_fingerprint"])
+          assert w["source"] == "MODEL_DERIVED_VXX_OPTION_TAPE"
+          assert l["source"] == "MODEL_DERIVED_VXX_OPTION_TAPE"
+          print("WINDOWS_CANONICAL", w["canonical_fingerprint"])
+          print("LINUX_CANONICAL", l["canonical_fingerprint"])
           print("CROSS_RUNNER_FINGERPRINT_MATCH", w["canonical_fingerprint"])
           PY
