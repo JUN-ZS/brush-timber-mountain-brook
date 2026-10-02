@@ -370,7 +370,7 @@ def test_operator_ticket_context_rejects_future_ticket_for_backdated_trade():
     import json
     import tempfile
     from .serve_operator import explicit_strategy_context
-    from .ledger import InstanceLedger, sha256_json
+    from ..evidence_v1.ledger import EvidenceLedger
 
     with tempfile.TemporaryDirectory() as td:
         repo=Path(td)
@@ -385,21 +385,31 @@ def test_operator_ticket_context_rejects_future_ticket_for_backdated_trade():
             "research_engine_commit":"ENG1","strategy_lock_hash":"LOCK1",
             "initial_positions":[],
         }
-        manifest["manifest_hash"]=sha256_json(manifest)
+        from .run_instance import mhash
+        manifest["manifest_hash"]=mhash(manifest)
         (d/"manifest.json").write_text(json.dumps(manifest),encoding="utf-8")
-        ledger=InstanceLedger(d/"ledger.jsonl",{
-            "instance_id":iid,"manifest_hash":manifest["manifest_hash"],
-            "strategy_id":"S1","strategy_version":"V1","research_engine_commit":"ENG1",
-        })
+
+        evidence=EvidenceLedger(
+            repo/"research/evidence_v1/evidence.jsonl",
+            identity={
+                "strategy_id":"S1","strategy_version":"V1",
+                "research_engine_commit":"ENG1","strategy_lock_hash":"LOCK1",
+            },
+        )
         ticket={
             "ticket_id":"T-FUTURE","action":"ADD_NEAR","status":"OPEN",
             "legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":1}],
         }
-        # DECISION_EMITTED belongs to the system evidence ledger; the instance
-        # ledger stores the verified ticket context as a strategy-plan event.
-        from .ledger import sha256_json
-        ledger.append(
-            "STRATEGY_PLAN_OBSERVED",instance_id=iid,cycle_id="C2",
+        evidence.append(
+            "CYCLE_STARTED",cycle_id="C2",campaign_id=iid,
+            timestamp_utc="2026-10-02T09:59:59+00:00",payload={},
+        )
+        evidence.append(
+            "PRE_DECISION_OBSERVATION",cycle_id="C2",campaign_id=iid,
+            timestamp_utc="2026-10-02T09:59:59+00:00",payload={},
+        )
+        evidence.append(
+            "DECISION_EMITTED",cycle_id="C2",campaign_id=iid,
             timestamp_utc="2026-10-02T10:00:00+00:00",
             payload={"ticket":ticket},
         )
@@ -419,7 +429,6 @@ def test_operator_ticket_context_rejects_future_ticket_for_backdated_trade():
             assert str(exc)=="STRATEGY_CONTEXT_TICKET_NOT_VERIFIED"
         else:
             raise AssertionError("future ticket was used for a backdated trade")
-
 
 def test_operator_ticket_context_rejects_missing_lineage_identity():
     from .serve_operator import explicit_strategy_context
