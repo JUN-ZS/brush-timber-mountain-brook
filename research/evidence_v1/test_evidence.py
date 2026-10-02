@@ -370,7 +370,7 @@ def test_outcome_correction_cannot_change_source_provenance():
             "selection_cutoff":"2025-12-15","research_engine_commit":"TEST",
             "evidence_policy":{},
         }),encoding="utf-8")
-        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl", identity=TEST_IDENTITY)
         ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         anchor=ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
@@ -414,7 +414,7 @@ def test_broker_outcome_rejects_cycle_finalized_without_execution_evidence():
             "selection_cutoff":"2025-12-15",
             "research_engine_commit":"TEST","evidence_policy":{},
         }),encoding="utf-8")
-        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl", identity=TEST_IDENTITY)
         ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         anchor=ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
@@ -457,7 +457,7 @@ def test_outcome_correction_cannot_relabel_anchor_or_family():
              "family_observation":{"rows":[{"family_id":"F1","status":"AVAILABLE"},
                                            {"family_id":"F2","status":"AVAILABLE"}]}},
         )
-        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl", identity=TEST_IDENTITY)
         ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         anchor=ledger.append(
@@ -506,7 +506,7 @@ def test_outcome_rejects_unobserved_family_relabeling():
             {"cycle_id":"C1","campaign_id":"CAMP1",
              "family_observation":{"rows":[{"family_id":"F_OBS","status":"AVAILABLE"}]}},
         )
-        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl", identity=TEST_IDENTITY)
         ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         anchor=ledger.append(
@@ -558,7 +558,7 @@ def test_outcome_rejects_unavailable_family_relabeling_legacy_case():
                 },
             },
         )
-        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl", identity=TEST_IDENTITY)
         ledger.append(
             "CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
             timestamp_utc="2026-10-01T00:00:00+00:00",payload={},
@@ -613,7 +613,7 @@ def test_outcome_rejects_unavailable_family_relabeling():
                 },
             },
         )
-        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl", identity=TEST_IDENTITY)
         ledger.append(
             "CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
             timestamp_utc="2026-10-01T00:00:00+00:00",payload={},
@@ -655,7 +655,7 @@ def test_outcome_requires_anchor_and_rejects_duplicate_without_correction():
             "evidence_policy":{},
         }),encoding="utf-8")
         path=root/"research/evidence_v1/evidence.jsonl"
-        ledger=EvidenceLedger(path)
+        ledger=EvidenceLedger(path, identity=TEST_IDENTITY)
         ledger.append(
             "CYCLE_STARTED",
             cycle_id="C1",
@@ -799,7 +799,7 @@ def test_user_reported_outcome_uses_human_reported_grade():
             "selection_cutoff":"2025-12-15","research_engine_commit":"TEST",
             "evidence_policy":{},
         }),encoding="utf-8")
-        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl", identity=TEST_IDENTITY)
         ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         anchor=ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
