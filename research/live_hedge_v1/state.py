@@ -12,6 +12,8 @@ from typing import Any, Dict, Optional
 SCHEMA_VERSION = 2
 EVENT_SCHEMA = "LIVE_DESK_EVENT.v2"
 EVENT_GENESIS = "0" * 64
+GAMMA_HISTORY_SCHEMA = 2
+GAMMA_HISTORY_UNIT = "gamma_spot"
 
 DEFAULT_STATE: Dict[str, Any] = {
     "schema_version": SCHEMA_VERSION,
