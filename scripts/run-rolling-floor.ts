@@ -1,43 +1,169 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
-  buildSignalPanel,
+  couple,
+  monthlyize,
   qqqMonthly,
+  recommendForScale,
   replayOne,
   summarizeReplays,
-  monthlyize,
+  TRAP_SCALES_YEARS,
+  type ChannelScaleSignal,
   type Channel,
   type MonthlyPoint,
 } from "../src/lib/pulse/rolling-floor.ts";
 
-const ROOT = process.cwd();
-const RESEARCH = join(ROOT, "research", "rolling_10y_floor");
+type ChannelId = "QQQ" | "NDX" | "NASDAQCOM";
+type Mode = "full" | "shard" | "bridge";
+
+type ShardPayload = {
+  version: "rolling-floor.shard.v2";
+  kind: "CHANNEL_SHARD";
+  channel: ChannelId;
+  layer: Channel["layer"];
+  targetDates: string[];
+  qqq: MonthlyPoint[];
+  points: MonthlyPoint[];
+  qqqHash: string;
+  data: {
+    source: string;
+    sha256_16: string;
+    first: string | null;
+    last: string | null;
+    months: number;
+  };
+  signals: ChannelScaleSignal[];
+};
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const DEFAULT_OUT = join(ROOT, "research", "rolling_10y_floor");
+const DEFAULT_INPUT = join(ROOT, "inputs", "rolling_floor_shards");
 const END_DATE = qqqMonthly().at(-1)?.date ?? "2026-09-04";
+
+function parseArgs() {
+  const argv = process.argv.slice(2);
+  const get = (name: string, fallback: string | null = null) => {
+    const i = argv.indexOf(name);
+    return i >= 0 ? argv[i + 1] ?? fallback : fallback;
+  };
+  const mode = (get("--mode", "full") ?? "full") as Mode;
+  const channel = get("--channel") as ChannelId | null;
+  const outDir = resolve(ROOT, get("--out-dir", DEFAULT_OUT) ?? DEFAULT_OUT);
+  const inputDir = resolve(ROOT, get("--input-dir", DEFAULT_INPUT) ?? DEFAULT_INPUT);
+  if (!["full", "shard", "bridge"].includes(mode)) {
+    throw new Error("Unknown mode: " + mode);
+  }
+  if (mode === "shard" && !channel) throw new Error("--channel is required in shard mode");
+  if (channel && !["QQQ", "NDX", "NASDAQCOM"].includes(channel)) {
+    throw new Error("Unknown channel: " + channel);
+  }
+  return { mode, channel, outDir, inputDir };
+}
+
+function hashPoints(points: MonthlyPoint[]) {
+  return createHash("sha256").update(JSON.stringify(points)).digest("hex").slice(0, 16);
+}
+
+function indexAtOrBefore(points: MonthlyPoint[], date: string) {
+  let lo = 0;
+  let hi = points.length - 1;
+  let best = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].date <= date) {
+      best = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return best;
+}
 
 async function fetchFred(id: string, start: string) {
   const url =
     "https://fred.stlouisfed.org/graph/fredgraph.csv?" +
     new URLSearchParams({ id, cosd: start, coed: END_DATE });
   const res = await fetch(url, {
-    headers: { "User-Agent": "rolling-10y-floor-research/1.0" },
+    headers: { "User-Agent": "rolling-10y-floor-research/2.0" },
   });
-  if (!res.ok) throw new Error(`FRED ${id} HTTP ${res.status}`);
-  const text = await res.text();
-  const hash = createHash("sha256").update(text).digest("hex").slice(0, 16);
-  const lines = text.split(/\\r?\\n/).filter(Boolean);
-  const points = [];
+  if (!res.ok) throw new Error("FRED " + id + " HTTP " + res.status);
+  const raw = await res.text();
+  const sha256_16 = createHash("sha256").update(raw).digest("hex").slice(0, 16);
+  const lines = raw.split(/\r?\n/).filter(Boolean);
+  const points: { date: string; value: number }[] = [];
   for (let i = 1; i < lines.length; i++) {
     const comma = lines[i].indexOf(",");
     if (comma < 0) continue;
     const date = lines[i].slice(0, comma).trim();
-    const raw = lines[i].slice(comma + 1).trim();
-    const value = Number(raw);
-    if (/^\\d{4}-\\d{2}-\\d{2}$/.test(date) && Number.isFinite(value) && value > 0) {
+    const value = Number(lines[i].slice(comma + 1).trim());
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(value) && value > 0) {
       points.push({ date, value });
     }
   }
-  return { points: monthlyize(points), hash, url };
+  const monthly = monthlyize(points);
+  if (monthly.length < 600) {
+    throw new Error("FRED " + id + " returned too little history: " + monthly.length + " months");
+  }
+  return { points: monthly, sha256_16, source: url };
+}
+
+function channelLayer(channel: ChannelId): Channel["layer"] {
+  return channel === "QQQ" ? "OBSERVED" : "PROXY_PRICE";
+}
+
+async function makeShard(channel: ChannelId): Promise<ShardPayload> {
+  const qqq = qqqMonthly();
+  let points: MonthlyPoint[];
+  let source = "repo:src/data/universe.json";
+  let sha256_16 = hashPoints(qqq);
+
+  if (channel === "QQQ") {
+    points = qqq;
+  } else if (channel === "NDX") {
+    const x = await fetchFred("NASDAQ100", "1986-01-02");
+    points = x.points;
+    source = x.source;
+    sha256_16 = x.sha256_16;
+  } else {
+    const x = await fetchFred("NASDAQCOM", "1971-02-05");
+    points = x.points;
+    source = x.source;
+    sha256_16 = x.sha256_16;
+  }
+
+  const signals: ChannelScaleSignal[] = [];
+  for (const asof of qqq) {
+    const idx = indexAtOrBefore(points, asof.date);
+    if (idx < 0) continue;
+    for (const scaleYears of TRAP_SCALES_YEARS) {
+      const signal = recommendForScale(points, qqq, idx, scaleYears);
+      signal.channel = channel;
+      signal.layer = channelLayer(channel);
+      signals.push(signal);
+    }
+  }
+
+  return {
+    version: "rolling-floor.shard.v2",
+    kind: "CHANNEL_SHARD",
+    channel,
+    layer: channelLayer(channel),
+    targetDates: qqq.map((x) => x.date),
+    qqq,
+    points,
+    qqqHash: hashPoints(qqq),
+    data: {
+      source,
+      sha256_16,
+      first: points[0]?.date ?? null,
+      last: points.at(-1)?.date ?? null,
+      months: points.length,
+    },
+    signals,
+  };
 }
 
 function clockReplay(q: MonthlyPoint[], startIndex: number) {
@@ -45,30 +171,34 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
   if (startIndex + h >= q.length) return null;
   let cash = 1;
   const lots: { amount: number; entry: number }[] = [];
-  let peak = 1;
-  let maxDd = 0;
   for (let j = 0; j < h; j++) {
     const amount = cash / (h - j);
     const px = q[startIndex + j].value;
     lots.push({ amount, entry: px });
     cash -= amount;
+  }
+  const curve: number[] = [];
+  let peak = 1;
+  let maxDd = 0;
+  for (let j = 0; j <= h; j++) {
+    const px = q[startIndex + j].value;
     const e =
       cash +
       lots.reduce((s, lot) => s + lot.amount * (px / lot.entry), 0);
+    curve.push(e);
     peak = Math.max(peak, e);
     maxDd = Math.min(maxDd, e / peak - 1);
   }
-  const endPx = q[startIndex + h].value;
-  const end =
-    cash + lots.reduce((s, lot) => s + lot.amount * (endPx / lot.entry), 0);
-  return { terminalWealth: end, maxDrawdown: maxDd };
+  return {
+    terminalWealth: curve.at(-1) ?? 1,
+    maxDrawdown: maxDd,
+  };
 }
 
 function lumpReplay(q: MonthlyPoint[], startIndex: number) {
   const h = 120;
   if (startIndex + h >= q.length) return null;
   const startPx = q[startIndex].value;
-  const endPx = q[startIndex + h].value;
   let peak = 1;
   let maxDd = 0;
   for (let j = 0; j <= h; j++) {
@@ -76,47 +206,142 @@ function lumpReplay(q: MonthlyPoint[], startIndex: number) {
     peak = Math.max(peak, e);
     maxDd = Math.min(maxDd, e / peak - 1);
   }
-  return { terminalWealth: endPx / startPx, maxDrawdown: maxDd };
+  return {
+    terminalWealth: q[startIndex + h].value / startPx,
+    maxDrawdown: maxDd,
+  };
 }
 
-async function main() {
-  mkdirSync(RESEARCH, { recursive: true });
-  const qqq = qqqMonthly();
-  const ndx = await fetchFred("NASDAQ100", "1986-01-02");
-  const comp = await fetchFred("NASDAQCOM", "1971-02-05");
+function readJson<T>(path: string): T {
+  return JSON.parse(readFileSync(path, "utf8")) as T;
+}
 
-  const channels: Channel[] = [
-    { id: "QQQ", layer: "OBSERVED", points: qqq },
-    { id: "NDX", layer: "PROXY_PRICE", points: ndx.points },
-    { id: "NASDAQCOM", layer: "PROXY_PRICE", points: comp.points },
-  ];
+function groupSignals(shards: ShardPayload[]) {
+  const byDate = new Map<string, ChannelScaleSignal[]>();
+  for (const shard of shards) {
+    for (const signal of shard.signals) {
+      const xs = byDate.get(signal.asof) ?? [];
+      xs.push(signal);
+      byDate.set(signal.asof, xs);
+    }
+  }
+  return byDate;
+}
 
-  const panel = buildSignalPanel(channels, qqq.map((x) => x.date));
+function validateShards(shards: ShardPayload[], qqq: MonthlyPoint[]) {
+  const ids = shards.map((x) => x.channel).sort();
+  const expected = ["NASDAQCOM", "NDX", "QQQ"];
+  if (ids.join(",") !== expected.join(",")) {
+    throw new Error(
+      "Bridge requires exactly QQQ + NDX + NASDAQCOM; got " + ids.join(","),
+    );
+  }
+  const qqqHash = hashPoints(qqq);
+  for (const shard of shards) {
+    if (shard.version !== "rolling-floor.shard.v2" || shard.kind !== "CHANNEL_SHARD") {
+      throw new Error("Invalid shard: " + shard.channel);
+    }
+    if (shard.qqqHash !== qqqHash) {
+      throw new Error(
+        "QQQ snapshot hash mismatch in " +
+          shard.channel +
+          ": " +
+          shard.qqqHash +
+          " != " +
+          qqqHash,
+      );
+    }
+    if (shard.targetDates.length !== qqq.length) {
+      throw new Error("Target date count mismatch in " + shard.channel);
+    }
+    if (shard.signals.length === 0) {
+      throw new Error("Empty signal shard: " + shard.channel);
+    }
+  }
+}
+
+function buildBridgePanel(qqq: MonthlyPoint[], shards: ShardPayload[]) {
+  const byDate = groupSignals(shards);
+  const panel = new Map<string, ReturnType<typeof couple>>();
+  for (const p of qqq) {
+    panel.set(p.date, couple(p.date, 0, byDate.get(p.date) ?? []));
+  }
+  return { panel, byDate };
+}
+
+function runReplay(
+  qqq: MonthlyPoint[],
+  panel: Map<string, ReturnType<typeof couple>>,
+) {
   const replays = [];
   const clock = [];
   const lump = [];
-
   for (let start = 0; start + 120 < qqq.length; start++) {
     const r = replayOne(qqq, panel, start);
-    if (r) {
-      replays.push(r);
-      clock.push(clockReplay(qqq, start));
-      lump.push(lumpReplay(qqq, start));
-    }
+    if (!r) continue;
+    replays.push(r);
+    clock.push(clockReplay(qqq, start));
+    lump.push(lumpReplay(qqq, start));
   }
+  return { replays, clock: clock.filter(Boolean), lump: lump.filter(Boolean) };
+}
 
-  const cleanClock = clock.filter(Boolean);
-  const cleanLump = lump.filter(Boolean);
-  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
-  const nonLoss = (xs: number[]) => xs.filter((x) => x >= 1).length / Math.max(1, xs.length);
+function baselineSummary(
+  rows: Array<{ terminalWealth: number; maxDrawdown: number }>,
+) {
+  const ws = rows.map((r) => r.terminalWealth);
+  const a = [...ws].sort((x, y) => x - y);
+  const m = Math.floor(a.length / 2);
+  return {
+    n: rows.length,
+    nonLossRate:
+      ws.filter((x) => x >= 1).length / Math.max(1, ws.length),
+    medianTerminal:
+      a.length === 0 ? 0 : a.length % 2 ? a[m] : ((a[m - 1] ?? 0) + a[m]) / 2,
+    worstTerminal: a.length ? a[0] : 0,
+    meanMaxDd:
+      rows.reduce((s, x) => s + x.maxDrawdown, 0) /
+      Math.max(1, rows.length),
+    worstMaxDd: rows.length ? Math.min(...rows.map((x) => x.maxDrawdown)) : 0,
+  };
+}
 
+function writeOutputs(
+  outDir: string,
+  qqq: MonthlyPoint[],
+  shards: ShardPayload[],
+  replay: ReturnType<typeof runReplay>,
+) {
+  mkdirSync(outDir, { recursive: true });
   const latestDate = qqq.at(-1)?.date ?? END_DATE;
-  const latest = panel.get(latestDate);
-  const currentSignals = latest?.signals ?? [];
+  const { panel, byDate } = buildBridgePanel(qqq, shards);
+  const current =
+    panel.get(latestDate) ??
+    couple(latestDate, 0, byDate.get(latestDate) ?? []);
 
   const payload = {
-    version: "rolling-floor.v1",
+    version: "rolling-floor.v2",
     evidenceClass: "RESEARCH_ONLY",
+    topology: {
+      workers: [
+        {
+          lane: "windows",
+          channel: "QQQ",
+          runner: '["self-hosted","windows","x64"]',
+        },
+        {
+          lane: "linux",
+          channel: "NDX",
+          runner: '["self-hosted","linux","x64"]',
+        },
+        {
+          lane: "hub-web",
+          channel: "NASDAQCOM",
+          runner: '["ubuntu-latest"]',
+        },
+      ],
+      bridge: "ubuntu-latest",
+    },
     target: {
       asset: "QQQ",
       horizonYears: 10,
@@ -124,102 +349,155 @@ async function main() {
       dataAsOf: latestDate,
     },
     trap: {
-      scalesYears: [20, 30, 50],
-      rule: "Each scale sees only past analog anchors whose full 10Y path was already known at the as-of date. No future anchor is eligible.",
-      balance: "Robust median across available channels/scales; MAD disagreement reduces signal authority and returns control to the clock.",
+      scalesYears: [...TRAP_SCALES_YEARS],
+      rule:
+        "10Y is terminal horizon; 20/30/50Y are parallel historical context scales. An analog is admitted only after its following QQQ 10Y path is fully mature.",
+      divergence:
+        "Scale disagreement is a first-class state; CONVERGENT permits forward pull, TENSION halves it, DIVERGENT/THIN return authority to the deadline clock.",
     },
-    data: {
-      QQQ: { layer: "OBSERVED", first: qqq[0]?.date, last: qqq.at(-1)?.date, months: qqq.length },
-      NASDAQ100: { layer: "PROXY_PRICE", first: ndx.points[0]?.date, last: ndx.points.at(-1)?.date, months: ndx.points.length, sha256_16: ndx.hash, source: ndx.url },
-      NASDAQCOM: { layer: "PROXY_PRICE", first: comp.points[0]?.date, last: comp.points.at(-1)?.date, months: comp.points.length, sha256_16: comp.hash, source: comp.url },
-    },
+    data: shards.map((s) => ({
+      channel: s.channel,
+      layer: s.layer,
+      first: s.data.first,
+      last: s.data.last,
+      months: s.data.months,
+      sha256_16: s.data.sha256_16,
+      source: s.data.source,
+    })),
     current: {
       asOf: latestDate,
       clockFirstMonthTarget: 1 / 120,
-      robustTargetAtPhaseZero: latest?.robustTarget ?? null,
-      agreementAtPhaseZero: latest?.agreement ?? 0,
-      divergenceStateAtPhaseZero: latest?.divergenceState ?? "THIN",
-      firstInjectionFraction: latest?.robustTarget == null
-        ? 1 / 120
-        : Math.max(1 / 120, (latest.robustTarget ?? 0) * (latest.agreement ?? 0)),
-      signals: currentSignals,
-      perScale: latest?.perScale ?? [],
+      robustTargetAtPhaseZero: current.robustTarget,
+      agreementAtPhaseZero: current.agreement,
+      divergenceStateAtPhaseZero: current.divergenceState,
+      coupledTargetAtPhaseZero: current.coupledTarget,
+      firstInjectionFraction: Math.max(1 / 120, current.coupledTarget),
+      signalCount: current.signals.length,
+      perScale: current.perScale,
     },
     replay: {
-      n: replays.length,
-      coupled: summarizeReplays(replays),
-      clockOnly: {
-        n: cleanClock.length,
-        nonLossRate: nonLoss(cleanClock.map((x) => x!.terminalWealth)),
-        meanTerminal: avg(cleanClock.map((x) => x!.terminalWealth)),
-        worstTerminal: Math.min(...cleanClock.map((x) => x!.terminalWealth)),
-      },
-      lumpNow: {
-        n: cleanLump.length,
-        nonLossRate: nonLoss(cleanLump.map((x) => x!.terminalWealth)),
-        meanTerminal: avg(cleanLump.map((x) => x!.terminalWealth)),
-        worstTerminal: Math.min(...cleanLump.map((x) => x!.terminalWealth)),
-      },
+      n: replay.replays.length,
+      coupled: summarizeReplays(replay.replays),
+      clockOnly: baselineSummary(replay.clock),
+      lumpNow: baselineSummary(replay.lump),
     },
-    starts: replays.map((r) => ({
-      startDate: r.startDate,
-      endDate: r.endDate,
-      terminalWealth: r.terminalWealth,
-      maxDrawdown: r.maxDrawdown,
-      deployedAtHalfway: r.deployedAtHalfway,
-      deployedAtYear8: r.deployedAtYear8,
-      forcedCatchUpMonths: r.forcedCatchUpMonths,
-      divergenceStateByDate: r.trades.map((t) => ({ date: t.date, state: t.divergenceState })),
-    })),
+    provenance: {
+      runner: "scripts/run-rolling-floor.ts",
+      mode: "BRIDGE",
+      qqqHash: hashPoints(qqq),
+      sourceCommit: process.env.GITHUB_SHA ?? "LOCAL",
+      externalRerun: "Use the portable bundle. No npm install and no network are required for bridge replay.",
+    },
   };
 
-  writeFileSync(join(RESEARCH, "rolling_floor_result.json"), JSON.stringify(payload, null, 2));
   writeFileSync(
-    join(RESEARCH, "rolling_floor_replays.jsonl"),
-    replays.map((r) => JSON.stringify(r)).join("\n") + "\n",
+    join(outDir, "rolling_floor_result.json"),
+    JSON.stringify(payload, null, 2),
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_replays.jsonl"),
+    replay.replays.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
 
   const report = [
-    "# Rolling 10Y Capital-Floor Controller",
+    "# Rolling 10Y Capital-Floor Controller v2",
     "",
-    `Data end: **${latestDate}**`,
+    "Data end: " + latestDate,
     "",
-    "## Architecture",
+    "## Execution topology",
     "",
-    "- 10Y = fixed terminal horizon.",
-    "- 20/30/50Y = parallel historical-context trap scales; 10Y is only the terminal target horizon.",
-    "- Analog futures are admitted only after their own 10Y future has matured.",
-    "- Scale disagreement is preserved; it reduces signal authority instead of being averaged away.",
-    "- Clock is the hard backstop: remaining cash is forced into equal catch-up slices as the deadline approaches.",
-    "- QQQ outcome is the observed target path. NDX and NASDAQ Composite are price-only context proxies.",
+    "- One matrix job definition spawns three parallel channel workers.",
+    "- Windows self-hosted computes QQQ observed state signals.",
+    "- Linux self-hosted computes NASDAQ-100 proxy state signals.",
+    "- HUB-Web (ubuntu-latest) computes NASDAQ Composite proxy state signals.",
+    "- A separate Bridge collector on ubuntu-latest joins the three immutable shards, applies the coupling state machine, and performs the QQQ replay.",
+    "",
+    "## Offline rerun",
+    "",
+    "- The portable bundle contains the exact runner source, QQQ source snapshot, all three channel shards, and the prior output.",
+    "- RUN.cmd / RUN.sh invoke Node 22 directly; npm and FRED network access are not required for bridge replay.",
     "",
     "## Replay",
     "",
-    `Coupled replays: **${payload.replay.n}**`,
-    `Coupled non-loss rate: **${(payload.replay.coupled.nonLossRate * 100).toFixed(1)}%**`,
-    `Coupled 5% terminal quantile: **${payload.replay.coupled.q05Terminal.toFixed(4)}**`,
-    `Coupled worst terminal: **${payload.replay.coupled.worstTerminal.toFixed(4)}**`,
-    `Coupled worst MaxDD: **${(payload.replay.coupled.worstMaxDd * 100).toFixed(1)}%**`,
+    "Coupled replays: " + replay.replays.length,
+    "Coupled non-loss rate: " +
+      (payload.replay.coupled.nonLossRate * 100).toFixed(1) +
+      "%",
+    "Coupled 5% terminal quantile: " +
+      payload.replay.coupled.q05Terminal.toFixed(4),
+    "Coupled worst terminal: " +
+      payload.replay.coupled.worstTerminal.toFixed(4),
+    "Coupled worst MaxDD: " +
+      (payload.replay.coupled.worstMaxDd * 100).toFixed(1) +
+      "%",
     "",
-    `Clock-only non-loss: **${(payload.replay.clockOnly.nonLossRate * 100).toFixed(1)}%**`,
-    `Lump-now non-loss: **${(payload.replay.lumpNow.nonLossRate * 100).toFixed(1)}%**`,
+    "Clock-only non-loss: " +
+      (payload.replay.clockOnly.nonLossRate * 100).toFixed(1) +
+      "%",
+    "Lump-now non-loss: " +
+      (payload.replay.lumpNow.nonLossRate * 100).toFixed(1) +
+      "%",
     "",
-    "## Current (repo data as-of)",
+    "## Current",
     "",
-    `Robust signal target at phase 0: **${payload.current.robustTargetAtPhaseZero == null ? "MISSING" : (payload.current.robustTargetAtPhaseZero * 100).toFixed(1) + "%"}**`,
-    `Cross-scale agreement: **${(payload.current.agreementAtPhaseZero * 100).toFixed(1)}%**`,
-    `Divergence state: **${payload.current.divergenceStateAtPhaseZero}**`,
-    `First-month minimum by clock: **${(100 / 120).toFixed(3)}%**`,
-    `First injection from coupled rule: **${(payload.current.firstInjectionFraction * 100).toFixed(2)}%**`,
+    "Robust target at phase 0: " +
+      (current.robustTarget == null
+        ? "MISSING"
+        : (current.robustTarget * 100).toFixed(1) + "%"),
+    "Cross-scale state authority: " +
+      (current.agreement * 100).toFixed(1) +
+      "%",
+    "Divergence state: " + current.divergenceState,
+    "Coupled phase-0 target: " +
+      (current.coupledTarget * 100).toFixed(2) +
+      "%",
     "",
-    "## Important limitation",
+    "## Limitation",
     "",
-    "This is a research controller, not a guarantee. NDX/NASDAQ Composite proxy channels are price-index histories, while the scored target is the observed QQQ path. The current repo's QQQ data begins in 2004, so the number of independent 10Y start regimes is limited.",
+    "QQQ is the observed outcome target. NDX and NASDAQ Composite are price-index proxy channels used only for state analog selection. Rolling starts overlap heavily, so replay count is not an independent-sample count.",
     "",
   ].join("\n");
 
-  writeFileSync(join(RESEARCH, "rolling_floor_report.md"), report);
-  console.log(report);
+  writeFileSync(join(outDir, "rolling_floor_report.md"), report);
+}
+
+async function main() {
+  const { mode, channel, outDir, inputDir } = parseArgs();
+
+  if (mode === "shard") {
+    const shard = await makeShard(channel as ChannelId);
+    mkdirSync(outDir, { recursive: true });
+    writeFileSync(
+      join(outDir, shard.channel + ".json"),
+      JSON.stringify(shard, null, 2),
+    );
+    console.log(
+      "SHARD PASS " +
+        shard.channel +
+        ": signals=" +
+        shard.signals.length +
+        ", points=" +
+        shard.points.length,
+    );
+    return;
+  }
+
+  let shards: ShardPayload[];
+  if (mode === "bridge") {
+    shards = (["QQQ", "NDX", "NASDAQCOM"] as ChannelId[]).map((id) =>
+      readJson<ShardPayload>(join(inputDir, id + ".json")),
+    );
+  } else {
+    shards = await Promise.all(
+      (["QQQ", "NDX", "NASDAQCOM"] as ChannelId[]).map(makeShard),
+    );
+  }
+
+  const qqq = qqqMonthly();
+  validateShards(shards, qqq);
+  const replay = runReplay(qqq, buildBridgePanel(qqq, shards).panel);
+  writeOutputs(outDir, qqq, shards, replay);
+  console.log(readFileSync(join(outDir, "rolling_floor_report.md"), "utf8"));
 }
 
 main().catch((err) => {
