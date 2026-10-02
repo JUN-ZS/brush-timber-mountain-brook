@@ -7,20 +7,17 @@ import snapshot from "@/data/rolling_floor_ui_snapshot.json";
 
 export const Route = createFileRoute("/floor")({ component: Page });
 
+type EntryStatus = "BELOW_CLOCK" | "ON_CLOCK" | "AHEAD" | "OVER_CAPITAL";
+
 type LedgerEntry = {
   id: string;
   recordedAt: string;
   asOf: string;
   month: number;
   amount: number;
-  cumulativeAmount: number;
-  cumulativeFraction: number;
-  clockTarget: number;
-  delta: number;
-  status: "BELOW_CLOCK" | "ON_CLOCK" | "AHEAD";
 };
 
-const LEDGER_KEY = "qqq-rolling-floor-ledger-v1";
+const LEDGER_KEY = "qqq-rolling-floor-ledger-v2";
 
 function Page() {
   const [capital, setCapital] = useState(100000);
@@ -33,8 +30,12 @@ function Page() {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(LEDGER_KEY);
-      if (raw) setLedger(JSON.parse(raw) as LedgerEntry[]);
-    } catch {}
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) setLedger(parsed.filter(validLedgerEntry));
+    } catch {
+      window.localStorage.removeItem(LEDGER_KEY);
+    }
   }, []);
 
   useEffect(() => {
@@ -43,50 +44,67 @@ function Page() {
     } catch {}
   }, [ledger]);
 
-  const suggestedFraction = Math.max(
-    snapshot.current.clockFirstMonthTarget,
-    snapshot.current.coupledTargetAtPhaseZero,
-  );
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== LEDGER_KEY) return;
+      try {
+        const parsed = event.newValue ? JSON.parse(event.newValue) : [];
+        setLedger(Array.isArray(parsed) ? parsed.filter(validLedgerEntry) : []);
+      } catch {}
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   const safeCapital = Math.max(1, capital);
   const recordedAmount = ledger.reduce((sum, x) => sum + Math.max(0, x.amount), 0);
   const cumulativeBeforePreview = Math.max(0, startingDeployed) + recordedAmount;
   const cumulativeNowAmount = cumulativeBeforePreview + Math.max(0, actualNow);
-  const currentAlreadyDeployed = cumulativeBeforePreview / safeCapital;
+  const cumulativeNowFraction = cumulativeNowAmount / safeCapital;
+
   const currentClock = clockTarget(month);
-  const cumulativeModelTarget = Math.max(currentClock, suggestedFraction);
-  const requiredExtraFraction = Math.max(
-    0,
-    cumulativeModelTarget - currentAlreadyDeployed,
+  const signalFloorAnchor = Math.max(0, Number(snapshot.current.coupledTargetAtPhaseZero) || 0);
+  const cumulativeModelTarget = Math.min(1, Math.max(currentClock, signalFloorAnchor));
+  const additionalSuggested = Math.max(0, cumulativeModelTarget * safeCapital - cumulativeBeforePreview);
+  const remainingCapital = Math.max(0, safeCapital - cumulativeBeforePreview);
+  const currentStatus = statusFor(cumulativeNowFraction, currentClock, cumulativeNowAmount, safeCapital);
+
+  const responseCurves = useMemo(
+    () =>
+      (snapshot.current.perScale ?? [])
+        .filter(
+          (s) =>
+            s.responseProfile?.deploymentFractions?.length &&
+            s.responseProfile?.q05Terminal?.length,
+        )
+        .map((s) => ({
+          scale: s.scaleYears,
+          xs: s.responseProfile.deploymentFractions,
+          ys: s.responseProfile.q05Terminal,
+        })),
+    [],
   );
-  const suggestedAmount = requiredExtraFraction * safeCapital;
-  const capitalPath = buildCapitalPath(ledger, startingDeployed, capital, {
-    month,
-    cumulativeAmount: cumulativeNowAmount,
-  });
-  const responseCurves = snapshot.current.perScale.map((s) => ({
-    scale: s.scaleYears,
-    xs: s.responseProfile.deploymentFractions,
-    ys: s.responseProfile.q05Terminal,
-  }));
-  const maxResponse = Math.max(...responseCurves.flatMap((c) => c.ys));
-  const responseDomain = [1, Math.max(3.5, maxResponse * 1.05)];
-  const ndx = snapshot.current.mutualChase.find((x) => x.channel === "NDX");
-  const composite = snapshot.current.mutualChase.find((x) => x.channel === "NASDAQCOM");
+
+  const maxResponse = responseCurves.length
+    ? Math.max(...responseCurves.flatMap((c) => c.ys.map((x) => Number(x) || 0)))
+    : 1;
+  const responseDomain = [1, Math.max(2, maxResponse * 1.05)];
+
+  const ndx = snapshot.current.mutualChase?.find((x) => x.channel === "NDX");
+  const composite = snapshot.current.mutualChase?.find((x) => x.channel === "NASDAQCOM");
   const ndxHandoff = ndx ? leaderHandoff(ndx.topology.leaderScaleBySegment) : null;
 
-  const currentStatus = useMemo(
-    () => statusFor(cumulativeNowAmount / safeCapital, currentClock, cumulativeNowAmount, safeCapital),
-    [cumulativeNowAmount, safeCapital, currentClock],
+  const capitalPoints = buildCapitalPoints(
+    ledger,
+    startingDeployed,
+    safeCapital,
+    { month, cumulativeAmount: cumulativeNowAmount },
   );
 
   function recordPoint() {
-    if (!Number.isFinite(actualNow) || actualNow < 0) return;
-    const cumulativeAmount = ledger.reduce((sum, x) => sum + x.amount, 0) + actualNow;
-    if (cumulativeAmount > capital + 1e-8) return;
-    const cumulativeFraction = cumulativeAmount / Math.max(capital, 1);
-    const ct = currentClock;
-    const delta = cumulativeFraction - ct;
-    const status = delta < -0.005 ? "BELOW_CLOCK" : delta > 0.005 ? "AHEAD" : "ON_CLOCK";
+    if (!Number.isFinite(actualNow) || actualNow <= 0) return;
+    if (cumulativeNowAmount > safeCapital + 1e-8) return;
+
     setLedger((entries) => [
       ...entries,
       {
@@ -95,70 +113,85 @@ function Page() {
         asOf: snapshot.current.asOf,
         month,
         amount: actualNow,
-        cumulativeAmount,
-        cumulativeFraction,
-        clockTarget: ct,
-        delta,
-        status,
       },
     ]);
-    setAlreadyDeployed(cumulativeAmount);
     setActualNow(0);
   }
 
-  function exportLedger() {
+  function clearLocal() {
+    setLedger([]);
+    setStartingDeployed(0);
+    setActualNow(0);
+  }
+
+  function copyLedger() {
     const payload = JSON.stringify(
       {
-        version: "rolling-floor-ledger.v1",
+        version: "rolling-floor-ledger.v2",
         asset: snapshot.asset,
         modelAsOf: snapshot.asOf,
         horizonYears: snapshot.horizonYears,
+        totalCapital: safeCapital,
+        startingDeployed,
         entries: ledger,
       },
       null,
       2,
     );
+
     const write = navigator.clipboard?.writeText(payload);
-    if (write) {
-      write.then(
-        () => {
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 1400);
-        },
-        () => window.alert(payload),
-      );
-    } else {
+    if (!write) {
       window.alert(payload);
+      return;
     }
+
+    write.then(
+      () => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1200);
+      },
+      () => window.alert(payload),
+    );
   }
 
   return (
     <Shell>
       <div className="grid gap-4">
-        <Panel kicker="10Y CAPITAL FLOOR / CONTROL PLANE" title="此刻應投入多少？">
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <Panel kicker="10Y CAPITAL FLOOR / CONTROL PLANE" title="第一步：按現況訊號決定今期投入">
+          <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
             <div>
               <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <p className="font-mono text-xs text-subtle">今期建議投入</p>
-                  <p className="mt-1 text-4xl font-semibold tabular-nums">{fmtUsd(suggestedAmount, 2)}</p>
-                  <p className="mt-1 font-mono text-xs text-muted">
-                    {fmtPct(requiredExtraFraction, 3)} of total capital · model as-of {snapshot.asOf}
-                  </p>
+                  <p className="font-mono text-xs text-subtle">本期需再投入</p>
+                  <p className="mt-1 text-4xl font-semibold tabular-nums">{fmtUsd(additionalSuggested, 2)}</p>
                 </div>
-                <Badge tone="pass">{fmtPct(suggestedFraction, 3)} cumulative target</Badge>
+                <Badge tone={additionalSuggested > 0 ? "pass" : "mute"}>
+                  target {fmtPct(cumulativeModelTarget, 3)}
+                </Badge>
+                <Badge tone={currentStatus === "BELOW_CLOCK" ? "lock" : currentStatus === "AHEAD" ? "fragile" : "pass"}>
+                  {currentStatus}
+                </Badge>
               </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MetricCard kicker="CURRENT DEPLOYED" title={fmtPct(cumulativeBeforePreview / safeCapital, 3)} detail={fmtUsd(cumulativeBeforePreview, 2)} />
+                <MetricCard kicker="CLOCK FLOOR" title={fmtPct(currentClock, 3)} detail={"month " + month + " / 120"} />
+                <MetricCard kicker="REMAINING" title={fmtUsd(remainingCapital, 2)} detail="available capital" />
+              </div>
+
               <p className="mt-4 max-w-2xl text-sm text-muted">
-                現行 snapshot 的 95% terminal-principal floor 沒有要求額外 front-load；因此現在首先受 10Y
-                deadline clock 限制：第 1 個月 = 1/120 = 0.833%。這是歷史條件下的模型路徑，不是未來打平保證。
+                目前 verified snapshot = {snapshot.current.asOf}。現時 signal floor anchor =
+                {" "}{fmtPct(signalFloorAnchor, 3)}；本 cycle 的硬約束仍然是 10Y deadline clock。
+                這是研究模型，不是未來一定打平的保證。
               </p>
             </div>
+
             <div className="grid gap-3">
-              <InputRow label="Total capital (USD)" value={capital} onChange={setCapital} />
-              <InputRow
-                label="Already deployed in this 10Y cycle"
-                value={alreadyDeployed}
-                onChange={setAlreadyDeployed}
+              <MoneyField label="Total capital" value={capital} onChange={(x) => setCapital(Math.max(1, x))} />
+              <MoneyField
+                label="Starting / already deployed"
+                value={startingDeployed}
+                onChange={(x) => setStartingDeployed(Math.max(0, x))}
               />
             </div>
           </div>
@@ -168,119 +201,140 @@ function Page() {
           <MetricCard
             kicker="MARKET STATE"
             title={snapshot.current.divergenceStateAtPhaseZero}
-            detail={"signal count " + snapshot.current.signalCount + " · agreement " + fmtPct(snapshot.current.agreementAtPhaseZero, 0)}
+            detail={"signals " + snapshot.current.signalCount + " · agreement " + fmtPct(snapshot.current.agreementAtPhaseZero, 0)}
           />
           <MetricCard
             kicker="MUTUAL CHASE"
             title={ndx?.topology.state ?? "THIN"}
             detail={
               ndxHandoff
-                ? "NDX: " + ndxHandoff.from + "Y → " + ndxHandoff.to + "Y at ~" + fmtPct(ndxHandoff.at, 0) + " deployment"
-                : "no handoff"
+                ? "NDX: " + ndxHandoff.from + "Y → " + ndxHandoff.to + "Y near " + fmtPct(ndxHandoff.at, 0)
+                : "no current handoff"
             }
           />
           <MetricCard
-            kicker="RULE CHECK"
-            title={currentStatus}
-            detail={fmtPct(currentClock, 3) + " minimum cumulative deployment · month " + month}
+            kicker="DATA"
+            title={snapshot.current.asOf}
+            detail="research snapshot · not live market feed"
           />
         </div>
 
-        <Panel kicker="CHASE GEOMETRY / Q05 TERMINAL RESPONSE" title="20Y / 30Y / 50Y 互追">
-          <div className="overflow-x-auto">
-            <ResponseChart
-              curves={responseCurves}
-              domain={responseDomain}
-              currentX={suggestedFraction}
-              handoff={ndxHandoff}
-            />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
-            {responseCurves.map((c) => (
-              <span key={c.scale} className="font-mono">
-                {c.scale}Y · q05 @ 0% = {c.ys[0].toFixed(2)}× · q05 @ 100% = {c.ys.at(-1)?.toFixed(2)}×
-              </span>
-            ))}
-          </div>
+        <Panel kicker="MUTUAL-CHASE GEOMETRY" title="20Y / 30Y / 50Y：追趕參考線">
+          {responseCurves.length ? (
+            <>
+              <div className="overflow-x-auto">
+                <ResponseChart
+                  curves={responseCurves}
+                  domain={responseDomain}
+                  currentX={cumulativeNowFraction}
+                  handoff={ndxHandoff}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
+                {responseCurves.map((c) => (
+                  <span key={c.scale} className="font-mono">
+                    {c.scale}Y · q05@0% {c.ys[0].toFixed(2)}× · q05@100% {(c.ys.at(-1) ?? 0).toFixed(2)}×
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <EmptyState text="response curve 不完整；停止畫圖，不猜資料。" />
+          )}
           <p className="mt-3 text-xs text-subtle">
-            填色帶 = 三尺度 q05 response 的上下包絡；虛線 = 今期投入點；橫向換手標記 = NDX 20Y → 30Y。
-            這層只做互追監視，未進入資金控制。
+            填色 = 三尺度目前 response envelope；白線 = 你目前累積投入位置；黃色虛線 =
+            已驗證的 leader handoff。互追目前是監視層，未直接控制資金。
           </p>
         </Panel>
 
-        <Panel kicker="CAPITAL TAPE / 10Y RULE CHECK" title="實際投入點 vs hard deadline rail">
-          <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+        <Panel kicker="CAPITAL TAPE / RULE CORRIDOR" title="你輸入的數字會立即反映在這條 10Y 路徑">
+          <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
             <div className="overflow-x-auto">
               <CapitalChart
-                points={capitalPath}
+                points={capitalPoints}
                 currentClock={currentClock}
                 currentStatus={currentStatus}
               />
             </div>
-            <div className="grid gap-3 content-start">
-              <InputRow
-                label="Month into 10Y (0–119)"
+
+            <div className="grid content-start gap-3">
+              <NumberField
+                label="Current month in this 10Y cycle"
+                unit="mo"
                 value={month}
+                min={0}
+                max={119}
+                step={1}
                 onChange={(x) => setMonth(Math.max(0, Math.min(119, Math.round(x))))}
               />
-              <InputRow label="Actual cash invested now" value={actualNow} onChange={setActualNow} />
+              <MoneyField label="Actual cash invested now" value={actualNow} onChange={setActualNow} />
+
               <div className="rounded-lg border border-line bg-elevated p-3">
-                <p className="font-mono text-xs text-subtle">CURRENT CLOCK FLOOR</p>
-                <p className="mt-1 text-lg tabular-nums">{fmtPct(currentClock, 3)}</p>
-                <p className="text-xs text-muted">minimum cumulative deployed at this phase</p>
+                <p className="font-mono text-xs text-subtle">LIVE PREVIEW</p>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="font-mono text-[11px] text-subtle">after this point</p>
+                    <p className="font-mono text-lg tabular-nums">{fmtPct(cumulativeNowFraction, 3)}</p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-[11px] text-subtle">delta vs rail</p>
+                    <p className="font-mono text-lg tabular-nums">{fmtPct(cumulativeNowFraction - currentClock, 3)}</p>
+                  </div>
+                </div>
               </div>
+
               <button
                 type="button"
+                disabled={actualNow <= 0 || cumulativeNowAmount > safeCapital + 1e-8}
                 onClick={recordPoint}
-                className="min-h-11 rounded-md border border-accent/60 bg-accent px-4 text-sm font-medium text-accent-fg"
+                className="min-h-11 rounded-md border border-accent/60 bg-accent px-4 text-sm font-medium text-accent-fg disabled:cursor-not-allowed disabled:opacity-40"
               >
                 記錄今次實際投入
               </button>
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={exportLedger}
-                  className="min-h-11 rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
+                  onClick={copyLedger}
+                  className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-fg"
                 >
-                  {copied ? "LEDGER COPIED" : "COPY LEDGER JSON"}
+                  {copied ? "COPIED" : "COPY LEDGER"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setLedger([]);
-                    setStartingDeployed(0);
-                    setActualNow(0);
-                  }}
-                  className="min-h-11 rounded-md border border-line px-4 text-sm text-subtle hover:text-fg"
+                  onClick={clearLocal}
+                  className="min-h-11 rounded-md border border-line px-3 text-xs text-subtle hover:text-fg"
                 >
                   CLEAR LOCAL
                 </button>
               </div>
             </div>
           </div>
-          <LedgerTable entries={ledger} />
-          <p className="mt-3 text-xs text-subtle">Ledger 儲存在此 browser 的 localStorage；換裝置不會自動同步。JSON 可自行匯出作為後續研究紀錄。</p>
+
+          <LedgerTable entries={ledger} capital={safeCapital} startingDeployed={startingDeployed} />
         </Panel>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <Panel kicker="LIVE SNAPSHOT" title="三尺度現在各自說甚麼">
+          <Panel kicker="CURRENT REFERENCE" title="三尺度現在的基準位置">
             <div className="grid gap-2">
-              {snapshot.current.perScale.map((s) => (
-                <div key={s.scaleYears} className="flex items-center justify-between rounded-md border border-line px-3 py-2">
+              {(snapshot.current.perScale ?? []).map((s) => (
+                <div key={s.scaleYears} className="grid grid-cols-[70px_1fr_auto] items-center gap-3 rounded-md border border-line px-3 py-2">
                   <span className="font-mono text-sm">{s.scaleYears}Y</span>
-                  <span className="font-mono text-xs tabular-nums text-muted">
-                    floor-front-load {fmtPct(s.target, 1)} · q05(0%) {s.responseProfile.q05Terminal[0].toFixed(2)}×
-                  </span>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-elevated">
+                    <div className="h-full bg-accent" style={{ width: pctWidth(s.target) }} />
+                  </div>
+                  <span className="font-mono text-xs tabular-nums text-muted">{fmtPct(s.target, 2)}</span>
                 </div>
               ))}
             </div>
           </Panel>
-          <Panel kicker="SEMANTIC LOCK" title="監視可以，偷改規則不可以">
+
+          <Panel kicker="SEMANTIC LOCK" title="監視層同資金層分開">
             <div className="grid gap-2 text-sm text-muted">
-              <p>LOWER RAIL = hard 10Y deadline；低於它就是偏離。</p>
-              <p>CHASE ENVELOPE = 20/30/50Y response geometry；用來看上、下追趕。</p>
-              <p>MUTUAL-CHASE = diagnostic only；尚未直接增加或減少投入。</p>
-              <p>QQQ = observed outcome；NDX / NASDAQ Composite = state proxies。</p>
+              <p>Hard clock rail = 第 n 月最低累積投入 = (n+1) / 120。</p>
+              <p>Rule corridor = rail 以上至 100%；低於 rail 直接標 BELOW_CLOCK。</p>
+              <p>Mutual-chase = 20Y / 30Y / 50Y 的 response geometry，暫時只監視。</p>
+              <p>QQQ = observed outcome；NDX / NASDAQ Composite = proxy state channels。</p>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <Badge tone="pass">RESEARCH-ONLY</Badge>
@@ -296,23 +350,156 @@ function Page() {
   );
 }
 
-function InputRow({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+function validLedgerEntry(value: unknown): value is LedgerEntry {
+  if (!value || typeof value !== "object") return false;
+  const x = value as Partial<LedgerEntry>;
   return (
-    <label className="grid gap-1 text-sm">
+    typeof x.id === "string" &&
+    typeof x.recordedAt === "string" &&
+    typeof x.asOf === "string" &&
+    Number.isFinite(x.month) &&
+    Number.isFinite(x.amount) &&
+    x.month >= 0 &&
+    x.month <= 119
+  );
+}
+
+function clockTarget(month: number) {
+  return Math.min(1, (month + 1) / 120);
+}
+
+function statusFor(fraction: number, clock: number, amount: number, capital: number): EntryStatus {
+  if (amount > capital + 1e-8) return "OVER_CAPITAL";
+  if (fraction < clock - 0.005) return "BELOW_CLOCK";
+  if (fraction > clock + 0.005) return "AHEAD";
+  return "ON_CLOCK";
+}
+
+function buildCapitalPoints(
+  entries: LedgerEntry[],
+  startingDeployed: number,
+  capital: number,
+  preview: { month: number; cumulativeAmount: number },
+) {
+  const sorted = [...entries].sort(
+    (a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt),
+  );
+  let cumulative = Math.max(0, startingDeployed);
+  const points: Array<{ month: number; fraction: number; preview?: boolean }> = [];
+
+  for (const entry of sorted) {
+    cumulative += Math.max(0, entry.amount);
+    points.push({
+      month: entry.month,
+      fraction: cumulative / Math.max(1, capital),
+    });
+  }
+
+  points.push({
+    month: preview.month,
+    fraction: preview.cumulativeAmount / Math.max(1, capital),
+    preview: true,
+  });
+
+  return points.sort(
+    (a, b) => a.month - b.month || Number(Boolean(a.preview)) - Number(Boolean(b.preview)),
+  );
+}
+
+function leaderHandoff(leaders: Array<number | null>) {
+  for (let i = 1; i < leaders.length; i++) {
+    const prev = leaders[i - 1];
+    const next = leaders[i];
+    if (prev != null && next != null && prev !== next) {
+      return { from: prev, to: next, at: i * 0.05 };
+    }
+  }
+  return null;
+}
+
+function pctWidth(value: number | null | undefined) {
+  const x = Math.max(0, Math.min(1, Number(value) || 0));
+  return x * 100 + "%";
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div className="rounded-md border border-dashed border-line p-4 text-sm text-muted">{text}</div>;
+}
+
+function MoneyField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="grid gap-1.5 text-sm">
       <span className="font-mono text-xs text-subtle">{label}</span>
-      <input
-        type="number"
-        min={0}
-        step="0.01"
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value) || 0)}
-        className="min-h-11 w-full rounded-md border border-line bg-elevated px-3 font-mono tabular-nums outline-none focus:border-accent"
-      />
+      <span className="flex min-h-11 items-center overflow-hidden rounded-md border border-line bg-elevated focus-within:border-accent">
+        <span className="px-3 text-muted">$</span>
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value) || 0)}
+          className="min-w-0 flex-1 bg-transparent px-2 pr-3 font-mono tabular-nums outline-none"
+        />
+      </span>
     </label>
   );
 }
 
-function MetricCard({ kicker, title, detail }: { kicker: string; title: string; detail: string }) {
+function NumberField({
+  label,
+  unit,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+}: {
+  label: string;
+  unit: string;
+  value: number;
+  onChange: (value: number) => void;
+  min: number;
+  max: number;
+  step: number;
+}) {
+  return (
+    <label className="grid gap-1.5 text-sm">
+      <span className="font-mono text-xs text-subtle">{label}</span>
+      <span className="flex min-h-11 items-center overflow-hidden rounded-md border border-line bg-elevated focus-within:border-accent">
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          inputMode="numeric"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value) || 0)}
+          className="min-w-0 flex-1 bg-transparent px-3 font-mono tabular-nums outline-none"
+        />
+        <span className="border-l border-line px-3 text-muted">{unit}</span>
+      </span>
+    </label>
+  );
+}
+
+function MetricCard({
+  kicker,
+  title,
+  detail,
+}: {
+  kicker: string;
+  title: string;
+  detail: string;
+}) {
   return (
     <div className="rounded-xl border border-line bg-surface p-4">
       <p className="font-mono text-xs tracking-[0.14em] text-subtle">{kicker}</p>
@@ -333,42 +520,55 @@ function ResponseChart({
   currentX: number;
   handoff: { from: number; to: number; at: number } | null;
 }) {
-  const W = 1000, H = 380, L = 60, R = 24, T = 22, B = 46;
+  if (!curves.length) return <EmptyState text="沒有 response curve 資料。" />;
+
+  const W = 1000, H = 380, L = 64, R = 24, T = 24, B = 48;
   const plotW = W - L - R, plotH = H - T - B;
-  const x = (v: number) => L + v * plotW;
-  const y = (v: number) => T + (domain[1] - v) / (domain[1] - domain[0]) * plotH;
+  const x = (v: number) => L + Math.max(0, Math.min(1, v)) * plotW;
+  const y = (v: number) =>
+    T + (domain[1] - v) / Math.max(0.0001, domain[1] - domain[0]) * plotH;
   const palette = ["var(--color-accent)", "var(--color-fragile)", "var(--color-muted)"];
-  const top = curves[0].ys.map((_, i) => Math.max(...curves.map((c) => c.ys[i])));
-  const bottom = curves[0].ys.map((_, i) => Math.min(...curves.map((c) => c.ys[i])));
-  const band =
-    curves[0].xs.map((v, i) => [x(v), y(top[i])]).concat(
-      curves[0].xs.slice().reverse().map((v, i) => [x(v), y(bottom[bottom.length - 1 - i])]),
-    ).map((p) => p.join(",")).join(" ");
+  const top = curves[0].xs.map((_, i) =>
+    Math.max(...curves.map((c) => Number(c.ys[i]) || domain[0])),
+  );
+  const bottom = curves[0].xs.map((_, i) =>
+    Math.min(...curves.map((c) => Number(c.ys[i]) || domain[0])),
+  );
+  const band = curves[0].xs
+    .map((v, i) => [x(v), y(top[i])])
+    .concat(
+      curves[0].xs
+        .slice()
+        .reverse()
+        .map((v, i) => [x(v), y(bottom[bottom.length - 1 - i])]),
+    )
+    .map((p) => p.join(","))
+    .join(" ");
 
   return (
-    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="20 30 50 year response curves">
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="Mutual chase response envelope">
       <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
-      {[1, 2, 3].map((v) => (
+      {[1, 1.5, 2, 2.5, 3].filter((v) => v <= domain[1] + 0.01).map((v) => (
         <g key={v}>
           <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--color-line)" />
           <text x={L - 10} y={y(v) + 4} textAnchor="end" fill="var(--color-subtle)" fontSize="11">{v.toFixed(1)}×</text>
         </g>
       ))}
       <polygon points={band} fill="var(--color-accent)" opacity="0.08" />
-      <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={T + plotH} stroke="var(--color-fg)" strokeDasharray="4 4" opacity="0.7" />
-      <text x={x(currentX) + 6} y={T + 14} fill="var(--color-fg)" fontSize="11">NOW {fmtPct(currentX, 2)}</text>
+      <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={T + plotH} stroke="var(--color-fg)" strokeDasharray="4 4" opacity="0.8" />
+      <text x={Math.min(W - 120, x(currentX) + 6)} y={T + 14} fill="var(--color-fg)" fontSize="11">NOW {fmtPct(currentX, 2)}</text>
       {handoff ? (
         <>
-          <line x1={x(handoff.at)} x2={x(handoff.at)} y1={T} y2={T + plotH} stroke="var(--color-fragile)" strokeDasharray="2 3" opacity="0.8" />
-          <text x={x(handoff.at) + 6} y={H - 14} fill="var(--color-fragile)" fontSize="11">
+          <line x1={x(handoff.at)} x2={x(handoff.at)} y1={T} y2={T + plotH} stroke="var(--color-fragile)" strokeDasharray="2 3" opacity="0.9" />
+          <text x={Math.min(W - 120, x(handoff.at) + 6)} y={H - 18} fill="var(--color-fragile)" fontSize="11">
             {handoff.from}Y → {handoff.to}Y
           </text>
         </>
       ) : null}
-      {curves.map((c, idx) => (
+      {curves.map((curve, idx) => (
         <polyline
-          key={c.scale}
-          points={c.xs.map((v, i) => x(v) + "," + y(c.ys[i])).join(" ")}
+          key={curve.scale}
+          points={curve.xs.map((v, i) => x(v) + "," + y(curve.ys[i])).join(" ")}
           fill="none"
           stroke={palette[idx] ?? "var(--color-fg)"}
           strokeWidth={idx === 0 ? 3 : 2}
@@ -377,10 +577,9 @@ function ResponseChart({
         />
       ))}
       {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-        <text key={v} x={x(v)} y={H - 20} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">{Math.round(v * 100)}%</text>
+        <text key={v} x={x(v)} y={H - 22} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">{Math.round(v * 100)}%</text>
       ))}
-      <text x={L} y={H - 2} fill="var(--color-subtle)" fontSize="11">front-load / cumulative deployment</text>
-      <text x={L} y={T - 7} fill="var(--color-subtle)" fontSize="11">historical q05 terminal wealth</text>
+      <text x={L} y={H - 4} fill="var(--color-subtle)" fontSize="11">cumulative deployment / response cross-section</text>
     </svg>
   );
 }
@@ -396,7 +595,7 @@ function CapitalChart({
 }) {
   const W = 1000, H = 340, L = 58, R = 24, T = 20, B = 44;
   const plotW = W - L - R, plotH = H - T - B;
-  const x = (month: number) => L + (Math.max(0, Math.min(120, month)) / 120) * plotW;
+  const x = (month: number) => L + Math.max(0, Math.min(120, month)) / 120 * plotW;
   const y = (fraction: number) => T + (1 - Math.max(0, Math.min(1, fraction))) * plotH;
 
   const rail = Array.from({ length: 121 }, (_, m) => Math.min(1, (m + 1) / 120));
@@ -411,7 +610,7 @@ function CapitalChart({
   const preview = points.find((p) => p.preview);
 
   return (
-    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="10 year capital corridor and recorded deployment">
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="10 year capital rule corridor">
       <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
       <polygon points={corridor} fill="var(--color-pass)" opacity="0.06" />
       {[0, 0.25, 0.5, 0.75, 1].map((v) => (
@@ -446,7 +645,7 @@ function CapitalChart({
         <>
           <line x1={x(preview.month)} x2={x(preview.month)} y1={T} y2={T + plotH} stroke="var(--color-accent)" strokeDasharray="2 3" opacity="0.7" />
           <circle cx={x(preview.month)} cy={y(preview.fraction)} r="7" fill="var(--color-accent)" />
-          <text x={Math.min(W - 145, x(preview.month) + 8)} y={y(preview.fraction) - 10} fill="var(--color-accent)" fontSize="11">
+          <text x={Math.min(W - 150, x(preview.month) + 8)} y={y(preview.fraction) - 10} fill="var(--color-accent)" fontSize="11">
             PREVIEW · {currentStatus}
           </text>
         </>
@@ -455,19 +654,53 @@ function CapitalChart({
         <text key={m} x={x(m)} y={H - 20} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">{m}m</text>
       ))}
       <text x={L} y={H - 4} fill="var(--color-subtle)" fontSize="11">
-        shaded area = compliant zone above hard deadline rail · dots = actual recorded capital
+        shaded corridor = rule-compliant zone above the hard deadline rail
       </text>
     </svg>
   );
 }
 
-function LedgerTable({ entries }: { entries: LedgerEntry[] }) {
+function LedgerTable({
+  entries,
+  capital,
+  startingDeployed,
+}: {
+  entries: LedgerEntry[];
+  capital: number;
+  startingDeployed: number;
+}) {
   if (!entries.length) {
-    return <p className="mt-4 rounded-md border border-dashed border-line p-4 text-sm text-muted">尚未記錄實際投入點。圖表先顯示模型 NOW 點。</p>;
+    return (
+      <p className="mt-4 rounded-md border border-dashed border-line p-4 text-sm text-muted">
+        尚未記錄投入點。你在上面的「Actual cash invested now」輸入數字時，圖表會即時預覽。
+      </p>
+    );
   }
+
+  const rows = entries
+    .slice()
+    .sort((a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt))
+    .reduce<Array<{
+      entry: LedgerEntry;
+      fraction: number;
+      clock: number;
+      status: EntryStatus;
+    }>>((rows, entry) => {
+      const prior = rows.at(-1)?.fraction ?? startingDeployed / Math.max(1, capital);
+      const fraction = prior + entry.amount / Math.max(1, capital);
+      rows.push({
+        entry,
+        fraction,
+        clock: clockTarget(entry.month),
+        status: statusFor(fraction, clockTarget(entry.month), fraction * capital, capital),
+      });
+      return rows;
+    }, [])
+    .reverse();
+
   return (
     <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[760px] text-left text-sm">
+      <table className="w-full min-w-[800px] text-left text-sm">
         <thead className="text-xs text-subtle">
           <tr>
             <th className="py-2">month</th>
@@ -479,38 +712,22 @@ function LedgerTable({ entries }: { entries: LedgerEntry[] }) {
           </tr>
         </thead>
         <tbody>
-          {[...entries].reverse().map((e) => (
-            <tr key={e.id} className="border-t border-line">
-              <td className="py-2 font-mono">{e.month}</td>
-              <td className="py-2 font-mono tabular-nums">{fmtUsd(e.amount, 2)}</td>
-              <td className="py-2 font-mono tabular-nums">{fmtPct(e.cumulativeFraction, 2)}</td>
-              <td className="py-2 font-mono tabular-nums">{fmtPct(e.clockTarget, 2)}</td>
-              <td className="py-2 font-mono tabular-nums">{fmtPct(e.delta, 2)}</td>
-              <td className="py-2"><Badge tone={e.status === "BELOW_CLOCK" ? "lock" : e.status === "AHEAD" ? "fragile" : "pass"}>{e.status}</Badge></td>
+          {rows.map(({ entry, fraction, clock, status }) => (
+            <tr key={entry.id} className="border-t border-line">
+              <td className="py-2 font-mono tabular-nums">{entry.month}</td>
+              <td className="py-2 font-mono tabular-nums">{fmtUsd(entry.amount, 2)}</td>
+              <td className="py-2 font-mono tabular-nums">{fmtPct(fraction, 2)}</td>
+              <td className="py-2 font-mono tabular-nums">{fmtPct(clock, 2)}</td>
+              <td className="py-2 font-mono tabular-nums">{fmtPct(fraction - clock, 2)}</td>
+              <td className="py-2">
+                <Badge tone={status === "BELOW_CLOCK" || status === "OVER_CAPITAL" ? "lock" : status === "AHEAD" ? "fragile" : "pass"}>
+                  {status}
+                </Badge>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
-}
-
-function clockTarget(month: number) {
-  return Math.min(1, (month + 1) / 120);
-}
-
-function buildCapitalPath(entries: LedgerEntry[], capital: number) {
-  return [...entries].sort((a, b) => a.month - b.month).map((e) => ({
-    month: e.month,
-    fraction: e.cumulativeAmount / Math.max(capital, 1),
-  }));
-}
-
-function leaderHandoff(leaders: number[]) {
-  for (let i = 1; i < leaders.length; i++) {
-    if (leaders[i] !== leaders[i - 1] && leaders[i] != null && leaders[i - 1] != null) {
-      return { from: leaders[i - 1], to: leaders[i], at: (i + 1) * 0.05 };
-    }
-  }
-  return null;
 }
