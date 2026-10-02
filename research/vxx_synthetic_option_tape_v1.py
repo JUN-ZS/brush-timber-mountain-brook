@@ -169,6 +169,17 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
         AND TRY_CAST({vdelta} AS DOUBLE) IS NOT NULL
         AND ABS(TRY_CAST({vdelta} AS DOUBLE)) BETWEEN 0.15 AND 0.85
         AND CAST({vexp} AS DATE)>CAST({vdate} AS DATE)
+        AND DATEDIFF('day',CAST({vdate} AS DATE),CAST({vexp} AS DATE)) BETWEEN 20 AND 40
+        -- Deterministic pre-sample before aggregation keeps the complete
+        -- 369MB parquet from becoming an in-memory relation on small runners.
+        AND MOD(
+          HASH(
+            CAST({vdate} AS VARCHAR) || '|' ||
+            CAST({vexp} AS VARCHAR) || '|' ||
+            CAST(TRY_CAST({vstrike} AS DOUBLE) AS VARCHAR)
+          ),
+          32
+        ) = 0
     ),
     bands AS (
       SELECT *,
@@ -180,7 +191,6 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
           ELSE 5
         END AS band
       FROM base
-      WHERE dte BETWEEN 20 AND 40
     ),
     grouped AS (
       SELECT
@@ -228,7 +238,9 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
 
     z=con.execute(q,[str(opt)]).fetchdf()
     if z.empty:
-        raise RuntimeError("QQQ DuckDB reference found no qualifying rows")
+        raise RuntimeError(
+            "QQQ DuckDB deterministic pre-sample found no qualifying rows"
+        )
 
     u=pd.read_parquet(under,columns=["date","close"])
     u["date"]=pd.to_datetime(u["date"]).dt.tz_localize(None).dt.normalize()
