@@ -1,28 +1,14 @@
 name: QQQ V22 Locked OOS Family V2
 on:
+  workflow_dispatch:
   push:
     branches:
       - research/qqq-v22-locked-oos-family-v2-20261001
     paths:
       - research/qqq_v22_locked_oos_family_v2.py
-      - .github/workflows/qqq-v22-locked-oos-family-v2.yml
-  pull_request:
-    branches:
-      - main
-    paths:
-      - research/qqq_v22_locked_oos_family_v2.py
       - research/qqq_dynamic_near_long_state_engine_v22_930c949.py
-      - research/test_qqq_v22_locked_oos_family_v2.py
       - research/evidence_v1/STRATEGY_LOCK.json
       - .github/workflows/qqq-v22-locked-oos-family-v2.yml
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
 jobs:
   replay:
     runs-on: windows-latest
