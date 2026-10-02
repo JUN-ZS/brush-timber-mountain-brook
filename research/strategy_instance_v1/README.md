@@ -140,6 +140,12 @@ LOCKED STRATEGY -> candidate/ticket -> BROKER OBSERVED P&L
 YOUR ADJUSTMENT -> USER_MANUAL trade -> MANUAL BOOK P&L
 ```
 
+### Heavyweight OOS replay vs. daily self-audit
+
+The locked V22 OOS replay is intentionally **not** a per-commit CI loop. A verified successful replay is archived in `research/evidence_v1/LOCKED_OOS_ATTESTATION.json`, keyed to the frozen engine, strategy lock, and canonical data hashes. Normal infrastructure/test commits validate that attestation instead of rerunning the full 72-config replay.
+
+When any alpha parameter, family membership, policy membership, frozen engine, strategy lock, or canonical data input changes, the attestation must fail closed and a fresh manual/workflow-dispatched heavyweight replay is required. This keeps CI as a verifier of invariants rather than the driver of strategy iteration.
+
 A manual trade can store the global locked-desk ticket explicitly selected by the operator for the current instance. The stored `OPERATOR_SELECTED_GLOBAL_TICKET_FOR_INSTANCE` context is an operator-selected reference, not broker evidence and not proof that the trade was caused by the strategy.
 
 ### Performance tape semantics
