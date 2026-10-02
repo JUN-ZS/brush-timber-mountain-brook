@@ -22,7 +22,7 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install app dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
       - name: Typecheck
         run: npm run typecheck
       - name: Build app
