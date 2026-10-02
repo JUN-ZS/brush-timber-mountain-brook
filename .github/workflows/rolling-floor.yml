@@ -208,12 +208,14 @@ jobs:
         run: |
           test -s research/rolling_10y_floor/rolling_floor_result.json
           test -s research/rolling_10y_floor/rolling_floor_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_state_path.json
           test -s research/rolling_10y_floor/rolling_floor_report.md
           node - <<'NODE'
           const fs = require("node:fs");
           const x = JSON.parse(fs.readFileSync("research/rolling_10y_floor/rolling_floor_result.json","utf8"));
           if (x.version !== "rolling-floor.v2") throw new Error("wrong result version");
           if (x.replay?.n <= 0) throw new Error("no replay rows");
+          if (!Array.isArray(x.statePath) || x.statePath.length !== 4) throw new Error("state path summary must have 4 states");
           if (x.topology?.windowsAudit !== "NONBLOCKING") throw new Error("QQQ Windows audit must be nonblocking");
           console.log("PASS bridge", x.replay.n, "replays");
           NODE
@@ -229,6 +231,7 @@ jobs:
           cp inputs/rolling_floor_shards/*.json portable/inputs/rolling_floor_shards/
           cp research/rolling_10y_floor/rolling_floor_result.json portable/output/rolling_floor_result.json
           cp research/rolling_10y_floor/rolling_floor_replays.jsonl portable/output/rolling_floor_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_state_path.json portable/output/rolling_floor_state_path.json
           cp research/rolling_10y_floor/rolling_floor_report.md portable/output/rolling_floor_report.md
           cp research/rolling_10y_floor/PORTABLE_RUN.md portable/PORTABLE_RUN.md
           cp research/rolling_10y_floor/portable/RUN.cmd portable/RUN.cmd
