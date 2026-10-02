@@ -88,7 +88,6 @@ export type ReplayResult = {
   trades: ReplayTrade[];
 };
 
-const MONTH_MS = 31 * 24 * 60 * 60 * 1000;
 const ACTION_GRID = Array.from({ length: 21 }, (_, i) => i / 20);
 const MIN_ANALOGS = 8;
 const MAX_ANALOGS = 24;
@@ -397,16 +396,30 @@ function equityStats(curve: number[]) {
   return { maxDd, minEquity };
 }
 
+function indexAtOrBefore(points: MonthlyPoint[], date: string) {
+  let lo = 0;
+  let hi = points.length - 1;
+  let best = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].date <= date) {
+      best = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return best;
+}
+
 export function buildSignalPanel(channels: Channel[], targetDates: string[]) {
-  const byChannel = new Map<string, MonthlyPoint[]>(channels.map((c) => [c.id, c.points]));
   const panel = new Map<string, CoupledSignal>();
 
-  for (let di = 0; di < targetDates.length; di++) {
-    const asof = targetDates[di];
+  for (const asof of targetDates) {
     const signals: ChannelScaleSignal[] = [];
 
     for (const channel of channels) {
-      const idx = channel.points.findIndex((p) => p.date === asof);
+      const idx = indexAtOrBefore(channel.points, asof);
       if (idx < 0) continue;
       for (const scaleYears of TRAP_SCALES_YEARS) {
         const s = recommendForScale(channel.points, idx, scaleYears);
@@ -419,7 +432,6 @@ export function buildSignalPanel(channels: Channel[], targetDates: string[]) {
     panel.set(asof, couple(asof, 0, signals));
   }
 
-  void byChannel;
   return panel;
 }
 
@@ -448,7 +460,11 @@ export function replayOne(
 
     const monthsLeft = FLOOR_HORIZON_MONTHS - j;
     const mandatoryAdd = monthsLeft > 0 ? cash / monthsLeft : cash;
-    const lagTarget = sig.coupledTarget;
+    const clockTarget = clamp((j + 1) / FLOOR_HORIZON_MONTHS);
+    const lagTarget =
+      sig.robustTarget == null
+        ? clockTarget
+        : clamp(clockTarget + sig.agreement * (sig.robustTarget - clockTarget));
     const desiredAdd = Math.max(0, lagTarget - (1 - cash));
     const action = Math.min(cash, Math.max(mandatoryAdd, desiredAdd));
 
@@ -475,8 +491,8 @@ export function replayOne(
       action,
       deployed: 1 - cash,
       cash,
-      coupledTarget: sig.coupledTarget,
-      clockTarget: sig.clockTarget,
+      coupledTarget: lagTarget,
+      clockTarget,
       agreement: sig.agreement,
     });
   }
