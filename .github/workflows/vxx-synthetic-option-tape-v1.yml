@@ -148,7 +148,7 @@ jobs:
           mkdir -p data
           curl -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
           curl -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
-          cp attachments/spots_qqq_vxx_vix.1csv data/spots_qqq_vxx_vxx_vix.csv 2>/dev/null || cp attachments/spots_qqq_vxx_vix.1csv data/spots_qqq_vxx_vix.csv
+          cp attachments/spots_qqq_vxx_vix.1csv data/spots_qqq_vxx_vix.csv
       - name: Rebuild independent HUB WEB manifest
         shell: bash
         run: |
