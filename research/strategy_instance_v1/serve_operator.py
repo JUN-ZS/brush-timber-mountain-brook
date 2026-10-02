@@ -110,7 +110,12 @@ def explicit_strategy_context(repo, body):
     if not matching:
         raise ValueError("STRATEGY_CONTEXT_TICKET_NOT_VERIFIED")
 
-    source_row, ticket, verified_leg = matching[-1]
+    def _decision_order(item):
+        row, _ticket, _leg = item
+        parsed = dt(row.get("timestamp_utc"))
+        return (parsed or datetime.min.replace(tzinfo=timezone.utc), int(row.get("evidence_seq") or 0))
+
+    source_row, ticket, verified_leg = max(matching, key=_decision_order)
     checks = (
         str(raw.get("action") or "") == str(ticket.get("action") or "")
         and str(raw.get("status") or "") == str(ticket.get("status") or "")
