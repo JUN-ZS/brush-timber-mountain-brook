@@ -138,3 +138,18 @@ test("capital-floor target asks for required front-load, not maximum terminal we
   const unrecoverable = Array.from({ length: 121 }, (_, i) => (i === 120 ? 0.8 : 2));
   assert.equal(requiredFrontLoadFraction(unrecoverable), 1);
 });
+
+
+test("full floor-response profile preserves tail shape beyond the 95% scalar target", () => {
+  const paths = [
+    Array.from({ length: 121 }, (_, i) => (i === 120 ? 0.8 : 2)),
+    Array.from({ length: 121 }, (_, i) => (i === 120 ? 1.2 : 2)),
+    Array.from({ length: 121 }, (_, i) => (i === 120 ? 1.3 : 2)),
+  ];
+  const profile = floorProfile(paths);
+  assert.deepEqual(profile.probabilities, [0.5, 0.75, 0.9, 0.95, 0.99, 1]);
+  assert.equal(profile.requiredFrontLoad[0], 0);
+  assert.equal(profile.requiredFrontLoad[1], 0);
+  assert.equal(profile.requiredFrontLoad[2], 0);
+  assert.ok(profile.maxRequiredFrontLoad > profile.requiredFrontLoad[3]);
+});
