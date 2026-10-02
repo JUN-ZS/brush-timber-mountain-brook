@@ -20,13 +20,24 @@ def test_strict_decision_preserves_candidate_journal_hash_and_index():
             {"action":"ADD_NEAR","code":"US.QQQ.TEST","qty":2,"price":8.5},
             {"action":"REDUCE_NEAR","code":"US.QQQ.TEST","qty":1,"price":12.0},
         ]
-        journal=[{
-            "candidate_index":0,
-            "candidate_sha256":sha256_json(actions[0]),
-            "raw_candidate":actions[0],
-            "decision_rank":1,
-            "priority_rank":1,
-        }]
+        journal=[
+            {
+                "candidate_index":0,
+                "candidate_sha256":sha256_json(actions[0]),
+                "raw_candidate":actions[0],
+                "decision_rank":1,
+                "priority_rank":1,
+                "observed_at_utc":"2026-10-01T21:00:01+00:00",
+            },
+            {
+                "candidate_index":1,
+                "candidate_sha256":sha256_json(actions[1]),
+                "raw_candidate":actions[1],
+                "decision_rank":2,
+                "priority_rank":2,
+                "observed_at_utc":"2026-10-01T21:00:01+00:00",
+            },
+        ]
         ledger.append(
             "CYCLE_STARTED",cycle_id="C1",timestamp_utc="2026-10-01T21:00:00+00:00",
             payload={"x":1},
@@ -323,7 +334,7 @@ def test_broker_reconciled_outcome_requires_source_evidence():
             "selection_cutoff":"2025-12-15",
             "research_engine_commit":"TEST","evidence_policy":{},
         }),encoding="utf-8")
-        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl")
+        ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl", identity=TEST_IDENTITY)
         ledger.append("CYCLE_STARTED",cycle_id="C1",campaign_id="CAMP1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         ledger.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id="CAMP1",
@@ -516,7 +527,7 @@ def test_outcome_rejects_unobserved_family_relabeling():
                 raise AssertionError("unobserved family relabel must be rejected")
 
 
-def test_outcome_rejects_unavailable_family_relabeling():
+def test_outcome_rejects_unavailable_family_relabeling_legacy_case():
     import json
     import sys
     from unittest.mock import patch
