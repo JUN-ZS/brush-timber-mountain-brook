@@ -23,3 +23,21 @@ A historical analog is eligible only when its full following 10-year QQQ outcome
 
 ## Research status
 RESEARCH_ONLY. No claim of live suitability or guaranteed non-loss is made from this module alone.
+
+
+## Execution topology
+
+The controller is now split into a three-worker shard stage plus a Bridge stage:
+
+- Windows self-hosted: observed QQQ channel.
+- Linux self-hosted: NASDAQ-100 proxy channel.
+- HUB-Web (GitHub-hosted ubuntu-latest): NASDAQ Composite proxy channel.
+- Bridge (GitHub-hosted ubuntu-latest): schema/hash validation, coupling, and QQQ rolling replay.
+
+The Bridge does not recompute or replace a missing channel. A missing or invalid shard fails the Bridge instead of silently substituting another channel.
+
+## Portable rerun
+
+The former rolling-10y-floor artifact was result-only and was not a standalone executable package. The new final artifact includes the exact runner/controller source, QQQ snapshot, all three channel shards, and deterministic RUN.cmd/RUN.sh entrypoints.
+
+Bridge replay requires Node 22+ only. It does not require npm dependency installation or network access.
