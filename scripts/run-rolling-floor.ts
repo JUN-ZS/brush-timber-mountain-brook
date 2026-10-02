@@ -138,6 +138,7 @@ async function main() {
       clockFirstMonthTarget: 1 / 120,
       robustTargetAtPhaseZero: latest?.robustTarget ?? null,
       agreementAtPhaseZero: latest?.agreement ?? 0,
+      divergenceStateAtPhaseZero: latest?.divergenceState ?? "THIN",
       firstInjectionFraction: latest?.robustTarget == null
         ? 1 / 120
         : Math.max(1 / 120, (latest.robustTarget ?? 0) * (latest.agreement ?? 0)),
@@ -168,6 +169,7 @@ async function main() {
       deployedAtHalfway: r.deployedAtHalfway,
       deployedAtYear8: r.deployedAtYear8,
       forcedCatchUpMonths: r.forcedCatchUpMonths,
+      divergenceStateByDate: r.trades.map((t) => ({ date: t.date, state: t.divergenceState })),
     })),
   };
 
@@ -206,6 +208,7 @@ async function main() {
     "",
     `Robust signal target at phase 0: **${payload.current.robustTargetAtPhaseZero == null ? "MISSING" : (payload.current.robustTargetAtPhaseZero * 100).toFixed(1) + "%"}**`,
     `Cross-scale agreement: **${(payload.current.agreementAtPhaseZero * 100).toFixed(1)}%**`,
+    `Divergence state: **${payload.current.divergenceStateAtPhaseZero}**`,
     `First-month minimum by clock: **${(100 / 120).toFixed(3)}%**`,
     `First injection from coupled rule: **${(payload.current.firstInjectionFraction * 100).toFixed(2)}%**`,
     "",
