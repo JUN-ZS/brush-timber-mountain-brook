@@ -395,8 +395,11 @@ def test_operator_ticket_context_rejects_future_ticket_for_backdated_trade():
             "ticket_id":"T-FUTURE","action":"ADD_NEAR","status":"OPEN",
             "legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":1}],
         }
+        # DECISION_EMITTED belongs to the system evidence ledger; the instance
+        # ledger stores the verified ticket context as a strategy-plan event.
+        from .ledger import sha256_json
         ledger.append(
-            "DECISION_EMITTED",instance_id=iid,cycle_id="C2",
+            "STRATEGY_PLAN_OBSERVED",instance_id=iid,cycle_id="C2",
             timestamp_utc="2026-10-02T10:00:00+00:00",
             payload={"ticket":ticket},
         )
