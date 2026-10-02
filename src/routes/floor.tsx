@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Panel, Shell } from "@/components/shell";
 import { fmtPct, fmtUsd } from "@/lib/utils";
 import snapshot from "@/data/rolling_floor_ui_snapshot.json";
+import { buildLiveHistoryMatch, type LiveHistoryMatch, type YahooSeries } from "@/lib/floor/yahoo-live";
 
 export const Route = createFileRoute("/floor")({ component: Page });
 
@@ -131,6 +132,42 @@ function Page() {
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [copied, setCopied] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
+  const [liveMatch, setLiveMatch] = useState<LiveHistoryMatch | null>(null);
+  const [liveContext, setLiveContext] = useState<YahooSeries[]>([]);
+  const [liveFetchedAt, setLiveFetchedAt] = useState<string | null>(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+
+  async function refreshYahoo() {
+    setLiveLoading(true);
+    setLiveError(null);
+    try {
+      const response = await fetch("/api/yahoo?refresh=1", { cache: "no-store" });
+      if (!response.ok) throw new Error("Yahoo HTTP " + response.status);
+      const payload = (await response.json()) as {
+        source?: string;
+        fetchedAt?: string;
+        symbols?: YahooSeries[];
+        warnings?: string[];
+      };
+      const symbols = Array.isArray(payload.symbols) ? payload.symbols : [];
+      const qqq = symbols.find((x) => x.symbol === "QQQ");
+      const match = qqq ? buildLiveHistoryMatch(qqq) : null;
+      if (!match) throw new Error("Yahoo QQQ history insufficient");
+      setLiveContext(symbols);
+      setLiveMatch(match);
+      setLiveFetchedAt(payload.fetchedAt ?? new Date().toISOString());
+      if (payload.warnings?.length) setLiveError(payload.warnings.join(" · "));
+    } catch (error) {
+      setLiveError(error instanceof Error ? error.message : "Yahoo refresh failed");
+    } finally {
+      setLiveLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshYahoo();
+  }, []);
 
   // Hydrate from localStorage before any persist write.
   useEffect(() => {
@@ -345,6 +382,101 @@ function Page() {
             detail="research snapshot · not live market feed"
           />
         </div>
+
+        <Panel kicker="YAHOO DAILY SIGNAL · NOW ↔ HISTORY" title="每日檢查：現在市場狀態對照歷史">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-muted">
+                Yahoo Finance daily snapshot；打開此頁只抓一次，不做秒級 polling。LIVE 只更新「現在」觀測，
+                歷史比較仍以過去樣本計算。
+              </p>
+              {liveFetchedAt ? (
+                <p className="mt-1 font-mono text-xs text-subtle">
+                  fetched {new Date(liveFetchedAt).toLocaleString()} · source YAHOO_FINANCE_CHART
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => void refreshYahoo()}
+              disabled={liveLoading}
+              className="min-h-11 rounded-md border border-line px-3 text-xs text-muted hover:text-fg disabled:opacity-40"
+            >
+              {liveLoading ? "REFRESHING…" : "REFRESH YAHOO"}
+            </button>
+          </div>
+
+          {liveError ? (
+            <div className="mt-3 rounded-md border border-line bg-elevated p-3 text-xs text-muted">
+              Yahoo warning: {liveError}
+            </div>
+          ) : null}
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {(["QQQ", "^VIX", "^NDX", "^IXIC"] as const).map((symbol) => {
+              const q = liveContext.find((x) => x.symbol === symbol);
+              return (
+                <div key={symbol} className="rounded-md border border-line bg-elevated p-3">
+                  <p className="font-mono text-xs text-subtle">{symbol}</p>
+                  <p className="mt-1 font-mono text-xl tabular-nums">
+                    {q?.price == null ? "UNAVAILABLE" : q.price.toFixed(2)}
+                  </p>
+                  <p className="mt-1 text-xs text-subtle">
+                    {q?.marketState ?? "UNKNOWN"} · {q?.regularMarketTime ? new Date(q.regularMarketTime).toLocaleDateString() : "—"}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          {liveMatch ? (
+            <div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="rounded-md border border-line bg-elevated p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">QQQ LIVE STATE</p>
+                  <Badge tone={liveMatch.volLevel === "EXTREME" || liveMatch.volLevel === "SUPER_EXTREME" ? "lock" : "fragile"}>
+                    {liveMatch.priceDir} · {liveMatch.volLevel}
+                  </Badge>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  {[liveMatch.day, liveMatch.week, liveMatch.month].map((s) => (
+                    <div key={s.scale} className="grid grid-cols-[90px_1fr_auto] items-center gap-3">
+                      <span className="font-mono text-xs text-subtle">{s.scale}</span>
+                      <span className="font-mono text-sm tabular-nums">
+                        move {s.currentMove == null ? "—" : fmtPct(s.currentMove, 2)} · ratio {s.ratio == null ? "—" : s.ratio.toFixed(2)}×
+                      </span>
+                      <span className="font-mono text-xs tabular-nums text-muted">
+                        pctl {fmtPct(s.percentile, 0)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-md border border-line bg-elevated p-4">
+                <p className="font-mono text-xs tracking-[0.14em] text-subtle">HISTORY MATCH · DESCRIPTIVE</p>
+                <div className="mt-2 grid grid-cols-2 gap-3">
+                  <MetricCard kicker="CURRENT QQQ" title={fmtUsd(liveMatch.currentPrice ?? 0, 2)} detail="Yahoo observation" />
+                  <MetricCard kicker="MATCHES" title={String(liveMatch.matches)} detail="similar historical states" />
+                  <MetricCard kicker="MEDIAN 5D" title={fmtPct(liveMatch.median5d, 1)} detail="forward historical analogue" />
+                  <MetricCard kicker="P(UP) 5D" title={fmtPct(liveMatch.pUp5d, 0)} detail="among matched states" />
+                </div>
+                <p className="mt-3 text-xs text-subtle">
+                  1D {fmtPct(liveMatch.median1d, 1)} · 21D {fmtPct(liveMatch.median21d, 1)} ·
+                  reference dates {liveMatch.referenceDates.join(", ") || "none"}.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-md border border-dashed border-line p-4 text-sm text-muted">
+              尚未取得 Yahoo QQQ；先不把 LIVE 當成決策輸入。
+            </div>
+          )}
+
+          <p className="mt-3 text-xs text-subtle">
+            LIVE price 是今天的觀測點；history match 是描述性對照，不是未來回報保證，也不直接改寫 hard clock 投入規則。
+          </p>
+        </Panel>
 
         <Panel kicker="MUTUAL-CHASE GEOMETRY" title="20Y / 30Y / 50Y：追趕參考線">
           {responseCurves.length ? (
