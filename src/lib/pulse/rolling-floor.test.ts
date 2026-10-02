@@ -152,8 +152,9 @@ test("full floor-response profile preserves tail shape beyond the 95% scalar tar
   ];
   const profile = floorProfile(paths);
   assert.deepEqual(profile.probabilities, [0.5, 0.75, 0.9, 0.95, 0.99, 1]);
-  assert.ok(profile.requiredFrontLoad[0] > 0.5 && profile.requiredFrontLoad[0] < 0.7);
-  assert.ok(profile.requiredFrontLoad[3] > 0.5 && profile.requiredFrontLoad[3] < 0.7);
+  assert.ok(profile.requiredFrontLoad[0] > 0.6 && profile.requiredFrontLoad[0] < 0.7);
+  assert.equal(profile.requiredFrontLoad[1], 1);
+  assert.equal(profile.requiredFrontLoad[3], 1);
   assert.equal(profile.requiredFrontLoad.at(-1), 1);
 });
 
