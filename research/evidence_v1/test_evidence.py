@@ -142,6 +142,7 @@ def test_strict_decision_rejects_candidate_journal_digest_mismatch():
                     "candidate_index":0,
                     "candidate_sha256":"bad",
                     "raw_candidate":actions[0],
+                    "observed_at_utc":"2026-10-01T21:00:01+00:00",
                 }],
                 "primary":actions[0],
             },
