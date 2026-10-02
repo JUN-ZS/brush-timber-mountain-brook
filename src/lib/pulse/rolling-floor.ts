@@ -35,12 +35,20 @@ export type Channel = {
   points: MonthlyPoint[];
 };
 
+export type FloorProfile = {
+  probabilities: number[];
+  requiredFrontLoad: number[];
+  meanRequiredFrontLoad: number;
+  maxRequiredFrontLoad: number;
+};
+
 export type ChannelScaleSignal = {
   channel: string;
   layer: Channel["layer"];
   scaleYears: TrapScale;
   asof: string;
   target: number | null;
+  floorProfile: FloorProfile | null;
   q05: number | null;
   pNonLoss: number | null;
   mean: number | null;
@@ -107,6 +115,7 @@ export type ReplayResult = {
 const MIN_ANALOGS = 8;
 const MAX_ANALOGS = 24;
 const ANALOG_STRIDE_MONTHS = 3;
+const FLOOR_PROFILE_PROBABILITIES = [0.50, 0.75, 0.90, 0.95, 0.99, 1.00];
 const AGREEMENT_MAD_SCALE = 0.15;
 const TENSION_AGREEMENT = 0.80;
 const DIVERGENT_AGREEMENT = 0.50;
@@ -290,13 +299,29 @@ function objective(paths: number[], a: number) {
   return { q05, pNonLoss, mean };
 }
 
-function floorTarget(paths: number[]) {
+export function floorProfile(paths: number[]): FloorProfile {
   const required = paths.map((path) => requiredFrontLoadFraction(path, 1));
   const ordered = [...required].sort((a, b) => a - b);
-  // Nearest-rank 95% requirement: enough front-load for at least 95% of analogs
-  // to reach the terminal principal floor under the same 10Y ladder rule.
-  const index = Math.max(0, Math.ceil(0.95 * ordered.length) - 1);
-  return ordered[index] ?? 1;
+  const requiredFrontLoad = FLOOR_PROFILE_PROBABILITIES.map((p) => {
+    const index = Math.max(0, Math.ceil(p * ordered.length) - 1);
+    return ordered[index] ?? 1;
+  });
+
+  return {
+    probabilities: [...FLOOR_PROFILE_PROBABILITIES],
+    requiredFrontLoad,
+    meanRequiredFrontLoad:
+      required.reduce((sum, x) => sum + x, 0) / Math.max(1, required.length),
+    maxRequiredFrontLoad: ordered.at(-1) ?? 1,
+  };
+}
+
+function floorTarget(paths: number[]) {
+  const profile = floorProfile(paths);
+  const index = FLOOR_PROFILE_PROBABILITIES.indexOf(0.95);
+  // Keep the established scalar 95% floor controller unchanged. The extra
+  // profile is preserved for structural cross-scale analysis.
+  return profile.requiredFrontLoad[index] ?? 1;
 }
 
 function buildAnalogs(
@@ -348,6 +373,7 @@ export function recommendForScale(
       scaleYears,
       asof,
       target: null,
+      floorProfile: null,
       q05: null,
       pNonLoss: null,
       mean: null,
@@ -358,6 +384,7 @@ export function recommendForScale(
   }
 
   const paths = usable.map((x) => x.path);
+  const profile = floorProfile(paths);
   const target = floorTarget(paths);
   const scored = objective(paths, target);
 
@@ -367,6 +394,7 @@ export function recommendForScale(
     scaleYears,
     asof,
     target,
+    floorProfile: profile,
     q05: scored.q05,
     pNonLoss: scored.pNonLoss,
     mean: scored.mean,
@@ -406,15 +434,30 @@ export function couple(
 ): CoupledSignal {
   const clockTarget = clamp(elapsedMonths / FLOOR_HORIZON_MONTHS);
   const perScale = TRAP_SCALES_YEARS.map((scaleYears) => {
-    const xs = signals
-      .filter((s) => s.scaleYears === scaleYears && s.status === "OK" && s.target != null)
-      .map((s) => s.target as number);
+    const scaleSignals = signals.filter(
+      (s) => s.scaleYears === scaleYears && s.status === "OK" && s.target != null,
+    );
+    const xs = scaleSignals.map((s) => s.target as number);
     const c = robustConsensus(xs);
+    const profiles = scaleSignals.map((s) => s.floorProfile).filter(Boolean) as FloorProfile[];
+    const profile =
+      profiles.length > 0
+        ? {
+            probabilities: profiles[0].probabilities,
+            requiredFrontLoad: profiles[0].probabilities.map((_, i) =>
+              median(profiles.map((p) => p.requiredFrontLoad[i])) ?? 0
+            ),
+            meanRequiredFrontLoad:
+              profiles.reduce((sum, p) => sum + p.meanRequiredFrontLoad, 0) / profiles.length,
+            maxRequiredFrontLoad: Math.max(...profiles.map((p) => p.maxRequiredFrontLoad)),
+          }
+        : null;
     return {
       scaleYears,
       target: c.center,
       agreement: c.agreement,
       nSignals: xs.length,
+      profile,
     };
   }).filter((x) => x.nSignals > 0);
 
