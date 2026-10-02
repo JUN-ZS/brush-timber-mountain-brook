@@ -1,15 +1,6 @@
 name: QQQ Live Hedge Desk V2 Checks
 
 on:
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'research/live_hedge_v1/**'
-      - 'research/strategy_instance_v1/**'
-      - 'research/parity_v1/**'
-      - 'research/evidence_v1/**'
-      - '.github/workflows/qqq-live-hedge-v2-check.yml'
   pull_request:
     paths:
       - 'research/live_hedge_v1/**'
@@ -24,7 +15,7 @@ concurrency:
 
 jobs:
   checks:
-    runs-on: [self-hosted, windows, x64]
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
