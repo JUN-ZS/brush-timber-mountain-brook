@@ -938,3 +938,6 @@ def load_tests(loader, tests, pattern):
         if name.startswith("test_") and callable(obj):
             suite.addTest(unittest.FunctionTestCase(obj, description=name))
     return suite
+
+
+# Shared-CI sync marker: this deterministic evidence test is also part of the locked-OOS trigger surface.
