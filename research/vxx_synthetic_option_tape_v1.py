@@ -382,34 +382,62 @@ def _pava_nonincreasing(y):
     return -_pava_nondecreasing(-np.asarray(y,float))
 
 
-def _project_no_arb_call_curve(raw_call, strikes, spot, disc):
+def _project_no_arb_call_curve(raw_call, strikes, spot, disc, t):
     """
-    Project raw call prices to a static zero-dividend no-arbitrage curve.
-    The magnitude q=-dC/dK is projected to be non-increasing in [0,1].
+    Project raw call prices to a static no-arbitrage curve while keeping every
+    projected price inside the declared Black-Scholes IV bounds.
     """
     raw_call=np.asarray(raw_call,float)
     strikes=np.asarray(strikes,float)
-    if len(strikes)<3 or np.any(~np.isfinite(raw_call)) or np.any(~np.isfinite(strikes)):
+    t=np.asarray(t,float)
+    if (
+        len(strikes)<3
+        or np.any(~np.isfinite(raw_call))
+        or np.any(~np.isfinite(strikes))
+        or np.any(~np.isfinite(t))
+    ):
         raise RuntimeError("no-arb projection input is invalid")
     dk=np.diff(strikes)
     if np.any(dk<=0):
         raise RuntimeError("strike grid must be strictly increasing")
+
     q=-np.diff(raw_call)/dk
     q=np.clip(q,0.0,1.0)
     q=_pava_nonincreasing(q)
     q=np.clip(q,0.0,1.0)
     cumulative=np.concatenate(([0.0],np.cumsum(-q*dk)))
 
-    lower=np.maximum(spot-strikes*disc,0.0)-cumulative
-    upper=spot-cumulative
+    intrinsic=np.maximum(spot-strikes*disc,0.0)
+    iv_floor=bs(
+        np.full_like(strikes,spot),
+        strikes,t,
+        np.full_like(strikes,IV_LO),
+        "CALL"
+    )[0]
+    iv_cap=bs(
+        np.full_like(strikes,spot),
+        strikes,t,
+        np.full_like(strikes,IV_HI),
+        "CALL"
+    )[0]
+
+    lower=np.maximum(intrinsic,iv_floor)-cumulative
+    upper=np.minimum(np.full_like(strikes,spot),iv_cap)-cumulative
     lo=float(np.max(lower))
     hi=float(np.min(upper))
     if lo>hi+1e-8:
-        raise RuntimeError(f"no-arb anchor infeasible: lo={lo:.9g} hi={hi:.9g}")
+        raise RuntimeError(
+            f"no-arb anchor infeasible under IV bounds: lo={lo:.9g} hi={hi:.9g}"
+        )
 
     raw_anchor=raw_call-cumulative
     anchor=float(np.clip(np.mean(raw_anchor),lo,hi))
     curve=anchor+cumulative
+
+    if np.any(curve < np.maximum(intrinsic,iv_floor)-1e-8):
+        raise RuntimeError("projected CALL below declared IV/intrinsic floor")
+    if np.any(curve > np.minimum(np.full_like(strikes,spot),iv_cap)+1e-8):
+        raise RuntimeError("projected CALL above declared IV/spot cap")
     return curve,q
 
 
@@ -423,9 +451,10 @@ def _iv_from_price(s,k,t,p,right="CALL"):
     if p<intrinsic-tol or p>upper+tol:
         return None
     p=float(np.clip(p,intrinsic,upper))
-    lo,hi=max(1e-4,IV_LO),IV_HI
+    lo,hi=IV_LO,IV_HI
+    q_lo=float(bs(np.array([s]),np.array([k]),np.array([t]),np.array([lo]),right)[0][0])
     q_hi=float(bs(np.array([s]),np.array([k]),np.array([t]),np.array([hi]),right)[0][0])
-    if q_hi+tol<p:
+    if p<q_lo-tol or p>q_hi+tol:
         return None
     for _ in range(70):
         m=(lo+hi)/2
@@ -455,7 +484,9 @@ def _surface_regression_test():
         lm>0,iv+1.35*.045*tail*np.minimum(lm/.2,2),iv
     )
     raw=bs(np.full_like(k,s),k,np.full_like(k,t),iv,"CALL")[0]
-    projected,_=_project_no_arb_call_curve(raw,k,s,math.exp(-RATE*t))
+    projected,_=_project_no_arb_call_curve(
+        raw,k,s,math.exp(-RATE*t),np.full_like(k,t)
+    )
     slope=np.diff(projected)/np.diff(k)
     assert float(np.max(np.diff(raw)))>1e-6
     assert float(np.max(np.diff(projected)))<=1e-8
@@ -514,7 +545,11 @@ def build_family(market,family,out_file,write_tape=True):
             # Project CALL prices first, then recover one common IV surface.
             raw_call=bs(s,k,t,iv_raw,"CALL")[0]
             projected_call,_=_project_no_arb_call_curve(
-                raw_call,k,float(rr.vxx),float(np.exp(-RATE*t[0]))
+                raw_call,
+                k,
+                float(rr.vxx),
+                float(np.exp(-RATE*t[0])),
+                t,
             )
             iv_projected=np.array([
                 _iv_from_price(float(rr.vxx),float(kk),float(tt),float(pp),"CALL")
