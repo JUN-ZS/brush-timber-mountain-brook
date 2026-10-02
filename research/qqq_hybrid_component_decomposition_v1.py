@@ -93,9 +93,9 @@ def simulate(spots_path, include):
     data = json.load(open(spots_path, encoding='utf-8'))
     df = pd.DataFrame({
         'date': pd.to_datetime(data['dates']),
-        'qqq': data['qqq'],
-        'vxx': data['vxx'],
-        'vix': data['vix'],
+        'qqq': data['QQQ'],
+        'vxx': data['VXX'],
+        'vix': data['VIX'],
     })
     df['rQ'] = df.qqq.pct_change().fillna(0)
     df['rV'] = df.vxx.pct_change().fillna(0)
