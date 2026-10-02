@@ -272,6 +272,39 @@ def summarize_case(name, df, audit):
     }
 
 
+
+
+def simulate_forced_entry(
+    u,
+    entry_date,
+    far_candidates,
+    near_chains,
+    far_quotes_by_cid,
+    near_quotes_by_cid,
+    n_short,
+    has_gamma,
+):
+    # Run the frozen simulator one campaign at a time so every case is forced
+    # onto the exact same entry-date set. Future observations remain available
+    # for path evolution; only the entry signal mask is restricted.
+    u_one = u.copy()
+    u_one["signal"] = False
+    u_one.loc[u_one.date == pd.Timestamp(entry_date), "signal"] = True
+    v22.N_SHORT = n_short
+    return v22.simulate(
+        u=u_one,
+        far_candidates=far_candidates,
+        near_chains=near_chains,
+        far_quotes_by_cid=far_quotes_by_cid,
+        near_quotes_by_cid=near_quotes_by_cid,
+        far_dte=FAR_DTE,
+        far_delta=FAR_DELTA,
+        near_dte=NEAR_DTE,
+        coverage_mult=COVERAGE_MULT,
+        policy=POLICY,
+        has_gamma=has_gamma,
+    )
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", default="data")
@@ -327,6 +360,26 @@ def main():
     nq = v22.get_quotes(con, od, near_ids)
     near_quotes = v22.quote_maps(nq)
 
+    # Establish one fixed entry schedule from the frozen N10 fixed-8Δ control.
+    # Every comparison case is then run one campaign at a time on those exact dates.
+    v22.N_SHORT = 10
+    baseline_probe = v22.simulate(
+        u=u,
+        far_candidates=fixed_maps[10],
+        near_chains=near_chains,
+        far_quotes_by_cid=far_quotes,
+        near_quotes_by_cid=near_quotes,
+        far_dte=FAR_DTE,
+        far_delta=FAR_DELTA,
+        near_dte=NEAR_DTE,
+        coverage_mult=COVERAGE_MULT,
+        policy=POLICY,
+        has_gamma=has_gamma,
+    )
+    if baseline_probe.empty:
+        raise RuntimeError("No baseline campaigns to define a common entry path")
+    entry_dates = [pd.Timestamp(x) for x in baseline_probe["campaign_entry"].tolist()]
+
     runs = [
         ("N10_FIXED_8D", 10, fixed_maps[10]),
         ("N5_FIXED_8D", 5, fixed_maps[5]),
@@ -336,39 +389,62 @@ def main():
 
     summaries = []
     details = {}
+    entry_status = []
+
     for name, n, fmap in runs:
-        v22.N_SHORT = n
-        df = v22.simulate(
-            u=u,
-            far_candidates=fmap,
-            near_chains=near_chains,
-            far_quotes_by_cid=far_quotes,
-            near_quotes_by_cid=near_quotes,
-            far_dte=FAR_DTE,
-            far_delta=FAR_DELTA,
-            near_dte=NEAR_DTE,
-            coverage_mult=COVERAGE_MULT,
-            policy=POLICY,
-            has_gamma=has_gamma,
-        )
+        parts = []
+        for entry_date in entry_dates:
+            leg_map = fmap.get(entry_date, {})
+            available = bool(leg_map.get((FAR_DTE, FAR_DELTA)))
+            entry_status.append(
+                {
+                    "case": name,
+                    "campaign_entry": str(entry_date.date()),
+                    "candidate_available": available,
+                }
+            )
+            if not available:
+                continue
+            one = simulate_forced_entry(
+                u=u,
+                entry_date=entry_date,
+                far_candidates=fmap,
+                near_chains=near_chains,
+                far_quotes_by_cid=far_quotes,
+                near_quotes_by_cid=near_quotes,
+                n_short=n,
+                has_gamma=has_gamma,
+            )
+            if not one.empty:
+                parts.append(one)
+
+        df = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
         df.to_csv(out / f"{name.lower()}.csv", index=False)
         details[name] = df
         audit = audits.get(n, pd.DataFrame()) if "BUDGET" in name else pd.DataFrame()
+        audit = (
+            audit[audit["date"].isin({str(d.date()) for d in entry_dates})].copy()
+            if not audit.empty
+            else audit
+        )
         summaries.append(summarize_case(name, df, audit))
 
-    # Paired campaign comparison on identical entry dates.
+    pd.DataFrame(entry_status).to_csv(out / "forced_entry_status.csv", index=False)
+
+    # Paired campaign comparison on the exact same entry-date schedule.
     a = details["N10_BUDGET_DYNAMIC"].copy()
     b = details["N5_BUDGET_DYNAMIC"].copy()
     paired = a.merge(
         b,
         on="campaign_entry",
-        how="inner",
+        how="outer",
         suffixes=("_n10", "_n5"),
     )
     if not paired.empty:
-        paired["delta_total_pnl_n5_minus_n10"] = paired["total_pnl_usd_n5"] - paired["total_pnl_usd_n10"]
-        paired["delta_far_pnl_n5_minus_n10"] = paired["far_pnl_usd_n5"] - paired["far_pnl_usd_n10"]
-        paired["delta_maxdd_n5_minus_n10"] = paired["maxdd_n5"] - paired["maxdd_n10"]
+        for col in ("total_pnl_usd", "far_pnl_usd", "maxdd"):
+            paired[f"delta_{col}_n5_minus_n10"] = (
+                paired[f"{col}_n5"] - paired[f"{col}_n10"]
+            )
     paired.to_csv(out / "paired_dynamic_n5_minus_n10.csv", index=False)
 
     combined_audit = pd.concat(
@@ -382,6 +458,12 @@ def main():
         "status": "REAL_QQQ_CHAIN_REPLAY",
         "pricing": "actual QQQ options Bid/Ask; frozen V22 simulator",
         "not_opra": False,
+        "common_path": {
+            "entry_schedule_source": "N10 fixed 8Δ frozen V22 control",
+            "entry_schedule_campaigns": int(len(entry_dates)),
+            "all_cases_forced_to_same_entry_dates": True,
+            "future_path_data_preserved": True,
+        },
         "anti_leakage": {
             "far_selection_uses": "entry-date chain only",
             "budget_target": "N10 fixed 8-delta entry Bid total premium on the same entry date",
