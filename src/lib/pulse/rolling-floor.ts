@@ -617,7 +617,11 @@ export function couple(
       ? clockTarget
       : clamp(clockTarget + signalAuthority * (finalConsensus.center - clockTarget));
 
-  const mutualChase = [...new Set(signals.map((s) => s.channel))].map((channel) => {
+  // QQQ is the canonical observed outcome/audit channel. Mutual-chase
+  // shared state is driven only by independent proxy-price channels.
+  const mutualChase = [...new Set(
+    signals.filter((s) => s.layer === "PROXY_PRICE").map((s) => s.channel)
+  )].map((channel) => {
     const profiles = TRAP_SCALES_YEARS
       .map((scaleYears) => {
         const signal = signals.find(
