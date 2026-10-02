@@ -585,7 +585,7 @@ def test_outcome_rejects_unavailable_family_relabeling_legacy_case():
             "--anchor-evidence-id",anchor["evidence_id"],
             "--family-id","F_MISSING","--realized-pnl","1",
         ]
-        with patch.object(outcome.sys,"argv",args):
+        with patch.object(sys,"argv",args):
             try:
                 outcome.main()
             except SystemExit as exc:
@@ -829,16 +829,12 @@ def test_cycle_finalize_requires_cycle_start():
     with tempfile.TemporaryDirectory() as td:
         path=Path(td)/"bad.jsonl"
         ledger=EvidenceLedger(path)
-        ledger.append(
-            "CYCLE_FINALIZED",cycle_id="C-NO-START",
-            timestamp_utc="2026-10-01T00:00:00+00:00",payload={},
-        )
-        try:
-            ledger.validate()
-        except LedgerError as exc:
-            assert "FINALIZED_WITHOUT_START" in str(exc)
-        else:
-            raise AssertionError("finalization without cycle start must be rejected")
+        with unittest.TestCase().assertRaises(LedgerError) as exc:
+            ledger.append(
+                "CYCLE_FINALIZED",cycle_id="C-NO-START",
+                timestamp_utc="2026-10-01T00:00:00+00:00",payload={},
+            )
+        assert "FINALIZED_WITHOUT_START" in str(exc.exception)
 
 
 def test_cycle_semantics_require_predecision_before_decision_and_finalize_last():
