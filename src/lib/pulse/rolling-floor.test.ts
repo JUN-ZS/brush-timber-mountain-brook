@@ -184,6 +184,17 @@ test("deployment response profile keeps the conservative terminal-floor curve", 
 });
 
 
+
+test("GAR / MaxDD risk curve remains fully invested at the terminal point", () => {
+  const path = Array.from({ length: 121 }, (_, i) => 1 + i / 60);
+  const profile = buildRiskBaselineProfile([path]);
+  const flat = Array.from({ length: 121 }, () => 1);
+  const flatProfile = buildRiskBaselineProfile([flat]);
+  assert.ok(profile.garMedian.at(-1)! > 0);
+  assert.equal(flatProfile.maxDdMedian.at(-1), 0);
+  assert.equal(flatProfile.garMedian.at(-1), 0);
+});
+
 test("GAR / MaxDD baseline profile is diagnostic and aligned to the existing deployment-response grid", () => {
   const rising = Array.from({ length: 121 }, (_, i) => 1 + i / 60);
   const falling = Array.from({ length: 121 }, (_, i) => Math.max(0.5, 1 - i / 240));
