@@ -18,6 +18,16 @@ type LedgerEntry = {
   amount: number;
 };
 
+type RiskBaselineProfileView = {
+  deploymentFractions: number[];
+  garMedian: number[];
+  garQ05: number[];
+  garQ95: number[];
+  maxDdMedian: number[];
+  maxDdQ05: number[];
+  maxDdQ95: number[];
+};
+
 const LEDGER_KEY_V2 = "qqq-rolling-floor-ledger-v2";
 const FLOOR_STATE_KEY = "qqq-rolling-floor-state-v3";
 
@@ -248,6 +258,39 @@ function Page() {
     ? Math.max(...responseCurves.flatMap((c) => c.ys.map((x) => Number(x) || 0)))
     : 1;
   const responseDomain = [1, Math.max(2, maxResponse * 1.05)];
+
+  const riskBaselineCurves = useMemo(
+    () =>
+      (snapshot.current.perScale ?? [])
+        .map((s) => {
+          const profile = (s as typeof s & {
+            riskBaselineProfile?: RiskBaselineProfileView | null;
+          }).riskBaselineProfile;
+          return profile
+            ? {
+                scale: s.scaleYears,
+                xs: profile.deploymentFractions,
+                gar: {
+                  median: profile.garMedian,
+                  q05: profile.garQ05,
+                  q95: profile.garQ95,
+                },
+                maxDd: {
+                  median: profile.maxDdMedian,
+                  q05: profile.maxDdQ05,
+                  q95: profile.maxDdQ95,
+                },
+              }
+            : null;
+        })
+        .filter(Boolean) as Array<{
+        scale: number;
+        xs: number[];
+        gar: { median: number[]; q05: number[]; q95: number[] };
+        maxDd: { median: number[]; q05: number[]; q95: number[] };
+      }>,
+    [],
+  );
 
   const ndx = snapshot.current.mutualChase?.find((x) => x.channel === "NDX");
   const composite = snapshot.current.mutualChase?.find((x) => x.channel === "NASDAQCOM");
@@ -504,6 +547,34 @@ function Page() {
             填色 = 三尺度目前 response envelope；白線 = 你目前累積投入位置；黃色虛線 =
             已驗證的 leader handoff。互追目前是監視層，未直接控制資金。
           </p>
+        </Panel>
+
+        <Panel kicker="GAR / MAXDD HISTORICAL BASELINE" title="20Y / 30Y / 50Y：各自基線＋歷史出現區間">
+          {riskBaselineCurves.length ? (
+            <>
+              <div className="overflow-x-auto">
+                <RiskBaselineChart
+                  curves={riskBaselineCurves}
+                  currentX={cumulativeNowFraction}
+                  modelX={cumulativeModelTarget}
+                />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
+                {riskBaselineCurves.map((c) => (
+                  <span key={c.scale} className="font-mono">
+                    {c.scale}Y · GAR {fmtPct(c.gar.median.at(-1) ?? 0, 2)} · MaxDD {fmtPct(c.maxDd.median.at(-1) ?? 0, 2)}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                實線 = 每個 Y 層級自己的歷史 GAR / MaxDD 中位基線；淡區 = 同一歷史樣本的 q05–q95
+                出現範圍；粗淡區 = 三尺度共同 envelope。SIM 線隨目前實際累積投入移動，MODEL 線是現有
+                10Y floor controller 的位置。這層只觀測，不改 controller。
+              </p>
+            </>
+          ) : (
+            <EmptyState text="目前 snapshot 尚未帶入 GAR / MaxDD baseline；不猜資料，待同一模型重跑後顯示。" />
+          )}
         </Panel>
 
         <Panel kicker="CAPITAL TAPE / RULE CORRIDOR" title="你輸入的數字會立即反映在這條 10Y 路徑">
@@ -765,6 +836,143 @@ function MetricCard({
       <p className="mt-1 text-xl font-medium">{title}</p>
       <p className="mt-1 font-mono text-xs text-muted">{detail}</p>
     </div>
+  );
+}
+
+function RiskBaselineChart({
+  curves,
+  currentX,
+  modelX,
+}: {
+  curves: Array<{
+    scale: number;
+    xs: number[];
+    gar: { median: number[]; q05: number[]; q95: number[] };
+    maxDd: { median: number[]; q05: number[]; q95: number[] };
+  }>;
+  currentX: number;
+  modelX: number;
+}) {
+  if (!curves.length) return <EmptyState text="GAR / MaxDD baseline 不完整。" />;
+
+  const W = 1000, H = 620, L = 72, R = 24, T = 22, B = 46;
+  const plotW = W - L - R;
+  const sectionH = 238;
+  const gap = 72;
+  const garTop = T;
+  const ddTop = T + sectionH + gap;
+  const x = (v: number) => L + Math.max(0, Math.min(1, v)) * plotW;
+
+  function domainFor(
+    metric: "gar" | "maxDd",
+  ): [number, number] {
+    const values = curves.flatMap((c) =>
+      [...c[metric].q05, ...c[metric].q95].filter(Number.isFinite),
+    );
+    if (!values.length) return [0, 1];
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
+    const pad = Math.max((hi - lo) * 0.08, metric === "gar" ? 0.005 : 0.01);
+    return [lo - pad, hi + pad];
+  }
+
+  const garDomain = domainFor("gar");
+  const ddDomain = domainFor("maxDd");
+  const yFor = (v: number, top: number, domain: [number, number]) =>
+    top + (domain[1] - v) / Math.max(0.0001, domain[1] - domain[0]) * sectionH;
+
+  function bandPoints(metric: "gar" | "maxDd", top: number, domain: [number, number]) {
+    const xs = curves[0].xs;
+    const upper = xs.map((_, i) =>
+      Math.max(...curves.map((c) => c[metric].q95[i] ?? domain[0])),
+    );
+    const lower = xs.map((_, i) =>
+      Math.min(...curves.map((c) => c[metric].q05[i] ?? domain[0])),
+    );
+    return xs
+      .map((v, i) => [x(v), yFor(upper[i], top, domain)])
+      .concat(
+        xs
+          .slice()
+          .reverse()
+          .map((v, i) => {
+            const original = lower.length - 1 - i;
+            return [x(v), yFor(lower[original], top, domain)];
+          }),
+      )
+      .map((p) => p.join(","))
+      .join(" ");
+  }
+
+  const palette = ["var(--color-accent)", "var(--color-fragile)", "var(--color-muted)"];
+
+  const renderMetric = (
+    metric: "gar" | "maxDd",
+    top: number,
+    domain: [number, number],
+    title: string,
+  ) => (
+    <g>
+      <rect x={L} y={top} width={plotW} height={sectionH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
+      <polygon points={bandPoints(metric, top, domain)} fill="var(--color-accent)" opacity="0.09" />
+      {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+        const value = domain[0] + (domain[1] - domain[0]) * f;
+        return (
+          <g key={String(metric) + f}>
+            <line x1={L} x2={W - R} y1={yFor(value, top, domain)} y2={yFor(value, top, domain)} stroke="var(--color-line)" />
+            <text x={L - 10} y={yFor(value, top, domain) + 4} textAnchor="end" fill="var(--color-subtle)" fontSize="11">
+              {fmtPct(value, 1)}
+            </text>
+          </g>
+        );
+      })}
+      <text x={L + 8} y={top + 16} fill="var(--color-fg)" fontSize="12" fontWeight="600">{title}</text>
+      {curves.map((curve, idx) => (
+        <g key={String(metric) + curve.scale}>
+          <polyline
+            points={curve.xs.map((v, i) => x(v) + "," + yFor(curve[metric].median[i], top, domain)).join(" ")}
+            fill="none"
+            stroke={palette[idx] ?? "var(--color-fg)"}
+            strokeWidth="3"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          <polyline
+            points={curve.xs.map((v, i) => x(v) + "," + yFor(curve[metric].q05[i], top, domain)).join(" ")}
+            fill="none"
+            stroke={palette[idx] ?? "var(--color-fg)"}
+            strokeWidth="1"
+            opacity="0.24"
+          />
+          <polyline
+            points={curve.xs.map((v, i) => x(v) + "," + yFor(curve[metric].q95[i], top, domain)).join(" ")}
+            fill="none"
+            stroke={palette[idx] ?? "var(--color-fg)"}
+            strokeWidth="1"
+            opacity="0.24"
+          />
+        </g>
+      ))}
+      <line x1={x(modelX)} x2={x(modelX)} y1={top} y2={top + sectionH} stroke="var(--color-fragile)" strokeDasharray="5 5" opacity="0.85" />
+      <line x1={x(currentX)} x2={x(currentX)} y1={top} y2={top + sectionH} stroke="var(--color-fg)" strokeDasharray="3 3" opacity="0.9" />
+      <text x={Math.min(W - 140, x(modelX) + 6)} y={top + 32} fill="var(--color-fragile)" fontSize="11">MODEL {fmtPct(modelX, 1)}</text>
+      <text x={Math.min(W - 120, x(currentX) + 6)} y={top + 48} fill="var(--color-fg)" fontSize="11">SIM {fmtPct(currentX, 1)}</text>
+    </g>
+  );
+
+  return (
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="Historical GAR and MaxDD baseline corridors by 20Y 30Y 50Y">
+      {renderMetric("gar", garTop, garDomain, "GAR · geometric annual rate over fixed 10Y terminal horizon")}
+      {renderMetric("maxDd", ddTop, ddDomain, "MaxDD · deployment-path drawdown over fixed 10Y horizon")}
+      {[0, 0.25, 0.5, 0.75, 1].map((v) => (
+        <text key={v} x={x(v)} y={H - 20} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">
+          {Math.round(v * 100)}%
+        </text>
+      ))}
+      <text x={L} y={H - 4} fill="var(--color-subtle)" fontSize="11">
+        relative deployment phase · each Y-scale retains its own historical baseline; no GAR/MaxDD weighting is fed back into the controller
+      </text>
+    </svg>
   );
 }
 
