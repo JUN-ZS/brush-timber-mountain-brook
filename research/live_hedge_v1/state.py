@@ -187,6 +187,10 @@ class StateStore:
                 state["far_delta"] = None
                 state["last_target_stack"] = None
                 state["last_risk_score"] = None
+            # Unhashed DYNAMIC_STATE_OBSERVED is not a cache, but it is still
+            # unverified. Stamp it even when the cache fields are empty so a
+            # legacy ledger cannot look like a missing source.
+            if legacy_dynamic_present or event_integrity == "LEGACY_UNVERIFIED":
                 state["dynamic_state_source"] = "LEGACY_STATE_CACHE_UNVERIFIED"
         self._recover_from_events(state)
         event_lots = self._replay_strategy_lots(events)
@@ -784,7 +788,9 @@ class StateStore:
         payload: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         with live_event_mutation_lock(self.events_path):
-            rows = self._read_events()
+            # Lock is not re-entrant. _read_events() takes the same lock and
+            # deadlocks the first emit (and the whole V2 unit job).
+            rows = self._read_events_unlocked()
             if self._events_tail_corrupt:
                 raise ValueError("LIVE_EVENT_TAIL_CORRUPT")
             previous_hash = (
