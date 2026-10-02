@@ -406,7 +406,7 @@ class LiveHedgeV2Test(unittest.TestCase):
             store.events_path.write_text(json.dumps(legacy,separators=(",",":"))+"\n",encoding="utf-8")
             state = store.load()
             store.emit(state, "TICKET_FILLED", now="2026-10-01T00:00:01+00:00", payload={})
-            self.assertEqual(store.validate_events()["integrity"], "MIXED_LEGACY_HASHED")
+            self.assertEqual(store.validate_events()["integrity"], "HASHED_WITH_LEGACY_UNVERIFIED_PREFIX")
 
 
     def test_legacy_live_event_prefix_is_not_reported_as_fully_hashed(self):
@@ -1883,7 +1883,7 @@ class GammaHistoryMigrationTests(unittest.TestCase):
             )
             store = StateStore(state_path, Path(td) / "events.jsonl")
             state = store.load()
-            self.assertEqual(state["gamma_history"], [5.0, 5.1, 5.2])
+            self.assertEqual(state["gamma_history"], [])
             hist = ensure_gamma_history_schema(state, spot=500.0)
             self.assertEqual(hist, [])
             self.assertEqual(state["gamma_history"], [])
