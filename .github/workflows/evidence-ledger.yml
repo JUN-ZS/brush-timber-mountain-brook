@@ -24,6 +24,9 @@ jobs:
         with:
           python-version: "3.12"
           check-latest: false
+      - name: Install runtime timezone data
+        shell: cmd
+        run: python -m pip install "tzdata>=2024.1"
       - name: Verify workspace
         shell: cmd
         run: |
