@@ -94,6 +94,10 @@ def load_spots(p: Path) -> pd.DataFrame:
 
 
 def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
+    # Critical memory rule: never materialize the historical QQQ chain. When
+    # IV is present, DuckDB performs all daily surface aggregation in-process.
+    # When IV is absent, SQL reduces each day to only the 20 closest-to-ATM
+    # observations before Python IV inversion.
     oc = {str(v).lower() for v in con.execute(
         "DESCRIBE SELECT * FROM read_parquet(?)", [str(opt)]
     ).df().column_name}
@@ -103,15 +107,77 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
     u["date"] = pd.to_datetime(u["date"]).dt.tz_localize(None).dt.normalize()
     u["close"] = pd.to_numeric(u["close"], errors="coerce")
     u["lr"] = np.log(u.close).diff()
-    u["rv20"] = u.lr.shift(1).rolling(20,min_periods=20).std()*SQRT_252
-    u = u[u.date.between(START,END)].copy()
-    con.register("qqq_under", u)
+    u["rv20"] = u.lr.shift(1).rolling(20, min_periods=20).std() * SQRT_252
+    u = u[u.date.between(START, END)].copy()
+    con.register("qqq_under", u[["date","close"]])
 
-    iv_expr = (
-        f'CAST("{iv_name}" AS DOUBLE)' if iv_name
-        else "NULL::DOUBLE"
-    )
-    sql = f"""
+    if iv_name:
+        iv_expr = f'CAST(o."{iv_name}" AS DOUBLE)'
+        sql = f"""
+          WITH q AS (
+            SELECT CAST(o.date AS DATE) AS date,
+                   CAST(o.expiration AS DATE) AS expiration,
+                   CAST(o.strike AS DOUBLE) AS strike,
+                   CAST(o.bid AS DOUBLE) AS bid,
+                   CAST(o.ask AS DOUBLE) AS ask,
+                   CAST(o.delta AS DOUBLE) AS delta,
+                   COALESCE(CAST(o.volume AS DOUBLE),0) AS volume,
+                   {iv_expr} AS iv,
+                   u.close AS spot
+            FROM read_parquet(?) o
+            JOIN qqq_under u ON CAST(o.date AS DATE)=u.date
+            WHERE CAST(o.date AS DATE) BETWEEN DATE '2018-01-25' AND DATE '2026-09-01'
+              AND UPPER(o.type)='CALL'
+              AND CAST(o.expiration AS DATE) BETWEEN CAST(o.date AS DATE)+INTERVAL 20 DAY
+                                               AND CAST(o.date AS DATE)+INTERVAL 40 DAY
+              AND o.bid IS NOT NULL AND o.ask IS NOT NULL
+              AND o.ask >= o.bid AND o.bid > 0
+              AND o.delta IS NOT NULL
+              AND ABS(CAST(o.delta AS DOUBLE)) BETWEEN 0.15 AND 0.85
+              AND {iv_expr} IS NOT NULL
+          ),
+          x AS (
+            SELECT date, expiration, strike, bid, ask, delta, volume, spot,
+                   (expiration-date) AS dte,
+                   LN(strike/spot) AS m,
+                   CASE WHEN iv > 3 THEN iv/100.0 ELSE iv END AS iv_n
+            FROM q
+          )
+          SELECT date,
+                 COALESCE(
+                   MEDIAN(iv_n) FILTER (WHERE ABS(m)<=0.03),
+                   MEDIAN(iv_n) FILTER (WHERE ABS(delta-0.5)<=0.08)
+                 ) AS qqq_atm_iv,
+                 COALESCE(
+                   REGR_SLOPE(iv_n,m) FILTER (WHERE m>0 AND m<=0.22),
+                   0.0
+                 ) AS qqq_call_slope,
+                 COALESCE(
+                   -REGR_SLOPE(iv_n,m) FILTER (WHERE m<0 AND m>=-0.22),
+                   0.0
+                 ) AS qqq_put_slope,
+                 COALESCE(
+                   MEDIAN((ask-bid)/NULLIF((ask+bid)/2,0)) FILTER
+                     (WHERE (ask-bid)>=0),
+                   0.10
+                 ) AS qqq_rel_spread
+          FROM x
+          WHERE iv_n BETWEEN 0.02 AND 3.50
+          GROUP BY date
+          ORDER BY date
+        """
+        r=con.execute(sql,[str(opt)]).df()
+        if r.empty:
+            raise RuntimeError("QQQ observed reference aggregation is empty")
+        r["date"]=pd.to_datetime(r.date)
+        # causal: same-day QQQ surface is not allowed to price same-day VXX.
+        cols=[c for c in r.columns if c!="date"]
+        r[cols]=r[cols].shift(1)
+        r["calibration_source_date"]=r.date.shift(1)
+        return r
+
+    # No IV column: reduce in SQL first, then invert only a bounded sample.
+    sql = """
       WITH q AS (
         SELECT CAST(o.date AS DATE) AS date,
                CAST(o.expiration AS DATE) AS expiration,
@@ -120,11 +186,16 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
                CAST(o.ask AS DOUBLE) AS ask,
                CAST(o.delta AS DOUBLE) AS delta,
                COALESCE(CAST(o.volume AS DOUBLE),0) AS volume,
-               {iv_expr} AS iv,
-               u.close AS spot
+               u.close AS spot,
+               (CAST(o.expiration AS DATE)-CAST(o.date AS DATE)) AS dte,
+               LN(CAST(o.strike AS DOUBLE)/u.close) AS m,
+               ROW_NUMBER() OVER (
+                 PARTITION BY CAST(o.date AS DATE)
+                 ORDER BY ABS(ABS(CAST(o.delta AS DOUBLE))-0.5),
+                          COALESCE(CAST(o.volume AS DOUBLE),0) DESC
+               ) AS rn
         FROM read_parquet(?) o
-        JOIN qqq_under u
-          ON CAST(o.date AS DATE)=u.date
+        JOIN qqq_under u ON CAST(o.date AS DATE)=u.date
         WHERE CAST(o.date AS DATE) BETWEEN DATE '2018-01-25' AND DATE '2026-09-01'
           AND UPPER(o.type)='CALL'
           AND CAST(o.expiration AS DATE) BETWEEN CAST(o.date AS DATE)+INTERVAL 20 DAY
@@ -134,44 +205,41 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
           AND o.delta IS NOT NULL
           AND ABS(CAST(o.delta AS DOUBLE)) BETWEEN 0.15 AND 0.85
       )
-      SELECT date, expiration, strike, bid, ask, delta, volume, spot,
-             (expiration-date) AS dte,
-             LN(strike/spot) AS m,
-             iv
-      FROM q
+      SELECT * FROM q WHERE rn<=20 ORDER BY date, rn
     """
-    z = con.execute(sql,[str(opt)]).df()
+    z=con.execute(sql,[str(opt)]).df()
     if z.empty:
-        raise RuntimeError("QQQ observed reference chain empty")
-    z["dte"] = pd.to_numeric(z["dte"], errors="coerce")
-    z["mid"] = (z.bid+z.ask)/2
-    if iv_name:
-        z["iv_n"] = np.where(z.iv>3,z.iv/100,z.iv)
-    else:
-        # Rare fallback: keep only 20 closest-delta observations per day before
-        # midpoint inversion, so missing IV cannot explode memory.
-        z["rank"] = z.groupby("date")["delta"].transform(
-            lambda s: (s.abs()-.5).abs().rank(method="first")
-        )
-        z = z[z["rank"]<=20].copy()
-        vals=[]
-        for r in z.itertuples(index=False):
-            vals.append(_iv_from_mid(float(r.spot),float(r.strike),float(r.dte)/365,
-                                     float(r.mid)))
-        z["iv_n"]=vals
+        raise RuntimeError("QQQ reference fallback sample is empty")
+    z["mid"]=(z.bid+z.ask)/2
+    vals=[]
+    for r0 in z.itertuples(index=False):
+        vals.append(_iv_from_mid(
+            float(r0.spot),float(r0.strike),float(r0.dte)/365.0,float(r0.mid)
+        ))
+    z["iv_n"]=vals
+    z=z[z.iv_n.notna() & z.iv_n.between(.02,3.5)].copy()
 
-    z=z[z.iv_n.notna() & z.iv_n.between(.02,3.5) & z.m.notna()].copy()
-    out=(
-        z.groupby("date",as_index=False)
-        .apply(_summarize_qqq, include_groups=False)
-        .reset_index(drop=True)
-    )
-    out=out.sort_values("date")
-    cols=[c for c in out.columns if c!="date"]
-    out[cols]=out[cols].shift(1)
-    out["calibration_source_date"]=out.date.shift(1)
-    return out
-
+    out=[]
+    for d,g in z.groupby("date",sort=True):
+        atm=g[g.m.abs()<=.03].iv_n
+        if atm.empty:
+            atm=g.iloc[(g.delta.abs()-.5).abs().argsort()[:8]].iv_n
+        cs=g[(g.m>0)&(g.m<=.22)]
+        ps=g[(g.m<0)&(g.m>=-.22)]
+        def sl(a):
+            if len(a)<4: return 0.0
+            return float(np.polyfit(a.m.to_numpy(),a.iv_n.to_numpy(),1)[0])
+        out.append({
+            "date":d,"qqq_atm_iv":float(atm.median()),
+            "qqq_call_slope":sl(cs),
+            "qqq_put_slope":-sl(ps),
+            "qqq_rel_spread":float(((g.ask-g.bid)/g.mid).clip(0,2).median()),
+        })
+    r=pd.DataFrame(out).sort_values("date")
+    cols=[c for c in r.columns if c!="date"]
+    r[cols]=r[cols].shift(1)
+    r["calibration_source_date"]=r.date.shift(1)
+    return r
 
 def _iv_from_mid(s,k,t,p):
     if not np.isfinite([s,k,t,p]).all() or min(s,k,t)<=0 or p<=0:
