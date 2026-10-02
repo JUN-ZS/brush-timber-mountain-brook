@@ -14,6 +14,7 @@ permissions:
   contents: read
 
 concurrency:
+  # frozen research replay trigger
   group: qqq-hybrid-downside-convexity-v1
   cancel-in-progress: true
 
