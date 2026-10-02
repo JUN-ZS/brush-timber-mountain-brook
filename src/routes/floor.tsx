@@ -155,9 +155,11 @@ function Page() {
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
-      if (event.key !== FLOOR_STATE_KEY && event.key !== LEDGER_KEY_V2) return;
+      // writeFloorState removes the v2 ledger key after every v3 write.
+      // Another tab must not treat that removal (newValue=null) as a full reset.
+      if (event.key !== FLOOR_STATE_KEY) return;
       try {
-        if (!event.newValue) {
+        if (event.newValue == null) {
           setCapital(DEFAULT_CAPITAL);
           setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
           setMonth(DEFAULT_MONTH);
@@ -300,7 +302,7 @@ function Page() {
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <MetricCard kicker="CURRENT DEPLOYED" title={fmtPct(cumulativeBeforePreview / safeCapital, 3)} detail={fmtUsd(cumulativeBeforePreview, 2)} />
-                <MetricCard kicker="CLOCK FLOOR" title={fmtPct(currentClock, 3)} detail={"month " + month + " / 120"} />
+                <MetricCard kicker="CLOCK FLOOR" title={fmtPct(currentClock, 3)} detail={"month " + (month + 1) + " / 120"} />
                 <MetricCard kicker="REMAINING" title={fmtUsd(remainingCapital, 2)} detail="available capital" />
               </div>
 
@@ -386,11 +388,11 @@ function Page() {
               <NumberField
                 label="Current month in this 10Y cycle"
                 unit="mo"
-                value={month}
-                min={0}
-                max={119}
+                value={month + 1}
+                min={1}
+                max={120}
                 step={1}
-                onChange={(x) => setMonth(Math.max(0, Math.min(119, Math.round(x))))}
+                onChange={(x) => setMonth(clampMonth(x - 1))}
               />
               <MoneyField label="Actual cash invested now" value={actualNow} onChange={setActualNow} />
 
@@ -456,7 +458,7 @@ function Page() {
 
           <Panel kicker="SEMANTIC LOCK" title="監視層同資金層分開">
             <div className="grid gap-2 text-sm text-muted">
-              <p>Hard clock rail = 第 n 月最低累積投入 = (n+1) / 120。</p>
+              <p>Hard clock rail = month 0 = 0%；第 n 月（畫面 1..120）最低累積投入 = n / 120。</p>
               <p>Rule corridor = rail 以上至 100%；低於 rail 直接標 BELOW_CLOCK。</p>
               <p>Mutual-chase = 20Y / 30Y / 50Y 的 response geometry，暫時只監視。</p>
               <p>QQQ = observed outcome；NDX / NASDAQ Composite = proxy state channels。</p>
@@ -723,7 +725,10 @@ function CapitalChart({
   const x = (month: number) => L + Math.max(0, Math.min(120, month)) / 120 * plotW;
   const y = (fraction: number) => T + (1 - Math.max(0, Math.min(1, fraction))) * plotH;
 
-  const rail = Array.from({ length: 121 }, (_, m) => Math.min(1, (m + 1) / 120));
+  // Axis month 0 = 0%, month 120 = 100%. Operator month n (1..120) sits at n/120.
+  const rail = Array.from({ length: 121 }, (_, m) => m / 120);
+  // Persisted month is a 0-based index; plot it on the operator month (index + 1).
+  const xIndex = (monthIndex: number) => x(monthIndex + 1);
   const corridor = [
     [x(0), y(0)],
     ...rail.map((v, m) => [x(m), y(v)]),
@@ -754,7 +759,7 @@ function CapitalChart({
       {actual.length ? (
         <>
           <polyline
-            points={actual.map((p) => x(p.month) + "," + y(p.fraction)).join(" ")}
+            points={actual.map((p) => xIndex(p.month) + "," + y(p.fraction)).join(" ")}
             fill="none"
             stroke="var(--color-fg)"
             strokeWidth="3"
@@ -762,15 +767,15 @@ function CapitalChart({
             strokeLinecap="round"
           />
           {actual.map((p, index) => (
-            <circle key={String(p.month) + "-" + String(index)} cx={x(p.month)} cy={y(p.fraction)} r="5" fill="var(--color-fg)" />
+            <circle key={String(p.month) + "-" + String(index)} cx={xIndex(p.month)} cy={y(p.fraction)} r="5" fill="var(--color-fg)" />
           ))}
         </>
       ) : null}
       {preview ? (
         <>
-          <line x1={x(preview.month)} x2={x(preview.month)} y1={T} y2={T + plotH} stroke="var(--color-accent)" strokeDasharray="2 3" opacity="0.7" />
-          <circle cx={x(preview.month)} cy={y(preview.fraction)} r="7" fill="var(--color-accent)" />
-          <text x={Math.min(W - 150, x(preview.month) + 8)} y={y(preview.fraction) - 10} fill="var(--color-accent)" fontSize="11">
+          <line x1={xIndex(preview.month)} x2={xIndex(preview.month)} y1={T} y2={T + plotH} stroke="var(--color-accent)" strokeDasharray="2 3" opacity="0.7" />
+          <circle cx={xIndex(preview.month)} cy={y(preview.fraction)} r="7" fill="var(--color-accent)" />
+          <text x={Math.min(W - 150, xIndex(preview.month) + 8)} y={y(preview.fraction) - 10} fill="var(--color-accent)" fontSize="11">
             PREVIEW · {currentStatus}
           </text>
         </>
@@ -839,7 +844,7 @@ function LedgerTable({
         <tbody>
           {rows.map(({ entry, fraction, clock, status }) => (
             <tr key={entry.id} className="border-t border-line">
-              <td className="py-2 font-mono tabular-nums">{entry.month}</td>
+              <td className="py-2 font-mono tabular-nums">{entry.month + 1}</td>
               <td className="py-2 font-mono tabular-nums">{fmtUsd(entry.amount, 2)}</td>
               <td className="py-2 font-mono tabular-nums">{fmtPct(fraction, 2)}</td>
               <td className="py-2 font-mono tabular-nums">{fmtPct(clock, 2)}</td>
