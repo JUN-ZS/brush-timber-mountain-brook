@@ -33,6 +33,8 @@ def test_operator_ticket_context_is_verified_from_evidence():
         ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl",{})
         ledger.append("CYCLE_STARTED",instance_id="I",cycle_id="C1",
                       timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        ledger.append("PRE_DECISION_OBSERVATION",instance_id="I",cycle_id="C1",
+                      timestamp_utc="2026-10-01T00:00:01+00:00",payload={})
         decision=ledger.append(
             "DECISION_EMITTED",instance_id="I",cycle_id="C1",
             timestamp_utc="2026-10-01T00:00:05+00:00",
@@ -124,8 +126,12 @@ def test_operator_ticket_context_rejects_structural_leg_tampering():
                          "strategy_leg_action":"ADD_NEAR",
                          "before_qty":1,"target_qty":3,"price":8.5}]}
         ledger=EvidenceLedger(root/"research/evidence_v1/evidence.jsonl",{})
+        ledger.append("CYCLE_STARTED",instance_id="I",cycle_id="C1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
+        ledger.append("PRE_DECISION_OBSERVATION",instance_id="I",cycle_id="C1",
+                      timestamp_utc="2026-10-01T00:00:00+00:00",payload={})
         ledger.append("DECISION_EMITTED",instance_id="I",cycle_id="C1",
-                      timestamp_utc="2026-10-01T00:00:00+00:00",
+                      timestamp_utc="2026-10-01T00:00:01+00:00",
                       payload={"ticket":ticket})
         forged=json.loads(json.dumps(ticket["legs"][0]))
         forged["before_qty"]=0
@@ -327,6 +333,10 @@ def test_operator_ticket_context_rejects_cross_lineage_evidence():
         })
         ticket={"ticket_id":"T-L","action":"ADD_NEAR","status":"OPEN",
                 "legs":[{"code":"US.QQQ.TEST","side":"BUY","qty":1}]}
+        el.append("CYCLE_STARTED",cycle_id="C1",campaign_id=None,
+                  timestamp_utc="2026-10-01T20:00:58+00:00",payload={})
+        el.append("PRE_DECISION_OBSERVATION",cycle_id="C1",campaign_id=None,
+                  timestamp_utc="2026-10-01T20:00:59+00:00",payload={})
         el.append("DECISION_EMITTED",cycle_id="C1",campaign_id=None,
                   timestamp_utc="2026-10-01T20:01:00+00:00",
                   payload={"ticket":ticket})
