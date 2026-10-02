@@ -11,6 +11,17 @@ from research.evidence_v1.ledger import EvidenceLedger, LedgerError, canonical_j
 from research.live_hedge_v1.engine import Contract
 
 
+TEST_IDENTITY = {
+    "strategy_id":"TEST",
+    "strategy_version":"V1",
+    "selection_cutoff":"2025-12-15",
+    "research_engine_commit":"TEST",
+    "strategy_lock_hash":"LOCK1",
+    "code_hashes":{},
+    "evidence_policy":{},
+}
+
+
 def test_strict_decision_preserves_candidate_journal_hash_and_index():
     from .ledger import EvidenceLedger, LedgerError
 
