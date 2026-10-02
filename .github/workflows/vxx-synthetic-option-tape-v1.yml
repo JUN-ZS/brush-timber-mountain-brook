@@ -67,8 +67,8 @@ jobs:
       - name: Install research dependencies
         shell: bash
         run: |
-          python3 -m pip install --user --upgrade pip
-          python3 -m pip install --user duckdb pandas pyarrow numpy scipy
+          python3 -m pip install --break-system-packages --upgrade pip
+          python3 -m pip install --break-system-packages duckdb pandas pyarrow numpy scipy
       - name: Prepare canonical inputs
         shell: bash
         run: |
