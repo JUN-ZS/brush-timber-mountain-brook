@@ -597,7 +597,7 @@ type StateEpisode = {
   endAhead: number;
 };
 
-function episodesFromReplay(result: ReplayResult[]): StateEpisode[] {
+function episodesFromReplay(result: ReplayResult): StateEpisode[] {
   const episodes: StateEpisode[] = [];
   let currentState: DivergenceState | null = null;
   let months = 0;
