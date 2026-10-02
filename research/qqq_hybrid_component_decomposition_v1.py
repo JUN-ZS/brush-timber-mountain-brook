@@ -97,7 +97,7 @@ def simulate(spots_path, include):
         'vxx': data['c']['VXX'],
         'vix': data['c']['VIX'],
     })
-    df['rQ'] = df.qqq.pct_change().fillna(0)
+    df = df[(df['date'] >= pd.Timestamp('2018-03-01')) & (df['date'] <= pd.Timestamp('2026-09-04'))].copy().reset_index(drop=True)\n    if df[['qqq','vxx','vix']].isna().any().any():\n        raise ValueError('2018-03-01 to 2026-09-04 fixture contains missing QQQ/VXX/VIX observations')\n    df['rQ'] = df.qqq.pct_change().fillna(0)
     df['rV'] = df.vxx.pct_change().fillna(0)
     df['vixma'] = df.vix.rolling(20).mean()
     df['ts'] = np.tanh((df.vixma - df.vix) / 6) * .1
