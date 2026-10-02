@@ -395,6 +395,13 @@ def main():
     if not entry_dates:
         raise RuntimeError("No common campaign entry dates across all cases")
 
+    runs = [
+        ("N10_FIXED_8D", 10, fixed_maps[10]),
+        ("N5_FIXED_8D", 5, fixed_maps[5]),
+        ("N10_BUDGET_DYNAMIC", 10, dynamic_maps[10]),
+        ("N5_BUDGET_DYNAMIC", 5, dynamic_maps[5]),
+    ]
+
     summaries = []
     details = {}
     entry_status = []
@@ -499,8 +506,8 @@ def main():
         "paired_dynamic": {
             "campaigns": int(len(paired)),
             "total_pnl_n5_minus_n10_usd": float(paired["delta_total_pnl_usd_n5_minus_n10"].sum()) if not paired.empty else None,
-            "mean_pnl_delta_usd": float(paired["delta_total_pnl_n5_minus_n10"].mean()) if not paired.empty else None,
-            "median_pnl_delta_usd": float(paired["delta_total_pnl_n5_minus_n10"].median()) if not paired.empty else None,
+            "mean_pnl_delta_usd": float(paired["delta_total_pnl_usd_n5_minus_n10"].mean()) if not paired.empty else None,
+            "median_pnl_delta_usd": float(paired["delta_total_pnl_usd_n5_minus_n10"].median()) if not paired.empty else None,
             "n5_minus_n10_maxdd_delta_mean": float(paired["delta_maxdd_n5_minus_n10"].mean()) if not paired.empty else None,
             "n5_minus_n10_maxdd_delta_median": float(paired["delta_maxdd_n5_minus_n10"].median()) if not paired.empty else None,
         },
