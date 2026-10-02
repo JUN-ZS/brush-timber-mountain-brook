@@ -729,7 +729,7 @@
     "workflow": "Rolling 10Y Capital Floor",
     "runNumber": 109,
     "runId": 37077324984,
-    "headSha": "2df07431939c3f19c94d29206c6dcba51eb666d0",
+    "headSha": "2df07431939c2549020fdc2e179816cd7bdc1322",
     "artifact": "rolling-10y-floor-final",
     "asOf": "2026-09-04"
   }
