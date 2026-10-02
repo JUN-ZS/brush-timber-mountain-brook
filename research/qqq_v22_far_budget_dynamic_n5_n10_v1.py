@@ -5,11 +5,14 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import sys
 
 import duckdb
 import numpy as np
 import pandas as pd
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from research import qqq_dynamic_near_long_state_engine_v22_930c949 as v22
 
 FROZEN_ENGINE_BLOB = "1fb0464b59c0d7d734007d44f675c610d3033d49"
