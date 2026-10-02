@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { median, couple, deploymentResponseProfile, divergenceState, floorProfile, requiredFrontLoadFraction, riskBaselineProfile, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
+import { median, couple, deploymentResponseProfile, divergenceState, floorProfile, requiredFrontLoadFraction, buildRiskBaselineProfile, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
 
 test("median", () => assert.equal(median([0.1, 0.2, 0.25, 0.9]), 0.225));
 
@@ -185,7 +185,7 @@ test("deployment response profile keeps the conservative terminal-floor curve", 
 test("GAR / MaxDD baseline profile is diagnostic and aligned to the existing deployment-response grid", () => {
   const rising = Array.from({ length: 121 }, (_, i) => 1 + i / 60);
   const falling = Array.from({ length: 121 }, (_, i) => Math.max(0.5, 1 - i / 240));
-  const profile = riskBaselineProfile([rising, falling]);
+  const profile = buildRiskBaselineProfile([rising, falling]);
 
   assert.deepEqual(profile.deploymentFractions.slice(0, 3), [0, 0.05, 0.1]);
   assert.equal(profile.deploymentFractions.at(-1), 1);
