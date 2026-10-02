@@ -941,3 +941,5 @@ def load_tests(loader, tests, pattern):
 
 
 # Shared-CI sync marker: this deterministic evidence test is also part of the locked-OOS trigger surface.
+
+# Shared validation sync: keep latest workflow trigger on this evidence test path.
