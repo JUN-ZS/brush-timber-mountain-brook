@@ -724,5 +724,12 @@
       }
     ]
   },
-  "note": "Snapshot from verified Rolling 10Y Capital Floor run #88 immutable raw shard inputs, with corrected cash-accounting for the GAR/MaxDD diagnostic baseline. QQQ remains the observed outcome target; NDX/NASDAQ Composite remain proxy state channels. Risk baseline is historical research evidence, not a guarantee or a controller override."
+  "note": "UI snapshot seeded from verified Rolling 10Y Capital Floor run #91. GAR/MaxDD baselines use the same immutable analog construction and corrected cash-accounting as the current diagnostic implementation. QQQ remains the observed outcome target; NDX/NASDAQ Composite remain proxy state channels. Risk baseline is historical research evidence, not a guarantee or a controller override.",
+  "verifiedSource": {
+    "workflow": "Rolling 10Y Capital Floor",
+    "runNumber": 91,
+    "runId": 37074997992,
+    "headSha": "4eb349404f5493dc1f1d6047be0a1820932f1d91",
+    "artifact": "rolling-10y-floor-final"
+  }
 }
