@@ -32,8 +32,8 @@ jobs:
       - name: Install research dependencies
         shell: powershell
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install duckdb pandas pyarrow numpy scipy
+          python3 -m pip install --user --upgrade pip
+          python3 -m pip install --user duckdb pandas pyarrow numpy scipy
       - name: Prepare canonical inputs
         shell: powershell
         run: |
@@ -59,9 +59,11 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Verify system Python
+        shell: bash
+        run: |
+          python3 --version
+          python3 -m pip --version
       - name: Install research dependencies
         shell: bash
         run: |
@@ -82,8 +84,8 @@ jobs:
       - name: Rebuild and compare canonical fingerprint
         shell: bash
         run: |
-          python -m py_compile research/vxx_synthetic_option_tape_v1.py
-          python research/vxx_synthetic_option_tape_v1.py \
+          python3 -m py_compile research/vxx_synthetic_option_tape_v1.py
+          python3 research/vxx_synthetic_option_tape_v1.py \
             --spot-csv data/spots_qqq_vxx_vix.csv \
             --qqq-options data/QQQ_options.parquet \
             --qqq-underlying data/QQQ_underlying.parquet \
@@ -105,9 +107,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Verify system Python
+        shell: bash
+        run: |
+          python3 --version
       - name: Download Windows manifest
         uses: actions/download-artifact@v4
         with:
@@ -121,7 +124,7 @@ jobs:
       - name: Compare fingerprints
         shell: bash
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           from pathlib import Path
           w=json.loads(Path("windows/manifest.json").read_text())
