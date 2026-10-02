@@ -296,6 +296,30 @@ function Page() {
   const composite = snapshot.current.mutualChase?.find((x) => x.channel === "NASDAQCOM");
   const ndxHandoff = ndx ? leaderHandoff(ndx.topology.leaderScaleBySegment) : null;
 
+  const riskCurrentRows = useMemo(
+    () =>
+      riskBaselineCurves.map((curve) => {
+        const gar = interpolateAt(curve.xs, curve.gar.median, cumulativeNowFraction);
+        const garLo = interpolateAt(curve.xs, curve.gar.q05, cumulativeNowFraction);
+        const garHi = interpolateAt(curve.xs, curve.gar.q95, cumulativeNowFraction);
+        const maxDd = interpolateAt(curve.xs, curve.maxDd.median, cumulativeNowFraction);
+        const maxDdLo = interpolateAt(curve.xs, curve.maxDd.q05, cumulativeNowFraction);
+        const maxDdHi = interpolateAt(curve.xs, curve.maxDd.q95, cumulativeNowFraction);
+        return {
+          scale: curve.scale,
+          gar,
+          garLo,
+          garHi,
+          maxDd,
+          maxDdLo,
+          maxDdHi,
+          garRangePosition: rangePosition(gar, garLo, garHi),
+          maxDdRangePosition: rangePosition(maxDd, maxDdLo, maxDdHi),
+        };
+      }),
+    [riskBaselineCurves, cumulativeNowFraction],
+  );
+
   const capitalPoints = buildCapitalPoints(
     ledger,
     startingDeployed,
@@ -559,12 +583,33 @@ function Page() {
                   modelX={cumulativeModelTarget}
                 />
               </div>
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
-                {riskBaselineCurves.map((c) => (
-                  <span key={c.scale} className="font-mono">
-                    {c.scale}Y · GAR {fmtPct(c.gar.median.at(-1) ?? 0, 2)} · MaxDD {fmtPct(c.maxDd.median.at(-1) ?? 0, 2)}
-                  </span>
-                ))}
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-xs">
+                  <thead className="text-subtle">
+                    <tr>
+                      <th className="py-2">Y</th>
+                      <th className="py-2">GAR @ SIM</th>
+                      <th className="py-2">GAR historical range</th>
+                      <th className="py-2">MaxDD @ SIM</th>
+                      <th className="py-2">MaxDD historical range</th>
+                      <th className="py-2">position</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {riskCurrentRows.map((row) => (
+                      <tr key={row.scale} className="border-t border-line">
+                        <td className="py-2 font-mono">{row.scale}Y</td>
+                        <td className="py-2 font-mono tabular-nums">{fmtPct(row.gar, 2)}</td>
+                        <td className="py-2 font-mono tabular-nums">{fmtPct(row.garLo, 2)} … {fmtPct(row.garHi, 2)}</td>
+                        <td className="py-2 font-mono tabular-nums">{fmtPct(row.maxDd, 2)}</td>
+                        <td className="py-2 font-mono tabular-nums">{fmtPct(row.maxDdLo, 2)} … {fmtPct(row.maxDdHi, 2)}</td>
+                        <td className="py-2 font-mono tabular-nums">
+                          GAR {fmtPct(row.garRangePosition, 0)} · DD {fmtPct(row.maxDdRangePosition, 0)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
               <p className="mt-3 text-xs text-subtle">
                 實線 = 每個 Y 層級自己的歷史 GAR / MaxDD 中位基線；淡區 = 同一歷史樣本的 q05–q95
@@ -745,6 +790,31 @@ function leaderHandoff(leaders: Array<number | null>) {
     }
   }
   return null;
+}
+
+function interpolateAt(xs: number[], ys: number[], x: number) {
+  if (!xs.length || !ys.length) return 0;
+  if (x <= xs[0]) return ys[0] ?? 0;
+  const last = xs.length - 1;
+  if (x >= xs[last]) return ys[last] ?? 0;
+
+  for (let i = 1; i < xs.length; i++) {
+    const x1 = xs[i - 1];
+    const x2 = xs[i];
+    if (x <= x2) {
+      const y1 = ys[i - 1] ?? 0;
+      const y2 = ys[i] ?? y1;
+      const t = (x - x1) / Math.max(1e-12, x2 - x1);
+      return y1 + (y2 - y1) * t;
+    }
+  }
+  return ys[last] ?? 0;
+}
+
+function rangePosition(value: number, lo: number, hi: number) {
+  if (!Number.isFinite(value) || !Number.isFinite(lo) || !Number.isFinite(hi)) return 0;
+  if (Math.abs(hi - lo) < 1e-12) return value >= hi ? 1 : 0;
+  return Math.max(0, Math.min(1, (value - lo) / (hi - lo)));
 }
 
 function pctWidth(value: number | null | undefined) {
@@ -936,6 +1006,12 @@ function RiskBaselineChart({
             strokeWidth="3"
             strokeLinejoin="round"
             strokeLinecap="round"
+          />
+          <circle
+            cx={x(currentX)}
+            cy={yFor(interpolateAt(curve.xs, curve[metric].median, currentX), top, domain)}
+            r="5"
+            fill={palette[idx] ?? "var(--color-fg)"}
           />
           <polyline
             points={curve.xs.map((v, i) => x(v) + "," + yFor(curve[metric].q05[i], top, domain)).join(" ")}
