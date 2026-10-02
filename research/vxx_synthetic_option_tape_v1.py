@@ -322,6 +322,125 @@ def make_state(r,f):
     )
 
 
+
+def _pava_nondecreasing(y):
+    """Pool-adjacent-violators isotonic projection, equal weights."""
+    vals=[]
+    weights=[]
+    blocks=[]
+    for i,v in enumerate(np.asarray(y,float)):
+        vals.append(float(v))
+        weights.append(1.0)
+        blocks.append([i,i])
+        while len(vals)>=2 and vals[-2] > vals[-1] + 1e-15:
+            nw=weights[-2]+weights[-1]
+            nv=(vals[-2]*weights[-2]+vals[-1]*weights[-1])/nw
+            vals[-2]=nv
+            weights[-2]=nw
+            blocks[-2][1]=blocks[-1][1]
+            vals.pop()
+            weights.pop()
+            blocks.pop()
+    out=np.empty(len(y),dtype=float)
+    for v,(a,b) in zip(vals,blocks):
+        out[a:b+1]=v
+    return out
+
+
+def _pava_nonincreasing(y):
+    return -_pava_nondecreasing(-np.asarray(y,float))
+
+
+def _project_no_arb_call_curve(raw_call, strikes, spot, disc):
+    """
+    Project raw call prices to a static zero-dividend no-arbitrage curve.
+    The magnitude q=-dC/dK is projected to be non-increasing in [0,1].
+    """
+    raw_call=np.asarray(raw_call,float)
+    strikes=np.asarray(strikes,float)
+    if len(strikes)<3 or np.any(~np.isfinite(raw_call)) or np.any(~np.isfinite(strikes)):
+        raise RuntimeError("no-arb projection input is invalid")
+    dk=np.diff(strikes)
+    if np.any(dk<=0):
+        raise RuntimeError("strike grid must be strictly increasing")
+    q=-np.diff(raw_call)/dk
+    q=np.clip(q,0.0,1.0)
+    q=_pava_nonincreasing(q)
+    q=np.clip(q,0.0,1.0)
+    cumulative=np.concatenate(([0.0],np.cumsum(-q*dk)))
+
+    lower=np.maximum(spot-strikes*disc,0.0)-cumulative
+    upper=spot-cumulative
+    lo=float(np.max(lower))
+    hi=float(np.min(upper))
+    if lo>hi+1e-8:
+        raise RuntimeError(f"no-arb anchor infeasible: lo={lo:.9g} hi={hi:.9g}")
+
+    raw_anchor=raw_call-cumulative
+    anchor=float(np.clip(np.mean(raw_anchor),lo,hi))
+    curve=anchor+cumulative
+    return curve,q
+
+
+def _iv_from_price(s,k,t,p,right="CALL"):
+    if not np.isfinite([s,k,t,p]).all() or min(s,k,t)<=0:
+        return None
+    disc=math.exp(-RATE*t)
+    intrinsic=max((s-k*disc) if right=="CALL" else (k*disc-s),0.0)
+    upper=s if right=="CALL" else k*disc
+    tol=1e-9*max(1.0,upper)
+    if p<intrinsic-tol or p>upper+tol:
+        return None
+    p=float(np.clip(p,intrinsic,upper))
+    lo,hi=max(1e-4,IV_LO),IV_HI
+    q_hi=float(bs(np.array([s]),np.array([k]),np.array([t]),np.array([hi]),right)[0][0])
+    if q_hi+tol<p:
+        return None
+    for _ in range(70):
+        m=(lo+hi)/2
+        q=float(bs(np.array([s]),np.array([k]),np.array([t]),np.array([m]),right)[0][0])
+        if q>p:
+            hi=m
+        else:
+            lo=m
+    return float((lo+hi)/2)
+
+
+def _surface_regression_test():
+    # Exact aggressive-wing shape that previously produced C(K+1)>C(K).
+    s=50.0
+    t=120.0/365.0
+    m=np.array([-.025,.0,.025,.05,.1,.15,.2,.25,.3,.35,.4])
+    k=s*(1+m)
+    lm=np.log(k/s)
+    atm=1.2
+    callw=.42*1.8
+    quad=.25
+    tail=3.0
+    iv=atm+np.where(
+        lm>=0,callw*lm+quad*lm*lm,.55*(-lm)+.7*quad*lm*lm
+    )
+    iv=np.where(
+        lm>0,iv+1.35*.045*tail*np.minimum(lm/.2,2),iv
+    )
+    raw=bs(np.full_like(k,s),k,np.full_like(k,t),iv,"CALL")[0]
+    projected,_=_project_no_arb_call_curve(raw,k,s,math.exp(-RATE*t))
+    slope=np.diff(projected)/np.diff(k)
+    assert float(np.max(np.diff(raw)))>1e-6
+    assert float(np.max(np.diff(projected)))<=1e-8
+    assert float(np.min(np.diff(slope)))>=-1e-8
+    put=projected-s+k*math.exp(-RATE*t)
+    put_slope=np.diff(put)/np.diff(k)
+    assert float(np.min(np.diff(put)))>=-1e-8
+    assert float(np.min(np.diff(put_slope)))>=-1e-8
+    return {
+        "raw_max_call_price_diff":float(np.max(np.diff(raw))),
+        "projected_max_call_price_diff":float(np.max(np.diff(projected))),
+        "projected_min_second_slope_diff":float(np.min(np.diff(slope))),
+    }
+
+
+
 def build_family(market,family,out_file,write_tape=True):
     f=FAMILIES[family]
     writer=None
@@ -359,11 +478,24 @@ def build_family(market,family,out_file,write_tape=True):
                 iv_raw
             )
             iv_raw=np.clip(iv_raw,IV_LO,IV_HI)
+
+            # Raw strike-dependent IV can violate C_K<=0 / C_KK>=0.
+            # Project CALL prices first, then recover one common IV surface.
+            raw_call=bs(s,k,t,iv_raw,"CALL")[0]
+            projected_call,_=_project_no_arb_call_curve(
+                raw_call,k,float(rr.vxx),float(np.exp(-RATE*t[0]))
+            )
+            iv_projected=np.array([
+                _iv_from_price(float(rr.vxx),float(kk),float(tt),float(pp),"CALL")
+                for kk,tt,pp in zip(k,t,projected_call)
+            ],dtype=float)
+            if np.any(~np.isfinite(iv_projected)):
+                raise RuntimeError(
+                    f"{family} projected curve outside IV bounds on {rr.date} {expiry}"
+                )
             for right in ("CALL","PUT"):
-                # Same IV surface for CALL and PUT at identical (K,T).
-                # This preserves internal put-call parity under the declared
-                # zero-dividend / constant-rate pricing convention.
-                iv=iv_raw
+                # Same projected IV for CALL and PUT at identical (K,T).
+                iv=iv_projected
                 price,delta,gamma,vega,theta=bs(s,k,t,iv,right)
                 rel=np.clip(
                     st["qqq_rel_spread_ref"] *
@@ -416,9 +548,12 @@ def build_family(market,family,out_file,write_tape=True):
                         raise RuntimeError(f"{family} PUT price/convexity gate failed on {rr.date} {expiry}")
 
                 if right=="PUT":
-                    block["parity_residual"] = (
-                        bs(s,k,t,iv,"CALL")[0] - price - (s-k*np.exp(-RATE*t))
-                    )
+                    projected_parity=projected_call-price-(s-k*np.exp(-RATE*t))
+                    block["parity_residual"] = projected_parity
+                    if np.max(np.abs(projected_parity))>1e-8:
+                        raise RuntimeError(
+                            f"{family} put-call parity gate failed on {rr.date} {expiry}"
+                        )
 
                 if write_tape:
                     tbl=pa.Table.from_pandas(block,preserve_index=False)
@@ -483,6 +618,10 @@ def main():
     state_hash=hashlib.sha256(
         state.sort_values(["date","family"]).round(9).to_csv(index=False,lineterminator="\n").encode()
     ).hexdigest()
+    canonical_fingerprint=hashlib.sha256(
+        f"{family_hash}:{state_hash}".encode()
+    ).hexdigest()
+    regression=_surface_regression_test()
     manifest={
         "research_id":"VXX_SYNTHETIC_OPTION_TAPE_V1",
         "status":"MODEL_DERIVED",
@@ -503,15 +642,24 @@ def main():
           "qqq_underlying":sha256_file(Path(args.qqq_underlying))},
         "families_definition":FAMILIES,
         "family_meta":metas,
+        "quality_gate": {
+          "status":"PASS",
+          "regression_test":"PASS",
+          "blocks_checked":int(sum(meta["rows"] for meta in metas.values())/(2*len(M_GRID))),
+          "regression_details":regression,
+          "static_shape_rule":"CALL decreasing + convex; PUT increasing + convex",
+        },
         "surface_integrity": {
           "common_iv_for_call_put": True,
           "put_call_parity_convention": "C-P = S-K*exp(-rT), zero dividend",
-          "per_block_price_monotonicity": "hard gate",
-          "per_block_discrete_convexity": "hard gate",
+          "raw_surface_projected_to_no_arb_price_curve": True,
+          "projected_price_monotonicity": "hard gate",
+          "projected_discrete_convexity": "hard gate",
           "delta_monotonicity": "diagnostic_only_not_hard_gate",
         },
         "state_fingerprint":state_hash,
         "family_fingerprint":family_hash,
+        "canonical_fingerprint":canonical_fingerprint,
         "script_sha256":sha256_file(Path(__file__)),
         "python":platform.python_version(),"platform":platform.platform(),
     }
