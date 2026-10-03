@@ -329,22 +329,25 @@ function runReplay(
 function summarizeFunding(results: FundingReplayResult[]) {
   const terminals = results.map((r) => r.terminalWealth);
   const contributions = results.map((r) => r.totalContributed);
+  const principals = [...new Set(results.map((r) => r.plannedPrincipal))];
+  if (principals.length > 1) {
+    throw new Error("Funding comparison mixes different planned principal B values");
+  }
+  const plannedPrincipal = principals[0] ?? 1;
+  const contributedRatios = contributions.map((x) => x / plannedPrincipal);
+  const terminalRatios = terminals.map((x) => x / plannedPrincipal);
   return {
     nReplays: results.length,
+    plannedPrincipal,
     principalFailureRate:
-      terminals.filter((x) => x < 1).length / Math.max(1, terminals.length),
-    q05Terminal: quantile(terminals, 0.05) ?? 0,
-    medianTerminal: quantile(terminals, 0.50) ?? 0,
-    worstTerminal: terminals.length ? Math.min(...terminals) : 0,
-    meanTotalContributed:
-      contributions.reduce((a, b) => a + b, 0) /
-      Math.max(1, contributions.length),
-    medianTotalContributed: quantile(contributions, 0.50) ?? 0,
-    q05TotalContributed: quantile(contributions, 0.05) ?? 0,
-    meanContributionReduction:
-      1 -
-      contributions.reduce((a, b) => a + b, 0) /
-        Math.max(1, contributions.length),
+      terminalRatios.filter((x) => x < 1).length / Math.max(1, terminalRatios.length),
+    q05Terminal: quantile(terminalRatios, 0.05) ?? 0,
+    medianTerminal: quantile(terminalRatios, 0.50) ?? 0,
+    worstTerminal: terminalRatios.length ? Math.min(...terminalRatios) : 0,
+    meanTotalContributedRatio: mean(contributedRatios),
+    medianTotalContributedRatio: quantile(contributedRatios, 0.50) ?? 0,
+    q05TotalContributedRatio: quantile(contributedRatios, 0.05) ?? 0,
+    meanContributionReduction: 1 - mean(contributedRatios),
   };
 }
 
@@ -668,7 +671,7 @@ function writeOutputs(
       (payload.replay.adaptiveFunding.meanContributionReduction * 100).toFixed(2) + "%",
     "Clock-funded principal failure rate: " +
       (payload.replay.clockFunding.principalFailureRate * 100).toFixed(1) + "%",
-    "Clock-funded 5% terminal quantile: " +
+    "Clock-funded 5% terminal quantile / B: " +
       payload.replay.clockFunding.q05Terminal.toFixed(4),
     "",
     "## Paired checkpoint differential (CLOCK - ADAPTIVE)",
