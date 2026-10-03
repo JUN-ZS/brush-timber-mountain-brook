@@ -727,6 +727,10 @@ function writeOutputs(
     replay.adaptiveFunding.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
   writeFileSync(
+    join(outDir, "rolling_floor_clock_funding_replays.jsonl"),
+    replay.clockFunding.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
     join(outDir, "rolling_floor_profit_sweep_replays.jsonl"),
     replay.profitSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
