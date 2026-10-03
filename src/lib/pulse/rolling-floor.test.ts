@@ -242,16 +242,43 @@ test("funding plan keeps principal outside until monthly funding is actually nee
   assert.equal(Number(clock.path[0].contribution.toFixed(6)), Number((1 / 120).toFixed(6)));
   assert.ok(clock.path[0].remainingExternalCapital > 0.99);
 
-  // Month 2 sees the prior month's closed gain and reduces new external funding.
-  assert.ok(adaptive.path[1].fundingCredit > 0);
+  // The current month's close cannot fund the same month's decision.
+  assert.equal(adaptive.path[1].fundingCredit, 0);
+
+  // Month 3 can use the prior month's closed gain and reduces new external funding.
+  assert.ok(adaptive.path[2].fundingCredit > 0);
   assert.ok(
-    adaptive.path[1].contribution < clock.path[1].contribution,
+    adaptive.path[2].contribution < clock.path[2].contribution,
   );
 
   // Under a sustained gain, the reduced external funding is not required to
   // catch back up; the earned surplus itself remains inside the account.
   assert.ok(adaptive.totalContributed < 1);
   assert.equal(adaptive.path[0].accountCash, 0);
+
+  // B is an immutable plan ceiling, not a recursive output. Scaling B must
+  // preserve every funding ratio and NAV/B ratio.
+  const scaled = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "ADAPTIVE_FUNDED",
+    100,
+  )!;
+  assert.equal(scaled.plannedPrincipal, 100);
+  assert.equal(
+    Number((scaled.totalContributed / scaled.plannedPrincipal).toFixed(6)),
+    Number(adaptive.totalContributed.toFixed(6)),
+  );
+  assert.equal(
+    Number(
+      (
+        scaled.path[2].nav / scaled.plannedPrincipal
+      ).toFixed(6),
+    ),
+    Number(adaptive.path[2].nav.toFixed(6)),
+  );
 
   const reversalQqq = Array.from({ length: 121 }, (_, i) => ({
     date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
@@ -268,11 +295,22 @@ test("funding plan keeps principal outside until monthly funding is actually nee
     "ADAPTIVE_FUNDED",
   )!;
 
-  // After the surplus is gone, credit vanishes and future contributions resume.
-  assert.equal(reversal.path[2].fundingCredit, 0);
-  assert.ok(reversal.path[2].contribution >= clock.path[2].contribution);
+  // The month-3 decision can still use the month-2 gain.
+  assert.ok(reversal.path[2].fundingCredit > 0);
+
+  // After the month-3 loss is closed, credit vanishes and future contributions resume.
+  assert.equal(reversal.path[3].fundingCredit, 0);
+  assert.ok(reversal.path[3].contribution >= clock.path[3].contribution);
   assert.equal(Number(reversal.totalContributed.toFixed(6)), 1);
-});
+  assert.equal(
+    Number(
+      (
+        reversal.totalContributed +
+        reversal.path.at(-1)!.remainingExternalCapital
+      ).toFixed(6),
+    ),
+    1,
+  );
 
 test("adaptive credit is a majority survival probability, not a GAR/MaxDD score", () => {
   const mk = (scaleYears: 20 | 30 | 50, samples: number[]) => ({
