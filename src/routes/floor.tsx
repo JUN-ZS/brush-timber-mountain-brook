@@ -44,6 +44,10 @@ function Page() {
   const [planInput, setPlanInput] = useState("");
   const [monthInput, setMonthInput] = useState("0");
   const [note, setNote] = useState("");
+  const [plannedContributionAmount, setPlannedContributionAmount] = useState("");
+  const [plannedContributionMonth, setPlannedContributionMonth] = useState("1");
+  const [plannedWithdrawalAmount, setPlannedWithdrawalAmount] = useState("");
+  const [plannedWithdrawalMonth, setPlannedWithdrawalMonth] = useState("1");
 
   useEffect(() => {
     const loaded = loadState();
@@ -63,6 +67,28 @@ function Page() {
   const clock = clockTarget(state.plannedPrincipal, state.cycleMonth);
   const delta = fundingDelta(state.plannedPrincipal, state.cycleMonth, state.entries);
   const status = fundingStatus(delta);
+  const remainingPrincipal = Math.max(0, state.plannedPrincipal - contributed);
+  const monthsRemaining = Math.max(0, 120 - state.cycleMonth);
+  const averageFutureContribution =
+    monthsRemaining > 0 ? remainingPrincipal / monthsRemaining : remainingPrincipal;
+  const plannedContribution = Math.max(0, Number(plannedContributionAmount) || 0);
+  const plannedMonth = Math.max(
+    state.cycleMonth,
+    Math.min(120, Math.round(Number(plannedContributionMonth) || state.cycleMonth)),
+  );
+  const projectedContributed = contributed + plannedContribution;
+  const projectedClock = clockTarget(state.plannedPrincipal, plannedMonth);
+  const projectedDelta = projectedContributed - projectedClock;
+  const projectedRemaining = Math.max(0, state.plannedPrincipal - projectedContributed);
+  const projectedMonthsRemaining = Math.max(0, 120 - plannedMonth);
+  const projectedAverageFutureContribution =
+    projectedMonthsRemaining > 0 ? projectedRemaining / projectedMonthsRemaining : projectedRemaining;
+
+  const plannedWithdrawal = Math.max(0, Number(plannedWithdrawalAmount) || 0);
+  const plannedWithdrawalMonthValue = Math.max(
+    state.cycleMonth,
+    Math.min(120, Math.round(Number(plannedWithdrawalMonth) || state.cycleMonth)),
+  );
 
   function commit(updater: (current: FloorAccountState) => FloorAccountState) {
     setState((current) => updater(current));
@@ -132,6 +158,64 @@ function Page() {
             <div className="mt-1">
               Funding status = Actual contributed − Cₜ。帳面 NAV 不參與超前 / 落後判定。
             </div>
+          </div>
+        </Panel>
+
+        <Panel kicker="CAPITAL JOURNEY · DYNAMIC PACE" title="線是參考，路徑可以變">
+          <p className="max-w-4xl text-sm leading-relaxed text-muted">
+            CLOCK 只畫出「到十年終點時要完成 100% B」的時間骨架；它不是每月固定配額。
+            你可以提早掏、延後掏、一次掏多一點或分幾次掏，App 只把實際路徑與 CLOCK 擺在一起。
+          </p>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <PaceMetric label="CLOCK POSITION" value={fmtUsd(clock)} note={(state.cycleMonth / 120 * 100).toFixed(2) + "% of B"} />
+            <PaceMetric label="REMAINING TO 100% B" value={fmtUsd(remainingPrincipal)} note="未掏的正式本金" />
+            <PaceMetric label="MONTHS LEFT" value={String(monthsRemaining)} note="到 month 120" />
+            <PaceMetric label="AVERAGE FUTURE PACE" value={fmtUsd(averageFutureContribution)} note="只係算術參考，不是指令" />
+          </div>
+
+          <div className="mt-4 overflow-x-auto rounded-lg border border-line bg-elevated p-3">
+            <CapitalJourneyChart
+              plannedPrincipal={state.plannedPrincipal}
+              currentMonth={state.cycleMonth}
+              entries={state.entries}
+              plannedContribution={
+                plannedContribution > 0
+                  ? { month: plannedMonth, amount: plannedContribution }
+                  : null
+              }
+            />
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <Panel kicker="NEXT CONTRIBUTION · MANUAL PREVIEW" title="試下一次：幾時加、加幾多">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Planned month" value={plannedContributionMonth} onChange={setPlannedContributionMonth} prefix="M" />
+                <Field label="Planned contribution" value={plannedContributionAmount} onChange={setPlannedContributionAmount} prefix="$" />
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <PaceMetric label="PROJECTED CONTRIBUTED" value={fmtUsd(projectedContributed)} note={"after month " + plannedMonth} />
+                <PaceMetric label="PROJECTED Δ vs CLOCK" value={(projectedDelta >= 0 ? "+" : "") + fmtUsd(projectedDelta)} note="仍然只看 funding path" />
+                <PaceMetric label="NEW AVG FUTURE PACE" value={fmtUsd(projectedAverageFutureContribution)} note="完成餘下 B 的平均值" />
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                呢個係預覽，不會寫入 ledger；按正式「記錄供款」先會變成 Actual contributed。
+              </p>
+            </Panel>
+
+            <Panel kicker="WITHDRAWAL · MANUAL PREVIEW" title="試抽取，但唔碰 Floor">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Planned withdrawal month" value={plannedWithdrawalMonth} onChange={setPlannedWithdrawalMonth} prefix="M" />
+                <Field label="Planned withdrawal" value={plannedWithdrawalAmount} onChange={setPlannedWithdrawalAmount} prefix="$" />
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <PaceMetric label="PLANNED CASH OUT" value={fmtUsd(plannedWithdrawal)} note={"journal month " + plannedWithdrawalMonthValue} />
+                <PaceMetric label="CUMULATIVE WITHDRAWN" value={fmtUsd(withdrawn)} note="只計已記錄抽取" />
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                這只是 cashflow 預覽。它不判斷可否抽、不自動執行、不減 Actual、不加回 Floor NAV。
+              </p>
+            </Panel>
           </div>
         </Panel>
 
@@ -255,6 +339,142 @@ function Page() {
         </Panel>
       </div>
     </Shell>
+  );
+}
+
+function PaceMetric({ label, value, note }: { label: string; value: string; note: string }) {
+  return (
+    <div className="rounded-md border border-line bg-elevated p-3">
+      <div className="text-xs text-subtle">{label}</div>
+      <div className="mt-1 font-mono text-lg tabular-nums">{value}</div>
+      <div className="mt-1 text-xs text-muted">{note}</div>
+    </div>
+  );
+}
+
+function CapitalJourneyChart({
+  plannedPrincipal,
+  currentMonth,
+  entries,
+  plannedContribution,
+}: {
+  plannedPrincipal: number;
+  currentMonth: number;
+  entries: FloorAccountState["entries"];
+  plannedContribution: { month: number; amount: number } | null;
+}) {
+  const W = 1040;
+  const H = 360;
+  const L = 64;
+  const R = 28;
+  const T = 24;
+  const B = 52;
+  const plotW = W - L - R;
+  const plotH = H - T - B;
+  const safePrincipal = Math.max(1, plannedPrincipal);
+  const x = (month: number) => L + (Math.max(0, Math.min(120, month)) / 120) * plotW;
+  const y = (amount: number) =>
+    T + (1 - Math.max(0, Math.min(1, amount / safePrincipal))) * plotH;
+
+  const contributions = entries
+    .filter((entry) => entry.kind === "CONTRIBUTION")
+    .slice()
+    .sort((a, b) => a.cycleMonth - b.cycleMonth || a.recordedAt.localeCompare(b.recordedAt));
+
+  let cumulative = 0;
+  const actualPoints = contributions.map((entry) => {
+    cumulative += Math.max(0, entry.amount);
+    return { month: entry.cycleMonth, amount: cumulative };
+  });
+
+  const startActual = actualPoints.length ? [{ month: 0, amount: 0 }, ...actualPoints] : [{ month: 0, amount: 0 }];
+  const clockPoints = Array.from({ length: 121 }, (_, month) => ({
+    month,
+    amount: safePrincipal * (month / 120),
+  }));
+
+  const previewPrior = cumulative;
+  const previewPoint = plannedContribution
+    ? {
+        month: Math.max(currentMonth, Math.min(120, plannedContribution.month)),
+        amount: previewPrior + plannedContribution.amount,
+      }
+    : null;
+
+  const maxObserved = Math.max(
+    safePrincipal,
+    previewPoint?.amount ?? 0,
+    cumulative,
+    1,
+  );
+  const previewStatus =
+    previewPoint == null
+      ? null
+      : previewPoint.amount - safePrincipal * (previewPoint.month / 120);
+
+  return (
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="Dynamic actual capital path versus 10 year clock reference">
+      <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-surface)" opacity="0.6" rx="8" />
+      {[0, 0.25, 0.5, 0.75, 1].map((fraction) => (
+        <g key={fraction}>
+          <line x1={L} x2={W - R} y1={y(safePrincipal * fraction)} y2={y(safePrincipal * fraction)} stroke="var(--color-line)" />
+          <text x={L - 10} y={y(safePrincipal * fraction) + 4} textAnchor="end" fill="var(--color-subtle)" fontSize="11">
+            {(fraction * 100).toFixed(0)}%
+          </text>
+        </g>
+      ))}
+
+      <polyline
+        points={clockPoints.map((p) => x(p.month) + "," + y(p.amount)).join(" ")}
+        fill="none"
+        stroke="var(--color-fragile)"
+        strokeWidth="3"
+        strokeDasharray="6 5"
+      />
+
+      {startActual.length > 1 ? (
+        <>
+          <polyline
+            points={startActual.map((p) => x(p.month) + "," + y(Math.min(maxObserved, p.amount))).join(" ")}
+            fill="none"
+            stroke="var(--color-fg)"
+            strokeWidth="3.5"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          {actualPoints.map((p, index) => (
+            <circle key={"actual-" + index} cx={x(p.month)} cy={y(Math.min(maxObserved, p.amount))} r="5" fill="var(--color-fg)" />
+          ))}
+        </>
+      ) : (
+        <circle cx={x(0)} cy={y(0)} r="5" fill="var(--color-fg)" />
+      )}
+
+      {previewPoint ? (
+        <>
+          <line x1={x(previewPoint.month)} x2={x(previewPoint.month)} y1={T} y2={T + plotH} stroke="var(--color-accent)" strokeDasharray="3 4" opacity="0.75" />
+          <circle cx={x(previewPoint.month)} cy={y(Math.min(maxObserved, previewPoint.amount))} r="7" fill="var(--color-accent)" />
+          <text x={Math.min(W - 220, x(previewPoint.month) + 8)} y={Math.max(T + 16, y(Math.min(maxObserved, previewPoint.amount)) - 12)} fill="var(--color-accent)" fontSize="11">
+            NEXT · {(previewStatus! >= 0 ? "+" : "") + fmtUsd(previewStatus!)}
+          </text>
+        </>
+      ) : null}
+
+      <line x1={x(currentMonth)} x2={x(currentMonth)} y1={T} y2={T + plotH} stroke="var(--color-fg)" strokeDasharray="2 4" opacity="0.5" />
+      <text x={Math.min(W - 120, x(currentMonth) + 7)} y={T + 16} fill="var(--color-fg)" fontSize="11">
+        AS-OF M{currentMonth}
+      </text>
+
+      {[0, 24, 48, 72, 96, 120].map((month) => (
+        <text key={month} x={x(month)} y={H - 24} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">
+          M{month}
+        </text>
+      ))}
+
+      <text x={L} y={H - 5} fill="var(--color-subtle)" fontSize="10">
+        - - CLOCK reference · solid ACTUAL contribution path · accent NEXT preview · no market signal authority
+      </text>
+    </svg>
   );
 }
 
