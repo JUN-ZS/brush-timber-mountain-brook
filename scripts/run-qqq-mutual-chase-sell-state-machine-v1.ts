@@ -26,6 +26,7 @@ type PathResult = {
   stateMachine: Metrics;
   stateMachineSellEvents: number;
   stateMachineStateChanges: number;
+  stateMachineExtensionEpisodes: number;
 };
 
 const ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -47,7 +48,7 @@ function monthlyQqq(data: QqqData): MonthlyPoint[] {
   for (let i = 0; i < Math.min(dates.length, closes.length); i++) {
     const close = Number(closes[i]);
     const date = dates[i];
-    if (!Number.isFinite(close) || close <= 0 || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) continue;
+    if (!Number.isFinite(close) || close <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     const key = date.slice(0, 7);
     const prev = byMonth.get(key);
     if (!prev || date > prev.date) byMonth.set(key, { date, close });
@@ -505,7 +506,7 @@ function run() {
     "",
     "The state machine remains RESEARCH_ONLY. It is not promoted merely because it improves a metric. Promotion requires incremental value versus STATIC_POST_RUNUP plus preservation of economic-wealth accounting and causal invariants.",
     "",
-  ].join("\\n");
+  ].join("\n");
   writeFileSync(resolve(OUT_DIR, "qqq_mutual_chase_sell_state_machine_v1.md"), md);
 
   const csvHeader = [
@@ -537,7 +538,7 @@ function run() {
       p.staticPostRunup.totalHarvestToReserve,p.stateMachine.totalHarvestToReserve,
     ].map((x) => JSON.stringify(x)).join(","));
   }
-  writeFileSync(resolve(OUT_DIR, "qqq_mutual_chase_sell_state_machine_v1.csv"), lines.join("\\n") + "\\n");
+  writeFileSync(resolve(OUT_DIR, "qqq_mutual_chase_sell_state_machine_v1.csv"), lines.join("\n") + "\n");
 
   console.log(md);
 }
