@@ -38,6 +38,11 @@ test("NAV never participates in funding status", () => {
   assert.equal(fundingStatus(fundingDelta(highNav.plannedPrincipal, 60, entries)), "ON_CLOCK");
 });
 
+test("CLOCK endpoints remain exactly 0% and 100% of B", () => {
+  assert.equal(clockTarget(100_000, 0), 0);
+  assert.equal(clockTarget(100_000, 120), 100_000);
+});
+
 test("withdrawal never changes Actual contributed", () => {
   const entries = [
     createEntry("CONTRIBUTION", 70_000, 84, "2026-10-04T00:00:00Z"),
