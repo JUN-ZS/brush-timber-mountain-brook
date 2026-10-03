@@ -178,9 +178,9 @@ jobs:
         with:
           node-version: "22"
           check-latest: false
-      - name: Unit-test state topology
+      - name: Unit-test state topology + 50Y reconstruction
         shell: bash
-        run: node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts
+        run: node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts src/lib/pulse/long-scale.test.ts
       - name: Collect required proxy shards
         uses: actions/download-artifact@v4
         with:
