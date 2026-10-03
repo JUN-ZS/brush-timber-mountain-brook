@@ -301,6 +301,7 @@ function runReplay(
   const lump = [];
   const adaptiveFunding = [];
   const clockFunding = [];
+  const profitSweep = [];
 
   for (let start = 0; start + 120 < qqq.length; start++) {
     const coupled = replayOne(qqq, panel, start, "COUPLED");
@@ -323,11 +324,36 @@ function runReplay(
       1,
       initialFundingFraction,
     );
-    if (!coupled || !credit || !adaptiveFund || !clockFund) continue;
+    const sweepFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "ADAPTIVE_FUNDED",
+      1,
+      initialFundingFraction,
+      "SWEEP_ELIGIBLE_SURPLUS",
+    );
+    if (!coupled || !credit || !adaptiveFund || !clockFund || !sweepFund) continue;
+
+    // Full profit sweep must erase the future surplus credit before the next
+    // funding decision. If it does not, the same gain would be counted twice.
+    if (
+      sweepFund.path.some((point) => point.fundingCredit > 1e-9) ||
+      Math.abs(
+        sweepFund.totalContributed - clockFund.totalContributed,
+      ) > 1e-8
+    ) {
+      throw new Error(
+        "Profit-sweep invariant failed: swept surplus must not retain adaptive credit or reduce total clock funding",
+      );
+    }
+
     replays.push(coupled);
     adaptiveCredit.push(credit);
     adaptiveFunding.push(adaptiveFund);
     clockFunding.push(clockFund);
+    profitSweep.push(sweepFund);
     clock.push(clockReplay(qqq, start));
     lump.push(lumpReplay(qqq, start));
   }
@@ -337,6 +363,7 @@ function runReplay(
     adaptiveCredit,
     adaptiveFunding,
     clockFunding,
+    profitSweep,
     clock: clock.filter(Boolean),
     lump: lump.filter(Boolean),
   };
@@ -364,6 +391,24 @@ function summarizeFunding(results: FundingReplayResult[]) {
     medianTotalContributedRatio: quantile(contributedRatios, 0.50) ?? 0,
     q05TotalContributedRatio: quantile(contributedRatios, 0.05) ?? 0,
     meanContributionReduction: 1 - mean(contributedRatios),
+    meanTotalWithdrawnRatio: mean(
+      results.map((r) => r.totalWithdrawn / plannedPrincipal),
+    ),
+    q05TotalWithdrawnRatio:
+      quantile(
+        results.map((r) => r.totalWithdrawn / plannedPrincipal),
+        0.05,
+      ) ?? 0,
+    medianTotalWithdrawnRatio:
+      quantile(
+        results.map((r) => r.totalWithdrawn / plannedPrincipal),
+        0.50,
+      ) ?? 0,
+    meanNetEconomicWealth: mean(
+      results.map(
+        (r) => r.netEconomicWealth / plannedPrincipal,
+      ),
+    ),
   };
 }
 
@@ -470,7 +515,7 @@ function writeOutputs(
     couple(latestDate, 0, byDate.get(latestDate) ?? []);
 
   const payload = {
-    version: "rolling-floor.v4-adaptive-funding",
+    version: "rolling-floor.v5-profit-withdrawal",
     evidenceClass: "RESEARCH_ONLY",
     topology: {
       workers: [
@@ -538,6 +583,7 @@ function writeOutputs(
       adaptiveCreditOnly: summarizeReplays(replay.adaptiveCredit),
       adaptiveFunding: summarizeFunding(replay.adaptiveFunding),
       clockFunding: summarizeFunding(replay.clockFunding),
+      profitSweep: summarizeFunding(replay.profitSweep),
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
     },
@@ -579,6 +625,10 @@ function writeOutputs(
   writeFileSync(
     join(outDir, "rolling_floor_adaptive_funding_replays.jsonl"),
     replay.adaptiveFunding.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_profit_sweep_replays.jsonl"),
+    replay.profitSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
   writeFileSync(
     join(outDir, "rolling_floor_state_path.json"),
@@ -693,6 +743,18 @@ function writeOutputs(
       (payload.replay.adaptiveFunding.meanTotalContributedRatio * 100).toFixed(2) + "%",
     "Adaptive-funded mean contribution reduction: " +
       (payload.replay.adaptiveFunding.meanContributionReduction * 100).toFixed(2) + "%",
+    "",
+    "Profit-withdrawal sweep diagnostic (100% of eligible surplus at each month close):",
+    "Profit-sweep mean total contributed / B: " +
+      (payload.replay.profitSweep.meanTotalContributedRatio * 100).toFixed(2) + "%",
+    "Profit-sweep mean cumulative withdrawn / B: " +
+      (payload.replay.profitSweep.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
+    "Profit-sweep q05 cumulative withdrawn / B: " +
+      (payload.replay.profitSweep.q05TotalWithdrawnRatio * 100).toFixed(2) + "%",
+    "Profit-sweep mean net economic wealth / B: " +
+      payload.replay.profitSweep.meanNetEconomicWealth.toFixed(4),
+    "Invariant: profit sweep retains no funding credit and restores total external funding to the hard clock.",
+    "",
     "Clock-funded principal failure rate: " +
       (payload.replay.clockFunding.principalFailureRate * 100).toFixed(1) + "%",
     "Clock-funded 5% terminal quantile / B: " +
