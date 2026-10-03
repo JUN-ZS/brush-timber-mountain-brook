@@ -346,6 +346,32 @@ function summarizeFunding(results: FundingReplayResult[]) {
   };
 }
 
+function summarizeFundingCheckpoint(
+  results: FundingReplayResult[],
+  months: 36 | 60 | 120,
+) {
+  const rows = results
+    .map((r) => r.path[months - 1])
+    .filter((x): x is FundingReplayResult["path"][number] => Boolean(x));
+  const nav = rows.map((x) => x.nav);
+  const contributed = rows.map((x) => x.cumulativeContributed);
+  const credit = rows.map((x) => x.fundingCredit);
+  return {
+    months,
+    label: months === 36 ? "3Y" : months === 60 ? "5Y" : "10Y",
+    observations: rows.length,
+    dependence: "OVERLAPPING_ROLLING_PATHS; DIAGNOSTIC",
+    medianNav: quantile(nav, 0.5) ?? 0,
+    q05Nav: quantile(nav, 0.05) ?? 0,
+    meanContributed: contributed.reduce((a, b) => a + b, 0) / Math.max(1, contributed.length),
+    meanContributionReduction:
+      months / FLOOR_HORIZON_MONTHS -
+      contributed.reduce((a, b) => a + b, 0) / Math.max(1, contributed.length),
+    meanCredit: credit.reduce((a, b) => a + b, 0) / Math.max(1, credit.length),
+    creditActiveRate: credit.filter((x) => x > 1e-12).length / Math.max(1, credit.length),
+  };
+}
+
 function baselineSummary(
   rows: Array<{ terminalWealth: number; maxDrawdown: number }>,
 ) {
@@ -383,7 +409,7 @@ function writeOutputs(
     couple(latestDate, 0, byDate.get(latestDate) ?? []);
 
   const payload = {
-    version: "rolling-floor.v3-adaptive-credit",
+    version: "rolling-floor.v4-adaptive-funding",
     evidenceClass: "RESEARCH_ONLY",
     topology: {
       workers: [
@@ -458,11 +484,11 @@ function writeOutputs(
         dependence: "OVERLAPPING_ROLLING_WINDOWS; DIAGNOSTIC_ONLY",
       },
       checkpoints: [
-        { months: 36, label: "3Y", use: "EARLY_FUNDING_RESPONSE" },
-        { months: 60, label: "5Y", use: "MID_FUNDING_RESPONSE" },
-        { months: 120, label: "10Y", use: "TERMINAL_PRINCIPAL_FLOOR" },
+        summarizeFundingCheckpoint(replay.adaptiveFunding, 36),
+        summarizeFundingCheckpoint(replay.adaptiveFunding, 60),
+        summarizeFundingCheckpoint(replay.adaptiveFunding, 120),
       ],
-      rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test.",
+      rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test. None are treated as independent samples.",
     },
     statePath: summarizeStatePath(replay.replays),
     mutualChasePath: summarizeStatePath(replay.replays, "mutualChaseState"),
@@ -486,6 +512,10 @@ function writeOutputs(
   writeFileSync(
     join(outDir, "rolling_floor_adaptive_credit_replays.jsonl"),
     replay.adaptiveCredit.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_adaptive_funding_replays.jsonl"),
+    replay.adaptiveFunding.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
   writeFileSync(
     join(outDir, "rolling_floor_state_path.json"),
@@ -549,7 +579,7 @@ function writeOutputs(
     "",
     "Signal objective: 95% terminal-principal floor front-load requirement, not maximum terminal wealth.",
     "",
-    "The adaptive-credit replay is a separate BUY-only controller: it ignores the historical forward-pull target and uses only reversible NAV surplus credit against the hard clock.",
+    "The adaptive-credit replay is a historical-credit diagnostic. The new adaptive-funded replay is the actual funding-plan experiment: external principal starts outside the account and enters dynamically over 10 years.",
     "",
     "Coupled replays: " + replay.replays.length,
     "Coupled non-loss rate: " +
@@ -601,6 +631,13 @@ function writeOutputs(
       (payload.replay.clockFunding.principalFailureRate * 100).toFixed(1) + "%",
     "Clock-funded 5% terminal quantile: " +
       payload.replay.clockFunding.q05Terminal.toFixed(4),
+    "",
+    "Checkpoint 3Y q05 NAV: " +
+      payload.evaluation.checkpoints[0].q05Nav.toFixed(4),
+    "Checkpoint 5Y q05 NAV: " +
+      payload.evaluation.checkpoints[1].q05Nav.toFixed(4),
+    "Checkpoint 10Y q05 NAV: " +
+      payload.evaluation.checkpoints[2].q05Nav.toFixed(4),
     "",
     "## Current",
     "",
