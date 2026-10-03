@@ -14,7 +14,7 @@ permissions:
 jobs:
   cleanup-stale-research-runs:
     name: Cleanup / this research branch only
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     continue-on-error: true
     steps:
       - name: Cancel stale Rolling/V22 runs from this branch
@@ -49,7 +49,7 @@ jobs:
 
   qqq-windows-audit:
     name: Worker / QQQ / Windows audit
-    runs-on: windows-latest
+    runs-on: [self-hosted, windows, x64]
     continue-on-error: true
     timeout-minutes: 20
     steps:
