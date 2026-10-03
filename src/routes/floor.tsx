@@ -3,6 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Panel, Shell } from "@/components/shell";
 import { fmtPct, fmtUsd } from "@/lib/utils";
+import {
+  actualContributed,
+  actualWithdrawn,
+  clockTarget,
+  fundingDelta,
+  fundingStatus,
+  type FloorEntryKind,
+} from "@/lib/floor/account";
 import snapshot from "@/data/rolling_floor_ui_snapshot.json";
 import { buildLiveHistoryMatch, type LiveHistoryMatch, type YahooSeries } from "@/lib/floor/yahoo-live";
 import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floor";
@@ -18,6 +26,7 @@ type LedgerEntry = {
   asOf: string;
   month: number;
   amount: number;
+  kind?: FloorEntryKind;
   price?: number | null;
   priceObservedAt?: string | null;
   priceSource?: "YAHOO_FINANCE_CHART" | "UNAVAILABLE";
@@ -30,8 +39,6 @@ type MarketTapeEntry = {
   price: number;
 };
 
-type FloorAction = "BUY / ADD" | "HOLD / NO NEW BUY" | "WAIT FOR LIVE MODEL";
-
 type RiskBaselineProfileView = {
   deploymentFractions: number[];
   garMedian: number[];
@@ -43,7 +50,7 @@ type RiskBaselineProfileView = {
 };
 
 const LEDGER_KEY_V2 = "qqq-rolling-floor-ledger-v2";
-const FLOOR_STATE_KEY = "qqq-rolling-floor-state-v3";
+const FLOOR_STATE_KEY = "qqq-rolling-floor-state-v4";
 
 const DEFAULT_CAPITAL = 100000;
 const DEFAULT_STARTING_DEPLOYED = 0;
@@ -55,6 +62,7 @@ type FloorPersistedState = {
   month: number;
   entries: LedgerEntry[];
   marketTape: MarketTapeEntry[];
+  nav: number;
 };
 
 function defaultFloorState(): FloorPersistedState {
@@ -64,6 +72,7 @@ function defaultFloorState(): FloorPersistedState {
     month: DEFAULT_MONTH,
     entries: [],
     marketTape: [],
+    nav: 0,
   };
 }
 
@@ -146,6 +155,7 @@ function writeFloorState(state: FloorPersistedState) {
         month: state.month,
         entries: state.entries,
         marketTape: state.marketTape,
+        nav: state.nav,
       }),
     );
     // Prefer v3 as source of truth after migrate/write.
@@ -160,6 +170,13 @@ function Page() {
   const [month, setMonth] = useState(DEFAULT_MONTH);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [marketTape, setMarketTape] = useState<MarketTapeEntry[]>([]);
+  const [nav, setNav] = useState(0);
+  const [navInput, setNavInput] = useState("0");
+  const [withdrawalNow, setWithdrawalNow] = useState(0);
+  const [plannedContributionMonth, setPlannedContributionMonth] = useState(DEFAULT_MONTH + 1);
+  const [plannedContributionAmount, setPlannedContributionAmount] = useState(0);
+  const [plannedWithdrawalMonth, setPlannedWithdrawalMonth] = useState(DEFAULT_MONTH + 1);
+  const [plannedWithdrawalAmount, setPlannedWithdrawalAmount] = useState(0);
   const [copied, setCopied] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [liveMatch, setLiveMatch] = useState<LiveHistoryMatch | null>(null);
@@ -215,6 +232,8 @@ function Page() {
     setMonth(loaded.month);
     setLedger(loaded.entries);
     setMarketTape(loaded.marketTape);
+    setNav(loaded.nav);
+    setNavInput(String(loaded.nav));
     setHasHydrated(true);
   }, []);
 
@@ -228,7 +247,7 @@ function Page() {
       entries: ledger,
       marketTape,
     });
-  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape]);
+  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, nav]);
 
   // Each successful Yahoo refresh seals one observed QQQ market point at the current cycle month.
   // This tape is the bridge between real-time passage and the forward 10Y simulation.
@@ -264,6 +283,8 @@ function Page() {
           setMonth(DEFAULT_MONTH);
           setLedger([]);
           setMarketTape([]);
+          setNav(0);
+          setNavInput("0");
           return;
         }
         const parsed = normalizeFloorState(JSON.parse(event.newValue));
@@ -273,6 +294,8 @@ function Page() {
         setMonth(parsed.month);
         setLedger(parsed.entries);
         setMarketTape(parsed.marketTape);
+        setNav(parsed.nav);
+        setNavInput(String(parsed.nav));
       } catch {}
     };
     window.addEventListener("storage", onStorage);
@@ -280,12 +303,30 @@ function Page() {
   }, []);
 
   const safeCapital = Math.max(1, capital);
-  const recordedAmount = ledger.reduce((sum, x) => sum + Math.max(0, x.amount), 0);
-  const cumulativeBeforePreview = Math.max(0, startingDeployed) + recordedAmount;
+  const cycleMonth = Math.max(0, Math.min(120, month + 1));
+  const contributed = actualContributed(ledger);
+  const withdrawn = actualWithdrawn(ledger);
+  const cumulativeBeforePreview = contributed;
   const cumulativeNowAmount = cumulativeBeforePreview + Math.max(0, actualNow);
   const cumulativeNowFraction = cumulativeNowAmount / safeCapital;
+  const currentClock = clockTarget(safeCapital, cycleMonth);
+  const formalFundingDelta = fundingDelta(safeCapital, cycleMonth, ledger);
+  const formalFundingStatus = fundingStatus(formalFundingDelta);
+  const remainingCapital = Math.max(0, safeCapital - contributed);
+  const monthsRemaining = Math.max(0, 120 - cycleMonth);
+  const averageFutureContribution =
+    monthsRemaining > 0 ? remainingCapital / monthsRemaining : remainingCapital;
 
-  const currentClock = clockTarget(month);
+  const normalizedPlannedContributionMonth = Math.max(1, Math.min(120, Math.round(Number(plannedContributionMonth) || cycleMonth || 1)));
+  const normalizedPlannedContributionAmount = Math.max(0, Number(plannedContributionAmount) || 0);
+  const projectedContributed = Math.min(safeCapital, contributed + normalizedPlannedContributionAmount);
+  const projectedClock = clockTarget(safeCapital, normalizedPlannedContributionMonth);
+  const projectedDelta = projectedContributed - projectedClock;
+  const projectedMonthsRemaining = Math.max(0, 120 - normalizedPlannedContributionMonth);
+  const projectedAverageFutureContribution =
+    projectedMonthsRemaining > 0
+      ? Math.max(0, safeCapital - projectedContributed) / projectedMonthsRemaining
+      : Math.max(0, safeCapital - projectedContributed);
   const activePerScale = (liveFloor?.perScale ?? snapshot.current.perScale) as Array<{
     scaleYears: 20 | 30 | 50;
     target: number | null;
@@ -307,17 +348,9 @@ function Page() {
     0,
     Number(liveFloor?.coupledTarget ?? snapshot.current.coupledTargetAtPhaseZero) || 0,
   );
-  const cumulativeModelTarget = Math.min(1, Math.max(currentClock, signalFloorAnchor));
-  const additionalSuggested = Math.max(0, cumulativeModelTarget * safeCapital - cumulativeBeforePreview);
-  const remainingCapital = Math.max(0, safeCapital - cumulativeBeforePreview);
+  const modelReferenceX = Math.min(1, Math.max(currentClock, signalFloorAnchor));
+  const additionalModelReference = Math.max(0, modelReferenceX * safeCapital - cumulativeBeforePreview);
   const currentStatus = statusFor(cumulativeNowFraction, currentClock, cumulativeNowAmount, safeCapital);
-  const modelGap = cumulativeModelTarget - cumulativeBeforePreview / safeCapital;
-  const strategyAction: FloorAction =
-    !liveFloor && !liveLoading
-      ? "WAIT FOR LIVE MODEL"
-      : modelGap > 1e-9
-        ? "BUY / ADD"
-        : "HOLD / NO NEW BUY";
 
   const responseCurves = useMemo(
     () =>
@@ -422,9 +455,9 @@ function Page() {
             currentMonth: month,
             currentPrice: livePrice,
             cumulativeNowFraction,
-            modelTarget: cumulativeModelTarget,
+            modelTarget: modelReferenceX,
             ledger,
-            startingDeployed: startingDeployed / safeCapital,
+            startingDeployed: 0,
             marketTape,
             capital: safeCapital,
           })
@@ -434,7 +467,7 @@ function Page() {
       month,
       livePrice,
       cumulativeNowFraction,
-      cumulativeModelTarget,
+      modelReferenceX,
       ledger,
       startingDeployed,
       safeCapital,
@@ -452,14 +485,15 @@ function Page() {
 
   const capitalPoints = buildCapitalPoints(
     ledger,
-    startingDeployed,
+    0,
     safeCapital,
     { month, cumulativeAmount: cumulativeNowAmount },
   );
 
-  function recordPoint() {
-    if (!Number.isFinite(actualNow) || actualNow <= 0) return;
-    if (cumulativeNowAmount > safeCapital + 1e-8) return;
+  function recordPoint(kind: FloorEntryKind = "CONTRIBUTION") {
+    const amount = kind === "CONTRIBUTION" ? actualNow : withdrawalNow;
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    if (kind === "CONTRIBUTION" && cumulativeNowAmount > safeCapital + 1e-8) return;
 
     setLedger((entries) => [
       ...entries,
@@ -468,13 +502,20 @@ function Page() {
         recordedAt: new Date().toISOString(),
         asOf: activeAsOf,
         month,
-        amount: actualNow,
+        amount,
+        kind,
         price: liveContext.find((x) => x.symbol === "QQQ")?.price ?? null,
         priceObservedAt: liveContext.find((x) => x.symbol === "QQQ")?.regularMarketTime ?? null,
         priceSource: liveContext.find((x) => x.symbol === "QQQ")?.price != null ? "YAHOO_FINANCE_CHART" : "UNAVAILABLE",
       },
     ]);
     setActualNow(0);
+    setWithdrawalNow(0);
+  }
+
+  function applyNav() {
+    const next = Math.max(0, Number(navInput) || 0);
+    setNav(next);
   }
 
   function clearLocal() {
@@ -486,6 +527,8 @@ function Page() {
     setActualNow(0);
     setCapital(DEFAULT_CAPITAL);
     setMonth(DEFAULT_MONTH);
+    setNav(0);
+    setNavInput("0");
   }
 
   function buildTransferPayload() {
@@ -500,6 +543,7 @@ function Page() {
       month,
       entries: ledger,
       marketTape,
+      nav,
     };
   }
 
@@ -522,17 +566,18 @@ function Page() {
   }
 
   function pushCsv() {
-    const header = ["month","recordedAt","asOf","amount","price","priceObservedAt","priceSource","cumulativeFraction","clockFraction"].join(",");
+    const header = ["month","kind","recordedAt","asOf","amount","price","priceObservedAt","priceSource","cumulativeFraction","clockFraction"].join(",");
     const rows = ledger
       .slice()
       .sort((a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt))
       .reduce<string[]>((out, entry) => {
         const previous = out.length
           ? Number(out.at(-1)?.split(",")[7] ?? 0)
-          : startingDeployed / Math.max(1, safeCapital);
+          : 0;
         const cumulative = previous + entry.amount / Math.max(1, safeCapital);
         out.push([
           entry.month + 1,
+          JSON.stringify(entry.kind ?? "CONTRIBUTION"),
           JSON.stringify(entry.recordedAt),
           JSON.stringify(entry.asOf),
           entry.amount.toFixed(2),
@@ -585,12 +630,15 @@ function Page() {
       setMonth(parsed.month);
       setLedger(parsed.entries);
       setMarketTape(parsed.marketTape);
+      setNav(parsed.nav);
+      setNavInput(String(parsed.nav));
       setTransferNotice(
         "PULL complete · " +
         parsed.entries.length +
         " ledger rows · " +
         parsed.marketTape.length +
-        " market observations",
+        " market observations · NAV " +
+        fmtUsd(parsed.nav, 2),
       );
     } catch (error) {
       setTransferNotice(
@@ -603,42 +651,90 @@ function Page() {
   return (
     <Shell>
       <div className="grid gap-4">
-        <Panel kicker="10Y CAPITAL FLOOR / CONTROL PLANE" title="第一步：按現況訊號決定目前累積投入">
-          <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-            <div>
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <p className="font-mono text-xs text-subtle">目前最低累積投入（非固定單月）</p>
-                  <p className="mt-1 text-4xl font-semibold tabular-nums">{fmtUsd(additionalSuggested, 2)}</p>
-                </div>
-                <Badge tone={additionalSuggested > 0 ? "pass" : "mute"}>
-                  target {fmtPct(cumulativeModelTarget, 3)}
-                </Badge>
-                <Badge tone={currentStatus === "BELOW_CLOCK" ? "lock" : currentStatus === "AHEAD" ? "fragile" : "pass"}>
-                  {currentStatus}
-                </Badge>
-              </div>
+        <Panel kicker="10Y CAPITAL FLOOR / FORMAL ACCOUNTING" title="本金骨架：Clock 定終點，Actual 記真實掏入，NAV 另記">
+          <div className="grid gap-4 lg:grid-cols-4">
+            <MetricCard
+              kicker="CLOCK TARGET"
+              title={fmtUsd(currentClock * safeCapital, 2)}
+              detail={"M" + cycleMonth + " / 120 · reference path only"}
+            />
+            <MetricCard
+              kicker="ACTUAL CONTRIBUTED"
+              title={fmtUsd(contributed, 2)}
+              detail="只計 contribution ledger"
+            />
+            <MetricCard
+              kicker="ACCOUNT NAV"
+              title={fmtUsd(nav, 2)}
+              detail="帳面值，獨立於 funding"
+            />
+            <MetricCard
+              kicker="ACTUAL − CLOCK"
+              title={(formalFundingDelta >= 0 ? "+" : "") + fmtUsd(formalFundingDelta, 2)}
+              detail={formalFundingStatus + " · NAV 不參與"}
+            />
+          </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <MetricCard kicker="CURRENT DEPLOYED" title={fmtPct(cumulativeBeforePreview / safeCapital, 3)} detail={fmtUsd(cumulativeBeforePreview, 2)} />
-                <MetricCard kicker="CLOCK FLOOR" title={fmtPct(currentClock, 3)} detail={"month " + (month + 1) + " / 120"} />
-                <MetricCard kicker="REMAINING" title={fmtUsd(remainingCapital, 2)} detail="available capital" />
-              </div>
-
-              <p className="mt-4 max-w-2xl text-sm text-muted">
-                {liveFloor ? "LIVE model as-of" : "Verified snapshot as-of"} = {activeAsOf}。現時 signal floor anchor =
-                {" "}{fmtPct(signalFloorAnchor, 3)}；本 cycle 的硬約束仍然是 10Y deadline clock。
-                這是研究模型，不是未來一定打平的保證。
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
+            <div className="rounded-md border border-line bg-elevated p-4">
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">FORMAL FLOOR</p>
+              <p className="mt-2 font-mono text-sm">Cₜ = B × t / 120</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted">
+                Clock 是累積參考線，不是每月 quota。你可以早掏、遲掏、分批掏；正式 Funding Status 永遠只看
+                <span className="font-mono"> Actual Contributed − Cₜ</span>。
+              </p>
+              <p className="mt-2 text-xs text-subtle">
+                B = {fmtUsd(safeCapital, 2)} · M{cycleMonth} = {(cycleMonth / 120 * 100).toFixed(2)}% of B
               </p>
             </div>
-
-            <div className="grid gap-3">
-              <MoneyField label="Total capital" value={capital} onChange={(x) => setCapital(Math.max(1, x))} />
+            <div className="grid gap-3 sm:grid-cols-2">
               <MoneyField
-                label="Starting / already deployed"
-                value={startingDeployed}
-                onChange={(x) => setStartingDeployed(Math.max(0, x))}
+                label={ledger.length ? "Planned principal B · LOCKED" : "Planned principal B"}
+                value={capital}
+                onChange={(x) => !ledger.length && setCapital(Math.max(1, x))}
               />
+              <NumberField
+                label="As-of month · Clock position"
+                unit="mo"
+                value={cycleMonth}
+                min={1}
+                max={120}
+                step={1}
+                onChange={(x) => setMonth(clampMonth(x - 1))}
+              />
+              <MoneyField label="Account NAV" value={nav} onChange={(x) => { setNav(x); setNavInput(String(x)); }} />
+              <div className="rounded-md border border-lock/40 bg-elevated p-3">
+                <p className="font-mono text-xs text-subtle">WITHDRAWAL STATUS</p>
+                <p className="mt-1 font-mono text-sm">OFF · manual ledger only</p>
+                <p className="mt-1 text-xs text-muted">Cumulative withdrawn {fmtUsd(withdrawn, 2)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-md border border-line bg-elevated p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">CAPITAL JOURNEY · MANUAL PACE</p>
+                  <p className="mt-1 text-sm text-muted">幾時加、加幾多由你定；Clock 只提供 10Y 累積參考。</p>
+                </div>
+                <Badge tone={formalFundingStatus === "BEHIND" ? "lock" : formalFundingStatus === "AHEAD" ? "fragile" : "pass"}>
+                  {formalFundingStatus}
+                </Badge>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <MetricCard kicker="REMAINING TO B" title={fmtUsd(remainingCapital, 2)} detail="未掏正式本金" />
+                <MetricCard kicker="MONTHS LEFT" title={String(monthsRemaining)} detail="to M120" />
+                <MetricCard kicker="AVG FUTURE PACE" title={fmtUsd(averageFutureContribution, 2)} detail="算術參考，不是指令" />
+              </div>
+            </div>
+
+            <div className="rounded-md border border-line bg-elevated p-4">
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">RESEARCH MODEL MARKER · NO AUTHORITY</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                <MetricCard kicker="MODEL REF X" title={fmtPct(modelReferenceX, 2)} detail="simulation / research only" />
+                <MetricCard kicker="MODEL REF GAP" title={fmtPct(Math.abs(modelReferenceX - contributed / safeCapital), 2)} detail="唔會改 funding status" />
+              </div>
             </div>
           </div>
         </Panel>
@@ -765,31 +861,28 @@ function Page() {
           </p>
         </Panel>
 
-        <Panel kicker="LIVE STRATEGY / NOW RELATIVE VALUE" title="Refresh 後：此刻應否加碼">
+        <Panel kicker="LIVE RESEARCH CONTEXT / NOW RELATIVE VALUE" title="Refresh 後：目前資料點與歷史幾何（只作研究）">
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div className="rounded-md border border-line bg-elevated p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">CURRENT ACTION</p>
-                  <p className="mt-1 text-3xl font-semibold">{strategyAction}</p>
+                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">RESEARCH STATE</p>
+                  <p className="mt-1 text-2xl font-semibold">NO FUNDING COMMAND</p>
                 </div>
-                <Badge tone={strategyAction === "BUY / ADD" ? "pass" : strategyAction === "WAIT FOR LIVE MODEL" ? "mute" : "fragile"}>
-                  {liveFloor ? "LIVE MODEL" : "FALLBACK"}
-                </Badge>
+                <Badge tone="lock">{liveFloor ? "LIVE RESEARCH" : "FALLBACK RESEARCH"}</Badge>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <MetricCard kicker="EFFECTIVE TARGET" title={fmtPct(cumulativeModelTarget, 2)} detail="clock / signal floor max" />
-                <MetricCard kicker="ACTUAL" title={fmtPct(cumulativeBeforePreview / safeCapital, 2)} detail="already deployed" />
-                <MetricCard kicker="ADDITIONAL" title={fmtPct(Math.max(0, modelGap), 2)} detail="new capital still required" />
-                <MetricCard kicker="AHEAD" title={fmtPct(Math.max(0, -modelGap), 2)} detail="already beyond target" />
+                <MetricCard kicker="CLOCK" title={fmtPct(currentClock, 2)} detail="formal cumulative reference" />
+                <MetricCard kicker="ACTUAL" title={fmtPct(cumulativeBeforePreview / safeCapital, 2)} detail="contribution ledger" />
+                <MetricCard kicker="MODEL REF" title={fmtPct(modelReferenceX, 2)} detail="research marker only" />
+                <MetricCard kicker="MODEL GAP" title={fmtPct(Math.abs(modelReferenceX - cumulativeBeforePreview / safeCapital), 2)} detail="does not authorize funding" />
                 <MetricCard kicker="RISK BALANCE" title={riskBalance ? fmtPct(riskBalance.currentValue, 0) : "—"} detail="weighted GAR ↔ MaxDD position" />
                 <MetricCard kicker="NOW / HISTORY" title={nearestAnalogDistance == null ? "—" : nearestAnalogDistance.toFixed(2)} detail="nearest state distance · lower = closer" />
               </div>
               <p className="mt-3 text-xs text-subtle">
-                TARGET COMPOSITION · clock {fmtPct(currentClock, 2)} · signal anchor {fmtPct(signalFloorAnchor, 2)} · effective {fmtPct(cumulativeModelTarget, 2)}.
-                Action is generated from the existing cumulative-floor rule after the live NOW state is re-evaluated.
-                It is not a short-term price prediction. SELL/EXIT is deliberately not emitted because the current
-                controller has no validated negative-deployment rule.
+                TARGET COMPOSITION · clock {fmtPct(currentClock, 2)} · signal anchor {fmtPct(signalFloorAnchor, 2)} · effective {fmtPct(modelReferenceX, 2)}.
+                LIVE / historical geometry is displayed for context only. It never writes the ledger, changes B, changes NAV,
+                changes CLOCK funding status, or emits BUY / SELL / less-fund / more-fund instructions.
               </p>
             </div>
             <div className="rounded-md border border-line bg-elevated p-4">
@@ -811,6 +904,71 @@ function Page() {
                 ))}
               </div>
               <p className="mt-3 text-xs text-subtle">上條 = GAR 在自己的歷史 q05–q95 區間位置；下條 = MaxDD 在自己的歷史 q05–q95 區間位置。這是相對值，不改 controller。</p>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel kicker="CAPITAL PLANNER / MANUAL PREVIEW" title="下一次幾時加、加幾多；抽幾多只作獨立 cashflow">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-md border border-line bg-elevated p-4">
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">NEXT CONTRIBUTION · PREVIEW ONLY</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <NumberField
+                  label="Next contribution month"
+                  unit="mo"
+                  value={normalizedPlannedContributionMonth}
+                  min={1}
+                  max={120}
+                  step={1}
+                  onChange={setPlannedContributionMonth}
+                />
+                <MoneyField
+                  label="Next contribution amount"
+                  value={normalizedPlannedContributionAmount}
+                  onChange={setPlannedContributionAmount}
+                />
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <MetricCard kicker="PROJECTED CONTRIBUTED" title={fmtUsd(projectedContributed, 2)} detail={"after M" + normalizedPlannedContributionMonth} />
+                <MetricCard kicker="PROJECTED Δ VS CLOCK" title={(projectedDelta >= 0 ? "+" : "") + fmtUsd(projectedDelta, 2)} detail="funding path preview" />
+                <MetricCard kicker="NEW AVG FUTURE PACE" title={fmtUsd(projectedAverageFutureContribution, 2)} detail="to reach B at M120" />
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                預覽不寫 ledger。只有「記錄今次實際投入」先會改變 Actual contributed。
+              </p>
+            </div>
+
+            <div className="rounded-md border border-line bg-elevated p-4">
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">WITHDRAWAL · OFF / SEPARATE LEDGER</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <NumberField
+                  label="Withdrawal month"
+                  unit="mo"
+                  value={Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth || 1)))}
+                  min={1}
+                  max={120}
+                  step={1}
+                  onChange={setPlannedWithdrawalMonth}
+                />
+                <MoneyField label="Withdrawal amount" value={Math.max(0, withdrawalNow)} onChange={setWithdrawalNow} />
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <MetricCard kicker="PLANNED CASH OUT" title={fmtUsd(Math.max(0, withdrawalNow), 2)} detail={"manual M" + Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth || 1)))} />
+                <MetricCard kicker="CUMULATIVE WITHDRAWN" title={fmtUsd(withdrawn, 2)} detail="does not reduce Actual Contributed" />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => recordPoint("WITHDRAWAL")}
+                  disabled={withdrawalNow <= 0}
+                  className="min-h-11 rounded-md border border-lock/60 bg-elevated px-4 text-sm text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  記錄今次抽取（只入 Withdrawal ledger）
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                withdrawal rule 目前 OFF；不自動判斷可抽、不減 Actual、不加 Floor NAV。呢個 panel 只幫你清楚記錄 cash-out。
+              </p>
             </div>
           </div>
         </Panel>
@@ -881,7 +1039,7 @@ function Page() {
                 <RiskBaselineChart
                   curves={riskBaselineCurves}
                   currentX={cumulativeNowFraction}
-                  modelX={cumulativeModelTarget}
+                  modelX={modelReferenceX}
                 />
               </div>
               <div className="mt-3 overflow-x-auto">
@@ -1025,7 +1183,7 @@ function Page() {
               <button
                 type="button"
                 disabled={actualNow <= 0 || cumulativeNowAmount > safeCapital + 1e-8}
-                onClick={recordPoint}
+                onClick={() => recordPoint("CONTRIBUTION")}
                 className="min-h-11 rounded-md border border-accent/60 bg-accent px-4 text-sm font-medium text-accent-fg disabled:cursor-not-allowed disabled:opacity-40"
               >
                 記錄今次實際投入
@@ -1105,8 +1263,8 @@ function Page() {
 
           <Panel kicker="SEMANTIC LOCK" title="監視層同資金層分開">
             <div className="grid gap-2 text-sm text-muted">
-              <p>Hard clock rail = month 0 = 0%；第 n 月（畫面 1..120）最低累積投入 = n / 120。</p>
-              <p>Rule corridor = rail 以上至 100%；低於 rail 直接標 BELOW_CLOCK。</p>
+              <p>Hard clock rail = M0 = 0%；第 n 月（畫面 1..120）參考累積位置 = n / 120。</p>
+              <p>Funding Status = Actual Contributed − CLOCK；低於 Clock = BEHIND，高於 = AHEAD。這不是每月買入指令。</p>
               <p>Mutual-chase = 20Y / 30Y / 50Y 的 response geometry，暫時只監視。</p>
               <p>QQQ = observed outcome；NDX / NASDAQ Composite = proxy state channels。</p>
             </div>
@@ -1131,6 +1289,7 @@ function validLedgerEntry(value: unknown): value is LedgerEntry {
     typeof x.id === "string" &&
     typeof x.recordedAt === "string" &&
     typeof x.asOf === "string" &&
+    (x.kind === undefined || x.kind === "CONTRIBUTION" || x.kind === "WITHDRAWAL") &&
     Number.isFinite(x.month) &&
     Number.isFinite(x.amount) &&
     x.month >= 0 &&
@@ -1152,10 +1311,6 @@ function validMarketTapeEntry(value: unknown): value is MarketTapeEntry {
   );
 }
 
-function clockTarget(month: number) {
-  return Math.min(1, (month + 1) / 120);
-}
-
 function statusFor(fraction: number, clock: number, amount: number, capital: number): EntryStatus {
   if (amount > capital + 1e-8) return "OVER_CAPITAL";
   if (fraction < clock - 0.005) return "BELOW_CLOCK";
@@ -1169,9 +1324,9 @@ function buildCapitalPoints(
   capital: number,
   preview: { month: number; cumulativeAmount: number },
 ) {
-  const sorted = [...entries].sort(
-    (a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt),
-  );
+  const sorted = entries
+    .filter((entry) => (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION")
+    .sort((a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt));
   let cumulative = Math.max(0, startingDeployed);
   const points: Array<{ month: number; fraction: number; preview?: boolean }> = [];
 
