@@ -376,7 +376,6 @@ function Page() {
     Number(liveFloor?.coupledTarget ?? snapshot.current.coupledTargetAtPhaseZero) || 0,
   );
   const modelReferenceX = Math.min(1, Math.max(currentClock, signalFloorAnchor));
-  const additionalModelReference = Math.max(0, modelReferenceX * safeCapital - cumulativeBeforePreview);
   const currentStatus = statusFor(cumulativeNowFraction, currentClock, cumulativeNowAmount, safeCapital);
 
   const responseCurves = useMemo(
