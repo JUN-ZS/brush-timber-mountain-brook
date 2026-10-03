@@ -223,7 +223,7 @@ function Page() {
             />
           </div>
           <div className="mt-4 rounded-md border border-line bg-elevated p-3">
-            <div className="font-mono text-xs text-subtle">RESEARCH OBSERVATION · NO FUNDING AUTHORITY</div>
+            <div className="font-mono text-xs text-subtle">RESEARCH OBSERVATION · NO FUNDING / DEPLOYMENT AUTHORITY</div>
             <div className="mt-2 grid gap-3 md:grid-cols-3">
               <ResearchRule title="20Y" body="觀察慢牛 / 慢跌形態；不改 Funding Status。" />
               <ResearchRule title="30Y" body="觀察長週期位置；不改 Actual、NAV 或 Clock。" />
