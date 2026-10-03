@@ -185,7 +185,7 @@ test("state-conditioned path summary observes displacement from the clock", () =
 test("funding plan keeps principal outside until monthly funding is actually needed", () => {
   const qqq = Array.from({ length: 121 }, (_, i) => ({
     date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
-    value: i === 0 ? 1 : i === 1 ? 1.30 : 0.80,
+    value: i === 0 ? 1 : i === 1 ? 1.30 : 1.30,
   }));
 
   const signalFor = (date: string) => ({
@@ -248,16 +248,30 @@ test("funding plan keeps principal outside until monthly funding is actually nee
     adaptive.path[1].contribution < clock.path[1].contribution,
   );
 
-  // The later reversal removes the surplus, so the credit disappears and
-  // funding catches back toward the clock.
-  assert.equal(adaptive.path[2].fundingCredit, 0);
-  assert.ok(
-    adaptive.path[2].contribution >= clock.path[2].contribution,
-  );
-
-  // The adaptive plan did not pre-fund the whole account.
+  // Under a sustained gain, the reduced external funding is not required to
+  // catch back up; the earned surplus itself remains inside the account.
   assert.ok(adaptive.totalContributed < 1);
   assert.equal(adaptive.path[0].accountCash, 0);
+
+  const reversalQqq = Array.from({ length: 121 }, (_, i) => ({
+    date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
+    value: i === 0 ? 1 : i === 1 ? 1.30 : 0.80,
+  }));
+  const reversalPanel = new Map(
+    reversalQqq.map((p) => [p.date, signalFor(p.date)]),
+  );
+  const reversal = replayFundingPlan(
+    reversalQqq,
+    reversalPanel,
+    0,
+    120,
+    "ADAPTIVE_FUNDED",
+  )!;
+
+  // After the surplus is gone, credit vanishes and future contributions resume.
+  assert.equal(reversal.path[2].fundingCredit, 0);
+  assert.ok(reversal.path[2].contribution >= clock.path[2].contribution);
+  assert.equal(Number(reversal.totalContributed.toFixed(6)), 1);
 });
 
 test("adaptive credit is a majority survival probability, not a GAR/MaxDD score", () => {
