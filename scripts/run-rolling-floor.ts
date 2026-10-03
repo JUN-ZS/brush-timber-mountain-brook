@@ -350,7 +350,7 @@ function writeOutputs(
         {
           lane: "linux",
           channel: "NDX",
-          runner: '["self-hosted","linux","x64"]',
+          runner: '["ubuntu-latest"]',
         },
         {
           lane: "hub-web",
@@ -441,7 +441,7 @@ function writeOutputs(
     "",
     "- One workflow launches three parallel machine workers.",
     "- Windows (windows-latest) computes a non-blocking QQQ audit shard; Bridge uses the repo QQQ snapshot as canonical target input.",
-    "- Linux self-hosted computes NASDAQ-100 proxy state signals.",
+    "- Linux hosted computes NASDAQ-100 proxy state signals.",
     "- HUB-Web (ubuntu-latest) computes NASDAQ Composite proxy state signals.",
     "- A separate Bridge collector on ubuntu-latest joins the required immutable NDX/NASDAQCOM shards with the canonical QQQ snapshot, applies the coupling state machine, and performs the QQQ replay.",
     "",
