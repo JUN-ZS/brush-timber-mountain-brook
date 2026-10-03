@@ -2,13 +2,6 @@ name: QQQ Mutual Chase Causal V1
 
 on:
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "scripts/run-qqq-mutual-chase-causal-v1.ts"
-      - "src/data/universe.json"
-      - ".github/workflows/qqq-mutual-chase-causal-v1.yml"
 
 permissions:
   contents: read
@@ -16,7 +9,7 @@ permissions:
 jobs:
   mutual-chase:
     name: Research / QQQ mutual chase causal V1
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
