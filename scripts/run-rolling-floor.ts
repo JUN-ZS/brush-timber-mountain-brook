@@ -680,8 +680,10 @@ function writeOutputs(
     "",
     "## External funding plan",
     "",
-    "This layer starts with zero account cash. Planned principal B=1 remains outside the account and is contributed month-by-month."
- Contributions are invested when funded; adaptive funding reduces only future external contributions using reversible NAV surplus credit.",
+    "This layer starts with zero account cash. Planned principal B=1 remains outside the account. The clock targets 100% of B by the horizon, while the initial external funding fraction is configurable. Contributions are invested when funded; adaptive funding reduces only future external contributions using reversible NAV surplus credit.",
+    "Configured initial funding fraction: " +
+      (initialFundingFraction * 100).toFixed(2) +
+      "%; terminal clock target: 100.00% of B.",
     "",
     "Adaptive-funded principal failure rate: " +
       (payload.replay.adaptiveFunding.principalFailureRate * 100).toFixed(1) + "%",
