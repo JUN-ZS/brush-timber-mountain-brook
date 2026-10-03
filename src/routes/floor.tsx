@@ -161,30 +161,29 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
 function loadFloorState(): FloorPersistedState {
   if (typeof window === "undefined") return defaultFloorState();
 
-  try {
-    const v4raw = window.localStorage.getItem(FLOOR_STATE_KEY);
-    if (v4raw) {
-      const parsed = normalizeFloorState(JSON.parse(v4raw));
-      if (parsed) return parsed;
-    }
-
-    const legacyV3raw = window.localStorage.getItem(LEGACY_FLOOR_STATE_KEY_V3);
-    if (legacyV3raw) {
-      const parsed = normalizeFloorState(JSON.parse(legacyV3raw));
-      if (parsed) return parsed;
-    }
-
-    const v2raw = window.localStorage.getItem(LEDGER_KEY_V2);
-    if (v2raw) {
-      const parsed = normalizeFloorState(JSON.parse(v2raw));
-      if (parsed) return parsed;
-    }
-  } catch {
+  const readStored = (key: string) => {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
     try {
-      window.localStorage.removeItem(FLOOR_STATE_KEY);
+      return normalizeFloorState(JSON.parse(raw));
     } catch {
-      // Ignore malformed local state; safe defaults remain in memory.
+      return null;
     }
+  };
+
+  const v4 = readStored(FLOOR_STATE_KEY);
+  if (v4) return v4;
+
+  const legacyV3 = readStored(LEGACY_FLOOR_STATE_KEY_V3);
+  if (legacyV3) return legacyV3;
+
+  const v2 = readStored(LEDGER_KEY_V2);
+  if (v2) return v2;
+
+  try {
+    window.localStorage.removeItem(FLOOR_STATE_KEY);
+  } catch {
+    // Ignore malformed local state; safe defaults remain in memory.
   }
 
   return defaultFloorState();
