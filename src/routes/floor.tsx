@@ -6,6 +6,7 @@ import { fmtPct, fmtUsd } from "@/lib/utils";
 import snapshot from "@/data/rolling_floor_ui_snapshot.json";
 import { buildLiveHistoryMatch, type LiveHistoryMatch, type YahooSeries } from "@/lib/floor/yahoo-live";
 import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floor";
+import type { LongScaleProfile } from "@/lib/pulse/long-scale";
 
 export const Route = createFileRoute("/floor")({ component: Page });
 
@@ -165,6 +166,7 @@ function Page() {
   const [liveContext, setLiveContext] = useState<YahooSeries[]>([]);
   const [liveFetchedAt, setLiveFetchedAt] = useState<string | null>(null);
   const [liveFloor, setLiveFloor] = useState<CoupledSignal | null>(null);
+  const [liveLongScale, setLiveLongScale] = useState<LongScaleProfile | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement | null>(null);
@@ -181,6 +183,7 @@ function Page() {
         fetchedAt?: string;
         symbols?: YahooSeries[];
         rollingFloor?: { asOf: string; coupled: CoupledSignal } | null;
+        longScale?: { scale: 50; profile: LongScaleProfile; authority: "GEOMETRY_ONLY" } | null;
         warnings?: string[];
       };
       const symbols = Array.isArray(payload.symbols) ? payload.symbols : [];
@@ -190,6 +193,7 @@ function Page() {
       setLiveContext(symbols);
       setLiveMatch(match);
       setLiveFloor(payload.rollingFloor?.coupled ?? null);
+      setLiveLongScale(payload.longScale?.profile ?? null);
       setLiveFetchedAt(payload.fetchedAt ?? new Date().toISOString());
       if (payload.warnings?.length) setLiveError(payload.warnings.join(" · "));
     } catch (error) {
@@ -622,7 +626,7 @@ function Page() {
               </div>
 
               <p className="mt-4 max-w-2xl text-sm text-muted">
-                目前 verified snapshot = {snapshot.current.asOf}。現時 signal floor anchor =
+                {liveFloor ? "LIVE model as-of" : "Verified snapshot as-of"} = {activeAsOf}。現時 signal floor anchor =
                 {" "}{fmtPct(signalFloorAnchor, 3)}；本 cycle 的硬約束仍然是 10Y deadline clock。
                 這是研究模型，不是未來一定打平的保證。
               </p>
@@ -773,11 +777,12 @@ function Page() {
                   {liveFloor ? "LIVE MODEL" : "FALLBACK"}
                 </Badge>
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                <MetricCard kicker="MODEL TARGET" title={fmtPct(cumulativeModelTarget, 2)} detail="cumulative capital phase" />
-                <MetricCard kicker="ACTUAL" title={fmtPct(cumulativeBeforePreview / safeCapital, 2)} detail="before preview" />
-                <MetricCard kicker="GAP" title={fmtPct(Math.max(0, modelGap), 2)} detail={modelGap > 0 ? "still below target" : "no new capital required"} />
-                <MetricCard kicker="RISK BALANCE" title={riskBalance ? fmtPct(riskBalance.currentValue, 0) : "—"} detail="weighted GAR ↔ MaxDD relative position" />
+              <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                <MetricCard kicker="MODEL TARGET" title={fmtPct(cumulativeModelTarget, 2)} detail="required cumulative phase" />
+                <MetricCard kicker="ACTUAL" title={fmtPct(cumulativeBeforePreview / safeCapital, 2)} detail="already deployed" />
+                <MetricCard kicker="ADDITIONAL" title={fmtPct(Math.max(0, modelGap), 2)} detail="new capital still required" />
+                <MetricCard kicker="AHEAD" title={fmtPct(Math.max(0, -modelGap), 2)} detail="already beyond target" />
+                <MetricCard kicker="RISK BALANCE" title={riskBalance ? fmtPct(riskBalance.currentValue, 0) : "—"} detail="weighted GAR ↔ MaxDD position" />
                 <MetricCard kicker="NOW / HISTORY" title={nearestAnalogDistance == null ? "—" : nearestAnalogDistance.toFixed(2)} detail="nearest state distance · lower = closer" />
               </div>
               <p className="mt-3 text-xs text-subtle">
@@ -807,6 +812,35 @@ function Page() {
               <p className="mt-3 text-xs text-subtle">上條 = GAR 在自己的歷史 q05–q95 區間位置；下條 = MaxDD 在自己的歷史 q05–q95 區間位置。這是相對值，不改 controller。</p>
             </div>
           </div>
+        </Panel>
+
+        <Panel kicker="50Y LONG-SCALE BACKBONE" title="50Y：半真實長尺度骨架（歷史延伸 × QQQ 真實核心 × 未來推演）">
+          {liveLongScale ? (
+            <>
+              <div className="grid gap-3 sm:grid-cols-4">
+                <MetricCard kicker="HISTORY" title={liveLongScale.syntheticHistoryStartDate ?? "—"} detail={liveLongScale.syntheticHistoryMonths + " synthetic months before QQQ core"} />
+                <MetricCard kicker="REAL QQQ CORE" title={liveLongScale.observedStartDate ?? "—"} detail={liveLongScale.observedEndDate + " observed"} />
+                <MetricCard kicker="FUTURE" title={liveLongScale.future ? liveLongScale.future.horizonYears + "Y" : "—"} detail={liveLongScale.syntheticFutureMonths + " synthetic months"} />
+                <MetricCard kicker="CALIBRATION" title={liveLongScale.calibration.qqqBeta == null ? "—" : "β " + liveLongScale.calibration.qqqBeta.toFixed(3)} detail={liveLongScale.calibration.qqqOverlapMonths + " QQQ/proxy overlap months"} />
+              </div>
+              <div className="mt-4 overflow-x-auto">
+                <LongScaleChart profile={liveLongScale} />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted">
+                <span className="font-mono">● OBSERVED QQQ</span>
+                <span className="font-mono">— SYNTHETIC HISTORY · proxy-calibrated</span>
+                <span className="font-mono">- - SYNTHETIC FUTURE · proxy analog</span>
+                <span className="font-mono">AUTHORITY · GEOMETRY ONLY</span>
+              </div>
+              <p className="mt-3 text-xs text-subtle">
+                50Y 不冒充「50 年 QQQ 真實資料」：QQQ 可觀測核心保留原值；核心之前由 NASDAQ-100 / NASDAQ Composite
+                的重疊校準延伸；核心之後用 proxy 的當前狀態相似歷史路徑形成 q05 / median / q95 未來場。
+                這一層提供長記憶幾何，不直接取得 controller 資金權限。
+              </p>
+            </>
+          ) : (
+            <EmptyState text="LIVE FRED proxy 尚未取得；不把缺失的 50Y 歷史偽造成真實 QQQ。" />
+          )}
         </Panel>
 
         <Panel kicker="MUTUAL-CHASE GEOMETRY" title="20Y ↔ 30Y ↔ 50Y：追趕場 / leader handoff / crossings">
