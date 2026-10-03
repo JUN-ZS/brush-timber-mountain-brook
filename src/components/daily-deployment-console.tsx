@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Panel } from "@/components/shell";
 import { fmtPct, fmtUsd } from "@/lib/utils";
 import { FRONTLOAD_GRID, frontLoadedTarget, deploymentGap } from "@/lib/floor/deployment";
 import type { LiveHistoryMatch } from "@/lib/floor/yahoo-live";
