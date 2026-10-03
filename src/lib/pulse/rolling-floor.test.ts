@@ -182,6 +182,42 @@ test("state-conditioned path summary observes displacement from the clock", () =
 });
 
 
+test("funding clock can start at 10% or 20% and still targets 100% B", () => {
+  const qqq = Array.from({ length: 121 }, (_, i) => ({
+    date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
+    value: 1,
+  }));
+  const signal = {
+    asof: qqq[0].date,
+    clockTarget: 0,
+    divergenceState: "THIN" as const,
+    signals: [],
+    perScale: [],
+    robustTarget: null,
+    agreement: 0,
+    coupledTarget: 0,
+    mutualChase: [],
+  };
+  const panel = new Map(qqq.map((p) => [p.date, signal]));
+
+  for (const initial of [0.10, 0.20]) {
+    const result = replayFundingPlan(
+      qqq,
+      panel,
+      0,
+      120,
+      "CLOCK_FUNDED",
+      1,
+      initial,
+    )!;
+    assert.equal(result.initialFundingFraction, initial);
+    assert.equal(Number(result.path[0].contribution.toFixed(6)), initial);
+    assert.equal(Number(result.path.at(-1)!.cumulativeContributed.toFixed(6)), 1);
+    assert.equal(Number(result.totalContributed.toFixed(6)), 1);
+    assert.equal(Number(result.path.at(-1)!.clockTarget.toFixed(6)), 1);
+  }
+});
+
 test("funding plan keeps principal outside until monthly funding is actually needed", () => {
   const qqq = Array.from({ length: 121 }, (_, i) => ({
     date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
