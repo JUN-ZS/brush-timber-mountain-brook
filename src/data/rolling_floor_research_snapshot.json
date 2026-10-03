@@ -1,0 +1,47 @@
+{
+  "evidenceClass": "RESEARCH_ONLY",
+  "source": {
+    "workflow": "Rolling 10Y Capital Floor",
+    "run": 174,
+    "head": "94bfd35eef249af64b85d12444c596a9f332be4c",
+    "artifactId": 11279938004,
+    "resultVersion": "rolling-floor.v8-clock-isolated-withdrawal",
+    "rollingObservations": 153,
+    "dependence": "OVERLAPPING_ROLLING_WINDOWS; DIAGNOSTIC_ONLY"
+  },
+  "floor": {
+    "denominator": "B",
+    "clockQ05Terminal": 2.126560651152628,
+    "clockPrincipalFailureRate": 0
+  },
+  "adaptiveFunding": {
+    "q05Terminal": 1.764975541354545,
+    "principalFailureRate": 0,
+    "meanTotalContributedRatio": 0.6803756796836381
+  },
+  "adaptiveFullBFloorWithdrawal": {
+    "deltaNavTerminal": -1.7986395061374312,
+    "deltaNetEconomicWealth": -0.5935286424070996,
+    "principalFailureRate": 0.4444444444444444,
+    "q05Terminal": 0.9027182032465697,
+    "meanTotalWithdrawnRatio": 1.1567299996859042
+  },
+  "isolatedAlpha050": {
+    "rule": "CLOCK_FUNDED + PARTIAL_ABOVE_PLANNED_PRINCIPAL(alpha=0.50)",
+    "control": "CLOCK_FUNDED + NONE",
+    "deltaNavTerminal": -1.7778796245500603,
+    "deltaNetEconomicWealth": -0.5634724946781042,
+    "principalFailureRate": 0.29411764705882354,
+    "q05Terminal": 0.8456120362359805,
+    "baselinePrincipalFailureRate": 0,
+    "baselineQ05Terminal": 2.126560651152628,
+    "meanTotalWithdrawnRatio": 1.2144071298719559,
+    "passesBaseline": false
+  },
+  "legacyFullSweep": {
+    "principalFailureRate": 0.5294117647058824,
+    "q05Terminal": 0.7742251692689271,
+    "meanTotalWithdrawnRatio": 0.9522497886346524,
+    "meanNetEconomicWealth": 0.9270974897464425
+  }
+}\n
