@@ -13,6 +13,7 @@ const NAV = [
   { to: "/strategy", label: "策略器" },
   { to: "/matrix", label: "價×波" },
   { to: "/missing", label: "缺失" },
+  { to: "/floor", label: "10Y Floor" },
 ] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
