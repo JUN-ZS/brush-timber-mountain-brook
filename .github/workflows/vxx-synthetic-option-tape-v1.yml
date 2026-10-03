@@ -7,13 +7,6 @@ on:
       - research/vxx_synthetic_option_tape_v1.py
       - attachments/spots_qqq_vxx_vix.1csv
       - .github/workflows/vxx-synthetic-option-tape-v1.yml
-  push:
-    branches:
-      - research/vxx-synthetic-option-tape-v1-20261002
-    paths:
-      - research/vxx_synthetic_option_tape_v1.py
-      - attachments/spots_qqq_vxx_vix.1csv
-      - .github/workflows/vxx-synthetic-option-tape-v1.yml
   workflow_dispatch:
 
 permissions:
