@@ -236,3 +236,53 @@ export function buildSellTimingObservation(
     navAboveClock: Number.isFinite(accountNav) && accountNav > Math.max(0, clockTargetAmount) + 0.005,
   };
 }
+
+
+export type SellTimingObservation = {
+  price: number;
+  trailing12mHigh: number;
+  drawdownFrom12mHigh: number;
+  return6m: number | null;
+  return12m: number | null;
+  near12mHigh: boolean;
+  at12mHigh: boolean;
+  strongAndHigh: boolean;
+  postRunup: boolean;
+  navAboveClock: boolean;
+};
+
+export function buildSellTimingObservation(
+  series: YahooSeries,
+  accountNav: number,
+  clockTargetAmount: number,
+): SellTimingObservation | null {
+  const bars = series.bars
+    .filter((bar) => Number.isFinite(bar.close) && bar.close > 0)
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const price = finitePositive(series.price) ?? bars.at(-1)?.close ?? null;
+  if (price == null || bars.length < 260) return null;
+
+  const end = bars.length - 1;
+  const start12 = end - 251;
+  const start6 = end - 126;
+  const trailing12mHigh = Math.max(...bars.slice(start12, end + 1).map((bar) => bar.close));
+  const price6mAgo = bars[start6]?.close ?? null;
+  const price12mAgo = bars[start12]?.close ?? null;
+  const return6m = price6mAgo && price6mAgo > 0 ? price / price6mAgo - 1 : null;
+  const return12m = price12mAgo && price12mAgo > 0 ? price / price12mAgo - 1 : null;
+  const drawdownFrom12mHigh = price / trailing12mHigh - 1;
+  const near12mHigh = price >= trailing12mHigh * 0.95 - 1e-12;
+  const at12mHigh = price >= trailing12mHigh - 1e-12;
+  return {
+    price,
+    trailing12mHigh,
+    drawdownFrom12mHigh,
+    return6m,
+    return12m,
+    near12mHigh,
+    at12mHigh,
+    strongAndHigh: return12m != null && return12m >= 0 && near12mHigh,
+    postRunup: return6m != null && return6m >= 0.15 && near12mHigh,
+    navAboveClock: Number.isFinite(accountNav) && accountNav > Math.max(0, clockTargetAmount) + 0.005,
+  };
+}
