@@ -580,12 +580,12 @@ function summarizeWithdrawalComparison(
     deltaNetEconomicWealth: deltaNet,
     principalFailureRate: failureRate,
     q05Terminal,
-    clockPrincipalFailureRate: baselineFailureRate,
-    clockQ05Terminal: baselineQ05,
+    baselinePrincipalFailureRate: baselineFailureRate,
+    baselineQ05Terminal: baselineQ05,
     meanTotalWithdrawnRatio: mean(withdrawnRatios),
     // Fixed, pre-declared diagnostic gate: no worse than the supplied baseline
     // on the four floor dimensions; this is not an optimization target.
-    passesClock:
+    passesBaseline:
       deltaNav >= -1e-12 &&
       deltaNet >= -1e-12 &&
       failureRate <= baselineFailureRate + 1e-12 &&
@@ -992,11 +992,11 @@ function writeOutputs(
     "B-floor withdrawal principal failure rate (ADAPTIVE + withdrawal): " +
       (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.principalFailureRate * 100).toFixed(1) + "%",
     "B-floor withdrawal same-start CLOCK principal failure rate: " +
-      (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.clockPrincipalFailureRate * 100).toFixed(1) + "%",
+      (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.baselinePrincipalFailureRate * 100).toFixed(1) + "%",
     "B-floor withdrawal Q05 terminal NAV / B: " +
       payload.evaluation.bFloorWithdrawalAdaptiveVsClock.q05Terminal.toFixed(4),
     "B-floor withdrawal same-start CLOCK Q05 terminal NAV / B: " +
-      payload.evaluation.bFloorWithdrawalAdaptiveVsClock.clockQ05Terminal.toFixed(4),
+      payload.evaluation.bFloorWithdrawalAdaptiveVsClock.baselineQ05Terminal.toFixed(4),
     "B-floor withdrawal mean cumulative withdrawn / B: " +
       (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
     "The full B-floor sweep remains a compound ADAPTIVE + withdrawal diagnostic; it is not an isolated withdrawal test.",
@@ -1030,15 +1030,15 @@ function writeOutputs(
     "Clock + partial withdrawal principal failure rate: " +
       (payload.evaluation.clockPartialBFloorWithdrawal.principalFailureRate * 100).toFixed(1) + "%",
     "Clock + NONE principal failure rate: " +
-      (payload.evaluation.clockPartialBFloorWithdrawal.clockPrincipalFailureRate * 100).toFixed(1) + "%",
+      (payload.evaluation.clockPartialBFloorWithdrawal.baselinePrincipalFailureRate * 100).toFixed(1) + "%",
     "Clock + partial withdrawal Q05 terminal NAV / B: " +
       payload.evaluation.clockPartialBFloorWithdrawal.q05Terminal.toFixed(4),
     "Clock + NONE Q05 terminal NAV / B: " +
-      payload.evaluation.clockPartialBFloorWithdrawal.clockQ05Terminal.toFixed(4),
+      payload.evaluation.clockPartialBFloorWithdrawal.baselineQ05Terminal.toFixed(4),
     "Clock + partial withdrawal mean cumulative withdrawn / B: " +
       (payload.evaluation.clockPartialBFloorWithdrawal.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
     "Isolated withdrawal passes CLOCK on all four dimensions: " +
-      payload.evaluation.clockPartialBFloorWithdrawal.passesClock,
+      payload.evaluation.clockPartialBFloorWithdrawal.passesBaseline,
     "",
     "## Adaptive secondary table",
     "",
@@ -1050,11 +1050,11 @@ function writeOutputs(
     "Adaptive withdrawal principal failure rate: " +
       (payload.evaluation.adaptiveFundingWithdrawal.principalFailureRate * 100).toFixed(1) + "%",
     "Adaptive no-withdrawal principal failure rate: " +
-      (payload.evaluation.adaptiveFundingWithdrawal.clockPrincipalFailureRate * 100).toFixed(1) + "%",
+      (payload.evaluation.adaptiveFundingWithdrawal.baselinePrincipalFailureRate * 100).toFixed(1) + "%",
     "Adaptive withdrawal Q05 terminal NAV / B: " +
       payload.evaluation.adaptiveFundingWithdrawal.q05Terminal.toFixed(4),
     "Adaptive no-withdrawal Q05 terminal NAV / B: " +
-      payload.evaluation.adaptiveFundingWithdrawal.clockQ05Terminal.toFixed(4),
+      payload.evaluation.adaptiveFundingWithdrawal.baselineQ05Terminal.toFixed(4),
     "",
     "Acceptance rule: cash-flow magnitude is not a pass condition. The isolated CLOCK experiment is diagnostic only; it cannot enter the controller from this run. No alpha sweep/search was performed.",
     "",
