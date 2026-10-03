@@ -93,6 +93,34 @@ def load_spots(p: Path) -> pd.DataFrame:
     return x.reset_index(drop=True)
 
 
+def _deterministic_weighted_slope(x, y, w):
+    """
+    Deterministic weighted least-squares slope.
+
+    Avoid BLAS-backed np.polyfit so independent Windows/Linux execution surfaces
+    do not diverge on the same source rows from platform-specific solver paths.
+    math.fsum fixes the summation order; all inputs arrive in an explicitly
+    sorted source-row order.
+    """
+    if len(x) < 2:
+        return 0.0
+    xx=[float(v) for v in x]
+    yy=[float(v) for v in y]
+    ww=[float(v) for v in w]
+    sw=math.fsum(ww)
+    if not math.isfinite(sw) or sw <= 0:
+        return 0.0
+    sx=math.fsum(a*b for a,b in zip(ww,xx))
+    sy=math.fsum(a*b for a,b in zip(ww,yy))
+    sxx=math.fsum(a*b*c for a,b,c in zip(ww,xx,xx))
+    sxy=math.fsum(a*b*c for a,b,c in zip(ww,xx,yy))
+    den=sw*sxx-sx*sx
+    if not math.isfinite(den) or abs(den) <= 1e-18:
+        return 0.0
+    slope=(sw*sxy-sx*sy)/den
+    return float(slope) if math.isfinite(slope) else 0.0
+
+
 def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
     """
     Bounded-memory causal QQQ surface reference.
@@ -100,6 +128,10 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
     The QQQ parquet is large. Read it strictly as Arrow record batches and
     retain only six representatives per (date, delta-band). No full relation,
     window, sort, or growing candidate table is materialized.
+
+    Candidate ties are resolved from observed quote fields rather than parquet
+    row order, so the selected reference is independent of reader/platform
+    ordering.
     """
     import pyarrow.parquet as pq
 
@@ -199,9 +231,12 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
 
         # At most six winners per group from each batch. The retained state
         # is bounded by (#dates x 5 bands x 6 rows), independent of parquet size.
+        # Quote-field tie-breakers replace dependence on parquet row order.
+        z["iv_tie"]=z["iv_obs"].fillna(-1.0)
         z=z.sort_values(
-            ["date","band","dte_dist","volume","delta_dist","expiration","strike"],
-            ascending=[True,True,True,False,True,True,True],
+            ["date","band","dte_dist","volume","delta_dist","expiration","strike",
+             "bid","ask","delta","iv_tie"],
+            ascending=[True,True,True,False,True,True,True,True,True,True,True],
             kind="mergesort"
         )
         z=z.groupby(["date","band"],sort=False,group_keys=False).head(6)
@@ -213,8 +248,9 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
             if prev is not None:
                 keep=pd.concat([prev,keep],ignore_index=True)
                 keep=keep.sort_values(
-                    ["dte_dist","volume","delta_dist","expiration","strike"],
-                    ascending=[True,False,True,True,True],
+                    ["dte_dist","volume","delta_dist","expiration","strike",
+                     "bid","ask","delta","iv_tie"],
+                    ascending=[True,False,True,True,True,True,True,True,True],
                     kind="mergesort"
                 ).head(6).reset_index(drop=True)
             candidates[key]=keep
@@ -258,8 +294,10 @@ def qqq_reference(con, opt: Path, under: Path) -> pd.DataFrame:
                 return 0.0
             try:
                 w=np.sqrt(x.volume.to_numpy(float)+1.0)
-                return float(
-                    np.polyfit(x.m.to_numpy(float),x.iv_n.to_numpy(float),1,w=w)[0]
+                return _deterministic_weighted_slope(
+                    x.m.to_numpy(float),
+                    x.iv_n.to_numpy(float),
+                    w,
                 )
             except Exception:
                 return 0.0
@@ -303,7 +341,11 @@ def _summarize_qqq(g):
     def slope(a):
         if len(a)<4: return 0.0
         try:
-            return float(np.polyfit(a.m.to_numpy(),a.iv_n.to_numpy(),1)[0])
+            return _deterministic_weighted_slope(
+                a.m.to_numpy(float),
+                a.iv_n.to_numpy(float),
+                np.ones(len(a),dtype=float),
+            )
         except Exception:
             return 0.0
     sp=((g.ask-g.bid)/g.mid).clip(0,2)
