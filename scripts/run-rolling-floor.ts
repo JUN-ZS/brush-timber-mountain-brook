@@ -665,8 +665,8 @@ function writeOutputs(
       (payload.replay.adaptiveFunding.principalFailureRate * 100).toFixed(1) + "%",
     "Adaptive-funded 5% terminal quantile: " +
       payload.replay.adaptiveFunding.q05Terminal.toFixed(4),
-    "Adaptive-funded mean total contributed: " +
-      (payload.replay.adaptiveFunding.meanTotalContributed * 100).toFixed(2) + "%",
+    "Adaptive-funded mean total contributed / B: " +
+      (payload.replay.adaptiveFunding.meanTotalContributedRatio * 100).toFixed(2) + "%",
     "Adaptive-funded mean contribution reduction: " +
       (payload.replay.adaptiveFunding.meanContributionReduction * 100).toFixed(2) + "%",
     "Clock-funded principal failure rate: " +
