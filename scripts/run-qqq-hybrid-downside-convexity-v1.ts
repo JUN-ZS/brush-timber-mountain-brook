@@ -217,6 +217,32 @@ function main() {
     }
   }
 
+  const invariantFailures: string[] = [];
+  for (const row of results) {
+    const prices = months
+      .slice(months.findIndex((x) => x.date === row.startDate), months.findIndex((x) => x.date === row.endDate) + 1)
+      .map((x) => x.close);
+    for (const mode of ["CLOCK", "DIP_10_12M_ONE_SLICE", "ORACLE_2X_CEILING"] as const) {
+      const schedule = runWindow(prices, mode).schedule;
+      const total = schedule.reduce((a, b) => a + b, 0);
+      if (Math.abs(total - 1) > 1e-10) invariantFailures.push(row.startDate + " " + mode + " total=" + total);
+      if (schedule.some((x) => x < -1e-12)) invariantFailures.push(row.startDate + " " + mode + " negative allocation");
+    }
+    if (row.schedulePeakFraction > 2 / H + 1e-10) {
+      invariantFailures.push(row.startDate + " DIP peak>2x monthly slice");
+    }
+  }
+  const frozenCurvatureMax = Math.max(
+    0,
+    ...curvatureRows
+      .map((x) => Math.abs(Number(x.frozenCurvature_0_10_20)))
+      .filter(Number.isFinite),
+  );
+  if (frozenCurvatureMax > 1e-8) {
+    invariantFailures.push("frozen schedule curvature exceeds tolerance: " + frozenCurvatureMax);
+  }
+  if (invariantFailures.length) throw new Error("RESEARCH_INVARIANT_FAIL " + invariantFailures.slice(0, 8).join(" | "));
+
   const report = {
     researchId: "QQQ_HYBRID_DOWNSIDE_CONVEXITY_V1",
     status: "RESEARCH_ONLY",
