@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/shell";
 import { fmtPct, fmtUsd } from "@/lib/utils";
 import { FRONTLOAD_GRID, frontLoadedTarget, deploymentGap } from "@/lib/floor/deployment";
-import type { LiveHistoryMatch } from "@/lib/floor/yahoo-live";
+import type { LiveHistoryMatch, LivePriceLadder, PriceHorizon } from "@/lib/floor/yahoo-live";
 import type { YahooSeries } from "@/lib/floor/yahoo-live";
 
 export type DailyDeploymentEntry = {
@@ -28,6 +28,7 @@ export type DailyDeploymentEntry = {
   sellExcess: number;
   signedGap: number;
   status: "BUY_AVAILABLE" | "ON_TARGET" | "SELL_EXCESS";
+  priceLadder: LivePriceLadder | null;
   source: "YAHOO_FINANCE_CHART";
 };
 
@@ -44,6 +45,72 @@ function Metric({ k, v, d }: { k: string; v: string; d: string }) {
     </div>
   );
 }
+function horizonLabel(horizon: PriceHorizon) {
+  return horizon === 1 ? "1D" : horizon === 5 ? "5D" : "21D";
+}
+
+function ladderPrice(ladder: LivePriceLadder | null, side: "ADD" | "REDUCE", horizon: PriceHorizon, touchProbability = 0.5) {
+  const rows = side === "ADD" ? ladder?.add ?? [] : ladder?.reduce ?? [];
+  return rows.find(
+    (row) => row.horizon === horizon && Math.abs(row.touchProbability - touchProbability) < 1e-9,
+  )?.price ?? null;
+}
+
+function PriceLadderSide({
+  title,
+  side,
+  levels,
+  quality,
+}: {
+  title: string;
+  side: "ADD" | "REDUCE";
+  levels: ReturnType<NonNullable<LivePriceMatch["priceLadder"]>["add"]>;
+  quality: string;
+}) {
+  const grouped = [1, 5, 21] as const;
+  return (
+    <div className="rounded-md border border-line bg-elevated p-4 overflow-x-auto">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-mono text-xs tracking-[0.14em] text-subtle">{title}</p>
+          <p className="mt-1 text-sm text-muted">{side === "ADD" ? "價格向下到位 → 候選限價加倉" : "價格向上到位 → 候選限價減倉"}</p>
+        </div>
+        <Badge tone={quality === "THIN" ? "fragile" : "mute"}>{quality}</Badge>
+      </div>
+      <table className="mt-3 w-full min-w-[640px] border-collapse text-xs">
+        <thead>
+          <tr className="border-b border-line text-left font-mono text-[11px] text-subtle">
+            <th className="py-2 pr-4">HORIZON</th>
+            <th className="py-2 pr-4">TOUCH≈</th>
+            <th className="py-2 pr-4">LIMIT PRICE</th>
+            <th className="py-2 pr-4">DISTANCE</th>
+            <th className="py-2 pr-4">SAMPLE</th>
+          </tr>
+        </thead>
+        <tbody>
+          {grouped.flatMap((horizon) =>
+            levels
+              .filter((row) => row.horizon === horizon)
+              .map((row) => (
+                <tr key={side + "-" + horizon + "-" + row.touchProbability} className="border-b border-line/50">
+                  <td className="py-2 pr-4 font-mono">{horizonLabel(horizon)}</td>
+                  <td className="py-2 pr-4 font-mono tabular-nums">{fmtPct(row.touchProbability, 0)}</td>
+                  <td className="py-2 pr-4 font-mono text-base font-semibold tabular-nums">
+                    {row.price == null ? "UNAVAILABLE" : fmtUsd(row.price, 2)}
+                  </td>
+                  <td className="py-2 pr-4 font-mono tabular-nums">
+                    {row.distancePct == null ? "—" : fmtPct(row.distancePct, 2)}
+                  </td>
+                  <td className="py-2 pr-4 font-mono">{row.samples}</td>
+                </tr>
+              )),
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 
 export function DailyDeploymentConsole({
   capital,
@@ -129,6 +196,36 @@ export function DailyDeploymentConsole({
           <Metric k="SELL EXCESS" v={fmtUsd(gap.sellExcess, 2)} d="model excess · would become reserve" />
           <Metric k="SIGNED GAP" v={(gap.signedGap >= 0 ? "+" : "") + fmtUsd(gap.signedGap, 2)} d="target − NAV" />
         </div>
+
+        {liveMatch?.priceLadder ? (
+          <div className="grid gap-3">
+            <div className="rounded-md border border-accent/40 bg-elevated p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">CONDITIONAL PRICE LADDER · MANUAL LIMIT MAP</p>
+                  <p className="mt-1 text-sm text-muted">
+                    目前 QQQ state 對照歷史相似狀態，把未來 1D / 5D / 21D 的 forward low / high 分布投影到今日價格。
+                    不是單點預言；TOUCH≈ 只代表 matched states 的描述性歷史頻率。
+                  </p>
+                </div>
+                <Badge tone="lock">NO BROKER ORDER</Badge>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <Metric k="CURRENT QQQ" v={liveMatch.currentPrice == null ? "—" : fmtUsd(liveMatch.currentPrice, 2)} d="Yahoo observation" />
+                <Metric k="MATCHES" v={String(liveMatch.priceLadder.samples)} d="same-state historical analogues" />
+                <Metric k="LADDER QUALITY" v={liveMatch.priceLadder.quality} d="descriptive only · no confidence interval" />
+              </div>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <PriceLadderSide title="ADD / BUY LIMITS" side="ADD" levels={liveMatch.priceLadder.add} quality={liveMatch.priceLadder.quality} />
+              <PriceLadderSide title="REDUCE / SELL LIMITS" side="REDUCE" levels={liveMatch.priceLadder.reduce} quality={liveMatch.priceLadder.quality} />
+            </div>
+            <p className="text-xs leading-relaxed text-subtle">
+              LIMIT PRICE 是用日線收市資料的歷史 matched-state forward low/high 分布換算，唔等於日內 bid/ask 觸價機率。
+              每次 REFRESH YAHOO 都會重新計；實際掛單由你在交易平台手動落，系統不傳單。
+            </p>
+          </div>
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Metric k="DAY RELVOL" v={liveMatch?.day.ratio == null ? "—" : liveMatch.day.ratio.toFixed(2) + "×"} d={liveMatch?.day.level ?? "UNKNOWN"} />
