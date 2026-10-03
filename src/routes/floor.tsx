@@ -510,7 +510,6 @@ function Page() {
       cumulativeNowFraction,
       modelReferenceX,
       ledger,
-      startingDeployed: 0,
       safeCapital,
       marketTape,
     ],
