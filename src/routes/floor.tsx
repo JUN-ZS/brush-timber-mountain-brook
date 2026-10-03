@@ -975,7 +975,7 @@ function Page() {
                   step={1}
                   onChange={setPlannedWithdrawalMonth}
                 />
-                <MoneyField label="Withdrawal amount" value={Math.max(0, plannedWithdrawalAmount)} onChange={setWithdrawalNow} />
+                <MoneyField label="Withdrawal amount" value={Math.max(0, plannedWithdrawalAmount)} onChange={setPlannedWithdrawalAmount} />
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <MetricCard kicker="PLANNED CASH OUT" title={fmtUsd(Math.max(0, plannedWithdrawalAmount), 2)} detail={"manual M" + Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth || 1)))} />
