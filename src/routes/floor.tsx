@@ -120,7 +120,7 @@ function Page() {
             <Metric label="ACCOUNT NAV" value={fmtUsd(state.nav)} note="帳面值，獨立記錄" />
             <Metric
               label="ACTUAL − CLOCK"
-              value={\${delta >= 0 ? "+" : ""}\${fmtUsd(delta)}}
+              value={(delta >= 0 ? "+" : "") + fmtUsd(delta)}
               note={statusText + " · 唔看 NAV"}
               tone={statusTone}
             />
