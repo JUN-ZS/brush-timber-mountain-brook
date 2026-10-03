@@ -614,6 +614,91 @@ test("partial B-floor withdrawal uses fixed alpha and preserves the B floor at e
   assert.ok(point.nav < point.navBeforeWithdrawal);
 });
 
+
+test("CLOCK partial withdrawal isolates withdrawal from the funding path", () => {
+  const qqq = Array.from({ length: 121 }, (_, i) => ({
+    date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
+    value: i === 0 ? 1 : 20,
+  }));
+  const signal = {
+    asof: qqq[0].date,
+    clockTarget: 0,
+    divergenceState: "CONVERGENT" as const,
+    signals: [20, 30, 50].map((scaleYears) => ({
+      channel: "S",
+      layer: "OBSERVED" as const,
+      scaleYears: scaleYears as 20 | 30 | 50,
+      asof: qqq[0].date,
+      target: null,
+      floorProfile: null,
+      responseProfile: null,
+      riskBaselineProfile: null,
+      forwardPathProfile: null,
+      nearestAnalogDistance: 0,
+      q05: null,
+      pNonLoss: null,
+      mean: null,
+      nAnalogs: 8,
+      effectiveN: 2,
+      status: "OK" as const,
+      creditMaxDrawdowns: Array(8).fill(0),
+    })),
+    perScale: [],
+    robustTarget: null,
+    agreement: 0,
+    coupledTarget: 0,
+    mutualChase: [],
+  };
+  const panel = new Map(qqq.map((p) => [p.date, signal]));
+  const alpha = 0.50;
+
+  const control = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "CLOCK_FUNDED",
+    1,
+    0.10,
+    "NONE",
+  )!;
+  const test = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "CLOCK_FUNDED",
+    1,
+    0.10,
+    "PARTIAL_ABOVE_PLANNED_PRINCIPAL",
+    new Map(),
+    alpha,
+  )!;
+
+  assert.equal(test.withdrawalAlpha, alpha);
+  assert.equal(test.totalContributed, control.totalContributed);
+  assert.equal(test.path.length, control.path.length);
+
+  for (let i = 0; i < test.path.length; i++) {
+    const actual = test.path[i];
+    const baseline = control.path[i];
+    assert.equal(actual.contribution, baseline.contribution);
+    assert.equal(actual.cumulativeContributed, baseline.cumulativeContributed);
+    assert.equal(actual.clockTarget, baseline.clockTarget);
+    assert.equal(actual.fundingTarget, baseline.fundingTarget);
+
+    if (actual.navBeforeWithdrawal > 1) {
+      assert.equal(
+        Number(actual.withdrawalExecuted.toFixed(10)),
+        Number(((actual.navBeforeWithdrawal - 1) * alpha).toFixed(10)),
+      );
+      assert.ok(actual.nav + 1e-12 >= 1);
+    } else {
+      assert.equal(actual.withdrawalExecuted, 0);
+    }
+  }
+});
+
 test("B-floor withdrawal stays zero below B and never takes NAV below immutable planned principal", () => {
   const qqq = Array.from({ length: 121 }, (_, i) => ({
     date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
