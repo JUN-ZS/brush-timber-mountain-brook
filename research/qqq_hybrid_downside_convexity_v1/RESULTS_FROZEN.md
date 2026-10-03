@@ -70,6 +70,19 @@ This historical overlay uses the repository's Derived Black-Scholes/VIX engine a
 
 OOS ES improves by about 0.654 percentage points, but the CAGR drag is much larger. Fixed derived protection is therefore mechanically convex but not yet economically incremental.
 
+
+## Era concentration check
+
+As a descriptive robustness split by rolling-window start year:
+
+| Start-year bucket | Windows | Mean DIP terminal delta / B | Mean DIP MaxDD delta |
+| --- | ---: | ---: | ---: |
+| 2004–2008 | 60 | +0.312347× | -0.019248 |
+| 2009–2012 | 48 | +0.030920× | -0.000814 |
+| 2013–2016 | 45 | +0.089778× | -0.006599 |
+
+The positive deployment effect is therefore strongly concentrated in the early 2004–2008 start cohort. This is a robustness warning, not an additional optimization target.
+
 ## 4. V1 decision
 
 - Deployment value: **YES, but it is path-timing value and carries drawdown risk.**
