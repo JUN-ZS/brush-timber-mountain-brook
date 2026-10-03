@@ -70,6 +70,7 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
 
   type Candidate = {
     date: string;
+    base: number;
     d1: number;
     d5: number;
     d21: number;
@@ -112,6 +113,7 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
     ) continue;
     candidates.push({
       date: series.bars[i]?.date ?? "",
+      base: closes[i] ?? 0,
       d1, d5, d21,
       low1, low5, low21,
       high1, high5, high21,
@@ -223,6 +225,7 @@ function quantile(xs: number[], q: number) {
 function buildPriceLadder(
   current: number,
   selected: Array<{
+    base: number;
     d1: number; d5: number; d21: number;
     low1: number; low5: number; low21: number;
     high1: number; high5: number; high21: number;
@@ -236,21 +239,15 @@ function buildPriceLadder(
 
 // Normalize each candidate's forward extreme by its entry close before
 // projecting the ratio onto today's QQQ price.
-  const entryRatio = (x: { d1:number; d5:number; d21:number }, horizon: PriceHorizon) =>
-    horizon === 1 ? 1 + x.d1 : horizon === 5 ? 1 + x.d5 : 1 + x.d21;
-
-  // Build normalized low/high paths from the candidate's own entry close.
-  // The candidate return values are not used as the price denominator, so
-  // callers can safely pass only the forward-extreme fields plus the entry ratio.
+  // Build normalized low/high paths from each historical match's entry close.
+  // This makes the ladder portable across QQQ price regimes.
   const rawLevels = horizons.map((horizon) => {
-    const lows = selected.map((x) => {
-      const entry = horizon === 1 ? x.low1 / entryRatio(x, horizon) : horizon === 5 ? x.low5 / entryRatio(x, horizon) : x.low21 / entryRatio(x, horizon);
-      return entry;
-    });
-    const highs = selected.map((x) => {
-      const entry = horizon === 1 ? x.high1 / entryRatio(x, horizon) : horizon === 5 ? x.high5 / entryRatio(x, horizon) : x.high21 / entryRatio(x, horizon);
-      return entry;
-    });
+    const lows = selected.map((x) =>
+      (horizon === 1 ? x.low1 : horizon === 5 ? x.low5 : x.low21) / x.base
+    );
+    const highs = selected.map((x) =>
+      (horizon === 1 ? x.high1 : horizon === 5 ? x.high5 : x.high21) / x.base
+    );
     return { horizon, lows, highs };
   });
 
