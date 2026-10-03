@@ -28,4 +28,7 @@ jobs:
       - name: Verify 10Y Floor route is present
         run: |
           test -s src/routes/floor.tsx
-          grep -q "10Y CAPITAL FLOOR / CONTROL PLANE" src/routes/floor.tsx
+          grep -q "10Y CAPITAL FLOOR / FORMAL ACCOUNTING" src/routes/floor.tsx
+          grep -q "currentClockAmount" src/routes/floor.tsx
+          grep -q "QQQ LIVE STATE · SELF-RELATIVE" src/routes/floor.tsx
+          ! grep -q "BUY / ADD" src/routes/floor.tsx
