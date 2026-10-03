@@ -213,7 +213,7 @@ function simulateStaticPostRunup(pr: number[]): Metrics {
  * - execution occurs at t month-end close;
  * - no future price is read.
  */
-function simulateStateMachine(pr: number[]): { metrics: Metrics; sellEvents: number; stateChanges: number } {
+function simulateStateMachine(pr: number[]): { metrics: Metrics; sellEvents: number; stateChanges: number; extensionEpisodes: number } {
   let shares = 0;
   let plannedReserve = B;
   let harvestReserve = 0;
@@ -224,6 +224,8 @@ function simulateStateMachine(pr: number[]): { metrics: Metrics; sellEvents: num
   let state: SellState = "NORMAL";
   let sellEvents = 0;
   let stateChanges = 0;
+  let extensionEpisodes = 0;
+  let soldInCurrentEpisode = false;
 
   const raw = [0];
   const eco = [B];
@@ -237,7 +239,11 @@ function simulateStateMachine(pr: number[]): { metrics: Metrics; sellEvents: num
 
     const prevState = state;
     if (state === "NORMAL") {
-      if (extended) state = "EXTENDED_CANDIDATE";
+      if (extended) {
+        state = "EXTENDED_CANDIDATE";
+        extensionEpisodes++;
+        soldInCurrentEpisode = false;
+      }
     } else if (state === "EXTENDED_CANDIDATE") {
       if (extended) state = "ARMED";
       else state = "NORMAL";
@@ -246,12 +252,14 @@ function simulateStateMachine(pr: number[]): { metrics: Metrics; sellEvents: num
         const sellAmountAtPrevClose = SELL * (prevNav - target);
         const sellShares = Math.min(shares, sellAmountAtPrevClose / Math.max(prevPrice, 1e-12));
         if (sellShares > 0) {
+          if (soldInCurrentEpisode) throw new Error("SELL_STATE_MACHINE_DUPLICATE_EPISODE_SELL");
           const proceedsAtCurrentClose = sellShares * pr[t];
           shares -= sellShares;
           harvestReserve += proceedsAtCurrentClose;
           totalHarvestToReserve += proceedsAtCurrentClose;
           harvestEvents++;
           sellEvents++;
+          soldInCurrentEpisode = true;
           state = "COOLDOWN";
         }
       } else if (!extended) {
@@ -284,10 +292,9 @@ function simulateStateMachine(pr: number[]): { metrics: Metrics; sellEvents: num
     raw.push(nav);
     eco.push(nav + plannedReserve + harvestReserve);
 
-    // Once a SELL occurs, the new state must remain in cooldown for the rest of this decision.
-    // Any fresh episode requires a later observed break of extension.
-    if (sellEvents > 0 && state !== "COOLDOWN" && extended) {
-      throw new Error("SELL_STATE_MACHINE_INTERNAL_STATE_FAIL");
+    // Structural invariant: at most one SELL may occur inside each continuous extension episode.
+    if (sellEvents > extensionEpisodes) {
+      throw new Error("SELL_STATE_MACHINE_EPISODE_SELL_COUNT_FAIL");
     }
   }
 
@@ -307,6 +314,7 @@ function simulateStateMachine(pr: number[]): { metrics: Metrics; sellEvents: num
     },
     sellEvents,
     stateChanges,
+    extensionEpisodes,
   };
 }
 
@@ -328,6 +336,7 @@ function run() {
       stateMachine: sm.metrics,
       stateMachineSellEvents: sm.sellEvents,
       stateMachineStateChanges: sm.stateChanges,
+      stateMachineExtensionEpisodes: sm.extensionEpisodes,
     });
   }
 
@@ -338,7 +347,8 @@ function run() {
       if (m.terminalEconomicWealth < B - 1e-8) failures.push(p.startDate + " " + name + " economic wealth below principal");
       if (!Number.isFinite(m.terminalEconomicWealth)) failures.push(p.startDate + " " + name + " non-finite");
     }
-    if (p.stateMachineSellEvents > p.stateMachineStateChanges + 1) failures.push(p.startDate + " state machine event accounting");
+    if (p.stateMachineSellEvents > p.stateMachineExtensionEpisodes) failures.push(p.startDate + " more SELLs than extension episodes");
+    if (p.stateMachineStateChanges < p.stateMachineSellEvents) failures.push(p.startDate + " SELL transition accounting");
   }
   if (failures.length) throw new Error("SELL_STATE_MACHINE_INVARIANT_FAIL " + failures.slice(0, 20).join(" | "));
 
@@ -505,7 +515,7 @@ function run() {
     "clockRawAccountMaxDd","staticRawAccountMaxDd","stateMachineRawAccountMaxDd",
     "clockEconomicMaxDd","staticEconomicMaxDd","stateMachineEconomicMaxDd",
     "staticCagrDeltaPp","stateMachineCagrDeltaPp","stateMachineVsStaticCagrDeltaPp",
-    "staticSellEvents","stateMachineSellEvents","stateMachineStateChanges",
+    "staticSellEvents","stateMachineSellEvents","stateMachineStateChanges","stateMachineExtensionEpisodes",
     "staticExternalContribution","stateMachineExternalContribution",
     "staticHarvestToReserve","stateMachineHarvestToReserve"
   ];
@@ -522,7 +532,7 @@ function run() {
       (p.staticPostRunup.terminalEconomicCagr-p.clock.terminalEconomicCagr)*100,
       (p.stateMachine.terminalEconomicCagr-p.clock.terminalEconomicCagr)*100,
       (p.stateMachine.terminalEconomicCagr-p.staticPostRunup.terminalEconomicCagr)*100,
-      p.staticPostRunup.harvestEvents,p.stateMachine.harvestEvents,p.stateMachineStateChanges,
+      p.staticPostRunup.harvestEvents,p.stateMachine.harvestEvents,p.stateMachineStateChanges,p.stateMachineExtensionEpisodes,
       p.staticPostRunup.totalExternalContribution,p.stateMachine.totalExternalContribution,
       p.staticPostRunup.totalHarvestToReserve,p.stateMachine.totalHarvestToReserve,
     ].map((x) => JSON.stringify(x)).join(","));
