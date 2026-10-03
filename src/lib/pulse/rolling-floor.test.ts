@@ -1,6 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { median, couple, deploymentResponseProfile, divergenceState, floorProfile, requiredFrontLoadFraction, buildRiskBaselineProfile, buildForwardPathProfile, summarizeStatePath, type ReplayResult } from "./rolling-floor.ts";
+import {
+  median,
+  couple,
+  deploymentResponseProfile,
+  divergenceState,
+  floorProfile,
+  requiredFrontLoadFraction,
+  buildRiskBaselineProfile,
+  buildForwardPathProfile,
+  summarizeStatePath,
+  adaptiveCreditConfidence,
+  replayOne,
+  type ReplayResult,
+} from "./rolling-floor.ts";
 
 test("median", () => assert.equal(median([0.1, 0.2, 0.25, 0.9]), 0.225));
 
@@ -29,6 +42,7 @@ test("divergence removes forward-pull authority instead of disabling the clock",
     nAnalogs: 20,
     effectiveN: 5,
     status: "OK" as const,
+    creditMaxDrawdowns: null,
   });
   const c = couple("2026-01-01", 60, [
     mk(20, 0.05),
@@ -59,6 +73,7 @@ test("single available scale is THIN, not evidence of convergence", () => {
     nAnalogs: 20,
     effectiveN: 5,
     status: "OK" as const,
+    creditMaxDrawdowns: null,
   }]);
   assert.equal(c.divergenceState, "THIN");
   assert.equal(c.agreement, 0);
@@ -91,6 +106,9 @@ test("state-conditioned path summary observes displacement from the clock", () =
         mutualChaseState: "CONVERGENT",
         mutualLeaderChanges: 0,
         mutualCurveCrossings: 0,
+        creditAmount: 0,
+        creditConfidence: 0,
+        effectiveTarget: 0.50,
       },
       {
         date: "2010-02-01",
@@ -104,6 +122,9 @@ test("state-conditioned path summary observes displacement from the clock", () =
         mutualChaseState: "CONVERGENT",
         mutualLeaderChanges: 0,
         mutualCurveCrossings: 0,
+        creditAmount: 0,
+        creditConfidence: 0,
+        effectiveTarget: 0.50,
       },
       {
         date: "2010-03-01",
@@ -117,6 +138,9 @@ test("state-conditioned path summary observes displacement from the clock", () =
         mutualChaseState: "CONVERGENT",
         mutualLeaderChanges: 0,
         mutualCurveCrossings: 0,
+        creditAmount: 0,
+        creditConfidence: 0,
+        effectiveTarget: 0.75,
       },
       {
         date: "2010-04-01",
@@ -130,9 +154,17 @@ test("state-conditioned path summary observes displacement from the clock", () =
         mutualChaseState: "CONVERGENT",
         mutualLeaderChanges: 0,
         mutualCurveCrossings: 0,
+        creditAmount: 0,
+        creditConfidence: 0,
+        effectiveTarget: 1,
       },
     ],
-    path: [{ date: "2010-01-01", action: 0.5, deployed: 0.5, cash: 0.5, coupledTarget: 0.5, clockTarget: 0.25, agreement: 1, divergenceState: "CONVERGENT" }, { date: "2010-02-01", action: 0.25, deployed: 0.75, cash: 0.25, coupledTarget: 0.5, clockTarget: 0.5, agreement: 1, divergenceState: "CONVERGENT" }, { date: "2010-03-01", action: 0.05, deployed: 0.8, cash: 0.19999999999999996, coupledTarget: 0.75, clockTarget: 0.75, agreement: 0.65, divergenceState: "TENSION" }, { date: "2010-04-01", action: 0.2, deployed: 1, cash: 0, coupledTarget: 1, clockTarget: 1, agreement: 0, divergenceState: "DIVERGENT" }],
+    path: [[
+    { date: "2010-01-01", action: 0.5, deployed: 0.5, cash: 0.5, coupledTarget: 0.5, clockTarget: 0.25, agreement: 1, divergenceState: "CONVERGENT", mutualChaseState: "CONVERGENT", mutualLeaderChanges: 0, mutualCurveCrossings: 0, creditAmount: 0, creditConfidence: 0, effectiveTarget: 0.5 },
+    { date: "2010-02-01", action: 0.25, deployed: 0.75, cash: 0.25, coupledTarget: 0.5, clockTarget: 0.5, agreement: 1, divergenceState: "CONVERGENT", mutualChaseState: "CONVERGENT", mutualLeaderChanges: 0, mutualCurveCrossings: 0, creditAmount: 0, creditConfidence: 0, effectiveTarget: 0.5 },
+    { date: "2010-03-01", action: 0.05, deployed: 0.8, cash: 0.19999999999999996, coupledTarget: 0.75, clockTarget: 0.75, agreement: 0.65, divergenceState: "TENSION", mutualChaseState: "CONVERGENT", mutualLeaderChanges: 0, mutualCurveCrossings: 0, creditAmount: 0, creditConfidence: 0, effectiveTarget: 0.75 },
+    { date: "2010-04-01", action: 0.2, deployed: 1, cash: 0, coupledTarget: 1, clockTarget: 1, agreement: 0, divergenceState: "DIVERGENT", mutualChaseState: "CONVERGENT", mutualLeaderChanges: 0, mutualCurveCrossings: 0, creditAmount: 0, creditConfidence: 0, effectiveTarget: 1 },
+  ],
   };
 
   const summary = summarizeStatePath([result]);
@@ -148,6 +180,112 @@ test("state-conditioned path summary observes displacement from the clock", () =
   assert.equal(convergent.maxEpisodeMonths, 2);
 });
 
+
+test("adaptive credit is a majority survival probability, not a GAR/MaxDD score", () => {
+  const mk = (scaleYears: 20 | 30 | 50, samples: number[]) => ({
+    channel: "S",
+    layer: "OBSERVED" as const,
+    scaleYears,
+    asof: "2026-01-01",
+    target: 0,
+    floorProfile: null,
+    responseProfile: null,
+    riskBaselineProfile: null,
+    forwardPathProfile: null,
+    nearestAnalogDistance: 0.1,
+    q05: 1,
+    pNonLoss: 1,
+    mean: 1,
+    nAnalogs: samples.length,
+    effectiveN: samples.length / 4,
+    status: "OK" as const,
+    creditMaxDrawdowns: samples,
+  });
+
+  const signal = {
+    asof: "2026-01-01",
+    clockTarget: 0.5,
+    divergenceState: "CONVERGENT" as const,
+    signals: [
+      mk(20, Array(8).fill(0)),
+      mk(30, Array(8).fill(0)),
+      mk(50, Array(8).fill(0)),
+    ],
+    perScale: [],
+    robustTarget: null,
+    agreement: 1,
+    coupledTarget: 0.5,
+    mutualChase: [],
+  };
+
+  assert.equal(adaptiveCreditConfidence(signal, 0.10, 0.01), 1);
+
+  const weak = {
+    ...signal,
+    signals: [
+      mk(20, [0, 0, 0, 0, -0.20, -0.20, -0.20, -0.20]),
+      mk(30, [0, 0, 0, 0, -0.20, -0.20, -0.20, -0.20]),
+      mk(50, [0, 0, 0, 0, -0.20, -0.20, -0.20, -0.20]),
+    ],
+  };
+  // 0.01 surplus on 10% deployed = 10% tolerable drawdown; only 50% survive,
+  // so the fixed majority gate admits q=0.5.
+  assert.equal(adaptiveCreditConfidence(weak, 0.10, 0.01), 0.5);
+
+  const rejected = {
+    ...signal,
+    signals: [
+      mk(20, [0, 0, 0, -0.20, -0.20, -0.20, -0.20, -0.20]),
+      mk(30, [0, 0, 0, -0.20, -0.20, -0.20, -0.20, -0.20]),
+      mk(50, [0, 0, 0, -0.20, -0.20, -0.20, -0.20, -0.20]),
+    ],
+  };
+  assert.equal(adaptiveCreditConfidence(rejected, 0.10, 0.01), 0);
+});
+
+test("adaptive credit reduces future buy and is revoked by a later floor breach", () => {
+  const qqq = Array.from({ length: 121 }, (_, i) => ({
+    date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
+    value: i < 2 ? 1.2 : 0.8,
+  }));
+
+  const signalFor = (date: string) => ({
+    asof: date,
+    clockTarget: 0,
+    divergenceState: "CONVERGENT" as const,
+    signals: [20, 30, 50].map((scaleYears) => ({
+      channel: "S",
+      layer: "OBSERVED" as const,
+      scaleYears: scaleYears as 20 | 30 | 50,
+      asof: date,
+      target: null,
+      floorProfile: null,
+      responseProfile: null,
+      riskBaselineProfile: null,
+      forwardPathProfile: null,
+      nearestAnalogDistance: 0,
+      q05: null,
+      pNonLoss: null,
+      mean: null,
+      nAnalogs: 8,
+      effectiveN: 2,
+      status: "OK" as const,
+      creditMaxDrawdowns: Array(8).fill(0),
+    })),
+    perScale: [],
+    robustTarget: null,
+    agreement: 0,
+    coupledTarget: 0,
+    mutualChase: [],
+  });
+
+  const panel = new Map(qqq.map((p) => [p.date, signalFor(p.date)]));
+  const result = replayOne(qqq, panel, 0, "ADAPTIVE_CREDIT_ONLY")!;
+  assert.ok(result.path[1].creditAmount > 0);
+  assert.ok(result.path[1].effectiveTarget < result.path[1].clockTarget);
+  assert.equal(result.path[2].creditAmount, 0);
+  assert.ok(result.path[2].action > 1 / 120);
+});
 
 test("capital-floor target asks for required front-load, not maximum terminal wealth", () => {
   const flat = Array.from({ length: 121 }, () => 1);
