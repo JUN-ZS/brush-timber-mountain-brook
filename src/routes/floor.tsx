@@ -93,7 +93,7 @@ function Page() {
     if (!(next >= 0) || !Number.isFinite(next)) return;
     commit((current) => ({
       ...current,
-      cycleMonth: Math.max(1, Math.min(120, Math.round(next))),
+      cycleMonth: Math.max(0, Math.min(120, Math.round(next))),
     }));
   }
 
