@@ -1185,7 +1185,7 @@ export function replayFundingPlan(
     const nextDecisionCreditBeforeWithdrawal =
       mode === "ADAPTIVE_FUNDED"
         ? Math.min(
-            withdrawalEligibleSurplus,
+            realizedSurplusBeforeWithdrawal,
             externalRemaining,
           ) * closeCreditConfidenceBeforeWithdrawal
         : 0;
