@@ -461,6 +461,9 @@ function writeOutputs(
 ) {
   mkdirSync(outDir, { recursive: true });
   const latestDate = qqq.at(-1)?.date ?? END_DATE;
+  const initialFundingFraction =
+    replay.adaptiveFunding[0]?.initialFundingFraction ??
+    DEFAULT_INITIAL_FUNDING_FRACTION;
   const { panel, byDate } = buildBridgePanel(qqq, shards);
   const current =
     panel.get(latestDate) ??
@@ -519,12 +522,12 @@ function writeOutputs(
     })),
     current: {
       asOf: latestDate,
-      clockFirstMonthTarget: 1 / 120,
+      clockFirstMonthTarget: initialFundingFraction,
       robustTargetAtPhaseZero: current.robustTarget,
       agreementAtPhaseZero: current.agreement,
       divergenceStateAtPhaseZero: current.divergenceState,
       coupledTargetAtPhaseZero: current.coupledTarget,
-      firstInjectionFraction: Math.max(1 / 120, current.coupledTarget),
+      firstInjectionFraction: Math.max(initialFundingFraction, current.coupledTarget),
       signalCount: current.signals.length,
       perScale: current.perScale,
       mutualChase: current.mutualChase,
