@@ -6,6 +6,7 @@ import { fmtPct, fmtUsd } from "@/lib/utils";
 import {
   actualContributed,
   actualWithdrawn,
+  clockFraction,
   clockTarget,
   fundingDelta,
   fundingStatus,
@@ -605,16 +606,27 @@ function Page() {
   }
 
   function pushCsv() {
-    const header = ["month","kind","recordedAt","asOf","amount","price","priceObservedAt","priceSource","cumulativeFraction","clockFraction"].join(",");
+    const header = [
+      "month",
+      "kind",
+      "recordedAt",
+      "asOf",
+      "amount",
+      "price",
+      "priceObservedAt",
+      "priceSource",
+      "cumulativeContributionFraction",
+      "clockFraction",
+    ].join(",");
+    let cumulativeContributionFraction = 0;
     const rows = ledger
       .slice()
       .sort((a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt))
-      .reduce<string[]>((out, entry) => {
-        const previous = out.length
-          ? Number(out.at(-1)?.split(",")[7] ?? 0)
-          : 0;
-        const cumulative = previous + entry.amount / Math.max(1, safeCapital);
-        out.push([
+      .map((entry) => {
+        if ((entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION") {
+          cumulativeContributionFraction += entry.amount / Math.max(1, safeCapital);
+        }
+        return [
           entry.month + 1,
           JSON.stringify(entry.kind ?? "CONTRIBUTION"),
           JSON.stringify(entry.recordedAt),
@@ -623,11 +635,10 @@ function Page() {
           entry.price == null ? "" : entry.price.toFixed(4),
           JSON.stringify(entry.priceObservedAt ?? ""),
           JSON.stringify(entry.priceSource ?? ""),
-          cumulative.toFixed(8),
+          cumulativeContributionFraction.toFixed(8),
           ((entry.month + 1) / 120).toFixed(8),
-        ].join(","));
-        return out;
-      }, []);
+        ].join(",");
+      });
     downloadText(
       "rolling-floor-ledger-" + new Date().toISOString().slice(0, 10) + ".csv",
       [header, ...rows].join("\n") + "\n",
@@ -1352,6 +1363,7 @@ function validLedgerEntry(value: unknown): value is LedgerEntry {
     (x.kind === undefined || x.kind === "CONTRIBUTION" || x.kind === "WITHDRAWAL") &&
     Number.isFinite(x.month) &&
     Number.isFinite(x.amount) &&
+    x.amount > 0 &&
     x.month >= 0 &&
     x.month <= 119
   );
@@ -1659,7 +1671,11 @@ function baseLotsAtCurrent(
   const lots: Array<{ amount: number; entry: number }> = [];
   if (startingFraction > 0) lots.push({ amount: startingFraction, entry: currentPrice });
   for (const entry of ledger) {
-    if (entry.month <= currentMonth && entry.amount > 0) {
+    if (
+      (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION" &&
+      entry.month <= currentMonth &&
+      entry.amount > 0
+    ) {
       lots.push({
         amount: entry.amount / Math.max(1, capitalFraction),
         entry: entry.price && entry.price > 0 ? entry.price : currentPrice,
@@ -1684,7 +1700,8 @@ function buildProjectedPortfolio(
   let cash = Math.max(0, 1 - currentDeployed);
   const currentEquity = portfolioEquity(currentPrice, cash, [
     ...lots,
-    { amount: Math.max(0, currentDeployed - (startingFraction + ledger.filter((e) => e.month <= currentMonth).reduce((s, e) => s + e.amount / Math.max(1, capitalFraction), 0))), entry: currentPrice },
+    { amount: Math.max(0, currentDeployed - (startingFraction + ledger.filter((e) => (e.kind ?? "CONTRIBUTION") === "CONTRIBUTION" && e.month <= currentMonth)
+        .reduce((s, e) => s + e.amount / Math.max(1, capitalFraction), 0))), entry: currentPrice },
   ].filter((x) => x.amount > 0));
   points.push({ month: currentMonth, equity: currentEquity });
 
@@ -1692,7 +1709,7 @@ function buildProjectedPortfolio(
   const actualRecordedFraction =
     startingFraction +
     ledger
-      .filter((entry) => entry.month <= currentMonth)
+      .filter((entry) => (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION" && entry.month <= currentMonth)
       .reduce((sum, entry) => sum + Math.max(0, entry.amount) / Math.max(1, capitalFraction), 0);
   const previewFraction = Math.max(0, currentDeployed - actualRecordedFraction);
   if (previewFraction > 0) lots.push({ amount: previewFraction, entry: currentPrice });
@@ -2550,7 +2567,7 @@ function LedgerTable({
   if (!entries.length) {
     return (
       <p className="mt-4 rounded-md border border-dashed border-line p-4 text-sm text-muted">
-        尚未記錄投入點。輸入 Actual cash invested now 只會改變 SIM 預覽；按「記錄今次實際投入」時，系統會額外封存當下可取得的 QQQ Yahoo 價格與觀測時間。
+        尚未記錄現金流。Contribution 才會改變 Actual Contributed；Withdrawal 只記獨立 cashflow。
       </p>
     );
   }
@@ -2565,12 +2582,16 @@ function LedgerTable({
       status: EntryStatus;
     }>>((rows, entry) => {
       const prior = rows.at(-1)?.fraction ?? startingDeployed / Math.max(1, capital);
-      const fraction = prior + entry.amount / Math.max(1, capital);
+      const isContribution = (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION";
+      const fraction = isContribution
+        ? prior + entry.amount / Math.max(1, capital)
+        : prior;
+      const clock = clockFraction(entry.month + 1);
       rows.push({
         entry,
         fraction,
-        clock: clockTarget(entry.month),
-        status: statusFor(fraction, clockTarget(entry.month), fraction * capital, capital),
+        clock,
+        status: statusFor(fraction, clock, fraction * capital, capital),
       });
       return rows;
     }, [])
@@ -2582,7 +2603,8 @@ function LedgerTable({
         <thead className="text-xs text-subtle">
           <tr>
             <th className="py-2">month</th>
-            <th className="py-2">投入</th>
+            <th className="py-2">type</th>
+            <th className="py-2">amount</th>
             <th className="py-2">QQQ price</th>
             <th className="py-2">累積</th>
             <th className="py-2">clock</th>
@@ -2594,6 +2616,7 @@ function LedgerTable({
           {rows.map(({ entry, fraction, clock, status }) => (
             <tr key={entry.id} className="border-t border-line">
               <td className="py-2 font-mono tabular-nums">{entry.month + 1}</td>
+              <td className="py-2 font-mono text-xs">{entry.kind ?? "CONTRIBUTION"}</td>
               <td className="py-2 font-mono tabular-nums">{fmtUsd(entry.amount, 2)}</td>
               <td className="py-2 font-mono tabular-nums">
                 {entry.price == null ? "—" : fmtUsd(entry.price, 2)}
