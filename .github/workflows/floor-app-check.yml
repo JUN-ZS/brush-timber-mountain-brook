@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   floor-app:
-    name: Floor App / test / typecheck / build
+    name: Floor App / test / lint / build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
