@@ -83,7 +83,7 @@ export function createEntry(
 export function defaultFloorAccount(): FloorAccountState {
   return {
     plannedPrincipal: 100_000,
-    cycleMonth: 1,
+    cycleMonth: 0,
     nav: 0,
     entries: [],
   };
