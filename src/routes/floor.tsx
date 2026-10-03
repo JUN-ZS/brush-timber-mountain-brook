@@ -1819,7 +1819,10 @@ function buildStrategySimulation({
       const deployed =
         startingDeployed +
         ledger
-          .filter((entry) => entry.month <= tapePoint.month)
+          .filter((entry) =>
+            (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION" &&
+            entry.month <= tapePoint.month,
+          )
           .reduce((sum, entry) => sum + Math.max(0, entry.amount) / Math.max(1, capital), 0);
       const cash = Math.max(0, 1 - deployed);
       return {
