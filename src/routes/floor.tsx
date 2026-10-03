@@ -51,6 +51,7 @@ type RiskBaselineProfileView = {
 
 const LEDGER_KEY_V2 = "qqq-rolling-floor-ledger-v2";
 const FLOOR_STATE_KEY = "qqq-rolling-floor-state-v4";
+const LEGACY_FLOOR_STATE_KEY_V3 = "qqq-rolling-floor-state-v3";
 
 const DEFAULT_CAPITAL = 100000;
 const DEFAULT_STARTING_DEPLOYED = 0;
@@ -155,9 +156,15 @@ function loadFloorState(): FloorPersistedState {
   if (typeof window === "undefined") return defaultFloorState();
 
   try {
-    const v3raw = window.localStorage.getItem(FLOOR_STATE_KEY);
-    if (v3raw) {
-      const parsed = normalizeFloorState(JSON.parse(v3raw));
+    const v4raw = window.localStorage.getItem(FLOOR_STATE_KEY);
+    if (v4raw) {
+      const parsed = normalizeFloorState(JSON.parse(v4raw));
+      if (parsed) return parsed;
+    }
+
+    const legacyV3raw = window.localStorage.getItem(LEGACY_FLOOR_STATE_KEY_V3);
+    if (legacyV3raw) {
+      const parsed = normalizeFloorState(JSON.parse(legacyV3raw));
       if (parsed) return parsed;
     }
 
@@ -191,7 +198,7 @@ function writeFloorState(state: FloorPersistedState) {
         nav: state.nav,
       }),
     );
-    // Prefer v3 as source of truth after migrate/write.
+    // v4 is the source of truth after migration; legacy keys are read-only fallbacks.
     window.localStorage.removeItem(LEDGER_KEY_V2);
   } catch {
       // Ignore malformed local state; safe defaults remain in memory.
@@ -274,7 +281,7 @@ function Page() {
     if (!hasHydrated) return;
     writeFloorState({
       capital,
-      startingDeployed,
+      startingDeployed: 0,
       month,
       entries: ledger,
       marketTape,
@@ -342,7 +349,8 @@ function Page() {
   const cumulativeBeforePreview = contributed;
   const cumulativeNowAmount = cumulativeBeforePreview + Math.max(0, actualNow);
   const cumulativeNowFraction = cumulativeNowAmount / safeCapital;
-  const currentClock = clockTarget(safeCapital, cycleMonth);
+  const currentClockAmount = clockTarget(safeCapital, cycleMonth);
+  const currentClock = currentClockAmount / safeCapital;
   const formalFundingDelta = fundingDelta(safeCapital, cycleMonth, ledger);
   const formalFundingStatus = fundingStatus(formalFundingDelta);
   const remainingCapital = Math.max(0, safeCapital - contributed);
@@ -501,7 +509,7 @@ function Page() {
       cumulativeNowFraction,
       modelReferenceX,
       ledger,
-      startingDeployed,
+      startingDeployed: 0,
       safeCapital,
       marketTape,
     ],
@@ -570,7 +578,7 @@ function Page() {
       modelSnapshotAsOf: snapshot.asOf,
       horizonYears: snapshot.horizonYears,
       totalCapital: safeCapital,
-      startingDeployed,
+      startingDeployed: 0,
       month,
       entries: ledger,
       marketTape,
@@ -685,7 +693,7 @@ function Page() {
           <div className="grid gap-4 lg:grid-cols-4">
             <MetricCard
               kicker="CLOCK TARGET"
-              title={fmtUsd(currentClock * safeCapital, 2)}
+              title={fmtUsd(currentClockAmount, 2)}
               detail={"M" + cycleMonth + " / 120 · reference path only"}
             />
             <MetricCard
@@ -805,7 +813,7 @@ function Page() {
               </p>
               {liveFetchedAt ? (
                 <p className="mt-1 font-mono text-xs text-subtle">
-                  fetched {new Date(liveFetchedAt).toLocaleString()} · source YAHOO_FINANCE_CHART
+                  fetched {new Date(liveFetchedAt).toISOString()} · source YAHOO_FINANCE_CHART
                 </p>
               ) : null}
             </div>
@@ -835,7 +843,7 @@ function Page() {
                     {q?.price == null ? "UNAVAILABLE" : q.price.toFixed(2)}
                   </p>
                   <p className="mt-1 text-xs text-subtle">
-                    {q?.marketState ?? "UNKNOWN"} · {q?.regularMarketTime ? new Date(q.regularMarketTime).toLocaleDateString() : "—"}
+                    {q?.marketState ?? "UNKNOWN"} · {q?.regularMarketTime ? new Date(q.regularMarketTime).toISOString().slice(0, 10) : "—"}
                   </p>
                 </div>
               );
@@ -846,37 +854,54 @@ function Page() {
             <div className="mt-4 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
               <div className="rounded-md border border-line bg-elevated p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">QQQ LIVE STATE</p>
-                  <Badge tone={liveMatch.volLevel === "EXTREME" || liveMatch.volLevel === "SUPER_EXTREME" ? "lock" : "fragile"}>
-                    {liveMatch.priceDir} · {liveMatch.volLevel}
-                  </Badge>
+                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">QQQ LIVE STATE · SELF-RELATIVE</p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone="mute">5D DIR · {liveMatch.priceDir}</Badge>
+                    <Badge tone={liveMatch.week.level === "EXTREME" || liveMatch.week.level === "SUPER_EXTREME" ? "lock" : "fragile"}>
+                      WEEK RELVOL · {liveMatch.week.level}
+                    </Badge>
+                  </div>
                 </div>
+                <p className="mt-3 text-xs leading-relaxed text-muted">
+                  DAY / WEEK / MONTH 都只和 QQQ 自己過去同尺度的絕對波動比較。<span className="font-mono">move</span> = 當前該尺度絕對變幅；
+                  <span className="font-mono">hist mean</span> = 同尺度歷史平均絕對變幅；
+                  <span className="font-mono">ratio</span> = move ÷ hist mean；
+                  <span className="font-mono">pctl</span> = 在自己的歷史分布位置。Level 只由 ratio 分段得到，互不混用。
+                </p>
                 <div className="mt-3 grid gap-2">
-                  {[liveMatch.day, liveMatch.week, liveMatch.month].map((s) => (
-                    <div key={s.scale} className="grid grid-cols-[90px_1fr_auto] items-center gap-3">
-                      <span className="font-mono text-xs text-subtle">{s.scale}</span>
+                  {[liveMatch.day, liveMatch.week, liveMatch.month].map((scale) => (
+                    <div key={scale.scale} className="grid gap-1 rounded-md border border-line/70 px-3 py-2 sm:grid-cols-[78px_1fr_auto] sm:items-center sm:gap-3">
+                      <span className="font-mono text-xs text-subtle">{scale.scale}</span>
                       <span className="font-mono text-sm tabular-nums">
-                        move {s.currentMove == null ? "—" : fmtPct(s.currentMove, 2)} · ratio {s.ratio == null ? "—" : s.ratio.toFixed(2)}×
+                        move {scale.currentMove == null ? "—" : fmtPct(scale.currentMove, 2)}
+                        {" · "}hist mean {scale.meanMove == null ? "—" : fmtPct(scale.meanMove, 2)}
+                        {" · "}ratio {scale.ratio == null ? "—" : scale.ratio.toFixed(2)}×
+                        {" · "}level {scale.level}
                       </span>
                       <span className="font-mono text-xs tabular-nums text-muted">
-                        pctl {fmtPct(s.percentile, 0)}
+                        pctl {fmtPct(scale.percentile, 0)}
                       </span>
                     </div>
                   ))}
                 </div>
+                <p className="mt-3 text-xs text-subtle">
+                  5D DIR 是最近約 5 個交易日的方向分箱；WEEK RELVOL 只是週尺度 level 的摘要，不代表整體市場波動。
+                </p>
+              </div>
+
               </div>
 
               <div className="rounded-md border border-line bg-elevated p-4">
                 <p className="font-mono text-xs tracking-[0.14em] text-subtle">HISTORY MATCH · DESCRIPTIVE</p>
                 <div className="mt-2 grid grid-cols-2 gap-3">
                   <MetricCard kicker="CURRENT QQQ" title={fmtUsd(liveMatch.currentPrice ?? 0, 2)} detail="Yahoo observation" />
-                  <MetricCard kicker="MATCHES" title={String(liveMatch.matches)} detail="similar historical states" />
+                  <MetricCard kicker="MATCH COUNT" title={String(liveMatch.matches)} detail={liveMatch.matches < 5 ? "THIN sample" : "similar states"} />
                   <MetricCard kicker="MEDIAN 5D" title={fmtPct(liveMatch.median5d, 1)} detail="forward historical analogue" />
-                  <MetricCard kicker="P(UP) 5D" title={fmtPct(liveMatch.pUp5d, 0)} detail="among matched states" />
+                  <MetricCard kicker="P(UP) 5D · DESCRIPTIVE" title={fmtPct(liveMatch.pUp5d, 0)} detail={String(liveMatch.matches) + " matched states"} />
                 </div>
                 <p className="mt-3 text-xs text-subtle">
-                  1D {fmtPct(liveMatch.median1d, 1)} · 21D {fmtPct(liveMatch.median21d, 1)} ·
-                  reference dates {liveMatch.referenceDates.join(", ") || "none"}.
+                  1D {fmtPct(liveMatch.median1d, 1)} · 5D {fmtPct(liveMatch.median5d, 1)} · 21D {fmtPct(liveMatch.median21d, 1)} ·
+                  reference dates {liveMatch.referenceDates.join(", ") || "none"} · n={liveMatch.matches}.
                 </p>
               </div>
             </div>
@@ -887,11 +912,11 @@ function Page() {
           )}
 
           <p className="mt-3 text-xs text-subtle">
-            LIVE price 是今天的觀測點；history match 是描述性對照，不是未來回報保證，也不直接改寫 hard clock 投入規則。
+            LIVE price 是 Yahoo 觀測點；history match 只做描述性相似狀態。n 很小時（例如 n=1），MEDIAN / P(UP) 不應被讀成穩健統計結論，也不直接改寫 hard clock。
           </p>
         </Panel>
 
-        <Panel kicker="LIVE RESEARCH CONTEXT / NOW RELATIVE VALUE" title="Refresh 後：目前資料點與歷史幾何（只作研究）">
+        <Panel kicker="LIVE RESEARCH CONTEXT / NOW" title="目前市場觀測＋模型幾何（只作研究）">
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div className="rounded-md border border-line bg-elevated p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -910,13 +935,13 @@ function Page() {
                 <MetricCard kicker="NOW / HISTORY" title={nearestAnalogDistance == null ? "—" : nearestAnalogDistance.toFixed(2)} detail="nearest state distance · lower = closer" />
               </div>
               <p className="mt-3 text-xs text-subtle">
-                TARGET COMPOSITION · clock {fmtPct(currentClock, 2)} · signal anchor {fmtPct(signalFloorAnchor, 2)} · effective {fmtPct(modelReferenceX, 2)}.
-                LIVE / historical geometry is displayed for context only. It never writes the ledger, changes B, changes NAV,
+                RESEARCH REFERENCE COMPOSITION · clock {fmtPct(currentClock, 2)} · signal anchor {fmtPct(signalFloorAnchor, 2)} · effective {fmtPct(modelReferenceX, 2)}.
+                Research reference is displayed for context only. It never writes the ledger, changes B, changes NAV,
                 changes CLOCK funding status, or emits BUY / SELL / less-fund / more-fund instructions.
               </p>
             </div>
             <div className="rounded-md border border-line bg-elevated p-4">
-              <p className="font-mono text-xs tracking-[0.14em] text-subtle">RELATIVE STATE</p>
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">CAPITAL-PHASE RELATIVE BASELINE</p>
               <div className="mt-3 grid gap-2">
                 {riskCurrentRows.map((row) => (
                   <div key={row.scale} className="grid grid-cols-[55px_1fr_auto] items-center gap-3">
@@ -933,7 +958,7 @@ function Page() {
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-xs text-subtle">上條 = GAR 在自己的歷史 q05–q95 區間位置；下條 = MaxDD 在自己的歷史 q05–q95 區間位置。這是相對值，不改 controller。</p>
+              <p className="mt-3 text-xs text-subtle">呢兩條係「目前資本 deployment phase」在 20Y / 30Y / 50Y 自己歷史 GAR、MaxDD corridor 的位置；唔係 QQQ DAY / WEEK / MONTH Relative Vol，亦唔改 controller。</p>
             </div>
           </div>
         </Panel>
@@ -1204,7 +1229,7 @@ function Page() {
                     <p className="font-mono text-lg tabular-nums">{fmtPct(cumulativeNowFraction, 3)}</p>
                   </div>
                   <div>
-                    <p className="font-mono text-[11px] text-subtle">delta vs rail</p>
+                    <p className="font-mono text-[11px] text-subtle">delta vs CLOCK</p>
                     <p className="font-mono text-lg tabular-nums">{fmtPct(cumulativeNowFraction - currentClock, 3)}</p>
                   </div>
                 </div>
