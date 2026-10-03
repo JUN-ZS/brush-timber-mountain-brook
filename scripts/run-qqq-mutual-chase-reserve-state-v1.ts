@@ -287,7 +287,8 @@ function simulate(pr: number[], mode: ReserveMode): Metrics {
     const canUseReserve =
       mode === "CURRENT_REUSE" ||
       mode === "ONE_SHOT_DD_RELEASE" ||
-      reserveState === "RESERVE_DEPLOYABLE";
+      reserveState === "RESERVE_DEPLOYABLE" ||
+      reserveState === "RECOVERY";
 
     if (canUseReserve) deployableMonths++;
 
