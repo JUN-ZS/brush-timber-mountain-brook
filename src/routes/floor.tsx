@@ -67,6 +67,7 @@ type FloorPersistedState = {
   entries: LedgerEntry[];
   marketTape: MarketTapeEntry[];
   dailyDeploymentTape?: DailyDeploymentEntry[];
+  frontloadPct?: number;
   nav: number;
 };
 
@@ -154,6 +155,10 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
   const dailyDeploymentTape = Array.isArray(obj.dailyDeploymentTape)
     ? obj.dailyDeploymentTape.filter(validDailyDeploymentEntry)
     : [];
+  const frontloadRaw = Number(obj.frontloadPct);
+  const frontloadPct = Number.isFinite(frontloadRaw)
+    ? Math.max(0, Math.min(1, frontloadRaw))
+    : 0.4;
 
   return {
     capital,
@@ -162,6 +167,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
     entries: [...migratedOpening, ...entries],
     marketTape,
     dailyDeploymentTape,
+    frontloadPct,
     nav,
   };
 }
@@ -209,6 +215,7 @@ function writeFloorState(state: FloorPersistedState) {
         entries: state.entries,
         marketTape: state.marketTape,
         dailyDeploymentTape: state.dailyDeploymentTape,
+        frontloadPct: state.frontloadPct,
         nav: state.nav,
       }),
     );
@@ -289,6 +296,7 @@ function Page() {
     setLedger(loaded.entries);
     setMarketTape(loaded.marketTape);
     setDailyDeploymentTape(loaded.dailyDeploymentTape ?? []);
+    setFrontloadPct(loaded.frontloadPct ?? 0.4);
     setNav(loaded.nav);
     setHasHydrated(true);
   }, []);
@@ -302,6 +310,8 @@ function Page() {
       month,
       entries: ledger,
       marketTape,
+      dailyDeploymentTape,
+      frontloadPct,
       nav,
     });
   }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, nav]);
@@ -353,6 +363,7 @@ function Page() {
         setLedger(parsed.entries);
         setMarketTape(parsed.marketTape);
         setDailyDeploymentTape(parsed.dailyDeploymentTape ?? []);
+        setFrontloadPct(parsed.frontloadPct ?? 0.4);
         setNav(parsed.nav);
       } catch {
       // Ignore malformed local state; safe defaults remain in memory.
@@ -577,6 +588,7 @@ function Page() {
       dayLevel: liveMatch?.day.level ?? "UNKNOWN",
       weekLevel: liveMatch?.week.level ?? "UNKNOWN",
       monthLevel: liveMatch?.month.level ?? "UNKNOWN",
+      priceLadder: liveMatch?.priceLadder ?? null,
     });
     const entry: DailyDeploymentEntry = {
       ...row,
@@ -663,6 +675,7 @@ function Page() {
       entries: ledger,
       marketTape,
       dailyDeploymentTape,
+      frontloadPct,
       nav,
     };
   }
@@ -689,7 +702,7 @@ function Page() {
     const header = [
       "marketDate","recordedAt","cycleMonth","frontload","capital","contributed","nav","target","signedGap",
       "buyAvailable","sellExcess","remainingCapital","qqqPrice","marketState","dayRatio","weekRatio","monthRatio",
-      "dayLevel","weekLevel","monthLevel","status","source",
+      "dayLevel","weekLevel","monthLevel","status","source","priceLadder",
     ].join(",");
     const rows = dailyDeploymentTape
       .slice()
@@ -699,6 +712,7 @@ function Page() {
         x.buyAvailable,x.sellExcess,x.remainingCapital,x.qqqPrice ?? "",JSON.stringify(x.marketState ?? ""),
         x.dayRatio ?? "",x.weekRatio ?? "",x.monthRatio ?? "",JSON.stringify(x.dayLevel),
         JSON.stringify(x.weekLevel),JSON.stringify(x.monthLevel),JSON.stringify(x.status),JSON.stringify(x.source),
+        JSON.stringify(x.priceLadder ?? null),
       ].join(","));
     downloadText(
       "qqq-daily-deployment-tape-" + new Date().toISOString().slice(0, 10) + ".csv",
@@ -1512,6 +1526,7 @@ function validDailyDeploymentEntry(value: unknown): value is DailyDeploymentEntr
     Number.isFinite(x.sellExcess) &&
     x.sellExcess >= 0 &&
     (x.status === "BUY_AVAILABLE" || x.status === "ON_TARGET" || x.status === "SELL_EXCESS") &&
+    (x.priceLadder === undefined || x.priceLadder === null || typeof x.priceLadder === "object") &&
     x.source === "YAHOO_FINANCE_CHART"
   );
 }
