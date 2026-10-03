@@ -4,6 +4,7 @@
     "workflow": "Rolling 10Y Capital Floor",
     "run": 174,
     "head": "94bfd35eef249af64b85d12444c596a9f332be4c",
+    "artifactSourceCommit": "8390c762af6b1826da5adc4c337ebec8bb682e4f",
     "artifactId": 11279938004,
     "resultVersion": "rolling-floor.v8-clock-isolated-withdrawal",
     "rollingObservations": 153,
