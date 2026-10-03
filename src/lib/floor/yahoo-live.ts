@@ -33,6 +33,16 @@ export type PriceActionLevel = {
   samples: number;
 };
 
+export type PricePathSample = {
+  entryPrice: number;
+  low1: number;
+  low5: number;
+  low21: number;
+  high1: number;
+  high5: number;
+  high21: number;
+};
+
 export type LivePriceLadder = {
   add: PriceActionLevel[];
   reduce: PriceActionLevel[];
@@ -126,7 +136,20 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
       featureDistance(closes, b.date, target),
   );
   const selected = candidates.slice(0, 25);
-  const priceLadder = current == null ? null : buildPriceLadder(current, selected);
+  const priceLadder = current == null
+    ? null
+    : buildConditionalPriceLadder(
+        current,
+        selected.map((x) => ({
+          entryPrice: x.base,
+          low1: x.low1,
+          low5: x.low5,
+          low21: x.low21,
+          high1: x.high1,
+          high5: x.high5,
+          high21: x.high21,
+        })),
+      );
   return {
     symbol: series.symbol,
     currentPrice: current,
@@ -222,31 +245,33 @@ function quantile(xs: number[], q: number) {
   return (sorted[lower] ?? 0) * (1 - weight) + (sorted[upper] ?? 0) * weight;
 }
 
-function buildPriceLadder(
+export function buildConditionalPriceLadder(
   current: number,
-  selected: Array<{
-    base: number;
-    d1: number; d5: number; d21: number;
-    low1: number; low5: number; low21: number;
-    high1: number; high5: number; high21: number;
-  }>,
+  selected: PricePathSample[],
 ): LivePriceLadder {
   const touchProbabilities = [0.7, 0.5, 0.3] as const;
   const horizons = [1, 5, 21] as const;
   const add: PriceActionLevel[] = [];
   const reduce: PriceActionLevel[] = [];
+  const valid = selected.filter(
+    (x) =>
+      Number.isFinite(x.entryPrice) &&
+      x.entryPrice > 0 &&
+      [x.low1, x.low5, x.low21, x.high1, x.high5, x.high21].every(
+        (value) => Number.isFinite(value) && value > 0,
+      ),
+  );
 
-
-// Normalize each candidate's forward extreme by its entry close before
-// projecting the ratio onto today's QQQ price.
-  // Build normalized low/high paths from each historical match's entry close.
-  // This makes the ladder portable across QQQ price regimes.
   const rawLevels = horizons.map((horizon) => {
-    const lows = selected.map((x) =>
-      (horizon === 1 ? x.low1 : horizon === 5 ? x.low5 : x.low21) / x.base
+    const lows = valid.map(
+      (x) =>
+        (horizon === 1 ? x.low1 : horizon === 5 ? x.low5 : x.low21) /
+        x.entryPrice,
     );
-    const highs = selected.map((x) =>
-      (horizon === 1 ? x.high1 : horizon === 5 ? x.high5 : x.high21) / x.base
+    const highs = valid.map(
+      (x) =>
+        (horizon === 1 ? x.high1 : horizon === 5 ? x.high5 : x.high21) /
+        x.entryPrice,
     );
     return { horizon, lows, highs };
   });
@@ -263,7 +288,7 @@ function buildPriceLadder(
         touchProbability,
         price: addPrice != null && addPrice < current ? addPrice : null,
         distancePct: addPrice != null && addPrice < current ? addPrice / current - 1 : null,
-        samples: selected.length,
+        samples: valid.length,
       });
       reduce.push({
         side: "REDUCE",
@@ -271,7 +296,7 @@ function buildPriceLadder(
         touchProbability,
         price: reducePrice != null && reducePrice > current ? reducePrice : null,
         distancePct: reducePrice != null && reducePrice > current ? reducePrice / current - 1 : null,
-        samples: selected.length,
+        samples: valid.length,
       });
     }
   }
@@ -279,8 +304,8 @@ function buildPriceLadder(
   return {
     add,
     reduce,
-    samples: selected.length,
-    quality: selected.length < 12 ? "THIN" : "DESCRIPTIVE",
+    samples: valid.length,
+    quality: valid.length < 12 ? "THIN" : "DESCRIPTIVE",
   };
 }
 
