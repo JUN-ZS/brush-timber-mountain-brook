@@ -16,6 +16,8 @@ import snapshot from "@/data/rolling_floor_ui_snapshot.json";
 import { buildLiveHistoryMatch, type LiveHistoryMatch, type YahooSeries } from "@/lib/floor/yahoo-live";
 import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floor";
 import type { LongScaleProfile } from "@/lib/pulse/long-scale";
+import { DailyDeploymentConsole, type DailyDeploymentEntry } from "@/components/daily-deployment-console";
+import { dailyDeploymentRecord } from "@/lib/floor/deployment";
 
 export const Route = createFileRoute("/floor")({ component: Page });
 
@@ -64,6 +66,7 @@ type FloorPersistedState = {
   month: number;
   entries: LedgerEntry[];
   marketTape: MarketTapeEntry[];
+  dailyDeploymentTape?: DailyDeploymentEntry[];
   nav: number;
 };
 
@@ -74,6 +77,7 @@ function defaultFloorState(): FloorPersistedState {
     month: DEFAULT_MONTH,
     entries: [],
     marketTape: [],
+    dailyDeploymentTape: [],
     nav: 0,
   };
 }
@@ -147,6 +151,9 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
 
   const navRaw = Number(obj.nav);
   const nav = Number.isFinite(navRaw) && navRaw >= 0 ? navRaw : 0;
+  const dailyDeploymentTape = Array.isArray(obj.dailyDeploymentTape)
+    ? obj.dailyDeploymentTape.filter(validDailyDeploymentEntry)
+    : [];
 
   return {
     capital,
@@ -154,6 +161,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
     month,
     entries: [...migratedOpening, ...entries],
     marketTape,
+    dailyDeploymentTape,
     nav,
   };
 }
@@ -200,6 +208,7 @@ function writeFloorState(state: FloorPersistedState) {
         month: state.month,
         entries: state.entries,
         marketTape: state.marketTape,
+        dailyDeploymentTape: state.dailyDeploymentTape,
         nav: state.nav,
       }),
     );
@@ -217,6 +226,8 @@ function Page() {
   const [month, setMonth] = useState(DEFAULT_MONTH);
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [marketTape, setMarketTape] = useState<MarketTapeEntry[]>([]);
+  const [dailyDeploymentTape, setDailyDeploymentTape] = useState<DailyDeploymentEntry[]>([]);
+  const [frontloadPct, setFrontloadPct] = useState(0.4);
   const [nav, setNav] = useState(0);
   const [plannedContributionMonth, setPlannedContributionMonth] = useState(DEFAULT_MONTH + 1);
   const [plannedContributionAmount, setPlannedContributionAmount] = useState(0);
@@ -277,6 +288,7 @@ function Page() {
     setMonth(loaded.month);
     setLedger(loaded.entries);
     setMarketTape(loaded.marketTape);
+    setDailyDeploymentTape(loaded.dailyDeploymentTape ?? []);
     setNav(loaded.nav);
     setHasHydrated(true);
   }, []);
@@ -292,7 +304,7 @@ function Page() {
       marketTape,
       nav,
     });
-  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, nav]);
+  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, nav]);
 
   // Each successful Yahoo refresh seals one observed QQQ market point at the current cycle month.
   // This tape is the bridge between real-time passage and the forward 10Y simulation.
@@ -328,6 +340,8 @@ function Page() {
           setMonth(DEFAULT_MONTH);
           setLedger([]);
           setMarketTape([]);
+          setDailyDeploymentTape([]);
+          setFrontloadPct(0.4);
           setNav(0);
           return;
         }
@@ -338,6 +352,7 @@ function Page() {
         setMonth(parsed.month);
         setLedger(parsed.entries);
         setMarketTape(parsed.marketTape);
+        setDailyDeploymentTape(parsed.dailyDeploymentTape ?? []);
         setNav(parsed.nav);
       } catch {
       // Ignore malformed local state; safe defaults remain in memory.
@@ -534,6 +549,65 @@ function Page() {
     { month, cumulativeAmount: cumulativeNowAmount },
   );
 
+  function currentMarketDate() {
+    const qqq = liveContext.find((x) => x.symbol === "QQQ");
+    return qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
+  }
+
+  function sealDailyDeployment() {
+    const marketDate = currentMarketDate();
+    if (!marketDate) {
+      setTransferNotice("DAILY DEPLOYMENT not recorded · QQQ market date unavailable");
+      return;
+    }
+    const qqq = liveContext.find((x) => x.symbol === "QQQ");
+    const row = dailyDeploymentRecord({
+      recordedAt: new Date().toISOString(),
+      marketDate,
+      cycleMonth,
+      capital: safeCapital,
+      frontload: frontloadPct,
+      nav,
+      contributed,
+      qqqPrice: qqq?.price ?? liveMatch?.currentPrice ?? null,
+      marketState: qqq?.marketState ?? null,
+      dayRatio: liveMatch?.day.ratio ?? null,
+      weekRatio: liveMatch?.week.ratio ?? null,
+      monthRatio: liveMatch?.month.ratio ?? null,
+      dayLevel: liveMatch?.day.level ?? "UNKNOWN",
+      weekLevel: liveMatch?.week.level ?? "UNKNOWN",
+      monthLevel: liveMatch?.month.level ?? "UNKNOWN",
+    });
+    const entry: DailyDeploymentEntry = {
+      ...row,
+      id: globalThis.crypto?.randomUUID?.() ?? ("daily-" + marketDate + "-" + String(frontloadPct)),
+    };
+    setDailyDeploymentTape((current) => {
+      const next = current.filter(
+        (x) => !(x.marketDate === entry.marketDate && Math.abs(x.frontload - entry.frontload) < 1e-9),
+      );
+      next.push(entry);
+      next.sort((a, b) => a.marketDate.localeCompare(b.marketDate) || a.frontload - b.frontload);
+      return next.slice(-3650);
+    });
+    setTransferNotice(
+      "DAILY DEPLOYMENT sealed · " +
+      marketDate +
+      " · F " +
+      (frontloadPct * 100).toFixed(0) +
+      "% · " +
+      row.status +
+      " · available " +
+      fmtUsd(row.buyAvailable, 2),
+    );
+  }
+
+  useEffect(() => {
+    if (!hasHydrated || !liveFetchedAt || !liveMatch) return;
+    sealDailyDeployment();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHydrated, liveFetchedAt]);
+
   function recordPoint(kind: FloorEntryKind = "CONTRIBUTION") {
     const amount = kind === "CONTRIBUTION" ? actualNow : plannedWithdrawalAmount;
     if (!Number.isFinite(amount) || amount <= 0) return;
@@ -567,6 +641,8 @@ function Page() {
     // capital/month reset to defaults; persisted blob rewritten by save effect.
     setLedger([]);
     setMarketTape([]);
+    setDailyDeploymentTape([]);
+    setFrontloadPct(0.4);
     setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
     setActualNow(0);
     setCapital(DEFAULT_CAPITAL);
@@ -586,6 +662,7 @@ function Page() {
       month,
       entries: ledger,
       marketTape,
+      dailyDeploymentTape,
       nav,
     };
   }
@@ -606,6 +683,29 @@ function Page() {
       JSON.stringify(buildTransferPayload(), null, 2),
     );
     setTransferNotice("PUSH complete · full simulator state exported");
+  }
+
+  function pushDailyDeploymentCsv() {
+    const header = [
+      "marketDate","recordedAt","cycleMonth","frontload","capital","contributed","nav","target","signedGap",
+      "buyAvailable","sellExcess","remainingCapital","qqqPrice","marketState","dayRatio","weekRatio","monthRatio",
+      "dayLevel","weekLevel","monthLevel","status","source",
+    ].join(",");
+    const rows = dailyDeploymentTape
+      .slice()
+      .sort((a, b) => a.marketDate.localeCompare(b.marketDate) || a.frontload - b.frontload)
+      .map((x) => [
+        x.marketDate,x.recordedAt,x.cycleMonth,x.frontload,x.capital,x.contributed,x.nav,x.target,x.signedGap,
+        x.buyAvailable,x.sellExcess,x.remainingCapital,x.qqqPrice ?? "",JSON.stringify(x.marketState ?? ""),
+        x.dayRatio ?? "",x.weekRatio ?? "",x.monthRatio ?? "",JSON.stringify(x.dayLevel),
+        JSON.stringify(x.weekLevel),JSON.stringify(x.monthLevel),JSON.stringify(x.status),JSON.stringify(x.source),
+      ].join(","));
+    downloadText(
+      "qqq-daily-deployment-tape-" + new Date().toISOString().slice(0, 10) + ".csv",
+      [header, ...rows].join("\n") + "\n",
+      "text/csv;charset=utf-8",
+    );
+    setTransferNotice("DAILY deployment CSV exported · " + dailyDeploymentTape.length + " observations");
   }
 
   function pushCsv() {
@@ -927,6 +1027,25 @@ function Page() {
             LIVE price 是 Yahoo 觀測點；history match 只做描述性相似狀態。n 很小時（例如 n=1），MEDIAN / P(UP) 不應被讀成穩健統計結論，也不直接改寫 hard clock。
           </p>
         </Panel>
+
+        <DailyDeploymentConsole
+          capital={safeCapital}
+          contributed={contributed}
+          nav={nav}
+          cycleMonth={cycleMonth}
+          marketDate={
+            liveContext.find((x) => x.symbol === "QQQ")?.regularMarketTime?.slice(0, 10) ??
+            liveContext.find((x) => x.symbol === "QQQ")?.bars.at(-1)?.date ??
+            null
+          }
+          liveContext={liveContext}
+          liveMatch={liveMatch}
+          frontload={frontloadPct}
+          onFrontloadChange={setFrontloadPct}
+          tape={dailyDeploymentTape}
+          onRecord={sealDailyDeployment}
+          onExport={pushDailyDeploymentCsv}
+        />
 
         <Panel kicker="LIVE RESEARCH CONTEXT / NOW" title="目前市場觀測＋模型幾何（只作研究）">
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -1367,6 +1486,33 @@ function validLedgerEntry(value: unknown): value is LedgerEntry {
     x.amount > 0 &&
     x.month >= 0 &&
     x.month <= 119
+  );
+}
+
+function validDailyDeploymentEntry(value: unknown): value is DailyDeploymentEntry {
+  if (!value || typeof value !== "object") return false;
+  const x = value as Partial<DailyDeploymentEntry>;
+  return (
+    typeof x.id === "string" &&
+    typeof x.recordedAt === "string" &&
+    typeof x.marketDate === "string" &&
+    Number.isFinite(x.cycleMonth) &&
+    Number.isFinite(x.capital) &&
+    x.capital > 0 &&
+    Number.isFinite(x.frontload) &&
+    x.frontload >= 0 &&
+    x.frontload <= 1 &&
+    Number.isFinite(x.nav) &&
+    x.nav >= 0 &&
+    Number.isFinite(x.contributed) &&
+    x.contributed >= 0 &&
+    Number.isFinite(x.target) &&
+    Number.isFinite(x.buyAvailable) &&
+    x.buyAvailable >= 0 &&
+    Number.isFinite(x.sellExcess) &&
+    x.sellExcess >= 0 &&
+    (x.status === "BUY_AVAILABLE" || x.status === "ON_TARGET" || x.status === "SELL_EXCESS") &&
+    x.source === "YAHOO_FINANCE_CHART"
   );
 }
 
