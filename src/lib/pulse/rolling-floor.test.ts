@@ -614,7 +614,7 @@ test("partial B-floor withdrawal uses fixed alpha and preserves the B floor at e
   assert.ok(point.nav < point.navBeforeWithdrawal);
 });
 
-test("B-floor withdrawal stays zero below Btest("B-floor withdrawal stays zero below B and never takes NAV below immutable planned principal", () => {
+test("B-floor withdrawal stays zero below B and never takes NAV below immutable planned principal", () => {
   const qqq = Array.from({ length: 121 }, (_, i) => ({
     date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
     value: i === 0 ? 1 : 20,
