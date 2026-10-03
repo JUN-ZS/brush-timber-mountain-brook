@@ -18,12 +18,42 @@ on:
 
 permissions:
   contents: read
-
-concurrency:
-  group: vxx-synthetic-tape-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  actions: write
 
 jobs:
+  cleanup-stale-research-runs:
+    name: Cleanup / this research branch only
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Cancel stale VXX/V22 runs from this branch
+        env:
+          GH_TOKEN: \${{ github.token }}
+          TARGET_BRANCH: \${{ github.event.pull_request.head.ref || github.ref_name }}
+          CURRENT_RUN: \${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for workflow in "VXX Synthetic Option Tape V1" "QQQ V22 Locked OOS Family V2"; do
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow "$workflow" \
+              --branch "$TARGET_BRANCH" \
+              --limit 100 \
+              --json databaseId,status \
+              | jq -r --arg current "$CURRENT_RUN" '
+                  .[]
+                  | select((.databaseId | tostring) != $current)
+                  | select(.status == "queued" or .status == "in_progress")
+                  | .databaseId
+                ' \
+              | while read -r run_id; do
+                  [ -z "$run_id" ] && continue
+                  echo "cancel stale run $run_id ($workflow)"
+                  gh run cancel "$run_id" --repo "$GITHUB_REPOSITORY" || true
+                done
+          done
+
   build_windows:
     name: Windows self-hosted — full tape
     runs-on: [self-hosted, windows, x64]
