@@ -164,6 +164,11 @@ export type ReplayPathPoint = {
 
 export type FundingPlanMode = "CLOCK_FUNDED" | "ADAPTIVE_FUNDED";
 
+export type ProfitWithdrawalMode =
+  | "NONE"
+  | "SCHEDULED"
+  | "SWEEP_ELIGIBLE_SURPLUS";
+
 export type FundingPathPoint = {
   date: string;
   contribution: number;
@@ -173,12 +178,20 @@ export type FundingPathPoint = {
   initialFundingFraction: number;
   invested: number;
   accountCash: number;
+  navBeforeWithdrawal: number;
   nav: number;
   surplus: number;
   fundingCredit: number;
   creditConfidence: number;
   fundingTarget: number;
   clockTarget: number;
+  withdrawalEligibleSurplus: number;
+  withdrawalRequested: number;
+  withdrawalExecuted: number;
+  cumulativeWithdrawn: number;
+  nextDecisionCreditBeforeWithdrawal: number;
+  nextDecisionCreditAfterWithdrawal: number;
+  creditCancelledByWithdrawal: number;
   divergenceState: DivergenceState;
 };
 
@@ -191,8 +204,10 @@ export type FundingReplayResult = {
   terminalWealth: number;
   maxDrawdown: number;
   totalContributed: number;
+  totalWithdrawn: number;
   maxContributionReduction: number;
   totalContributionReduction: number;
+  netEconomicWealth: number;
   path: FundingPathPoint[];
 };
 
@@ -990,6 +1005,8 @@ export function replayFundingPlan(
   mode: FundingPlanMode = "ADAPTIVE_FUNDED",
   plannedPrincipal = 1,
   initialFundingFraction = DEFAULT_INITIAL_FUNDING_FRACTION,
+  withdrawalMode: ProfitWithdrawalMode = "NONE",
+  withdrawalSchedule: Map<string, number> = new Map(),
 ): FundingReplayResult | null {
   const endIndex = startIndex + horizonMonths;
   if (endIndex >= qqq.length) return null;
@@ -1011,6 +1028,16 @@ export function replayFundingPlan(
   const path: FundingPathPoint[] = [];
   const curve: number[] = [0];
   let nav = 0;
+  let cumulativeWithdrawn = 0;
+
+  if (
+    withdrawalMode === "SCHEDULED" &&
+    [...withdrawalSchedule.values()].some(
+      (x) => !Number.isFinite(x) || x < 0,
+    )
+  ) {
+    throw new Error("scheduled withdrawals must be finite and non-negative");
+  }
 
   for (let j = 0; j < horizonMonths; j++) {
     const i = startIndex + j;
@@ -1069,6 +1096,68 @@ export function replayFundingPlan(
       accountCash +
       lots.reduce((sum, lot) => sum + lot.amount * (qqq[i].value / lot.entry), 0);
 
+    const navBeforeWithdrawal = nav;
+    const withdrawalEligibleSurplus = Math.max(
+      0,
+      navBeforeWithdrawal - cumulativeContributed,
+    );
+    const scheduledWithdrawal = withdrawalSchedule.get(date) ?? 0;
+    const withdrawalRequested =
+      withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS"
+        ? withdrawalEligibleSurplus
+        : withdrawalMode === "SCHEDULED"
+          ? scheduledWithdrawal
+          : 0;
+    const withdrawalExecuted = Math.min(
+      withdrawalEligibleSurplus,
+      Math.max(0, withdrawalRequested),
+    );
+
+    if (withdrawalExecuted > 1e-12 && navBeforeWithdrawal > 1e-12) {
+      const cashWithdrawal = Math.min(accountCash, withdrawalExecuted);
+      accountCash -= cashWithdrawal;
+      const remaining = withdrawalExecuted - cashWithdrawal;
+      if (remaining > 1e-12) {
+        const scale = Math.max(
+          0,
+          (navBeforeWithdrawal - withdrawalExecuted) /
+            Math.max(1e-12, navBeforeWithdrawal - cashWithdrawal),
+        );
+        for (const lot of lots) lot.amount *= scale;
+      }
+      nav = accountCash +
+        lots.reduce(
+          (sum, lot) => sum + lot.amount * (qqq[i].value / lot.entry),
+          0,
+        );
+      cumulativeWithdrawn += withdrawalExecuted;
+    }
+
+    const postWithdrawalSurplus = Math.max(
+      0,
+      nav - cumulativeContributed,
+    );
+    const closeCreditConfidence =
+      mode === "ADAPTIVE_FUNDED"
+        ? adaptiveCreditConfidence(
+            sig,
+            cumulativeContributed,
+            postWithdrawalSurplus,
+          )
+        : 0;
+    const nextDecisionCreditBeforeWithdrawal =
+      mode === "ADAPTIVE_FUNDED"
+        ? Math.min(
+            withdrawalEligibleSurplus,
+            externalRemaining,
+          ) * closeCreditConfidence
+        : 0;
+    const nextDecisionCreditAfterWithdrawal =
+      mode === "ADAPTIVE_FUNDED"
+        ? Math.min(postWithdrawalSurplus, externalRemaining) *
+          closeCreditConfidence
+        : 0;
+
     path.push({
       date,
       contribution,
@@ -1078,12 +1167,24 @@ export function replayFundingPlan(
       initialFundingFraction,
       invested: cumulativeContributed - accountCash,
       accountCash,
+      navBeforeWithdrawal,
       nav,
-      surplus: Math.max(0, nav - cumulativeContributed),
+      surplus: postWithdrawalSurplus,
       fundingCredit,
       creditConfidence,
       fundingTarget,
       clockTarget,
+      withdrawalEligibleSurplus,
+      withdrawalRequested,
+      withdrawalExecuted,
+      cumulativeWithdrawn,
+      nextDecisionCreditBeforeWithdrawal,
+      nextDecisionCreditAfterWithdrawal,
+      creditCancelledByWithdrawal: Math.max(
+        0,
+        nextDecisionCreditBeforeWithdrawal -
+          nextDecisionCreditAfterWithdrawal,
+      ),
       divergenceState: sig?.divergenceState ?? "THIN",
     });
 
@@ -1103,6 +1204,7 @@ export function replayFundingPlan(
     terminalWealth: nav,
     maxDrawdown: equityStats(curve).maxDd,
     totalContributed: cumulativeContributed,
+    totalWithdrawn: cumulativeWithdrawn,
     plannedPrincipal,
     initialFundingFraction,
     maxContributionReduction: Math.max(
@@ -1113,6 +1215,8 @@ export function replayFundingPlan(
       ),
     ),
     totalContributionReduction: plannedPrincipal - cumulativeContributed,
+    netEconomicWealth:
+      nav + cumulativeWithdrawn - cumulativeContributed,
     path,
   };
 }
