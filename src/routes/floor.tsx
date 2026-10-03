@@ -89,7 +89,9 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
   if (Array.isArray(raw)) {
     return {
       ...defaultFloorState(),
-      entries: raw.filter(validLedgerEntry),
+      entries: raw
+        .filter(validLedgerEntry)
+        .map((entry) => ({ ...entry, kind: "CONTRIBUTION" as const })),
     };
   }
 
@@ -113,11 +115,40 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
     : Array.isArray(obj.ledger)
       ? obj.ledger
       : [];
-  const entries = entriesSource.filter(validLedgerEntry);
-  const marketTapeSource = Array.isArray(obj.marketTape) ? obj.marketTape : [];
-  const marketTape = marketTapeSource.filter(validMarketTapeEntry);
+  const entries = entriesSource
+    .filter(validLedgerEntry)
+    .map((entry) => ({
+      ...entry,
+      kind: entry.kind ?? ("CONTRIBUTION" as const),
+    }));
 
-  return { capital, startingDeployed, month, entries, marketTape };
+  const migratedOpening =
+    startingDeployed > 0 &&
+    !entries.some((entry) => entry.id === "legacy-opening-contribution")
+      ? [{
+          id: "legacy-opening-contribution",
+          recordedAt: "1970-01-01T00:00:00.000Z",
+          asOf: "LEGACY_PR68_OPENING",
+          month: 0,
+          amount: startingDeployed,
+          kind: "CONTRIBUTION" as const,
+          price: null,
+          priceObservedAt: null,
+          priceSource: "UNAVAILABLE" as const,
+        }]
+      : [];
+
+  const navRaw = Number(obj.nav);
+  const nav = Number.isFinite(navRaw) && navRaw >= 0 ? navRaw : 0;
+
+  return {
+    capital,
+    startingDeployed: 0,
+    month,
+    entries: [...migratedOpening, ...entries],
+    marketTape,
+    nav,
+  };
 }
 
 function loadFloorState(): FloorPersistedState {
@@ -171,8 +202,6 @@ function Page() {
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [marketTape, setMarketTape] = useState<MarketTapeEntry[]>([]);
   const [nav, setNav] = useState(0);
-  const [navInput, setNavInput] = useState("0");
-  const [withdrawalNow, setWithdrawalNow] = useState(0);
   const [plannedContributionMonth, setPlannedContributionMonth] = useState(DEFAULT_MONTH + 1);
   const [plannedContributionAmount, setPlannedContributionAmount] = useState(0);
   const [plannedWithdrawalMonth, setPlannedWithdrawalMonth] = useState(DEFAULT_MONTH + 1);
@@ -233,7 +262,6 @@ function Page() {
     setLedger(loaded.entries);
     setMarketTape(loaded.marketTape);
     setNav(loaded.nav);
-    setNavInput(String(loaded.nav));
     setHasHydrated(true);
   }, []);
 
@@ -246,6 +274,7 @@ function Page() {
       month,
       entries: ledger,
       marketTape,
+      nav,
     });
   }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, nav]);
 
@@ -284,7 +313,6 @@ function Page() {
           setLedger([]);
           setMarketTape([]);
           setNav(0);
-          setNavInput("0");
           return;
         }
         const parsed = normalizeFloorState(JSON.parse(event.newValue));
@@ -295,7 +323,6 @@ function Page() {
         setLedger(parsed.entries);
         setMarketTape(parsed.marketTape);
         setNav(parsed.nav);
-        setNavInput(String(parsed.nav));
       } catch {}
     };
     window.addEventListener("storage", onStorage);
@@ -491,9 +518,14 @@ function Page() {
   );
 
   function recordPoint(kind: FloorEntryKind = "CONTRIBUTION") {
-    const amount = kind === "CONTRIBUTION" ? actualNow : withdrawalNow;
+    const amount = kind === "CONTRIBUTION" ? actualNow : plannedWithdrawalAmount;
     if (!Number.isFinite(amount) || amount <= 0) return;
     if (kind === "CONTRIBUTION" && cumulativeNowAmount > safeCapital + 1e-8) return;
+
+    const recordMonth =
+      kind === "WITHDRAWAL"
+        ? Math.max(0, Math.min(119, Math.round(Number(plannedWithdrawalMonth) || cycleMonth) - 1))
+        : month;
 
     setLedger((entries) => [
       ...entries,
@@ -501,7 +533,7 @@ function Page() {
         id: globalThis.crypto?.randomUUID?.() ?? String(Date.now()),
         recordedAt: new Date().toISOString(),
         asOf: activeAsOf,
-        month,
+        month: recordMonth,
         amount,
         kind,
         price: liveContext.find((x) => x.symbol === "QQQ")?.price ?? null,
@@ -702,7 +734,7 @@ function Page() {
                 step={1}
                 onChange={(x) => setMonth(clampMonth(x - 1))}
               />
-              <MoneyField label="Account NAV" value={nav} onChange={(x) => { setNav(x); setNavInput(String(x)); }} />
+              <MoneyField label="Account NAV" value={nav} onChange={(x) => setNav(x)} />
               <div className="rounded-md border border-lock/40 bg-elevated p-3">
                 <p className="font-mono text-xs text-subtle">WITHDRAWAL STATUS</p>
                 <p className="mt-1 font-mono text-sm">OFF · manual ledger only</p>
@@ -950,17 +982,17 @@ function Page() {
                   step={1}
                   onChange={setPlannedWithdrawalMonth}
                 />
-                <MoneyField label="Withdrawal amount" value={Math.max(0, withdrawalNow)} onChange={setWithdrawalNow} />
+                <MoneyField label="Withdrawal amount" value={Math.max(0, plannedWithdrawalAmount)} onChange={setWithdrawalNow} />
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <MetricCard kicker="PLANNED CASH OUT" title={fmtUsd(Math.max(0, withdrawalNow), 2)} detail={"manual M" + Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth || 1)))} />
+                <MetricCard kicker="PLANNED CASH OUT" title={fmtUsd(Math.max(0, plannedWithdrawalAmount), 2)} detail={"manual M" + Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth || 1)))} />
                 <MetricCard kicker="CUMULATIVE WITHDRAWN" title={fmtUsd(withdrawn, 2)} detail="does not reduce Actual Contributed" />
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => recordPoint("WITHDRAWAL")}
-                  disabled={withdrawalNow <= 0}
+                  disabled={plannedWithdrawalAmount <= 0}
                   className="min-h-11 rounded-md border border-lock/60 bg-elevated px-4 text-sm text-fg disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   記錄今次抽取（只入 Withdrawal ledger）
@@ -1262,6 +1294,11 @@ function Page() {
           </Panel>
 
           <Panel kicker="SEMANTIC LOCK" title="監視層同資金層分開">
+            <div className="mb-3">
+              <a href="/floor-research" className="text-sm text-accent underline decoration-dotted underline-offset-4">
+                Research evidence → 只讀，不產生資金指令
+              </a>
+            </div>
             <div className="grid gap-2 text-sm text-muted">
               <p>Hard clock rail = M0 = 0%；第 n 月（畫面 1..120）參考累積位置 = n / 120。</p>
               <p>Funding Status = Actual Contributed − CLOCK；低於 Clock = BEHIND，高於 = AHEAD。這不是每月買入指令。</p>
