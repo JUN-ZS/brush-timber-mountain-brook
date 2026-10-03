@@ -168,7 +168,7 @@ function compare(rows: Row[], F: number) {
     cagrDeltaPp: summarize(cagr),
     higherTerminalWindows: terminal.filter((x) => x > 0).length,
     lowerEconomicDdWindows: ecoDd.filter((x) => x < 0).length,
-    lowerRawDdWindows: rawDd.filter((x) < 0).length,
+    lowerRawDdWindows: rawDd.filter((x) => x < 0).length,
   };
 }
 
