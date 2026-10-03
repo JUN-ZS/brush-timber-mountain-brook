@@ -1890,6 +1890,119 @@ function RiskBaselineChart({
   );
 }
 
+function LongScaleChart({ profile }: { profile: LongScaleProfile }) {
+  const W = 1120, H = 500, L = 76, R = 28, T = 24, B = 56;
+  const plotW = W - L - R, plotH = H - T - B;
+  const currentValue =
+    profile.points.filter((p) => p.provenance === "OBSERVED_QQQ").at(-1)?.value ?? 1;
+  const normalized = profile.points
+    .map((p) => ({
+      ...p,
+      years: (new Date(p.date).getTime() - new Date(profile.asOf).getTime()) / (365.25 * 24 * 3600 * 1000),
+      value: p.value / currentValue,
+    }))
+    .filter((p) => Number.isFinite(p.years) && Number.isFinite(p.value) && p.value > 0);
+  const futureYears = profile.future?.horizonYears ?? 0;
+  const historyMin = normalized.length ? Math.min(...normalized.map((p) => p.years)) : -10;
+  const xMin = Math.min(-10, Math.floor(historyMin));
+  const xMax = Math.max(10, futureYears);
+  const futureValues = profile.future
+    ? [...profile.future.q05, ...profile.future.q95, ...profile.future.median].filter((x) => Number.isFinite(x) && x > 0)
+    : [];
+  const allValues = [...normalized.map((p) => p.value), ...futureValues, 1];
+  const logMin = Math.floor(Math.log10(Math.max(1e-4, Math.min(...allValues))) * 2) / 2;
+  const logMax = Math.ceil(Math.log10(Math.max(1e-4, Math.max(...allValues))) * 2) / 2;
+  const x = (years: number) =>
+    L + ((years - xMin) / Math.max(1e-9, xMax - xMin)) * plotW;
+  const y = (value: number) =>
+    T + ((logMax - Math.log10(Math.max(1e-4, value))) / Math.max(1e-9, logMax - logMin)) * plotH;
+
+  const syntheticHistory = normalized.filter((p) => p.provenance === "SYNTHETIC_HISTORY");
+  const observed = normalized.filter((p) => p.provenance === "OBSERVED_QQQ");
+
+  const futureBand = profile.future
+    ? profile.future.months
+        .map((m, i) => [x(m / 12), y(profile.future?.q95[i] ?? 1)])
+        .concat(
+          profile.future.months
+            .slice()
+            .reverse()
+            .map((m, i) => {
+              const original = profile.future!.months.length - 1 - i;
+              return [x(m / 12), y(profile.future!.q05[original] ?? 1)];
+            }),
+        )
+        .map((p) => p.join(","))
+        .join(" ")
+    : "";
+
+  const ticks = [0.1, 0.25, 0.5, 1, 2, 4, 8].filter(
+    (v) => Math.log10(v) >= logMin && Math.log10(v) <= logMax,
+  );
+
+  return (
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[900px] w-full" role="img" aria-label="50 year semi-real long scale backbone">
+      <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
+      {ticks.map((v) => (
+        <g key={v}>
+          <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="var(--color-line)" />
+          <text x={L - 10} y={y(v) + 4} textAnchor="end" fill="var(--color-subtle)" fontSize="11">{v}×</text>
+        </g>
+      ))}
+      {syntheticHistory.length ? (
+        <polyline
+          points={syntheticHistory.map((p) => x(p.years) + "," + y(p.value)).join(" ")}
+          fill="none"
+          stroke="var(--color-muted)"
+          strokeWidth="2.5"
+          strokeDasharray="6 4"
+        />
+      ) : null}
+      {observed.length ? (
+        <polyline
+          points={observed.map((p) => x(p.years) + "," + y(p.value)).join(" ")}
+          fill="none"
+          stroke="var(--color-fg)"
+          strokeWidth="3.2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : null}
+      {futureBand ? <polygon points={futureBand} fill="var(--color-accent)" opacity="0.10" /> : null}
+      {profile.future ? (
+        <polyline
+          points={profile.future.months.map((m, i) => x(m / 12) + "," + y(profile.future?.median[i] ?? 1)).join(" ")}
+          fill="none"
+          stroke="var(--color-accent)"
+          strokeWidth="3"
+          strokeDasharray="8 4"
+        />
+      ) : null}
+      <line x1={x(0)} x2={x(0)} y1={T} y2={T + plotH} stroke="var(--color-fragile)" strokeDasharray="4 4" />
+      <text x={Math.min(W - 120, x(0) + 7)} y={T + 16} fill="var(--color-fragile)" fontSize="11">NOW</text>
+      {profile.observedStartDate ? (
+        <text x={x((new Date(profile.observedStartDate).getTime() - new Date(profile.asOf).getTime()) / (365.25 * 24 * 3600 * 1000)) + 6} y={T + 16} fill="var(--color-fg)" fontSize="10">
+          QQQ CORE START
+        </text>
+      ) : null}
+      {[-50, -40, -30, -20, -10, 0, 10, 20].filter((v) => v >= xMin && v <= xMax).map((v) => (
+        <text key={v} x={x(v)} y={H - 24} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">
+          {v > 0 ? "+" : ""}{v}Y
+        </text>
+      ))}
+      <g>
+        <text x={W - 270} y={T + 8} fill="var(--color-subtle)" fontSize="10">PROVENANCE</text>
+        <text x={W - 270} y={T + 27} fill="var(--color-muted)" fontSize="11">— synthetic history</text>
+        <text x={W - 270} y={T + 45} fill="var(--color-fg)" fontSize="11">— observed QQQ core</text>
+        <text x={W - 270} y={T + 63} fill="var(--color-accent)" fontSize="11">- - synthetic future q05/median/q95</text>
+      </g>
+      <text x={L} y={H - 5} fill="var(--color-subtle)" fontSize="10">
+        relative value is normalized to current QQQ = 1× · log scale prevents the long-history growth curve from collapsing the early structure
+      </text>
+    </svg>
+  );
+}
+
 function ResponseChart({
   curves,
   domain,
@@ -1913,29 +2026,47 @@ function ResponseChart({
 }) {
   if (!curves.length) return <EmptyState text="沒有 response curve 資料。" />;
 
-  const W = 1120, H = 500, L = 68, R = 250, T = 24, B = 108;
+  const W = 1180, H = 560, L = 68, R = 280, T = 24, B = 120;
   const plotW = W - L - R, plotH = 320;
   const x = (v: number) => L + Math.max(0, Math.min(1, v)) * plotW;
   const y = (v: number) =>
     T + (domain[1] - v) / Math.max(0.0001, domain[1] - domain[0]) * plotH;
-  const palette = ["var(--color-accent)", "var(--color-fragile)", "var(--color-muted)"];
+  const curveColor = (scale: number) =>
+    scale === 20 ? "var(--color-accent)" : scale === 30 ? "var(--color-fragile)" : "var(--color-muted)";
 
-  const top = curves[0].xs.map((_, i) =>
-    Math.max(...curves.map((c) => Number(c.ys[i]) || domain[0])),
-  );
-  const bottom = curves[0].xs.map((_, i) =>
-    Math.min(...curves.map((c) => Number(c.ys[i]) || domain[0])),
-  );
-  const band = curves[0].xs
-    .map((v, i) => [x(v), y(top[i])])
-    .concat(
-      curves[0].xs
-        .slice()
-        .reverse()
-        .map((v, i) => [x(v), y(bottom[bottom.length - 1 - i])]),
-    )
-    .map((p) => p.join(","))
-    .join(" ");
+  const sameCurve = (a: { scale: number; xs: number[]; ys: number[] }, b: { scale: number; xs: number[]; ys: number[] }) =>
+    a.xs.length === b.xs.length &&
+    a.ys.length === b.ys.length &&
+    a.ys.every((value, i) => Math.abs(value - (b.ys[i] ?? value)) < 1e-9);
+
+  const overlap30_50 =
+    curves.some((c) => c.scale === 30) &&
+    curves.some((c) => c.scale === 50) &&
+    sameCurve(
+      curves.find((c) => c.scale === 30)!,
+      curves.find((c) => c.scale === 50)!,
+    );
+
+  const order = [...curves].sort((a, b) => {
+    if (a.scale === 30 && b.scale === 50) return 1;
+    if (a.scale === 50 && b.scale === 30) return -1;
+    return a.scale - b.scale;
+  });
+
+  const dynamicTrack = curves[0].xs.map((_, i) => {
+    const slopes = curves.map((curve) => {
+      const next = Math.min(curve.xs.length - 1, i + 1);
+      const prev = Math.max(0, next - 1);
+      const dx = (curve.xs[next] ?? 0) - (curve.xs[prev] ?? 0);
+      const dy = (curve.ys[next] ?? 0) - (curve.ys[prev] ?? 0);
+      return dx > 0 ? Math.abs(dy / dx) : 0;
+    });
+    const total = slopes.reduce((sum, value) => sum + value, 0);
+    return curves.reduce(
+      (sum, curve, j) => sum + (curve.ys[i] ?? 0) * ((slopes[j] ?? 0) / (total || Math.max(1, slopes.length))),
+      0,
+    );
+  });
 
   const currentSlopes = curves
     .map((curve) => {
@@ -1946,30 +2077,50 @@ function ResponseChart({
     })
     .sort((a, b) => Math.abs(b.slope) - Math.abs(a.slope));
 
-  const crossings: number[] = [];
+  const crossings: Array<{ phase: number; left: number; right: number }> = [];
   for (let a = 0; a < curves.length; a++) {
     for (let b = a + 1; b < curves.length; b++) {
       for (let i = 1; i < curves[a].xs.length; i++) {
         const d1 = (curves[a].ys[i - 1] ?? 0) - (curves[b].ys[i - 1] ?? 0);
         const d2 = (curves[a].ys[i] ?? 0) - (curves[b].ys[i] ?? 0);
-        if (d1 === 0 || d1 * d2 < 0) crossings.push(curves[a].xs[i - 1] ?? 0);
+        if (d1 === 0 || d1 * d2 < 0) {
+          crossings.push({
+            phase: curves[a].xs[i - 1] ?? 0,
+            left: curves[a].scale,
+            right: curves[b].scale,
+          });
+        }
       }
     }
+  }
+
+  const derivedHandoffs = (mutualChase ?? []).flatMap((channel) => {
+    const leaders = channel.topology.leaderScaleBySegment;
+    const out: Array<{ channel: string; from: number; to: number; at: number }> = [];
+    for (let i = 1; i < leaders.length; i++) {
+      const from = leaders[i - 1];
+      const to = leaders[i];
+      if (from != null && to != null && from !== to) out.push({ channel: channel.channel, from, to, at: i * 0.05 });
+    }
+    return out;
+  });
+  if (handoff && !derivedHandoffs.some((x) => x.from === handoff.from && x.to === handoff.to && Math.abs(x.at - handoff.at) < 0.051)) {
+    derivedHandoffs.unshift({ channel: "NDX", ...handoff });
   }
 
   const leaderOf = (channel: string) =>
     mutualChase?.find((x) => x.channel === channel)?.topology.leaderScaleBySegment ?? [];
   const leaderRows = [
-    { channel: "NDX", leaders: leaderOf("NDX"), color: "var(--color-accent)" },
-    { channel: "NASDAQCOM", leaders: leaderOf("NASDAQCOM"), color: "var(--color-fragile)" },
+    { channel: "NDX", leaders: leaderOf("NDX") },
+    { channel: "NASDAQCOM", leaders: leaderOf("NASDAQCOM") },
   ];
 
-  const laneY = (row: number) => T + plotH + 36 + row * 28;
+  const laneY = (row: number) => T + plotH + 34 + row * 29;
   const leaderColor = (scale: number | null) =>
     scale === 20 ? "var(--color-accent)" : scale === 30 ? "var(--color-fragile)" : scale === 50 ? "var(--color-pass)" : "var(--color-muted)";
 
   return (
-    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[980px] w-full" role="img" aria-label="Mutual chase response field with leader lanes and curve crossings">
+    <svg viewBox={"0 0 " + W + " " + H} className="min-w-[1040px] w-full" role="img" aria-label="Mutual chase response field with dynamic simulation track">
       <rect x={L} y={T} width={plotW} height={plotH} fill="var(--color-elevated)" opacity="0.45" rx="8" />
       {[1, 1.5, 2, 2.5, 3].filter((v) => v <= domain[1] + 0.01).map((v) => (
         <g key={v}>
@@ -1978,51 +2129,80 @@ function ResponseChart({
         </g>
       ))}
 
-      <polygon points={band} fill="var(--color-accent)" opacity="0.08" />
-      {curves.map((curve, idx) => (
+      {order.map((curve) => (
         <polyline
           key={curve.scale}
           points={curve.xs.map((v, i) => x(v) + "," + y(curve.ys[i])).join(" ")}
           fill="none"
-          stroke={palette[idx] ?? "var(--color-fg)"}
-          strokeWidth={idx === 0 ? 3 : 2}
+          stroke={curveColor(curve.scale)}
+          strokeWidth={curve.scale === 30 && overlap30_50 ? 3.8 : curve.scale === 20 ? 3 : 2.5}
+          strokeDasharray={curve.scale === 30 && overlap30_50 ? "5 4" : undefined}
           strokeLinejoin="round"
           strokeLinecap="round"
         />
       ))}
 
-      {crossings.map((phase, i) => (
-        <circle key={"cross-" + i} cx={x(phase)} cy={T + 14} r="4" fill="var(--color-pass)" />
+      <polyline
+        points={curves[0].xs.map((v, i) => x(v) + "," + y(dynamicTrack[i] ?? domain[0])).join(" ")}
+        fill="none"
+        stroke="var(--color-fg)"
+        strokeWidth="4.5"
+        strokeDasharray="11 5"
+        opacity="0.9"
+      />
+
+      {crossings.map((cross, i) => (
+        <circle key={"cross-" + i} cx={x(cross.phase)} cy={T + 14} r="4" fill="var(--color-pass)" />
       ))}
 
-      <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={laneY(1) + 12} stroke="var(--color-fg)" strokeDasharray="4 4" opacity="0.9" />
-      <text x={Math.min(L + plotW - 90, x(currentX) + 6)} y={T + 14} fill="var(--color-fg)" fontSize="11">SIM {fmtPct(currentX, 1)}</text>
-
-      {handoff ? (
-        <>
-          <line x1={x(handoff.at)} x2={x(handoff.at)} y1={T} y2={laneY(1) + 12} stroke="var(--color-fragile)" strokeDasharray="2 3" opacity="0.95" />
-          <text x={Math.min(L + plotW - 120, x(handoff.at) + 6)} y={T + 30} fill="var(--color-fragile)" fontSize="11">
-            handoff {handoff.from}Y → {handoff.to}Y
+      {derivedHandoffs.map((row, i) => (
+        <g key={"handoff-" + row.channel + "-" + i}>
+          <line x1={x(row.at)} x2={x(row.at)} y1={T} y2={laneY(1) + 12} stroke="var(--color-fragile)" strokeDasharray="2 3" opacity="0.7" />
+          <text x={Math.min(L + plotW - 145, x(row.at) + 6)} y={T + 30 + i * 14} fill="var(--color-fragile)" fontSize="10">
+            {row.channel} {row.from}Y → {row.to}Y
           </text>
-        </>
+        </g>
+      ))}
+
+      <line x1={x(currentX)} x2={x(currentX)} y1={T} y2={laneY(1) + 12} stroke="var(--color-fg)" strokeDasharray="4 4" opacity="0.95" />
+      <circle cx={x(currentX)} cy={y(interpolateAt(curves[0].xs, dynamicTrack, currentX))} r="6" fill="var(--color-fg)" />
+      <text x={Math.min(L + plotW - 100, x(currentX) + 6)} y={T + 14} fill="var(--color-fg)" fontSize="11">SIM {fmtPct(currentX, 1)}</text>
+
+      {overlap30_50 ? (
+        <g>
+          <rect x={L + 12} y={T + 12} width="184" height="30" rx="6" fill="var(--color-surface)" opacity="0.9" />
+          <text x={L + 22} y={T + 25} fill="var(--color-fragile)" fontSize="10">30Y</text>
+          <text x={L + 51} y={T + 25} fill="var(--color-subtle)" fontSize="10">≡</text>
+          <text x={L + 68} y={T + 25} fill="var(--color-muted)" fontSize="10">50Y</text>
+          <text x={L + 22} y={T + 37} fill="var(--color-subtle)" fontSize="9">exact sampled response overlap</text>
+        </g>
       ) : null}
+
+      {order.map((curve) => {
+        const endY = y(curve.ys.at(-1) ?? domain[0]);
+        const labelOffset = curve.scale === 30 && overlap30_50 ? -12 : curve.scale === 50 && overlap30_50 ? 12 : 0;
+        return (
+          <text key={"label-" + curve.scale} x={L + plotW - 2} y={endY + labelOffset + 4} textAnchor="end" fill={curveColor(curve.scale)} fontSize="10" fontWeight="600">
+            {curve.scale}Y
+          </text>
+        );
+      })}
 
       {leaderRows.map((row, rowIndex) => (
         <g key={row.channel}>
           <text x={L - 10} y={laneY(rowIndex) + 14} textAnchor="end" fill="var(--color-subtle)" fontSize="11">{row.channel}</text>
           {Array.from({ length: 20 }, (_, i) => {
             const lead = row.leaders[i] ?? null;
-            const start = i / 20;
             return (
               <rect
                 key={row.channel + "-" + i}
-                x={x(start)}
+                x={x(i / 20)}
                 y={laneY(rowIndex)}
                 width={plotW / 20 + 0.5}
                 height="18"
                 rx="3"
                 fill={leaderColor(lead)}
-                opacity={lead == null ? 0.1 : 0.55}
+                opacity={lead == null ? 0.08 : 0.55}
               />
             );
           })}
@@ -2033,29 +2213,29 @@ function ResponseChart({
         <text x={W - R + 10} y={T + 4} fill="var(--color-subtle)" fontSize="11">CURRENT SLOPE RANK</text>
         {currentSlopes.map((row, idx) => (
           <g key={row.scale} transform={"translate(" + (W - R + 10) + "," + (T + 20 + idx * 38) + ")"}>
-            <text x="0" y="0" fill={palette[curves.findIndex((c) => c.scale === row.scale)] ?? "var(--color-fg)"} fontSize="12" fontWeight="600">
+            <text x="0" y="0" fill={curveColor(row.scale)} fontSize="12" fontWeight="600">
               {idx + 1}. {row.scale}Y
             </text>
-            <text x="0" y="16" fill="var(--color-muted)" fontSize="11">
-              slope {row.slope.toFixed(3)}
-            </text>
+            <text x="0" y="16" fill="var(--color-muted)" fontSize="11">slope {row.slope.toFixed(3)}</text>
             <rect x="78" y="-10" width="110" height="8" rx="4" fill="var(--color-line)" />
-            <rect x="78" y="-10" width={Math.min(110, Math.abs(row.slope) * 24)} height="8" rx="4" fill={palette[curves.findIndex((c) => c.scale === row.scale)] ?? "var(--color-fg)"} opacity="0.8" />
+            <rect x="78" y="-10" width={Math.min(110, Math.abs(row.slope) * 24)} height="8" rx="4" fill={curveColor(row.scale)} opacity="0.8" />
           </g>
         ))}
+        <text x={W - R + 10} y={T + 145} fill="var(--color-fg)" fontSize="10">— SIM TRACK = phase-by-phase</text>
+        <text x={W - R + 10} y={T + 160} fill="var(--color-fg)" fontSize="10">  slope-weighted response path</text>
       </g>
 
       <g>
-        <text x={L} y={H - 30} fill="var(--color-subtle)" fontSize="11">0%</text>
-        <text x={x(0.5)} y={H - 30} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">50%</text>
-        <text x={x(1)} y={H - 30} textAnchor="end" fill="var(--color-subtle)" fontSize="11">100%</text>
-        <text x={L} y={H - 12} fill="var(--color-subtle)" fontSize="10">
-          X = deployment phase · leader lane = relative response slope leader · ● = curve crossing
+        <text x={L} y={H - 34} fill="var(--color-subtle)" fontSize="11">0%</text>
+        <text x={x(0.5)} y={H - 34} textAnchor="middle" fill="var(--color-subtle)" fontSize="11">50%</text>
+        <text x={x(1)} y={H - 34} textAnchor="end" fill="var(--color-subtle)" fontSize="11">100%</text>
+        <text x={L} y={H - 14} fill="var(--color-subtle)" fontSize="10">
+          X = deployment phase · solid = scale response · - - = dynamic field track · ● = crossing / current SIM
         </text>
         {[[20,"20Y"],[30,"30Y"],[50,"50Y"]].map(([scale,label],i) => (
           <g key={String(scale)}>
-            <rect x={L + i * 82} y={H - 55} width="12" height="12" rx="2" fill={leaderColor(scale as number)} />
-            <text x={L + 18 + i * 82} y={H - 45} fill="var(--color-subtle)" fontSize="10">{label}</text>
+            <rect x={L + i * 82} y={H - 61} width="12" height="12" rx="2" fill={leaderColor(scale as number)} />
+            <text x={L + 18 + i * 82} y={H - 51} fill="var(--color-subtle)" fontSize="10">{label}</text>
           </g>
         ))}
       </g>
