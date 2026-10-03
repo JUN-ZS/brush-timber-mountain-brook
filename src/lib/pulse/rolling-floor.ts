@@ -1165,7 +1165,7 @@ export function replayFundingPlan(
       remainingExternalCapital: externalRemaining,
       plannedPrincipal,
       initialFundingFraction,
-      invested: cumulativeContributed - accountCash,
+      invested: lots.reduce((sum, lot) => sum + lot.amount, 0),
       accountCash,
       navBeforeWithdrawal,
       nav,
