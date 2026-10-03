@@ -187,41 +187,46 @@ function simulateTwoSided(prices: number[]): Metrics {
 
   for (let t = 1; t <= H; t++) {
     const target = (t / H) * B;
-    const rawNav = shares * prices[t];
 
-    if (rawNav > target + 1e-12) {
-      const excess = rawNav - target;
-      const sellFraction = Math.min(1, excess / Math.max(rawNav, 1e-12));
-      const soldShares = shares * sellFraction;
-      const proceeds = soldShares * prices[t];
-      shares -= soldShares;
-      harvestReserve += proceeds;
-      totalHarvestToReserve += proceeds;
-      harvestEvents += 1;
-    } else if (rawNav < target - 1e-12) {
-      let need = target - rawNav;
+    // Strict causal rule:
+    // the dollar amount of this month's BUY/SELL is fixed using only t-1 close NAV.
+    // The actual transfer executes at t close. No t-close information is used to set the amount.
+    const prevPrice = prices[t - 1];
+    const prevNav = shares * prevPrice;
 
+    if (prevNav > target + 1e-12) {
+      // Lock only the prior-close excess. Price slippage/market movement until t close is intentionally retained.
+      const sellAmountAtPrevClose = prevNav - target;
+      const sellShares = Math.min(shares, sellAmountAtPrevClose / Math.max(prevPrice, 1e-12));
+      const proceedsAtCurrentClose = sellShares * prices[t];
+      shares -= sellShares;
+      harvestReserve += proceedsAtCurrentClose;
+      totalHarvestToReserve += proceedsAtCurrentClose;
+      if (proceedsAtCurrentClose > 1e-12) harvestEvents += 1;
+    } else if (prevNav < target - 1e-12) {
+      let need = target - prevNav;
+
+      // Recycle previously harvested gains first.
       const fromHarvest = Math.min(harvestReserve, need);
       harvestReserve -= fromHarvest;
       need -= fromHarvest;
 
+      // Then consume the remaining planned B budget.
       const fromPlanned = Math.min(plannedReserve, need);
       plannedReserve -= fromPlanned;
       totalExternalContribution += fromPlanned;
       if (fromPlanned > 1e-12) contributionEvents += 1;
-      need -= fromPlanned;
 
-      if (fromHarvest + fromPlanned > 0) {
-        shares += (fromHarvest + fromPlanned) / prices[t];
-      }
-      // If need remains, the target cannot be fully restored without borrowing.
+      const used = fromHarvest + fromPlanned;
+      if (used > 0) shares += used / prices[t];
+      // Any residual need is deliberately left unfunded: no borrowing and no extra B.
     }
 
-    const postNav = shares * prices[t];
-    const economic = postNav + plannedReserve + harvestReserve;
-    rawNavCurve.push(rawNav);
+    const preRebalanceNav = shares * prices[t];
+    const economic = preRebalanceNav + plannedReserve + harvestReserve;
+    rawNavCurve.push(preRebalanceNav);
     economicCurve.push(economic);
-    postRebalanceCurve.push(postNav);
+    postRebalanceCurve.push(preRebalanceNav);
   }
 
   const terminalNav = postRebalanceCurve[H];
