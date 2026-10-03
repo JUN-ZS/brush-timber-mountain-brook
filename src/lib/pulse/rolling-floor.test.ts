@@ -547,10 +547,10 @@ test("forward path profile preserves the fixed 10Y path geometry", () => {
   assert.equal(profile.q95.at(-1), 1.95);
 });
 
-test("profit withdrawal is capped by realized surplus and never consumes principal", () => {
+test("B-floor withdrawal stays zero below B and never takes NAV below immutable planned principal", () => {
   const qqq = Array.from({ length: 121 }, (_, i) => ({
     date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
-    value: i === 0 ? 1 : 1.5,
+    value: i === 0 ? 1 : 20,
   }));
   const signal = {
     asof: qqq[0].date,
@@ -584,7 +584,12 @@ test("profit withdrawal is capped by realized surplus and never consumes princip
   const panel = new Map(qqq.map((p) => [p.date, signal]));
 
   const date = qqq[1].date;
-  const requested = new Map([[date, 10]]);
+  // Month 0 is explicitly requested but NAV is only 10% of B, so eligibility
+  // must stay at zero. Month 1 jumps above B and may withdraw only NAV-B.
+  const requested = new Map([
+    [qqq[0].date, 10],
+    [date, 10],
+  ]);
   const result = replayFundingPlan(
     qqq,
     panel,
@@ -597,18 +602,53 @@ test("profit withdrawal is capped by realized surplus and never consumes princip
     requested,
   )!;
 
+  const early = result.path[0];
+  assert.equal(early.withdrawalRequested, 10);
+  assert.equal(early.withdrawalEligibleSurplus, 0);
+  assert.equal(early.withdrawalExecuted, 0);
+  assert.ok(early.nav < 1);
+
   const point = result.path[1];
+  assert.ok(point.navBeforeWithdrawal > 1);
   assert.ok(point.withdrawalEligibleSurplus > 0);
+  assert.equal(
+    Number(point.withdrawalEligibleSurplus.toFixed(10)),
+    Number((point.navBeforeWithdrawal - result.plannedPrincipal).toFixed(10)),
+  );
   assert.equal(
     Number(point.withdrawalExecuted.toFixed(10)),
     Number(point.withdrawalEligibleSurplus.toFixed(10)),
   );
-  assert.equal(
-    Number(point.nav.toFixed(10)),
-    Number(point.cumulativeContributed.toFixed(10)),
-  );
+  assert.equal(Number(point.nav.toFixed(10)), 1);
+  assert.ok(point.nav + 1e-12 >= result.plannedPrincipal);
   assert.equal(result.totalContributed <= 1, true);
   assert.ok(result.totalWithdrawn > 0);
+
+  const scaled = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "ADAPTIVE_FUNDED",
+    100,
+    0.10,
+    "SCHEDULED",
+    new Map([
+      [qqq[0].date, 1000],
+      [qqq[1].date, 1000],
+    ]),
+  )!;
+  assert.equal(scaled.plannedPrincipal, 100);
+  assert.equal(Number(scaled.path[0].withdrawalExecuted.toFixed(10)), 0);
+  assert.equal(Number(scaled.path[1].nav.toFixed(10)), 100);
+  assert.equal(
+    Number(
+      (scaled.path[1].withdrawalExecuted / scaled.plannedPrincipal).toFixed(10),
+    ),
+    Number(
+      (point.withdrawalExecuted / point.plannedPrincipal).toFixed(10),
+    ),
+  );
 
   assert.throws(
     () =>
