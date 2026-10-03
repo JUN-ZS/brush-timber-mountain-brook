@@ -10,6 +10,7 @@ on:
       - "src/lib/floor/**"
       - "src/data/rolling_floor_research_snapshot.json"
       - "src/components/shell.tsx"
+      - "src/components/daily-deployment-console.tsx"
       - "src/routeTree.gen.ts"
       - "package.json"
   workflow_dispatch:
@@ -33,11 +34,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Floor account tests
-        run: node --experimental-strip-types --test src/lib/floor/account.test.ts
+      - name: Floor account and daily deployment tests
+        run: node --experimental-strip-types --test src/lib/floor/account.test.ts src/lib/floor/deployment.test.ts
 
       - name: Floor app lint
-        run: npx eslint src/routes/floor.tsx src/routes/floor-research.tsx src/lib/floor/account.ts src/lib/floor/account.test.ts
+        run: npx eslint src/routes/floor.tsx src/routes/floor-research.tsx src/components/daily-deployment-console.tsx src/lib/floor/account.ts src/lib/floor/account.test.ts src/lib/floor/deployment.ts src/lib/floor/deployment.test.ts
 
       - name: Development build
         run: npm run build:dev
