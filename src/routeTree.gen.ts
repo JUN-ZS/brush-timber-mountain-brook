@@ -17,6 +17,8 @@ import { Route as MatrixRouteImport } from './routes/matrix'
 import { Route as MissingRouteImport } from './routes/missing'
 import { Route as RankRouteImport } from './routes/rank'
 import { Route as StrategyRouteImport } from './routes/strategy'
+import { Route as FloorRouteImport } from './routes/floor'
+import { Route as FloorResearchRouteImport } from './routes/floor-research'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -58,6 +60,16 @@ const StrategyRoute = StrategyRouteImport.update({
   path: '/strategy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FloorRoute = FloorRouteImport.update({
+  id: '/floor',
+  path: '/floor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FloorResearchRoute = FloorResearchRouteImport.update({
+  id: '/floor-research',
+  path: '/floor-research',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +80,8 @@ export interface FileRoutesByFullPath {
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
+  '/floor': typeof FloorRoute
+  '/floor-research': typeof FloorResearchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +92,8 @@ export interface FileRoutesByTo {
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
+  '/floor': typeof FloorRoute
+  '/floor-research': typeof FloorResearchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,13 +105,17 @@ export interface FileRoutesById {
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
+  '/floor': typeof FloorRoute
+  '/floor-research': typeof FloorResearchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     '/' | '/backtest' | '/deploy' | '/live' | '/matrix' | '/missing' | '/rank' | '/strategy'
+    | '/floor' | '/floor-research'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/backtest' | '/deploy' | '/live' | '/matrix' | '/missing' | '/rank' | '/strategy'
+    | '/floor' | '/floor-research'
   id:
     | '__root__'
     | '/'
@@ -106,6 +126,8 @@ export interface FileRouteTypes {
     | '/missing'
     | '/rank'
     | '/strategy'
+    | '/floor'
+    | '/floor-research'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -176,6 +198,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StrategyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/floor': {
+      id: '/floor'
+      path: '/floor'
+      fullPath: '/floor'
+      preLoaderRoute: typeof FloorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/floor-research': {
+      id: '/floor-research'
+      path: '/floor-research'
+      fullPath: '/floor-research'
+      preLoaderRoute: typeof FloorResearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -188,6 +224,8 @@ const rootRouteChildren: RootRouteChildren = {
   MissingRoute: MissingRoute,
   RankRoute: RankRoute,
   StrategyRoute: StrategyRoute,
+  FloorRoute: FloorRoute,
+  FloorResearchRoute: FloorResearchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
