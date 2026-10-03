@@ -236,6 +236,7 @@ jobs:
           test -s research/rolling_10y_floor/rolling_floor_replays.jsonl
           test -s research/rolling_10y_floor/rolling_floor_adaptive_credit_replays.jsonl
           test -s research/rolling_10y_floor/rolling_floor_adaptive_funding_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_clock_funding_replays.jsonl
           test -s research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl
           test -s research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl
           test -s research/rolling_10y_floor/rolling_floor_state_path.json
@@ -263,6 +264,7 @@ jobs:
           cp research/rolling_10y_floor/rolling_floor_replays.jsonl portable/output/rolling_floor_replays.jsonl
           cp research/rolling_10y_floor/rolling_floor_adaptive_credit_replays.jsonl portable/output/rolling_floor_adaptive_credit_replays.jsonl
           cp research/rolling_10y_floor/rolling_floor_adaptive_funding_replays.jsonl portable/output/rolling_floor_adaptive_funding_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_clock_funding_replays.jsonl portable/output/rolling_floor_clock_funding_replays.jsonl
           cp research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl portable/output/rolling_floor_profit_sweep_replays.jsonl
           cp research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl portable/output/rolling_floor_b_floor_withdrawal_replays.jsonl
           cp research/rolling_10y_floor/rolling_floor_state_path.json portable/output/rolling_floor_state_path.json
@@ -280,6 +282,8 @@ jobs:
             research/rolling_10y_floor/rolling_floor_result.json
             research/rolling_10y_floor/rolling_floor_replays.jsonl
             research/rolling_10y_floor/rolling_floor_adaptive_credit_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_adaptive_funding_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_clock_funding_replays.jsonl
             research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl
             research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl
             research/rolling_10y_floor/rolling_floor_report.md
