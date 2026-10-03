@@ -29,7 +29,7 @@ function Page() {
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <Rule title="20Y / 30Y / 50Y" body="研究觀察層；無 funding authority，亦不改 Floor。" />
-            <Rule title="67.40%" body="歷史 Adaptive 診斷平均，不是本版 10Y 計畫需要投入的百分比。" />
+            <Rule title="68.04%" body="Adaptive-funded 平均 contribution / B；只作歷史診斷，不是本版 10Y 計畫需要投入的百分比。" />
             <Rule title="α = 0.50" body="已做 isolated diagnostic；有 withdrawal 不代表抽完後 Floor 仍在。" />
           </div>
         </Panel>
@@ -44,7 +44,7 @@ function Page() {
           </p>
         </Panel>
 
-        <Panel kicker="ADAPTIVE SECONDARY · FAILED COMPOUND" title="Adaptive funding 對照">
+        <Panel kicker="ADAPTIVE SECONDARY · DIAGNOSTIC ONLY" title="Adaptive-funded 對照">
           <div className="grid gap-3 md:grid-cols-3">
             <Stat label="Q05 terminal / B" value={x.adaptiveFunding.q05Terminal.toFixed(4) + "×"} />
             <Stat label="Principal failure" value={(x.adaptiveFunding.principalFailureRate * 100).toFixed(1) + "%"} />
