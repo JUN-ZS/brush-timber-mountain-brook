@@ -9,6 +9,10 @@ import {
   type CoupledSignal,
   type MonthlyPoint,
 } from "@/lib/pulse/rolling-floor";
+import {
+  buildSyntheticLongScale,
+  type LongScaleProfile,
+} from "@/lib/pulse/long-scale";
 
 const ALLOWED = new Set(["QQQ", "^VIX", "^NDX", "^IXIC"]);
 
@@ -16,6 +20,12 @@ type LiveRollingFloorPayload = {
   asOf: string;
   coupled: CoupledSignal;
   source: "YAHOO_FINANCE_CHART + REPO_QQQ + FRED_PROXY_HISTORY";
+};
+
+type LiveLongScalePayload = {
+  scale: 50;
+  profile: LongScaleProfile;
+  authority: "GEOMETRY_ONLY";
 };
 
 function appendLivePoint(points: MonthlyPoint[], asOf: string, price: number) {
@@ -133,23 +143,21 @@ export const Route = createFileRoute("/api/yahoo")({
         }
 
         let rollingFloor: LiveRollingFloorPayload | null = null;
+        let longScale: LiveLongScalePayload | null = null;
         try {
           const qqqLive = results.find((x) => x.symbol === "QQQ");
           const ndxLive = results.find((x) => x.symbol === "^NDX");
           const compositeLive = results.find((x) => x.symbol === "^IXIC");
           if (qqqLive?.price && ndxLive?.price && compositeLive?.price) {
             const asOf = latestLiveDate(qqqLive);
-            const qqq = appendLivePoint(qqqMonthly(), asOf, qqqLive.price);
-            const ndx = appendLivePoint(
-              await fetchFredMonthly("NASDAQ100", "1986-01-02", asOf),
-              asOf,
-              ndxLive.price,
-            );
-            const nasdaqCom = appendLivePoint(
-              await fetchFredMonthly("NASDAQCOM", "1971-02-05", asOf),
-              asOf,
-              compositeLive.price,
-            );
+            const qqqRepo = qqqMonthly();
+            const [ndxHistory, compositeHistory] = await Promise.all([
+              fetchFredMonthly("NASDAQ100", "1986-01-02", asOf),
+              fetchFredMonthly("NASDAQCOM", "1971-02-05", asOf),
+            ]);
+            const qqq = appendLivePoint(qqqRepo, asOf, qqqLive.price);
+            const ndx = appendLivePoint(ndxHistory, asOf, ndxLive.price);
+            const nasdaqCom = appendLivePoint(compositeHistory, asOf, compositeLive.price);
 
             const channels: Array<{
               id: "QQQ" | "NDX" | "NASDAQCOM";
@@ -168,7 +176,7 @@ export const Route = createFileRoute("/api/yahoo")({
               for (const scaleYears of TRAP_SCALES_YEARS) {
                 const signal = recommendForScale( 
                   channel.points,
-                  qqqMonthly(),
+                  qqqRepo,
                   idx,
                   scaleYears,
                 );
@@ -183,6 +191,24 @@ export const Route = createFileRoute("/api/yahoo")({
               coupled: couple(asOf, 0, signals),
               source: "YAHOO_FINANCE_CHART + REPO_QQQ + FRED_PROXY_HISTORY",
             };
+
+            const longProfile = buildSyntheticLongScale(
+              qqq,
+              ndx,
+              nasdaqCom,
+              asOf,
+              50,
+              20,
+            );
+            if (longProfile) {
+              longScale = {
+                scale: 50,
+                profile: longProfile,
+                authority: "GEOMETRY_ONLY",
+              };
+            } else {
+              warnings.push("50Y long-scale reconstruction unavailable");
+            }
           } else {
             warnings.push("rolling floor: live QQQ/NDX/NASDAQCOM prices incomplete");
           }
@@ -199,6 +225,7 @@ export const Route = createFileRoute("/api/yahoo")({
           range: "5y",
           symbols: results,
           rollingFloor,
+          longScale,
           warnings,
         });
       },
