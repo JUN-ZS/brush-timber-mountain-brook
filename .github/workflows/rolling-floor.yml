@@ -218,7 +218,7 @@ jobs:
           node - <<'NODE'
           const fs = require("node:fs");
           const x = JSON.parse(fs.readFileSync("research/rolling_10y_floor/rolling_floor_result.json","utf8"));
-          if (x.version !== "rolling-floor.v2") throw new Error("wrong result version");
+          if (x.version !== "rolling-floor.v3-adaptive-credit") throw new Error("wrong result version");
           if (x.replay?.n <= 0) throw new Error("no replay rows");
           if (!Array.isArray(x.statePath) || x.statePath.length !== 4) throw new Error("state path summary must have 4 states");
           if (x.topology?.windowsAudit !== "NONBLOCKING") throw new Error("QQQ Windows audit must be nonblocking");
