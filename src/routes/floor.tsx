@@ -380,6 +380,15 @@ function Ledger({ entries }: { entries: FloorAccountState["entries"] }) {
   );
 }
 
+function ThesisBlock({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="rounded-md border border-line bg-elevated p-3">
+      <div className="font-mono text-sm">{title}</div>
+      <p className="mt-1 text-xs leading-relaxed text-muted">{body}</p>
+    </div>
+  );
+}
+
 function ResearchRule({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-md border border-line bg-elevated p-3">
