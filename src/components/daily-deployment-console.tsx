@@ -49,13 +49,6 @@ function horizonLabel(horizon: PriceHorizon) {
   return horizon === 1 ? "1D" : horizon === 5 ? "5D" : "21D";
 }
 
-function ladderPrice(ladder: LivePriceLadder | null, side: "ADD" | "REDUCE", horizon: PriceHorizon, touchProbability = 0.5) {
-  const rows = side === "ADD" ? ladder?.add ?? [] : ladder?.reduce ?? [];
-  return rows.find(
-    (row) => row.horizon === horizon && Math.abs(row.touchProbability - touchProbability) < 1e-9,
-  )?.price ?? null;
-}
-
 function PriceLadderSide({
   title,
   side,
@@ -64,7 +57,7 @@ function PriceLadderSide({
 }: {
   title: string;
   side: "ADD" | "REDUCE";
-  levels: ReturnType<NonNullable<LivePriceMatch["priceLadder"]>["add"]>;
+  levels: LivePriceLadder["add"];
   quality: string;
 }) {
   const grouped = [1, 5, 21] as const;
