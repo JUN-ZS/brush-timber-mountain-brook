@@ -8,7 +8,9 @@ import {
   qqqMonthly,
   recommendForScale,
   replayOne,
+  replayFundingPlan,
   summarizeReplays,
+  type FundingReplayResult,
   summarizeStatePath,
   TRAP_SCALES_YEARS,
   type ChannelScaleSignal,
@@ -283,20 +285,64 @@ function runReplay(
   const adaptiveCredit = [];
   const clock = [];
   const lump = [];
+  const adaptiveFunding = [];
+  const clockFunding = [];
+
   for (let start = 0; start + 120 < qqq.length; start++) {
     const coupled = replayOne(qqq, panel, start, "COUPLED");
     const credit = replayOne(qqq, panel, start, "ADAPTIVE_CREDIT_ONLY");
-    if (!coupled || !credit) continue;
+    const adaptiveFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "ADAPTIVE_FUNDED",
+    );
+    const clockFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "CLOCK_FUNDED",
+    );
+    if (!coupled || !credit || !adaptiveFund || !clockFund) continue;
     replays.push(coupled);
     adaptiveCredit.push(credit);
+    adaptiveFunding.push(adaptiveFund);
+    clockFunding.push(clockFund);
     clock.push(clockReplay(qqq, start));
     lump.push(lumpReplay(qqq, start));
   }
+
   return {
     replays,
     adaptiveCredit,
+    adaptiveFunding,
+    clockFunding,
     clock: clock.filter(Boolean),
     lump: lump.filter(Boolean),
+  };
+}
+
+function summarizeFunding(results: FundingReplayResult[]) {
+  const terminals = results.map((r) => r.terminalWealth);
+  const contributions = results.map((r) => r.totalContributed);
+  return {
+    nReplays: results.length,
+    principalFailureRate:
+      terminals.filter((x) => x < 1).length / Math.max(1, terminals.length),
+    q05Terminal: quantile(terminals, 0.05) ?? 0,
+    medianTerminal: quantile(terminals, 0.50) ?? 0,
+    worstTerminal: terminals.length ? Math.min(...terminals) : 0,
+    meanTotalContributed:
+      contributions.reduce((a, b) => a + b, 0) /
+      Math.max(1, contributions.length),
+    medianTotalContributed: quantile(contributions, 0.50) ?? 0,
+    q05TotalContributed: quantile(contributions, 0.05) ?? 0,
+    meanContributionReduction:
+      1 -
+      contributions.reduce((a, b) => a + b, 0) /
+        Math.max(1, contributions.length),
   };
 }
 
@@ -401,8 +447,22 @@ function writeOutputs(
       n: replay.replays.length,
       coupled: summarizeReplays(replay.replays),
       adaptiveCreditOnly: summarizeReplays(replay.adaptiveCredit),
+      adaptiveFunding: summarizeFunding(replay.adaptiveFunding),
+      clockFunding: summarizeFunding(replay.clockFunding),
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
+    },
+    evaluation: {
+      rolling10Y: {
+        observations: replay.replays.length,
+        dependence: "OVERLAPPING_ROLLING_WINDOWS; DIAGNOSTIC_ONLY",
+      },
+      checkpoints: [
+        { months: 36, label: "3Y", use: "EARLY_FUNDING_RESPONSE" },
+        { months: 60, label: "5Y", use: "MID_FUNDING_RESPONSE" },
+        { months: 120, label: "10Y", use: "TERMINAL_PRINCIPAL_FLOOR" },
+      ],
+      rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test.",
     },
     statePath: summarizeStatePath(replay.replays),
     mutualChasePath: summarizeStatePath(replay.replays, "mutualChaseState"),
@@ -433,7 +493,7 @@ function writeOutputs(
   );
 
   const report = [
-    "# Rolling 10Y Capital-Floor Controller v3 — Reversible Adaptive Credit",
+    "# Rolling 10Y Capital-Floor Research — Adaptive Funding Plan",
     "",
     "Data end: " + latestDate,
     "",
@@ -524,6 +584,23 @@ function writeOutputs(
       "%",
     "Lump-now 5% terminal quantile: " +
       payload.replay.lumpNow.q05Terminal.toFixed(4),
+    "",
+    "## External funding plan",
+    "",
+    "This layer starts with zero account cash. Planned principal B=1 remains outside the account and is contributed month-by-month. Contributions are invested when funded; adaptive funding reduces only future external contributions using reversible NAV surplus credit.",
+    "",
+    "Adaptive-funded principal failure rate: " +
+      (payload.replay.adaptiveFunding.principalFailureRate * 100).toFixed(1) + "%",
+    "Adaptive-funded 5% terminal quantile: " +
+      payload.replay.adaptiveFunding.q05Terminal.toFixed(4),
+    "Adaptive-funded mean total contributed: " +
+      (payload.replay.adaptiveFunding.meanTotalContributed * 100).toFixed(2) + "%",
+    "Adaptive-funded mean contribution reduction: " +
+      (payload.replay.adaptiveFunding.meanContributionReduction * 100).toFixed(2) + "%",
+    "Clock-funded principal failure rate: " +
+      (payload.replay.clockFunding.principalFailureRate * 100).toFixed(1) + "%",
+    "Clock-funded 5% terminal quantile: " +
+      payload.replay.clockFunding.q05Terminal.toFixed(4),
     "",
     "## Current",
     "",
