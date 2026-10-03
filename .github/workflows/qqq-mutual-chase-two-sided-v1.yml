@@ -1,0 +1,49 @@
+name: QQQ Mutual Chase Two Sided V1
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "scripts/run-qqq-mutual-chase-two-sided-v1.ts"
+      - "src/data/universe.json"
+      - ".github/workflows/qqq-mutual-chase-two-sided-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  two-sided:
+    name: Research / QQQ mutual chase two-sided V1
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Run two-sided mutual-chase research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-two-sided-v1.ts
+      - name: Validate research output
+        run: |
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.md
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const p = "research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.json";
+          const x = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (x.researchId !== "QQQ_MUTUAL_CHASE_TWO_SIDED_V1") throw new Error("wrong research id");
+          if (x.status !== "RESEARCH_ONLY") throw new Error("wrong status");
+          if (x.fixedRule.futurePriceRead !== false) throw new Error("future price guard missing");
+          if (x.twoSidedVsClock.principalBreachWindows < 0) throw new Error("bad breach count");
+          console.log("PASS windows=", x.data.completeRollingWindows);
+          NODE
+      - name: Upload research artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-mutual-chase-two-sided-v1
+          path: research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.*
+          if-no-files-found: error
