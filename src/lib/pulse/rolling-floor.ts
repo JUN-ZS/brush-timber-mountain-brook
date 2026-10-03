@@ -91,6 +91,9 @@ export type ChannelScaleSignal = {
   nAnalogs: number;
   effectiveN: number;
   status: "OK" | "INSUFFICIENT_HISTORY";
+  // Raw per-analog 10Y MaxDD samples for empirical surplus-survival credit.
+  // This is not a GAR/MaxDD weighted score.
+  creditMaxDrawdowns: number[] | null;
 };
 
 export type DivergenceState = "CONVERGENT" | "TENSION" | "DIVERGENT" | "THIN";
@@ -132,6 +135,9 @@ export type ReplayTrade = {
   mutualChaseState: DivergenceState;
   mutualLeaderChanges: number;
   mutualCurveCrossings: number;
+  creditAmount: number;
+  creditConfidence: number;
+  effectiveTarget: number;
 };
 
 export type ReplayPathPoint = {
@@ -146,7 +152,12 @@ export type ReplayPathPoint = {
   mutualChaseState: DivergenceState;
   mutualLeaderChanges: number;
   mutualCurveCrossings: number;
+  creditAmount: number;
+  creditConfidence: number;
+  effectiveTarget: number;
 };
+
+export type ReplayMode = "COUPLED" | "ADAPTIVE_CREDIT_ONLY";
 
 export type ReplayResult = {
   startDate: string;
@@ -170,6 +181,10 @@ const FLOOR_PROFILE_PROBABILITIES = [0.50, 0.75, 0.90, 0.95, 0.99, 1.00];
 const AGREEMENT_MAD_SCALE = 0.15;
 const TENSION_AGREEMENT = 0.80;
 const DIVERGENT_AGREEMENT = 0.50;
+
+// A fixed majority gate: less than half of the empirical analog paths
+// supporting surplus survival means no credit and full clock authority.
+export const CREDIT_MIN_SURVIVAL = 0.50;
 
 function clamp(x: number, lo = 0, hi = 1) {
   return Math.max(lo, Math.min(hi, x));
@@ -522,6 +537,7 @@ export function recommendForScale(
       nAnalogs: usable.length,
       effectiveN,
       status: "INSUFFICIENT_HISTORY",
+      creditMaxDrawdowns: null,
     };
   }
 
@@ -550,6 +566,7 @@ export function recommendForScale(
     nAnalogs: usable.length,
     effectiveN,
     status: "OK",
+    creditMaxDrawdowns: paths.map((path) => equityStats(path).maxDd),
   };
 }
 
@@ -873,10 +890,64 @@ export function buildSignalPanel(channels: Channel[], targetDates: string[]) {
   return panel;
 }
 
+export function adaptiveCreditConfidence(
+  signal: CoupledSignal | undefined,
+  deployed: number,
+  surplus: number,
+): number {
+  if (!signal || deployed <= 1e-12 || surplus <= 1e-12) return 0;
+
+  if (
+    signal.divergenceState === "DIVERGENT" ||
+    signal.divergenceState === "THIN"
+  ) {
+    return 0;
+  }
+
+  // Current surplus is the loss budget available to the currently deployed
+  // QQQ exposure. A historical path survives when its observed 10Y MaxDD
+  // would not consume that entire surplus budget.
+  const tolerablePortfolioDrawdown = surplus / deployed;
+  const scaleSurvival: number[] = [];
+
+  for (const scaleYears of TRAP_SCALES_YEARS) {
+    const channelSignals = signal.signals.filter(
+      (x) =>
+        x.scaleYears === scaleYears &&
+        x.status === "OK" &&
+        Array.isArray(x.creditMaxDrawdowns) &&
+        x.creditMaxDrawdowns.length >= MIN_ANALOGS,
+    );
+
+    const channelRates = channelSignals
+      .map((x) => {
+        const samples = x.creditMaxDrawdowns ?? [];
+        const survived = samples.filter(
+          (drawdown) => drawdown >= -tolerablePortfolioDrawdown,
+        ).length;
+        return samples.length ? survived / samples.length : null;
+      })
+      .filter((x): x is number => x != null);
+
+    if (channelRates.length) {
+      // Median across alternate channel views prevents repeated QQQ outcomes
+      // from being counted as independent evidence.
+      scaleSurvival.push(median(channelRates) ?? 0);
+    }
+  }
+
+  // Require at least two historical scales before credit can have authority.
+  if (scaleSurvival.length < 2) return 0;
+
+  const q = median(scaleSurvival) ?? 0;
+  return q >= CREDIT_MIN_SURVIVAL ? q : 0;
+}
+
 export function replayOne(
   qqq: MonthlyPoint[],
   panel: Map<string, CoupledSignal>,
   startIndex: number,
+  mode: ReplayMode = "COUPLED",
 ): ReplayResult | null {
   const endIndex = startIndex + FLOOR_HORIZON_MONTHS;
   if (endIndex >= qqq.length) return null;
@@ -911,8 +982,44 @@ export function replayOne(
       robustTarget == null
         ? clockTarget
         : clamp(clockTarget + signalAgreement * (robustTarget - clockTarget));
-    const desiredAdd = Math.max(0, lagTarget - (1 - cash));
-    const action = Math.min(cash, Math.max(mandatoryAdd, desiredAdd));
+
+    const deployedBefore = 1 - cash;
+    // B=1 in the normalized research account, so NAV-1 equals only the
+    // mark-to-market gain on the already deployed lots.
+    const surplus = Math.max(0, equity - 1);
+
+    // ADAPTIVE_CREDIT_ONLY is intentionally separate from the coupled timing
+    // controller: it never moves money ahead because of a signal target.
+    const creditConfidence =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? adaptiveCreditConfidence(sig, deployedBefore, surplus)
+        : 0;
+    const creditCapacity = Math.max(0, cash);
+    const creditAmount =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? Math.min(surplus, creditCapacity) * creditConfidence
+        : 0;
+
+    // Credit is a reversible reduction in cumulative deployment need.
+    // If NAV falls back, credit falls back too and the clock automatically
+    // catches up; no previously-deployed amount is undone.
+    const effectiveTarget =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? Math.max(0, clockTarget - creditAmount)
+        : lagTarget;
+
+    const effectiveMandatoryAdd =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? Math.max(0, effectiveTarget - deployedBefore)
+        : mandatoryAdd;
+    const desiredAdd =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? effectiveMandatoryAdd
+        : Math.max(0, lagTarget - deployedBefore);
+    const action =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? Math.min(cash, effectiveMandatoryAdd)
+        : Math.min(cash, Math.max(mandatoryAdd, desiredAdd));
 
     if (action > 1e-12) {
       if (action <= mandatoryAdd + 1e-9 && desiredAdd < mandatoryAdd - 1e-9) {
@@ -936,6 +1043,9 @@ export function replayOne(
         mutualChaseState: mutualState,
         mutualLeaderChanges,
         mutualCurveCrossings,
+        creditAmount,
+        creditConfidence,
+        effectiveTarget,
       });
     }
 
@@ -958,6 +1068,9 @@ export function replayOne(
       mutualChaseState: mutualState,
       mutualLeaderChanges,
       mutualCurveCrossings,
+      creditAmount,
+      creditConfidence,
+      effectiveTarget,
     });
   }
 
@@ -1151,5 +1264,11 @@ export function summarizeReplays(results: ReplayResult[]) {
       results.reduce((a, b) => a + b.deployedAtHalfway, 0) / Math.max(1, results.length),
     meanDeployedAtYear8:
       results.reduce((a, b) => a + b.deployedAtYear8, 0) / Math.max(1, results.length),
+    meanTotalInvested:
+      results.reduce((a, b) => a + b.totalInvested, 0) / Math.max(1, results.length),
+    medianTotalInvested: median(results.map((r) => r.totalInvested)) ?? 0,
+    q05TotalInvested: quantile(results.map((r) => r.totalInvested), 0.05) ?? 0,
+    meanUndeployedAtEnd:
+      results.reduce((a, b) => a + (1 - b.totalInvested), 0) / Math.max(1, results.length),
   };
 }
