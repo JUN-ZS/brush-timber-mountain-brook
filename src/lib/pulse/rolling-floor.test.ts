@@ -159,7 +159,7 @@ test("state-conditioned path summary observes displacement from the clock", () =
         effectiveTarget: 1,
       },
     ],
-    path: [[
+    path: [
     { date: "2010-01-01", action: 0.5, deployed: 0.5, cash: 0.5, coupledTarget: 0.5, clockTarget: 0.25, agreement: 1, divergenceState: "CONVERGENT", mutualChaseState: "CONVERGENT", mutualLeaderChanges: 0, mutualCurveCrossings: 0, creditAmount: 0, creditConfidence: 0, effectiveTarget: 0.5 },
     { date: "2010-02-01", action: 0.25, deployed: 0.75, cash: 0.25, coupledTarget: 0.5, clockTarget: 0.5, agreement: 1, divergenceState: "CONVERGENT", mutualChaseState: "CONVERGENT", mutualLeaderChanges: 0, mutualCurveCrossings: 0, creditAmount: 0, creditConfidence: 0, effectiveTarget: 0.5 },
     { date: "2010-03-01", action: 0.05, deployed: 0.8, cash: 0.19999999999999996, coupledTarget: 0.75, clockTarget: 0.75, agreement: 0.65, divergenceState: "TENSION", mutualChaseState: "CONVERGENT", mutualLeaderChanges: 0, mutualCurveCrossings: 0, creditAmount: 0, creditConfidence: 0, effectiveTarget: 0.75 },
