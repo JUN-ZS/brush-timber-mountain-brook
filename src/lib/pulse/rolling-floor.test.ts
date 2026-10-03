@@ -546,3 +546,194 @@ test("forward path profile preserves the fixed 10Y path geometry", () => {
   assert.equal(profile.q05.at(-1), 1.05);
   assert.equal(profile.q95.at(-1), 1.95);
 });
+
+test("profit withdrawal is capped by realized surplus and never consumes principal", () => {
+  const qqq = Array.from({ length: 121 }, (_, i) => ({
+    date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
+    value: i === 0 ? 1 : 1.5,
+  }));
+  const signal = {
+    asof: qqq[0].date,
+    clockTarget: 0,
+    divergenceState: "CONVERGENT" as const,
+    signals: [20, 30, 50].map((scaleYears) => ({
+      channel: "S",
+      layer: "OBSERVED" as const,
+      scaleYears: scaleYears as 20 | 30 | 50,
+      asof: qqq[0].date,
+      target: null,
+      floorProfile: null,
+      responseProfile: null,
+      riskBaselineProfile: null,
+      forwardPathProfile: null,
+      nearestAnalogDistance: 0,
+      q05: null,
+      pNonLoss: null,
+      mean: null,
+      nAnalogs: 8,
+      effectiveN: 2,
+      status: "OK" as const,
+      creditMaxDrawdowns: Array(8).fill(0),
+    })),
+    perScale: [],
+    robustTarget: null,
+    agreement: 0,
+    coupledTarget: 0,
+    mutualChase: [],
+  };
+  const panel = new Map(qqq.map((p) => [p.date, signal]));
+
+  const date = qqq[1].date;
+  const requested = new Map([[date, 10]]);
+  const result = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "ADAPTIVE_FUNDED",
+    1,
+    0.10,
+    "SCHEDULED",
+    requested,
+  )!;
+
+  const point = result.path[1];
+  assert.ok(point.withdrawalEligibleSurplus > 0);
+  assert.equal(
+    Number(point.withdrawalExecuted.toFixed(10)),
+    Number(point.withdrawalEligibleSurplus.toFixed(10)),
+  );
+  assert.equal(
+    Number(point.nav.toFixed(10)),
+    Number(point.cumulativeContributed.toFixed(10)),
+  );
+  assert.equal(result.totalContributed <= 1, true);
+  assert.ok(result.totalWithdrawn > 0);
+
+  assert.throws(
+    () =>
+      replayFundingPlan(
+        qqq,
+        panel,
+        0,
+        120,
+        "ADAPTIVE_FUNDED",
+        1,
+        0.10,
+        "SCHEDULED",
+        new Map([[qqq[1].date, -0.01]]),
+      ),
+    /finite and non-negative/,
+  );
+});
+
+test("profit sweep and adaptive credit are mutually exclusive uses of the same surplus", () => {
+  const qqq = Array.from({ length: 121 }, (_, i) => ({
+    date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
+    value: 1 + i * 0.05,
+  }));
+  const signalFor = (date: string) => ({
+    asof: date,
+    clockTarget: 0,
+    divergenceState: "CONVERGENT" as const,
+    signals: [20, 30, 50].map((scaleYears) => ({
+      channel: "S",
+      layer: "OBSERVED" as const,
+      scaleYears: scaleYears as 20 | 30 | 50,
+      asof: date,
+      target: null,
+      floorProfile: null,
+      responseProfile: null,
+      riskBaselineProfile: null,
+      forwardPathProfile: null,
+      nearestAnalogDistance: 0,
+      q05: null,
+      pNonLoss: null,
+      mean: null,
+      nAnalogs: 8,
+      effectiveN: 2,
+      status: "OK" as const,
+      creditMaxDrawdowns: Array(8).fill(0),
+    })),
+    perScale: [],
+    robustTarget: null,
+    agreement: 0,
+    coupledTarget: 0,
+    mutualChase: [],
+  });
+  const panel = new Map(qqq.map((p) => [p.date, signalFor(p.date)]));
+
+  const noWithdrawal = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "ADAPTIVE_FUNDED",
+    1,
+    0.10,
+    "NONE",
+  )!;
+  const sweep = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "ADAPTIVE_FUNDED",
+    1,
+    0.10,
+    "SWEEP_ELIGIBLE_SURPLUS",
+  )!;
+  const clock = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "CLOCK_FUNDED",
+    1,
+    0.10,
+    "SWEEP_ELIGIBLE_SURPLUS",
+  )!;
+
+  const creditPoint = noWithdrawal.path.find(
+    (point) => point.nextDecisionCreditBeforeWithdrawal > 1e-12,
+  )!;
+  const sweepPoint = sweep.path.find(
+    (point) => point.nextDecisionCreditBeforeWithdrawal > 1e-12,
+  )!;
+
+  assert.ok(creditPoint);
+  assert.ok(sweepPoint);
+  assert.ok(noWithdrawal.totalContributed < 1);
+  assert.equal(Number(sweep.totalContributed.toFixed(8)), 1);
+  assert.equal(Number(clock.totalContributed.toFixed(8)), 1);
+  assert.ok(sweep.totalWithdrawn > 0);
+
+  // The same close has surplus before extraction, but after extraction there
+  // is no remaining surplus to support a future credit.
+  assert.ok(sweepPoint.nextDecisionCreditBeforeWithdrawal > 0);
+  assert.equal(Number(sweepPoint.nextDecisionCreditAfterWithdrawal.toFixed(10)), 0);
+  assert.equal(
+    Number(
+      sweepPoint.creditCancelledByWithdrawal.toFixed(10),
+    ),
+    Number(sweepPoint.nextDecisionCreditBeforeWithdrawal.toFixed(10)),
+  );
+
+  // Once the surplus is swept, adaptive funding follows the hard clock rather
+  // than retaining both the cash withdrawal and the deferred contribution.
+  assert.equal(
+    Number(sweep.totalContributed.toFixed(8)),
+    Number(clock.totalContributed.toFixed(8)),
+  );
+  assert.equal(
+    Number(
+      (
+        sweep.terminalWealth +
+        sweep.totalWithdrawn -
+        sweep.totalContributed
+      ).toFixed(10),
+    ),
+    Number(sweep.netEconomicWealth.toFixed(10)),
+  );
+});
+
