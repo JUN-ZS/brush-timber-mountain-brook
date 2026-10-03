@@ -301,7 +301,10 @@ function runReplay(
   const lump = [];
   const adaptiveFunding = [];
   const clockFunding = [];
+  // Legacy #151 full-sweep counterexample: withdraw NAV-C_t.
   const profitSweep = [];
+  // New B-floor diagnostic: withdraw only NAV-B, with B immutable.
+  const bFloorSweep = [];
 
   for (let start = 0; start + 120 < qqq.length; start++) {
     const coupled = replayOne(qqq, panel, start, "COUPLED");
@@ -334,7 +337,24 @@ function runReplay(
       initialFundingFraction,
       "SWEEP_ELIGIBLE_SURPLUS",
     );
-    if (!coupled || !credit || !adaptiveFund || !clockFund || !sweepFund) continue;
+    const bFloorFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "ADAPTIVE_FUNDED",
+      1,
+      initialFundingFraction,
+      "SWEEP_ABOVE_PLANNED_PRINCIPAL",
+    );
+    if (
+      !coupled ||
+      !credit ||
+      !adaptiveFund ||
+      !clockFund ||
+      !sweepFund ||
+      !bFloorFund
+    ) continue;
 
     // Full profit sweep must erase the future surplus credit before the next
     // funding decision. If it does not, the same gain would be counted twice.
@@ -349,11 +369,28 @@ function runReplay(
       );
     }
 
+    // New B-floor withdrawal invariant:
+    // - NAV < immutable B means withdrawal eligibility is exactly zero.
+    // - Any executed withdrawal leaves immediate NAV >= B.
+    if (
+      bFloorFund.path.some(
+        (point) =>
+          (point.navBeforeWithdrawal + 1e-9 < bFloorFund.plannedPrincipal &&
+            point.withdrawalExecuted > 1e-12) ||
+          point.nav + 1e-9 < bFloorFund.plannedPrincipal,
+      )
+    ) {
+      throw new Error(
+        "B-floor withdrawal invariant failed: withdrawal occurred below B or post-withdrawal NAV fell below B",
+      );
+    }
+
     replays.push(coupled);
     adaptiveCredit.push(credit);
     adaptiveFunding.push(adaptiveFund);
     clockFunding.push(clockFund);
     profitSweep.push(sweepFund);
+    bFloorSweep.push(bFloorFund);
     clock.push(clockReplay(qqq, start));
     lump.push(lumpReplay(qqq, start));
   }
@@ -364,6 +401,7 @@ function runReplay(
     adaptiveFunding,
     clockFunding,
     profitSweep,
+    bFloorSweep,
     clock: clock.filter(Boolean),
     lump: lump.filter(Boolean),
   };
@@ -414,6 +452,63 @@ function summarizeFunding(results: FundingReplayResult[]) {
 
 function mean(xs: number[]) {
   return xs.reduce((sum, x) => sum + x, 0) / Math.max(1, xs.length);
+}
+
+function summarizeBFloorWithdrawal(
+  withdrawal: FundingReplayResult[],
+  clock: FundingReplayResult[],
+) {
+  if (withdrawal.length !== clock.length) {
+    throw new Error("B-floor withdrawal comparison requires identical replay counts");
+  }
+
+  const deltaNavTerminal: number[] = [];
+  const deltaNetEconomicWealth: number[] = [];
+  const terminalRatios: number[] = [];
+  const clockTerminalRatios: number[] = [];
+  const withdrawnRatios: number[] = [];
+
+  for (let i = 0; i < withdrawal.length; i++) {
+    const w = withdrawal[i];
+    const c = clock[i];
+    if (
+      !w ||
+      !c ||
+      w.startDate !== c.startDate ||
+      w.endDate !== c.endDate ||
+      w.plannedPrincipal !== c.plannedPrincipal
+    ) {
+      throw new Error(
+        "B-floor withdrawal comparison requires identical start/end/B at index " + i,
+      );
+    }
+
+    const b = w.plannedPrincipal;
+    deltaNavTerminal.push((w.terminalWealth - c.terminalWealth) / b);
+    deltaNetEconomicWealth.push(
+      (w.netEconomicWealth - c.netEconomicWealth) / b,
+    );
+    terminalRatios.push(w.terminalWealth / b);
+    clockTerminalRatios.push(c.terminalWealth / b);
+    withdrawnRatios.push(w.totalWithdrawn / b);
+  }
+
+  return {
+    pairedObservations: withdrawal.length,
+    dependence: "OVERLAPPING_ROLLING_WINDOWS; DIAGNOSTIC_ONLY",
+    // All deltas are B-FLOOR WITHDRAWAL - SAME-START CLOCK.
+    deltaNavTerminal: mean(deltaNavTerminal),
+    deltaNetEconomicWealth: mean(deltaNetEconomicWealth),
+    principalFailureRate:
+      terminalRatios.filter((x) => x < 1).length /
+      Math.max(1, terminalRatios.length),
+    q05Terminal: quantile(terminalRatios, 0.05) ?? 0,
+    clockPrincipalFailureRate:
+      clockTerminalRatios.filter((x) => x < 1).length /
+      Math.max(1, clockTerminalRatios.length),
+    clockQ05Terminal: quantile(clockTerminalRatios, 0.05) ?? 0,
+    meanTotalWithdrawnRatio: mean(withdrawnRatios),
+  };
 }
 
 function checkpointMetrics(
@@ -515,7 +610,7 @@ function writeOutputs(
     couple(latestDate, 0, byDate.get(latestDate) ?? []);
 
   const payload = {
-    version: "rolling-floor.v5-profit-withdrawal",
+    version: "rolling-floor.v6-b-floor-withdrawal",
     evidenceClass: "RESEARCH_ONLY",
     topology: {
       workers: [
@@ -584,6 +679,7 @@ function writeOutputs(
       adaptiveFunding: summarizeFunding(replay.adaptiveFunding),
       clockFunding: summarizeFunding(replay.clockFunding),
       profitSweep: summarizeFunding(replay.profitSweep),
+      bFloorSweep: summarizeFunding(replay.bFloorSweep),
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
     },
@@ -597,7 +693,11 @@ function writeOutputs(
         summarizeFundingCheckpointDifference(replay.adaptiveFunding, replay.clockFunding, 60),
         summarizeFundingCheckpointDifference(replay.adaptiveFunding, replay.clockFunding, 120),
       ],
-      rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test. Each row is a paired CLOCK - ADAPTIVE comparison from the same rolling start. Rolling starts overlap, so paired observations are diagnostic, not independent samples.",
+      bFloorWithdrawal: summarizeBFloorWithdrawal(
+        replay.bFloorSweep,
+        replay.clockFunding,
+      ),
+      rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test. Withdrawal is judged only against the same-start clock on delta NAV_T, delta net economic wealth, principal-failure rate, and Q05 terminal NAV. Rolling starts overlap, so these observations are diagnostic, not independent samples.",
     },
     statePath: summarizeStatePath(replay.replays),
     mutualChasePath: summarizeStatePath(replay.replays, "mutualChaseState"),
@@ -629,6 +729,10 @@ function writeOutputs(
   writeFileSync(
     join(outDir, "rolling_floor_profit_sweep_replays.jsonl"),
     replay.profitSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_b_floor_withdrawal_replays.jsonl"),
+    replay.bFloorSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
   writeFileSync(
     join(outDir, "rolling_floor_state_path.json"),
@@ -753,7 +857,26 @@ function writeOutputs(
       (payload.replay.profitSweep.q05TotalWithdrawnRatio * 100).toFixed(2) + "%",
     "Profit-sweep mean net economic wealth / B: " +
       payload.replay.profitSweep.meanNetEconomicWealth.toFixed(4),
-    "Invariant: profit sweep retains no funding credit and restores total external funding to the hard clock.",
+    "Invariant: profit sweep retains no funding credit and restores total external funding to the hard clock. This legacy sweep is retained only as the #151 counterexample.",
+    "",
+    "B-floor withdrawal diagnostic (new rule: eligible amount = max(0, NAV_before_withdrawal - plannedPrincipal B); withdrawn cash is excluded from the account NAV floor):",
+    "B-floor withdrawal paired observations: " +
+      payload.evaluation.bFloorWithdrawal.pairedObservations,
+    "B-floor withdrawal mean delta NAV_T / B (WITHDRAWAL - CLOCK): " +
+      (payload.evaluation.bFloorWithdrawal.deltaNavTerminal * 100).toFixed(2) + "%",
+    "B-floor withdrawal mean delta net economic wealth / B (WITHDRAWAL - CLOCK): " +
+      (payload.evaluation.bFloorWithdrawal.deltaNetEconomicWealth * 100).toFixed(2) + "%",
+    "B-floor withdrawal principal failure rate: " +
+      (payload.evaluation.bFloorWithdrawal.principalFailureRate * 100).toFixed(1) + "%",
+    "Same-start clock principal failure rate: " +
+      (payload.evaluation.bFloorWithdrawal.clockPrincipalFailureRate * 100).toFixed(1) + "%",
+    "B-floor withdrawal Q05 terminal NAV / B: " +
+      payload.evaluation.bFloorWithdrawal.q05Terminal.toFixed(4),
+    "Same-start clock Q05 terminal NAV / B: " +
+      payload.evaluation.bFloorWithdrawal.clockQ05Terminal.toFixed(4),
+    "B-floor withdrawal mean cumulative withdrawn / B: " +
+      (payload.evaluation.bFloorWithdrawal.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
+    "Acceptance rule: cash-flow magnitude is not a pass condition. The withdrawal layer remains diagnostic unless the same-start terminal NAV and net-economic-wealth deltas, principal-failure rate, and Q05 show an acceptable relationship to CLOCK. No independent-sample inference is made from overlapping rolling windows.",
     "",
     "Clock-funded principal failure rate: " +
       (payload.replay.clockFunding.principalFailureRate * 100).toFixed(1) + "%",
