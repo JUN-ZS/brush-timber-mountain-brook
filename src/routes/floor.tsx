@@ -207,6 +207,34 @@ function Page() {
           </Panel>
         </div>
 
+        <Panel kicker="CAPITAL JOURNEY · THESIS ONLY" title="原始思想：賺就放點，跌就溝">
+          <div className="grid gap-3 md:grid-cols-3">
+            <ThesisBlock
+              title="不猜十年終點"
+              body="先拉一條 10Y funding line：Cₜ = B × Clockₜ。終點目標仍然是 100% B；App 不預測十年後會賺多少。"
+            />
+            <ThesisBlock
+              title="賺就放點"
+              body="盈利抽取只是一個收放研究命題。真正發生的抽取，才進獨立 Withdrawal ledger；抽取規則目前 OFF。"
+            />
+            <ThesisBlock
+              title="跌就溝"
+              body="只保留作未驗證的收放命題。App 不會因下跌自動增加部署、加掏本金或產生 BUY 指令。"
+            />
+          </div>
+          <div className="mt-4 rounded-md border border-line bg-elevated p-3">
+            <div className="font-mono text-xs text-subtle">RESEARCH OBSERVATION · NO FUNDING AUTHORITY</div>
+            <div className="mt-2 grid gap-3 md:grid-cols-3">
+              <ResearchRule title="20Y" body="觀察慢牛 / 慢跌形態；不改 Funding Status。" />
+              <ResearchRule title="30Y" body="觀察長週期位置；不改 Actual、NAV 或 Clock。" />
+              <ResearchRule title="50Y" body="只作更長尺度研究背景；沒有資金權。" />
+            </div>
+            <p className="mt-3 text-xs text-subtle">
+              「賺就放點、跌就溝」仍是策略原思想，但目前只是 thesis，不是 controller。
+            </p>
+          </div>
+        </Panel>
+
         <Panel kicker="RESEARCH FIREWALL" title="研究資料永遠不產生資金指令">
           <div className="mb-3">
             <Link
