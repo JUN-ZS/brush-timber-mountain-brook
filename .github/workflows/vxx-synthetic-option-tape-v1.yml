@@ -170,9 +170,77 @@ jobs:
           path: artifacts/vxx_synth_v1_hub/manifest.json
           if-no-files-found: error
 
+  # Main verification bridge: only the two lightweight independent manifests
+  # are required here. The Windows full-tape producer is deliberately outside
+  # this dependency edge, so a slow/blocked Windows runner cannot serialize
+  # the Linux/HUB verification path.
+  bridge_linux_hub:
+    name: HUB WEB — Linux + HUB independent manifest bridge
+    if: ${{ always() && !cancelled() }}
+    needs: [reproduce_linux, build_hub_web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download Linux manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-linux-manifest
+          path: linux
+
+      - name: Download HUB WEB manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-hub-web-manifest
+          path: hub_web
+
+      - name: Verify required independent manifests
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          l=json.loads(Path("linux/manifest.json").read_text())
+          h=json.loads(Path("hub_web/manifest.json").read_text())
+
+          for name,m in {"LINUX":l,"HUB_WEB":h}.items():
+              assert m["quality_gate"]["status"] == "PASS", (name,m["quality_gate"])
+              assert m["source"] == "MODEL_DERIVED_VXX_OPTION_TAPE", name
+
+          for key in ("canonical_fingerprint","family_fingerprint","state_fingerprint"):
+              assert l[key] == h[key], (key,l[key],h[key])
+
+          bridge={
+              "topology":"LINUX_HUB_BRIDGE",
+              "linux":{
+                  "canonical_fingerprint":l["canonical_fingerprint"],
+                  "family_fingerprint":l["family_fingerprint"],
+                  "state_fingerprint":l["state_fingerprint"],
+              },
+              "hub_web":{
+                  "canonical_fingerprint":h["canonical_fingerprint"],
+                  "family_fingerprint":h["family_fingerprint"],
+                  "state_fingerprint":h["state_fingerprint"],
+              },
+              "windows_full_tape":"NONBLOCKING_TO_BRIDGE",
+              "status":"PASS",
+          }
+          Path("bridge.json").write_text(json.dumps(bridge,indent=2)+"\n")
+          print("LINUX_HUB_FINGERPRINT_MATCH",l["canonical_fingerprint"])
+          print("WINDOWS_FULL_TAPE",bridge["windows_full_tape"])
+          PY
+
+      - name: Upload independent bridge record
+        uses: actions/upload-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-linux-hub-bridge
+          path: bridge.json
+          if-no-files-found: error
+
   compare_manifests:
     name: HUB WEB — three-runner fingerprint lock
-    needs: [build_windows, reproduce_linux, build_hub_web]
+    if: ${{ always() && !cancelled() }}
+    needs: [build_windows, reproduce_linux, build_hub_web, bridge_linux_hub]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -182,16 +250,11 @@ jobs:
         with:
           name: vxx-synthetic-tape-v1-windows
           path: windows
-      - name: Download Linux manifest
+      - name: Download independent bridge record
         uses: actions/download-artifact@v4
         with:
-          name: vxx-synthetic-tape-v1-linux-manifest
-          path: linux
-      - name: Download HUB WEB manifest
-        uses: actions/download-artifact@v4
-        with:
-          name: vxx-synthetic-tape-v1-hub-web-manifest
-          path: hub_web
+          name: vxx-synthetic-tape-v1-linux-hub-bridge
+          path: bridge
       - name: Compare all fingerprints
         shell: bash
         run: |
@@ -200,24 +263,22 @@ jobs:
           from pathlib import Path
 
           w=json.loads(Path("windows/manifest.json").read_text())
-          l=json.loads(Path("linux/manifest.json").read_text())
-          h=json.loads(Path("hub_web/manifest.json").read_text())
+          b=json.loads(Path("bridge/bridge.json").read_text())
 
-          manifests={"WINDOWS":w,"LINUX":l,"HUB_WEB":h}
-          for name,m in manifests.items():
-              assert m["quality_gate"]["status"] == "PASS", (name,m["quality_gate"])
-              assert m["source"] == "MODEL_DERIVED_VXX_OPTION_TAPE", name
+          assert w["quality_gate"]["status"] == "PASS", w["quality_gate"]
+          assert w["source"] == "MODEL_DERIVED_VXX_OPTION_TAPE"
+          assert b["status"] == "PASS", b
 
-          canonical={name:m["canonical_fingerprint"] for name,m in manifests.items()}
-          families={name:m["family_fingerprint"] for name,m in manifests.items()}
-          states={name:m["state_fingerprint"] for name,m in manifests.items()}
+          assert b["linux"]["canonical_fingerprint"] == b["hub_web"]["canonical_fingerprint"]
+          assert b["linux"]["family_fingerprint"] == b["hub_web"]["family_fingerprint"]
+          assert b["linux"]["state_fingerprint"] == b["hub_web"]["state_fingerprint"]
 
-          assert len(set(canonical.values())) == 1, canonical
-          assert len(set(families.values())) == 1, families
-          assert len(set(states.values())) == 1, states
+          assert w["canonical_fingerprint"] == b["linux"]["canonical_fingerprint"]
+          assert w["family_fingerprint"] == b["linux"]["family_fingerprint"]
+          assert w["state_fingerprint"] == b["linux"]["state_fingerprint"]
 
-          print("WINDOWS_CANONICAL", canonical["WINDOWS"])
-          print("LINUX_CANONICAL", canonical["LINUX"])
-          print("HUB_WEB_CANONICAL", canonical["HUB_WEB"])
-          print("THREE_WAY_FINGERPRINT_MATCH", canonical["WINDOWS"])
+          print("WINDOWS_CANONICAL", w["canonical_fingerprint"])
+          print("LINUX_CANONICAL", b["linux"]["canonical_fingerprint"])
+          print("HUB_WEB_CANONICAL", b["hub_web"]["canonical_fingerprint"])
+          print("THREE_WAY_FINGERPRINT_MATCH", w["canonical_fingerprint"])
           PY
