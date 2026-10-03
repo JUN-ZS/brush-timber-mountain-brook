@@ -311,6 +311,7 @@ test("funding plan keeps principal outside until monthly funding is actually nee
     ),
     1,
   );
+});
 
 test("adaptive credit is a majority survival probability, not a GAR/MaxDD score", () => {
   const mk = (scaleYears: 20 | 30 | 50, samples: number[]) => ({
