@@ -95,3 +95,7 @@ The output is intended to answer:
 6. Is any apparent benefit just the mechanical consequence of keeping more capital in reserve?
 
 No result from this study is automatically promoted into the formal 10Y Floor.
+## Post-result extension
+
+A separate two-sided variant is now registered independently as QQQ_MUTUAL_CHASE_TWO_SIDED_V1. It adds the symmetric SELL side—profits above the target are harvested to reserve and may later be redeployed after losses. Its results are not mixed into this one-sided study.
+
