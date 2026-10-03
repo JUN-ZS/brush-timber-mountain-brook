@@ -95,10 +95,16 @@ function oracle2xSchedule(prices: number[]): number[] {
 }
 
 function equityFromSchedule(prices: number[], schedule: number[]): number[] {
-  const shares = Array.from({ length: prices.length }, (_, i) =>
-    prices.slice(1, i + 1).reduce((sum, p, j) => sum + schedule[j + 1] / p, 0),
-  );
-  return prices.map((price, i) => shares[i] * price);
+  let investedShares = 0;
+  let cumulativeInvested = 0;
+  const curve = [1];
+  for (let i = 1; i < prices.length; i++) {
+    investedShares += schedule[i] / prices[i];
+    cumulativeInvested += schedule[i];
+    const cash = Math.max(0, 1 - cumulativeInvested);
+    curve.push(cash + investedShares * prices[i]);
+  }
+  return curve;
 }
 
 function terminal(prices: number[], schedule: number[]): number {
@@ -230,6 +236,9 @@ function main() {
     }
     if (row.schedulePeakFraction > 2 / H + 1e-10) {
       invariantFailures.push(row.startDate + " DIP peak>2x monthly slice");
+    }
+    if (row.clockMaxDd <= -0.999999999) {
+      invariantFailures.push(row.startDate + " clock equity collapsed to zero; cash accounting broken");
     }
   }
   const frozenCurvatureMax = Math.max(
