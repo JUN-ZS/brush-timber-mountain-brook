@@ -547,6 +547,70 @@ test("forward path profile preserves the fixed 10Y path geometry", () => {
   assert.equal(profile.q95.at(-1), 1.95);
 });
 
+test("partial B-floor withdrawal uses fixed alpha and preserves the B floor at execution", () => {
+  const qqq = Array.from({ length: 121 }, (_, i) => ({
+    date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
+    value: i === 0 ? 1 : 3,
+  }));
+  const signal = {
+    asof: qqq[0].date,
+    clockTarget: 0,
+    divergenceState: "CONVERGENT" as const,
+    signals: [20, 30, 50].map((scaleYears) => ({
+      channel: "S",
+      layer: "OBSERVED" as const,
+      scaleYears: scaleYears as 20 | 30 | 50,
+      asof: qqq[0].date,
+      target: null,
+      floorProfile: null,
+      responseProfile: null,
+      riskBaselineProfile: null,
+      forwardPathProfile: null,
+      nearestAnalogDistance: 0,
+      q05: null,
+      pNonLoss: null,
+      mean: null,
+      nAnalogs: 8,
+      effectiveN: 2,
+      status: "OK" as const,
+      creditMaxDrawdowns: Array(8).fill(0),
+    })),
+    perScale: [],
+    robustTarget: null,
+    agreement: 0,
+    coupledTarget: 0,
+    mutualChase: [],
+  };
+  const panel = new Map(qqq.map((p) => [p.date, signal]));
+  const alpha = 0.50;
+
+  const result = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "ADAPTIVE_FUNDED",
+    1,
+    0.10,
+    "PARTIAL_ABOVE_PLANNED_PRINCIPAL",
+    new Map(),
+    alpha,
+  )!;
+
+  const point = result.path[1];
+  assert.equal(result.withdrawalAlpha, alpha);
+  assert.equal(point.withdrawalAlpha, alpha);
+  assert.ok(point.navBeforeWithdrawal > result.plannedPrincipal);
+  assert.equal(
+    Number(point.withdrawalExecuted.toFixed(10)),
+    Number(
+      ((point.navBeforeWithdrawal - result.plannedPrincipal) * alpha).toFixed(10),
+    ),
+  );
+  assert.ok(point.nav + 1e-12 >= result.plannedPrincipal);
+  assert.ok(point.nav < point.navBeforeWithdrawal);
+});
+
 test("B-floor withdrawal stays zero below B and never takes NAV below immutable planned principal", () => {
   const qqq = Array.from({ length: 121 }, (_, i) => ({
     date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
