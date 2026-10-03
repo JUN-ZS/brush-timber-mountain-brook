@@ -778,7 +778,7 @@ function Page() {
                 </Badge>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                <MetricCard kicker="MODEL TARGET" title={fmtPct(cumulativeModelTarget, 2)} detail="required cumulative phase" />
+                <MetricCard kicker="EFFECTIVE TARGET" title={fmtPct(cumulativeModelTarget, 2)} detail="clock / signal floor max" />
                 <MetricCard kicker="ACTUAL" title={fmtPct(cumulativeBeforePreview / safeCapital, 2)} detail="already deployed" />
                 <MetricCard kicker="ADDITIONAL" title={fmtPct(Math.max(0, modelGap), 2)} detail="new capital still required" />
                 <MetricCard kicker="AHEAD" title={fmtPct(Math.max(0, -modelGap), 2)} detail="already beyond target" />
@@ -786,6 +786,7 @@ function Page() {
                 <MetricCard kicker="NOW / HISTORY" title={nearestAnalogDistance == null ? "—" : nearestAnalogDistance.toFixed(2)} detail="nearest state distance · lower = closer" />
               </div>
               <p className="mt-3 text-xs text-subtle">
+                TARGET COMPOSITION · clock {fmtPct(currentClock, 2)} · signal anchor {fmtPct(signalFloorAnchor, 2)} · effective {fmtPct(cumulativeModelTarget, 2)}.
                 Action is generated from the existing cumulative-floor rule after the live NOW state is re-evaluated.
                 It is not a short-term price prediction. SELL/EXIT is deliberately not emitted because the current
                 controller has no validated negative-deployment rule.
@@ -821,7 +822,7 @@ function Page() {
                 <MetricCard kicker="HISTORY" title={liveLongScale.syntheticHistoryStartDate ?? "—"} detail={liveLongScale.syntheticHistoryMonths + " synthetic months before QQQ core"} />
                 <MetricCard kicker="REAL QQQ CORE" title={liveLongScale.observedStartDate ?? "—"} detail={liveLongScale.observedEndDate + " observed"} />
                 <MetricCard kicker="FUTURE" title={liveLongScale.future ? liveLongScale.future.horizonYears + "Y" : "—"} detail={liveLongScale.syntheticFutureMonths + " synthetic months"} />
-                <MetricCard kicker="CALIBRATION" title={liveLongScale.calibration.qqqBeta == null ? "—" : "β " + liveLongScale.calibration.qqqBeta.toFixed(3)} detail={liveLongScale.calibration.qqqOverlapMonths + " QQQ/proxy overlap months"} />
+                <MetricCard kicker="CALIBRATION" title={liveLongScale.calibration.qqqBeta == null ? "—" : "β " + liveLongScale.calibration.qqqBeta.toFixed(3)} detail={liveLongScale.calibration.qqqOverlapMonths + " QQQ/proxy overlap · proxy β " + (liveLongScale.calibration.proxyBeta == null ? "—" : liveLongScale.calibration.proxyBeta.toFixed(3))} />
               </div>
               <div className="mt-4 overflow-x-auto">
                 <LongScaleChart profile={liveLongScale} />
