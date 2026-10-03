@@ -60,6 +60,7 @@ jobs:
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.md
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_sensitivity_v1.json
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_sensitivity_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_sensitivity_v1.md
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_timing_v1.json
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_timing_v1.md
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_timing_v1.csv
@@ -68,6 +69,12 @@ jobs:
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.csv
           node - <<'NODE'
           const fs = require("node:fs");
+          const base = "research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.json";
+          const baseX = JSON.parse(fs.readFileSync(base, "utf8"));
+          if (baseX.researchId !== "QQQ_HYBRID_DOWNSIDE_CONVEXITY_V1") throw new Error("wrong base research id");
+          if (baseX.status !== "RESEARCH_ONLY") throw new Error("wrong base research status");
+          if (baseX.data.completeRollingWindows <= 0) throw new Error("no base rolling windows");
+          if (!Array.isArray(baseX.windows) || baseX.windows.length !== baseX.data.completeRollingWindows) throw new Error("base window count mismatch");
           const p = "research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.json";
           const x = JSON.parse(fs.readFileSync(p, "utf8"));
           if (x.researchId !== "QQQ_MUTUAL_CHASE_SELL_STATE_MACHINE_V1") throw new Error("wrong state-machine research id");
