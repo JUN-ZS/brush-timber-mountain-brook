@@ -28,9 +28,9 @@ jobs:
     steps:
       - name: Cancel stale VXX/V22 runs from this branch
         env:
-          GH_TOKEN: \${{ github.token }}
-          TARGET_BRANCH: \${{ github.event.pull_request.head.ref || github.ref_name }}
-          CURRENT_RUN: \${{ github.run_id }}
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          CURRENT_RUN: ${{ github.run_id }}
         shell: bash
         run: |
           set -euo pipefail
