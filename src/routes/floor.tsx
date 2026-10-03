@@ -169,7 +169,9 @@ function loadFloorState(): FloorPersistedState {
   } catch {
     try {
       window.localStorage.removeItem(FLOOR_STATE_KEY);
-    } catch {}
+    } catch {
+      // Ignore malformed local state; safe defaults remain in memory.
+    }
   }
 
   return defaultFloorState();
@@ -191,7 +193,9 @@ function writeFloorState(state: FloorPersistedState) {
     );
     // Prefer v3 as source of truth after migrate/write.
     window.localStorage.removeItem(LEDGER_KEY_V2);
-  } catch {}
+  } catch {
+      // Ignore malformed local state; safe defaults remain in memory.
+    }
 }
 
 function Page() {
@@ -323,7 +327,9 @@ function Page() {
         setLedger(parsed.entries);
         setMarketTape(parsed.marketTape);
         setNav(parsed.nav);
-      } catch {}
+      } catch {
+      // Ignore malformed local state; safe defaults remain in memory.
+    }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
