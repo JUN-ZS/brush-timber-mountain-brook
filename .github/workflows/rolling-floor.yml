@@ -2,6 +2,12 @@ name: Rolling 10Y Capital Floor
 
 on:
   workflow_dispatch:
+    inputs:
+      initial_funding_fraction:
+        description: "Initial external funding fraction of planned principal B (e.g. 0.10 or 0.20)"
+        required: true
+        default: "0.10"
+        type: string
   pull_request:
     branches:
       - main
@@ -221,7 +227,8 @@ jobs:
           node --experimental-strip-types scripts/run-rolling-floor.ts \
             --mode bridge \
             --input-dir inputs/rolling_floor_shards \
-            --out-dir research/rolling_10y_floor
+            --out-dir research/rolling_10y_floor \
+            --initial-funding-fraction "${{ github.event.inputs.initial_funding_fraction || '0.10' }}"
       - name: Verify bridge outputs are runnable JSON
         shell: bash
         run: |
