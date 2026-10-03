@@ -12,13 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BacktestRouteImport } from './routes/backtest'
 import { Route as DeployRouteImport } from './routes/deploy'
-import { Route as FloorRouteImport } from './routes/floor'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as MatrixRouteImport } from './routes/matrix'
 import { Route as MissingRouteImport } from './routes/missing'
 import { Route as RankRouteImport } from './routes/rank'
 import { Route as StrategyRouteImport } from './routes/strategy'
-import { Route as ApiYahooRouteImport } from './routes/api/yahoo'
+import { Route as FloorRouteImport } from './routes/floor'
+import { Route as FloorResearchRouteImport } from './routes/floor-research'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -33,11 +33,6 @@ const BacktestRoute = BacktestRouteImport.update({
 const DeployRoute = DeployRouteImport.update({
   id: '/deploy',
   path: '/deploy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FloorRoute = FloorRouteImport.update({
-  id: '/floor',
-  path: '/floor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LiveRoute = LiveRouteImport.update({
@@ -65,9 +60,14 @@ const StrategyRoute = StrategyRouteImport.update({
   path: '/strategy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiYahooRoute = ApiYahooRouteImport.update({
-  id: '/api/yahoo',
-  path: '/api/yahoo',
+const FloorRoute = FloorRouteImport.update({
+  id: '/floor',
+  path: '/floor',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FloorResearchRoute = FloorResearchRouteImport.update({
+  id: '/floor-research',
+  path: '/floor-research',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -75,89 +75,72 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/backtest': typeof BacktestRoute
   '/deploy': typeof DeployRoute
-  '/floor': typeof FloorRoute
   '/live': typeof LiveRoute
   '/matrix': typeof MatrixRoute
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
-  '/api/yahoo': typeof ApiYahooRoute
+  '/floor': typeof FloorRoute
+  '/floor-research': typeof FloorResearchRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/backtest': typeof BacktestRoute
   '/deploy': typeof DeployRoute
-  '/floor': typeof FloorRoute
   '/live': typeof LiveRoute
   '/matrix': typeof MatrixRoute
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
-  '/api/yahoo': typeof ApiYahooRoute
+  '/floor': typeof FloorRoute
+  '/floor-research': typeof FloorResearchRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/backtest': typeof BacktestRoute
   '/deploy': typeof DeployRoute
-  '/floor': typeof FloorRoute
   '/live': typeof LiveRoute
   '/matrix': typeof MatrixRoute
   '/missing': typeof MissingRoute
   '/rank': typeof RankRoute
   '/strategy': typeof StrategyRoute
-  '/api/yahoo': typeof ApiYahooRoute
+  '/floor': typeof FloorRoute
+  '/floor-research': typeof FloorResearchRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
-    | '/backtest'
-    | '/deploy'
-    | '/floor'
-    | '/live'
-    | '/matrix'
-    | '/missing'
-    | '/rank'
-    | '/strategy'
-    | '/api/yahoo'
+    '/' | '/backtest' | '/deploy' | '/live' | '/matrix' | '/missing' | '/rank' | '/strategy'
+    | '/floor' | '/floor-research'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/backtest'
-    | '/deploy'
-    | '/floor'
-    | '/live'
-    | '/matrix'
-    | '/missing'
-    | '/rank'
-    | '/strategy'
-    | '/api/yahoo'
+  to: '/' | '/backtest' | '/deploy' | '/live' | '/matrix' | '/missing' | '/rank' | '/strategy'
+    | '/floor' | '/floor-research'
   id:
     | '__root__'
     | '/'
     | '/backtest'
     | '/deploy'
-    | '/floor'
     | '/live'
     | '/matrix'
     | '/missing'
     | '/rank'
     | '/strategy'
-    | '/api/yahoo'
+    | '/floor'
+    | '/floor-research'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BacktestRoute: typeof BacktestRoute
   DeployRoute: typeof DeployRoute
-  FloorRoute: typeof FloorRoute
   LiveRoute: typeof LiveRoute
   MatrixRoute: typeof MatrixRoute
   MissingRoute: typeof MissingRoute
   RankRoute: typeof RankRoute
   StrategyRoute: typeof StrategyRoute
-  ApiYahooRoute: typeof ApiYahooRoute
+  FloorRoute: typeof FloorRoute
+  FloorResearchRoute: typeof FloorResearchRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -181,13 +164,6 @@ declare module '@tanstack/react-router' {
       path: '/deploy'
       fullPath: '/deploy'
       preLoaderRoute: typeof DeployRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/floor': {
-      id: '/floor'
-      path: '/floor'
-      fullPath: '/floor'
-      preLoaderRoute: typeof FloorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/live': {
@@ -225,11 +201,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StrategyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/yahoo': {
-      id: '/api/yahoo'
-      path: '/api/yahoo'
-      fullPath: '/api/yahoo'
-      preLoaderRoute: typeof ApiYahooRouteImport
+    '/floor': {
+      id: '/floor'
+      path: '/floor'
+      fullPath: '/floor'
+      preLoaderRoute: typeof FloorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/floor-research': {
+      id: '/floor-research'
+      path: '/floor-research'
+      fullPath: '/floor-research'
+      preLoaderRoute: typeof FloorResearchRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -239,13 +222,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BacktestRoute: BacktestRoute,
   DeployRoute: DeployRoute,
-  FloorRoute: FloorRoute,
   LiveRoute: LiveRoute,
   MatrixRoute: MatrixRoute,
   MissingRoute: MissingRoute,
   RankRoute: RankRoute,
   StrategyRoute: StrategyRoute,
-  ApiYahooRoute: ApiYahooRoute,
+  FloorRoute: FloorRoute,
+  FloorResearchRoute: FloorResearchRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
