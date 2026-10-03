@@ -36,7 +36,7 @@ function monthly(data: Data): MP[] {
   for (let i = 0; i < Math.min(data.dates.length, (data.c.QQQ ?? []).length); i++) {
     const date = data.dates[i];
     const close = Number((data.c.QQQ ?? [])[i]);
-    if (!Number.isFinite(close) || close <= 0 || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) continue;
+    if (!Number.isFinite(close) || close <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     const key = date.slice(0, 7);
     const prior = out.get(key);
     if (!prior || date > prior.date) out.set(key, { date, close });
