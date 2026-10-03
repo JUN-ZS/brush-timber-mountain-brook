@@ -61,3 +61,24 @@ No future data beyond each rolling window is used by the executable strategies. 
 The runner writes qqq_hybrid_downside_convexity_v1.json, qqq_hybrid_downside_convexity_v1.csv, and qqq_hybrid_downside_convexity_v1.md.
 
 Status labels are RESEARCH_ONLY / DIAGNOSTIC_ONLY.
+
+## True-convexity fixed hypothesis
+
+A separate fixed experiment is registered as QQQ_HYBRID_TRUE_CONVEXITY_V1:
+
+- 100% QQQ exposure.
+- Constant 0.5x protective put notional.
+- 5% OTM.
+- 45 calendar DTE.
+- Roll 7 calendar days before expiry.
+- 10% estimated spread haircut.
+- No regime sizing, no parameter search, no champion.
+
+Historical performance uses the repository's existing derived Black-Scholes/VIX overlay engine. This is NOT an OPRA fill backtest.
+
+A separate mechanical payoff stress uses spot=100, strike=95, 45D, IV=20%, the same 0.5x notional, and permanent spot shocks of 0%, -5%, -10%, -20%, -30%. The finite-difference curvature is a payoff-shape test, not a profitability claim.
+
+The key distinction is:
+
+- deployment timing value = changing when the same principal is exposed;
+- true downside convexity = non-linear payoff curvature that persists with a fixed deployment schedule.
