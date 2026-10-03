@@ -140,6 +140,11 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
         }]
       : [];
 
+  const marketTapeSource = Array.isArray(obj.marketTape) ? obj.marketTape : [];
+  const marketTape = marketTapeSource
+    .filter(validMarketTapeEntry)
+    .map((entry) => ({ ...entry, month: clampMonth(entry.month) }));
+
   const navRaw = Number(obj.nav);
   const nav = Number.isFinite(navRaw) && navRaw >= 0 ? navRaw : 0;
 
