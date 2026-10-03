@@ -157,6 +157,36 @@ export type ReplayPathPoint = {
   effectiveTarget: number;
 };
 
+export type FundingPlanMode = "CLOCK_FUNDED" | "ADAPTIVE_FUNDED";
+
+export type FundingPathPoint = {
+  date: string;
+  contribution: number;
+  cumulativeContributed: number;
+  remainingExternalCapital: number;
+  invested: number;
+  accountCash: number;
+  nav: number;
+  surplus: number;
+  fundingCredit: number;
+  creditConfidence: number;
+  fundingTarget: number;
+  clockTarget: number;
+  divergenceState: DivergenceState;
+};
+
+export type FundingReplayResult = {
+  startDate: string;
+  endDate: string;
+  horizonMonths: number;
+  terminalWealth: number;
+  maxDrawdown: number;
+  totalContributed: number;
+  maxContributionReduction: number;
+  totalContributionReduction: number;
+  path: FundingPathPoint[];
+};
+
 export type ReplayMode = "COUPLED" | "ADAPTIVE_CREDIT_ONLY";
 
 export type ReplayResult = {
@@ -941,6 +971,110 @@ export function adaptiveCreditConfidence(
 
   const q = median(scaleSurvival) ?? 0;
   return q >= CREDIT_MIN_SURVIVAL ? q : 0;
+}
+
+export function replayFundingPlan(
+  qqq: MonthlyPoint[],
+  panel: Map<string, CoupledSignal>,
+  startIndex: number,
+  horizonMonths = FLOOR_HORIZON_MONTHS,
+  mode: FundingPlanMode = "ADAPTIVE_FUNDED",
+): FundingReplayResult | null {
+  const endIndex = startIndex + horizonMonths;
+  if (endIndex >= qqq.length) return null;
+
+  let externalRemaining = 1;
+  let cumulativeContributed = 0;
+  let accountCash = 0;
+  const lots: { amount: number; entry: number }[] = [];
+  const path: FundingPathPoint[] = [];
+  const curve: number[] = [0];
+  let nav = 0;
+
+  for (let j = 0; j < horizonMonths; j++) {
+    const i = startIndex + j;
+    const date = qqq[i].date;
+    const sig = panel.get(date);
+    const clockTarget = clamp((j + 1) / FLOOR_HORIZON_MONTHS);
+
+    // The decision sees only the NAV available at the start of the month.
+    // The current month's close therefore cannot leak into today's funding.
+    nav =
+      accountCash +
+      lots.reduce((sum, lot) => sum + lot.amount * (qqq[i].value / lot.entry), 0);
+
+    const investedBefore = cumulativeContributed;
+    const surplus = Math.max(0, nav - cumulativeContributed);
+    const creditConfidence =
+      mode === "ADAPTIVE_FUNDED"
+        ? adaptiveCreditConfidence(sig, investedBefore, surplus)
+        : 0;
+
+    // Credit substitutes for future external contributions. It never becomes
+    // cash inside the account and is recalculated every month, so it can vanish.
+    const fundingCredit =
+      mode === "ADAPTIVE_FUNDED"
+        ? Math.min(surplus, externalRemaining) * creditConfidence
+        : 0;
+    const fundingTarget =
+      mode === "ADAPTIVE_FUNDED"
+        ? Math.max(0, clockTarget - fundingCredit)
+        : clockTarget;
+
+    const contribution = Math.min(
+      externalRemaining,
+      Math.max(0, fundingTarget - cumulativeContributed),
+    );
+
+    if (contribution > 1e-12) {
+      lots.push({ amount: contribution, entry: qqq[i].value });
+      cumulativeContributed += contribution;
+      externalRemaining -= contribution;
+    }
+
+    nav =
+      accountCash +
+      lots.reduce((sum, lot) => sum + lot.amount * (qqq[i].value / lot.entry), 0);
+
+    path.push({
+      date,
+      contribution,
+      cumulativeContributed,
+      remainingExternalCapital: externalRemaining,
+      invested: cumulativeContributed - accountCash,
+      accountCash,
+      nav,
+      surplus: Math.max(0, nav - cumulativeContributed),
+      fundingCredit,
+      creditConfidence,
+      fundingTarget,
+      clockTarget,
+      divergenceState: sig?.divergenceState ?? "THIN",
+    });
+
+    curve.push(nav);
+  }
+
+  const finalPx = qqq[endIndex].value;
+  nav =
+    accountCash +
+    lots.reduce((sum, lot) => sum + lot.amount * (finalPx / lot.entry), 0);
+  curve.push(nav);
+
+  return {
+    startDate: qqq[startIndex].date,
+    endDate: qqq[endIndex].date,
+    horizonMonths,
+    terminalWealth: nav,
+    maxDrawdown: equityStats(curve).maxDd,
+    totalContributed: cumulativeContributed,
+    maxContributionReduction: Math.max(
+      0,
+      ...path.map((point) => point.clockTarget - point.cumulativeContributed),
+    ),
+    totalContributionReduction: 1 - cumulativeContributed,
+    path,
+  };
 }
 
 export function replayOne(
