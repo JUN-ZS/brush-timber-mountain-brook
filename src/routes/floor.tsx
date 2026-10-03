@@ -899,8 +899,6 @@ function Page() {
                 </p>
               </div>
 
-              </div>
-
               <div className="rounded-md border border-line bg-elevated p-4">
                 <p className="font-mono text-xs tracking-[0.14em] text-subtle">HISTORY MATCH · DESCRIPTIVE</p>
                 <div className="mt-2 grid grid-cols-2 gap-3">
