@@ -348,29 +348,66 @@ function summarizeFunding(results: FundingReplayResult[]) {
   };
 }
 
-function summarizeFundingCheckpoint(
-  results: FundingReplayResult[],
+function mean(xs: number[]) {
+  return xs.reduce((sum, x) => sum + x, 0) / Math.max(1, xs.length);
+}
+
+function checkpointMetrics(
+  result: FundingReplayResult,
   months: 36 | 60 | 120,
 ) {
-  const rows = results
-    .map((r) => r.path[months - 1])
-    .filter((x): x is FundingReplayResult["path"][number] => Boolean(x));
-  const nav = rows.map((x) => x.nav);
-  const contributed = rows.map((x) => x.cumulativeContributed);
-  const credit = rows.map((x) => x.fundingCredit);
+  const row = result.path[months - 1];
+  if (!row) return null;
+  const navToContributed =
+    row.cumulativeContributed > 1e-12
+      ? row.nav / row.cumulativeContributed
+      : null;
+  return {
+    contributedRatio: row.cumulativeContributed,
+    navToContributed,
+    navToB: row.nav,
+  };
+}
+
+function summarizeFundingCheckpointDifference(
+  adaptive: FundingReplayResult[],
+  clock: FundingReplayResult[],
+  months: 36 | 60 | 120,
+) {
+  const n = Math.min(adaptive.length, clock.length);
+  const deltaContributed: number[] = [];
+  const deltaNavToContributed: number[] = [];
+  const deltaNavToB: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const a = adaptive[i];
+    const c = clock[i];
+    if (!a || !c || a.startDate !== c.startDate || a.endDate !== c.endDate) {
+      throw new Error(
+        "Checkpoint comparison requires identical rolling starts at index " + i,
+      );
+    }
+    const am = checkpointMetrics(a, months);
+    const cm = checkpointMetrics(c, months);
+    if (!am || !cm || am.navToContributed == null || cm.navToContributed == null) {
+      continue;
+    }
+    // All deltas are CLOCK - ADAPTIVE on the exact same rolling start.
+    deltaContributed.push(cm.contributedRatio - am.contributedRatio);
+    deltaNavToContributed.push(cm.navToContributed - am.navToContributed);
+    deltaNavToB.push(cm.navToB - am.navToB);
+  }
+
   return {
     months,
     label: months === 36 ? "3Y" : months === 60 ? "5Y" : "10Y",
-    observations: rows.length,
+    pairedObservations: deltaContributed.length,
     dependence: "OVERLAPPING_ROLLING_PATHS; DIAGNOSTIC",
-    medianNav: quantile(nav, 0.5) ?? 0,
-    q05Nav: quantile(nav, 0.05) ?? 0,
-    meanContributed: contributed.reduce((a, b) => a + b, 0) / Math.max(1, contributed.length),
-    meanContributionReduction:
-      months / FLOOR_HORIZON_MONTHS -
-      contributed.reduce((a, b) => a + b, 0) / Math.max(1, contributed.length),
-    meanCredit: credit.reduce((a, b) => a + b, 0) / Math.max(1, credit.length),
-    creditActiveRate: credit.filter((x) => x > 1e-12).length / Math.max(1, credit.length),
+    clockMinusAdaptive: {
+      contributedRatio: mean(deltaContributed),
+      navToContributed: mean(deltaNavToContributed),
+      navToB: mean(deltaNavToB),
+    },
   };
 }
 
@@ -485,12 +522,12 @@ function writeOutputs(
         observations: replay.replays.length,
         dependence: "OVERLAPPING_ROLLING_WINDOWS; DIAGNOSTIC_ONLY",
       },
-      checkpoints: [
-        summarizeFundingCheckpoint(replay.adaptiveFunding, 36),
-        summarizeFundingCheckpoint(replay.adaptiveFunding, 60),
-        summarizeFundingCheckpoint(replay.adaptiveFunding, 120),
+      checkpointDiffs: [
+        summarizeFundingCheckpointDifference(replay.adaptiveFunding, replay.clockFunding, 36),
+        summarizeFundingCheckpointDifference(replay.adaptiveFunding, replay.clockFunding, 60),
+        summarizeFundingCheckpointDifference(replay.adaptiveFunding, replay.clockFunding, 120),
       ],
-      rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test. None are treated as independent samples.",
+      rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test. Each row is a paired CLOCK - ADAPTIVE comparison from the same rolling start. Rolling starts overlap, so paired observations are diagnostic, not independent samples.",
     },
     statePath: summarizeStatePath(replay.replays),
     mutualChasePath: summarizeStatePath(replay.replays, "mutualChaseState"),
@@ -634,12 +671,19 @@ function writeOutputs(
     "Clock-funded 5% terminal quantile: " +
       payload.replay.clockFunding.q05Terminal.toFixed(4),
     "",
-    "Checkpoint 3Y q05 NAV: " +
-      payload.evaluation.checkpoints[0].q05Nav.toFixed(4),
-    "Checkpoint 5Y q05 NAV: " +
-      payload.evaluation.checkpoints[1].q05Nav.toFixed(4),
-    "Checkpoint 10Y q05 NAV: " +
-      payload.evaluation.checkpoints[2].q05Nav.toFixed(4),
+    "## Paired checkpoint differential (CLOCK - ADAPTIVE)",
+    "",
+    "| Checkpoint | Delta contributed / B | Delta NAV / contributed | Delta NAV / B |",
+    "|---|---:|---:|---:|",
+    ...payload.evaluation.checkpointDiffs.map((x) =>
+      "| " + x.label +
+      " | " + (x.clockMinusAdaptive.contributedRatio * 100).toFixed(2) + "%" +
+      " | " + x.clockMinusAdaptive.navToContributed.toFixed(4) +
+      " | " + x.clockMinusAdaptive.navToB.toFixed(4) +
+      " |"
+    ),
+    "",
+    "Positive numbers mean CLOCK is higher than ADAPTIVE for that same rolling start. NAV / contributed is measured against capital already externally contributed at the checkpoint; NAV / B uses the full planned principal B=1 as denominator.",
     "",
     "## Current",
     "",
