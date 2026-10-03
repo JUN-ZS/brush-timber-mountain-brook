@@ -20,7 +20,7 @@ type ChannelId = "QQQ" | "NDX" | "NASDAQCOM";
 type Mode = "full" | "shard" | "bridge";
 
 type ShardPayload = {
-  version: "rolling-floor.shard.v2";
+  version: "rolling-floor.shard.v3";
   kind: "CHANNEL_SHARD";
   channel: ChannelId;
   layer: Channel["layer"];
@@ -145,7 +145,7 @@ async function makeShard(channel: ChannelId): Promise<ShardPayload> {
   }
 
   return {
-    version: "rolling-floor.shard.v2",
+    version: "rolling-floor.shard.v3",
     kind: "CHANNEL_SHARD",
     channel,
     layer: channelLayer(channel),
@@ -244,7 +244,7 @@ function validateShards(shards: ShardPayload[], qqq: MonthlyPoint[]) {
   }
   const qqqHash = hashPoints(qqq);
   for (const shard of shards) {
-    if (shard.version !== "rolling-floor.shard.v2" || shard.kind !== "CHANNEL_SHARD") {
+    if (shard.version !== "rolling-floor.shard.v3" || shard.kind !== "CHANNEL_SHARD") {
       throw new Error("Invalid shard: " + shard.channel);
     }
     if (shard.qqqHash !== qqqHash) {
@@ -280,16 +280,24 @@ function runReplay(
   panel: Map<string, ReturnType<typeof couple>>,
 ) {
   const replays = [];
+  const adaptiveCredit = [];
   const clock = [];
   const lump = [];
   for (let start = 0; start + 120 < qqq.length; start++) {
-    const r = replayOne(qqq, panel, start);
-    if (!r) continue;
-    replays.push(r);
+    const coupled = replayOne(qqq, panel, start, "COUPLED");
+    const credit = replayOne(qqq, panel, start, "ADAPTIVE_CREDIT_ONLY");
+    if (!coupled || !credit) continue;
+    replays.push(coupled);
+    adaptiveCredit.push(credit);
     clock.push(clockReplay(qqq, start));
     lump.push(lumpReplay(qqq, start));
   }
-  return { replays, clock: clock.filter(Boolean), lump: lump.filter(Boolean) };
+  return {
+    replays,
+    adaptiveCredit,
+    clock: clock.filter(Boolean),
+    lump: lump.filter(Boolean),
+  };
 }
 
 function baselineSummary(
@@ -326,7 +334,7 @@ function writeOutputs(
     couple(latestDate, 0, byDate.get(latestDate) ?? []);
 
   const payload = {
-    version: "rolling-floor.v2",
+    version: "rolling-floor.v3-adaptive-credit",
     evidenceClass: "RESEARCH_ONLY",
     topology: {
       workers: [
@@ -389,6 +397,7 @@ function writeOutputs(
     replay: {
       n: replay.replays.length,
       coupled: summarizeReplays(replay.replays),
+      adaptiveCreditOnly: summarizeReplays(replay.adaptiveCredit),
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
     },
@@ -473,6 +482,8 @@ function writeOutputs(
     "",
     "Signal objective: 95% terminal-principal floor front-load requirement, not maximum terminal wealth.",
     "",
+    "The adaptive-credit replay is a separate BUY-only controller: it ignores the historical forward-pull target and uses only reversible NAV surplus credit against the hard clock.",
+    "",
     "Coupled replays: " + replay.replays.length,
     "Coupled non-loss rate: " +
       (payload.replay.coupled.nonLossRate * 100).toFixed(1) +
@@ -485,6 +496,15 @@ function writeOutputs(
       (payload.replay.coupled.worstMaxDd * 100).toFixed(1) +
       "%",
     "",
+    "Adaptive-credit-only non-loss: " +
+      (payload.replay.adaptiveCreditOnly.nonLossRate * 100).toFixed(1) +
+      "%",
+    "Adaptive-credit mean total deployed: " +
+      (payload.replay.adaptiveCreditOnly.meanTotalInvested * 100).toFixed(2) +
+      "%",
+    "Adaptive-credit mean undeployed at end: " +
+      (payload.replay.adaptiveCreditOnly.meanUndeployedAtEnd * 100).toFixed(2) +
+      "%",
     "Clock-only non-loss: " +
       (payload.replay.clockOnly.nonLossRate * 100).toFixed(1) +
       "%",
