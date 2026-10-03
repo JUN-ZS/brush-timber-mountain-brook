@@ -12,7 +12,11 @@ on:
       - "scripts/run-qqq-mutual-chase-sell-sensitivity-v1.ts"
       - "scripts/run-qqq-mutual-chase-sell-timing-v1.ts"
       - "scripts/run-qqq-mutual-chase-sell-state-machine-v1.ts"
+      - "scripts/run-qqq-mutual-chase-profit-target-reserve-v1.ts"
+      - "scripts/run-qqq-mutual-chase-profit-hold-v1.ts"
       - "research/qqq_hybrid_downside_convexity_v1/SELL_TIMING_PREREGISTERED.md"
+      - "research/qqq_hybrid_downside_convexity_v1/PROFIT_TARGET_RESERVE_PREREGISTERED.md"
+      - "research/qqq_hybrid_downside_convexity_v1/PROFIT_HOLD_PREREGISTERED.md"
       - "research/qqq_hybrid_downside_convexity_v1/SELL_SENSITIVITY_PREREGISTERED.md"
       - "research/qqq_hybrid_downside_convexity_v1/SELL_STATE_MACHINE_PREREGISTERED.md"
       - ".github/workflows/qqq-hybrid-downside-convexity-v1.yml"
@@ -45,6 +49,10 @@ jobs:
         run: node --experimental-strip-types scripts/run-qqq-mutual-chase-sell-timing-v1.ts
       - name: Run fixed SELL state-machine research
         run: node --experimental-strip-types scripts/run-qqq-mutual-chase-sell-state-machine-v1.ts
+      - name: Run fixed profit target/reserve research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-profit-target-reserve-v1.ts
+      - name: Run fixed profit-hold research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-profit-hold-v1.ts
       - name: Validate research output
         run: |
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.json
@@ -67,6 +75,10 @@ jobs:
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.json
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.md
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_profit_target_reserve_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_profit_target_reserve_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_profit_hold_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_profit_hold_v1.md
           node - <<'NODE'
           const fs = require("node:fs");
           const base = "research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.json";
