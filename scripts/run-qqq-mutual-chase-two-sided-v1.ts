@@ -42,6 +42,7 @@ const DATA_PATH = resolve(ROOT, "src/data/universe.json");
 const OUT_DIR = resolve(ROOT, process.env.OUT_DIR ?? "research/qqq_hybrid_downside_convexity_v1");
 const H = 120;
 const B = 1;
+// V1 execution convention: month-end close is both the mark and the rebalance price; no next-month information is used.
 
 function finitePositive(x: unknown): number | null {
   const n = Number(x);
