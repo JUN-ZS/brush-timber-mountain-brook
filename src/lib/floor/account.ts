@@ -21,8 +21,8 @@ export type FloorAccountState = {
 };
 
 export function clampCycleMonth(month: number) {
-  if (!Number.isFinite(month)) return 1;
-  return Math.max(1, Math.min(FLOOR_HORIZON_MONTHS, Math.round(month)));
+  if (!Number.isFinite(month)) return 0;
+  return Math.max(0, Math.min(FLOOR_HORIZON_MONTHS, Math.round(month)));
 }
 
 export function clockFraction(cycleMonth: number) {
