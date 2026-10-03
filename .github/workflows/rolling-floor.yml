@@ -14,7 +14,7 @@ permissions:
 jobs:
   cleanup-stale-research-runs:
     name: Cleanup / this research branch only
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     continue-on-error: true
     steps:
       - name: Cancel stale Rolling/V22 runs from this branch
@@ -47,7 +47,7 @@ jobs:
 
   qqq-windows-audit:
     name: Worker / QQQ / Windows audit
-    runs-on: windows-latest
+    runs-on: [self-hosted, windows, x64]
     continue-on-error: true
     timeout-minutes: 20
     steps:
@@ -123,7 +123,7 @@ jobs:
 
   hub-web:
     name: Worker / NASDAQCOM / HUB-Web
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +168,7 @@ jobs:
     name: Bridge / coupled QQQ replay
     if: ${{ always() && !cancelled() }}
     needs: [ndx-linux, hub-web]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
