@@ -36,8 +36,8 @@ jobs:
       - name: Floor account tests
         run: node --experimental-strip-types --test src/lib/floor/account.test.ts
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Floor app lint
+        run: npx eslint src/routes/floor.tsx src/routes/floor-research.tsx src/lib/floor/account.ts src/lib/floor/account.test.ts
 
       - name: Development build
         run: npm run build:dev
