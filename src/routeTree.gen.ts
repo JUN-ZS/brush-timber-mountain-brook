@@ -138,6 +138,9 @@ export interface RootRouteChildren {
   MatrixRoute: typeof MatrixRoute
   MissingRoute: typeof MissingRoute
   RankRoute: typeof RankRoute
+  StrategyRoute: typeof StrategyRoute
+  FloorRoute: typeof FloorRoute
+  FloorResearchRoute: typeof FloorResearchRoute
 }
 
 declare module '@tanstack/react-router' {
