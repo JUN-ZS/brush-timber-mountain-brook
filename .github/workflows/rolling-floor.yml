@@ -240,12 +240,16 @@ jobs:
           test -s research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl
           test -s research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl
           test -s research/rolling_10y_floor/rolling_floor_partial_b_floor_withdrawal_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl
           test -s research/rolling_10y_floor/rolling_floor_state_path.json
           test -s research/rolling_10y_floor/rolling_floor_report.md
           node - <<'NODE'
           const fs = require("node:fs");
           const x = JSON.parse(fs.readFileSync("research/rolling_10y_floor/rolling_floor_result.json","utf8"));
-          if (x.version !== "rolling-floor.v7-partial-b-floor-withdrawal") throw new Error("wrong result version");
+          if (x.version !== "rolling-floor.v8-clock-isolated-withdrawal") throw new Error("wrong result version");
+          if (!x.evaluation?.clockPartialBFloorWithdrawal) throw new Error("missing isolated clock withdrawal evaluation");
+          if (!x.evaluation?.adaptiveFundingWithdrawal) throw new Error("missing adaptive secondary withdrawal evaluation");
+          if (x.evaluation.clockPartialBFloorWithdrawal.preregisteredAlpha !== 0.5) throw new Error("alpha must remain fixed at 0.50");
           if (x.replay?.n <= 0) throw new Error("no replay rows");
           if (!Array.isArray(x.statePath) || x.statePath.length !== 4) throw new Error("state path summary must have 4 states");
           if (x.topology?.windowsAudit !== "NONBLOCKING") throw new Error("QQQ Windows audit must be nonblocking");
@@ -269,6 +273,7 @@ jobs:
           cp research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl portable/output/rolling_floor_profit_sweep_replays.jsonl
           cp research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl portable/output/rolling_floor_b_floor_withdrawal_replays.jsonl
           cp research/rolling_10y_floor/rolling_floor_partial_b_floor_withdrawal_replays.jsonl portable/output/rolling_floor_partial_b_floor_withdrawal_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl portable/output/rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl
           cp research/rolling_10y_floor/rolling_floor_state_path.json portable/output/rolling_floor_state_path.json
           cp research/rolling_10y_floor/rolling_floor_report.md portable/output/rolling_floor_report.md
           cp research/rolling_10y_floor/PORTABLE_RUN.md portable/PORTABLE_RUN.md
@@ -289,6 +294,7 @@ jobs:
             research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl
             research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl
             research/rolling_10y_floor/rolling_floor_partial_b_floor_withdrawal_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl
             research/rolling_10y_floor/rolling_floor_report.md
             portable/
           if-no-files-found: error
