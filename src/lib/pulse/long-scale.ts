@@ -206,6 +206,7 @@ export function buildSyntheticLongScale(
   const proxy = buildContinuousProxy(ndx, composite, historyStartDate, asOf);
   if (proxy.length < 36) return null;
 
+  const proxyCalibration = logCalibration(composite, ndx);
   const qqqCalibration = logCalibration(proxy, qqqObserved);
   if (qqqCalibration.alpha == null || qqqCalibration.beta == null) return null;
 
@@ -253,8 +254,8 @@ export function buildSyntheticLongScale(
     future,
     calibration: {
       proxySource: "NASDAQ100 + NASDAQCOM",
-      proxyOverlapMonths: logCalibration(composite, ndx).overlapMonths,
-      proxyBeta: logCalibration(composite, ndx).beta,
+      proxyOverlapMonths: proxyCalibration.overlapMonths,
+      proxyBeta: proxyCalibration.beta,
       qqqOverlapMonths: qqqCalibration.overlapMonths,
       qqqBeta: qqqCalibration.beta,
     },
