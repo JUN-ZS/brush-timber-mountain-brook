@@ -47,6 +47,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_OUT = join(ROOT, "research", "rolling_10y_floor");
 const DEFAULT_INPUT = join(ROOT, "inputs", "rolling_floor_shards");
 const END_DATE = qqqMonthly().at(-1)?.date ?? "2026-09-04";
+// Pre-registered before the partial-withdrawal replay: fixed once, never swept/tuned.
+const PRE_REGISTERED_WITHDRAWAL_ALPHA = 0.50;
 
 function parseArgs() {
   const argv = process.argv.slice(2);
@@ -305,6 +307,8 @@ function runReplay(
   const profitSweep = [];
   // New B-floor diagnostic: withdraw only NAV-B, with B immutable.
   const bFloorSweep = [];
+  // Pre-registered partial B-floor diagnostic: alpha = 0.50 only; no alpha sweep.
+  const partialBFloorSweep = [];
 
   for (let start = 0; start + 120 < qqq.length; start++) {
     const coupled = replayOne(qqq, panel, start, "COUPLED");
@@ -347,13 +351,26 @@ function runReplay(
       initialFundingFraction,
       "SWEEP_ABOVE_PLANNED_PRINCIPAL",
     );
+    const partialBFloorFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "ADAPTIVE_FUNDED",
+      1,
+      initialFundingFraction,
+      "PARTIAL_ABOVE_PLANNED_PRINCIPAL",
+      new Map(),
+      PRE_REGISTERED_WITHDRAWAL_ALPHA,
+    );
     if (
       !coupled ||
       !credit ||
       !adaptiveFund ||
       !clockFund ||
       !sweepFund ||
-      !bFloorFund
+      !bFloorFund ||
+      !partialBFloorFund
     ) continue;
 
     // Full profit sweep must erase the future surplus credit before the next
@@ -378,6 +395,12 @@ function runReplay(
           point.withdrawalExecuted > 1e-12 &&
           (point.navBeforeWithdrawal + 1e-9 < bFloorFund.plannedPrincipal ||
             point.nav + 1e-9 < bFloorFund.plannedPrincipal),
+      ) ||
+      partialBFloorFund.path.some(
+        (point) =>
+          point.withdrawalExecuted > 1e-12 &&
+          (point.navBeforeWithdrawal + 1e-9 < partialBFloorFund.plannedPrincipal ||
+            point.nav + 1e-9 < partialBFloorFund.plannedPrincipal),
       )
     ) {
       throw new Error(
@@ -391,6 +414,7 @@ function runReplay(
     clockFunding.push(clockFund);
     profitSweep.push(sweepFund);
     bFloorSweep.push(bFloorFund);
+    partialBFloorSweep.push(partialBFloorFund);
     clock.push(clockReplay(qqq, start));
     lump.push(lumpReplay(qqq, start));
   }
@@ -402,6 +426,7 @@ function runReplay(
     clockFunding,
     profitSweep,
     bFloorSweep,
+    partialBFloorSweep,
     clock: clock.filter(Boolean),
     lump: lump.filter(Boolean),
   };
@@ -610,7 +635,7 @@ function writeOutputs(
     couple(latestDate, 0, byDate.get(latestDate) ?? []);
 
   const payload = {
-    version: "rolling-floor.v6-b-floor-withdrawal",
+    version: "rolling-floor.v7-partial-b-floor-withdrawal",
     evidenceClass: "RESEARCH_ONLY",
     topology: {
       workers: [
@@ -680,6 +705,7 @@ function writeOutputs(
       clockFunding: summarizeFunding(replay.clockFunding),
       profitSweep: summarizeFunding(replay.profitSweep),
       bFloorSweep: summarizeFunding(replay.bFloorSweep),
+      partialBFloorSweep: summarizeFunding(replay.partialBFloorSweep),
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
     },
@@ -697,6 +723,13 @@ function writeOutputs(
         replay.bFloorSweep,
         replay.clockFunding,
       ),
+      partialBFloorWithdrawal: {
+        preregisteredAlpha: PRE_REGISTERED_WITHDRAWAL_ALPHA,
+        ...summarizeBFloorWithdrawal(
+          replay.partialBFloorSweep,
+          replay.clockFunding,
+        ),
+      },
       rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test. Withdrawal is judged only against the same-start clock on delta NAV_T, delta net economic wealth, principal-failure rate, and Q05 terminal NAV. Rolling starts overlap, so these observations are diagnostic, not independent samples.",
     },
     statePath: summarizeStatePath(replay.replays),
@@ -706,6 +739,11 @@ function writeOutputs(
       mode: "BRIDGE",
       qqqHash: hashPoints(qqq),
       sourceCommit: process.env.GITHUB_SHA ?? "LOCAL",
+      withdrawalResearch: {
+        rule: "PARTIAL_ABOVE_PLANNED_PRINCIPAL",
+        alpha: PRE_REGISTERED_WITHDRAWAL_ALPHA,
+        preregistration: "FIXED_BEFORE_REPLAY; NO_ALPHA_SWEEP",
+      },
       externalRerun: "Use the portable bundle. No npm install and no network are required for bridge replay.",
     },
   };
@@ -737,6 +775,10 @@ function writeOutputs(
   writeFileSync(
     join(outDir, "rolling_floor_b_floor_withdrawal_replays.jsonl"),
     replay.bFloorSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_partial_b_floor_withdrawal_replays.jsonl"),
+    replay.partialBFloorSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
   writeFileSync(
     join(outDir, "rolling_floor_state_path.json"),
@@ -880,7 +922,26 @@ function writeOutputs(
       payload.evaluation.bFloorWithdrawal.clockQ05Terminal.toFixed(4),
     "B-floor withdrawal mean cumulative withdrawn / B: " +
       (payload.evaluation.bFloorWithdrawal.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
+    "",
+    "Pre-registered partial withdrawal diagnostic: alpha = " +
+      PRE_REGISTERED_WITHDRAWAL_ALPHA.toFixed(2) +
+      " of NAV-B surplus; alpha was fixed before replay and no alpha sweep/search was performed.",
+    "Partial B-floor mean delta NAV_T / B (WITHDRAWAL - CLOCK): " +
+      (payload.evaluation.partialBFloorWithdrawal.deltaNavTerminal * 100).toFixed(2) + "%",
+    "Partial B-floor mean delta net economic wealth / B (WITHDRAWAL - CLOCK): " +
+      (payload.evaluation.partialBFloorWithdrawal.deltaNetEconomicWealth * 100).toFixed(2) + "%",
+    "Partial B-floor principal failure rate: " +
+      (payload.evaluation.partialBFloorWithdrawal.principalFailureRate * 100).toFixed(1) + "%",
+    "Partial B-floor same-start clock principal failure rate: " +
+      (payload.evaluation.partialBFloorWithdrawal.clockPrincipalFailureRate * 100).toFixed(1) + "%",
+    "Partial B-floor Q05 terminal NAV / B: " +
+      payload.evaluation.partialBFloorWithdrawal.q05Terminal.toFixed(4),
+    "Partial B-floor same-start clock Q05 terminal NAV / B: " +
+      payload.evaluation.partialBFloorWithdrawal.clockQ05Terminal.toFixed(4),
+    "Partial B-floor mean cumulative withdrawn / B: " +
+      (payload.evaluation.partialBFloorWithdrawal.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
     "Acceptance rule: cash-flow magnitude is not a pass condition. The withdrawal layer remains diagnostic unless the same-start terminal NAV and net-economic-wealth deltas, principal-failure rate, and Q05 show an acceptable relationship to CLOCK. No independent-sample inference is made from overlapping rolling windows.",
+
     "",
     "Clock-funded principal failure rate: " +
       (payload.replay.clockFunding.principalFailureRate * 100).toFixed(1) + "%",
