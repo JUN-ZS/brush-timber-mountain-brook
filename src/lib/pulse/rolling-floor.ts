@@ -170,7 +170,9 @@ export type ProfitWithdrawalMode =
   // Legacy diagnostic retained to reproduce #151's "withdraw surplus above C_t" counterexample.
   | "SWEEP_ELIGIBLE_SURPLUS"
   // New B-floor diagnostic: only realized NAV above immutable planned principal B is withdrawable.
-  | "SWEEP_ABOVE_PLANNED_PRINCIPAL";
+  | "SWEEP_ABOVE_PLANNED_PRINCIPAL"
+  // Pre-registered partial withdrawal diagnostic; alpha is fixed before replay.
+  | "PARTIAL_ABOVE_PLANNED_PRINCIPAL";
 
 export type FundingPathPoint = {
   date: string;
@@ -196,6 +198,7 @@ export type FundingPathPoint = {
   nextDecisionCreditAfterWithdrawal: number;
   creditCancelledByWithdrawal: number;
   divergenceState: DivergenceState;
+  withdrawalAlpha: number;
 };
 
 export type FundingReplayResult = {
@@ -208,6 +211,7 @@ export type FundingReplayResult = {
   maxDrawdown: number;
   totalContributed: number;
   totalWithdrawn: number;
+  withdrawalAlpha: number;
   maxContributionReduction: number;
   totalContributionReduction: number;
   netEconomicWealth: number;
@@ -1010,6 +1014,7 @@ export function replayFundingPlan(
   initialFundingFraction = DEFAULT_INITIAL_FUNDING_FRACTION,
   withdrawalMode: ProfitWithdrawalMode = "NONE",
   withdrawalSchedule: Map<string, number> = new Map(),
+  withdrawalAlpha = 1,
 ): FundingReplayResult | null {
   const endIndex = startIndex + horizonMonths;
   if (endIndex >= qqq.length) return null;
@@ -1040,6 +1045,13 @@ export function replayFundingPlan(
     )
   ) {
     throw new Error("scheduled withdrawals must be finite and non-negative");
+  }
+  if (
+    !Number.isFinite(withdrawalAlpha) ||
+    withdrawalAlpha < 0 ||
+    withdrawalAlpha > 1
+  ) {
+    throw new Error("withdrawalAlpha must be in [0, 1]");
   }
 
   for (let j = 0; j < horizonMonths; j++) {
@@ -1115,14 +1127,26 @@ export function replayFundingPlan(
         : withdrawalMode === "NONE"
           ? 0
           : Math.max(0, navBeforeWithdrawal - plannedPrincipal);
+    const withdrawalFraction =
+      withdrawalMode === "PARTIAL_ABOVE_PLANNED_PRINCIPAL"
+        ? withdrawalAlpha
+        : withdrawalMode === "SWEEP_ABOVE_PLANNED_PRINCIPAL"
+          ? 1
+          : withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS"
+            ? 1
+            : withdrawalMode === "SCHEDULED"
+              ? 1
+              : 0;
     const scheduledWithdrawal = withdrawalSchedule.get(date) ?? 0;
     const withdrawalRequested =
       withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS" ||
       withdrawalMode === "SWEEP_ABOVE_PLANNED_PRINCIPAL"
-        ? withdrawalEligibleSurplus
-        : withdrawalMode === "SCHEDULED"
-          ? scheduledWithdrawal
-          : 0;
+        ? withdrawalEligibleSurplus * withdrawalFraction
+        : withdrawalMode === "PARTIAL_ABOVE_PLANNED_PRINCIPAL"
+          ? withdrawalEligibleSurplus * withdrawalFraction
+          : withdrawalMode === "SCHEDULED"
+            ? scheduledWithdrawal
+            : 0;
     const withdrawalExecuted = Math.min(
       withdrawalEligibleSurplus,
       Math.max(0, withdrawalRequested),
@@ -1223,6 +1247,13 @@ export function replayFundingPlan(
           nextDecisionCreditAfterWithdrawal,
       ),
       divergenceState: sig?.divergenceState ?? "THIN",
+      withdrawalAlpha:
+        withdrawalMode === "PARTIAL_ABOVE_PLANNED_PRINCIPAL"
+          ? withdrawalAlpha
+          : withdrawalMode === "SWEEP_ABOVE_PLANNED_PRINCIPAL" ||
+              withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS"
+            ? 1
+            : 0,
     });
 
     curve.push(nav);
@@ -1242,6 +1273,7 @@ export function replayFundingPlan(
     maxDrawdown: equityStats(curve).maxDd,
     totalContributed: cumulativeContributed,
     totalWithdrawn: cumulativeWithdrawn,
+    withdrawalAlpha,
     plannedPrincipal,
     initialFundingFraction,
     maxContributionReduction: Math.max(
