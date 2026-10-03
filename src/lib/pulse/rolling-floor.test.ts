@@ -246,7 +246,7 @@ test("adaptive credit is a majority survival probability, not a GAR/MaxDD score"
 test("adaptive credit reduces future buy and is revoked by a later floor breach", () => {
   const qqq = Array.from({ length: 121 }, (_, i) => ({
     date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
-    value: i < 2 ? 1.2 : 0.8,
+    value: i === 0 ? 1 : i === 1 ? 1.2 : 0.8,
   }));
 
   const signalFor = (date: string) => ({
