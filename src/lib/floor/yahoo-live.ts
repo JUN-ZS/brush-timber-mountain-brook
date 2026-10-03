@@ -114,7 +114,8 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
       Math.abs(w - (target[1] ?? 0)) +
       Math.abs(m - (target[2] ?? 0)) +
       Math.abs(direction - (target[3] ?? 0));
-    if (distance > 0.24) continue;
+    // Keep the original ~0.08 average feature-distance threshold after adding direction.
+    if (distance > 0.32) continue;
     const d1 = signedForward(closes, i, 1);
     const d5 = signedForward(closes, i, 5);
     const d21 = signedForward(closes, i, 21);
