@@ -224,7 +224,7 @@ function run() {
     if (!Number.isFinite(row.mutualChase.terminalEconomicWealth)) {
       failures.push(row.startDate + " non-finite terminal wealth");
     }
-    if (row.clock.totalContribution !== B) failures.push(row.startDate + " clock did not deploy exactly B");
+    if (Math.abs(row.clock.totalContribution - B) > 1e-8) failures.push(row.startDate + " clock did not deploy exactly B");
     if (row.clock.terminalEconomicWealth < -1e-10 || row.mutualChase.terminalEconomicWealth < -1e-10) {
       failures.push(row.startDate + " negative economic wealth");
     }
