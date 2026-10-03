@@ -181,44 +181,6 @@ function simulate(pr: number[], mode: ReserveMode): Metrics {
     const weakness = dd12(pr, i) <= DD_TRIGGER + 1e-12;
     const recovered = dd12(pr, i) > DD_TRIGGER + 1e-12;
 
-    // Fixed SELL state machine; identical across all reserve modes.
-    if (sellState === "NORMAL") {
-      if (isExtended) {
-        sellState = "EXTENDED_CANDIDATE";
-        soldInEpisode = false;
-      }
-    } else if (sellState === "EXTENDED_CANDIDATE") {
-      sellState = isExtended ? "ARMED" : "NORMAL";
-    } else if (sellState === "ARMED") {
-      if (isExtended && prevNav > target + 1e-12) {
-        const sellAmountPrev = SELL * (prevNav - target);
-        const sellShares = Math.min(
-          shares,
-          sellAmountPrev / Math.max(pricePrev, 1e-12),
-        );
-        if (sellShares > 0) {
-          if (soldInEpisode) throw new Error("SELL_EPISODE_DUPLICATE");
-          const proceeds = sellShares * pr[t];
-          shares -= sellShares;
-          sellEvents++;
-          harvestToReserve += proceeds;
-
-          if (mode === "CURRENT_REUSE") {
-            availableReserve += proceeds;
-          } else {
-            lockedReserve += proceeds;
-          }
-
-          soldInEpisode = true;
-          sellState = "COOLDOWN";
-        }
-      } else if (!isExtended) {
-        sellState = "NORMAL";
-      }
-    } else if (sellState === "COOLDOWN" && !isExtended) {
-      sellState = "NORMAL";
-    }
-
     // Reserve eligibility uses only t-1 information.
     if (mode === "ONE_SHOT_DD_RELEASE") {
       if (!oneShotReleased && lockedReserve > 1e-12 && weakness) {
@@ -276,6 +238,50 @@ function simulate(pr: number[], mode: ReserveMode): Metrics {
           }
         }
       }
+    }
+
+    // Fixed SELL state machine; identical across all reserve modes.
+    if (sellState === "NORMAL") {
+      if (isExtended) {
+        sellState = "EXTENDED_CANDIDATE";
+        soldInEpisode = false;
+      }
+    } else if (sellState === "EXTENDED_CANDIDATE") {
+      sellState = isExtended ? "ARMED" : "NORMAL";
+    } else if (sellState === "ARMED") {
+      if (isExtended && prevNav > target + 1e-12) {
+        const sellAmountPrev = SELL * (prevNav - target);
+        const sellShares = Math.min(
+          shares,
+          sellAmountPrev / Math.max(pricePrev, 1e-12),
+        );
+        if (sellShares > 0) {
+          if (soldInEpisode) throw new Error("SELL_EPISODE_DUPLICATE");
+          const proceeds = sellShares * pr[t];
+          shares -= sellShares;
+          sellEvents++;
+          harvestToReserve += proceeds;
+
+          const harvestIsDeployable =
+            mode === "CURRENT_REUSE" ||
+            (mode === "ONE_SHOT_DD_RELEASE" && oneShotReleased) ||
+            (mode === "RESERVE_STATE" &&
+              (reserveState === "RESERVE_DEPLOYABLE" || reserveState === "RECOVERY"));
+
+          if (harvestIsDeployable) {
+            availableReserve += proceeds;
+          } else {
+            lockedReserve += proceeds;
+          }
+
+          soldInEpisode = true;
+          sellState = "COOLDOWN";
+        }
+      } else if (!isExtended) {
+        sellState = "NORMAL";
+      }
+    } else if (sellState === "COOLDOWN" && !isExtended) {
+      sellState = "NORMAL";
     }
 
     const canUseReserve =
@@ -491,7 +497,7 @@ function run() {
     "## Fair controls",
     "",
     "- CURRENT_REUSE: harvested reserve is immediately reusable.",
-    "- ONE_SHOT_DD_RELEASE: same -10% trigger, but release occurs once and never re-locks.",
+    "- ONE_SHOT_DD_RELEASE: same -10% trigger; first trigger opens the reserve and it never re-locks. Future harvests remain reusable.",
     "- RESERVE_STATE: same trigger, with two-month confirmation and two-month recovery hysteresis.",
     "",
     "The SELL mechanism is identical across all three modes: 10% of prior-close surplus, POST_RUNUP eligibility, two-observation confirmation, one SELL per continuous episode.",
