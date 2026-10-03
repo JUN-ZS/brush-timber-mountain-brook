@@ -354,3 +354,5 @@ function run() {
 }
 
 run();
+
+// Fixed sensitivity runner trigger: workflow was preregistered before this commit.
