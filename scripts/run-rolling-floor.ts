@@ -6,6 +6,7 @@ import {
   couple,
   monthlyize,
   qqqMonthly,
+  quantile,
   recommendForScale,
   replayOne,
   summarizeReplays,
