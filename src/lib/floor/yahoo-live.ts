@@ -22,6 +22,24 @@ export type LiveScaleSignal = {
   level: "NORMAL_LOW" | "NORMAL" | "ELEVATED" | "HIGH" | "EXTREME" | "SUPER_EXTREME" | "UNKNOWN";
 };
 
+export type PriceHorizon = 1 | 5 | 21;
+
+export type PriceActionLevel = {
+  side: "ADD" | "REDUCE";
+  horizon: PriceHorizon;
+  touchProbability: number;
+  price: number | null;
+  distancePct: number | null;
+  samples: number;
+};
+
+export type LivePriceLadder = {
+  add: PriceActionLevel[];
+  reduce: PriceActionLevel[];
+  samples: number;
+  quality: "THIN" | "DESCRIPTIVE";
+};
+
 export type LiveHistoryMatch = {
   symbol: string;
   currentPrice: number | null;
@@ -36,6 +54,7 @@ export type LiveHistoryMatch = {
   median21d: number | null;
   pUp5d: number | null;
   referenceDates: string[];
+  priceLadder: LivePriceLadder | null;
 };
 
 export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | null {
@@ -49,7 +68,18 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
   const priceDir = signedDir(current, closes.at(-6) ?? null);
   const volLevel = week.level;
 
-  type Candidate = { date: string; d1: number; d5: number; d21: number };
+  type Candidate = {
+    date: string;
+    d1: number;
+    d5: number;
+    d21: number;
+    low1: number;
+    low5: number;
+    low21: number;
+    high1: number;
+    high5: number;
+    high21: number;
+  };
   const candidates: Candidate[] = [];
   const target = [
     day.percentile,
@@ -69,8 +99,23 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
     const d1 = signedForward(closes, i, 1);
     const d5 = signedForward(closes, i, 5);
     const d21 = signedForward(closes, i, 21);
-    if (d1 == null || d5 == null || d21 == null) continue;
-    candidates.push({ date: series.bars[i]?.date ?? "", d1, d5, d21 });
+    const low1 = forwardExtreme(closes, i, 1, "LOW");
+    const low5 = forwardExtreme(closes, i, 5, "LOW");
+    const low21 = forwardExtreme(closes, i, 21, "LOW");
+    const high1 = forwardExtreme(closes, i, 1, "HIGH");
+    const high5 = forwardExtreme(closes, i, 5, "HIGH");
+    const high21 = forwardExtreme(closes, i, 21, "HIGH");
+    if (
+      d1 == null || d5 == null || d21 == null ||
+      low1 == null || low5 == null || low21 == null ||
+      high1 == null || high5 == null || high21 == null
+    ) continue;
+    candidates.push({
+      date: series.bars[i]?.date ?? "",
+      d1, d5, d21,
+      low1, low5, low21,
+      high1, high5, high21,
+    });
   }
 
   candidates.sort(
@@ -79,6 +124,7 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
       featureDistance(closes, b.date, target),
   );
   const selected = candidates.slice(0, 25);
+  const priceLadder = current == null ? null : buildPriceLadder(current, selected);
   return {
     symbol: series.symbol,
     currentPrice: current,
@@ -93,6 +139,7 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
     median21d: median(selected.map((x) => x.d21)),
     pUp5d: selected.length ? selected.filter((x) => x.d5 > 0).length / selected.length : null,
     referenceDates: selected.slice(0, 8).map((x) => x.date).filter(Boolean),
+    priceLadder,
   };
 
   function featureDistance(xs: number[], date: string, t: (number | null)[]) {
@@ -149,6 +196,95 @@ function signedForward(closes: number[], i: number, horizon: number) {
   const a = closes[i];
   const b = closes[i + horizon];
   return a > 0 && b > 0 ? b / a - 1 : null;
+}
+
+function forwardExtreme(
+  closes: number[],
+  i: number,
+  horizon: number,
+  side: "LOW" | "HIGH",
+) {
+  const path = closes.slice(i, i + horizon + 1);
+  if (path.length !== horizon + 1 || !path.every((x) => x > 0)) return null;
+  return side === "LOW" ? Math.min(...path) : Math.max(...path);
+}
+
+function quantile(xs: number[], q: number) {
+  if (!xs.length) return null;
+  const sorted = [...xs].sort((a, b) => a - b);
+  const position = (sorted.length - 1) * Math.max(0, Math.min(1, q));
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return sorted[lower] ?? null;
+  const weight = position - lower;
+  return (sorted[lower] ?? 0) * (1 - weight) + (sorted[upper] ?? 0) * weight;
+}
+
+function buildPriceLadder(
+  current: number,
+  selected: Array<{
+    d1: number; d5: number; d21: number;
+    low1: number; low5: number; low21: number;
+    high1: number; high5: number; high21: number;
+  }>,
+): LivePriceLadder {
+  const touchProbabilities = [0.7, 0.5, 0.3] as const;
+  const horizons = [1, 5, 21] as const;
+  const add: PriceActionLevel[] = [];
+  const reduce: PriceActionLevel[] = [];
+
+
+// Normalize each candidate's forward extreme by its entry close before
+// projecting the ratio onto today's QQQ price.
+  const entryRatio = (x: { d1:number; d5:number; d21:number }, horizon: PriceHorizon) =>
+    horizon === 1 ? 1 + x.d1 : horizon === 5 ? 1 + x.d5 : 1 + x.d21;
+
+  // Build normalized low/high paths from the candidate's own entry close.
+  // The candidate return values are not used as the price denominator, so
+  // callers can safely pass only the forward-extreme fields plus the entry ratio.
+  const rawLevels = horizons.map((horizon) => {
+    const lows = selected.map((x) => {
+      const entry = horizon === 1 ? x.low1 / entryRatio(x, horizon) : horizon === 5 ? x.low5 / entryRatio(x, horizon) : x.low21 / entryRatio(x, horizon);
+      return entry;
+    });
+    const highs = selected.map((x) => {
+      const entry = horizon === 1 ? x.high1 / entryRatio(x, horizon) : horizon === 5 ? x.high5 / entryRatio(x, horizon) : x.high21 / entryRatio(x, horizon);
+      return entry;
+    });
+    return { horizon, lows, highs };
+  });
+
+  for (const { horizon, lows, highs } of rawLevels) {
+    for (const touchProbability of touchProbabilities) {
+      const lowRatio = quantile(lows, touchProbability);
+      const highRatio = quantile(highs, 1 - touchProbability);
+      const addPrice = lowRatio == null ? null : current * lowRatio;
+      const reducePrice = highRatio == null ? null : current * highRatio;
+      add.push({
+        side: "ADD",
+        horizon,
+        touchProbability,
+        price: addPrice != null && addPrice < current ? addPrice : null,
+        distancePct: addPrice != null && addPrice < current ? addPrice / current - 1 : null,
+        samples: selected.length,
+      });
+      reduce.push({
+        side: "REDUCE",
+        horizon,
+        touchProbability,
+        price: reducePrice != null && reducePrice > current ? reducePrice : null,
+        distancePct: reducePrice != null && reducePrice > current ? reducePrice / current - 1 : null,
+        samples: selected.length,
+      });
+    }
+  }
+
+  return {
+    add,
+    reduce,
+    samples: selected.length,
+    quality: selected.length < 12 ? "THIN" : "DESCRIPTIVE",
+  };
 }
 
 function signedDir(current: number, prior: number | null) {
