@@ -2,6 +2,11 @@ import { universe } from "./bars.ts";
 
 export const FLOOR_HORIZON_YEARS = 10;
 export const FLOOR_HORIZON_MONTHS = FLOOR_HORIZON_YEARS * 12;
+// The controller knows only the hard 100% principal plan. This default keeps
+// the original monthly clock behavior, while callers may explicitly choose a
+// larger initial funding fraction such as 10% or 20%.
+export const DEFAULT_INITIAL_FUNDING_FRACTION =
+  1 / FLOOR_HORIZON_MONTHS;
 export const TRAP_SCALES_YEARS = [20, 30, 50] as const;
 
 export type TrapScale = (typeof TRAP_SCALES_YEARS)[number];
@@ -35,23 +40,71 @@ export type Channel = {
   points: MonthlyPoint[];
 };
 
+export type FloorProfile = {
+  probabilities: number[];
+  requiredFrontLoad: number[];
+  meanRequiredFrontLoad: number;
+  maxRequiredFrontLoad: number;
+};
+
+export type DeploymentResponseProfile = {
+  deploymentFractions: number[];
+  q05Terminal: number[];
+  pNonLoss: number[];
+  meanTerminal: number[];
+};
+
+export type RiskBaselineProfile = {
+  deploymentFractions: number[];
+  garMedian: number[];
+  garQ05: number[];
+  garQ95: number[];
+  maxDdMedian: number[];
+  maxDdQ05: number[];
+  maxDdQ95: number[];
+};
+
+export type ForwardPathProfile = {
+  months: number[];
+  median: number[];
+  q05: number[];
+  q95: number[];
+};
+
+export type MutualChaseTopology = {
+  state: DivergenceState;
+  localDirections: Array<"FORWARD" | "BACKWARD" | "FLAT" | "MIXED">;
+  leaderScaleBySegment: Array<TrapScale | null>;
+  leaderChanges: number;
+  pairwiseCurveCrossings: number;
+};
+
 export type ChannelScaleSignal = {
   channel: string;
   layer: Channel["layer"];
   scaleYears: TrapScale;
   asof: string;
   target: number | null;
+  floorProfile: FloorProfile | null;
+  responseProfile: DeploymentResponseProfile | null;
+  riskBaselineProfile: RiskBaselineProfile | null;
+  forwardPathProfile: ForwardPathProfile | null;
+  nearestAnalogDistance: number | null;
   q05: number | null;
   pNonLoss: number | null;
   mean: number | null;
   nAnalogs: number;
   effectiveN: number;
   status: "OK" | "INSUFFICIENT_HISTORY";
+  // Raw per-analog 10Y MaxDD samples for empirical surplus-survival credit.
+  // This is not a GAR/MaxDD weighted score.
+  creditMaxDrawdowns: number[] | null;
 };
 
 export type DivergenceState = "CONVERGENT" | "TENSION" | "DIVERGENT" | "THIN";
 
 export type CoupledSignal = {
+
   asof: string;
   clockTarget: number;
   divergenceState: DivergenceState;
@@ -61,10 +114,18 @@ export type CoupledSignal = {
     target: number | null;
     agreement: number;
     nSignals: number;
+    responseProfile: DeploymentResponseProfile | null;
+    riskBaselineProfile: RiskBaselineProfile | null;
+    forwardPathProfile: ForwardPathProfile | null;
+    nearestAnalogDistance: number | null;
   }>;
   robustTarget: number | null;
   agreement: number;
   coupledTarget: number;
+  mutualChase: Array<{
+    channel: string;
+    topology: MutualChaseTopology;
+  }>;
 };
 
 export type ReplayTrade = {
@@ -76,7 +137,88 @@ export type ReplayTrade = {
   clockTarget: number;
   agreement: number;
   divergenceState: DivergenceState;
+  mutualChaseState: DivergenceState;
+  mutualLeaderChanges: number;
+  mutualCurveCrossings: number;
+  creditAmount: number;
+  creditConfidence: number;
+  effectiveTarget: number;
 };
+
+export type ReplayPathPoint = {
+  date: string;
+  action: number;
+  deployed: number;
+  cash: number;
+  coupledTarget: number;
+  clockTarget: number;
+  agreement: number;
+  divergenceState: DivergenceState;
+  mutualChaseState: DivergenceState;
+  mutualLeaderChanges: number;
+  mutualCurveCrossings: number;
+  creditAmount: number;
+  creditConfidence: number;
+  effectiveTarget: number;
+};
+
+export type FundingPlanMode = "CLOCK_FUNDED" | "ADAPTIVE_FUNDED";
+
+export type ProfitWithdrawalMode =
+  | "NONE"
+  | "SCHEDULED"
+  // Legacy diagnostic retained to reproduce #151's "withdraw surplus above C_t" counterexample.
+  | "SWEEP_ELIGIBLE_SURPLUS"
+  // New B-floor diagnostic: only realized NAV above immutable planned principal B is withdrawable.
+  | "SWEEP_ABOVE_PLANNED_PRINCIPAL"
+  // Pre-registered partial withdrawal diagnostic; alpha is fixed before replay.
+  | "PARTIAL_ABOVE_PLANNED_PRINCIPAL";
+
+export type FundingPathPoint = {
+  date: string;
+  contribution: number;
+  cumulativeContributed: number;
+  remainingExternalCapital: number;
+  plannedPrincipal: number;
+  initialFundingFraction: number;
+  invested: number;
+  accountCash: number;
+  navBeforeWithdrawal: number;
+  nav: number;
+  surplus: number;
+  fundingCredit: number;
+  creditConfidence: number;
+  fundingTarget: number;
+  clockTarget: number;
+  withdrawalEligibleSurplus: number;
+  withdrawalRequested: number;
+  withdrawalExecuted: number;
+  cumulativeWithdrawn: number;
+  nextDecisionCreditBeforeWithdrawal: number;
+  nextDecisionCreditAfterWithdrawal: number;
+  creditCancelledByWithdrawal: number;
+  divergenceState: DivergenceState;
+  withdrawalAlpha: number;
+};
+
+export type FundingReplayResult = {
+  startDate: string;
+  endDate: string;
+  horizonMonths: number;
+  plannedPrincipal: number;
+  initialFundingFraction: number;
+  terminalWealth: number;
+  maxDrawdown: number;
+  totalContributed: number;
+  totalWithdrawn: number;
+  withdrawalAlpha: number;
+  maxContributionReduction: number;
+  totalContributionReduction: number;
+  netEconomicWealth: number;
+  path: FundingPathPoint[];
+};
+
+export type ReplayMode = "COUPLED" | "ADAPTIVE_CREDIT_ONLY";
 
 export type ReplayResult = {
   startDate: string;
@@ -90,15 +232,20 @@ export type ReplayResult = {
   forcedCatchUpMonths: number;
   totalInvested: number;
   trades: ReplayTrade[];
+  path: ReplayPathPoint[];
 };
 
-const ACTION_GRID = Array.from({ length: 21 }, (_, i) => i / 20);
 const MIN_ANALOGS = 8;
 const MAX_ANALOGS = 24;
 const ANALOG_STRIDE_MONTHS = 3;
+const FLOOR_PROFILE_PROBABILITIES = [0.50, 0.75, 0.90, 0.95, 0.99, 1.00];
 const AGREEMENT_MAD_SCALE = 0.15;
 const TENSION_AGREEMENT = 0.80;
 const DIVERGENT_AGREEMENT = 0.50;
+
+// A fixed majority gate: less than half of the empirical analog paths
+// supporting surplus survival means no credit and full clock authority.
+export const CREDIT_MIN_SURVIVAL = 0.50;
 
 function clamp(x: number, lo = 0, hi = 1) {
   return Math.max(lo, Math.min(hi, x));
@@ -254,13 +401,141 @@ function terminalForDeployment(a: number, path: number[]) {
   return a * terminalGrowth + ((1 - a) / h) * ladder;
 }
 
-function objective(paths: number[], a: number) {
+function terminalAtZeroAndOne(path: number[]) {
+  return {
+    zero: terminalForDeployment(0, path),
+    one: terminalForDeployment(1, path),
+  };
+}
+
+function equityCurveForDeployment(a: number, path: number[]) {
+  const h = FLOOR_HORIZON_MONTHS;
+  if (path.length <= h || h <= 0) return [1];
+
+  const initial = clamp(a);
+  const monthlyRemainder = (1 - initial) / h;
+  const curve = [1];
+
+  for (let j = 1; j <= h; j++) {
+    const px = path[j];
+    if (!Number.isFinite(px) || px <= 0) return curve;
+    const cash = Math.max(0, (1 - initial) - monthlyRemainder * j);
+    let equity = initial * px + cash;
+    for (let k = 1; k <= j; k++) {
+      const entry = path[k];
+      if (!Number.isFinite(entry) || entry <= 0) return curve;
+      equity += monthlyRemainder * (px / entry);
+    }
+    curve.push(equity);
+  }
+
+  return curve;
+}
+
+function garFromTerminal(terminal: number) {
+  return Math.pow(Math.max(1e-12, terminal), 1 / FLOOR_HORIZON_YEARS) - 1;
+}
+
+function riskMetricsForDeployment(a: number, path: number[]) {
+  const terminal = terminalForDeployment(a, path);
+  const maxDd = equityStats(equityCurveForDeployment(a, path)).maxDd;
+  return {
+    gar: garFromTerminal(terminal),
+    maxDd,
+  };
+}
+
+export function buildRiskBaselineProfile(paths: number[][]): RiskBaselineProfile {
+  const deploymentFractions = Array.from({ length: 21 }, (_, i) => i / 20);
+  const rows = deploymentFractions.map((a) => {
+    const metrics = paths.map((path) => riskMetricsForDeployment(a, path));
+    return {
+      gar: {
+        median: median(metrics.map((x) => x.gar)) ?? 0,
+        q05: quantile(metrics.map((x) => x.gar), 0.05) ?? 0,
+        q95: quantile(metrics.map((x) => x.gar), 0.95) ?? 0,
+      },
+      maxDd: {
+        median: median(metrics.map((x) => x.maxDd)) ?? 0,
+        q05: quantile(metrics.map((x) => x.maxDd), 0.05) ?? 0,
+        q95: quantile(metrics.map((x) => x.maxDd), 0.95) ?? 0,
+      },
+    };
+  });
+
+  return {
+    deploymentFractions,
+    garMedian: rows.map((x) => x.gar.median),
+    garQ05: rows.map((x) => x.gar.q05),
+    garQ95: rows.map((x) => x.gar.q95),
+    maxDdMedian: rows.map((x) => x.maxDd.median),
+    maxDdQ05: rows.map((x) => x.maxDd.q05),
+    maxDdQ95: rows.map((x) => x.maxDd.q95),
+  };
+}
+
+export function buildForwardPathProfile(paths: number[][]): ForwardPathProfile {
+  const months = Array.from({ length: FLOOR_HORIZON_MONTHS + 1 }, (_, i) => i);
+  return {
+    months,
+    median: months.map((i) => median(paths.map((p) => p[i] ?? 1)) ?? 1),
+    q05: months.map((i) => quantile(paths.map((p) => p[i] ?? 1), 0.05) ?? 1),
+    q95: months.map((i) => quantile(paths.map((p) => p[i] ?? 1), 0.95) ?? 1),
+  };
+}
+
+export function requiredFrontLoadFraction(path: number[], floor = 1) {
+  const { zero, one } = terminalAtZeroAndOne(path);
+  if (zero >= floor) return 0;
+  if (one < floor) return 1;
+
+  const slope = one - zero;
+  if (slope <= 0) return 1;
+  return clamp((floor - zero) / slope);
+}
+
+function objective(paths: number[][], a: number) {
   const ws = paths.map((p) => terminalForDeployment(a, p));
   const q05 = quantile(ws, 0.05) ?? 0;
   const pNonLoss = ws.filter((w) => w >= 1).length / ws.length;
   const mean = ws.reduce((x, y) => x + y, 0) / ws.length;
-  // Terminal floor dominates. P(non-loss) and mean break ties only.
   return { q05, pNonLoss, mean };
+}
+
+export function deploymentResponseProfile(paths: number[][]): DeploymentResponseProfile {
+  const deploymentFractions = Array.from({ length: 21 }, (_, i) => i / 20);
+  const rows = deploymentFractions.map((a) => objective(paths, a));
+  return {
+    deploymentFractions,
+    q05Terminal: rows.map((x) => x.q05),
+    pNonLoss: rows.map((x) => x.pNonLoss),
+    meanTerminal: rows.map((x) => x.mean),
+  };
+}
+
+export function floorProfile(paths: number[][]): FloorProfile {
+  const required = paths.map((path) => requiredFrontLoadFraction(path, 1));
+  const ordered = [...required].sort((a, b) => a - b);
+  const requiredFrontLoad = FLOOR_PROFILE_PROBABILITIES.map((p) => {
+    const index = Math.max(0, Math.ceil(p * ordered.length) - 1);
+    return ordered[index] ?? 1;
+  });
+
+  return {
+    probabilities: [...FLOOR_PROFILE_PROBABILITIES],
+    requiredFrontLoad,
+    meanRequiredFrontLoad:
+      required.reduce((sum, x) => sum + x, 0) / Math.max(1, required.length),
+    maxRequiredFrontLoad: ordered.at(-1) ?? 1,
+  };
+}
+
+function floorTarget(paths: number[][]) {
+  const profile = floorProfile(paths);
+  const index = FLOOR_PROFILE_PROBABILITIES.indexOf(0.95);
+  // Keep the established scalar 95% floor controller unchanged. The extra
+  // profile is preserved for structural cross-scale analysis.
+  return profile.requiredFrontLoad[index] ?? 1;
 }
 
 function buildAnalogs(
@@ -312,41 +587,141 @@ export function recommendForScale(
       scaleYears,
       asof,
       target: null,
+      floorProfile: null,
+      responseProfile: null,
+      riskBaselineProfile: null,
+      forwardPathProfile: null,
+      nearestAnalogDistance: null,
       q05: null,
       pNonLoss: null,
       mean: null,
       nAnalogs: usable.length,
       effectiveN,
       status: "INSUFFICIENT_HISTORY",
+      creditMaxDrawdowns: null,
     };
   }
 
-  const scored = ACTION_GRID.map((a) => ({
-    a,
-    ...objective(usable.map((x) => x.path), a),
-  }));
+  const paths = usable.map((x) => x.path);
+  const profile = floorProfile(paths);
+  const responseProfile = deploymentResponseProfile(paths);
+  const riskBaselineProfile = buildRiskBaselineProfile(paths);
+  const forwardPathProfile = buildForwardPathProfile(paths);
+  const target = floorTarget(paths);
+  const scored = objective(paths, target);
 
-  scored.sort(
-    (x, y) =>
-      y.q05 - x.q05 ||
-      y.pNonLoss - x.pNonLoss ||
-      y.mean - x.mean ||
-      x.a - y.a,
-  );
-
-  const best = scored[0];
   return {
     channel: "",
     layer: "OBSERVED",
     scaleYears,
     asof,
-    target: best.a,
-    q05: best.q05,
-    pNonLoss: best.pNonLoss,
-    mean: best.mean,
+    target,
+    floorProfile: profile,
+    responseProfile,
+    riskBaselineProfile,
+    forwardPathProfile,
+    nearestAnalogDistance: usable[0]?.distance ?? null,
+    q05: scored.q05,
+    pNonLoss: scored.pNonLoss,
+    mean: scored.mean,
     nAnalogs: usable.length,
     effectiveN,
     status: "OK",
+    creditMaxDrawdowns: paths.map((path) => equityStats(path).maxDd),
+  };
+}
+
+function responseSlope(profile: DeploymentResponseProfile, i: number) {
+  const a = profile.q05Terminal[i];
+  const b = profile.q05Terminal[i + 1];
+  const da = profile.deploymentFractions[i];
+  const db = profile.deploymentFractions[i + 1];
+  const width = db - da;
+  return width > 0 ? (b - a) / width : 0;
+}
+
+export function overallMutualChaseState(topologies: MutualChaseTopology[]): DivergenceState {
+  const usable = topologies.filter((x) => x.state !== "THIN");
+  if (usable.length === 0) return "THIN";
+  if (usable.some((x) => x.state === "DIVERGENT")) return "DIVERGENT";
+  if (usable.some((x) => x.state === "TENSION")) return "TENSION";
+  return "CONVERGENT";
+}
+
+export function mutualChaseTopology(
+  profiles: Array<{ scaleYears: TrapScale; profile: DeploymentResponseProfile }>,
+): MutualChaseTopology {
+  if (profiles.length < 2) {
+    return {
+      state: "THIN",
+      localDirections: [],
+      leaderScaleBySegment: [],
+      leaderChanges: 0,
+      pairwiseCurveCrossings: 0,
+    };
+  }
+
+  const segments = Math.min(
+    ...profiles.map((x) => x.profile.q05Terminal.length - 1),
+  );
+  const leaderScaleBySegment: Array<TrapScale | null> = [];
+  const localDirections: Array<"FORWARD" | "BACKWARD" | "FLAT" | "MIXED"> = [];
+
+  for (let i = 0; i < segments; i++) {
+    const slopes = profiles.map((x) => ({
+      scaleYears: x.scaleYears,
+      slope: responseSlope(x.profile, i),
+    }));
+    const positive = slopes.some((x) => x.slope > 1e-12);
+    const negative = slopes.some((x) => x.slope < -1e-12);
+
+    if (positive && negative) localDirections.push("MIXED");
+    else if (positive) localDirections.push("FORWARD");
+    else if (negative) localDirections.push("BACKWARD");
+    else localDirections.push("FLAT");
+
+    const leader = slopes
+      .filter((x) => Math.abs(x.slope) > 1e-12)
+      .sort((a, b) => Math.abs(b.slope) - Math.abs(a.slope))[0];
+    leaderScaleBySegment.push(leader?.scaleYears ?? null);
+  }
+
+  let leaderChanges = 0;
+  for (let i = 1; i < leaderScaleBySegment.length; i++) {
+    const a = leaderScaleBySegment[i - 1];
+    const b = leaderScaleBySegment[i];
+    if (a != null && b != null && a !== b) leaderChanges++;
+  }
+
+  let pairwiseCurveCrossings = 0;
+  for (let a = 0; a < profiles.length; a++) {
+    for (let b = a + 1; b < profiles.length; b++) {
+      const left = profiles[a].profile.q05Terminal;
+      const right = profiles[b].profile.q05Terminal;
+      let lastSign = 0;
+      for (let i = 0; i < Math.min(left.length, right.length); i++) {
+        const d = left[i] - right[i];
+        const sign = d > 1e-10 ? 1 : d < -1e-10 ? -1 : 0;
+        if (sign !== 0 && lastSign !== 0 && sign !== lastSign) pairwiseCurveCrossings++;
+        if (sign !== 0) lastSign = sign;
+      }
+    }
+  }
+
+  const hasMixedDirection = localDirections.includes("MIXED");
+  const hasDirectionalDisagreement = leaderChanges > 0 || pairwiseCurveCrossings > 0;
+  const state = hasMixedDirection
+    ? "DIVERGENT"
+    : hasDirectionalDisagreement
+      ? "TENSION"
+      : "CONVERGENT";
+
+  return {
+    state,
+    localDirections,
+    leaderScaleBySegment,
+    leaderChanges,
+    pairwiseCurveCrossings,
   };
 }
 
@@ -380,15 +755,89 @@ export function couple(
 ): CoupledSignal {
   const clockTarget = clamp(elapsedMonths / FLOOR_HORIZON_MONTHS);
   const perScale = TRAP_SCALES_YEARS.map((scaleYears) => {
-    const xs = signals
-      .filter((s) => s.scaleYears === scaleYears && s.status === "OK" && s.target != null)
-      .map((s) => s.target as number);
+    const scaleSignals = signals.filter(
+      (s) => s.scaleYears === scaleYears && s.status === "OK" && s.target != null,
+    );
+    const xs = scaleSignals.map((s) => s.target as number);
     const c = robustConsensus(xs);
+    const responseProfiles = scaleSignals
+      .map((s) => s.responseProfile)
+      .filter(Boolean) as DeploymentResponseProfile[];
+    const responseProfile =
+      responseProfiles.length > 0
+        ? {
+            deploymentFractions: responseProfiles[0].deploymentFractions,
+            q05Terminal: responseProfiles[0].deploymentFractions.map((_, i) =>
+              median(responseProfiles.map((p) => p.q05Terminal[i])) ?? 0
+            ),
+            pNonLoss: responseProfiles[0].deploymentFractions.map((_, i) =>
+              median(responseProfiles.map((p) => p.pNonLoss[i])) ?? 0
+            ),
+            meanTerminal: responseProfiles[0].deploymentFractions.map((_, i) =>
+              median(responseProfiles.map((p) => p.meanTerminal[i])) ?? 0
+            ),
+          }
+        : null;
+
+    const riskProfiles = scaleSignals
+      .map((s) => s.riskBaselineProfile)
+      .filter(Boolean) as RiskBaselineProfile[];
+    const riskBaselineProfile =
+      riskProfiles.length > 0
+        ? {
+            deploymentFractions: riskProfiles[0].deploymentFractions,
+            garMedian: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.garMedian[i])) ?? 0
+            ),
+            garQ05: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.garQ05[i])) ?? 0
+            ),
+            garQ95: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.garQ95[i])) ?? 0
+            ),
+            maxDdMedian: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.maxDdMedian[i])) ?? 0
+            ),
+            maxDdQ05: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.maxDdQ05[i])) ?? 0
+            ),
+            maxDdQ95: riskProfiles[0].deploymentFractions.map((_, i) =>
+              median(riskProfiles.map((p) => p.maxDdQ95[i])) ?? 0
+            ),
+          }
+        : null;
+
+    const forwardProfiles = scaleSignals
+      .map((s) => s.forwardPathProfile)
+      .filter(Boolean) as ForwardPathProfile[];
+    const forwardPathProfile =
+      forwardProfiles.length > 0
+        ? {
+            months: forwardProfiles[0].months,
+            median: forwardProfiles[0].months.map((_, i) =>
+              median(forwardProfiles.map((p) => p.median[i])) ?? 1
+            ),
+            q05: forwardProfiles[0].months.map((_, i) =>
+              median(forwardProfiles.map((p) => p.q05[i])) ?? 1
+            ),
+            q95: forwardProfiles[0].months.map((_, i) =>
+              median(forwardProfiles.map((p) => p.q95[i])) ?? 1
+            ),
+          }
+        : null;
+
+    const nearestDistances = scaleSignals
+      .map((s) => s.nearestAnalogDistance)
+      .filter((x): x is number => Number.isFinite(x));
     return {
       scaleYears,
       target: c.center,
       agreement: c.agreement,
       nSignals: xs.length,
+      responseProfile,
+      riskBaselineProfile,
+      forwardPathProfile,
+      nearestAnalogDistance: nearestDistances.length ? median(nearestDistances) : null,
     };
   }).filter((x) => x.nSignals > 0);
 
@@ -407,6 +856,35 @@ export function couple(
       ? clockTarget
       : clamp(clockTarget + signalAuthority * (finalConsensus.center - clockTarget));
 
+  // QQQ is the canonical observed outcome/audit channel. Mutual-chase
+  // shared state is driven only by independent proxy-price channels.
+  const mutualChase = [...new Set(
+    signals.filter((s) => s.layer === "PROXY_PRICE").map((s) => s.channel)
+  )].map((channel) => {
+    const profiles = TRAP_SCALES_YEARS
+      .map((scaleYears) => {
+        const signal = signals.find(
+          (s) =>
+            s.channel === channel &&
+            s.scaleYears === scaleYears &&
+            s.status === "OK" &&
+            s.responseProfile != null,
+        );
+        return signal?.responseProfile
+          ? { scaleYears, profile: signal.responseProfile }
+          : null;
+      })
+      .filter(Boolean) as Array<{
+        scaleYears: TrapScale;
+        profile: DeploymentResponseProfile;
+      }>;
+
+    return {
+      channel,
+      topology: mutualChaseTopology(profiles),
+    };
+  });
+
   return {
     asof,
     clockTarget,
@@ -416,6 +894,7 @@ export function couple(
     robustTarget: finalConsensus.center,
     agreement: signalAuthority,
     coupledTarget,
+    mutualChase,
   };
 }
 
@@ -472,10 +951,350 @@ export function buildSignalPanel(channels: Channel[], targetDates: string[]) {
   return panel;
 }
 
+export function adaptiveCreditConfidence(
+  signal: CoupledSignal | undefined,
+  deployed: number,
+  surplus: number,
+): number {
+  if (!signal || deployed <= 1e-12 || surplus <= 1e-12) return 0;
+
+  if (
+    signal.divergenceState === "DIVERGENT" ||
+    signal.divergenceState === "THIN"
+  ) {
+    return 0;
+  }
+
+  // Current surplus is the loss budget available to the currently deployed
+  // QQQ exposure. A historical path survives when its observed 10Y MaxDD
+  // would not consume that entire surplus budget.
+  const tolerablePortfolioDrawdown = surplus / deployed;
+  const scaleSurvival: number[] = [];
+
+  for (const scaleYears of TRAP_SCALES_YEARS) {
+    const channelSignals = signal.signals.filter(
+      (x) =>
+        x.scaleYears === scaleYears &&
+        x.status === "OK" &&
+        Array.isArray(x.creditMaxDrawdowns) &&
+        x.creditMaxDrawdowns.length >= MIN_ANALOGS,
+    );
+
+    const channelRates = channelSignals
+      .map((x) => {
+        const samples = x.creditMaxDrawdowns ?? [];
+        const survived = samples.filter(
+          (drawdown) => drawdown >= -tolerablePortfolioDrawdown,
+        ).length;
+        return samples.length ? survived / samples.length : null;
+      })
+      .filter((x): x is number => x != null);
+
+    if (channelRates.length) {
+      // Median across alternate channel views prevents repeated QQQ outcomes
+      // from being counted as independent evidence.
+      scaleSurvival.push(median(channelRates) ?? 0);
+    }
+  }
+
+  // Require at least two historical scales before credit can have authority.
+  if (scaleSurvival.length < 2) return 0;
+
+  const q = median(scaleSurvival) ?? 0;
+  return q >= CREDIT_MIN_SURVIVAL ? q : 0;
+}
+
+export function replayFundingPlan(
+  qqq: MonthlyPoint[],
+  panel: Map<string, CoupledSignal>,
+  startIndex: number,
+  horizonMonths = FLOOR_HORIZON_MONTHS,
+  mode: FundingPlanMode = "ADAPTIVE_FUNDED",
+  plannedPrincipal = 1,
+  initialFundingFraction = DEFAULT_INITIAL_FUNDING_FRACTION,
+  withdrawalMode: ProfitWithdrawalMode = "NONE",
+  withdrawalSchedule: Map<string, number> = new Map(),
+  withdrawalAlpha = 1,
+): FundingReplayResult | null {
+  const endIndex = startIndex + horizonMonths;
+  if (endIndex >= qqq.length) return null;
+  if (!(plannedPrincipal > 0) || !Number.isFinite(plannedPrincipal)) {
+    throw new Error("plannedPrincipal must be a positive finite number");
+  }
+  if (
+    !(initialFundingFraction > 0) ||
+    initialFundingFraction > 1 ||
+    !Number.isFinite(initialFundingFraction)
+  ) {
+    throw new Error("initialFundingFraction must be in (0, 1]");
+  }
+
+  let externalRemaining = plannedPrincipal;
+  let cumulativeContributed = 0;
+  let accountCash = 0;
+  const lots: { amount: number; entry: number }[] = [];
+  const path: FundingPathPoint[] = [];
+  const curve: number[] = [0];
+  let nav = 0;
+  let cumulativeWithdrawn = 0;
+
+  if (
+    withdrawalMode === "SCHEDULED" &&
+    [...withdrawalSchedule.values()].some(
+      (x) => !Number.isFinite(x) || x < 0,
+    )
+  ) {
+    throw new Error("scheduled withdrawals must be finite and non-negative");
+  }
+  if (
+    !Number.isFinite(withdrawalAlpha) ||
+    withdrawalAlpha < 0 ||
+    withdrawalAlpha > 1
+  ) {
+    throw new Error("withdrawalAlpha must be in [0, 1]");
+  }
+
+  for (let j = 0; j < horizonMonths; j++) {
+    const i = startIndex + j;
+    const date = qqq[i].date;
+    const sig = panel.get(date);
+
+    // Funding decision timing: month j may only use the prior month's close.
+    // Month 0 has no prior observation, so it starts with zero account NAV.
+    const decisionPx = j === 0 ? null : qqq[i - 1].value;
+    nav =
+      decisionPx == null
+        ? accountCash
+        : accountCash +
+          lots.reduce(
+            (sum, lot) => sum + lot.amount * (decisionPx / lot.entry),
+            0,
+          );
+
+    const investedBefore = cumulativeContributed;
+    const surplus = Math.max(0, nav - cumulativeContributed);
+    const creditConfidence =
+      mode === "ADAPTIVE_FUNDED"
+        ? adaptiveCreditConfidence(sig, investedBefore, surplus)
+        : 0;
+
+    // Credit substitutes for future external contributions. It never becomes
+    // cash inside the account and is recalculated every month, so it can vanish.
+    const fundingCredit =
+      mode === "ADAPTIVE_FUNDED"
+        ? Math.min(surplus, externalRemaining) * creditConfidence
+        : 0;
+    const clockTargetFraction =
+      horizonMonths <= 1
+        ? 1
+        : initialFundingFraction +
+          ((1 - initialFundingFraction) * j) / (horizonMonths - 1);
+    const clockTarget = clamp(clockTargetFraction);
+    const clockTargetAmount = plannedPrincipal * clockTarget;
+    const fundingTarget =
+      mode === "ADAPTIVE_FUNDED"
+        ? Math.max(0, clockTargetAmount - fundingCredit)
+        : clockTargetAmount;
+
+    const contribution = Math.min(
+      externalRemaining,
+      Math.max(0, fundingTarget - cumulativeContributed),
+    );
+
+    if (contribution > 1e-12) {
+      lots.push({ amount: contribution, entry: qqq[i].value });
+      cumulativeContributed += contribution;
+      externalRemaining -= contribution;
+    }
+
+    nav =
+      accountCash +
+      lots.reduce((sum, lot) => sum + lot.amount * (qqq[i].value / lot.entry), 0);
+
+    const navBeforeWithdrawal = nav;
+    // Realized surplus above cumulative external contributions remains a
+    // separate accounting state because funding credit consumes this same gain.
+    const realizedSurplusBeforeWithdrawal = Math.max(
+      0,
+      navBeforeWithdrawal - cumulativeContributed,
+    );
+    // The legacy sweep intentionally reproduces #151's old C_t-relative rule.
+    // All new/scheduled withdrawal paths use the immutable planned principal B
+    // as the floor: early in the 10Y clock, NAV < B therefore means zero eligibility.
+    const withdrawalEligibleSurplus =
+      withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS"
+        ? realizedSurplusBeforeWithdrawal
+        : withdrawalMode === "NONE"
+          ? 0
+          : Math.max(0, navBeforeWithdrawal - plannedPrincipal);
+    const withdrawalFraction =
+      withdrawalMode === "PARTIAL_ABOVE_PLANNED_PRINCIPAL"
+        ? withdrawalAlpha
+        : withdrawalMode === "SWEEP_ABOVE_PLANNED_PRINCIPAL"
+          ? 1
+          : withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS"
+            ? 1
+            : withdrawalMode === "SCHEDULED"
+              ? 1
+              : 0;
+    const scheduledWithdrawal = withdrawalSchedule.get(date) ?? 0;
+    const withdrawalRequested =
+      withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS" ||
+      withdrawalMode === "SWEEP_ABOVE_PLANNED_PRINCIPAL"
+        ? withdrawalEligibleSurplus * withdrawalFraction
+        : withdrawalMode === "PARTIAL_ABOVE_PLANNED_PRINCIPAL"
+          ? withdrawalEligibleSurplus * withdrawalFraction
+          : withdrawalMode === "SCHEDULED"
+            ? scheduledWithdrawal
+            : 0;
+    const withdrawalExecuted = Math.min(
+      withdrawalEligibleSurplus,
+      Math.max(0, withdrawalRequested),
+    );
+
+    if (withdrawalExecuted > 1e-12 && navBeforeWithdrawal > 1e-12) {
+      const cashWithdrawal = Math.min(accountCash, withdrawalExecuted);
+      accountCash -= cashWithdrawal;
+      const remaining = withdrawalExecuted - cashWithdrawal;
+      if (remaining > 1e-12) {
+        const scale = Math.max(
+          0,
+          (navBeforeWithdrawal - withdrawalExecuted) /
+            Math.max(1e-12, navBeforeWithdrawal - cashWithdrawal),
+        );
+        for (const lot of lots) lot.amount *= scale;
+      }
+      nav = accountCash +
+        lots.reduce(
+          (sum, lot) => sum + lot.amount * (qqq[i].value / lot.entry),
+          0,
+        );
+      cumulativeWithdrawn += withdrawalExecuted;
+
+      // New/scheduled withdrawal paths are hard-capped so the immediate
+      // post-withdrawal account NAV cannot fall below immutable planned B.
+      if (
+        withdrawalMode !== "SWEEP_ELIGIBLE_SURPLUS" &&
+        nav + 1e-9 < plannedPrincipal
+      ) {
+        throw new Error(
+          "B-floor withdrawal invariant failed: post-withdrawal NAV fell below plannedPrincipal",
+        );
+      }
+    }
+
+    const postWithdrawalSurplus = Math.max(
+      0,
+      nav - cumulativeContributed,
+    );
+    // The "before" and "after" diagnostics must use their own surplus states.
+    // Reusing post-withdrawal confidence here would erase the evidence that
+    // a credit existed immediately before the withdrawal.
+    const closeCreditConfidenceBeforeWithdrawal =
+      mode === "ADAPTIVE_FUNDED"
+        ? adaptiveCreditConfidence(
+            sig,
+            cumulativeContributed,
+            realizedSurplusBeforeWithdrawal,
+          )
+        : 0;
+    const closeCreditConfidenceAfterWithdrawal =
+      mode === "ADAPTIVE_FUNDED"
+        ? adaptiveCreditConfidence(
+            sig,
+            cumulativeContributed,
+            postWithdrawalSurplus,
+          )
+        : 0;
+    const nextDecisionCreditBeforeWithdrawal =
+      mode === "ADAPTIVE_FUNDED"
+        ? Math.min(
+            realizedSurplusBeforeWithdrawal,
+            externalRemaining,
+          ) * closeCreditConfidenceBeforeWithdrawal
+        : 0;
+    const nextDecisionCreditAfterWithdrawal =
+      mode === "ADAPTIVE_FUNDED"
+        ? Math.min(postWithdrawalSurplus, externalRemaining) *
+          closeCreditConfidenceAfterWithdrawal
+        : 0;
+
+    path.push({
+      date,
+      contribution,
+      cumulativeContributed,
+      remainingExternalCapital: externalRemaining,
+      plannedPrincipal,
+      initialFundingFraction,
+      invested: lots.reduce((sum, lot) => sum + lot.amount, 0),
+      accountCash,
+      navBeforeWithdrawal,
+      nav,
+      surplus: postWithdrawalSurplus,
+      fundingCredit,
+      creditConfidence,
+      fundingTarget,
+      clockTarget,
+      withdrawalEligibleSurplus,
+      withdrawalRequested,
+      withdrawalExecuted,
+      cumulativeWithdrawn,
+      nextDecisionCreditBeforeWithdrawal,
+      nextDecisionCreditAfterWithdrawal,
+      creditCancelledByWithdrawal: Math.max(
+        0,
+        nextDecisionCreditBeforeWithdrawal -
+          nextDecisionCreditAfterWithdrawal,
+      ),
+      divergenceState: sig?.divergenceState ?? "THIN",
+      withdrawalAlpha:
+        withdrawalMode === "PARTIAL_ABOVE_PLANNED_PRINCIPAL"
+          ? withdrawalAlpha
+          : withdrawalMode === "SWEEP_ABOVE_PLANNED_PRINCIPAL" ||
+              withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS"
+            ? 1
+            : 0,
+    });
+
+    curve.push(nav);
+  }
+
+  const finalPx = qqq[endIndex].value;
+  nav =
+    accountCash +
+    lots.reduce((sum, lot) => sum + lot.amount * (finalPx / lot.entry), 0);
+  curve.push(nav);
+
+  return {
+    startDate: qqq[startIndex].date,
+    endDate: qqq[endIndex].date,
+    horizonMonths,
+    terminalWealth: nav,
+    maxDrawdown: equityStats(curve).maxDd,
+    totalContributed: cumulativeContributed,
+    totalWithdrawn: cumulativeWithdrawn,
+    withdrawalAlpha,
+    plannedPrincipal,
+    initialFundingFraction,
+    maxContributionReduction: Math.max(
+      0,
+      ...path.map(
+        (point) =>
+          plannedPrincipal * point.clockTarget - point.cumulativeContributed,
+      ),
+    ),
+    totalContributionReduction: plannedPrincipal - cumulativeContributed,
+    netEconomicWealth:
+      nav + cumulativeWithdrawn - cumulativeContributed,
+    path,
+  };
+}
+
 export function replayOne(
   qqq: MonthlyPoint[],
   panel: Map<string, CoupledSignal>,
   startIndex: number,
+  mode: ReplayMode = "COUPLED",
 ): ReplayResult | null {
   const endIndex = startIndex + FLOOR_HORIZON_MONTHS;
   if (endIndex >= qqq.length) return null;
@@ -487,6 +1306,7 @@ export function replayOne(
   let forcedCatchUpMonths = 0;
   const lots: { amount: number; entry: number }[] = [];
   const trades: ReplayTrade[] = [];
+  const path: ReplayPathPoint[] = [];
   const curve: number[] = [1];
 
   for (let j = 0; j < FLOOR_HORIZON_MONTHS; j++) {
@@ -501,12 +1321,52 @@ export function replayOne(
     const robustTarget = sig?.robustTarget ?? null;
     const signalAgreement = sig?.agreement ?? 0;
     const divergence = sig?.divergenceState ?? "THIN";
+    const topologies = sig?.mutualChase.map((x) => x.topology) ?? [];
+    const mutualState = overallMutualChaseState(topologies);
+    const mutualLeaderChanges = topologies.reduce((sum, x) => sum + x.leaderChanges, 0);
+    const mutualCurveCrossings = topologies.reduce((sum, x) => sum + x.pairwiseCurveCrossings, 0);
     const lagTarget =
       robustTarget == null
         ? clockTarget
         : clamp(clockTarget + signalAgreement * (robustTarget - clockTarget));
-    const desiredAdd = Math.max(0, lagTarget - (1 - cash));
-    const action = Math.min(cash, Math.max(mandatoryAdd, desiredAdd));
+
+    const deployedBefore = 1 - cash;
+    // B=1 in the normalized research account, so NAV-1 equals only the
+    // mark-to-market gain on the already deployed lots.
+    const surplus = Math.max(0, equity - 1);
+
+    // ADAPTIVE_CREDIT_ONLY is intentionally separate from the coupled timing
+    // controller: it never moves money ahead because of a signal target.
+    const creditConfidence =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? adaptiveCreditConfidence(sig, deployedBefore, surplus)
+        : 0;
+    const creditCapacity = Math.max(0, cash);
+    const creditAmount =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? Math.min(surplus, creditCapacity) * creditConfidence
+        : 0;
+
+    // Credit is a reversible reduction in cumulative deployment need.
+    // If NAV falls back, credit falls back too and the clock automatically
+    // catches up; no previously-deployed amount is undone.
+    const effectiveTarget =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? Math.max(0, clockTarget - creditAmount)
+        : lagTarget;
+
+    const effectiveMandatoryAdd =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? Math.max(0, effectiveTarget - deployedBefore)
+        : mandatoryAdd;
+    const desiredAdd =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? effectiveMandatoryAdd
+        : Math.max(0, lagTarget - deployedBefore);
+    const action =
+      mode === "ADAPTIVE_CREDIT_ONLY"
+        ? Math.min(cash, effectiveMandatoryAdd)
+        : Math.min(cash, Math.max(mandatoryAdd, desiredAdd));
 
     if (action > 1e-12) {
       if (action <= mandatoryAdd + 1e-9 && desiredAdd < mandatoryAdd - 1e-9) {
@@ -527,6 +1387,12 @@ export function replayOne(
         clockTarget,
         agreement: signalAgreement,
         divergenceState: divergence,
+        mutualChaseState: mutualState,
+        mutualLeaderChanges,
+        mutualCurveCrossings,
+        creditAmount,
+        creditConfidence,
+        effectiveTarget,
       });
     }
 
@@ -536,6 +1402,23 @@ export function replayOne(
       lots.reduce((s, lot) => s + lot.amount * (currentPx / lot.entry), 0);
     peak = Math.max(peak, equity);
     curve.push(equity);
+
+    path.push({
+      date,
+      action,
+      deployed: 1 - cash,
+      cash,
+      coupledTarget: lagTarget,
+      clockTarget,
+      agreement: signalAgreement,
+      divergenceState: divergence,
+      mutualChaseState: mutualState,
+      mutualLeaderChanges,
+      mutualCurveCrossings,
+      creditAmount,
+      creditConfidence,
+      effectiveTarget,
+    });
   }
 
   const finalPx = qqq[endIndex].value;
@@ -565,7 +1448,143 @@ export function replayOne(
     forcedCatchUpMonths,
     totalInvested,
     trades,
+    path,
   };
+}
+
+
+export type StatePathSummary = {
+  state: DivergenceState;
+  observations: number;
+  shareOfObservedMonths: number;
+  meanDeployed: number;
+  medianDeployed: number;
+  meanClockTarget: number;
+  meanAheadOfClock: number;
+  medianAheadOfClock: number;
+  q05AheadOfClock: number;
+  q95AheadOfClock: number;
+  meanAbsoluteAhead: number;
+  meanCoupledTargetDelta: number;
+  episodes: number;
+  meanEpisodeMonths: number;
+  medianEpisodeMonths: number;
+  maxEpisodeMonths: number;
+  meanEpisodePeakAhead: number;
+  meanEpisodeEndAhead: number;
+};
+
+type StateEpisode = {
+  state: DivergenceState;
+  months: number;
+  peakAhead: number;
+  endAhead: number;
+};
+
+function episodesFromReplay(
+  result: ReplayResult,
+  stateField: "divergenceState" | "mutualChaseState" = "divergenceState",
+): StateEpisode[] {
+  const episodes: StateEpisode[] = [];
+  let currentState: DivergenceState | null = null;
+  let months = 0;
+  let peakAhead = 0;
+  let endAhead = 0;
+
+  for (const point of result.path) {
+    const ahead = point.deployed - point.clockTarget;
+    const state = point[stateField];
+
+    if (currentState !== state) {
+      if (currentState != null) {
+        episodes.push({
+          state: currentState,
+          months,
+          peakAhead,
+          endAhead,
+        });
+      }
+      currentState = state;
+      months = 0;
+      peakAhead = ahead;
+      endAhead = ahead;
+    }
+
+    months++;
+    peakAhead = Math.max(peakAhead, ahead);
+    endAhead = ahead;
+  }
+
+  if (currentState != null) {
+    episodes.push({
+      state: currentState,
+      months,
+      peakAhead,
+      endAhead,
+    });
+  }
+
+  return episodes;
+}
+
+export function summarizeStatePath(
+  results: ReplayResult[],
+  stateField: "divergenceState" | "mutualChaseState" = "divergenceState",
+) {
+  const rows: Record<DivergenceState, {
+    ahead: number[];
+    deployed: number[];
+    clock: number[];
+    coupledDelta: number[];
+    episodes: StateEpisode[];
+  }> = {
+    CONVERGENT: { ahead: [], deployed: [], clock: [], coupledDelta: [], episodes: [] },
+    TENSION: { ahead: [], deployed: [], clock: [], coupledDelta: [], episodes: [] },
+    DIVERGENT: { ahead: [], deployed: [], clock: [], coupledDelta: [], episodes: [] },
+    THIN: { ahead: [], deployed: [], clock: [], coupledDelta: [], episodes: [] },
+  };
+
+  for (const result of results) {
+    for (const point of result.path) {
+      const row = rows[point[stateField]];
+      const ahead = point.deployed - point.clockTarget;
+      row.ahead.push(ahead);
+      row.deployed.push(point.deployed);
+      row.clock.push(point.clockTarget);
+      row.coupledDelta.push(point.coupledTarget - point.clockTarget);
+    }
+    for (const ep of episodesFromReplay(result, stateField)) rows[ep.state].episodes.push(ep);
+  }
+
+  const total = Object.values(rows).reduce((n, row) => n + row.ahead.length, 0);
+
+  return (Object.keys(rows) as DivergenceState[]).map((state): StatePathSummary => {
+    const row = rows[state];
+    const episodes = row.episodes;
+    const episodeMonths = episodes.map((x) => x.months);
+    const peakAhead = episodes.map((x) => x.peakAhead);
+    const endAhead = episodes.map((x) => x.endAhead);
+    return {
+      state,
+      observations: row.ahead.length,
+      shareOfObservedMonths: row.ahead.length / Math.max(1, total),
+      meanDeployed: row.deployed.reduce((a, b) => a + b, 0) / Math.max(1, row.deployed.length),
+      medianDeployed: median(row.deployed) ?? 0,
+      meanClockTarget: row.clock.reduce((a, b) => a + b, 0) / Math.max(1, row.clock.length),
+      meanAheadOfClock: row.ahead.reduce((a, b) => a + b, 0) / Math.max(1, row.ahead.length),
+      medianAheadOfClock: median(row.ahead) ?? 0,
+      q05AheadOfClock: quantile(row.ahead, 0.05) ?? 0,
+      q95AheadOfClock: quantile(row.ahead, 0.95) ?? 0,
+      meanAbsoluteAhead: row.ahead.reduce((a, b) => a + Math.abs(b), 0) / Math.max(1, row.ahead.length),
+      meanCoupledTargetDelta: row.coupledDelta.reduce((a, b) => a + b, 0) / Math.max(1, row.coupledDelta.length),
+      episodes: episodes.length,
+      meanEpisodeMonths: episodeMonths.reduce((a, b) => a + b, 0) / Math.max(1, episodeMonths.length),
+      medianEpisodeMonths: median(episodeMonths) ?? 0,
+      maxEpisodeMonths: episodeMonths.length ? Math.max(...episodeMonths) : 0,
+      meanEpisodePeakAhead: peakAhead.reduce((a, b) => a + b, 0) / Math.max(1, peakAhead.length),
+      meanEpisodeEndAhead: endAhead.reduce((a, b) => a + b, 0) / Math.max(1, endAhead.length),
+    };
+  });
 }
 
 export function summarizeReplays(results: ReplayResult[]) {
@@ -592,5 +1611,11 @@ export function summarizeReplays(results: ReplayResult[]) {
       results.reduce((a, b) => a + b.deployedAtHalfway, 0) / Math.max(1, results.length),
     meanDeployedAtYear8:
       results.reduce((a, b) => a + b.deployedAtYear8, 0) / Math.max(1, results.length),
+    meanTotalInvested:
+      results.reduce((a, b) => a + b.totalInvested, 0) / Math.max(1, results.length),
+    medianTotalInvested: median(results.map((r) => r.totalInvested)) ?? 0,
+    q05TotalInvested: quantile(results.map((r) => r.totalInvested), 0.05) ?? 0,
+    meanUndeployedAtEnd:
+      results.reduce((a, b) => a + (1 - b.totalInvested), 0) / Math.max(1, results.length),
   };
 }

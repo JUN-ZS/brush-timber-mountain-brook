@@ -41,3 +41,16 @@ The Bridge does not recompute or replace a missing channel. A missing or invalid
 The former rolling-10y-floor artifact was result-only and was not a standalone executable package. The new final artifact includes the exact runner/controller source, QQQ snapshot, all three channel shards, and deterministic RUN.cmd/RUN.sh entrypoints.
 
 Bridge replay requires Node 22+ only. It does not require npm dependency installation or network access.
+
+
+## State-conditioned path validation
+
+The fourth-state analysis is observational and does not alter the controller.
+
+For each replay month:
+
+- cumulative deployed capital is compared with the hard clock target;
+- the comparison is grouped by CONVERGENT, TENSION, DIVERGENT, and THIN;
+- contiguous state episodes are summarized by duration, peak displacement, and end displacement.
+
+No state is scored as a "winner". The purpose is to test whether scale agreement/disagreement creates a reproducible change in the *shape and timing* of capital deployment relative to the clock.

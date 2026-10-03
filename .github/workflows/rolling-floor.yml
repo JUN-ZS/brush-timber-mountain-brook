@@ -2,6 +2,12 @@ name: Rolling 10Y Capital Floor
 
 on:
   workflow_dispatch:
+    inputs:
+      initial_funding_fraction:
+        description: "Initial external funding fraction of planned principal B (e.g. 0.10 or 0.20)"
+        required: true
+        default: "0.10"
+        type: string
   pull_request:
     branches:
       - main
@@ -25,25 +31,41 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          CURRENT_CREATED_AT="$(gh run view "$CURRENT_RUN" --repo "$GITHUB_REPOSITORY" --json createdAt --jq .createdAt)"
           for workflow in "Rolling 10Y Capital Floor" "QQQ V22 Locked OOS Family V2"; do
             gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow "$workflow" \
               --branch "$TARGET_BRANCH" \
               --limit 100 \
-              --json databaseId,status \
-              | jq -r --arg current "$CURRENT_RUN" '
+              --json databaseId,status,createdAt \
+              | jq -r --arg current "$CURRENT_RUN" --arg current_created "$CURRENT_CREATED_AT" '
                   .[]
                   | select((.databaseId | tostring) != $current)
                   | select(.status == "queued" or .status == "in_progress")
+                  | select(.createdAt < $current_created)
                   | .databaseId
                 ' \
               | while read -r run_id; do
                   [ -z "$run_id" ] && continue
-                  echo "cancel stale run $run_id ($workflow)"
+                  echo "cancel older run $run_id ($workflow)"
                   gh run cancel "$run_id" --repo "$GITHUB_REPOSITORY" || true
                 done
           done
+
+  adaptive-credit-unit:
+    name: Unit / Adaptive credit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Run rolling-floor unit tests
+        shell: bash
+        run: node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts src/lib/pulse/long-scale.test.ts
 
   qqq-windows-audit:
     name: Worker / QQQ / Windows audit
@@ -79,8 +101,8 @@ jobs:
           if-no-files-found: warn
 
   ndx-linux:
-    name: Worker / NDX / Linux
-    runs-on: [self-hosted, linux, x64]
+    name: Worker / NDX / Linux / hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -176,6 +198,9 @@ jobs:
         with:
           node-version: "22"
           check-latest: false
+      - name: Unit-test state topology + 50Y reconstruction
+        shell: bash
+        run: node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts src/lib/pulse/long-scale.test.ts
       - name: Collect required proxy shards
         uses: actions/download-artifact@v4
         with:
@@ -202,18 +227,31 @@ jobs:
           node --experimental-strip-types scripts/run-rolling-floor.ts \
             --mode bridge \
             --input-dir inputs/rolling_floor_shards \
-            --out-dir research/rolling_10y_floor
+            --out-dir research/rolling_10y_floor \
+            --initial-funding-fraction "${{ github.event.inputs.initial_funding_fraction || '0.10' }}"
       - name: Verify bridge outputs are runnable JSON
         shell: bash
         run: |
           test -s research/rolling_10y_floor/rolling_floor_result.json
           test -s research/rolling_10y_floor/rolling_floor_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_adaptive_credit_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_adaptive_funding_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_clock_funding_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_partial_b_floor_withdrawal_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl
+          test -s research/rolling_10y_floor/rolling_floor_state_path.json
           test -s research/rolling_10y_floor/rolling_floor_report.md
           node - <<'NODE'
           const fs = require("node:fs");
           const x = JSON.parse(fs.readFileSync("research/rolling_10y_floor/rolling_floor_result.json","utf8"));
-          if (x.version !== "rolling-floor.v2") throw new Error("wrong result version");
+          if (x.version !== "rolling-floor.v8-clock-isolated-withdrawal") throw new Error("wrong result version");
+          if (!x.evaluation?.clockPartialBFloorWithdrawal) throw new Error("missing isolated clock withdrawal evaluation");
+          if (!x.evaluation?.adaptiveFundingWithdrawal) throw new Error("missing adaptive secondary withdrawal evaluation");
+          if (x.evaluation.clockPartialBFloorWithdrawal.preregisteredAlpha !== 0.5) throw new Error("alpha must remain fixed at 0.50");
           if (x.replay?.n <= 0) throw new Error("no replay rows");
+          if (!Array.isArray(x.statePath) || x.statePath.length !== 4) throw new Error("state path summary must have 4 states");
           if (x.topology?.windowsAudit !== "NONBLOCKING") throw new Error("QQQ Windows audit must be nonblocking");
           console.log("PASS bridge", x.replay.n, "replays");
           NODE
@@ -229,6 +267,14 @@ jobs:
           cp inputs/rolling_floor_shards/*.json portable/inputs/rolling_floor_shards/
           cp research/rolling_10y_floor/rolling_floor_result.json portable/output/rolling_floor_result.json
           cp research/rolling_10y_floor/rolling_floor_replays.jsonl portable/output/rolling_floor_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_adaptive_credit_replays.jsonl portable/output/rolling_floor_adaptive_credit_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_adaptive_funding_replays.jsonl portable/output/rolling_floor_adaptive_funding_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_clock_funding_replays.jsonl portable/output/rolling_floor_clock_funding_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl portable/output/rolling_floor_profit_sweep_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl portable/output/rolling_floor_b_floor_withdrawal_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_partial_b_floor_withdrawal_replays.jsonl portable/output/rolling_floor_partial_b_floor_withdrawal_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl portable/output/rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl
+          cp research/rolling_10y_floor/rolling_floor_state_path.json portable/output/rolling_floor_state_path.json
           cp research/rolling_10y_floor/rolling_floor_report.md portable/output/rolling_floor_report.md
           cp research/rolling_10y_floor/PORTABLE_RUN.md portable/PORTABLE_RUN.md
           cp research/rolling_10y_floor/portable/RUN.cmd portable/RUN.cmd
@@ -242,6 +288,13 @@ jobs:
           path: |
             research/rolling_10y_floor/rolling_floor_result.json
             research/rolling_10y_floor/rolling_floor_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_adaptive_credit_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_adaptive_funding_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_clock_funding_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_profit_sweep_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_b_floor_withdrawal_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_partial_b_floor_withdrawal_replays.jsonl
+            research/rolling_10y_floor/rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl
             research/rolling_10y_floor/rolling_floor_report.md
             portable/
           if-no-files-found: error

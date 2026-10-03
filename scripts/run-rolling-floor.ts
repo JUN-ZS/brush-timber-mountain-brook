@@ -3,12 +3,18 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DEFAULT_INITIAL_FUNDING_FRACTION,
+  FLOOR_HORIZON_MONTHS,
   couple,
   monthlyize,
   qqqMonthly,
+  quantile,
   recommendForScale,
   replayOne,
+  replayFundingPlan,
   summarizeReplays,
+  type FundingReplayResult,
+  summarizeStatePath,
   TRAP_SCALES_YEARS,
   type ChannelScaleSignal,
   type Channel,
@@ -19,7 +25,7 @@ type ChannelId = "QQQ" | "NDX" | "NASDAQCOM";
 type Mode = "full" | "shard" | "bridge";
 
 type ShardPayload = {
-  version: "rolling-floor.shard.v2";
+  version: "rolling-floor.shard.v3";
   kind: "CHANNEL_SHARD";
   channel: ChannelId;
   layer: Channel["layer"];
@@ -41,6 +47,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_OUT = join(ROOT, "research", "rolling_10y_floor");
 const DEFAULT_INPUT = join(ROOT, "inputs", "rolling_floor_shards");
 const END_DATE = qqqMonthly().at(-1)?.date ?? "2026-09-04";
+// Pre-registered before the partial-withdrawal replay: fixed once, never swept/tuned.
+const PRE_REGISTERED_WITHDRAWAL_ALPHA = 0.50;
 
 function parseArgs() {
   const argv = process.argv.slice(2);
@@ -52,6 +60,16 @@ function parseArgs() {
   const channel = get("--channel") as ChannelId | null;
   const outDir = resolve(ROOT, get("--out-dir", DEFAULT_OUT) ?? DEFAULT_OUT);
   const inputDir = resolve(ROOT, get("--input-dir", DEFAULT_INPUT) ?? DEFAULT_INPUT);
+  const initialFundingFraction = Number(
+    get("--initial-funding-fraction", String(DEFAULT_INITIAL_FUNDING_FRACTION)),
+  );
+  if (
+    !(initialFundingFraction > 0) ||
+    initialFundingFraction > 1 ||
+    !Number.isFinite(initialFundingFraction)
+  ) {
+    throw new Error("--initial-funding-fraction must be in (0, 1]");
+  }
   if (!["full", "shard", "bridge"].includes(mode)) {
     throw new Error("Unknown mode: " + mode);
   }
@@ -59,7 +77,7 @@ function parseArgs() {
   if (channel && !["QQQ", "NDX", "NASDAQCOM"].includes(channel)) {
     throw new Error("Unknown channel: " + channel);
   }
-  return { mode, channel, outDir, inputDir };
+  return { mode, channel, outDir, inputDir, initialFundingFraction };
 }
 
 function hashPoints(points: MonthlyPoint[]) {
@@ -144,7 +162,7 @@ async function makeShard(channel: ChannelId): Promise<ShardPayload> {
   }
 
   return {
-    version: "rolling-floor.shard.v2",
+    version: "rolling-floor.shard.v3",
     kind: "CHANNEL_SHARD",
     channel,
     layer: channelLayer(channel),
@@ -168,17 +186,16 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
   if (startIndex + h >= q.length) return null;
   let cash = 1;
   const lots: { amount: number; entry: number }[] = [];
+  const curve: number[] = [1];
+  let peak = 1;
+  let maxDd = 0;
+
   for (let j = 0; j < h; j++) {
     const amount = cash / (h - j);
     const px = q[startIndex + j].value;
     lots.push({ amount, entry: px });
     cash -= amount;
-  }
-  const curve: number[] = [];
-  let peak = 1;
-  let maxDd = 0;
-  for (let j = 0; j <= h; j++) {
-    const px = q[startIndex + j].value;
+
     const e =
       cash +
       lots.reduce((s, lot) => s + lot.amount * (px / lot.entry), 0);
@@ -186,8 +203,17 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
     peak = Math.max(peak, e);
     maxDd = Math.min(maxDd, e / peak - 1);
   }
+
+  const finalPx = q[startIndex + h].value;
+  const terminal =
+    cash +
+    lots.reduce((s, lot) => s + lot.amount * (finalPx / lot.entry), 0);
+  curve.push(terminal);
+  peak = Math.max(peak, terminal);
+  maxDd = Math.min(maxDd, terminal / peak - 1);
+
   return {
-    terminalWealth: curve.at(-1) ?? 1,
+    terminalWealth: terminal,
     maxDrawdown: maxDd,
   };
 }
@@ -235,7 +261,7 @@ function validateShards(shards: ShardPayload[], qqq: MonthlyPoint[]) {
   }
   const qqqHash = hashPoints(qqq);
   for (const shard of shards) {
-    if (shard.version !== "rolling-floor.shard.v2" || shard.kind !== "CHANNEL_SHARD") {
+    if (shard.version !== "rolling-floor.shard.v3" || shard.kind !== "CHANNEL_SHARD") {
       throw new Error("Invalid shard: " + shard.channel);
     }
     if (shard.qqqHash !== qqqHash) {
@@ -269,24 +295,368 @@ function buildBridgePanel(qqq: MonthlyPoint[], shards: ShardPayload[]) {
 function runReplay(
   qqq: MonthlyPoint[],
   panel: Map<string, ReturnType<typeof couple>>,
+  initialFundingFraction: number,
 ) {
   const replays = [];
+  const adaptiveCredit = [];
   const clock = [];
   const lump = [];
+  const adaptiveFunding = [];
+  const clockFunding = [];
+  // Legacy #151 full-sweep counterexample: withdraw NAV-C_t.
+  const profitSweep = [];
+  // New B-floor diagnostic: withdraw only NAV-B, with B immutable.
+  const bFloorSweep = [];
+  // Pre-registered partial B-floor diagnostic: alpha = 0.50 only; no alpha sweep.
+  const partialBFloorSweep = [];
+  // Pure withdrawal diagnostic: CLOCK funding is identical to the control;
+  // the only changed variable is fixed-alpha withdrawal above immutable B.
+  const clockPartialBFloorSweep = [];
+
   for (let start = 0; start + 120 < qqq.length; start++) {
-    const r = replayOne(qqq, panel, start);
-    if (!r) continue;
-    replays.push(r);
+    const coupled = replayOne(qqq, panel, start, "COUPLED");
+    const credit = replayOne(qqq, panel, start, "ADAPTIVE_CREDIT_ONLY");
+    const adaptiveFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "ADAPTIVE_FUNDED",
+      1,
+      initialFundingFraction,
+    );
+    const clockFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "CLOCK_FUNDED",
+      1,
+      initialFundingFraction,
+    );
+    const sweepFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "ADAPTIVE_FUNDED",
+      1,
+      initialFundingFraction,
+      "SWEEP_ELIGIBLE_SURPLUS",
+    );
+    const bFloorFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "ADAPTIVE_FUNDED",
+      1,
+      initialFundingFraction,
+      "SWEEP_ABOVE_PLANNED_PRINCIPAL",
+    );
+    const partialBFloorFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "ADAPTIVE_FUNDED",
+      1,
+      initialFundingFraction,
+      "PARTIAL_ABOVE_PLANNED_PRINCIPAL",
+      new Map(),
+      PRE_REGISTERED_WITHDRAWAL_ALPHA,
+    );
+    const clockPartialBFloorFund = replayFundingPlan(
+      qqq,
+      panel,
+      start,
+      120,
+      "CLOCK_FUNDED",
+      1,
+      initialFundingFraction,
+      "PARTIAL_ABOVE_PLANNED_PRINCIPAL",
+      new Map(),
+      PRE_REGISTERED_WITHDRAWAL_ALPHA,
+    );
+    if (
+      !coupled ||
+      !credit ||
+      !adaptiveFund ||
+      !clockFund ||
+      !sweepFund ||
+      !bFloorFund ||
+      !partialBFloorFund ||
+      !clockPartialBFloorFund
+    ) continue;
+
+    // Full profit sweep must erase the future surplus credit before the next
+    // funding decision. If it does not, the same gain would be counted twice.
+    if (
+      sweepFund.path.some((point) => point.fundingCredit > 1e-9) ||
+      Math.abs(
+        sweepFund.totalContributed - clockFund.totalContributed,
+      ) > 1e-8
+    ) {
+      throw new Error(
+        "Profit-sweep invariant failed: swept surplus must not retain adaptive credit or reduce total clock funding",
+      );
+    }
+
+    // B-floor withdrawal invariant:
+    // - NAV < immutable B means withdrawal eligibility is exactly zero.
+    // - Any executed withdrawal leaves immediate NAV >= B.
+    const withdrawalRuns = [bFloorFund, partialBFloorFund, clockPartialBFloorFund];
+    if (
+      withdrawalRuns.some((run) =>
+        run.path.some(
+          (point) =>
+            point.withdrawalExecuted > 1e-12 &&
+            (point.navBeforeWithdrawal + 1e-9 < run.plannedPrincipal ||
+              point.nav + 1e-9 < run.plannedPrincipal),
+        ),
+      )
+    ) {
+      throw new Error(
+        "B-floor withdrawal invariant failed: withdrawal occurred below B or post-withdrawal NAV fell below plannedPrincipal",
+      );
+    }
+
+    // Pure-withdrawal isolation invariant:
+    // CLOCK + withdrawal must have exactly the same funding path as CLOCK + NONE.
+    if (
+      clockPartialBFloorFund.path.some((point, i) => {
+        const base = clockFund.path[i];
+        return (
+          !base ||
+          Math.abs(point.contribution - base.contribution) > 1e-12 ||
+          Math.abs(point.cumulativeContributed - base.cumulativeContributed) > 1e-12 ||
+          Math.abs(point.fundingTarget - base.fundingTarget) > 1e-12 ||
+          Math.abs(point.clockTarget - base.clockTarget) > 1e-12
+        );
+      }) ||
+      Math.abs(clockPartialBFloorFund.totalContributed - clockFund.totalContributed) > 1e-12
+    ) {
+      throw new Error(
+        "Pure withdrawal isolation failed: CLOCK + withdrawal changed the funding path",
+      );
+    }
+
+    if (
+      clockPartialBFloorFund.path.some(
+        (point) => Math.abs(point.withdrawalAlpha - PRE_REGISTERED_WITHDRAWAL_ALPHA) > 1e-12,
+      )
+    ) {
+      throw new Error("Pure withdrawal isolation failed: alpha is not fixed at preregistered 0.50");
+    }
+
+    replays.push(coupled);
+    adaptiveCredit.push(credit);
+    adaptiveFunding.push(adaptiveFund);
+    clockFunding.push(clockFund);
+    profitSweep.push(sweepFund);
+    bFloorSweep.push(bFloorFund);
+    partialBFloorSweep.push(partialBFloorFund);
+    clockPartialBFloorSweep.push(clockPartialBFloorFund);
     clock.push(clockReplay(qqq, start));
     lump.push(lumpReplay(qqq, start));
   }
-  return { replays, clock: clock.filter(Boolean), lump: lump.filter(Boolean) };
+
+  return {
+    replays,
+    adaptiveCredit,
+    adaptiveFunding,
+    clockFunding,
+    profitSweep,
+    bFloorSweep,
+    partialBFloorSweep,
+    clockPartialBFloorSweep,
+    clock: clock.filter(Boolean),
+    lump: lump.filter(Boolean),
+  };
+}
+
+function summarizeFunding(results: FundingReplayResult[]) {
+  const terminals = results.map((r) => r.terminalWealth);
+  const contributions = results.map((r) => r.totalContributed);
+  const principals = [...new Set(results.map((r) => r.plannedPrincipal))];
+  if (principals.length > 1) {
+    throw new Error("Funding comparison mixes different planned principal B values");
+  }
+  const plannedPrincipal = principals[0] ?? 1;
+  const contributedRatios = contributions.map((x) => x / plannedPrincipal);
+  const terminalRatios = terminals.map((x) => x / plannedPrincipal);
+  return {
+    nReplays: results.length,
+    plannedPrincipal,
+    principalFailureRate:
+      terminalRatios.filter((x) => x < 1).length / Math.max(1, terminalRatios.length),
+    q05Terminal: quantile(terminalRatios, 0.05) ?? 0,
+    medianTerminal: quantile(terminalRatios, 0.50) ?? 0,
+    worstTerminal: terminalRatios.length ? Math.min(...terminalRatios) : 0,
+    meanTotalContributedRatio: mean(contributedRatios),
+    medianTotalContributedRatio: quantile(contributedRatios, 0.50) ?? 0,
+    q05TotalContributedRatio: quantile(contributedRatios, 0.05) ?? 0,
+    meanContributionReduction: 1 - mean(contributedRatios),
+    meanTotalWithdrawnRatio: mean(
+      results.map((r) => r.totalWithdrawn / plannedPrincipal),
+    ),
+    q05TotalWithdrawnRatio:
+      quantile(
+        results.map((r) => r.totalWithdrawn / plannedPrincipal),
+        0.05,
+      ) ?? 0,
+    medianTotalWithdrawnRatio:
+      quantile(
+        results.map((r) => r.totalWithdrawn / plannedPrincipal),
+        0.50,
+      ) ?? 0,
+    meanNetEconomicWealth: mean(
+      results.map(
+        (r) => r.netEconomicWealth / plannedPrincipal,
+      ),
+    ),
+  };
+}
+
+function mean(xs: number[]) {
+  return xs.reduce((sum, x) => sum + x, 0) / Math.max(1, xs.length);
+}
+
+function summarizeWithdrawalComparison(
+  withdrawal: FundingReplayResult[],
+  baseline: FundingReplayResult[],
+) {
+  if (withdrawal.length !== baseline.length) {
+    throw new Error("Withdrawal comparison requires identical replay counts");
+  }
+
+  const deltaNavTerminal: number[] = [];
+  const deltaNetEconomicWealth: number[] = [];
+  const terminalRatios: number[] = [];
+  const baselineTerminalRatios: number[] = [];
+  const withdrawnRatios: number[] = [];
+
+  for (let i = 0; i < withdrawal.length; i++) {
+    const w = withdrawal[i];
+    const c = baseline[i];
+    if (
+      !w ||
+      !c ||
+      w.startDate !== c.startDate ||
+      w.endDate !== c.endDate ||
+      w.plannedPrincipal !== c.plannedPrincipal
+    ) {
+      throw new Error(
+        "Withdrawal comparison requires identical start/end/B at index " + i,
+      );
+    }
+
+    const b = w.plannedPrincipal;
+    deltaNavTerminal.push((w.terminalWealth - c.terminalWealth) / b);
+    deltaNetEconomicWealth.push(
+      (w.netEconomicWealth - c.netEconomicWealth) / b,
+    );
+    terminalRatios.push(w.terminalWealth / b);
+    baselineTerminalRatios.push(c.terminalWealth / b);
+    withdrawnRatios.push(w.totalWithdrawn / b);
+  }
+
+  const deltaNav = mean(deltaNavTerminal);
+  const deltaNet = mean(deltaNetEconomicWealth);
+  const failureRate =
+    terminalRatios.filter((x) => x < 1).length /
+    Math.max(1, terminalRatios.length);
+  const q05Terminal = quantile(terminalRatios, 0.05) ?? 0;
+  const baselineFailureRate =
+    baselineTerminalRatios.filter((x) => x < 1).length /
+    Math.max(1, baselineTerminalRatios.length);
+  const baselineQ05 = quantile(baselineTerminalRatios, 0.05) ?? 0;
+
+  return {
+    pairedObservations: withdrawal.length,
+    dependence: "OVERLAPPING_ROLLING_WINDOWS; DIAGNOSTIC_ONLY",
+    // All deltas are WITHDRAWAL - SAME-START BASELINE.
+    deltaNavTerminal: deltaNav,
+    deltaNetEconomicWealth: deltaNet,
+    principalFailureRate: failureRate,
+    q05Terminal,
+    baselinePrincipalFailureRate: baselineFailureRate,
+    baselineQ05Terminal: baselineQ05,
+    meanTotalWithdrawnRatio: mean(withdrawnRatios),
+    // Fixed, pre-declared diagnostic gate: no worse than the supplied baseline
+    // on the four floor dimensions; this is not an optimization target.
+    passesBaseline:
+      deltaNav >= -1e-12 &&
+      deltaNet >= -1e-12 &&
+      failureRate <= baselineFailureRate + 1e-12 &&
+      q05Terminal >= baselineQ05 - 1e-12,
+  };
+}
+
+function checkpointMetrics(
+  result: FundingReplayResult,
+  months: 36 | 60 | 120,
+) {
+  const row = result.path[months - 1];
+  if (!row) return null;
+  const navToContributed =
+    row.cumulativeContributed > 1e-12
+      ? row.nav / row.cumulativeContributed
+      : null;
+  return {
+    contributedRatio: row.cumulativeContributed,
+    navToContributed,
+    navToB: row.nav,
+  };
+}
+
+function summarizeFundingCheckpointDifference(
+  adaptive: FundingReplayResult[],
+  clock: FundingReplayResult[],
+  months: 36 | 60 | 120,
+) {
+  const n = Math.min(adaptive.length, clock.length);
+  const deltaContributed: number[] = [];
+  const deltaNavToContributed: number[] = [];
+  const deltaNavToB: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const a = adaptive[i];
+    const c = clock[i];
+    if (!a || !c || a.startDate !== c.startDate || a.endDate !== c.endDate) {
+      throw new Error(
+        "Checkpoint comparison requires identical rolling starts at index " + i,
+      );
+    }
+    const am = checkpointMetrics(a, months);
+    const cm = checkpointMetrics(c, months);
+    if (!am || !cm || am.navToContributed == null || cm.navToContributed == null) {
+      continue;
+    }
+    // All deltas are CLOCK - ADAPTIVE on the exact same rolling start.
+    deltaContributed.push(cm.contributedRatio - am.contributedRatio);
+    deltaNavToContributed.push(cm.navToContributed - am.navToContributed);
+    deltaNavToB.push(cm.navToB - am.navToB);
+  }
+
+  return {
+    months,
+    label: months === 36 ? "3Y" : months === 60 ? "5Y" : "10Y",
+    pairedObservations: deltaContributed.length,
+    dependence: "OVERLAPPING_ROLLING_PATHS; DIAGNOSTIC",
+    clockMinusAdaptive: {
+      contributedRatio: mean(deltaContributed),
+      navToContributed: mean(deltaNavToContributed),
+      navToB: mean(deltaNavToB),
+    },
+  };
 }
 
 function baselineSummary(
   rows: Array<{ terminalWealth: number; maxDrawdown: number }>,
 ) {
   const ws = rows.map((r) => r.terminalWealth);
+  const q05 = quantile(ws, 0.05) ?? 0;
   const a = [...ws].sort((x, y) => x - y);
   const m = Math.floor(a.length / 2);
   return {
@@ -295,6 +665,8 @@ function baselineSummary(
       ws.filter((x) => x >= 1).length / Math.max(1, ws.length),
     medianTerminal:
       a.length === 0 ? 0 : a.length % 2 ? a[m] : ((a[m - 1] ?? 0) + a[m]) / 2,
+    q05Terminal: q05,
+    principalFailureRate: 1 - ws.filter((x) => x >= 1).length / Math.max(1, ws.length),
     worstTerminal: a.length ? a[0] : 0,
     meanMaxDd:
       rows.reduce((s, x) => s + x.maxDrawdown, 0) /
@@ -311,13 +683,16 @@ function writeOutputs(
 ) {
   mkdirSync(outDir, { recursive: true });
   const latestDate = qqq.at(-1)?.date ?? END_DATE;
+  const initialFundingFraction =
+    replay.adaptiveFunding[0]?.initialFundingFraction ??
+    DEFAULT_INITIAL_FUNDING_FRACTION;
   const { panel, byDate } = buildBridgePanel(qqq, shards);
   const current =
     panel.get(latestDate) ??
     couple(latestDate, 0, byDate.get(latestDate) ?? []);
 
   const payload = {
-    version: "rolling-floor.v2",
+    version: "rolling-floor.v8-clock-isolated-withdrawal",
     evidenceClass: "RESEARCH_ONLY",
     topology: {
       workers: [
@@ -330,7 +705,7 @@ function writeOutputs(
         {
           lane: "linux",
           channel: "NDX",
-          runner: '["self-hosted","linux","x64"]',
+          runner: '["ubuntu-latest"]',
         },
         {
           lane: "hub-web",
@@ -346,11 +721,15 @@ function writeOutputs(
       horizonYears: 10,
       decisionCadence: "monthly",
       dataAsOf: latestDate,
+      initialFundingFraction,
+      terminalClockTargetFraction: 1,
     },
     trap: {
       scalesYears: [...TRAP_SCALES_YEARS],
       rule:
         "10Y is terminal horizon; 20/30/50Y are parallel historical context scales. An analog is admitted only after its following QQQ 10Y path is fully mature.",
+      signalObjective:
+        "For each scale, target is the nearest-rank 95% fraction of front-loaded capital required for the analog paths to reach terminal principal under the fixed 10Y deployment ladder. This is a floor requirement, not a terminal-return maximizer.",
       divergence:
         "Scale disagreement is a first-class state; CONVERGENT permits forward pull, TENSION halves it, DIVERGENT/THIN return authority to the deadline clock.",
     },
@@ -365,26 +744,79 @@ function writeOutputs(
     })),
     current: {
       asOf: latestDate,
-      clockFirstMonthTarget: 1 / 120,
+      clockFirstMonthTarget: initialFundingFraction,
       robustTargetAtPhaseZero: current.robustTarget,
       agreementAtPhaseZero: current.agreement,
       divergenceStateAtPhaseZero: current.divergenceState,
       coupledTargetAtPhaseZero: current.coupledTarget,
-      firstInjectionFraction: Math.max(1 / 120, current.coupledTarget),
+      firstInjectionFraction: Math.max(initialFundingFraction, current.coupledTarget),
       signalCount: current.signals.length,
       perScale: current.perScale,
+      mutualChase: current.mutualChase,
     },
     replay: {
       n: replay.replays.length,
       coupled: summarizeReplays(replay.replays),
+      adaptiveCreditOnly: summarizeReplays(replay.adaptiveCredit),
+      adaptiveFunding: summarizeFunding(replay.adaptiveFunding),
+      clockFunding: summarizeFunding(replay.clockFunding),
+      profitSweep: summarizeFunding(replay.profitSweep),
+      bFloorSweep: summarizeFunding(replay.bFloorSweep),
+      partialBFloorSweep: summarizeFunding(replay.partialBFloorSweep),
+      clockPartialBFloorSweep: summarizeFunding(replay.clockPartialBFloorSweep),
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
     },
+    evaluation: {
+      rolling10Y: {
+        observations: replay.replays.length,
+        dependence: "OVERLAPPING_ROLLING_WINDOWS; DIAGNOSTIC_ONLY",
+      },
+      checkpointDiffs: [
+        summarizeFundingCheckpointDifference(replay.adaptiveFunding, replay.clockFunding, 36),
+        summarizeFundingCheckpointDifference(replay.adaptiveFunding, replay.clockFunding, 60),
+        summarizeFundingCheckpointDifference(replay.adaptiveFunding, replay.clockFunding, 120),
+      ],
+      bFloorWithdrawalAdaptiveVsClock: summarizeWithdrawalComparison(
+        replay.bFloorSweep,
+        replay.clockFunding,
+      ),
+      partialBFloorWithdrawalAdaptiveVsClock: {
+        preregisteredAlpha: PRE_REGISTERED_WITHDRAWAL_ALPHA,
+        ...summarizeWithdrawalComparison(
+          replay.partialBFloorSweep,
+          replay.clockFunding,
+        ),
+      },
+      clockPartialBFloorWithdrawal: {
+        preregisteredAlpha: PRE_REGISTERED_WITHDRAWAL_ALPHA,
+        ...summarizeWithdrawalComparison(
+          replay.clockPartialBFloorSweep,
+          replay.clockFunding,
+        ),
+      },
+      adaptiveFundingWithdrawal: {
+        preregisteredAlpha: PRE_REGISTERED_WITHDRAWAL_ALPHA,
+        ...summarizeWithdrawalComparison(
+          replay.partialBFloorSweep,
+          replay.adaptiveFunding,
+        ),
+      },
+      rule: "3Y/5Y are interim checkpoints inside the fixed 10Y objective; 10Y remains the terminal floor test. Withdrawal is judged only against the same-start clock on delta NAV_T, delta net economic wealth, principal-failure rate, and Q05 terminal NAV. Rolling starts overlap, so these observations are diagnostic, not independent samples.",
+    },
+    statePath: summarizeStatePath(replay.replays),
+    mutualChasePath: summarizeStatePath(replay.replays, "mutualChaseState"),
     provenance: {
       runner: "scripts/run-rolling-floor.ts",
       mode: "BRIDGE",
       qqqHash: hashPoints(qqq),
       sourceCommit: process.env.GITHUB_SHA ?? "LOCAL",
+      withdrawalResearch: {
+        rule: "PARTIAL_ABOVE_PLANNED_PRINCIPAL",
+        alpha: PRE_REGISTERED_WITHDRAWAL_ALPHA,
+        preregistration: "FIXED_BEFORE_REPLAY; NO_ALPHA_SWEEP",
+        alphaSweep: "FORBIDDEN_IN_THIS_DIAGNOSTIC",
+      },
       externalRerun: "Use the portable bundle. No npm install and no network are required for bridge replay.",
     },
   };
@@ -397,9 +829,41 @@ function writeOutputs(
     join(outDir, "rolling_floor_replays.jsonl"),
     replay.replays.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
+  writeFileSync(
+    join(outDir, "rolling_floor_adaptive_credit_replays.jsonl"),
+    replay.adaptiveCredit.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_adaptive_funding_replays.jsonl"),
+    replay.adaptiveFunding.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_clock_funding_replays.jsonl"),
+    replay.clockFunding.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_profit_sweep_replays.jsonl"),
+    replay.profitSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_b_floor_withdrawal_replays.jsonl"),
+    replay.bFloorSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_partial_b_floor_withdrawal_replays.jsonl"),
+    replay.partialBFloorSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_clock_partial_b_floor_withdrawal_replays.jsonl"),
+    replay.clockPartialBFloorSweep.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_state_path.json"),
+    JSON.stringify(summarizeStatePath(replay.replays), null, 2),
+  );
 
   const report = [
-    "# Rolling 10Y Capital-Floor Controller v2",
+    "# Rolling 10Y Capital-Floor Research — Adaptive Funding Plan",
     "",
     "Data end: " + latestDate,
     "",
@@ -407,7 +871,7 @@ function writeOutputs(
     "",
     "- One workflow launches three parallel machine workers.",
     "- Windows (windows-latest) computes a non-blocking QQQ audit shard; Bridge uses the repo QQQ snapshot as canonical target input.",
-    "- Linux self-hosted computes NASDAQ-100 proxy state signals.",
+    "- Linux hosted computes NASDAQ-100 proxy state signals.",
     "- HUB-Web (ubuntu-latest) computes NASDAQ Composite proxy state signals.",
     "- A separate Bridge collector on ubuntu-latest joins the required immutable NDX/NASDAQCOM shards with the canonical QQQ snapshot, applies the coupling state machine, and performs the QQQ replay.",
     "",
@@ -416,7 +880,46 @@ function writeOutputs(
     "- The portable bundle contains the exact runner source, QQQ source snapshot, required proxy shards, and the prior output.",
     "- RUN.cmd / RUN.sh invoke Node 22 directly; npm and FRED network access are not required for bridge replay.",
     "",
+    "## State-conditioned capital path",
+    "",
+    "The state analysis is descriptive: it compares cumulative deployed capital with the hard clock target without changing any controller rule.",
+    "",
+    ...payload.statePath.map((s) =>
+      [
+        "- " + s.state +
+          ": observations=" + s.observations +
+          ", share=" + (s.shareOfObservedMonths * 100).toFixed(1) + "%" +
+          ", mean ahead-of-clock=" + (s.meanAheadOfClock * 100).toFixed(2) + "%" +
+          ", q05/q95 ahead=" + (s.q05AheadOfClock * 100).toFixed(2) +
+          "%/" + (s.q95AheadOfClock * 100).toFixed(2) + "%" +
+          ", episodes=" + s.episodes +
+          ", mean episode=" + s.meanEpisodeMonths.toFixed(1) + "m" +
+          ", max episode=" + s.maxEpisodeMonths + "m",
+      ].join("")
+    ),
+    "",
+    "Interpretation: CONVERGENT records where scale consensus is permitted to pull capital ahead of the deadline; TENSION records partial authority; DIVERGENT removes historical pull and returns to the clock; THIN means insufficient scale evidence.",
+    "",
+    "## Mutual-chase topology",
+    "",
+    ...payload.mutualChasePath.map((s) =>
+      [
+        "- " + s.state +
+          ": observations=" + s.observations +
+          ", share=" + (s.shareOfObservedMonths * 100).toFixed(1) + "%" +
+          ", mean ahead-of-clock=" + (s.meanAheadOfClock * 100).toFixed(2) + "%" +
+          ", episodes=" + s.episodes +
+          ", mean episode=" + s.meanEpisodeMonths.toFixed(1) + "m",
+      ].join("")
+    ),
+    "",
+    "Mutual-chase state is diagnostic only; it does not alter the replay action.",
+    "",
     "## Replay",
+    "",
+    "Signal objective: 95% terminal-principal floor front-load requirement, not maximum terminal wealth.",
+    "",
+    "The adaptive-credit replay is a historical-credit diagnostic. The new adaptive-funded replay is the actual funding-plan experiment: external principal starts outside the account and enters dynamically over 10 years.",
     "",
     "Coupled replays: " + replay.replays.length,
     "Coupled non-loss rate: " +
@@ -430,12 +933,149 @@ function writeOutputs(
       (payload.replay.coupled.worstMaxDd * 100).toFixed(1) +
       "%",
     "",
-    "Clock-only non-loss: " +
-      (payload.replay.clockOnly.nonLossRate * 100).toFixed(1) +
+    "Adaptive-credit-only principal failure rate: " +
+      ((1 - payload.replay.adaptiveCreditOnly.nonLossRate) * 100).toFixed(1) +
       "%",
-    "Lump-now non-loss: " +
-      (payload.replay.lumpNow.nonLossRate * 100).toFixed(1) +
+    "Adaptive-credit-only 5% terminal quantile: " +
+      payload.replay.adaptiveCreditOnly.q05Terminal.toFixed(4),
+    "Adaptive-credit mean total deployed: " +
+      (payload.replay.adaptiveCreditOnly.meanTotalInvested * 100).toFixed(2) +
       "%",
+    "Adaptive-credit mean undeployed at end: " +
+      (payload.replay.adaptiveCreditOnly.meanUndeployedAtEnd * 100).toFixed(2) +
+      "%",
+    "Clock-only principal failure rate: " +
+      ((1 - payload.replay.clockOnly.nonLossRate) * 100).toFixed(1) +
+      "%",
+    "Clock-only 5% terminal quantile: " +
+      payload.replay.clockOnly.q05Terminal.toFixed(4),
+    "Lump-now principal failure rate: " +
+      ((1 - payload.replay.lumpNow.nonLossRate) * 100).toFixed(1) +
+      "%",
+    "Lump-now 5% terminal quantile: " +
+      payload.replay.lumpNow.q05Terminal.toFixed(4),
+    "",
+    "## External funding plan",
+    "",
+    "This layer starts with zero account cash. Planned principal B=1 remains outside the account. The clock targets 100% of B by the horizon, while the initial external funding fraction is configurable. Contributions are invested when funded; adaptive funding reduces only future external contributions using reversible NAV surplus credit.",
+    "Configured initial funding fraction: " +
+      (initialFundingFraction * 100).toFixed(2) +
+      "%; terminal clock target: 100.00% of B.",
+    "",
+    "Adaptive-funded principal failure rate: " +
+      (payload.replay.adaptiveFunding.principalFailureRate * 100).toFixed(1) + "%",
+    "Adaptive-funded 5% terminal quantile: " +
+      payload.replay.adaptiveFunding.q05Terminal.toFixed(4),
+    "Adaptive-funded mean total contributed / B: " +
+      (payload.replay.adaptiveFunding.meanTotalContributedRatio * 100).toFixed(2) + "%",
+    "Adaptive-funded mean contribution reduction: " +
+      (payload.replay.adaptiveFunding.meanContributionReduction * 100).toFixed(2) + "%",
+    "",
+    "Profit-withdrawal sweep diagnostic (100% of eligible surplus at each month close):",
+    "Profit-sweep mean total contributed / B: " +
+      (payload.replay.profitSweep.meanTotalContributedRatio * 100).toFixed(2) + "%",
+    "Profit-sweep mean cumulative withdrawn / B: " +
+      (payload.replay.profitSweep.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
+    "Profit-sweep q05 cumulative withdrawn / B: " +
+      (payload.replay.profitSweep.q05TotalWithdrawnRatio * 100).toFixed(2) + "%",
+    "Profit-sweep mean net economic wealth / B: " +
+      payload.replay.profitSweep.meanNetEconomicWealth.toFixed(4),
+    "Invariant: profit sweep retains no funding credit and restores total external funding to the hard clock. This legacy sweep is retained only as the #151 counterexample.",
+    "",
+    "B-floor withdrawal diagnostic (new rule: eligible amount = max(0, NAV_before_withdrawal - plannedPrincipal B); withdrawn cash is excluded from the account NAV floor):",
+    "B-floor withdrawal paired observations (ADAPTIVE + full withdrawal vs CLOCK): " +
+      payload.evaluation.bFloorWithdrawalAdaptiveVsClock.pairedObservations,
+    "B-floor withdrawal mean delta NAV_T / B (ADAPTIVE + withdrawal - CLOCK): " +
+      (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.deltaNavTerminal * 100).toFixed(2) + "%",
+    "B-floor withdrawal mean delta net economic wealth / B (ADAPTIVE + withdrawal - CLOCK): " +
+      (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.deltaNetEconomicWealth * 100).toFixed(2) + "%",
+    "B-floor withdrawal principal failure rate (ADAPTIVE + withdrawal): " +
+      (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.principalFailureRate * 100).toFixed(1) + "%",
+    "B-floor withdrawal same-start CLOCK principal failure rate: " +
+      (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.baselinePrincipalFailureRate * 100).toFixed(1) + "%",
+    "B-floor withdrawal Q05 terminal NAV / B: " +
+      payload.evaluation.bFloorWithdrawalAdaptiveVsClock.q05Terminal.toFixed(4),
+    "B-floor withdrawal same-start CLOCK Q05 terminal NAV / B: " +
+      payload.evaluation.bFloorWithdrawalAdaptiveVsClock.baselineQ05Terminal.toFixed(4),
+    "B-floor withdrawal mean cumulative withdrawn / B: " +
+      (payload.evaluation.bFloorWithdrawalAdaptiveVsClock.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
+    "The full B-floor sweep remains a compound ADAPTIVE + withdrawal diagnostic; it is not an isolated withdrawal test.",
+    "",
+    "Pre-registered partial withdrawal diagnostic: alpha = " +
+      PRE_REGISTERED_WITHDRAWAL_ALPHA.toFixed(2) +
+      " of NAV-B surplus; alpha was fixed before replay and no alpha sweep/search was performed.",
+    "Adaptive + partial withdrawal mean delta NAV_T / B versus CLOCK: " +
+      (payload.evaluation.partialBFloorWithdrawalAdaptiveVsClock.deltaNavTerminal * 100).toFixed(2) + "%",
+    "Adaptive + partial withdrawal mean delta net economic wealth / B versus CLOCK: " +
+      (payload.evaluation.partialBFloorWithdrawalAdaptiveVsClock.deltaNetEconomicWealth * 100).toFixed(2) + "%",
+    "Adaptive + partial withdrawal principal failure rate: " +
+      (payload.evaluation.partialBFloorWithdrawalAdaptiveVsClock.principalFailureRate * 100).toFixed(1) + "%",
+    "Adaptive + partial withdrawal Q05 terminal NAV / B: " +
+      payload.evaluation.partialBFloorWithdrawalAdaptiveVsClock.q05Terminal.toFixed(4),
+    "This remains a compound ADAPTIVE + withdrawal diagnostic and cannot be read as alpha-only evidence.",
+    "",
+    "## Isolated withdrawal experiment",
+    "",
+    "CONTROL = CLOCK_FUNDED + NONE.",
+    "TEST = CLOCK_FUNDED + PARTIAL_ABOVE_PLANNED_PRINCIPAL.",
+    "The only changed experimental variable is withdrawal: W_t = 0.50 * max(0, NAV_t - B).",
+    "Both paths use the same initial funding fraction, the same QQQ path, the same rolling start, and the same clock contributions.",
+    "Alpha = " + PRE_REGISTERED_WITHDRAWAL_ALPHA.toFixed(2) + " was fixed before replay. No alpha sweep/search was performed.",
+    "Clock + partial withdrawal paired observations: " +
+      payload.evaluation.clockPartialBFloorWithdrawal.pairedObservations,
+    "Clock + partial withdrawal mean delta NAV_T / B (TEST - CONTROL): " +
+      (payload.evaluation.clockPartialBFloorWithdrawal.deltaNavTerminal * 100).toFixed(2) + "%",
+    "Clock + partial withdrawal mean delta net economic wealth / B (TEST - CONTROL): " +
+      (payload.evaluation.clockPartialBFloorWithdrawal.deltaNetEconomicWealth * 100).toFixed(2) + "%",
+    "Clock + partial withdrawal principal failure rate: " +
+      (payload.evaluation.clockPartialBFloorWithdrawal.principalFailureRate * 100).toFixed(1) + "%",
+    "Clock + NONE principal failure rate: " +
+      (payload.evaluation.clockPartialBFloorWithdrawal.baselinePrincipalFailureRate * 100).toFixed(1) + "%",
+    "Clock + partial withdrawal Q05 terminal NAV / B: " +
+      payload.evaluation.clockPartialBFloorWithdrawal.q05Terminal.toFixed(4),
+    "Clock + NONE Q05 terminal NAV / B: " +
+      payload.evaluation.clockPartialBFloorWithdrawal.baselineQ05Terminal.toFixed(4),
+    "Clock + partial withdrawal mean cumulative withdrawn / B: " +
+      (payload.evaluation.clockPartialBFloorWithdrawal.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
+    "Isolated withdrawal passes CLOCK on all four dimensions: " +
+      payload.evaluation.clockPartialBFloorWithdrawal.passesBaseline,
+    "",
+    "## Adaptive secondary table",
+    "",
+    "Secondary only: ADAPTIVE_FUNDED + NONE versus ADAPTIVE_FUNDED + the same fixed alpha=0.50 withdrawal. This table does not replace the isolated CLOCK experiment and is not used to select alpha.",
+    "Adaptive withdrawal mean delta NAV_T / B: " +
+      (payload.evaluation.adaptiveFundingWithdrawal.deltaNavTerminal * 100).toFixed(2) + "%",
+    "Adaptive withdrawal mean delta net economic wealth / B: " +
+      (payload.evaluation.adaptiveFundingWithdrawal.deltaNetEconomicWealth * 100).toFixed(2) + "%",
+    "Adaptive withdrawal principal failure rate: " +
+      (payload.evaluation.adaptiveFundingWithdrawal.principalFailureRate * 100).toFixed(1) + "%",
+    "Adaptive no-withdrawal principal failure rate: " +
+      (payload.evaluation.adaptiveFundingWithdrawal.baselinePrincipalFailureRate * 100).toFixed(1) + "%",
+    "Adaptive withdrawal Q05 terminal NAV / B: " +
+      payload.evaluation.adaptiveFundingWithdrawal.q05Terminal.toFixed(4),
+    "Adaptive no-withdrawal Q05 terminal NAV / B: " +
+      payload.evaluation.adaptiveFundingWithdrawal.baselineQ05Terminal.toFixed(4),
+    "",
+    "Acceptance rule: cash-flow magnitude is not a pass condition. The isolated CLOCK experiment is diagnostic only; it cannot enter the controller from this run. No alpha sweep/search was performed.",
+    "",
+    "Clock-funded principal failure rate: " +
+      (payload.replay.clockFunding.principalFailureRate * 100).toFixed(1) + "%",
+    "Clock-funded 5% terminal quantile / B: " +
+      payload.replay.clockFunding.q05Terminal.toFixed(4),
+    "",
+    "## Paired checkpoint differential (CLOCK - ADAPTIVE)",
+    "",
+    "| Checkpoint | Delta contributed / B | Delta NAV / contributed | Delta NAV / B |",
+    "|---|---:|---:|---:|",
+    ...payload.evaluation.checkpointDiffs.map((x) =>
+      "| " + x.label +
+      " | " + (x.clockMinusAdaptive.contributedRatio * 100).toFixed(2) + "%" +
+      " | " + x.clockMinusAdaptive.navToContributed.toFixed(4) +
+      " | " + x.clockMinusAdaptive.navToB.toFixed(4) +
+      " |"
+    ),
+    "",
+    "Positive numbers mean CLOCK is higher than ADAPTIVE for that same rolling start. NAV / contributed is measured against capital already externally contributed at the checkpoint; NAV / B uses the full planned principal B=1 as denominator.",
     "",
     "## Current",
     "",
@@ -461,7 +1101,7 @@ function writeOutputs(
 }
 
 async function main() {
-  const { mode, channel, outDir, inputDir } = parseArgs();
+  const { mode, channel, outDir, inputDir, initialFundingFraction } = parseArgs();
 
   if (mode === "shard") {
     const shard = await makeShard(channel as ChannelId);
@@ -496,7 +1136,11 @@ async function main() {
 
   const qqq = qqqMonthly();
   validateShards(shards, qqq);
-  const replay = runReplay(qqq, buildBridgePanel(qqq, shards).panel);
+  const replay = runReplay(
+    qqq,
+    buildBridgePanel(qqq, shards).panel,
+    initialFundingFraction,
+  );
   writeOutputs(outDir, qqq, shards, replay);
   console.log(readFileSync(join(outDir, "rolling_floor_report.md"), "utf8"));
 }
