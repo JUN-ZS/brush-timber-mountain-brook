@@ -1016,7 +1016,6 @@ export function replayFundingPlan(
     const i = startIndex + j;
     const date = qqq[i].date;
     const sig = panel.get(date);
-    const clockTarget = clamp((j + 1) / FLOOR_HORIZON_MONTHS);
 
     // Funding decision timing: month j may only use the prior month's close.
     // Month 0 has no prior observation, so it starts with zero account NAV.
