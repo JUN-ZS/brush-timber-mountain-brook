@@ -281,10 +281,13 @@ test("adaptive credit reduces future buy and is revoked by a later floor breach"
 
   const panel = new Map(qqq.map((p) => [p.date, signalFor(p.date)]));
   const result = replayOne(qqq, panel, 0, "ADAPTIVE_CREDIT_ONLY")!;
-  assert.ok(result.path[1].creditAmount > 0);
-  assert.ok(result.path[1].effectiveTarget < result.path[1].clockTarget);
-  assert.equal(result.path[2].creditAmount, 0);
-  assert.ok(result.path[2].action > 1 / 120);
+  // Month 1 closes with the gain; month 2 is the first decision that can
+  // legitimately use that closed surplus.
+  assert.ok(result.path[2].creditAmount > 0);
+  assert.ok(result.path[2].effectiveTarget < result.path[2].clockTarget);
+  // The later 20% QQQ drop removes the surplus at the next decision point.
+  assert.equal(result.path[3].creditAmount, 0);
+  assert.ok(result.path[3].action > 1 / 120);
 });
 
 test("capital-floor target asks for required front-load, not maximum terminal wealth", () => {
