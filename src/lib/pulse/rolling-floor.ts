@@ -1137,7 +1137,18 @@ export function replayFundingPlan(
       0,
       nav - cumulativeContributed,
     );
-    const closeCreditConfidence =
+    // The "before" and "after" diagnostics must use their own surplus states.
+    // Reusing post-withdrawal confidence here would erase the evidence that
+    // a credit existed immediately before the withdrawal.
+    const closeCreditConfidenceBeforeWithdrawal =
+      mode === "ADAPTIVE_FUNDED"
+        ? adaptiveCreditConfidence(
+            sig,
+            cumulativeContributed,
+            withdrawalEligibleSurplus,
+          )
+        : 0;
+    const closeCreditConfidenceAfterWithdrawal =
       mode === "ADAPTIVE_FUNDED"
         ? adaptiveCreditConfidence(
             sig,
@@ -1150,12 +1161,12 @@ export function replayFundingPlan(
         ? Math.min(
             withdrawalEligibleSurplus,
             externalRemaining,
-          ) * closeCreditConfidence
+          ) * closeCreditConfidenceBeforeWithdrawal
         : 0;
     const nextDecisionCreditAfterWithdrawal =
       mode === "ADAPTIVE_FUNDED"
         ? Math.min(postWithdrawalSurplus, externalRemaining) *
-          closeCreditConfidence
+          closeCreditConfidenceAfterWithdrawal
         : 0;
 
     path.push({
