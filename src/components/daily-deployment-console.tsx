@@ -49,6 +49,11 @@ function horizonLabel(horizon: PriceHorizon) {
   return horizon === 1 ? "1D" : horizon === 5 ? "5D" : "21D";
 }
 
+function mediumTouchPrice(ladder: LivePriceLadder | null, side: "ADD" | "REDUCE") {
+  const rows = side === "ADD" ? ladder?.add ?? [] : ladder?.reduce ?? [];
+  return rows.find((row) => row.horizon === 5 && Math.abs(row.touchProbability - 0.5) < 1e-9)?.price ?? null;
+}
+
 function PriceLadderSide({
   title,
   side,
@@ -263,8 +268,8 @@ export function DailyDeploymentConsole({
           </div>
           {tape.length ? (
             <table className="mt-3 w-full min-w-[1040px] border-collapse text-xs">
-              <thead><tr className="border-b border-line text-left font-mono text-[11px] text-subtle"><th className="py-2 pr-4">DATE</th><th className="py-2 pr-4">QQQ</th><th className="py-2 pr-4">F</th><th className="py-2 pr-4">TARGET</th><th className="py-2 pr-4">NAV</th><th className="py-2 pr-4">BUY</th><th className="py-2 pr-4">SELL</th><th className="py-2 pr-4">DAY</th><th className="py-2 pr-4">WEEK</th><th className="py-2 pr-4">MONTH</th><th className="py-2 pr-4">STATE</th></tr></thead>
-              <tbody>{tape.slice().reverse().slice(0, 30).map((row) => <tr key={row.id} className="border-b border-line/50"><td className="py-2 pr-4 font-mono">{row.marketDate}</td><td className="py-2 pr-4 font-mono tabular-nums">{row.qqqPrice == null ? "—" : row.qqqPrice.toFixed(2)}</td><td className="py-2 pr-4 font-mono">{(row.frontload * 100).toFixed(0)}%</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.target, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.nav, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.buyAvailable, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.sellExcess, 2)}</td><td className="py-2 pr-4 font-mono">{row.dayLevel}</td><td className="py-2 pr-4 font-mono">{row.weekLevel}</td><td className="py-2 pr-4 font-mono">{row.monthLevel}</td><td className="py-2 pr-4"><StatusTone status={row.status} /></td></tr>)}</tbody>
+              <thead><tr className="border-b border-line text-left font-mono text-[11px] text-subtle"><th className="py-2 pr-4">DATE</th><th className="py-2 pr-4">QQQ</th><th className="py-2 pr-4">F</th><th className="py-2 pr-4">TARGET</th><th className="py-2 pr-4">NAV</th><th className="py-2 pr-4">BUY</th><th className="py-2 pr-4">SELL</th><th className="py-2 pr-4">DAY</th><th className="py-2 pr-4">WEEK</th><th className="py-2 pr-4">MONTH</th><th className="py-2 pr-4">ADD 5D</th><th className="py-2 pr-4">REDUCE 5D</th><th className="py-2 pr-4">STATE</th></tr></thead>
+              <tbody>{tape.slice().reverse().slice(0, 30).map((row) => <tr key={row.id} className="border-b border-line/50"><td className="py-2 pr-4 font-mono">{row.marketDate}</td><td className="py-2 pr-4 font-mono tabular-nums">{row.qqqPrice == null ? "—" : row.qqqPrice.toFixed(2)}</td><td className="py-2 pr-4 font-mono">{(row.frontload * 100).toFixed(0)}%</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.target, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.nav, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.buyAvailable, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.sellExcess, 2)}</td><td className="py-2 pr-4 font-mono">{row.dayLevel}</td><td className="py-2 pr-4 font-mono">{row.weekLevel}</td><td className="py-2 pr-4 font-mono">{row.monthLevel}</td><td className="py-2 pr-4 font-mono tabular-nums">{mediumTouchPrice(row.priceLadder, "ADD") == null ? "—" : fmtUsd(mediumTouchPrice(row.priceLadder, "ADD")!, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{mediumTouchPrice(row.priceLadder, "REDUCE") == null ? "—" : fmtUsd(mediumTouchPrice(row.priceLadder, "REDUCE")!, 2)}</td><td className="py-2 pr-4"><StatusTone status={row.status} /></td></tr>)}</tbody>
             </table>
           ) : <div className="mt-3 rounded-md border border-dashed border-line p-4 text-sm text-muted">尚未有 daily observation；REFRESH YAHOO 後會自動 seal 今日 snapshot。</div>}
         </div>
