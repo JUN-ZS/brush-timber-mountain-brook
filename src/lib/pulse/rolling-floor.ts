@@ -2,6 +2,11 @@ import { universe } from "./bars.ts";
 
 export const FLOOR_HORIZON_YEARS = 10;
 export const FLOOR_HORIZON_MONTHS = FLOOR_HORIZON_YEARS * 12;
+// The controller knows only the hard 100% principal plan. This default keeps
+// the original monthly clock behavior, while callers may explicitly choose a
+// larger initial funding fraction such as 10% or 20%.
+export const DEFAULT_INITIAL_FUNDING_FRACTION =
+  1 / FLOOR_HORIZON_MONTHS;
 export const TRAP_SCALES_YEARS = [20, 30, 50] as const;
 
 export type TrapScale = (typeof TRAP_SCALES_YEARS)[number];
@@ -165,6 +170,7 @@ export type FundingPathPoint = {
   cumulativeContributed: number;
   remainingExternalCapital: number;
   plannedPrincipal: number;
+  initialFundingFraction: number;
   invested: number;
   accountCash: number;
   nav: number;
@@ -181,6 +187,7 @@ export type FundingReplayResult = {
   endDate: string;
   horizonMonths: number;
   plannedPrincipal: number;
+  initialFundingFraction: number;
   terminalWealth: number;
   maxDrawdown: number;
   totalContributed: number;
@@ -982,11 +989,19 @@ export function replayFundingPlan(
   horizonMonths = FLOOR_HORIZON_MONTHS,
   mode: FundingPlanMode = "ADAPTIVE_FUNDED",
   plannedPrincipal = 1,
+  initialFundingFraction = DEFAULT_INITIAL_FUNDING_FRACTION,
 ): FundingReplayResult | null {
   const endIndex = startIndex + horizonMonths;
   if (endIndex >= qqq.length) return null;
   if (!(plannedPrincipal > 0) || !Number.isFinite(plannedPrincipal)) {
     throw new Error("plannedPrincipal must be a positive finite number");
+  }
+  if (
+    !(initialFundingFraction > 0) ||
+    initialFundingFraction > 1 ||
+    !Number.isFinite(initialFundingFraction)
+  ) {
+    throw new Error("initialFundingFraction must be in (0, 1]");
   }
 
   let externalRemaining = plannedPrincipal;
@@ -1028,6 +1043,12 @@ export function replayFundingPlan(
       mode === "ADAPTIVE_FUNDED"
         ? Math.min(surplus, externalRemaining) * creditConfidence
         : 0;
+    const clockTargetFraction =
+      horizonMonths <= 1
+        ? 1
+        : initialFundingFraction +
+          ((1 - initialFundingFraction) * j) / (horizonMonths - 1);
+    const clockTarget = clamp(clockTargetFraction);
     const clockTargetAmount = plannedPrincipal * clockTarget;
     const fundingTarget =
       mode === "ADAPTIVE_FUNDED"
@@ -1055,6 +1076,7 @@ export function replayFundingPlan(
       cumulativeContributed,
       remainingExternalCapital: externalRemaining,
       plannedPrincipal,
+      initialFundingFraction,
       invested: cumulativeContributed - accountCash,
       accountCash,
       nav,
@@ -1083,6 +1105,7 @@ export function replayFundingPlan(
     maxDrawdown: equityStats(curve).maxDd,
     totalContributed: cumulativeContributed,
     plannedPrincipal,
+    initialFundingFraction,
     maxContributionReduction: Math.max(
       0,
       ...path.map(
