@@ -29,6 +29,10 @@ jobs:
         run: node --experimental-strip-types scripts/run-qqq-hybrid-downside-convexity-v1.ts
       - name: Run fixed true-convexity research
         run: node --experimental-strip-types scripts/run-qqq-hybrid-true-convexity-v1.ts
+      - name: Run causal mutual-chase research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-causal-v1.ts
+      - name: Run two-sided mutual-chase research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-two-sided-v1.ts
       - name: Validate research output
         run: |
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.json
@@ -36,6 +40,12 @@ jobs:
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.md
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_true_convexity_v1.json
           test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_true_convexity_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_causal_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_causal_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_causal_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.md
           node - <<'NODE'
           const fs = require("node:fs");
           const p = "research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.json";
