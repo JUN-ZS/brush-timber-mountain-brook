@@ -8,12 +8,12 @@ const NAV = [
   { to: "/", label: "雷達" },
   { to: "/rank", label: "排行" },
   { to: "/deploy", label: "結構競爭" },
-  { to: "/floor", label: "10Y FLOOR" },
   { to: "/backtest", label: "回測 V2.2" },
   { to: "/live", label: "LIVE / PAPER" },
   { to: "/strategy", label: "策略器" },
   { to: "/matrix", label: "價×波" },
   { to: "/missing", label: "缺失" },
+  { to: "/floor", label: "10Y Floor" },
 ] as const;
 
 export function Shell({ children }: { children: ReactNode }) {
