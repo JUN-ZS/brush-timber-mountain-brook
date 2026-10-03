@@ -164,6 +164,7 @@ export type FundingPathPoint = {
   contribution: number;
   cumulativeContributed: number;
   remainingExternalCapital: number;
+  plannedPrincipal: number;
   invested: number;
   accountCash: number;
   nav: number;
@@ -179,6 +180,7 @@ export type FundingReplayResult = {
   startDate: string;
   endDate: string;
   horizonMonths: number;
+  plannedPrincipal: number;
   terminalWealth: number;
   maxDrawdown: number;
   totalContributed: number;
@@ -979,11 +981,15 @@ export function replayFundingPlan(
   startIndex: number,
   horizonMonths = FLOOR_HORIZON_MONTHS,
   mode: FundingPlanMode = "ADAPTIVE_FUNDED",
+  plannedPrincipal = 1,
 ): FundingReplayResult | null {
   const endIndex = startIndex + horizonMonths;
   if (endIndex >= qqq.length) return null;
+  if (!(plannedPrincipal > 0) || !Number.isFinite(plannedPrincipal)) {
+    throw new Error("plannedPrincipal must be a positive finite number");
+  }
 
-  let externalRemaining = 1;
+  let externalRemaining = plannedPrincipal;
   let cumulativeContributed = 0;
   let accountCash = 0;
   const lots: { amount: number; entry: number }[] = [];
@@ -997,11 +1003,17 @@ export function replayFundingPlan(
     const sig = panel.get(date);
     const clockTarget = clamp((j + 1) / FLOOR_HORIZON_MONTHS);
 
-    // The decision sees only the NAV available at the start of the month.
-    // The current month's close therefore cannot leak into today's funding.
+    // Funding decision timing: month j may only use the prior month's close.
+    // Month 0 has no prior observation, so it starts with zero account NAV.
+    const decisionPx = j === 0 ? null : qqq[i - 1].value;
     nav =
-      accountCash +
-      lots.reduce((sum, lot) => sum + lot.amount * (qqq[i].value / lot.entry), 0);
+      decisionPx == null
+        ? accountCash
+        : accountCash +
+          lots.reduce(
+            (sum, lot) => sum + lot.amount * (decisionPx / lot.entry),
+            0,
+          );
 
     const investedBefore = cumulativeContributed;
     const surplus = Math.max(0, nav - cumulativeContributed);
@@ -1016,10 +1028,11 @@ export function replayFundingPlan(
       mode === "ADAPTIVE_FUNDED"
         ? Math.min(surplus, externalRemaining) * creditConfidence
         : 0;
+    const clockTargetAmount = plannedPrincipal * clockTarget;
     const fundingTarget =
       mode === "ADAPTIVE_FUNDED"
-        ? Math.max(0, clockTarget - fundingCredit)
-        : clockTarget;
+        ? Math.max(0, clockTargetAmount - fundingCredit)
+        : clockTargetAmount;
 
     const contribution = Math.min(
       externalRemaining,
@@ -1041,6 +1054,7 @@ export function replayFundingPlan(
       contribution,
       cumulativeContributed,
       remainingExternalCapital: externalRemaining,
+      plannedPrincipal,
       invested: cumulativeContributed - accountCash,
       accountCash,
       nav,
@@ -1068,11 +1082,15 @@ export function replayFundingPlan(
     terminalWealth: nav,
     maxDrawdown: equityStats(curve).maxDd,
     totalContributed: cumulativeContributed,
+    plannedPrincipal,
     maxContributionReduction: Math.max(
       0,
-      ...path.map((point) => point.clockTarget - point.cumulativeContributed),
+      ...path.map(
+        (point) =>
+          plannedPrincipal * point.clockTarget - point.cumulativeContributed,
+      ),
     ),
-    totalContributionReduction: 1 - cumulativeContributed,
+    totalContributionReduction: plannedPrincipal - cumulativeContributed,
     path,
   };
 }
