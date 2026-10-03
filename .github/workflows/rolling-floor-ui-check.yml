@@ -31,4 +31,6 @@ jobs:
           grep -q "10Y CAPITAL FLOOR / FORMAL ACCOUNTING" src/routes/floor.tsx
           grep -q "currentClockAmount" src/routes/floor.tsx
           grep -q "QQQ LIVE STATE · SELF-RELATIVE" src/routes/floor.tsx
+          grep -q "DAILY DEPLOYMENT / LIVE MARKET TAPE" src/components/daily-deployment-console.tsx
+          grep -q "dailyDeploymentTape" src/routes/floor.tsx
           ! grep -q "BUY / ADD" src/routes/floor.tsx
