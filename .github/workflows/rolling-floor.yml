@@ -95,8 +95,8 @@ jobs:
           if-no-files-found: warn
 
   ndx-linux:
-    name: Worker / NDX / Linux
-    runs-on: [self-hosted, linux, x64]
+    name: Worker / NDX / Linux / hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
