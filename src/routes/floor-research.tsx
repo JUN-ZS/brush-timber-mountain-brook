@@ -22,6 +22,18 @@ function Page() {
           </p>
         </Panel>
 
+        <Panel kicker="ORIGINAL THESIS · NOT A RULE" title="為甚麼有這條線：賺就放點，跌就溝">
+          <p className="max-w-4xl text-sm leading-relaxed text-muted">
+            原思想不是猜十年終點，而是用中間的 10Y CLOCK 當本金骨架：Cₜ = B × t/120，終點仍然是 100% B。
+            「賺就放點、跌就溝」只描述一個尚未驗證的收放問題；研究未通過之前，App 不會把它變成部署、少掏、加掏或 BUY/SELL 指令。
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <Rule title="20Y / 30Y / 50Y" body="研究觀察層；無 funding authority，亦不改 Floor。" />
+            <Rule title="67.40%" body="歷史 Adaptive 診斷平均，不是本版 10Y 計畫需要投入的百分比。" />
+            <Rule title="α = 0.50" body="已做 isolated diagnostic；有 withdrawal 不代表抽完後 Floor 仍在。" />
+          </div>
+        </Panel>
+
         <Panel kicker="FORMAL FLOOR BASELINE" title="CLOCK 不抽取">
           <div className="grid gap-3 md:grid-cols-2">
             <Stat label="CLOCK Q05 terminal / B" value={x.floor.clockQ05Terminal.toFixed(4) + "×"} />
