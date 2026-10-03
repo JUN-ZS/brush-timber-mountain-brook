@@ -90,7 +90,7 @@ function Page() {
 
   function applyMonth() {
     const next = Number(monthInput);
-    if (!(next >= 1) || !Number.isFinite(next)) return;
+    if (!(next >= 0) || !Number.isFinite(next)) return;
     commit((current) => ({
       ...current,
       cycleMonth: Math.max(1, Math.min(120, Math.round(next))),
