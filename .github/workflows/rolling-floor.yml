@@ -47,6 +47,20 @@ jobs:
                 done
           done
 
+  adaptive-credit-unit:
+    name: Unit / Adaptive credit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Run rolling-floor unit tests
+        shell: bash
+        run: node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts src/lib/pulse/long-scale.test.ts
+
   qqq-windows-audit:
     name: Worker / QQQ / Windows audit
     runs-on: windows-latest
