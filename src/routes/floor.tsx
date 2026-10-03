@@ -542,12 +542,7 @@ function Page() {
       },
     ]);
     setActualNow(0);
-    setWithdrawalNow(0);
-  }
-
-  function applyNav() {
-    const next = Math.max(0, Number(navInput) || 0);
-    setNav(next);
+    setPlannedWithdrawalAmount(0);
   }
 
   function clearLocal() {
@@ -560,7 +555,6 @@ function Page() {
     setCapital(DEFAULT_CAPITAL);
     setMonth(DEFAULT_MONTH);
     setNav(0);
-    setNavInput("0");
   }
 
   function buildTransferPayload() {
@@ -663,7 +657,6 @@ function Page() {
       setLedger(parsed.entries);
       setMarketTape(parsed.marketTape);
       setNav(parsed.nav);
-      setNavInput(String(parsed.nav));
       setTransferNotice(
         "PULL complete · " +
         parsed.entries.length +
