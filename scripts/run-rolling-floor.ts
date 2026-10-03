@@ -375,9 +375,9 @@ function runReplay(
     if (
       bFloorFund.path.some(
         (point) =>
-          (point.navBeforeWithdrawal + 1e-9 < bFloorFund.plannedPrincipal &&
-            point.withdrawalExecuted > 1e-12) ||
-          point.nav + 1e-9 < bFloorFund.plannedPrincipal,
+          point.withdrawalExecuted > 1e-12 &&
+          (point.navBeforeWithdrawal + 1e-9 < bFloorFund.plannedPrincipal ||
+            point.nav + 1e-9 < bFloorFund.plannedPrincipal),
       )
     ) {
       throw new Error(
