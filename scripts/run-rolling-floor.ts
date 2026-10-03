@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DEFAULT_INITIAL_FUNDING_FRACTION,
   FLOOR_HORIZON_MONTHS,
   couple,
   monthlyize,
@@ -57,6 +58,16 @@ function parseArgs() {
   const channel = get("--channel") as ChannelId | null;
   const outDir = resolve(ROOT, get("--out-dir", DEFAULT_OUT) ?? DEFAULT_OUT);
   const inputDir = resolve(ROOT, get("--input-dir", DEFAULT_INPUT) ?? DEFAULT_INPUT);
+  const initialFundingFraction = Number(
+    get("--initial-funding-fraction", String(DEFAULT_INITIAL_FUNDING_FRACTION)),
+  );
+  if (
+    !(initialFundingFraction > 0) ||
+    initialFundingFraction > 1 ||
+    !Number.isFinite(initialFundingFraction)
+  ) {
+    throw new Error("--initial-funding-fraction must be in (0, 1]");
+  }
   if (!["full", "shard", "bridge"].includes(mode)) {
     throw new Error("Unknown mode: " + mode);
   }
@@ -64,7 +75,7 @@ function parseArgs() {
   if (channel && !["QQQ", "NDX", "NASDAQCOM"].includes(channel)) {
     throw new Error("Unknown channel: " + channel);
   }
-  return { mode, channel, outDir, inputDir };
+  return { mode, channel, outDir, inputDir, initialFundingFraction };
 }
 
 function hashPoints(points: MonthlyPoint[]) {
@@ -282,6 +293,7 @@ function buildBridgePanel(qqq: MonthlyPoint[], shards: ShardPayload[]) {
 function runReplay(
   qqq: MonthlyPoint[],
   panel: Map<string, ReturnType<typeof couple>>,
+  initialFundingFraction: number,
 ) {
   const replays = [];
   const adaptiveCredit = [];
@@ -299,6 +311,8 @@ function runReplay(
       start,
       120,
       "ADAPTIVE_FUNDED",
+      1,
+      initialFundingFraction,
     );
     const clockFund = replayFundingPlan(
       qqq,
@@ -306,6 +320,8 @@ function runReplay(
       start,
       120,
       "CLOCK_FUNDED",
+      1,
+      initialFundingFraction,
     );
     if (!coupled || !credit || !adaptiveFund || !clockFund) continue;
     replays.push(coupled);
@@ -480,6 +496,8 @@ function writeOutputs(
       horizonYears: 10,
       decisionCadence: "monthly",
       dataAsOf: latestDate,
+      initialFundingFraction,
+      terminalClockTargetFraction: 1,
     },
     trap: {
       scalesYears: [...TRAP_SCALES_YEARS],
@@ -659,7 +677,8 @@ function writeOutputs(
     "",
     "## External funding plan",
     "",
-    "This layer starts with zero account cash. Planned principal B=1 remains outside the account and is contributed month-by-month. Contributions are invested when funded; adaptive funding reduces only future external contributions using reversible NAV surplus credit.",
+    "This layer starts with zero account cash. Planned principal B=1 remains outside the account and is contributed month-by-month."
+ Contributions are invested when funded; adaptive funding reduces only future external contributions using reversible NAV surplus credit.",
     "",
     "Adaptive-funded principal failure rate: " +
       (payload.replay.adaptiveFunding.principalFailureRate * 100).toFixed(1) + "%",
@@ -712,7 +731,7 @@ function writeOutputs(
 }
 
 async function main() {
-  const { mode, channel, outDir, inputDir } = parseArgs();
+  const { mode, channel, outDir, inputDir, initialFundingFraction } = parseArgs();
 
   if (mode === "shard") {
     const shard = await makeShard(channel as ChannelId);
@@ -747,7 +766,11 @@ async function main() {
 
   const qqq = qqqMonthly();
   validateShards(shards, qqq);
-  const replay = runReplay(qqq, buildBridgePanel(qqq, shards).panel);
+  const replay = runReplay(
+    qqq,
+    buildBridgePanel(qqq, shards).panel,
+    initialFundingFraction,
+  );
   writeOutputs(outDir, qqq, shards, replay);
   console.log(readFileSync(join(outDir, "rolling_floor_report.md"), "utf8"));
 }
