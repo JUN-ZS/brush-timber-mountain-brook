@@ -76,11 +76,13 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
   const week = liveScale(current, closes, 5, 180);
   const month = liveScale(current, closes, 21, 48);
   const priceDir = signedDir(current, closes.at(-6) ?? null);
+  const directionPercentile = historicalSignedPercentile(current, closes, 5, 180, closes.length - 1);
   const volLevel = week.level;
 
   type Candidate = {
     date: string;
     base: number;
+    directionPercentile: number;
     d1: number;
     d5: number;
     d21: number;
@@ -96,16 +98,22 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
     day.percentile,
     week.percentile,
     month.percentile,
+    directionPercentile,
   ];
   for (let i = 25; i < closes.length - 21; i += 1) {
     const d = historicalPercentile(closes[i], closes, 1, 756, i);
     const w = historicalPercentile(closes[i], closes, 5, 180, i);
     const m = historicalPercentile(closes[i], closes, 21, 48, i);
-    if (target.some((x) => x == null) || d == null || w == null || m == null) continue;
+    const direction = historicalSignedPercentile(closes[i], closes, 5, 180, i);
+    if (
+      target.some((x) => x == null) ||
+      d == null || w == null || m == null || direction == null
+    ) continue;
     const distance =
       Math.abs(d - (target[0] ?? 0)) +
       Math.abs(w - (target[1] ?? 0)) +
-      Math.abs(m - (target[2] ?? 0));
+      Math.abs(m - (target[2] ?? 0)) +
+      Math.abs(direction - (target[3] ?? 0));
     if (distance > 0.24) continue;
     const d1 = signedForward(closes, i, 1);
     const d5 = signedForward(closes, i, 5);
@@ -124,6 +132,7 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
     candidates.push({
       date: series.bars[i]?.date ?? "",
       base: closes[i] ?? 0,
+      directionPercentile: direction,
       d1, d5, d21,
       low1, low5, low21,
       high1, high5, high21,
@@ -173,8 +182,14 @@ export function buildLiveHistoryMatch(series: YahooSeries): LiveHistoryMatch | n
     const d = historicalPercentile(xs[i], xs, 1, 756, i);
     const w = historicalPercentile(xs[i], xs, 5, 180, i);
     const m = historicalPercentile(xs[i], xs, 21, 48, i);
-    if (d == null || w == null || m == null) return Infinity;
-    return Math.abs(d - (t[0] ?? d)) + Math.abs(w - (t[1] ?? w)) + Math.abs(m - (t[2] ?? m));
+    const direction = historicalSignedPercentile(xs[i], xs, 5, 180, i);
+    if (d == null || w == null || m == null || direction == null) return Infinity;
+    return (
+      Math.abs(d - (t[0] ?? d)) +
+      Math.abs(w - (t[1] ?? w)) +
+      Math.abs(m - (t[2] ?? m)) +
+      Math.abs(direction - (t[3] ?? direction))
+    );
   }
 }
 
@@ -221,6 +236,19 @@ function signedForward(closes: number[], i: number, horizon: number) {
   const a = closes[i];
   const b = closes[i + horizon];
   return a > 0 && b > 0 ? b / a - 1 : null;
+}
+
+function historicalSignedPercentile(valueAtI: number, closes: number[], step: number, cap: number, i: number) {
+  if (!(valueAtI > 0) || i < step + 40) return null;
+  const move = valueAtI / closes[i - step] - 1;
+  const sample: number[] = [];
+  const first = Math.max(step, i - cap * step);
+  for (let k = first; k < i; k += step) {
+    const a = closes[k - step];
+    const b = closes[k];
+    if (a > 0 && b > 0) sample.push(b / a - 1);
+  }
+  return sample.length >= 40 ? sample.filter((x) => x <= move).length / sample.length : null;
 }
 
 function forwardExtreme(
