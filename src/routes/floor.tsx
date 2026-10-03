@@ -141,7 +141,7 @@ function Page() {
           title="只看四個數：時鐘、已掏、帳面、超前 / 落後"
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Metric label="CLOCK TARGET" value={fmtUsd(clock)} note={"Month " + state.cycleMonth + " / 120"} />
+            <Metric label="CLOCK TARGET" value={fmtUsd(clock)} note={"Month " + state.cycleMonth + " / 120 · reference only"} />
             <Metric label="ACTUAL CONTRIBUTED" value={fmtUsd(contributed)} note="只計實際外部供款" />
             <Metric label="ACCOUNT NAV" value={fmtUsd(state.nav)} note="帳面值，獨立記錄" />
             <Metric
@@ -229,14 +229,14 @@ function Page() {
                 prefix="$"
                 disabled={state.entries.length > 0}
               />
-              <Field label="Cycle month (0–120)" value={monthInput} onChange={setMonthInput} />
+              <Field label="As-of month (0–120) · 唔係月供" value={monthInput} onChange={setMonthInput} />
             </div>
             <div className="mt-3 flex gap-2">
               <ActionButton onClick={applyPlan} disabled={state.entries.length > 0}>更新 B</ActionButton>
               <ActionButton onClick={applyMonth}>更新月份</ActionButton>
             </div>
             <p className="mt-3 text-xs text-subtle">
-              B 是 Planned Principal；第一筆實際供款或抽取記錄後鎖定。時鐘不會自動產生 BUY、SELL、少掏或加掏指令。
+              B 是 Planned Principal；第一筆實際供款或抽取記錄後鎖定。As-of month 只標示你目前站在 10Y 路徑哪裡；Clock 不會自動變成每月 quota、BUY、SELL、少掏或加掏指令。
             </p>
           </Panel>
 
