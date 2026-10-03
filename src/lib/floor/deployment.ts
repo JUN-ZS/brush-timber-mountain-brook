@@ -1,3 +1,5 @@
+import type { LivePriceLadder } from "./yahoo-live.ts";
+
 export const FLOOR_HORIZON_MONTHS = 120;
 
 export const FRONTLOAD_GRID = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] as const;
@@ -67,6 +69,7 @@ export function dailyDeploymentRecord(input: {
   dayLevel: string;
   weekLevel: string;
   monthLevel: string;
+  priceLadder?: LivePriceLadder | null;
 }) {
   const target = frontLoadedTarget(input.capital, input.frontload, input.cycleMonth, input.marketDate);
   const remaining = Math.max(0, input.capital - Math.max(0, input.contributed));
@@ -80,6 +83,7 @@ export function dailyDeploymentRecord(input: {
     sellExcess: gap.sellExcess,
     signedGap: gap.signedGap,
     status: gap.status,
+    priceLadder: input.priceLadder ?? null,
     source: "YAHOO_FINANCE_CHART" as const,
   };
 }
