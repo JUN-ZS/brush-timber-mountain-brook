@@ -10,6 +10,11 @@ import {
   fundingStatus,
 } from "./account.ts";
 
+test("month zero has a zero Floor clock target", () => {
+  assert.equal(clockTarget(100_000, 0), 0);
+  assert.equal(fundingStatus(fundingDelta(100_000, 0, [])), "ON_CLOCK");
+});
+
 test("funding status uses Actual contributed minus CLOCK only", () => {
   const entries = [
     createEntry("CONTRIBUTION", 36_000, 48, "2026-10-04T00:00:00Z"),
