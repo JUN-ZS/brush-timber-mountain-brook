@@ -42,7 +42,7 @@ function Page() {
   const [withdrawalAmount, setWithdrawalAmount] = useState("");
   const [navInput, setNavInput] = useState("");
   const [planInput, setPlanInput] = useState("");
-  const [monthInput, setMonthInput] = useState("1");
+  const [monthInput, setMonthInput] = useState("0");
   const [note, setNote] = useState("");
 
   useEffect(() => {
