@@ -304,6 +304,7 @@ function baselineSummary(
   rows: Array<{ terminalWealth: number; maxDrawdown: number }>,
 ) {
   const ws = rows.map((r) => r.terminalWealth);
+  const q05 = quantile(ws, 0.05) ?? 0;
   const a = [...ws].sort((x, y) => x - y);
   const m = Math.floor(a.length / 2);
   return {
@@ -312,6 +313,8 @@ function baselineSummary(
       ws.filter((x) => x >= 1).length / Math.max(1, ws.length),
     medianTerminal:
       a.length === 0 ? 0 : a.length % 2 ? a[m] : ((a[m - 1] ?? 0) + a[m]) / 2,
+    q05Terminal: q05,
+    principalFailureRate: 1 - ws.filter((x) => x >= 1).length / Math.max(1, ws.length),
     worstTerminal: a.length ? a[0] : 0,
     meanMaxDd:
       rows.reduce((s, x) => s + x.maxDrawdown, 0) /
@@ -421,12 +424,16 @@ function writeOutputs(
     replay.replays.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
   writeFileSync(
+    join(outDir, "rolling_floor_adaptive_credit_replays.jsonl"),
+    replay.adaptiveCredit.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
     join(outDir, "rolling_floor_state_path.json"),
     JSON.stringify(summarizeStatePath(replay.replays), null, 2),
   );
 
   const report = [
-    "# Rolling 10Y Capital-Floor Controller v2",
+    "# Rolling 10Y Capital-Floor Controller v3 — Reversible Adaptive Credit",
     "",
     "Data end: " + latestDate,
     "",
@@ -496,21 +503,27 @@ function writeOutputs(
       (payload.replay.coupled.worstMaxDd * 100).toFixed(1) +
       "%",
     "",
-    "Adaptive-credit-only non-loss: " +
-      (payload.replay.adaptiveCreditOnly.nonLossRate * 100).toFixed(1) +
+    "Adaptive-credit-only principal failure rate: " +
+      ((1 - payload.replay.adaptiveCreditOnly.nonLossRate) * 100).toFixed(1) +
       "%",
+    "Adaptive-credit-only 5% terminal quantile: " +
+      payload.replay.adaptiveCreditOnly.q05Terminal.toFixed(4),
     "Adaptive-credit mean total deployed: " +
       (payload.replay.adaptiveCreditOnly.meanTotalInvested * 100).toFixed(2) +
       "%",
     "Adaptive-credit mean undeployed at end: " +
       (payload.replay.adaptiveCreditOnly.meanUndeployedAtEnd * 100).toFixed(2) +
       "%",
-    "Clock-only non-loss: " +
-      (payload.replay.clockOnly.nonLossRate * 100).toFixed(1) +
+    "Clock-only principal failure rate: " +
+      ((1 - payload.replay.clockOnly.nonLossRate) * 100).toFixed(1) +
       "%",
-    "Lump-now non-loss: " +
-      (payload.replay.lumpNow.nonLossRate * 100).toFixed(1) +
+    "Clock-only 5% terminal quantile: " +
+      payload.replay.clockOnly.q05Terminal.toFixed(4),
+    "Lump-now principal failure rate: " +
+      ((1 - payload.replay.lumpNow.nonLossRate) * 100).toFixed(1) +
       "%",
+    "Lump-now 5% terminal quantile: " +
+      payload.replay.lumpNow.q05Terminal.toFixed(4),
     "",
     "## Current",
     "",
