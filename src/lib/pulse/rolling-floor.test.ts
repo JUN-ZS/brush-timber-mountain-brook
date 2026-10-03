@@ -12,6 +12,7 @@ import {
   summarizeStatePath,
   adaptiveCreditConfidence,
   replayOne,
+  replayFundingPlan,
   type ReplayResult,
 } from "./rolling-floor.ts";
 
@@ -180,6 +181,84 @@ test("state-conditioned path summary observes displacement from the clock", () =
   assert.equal(convergent.maxEpisodeMonths, 2);
 });
 
+
+test("funding plan keeps principal outside until monthly funding is actually needed", () => {
+  const qqq = Array.from({ length: 121 }, (_, i) => ({
+    date: new Date(Date.UTC(2010, i, 1)).toISOString().slice(0, 10),
+    value: i === 0 ? 1 : i === 1 ? 1.30 : 0.80,
+  }));
+
+  const signalFor = (date: string) => ({
+    asof: date,
+    clockTarget: 0,
+    divergenceState: "CONVERGENT" as const,
+    signals: [20, 30, 50].map((scaleYears) => ({
+      channel: "S",
+      layer: "OBSERVED" as const,
+      scaleYears: scaleYears as 20 | 30 | 50,
+      asof: date,
+      target: null,
+      floorProfile: null,
+      responseProfile: null,
+      riskBaselineProfile: null,
+      forwardPathProfile: null,
+      nearestAnalogDistance: 0,
+      q05: null,
+      pNonLoss: null,
+      mean: null,
+      nAnalogs: 8,
+      effectiveN: 2,
+      status: "OK" as const,
+      creditMaxDrawdowns: Array(8).fill(0),
+    })),
+    perScale: [],
+    robustTarget: null,
+    agreement: 0,
+    coupledTarget: 0,
+    mutualChase: [],
+  });
+
+  const panel = new Map(
+    qqq.map((p) => [p.date, signalFor(p.date)]),
+  );
+
+  const clock = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "CLOCK_FUNDED",
+  )!;
+  const adaptive = replayFundingPlan(
+    qqq,
+    panel,
+    0,
+    120,
+    "ADAPTIVE_FUNDED",
+  )!;
+
+  // Month 1 receives only the clock amount; the rest of the planned capital
+  // remains outside the account.
+  assert.equal(Number(clock.path[0].contribution.toFixed(6)), Number((1 / 120).toFixed(6)));
+  assert.ok(clock.path[0].remainingExternalCapital > 0.99);
+
+  // Month 2 sees the prior month's closed gain and reduces new external funding.
+  assert.ok(adaptive.path[1].fundingCredit > 0);
+  assert.ok(
+    adaptive.path[1].contribution < clock.path[1].contribution,
+  );
+
+  // The later reversal removes the surplus, so the credit disappears and
+  // funding catches back toward the clock.
+  assert.equal(adaptive.path[2].fundingCredit, 0);
+  assert.ok(
+    adaptive.path[2].contribution >= clock.path[2].contribution,
+  );
+
+  // The adaptive plan did not pre-fund the whole account.
+  assert.ok(adaptive.totalContributed < 1);
+  assert.equal(adaptive.path[0].accountCash, 0);
+});
 
 test("adaptive credit is a majority survival probability, not a GAR/MaxDD score", () => {
   const mk = (scaleYears: 20 | 30 | 50, samples: number[]) => ({
