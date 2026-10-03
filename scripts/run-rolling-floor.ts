@@ -518,21 +518,35 @@ function summarizeBFloorWithdrawal(
     withdrawnRatios.push(w.totalWithdrawn / b);
   }
 
+  const deltaNav = mean(deltaNavTerminal);
+  const deltaNet = mean(deltaNetEconomicWealth);
+  const failureRate =
+    terminalRatios.filter((x) => x < 1).length /
+    Math.max(1, terminalRatios.length);
+  const q05Terminal = quantile(terminalRatios, 0.05) ?? 0;
+  const clockFailureRate =
+    clockTerminalRatios.filter((x) => x < 1).length /
+    Math.max(1, clockTerminalRatios.length);
+  const clockQ05 = quantile(clockTerminalRatios, 0.05) ?? 0;
+
   return {
     pairedObservations: withdrawal.length,
     dependence: "OVERLAPPING_ROLLING_WINDOWS; DIAGNOSTIC_ONLY",
-    // All deltas are B-FLOOR WITHDRAWAL - SAME-START CLOCK.
-    deltaNavTerminal: mean(deltaNavTerminal),
-    deltaNetEconomicWealth: mean(deltaNetEconomicWealth),
-    principalFailureRate:
-      terminalRatios.filter((x) => x < 1).length /
-      Math.max(1, terminalRatios.length),
-    q05Terminal: quantile(terminalRatios, 0.05) ?? 0,
-    clockPrincipalFailureRate:
-      clockTerminalRatios.filter((x) => x < 1).length /
-      Math.max(1, clockTerminalRatios.length),
-    clockQ05Terminal: quantile(clockTerminalRatios, 0.05) ?? 0,
+    // All deltas are WITHDRAWAL - SAME-START CLOCK.
+    deltaNavTerminal: deltaNav,
+    deltaNetEconomicWealth: deltaNet,
+    principalFailureRate: failureRate,
+    q05Terminal,
+    clockPrincipalFailureRate: clockFailureRate,
+    clockQ05Terminal: clockQ05,
     meanTotalWithdrawnRatio: mean(withdrawnRatios),
+    // Pre-declared diagnostic pass gate: no worse than CLOCK on all four
+    // required dimensions. This is a comparison result, not an optimization target.
+    passesClock:
+      deltaNav >= -1e-12 &&
+      deltaNet >= -1e-12 &&
+      failureRate <= clockFailureRate + 1e-12 &&
+      q05Terminal >= clockQ05 - 1e-12,
   };
 }
 
@@ -743,6 +757,7 @@ function writeOutputs(
         rule: "PARTIAL_ABOVE_PLANNED_PRINCIPAL",
         alpha: PRE_REGISTERED_WITHDRAWAL_ALPHA,
         preregistration: "FIXED_BEFORE_REPLAY; NO_ALPHA_SWEEP",
+        alphaSweep: "FORBIDDEN_IN_THIS_DIAGNOSTIC",
       },
       externalRerun: "Use the portable bundle. No npm install and no network are required for bridge replay.",
     },
@@ -940,7 +955,11 @@ function writeOutputs(
       payload.evaluation.partialBFloorWithdrawal.clockQ05Terminal.toFixed(4),
     "Partial B-floor mean cumulative withdrawn / B: " +
       (payload.evaluation.partialBFloorWithdrawal.meanTotalWithdrawnRatio * 100).toFixed(2) + "%",
-    "Acceptance rule: cash-flow magnitude is not a pass condition. The withdrawal layer remains diagnostic unless the same-start terminal NAV and net-economic-wealth deltas, principal-failure rate, and Q05 show an acceptable relationship to CLOCK. No independent-sample inference is made from overlapping rolling windows.",
+    "Pre-declared CLOCK comparison PASS gate (all four required): delta NAV_T >= 0, delta net economic wealth >= 0, principal-failure rate <= CLOCK, and Q05 terminal NAV >= CLOCK.",
+    "Partial B-floor passes CLOCK on all four dimensions: " +
+      payload.evaluation.partialBFloorWithdrawal.passesClock,
+    "Acceptance rule: cash-flow magnitude is not a pass condition. A single fixed-alpha diagnostic can only be retained as research evidence; it does not enter the controller unless separately promoted after evidence review. No alpha sweep/search was performed.",
+
 
     "",
     "Clock-funded principal failure rate: " +
