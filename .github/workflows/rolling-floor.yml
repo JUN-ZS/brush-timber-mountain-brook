@@ -25,22 +25,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          CURRENT_CREATED_AT="$(gh run view "$CURRENT_RUN" --repo "$GITHUB_REPOSITORY" --json createdAt --jq .createdAt)"
           for workflow in "Rolling 10Y Capital Floor" "QQQ V22 Locked OOS Family V2"; do
             gh run list \
               --repo "$GITHUB_REPOSITORY" \
               --workflow "$workflow" \
               --branch "$TARGET_BRANCH" \
               --limit 100 \
-              --json databaseId,status \
-              | jq -r --arg current "$CURRENT_RUN" '
+              --json databaseId,status,createdAt \
+              | jq -r --arg current "$CURRENT_RUN" --arg current_created "$CURRENT_CREATED_AT" '
                   .[]
                   | select((.databaseId | tostring) != $current)
                   | select(.status == "queued" or .status == "in_progress")
+                  | select(.createdAt < $current_created)
                   | .databaseId
                 ' \
               | while read -r run_id; do
                   [ -z "$run_id" ] && continue
-                  echo "cancel stale run $run_id ($workflow)"
+                  echo "cancel older run $run_id ($workflow)"
                   gh run cancel "$run_id" --repo "$GITHUB_REPOSITORY" || true
                 done
           done
