@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Panel, Shell } from "@/components/shell";
@@ -82,6 +82,7 @@ function Page() {
   }
 
   function applyPlan() {
+    if (state.entries.length > 0) return;
     const next = Number(planInput);
     if (!(next > 0) || !Number.isFinite(next)) return;
     commit((current) => ({ ...current, plannedPrincipal: next }));
@@ -137,15 +138,21 @@ function Page() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Panel kicker="PLAN CLOCK" title="設定 B 與目前週期月">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Planned principal B" value={planInput} onChange={setPlanInput} prefix="$" />
+              <Field
+                label={state.entries.length ? "Planned principal B · LOCKED" : "Planned principal B"}
+                value={planInput}
+                onChange={setPlanInput}
+                prefix="$"
+                disabled={state.entries.length > 0}
+              />
               <Field label="Cycle month (1–120)" value={monthInput} onChange={setMonthInput} />
             </div>
             <div className="mt-3 flex gap-2">
-              <ActionButton onClick={applyPlan}>更新 B</ActionButton>
+              <ActionButton onClick={applyPlan} disabled={state.entries.length > 0}>更新 B</ActionButton>
               <ActionButton onClick={applyMonth}>更新月份</ActionButton>
             </div>
             <p className="mt-3 text-xs text-subtle">
-              時鐘只是原定資金計劃；它不會自動替你產生 BUY、SELL、少掏或加掏指令。
+              B 是 Planned Principal；第一筆實際供款或抽取記錄後鎖定。時鐘不會自動產生 BUY、SELL、少掏或加掏指令。
             </p>
           </Panel>
 
@@ -201,6 +208,14 @@ function Page() {
         </div>
 
         <Panel kicker="RESEARCH FIREWALL" title="研究資料永遠不產生資金指令">
+          <div className="mb-3">
+            <Link
+              to="/floor-research"
+              className="text-sm text-accent underline decoration-dotted underline-offset-4"
+            >
+              開啟 Research evidence page →
+            </Link>
+          </div>
           <div className="grid gap-3 md:grid-cols-3">
             <ResearchRule title="20Y / 30Y / 50Y" body="只放 Research 圖，不擁有 funding 權。" />
             <ResearchRule title="Adaptive" body="歷史對照資料；不會改主畫面的少掏狀態。" />
@@ -242,11 +257,13 @@ function Field({
   value,
   onChange,
   prefix,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   prefix?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="grid gap-1.5 text-sm">
@@ -257,19 +274,21 @@ function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           inputMode="decimal"
-          className="min-h-10 w-full bg-transparent px-2 font-mono outline-none"
+          disabled={disabled}
+          className="min-h-10 w-full bg-transparent px-2 font-mono outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
     </label>
   );
 }
 
-function ActionButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+function ActionButton({ onClick, children, disabled = false }: { onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="min-h-10 rounded-md border border-line bg-elevated px-4 text-sm text-fg transition hover:border-accent hover:bg-surface"
+      disabled={disabled}
+      className="min-h-10 rounded-md border border-line bg-elevated px-4 text-sm text-fg transition hover:border-accent hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
     >
       {children}
     </button>
