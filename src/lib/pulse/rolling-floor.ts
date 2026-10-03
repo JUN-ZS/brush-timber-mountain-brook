@@ -167,7 +167,10 @@ export type FundingPlanMode = "CLOCK_FUNDED" | "ADAPTIVE_FUNDED";
 export type ProfitWithdrawalMode =
   | "NONE"
   | "SCHEDULED"
-  | "SWEEP_ELIGIBLE_SURPLUS";
+  // Legacy diagnostic retained to reproduce #151's "withdraw surplus above C_t" counterexample.
+  | "SWEEP_ELIGIBLE_SURPLUS"
+  // New B-floor diagnostic: only realized NAV above immutable planned principal B is withdrawable.
+  | "SWEEP_ABOVE_PLANNED_PRINCIPAL";
 
 export type FundingPathPoint = {
   date: string;
@@ -1097,13 +1100,25 @@ export function replayFundingPlan(
       lots.reduce((sum, lot) => sum + lot.amount * (qqq[i].value / lot.entry), 0);
 
     const navBeforeWithdrawal = nav;
-    const withdrawalEligibleSurplus = Math.max(
+    // Realized surplus above cumulative external contributions remains a
+    // separate accounting state because funding credit consumes this same gain.
+    const realizedSurplusBeforeWithdrawal = Math.max(
       0,
       navBeforeWithdrawal - cumulativeContributed,
     );
+    // The legacy sweep intentionally reproduces #151's old C_t-relative rule.
+    // All new/scheduled withdrawal paths use the immutable planned principal B
+    // as the floor: early in the 10Y clock, NAV < B therefore means zero eligibility.
+    const withdrawalEligibleSurplus =
+      withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS"
+        ? realizedSurplusBeforeWithdrawal
+        : withdrawalMode === "NONE"
+          ? 0
+          : Math.max(0, navBeforeWithdrawal - plannedPrincipal);
     const scheduledWithdrawal = withdrawalSchedule.get(date) ?? 0;
     const withdrawalRequested =
-      withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS"
+      withdrawalMode === "SWEEP_ELIGIBLE_SURPLUS" ||
+      withdrawalMode === "SWEEP_ABOVE_PLANNED_PRINCIPAL"
         ? withdrawalEligibleSurplus
         : withdrawalMode === "SCHEDULED"
           ? scheduledWithdrawal
@@ -1131,6 +1146,17 @@ export function replayFundingPlan(
           0,
         );
       cumulativeWithdrawn += withdrawalExecuted;
+
+      // New/scheduled withdrawal paths are hard-capped so the immediate
+      // post-withdrawal account NAV cannot fall below immutable planned B.
+      if (
+        withdrawalMode !== "SWEEP_ELIGIBLE_SURPLUS" &&
+        nav + 1e-9 < plannedPrincipal
+      ) {
+        throw new Error(
+          "B-floor withdrawal invariant failed: post-withdrawal NAV fell below plannedPrincipal",
+        );
+      }
     }
 
     const postWithdrawalSurplus = Math.max(
@@ -1145,7 +1171,7 @@ export function replayFundingPlan(
         ? adaptiveCreditConfidence(
             sig,
             cumulativeContributed,
-            withdrawalEligibleSurplus,
+            realizedSurplusBeforeWithdrawal,
           )
         : 0;
     const closeCreditConfidenceAfterWithdrawal =
