@@ -145,7 +145,7 @@ function Page() {
                 prefix="$"
                 disabled={state.entries.length > 0}
               />
-              <Field label="Cycle month (1–120)" value={monthInput} onChange={setMonthInput} />
+              <Field label="Cycle month (0–120)" value={monthInput} onChange={setMonthInput} />
             </div>
             <div className="mt-3 flex gap-2">
               <ActionButton onClick={applyPlan} disabled={state.entries.length > 0}>更新 B</ActionButton>
