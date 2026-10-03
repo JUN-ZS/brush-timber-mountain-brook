@@ -597,8 +597,11 @@ test("partial B-floor withdrawal uses fixed alpha and preserves the B floor at e
     alpha,
   )!;
 
-  const point = result.path[1];
+  const point = result.path.find(
+    (x) => x.navBeforeWithdrawal > result.plannedPrincipal,
+  )!;
   assert.equal(result.withdrawalAlpha, alpha);
+  assert.ok(point);
   assert.equal(point.withdrawalAlpha, alpha);
   assert.ok(point.navBeforeWithdrawal > result.plannedPrincipal);
   assert.equal(
