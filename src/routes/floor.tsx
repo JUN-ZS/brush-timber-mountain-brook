@@ -314,7 +314,7 @@ function Page() {
       frontloadPct,
       nav,
     });
-  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, nav]);
+  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, frontloadPct, nav]);
 
   // Each successful Yahoo refresh seals one observed QQQ market point at the current cycle month.
   // This tape is the bridge between real-time passage and the forward 10Y simulation.
@@ -797,6 +797,8 @@ function Page() {
       setMonth(parsed.month);
       setLedger(parsed.entries);
       setMarketTape(parsed.marketTape);
+      setDailyDeploymentTape(parsed.dailyDeploymentTape ?? []);
+      setFrontloadPct(parsed.frontloadPct ?? 0.4);
       setNav(parsed.nav);
       setTransferNotice(
         "PULL complete · " +
