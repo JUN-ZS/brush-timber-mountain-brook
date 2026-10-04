@@ -73,6 +73,31 @@ function sellIntent(notional: number, id = "sell-intent") {
   };
 }
 
+test("order amount comes only from the parent dynamic intent", () => {
+  const state = seedOrderMachine({
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    qqqPrice: 100,
+    nav: 40_000,
+    capital: 100_000,
+    contributed: 40_000,
+  });
+  const parent = buyIntent(60_000, "dynamic-buy-60k");
+  const synced = syncOrderMachine({
+    state,
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    intent: parent,
+  });
+  const buy = activePaperOrders(synced).find((x) => x.side === "BUY");
+  assert(buy);
+  assert.equal(buy.parentIntentId, "dynamic-buy-60k");
+  assert.equal(buy.parentIntentNotional, 60_000);
+  assert.equal(buy.suggestedAmount, 30_000);
+});
+
 test("order machine arms one next BUY and advances after fill", () => {
   const state = seedOrderMachine({
     now: "2026-10-04T00:00:00.000Z",
