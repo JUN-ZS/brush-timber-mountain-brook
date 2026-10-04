@@ -127,3 +127,37 @@ export function dailyDeploymentRecord(input: {
     source: "YAHOO_FINANCE_CHART" as const,
   };
 }
+
+
+export type DailyDeploymentObservationKey = {
+  id: string;
+  marketDate: string;
+  frontload: number;
+  voidedAt?: string | null;
+};
+
+export function toggleDailyDeploymentObservation<T extends DailyDeploymentObservationKey>(
+  entries: T[],
+  entryId: string,
+  now: string,
+) {
+  const target = entries.find((entry) => entry.id === entryId);
+  if (!target) return entries;
+
+  if (target.voidedAt) {
+    const duplicateActive = entries.some(
+      (entry) =>
+        entry.id !== entryId &&
+        !entry.voidedAt &&
+        entry.marketDate === target.marketDate &&
+        Math.abs(entry.frontload - target.frontload) < 1e-9,
+    );
+    if (duplicateActive) return entries;
+  }
+
+  return entries.map((entry) =>
+    entry.id === entryId
+      ? { ...entry, voidedAt: entry.voidedAt ? null : now }
+      : entry,
+  );
+}
