@@ -143,29 +143,26 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
     : Array.isArray(obj.ledger)
       ? obj.ledger
       : [];
-  const entries = entriesSource
+  const rawEntries = entriesSource
     .filter(validLedgerEntry)
     .map((entry) => ({
       ...entry,
       kind: entry.kind ?? ("CONTRIBUTION" as const),
     }));
 
-  const migratedOpening =
-    startingDeployed > 0 &&
-    !entries.some((entry) => entry.id === "legacy-opening-contribution")
-      ? [{
-          id: "legacy-opening-contribution",
-          recordedAt: "1970-01-01T00:00:00.000Z",
-          asOf: "LEGACY_PR68_OPENING",
-          month: 0,
-          amount: startingDeployed,
-          kind: "CONTRIBUTION" as const,
-          price: null,
-          priceObservedAt: null,
-          priceSource: "UNAVAILABLE" as const,
-          voidedAt: null,
-        }]
-      : [];
+  // PR #68 called this value "starting/already deployed": it is an opening
+  // deployment position, not a new external cash-in. Older v4 writes may have
+  // materialized it as a synthetic legacy contribution; recover it here but
+  // never count it in ACTUAL CONTRIBUTED.
+  const legacyOpening = rawEntries.find((entry) => entry.id === "legacy-opening-contribution");
+  const recoveredStartingDeployed = Math.max(
+    0,
+    Math.min(
+      capital,
+      startingDeployed > 0 ? startingDeployed : Number(legacyOpening?.amount) || 0,
+    ),
+  );
+  const entries = rawEntries.filter((entry) => entry.id !== "legacy-opening-contribution");
 
   const marketTapeSource = Array.isArray(obj.marketTape) ? obj.marketTape : [];
   const marketTape = marketTapeSource
@@ -184,7 +181,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
 
   return {
     capital,
-    startingDeployed: 0,
+    startingDeployed: recoveredStartingDeployed,
     month,
     entries: [...migratedOpening, ...entries],
     marketTape,
@@ -340,7 +337,7 @@ function Page() {
     if (!hasHydrated) return;
     writeFloorState({
       capital,
-      startingDeployed: 0,
+      startingDeployed,
       month,
       entries: ledger,
       marketTape,
@@ -419,17 +416,24 @@ function Page() {
   const withdrawn = actualWithdrawn(ledger);
   const actualBuyNotional = activeTradeNotional(tradeLedger, "BUY");
   const actualSellNotional = activeTradeNotional(tradeLedger, "SELL");
+  // Funding and deployment are intentionally separate:
+  // - fundingNowAmount = external cash-in, used by ACTUAL − CLOCK.
+  // - deploymentNowAmount = opening deployed + external cash-in preview,
+  //   used only by deployment/research geometry and paper capacity.
   const cumulativeBeforePreview = contributed;
   const cumulativeNowAmount = cumulativeBeforePreview + Math.max(0, actualNow);
-  const cumulativeNowFraction = cumulativeNowAmount / safeCapital;
+  const fundingNowFraction = cumulativeNowAmount / safeCapital;
+  const deploymentNowAmount = Math.max(0, startingDeployed) + cumulativeNowAmount;
+  const cumulativeNowFraction = deploymentNowAmount / safeCapital;
   const currentClockAmount = clockTarget(safeCapital, cycleMonth);
   const currentClock = currentClockAmount / safeCapital;
   const formalFundingDelta = fundingDelta(safeCapital, cycleMonth, ledger);
   const formalFundingStatus = fundingStatus(formalFundingDelta);
-  const remainingCapital = Math.max(0, safeCapital - contributed);
+  const remainingFunding = Math.max(0, safeCapital - contributed);
+  const remainingDeployment = Math.max(0, safeCapital - Math.max(0, startingDeployed) - contributed);
   const monthsRemaining = Math.max(0, 120 - cycleMonth);
   const averageFutureContribution =
-    monthsRemaining > 0 ? remainingCapital / monthsRemaining : remainingCapital;
+    monthsRemaining > 0 ? remainingFunding / monthsRemaining : remainingFunding;
 
   const normalizedPlannedContributionMonth = Math.max(1, Math.min(120, Math.round(Number(plannedContributionMonth) || cycleMonth || 1)));
   const normalizedPlannedContributionAmount = Math.max(0, Number(plannedContributionAmount) || 0);
@@ -463,7 +467,7 @@ function Page() {
     Number(liveFloor?.coupledTarget ?? snapshot.current.coupledTargetAtPhaseZero) || 0,
   );
   const modelReferenceX = Math.min(1, Math.max(currentClock, signalFloorAnchor));
-  const currentStatus = statusFor(cumulativeNowFraction, currentClock, cumulativeNowAmount, safeCapital);
+  const currentStatus = statusFor(fundingNowFraction, currentClock, cumulativeNowAmount, safeCapital);
 
   const responseCurves = useMemo(
     () =>
@@ -570,7 +574,7 @@ function Page() {
             cumulativeNowFraction,
             modelTarget: modelReferenceX,
             ledger,
-            startingDeployed: 0,
+            startingDeployed: startingDeployed / safeCapital,
             marketTape,
             capital: safeCapital,
           })
@@ -615,7 +619,7 @@ function Page() {
       cycleMonth,
       nav,
       target,
-      remainingCapital: Math.max(0, safeCapital - contributed),
+      remainingCapital: remainingDeployment,
     });
   }
 
@@ -710,7 +714,7 @@ function Page() {
           qqqPrice: price,
           nav,
           capital: safeCapital,
-          contributed,
+          contributed: contributed + Math.max(0, startingDeployed),
         });
       return syncOrderMachine({
         state: seeded,
@@ -744,7 +748,7 @@ function Page() {
         qqqPrice: price,
         nav,
         capital: safeCapital,
-        contributed,
+        contributed: contributed + Math.max(0, startingDeployed),
       });
     setOrderMachine(
       syncOrderMachine({
@@ -912,7 +916,7 @@ function Page() {
       modelSnapshotAsOf: snapshot.asOf,
       horizonYears: snapshot.horizonYears,
       totalCapital: safeCapital,
-      startingDeployed: 0,
+      startingDeployed,
       month,
       entries: ledger,
       marketTape,
@@ -1136,15 +1140,18 @@ function Page() {
 
         <Panel kicker="OPERATOR DESK / ONE-GLANCE ACCOUNT" title="所有會改數字的操作，都由這一欄開始">
           <div className="rounded-md border border-accent/40 bg-elevated p-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <MoneyField label={ledger.length ? "Planned principal B · LOCKED" : "Planned principal B"} value={capital} onChange={(x) => !ledger.length && setCapital(Math.max(1, x))} />
               <NumberField label="Current cycle month" unit="mo" value={cycleMonth} min={1} max={120} step={1} onChange={(x) => setMonth(clampMonth(x - 1))} />
               <MoneyField label="Account NAV" value={nav} onChange={setNav} />
+              <NumberField label="Frontload F · deployment only" unit="%" value={frontloadPct * 100} min={0} max={100} step={10} onChange={(x) => setFrontloadPct(Math.max(0, Math.min(1, x / 100)))} />
               <MetricCard kicker="NET EXTERNAL CASH" title={fmtUsd(contributed - withdrawn, 2)} detail="CASH IN − CASH OUT · BUY/SELL excluded" />
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              <MetricCard kicker="FUNDING IN" title={fmtUsd(contributed, 2)} detail="active contributions" />
-              <MetricCard kicker="CASH OUT" title={fmtUsd(withdrawn, 2)} detail="active withdrawals" />
+              <MetricCard kicker="OPENING DEPLOYED" title={fmtUsd(startingDeployed, 2)} detail="already deployed · not CASH IN" />
+              <MetricCard kicker="DEPLOYED NOW" title={fmtUsd(deploymentNowAmount, 2)} detail="opening + CASH IN preview · not funding status" />
+              <MetricCard kicker="FUNDING IN" title={fmtUsd(contributed, 2)} detail="active external contributions" />
+              <MetricCard kicker="CASH OUT" title={fmtUsd(withdrawn, 2)} detail="active external withdrawals" />
               <MetricCard kicker="BUY" title={fmtUsd(actualBuyNotional, 2)} detail="internal trade · not funding" />
               <MetricCard kicker="SELL" title={fmtUsd(actualSellNotional, 2)} detail="internal trade · not cash-out" />
               <MetricCard kicker="PAPER" title={orderMachine ? fmtUsd(orderMachine.positionNav + orderMachine.deploymentReserve + orderMachine.harvestReserve, 2) : "—"} detail="paper only · not broker cash" />
@@ -1346,6 +1353,7 @@ function Page() {
 
         <DailyDeploymentConsole
           capital={safeCapital}
+          startingDeployed={startingDeployed}
           contributed={contributed}
           nav={nav}
           cycleMonth={cycleMonth}
@@ -1358,6 +1366,7 @@ function Page() {
           liveMatch={liveMatch}
           frontload={frontloadPct}
           onFrontloadChange={setFrontloadPct}
+          showFrontloadControl={false}
           tape={dailyDeploymentTape}
           onRecord={sealDailyDeployment}
           onExport={pushDailyDeploymentCsv}
@@ -1676,7 +1685,7 @@ function Page() {
             </div>
           </div>
 
-          <LedgerTable entries={ledger} capital={safeCapital} startingDeployed={startingDeployed} onToggleVoid={voidLedgerEntry} />
+          <LedgerTable entries={ledger} capital={safeCapital} onToggleVoid={voidLedgerEntry} />
 
           <div className="mt-5 rounded-md border border-accent/40 bg-elevated p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -3120,7 +3129,6 @@ function LedgerTable({
 }: {
   entries: LedgerEntry[];
   capital: number;
-  startingDeployed: number;
   onToggleVoid: (entryId: string) => void;
 }) {
   if (!entries.length) {
@@ -3140,7 +3148,7 @@ function LedgerTable({
       clock: number;
       status: EntryStatus | "VOIDED";
     }>>((rows, entry) => {
-      const prior = rows.at(-1)?.fraction ?? startingDeployed / Math.max(1, capital);
+      const prior = rows.at(-1)?.fraction ?? 0;
       const isContribution = (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION";
       const fraction = !entry.voidedAt && isContribution
         ? prior + entry.amount / Math.max(1, capital)
