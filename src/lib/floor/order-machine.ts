@@ -89,9 +89,10 @@ function suggestedAmountFor(
   weight: number,
   target: number,
 ) {
-  const projectedNav =
-    (state.positionShares ?? state.markPrice > 0 ? state.positionNav / state.markPrice : 0) *
-    (level.price ?? 0);
+  const shares =
+    state.positionShares ??
+    (state.markPrice > 0 ? state.positionNav / state.markPrice : 0);
+  const projectedNav = shares * (level.price ?? 0);
   if (side === "BUY") {
     const availableReserve = state.deploymentReserve + state.harvestReserve;
     return Math.max(
