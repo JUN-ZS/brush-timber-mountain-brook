@@ -119,7 +119,7 @@ test("order machine v2 requires dynamic parent intent for order creation", () =>
   assert.equal(activePaperOrders(unchanged).length, 0);
 });
 
-
+test("order machine arms one next BUY and advances after fill", () => {
   const state = seedOrderMachine({
     now: "2026-10-04T00:00:00.000Z",
     marketDate: "2026-10-04",
