@@ -272,7 +272,7 @@ export function DailyDeploymentConsole({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">DAILY DEPLOYMENT TAPE</p>
-              <p className="mt-1 text-sm text-muted">每個 market date 可留一個 snapshot；保留 target、NAV、deployment BUY/SELL gap、QQQ、DAY/WEEK/MONTH relvol。</p>
+              <p className="mt-1 text-sm text-muted">每個 market date + Frontload F 可留一個 immutable snapshot；無 CANCEL / RESTORE，不覆寫舊 observation。</p>
             </div>
             <Badge tone="mute">{tape.length} OBSERVATIONS</Badge>
           </div>
