@@ -290,7 +290,7 @@ test("repricing preserves the same rung index and supersedes the old ticket", ()
     ladder: ladder(),
     intent: buyIntent(60_000),
   });
-  const repriced = repricePaperOrder(stale, oldBuy.id, "2026-10-05T01:00:00.000Z", "2026-10-05", ladder(), 60_000);
+  const repriced = repricePaperOrder(stale, oldBuy.id, "2026-10-05T01:00:00.000Z", "2026-10-05", ladder(), buyIntent(60_000));
   assert.equal(repriced.nextBuyRung, 0);
   assert.equal(repriced.orders.find((x) => x.id === oldBuy.id)?.status, "REPLACED");
   assert.equal(activePaperOrders(repriced).find((x) => x.side === "BUY")?.rung, "NEAR");
