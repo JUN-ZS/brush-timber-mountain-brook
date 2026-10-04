@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Panel } from "@/components/shell";
 import { fmtPct, fmtUsd } from "@/lib/utils";
@@ -58,6 +59,27 @@ export function OrderStateMachine({
   onCancel: (orderId: string) => void;
   onReset: () => void;
 }) {
+  const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+
+  function copyOrderTicket(order: PaperOrder) {
+    const ticket =
+      "QQQ " +
+      order.side +
+      " LIMIT " +
+      order.limitPrice.toFixed(2) +
+      " NOTIONAL " +
+      order.suggestedAmount.toFixed(2);
+    const write = navigator.clipboard?.writeText(ticket);
+    if (!write) return;
+    write.then(
+      () => {
+        setCopiedOrderId(order.id);
+        window.setTimeout(() => setCopiedOrderId(null), 1200);
+      },
+      () => undefined,
+    );
+  }
+
   if (!state) {
     return (
       <Panel kicker="ORDER STATE MACHINE / MANUAL LIMIT DESK" title="掛單狀態機：等待建立 Paper Book">
@@ -158,6 +180,14 @@ export function OrderStateMachine({
                       className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
                     >
                       SKIP / CANCEL RUNG
+                    </button>
+                    <button
+                      type="button"
+                      disabled={order.status !== "ARMED" && order.status !== "TOUCHED"}
+                      onClick={() => copyOrderTicket(order)}
+                      className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+                    >
+                      {copiedOrderId === order.id ? "COPIED" : "COPY ORDER"}
                     </button>
                     {order.status === "TOUCHED" ? (
                       <Badge tone="fragile">PRICE TOUCHED · CONFIRM MANUALLY</Badge>
