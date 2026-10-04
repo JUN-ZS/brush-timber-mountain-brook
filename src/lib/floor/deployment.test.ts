@@ -193,6 +193,7 @@ test("daily deployment observation CANCEL keeps history and RESTORE restores it"
   const restored = toggleDailyDeploymentObservation(cancelled, "obs-40", "2026-10-05T00:01:00Z");
   assert.equal(restored.length, 2);
   assert.equal(restored.find((x) => x.id === "obs-40")?.voidedAt, null);
+  assert.deepEqual(restored.find((x) => x.id === "obs-40"), first);
 });
 
 test("daily deployment RESTORE refuses duplicate active DATE + F", () => {
