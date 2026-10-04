@@ -326,9 +326,10 @@ function Page() {
       marketTape,
       dailyDeploymentTape,
       frontloadPct,
+      orderMachine,
       nav,
     });
-  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, frontloadPct, nav]);
+  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, frontloadPct, orderMachine, nav]);
 
   // Each successful Yahoo refresh seals one observed QQQ market point at the current cycle month.
   // This tape is the bridge between real-time passage and the forward 10Y simulation.
@@ -366,6 +367,7 @@ function Page() {
           setMarketTape([]);
           setDailyDeploymentTape([]);
           setFrontloadPct(0.4);
+          setOrderMachine(null);
           setNav(0);
           return;
         }
@@ -378,6 +380,7 @@ function Page() {
         setMarketTape(parsed.marketTape);
         setDailyDeploymentTape(parsed.dailyDeploymentTape ?? []);
         setFrontloadPct(parsed.frontloadPct ?? 0.4);
+        setOrderMachine(parsed.orderMachine ?? null);
         setNav(parsed.nav);
       } catch {
       // Ignore malformed local state; safe defaults remain in memory.
@@ -1613,6 +1616,45 @@ function validLedgerEntry(value: unknown): value is LedgerEntry {
     x.month >= 0 &&
     x.month <= 119
   );
+}
+
+function validOrderMachineState(value: unknown): value is OrderMachineState {
+  if (!value || typeof value !== "object") return false;
+  const x = value as Partial<OrderMachineState>;
+  if (
+    x.schema !== "qqq-order-machine.v1" ||
+    typeof x.seededAt !== "string" ||
+    typeof x.updatedAt !== "string" ||
+    typeof x.marketDate !== "string" ||
+    !Number.isFinite(x.markPrice) ||
+    !(x.markPrice > 0) ||
+    !Number.isFinite(x.positionNav) ||
+    x.positionNav < 0 ||
+    !Number.isFinite(x.deploymentReserve) ||
+    x.deploymentReserve < 0 ||
+    !Number.isFinite(x.harvestReserve) ||
+    x.harvestReserve < 0 ||
+    !Number.isInteger(x.nextBuyRung) ||
+    !Number.isInteger(x.nextSellRung) ||
+    !Array.isArray(x.orders)
+  ) return false;
+  return x.orders.every((order) => {
+    if (!order || typeof order !== "object") return false;
+    const row = order as Record<string, unknown>;
+    return (
+      typeof row.id === "string" &&
+      (row.side === "BUY" || row.side === "SELL") &&
+      (row.rung === "NEAR" || row.rung === "MID" || row.rung === "DEEP") &&
+      (row.status === "ARMED" || row.status === "TOUCHED" || row.status === "FILLED" || row.status === "CANCELLED" || row.status === "SUPERSEDED") &&
+      Number.isFinite(Number(row.limitPrice)) &&
+      Number(row.limitPrice) > 0 &&
+      Number.isFinite(Number(row.suggestedAmount)) &&
+      Number(row.suggestedAmount) >= 0 &&
+      typeof row.marketDate === "string" &&
+      typeof row.sourcePrice === "number" &&
+      typeof row.createdAt === "string"
+    );
+  });
 }
 
 function validDailyDeploymentEntry(value: unknown): value is DailyDeploymentEntry {
