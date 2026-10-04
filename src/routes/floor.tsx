@@ -672,12 +672,16 @@ function Page() {
       id: globalThis.crypto?.randomUUID?.() ?? ("daily-" + marketDate + "-" + String(frontloadPct)),
     };
     setDailyDeploymentTape((current) => {
-      const next = current.filter(
-        (x) => !(x.marketDate === entry.marketDate && Math.abs(x.frontload - entry.frontload) < 1e-9),
-      );
-      next.push(entry);
-      next.sort((a, b) => a.marketDate.localeCompare(b.marketDate) || a.frontload - b.frontload);
-      return next.slice(-3650);
+      // DAILY DEPLOYMENT TAPE is an audit snapshot series, not an editable ledger.
+      // Keep one immutable observation for each marketDate + Frontload F. A
+      // different F on the same date is a separate observation; an already
+      // sealed date/F point is never overwritten or cancelled.
+      if (current.some((x) => x.marketDate === entry.marketDate && Math.abs(x.frontload - entry.frontload) < 1e-9)) {
+        return current;
+      }
+      return [...current, entry]
+        .sort((a, b) => a.marketDate.localeCompare(b.marketDate) || a.frontload - b.frontload)
+        .slice(-3650);
     });
     setTransferNotice(
       "DAILY DEPLOYMENT sealed · " +
