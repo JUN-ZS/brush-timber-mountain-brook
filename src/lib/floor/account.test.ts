@@ -65,3 +65,24 @@ test("voided funding entries are retained but excluded from formal totals", () =
   assert.equal(actualContributed(entries), 50_000);
   assert.equal(actualWithdrawn(entries), 0);
 });
+
+
+test("void then RESTORE returns funding entry to the same formal totals", () => {
+  const contribution = createEntry("CONTRIBUTION", 12_000, 12, "2026-10-04T00:00:00Z");
+  const withdrawal = createEntry("WITHDRAWAL", 3_000, 12, "2026-10-04T00:01:00Z");
+  let entries = [
+    { ...contribution, voidedAt: "2026-10-04T00:02:00Z" },
+    { ...withdrawal, voidedAt: "2026-10-04T00:03:00Z" },
+  ];
+
+  assert.equal(actualContributed(entries), 0);
+  assert.equal(actualWithdrawn(entries), 0);
+
+  entries = entries.map((entry) => ({ ...entry, voidedAt: null }));
+  assert.equal(actualContributed(entries), 12_000);
+  assert.equal(actualWithdrawn(entries), 3_000);
+  assert.equal(
+    fundingDelta(100_000, 12, entries),
+    12_000 - clockTarget(100_000, 12),
+  );
+});
