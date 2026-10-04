@@ -53,6 +53,7 @@ export function OrderStateMachine({
   onCancel,
   onReset,
   onReprice,
+  onRestore,
 }: {
   state: OrderMachineState | null;
   currentPrice: number | null;
@@ -62,6 +63,7 @@ export function OrderStateMachine({
   onCancel: (orderId: string) => void;
   onReset: () => void;
   onReprice: (orderId: string) => void;
+  onRestore: (orderId: string) => void;
 }) {
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
@@ -125,7 +127,7 @@ export function OrderStateMachine({
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">SESSION-LOCKED PAPER BOOK</p>
               <p className="mt-1 text-sm text-muted">
-                Session = {marketDate ?? state.marketDate}. 掛單跨日會標記 STALE，而唔會被系統偷偷取消。你可以 KEEP 原限價、REPRICE TO TODAY，或者 CANCEL；只有你確認平台成交先進 FILLED。
+                Session = {marketDate ?? state.marketDate}. 掛單跨日會標記 STALE，而唔會被系統偷偷取消。你可以 KEEP 原限價、REPRICE TO TODAY，或者 CANCEL；取消後可由歷史列 RESTORE（如未有後續 rung 成交）。只有你確認平台成交先進 FILLED。
               </p>
             </div>
             <Badge tone="lock">NO BROKER TRANSMISSION</Badge>
@@ -237,6 +239,7 @@ export function OrderStateMachine({
                 <th className="py-2 pr-4">LIMIT</th>
                 <th className="py-2 pr-4">AMOUNT</th>
                 <th className="py-2 pr-4">STATUS</th>
+                <th className="py-2 pr-4">ACTION</th>
               </tr>
             </thead>
             <tbody>
@@ -248,10 +251,38 @@ export function OrderStateMachine({
                   <td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(order.limitPrice, 2)}</td>
                   <td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(order.filledAmount ?? order.suggestedAmount, 2)}</td>
                   <td className="py-2 pr-4"><Badge tone={statusTone(order.status)}>{order.status}</Badge></td>
+                  <td className="py-2 pr-4">
+                    {order.status === "CANCELLED" ? (
+                      <button
+                        type="button"
+                        onClick={() => onRestore(order.id)}
+                        className="min-h-8 rounded-md border border-accent px-2 font-mono text-[11px]"
+                      >
+                        RESTORE RUNG
+                      </button>
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="rounded-md border border-line bg-elevated p-4">
+          <p className="font-mono text-xs tracking-[0.14em] text-subtle">CANCELLED / RECOVERABLE</p>
+          {state.orders.filter((order) => order.status === "CANCELLED").slice(-6).reverse().map((order) => (
+            <div key={order.id} className="mt-2 flex items-center justify-between gap-4 text-xs">
+              <span className="font-mono">{order.side} · {order.rung} · {fmtUsd(order.limitPrice, 2)}</span>
+              <button
+                type="button"
+                onClick={() => onRestore(order.id)}
+                className="min-h-8 rounded-md border border-accent px-2 font-mono text-[11px]"
+              >
+                RESTORE
+              </button>
+            </div>
+          ))}
+          {!state.orders.some((order) => order.status === "CANCELLED") ? <p className="mt-2 text-xs text-muted">none</p> : null}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -277,7 +308,8 @@ export function OrderStateMachine({
 
         <p className="text-xs leading-relaxed text-subtle">
           呢個 Paper Book 同正式 Actual Contributed / Account NAV 分開。BUY/SELL fill 只改 paper position / planning capacity；
-          真正券商成交仍要你自己在交易平台完成，再另外記錄真實現金流。Economic Wealth 亦係研究帳，不應當成券商實際現金餘額。
+          真正券商成交仍要你自己在交易平台完成，再到 CAPITAL TAPE 的 ACTUAL TRADE / EXECUTION JOURNAL 記錄實際 BUY/SELL。
+          Funding Ledger 的 VOID / RESTORE 只改統計有效性，不刪原始紀錄。Economic Wealth 亦係研究帳，不應當成券商實際現金餘額。
         </p>
       </div>
     </Panel>
