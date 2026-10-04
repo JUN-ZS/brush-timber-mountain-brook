@@ -1378,6 +1378,11 @@ function Page() {
           currentPrice={liveMatch?.currentPrice ?? livePrice}
           target={frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, currentMarketDate() ?? undefined)}
           marketDate={currentMarketDate()}
+          canArm={
+            liveMatch?.currentPrice != null &&
+            currentMarketDate() != null &&
+            liveMatch?.priceLadder != null
+          }
           onFill={fillPaperOrderFromDesk}
           onCancel={cancelPaperOrderFromDesk}
           onReprice={repricePaperOrderFromDesk}
