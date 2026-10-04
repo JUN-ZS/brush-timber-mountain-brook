@@ -52,3 +52,16 @@ test("withdrawal never changes Actual contributed", () => {
   assert.equal(actualContributed(entries), 70_000);
   assert.equal(actualWithdrawn(entries), 20_000);
 });
+
+
+test("voided funding entries are retained but excluded from formal totals", () => {
+  const contribution = createEntry("CONTRIBUTION", 50_000, 60, "2026-10-04T00:00:00Z");
+  const withdrawal = createEntry("WITHDRAWAL", 7_000, 60, "2026-10-04T00:01:00Z");
+  const entries = [
+    contribution,
+    { ...withdrawal, voidedAt: "2026-10-04T00:02:00Z" },
+    { ...contribution, id: "voided-contribution", voidedAt: "2026-10-04T00:03:00Z" },
+  ];
+  assert.equal(actualContributed(entries), 50_000);
+  assert.equal(actualWithdrawn(entries), 0);
+});
