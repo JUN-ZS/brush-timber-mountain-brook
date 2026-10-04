@@ -680,6 +680,11 @@ function Page() {
     };
   }
 
+  function csvCell(value: unknown) {
+    const raw = value == null ? "" : String(value);
+    return '"' + raw.replaceAll('"', '""') + '"';
+  }
+
   function downloadText(filename: string, text: string, mime = "application/json") {
     const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
@@ -712,7 +717,7 @@ function Page() {
         x.buyAvailable,x.sellExcess,x.remainingCapital,x.qqqPrice ?? "",JSON.stringify(x.marketState ?? ""),
         x.dayRatio ?? "",x.weekRatio ?? "",x.monthRatio ?? "",JSON.stringify(x.dayLevel),
         JSON.stringify(x.weekLevel),JSON.stringify(x.monthLevel),JSON.stringify(x.status),JSON.stringify(x.source),
-        JSON.stringify(x.priceLadder ?? null),
+        csvCell(JSON.stringify(x.priceLadder ?? null)),
       ].join(","));
     downloadText(
       "qqq-daily-deployment-tape-" + new Date().toISOString().slice(0, 10) + ".csv",
