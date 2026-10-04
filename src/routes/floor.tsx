@@ -183,7 +183,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
     capital,
     startingDeployed: recoveredStartingDeployed,
     month,
-    entries: [...migratedOpening, ...entries],
+    entries,
     marketTape,
     dailyDeploymentTape,
     frontloadPct,
