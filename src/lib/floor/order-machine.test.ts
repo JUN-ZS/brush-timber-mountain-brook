@@ -8,6 +8,7 @@ import {
   fillPaperOrder,
   nextRungLabel,
   paperEconomicWealth,
+  repricePaperOrder,
   seedOrderMachine,
   syncOrderMachine,
 } from "./order-machine.ts";
@@ -127,7 +128,7 @@ test("SELL fill moves proceeds into harvest reserve and next SELL rises", () => 
   assert.equal(paperEconomicWealth(filled), paperEconomicWealth(touched));
 });
 
-test("a new market session supersedes old open orders but keeps the same rung index", () => {
+test("a new market session marks open orders STALE without cancelling them", () => {
   const state = seedOrderMachine({
     now: "2026-10-04T00:00:00.000Z",
     marketDate: "2026-10-04",
@@ -154,9 +155,42 @@ test("a new market session supersedes old open orders but keeps the same rung in
     ladder: ladder(),
     target: 60_000,
   });
-  assert.equal(day2.orders.find((x) => x.id === oldBuy.id)?.status, "SUPERSEDED");
+  assert.equal(day2.orders.find((x) => x.id === oldBuy.id)?.status, "STALE");
   assert.equal(day2.nextBuyRung, 0);
-  assert.equal(activePaperOrders(day2).find((x) => x.side === "BUY")?.rung, "NEAR");
+  assert.equal(activePaperOrders(day2).find((x) => x.side === "BUY")?.id, oldBuy.id);
+});
+
+test("repricing preserves the same rung index and supersedes the old ticket", () => {
+  const state = seedOrderMachine({
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    qqqPrice: 100,
+    nav: 40_000,
+    capital: 100_000,
+    contributed: 40_000,
+  });
+  const day1 = syncOrderMachine({
+    state,
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    target: 60_000,
+  });
+  const oldBuy = activePaperOrders(day1).find((x) => x.side === "BUY");
+  assert(oldBuy);
+  const stale = syncOrderMachine({
+    state: day1,
+    now: "2026-10-05T00:00:00.000Z",
+    marketDate: "2026-10-05",
+    currentPrice: 101,
+    ladder: ladder(),
+    target: 60_000,
+  });
+  const repriced = repricePaperOrder(stale, oldBuy.id, "2026-10-05T01:00:00.000Z", "2026-10-05", ladder(), 60_000);
+  assert.equal(repriced.nextBuyRung, 0);
+  assert.equal(repriced.orders.find((x) => x.id === oldBuy.id)?.status, "REPLACED");
+  assert.equal(activePaperOrders(repriced).find((x) => x.side === "BUY")?.rung, "NEAR");
 });
 
 test("cancellation skips the rung instead of silently re-arming it", () => {
