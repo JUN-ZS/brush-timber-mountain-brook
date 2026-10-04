@@ -33,7 +33,7 @@ export type PaperOrder = {
 };
 
 export type OrderMachineState = {
-  schema: "qqq-order-machine.v1";
+  schema: "qqq-order-machine.v2";
   seededAt: string;
   updatedAt: string;
   marketDate: string;
@@ -96,7 +96,7 @@ export function seedOrderMachine(input: {
   contributed: number;
 }): OrderMachineState {
   return {
-    schema: "qqq-order-machine.v1",
+    schema: "qqq-order-machine.v2",
     seededAt: input.now,
     updatedAt: input.now,
     marketDate: input.marketDate,
@@ -435,7 +435,7 @@ export function seedOrderMachine(input: {
   contributed: number;
 }): OrderMachineState {
   return {
-    schema: "qqq-order-machine.v1",
+    schema: "qqq-order-machine.v2",
     seededAt: input.now,
     updatedAt: input.now,
     marketDate: input.marketDate,
