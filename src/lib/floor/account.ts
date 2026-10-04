@@ -9,6 +9,7 @@ export type FloorLedgerEntry = {
   kind: FloorEntryKind;
   amount: number;
   note?: string;
+  voidedAt?: string | null;
 };
 
 export type FloorStatus = "AHEAD" | "ON_CLOCK" | "BEHIND";
@@ -36,13 +37,13 @@ export function clockTarget(plannedPrincipal: number, cycleMonth: number) {
 
 export function actualContributed(entries: FloorLedgerEntry[]) {
   return entries
-    .filter((entry) => entry.kind === "CONTRIBUTION")
+    .filter((entry) => entry.kind === "CONTRIBUTION" && !entry.voidedAt)
     .reduce((sum, entry) => sum + Math.max(0, entry.amount), 0);
 }
 
 export function actualWithdrawn(entries: FloorLedgerEntry[]) {
   return entries
-    .filter((entry) => entry.kind === "WITHDRAWAL")
+    .filter((entry) => entry.kind === "WITHDRAWAL" && !entry.voidedAt)
     .reduce((sum, entry) => sum + Math.max(0, entry.amount), 0);
 }
 
@@ -107,12 +108,14 @@ export function normalizeFloorAccount(raw: unknown): FloorAccountState {
       Number.isFinite(Number(row.cycleMonth)) &&
       (row.kind === "CONTRIBUTION" || row.kind === "WITHDRAWAL") &&
       Number(row.amount) > 0 &&
-      Number.isFinite(Number(row.amount))
+      Number.isFinite(Number(row.amount)) &&
+      (row.voidedAt == null || typeof row.voidedAt === "string")
     );
   }).map((entry) => ({
     ...entry,
     cycleMonth: clampCycleMonth(Number(entry.cycleMonth)),
     amount: Number(entry.amount),
+    voidedAt: entry.voidedAt ?? null,
   }));
 
   return {
