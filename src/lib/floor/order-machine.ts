@@ -26,6 +26,7 @@ export type PaperOrder = {
   filledAt?: string | null;
   filledPrice?: number | null;
   filledAmount?: number | null;
+  cancelledAt?: string | null;
 };
 
 export type OrderMachineState = {
@@ -337,7 +338,7 @@ export function cancelPaperOrder(
     ...state,
     updatedAt: now,
     orders: state.orders.map((x) =>
-      x.id === orderId ? { ...x, status: "CANCELLED" as const } : x,
+      x.id === orderId ? { ...x, status: "CANCELLED" as const, cancelledAt: now } : x,
     ),
     nextBuyRung:
       order.side === "BUY"
@@ -348,6 +349,56 @@ export function cancelPaperOrder(
         ? Math.min(ORDER_RUNG_GRID.length, state.nextSellRung + 1)
         : state.nextSellRung,
   };
+}
+
+export function restoreCancelledOrder(
+  state: OrderMachineState,
+  orderId: string,
+  now: string,
+): OrderMachineState {
+  const order = state.orders.find((x) => x.id === orderId);
+  if (!order || order.status !== "CANCELLED") return state;
+
+  const rungIndex = ORDER_RUNG_GRID.findIndex((rung) => rung.key === order.rung);
+  if (rungIndex < 0) return state;
+  if (openOrderForSide(state, order.side)) return state;
+
+  // Do not rewind into a rung that has already produced a later fill.
+  // That would create two incompatible sequential campaign states for one side.
+  const laterFillExists = state.orders.some(
+    (candidate) =>
+      candidate.side === order.side &&
+      candidate.status === "FILLED" &&
+      ORDER_RUNG_GRID.findIndex((rung) => rung.key === candidate.rung) > rungIndex,
+  );
+  if (laterFillExists) return state;
+
+  const nextPointer = Math.min(
+    state[order.side === "BUY" ? "nextBuyRung" : "nextSellRung"],
+    rungIndex,
+  );
+
+  const restored = {
+    ...state,
+    updatedAt: now,
+    orders: state.orders.map((candidate) =>
+      candidate.id === orderId
+        ? {
+            ...candidate,
+            status: "ARMED" as const,
+            touchedAt: null,
+            filledAt: null,
+            filledPrice: null,
+            filledAmount: null,
+            cancelledAt: null,
+          }
+        : candidate,
+    ),
+  };
+
+  return order.side === "BUY"
+    ? { ...restored, nextBuyRung: nextPointer }
+    : { ...restored, nextSellRung: nextPointer };
 }
 
 export function repricePaperOrder(
