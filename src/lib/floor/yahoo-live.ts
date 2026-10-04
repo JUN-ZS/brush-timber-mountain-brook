@@ -258,8 +258,8 @@ function forwardExtreme(
   horizon: number,
   side: "LOW" | "HIGH",
 ) {
-  const path = closes.slice(i, i + horizon + 1);
-  if (path.length !== horizon + 1 || !path.every((x) => x > 0)) return null;
+  const path = closes.slice(i + 1, i + horizon + 1);
+  if (path.length !== horizon || !path.every((x) => x > 0)) return null;
   return side === "LOW" ? Math.min(...path) : Math.max(...path);
 }
 
