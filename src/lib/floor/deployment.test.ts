@@ -163,3 +163,54 @@ test("every frontload grid point maps to the same day-progress formula", () => {
   assert(Math.abs(frontLoadedTarget(capital, f40.frontload, cycleMonth, marketDate) - expected40) < 1e-9);
   assert(Math.abs(f40.frontload - 0.4) < 1e-12);
 });
+
+
+test("daily deployment observation CANCEL keeps history and RESTORE restores it", () => {
+  const first = {
+    id: "obs-40",
+    marketDate: "2026-10-02",
+    frontload: 0.4,
+    target: 40_016.67,
+    nav: 0,
+    buyAvailable: 40_016.67,
+    sellExcess: 0,
+    voidedAt: null as string | null,
+  };
+  const second = {
+    ...first,
+    id: "obs-20",
+    frontload: 0.2,
+    target: 20_022.22,
+    buyAvailable: 20_022.22,
+  };
+
+  const entries = [first, second];
+  const cancelled = toggleDailyDeploymentObservation(entries, "obs-40", "2026-10-05T00:00:00Z");
+  assert.equal(cancelled.length, 2);
+  assert.equal(cancelled.find((x) => x.id === "obs-40")?.voidedAt, "2026-10-05T00:00:00Z");
+  assert.equal(cancelled.find((x) => x.id === "obs-20")?.voidedAt, null);
+
+  const restored = toggleDailyDeploymentObservation(cancelled, "obs-40", "2026-10-05T00:01:00Z");
+  assert.equal(restored.length, 2);
+  assert.equal(restored.find((x) => x.id === "obs-40")?.voidedAt, null);
+});
+
+test("daily deployment RESTORE refuses duplicate active DATE + F", () => {
+  const entries = [
+    {
+      id: "obs-old",
+      marketDate: "2026-10-02",
+      frontload: 0.4,
+      voidedAt: "2026-10-05T00:00:00Z" as string | null,
+    },
+    {
+      id: "obs-new",
+      marketDate: "2026-10-02",
+      frontload: 0.4,
+      voidedAt: null as string | null,
+    },
+  ];
+  const restored = toggleDailyDeploymentObservation(entries, "obs-old", "2026-10-05T00:01:00Z");
+  assert.equal(restored, entries);
+  assert.equal(restored.find((x) => x.id === "obs-old")?.voidedAt, "2026-10-05T00:00:00Z");
+});
