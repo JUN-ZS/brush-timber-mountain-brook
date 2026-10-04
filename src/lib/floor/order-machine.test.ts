@@ -98,6 +98,32 @@ test("order machine arms one next BUY and advances after fill", () => {
   assert.equal(activePaperOrders(next).filter((x) => x.side === "BUY")[0]?.rung, "MID");
 });
 
+test("unavailable current ladder rung advances to the next valid rung", () => {
+  const state = seedOrderMachine({
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    qqqPrice: 100,
+    nav: 40_000,
+    capital: 100_000,
+    contributed: 40_000,
+  });
+  const full = ladder();
+  const sparse = {
+    ...full,
+    add: full.add.filter((row) => !(row.horizon === 1 && row.touchProbability === 0.7)),
+  };
+  const synced = syncOrderMachine({
+    state,
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: sparse,
+    target: 60_000,
+  });
+  assert.equal(synced.nextBuyRung, 1);
+  assert.equal(activePaperOrders(synced).find((x) => x.side === "BUY")?.rung, "MID");
+});
+
 test("SELL fill moves proceeds into harvest reserve and next SELL rises", () => {
   const state = seedOrderMachine({
     now: "2026-10-04T00:00:00.000Z",

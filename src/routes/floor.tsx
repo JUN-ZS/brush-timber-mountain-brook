@@ -1692,14 +1692,23 @@ function validOrderMachineState(value: unknown): value is OrderMachineState {
       typeof row.id === "string" &&
       (row.side === "BUY" || row.side === "SELL") &&
       (row.rung === "NEAR" || row.rung === "MID" || row.rung === "DEEP") &&
+      (row.horizon === 1 || row.horizon === 5 || row.horizon === 21) &&
       (row.status === "ARMED" || row.status === "STALE" || row.status === "TOUCHED" || row.status === "FILLED" || row.status === "CANCELLED" || row.status === "REPLACED" || row.status === "SUPERSEDED") &&
+      Number.isFinite(Number(row.touchProbability)) &&
+      Number(row.touchProbability) >= 0 &&
+      Number(row.touchProbability) <= 1 &&
       Number.isFinite(Number(row.limitPrice)) &&
       Number(row.limitPrice) > 0 &&
       Number.isFinite(Number(row.suggestedAmount)) &&
       Number(row.suggestedAmount) >= 0 &&
       typeof row.marketDate === "string" &&
-      typeof row.sourcePrice === "number" &&
-      typeof row.createdAt === "string"
+      Number.isFinite(Number(row.sourcePrice)) &&
+      Number(row.sourcePrice) > 0 &&
+      typeof row.createdAt === "string" &&
+      (row.touchedAt == null || typeof row.touchedAt === "string") &&
+      (row.filledAt == null || typeof row.filledAt === "string") &&
+      (row.filledPrice == null || (Number.isFinite(Number(row.filledPrice)) && Number(row.filledPrice) > 0)) &&
+      (row.filledAmount == null || (Number.isFinite(Number(row.filledAmount)) && Number(row.filledAmount) >= 0))
     );
   });
 }

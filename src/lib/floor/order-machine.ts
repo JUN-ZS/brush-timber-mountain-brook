@@ -77,11 +77,6 @@ function currentOpenOrders(state: OrderMachineState) {
   );
 }
 
-function targetAtPrice(positionNav: number, markPrice: number, price: number) {
-  if (!(positionNav >= 0) || !(markPrice > 0) || !(price > 0)) return 0;
-  return positionNav * (price / markPrice);
-}
-
 function suggestedAmountFor(
   state: OrderMachineState,
   side: PaperOrderSide,
@@ -222,7 +217,17 @@ export function syncOrderMachine(input: {
 
   for (const side of ["BUY", "SELL"] as const) {
     if (openOrderForSide(state, side)) continue;
-    const index = side === "BUY" ? state.nextBuyRung : state.nextSellRung;
+    const pointer = side === "BUY" ? state.nextBuyRung : state.nextSellRung;
+    let index = pointer;
+    while (index < ORDER_RUNG_GRID.length && !rungLevel(input.ladder, side, index)) {
+      index += 1;
+    }
+    if (index !== pointer) {
+      state = {
+        ...state,
+        ...(side === "BUY" ? { nextBuyRung: index } : { nextSellRung: index }),
+      };
+    }
     if (index >= ORDER_RUNG_GRID.length) continue;
     const order = makeOrder(
       state,
@@ -266,7 +271,16 @@ export function fillPaperOrder(
 ): OrderMachineState {
   const order = state.orders.find((x) => x.id === orderId);
   if (!order || order.status !== "TOUCHED" || !canFillOrder(state, orderId, currentPrice)) return state;
-  const fillAmount = Math.max(0, order.suggestedAmount);
+
+  const requestedAmount = Math.max(0, order.suggestedAmount);
+  const shares =
+    state.positionShares ??
+    (state.markPrice > 0 ? state.positionNav / state.markPrice : 0);
+
+  const fillAmount =
+    order.side === "BUY"
+      ? Math.min(requestedAmount, state.deploymentReserve + state.harvestReserve)
+      : Math.min(requestedAmount, shares * order.limitPrice);
 
   if (!(fillAmount > 0)) return state;
 
@@ -290,8 +304,6 @@ export function fillPaperOrder(
     const fromHarvest = Math.min(next.harvestReserve, fillAmount);
     const fromDeployment = Math.min(next.deploymentReserve, fillAmount - fromHarvest);
     const funded = fromHarvest + fromDeployment;
-    const shares = next.positionShares ??
-      (next.markPrice > 0 ? next.positionNav / next.markPrice : 0);
     const fillShares = order.limitPrice > 0 ? funded / order.limitPrice : 0;
     next = {
       ...next,
@@ -302,23 +314,18 @@ export function fillPaperOrder(
       nextBuyRung: Math.min(ORDER_RUNG_GRID.length, next.nextBuyRung + 1),
     };
   } else {
-    const shares = next.positionShares ??
-      (next.markPrice > 0 ? next.positionNav / next.markPrice : 0);
-    const maxSellNotional = shares * order.limitPrice;
-    const sold = Math.min(maxSellNotional, fillAmount);
-    const soldShares = order.limitPrice > 0 ? sold / order.limitPrice : 0;
+    const soldShares = order.limitPrice > 0 ? fillAmount / order.limitPrice : 0;
     next = {
       ...next,
       positionShares: Math.max(0, shares - soldShares),
       positionNav: Math.max(0, shares - soldShares) * next.markPrice,
-      harvestReserve: next.harvestReserve + sold,
+      harvestReserve: next.harvestReserve + fillAmount,
       nextSellRung: Math.min(ORDER_RUNG_GRID.length, next.nextSellRung + 1),
     };
   }
 
   return next;
 }
-
 export function cancelPaperOrder(
   state: OrderMachineState,
   orderId: string,

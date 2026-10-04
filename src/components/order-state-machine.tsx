@@ -89,7 +89,7 @@ export function OrderStateMachine({
       <Panel kicker="ORDER STATE MACHINE / MANUAL LIMIT DESK" title="掛單狀態機：等待建立 Paper Book">
         <div className="rounded-md border border-dashed border-line p-4">
           <p className="text-sm text-muted">
-            會以目前 ACCOUNT NAV、10Y target、未投入 B reserve 與今日 QQQ 價格建立獨立 paper book。
+            會以目前 ACCOUNT NAV、10Y target、B 的 paper planning capacity 與今日 QQQ 價格建立獨立 paper book。
             呢層只產生「手動掛單計劃」，唔會連 Futu 或其他券商。
           </p>
           <button
@@ -136,12 +136,12 @@ export function OrderStateMachine({
           <Metric label="QQQ NOW" value={currentPrice == null ? "—" : fmtUsd(currentPrice, 2)} detail="observed price" />
           <Metric label="TARGET" value={fmtUsd(target, 2)} detail="front-loaded 10Y target" />
           <Metric label="SHADOW QQQ NAV" value={fmtUsd(state.positionNav, 2)} detail="paper marked position" />
-          <Metric label="DEPLOYMENT RESERVE" value={fmtUsd(state.deploymentReserve, 2)} detail="uncontributed B budget" />
+          <Metric label="DEPLOYMENT RESERVE" value={fmtUsd(state.deploymentReserve, 2)} detail="remaining B planning capacity · not broker cash" />
           <Metric label="HARVEST RESERVE" value={fmtUsd(state.harvestReserve, 2)} detail="filled SELL proceeds · paper only" />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="ECONOMIC WEALTH" value={fmtUsd(paperEconomicWealth(state), 2)} detail="shadow NAV + both reserves" />
+          <Metric label="ECONOMIC WEALTH" value={fmtUsd(paperEconomicWealth(state), 2)} detail="paper position + B capacity + harvest reserve" />
           <Metric label="NEXT BUY" value={nextRungLabel("BUY", state.nextBuyRung)} detail="deepens after BUY fill/cancel" />
           <Metric label="NEXT SELL" value={nextRungLabel("SELL", state.nextSellRung)} detail="rises after SELL fill/cancel" />
           <Metric label="ACTIVE ORDERS" value={String(active.length)} detail="max 1 BUY + 1 SELL" />
@@ -211,7 +211,7 @@ export function OrderStateMachine({
                 </div>
               ) : (
                 <div className="mt-4 rounded-md border border-dashed border-line p-4 text-sm text-muted">
-                  此方向暫無 active order。完成上一級、skip，或 reserve 不足會停在 WAITING。
+                  此方向暫無 active order。可能是目前 rung 沒有有效限價、上一級未完成，或可用 paper capacity / excess 為 0。
                 </div>
               )}
             </div>
@@ -276,7 +276,7 @@ export function OrderStateMachine({
         </div>
 
         <p className="text-xs leading-relaxed text-subtle">
-          呢個 Paper Book 同正式 Actual Contributed / Account NAV 分開。BUY/SELL fill 只改 paper position/reserve；
+          呢個 Paper Book 同正式 Actual Contributed / Account NAV 分開。BUY/SELL fill 只改 paper position / planning capacity；
           真正券商成交仍要你自己在交易平台完成，再另外記錄真實現金流。Economic Wealth 亦係研究帳，不應當成券商實際現金餘額。
         </p>
       </div>
