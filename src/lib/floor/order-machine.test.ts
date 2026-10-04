@@ -65,7 +65,7 @@ test("order machine arms one next BUY and advances after fill", () => {
   const touched = syncOrderMachine({
     state: synced,
     now: "2026-10-05T00:00:00.000Z",
-    marketDate: "2026-10-05",
+    marketDate: "2026-10-04",
     currentPrice: buys[0]!.limitPrice,
     ladder: ladder(),
     target: 60_000,
@@ -74,7 +74,7 @@ test("order machine arms one next BUY and advances after fill", () => {
   assert.equal(touchedOrder?.status, "TOUCHED");
   assert.equal(canFillOrder(touched, buys[0]!.id, buys[0]!.limitPrice), true);
 
-  const filled = fillPaperOrder(touched, buys[0]!.id, buys[0]!.limitPrice, "2026-10-05T01:00:00.000Z");
+  const filled = fillPaperOrder(touched, buys[0]!.id, buys[0]!.limitPrice, "2026-10-04T01:00:00.000Z");
   assert.equal(filled.nextBuyRung, 1);
   assert.equal(filled.harvestReserve, 0);
   assert(filled.deploymentReserve < synced.deploymentReserve);
@@ -83,8 +83,8 @@ test("order machine arms one next BUY and advances after fill", () => {
 
   const next = syncOrderMachine({
     state: filled,
-    now: "2026-10-05T02:00:00.000Z",
-    marketDate: "2026-10-05",
+    now: "2026-10-04T02:00:00.000Z",
+    marketDate: "2026-10-04",
     currentPrice: buys[0]!.limitPrice,
     ladder: ladder(),
     target: 60_000,
