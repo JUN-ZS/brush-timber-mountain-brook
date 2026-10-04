@@ -676,7 +676,7 @@ function Page() {
       // Keep one immutable observation for each marketDate + Frontload F. A
       // different F on the same date is a separate observation; an already
       // sealed date/F point is never overwritten or cancelled.
-      if (current.some((x) => x.marketDate === entry.marketDate && Math.abs(x.frontload - entry.frontload) < 1e-9)) {
+      if (current.some((x) => !x.voidedAt && x.marketDate === entry.marketDate && Math.abs(x.frontload - entry.frontload) < 1e-9)) {
         return current;
       }
       return [...current, entry]
@@ -851,6 +851,32 @@ function Page() {
     setPlannedWithdrawalAmount(0);
   }
 
+  function toggleDailyDeploymentVoid(entryId: string) {
+    const now = new Date().toISOString();
+    setDailyDeploymentTape((entries) => {
+      const target = entries.find((entry) => entry.id === entryId);
+      if (!target) return entries;
+      if (target.voidedAt) {
+        const duplicateActive = entries.some(
+          (entry) =>
+            entry.id !== entryId &&
+            !entry.voidedAt &&
+            entry.marketDate === target.marketDate &&
+            Math.abs(entry.frontload - target.frontload) < 1e-9,
+        );
+        if (duplicateActive) {
+          setTransferNotice("DAILY DEPLOYMENT RESTORE blocked · active snapshot already exists for same DATE + F");
+          return entries;
+        }
+      }
+      return entries.map((entry) =>
+        entry.id === entryId
+          ? { ...entry, voidedAt: entry.voidedAt ? null : now }
+          : entry,
+      );
+    });
+  }
+
   function clearLocal() {
     // Match prior CLEAR UX: wipe ledger + starting + live preview.
     // capital/month reset to defaults; persisted blob rewritten by save effect.
@@ -960,7 +986,7 @@ function Page() {
     const header = [
       "marketDate","recordedAt","cycleMonth","frontload","capital","contributed","nav","target","signedGap",
       "buyAvailable","sellExcess","remainingCapital","qqqPrice","marketState","dayRatio","weekRatio","monthRatio",
-      "dayLevel","weekLevel","monthLevel","status","source","priceLadder",
+      "dayLevel","weekLevel","monthLevel","status","source","voidedAt","priceLadder",
     ].join(",");
     const rows = dailyDeploymentTape
       .slice()
@@ -970,6 +996,7 @@ function Page() {
         x.buyAvailable,x.sellExcess,x.remainingCapital,x.qqqPrice ?? "",JSON.stringify(x.marketState ?? ""),
         x.dayRatio ?? "",x.weekRatio ?? "",x.monthRatio ?? "",JSON.stringify(x.dayLevel),
         JSON.stringify(x.weekLevel),JSON.stringify(x.monthLevel),JSON.stringify(x.status),JSON.stringify(x.source),
+         JSON.stringify(x.voidedAt ?? ""),
         csvCell(JSON.stringify(x.priceLadder ?? null)),
       ].join(","));
     downloadText(
@@ -1375,6 +1402,7 @@ function Page() {
           tape={dailyDeploymentTape}
           onRecord={sealDailyDeployment}
           onExport={pushDailyDeploymentCsv}
+           onToggleVoid={toggleDailyDeploymentVoid}
         />
 
         <OrderStateMachine
@@ -1938,7 +1966,8 @@ function validDailyDeploymentEntry(value: unknown): value is DailyDeploymentEntr
     x.sellExcess >= 0 &&
     (x.status === "BUY_AVAILABLE" || x.status === "ON_TARGET" || x.status === "SELL_EXCESS") &&
     (x.priceLadder === undefined || x.priceLadder === null || typeof x.priceLadder === "object") &&
-    x.source === "YAHOO_FINANCE_CHART"
+     x.source === "YAHOO_FINANCE_CHART" &&
+     (x.voidedAt == null || typeof x.voidedAt === "string")
   );
 }
 
