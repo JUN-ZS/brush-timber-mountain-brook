@@ -1827,7 +1827,7 @@ function validOrderMachineState(value: unknown): value is OrderMachineState {
   if (!value || typeof value !== "object") return false;
   const x = value as Partial<OrderMachineState>;
   if (
-    x.schema !== "qqq-order-machine.v1" ||
+    x.schema !== "qqq-order-machine.v2" ||
     typeof x.seededAt !== "string" ||
     typeof x.updatedAt !== "string" ||
     typeof x.marketDate !== "string" ||
