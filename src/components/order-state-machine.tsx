@@ -52,6 +52,7 @@ export function OrderStateMachine({
   onFill,
   onCancel,
   onReset,
+  onArm,
   onReprice,
   onRestore,
 }: {
