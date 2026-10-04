@@ -97,11 +97,11 @@ export function OrderStateMachine({
           </p>
           <button
             type="button"
-            onClick={onReset}
+            onClick={onArm}
             disabled={currentPrice == null}
             className="mt-3 min-h-11 rounded-md border border-accent px-4 font-mono text-xs disabled:opacity-40"
           >
-            INITIALIZE PAPER BOOK
+            ARM CURRENT INTENT
           </button>
         </div>
       </Panel>
@@ -147,7 +147,7 @@ export function OrderStateMachine({
           <Metric label="ECONOMIC WEALTH" value={fmtUsd(paperEconomicWealth(state), 2)} detail="paper position + B capacity + harvest reserve" />
           <Metric label="NEXT BUY" value={nextRungLabel("BUY", state.nextBuyRung)} detail="deepens after BUY fill/cancel" />
           <Metric label="NEXT SELL" value={nextRungLabel("SELL", state.nextSellRung)} detail="rises after SELL fill/cancel" />
-          <Metric label="ACTIVE ORDERS" value={String(active.length)} detail="max 1 BUY + 1 SELL" />
+          <Metric label="ACTIVE ORDERS" value={String(active.length)} detail="max 1 active parent order" />
         </div>
 
         <div className="grid gap-3 lg:grid-cols-2">
