@@ -103,3 +103,63 @@ test("frontload changes deployment target, never funding accounting", () => {
   assert.equal(funding20, funding40);
   assert.equal(funding20, 5_000 - clockTarget(100_000, 1));
 });
+
+test("every frontload grid point maps to the same day-progress formula", () => {
+  const capital = 100_000;
+  const marketDate = "2026-10-02";
+  const cycleMonth = 1;
+  const progress = dailyProgress(cycleMonth, marketDate);
+
+  let previousTarget = -1;
+  for (const frontload of FRONTLOAD_GRID) {
+    const row = dailyDeploymentRecord({
+      recordedAt: "2026-10-02T00:00:00.000Z",
+      marketDate,
+      cycleMonth,
+      capital,
+      frontload,
+      nav: 0,
+      contributed: 0,
+      startingDeployed: 0,
+      qqqPrice: 749.58,
+      marketState: "REGULAR",
+      dayRatio: null,
+      weekRatio: null,
+      monthRatio: null,
+      dayLevel: "ELEVATED",
+      weekLevel: "NORMAL_LOW",
+      monthLevel: "HIGH",
+    });
+    const expectedTarget = capital * (frontload + (1 - frontload) * progress);
+    assert(Math.abs(row.target - expectedTarget) < 1e-9);
+    assert.equal(row.contributed, 0);
+    assert.equal(row.buyAvailable, row.target);
+    assert(row.target >= previousTarget);
+    previousTarget = row.target;
+  }
+
+  const f20 = dailyDeploymentRecord({
+    recordedAt: "2026-10-02T00:00:00.000Z",
+    marketDate,
+    cycleMonth,
+    capital,
+    frontload: 0.2,
+    nav: 0,
+    contributed: 0,
+    startingDeployed: 0,
+    qqqPrice: 749.58,
+    marketState: "REGULAR",
+    dayRatio: null,
+    weekRatio: null,
+    monthRatio: null,
+    dayLevel: "ELEVATED",
+    weekLevel: "NORMAL_LOW",
+    monthLevel: "HIGH",
+  });
+  const f40 = { ...f20, frontload: 0.4 };
+  const expected20 = capital * (0.2 + 0.8 * progress);
+  const expected40 = capital * (0.4 + 0.6 * progress);
+  assert(Math.abs(f20.target - expected20) < 1e-9);
+  assert(Math.abs(frontLoadedTarget(capital, f40.frontload, cycleMonth, marketDate) - expected40) < 1e-9);
+  assert(Math.abs(f40.frontload - 0.4) < 1e-12);
+});
