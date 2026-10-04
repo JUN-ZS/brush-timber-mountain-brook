@@ -38,11 +38,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: Floor account and daily deployment tests
-        run: node --experimental-strip-types --test src/lib/floor/account.test.ts src/lib/floor/deployment.test.ts src/lib/floor/yahoo-live.test.ts src/lib/floor/order-machine.test.ts
+      - name: Floor account, trade journal, and daily deployment tests
+        run: node --experimental-strip-types --test src/lib/floor/account.test.ts src/lib/floor/trade-ledger.test.ts src/lib/floor/deployment.test.ts src/lib/floor/yahoo-live.test.ts src/lib/floor/order-machine.test.ts
 
       - name: Floor app lint
-        run: npx eslint src/routes/floor.tsx src/routes/floor-research.tsx src/components/daily-deployment-console.tsx src/components/order-state-machine.tsx src/lib/floor/account.ts src/lib/floor/account.test.ts src/lib/floor/deployment.ts src/lib/floor/deployment.test.ts src/lib/floor/yahoo-live.ts src/lib/floor/yahoo-live.test.ts src/lib/floor/order-machine.ts src/lib/floor/order-machine.test.ts
+        run: npx eslint src/routes/floor.tsx src/routes/floor-research.tsx src/components/daily-deployment-console.tsx src/components/order-state-machine.tsx src/lib/floor/account.ts src/lib/floor/account.test.ts src/lib/floor/trade-ledger.ts src/lib/floor/trade-ledger.test.ts src/lib/floor/deployment.ts src/lib/floor/deployment.test.ts src/lib/floor/yahoo-live.ts src/lib/floor/yahoo-live.test.ts src/lib/floor/order-machine.ts src/lib/floor/order-machine.test.ts
 
       - name: Development build
         run: npm run build:dev
