@@ -98,7 +98,28 @@ test("order amount comes only from the parent dynamic intent", () => {
   assert.equal(buy.suggestedAmount, 30_000);
 });
 
-test("order machine arms one next BUY and advances after fill", () => {
+test("order machine v2 requires dynamic parent intent for order creation", () => {
+  const state = seedOrderMachine({
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    qqqPrice: 100,
+    nav: 40_000,
+    capital: 100_000,
+    contributed: 40_000,
+  });
+  assert.equal(state.schema, "qqq-order-machine.v2");
+  const unchanged = syncOrderMachine({
+    state,
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    intent: null,
+  });
+  assert.equal(activePaperOrders(unchanged).length, 0);
+});
+
+
   const state = seedOrderMachine({
     now: "2026-10-04T00:00:00.000Z",
     marketDate: "2026-10-04",
@@ -395,4 +416,34 @@ test("cancelled rung cannot be restored after a later rung has filled", () => {
   const restored = restoreCancelledOrder(filled, buy.id, "2026-10-04T05:00:00.000Z");
   assert.equal(restored.orders.find((x) => x.id === buy.id)?.status, "CANCELLED");
   assert.equal(restored.nextBuyRung, 2);
+});
+
+
+test("a changed opposite intent does not create a second side while an order is active", () => {
+  const state = seedOrderMachine({
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    qqqPrice: 100,
+    nav: 40_000,
+    capital: 100_000,
+    contributed: 40_000,
+  });
+  const buy = syncOrderMachine({
+    state,
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    intent: buyIntent(60_000),
+  });
+  const sell = syncOrderMachine({
+    state: buy,
+    now: "2026-10-05T00:00:00.000Z",
+    marketDate: "2026-10-05",
+    currentPrice: 101,
+    ladder: ladder(),
+    intent: sellIntent(20_000),
+  });
+  assert.equal(activePaperOrders(sell).length, 1);
+  assert.equal(activePaperOrders(sell)[0]?.side, "BUY");
 });
