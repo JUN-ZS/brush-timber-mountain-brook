@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { clockTarget, fundingDelta } from "./account.ts";
-import { FRONTLOAD_GRID, dailyDeploymentRecord, dailyProgress, deploymentGap, dynamicTradeIntent, frontLoadedFraction } from "./deployment.ts";
+import { FRONTLOAD_GRID, dailyDeploymentRecord, dailyProgress, deploymentGap, dynamicTradeIntent, frontLoadedFraction, toggleDailyDeploymentObservation } from "./deployment.ts";
 
 test("frontload endpoints are fixed", () => {
   assert.equal(frontLoadedFraction(0, 0), 0);
