@@ -30,6 +30,7 @@ export type DailyDeploymentEntry = {
   status: "BUY_AVAILABLE" | "ON_TARGET" | "SELL_EXCESS";
   priceLadder: LivePriceLadder | null;
   source: "YAHOO_FINANCE_CHART";
+  voidedAt?: string | null;
 };
 
 function StatusTone({ status }: { status: DailyDeploymentEntry["status"] | string }) {
@@ -125,6 +126,7 @@ export function DailyDeploymentConsole({
   tape,
   onRecord,
   onExport,
+  onToggleVoid,
 }: {
   capital: number;
   contributed: number;
@@ -140,6 +142,7 @@ export function DailyDeploymentConsole({
   tape: DailyDeploymentEntry[];
   onRecord: () => void;
   onExport: () => void;
+  onToggleVoid: (entryId: string) => void;
 }) {
   const qqq = liveContext.find((x) => x.symbol === "QQQ");
   const qqqPrice = qqq?.price ?? liveMatch?.currentPrice ?? null;
@@ -272,19 +275,19 @@ export function DailyDeploymentConsole({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">DAILY DEPLOYMENT TAPE</p>
-              <p className="mt-1 text-sm text-muted">每個 market date + Frontload F 可留一個 immutable snapshot；無 CANCEL / RESTORE，不覆寫舊 observation。</p>
+              <p className="mt-1 text-sm text-muted">每個 market date + Frontload F 可留一個 observation。CANCEL 只撤銷該筆觀測的有效性，原記錄保留；之後可 RESTORE。</p>
             </div>
-            <Badge tone="mute">{tape.length} OBSERVATIONS</Badge>
+            <Badge tone="mute">{tape.length} OBSERVATIONS · {tape.filter((x) => !x.voidedAt).length} ACTIVE</Badge>
           </div>
           {tape.length ? (
             <table className="mt-3 w-full min-w-[1040px] border-collapse text-xs">
-              <thead><tr className="border-b border-line text-left font-mono text-[11px] text-subtle"><th className="py-2 pr-4">DATE</th><th className="py-2 pr-4">QQQ</th><th className="py-2 pr-4">F</th><th className="py-2 pr-4">TARGET</th><th className="py-2 pr-4">NAV</th><th className="py-2 pr-4">BUY</th><th className="py-2 pr-4">SELL</th><th className="py-2 pr-4">DAY</th><th className="py-2 pr-4">WEEK</th><th className="py-2 pr-4">MONTH</th><th className="py-2 pr-4">ADD 5D</th><th className="py-2 pr-4">REDUCE 5D</th><th className="py-2 pr-4">STATE</th></tr></thead>
-              <tbody>{tape.slice().reverse().slice(0, 30).map((row) => <tr key={row.id} className="border-b border-line/50"><td className="py-2 pr-4 font-mono">{row.marketDate}</td><td className="py-2 pr-4 font-mono tabular-nums">{row.qqqPrice == null ? "—" : row.qqqPrice.toFixed(2)}</td><td className="py-2 pr-4 font-mono">{(row.frontload * 100).toFixed(0)}%</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.target, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.nav, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.buyAvailable, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.sellExcess, 2)}</td><td className="py-2 pr-4 font-mono">{row.dayLevel}</td><td className="py-2 pr-4 font-mono">{row.weekLevel}</td><td className="py-2 pr-4 font-mono">{row.monthLevel}</td><td className="py-2 pr-4 font-mono tabular-nums">{mediumTouchPrice(row.priceLadder, "ADD") == null ? "—" : fmtUsd(mediumTouchPrice(row.priceLadder, "ADD")!, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{mediumTouchPrice(row.priceLadder, "REDUCE") == null ? "—" : fmtUsd(mediumTouchPrice(row.priceLadder, "REDUCE")!, 2)}</td><td className="py-2 pr-4"><StatusTone status={row.status} /></td></tr>)}</tbody>
+              <thead><tr className="border-b border-line text-left font-mono text-[11px] text-subtle"><th className="py-2 pr-4">DATE</th><th className="py-2 pr-4">QQQ</th><th className="py-2 pr-4">F</th><th className="py-2 pr-4">TARGET</th><th className="py-2 pr-4">NAV</th><th className="py-2 pr-4">BUY</th><th className="py-2 pr-4">SELL</th><th className="py-2 pr-4">DAY</th><th className="py-2 pr-4">WEEK</th><th className="py-2 pr-4">MONTH</th><th className="py-2 pr-4">ADD 5D</th><th className="py-2 pr-4">REDUCE 5D</th><th className="py-2 pr-4">STATE</th><th className="py-2 pr-4">ACTION</th></tr></thead>
+              <tbody>{tape.slice().reverse().slice(0, 30).map((row) => <tr key={row.id} className={"border-b border-line/50 " + (row.voidedAt ? "opacity-50" : "")}><td className="py-2 pr-4 font-mono">{row.marketDate}</td><td className="py-2 pr-4 font-mono tabular-nums">{row.qqqPrice == null ? "—" : row.qqqPrice.toFixed(2)}</td><td className="py-2 pr-4 font-mono">{(row.frontload * 100).toFixed(0)}%</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.target, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.nav, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.buyAvailable, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{fmtUsd(row.sellExcess, 2)}</td><td className="py-2 pr-4 font-mono">{row.dayLevel}</td><td className="py-2 pr-4 font-mono">{row.weekLevel}</td><td className="py-2 pr-4 font-mono">{row.monthLevel}</td><td className="py-2 pr-4 font-mono tabular-nums">{mediumTouchPrice(row.priceLadder, "ADD") == null ? "—" : fmtUsd(mediumTouchPrice(row.priceLadder, "ADD")!, 2)}</td><td className="py-2 pr-4 font-mono tabular-nums">{mediumTouchPrice(row.priceLadder, "REDUCE") == null ? "—" : fmtUsd(mediumTouchPrice(row.priceLadder, "REDUCE")!, 2)}</td><td className="py-2 pr-4"><Badge tone={row.voidedAt ? "lock" : row.status === "SELL_EXCESS" ? "fragile" : row.status === "BUY_AVAILABLE" ? "pass" : "mute"}>{row.voidedAt ? "CANCELLED · EXCLUDED" : row.status}</Badge></td><td className="py-2 pr-4"><button type="button" onClick={() => onToggleVoid(row.id)} className={"min-h-8 rounded-md border px-2 font-mono text-[11px] " + (row.voidedAt ? "border-accent text-fg" : "border-line text-muted hover:text-fg")}>{row.voidedAt ? "RESTORE" : "CANCEL"}</button></td></tr>)}</tbody>
             </table>
           ) : <div className="mt-3 rounded-md border border-dashed border-line p-4 text-sm text-muted">尚未有 daily observation；REFRESH YAHOO 後會自動 seal 今日 snapshot。</div>}
         </div>
 
-        <p className="text-xs leading-relaxed text-subtle">DAILY DEPLOYMENT 是研究/規劃層：它把固定 10Y budget 映射成當日 target，再以目前 NAV 算 deployment gap。呢個 gap 只係規劃額度，唔係 CASH IN / CASH OUT，亦唔會直接變成 broker command。</p>
+        <p className="text-xs leading-relaxed text-subtle">DAILY DEPLOYMENT 是研究/規劃層：它把固定 10Y budget 映射成當日 target，再以目前 NAV 算 deployment gap。呢個 gap 只係規劃額度，唔係 CASH IN / CASH OUT，亦唔會直接變成 broker command。CANCEL / RESTORE 只控制 observation 是否有效，不改 Funding / Trade ledger。</p>
       </div>
     </Panel>
   );
