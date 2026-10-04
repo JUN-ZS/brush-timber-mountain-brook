@@ -154,9 +154,14 @@ test("order machine arms one next BUY and advances after fill", () => {
   assert.equal(canFillOrder(touched, buys[0]!.id, buys[0]!.limitPrice + 3), true);
 
   const filled = fillPaperOrder(touched, buys[0]!.id, buys[0]!.limitPrice, "2026-10-04T01:00:00.000Z");
+  const childAmount = 30_000;
+  const expectedShares = 40_000 / 100 + childAmount / buys[0]!.limitPrice;
   assert.equal(filled.nextBuyRung, 1);
   assert.equal(filled.harvestReserve, 0);
-  assert(filled.deploymentReserve < synced.deploymentReserve);
+  assert.equal(filled.deploymentReserve, 30_000);
+  assert.equal(filled.orders.find((x) => x.id === buys[0]!.id)?.filledAmount, childAmount);
+  assert.equal(filled.positionShares, expectedShares);
+  assert.equal(filled.positionNav, expectedShares * 100);
   assert.equal(paperEconomicWealth(filled), paperEconomicWealth(touched));
   assert.equal(nextRungLabel("BUY", filled.nextBuyRung), "BUY MID");
 
@@ -225,8 +230,12 @@ test("SELL fill moves proceeds into harvest reserve and next SELL rises", () => 
     intent: sellIntent(20_000),
   });
   const filled = fillPaperOrder(touched, sell.id, sell.limitPrice, "2026-10-04T02:00:00.000Z");
-  assert(filled.harvestReserve > 0);
-  assert(filled.positionNav < synced.positionNav);
+  const childAmount = 10_000;
+  const expectedShares = 100_000 / 100 - childAmount / sell.limitPrice;
+  assert.equal(filled.harvestReserve, childAmount);
+  assert.equal(filled.orders.find((x) => x.id === sell.id)?.filledAmount, childAmount);
+  assert.equal(filled.positionShares, expectedShares);
+  assert.equal(filled.positionNav, expectedShares * 100);
   assert.equal(filled.nextSellRung, 1);
   assert.equal(money(paperEconomicWealth(filled)), money(paperEconomicWealth(touched)));
 });
@@ -317,6 +326,8 @@ test("cancellation skips the rung instead of silently re-arming it", () => {
   assert(buy);
   const cancelled = cancelPaperOrder(synced, buy.id, "2026-10-04T01:00:00.000Z");
   assert.equal(cancelled.orders.find((x) => x.id === buy.id)?.status, "CANCELLED");
+  assert.equal(cancelled.deploymentReserve, synced.deploymentReserve);
+  assert.equal(cancelled.positionNav, synced.positionNav);
   assert.equal(cancelled.nextBuyRung, 1);
   assert.equal(activePaperOrders(cancelled).filter((x) => x.side === "BUY").length, 0);
   assert.equal(nextRungLabel("BUY", cancelled.nextBuyRung), "BUY MID");
