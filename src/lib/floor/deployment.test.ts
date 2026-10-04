@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FRONTLOAD_GRID, dailyDeploymentRecord, dailyProgress, deploymentGap, frontLoadedFraction } from "./deployment.ts";
+import { FRONTLOAD_GRID, dailyDeploymentRecord, dailyProgress, deploymentGap, dynamicTradeIntent, frontLoadedFraction } from "./deployment.ts";
 
 test("frontload endpoints are fixed", () => {
   assert.equal(frontLoadedFraction(0, 0), 0);
@@ -30,4 +30,41 @@ test("record carries daily market context", () => {
   assert.equal(row.source, "YAHOO_FINANCE_CHART");
   assert.equal(row.status, "BUY_AVAILABLE");
   assert.equal(row.buyAvailable, Math.min(75000, row.target - 30000));
+});
+
+
+test("dynamic trade intent exposes the existing deployment gap without inventing a side", () => {
+  const buy = dynamicTradeIntent({
+    id: "dev-vite-2026-10-04-m3",
+    now: "2026-10-04T00:00:00Z",
+    cycleMonth: 3,
+    nav: 30_000,
+    target: 50_000,
+    remainingCapital: 80_000,
+  });
+  assert.equal(buy?.side, "BUY");
+  assert.equal(buy?.notional, 20_000);
+  assert.equal(buy?.signedGap, 20_000);
+
+  const sell = dynamicTradeIntent({
+    id: "dev-vite-2026-10-05-m3",
+    now: "2026-10-05T00:00:00Z",
+    cycleMonth: 3,
+    nav: 70_000,
+    target: 50_000,
+    remainingCapital: 80_000,
+  });
+  assert.equal(sell?.side, "SELL");
+  assert.equal(sell?.notional, 20_000);
+  assert.equal(sell?.signedGap, -20_000);
+
+  const none = dynamicTradeIntent({
+    id: "dev-vite-2026-10-06-m3",
+    now: "2026-10-06T00:00:00Z",
+    cycleMonth: 3,
+    nav: 50_000,
+    target: 50_000,
+    remainingCapital: 50_000,
+  });
+  assert.equal(none, null);
 });
