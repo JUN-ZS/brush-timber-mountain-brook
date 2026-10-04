@@ -73,7 +73,7 @@ function openOrderForSide(state: OrderMachineState, side: PaperOrderSide) {
 
 function currentOpenOrders(state: OrderMachineState) {
   return state.orders.filter(
-    (order) => order.status === "ARMED" || order.status === "TOUCHED",
+    (order) => order.status === "ARMED" || order.status === "STALE" || order.status === "TOUCHED",
   );
 }
 
@@ -185,18 +185,6 @@ export function markOrderMachineToMarket(
     markPrice: price,
     positionShares: shares,
     positionNav: shares * price,
-  };
-}
-
-function supersedeOpenOrders(state: OrderMachineState, now: string) {
-  return {
-    ...state,
-    updatedAt: now,
-    orders: state.orders.map((order) =>
-      order.status === "ARMED" || order.status === "TOUCHED"
-        ? { ...order, status: "SUPERSEDED" as const }
-        : order,
-    ),
   };
 }
 
