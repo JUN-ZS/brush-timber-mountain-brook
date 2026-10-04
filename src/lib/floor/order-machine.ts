@@ -81,6 +81,44 @@ function currentOpenOrders(state: OrderMachineState) {
   );
 }
 
+function executionSlice(intent: DynamicTradeIntent, index: number) {
+  const rung = ORDER_RUNG_GRID[index];
+  return rung ? Math.max(0, Number(intent.notional) || 0) * rung.weight : 0;
+}
+
+function makeOrder(
+  state: OrderMachineState,
+  intent: DynamicTradeIntent,
+  index: number,
+  ladder: LivePriceLadder,
+  marketDate: string,
+  now: string,
+): PaperOrder | null {
+  const rung = ORDER_RUNG_GRID[index];
+  const level = rungLevel(ladder, intent.side, index);
+  if (!rung || !level?.price || !(level.price > 0)) return null;
+  const suggestedAmount = executionSlice(intent, index);
+  if (!(suggestedAmount > 0)) return null;
+  return {
+    id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : intent.side.toLowerCase() + "-" + rung.key + "-" + now,
+    side: intent.side,
+    rung: rung.key,
+    horizon: rung.horizon,
+    touchProbability: rung.touchProbability,
+    limitPrice: level.price,
+    suggestedAmount,
+    parentIntentId: intent.id,
+    parentIntentNotional: intent.notional,
+    marketDate,
+    sourcePrice: state.markPrice,
+    createdAt: now,
+    status: "ARMED",
+  };
+}
+
 function touchPrice(order: PaperOrder, currentPrice: number) {
   return order.side === "BUY"
     ? currentPrice <= order.limitPrice
