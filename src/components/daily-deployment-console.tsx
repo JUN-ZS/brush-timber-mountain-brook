@@ -193,7 +193,7 @@ export function DailyDeploymentConsole({
             </div>
           ) : (
             <p className="mt-3 font-mono text-xs text-subtle">CONTROLLED AT OPERATOR DESK ↑ · current F {(frontload * 100).toFixed(0)}%</p>
-          ) + "}"}
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
