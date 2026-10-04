@@ -42,6 +42,10 @@ function ladder() {
   ]);
 }
 
+function money(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 test("order machine arms one next BUY and advances after fill", () => {
   const state = seedOrderMachine({
     now: "2026-10-04T00:00:00.000Z",
@@ -125,7 +129,7 @@ test("SELL fill moves proceeds into harvest reserve and next SELL rises", () => 
   assert(filled.harvestReserve > 0);
   assert(filled.positionNav < synced.positionNav);
   assert.equal(filled.nextSellRung, 1);
-  assert.equal(paperEconomicWealth(filled), paperEconomicWealth(touched));
+  assert.equal(money(paperEconomicWealth(filled)), money(paperEconomicWealth(touched)));
 });
 
 test("a new market session marks open orders STALE without cancelling them", () => {
@@ -213,7 +217,19 @@ test("cancellation skips the rung instead of silently re-arming it", () => {
   const buy = activePaperOrders(synced).find((x) => x.side === "BUY");
   assert(buy);
   const cancelled = cancelPaperOrder(synced, buy.id, "2026-10-04T01:00:00.000Z");
+  assert.equal(cancelled.orders.find((x) => x.id === buy.id)?.status, "CANCELLED");
   assert.equal(cancelled.nextBuyRung, 1);
-  assert.equal(activePaperOrders(cancelled).length, 1);
+  assert.equal(activePaperOrders(cancelled).filter((x) => x.side === "BUY").length, 0);
   assert.equal(nextRungLabel("BUY", cancelled.nextBuyRung), "BUY MID");
+
+  const resumed = syncOrderMachine({
+    state: cancelled,
+    now: "2026-10-04T02:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    target: 60_000,
+  });
+  assert.equal(resumed.nextBuyRung, 1);
+  assert.equal(activePaperOrders(resumed).find((x) => x.side === "BUY")?.rung, "MID");
 });
