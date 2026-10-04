@@ -95,7 +95,7 @@ export function dailyDeploymentRecord(input: {
   frontload: number;
   nav: number;
   contributed: number;
-  startingDeployed?: number;
+  startingDeployed: number;
   qqqPrice: number | null;
   marketState: string | null;
   dayRatio: number | null;
