@@ -6,6 +6,18 @@ export const FRONTLOAD_GRID = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1
 
 export type DeploymentStatus = "BUY_AVAILABLE" | "ON_TARGET" | "SELL_EXCESS";
 
+export type DynamicTradeIntent = {
+  id: string;
+  side: "BUY" | "SELL";
+  notional: number;
+  target: number;
+  signedGap: number;
+  cycleMonth: number;
+  source: "DEV_VITE_DYNAMIC_DEPLOYMENT_V1";
+  createdAt: string;
+};
+
+
 export function clampFrontload(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(1, value));
@@ -50,6 +62,28 @@ export function deploymentGap(nav: number, target: number, remainingCapital: num
     sellExcess: Math.max(0, -gap),
     signedGap: gap,
     status: gap > 0.005 ? "BUY_AVAILABLE" as const : gap < -0.005 ? "SELL_EXCESS" as const : "ON_TARGET" as const,
+  };
+}
+
+export function dynamicTradeIntent(input: {
+  id: string;
+  now: string;
+  cycleMonth: number;
+  nav: number;
+  target: number;
+  remainingCapital: number;
+}): DynamicTradeIntent | null {
+  const gap = deploymentGap(input.nav, input.target, input.remainingCapital);
+  if (gap.status === "ON_TARGET") return null;
+  return {
+    id: input.id,
+    side: gap.status === "BUY_AVAILABLE" ? "BUY" : "SELL",
+    notional: gap.status === "BUY_AVAILABLE" ? gap.buyAvailable : gap.sellExcess,
+    target: input.target,
+    signedGap: gap.signedGap,
+    cycleMonth: Math.max(1, Math.min(FLOOR_HORIZON_MONTHS, Math.round(Number(input.cycleMonth) || 1))),
+    source: "DEV_VITE_DYNAMIC_DEPLOYMENT_V1",
+    createdAt: input.now,
   };
 }
 
