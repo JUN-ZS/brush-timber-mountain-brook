@@ -235,6 +235,17 @@ export function syncOrderMachine(input: {
     if (order) state = { ...state, orders: [...state.orders, order] };
   }
 
+  // A newly armed order can already be through the current observed price
+  // (for example after a new market session opens with a gap). Mark it TOUCHED
+  // immediately, but never auto-fill it.
+  state = {
+    ...state,
+    orders: state.orders.map((order) => {
+      if (order.status !== "ARMED" || !touchPrice(order, input.currentPrice)) return order;
+      return { ...order, status: "TOUCHED" as const, touchedAt: input.now };
+    }),
+  };
+
   return { ...state, updatedAt: input.now };
 }
 
