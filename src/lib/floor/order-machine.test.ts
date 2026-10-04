@@ -47,6 +47,32 @@ function money(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function buyIntent(notional: number, id = "buy-intent") {
+  return {
+    id,
+    side: "BUY" as const,
+    notional,
+    target: 0,
+    signedGap: notional,
+    cycleMonth: 1,
+    source: "DEV_VITE_DYNAMIC_DEPLOYMENT_V1" as const,
+    createdAt: "2026-10-04T00:00:00.000Z",
+  };
+}
+
+function sellIntent(notional: number, id = "sell-intent") {
+  return {
+    id,
+    side: "SELL" as const,
+    notional,
+    target: 0,
+    signedGap: -notional,
+    cycleMonth: 1,
+    source: "DEV_VITE_DYNAMIC_DEPLOYMENT_V1" as const,
+    createdAt: "2026-10-04T00:00:00.000Z",
+  };
+}
+
 test("order machine arms one next BUY and advances after fill", () => {
   const state = seedOrderMachine({
     now: "2026-10-04T00:00:00.000Z",
@@ -62,7 +88,7 @@ test("order machine arms one next BUY and advances after fill", () => {
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const buys = activePaperOrders(synced).filter((x) => x.side === "BUY");
   assert.equal(buys.length, 1);
@@ -74,7 +100,7 @@ test("order machine arms one next BUY and advances after fill", () => {
     marketDate: "2026-10-04",
     currentPrice: buys[0]!.limitPrice,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const touchedOrder = touched.orders.find((x) => x.id === buys[0]!.id);
   assert.equal(touchedOrder?.status, "TOUCHED");
@@ -94,7 +120,7 @@ test("order machine arms one next BUY and advances after fill", () => {
     marketDate: "2026-10-04",
     currentPrice: buys[0]!.limitPrice,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   assert.equal(activePaperOrders(next).filter((x) => x.side === "BUY")[0]?.rung, "MID");
 });
@@ -119,7 +145,7 @@ test("unavailable current ladder rung advances to the next valid rung", () => {
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: sparse,
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   assert.equal(synced.nextBuyRung, 1);
   assert.equal(activePaperOrders(synced).find((x) => x.side === "BUY")?.rung, "MID");
@@ -140,7 +166,7 @@ test("SELL fill moves proceeds into harvest reserve and next SELL rises", () => 
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 80_000,
+    intent: sellIntent(20_000),
   });
   const sell = activePaperOrders(synced).find((x) => x.side === "SELL");
   assert(sell);
@@ -150,7 +176,7 @@ test("SELL fill moves proceeds into harvest reserve and next SELL rises", () => 
     marketDate: "2026-10-04",
     currentPrice: sell.limitPrice,
     ladder: ladder(),
-    target: 80_000,
+    intent: sellIntent(20_000),
   });
   const filled = fillPaperOrder(touched, sell.id, sell.limitPrice, "2026-10-04T02:00:00.000Z");
   assert(filled.harvestReserve > 0);
@@ -174,7 +200,7 @@ test("a new market session marks open orders STALE without cancelling them", () 
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const oldBuy = activePaperOrders(day1).find((x) => x.side === "BUY");
   assert(oldBuy);
@@ -184,7 +210,7 @@ test("a new market session marks open orders STALE without cancelling them", () 
     marketDate: "2026-10-05",
     currentPrice: 101,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   assert.equal(day2.orders.find((x) => x.id === oldBuy.id)?.status, "STALE");
   assert.equal(day2.nextBuyRung, 0);
@@ -206,7 +232,7 @@ test("repricing preserves the same rung index and supersedes the old ticket", ()
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const oldBuy = activePaperOrders(day1).find((x) => x.side === "BUY");
   assert(oldBuy);
@@ -216,7 +242,7 @@ test("repricing preserves the same rung index and supersedes the old ticket", ()
     marketDate: "2026-10-05",
     currentPrice: 101,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const repriced = repricePaperOrder(stale, oldBuy.id, "2026-10-05T01:00:00.000Z", "2026-10-05", ladder(), 60_000);
   assert.equal(repriced.nextBuyRung, 0);
@@ -239,7 +265,7 @@ test("cancellation skips the rung instead of silently re-arming it", () => {
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const buy = activePaperOrders(synced).find((x) => x.side === "BUY");
   assert(buy);
@@ -255,7 +281,7 @@ test("cancellation skips the rung instead of silently re-arming it", () => {
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   assert.equal(resumed.nextBuyRung, 1);
   assert.equal(activePaperOrders(resumed).find((x) => x.side === "BUY")?.rung, "MID");
@@ -276,7 +302,7 @@ test("cancelled rung can be restored when no later rung has filled", () => {
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const buy = activePaperOrders(synced).find((x) => x.side === "BUY");
   assert(buy);
@@ -295,7 +321,7 @@ test("cancelled rung can be restored when no later rung has filled", () => {
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   assert.equal(activePaperOrders(resynced).filter((x) => x.side === "BUY").length, 1);
   assert.equal(activePaperOrders(resynced).find((x) => x.side === "BUY")?.rung, "NEAR");
@@ -316,7 +342,7 @@ test("cancelled rung cannot be restored after a later rung has filled", () => {
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const buy = activePaperOrders(synced).find((x) => x.side === "BUY");
   assert(buy);
@@ -327,7 +353,7 @@ test("cancelled rung cannot be restored after a later rung has filled", () => {
     marketDate: "2026-10-04",
     currentPrice: 100,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const midOrder = activePaperOrders(mid).find((x) => x.side === "BUY");
   assert.equal(midOrder?.rung, "MID");
@@ -337,7 +363,7 @@ test("cancelled rung cannot be restored after a later rung has filled", () => {
     marketDate: "2026-10-04",
     currentPrice: midOrder!.limitPrice,
     ladder: ladder(),
-    target: 60_000,
+    intent: buyIntent(60_000),
   });
   const filled = fillPaperOrder(touched, midOrder!.id, midOrder!.limitPrice, "2026-10-04T04:00:00.000Z");
   assert.equal(filled.nextBuyRung, 2);
