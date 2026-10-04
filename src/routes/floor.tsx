@@ -853,19 +853,13 @@ function Page() {
 
   function toggleDailyDeploymentVoid(entryId: string) {
     const now = new Date().toISOString();
-    let blockedRestore = false;
-    setDailyDeploymentTape((entries) => {
-      const target = entries.find((entry) => entry.id === entryId);
-      if (target?.voidedAt) {
-        const restored = toggleDailyDeploymentObservation(entries, entryId, now);
-        if (restored === entries) blockedRestore = true;
-        return restored;
-      }
-      return toggleDailyDeploymentObservation(entries, entryId, now);
-    });
-    if (blockedRestore) {
+    const next = toggleDailyDeploymentObservation(dailyDeploymentTape, entryId, now);
+    const target = dailyDeploymentTape.find((entry) => entry.id === entryId);
+    if (target?.voidedAt && next === dailyDeploymentTape) {
       setTransferNotice("DAILY DEPLOYMENT RESTORE blocked · active snapshot already exists for same DATE + F");
+      return;
     }
+    setDailyDeploymentTape(next);
   }
 
   function clearLocal() {
