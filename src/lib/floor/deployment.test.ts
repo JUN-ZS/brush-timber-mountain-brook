@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { clockTarget, fundingDelta } from "./account.ts";
 import { FRONTLOAD_GRID, dailyDeploymentRecord, dailyProgress, deploymentGap, dynamicTradeIntent, frontLoadedFraction } from "./deployment.ts";
 
 test("frontload endpoints are fixed", () => {
@@ -92,4 +93,13 @@ test("frontload changes deployment target, never funding accounting", () => {
   assert.equal(target40.buyAvailable, 20_000);
   assert.equal(target40.contributed, 0);
   assert.equal(target40.remainingCapital, 80_000);
+
+  const ledger = [{
+    id: "funding-1", recordedAt: "2026-01-01T00:00:00.000Z", cycleMonth: 1,
+    kind: "CONTRIBUTION" as const, amount: 5_000,
+  }];
+  const funding20 = fundingDelta(100_000, 1, ledger);
+  const funding40 = fundingDelta(100_000, 1, ledger);
+  assert.equal(funding20, funding40);
+  assert.equal(funding20, 5_000 - clockTarget(100_000, 1));
 });
