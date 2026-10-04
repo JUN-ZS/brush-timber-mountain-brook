@@ -656,6 +656,7 @@ function Page() {
       frontload: frontloadPct,
       nav,
       contributed,
+      startingDeployed,
       qqqPrice: qqq?.price ?? liveMatch?.currentPrice ?? null,
       marketState: qqq?.marketState ?? null,
       dayRatio: liveMatch?.day.ratio ?? null,
