@@ -68,3 +68,28 @@ test("dynamic trade intent exposes the existing deployment gap without inventing
   });
   assert.equal(none, null);
 });
+
+test("frontload changes deployment target, never funding accounting", () => {
+  const target20 = dailyDeploymentRecord({
+    recordedAt: "2026-10-04T00:00:00.000Z", marketDate: "2026-10-04", cycleMonth: 1,
+    capital: 100_000, frontload: 0.2, nav: 20_000, contributed: 0, startingDeployed: 20_000,
+    qqqPrice: 100, marketState: "REGULAR",
+    dayRatio: 1, weekRatio: 1, monthRatio: 1, dayLevel: "NORMAL", weekLevel: "NORMAL", monthLevel: "NORMAL",
+  });
+  const target40 = dailyDeploymentRecord({
+    recordedAt: "2026-10-04T00:00:00.000Z", marketDate: "2026-10-04", cycleMonth: 1,
+    capital: 100_000, frontload: 0.4, nav: 20_000, contributed: 0, startingDeployed: 20_000,
+    qqqPrice: 100, marketState: "REGULAR",
+    dayRatio: 1, weekRatio: 1, monthRatio: 1, dayLevel: "NORMAL", weekLevel: "NORMAL", monthLevel: "NORMAL",
+  });
+
+  assert.equal(target20.target, 20_000);
+  assert.equal(target20.buyAvailable, 0);
+  assert.equal(target20.contributed, 0);
+  assert.equal(target20.remainingCapital, 80_000);
+
+  assert.equal(target40.target, 40_000);
+  assert.equal(target40.buyAvailable, 20_000);
+  assert.equal(target40.contributed, 0);
+  assert.equal(target40.remainingCapital, 80_000);
+});
