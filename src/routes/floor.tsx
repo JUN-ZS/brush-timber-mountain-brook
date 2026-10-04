@@ -1171,6 +1171,8 @@ function Page() {
               </div>
             </div>
           </div>
+        </Panel>
+
         <Panel kicker="OPERATOR DESK / PRIMARY INPUT" title="今日真正操作：投入、BUY / SELL、取消已記錄項目">
           <div className="rounded-md border border-accent/40 bg-elevated p-4"><div className="grid gap-2 sm:grid-cols-3">
             <MetricCard kicker="CURRENT MONTH" title={"M" + String(cycleMonth)} detail="新投入／BUY／SELL 預設記入這個 cycle month" />
@@ -1929,12 +1931,12 @@ function TradeLedgerTable({
               <td className="py-2 font-mono">{entry.source}</td>
               <td className="py-2">
                 <Badge tone={entry.voidedAt ? "lock" : entry.side === "SELL" ? "fragile" : "pass"}>
-                  {entry.voidedAt ? "VOIDED" : "ACTIVE"}
+                  {entry.voidedAt ? "CANCELLED" : "ACTIVE"}
                 </Badge>
               </td>
               <td className="py-2">
                 <button type="button" onClick={() => onToggleVoid(entry.id)} className="min-h-8 rounded-md border border-line px-2 font-mono text-[11px] text-muted hover:text-fg">
-                  {entry.voidedAt ? "RESTORE" : "VOID"}
+                  {entry.voidedAt ? "RESTORE" : "CANCEL ENTRY"}
                 </button>
               </td>
             </tr>
