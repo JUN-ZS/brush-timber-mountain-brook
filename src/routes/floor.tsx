@@ -24,7 +24,7 @@ import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floo
 import type { LongScaleProfile } from "@/lib/pulse/long-scale";
 import { DailyDeploymentConsole, type DailyDeploymentEntry } from "@/components/daily-deployment-console";
 import { OrderStateMachine } from "@/components/order-state-machine";
-import { dailyDeploymentRecord, dynamicTradeIntent, frontLoadedTarget } from "@/lib/floor/deployment";
+import { dailyDeploymentRecord, dynamicTradeIntent, frontLoadedTarget, toggleDailyDeploymentObservation } from "@/lib/floor/deployment";
 import {
   cancelPaperOrder,
   fillPaperOrder,
@@ -853,28 +853,19 @@ function Page() {
 
   function toggleDailyDeploymentVoid(entryId: string) {
     const now = new Date().toISOString();
+    let blockedRestore = false;
     setDailyDeploymentTape((entries) => {
       const target = entries.find((entry) => entry.id === entryId);
-      if (!target) return entries;
-      if (target.voidedAt) {
-        const duplicateActive = entries.some(
-          (entry) =>
-            entry.id !== entryId &&
-            !entry.voidedAt &&
-            entry.marketDate === target.marketDate &&
-            Math.abs(entry.frontload - target.frontload) < 1e-9,
-        );
-        if (duplicateActive) {
-          setTransferNotice("DAILY DEPLOYMENT RESTORE blocked · active snapshot already exists for same DATE + F");
-          return entries;
-        }
+      if (target?.voidedAt) {
+        const restored = toggleDailyDeploymentObservation(entries, entryId, now);
+        if (restored === entries) blockedRestore = true;
+        return restored;
       }
-      return entries.map((entry) =>
-        entry.id === entryId
-          ? { ...entry, voidedAt: entry.voidedAt ? null : now }
-          : entry,
-      );
+      return toggleDailyDeploymentObservation(entries, entryId, now);
     });
+    if (blockedRestore) {
+      setTransferNotice("DAILY DEPLOYMENT RESTORE blocked · active snapshot already exists for same DATE + F");
+    }
   }
 
   function clearLocal() {
