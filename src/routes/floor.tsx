@@ -22,6 +22,7 @@ import { dailyDeploymentRecord, frontLoadedTarget } from "@/lib/floor/deployment
 import {
   cancelPaperOrder,
   fillPaperOrder,
+  repricePaperOrder,
   resetOrderMachine,
   seedOrderMachine,
   syncOrderMachine,
@@ -733,6 +734,24 @@ function Page() {
     setOrderMachine(cancelPaperOrder(orderMachine, orderId, new Date().toISOString()));
   }
 
+  function repricePaperOrderFromDesk(orderId: string) {
+    if (!orderMachine || !liveMatch?.priceLadder) return;
+    const qqq = liveContext.find((x) => x.symbol === "QQQ");
+    const price = qqq?.price ?? liveMatch.currentPrice;
+    const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
+    if (!(price != null && marketDate)) return;
+    setOrderMachine(
+      repricePaperOrder(
+        orderMachine,
+        orderId,
+        new Date().toISOString(),
+        marketDate,
+        liveMatch.priceLadder,
+        frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+      ),
+    );
+  }
+
   function recordPoint(kind: FloorEntryKind = "CONTRIBUTION") {
     const amount = kind === "CONTRIBUTION" ? actualNow : plannedWithdrawalAmount;
     if (!Number.isFinite(amount) || amount <= 0) return;
@@ -1191,6 +1210,7 @@ function Page() {
           marketDate={currentMarketDate()}
           onFill={fillPaperOrderFromDesk}
           onCancel={cancelPaperOrderFromDesk}
+          onReprice={repricePaperOrderFromDesk}
           onReset={resetPaperBook}
         />
 
@@ -1663,11 +1683,12 @@ function validOrderMachineState(value: unknown): value is OrderMachineState {
       typeof row.id === "string" &&
       (row.side === "BUY" || row.side === "SELL") &&
       (row.rung === "NEAR" || row.rung === "MID" || row.rung === "DEEP") &&
-      (row.status === "ARMED" || row.status === "TOUCHED" || row.status === "FILLED" || row.status === "CANCELLED" || row.status === "SUPERSEDED") &&
+      (row.status === "ARMED" || row.status === "STALE" || row.status === "TOUCHED" || row.status === "FILLED" || row.status === "CANCELLED" || row.status === "REPLACED" || row.status === "SUPERSEDED") &&
       Number.isFinite(Number(row.limitPrice)) &&
       Number(row.limitPrice) > 0 &&
       Number.isFinite(Number(row.suggestedAmount)) &&
       Number(row.suggestedAmount) >= 0 &&
+      (row.positionShares === undefined || (Number.isFinite(Number(row.positionShares)) && Number(row.positionShares) >= 0)) &&
       typeof row.marketDate === "string" &&
       typeof row.sourcePrice === "number" &&
       typeof row.createdAt === "string"
