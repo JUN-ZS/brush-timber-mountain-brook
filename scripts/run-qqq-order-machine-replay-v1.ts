@@ -68,7 +68,7 @@ for (let i = 0; i < n; i += 1) {
     for (let k = i + 1; k <= i + 21; k += 1) { lo = Math.min(lo, prices[k]); hi = Math.max(hi, prices[k]); }
     lows[i].low21 = lo; highs[i] = { ...(highs[i] ?? {}), high21: hi };
   }
-  highs[i] = { ...(highs[i] ?? {}), high1: prices[i + 1] ?? null };
+  if (i + 1 < n) highs[i] = { ...(highs[i] ?? {}), high1: prices[i + 1] };
 }
 
 function buildDailyLadder(i: number) {
