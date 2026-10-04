@@ -24,7 +24,7 @@ import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floo
 import type { LongScaleProfile } from "@/lib/pulse/long-scale";
 import { DailyDeploymentConsole, type DailyDeploymentEntry } from "@/components/daily-deployment-console";
 import { OrderStateMachine } from "@/components/order-state-machine";
-import { dailyDeploymentRecord, frontLoadedTarget } from "@/lib/floor/deployment";
+import { dailyDeploymentRecord, dynamicTradeIntent, frontLoadedTarget } from "@/lib/floor/deployment";
 import {
   cancelPaperOrder,
   fillPaperOrder,
@@ -607,6 +607,18 @@ function Page() {
     return qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
   }
 
+  function currentDynamicTradeIntent(marketDate: string, now = new Date().toISOString()) {
+    const target = frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate);
+    return dynamicTradeIntent({
+      id: "DEV_VITE_DYNAMIC_" + marketDate + "_M" + String(cycleMonth),
+      now,
+      cycleMonth,
+      nav,
+      target,
+      remainingCapital: Math.max(0, safeCapital - contributed),
+    });
+  }
+
   function corePriceLadder() {
     const ladder = liveMatch?.priceLadder;
     if (!ladder) return null;
@@ -686,7 +698,7 @@ function Page() {
     const price = qqq?.price ?? liveMatch.currentPrice;
     const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
     if (!(price != null && price > 0) || !marketDate) return;
-    const target = frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate);
+    const intent = currentDynamicTradeIntent(marketDate);
     setOrderMachine((current) => {
       const seeded =
         current ??
@@ -704,7 +716,7 @@ function Page() {
         marketDate,
         currentPrice: price,
         ladder: liveMatch.priceLadder,
-        target,
+        intent,
       });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -729,7 +741,7 @@ function Page() {
         marketDate,
         currentPrice: price,
         ladder: liveMatch?.priceLadder ?? null,
-        target: frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+        intent: currentDynamicTradeIntent(marketDate),
       }),
     );
   }
@@ -748,7 +760,7 @@ function Page() {
       marketDate,
       currentPrice: price,
       ladder: liveMatch.priceLadder,
-      target: frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+      intent: currentDynamicTradeIntent(marketDate),
     });
     setOrderMachine(next);
   }
@@ -775,7 +787,7 @@ function Page() {
       new Date().toISOString(),
       marketDate,
       liveMatch.priceLadder,
-      frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+      currentDynamicTradeIntent(marketDate),
     );
     setOrderMachine(
       syncOrderMachine({
@@ -784,7 +796,7 @@ function Page() {
         marketDate,
         currentPrice: price,
         ladder: liveMatch.priceLadder,
-        target: frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+        intent: currentDynamicTradeIntent(marketDate),
       }),
     );
   }
@@ -966,7 +978,7 @@ function Page() {
       .slice()
       .sort((a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt))
       .map((entry) => {
-        if ((entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION") {
+        if (!entry.voidedAt && (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION") {
           cumulativeContributionFraction += entry.amount / Math.max(1, safeCapital);
         }
         return [
@@ -1841,6 +1853,9 @@ function validOrderMachineState(value: unknown): value is OrderMachineState {
       (row.rung === "NEAR" || row.rung === "MID" || row.rung === "DEEP") &&
       (row.horizon === 1 || row.horizon === 5 || row.horizon === 21) &&
       (row.status === "ARMED" || row.status === "STALE" || row.status === "TOUCHED" || row.status === "FILLED" || row.status === "CANCELLED" || row.status === "REPLACED" || row.status === "SUPERSEDED") &&
+      typeof row.parentIntentId === "string" &&
+      Number.isFinite(Number(row.parentIntentNotional)) &&
+      Number(row.parentIntentNotional) > 0 &&
       Number.isFinite(Number(row.touchProbability)) &&
       Number(row.touchProbability) >= 0 &&
       Number(row.touchProbability) <= 1 &&
