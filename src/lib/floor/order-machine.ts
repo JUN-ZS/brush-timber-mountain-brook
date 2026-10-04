@@ -35,6 +35,7 @@ export type OrderMachineState = {
   marketDate: string;
   markPrice: number;
   positionNav: number;
+  positionShares?: number;
   deploymentReserve: number;
   harvestReserve: number;
   nextBuyRung: number;
@@ -88,7 +89,9 @@ function suggestedAmountFor(
   weight: number,
   target: number,
 ) {
-  const projectedNav = targetAtPrice(state.positionNav, state.markPrice, level.price ?? 0);
+  const projectedNav =
+    (state.positionShares ?? state.markPrice > 0 ? state.positionNav / state.markPrice : 0) *
+    (level.price ?? 0);
   if (side === "BUY") {
     const availableReserve = state.deploymentReserve + state.harvestReserve;
     return Math.max(
@@ -155,6 +158,8 @@ export function seedOrderMachine(input: {
     marketDate: input.marketDate,
     markPrice: safePositive(input.qqqPrice),
     positionNav: safeNonNegative(input.nav),
+    positionShares:
+      input.qqqPrice > 0 ? safeNonNegative(input.nav) / input.qqqPrice : 0,
     deploymentReserve: Math.max(0, safeNonNegative(input.capital) - safeNonNegative(input.contributed)),
     harvestReserve: 0,
     nextBuyRung: 0,
@@ -170,14 +175,15 @@ export function markOrderMachineToMarket(
 ): OrderMachineState {
   const price = safePositive(currentPrice);
   if (!(price > 0)) return { ...state, updatedAt: now };
-  if (!(state.markPrice > 0) || state.markPrice === price) {
-    return { ...state, updatedAt: now, markPrice: price };
-  }
+  const shares =
+    state.positionShares ??
+    (state.markPrice > 0 ? state.positionNav / state.markPrice : 0);
   return {
     ...state,
     updatedAt: now,
     markPrice: price,
-    positionNav: state.positionNav * (price / state.markPrice),
+    positionShares: shares,
+    positionNav: shares * price,
   };
 }
 
@@ -289,18 +295,27 @@ export function fillPaperOrder(
     const fromHarvest = Math.min(next.harvestReserve, fillAmount);
     const fromDeployment = Math.min(next.deploymentReserve, fillAmount - fromHarvest);
     const funded = fromHarvest + fromDeployment;
+    const shares = next.positionShares ??
+      (next.markPrice > 0 ? next.positionNav / next.markPrice : 0);
+    const fillShares = order.limitPrice > 0 ? funded / order.limitPrice : 0;
     next = {
       ...next,
-      positionNav: next.positionNav + funded,
+      positionShares: shares + fillShares,
+      positionNav: (shares + fillShares) * next.markPrice,
       harvestReserve: next.harvestReserve - fromHarvest,
       deploymentReserve: next.deploymentReserve - fromDeployment,
       nextBuyRung: Math.min(ORDER_RUNG_GRID.length, next.nextBuyRung + 1),
     };
   } else {
-    const sold = Math.min(next.positionNav, fillAmount);
+    const shares = next.positionShares ??
+      (next.markPrice > 0 ? next.positionNav / next.markPrice : 0);
+    const maxSellNotional = shares * order.limitPrice;
+    const sold = Math.min(maxSellNotional, fillAmount);
+    const soldShares = order.limitPrice > 0 ? sold / order.limitPrice : 0;
     next = {
       ...next,
-      positionNav: next.positionNav - sold,
+      positionShares: Math.max(0, shares - soldShares),
+      positionNav: Math.max(0, shares - soldShares) * next.markPrice,
       harvestReserve: next.harvestReserve + sold,
       nextSellRung: Math.min(ORDER_RUNG_GRID.length, next.nextSellRung + 1),
     };
@@ -314,15 +329,22 @@ export function cancelPaperOrder(
   orderId: string,
   now: string,
 ): OrderMachineState {
+  const order = state.orders.find((x) => x.id === orderId);
+  if (!order || (order.status !== "ARMED" && order.status !== "TOUCHED")) return state;
   return {
     ...state,
     updatedAt: now,
-    orders: state.orders.map((order) =>
-      order.id === orderId &&
-      (order.status === "ARMED" || order.status === "TOUCHED")
-        ? { ...order, status: "CANCELLED" as const }
-        : order,
+    orders: state.orders.map((x) =>
+      x.id === orderId ? { ...x, status: "CANCELLED" as const } : x,
     ),
+    nextBuyRung:
+      order.side === "BUY"
+        ? Math.min(ORDER_RUNG_GRID.length, state.nextBuyRung + 1)
+        : state.nextBuyRung,
+    nextSellRung:
+      order.side === "SELL"
+        ? Math.min(ORDER_RUNG_GRID.length, state.nextSellRung + 1)
+        : state.nextSellRung,
   };
 }
 
