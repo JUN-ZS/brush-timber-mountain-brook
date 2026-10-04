@@ -3,10 +3,11 @@ import { buildConditionalPriceLadder, type PricePathSample } from "../src/lib/fl
 import {
   activePaperOrders,
   fillPaperOrder,
+  paperEconomicWealth,
   seedOrderMachine,
   syncOrderMachine,
 } from "../src/lib/floor/order-machine.ts";
-import { frontLoadedTarget } from "../src/lib/floor/deployment.ts";
+import { dynamicTradeIntent, frontLoadedTarget } from "../src/lib/floor/deployment.ts";
 
 const universe = JSON.parse(
   readFileSync(new URL("../src/data/universe.json", import.meta.url), "utf8"),
@@ -167,7 +168,7 @@ function cycleMonthFor(startDate: string, date: string) {
   );
 }
 
-function runMachine(start: number, end: number, startDate: string, frontload: number, twoSided: boolean) {
+function runMachine(start: number, end: number, startDate: string, frontload: number) {
   let state = seedOrderMachine({
     now: dates[start] + "T00:00:00.000Z",
     marketDate: dates[start],
@@ -176,104 +177,146 @@ function runMachine(start: number, end: number, startDate: string, frontload: nu
     capital: B,
     contributed: 0,
   });
-  let peak = 0;
-  let maxDd = 0;
+  let parentIntentDays = 0;
+  let buyIntents = 0;
+  let sellIntents = 0;
+  let armedOrders = 0;
+  let fills = 0;
   let buyFills = 0;
   let sellFills = 0;
   let touched = 0;
+  let maxActiveOrders = 0;
+  let parentNotional = 0;
+  let childNotional = 0;
+  let filledNotional = 0;
+
   for (let i = start; i <= end; i += 1) {
     const date = dates[i];
     const target = frontLoadedTarget(B, frontload, cycleMonthFor(startDate, date), date);
-    const full = ladders[i];
-    const ladder = twoSided ? full : full ? { ...full, reduce: [] } : null;
+    const intent = dynamicTradeIntent({
+      id: "DEV_VITE_DYNAMIC_" + date + "_M" + String(cycleMonthFor(startDate, date)),
+      now: date + "T23:59:59.000Z",
+      cycleMonth: cycleMonthFor(startDate, date),
+      nav: state.positionNav,
+      target,
+      remainingCapital: Math.max(0, B),
+    });
+    if (intent) {
+      parentIntentDays += 1;
+      parentNotional += intent.notional;
+      if (intent.side === "BUY") buyIntents += 1;
+      else sellIntents += 1;
+    }
+
+    const ladder = ladders[i];
+    const beforeActive = activePaperOrders(state);
+    const beforeIds = new Set(beforeActive.map((order) => order.id));
     state = syncOrderMachine({
       state,
       now: date + "T23:59:59.000Z",
       marketDate: date,
       currentPrice: prices[i],
       ladder,
-      target,
+      intent,
     });
+    const newlyArmed = activePaperOrders(state).filter((order) => !beforeIds.has(order.id));
+    armedOrders += newlyArmed.length;
+    childNotional += newlyArmed.reduce((sum, order) => sum + order.suggestedAmount, 0);
+
+    for (const order of newlyArmed) {
+      const rung = order.rung === "NEAR" ? 0.5 : order.rung === "MID" ? 0.3 : 0.2;
+      const expected = (order.parentIntentNotional ?? 0) * rung;
+      if (Math.abs(order.suggestedAmount - expected) > 1e-8) {
+        throw new Error("parent-intent sizing invariant failed for " + order.id);
+      }
+      if (order.parentIntentId !== intent?.id) {
+        throw new Error("parent-intent identity invariant failed for " + order.id);
+      }
+    }
+
+    maxActiveOrders = Math.max(maxActiveOrders, activePaperOrders(state).length);
+    if (maxActiveOrders > 1) {
+      throw new Error("execution layer created more than one active parent order");
+    }
+
     const touchedOrder = activePaperOrders(state).find((order) => order.status === "TOUCHED");
     if (touchedOrder) {
       touched += 1;
       const before = touchedOrder.side;
+      const beforeWealth = paperEconomicWealth(state);
       state = fillPaperOrder(state, touchedOrder.id, prices[i], date + "T23:59:59.500Z");
+      if (state.orders.find((x) => x.id === touchedOrder.id)?.status !== "FILLED") {
+        throw new Error("touched order did not reach FILLED");
+      }
+      fills += 1;
+      filledNotional += state.orders.find((x) => x.id === touchedOrder.id)?.filledAmount ?? 0;
+      if (paperEconomicWealth(state) > beforeWealth + 1e-8) {
+        throw new Error("paper wealth conservation invariant failed");
+      }
       if (before === "BUY") buyFills += 1;
       else sellFills += 1;
-      // Mimic the UI: after a confirmed fill, rebuild the next rung without a second fill at this observation.
+
       state = syncOrderMachine({
         state,
         now: date + "T23:59:59.900Z",
         marketDate: date,
         currentPrice: prices[i],
         ladder,
-        target,
+        intent: dynamicTradeIntent({
+          id: "DEV_VITE_DYNAMIC_" + date + "_M" + String(cycleMonthFor(startDate, date)),
+          now: date + "T23:59:59.900Z",
+          cycleMonth: cycleMonthFor(startDate, date),
+          nav: state.positionNav,
+          target,
+          remainingCapital: Math.max(0, B),
+        }),
       });
     }
-    const wealth = state.positionNav + state.deploymentReserve + state.harvestReserve;
-    peak = Math.max(peak, wealth);
-    maxDd = Math.min(maxDd, peak > 0 ? wealth / peak - 1 : 0);
   }
   return {
-    wealth: state.positionNav + state.deploymentReserve + state.harvestReserve,
-    maxDd,
+    parentIntentDays,
+    buyIntents,
+    sellIntents,
+    armedOrders,
+    fills,
     buyFills,
     sellFills,
     touched,
-    harvestReserve: state.harvestReserve,
-    deploymentReserve: state.deploymentReserve,
+    maxActiveOrders,
+    parentNotional,
+    childNotional,
+    filledNotional,
+    terminalEconomicWealth: paperEconomicWealth(state),
   };
 }
 
-function summarize(frontload: number, mode: "BUY_ONLY" | "TWO_SIDED") {
-  const results = windows.map((w) => {
-    const clock = runClock(w.start, w.end, w.startDate, frontload);
-    const machine = runMachine(w.start, w.end, w.startDate, frontload, mode === "TWO_SIDED");
-    const years = (new Date(w.endDate).getTime() - new Date(w.startDate).getTime()) / (365.25 * 24 * 3600 * 1000);
-    return {
-      ...w,
-      clock,
-      machine,
-      delta: machine.wealth - clock.wealth,
-      cagrClock: Math.pow(clock.wealth / B, 1 / years) - 1,
-      cagrMachine: Math.pow(machine.wealth / B, 1 / years) - 1,
-    };
-  });
-  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-  const median = (xs: number[]) => {
-    const z = [...xs].sort((a, b) => a - b);
-    const p = (z.length - 1) / 2;
-    return (z[Math.floor(p)] + z[Math.ceil(p)]) / 2;
-  };
+function summarize(frontload: number) {
+  const results = windows.map((w) => ({
+    ...w,
+    machine: runMachine(w.start, w.end, w.startDate, frontload),
+  }));
+  const mean = (xs: number[]) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0;
   return {
     frontload,
-    mode,
     windows: results.length,
-    meanTerminalClock: mean(results.map((x) => x.clock.wealth)),
-    meanTerminalMachine: mean(results.map((x) => x.machine.wealth)),
-    meanTerminalDelta: mean(results.map((x) => x.delta)),
-    medianTerminalDelta: median(results.map((x) => x.delta)),
-    terminalWinRate: results.filter((x) => x.delta > 0).length / results.length,
-    meanCAGRClock: mean(results.map((x) => x.cagrClock)),
-    meanCAGRMachine: mean(results.map((x) => x.cagrMachine)),
-    meanCAGRDelta: mean(results.map((x) => x.cagrMachine - x.cagrClock)),
-    meanMaxDDClock: mean(results.map((x) => x.clock.maxDd)),
-    meanMaxDDMachine: mean(results.map((x) => x.machine.maxDd)),
-    meanMaxDDDelta: mean(results.map((x) => x.machine.maxDd - x.clock.maxDd)),
-    maxDDBetterRate: results.filter((x) => x.machine.maxDd > x.clock.maxDd).length / results.length,
-    avgBuyFills: mean(results.map((x) => x.machine.buyFills)),
-    avgSellFills: mean(results.map((x) => x.machine.sellFills)),
-    avgTouched: mean(results.map((x) => x.machine.touched)),
-    avgHarvestReserveEnd: mean(results.map((x) => x.machine.harvestReserve)),
-    avgDeploymentReserveEnd: mean(results.map((x) => x.machine.deploymentReserve)),
+    meanParentIntentDays: mean(results.map((x) => x.machine.parentIntentDays)),
+    meanBuyIntentDays: mean(results.map((x) => x.machine.buyIntents)),
+    meanSellIntentDays: mean(results.map((x) => x.machine.sellIntents)),
+    meanArmedOrders: mean(results.map((x) => x.machine.armedOrders)),
+    meanFills: mean(results.map((x) => x.machine.fills)),
+    meanBuyFills: mean(results.map((x) => x.machine.buyFills)),
+    meanSellFills: mean(results.map((x) => x.machine.sellFills)),
+    meanTouched: mean(results.map((x) => x.machine.touched)),
+    maxObservedActiveOrders: Math.max(...results.map((x) => x.machine.maxActiveOrders)),
+    meanParentNotional: mean(results.map((x) => x.machine.parentNotional)),
+    meanChildNotional: mean(results.map((x) => x.machine.childNotional)),
+    meanFilledNotional: mean(results.map((x) => x.machine.filledNotional)),
     firstWindows: results.slice(0, 3).map((x) => ({
       start: x.startDate,
       end: x.endDate,
-      clock: x.clock.wealth,
-      machine: x.machine.wealth,
-      delta: x.delta,
-      machineMaxDD: x.machine.maxDd,
+      parentIntentDays: x.machine.parentIntentDays,
+      armedOrders: x.machine.armedOrders,
+      fills: x.machine.fills,
       buyFills: x.machine.buyFills,
       sellFills: x.machine.sellFills,
     })),
@@ -281,32 +324,33 @@ function summarize(frontload: number, mode: "BUY_ONLY" | "TWO_SIDED") {
 }
 
 const output = {
-  schema: "qqq-order-machine-replay-v1",
+  schema: "qqq-order-machine-replay-v2-contract",
   generatedAt: new Date().toISOString(),
   dataAsOf: universe.asof,
   source: "src/data/universe.json / c.QQQ / Yahoo adjclose",
   windows: windows.length,
   frontloads: FRONTLOADS,
   assumptions: {
-    execution: "daily-close touch only; fill at resting limit; one confirmed fill per side per daily observation; no fees/slippage",
+    purpose: "execution-contract/invariant replay only; NOT a strategy alpha or CAGR comparison",
+    parent: "DEV/Vite dynamicTradeIntent from deploymentGap is the only BUY/SELL source",
+    execution: "ladder chooses child rung/limit; child notional = parent intent notional × rung weight 50/30/20",
+    fill: "daily-close touch only; manual paper fill confirmation; no fees/slippage",
     orderValidity: "persistent across market dates; new day marks ARMED as STALE; no automatic cancel",
     matching: "causal DAY/WEEK/MONTH volatility percentiles + causal 5D signed-return percentile; max distance 0.32; top 25 matches",
     rungs: "NEAR 1D/70%, MID 5D/50%, DEEP 21D/30%; weights 50/30/20",
-    capital: "B=100000 fully available as deployment reserve at window start; frontload changes target curve, not cash availability",
-    baseline: "daily close target tracker against the same front-loaded target curve",
   },
-  results: FRONTLOADS.flatMap((f) => [summarize(f, "BUY_ONLY"), summarize(f, "TWO_SIDED")]),
+  results: FRONTLOADS.map((f) => summarize(f)),
 };
 
 const outDir = process.argv[2] ?? "./replay-out";
 mkdirSync(outDir, { recursive: true });
 writeFileSync(outDir + "/RESULTS_ORDER_MACHINE_REPLAY.json", JSON.stringify(output, null, 2));
-const csvRows = ["frontload,mode,meanTerminalDelta,medianTerminalDelta,terminalWinRate,meanCAGRDelta,meanMaxDDDelta,maxDDBetterRate,avgBuyFills,avgSellFills,avgTouched,avgHarvestReserveEnd,avgDeploymentReserveEnd"];
+const csvRows = ["frontload,windows,meanParentIntentDays,meanBuyIntentDays,meanSellIntentDays,meanArmedOrders,meanFills,meanBuyFills,meanSellFills,meanTouched,maxObservedActiveOrders,meanParentNotional,meanChildNotional,meanFilledNotional"];
 for (const row of output.results) {
   csvRows.push([
-    row.frontload,row.mode,row.meanTerminalDelta,row.medianTerminalDelta,row.terminalWinRate,
-    row.meanCAGRDelta,row.meanMaxDDDelta,row.maxDDBetterRate,row.avgBuyFills,row.avgSellFills,
-    row.avgTouched,row.avgHarvestReserveEnd,row.avgDeploymentReserveEnd,
+    row.frontload,row.windows,row.meanParentIntentDays,row.meanBuyIntentDays,row.meanSellIntentDays,
+    row.meanArmedOrders,row.meanFills,row.meanBuyFills,row.meanSellFills,row.meanTouched,
+    row.maxObservedActiveOrders,row.meanParentNotional,row.meanChildNotional,row.meanFilledNotional,
   ].join(","));
 }
 writeFileSync(outDir + "/RESULTS_ORDER_MACHINE_REPLAY.csv", csvRows.join("\n") + "\n");
