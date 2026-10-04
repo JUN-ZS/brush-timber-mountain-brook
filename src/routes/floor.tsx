@@ -693,7 +693,9 @@ function Page() {
   }, [hasHydrated, liveFetchedAt]);
 
   useEffect(() => {
-    if (!hasHydrated || !liveFetchedAt || !liveMatch?.priceLadder) return;
+    // A RESET leaves the paper book empty. Live refresh may mark/refresh an
+    // existing book, but must never implicitly create a new parent order.
+    if (!hasHydrated || !liveFetchedAt || !liveMatch?.priceLadder || !orderMachine) return;
     const qqq = liveContext.find((x) => x.symbol === "QQQ");
     const price = qqq?.price ?? liveMatch.currentPrice;
     const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
@@ -723,20 +725,9 @@ function Page() {
   }, [hasHydrated, liveFetchedAt]);
 
   function resetPaperBook() {
-    const qqq = liveContext.find((x) => x.symbol === "QQQ");
-    const price = qqq?.price ?? liveMatch?.currentPrice ?? null;
-    const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
-    if (!(price != null && marketDate)) return;
-    setOrderMachine(
-      resetOrderMachine({
-        now: new Date().toISOString(),
-        marketDate,
-        qqqPrice: price,
-        nav,
-        capital: safeCapital,
-        contributed,
-      }),
-    );
+    // RESET is an operator stop/clear action. Do not seed a new machine here.
+    // ARM CURRENT INTENT is the only path that creates a fresh paper book.
+    setOrderMachine(null);
     setTransferNotice("PAPER BOOK RESET · all paper orders cleared · no new order armed");
   }
 
@@ -1141,6 +1132,7 @@ function Page() {
               <MetricCard kicker="ACCOUNT NAV" title={fmtUsd(nav, 2)} detail="bookkeeping only" />
             </div>
           </div>
+        </Panel>
 
         <Panel kicker="OPERATOR DESK / ONE-GLANCE ACCOUNT" title="所有會改數字的操作，都由這一欄開始">
           <div className="rounded-md border border-accent/40 bg-elevated p-4">
