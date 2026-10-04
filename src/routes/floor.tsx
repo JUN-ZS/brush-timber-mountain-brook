@@ -740,15 +740,23 @@ function Page() {
     const price = qqq?.price ?? liveMatch.currentPrice;
     const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
     if (!(price != null && marketDate)) return;
+    const repriced = repricePaperOrder(
+      orderMachine,
+      orderId,
+      new Date().toISOString(),
+      marketDate,
+      liveMatch.priceLadder,
+      frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+    );
     setOrderMachine(
-      repricePaperOrder(
-        orderMachine,
-        orderId,
-        new Date().toISOString(),
+      syncOrderMachine({
+        state: repriced,
+        now: new Date().toISOString(),
         marketDate,
-        liveMatch.priceLadder,
-        frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
-      ),
+        currentPrice: price,
+        ladder: liveMatch.priceLadder,
+        target: frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+      }),
     );
   }
 
@@ -1672,6 +1680,7 @@ function validOrderMachineState(value: unknown): value is OrderMachineState {
     x.deploymentReserve < 0 ||
     !Number.isFinite(x.harvestReserve) ||
     x.harvestReserve < 0 ||
+    (x.positionShares !== undefined && (!Number.isFinite(Number(x.positionShares)) || Number(x.positionShares) < 0)) ||
     !Number.isInteger(x.nextBuyRung) ||
     !Number.isInteger(x.nextSellRung) ||
     !Array.isArray(x.orders)
@@ -1688,7 +1697,6 @@ function validOrderMachineState(value: unknown): value is OrderMachineState {
       Number(row.limitPrice) > 0 &&
       Number.isFinite(Number(row.suggestedAmount)) &&
       Number(row.suggestedAmount) >= 0 &&
-      (row.positionShares === undefined || (Number.isFinite(Number(row.positionShares)) && Number(row.positionShares) >= 0)) &&
       typeof row.marketDate === "string" &&
       typeof row.sourcePrice === "number" &&
       typeof row.createdAt === "string"
