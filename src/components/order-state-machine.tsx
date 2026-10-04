@@ -167,7 +167,8 @@ export function OrderStateMachine({
                   <div className="grid grid-cols-2 gap-3">
                     <Metric label="RUNG" value={order.rung} detail={String(order.horizon) + "D · touch≈ " + fmtPct(order.touchProbability, 0)} />
                     <Metric label="LIMIT" value={fmtUsd(order.limitPrice, 2)} detail={(currentPrice == null ? "—" : fmtPct(order.limitPrice / currentPrice - 1, 2)) + " vs NOW"} />
-                    <Metric label="AMOUNT" value={fmtUsd(order.suggestedAmount, 2)} detail="paper suggested notional" />
+                    <Metric label="PARENT INTENT" value={fmtUsd(order.parentIntentNotional, 2)} detail={order.parentIntentId} />
+                    <Metric label="CHILD AMOUNT" value={fmtUsd(order.suggestedAmount, 2)} detail="intent × rung weight" />
                     <Metric label="SOURCE QQQ" value={fmtUsd(order.sourcePrice, 2)} detail="price when armed" />
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -224,7 +225,7 @@ export function OrderStateMachine({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">STATE TRANSITION LOG</p>
-              <p className="mt-1 text-sm text-muted">ARMED → STALE → TOUCHED → FILLED；CANCEL 跳過當前 rung；REPRICE 保留同一 rung、換今日限價。</p>
+              <p className="mt-1 text-sm text-muted">PARENT INTENT → RUNG ALLOCATION → STALE/TOUCHED → FILLED；CANCEL 跳過當前 rung；REPRICE 重新以當前 parent intent 放置。</p>
             </div>
             <button type="button" onClick={onReset} className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg">
               REBASE PAPER BOOK
