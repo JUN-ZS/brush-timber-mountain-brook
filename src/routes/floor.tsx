@@ -728,19 +728,40 @@ function Page() {
     const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
     if (!(price != null && marketDate)) return;
     setOrderMachine(
+      resetOrderMachine({
+        now: new Date().toISOString(),
+        marketDate,
+        qqqPrice: price,
+        nav,
+        capital: safeCapital,
+        contributed,
+      }),
+    );
+    setTransferNotice("PAPER BOOK RESET · all paper orders cleared · no new order armed");
+  }
+
+  function armPaperBook() {
+    const qqq = liveContext.find((x) => x.symbol === "QQQ");
+    const price = qqq?.price ?? liveMatch?.currentPrice ?? null;
+    const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? liveMatch?.marketDate ?? null;
+    if (!(price != null && marketDate) || !liveMatch?.priceLadder) return;
+    const seeded =
+      orderMachine ??
+      resetOrderMachine({
+        now: new Date().toISOString(),
+        marketDate,
+        qqqPrice: price,
+        nav,
+        capital: safeCapital,
+        contributed,
+      });
+    setOrderMachine(
       syncOrderMachine({
-        state: resetOrderMachine({
-          now: new Date().toISOString(),
-          marketDate,
-          qqqPrice: price,
-          nav,
-          capital: safeCapital,
-          contributed,
-        }),
+        state: seeded,
         now: new Date().toISOString(),
         marketDate,
         currentPrice: price,
-        ladder: liveMatch?.priceLadder ?? null,
+        ladder: liveMatch.priceLadder,
         intent: currentDynamicTradeIntent(marketDate),
       }),
     );
@@ -1111,89 +1132,45 @@ function Page() {
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div className="rounded-md border border-line bg-elevated p-4">
-              <p className="font-mono text-xs tracking-[0.14em] text-subtle">FORMAL FLOOR</p>
-              <p className="mt-2 font-mono text-sm">Cₜ = B × t / 120</p>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                Clock 是累積參考線，不是每月 quota。你可以早掏、遲掏、分批掏；正式 Funding Status 永遠只看
-                <span className="font-mono"> Actual Contributed − Cₜ</span>。
-              </p>
-              <p className="mt-2 text-xs text-subtle">
-                B = {fmtUsd(safeCapital, 2)} · M{cycleMonth} = {(cycleMonth / 120 * 100).toFixed(2)}% of B
-              </p>
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">ACCOUNT INPUTS LIVE ABOVE ↑</p>
+              <p className="mt-2 text-sm text-muted">B、CURRENT MONTH、ACCOUNT NAV、下一次入金與抽現，統一在最上面的 Operator Desk 編輯。呢區只顯示正式資金狀態。</p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <MoneyField
-                label={ledger.length ? "Planned principal B · LOCKED" : "Planned principal B"}
-                value={capital}
-                onChange={(x) => !ledger.length && setCapital(Math.max(1, x))}
-              />
-              <NumberField
-                label="As-of month · Clock position"
-                unit="mo"
-                value={cycleMonth}
-                min={1}
-                max={120}
-                step={1}
-                onChange={(x) => setMonth(clampMonth(x - 1))}
-              />
-              <MoneyField label="Account NAV" value={nav} onChange={(x) => setNav(x)} />
-              <div className="rounded-md border border-lock/40 bg-elevated p-3">
-                <p className="font-mono text-xs text-subtle">WITHDRAWAL STATUS</p>
-                <p className="mt-1 font-mono text-sm">OFF · manual ledger only</p>
-                <p className="mt-1 text-xs text-muted">Cumulative withdrawn {fmtUsd(withdrawn, 2)}</p>
-              </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MetricCard kicker="PLANNED B" title={fmtUsd(safeCapital, 2)} detail="locked once ledger has entries" />
+              <MetricCard kicker="CURRENT MONTH" title={"M" + String(cycleMonth)} detail="formal clock position" />
+              <MetricCard kicker="ACCOUNT NAV" title={fmtUsd(nav, 2)} detail="bookkeeping only" />
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-md border border-line bg-elevated p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-mono text-xs tracking-[0.14em] text-subtle">CAPITAL JOURNEY · MANUAL PACE</p>
-                  <p className="mt-1 text-sm text-muted">幾時加、加幾多由你定；Clock 只提供 10Y 累積參考。</p>
-                </div>
-                <Badge tone={formalFundingStatus === "BEHIND" ? "lock" : formalFundingStatus === "AHEAD" ? "fragile" : "pass"}>
-                  {formalFundingStatus}
-                </Badge>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <MetricCard kicker="REMAINING TO B" title={fmtUsd(remainingCapital, 2)} detail="未掏正式本金" />
-                <MetricCard kicker="MONTHS LEFT" title={String(monthsRemaining)} detail="to M120" />
-                <MetricCard kicker="AVG FUTURE PACE" title={fmtUsd(averageFutureContribution, 2)} detail="算術參考，不是指令" />
-              </div>
+        <Panel kicker="OPERATOR DESK / ONE-GLANCE ACCOUNT" title="所有會改數字的操作，都由這一欄開始">
+          <div className="rounded-md border border-accent/40 bg-elevated p-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <MoneyField label={ledger.length ? "Planned principal B · LOCKED" : "Planned principal B"} value={capital} onChange={(x) => !ledger.length && setCapital(Math.max(1, x))} />
+              <NumberField label="Current cycle month" unit="mo" value={cycleMonth} min={1} max={120} step={1} onChange={(x) => setMonth(clampMonth(x - 1))} />
+              <MoneyField label="Account NAV" value={nav} onChange={setNav} />
+              <MetricCard kicker="NET EXTERNAL CASH" title={fmtUsd(contributed - withdrawn, 2)} detail="CASH IN − CASH OUT · BUY/SELL excluded" />
             </div>
-
-            <div className="rounded-md border border-line bg-elevated p-4">
-              <p className="font-mono text-xs tracking-[0.14em] text-subtle">RESEARCH MODEL MARKER · NO AUTHORITY</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                <MetricCard kicker="MODEL REF X" title={fmtPct(modelReferenceX, 2)} detail="simulation / research only" />
-                <MetricCard kicker="MODEL REF GAP" title={fmtPct(Math.abs(modelReferenceX - contributed / safeCapital), 2)} detail="唔會改 funding status" />
-              </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <MetricCard kicker="FUNDING IN" title={fmtUsd(contributed, 2)} detail="active contributions" />
+              <MetricCard kicker="CASH OUT" title={fmtUsd(withdrawn, 2)} detail="active withdrawals" />
+              <MetricCard kicker="BUY" title={fmtUsd(actualBuyNotional, 2)} detail="internal trade · not funding" />
+              <MetricCard kicker="SELL" title={fmtUsd(actualSellNotional, 2)} detail="internal trade · not cash-out" />
+              <MetricCard kicker="PAPER" title={orderMachine ? fmtUsd(orderMachine.positionNav + orderMachine.deploymentReserve + orderMachine.harvestReserve, 2) : "—"} detail="paper only · not broker cash" />
             </div>
           </div>
-        </Panel>
 
-        <Panel kicker="OPERATOR DESK / PRIMARY INPUT" title="今日真正操作：投入、BUY / SELL、取消已記錄項目">
-          <div className="rounded-md border border-accent/40 bg-elevated p-4"><div className="grid gap-2 sm:grid-cols-3">
-            <MetricCard kicker="CURRENT MONTH" title={"M" + String(cycleMonth)} detail="新投入／BUY／SELL 預設記入這個 cycle month" />
-            <MetricCard kicker="ACTIVE CONTRIBUTED" title={fmtUsd(contributed, 2)} detail="未取消 Funding entries" />
-            <MetricCard kicker="ACTIVE TRADES" title={fmtUsd(actualBuyNotional + actualSellNotional, 2)} detail="未取消 BUY + SELL notional" />
-          </div></div>
-
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <div className="rounded-md border border-accent/40 bg-elevated p-4">
-              <p className="font-mono text-xs tracking-[0.14em] text-subtle">01 · FUNDING</p>
-              <p className="mt-1 text-sm text-muted">實際掏出的本金。CANCEL 只撤銷統計作用，原始數字保留作 audit。</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-[150px_1fr_auto] sm:items-end">
-                <NumberField label="Cycle month" unit="mo" value={cycleMonth} min={1} max={120} step={1} onChange={(x) => setMonth(clampMonth(x - 1))} />
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">01 · EXTERNAL CASH IN</p>
+              <p className="mt-1 text-sm text-muted">真正掏入計劃的本金。</p>
+              <div className="mt-3 grid gap-3">
                 <MoneyField label="Actual cash invested now" value={actualNow} onChange={setActualNow} />
-                <button type="button" disabled={actualNow <= 0 || cumulativeNowAmount > safeCapital + 1e-8} onClick={() => recordPoint("CONTRIBUTION")} className="min-h-11 rounded-md border border-accent/60 bg-accent px-4 text-sm font-medium text-accent-fg disabled:cursor-not-allowed disabled:opacity-40">RECORD CONTRIBUTION</button>
+                <button type="button" disabled={actualNow <= 0 || cumulativeNowAmount > safeCapital + 1e-8} onClick={() => recordPoint("CONTRIBUTION")} className="min-h-11 rounded-md border border-accent/60 bg-accent px-4 text-sm font-medium text-accent-fg disabled:cursor-not-allowed disabled:opacity-40">RECORD CASH IN · M{cycleMonth}</button>
               </div>
             </div>
-
             <div className="rounded-md border border-accent/40 bg-elevated p-4">
-              <p className="font-mono text-xs tracking-[0.14em] text-subtle">02 · ACTUAL TRADE</p>
-              <p className="mt-1 text-sm text-muted">真正成交的 QQQ BUY / SELL；SELL 永遠不是 Withdrawal。</p>
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">02 · INTERNAL QQQ TRADE</p>
+              <p className="mt-1 text-sm text-muted">BUY / SELL 只改持倉交易帳，不改 Funding。</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1.5 text-sm"><span className="font-mono text-xs text-subtle">SIDE</span><select value={tradeSide} onChange={(e) => setTradeSide(e.target.value as TradeSide)} className="min-h-11 rounded-md border border-line bg-elevated px-3 font-mono text-sm outline-none"><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
                 <MoneyField label="Executed notional" value={tradeAmountNow} onChange={setTradeAmountNow} />
@@ -1202,10 +1179,26 @@ function Page() {
               </div>
               <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => setTradePriceNow(livePrice ?? 0)} disabled={livePrice == null} className="min-h-11 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg disabled:opacity-35">USE QQQ NOW</button><button type="button" onClick={recordActualTrade} disabled={tradeAmountNow <= 0 || tradePriceNow <= 0} className="min-h-11 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated disabled:opacity-35">RECORD {tradeSide}</button></div>
             </div>
+            <div className="rounded-md border border-accent/40 bg-elevated p-4">
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">03 · EXTERNAL CASH OUT</p>
+              <p className="mt-1 text-sm text-muted">真正抽離計劃的現金；與 QQQ SELL 完全不同。</p>
+              <div className="mt-3 grid gap-3">
+                <NumberField label="Cash-out month" unit="mo" value={Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth)))} min={1} max={120} step={1} onChange={setPlannedWithdrawalMonth} />
+                <MoneyField label="Cash-out amount" value={Math.max(0, plannedWithdrawalAmount)} onChange={setPlannedWithdrawalAmount} />
+                <button type="button" onClick={() => recordPoint("WITHDRAWAL")} disabled={plannedWithdrawalAmount <= 0} className="min-h-11 rounded-md border border-lock/60 bg-elevated px-4 text-sm">RECORD CASH OUT</button>
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 rounded-md border border-line bg-elevated p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-mono text-xs tracking-[0.14em] text-subtle">03 · RECENT RECORDS / CANCEL HERE</p><p className="mt-1 text-sm text-muted">所有已記錄數值都從這裏取消。取消後數值不會變成 0，而是標成 CANCELLED · EXCLUDED；Active totals 會即時下降。</p></div><Badge tone="mute">AUDIT-PRESERVING</Badge></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-mono text-xs tracking-[0.14em] text-subtle">04 · NEXT CONTRIBUTION PREVIEW</p><p className="mt-1 text-sm text-muted">只作預覽，不會自動入帳。</p></div>
+              <div className="grid gap-3 sm:grid-cols-2"><NumberField label="Next contribution month" unit="mo" value={normalizedPlannedContributionMonth} min={1} max={120} step={1} onChange={setPlannedContributionMonth} /><MoneyField label="Next contribution amount" value={normalizedPlannedContributionAmount} onChange={setPlannedContributionAmount} /></div>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3"><MetricCard kicker="PROJECTED CONTRIBUTED" title={fmtUsd(projectedContributed, 2)} detail={"after M" + normalizedPlannedContributionMonth} /><MetricCard kicker="PROJECTED Δ VS CLOCK" title={(projectedDelta >= 0 ? "+" : "") + fmtUsd(projectedDelta, 2)} detail="preview only" /><MetricCard kicker="NEW AVG FUTURE PACE" title={fmtUsd(projectedAverageFutureContribution, 2)} detail="to reach B at M120" /></div>
+          </div>
+
+          <div className="mt-4 rounded-md border border-line bg-elevated p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-mono text-xs tracking-[0.14em] text-subtle">05 · RECENT RECORDS / CANCEL HERE</p><p className="mt-1 text-sm text-muted">CANCEL 不刪原始數字，只排除統計；RESTORE 可恢復。</p></div><Badge tone="mute">AUDIT-PRESERVING</Badge></div>
               <div className="mt-3 grid gap-2">
                 {[
                   ...ledger.map((entry) => ({ key: "F-" + entry.id, timestamp: entry.recordedAt, month: entry.month + 1, label: entry.kind ?? "CONTRIBUTION", amount: entry.amount, price: entry.price, cancelled: Boolean(entry.voidedAt), onToggle: () => voidLedgerEntry(entry.id) })),
@@ -1222,7 +1215,6 @@ function Page() {
               </div>
           </div>
         </Panel>
-
         <div className="grid gap-4 lg:grid-cols-3">
           <MetricCard
             kicker="MARKET STATE"
@@ -1389,6 +1381,7 @@ function Page() {
           onReprice={repricePaperOrderFromDesk}
           onRestore={restorePaperOrderFromDesk}
           onReset={resetPaperBook}
+          onArm={armPaperBook}
         />
 
         <Panel kicker="LIVE RESEARCH CONTEXT / NOW" title="目前市場觀測＋模型幾何（只作研究）">
@@ -1438,68 +1431,11 @@ function Page() {
           </div>
         </Panel>
 
-        <Panel kicker="CAPITAL PLANNER / MANUAL PREVIEW" title="下一次幾時加、加幾多；抽幾多只作獨立 cashflow">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-md border border-line bg-elevated p-4">
-              <p className="font-mono text-xs tracking-[0.14em] text-subtle">NEXT CONTRIBUTION · PREVIEW ONLY</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <NumberField
-                  label="Next contribution month"
-                  unit="mo"
-                  value={normalizedPlannedContributionMonth}
-                  min={1}
-                  max={120}
-                  step={1}
-                  onChange={setPlannedContributionMonth}
-                />
-                <MoneyField
-                  label="Next contribution amount"
-                  value={normalizedPlannedContributionAmount}
-                  onChange={setPlannedContributionAmount}
-                />
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <MetricCard kicker="PROJECTED CONTRIBUTED" title={fmtUsd(projectedContributed, 2)} detail={"after M" + normalizedPlannedContributionMonth} />
-                <MetricCard kicker="PROJECTED Δ VS CLOCK" title={(projectedDelta >= 0 ? "+" : "") + fmtUsd(projectedDelta, 2)} detail="funding path preview" />
-                <MetricCard kicker="NEW AVG FUTURE PACE" title={fmtUsd(projectedAverageFutureContribution, 2)} detail="to reach B at M120" />
-              </div>
-              <p className="mt-3 text-xs text-subtle">
-                預覽不寫 ledger。只有「記錄今次實際投入」先會改變 Actual contributed。
-              </p>
-            </div>
-
-            <div className="rounded-md border border-line bg-elevated p-4">
-              <p className="font-mono text-xs tracking-[0.14em] text-subtle">WITHDRAWAL · OFF / SEPARATE LEDGER</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <NumberField
-                  label="Withdrawal month"
-                  unit="mo"
-                  value={Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth || 1)))}
-                  min={1}
-                  max={120}
-                  step={1}
-                  onChange={setPlannedWithdrawalMonth}
-                />
-                <MoneyField label="Withdrawal amount" value={Math.max(0, plannedWithdrawalAmount)} onChange={setPlannedWithdrawalAmount} />
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <MetricCard kicker="PLANNED CASH OUT" title={fmtUsd(Math.max(0, plannedWithdrawalAmount), 2)} detail={"manual M" + Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth || 1)))} />
-                <MetricCard kicker="CUMULATIVE WITHDRAWN" title={fmtUsd(withdrawn, 2)} detail="does not reduce Actual Contributed" />
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => recordPoint("WITHDRAWAL")}
-                  disabled={plannedWithdrawalAmount <= 0}
-                  className="min-h-11 rounded-md border border-lock/60 bg-elevated px-4 text-sm text-fg disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  記錄今次抽取（只入 Withdrawal ledger）
-                </button>
-              </div>
-              <p className="mt-3 text-xs text-subtle">
-                withdrawal rule 目前 OFF；不自動判斷可抽、不減 Actual、不加 Floor NAV。呢個 panel 只幫你清楚記錄 cash-out。
-              </p>
-            </div>
+        <Panel kicker="PLANNER / READ ONLY" title="資金計劃摘要（輸入已集中在最上方）">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="rounded-md border border-line bg-elevated p-4"><p className="font-mono text-xs tracking-[0.14em] text-subtle">NEXT CONTRIBUTION</p><div className="mt-2 grid gap-2 sm:grid-cols-3"><MetricCard kicker="MONTH" title={"M" + String(normalizedPlannedContributionMonth)} detail="preview" /><MetricCard kicker="AMOUNT" title={fmtUsd(normalizedPlannedContributionAmount, 2)} detail="not yet booked" /><MetricCard kicker="PROJECTED Δ" title={(projectedDelta >= 0 ? "+" : "") + fmtUsd(projectedDelta, 2)} detail="vs CLOCK" /></div></div>
+            <div className="rounded-md border border-line bg-elevated p-4"><p className="font-mono text-xs tracking-[0.14em] text-subtle">CASH OUT</p><div className="mt-2 grid gap-2 sm:grid-cols-2"><MetricCard kicker="NEXT" title={"M" + String(Math.max(1, Math.min(120, Math.round(Number(plannedWithdrawalMonth) || cycleMonth))))} detail="manual cash-out" /><MetricCard kicker="CUMULATIVE" title={fmtUsd(withdrawn, 2)} detail="active withdrawal ledger" /></div></div>
+            <div className="rounded-md border border-line bg-elevated p-4"><p className="font-mono text-xs tracking-[0.14em] text-subtle">ACCOUNTING RULE</p><p className="mt-2 text-sm text-muted">External cash = CASH IN − CASH OUT。BUY/SELL 是內部持倉交換，不進 funding total，也不當成 withdrawal。</p></div>
           </div>
         </Panel>
 
