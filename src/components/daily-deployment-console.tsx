@@ -159,7 +159,7 @@ export function DailyDeploymentConsole({
   });
 
   return (
-    <Panel kicker="DAILY DEPLOYMENT / LIVE MARKET TAPE" title="每日市況下：現在可部署幾多？前置比例如何改變互追？">
+    <Panel kicker="DAILY DEPLOYMENT / LIVE MARKET TAPE" title="每日市況下：10Y target 同 NAV 有幾多 deployment gap？">
       <div className="grid gap-4">
         <div className="rounded-md border border-line bg-elevated p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -200,8 +200,8 @@ export function DailyDeploymentConsole({
           <Metric k="QQQ NOW" v={qqqPrice == null ? "—" : fmtUsd(qqqPrice, 2)} d={(date ?? "no date") + " · " + (qqq?.marketState ?? "UNKNOWN")} />
           <Metric k="10Y TARGET" v={fmtUsd(target, 2)} d={"M" + cycleMonth + " · F " + (frontload * 100).toFixed(0) + "%"} />
           <Metric k="ACCOUNT NAV" v={fmtUsd(safeNav, 2)} d="daily marked reference" />
-          <Metric k="BUY AVAILABLE" v={fmtUsd(gap.buyAvailable, 2)} d="model shortfall · capped by remaining B" />
-          <Metric k="SELL EXCESS" v={fmtUsd(gap.sellExcess, 2)} d="model excess · would become reserve" />
+          <Metric k="DEPLOYMENT BUY GAP" v={fmtUsd(gap.buyAvailable, 2)} d="target shortfall · paper planning only · not CASH IN" />
+          <Metric k="DEPLOYMENT SELL EXCESS" v={fmtUsd(gap.sellExcess, 2)} d="target excess · paper planning only · not CASH OUT" />
           <Metric k="SIGNED GAP" v={(gap.signedGap >= 0 ? "+" : "") + fmtUsd(gap.signedGap, 2)} d="target − NAV" />
         </div>
 
@@ -246,7 +246,7 @@ export function DailyDeploymentConsole({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">SAME-DAY FRONTLOAD SWEEP</p>
-              <p className="mt-1 text-sm text-muted">同一個 QQQ NAV，逐個 F 重算今天的 target / BUY / SELL；只係顯示，唔選 champion。</p>
+              <p className="mt-1 text-sm text-muted">同一個 QQQ NAV，逐個 F 重算今天的 target / deployment gap；只係顯示，唔選 champion，亦唔會改 funding ledger。</p>
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={onRecord} className="min-h-10 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated">RECORD TODAY</button>
@@ -254,7 +254,7 @@ export function DailyDeploymentConsole({
             </div>
           </div>
           <table className="mt-3 w-full min-w-[760px] border-collapse text-sm">
-            <thead><tr className="border-b border-line text-left font-mono text-[11px] text-subtle"><th className="py-2 pr-4">F</th><th className="py-2 pr-4">TARGET</th><th className="py-2 pr-4">BUY AVAILABLE</th><th className="py-2 pr-4">SELL EXCESS</th><th className="py-2 pr-4">GAP</th><th className="py-2 pr-4">STATUS</th></tr></thead>
+            <thead><tr className="border-b border-line text-left font-mono text-[11px] text-subtle"><th className="py-2 pr-4">F</th><th className="py-2 pr-4">TARGET</th><th className="py-2 pr-4">BUY GAP</th><th className="py-2 pr-4">SELL EXCESS</th><th className="py-2 pr-4">GAP</th><th className="py-2 pr-4">STATUS</th></tr></thead>
             <tbody>
               {sweep.map((row) => <tr key={row.f} className={"border-b border-line/50 " + (Math.abs(frontload - row.f) < 1e-9 ? "bg-elevated" : "")}>
                 <td className="py-2 pr-4 font-mono">{(row.f * 100).toFixed(0)}%</td>
@@ -272,7 +272,7 @@ export function DailyDeploymentConsole({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">DAILY DEPLOYMENT TAPE</p>
-              <p className="mt-1 text-sm text-muted">每個 market date 可留一個 snapshot；保留 target、NAV、BUY/SELL、QQQ、DAY/WEEK/MONTH relvol。</p>
+              <p className="mt-1 text-sm text-muted">每個 market date 可留一個 snapshot；保留 target、NAV、deployment BUY/SELL gap、QQQ、DAY/WEEK/MONTH relvol。</p>
             </div>
             <Badge tone="mute">{tape.length} OBSERVATIONS</Badge>
           </div>
@@ -284,7 +284,7 @@ export function DailyDeploymentConsole({
           ) : <div className="mt-3 rounded-md border border-dashed border-line p-4 text-sm text-muted">尚未有 daily observation；REFRESH YAHOO 後會自動 seal 今日 snapshot。</div>}
         </div>
 
-        <p className="text-xs leading-relaxed text-subtle">DAILY DEPLOYMENT 是研究/帳本層：它把固定 10Y budget 映射成當日 target，再以目前 NAV 算出可用部署或可 harvest 的額度。市場 relvol 只作 context；唔會偷偷改 target，亦唔會變成 BUY/SELL broker command。</p>
+        <p className="text-xs leading-relaxed text-subtle">DAILY DEPLOYMENT 是研究/規劃層：它把固定 10Y budget 映射成當日 target，再以目前 NAV 算 deployment gap。呢個 gap 只係規劃額度，唔係 CASH IN / CASH OUT，亦唔會直接變成 broker command。</p>
       </div>
     </Panel>
   );
