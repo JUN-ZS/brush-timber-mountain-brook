@@ -95,6 +95,7 @@ export function dailyDeploymentRecord(input: {
   frontload: number;
   nav: number;
   contributed: number;
+  startingDeployed?: number;
   qqqPrice: number | null;
   marketState: string | null;
   dayRatio: number | null;
@@ -106,7 +107,12 @@ export function dailyDeploymentRecord(input: {
   priceLadder?: LivePriceLadder | null;
 }) {
   const target = frontLoadedTarget(input.capital, input.frontload, input.cycleMonth, input.marketDate);
-  const remaining = Math.max(0, input.capital - Math.max(0, input.contributed));
+  const startingDeployed = Math.max(
+    0,
+    Math.min(input.capital, Number(input.startingDeployed) || 0),
+  );
+  const contributed = Math.max(0, Number(input.contributed) || 0);
+  const remaining = Math.max(0, input.capital - startingDeployed - contributed);
   const gap = deploymentGap(input.nav, target, remaining);
   return {
     ...input,
