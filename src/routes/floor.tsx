@@ -12,6 +12,12 @@ import {
   fundingStatus,
   type FloorEntryKind,
 } from "@/lib/floor/account";
+import {
+  activeTradeNotional,
+  createTradeEntry,
+  type TradeLedgerEntry,
+  type TradeSide,
+} from "@/lib/floor/trade-ledger";
 import snapshot from "@/data/rolling_floor_ui_snapshot.json";
 import { buildLiveHistoryMatch, type LiveHistoryMatch, type YahooSeries } from "@/lib/floor/yahoo-live";
 import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floor";
@@ -23,6 +29,7 @@ import {
   cancelPaperOrder,
   fillPaperOrder,
   repricePaperOrder,
+  restoreCancelledOrder,
   resetOrderMachine,
   seedOrderMachine,
   syncOrderMachine,
@@ -43,6 +50,7 @@ type LedgerEntry = {
   price?: number | null;
   priceObservedAt?: string | null;
   priceSource?: "YAHOO_FINANCE_CHART" | "UNAVAILABLE";
+  voidedAt?: string | null;
 };
 
 type MarketTapeEntry = {
@@ -80,6 +88,7 @@ type FloorPersistedState = {
   frontloadPct?: number;
   orderMachine?: OrderMachineState | null;
   nav: number;
+  tradeLedger?: TradeLedgerEntry[];
 };
 
 function defaultFloorState(): FloorPersistedState {
@@ -153,6 +162,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
           price: null,
           priceObservedAt: null,
           priceSource: "UNAVAILABLE" as const,
+          voidedAt: null,
         }]
       : [];
 
@@ -181,6 +191,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
     frontloadPct,
     orderMachine: validOrderMachineState(obj.orderMachine) ? obj.orderMachine : null,
     nav,
+    tradeLedger: Array.isArray(obj.tradeLedger) ? obj.tradeLedger.filter(validTradeLedgerEntry) : [],
   };
 }
 
@@ -230,6 +241,7 @@ function writeFloorState(state: FloorPersistedState) {
         frontloadPct: state.frontloadPct,
         orderMachine: state.orderMachine,
         nav: state.nav,
+        tradeLedger: state.tradeLedger,
       }),
     );
     // v4 is the source of truth after migration; legacy keys are read-only fallbacks.
@@ -250,6 +262,11 @@ function Page() {
   const [frontloadPct, setFrontloadPct] = useState(0.4);
   const [orderMachine, setOrderMachine] = useState<OrderMachineState | null>(null);
   const [nav, setNav] = useState(0);
+  const [tradeLedger, setTradeLedger] = useState<TradeLedgerEntry[]>([]);
+  const [tradeSide, setTradeSide] = useState<TradeSide>("BUY");
+  const [tradeAmountNow, setTradeAmountNow] = useState(0);
+  const [tradePriceNow, setTradePriceNow] = useState(0);
+  const [tradeNoteNow, setTradeNoteNow] = useState("");
   const [plannedContributionMonth, setPlannedContributionMonth] = useState(DEFAULT_MONTH + 1);
   const [plannedContributionAmount, setPlannedContributionAmount] = useState(0);
   const [plannedWithdrawalMonth, setPlannedWithdrawalMonth] = useState(DEFAULT_MONTH + 1);
@@ -313,6 +330,7 @@ function Page() {
     setFrontloadPct(loaded.frontloadPct ?? 0.4);
     setOrderMachine(loaded.orderMachine ?? null);
     setNav(loaded.nav);
+    setTradeLedger(loaded.tradeLedger ?? []);
     setHasHydrated(true);
   }, []);
 
@@ -370,6 +388,7 @@ function Page() {
           setFrontloadPct(0.4);
           setOrderMachine(null);
           setNav(0);
+          setTradeLedger([]);
           return;
         }
         const parsed = normalizeFloorState(JSON.parse(event.newValue));
@@ -383,6 +402,7 @@ function Page() {
         setFrontloadPct(parsed.frontloadPct ?? 0.4);
         setOrderMachine(parsed.orderMachine ?? null);
         setNav(parsed.nav);
+        setTradeLedger(parsed.tradeLedger ?? []);
       } catch {
       // Ignore malformed local state; safe defaults remain in memory.
     }
@@ -395,6 +415,8 @@ function Page() {
   const cycleMonth = Math.max(0, Math.min(120, month + 1));
   const contributed = actualContributed(ledger);
   const withdrawn = actualWithdrawn(ledger);
+  const actualBuyNotional = activeTradeNotional(tradeLedger, "BUY");
+  const actualSellNotional = activeTradeNotional(tradeLedger, "SELL");
   const cumulativeBeforePreview = contributed;
   const cumulativeNowAmount = cumulativeBeforePreview + Math.max(0, actualNow);
   const cumulativeNowFraction = cumulativeNowAmount / safeCapital;
@@ -734,6 +756,11 @@ function Page() {
     setOrderMachine(cancelPaperOrder(orderMachine, orderId, new Date().toISOString()));
   }
 
+  function restorePaperOrderFromDesk(orderId: string) {
+    if (!orderMachine) return;
+    setOrderMachine(restoreCancelledOrder(orderMachine, orderId, new Date().toISOString()));
+  }
+
   function repricePaperOrderFromDesk(orderId: string) {
     if (!orderMachine || !liveMatch?.priceLadder) return;
     const qqq = liveContext.find((x) => x.symbol === "QQQ");
@@ -782,6 +809,7 @@ function Page() {
         price: liveContext.find((x) => x.symbol === "QQQ")?.price ?? null,
         priceObservedAt: liveContext.find((x) => x.symbol === "QQQ")?.regularMarketTime ?? null,
         priceSource: liveContext.find((x) => x.symbol === "QQQ")?.price != null ? "YAHOO_FINANCE_CHART" : "UNAVAILABLE",
+        voidedAt: null,
       },
     ]);
     setActualNow(0);
@@ -801,6 +829,53 @@ function Page() {
     setCapital(DEFAULT_CAPITAL);
     setMonth(DEFAULT_MONTH);
     setNav(0);
+    setTradeLedger([]);
+    setTradeSide("BUY");
+    setTradeAmountNow(0);
+    setTradePriceNow(0);
+    setTradeNoteNow("");
+  }
+
+  function voidLedgerEntry(entryId: string) {
+    const now = new Date().toISOString();
+    setLedger((entries) =>
+      entries.map((entry) =>
+        entry.id === entryId ? { ...entry, voidedAt: entry.voidedAt ? null : now } : entry,
+      ),
+    );
+  }
+
+  function recordActualTrade() {
+    const amount = Number(tradeAmountNow);
+    const price = Number(tradePriceNow);
+    if (!(amount > 0) || !(price > 0)) {
+      setTransferNotice("TRADE not recorded · amount and execution price are required");
+      return;
+    }
+    const entry = createTradeEntry({
+      side: tradeSide,
+      amount,
+      price,
+      cycleMonth: month,
+      source: "MANUAL",
+      note: tradeNoteNow,
+    });
+    setTradeLedger((entries) => [...entries, entry]);
+    setTradeAmountNow(0);
+    setTradeNoteNow("");
+    setTransferNotice(
+      "ACTUAL " + tradeSide + " recorded · M" + String(month + 1) + " · " +
+      fmtUsd(amount, 2) + " @ " + fmtUsd(price, 2),
+    );
+  }
+
+  function voidTradeEntry(entryId: string) {
+    const now = new Date().toISOString();
+    setTradeLedger((entries) =>
+      entries.map((entry) =>
+        entry.id === entryId ? { ...entry, voidedAt: entry.voidedAt ? null : now } : entry,
+      ),
+    );
   }
 
   function buildTransferPayload() {
@@ -819,6 +894,7 @@ function Page() {
       frontloadPct,
       orderMachine,
       nav,
+      tradeLedger,
     };
   }
 
@@ -879,6 +955,7 @@ function Page() {
       "price",
       "priceObservedAt",
       "priceSource",
+      "status",
       "cumulativeContributionFraction",
       "clockFraction",
     ].join(",");
@@ -899,6 +976,7 @@ function Page() {
           entry.price == null ? "" : entry.price.toFixed(4),
           JSON.stringify(entry.priceObservedAt ?? ""),
           JSON.stringify(entry.priceSource ?? ""),
+          JSON.stringify(entry.voidedAt ? "VOIDED" : "ACTIVE"),
           cumulativeContributionFraction.toFixed(8),
           ((entry.month + 1) / 120).toFixed(8),
         ].join(",");
@@ -909,6 +987,31 @@ function Page() {
       "text/csv;charset=utf-8",
     );
     setTransferNotice("PUSH CSV complete · ledger exported");
+  }
+
+  function pushTradeCsv() {
+    const header = ["month","side","recordedAt","amount","price","shares","source","orderId","status","note"].join(",");
+    const rows = tradeLedger
+      .slice()
+      .sort((a, b) => a.cycleMonth - b.cycleMonth || a.recordedAt.localeCompare(b.recordedAt))
+      .map((entry) => [
+        entry.cycleMonth + 1,
+        JSON.stringify(entry.side),
+        JSON.stringify(entry.recordedAt),
+        entry.amount.toFixed(2),
+        entry.price.toFixed(4),
+        entry.shares.toFixed(8),
+        JSON.stringify(entry.source),
+        JSON.stringify(entry.orderId ?? ""),
+        JSON.stringify(entry.voidedAt ? "VOIDED" : "ACTIVE"),
+        JSON.stringify(entry.note ?? ""),
+      ].join(","));
+    downloadText(
+      "rolling-floor-trade-ledger-" + new Date().toISOString().slice(0, 10) + ".csv",
+      [header, ...rows].join("\n") + "\n",
+      "text/csv;charset=utf-8",
+    );
+    setTransferNotice("TRADE CSV exported · " + tradeLedger.length + " observations");
   }
 
   function copyLedger() {
@@ -948,6 +1051,7 @@ function Page() {
       setFrontloadPct(parsed.frontloadPct ?? 0.4);
       setOrderMachine(parsed.orderMachine ?? null);
       setNav(parsed.nav);
+      setTradeLedger(parsed.tradeLedger ?? []);
       setTransferNotice(
         "PULL complete · " +
         parsed.entries.length +
@@ -1219,6 +1323,7 @@ function Page() {
           onFill={fillPaperOrderFromDesk}
           onCancel={cancelPaperOrderFromDesk}
           onReprice={repricePaperOrderFromDesk}
+          onRestore={restorePaperOrderFromDesk}
           onReset={resetPaperBook}
         />
 
@@ -1604,7 +1709,46 @@ function Page() {
             </div>
           </div>
 
-          <LedgerTable entries={ledger} capital={safeCapital} startingDeployed={startingDeployed} />
+          <LedgerTable entries={ledger} capital={safeCapital} startingDeployed={startingDeployed} onToggleVoid={voidLedgerEntry} />
+
+          <div className="mt-5 rounded-md border border-accent/40 bg-elevated p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-xs tracking-[0.14em] text-subtle">ACTUAL TRADE / EXECUTION JOURNAL</p>
+                <p className="mt-1 text-sm text-muted">記真正已成交的 BUY / SELL；呢本帳獨立於 Funding Ledger，唔會改 Actual Contributed。</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge tone="pass">BUY {fmtUsd(actualBuyNotional, 2)}</Badge>
+                <Badge tone="fragile">SELL {fmtUsd(actualSellNotional, 2)}</Badge>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-[auto_1fr_1fr_1fr_auto]">
+              <label className="grid gap-1.5 text-sm">
+                <span className="font-mono text-xs text-subtle">SIDE</span>
+                <select value={tradeSide} onChange={(e) => setTradeSide(e.target.value as TradeSide)} className="min-h-11 rounded-md border border-line bg-elevated px-3 font-mono text-sm outline-none">
+                  <option value="BUY">BUY</option>
+                  <option value="SELL">SELL</option>
+                </select>
+              </label>
+              <MoneyField label="Actual trade notional" value={tradeAmountNow} onChange={setTradeAmountNow} />
+              <MoneyField label="Actual execution price" value={tradePriceNow} onChange={setTradePriceNow} />
+              <label className="grid gap-1.5 text-sm">
+                <span className="font-mono text-xs text-subtle">NOTE</span>
+                <input type="text" value={tradeNoteNow} onChange={(e) => setTradeNoteNow(e.target.value)} placeholder="optional" className="min-h-11 rounded-md border border-line bg-elevated px-3 font-mono text-sm outline-none" />
+              </label>
+              <div className="flex flex-wrap items-end gap-2">
+                <button type="button" onClick={() => setTradePriceNow(livePrice ?? 0)} disabled={livePrice == null} className="min-h-11 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg disabled:opacity-35">USE QQQ NOW</button>
+                <button type="button" onClick={recordActualTrade} disabled={tradeAmountNow <= 0 || tradePriceNow <= 0} className="min-h-11 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated disabled:opacity-35">RECORD {tradeSide}</button>
+              </div>
+            </div>
+            <TradeLedgerTable entries={tradeLedger} onToggleVoid={voidTradeEntry} />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button type="button" onClick={pushTradeCsv} className="min-h-10 rounded-md border border-line px-3 text-xs text-muted hover:text-fg">
+                DOWNLOAD TRADE CSV
+              </button>
+              <span className="text-xs text-subtle">VOID 只撤銷該筆帳的統計影響；原記錄保留，之後可 RESTORE。</span>
+            </div>
+          </div>
         </Panel>
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -1660,7 +1804,8 @@ function validLedgerEntry(value: unknown): value is LedgerEntry {
     Number.isFinite(x.amount) &&
     x.amount > 0 &&
     x.month >= 0 &&
-    x.month <= 119
+    x.month <= 119 &&
+    (x.voidedAt == null || typeof x.voidedAt === "string")
   );
 }
 
@@ -1708,9 +1853,91 @@ function validOrderMachineState(value: unknown): value is OrderMachineState {
       (row.touchedAt == null || typeof row.touchedAt === "string") &&
       (row.filledAt == null || typeof row.filledAt === "string") &&
       (row.filledPrice == null || (Number.isFinite(Number(row.filledPrice)) && Number(row.filledPrice) > 0)) &&
-      (row.filledAmount == null || (Number.isFinite(Number(row.filledAmount)) && Number(row.filledAmount) >= 0))
+      (row.filledAmount == null || (Number.isFinite(Number(row.filledAmount)) && Number(row.filledAmount) >= 0)) &&
+      (row.cancelledAt == null || typeof row.cancelledAt === "string")
     );
   });
+}
+
+function TradeLedgerTable({
+  entries,
+  onToggleVoid,
+}: {
+  entries: TradeLedgerEntry[];
+  onToggleVoid: (entryId: string) => void;
+}) {
+  const rows = entries.slice().sort(
+    (a, b) => a.cycleMonth - b.cycleMonth || a.recordedAt.localeCompare(b.recordedAt),
+  );
+  if (!rows.length) {
+    return (
+      <p className="mt-4 rounded-md border border-dashed border-line p-4 text-sm text-muted">
+        尚未記錄實際 BUY / SELL。呢本帳只記 executed trade，不改 Funding Ledger。
+      </p>
+    );
+  }
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full min-w-[900px] text-left text-xs">
+        <thead className="text-[11px] text-subtle">
+          <tr>
+            <th className="py-2">month</th>
+            <th className="py-2">date</th>
+            <th className="py-2">side</th>
+            <th className="py-2">notional</th>
+            <th className="py-2">price</th>
+            <th className="py-2">shares</th>
+            <th className="py-2">source</th>
+            <th className="py-2">status</th>
+            <th className="py-2">action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.slice().reverse().map((entry) => (
+            <tr key={entry.id} className={"border-t border-line " + (entry.voidedAt ? "opacity-50" : "")}>
+              <td className="py-2 font-mono">{entry.cycleMonth + 1}</td>
+              <td className="py-2 font-mono">{entry.recordedAt}</td>
+              <td className="py-2 font-mono">{entry.side}</td>
+              <td className="py-2 font-mono tabular-nums">{fmtUsd(entry.amount, 2)}</td>
+              <td className="py-2 font-mono tabular-nums">{fmtUsd(entry.price, 2)}</td>
+              <td className="py-2 font-mono tabular-nums">{entry.shares.toFixed(6)}</td>
+              <td className="py-2 font-mono">{entry.source}</td>
+              <td className="py-2">
+                <Badge tone={entry.voidedAt ? "lock" : entry.side === "SELL" ? "fragile" : "pass"}>
+                  {entry.voidedAt ? "VOIDED" : "ACTIVE"}
+                </Badge>
+              </td>
+              <td className="py-2">
+                <button type="button" onClick={() => onToggleVoid(entry.id)} className="min-h-8 rounded-md border border-line px-2 font-mono text-[11px] text-muted hover:text-fg">
+                  {entry.voidedAt ? "RESTORE" : "VOID"}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function validTradeLedgerEntry(value: unknown): value is TradeLedgerEntry {
+  if (!value || typeof value !== "object") return false;
+  const x = value as Partial<TradeLedgerEntry>;
+  return (
+    typeof x.id === "string" &&
+    typeof x.recordedAt === "string" &&
+    Number.isFinite(x.cycleMonth) &&
+    x.cycleMonth >= 0 &&
+    x.cycleMonth <= 119 &&
+    (x.side === "BUY" || x.side === "SELL") &&
+    Number.isFinite(x.amount) && x.amount > 0 &&
+    Number.isFinite(x.price) && x.price > 0 &&
+    Number.isFinite(x.shares) && x.shares > 0 &&
+    (x.source === "MANUAL" || x.source === "PAPER_FILL") &&
+    (x.orderId == null || typeof x.orderId === "string") &&
+    (x.note == null || typeof x.note === "string") &&
+    (x.voidedAt == null || typeof x.voidedAt === "string")
+  );
 }
 
 function validDailyDeploymentEntry(value: unknown): value is DailyDeploymentEntry {
@@ -1769,7 +1996,7 @@ function buildCapitalPoints(
   preview: { month: number; cumulativeAmount: number },
 ) {
   const sorted = entries
-    .filter((entry) => (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION")
+    .filter((entry) => (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION" && !entry.voidedAt)
     .sort((a, b) => a.month - b.month || a.recordedAt.localeCompare(b.recordedAt));
   let cumulative = Math.max(0, startingDeployed);
   const points: Array<{ month: number; fraction: number; preview?: boolean }> = [];
@@ -2934,10 +3161,12 @@ function LedgerTable({
   entries,
   capital,
   startingDeployed,
+  onToggleVoid,
 }: {
   entries: LedgerEntry[];
   capital: number;
   startingDeployed: number;
+  onToggleVoid: (entryId: string) => void;
 }) {
   if (!entries.length) {
     return (
@@ -2954,11 +3183,11 @@ function LedgerTable({
       entry: LedgerEntry;
       fraction: number;
       clock: number;
-      status: EntryStatus;
+      status: EntryStatus | "VOIDED";
     }>>((rows, entry) => {
       const prior = rows.at(-1)?.fraction ?? startingDeployed / Math.max(1, capital);
       const isContribution = (entry.kind ?? "CONTRIBUTION") === "CONTRIBUTION";
-      const fraction = isContribution
+      const fraction = !entry.voidedAt && isContribution
         ? prior + entry.amount / Math.max(1, capital)
         : prior;
       const clock = clockFraction(entry.month + 1);
@@ -2966,7 +3195,7 @@ function LedgerTable({
         entry,
         fraction,
         clock,
-        status: statusFor(fraction, clock, fraction * capital, capital),
+        status: entry.voidedAt ? "VOIDED" : statusFor(fraction, clock, fraction * capital, capital),
       });
       return rows;
     }, [])
@@ -2985,6 +3214,7 @@ function LedgerTable({
             <th className="py-2">clock</th>
             <th className="py-2">delta</th>
             <th className="py-2">check</th>
+            <th className="py-2">action</th>
           </tr>
         </thead>
         <tbody>
@@ -3000,9 +3230,14 @@ function LedgerTable({
               <td className="py-2 font-mono tabular-nums">{fmtPct(clock, 2)}</td>
               <td className="py-2 font-mono tabular-nums">{fmtPct(fraction - clock, 2)}</td>
               <td className="py-2">
-                <Badge tone={status === "BELOW_CLOCK" || status === "OVER_CAPITAL" ? "lock" : status === "AHEAD" ? "fragile" : "pass"}>
+                <Badge tone={status === "BELOW_CLOCK" || status === "OVER_CAPITAL" || status === "VOIDED" ? "lock" : status === "AHEAD" ? "fragile" : "pass"}>
                   {status}
                 </Badge>
+              </td>
+              <td className="py-2">
+                <button type="button" onClick={() => onToggleVoid(entry.id)} className="min-h-8 rounded-md border border-line px-2 font-mono text-[11px] text-muted hover:text-fg">
+                  {entry.voidedAt ? "RESTORE" : "VOID"}
+                </button>
               </td>
             </tr>
           ))}
