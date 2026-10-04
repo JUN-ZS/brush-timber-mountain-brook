@@ -7,6 +7,7 @@ import {
   canFillOrder,
   nextRungLabel,
   paperEconomicWealth,
+  repricePaperOrder,
   type OrderMachineState,
   type PaperOrder,
 } from "@/lib/floor/order-machine";
@@ -15,6 +16,7 @@ function statusTone(status: PaperOrder["status"]) {
   if (status === "TOUCHED") return "fragile" as const;
   if (status === "FILLED") return "pass" as const;
   if (status === "ARMED") return "mute" as const;
+  if (status === "STALE") return "fragile" as const;
   return "lock" as const;
 }
 
@@ -50,6 +52,7 @@ export function OrderStateMachine({
   onFill,
   onCancel,
   onReset,
+  onReprice,
 }: {
   state: OrderMachineState | null;
   currentPrice: number | null;
@@ -58,6 +61,7 @@ export function OrderStateMachine({
   onFill: (orderId: string) => void;
   onCancel: (orderId: string) => void;
   onReset: () => void;
+  onReprice: (orderId: string) => void;
 }) {
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
@@ -121,7 +125,7 @@ export function OrderStateMachine({
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">SESSION-LOCKED PAPER BOOK</p>
               <p className="mt-1 text-sm text-muted">
-                Session = {marketDate ?? state.marketDate}. ARMED / TOUCHED 掛單唔會因日內 refresh 自動改價；新 market date 先會 SUPERSEDE，再生成同一 rung 的新價格。
+                Session = {marketDate ?? state.marketDate}. 掛單跨日會標記 STALE，而唔會被系統偷偷取消。你可以 KEEP 原限價、REPRICE TO TODAY，或者 CANCEL；只有你確認平台成交先進 FILLED。
               </p>
             </div>
             <Badge tone="lock">NO BROKER TRANSMISSION</Badge>
@@ -175,15 +179,24 @@ export function OrderStateMachine({
                     </button>
                     <button
                       type="button"
-                      disabled={order.status !== "ARMED" && order.status !== "TOUCHED"}
+                      disabled={order.status !== "ARMED" && order.status !== "STALE" && order.status !== "TOUCHED"}
                       onClick={() => onCancel(order.id)}
                       className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
                     >
                       SKIP / CANCEL RUNG
                     </button>
+                    {order.status === "STALE" ? (
+                      <button
+                        type="button"
+                        onClick={() => onReprice(order.id)}
+                        className="min-h-10 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated"
+                      >
+                        REPRICE TO TODAY
+                      </button>
+                    ) : null}
                     <button
                       type="button"
-                      disabled={order.status !== "ARMED" && order.status !== "TOUCHED"}
+                      disabled={order.status !== "ARMED" && order.status !== "STALE" && order.status !== "TOUCHED"}
                       onClick={() => copyOrderTicket(order)}
                       className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
                     >
@@ -209,7 +222,7 @@ export function OrderStateMachine({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">STATE TRANSITION LOG</p>
-              <p className="mt-1 text-sm text-muted">ARMED → TOUCHED → FILLED；CANCEL 會跳過當前 rung；新交易日未成交掛單會 SUPERSEDE。</p>
+              <p className="mt-1 text-sm text-muted">ARMED → STALE → TOUCHED → FILLED；CANCEL 跳過當前 rung；REPRICE 保留同一 rung、換今日限價。</p>
             </div>
             <button type="button" onClick={onReset} className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg">
               REBASE PAPER BOOK
