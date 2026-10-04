@@ -17,7 +17,16 @@ import { buildLiveHistoryMatch, type LiveHistoryMatch, type YahooSeries } from "
 import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floor";
 import type { LongScaleProfile } from "@/lib/pulse/long-scale";
 import { DailyDeploymentConsole, type DailyDeploymentEntry } from "@/components/daily-deployment-console";
-import { dailyDeploymentRecord } from "@/lib/floor/deployment";
+import { OrderStateMachine } from "@/components/order-state-machine";
+import { dailyDeploymentRecord, frontLoadedTarget } from "@/lib/floor/deployment";
+import {
+  cancelPaperOrder,
+  fillPaperOrder,
+  resetOrderMachine,
+  seedOrderMachine,
+  syncOrderMachine,
+  type OrderMachineState,
+} from "@/lib/floor/order-machine";
 
 export const Route = createFileRoute("/floor")({ component: Page });
 
@@ -68,6 +77,7 @@ type FloorPersistedState = {
   marketTape: MarketTapeEntry[];
   dailyDeploymentTape?: DailyDeploymentEntry[];
   frontloadPct?: number;
+  orderMachine?: OrderMachineState | null;
   nav: number;
 };
 
@@ -168,6 +178,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
     marketTape,
     dailyDeploymentTape,
     frontloadPct,
+    orderMachine: validOrderMachineState(obj.orderMachine) ? obj.orderMachine : null,
     nav,
   };
 }
@@ -216,6 +227,7 @@ function writeFloorState(state: FloorPersistedState) {
         marketTape: state.marketTape,
         dailyDeploymentTape: state.dailyDeploymentTape,
         frontloadPct: state.frontloadPct,
+        orderMachine: state.orderMachine,
         nav: state.nav,
       }),
     );
@@ -235,6 +247,7 @@ function Page() {
   const [marketTape, setMarketTape] = useState<MarketTapeEntry[]>([]);
   const [dailyDeploymentTape, setDailyDeploymentTape] = useState<DailyDeploymentEntry[]>([]);
   const [frontloadPct, setFrontloadPct] = useState(0.4);
+  const [orderMachine, setOrderMachine] = useState<OrderMachineState | null>(null);
   const [nav, setNav] = useState(0);
   const [plannedContributionMonth, setPlannedContributionMonth] = useState(DEFAULT_MONTH + 1);
   const [plannedContributionAmount, setPlannedContributionAmount] = useState(0);
@@ -297,6 +310,7 @@ function Page() {
     setMarketTape(loaded.marketTape);
     setDailyDeploymentTape(loaded.dailyDeploymentTape ?? []);
     setFrontloadPct(loaded.frontloadPct ?? 0.4);
+    setOrderMachine(loaded.orderMachine ?? null);
     setNav(loaded.nav);
     setHasHydrated(true);
   }, []);
@@ -620,6 +634,84 @@ function Page() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasHydrated, liveFetchedAt]);
 
+  useEffect(() => {
+    if (!hasHydrated || !liveFetchedAt || !liveMatch?.priceLadder) return;
+    const qqq = liveContext.find((x) => x.symbol === "QQQ");
+    const price = qqq?.price ?? liveMatch.currentPrice;
+    const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
+    if (!(price != null && price > 0) || !marketDate) return;
+    const target = frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate);
+    setOrderMachine((current) => {
+      const seeded =
+        current ??
+        seedOrderMachine({
+          now: new Date().toISOString(),
+          marketDate,
+          qqqPrice: price,
+          nav,
+          capital: safeCapital,
+          contributed,
+        });
+      return syncOrderMachine({
+        state: seeded,
+        now: new Date().toISOString(),
+        marketDate,
+        currentPrice: price,
+        ladder: liveMatch.priceLadder,
+        target,
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHydrated, liveFetchedAt]);
+
+  function resetPaperBook() {
+    const qqq = liveContext.find((x) => x.symbol === "QQQ");
+    const price = qqq?.price ?? liveMatch?.currentPrice ?? null;
+    const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
+    if (!(price != null && marketDate)) return;
+    setOrderMachine(
+      syncOrderMachine({
+        state: resetOrderMachine({
+          now: new Date().toISOString(),
+          marketDate,
+          qqqPrice: price,
+          nav,
+          capital: safeCapital,
+          contributed,
+        }),
+        now: new Date().toISOString(),
+        marketDate,
+        currentPrice: price,
+        ladder: liveMatch?.priceLadder ?? null,
+        target: frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+      }),
+    );
+  }
+
+  function fillPaperOrderFromDesk(orderId: string) {
+    if (!orderMachine || !liveMatch) return;
+    const price = liveMatch.currentPrice;
+    if (!(price != null && price > 0)) return;
+    const now = new Date().toISOString();
+    const filled = fillPaperOrder(orderMachine, orderId, price, now);
+    const qqq = liveContext.find((x) => x.symbol === "QQQ");
+    const marketDate = qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? orderMachine.marketDate;
+    const next = syncOrderMachine({
+      state: filled,
+      now: new Date().toISOString(),
+      marketDate,
+      currentPrice: price,
+      ladder: liveMatch.priceLadder,
+      target: frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, marketDate),
+    });
+    setOrderMachine(next);
+  }
+
+  function cancelPaperOrderFromDesk(orderId: string) {
+    if (!orderMachine) return;
+    setOrderMachine(cancelPaperOrder(orderMachine, orderId, new Date().toISOString()));
+  }
+
   function recordPoint(kind: FloorEntryKind = "CONTRIBUTION") {
     const amount = kind === "CONTRIBUTION" ? actualNow : plannedWithdrawalAmount;
     if (!Number.isFinite(amount) || amount <= 0) return;
@@ -655,6 +747,7 @@ function Page() {
     setMarketTape([]);
     setDailyDeploymentTape([]);
     setFrontloadPct(0.4);
+    setOrderMachine(null);
     setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
     setActualNow(0);
     setCapital(DEFAULT_CAPITAL);
@@ -676,6 +769,7 @@ function Page() {
       marketTape,
       dailyDeploymentTape,
       frontloadPct,
+      orderMachine,
       nav,
     };
   }
@@ -804,6 +898,7 @@ function Page() {
       setMarketTape(parsed.marketTape);
       setDailyDeploymentTape(parsed.dailyDeploymentTape ?? []);
       setFrontloadPct(parsed.frontloadPct ?? 0.4);
+      setOrderMachine(parsed.orderMachine ?? null);
       setNav(parsed.nav);
       setTransferNotice(
         "PULL complete · " +
@@ -1066,6 +1161,16 @@ function Page() {
           tape={dailyDeploymentTape}
           onRecord={sealDailyDeployment}
           onExport={pushDailyDeploymentCsv}
+        />
+
+        <OrderStateMachine
+          state={orderMachine}
+          currentPrice={liveMatch?.currentPrice ?? livePrice}
+          target={frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, currentMarketDate() ?? undefined)}
+          marketDate={currentMarketDate()}
+          onFill={fillPaperOrderFromDesk}
+          onCancel={cancelPaperOrderFromDesk}
+          onReset={resetPaperBook}
         />
 
         <Panel kicker="LIVE RESEARCH CONTEXT / NOW" title="目前市場觀測＋模型幾何（只作研究）">
