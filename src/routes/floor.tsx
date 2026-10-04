@@ -1171,6 +1171,54 @@ function Page() {
               </div>
             </div>
           </div>
+        <Panel kicker="OPERATOR DESK / PRIMARY INPUT" title="今日真正操作：投入、BUY / SELL、取消已記錄項目">
+          <div className="rounded-md border border-accent/40 bg-elevated p-4"><div className="grid gap-2 sm:grid-cols-3">
+            <MetricCard kicker="CURRENT MONTH" title={"M" + String(cycleMonth)} detail="新投入／BUY／SELL 預設記入這個 cycle month" />
+            <MetricCard kicker="ACTIVE CONTRIBUTED" title={fmtUsd(contributed, 2)} detail="未取消 Funding entries" />
+            <MetricCard kicker="ACTIVE TRADES" title={fmtUsd(actualBuyNotional + actualSellNotional, 2)} detail="未取消 BUY + SELL notional" />
+          </div></div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-md border border-accent/40 bg-elevated p-4">
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">01 · FUNDING</p>
+              <p className="mt-1 text-sm text-muted">實際掏出的本金。CANCEL 只撤銷統計作用，原始數字保留作 audit。</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-[150px_1fr_auto] sm:items-end">
+                <NumberField label="Cycle month" unit="mo" value={cycleMonth} min={1} max={120} step={1} onChange={(x) => setMonth(clampMonth(x - 1))} />
+                <MoneyField label="Actual cash invested now" value={actualNow} onChange={setActualNow} />
+                <button type="button" disabled={actualNow <= 0 || cumulativeNowAmount > safeCapital + 1e-8} onClick={() => recordPoint("CONTRIBUTION")} className="min-h-11 rounded-md border border-accent/60 bg-accent px-4 text-sm font-medium text-accent-fg disabled:cursor-not-allowed disabled:opacity-40">RECORD CONTRIBUTION</button>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-accent/40 bg-elevated p-4">
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">02 · ACTUAL TRADE</p>
+              <p className="mt-1 text-sm text-muted">真正成交的 QQQ BUY / SELL；SELL 永遠不是 Withdrawal。</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1.5 text-sm"><span className="font-mono text-xs text-subtle">SIDE</span><select value={tradeSide} onChange={(e) => setTradeSide(e.target.value as TradeSide)} className="min-h-11 rounded-md border border-line bg-elevated px-3 font-mono text-sm outline-none"><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
+                <MoneyField label="Executed notional" value={tradeAmountNow} onChange={setTradeAmountNow} />
+                <MoneyField label="Execution price" value={tradePriceNow} onChange={setTradePriceNow} />
+                <label className="grid gap-1.5 text-sm"><span className="font-mono text-xs text-subtle">NOTE</span><input type="text" value={tradeNoteNow} onChange={(e) => setTradeNoteNow(e.target.value)} placeholder="optional" className="min-h-11 rounded-md border border-line bg-elevated px-3 font-mono text-sm outline-none" /></label>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={() => setTradePriceNow(livePrice ?? 0)} disabled={livePrice == null} className="min-h-11 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg disabled:opacity-35">USE QQQ NOW</button><button type="button" onClick={recordActualTrade} disabled={tradeAmountNow <= 0 || tradePriceNow <= 0} className="min-h-11 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated disabled:opacity-35">RECORD {tradeSide}</button></div>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-md border border-line bg-elevated p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-mono text-xs tracking-[0.14em] text-subtle">03 · RECENT RECORDS / CANCEL HERE</p><p className="mt-1 text-sm text-muted">所有已記錄數值都從這裏取消。取消後數值不會變成 0，而是標成 CANCELLED · EXCLUDED；Active totals 會即時下降。</p></div><Badge tone="mute">AUDIT-PRESERVING</Badge></div>
+              <div className="mt-3 grid gap-2">
+                {[
+                  ...ledger.map((entry) => ({ key: "F-" + entry.id, timestamp: entry.recordedAt, month: entry.month + 1, label: entry.kind ?? "CONTRIBUTION", amount: entry.amount, price: entry.price, cancelled: Boolean(entry.voidedAt), onToggle: () => voidLedgerEntry(entry.id) })),
+                  ...tradeLedger.map((entry) => ({ key: "T-" + entry.id, timestamp: entry.recordedAt, month: entry.cycleMonth + 1, label: "TRADE " + entry.side, amount: entry.amount, price: entry.price, cancelled: Boolean(entry.voidedAt), onToggle: () => voidTradeEntry(entry.id) }))
+                ].sort((x, y) => y.timestamp.localeCompare(x.timestamp)).slice(0, 8).map((entry) => (
+                  <div key={entry.key} className={"grid gap-2 rounded-md border border-line px-3 py-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center " + (entry.cancelled ? "opacity-55" : "")}>
+                    <div className="min-w-0"><p className="font-mono text-xs">{entry.label} · M{entry.month} · {fmtUsd(entry.amount, 2)}{entry.price != null ? " @ " + fmtUsd(entry.price, 2) : ""}</p><p className="mt-1 truncate text-[11px] text-subtle">{new Date(entry.timestamp).toLocaleString()}</p></div>
+                    <Badge tone={entry.cancelled ? "lock" : "pass"}>{entry.cancelled ? "CANCELLED · EXCLUDED" : "ACTIVE"}</Badge>
+                    <span className="font-mono text-[11px] text-muted">{entry.cancelled ? "保留原值" : "計入統計"}</span>
+                    <button type="button" onClick={entry.onToggle} className={"min-h-9 rounded-md border px-3 font-mono text-[11px] " + (entry.cancelled ? "border-accent text-fg" : "border-line text-muted hover:text-fg")}>{entry.cancelled ? "RESTORE" : "CANCEL ENTRY"}</button>
+                  </div>
+                ))}
+                {ledger.length + tradeLedger.length === 0 ? <p className="rounded-md border border-dashed border-line p-4 text-sm text-muted">尚未有任何 Funding / BUY / SELL 記錄。</p> : null}
+              </div>
+          </div>
         </Panel>
 
         <div className="grid gap-4 lg:grid-cols-3">
@@ -1635,39 +1683,14 @@ function Page() {
             </div>
 
             <div className="grid content-start gap-3">
-              <NumberField
-                label="Current month in this 10Y cycle"
-                unit="mo"
-                value={month + 1}
-                min={1}
-                max={120}
-                step={1}
-                onChange={(x) => setMonth(clampMonth(x - 1))}
-              />
-              <MoneyField label="Actual cash invested now" value={actualNow} onChange={setActualNow} />
-
-              <div className="rounded-lg border border-line bg-elevated p-3">
-                <p className="font-mono text-xs text-subtle">LIVE PREVIEW</p>
-                <div className="mt-2 grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="font-mono text-[11px] text-subtle">after this point</p>
-                    <p className="font-mono text-lg tabular-nums">{fmtPct(cumulativeNowFraction, 3)}</p>
-                  </div>
-                  <div>
-                    <p className="font-mono text-[11px] text-subtle">delta vs CLOCK</p>
-                    <p className="font-mono text-lg tabular-nums">{fmtPct(cumulativeNowFraction - currentClock, 3)}</p>
-                  </div>
+              <div className="rounded-md border border-accent/40 bg-elevated p-3">
+                <p className="font-mono text-xs text-subtle">PRIMARY INPUT MOVED ↑</p>
+                <p className="mt-1 text-sm text-muted">日常輸入統一放在頁首 Operator Desk。此區只看 10Y 路徑及匯入／匯出，避免同一個數字有兩個輸入入口。</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <MetricCard kicker="CURRENT MONTH" title={"M" + String(cycleMonth)} detail="由 Operator Desk 控制" />
+                  <MetricCard kicker="UNRECORDED INPUT" title={actualNow > 0 ? fmtUsd(actualNow, 2) : "—"} detail="按 RECORD 前仍未入帳" />
                 </div>
               </div>
-
-              <button
-                type="button"
-                disabled={actualNow <= 0 || cumulativeNowAmount > safeCapital + 1e-8}
-                onClick={() => recordPoint("CONTRIBUTION")}
-                className="min-h-11 rounded-md border border-accent/60 bg-accent px-4 text-sm font-medium text-accent-fg disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                記錄今次實際投入
-              </button>
 
               <input
                 ref={importRef}
@@ -1736,31 +1759,16 @@ function Page() {
                 <Badge tone="fragile">SELL {fmtUsd(actualSellNotional, 2)}</Badge>
               </div>
             </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-[auto_1fr_1fr_1fr_auto]">
-              <label className="grid gap-1.5 text-sm">
-                <span className="font-mono text-xs text-subtle">SIDE</span>
-                <select value={tradeSide} onChange={(e) => setTradeSide(e.target.value as TradeSide)} className="min-h-11 rounded-md border border-line bg-elevated px-3 font-mono text-sm outline-none">
-                  <option value="BUY">BUY</option>
-                  <option value="SELL">SELL</option>
-                </select>
-              </label>
-              <MoneyField label="Actual trade notional" value={tradeAmountNow} onChange={setTradeAmountNow} />
-              <MoneyField label="Actual execution price" value={tradePriceNow} onChange={setTradePriceNow} />
-              <label className="grid gap-1.5 text-sm">
-                <span className="font-mono text-xs text-subtle">NOTE</span>
-                <input type="text" value={tradeNoteNow} onChange={(e) => setTradeNoteNow(e.target.value)} placeholder="optional" className="min-h-11 rounded-md border border-line bg-elevated px-3 font-mono text-sm outline-none" />
-              </label>
-              <div className="flex flex-wrap items-end gap-2">
-                <button type="button" onClick={() => setTradePriceNow(livePrice ?? 0)} disabled={livePrice == null} className="min-h-11 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg disabled:opacity-35">USE QQQ NOW</button>
-                <button type="button" onClick={recordActualTrade} disabled={tradeAmountNow <= 0 || tradePriceNow <= 0} className="min-h-11 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated disabled:opacity-35">RECORD {tradeSide}</button>
-              </div>
+            <div className="rounded-md border border-accent/40 bg-elevated p-3">
+              <p className="font-mono text-xs text-subtle">PRIMARY INPUT MOVED ↑</p>
+              <p className="mt-1 text-sm text-muted">BUY / SELL 輸入已集中到頁首 Operator Desk。下面只保留完整成交歷史、CANCEL / RESTORE 與 CSV。</p>
             </div>
             <TradeLedgerTable entries={tradeLedger} onToggleVoid={voidTradeEntry} />
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <button type="button" onClick={pushTradeCsv} className="min-h-10 rounded-md border border-line px-3 text-xs text-muted hover:text-fg">
                 DOWNLOAD TRADE CSV
               </button>
-              <span className="text-xs text-subtle">VOID 只撤銷該筆帳的統計影響；原記錄保留，之後可 RESTORE。</span>
+              <span className="text-xs text-subtle">CANCEL ENTRY 只撤銷該筆帳的統計影響；原記錄保留，並標成 CANCELLED · EXCLUDED，之後可 RESTORE。</span>
             </div>
           </div>
         </Panel>
