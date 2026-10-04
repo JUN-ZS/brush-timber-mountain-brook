@@ -673,9 +673,9 @@ function Page() {
     };
     setDailyDeploymentTape((current) => {
       // DAILY DEPLOYMENT TAPE is an audit snapshot series, not an editable ledger.
-      // Keep one immutable observation for each marketDate + Frontload F. A
-      // different F on the same date is a separate observation; an already
-      // sealed date/F point is never overwritten or cancelled.
+      // Keep at most one active observation for each marketDate + Frontload F. A
+      // different F on the same date is a separate observation. Cancelled rows
+      // remain in the audit history and may later be restored.
       if (current.some((x) => !x.voidedAt && x.marketDate === entry.marketDate && Math.abs(x.frontload - entry.frontload) < 1e-9)) {
         return current;
       }
