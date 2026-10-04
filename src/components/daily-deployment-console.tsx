@@ -120,6 +120,8 @@ export function DailyDeploymentConsole({
   liveMatch,
   frontload,
   onFrontloadChange,
+  showFrontloadControl = true,
+  startingDeployed,
   tape,
   onRecord,
   onExport,
@@ -133,6 +135,8 @@ export function DailyDeploymentConsole({
   liveMatch: LiveHistoryMatch | null;
   frontload: number;
   onFrontloadChange: (value: number) => void;
+  showFrontloadControl?: boolean;
+  startingDeployed: number;
   tape: DailyDeploymentEntry[];
   onRecord: () => void;
   onExport: () => void;
@@ -143,12 +147,14 @@ export function DailyDeploymentConsole({
   const safeCapital = Math.max(1, capital);
   const safeNav = Math.max(0, Number(nav) || 0);
   const safeContributed = Math.max(0, Number(contributed) || 0);
+  const safeStartingDeployed = Math.max(0, Math.min(safeCapital, Number(startingDeployed) || 0));
+  const remainingDeployment = Math.max(0, safeCapital - safeStartingDeployed - safeContributed);
   const target = date ? frontLoadedTarget(safeCapital, frontload, cycleMonth, date) : frontLoadedTarget(safeCapital, frontload, cycleMonth);
-  const gap = deploymentGap(safeNav, target, Math.max(0, safeCapital - safeContributed));
+  const gap = deploymentGap(safeNav, target, remainingDeployment);
 
   const sweep = FRONTLOAD_GRID.map((f) => {
     const t = date ? frontLoadedTarget(safeCapital, f, cycleMonth, date) : frontLoadedTarget(safeCapital, f, cycleMonth);
-    const g = deploymentGap(safeNav, t, Math.max(0, safeCapital - safeContributed));
+    const g = deploymentGap(safeNav, t, remainingDeployment);
     return { f, t, ...g };
   });
 
@@ -158,32 +164,36 @@ export function DailyDeploymentConsole({
         <div className="rounded-md border border-line bg-elevated p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-mono text-xs tracking-[0.14em] text-subtle">FRONTLOAD CONTROL · RESEARCH ONLY</p>
-              <p className="mt-1 text-sm text-muted">同一個 10Y B，只改 target curve 的前置比例；唔改正式 Funding Status，唔產生 broker order。</p>
+              <p className="font-mono text-xs tracking-[0.14em] text-subtle">FRONTLOAD · DEPLOYMENT TARGET ONLY</p>
+              <p className="mt-1 text-sm text-muted">F 只改 deployment target curve；唔會增加 ACTUAL CONTRIBUTED，亦唔會變成 CASH IN。輸入統一放頁首 Operator Desk。</p>
             </div>
             <StatusTone status={gap.status} />
           </div>
-          <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-            <label className="grid gap-2">
-              <span className="font-mono text-xs text-subtle">FRONTLOAD F · {(frontload * 100).toFixed(0)}%</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={frontload}
-                onChange={(e) => onFrontloadChange(Number(e.target.value))}
-                className="w-full accent-[var(--color-accent)]"
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {FRONTLOAD_GRID.map((f) => (
-                <button key={f} type="button" onClick={() => onFrontloadChange(f)} className={"rounded border px-2 py-1 font-mono text-xs " + (Math.abs(frontload - f) < 1e-9 ? "border-accent text-fg" : "border-line text-muted hover:text-fg")}>
-                  {(f * 100).toFixed(0)}%
-                </button>
-              ))}
+          {showFrontloadControl ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+              <label className="grid gap-2">
+                <span className="font-mono text-xs text-subtle">FRONTLOAD F · {(frontload * 100).toFixed(0)}%</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={frontload}
+                  onChange={(e) => onFrontloadChange(Number(e.target.value))}
+                  className="w-full accent-[var(--color-accent)]"
+                />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {FRONTLOAD_GRID.map((f) => (
+                  <button key={f} type="button" onClick={() => onFrontloadChange(f)} className={"rounded border px-2 py-1 font-mono text-xs " + (Math.abs(frontload - f) < 1e-9 ? "border-accent text-fg" : "border-line text-muted hover:text-fg")}>
+                    {(f * 100).toFixed(0)}%
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="mt-3 font-mono text-xs text-subtle">CONTROLLED AT OPERATOR DESK ↑ · current F {(frontload * 100).toFixed(0)}%</p>
+          ) + "}"}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
