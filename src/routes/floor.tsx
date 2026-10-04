@@ -88,7 +88,7 @@ type FloorPersistedState = {
   frontloadPct?: number;
   orderMachine?: OrderMachineState | null;
   nav: number;
-  tradeLedger?: TradeLedgerEntry[];
+  tradeLedger: TradeLedgerEntry[];
 };
 
 function defaultFloorState(): FloorPersistedState {
@@ -100,6 +100,7 @@ function defaultFloorState(): FloorPersistedState {
     marketTape: [],
     dailyDeploymentTape: [],
     nav: 0,
+    tradeLedger: [],
   };
 }
 
