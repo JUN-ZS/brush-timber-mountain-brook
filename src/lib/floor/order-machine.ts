@@ -252,7 +252,9 @@ export function syncOrderMachine(input: {
 export function canFillOrder(state: OrderMachineState, orderId: string, currentPrice: number) {
   const order = state.orders.find((x) => x.id === orderId);
   if (!order || order.status !== "TOUCHED") return false;
-  return touchPrice(order, currentPrice);
+  // TOUCHED is a latched state: once an observed price crossed the limit,
+  // the operator can still confirm the paper fill after the market rebounds.
+  return currentPrice > 0;
 }
 
 export function fillPaperOrder(
