@@ -8,7 +8,7 @@ export const ORDER_RUNG_GRID = [
 
 export type OrderRungKey = (typeof ORDER_RUNG_GRID)[number]["key"];
 export type PaperOrderSide = "BUY" | "SELL";
-export type PaperOrderStatus = "ARMED" | "TOUCHED" | "FILLED" | "CANCELLED" | "SUPERSEDED";
+export type PaperOrderStatus = "ARMED" | "STALE" | "TOUCHED" | "FILLED" | "CANCELLED" | "REPLACED" | "SUPERSEDED";
 
 export type PaperOrder = {
   id: string;
@@ -67,7 +67,7 @@ function openOrderForSide(state: OrderMachineState, side: PaperOrderSide) {
   return state.orders.find(
     (order) =>
       order.side === side &&
-      (order.status === "ARMED" || order.status === "TOUCHED"),
+      (order.status === "ARMED" || order.status === "STALE" || order.status === "TOUCHED"),
   ) ?? null;
 }
 
@@ -210,17 +210,23 @@ export function syncOrderMachine(input: {
 }): OrderMachineState {
   let state = markOrderMachineToMarket(input.state, input.currentPrice, input.now);
   if (state.marketDate !== input.marketDate) {
+    // A real LIMIT order can remain resting overnight. Mark it STALE so the
+    // operator sees that today's ladder changed, but do not silently cancel it.
     state = {
-      ...supersedeOpenOrders(state, input.now),
+      ...state,
+      updatedAt: input.now,
       marketDate: input.marketDate,
+      orders: state.orders.map((order) =>
+        order.status === "ARMED" ? { ...order, status: "STALE" as const } : order,
+      ),
     };
   }
 
   state = {
     ...state,
     orders: state.orders.map((order) => {
-      if (order.status !== "ARMED" || !touchPrice(order, input.currentPrice)) return order;
-      return { ...order, status: "TOUCHED" as const, touchedAt: input.now };
+      if ((order.status !== "ARMED" && order.status !== "STALE") || !touchPrice(order, input.currentPrice)) return order;
+      return { ...order, status: "TOUCHED" as const, touchedAt: order.touchedAt ?? input.now };
     }),
   };
 
@@ -331,7 +337,7 @@ export function cancelPaperOrder(
   now: string,
 ): OrderMachineState {
   const order = state.orders.find((x) => x.id === orderId);
-  if (!order || (order.status !== "ARMED" && order.status !== "TOUCHED")) return state;
+  if (!order || (order.status !== "ARMED" && order.status !== "STALE" && order.status !== "TOUCHED")) return state;
   return {
     ...state,
     updatedAt: now,
@@ -346,6 +352,38 @@ export function cancelPaperOrder(
       order.side === "SELL"
         ? Math.min(ORDER_RUNG_GRID.length, state.nextSellRung + 1)
         : state.nextSellRung,
+  };
+}
+
+export function repricePaperOrder(
+  state: OrderMachineState,
+  orderId: string,
+  now: string,
+  marketDate: string,
+  ladder: LivePriceLadder | null,
+  target: number,
+) {
+  const old = state.orders.find((x) => x.id === orderId);
+  if (!old || (old.status !== "ARMED" && old.status !== "STALE")) return state;
+  if (!ladder) return state;
+  const index = old.side === "BUY" ? state.nextBuyRung : state.nextSellRung;
+  const level = rungLevel(ladder, old.side, index);
+  if (!level?.price) return state;
+  const rung = ORDER_RUNG_GRID[index];
+  if (!rung) return state;
+  const amount = suggestedAmountFor(state, old.side, level, rung.weight, target);
+  const replacement = amount > 0
+    ? makeOrder(state, old.side, index, ladder, target, marketDate, now)
+    : null;
+  if (!replacement) return state;
+  return {
+    ...state,
+    updatedAt: now,
+    marketDate,
+    orders: [
+      ...state.orders.map((x) => x.id === orderId ? { ...x, status: "REPLACED" as const } : x),
+      replacement,
+    ],
   };
 }
 
