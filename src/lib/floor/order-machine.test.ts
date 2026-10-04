@@ -9,6 +9,7 @@ import {
   nextRungLabel,
   paperEconomicWealth,
   repricePaperOrder,
+  restoreCancelledOrder,
   seedOrderMachine,
   syncOrderMachine,
 } from "./order-machine.ts";
@@ -258,4 +259,89 @@ test("cancellation skips the rung instead of silently re-arming it", () => {
   });
   assert.equal(resumed.nextBuyRung, 1);
   assert.equal(activePaperOrders(resumed).find((x) => x.side === "BUY")?.rung, "MID");
+});
+
+test("cancelled rung can be restored when no later rung has filled", () => {
+  const state = seedOrderMachine({
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    qqqPrice: 100,
+    nav: 40_000,
+    capital: 100_000,
+    contributed: 40_000,
+  });
+  const synced = syncOrderMachine({
+    state,
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    target: 60_000,
+  });
+  const buy = activePaperOrders(synced).find((x) => x.side === "BUY");
+  assert(buy);
+
+  const cancelled = cancelPaperOrder(synced, buy.id, "2026-10-04T01:00:00.000Z");
+  assert.equal(cancelled.orders.find((x) => x.id === buy.id)?.status, "CANCELLED");
+  assert.equal(cancelled.nextBuyRung, 1);
+
+  const restored = restoreCancelledOrder(cancelled, buy.id, "2026-10-04T02:00:00.000Z");
+  assert.equal(restored.nextBuyRung, 0);
+  assert.equal(restored.orders.find((x) => x.id === buy.id)?.status, "ARMED");
+
+  const resynced = syncOrderMachine({
+    state: restored,
+    now: "2026-10-04T02:01:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    target: 60_000,
+  });
+  assert.equal(activePaperOrders(resynced).filter((x) => x.side === "BUY").length, 1);
+  assert.equal(activePaperOrders(resynced).find((x) => x.side === "BUY")?.rung, "NEAR");
+});
+
+test("cancelled rung cannot be restored after a later rung has filled", () => {
+  const state = seedOrderMachine({
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    qqqPrice: 100,
+    nav: 40_000,
+    capital: 100_000,
+    contributed: 40_000,
+  });
+  const synced = syncOrderMachine({
+    state,
+    now: "2026-10-04T00:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    target: 60_000,
+  });
+  const buy = activePaperOrders(synced).find((x) => x.side === "BUY");
+  assert(buy);
+  const cancelled = cancelPaperOrder(synced, buy.id, "2026-10-04T01:00:00.000Z");
+  const mid = syncOrderMachine({
+    state: cancelled,
+    now: "2026-10-04T02:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: 100,
+    ladder: ladder(),
+    target: 60_000,
+  });
+  const midOrder = activePaperOrders(mid).find((x) => x.side === "BUY");
+  assert.equal(midOrder?.rung, "MID");
+  const touched = syncOrderMachine({
+    state: mid,
+    now: "2026-10-04T03:00:00.000Z",
+    marketDate: "2026-10-04",
+    currentPrice: midOrder!.limitPrice,
+    ladder: ladder(),
+    target: 60_000,
+  });
+  const filled = fillPaperOrder(touched, midOrder!.id, midOrder!.limitPrice, "2026-10-04T04:00:00.000Z");
+  assert.equal(filled.nextBuyRung, 2);
+  const restored = restoreCancelledOrder(filled, buy.id, "2026-10-04T05:00:00.000Z");
+  assert.equal(restored.orders.find((x) => x.id === buy.id)?.status, "CANCELLED");
+  assert.equal(restored.nextBuyRung, 2);
 });
