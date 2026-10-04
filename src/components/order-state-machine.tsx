@@ -62,6 +62,7 @@ export function OrderStateMachine({
   onFill: (orderId: string) => void;
   onCancel: (orderId: string) => void;
   onReset: () => void;
+  onArm: () => void;
   onReprice: (orderId: string) => void;
   onRestore: (orderId: string) => void;
 }) {
@@ -120,7 +121,7 @@ export function OrderStateMachine({
     .reverse();
 
   return (
-    <Panel kicker="ORDER STATE MACHINE / MANUAL LIMIT DESK" title="掛單狀態機：Price → Touch → Fill → Reserve → Next Level">
+    <Panel kicker="ORDER STATE MACHINE / MANUAL LIMIT DESK" title="Paper execution：Intent → Limit → Touch → Fill（策略本身不在這裡重算）">
       <div className="grid gap-4">
         <div className="rounded-md border border-accent/40 bg-elevated p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -225,11 +226,18 @@ export function OrderStateMachine({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-mono text-xs tracking-[0.14em] text-subtle">STATE TRANSITION LOG</p>
-              <p className="mt-1 text-sm text-muted">PARENT INTENT → RUNG ALLOCATION → STALE/TOUCHED → FILLED；CANCEL 跳過當前 rung；REPRICE 重新以當前 parent intent 放置。</p>
+              <p className="mt-1 text-sm text-muted">Parent intent 決定 BUY/SELL 及總額；本區只處理 limit、rung、touch、fill。RESET 只清 paper orders；ARM 才會重新掛出目前 intent。</p>
             </div>
-            <button type="button" onClick={onReset} className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg">
-              REBASE PAPER BOOK
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {active.length === 0 ? (
+                <button type="button" onClick={onArm} className="min-h-10 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated">
+                  ARM CURRENT INTENT
+                </button>
+              ) : null}
+              <button type="button" onClick={onReset} className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg">
+                RESET PAPER BOOK
+              </button>
+            </div>
           </div>
           <table className="mt-3 w-full min-w-[920px] border-collapse text-xs">
             <thead>
