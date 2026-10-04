@@ -53,6 +53,7 @@ export function OrderStateMachine({
   onCancel,
   onReset,
   onArm,
+  canArm,
   onReprice,
   onRestore,
 }: {
@@ -64,6 +65,7 @@ export function OrderStateMachine({
   onCancel: (orderId: string) => void;
   onReset: () => void;
   onArm: () => void;
+  canArm: boolean;
   onReprice: (orderId: string) => void;
   onRestore: (orderId: string) => void;
 }) {
@@ -99,11 +101,14 @@ export function OrderStateMachine({
           <button
             type="button"
             onClick={onArm}
-            disabled={currentPrice == null}
+            disabled={!canArm}
             className="mt-3 min-h-11 rounded-md border border-accent px-4 font-mono text-xs disabled:opacity-40"
           >
             ARM CURRENT INTENT
           </button>
+          <p className="mt-2 text-xs text-subtle">
+            {canArm ? "READY · QQQ price + market date + price ladder available" : "WAITING · QQQ price, market date, and conditional price ladder must be ready before ARM"}
+          </p>
         </div>
       </Panel>
     );
