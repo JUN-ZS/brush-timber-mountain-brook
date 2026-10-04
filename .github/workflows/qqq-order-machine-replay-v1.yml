@@ -1,4 +1,4 @@
-name: QQQ Order Machine Replay V1
+name: QQQ Order Machine Replay V2
 
 on:
   pull_request:
@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   replay:
-    name: QQQ Order Machine / 153x10Y replay
+    name: QQQ Order Machine / parent-intent contract replay
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
     steps:
@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: "22"
           check-latest: false
-      - name: Run deterministic replay
+      - name: Run deterministic parent-intent contract replay
         run: |
           rm -rf "$RUNNER_TEMP/qqq-order-machine-replay"
           node --experimental-strip-types scripts/run-qqq-order-machine-replay-v1.ts "$RUNNER_TEMP/qqq-order-machine-replay"
@@ -38,7 +38,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qqq-order-machine-replay-v1
+          name: qqq-order-machine-replay-v2
           path: |
             ${{ runner.temp }}/qqq-order-machine-replay/RESULTS_ORDER_MACHINE_REPLAY.json
             ${{ runner.temp }}/qqq-order-machine-replay/RESULTS_ORDER_MACHINE_REPLAY.csv
