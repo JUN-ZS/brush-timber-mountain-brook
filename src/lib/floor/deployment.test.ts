@@ -71,13 +71,13 @@ test("dynamic trade intent exposes the existing deployment gap without inventing
 
 test("frontload changes deployment target, never funding accounting", () => {
   const target20 = dailyDeploymentRecord({
-    recordedAt: "2026-10-04T00:00:00.000Z", marketDate: "2026-10-04", cycleMonth: 1,
+    recordedAt: "2026-01-01T00:00:00.000Z", marketDate: "2026-01-01", cycleMonth: 1,
     capital: 100_000, frontload: 0.2, nav: 20_000, contributed: 0, startingDeployed: 20_000,
     qqqPrice: 100, marketState: "REGULAR",
     dayRatio: 1, weekRatio: 1, monthRatio: 1, dayLevel: "NORMAL", weekLevel: "NORMAL", monthLevel: "NORMAL",
   });
   const target40 = dailyDeploymentRecord({
-    recordedAt: "2026-10-04T00:00:00.000Z", marketDate: "2026-10-04", cycleMonth: 1,
+    recordedAt: "2026-01-01T00:00:00.000Z", marketDate: "2026-01-01", cycleMonth: 1,
     capital: 100_000, frontload: 0.4, nav: 20_000, contributed: 0, startingDeployed: 20_000,
     qqqPrice: 100, marketState: "REGULAR",
     dayRatio: 1, weekRatio: 1, monthRatio: 1, dayLevel: "NORMAL", weekLevel: "NORMAL", monthLevel: "NORMAL",
