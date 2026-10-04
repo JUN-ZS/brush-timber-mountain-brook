@@ -582,6 +582,24 @@ function Page() {
     return qqq?.regularMarketTime?.slice(0, 10) ?? qqq?.bars.at(-1)?.date ?? null;
   }
 
+  function corePriceLadder() {
+    const ladder = liveMatch?.priceLadder;
+    if (!ladder) return null;
+    const keep = (rows: typeof ladder.add) =>
+      rows.filter(
+        (row) =>
+          (row.horizon === 1 && Math.abs(row.touchProbability - 0.7) < 1e-9) ||
+          (row.horizon === 5 && Math.abs(row.touchProbability - 0.5) < 1e-9) ||
+          (row.horizon === 21 && Math.abs(row.touchProbability - 0.3) < 1e-9),
+      );
+    return {
+      add: keep(ladder.add),
+      reduce: keep(ladder.reduce),
+      samples: ladder.samples,
+      quality: ladder.quality,
+    };
+  }
+
   function sealDailyDeployment() {
     const marketDate = currentMarketDate();
     if (!marketDate) {
@@ -605,7 +623,7 @@ function Page() {
       dayLevel: liveMatch?.day.level ?? "UNKNOWN",
       weekLevel: liveMatch?.week.level ?? "UNKNOWN",
       monthLevel: liveMatch?.month.level ?? "UNKNOWN",
-      priceLadder: liveMatch?.priceLadder ?? null,
+      priceLadder: corePriceLadder(),
     });
     const entry: DailyDeploymentEntry = {
       ...row,
