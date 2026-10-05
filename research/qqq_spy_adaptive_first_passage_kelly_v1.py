@@ -291,6 +291,107 @@ def kelly_risk(p, b):
     return float(np.clip(FRACTIONAL_KELLY * f, 0.0, MAX_RISK))
 
 
+
+def build_fixed_cycles(con, state, qpath, spath):
+    e = state[state.d_score.notna()].reset_index(drop=True)
+    cycles = []
+    active = None
+    blocked = False
+    no = 0
+
+    for row in e.itertuples(index=False):
+        d = pd.Timestamp(row.entry_date)
+        score = float(row.d_score)
+        if active is None:
+            if blocked:
+                if abs(score) <= 2.0:
+                    blocked = False
+                else:
+                    continue
+            if abs(score) < ENTRY_H:
+                continue
+            direction = 1 if score > 0 else -1
+            pair = make_pair(con, qpath, spath, d, direction, f"fixed_{no:04d}_layer_1")
+            if pair is None:
+                continue
+            active = {
+                "cycle": no,
+                "direction": direction,
+                "entry_date": d,
+                "entry_score": score,
+                "layers": [{
+                    "layer": 1,
+                    "entry_date": d,
+                    "entry_score": score,
+                    "pair": pair,
+                    "threshold": ENTRY_H,
+                    "probability": np.nan,
+                    "samples": 0,
+                    "prob_source": "FIXED",
+                    "payoff_ratio": np.nan,
+                    "payoff_samples": 0,
+                    "desired_cycle_risk_pct": MAX_RISK,
+                    "add_risk_pct": MAX_RISK,
+                }],
+                "risk_open": MAX_RISK,
+                "expiry_limit": d + pd.Timedelta(days=MAX_HOLD_DAYS),
+            }
+            no += 1
+            continue
+
+        target = score * active["direction"]
+        if target <= -OPPOSITE_H:
+            active["exit_date"] = d
+            active["exit_score"] = score
+            active["exit_reason"] = "OPPOSITE_BOUNDARY"
+            cycles.append(active)
+            pair = make_pair(
+                con, qpath, spath, d, -active["direction"],
+                f"fixed_{no:04d}_layer_1",
+            )
+            if pair is None:
+                active = None
+                blocked = True
+                continue
+            active = {
+                "cycle": no,
+                "direction": -active["direction"],
+                "entry_date": d,
+                "entry_score": score,
+                "layers": [{
+                    "layer": 1,
+                    "entry_date": d,
+                    "entry_score": score,
+                    "pair": pair,
+                    "threshold": ENTRY_H,
+                    "probability": np.nan,
+                    "samples": 0,
+                    "prob_source": "FIXED",
+                    "payoff_ratio": np.nan,
+                    "payoff_samples": 0,
+                    "desired_cycle_risk_pct": MAX_RISK,
+                    "add_risk_pct": MAX_RISK,
+                }],
+                "risk_open": MAX_RISK,
+                "expiry_limit": d + pd.Timedelta(days=MAX_HOLD_DAYS),
+            }
+            no += 1
+        elif d >= active["expiry_limit"]:
+            active["exit_date"] = d
+            active["exit_score"] = score
+            active["exit_reason"] = "TIME_EXIT"
+            cycles.append(active)
+            active = None
+            blocked = True
+
+    if active is not None:
+        active["exit_date"] = pd.Timestamp(e.entry_date.iloc[-1])
+        active["exit_score"] = float(e.d_score.iloc[-1])
+        active["exit_reason"] = "SAMPLE_END"
+        cycles.append(active)
+    return cycles
+
+
 def build_current_cycles(con, state, qpath, spath):
     e = state[state.d_score.notna()].reset_index(drop=True)
     cycles = []
@@ -368,15 +469,31 @@ def build_current_cycles(con, state, qpath, spath):
             active["next_layer"] = 1 if level == 3.0 else 2 if level == 6.0 else 3
 
         if active["layers"] and target <= -OPPOSITE_H:
+            old_direction = active["direction"]
             active["exit_date"] = d
             active["exit_score"] = score
             active["exit_reason"] = "OPPOSITE_BOUNDARY"
             cycles.append(active)
 
-            # Reverse immediately; its risk budget is recomputed from then-current information.
+            # Reverse on the same observed boundary day; sizing uses only data
+            # whose labels/payoffs ended before this date.
+            new_direction = -old_direction
+            pair = make_pair(
+                con, qpath, spath, d, new_direction,
+                f"cycle_{no:04d}_layer_3",
+            )
+            if pair is None:
+                active = None
+                blocked = True
+                no += 1
+                continue
+
+            p, n, source = posterior_probability(LABELS, d, new_direction, abs(score))
+            b, bn = payoff_ratio(HISTORY, d, new_direction)
+            desired = kelly_risk(p, b)
             active = {
                 "cycle": no,
-                "direction": -active["direction"],
+                "direction": new_direction,
                 "entry_date": d,
                 "entry_score": score,
                 "layers": [],
@@ -384,6 +501,22 @@ def build_current_cycles(con, state, qpath, spath):
                 "risk_open": 0.0,
                 "expiry_limit": d + pd.Timedelta(days=MAX_HOLD_DAYS),
             }
+            if desired > 0:
+                active["layers"].append({
+                    "layer": 1,
+                    "entry_date": d,
+                    "entry_score": score,
+                    "pair": pair,
+                    "threshold": ENTRY_H,
+                    "probability": p,
+                    "samples": n,
+                    "prob_source": source,
+                    "payoff_ratio": b,
+                    "payoff_samples": bn,
+                    "desired_cycle_risk_pct": desired,
+                    "add_risk_pct": desired,
+                })
+                active["risk_open"] = desired
             no += 1
 
         elif active["layers"] and d >= active["expiry_limit"]:
@@ -539,6 +672,119 @@ def simulate(con, state, qpath, spath, valuation_dates, name):
     return result, cr, state_report
 
 
+
+def simulate_cycles(con, cycles, qpath, spath, valuation_dates, name):
+    flat = flatten(cycles)
+    if not flat:
+        return {
+            "name": name, "cycles": 0, "entries": 0, "ending_nav": 100000.0,
+            "cagr": 0.0, "maxdd": 0.0, "sharpe": 0.0,
+            "mean_cycle_risk_pct": 0.0, "mean_p_hit": np.nan,
+            "mean_layers": 0.0, "full_ladders": 0, "positive_cycles": 0,
+        }, pd.DataFrame()
+
+    marks = unit_marks(con, qpath, spath, flat)
+    mk = {
+        (r.contract_id, r.date): (float(r.bid), float(r.ask), float(r.mark))
+        for r in marks.itertuples(index=False)
+    }
+    events = {}
+    for c in cycles:
+        events.setdefault(pd.Timestamp(c["exit_date"]), []).append(("CLOSE", c))
+        for l in c["layers"]:
+            events.setdefault(pd.Timestamp(l["entry_date"]), []).append(("OPEN", (c, l)))
+
+    nav = 100000.0
+    realized = 0.0
+    openpos = []
+    rows = []
+    reports = []
+
+    for d in valuation_dates:
+        for action, c in events.get(d, []):
+            if action != "CLOSE":
+                continue
+            pnl = 0.0
+            ok = True
+            for p in openpos[:]:
+                if p["cycle"] != c["cycle"]:
+                    continue
+                v, valid = pair_value(p, mk, d, p["qty"])
+                if valid:
+                    realized += v
+                    pnl += v
+                    openpos.remove(p)
+                else:
+                    ok = False
+            reports.append({
+                "cycle": c["cycle"], "entry": c["entry_date"], "exit": c["exit_date"],
+                "direction": c["direction"], "entry_score": c["entry_score"],
+                "exit_score": c["exit_score"], "reason": c["exit_reason"],
+                "layers": len(c["layers"]),
+                "risk_pct_sum": sum(l["add_risk_pct"] for l in c["layers"]),
+                "realized_pnl": pnl if ok else np.nan,
+                "mean_p_hit": float(np.nanmean([l["probability"] for l in c["layers"]]))
+                    if any(np.isfinite(l["probability"]) for l in c["layers"]) else np.nan,
+            })
+
+        for action, item in events.get(d, []):
+            if action != "OPEN":
+                continue
+            c, l = item
+            add_risk = float(l["add_risk_pct"])
+            if add_risk <= 0 or not np.isfinite(add_risk):
+                continue
+            per_leg_risk = max(nav, 1.0) * add_risk / 2.0
+            pair = l["pair"]
+            qty = min(
+                per_leg_risk / max(float(pair[0]["risk"]), 1e-9),
+                per_leg_risk / max(float(pair[1]["risk"]), 1e-9),
+            )
+            if qty <= 0 or not np.isfinite(qty):
+                continue
+            for p in pair:
+                p2 = p.copy()
+                p2["qty"] = float(qty)
+                p2["cycle"] = c["cycle"]
+                p2["layer"] = l["layer"]
+                openpos.append(p2)
+
+        mtm = 0.0
+        for p in openpos:
+            v, valid = pair_mtm(p, mk, d, p["qty"])
+            if valid:
+                mtm += v
+        nav = 100000.0 + realized + mtm
+        rows.append((d, nav))
+
+    e = pd.DataFrame(rows, columns=["date", "eq"])
+    years = max((e.date.iloc[-1] - e.date.iloc[0]).days / 365.25, 1 / 365.25)
+    ending = float(e["eq"].iloc[-1])
+    cagr = (ending / 100000.0) ** (1.0 / years) - 1.0
+    dd = float((e["eq"] / e["eq"].cummax() - 1.0).min())
+    ret = e["eq"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    sharpe = float(ret.mean() / ret.std(ddof=1) * math.sqrt(252)) if ret.std(ddof=1) > 0 else 0.0
+    cr = pd.DataFrame(reports)
+
+    all_layers = [l for c in cycles for l in c["layers"]]
+    result = {
+        "name": name,
+        "cycles": len(cycles),
+        "entries": len(flat),
+        "ending_nav": ending,
+        "cagr": float(cagr),
+        "maxdd": dd,
+        "sharpe": sharpe,
+        "mean_cycle_risk_pct": float(np.mean([sum(l["add_risk_pct"] for l in c["layers"]) for c in cycles])),
+        "mean_p_hit": float(np.nanmean([l["probability"] for l in all_layers])) if all_layers else np.nan,
+        "mean_layers": float(np.mean([len(c["layers"]) for c in cycles])),
+        "full_ladders": int(sum(len(c["layers"]) >= 3 for c in cycles)),
+        "positive_cycles": int((cr.realized_pnl > 0).sum()) if not cr.empty else 0,
+    }
+    cr["strategy"] = name
+    return result, cr
+
+
 def main():
     global LABELS, HISTORY
 
@@ -571,10 +817,17 @@ def main():
     daily_q = load_px(con, qu, "Q")
     valuation_dates = [pd.Timestamp(x) for x in daily_q.date if START <= x.strftime("%Y-%m-%d") <= END]
 
-    rr, cycles, state_report = simulate(con, state, qpath, spath, valuation_dates, "A_ADAPTIVE_FIRST_PASSAGE_KELLY")
-    pd.DataFrame([rr]).to_csv(o / "results.csv", index=False)
-    cycles.to_csv(o / "cycles.csv", index=False)
-    state_report.to_csv(o / "state_replay.csv", index=False)
+    adaptive_cycles = build_current_cycles(con, state, qpath, spath)
+    fixed_cycles = build_fixed_cycles(con, state, qpath, spath)
+
+    rr_fixed, cr_fixed = simulate_cycles(con, fixed_cycles, qpath, spath, valuation_dates, "A_FIXED_5PCT_FIRST_PASSAGE")
+    rr_adaptive, cr_adaptive = simulate_cycles(con, adaptive_cycles, qpath, spath, valuation_dates, "B_ADAPTIVE_FIRST_PASSAGE_KELLY")
+
+    pd.DataFrame([rr_fixed, rr_adaptive]).to_csv(o / "results.csv", index=False)
+    pd.concat([cr_fixed.assign(strategy="A_FIXED_5PCT_FIRST_PASSAGE"),
+               cr_adaptive.assign(strategy="B_ADAPTIVE_FIRST_PASSAGE_KELLY")],
+              ignore_index=True).to_csv(o / "cycles.csv", index=False)
+    state.to_csv(o / "state_replay.csv", index=False)
 
     methodology = {
         "name": "Adaptive First-Passage Kelly V1",
