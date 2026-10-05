@@ -854,7 +854,8 @@ def main():
         "",
         "| strategy | cycles | ending NAV | CAGR | MaxDD | Sharpe | mean cycle risk | mean p(hit) | mean layers | full ladders | positive cycles |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
-        f"| {rr['name']} | {rr['cycles']} | {rr['ending_nav']:.2f} | {rr['cagr']:.2%} | {rr['maxdd']:.2%} | {rr['sharpe']:.2f} | {rr['mean_cycle_risk_pct']:.2%} | {rr['mean_p_hit']:.3f} | {rr['mean_layers']:.2f} | {rr['full_ladders']} | {rr['positive_cycles']} |",
+        f"| {rr_fixed['name']} | {rr_fixed['cycles']} | {rr_fixed['ending_nav']:.2f} | {rr_fixed['cagr']:.2%} | {rr_fixed['maxdd']:.2%} | {rr_fixed['sharpe']:.2f} | {rr_fixed['mean_cycle_risk_pct']:.2%} | {rr_fixed['mean_p_hit']:.3f} | {rr_fixed['mean_layers']:.2f} | {rr_fixed['full_ladders']} | {rr_fixed['positive_cycles']} |",
+        f"| {rr_adaptive['name']} | {rr_adaptive['cycles']} | {rr_adaptive['ending_nav']:.2f} | {rr_adaptive['cagr']:.2%} | {rr_adaptive['maxdd']:.2%} | {rr_adaptive['sharpe']:.2f} | {rr_adaptive['mean_cycle_risk_pct']:.2%} | {rr_adaptive['mean_p_hit']:.3f} | {rr_adaptive['mean_layers']:.2f} | {rr_adaptive['full_ladders']} | {rr_adaptive['positive_cycles']} |",
         "",
         "Research diagnostic only. All training labels/payoff observations are purged so their information ends before the current sizing date.",
     ]
