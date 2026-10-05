@@ -151,9 +151,10 @@ def unit_marks(con,qpath,spath,positions):
             out.append(d)
     return pd.concat(out,ignore_index=True) if out else pd.DataFrame()
 
-def simulate(con,state,qpath,spath,name,mode):
+def simulate(con,state,qpath,spath,name,mode,include_spy=True):
     days=entry_days(state)
     st=state.set_index("date")
+    state_days=sorted(pd.to_datetime(state.date).tolist())
     candidates=[]
     last_q=pd.Timestamp.min; last_s=pd.Timestamp.min
     for d in days:
@@ -162,24 +163,27 @@ def simulate(con,state,qpath,spath,name,mode):
         if not eligible(s,mode): continue
         q=None; sp=None
         if d>=last_q: q=qqq_rc(con,qpath,d)
-        if d>=last_s: sp=spy_ic(con,spath,d)
+        if include_spy and d>=last_s: sp=spy_ic(con,spath,d)
         if q:
             q["name"]=f"{name}_Q_{len(candidates)}"; candidates.append(q)
-            last_q=q["expiry"]-pd.Timedelta(days=q["exit_dte"])
+            target_exit=q["expiry"]-pd.Timedelta(days=q["exit_dte"])
+            ix=max(0, np.searchsorted(state_days,target_exit,side="right")-1)
+            last_q=pd.Timestamp(state_days[ix])
         if sp:
             sp["name"]=f"{name}_S_{len(candidates)}"; candidates.append(sp)
-            last_s=sp["expiry"]-pd.Timedelta(days=sp["exit_dte"])
+            target_exit=sp["expiry"]-pd.Timedelta(days=sp["exit_dte"])
+            ix=max(0, np.searchsorted(state_days,target_exit,side="right")-1)
+            last_s=pd.Timestamp(state_days[ix])
     if not candidates:
         return {"name":name,"entries":0,"ending_nav":100000.0,"cagr":0.0,"maxdd":0.0,"sharpe":0.0,"q_entries":0,"s_entries":0}
     marks=unit_marks(con,qpath,spath,candidates)
     mk={(r.contract_id,r.date):(float(r.bid),float(r.ask),float(r.mark)) for r in marks.itertuples(index=False)}
     nav=100000.0; openpos=[]; realized=0.0; rows=[]; used=set(); qn=sum(p["symbol"]=="QQQ" for p in candidates); sn=sum(p["symbol"]=="SPY" for p in candidates)
-    state_days=state.date.tolist()
     for d in state_days:
         # open candidates at entry date; size from current marked NAV, 5% total risk split 60/40
         for p in candidates:
             if p["name"] in used or p["entry"]!=d: continue
-            share=.60 if p["symbol"]=="QQQ" else .40
+            share=(1.0 if not include_spy else (.60 if p["symbol"]=="QQQ" else .40))
             qty=max(1,int(math.floor((nav*.05*share)/p["risk"]))) if p["risk"]>0 else 0
             if qty<=0: used.add(p["name"]); continue
             p2=p.copy(); p2["qty"]=qty; openpos.append(p2); used.add(p["name"])
@@ -195,7 +199,7 @@ def simulate(con,state,qpath,spath,name,mode):
                     fill=b if l[4]==1 else a
                     v += l[4]*fill*M*p["qty"]
                 if ok:
-                    entry_cf=-p["entry_value"]*p["qty"]
+                    entry_cf=(-p["entry_value"] if p["symbol"]=="QQQ" else p["entry_value"])*p["qty"]
                     realized += entry_cf+v
                 else:
                     still.append(p)
@@ -231,16 +235,13 @@ def main():
         assert Path(p).exists(), p
     con=duckdb.connect()
     st=build_state(con,qu,su); st.to_csv(o/"state.csv",index=False)
-    cfg=[("A_QQQ_ONLY","none"),("B_PAIR_UNFILTERED","none"),("C_PAIR_RANGE_LEAD","lead"),("D_PAIR_RESIDUAL","residual")]
-    res=[]
-    # A is implemented as QQQ only by using an alternate simulation loop through a filtered candidate builder.
-    for name,mode in cfg:
-        if name=="A_QQQ_ONLY":
-            # temporarily simulate with SPY source inaccessible by setting its risk share to zero is not worth duplicating;
-            # B/C/D are the actual pair candidates requested.
-            res.append({"name":name,"status":"baseline_not_run_in_pair_engine"})
-        else:
-            res.append(simulate(con,st,qpath,spath,name,mode))
+    cfg=[
+      ("A_QQQ_ONLY","none",False),
+      ("B_PAIR_UNFILTERED","none",True),
+      ("C_PAIR_RANGE_LEAD","lead",True),
+      ("D_PAIR_RESIDUAL","residual",True)
+    ]
+    res=[simulate(con,st,qpath,spath,name,mode,include_spy) for name,mode,include_spy in cfg]
     (o/"results.json").write_text(json.dumps(res,indent=2),encoding="utf-8")
     lines=[
       "# QQQ-SPY Relative Range Convexity V1 — real-chain replay",
@@ -261,7 +262,7 @@ def main():
         if "ending_nav" in r:
             lines.append(f"| {r['name']} | {r['entries']} | {r['ending_nav']:.2f} | {r['cagr']:.2%} | {r['maxdd']:.2%} | {r['sharpe']:.2f} | {r['q_entries']} | {r['s_entries']} |")
         else: lines.append(f"| {r['name']} | — | — | — | — | — | — | — |")
-    lines += ["","This is not yet a production strategy. The next pass should sweep fixed DTE/wing families and run walk-forward/OOS, while keeping the real-chain fill convention unchanged."]
+    lines += ["","Accounting audit: QQQ entry is a debit; SPY entry is a credit; both are realized with the correct sign. Exit dates are mapped to the last available trading day on or before the target DTE.","","This is not yet a production strategy. The next pass should sweep fixed DTE/wing families and run walk-forward/OOS, while keeping the real-chain fill convention unchanged."]
     (o/"RESULTS.md").write_text("\n".join(lines),encoding="utf-8")
 
 if __name__=="__main__": main()
