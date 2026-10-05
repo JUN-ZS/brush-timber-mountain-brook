@@ -73,7 +73,7 @@ jobs:
         run: |
           mkdir -p data artifacts/adaptive_windows
           curl.exe -L --fail --retry 4 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
-          curl.exe -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
+          curl.exe -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
           curl.exe -L --fail --retry 4 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
           curl.exe -L --fail --retry 4 -o data/SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
       - name: Compile and run
