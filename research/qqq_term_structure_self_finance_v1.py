@@ -39,6 +39,7 @@ def load_px(con, path, prefix):
         columns={
             "close_px": prefix + "_px",
             "rv5": prefix + "_rv5",
+            "rv14": prefix + "_rv14",
             "rv20": prefix + "_rv20",
             "rv30": prefix + "_rv30",
             "rv60": prefix + "_rv60",
