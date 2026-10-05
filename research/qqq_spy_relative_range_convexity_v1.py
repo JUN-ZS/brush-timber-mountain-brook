@@ -15,7 +15,7 @@ def pathq(p): return str(p).replace("'", "''")
 
 def load_px(con, path, prefix):
     d = sql(con, f"""
-      SELECT CAST(date AS DATE) date, CAST(close AS DOUBLE) close
+      SELECT CAST(date AS DATE) date, CAST("close" AS DOUBLE) close
       FROM read_parquet('{pathq(path)}')
       WHERE CAST(date AS DATE) BETWEEN DATE '2011-01-01' AND DATE '2025-12-31'
       ORDER BY date
