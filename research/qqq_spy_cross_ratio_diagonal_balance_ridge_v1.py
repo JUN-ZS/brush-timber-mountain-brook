@@ -300,7 +300,7 @@ def simulate_config(con, qpath, spath, qspots, sspots, dates, factor_hist, long_
                 opt["entry_date"] = d
                 long_current = make_position(long_asset, opt, +1, d)
                 long_current["option"] = opt
-                records.append(long_current.copy())
+                records.append(long_current)
 
         if short_current is not None:
             short_current["exit_date"] = d
@@ -332,7 +332,7 @@ def simulate_config(con, qpath, spath, qspots, sspots, dates, factor_hist, long_
         sp = make_position(short_asset, sopt, -1, d, qty=n)
         sp["option"] = sopt
         short_current = sp
-        records.append(sp.copy())
+        records.append(sp)
 
         balance_rows.append({
             "date": d,
