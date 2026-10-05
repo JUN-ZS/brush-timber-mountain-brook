@@ -47,7 +47,7 @@ def get_chain(con,path,symbol,date,lo,hi):
     d=date.strftime("%Y-%m-%d")
     return sql(con,f"""
       SELECT CAST(contract_id AS VARCHAR) contract_id, CAST(expiration AS DATE) expiration, CAST(strike AS DOUBLE) strike,
-             UPPER("type") type, CAST(bid AS DOUBLE) bid, CAST(ask AS DOUBLE) ask,
+             LOWER("type") type, CAST(bid AS DOUBLE) bid, CAST(ask AS DOUBLE) ask,
              COALESCE(CAST(volume AS DOUBLE),0) volume,
              COALESCE(CAST(open_interest AS DOUBLE),0) open_interest,
              CAST(delta AS DOUBLE) delta, CAST(implied_volatility AS DOUBLE) implied_volatility
@@ -141,7 +141,7 @@ def unit_marks(con,qpath,spath,positions):
         if not idlist: continue
         vals=",".join("'"+x.replace("'","''")+"'" for x in idlist)
         path=qpath if sym=="QQQ" else spath
-        d=sql(con,f"""SELECT contract_id,CAST(date AS DATE) date,bid,ask,mark
+        d=sql(con,f"""SELECT CAST(contract_id AS VARCHAR) contract_id,CAST(date AS DATE) date,CAST(bid AS DOUBLE) bid,CAST(ask AS DOUBLE) ask
                       FROM read_parquet('{pathq(path)}')
                       WHERE contract_id IN ({vals}) ORDER BY date""")
         if not d.empty:
