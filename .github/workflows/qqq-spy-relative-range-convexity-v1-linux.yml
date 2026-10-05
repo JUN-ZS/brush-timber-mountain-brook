@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   replay:
-    runs-on: [self-hosted, linux, x64, grokbot-box-linux-x64]
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 240
     defaults:
       run:
