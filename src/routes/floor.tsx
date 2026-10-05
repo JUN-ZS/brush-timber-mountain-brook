@@ -980,12 +980,25 @@ function Page() {
       setTransferNotice("START not applied · fill B, start month, OPENING DEPLOYED, NAV, Frontload and CASH IN");
       return;
     }
-    const capitalValue = Math.max(1, d.capital);
-    const monthValue = Math.max(1, Math.min(120, Math.round(d.month)));
-    const openingValue = Math.max(0, d.startingDeployed);
-    const navValue = Math.max(0, d.nav);
-    const frontloadValue = Math.max(0, Math.min(1, d.frontloadPct));
-    const cashInValue = Math.max(0, d.cashIn);
+    if (
+      !(d.capital > 0) ||
+      !(d.month >= 1 && d.month <= 120) ||
+      d.startingDeployed < 0 ||
+      d.nav < 0 ||
+      d.frontloadPct < 0 ||
+      d.frontloadPct > 1 ||
+      d.cashIn < 0
+    ) {
+      setTransferNotice("START not applied · invalid start value; check ranges before APPLY");
+      return;
+    }
+
+    const capitalValue = d.capital;
+    const monthValue = Math.round(d.month);
+    const openingValue = d.startingDeployed;
+    const navValue = d.nav;
+    const frontloadValue = d.frontloadPct;
+    const cashInValue = d.cashIn;
     if (openingValue > capitalValue + 1e-8 || openingValue + cashInValue > capitalValue + 1e-8) {
       setTransferNotice("START not applied · OPENING DEPLOYED + CASH IN cannot exceed B");
       return;
