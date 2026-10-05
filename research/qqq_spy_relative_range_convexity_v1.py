@@ -63,6 +63,7 @@ def get_chain(con,path,symbol,date,lo,hi):
 def liquid(df):
     if df.empty: return df
     z=df.copy()
+    z["mark"]=(z.ask+z.bid)/2.0
     z["spr"]=(z.ask-z.bid)/z.mark.replace(0,np.nan)
     return z[np.isfinite(z.spr)&(z.spr<=0.35)]
 
@@ -167,7 +168,7 @@ def simulate(con,state,qpath,spath,name,mode,include_spy=True):
         if q:
             q["name"]=f"{name}_Q_{len(candidates)}"; candidates.append(q)
             target_exit=q["expiry"]-pd.Timedelta(days=q["exit_dte"])
-            ix=max(0, np.searchsorted(state_days,target_exit,side="right")-1)
+            ix=max(0, np.searchsorted(state_days,target_exit,side="left"))
             last_q=pd.Timestamp(state_days[ix])
         if sp:
             sp["name"]=f"{name}_S_{len(candidates)}"; candidates.append(sp)
