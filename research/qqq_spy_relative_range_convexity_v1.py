@@ -175,12 +175,12 @@ def simulate(con,state,qpath,spath,name,mode,include_spy=True):
         if q:
             q["name"]=f"{name}_Q_{len(candidates)}"; candidates.append(q)
             target_exit=q["expiry"]-pd.Timedelta(days=q["exit_dte"])
-            ix=max(0, np.searchsorted(state_days,target_exit,side="left"))
+            ix=min(len(state_days)-1, max(0, np.searchsorted(state_days,target_exit,side="left")))
             last_q=pd.Timestamp(state_days[ix])
         if sp:
             sp["name"]=f"{name}_S_{len(candidates)}"; candidates.append(sp)
             target_exit=sp["expiry"]-pd.Timedelta(days=sp["exit_dte"])
-            ix=max(0, np.searchsorted(state_days,target_exit,side="right")-1)
+            ix=min(len(state_days)-1, max(0, np.searchsorted(state_days,target_exit,side="left")))
             last_s=pd.Timestamp(state_days[ix])
     if not candidates:
         return {"name":name,"entries":0,"ending_nav":100000.0,"cagr":0.0,"maxdd":0.0,"sharpe":0.0,"q_entries":0,"s_entries":0}
