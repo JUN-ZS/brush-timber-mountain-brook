@@ -271,10 +271,10 @@ def simulate_ladder(con, state, qpath, spath, name, thresholds, weights, valuati
 
     e = pd.DataFrame(rows, columns=["date", "eq"])
     years = max((e.date.iloc[-1] - e.date.iloc[0]).days / 365.25, 1 / 365.25)
-    ending = float(e.eq.iloc[-1])
+    ending = float(e["eq"].iloc[-1])
     cagr = (ending / 100000.0) ** (1 / years) - 1
-    dd = float((e.eq / e.eq.cummax() - 1).min())
-    r = e.eq.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
+    dd = float((e["eq"] / e["eq"].cummax() - 1).min())
+    r = e["eq"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
     sh = float(r.mean() / r.std(ddof=1) * math.sqrt(252)) if r.std(ddof=1) > 0 else 0.0
 
     cr = pd.DataFrame(cycle_results)
