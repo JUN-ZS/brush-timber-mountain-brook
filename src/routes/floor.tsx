@@ -88,6 +88,9 @@ type FloorPersistedState = {
   dailyDeploymentTape?: DailyDeploymentEntry[];
   frontloadPct?: number;
   orderMachine?: OrderMachineState | null;
+  startDate?: string | null;
+  startMonth?: number | null;
+  monthMode?: "AUTO" | "MANUAL";
   nav: number;
   tradeLedger: TradeLedgerEntry[];
 };
@@ -217,6 +220,12 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
     dailyDeploymentTape,
     frontloadPct,
     orderMachine: validOrderMachineState(obj.orderMachine) ? obj.orderMachine : null,
+    startDate: typeof obj.startDate === "string" ? obj.startDate.slice(0, 10) : null,
+    startMonth:
+      Number.isInteger(Number(obj.startMonth)) && Number(obj.startMonth) >= 1 && Number(obj.startMonth) <= 120
+        ? Math.round(Number(obj.startMonth))
+        : null,
+    monthMode: obj.monthMode === "AUTO" ? "AUTO" : "MANUAL",
     nav,
     tradeLedger: Array.isArray(obj.tradeLedger) ? obj.tradeLedger.filter(validTradeLedgerEntry) : [],
   };
@@ -269,6 +278,9 @@ function writeFloorState(state: FloorPersistedState) {
         dailyDeploymentTape: state.dailyDeploymentTape,
         frontloadPct: state.frontloadPct,
         orderMachine: state.orderMachine,
+        startDate: state.startDate ?? null,
+        startMonth: state.startMonth ?? null,
+        monthMode: state.monthMode ?? "MANUAL",
         nav: state.nav,
         tradeLedger: state.tradeLedger,
       }),
@@ -279,6 +291,17 @@ function writeFloorState(state: FloorPersistedState) {
   } catch {
       // Ignore malformed local state; safe defaults remain in memory.
     }
+}
+
+function elapsedWholeCalendarMonths(startDate: string, currentDate: string) {
+  const start = new Date(startDate + "T00:00:00Z");
+  const current = new Date(currentDate + "T00:00:00Z");
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(current.getTime()) || current < start) return 0;
+  let months =
+    (current.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+    (current.getUTCMonth() - start.getUTCMonth());
+  if (current.getUTCDate() < start.getUTCDate()) months -= 1;
+  return Math.max(0, months);
 }
 
 function Page() {
@@ -293,6 +316,9 @@ function Page() {
   const [dailyDeploymentTape, setDailyDeploymentTape] = useState<DailyDeploymentEntry[]>([]);
   const [frontloadPct, setFrontloadPct] = useState(0.4);
   const [orderMachine, setOrderMachine] = useState<OrderMachineState | null>(null);
+  const [startDate, setStartDate] = useState<string | null>(null);
+  const [startMonth, setStartMonth] = useState<number | null>(null);
+  const [monthMode, setMonthMode] = useState<"AUTO" | "MANUAL">("MANUAL");
   const [nav, setNav] = useState(0);
   const [tradeLedger, setTradeLedger] = useState<TradeLedgerEntry[]>([]);
   const [tradeSide, setTradeSide] = useState<TradeSide>("BUY");
@@ -368,6 +394,17 @@ function Page() {
     setDailyDeploymentTape(loaded.dailyDeploymentTape ?? []);
     setFrontloadPct(loaded.frontloadPct ?? 0.4);
     setOrderMachine(loaded.orderMachine ?? null);
+    setStartDate(loaded.startDate ?? null);
+    setStartMonth(loaded.startMonth ?? loaded.month + 1);
+    setMonthMode(loaded.monthMode === "AUTO" && loaded.startDate && loaded.startMonth ? "AUTO" : "MANUAL");
+    if (loaded.monthMode === "AUTO" && loaded.startDate && loaded.startMonth) {
+      const today = new Date().toISOString().slice(0, 10);
+      const advanced = Math.min(
+        119,
+        Math.max(0, (loaded.startMonth - 1) + elapsedWholeCalendarMonths(loaded.startDate, today)),
+      );
+      setMonth(advanced);
+    }
     setNav(loaded.nav);
     setTradeLedger(loaded.tradeLedger ?? []);
     setStartDraft({
@@ -393,10 +430,13 @@ function Page() {
       dailyDeploymentTape,
       frontloadPct,
       orderMachine,
+      startDate,
+      startMonth,
+      monthMode,
       nav,
       tradeLedger,
     });
-  }, [hasHydrated, isStarted, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, frontloadPct, orderMachine, nav, tradeLedger]);
+  }, [hasHydrated, isStarted, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, frontloadPct, orderMachine, startDate, startMonth, monthMode, nav, tradeLedger]);
 
   // Each successful Yahoo refresh seals one observed QQQ market point at the current cycle month.
   // This tape is the bridge between real-time passage and the forward 10Y simulation.
@@ -460,6 +500,9 @@ function Page() {
         setDailyDeploymentTape(parsed.dailyDeploymentTape ?? []);
         setFrontloadPct(parsed.frontloadPct ?? 0.4);
         setOrderMachine(parsed.orderMachine ?? null);
+        setStartDate(parsed.startDate ?? null);
+        setStartMonth(parsed.startMonth ?? parsed.month + 1);
+        setMonthMode(parsed.monthMode === "AUTO" && parsed.startDate && parsed.startMonth ? "AUTO" : "MANUAL");
         setNav(parsed.nav);
         setTradeLedger(parsed.tradeLedger ?? []);
       } catch {
@@ -1018,7 +1061,11 @@ function Page() {
 
     setCapital(capitalValue);
     setStartingDeployed(openingValue);
+    const appliedStartDate = currentMarketDate() ?? new Date().toISOString().slice(0, 10);
     setMonth(recordMonth);
+    setStartDate(appliedStartDate);
+    setStartMonth(monthValue);
+    setMonthMode("AUTO");
     setNav(navValue);
     setFrontloadPct(frontloadValue);
     setActualNow(0);
@@ -1060,6 +1107,9 @@ function Page() {
     setDailyDeploymentTape([]);
     setFrontloadPct(0.4);
     setOrderMachine(null);
+    setStartDate(null);
+    setStartMonth(null);
+    setMonthMode("MANUAL");
     setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
     setActualNow(0);
     setCapital(DEFAULT_CAPITAL);
@@ -1129,6 +1179,9 @@ function Page() {
       dailyDeploymentTape,
       frontloadPct,
       orderMachine,
+      startDate,
+      startMonth,
+      monthMode,
       nav,
       tradeLedger,
     };
@@ -1319,6 +1372,9 @@ function Page() {
       setDailyDeploymentTape(parsed.dailyDeploymentTape ?? []);
       setFrontloadPct(parsed.frontloadPct ?? 0.4);
       setOrderMachine(parsed.orderMachine ?? null);
+      setStartDate(parsed.startDate ?? null);
+      setStartMonth(parsed.startMonth ?? parsed.month + 1);
+      setMonthMode(parsed.monthMode === "AUTO" && parsed.startDate && parsed.startMonth ? "AUTO" : "MANUAL");
       setNav(parsed.nav);
       setTradeLedger(parsed.tradeLedger ?? []);
       setTransferNotice(
@@ -1464,7 +1520,41 @@ function Page() {
           <div className="rounded-md border border-accent/40 bg-elevated p-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <MoneyField label={ledger.length ? "Planned principal B · LOCKED" : "Planned principal B"} value={capital} onChange={(x) => !ledger.length && setCapital(Math.max(1, x))} />
-              <NumberField label="Current cycle month" unit="mo" value={cycleMonth} min={1} max={120} step={1} onChange={(x) => setMonth(clampMonth(x - 1))} />
+              <div className="grid gap-2">
+                <NumberField
+                  label={"Current cycle month · " + (monthMode === "AUTO" ? "LIVE CALENDAR" : "MANUAL")}
+                  unit="mo"
+                  value={cycleMonth}
+                  min={1}
+                  max={120}
+                  step={1}
+                  onChange={(x) => {
+                    setMonth(clampMonth(x - 1));
+                    setMonthMode("MANUAL");
+                  }}
+                />
+                {monthMode === "AUTO" && startDate && startMonth ? (
+                  <span className="font-mono text-[11px] text-subtle">START {startDate} · M{startMonth} · advances by real calendar months; no backfill.</span>
+                ) : startDate && startMonth ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const today = new Date().toISOString().slice(0, 10);
+                      setMonth(
+                        Math.min(
+                          119,
+                          Math.max(0, (startMonth - 1) + elapsedWholeCalendarMonths(startDate, today)),
+                        ),
+                      );
+                      setMonthMode("AUTO");
+                      setTransferNotice("LIVE CLOCK resumed · month follows real calendar time; no intermediate tape created");
+                    }}
+                    className="min-h-9 rounded-md border border-line px-3 font-mono text-[11px] text-muted hover:text-fg"
+                  >
+                    RESUME LIVE CLOCK
+                  </button>
+                ) : null}
+              </div>
               <MoneyField label="Opening deployed · start capital" value={startingDeployed} disabled={ledger.length > 0 || tradeLedger.length > 0 || Boolean(orderMachine)} onChange={(x) => {
                 const value = Math.max(0, x);
                 if (value + contributed > safeCapital + 1e-8) {
