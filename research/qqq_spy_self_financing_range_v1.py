@@ -508,12 +508,12 @@ def _run_positions(con, state, qpath, spath, candidates, name, signal_count, ris
 
     e = pd.DataFrame(rows, columns=["date", "eq"])
     years = max((e.date.iloc[-1] - e.date.iloc[0]).days / 365.25, 1/365.25)
-    ending = float(e.eq.iloc[-1])
-    r = e.eq.pct_change().replace([np.inf,-np.inf], np.nan).fillna(0)
+    ending = float(e["eq"].iloc[-1])
+    r = e["eq"].pct_change().replace([np.inf,-np.inf], np.nan).fillna(0)
     return {
         "name": name, "entries": len(candidates), "ending_nav": ending,
         "cagr": float((ending/100000.0)**(1/years)-1),
-        "maxdd": float((e.eq/e.eq.cummax()-1).min()),
+        "maxdd": float((e["eq"]/e["eq"].cummax()-1).min()),
         "sharpe": float(r.mean()/r.std(ddof=1)*math.sqrt(TD)) if r.std(ddof=1)>0 else 0.0,
         "q_entries": len(candidates), "s_entries": 0, "signal_count": signal_count,
         "eligible_count": len(candidates),
@@ -632,13 +632,13 @@ def _run_baskets(con, state, qpath, spath, baskets, name, signals):
 
     e = pd.DataFrame(rows, columns=["date","eq"])
     years = max((e.date.iloc[-1]-e.date.iloc[0]).days/365.25, 1/365.25)
-    ending = float(e.eq.iloc[-1])
-    r = e.eq.pct_change().replace([np.inf,-np.inf], np.nan).fillna(0)
+    ending = float(e["eq"].iloc[-1])
+    r = e["eq"].pct_change().replace([np.inf,-np.inf], np.nan).fillna(0)
     sigdf = pd.DataFrame(signals)
     return {
         "name": name, "entries": len(baskets), "ending_nav": ending,
         "cagr": float((ending/100000.0)**(1/years)-1),
-        "maxdd": float((e.eq/e.eq.cummax()-1).min()),
+        "maxdd": float((e["eq"]/e["eq"].cummax()-1).min()),
         "sharpe": float(r.mean()/r.std(ddof=1)*math.sqrt(TD)) if r.std(ddof=1)>0 else 0.0,
         "q_entries": len(baskets), "s_entries": len(baskets),
         "signal_count": len(signals), "eligible_count": len(baskets),
