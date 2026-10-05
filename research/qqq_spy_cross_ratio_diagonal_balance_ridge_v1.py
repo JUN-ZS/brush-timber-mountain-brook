@@ -433,6 +433,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument(
+        "--orientation",
+        choices=["normal", "reverse", "both"],
+        default="both",
+        help="normal = long far / short near; reverse = long near / short far; both = run both",
+    )
     a = ap.parse_args()
 
     d = Path(a.data_dir)
@@ -453,18 +459,22 @@ def main():
     hist = build_factor_history(con, qu, su, qpath, spath, dates)
     hist.to_csv(o / "factor_history.csv", index=False)
 
+    families = [("SPY", "SPY"), ("QQQ", "QQQ"), ("SPY", "QQQ"), ("QQQ", "SPY")]
     configs = []
-    for la, sa in [("SPY", "SPY"), ("QQQ", "QQQ"), ("SPY", "QQQ"), ("QQQ", "SPY")]:
-        # Standard calendar/diagonal direction:
-        # long far (90/180D) and roll short near (7/14/21/30D).
-        for ld in LONG_DTES:
-            for sd in SHORT_DTES:
-                configs.append((la, sa, ld, sd))
-        # Reverse-calendar direction:
-        # long near (7/14/21/30D) and repeatedly short far (90/180D).
-        for ld in SHORT_DTES:
-            for sd in LONG_DTES:
-                configs.append((la, sa, ld, sd))
+    if a.orientation in ("normal", "both"):
+        for la, sa in families:
+            # Standard calendar/diagonal direction:
+            # long far (90/180D) and roll short near (7/14/21/30D).
+            for ld in LONG_DTES:
+                for sd in SHORT_DTES:
+                    configs.append((la, sa, ld, sd))
+    if a.orientation in ("reverse", "both"):
+        for la, sa in families:
+            # Reverse-calendar direction:
+            # long near (7/14/21/30D) and repeatedly short far (90/180D).
+            for ld in SHORT_DTES:
+                for sd in LONG_DTES:
+                    configs.append((la, sa, ld, sd))
 
     results = []
     curves = []
@@ -500,9 +510,10 @@ def main():
 
     methodology = {
         "name": "QQQ-SPY Cross-Underlying Ratio-Diagonal Balance Ridge V1",
-        "configs": "1 long call versus N short calls across same/cross underlying pairs, with both normal and reverse time orientations",
+        "configs": f"1 long call versus N short calls across same/cross underlying pairs; selected orientation={a.orientation}",
         "normal_time_orientation": "long far 90/180D, short near 7/14/21/30D",
         "reverse_time_orientation": "long near 7/14/21/30D, short far 90/180D",
+        "selected_orientation": a.orientation,
         "long_dtes": LONG_DTES + SHORT_DTES,
         "short_dtes": SHORT_DTES + LONG_DTES,
         "long_delta": TARGET_LONG_DELTA,
@@ -521,7 +532,7 @@ def main():
     (o / "METHODOLOGY.json").write_text(json.dumps(methodology, indent=2), encoding="utf-8")
 
     lines = [
-        "# QQQ-SPY Cross-Underlying Ratio-Diagonal Balance Ridge V1",
+        f"# QQQ-SPY Cross-Underlying Ratio-Diagonal Balance Ridge V1 — {a.orientation.upper()}",
         "",
         "Four families: SPY/ SPY, QQQ/ QQQ, SPY long vs QQQ short, QQQ long vs SPY short.",
         "N is not fixed. Delta ratio and minimum-variance ratio are recorded; the selected integer minimizes residual factor variance subject to non-negative theta when feasible.",
