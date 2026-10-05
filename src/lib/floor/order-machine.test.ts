@@ -156,12 +156,13 @@ test("order machine arms one next BUY and advances after fill", () => {
   const filled = fillPaperOrder(touched, buys[0]!.id, buys[0]!.limitPrice, "2026-10-04T01:00:00.000Z");
   const childAmount = 30_000;
   const expectedShares = 40_000 / 100 + childAmount / buys[0]!.limitPrice;
+  const expectedMarkPrice = touched.markPrice;
   assert.equal(filled.nextBuyRung, 1);
   assert.equal(filled.harvestReserve, 0);
   assert.equal(filled.deploymentReserve, 30_000);
   assert.equal(filled.orders.find((x) => x.id === buys[0]!.id)?.filledAmount, childAmount);
   assert.equal(filled.positionShares, expectedShares);
-  assert.equal(filled.positionNav, expectedShares * 100);
+  assert.equal(filled.positionNav, expectedShares * expectedMarkPrice);
   assert.equal(paperEconomicWealth(filled), paperEconomicWealth(touched));
   assert.equal(nextRungLabel("BUY", filled.nextBuyRung), "BUY MID");
 
@@ -232,10 +233,11 @@ test("SELL fill moves proceeds into harvest reserve and next SELL rises", () => 
   const filled = fillPaperOrder(touched, sell.id, sell.limitPrice, "2026-10-04T02:00:00.000Z");
   const childAmount = 10_000;
   const expectedShares = 100_000 / 100 - childAmount / sell.limitPrice;
+  const expectedMarkPrice = touched.markPrice;
   assert.equal(filled.harvestReserve, childAmount);
   assert.equal(filled.orders.find((x) => x.id === sell.id)?.filledAmount, childAmount);
   assert.equal(filled.positionShares, expectedShares);
-  assert.equal(filled.positionNav, expectedShares * 100);
+  assert.equal(filled.positionNav, expectedShares * expectedMarkPrice);
   assert.equal(filled.nextSellRung, 1);
   assert.equal(money(paperEconomicWealth(filled)), money(paperEconomicWealth(touched)));
 });
