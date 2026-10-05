@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: qqq-spy-cross-ratio-diagonal-balance-ridge-v1
+  group: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-reverse
   cancel-in-progress: true
 
 permissions:
