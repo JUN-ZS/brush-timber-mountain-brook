@@ -249,15 +249,16 @@ def simulate_ladder(con, state, qpath, spath, name, thresholds, weights, valuati
             # Use current NAV immediately before the layer.
             layer_frac = norm[layer["layer"] - 1]
             risk_target_per_leg = max(nav, 1.0) * 0.025 * layer_frac
+            max_qty = min(
+                int(math.floor(risk_target_per_leg / max(float(p["risk"]), 1e-9)))
+                for p in layer["pair"]
+            )
+            if max_qty < 1:
+                # Skip the whole tranche rather than violating its pre-committed risk budget.
+                continue
             for p in layer["pair"]:
-                qty = max(
-                    1,
-                    int(math.floor(
-                        risk_target_per_leg / max(float(p["risk"]), 1e-9)
-                    )),
-                )
                 p2 = p.copy()
-                p2["qty"] = qty
+                p2["qty"] = max_qty
                 p2["layer"] = layer["layer"]
                 openpos.append(p2)
 
