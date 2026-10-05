@@ -427,7 +427,7 @@ def run_strategy(con, state_dates, factor_hist, option_path, name, short_dte):
 
 
 def get_spot(con, d):
-    return np.nan
+    return float(_SPOT_MAP.get(pd.Timestamp(d), np.nan))
 
 
 def main():
