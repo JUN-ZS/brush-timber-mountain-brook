@@ -982,11 +982,11 @@ function Page() {
     }
     const capitalValue = Math.max(1, d.capital);
     const monthValue = Math.max(1, Math.min(120, Math.round(d.month)));
-    const openingValue = Math.max(0, Math.min(capitalValue, d.startingDeployed));
+    const openingValue = Math.max(0, d.startingDeployed);
     const navValue = Math.max(0, d.nav);
     const frontloadValue = Math.max(0, Math.min(1, d.frontloadPct));
     const cashInValue = Math.max(0, d.cashIn);
-    if (openingValue + cashInValue > capitalValue + 1e-8) {
+    if (openingValue > capitalValue + 1e-8 || openingValue + cashInValue > capitalValue + 1e-8) {
       setTransferNotice("START not applied · OPENING DEPLOYED + CASH IN cannot exceed B");
       return;
     }
@@ -1263,13 +1263,15 @@ function Page() {
       if (raw && typeof raw === "object" && (raw as Record<string, unknown>).schema === "rolling-floor.default-start.v1") {
         const template = raw as Record<string, unknown>;
         setIsStarted(false);
+        const optionalNumber = (value: unknown) =>
+          typeof value === "number" && Number.isFinite(value) ? value : null;
         setStartDraft({
-          capital: Number.isFinite(Number(template.plannedPrincipalB)) ? Number(template.plannedPrincipalB) : null,
-          month: Number.isFinite(Number(template.startMonth)) ? Number(template.startMonth) : null,
-          startingDeployed: Number.isFinite(Number(template.openingDeployed)) ? Number(template.openingDeployed) : null,
-          nav: Number.isFinite(Number(template.accountNav)) ? Number(template.accountNav) : null,
-          frontloadPct: Number.isFinite(Number(template.frontloadPct)) ? Number(template.frontloadPct) : null,
-          cashIn: Number.isFinite(Number(template.cashIn)) ? Number(template.cashIn) : null,
+          capital: optionalNumber(template.plannedPrincipalB),
+          month: optionalNumber(template.startMonth),
+          startingDeployed: optionalNumber(template.openingDeployed),
+          nav: optionalNumber(template.accountNav),
+          frontloadPct: optionalNumber(template.frontloadPct),
+          cashIn: optionalNumber(template.cashIn),
         });
         setTransferNotice("DEFAULT START loaded · review inputs, then APPLY START");
         return;
@@ -2428,7 +2430,7 @@ function StartSliderField({
     <label className="grid gap-2 rounded-lg border border-line bg-surface p-3">
       <span className="flex items-center justify-between gap-3">
         <span className="font-mono text-xs tracking-[0.08em] text-subtle">{label}</span>
-        <span className="font-mono text-sm tabular-nums">{value == null ? "—" : unit === "$" ? fmtUsd(value, 0) : unit === "%" ? fmtPct(value, 0) : unit + " " + String(value)}</span>
+        <span className="font-mono text-sm tabular-nums">{value == null ? "—" : unit === "$" ? fmtUsd(value, 0) : unit === "%" ? value.toFixed(0) + "%" : unit + " " + String(value)}</span>
       </span>
       <input
         type="range"
