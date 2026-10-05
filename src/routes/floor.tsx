@@ -2467,7 +2467,12 @@ function StartSliderField({
         step={step}
         value={sliderValue}
         onChange={(event) => onChange(Number(event.target.value))}
-        className="w-full accent-[var(--color-accent)]"
+        className={
+          "w-full accent-[var(--color-accent)]" +
+          (value == null
+            ? " [&::-webkit-slider-thumb]:opacity-0 [&::-moz-range-thumb]:opacity-0"
+            : "")
+        }
         aria-label={label}
         aria-valuetext={value == null ? "not set" : String(value)}
       />
