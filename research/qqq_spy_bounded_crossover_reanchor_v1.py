@@ -286,6 +286,11 @@ OBS_WEEKS = 52
 OBS_MIN = 26
 MAX_HOLD_DAYS = 45
 
+def prev_trading_date(state_dates, d):
+    dates = pd.DatetimeIndex(state_dates)
+    ix = dates.searchsorted(pd.Timestamp(d), side="left") - 1
+    return dates[ix] if ix >= 0 else None
+
 def weekly_observation_days(state):
     z = state[(state.date >= pd.Timestamp(START)) & (state.date <= pd.Timestamp(END))].copy()
     # One observation per ISO calendar week: first available trading day.
