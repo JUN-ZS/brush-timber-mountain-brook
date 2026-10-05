@@ -799,18 +799,9 @@ function Page() {
     if (!(price != null && price > 0) || !marketDate) return;
     const intent = currentDynamicTradeIntent(marketDate);
     setOrderMachine((current) => {
-      const seeded =
-        current ??
-        seedOrderMachine({
-          now: new Date().toISOString(),
-          marketDate,
-          qqqPrice: price,
-          nav,
-          capital: safeCapital,
-          contributed: contributed + Math.max(0, startingDeployed),
-        });
+      if (!current) return null;
       return syncOrderMachine({
-        state: seeded,
+        state: current,
         now: new Date().toISOString(),
         marketDate,
         currentPrice: price,
