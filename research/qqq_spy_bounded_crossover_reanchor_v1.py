@@ -327,6 +327,68 @@ def bounded_percentile(values, window=OBS_WEEKS, min_periods=OBS_MIN):
         out[i] = float(np.clip(20.0 * pct - 10.0, -10.0, 10.0))
     return out
 
+def atm_iv60_series(con, path, signal_dates):
+    dates = [pd.Timestamp(x) for x in signal_dates if pd.notna(x)]
+    if not dates:
+        return {}
+    date_sql = ",".join("DATE '" + d.strftime("%Y-%m-%d") + "'" for d in sorted(set(dates)))
+    q = sql(
+        con,
+        f"""
+        WITH base AS (
+            SELECT CAST(date AS DATE) AS date,
+                   CAST(expiration AS DATE) AS expiration,
+                   LOWER("type") AS opt_type,
+                   CAST(bid AS DOUBLE) AS bid,
+                   CAST(ask AS DOUBLE) AS ask,
+                   COALESCE(CAST(volume AS DOUBLE),0) AS volume,
+                   COALESCE(CAST(open_interest AS DOUBLE),0) AS open_interest,
+                   CAST(delta AS DOUBLE) AS delta,
+                   CAST(implied_volatility AS DOUBLE) AS iv,
+                   date_diff('day', CAST(date AS DATE), CAST(expiration AS DATE)) AS dte
+            FROM read_parquet('{pathq(path)}')
+            WHERE CAST(date AS DATE) IN ({date_sql})
+              AND CAST(expiration AS DATE) > CAST(date AS DATE)
+              AND date_diff('day', CAST(date AS DATE), CAST(expiration AS DATE)) BETWEEN 53 AND 67
+              AND bid IS NOT NULL AND ask IS NOT NULL
+              AND ask >= bid AND ask > 0
+              AND delta IS NOT NULL AND implied_volatility IS NOT NULL
+              AND implied_volatility > 0
+              AND (open_interest >= 10 OR volume >= 5)
+        ),
+        filtered AS (
+            SELECT *,
+                   (ask - bid) / NULLIF((ask + bid) / 2.0,0) AS spr
+            FROM base
+        ),
+        exp_ranked AS (
+            SELECT *,
+                   row_number() OVER (
+                       PARTITION BY date
+                       ORDER BY abs(dte - 60), expiration
+                   ) AS exp_rn
+            FROM filtered
+            WHERE isfinite(spr) AND spr <= 0.35
+        ),
+        chosen AS (
+            SELECT * FROM exp_ranked WHERE exp_rn = 1
+        )
+        SELECT date,
+               arg_min(CASE WHEN opt_type='call' THEN iv END,
+                       CASE WHEN opt_type='call' THEN abs(delta - 0.50) ELSE NULL END) AS call_iv,
+               arg_min(CASE WHEN opt_type='put' THEN iv END,
+                       CASE WHEN opt_type='put' THEN abs(delta + 0.50) ELSE NULL END) AS put_iv
+        FROM chosen
+        GROUP BY date
+        ORDER BY date
+        """,
+    )
+    out = {}
+    for r in q.itertuples(index=False):
+        if pd.notna(r.call_iv) and pd.notna(r.put_iv):
+            out[pd.Timestamp(r.date)] = float((r.call_iv + r.put_iv) / 2.0)
+    return out
+
 def build_bounded_state(con, qu, su, qpath, spath):
     q = load_px(con, qu, "Q")
     s = load_px(con, su, "S")
@@ -335,6 +397,10 @@ def build_bounded_state(con, qu, su, qpath, spath):
     st = x.set_index("date")
     rows = []
     state_dates = sorted(pd.to_datetime(x.date).tolist())
+    signal_dates = [prev_trading_date(state_dates, d) for d in days]
+    signal_dates = [d for d in signal_dates if d is not None]
+    qiv_map = atm_iv60_series(con, qpath, signal_dates)
+    siv_map = atm_iv60_series(con, spath, signal_dates)
 
     for d in days:
         sigd = prev_trading_date(state_dates, d)
@@ -343,8 +409,8 @@ def build_bounded_state(con, qu, su, qpath, spath):
         r = st.loc[sigd]
         qrv = float(r.Q_rv60) if pd.notna(r.Q_rv60) else np.nan
         srv = float(r.S_rv60) if pd.notna(r.S_rv60) else np.nan
-        qiv = atm_iv60(con, qpath, sigd)
-        siv = atm_iv60(con, spath, sigd)
+        qiv = qiv_map.get(pd.Timestamp(sigd), np.nan)
+        siv = siv_map.get(pd.Timestamp(sigd), np.nan)
         q_vrp = qiv / qrv if np.isfinite(qiv) and np.isfinite(qrv) and qrv > 0 else np.nan
         s_vrp = siv / srv if np.isfinite(siv) and np.isfinite(srv) and srv > 0 else np.nan
         rows.append({
