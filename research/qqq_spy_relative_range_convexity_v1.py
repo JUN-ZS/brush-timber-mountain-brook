@@ -91,7 +91,7 @@ def qqq_rc(con,path,date,target=60,wing=0.10):
       ("QQQ",str(e),fc.strike,"call",-1,float(fc.bid),str(fc.contract_id)),
       ("QQQ",str(e),lp.strike,"put",1,float(lp.ask),str(lp.contract_id)),
       ("QQQ",str(e),fp.strike,"put",-1,float(fp.bid),str(fp.contract_id))]
-    debit=sum(side*px*M for _,_,_,_,side,px,_ in legs)*-1
+    debit=sum(side*px*M for _,_,_,_,side,px,_ in legs)
     cw=abs(float(fc.strike)-float(lc.strike))*M
     pw=abs(float(lp.strike)-float(fp.strike))*M
     risk=max(debit,0)
