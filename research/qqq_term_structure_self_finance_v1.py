@@ -49,6 +49,7 @@ def load_px(con, path, prefix):
             "date",
             prefix + "_px",
             prefix + "_rv5",
+            prefix + "_rv14",
             prefix + "_rv20",
             prefix + "_rv30",
             prefix + "_rv60",
