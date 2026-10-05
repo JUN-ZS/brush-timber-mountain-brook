@@ -56,7 +56,7 @@ def get_chain(con,path,symbol,date,lo,hi):
         AND CAST(expiration AS DATE)>DATE '{d}'
         AND CAST(expiration AS DATE)>=DATE '{d}' + INTERVAL '{lo} days'
         AND CAST(expiration AS DATE)<=DATE '{d}' + INTERVAL '{hi} days'
-        AND bid IS NOT NULL AND ask IS NOT NULL AND ask>=bid AND ask>0 AND mark>0
+        AND bid IS NOT NULL AND ask IS NOT NULL AND ask>=bid AND ask>0
         AND delta IS NOT NULL AND (open_interest>=10 OR volume>=5)
     """)
 
@@ -69,7 +69,6 @@ def liquid(df):
 def pick4(df, target_dte, wing=0.10, reverse=True):
     df=liquid(df)
     if df.empty: return None
-    ex=df.groupby("expiration")["strike"].first()
     # Recover DTE from the first row of each expiry.
     dtes=df.groupby("expiration").dte.first() if "dte" in df else None
     if dtes is None: return None
@@ -77,10 +76,10 @@ def pick4(df, target_dte, wing=0.10, reverse=True):
     x=df[df.expiration==e]
     c=x[x.type=="call"]; p=x[x.type=="put"]
     if c.empty or p.empty: return None
-    lc=c.iloc[(c.delta-0.50).abs().argsort()[:1]].iloc[0]
-    lp=p.iloc[(p.delta+0.50).abs().argsort()[:1]].iloc[0]
-    fc=c.iloc[(c.delta-wing).abs().argsort()[:1]].iloc[0]
-    fp=p.iloc[(p.delta+wing).abs().argsort()[:1]].iloc[0]
+    lc=c.iloc[(c["delta"]-0.50).abs().argmin()]
+    lp=p.iloc[(p["delta"]+0.50).abs().argmin()]
+    fc=c.iloc[(c["delta"]-wing).abs().argmin()]
+    fp=p.iloc[(p["delta"]+wing).abs().argmin()]
     return e, lc, lp, fc, fp
 
 def qqq_rc(con,path,date,target=60,wing=0.10):
@@ -210,7 +209,9 @@ def simulate(con,state,qpath,spath,name,mode):
                 b,a,m=mk.get((l[6],d),(None,None,None))
                 if m is None: ok=False; break
                 v += l[4]*m*M*p["qty"]
-            if ok:\n                entry_cf=(-p["entry_value"] if p["symbol"]=="QQQ" else p["entry_value"])*p["qty"]\n                mtm += entry_cf+v
+            if ok:
+                entry_cf=(-p["entry_value"] if p["symbol"]=="QQQ" else p["entry_value"])*p["qty"]
+                mtm += entry_cf+v
         eq=nav=100000.0+realized+mtm
         rows.append((d,eq))
     e=pd.DataFrame(rows,columns=["date","eq"])
