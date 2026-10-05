@@ -328,10 +328,10 @@ def bounded_percentile(values, window=OBS_WEEKS, min_periods=OBS_MIN):
     return out
 
 def atm_iv60_series(con, path, signal_dates):
-    dates = [pd.Timestamp(x) for x in signal_dates if pd.notna(x)]
+    dates = sorted(set(pd.Timestamp(x) for x in signal_dates if pd.notna(x)))
     if not dates:
         return {}
-    date_sql = ",".join("DATE '" + d.strftime("%Y-%m-%d") + "'" for d in sorted(set(dates)))
+    date_sql = ",".join("DATE '" + d.strftime("%Y-%m-%d") + "'" for d in dates)
     q = sql(
         con,
         f"""
@@ -345,49 +345,67 @@ def atm_iv60_series(con, path, signal_dates):
                    COALESCE(CAST(open_interest AS DOUBLE),0) AS open_interest,
                    CAST(delta AS DOUBLE) AS delta,
                    CAST(implied_volatility AS DOUBLE) AS iv,
-                   date_diff('day', CAST(date AS DATE), CAST(expiration AS DATE)) AS dte
+                   date_diff('day', CAST(date AS DATE), CAST(expiration AS DATE)) AS dte,
+                   (ask - bid) / NULLIF((ask + bid) / 2.0, 0) AS spr
             FROM read_parquet('{pathq(path)}')
             WHERE CAST(date AS DATE) IN ({date_sql})
               AND CAST(expiration AS DATE) > CAST(date AS DATE)
               AND date_diff('day', CAST(date AS DATE), CAST(expiration AS DATE)) BETWEEN 53 AND 67
               AND bid IS NOT NULL AND ask IS NOT NULL
               AND ask >= bid AND ask > 0
-              AND delta IS NOT NULL AND implied_volatility IS NOT NULL
-              AND implied_volatility > 0
+              AND delta IS NOT NULL AND iv IS NOT NULL AND iv > 0
               AND (open_interest >= 10 OR volume >= 5)
         ),
-        filtered AS (
-            SELECT *,
-                   (ask - bid) / NULLIF((ask + bid) / 2.0,0) AS spr
-            FROM base
+        liq AS (
+            SELECT * FROM base WHERE isfinite(spr) AND spr <= 0.35
         ),
-        exp_ranked AS (
-            SELECT *,
-                   row_number() OVER (
-                       PARTITION BY date
-                       ORDER BY abs(dte - 60), expiration
-                   ) AS exp_rn
-            FROM filtered
-            WHERE isfinite(spr) AND spr <= 0.35
+        exp_counts AS (
+            SELECT date, expiration, COUNT(*) AS n
+            FROM liq
+            GROUP BY date, expiration
+        ),
+        chosen_exp AS (
+            SELECT date, expiration
+            FROM (
+                SELECT date, expiration,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY date
+                           ORDER BY ABS(dte - 60), n DESC, expiration
+                       ) AS rn
+                FROM (
+                    SELECT e.*, date_diff('day', e.date, e.expiration) AS dte
+                    FROM exp_counts e
+                )
+            )
+            WHERE rn = 1
         ),
         chosen AS (
-            SELECT * FROM exp_ranked WHERE exp_rn = 1
+            SELECT l.*
+            FROM liq l
+            JOIN chosen_exp e USING(date, expiration)
+        ),
+        calls AS (
+            SELECT date, iv,
+                   ROW_NUMBER() OVER (PARTITION BY date ORDER BY ABS(delta - 0.50), expiration) AS rn
+            FROM chosen WHERE opt_type = 'call'
+        ),
+        puts AS (
+            SELECT date, iv,
+                   ROW_NUMBER() OVER (PARTITION BY date ORDER BY ABS(delta + 0.50), expiration) AS rn
+            FROM chosen WHERE opt_type = 'put'
         )
-        SELECT date,
-               arg_min(CASE WHEN opt_type='call' THEN iv END,
-                       CASE WHEN opt_type='call' THEN abs(delta - 0.50) ELSE NULL END) AS call_iv,
-               arg_min(CASE WHEN opt_type='put' THEN iv END,
-                       CASE WHEN opt_type='put' THEN abs(delta + 0.50) ELSE NULL END) AS put_iv
-        FROM chosen
-        GROUP BY date
-        ORDER BY date
+        SELECT c.date, c.iv AS call_iv, p.iv AS put_iv
+        FROM calls c
+        JOIN puts p USING(date)
+        WHERE c.rn = 1 AND p.rn = 1
+        ORDER BY c.date
         """,
     )
-    out = {}
-    for r in q.itertuples(index=False):
-        if pd.notna(r.call_iv) and pd.notna(r.put_iv):
-            out[pd.Timestamp(r.date)] = float((r.call_iv + r.put_iv) / 2.0)
-    return out
+    return {
+        pd.Timestamp(r.date): float((r.call_iv + r.put_iv) / 2.0)
+        for r in q.itertuples(index=False)
+        if pd.notna(r.call_iv) and pd.notna(r.put_iv)
+    }
 
 def build_bounded_state(con, qu, su, qpath, spath):
     q = load_px(con, qu, "Q")
