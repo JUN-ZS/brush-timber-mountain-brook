@@ -24,8 +24,9 @@ import type { CoupledSignal, ForwardPathProfile } from "@/lib/pulse/rolling-floo
 import type { LongScaleProfile } from "@/lib/pulse/long-scale";
 import { DailyDeploymentConsole, type DailyDeploymentEntry } from "@/components/daily-deployment-console";
 import { OrderStateMachine } from "@/components/order-state-machine";
-import { dailyDeploymentRecord, dynamicTradeIntent, frontLoadedTarget, toggleDailyDeploymentObservation } from "@/lib/floor/deployment";
+import { dailyDeploymentRecord, dynamicTradeIntent, frontLoadedTarget, deploymentGap, toggleDailyDeploymentObservation } from "@/lib/floor/deployment";
 import {
+  activePaperOrders,
   cancelPaperOrder,
   fillPaperOrder,
   repricePaperOrder,
@@ -661,6 +662,37 @@ function Page() {
     safeCapital,
     { month, cumulativeAmount: cumulativeNowAmount },
   );
+  const startInputsComplete =
+    startDraft.capital != null &&
+    startDraft.month != null &&
+    startDraft.startingDeployed != null &&
+    startDraft.nav != null &&
+    startDraft.frontloadPct != null &&
+    startDraft.cashIn != null;
+
+  const previewCapital = isStarted ? capital : startDraft.capital;
+  const previewMonth = isStarted ? cycleMonth : startDraft.month;
+  const previewOpening = isStarted ? startingDeployed : startDraft.startingDeployed;
+  const previewNav = isStarted ? nav : startDraft.nav;
+  const previewFrontload = isStarted ? frontloadPct : startDraft.frontloadPct;
+  const previewCashIn = isStarted ? contributed : startDraft.cashIn;
+  const previewClockAmount =
+    previewCapital != null && previewMonth != null
+      ? clockTarget(previewCapital, previewMonth)
+      : null;
+  const previewTarget =
+    previewCapital != null && previewMonth != null && previewFrontload != null
+      ? frontLoadedTarget(previewCapital, previewFrontload, previewMonth, currentMarketDate() ?? undefined)
+      : null;
+  const previewRemainingDeployment =
+    previewCapital != null && previewOpening != null && previewCashIn != null
+      ? Math.max(0, previewCapital - Math.max(0, previewOpening) - Math.max(0, previewCashIn))
+      : null;
+  const previewDeploymentGap =
+    previewTarget != null && previewNav != null && previewRemainingDeployment != null
+      ? deploymentGap(Math.max(0, previewNav), previewTarget, previewRemainingDeployment)
+      : null;
+
 
   function currentMarketDate() {
     const qqq = liveContext.find((x) => x.symbol === "QQQ");
@@ -918,9 +950,97 @@ function Page() {
     setDailyDeploymentTape(next);
   }
 
+  function setStartDraftValue<K extends keyof StartDraft>(key: K, value: StartDraft[K]) {
+    setStartDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  function copyDefaultStart() {
+    const payload = JSON.stringify(DEFAULT_START_TEMPLATE, null, 2);
+    const write = navigator.clipboard?.writeText(payload);
+    if (!write) {
+      window.alert(payload);
+      return;
+    }
+    write.then(
+      () => setTransferNotice("DEFAULT START copied · blank template ready for manual fill"),
+      () => window.alert(payload),
+    );
+  }
+
+  function applyStartDraft() {
+    const d = startDraft;
+    if (
+      d.capital == null ||
+      d.month == null ||
+      d.startingDeployed == null ||
+      d.nav == null ||
+      d.frontloadPct == null ||
+      d.cashIn == null
+    ) {
+      setTransferNotice("START not applied · fill B, start month, OPENING DEPLOYED, NAV, Frontload and CASH IN");
+      return;
+    }
+    const capitalValue = Math.max(1, d.capital);
+    const monthValue = Math.max(1, Math.min(120, Math.round(d.month)));
+    const openingValue = Math.max(0, Math.min(capitalValue, d.startingDeployed));
+    const navValue = Math.max(0, d.nav);
+    const frontloadValue = Math.max(0, Math.min(1, d.frontloadPct));
+    const cashInValue = Math.max(0, d.cashIn);
+    if (openingValue + cashInValue > capitalValue + 1e-8) {
+      setTransferNotice("START not applied · OPENING DEPLOYED + CASH IN cannot exceed B");
+      return;
+    }
+
+    const recordMonth = monthValue - 1;
+    const initialEntry = cashInValue > 0
+      ? {
+          id: globalThis.crypto?.randomUUID?.() ?? ("start-cash-in-" + Date.now()),
+          recordedAt: new Date().toISOString(),
+          asOf: activeAsOf,
+          month: recordMonth,
+          amount: cashInValue,
+          kind: "CONTRIBUTION" as const,
+          price: liveContext.find((x) => x.symbol === "QQQ")?.price ?? null,
+          priceObservedAt: liveContext.find((x) => x.symbol === "QQQ")?.regularMarketTime ?? null,
+          priceSource: liveContext.find((x) => x.symbol === "QQQ")?.price != null
+            ? "YAHOO_FINANCE_CHART" as const
+            : "UNAVAILABLE" as const,
+          voidedAt: null,
+        }
+      : null;
+
+    setCapital(capitalValue);
+    setStartingDeployed(openingValue);
+    setMonth(recordMonth);
+    setNav(navValue);
+    setFrontloadPct(frontloadValue);
+    setActualNow(0);
+    setLedger(initialEntry ? [initialEntry] : []);
+    setMarketTape([]);
+    setDailyDeploymentTape([]);
+    setOrderMachine(null);
+    setTradeLedger([]);
+    setIsStarted(true);
+    setStartDraft({
+      capital: capitalValue,
+      month: monthValue,
+      startingDeployed: openingValue,
+      nav: navValue,
+      frontloadPct: frontloadValue,
+      cashIn: cashInValue,
+    });
+    setTransferNotice(
+      "START applied · B " + fmtUsd(capitalValue, 2) +
+      " · M" + monthValue +
+      " · Opening " + fmtUsd(openingValue, 2) +
+      " · CASH IN " + fmtUsd(cashInValue, 2),
+    );
+  }
+
   function clearLocal() {
-    // Match prior CLEAR UX: wipe ledger + starting + live preview.
-    // capital/month reset to defaults; persisted blob rewritten by save effect.
+    setIsStarted(false);
+    setStartDraft(EMPTY_START_DRAFT);
+    // CLEAR creates a genuinely blank new start; no numeric defaults are persisted.
     setLedger([]);
     setMarketTape([]);
     setDailyDeploymentTape([]);
@@ -1140,11 +1260,34 @@ function Page() {
   async function pullState(file: File) {
     try {
       const raw = JSON.parse(await file.text());
+      if (raw && typeof raw === "object" && (raw as Record<string, unknown>).schema === "rolling-floor.default-start.v1") {
+        const template = raw as Record<string, unknown>;
+        setIsStarted(false);
+        setStartDraft({
+          capital: Number.isFinite(Number(template.plannedPrincipalB)) ? Number(template.plannedPrincipalB) : null,
+          month: Number.isFinite(Number(template.startMonth)) ? Number(template.startMonth) : null,
+          startingDeployed: Number.isFinite(Number(template.openingDeployed)) ? Number(template.openingDeployed) : null,
+          nav: Number.isFinite(Number(template.accountNav)) ? Number(template.accountNav) : null,
+          frontloadPct: Number.isFinite(Number(template.frontloadPct)) ? Number(template.frontloadPct) : null,
+          cashIn: Number.isFinite(Number(template.cashIn)) ? Number(template.cashIn) : null,
+        });
+        setTransferNotice("DEFAULT START loaded · review inputs, then APPLY START");
+        return;
+      }
       const parsed = normalizeFloorState(raw);
       if (!parsed) throw new Error("invalid rolling-floor state");
       if (parsed.capital < 1 || parsed.startingDeployed > parsed.capital) {
         throw new Error("capital / startingDeployed invalid");
       }
+      setIsStarted(true);
+      setStartDraft({
+        capital: parsed.capital,
+        month: parsed.month + 1,
+        startingDeployed: parsed.startingDeployed,
+        nav: parsed.nav,
+        frontloadPct: parsed.frontloadPct ?? 0.4,
+        cashIn: actualContributed(parsed.entries),
+      });
       setCapital(parsed.capital);
       setStartingDeployed(parsed.startingDeployed);
       setMonth(parsed.month);
