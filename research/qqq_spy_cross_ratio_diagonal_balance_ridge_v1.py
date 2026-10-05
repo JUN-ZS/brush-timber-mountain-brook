@@ -455,8 +455,15 @@ def main():
 
     configs = []
     for la, sa in [("SPY", "SPY"), ("QQQ", "QQQ"), ("SPY", "QQQ"), ("QQQ", "SPY")]:
+        # Standard calendar/diagonal direction:
+        # long far (90/180D) and roll short near (7/14/21/30D).
         for ld in LONG_DTES:
             for sd in SHORT_DTES:
+                configs.append((la, sa, ld, sd))
+        # Reverse-calendar direction:
+        # long near (7/14/21/30D) and repeatedly short far (90/180D).
+        for ld in SHORT_DTES:
+            for sd in LONG_DTES:
                 configs.append((la, sa, ld, sd))
 
     results = []
@@ -493,9 +500,11 @@ def main():
 
     methodology = {
         "name": "QQQ-SPY Cross-Underlying Ratio-Diagonal Balance Ridge V1",
-        "configs": "1 long call versus N short calls across same/cross underlying pairs",
-        "long_dtes": LONG_DTES,
-        "short_dtes": SHORT_DTES,
+        "configs": "1 long call versus N short calls across same/cross underlying pairs, with both normal and reverse time orientations",
+        "normal_time_orientation": "long far 90/180D, short near 7/14/21/30D",
+        "reverse_time_orientation": "long near 7/14/21/30D, short far 90/180D",
+        "long_dtes": LONG_DTES + SHORT_DTES,
+        "short_dtes": SHORT_DTES + LONG_DTES,
         "long_delta": TARGET_LONG_DELTA,
         "short_delta": TARGET_SHORT_DELTA,
         "N_range": [1, MAX_N],
