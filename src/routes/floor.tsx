@@ -1038,6 +1038,12 @@ function Page() {
   }
 
   function clearLocal() {
+    try {
+      window.localStorage.removeItem(FLOOR_STATE_KEY);
+      window.localStorage.removeItem(LEDGER_KEY_V2);
+    } catch {
+      // Ignore local storage cleanup failure; the UI is still reset to blank.
+    }
     setIsStarted(false);
     setStartDraft(EMPTY_START_DRAFT);
     // CLEAR creates a genuinely blank new start; no numeric defaults are persisted.
@@ -1262,6 +1268,12 @@ function Page() {
       const raw = JSON.parse(await file.text());
       if (raw && typeof raw === "object" && (raw as Record<string, unknown>).schema === "rolling-floor.default-start.v1") {
         const template = raw as Record<string, unknown>;
+        try {
+          window.localStorage.removeItem(FLOOR_STATE_KEY);
+          window.localStorage.removeItem(LEDGER_KEY_V2);
+        } catch {
+          // Ignore local storage cleanup failure; the blank draft remains in memory.
+        }
         setIsStarted(false);
         const optionalNumber = (value: unknown) =>
           typeof value === "number" && Number.isFinite(value) ? value : null;
