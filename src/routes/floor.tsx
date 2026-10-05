@@ -2398,6 +2398,234 @@ function NumberField({
   );
 }
 
+function displayMoney(value: number | null) {
+  return value == null ? "—" : fmtUsd(value, 2);
+}
+
+function displayPct(value: number | null) {
+  return value == null ? "—" : fmtPct(value, 0);
+}
+
+function StartSliderField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  unit,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+  onChange: (value: number) => void;
+}) {
+  const sliderValue = value == null ? min : value;
+  return (
+    <label className="grid gap-2 rounded-lg border border-line bg-surface p-3">
+      <span className="flex items-center justify-between gap-3">
+        <span className="font-mono text-xs tracking-[0.08em] text-subtle">{label}</span>
+        <span className="font-mono text-sm tabular-nums">{value == null ? "—" : unit === "$" ? fmtUsd(value, 0) : unit === "%" ? fmtPct(value, 0) : unit + " " + String(value)}</span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={sliderValue}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="w-full accent-[var(--color-accent)]"
+        aria-label={label}
+        aria-valuetext={value == null ? "not set" : String(value)}
+      />
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={step}
+        inputMode={unit === "$" ? "decimal" : "numeric"}
+        value={value == null ? "" : value}
+        placeholder="—"
+        onChange={(event) => {
+          const raw = event.target.value;
+          if (raw === "") return;
+          onChange(Number(raw));
+        }}
+        className="min-h-10 rounded-md border border-line bg-elevated px-3 font-mono tabular-nums outline-none focus:border-accent"
+      />
+    </label>
+  );
+}
+
+function LayerOverview({
+  isStarted,
+  capital,
+  month,
+  opening,
+  nav,
+  frontload,
+  cashIn,
+  clock,
+  actualContributed,
+  fundingDelta,
+  target,
+  buyGap,
+  remainingDeployment,
+  tradeBuy,
+  tradeSell,
+  paperPositionNav,
+  paperShares,
+  paperReserve,
+  activePaperOrders,
+  capitalPoints,
+  currentStatus,
+}: {
+  isStarted: boolean;
+  capital: number | null;
+  month: number | null;
+  opening: number | null;
+  nav: number | null;
+  frontload: number | null;
+  cashIn: number | null;
+  clock: number | null;
+  actualContributed: number | null;
+  fundingDelta: number | null;
+  target: number | null;
+  buyGap: number | null;
+  remainingDeployment: number | null;
+  tradeBuy: number | null;
+  tradeSell: number | null;
+  paperPositionNav: number | null;
+  paperShares: number | null;
+  paperReserve: number | null;
+  activePaperOrders: number | null;
+  capitalPoints: Array<{ month: number; fraction: number; preview?: boolean }> | null;
+  currentStatus: EntryStatus | null;
+}) {
+  const statusText = currentStatus ?? (isStarted ? "—" : "NOT STARTED");
+  return (
+    <Panel kicker="ONE-GLANCE / ALL LAYERS" title={isStarted ? "同一眼看清 Setup → Funding → Deployment → Trade → Paper" : "DEFAULT START / 全部由你填，未填保持空白"}>
+      <div className="grid gap-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <MetricCard kicker="SETUP · B" title={displayMoney(capital)} detail="planned principal" />
+          <MetricCard kicker="SETUP · START MONTH" title={month == null ? "—" : "M" + String(month)} detail="actual start/cycle month" />
+          <MetricCard kicker="SETUP · OPENING DEPLOYED" title={displayMoney(opening)} detail="opening position · not CASH IN" />
+          <MetricCard kicker="SETUP · NAV" title={displayMoney(nav)} detail="ACCOUNT NAV · not funding" />
+          <MetricCard kicker="SETUP · FRONTLOAD" title={displayPct(frontload)} detail="deployment target only" />
+          <MetricCard kicker="SETUP · CASH IN" title={displayMoney(cashIn)} detail={isStarted ? "external contribution input" : "start preview · not yet booked"} />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <MetricCard kicker="FUNDING · CLOCK" title={displayMoney(clock)} detail="B × month / 120" />
+          <MetricCard kicker="FUNDING · ACTUAL CONTRIBUTED" title={displayMoney(actualContributed)} detail="CASH IN only" />
+          <MetricCard kicker="FUNDING · ACTUAL − CLOCK" title={fundingDelta == null ? "—" : (fundingDelta >= 0 ? "+" : "") + fmtUsd(fundingDelta, 2)} detail="ACTUAL CONTRIBUTED − CLOCK" />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard kicker="DEPLOYMENT · TARGET" title={displayMoney(target)} detail="front-loaded deployment target" />
+          <MetricCard kicker="DEPLOYMENT · BUY GAP" title={displayMoney(buyGap)} detail="target − NAV · planning only" />
+          <MetricCard kicker="DEPLOYMENT · REMAINING" title={displayMoney(remainingDeployment)} detail="B − opening − contributed" />
+          <MetricCard kicker="DEPLOYMENT · STATE" title={statusText} detail="deployment status" />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MetricCard kicker="TRADE · BUY" title={displayMoney(tradeBuy)} detail="internal executed notional · not funding" />
+          <MetricCard kicker="TRADE · SELL" title={displayMoney(tradeSell)} detail="internal executed notional · not CASH OUT" />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard kicker="PAPER · POSITION NAV" title={displayMoney(paperPositionNav)} detail="shadow position" />
+          <MetricCard kicker="PAPER · SHARES" title={paperShares == null ? "—" : paperShares.toFixed(6)} detail="shadow QQQ position" />
+          <MetricCard kicker="PAPER · RESERVE" title={displayMoney(paperReserve)} detail="deployment + harvest reserve" />
+          <MetricCard kicker="PAPER · ACTIVE ORDERS" title={activePaperOrders == null ? "—" : String(activePaperOrders)} detail="parent execution state" />
+        </div>
+
+        {capitalPoints ? (
+          <div className="overflow-x-auto rounded-lg border border-line bg-elevated p-2">
+            <p className="px-2 pt-1 font-mono text-[11px] tracking-[0.12em] text-subtle">CHART · FUNDING / CAPITAL PATH</p>
+            <CapitalChart points={capitalPoints} currentClock={clock == null || capital == null ? 0 : clock / Math.max(1, capital)} currentStatus={currentStatus ?? "ON_CLOCK"} />
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-line p-4 text-sm text-muted">CHART · FUNDING / CAPITAL PATH · 未開始，保持空白。</div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+function StartSetupPanel({
+  draft,
+  onChange,
+  onCopy,
+  onApply,
+  ready,
+  qqqPrice,
+}: {
+  draft: StartDraft;
+  onChange: <K extends keyof StartDraft>(key: K, value: StartDraft[K]) => void;
+  onCopy: () => void;
+  onApply: () => void;
+  ready: boolean;
+  qqqPrice: number | null;
+}) {
+  const capitalMax = Math.max(1_000_000, draft.capital == null ? 1_000_000 : draft.capital * 2);
+  const linkedMax = draft.capital == null ? 1_000_000 : draft.capital;
+  const navMax = draft.capital == null ? 1_000_000 : Math.max(1_000_000, draft.capital * 2);
+
+  return (
+    <Panel kicker="DEFAULT START / COPYABLE" title="新起點：六個開始數全部自己填">
+      <div className="grid gap-4">
+        <div className="rounded-lg border border-accent/40 bg-elevated p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-mono text-xs tracking-[0.12em] text-subtle">BLANK TEMPLATE</p>
+              <p className="mt-1 text-sm text-muted">任何人都可以 COPY 同一份空白 schema，再自己填 B / 開始月份 / OPENING / NAV / F / CASH IN；唔會帶入舊帳。</p>
+            </div>
+            <button type="button" onClick={onCopy} className="min-h-10 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated">COPY DEFAULT START</button>
+          </div>
+          <pre className="mt-3 overflow-x-auto rounded-md border border-line bg-surface p-3 text-xs text-subtle">{JSON.stringify(DEFAULT_START_TEMPLATE, null, 2)}</pre>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <StartSliderField label="B · PLANNED PRINCIPAL" value={draft.capital} min={100} max={capitalMax > 10_000_000 ? capitalMax : 10_000_000} step={100} unit="$" onChange={(v) => onChange("capital", v)} />
+          <StartSliderField label="START MONTH" value={draft.month} min={1} max={120} step={1} unit="M" onChange={(v) => onChange("month", Math.round(v))} />
+          <StartSliderField label="OPENING DEPLOYED" value={draft.startingDeployed} min={0} max={linkedMax} step={100} unit="$" onChange={(v) => onChange("startingDeployed", v)} />
+          <StartSliderField label="ACCOUNT NAV" value={draft.nav} min={0} max={navMax} step={100} unit="$" onChange={(v) => onChange("nav", v)} />
+          <StartSliderField label="FRONTLOAD F" value={draft.frontloadPct == null ? null : draft.frontloadPct * 100} min={0} max={100} step={10} unit="%" onChange={(v) => onChange("frontloadPct", v / 100)} />
+          <StartSliderField label="CASH IN" value={draft.cashIn} min={0} max={linkedMax} step={100} unit="$" onChange={(v) => onChange("cashIn", v)} />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <MetricCard kicker="START PREVIEW · CLOCK" title={displayMoney(
+            draft.capital != null && draft.month != null ? clockTarget(draft.capital, draft.month) : null,
+          )} detail="B × start month / 120" />
+          <MetricCard kicker="START PREVIEW · TARGET" title={displayMoney(
+            draft.capital != null && draft.month != null && draft.frontloadPct != null
+              ? frontLoadedTarget(draft.capital, draft.frontloadPct, draft.month)
+              : null,
+          )} detail="Frontload target only" />
+          <MetricCard kicker="MARKET · QQQ NOW" title={qqqPrice == null ? "—" : fmtUsd(qqqPrice, 2)} detail="observed only · no start authority" />
+        </div>
+
+        <button
+          type="button"
+          disabled={!ready}
+          onClick={onApply}
+          className="min-h-12 rounded-md border border-accent bg-accent px-4 font-mono text-sm text-accent-fg disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          APPLY START · CREATE FORMAL ACCOUNT
+        </button>
+        <p className="text-xs leading-relaxed text-subtle">
+          未填齊之前只係 START PREVIEW；唔會建立 Funding / Deployment / Trade / Paper record。APPLY 後，CASH IN > 0 先建立一筆真正 CONTRIBUTION；OPENING DEPLOYED 永遠獨立。
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
 function MetricCard({
   kicker,
   title,
