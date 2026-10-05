@@ -91,6 +91,34 @@ type FloorPersistedState = {
   tradeLedger: TradeLedgerEntry[];
 };
 
+type StartDraft = {
+  capital: number | null;
+  month: number | null;
+  startingDeployed: number | null;
+  nav: number | null;
+  frontloadPct: number | null;
+  cashIn: number | null;
+};
+
+const EMPTY_START_DRAFT: StartDraft = {
+  capital: null,
+  month: null,
+  startingDeployed: null,
+  nav: null,
+  frontloadPct: null,
+  cashIn: null,
+};
+
+const DEFAULT_START_TEMPLATE = {
+  schema: "rolling-floor.default-start.v1",
+  plannedPrincipalB: null,
+  startMonth: null,
+  openingDeployed: null,
+  accountNav: null,
+  frontloadPct: null,
+  cashIn: null,
+};
+
 function defaultFloorState(): FloorPersistedState {
   return {
     capital: DEFAULT_CAPITAL,
@@ -194,7 +222,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
 }
 
 function loadFloorState(): FloorPersistedState {
-  if (typeof window === "undefined") return defaultFloorState();
+  if (typeof window === "undefined") return null;
 
   const readStored = (key: string) => {
     const raw = window.localStorage.getItem(key);
@@ -250,6 +278,8 @@ function writeFloorState(state: FloorPersistedState) {
 }
 
 function Page() {
+  const [isStarted, setIsStarted] = useState(false);
+  const [startDraft, setStartDraft] = useState<StartDraft>(EMPTY_START_DRAFT);
   const [capital, setCapital] = useState(DEFAULT_CAPITAL);
   const [startingDeployed, setStartingDeployed] = useState(DEFAULT_STARTING_DEPLOYED);
   const [actualNow, setActualNow] = useState(0);
@@ -319,6 +349,13 @@ function Page() {
   // Hydrate from localStorage before any persist write.
   useEffect(() => {
     const loaded = loadFloorState();
+    if (!loaded) {
+      setIsStarted(false);
+      setStartDraft(EMPTY_START_DRAFT);
+      setHasHydrated(true);
+      return;
+    }
+    setIsStarted(true);
     setCapital(loaded.capital);
     setStartingDeployed(loaded.startingDeployed);
     setMonth(loaded.month);
@@ -329,12 +366,20 @@ function Page() {
     setOrderMachine(loaded.orderMachine ?? null);
     setNav(loaded.nav);
     setTradeLedger(loaded.tradeLedger ?? []);
+    setStartDraft({
+      capital: loaded.capital,
+      month: loaded.month + 1,
+      startingDeployed: loaded.startingDeployed,
+      nav: loaded.nav,
+      frontloadPct: loaded.frontloadPct ?? 0.4,
+      cashIn: actualContributed(loaded.entries),
+    });
     setHasHydrated(true);
   }, []);
 
   // Persist one blob after hydrate — never write the initial empty defaults.
   useEffect(() => {
-    if (!hasHydrated) return;
+    if (!hasHydrated || !isStarted) return;
     writeFloorState({
       capital,
       startingDeployed,
@@ -347,7 +392,7 @@ function Page() {
       nav,
       tradeLedger,
     });
-  }, [hasHydrated, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, frontloadPct, orderMachine, nav, tradeLedger]);
+  }, [hasHydrated, isStarted, capital, startingDeployed, month, ledger, marketTape, dailyDeploymentTape, frontloadPct, orderMachine, nav, tradeLedger]);
 
   // Each successful Yahoo refresh seals one observed QQQ market point at the current cycle month.
   // This tape is the bridge between real-time passage and the forward 10Y simulation.
@@ -378,6 +423,8 @@ function Page() {
       if (event.key !== FLOOR_STATE_KEY) return;
       try {
         if (event.newValue == null) {
+          setIsStarted(false);
+          setStartDraft(EMPTY_START_DRAFT);
           setCapital(DEFAULT_CAPITAL);
           setStartingDeployed(DEFAULT_STARTING_DEPLOYED);
           setMonth(DEFAULT_MONTH);
@@ -392,6 +439,15 @@ function Page() {
         }
         const parsed = normalizeFloorState(JSON.parse(event.newValue));
         if (!parsed) return;
+        setIsStarted(true);
+        setStartDraft({
+          capital: parsed.capital,
+          month: parsed.month + 1,
+          startingDeployed: parsed.startingDeployed,
+          nav: parsed.nav,
+          frontloadPct: parsed.frontloadPct ?? 0.4,
+          cashIn: actualContributed(parsed.entries),
+        });
         setCapital(parsed.capital);
         setStartingDeployed(parsed.startingDeployed);
         setMonth(parsed.month);
