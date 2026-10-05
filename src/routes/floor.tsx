@@ -1314,9 +1314,79 @@ function Page() {
     }
   }
 
+  if (!isStarted) {
+    return (
+      <Shell>
+        <div className="grid gap-4">
+          <LayerOverview
+            isStarted={false}
+            capital={startDraft.capital}
+            month={startDraft.month}
+            opening={startDraft.startingDeployed}
+            nav={startDraft.nav}
+            frontload={startDraft.frontloadPct}
+            cashIn={startDraft.cashIn}
+            clock={previewClockAmount}
+            actualContributed={null}
+            fundingDelta={null}
+            target={previewTarget}
+            buyGap={previewDeploymentGap?.buyAvailable ?? null}
+            remainingDeployment={previewRemainingDeployment}
+            tradeBuy={null}
+            tradeSell={null}
+            paperPositionNav={null}
+            paperShares={null}
+            paperReserve={null}
+            activePaperOrders={null}
+            capitalPoints={null}
+            currentStatus={null}
+          />
+          <StartSetupPanel
+            draft={startDraft}
+            onChange={setStartDraftValue}
+            onCopy={copyDefaultStart}
+            onApply={applyStartDraft}
+            ready={startInputsComplete}
+            qqqPrice={livePrice}
+          />
+          <Panel kicker="START / EMPTY" title="未開始：未輸入就保持空白">
+            <p className="text-sm text-muted">
+              B、開始月份、OPENING DEPLOYED、NAV、Frontload、CASH IN 全部由你自己填。
+              未開 App 的日期唔會自動補 Daily Tape；CASH IN 只有 APPLY START／之後真正 RECORD CASH IN 才會進 Funding Ledger。
+            </p>
+          </Panel>
+        </div>
+      </Shell>
+    );
+  }
+
   return (
     <Shell>
       <div className="grid gap-4">
+        <LayerOverview
+          isStarted={true}
+          capital={capital}
+          month={cycleMonth}
+          opening={startingDeployed}
+          nav={nav}
+          frontload={frontloadPct}
+          cashIn={contributed}
+          clock={currentClockAmount}
+          actualContributed={contributed}
+          fundingDelta={formalFundingDelta}
+          target={frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, currentMarketDate() ?? undefined)}
+          buyGap={deploymentGap(nav, frontLoadedTarget(safeCapital, frontloadPct, cycleMonth, currentMarketDate() ?? undefined), remainingDeployment).buyAvailable}
+          remainingDeployment={remainingDeployment}
+          tradeBuy={actualBuyNotional}
+          tradeSell={actualSellNotional}
+          paperPositionNav={orderMachine?.positionNav ?? null}
+          paperShares={orderMachine?.positionShares ?? null}
+          paperReserve={orderMachine ? orderMachine.deploymentReserve + orderMachine.harvestReserve : null}
+          activePaperOrders={orderMachine ? activePaperOrders(orderMachine).length : null}
+          capitalPoints={capitalPoints}
+          currentStatus={currentStatus}
+        />
+
         <Panel kicker="10Y CAPITAL FLOOR / FORMAL ACCOUNTING" title="本金骨架：Clock 定終點，Actual 記真實掏入，NAV 另記">
           <div className="grid gap-4 lg:grid-cols-4">
             <MetricCard
