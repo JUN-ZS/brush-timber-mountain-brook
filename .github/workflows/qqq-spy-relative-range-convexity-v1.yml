@@ -9,6 +9,10 @@ on:
       - .github/workflows/qqq-spy-relative-range-convexity-v1.yml
   workflow_dispatch:
 
+concurrency:
+  group: qqq-spy-relative-range-convexity-v1
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
