@@ -79,8 +79,11 @@ def pick4(df, target_dte, wing=0.10, reverse=True):
     if c.empty or p.empty: return None
     lc=c.iloc[(c["delta"]-0.50).abs().argmin()]
     lp=p.iloc[(p["delta"]+0.50).abs().argmin()]
-    fc=c.iloc[(c["delta"]-wing).abs().argmin()]
-    fp=p.iloc[(p["delta"]+wing).abs().argmin()]
+    fc_pool=c[c["strike"]>float(lc.strike)]
+    fp_pool=p[p["strike"]<float(lp.strike)]
+    if fc_pool.empty or fp_pool.empty: return None
+    fc=fc_pool.iloc[(fc_pool["delta"]-wing).abs().argmin()]
+    fp=fp_pool.iloc[(fp_pool["delta"]+wing).abs().argmin()]
     return e, lc, lp, fc, fp
 
 def qqq_rc(con,path,date,target=60,wing=0.10):
@@ -158,8 +161,12 @@ def simulate(con,state,qpath,spath,name,mode,include_spy=True):
     state_days=sorted(pd.to_datetime(state.date).tolist())
     candidates=[]
     last_q=pd.Timestamp.min; last_s=pd.Timestamp.min
+    state_dates=pd.DatetimeIndex(state_days)
     for d in days:
-        s=st.loc[d]
+        prev_ix=state_dates.searchsorted(pd.Timestamp(d),side="left")-1
+        if prev_ix<0: continue
+        signal_date=state_dates[prev_ix]
+        s=st.loc[signal_date]
         if isinstance(s,pd.DataFrame): s=s.iloc[0]
         if not eligible(s,mode): continue
         q=None; sp=None
@@ -250,7 +257,7 @@ def main():
       "Common period: 2018-03 through 2025-12. EOD bid/ask/mark, real historical chain.",
       "QQQ leg: 60D target reverse iron condor (long ~50Δ call/put, short ~10Δ wings), exit 25D.",
       "SPY leg: 30D target iron condor (short ~50Δ call/put, long ~10Δ wings), exit 7D.",
-      "Entry: first trading day of month; QQQ and SPY sleeves do not overlap within sleeve.",
+      "Entry: first trading day of month using prior trading day's realized-volatility state; option chain is selected on entry date. QQQ and SPY sleeves do not overlap within sleeve.",
       "Fill model: BUY at ask, SELL at bid; daily MTM at mark; exit long at bid / short at ask.",
       "Liquidity: OI>=10 OR volume>=5, relative bid/ask spread<=35%.",
       "Risk sizing: 5% NAV total, 60% QQQ / 40% SPY, sized at entry from defined max risk.",
