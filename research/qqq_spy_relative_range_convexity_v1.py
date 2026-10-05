@@ -46,10 +46,13 @@ def build_state(con, q_u, s_u):
 def get_chain(con,path,symbol,date,lo,hi):
     d=date.strftime("%Y-%m-%d")
     return sql(con,f"""
-      SELECT contract_id, CAST(expiration AS DATE) expiration, CAST(strike AS DOUBLE) strike,
-             lower(type) type, bid, ask, mark, volume, open_interest, delta, implied_volatility
+      SELECT CAST(contract_id AS VARCHAR) contract_id, CAST(expiration AS DATE) expiration, CAST(strike AS DOUBLE) strike,
+             UPPER("type") type, CAST(bid AS DOUBLE) bid, CAST(ask AS DOUBLE) ask,
+             COALESCE(CAST(volume AS DOUBLE),0) volume,
+             COALESCE(CAST(open_interest AS DOUBLE),0) open_interest,
+             CAST(delta AS DOUBLE) delta, CAST(implied_volatility AS DOUBLE) implied_volatility
       FROM read_parquet('{pathq(path)}')
-      WHERE symbol='{symbol}' AND CAST(date AS DATE)=DATE '{d}'
+      WHERE CAST(date AS DATE)=DATE '{d}'
         AND CAST(expiration AS DATE)>DATE '{d}'
         AND CAST(expiration AS DATE)>=DATE '{d}' + INTERVAL '{lo} days'
         AND CAST(expiration AS DATE)<=DATE '{d}' + INTERVAL '{hi} days'
@@ -142,7 +145,11 @@ def unit_marks(con,qpath,spath,positions):
         d=sql(con,f"""SELECT contract_id,CAST(date AS DATE) date,bid,ask,mark
                       FROM read_parquet('{pathq(path)}')
                       WHERE contract_id IN ({vals}) ORDER BY date""")
-        if not d.empty: d.date=pd.to_datetime(d.date); d["symbol"]=sym; out.append(d)
+        if not d.empty:
+            d.date=pd.to_datetime(d.date)
+            d["mark"]=(d["bid"]+d["ask"])/2.0
+            d["symbol"]=sym
+            out.append(d)
     return pd.concat(out,ignore_index=True) if out else pd.DataFrame()
 
 def simulate(con,state,qpath,spath,name,mode):
