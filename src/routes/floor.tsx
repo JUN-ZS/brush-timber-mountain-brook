@@ -222,7 +222,7 @@ function normalizeFloorState(raw: unknown): FloorPersistedState | null {
   };
 }
 
-function loadFloorState(): FloorPersistedState {
+function loadFloorState(): FloorPersistedState | null {
   if (typeof window === "undefined") return null;
 
   const readStored = (key: string) => {
@@ -246,11 +246,13 @@ function loadFloorState(): FloorPersistedState {
 
   try {
     window.localStorage.removeItem(FLOOR_STATE_KEY);
+    window.localStorage.removeItem(LEGACY_FLOOR_STATE_KEY_V3);
+    window.localStorage.removeItem(LEDGER_KEY_V2);
   } catch {
-    // Ignore malformed local state; safe defaults remain in memory.
+    // Ignore stale local-state cleanup failure; the caller keeps the page blank.
   }
 
-  return defaultFloorState();
+  return null;
 }
 
 function writeFloorState(state: FloorPersistedState) {
@@ -271,7 +273,8 @@ function writeFloorState(state: FloorPersistedState) {
         tradeLedger: state.tradeLedger,
       }),
     );
-    // v4 is the source of truth after migration; legacy keys are read-only fallbacks.
+    // v4 is the source of truth after migration; remove legacy keys so blank/new starts stay blank.
+    window.localStorage.removeItem(LEGACY_FLOOR_STATE_KEY_V3);
     window.localStorage.removeItem(LEDGER_KEY_V2);
   } catch {
       // Ignore malformed local state; safe defaults remain in memory.
@@ -1044,6 +1047,7 @@ function Page() {
   function clearLocal() {
     try {
       window.localStorage.removeItem(FLOOR_STATE_KEY);
+      window.localStorage.removeItem(LEGACY_FLOOR_STATE_KEY_V3);
       window.localStorage.removeItem(LEDGER_KEY_V2);
     } catch {
       // Ignore local storage cleanup failure; the UI is still reset to blank.
@@ -1274,6 +1278,7 @@ function Page() {
         const template = raw as Record<string, unknown>;
         try {
           window.localStorage.removeItem(FLOOR_STATE_KEY);
+          window.localStorage.removeItem(LEGACY_FLOOR_STATE_KEY_V3);
           window.localStorage.removeItem(LEDGER_KEY_V2);
         } catch {
           // Ignore local storage cleanup failure; the blank draft remains in memory.
@@ -1415,6 +1420,7 @@ function Page() {
           activePaperOrders={orderMachine ? activePaperOrders(orderMachine).length : null}
           capitalPoints={capitalPoints}
           currentStatus={currentStatus}
+          onNewStart={clearLocal}
         />
 
         <Panel kicker="10Y CAPITAL FLOOR / FORMAL ACCOUNTING" title="本金骨架：Clock 定終點，Actual 記真實掏入，NAV 另記">
@@ -1456,9 +1462,17 @@ function Page() {
 
         <Panel kicker="OPERATOR DESK / ONE-GLANCE ACCOUNT" title="所有會改數字的操作，都由這一欄開始">
           <div className="rounded-md border border-accent/40 bg-elevated p-4">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
               <MoneyField label={ledger.length ? "Planned principal B · LOCKED" : "Planned principal B"} value={capital} onChange={(x) => !ledger.length && setCapital(Math.max(1, x))} />
               <NumberField label="Current cycle month" unit="mo" value={cycleMonth} min={1} max={120} step={1} onChange={(x) => setMonth(clampMonth(x - 1))} />
+              <MoneyField label="Opening deployed · start capital" value={startingDeployed} disabled={ledger.length > 0 || tradeLedger.length > 0 || Boolean(orderMachine)} onChange={(x) => {
+                const value = Math.max(0, x);
+                if (value + contributed > safeCapital + 1e-8) {
+                  setTransferNotice("OPENING not changed · OPENING DEPLOYED + CASH IN cannot exceed B");
+                  return;
+                }
+                setStartingDeployed(value);
+              }} />
               <MoneyField label="Account NAV" value={nav} onChange={setNav} />
               <NumberField label="Frontload F · deployment only" unit="%" value={frontloadPct * 100} min={0} max={100} step={10} onChange={(x) => setFrontloadPct(Math.max(0, Math.min(1, x / 100)))} />
               <MetricCard kicker="NET EXTERNAL CASH" title={fmtUsd(contributed - withdrawn, 2)} detail="CASH IN − CASH OUT · BUY/SELL excluded" />
@@ -2367,10 +2381,12 @@ function MoneyField({
   label,
   value,
   onChange,
+  disabled = false,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  disabled?: boolean;
 }) {
   return (
     <label className="grid gap-1.5 text-sm">
@@ -2383,8 +2399,9 @@ function MoneyField({
           step="0.01"
           inputMode="decimal"
           value={value}
+          disabled={disabled}
           onChange={(e) => onChange(Number(e.target.value) || 0)}
-          className="min-w-0 flex-1 bg-transparent px-2 pr-3 font-mono tabular-nums outline-none"
+          className="min-w-0 flex-1 bg-transparent px-2 pr-3 font-mono tabular-nums outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
       </span>
     </label>
@@ -2517,6 +2534,7 @@ function LayerOverview({
   activePaperOrders,
   capitalPoints,
   currentStatus,
+  onNewStart,
 }: {
   isStarted: boolean;
   capital: number | null;
@@ -2539,10 +2557,22 @@ function LayerOverview({
   activePaperOrders: number | null;
   capitalPoints: Array<{ month: number; fraction: number; preview?: boolean }> | null;
   currentStatus: EntryStatus | null;
+  onNewStart?: () => void;
 }) {
   const statusText = currentStatus ?? (isStarted ? "—" : "NOT STARTED");
   return (
     <Panel kicker="ONE-GLANCE / ALL LAYERS" title={isStarted ? "同一眼看清 Setup → Funding → Deployment → Trade → Paper" : "DEFAULT START / 全部由你填，未填保持空白"}>
+      <div className="mb-1 flex flex-wrap items-center justify-end gap-2">
+        {isStarted && onNewStart ? (
+          <button
+            type="button"
+            onClick={onNewStart}
+            className="min-h-10 rounded-md border border-lock/60 px-3 font-mono text-xs text-muted hover:text-fg"
+          >
+            NEW START · CLEAR CURRENT
+          </button>
+        ) : null}
+      </div>
       <div className="grid gap-3">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <MetricCard kicker="SETUP · B" title={displayMoney(capital)} detail="planned principal" />
@@ -3626,8 +3656,12 @@ function CapitalChart({
     [x(0), y(1)],
   ].map((p) => p.join(",")).join(" ");
 
-  const actual = points.filter((p) => !p.preview);
-  const preview = points.find((p) => p.preview);
+  const actual = points.filter(
+    (p) => !p.preview && Number.isFinite(p.month) && Number.isFinite(p.fraction),
+  );
+  const preview = points.find(
+    (p) => p.preview && Number.isFinite(p.month) && Number.isFinite(p.fraction),
+  );
 
   return (
     <svg viewBox={"0 0 " + W + " " + H} className="min-w-[760px] w-full" role="img" aria-label="10 year capital rule corridor">
