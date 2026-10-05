@@ -350,27 +350,39 @@ def simulate_self_financing(con, state, qpath, spath, name, ratio_mode, ratio_ca
         sigd = prev_trading_date(state_dates, d)
         if sigd is None:
             continue
-        s = st.loc[sigd]
-        if isinstance(s, pd.DataFrame):
-            s = s.iloc[0]
-        if any(pd.isna(s[k]) for k in ["Q_rv60", "S_rv30"]):
+        sig = st.loc[sigd]
+        if isinstance(sig, pd.DataFrame):
+            sig = sig.iloc[0]
+        if any(pd.isna(sig[k]) for k in ["Q_rv60", "S_rv30"]):
             continue
 
+        # State/eligibility is causal: prior-day realized/implied relationships only.
         q_sig = qqq_rc(con, qpath, sigd, 90, 0.05, 0.25, 35)
         sp_sig = spy_ic(con, spath, sigd, 30, 0.10)
         if q_sig is None or sp_sig is None:
             continue
 
-        q_ratio = float(s.Q_rv60) / float(q_sig["atm_iv"])
-        s_ratio = float(sp_sig["atm_iv"]) / float(s.S_rv30)
-        coverage = float(sp_sig["entry_value"]) / max(float(q_sig["entry_value"]), 1e-12)
+        q_ratio = float(sig.Q_rv60) / float(q_sig["atm_iv"])
+        s_ratio = float(sp_sig["atm_iv"]) / float(sig.S_rv30)
+        state_edge = q_ratio > 1.0 and s_ratio > 1.0
 
+        # Structure selection/funding ratio is based on the actual entry-day quotes,
+        # never on the future exit path and never on the signal-day premium.
+        q = qqq_rc(con, qpath, d, 90, 0.05, 0.25, 35) if state_edge else None
+        sp = spy_ic(con, spath, d, 30, 0.10) if state_edge else None
+        if q is None or sp is None:
+            continue
+
+        entry_coverage = float(sp["entry_value"]) / max(float(q["entry_value"]), 1e-12)
         if ratio_mode == "one_to_one":
             spy_units = 1
-            eligible = (q_ratio > 1.0 and s_ratio > 1.0 and coverage >= 1.0)
+            eligible = state_edge and entry_coverage >= 1.0
         elif ratio_mode == "dynamic":
-            spy_units = max(1, int(math.ceil(float(q_sig["entry_value"]) / max(float(sp_sig["entry_value"]), 1e-12))))
-            eligible = q_ratio > 1.0 and s_ratio > 1.0 and spy_units <= int(ratio_cap)
+            spy_units = max(
+                1,
+                int(math.ceil(float(q["entry_value"]) / max(float(sp["entry_value"]), 1e-12))),
+            )
+            eligible = state_edge and spy_units <= int(ratio_cap)
         else:
             raise ValueError(ratio_mode)
 
@@ -378,23 +390,18 @@ def simulate_self_financing(con, state, qpath, spath, name, ratio_mode, ratio_ca
             "strategy": name,
             "signal_date": sigd,
             "entry_date": d,
-            "q_rv60": float(s.Q_rv60),
+            "q_rv60": float(sig.Q_rv60),
             "q_iv90": float(q_sig["atm_iv"]),
             "q_ratio": q_ratio,
-            "s_rv30": float(s.S_rv30),
+            "s_rv30": float(sig.S_rv30),
             "s_iv30": float(sp_sig["atm_iv"]),
             "s_ratio": s_ratio,
-            "coverage_1x": coverage,
+            "coverage_signal_day": float(sp_sig["entry_value"]) / max(float(q_sig["entry_value"]), 1e-12),
+            "coverage_entry_day": entry_coverage,
             "dynamic_spy_units": spy_units,
         })
         if not eligible:
             continue
-
-        q = qqq_rc(con, qpath, d, 90, 0.05, 0.25, 35)
-        sp = spy_ic(con, spath, d, 30, 0.10)
-        if q is None or sp is None:
-            continue
-
         if d < last_q or d < last_s:
             continue
 
@@ -407,15 +414,19 @@ def simulate_self_financing(con, state, qpath, spath, name, ratio_mode, ratio_ca
             "entry": d,
             "signal_date": sigd,
             "components": [
-                {"symbol": "QQQ", "legs": q["legs"], "expiry": q["expiry"], "exit_dte": 35,
-                 "entry_cf": -float(q["entry_value"]), "risk": float(q["risk"]), "units": 1},
-                {"symbol": "SPY", "legs": sp["legs"], "expiry": sp["expiry"], "exit_dte": 7,
-                 "entry_cf": float(sp["entry_value"]), "risk": float(sp["risk"]), "units": spy_units},
+                {
+                    "symbol": "QQQ", "legs": q["legs"], "expiry": q["expiry"], "exit_dte": 35,
+                    "entry_cf": -float(q["entry_value"]), "risk": float(q["risk"]), "units": 1,
+                },
+                {
+                    "symbol": "SPY", "legs": sp["legs"], "expiry": sp["expiry"], "exit_dte": 7,
+                    "entry_cf": float(sp["entry_value"]), "risk": float(sp["risk"]), "units": spy_units,
+                },
             ],
             "risk": combined_risk,
             "q_ratio": q_ratio,
             "s_ratio": s_ratio,
-            "coverage": coverage,
+            "coverage": entry_coverage,
             "spy_units": spy_units,
         })
 
@@ -427,7 +438,6 @@ def simulate_self_financing(con, state, qpath, spath, name, ratio_mode, ratio_ca
         last_s = pd.Timestamp(state_dates[s_ix])
 
     return _run_baskets(con, state, qpath, spath, baskets, name, signals)
-
 
 def _run_positions(con, state, qpath, spath, candidates, name, signal_count, risk_value, cash_components):
     if not candidates:
@@ -452,7 +462,7 @@ def _run_positions(con, state, qpath, spath, candidates, name, signal_count, ris
         for p in candidates:
             if p["name"] in used or p["entry"] != d:
                 continue
-            qty = max(1, int(math.floor((nav * 0.05) / float(risk_value(p)))))
+            qty = int(math.floor((nav * 0.05) / float(risk_value(p))))
             if qty > 0:
                 pp = p.copy()
                 pp["qty"] = qty
@@ -569,7 +579,7 @@ def _run_baskets(con, state, qpath, spath, baskets, name, signals):
         for b in baskets:
             if b["name"] in used or b["entry"] != d:
                 continue
-            qty = max(1, int(math.floor((nav * 0.05) / float(b["risk"]))))
+            qty = int(math.floor((nav * 0.05) / float(b["risk"])))
             if qty > 0:
                 bb = {**b, "qty": qty, "component_open": [True, True], "component_realized": [False, False]}
                 # Entry cashflows are booked immediately. For self-financing baskets this is <= 0.
@@ -691,7 +701,7 @@ def main():
         "SPY condition: prior-day SPY 30D ATM IV / RV30 > 1.",
         "Self-financing 1X: one SPY short IC must fully cover the QQQ debit at entry.",
         "Dynamic self-financing: buy 1 QQQ reverse IC and ceil(QQQ debit / SPY credit) SPY short ICs, capped at 3X or 6X.",
-        "Entry accounting books both legs immediately; self-financing baskets therefore have non-positive net entry cashflow.",
+        "Entry accounting books both legs immediately; self-financing baskets therefore have non-negative net entry cash flow to the portfolio.",
         "Sizing: 5% NAV of defined combined worst-case risk per basket.",
         "Fill: BUY at ask, SELL at bid; daily MTM at mark=(bid+ask)/2; exit long at bid / short at ask.",
         "Liquidity: OI>=10 OR volume>=5, relative bid/ask spread<=35%.",
