@@ -47,7 +47,7 @@ def get_chain(con,path,symbol,date,lo,hi):
     d=date.strftime("%Y-%m-%d")
     return sql(con,f"""
       SELECT CAST(contract_id AS VARCHAR) contract_id, CAST(expiration AS DATE) expiration, CAST(strike AS DOUBLE) strike,
-             LOWER("type") type, CAST(bid AS DOUBLE) bid, CAST(ask AS DOUBLE) ask,
+             LOWER("type") AS opt_type, CAST(bid AS DOUBLE) bid, CAST(ask AS DOUBLE) ask,
              COALESCE(CAST(volume AS DOUBLE),0) volume,
              COALESCE(CAST(open_interest AS DOUBLE),0) open_interest,
              CAST(delta AS DOUBLE) delta, CAST(implied_volatility AS DOUBLE) implied_volatility
@@ -75,7 +75,7 @@ def pick4(df, target_dte, wing=0.10, reverse=True):
     if dtes is None: return None
     e=(dtes-target_dte).abs().sort_values().index[0]
     x=df[df.expiration==e]
-    c=x[x.type=="call"]; p=x[x.type=="put"]
+    c=x[x.opt_type=="call"]; p=x[x.opt_type=="put"]
     if c.empty or p.empty: return None
     lc=c.iloc[(c["delta"]-0.50).abs().argmin()]
     lp=p.iloc[(p["delta"]+0.50).abs().argmin()]
