@@ -228,11 +228,11 @@ def simulate(con,state,qpath,spath,name,mode,include_spy=True):
         rows.append((d,eq))
     e=pd.DataFrame(rows,columns=["date","eq"])
     years=max((e.date.iloc[-1]-e.date.iloc[0]).days/365.25,1/365.25)
-    cagr=(e.eq.iloc[-1]/100000.0)**(1/years)-1
-    dd=(e.eq/e.eq.cummax()-1).min()
-    r=e.eq.pct_change().replace([np.inf,-np.inf],np.nan).fillna(0)
+    cagr=(e["eq"].iloc[-1]/100000.0)**(1/years)-1
+    dd=(e["eq"]/e["eq"].cummax()-1).min()
+    r=e["eq"].pct_change().replace([np.inf,-np.inf],np.nan).fillna(0)
     sh=(r.mean()/r.std(ddof=1)*math.sqrt(TD)) if r.std(ddof=1)>0 else 0.0
-    return {"name":name,"entries":len(candidates),"ending_nav":float(e.eq.iloc[-1]),"cagr":float(cagr),"maxdd":float(dd),"sharpe":float(sh),"q_entries":qn,"s_entries":sn}
+    return {"name":name,"entries":len(candidates),"ending_nav":float(e["eq"].iloc[-1]),"cagr":float(cagr),"maxdd":float(dd),"sharpe":float(sh),"q_entries":qn,"s_entries":sn}
 
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--data-dir",required=True); ap.add_argument("--out",required=True); a=ap.parse_args()
