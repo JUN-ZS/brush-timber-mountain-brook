@@ -644,7 +644,7 @@ def _run_baskets(con, state, qpath, spath, baskets, name, signals):
         "signal_count": len(signals), "eligible_count": len(baskets),
         "mean_q_ratio": float(sigdf.q_ratio.mean()) if not sigdf.empty else np.nan,
         "mean_s_ratio": float(sigdf.s_ratio.mean()) if not sigdf.empty else np.nan,
-        "mean_coverage": float(sigdf.coverage_1x.mean()) if not sigdf.empty else np.nan,
+        "mean_coverage": float(sigdf.coverage_entry_day.mean()) if not sigdf.empty else np.nan,
         "mean_spy_units": float(sigdf.dynamic_spy_units.mean()) if not sigdf.empty else np.nan,
     }, sigdf
 
