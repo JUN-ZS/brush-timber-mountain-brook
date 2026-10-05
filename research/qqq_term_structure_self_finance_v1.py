@@ -293,7 +293,9 @@ def simulate_qqq_only(con, state, qpath, name):
     signals = []
     last_q = pd.Timestamp.min
 
-    for d in days:
+    i = 0
+    while i < len(days):
+        d = days[i]
         sigd = prev_trading_date(state_dates, d)
         if sigd is None:
             continue
@@ -819,7 +821,9 @@ def _build_term_structure(con, state, qpath, mode):
         relative_ratio = front_ratio / back_ratio if back_ratio > 0 else np.nan
 
         long_edge = back_ratio > 1.0
-        if mode == "always":
+        if mode == "none":
+            finance_ok = False
+        elif mode == "always":
             finance_ok = True
         elif mode == "front_rich":
             finance_ok = front_ratio > 1.0
@@ -911,9 +915,10 @@ def _build_term_structure(con, state, qpath, mode):
                 roll += pd.Timedelta(days=7)
 
         cycle += 1
-        # Do not overlap QQQ long cycles.
-        days = [x for x in days if x > long_exit]
-        break
+        # Do not overlap QQQ long cycles: advance to the first monthly entry after long_exit.
+        i += 1
+        while i < len(days) and days[i] <= long_exit:
+            i += 1
 
     return positions, signals
 
