@@ -1,4 +1,4 @@
-name: QQQ SPY Cross-Underlying Ratio-Diagonal Balance Ridge V1
+name: QQQ SPY Cross-Underlying Ratio-Diagonal Balance Ridge V1 — NORMAL TIME
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     paths:
       - research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
       - research/qqq_spy_bounded_crossover_reanchor_v1.py
-      - .github/workflows/qqq-spy-cross-ratio-diagonal-balance-ridge-v1.yml
+      - .github/workflows/qqq-spy-cross-ratio-diagonal-balance-ridge-v1-normal.yml
   workflow_dispatch:
 
 concurrency:
@@ -44,12 +44,12 @@ jobs:
           .venv/bin/python -m py_compile research/qqq_spy_bounded_crossover_reanchor_v1.py
           .venv/bin/python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
           .venv/bin/python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py --data-dir data --out artifacts/cross_ridge_linux
-          cat artifacts/cross_ridge_linux/RESULTS.md
+          cat artifacts/cross_ridge_linux_normal/RESULTS.md
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-linux
+          name: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-normal-linux
           path: artifacts/cross_ridge_linux/
           if-no-files-found: warn
 
@@ -80,12 +80,12 @@ jobs:
         run: |
           python -m py_compile research/qqq_spy_bounded_crossover_reanchor_v1.py
           python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
-          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py --data-dir data --out artifacts/cross_ridge_windows
-          cat artifacts/cross_ridge_windows/RESULTS.md
+          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py --data-dir data --out artifacts/cross_ridge_windows_normal --orientation normal
+          cat artifacts/cross_ridge_windows_normal/RESULTS.md
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-windows
+          name: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-normal-windows
           path: artifacts/cross_ridge_windows/
           if-no-files-found: warn
