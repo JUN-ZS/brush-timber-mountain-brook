@@ -1,0 +1,91 @@
+name: QQQ SPY Cross-Underlying Ratio-Diagonal Balance Ridge V1 — REVERSE TIME
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-bounded-crossover-ladder-v1-20261005
+    paths:
+      - research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
+      - research/qqq_spy_bounded_crossover_reanchor_v1.py
+      - .github/workflows/qqq-spy-cross-ratio-diagonal-balance-ridge-v1-reverse.yml
+  workflow_dispatch:
+
+concurrency:
+  group: qqq-spy-cross-ratio-diagonal-balance-ridge-v1
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  replay-linux:
+    name: Replay / Linux runner
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare Python
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/pip install duckdb pandas pyarrow numpy
+      - name: Download canonical data
+        run: |
+          mkdir -p data artifacts/cross_ridge_linux
+          curl -L --fail --retry 4 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
+          curl -L --fail --retry 4 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          curl -L --fail --retry 4 -o data/SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
+      - name: Compile and run
+        run: |
+          .venv/bin/python -m py_compile research/qqq_spy_bounded_crossover_reanchor_v1.py
+          .venv/bin/python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
+          .venv/bin/python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py --data-dir data --out artifacts/cross_ridge_linux
+          cat artifacts/cross_ridge_linux_reverse/RESULTS.md
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-reverse-linux
+          path: artifacts/cross_ridge_linux/
+          if-no-files-found: warn
+
+  replay-windows:
+    name: Replay / Windows runner
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install replay dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install duckdb pandas pyarrow numpy
+      - name: Download canonical data
+        run: |
+          mkdir -p data artifacts/cross_ridge_windows
+          curl.exe -L --fail --retry 4 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl.exe -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
+          curl.exe -L --fail --retry 4 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          curl.exe -L --fail --retry 4 -o data/SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
+      - name: Compile and run
+        run: |
+          python -m py_compile research/qqq_spy_bounded_crossover_reanchor_v1.py
+          python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
+          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py --data-dir data --out artifacts/cross_ridge_windows_reverse --orientation reverse
+          cat artifacts/cross_ridge_windows_normal/RESULTS.md
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-reverse-windows
+          path: artifacts/cross_ridge_windows/
+          if-no-files-found: warn
