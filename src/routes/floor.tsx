@@ -398,7 +398,7 @@ function Page() {
   // Each successful Yahoo refresh seals one observed QQQ market point at the current cycle month.
   // This tape is the bridge between real-time passage and the forward 10Y simulation.
   useEffect(() => {
-    if (!hasHydrated || !liveFetchedAt) return;
+    if (!hasHydrated || !isStarted || !liveFetchedAt) return;
     const qqq = liveContext.find((x) => x.symbol === "QQQ");
     if (!qqq?.price) return;
     const marketDate = qqq.regularMarketTime?.slice(0, 10) ?? qqq.bars.at(-1)?.date;
@@ -415,7 +415,7 @@ function Page() {
       next.sort((a, b) => a.month - b.month || a.marketDate.localeCompare(b.marketDate));
       return next.slice(-240);
     });
-  }, [hasHydrated, liveFetchedAt, liveContext, month]);
+  }, [hasHydrated, isStarted, liveFetchedAt, liveContext, month]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
@@ -784,10 +784,10 @@ function Page() {
   }
 
   useEffect(() => {
-    if (!hasHydrated || !liveFetchedAt || !liveMatch) return;
+    if (!hasHydrated || !isStarted || !liveFetchedAt || !liveMatch) return;
     sealDailyDeployment();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasHydrated, liveFetchedAt]);
+  }, [hasHydrated, isStarted, liveFetchedAt]);
 
   useEffect(() => {
     // A RESET leaves the paper book empty. Live refresh may mark/refresh an
