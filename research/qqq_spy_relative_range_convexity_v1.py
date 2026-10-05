@@ -15,17 +15,17 @@ def pathq(p): return str(p).replace("'", "''")
 
 def load_px(con, path, prefix):
     d = sql(con, f"""
-      SELECT CAST(date AS DATE) date, CAST("close" AS DOUBLE) close
+      SELECT CAST(date AS DATE) AS date, CAST("close" AS DOUBLE) AS close_px
       FROM read_parquet('{pathq(path)}')
       WHERE CAST(date AS DATE) BETWEEN DATE '2011-01-01' AND DATE '2025-12-31'
       ORDER BY date
     """)
     d.date = pd.to_datetime(d.date)
-    r = np.log(d.close/d.close.shift(1))
+    r = np.log(d.close_px/d.close_px.shift(1))
     for w in (5,20,60):
         d[f"rv{w}"] = r.rolling(w).std()*math.sqrt(TD)
     d["month"] = d.date.dt.to_period("M")
-    return d.rename(columns={"close":prefix+"_px","rv5":prefix+"_rv5","rv20":prefix+"_rv20","rv60":prefix+"_rv60"})[
+    return d.rename(columns={"close_px":prefix+"_px","rv5":prefix+"_rv5","rv20":prefix+"_rv20","rv60":prefix+"_rv60"})[
         ["date",prefix+"_px",prefix+"_rv5",prefix+"_rv20",prefix+"_rv60","month"]]
 
 def build_state(con, q_u, s_u):
