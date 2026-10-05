@@ -518,7 +518,7 @@ def generate_cycles(con, state, qpath, spath, threshold):
         cycles.append(active)
     return cycles
 
-def simulate_threshold(con, state, qpath, spath, name, threshold):
+def simulate_threshold(con, state, qpath, spath, name, threshold, valuation_dates):
     cycles = generate_cycles(con, state, qpath, spath, threshold)
     flat_candidates = []
     for c in cycles:
@@ -554,7 +554,8 @@ def simulate_threshold(con, state, qpath, spath, name, threshold):
         events_by_date.setdefault(pd.Timestamp(c["exit_date"]), []).append(("CLOSE", c))
 
     cycle_sizes = {}
-    for d in sorted(pd.to_datetime(state.entry_date.tolist())):
+    # Daily valuation grid: drawdown must be measured between signal dates too.
+    for d in valuation_dates:
         # Close before open on the same day: harvest is credited before the switch.
         for action, c in events_by_date.get(d, []):
             if action != "CLOSE":
@@ -660,6 +661,8 @@ def main():
     con = duckdb.connect()
     state = build_bounded_state(con, qu, su, qpath, spath)
     state.to_csv(o / "bounded_state.csv", index=False)
+    daily_q = load_px(con, qu, "Q")
+    valuation_dates = [pd.Timestamp(x) for x in daily_q.date if START <= x.strftime("%Y-%m-%d") <= END]
 
     # Pre-committed exploratory boundary family. No "search until PASS":
     # all thresholds are reported side-by-side and are not selected on OOS.
@@ -673,7 +676,7 @@ def main():
     results = []
     reports = []
     for name, h in cfg:
-        rr, rep = simulate_threshold(con, state, qpath, spath, name, h)
+        rr, rep = simulate_threshold(con, state, qpath, spath, name, h, valuation_dates)
         results.append(rr)
         reports.append(rep)
 
@@ -689,7 +692,7 @@ def main():
         "end": END,
         "score": "20*causal rolling percentile(IV60/RV60)-10, clipped to [-10,+10]",
         "relative": "D = QQQ_score - SPY_score in [-20,+20]",
-        "observation": "first trading day of each calendar week; signal evaluated on prior trading day",
+        "observation": "first trading day of each calendar week; signal evaluated on prior trading day; equity valued daily",
         "entry": "|D| >= H",
         "switch": "close at opposite boundary and switch direction at that observed entry day",
         "rearm_after_time_exit": "|D| <= 2",
