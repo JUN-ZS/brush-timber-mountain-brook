@@ -203,7 +203,7 @@ def simulate(con,state,qpath,spath,name,mode):
                 b,a,m=mk.get((l[6],d),(None,None,None))
                 if m is None: ok=False; break
                 v += l[4]*m*M*p["qty"]
-            if ok: mtm += -p["entry_value"]*p["qty"]+v
+            if ok:\n                entry_cf=(-p["entry_value"] if p["symbol"]=="QQQ" else p["entry_value"])*p["qty"]\n                mtm += entry_cf+v
         eq=nav=100000.0+realized+mtm
         rows.append((d,eq))
     e=pd.DataFrame(rows,columns=["date","eq"])
