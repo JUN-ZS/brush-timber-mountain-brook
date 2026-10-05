@@ -649,6 +649,249 @@ def _run_baskets(con, state, qpath, spath, baskets, name, signals):
     }, sigdf
 
 
+
+def _first_on_or_after(dates, target):
+    dates = pd.DatetimeIndex(dates)
+    ix = dates.searchsorted(pd.Timestamp(target), side="left")
+    return dates[ix] if ix < len(dates) else None
+
+
+def _simulate_position_book(con, state, qpath, spath, positions, name, signals):
+    if not positions:
+        return {
+            "name": name, "entries": 0, "ending_nav": 100000.0, "cagr": 0.0,
+            "maxdd": 0.0, "sharpe": 0.0, "q_entries": 0, "s_entries": 0,
+            "signal_count": len(signals), "finance_trades": 0,
+            "qqq_entry_debit": 0.0, "spy_net_pnl": 0.0, "finance_coverage": 0.0,
+        }, pd.DataFrame(signals)
+
+    ids = [(p["symbol"], leg[6]) for p in positions for leg in p["legs"]]
+    mk = _load_marks(con, qpath, spath, ids)
+
+    nav0 = 100000.0
+    realized = 0.0
+    openpos = []
+    rows = []
+    pos_pnl = []
+    dates = sorted(pd.to_datetime(state.date).tolist())
+
+    for d in dates:
+        for p in positions:
+            if p["entry"] == d:
+                openpos.append(p)
+                realized += p["entry_cf"] * p["qty"]
+
+        still = []
+        for p in openpos:
+            if d == p["exitd"]:
+                value = 0.0
+                ok = True
+                for leg in p["legs"]:
+                    bid, ask, mark = mk.get((p["symbol"], leg[6], d), (None, None, None))
+                    if mark is None:
+                        ok = False
+                        break
+                    fill = bid if leg[4] == 1 else ask
+                    value += leg[4] * fill * M * p["qty"]
+                if ok:
+                    pnl = p["entry_cf"] * p["qty"] + value
+                    realized += value
+                    pos_pnl.append({
+                        "cycle": p["cycle"],
+                        "symbol": p["symbol"],
+                        "role": p["role"],
+                        "entry": p["entry"],
+                        "exit": d,
+                        "pnl": pnl,
+                        "entry_cf": p["entry_cf"] * p["qty"],
+                    })
+                else:
+                    still.append(p)
+            else:
+                still.append(p)
+        openpos = still
+
+        mtm = 0.0
+        for p in openpos:
+            value = 0.0
+            ok = True
+            for leg in p["legs"]:
+                bid, ask, mark = mk.get((p["symbol"], leg[6], d), (None, None, None))
+                if mark is None:
+                    ok = False
+                    break
+                value += leg[4] * mark * M * p["qty"]
+            if ok:
+                mtm += value
+
+        rows.append((d, nav0 + realized + mtm))
+
+    e = pd.DataFrame(rows, columns=["date", "eq"])
+    years = max((e["date"].iloc[-1] - e["date"].iloc[0]).days / 365.25, 1 / 365.25)
+    ending = float(e["eq"].iloc[-1])
+    rets = e["eq"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
+    sharpe = float(rets.mean() / rets.std(ddof=1) * math.sqrt(TD)) if rets.std(ddof=1) > 0 else 0.0
+
+    trades = pd.DataFrame(pos_pnl)
+    spy_pnl = float(trades.loc[trades["symbol"] == "SPY", "pnl"].sum()) if not trades.empty else 0.0
+    qqq_debit = float(sum(-p["entry_cf"] * p["qty"] for p in positions if p["symbol"] == "QQQ"))
+    coverage = spy_pnl / qqq_debit if qqq_debit > 0 else 0.0
+
+    result = {
+        "name": name,
+        "entries": len([p for p in positions if p["role"] == "QQQ"]),
+        "ending_nav": ending,
+        "cagr": float((ending / nav0) ** (1 / years) - 1),
+        "maxdd": float((e["eq"] / e["eq"].cummax() - 1).min()),
+        "sharpe": sharpe,
+        "q_entries": len([p for p in positions if p["symbol"] == "QQQ"]),
+        "s_entries": len([p for p in positions if p["symbol"] == "SPY"]),
+        "signal_count": len(signals),
+        "finance_trades": len([p for p in positions if p["symbol"] == "SPY"]),
+        "qqq_entry_debit": qqq_debit,
+        "spy_net_pnl": spy_pnl,
+        "finance_coverage": coverage,
+    }
+    return result, pd.DataFrame(signals)
+
+
+def _build_rolling_finance(con, state, qpath, spath, finance_mode):
+    days = entry_days(state)
+    state_dates = sorted(pd.to_datetime(state.date).tolist())
+    st = state.set_index("date")
+    positions = []
+    signals = []
+    next_q_entry = pd.Timestamp.min
+    cycle = 0
+
+    for d in days:
+        if d < next_q_entry:
+            continue
+
+        sigd = prev_trading_date(state_dates, d)
+        if sigd is None:
+            continue
+        sig = st.loc[sigd]
+        if isinstance(sig, pd.DataFrame):
+            sig = sig.iloc[0]
+        if pd.isna(sig.get("Q_rv60", np.nan)):
+            continue
+
+        q_sig = qqq_rc(con, qpath, sigd, 90, 0.05, 0.25, 35)
+        if q_sig is None:
+            continue
+        q_ratio = float(sig.Q_rv60) / float(q_sig["atm_iv"])
+        if not (q_ratio > 1.0):
+            continue
+
+        q = qqq_rc(con, qpath, d, 90, 0.05, 0.25, 35)
+        if q is None or q["risk"] <= 0:
+            continue
+
+        q_exit_target = q["expiry"] - pd.Timedelta(days=q["exit_dte"])
+        q_exit = _first_on_or_after(state_dates, q_exit_target)
+        if q_exit is None or q_exit <= d:
+            continue
+
+        q_qty = int(math.floor((100000.0 * 0.05) / float(q["risk"])))
+        if q_qty <= 0:
+            continue
+
+        positions.append({
+            "cycle": cycle,
+            "role": "QQQ",
+            "symbol": "QQQ",
+            "entry": d,
+            "exitd": q_exit,
+            "legs": q["legs"],
+            "entry_cf": -float(q["entry_value"]),
+            "qty": q_qty,
+        })
+        signals.append({
+            "cycle": cycle,
+            "role": "QQQ",
+            "finance_mode": finance_mode,
+            "signal_date": sigd,
+            "entry_date": d,
+            "q_rv60": float(sig.Q_rv60),
+            "q_iv90": float(q_sig["atm_iv"]),
+            "q_ratio": q_ratio,
+        })
+
+        if finance_mode != "none":
+            roll_target = d
+            while roll_target < q_exit:
+                roll = _first_on_or_after(state_dates, roll_target)
+                if roll is None or roll >= q_exit:
+                    break
+
+                fsig_d = prev_trading_date(state_dates, roll)
+                if fsig_d is None:
+                    break
+                fsig = st.loc[fsig_d]
+                if isinstance(fsig, pd.DataFrame):
+                    fsig = fsig.iloc[0]
+
+                spy_sig = spy_ic(con, spath, fsig_d, 14, 0.10)
+                s_ratio = (
+                    float(spy_sig["atm_iv"]) / float(fsig.S_rv30)
+                    if spy_sig is not None and pd.notna(fsig.S_rv30) and float(fsig.S_rv30) > 0
+                    else np.nan
+                )
+
+                eligible = spy_sig is not None and np.isfinite(s_ratio)
+                if finance_mode == "iv_edge":
+                    eligible = eligible and s_ratio > 1.0
+                elif finance_mode == "relative":
+                    eligible = eligible and s_ratio > 1.0 and s_ratio > q_ratio
+
+                if eligible:
+                    sp = spy_ic(con, spath, roll, 14, 0.10)
+                    if sp is not None and sp["risk"] > 0:
+                        spy_qty = int(math.floor((100000.0 * 0.01) / float(sp["risk"])))
+                        exit_target = min(
+                            q_exit,
+                            _first_on_or_after(state_dates, sp["expiry"] - pd.Timedelta(days=7))
+                            or q_exit,
+                        )
+                        if spy_qty > 0 and exit_target > roll:
+                            positions.append({
+                                "cycle": cycle,
+                                "role": "FINANCE_SPY",
+                                "symbol": "SPY",
+                                "entry": roll,
+                                "exitd": exit_target,
+                                "legs": sp["legs"],
+                                "entry_cf": float(sp["entry_value"]),
+                                "qty": spy_qty,
+                            })
+                            signals.append({
+                                "cycle": cycle,
+                                "role": "FINANCE_SPY",
+                                "finance_mode": finance_mode,
+                                "signal_date": fsig_d,
+                                "entry_date": roll,
+                                "q_ratio": q_ratio,
+                                "s_rv30": float(fsig.S_rv30),
+                                "s_iv14": float(spy_sig["atm_iv"]),
+                                "s_ratio": s_ratio,
+                                "spy_credit_per_unit": float(sp["entry_value"]),
+                            })
+
+                roll_target = roll + pd.Timedelta(days=7)
+
+        next_q_entry = q_exit
+        cycle += 1
+
+    return positions, signals
+
+
+def run_rolling_strategy(con, state, qpath, spath, name, finance_mode):
+    positions, signals = _build_rolling_finance(con, state, qpath, spath, finance_mode)
+    result, sigdf = _simulate_position_book(con, state, qpath, spath, positions, name, signals)
+    return result, sigdf
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data-dir", required=True)
@@ -670,56 +913,54 @@ def main():
     st = build_state(con, qu, su)
     st.to_csv(o / "state.csv", index=False)
 
-    res = []
-    all_signals = []
+    configs = [
+        ("A_QQQ_25D90_ONLY", "none"),
+        ("B_QQQ_PLUS_WEEKLY_SPY14_ALWAYS", "always"),
+        ("C_QQQ_PLUS_WEEKLY_SPY14_IV_EDGE", "iv_edge"),
+        ("D_QQQ_PLUS_WEEKLY_SPY14_RELATIVE", "relative"),
+    ]
 
-    rr, sig = simulate_qqq_only(con, st, qpath, "A_QQQ_25D90_ONLY")
-    res.append(rr)
-    all_signals.append(sig)
+    results = []
+    signals_all = []
+    for name, mode in configs:
+        rr, sig = run_rolling_strategy(con, st, qpath, spath, name, mode)
+        results.append(rr)
+        if not sig.empty:
+            signals_all.append(sig)
 
-    for name, mode, cap in [
-        ("B_SELF_FINANCE_1X", "one_to_one", 1),
-        ("C_SELF_FINANCE_DYNAMIC_3X", "dynamic", 3),
-        ("D_SELF_FINANCE_DYNAMIC_6X", "dynamic", 6),
-    ]:
-        rr, sig = simulate_self_financing(con, st, qpath, spath, name, mode, cap)
-        res.append(rr)
-        all_signals.append(sig)
-
-    signals_df = pd.concat([x for x in all_signals if not x.empty], ignore_index=True) if any(not x.empty for x in all_signals) else pd.DataFrame()
+    signals_df = pd.concat(signals_all, ignore_index=True) if signals_all else pd.DataFrame()
     signals_df.to_csv(o / "signals.csv", index=False)
-    (o / "results.json").write_text(json.dumps(res, indent=2, allow_nan=True), encoding="utf-8")
+    (o / "results.json").write_text(json.dumps(results, indent=2, allow_nan=True), encoding="utf-8")
 
     lines = [
-        "# QQQ-SPY Self-Financing Range V1 — real-chain replay",
+        "# QQQ-SPY Rolling Finance V1 — real-chain replay",
         "",
-        "Period: 2018-03 through 2025-12; entry is first trading day of each month.",
-        "Signal is evaluated on the PRIOR trading day; actual option structure is selected/fill-modelled on entry day.",
-        "QQQ: 90D target reverse iron condor, long ~25Δ call/put, short ~5Δ wings, exit 35D.",
-        "SPY: 30D target iron condor, short ~50Δ call/put, long ~10Δ wings, exit 7D.",
-        "QQQ condition: prior-day QQQ RV60 / QQQ 90D ATM IV > 1.",
-        "SPY condition: prior-day SPY 30D ATM IV / RV30 > 1.",
-        "Self-financing 1X: one SPY short IC must fully cover the QQQ debit at entry.",
-        "Dynamic self-financing: buy 1 QQQ reverse IC and ceil(QQQ debit / SPY credit) SPY short ICs, capped at 3X or 6X.",
-        "Entry accounting books both legs immediately; self-financing baskets therefore have non-negative net entry cash flow to the portfolio.",
-        "Sizing: 5% NAV of defined combined worst-case risk per basket.",
-        "Fill: BUY at ask, SELL at bid; daily MTM at mark=(bid+ask)/2; exit long at bid / short at ask.",
+        "Period: 2018-03 through 2025-12; QQQ entry is first trading day of a month, then the next QQQ cycle waits for the prior QQQ exit.",
+        "Signal is evaluated on the PRIOR trading day; actual option structures are selected/fill-modelled on their entry dates.",
+        "QQQ convexity: 90D target reverse iron condor, long ~25Δ call/put, short ~5Δ wings, exit at 35D remaining.",
+        "QQQ gate: prior-day QQQ RV60 / QQQ 90D ATM IV > 1.",
+        "SPY financing leg: 14D target defined-risk iron condor, short ~50Δ call/put, long ~10Δ wings; each finance ticket is closed with 7D remaining or at the QQQ cycle exit.",
+        "SPY roll cadence: every 7 calendar days during the active QQQ cycle.",
+        "A: no financing. B: unconditional weekly SPY financing. C: weekly SPY financing only when prior-day SPY IV30/RV30 > 1. D: financing only when SPY IV30/RV30 > QQQ RV60/IV90 and > 1.",
+        "Sizing: QQQ worst-case-risk budget 5% of initial $100,000 per cycle; each weekly SPY financing ticket has a 1% initial-NAV defined-risk budget.",
+        "Fill: BUY at ask, SELL at bid; daily MTM at mark=(bid+ask)/2; exits use bid for longs / ask for shorts.",
         "Liquidity: OI>=10 OR volume>=5, relative bid/ask spread<=35%.",
-        "No pull_request trigger; research workflow is push/manual only; no live order transmission.",
+        "No pull_request trigger; push/manual research only; no live order transmission.",
         "",
-        "| strategy | entries | ending NAV | CAGR | MaxDD | Sharpe | mean SPY units | mean coverage |",
+        "| strategy | QQQ cycles | SPY finance trades | ending NAV | CAGR | MaxDD | Sharpe | SPY net P&L / QQQ debit |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for r in res:
+    for r in results:
         lines.append(
-            f"| {r['name']} | {r['entries']} | {r['ending_nav']:.2f} | "
-            f"{r['cagr']:.2%} | {r['maxdd']:.2%} | {r['sharpe']:.2f} | "
-            f"{r.get('mean_spy_units', np.nan):.2f} | {r.get('mean_coverage', np.nan):.2f} |"
+            f"| {r['name']} | {r['q_entries']} | {r['finance_trades']} | "
+            f"{r['ending_nav']:.2f} | {r['cagr']:.2%} | {r['maxdd']:.2%} | "
+            f"{r['sharpe']:.2f} | {r['finance_coverage']:.2%} |"
         )
     lines += [
         "",
-        "Interpretation rule: this run tests whether option carry can actually finance long QQQ range convexity. It does NOT establish that bonds are replaceable; Treasury return, margin funding, collateral yield, gap risk, and liquidity are not modeled here.",
-        "Exploratory structure test only; because the structure family was chosen after V3 full-sample inspection, this is not an OOS claim.",
+        "Interpretation: this tests whether repeatedly selling short-dated SPY defined-risk volatility can reduce the carry cost of a long-dated QQQ range-convexity position. It is not evidence that this replaces bonds.",
+        "The financing overlay is intentionally capped; it is a financing/carry experiment, not a disguised leveraged short-vol portfolio.",
+        "Exploratory structure test only; because the structure family was chosen after prior V3 inspection, this is not a strict OOS claim.",
     ]
     (o / "RESULTS.md").write_text("\n".join(lines), encoding="utf-8")
 
