@@ -1368,10 +1368,22 @@ function Page() {
             capitalPoints={null}
             currentStatus={null}
           />
+          <input
+            ref={importRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void pullState(file);
+              event.currentTarget.value = "";
+            }}
+          />
           <StartSetupPanel
             draft={startDraft}
             onChange={setStartDraftValue}
             onCopy={copyDefaultStart}
+            onPull={openPull}
             onApply={applyStartDraft}
             ready={startInputsComplete}
             qqqPrice={livePrice}
@@ -2587,6 +2599,7 @@ function StartSetupPanel({
   draft,
   onChange,
   onCopy,
+  onPull,
   onApply,
   ready,
   qqqPrice,
@@ -2594,6 +2607,7 @@ function StartSetupPanel({
   draft: StartDraft;
   onChange: <K extends keyof StartDraft>(key: K, value: StartDraft[K]) => void;
   onCopy: () => void;
+  onPull: () => void;
   onApply: () => void;
   ready: boolean;
   qqqPrice: number | null;
@@ -2612,6 +2626,7 @@ function StartSetupPanel({
               <p className="mt-1 text-sm text-muted">任何人都可以 COPY 同一份空白 schema，再自己填 B / 開始月份 / OPENING / NAV / F / CASH IN；唔會帶入舊帳。</p>
             </div>
             <button type="button" onClick={onCopy} className="min-h-10 rounded-md border border-accent px-3 font-mono text-xs hover:bg-elevated">COPY DEFAULT START</button>
+            <button type="button" onClick={onPull} className="min-h-10 rounded-md border border-line px-3 font-mono text-xs text-muted hover:text-fg">PULL JSON</button>
           </div>
           <pre className="mt-3 overflow-x-auto rounded-md border border-line bg-surface p-3 text-xs text-subtle">{JSON.stringify(DEFAULT_START_TEMPLATE, null, 2)}</pre>
         </div>
@@ -2646,7 +2661,7 @@ function StartSetupPanel({
           APPLY START · CREATE FORMAL ACCOUNT
         </button>
         <p className="text-xs leading-relaxed text-subtle">
-          未填齊之前只係 START PREVIEW；唔會建立 Funding / Deployment / Trade / Paper record。APPLY 後，CASH IN > 0 先建立一筆真正 CONTRIBUTION；OPENING DEPLOYED 永遠獨立。
+          未填齊之前只係 START PREVIEW；唔會建立 Funding / Deployment / Trade / Paper record。APPLY 後，CASH IN &gt; 0 先建立一筆真正 CONTRIBUTION；OPENING DEPLOYED 永遠獨立。
         </p>
       </div>
     </Panel>
