@@ -41,7 +41,8 @@ jobs:
           python3 research/cboe_vx_m1m2/validate_against_external.py \
             --cboe artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv \
             --external research/data/vx_m1_m2_external_2016_2022.csv \
-            --out artifacts/real-vx/overlap_gate.json
+            --out artifacts/real-vx/overlap_gate.json \
+            --diagnostic
 
       - name: Fixed REAL M1/M2 archive replay
         run: node research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
