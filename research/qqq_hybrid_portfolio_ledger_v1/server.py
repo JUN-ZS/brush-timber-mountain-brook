@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import ssl
 import urllib.parse
@@ -19,7 +20,7 @@ RUNTIME = ROOT / "runtime"
 RUNTIME.mkdir(parents=True, exist_ok=True)
 EVENTS = RUNTIME / "ledger_events.jsonl"
 HOST = "127.0.0.1"
-PORT = 8790
+PORT = int(os.environ.get("QHP_LEDGER_PORT", "8790"))
 OPEND_HOST = "127.0.0.1"
 OPEND_PORT = 11111
 
