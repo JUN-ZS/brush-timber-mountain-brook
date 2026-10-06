@@ -4,6 +4,7 @@ import json
 import os
 import re
 import ssl
+import subprocess
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -198,12 +199,33 @@ class Handler(SimpleHTTPRequestHandler):
                 "asOf": now_iso(),
             })
         if parsed.path == "/api/strategy-status":
-            return json_resp(self, {
-                "ok": True,
-                "connected": False,
-                "policy_owner": "V3",
-                "message": "No automatic V3 bridge in Ledger V1. Do not derive BUY/HOLD/REDUCE from P&L.",
-            })
+            bridge = ROOT / "v3_bridge.js"
+            try:
+                result = subprocess.run(
+                    ["node", str(bridge), "--json"],
+                    cwd=str(ROOT),
+                    capture_output=True,
+                    text=True,
+                    timeout=7,
+                    check=False,
+                )
+                payload = json.loads(result.stdout or "{}")
+                if not isinstance(payload, dict):
+                    raise ValueError("V3 bridge returned invalid JSON")
+                payload["broker_orders"] = False
+                payload["ledger_authority"] = "ACTUAL_PORTFOLIO"
+                return json_resp(self, payload)
+            except Exception as exc:
+                return json_resp(self, {
+                    "ok": True,
+                    "connected": False,
+                    "available": False,
+                    "policy_owner": "V3",
+                    "source": "V3_BRIDGE_ERROR",
+                    "error": type(exc).__name__ + ": " + str(exc),
+                    "broker_orders": False,
+                    "ledger_authority": "ACTUAL_PORTFOLIO",
+                })
         return super().do_GET()
 
     def do_POST(self):
