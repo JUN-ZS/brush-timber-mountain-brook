@@ -142,6 +142,32 @@ Not yet wired:
 - tax-lot/reporting rules
 - time-weighted return series
 - money-weighted IRR
-- spread-level P&L attribution
 
 These stay separate increments so accounting, identity, and future attribution can each be tested independently.
+
+### Spread-level P&L Attribution V1
+
+For a spread that is PAIRED, attribution uses the explicit spreadId + legRole identity and keeps each option leg's accounting independent.
+
+Per leg:
+
+    realizedPnl = FIFO realized P&L from fills in that spread leg
+    unrealizedPnl = current mark P&L on the remaining open lots
+    totalPnl = realizedPnl + unrealizedPnl - fees
+
+For the currently open exposure:
+
+    entryDebit  = cost of active LONG/open debit lots
+    entryCredit = proceeds of active SHORT/open credit lots
+    netEntryCredit = entryCredit - entryDebit
+    currentValue = signed marked market value of both legs
+
+currentValue is valuation context only. It is never used as the spread P&L calculation.
+
+Closed quantities remain represented through realized P&L; they are not silently folded back into the current entry premium.
+
+Attribution is blocked as INCOMPLETE when the position identity is not paired, active LONG / SHORT direction is inconsistent with the declared leg role, or a current mark required for either active leg is missing.
+
+No spread-level P&L is fabricated in those states.
+
+This increment remains accounting-only. It does not modify V3 BUY / HOLD / REDUCE logic and has no broker-order path.

@@ -70,6 +70,12 @@
         <div id="spreadRows" class="spread-rows"></div>
       </section>
 
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">ATTRIBUTION</div><h2>Spread-level P&L</h2></div><div id="spreadPnlStatus" class="status">NO ATTRIBUTABLE SPREADS</div></div>
+        <p class="hint">P&L is derived from each leg's FIFO realized P&L + marked unrealized P&L − fees. Current value is display-only; unpaired spreads or missing marks produce no fabricated P&L.</p>
+        <div id="spreadPnlRows" class="spread-pnl-rows"></div>
+      </section>
+
       <section class="card">
         <div class="card-head"><div><div class="eyebrow">INPUT</div><h2>Cashflow</h2></div></div>
         <form id="cashForm" class="form">
@@ -133,6 +139,7 @@
   </main>
   <script src="ledger_engine.js"></script>
   <script src="position_identity.js"></script>
+  <script src="spread_pnl.js"></script>
   <script src="reconciliation.js"></script>
   <script src="app.js"></script>
 </body>

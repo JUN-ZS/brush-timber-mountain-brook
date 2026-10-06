@@ -1,5 +1,6 @@
 const L = window.PortfolioLedgerV1;
 const P = window.PortfolioPositionIdentityV1;
+const S = window.PortfolioSpreadPnlV1;
 const R = window.PortfolioReconciliationV1;
 let events = [];
 let liveMarks = {};
@@ -36,6 +37,48 @@ function esc(value){
 
 function fmtSpreadUnits(v){
   return Number.isFinite(Number(v)) ? qty(v) : "—";
+}
+
+function renderSpreadPnl(){
+  const result = S.attribute(events, mergedMarks());
+  const summary = result.summary;
+  if($("spreadPnlStatus")){
+    $("spreadPnlStatus").textContent = summary.paired
+      ? ("READY · " + summary.paired + " PAIRED")
+      : (summary.total ? ("INCOMPLETE · " + summary.incomplete) : "NO ATTRIBUTABLE SPREADS");
+    $("spreadPnlStatus").className = "status " + (summary.paired ? "ok" : (summary.total ? "warn" : ""));
+  }
+  if(!$("spreadPnlRows")) return;
+
+  if(!result.rows.length){
+    $("spreadPnlRows").innerHTML = '<div class="hint">No explicit spread identity is available for P&L attribution.</div>';
+    return;
+  }
+
+  $("spreadPnlRows").innerHTML = result.rows.map(r=>{
+    const cls = r.status === "PAIRED" ? "paired" : "warning";
+    if(r.status !== "PAIRED"){
+      return '<div class="spread-pnl-row '+cls+'">' +
+        '<span><small>SPREAD ID</small><b>'+esc(r.spreadId)+'</b><small>'+esc(r.strategyRole || "—")+'</small></span>' +
+        '<span class="spread-pnl-block"><small>STATUS</small><b>'+esc(r.status)+'</b><small>'+esc(r.reason)+'</small></span>' +
+        '<span><small>P&L</small><b>—</b><small>No number fabricated</small></span>' +
+      '</div>';
+    }
+    return '<div class="spread-pnl-row '+cls+'">' +
+      '<span><small>SPREAD ID</small><b>'+esc(r.spreadId)+'</b><small>'+esc(r.strategyRole || "—")+'</small></span>' +
+      '<span><small>LONG</small><b>'+esc(r.longLeg.symbol)+'</b><small>'+qty(r.longLeg.quantity)+' · mark '+money(r.longLeg.mark)+' · P&L '+fmtSpreadMoney(r.longLeg.totalPnl)+'</small></span>' +
+      '<span><small>SHORT</small><b>'+esc(r.shortLeg.symbol)+'</b><small>'+qty(Math.abs(r.shortLeg.quantity))+' · mark '+money(r.shortLeg.mark)+' · P&L '+fmtSpreadMoney(r.shortLeg.totalPnl)+'</small></span>' +
+      '<span><small>ENTRY D / C</small><b>'+money(r.entryDebit)+' / '+money(r.entryCredit)+'</b><small>net credit '+fmtSpreadMoney(r.netEntryCredit)+'</small></span>' +
+      '<span><small>CURRENT VALUE</small><b>'+fmtSpreadMoney(r.currentValue)+'</b><small>display only</small></span>' +
+      '<span><small>REALIZED</small><b>'+fmtSpreadMoney(r.realizedPnl)+'</b></span>' +
+      '<span><small>UNREALIZED</small><b>'+fmtSpreadMoney(r.unrealizedPnl)+'</b></span>' +
+      '<span><small>FEES / TOTAL</small><b>'+money(r.fees)+' / '+fmtSpreadMoney(r.totalPnl)+'</b></span>' +
+    '</div>';
+  }).join("");
+}
+
+function fmtSpreadMoney(v){
+  return Number.isFinite(Number(v)) ? signMoney(v) : "—";
 }
 
 function renderSpreadIdentity(){
@@ -229,6 +272,7 @@ function renderAll(){
   try{
     renderPositions();
     renderSpreadIdentity();
+    renderSpreadPnl();
     renderEvents();
     renderReconciliation();
   }catch(err){
