@@ -16,6 +16,7 @@ on:
     paths:
       - "research/m1_m2_reconstruction_lab/**"
       - "research/data/vx_m1_m2_external_2016_2022.csv"
+      - "research/data/archive_spots_overlap_2018_2022.csv"
       - ".github/workflows/m1-m2-reconstruction-lab.yml"
 
 jobs:
@@ -27,15 +28,23 @@ jobs:
         with:
           node-version: "20"
       - name: JS syntax
-        run: node --check research/m1_m2_reconstruction_lab/engine.js && node --check research/m1_m2_reconstruction_lab/app.js
+        run: |
+          node --check research/m1_m2_reconstruction_lab/engine.js
+          node --check research/m1_m2_reconstruction_lab/app.js
+          node --check research/m1_m2_reconstruction_lab/tests/golden_test.js
+          node --check research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
       - name: Golden reconstruction behavior
         run: node research/m1_m2_reconstruction_lab/tests/golden_test.js
+      - name: REAL historical state replay
+        run: node research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
       - name: Dataset contract
         run: |
           test -f research/data/vx_m1_m2_external_2016_2022.csv
           test -f research/data/archive_spots_overlap_2018_2022.csv
           test -f research/m1_m2_reconstruction_lab/ARCHIVE_CONTRACT.md
           test -f research/m1_m2_reconstruction_lab/REAL_OBSERVED_CONTROL.md
+          test -f research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
+          test -f research/data/real_historical_state_replay_2018_2022.csv
           python3 - <<'PY'
           import csv
           p="research/data/vx_m1_m2_external_2016_2022.csv"
@@ -44,5 +53,22 @@ jobs:
           assert len(rows)==1540, len(rows)
           assert rows[0]["Date"].startswith("2022-04-08"), rows[0]["Date"]
           assert rows[-1]["Date"].startswith("2016-03-01"), rows[-1]["Date"]
-          print("Dataset contract PASS", len(rows))
+
+          p2="research/data/real_historical_state_replay_2018_2022.csv"
+          with open(p2,newline="",encoding="utf-8") as f:
+              replay=list(csv.DictReader(f))
+          assert len(replay)==1540, len(replay)
+          assert replay[0]["Date"]=="2016-03-01", replay[0]["Date"]
+          assert replay[-1]["Date"]=="2022-04-08", replay[-1]["Date"]
+          assert all(r["provenance"]=="OBSERVED_REPLAY" for r in replay)
+          print("Dataset + replay contract PASS", len(rows), len(replay))
           PY
+      - name: Upload observed replay artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-historical-state-replay
+          path: |
+            research/data/real_historical_state_replay_2018_2022.csv
+            research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
+          if-no-files-found: error
+          retention-days: 14
