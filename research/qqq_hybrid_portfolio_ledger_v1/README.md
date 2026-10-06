@@ -106,19 +106,42 @@ Implemented now:
 - period P&L with explicit start marks
 - live mark endpoint
 - import/export JSON in the browser
-- read-only V3 bridge status placeholder
+- read-only V3 decision bridge
+- defensible QQQ / VXX actual-vs-target reconciliation
+- explicit option position identity with campaign / spread / leg metadata
+- deterministic option spread pairing
+- server-side validation of event and identity metadata
 
-Now wired:
+### Position identity contract
 
-- read-only V3 decision bridge; it uses the real V3 engine source when PR #86 is present and stays OFFLINE otherwise.
+Option spread pairing is never inferred from contract names, strikes, quantities, or nearby fills.
+
+An option fill may carry:
+
+    positionIdentity: {
+      campaignId?: "...",
+      spreadId: "...",
+      legRole: "LONG" | "SHORT",
+      strategyRole?: "..."
+    }
+
+The same spreadId is the only binding between legs. A spread is PAIRED only when exactly one active LONG contract and one active SHORT contract remain and their absolute open quantities match.
+
+Visible non-paired states are:
+
+- INCOMPLETE: one leg is missing
+- IMBALANCED: both legs exist but quantities differ
+- MULTI_CONTRACT: more than one active contract remains on either leg role
+
+This layer is identity / pairing only. It does not attribute P&L by spread, does not infer credit vs debit, and does not modify V3 policy. V3 option targets remain UNMAPPED in reconciliation because the current target is a budget percentage, not an explicit spread count.
 
 Not yet wired:
 
-- actual-position vs V3 target reconciliation
 - broker fill ingestion
 - corporate-action normalization
 - tax-lot/reporting rules
 - time-weighted return series
 - money-weighted IRR
+- spread-level P&L attribution
 
-Those are separate increments so accounting correctness can be tested before adding integrations.
+These stay separate increments so accounting, identity, and future attribution can each be tested independently.

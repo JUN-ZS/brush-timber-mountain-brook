@@ -1,4 +1,5 @@
 const L = window.PortfolioLedgerV1;
+const P = window.PortfolioPositionIdentityV1;
 const R = window.PortfolioReconciliationV1;
 let events = [];
 let liveMarks = {};
@@ -25,6 +26,50 @@ function fillTimestampToIso(v){
 
 function prettyError(err){
   return err && err.message ? err.message : String(err);
+}
+
+function esc(value){
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[ch]));
+}
+
+function fmtSpreadUnits(v){
+  return Number.isFinite(Number(v)) ? qty(v) : "—";
+}
+
+function renderSpreadIdentity(){
+  const identity = P.build(events);
+  const s = identity.summary;
+  if($("identityStatus")){
+    $("identityStatus").textContent = s.paired
+      ? ("PAIRED · " + s.paired)
+      : (s.optionFills ? ("IDENTIFIED · " + s.identifiedOptionFills) : "NO IDENTIFIED SPREADS");
+    $("identityStatus").className = "status " + (s.paired ? "ok" : (s.optionFills ? "warn" : ""));
+  }
+  if(!$("spreadRows")) return;
+
+  if(!identity.rows.length){
+    $("spreadRows").innerHTML = s.unmappedOptionFills
+      ? '<div class="hint">No explicit Spread ID yet. '+s.unmappedOptionFills+' option fill(s) remain unmapped.</div>'
+      : '<div class="hint">No option fills with explicit spread identity.</div>';
+    return;
+  }
+
+  $("spreadRows").innerHTML =
+    '<div class="spread-summary"><span>PAIRED '+s.paired+'</span><span>INCOMPLETE '+s.incomplete+'</span><span>IMBALANCED '+s.imbalanced+'</span><span>MULTI-CONTRACT '+s.multiContract+'</span><span>UNMAPPED FILLS '+s.unmappedOptionFills+'</span></div>' +
+    identity.rows.map(r=>{
+      const longLeg = r.legs.LONG.map(x => esc(x.symbol)+" · "+qty(x.quantity)).join("<br>") || "—";
+      const shortLeg = r.legs.SHORT.map(x => esc(x.symbol)+" · "+qty(x.quantity)).join("<br>") || "—";
+      const cls = r.status === "PAIRED" ? "paired" : "warning";
+      return '<div class="spread-row '+cls+'">' +
+        '<span><small>SPREAD ID</small><b>'+esc(r.spreadId)+'</b><small>'+esc(r.strategyRole || "—")+'</small></span>' +
+        '<span><small>LONG LEG</small><b>'+longLeg+'</b></span>' +
+        '<span><small>SHORT LEG</small><b>'+shortLeg+'</b></span>' +
+        '<span><small>UNITS</small><b>'+fmtSpreadUnits(r.units)+'</b></span>' +
+        '<strong>'+esc(r.status)+'</strong>' +
+      '</div>';
+    }).join("");
 }
 
 async function loadStrategy(){
@@ -183,6 +228,7 @@ function renderEvents(){
 function renderAll(){
   try{
     renderPositions();
+    renderSpreadIdentity();
     renderEvents();
     renderReconciliation();
   }catch(err){
@@ -213,6 +259,23 @@ function setDefaultTimes(){
   $("periodStart").value = now.toISOString().slice(0,16);
 }
 
+$("fillAsset").addEventListener("change", syncIdentityFields);
+
+function syncIdentityFields(){
+  const isOption = $("fillAsset").value === "OPTION";
+  ["fillCampaignId","fillSpreadId","fillLegRole","fillStrategyRole"].forEach(id => {
+    $(id).disabled = !isOption;
+  });
+  if(!isOption){
+    $("fillCampaignId").value = "";
+    $("fillSpreadId").value = "";
+    $("fillLegRole").value = "";
+    $("fillStrategyRole").value = "";
+  }
+}
+
+syncIdentityFields();
+
 $("fillForm").addEventListener("submit", async (ev)=>{
   ev.preventDefault();
   try{
@@ -230,6 +293,19 @@ $("fillForm").addEventListener("submit", async (ev)=>{
       fees:Number($("fillFees").value||0),
       note:$("fillNote").value.trim()
     };
+    if(asset === "OPTION"){
+      const campaignId=$("fillCampaignId").value.trim();
+      const spreadId=$("fillSpreadId").value.trim();
+      const legRole=$("fillLegRole").value;
+      const strategyRole=$("fillStrategyRole").value.trim();
+      if(campaignId || spreadId || legRole || strategyRole){
+        event.positionIdentity={};
+        if(campaignId) event.positionIdentity.campaignId=campaignId;
+        if(spreadId) event.positionIdentity.spreadId=spreadId;
+        if(legRole) event.positionIdentity.legRole=legRole;
+        if(strategyRole) event.positionIdentity.strategyRole=strategyRole;
+      }
+    }
     L.normalizeEvent(event);
     await addEventToServer(event);
     await loadEvents(); await fetchMarks();

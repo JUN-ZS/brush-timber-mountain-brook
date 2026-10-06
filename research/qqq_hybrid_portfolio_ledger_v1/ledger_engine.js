@@ -21,6 +21,27 @@ window.PortfolioLedgerV1 = (() => {
     return assetType === ASSET_TYPES.OPTION ? 100 : 1;
   }
 
+  function normalizePositionIdentity(raw, assetType) {
+    if (raw === null || raw === undefined || raw === "") return null;
+    if (assetType !== ASSET_TYPES.OPTION) throw new Error("positionIdentity is only valid for OPTION fills");
+    if (typeof raw !== "object" || Array.isArray(raw)) throw new Error("positionIdentity must be an object");
+
+    const campaignId = String(raw.campaignId || "").trim();
+    const spreadId = String(raw.spreadId || "").trim();
+    const legRole = String(raw.legRole || "").trim().toUpperCase();
+    const strategyRole = String(raw.strategyRole || "").trim();
+
+    if (!spreadId) throw new Error("positionIdentity.spreadId is required");
+    if (!["LONG", "SHORT"].includes(legRole)) {
+      throw new Error("positionIdentity.legRole must be LONG or SHORT");
+    }
+
+    const out = { spreadId, legRole };
+    if (campaignId) out.campaignId = campaignId;
+    if (strategyRole) out.strategyRole = strategyRole;
+    return out;
+  }
+
   function normalizeEvent(raw) {
     if (!raw || typeof raw !== "object") throw new Error("event must be an object");
     const type = String(raw.type || EVENT_TYPES.FILL).toUpperCase();
@@ -49,6 +70,7 @@ window.PortfolioLedgerV1 = (() => {
     const price = num(raw.price);
     const multiplier = multiplierFor(assetType, raw.multiplier);
     const fees = Math.max(0, num(raw.fees, 0));
+    const positionIdentity = normalizePositionIdentity(raw.positionIdentity, assetType);
 
     if (!timestamp) throw new Error("fill timestamp is invalid");
     if (!symbol) throw new Error("symbol is required");
@@ -69,6 +91,7 @@ window.PortfolioLedgerV1 = (() => {
       multiplier,
       fees,
       note: String(raw.note || ""),
+      ...(positionIdentity ? { positionIdentity } : {}),
     };
   }
 
@@ -292,6 +315,7 @@ window.PortfolioLedgerV1 = (() => {
     ASSET_TYPES,
     SIDES,
     EVENT_TYPES,
+    normalizePositionIdentity,
     normalizeEvent,
     sortEvents,
     buildState,

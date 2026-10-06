@@ -54,9 +54,20 @@
           <label>Fill price<input id="fillPrice" type="number" step="any" min="0" required></label>
           <label>Multiplier<input id="fillMultiplier" type="number" step="any" min="0.000001" placeholder="100 for options"></label>
           <label>Fees<input id="fillFees" type="number" step="any" min="0" value="0"></label>
+          <label>Campaign ID<input id="fillCampaignId" placeholder="optional strategy campaign"></label>
+          <label>Spread ID<input id="fillSpreadId" placeholder="required for option pairing"></label>
+          <label>Leg role<select id="fillLegRole"><option value="">— not paired</option><option value="LONG">LONG</option><option value="SHORT">SHORT</option></select></label>
+          <label>Strategy role<input id="fillStrategyRole" placeholder="e.g. QQQ_CALL_CREDIT_SPREAD"></label>
           <label class="full">Note<input id="fillNote" placeholder="Broker fill / manual record / correction reference"></label>
+          <div class="full hint">Option pairing is explicit only: the same Spread ID binds the LONG and SHORT legs. The ledger never guesses a spread from two contracts.</div>
           <button type="submit">Record fill</button>
         </form>
+      </section>
+
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">OPTION IDENTITY</div><h2>Spread pairing</h2></div><div id="identityStatus" class="status">NO IDENTIFIED SPREADS</div></div>
+        <p class="hint">Identity / pairing only. It does not attribute P&L and it does not create orders.</p>
+        <div id="spreadRows" class="spread-rows"></div>
       </section>
 
       <section class="card">
@@ -121,6 +132,7 @@
     <footer>Append-only ledger · no broker order transmission · corrections should be compensating events</footer>
   </main>
   <script src="ledger_engine.js"></script>
+  <script src="position_identity.js"></script>
   <script src="reconciliation.js"></script>
   <script src="app.js"></script>
 </body>

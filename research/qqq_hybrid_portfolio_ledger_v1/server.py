@@ -42,9 +42,70 @@ def json_resp(handler, payload, status=200):
 def num(value):
     try:
         x = float(str(value).replace(",", ""))
-        return x if x == x else None
+        return x if x == x and x not in (float("inf"), float("-inf")) else None
     except (TypeError, ValueError):
         return None
+
+
+def validate_timestamp(value):
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("timestamp is required")
+    try:
+        datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("timestamp is invalid") from exc
+
+
+def validate_event(event):
+    if not isinstance(event, dict):
+        raise ValueError("event must be an object")
+    event_type = str(event.get("type", "")).upper()
+    if event_type not in {"FILL", "CASHFLOW"}:
+        raise ValueError("event type must be FILL or CASHFLOW")
+    validate_timestamp(event.get("timestamp"))
+
+    if event_type == "CASHFLOW":
+        amount = num(event.get("amount"))
+        if amount is None or amount == 0:
+            raise ValueError("cashflow amount must be non-zero")
+        return
+
+    symbol = str(event.get("symbol", "")).strip()
+    asset_type = str(event.get("assetType", "")).upper()
+    side = str(event.get("side", "")).upper()
+    quantity = num(event.get("quantity"))
+    price = num(event.get("price"))
+    fees = num(event.get("fees", 0))
+
+    if not symbol:
+        raise ValueError("symbol is required")
+    if asset_type not in {"EQUITY", "OPTION"}:
+        raise ValueError("assetType must be EQUITY or OPTION")
+    if side not in {"BUY", "SELL"}:
+        raise ValueError("side must be BUY or SELL")
+    if quantity is None or quantity <= 0:
+        raise ValueError("quantity must be > 0")
+    if price is None or price < 0:
+        raise ValueError("price must be >= 0")
+    if fees is None or fees < 0:
+        raise ValueError("fees must be >= 0")
+
+    identity = event.get("positionIdentity")
+    if identity is not None:
+        if asset_type != "OPTION":
+            raise ValueError("positionIdentity is only valid for OPTION fills")
+        if not isinstance(identity, dict):
+            raise ValueError("positionIdentity must be an object")
+        spread_id = str(identity.get("spreadId", "")).strip()
+        leg_role = str(identity.get("legRole", "")).strip().upper()
+        if not spread_id:
+            raise ValueError("positionIdentity.spreadId is required")
+        if leg_role not in {"LONG", "SHORT"}:
+            raise ValueError("positionIdentity.legRole must be LONG or SHORT")
+        for key in ("campaignId", "strategyRole"):
+            value = identity.get(key)
+            if value is not None and not isinstance(value, str):
+                raise ValueError("positionIdentity." + key + " must be a string")
 
 
 def rows_from_futu(data):
@@ -237,14 +298,14 @@ class Handler(SimpleHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             if parsed.path == "/api/events":
                 event = payload
-                event_type = str(event.get("type", "")).upper()
-                if event_type not in {"FILL", "CASHFLOW"}:
-                    raise ValueError("event type must be FILL or CASHFLOW")
+                validate_event(event)
                 added, duplicates = append_events([event])
             else:
                 incoming = payload.get("events")
                 if not isinstance(incoming, list):
                     raise ValueError("events array required")
+                for event in incoming:
+                    validate_event(event)
                 added, duplicates = append_events(incoming)
             return json_resp(self, {"ok": True, "added": added, "duplicates": duplicates})
         except Exception as exc:
