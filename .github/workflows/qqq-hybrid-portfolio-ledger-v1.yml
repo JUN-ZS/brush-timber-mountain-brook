@@ -27,6 +27,7 @@ jobs:
           node --check research/qqq_hybrid_portfolio_ledger_v1/v3_bridge.js
           node research/qqq_hybrid_portfolio_ledger_v1/tests/ledger_golden_test.cjs
           node research/qqq_hybrid_portfolio_ledger_v1/tests/position_identity_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/reconciliation_golden_test.cjs
           node research/qqq_hybrid_portfolio_ledger_v1/tests/v3_bridge_test.mjs
 
       - name: Python contract
