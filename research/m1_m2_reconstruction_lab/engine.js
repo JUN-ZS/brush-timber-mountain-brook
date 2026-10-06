@@ -20,6 +20,13 @@ window.M1M2Lab = (() => {
   });
 
   const METHODS = Object.freeze({
+    REAL_OBSERVED_CONTROL: Object.freeze({
+      id: "REAL_OBSERVED_CONTROL",
+      label: "REAL observed M1/M2 — ground-truth control (NOT reconstruction)",
+      provenance: "OBSERVED_EXTERNAL",
+      status: "CONTROL_ONLY",
+      description: "Use observed M1/M2 directly; no inference. This lane establishes the exact term/action state available from the observed dataset."
+    }),
     ARCHIVE_V4_PROXY: Object.freeze({
       id: "ARCHIVE_V4_PROXY",
       label: "Archive termSlope — exact source proxy (NOT true VX M1/M2)",
@@ -62,6 +69,20 @@ window.M1M2Lab = (() => {
     if (!method) throw new Error("Unknown reconstruction method: " + methodId);
 
     const r = rows[i];
+
+    if (methodId === "REAL_OBSERVED_CONTROL") {
+      return {
+        m1: num(r.M1),
+        m2: num(r.M2),
+        lift: term(num(r.M1), num(r.M2)),
+        ma20: rollingMean(rows.map(x => x.VIX), i, 20),
+        source: "OBSERVED",
+        method: methodId,
+        provenance: "OBSERVED_EXTERNAL",
+        role: "GROUND_TRUTH_CONTROL"
+      };
+    }
+
     const vix = num(r.VIX);
     const ma20 = rollingMean(rows.map(x => x.VIX), i, 20);
 
@@ -96,7 +117,18 @@ window.M1M2Lab = (() => {
     return rows.map((_, i) => reconstructRow(rows, i, methodId));
   }
 
-  function term(m1, m2) {
+  function realTermSeries(rows) {
+    return rows.map(r => ({
+      date: r.Date,
+      m1: num(r.M1),
+      m2: num(r.M2),
+      s: term(num(r.M1), num(r.M2)),
+      source: "OBSERVED",
+      provenance: "OBSERVED_EXTERNAL"
+    }));
+  }
+
+    function term(m1, m2) {
     return finite(m1) && finite(m2) && Math.abs(m1) > 1e-12
       ? (m2 - m1) / m1
       : null;
@@ -318,7 +350,7 @@ window.M1M2Lab = (() => {
   }
 
   return Object.freeze({
-    POLICY, ARCHIVE_CONTRACT, METHODS, num, pct, rollingMean, reconstructRow, reconstructSeries, archiveState, archiveAction, archiveCarry,
+    POLICY, ARCHIVE_CONTRACT, METHODS, num, pct, rollingMean, reconstructRow, reconstructSeries, realTermSeries, archiveState, archiveAction, archiveCarry,
     term, regime, action, compare, topErrors, leakageAudit, buildMaskedInput,
     csvFromComparison
   });
