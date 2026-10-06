@@ -29,7 +29,11 @@
     <div class="card"><span>METHOD</span><b id="methodValue">—</b><small>provenance: DERIVED / UNVALIDATED</small></div>
     <div class="card"><span>SIGN AGREEMENT</span><b id="signValue">—</b><small>contango / backwardation direction</small></div>
     <div class="card"><span>REGIME AGREEMENT</span><b id="regimeValue">—</b><small>truth vs reconstructed</small></div>
-    <div class="card"><span>ACTION AGREEMENT</span><b id="actionValue">—</b><small>policy baseline only</small></div>
+    <div class="card"><span>ACTION AGREEMENT</span><b id="actionValue">—</b><small>current policy baseline</small></div>
+    <div class="card"><span>ARCHIVE STATE</span><b id="archiveStateValue">—</b><small>exact archived state logic</small></div>
+    <div class="card"><span>ARCHIVE ACTION</span><b id="archiveActionValue">—</b><small>exact archived action gate</small></div>
+    <div class="card"><span>VXX CARRY GATE</span><b id="archiveCarryValue">—</b><small>exact ON/OFF agreement</small></div>
+    <div class="card"><span>ARCHIVE OVERLAP</span><b id="overlapValue">—</b><small>aligned QQQ/VXX days</small></div>
     <div class="card"><span>LEAKAGE</span><b id="leakageValue">—</b><small>future truth mutation audit</small></div>
   </section>
 
@@ -100,6 +104,9 @@
         <div><span>S REAL / RECON</span><b id="selS">—</b></div>
         <div><span>REGIME</span><b id="selRegime">—</b></div>
         <div><span>ACTION</span><b id="selAction">—</b></div>
+        <div><span>ARCHIVE STATE</span><b id="selArchiveState">—</b></div>
+        <div><span>ARCHIVE ACTION</span><b id="selArchiveAction">—</b></div>
+        <div><span>VXX CARRY</span><b id="selCarry">—</b></div>
         <div><span>MATCH</span><b id="selMatch">—</b></div>
       </div>
     </article>
@@ -108,6 +115,23 @@
       <div class="head"><div><h2>Worst Reconstruction Days</h2><p>Largest absolute errors, not cherry-picked successes.</p></div></div>
       <div id="worstRows" class="worst"></div>
     </article>
+  </section>
+
+  <section class="panel">
+    <div class="head"><div><h2>Recovered Archive Contract</h2><p>Exact mechanics recovered from timber-blade-kind-dawn/main; semantics explicitly classified.</p></div></div>
+    <div class="method-box">
+      <b>TERM SLOPE · SOURCE-CODE EXACT</b><br>
+      M1<sub>proxy</sub> = max(VIX, 1e-6)<br>
+      lift = 0.10 × tanh((VIX_MA20 − VIX) / 6)<br>
+      M2<sub>proxy</sub> = M1<sub>proxy</sub> × (1 + lift)<br>
+      S<sub>proxy</sub> = lift<br><br>
+      <b>ARCHIVED NARROW POLICY</b><br>
+      Shock: rV &gt; 6% OR VIX &gt; 35 OR rQ &lt; −3%<br>
+      High-Spread: halfSpreadV(VIX) &gt; 14%<br>
+      Decay-Optimal: S<sub>proxy</sub> ≥ 0 AND VIX &lt; 28<br>
+      Action: Shock / S&lt;0 → QQQ_CC only; otherwise PAIR.<br><br>
+      <span class="badge warn">SOURCE-CODE EXACT ≠ TRUE VX FUTURES M1/M2</span>
+    </div>
   </section>
 
   <section class="panel">
