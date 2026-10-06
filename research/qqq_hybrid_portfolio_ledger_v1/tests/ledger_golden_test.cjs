@@ -76,4 +76,36 @@ const incomplete = L.periodMetrics(
 );
 ok(!incomplete.complete && incomplete.pnl === null, "incomplete period is blocked");
 
+const crossing = [
+  { type:"CASHFLOW", id:"cfx", timestamp:"2026-10-01T09:00:00Z", amount:1000 },
+  { id:"bx", timestamp:"2026-10-01T10:00:00Z", symbol:"TEST", assetType:"EQUITY", side:"BUY", quantity:10, price:10 },
+  { id:"sx", timestamp:"2026-10-02T10:00:00Z", symbol:"TEST", assetType:"EQUITY", side:"SELL", quantity:15, price:12 },
+];
+const crossSnap = L.snapshot(crossing, { TEST:10 });
+const crossPos = crossSnap.positions.find((x) => x.symbol === "TEST");
+near(crossPos.quantity, -5, 1e-12, "crossed short quantity");
+near(crossPos.realizedPnl, 20, 1e-9, "crossed realized pnl");
+near(crossPos.unrealizedPnl, 10, 1e-9, "crossed unrealized pnl");
+near(crossSnap.equity, 30, 1e-9, "crossed equity");
+
+const defaultOption = L.normalizeEvent({
+  id:"opt-default", timestamp:"2026-10-04T10:00:00Z", symbol:"QQQ-OPT",
+  assetType:"OPTION", side:"SELL", quantity:1, price:5
+});
+near(defaultOption.multiplier, 100, 1e-12, "option default multiplier");
+if (Object.prototype.hasOwnProperty.call(defaultOption, "pnl")) {
+  throw new Error("fill must not accept stored P&L as truth");
+}
+
+let mismatchCaught = false;
+try {
+  L.snapshot([
+    { id:"m1", timestamp:"2026-10-01T10:00:00Z", symbol:"M", assetType:"EQUITY", side:"BUY", quantity:1, price:10 },
+    { id:"m2", timestamp:"2026-10-02T10:00:00Z", symbol:"M", assetType:"OPTION", side:"SELL", quantity:1, price:1 },
+  ], { M: 10 });
+} catch (err) {
+  mismatchCaught = /asset type mismatch/.test(String(err));
+}
+ok(mismatchCaught, "asset mismatch blocked");
+
 console.log("LEDGER GOLDEN TEST: PASS");
