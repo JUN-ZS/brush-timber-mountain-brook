@@ -28,7 +28,7 @@ assert.strictEqual(comp.metrics.n, rows.length, "row count");
 const audit = E.leakageAudit(rows);
 assert.strictEqual(audit.pass, true, "future truth must not affect prior reconstruction");
 
-const test = E.action(E.term(24, 25), 20);
+const test = E.action(E.term(24, 26), 20);
 assert.strictEqual(test, "BUY", "positive contango > 5%");
 
 const shock = E.action(E.term(28, 27), 32);
