@@ -171,3 +171,30 @@ Attribution is blocked as INCOMPLETE when the position identity is not paired, a
 No spread-level P&L is fabricated in those states.
 
 This increment remains accounting-only. It does not modify V3 BUY / HOLD / REDUCE logic and has no broker-order path.
+
+### Campaign / Period Portfolio Performance V1
+
+The performance layer has two separate authorities:
+
+- portfolio period P&L comes from Ledger V1 periodMetrics
+- campaign period P&L comes from the change in cumulative identified-spread P&L between start and end
+
+For each identified spread:
+
+    periodPnl = cumulativeEndPnl - cumulativeStartPnl
+
+A spread not present at the start has startPnl = 0. A fully closed spread remains attributable at period end as CLOSED, retaining realized P&L. If start or end attribution is incomplete, that spread produces no period P&L.
+
+Campaign rows group spreads by explicit campaignId. Missing campaignId is shown as UNASSIGNED rather than silently assigned to a strategy.
+
+The campaign layer reports:
+
+    startPnl
+    current / end cumulative P&L
+    period P&L
+    spread count
+    paired / closed / incomplete counts
+
+It does not calculate a campaign return percentage because a defensible campaign capital denominator is not part of the current ledger contract. The existing portfolio period return remains the only return percentage shown.
+
+Scope is explicitly IDENTIFIED_OPTION_SPREADS_ONLY. Campaign-attributed option P&L is not expected to equal whole-portfolio P&L when QQQ core, VXX, or unassigned option activity is outside the campaign identity scope.

@@ -1,6 +1,7 @@
 const L = window.PortfolioLedgerV1;
 const P = window.PortfolioPositionIdentityV1;
 const S = window.PortfolioSpreadPnlV1;
+const CP = window.PortfolioCampaignPerformanceV1;
 const R = window.PortfolioReconciliationV1;
 let events = [];
 let liveMarks = {};
@@ -80,6 +81,27 @@ function renderSpreadPnl(){
 function fmtSpreadMoney(v){
   return Number.isFinite(Number(v)) ? signMoney(v) : "—";
 }
+
+function renderCampaignPerformance(result){
+  if(!$("campaignPerformanceRows")) return;
+  if(!result || !result.campaigns.length){
+    $("campaignPerformanceRows").innerHTML='<div class="hint">No identified campaigns yet.</div>';
+    return;
+  }
+  $("campaignPerformanceRows").innerHTML =
+    '<div class="campaign-summary"><span>CAMPAIGNS '+result.summary.campaigns+'</span><span>COMPLETE '+result.summary.completeCampaigns+'</span><span>INCOMPLETE '+result.summary.incompleteCampaigns+'</span><span>SPREADS '+result.summary.identifiedSpreads+'</span></div>' +
+    result.campaigns.map(c =>
+      '<div class="campaign-row '+(c.status === "COMPLETE" ? "complete" : "warning")+'">' +
+        '<span><small>CAMPAIGN</small><b>'+esc(c.campaignId || c.campaignKey)+'</b><small>'+esc(c.strategyRole || "—")+'</small></span>' +
+        '<span><small>SPREADS</small><b>'+c.spreadCount+'</b><small>paired '+c.pairedEnd+' · closed '+c.closedEnd+'</small></span>' +
+        '<span><small>START P&L</small><b>'+fmtSpreadMoney(c.startPnl)+'</b></span>' +
+        '<span><small>CURRENT / END P&L</small><b>'+fmtSpreadMoney(c.currentPnl)+'</b></span>' +
+        '<span><small>PERIOD P&L</small><b>'+fmtSpreadMoney(c.periodPnl)+'</b></span>' +
+        '<strong>'+c.status+'</strong>' +
+      '</div>'
+    ).join("");
+}
+
 
 function renderSpreadIdentity(){
   const identity = P.build(events);
@@ -390,7 +412,10 @@ $("periodBtn").addEventListener("click",()=>{
     const startRaw=$("periodStart").value, endRaw=$("periodEnd").value;
     const startMarksRaw=$("startMarks").value.trim();
     const startMarks=startMarksRaw?JSON.parse(startMarksRaw):{};
-    const result=L.periodMetrics(events, new Date(startRaw).toISOString(), new Date(endRaw).toISOString(), startMarks, mergedMarks());
+    const startAt=new Date(startRaw).toISOString();
+    const endAt=new Date(endRaw).toISOString();
+    const result=L.periodMetrics(events, startAt, endAt, startMarks, mergedMarks());
+    const performance=CP.performance(events, startAt, endAt, startMarks, mergedMarks());
     $("periodBadge").textContent=result.complete?"COMPLETE":"INCOMPLETE";
     $("periodBadge").className="status "+(result.complete?"ok":"warn");
     $("periodResult").innerHTML =
@@ -399,6 +424,7 @@ $("periodBtn").addEventListener("click",()=>{
       '<div><small>NET EXTERNAL CASHFLOW</small><strong>'+money(result.periodExternalCashFlow)+'</strong></div>' +
       '<div><small>PERIOD P&L / RETURN</small><strong>'+signMoney(result.pnl)+' / '+(result.returnPct===null?"—":result.returnPct.toFixed(2)+"%")+'</strong></div>';
     if(!result.complete) $("periodResult").insertAdjacentHTML("afterbegin",'<div><small>REASON</small><strong>Missing start/end mark</strong></div>');
+    renderCampaignPerformance(performance);
   }catch(err){ alert(prettyError(err)); }
 });
 

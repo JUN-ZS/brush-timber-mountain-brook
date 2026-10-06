@@ -119,6 +119,43 @@ window.PortfolioSpreadPnlV1 = (() => {
 
     for (const paired of identity.rows) {
       if (paired.status !== "PAIRED") {
+        const spreadBooks = Object.values(books).filter(b => b.spreadId === paired.spreadId);
+        const roleBooks = {
+          LONG: spreadBooks.filter(b => b.legRole === "LONG"),
+          SHORT: spreadBooks.filter(b => b.legRole === "SHORT")
+        };
+        const longQty = roleBooks.LONG.reduce((s, b) => s + openQuantity(b), 0);
+        const shortQty = roleBooks.SHORT.reduce((s, b) => s + openQuantity(b), 0);
+        const fullyClosed =
+          roleBooks.LONG.length > 0 &&
+          roleBooks.SHORT.length > 0 &&
+          Math.abs(longQty) <= EPS &&
+          Math.abs(shortQty) <= EPS;
+
+        if (fullyClosed) {
+          const realizedPnl = spreadBooks.reduce((s, b) => s + b.realizedPnl, 0);
+          const fees = spreadBooks.reduce((s, b) => s + b.fees, 0);
+          rows.push({
+            spreadId: paired.spreadId,
+            campaignId: paired.campaignId,
+            strategyRole: paired.strategyRole,
+            status: "CLOSED",
+            reason: "PAIR_HISTORY_CLOSED",
+            units: null,
+            longLeg: null,
+            shortLeg: null,
+            entryDebit: 0,
+            entryCredit: 0,
+            netEntryCredit: 0,
+            currentValue: 0,
+            realizedPnl,
+            unrealizedPnl: 0,
+            fees,
+            totalPnl: realizedPnl - fees
+          });
+          continue;
+        }
+
         rows.push({
           spreadId: paired.spreadId,
           campaignId: paired.campaignId,
@@ -223,6 +260,7 @@ window.PortfolioSpreadPnlV1 = (() => {
       summary: {
         total: rows.length,
         paired: rows.filter(r => r.status === "PAIRED").length,
+        closed: rows.filter(r => r.status === "CLOSED").length,
         incomplete: rows.filter(r => r.status === "INCOMPLETE").length
       },
       contract: "SPREAD_PNL_ATTRIBUTION_V1",

@@ -103,7 +103,9 @@
           <button id="periodBtn">Calculate period</button>
         </div>
         <div id="periodResult" class="period-result"></div>
-        <p class="hint">For a historical start date, every position held at the start must have a start mark. Otherwise the app refuses to invent a period return.</p>
+        <div class="subhead"><div class="eyebrow">CAMPAIGN PERFORMANCE</div><h3>Campaign → Spread → P&L</h3></div>
+        <div id="campaignPerformanceRows" class="campaign-performance-rows"></div>
+        <p class="hint">Campaign period P&L is the change in cumulative identified-spread P&L between the two valuation points. Fully closed spreads remain in the period result through realized P&L. Incomplete attribution stays unpriced.</p>
       </section>
 
       <section class="card">
@@ -140,6 +142,7 @@
   <script src="ledger_engine.js"></script>
   <script src="position_identity.js"></script>
   <script src="spread_pnl.js"></script>
+  <script src="portfolio_performance.js"></script>
   <script src="reconciliation.js"></script>
   <script src="app.js"></script>
 </body>
