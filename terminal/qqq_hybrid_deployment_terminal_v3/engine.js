@@ -37,7 +37,7 @@ window.HybridEngineV3 = (() => {
     const erf=x=>{const sign=x<0?-1:1,ax=Math.abs(x),a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911,tt=1/(1+p*ax);return sign*(1-(((((a5*tt+a4)*tt)+a3)*tt+a2)*tt+a1)*tt*Math.exp(-ax*ax));};
     return 0.5*(1+erf(d1/Math.sqrt(2)));
   }
-  function expiryMs(v){const nval=num(v);if(Number.isFinite(nval))return nval<1e12?nval*1000:nval;if(v instanceof Date)return v.getTime();if(typeof v==="string"&&v.trim()){const x=Date.parse(v);return Number.isFinite(x)?x:null;}return null;}
+  function expiryMs(v){if(typeof v==="number"&&Number.isFinite(v))return v<1e12?v*1000:v;if(typeof v==="string"&&/^\\s*\\d+(?:\\.\\d+)?\\s*$/.test(v)){const nval=Number(v);return nval<1e12?nval*1000:nval;}if(v instanceof Date)return v.getTime();if(typeof v==="string"&&v.trim()){const x=Date.parse(v);return Number.isFinite(x)?x:null;}return null;}
   function normalizeOptionChain(payload){if(Array.isArray(payload))return payload;if(payload&&Array.isArray(payload.calls))return payload.calls;const result=payload?.optionChain?.result?.[0],opts=result?.options?.[0];return Array.isArray(opts?.calls)?opts.calls:[];}
   function candidateFromChain(payload,spot,targetDelta=0.10,targetDte=POLICY.optionTargetDte,asOf=null){
     if(!Number.isFinite(spot)||spot<=0)return null;const chain=normalizeOptionChain(payload);if(!chain.length)return null;
