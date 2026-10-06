@@ -28,7 +28,10 @@ jobs:
         with:
           node-version: "20"
       - name: Python dependencies
-        run: python3 -m pip install --user numpy pandas scipy
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install numpy pandas scipy
       - name: JS syntax
         run: |
           node --check research/m1_m2_reconstruction_lab/engine.js
@@ -41,7 +44,10 @@ jobs:
         run: node research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
       - name: REAL M1/M2 controlled P&L sensitivity
         run: |
-          python3 research/m1_m2_reconstruction_lab/tests/real_m1_m2_pnl_sensitivity.py             --spots research/data/archive_spots_overlap_2018_2022.csv             --m1m2 research/data/vx_m1_m2_external_2016_2022.csv             --out artifacts/real-m1m2-pnl
+          .venv/bin/python research/m1_m2_reconstruction_lab/tests/real_m1_m2_pnl_sensitivity.py \
+            --spots research/data/archive_spots_overlap_2018_2022.csv \
+            --m1m2 research/data/vx_m1_m2_external_2016_2022.csv \
+            --out artifacts/real-m1m2-pnl
       - name: Dataset contract
         run: |
           test -f research/data/vx_m1_m2_external_2016_2022.csv
@@ -50,7 +56,7 @@ jobs:
           test -f research/m1_m2_reconstruction_lab/REAL_OBSERVED_CONTROL.md
           test -f research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
           test -f research/data/real_historical_state_replay_2018_2022.csv
-          python3 - <<'PY'
+          .venv/bin/python - <<'PY'
           import csv
           p="research/data/vx_m1_m2_external_2016_2022.csv"
           with open(p,newline="",encoding="utf-8") as f:
