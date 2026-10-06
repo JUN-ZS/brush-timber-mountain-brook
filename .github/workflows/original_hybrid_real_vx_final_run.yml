@@ -1,12 +1,9 @@
 name: ORIGINAL HYBRID — REAL VX M1 M2 FINAL RUN
 
 on:
-  push:
-    branches:
-      - research/original-hybrid-real-run-v1-20261007
   pull_request:
+    types: [opened, reopened, synchronize]
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,19 +15,19 @@ concurrency:
 jobs:
   final_run:
     name: REAL VX → M1/M2 → fixed Original Hybrid
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, grokbot-box-linux-x64]
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Verify runtime
         run: |
           python3 --version
           node --version
 
-      - name: Build REAL daily VX M1/M2
+      - name: Build REAL VX M1/M2
         run: |
           mkdir -p artifacts/real-vx
           python3 research/cboe_vx_m1m2/build_real_vx_m1_m2.py \
@@ -46,17 +43,16 @@ jobs:
             --out artifacts/real-vx/overlap_gate.json
 
       - name: Replay fixed REAL M1/M2 archive policy
-        run: |
-          node research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
+        run: node research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
 
-      - name: Replay contract checks
+      - name: Contract checks
         run: |
           node --check research/m1_m2_reconstruction_lab/engine.js
           node --check research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
           test -f research/data/real_historical_state_replay_2018_2022.csv
           test -f research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
 
-      - name: Upload FINAL evidence bundle
+      - name: Upload final evidence bundle
         uses: actions/upload-artifact@v4
         with:
           name: original-hybrid-real-vx-final-run
