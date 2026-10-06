@@ -366,6 +366,7 @@ def simulate_config(
     sspots,
     dates,
     factor_hist,
+    covariance_cache,
     selector,
     mark_maps,
     long_asset,
@@ -426,7 +427,9 @@ def simulate_config(
         if se is None:
             continue
 
-        cov = covariance_for_date(factor_hist, d)
+        cov = covariance_cache.get(d)
+        if cov is None:
+            cov = covariance_for_date(factor_hist, d)
         bal = choose_integer_n(le, se, cov, exposure_side=-1)
 
         n = bal["n_balanced"]
@@ -579,6 +582,14 @@ def main():
     t_factor = time.perf_counter()
 
     option_paths = {"QQQ": qpath, "SPY": spath}
+
+    # Covariance depends only on the causal factor history and date, not on
+    # the option family. Compute each weekly covariance matrix once.
+    covariance_cache = {
+        pd.Timestamp(d): covariance_for_date(hist, pd.Timestamp(d))
+        for d in dates
+    }
+
     selector = preselect_calls(con, option_paths, dates)
     t_selector = time.perf_counter()
 
@@ -620,6 +631,7 @@ def main():
             sspots,
             dates,
             hist,
+            covariance_cache,
             selector,
             mark_maps,
             la,
@@ -674,7 +686,7 @@ def main():
         "tail": "naked short-call tail is intentionally retained as a diagnostic; not a live-order strategy",
         "no_live_orders": True,
         "no_parameter_search": True,
-        "execution_refactor": "preselect required option contracts once per asset; load historical marks once per asset; index entry/exit events instead of scanning all historical positions daily; strategy rules unchanged",
+        "execution_refactor": "preselect required option contracts once per asset; cache one covariance matrix per observation date; load historical marks once per asset; index entry/exit events instead of scanning all historical positions daily; strategy rules unchanged",
         "runtime_seconds": {
             "factor_history_and_calendar": round(t_factor - t0, 3),
             "option_selection_cache": round(t_selector - t_factor, 3),
