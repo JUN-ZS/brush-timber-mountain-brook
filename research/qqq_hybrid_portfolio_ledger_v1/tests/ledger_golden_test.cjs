@@ -86,7 +86,8 @@ const crossPos = crossSnap.positions.find((x) => x.symbol === "TEST");
 near(crossPos.quantity, -5, 1e-12, "crossed short quantity");
 near(crossPos.realizedPnl, 20, 1e-9, "crossed realized pnl");
 near(crossPos.unrealizedPnl, 10, 1e-9, "crossed unrealized pnl");
-near(crossSnap.equity, 30, 1e-9, "crossed equity");
+near(crossSnap.equity, 1030, 1e-9, "crossed equity");
+near(crossSnap.netPnl, 30, 1e-9, "crossed net pnl");
 
 const defaultOption = L.normalizeEvent({
   id:"opt-default", timestamp:"2026-10-04T10:00:00Z", symbol:"QQQ-OPT",
