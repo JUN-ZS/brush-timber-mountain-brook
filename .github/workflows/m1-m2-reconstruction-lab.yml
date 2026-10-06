@@ -5,6 +5,9 @@ on:
     paths:
       - "research/m1_m2_reconstruction_lab/**"
       - "research/data/vx_m1_m2_external_2016_2022.csv"
+      - "research/data/archive_spots_overlap_2018_2022.csv"
+      - "research/m1_m2_reconstruction_lab/ARCHIVE_CONTRACT.md"
+      - "research/m1_m2_reconstruction_lab/REAL_OBSERVED_CONTROL.md"
       - ".github/workflows/m1-m2-reconstruction-lab.yml"
   push:
     branches:
@@ -29,6 +32,9 @@ jobs:
       - name: Dataset contract
         run: |
           test -f research/data/vx_m1_m2_external_2016_2022.csv
+          test -f research/data/archive_spots_overlap_2018_2022.csv
+          test -f research/m1_m2_reconstruction_lab/ARCHIVE_CONTRACT.md
+          test -f research/m1_m2_reconstruction_lab/REAL_OBSERVED_CONTROL.md
           python3 - <<'PY'
           import csv
           p="research/data/vx_m1_m2_external_2016_2022.csv"
