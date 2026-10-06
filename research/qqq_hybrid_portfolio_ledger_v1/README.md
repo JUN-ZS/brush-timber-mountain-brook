@@ -108,9 +108,13 @@ Implemented now:
 - import/export JSON in the browser
 - read-only V3 bridge status placeholder
 
+Now wired:
+
+- read-only V3 decision bridge; it uses the real V3 engine source when PR #86 is present and stays OFFLINE otherwise.
+
 Not yet wired:
 
-- automatic V3 decision retrieval
+- actual-position vs V3 target reconciliation
 - broker fill ingestion
 - corporate-action normalization
 - tax-lot/reporting rules
