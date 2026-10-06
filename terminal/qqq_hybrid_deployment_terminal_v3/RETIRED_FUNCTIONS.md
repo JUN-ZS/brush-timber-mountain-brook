@@ -16,4 +16,5 @@
 | N/deployment optimizer | RESEARCH ONLY | Avoid contaminating fixed Original Hybrid terminal policy |
 | Historical CAGR headline | REFERENCE ONLY | Never used as optimizer target or live confidence |
 | Browser notification as primary monitor | RETIRED | V3 uses explicit refresh + journal + since-last-journal change flag; persistent service remains outside the terminal |
-| Option candidate finder | ACTIVE | Read-only candidate estimate; exact sizing only with observable positive credit |\n| Replay | RESEARCH ONLY | Uses frozen historical inputs and is not live state |
+| Option candidate finder | ACTIVE | Read-only candidate estimate; exact sizing only with observable positive credit |
+| Replay | RESEARCH ONLY | Uses frozen historical inputs and is not live state |
