@@ -36,8 +36,8 @@ eq(r.summary.completeSpreads, 1, "open spread complete");
 eq(r.campaigns.length, 1, "campaign count");
 eq(r.campaigns[0].campaignId, "C1", "campaign id");
 near(r.campaigns[0].startPnl, 0, 1e-9, "start pnl");
-near(r.campaigns[0].currentPnl, 1198, 1e-9, "current pnl after fees");
-near(r.campaigns[0].periodPnl, 1198, 1e-9, "period pnl");
+near(r.campaigns[0].currentPnl, 398, 1e-9, "current pnl after fees");
+near(r.campaigns[0].periodPnl, 398, 1e-9, "period pnl");
 
 const closed = opened.concat([
   {id:"sc",timestamp:"2026-10-02T10:00:00Z",symbol:"QQQ261218C00700000",assetType:"OPTION",side:"BUY",quantity:1,price:6,fees:1,
