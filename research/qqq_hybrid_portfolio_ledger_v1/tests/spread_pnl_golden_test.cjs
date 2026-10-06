@@ -114,6 +114,12 @@ const rolled = base.concat([
   { id:"short-old-close", timestamp:"2026-10-02T10:01:00Z", symbol:"QQQ261218C00700000", assetType:"OPTION", side:"BUY", quantity:3, price:6, fees:1,
     positionIdentity:{campaignId:"C1",spreadId:"QSP1",legRole:"SHORT"} }
 ]);
+const rolledNoMarks = S.attribute(rolled, {});
+eq(rolledNoMarks.rows[0].status, "INCOMPLETE", "rolled spread remains structurally paired without marks but attribution is incomplete");
+near(rolledNoMarks.rows[0].realizedPnl, 600, 1e-9, "rolled realized retained without marks");
+near(rolledNoMarks.rows[0].fees, 8, 1e-9, "rolled fees retained without marks");
+eq(rolledNoMarks.rows[0].totalPnl, null, "rolled total blocked without marks");
+
 const rolledResult = S.attribute(rolled, {
   QQQ261218C00750000:3,
   QQQ261218C00800000:4
