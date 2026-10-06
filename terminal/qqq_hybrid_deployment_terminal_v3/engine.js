@@ -44,12 +44,14 @@ window.HybridEngineV3 = (() => {
       return {status: "BLOCKED", label: "DATA BLOCKED", reason: "Required spot or VX term field missing."};
     }
     const age = d.termAsOf && d.today ? daysBetween(d.termAsOf, d.today) : 0;
-    const mismatch = d.spotAsOf && d.termAsOf && d.spotAsOf !== d.termAsOf;
+    const asofGap = d.spotAsOf && d.termAsOf ? daysBetween(d.spotAsOf, d.termAsOf) : 0;
     if (age !== null && age > POLICY.maxTermAgeDays) {
       return {status: "STALE", label: "DATA STALE", ageDays: age, reason: "VX term source is older than the permitted operator cadence."};
     }
-    if (mismatch) {
-      return {status: "MIXED", label: "AS-OF MIXED", ageDays: age, reason: "Spot and term inputs have different as-of dates; review before acting."};
+    // Spot and VX timestamps can legitimately differ by one calendar day because
+    // the terminal runs in the user's local timezone while Cboe data_asof is New York.
+    if (asofGap !== null && asofGap > 2) {
+      return {status: "MIXED", label: "AS-OF MIXED", ageDays: asofGap, reason: "Spot and term inputs are materially out of sync; review before acting."};
     }
     return {status: "FRESH", label: "DATA FRESH", ageDays: age, reason: "Required fields are present and within the configured cadence."};
   }
