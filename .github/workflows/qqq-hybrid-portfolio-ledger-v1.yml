@@ -22,7 +22,9 @@ jobs:
         run: |
           node --check research/qqq_hybrid_portfolio_ledger_v1/ledger_engine.js
           node --check research/qqq_hybrid_portfolio_ledger_v1/app.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/v3_bridge.js
           node research/qqq_hybrid_portfolio_ledger_v1/tests/ledger_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/v3_bridge_test.mjs
 
       - name: Python contract
         run: |
@@ -35,7 +37,9 @@ jobs:
       - name: Safety invariants
         run: |
           grep -q "broker_orders.*False" research/qqq_hybrid_portfolio_ledger_v1/server.py
-          grep -q "No automatic V3 bridge" research/qqq_hybrid_portfolio_ledger_v1/server.py
+          grep -q "broker_orders.*False" research/qqq_hybrid_portfolio_ledger_v1/server.py
+          grep -q "ledger_authority.*ACTUAL_PORTFOLIO" research/qqq_hybrid_portfolio_ledger_v1/server.py
+          grep -q "connected.*False" research/qqq_hybrid_portfolio_ledger_v1/server.py
 
       - name: Runtime smoke
         run: |
