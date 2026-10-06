@@ -118,10 +118,9 @@ def opend_marks(symbols):
             px = num(row_get(row, "last_price"))
             if not code or px is None:
                 continue
-            result[code[3:] if code.startswith("US.") else code] = {
-                "price": px,
-                "source": "OPEND",
-            }
+            result[code] = {"price": px, "source": "OPEND"}
+            if code.startswith("US."):
+                result[code[3:]] = {"price": px, "source": "OPEND"}
         return result
     finally:
         try:
