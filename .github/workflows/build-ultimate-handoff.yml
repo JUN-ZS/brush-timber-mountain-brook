@@ -1,0 +1,30 @@
+name: Build Ultimate Evolutionary Trading Brain Handoff
+
+on:
+  push:
+    branches:
+      - handoff/ultimate-evolutionary-trading-brain-v1-20261006
+    paths:
+      - "handoff/**"
+      - "terminal/qqq_hybrid_deployment_v2/**"
+      - "backtest/**"
+      - "attachments/**"
+      - "artifacts/backtest-*"
+      - "research/**"
+      - ".github/workflows/build-ultimate-handoff.yml"
+
+jobs:
+  package:
+    runs-on: [self-hosted, Linux, grokbot-box]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build ZIP
+        run: python3 handoff/build_handoff_zip.py
+      - name: Package manifest
+        run: unzip -l artifacts/ULTIMATE_EVOLUTIONARY_TRADING_BRAIN_HANDOFF_V1.zip | head -80
+      - name: Upload handoff artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ULTIMATE_EVOLUTIONARY_TRADING_BRAIN_HANDOFF_V1
+          path: artifacts/ULTIMATE_EVOLUTIONARY_TRADING_BRAIN_HANDOFF_V1.zip
+          if-no-files-found: error
