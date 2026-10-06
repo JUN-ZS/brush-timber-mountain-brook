@@ -35,6 +35,13 @@ const shock = E.action(E.term(28, 27), 32);
 assert.strictEqual(shock, "REDUCE", "high VIX + backwardation");
 
 assert.match(E.ARCHIVE_CONTRACT.sourceRepo, /timber-blade-kind-dawn/);
+
+const real = E.reconstructRow({Date:"2022-04-08", VIX:"21.16", M1:"22.60", M2:"24.60"}, 0, "REAL_OBSERVED_CONTROL");
+assert.strictEqual(real.m1, 22.60);
+assert.strictEqual(real.m2, 24.60);
+assert.strictEqual(real.provenance, "OBSERVED_EXTERNAL");
+assert.strictEqual(real.role, "GROUND_TRUTH_CONTROL");
+
 assert.strictEqual(E.archiveAction(20, 0, 0, -0.01), "QQQ_CC_ONLY", "archive inverted gate");
 assert.strictEqual(E.archiveAction(20, 0, 0, 0.08), "PAIR", "archive carry gate");
 assert.strictEqual(E.archiveState(20, 0, 0, 0.08), "Decay-Optimal", "archive decay state");
