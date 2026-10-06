@@ -54,6 +54,7 @@ def main():
     ap.add_argument("--cboe",required=True)
     ap.add_argument("--external",required=True)
     ap.add_argument("--out",required=True)
+    ap.add_argument("--diagnostic",action="store_true",help="write gate metrics but do not fail the process")
     a=ap.parse_args()
 
     c=load_cboe(a.cboe)
@@ -137,7 +138,7 @@ def main():
         encoding="utf-8"
     )
     print(json.dumps(payload,indent=2))
-    if payload["status"] != "PASS":
+    if payload["status"] != "PASS" and not a.diagnostic:
         raise SystemExit(2)
 
 if __name__=="__main__":
