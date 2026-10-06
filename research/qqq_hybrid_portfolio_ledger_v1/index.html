@@ -92,9 +92,16 @@
       <section class="card">
         <div class="card-head"><div><div class="eyebrow">DECISION</div><h2>Strategy recommendation</h2></div><div class="badge neutral">READ-ONLY</div></div>
         <div class="bridge-box">
-          <strong id="strategyState">V3 bridge not connected</strong>
-          <p>The ledger will not re-implement the frozen Original Hybrid policy. A future bridge can display the V3 BUY / HOLD / REDUCE decision beside these actual positions.</p>
-          <p class="danger-text">Do not turn portfolio profit into an automatic BUY/HOLD/REDUCE rule.</p>
+          <div class="bridge-head"><strong id="strategyState">V3 bridge not connected</strong><span id="strategyBadge" class="badge neutral">OFFLINE</span></div>
+          <div class="bridge-grid">
+            <div><small>ENGINE ACTION</small><b id="strategyAction">—</b></div>
+            <div><small>STATE</small><b id="strategyMode">—</b></div>
+            <div><small>GATE</small><b id="strategyGate">—</b></div>
+            <div><small>AS-OF</small><b id="strategyAsOf">—</b></div>
+          </div>
+          <p id="strategyReason">The ledger will not re-implement the frozen Original Hybrid policy. A read-only bridge can display the V3 recommendation beside these actual portfolio accounts.</p>
+          <div id="strategyTargets" class="strategy-targets"></div>
+          <p class="danger-text">Ledger P&L never becomes a BUY/HOLD/REDUCE rule and the bridge has no broker-order path.</p>
         </div>
       </section>
 
