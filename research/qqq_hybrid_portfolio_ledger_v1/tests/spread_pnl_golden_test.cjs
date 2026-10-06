@@ -107,4 +107,21 @@ near(closedResult.rows[0].unrealizedPnl, 0, 1e-9, "closed unrealized");
 near(closedResult.rows[0].fees, 8, 1e-9, "closed fees");
 near(closedResult.rows[0].totalPnl, 1192, 1e-9, "closed total pnl");
 
+
+const rolled = base.concat([
+  { id:"short-roll-open", timestamp:"2026-10-02T10:00:00Z", symbol:"QQQ261218C00800000", assetType:"OPTION", side:"SELL", quantity:3, price:5, fees:1,
+    positionIdentity:{campaignId:"C1",spreadId:"QSP1",legRole:"SHORT"} },
+  { id:"short-old-close", timestamp:"2026-10-02T10:01:00Z", symbol:"QQQ261218C00700000", assetType:"OPTION", side:"BUY", quantity:3, price:6, fees:1,
+    positionIdentity:{campaignId:"C1",spreadId:"QSP1",legRole:"SHORT"} }
+]);
+const rolledResult = S.attribute(rolled, {
+  QQQ261218C00750000:3,
+  QQQ261218C00800000:4
+});
+eq(rolledResult.rows[0].status, "PAIRED", "rolled spread remains paired");
+near(rolledResult.rows[0].realizedPnl, 600, 1e-9, "rolled historical realized retained");
+near(rolledResult.rows[0].fees, 8, 1e-9, "rolled historical fees retained");
+near(rolledResult.rows[0].unrealizedPnl, 300, 1e-9, "rolled active unrealized only");
+near(rolledResult.rows[0].totalPnl, 892, 1e-9, "rolled total includes historical realized and all fees");
+
 console.log("SPREAD PNL ATTRIBUTION GOLDEN TEST: PASS");
