@@ -29,7 +29,35 @@ function inputRow(){
   };
 }
 
+function renderFlow(d,e,book){
+  const ids=["flowData","flowDecision","flowBuild","flowWatch","flowJournal"];
+  ids.forEach(id=>{const el=$(id);if(el)el.className="flow-step";});
+  let active="flowWatch",tone="active",next="NEXT: REFRESH";
+  const hasPosition=book.current.qqqShares>0||book.current.vxxPct>0||book.current.qqqCalls>0||book.current.vxxCalls>0;
+  const changed=($("sinceJournal")?.className||"").includes("changed");
+  if(e.blocked){active="flowData";tone="danger";next="NEXT: GET FRESH, COMPLETE DATA";}
+  else if(e.action==="BUY" && !hasPosition){active="flowBuild";next="NEXT: REVIEW TARGET → BUILD POSITION";}
+  else if(e.action==="BUY"){active="flowBuild";next="NEXT: EXECUTE DELTAS → JOURNAL";}
+  else if(e.action==="REDUCE"){active="flowDecision";tone="danger";next="NEXT: REDUCE SELLER RISK → JOURNAL";}
+  else if(changed){active="flowWatch";tone="warn";next="NEXT: REVIEW WHAT CHANGED";}
+  else {active="flowWatch";next="NEXT: REFRESH ON 1–2 DAY CADENCE";}
+  const el=$(active);if(el)el.classList.add(tone);
+  if($("flowJournal")&&journalRows.length) $("flowJournal").classList.add(changed?"warn":"active");
+  if($("nextStep")) $("nextStep").textContent=next;
+  $("gateData").textContent=e.health.status;
+  $("gateTerm").textContent=Number.isFinite(d.s)?(d.s>5?"OPEN":d.s>0?"THIN":"CUT"):"BLOCK";
+  $("gateVix").textContent=Number.isFinite(d.vix)?(d.vix>=E.POLICY.vixHigh?"HIGH":"OK"):"—";
+  $("gateSpot").textContent=[d.qqq,d.vxx,d.vix].every(Number.isFinite)?"OK":"MISSING";
+  $("gateReason").textContent=e.health.reason+" · "+e.reason;
+  if($("watchSummary")){
+    const opt={qqqDte:Number($("qqqDte").value),qqqDelta:Number($("qqqDelta").value),vxxDte:Number($("vxxDte").value),vxxDelta:Number($("vxxDelta").value)};
+    const fires=E.triggers(d,e,opt).filter(x=>x.fire).length;
+    $("watchSummary").textContent=fires?fires+" TRIGGER"+(fires===1?"":"S"):"WATCHING";
+  }
+}
+
 function render(d,e,book){
+  renderFlow(d,e,book);
   $("qqq").textContent=fmt(d.qqq);
   $("vxx").textContent=fmt(d.vxx);
   $("vix").textContent=fmt(d.vix);
