@@ -156,7 +156,7 @@ def main():
     s=s.rename(columns={'Date':'date','QQQ':'qqq','VXX':'vxx','VIX':'vix'})
     m=pd.read_csv(a.m1m2); m['Date']=pd.to_datetime(m['Date']).dt.date
     m=m.rename(columns={'Date':'date','M1':'m1','M2':'m2'})
-    d=s.merge(m[['date','M1','M2']],on='date',how='inner')
+    d=s.merge(m[['date','m1','m2']],on='date',how='inner')
     d=d[(d.date>=pd.to_datetime('2018-03-01').date())&(d.date<=pd.to_datetime('2022-04-08').date())].dropna()
     d=d.sort_values('date').reset_index(drop=True)
     if len(d)<1000: raise SystemExit(f'Unexpected overlap rows: {len(d)}')
