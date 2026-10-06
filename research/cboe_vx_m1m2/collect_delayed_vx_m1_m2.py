@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 API = "https://www-api.cboe.com/us/futures/api/data/?symbol=VX"
 PAGE = "https://www.cboe.com/delayed_quotes/vx/future_quotes/"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Cboe-VX-delayed-research"
-STANDARD_RE = re.compile(r"^VX/([FGHJKMNQUVXZ])(\\d{1,2})$")
+STANDARD_RE = re.compile(r"^VX/([FGHJKMNQUVXZ])(\d{1,2})$")
 
 def get_json(url: str) -> dict:
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
