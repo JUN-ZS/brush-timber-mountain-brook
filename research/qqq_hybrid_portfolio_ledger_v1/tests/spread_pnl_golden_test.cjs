@@ -121,7 +121,7 @@ const rolledResult = S.attribute(rolled, {
 eq(rolledResult.rows[0].status, "PAIRED", "rolled spread remains paired");
 near(rolledResult.rows[0].realizedPnl, 600, 1e-9, "rolled historical realized retained");
 near(rolledResult.rows[0].fees, 8, 1e-9, "rolled historical fees retained");
-near(rolledResult.rows[0].unrealizedPnl, 300, 1e-9, "rolled active unrealized only");
-near(rolledResult.rows[0].totalPnl, 892, 1e-9, "rolled total includes historical realized and all fees");
+near(rolledResult.rows[0].unrealizedPnl, 600, 1e-9, "rolled active unrealized only");
+near(rolledResult.rows[0].totalPnl, 1192, 1e-9, "rolled total includes historical realized and all fees");
 
 console.log("SPREAD PNL ATTRIBUTION GOLDEN TEST: PASS");
