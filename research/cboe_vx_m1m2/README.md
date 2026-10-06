@@ -1,27 +1,18 @@
 # CBOE VX M1/M2 — contract archive reconstruction
 
-The first daily-settlement collector was intentionally rejected after it proved
-that the public daily endpoint only supplied a recent rolling window in this
-runtime (the merge produced 216 rows from 2025-10-27 to 2026-09-04).
+RESEARCH RUN TRIGGER MARKER: 2026-10-07T00:14+08:00
 
-This version uses Cboe's historical per-contract VX CSV archives instead:
-CFE_F18_VX.csv, CFE_G18_VX.csv, ... with one monthly contract per file.
+The previous daily-settlement collector was rejected because the public daily endpoint supplied only a recent rolling window in the runtime. This version uses Cboe-hosted historical per-contract VX CSV archives such as CFE_F18_VX.csv, CFE_G18_VX.csv, and later monthly contracts.
 
 Process:
 1. Download every standard monthly VX contract from 2018 through 2026-09.
 2. Parse Trade Date + Settle from each contract file.
-3. On each date, select the two earliest monthly contracts that actually have
-   a settlement row on that date; no weekly VX contracts are eligible.
+3. On each date, select the two earliest monthly contracts that actually have a settlement row on that date; weekly VX instruments are not eligible.
 4. Compute S = (M2-M1)/M1.
-5. Validate the resulting series against the already observed 2016-2022
-   M1/M2 archive before any P&L replay.
+5. Validate the resulting series against the archived observed 2016-2022 M1/M2 dataset before any P&L replay.
 
-Evidence:
-- contract settlement values are OBSERVED from Cboe-hosted historical CSV files;
-- the M1/M2 mapping is DERIVED deterministically from observed contract rows;
-- no synthetic term proxy is used;
-- a failed overlap gate is STOP.
+No strategy parameters or P&L logic are changed here. A failed overlap gate is STOP.
 
-The historical Cboe archive exposes individual VX month files such as
-CFE_F13_VX.csv and the historical-data page states VX price/volume detail is
-available for selected futures from 2013 to current.
+Evidence classes: OBSERVED contract settlement values; DERIVED deterministic M1/M2 selection; HYPOTHETICAL none.
+
+Cboe's historical pages expose VX price/volume detail and the historical archive contains individual VX month files.
