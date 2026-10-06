@@ -6,182 +6,212 @@ import csv
 import datetime as dt
 import io
 import json
-import re
 import time
 import urllib.error
 import urllib.request
 from pathlib import Path
 
-BASE = "https://cdn.cboe.com/resources/futures/archive/volume-and-price/CFE_{code}_VX.csv"
-UA = "JUN-ZS/brush-timber-mountain-brook / Original Hybrid research"
-MONTHS = {"F":1,"G":2,"H":3,"J":4,"K":5,"M":6,"N":7,"Q":8,"U":9,"V":10,"X":11,"Z":12}
+BASE = "https://cdn.cboe.com/data/us/futures/market_statistics/historical_data/VX/VX_{expiry}.csv"
+UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Original-Hybrid-research"
+MONTHS = "FGHJKMNQUVXZ"
 
-def contract_codes():
-    out=[]
-    for yy in range(18,27):
-        year=2000+yy
-        for letter,month in MONTHS.items():
-            if year == 2026 and month > 9:
-                continue
-            out.append(f"{letter}{yy:02d}")
-    return out
+def third_friday(year: int, month: int) -> dt.date:
+    d = dt.date(year, month, 15)
+    while d.weekday() != 4:
+        d += dt.timedelta(days=1)
+    return d
 
-def maturity(code):
-    return (2000 + int(code[1:]), MONTHS[code[0]])
+def standard_vx_expiry_candidates(year: int, month: int) -> list[dt.date]:
+    # VX standard expiry is normally Wednesday, 30 days before the third Friday.
+    # Cboe has holiday shifts; try the adjacent Tuesday as well. We validate
+    # candidates by HTTP existence, never by assuming the calendar.
+    target = third_friday(year, month) - dt.timedelta(days=30)
+    candidates = []
+    for delta in range(-2, 3):
+        d = target + dt.timedelta(days=delta)
+        if d.weekday() in (1, 2, 3):  # Tue/Wed/Thu
+            candidates.append(d)
+    return candidates
 
-def norm(s):
-    return re.sub(r"[^a-z0-9]+","_",str(s or "").strip().lower()).strip("_")
+def candidate_expiries(start: dt.date, end: dt.date) -> list[dt.date]:
+    # Include one month of warm-up before the requested start and two after end.
+    y, m = start.year, start.month
+    first = dt.date(y, m, 1)
+    first -= dt.timedelta(days=62)
+    last = dt.date(end.year, end.month, 1)
+    last += dt.timedelta(days=93)
+    seen = set()
+    out = []
+    cur = first
+    while cur <= last:
+        for d in standard_vx_expiry_candidates(cur.year, cur.month):
+            if first <= d <= last and d not in seen:
+                seen.add(d)
+                out.append(d)
+        cur += dt.timedelta(days=32)
+        cur = dt.date(cur.year, cur.month, 1)
+    return sorted(out)
 
-def field(fields,*names):
-    targets={norm(x) for x in names}
-    for f in fields:
-        if norm(f) in targets:
-            return f
-    return None
+def norm(s: str) -> str:
+    return str(s or "").strip().lower().replace("﻿", "")
 
 def parse_date(s):
-    s=str(s or "").strip()
-    for fmt in ("%m/%d/%Y","%Y-%m-%d","%m/%d/%y"):
+    s = str(s or "").strip()
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
         try:
-            return dt.datetime.strptime(s,fmt).date()
+            return dt.datetime.strptime(s, fmt).date()
         except ValueError:
             pass
     return None
 
 def parse_float(s):
     try:
-        return float(str(s).strip().replace(",",""))
+        return float(str(s).strip().replace(",", ""))
     except Exception:
         return None
 
-def fetch(code):
-    url=BASE.format(code=code)
-    last=None
+def fetch_expiry(expiry: dt.date):
+    url = BASE.format(expiry=expiry.isoformat())
+    req = urllib.request.Request(url, headers={
+        "User-Agent": UA,
+        "Accept": "text/csv,text/plain,*/*",
+    })
     for attempt in range(4):
         try:
-            req=urllib.request.Request(url,headers={"User-Agent":UA,"Accept":"text/csv,*/*"})
-            with urllib.request.urlopen(req,timeout=45) as r:
-                body=r.read().decode("utf-8-sig","replace")
+            with urllib.request.urlopen(req, timeout=45) as r:
+                body = r.read().decode("utf-8-sig", "replace")
+            # Cboe may return a legal/HTML page instead of CSV on bad/retired URLs.
             if not body or body.lstrip().startswith("<"):
-                raise RuntimeError("non-CSV response")
-            return body,url
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, RuntimeError) as e:
-            last=repr(e)
-            time.sleep(1.5*(attempt+1))
-    raise RuntimeError(f"failed {code}: {last}")
+                return None, url, "NON_CSV"
+            return body, url, "OK"
+        except urllib.error.HTTPError as e:
+            if e.code in (403, 404):
+                return None, url, f"HTTP_{e.code}"
+            if attempt == 3:
+                return None, url, f"HTTP_{e.code}"
+            time.sleep(1.0 * (attempt + 1))
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 3:
+                return None, url, "NETWORK_ERROR"
+            time.sleep(1.0 * (attempt + 1))
+    return None, url, "ERROR"
 
-def read_contract(code):
-    body,url=fetch(code)
-    rows=list(csv.DictReader(io.StringIO(body)))
-    if not rows:
-        return [],url,None
-    fields=list(rows[0].keys())
-    date_f=field(fields,"Trade Date","Date")
-    settle_f=field(fields,"Settle","Settlement Price","Settlement")
-    expiry_f=field(fields,"Expiration Date","Expiration","Expiry Date")
-    if not date_f or not settle_f:
-        raise RuntimeError(f"{code}: unrecognized columns {fields}")
-
-    out=[]
-    explicit_expiry=None
+def parse_contract(body: str, expiry: dt.date, url: str):
+    # Cboe VX contract archive columns are:
+    # Trade Date,Futures,Open,High,Low,Close,Settle,Change,...
+    rows = list(csv.reader(io.StringIO(body)))
+    out = []
     for row in rows:
-        d=parse_date(row.get(date_f))
-        px=parse_float(row.get(settle_f))
-        if d and px is not None:
-            row_exp=parse_date(row.get(expiry_f)) if expiry_f else None
-            if row_exp:
-                explicit_expiry=row_exp
-            out.append((d,px))
-    if not out:
-        return [],url,None
-
-    # Prefer an explicit expiration date if Cboe publishes one. Otherwise the
-    # last observed date in the contract archive is the hard eligibility bound.
-    expiry=explicit_expiry or max(d for d,_ in out)
-    return out,url,expiry
+        if not row:
+            continue
+        d = parse_date(row[0])
+        if d is None or len(row) < 7:
+            continue
+        settle = parse_float(row[6])
+        if settle is None:
+            continue
+        # The final expiry-day row is final settlement, not a tradable prior-close
+        # state for our M1/M2 daily term signal. Keep only d < expiry.
+        if d < expiry:
+            out.append((d, settle))
+    return out
 
 def main():
-    ap=argparse.ArgumentParser()
-    ap.add_argument("--start",default="2018-03-01")
-    ap.add_argument("--end",default="2026-09-04")
-    ap.add_argument("--out",required=True)
-    a=ap.parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--start", default="2018-03-01")
+    ap.add_argument("--end", default="2026-09-04")
+    ap.add_argument("--out", required=True)
+    a = ap.parse_args()
 
-    start=dt.date.fromisoformat(a.start)
-    end=dt.date.fromisoformat(a.end)
-    by_date={}
-    meta=[]
+    start = dt.date.fromisoformat(a.start)
+    end = dt.date.fromisoformat(a.end)
+    candidates = candidate_expiries(start, end)
 
-    for code in contract_codes():
-        data,url,expiry=read_contract(code)
-        meta.append({
-            "code":code,
-            "url":url,
-            "rows":len(data),
-            "expiry":expiry.isoformat() if expiry else None
-        })
-        year,month=maturity(code)
-        for d,px in data:
-            if start <= d <= end:
-                by_date.setdefault(d,[]).append({
-                    "code":code,
-                    "price":px,
-                    "maturity":(year,month),
-                    "expiry":expiry,
-                    "source_url":url
-                })
+    by_date = {}
+    meta = []
+    successful = set()
 
-    rows=[]
+    for expiry in candidates:
+        body, url, status = fetch_expiry(expiry)
+        item = {"expiry": expiry.isoformat(), "url": url, "status": status, "rows": 0}
+        if body is not None:
+            data = parse_contract(body, expiry, url)
+            item["rows"] = len(data)
+            if data:
+                successful.add(expiry)
+                for d, px in data:
+                    if start <= d <= end:
+                        by_date.setdefault(d, []).append({
+                            "expiry": expiry,
+                            "price": px,
+                            "code": f"VX_{expiry.isoformat()}",
+                            "source_url": url,
+                        })
+        meta.append(item)
+
+    rows = []
     for d in sorted(by_date):
-        eligible=[
-            r for r in by_date[d]
-            if r["expiry"] is not None and r["expiry"] > d
-        ]
-        eligible.sort(key=lambda r:r["maturity"])
-        if len(eligible)<2:
+        eligible = sorted(
+            [x for x in by_date[d] if x["expiry"] > d],
+            key=lambda x: x["expiry"]
+        )
+        # Deduplicate expiry in case multiple candidate paths ever resolve to one file.
+        uniq = []
+        seen = set()
+        for x in eligible:
+            if x["expiry"] not in seen:
+                seen.add(x["expiry"])
+                uniq.append(x)
+        if len(uniq) < 2:
             continue
-        m1,m2=eligible[0],eligible[1]
-        p1,p2=m1["price"],m2["price"]
+        m1, m2 = uniq[0], uniq[1]
+        p1, p2 = m1["price"], m2["price"]
         rows.append({
-            "trade_date":d.isoformat(),
-            "m1_code":m1["code"],
-            "m1_expiry":m1["expiry"].isoformat(),
-            "m1_settlement":p1,
-            "m2_code":m2["code"],
-            "m2_expiry":m2["expiry"].isoformat(),
-            "m2_settlement":p2,
-            "term_slope":(p2-p1)/p1 if p1 else "",
-            "source":"CBOE_CONTRACT_ARCHIVE_DAILY_SETTLEMENT",
-            "source_m1_url":m1["source_url"],
-            "source_m2_url":m2["source_url"]
+            "trade_date": d.isoformat(),
+            "m1_code": m1["code"],
+            "m1_expiry": m1["expiry"].isoformat(),
+            "m1_settlement": p1,
+            "m2_code": m2["code"],
+            "m2_expiry": m2["expiry"].isoformat(),
+            "m2_settlement": p2,
+            "term_slope": (p2 - p1) / p1 if p1 else "",
+            "source": "CBOE_VX_CONTRACT_ARCHIVE_DAILY_SETTLEMENT",
+            "source_m1_url": m1["source_url"],
+            "source_m2_url": m2["source_url"],
         })
 
-    out=Path(a.out)
-    out.parent.mkdir(parents=True,exist_ok=True)
-    fields=[
+    out = Path(a.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fields = [
         "trade_date","m1_code","m1_expiry","m1_settlement",
         "m2_code","m2_expiry","m2_settlement","term_slope",
         "source","source_m1_url","source_m2_url"
     ]
-    with out.open("w",newline="",encoding="utf-8") as f:
-        w=csv.DictWriter(f,fieldnames=fields)
-        w.writeheader(); w.writerows(rows)
+    with out.open("w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        w.writerows(rows)
 
-    nonempty=sum(1 for m in meta if m["rows"]>0)
-    payload={
-        "status":"PASS",
-        "contract_files_attempted":len(meta),
-        "contract_files_nonempty":nonempty,
-        "output_rows":len(rows),
-        "coverage":[rows[0]["trade_date"],rows[-1]["trade_date"]] if rows else [None,None],
-        "start":a.start,
-        "end":a.end,
-        "generated_utc":dt.datetime.now(dt.timezone.utc).isoformat(),
-        "source":"Cboe historical VX contract CSV archives",
-        "selection":"explicit expiration date when present; otherwise final observed contract date"
+    nonempty = sum(1 for x in meta if x["rows"] > 0)
+    payload = {
+        "status": "PASS" if rows else "FAIL",
+        "contract_files_attempted": len(meta),
+        "contract_files_nonempty": nonempty,
+        "output_rows": len(rows),
+        "coverage": [rows[0]["trade_date"], rows[-1]["trade_date"]] if rows else [None, None],
+        "start": a.start,
+        "end": a.end,
+        "generated_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "source": "Cboe per-expiry VX historical CSV archive",
+        "selection": "sort actual contract expiry; eligible iff expiry > trade_date; exclude expiry-day final settlement",
+        "failed_candidates": [x for x in meta if x["status"] != "OK"][:50],
     }
-    (out.parent/"build_metadata.json").write_text(json.dumps(payload,indent=2),encoding="utf-8")
-    print(json.dumps(payload,indent=2))
+    (out.parent / "build_metadata.json").write_text(
+        json.dumps(payload, indent=2), encoding="utf-8"
+    )
+    print(json.dumps(payload, indent=2))
+    if not rows:
+        raise SystemExit(2)
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
