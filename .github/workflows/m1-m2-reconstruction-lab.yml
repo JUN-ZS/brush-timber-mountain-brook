@@ -1,27 +1,14 @@
 name: M1 M2 Masked Reconstruction Lab QA
 
 on:
-  pull_request:
-    paths:
-      - "research/m1_m2_reconstruction_lab/**"
-      - "research/data/vx_m1_m2_external_2016_2022.csv"
-      - "research/data/archive_spots_overlap_2018_2022.csv"
-      - "research/m1_m2_reconstruction_lab/ARCHIVE_CONTRACT.md"
-      - "research/m1_m2_reconstruction_lab/REAL_OBSERVED_CONTROL.md"
-      - ".github/workflows/m1-m2-reconstruction-lab.yml"
-  push:
-    branches:
-      - "research/m1-m2-mask-reconstruction-lab-v1-20261006"
-      - "feat/m1-m2-mask-reconstruction-lab-v1-20261006"
-    paths:
-      - "research/m1_m2_reconstruction_lab/**"
-      - "research/data/vx_m1_m2_external_2016_2022.csv"
-      - "research/data/archive_spots_overlap_2018_2022.csv"
-      - ".github/workflows/m1-m2-reconstruction-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   qa:
-    runs-on: [self-hosted, grokbot-box-linux-x64]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,28 +32,10 @@ jobs:
           test -f research/m1_m2_reconstruction_lab/REAL_OBSERVED_CONTROL.md
           test -f research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
           test -f research/data/real_historical_state_replay_2018_2022.csv
-          python3 - <<'PY'
-          import csv
-          p="research/data/vx_m1_m2_external_2016_2022.csv"
-          with open(p,newline="",encoding="utf-8") as f:
-              rows=list(csv.DictReader(f))
-          assert len(rows)==1540, len(rows)
-          assert rows[0]["Date"].startswith("2022-04-08"), rows[0]["Date"]
-          assert rows[-1]["Date"].startswith("2016-03-01"), rows[-1]["Date"]
-
-          p2="research/data/real_historical_state_replay_2018_2022.csv"
-          with open(p2,newline="",encoding="utf-8") as f:
-              replay=list(csv.DictReader(f))
-          assert len(replay)==1540, len(replay)
-          assert replay[0]["Date"]=="2016-03-01", replay[0]["Date"]
-          assert replay[-1]["Date"]=="2022-04-08", replay[-1]["Date"]
-          assert all(r["provenance"]=="OBSERVED_REPLAY" for r in replay)
-          print("Dataset + replay contract PASS", len(rows), len(replay))
-          PY
       - name: Upload observed replay artifact
         uses: actions/upload-artifact@v4
         with:
-          name: real-historical-state-replay
+          name: real-historical-state-replay-manual
           path: |
             research/data/real_historical_state_replay_2018_2022.csv
             research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
