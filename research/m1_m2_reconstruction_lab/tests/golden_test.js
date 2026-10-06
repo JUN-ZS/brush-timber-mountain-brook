@@ -36,9 +36,9 @@ assert.strictEqual(shock, "REDUCE", "high VIX + backwardation");
 
 assert.match(E.ARCHIVE_CONTRACT.sourceRepo, /timber-blade-kind-dawn/);
 
-const real = E.reconstructRow({Date:"2022-04-08", VIX:"21.16", M1:"22.60", M2:"24.60"}, 0, "REAL_OBSERVED_CONTROL");
-assert.strictEqual(real.m1, 22.60);
-assert.strictEqual(real.m2, 24.60);
+const real = E.reconstructSeries(rows, "REAL_OBSERVED_CONTROL")[0];
+assert.strictEqual(real.m1, 22);
+assert.strictEqual(real.m2, 24);
 assert.strictEqual(real.provenance, "OBSERVED_EXTERNAL");
 assert.strictEqual(real.role, "GROUND_TRUTH_CONTROL");
 
