@@ -50,6 +50,14 @@ const termRows = parseCsv(fs.readFileSync(DATA_PATH, "utf8"))
   .map(r => ({ Date:r.Date, VIX:num(r.VIX), M1:num(r.M1), M2:num(r.M2) }))
   .sort((a,b) => a.Date.localeCompare(b.Date));
 
+if (termRows.length !== 1540) throw new Error("Observed M1/M2 dataset row-count contract failed: " + termRows.length);
+if (!termRows.every(r => r.Date && Number.isFinite(r.VIX) && Number.isFinite(r.M1) && Number.isFinite(r.M2) && r.M1 > 0 && r.M2 > 0)) {
+  throw new Error("Observed M1/M2 dataset contains missing/non-positive VIX/M1/M2");
+}
+for (let i = 1; i < termRows.length; i++) {
+  if (termRows[i-1].Date >= termRows[i].Date) throw new Error("Observed dataset must be strictly ascending after sort");
+}
+
 const spots = new Map();
 for (const r of parseCsv(fs.readFileSync(SPOT_PATH, "utf8"))) {
   spots.set(key(r.Date), {
