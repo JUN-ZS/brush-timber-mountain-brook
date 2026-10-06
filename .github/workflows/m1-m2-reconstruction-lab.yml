@@ -1,0 +1,41 @@
+name: M1 M2 Masked Reconstruction Lab QA
+
+on:
+  pull_request:
+    paths:
+      - "research/m1_m2_reconstruction_lab/**"
+      - "research/data/vx_m1_m2_external_2016_2022.csv"
+      - ".github/workflows/m1-m2-reconstruction-lab.yml"
+  push:
+    branches:
+      - "feat/m1-m2-mask-reconstruction-lab-v1-20261006"
+    paths:
+      - "research/m1_m2_reconstruction_lab/**"
+      - "research/data/vx_m1_m2_external_2016_2022.csv"
+      - ".github/workflows/m1-m2-reconstruction-lab.yml"
+
+jobs:
+  qa:
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: JS syntax
+        run: node --check research/m1_m2_reconstruction_lab/engine.js && node --check research/m1_m2_reconstruction_lab/app.js
+      - name: Golden reconstruction behavior
+        run: node research/m1_m2_reconstruction_lab/tests/golden_test.js
+      - name: Dataset contract
+        run: |
+          test -f research/data/vx_m1_m2_external_2016_2022.csv
+          python - <<'PY'
+          import csv
+          p="research/data/vx_m1_m2_external_2016_2022.csv"
+          with open(p,newline="",encoding="utf-8") as f:
+              rows=list(csv.DictReader(f))
+          assert len(rows)==1540, len(rows)
+          assert rows[0]["Date"].startswith("2022-04-08"), rows[0]["Date"]
+          assert rows[-1]["Date"].startswith("2016-03-01"), rows[-1]["Date"]
+          print("Dataset contract PASS", len(rows))
+          PY
