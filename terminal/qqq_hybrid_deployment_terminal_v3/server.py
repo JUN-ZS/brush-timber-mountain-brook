@@ -218,7 +218,7 @@ def snapshot():
                                 out["provenance"]["m1"] = "OPEND_VX"
                                 out["provenance"]["m2"] = "OPEND_VX"
                                 out["provenance"]["term_slope"] = "DERIVED_FROM_OPEND_VX"
-                                out["source_chain"].append("OPEND_VX_FALLBACK")
+                                out["source_chain"].append("OPEND_VX_LIVE")
             finally:
                 ctx.close()
         except Exception as exc:
@@ -269,7 +269,7 @@ class Handler(SimpleHTTPRequestHandler):
                 self,
                 {
                     "ok": True,
-                    "engine": "V3-FREE-VX-PROVENANCE-1",
+                    "engine": "V3-FREE-VX-PROVENANCE-2",
                     "port": PORT,
                     "opend_package": futu is not None,
                     "cboe_delayed_adapter": fetch_cboe_vx is not None,
