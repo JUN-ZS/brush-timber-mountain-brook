@@ -12,7 +12,7 @@ const OUT_CSV = path.join(ROOT, "research/data/real_historical_state_replay_2018
 const OUT_MD = path.join(ROOT, "research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md");
 
 function parseCsv(text) {
-  const lines = text.replace(/^\\uFEFF/, "").trim().split(/\\r?\\n/);
+  const lines = text.replace(/^\uFEFF/, "").trim().split(/\r?\n/);
   const header = lines.shift().split(",");
   return lines.filter(Boolean).map(line => {
     const cells = line.split(",");
@@ -37,7 +37,7 @@ function pct(x, digits = 2) {
 }
 function esc(v) {
   const s = v === null || v === undefined ? "" : String(v);
-  return /[",\\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 function loadEngine() {
   globalThis.window = {};
@@ -160,7 +160,7 @@ for (const r of results) {
     r.source,r.provenance
   ].map(esc).join(","));
 }
-fs.writeFileSync(OUT_CSV, csv.join("\\n") + "\\n", "utf8");
+fs.writeFileSync(OUT_CSV, csv.join("\n") + "\n", "utf8");
 
 function table(counts, total) {
   return Object.entries(counts).map(([k,v]) => "| " + k + " | " + v + " | " + pct(v/total) + " |");
@@ -218,8 +218,8 @@ const report = [
   "4. The next simulation, if pursued, must be a separate **EMPIRICAL_TS_SIM_V1** and must remain explicitly DERIVED/HYPOTHETICAL.",
   "",
   "Output CSV: research/data/real_historical_state_replay_2018_2022.csv"
-].join("\\n");
-fs.writeFileSync(OUT_MD, report + "\\n", "utf8");
+].join("\n");
+fs.writeFileSync(OUT_MD, report + "\n", "utf8");
 
 console.log(JSON.stringify({
   status:"PASS",
