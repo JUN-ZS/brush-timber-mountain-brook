@@ -2,6 +2,7 @@ const L = window.PortfolioLedgerV1;
 const P = window.PortfolioPositionIdentityV1;
 const S = window.PortfolioSpreadPnlV1;
 const CP = window.PortfolioCampaignPerformanceV1;
+const CT = window.PortfolioCampaignTimelineV1;
 const R = window.PortfolioReconciliationV1;
 let events = [];
 let liveMarks = {};
@@ -82,6 +83,44 @@ function fmtSpreadMoney(v){
   return Number.isFinite(Number(v)) ? signMoney(v) : "—";
 }
 
+function renderCampaignTimeline(result){
+  if(!$("campaignTimelineRows")) return;
+  if(!result || !result.rows.length){
+    $("campaignTimelineRows").innerHTML='<div class="hint">No identified option-fill history yet.</div>';
+    return;
+  }
+  const kindLabel = (kind) => ({
+    OPEN:"OPEN",
+    ROLL_START:"ROLL START",
+    ROLL_COMPLETE:"ROLL",
+    PARTIAL_CLOSE:"PARTIAL CLOSE",
+    FULL_CLOSE:"FULL CLOSE",
+    ADD:"ADD",
+    LEG_ADJUST:"LEG ADJUST",
+    IMBALANCE:"IMBALANCE",
+    MULTI_CONTRACT:"MULTI-CONTRACT",
+    INCOMPLETE:"INCOMPLETE",
+    UPDATE:"UPDATE"
+  }[kind] || kind);
+  $("campaignTimelineRows").innerHTML =
+    '<div class="timeline-summary"><span>EVENTS '+result.summary.timelineEvents+'</span><span>OPEN '+result.summary.opens+'</span><span>ROLL '+result.summary.rolls+'</span><span>PARTIAL '+result.summary.partialCloses+'</span><span>CLOSE '+result.summary.fullCloses+'</span><span>MARKED '+result.summary.markedEvents+'</span><span>REALIZED ONLY '+result.summary.realizedOnlyEvents+'</span></div>' +
+    '<div class="timeline-list">' +
+    result.rows.map(r => {
+      const cls = ["FULL_CLOSE","PARTIAL_CLOSE","ROLL_COMPLETE","OPEN"].includes(r.eventKind) ? "milestone" : (r.completeness === "INCOMPLETE" || r.completeness === "IMBALANCED" || r.completeness === "MULTI_CONTRACT" ? "warning" : "");
+      const contracts = 'L '+(r.longContracts.length ? r.longContracts.join(", ") : "—")+' · S '+(r.shortContracts.length ? r.shortContracts.join(", ") : "—");
+      return '<div class="timeline-row '+cls+'">' +
+        '<span><small>TIME</small><b>'+esc(new Date(r.timestamp).toLocaleString())+'</b><small>'+esc(r.eventId)+'</small></span>' +
+        '<span><small>CAMPAIGN / SPREAD</small><b>'+esc(r.campaignId || r.campaignKey)+'</b><small>'+esc(r.spreadId)+'</small></span>' +
+        '<span><small>EVENT</small><b>'+esc(kindLabel(r.eventKind))+'</b><small>'+esc(r.beforeStatus)+' → '+esc(r.afterStatus)+'</small></span>' +
+        '<span><small>UNITS</small><b>'+fmtSpreadUnits(r.units)+'</b><small>'+esc(r.strategyRole || "—")+'</small></span>' +
+        '<span class="timeline-contracts"><small>ACTIVE CONTRACTS</small><b>'+esc(contracts)+'</b></span>' +
+        '<span><small>REALIZED NET / FEES</small><b>'+fmtSpreadMoney(r.realizedNetPnl)+'</b><small>'+money(r.fees)+' fees</small></span>' +
+        '<span><small>TOTAL P&L</small><b>'+fmtSpreadMoney(r.totalPnl)+'</b><small>'+esc(r.pnlBasis)+(r.markTimestamp ? " · mark "+esc(r.markTimestamp) : "")+'</small></span>' +
+        '<span><small>CAMPAIGN CUM. REALIZED NET</small><b>'+fmtSpreadMoney(r.campaignCumulativeRealizedNetPnl)+'</b></span>' +
+      '</div>';
+    }).join("") +
+    '</div>';
+}
 function renderCampaignPerformance(result){
   if(!$("campaignPerformanceRows")) return;
   if(!result || !result.campaigns.length){
@@ -295,6 +334,7 @@ function renderAll(){
     renderPositions();
     renderSpreadIdentity();
     renderSpreadPnl();
+    renderCampaignTimeline(CT.timeline(events));
     renderEvents();
     renderReconciliation();
   }catch(err){
@@ -416,6 +456,7 @@ $("periodBtn").addEventListener("click",()=>{
     const endAt=new Date(endRaw).toISOString();
     const result=L.periodMetrics(events, startAt, endAt, startMarks, mergedMarks());
     const performance=CP.performance(events, startAt, endAt, startMarks, mergedMarks());
+    const timeline=CT.timeline(events);
     $("periodBadge").textContent=result.complete?"COMPLETE":"INCOMPLETE";
     $("periodBadge").className="status "+(result.complete?"ok":"warn");
     $("periodResult").innerHTML =
@@ -425,6 +466,7 @@ $("periodBtn").addEventListener("click",()=>{
       '<div><small>PERIOD P&L / RETURN</small><strong>'+signMoney(result.pnl)+' / '+(result.returnPct===null?"—":result.returnPct.toFixed(2)+"%")+'</strong></div>';
     if(!result.complete) $("periodResult").insertAdjacentHTML("afterbegin",'<div><small>REASON</small><strong>Missing start/end mark</strong></div>');
     renderCampaignPerformance(performance);
+    renderCampaignTimeline(timeline);
   }catch(err){ alert(prettyError(err)); }
 });
 
