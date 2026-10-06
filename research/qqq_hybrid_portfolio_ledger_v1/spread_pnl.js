@@ -206,6 +206,10 @@ window.PortfolioSpreadPnlV1 = (() => {
         continue;
       }
 
+      const spreadBooks = Object.values(books).filter(b => b.spreadId === paired.spreadId);
+      const realizedPnl = spreadBooks.reduce((s, b) => s + b.realizedPnl, 0);
+      const fees = spreadBooks.reduce((s, b) => s + b.fees, 0);
+
       if (longLeg.mark === null || shortLeg.mark === null || longLeg.unrealizedPnl === null || shortLeg.unrealizedPnl === null) {
         rows.push({
           spreadId: paired.spreadId,
@@ -230,9 +234,6 @@ window.PortfolioSpreadPnlV1 = (() => {
 
       const entryDebit = longLeg.entryDebit + shortLeg.entryDebit;
       const entryCredit = longLeg.entryCredit + shortLeg.entryCredit;
-      const spreadBooks = Object.values(books).filter(b => b.spreadId === paired.spreadId);
-      const realizedPnl = spreadBooks.reduce((s, b) => s + b.realizedPnl, 0);
-      const fees = spreadBooks.reduce((s, b) => s + b.fees, 0);
       const currentValue = longLeg.currentValue + shortLeg.currentValue;
       const unrealizedPnl = longLeg.unrealizedPnl + shortLeg.unrealizedPnl;
 
