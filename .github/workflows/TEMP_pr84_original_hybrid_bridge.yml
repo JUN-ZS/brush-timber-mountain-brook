@@ -36,7 +36,7 @@ jobs:
             --end 2026-09-04 \
             --out artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv
 
-      - name: Historical overlap gate
+      - name: Historical overlap diagnostic
         continue-on-error: true
         run: |
           python3 research/cboe_vx_m1m2/validate_against_external.py \
@@ -45,6 +45,21 @@ jobs:
             --out artifacts/real-vx/overlap_gate.json \
             --diagnostic
 
+      - name: OLD EXTERNAL vs REAL CBOE source-swap parity
+        run: |
+          node research/cboe_vx_m1m2/compare_sources.js \
+            --real artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv \
+            --external research/data/vx_m1_m2_external_2016_2022.csv \
+            --spots research/data/archive_spots_overlap_2018_2022.csv \
+            --engine research/m1_m2_reconstruction_lab/engine.js \
+            --out-dir artifacts/real-vx/source-swap
+
+      - name: Free delayed Cboe live snapshot
+        continue-on-error: true
+        run: |
+          python3 research/cboe_vx_m1m2/collect_delayed_vx_m1_m2.py \
+            --out artifacts/real-vx/delayed_vx_m1_m2.json
+
       - name: Fixed REAL M1/M2 archive replay
         run: node research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
 
@@ -52,8 +67,14 @@ jobs:
         run: |
           node --check research/m1_m2_reconstruction_lab/engine.js
           node --check research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
+          node --check research/cboe_vx_m1m2/compare_sources.js
+          python3 -m py_compile research/cboe_vx_m1m2/build_real_vx_m1_m2.py
+          python3 -m py_compile research/cboe_vx_m1m2/validate_against_external.py
+          python3 -m py_compile research/cboe_vx_m1m2/collect_delayed_vx_m1_m2.py
           test -f research/data/real_historical_state_replay_2018_2022.csv
           test -f research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
+          test -f artifacts/real-vx/source-swap/source_swap_metrics.json
+          test -f artifacts/real-vx/source-swap/SOURCE_SWAP_PARITY.md
 
       - name: Evidence
         uses: actions/upload-artifact@v4
