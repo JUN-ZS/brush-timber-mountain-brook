@@ -5,7 +5,7 @@ The V3 terminal is intended to supersede V2 for daily operator use. V2 is frozen
 | Capability | V2 | V3 |
 |---|---|---|
 | QQQ/VXX/VIX market data | OpenD + Yahoo fallback | OpenD + Yahoo fallback |
-| VX M1/M2 | OpenD + paid Databento | **Free delayed Cboe first**, OpenD fallback |
+| VX M1/M2 | OpenD + paid Databento | **OpenD live first**, free delayed Cboe fallback |
 | VX selection | monthly discovery | **strict actual-expiry selection** |
 | VIX-as-M2 proxy | forbidden | forbidden |
 | DATA BLOCK | current=target | current=target, explicit BLOCK |
@@ -21,7 +21,7 @@ The V3 terminal is intended to supersede V2 for daily operator use. V2 is frozen
 | provenance | row-level | **field-level + source chain + as-of** |
 | research references | mixed into live README | **visually separated REFERENCE ONLY** |
 | replay | same terminal surface | research-only, kept out of default operator flow |
-| manual overrides | present | research/test only |
+| option candidate monitor | yes | **active, read-only estimate + exact credit sizing when positive credit is available** |\n| manual overrides | present | research/test only |
 
 ## V3 design rule
 
