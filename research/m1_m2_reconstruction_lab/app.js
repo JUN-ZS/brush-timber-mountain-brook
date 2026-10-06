@@ -25,12 +25,22 @@ function parseCSV(text) {
 }
 
 function load() {
-  fetch("../data/vx_m1_m2_external_2016_2022.csv", { cache: "no-store" })
-    .then(r => { if (!r.ok) throw new Error("CSV HTTP " + r.status); return r.text(); })
-    .then(text => {
-      S.rows = parseCSV(text);
+  Promise.all([
+    fetch("../data/vx_m1_m2_external_2016_2022.csv", { cache: "no-store" }),
+    fetch("../data/archive_spots_overlap_2018_2022.csv", { cache: "no-store" })
+  ])
+    .then(async ([truthResp, spotsResp]) => {
+      if (!truthResp.ok) throw new Error("M1/M2 CSV HTTP " + truthResp.status);
+      if (!spotsResp.ok) throw new Error("Archive spots CSV HTTP " + spotsResp.status);
+      const [truthText, spotsText] = await Promise.all([truthResp.text(), spotsResp.text()]);
+      S.rows = parseCSV(truthText);
+      const spots = {};
+      parseCSV(spotsText).forEach(r => {
+        spots[r.Date] = { ...r, QQQ:Number(r.QQQ), VXX:Number(r.VXX), VIX:Number(r.VIX), prevDate:r.PrevDate || null };
+      });
+      S.spots = spots;
       S.recon = L.reconstructSeries(L.buildMaskedInput(S.rows), S.method);
-      S.comparison = L.compare(S.rows, S.recon);
+      S.comparison = L.compare(S.rows, S.recon, S.spots);
       $("range").max = Math.max(0, S.rows.length - 1);
       $("range").value = 0;
       const audit = L.leakageAudit(S.rows, S.method);
@@ -54,11 +64,15 @@ function renderAll(audit) {
   $("signValue").textContent = pct(m.termSignAgreementPct / 100);
   $("regimeValue").textContent = pct(m.regimeAgreementPct / 100);
   $("actionValue").textContent = pct(m.actionAgreementPct / 100);
+  $("archiveStateValue").textContent = pct(m.archiveStateAgreementPct / 100);
+  $("archiveActionValue").textContent = pct(m.archiveActionAgreementPct / 100);
+  $("archiveCarryValue").textContent = pct(m.archiveVxxCarryAgreementPct / 100);
+  $("overlapValue").textContent = (m.archiveOverlapRows || 0).toLocaleString();
   $("leakageValue").textContent = audit.pass ? "PASS" : "FAIL";
   $("methodBox").innerHTML =
     "<b>" + L.METHODS[S.method].label + "</b><br>" +
     L.METHODS[S.method].description + "<br><br>" +
-    "M1/M2 truth = evaluation-only; reconstructed values are DERIVED and UNVALIDATED.";
+    "Source-code contract is exact to the archived implementation; M1/M2 themselves remain proxy outputs, not true VX futures.";
   $("m1mae").textContent = fmt(m.m1.mae);
   $("m1rmse").textContent = fmt(m.m1.rmse);
   $("m1mape").textContent = Number.isFinite(m.m1.mapePct) ? m.m1.mapePct.toFixed(2) + "%" : "—";
@@ -68,9 +82,10 @@ function renderAll(audit) {
   $("smae").textContent = pct(m.s.mae);
   $("srmse").textContent = pct(m.s.rmse);
   $("sbias").textContent = pct(m.s.bias);
+  const verdict = (m.archiveActionAgreementPct || 0) >= 99.999 ? "MATCH" : "MISMATCH";
   $("integrityBanner").innerHTML =
     "<b>MASK TEST:</b> " + (S.masked ? "M1/M2 hidden from the reconstruction path." : "M1/M2 display restored for inspection.") +
-    " The evaluation object remains separate; the reconstruction receives only VIX history.";
+    " Reconstruction sees VIX history only. <b>ARCHIVE VERDICT:</b> " + verdict + ".";
   $("range").oninput = () => { S.idx = Number($("range").value); renderSelected(); draw(); };
   $("maskBtn").onclick = () => { S.masked = !S.masked; renderSelected(); };
   $("exportBtn").onclick = exportCsv;
@@ -89,7 +104,10 @@ function renderSelected() {
   $("selS").textContent = S.masked ? "[MASKED] / " + pct(x.reconstructed.s) : pct(x.truth.s) + " / " + pct(x.reconstructed.s);
   $("selRegime").textContent = x.truth.regime + " / " + x.reconstructed.regime;
   $("selAction").textContent = x.truth.action + " / " + x.reconstructed.action;
-  $("selMatch").textContent = "REGIME " + (x.regimeMatch ? "✓" : "✕") + " · ACTION " + (x.actionMatch ? "✓" : "✕");
+  $("selArchiveState").textContent = x.archive ? x.archive.truthState + " / " + x.archive.reconState : "—";
+  $("selArchiveAction").textContent = x.archive ? x.archive.truthAction + " / " + x.archive.reconAction : "—";
+  $("selCarry").textContent = x.archive ? (x.archive.truthVxxCarry ? "ON" : "OFF") + " / " + (x.archive.reconVxxCarry ? "ON" : "OFF") : "—";
+  $("selMatch").textContent = "BASELINE " + (x.regimeMatch ? "✓" : "✕") + " · ARCHIVE " + (x.archive?.actionMatch ? "✓" : "✕");
   $("cursorDate").textContent = x.date;
 }
 
@@ -185,4 +203,4 @@ function exportCsv() {
   a.click(); URL.revokeObjectURL(url);
 }
 
-load();
+window.addEventListener("load", load);
