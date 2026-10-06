@@ -1,4 +1,5 @@
 const L = window.PortfolioLedgerV1;
+const R = window.PortfolioReconciliationV1;
 let events = [];
 let liveMarks = {};
 let manualMarks = {};
@@ -63,8 +64,49 @@ async function loadStrategy(){
     $("strategyReason").textContent=prettyError(err);
     $("strategyTargets").innerHTML="";
   }
+  renderReconciliation();
 }
 
+
+function renderReconciliation(){
+  const snapshot = L.snapshot(events, mergedMarks());
+  const result = R.reconcile(snapshot, strategy);
+  $("reconStatus").textContent =
+    result.status === "READY"
+      ? ("READY · " + result.summary.comparable + " COMPARABLE")
+      : "WAITING FOR V3";
+  $("reconStatus").className = "status " + (result.status === "READY" ? "ok" : "warn");
+  $("reconReason").textContent = result.reason;
+  if(result.status !== "READY"){
+    $("reconSummary").innerHTML="";
+    $("reconRows").innerHTML='<div class="hint">No V3 target available. No comparison fabricated.</div>';
+    return;
+  }
+
+  $("reconSummary").innerHTML =
+    '<div><small>ALIGNED</small><b>'+result.summary.aligned+'</b></div>'+
+    '<div><small>UNDERWEIGHT</small><b>'+result.summary.underweight+'</b></div>'+
+    '<div><small>OVERWEIGHT</small><b>'+result.summary.overweight+'</b></div>'+
+    '<div><small>UNMAPPED</small><b>'+result.summary.unmapped+'</b></div>';
+
+  $("reconRows").innerHTML = result.rows.map(r=>{
+    const cls = r.action === "ALIGNED" ? "aligned" :
+      r.action === "UNDERWEIGHT" ? "underweight" :
+      r.action === "OVERWEIGHT" ? "overweight" : "unmapped";
+    return '<div class="recon-row '+cls+'">'+
+      '<span><b>'+r.label+'</b><small>'+r.source+'</small></span>'+
+      '<span><small>ACTUAL</small><b>'+fmtRecon(r.actual,r.unit)+'</b></span>'+
+      '<span><small>TARGET</small><b>'+fmtRecon(r.target,r.unit)+'</b></span>'+
+      '<span><small>GAP</small><b>'+fmtRecon(r.gap,r.unit)+'</b></span>'+
+      '<strong>'+r.action+'</strong>'+
+    '</div>';
+  }).join("");
+}
+
+function fmtRecon(value, unit){
+  if(!Number.isFinite(Number(value))) return "—";
+  return Number(value).toFixed(unit === "% NAV" ? 2 : 0) + (unit === "% NAV" ? "%" : " "+unit);
+}
 
 async function loadEvents(){
   const r = await fetch("/api/events?ts=" + Date.now(), {cache:"no-store"});
@@ -142,6 +184,7 @@ function renderAll(){
   try{
     renderPositions();
     renderEvents();
+    renderReconciliation();
   }catch(err){
     $("ledgerStatus").textContent = "ERROR";
     $("positions").innerHTML = '<div class="danger-text">'+prettyError(err)+'</div>';
