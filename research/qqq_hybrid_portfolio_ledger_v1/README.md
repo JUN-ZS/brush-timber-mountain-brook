@@ -198,3 +198,22 @@ The campaign layer reports:
 It does not calculate a campaign return percentage because a defensible campaign capital denominator is not part of the current ledger contract. The existing portfolio period return remains the only return percentage shown.
 
 Scope is explicitly IDENTIFIED_OPTION_SPREADS_ONLY. Campaign-attributed option P&L is not expected to equal whole-portfolio P&L when QQQ core, VXX, or unassigned option activity is outside the campaign identity scope.
+
+### Campaign Timeline / Attribution History V1
+
+The timeline is an event-sourced accounting history for explicit option fills. It records state transitions such as:
+
+    OPEN → ROLL_START / ROLL_COMPLETE → PARTIAL_CLOSE → FULL_CLOSE
+
+The transition detector observes the explicit campaignId / spreadId / legRole identity and never infers a spread from contract similarity. A roll is visible as a multi-contract transition followed by a paired state on the new active contract. Partial and full closes are based on the remaining active quantities; a fully closed spread remains CLOSED for attribution.
+
+For each timeline point the ledger can report:
+
+    realized net P&L = cumulative realized spread P&L - cumulative fees
+    total P&L = realized + unrealized - fees, only when a point-in-time mark exists
+    campaign cumulative realized net P&L
+
+Historical marks are supplied as an optional ordered series of { timestamp, marks }. At each event the timeline uses only the latest mark whose timestamp is <= the event timestamp. Current live marks are never reused to backfill history. Without a historical mark, an open spread shows realized-only accounting and total P&L remains unpriced rather than fabricated.
+
+This increment is accounting-only. It does not alter V3 strategy policy, BUY / HOLD / REDUCE logic, reconciliation targets, or broker routing.
+
