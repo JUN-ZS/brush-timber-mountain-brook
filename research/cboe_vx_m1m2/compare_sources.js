@@ -34,7 +34,7 @@ function writeJson(p, x) {
 }
 function esc(v) {
   const s = v == null ? "" : String(v);
-  return /[",\n]/.test(s) ? "\"" + s.replace(/"/g,"""") + "\"" : s;
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
 }
 
 const realPath = arg("--real");
