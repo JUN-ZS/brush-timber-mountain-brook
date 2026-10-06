@@ -106,8 +106,6 @@ window.PortfolioLedgerV1 = (() => {
       const sameDirection = Math.sign(lot.qty) === Math.sign(remaining);
 
       if (sameDirection) {
-        lot.qty += remaining;
-        remaining = 0;
         break;
       }
 
@@ -119,7 +117,7 @@ window.PortfolioLedgerV1 = (() => {
       }
 
       lot.qty += Math.sign(lot.qty) * -closingQty;
-      remaining += Math.sign(remaining) * closingQty;
+      remaining -= Math.sign(remaining) * closingQty;
       if (Math.abs(lot.qty) <= 1e-12) book.lots.shift();
     }
 
