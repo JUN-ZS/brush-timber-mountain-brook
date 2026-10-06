@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M1/M2 Masked Reconstruction Lab V1</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="eyebrow">FORENSIC RESEARCH · NO LEAKAGE · NO BROKER ORDER</div>
+    <h1>M1/M2 Masked Reconstruction Lab <span>V1</span></h1>
+  </div>
+  <div class="top-actions">
+    <span id="dataBadge" class="badge warn">LOADING</span>
+    <button id="maskBtn" class="btn">MASK M1/M2</button>
+    <button id="exportBtn" class="btn primary">Export CSV</button>
+  </div>
+</header>
+
+<main class="app">
+  <section id="integrityBanner" class="integrity">
+    <b>MASK TEST:</b> M1/M2 are evaluation truth only. Reconstruction sees VIX and past VIX values; truth is never fed into the reconstruction path.
+  </section>
+
+  <section class="quote-grid">
+    <div class="card"><span>ROWS</span><b id="rowsValue">—</b><small id="coverage">—</small></div>
+    <div class="card"><span>METHOD</span><b id="methodValue">—</b><small>provenance: DERIVED / UNVALIDATED</small></div>
+    <div class="card"><span>SIGN AGREEMENT</span><b id="signValue">—</b><small>contango / backwardation direction</small></div>
+    <div class="card"><span>REGIME AGREEMENT</span><b id="regimeValue">—</b><small>truth vs reconstructed</small></div>
+    <div class="card"><span>ACTION AGREEMENT</span><b id="actionValue">—</b><small>policy baseline only</small></div>
+    <div class="card"><span>LEAKAGE</span><b id="leakageValue">—</b><small>future truth mutation audit</small></div>
+  </section>
+
+  <section class="grid2">
+    <article class="panel">
+      <div class="head">
+        <div>
+          <h2>S<tspan></tspan><sub>t</sub> Timeline</h2>
+          <p>REAL truth vs masked reconstruction. The red markers are action mismatches.</p>
+        </div>
+        <div class="legend"><span><i class="truth"></i>REAL</span><span><i class="recon"></i>RECON</span></div>
+      </div>
+      <canvas id="chart" height="340"></canvas>
+      <div class="timeline">
+        <span id="startDate">—</span><span id="cursorDate">—</span><span id="endDate">—</span>
+      </div>
+      <input id="range" type="range" min="0" max="0" value="0">
+    </article>
+
+    <article class="panel">
+      <div class="head"><div><h2>What exactly is being tested?</h2><p>Four layers, without turning an unverified proxy into "truth".</p></div></div>
+      <div class="layer">
+        <b>01 · NUMERICAL</b>
+        <span>M1 / M2 MAE · RMSE · bias · MAPE</span>
+      </div>
+      <div class="layer">
+        <b>02 · S<tspan></tspan><sub>t</sub></b>
+        <span>S = (M2-M1)/M1 · level + sign</span>
+      </div>
+      <div class="layer">
+        <b>03 · REGIME</b>
+        <span>CARRY / WEAKENING / PRE-SHOCK / SHOCK</span>
+      </div>
+      <div class="layer">
+        <b>04 · ACTION</b>
+        <span>BUY / HOLD / REDUCE under policy baseline</span>
+      </div>
+      <div id="methodBox" class="method-box">—</div>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="head">
+      <div><h2>Metrics</h2><p>Absolute prices are in VX points; S error is a fraction.</p></div>
+      <span id="truthStatus" class="badge ok">TRUTH RETAINED FOR EVALUATION ONLY</span>
+    </div>
+    <div class="metrics-grid">
+      <div class="metric"><span>M1 MAE</span><b id="m1mae">—</b></div>
+      <div class="metric"><span>M1 RMSE</span><b id="m1rmse">—</b></div>
+      <div class="metric"><span>M1 MAPE</span><b id="m1mape">—</b></div>
+      <div class="metric"><span>M2 MAE</span><b id="m2mae">—</b></div>
+      <div class="metric"><span>M2 RMSE</span><b id="m2rmse">—</b></div>
+      <div class="metric"><span>M2 MAPE</span><b id="m2mape">—</b></div>
+      <div class="metric"><span>S MAE</span><b id="smae">—</b></div>
+      <div class="metric"><span>S RMSE</span><b id="srmse">—</b></div>
+      <div class="metric"><span>S BIAS</span><b id="sbias">—</b></div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <article class="panel">
+      <div class="head"><div><h2>Selected Day</h2><p>Drag the cursor to inspect a single historical row.</p></div></div>
+      <div class="selected-grid">
+        <div><span>DATE</span><b id="selDate">—</b></div>
+        <div><span>VIX</span><b id="selVix">—</b></div>
+        <div><span>M1 REAL / RECON</span><b id="selM1">—</b></div>
+        <div><span>M2 REAL / RECON</span><b id="selM2">—</b></div>
+        <div><span>S REAL / RECON</span><b id="selS">—</b></div>
+        <div><span>REGIME</span><b id="selRegime">—</b></div>
+        <div><span>ACTION</span><b id="selAction">—</b></div>
+        <div><span>MATCH</span><b id="selMatch">—</b></div>
+      </div>
+    </article>
+
+    <article class="panel">
+      <div class="head"><div><h2>Worst Reconstruction Days</h2><p>Largest absolute errors, not cherry-picked successes.</p></div></div>
+      <div id="worstRows" class="worst"></div>
+    </article>
+  </section>
+
+  <section class="panel">
+    <div class="head"><div><h2>Research Guardrails</h2><p>These labels are part of the app contract.</p></div></div>
+    <div class="guardrails">
+      <div><b>OBSERVED</b><span>CSV M1/M2/VIX records from external public dataset.</span></div>
+      <div><b>DERIVED</b><span>S<tspan></tspan>, regime, action and reconstructed M1/M2.</span></div>
+      <div><b>UNVALIDATED</b><span>Archive-derived reconstruction method has not reproduced the original 12.5% result.</span></div>
+      <div><b>BLOCKED CLAIM</b><span>No exact Original Hybrid CAGR/P&L conclusion until exact replay parity exists.</span></div>
+    </div>
+  </section>
+</main>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
