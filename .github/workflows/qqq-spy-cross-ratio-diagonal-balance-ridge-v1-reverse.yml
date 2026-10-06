@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-reverse-linux
-          path: artifacts/cross_ridge_linux/
+          path: artifacts/cross_ridge_linux_reverse/
           if-no-files-found: warn
 
   replay-windows:
@@ -80,12 +80,12 @@ jobs:
         run: |
           python -m py_compile research/qqq_spy_bounded_crossover_reanchor_v1.py
           python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
-          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py --data-dir data --out artifacts/cross_ridge_windows_reverse --orientation reverse
-          cat artifacts/cross_ridge_windows_normal/RESULTS.md
+          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py --data-dir data --out artifacts/cross_ridge_windows_reverse --orientation reverse --orientation reverse
+          cat artifacts/cross_ridge_windows_reverse/RESULTS.md
       - name: Upload artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: qqq-spy-cross-ratio-diagonal-balance-ridge-v1-reverse-windows
-          path: artifacts/cross_ridge_windows/
+          path: artifacts/cross_ridge_windows_reverse/
           if-no-files-found: warn
