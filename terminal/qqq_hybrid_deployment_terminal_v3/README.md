@@ -14,7 +14,7 @@ MARKET DATA
 → ROLL RADAR
 → JOURNAL
 
-and replaces the term-structure dependency with a zero-cost delayed Cboe path when available.
+and removes the paid VX dependency while keeping a fresh live path when OpenD is entitled and a zero-cost delayed Cboe failover.
 
 ## Active data path
 
@@ -46,7 +46,7 @@ The terminal never creates M2 from VIX, VIX-MA20, VXX or any synthetic proxy.
 
 ## User cadence
 
-Designed for a 1–2 day operator refresh, not tick trading.
+Designed for a 1–2 day operator refresh, not tick trading. OpenD VX is preferred when entitled; the free Cboe delayed path is the failover.
 
 Every decision records:
 - snapshot timestamp
