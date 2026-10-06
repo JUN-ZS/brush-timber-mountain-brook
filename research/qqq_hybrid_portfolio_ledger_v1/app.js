@@ -60,13 +60,18 @@ function addEventToServer(event){
 
 function renderPositions(){
   const snap = L.snapshot(events, mergedMarks());
-  $("equity").textContent = money(snap.equity);
-  $("netPnl").textContent = signMoney(snap.netPnl);
+  const markedComplete = snap.coverage.allMarksPresent;
+  $("equity").textContent = markedComplete ? money(snap.equity) : "PARTIAL · " + money(snap.equity);
+  $("netPnl").textContent = markedComplete ? signMoney(snap.netPnl) : "PARTIAL · " + signMoney(snap.netPnl);
   $("realized").textContent = signMoney(snap.realizedPnl);
-  $("unrealized").textContent = signMoney(snap.unrealizedPnl);
+  $("unrealized").textContent = markedComplete ? signMoney(snap.unrealizedPnl) : "PARTIAL · " + signMoney(snap.unrealizedPnl);
   $("cash").textContent = money(snap.cash);
   $("fees").textContent = money(snap.totalFees);
   $("netPnl").className = snap.netPnl >= 0 ? "positive" : "negative";
+  $("coverage").textContent = snap.coverage.totalSymbols === 0
+    ? "NO POSITIONS"
+    : (snap.coverage.markedSymbols + "/" + snap.coverage.totalSymbols + " live marks" + (markedComplete ? "" : " · NAV/P&L PARTIAL"));
+  $("coverage").className = "status " + (markedComplete ? "ok" : "warn");
   $("positions").innerHTML = snap.positions.length
     ? '<table class="table"><thead><tr><th>Position</th><th>Qty</th><th>Avg open</th><th>Mark</th><th>Market value</th><th>Unrealized</th><th>Realized</th></tr></thead><tbody>' +
       snap.positions.map(p => {
