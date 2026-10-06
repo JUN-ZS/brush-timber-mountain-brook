@@ -1,0 +1,65 @@
+name: QQQ Hybrid Terminal V3 QA
+
+on:
+  pull_request:
+    paths:
+      - "terminal/qqq_hybrid_deployment_terminal_v3/**"
+      - ".github/workflows/qqq-hybrid-terminal-v3.yml"
+  push:
+    branches:
+      - "feat/qqq-hybrid-terminal-v3-free-vx-20261007"
+    paths:
+      - "terminal/qqq_hybrid_deployment_terminal_v3/**"
+      - ".github/workflows/qqq-hybrid-terminal-v3.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qhv3-qa
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: JS checks
+        run: |
+          node --check terminal/qqq_hybrid_deployment_terminal_v3/engine.js
+          node --check terminal/qqq_hybrid_deployment_terminal_v3/app.js
+          node terminal/qqq_hybrid_deployment_terminal_v3/tests/golden_test.js
+      - name: Python checks
+        run: |
+          python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/server.py
+          python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/providers/cboe_delayed_vx.py
+          python3 terminal/qqq_hybrid_deployment_terminal_v3/tests/provider_fixture_test.py
+      - name: Live Cboe delayed VX smoke
+        run: |
+          mkdir -p artifacts/qhv3
+          python3 terminal/qqq_hybrid_deployment_terminal_v3/providers/cboe_delayed_vx.py > artifacts/qhv3/cboe_delayed_vx.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open("artifacts/qhv3/cboe_delayed_vx.json"))
+          assert p["ok"] is True, p
+          assert p["m1"]["expiry"] < p["m2"]["expiry"], p
+          assert p["m1"]["price"] > 0 and p["m2"]["price"] > 0, p
+          print("Cboe delayed VX smoke PASS")
+          print(json.dumps(p, indent=2))
+          PY
+      - name: Manifest
+        run: |
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/index.html
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/styles.css
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/engine.js
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/server.py
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/RUN.cmd
+          echo "V3 manifest PASS"
+      - name: Evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-hybrid-terminal-v3-qa
+          path: artifacts/qhv3/cboe_delayed_vx.json
+          if-no-files-found: error
+          retention-days: 14
