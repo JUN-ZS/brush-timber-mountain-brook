@@ -1,0 +1,20 @@
+
+{
+  "status": "LIVE_DELAYED",
+  "source": "CBOE_PUBLIC_DELAYED_VX",
+  "data_asof": "2026-10-07",
+  "m1": {
+    "symbol": "VX/V6",
+    "expiry": "2026-10-21",
+    "price": 17.4555,
+    "price_basis": "settlement"
+  },
+  "m2": {
+    "symbol": "VX/X6",
+    "expiry": "2026-11-18",
+    "price": 18.1393,
+    "price_basis": "settlement"
+  },
+  "term_slope": 3.9173899344,
+  "term_state": "CONTANGO"
+}
