@@ -1,0 +1,45 @@
+name: QQQ Hybrid Portfolio Ledger V1
+
+on:
+  pull_request:
+    paths:
+      - "research/qqq_hybrid_portfolio_ledger_v1/**"
+      - ".github/workflows/qqq-hybrid-portfolio-ledger-v1.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: qhp-ledger-v1
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node contract and golden test
+        run: |
+          node --check research/qqq_hybrid_portfolio_ledger_v1/ledger_engine.js
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/ledger_golden_test.cjs
+
+      - name: Python contract
+        run: |
+          python3 -m py_compile research/qqq_hybrid_portfolio_ledger_v1/server.py
+          test -f research/qqq_hybrid_portfolio_ledger_v1/index.html
+          test -f research/qqq_hybrid_portfolio_ledger_v1/styles.css
+          test -f research/qqq_hybrid_portfolio_ledger_v1/app.js
+          test -f research/qqq_hybrid_portfolio_ledger_v1/RUN.cmd
+
+      - name: Safety invariants
+        run: |
+          grep -q "broker_orders.*False" research/qqq_hybrid_portfolio_ledger_v1/server.py
+          grep -q "No automatic V3 bridge" research/qqq_hybrid_portfolio_ledger_v1/server.py
+
+      - name: Runtime smoke
+        run: |
+          python3 -m http.server 8790 --directory research/qqq_hybrid_portfolio_ledger_v1 >/tmp/qhp-http.log 2>&1 &
+          PID=$!
+          sleep 1
+          curl -fsS http://127.0.0.1:8790/index.html >/dev/null
+          kill $PID
