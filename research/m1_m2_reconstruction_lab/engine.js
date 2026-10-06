@@ -5,10 +5,24 @@ window.M1M2Lab = (() => {
     termThinPct: 5
   });
 
+  const ARCHIVE_CONTRACT = Object.freeze({
+    sourceRepo: "JUN-ZS/timber-blade-kind-dawn",
+    sourceRef: "main",
+    sourceFiles: Object.freeze({
+      radarTs: "8f05a2bbf35ccc136eaab081eadbd52723b50db9",
+      policyTs: "6e9a1cab6fdc50c2f025f1c5d0db7a7d1bf97645",
+      bookTs: "641dc4b6f8d64d596b00031b00c108f47b3db1d9",
+      splitsTs: "7936337677dc402184b68e132b476de184282b1f",
+      spotsJson: "2a12ac605cb1bb96522cbd7195fc93e95e1c1fe7"
+    }),
+    semantics: "SOURCE_CODE_EXACT_PROXY_NOT_TRUE_VX_FUTURES",
+    recoveredTerm: "m1_proxy=max(VIX,1e-6); lift=0.10*tanh((VIX_MA20-VIX)/6); m2_proxy=m1_proxy*(1+lift); TS=lift"
+  });
+
   const METHODS = Object.freeze({
     ARCHIVE_V4_PROXY: Object.freeze({
       id: "ARCHIVE_V4_PROXY",
-      label: "Archive V4 proxy (UNVALIDATED)",
+      label: "Archive termSlope — exact source proxy (NOT true VX M1/M2)",
       provenance: "DERIVED_FROM_ARCHIVE_CLUE",
       status: "UNVALIDATED",
       description: "m1_proxy=VIX; lift=0.10*tanh((VIX_MA20-VIX)/6); m2_proxy=m1_proxy*(1+lift)"
@@ -95,6 +109,28 @@ window.M1M2Lab = (() => {
     if (s <= POLICY.termThinPct / 100) return "WEAKENING";
     return "CARRY";
   }
+  function halfSpreadV(vix) {
+    const v = num(vix, 0);
+    return Math.min(Math.max(0.035 + 0.14 * Math.max(v / 100 - 0.16, 0), 0.03), 0.16);
+  }
+
+  function archiveState(vix, rQ, rV, s) {
+    const shock = (finite(rV) && rV > 0.06) || (finite(vix) && vix > 35) || (finite(rQ) && rQ < -0.03);
+    if (shock) return "Shock";
+    if (halfSpreadV(vix) > 0.14) return "High-Spread";
+    if (finite(s) && finite(vix) && s >= 0 && vix < 28) return "Decay-Optimal";
+    return "Normal";
+  }
+
+  function archiveAction(vix, rQ, rV, s) {
+    const shock = (finite(rV) && rV > 0.06) || (finite(vix) && vix > 35) || (finite(rQ) && rQ < -0.03);
+    return shock || (finite(s) && s < 0) ? "QQQ_CC_ONLY" : "PAIR";
+  }
+
+  function archiveCarry(vix, rQ, rV, s) {
+    return archiveAction(vix, rQ, rV, s) === "PAIR";
+  }
+
 
   function action(s, vix) {
     const r = regime(s, vix);
@@ -131,11 +167,15 @@ window.M1M2Lab = (() => {
     return mean(e);
   }
 
-  function compare(rows, reconstructed) {
+  function compare(rows, reconstructed, spotsByDate = {}) {
     const out = [];
     let regimeMatches = 0;
     let actionMatches = 0;
     let termSignMatches = 0;
+    let archiveStateMatches = 0;
+    let archiveActionMatches = 0;
+    let archiveCarryMatches = 0;
+    let archiveEligible = 0;
     let eligible = 0;
 
     const m1Err = [];
@@ -157,10 +197,25 @@ window.M1M2Lab = (() => {
       const tAction = action(tS, num(r.VIX));
       const pAction = action(pS, num(r.VIX));
 
+      const spot = spotsByDate[r.Date?.slice(0,10)] || null;
+      const prevSpot = spot?.prevDate ? spotsByDate[spot.prevDate] || null : null;
+      const rQ = spot && prevSpot ? num(spot.QQQ) / num(prevSpot.QQQ) - 1 : null;
+      const rV = spot && prevSpot ? num(spot.VXX) / num(prevSpot.VXX) - 1 : null;
+      const taState = archiveState(num(r.VIX), rQ, rV, tS);
+      const paState = archiveState(num(r.VIX), rQ, rV, pS);
+      const taAction = archiveAction(num(r.VIX), rQ, rV, tS);
+      const paAction = archiveAction(num(r.VIX), rQ, rV, pS);
+      const taCarry = archiveCarry(num(r.VIX), rQ, rV, tS);
+      const paCarry = archiveCarry(num(r.VIX), rQ, rV, pS);
+
       if (tRegime === pRegime) regimeMatches++;
       if (tAction === pAction) actionMatches++;
+      if (taState === paState) archiveStateMatches++;
+      if (taAction === paAction) archiveActionMatches++;
+      if (taCarry === paCarry) archiveCarryMatches++;
       if (finite(tS) && finite(pS) && (tS > 0) === (pS > 0)) termSignMatches++;
       if (finite(tS) && finite(pS)) eligible++;
+      if (spot) archiveEligible++;
 
       out.push({
         date: r.Date,
@@ -169,7 +224,17 @@ window.M1M2Lab = (() => {
         reconstructed: { m1: pM1, m2: pM2, s: pS, regime: pRegime, action: pAction },
         errors: { m1: finite(tM1) && finite(pM1) ? pM1 - tM1 : null, m2: finite(tM2) && finite(pM2) ? pM2 - tM2 : null, s: finite(tS) && finite(pS) ? pS - tS : null },
         regimeMatch: tRegime === pRegime,
-        actionMatch: tAction === pAction
+        actionMatch: tAction === pAction,
+        archive: {
+          rQ, rV,
+          truthState: taState, reconState: paState,
+          truthAction: taAction, reconAction: paAction,
+          truthVxxCarry: taCarry, reconVxxCarry: paCarry,
+          stateMatch: taState === paState,
+          actionMatch: taAction === paAction,
+          carryMatch: taCarry === paCarry,
+          eligible: !!spot
+        }
       });
     }
 
@@ -182,7 +247,11 @@ window.M1M2Lab = (() => {
         s: { mae: mae(sErr), rmse: rmse(sErr), bias: bias(sErr) },
         termSignAgreementPct: eligible ? (termSignMatches / eligible) * 100 : null,
         regimeAgreementPct: rows.length ? (regimeMatches / rows.length) * 100 : null,
-        actionAgreementPct: rows.length ? (actionMatches / rows.length) * 100 : null
+        actionAgreementPct: rows.length ? (actionMatches / rows.length) * 100 : null,
+        archiveStateAgreementPct: archiveEligible ? (archiveStateMatches / archiveEligible) * 100 : null,
+        archiveActionAgreementPct: archiveEligible ? (archiveActionMatches / archiveEligible) * 100 : null,
+        archiveVxxCarryAgreementPct: archiveEligible ? (archiveCarryMatches / archiveEligible) * 100 : null,
+        archiveOverlapRows: archiveEligible
       }
     };
   }
@@ -249,7 +318,7 @@ window.M1M2Lab = (() => {
   }
 
   return Object.freeze({
-    POLICY, METHODS, num, pct, rollingMean, reconstructRow, reconstructSeries,
+    POLICY, ARCHIVE_CONTRACT, METHODS, num, pct, rollingMean, reconstructRow, reconstructSeries, archiveState, archiveAction, archiveCarry,
     term, regime, action, compare, topErrors, leakageAudit, buildMaskedInput,
     csvFromComparison
   });
