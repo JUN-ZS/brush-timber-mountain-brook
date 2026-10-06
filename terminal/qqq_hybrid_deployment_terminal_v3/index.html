@@ -42,6 +42,17 @@
       </div>
     </section>
 
+    <section class="card">
+      <div class="section-head"><h2>Option Leg Monitor</h2><span class="tag">CANDIDATE / ESTIMATE</span></div>
+      <div class="candidate-buttons"><button id="findQQQ" class="primary">Find QQQ Candidate</button><button id="findVXX" class="primary">Find VXX Candidate</button></div>
+      <div class="meta">Read-only candidate aid. No broker routing. Exact spread sizing is enabled only when a positive short-bid minus long-ask credit is available.</div>
+      <div class="grid2">
+        <div class="card inner"><div class="eyebrow">QQQ FAR CALL</div><div id="qqqCandidate">No QQQ candidate</div><div class="meta">Sizing: <span id="qqqSize">PENDING</span></div></div>
+        <div class="card inner"><div class="eyebrow">VXX CALL</div><div id="vxxCandidate">No VXX candidate</div><div class="meta">Sizing: <span id="vxxSize">PENDING</span></div></div>
+      </div>
+      <div class="meta">Option source: <span id="candidateSource">NONE</span> · Delta may be BS-estimated when the provider does not supply delta.</div>
+    </section>
+
     <section class="grid2">
       <div class="card">
         <div class="section-head"><h2>Current → Target</h2><span class="tag active">ACTIVE POLICY</span></div>
@@ -56,6 +67,7 @@
       <div class="card">
         <div class="section-head"><h2>Change Monitor</h2><span id="monitorTag" class="tag">—</span></div>
         <div id="triggerRows"></div>
+        <div id="sinceJournal" class="meta">No prior journal baseline.</div>
         <div class="roll-grid">
           <div>
             <div class="eyebrow">QQQ CALL</div>
