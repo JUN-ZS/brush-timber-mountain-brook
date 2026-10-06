@@ -23,8 +23,8 @@ QQQ / VXX / VIX:
 2. Yahoo fallback per field
 
 VX M1 / M2:
-1. Cboe public delayed VX endpoint (free, delayed)
-2. Futu OpenD VX when available
+1. Futu OpenD VX live when available
+2. Cboe public delayed VX endpoint (free, delayed)
 3. manual test import
 4. BLOCK
 
