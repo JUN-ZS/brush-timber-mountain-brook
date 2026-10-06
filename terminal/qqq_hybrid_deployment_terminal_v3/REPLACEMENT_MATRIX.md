@@ -21,7 +21,8 @@ The V3 terminal is intended to supersede V2 for daily operator use. V2 is frozen
 | provenance | row-level | **field-level + source chain + as-of** |
 | research references | mixed into live README | **visually separated REFERENCE ONLY** |
 | replay | same terminal surface | research-only, kept out of default operator flow |
-| option candidate monitor | yes | **active, read-only estimate + exact credit sizing when positive credit is available** |\n| manual overrides | present | research/test only |
+| option candidate monitor | yes | **active, read-only estimate + exact credit sizing when positive credit is available** | 
+| manual overrides | present | research/test only |
 
 ## V3 design rule
 
