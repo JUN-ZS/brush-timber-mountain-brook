@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import time
 from pathlib import Path
 
 import duckdb
@@ -458,7 +459,18 @@ def simulate_config(
         })
 
     day_grid = pd.date_range(min(dates), max(dates), freq="B")
+
+    # Event indexes preserve the original ordering semantics while avoiding
+    # scanning every historical position on every business day.
+    entry_events = {}
+    exit_events = {}
+    for p in records:
+        entry_events.setdefault(pd.Timestamp(p["entry_date"]), []).append(p)
+        if p.get("exit_date") is not None:
+            exit_events.setdefault(pd.Timestamp(p["exit_date"]), []).append(p)
+
     active = []
+    active_ids = set()
     rows = []
     close_pnl = 0.0
     last_mark = {}
@@ -466,17 +478,25 @@ def simulate_config(
     for d in day_grid:
         d = pd.Timestamp(d)
 
-        for p in records:
-            if pd.Timestamp(p.get("entry_date")) == d and p not in active:
+        # Original behavior: entries are activated before same-day closes.
+        for p in entry_events.get(d, ()):
+            pid = id(p)
+            if pid not in active_ids:
                 active.append(p)
+                active_ids.add(pid)
 
-        for p in active[:]:
-            if pd.Timestamp(p.get("exit_date", pd.Timestamp.max)) == d:
-                row = mark_maps[p["asset"]].get((p["contract_id"], d))
-                if row is None:
-                    continue
-                close_pnl += position_value(p, row, exit=True)
-                active.remove(p)
+        # Original behavior: a missing mark on the scheduled exit date means
+        # the position is not removed on that date.
+        for p in exit_events.get(d, ()):
+            pid = id(p)
+            if pid not in active_ids:
+                continue
+            row = mark_maps[p["asset"]].get((p["contract_id"], d))
+            if row is None:
+                continue
+            close_pnl += position_value(p, row, exit=True)
+            active = [q for q in active if id(q) != pid]
+            active_ids.remove(pid)
 
         mtm = 0.0
         for p in active:
@@ -550,14 +570,17 @@ def main():
         assert Path(p).exists(), p
 
     con = duckdb.connect()
+    t0 = time.perf_counter()
     dates = weekly_dates(con, su)
     qspots = get_spot_map(con, qu)
     sspots = get_spot_map(con, su)
     hist = build_factor_history(con, qu, su, qpath, spath, dates)
     hist.to_csv(o / "factor_history.csv", index=False)
+    t_factor = time.perf_counter()
 
     option_paths = {"QQQ": qpath, "SPY": spath}
     selector = preselect_calls(con, option_paths, dates)
+    t_selector = time.perf_counter()
 
     ids_by_asset = {"QQQ": set(), "SPY": set()}
     for (asset, _, _, _), opt in selector.items():
@@ -566,6 +589,7 @@ def main():
         asset: load_marks(con, option_paths[asset], sorted(ids))
         for asset, ids in ids_by_asset.items()
     }
+    t_marks = time.perf_counter()
 
     families = [("SPY", "SPY"), ("QQQ", "QQQ"), ("SPY", "QQQ"), ("QQQ", "SPY")]
     configs = []
@@ -610,6 +634,8 @@ def main():
             br["strategy"] = eq["strategy"].iloc[0] if not br.empty else eq["strategy"].iloc[0]
             balances.append(br)
 
+    t_sim = time.perf_counter()
+
     res = pd.DataFrame(results).sort_values(["long_asset", "short_asset", "long_dte", "short_dte"])
     res.to_csv(o / "results.csv", index=False)
     if curves:
@@ -648,7 +674,14 @@ def main():
         "tail": "naked short-call tail is intentionally retained as a diagnostic; not a live-order strategy",
         "no_live_orders": True,
         "no_parameter_search": True,
-        "execution_refactor": "preselect required option contracts once per asset; load historical marks once per asset; strategy rules unchanged",
+        "execution_refactor": "preselect required option contracts once per asset; load historical marks once per asset; index entry/exit events instead of scanning all historical positions daily; strategy rules unchanged",
+        "runtime_seconds": {
+            "factor_history_and_calendar": round(t_factor - t0, 3),
+            "option_selection_cache": round(t_selector - t_factor, 3),
+            "historical_mark_cache": round(t_marks - t_selector, 3),
+            "strategy_valuation": round(t_sim - t_marks, 3),
+            "total_before_reporting": round(t_sim - t0, 3),
+        },
     }
     (o / "METHODOLOGY.json").write_text(json.dumps(methodology, indent=2), encoding="utf-8")
 
