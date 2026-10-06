@@ -1,248 +1,71 @@
-
 window.HybridEngineV3 = (() => {
   const POLICY = Object.freeze({
-    engineVersion: "V3-FREE-VX-PROVENANCE-1",
+    engineVersion: "V3-FREE-VX-PROVENANCE-2",
     policyVersion: "ORIGINAL_HYBRID_BASELINE_FROZEN",
-    corePct: 42,
-    vxxNormalPct: 18,
-    vxxHighPct: 10,
-    vxxCallBudgetPct: 2,
-    qqqCallBudgetPct: 1.2,
-    vixHigh: 28,
-    termSafe: 5,
-    maxTermAgeDays: 4,
-    qqqRollDte: 14,
-    qqqRollDelta: 0.16,
-    vxxRollDte: 14,
-    vxxRollDelta: 0.20,
+    corePct: 42, vxxNormalPct: 18, vxxHighPct: 10, vxxCallBudgetPct: 2, qqqCallBudgetPct: 1.2,
+    vixHigh: 28, termSafe: 5, maxTermAgeDays: 4, qqqRollDte: 14, qqqRollDelta: 0.16, vxxRollDte: 14, vxxRollDelta: 0.20,
+    optionTargetDte: 45,
   });
-
-  const num = (v, d = null) => {
-    if (v === null || v === undefined || v === "") return d;
-    const x = parseFloat(String(v).replace(/,/g, ""));
-    return Number.isFinite(x) ? x : d;
-  };
-
-  function term(m1, m2) {
-    return Number.isFinite(m1) && Number.isFinite(m2) && m1 !== 0
-      ? ((m2 - m1) / m1) * 100
-      : null;
+  const num=(v,d=null)=>{if(v===null||v===undefined||v==="")return d;const x=parseFloat(String(v).replace(/,/g,""));return Number.isFinite(x)?x:d;};
+  function term(m1,m2){return Number.isFinite(m1)&&Number.isFinite(m2)&&m1!==0?((m2-m1)/m1)*100:null;}
+  function daysBetween(a,b){if(!a||!b)return null;const x=new Date(a+"T00:00:00Z").getTime(),y=new Date(b+"T00:00:00Z").getTime();if(!Number.isFinite(x)||!Number.isFinite(y))return null;return Math.abs(y-x)/86400000;}
+  function dataHealth(d){
+    const hasSpot=[d.qqq,d.vxx,d.vix].every(Number.isFinite),hasTerm=Number.isFinite(d.m1)&&Number.isFinite(d.m2)&&Number.isFinite(d.s);
+    if(!hasSpot||!hasTerm)return{status:"BLOCKED",label:"DATA BLOCKED",reason:"Required spot or VX term field missing."};
+    const age=d.termAsOf&&d.today?daysBetween(d.termAsOf,d.today):0,asofGap=d.spotAsOf&&d.termAsOf?daysBetween(d.spotAsOf,d.termAsOf):0;
+    if(age!==null&&age>POLICY.maxTermAgeDays)return{status:"STALE",label:"DATA STALE",ageDays:age,reason:"VX term source is older than the permitted operator cadence."};
+    if(asofGap!==null&&asofGap>2)return{status:"MIXED",label:"AS-OF MIXED",ageDays:asofGap,reason:"Spot and term inputs are materially out of sync; review before acting."};
+    return{status:"FRESH",label:"DATA FRESH",ageDays:age,reason:"Required fields are present and within the configured cadence."};
   }
-
-  function daysBetween(a, b) {
-    if (!a || !b) return null;
-    const x = new Date(a + "T00:00:00Z").getTime();
-    const y = new Date(b + "T00:00:00Z").getTime();
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-    return Math.abs(y - x) / 86400000;
+  function derive(d){
+    const health=dataHealth(d);
+    if(health.status==="BLOCKED")return{state:"DATA BLOCKED",action:"HOLD",gate:"BLOCKED",targets:null,blocked:true,health,reason:"Data incomplete: preserve current position and do not invent a risk action."};
+    if(health.status==="STALE"||health.status==="MIXED")return{state:health.status==="STALE"?"DATA STALE":"AS-OF MIXED",action:"HOLD",gate:health.status,targets:null,blocked:true,health,reason:health.reason};
+    const high=d.vix>=POLICY.vixHigh,back=d.s<=0,thin=d.s<=POLICY.termSafe;let state,action,gate,reason;
+    if(high&&back){state="SHOCK";action="REDUCE";gate="CUT";reason="High VIX + VX backwardation: cut VXX seller risk first; preserve QQQ core.";}
+    else if(back){state="PRE-SHOCK";action="REDUCE";gate="CUT";reason="VX backwardation: carry gate is broken; no new short-vol deployment.";}
+    else if(high){state="PRE-SHOCK";action="REDUCE";gate="CAP";reason="VIX is high: cap seller exposure and stop adding new carry.";}
+    else if(thin){state="WEAKENING";action="HOLD";gate="WATCH";reason="Contango is positive but thin: keep core, do not add short-vol carry.";}
+    else{state="CARRY";action="BUY";gate="OPEN";reason="Contango is healthy and VIX is below the high threshold: restore carry legs toward baseline target.";}
+    const vxxBase=high?POLICY.vxxHighPct:POLICY.vxxNormalPct;
+    return{state,action,gate,reason,blocked:false,health,targets:{qqqCorePct:POLICY.corePct,vxxPct:back?0:vxxBase,vxxCallBudgetPct:back||high?0:POLICY.vxxCallBudgetPct,qqqCallBudgetPct:back||high?0:POLICY.qqqCallBudgetPct},reasons:{"VIX":high?">= 28":"< 28","S":back?"<= 0":(thin?"<= 5%":"> 5%")}};
   }
-
-  function dataHealth(d) {
-    const hasSpot = [d.qqq, d.vxx, d.vix].every(Number.isFinite);
-    const hasTerm = Number.isFinite(d.m1) && Number.isFinite(d.m2) && Number.isFinite(d.s);
-    if (!hasSpot || !hasTerm) {
-      return {status: "BLOCKED", label: "DATA BLOCKED", reason: "Required spot or VX term field missing."};
-    }
-    const age = d.termAsOf && d.today ? daysBetween(d.termAsOf, d.today) : 0;
-    const asofGap = d.spotAsOf && d.termAsOf ? daysBetween(d.spotAsOf, d.termAsOf) : 0;
-    if (age !== null && age > POLICY.maxTermAgeDays) {
-      return {status: "STALE", label: "DATA STALE", ageDays: age, reason: "VX term source is older than the permitted operator cadence."};
-    }
-    // Spot and VX timestamps can legitimately differ by one calendar day because
-    // the terminal runs in the user's local timezone while Cboe data_asof is New York.
-    if (asofGap !== null && asofGap > 2) {
-      return {status: "MIXED", label: "AS-OF MIXED", ageDays: asofGap, reason: "Spot and term inputs are materially out of sync; review before acting."};
-    }
-    return {status: "FRESH", label: "DATA FRESH", ageDays: age, reason: "Required fields are present and within the configured cadence."};
+  function optionQty(nav,budgetPct,credit){return nav>0&&budgetPct>0&&Number.isFinite(credit)&&credit>0?Math.max(0,Math.floor(nav*(budgetPct/100)/(credit*100))):0;}
+  function bsCallDelta(spot,strike,dte,iv,rate=0){
+    if(![spot,strike,dte,iv].every(Number.isFinite)||spot<=0||strike<=0||dte<=0||iv<=0)return null;
+    const t=dte/365,sigma=Math.max(1e-9,iv),d1=(Math.log(spot/strike)+(rate+0.5*sigma*sigma)*t)/(sigma*Math.sqrt(t));
+    const erf=x=>{const sign=x<0?-1:1,ax=Math.abs(x),a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911,tt=1/(1+p*ax);return sign*(1-(((((a5*tt+a4)*tt)+a3)*tt+a2)*tt+a1)*tt*Math.exp(-ax*ax));};
+    return 0.5*(1+erf(d1/Math.sqrt(2)));
   }
-
-  function derive(d) {
-    const health = dataHealth(d);
-    if (health.status === "BLOCKED") {
-      return {
-        state: "DATA BLOCKED",
-        action: "HOLD",
-        gate: "BLOCKED",
-        targetVxx: null,
-        targetVxxCall: null,
-        targetQqqCall: null,
-        blocked: true,
-        health,
-        reason: "Data incomplete: preserve current position and do not invent a risk action.",
-      };
-    }
-    if (health.status === "STALE" || health.status === "MIXED") {
-      return {
-        state: health.status === "STALE" ? "DATA STALE" : "AS-OF MIXED",
-        action: "HOLD",
-        gate: health.status,
-        targetVxx: null,
-        targetVxxCall: null,
-        targetQqqCall: null,
-        blocked: true,
-        health,
-        reason: health.reason,
-      };
-    }
-
-    const high = d.vix >= POLICY.vixHigh;
-    const back = d.s <= 0;
-    const thin = d.s <= POLICY.termSafe;
-    let state;
-    let action;
-    let gate;
-    let reason;
-
-    if (high && back) {
-      state = "SHOCK";
-      action = "REDUCE";
-      gate = "CUT";
-      reason = "High VIX + VX backwardation: cut VXX seller risk first; preserve QQQ core.";
-    } else if (back) {
-      state = "PRE-SHOCK";
-      action = "REDUCE";
-      gate = "CUT";
-      reason = "VX backwardation: carry gate is broken; no new short-vol deployment.";
-    } else if (high) {
-      state = "PRE-SHOCK";
-      action = "REDUCE";
-      gate = "CAP";
-      reason = "VIX is high: cap seller exposure and stop adding new carry.";
-    } else if (thin) {
-      state = "WEAKENING";
-      action = "HOLD";
-      gate = "WATCH";
-      reason = "Contango is positive but thin: keep core, do not add short-vol carry.";
-    } else {
-      state = "CARRY";
-      action = "BUY";
-      gate = "OPEN";
-      reason = "Contango is healthy and VIX is below the high threshold: restore carry legs toward baseline target.";
-    }
-
-    const vxxBase = high ? POLICY.vxxHighPct : POLICY.vxxNormalPct;
-    return {
-      state,
-      action,
-      gate,
-      reason,
-      blocked: false,
-      health,
-      targets: {
-        qqqCorePct: POLICY.corePct,
-        vxxPct: back ? 0 : vxxBase,
-        vxxCallBudgetPct: back || high ? 0 : POLICY.vxxCallBudgetPct,
-        qqqCallBudgetPct: back || high ? 0 : POLICY.qqqCallBudgetPct,
-      },
-      reasons: {
-        "VIX": high ? ">= 28" : "< 28",
-        "S": back ? "<= 0" : (thin ? "<= 5%" : "> 5%"),
-      },
-    };
+  function expiryMs(v){const nval=num(v);if(Number.isFinite(nval))return nval<1e12?nval*1000:nval;if(v instanceof Date)return v.getTime();if(typeof v==="string"&&v.trim()){const x=Date.parse(v);return Number.isFinite(x)?x:null;}return null;}
+  function normalizeOptionChain(payload){if(Array.isArray(payload))return payload;if(payload&&Array.isArray(payload.calls))return payload.calls;const result=payload?.optionChain?.result?.[0],opts=result?.options?.[0];return Array.isArray(opts?.calls)?opts.calls:[];}
+  function candidateFromChain(payload,spot,targetDelta=0.10,targetDte=POLICY.optionTargetDte,asOf=null){
+    if(!Number.isFinite(spot)||spot<=0)return null;const chain=normalizeOptionChain(payload);if(!chain.length)return null;
+    const nowMs=asOf?Date.parse(String(asOf)+"T00:00:00Z"):Date.now();
+    const rows=chain.map(x=>{const exp=expiryMs(x.expiration??x.expiry??x.expirationDate),dteDate=Number.isFinite(exp)?Math.max(0,(exp-nowMs)/86400000):null,dte=Number.isFinite(num(x.days))?num(x.days):dteDate,strike=num(x.strike),bid=num(x.bid),ask=num(x.ask),iv=num(x.impliedVolatility),rawDelta=num(x.delta),delta=Number.isFinite(rawDelta)?rawDelta:bsCallDelta(spot,strike,dte,iv);return{...x,strike,bid,ask,dte,delta,expiryMs:exp,deltaSource:Number.isFinite(rawDelta)?"INPUT":"BS_ESTIMATE"};}).filter(x=>Number.isFinite(x.strike)&&Number.isFinite(x.dte)&&x.dte>=14&&x.dte<=120&&Number.isFinite(x.delta)&&x.delta>0&&x.delta<=0.25&&x.strike>spot);
+    if(!rows.length)return null;const expiries=[...new Set(rows.map(x=>x.expiryMs).filter(Number.isFinite))].sort((a,b)=>Math.abs((a-nowMs)/86400000-targetDte)-Math.abs((b-nowMs)/86400000-targetDte));
+    const pool=expiries.length?rows.filter(x=>x.expiryMs===expiries[0]):rows;pool.sort((a,b)=>Math.abs(a.delta-targetDelta)-Math.abs(b.delta-targetDelta));const short=pool[0];
+    const longs=pool.filter(x=>x.strike>short.strike).sort((a,b)=>Math.abs(a.strike-short.strike*1.015)-Math.abs(b.strike-short.strike*1.015));if(!longs.length)return null;const long=longs[0];
+    const credit=Number.isFinite(short.bid)&&Number.isFinite(long.ask)?short.bid-long.ask:null;
+    return{shortStrike:short.strike,longStrike:long.strike,dte:short.dte,delta:short.delta,deltaSource:short.deltaSource,credit:Number.isFinite(credit)&&credit>0?credit:null,shortBid:short.bid,longAsk:long.ask,width:long.strike-short.strike,expiration:Number.isFinite(short.expiryMs)?new Date(short.expiryMs).toISOString().slice(0,10):null,source:"YAHOO_OPTIONS_ESTIMATE",sizingAvailable:Number.isFinite(credit)&&credit>0};
   }
-
-  function targetLedger(d, e, ledger) {
-    const cur = {
-      qqqShares: num(ledger.qqqShares, 0),
-      vxxPct: num(ledger.vxxPct, 0),
-      qqqCalls: num(ledger.qqqCalls, 0),
-      vxxCalls: num(ledger.vxxCalls, 0),
-    };
-
-    if (e.blocked) {
-      return {
-        current: cur,
-        target: {...cur},
-        deltas: {
-          qqqShares: 0,
-          vxxPct: 0,
-          qqqCalls: 0,
-          vxxCalls: 0,
-        },
-        blocked: true,
-      };
-    }
-
-    const nav = num(ledger.nav, 0);
-    const qqqPrice = num(d.qqq, 0);
-    const rawShares = nav > 0 && qqqPrice > 0 ? (nav * e.targets.qqqCorePct / 100) / qqqPrice : cur.qqqShares;
-    const qCallQty = nav > 0 ? Math.floor(nav * e.targets.qqqCallBudgetPct / 100 / 100) : 0;
-    const vCallQty = nav > 0 ? Math.floor(nav * e.targets.vxxCallBudgetPct / 100 / 100) : 0;
-
-    const buyAllowed = e.action === "BUY";
-    const target = {
-      qqqShares: buyAllowed ? Math.floor(rawShares) : cur.qqqShares,
-      vxxPct: buyAllowed ? e.targets.vxxPct : Math.min(cur.vxxPct, e.targets.vxxPct),
-      qqqCalls: buyAllowed ? qCallQty : Math.min(cur.qqqCalls, qCallQty),
-      vxxCalls: buyAllowed ? vCallQty : Math.min(cur.vxxCalls, vCallQty),
-    };
-
-    return {
-      current: cur,
-      target,
-      deltas: {
-        qqqShares: target.qqqShares - cur.qqqShares,
-        vxxPct: target.vxxPct - cur.vxxPct,
-        qqqCalls: target.qqqCalls - cur.qqqCalls,
-        vxxCalls: target.vxxCalls - cur.vxxCalls,
-      },
-      blocked: false,
-    };
+  function targetLedger(d,e,ledger,candidates={}){
+    const cur={qqqShares:num(ledger.qqqShares,0),vxxPct:num(ledger.vxxPct,0),qqqCalls:num(ledger.qqqCalls,0),vxxCalls:num(ledger.vxxCalls,0)};
+    if(e.blocked)return{current:cur,target:{...cur},deltas:{qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0},blocked:true,sizing:{qqqCalls:{status:"BLOCKED"},vxxCalls:{status:"BLOCKED"}}};
+    const nav=num(ledger.nav,0),qqqPrice=num(d.qqq,0),rawShares=nav>0&&qqqPrice>0?(nav*e.targets.qqqCorePct/100)/qqqPrice:cur.qqqShares,buyAllowed=e.action==="BUY";
+    const qc=candidates.qqq||null,vc=candidates.vxx||null,qQty=optionQty(nav,e.targets.qqqCallBudgetPct,qc?.credit),vQty=optionQty(nav,e.targets.vxxCallBudgetPct,vc?.credit);
+    const target={qqqShares:buyAllowed?Math.floor(rawShares):cur.qqqShares,vxxPct:buyAllowed?e.targets.vxxPct:Math.min(cur.vxxPct,e.targets.vxxPct),qqqCalls:buyAllowed?(qc?.sizingAvailable?qQty:cur.qqqCalls):Math.min(cur.qqqCalls,qQty),vxxCalls:buyAllowed?(vc?.sizingAvailable?vQty:cur.vxxCalls):Math.min(cur.vxxCalls,vQty)};
+    return{current:cur,target,deltas:{qqqShares:target.qqqShares-cur.qqqShares,vxxPct:target.vxxPct-cur.vxxPct,qqqCalls:target.qqqCalls-cur.qqqCalls,vxxCalls:target.vxxCalls-cur.vxxCalls},blocked:false,sizing:{qqqCalls:qc?.sizingAvailable?{status:"READY",credit:qc.credit,quantity:qQty,source:qc.source}:{status:"PENDING_CANDIDATE"},vxxCalls:vc?.sizingAvailable?{status:"READY",credit:vc.credit,quantity:vQty,source:vc.source}:{status:"PENDING_CANDIDATE"}}};
   }
-
-  function actionRows(book) {
-    return Object.entries(book.deltas).map(([key, diff]) => ({
-      key,
-      diff,
-      kind: Math.abs(diff) < 1e-9 ? "HOLD" : diff > 0 ? "ADD" : "REDUCE",
-    }));
-  }
-
-  function triggers(d, e, opt = {}) {
-    const rows = [];
-    if (Number.isFinite(d.s)) {
-      rows.push({
-        id: "S_ZERO",
-        label: "VX term to zero",
-        value: d.s <= 0 ? "TRIGGERED" : d.s.toFixed(2) + "% → 0",
-        fire: d.s <= 0,
-        priority: "HIGH",
-      });
-      rows.push({
-        id: "S_SAFE",
-        label: "VX carry line",
-        value: d.s <= POLICY.termSafe ? d.s.toFixed(2) + "% ≤ 5%" : (d.s - POLICY.termSafe).toFixed(2) + "% above",
-        fire: d.s <= POLICY.termSafe,
-        priority: "MED",
-      });
-    }
-    if (Number.isFinite(d.vix)) {
-      rows.push({
-        id: "VIX_28",
-        label: "VIX high line",
-        value: d.vix >= POLICY.vixHigh ? "TRIGGERED" : (POLICY.vixHigh - d.vix).toFixed(2) + " away",
-        fire: d.vix >= POLICY.vixHigh,
-        priority: "HIGH",
-      });
-    }
-
-    const qdte = num(opt.qqqDte), qdelta = num(opt.qqqDelta), vdte = num(opt.vxxDte), vdelta = num(opt.vxxDelta);
-    rows.push({
-      id: "QQQ_ROLL",
-      label: "QQQ far call roll",
-      value: "DTE " + (Number.isFinite(qdte) ? qdte : "—") + " · Δ " + (Number.isFinite(qdelta) ? qdelta.toFixed(2) : "—"),
-      fire: (Number.isFinite(qdte) && qdte <= POLICY.qqqRollDte) || (Number.isFinite(qdelta) && qdelta >= POLICY.qqqRollDelta),
-      priority: "MED",
-    });
-    rows.push({
-      id: "VXX_ROLL",
-      label: "VXX call roll",
-      value: "DTE " + (Number.isFinite(vdte) ? vdte : "—") + " · Δ " + (Number.isFinite(vdelta) ? vdelta.toFixed(2) : "—"),
-      fire: (Number.isFinite(vdte) && vdte <= POLICY.vxxRollDte) || (Number.isFinite(vdelta) && vdelta >= POLICY.vxxRollDelta) || e.state === "SHOCK",
-      priority: "HIGH",
-    });
+  function actionRows(book){return Object.entries(book.deltas).map(([key,diff])=>({key,diff,kind:Math.abs(diff)<1e-9?"HOLD":diff>0?"ADD":"REDUCE"}));}
+  function triggers(d,e,opt={}){
+    const rows=[];
+    if(Number.isFinite(d.s)){rows.push({id:"S_ZERO",label:"VX term to zero",value:d.s<=0?"TRIGGERED":d.s.toFixed(2)+"% → 0",fire:d.s<=0,priority:"HIGH"});rows.push({id:"S_SAFE",label:"VX carry line",value:d.s<=POLICY.termSafe?d.s.toFixed(2)+"% ≤ 5%":(d.s-POLICY.termSafe).toFixed(2)+"% above",fire:d.s<=POLICY.termSafe,priority:"MED"});}
+    if(Number.isFinite(d.vix))rows.push({id:"VIX_28",label:"VIX high line",value:d.vix>=POLICY.vixHigh?"TRIGGERED":(POLICY.vixHigh-d.vix).toFixed(2)+" away",fire:d.vix>=POLICY.vixHigh,priority:"HIGH"});
+    const qdte=num(opt.qqqDte),qdelta=num(opt.qqqDelta),vdte=num(opt.vxxDte),vdelta=num(opt.vxxDelta);
+    rows.push({id:"QQQ_ROLL",label:"QQQ far call roll",value:"DTE "+(Number.isFinite(qdte)?qdte:"—")+" · Δ "+(Number.isFinite(qdelta)?qdelta.toFixed(2):"—"),fire:(Number.isFinite(qdte)&&qdte<=POLICY.qqqRollDte)||(Number.isFinite(qdelta)&&qdelta>=POLICY.qqqRollDelta),priority:"MED"});
+    rows.push({id:"VXX_ROLL",label:"VXX call roll",value:"DTE "+(Number.isFinite(vdte)?vdte:"—")+" · Δ "+(Number.isFinite(vdelta)?vdelta.toFixed(2):"—"),fire:(Number.isFinite(vdte)&&vdte<=POLICY.vxxRollDte)||(Number.isFinite(vdelta)&&vdelta>=POLICY.vxxRollDelta)||e.state==="SHOCK",priority:"HIGH"});
     return rows;
   }
-
-  return {POLICY, num, term, dataHealth, derive, targetLedger, actionRows, triggers};
+  return{POLICY,num,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers};
 })();
