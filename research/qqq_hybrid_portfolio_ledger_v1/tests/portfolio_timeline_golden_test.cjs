@@ -72,8 +72,8 @@ const partialClose = rolled.concat([
 r = T.timeline(partialClose);
 eq(r.summary.partialCloses, 1, "partial close count");
 eq(r.rows[r.rows.length - 1].eventKind, "PARTIAL_CLOSE", "partial close milestone");
-near(r.rows[r.rows.length - 1].realizedNetPnl, 693, 1e-9, "partial realized net after roll"); // 600 short + 100 long - 14 total fees
-near(r.rows[r.rows.length - 1].campaignCumulativeRealizedNetPnl, 693, 1e-9, "campaign cumulative partial");
+near(r.rows[r.rows.length - 1].realizedNetPnl, 690, 1e-9, "partial realized net after roll"); // 700 realized - 10 total fees
+near(r.rows[r.rows.length - 1].campaignCumulativeRealizedNetPnl, 690, 1e-9, "campaign cumulative partial");
 
 const closed = partialClose.concat([
   {id:"short-close-rest",timestamp:"2026-10-04T10:00:00Z",symbol:"QQQ261218C00800000",assetType:"OPTION",side:"BUY",quantity:2,price:3,fees:1,
