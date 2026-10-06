@@ -8,6 +8,7 @@ on:
       - research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
       - research/qqq_spy_bounded_crossover_reanchor_v1.py
       - .github/workflows/qqq-spy-cross-ratio-diagonal-balance-ridge-v1.yml
+  # independent normal-time replay lane
   workflow_dispatch:
 
 concurrency:
