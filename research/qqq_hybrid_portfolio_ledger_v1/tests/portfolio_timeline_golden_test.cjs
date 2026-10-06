@@ -33,6 +33,8 @@ eq(r.rows[1].eventKind, "OPEN", "pair opens");
 near(r.rows[1].realizedNetPnl, -6, 1e-9, "opening net pnl includes fees");
 eq(r.rows[1].pnlBasis, "REALIZED_ONLY", "opening basis");
 eq(r.rows[1].totalPnl, null, "no fabricated total pnl");
+eq(r.rows[1].completeness, "PAIRED", "pairing completeness is independent of mark completeness");
+eq(r.rows[1].attributionStatus, "INCOMPLETE", "missing historical marks block total attribution");
 near(r.rows[1].campaignCumulativeRealizedNetPnl, -6, 1e-9, "campaign cumulative open");
 
 const marks = [
