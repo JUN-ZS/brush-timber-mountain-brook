@@ -3,9 +3,9 @@
 
 | Function / mechanism | V3 status | Reason |
 |---|---|---|
-| Cboe delayed VX M1/M2 | ACTIVE | Zero-cost delayed term input for intended 1–2 day cadence |
+| Cboe delayed VX M1/M2 | ACTIVE FALLBACK | Zero-cost delayed term input for intended 1–2 day cadence |
 | Futu OpenD QQQ/VXX/VIX | ACTIVE | Existing local source / fallback |
-| Futu OpenD VX | ACTIVE FALLBACK | Better freshness when entitlement exists |
+| Futu OpenD VX | ACTIVE PRIMARY | Best freshness when local entitlement exists |
 | Yahoo QQQ/VXX/VIX | ACTIVE FALLBACK | Per-field resilience; provenance preserved |
 | Manual M1/M2 | TEST ONLY | Scenario / recovery only; never disguised as observed |
 | Databento CFE VX | RETIRED FROM V3 | Paid secondary no longer needed for the intended free cadence |
@@ -15,5 +15,5 @@
 | Numerical confidence score | RETIRED | Uncalibrated confidence is misleading |
 | N/deployment optimizer | RESEARCH ONLY | Avoid contaminating fixed Original Hybrid terminal policy |
 | Historical CAGR headline | REFERENCE ONLY | Never used as optimizer target or live confidence |
-| Browser notification as primary monitor | RETIRED | V3 uses explicit refresh + journal; persistent service remains outside the terminal |
-| Replay | RESEARCH ONLY | Uses frozen historical inputs and is not live state |
+| Browser notification as primary monitor | RETIRED | V3 uses explicit refresh + journal + since-last-journal change flag; persistent service remains outside the terminal |
+| Option candidate finder | ACTIVE | Read-only candidate estimate; exact sizing only with observable positive credit |\n| Replay | RESEARCH ONLY | Uses frozen historical inputs and is not live state |
