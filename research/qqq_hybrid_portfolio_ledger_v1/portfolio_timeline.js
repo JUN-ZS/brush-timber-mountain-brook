@@ -109,14 +109,14 @@ window.PortfolioCampaignTimelineV1 = (() => {
     group.legs[role][event.symbol] = (group.legs[role][event.symbol] || 0) + signedQty;
   }
 
-  function classify(before, after, lastPairedSignature) {
+  function classify(before, after, lastPairedSignature, lastPairedUnits) {
     if (after.status === "CLOSED") return "FULL_CLOSE";
 
     if (after.status === "PAIRED") {
       if (!lastPairedSignature) return "OPEN";
       if (after.signature !== lastPairedSignature) return "ROLL_COMPLETE";
-      if (before.status === "PAIRED" && after.units < before.units - EPS) return "PARTIAL_CLOSE";
-      if (before.status === "PAIRED" && after.units > before.units + EPS) return "ADD";
+      if (lastPairedUnits !== null && after.units < lastPairedUnits - EPS) return "PARTIAL_CLOSE";
+      if (lastPairedUnits !== null && after.units > lastPairedUnits + EPS) return "ADD";
       return "UPDATE";
     }
 
@@ -164,6 +164,7 @@ window.PortfolioCampaignTimelineV1 = (() => {
     const series = normalizeMarksSeries(marksSeries);
     const state = new Map();
     const lastPairedSignature = new Map();
+    const lastPairedUnits = new Map();
     const histories = [];
     const prefix = [];
 
@@ -178,9 +179,17 @@ window.PortfolioCampaignTimelineV1 = (() => {
       const before = snapshot(group);
       applyEvent(group, event);
       const after = snapshot(group);
-      const eventKind = classify(before, after, lastPairedSignature.get(identity.spreadId) || null);
+      const eventKind = classify(
+        before,
+        after,
+        lastPairedSignature.get(identity.spreadId) || null,
+        lastPairedUnits.has(identity.spreadId) ? lastPairedUnits.get(identity.spreadId) : null
+      );
 
-      if (after.status === "PAIRED") lastPairedSignature.set(identity.spreadId, after.signature);
+      if (after.status === "PAIRED") {
+        lastPairedSignature.set(identity.spreadId, after.signature);
+        lastPairedUnits.set(identity.spreadId, after.units);
+      }
 
       const point = marksAt(series, event.timestamp);
       const marks = point ? point.marks : {};
