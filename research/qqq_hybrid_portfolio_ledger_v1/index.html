@@ -106,6 +106,9 @@
         <div class="subhead"><div class="eyebrow">CAMPAIGN PERFORMANCE</div><h3>Campaign → Spread → P&L</h3></div>
         <div id="campaignPerformanceRows" class="campaign-performance-rows"></div>
         <p class="hint">Campaign period P&L is the change in cumulative identified-spread P&L between the two valuation points. Fully closed spreads remain in the period result through realized P&L. Incomplete attribution stays unpriced.</p>
+        <div class="subhead"><div class="eyebrow">HISTORY</div><h3>Campaign timeline / attribution history</h3></div>
+        <div id="campaignTimelineRows" class="campaign-timeline-rows"></div>
+        <p class="hint">Timeline is event-sourced from explicit option fills: open → roll → partial close → full close. Historical total P&L is shown only when a point-in-time mark at or before the event exists; current live marks are never reused for past events.</p>
       </section>
 
       <section class="card">
@@ -143,6 +146,7 @@
   <script src="position_identity.js"></script>
   <script src="spread_pnl.js"></script>
   <script src="portfolio_performance.js"></script>
+  <script src="portfolio_timeline.js"></script>
   <script src="reconciliation.js"></script>
   <script src="app.js"></script>
 </body>
