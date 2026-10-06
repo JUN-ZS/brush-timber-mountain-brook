@@ -2,6 +2,8 @@
 const E=HybridEngineV3;
 const $=id=>document.getElementById(id);
 let live=null;
+const candidates={qqq:null,vxx:null};
+let journalRows=[];
 
 const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 const pct=(v,d=2)=>Number.isFinite(Number(v))?((Number(v)>=0?"+":"")+Number(v).toFixed(d)+"%"):"—";
@@ -44,6 +46,11 @@ function render(d,e,book){
   $("dataBadge").className="badge "+(e.health.status==="FRESH"?"ok":e.blocked?"block":"warn");
   $("stateBadge").className="badge "+(e.state==="CARRY"?"ok":e.state==="SHOCK"||e.state==="PRE-SHOCK"?"block":"warn");
   $("monitorTag").textContent=e.blocked?"NO ACTION":e.gate;
+  if($("qqqSize")) $("qqqSize").textContent=book.sizing?.qqqCalls?.status==="READY"?"READY · "+fmt(book.sizing.qqqCalls.quantity,0)+" spreads":"PENDING";
+  if($("vxxSize")) $("vxxSize").textContent=book.sizing?.vxxCalls?.status==="READY"?"READY · "+fmt(book.sizing.vxxCalls.quantity,0)+" spreads":"PENDING";
+  if($("qqqCandidate")) $("qqqCandidate").textContent=candidates.qqq?candidateText(candidates.qqq):"No QQQ candidate";
+  if($("vxxCandidate")) $("vxxCandidate").textContent=candidates.vxx?candidateText(candidates.vxx):"No VXX candidate";
+  if($("candidateSource")) $("candidateSource").textContent=[candidates.qqq?.source,candidates.vxx?.source].filter(Boolean).join(" / ")||"NONE";
 
   const rows=[
     ["QQQ CORE",book.current.qqqShares,book.target.qqqShares,book.deltas.qqqShares,"shares"],
@@ -82,6 +89,49 @@ function render(d,e,book){
   ].map(r=>'<div class="prov-row"><span>'+r[0]+' · '+r[1]+'</span><span class="tag '+r[2].toLowerCase()+'">'+r[2]+'</span></div>').join("");
 }
 
+function candidateText(c){
+  if(!c) return "—";
+  const credit=Number.isFinite(Number(c.credit))?Number(c.credit).toFixed(2):"—";
+  return "short "+fmt(c.shortStrike)+" / long "+fmt(c.longStrike)+" · DTE "+fmt(c.dte,0)+" · Δ "+fmt(c.delta,2)+" · credit "+credit+" · "+(c.deltaSource||"ESTIMATE");
+}
+
+function applyCandidate(sym,c){
+  candidates[sym]=c;
+  const dteId=sym==="qqq"?"qqqDte":"vxxDte",deltaId=sym==="qqq"?"qqqDelta":"vxxDelta";
+  if(c && $(dteId)) $(dteId).value=Number.isFinite(Number(c.dte))?Math.round(Number(c.dte)):"";
+  if(c && $(deltaId)) $(deltaId).value=Number.isFinite(Number(c.delta))?Number(c.delta).toFixed(2):"";
+  const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);
+  render(d,e,book);
+}
+
+async function loadCandidate(sym){
+  if(!live || !Number.isFinite(Number(live[sym]))) return;
+  try{
+    const r=await fetch("/api/options?symbol="+encodeURIComponent(sym.toUpperCase())+"&targetDte="+E.POLICY.optionTargetDte,{cache:"no-store"});
+    const j=await r.json();
+    if(!r.ok || !j.ok) throw new Error(j.error||"option source unavailable");
+    const c=E.candidateFromChain(j.calls,Number(live[sym]),0.10,E.POLICY.optionTargetDte);
+    if(!c) throw new Error("no qualifying call spread candidate");
+    c.apiExpiry=j.expiry||c.expiration;
+    applyCandidate(sym,c);
+  }catch(err){
+    candidates[sym]=null;
+    const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);
+    render(d,e,book);
+    if($("candidateSource")) $("candidateSource").textContent=sym.toUpperCase()+" unavailable: "+err.message;
+  }
+}
+
+function renderChangeSinceJournal(){
+  const el=$("sinceJournal");
+  if(!el) return;
+  if(!journalRows.length){el.textContent="No prior journal baseline.";el.className="meta";return;}
+  const last=journalRows[journalRows.length-1],d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);
+  const changed=last.engine_action!==e.action || last.state!==e.state || JSON.stringify(last.target_position||{})!==JSON.stringify(book.target||{});
+  el.textContent=changed?"CHANGED SINCE LAST JOURNAL · "+(last.state||"—")+" / "+(last.engine_action||"—")+" → "+e.state+" / "+e.action:"NO CHANGE SINCE LAST JOURNAL";
+  el.className="meta "+(changed?"changed":"stable");
+}
+
 async function refresh(){
   $("refreshBtn").disabled=true;
   try{
@@ -89,7 +139,7 @@ async function refresh(){
     live=await res.json();
     const d=inputRow();
     const e=E.derive(d);
-    const book=E.targetLedger(d,e,ledger());
+    const book=E.targetLedger(d,e,ledger(),candidates);
     render(d,e,book);
     await loadJournal();
   }catch(err){
@@ -103,7 +153,7 @@ async function refresh(){
 
 async function journalDecision(){
   if(!live) return;
-  const d=inputRow(), e=E.derive(d), book=E.targetLedger(d,e,ledger());
+  const d=inputRow(), e=E.derive(d), book=E.targetLedger(d,e,ledger(),candidates);
   const human=($("humanAction").value||"").trim().toUpperCase();
   const conflict=human && human!==e.action ? "CONFLICT":"NONE";
   const payload={
@@ -138,14 +188,18 @@ async function journalDecision(){
 async function loadJournal(){
   const r=await fetch("/api/journal",{cache:"no-store"});
   const j=await r.json();
-  $("journalCount").textContent=j.rows.length;
-  $("journalRows").innerHTML=j.rows.slice().reverse().map(x=>{
+  journalRows=j.rows||[];
+  $("journalCount").textContent=journalRows.length;
+  $("journalRows").innerHTML=journalRows.slice().reverse().map(x=>{
     const s=x.snapshot||{};
     return '<div class="journal-row"><b>'+((x.journaled_at||"").slice(0,19).replace("T"," "))+'</b> · '+(x.engine_action||"—")+' · '+(x.state||"—")+' · M1/M2 '+fmt(s.m1)+'/'+fmt(s.m2)+' · '+(x.conflict||"NONE")+'</div>';
   }).join("") || '<div class="meta">No decisions journaled yet.</div>';
+  renderChangeSinceJournal();
 }
 
 $("refreshBtn").addEventListener("click",refresh);
+if($("findQQQ")) $("findQQQ").addEventListener("click",()=>loadCandidate("qqq"));
+if($("findVXX")) $("findVXX").addEventListener("click",()=>loadCandidate("vxx"));
 $("journalBtn").addEventListener("click",journalDecision);
-["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqDte","qqqDelta","vxxDte","vxxDelta"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger());render(d,e,book)}}));
+["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqDte","qqqDelta","vxxDte","vxxDelta"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}}));
 refresh();
