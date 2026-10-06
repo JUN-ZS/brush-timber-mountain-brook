@@ -7,7 +7,7 @@ on:
       - ".github/workflows/qqq-hybrid-terminal-v3.yml"
   push:
     branches:
-      - "feat/qqq-hybrid-terminal-v3-free-vx-20261007"
+      - "feat/qqq-hybrid-terminal-v3-free-vx-clean-20261007"
     paths:
       - "terminal/qqq_hybrid_deployment_terminal_v3/**"
       - ".github/workflows/qqq-hybrid-terminal-v3.yml"
