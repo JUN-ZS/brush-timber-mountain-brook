@@ -18,7 +18,7 @@ concurrency:
 jobs:
   final_run:
     name: REAL VX → M1/M2 → fixed Original Hybrid
-    runs-on: [self-hosted, grokbot-box-linux-x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
