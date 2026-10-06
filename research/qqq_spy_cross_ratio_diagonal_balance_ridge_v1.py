@@ -13,7 +13,6 @@ from qqq_spy_bounded_crossover_reanchor_v1 import (
     START,
     END,
     load_px,
-    get_chain,
     liquid,
     weekly_observation_days,
     prev_trading_date,
@@ -73,32 +72,113 @@ def bs_greeks(spot, strike, dte, iv, call=True, rate=0.0, div=0.012):
     }
 
 
-def choose_call(con, option_path, date, target_dte, target_delta):
-    df = get_chain(con, option_path, date, max(2, target_dte - 7), target_dte + 7)
-    if df.empty:
-        return None
-    x = liquid(df[df.opt_type == "call"]).copy()
-    if x.empty:
-        return None
-    x["dte_calc"] = (pd.to_datetime(x.expiration) - date).dt.days
-    x = x[(x.dte_calc >= max(1, target_dte - 7)) & (x.dte_calc <= target_dte + 7)]
-    if x.empty:
-        return None
-    row = x.iloc[(x.delta - target_delta).abs().argmin()]
-    iv = float(row.implied_volatility)
-    if not np.isfinite(iv) or iv <= 0:
-        return None
-    return {
-        "contract_id": str(row.contract_id),
-        "expiry": pd.Timestamp(row.expiration),
-        "strike": float(row.strike),
-        "iv": iv,
-        "delta": float(row.delta),
-        "bid": float(row.bid),
-        "ask": float(row.ask),
-        "dte": int(row.dte_calc),
-    }
-
+def preselect_calls(con, option_paths, dates):
+    """
+    Build the exact call-selection universe needed by this research in two
+    parquet scans (one per underlying), rather than rescanning a parquet file
+    for every configuration/date.
+    """
+    targets = []
+    for d in sorted(pd.Timestamp(x) for x in dates):
+        ds = d.strftime("%Y-%m-%d")
+        for td in sorted(set(LONG_DTES + SHORT_DTES)):
+            targets.append((ds, int(td), float(TARGET_LONG_DELTA)))
+            targets.append((ds, int(td), float(TARGET_SHORT_DELTA)))
+    values_sql = ",".join(
+        f"(DATE '{ds}', {td}, {delta:.8f})" for ds, td, delta in targets
+    )
+    out = {}
+    for asset, path in option_paths.items():
+        q = sql(
+            con,
+            f"""
+            WITH targets(date, target_dte, target_delta) AS (
+                VALUES {values_sql}
+            ),
+            eligible AS (
+                SELECT
+                    CAST(o.contract_id AS VARCHAR) AS contract_id,
+                    CAST(o.date AS DATE) AS date,
+                    CAST(o.expiration AS DATE) AS expiration,
+                    CAST(o.strike AS DOUBLE) AS strike,
+                    CAST(o.bid AS DOUBLE) AS bid,
+                    CAST(o.ask AS DOUBLE) AS ask,
+                    CAST(o.delta AS DOUBLE) AS delta,
+                    CAST(o.implied_volatility AS DOUBLE) AS iv,
+                    t.target_dte,
+                    t.target_delta,
+                    date_diff(
+                        'day',
+                        CAST(o.date AS DATE),
+                        CAST(o.expiration AS DATE)
+                    ) AS dte_calc,
+                    (CAST(o.ask AS DOUBLE) - CAST(o.bid AS DOUBLE))
+                    / NULLIF(
+                        (CAST(o.ask AS DOUBLE) + CAST(o.bid AS DOUBLE)) / 2.0,
+                        0
+                    ) AS spr
+                FROM read_parquet('{pathq(path)}') o
+                JOIN targets t
+                  ON CAST(o.date AS DATE) = t.date
+                WHERE LOWER(o."type") = 'call'
+                  AND CAST(o.expiration AS DATE) > CAST(o.date AS DATE)
+                  AND date_diff(
+                        'day',
+                        CAST(o.date AS DATE),
+                        CAST(o.expiration AS DATE)
+                      ) >= GREATEST(2, t.target_dte - 7)
+                  AND date_diff(
+                        'day',
+                        CAST(o.date AS DATE),
+                        CAST(o.expiration AS DATE)
+                      ) <= t.target_dte + 7
+                  AND o.bid IS NOT NULL
+                  AND o.ask IS NOT NULL
+                  AND o.ask >= o.bid
+                  AND o.ask > 0
+                  AND o.delta IS NOT NULL
+                  AND (o.open_interest >= 10 OR o.volume >= 5)
+            ),
+            liquid AS (
+                SELECT *
+                FROM eligible
+                WHERE isfinite(spr)
+                  AND spr <= 0.35
+            ),
+            ranked AS (
+                SELECT *,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY date, target_dte, target_delta
+                           ORDER BY ABS(delta - target_delta),
+                                    expiration,
+                                    strike,
+                                    contract_id
+                       ) AS rn
+                FROM liquid
+                WHERE iv IS NOT NULL
+            )
+            SELECT contract_id, date, expiration, strike, bid, ask, delta, iv,
+                   dte_calc, target_dte, target_delta
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY date, target_dte, target_delta
+            """,
+        )
+        for r in q.itertuples(index=False):
+            iv = float(r.iv)
+            if not np.isfinite(iv) or iv <= 0:
+                continue
+            out[(asset, pd.Timestamp(r.date), int(r.target_dte), float(r.target_delta))] = {
+                "contract_id": str(r.contract_id),
+                "expiry": pd.Timestamp(r.expiration),
+                "strike": float(r.strike),
+                "iv": iv,
+                "delta": float(r.delta),
+                "bid": float(r.bid),
+                "ask": float(r.ask),
+                "dte": int(r.dte_calc),
+            }
+    return out
 
 def weekly_dates(con, underlying_path):
     px = load_px(con, underlying_path, "S")
@@ -277,26 +357,38 @@ def get_spot_map(con, path):
     return {pd.Timestamp(r.date): float(r.S_px) for r in px.itertuples(index=False)}
 
 
-def simulate_config(con, qpath, spath, qspots, sspots, dates, factor_hist, long_asset, short_asset, long_dte, short_dte):
-    q_under = {k: v for k, v in qspots.items()}
-    s_under = {k: v for k, v in sspots.items()}
-    option_path = {"QQQ": qpath, "SPY": spath}
-    spot_map = {"QQQ": q_under, "SPY": s_under}
-
+def simulate_config(
+    con,
+    qpath,
+    spath,
+    qspots,
+    sspots,
+    dates,
+    factor_hist,
+    selector,
+    mark_maps,
+    long_asset,
+    short_asset,
+    long_dte,
+    short_dte,
+):
+    spot_map = {"QQQ": qspots, "SPY": sspots}
     long_current = None
     short_current = None
     records = []
     balance_rows = []
-    all_positions = []
 
     for d in dates:
         d = pd.Timestamp(d)
 
         if long_current is None or (pd.Timestamp(long_current["expiry"]) - d).days <= 60:
-            opt = choose_call(con, option_path[long_asset], d, long_dte, TARGET_LONG_DELTA)
+            opt = selector.get(
+                (long_asset, d, int(long_dte), float(TARGET_LONG_DELTA))
+            )
             if opt is not None:
                 if long_current is not None:
                     long_current["exit_date"] = d
+                opt = opt.copy()
                 opt["entry_date"] = d
                 long_current = make_position(long_asset, opt, +1, d)
                 long_current["option"] = opt
@@ -317,11 +409,19 @@ def simulate_config(con, qpath, spath, qspots, sspots, dates, factor_hist, long_
         lopt = long_current["option"].copy()
         lopt["dte"] = max((pd.Timestamp(long_current["expiry"]) - d).days, 1)
         le = option_exposure(lopt, spot_l, long_asset)
-        sopt = choose_call(con, option_path[short_asset], d, short_dte, TARGET_SHORT_DELTA)
+
+        sopt = selector.get(
+            (short_asset, d, int(short_dte), float(TARGET_SHORT_DELTA))
+        )
         if le is None or sopt is None:
             continue
+        sopt = sopt.copy()
         sopt["entry_date"] = d
-        se = option_exposure({**sopt, "dte": short_dte}, spot_s, short_asset)
+        se = option_exposure(
+            {**sopt, "dte": int(short_dte)},
+            spot_s,
+            short_asset,
+        )
         if se is None:
             continue
 
@@ -345,22 +445,19 @@ def simulate_config(con, qpath, spath, qspots, sspots, dates, factor_hist, long_
             "n_balanced": n,
             "net_theta": float(le["theta"] - n * se["theta"]),
             "net_delta_dollar": float(le["delta_dollar"] - n * se["delta_dollar"]),
-            "residual_var": float(bal["ridge"].loc[bal["ridge"].n == n, "residual_var"].iloc[0]),
-            "theta_ok": bool(bal["ridge"].loc[bal["ridge"].n == n, "theta_ok"].iloc[0]),
+            "residual_var": float(
+                bal["ridge"].loc[
+                    bal["ridge"].n == n, "residual_var"
+                ].iloc[0]
+            ),
+            "theta_ok": bool(
+                bal["ridge"].loc[
+                    bal["ridge"].n == n, "theta_ok"
+                ].iloc[0]
+            ),
         })
 
-    # Ensure all generated positions are in mark universe.
-    ids_by_asset = {"QQQ": [], "SPY": []}
-    for p in records:
-        ids_by_asset[p["asset"]].append(p["contract_id"])
-    mark_maps = {
-        asset: load_marks(con, option_path[asset], ids)
-        for asset, ids in ids_by_asset.items()
-    }
-
-    # Daily valuation with known historical marks; stale mark carries forward only.
     day_grid = pd.date_range(min(dates), max(dates), freq="B")
-    cash = NAV0
     active = []
     rows = []
     close_pnl = 0.0
@@ -373,7 +470,6 @@ def simulate_config(con, qpath, spath, qspots, sspots, dates, factor_hist, long_
             if pd.Timestamp(p.get("entry_date")) == d and p not in active:
                 active.append(p)
 
-        # Close events: all short calls are rolled weekly; long rolls at its expiry rule.
         for p in active[:]:
             if pd.Timestamp(p.get("exit_date", pd.Timestamp.max)) == d:
                 row = mark_maps[p["asset"]].get((p["contract_id"], d))
@@ -403,7 +499,9 @@ def simulate_config(con, qpath, spath, qspots, sspots, dates, factor_hist, long_
     cagr = (ending / NAV0) ** (1 / years) - 1
     maxdd = float((eq["eq"] / eq["eq"].cummax() - 1).min())
     ret = eq["eq"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
-    sharpe = float(ret.mean() / ret.std(ddof=1) * math.sqrt(252)) if ret.std(ddof=1) > 0 else 0.0
+    sharpe = float(
+        ret.mean() / ret.std(ddof=1) * math.sqrt(252)
+    ) if ret.std(ddof=1) > 0 else 0.0
 
     br = pd.DataFrame(balance_rows)
     result = {
@@ -427,7 +525,6 @@ def simulate_config(con, qpath, spath, qspots, sspots, dates, factor_hist, long_
         "mean_residual_var": float(br.residual_var.mean()) if not br.empty else np.nan,
     }
     return result, eq, br
-
 
 def main():
     ap = argparse.ArgumentParser()
@@ -459,6 +556,17 @@ def main():
     hist = build_factor_history(con, qu, su, qpath, spath, dates)
     hist.to_csv(o / "factor_history.csv", index=False)
 
+    option_paths = {"QQQ": qpath, "SPY": spath}
+    selector = preselect_calls(con, option_paths, dates)
+
+    ids_by_asset = {"QQQ": set(), "SPY": set()}
+    for (asset, _, _, _), opt in selector.items():
+        ids_by_asset[asset].add(opt["contract_id"])
+    mark_maps = {
+        asset: load_marks(con, option_paths[asset], sorted(ids))
+        for asset, ids in ids_by_asset.items()
+    }
+
     families = [("SPY", "SPY"), ("QQQ", "QQQ"), ("SPY", "QQQ"), ("QQQ", "SPY")]
     configs = []
     if a.orientation in ("normal", "both"):
@@ -481,7 +589,19 @@ def main():
     balances = []
     for la, sa, ld, sd in configs:
         rr, eq, br = simulate_config(
-            con, qpath, spath, qspots, sspots, dates, hist, la, sa, ld, sd
+            con,
+            qpath,
+            spath,
+            qspots,
+            sspots,
+            dates,
+            hist,
+            selector,
+            mark_maps,
+            la,
+            sa,
+            ld,
+            sd,
         )
         if rr is not None:
             results.append(rr)
@@ -528,6 +648,7 @@ def main():
         "tail": "naked short-call tail is intentionally retained as a diagnostic; not a live-order strategy",
         "no_live_orders": True,
         "no_parameter_search": True,
+        "execution_refactor": "preselect required option contracts once per asset; load historical marks once per asset; strategy rules unchanged",
     }
     (o / "METHODOLOGY.json").write_text(json.dumps(methodology, indent=2), encoding="utf-8")
 
