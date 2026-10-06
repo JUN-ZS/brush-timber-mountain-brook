@@ -11,6 +11,7 @@ on:
       - ".github/workflows/m1-m2-reconstruction-lab.yml"
   push:
     branches:
+      - "research/m1-m2-mask-reconstruction-lab-v1-20261006"
       - "feat/m1-m2-mask-reconstruction-lab-v1-20261006"
     paths:
       - "research/m1_m2_reconstruction_lab/**"
