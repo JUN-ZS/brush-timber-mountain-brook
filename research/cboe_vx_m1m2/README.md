@@ -2,6 +2,10 @@
 
 Status: research-only; data acquisition + validation.
 
+Execution is intentionally isolated from main strategy policy. A temporary PR QA
+bridge may execute this collector for PR #83; the collector itself never places
+orders and never changes P&L logic.
+
 ## Goal
 
 Obtain contract-level daily VX observations across the full Original-Hybrid
