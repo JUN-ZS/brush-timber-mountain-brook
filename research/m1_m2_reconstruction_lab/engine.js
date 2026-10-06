@@ -232,7 +232,7 @@ window.M1M2Lab = (() => {
     ];
     const esc = v => {
       const s = v === null || v === undefined ? "" : String(v);
-      return /[",\n]/.test(s) ? """ + s.replace(/"/g, """") + """ : s;
+      return /[",\\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
     const lines = [head.join(",")];
     for (const x of comparison.rows) {
