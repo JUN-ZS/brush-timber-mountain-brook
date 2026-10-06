@@ -15,4 +15,4 @@ No strategy parameters or P&L logic are changed here. A failed overlap gate is S
 
 Evidence classes: OBSERVED contract settlement values; DERIVED deterministic M1/M2 selection; HYPOTHETICAL none.
 
-Cboe's historical pages expose VX price/volume detail and the historical archive contains individual VX month files.
+CI trigger marker: 2026-10-07T00:15+08:00
