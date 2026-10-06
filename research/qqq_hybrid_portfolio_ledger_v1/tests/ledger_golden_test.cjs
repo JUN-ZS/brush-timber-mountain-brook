@@ -69,12 +69,12 @@ near(period2.pnl, 4973, 1e-9, "flow-adjusted pnl");
 
 const incomplete = L.periodMetrics(
   events,
-  "2026-10-01T09:00:00Z",
+  "2026-10-02T23:00:00Z",
   "2026-10-03T23:00:00Z",
   {},
   { QQQ: 740, QQQ261218C00750000: 8 }
 );
-ok(!incomplete.complete && incomplete.pnl === null, "incomplete period is blocked");
+ok(!incomplete.complete && incomplete.pnl === null, "incomplete held-position period is blocked");
 
 const crossing = [
   { type:"CASHFLOW", id:"cfx", timestamp:"2026-10-01T09:00:00Z", amount:1000 },
