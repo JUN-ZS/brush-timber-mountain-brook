@@ -38,9 +38,10 @@ jobs:
 
       - name: Runtime smoke
         run: |
-          python3 research/qqq_hybrid_portfolio_ledger_v1/server.py >/tmp/qhp-ledger.log 2>&1 &
+          QHP_LEDGER_PORT=8791 python3 research/qqq_hybrid_portfolio_ledger_v1/server.py >/tmp/qhp-ledger.log 2>&1 &
           PID=$!
-          trap "kill $PID" EXIT
+          trap "kill $PID 2>/dev/null || true" EXIT
           sleep 1
-          curl -fsS http://127.0.0.1:8790/api/health | grep -q QQQ-HYBRID-PORTFOLIO-LEDGER-V1
-          curl -fsS http://127.0.0.1:8790/api/events | grep -q '"ok": true'
+          cat /tmp/qhp-ledger.log
+          curl -fsS http://127.0.0.1:8791/api/health | grep -q QQQ-HYBRID-PORTFOLIO-LEDGER-V1
+          curl -fsS http://127.0.0.1:8791/api/events | grep -q '"ok": true'
