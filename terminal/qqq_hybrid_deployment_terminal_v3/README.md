@@ -1,7 +1,7 @@
 
 # QQQ Hybrid Deployment Terminal V3 — Free VX / Provenance-First
 
-V3 is the replacement terminal for the older V2 line.
+V3 is the next-generation terminal for the older V2 line: it keeps the useful operator workflow and removes the known correctness regressions rather than simply reducing features.
 
 It keeps the useful operator workflow:
 
