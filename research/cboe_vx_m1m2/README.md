@@ -37,3 +37,6 @@ Cboe currently displays normal VX monthly contracts together with numbered contr
 
 ## Important
 This bridge solves M1/M2 acquisition. It does not replace QQQ/VXX spot, option-chain, or execution inputs and it does not transmit broker orders.
+
+## PR84 audit note
+The single PR84 workflow now runs historical source-swap parity and a live delayed Cboe VX snapshot in the same existing job. No recurring polling workflow is added.
