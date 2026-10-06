@@ -230,6 +230,9 @@ window.PortfolioSpreadPnlV1 = (() => {
 
       const entryDebit = longLeg.entryDebit + shortLeg.entryDebit;
       const entryCredit = longLeg.entryCredit + shortLeg.entryCredit;
+      const spreadBooks = Object.values(books).filter(b => b.spreadId === paired.spreadId);
+      const realizedPnl = spreadBooks.reduce((s, b) => s + b.realizedPnl, 0);
+      const fees = spreadBooks.reduce((s, b) => s + b.fees, 0);
       const currentValue = longLeg.currentValue + shortLeg.currentValue;
       const unrealizedPnl = longLeg.unrealizedPnl + shortLeg.unrealizedPnl;
 
