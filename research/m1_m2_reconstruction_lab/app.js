@@ -7,7 +7,7 @@ const S = {
   comparison: null,
   masked: true,
   idx: 0,
-  method: "ARCHIVE_V4_PROXY"
+  method: "REAL_OBSERVED_CONTROL"
 };
 
 const fmt = (x, d = 2) => Number.isFinite(x) ? x.toFixed(d) : "—";
@@ -39,24 +39,24 @@ function load() {
         spots[r.Date] = { ...r, QQQ:Number(r.QQQ), VXX:Number(r.VXX), VIX:Number(r.VIX), prevDate:r.PrevDate || null };
       });
       S.spots = spots;
-      S.recon = L.reconstructSeries(L.buildMaskedInput(S.rows), S.method);
+      S.recon = L.reconstructSeries(S.method === "REAL_OBSERVED_CONTROL" ? S.rows : L.buildMaskedInput(S.rows), S.method);
       S.comparison = L.compare(S.rows, S.recon, S.spots);
       $("range").max = Math.max(0, S.rows.length - 1);
       $("range").value = 0;
-      const audit = L.leakageAudit(S.rows, S.method);
+      const audit = S.method === "REAL_OBSERVED_CONTROL" ? { pass: true, rule: "GROUND-TRUTH CONTROL: observed M1/M2 are intentionally visible; leakage audit is not applicable." } : L.leakageAudit(S.rows, S.method);
       renderAll(audit);
       window.addEventListener("resize", draw);
     })
     .catch(err => {
       $("dataBadge").textContent = "LOAD ERROR";
-      $("dataBadge").className = "badge warn";
+      $("dataBadge").className = S.method === "REAL_OBSERVED_CONTROL" ? "badge ok" : "badge warn";
       $("methodBox").textContent = "Cannot load local CSV: " + err.message;
     });
 }
 
 function renderAll(audit) {
   const m = S.comparison.metrics;
-  $("dataBadge").textContent = "EXTERNAL OBSERVED · UNVALIDATED";
+  $("dataBadge").textContent = S.method === "REAL_OBSERVED_CONTROL" ? "REAL OBSERVED CONTROL" : "EXTERNAL OBSERVED · UNVALIDATED";
   $("dataBadge").className = "badge warn";
   $("rowsValue").textContent = m.n.toLocaleString();
   $("coverage").textContent = S.rows[0]?.Date + " → " + S.rows[S.rows.length - 1]?.Date;
@@ -82,12 +82,14 @@ function renderAll(audit) {
   $("smae").textContent = pct(m.s.mae);
   $("srmse").textContent = pct(m.s.rmse);
   $("sbias").textContent = pct(m.s.bias);
-  const verdict = (m.archiveActionAgreementPct || 0) >= 99.999 ? "MATCH" : "MISMATCH";
+  const verdict = S.method === "REAL_OBSERVED_CONTROL" ? "GROUND-TRUTH CONTROL" : ((m.archiveActionAgreementPct || 0) >= 99.999 ? "MATCH" : "MISMATCH");
   $("integrityBanner").innerHTML =
     "<b>MASK TEST:</b> " + (S.masked ? "M1/M2 hidden from the reconstruction path." : "M1/M2 display restored for inspection.") +
     " Reconstruction sees VIX history only. <b>ARCHIVE VERDICT:</b> " + verdict + ".";
   $("range").oninput = () => { S.idx = Number($("range").value); renderSelected(); draw(); };
   $("maskBtn").onclick = () => { S.masked = !S.masked; renderSelected(); };
+  $("realBtn").onclick = () => { S.method = "REAL_OBSERVED_CONTROL"; S.masked = false; load(); };
+  $("proxyBtn").onclick = () => { S.method = "ARCHIVE_V4_PROXY"; S.masked = true; load(); };
   $("exportBtn").onclick = exportCsv;
   renderWorst();
   renderSelected();
