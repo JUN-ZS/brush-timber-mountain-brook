@@ -7,6 +7,7 @@ window.PortfolioCampaignTimelineV1 = (() => {
   }
 
   function finite(v) {
+    if (v === null || v === undefined || v === "") return null;
     return Number.isFinite(Number(v)) ? Number(v) : null;
   }
 
@@ -215,7 +216,8 @@ window.PortfolioCampaignTimelineV1 = (() => {
           : (realizedNetPnl !== null ? "REALIZED_ONLY" : "NONE"),
         markTimestamp: point ? point.timestamp : null,
         campaignCumulativeRealizedNetPnl,
-        completeness: afterRow?.status || after.status
+        completeness: after.status,
+        attributionStatus: afterRow?.status || after.status
       });
     }
 
