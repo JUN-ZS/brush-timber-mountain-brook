@@ -1,0 +1,66 @@
+name: TEMP PR83 CBOE VX M1 M2 QA Bridge
+
+on:
+  pull_request:
+    types: [synchronize, opened, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    if: github.event.pull_request.number == 83
+    name: Collect part ${{ matrix.part }}
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        part: [0,1,2,3,4,5,6,7,8,9]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Fetch Cboe daily VX settlements
+        run: |
+          python3 research/cboe_vx_m1m2/fetch_cboe_vx_settlements.py \
+            --start 2018-03-01 \
+            --end 2026-09-04 \
+            --parts 10 \
+            --part-index ${{ matrix.part }} \
+            --out out/part_${{ matrix.part }}.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cboe-vx-pr83-part-${{ matrix.part }}
+          path: out/
+
+  merge_validate:
+    if: github.event.pull_request.number == 83
+    needs: collect
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cboe-vx-pr83-part-*
+          path: parts
+          merge-multiple: false
+      - name: Merge
+        run: |
+          mkdir -p out
+          python3 research/cboe_vx_m1m2/merge_parts.py \
+            --input-dir parts \
+            --out out/cboe_vx_m1_m2_2018_2026.csv
+      - name: Historical overlap gate
+        run: |
+          python3 research/cboe_vx_m1m2/validate_against_external.py \
+            --cboe out/cboe_vx_m1_m2_2018_2026.csv \
+            --external research/data/vx_m1_m2_external_2016_2022.csv \
+            --out out/overlap_gate.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cboe-vx-m1-m2-pr83-gated
+          path: out/
