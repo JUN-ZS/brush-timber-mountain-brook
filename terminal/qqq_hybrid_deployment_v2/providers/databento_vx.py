@@ -80,15 +80,23 @@ class DatabentoVXLive:
                 symbols="VX.FUT",
                 stype_in="parent",
             )
-            self._client.add_callback(self._on_record)
-            self._client.start()
             self._started = True
+            self._thread = threading.Thread(target=self._consume, name="databento-vx", daemon=True)
+            self._thread.start()
             return self.status()
         except Exception as exc:
             self._client = None
             self._started = False
             self._error = f"{type(exc).__name__}: {exc}"
             return self.status()
+
+    def _consume(self):
+        try:
+            for record in self._client:
+                self._on_record(record)
+        except Exception as exc:
+            self._error = f"{type(exc).__name__}: {exc}"
+            self._started = False
 
     def _on_record(self, record):
         iid = self._get(record, "instrument_id")
