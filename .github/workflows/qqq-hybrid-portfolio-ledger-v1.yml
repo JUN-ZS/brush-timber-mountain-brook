@@ -24,6 +24,7 @@ jobs:
           node --check research/qqq_hybrid_portfolio_ledger_v1/position_identity.js
           node --check research/qqq_hybrid_portfolio_ledger_v1/spread_pnl.js
           node --check research/qqq_hybrid_portfolio_ledger_v1/portfolio_performance.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/portfolio_timeline.js
           node --check research/qqq_hybrid_portfolio_ledger_v1/reconciliation.js
           node --check research/qqq_hybrid_portfolio_ledger_v1/app.js
           node --check research/qqq_hybrid_portfolio_ledger_v1/v3_bridge.js
@@ -31,6 +32,7 @@ jobs:
           node research/qqq_hybrid_portfolio_ledger_v1/tests/position_identity_golden_test.cjs
           node research/qqq_hybrid_portfolio_ledger_v1/tests/spread_pnl_golden_test.cjs
           node research/qqq_hybrid_portfolio_ledger_v1/tests/portfolio_performance_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/portfolio_timeline_golden_test.cjs
           node research/qqq_hybrid_portfolio_ledger_v1/tests/reconciliation_golden_test.cjs
           node research/qqq_hybrid_portfolio_ledger_v1/tests/v3_bridge_test.mjs
 
@@ -41,6 +43,7 @@ jobs:
           test -f research/qqq_hybrid_portfolio_ledger_v1/position_identity.js
           test -f research/qqq_hybrid_portfolio_ledger_v1/spread_pnl.js
           test -f research/qqq_hybrid_portfolio_ledger_v1/portfolio_performance.js
+          test -f research/qqq_hybrid_portfolio_ledger_v1/portfolio_timeline.js
           test -f research/qqq_hybrid_portfolio_ledger_v1/styles.css
           test -f research/qqq_hybrid_portfolio_ledger_v1/app.js
           test -f research/qqq_hybrid_portfolio_ledger_v1/RUN.cmd
@@ -55,6 +58,8 @@ jobs:
           grep -q "brokerOrders.*false" research/qqq_hybrid_portfolio_ledger_v1/spread_pnl.js
           grep -q "strategyMutation.*false" research/qqq_hybrid_portfolio_ledger_v1/portfolio_performance.js
           grep -q "brokerOrders.*false" research/qqq_hybrid_portfolio_ledger_v1/portfolio_performance.js
+          grep -q "strategyMutation.*false" research/qqq_hybrid_portfolio_ledger_v1/portfolio_timeline.js
+          grep -q "brokerOrders.*false" research/qqq_hybrid_portfolio_ledger_v1/portfolio_timeline.js
 
       - name: Runtime smoke
         run: |
