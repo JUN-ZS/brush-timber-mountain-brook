@@ -32,7 +32,7 @@ EXACT = [
 ]
 
 def include(p: Path) -> bool:
-    s = p.as_posix()
+    s = p.relative_to(ROOT).as_posix()
     return any(s.startswith(x) for x in PREFIXES) or s in EXACT
 
 files = [p for p in ROOT.rglob("*") if p.is_file() and include(p) and ".git" not in p.parts]
