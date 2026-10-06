@@ -26,6 +26,7 @@ const events = [
 ];
 
 const snap = L.snapshot(events, { QQQ: 740, QQQ261218C00750000: 8 });
+console.log("DEBUG SNAP", JSON.stringify(snap));
 near(snap.cash, 54773, 1e-9, "cash");
 near(snap.equity, 104973, 1e-9, "equity");
 near(snap.realizedPnl, 2400, 1e-9, "realized pnl");
