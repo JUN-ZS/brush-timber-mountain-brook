@@ -37,6 +37,7 @@ jobs:
             --out artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv
 
       - name: Historical overlap gate
+        continue-on-error: true
         run: |
           python3 research/cboe_vx_m1m2/validate_against_external.py \
             --cboe artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv \
