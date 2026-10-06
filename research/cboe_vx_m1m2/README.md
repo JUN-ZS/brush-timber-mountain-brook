@@ -1,48 +1,27 @@
-# CBOE VX M1/M2 — 2018-2026 reconstruction gate
+# CBOE VX M1/M2 — contract archive reconstruction
 
-Status: research-only; data acquisition + validation.
+The first daily-settlement collector was intentionally rejected after it proved
+that the public daily endpoint only supplied a recent rolling window in this
+runtime (the merge produced 216 rows from 2025-10-27 to 2026-09-04).
 
-Execution is intentionally isolated from main strategy policy. A temporary PR QA
-bridge may execute this collector for PR #83; the collector itself never places
-orders and never changes P&L logic.
+This version uses Cboe's historical per-contract VX CSV archives instead:
+CFE_F18_VX.csv, CFE_G18_VX.csv, ... with one monthly contract per file.
 
-## Goal
+Process:
+1. Download every standard monthly VX contract from 2018 through 2026-09.
+2. Parse Trade Date + Settle from each contract file.
+3. On each date, select the two earliest monthly contracts that actually have
+   a settlement row on that date; no weekly VX contracts are eligible.
+4. Compute S = (M2-M1)/M1.
+5. Validate the resulting series against the already observed 2016-2022
+   M1/M2 archive before any P&L replay.
 
-Obtain contract-level daily VX observations across the full Original-Hybrid
-window (2018-03-01 through 2026-09-04) from the Cboe public daily settlement
-CSV endpoint, then validate the M1/M2 selection against the already archived
-observed 2016-03-01 through 2022-04-08 dataset.
+Evidence:
+- contract settlement values are OBSERVED from Cboe-hosted historical CSV files;
+- the M1/M2 mapping is DERIVED deterministically from observed contract rows;
+- no synthetic term proxy is used;
+- a failed overlap gate is STOP.
 
-This stage does not modify strategy parameters, policy logic, or P&L.
-
-## Selection contract
-
-For each trade date:
-
-- keep standard monthly VX contracts (symbol starts with VX/);
-- exclude weekly VXNN contracts and VXT/VXM products;
-- require expiration strictly after the trade date;
-- sort by expiration;
-- earliest = M1;
-- second-earliest = M2;
-- compute S = (M2-M1)/M1.
-
-## Gate
-
-Before any full replay, the merged history must pass:
-
-research/data/vx_m1_m2_external_2016_2022.csv
-
-The validator requires at least 900 common dates, at least 99% of compared
-M1/M2 pairs within $0.10, no more than 1% term-sign mismatch, and zero
-expiration-order violations.
-
-A failed gate is STOP. Do not smooth, proxy, reinterpret, or retune.
-
-## Evidence classes
-
-- OBSERVED: price/contract row returned directly by Cboe.
-- DERIVED: M1/M2 chosen deterministically from the observed contract rows.
-- HYPOTHETICAL: not used in this stage.
-
-The resulting file is research data, not a live-data entitlement.
+The historical Cboe archive exposes individual VX month files such as
+CFE_F13_VX.csv and the historical-data page states VX price/volume detail is
+available for selected futures from 2013 to current.
