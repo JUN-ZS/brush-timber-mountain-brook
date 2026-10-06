@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - research/cboe-vx-daily-settlement-2018-2026
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
