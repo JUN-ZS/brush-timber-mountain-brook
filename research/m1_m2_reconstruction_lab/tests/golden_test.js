@@ -33,4 +33,10 @@ assert.strictEqual(test, "BUY", "positive contango > 5%");
 
 const shock = E.action(E.term(28, 27), 32);
 assert.strictEqual(shock, "REDUCE", "high VIX + backwardation");
+
+assert.match(E.ARCHIVE_CONTRACT.sourceRepo, /timber-blade-kind-dawn/);
+assert.strictEqual(E.archiveAction(20, 0, 0, -0.01), "QQQ_CC_ONLY", "archive inverted gate");
+assert.strictEqual(E.archiveAction(20, 0, 0, 0.08), "PAIR", "archive carry gate");
+assert.strictEqual(E.archiveState(20, 0, 0, 0.08), "Decay-Optimal", "archive decay state");
+assert.strictEqual(E.archiveState(36, 0, 0, 0.08), "Shock", "archive VIX shock");
 console.log("M1/M2 reconstruction lab golden tests PASS");
