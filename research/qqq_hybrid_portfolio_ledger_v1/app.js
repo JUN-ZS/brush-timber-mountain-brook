@@ -2,6 +2,7 @@ const L = window.PortfolioLedgerV1;
 let events = [];
 let liveMarks = {};
 let manualMarks = {};
+let strategy = null;
 
 const $ = (id) => document.getElementById(id);
 const money = (v) => Number.isFinite(Number(v)) ? Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
@@ -24,6 +25,46 @@ function fillTimestampToIso(v){
 function prettyError(err){
   return err && err.message ? err.message : String(err);
 }
+
+async function loadStrategy(){
+  try{
+    const r=await fetch("/api/strategy-status?ts="+Date.now(),{cache:"no-store"});
+    const j=await r.json();
+    strategy=j;
+    const connected=Boolean(j.available && j.connected);
+    $("bridgeStatus").textContent=connected ? "CONNECTED · READ-ONLY" : "OFFLINE / NOT AVAILABLE";
+    $("strategyBadge").textContent=connected ? "CONNECTED" : "OFFLINE";
+    $("strategyBadge").className="badge "+(connected ? "ok" : "neutral");
+    $("strategyState").textContent=connected ? ("V3 · "+(j.state||"—")) : (j.source==="V3_ENGINE_NOT_PRESENT" ? "V3 engine not present" : "V3 bridge not available");
+    $("strategyAction").textContent=connected ? (j.action||"—") : "—";
+    $("strategyMode").textContent=connected ? (j.state||"—") : "—";
+    $("strategyGate").textContent=connected ? (j.gate||"—") : "—";
+    $("strategyAsOf").textContent=connected ? (j.snapshot_asof||"—") : "—";
+    $("strategyReason").textContent=connected
+      ? (j.reason||"V3 recommendation received read-only.")
+      : (j.error||"No V3 recommendation is fabricated when the bridge is unavailable.");
+    const t=j.targets||null;
+    $("strategyTargets").innerHTML=connected && t
+      ? '<div><small>QQQ CORE</small><b>'+money(t.qqqCorePct)+'% NAV</b></div>'+
+        '<div><small>VXX SHORT</small><b>'+money(t.vxxPct)+'% NAV</b></div>'+
+        '<div><small>QQQ CALL BUDGET</small><b>'+money(t.qqqCallBudgetPct)+'%</b></div>'+
+        '<div><small>VXX CALL BUDGET</small><b>'+money(t.vxxCallBudgetPct)+'%</b></div>'
+      : "";
+  }catch(err){
+    strategy={ok:false,connected:false,available:false,source:"V3_BRIDGE_ERROR",error:prettyError(err)};
+    $("bridgeStatus").textContent="OFFLINE / ERROR";
+    $("strategyBadge").textContent="OFFLINE";
+    $("strategyBadge").className="badge neutral";
+    $("strategyState").textContent="V3 bridge error";
+    $("strategyAction").textContent="—";
+    $("strategyMode").textContent="—";
+    $("strategyGate").textContent="—";
+    $("strategyAsOf").textContent="—";
+    $("strategyReason").textContent=prettyError(err);
+    $("strategyTargets").innerHTML="";
+  }
+}
+
 
 async function loadEvents(){
   const r = await fetch("/api/events?ts=" + Date.now(), {cache:"no-store"});
@@ -176,7 +217,7 @@ $("markApplyBtn").addEventListener("click",()=>{
 
 $("refreshBtn").addEventListener("click", async ()=>{
   $("markStatus").textContent="REFRESHING";
-  try{ await loadEvents(); await fetchMarks(); }
+  try{ await loadEvents(); await fetchMarks(); await loadStrategy(); }
   catch(err){ $("markStatus").textContent="ERROR"; alert(prettyError(err)); }
 });
 
@@ -220,4 +261,4 @@ $("importFile").addEventListener("change", async (ev)=>{
 });
 
 setDefaultTimes();
-loadEvents().then(fetchMarks).catch(err=>{ $("ledgerStatus").textContent="ERROR"; alert(prettyError(err)); });
+loadEvents().then(fetchMarks).then(loadStrategy).catch(err=>{ $("ledgerStatus").textContent="ERROR"; alert(prettyError(err)); });
