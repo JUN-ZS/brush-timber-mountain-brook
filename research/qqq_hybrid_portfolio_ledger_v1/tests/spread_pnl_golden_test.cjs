@@ -92,4 +92,19 @@ const imbalanced = S.attribute(base.concat([
 eq(imbalanced.rows[0].status, "INCOMPLETE", "imbalanced blocked");
 eq(imbalanced.rows[0].reason, "POSITION_IDENTITY_IMBALANCED", "imbalanced reason");
 
+
+const closed = base.concat([
+  { id:"short-close", timestamp:"2026-10-02T10:00:00Z", symbol:"QQQ261218C00700000", assetType:"OPTION", side:"BUY", quantity:3, price:6, fees:1,
+    positionIdentity:{spreadId:"QSP1",legRole:"SHORT"} },
+  { id:"long-close", timestamp:"2026-10-02T10:01:00Z", symbol:"QQQ261218C00750000", assetType:"OPTION", side:"SELL", quantity:3, price:4, fees:1,
+    positionIdentity:{spreadId:"QSP1",legRole:"LONG"} }
+]);
+const closedResult = S.attribute(closed, {});
+eq(closedResult.summary.closed, 1, "closed count");
+eq(closedResult.rows[0].status, "CLOSED", "closed status");
+near(closedResult.rows[0].realizedPnl, 1200, 1e-9, "closed realized");
+near(closedResult.rows[0].unrealizedPnl, 0, 1e-9, "closed unrealized");
+near(closedResult.rows[0].fees, 8, 1e-9, "closed fees");
+near(closedResult.rows[0].totalPnl, 1192, 1e-9, "closed total pnl");
+
 console.log("SPREAD PNL ATTRIBUTION GOLDEN TEST: PASS");
