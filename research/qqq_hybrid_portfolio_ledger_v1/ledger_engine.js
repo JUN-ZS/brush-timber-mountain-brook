@@ -141,7 +141,7 @@ window.PortfolioLedgerV1 = (() => {
   function buildState(events, asOf = null) {
     const normalized = sortEvents(events);
     const cutoff = asOf ? new Date(asOf).getTime() : Infinity;
-    if (!Number.isFinite(cutoff)) throw new Error("invalid asOf");
+    if (asOf && !Number.isFinite(cutoff)) throw new Error("invalid asOf");
 
     const books = {};
     const cashState = { cash: 0, externalCashFlow: 0, totalFees: 0 };
