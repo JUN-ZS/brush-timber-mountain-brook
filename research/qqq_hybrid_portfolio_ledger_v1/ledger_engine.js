@@ -51,6 +51,10 @@ window.PortfolioLedgerV1 = (() => {
 
   function normalizeEvent(raw) {
     if (!raw || typeof raw !== "object") throw new Error("event must be an object");
+    const rawId = raw.id;
+    if (typeof rawId !== "string" || !rawId.trim()) {
+      throw new Error("event id is required and must be a non-empty string");
+    }
     const type = String(raw.type || EVENT_TYPES.FILL).toUpperCase();
 
     if (type === EVENT_TYPES.CASHFLOW) {
@@ -59,7 +63,7 @@ window.PortfolioLedgerV1 = (() => {
       const timestamp = iso(raw.timestamp);
       if (!timestamp) throw new Error("cashflow timestamp is invalid");
       return {
-        id: String(raw.id || ("CF-" + Date.now())),
+        id: rawId.trim(),
         type,
         timestamp,
         amount,
@@ -90,7 +94,7 @@ window.PortfolioLedgerV1 = (() => {
     if (!Number.isFinite(price) || price < 0) throw new Error("price must be >= 0");
 
     return {
-      id: String(raw.id || ("F-" + Date.now())),
+      id: rawId.trim(),
       type,
       timestamp,
       symbol,
