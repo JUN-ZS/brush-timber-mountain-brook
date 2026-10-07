@@ -764,5 +764,5 @@ window.HybridEngineV3 = (() => {
     }
     return lines;
   }
-  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
+  return{POLICY,isoDay,normalizeTermSlope,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,reductionLines,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
 })();
