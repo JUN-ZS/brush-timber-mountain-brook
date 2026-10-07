@@ -75,9 +75,9 @@ eq(r.campaigns.find(c => c.campaignId === "C2").periodPnl, null, "incomplete cam
 
 const multiCampaign = [
   {id:"m1s",timestamp:"2026-10-05T09:00:00Z",symbol:"QQQ261218C00800000",assetType:"OPTION",side:"SELL",quantity:1,price:8,fees:1,
-   positionIdentity:{campaignId:"CM","spreadId":"MS1","legRole:"SHORT"}},
+   positionIdentity:{campaignId:"CM",spreadId:"MS1",legRole:"SHORT"}},
   {id:"m1l",timestamp:"2026-10-05T09:01:00Z",symbol:"QQQ261218C00850000",assetType:"OPTION",side:"BUY",quantity:1,price:2,fees:1,
-   positionIdentity:{campaignId:"CM","spreadId":"MS1",legRole:"LONG"}},
+   positionIdentity:{campaignId:"CM",spreadId:"MS1",legRole:"LONG"}},
   {id:"m2s",timestamp:"2026-10-05T09:02:00Z",symbol:"QQQ261218C00900000",assetType:"OPTION",side:"SELL",quantity:1,price:7,fees:1,
    positionIdentity:{campaignId:"CM",spreadId:"MS2",legRole:"SHORT"}},
   {id:"m2l",timestamp:"2026-10-05T09:03:00Z",symbol:"QQQ261218C00950000",assetType:"OPTION",side:"BUY",quantity:1,price:2,fees:1,
