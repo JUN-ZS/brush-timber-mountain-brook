@@ -508,7 +508,7 @@ window.HybridEngineV3 = (() => {
   }
   // Cell 12 — journal payload construction (pure; no I/O). Conflict + option-delta guard.
   // Never copy Candidate strikes into current_position / Current Leg fields.
-  function journalRecord({engine,book,humanAction,optionsStatus,candidates,currentOptionLegs,funding}={}){
+  function journalRecord({engine,book,humanAction,optionsStatus,candidates,currentOptionLegs,funding,actionBridge}={}){
     const e=engine&&typeof engine==="object"?engine:{};
     const b=book&&typeof book==="object"?book:{};
     const cand=candidates&&typeof candidates==="object"?candidates:{};
@@ -584,6 +584,13 @@ window.HybridEngineV3 = (() => {
       route:funding.route,
       strategy_name:funding.strategyName,
       regime:funding.regime
+    };
+    if(actionBridge!==undefined) record.action_bridge={
+      version:actionBridge.version,
+      action_class:actionBridge.actionClass,
+      operator_instruction:actionBridge.operatorInstruction,
+      next_step:actionBridge.nextStep,
+      no_broker_order:actionBridge.noBrokerOrder===true
     };
     return record;
   }
