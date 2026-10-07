@@ -63,4 +63,18 @@ const unmapped = events.concat([
 r = P.build(unmapped);
 eq(r.summary.unmappedOptionFills, 1, "unmapped count");
 
+
+const neverPaired = P.build([
+  {id:"np-s",timestamp:"2026-10-06T10:00:00Z",symbol:"QQQ261218C00900000",assetType:"OPTION",side:"SELL",quantity:1,price:8,
+   positionIdentity:{campaignId:"C3",spreadId:"QSP3",legRole:"SHORT"}},
+  {id:"np-l",timestamp:"2026-10-06T10:01:00Z",symbol:"QQQ261218C00950000",assetType:"OPTION",side:"BUY",quantity:2,price:2,
+   positionIdentity:{campaignId:"C3",spreadId:"QSP3",legRole:"LONG"}},
+  {id:"np-sc",timestamp:"2026-10-06T10:02:00Z",symbol:"QQQ261218C00900000",assetType:"OPTION",side:"BUY",quantity:1,price:7,
+   positionIdentity:{campaignId:"C3",spreadId:"QSP3",legRole:"SHORT"}},
+  {id:"np-lc",timestamp:"2026-10-06T10:03:00Z",symbol:"QQQ261218C00950000",assetType:"OPTION",side:"SELL",quantity:2,price:3,
+   positionIdentity:{campaignId:"C3",spreadId:"QSP3",legRole:"LONG"}}
+]);
+eq(neverPaired.rows[0].status, "INCOMPLETE", "never-paired final identity incomplete");
+eq(neverPaired.rows[0].everPaired, false, "never-paired history flag");
+
 console.log("POSITION IDENTITY GOLDEN TEST: PASS");
