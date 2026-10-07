@@ -13,6 +13,8 @@ window.PortfolioCampaignPerformanceV1 = (() => {
 
   function campaignKey(row) {
     const id = row?.campaignId;
+    if (row?.campaignMetadata === "INCOMPLETE") return "CAMPAIGN_METADATA_INCOMPLETE::" + String(row.spreadId);
+    if (row?.campaignMetadata === "CONFLICT") return "CAMPAIGN_METADATA_CONFLICT::" + String(row.spreadId);
     return id ? String(id) : "UNASSIGNED";
   }
 
@@ -51,6 +53,7 @@ window.PortfolioCampaignPerformanceV1 = (() => {
       spreadRows.push({
         spreadId,
         campaignId: ref?.campaignId || null,
+        campaignMetadata: ref?.campaignMetadata || "UNASSIGNED",
         strategyRole: ref?.strategyRole || null,
         status,
         reason,
@@ -85,7 +88,7 @@ window.PortfolioCampaignPerformanceV1 = (() => {
       if (row.strategyRole) g.strategyRoles.add(row.strategyRole);
       if (row.endStatus === "PAIRED") g.pairedEnd += 1;
       if (row.endStatus === "CLOSED") g.closedEnd += 1;
-      if (row.status !== "COMPLETE") {
+      if (row.status !== "COMPLETE" || ["INCOMPLETE", "CONFLICT"].includes(row.campaignMetadata)) {
         g.incomplete += 1;
         g.hasCompletePeriod = false;
       } else {
@@ -130,6 +133,7 @@ window.PortfolioCampaignPerformanceV1 = (() => {
         newSpreadAtPeriodStart: "START_PNL_ZERO_WHEN_NOT_PRESENT",
         closedSpread: "RETAIN_REALIZED_PNL_THROUGH_PERIOD_END",
         incompleteAttribution: "NO_PERIOD_PNL",
+        campaignMetadata: "ONLY_COMPLETE_CAMPAIGN_ID_MAY_AGGREGATE",
         portfolioPnlSource: "LEDGER_PERIOD_METRICS",
         strategyMutation: false,
         brokerOrders: false
