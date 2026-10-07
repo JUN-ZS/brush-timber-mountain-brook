@@ -266,15 +266,15 @@ function renderLegIdentity(){
 }
 
 function inputRow(){
-  if(!live) return {qqq:null,vxx:null,vix:null,m1:null,m2:null,s:null,termAsOf:null,spotAsOf:null,term_source:null,provenance:{},today:new Date().toISOString().slice(0,10)};
+  if(!live) return {qqq:null,vxx:null,vix:null,m1:null,m2:null,s:null,termAsOf:null,spotAsOf:null,term_source:null,provenance:{},today:null};
   return {
     ...live,
-    s:Number.isFinite(Number(live.term_slope))?Number(live.term_slope):E.term(Number(live.m1),Number(live.m2)),
+    s:Number.isFinite(Number(live.m1))&&Number.isFinite(Number(live.m2))?E.term(Number(live.m1),Number(live.m2)):null,
     termAsOf:live.term_asof,
     spotAsOf:live.spot_asof,
     term_source:live.term_source,
     provenance:live.provenance||{},
-    today:new Date().toISOString().slice(0,10)
+    today:live.today||null
   };
 }
 
