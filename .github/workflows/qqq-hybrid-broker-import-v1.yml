@@ -20,7 +20,7 @@ jobs:
 
       - name: Node normalizer contract
         run: |
-          node --check research/qqq_hybrid_broker_import_v1/broker_event_normalizer.js
+          node --check research/qqq_hybrid_broker_import_v1/broker_event_normalizer.cjs
           node research/qqq_hybrid_broker_import_v1/tests/broker_event_normalizer_golden_test.cjs
 
       - name: Python importer contract

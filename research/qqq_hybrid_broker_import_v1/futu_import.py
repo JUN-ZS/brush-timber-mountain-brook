@@ -214,7 +214,7 @@ def main() -> int:
         },
     }
 
-    normalizer = ROOT / "broker_event_normalizer.js"
+    normalizer = ROOT / "broker_event_normalizer.cjs"
     proc = subprocess.run(
         ["node", "-e", "const N=require(process.argv[1]); const raw=JSON.parse(require('fs').readFileSync(0,'utf8')); const out=N.normalizeBundle(raw,{sourceTimezone:null,feeRows:raw.fees,importedAt:raw.meta.importedAt}); process.stdout.write(JSON.stringify(out));", str(normalizer)],
         input=json.dumps(raw, ensure_ascii=False),
