@@ -12,6 +12,7 @@ API = "https://www-api.cboe.com/us/futures/api/data/?symbol=VX"
 OFFICIAL_PAGE = "https://www.cboe.com/delayed_quotes/vx/future_quotes/"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 QQQ-Hybrid-V3"
 STANDARD = re.compile(r"^VX/([FGHJKMNQUVXZ])(\d{1,2})$")
+NY = ZoneInfo("America/New_York")
 
 
 def _num(v):
@@ -30,6 +31,25 @@ def _date(v):
         except ValueError:
             pass
     return None
+
+
+def payload_asof(payload):
+    """Return payload observation date in New York, or None when it cannot be proven."""
+    raw = payload.get("lastUpdate") if isinstance(payload, dict) else None
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return None, "MISSING_LAST_UPDATE", raw
+    if not isinstance(raw, str):
+        return None, "UNPARSEABLE_LAST_UPDATE", raw
+    text = raw.strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    try:
+        stamp = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None, "UNPARSEABLE_LAST_UPDATE", raw
+    if stamp.tzinfo is None or stamp.utcoffset() is None:
+        return None, "UNPARSEABLE_LAST_UPDATE", raw
+    return stamp.astimezone(NY).date().isoformat(), "PAYLOAD_LAST_UPDATE", raw
 
 
 def _rows(payload):
@@ -57,7 +77,7 @@ def _price(row, allow_last):
     return None, None
 
 
-def fetch(allow_last: bool = False) -> dict:
+def fetch(allow_last: bool = False, now: dt.datetime | None = None) -> dict:
     req = urllib.request.Request(
         API,
         headers={"User-Agent": UA, "Accept": "application/json"},
@@ -65,8 +85,16 @@ def fetch(allow_last: bool = False) -> dict:
     with urllib.request.urlopen(req, timeout=20) as r:
         payload = json.loads(r.read().decode("utf-8"))
 
-    now = dt.datetime.now(dt.timezone.utc)
-    ny_date = now.astimezone(ZoneInfo("America/New_York")).date()
+    now = now or dt.datetime.now(dt.timezone.utc)
+    ny_date = now.astimezone(NY).date()
+    data_asof, asof_status, last_update_raw = payload_asof(payload)
+    dating = {
+        "data_asof": data_asof,
+        "asof_status": asof_status,
+        "last_update": last_update_raw,
+        "fetched_at": now.isoformat(),
+        "asof_utc": now.isoformat(),
+    }
     candidates = []
 
     for row in _rows(payload):
@@ -102,8 +130,7 @@ def fetch(allow_last: bool = False) -> dict:
             "official_page": OFFICIAL_PAGE,
             "api": API,
             "reason": "fewer than two usable standard monthly VX contracts",
-            "asof_utc": now.isoformat(),
-            "data_asof": ny_date.isoformat(),
+            **dating,
         }
 
     m1, m2 = candidates[0], candidates[1]
@@ -111,12 +138,11 @@ def fetch(allow_last: bool = False) -> dict:
 
     return {
         "ok": True,
-        "status": "LIVE_DELAYED",
+        "status": "LIVE_DELAYED" if data_asof else "UNDATED_PAYLOAD",
         "source": "CBOE_PUBLIC_DELAYED_VX",
         "official_page": OFFICIAL_PAGE,
         "api": API,
-        "asof_utc": now.isoformat(),
-        "data_asof": ny_date.isoformat(),
+        **dating,
         "m1": m1,
         "m2": m2,
         "term_slope": slope,
