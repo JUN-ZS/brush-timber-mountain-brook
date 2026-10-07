@@ -120,3 +120,18 @@ This cell does not change Decision, Candidate, or Build target math.
 ## Next increment
 
 Delayed-data DATA cell, then real option-candidate retrieval, each still isolated.
+
+## Cell 09 — Delayed DATA
+
+Purpose: verify the production VX term-data boundary against the Cboe public delayed adapter itself.
+
+The cell performs a real read-only fetch and asserts:
+
+    CBOE_PUBLIC_DELAYED_VX source
+    standard monthly VX symbols only
+    M1 expiry < M2 expiry
+    both expiries > data_asof
+    settlement used by default (no silent last-price substitution)
+    S = (M2-M1)/M1 and state are internally consistent
+
+This cell does not alter Decision, Build, Candidate, Ledger, or broker state.
