@@ -136,4 +136,19 @@ eq(multi.rows.filter(x => x.spreadId === "S1").length, 2, "first spread history 
 eq(multi.rows.filter(x => x.spreadId === "S2").length, 2, "second spread history retained");
 eq(multi.rows.find(x => x.spreadId === "S2" && x.eventKind === "OPEN").afterStatus, "PAIRED", "second spread independently paired");
 
+
+const sparseMarkSeries = [
+  {timestamp:"2026-10-01T10:01:00Z", marks:{QQQ261218C00700000:5,QQQ261218C00750000:3}},
+  {timestamp:"2026-10-01T10:02:00Z", marks:{QQQ261218C00700000:4}}
+];
+const sparseSpread = [
+  {id:"sp-short",timestamp:"2026-10-01T10:02:00Z",symbol:"QQQ261218C00700000",assetType:"OPTION",side:"SELL",quantity:1,price:8,fees:0,
+   positionIdentity:{campaignId:"C4",spreadId:"S5",legRole:"SHORT"}},
+  {id:"sp-long",timestamp:"2026-10-01T10:02:01Z",symbol:"QQQ261218C00750000",assetType:"OPTION",side:"BUY",quantity:1,price:2,fees:0,
+   positionIdentity:{campaignId:"C4",spreadId:"S5",legRole:"LONG"}}
+];
+const sparse = T.timeline(sparseSpread, sparseMarkSeries);
+eq(sparse.rows[1].pnlBasis, "MARKED_TOTAL", "sparse marks carry forward by symbol");
+near(sparse.rows[1].totalPnl, 500, 1e-9, "sparse mark total pnl");
+eq(sparse.rows[1].markTimestamp, "2026-10-02T10:00:00.000Z", "latest sparse mark timestamp is retained");
 console.log("PORTFOLIO CAMPAIGN TIMELINE GOLDEN TEST: PASS");
