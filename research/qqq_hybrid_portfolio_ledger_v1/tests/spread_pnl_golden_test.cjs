@@ -130,4 +130,20 @@ near(rolledResult.rows[0].fees, 8, 1e-9, "rolled historical fees retained");
 near(rolledResult.rows[0].unrealizedPnl, 600, 1e-9, "rolled active unrealized only");
 near(rolledResult.rows[0].totalPnl, 1192, 1e-9, "rolled total includes historical realized and all fees");
 
+
+const neverPaired = [
+  { id:"np-short-open", timestamp:"2026-10-06T10:00:00Z", symbol:"QQQ261218C00900000", assetType:"OPTION", side:"SELL", quantity:1, price:8, fees:1,
+    positionIdentity:{campaignId:"C3",spreadId:"QSP3",legRole:"SHORT"} },
+  { id:"np-long-open", timestamp:"2026-10-06T10:01:00Z", symbol:"QQQ261218C00950000", assetType:"OPTION", side:"BUY", quantity:2, price:2, fees:1,
+    positionIdentity:{campaignId:"C3",spreadId:"QSP3",legRole:"LONG"} },
+  { id:"np-short-close", timestamp:"2026-10-06T10:02:00Z", symbol:"QQQ261218C00900000", assetType:"OPTION", side:"BUY", quantity:1, price:7, fees:1,
+    positionIdentity:{campaignId:"C3",spreadId:"QSP3",legRole:"SHORT"} },
+  { id:"np-long-close", timestamp:"2026-10-06T10:03:00Z", symbol:"QQQ261218C00950000", assetType:"OPTION", side:"SELL", quantity:2, price:3, fees:1,
+    positionIdentity:{campaignId:"C3",spreadId:"QSP3",legRole:"LONG"} }
+];
+const np = S.attribute(neverPaired, {});
+eq(np.rows[0].status, "INCOMPLETE", "never-paired history is not CLOSED");
+eq(np.rows[0].reason, "POSITION_IDENTITY_INCOMPLETE", "never-paired reason");
+eq(np.rows[0].totalPnl, null, "never-paired pnl blocked");
+
 console.log("SPREAD PNL ATTRIBUTION GOLDEN TEST: PASS");
