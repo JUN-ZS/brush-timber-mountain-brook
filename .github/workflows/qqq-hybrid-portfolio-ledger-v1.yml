@@ -35,6 +35,7 @@ jobs:
           node research/qqq_hybrid_portfolio_ledger_v1/tests/portfolio_timeline_golden_test.cjs
           node research/qqq_hybrid_portfolio_ledger_v1/tests/reconciliation_golden_test.cjs
           node research/qqq_hybrid_portfolio_ledger_v1/tests/v3_bridge_test.mjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/long_lifecycle_stress_test.cjs
 
       - name: Python contract
         run: |
@@ -47,6 +48,7 @@ jobs:
           test -f research/qqq_hybrid_portfolio_ledger_v1/styles.css
           test -f research/qqq_hybrid_portfolio_ledger_v1/app.js
           test -f research/qqq_hybrid_portfolio_ledger_v1/RUN.cmd
+          python3 research/qqq_hybrid_portfolio_ledger_v1/tests/server_corrupt_journal_test.py
 
       - name: Safety invariants
         run: |
