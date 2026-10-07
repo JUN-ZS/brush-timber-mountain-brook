@@ -155,4 +155,20 @@ const all = bundle.events.concat(bundle.quarantine);
 ok(all.every(e => e.provenance && e.provenance.broker === "FUTU"), "provenance present");
 ok(all.every(e => e.id && String(e.id).startsWith("FUTU:")), "stable source ids");
 
+
+
+// One Futu order with multiple fills must not copy the order-level fee to each fill.
+const splitOrder = [
+  { deal_id:"SD1", order_id:"SO1", code:"US.QQQ", qty:5, price:700, trd_side:"BUY", create_time:"2026-10-01T14:00:00Z" },
+  { deal_id:"SD2", order_id:"SO1", code:"US.QQQ", qty:5, price:701, trd_side:"BUY", create_time:"2026-10-01T14:00:01Z" }
+];
+const splitBundle = N.normalizeBundle(
+  { deals: splitOrder, cashflows: [] },
+  { feeRows:[{order_id:"SO1",fee_amount:10}], importedAt:"2026-10-07T01:20:00Z" }
+);
+eq(splitBundle.events.length, 2, "multi-fill deal count");
+eq(splitBundle.quarantine.length, 0, "multi-fill fills are retained");
+eq(splitBundle.events[0].fees, null, "multi-fill fee not duplicated");
+eq(splitBundle.events[1].accountingStatus, "INCOMPLETE_FEE_ALLOCATION", "multi-fill fee allocation incomplete");
+
 console.log("BROKER EVENT NORMALIZER GOLDEN TEST: PASS");
