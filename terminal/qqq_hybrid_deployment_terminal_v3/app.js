@@ -3,6 +3,7 @@ const E=HybridEngineV3;
 const $=id=>document.getElementById(id);
 let live=null;
 const candidates={qqq:null,vxx:null};
+let optionsStatus=null; // last /api/options status (LIVE | OPTIONS_SOURCE_DOWN | BLOCKED_NO_OPEND)
 let journalRows=[];
 
 const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
@@ -209,13 +210,18 @@ async function loadCandidate(sym){
   try{
     const r=await fetch("/api/options?symbol="+encodeURIComponent(sym.toUpperCase())+"&targetDte="+E.POLICY.optionTargetDte,{cache:"no-store"});
     const j=await r.json();
-    if(!r.ok || !j.ok) throw new Error(j.error||"option source unavailable");
+    if(!r.ok || !j.ok){
+      optionsStatus=j.status||"OPTIONS_SOURCE_DOWN";
+      throw new Error(j.error||j.status||"option source unavailable");
+    }
+    optionsStatus=j.status||"LIVE";
     const c=E.candidateFromChain(j.calls,Number(live[sym]),0.10,E.POLICY.optionTargetDte);
     if(!c) throw new Error("no qualifying call spread candidate");
     c.apiExpiry=j.expiry||c.expiration;
     applyCandidate(sym,c);
   }catch(err){
     candidates[sym]=null;
+    if(optionsStatus==null||optionsStatus==="LIVE") optionsStatus="OPTIONS_SOURCE_DOWN";
     const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);
     render(d,e,book);
     if($("candidateSource")) $("candidateSource").textContent=sym.toUpperCase()+" unavailable: "+err.message;
@@ -255,7 +261,14 @@ async function journalDecision(){
   if(!live) return;
   const d=inputRow(), e=E.derive(d), book=E.targetLedger(d,e,ledger(),candidates);
   const human=($("humanAction").value||"").trim().toUpperCase();
-  const conflict=human && human!==e.action ? "CONFLICT":"NONE";
+  const rec=E.journalRecord({
+    engine:e,
+    book,
+    humanAction:human||null,
+    optionsStatus,
+    candidates,
+    currentOptionLegs:optionLegs()
+  });
   const payload={
     event_id:"QHV3-"+Date.now(),
     snapshot:{
@@ -269,15 +282,7 @@ async function journalDecision(){
     },
     policy_version:E.POLICY.policyVersion,
     engine_version:E.POLICY.engineVersion,
-    state:e.state,
-    gate:e.gate,
-    engine_action:e.action,
-    reason:e.reason,
-    current_position:book.current,
-    target_position:book.target,
-    deltas:book.deltas,
-    human_action:human||null,
-    conflict,
+    ...rec
   };
   const r=await fetch("/api/journal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
   if(!r.ok) throw new Error("journal failed");

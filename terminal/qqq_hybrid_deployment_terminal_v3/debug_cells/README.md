@@ -79,7 +79,7 @@ Thin carry is WATCH only; it is not an execution trigger.
 
 ## Debug boundary
 
-Cells 01–08 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 is Yahoo-only option retrieval (unit). Cell 11 is the Yahoo→OpenD cascade (optional OpenD; never invents strikes). None place broker orders or write the Ledger.
+Cells 01–08 and Cell 12 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 is Yahoo-only option retrieval (unit). Cell 11 is the Yahoo→OpenD cascade (optional OpenD; never invents strikes). None place broker orders or write the Ledger.
 
 ## Cell 07 — Operator Summary
 
@@ -201,3 +201,31 @@ Run (Linux / CI):
 
 Windows (`RUN.cmd 11`) uses `python` / the launcher available on PATH.
 
+## Cell 12 — Journal Contract
+
+Purpose: prove journal **payload construction** rules (pure engine helper; no live server required).
+
+`HybridEngineV3.journalRecord({engine, book, humanAction, optionsStatus, candidates, currentOptionLegs})` returns the journalable object plus conflict flags:
+
+    conflict: NONE | CONFLICT | DELTA_ACTION_MISMATCH
+
+Rules:
+
+    humanAction set and ≠ engine.action → CONFLICT
+    HOLD/BUY + negative option deltas without candidate (or OPTIONS_SOURCE_DOWN / BLOCKED_NO_OPEND)
+        → clamp those option deltas to 0, set deltas_guarded:true, flag DELTA_ACTION_MISMATCH
+        (human CONFLICT takes precedence when both apply)
+    Prefer correct `targetLedger` book (deltas already 0); the mismatch path catches synthetic/legacy bad books
+    Never copy Candidate strikes into `current_position` / Current Leg fields
+    `options_status`, `candidate_present:{qqq,vxx}` always recorded
+    `current_option_legs` only when explicitly passed (identity), never from candidate
+
+Live `app.js` `journalDecision` uses `journalRecord` and tracks module-level `optionsStatus` from option fetch success/catch.
+
+Does not place broker orders. Append shape may use the journal API when the UI journals; this cell itself is fixture-only.
+
+Run (Linux / CI):
+
+    node cell12_journal_contract.js
+
+Windows (`RUN.cmd 12`) uses `node` on PATH.

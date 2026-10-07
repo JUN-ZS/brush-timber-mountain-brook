@@ -14,6 +14,7 @@ if "%~1"=="" (
   echo   RUN.cmd 9
   echo   RUN.cmd 10
   echo   RUN.cmd 11
+  echo   RUN.cmd 12
   echo   RUN.cmd ALL
   exit /b 2
 )
@@ -39,6 +40,8 @@ if /I "%~1"=="ALL" (
   call :cell 10
   if errorlevel 1 exit /b 1
   call :cell 11
+  if errorlevel 1 exit /b 1
+  call :cell 12
   exit /b %errorlevel%
 )
 call :cell %~1
@@ -88,6 +91,10 @@ if "%CELL%"=="10" (
 )
 if "%CELL%"=="11" (
   python cell11_opend_option_fallback.py
+  exit /b %errorlevel%
+)
+if "%CELL%"=="12" (
+  node cell12_journal_contract.js
   exit /b %errorlevel%
 )
 echo Unknown cell: %CELL%

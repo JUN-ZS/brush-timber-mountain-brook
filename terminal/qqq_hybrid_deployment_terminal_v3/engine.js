@@ -210,5 +210,74 @@ window.HybridEngineV3 = (() => {
     const src=input&&typeof input==="object"?input:{};
     return{qqq:parseOptionLeg(src.qqq||{}),vxx:parseOptionLeg(src.vxx||{})};
   }
-  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers,operatorSummary};
+  // Cell 12 — journal payload construction (pure; no I/O). Conflict + option-delta guard.
+  // Never copy Candidate strikes into current_position / Current Leg fields.
+  function journalRecord({engine,book,humanAction,optionsStatus,candidates,currentOptionLegs}={}){
+    const e=engine&&typeof engine==="object"?engine:{};
+    const b=book&&typeof book==="object"?book:{};
+    const cand=candidates&&typeof candidates==="object"?candidates:{};
+    const candidate_present={qqq:!!cand.qqq,vxx:!!cand.vxx};
+    const human=(humanAction===null||humanAction===undefined||String(humanAction).trim()==="")?null:String(humanAction).trim().toUpperCase();
+    let conflict="NONE";
+    if(human&&human!==e.action) conflict="CONFLICT";
+    // Identity counts only — never candidate strikes
+    const curSrc=b.current&&typeof b.current==="object"?b.current:{};
+    const current_position={
+      qqqShares:num(curSrc.qqqShares,0),
+      vxxPct:num(curSrc.vxxPct,0),
+      qqqCalls:num(curSrc.qqqCalls,0),
+      vxxCalls:num(curSrc.vxxCalls,0)
+    };
+    const tgtSrc=b.target&&typeof b.target==="object"?b.target:{};
+    const target_position={
+      qqqShares:num(tgtSrc.qqqShares,current_position.qqqShares),
+      vxxPct:num(tgtSrc.vxxPct,current_position.vxxPct),
+      qqqCalls:num(tgtSrc.qqqCalls,current_position.qqqCalls),
+      vxxCalls:num(tgtSrc.vxxCalls,current_position.vxxCalls)
+    };
+    const dSrc=b.deltas&&typeof b.deltas==="object"?b.deltas:{};
+    const deltas={
+      qqqShares:num(dSrc.qqqShares,0),
+      vxxPct:num(dSrc.vxxPct,0),
+      qqqCalls:num(dSrc.qqqCalls,0),
+      vxxCalls:num(dSrc.vxxCalls,0)
+    };
+    const holdOrBuy=e.action==="HOLD"||e.action==="BUY";
+    const statusDown=optionsStatus==="OPTIONS_SOURCE_DOWN"||optionsStatus==="BLOCKED_NO_OPEND";
+    let deltas_guarded=false;
+    // HOLD/BUY must not journal false REDUCE option legs when candidate missing or source down/blocked.
+    if(holdOrBuy){
+      const guardQ=(!candidate_present.qqq)||statusDown;
+      const guardV=(!candidate_present.vxx)||statusDown;
+      if(deltas.qqqCalls<0&&guardQ){
+        if(conflict==="NONE") conflict="DELTA_ACTION_MISMATCH";
+        deltas.qqqCalls=0;
+        target_position.qqqCalls=current_position.qqqCalls;
+        deltas_guarded=true;
+      }
+      if(deltas.vxxCalls<0&&guardV){
+        if(conflict==="NONE") conflict="DELTA_ACTION_MISMATCH";
+        deltas.vxxCalls=0;
+        target_position.vxxCalls=current_position.vxxCalls;
+        deltas_guarded=true;
+      }
+    }
+    const record={
+      state:e.state??null,
+      gate:e.gate??null,
+      engine_action:e.action??null,
+      reason:e.reason??null,
+      current_position,
+      target_position,
+      deltas,
+      human_action:human,
+      conflict,
+      options_status:optionsStatus===undefined?null:optionsStatus,
+      candidate_present,
+      deltas_guarded
+    };
+    if(currentOptionLegs!==undefined) record.current_option_legs=currentOptionLegs;
+    return record;
+  }
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers,operatorSummary,journalRecord};
 })();
