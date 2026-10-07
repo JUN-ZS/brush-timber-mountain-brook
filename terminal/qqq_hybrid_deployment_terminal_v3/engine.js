@@ -314,6 +314,11 @@ window.HybridEngineV3 = (() => {
       qqqCalls:num(curSrc.qqqCalls,0),
       vxxCalls:num(curSrc.vxxCalls,0)
     };
+    // Optional nav for Journal→Memory restore (only when explicitly present; never invent 0 from blank).
+    if(curSrc.nav!==undefined&&curSrc.nav!==null&&String(curSrc.nav).trim()!==""){
+      const nNav=num(curSrc.nav,null);
+      if(nNav!==null) current_position.nav=nNav;
+    }
     const tgtSrc=b.target&&typeof b.target==="object"?b.target:{};
     const target_position={
       qqqShares:num(tgtSrc.qqqShares,current_position.qqqShares),
@@ -365,5 +370,105 @@ window.HybridEngineV3 = (() => {
     if(currentOptionLegs!==undefined) record.current_option_legs=currentOptionLegs;
     return record;
   }
-  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,exposureLabels,impliedVxxShares,journalRecord};
+  // Cell 14 — Journal → Operator Memory write-back (pure; 1:1 field map; never Candidate).
+  // null in fields[id] means SKIP write (blank/missing). Explicit journal 0 → "0".
+  const MEMORY_IDS=Object.freeze([
+    "nav","qqqShares","vxxPct","qqqCalls","vxxCalls",
+    "qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit",
+    "vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"
+  ]);
+  // Easy 1:1 map (Journal path → Memory UI id). Documented in README + UI help.
+  const JOURNAL_MEMORY_MAP=Object.freeze([
+    {journalPath:"current_position.nav",memoryId:"nav"},
+    {journalPath:"current_position.qqqShares",memoryId:"qqqShares"},
+    {journalPath:"current_position.vxxPct",memoryId:"vxxPct"},
+    {journalPath:"current_position.qqqCalls",memoryId:"qqqCalls"},
+    {journalPath:"current_position.vxxCalls",memoryId:"vxxCalls"},
+    {journalPath:"current_option_legs.qqq.shortStrike",memoryId:"qqqShortStrike"},
+    {journalPath:"current_option_legs.qqq.longStrike",memoryId:"qqqLongStrike"},
+    {journalPath:"current_option_legs.qqq.expiry",memoryId:"qqqExpiry"},
+    {journalPath:"current_option_legs.qqq.dte",memoryId:"qqqDte"},
+    {journalPath:"current_option_legs.qqq.delta",memoryId:"qqqDelta"},
+    {journalPath:"current_option_legs.qqq.entryCredit",memoryId:"qqqEntryCredit"},
+    {journalPath:"current_option_legs.vxx.shortStrike",memoryId:"vxxShortStrike"},
+    {journalPath:"current_option_legs.vxx.longStrike",memoryId:"vxxLongStrike"},
+    {journalPath:"current_option_legs.vxx.expiry",memoryId:"vxxExpiry"},
+    {journalPath:"current_option_legs.vxx.dte",memoryId:"vxxDte"},
+    {journalPath:"current_option_legs.vxx.delta",memoryId:"vxxDelta"},
+    {journalPath:"current_option_legs.vxx.entryCredit",memoryId:"vxxEntryCredit"}
+  ]);
+  function pathGet(obj,path){
+    if(obj===null||obj===undefined)return undefined;
+    const parts=String(path).split(".");
+    let cur=obj;
+    for(const p of parts){
+      if(cur===null||cur===undefined||typeof cur!=="object")return undefined;
+      cur=cur[p];
+    }
+    return cur;
+  }
+  // Extract a Memory UI string from a journal scalar or {status,value} wrapper.
+  // EMPTY / missing / blank → null (skip). Explicit 0 → "0". Never invent from candidates.
+  function journalScalarToMemory(raw,warnings,journalPath){
+    if(raw===null||raw===undefined)return null;
+    if(typeof raw==="object"){
+      // Prefer .value when status is VALUE; raw number properties are not walked here.
+      if("status" in raw){
+        const st=String(raw.status||"").toUpperCase();
+        if(st==="EMPTY")return null;
+        if(st==="INVALID"){
+          if(Array.isArray(warnings))warnings.push(journalPath+": INVALID — skipped");
+          return null;
+        }
+        if(st==="VALUE"){
+          const v=raw.value;
+          if(v===null||v===undefined||v==="")return null;
+          if(typeof v==="number")return Number.isFinite(v)?String(v):null;
+          return String(v).trim()===""?null:String(v).trim();
+        }
+        // Unknown status — try .value then give up
+        if(raw.value!==undefined)return journalScalarToMemory(raw.value,warnings,journalPath);
+        return null;
+      }
+      // Unexpected object without status — do not invent
+      if(Array.isArray(warnings))warnings.push(journalPath+": non-scalar object — skipped");
+      return null;
+    }
+    if(typeof raw==="number")return Number.isFinite(raw)?String(raw):null;
+    if(typeof raw==="boolean")return raw?"1":"0";
+    const s=String(raw).trim();
+    return s===""?null:s;
+  }
+  function memoryFromJournal(row){
+    const src=row&&typeof row==="object"?row:{};
+    const fields=Object.create(null);
+    const skipped=[];
+    const warnings=[];
+    // Explicitly refuse candidate / NOW-plan keys — never map into Memory Current Leg.
+    if(src.candidates!==undefined||src.candidate!==undefined||(src.snapshot&&src.snapshot.candidates)){
+      warnings.push("candidates present on row but never mapped into Memory Current Leg fields");
+    }
+    for(const id of MEMORY_IDS) fields[id]=null;
+    for(const {journalPath,memoryId} of JOURNAL_MEMORY_MAP){
+      const raw=pathGet(src,journalPath);
+      // Also accept bare .value sibling already handled inside journalScalarToMemory
+      const mem=journalScalarToMemory(raw,warnings,journalPath);
+      fields[memoryId]=mem;
+      if(mem===null) skipped.push(memoryId);
+    }
+    const sourceEventId=src.event_id!==undefined&&src.event_id!==null?String(src.event_id):null;
+    return{fields,skipped,sourceEventId,warnings,map:JOURNAL_MEMORY_MAP};
+  }
+  function memoryMapPreview(mapped){
+    const m=mapped&&typeof mapped==="object"?mapped:{};
+    const fields=m.fields&&typeof m.fields==="object"?m.fields:{};
+    const lines=[];
+    for(const {journalPath,memoryId} of JOURNAL_MEMORY_MAP){
+      const v=fields[memoryId];
+      if(v===null||v===undefined) continue;
+      lines.push(journalPath+" → Memory "+memoryId+" = "+v);
+    }
+    return lines;
+  }
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
 })();

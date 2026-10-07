@@ -79,7 +79,7 @@ Thin carry is WATCH only; it is not an execution trigger.
 
 ## Debug boundary
 
-Cells 01–08, 12, and 13 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 is Yahoo-only option retrieval (unit). Cell 11 is the Yahoo→OpenD cascade (optional OpenD; never invents strikes). None place broker orders or write the Ledger.
+Cells 01–08, 12, 13, and 14 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 is Yahoo-only option retrieval (unit). Cell 11 is the Yahoo→OpenD cascade (optional OpenD; never invents strikes). None place broker orders or write the Ledger.
 
 ## Cell 07 — Operator Summary
 
@@ -271,3 +271,43 @@ Run (Linux / CI):
     node cell13_operator_clarity.js
 
 Windows (`RUN.cmd 13`) uses `node` on PATH.
+
+
+## Cell 14 — Journal → Operator Memory write-back
+
+Purpose: prove a **1:1 verifiable field map** from a journal row back into Operator Memory UI ids so reload does not wipe Memory. Never invent Current Leg from Candidate / NOW plan.
+
+`HybridEngineV3.memoryFromJournal(row)` → `{fields:{id:string|null}, skipped:[], sourceEventId, warnings[], map}`
+
+Rules:
+
+    null in fields[id]  → skip write (blank/missing journal field)
+    explicit journal 0  → Memory "0" (VALUE(0) kept)
+    never map candidates / NOW plan strikes into Current Leg fields
+
+### Easy field map (Journal path → Memory UI id)
+
+| Journal path | Memory UI id |
+|---|---|
+| `current_position.nav` (if present) OR leave nav | `nav` |
+| `current_position.qqqShares` | `qqqShares` |
+| `current_position.vxxPct` | `vxxPct` |
+| `current_position.qqqCalls` | `qqqCalls` |
+| `current_position.vxxCalls` | `vxxCalls` |
+| `current_option_legs.qqq.shortStrike` (`.value` / raw) | `qqqShortStrike` |
+| `current_option_legs.qqq.longStrike` | `qqqLongStrike` |
+| `current_option_legs.qqq.expiry` | `qqqExpiry` |
+| `current_option_legs.qqq.dte` | `qqqDte` |
+| `current_option_legs.qqq.delta` | `qqqDelta` |
+| `current_option_legs.qqq.entryCredit` | `qqqEntryCredit` |
+| same for `vxx*` | `vxx*` |
+
+UI: **從 Journal 還原 Memory · Restore Memory from last Journal** applies mapped fields, shows map preview (`journal.qqqCalls → Memory qqqCalls = 2`), flashes updated ids. Successful JOURNAL also saves a localStorage Memory snapshot keyed by `event_id`; page load restores that snapshot if present.
+
+Does not place broker orders. No Ledger. No OpenD required.
+
+Run (Linux / CI):
+
+    node cell14_journal_memory.js
+
+Windows (`RUN.cmd 14`) uses `node` on PATH.

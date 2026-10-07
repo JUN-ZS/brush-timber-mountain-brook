@@ -73,6 +73,27 @@ Every decision records:
 - VXX short exposure is **% NAV**; VXX call credit spreads are **contracts** (implied shares shown when VXX price is finite).
 - Flat / zero option legs (or **No option legs**) silence ROLL — blank DTE never invents ROLL_NOW.
 
+## Journal → Operator Memory (Cell 14)
+
+After journaling (or from the last journal row), the operator can **從 Journal 還原 Memory · Restore Memory from last Journal** so a reload does not wipe Operator Memory. Map is 1:1 and easy to verify — **never** Candidate / NOW plan strikes.
+
+| Journal path | Memory UI id |
+|---|---|
+| `current_position.nav` (if present) OR leave nav | `nav` |
+| `current_position.qqqShares` | `qqqShares` |
+| `current_position.vxxPct` | `vxxPct` |
+| `current_position.qqqCalls` | `qqqCalls` |
+| `current_position.vxxCalls` | `vxxCalls` |
+| `current_option_legs.qqq.shortStrike` (`.value` / raw) | `qqqShortStrike` |
+| `current_option_legs.qqq.longStrike` | `qqqLongStrike` |
+| `current_option_legs.qqq.expiry` | `qqqExpiry` |
+| `current_option_legs.qqq.dte` | `qqqDte` |
+| `current_option_legs.qqq.delta` | `qqqDelta` |
+| `current_option_legs.qqq.entryCredit` | `qqqEntryCredit` |
+| same for `vxx*` | `vxx*` |
+
+Rules: blank/missing → leave Memory EMPTY (do not write 0); explicit journal `0` → VALUE(0); map preview before/after apply; localStorage snapshot of last applied Memory + `event_id` restored on load.
+
 ## Safety
 
 - signal / decision support only

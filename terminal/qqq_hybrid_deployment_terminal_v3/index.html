@@ -162,6 +162,30 @@
           <input id="humanAction" placeholder="What did you actually do this round?">
           <button id="journalBtn">JOURNAL</button>
         </div>
+        <div class="row-actions memory-restore-row">
+          <button id="restoreMemoryBtn" type="button" title="Journal → Operator Memory 1:1 map; never Candidate">從 Journal 還原 Memory · Restore Memory from last Journal</button>
+        </div>
+        <div id="memoryMapPreview" class="meta memory-map-preview">Map preview: journal.path → Memory id = value (blank → EMPTY skip)</div>
+        <div id="memoryRestoreMeta" class="meta">Reload restores last localStorage Memory snapshot if present.</div>
+        <details class="memory-map-help">
+          <summary>Journal → Memory field map（可核對）</summary>
+          <div class="reference-mini memory-map-table">
+            Only these paths; <b>never</b> Candidate / NOW plan strikes.<br>
+            Blank/missing → leave Memory EMPTY (do not write 0). Explicit journal 0 → VALUE(0).<br>
+            <code>current_position.nav</code> → <code>nav</code> (if present)<br>
+            <code>current_position.qqqShares</code> → <code>qqqShares</code><br>
+            <code>current_position.vxxPct</code> → <code>vxxPct</code><br>
+            <code>current_position.qqqCalls</code> → <code>qqqCalls</code><br>
+            <code>current_position.vxxCalls</code> → <code>vxxCalls</code><br>
+            <code>current_option_legs.qqq.shortStrike</code> → <code>qqqShortStrike</code><br>
+            <code>current_option_legs.qqq.longStrike</code> → <code>qqqLongStrike</code><br>
+            <code>current_option_legs.qqq.expiry</code> → <code>qqqExpiry</code><br>
+            <code>current_option_legs.qqq.dte</code> → <code>qqqDte</code><br>
+            <code>current_option_legs.qqq.delta</code> → <code>qqqDelta</code><br>
+            <code>current_option_legs.qqq.entryCredit</code> → <code>qqqEntryCredit</code><br>
+            same for <code>vxx*</code> → <code>vxx*</code>
+          </div>
+        </details>
       </article>
     </section>
 

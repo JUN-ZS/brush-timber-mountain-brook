@@ -5,6 +5,129 @@ let live=null;
 const candidates={qqq:null,vxx:null};
 let optionsStatus=null; // last /api/options status (LIVE | OPTIONS_SOURCE_DOWN | BLOCKED_NO_OPEND)
 let journalRows=[];
+const MEMORY_LS_KEY="qhv3.operatorMemory.snapshot";
+const MEMORY_FIELD_IDS=E.MEMORY_IDS||["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"];
+
+function readMemoryFields(){
+  const out={};
+  for(const id of MEMORY_FIELD_IDS){
+    const el=$(id);
+    out[id]=el?String(el.value):"";
+  }
+  return out;
+}
+function saveMemorySnapshot(eventId){
+  try{
+    const snap={
+      event_id:eventId||null,
+      saved_at:new Date().toISOString(),
+      fields:readMemoryFields()
+    };
+    localStorage.setItem(MEMORY_LS_KEY,JSON.stringify(snap));
+    return snap;
+  }catch(err){
+    return null;
+  }
+}
+function loadMemorySnapshot(){
+  try{
+    const raw=localStorage.getItem(MEMORY_LS_KEY);
+    if(!raw) return null;
+    const j=JSON.parse(raw);
+    if(!j||typeof j!=="object"||!j.fields||typeof j.fields!=="object") return null;
+    return j;
+  }catch(err){
+    return null;
+  }
+}
+function flashMemoryIds(ids){
+  for(const id of ids){
+    const el=$(id);
+    if(!el) continue;
+    el.classList.add("memory-flash");
+    const label=el.closest("label");
+    if(label) label.classList.add("memory-flash");
+    setTimeout(()=>{
+      el.classList.remove("memory-flash");
+      if(label) label.classList.remove("memory-flash");
+    },1600);
+  }
+}
+function applyMemoryFields(fields,{sourceLabel}={}){
+  const updated=[];
+  const skipped=[];
+  for(const id of MEMORY_FIELD_IDS){
+    const v=fields&&Object.prototype.hasOwnProperty.call(fields,id)?fields[id]:null;
+    if(v===null||v===undefined){skipped.push(id);continue;}
+    const el=$(id);
+    if(!el){skipped.push(id);continue;}
+    el.value=String(v);
+    updated.push(id);
+  }
+  flashMemoryIds(updated);
+  if($("memoryMapPreview")){
+    const lines=updated.map(id=>{
+      const path=(E.JOURNAL_MEMORY_MAP||[]).find(m=>m.memoryId===id);
+      const jp=path?path.journalPath:("memory."+id);
+      return jp+" → Memory "+id+" = "+fields[id];
+    });
+    $("memoryMapPreview").textContent=lines.length
+      ?(sourceLabel?sourceLabel+" · ":"")+lines.join(" · ")
+      :(sourceLabel||"Restore")+": no fields to write (all blank/missing → left EMPTY)";
+  }
+  if($("memoryRestoreMeta")){
+    $("memoryRestoreMeta").textContent=
+      "Restored "+updated.length+" field(s)"+(skipped.length?" · skipped EMPTY "+skipped.length:"");
+  }
+  return{updated,skipped};
+}
+function restoreMemoryFromJournalRow(row){
+  if(!row){
+    if($("memoryMapPreview")) $("memoryMapPreview").textContent="No journal row to restore from.";
+    return null;
+  }
+  const mapped=E.memoryFromJournal(row);
+  const preview=E.memoryMapPreview(mapped);
+  if($("memoryMapPreview")){
+    $("memoryMapPreview").textContent=preview.length
+      ?preview.join(" · ")
+      :"Map preview: all journal fields blank/missing → Memory left EMPTY (null skip)";
+  }
+  const applied=applyMemoryFields(mapped.fields,{sourceLabel:"Journal "+(mapped.sourceEventId||"row")});
+  // Persist applied memory + event_id for reload restore
+  saveMemorySnapshot(mapped.sourceEventId);
+  if(live){
+    const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);
+    render(d,e,book);
+  }else{
+    renderLegIdentity();
+  }
+  return{mapped,applied,preview};
+}
+function restoreMemoryFromLastJournal(){
+  if(!journalRows.length){
+    if($("memoryMapPreview")) $("memoryMapPreview").textContent="No journal rows yet — nothing to restore.";
+    if($("memoryRestoreMeta")) $("memoryRestoreMeta").textContent="Restore skipped · empty journal";
+    return null;
+  }
+  const last=journalRows[journalRows.length-1];
+  return restoreMemoryFromJournalRow(last);
+}
+function restoreMemorySnapshotOnLoad(){
+  const snap=loadMemorySnapshot();
+  if(!snap) return null;
+  // Safest: restore last Memory snapshot from localStorage on load if present.
+  const applied=applyMemoryFields(snap.fields,{
+    sourceLabel:"localStorage snapshot"+(snap.event_id?" · "+snap.event_id:"")
+  });
+  if($("memoryRestoreMeta")){
+    $("memoryRestoreMeta").textContent=
+      "Auto-restored Memory snapshot"+(snap.event_id?" · event "+snap.event_id:"")+
+      " · "+applied.updated.length+" field(s)";
+  }
+  return{snap,applied};
+}
+
 
 const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 const pct=(v,d=2)=>Number.isFinite(Number(v))?((Number(v)>=0?"+":"")+Number(v).toFixed(d)+"%"):"—";
@@ -287,7 +410,10 @@ async function refresh(){
 
 async function journalDecision(){
   if(!live) return;
-  const d=inputRow(), e=E.derive(d), book=E.targetLedger(d,e,ledger(),candidates);
+  const d=inputRow(), e=E.derive(d), led=ledger();
+  const bookRaw=E.targetLedger(d,e,led,candidates);
+  // Attach nav onto current for optional Journal→Memory restore (never invent from candidate).
+  const book={...bookRaw,current:{...bookRaw.current,nav:led.nav}};
   const human=($("humanAction").value||"").trim().toUpperCase();
   const rec=E.journalRecord({
     engine:e,
@@ -297,8 +423,9 @@ async function journalDecision(){
     candidates,
     currentOptionLegs:optionLegs()
   });
+  const eventId="QHV3-"+Date.now();
   const payload={
-    event_id:"QHV3-"+Date.now(),
+    event_id:eventId,
     snapshot:{
       captured_at:live.captured_at,
       data_asof:live.term_asof,
@@ -315,6 +442,9 @@ async function journalDecision(){
   const r=await fetch("/api/journal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
   if(!r.ok) throw new Error("journal failed");
   $("humanAction").value="";
+  // Auto-save Memory snapshot keyed by event_id (counts+legs from UI — not from candidate).
+  saveMemorySnapshot(eventId);
+  if($("memoryRestoreMeta")) $("memoryRestoreMeta").textContent="Memory snapshot saved · "+eventId;
   await loadJournal();
 }
 
@@ -334,6 +464,11 @@ $("refreshBtn").addEventListener("click",refresh);
 if($("findQQQ")) $("findQQQ").addEventListener("click",()=>loadCandidate("qqq"));
 if($("findVXX")) $("findVXX").addEventListener("click",()=>loadCandidate("vxx"));
 $("journalBtn").addEventListener("click",journalDecision);
+if($("restoreMemoryBtn")) $("restoreMemoryBtn").addEventListener("click",()=>{
+  restoreMemoryFromLastJournal();
+});
 ["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}})});
 if($("forceFlat")) $("forceFlat").addEventListener("change",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}});
+// Prefer explicit button for Journal restore; auto-restore last Memory snapshot on load if present.
+restoreMemorySnapshotOnLoad();
 refresh();
