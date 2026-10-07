@@ -34,6 +34,45 @@ function ledger(){
   };
 }
 
+function optionLegs(){
+  const qqqCalls=$("qqqCalls")?$("qqqCalls").value:"";
+  const vxxCalls=$("vxxCalls")?$("vxxCalls").value:"";
+  return E.currentOptionLegs({
+    qqq:{
+      qty:qqqCalls,
+      shortStrike:$("qqqShortStrike")?$("qqqShortStrike").value:"",
+      longStrike:$("qqqLongStrike")?$("qqqLongStrike").value:"",
+      expiry:$("qqqExpiry")?$("qqqExpiry").value:"",
+      dte:$("qqqDte")?$("qqqDte").value:"",
+      delta:$("qqqDelta")?$("qqqDelta").value:"",
+      entryCredit:$("qqqEntryCredit")?$("qqqEntryCredit").value:""
+    },
+    vxx:{
+      qty:vxxCalls,
+      shortStrike:$("vxxShortStrike")?$("vxxShortStrike").value:"",
+      longStrike:$("vxxLongStrike")?$("vxxLongStrike").value:"",
+      expiry:$("vxxExpiry")?$("vxxExpiry").value:"",
+      dte:$("vxxDte")?$("vxxDte").value:"",
+      delta:$("vxxDelta")?$("vxxDelta").value:"",
+      entryCredit:$("vxxEntryCredit")?$("vxxEntryCredit").value:""
+    }
+  });
+}
+function renderLegIdentity(){
+  const legs=optionLegs();
+  const paint=(id,leg)=>{
+    const el=$(id); if(!el) return;
+    el.textContent=leg.status+(leg.rollReady?" · ROLL-READY":"");
+    el.className="tag"+(leg.status==="READY"?" active":leg.status==="INVALID"?" retired":leg.status==="INCOMPLETE"?" research":"");
+  };
+  paint("qqqLegStatus",legs.qqq);
+  paint("vxxLegStatus",legs.vxx);
+  if($("legIdentityMeta")){
+    const w=x=>Number.isFinite(x.width)?(" width "+x.width):"";
+    $("legIdentityMeta").textContent="QQQ "+legs.qqq.status+w(legs.qqq)+" · VXX "+legs.vxx.status+w(legs.vxx)+" · display/parse only (Build uses call counts)";
+  }
+}
+
 function inputRow(){
   if(!live) return {qqq:null,vxx:null,vix:null,m1:null,m2:null,s:null,termAsOf:null,spotAsOf:null,today:new Date().toISOString().slice(0,10)};
   return {
@@ -259,5 +298,5 @@ $("refreshBtn").addEventListener("click",refresh);
 if($("findQQQ")) $("findQQQ").addEventListener("click",()=>loadCandidate("qqq"));
 if($("findVXX")) $("findVXX").addEventListener("click",()=>loadCandidate("vxx"));
 $("journalBtn").addEventListener("click",journalDecision);
-["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqDte","qqqDelta","vxxDte","vxxDelta"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}}));
+["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}}));
 refresh();

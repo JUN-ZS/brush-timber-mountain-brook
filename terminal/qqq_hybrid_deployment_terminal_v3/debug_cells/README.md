@@ -81,5 +81,34 @@ Thin carry is WATCH only; it is not an execution trigger.
 
 These cells use deterministic fixtures. They do not call OpenD, do not place orders, and do not write the Ledger.
 
-The next separate increment should test the real delayed-data snapshot as its own DATA cell, then real option-candidate retrieval, then manual current-position entry, each still isolated.
-\n## Cell 07 — Operator Summary\n\nPurpose: prove the top-level human view answers four questions without reconstructing the dashboard:\n\n    What mode am I in?\n    What should I buy / hold / reduce now?\n    How far is the market from the next regime line?\n    How far is each existing option spread from its roll line?\n\nThis cell is pure logic only. It does not fetch market data or identify an actual broker option leg.\n
+## Cell 07 — Operator Summary
+
+Purpose: prove the top-level human view answers four questions without reconstructing the dashboard:
+
+    What mode am I in?
+    What should I buy / hold / reduce now?
+    How far is the market from the next regime line?
+    How far is each existing option spread from its roll line?
+
+This cell is pure logic only. It does not fetch market data or identify an actual broker option leg.
+
+## Cell 08 — Current Option Leg Identity
+
+Purpose: prove Operator Memory can name WHICH credit-spread legs are held, not only counts.
+
+Per underlying (QQQ / VXX), `parseOptionLeg` returns qty, shortStrike, longStrike, expiry, dte, delta, entryCredit with VALUE / EMPTY / INVALID discipline (blank ≠ 0), plus:
+
+    FLAT        qty VALUE(0), or qty EMPTY with all other fields EMPTY
+    READY       qty > 0 and shortStrike + longStrike + expiry are VALUE
+    INCOMPLETE  qty > 0 but missing required identity fields
+    INVALID     any field INVALID
+
+`rollReady` is true only when status is READY and both dte and delta are VALUE.
+`entryCredit` is credit-positive; a debit may be negative.
+Optional `width = longStrike - shortStrike` when both strikes are VALUE.
+
+This cell does not change Decision, Candidate, or Build target math.
+
+## Next increment
+
+Wire leg identity into roll advice (still display-only first), then a delayed-data DATA cell, then real option-candidate retrieval, each still isolated.

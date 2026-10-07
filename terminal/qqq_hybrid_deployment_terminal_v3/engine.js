@@ -137,5 +137,41 @@ window.HybridEngineV3 = (() => {
     if(Number.isFinite(deltaLeft))parts.push("Δ "+(deltaLeft<=0?"ROLL NOW":fmtNum(deltaLeft)));
     return{label,status:fire?"ROLL_NOW":"WATCH",text:parts.join(" · ")};
   }
-  return{POLICY,num,operatorNumber,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers,operatorSummary};
+  // Cell 08 — current credit-spread leg identity (display/parse only; does not change Decision/Candidate/Build).
+  // entryCredit: credit is positive; a debit may be negative.
+  function operatorExpiry(v){
+    if(v===null||v===undefined||String(v).trim()==="")return{status:"EMPTY",value:null};
+    const s=String(v).trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return{status:"INVALID",value:null};
+    const t=Date.parse(s+"T00:00:00Z");
+    if(!Number.isFinite(t))return{status:"INVALID",value:null};
+    return{status:"VALUE",value:s};
+  }
+  function parseOptionLeg(raw={}){
+    const src=raw&&typeof raw==="object"?raw:{};
+    const qty=operatorNumber(src.qty,{allowZero:true,min:0});
+    const shortStrike=operatorNumber(src.shortStrike,{allowZero:false,min:0});
+    const longStrike=operatorNumber(src.longStrike,{allowZero:false,min:0});
+    const expiry=operatorExpiry(src.expiry);
+    const dte=operatorNumber(src.dte,{allowZero:true,min:0});
+    const delta=operatorNumber(src.delta,{allowZero:true,min:0});
+    const entryCredit=operatorNumber(src.entryCredit,{allowZero:true,min:Number.NEGATIVE_INFINITY});
+    const fields={qty,shortStrike,longStrike,expiry,dte,delta,entryCredit};
+    const width=(shortStrike.status==="VALUE"&&longStrike.status==="VALUE")?longStrike.value-shortStrike.value:null;
+    const anyInvalid=Object.values(fields).some(f=>f.status==="INVALID");
+    const identityReady=shortStrike.status==="VALUE"&&longStrike.status==="VALUE"&&expiry.status==="VALUE";
+    const othersEmpty=[shortStrike,longStrike,expiry,dte,delta,entryCredit].every(f=>f.status==="EMPTY");
+    let status;
+    if(anyInvalid) status="INVALID";
+    else if((qty.status==="VALUE"&&qty.value===0)||(qty.status==="EMPTY"&&othersEmpty)) status="FLAT";
+    else if(qty.status==="VALUE"&&qty.value>0&&identityReady) status="READY";
+    else status="INCOMPLETE";
+    const rollReady=status==="READY"&&dte.status==="VALUE"&&delta.status==="VALUE";
+    return{...fields,width,status,rollReady};
+  }
+  function currentOptionLegs(input={}){
+    const src=input&&typeof input==="object"?input:{};
+    return{qqq:parseOptionLeg(src.qqq||{}),vxx:parseOptionLeg(src.vxx||{})};
+  }
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers,operatorSummary};
 })();
