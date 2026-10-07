@@ -79,7 +79,7 @@ Thin carry is WATCH only; it is not an execution trigger.
 
 ## Debug boundary
 
-Cells 01–08 and Cell 12 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 is Yahoo-only option retrieval (unit). Cell 11 is the Yahoo→OpenD cascade (optional OpenD; never invents strikes). None place broker orders or write the Ledger.
+Cells 01–08, 12, and 13 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 is Yahoo-only option retrieval (unit). Cell 11 is the Yahoo→OpenD cascade (optional OpenD; never invents strikes). None place broker orders or write the Ledger.
 
 ## Cell 07 — Operator Summary
 
@@ -229,3 +229,45 @@ Run (Linux / CI):
     node cell12_journal_contract.js
 
 Windows (`RUN.cmd 12`) uses `node` on PATH.
+
+## Cell 13 — Operator Clarity (MEDIUM pains #6/#7/#8)
+
+Purpose: three independent clarity contracts sharing engine helpers (no broker / no Ledger).
+
+### A) Data cadence / MIXED-SOURCE (pain #7)
+
+`sourceCadence(d)` + `dataHealth(d)` attach:
+
+    termCadence  DELAYED_SETTLEMENT when term_source / M1–M2 provenance is CBOE delayed
+    spotCadence  LAST when spot provenance is OPEND / YAHOO
+    sourceMix    MIXED_SOURCE when delayed settlement term meets live last spot
+    badges       e.g. MIXED-SOURCE · DELAYED SETTLEMENT vs LAST
+
+Same-calendar-day MIXED_SOURCE stays **FRESH** with warn badge only — it does **not** block trading
+(unlike date-gap AS-OF MIXED >2 days, which still blocks). Label example: `DATA FRESH · MIXED-SOURCE`.
+
+### B) VXX naming (pain #6)
+
+`exposureLabels()`:
+
+    VXX short exposure (% NAV)     — not option spreads
+    VXX call credit spreads        — contracts
+
+`impliedVxxShares(nav, vxxPct, vxxPrice)` when price is finite.
+
+### C) Flat-book silence (pain #8)
+
+`flatBookSilence({qqqCalls,vxxCalls,forceFlat,currentOptionLegs})` and wiring in `triggers` /
+`operatorSummary` ROLL:
+
+    both call counts VALUE 0, or forceFlat, or both legs FLAT
+        → QQQ_ROLL / VXX_ROLL fire suppressed, mode NO_POSITION / OFF
+        → never ROLL_NOW from blank DTE on a flat book
+
+UI optional checkbox **No option legs** sets `forceFlat`.
+
+Run (Linux / CI):
+
+    node cell13_operator_clarity.js
+
+Windows (`RUN.cmd 13`) uses `node` on PATH.

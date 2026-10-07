@@ -75,12 +75,14 @@ function renderLegIdentity(){
 }
 
 function inputRow(){
-  if(!live) return {qqq:null,vxx:null,vix:null,m1:null,m2:null,s:null,termAsOf:null,spotAsOf:null,today:new Date().toISOString().slice(0,10)};
+  if(!live) return {qqq:null,vxx:null,vix:null,m1:null,m2:null,s:null,termAsOf:null,spotAsOf:null,term_source:null,provenance:{},today:new Date().toISOString().slice(0,10)};
   return {
     ...live,
     s:Number.isFinite(Number(live.term_slope))?Number(live.term_slope):E.term(Number(live.m1),Number(live.m2)),
     termAsOf:live.term_asof,
     spotAsOf:live.spot_asof,
+    term_source:live.term_source,
+    provenance:live.provenance||{},
     today:new Date().toISOString().slice(0,10)
   };
 }
@@ -106,7 +108,12 @@ function renderFlow(d,e,book){
   $("gateSpot").textContent=[d.qqq,d.vxx,d.vix].every(Number.isFinite)?"OK":"MISSING";
   $("gateReason").textContent=e.health.reason+" · "+e.reason;
   if($("watchSummary")){
-    const opt={qqqDte:Number($("qqqDte").value),qqqDelta:Number($("qqqDelta").value),vxxDte:Number($("vxxDte").value),vxxDelta:Number($("vxxDelta").value)};
+    const opt={
+      qqqDte:$("qqqDte")?$("qqqDte").value:"",qqqDelta:$("qqqDelta")?$("qqqDelta").value:"",
+      vxxDte:$("vxxDte")?$("vxxDte").value:"",vxxDelta:$("vxxDelta")?$("vxxDelta").value:"",
+      qqqCalls:$("qqqCalls")?$("qqqCalls").value:"",vxxCalls:$("vxxCalls")?$("vxxCalls").value:"",
+      forceFlat:!!($("forceFlat")&&$("forceFlat").checked),currentOptionLegs:optionLegs()
+    };
     const fires=E.triggers(d,e,opt).filter(x=>x.fire).length;
     $("watchSummary").textContent=fires?fires+" TRIGGER"+(fires===1?"":"S"):"WATCHING";
   }
@@ -119,6 +126,7 @@ function renderOperatorSummary(d,e,book){
     qqqDte:$("qqqDte")?$("qqqDte").value:"",qqqDelta:$("qqqDelta")?$("qqqDelta").value:"",
     vxxDte:$("vxxDte")?$("vxxDte").value:"",vxxDelta:$("vxxDelta")?$("vxxDelta").value:"",
     currentOptionLegs:legs,
+    forceFlat:!!($("forceFlat")&&$("forceFlat").checked),
     today:d.today||null
   };
   const s=E.operatorSummary(d,e,book,candidates,opt);
@@ -146,7 +154,22 @@ function render(d,e,book){
   $("reason").textContent=e.reason;
   $("stateBadge").textContent=e.state;
   $("dataBadge").textContent=e.health.label;
-  $("dataBadge").className="badge "+(e.health.status==="FRESH"?"ok":e.blocked?"block":"warn");
+  const mixedSrc=e.health.sourceMix==="MIXED_SOURCE";
+  $("dataBadge").className="badge "+(e.health.status==="FRESH"&&!mixedSrc?"ok":e.blocked?"block":"warn");
+  if($("cadenceBadge")){
+    if(mixedSrc||(e.health.badges&&e.health.badges.length)){
+      $("cadenceBadge").style.display="";
+      $("cadenceBadge").textContent=(e.health.badges&&e.health.badges.length)?e.health.badges.join(" · "):(mixedSrc?"MIXED-SOURCE":"—");
+      $("cadenceBadge").className="badge warn";
+    }else{
+      $("cadenceBadge").style.display="none";
+    }
+  }
+  if($("vxxExposureMeta")){
+    const labels=E.exposureLabels();
+    const impl=E.impliedVxxShares($("nav").value,$("vxxPct").value,d.vxx);
+    $("vxxExposureMeta").textContent=labels.vxxShort+" · "+labels.vxxCallSpreads+" = "+labels.vxxCallUnit+(Number.isFinite(impl)?" · implied ≈ "+fmt(impl,1)+" VXX shares":"");
+  }
   $("stateBadge").className="badge "+(e.state==="CARRY"?"ok":e.state==="SHOCK"||e.state==="PRE-SHOCK"?"block":"warn");
   $("monitorTag").textContent=e.blocked?"NO ACTION":e.gate;
   if($("qqqSize")) $("qqqSize").textContent=book.sizing?.qqqCalls?.status==="READY"?"READY · "+fmt(book.sizing.qqqCalls.quantity,0)+" spreads":"PENDING";
@@ -155,11 +178,12 @@ function render(d,e,book){
   if($("vxxCandidate")) $("vxxCandidate").textContent=candidates.vxx?candidateText(candidates.vxx):"No VXX candidate";
   if($("candidateSource")) $("candidateSource").textContent=[candidates.qqq?.source,candidates.vxx?.source].filter(Boolean).join(" / ")||"NONE";
 
+  const XL=E.exposureLabels();
   const rows=[
     ["QQQ CORE",book.current.qqqShares,book.target.qqqShares,book.deltas.qqqShares,"shares"],
-    ["VXX SHORT",book.current.vxxPct,book.target.vxxPct,book.deltas.vxxPct,"% NAV"],
-    ["QQQ CALL",book.current.qqqCalls,book.target.qqqCalls,book.deltas.qqqCalls,"spreads"],
-    ["VXX CALL",book.current.vxxCalls,book.target.vxxCalls,book.deltas.vxxCalls,"spreads"],
+    ["VXX SHORT EXPOSURE",book.current.vxxPct,book.target.vxxPct,book.deltas.vxxPct,XL.vxxShortUnit],
+    ["QQQ FAR CALL SPREADS",book.current.qqqCalls,book.target.qqqCalls,book.deltas.qqqCalls,XL.qqqCallUnit],
+    ["VXX CALL SPREADS",book.current.vxxCalls,book.target.vxxCalls,book.deltas.vxxCalls,XL.vxxCallUnit],
   ];
   $("ledgerRows").innerHTML=rows.map(r=>{
     const kind=Math.abs(r[3])<1e-9?"HOLD":r[3]>0?"ADD":"REDUCE";
@@ -175,10 +199,14 @@ function render(d,e,book){
   );
 
   const opts={
-    qqqDte:Number($("qqqDte").value),
-    qqqDelta:Number($("qqqDelta").value),
-    vxxDte:Number($("vxxDte").value),
-    vxxDelta:Number($("vxxDelta").value)
+    qqqDte:$("qqqDte")?$("qqqDte").value:"",
+    qqqDelta:$("qqqDelta")?$("qqqDelta").value:"",
+    vxxDte:$("vxxDte")?$("vxxDte").value:"",
+    vxxDelta:$("vxxDelta")?$("vxxDelta").value:"",
+    qqqCalls:$("qqqCalls")?$("qqqCalls").value:"",
+    vxxCalls:$("vxxCalls")?$("vxxCalls").value:"",
+    forceFlat:!!($("forceFlat")&&$("forceFlat").checked),
+    currentOptionLegs:optionLegs()
   };
   const tr=E.triggers(d,e,opts);
   $("triggerRows").innerHTML=tr.map(x=>'<div class="trigger '+(x.fire?"fire":"")+'"><span><b>'+x.label+'</b><small> '+x.priority+'</small></span><span>'+x.value+'</span><strong>'+(x.fire?"TRIGGER":x.mode==="NO_POSITION"?"OFF":x.mode==="NEEDS_POSITION_DATA"?"INCOMPLETE":x.mode==="WATCH"?"WATCH":"WATCH")+'</strong></div>').join("");
@@ -306,5 +334,6 @@ $("refreshBtn").addEventListener("click",refresh);
 if($("findQQQ")) $("findQQQ").addEventListener("click",()=>loadCandidate("qqq"));
 if($("findVXX")) $("findVXX").addEventListener("click",()=>loadCandidate("vxx"));
 $("journalBtn").addEventListener("click",journalDecision);
-["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}}));
+["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}})});
+if($("forceFlat")) $("forceFlat").addEventListener("change",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}});
 refresh();

@@ -15,6 +15,7 @@ if "%~1"=="" (
   echo   RUN.cmd 10
   echo   RUN.cmd 11
   echo   RUN.cmd 12
+  echo   RUN.cmd 13
   echo   RUN.cmd ALL
   exit /b 2
 )
@@ -42,6 +43,8 @@ if /I "%~1"=="ALL" (
   call :cell 11
   if errorlevel 1 exit /b 1
   call :cell 12
+  if errorlevel 1 exit /b 1
+  call :cell 13
   exit /b %errorlevel%
 )
 call :cell %~1
@@ -95,6 +98,10 @@ if "%CELL%"=="11" (
 )
 if "%CELL%"=="12" (
   node cell12_journal_contract.js
+  exit /b %errorlevel%
+)
+if "%CELL%"=="13" (
+  node cell13_operator_clarity.js
   exit /b %errorlevel%
 )
 echo Unknown cell: %CELL%

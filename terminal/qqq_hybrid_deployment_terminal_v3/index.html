@@ -15,6 +15,7 @@
     </div>
     <div class="top-right">
       <div id="dataBadge" class="badge warn">DATA —</div>
+      <div id="cadenceBadge" class="badge warn" style="display:none">—</div>
       <div id="stateBadge" class="badge">STATE —</div>
       <button id="refreshBtn" class="primary">REFRESH</button>
     </div>
@@ -151,10 +152,12 @@
         <div class="form-grid">
           <label>NAV<input id="nav" type="number" value="100000"></label>
           <label>QQQ shares<input id="qqqShares" type="number" value="0"></label>
-          <label>VXX % NAV<input id="vxxPct" type="number" value="0" step="0.1"></label>
-          <label>QQQ calls<input id="qqqCalls" type="number" value="0"></label>
-          <label>VXX calls<input id="vxxCalls" type="number" value="0"></label>
+          <label>VXX short exposure (% NAV)<input id="vxxPct" type="number" value="0" step="0.1"></label>
+          <label>QQQ far call credit spreads<input id="qqqCalls" type="number" value="0"></label>
+          <label>VXX call credit spreads<input id="vxxCalls" type="number" value="0"></label>
+          <label class="check-label"><input id="forceFlat" type="checkbox"> No option legs</label>
         </div>
+        <div id="vxxExposureMeta" class="meta">VXX short = % NAV (not option spreads).</div>
         <div class="row-actions">
           <input id="humanAction" placeholder="What did you actually do this round?">
           <button id="journalBtn">JOURNAL</button>

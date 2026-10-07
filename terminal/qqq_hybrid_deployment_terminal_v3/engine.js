@@ -26,13 +26,49 @@ window.HybridEngineV3 = (() => {
     const days=Math.round((x-y)/86400000);
     return days<0?0:days;
   }
+  // Cell 13 A — cadence mix: delayed settlement term + live last spot is not silently plain FRESH.
+  function classifyTermCadence(d){
+    const src=String(d.term_source||d.termSource||"").toUpperCase();
+    const prov=d.provenance&&typeof d.provenance==="object"?d.provenance:{};
+    const blob=[src,prov.m1,prov.m2,prov.term_slope].map(x=>String(x||"").toUpperCase()).join(" ");
+    if(blob.includes("CBOE")||blob.includes("DELAYED"))return"DELAYED_SETTLEMENT";
+    if(blob.includes("OPEND")||blob.includes("LIVE"))return"LIVE";
+    if(src.trim())return"LIVE";
+    return null;
+  }
+  function classifySpotCadence(d){
+    const prov=d.provenance&&typeof d.provenance==="object"?d.provenance:{};
+    const spotSrc=String(d.spot_source||d.spotSource||"").toUpperCase();
+    const blob=["qqq","vxx","vix"].map(k=>String(prov[k]||"").toUpperCase()).concat(spotSrc).join(" ");
+    if(blob.includes("OPEND")||blob.includes("YAHOO")||blob.includes("LAST"))return"LAST";
+    return null;
+  }
+  function sourceCadence(d){
+    const termCadence=classifyTermCadence(d);
+    const spotCadence=classifySpotCadence(d);
+    // Pain #7: MIXED_SOURCE is delayed settlement term vs live last spot (not live-vs-live).
+    const sourceMix=(termCadence==="DELAYED_SETTLEMENT"&&spotCadence==="LAST")?"MIXED_SOURCE":(termCadence&&spotCadence?"ALIGNED":null);
+    const badges=[];
+    if(sourceMix==="MIXED_SOURCE")badges.push("MIXED-SOURCE");
+    if(termCadence==="DELAYED_SETTLEMENT"&&spotCadence==="LAST")badges.push("DELAYED SETTLEMENT vs LAST");
+    else{
+      if(termCadence==="DELAYED_SETTLEMENT")badges.push("DELAYED SETTLEMENT");
+      if(spotCadence==="LAST")badges.push("LAST");
+    }
+    return{termCadence,spotCadence,sourceMix,badges};
+  }
   function dataHealth(d){
+    const cadence=sourceCadence(d);
     const hasSpot=[d.qqq,d.vxx,d.vix].every(Number.isFinite),hasTerm=Number.isFinite(d.m1)&&Number.isFinite(d.m2)&&Number.isFinite(d.s);
-    if(!hasSpot||!hasTerm)return{status:"BLOCKED",label:"DATA BLOCKED",reason:"Required spot or VX term field missing."};
+    if(!hasSpot||!hasTerm)return{status:"BLOCKED",label:"DATA BLOCKED",reason:"Required spot or VX term field missing.",...cadence};
     const age=d.termAsOf&&d.today?daysBetween(d.termAsOf,d.today):0,asofGap=d.spotAsOf&&d.termAsOf?daysBetween(d.spotAsOf,d.termAsOf):0;
-    if(age!==null&&age>POLICY.maxTermAgeDays)return{status:"STALE",label:"DATA STALE",ageDays:age,reason:"VX term source is older than the permitted operator cadence."};
-    if(asofGap!==null&&asofGap>2)return{status:"MIXED",label:"AS-OF MIXED",ageDays:asofGap,reason:"Spot and term inputs are materially out of sync; review before acting."};
-    return{status:"FRESH",label:"DATA FRESH",ageDays:age,reason:"Required fields are present and within the configured cadence."};
+    if(age!==null&&age>POLICY.maxTermAgeDays)return{status:"STALE",label:"DATA STALE",ageDays:age,reason:"VX term source is older than the permitted operator cadence.",...cadence};
+    // Date-gap MIXED (>2d) still blocks. Same-day MIXED_SOURCE is warn/badge only (status stays FRESH).
+    if(asofGap!==null&&asofGap>2)return{status:"MIXED",label:"AS-OF MIXED",ageDays:asofGap,reason:"Spot and term inputs are materially out of sync; review before acting.",...cadence};
+    if(cadence.sourceMix==="MIXED_SOURCE"){
+      return{status:"FRESH",label:"DATA FRESH · MIXED-SOURCE",ageDays:age,warnOnly:true,reason:"Same-calendar-day mix of delayed settlement term and live last spot; badge/warn only — regime still drives action.",...cadence};
+    }
+    return{status:"FRESH",label:"DATA FRESH",ageDays:age,reason:"Required fields are present and within the configured cadence.",...cadence};
   }
   function derive(d){
     const health=dataHealth(d);
@@ -80,6 +116,26 @@ window.HybridEngineV3 = (() => {
     return{current:cur,target,deltas:{qqqShares:target.qqqShares-cur.qqqShares,vxxPct:target.vxxPct-cur.vxxPct,qqqCalls:target.qqqCalls-cur.qqqCalls,vxxCalls:target.vxxCalls-cur.vxxCalls},blocked:false,inputBlocked:false,sizing:{qqqCalls:qc?.sizingAvailable?{status:"READY",credit:qc.credit,quantity:qQty,source:qc.source}:{status:"PENDING_CANDIDATE"},vxxCalls:vc?.sizingAvailable?{status:"READY",credit:vc.credit,quantity:vQty,source:vc.source}:{status:"PENDING_CANDIDATE"}}};
   }
   function actionRows(book){return Object.entries(book.deltas).map(([key,diff])=>({key,diff,kind:Math.abs(diff)<1e-9?"HOLD":diff>0?"ADD":"REDUCE"}));}
+  // Cell 13 C — flat-book / no-option-legs silence (suppress ROLL fire from blank DTE).
+  function flatBookSilence({qqqCalls,vxxCalls,forceFlat,currentOptionLegs}={}){
+    if(forceFlat===true)return{silent:true,qqqSilent:true,vxxSilent:true,reason:"FORCE_FLAT"};
+    const qOp=operatorNumber(qqqCalls,{allowZero:true,min:0});
+    const vOp=operatorNumber(vxxCalls,{allowZero:true,min:0});
+    const qZero=qOp.status==="VALUE"&&qOp.value===0;
+    const vZero=vOp.status==="VALUE"&&vOp.value===0;
+    const bothZero=qZero&&vZero;
+    const legs=currentOptionLegs&&typeof currentOptionLegs==="object"?currentOptionLegs:null;
+    const qFlat=!!(legs&&legs.qqq&&legs.qqq.status==="FLAT");
+    const vFlat=!!(legs&&legs.vxx&&legs.vxx.status==="FLAT");
+    const bothFlat=qFlat&&vFlat;
+    const qqqSilent=bothZero||bothFlat||qZero||qFlat;
+    const vxxSilent=bothZero||bothFlat||vZero||vFlat;
+    return{
+      silent:qqqSilent&&vxxSilent,
+      qqqSilent,vxxSilent,
+      reason:bothFlat?"LEGS_FLAT":bothZero?"CALLS_ZERO":(qqqSilent||vxxSilent)?"PARTIAL_FLAT":"ACTIVE"
+    };
+  }
   function triggers(d,e,opt={}){
     const rows=[];
     if(Number.isFinite(d.s)){
@@ -88,7 +144,19 @@ window.HybridEngineV3 = (() => {
     }
     if(Number.isFinite(d.vix))rows.push({id:"VIX_28",label:"VIX high line",value:d.vix>=POLICY.vixHigh?"TRIGGERED":(POLICY.vixHigh-d.vix).toFixed(2)+" away",fire:d.vix>=POLICY.vixHigh,mode:d.vix>=POLICY.vixHigh?"TRIGGER":"WATCH",priority:"HIGH"});
     const qdte=num(opt.qqqDte),qdelta=num(opt.qqqDelta),vdte=num(opt.vxxDte),vdelta=num(opt.vxxDelta);
-    const hasQ=opt.hasQQQCall===true,hasV=opt.hasVXXCall===true;
+    const silence=flatBookSilence({qqqCalls:opt.qqqCalls,vxxCalls:opt.vxxCalls,forceFlat:opt.forceFlat,currentOptionLegs:opt.currentOptionLegs});
+    let hasQ=opt.hasQQQCall===true,hasV=opt.hasVXXCall===true;
+    // Auto derive presence from call counts when has* not explicit (Cell 13 strengthen).
+    if(opt.hasQQQCall===undefined&&opt.qqqCalls!==undefined){
+      const q=operatorNumber(opt.qqqCalls,{allowZero:true,min:0});
+      hasQ=q.status==="VALUE"&&q.value>0;
+    }
+    if(opt.hasVXXCall===undefined&&opt.vxxCalls!==undefined){
+      const v=operatorNumber(opt.vxxCalls,{allowZero:true,min:0});
+      hasV=v.status==="VALUE"&&v.value>0;
+    }
+    if(silence.qqqSilent)hasQ=false;
+    if(silence.vxxSilent)hasV=false;
     rows.push({id:"QQQ_ROLL",label:"QQQ far call roll",value:!hasQ?"NO POSITION":"DTE "+(Number.isFinite(qdte)?qdte:"—")+" · Δ "+(Number.isFinite(qdelta)?qdelta.toFixed(2):"—"),fire:hasQ&&((Number.isFinite(qdte)&&qdte<=POLICY.qqqRollDte)||(Number.isFinite(qdelta)&&qdelta>=POLICY.qqqRollDelta)),mode:!hasQ?"NO_POSITION":((Number.isFinite(qdte)||Number.isFinite(qdelta))?"TRIGGERABLE":"NEEDS_POSITION_DATA"),priority:"MED"});
     rows.push({id:"VXX_ROLL",label:"VXX call roll",value:!hasV?"NO POSITION":"DTE "+(Number.isFinite(vdte)?vdte:"—")+" · Δ "+(Number.isFinite(vdelta)?vdelta.toFixed(2):"—"),fire:hasV&&((Number.isFinite(vdte)&&vdte<=POLICY.vxxRollDte)||(Number.isFinite(vdelta)&&vdelta>=POLICY.vxxRollDelta)||e.state==="SHOCK"),mode:!hasV?"NO_POSITION":((Number.isFinite(vdte)||Number.isFinite(vdelta)||e.state==="SHOCK")?"TRIGGERABLE":"NEEDS_POSITION_DATA"),priority:"HIGH"});
     return rows;
@@ -123,13 +191,16 @@ window.HybridEngineV3 = (() => {
     }
     thresholds.sort((a,b)=>Math.abs(a.distance)-Math.abs(b.distance));
     // ROLL prefers Cell 08 currentOptionLegs when provided; else book counts + manual opt DTE/Δ.
+    // Cell 13 C: flat-book silence / forceFlat → OFF / NO POSITION (never ROLL_NOW from blank DTE).
     const legs=opt.currentOptionLegs||null;
     const today=opt.today||d.today||null;
+    const silence=flatBookSilence({qqqCalls:book.current.qqqCalls,vxxCalls:book.current.vxxCalls,forceFlat:opt.forceFlat,currentOptionLegs:legs});
+    const offRoll=(label)=>({label,status:"OFF",text:"NO POSITION"});
     const rolls={
-      qqq:rollForUnderlying("QQQ far",legs&&legs.qqq,book.current.qqqCalls,opt.qqqDte,opt.qqqDelta,POLICY.qqqRollDte,POLICY.qqqRollDelta,today),
-      vxx:rollForUnderlying("VXX call",legs&&legs.vxx,book.current.vxxCalls,opt.vxxDte,opt.vxxDelta,POLICY.vxxRollDte,POLICY.vxxRollDelta,today)
+      qqq:silence.qqqSilent?offRoll("QQQ far"):rollForUnderlying("QQQ far",legs&&legs.qqq,book.current.qqqCalls,opt.qqqDte,opt.qqqDelta,POLICY.qqqRollDte,POLICY.qqqRollDelta,today),
+      vxx:silence.vxxSilent?offRoll("VXX call"):rollForUnderlying("VXX call",legs&&legs.vxx,book.current.vxxCalls,opt.vxxDte,opt.vxxDelta,POLICY.vxxRollDte,POLICY.vxxRollDelta,today)
     };
-    return{mode,plan,thresholds:thresholds.slice(0,3),rolls,hasPosition};
+    return{mode,plan,thresholds:thresholds.slice(0,3),rolls,hasPosition,flatBookSilence:silence};
   }
   function fmtNum(v){return Number.isFinite(Number(v))?Number(v).toLocaleString("en-US",{maximumFractionDigits:2}):"—";}
   function fmtPct(v){return Number.isFinite(Number(v))?fmtNum(v)+"%":"—";}
@@ -210,6 +281,21 @@ window.HybridEngineV3 = (() => {
     const src=input&&typeof input==="object"?input:{};
     return{qqq:parseOptionLeg(src.qqq||{}),vxx:parseOptionLeg(src.vxx||{})};
   }
+  // Cell 13 B — VXX naming / exposure units (short = % NAV; call spreads = contracts).
+  const EXPOSURE_LABELS=Object.freeze({
+    vxxShort:"VXX short exposure (% NAV)",
+    vxxShortUnit:"% NAV",
+    vxxCallSpreads:"VXX call credit spreads",
+    vxxCallUnit:"contracts",
+    qqqCallSpreads:"QQQ far call credit spreads",
+    qqqCallUnit:"contracts"
+  });
+  function exposureLabels(){return EXPOSURE_LABELS;}
+  function impliedVxxShares(nav,vxxPct,vxxPrice){
+    const n=num(nav),p=num(vxxPct),px=num(vxxPrice);
+    if(![n,p,px].every(Number.isFinite)||px<=0)return null;
+    return(n*(p/100))/px;
+  }
   // Cell 12 — journal payload construction (pure; no I/O). Conflict + option-delta guard.
   // Never copy Candidate strikes into current_position / Current Leg fields.
   function journalRecord({engine,book,humanAction,optionsStatus,candidates,currentOptionLegs}={}){
@@ -279,5 +365,5 @@ window.HybridEngineV3 = (() => {
     if(currentOptionLegs!==undefined) record.current_option_legs=currentOptionLegs;
     return record;
   }
-  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers,operatorSummary,journalRecord};
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,exposureLabels,impliedVxxShares,journalRecord};
 })();

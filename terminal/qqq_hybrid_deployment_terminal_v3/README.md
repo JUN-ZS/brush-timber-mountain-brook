@@ -67,6 +67,12 @@ Every decision records:
 
 **Candidate** is the next buy suggested from the option chain (Find QQQ / Find VXX). **Current Option Leg** is what is already held — Operator Memory / Watch fields (short, long, expiry, qty, entry credit, DTE, Δ). Candidate must never be confused with Current Leg: Cell 04 proves fixture selection; Cell 10 proves **Yahoo-only real retrieval** (LIVE or honest `OPTIONS_SOURCE_DOWN`); **Cell 11** adds the Yahoo→OpenD cascade (`providers/option_candidate_fetch.py`) with `BLOCKED_NO_OPEND` when OpenD is absent/not entitled — never invent strikes. `/api/options` uses the cascade (`status:"LIVE"` on HTTP 200; fail-soft `OPTIONS_SOURCE_DOWN` / `BLOCKED_NO_OPEND` on HTTP 502). Market regime (BUY / HOLD / REDUCE) is a separate clock from option maintenance: HOLD means do not add, keep existing; ROLL monitors held legs only. The ROLL panel prefers Cell 08 `currentOptionLegs` identity (DTE from explicit leg DTE, else calendar days from expiry→today; past expiry → 0) and never treats blank as zero.
 
+## Operator clarity (Cell 13)
+
+- Same-day delayed Cboe settlement + live last spot → `DATA FRESH · MIXED-SOURCE` warn badge (does not block; date-gap AS-OF MIXED >2d still blocks).
+- VXX short exposure is **% NAV**; VXX call credit spreads are **contracts** (implied shares shown when VXX price is finite).
+- Flat / zero option legs (or **No option legs**) silence ROLL — blank DTE never invents ROLL_NOW.
+
 ## Safety
 
 - signal / decision support only
