@@ -303,6 +303,117 @@ window.HybridEngineV3 = (() => {
       message
     };
   }
+  // Cell 16 — frozen strategy state -> funding context -> operator action bridge (read-only).
+  // This is an interpretation/hand-off layer only. It never mutates targetLedger or emits broker orders.
+  function strategyActionBridge({d={},e={},book={},funding={},currentOptionLegs=null,journalRows=[]}={}){
+    const cur=book&&book.current&&typeof book.current==="object"?book.current:{};
+    const tgt=book&&book.target&&typeof book.target==="object"?book.target:{};
+    const delta=book&&book.deltas&&typeof book.deltas==="object"?book.deltas:{};
+    const hasPosition=Number(cur.qqqShares||0)>0||Number(cur.vxxPct||0)>0||Number(cur.qqqCalls||0)>0||Number(cur.vxxCalls||0)>0;
+    const hasBuild=Object.values(delta).some(v=>Number.isFinite(Number(v))&&Number(v)>1e-9);
+    const hasReduction=Object.values(delta).some(v=>Number.isFinite(Number(v))&&Number(v)<-1e-9);
+    let actionClass,operatorInstruction;
+    if(e.blocked){
+      actionClass="PAUSE";
+      operatorInstruction="DATA 未通過：不新增、不減倉；先取得完整/較新資料。";
+    }else if(e.action==="REDUCE"||hasReduction){
+      actionClass="DEFEND";
+      operatorInstruction="按 frozen target 檢查減風險項；完成實際人工動作後 JOURNAL。";
+    }else if(e.action==="BUY"||hasBuild){
+      actionClass="BUILD";
+      operatorInstruction="按 Current → Target 檢查新增項；候選只作參考，不自動下單；完成後 JOURNAL。";
+    }else if(hasPosition){
+      actionClass="MAINTAIN";
+      operatorInstruction="維持現有倉位，等待 NEXT regime / ROLL transition；不新增 carry。";
+    }else{
+      actionClass="READY";
+      operatorInstruction="目前無倉位：等待有效 BUILD 條件；不因空倉自行創造目標。";
+    }
+
+    const summary=operatorSummary(
+      d,
+      e,
+      book,
+      {},
+      {currentOptionLegs:currentOptionLegs||null,today:d.today||null}
+    );
+    const transition=(summary.thresholds||[]).map(x=>({id:x.id,label:x.label,distance:x.distance,text:x.text}));
+    const roll={
+      qqq:summary.rolls&&summary.rolls.qqq?summary.rolls.qqq:{label:"QQQ far",status:"OFF",text:"NO POSITION"},
+      vxx:summary.rolls&&summary.rolls.vxx?summary.rolls.vxx:{label:"VXX call",status:"OFF",text:"NO POSITION"}
+    };
+    const rollNow=[roll.qqq,roll.vxx].filter(x=>x.status==="ROLL_NOW");
+    const fundingView={
+      strategyPool:funding.strategyPool??null,
+      newCapital:funding.newCapital??null,
+      route:funding.route||"REVIEW",
+      qqqGap:Number.isFinite(Number(funding.qqqGap))?Number(funding.qqqGap):null,
+      suggestedQqqFromNewCapital:Number.isFinite(Number(funding.suggestedQqqFromNewCapital))?Number(funding.suggestedQqqFromNewCapital):null,
+      reserveAfterQqq:Number.isFinite(Number(funding.reserveAfterQqq))?Number(funding.reserveAfterQqq):null,
+      status:"CONTEXT_ONLY",
+      promotion:"RESEARCH_ONLY_NOT_EXECUTION"
+    };
+    const last=Array.isArray(journalRows)&&journalRows.length?journalRows[journalRows.length-1]:null;
+    const journalState=last?{
+      eventId:last.event_id??null,
+      state:last.state??null,
+      action:last.engine_action??null,
+      conflict:last.conflict??"NONE"
+    }:{eventId:null,state:null,action:null,conflict:null};
+    const journalChanged=!!last&&(
+      String(last.state??"")!==String(e.state??"") ||
+      String(last.engine_action??"")!==String(e.action??"") ||
+      JSON.stringify(last.target_position||{})!==JSON.stringify(tgt||{})
+    );
+    const closedLoop=[
+      {stage:"DATA",status:e.health&&e.health.status||"UNKNOWN"},
+      {stage:"DECISION",status:e.action||"—"},
+      {stage:"CURRENT",status:hasPosition?"LOADED":"EMPTY"},
+      {stage:"TARGET",status:e.blocked?"PRESERVE CURRENT":"FROZEN POLICY"},
+      {stage:"FUNDING",status:"CONTEXT ONLY"},
+      {stage:"WATCH",status:rollNow.length?"ROLL NOW":"MONITOR"},
+      {stage:"JOURNAL",status:last?(journalChanged?"CHANGED":"ALIGNED"):"READY"}
+    ];
+    return{
+      version:"CELL16-V1",
+      strategyName:"ORIGINAL HYBRID BASELINE",
+      policyVersion:POLICY.policyVersion,
+      engineVersion:POLICY.engineVersion,
+      regime:e.state||"UNKNOWN",
+      engineAction:e.action||null,
+      actionClass,
+      operatorInstruction,
+      current:{
+        qqqShares:num(cur.qqqShares,0),
+        vxxPct:num(cur.vxxPct,0),
+        qqqCalls:num(cur.qqqCalls,0),
+        vxxCalls:num(cur.vxxCalls,0)
+      },
+      target:{
+        qqqShares:num(tgt.qqqShares,num(cur.qqqShares,0)),
+        vxxPct:num(tgt.vxxPct,num(cur.vxxPct,0)),
+        qqqCalls:num(tgt.qqqCalls,num(cur.qqqCalls,0)),
+        vxxCalls:num(tgt.vxxCalls,num(cur.vxxCalls,0))
+      },
+      deltas:{
+        qqqShares:num(delta.qqqShares,0),
+        vxxPct:num(delta.vxxPct,0),
+        qqqCalls:num(delta.qqqCalls,0),
+        vxxCalls:num(delta.vxxCalls,0)
+      },
+      qqqCoreTargetPct:POLICY.corePct,
+      qqqGap:fundingView.qqqGap,
+      funding:fundingView,
+      transition,
+      roll,
+      rollNow,
+      nextStep:rollNow.length?"ROLL_OPTION":"WATCH_NEXT_TRANSITION",
+      journal:{...journalState,changed:journalChanged},
+      closedLoop,
+      noBrokerOrder:true
+    };
+  }
+
   function optionPlan(label,c,n){
     if(!c)return label+" +"+fmtNum(n)+" spreads · candidate PENDING";
     return label+" +"+fmtNum(n)+" spreads · "+fmtNum(c.shortStrike)+"/"+fmtNum(c.longStrike)+" · DTE "+fmtNum(c.dte)+" · Δ "+fmtNum(c.delta)+" · credit "+fmtNum(c.credit);
@@ -578,5 +689,5 @@ window.HybridEngineV3 = (() => {
     }
     return lines;
   }
-  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
 })();
