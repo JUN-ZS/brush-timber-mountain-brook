@@ -245,6 +245,7 @@ window.PortfolioSpreadPnlV1 = (() => {
         rows.push({
           spreadId: paired.spreadId,
           campaignId: paired.campaignId,
+          campaignMetadata: paired.campaignMetadata || "UNASSIGNED",
           strategyRole: paired.strategyRole,
           status: "INCOMPLETE",
           reason: "MISSING_CURRENT_MARK",
