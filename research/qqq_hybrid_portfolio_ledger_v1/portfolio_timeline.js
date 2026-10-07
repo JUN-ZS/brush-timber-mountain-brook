@@ -31,12 +31,14 @@ window.PortfolioCampaignTimelineV1 = (() => {
   }
 
   function marksAt(series, timestamp) {
-    let found = null;
+    const marks = {};
+    let foundTimestamp = null;
     for (const row of series) {
       if (row.timestamp > timestamp) break;
-      found = row;
+      Object.assign(marks, row.marks);
+      foundTimestamp = row.timestamp;
     }
-    return found;
+    return foundTimestamp ? { timestamp: foundTimestamp, marks } : null;
   }
 
   function ensureSpread(state, identity) {
@@ -267,7 +269,7 @@ window.PortfolioCampaignTimelineV1 = (() => {
         rolls: histories.filter((x) => x.eventKind === "ROLL_COMPLETE").length,
         partialCloses: histories.filter((x) => x.eventKind === "PARTIAL_CLOSE").length,
         fullCloses: histories.filter((x) => x.eventKind === "FULL_CLOSE").length,
-        incomplete: histories.filter((x) => x.completeness === "INCOMPLETE" || x.completeness === "IMBALANCED" || x.completeness === "MULTI_CONTRACT").length,
+        incomplete: histories.filter((x) => x.eventKind === "INCOMPLETE" || x.completeness === "IMBALANCED" || x.completeness === "MULTI_CONTRACT").length,
         markedEvents: histories.filter((x) => x.pnlBasis === "MARKED_TOTAL").length,
         realizedOnlyEvents: histories.filter((x) => x.pnlBasis === "REALIZED_ONLY").length,
         scope: "IDENTIFIED_OPTION_SPREADS_ONLY"
