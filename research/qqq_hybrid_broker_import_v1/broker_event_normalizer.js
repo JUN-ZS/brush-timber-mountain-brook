@@ -23,7 +23,8 @@
     OPTION_EXPIRY: "OPTION_EXPIRY",
     ASSIGNMENT: "ASSIGNMENT",
     FX_CONVERSION: "FX_CONVERSION",
-    TRADE_SETTLEMENT_AUDIT: "TRADE_SETTLEMENT_AUDIT"
+    TRADE_SETTLEMENT_AUDIT: "TRADE_SETTLEMENT_AUDIT",
+    ACCOUNT_TRANSFER: "ACCOUNT_TRANSFER"
   });
 
   const QUARANTINE = "QUARANTINE";
@@ -86,7 +87,7 @@
     return out;
   }
 
-  function normalizeDeal(raw, { sourceTimezone = null, feeByOrderId = {}, importedAt = null } = {}) {
+  function normalizeDeal(raw, { sourceTimezone = null, feeByOrderId = {}, fillCountByOrderId = {}, importedAt = null } = {}) {
     const dealId = requiredString(raw?.deal_id ?? raw?.dealID, "deal_id");
     const code = normalizeCode(raw?.code);
     const orderId = String(raw?.order_id ?? raw?.orderID ?? "").trim() || null;
@@ -95,9 +96,13 @@
     const timestamp = parseTimezoneTimestamp(raw?.create_time ?? raw?.createTime, sourceTimezone);
     const side = dealSide(raw);
     const assetType = looksLikeOption(code) ? "OPTION" : "EQUITY";
-    const fee = orderId && Object.prototype.hasOwnProperty.call(feeByOrderId, orderId)
-      ? feeByOrderId[orderId]
-      : null;
+    const orderFillCount = orderId ? (Number(fillCountByOrderId[orderId]) || 0) : 0;
+    const hasOrderFee = orderId && Object.prototype.hasOwnProperty.call(feeByOrderId, orderId);
+    const fee = hasOrderFee && orderFillCount === 1 ? feeByOrderId[orderId] : null;
+    const accountingStatus = fee !== null
+      ? READY
+      : (hasOrderFee && orderFillCount > 1 ? "INCOMPLETE_FEE_ALLOCATION" : INCOMPLETE);
+
     return {
       id: "FUTU:FILL:" + dealId,
       type: EVENT_TYPES.FILL,
@@ -110,7 +115,7 @@
       multiplier: assetType === "OPTION" ? 100 : 1,
       fees: fee,
       currency: null,
-      accountingStatus: fee === null ? INCOMPLETE : READY,
+      accountingStatus,
       provenance: {
         broker: "FUTU",
         source: "history_deal_list_query",
@@ -161,12 +166,17 @@
       eventType = EVENT_TYPES.FX_CONVERSION;
       accountingStatus = QUARANTINE;
       classificationReason = "FX_REQUIRES_CURRENCY_PAIR_ACCOUNTING";
-    } else if (/deposit|withdrawal|fund transfer|cash transfer|入金|出金|轉賬/.test(hay)) {
+    } else if (/deposit|withdrawal|cash deposit|cash withdrawal|入金|出金/.test(hay)) {
       eventType = EVENT_TYPES.CASHFLOW;
-      classificationReason = "EXTERNAL_OR_ACCOUNT_TRANSFER_KEYWORD";
+      classificationReason = "EXPLICIT_EXTERNAL_CASHFLOW_KEYWORD";
+    } else if (/fund transfer|cash transfer|transfer|調撥|轉賬/.test(hay)) {
+      eventType = EVENT_TYPES.ACCOUNT_TRANSFER;
+      accountingStatus = QUARANTINE;
+      classificationReason = "TRANSFER_EXTERNALITY_REQUIRES_ACCOUNT_MAPPING";
     } else if (/commission|fee|platform fee|trading fee|settlement fee|sec fee|taf|tax|stamp duty|費用|稅/.test(hay)) {
       eventType = EVENT_TYPES.FEE;
-      classificationReason = "FEE_KEYWORD";
+      accountingStatus = QUARANTINE;
+      classificationReason = "FEE_DEDUP_LINK_REQUIRED";
     } else if (tradeOrderIds.size && [...tradeOrderIds].some(id => hay.includes(String(id).toLowerCase()))) {
       eventType = EVENT_TYPES.TRADE_SETTLEMENT_AUDIT;
       accountingStatus = QUARANTINE;
@@ -204,12 +214,17 @@
     const cashflows = Array.isArray(raw?.cashflows) ? raw.cashflows : [];
     const fees = feeMap(feeRows);
     const orderIds = new Set(deals.map(x => String(x?.order_id ?? x?.orderID ?? "").trim()).filter(Boolean));
+    const fillCountByOrderId = {};
+    for (const deal of deals) {
+      const orderId = String(deal?.order_id ?? deal?.orderID ?? "").trim();
+      if (orderId) fillCountByOrderId[orderId] = (fillCountByOrderId[orderId] || 0) + 1;
+    }
     const events = [];
     const quarantine = [];
 
     for (const deal of deals) {
       try {
-        events.push(normalizeDeal(deal, { sourceTimezone, feeByOrderId: fees, importedAt }));
+        events.push(normalizeDeal(deal, { sourceTimezone, feeByOrderId: fees, fillCountByOrderId, importedAt }));
       } catch (err) {
         quarantine.push({
           broker: "FUTU",
