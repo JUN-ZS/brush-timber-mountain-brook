@@ -13,20 +13,32 @@ if "%~1"=="" (
   exit /b 2
 )
 if /I "%~1"=="ALL" (
-  for %%N in (01 02 03 04 05 06) do (
-    echo.
-    echo ===== CELL %%N =====
-    node cell%%N_*.js
-    if errorlevel 1 exit /b 1
-  )
-  exit /b 0
+  call :cell 1
+  if errorlevel 1 exit /b 1
+  call :cell 2
+  if errorlevel 1 exit /b 1
+  call :cell 3
+  if errorlevel 1 exit /b 1
+  call :cell 4
+  if errorlevel 1 exit /b 1
+  call :cell 5
+  if errorlevel 1 exit /b 1
+  call :cell 6
+  exit /b %errorlevel%
 )
+call :cell %~1
+exit /b %errorlevel%
+
+:cell
 set CELL=%~1
-if "%CELL%"=="1" set CELL=01
-if "%CELL%"=="2" set CELL=02
-if "%CELL%"=="3" set CELL=03
-if "%CELL%"=="4" set CELL=04
-if "%CELL%"=="5" set CELL=05
-if "%CELL%"=="6" set CELL=06
-node cell%CELL%_*.js
-endlocal
+if "%CELL%"=="1" node cell01_operator_input.js
+if "%CELL%"=="2" node cell02_decision.js
+if "%CELL%"=="3" node cell03_operator_current.js
+if "%CELL%"=="4" node cell04_candidate.js
+if "%CELL%"=="5" node cell05_build.js
+if "%CELL%"=="6" node cell06_watch.js
+if not "%CELL%"=="1" if not "%CELL%"=="2" if not "%CELL%"=="3" if not "%CELL%"=="4" if not "%CELL%"=="5" if not "%CELL%"=="6" (
+  echo Unknown cell: %CELL%
+  exit /b 2
+)
+exit /b 0
