@@ -7,6 +7,13 @@ window.HybridEngineV3 = (() => {
     optionTargetDte: 45,
   });
   const num=(v,d=null)=>{if(v===null||v===undefined||v==="")return d;const x=parseFloat(String(v).replace(/,/g,""));return Number.isFinite(x)?x:d;};
+  function operatorNumber(v,{allowZero=true,min=0}={}){
+    if(v===null||v===undefined||String(v).trim()==="")return{status:"EMPTY",value:null};
+    const n=Number(String(v).replace(/,/g,""));
+    if(!Number.isFinite(n))return{status:"INVALID",value:null};
+    if((!allowZero&&n===0)||n<min)return{status:"INVALID",value:null};
+    return{status:"VALUE",value:n};
+  }
   function term(m1,m2){return Number.isFinite(m1)&&Number.isFinite(m2)&&m1!==0?((m2-m1)/m1)*100:null;}
   function daysBetween(a,b){if(!a||!b)return null;const x=new Date(a+"T00:00:00Z").getTime(),y=new Date(b+"T00:00:00Z").getTime();if(!Number.isFinite(x)||!Number.isFinite(y))return null;return Math.abs(y-x)/86400000;}
   function dataHealth(d){
@@ -51,21 +58,120 @@ window.HybridEngineV3 = (() => {
   }
   function targetLedger(d,e,ledger,candidates={}){
     const cur={qqqShares:num(ledger.qqqShares,0),vxxPct:num(ledger.vxxPct,0),qqqCalls:num(ledger.qqqCalls,0),vxxCalls:num(ledger.vxxCalls,0)};
-    if(e.blocked)return{current:cur,target:{...cur},deltas:{qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0},blocked:true,sizing:{qqqCalls:{status:"BLOCKED"},vxxCalls:{status:"BLOCKED"}}};
+    if(e.blocked)return{current:cur,target:{...cur},deltas:{qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0},blocked:true,inputBlocked:false,sizing:{qqqCalls:{status:"BLOCKED"},vxxCalls:{status:"BLOCKED"}}};
+    if(ledger.inputStatus&&ledger.inputStatus.status!=="READY"){
+      return{current:cur,target:{...cur},deltas:{qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0},blocked:false,inputBlocked:true,inputStatus:ledger.inputStatus,sizing:{qqqCalls:{status:"INPUT_INCOMPLETE"},vxxCalls:{status:"INPUT_INCOMPLETE"}}};
+    }
     const nav=num(ledger.nav,0),qqqPrice=num(d.qqq,0),rawShares=nav>0&&qqqPrice>0?(nav*e.targets.qqqCorePct/100)/qqqPrice:cur.qqqShares,buyAllowed=e.action==="BUY";
     const qc=candidates.qqq||null,vc=candidates.vxx||null,qQty=optionQty(nav,e.targets.qqqCallBudgetPct,qc?.credit),vQty=optionQty(nav,e.targets.vxxCallBudgetPct,vc?.credit);
-    const target={qqqShares:buyAllowed?Math.floor(rawShares):cur.qqqShares,vxxPct:buyAllowed?e.targets.vxxPct:Math.min(cur.vxxPct,e.targets.vxxPct),qqqCalls:buyAllowed?(qc?.sizingAvailable?qQty:cur.qqqCalls):Math.min(cur.qqqCalls,qQty),vxxCalls:buyAllowed?(vc?.sizingAvailable?vQty:cur.vxxCalls):Math.min(cur.vxxCalls,vQty)};
-    return{current:cur,target,deltas:{qqqShares:target.qqqShares-cur.qqqShares,vxxPct:target.vxxPct-cur.vxxPct,qqqCalls:target.qqqCalls-cur.qqqCalls,vxxCalls:target.vxxCalls-cur.vxxCalls},blocked:false,sizing:{qqqCalls:qc?.sizingAvailable?{status:"READY",credit:qc.credit,quantity:qQty,source:qc.source}:{status:"PENDING_CANDIDATE"},vxxCalls:vc?.sizingAvailable?{status:"READY",credit:vc.credit,quantity:vQty,source:vc.source}:{status:"PENDING_CANDIDATE"}}};
+    const qqqCallsTarget=e.action==="HOLD"?cur.qqqCalls:(buyAllowed?(qc?.sizingAvailable?qQty:cur.qqqCalls):Math.min(cur.qqqCalls,qQty));
+    const vxxCallsTarget=e.action==="HOLD"?cur.vxxCalls:(buyAllowed?(vc?.sizingAvailable?vQty:cur.vxxCalls):Math.min(cur.vxxCalls,vQty));
+    const target={qqqShares:buyAllowed?Math.floor(rawShares):cur.qqqShares,vxxPct:buyAllowed?e.targets.vxxPct:Math.min(cur.vxxPct,e.targets.vxxPct),qqqCalls:qqqCallsTarget,vxxCalls:vxxCallsTarget};
+    return{current:cur,target,deltas:{qqqShares:target.qqqShares-cur.qqqShares,vxxPct:target.vxxPct-cur.vxxPct,qqqCalls:target.qqqCalls-cur.qqqCalls,vxxCalls:target.vxxCalls-cur.vxxCalls},blocked:false,inputBlocked:false,sizing:{qqqCalls:qc?.sizingAvailable?{status:"READY",credit:qc.credit,quantity:qQty,source:qc.source}:{status:"PENDING_CANDIDATE"},vxxCalls:vc?.sizingAvailable?{status:"READY",credit:vc.credit,quantity:vQty,source:vc.source}:{status:"PENDING_CANDIDATE"}}};
   }
   function actionRows(book){return Object.entries(book.deltas).map(([key,diff])=>({key,diff,kind:Math.abs(diff)<1e-9?"HOLD":diff>0?"ADD":"REDUCE"}));}
   function triggers(d,e,opt={}){
     const rows=[];
-    if(Number.isFinite(d.s)){rows.push({id:"S_ZERO",label:"VX term to zero",value:d.s<=0?"TRIGGERED":d.s.toFixed(2)+"% → 0",fire:d.s<=0,priority:"HIGH"});rows.push({id:"S_SAFE",label:"VX carry line",value:d.s<=POLICY.termSafe?d.s.toFixed(2)+"% ≤ 5%":(d.s-POLICY.termSafe).toFixed(2)+"% above",fire:d.s<=POLICY.termSafe,priority:"MED"});}
-    if(Number.isFinite(d.vix))rows.push({id:"VIX_28",label:"VIX high line",value:d.vix>=POLICY.vixHigh?"TRIGGERED":(POLICY.vixHigh-d.vix).toFixed(2)+" away",fire:d.vix>=POLICY.vixHigh,priority:"HIGH"});
+    if(Number.isFinite(d.s)){
+      rows.push({id:"S_ZERO",label:"VX term to zero",value:d.s<=0?"TRIGGERED":d.s.toFixed(2)+"% → 0",fire:d.s<=0,mode:d.s<=0?"TRIGGER":"WATCH",priority:"HIGH"});
+      rows.push({id:"S_SAFE",label:"VX carry line",value:d.s<=POLICY.termSafe?d.s.toFixed(2)+"% ≤ 5%":"above 5%",fire:false,mode:d.s<=POLICY.termSafe?"WATCH":"NORMAL",priority:"MED"});
+    }
+    if(Number.isFinite(d.vix))rows.push({id:"VIX_28",label:"VIX high line",value:d.vix>=POLICY.vixHigh?"TRIGGERED":(POLICY.vixHigh-d.vix).toFixed(2)+" away",fire:d.vix>=POLICY.vixHigh,mode:d.vix>=POLICY.vixHigh?"TRIGGER":"WATCH",priority:"HIGH"});
     const qdte=num(opt.qqqDte),qdelta=num(opt.qqqDelta),vdte=num(opt.vxxDte),vdelta=num(opt.vxxDelta);
-    rows.push({id:"QQQ_ROLL",label:"QQQ far call roll",value:"DTE "+(Number.isFinite(qdte)?qdte:"—")+" · Δ "+(Number.isFinite(qdelta)?qdelta.toFixed(2):"—"),fire:(Number.isFinite(qdte)&&qdte<=POLICY.qqqRollDte)||(Number.isFinite(qdelta)&&qdelta>=POLICY.qqqRollDelta),priority:"MED"});
-    rows.push({id:"VXX_ROLL",label:"VXX call roll",value:"DTE "+(Number.isFinite(vdte)?vdte:"—")+" · Δ "+(Number.isFinite(vdelta)?vdelta.toFixed(2):"—"),fire:(Number.isFinite(vdte)&&vdte<=POLICY.vxxRollDte)||(Number.isFinite(vdelta)&&vdelta>=POLICY.vxxRollDelta)||e.state==="SHOCK",priority:"HIGH"});
+    const hasQ=opt.hasQQQCall===true,hasV=opt.hasVXXCall===true;
+    rows.push({id:"QQQ_ROLL",label:"QQQ far call roll",value:!hasQ?"NO POSITION":"DTE "+(Number.isFinite(qdte)?qdte:"—")+" · Δ "+(Number.isFinite(qdelta)?qdelta.toFixed(2):"—"),fire:hasQ&&((Number.isFinite(qdte)&&qdte<=POLICY.qqqRollDte)||(Number.isFinite(qdelta)&&qdelta>=POLICY.qqqRollDelta)),mode:!hasQ?"NO_POSITION":((Number.isFinite(qdte)||Number.isFinite(qdelta))?"TRIGGERABLE":"NEEDS_POSITION_DATA"),priority:"MED"});
+    rows.push({id:"VXX_ROLL",label:"VXX call roll",value:!hasV?"NO POSITION":"DTE "+(Number.isFinite(vdte)?vdte:"—")+" · Δ "+(Number.isFinite(vdelta)?vdelta.toFixed(2):"—"),fire:hasV&&((Number.isFinite(vdte)&&vdte<=POLICY.vxxRollDte)||(Number.isFinite(vdelta)&&vdelta>=POLICY.vxxRollDelta)||e.state==="SHOCK"),mode:!hasV?"NO_POSITION":((Number.isFinite(vdte)||Number.isFinite(vdelta)||e.state==="SHOCK")?"TRIGGERABLE":"NEEDS_POSITION_DATA"),priority:"HIGH"});
     return rows;
   }
-  return{POLICY,num,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers};
+  function operatorSummary(d,e,book,candidates={},opt={}){
+    const hasPosition=book.current.qqqShares>0||book.current.vxxPct>0||book.current.qqqCalls>0||book.current.vxxCalls>0;
+    const acts=Object.entries(book.deltas||{}).filter(([,v])=>Number.isFinite(v)&&Math.abs(v)>1e-9);
+    const mode=e.blocked?"PAUSED":e.action==="REDUCE"?"DEFEND":e.action==="HOLD"?"WATCH":acts.length?"BUILD / REBALANCE":hasPosition?"AT TARGET / MONITOR":"EMPTY / READY TO BUILD";
+    const plan=[];
+    if(e.blocked) plan.push("不新增、不減倉：等待完整新數據");
+    else if(e.action==="HOLD") plan.push("不新增 carry：保留現有倉位，等轉態");
+    else if(e.action==="REDUCE"){
+      plan.push("減風險：VXX seller → "+fmtPct(book.target.vxxPct)+"；QQQ core 保留");
+      if(book.target.qqqCalls<book.current.qqqCalls)plan.push("QQQ far call → 減至 "+fmtNum(book.target.qqqCalls)+" spreads");
+      if(book.target.vxxCalls<book.current.vxxCalls)plan.push("VXX call → 減至 "+fmtNum(book.target.vxxCalls)+" spreads");
+    }else{
+      if(book.deltas.qqqShares>0)plan.push("QQQ core +"+fmtNum(book.deltas.qqqShares)+" shares → "+fmtPct(e.targets.qqqCorePct));
+      if(book.deltas.vxxPct>0)plan.push("VXX short +"+fmtPct(book.deltas.vxxPct)+" NAV → "+fmtPct(e.targets.vxxPct));
+      if(book.deltas.qqqCalls>0)plan.push(optionPlan("QQQ far",candidates.qqq,book.deltas.qqqCalls));
+      if(book.deltas.vxxCalls>0)plan.push(optionPlan("VXX call",candidates.vxx,book.deltas.vxxCalls));
+      if(!plan.length)plan.push("已在目標附近：不追買，只監察 / 轉倉");
+    }
+    const thresholds=[];
+    if(Number.isFinite(d.s)){
+      if(d.s>POLICY.termSafe) thresholds.push({id:"S_5",label:"S → 5% · WEAKENING",distance:d.s-POLICY.termSafe,text:fmtNum(d.s-POLICY.termSafe)+" pp"});
+      else if(d.s>0) thresholds.push({id:"S_0",label:"S → 0% · CUT",distance:d.s,text:fmtNum(d.s)+" pp"});
+      else thresholds.push({id:"S_POS",label:"S back > 0% · exit CUT",distance:-d.s,text:fmtNum(-d.s)+" pp"});
+    }
+    if(Number.isFinite(d.vix)){
+      if(d.vix<28) thresholds.push({id:"VIX_28",label:"VIX → 28 · PRE-SHOCK",distance:28-d.vix,text:fmtNum(28-d.vix)+" pts"});
+      else thresholds.push({id:"VIX_DOWN",label:"VIX back < 28 · remove CAP",distance:d.vix-28,text:fmtNum(d.vix-28)+" pts"});
+    }
+    thresholds.sort((a,b)=>Math.abs(a.distance)-Math.abs(b.distance));
+    const rolls={
+      qqq:rollDistance("QQQ far",book.current.qqqCalls,opt.qqqDte,opt.qqqDelta,POLICY.qqqRollDte,POLICY.qqqRollDelta),
+      vxx:rollDistance("VXX call",book.current.vxxCalls,opt.vxxDte,opt.vxxDelta,POLICY.vxxRollDte,POLICY.vxxRollDelta)
+    };
+    return{mode,plan,thresholds:thresholds.slice(0,3),rolls,hasPosition};
+  }
+  function fmtNum(v){return Number.isFinite(Number(v))?Number(v).toLocaleString("en-US",{maximumFractionDigits:2}):"—";}
+  function fmtPct(v){return Number.isFinite(Number(v))?fmtNum(v)+"%":"—";}
+  function optionPlan(label,c,n){
+    if(!c)return label+" +"+fmtNum(n)+" spreads · candidate PENDING";
+    return label+" +"+fmtNum(n)+" spreads · "+fmtNum(c.shortStrike)+"/"+fmtNum(c.longStrike)+" · DTE "+fmtNum(c.dte)+" · Δ "+fmtNum(c.delta)+" · credit "+fmtNum(c.credit);
+  }
+  function rollDistance(label,count,dte,delta,dteLine,deltaLine){
+    if(!(count>0))return{label,status:"OFF",text:"NO POSITION"};
+    const present=v=>v!==null&&v!==undefined&&String(v).trim()!=="";
+    const d=present(dte)?Number(dte):null,del=present(delta)?Number(delta):null;
+    if(d===null&&!Number.isFinite(del))return{label,status:"NEEDS_DATA",text:"輸入現有 spread DTE / Δ"};
+    const dteLeft=Number.isFinite(d)?d-dteLine:null;
+    const deltaLeft=Number.isFinite(del)?deltaLine-del:null;
+    const fire=(Number.isFinite(dteLeft)&&dteLeft<=0)||(Number.isFinite(deltaLeft)&&deltaLeft<=0);
+    const parts=[];
+    if(Number.isFinite(dteLeft))parts.push("DTE "+(dteLeft<=0?"ROLL NOW":fmtNum(dteLeft)+"d"));
+    if(Number.isFinite(deltaLeft))parts.push("Δ "+(deltaLeft<=0?"ROLL NOW":fmtNum(deltaLeft)));
+    return{label,status:fire?"ROLL_NOW":"WATCH",text:parts.join(" · ")};
+  }
+  // Cell 08 — current credit-spread leg identity (display/parse only; does not change Decision/Candidate/Build).
+  // entryCredit: credit is positive; a debit may be negative.
+  function operatorExpiry(v){
+    if(v===null||v===undefined||String(v).trim()==="")return{status:"EMPTY",value:null};
+    const s=String(v).trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return{status:"INVALID",value:null};
+    const t=Date.parse(s+"T00:00:00Z");
+    if(!Number.isFinite(t))return{status:"INVALID",value:null};
+    return{status:"VALUE",value:s};
+  }
+  function parseOptionLeg(raw={}){
+    const src=raw&&typeof raw==="object"?raw:{};
+    const qty=operatorNumber(src.qty,{allowZero:true,min:0});
+    const shortStrike=operatorNumber(src.shortStrike,{allowZero:false,min:0});
+    const longStrike=operatorNumber(src.longStrike,{allowZero:false,min:0});
+    const expiry=operatorExpiry(src.expiry);
+    const dte=operatorNumber(src.dte,{allowZero:true,min:0});
+    const delta=operatorNumber(src.delta,{allowZero:true,min:0});
+    const entryCredit=operatorNumber(src.entryCredit,{allowZero:true,min:Number.NEGATIVE_INFINITY});
+    const fields={qty,shortStrike,longStrike,expiry,dte,delta,entryCredit};
+    const width=(shortStrike.status==="VALUE"&&longStrike.status==="VALUE")?longStrike.value-shortStrike.value:null;
+    const anyInvalid=Object.values(fields).some(f=>f.status==="INVALID");
+    const identityReady=shortStrike.status==="VALUE"&&longStrike.status==="VALUE"&&expiry.status==="VALUE";
+    const othersEmpty=[shortStrike,longStrike,expiry,dte,delta,entryCredit].every(f=>f.status==="EMPTY");
+    let status;
+    if(anyInvalid) status="INVALID";
+    else if((qty.status==="VALUE"&&qty.value===0)||(qty.status==="EMPTY"&&othersEmpty)) status="FLAT";
+    else if(qty.status==="VALUE"&&qty.value>0&&identityReady) status="READY";
+    else status="INCOMPLETE";
+    const rollReady=status==="READY"&&dte.status==="VALUE"&&delta.status==="VALUE";
+    return{...fields,width,status,rollReady};
+  }
+  function currentOptionLegs(input={}){
+    const src=input&&typeof input==="object"?input:{};
+    return{qqq:parseOptionLeg(src.qqq||{}),vxx:parseOptionLeg(src.vxx||{})};
+  }
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers,operatorSummary};
 })();
