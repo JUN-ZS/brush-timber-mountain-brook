@@ -134,7 +134,14 @@ function independentExpected(data, current) {
   const qqqCallBudget = backwardation || high ? 0 : CONTRACT.qqqCallBudgetPct;
   const vxxCallBudget = backwardation || high ? 0 : CONTRACT.vxxCallBudgetPct;
 
-  let target = { ...current };
+  // Keep the independent target shape identical to the production Ledger
+  // on every non-blocked path, including HOLD.
+  let target = {
+    qqqShares: current.qqqShares,
+    vxxPct: current.vxxPct,
+    qqqCalls: current.qqqCalls,
+    vxxCalls: current.vxxCalls,
+  };
   if (action === "BUY") {
     const qqqTargetShares = data.qqq > 0
       ? Math.floor((current.nav * CONTRACT.corePct / 100) / data.qqq)
@@ -478,6 +485,40 @@ function runSelfTest() {
       console.log("  expected action:", e.action, "actual:", actual.action);
       console.log("  expected target:", JSON.stringify(e.target), "actual:", JSON.stringify(book.target));
       console.log("  expected class:", expectedClass, "actual:", b.actionClass);
+      allPass = false;
+    }
+  }
+
+  // HOLD shape regression: independent expected target must contain exactly
+  // the four production Ledger fields, never NAV.
+  {
+    const holdData = makeData({
+      today,
+      m1: 16,
+      m2: 16.48,
+      termAsOf: today,
+      spotAsOf: today,
+    });
+    const holdExpected = independentExpected(holdData, current);
+    const holdActual = E.targetLedger(
+      holdData,
+      E.derive(holdData),
+      {
+        nav: current.nav,
+        qqqShares: current.qqqShares,
+        vxxPct: current.vxxPct,
+        qqqCalls: current.qqqCalls,
+        vxxCalls: current.vxxCalls,
+        inputStatus: { status: "READY", invalid: [], empty: [], fields: {} },
+      },
+      {},
+    );
+    const exactShape = JSON.stringify(holdExpected.target) === JSON.stringify(holdActual.target);
+    const noNav = !Object.prototype.hasOwnProperty.call(holdExpected.target, "nav");
+    const pass = holdActual.state === "WEAKENING" && holdActual.action === "HOLD" && exactShape && noNav;
+    console.log((pass ? "PASS" : "FAIL") + " · HOLD TARGET SHAPE · four Ledger fields only");
+    if (!pass) {
+      console.log("  expected target:", JSON.stringify(holdExpected.target), "actual:", JSON.stringify(holdActual.target));
       allPass = false;
     }
   }
