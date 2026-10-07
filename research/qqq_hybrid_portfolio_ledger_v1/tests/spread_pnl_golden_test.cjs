@@ -157,4 +157,36 @@ const unorderedSpread = S.attribute([
 eq(unorderedSpread.rows[0].status, "PAIRED", "unordered spread stays paired");
 near(unorderedSpread.rows[0].totalPnl, 1194, 1e-9, "unordered spread FIFO attribution");
 
+
+// BLOCKER B: null/blank marks must NOT coerce to 0 and invent P&L
+const nullMarkEvents = [
+  { id:"nb-short", timestamp:"2026-10-01T10:00:00Z", symbol:"QQQ261218C00700000", assetType:"OPTION", side:"SELL", quantity:1, price:5, fees:0,
+    positionIdentity:{campaignId:"CA",spreadId:"SPB",legRole:"SHORT",strategyRole:"ROLE"} },
+  { id:"nb-long", timestamp:"2026-10-01T10:01:00Z", symbol:"QQQ261218C00750000", assetType:"OPTION", side:"BUY", quantity:1, price:2, fees:0,
+    positionIdentity:{campaignId:"CA",spreadId:"SPB",legRole:"LONG",strategyRole:"ROLE"} }
+];
+const nullMark = S.attribute(nullMarkEvents, { QQQ261218C00750000: null, QQQ261218C00700000: 5 });
+eq(nullMark.rows[0].status, "INCOMPLETE", "null mark blocked");
+eq(nullMark.rows[0].reason, "MISSING_CURRENT_MARK", "null mark reason");
+eq(nullMark.rows[0].totalPnl, null, "null mark no fabricated pnl");
+eq(nullMark.rows[0].longLeg.mark, null, "null mark stays null not 0");
+
+const blankMark = S.attribute(nullMarkEvents, { QQQ261218C00750000: "", QQQ261218C00700000: 5 });
+eq(blankMark.rows[0].status, "INCOMPLETE", "blank mark blocked");
+eq(blankMark.rows[0].reason, "MISSING_CURRENT_MARK", "blank mark reason");
+eq(blankMark.rows[0].totalPnl, null, "blank mark no fabricated pnl");
+
+// RISK A: campaignId conflict blocks attribution (no first-seen wins)
+const conflictEvents = [
+  { id:"cf-long", timestamp:"2026-10-01T10:00:00Z", symbol:"QQQ261218C00750000", assetType:"OPTION", side:"BUY", quantity:1, price:2, fees:0,
+    positionIdentity:{campaignId:"CA",spreadId:"SPC",legRole:"LONG",strategyRole:"ROLE_A"} },
+  { id:"cf-short", timestamp:"2026-10-01T10:01:00Z", symbol:"QQQ261218C00700000", assetType:"OPTION", side:"SELL", quantity:1, price:5, fees:0,
+    positionIdentity:{campaignId:"CB",spreadId:"SPC",legRole:"SHORT",strategyRole:"ROLE_B"} }
+];
+const conflict = S.attribute(conflictEvents, { QQQ261218C00750000: 3, QQQ261218C00700000: 4 });
+eq(conflict.rows[0].status, "INCOMPLETE", "campaign conflict blocked");
+eq(conflict.rows[0].reason, "POSITION_IDENTITY_METADATA_CONFLICT", "campaign conflict reason");
+eq(conflict.rows[0].campaignId, null, "campaign conflict clears campaignId");
+eq(conflict.rows[0].totalPnl, null, "campaign conflict no pnl");
+
 console.log("SPREAD PNL ATTRIBUTION GOLDEN TEST: PASS");

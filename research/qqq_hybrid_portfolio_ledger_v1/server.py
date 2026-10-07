@@ -130,17 +130,23 @@ def row_get(row, *names):
     return None
 
 
+class CorruptJournalError(ValueError):
+    """One corrupt journal line blocks the whole ledger (fail closed)."""
+
+
 def read_events():
     if not EVENTS.exists():
         return []
     out = []
-    for line in EVENTS.read_text(encoding="utf-8").splitlines():
+    for line_no, line in enumerate(EVENTS.read_text(encoding="utf-8").splitlines(), start=1):
         if not line.strip():
             continue
         try:
             out.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
+        except json.JSONDecodeError as exc:
+            raise CorruptJournalError(
+                "CORRUPT_JOURNAL: invalid JSON at line " + str(line_no) + ": " + str(exc)
+            ) from exc
     return out
 
 
@@ -247,7 +253,16 @@ class Handler(SimpleHTTPRequestHandler):
                 "broker_orders": False,
             })
         if parsed.path == "/api/events":
-            return json_resp(self, {"ok": True, "events": read_events()})
+            try:
+                return json_resp(self, {"ok": True, "events": read_events()})
+            except CorruptJournalError as exc:
+                return json_resp(self, {
+                    "ok": False,
+                    "blocked": True,
+                    "status": "CORRUPT_JOURNAL",
+                    "error": str(exc),
+                    "events": [],
+                }, 409)
         if parsed.path == "/api/marks":
             symbols = urllib.parse.parse_qs(parsed.query).get("symbols", [""])[0].split(",")
             rows, errors = get_marks(symbols)
@@ -308,6 +323,13 @@ class Handler(SimpleHTTPRequestHandler):
                     validate_event(event)
                 added, duplicates = append_events(incoming)
             return json_resp(self, {"ok": True, "added": added, "duplicates": duplicates})
+        except CorruptJournalError as exc:
+            return json_resp(self, {
+                "ok": False,
+                "blocked": True,
+                "status": "CORRUPT_JOURNAL",
+                "error": str(exc),
+            }, 409)
         except Exception as exc:
             return json_resp(self, {"ok": False, "error": type(exc).__name__ + ": " + str(exc)}, 400)
 

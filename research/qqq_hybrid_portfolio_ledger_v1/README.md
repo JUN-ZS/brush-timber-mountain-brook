@@ -54,7 +54,11 @@ For a period with a valid starting valuation:
 
 A period return is only shown when the starting equity is known and non-zero.
 
-For an arbitrary historical start date, the operator must provide the start-date marks for positions that were already held. Without those marks, the UI labels the period return as incomplete rather than fabricating a number.
+For an arbitrary historical range, the operator must provide **start-date marks** and **end-date marks** for positions held at those valuation points. Without those marks, the UI labels the period return as incomplete rather than fabricating a number.
+
+Historical period queries never silently substitute today's live marks for a past `endAt`. Live/current marks may be used for the period end only when `endAt` is effectively "now" (within two minutes) and the End-date marks JSON is empty. Current NAV (non-period) still uses live + manual marks as usual.
+
+Null, blank, or non-finite mark values are rejected as missing — they are never coerced to price 0 (`Number(null)===0` must not invent P&L).
 
 ## P&L and strategy signals are intentionally separate
 
@@ -84,6 +88,7 @@ A future bridge may display a V3 recommendation next to actual portfolio state, 
 - no DELETE transaction API
 - corrections should be represented by a compensating transaction
 - live marks are advisory MTM, never edited into historical fills
+- one corrupt journal line blocks the whole ledger (`CORRUPT_JOURNAL`); lines are never silently skipped
 
 ## Local run (Windows CMD)
 
@@ -103,7 +108,7 @@ Implemented now:
 - transaction journal
 - FIFO accounting
 - current NAV / P&L
-- period P&L with explicit start marks
+- period P&L with explicit start and end marks
 - live mark endpoint
 - import/export JSON in the browser
 - read-only V3 decision bridge
@@ -127,11 +132,18 @@ An option fill may carry:
 
 The same spreadId is the only binding between legs. A spread is PAIRED only when exactly one active LONG contract and one active SHORT contract remain and their absolute open quantities match. Identity also records whether that spread has ever reached a valid paired state; a history that merely ends with both legs at zero but was never paired remains INCOMPLETE.
 
+Identity fields that must stay consistent for one spreadId:
+
+- `campaignId` — required to be identical across all fills that share the spreadId. Conflicting campaignIds fail closed as `METADATA_CONFLICT` (no first-seen wins; campaign aggregation must not silently attribute to the wrong campaign).
+- `legRole` — per fill, LONG or SHORT.
+- `strategyRole` — informational; differing values surface as `MIXED` and do not by themselves block pairing.
+
 Visible non-paired states are:
 
 - INCOMPLETE: one leg is missing
 - IMBALANCED: both legs exist but quantities differ
 - MULTI_CONTRACT: more than one active contract remains on either leg role
+- METADATA_CONFLICT: same spreadId carries conflicting campaignId values
 
 This layer is identity / pairing only. It does not attribute P&L by spread, does not infer credit vs debit, and does not modify V3 policy. V3 option targets remain UNMAPPED in reconciliation because the current target is a budget percentage, not an explicit spread count.
 

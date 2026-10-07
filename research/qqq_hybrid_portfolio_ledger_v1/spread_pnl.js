@@ -72,9 +72,17 @@ window.PortfolioSpreadPnlV1 = (() => {
     return book.lots.reduce((sum, lot) => sum + lot.qty, 0);
   }
 
+  function parseMark(mark) {
+    // Never coerce null/undefined/""/non-finite to 0 (Number(null)===0 would invent P&L).
+    if (mark === null || mark === undefined || mark === "") return null;
+    const n = typeof mark === "number" ? mark : Number(mark);
+    return Number.isFinite(n) ? n : null;
+  }
+
   function legSnapshot(book, mark) {
     const quantity = openQuantity(book);
-    const hasMark = Number.isFinite(Number(mark));
+    const parsedMark = parseMark(mark);
+    const hasMark = parsedMark !== null;
     let currentValue = null;
     let unrealizedPnl = null;
     let entryDebit = 0;
@@ -84,9 +92,9 @@ window.PortfolioSpreadPnlV1 = (() => {
       if (lot.qty > 0) entryDebit += lot.qty * lot.price * lot.multiplier;
       if (lot.qty < 0) entryCredit += Math.abs(lot.qty) * lot.price * lot.multiplier;
       if (hasMark) {
-        currentValue = (currentValue || 0) + lot.qty * Number(mark) * lot.multiplier;
-        if (lot.qty > 0) unrealizedPnl = (unrealizedPnl || 0) + (Number(mark) - lot.price) * lot.qty * lot.multiplier;
-        if (lot.qty < 0) unrealizedPnl = (unrealizedPnl || 0) + (lot.price - Number(mark)) * Math.abs(lot.qty) * lot.multiplier;
+        currentValue = (currentValue || 0) + lot.qty * parsedMark * lot.multiplier;
+        if (lot.qty > 0) unrealizedPnl = (unrealizedPnl || 0) + (parsedMark - lot.price) * lot.qty * lot.multiplier;
+        if (lot.qty < 0) unrealizedPnl = (unrealizedPnl || 0) + (lot.price - parsedMark) * Math.abs(lot.qty) * lot.multiplier;
       }
     }
 
@@ -97,7 +105,7 @@ window.PortfolioSpreadPnlV1 = (() => {
       multiplier: book.multiplier,
       entryDebit,
       entryCredit,
-      mark: hasMark ? Number(mark) : null,
+      mark: hasMark ? parsedMark : null,
       currentValue,
       realizedPnl: book.realizedPnl,
       unrealizedPnl,
@@ -119,6 +127,28 @@ window.PortfolioSpreadPnlV1 = (() => {
 
     for (const paired of identity.rows) {
       if (paired.status !== "PAIRED") {
+        if (paired.status === "METADATA_CONFLICT") {
+          rows.push({
+            spreadId: paired.spreadId,
+            campaignId: null,
+            strategyRole: paired.strategyRole,
+            status: "INCOMPLETE",
+            reason: "POSITION_IDENTITY_METADATA_CONFLICT",
+            units: null,
+            longLeg: null,
+            shortLeg: null,
+            entryDebit: null,
+            entryCredit: null,
+            netEntryCredit: null,
+            currentValue: null,
+            realizedPnl: null,
+            unrealizedPnl: null,
+            fees: null,
+            totalPnl: null
+          });
+          continue;
+        }
+
         const spreadBooks = Object.values(books).filter(b => b.spreadId === paired.spreadId);
         const roleBooks = {
           LONG: spreadBooks.filter(b => b.legRole === "LONG"),

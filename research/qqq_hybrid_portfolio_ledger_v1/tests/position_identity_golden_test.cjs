@@ -99,4 +99,25 @@ eq(unorderedIdentity.status, orderedIdentity.status, "unordered identity status"
 eq(unorderedIdentity.units, orderedIdentity.units, "unordered identity units");
 eq(unorderedIdentity.everPaired, orderedIdentity.everPaired, "unordered identity ever-paired state");
 
+
+const campaignConflict = P.build([
+  {id:"cc-l",timestamp:"2026-10-09T10:00:00Z",symbol:"QQQ261218C01300000",assetType:"OPTION",side:"BUY",quantity:1,price:2,
+   positionIdentity:{campaignId:"CA",spreadId:"QCC1",legRole:"LONG",strategyRole:"ROLE_A"}},
+  {id:"cc-s",timestamp:"2026-10-09T10:01:00Z",symbol:"QQQ261218C01350000",assetType:"OPTION",side:"SELL",quantity:1,price:5,
+   positionIdentity:{campaignId:"CB",spreadId:"QCC1",legRole:"SHORT",strategyRole:"ROLE_B"}}
+]);
+eq(campaignConflict.rows[0].status, "METADATA_CONFLICT", "campaign conflict status");
+eq(campaignConflict.rows[0].campaignId, null, "campaign conflict clears single campaignId");
+eq(campaignConflict.summary.metadataConflict, 1, "campaign conflict summary");
+eq(campaignConflict.rows[0].campaignIds.join(","), "CA,CB", "campaign conflict lists both ids");
+
+const sameCampaign = P.build([
+  {id:"sc-l",timestamp:"2026-10-09T11:00:00Z",symbol:"QQQ261218C01400000",assetType:"OPTION",side:"BUY",quantity:1,price:2,
+   positionIdentity:{campaignId:"CA",spreadId:"QSC1",legRole:"LONG"}},
+  {id:"sc-s",timestamp:"2026-10-09T11:01:00Z",symbol:"QQQ261218C01450000",assetType:"OPTION",side:"SELL",quantity:1,price:5,
+   positionIdentity:{campaignId:"CA",spreadId:"QSC1",legRole:"SHORT"}}
+]);
+eq(sameCampaign.rows[0].status, "PAIRED", "consistent campaign stays paired");
+eq(sameCampaign.rows[0].campaignId, "CA", "consistent campaign retained");
+
 console.log("POSITION IDENTITY GOLDEN TEST: PASS");

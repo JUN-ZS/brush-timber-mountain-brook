@@ -311,6 +311,44 @@ window.PortfolioLedgerV1 = (() => {
     };
   }
 
+  /** Reject null/undefined/""/non-finite — never coerce Number(null)===0 into a mark. */
+  function parseMarksObject(x, label = "marks") {
+    if (!x || typeof x !== "object" || Array.isArray(x)) {
+      throw new Error(label + " must be a JSON object");
+    }
+    const out = {};
+    for (const k of Object.keys(x)) {
+      const v = x[k];
+      if (v === null || v === undefined || v === "") {
+        throw new Error(
+          label + ": mark for " + k + " is missing (null/blank); omit the key or provide a finite number"
+        );
+      }
+      const n = num(v);
+      if (n === null) throw new Error(label + ": mark for " + k + " must be a finite number");
+      out[String(k).toUpperCase()] = n;
+    }
+    return out;
+  }
+
+  /**
+   * Historical period queries must use explicit endMarks only.
+   * Live marks are allowed only when endAt is effectively "now" and endMarks JSON is empty.
+   */
+  function resolvePeriodEndMarks(endAt, endMarksFromForm = {}, liveMerged = {}, nowMs = Date.now()) {
+    const explicit = endMarksFromForm && typeof endMarksFromForm === "object" ? endMarksFromForm : {};
+    if (Object.keys(explicit).length) {
+      return { endMarks: explicit, usedLiveEnd: false };
+    }
+    const endMs = new Date(endAt).getTime();
+    const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+    const isLiveEnd = Number.isFinite(endMs) && Math.abs(endMs - now) <= 2 * 60 * 1000;
+    if (isLiveEnd) {
+      return { endMarks: liveMerged || {}, usedLiveEnd: true };
+    }
+    return { endMarks: {}, usedLiveEnd: false };
+  }
+
   return {
     ASSET_TYPES,
     SIDES,
@@ -322,5 +360,8 @@ window.PortfolioLedgerV1 = (() => {
     snapshot,
     periodMetrics,
     exportBundle,
+    parseMarksObject,
+    resolvePeriodEndMarks,
+    num,
   };
 })();

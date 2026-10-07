@@ -109,4 +109,54 @@ try {
 }
 ok(mismatchCaught, "asset mismatch blocked");
 
+
+// BLOCKER B: ledger snapshot must not coerce null/blank mark to 0
+const nullSnap = L.snapshot([
+  { type:"CASHFLOW", id:"ncf", timestamp:"2026-10-01T09:00:00Z", amount:100000 },
+  { id:"neq", timestamp:"2026-10-01T10:00:00Z", symbol:"QQQ", assetType:"EQUITY", side:"BUY", quantity:1, price:100, fees:0 }
+], { QQQ: null });
+ok(nullSnap.positions[0].mark === null, "ledger null mark stays null");
+ok(!nullSnap.coverage.allMarksPresent, "ledger null mark incomplete coverage");
+
+let parseNullCaught = false;
+try { L.parseMarksObject({ QQQ: null }, "manual marks"); }
+catch (err) { parseNullCaught = /missing \(null\/blank\)/.test(String(err)); }
+ok(parseNullCaught, "parseMarksObject rejects null");
+
+let parseBlankCaught = false;
+try { L.parseMarksObject({ QQQ: "" }, "manual marks"); }
+catch (err) { parseBlankCaught = /missing \(null\/blank\)/.test(String(err)); }
+ok(parseBlankCaught, "parseMarksObject rejects blank");
+
+const parsed = L.parseMarksObject({ qqq: "742.5" }, "manual marks");
+near(parsed.QQQ, 742.5, 1e-12, "parseMarksObject uppercases and parses");
+
+// BLOCKER C: historical end without endMarks fails closed; must not silently use live marks
+const histCash = { type:"CASHFLOW", id:"hc1", timestamp:"2026-09-01T09:00:00Z", amount:100000 };
+const histBuy = { id:"hq1", timestamp:"2026-09-01T10:00:00Z", symbol:"QQQ", assetType:"EQUITY", side:"BUY", quantity:10, price:100, fees:0 };
+const startAt = "2026-09-01T12:00:00Z";
+const histEndAt = "2026-09-15T12:00:00Z";
+const startMarks = { QQQ: 100 };
+const liveToday = { QQQ: 999 };
+const resolvedHist = L.resolvePeriodEndMarks(histEndAt, {}, liveToday, Date.parse("2026-10-07T00:00:00Z"));
+ok(!resolvedHist.usedLiveEnd, "historical end does not use live marks");
+ok(Object.keys(resolvedHist.endMarks).length === 0, "historical empty endMarks stays empty");
+const histIncomplete = L.periodMetrics([histCash, histBuy], startAt, histEndAt, startMarks, resolvedHist.endMarks);
+ok(!histIncomplete.complete && histIncomplete.pnl === null, "historical period without end marks is incomplete");
+
+const resolvedLive = L.resolvePeriodEndMarks(
+  new Date(Date.parse("2026-10-07T00:00:00Z")).toISOString(),
+  {},
+  liveToday,
+  Date.parse("2026-10-07T00:00:30Z")
+);
+ok(resolvedLive.usedLiveEnd, "end≈now may use live marks");
+near(resolvedLive.endMarks.QQQ, 999, 1e-12, "live end marks passthrough");
+
+const explicitEnd = L.resolvePeriodEndMarks(histEndAt, { QQQ: 110 }, liveToday, Date.parse("2026-10-07T00:00:00Z"));
+ok(!explicitEnd.usedLiveEnd, "explicit end marks preferred over live");
+const histComplete = L.periodMetrics([histCash, histBuy], startAt, histEndAt, startMarks, explicitEnd.endMarks);
+ok(histComplete.complete, "historical period with explicit end marks complete");
+near(histComplete.pnl, 100, 1e-9, "historical period pnl uses end marks not live");
+
 console.log("LEDGER GOLDEN TEST: PASS");

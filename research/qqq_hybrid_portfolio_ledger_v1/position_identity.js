@@ -38,12 +38,22 @@ window.PortfolioPositionIdentityV1 = (() => {
           campaignId: identity.campaignId || null,
           strategyRoles: new Set(),
           legs: { LONG: {}, SHORT: {} },
-          everPaired: false
+          everPaired: false,
+          metadataConflict: false,
+          campaignIdsSeen: new Set(identity.campaignId ? [identity.campaignId] : [])
         };
       }
 
       const group = groups[spreadId];
-      if (identity.campaignId && !group.campaignId) group.campaignId = identity.campaignId;
+      // campaignId must be consistent for the same spreadId (no first-seen wins).
+      if (identity.campaignId) {
+        group.campaignIdsSeen.add(identity.campaignId);
+        if (!group.campaignId) {
+          group.campaignId = identity.campaignId;
+        } else if (group.campaignId !== identity.campaignId) {
+          group.metadataConflict = true;
+        }
+      }
       if (identity.strategyRole) group.strategyRoles.add(identity.strategyRole);
 
       const bySymbol = group.legs[legRole];
@@ -74,7 +84,10 @@ window.PortfolioPositionIdentityV1 = (() => {
       let status = "INCOMPLETE";
       let units = null;
 
-      if (longLegs.length === 1 && shortLegs.length === 1) {
+      if (group.metadataConflict) {
+        status = "METADATA_CONFLICT";
+        units = null;
+      } else if (longLegs.length === 1 && shortLegs.length === 1) {
         const longQty = Math.abs(longLegs[0].quantity);
         const shortQty = Math.abs(shortLegs[0].quantity);
         if (Math.abs(longQty - shortQty) <= EPS) {
@@ -89,7 +102,8 @@ window.PortfolioPositionIdentityV1 = (() => {
 
       return {
         spreadId: group.spreadId,
-        campaignId: group.campaignId,
+        campaignId: group.metadataConflict ? null : group.campaignId,
+        campaignIds: [...group.campaignIdsSeen].sort(),
         strategyRole: group.strategyRoles.size === 1 ? [...group.strategyRoles][0] : (group.strategyRoles.size ? "MIXED" : null),
         status,
         units,
@@ -107,7 +121,8 @@ window.PortfolioPositionIdentityV1 = (() => {
         paired: rows.filter(r => r.status === "PAIRED").length,
         incomplete: rows.filter(r => r.status === "INCOMPLETE").length,
         imbalanced: rows.filter(r => r.status === "IMBALANCED").length,
-        multiContract: rows.filter(r => r.status === "MULTI_CONTRACT").length
+        multiContract: rows.filter(r => r.status === "MULTI_CONTRACT").length,
+        metadataConflict: rows.filter(r => r.status === "METADATA_CONFLICT").length
       },
       contract: "POSITION_IDENTITY_V1"
     };

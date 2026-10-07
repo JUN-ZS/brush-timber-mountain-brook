@@ -23,6 +23,10 @@ function mergedMarks(){
   return Object.assign({}, liveMarks, manualMarks);
 }
 
+const parseMarksObject = (x, label) => L.parseMarksObject(x, label);
+const resolvePeriodEndMarks = (endAt, endMarksFromForm, liveMerged, nowMs) =>
+  L.resolvePeriodEndMarks(endAt, endMarksFromForm, liveMerged, nowMs);
+
 function fillTimestampToIso(v){
   return v ? new Date(v).toISOString() : new Date().toISOString();
 }
@@ -260,10 +264,19 @@ function fmtRecon(value, unit){
 async function loadEvents(){
   const r = await fetch("/api/events?ts=" + Date.now(), {cache:"no-store"});
   const j = await r.json();
-  if(!r.ok || !j.ok) throw new Error(j.error || "events unavailable");
+  if(!r.ok || !j.ok){
+    if(j && (j.status === "CORRUPT_JOURNAL" || j.blocked)){
+      events = [];
+      $("eventCount").textContent = "0";
+      $("ledgerStatus").textContent = "BLOCKED · CORRUPT_JOURNAL";
+      $("ledgerStatus").className = "status warn";
+    }
+    throw new Error(j.error || j.status || "events unavailable");
+  }
   events = Array.isArray(j.events) ? j.events : [];
   $("eventCount").textContent = String(events.length);
   $("ledgerStatus").textContent = "READY";
+  $("ledgerStatus").className = "status ok";
 }
 
 async function fetchMarks(){
@@ -272,7 +285,12 @@ async function fetchMarks(){
   const r = await fetch("/api/marks?symbols=" + encodeURIComponent(symbols.join(",")) + "&ts=" + Date.now(), {cache:"no-store"});
   const j = await r.json();
   liveMarks = {};
-  (j.rows || []).forEach(x => { if(Number.isFinite(Number(x.price))) liveMarks[x.symbol] = Number(x.price); });
+  (j.rows || []).forEach(x => {
+    const price = x.price;
+    if(price === null || price === undefined || price === "") return;
+    const n = Number(price);
+    if(Number.isFinite(n)) liveMarks[x.symbol] = n;
+  });
   $("markStatus").textContent = (j.source || "NONE") + " · " + (j.asOf || "—");
   $("coverage").textContent = (Object.keys(liveMarks).length) + "/" + symbols.length + " live marks";
   renderAll();
@@ -346,13 +364,7 @@ function renderAll(){
 function manualMarksFromForm(){
   const raw = $("manualMarks").value.trim();
   if(!raw){ manualMarks={}; return; }
-  const x = JSON.parse(raw);
-  if(!x || typeof x !== "object" || Array.isArray(x)) throw new Error("manual marks must be a JSON object");
-  manualMarks={};
-  Object.keys(x).forEach(k => {
-    const n=Number(x[k]);
-    if(Number.isFinite(n)) manualMarks[String(k).toUpperCase()]=n;
-  });
+  manualMarks = parseMarksObject(JSON.parse(raw), "manual marks");
 }
 
 function setDefaultTimes(){
@@ -451,11 +463,15 @@ $("periodBtn").addEventListener("click",()=>{
     manualMarksFromForm();
     const startRaw=$("periodStart").value, endRaw=$("periodEnd").value;
     const startMarksRaw=$("startMarks").value.trim();
-    const startMarks=startMarksRaw?JSON.parse(startMarksRaw):{};
+    const endMarksRaw=$("endMarks").value.trim();
+    const startMarks=startMarksRaw?parseMarksObject(JSON.parse(startMarksRaw),"start-date marks"):{};
+    const endMarksForm=endMarksRaw?parseMarksObject(JSON.parse(endMarksRaw),"end-date marks"):{};
     const startAt=new Date(startRaw).toISOString();
     const endAt=new Date(endRaw).toISOString();
-    const result=L.periodMetrics(events, startAt, endAt, startMarks, mergedMarks());
-    const performance=CP.performance(events, startAt, endAt, startMarks, mergedMarks());
+    const resolved=resolvePeriodEndMarks(endAt, endMarksForm, mergedMarks(), Date.now());
+    const endMarks=resolved.endMarks;
+    const result=L.periodMetrics(events, startAt, endAt, startMarks, endMarks);
+    const performance=CP.performance(events, startAt, endAt, startMarks, endMarks);
     const timeline=CT.timeline(events);
     $("periodBadge").textContent=result.complete?"COMPLETE":"INCOMPLETE";
     $("periodBadge").className="status "+(result.complete?"ok":"warn");
@@ -463,8 +479,9 @@ $("periodBtn").addEventListener("click",()=>{
       '<div><small>START EQUITY</small><strong>'+money(result.startEquity)+'</strong></div>' +
       '<div><small>END EQUITY</small><strong>'+money(result.endEquity)+'</strong></div>' +
       '<div><small>NET EXTERNAL CASHFLOW</small><strong>'+money(result.periodExternalCashFlow)+'</strong></div>' +
-      '<div><small>PERIOD P&L / RETURN</small><strong>'+signMoney(result.pnl)+' / '+(result.returnPct===null?"—":result.returnPct.toFixed(2)+"%")+'</strong></div>';
-    if(!result.complete) $("periodResult").insertAdjacentHTML("afterbegin",'<div><small>REASON</small><strong>Missing start/end mark</strong></div>');
+      '<div><small>PERIOD P&L / RETURN</small><strong>'+signMoney(result.pnl)+' / '+(result.returnPct===null?"—":result.returnPct.toFixed(2)+"%")+'</strong></div>' +
+      '<div><small>END MARKS</small><strong>'+(resolved.usedLiveEnd?"LIVE (end≈now)":"EXPLICIT")+'</strong></div>';
+    if(!result.complete) $("periodResult").insertAdjacentHTML("afterbegin",'<div><small>REASON</small><strong>Missing start/end mark'+(resolved.usedLiveEnd?"":" (historical end requires End-date marks JSON)")+'</strong></div>');
     renderCampaignPerformance(performance);
     renderCampaignTimeline(timeline);
   }catch(err){ alert(prettyError(err)); }
