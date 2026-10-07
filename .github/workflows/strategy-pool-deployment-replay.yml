@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - research/qqq-strategy-pool-deployment-replay-v1-20261008
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
