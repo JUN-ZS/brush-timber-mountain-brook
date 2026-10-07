@@ -370,3 +370,17 @@ The cell also checks index.html (no prefilled numbers, text+inputmode=decimal in
 app.js in a minimal fake DOM with a stubbed snapshot (no network) to confirm the wiring.
 
 Run: `node cell18_web_beginner_input.js` (Windows `RUN.cmd 18`). Gated in CI through `tests/golden_test.js`.
+
+## Cell 19 — Data Gate Dates (F1)
+
+Purpose: the engine data gate fails CLOSED when the dates that prove freshness are missing or unparseable. Before F1, `termAsOf` null / `abc` / `2026/09/01` or a missing `today` made `daysBetween` return null, the STALE check was skipped and CARRY-shaped data became FRESH → BUY (Cell 16 BUILD).
+
+    values missing                         → DATA BLOCKED  (code MISSING_FIELD, unchanged)
+    today missing / not YYYY-MM-DD         → DATA BLOCKED · NO CLOCK
+    termAsOf missing / not YYYY-MM-DD      → DATA BLOCKED · TERM DATE INVALID
+    spotAsOf missing / not YYYY-MM-DD      → DATA BLOCKED · SPOT DATE INVALID
+    valid dates                            → unchanged STALE (> 4d) / AS-OF MIXED (> 2d) / regime
+
+DATA BLOCKED keeps HOLD, TARGET = CURRENT and Cell 16 PAUSE. Only real calendar days in `YYYY-MM-DD` are accepted (`2026-02-30` is invalid; surrounding spaces are trimmed). Raw datetimes are rejected because providers already normalise to a New York date. The engine never reads the wall clock: `app.js` always passes `today` from the browser clock and `server.py` snapshots carry `today`.
+
+Run: `node cell19_data_gate_dates.js` (Windows `RUN.cmd 19`). Gated in `tests/golden_test.js`.

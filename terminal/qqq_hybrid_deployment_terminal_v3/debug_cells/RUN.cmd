@@ -3,14 +3,14 @@ setlocal
 cd /d "%~dp0"
 if "%~1"=="" (
   echo Usage:
-  echo   RUN.cmd 1-18
+  echo   RUN.cmd 1-19
   echo   RUN.cmd ALL
   echo   RUN.cmd 17-demo
   echo   RUN.cmd 17-selftest
   exit /b 2
 )
 if /I "%~1"=="ALL" (
-  for %%C in (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 18) do (
+  for %%C in (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 18 19) do (
     call :cell %%C
     if errorlevel 1 exit /b 1
   )
@@ -90,6 +90,10 @@ if "%CELL%"=="16" (
 )
 if "%CELL%"=="18" (
   node cell18_web_beginner_input.js
+  exit /b %errorlevel%
+)
+if "%CELL%"=="19" (
+  node cell19_data_gate_dates.js
   exit /b %errorlevel%
 )
 if "%CELL%"=="17" (

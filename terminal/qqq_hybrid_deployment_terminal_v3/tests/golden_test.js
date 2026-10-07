@@ -24,6 +24,17 @@ check("BACKWARDATION",{...base,s:-1},{state:"PRE-SHOCK",action:"REDUCE",blocked:
 check("SHOCK",{...base,vix:32,s:-4},{state:"SHOCK",action:"REDUCE",blocked:false,gate:"CUT"});
 check("BLOCK",{...base,m1:null,m2:null,s:null},{state:"DATA BLOCKED",action:"HOLD",blocked:true,gate:"BLOCKED"});
 check("STALE",{...base,termAsOf:"2026-10-01",today:"2026-10-07"},{state:"DATA STALE",action:"HOLD",blocked:true,gate:"STALE"});
+// F1: unproven dates fail closed (CARRY-shaped values must not become BUY).
+for(const [name,patch,code] of [
+  ["F1 term null",{termAsOf:null},"TERM_DATE_INVALID"],
+  ["F1 term abc",{termAsOf:"abc"},"TERM_DATE_INVALID"],
+  ["F1 term slash",{termAsOf:"2026/09/01"},"TERM_DATE_INVALID"],
+  ["F1 spot abc",{spotAsOf:"abc"},"SPOT_DATE_INVALID"],
+  ["F1 no today",{today:undefined},"NO_CLOCK"],
+]){
+  check(name,{...base,...patch},{state:"DATA BLOCKED",action:"HOLD",blocked:true,gate:"BLOCKED"});
+  assert.strictEqual(E.derive({...base,...patch}).health.code,code,name+" code");
+}
 
 const book=E.targetLedger({...base,qqq:750},{...E.derive(base),blocked:false,targets:{qqqCorePct:42,vxxPct:18,vxxCallBudgetPct:2,qqqCallBudgetPct:1.2}},{nav:100000,qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0});
 assert.ok(book.deltas.qqqShares>0);
@@ -72,4 +83,7 @@ assert.ok(String(cell17.stdout).includes('"PASS":true'),"cell17 PASS marker");
 const cell18=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell18_web_beginner_input.js")],{encoding:"utf8"});
 assert.strictEqual(cell18.status,0,"cell18_web_beginner_input must PASS\n"+cell18.stdout+"\n"+cell18.stderr);
 assert.ok(String(cell18.stdout).includes('"PASS":true'),"cell18 PASS marker");
-console.log("V3 golden + Cell 14/15/16/17/18 operator loop PASS");
+const cell19=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell19_data_gate_dates.js")],{encoding:"utf8"});
+assert.strictEqual(cell19.status,0,"cell19_data_gate_dates must PASS\n"+cell19.stdout+"\n"+cell19.stderr);
+assert.ok(String(cell19.stdout).includes('"PASS":true'),"cell19 PASS marker");
+console.log("V3 golden + Cell 14/15/16/17/18/19 operator loop PASS");

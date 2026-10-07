@@ -92,7 +92,20 @@ function independentExpected(data, current) {
     };
   }
 
-  const termAge = daysBetween(data.termAsOf, data.today);
+  // F1 contract: freshness must be proven by real YYYY-MM-DD dates. Missing / unparseable → BLOCKED (fail closed).
+  const dateCode = !validIsoDate(data.today) ? "NO_CLOCK" : !validIsoDate(data.termAsOf) ? "TERM_DATE_INVALID" : !validIsoDate(data.spotAsOf) ? "SPOT_DATE_INVALID" : null;
+  if (dateCode) {
+    return {
+      state: "DATA BLOCKED",
+      action: "HOLD",
+      gate: "BLOCKED",
+      blocked: true,
+      reasonClass: dateCode,
+      target: { qqqShares: current.qqqShares, vxxPct: current.vxxPct, qqqCalls: current.qqqCalls, vxxCalls: current.vxxCalls },
+    };
+  }
+  const todayDay = String(data.today).trim(), termDay = String(data.termAsOf).trim(), spotDay = String(data.spotAsOf).trim();
+  const termAge = daysBetween(termDay, todayDay);
   if (termAge !== null && termAge > CONTRACT.maxTermAgeDays) {
     return {
       state: "DATA STALE",
@@ -104,7 +117,7 @@ function independentExpected(data, current) {
     };
   }
 
-  const asofGap = data.spotAsOf && data.termAsOf ? daysBetween(data.spotAsOf, data.termAsOf) : 0;
+  const asofGap = daysBetween(spotDay, termDay);
   if (asofGap !== null && asofGap > CONTRACT.mixedDateBlockDays) {
     return {
       state: "AS-OF MIXED",
@@ -687,6 +700,12 @@ function runSelfTest() {
       // mixedDateBlockDays = 2
       { name: "PIN dateMix · gap 2d → FRESH/CARRY", cur: current, data: makeData({ today, termAsOf: today, spotAsOf: daysBefore(today, 2) }), want: "CARRY" },
       { name: "PIN dateMix · gap 3d → AS-OF MIXED", cur: current, data: makeData({ today, termAsOf: today, spotAsOf: daysBefore(today, 3) }), want: "AS-OF MIXED" },
+      // F1 data gate fails closed on unproven dates (CARRY-shaped values; must never become BUY)
+      { name: "PIN F1 termAsOf null → DATA BLOCKED · TARGET = CURRENT · PAUSE", cur: activeSeller, data: makeData({ today, termAsOf: null }), want: "DATA BLOCKED", wantGate: "BLOCKED", wantCode: "TERM_DATE_INVALID", wantTarget: { qqqShares: 100, vxxPct: 18, qqqCalls: 21, vxxCalls: 4 }, wantClass: "PAUSE" },
+      { name: "PIN F1 termAsOf 'abc' → DATA BLOCKED", cur: activeSeller, data: makeData({ today, termAsOf: "abc" }), want: "DATA BLOCKED", wantCode: "TERM_DATE_INVALID", wantClass: "PAUSE" },
+      { name: "PIN F1 termAsOf '2026/09/01' → DATA BLOCKED", cur: activeSeller, data: makeData({ today, termAsOf: "2026/09/01" }), want: "DATA BLOCKED", wantCode: "TERM_DATE_INVALID", wantClass: "PAUSE" },
+      { name: "PIN F1 spotAsOf 'abc' → DATA BLOCKED", cur: activeSeller, data: makeData({ today, spotAsOf: "abc" }), want: "DATA BLOCKED", wantCode: "SPOT_DATE_INVALID", wantClass: "PAUSE" },
+      { name: "PIN F1 no today → DATA BLOCKED (NO CLOCK)", cur: activeSeller, data: { ...makeData({ today }), today: undefined }, want: "DATA BLOCKED", wantCode: "NO_CLOCK", wantClass: "PAUSE" },
     ];
     for (const c of pins) {
       const e = independentExpected(c.data, c.cur);
@@ -702,6 +721,7 @@ function runSelfTest() {
       const pass =
         e.state === c.want &&
         (c.wantGate === undefined || e.gate === c.wantGate) &&
+        (c.wantCode === undefined || (e.reasonClass === c.wantCode && actual.health && actual.health.code === c.wantCode)) &&
         (c.wantTarget === undefined || JSON.stringify(e.target) === JSON.stringify(c.wantTarget)) &&
         (c.wantClass === undefined || independentActionClass(e.action, expectedDeltas, positionExists(c.cur), e.blocked) === c.wantClass) &&
         actual.state === e.state && actual.action === e.action && actual.gate === e.gate && actual.blocked === e.blocked &&
@@ -786,7 +806,7 @@ function runSelfTest() {
   console.log("");
   console.log(JSON.stringify({
     cell: "17_BEGINNER_GUIDED_INPUT",
-    checks: cases.length + 19,
+    checks: cases.length + 24,
     contractIsIndependent: true,
     demo: {
       cash: 100000,
