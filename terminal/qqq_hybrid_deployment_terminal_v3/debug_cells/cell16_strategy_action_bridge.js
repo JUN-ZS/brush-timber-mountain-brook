@@ -79,7 +79,7 @@ function setup(data=base,position={qqqShares:100,vxxPct:10,qqqCalls:2,vxxCalls:1
   const b=E.strategyActionBridge({d:base,e,book,funding:f,currentOptionLegs:E.currentOptionLegs({qqq:{qty:2},vxx:{qty:1}}),journalRows:[old]});
   assert.strictEqual(b.journal.eventId,"QHV3-test");
   assert.strictEqual(b.journal.changed,true);
-  assert.strictEqual(b.actionClass,"BUILD");
+  assert.strictEqual(b.actionClass,"REBALANCE");
 }
 
 // 6) Journal contract persists only the bridge's operator-facing outcome.
