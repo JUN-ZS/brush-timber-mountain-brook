@@ -28,7 +28,8 @@
   });
 
   const QUARANTINE = "QUARANTINE";
-  const READY = "READY";
+  const READY_FOR_LEDGER = "READY_FOR_LEDGER";
+  const NORMALIZED_NOT_APPLIED = "NORMALIZED_NOT_APPLIED";
   const INCOMPLETE = "INCOMPLETE";
 
   function requiredString(value, field) {
@@ -100,7 +101,7 @@
     const hasOrderFee = orderId && Object.prototype.hasOwnProperty.call(feeByOrderId, orderId);
     const fee = hasOrderFee && orderFillCount === 1 ? feeByOrderId[orderId] : null;
     const accountingStatus = fee !== null
-      ? READY
+      ? READY_FOR_LEDGER
       : (hasOrderFee && orderFillCount > 1 ? "INCOMPLETE_FEE_ALLOCATION" : INCOMPLETE);
 
     return {
@@ -138,7 +139,7 @@
     const hay = (type + " " + remark).toLowerCase();
 
     let eventType = null;
-    let accountingStatus = READY;
+    let accountingStatus = NORMALIZED_NOT_APPLIED;
     let classificationReason = null;
 
     if (/withholding tax|dividend tax|tax withheld|預扣稅|股息稅/.test(hay)) {
@@ -172,6 +173,7 @@
       classificationReason = "FX_REQUIRES_CURRENCY_PAIR_ACCOUNTING";
     } else if (/deposit|withdrawal|cash deposit|cash withdrawal|入金|出金/.test(hay)) {
       eventType = EVENT_TYPES.CASHFLOW;
+      accountingStatus = READY_FOR_LEDGER;
       classificationReason = "EXPLICIT_EXTERNAL_CASHFLOW_KEYWORD";
     } else if (/fund transfer|cash transfer|transfer|調撥|轉賬/.test(hay)) {
       eventType = EVENT_TYPES.ACCOUNT_TRANSFER;
@@ -287,6 +289,8 @@
     EVENT_TYPES,
     QUARANTINE,
     READY,
+    NORMALIZED_NOT_APPLIED,
+    READY_FOR_LEDGER,
     INCOMPLETE,
     normalizeDeal,
     normalizeCashflow,
