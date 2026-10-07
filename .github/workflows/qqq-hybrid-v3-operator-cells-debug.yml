@@ -68,3 +68,6 @@ jobs:
 
       - name: Cell 11 — OpenD option-chain fallback
         run: python3 terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell11_opend_option_fallback.py
+
+      - name: Cell 12 — Journal contract
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell12_journal_contract.js
