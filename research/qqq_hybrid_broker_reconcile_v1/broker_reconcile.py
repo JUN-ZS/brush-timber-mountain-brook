@@ -132,7 +132,18 @@ def reconstruct_positions(normalized):
             continue
 
         key = (symbol, bucket)
-        books[key] = books.get(key, 0.0) + delta
+        current = books.get(key, 0.0)
+        if delta < 0 and current + delta < -TOLERANCE_QTY:
+            unsafe.append({
+                "eventId": event.get("id"),
+                "reason": "POSITION_CLOSE_EXCEEDS_RECONSTRUCTED_OPEN_QTY",
+                "symbol": symbol,
+                "side": bucket,
+                "openQtyBefore": round(current, 12),
+                "closeQty": round(abs(delta), 12),
+            })
+            continue
+        books[key] = current + delta
 
     return {
         "positions": [
@@ -256,7 +267,10 @@ def fill_cash_delta(event):
     qty = _num(event.get("quantity"))
     price = _num(event.get("price"))
     multiplier = _num(event.get("multiplier")) or 1.0
-    fees = _num(event.get("fees")) if event.get("fees") not in (None, "") else 0.0
+    raw_fees = event.get("fees")
+    if raw_fees in (None, ""):
+        return None
+    fees = _num(raw_fees)
     if qty is None or price is None or multiplier <= 0 or fees is None or fees < 0:
         return None
 
