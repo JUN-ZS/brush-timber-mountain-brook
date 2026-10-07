@@ -155,12 +155,19 @@ def read_events():
         if not EVENTS.exists():
             return []
         out = []
+        seen_ids = set()
         for line_no, line in enumerate(EVENTS.read_text(encoding="utf-8").splitlines(), start=1):
             if not line.strip():
                 continue
             try:
                 event = json.loads(line)
                 validate_event(event)
+                event_id = event["id"]
+                if event_id in seen_ids:
+                    raise CorruptJournalError(
+                        "CORRUPT_JOURNAL: duplicate event id at line " + str(line_no) + ": " + event_id
+                    )
+                seen_ids.add(event_id)
                 out.append(event)
             except (json.JSONDecodeError, ValueError, TypeError) as exc:
                 raise CorruptJournalError(
