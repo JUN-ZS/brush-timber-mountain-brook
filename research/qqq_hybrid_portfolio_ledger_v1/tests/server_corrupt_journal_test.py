@@ -48,6 +48,27 @@ def main() -> None:
 
 
 
+
+
+    # Boundary validation must reject unstable identifiers and silent multiplier fallback.
+    for bad_event, expected in [
+        (
+            {"type": "CASHFLOW", "timestamp": "2026-10-01T00:00:00Z", "amount": 1},
+            "event id is required",
+        ),
+        (
+            {"type": "FILL", "id": "bad-mult", "timestamp": "2026-10-01T00:00:00Z",
+             "symbol": "QQQ-OPT", "assetType": "OPTION", "side": "BUY",
+             "quantity": 1, "price": 2, "multiplier": 0},
+            "multiplier must be > 0",
+        ),
+    ]:
+        try:
+            server.validate_event(bad_event)
+            raise AssertionError("invalid event should be rejected")
+        except ValueError as exc:
+            assert expected in str(exc)
+
     # Valid JSON but invalid event semantics must also block.
     server.EVENTS.write_text(
         json.dumps({"type": "FILL", "id": "bad-semantic", "timestamp": "2026-10-01T00:00:00",
