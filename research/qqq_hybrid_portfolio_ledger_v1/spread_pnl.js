@@ -127,6 +127,7 @@ window.PortfolioSpreadPnlV1 = (() => {
         const longQty = roleBooks.LONG.reduce((s, b) => s + openQuantity(b), 0);
         const shortQty = roleBooks.SHORT.reduce((s, b) => s + openQuantity(b), 0);
         const fullyClosed =
+          paired.everPaired === true &&
           roleBooks.LONG.length > 0 &&
           roleBooks.SHORT.length > 0 &&
           Math.abs(longQty) <= EPS &&
