@@ -141,7 +141,11 @@
     let accountingStatus = READY;
     let classificationReason = null;
 
-    if (/\bdividend\b|股息|分紅/.test(hay)) {
+    if (/withholding tax|dividend tax|tax withheld|預扣稅|股息稅/.test(hay)) {
+      eventType = EVENT_TYPES.FEE;
+      accountingStatus = QUARANTINE;
+      classificationReason = "WITHHOLDING_TAX_DEDUP_LINK_REQUIRED";
+    } else if (/\bdividend\b|股息|分紅/.test(hay)) {
       eventType = EVENT_TYPES.DIVIDEND;
       classificationReason = "DIVIDEND_KEYWORD";
     } else if (/margin interest|interest|融資利息|利息/.test(hay) && !/borrow|securities lending/.test(hay)) {
