@@ -9,12 +9,28 @@ const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 const pct=(v,d=2)=>Number.isFinite(Number(v))?((Number(v)>=0?"+":"")+Number(v).toFixed(d)+"%"):"—";
 
 function ledger(){
+  const raw={
+    nav:$("nav").value,
+    qqqShares:$("qqqShares").value,
+    vxxPct:$("vxxPct").value,
+    qqqCalls:$("qqqCalls").value,
+    vxxCalls:$("vxxCalls").value
+  };
+  const fields=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,E.operatorNumber(value,{min:0})]));
+  const invalid=Object.entries(fields).filter(([,state])=>state.status==="INVALID").map(([key])=>key);
+  const empty=Object.entries(fields).filter(([,state])=>state.status==="EMPTY").map(([key])=>key);
   return {
-    nav:Number($("nav").value)||0,
-    qqqShares:Number($("qqqShares").value)||0,
-    vxxPct:Number($("vxxPct").value)||0,
-    qqqCalls:Number($("qqqCalls").value)||0,
-    vxxCalls:Number($("vxxCalls").value)||0
+    nav:fields.nav.value,
+    qqqShares:fields.qqqShares.value,
+    vxxPct:fields.vxxPct.value,
+    qqqCalls:fields.qqqCalls.value,
+    vxxCalls:fields.vxxCalls.value,
+    inputStatus:{
+      status:invalid.length?"INVALID":empty.length?"INCOMPLETE":"READY",
+      invalid,
+      empty,
+      fields
+    }
   };
 }
 
