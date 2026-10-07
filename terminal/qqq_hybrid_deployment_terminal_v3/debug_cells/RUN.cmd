@@ -17,8 +17,9 @@ if "%~1"=="" (
   echo   RUN.cmd 12
   echo   RUN.cmd 13
   echo   RUN.cmd 14
+  echo   RUN.cmd 15
+  echo   RUN.cmd 16
   echo   RUN.cmd 17
-  echo   RUN.cmd 18
   echo   RUN.cmd ALL
   exit /b 2
 )
@@ -50,6 +51,8 @@ if /I "%~1"=="ALL" (
   call :cell 13
   if errorlevel 1 exit /b 1
   call :cell 14
+  if errorlevel 1 exit /b 1
+  call :cell 15
   if errorlevel 1 exit /b 1
   call :cell 16
   if errorlevel 1 exit /b 1
@@ -115,6 +118,10 @@ if "%CELL%"=="13" (
 )
 if "%CELL%"=="14" (
   node cell14_journal_memory.js
+  exit /b %errorlevel%
+)
+if "%CELL%"=="15" (
+  node cell15_strategy_funding_context.js
   exit /b %errorlevel%
 )
 if "%CELL%"=="16" (
