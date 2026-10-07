@@ -174,9 +174,16 @@ window.HybridEngineV3 = (() => {
     const hasPosition=book.current.qqqShares>0||book.current.vxxPct>0||book.current.qqqCalls>0||book.current.vxxCalls>0;
     const acts=Object.entries(book.deltas||{}).filter(([,v])=>Number.isFinite(v)&&Math.abs(v)>1e-9);
     const holdTrims=(!e.blocked&&e.action==="HOLD")?reductionLines(book,"TRIM"):[];
-    const mode=e.blocked?"PAUSED":e.action==="REDUCE"?"DEFEND":e.action==="HOLD"?(holdTrims.length?"WATCH / TRIM":"WATCH"):acts.length?"BUILD / REBALANCE":hasPosition?"AT TARGET / MONITOR":"EMPTY / READY TO BUILD";
+    const needsInput=!e.blocked&&book&&book.inputBlocked===true;
+    const mode=e.blocked?"PAUSED":needsInput?"NEEDS INPUT":e.action==="REDUCE"?"DEFEND":e.action==="HOLD"?(holdTrims.length?"WATCH / TRIM":"WATCH"):acts.length?"BUILD / REBALANCE":hasPosition?"AT TARGET / MONITOR":"EMPTY / READY TO BUILD";
     const plan=[];
     if(e.blocked) plan.push("不新增、不減倉：等待完整新數據");
+    else if(needsInput){
+      plan.push("第一步：先輸入你而家持有乜（Operator Memory）— 留空 ≠ 0，冇就填 0");
+      const gap=inputGapText(book.inputStatus);
+      if(gap)plan.push(gap);
+      plan.push("未填齊前：唔計 Target、唔建倉、唔減倉");
+    }
     else if(e.action==="HOLD"){
       plan.push("不新增 carry：保留現有倉位，等轉態");
       plan.push(...carryInventoryLines(book,d,opt));
@@ -275,6 +282,87 @@ window.HybridEngineV3 = (() => {
       return label+"：持有 "+fmtNum(count)+" spreads · 腿身份 "+leg.status+"（補 short/long/expiry）";
     return label+"：持有 "+fmtNum(count)+" spreads · 未填腿身份（Qty only）";
   }
+  // Cell 18 — beginner web input (pure helpers; no DOM, no I/O, no POLICY use).
+  // Simplified NAV = cash + QQQ shares × QQQ price. VXX short and option spreads are NOT included
+  // (the UI says so). A manual NAV override wins when it is a VALUE > 0. Never returns NAV 0 / never
+  // invents a value from blank: missing input or missing price → EMPTY (未能計).
+  const BEGINNER_FIELD_LABELS=Object.freeze({
+    nav:"NAV（現金 + QQQ 或手動 override）",cash:"現金 Cash",qqqShares:"QQQ 股數",
+    vxxPct:"VXX short（% NAV 或 VXX 股數）",qqqCalls:"QQQ far call spreads 張數",vxxCalls:"VXX call spreads 張數"
+  });
+  function beginnerNav({cash,qqqShares,qqqPrice,navOverride}={}){
+    const ov=operatorNumber(navOverride,{allowZero:false,min:0});
+    if(ov.status==="VALUE")return{status:"VALUE",value:ov.value,source:"MANUAL",reason:"手動 NAV override"};
+    if(ov.status==="INVALID")return{status:"INVALID",value:null,source:"MANUAL",reason:"NAV override 無效：要係大過 0 嘅數字"};
+    const c=operatorNumber(cash,{allowZero:true,min:0}),q=operatorNumber(qqqShares,{allowZero:true,min:0});
+    const bad=[],missing=[];
+    if(c.status==="INVALID")bad.push("現金");else if(c.status==="EMPTY")missing.push("現金");
+    if(q.status==="INVALID")bad.push("QQQ 股數");else if(q.status==="EMPTY")missing.push("QQQ 股數");
+    if(bad.length)return{status:"INVALID",value:null,source:"AUTO",reason:"輸入無效："+bad.join("、")};
+    if(missing.length)return{status:"EMPTY",value:null,source:"AUTO",reason:"未能計：未填 "+missing.join("、")};
+    const px=Number(qqqPrice);
+    const needPx=q.value>0;
+    if(needPx&&!(qqqPrice!==null&&qqqPrice!==undefined&&qqqPrice!==""&&Number.isFinite(px)&&px>0))
+      return{status:"EMPTY",value:null,source:"AUTO",reason:"未能計：未有 QQQ 現價（先 REFRESH）"};
+    const qqqValue=needPx?q.value*px:0;
+    const nav=c.value+qqqValue;
+    if(!(nav>0))return{status:"INVALID",value:null,source:"AUTO",reason:"NAV = 0：唔可以由 0 計目標"};
+    return{status:"VALUE",value:nav,source:"AUTO",cash:c.value,qqqShares:q.value,qqqPrice:needPx?px:null,qqqValue,reason:"現金 + QQQ 股數 × QQQ 現價"};
+  }
+  function vxxSharesToPct({vxxShares,vxxPrice,nav}={}){
+    const sh=operatorNumber(vxxShares,{allowZero:true,min:0});
+    if(sh.status!=="VALUE")return{status:sh.status,value:null,reason:sh.status==="EMPTY"?"未填 VXX 股數":"VXX 股數無效"};
+    if(sh.value===0)return{status:"VALUE",value:0,shares:0,reason:"0 股 = 0% NAV"};
+    const px=Number(vxxPrice),n=Number(nav);
+    if(!(vxxPrice!==null&&vxxPrice!==undefined&&vxxPrice!==""&&Number.isFinite(px)&&px>0))return{status:"EMPTY",value:null,reason:"未能換算：未有 VXX 現價"};
+    if(!(nav!==null&&nav!==undefined&&nav!==""&&Number.isFinite(n)&&n>0))return{status:"EMPTY",value:null,reason:"未能換算：NAV 未能計"};
+    const pct=Math.round((sh.value*px/n)*100*1e6)/1e6;
+    return{status:"VALUE",value:pct,shares:sh.value,price:px,nav:n,usd:sh.value*px,reason:"VXX 股數 × VXX 現價 ÷ NAV"};
+  }
+  // Build the Operator Memory ledger from raw beginner strings. Same shape the UI always fed into
+  // targetLedger ({nav,qqqShares,vxxPct,qqqCalls,vxxCalls,inputStatus}); blank stays EMPTY → INCOMPLETE.
+  function beginnerLedger(raw={},{qqqPrice=null,vxxPrice=null}={}){
+    const src=raw&&typeof raw==="object"?raw:{};
+    const navInfo=beginnerNav({cash:src.cash,qqqShares:src.qqqShares,qqqPrice,navOverride:src.nav});
+    const pctOp=operatorNumber(src.vxxPct,{allowZero:true,min:0});
+    const shOp=operatorNumber(src.vxxShortShares,{allowZero:true,min:0});
+    let vxxField,vxxInfo;
+    if(pctOp.status!=="EMPTY"){
+      vxxField=pctOp;vxxInfo={source:pctOp.status==="VALUE"?"PCT":null,reason:pctOp.status==="VALUE"?"直接輸入 % NAV":"VXX % NAV 無效"};
+      if(pctOp.status==="VALUE"&&shOp.status==="VALUE"){
+        const conv=vxxSharesToPct({vxxShares:src.vxxShortShares,vxxPrice,nav:navInfo.value});
+        if(conv.status==="VALUE"&&Math.abs(conv.value-pctOp.value)>0.5)vxxInfo.warning="% NAV（"+pctOp.value+"%）同 VXX 股數換算（"+conv.value.toFixed(2)+"%）唔一致：使用 % NAV";
+      }
+    }else if(shOp.status==="EMPTY"){
+      vxxField={status:"EMPTY",value:null};vxxInfo={source:null,reason:"未填"};
+    }else{
+      const conv=vxxSharesToPct({vxxShares:src.vxxShortShares,vxxPrice,nav:navInfo.value});
+      vxxField={status:conv.status,value:conv.value};vxxInfo={source:conv.status==="VALUE"?"SHARES":null,reason:conv.reason,conversion:conv};
+    }
+    const fields={
+      nav:{status:navInfo.status,value:navInfo.value},
+      qqqShares:operatorNumber(src.qqqShares,{allowZero:true,min:0}),
+      vxxPct:vxxField,
+      qqqCalls:operatorNumber(src.qqqCalls,{allowZero:true,min:0}),
+      vxxCalls:operatorNumber(src.vxxCalls,{allowZero:true,min:0})
+    };
+    const invalid=Object.entries(fields).filter(([,f])=>f.status==="INVALID").map(([k])=>k);
+    const empty=Object.entries(fields).filter(([,f])=>f.status==="EMPTY").map(([k])=>k);
+    return{
+      nav:fields.nav.value,qqqShares:fields.qqqShares.value,vxxPct:fields.vxxPct.value,
+      qqqCalls:fields.qqqCalls.value,vxxCalls:fields.vxxCalls.value,
+      inputStatus:{status:invalid.length?"INVALID":empty.length?"INCOMPLETE":"READY",invalid,empty,fields},
+      navInfo,vxxInfo
+    };
+  }
+  function inputGapText(inputStatus){
+    const st=inputStatus&&typeof inputStatus==="object"?inputStatus:{};
+    const lab=k=>BEGINNER_FIELD_LABELS[k]||k;
+    const parts=[];
+    if(Array.isArray(st.empty)&&st.empty.length)parts.push("未填："+st.empty.map(lab).join("、"));
+    if(Array.isArray(st.invalid)&&st.invalid.length)parts.push("無效："+st.invalid.map(lab).join("、"));
+    return parts.join("；");
+  }
   // Cell 15 — funding/context layer. Advisory only: does NOT alter targetLedger or frozen policy math.
   function fundingPlan({d={},e={},book={},strategyPool="",newCapital="",nav:navInput}={}){
     const pool=operatorNumber(strategyPool,{allowZero:true,min:0});
@@ -347,6 +435,10 @@ window.HybridEngineV3 = (() => {
     if(e.blocked){
       actionClass="PAUSE";
       operatorInstruction="DATA 未通過：不新增、不減倉；先取得完整/較新資料。";
+    }else if(book&&book.inputBlocked===true){
+      // Cell 18: blank / invalid holdings never become a BUILD from 0.
+      actionClass="NEEDS_INPUT";
+      operatorInstruction="第一步未完成（"+(inputGapText(book.inputStatus)||"持倉未填齊")+"）：留空唔等於 0，冇就填 0；填齊前唔計 Target、唔建倉。";
     }else if(e.action==="REDUCE"){
       actionClass="DEFEND";
       operatorInstruction="按 frozen target 檢查減風險項；完成實際人工動作後 JOURNAL。";
@@ -413,7 +505,7 @@ window.HybridEngineV3 = (() => {
     const closedLoop=[
       {stage:"DATA",status:e.health&&e.health.status||"UNKNOWN"},
       {stage:"DECISION",status:e.action||"—"},
-      {stage:"CURRENT",status:hasPosition?"LOADED":"EMPTY"},
+      {stage:"CURRENT",status:book&&book.inputBlocked===true?"NEEDS INPUT":hasPosition?"LOADED":"EMPTY"},
       {stage:"TARGET",status:e.blocked?"PRESERVE CURRENT":"FROZEN POLICY"},
       {stage:"FUNDING",status:"CONTEXT ONLY"},
       {stage:"WATCH",status:rollNow.length?"ROLL NOW":"MONITOR"},
@@ -744,5 +836,5 @@ window.HybridEngineV3 = (() => {
     }
     return lines;
   }
-  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,reductionLines,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,reductionLines,beginnerNav,vxxSharesToPct,beginnerLedger,inputGapText,BEGINNER_FIELD_LABELS,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
 })();

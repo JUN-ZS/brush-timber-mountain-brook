@@ -35,3 +35,11 @@ label.memory-flash,input.memory-flash,select.memory-flash{
 .bridge-warning{margin-top:8px;padding:8px 10px;border:1px dashed #5c4a24;background:#16120a;border-radius:8px;color:var(--amber);font-size:10px}
 @media(max-width:1100px){.bridge-grid{grid-template-columns:1fr 1fr}.bridge-loop{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:700px){.bridge-grid,.bridge-loop{grid-template-columns:1fr 1fr}}
+
+.beginner-step{margin-bottom:10px;padding:10px;border:1px solid #3a5a46;border-radius:10px;background:#0c1511}
+.beginner-title{font-size:14px;font-weight:900;margin-bottom:4px;color:#eef3f7}
+.beginner-grid{grid-template-columns:repeat(4,1fr);margin-top:8px}
+.nav-in-use{margin-top:8px;padding:8px 10px;border:1px dashed #3a5a46;border-radius:8px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;color:#eef3f7}
+.nav-in-use.empty{color:var(--amber);border-color:#5c4a24}.nav-in-use.invalid{color:var(--red);border-color:#672c31}
+.step1-link{display:inline-block;margin-top:8px}
+@media(max-width:700px){.beginner-grid{grid-template-columns:1fr 1fr}}

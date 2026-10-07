@@ -351,3 +351,21 @@ F4 HOLD target (engine `targetLedger`, unchanged): QQQ core and option legs stay
 Journal: a HOLD trim delta is journaled as-is (no DELTA_ACTION_MISMATCH; that guard only covers negative option deltas). A human action equal to the engine action or to the Cell 16 class (e.g. `TRIM`, `REBALANCE`) is not a CONFLICT.
 
 Run: `node cell16_strategy_action_bridge.js` (Windows `RUN.cmd 16`).
+
+## Cell 18 — Web Beginner Input
+
+Purpose: prove the web "第一步：輸入你而家持有乜" block turns ordinary answers into the same Operator Memory ledger the engine always used, without inventing zeros.
+
+Pure helpers (engine.js, no DOM): `beginnerNav`, `vxxSharesToPct`, `beginnerLedger`, `inputGapText`.
+
+    NAV (AUTO)   = cash + QQQ shares × QQQ price     (VXX short / option spreads NOT included — UI says so)
+    NAV (MANUAL) = "NAV 手動 override" when it is a number > 0 (labelled MANUAL in the UI)
+    price missing / field blank → NAV EMPTY "未能計" (never 0); NAV 0 → INVALID
+    VXX short    = % NAV, or VXX shares × VXX price ÷ NAV when % is blank
+    blank → EMPTY → targetLedger inputBlocked → Cell 16 NEEDS_INPUT / summary "NEEDS INPUT" (never BUILD from 0)
+    "abc", "0x10", "1,5", "1e3" → INVALID ; "100,000" → 100000 ; explicit "0" → VALUE 0
+
+The cell also checks index.html (no prefilled numbers, text+inputmode=decimal inputs) and runs the real
+app.js in a minimal fake DOM with a stubbed snapshot (no network) to confirm the wiring.
+
+Run: `node cell18_web_beginner_input.js` (Windows `RUN.cmd 18`). Gated in CI through `tests/golden_test.js`.

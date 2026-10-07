@@ -6,7 +6,9 @@ const candidates={qqq:null,vxx:null};
 let optionsStatus=null; // last /api/options status (LIVE | OPTIONS_SOURCE_DOWN | BLOCKED_NO_OPEND)
 let journalRows=[];
 const MEMORY_LS_KEY="qhv3.operatorMemory.snapshot";
-const MEMORY_FIELD_IDS=E.MEMORY_IDS||["nav","strategyPool","newCapital","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"];
+// Journal↔Memory map stays E.MEMORY_IDS; the local snapshot also keeps the beginner-only fields.
+const MEMORY_FIELD_IDS=[...new Set([...(E.MEMORY_IDS||["nav","strategyPool","newCapital","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"]),"cash","vxxShortShares"])];
+let lastLedger=null;
 
 function readMemoryFields(){
   const out={};
@@ -132,30 +134,51 @@ function restoreMemorySnapshotOnLoad(){
 const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 const pct=(v,d=2)=>Number.isFinite(Number(v))?((Number(v)>=0?"+":"")+Number(v).toFixed(d)+"%"):"—";
 
+const val=id=>$(id)?String($(id).value):"";
 function ledger(){
+  // Cell 18: beginner input → same ledger shape as before. Blank stays EMPTY (→ NEEDS INPUT), never 0.
   const raw={
-    nav:$("nav").value,
-    qqqShares:$("qqqShares").value,
-    vxxPct:$("vxxPct").value,
-    qqqCalls:$("qqqCalls").value,
-    vxxCalls:$("vxxCalls").value
+    cash:val("cash"),
+    nav:val("nav"),
+    qqqShares:val("qqqShares"),
+    vxxPct:val("vxxPct"),
+    vxxShortShares:val("vxxShortShares"),
+    qqqCalls:val("qqqCalls"),
+    vxxCalls:val("vxxCalls")
   };
-  const fields=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,E.operatorNumber(value,{min:0})]));
-  const invalid=Object.entries(fields).filter(([,state])=>state.status==="INVALID").map(([key])=>key);
-  const empty=Object.entries(fields).filter(([,state])=>state.status==="EMPTY").map(([key])=>key);
-  return {
-    nav:fields.nav.value,
-    qqqShares:fields.qqqShares.value,
-    vxxPct:fields.vxxPct.value,
-    qqqCalls:fields.qqqCalls.value,
-    vxxCalls:fields.vxxCalls.value,
-    inputStatus:{
-      status:invalid.length?"INVALID":empty.length?"INCOMPLETE":"READY",
-      invalid,
-      empty,
-      fields
-    }
-  };
+  const price=k=>live&&Number.isFinite(Number(live[k]))&&live[k]!==null?Number(live[k]):null;
+  lastLedger=E.beginnerLedger(raw,{qqqPrice:price("qqq"),vxxPrice:price("vxx")});
+  renderBeginnerInput(lastLedger);
+  return lastLedger;
+}
+function effectiveNav(){
+  const l=lastLedger||ledger();
+  return l&&l.navInfo&&l.navInfo.status==="VALUE"?l.navInfo.value:null;
+}
+function renderBeginnerInput(l){
+  const ni=l.navInfo||{};
+  const el=$("navInUse");
+  if(el){
+    const usd=v=>"USD "+Number(v).toLocaleString("en-US",{maximumFractionDigits:2});
+    if(ni.status==="VALUE"&&ni.source==="MANUAL") el.textContent="NAV 使用中：MANUAL override = "+usd(ni.value)+"（自動計已停用；清空 override 就用返 現金 + QQQ）";
+    else if(ni.status==="VALUE") el.textContent="NAV 使用中：AUTO = 現金 "+usd(ni.cash)+" + QQQ "+fmt(ni.qqqShares,0)+" × "+(ni.qqqPrice!==null?fmt(ni.qqqPrice):"—")+" = "+usd(ni.value);
+    else el.textContent="NAV："+(ni.status==="INVALID"?"INVALID · ":"")+(ni.reason||"未能計");
+    el.className="nav-in-use"+(ni.status==="VALUE"?"":ni.status==="INVALID"?" invalid":" empty");
+  }
+  if($("vxxConvertMeta")){
+    const vi=l.vxxInfo||{};
+    const c=vi.conversion;
+    $("vxxConvertMeta").textContent=
+      vi.source==="SHARES"&&c&&c.status==="VALUE"
+        ?"VXX short 由股數換算："+Number(c.shares).toLocaleString("en-US")+" 股 × "+fmt(c.price)+" = USD "+Number(c.usd).toLocaleString("en-US",{maximumFractionDigits:0})+" ÷ NAV "+Number(c.nav).toLocaleString("en-US",{maximumFractionDigits:0})+" = "+fmt(c.value)+"% NAV"
+        :vi.source==="PCT"?"VXX short 直接用 % NAV："+fmt(l.vxxPct)+"%"+(vi.warning?" · ⚠ "+vi.warning:"")
+        :"VXX short："+(vi.reason||"未填")+"（用 % NAV，唔係 option 張數）";
+  }
+  if($("inputStatusMeta")){
+    const gap=E.inputGapText(l.inputStatus);
+    $("inputStatusMeta").textContent=l.inputStatus.status==="READY"?"第一步 ✓ 已填齊":"NEEDS INPUT · "+gap;
+    $("inputStatusMeta").className="meta"+(l.inputStatus.status==="READY"?"":" changed");
+  }
 }
 
 function fundingInputs(){
@@ -166,7 +189,8 @@ function fundingInputs(){
 }
 function renderFundingPlan(d,e,book){
   const f=fundingInputs();
-  const plan=E.fundingPlan({d,e,book,strategyPool:f.strategyPool,newCapital:f.newCapital,nav:$("nav")?$("nav").value:""});
+  const nv=effectiveNav();
+  const plan=E.fundingPlan({d,e,book,strategyPool:f.strategyPool,newCapital:f.newCapital,nav:nv===null?"":String(nv)});
   if($("strategyName"))$("strategyName").textContent=plan.strategyName;
   if($("strategyFormula"))$("strategyFormula").textContent=plan.formula;
   if($("fundingRegime"))$("fundingRegime").textContent=plan.regime+" · "+plan.route;
@@ -288,6 +312,7 @@ function renderFlow(d,e,book){
   const hasPosition=book.current.qqqShares>0||book.current.vxxPct>0||book.current.qqqCalls>0||book.current.vxxCalls>0;
   const changed=($("sinceJournal")?.className||"").includes("changed");
   if(e.blocked){active="flowData";tone="danger";next="NEXT: GET FRESH, COMPLETE DATA";}
+  else if(book.inputBlocked){active="flowBuild";tone="warn";next="NEXT: 第一步 — 填齊持倉（Operator Memory，留空 ≠ 0）";}
   else if(e.action==="BUY" && !hasPosition){active="flowBuild";next="NEXT: REVIEW TARGET → BUILD POSITION";}
   else if(e.action==="BUY"){active="flowBuild";next="NEXT: EXECUTE DELTAS → JOURNAL";}
   else if(e.action==="REDUCE"){active="flowDecision";tone="danger";next="NEXT: REDUCE SELLER RISK → JOURNAL";}
@@ -323,7 +348,7 @@ function renderOperatorSummary(d,e,book){
     currentOptionLegs:legs,
     forceFlat:!!($("forceFlat")&&$("forceFlat").checked),
     today:d.today||null,
-    nav:$("nav")?$("nav").value:null
+    nav:effectiveNav()
   };
   const s=E.operatorSummary(d,e,book,candidates,opt);
   if($("operatorMode"))$("operatorMode").textContent=s.mode;
@@ -365,7 +390,7 @@ function render(d,e,book){
   }
   if($("vxxExposureMeta")){
     const labels=E.exposureLabels();
-    const impl=E.impliedVxxShares($("nav").value,$("vxxPct").value,d.vxx);
+    const impl=E.impliedVxxShares(effectiveNav(),book.current.vxxPct,d.vxx);
     $("vxxExposureMeta").textContent=labels.vxxShort+" · "+labels.vxxCallSpreads+" = "+labels.vxxCallUnit+(Number.isFinite(impl)?" · implied ≈ "+fmt(impl,1)+" VXX shares":"");
   }
   $("stateBadge").className="badge "+(e.state==="CARRY"?"ok":e.state==="SHOCK"||e.state==="PRE-SHOCK"?"block":"warn");
@@ -391,6 +416,8 @@ function render(d,e,book){
   const acts=E.actionRows(book).filter(x=>Math.abs(x.diff)>1e-9);
   $("queue").innerHTML=(e.blocked
     ? '<div class="queue-item HOLD"><b>DATA GATE</b><span>BLOCKED · CURRENT = TARGET</span></div>'
+    : book.inputBlocked
+      ? '<div class="queue-item HOLD"><b>NEEDS INPUT</b><span>'+escapeHtml(E.inputGapText(book.inputStatus)||"第一步未填齊")+' · 留空 ≠ 0</span></div>'
     : acts.length
       ? acts.map(x=>'<div class="queue-item '+x.kind+'"><b>'+x.key+'</b><span>'+x.kind+' · '+fmt(x.diff)+'</span></div>').join("")
       : '<div class="queue-item HOLD"><b>NO POSITION CHANGE</b><span>WAIT / HOLD</span></div>'
@@ -551,8 +578,9 @@ $("journalBtn").addEventListener("click",journalDecision);
 if($("restoreMemoryBtn")) $("restoreMemoryBtn").addEventListener("click",()=>{
   restoreMemoryFromLastJournal();
 });
-["nav","strategyPool","newCapital","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}})});
+MEMORY_FIELD_IDS.forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}else{ledger();}})});
 if($("forceFlat")) $("forceFlat").addEventListener("change",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}});
 // Prefer explicit button for Journal restore; auto-restore last Memory snapshot on load if present.
 restoreMemorySnapshotOnLoad();
+ledger();
 refresh();

@@ -69,4 +69,7 @@ assert.ok(String(cell16.stdout).includes('"PASS":true'),"cell16 PASS marker");
 const cell17=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell17_beginner_guided_input.js"),"--self-test"],{encoding:"utf8"});
 assert.strictEqual(cell17.status,0,"cell17_beginner_guided_input --self-test must PASS\n"+cell17.stdout+"\n"+cell17.stderr);
 assert.ok(String(cell17.stdout).includes('"PASS":true'),"cell17 PASS marker");
-console.log("V3 golden + Cell 14/15/16/17 operator loop PASS");
+const cell18=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell18_web_beginner_input.js")],{encoding:"utf8"});
+assert.strictEqual(cell18.status,0,"cell18_web_beginner_input must PASS\n"+cell18.stdout+"\n"+cell18.stderr);
+assert.ok(String(cell18.stdout).includes('"PASS":true'),"cell18 PASS marker");
+console.log("V3 golden + Cell 14/15/16/17/18 operator loop PASS");
