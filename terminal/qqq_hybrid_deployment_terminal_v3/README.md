@@ -75,7 +75,25 @@ Every decision records:
 
 ## Journal → Operator Memory (Cell 14)
 
-After journaling (or from the last journal row), the operator can **從 Journal 還原 Memory · Restore Memory from last Journal** so a reload does not wipe Operator Memory. Map is 1:1 and easy to verify — **never** Candidate / NOW plan strikes.
+After journaling (or from the last journal row), the operator can **從 Journal 還原 Memory · Restore Memory from last Journal** so a reload does not wipe Operator Memory. Map is 1:1 and easy to verify — **never** Candidate / NOW plan strikes.\n\n## Strategy State → Operator Action Bridge (Cell 16)
+
+Cell 16 is the read-only hand-off that closes the operator loop:
+
+**DATA → DECISION → CURRENT → TARGET → FUNDING CONTEXT → WATCH → JOURNAL**
+
+It takes the already-derived snapshot/state, the actual Memory position, the frozen target ledger, the Cell 15 funding context, current option-leg identity, and the last journal baseline. It returns one operator-facing **action class**:
+
+- BUILD = frozen target currently calls for additions
+- MAINTAIN = hold existing position and watch the next transition
+- DEFEND = frozen target currently calls for risk reduction
+- PAUSE = data gate is blocked
+- READY = no current position and no valid build delta
+
+Cell 16 does not mutate targetLedger, does not turn Strategy Pool routing into execution sizing, and does not submit broker orders. Strategy Pool output is explicitly tagged **CONTEXT ONLY / RESEARCH ONLY**.
+
+When a Journal event is written, the Cell 16 operator-facing result is stored under action_bridge. This records the hand-off without making the Journal a new source of strategy truth.
+
+
 
 | Journal path | Memory UI id |
 |---|---|
