@@ -338,17 +338,12 @@ This is an operator-context layer. It does not remove or rewrite Decision, Build
 Purpose: translate the frozen engine action + Current → Target deltas into one operator-facing class. Read-only; `noBrokerOrder: true`; never changes targets.
 
     DATA blocked / stale / mixed      → PAUSE
+    holdings blank / invalid          → NEEDS_INPUT (Part D: no target, no build, no trim)
     REDUCE                            → DEFEND
     BUY with additions + reductions   → REBALANCE
     BUY with additions only           → BUILD
-    HOLD + position + any reduction   → TRIM   (F4: only the part above frozen target; nothing added)
-    HOLD + position, no deltas        → MAINTAIN
+    HOLD + position                   → MAINTAIN
     no position                       → READY
-
-`reduceLines` lists each reduction, e.g. `VXX short 25% → 18% NAV (TRIM − 7%)`.
-
-F4 HOLD target (engine `targetLedger`, unchanged): QQQ core and option legs stay at current; VXX short = min(current, 18% NAV). HOLD never adds and never trims QQQ core.
-Journal: a HOLD trim delta is journaled as-is (no DELTA_ACTION_MISMATCH; that guard only covers negative option deltas). A human action equal to the engine action or to the Cell 16 class (e.g. `TRIM`, `REBALANCE`) is not a CONFLICT.
 
 Run: `node cell16_strategy_action_bridge.js` (Windows `RUN.cmd 16`).
 

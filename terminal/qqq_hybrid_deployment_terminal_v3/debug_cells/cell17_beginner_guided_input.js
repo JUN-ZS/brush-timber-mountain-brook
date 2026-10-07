@@ -173,15 +173,6 @@ function independentExpected(data, current) {
       qqqCalls: current.qqqCalls,
       vxxCalls: current.vxxCalls,
     };
-  } else if (action === "HOLD") {
-    // F4 HOLD contract: never add anything; only the VXX short above its frozen
-    // target is trimmed down to it (min(current, target)). QQQ core and option legs stay.
-    target = {
-      qqqShares: current.qqqShares,
-      vxxPct: Math.min(current.vxxPct, vxxTarget),
-      qqqCalls: current.qqqCalls,
-      vxxCalls: current.vxxCalls,
-    };
   } else if (action === "REDUCE") {
     // Independent mirror of targetLedger REDUCE: option budgets are zero,
     // so existing seller option legs converge toward zero via min(current, 0).
@@ -217,7 +208,7 @@ function independentActionClass(engineAction, deltas, hasPosition, blocked) {
     if (adds) return "BUILD";
     return hasPosition ? "MAINTAIN" : "READY";
   }
-  if (engineAction === "HOLD") return hasPosition ? (reductions ? "TRIM" : "MAINTAIN") : "READY";
+  if (engineAction === "HOLD") return hasPosition ? "MAINTAIN" : "READY";
   return "READY";
 }
 
@@ -680,10 +671,6 @@ function runSelfTest() {
       // maxTermAgeDays = 4 (spot dated with term so the 2-day MIX gate does not shadow it)
       { name: "PIN maxTermAge · age 4d → FRESH/CARRY", cur: current, data: makeData({ today, termAsOf: daysBefore(today, 4), spotAsOf: daysBefore(today, 4) }), want: "CARRY" },
       { name: "PIN maxTermAge · age 5d → DATA STALE", cur: current, data: makeData({ today, termAsOf: daysBefore(today, 5), spotAsOf: daysBefore(today, 5) }), want: "DATA STALE" },
-      // F4 HOLD trim: VXX above vxxNormalPct is trimmed, below / equal never added
-      { name: "PIN HOLD trim · VXX 25 → 18 · TRIM", cur: { nav: 100000, qqqShares: 100, vxxPct: 25, qqqCalls: 2, vxxCalls: 1 }, data: makeData({ today, vix: 20, m1: 16, m2: 16.48 }), want: "WEAKENING", wantTarget: { qqqShares: 100, vxxPct: 18, qqqCalls: 2, vxxCalls: 1 }, wantClass: "TRIM" },
-      { name: "PIN HOLD never adds · VXX 10 → 10 · MAINTAIN", cur: { nav: 100000, qqqShares: 100, vxxPct: 10, qqqCalls: 2, vxxCalls: 1 }, data: makeData({ today, vix: 20, m1: 16, m2: 16.48 }), want: "WEAKENING", wantTarget: { qqqShares: 100, vxxPct: 10, qqqCalls: 2, vxxCalls: 1 }, wantClass: "MAINTAIN" },
-      { name: "PIN HOLD at target · VXX 18 → 18 · MAINTAIN", cur: { nav: 100000, qqqShares: 100, vxxPct: 18, qqqCalls: 2, vxxCalls: 1 }, data: makeData({ today, vix: 20, m1: 16, m2: 16.48 }), want: "WEAKENING", wantTarget: { qqqShares: 100, vxxPct: 18, qqqCalls: 2, vxxCalls: 1 }, wantClass: "MAINTAIN" },
       // mixedDateBlockDays = 2
       { name: "PIN dateMix · gap 2d → FRESH/CARRY", cur: current, data: makeData({ today, termAsOf: today, spotAsOf: daysBefore(today, 2) }), want: "CARRY" },
       { name: "PIN dateMix · gap 3d → AS-OF MIXED", cur: current, data: makeData({ today, termAsOf: today, spotAsOf: daysBefore(today, 3) }), want: "AS-OF MIXED" },
@@ -703,13 +690,12 @@ function runSelfTest() {
         e.state === c.want &&
         (c.wantGate === undefined || e.gate === c.wantGate) &&
         (c.wantTarget === undefined || JSON.stringify(e.target) === JSON.stringify(c.wantTarget)) &&
-        (c.wantClass === undefined || independentActionClass(e.action, expectedDeltas, positionExists(c.cur), e.blocked) === c.wantClass) &&
         actual.state === e.state && actual.action === e.action && actual.gate === e.gate && actual.blocked === e.blocked &&
         JSON.stringify(book.target) === JSON.stringify(e.target) &&
         JSON.stringify(book.deltas) === JSON.stringify(expectedDeltas) &&
         b.actionClass === independentActionClass(e.action, expectedDeltas, positionExists(c.cur), e.blocked) &&
         b.noBrokerOrder === true;
-      console.log((pass ? "PASS" : "FAIL") + " · " + c.name + " · engine " + actual.state + "/" + actual.gate + " · Cell16=" + b.actionClass + " · target " + JSON.stringify(book.target));
+      console.log((pass ? "PASS" : "FAIL") + " · " + c.name + " · engine " + actual.state + "/" + actual.gate + " · target " + JSON.stringify(book.target));
       if (!pass) {
         console.log("  independent:", e.state + "/" + e.gate, JSON.stringify(e.target), " literal want:", c.want, c.wantGate || "", c.wantTarget ? JSON.stringify(c.wantTarget) : "");
         allPass = false;
@@ -786,7 +772,7 @@ function runSelfTest() {
   console.log("");
   console.log(JSON.stringify({
     cell: "17_BEGINNER_GUIDED_INPUT",
-    checks: cases.length + 19,
+    checks: cases.length + 16,
     contractIsIndependent: true,
     demo: {
       cash: 100000,

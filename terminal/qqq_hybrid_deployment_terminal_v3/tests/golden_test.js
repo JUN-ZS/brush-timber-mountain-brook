@@ -41,19 +41,6 @@ assert.strictEqual(sized.target.qqqCalls,12);
 const pending=E.targetLedger(base,E.derive(base),{nav:100000,qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0});
 assert.strictEqual(pending.target.qqqCalls,0);
 assert.strictEqual(pending.sizing.qqqCalls.status,"PENDING_CANDIDATE");
-// F4 HOLD trim (literal expectations): never add; VXX above 18% NAV trimmed to 18; QQQ core + option legs untouched.
-{
-  const thin={...base,vix:20,s:3};
-  const eH=E.derive(thin);
-  assert.strictEqual(eH.action,"HOLD");
-  for(const [vxx,wantVxx,wantClass] of [[25,18,"TRIM"],[10,10,"MAINTAIN"],[18,18,"MAINTAIN"]]){
-    const bk=E.targetLedger(thin,eH,{nav:100000,qqqShares:100,vxxPct:vxx,qqqCalls:2,vxxCalls:1});
-    assert.deepStrictEqual(bk.target,{qqqShares:100,vxxPct:wantVxx,qqqCalls:2,vxxCalls:1},"HOLD target VXX "+vxx);
-    const br=E.strategyActionBridge({d:thin,e:eH,book:bk,funding:{}});
-    assert.strictEqual(br.actionClass,wantClass,"HOLD class VXX "+vxx);
-    assert.strictEqual(br.noBrokerOrder,true);
-  }
-}
 console.log("V3 golden engine PASS");
 
 // Cell 14 coverage via golden step (OAuth token lacks `workflow` scope to edit cells YAML).
