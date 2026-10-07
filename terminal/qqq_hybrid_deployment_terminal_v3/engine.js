@@ -7,6 +7,13 @@ window.HybridEngineV3 = (() => {
     optionTargetDte: 45,
   });
   const num=(v,d=null)=>{if(v===null||v===undefined||v==="")return d;const x=parseFloat(String(v).replace(/,/g,""));return Number.isFinite(x)?x:d;};
+  function operatorNumber(v,{allowZero=true,min=0}={}){
+    if(v===null||v===undefined||String(v).trim()==="")return{status:"EMPTY",value:null};
+    const n=Number(String(v).replace(/,/g,""));
+    if(!Number.isFinite(n))return{status:"INVALID",value:null};
+    if((!allowZero&&n===0)||n<min)return{status:"INVALID",value:null};
+    return{status:"VALUE",value:n};
+  }
   function term(m1,m2){return Number.isFinite(m1)&&Number.isFinite(m2)&&m1!==0?((m2-m1)/m1)*100:null;}
   function daysBetween(a,b){if(!a||!b)return null;const x=new Date(a+"T00:00:00Z").getTime(),y=new Date(b+"T00:00:00Z").getTime();if(!Number.isFinite(x)||!Number.isFinite(y))return null;return Math.abs(y-x)/86400000;}
   function dataHealth(d){
@@ -67,5 +74,5 @@ window.HybridEngineV3 = (() => {
     rows.push({id:"VXX_ROLL",label:"VXX call roll",value:"DTE "+(Number.isFinite(vdte)?vdte:"—")+" · Δ "+(Number.isFinite(vdelta)?vdelta.toFixed(2):"—"),fire:(Number.isFinite(vdte)&&vdte<=POLICY.vxxRollDte)||(Number.isFinite(vdelta)&&vdelta>=POLICY.vxxRollDelta)||e.state==="SHOCK",priority:"HIGH"});
     return rows;
   }
-  return{POLICY,num,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers};
+  return{POLICY,num,operatorNumber,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers};
 })();
