@@ -109,8 +109,8 @@ window.PortfolioCampaignTimelineV1 = (() => {
     group.legs[role][event.symbol] = (group.legs[role][event.symbol] || 0) + signedQty;
   }
 
-  function classify(before, after, lastPairedSignature, lastPairedUnits) {
-    if (after.status === "CLOSED") return "FULL_CLOSE";
+  function classify(before, after, lastPairedSignature, lastPairedUnits, wasEverPaired) {
+    if (after.status === "CLOSED") return wasEverPaired ? "FULL_CLOSE" : "INCOMPLETE";
 
     if (after.status === "PAIRED") {
       if (!lastPairedSignature) return "OPEN";
@@ -165,6 +165,7 @@ window.PortfolioCampaignTimelineV1 = (() => {
     const state = new Map();
     const lastPairedSignature = new Map();
     const lastPairedUnits = new Map();
+    const hadPaired = new Set();
     const histories = [];
     const prefix = [];
 
@@ -183,10 +184,13 @@ window.PortfolioCampaignTimelineV1 = (() => {
         before,
         after,
         lastPairedSignature.get(identity.spreadId) || null,
-        lastPairedUnits.has(identity.spreadId) ? lastPairedUnits.get(identity.spreadId) : null
+        lastPairedUnits.has(identity.spreadId) ? lastPairedUnits.get(identity.spreadId) : null,
+        hadPaired.has(identity.spreadId)
       );
 
       if (after.status === "PAIRED") {
+        hadPaired.add(identity.spreadId);
+
         lastPairedSignature.set(identity.spreadId, after.signature);
         lastPairedUnits.set(identity.spreadId, after.units);
       }
