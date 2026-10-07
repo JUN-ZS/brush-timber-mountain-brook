@@ -7,6 +7,7 @@ import ssl
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -38,6 +39,7 @@ HOST = "127.0.0.1"
 PORT = 8788
 OPEND_HOST = "127.0.0.1"
 OPEND_PORT = 11111
+NY = ZoneInfo("America/New_York")
 
 
 def now_iso():
@@ -83,6 +85,25 @@ def _row_get(row, *names):
     return None
 
 
+def _opend_market_day(update_time):
+    text = str(update_time or "").strip()
+    if not text:
+        return None
+    try:
+        stamp = datetime.strptime(text, "%Y-%m-%d %H:%M:%S").replace(tzinfo=NY)
+    except ValueError:
+        return None
+    return stamp.date().isoformat()
+
+
+def _epoch_market_day(timestamp):
+    try:
+        stamp = datetime.fromtimestamp(float(timestamp), timezone.utc).astimezone(NY)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
+    return stamp.date().isoformat()
+
+
 def opend_snapshot(codes):
     if futu is None:
         raise RuntimeError("futu package unavailable")
@@ -95,8 +116,9 @@ def opend_snapshot(codes):
         for row in _iter_rows(data):
             code = str(_row_get(row, "code") or "").upper()
             px = num(_row_get(row, "last_price"))
+            update_time = str(_row_get(row, "update_time") or "").strip()
             if code and px is not None:
-                out[code] = {"price": px, "source": "OPEND"}
+                out[code] = {"price": px, "source": "OPEND", "update_time": update_time, "asof": _opend_market_day(update_time)}
         return out
     finally:
         try:
@@ -139,7 +161,7 @@ def yahoo(sym):
 def snapshot():
     out = {
         "captured_at": now_iso(),
-        "today": datetime.now(timezone.utc).astimezone().date().isoformat(),
+        "today": datetime.now(timezone.utc).astimezone(NY).date().isoformat(),
         "qqq": None,
         "vxx": None,
         "vix": None,
@@ -159,6 +181,8 @@ def snapshot():
         "errors": {},
     }
 
+    spot_days = {}
+    spot_missing_date = False
     try:
         spots = opend_spots()
         for key in ("QQQ", "VXX", "VIX"):
@@ -166,6 +190,10 @@ def snapshot():
             if item and item.get("price") is not None:
                 out[key.lower()] = item["price"]
                 out["provenance"][key.lower()] = "OPEND"
+                out.setdefault("provenance_asof", {})[key.lower()] = item.get("asof")
+                spot_days[key.lower()] = item.get("asof")
+                if not item.get("asof"):
+                    spot_missing_date = True
         if any(x is not None for x in spots.values()):
             out["source_chain"].append("OPEND")
     except Exception as exc:
@@ -178,12 +206,19 @@ def snapshot():
             y = yahoo(sym)
             out[key] = y["price"]
             out["provenance"][key] = "YAHOO"
+            y_day = _epoch_market_day(y.get("timestamp"))
+            out.setdefault("provenance_asof", {})[key] = y_day
+            spot_days[key] = y_day
+            if not y_day:
+                spot_missing_date = True
         except Exception as exc:
             out["errors"][f"yahoo_{key}"] = f"{type(exc).__name__}: {exc}"
 
     if out["qqq"] is not None or out["vxx"] is not None or out["vix"] is not None:
         out["source_chain"].append("YAHOO_FALLBACK")
-    out["spot_asof"] = datetime.now(timezone.utc).astimezone().date().isoformat()
+
+    used_spot_days = [v for v in spot_days.values() if v]
+    out["spot_asof"] = None if spot_missing_date else (min(used_spot_days) if used_spot_days else None)
 
     if fetch_cboe_vx is not None:
         try:
@@ -236,11 +271,14 @@ def snapshot():
                         ret2, snap = ctx.get_market_snapshot(codes)
                         if ret2 == getattr(futu, "RET_OK", 0):
                             by = {}
+                            updates = {}
                             for row in _iter_rows(snap):
                                 code = str(_row_get(row, "code") or "").upper()
                                 px = num(_row_get(row, "last_price"))
+                                update_time = str(_row_get(row, "update_time") or "").strip()
                                 if px is not None:
                                     by[code] = px
+                                    updates[code] = _opend_market_day(update_time)
                             if all(c in by for _, c in picks):
                                 out["m1"], out["m2"] = by[picks[0][1]], by[picks[1][1]]
                                 out["m1_code"], out["m2_code"] = picks[0][1], picks[1][1]
@@ -248,7 +286,9 @@ def snapshot():
                                 out["term_slope"] = ((out["m2"] - out["m1"]) / out["m1"]) * 100
                                 out["term_state"] = "CONTANGO" if out["term_slope"] > 0 else ("BACKWARDATION" if out["term_slope"] < 0 else "FLAT")
                                 out["term_source"] = "OPEND_VX_LIVE"
-                                out["term_asof"] = out["today"]
+                                term_days = [updates.get(p[1]) for p in picks]
+                                out["term_asof"] = min(term_days) if all(term_days) else None
+                                out["term_asof_status"] = "OPEND_UPDATE_TIME" if out["term_asof"] else "MISSING_UPDATE_TIME"
                                 out["provenance"]["m1"] = "OPEND_VX"
                                 out["provenance"]["m2"] = "OPEND_VX"
                                 out["provenance"]["term_slope"] = "DERIVED_FROM_OPEND_VX"
