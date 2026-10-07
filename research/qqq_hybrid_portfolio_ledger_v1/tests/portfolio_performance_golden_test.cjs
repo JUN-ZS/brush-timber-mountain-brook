@@ -72,4 +72,43 @@ eq(r.summary.incompleteSpreads, 1, "incomplete campaign spread");
 eq(r.campaigns.find(c => c.campaignId === "C2").status, "INCOMPLETE", "incomplete campaign status");
 eq(r.campaigns.find(c => c.campaignId === "C2").periodPnl, null, "incomplete campaign pnl blocked");
 
+
+const multiCampaign = [
+  {id:"m1s",timestamp:"2026-10-05T09:00:00Z",symbol:"QQQ261218C00800000",assetType:"OPTION",side:"SELL",quantity:1,price:8,fees:1,
+   positionIdentity:{campaignId:"CM","spreadId":"MS1","legRole:"SHORT"}},
+  {id:"m1l",timestamp:"2026-10-05T09:01:00Z",symbol:"QQQ261218C00850000",assetType:"OPTION",side:"BUY",quantity:1,price:2,fees:1,
+   positionIdentity:{campaignId:"CM","spreadId":"MS1",legRole:"LONG"}},
+  {id:"m2s",timestamp:"2026-10-05T09:02:00Z",symbol:"QQQ261218C00900000",assetType:"OPTION",side:"SELL",quantity:1,price:7,fees:1,
+   positionIdentity:{campaignId:"CM",spreadId:"MS2",legRole:"SHORT"}},
+  {id:"m2l",timestamp:"2026-10-05T09:03:00Z",symbol:"QQQ261218C00950000",assetType:"OPTION",side:"BUY",quantity:1,price:2,fees:1,
+   positionIdentity:{campaignId:"CM",spreadId:"MS2",legRole:"LONG"}}
+];
+r = P.performance(
+  multiCampaign,
+  "2026-10-05T08:00:00Z",
+  "2026-10-05T16:00:00Z",
+  {},
+  {"QQQ261218C00800000":5,"QQQ261218C00850000":3,"QQQ261218C00900000":4,"QQQ261218C00950000":1}
+);
+eq(r.campaigns.length, 1, "multi-spread campaign grouped");
+eq(r.campaigns[0].spreadCount, 2, "two spreads under one campaign");
+eq(r.campaigns[0].status, "COMPLETE", "multi-spread campaign complete");
+near(r.campaigns[0].currentPnl, 596, 1e-9, "multi-spread campaign sum");
+near(r.campaigns[0].periodPnl, 596, 1e-9, "multi-spread campaign period sum");
+
+const mixedCampaign = multiCampaign.concat([
+  {id:"m3s",timestamp:"2026-10-05T09:04:00Z",symbol:"QQQ261218C01000000",assetType:"OPTION",side:"SELL",quantity:1,price:6,fees:1,
+   positionIdentity:{campaignId:"CM",spreadId:"MS3",legRole:"SHORT"}}
+]);
+r = P.performance(
+  mixedCampaign,
+  "2026-10-05T08:00:00Z",
+  "2026-10-05T16:00:00Z",
+  {},
+  {"QQQ261218C00800000":5,"QQQ261218C00850000":3,"QQQ261218C00900000":4,"QQQ261218C00950000":1}
+);
+eq(r.campaigns[0].status, "INCOMPLETE", "campaign blocked by incomplete spread");
+eq(r.campaigns[0].periodPnl, null, "incomplete campaign aggregate blocked");
+eq(r.spreadRows.filter(x => x.status === "COMPLETE").length, 2, "complete spreads retain their own attribution");
+
 console.log("PORTFOLIO CAMPAIGN PERFORMANCE GOLDEN TEST: PASS");
