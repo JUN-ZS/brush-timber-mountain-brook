@@ -9,6 +9,7 @@ if "%~1"=="" (
   echo   RUN.cmd 4
   echo   RUN.cmd 5
   echo   RUN.cmd 6
+  echo   RUN.cmd 7
   echo   RUN.cmd ALL
   exit /b 2
 )
@@ -24,6 +25,8 @@ if /I "%~1"=="ALL" (
   call :cell 5
   if errorlevel 1 exit /b 1
   call :cell 6
+  if errorlevel 1 exit /b 1
+  call :cell 7
   exit /b %errorlevel%
 )
 call :cell %~1
@@ -37,7 +40,8 @@ if "%CELL%"=="3" node cell03_operator_current.js
 if "%CELL%"=="4" node cell04_candidate.js
 if "%CELL%"=="5" node cell05_build.js
 if "%CELL%"=="6" node cell06_watch.js
-if not "%CELL%"=="1" if not "%CELL%"=="2" if not "%CELL%"=="3" if not "%CELL%"=="4" if not "%CELL%"=="5" if not "%CELL%"=="6" (
+if "%CELL%"=="7" node cell07_operator_summary.js
+if not "%CELL%"=="1" if not "%CELL%"=="2" if not "%CELL%"=="3" if not "%CELL%"=="4" if not "%CELL%"=="5" if not "%CELL%"=="6" if not "%CELL%"=="7" (
   echo Unknown cell: %CELL%
   exit /b 2
 )
