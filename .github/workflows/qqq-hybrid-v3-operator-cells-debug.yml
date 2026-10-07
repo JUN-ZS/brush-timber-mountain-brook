@@ -65,3 +65,6 @@ jobs:
 
       - name: Cell 10 — Option candidate retrieval
         run: python3 terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell10_option_candidate_retrieval.py
+
+      - name: Cell 11 — OpenD option-chain fallback
+        run: python3 terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell11_opend_option_fallback.py
