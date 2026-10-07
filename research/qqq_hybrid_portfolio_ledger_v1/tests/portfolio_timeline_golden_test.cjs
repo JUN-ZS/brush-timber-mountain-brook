@@ -150,5 +150,7 @@ const sparseSpread = [
 const sparse = T.timeline(sparseSpread, sparseMarkSeries);
 eq(sparse.rows[1].pnlBasis, "MARKED_TOTAL", "sparse marks carry forward by symbol");
 near(sparse.rows[1].totalPnl, 500, 1e-9, "sparse mark total pnl");
-eq(sparse.rows[1].markTimestamp, "2026-10-02T10:00:00.000Z", "latest sparse mark timestamp is retained");
+eq(sparse.rows[1].markTimestamp, "2026-10-01T10:02:00.000Z", "latest sparse mark timestamp is retained");
+eq(sparse.rows[1].markTimestamps.H, "2026-10-01T10:02:00.000Z", "H mark timestamp is current sparse observation");
+eq(sparse.rows[1].markTimestamps.I, "2026-10-01T10:01:00.000Z", "I mark timestamp is carried forward from prior observation");
 console.log("PORTFOLIO CAMPAIGN TIMELINE GOLDEN TEST: PASS");
