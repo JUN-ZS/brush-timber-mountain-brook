@@ -86,4 +86,17 @@ const pairedThenClosed = P.build([
 eq(pairedThenClosed.rows[0].everPaired, true, "paired history flag retained after closure");
 
 
+
+const ordered = [
+  {id:"ord-s",timestamp:"2026-10-08T10:00:00Z",symbol:"QQQ261218C01200000",assetType:"OPTION",side:"SELL",quantity:2,price:8,positionIdentity:{campaignId:"CU",spreadId:"QU1",legRole:"SHORT"}},
+  {id:"ord-l",timestamp:"2026-10-08T10:01:00Z",symbol:"QQQ261218C01250000",assetType:"OPTION",side:"BUY",quantity:2,price:2,positionIdentity:{campaignId:"CU",spreadId:"QU1",legRole:"LONG"}},
+  {id:"ord-sc",timestamp:"2026-10-08T10:02:00Z",symbol:"QQQ261218C01200000",assetType:"OPTION",side:"BUY",quantity:1,price:7,positionIdentity:{campaignId:"CU",spreadId:"QU1",legRole:"SHORT"}}
+];
+const unordered = [ordered[2], ordered[1], ordered[0]];
+const orderedIdentity = P.build(ordered).rows[0];
+const unorderedIdentity = P.build(unordered).rows[0];
+eq(unorderedIdentity.status, orderedIdentity.status, "unordered identity status");
+eq(unorderedIdentity.units, orderedIdentity.units, "unordered identity units");
+eq(unorderedIdentity.everPaired, orderedIdentity.everPaired, "unordered identity ever-paired state");
+
 console.log("POSITION IDENTITY GOLDEN TEST: PASS");
