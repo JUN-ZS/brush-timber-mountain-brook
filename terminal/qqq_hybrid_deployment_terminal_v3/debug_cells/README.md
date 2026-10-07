@@ -332,3 +332,23 @@ The cell verifies:
     funding context can be journaled and restored to Memory
 
 This is an operator-context layer. It does not remove or rewrite Decision, Build, Candidate, or Roll functions.
+
+
+## Safety date contract
+
+Freshness is fail-closed:
+
+    missing / invalid today       → DATA BLOCKED
+    missing / invalid term date   → DATA BLOCKED
+    missing / invalid spot date   → DATA BLOCKED
+    future term / spot date       → DATA BLOCKED
+    term age > 4 days             → DATA STALE
+    spot-vs-term gap > 2 days     → AS-OF MIXED
+
+Cboe delayed VX uses the payload observation timestamp ("lastUpdate") converted to the New York calendar date; the fetch clock is display-only. OpenD/Yahoo spot and OpenD VX fallback use their own observation timestamps; the engine never substitutes "today" for an unproven source date.
+
+## Cell 17 — Beginner Guided Input
+
+Purpose: a separate beginner questionnaire and independent reverse audit. It calculates the demo NAV (cash + QQQ shares × price), translates holdings into the production Current ledger, and independently mirrors the frozen Decision / Target / Cell 16 rules.
+
+It never places broker orders. It is a diagnostic/audit path, not a replacement strategy engine.
