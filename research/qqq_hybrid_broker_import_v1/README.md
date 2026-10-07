@@ -120,3 +120,7 @@ not:
     broker read -> auto-order
 
 Broker order submission remains disabled. V3 strategy policy remains untouched.
+
+## CI evidence rule
+
+A broker-import change is considered validated only by the GitHub Actions run attached to the current branch head. A cancelled or stale-head run is not evidence for the current head.
