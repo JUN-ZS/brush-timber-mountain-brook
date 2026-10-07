@@ -54,3 +54,6 @@ jobs:
 
       - name: Cell 07 — Operator summary
         run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell07_operator_summary.js
+
+      - name: Cell 08 — Current option leg
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell08_current_option_leg.js
