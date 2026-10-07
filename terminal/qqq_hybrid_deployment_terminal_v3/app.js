@@ -9,13 +9,68 @@ const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 const pct=(v,d=2)=>Number.isFinite(Number(v))?((Number(v)>=0?"+":"")+Number(v).toFixed(d)+"%"):"—";
 
 function ledger(){
-  return {
-    nav:Number($("nav").value)||0,
-    qqqShares:Number($("qqqShares").value)||0,
-    vxxPct:Number($("vxxPct").value)||0,
-    qqqCalls:Number($("qqqCalls").value)||0,
-    vxxCalls:Number($("vxxCalls").value)||0
+  const raw={
+    nav:$("nav").value,
+    qqqShares:$("qqqShares").value,
+    vxxPct:$("vxxPct").value,
+    qqqCalls:$("qqqCalls").value,
+    vxxCalls:$("vxxCalls").value
   };
+  const fields=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,E.operatorNumber(value,{min:0})]));
+  const invalid=Object.entries(fields).filter(([,state])=>state.status==="INVALID").map(([key])=>key);
+  const empty=Object.entries(fields).filter(([,state])=>state.status==="EMPTY").map(([key])=>key);
+  return {
+    nav:fields.nav.value,
+    qqqShares:fields.qqqShares.value,
+    vxxPct:fields.vxxPct.value,
+    qqqCalls:fields.qqqCalls.value,
+    vxxCalls:fields.vxxCalls.value,
+    inputStatus:{
+      status:invalid.length?"INVALID":empty.length?"INCOMPLETE":"READY",
+      invalid,
+      empty,
+      fields
+    }
+  };
+}
+
+function optionLegs(){
+  const qqqCalls=$("qqqCalls")?$("qqqCalls").value:"";
+  const vxxCalls=$("vxxCalls")?$("vxxCalls").value:"";
+  return E.currentOptionLegs({
+    qqq:{
+      qty:qqqCalls,
+      shortStrike:$("qqqShortStrike")?$("qqqShortStrike").value:"",
+      longStrike:$("qqqLongStrike")?$("qqqLongStrike").value:"",
+      expiry:$("qqqExpiry")?$("qqqExpiry").value:"",
+      dte:$("qqqDte")?$("qqqDte").value:"",
+      delta:$("qqqDelta")?$("qqqDelta").value:"",
+      entryCredit:$("qqqEntryCredit")?$("qqqEntryCredit").value:""
+    },
+    vxx:{
+      qty:vxxCalls,
+      shortStrike:$("vxxShortStrike")?$("vxxShortStrike").value:"",
+      longStrike:$("vxxLongStrike")?$("vxxLongStrike").value:"",
+      expiry:$("vxxExpiry")?$("vxxExpiry").value:"",
+      dte:$("vxxDte")?$("vxxDte").value:"",
+      delta:$("vxxDelta")?$("vxxDelta").value:"",
+      entryCredit:$("vxxEntryCredit")?$("vxxEntryCredit").value:""
+    }
+  });
+}
+function renderLegIdentity(){
+  const legs=optionLegs();
+  const paint=(id,leg)=>{
+    const el=$(id); if(!el) return;
+    el.textContent=leg.status+(leg.rollReady?" · ROLL-READY":"");
+    el.className="tag"+(leg.status==="READY"?" active":leg.status==="INVALID"?" retired":leg.status==="INCOMPLETE"?" research":"");
+  };
+  paint("qqqLegStatus",legs.qqq);
+  paint("vxxLegStatus",legs.vxx);
+  if($("legIdentityMeta")){
+    const w=x=>Number.isFinite(x.width)?(" width "+x.width):"";
+    $("legIdentityMeta").textContent="QQQ "+legs.qqq.status+w(legs.qqq)+" · VXX "+legs.vxx.status+w(legs.vxx)+" · ROLL reads Current Leg (Candidate stays separate; Build uses call counts)";
+  }
 }
 
 function inputRow(){
@@ -56,7 +111,26 @@ function renderFlow(d,e,book){
   }
 }
 
+function renderOperatorSummary(d,e,book){
+  const legs=optionLegs();
+  // Pass raw strings (blank ≠ 0). ROLL prefers currentOptionLegs; manual DTE/Δ are fallback only.
+  const opt={
+    qqqDte:$("qqqDte")?$("qqqDte").value:"",qqqDelta:$("qqqDelta")?$("qqqDelta").value:"",
+    vxxDte:$("vxxDte")?$("vxxDte").value:"",vxxDelta:$("vxxDelta")?$("vxxDelta").value:"",
+    currentOptionLegs:legs,
+    today:d.today||null
+  };
+  const s=E.operatorSummary(d,e,book,candidates,opt);
+  if($("operatorMode"))$("operatorMode").textContent=s.mode;
+  if($("operatorAction"))$("operatorAction").textContent=e.blocked?"HOLD / BLOCKED":e.action;
+  if($("operatorPlan"))$("operatorPlan").innerHTML=s.plan.map(x=>"<div class='operator-line'>"+x+"</div>").join("");
+  if($("operatorThresholds"))$("operatorThresholds").innerHTML=s.thresholds.length?s.thresholds.map((x,i)=>"<div class='operator-line'><b>"+x.label+"</b><span>"+x.text+"</span></div>").join(""):"<div class='operator-line'>等待有效市場數據</div>";
+  if($("operatorRolls"))$("operatorRolls").innerHTML=[s.rolls.qqq,s.rolls.vxx].map(x=>"<div class='operator-line'><b>"+x.label+"</b><span>"+x.text+"</span></div>").join("");
+  if($("operatorBaseline"))$("operatorBaseline").textContent="Baseline · QQQ core "+E.POLICY.corePct+"% NAV · VXX short "+E.POLICY.vxxNormalPct+"% (VIX ≥ "+E.POLICY.vixHigh+" → "+E.POLICY.vxxHighPct+"%) · QQQ far-call budget "+E.POLICY.qqqCallBudgetPct+"% · VXX call budget "+E.POLICY.vxxCallBudgetPct+"%";
+}
 function render(d,e,book){
+  renderOperatorSummary(d,e,book);
+  renderLegIdentity();
   renderFlow(d,e,book);
   $("qqq").textContent=fmt(d.qqq);
   $("vxx").textContent=fmt(d.vxx);
@@ -106,7 +180,7 @@ function render(d,e,book){
     vxxDelta:Number($("vxxDelta").value)
   };
   const tr=E.triggers(d,e,opts);
-  $("triggerRows").innerHTML=tr.map(x=>'<div class="trigger '+(x.fire?"fire":"")+'"><span><b>'+x.label+'</b><small> '+x.priority+'</small></span><span>'+x.value+'</span><strong>'+(x.fire?"TRIGGER":"WATCH")+'</strong></div>').join("");
+  $("triggerRows").innerHTML=tr.map(x=>'<div class="trigger '+(x.fire?"fire":"")+'"><span><b>'+x.label+'</b><small> '+x.priority+'</small></span><span>'+x.value+'</span><strong>'+(x.fire?"TRIGGER":x.mode==="NO_POSITION"?"OFF":x.mode==="NEEDS_POSITION_DATA"?"INCOMPLETE":x.mode==="WATCH"?"WATCH":"WATCH")+'</strong></div>').join("");
 
   $("prov").innerHTML=[
     ["QQQ/VXX/VIX",(live?.provenance?Object.entries(live.provenance).filter(([k])=>["qqq","vxx","vix"].includes(k)).map(([,v])=>v).join(" / "):"—"),"OBSERVED"],
@@ -124,10 +198,8 @@ function candidateText(c){
 }
 
 function applyCandidate(sym,c){
+  // Candidate = next buy only. Do not write into Current Option Leg Watch fields.
   candidates[sym]=c;
-  const dteId=sym==="qqq"?"qqqDte":"vxxDte",deltaId=sym==="qqq"?"qqqDelta":"vxxDelta";
-  if(c && $(dteId)) $(dteId).value=Number.isFinite(Number(c.dte))?Math.round(Number(c.dte)):"";
-  if(c && $(deltaId)) $(deltaId).value=Number.isFinite(Number(c.delta))?Number(c.delta).toFixed(2):"";
   const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);
   render(d,e,book);
 }
@@ -229,5 +301,5 @@ $("refreshBtn").addEventListener("click",refresh);
 if($("findQQQ")) $("findQQQ").addEventListener("click",()=>loadCandidate("qqq"));
 if($("findVXX")) $("findVXX").addEventListener("click",()=>loadCandidate("vxx"));
 $("journalBtn").addEventListener("click",journalDecision);
-["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqDte","qqqDelta","vxxDte","vxxDelta"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}}));
+["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}}));
 refresh();

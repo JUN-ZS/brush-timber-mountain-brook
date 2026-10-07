@@ -63,6 +63,10 @@ Every decision records:
 - human action
 - conflict status
 
+## Candidate vs Current Option Leg
+
+**Candidate** is the next buy suggested from the option chain (Find QQQ / Find VXX). **Current Option Leg** is what is already held — Operator Memory / Watch fields (short, long, expiry, qty, entry credit, DTE, Δ). Market regime (BUY / HOLD / REDUCE) is a separate clock from option maintenance: HOLD means do not add, keep existing; ROLL monitors held legs only. The ROLL panel prefers Cell 08 `currentOptionLegs` identity (DTE from explicit leg DTE, else calendar days from expiry→today; past expiry → 0) and never treats blank as zero.
+
 ## Safety
 
 - signal / decision support only
