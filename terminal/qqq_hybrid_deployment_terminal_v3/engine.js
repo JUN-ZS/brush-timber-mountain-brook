@@ -316,15 +316,26 @@ window.HybridEngineV3 = (() => {
     if(e.blocked){
       actionClass="PAUSE";
       operatorInstruction="DATA 未通過：不新增、不減倉；先取得完整/較新資料。";
-    }else if(e.action==="REDUCE"||hasReduction){
+    }else if(e.action==="REDUCE"){
       actionClass="DEFEND";
       operatorInstruction="按 frozen target 檢查減風險項；完成實際人工動作後 JOURNAL。";
-    }else if(e.action==="BUY"||hasBuild){
-      actionClass="BUILD";
-      operatorInstruction="按 Current → Target 檢查新增項；候選只作參考，不自動下單；完成後 JOURNAL。";
+    }else if(e.action==="BUY"){
+      actionClass=hasBuild&&hasReduction?"REBALANCE":hasBuild?"BUILD":hasPosition?"MAINTAIN":"READY";
+      operatorInstruction=actionClass==="REBALANCE"
+        ?"按 frozen target 同時檢查新增與縮減項；逐項人工處理後 JOURNAL。"
+        :actionClass==="BUILD"
+          ?"按 Current → Target 檢查新增項；候選只作參考，不自動下單；完成後 JOURNAL。"
+          :actionClass==="MAINTAIN"
+            ?"維持現有倉位，等待 NEXT regime / ROLL transition。"
+            :"目前無倉位：等待有效 BUILD 條件；不因空倉自行創造目標。";
+    }else if(e.action==="HOLD"){
+      actionClass=hasPosition?"MAINTAIN":"READY";
+      operatorInstruction=hasPosition
+        ?"維持現有倉位，等待 NEXT regime / ROLL transition；不新增 carry。"
+        :"目前無倉位：保持觀察，等待有效 BUILD 條件。";
     }else if(hasPosition){
       actionClass="MAINTAIN";
-      operatorInstruction="維持現有倉位，等待 NEXT regime / ROLL transition；不新增 carry。";
+      operatorInstruction="維持現有倉位，等待下一個有效狀態。";
     }else{
       actionClass="READY";
       operatorInstruction="目前無倉位：等待有效 BUILD 條件；不因空倉自行創造目標。";
