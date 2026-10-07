@@ -54,6 +54,8 @@ assert.strictEqual(pending.sizing.qqqCalls.status,"PENDING_CANDIDATE");
   }
 }
 
+assert.strictEqual(E.derive({...base,termAsOf:"2026-10-09",spotAsOf:"2026-10-08",today:"2026-10-08"}).health.code,"TERM_DATE_FUTURE");
+assert.strictEqual(E.derive({...base,termAsOf:"2026-10-08",spotAsOf:"2026-10-09",today:"2026-10-08"}).health.code,"SPOT_DATE_FUTURE");
 console.log("V3 golden engine PASS");
 
 // Cell 14 coverage via golden step (OAuth token lacks `workflow` scope to edit cells YAML).
