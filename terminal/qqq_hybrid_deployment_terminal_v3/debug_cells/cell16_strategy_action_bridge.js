@@ -96,9 +96,27 @@ function setup(data=base,position={qqqShares:100,vxxPct:10,qqqCalls:2,vxxCalls:1
   assert.strictEqual(rec.funding_context.route,f.route);
 }
 
+// 7) F4 HOLD trim: WEAKENING never adds; VXX above frozen 18% is TRIM.
+{
+  const data={...base,s:3};
+  for(const c of [
+    {vxxPct:25,wantClass:"TRIM",wantTarget:18,wantDelta:-7},
+    {vxxPct:10,wantClass:"MAINTAIN",wantTarget:10,wantDelta:0},
+    {vxxPct:18,wantClass:"MAINTAIN",wantTarget:18,wantDelta:0},
+  ]){
+    const {e,book,f}=setup(data,{qqqShares:100,vxxPct:c.vxxPct,qqqCalls:2,vxxCalls:1});
+    const b=E.strategyActionBridge({d:data,e,book,funding:f,currentOptionLegs:E.currentOptionLegs({qqq:{qty:2},vxx:{qty:1}}),journalRows:[]});
+    assert.strictEqual(e.action,"HOLD");
+    assert.strictEqual(b.actionClass,c.wantClass);
+    assert.strictEqual(b.target.vxxPct,c.wantTarget);
+    assert.strictEqual(b.deltas.vxxPct,c.wantDelta);
+    assert.strictEqual(b.noBrokerOrder,true);
+  }
+}
+
 console.log(JSON.stringify({
   cell:"16_STRATEGY_ACTION_BRIDGE",
-  checks:6,
-  cases:["CARRY/BUILD","WEAKENING/MAINTAIN","SHOCK/DEFEND","BLOCKED/PAUSE","JOURNAL_BASELINE","JOURNAL_BRIDGE"],
+  checks:7,
+  cases:["CARRY/REBALANCE","WEAKENING/MAINTAIN","SHOCK/DEFEND","BLOCKED/PAUSE","JOURNAL_BASELINE","JOURNAL_BRIDGE","HOLD_TRIM_25_10_18"],
   PASS:true
 }));
