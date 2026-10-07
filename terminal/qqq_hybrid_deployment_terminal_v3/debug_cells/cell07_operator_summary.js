@@ -45,6 +45,12 @@ assert.strictEqual(h.rolls.vxx.status,"NEEDS_DATA");
 assert.strictEqual(h.thresholds[0].id,"S_0");
 assert.strictEqual(h.thresholds[0].text,"3 pp");
 
+const trimBook=E.targetLedger(holdData,hold,ready({nav:100000,qqqShares:56,vxxPct:25,qqqCalls:2,vxxCalls:3}),{});
+const trim=E.operatorSummary(holdData,hold,trimBook,{},{});
+assert.strictEqual(trim.mode,"WATCH / TRIM");
+assert.ok(trim.plan.some(x=>x.includes("TRIM − 7%")));
+assert.ok(!trim.plan.some(x=>x.includes("+")), "HOLD plan never adds");
+
 const dRoll={...holdData,s:8};
 const eRoll=E.derive(dRoll);
 const bRoll=E.targetLedger(dRoll,eRoll,ready({nav:100000,qqqShares:56,vxxPct:18,qqqCalls:2,vxxCalls:0}),candidate);
@@ -58,6 +64,7 @@ console.log(JSON.stringify({
   cell:"07_OPERATOR_SUMMARY",
   buildMode:a.mode,
   holdMode:h.mode,
+  holdTrimMode:trim.mode,
   nearestHoldChange:h.thresholds[0].label+" · "+h.thresholds[0].text,
   qqqRollDistance:roll.rolls.qqq.text,
   vxxRoll:roll.rolls.vxx.text,
