@@ -105,6 +105,23 @@ function independentExpected(data, current) {
     };
   }
   const todayDay = String(data.today).trim(), termDay = String(data.termAsOf).trim(), spotDay = String(data.spotAsOf).trim();
+  const todayMs = Date.parse(todayDay + "T00:00:00Z");
+  const termMs = Date.parse(termDay + "T00:00:00Z");
+  const spotMs = Date.parse(spotDay + "T00:00:00Z");
+  if (termMs > todayMs) {
+    return {
+      state: "DATA BLOCKED", action: "HOLD", gate: "BLOCKED", blocked: true,
+      reasonClass: "TERM_DATE_FUTURE",
+      target: { qqqShares: current.qqqShares, vxxPct: current.vxxPct, qqqCalls: current.qqqCalls, vxxCalls: current.vxxCalls },
+    };
+  }
+  if (spotMs > todayMs) {
+    return {
+      state: "DATA BLOCKED", action: "HOLD", gate: "BLOCKED", blocked: true,
+      reasonClass: "SPOT_DATE_FUTURE",
+      target: { qqqShares: current.qqqShares, vxxPct: current.vxxPct, qqqCalls: current.qqqCalls, vxxCalls: current.vxxCalls },
+    };
+  }
   const termAge = daysBetween(termDay, todayDay);
   if (termAge !== null && termAge > CONTRACT.maxTermAgeDays) {
     return {
@@ -706,6 +723,8 @@ function runSelfTest() {
       { name: "PIN F1 termAsOf '2026/09/01' → DATA BLOCKED", cur: activeSeller, data: makeData({ today, termAsOf: "2026/09/01" }), want: "DATA BLOCKED", wantCode: "TERM_DATE_INVALID", wantClass: "PAUSE" },
       { name: "PIN F1 spotAsOf 'abc' → DATA BLOCKED", cur: activeSeller, data: makeData({ today, spotAsOf: "abc" }), want: "DATA BLOCKED", wantCode: "SPOT_DATE_INVALID", wantClass: "PAUSE" },
       { name: "PIN F1 no today → DATA BLOCKED (NO CLOCK)", cur: activeSeller, data: { ...makeData({ today }), today: undefined }, want: "DATA BLOCKED", wantCode: "NO_CLOCK", wantClass: "PAUSE" },
+      { name: "PIN F1 future termAsOf → DATA BLOCKED", cur: activeSeller, data: makeData({ today, termAsOf: "2026-10-09", spotAsOf: today }), want: "DATA BLOCKED", wantCode: "TERM_DATE_FUTURE", wantClass: "PAUSE" },
+      { name: "PIN F1 future spotAsOf → DATA BLOCKED", cur: activeSeller, data: makeData({ today, termAsOf: today, spotAsOf: "2026-10-09" }), want: "DATA BLOCKED", wantCode: "SPOT_DATE_FUTURE", wantClass: "PAUSE" },
     ];
     for (const c of pins) {
       const e = independentExpected(c.data, c.cur);
@@ -806,7 +825,7 @@ function runSelfTest() {
   console.log("");
   console.log(JSON.stringify({
     cell: "17_BEGINNER_GUIDED_INPUT",
-    checks: cases.length + 24,
+    checks: cases.length + 26,
     contractIsIndependent: true,
     demo: {
       cash: 100000,
