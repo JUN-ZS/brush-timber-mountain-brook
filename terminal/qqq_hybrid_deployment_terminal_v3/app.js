@@ -166,7 +166,7 @@ function fundingInputs(){
 }
 function renderFundingPlan(d,e,book){
   const f=fundingInputs();
-  const plan=E.fundingPlan({d,e,book,strategyPool:f.strategyPool,newCapital:f.newCapital});
+  const plan=E.fundingPlan({d,e,book,strategyPool:f.strategyPool,newCapital:f.newCapital,nav:$("nav")?$("nav").value:""});
   if($("strategyName"))$("strategyName").textContent=plan.strategyName;
   if($("strategyFormula"))$("strategyFormula").textContent=plan.formula;
   if($("fundingRegime"))$("fundingRegime").textContent=plan.regime+" · "+plan.route;
