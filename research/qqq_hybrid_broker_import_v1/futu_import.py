@@ -69,7 +69,7 @@ def call_futu(ctx, method_name, *args, **kwargs):
     return rows(data)
 
 
-def fetch_deals(ctx, start: date, end: date):
+def fetch_deals(ctx, start: date, end: date, acc_id: int, acc_index: int):
     out = []
     for a, b in range_chunks(start, end, 90):
         chunk = call_futu(
@@ -78,14 +78,14 @@ def fetch_deals(ctx, start: date, end: date):
             start=f"{a.isoformat()} 00:00:00",
             end=f"{b.isoformat()} 23:59:59",
             trd_env=futu.TrdEnv.REAL,
-            acc_id=args.acc_id,
-            acc_index=args.acc_index,
+            acc_id=acc_id,
+            acc_index=acc_index,
         )
         out.extend(chunk)
     return out
 
 
-def fetch_order_fees(ctx, order_ids):
+def fetch_order_fees(ctx, order_ids, acc_id: int, acc_index: int):
     unique = []
     seen = set()
     for oid in order_ids:
@@ -97,11 +97,18 @@ def fetch_order_fees(ctx, order_ids):
     out = []
     for i in range(0, len(unique), 400):
         batch = unique[i:i + 400]
-        out.extend(call_futu(ctx, "order_fee_query", order_id_list=batch, trd_env=futu.TrdEnv.REAL))
+        out.extend(call_futu(
+            ctx,
+            "order_fee_query",
+            order_id_list=batch,
+            trd_env=futu.TrdEnv.REAL,
+            acc_id=acc_id,
+            acc_index=acc_index,
+        ))
     return out
 
 
-def fetch_cashflows(ctx, start: date, end: date, throttle_seconds: float):
+def fetch_cashflows(ctx, start: date, end: date, throttle_seconds: float, acc_id: int, acc_index: int):
     out = []
     day = start
     requests = 0
@@ -113,8 +120,8 @@ def fetch_cashflows(ctx, start: date, end: date, throttle_seconds: float):
                     "get_acc_cash_flow",
                     clearing_date=day.isoformat(),
                     trd_env=futu.TrdEnv.REAL,
-                    acc_id=args.acc_id,
-                    acc_index=args.acc_index,
+                    acc_id=acc_id,
+                    acc_index=acc_index,
                 )
             )
             requests += 1
@@ -164,14 +171,14 @@ def main() -> int:
     )
 
     try:
-        deals = fetch_deals(ctx, args.start, args.end)
+        deals = fetch_deals(ctx, args.start, args.end, args.acc_id, args.acc_index)
         order_ids = [scalar(x, "order_id", "orderID") for x in deals]
-        fee_rows = fetch_order_fees(ctx, order_ids)
+        fee_rows = fetch_order_fees(ctx, order_ids, args.acc_id, args.acc_index)
         cashflows = []
         cashflow_requests = 0
         if args.with_cashflows:
             cashflows, cashflow_requests = fetch_cashflows(
-                ctx, args.start, args.end, max(0.0, args.cashflow_throttle)
+                ctx, args.start, args.end, max(0.0, args.cashflow_throttle), args.acc_id, args.acc_index
             )
     finally:
         try:
@@ -209,7 +216,7 @@ def main() -> int:
 
     normalizer = ROOT / "broker_event_normalizer.js"
     proc = subprocess.run(
-        ["node", "-e", "const N=require(process.argv[1]); const raw=JSON.parse(require('fs').readFileSync(0,'utf8')); const out=N.normalizeBundle(raw,{sourceTimezone:'-04:00',feeRows:raw.fees,importedAt:raw.meta.importedAt}); process.stdout.write(JSON.stringify(out));", str(normalizer)],
+        ["node", "-e", "const N=require(process.argv[1]); const raw=JSON.parse(require('fs').readFileSync(0,'utf8')); const out=N.normalizeBundle(raw,{sourceTimezone:null,feeRows:raw.fees,importedAt:raw.meta.importedAt}); process.stdout.write(JSON.stringify(out));", str(normalizer)],
         input=json.dumps(raw, ensure_ascii=False),
         text=True,
         capture_output=True,
