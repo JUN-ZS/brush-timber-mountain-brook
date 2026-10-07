@@ -77,4 +77,13 @@ const neverPaired = P.build([
 eq(neverPaired.rows[0].status, "INCOMPLETE", "never-paired final identity incomplete");
 eq(neverPaired.rows[0].everPaired, false, "never-paired history flag");
 
+const pairedThenClosed = P.build([
+  {id:"pc-s",timestamp:"2026-10-07T10:00:00Z",symbol:"QQQ261218C01100000",assetType:"OPTION",side:"SELL",quantity:1,price:8,positionIdentity:{campaignId:"C5",spreadId:"QSP5",legRole:"SHORT"}},
+  {id:"pc-l",timestamp:"2026-10-07T10:01:00Z",symbol:"QQQ261218C01150000",assetType:"OPTION",side:"BUY",quantity:1,price:2,positionIdentity:{campaignId:"C5",spreadId:"QSP5",legRole:"LONG"}},
+  {id:"pc-sc",timestamp:"2026-10-07T10:02:00Z",symbol:"QQQ261218C01100000",assetType:"OPTION",side:"BUY",quantity:1,price:7,positionIdentity:{campaignId:"C5",spreadId:"QSP5",legRole:"SHORT"}},
+  {id:"pc-lc",timestamp:"2026-10-07T10:03:00Z",symbol:"QQQ261218C01150000",assetType:"OPTION",side:"SELL",quantity:1,price:3,positionIdentity:{campaignId:"C5",spreadId:"QSP5",legRole:"LONG"}}
+]);
+eq(pairedThenClosed.rows[0].everPaired, true, "paired history flag retained after closure");
+
+
 console.log("POSITION IDENTITY GOLDEN TEST: PASS");
