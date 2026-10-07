@@ -78,6 +78,8 @@ def fetch_deals(ctx, start: date, end: date):
             start=f"{a.isoformat()} 00:00:00",
             end=f"{b.isoformat()} 23:59:59",
             trd_env=futu.TrdEnv.REAL,
+            acc_id=args.acc_id,
+            acc_index=args.acc_index,
         )
         out.extend(chunk)
     return out
@@ -111,6 +113,8 @@ def fetch_cashflows(ctx, start: date, end: date, throttle_seconds: float):
                     "get_acc_cash_flow",
                     clearing_date=day.isoformat(),
                     trd_env=futu.TrdEnv.REAL,
+                    acc_id=args.acc_id,
+                    acc_index=args.acc_index,
                 )
             )
             requests += 1
@@ -128,6 +132,8 @@ def build_parser():
     p.add_argument("--timezone", default="America/New_York")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=11111)
+    p.add_argument("--acc-id", type=int, default=0)
+    p.add_argument("--acc-index", type=int, default=0)
     p.add_argument("--with-cashflows", action="store_true")
     p.add_argument("--cashflow-throttle", type=float, default=1.6)
     p.add_argument("--output", default="")
@@ -173,8 +179,17 @@ def main() -> int:
         except Exception:
             pass
 
+    deals_for_normalizer = []
+    for deal in deals:
+        copied = dict(deal)
+        copied["create_time"] = iso_from_futu_time(
+            scalar(deal, "create_time", "createTime"),
+            source_zone,
+        )
+        deals_for_normalizer.append(copied)
+
     raw = {
-        "deals": deals,
+        "deals": deals_for_normalizer,
         "fees": fee_rows,
         "cashflows": cashflows,
         "meta": {
@@ -183,6 +198,8 @@ def main() -> int:
             "start": args.start.isoformat(),
             "end": args.end.isoformat(),
             "timezone": args.timezone,
+            "accId": args.acc_id,
+            "accIndex": args.acc_index,
             "importedAt": imported_at,
             "cashflowRequests": cashflow_requests,
             "readOnly": True,
@@ -203,19 +220,10 @@ def main() -> int:
         return 3
 
     normalized = json.loads(proc.stdout)
-    # Re-stamp fill timestamps with the exact IANA-zone conversion performed here.
-    # The JS normalizer deliberately rejects naive timestamps; this replacement prevents
-    # DST or machine-local timezone ambiguity.
     normalized["sourceTimezone"] = args.timezone
-    for event, deal in zip(
-        [e for e in normalized["events"] if e["type"] == "FILL"],
-        deals,
-    ):
-        event["timestamp"] = iso_from_futu_time(
-            scalar(deal, "create_time", "createTime"),
-            source_zone,
-        )
-        event["provenance"]["sourceTimezone"] = args.timezone
+    for event in normalized["events"]:
+        if event.get("type") == "FILL":
+            event["provenance"]["sourceTimezone"] = args.timezone
 
     output = {
         "schemaVersion": 1,
