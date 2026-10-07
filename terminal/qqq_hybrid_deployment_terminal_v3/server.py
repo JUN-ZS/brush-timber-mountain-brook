@@ -175,6 +175,30 @@ def snapshot():
         out["source_chain"].append("YAHOO_FALLBACK")
     out["spot_asof"] = datetime.now(timezone.utc).astimezone().date().isoformat()
 
+    if fetch_cboe_vx is not None:
+        try:
+            vx = fetch_cboe_vx()
+            if vx.get("ok"):
+                out["m1"] = vx["m1"]["price"]
+                out["m2"] = vx["m2"]["price"]
+                out["m1_code"] = vx["m1"]["symbol"]
+                out["m2_code"] = vx["m2"]["symbol"]
+                out["m1_expiry"] = vx["m1"]["expiry"]
+                out["m2_expiry"] = vx["m2"]["expiry"]
+                out["term_slope"] = vx["term_slope"] * 100
+                out["term_state"] = vx["term_state"]
+                out["term_source"] = vx["source"]
+                out["term_asof"] = vx["data_asof"]
+                out["provenance"]["m1"] = "CBOE_PUBLIC_DELAYED_VX"
+                out["provenance"]["m2"] = "CBOE_PUBLIC_DELAYED_VX"
+                out["provenance"]["term_slope"] = "DERIVED_FROM_CBOE_M1_M2"
+                out["source_chain"].append("CBOE_PUBLIC_DELAYED_VX")
+            else:
+                out["errors"]["cboe_vx"] = vx.get("reason")
+        except Exception as exc:
+            out["errors"]["cboe_vx"] = f"{type(exc).__name__}: {exc}"
+
+    # Cboe delayed VX is the production primary. OpenD VX is fallback only when Cboe is unavailable/incomplete.
     if (out["m1"] is None or out["m2"] is None) and futu is not None:
         try:
             ctx = futu.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
@@ -224,28 +248,7 @@ def snapshot():
         except Exception as exc:
             out["errors"]["opend_vx"] = f"{type(exc).__name__}: {exc}"
 
-    if (out["m1"] is None or out["m2"] is None) and fetch_cboe_vx is not None:
-        try:
-            vx = fetch_cboe_vx()
-            if vx.get("ok"):
-                out["m1"] = vx["m1"]["price"]
-                out["m2"] = vx["m2"]["price"]
-                out["m1_code"] = vx["m1"]["symbol"]
-                out["m2_code"] = vx["m2"]["symbol"]
-                out["m1_expiry"] = vx["m1"]["expiry"]
-                out["m2_expiry"] = vx["m2"]["expiry"]
-                out["term_slope"] = vx["term_slope"] * 100
-                out["term_state"] = vx["term_state"]
-                out["term_source"] = vx["source"]
-                out["term_asof"] = vx["data_asof"]
-                out["provenance"]["m1"] = "CBOE_PUBLIC_DELAYED_VX"
-                out["provenance"]["m2"] = "CBOE_PUBLIC_DELAYED_VX"
-                out["provenance"]["term_slope"] = "DERIVED_FROM_CBOE_M1_M2"
-                out["source_chain"].append("CBOE_PUBLIC_DELAYED_VX")
-            else:
-                out["errors"]["cboe_vx"] = vx.get("reason")
-        except Exception as exc:
-            out["errors"]["cboe_vx"] = f"{type(exc).__name__}: {exc}"
+
 
     out["source_chain"] = list(dict.fromkeys(out["source_chain"]))
     return out
