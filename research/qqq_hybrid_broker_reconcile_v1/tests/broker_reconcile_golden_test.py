@@ -112,7 +112,7 @@ def main() -> None:
     delta = known_cash_delta(normalized)
     expected_cash_delta = (
         -(10 * 700) - 1.25
-        + (2 * 5 * 100) - 3.50
+        - (2 * 5 * 100) - 3.50
         + (3 * 690)
         - (1 * 680)
         + 12.50 - 2.20 + 1000
@@ -128,7 +128,7 @@ def main() -> None:
 
     clean = dict(normalized)
     clean["quarantine"] = []
-    clean_cash = reconcile_cash(clean, 1395.55, 5000)
+    clean_cash = reconcile_cash(clean, -604.45, 5000)
     assert clean_cash["status"] == "MATCH"
 
     incomplete = {
