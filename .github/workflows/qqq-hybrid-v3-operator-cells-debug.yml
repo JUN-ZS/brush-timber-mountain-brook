@@ -115,6 +115,10 @@ jobs:
           print({"cboe_rows":len(rows),"first":rows[0]["trade_date"],"last":rows[-1]["trade_date"]})
           PY
 
+      - name: Replay code provenance
+        run: |
+          echo "replay.py revision = 1d5303d817023d78e8e23fdc51b267449d658e86"
+
       - name: Controlled deployment replay
         run: |
           python3 research/qqq_strategy_pool_deployment_replay_v1/replay.py             --spots attachments/spots_qqq_vxx_vix.1csv             --cboe-file original-hybrid-real-vx-pr84/artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv             --out-dir out/strategy-pool-replay
