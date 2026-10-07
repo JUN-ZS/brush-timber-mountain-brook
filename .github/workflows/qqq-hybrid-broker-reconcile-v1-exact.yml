@@ -1,0 +1,50 @@
+name: QQQ Hybrid Broker Reconciliation V1 Exact
+
+on:
+  pull_request:
+    paths:
+      - "research/qqq_hybrid_broker_reconcile_v1/**"
+      - ".github/workflows/qqq-hybrid-broker-reconcile-v1-exact.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: qhp-broker-reconcile-v1-exact
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout provenance
+        run: |
+          echo "HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Python source and tests
+        run: |
+          python3 -m py_compile research/qqq_hybrid_broker_reconcile_v1/broker_reconcile.py
+          python3 -m py_compile research/qqq_hybrid_broker_reconcile_v1/tests/broker_reconcile_golden_test.py
+          python3 -m py_compile research/qqq_hybrid_broker_reconcile_v1/tests/import_contract_test.py
+          python3 research/qqq_hybrid_broker_reconcile_v1/tests/broker_reconcile_golden_test.py
+          python3 research/qqq_hybrid_broker_reconcile_v1/tests/import_contract_test.py
+
+      - name: Broker read-only invariants
+        run: |
+          ! grep -Eq "place_order|modify_order|cancel_order|unlock_trade" research/qqq_hybrid_broker_reconcile_v1/broker_reconcile.py
+          grep -q '"ordersPlaced": False' research/qqq_hybrid_broker_reconcile_v1/broker_reconcile.py
+          grep -q 'position_list_query' research/qqq_hybrid_broker_reconcile_v1/broker_reconcile.py
+          grep -q 'accinfo_query' research/qqq_hybrid_broker_reconcile_v1/broker_reconcile.py
+          grep -q 'TrdEnv.REAL' research/qqq_hybrid_broker_reconcile_v1/broker_reconcile.py
+
+      - name: Cash safety invariants
+        run: |
+          grep -q 'NEEDS_OPENING_CASH' research/qqq_hybrid_broker_reconcile_v1/broker_reconcile.py
+          grep -q 'BLOCKED_QUARANTINED_CASH_EVENTS' research/qqq_hybrid_broker_reconcile_v1/broker_reconcile.py
+          grep -q 'TRADE_SETTLEMENT' research/qqq_hybrid_broker_reconcile_v1/tests/broker_reconcile_golden_test.py
+
+      - name: Current source smoke
+        run: |
+          python3 -c "import sys; sys.path.insert(0, 'research/qqq_hybrid_broker_reconcile_v1'); import broker_reconcile; assert broker_reconcile.build_parser(); print('BROKER RECONCILIATION SOURCE SMOKE: PASS')"
