@@ -7,9 +7,18 @@ window.HybridEngineV3 = (() => {
     optionTargetDte: 45,
   });
   const num=(v,d=null)=>{if(v===null||v===undefined||v==="")return d;const x=parseFloat(String(v).replace(/,/g,""));return Number.isFinite(x)?x:d;};
+  // Plain decimal only: optional sign, digits, optional thousands groups "100,000", optional ".5".
+  // Ambiguous / non-decimal text ("0x10", "1,5", "1,2,3", "1e3", "abc") is INVALID — never silently re-read.
+  const PLAIN_DECIMAL=/^[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)?(?:\.\d+)?$/;
   function operatorNumber(v,{allowZero=true,min=0}={}){
     if(v===null||v===undefined||String(v).trim()==="")return{status:"EMPTY",value:null};
-    const n=Number(String(v).replace(/,/g,""));
+    let n;
+    if(typeof v==="number")n=v;
+    else{
+      const s=String(v).trim();
+      if(!PLAIN_DECIMAL.test(s)||!/\d/.test(s))return{status:"INVALID",value:null};
+      n=Number(s.replace(/,/g,""));
+    }
     if(!Number.isFinite(n))return{status:"INVALID",value:null};
     if((!allowZero&&n===0)||n<min)return{status:"INVALID",value:null};
     return{status:"VALUE",value:n};

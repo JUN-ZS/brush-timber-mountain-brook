@@ -41,6 +41,8 @@ function localDate() {
 function parseGuideNumber(v, { min = 0 } = {}) {
   const raw = String(v ?? "").trim();
   if (raw === "") return { status: "EMPTY", value: null };
+  // plain decimal only; "0x10", "1,5", "1e3" are INVALID (never re-read as 16 / 15 / 1000)
+  if (!/^[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)?(?:\.\d+)?$/.test(raw) || !/\d/.test(raw)) return { status: "INVALID", value: null };
   const n = Number(raw.replace(/,/g, ""));
   if (!Number.isFinite(n) || n < min) return { status: "INVALID", value: null };
   return { status: "VALUE", value: n };
@@ -742,6 +744,7 @@ function runSelfTest() {
     const want = [
       ["", "EMPTY", null], ["0", "VALUE", 0], ["-1", "INVALID", null], ["abc", "INVALID", null],
       ["100,000", "VALUE", 100000], [" 5 ", "VALUE", 5],
+      ["0x10", "INVALID", null], ["1,5", "INVALID", null], ["1e3", "INVALID", null],
     ];
     let ok = true;
     for (const [raw, st, val] of want) {
