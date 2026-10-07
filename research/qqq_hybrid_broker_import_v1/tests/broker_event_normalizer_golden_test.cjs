@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const N = require(path.join(__dirname, "..", "broker_event_normalizer.js"));
+const N = require(path.join(__dirname, "..", "broker_event_normalizer.cjs"));
 
 function eq(a, b, label) {
   if (a !== b) throw new Error(label + ": expected " + b + ", got " + a);
@@ -39,6 +39,7 @@ const feeRows = [
 const normalizedDeals = deals.map(d => N.normalizeDeal(d, {
   sourceTimezone: "-04:00",
   feeByOrderId: { O1: 1.25, O2: 3.50 },
+  fillCountByOrderId: { O1: 1, O2: 1 },
   importedAt: "2026-10-07T01:20:00Z",
 }));
 
