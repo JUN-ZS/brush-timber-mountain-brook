@@ -196,7 +196,7 @@ function renderStrategyBridge(d,e,book,funding){
     $("bridgeAction").textContent=bridge.actionClass;
     $("bridgeAction").className="tag "+(
       bridge.actionClass==="DEFEND"||bridge.actionClass==="PAUSE"?"retired":
-      bridge.actionClass==="BUILD"?"active":"research"
+      bridge.actionClass==="BUILD"||bridge.actionClass==="REBALANCE"?"active":"research"
     );
   }
   if($("bridgeInstruction"))$("bridgeInstruction").textContent=bridge.operatorInstruction;
