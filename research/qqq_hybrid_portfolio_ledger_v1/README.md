@@ -213,7 +213,7 @@ For each timeline point the ledger can report:
     total P&L = realized + unrealized - fees, only when a point-in-time mark exists
     campaign cumulative realized net P&L
 
-Historical marks are supplied as an optional ordered series of { timestamp, marks }. At each event the timeline carries the latest observation forward per symbol, but never across the event timestamp. Each timeline row also exposes per-symbol mark observation timestamps so a carried mark cannot be mistaken for a fresh quote. Current live marks are never reused to backfill history. Without a historical mark, an open spread shows realized-only accounting and total P&L remains unpriced rather than fabricated.
+Historical marks are supplied as an optional ordered series of { timestamp, marks }. At each event the timeline carries the latest observation forward per symbol, but never across the event timestamp. Current live marks are never reused to backfill history. Without a historical mark, an open spread shows realized-only accounting and total P&L remains unpriced rather than fabricated.
 
 This increment is accounting-only. It does not alter V3 strategy policy, BUY / HOLD / REDUCE logic, reconciliation targets, or broker routing.
 
