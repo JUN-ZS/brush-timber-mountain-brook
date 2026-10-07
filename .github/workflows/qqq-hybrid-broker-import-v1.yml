@@ -1,0 +1,56 @@
+name: QQQ Hybrid Broker Import V1
+
+on:
+  push:
+    branches:
+      - "research/qqq-hybrid-broker-import-v1"
+    paths:
+      - "research/qqq_hybrid_broker_import_v1/**"
+      - ".github/workflows/qqq-hybrid-broker-import-v1.yml"
+  pull_request:
+    paths:
+      - "research/qqq_hybrid_broker_import_v1/**"
+      - ".github/workflows/qqq-hybrid-broker-import-v1.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: qhp-broker-import-v1
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node normalizer contract
+        run: |
+          node --check research/qqq_hybrid_broker_import_v1/broker_event_normalizer.cjs
+          node research/qqq_hybrid_broker_import_v1/tests/broker_event_normalizer_golden_test.cjs
+
+      - name: Python importer contract
+        run: |
+          python3 -m py_compile research/qqq_hybrid_broker_import_v1/futu_import.py
+          python3 -m py_compile research/qqq_hybrid_broker_import_v1/tests/futu_import_contract_test.py
+          python3 research/qqq_hybrid_broker_import_v1/tests/futu_import_contract_test.py
+
+      - name: Broker safety invariants
+        run: |
+          test -f research/qqq_hybrid_broker_import_v1/futu_import.py
+          test -f research/qqq_hybrid_broker_import_v1/broker_event_normalizer.cjs
+          ! grep -Eq "place_order|modify_order|cancel_order|unlock_trade" research/qqq_hybrid_broker_import_v1/futu_import.py
+          grep -q '"ordersPlaced": False' research/qqq_hybrid_broker_import_v1/futu_import.py
+          grep -q 'history_deal_list_query' research/qqq_hybrid_broker_import_v1/futu_import.py
+          grep -q 'order_fee_query' research/qqq_hybrid_broker_import_v1/futu_import.py
+          grep -q 'get_acc_cash_flow' research/qqq_hybrid_broker_import_v1/futu_import.py
+
+      - name: Normalization anti-double-count checks
+        run: |
+          grep -q 'TRADE_SETTLEMENT_AUDIT' research/qqq_hybrid_broker_import_v1/broker_event_normalizer.cjs
+          grep -q 'INCOMPLETE_FEE_ALLOCATION' research/qqq_hybrid_broker_import_v1/broker_event_normalizer.cjs
+          grep -q 'WITHHOLDING_TAX_DEDUP_LINK_REQUIRED' research/qqq_hybrid_broker_import_v1/broker_event_normalizer.cjs
+
+      - name: Current source smoke
+        run: |
+          node -e "const N=require('./research/qqq_hybrid_broker_import_v1/broker_event_normalizer.cjs'); const r=N.normalizeBundle({deals:[],cashflows:[]}); if(r.contract!=='BROKER_EVENT_NORMALIZER_V1') process.exit(1); console.log('BROKER IMPORT SOURCE SMOKE: PASS')"
