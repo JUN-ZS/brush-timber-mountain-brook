@@ -5,6 +5,7 @@ on:
     paths:
       - "terminal/qqq_hybrid_deployment_terminal_v3/engine.js"
       - "terminal/qqq_hybrid_deployment_terminal_v3/app.js"
+      - "terminal/qqq_hybrid_deployment_terminal_v3/styles.css"
       - "terminal/qqq_hybrid_deployment_terminal_v3/index.html"
       - "terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/**"
       - "terminal/qqq_hybrid_deployment_terminal_v3/tests/golden_test.js"
@@ -50,3 +51,6 @@ jobs:
 
       - name: Cell 06 — Watch
         run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell06_watch.js
+
+      - name: Cell 07 — Operator summary
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell07_operator_summary.js
