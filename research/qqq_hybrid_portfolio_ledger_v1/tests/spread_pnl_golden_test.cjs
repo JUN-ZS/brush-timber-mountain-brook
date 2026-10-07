@@ -146,4 +146,15 @@ eq(np.rows[0].status, "INCOMPLETE", "never-paired history is not CLOSED");
 eq(np.rows[0].reason, "POSITION_IDENTITY_INCOMPLETE", "never-paired reason");
 eq(np.rows[0].totalPnl, null, "never-paired pnl blocked");
 
+
+const unorderedSpread = S.attribute([
+  base[1],
+  base[0]
+], {
+  QQQ261218C00700000:5,
+  QQQ261218C00750000:3
+});
+eq(unorderedSpread.rows[0].status, "PAIRED", "unordered spread stays paired");
+near(unorderedSpread.rows[0].totalPnl, 1194, 1e-9, "unordered spread FIFO attribution");
+
 console.log("SPREAD PNL ATTRIBUTION GOLDEN TEST: PASS");
