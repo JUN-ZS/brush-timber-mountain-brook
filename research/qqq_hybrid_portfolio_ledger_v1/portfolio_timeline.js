@@ -32,17 +32,13 @@ window.PortfolioCampaignTimelineV1 = (() => {
 
   function marksAt(series, timestamp) {
     const marks = {};
-    const markTimestamps = {};
     let foundTimestamp = null;
     for (const row of series) {
       if (row.timestamp > timestamp) break;
-      for (const [symbol, value] of Object.entries(row.marks)) {
-        marks[symbol] = value;
-        markTimestamps[symbol] = row.timestamp;
-      }
+      Object.assign(marks, row.marks);
       foundTimestamp = row.timestamp;
     }
-    return foundTimestamp ? { timestamp: foundTimestamp, marks, markTimestamps } : null;
+    return foundTimestamp ? { timestamp: foundTimestamp, marks } : null;
   }
 
   function ensureSpread(state, identity) {
@@ -234,7 +230,6 @@ window.PortfolioCampaignTimelineV1 = (() => {
           ? "MARKED_TOTAL"
           : (realizedNetPnl !== null ? "REALIZED_ONLY" : "NONE"),
         markTimestamp: point ? point.timestamp : null,
-        markTimestamps: point ? point.markTimestamps : {},
         campaignCumulativeRealizedNetPnl,
         completeness: after.status,
         attributionStatus: afterRow?.status || after.status
