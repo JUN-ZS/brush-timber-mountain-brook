@@ -30,7 +30,7 @@ def main() -> None:
                 "price": 5,
                 "multiplier": 100,
                 "fees": 3.50,
-                "provenance": {"sourceTradeSide": "SELL"},
+                "provenance": {"sourceTradeSide": "BUY"},
             },
             {
                 "id": "FUTU:FILL:D3",
@@ -76,19 +76,17 @@ def main() -> None:
     assert expected["positions"] == [
         {"symbol": "QQQ", "side": "LONG", "quantity": 10},
         {"symbol": "QQQ", "side": "SHORT", "quantity": 2},
+        {"symbol": "QQQ261218C00750000", "side": "LONG", "quantity": 2},
     ]
-
-    # The option SELL above is a long-position bucket by source-side contract.
-    # The actual broker snapshot can therefore show a LONG option position.
-    assert len(expected["positions"]) == 2
 
     actual = extract_actual_positions([
         {"code": "US.QQQ", "position_side": "LONG", "qty": 10, "average_cost": 705},
         {"code": "US.QQQ", "position_side": "SHORT", "qty": 2, "average_cost": 690},
+        {"code": "US.QQQ261218C00750000", "position_side": "LONG", "qty": 2, "average_cost": 5},
     ])
     report = compare_positions(expected, actual, expected)
     assert report["status"] == "MATCH"
-    assert report["summary"]["matched"] == 2
+    assert report["summary"]["matched"] == 3
 
     bad = extract_actual_positions([
         {"code": "US.QQQ", "position_side": "LONG", "qty": 9},
@@ -130,8 +128,39 @@ def main() -> None:
 
     clean = dict(normalized)
     clean["quarantine"] = []
-    clean_cash = reconcile_cash(clean, 6200.55, 5000)
+    clean_cash = reconcile_cash(clean, 1395.55, 5000)
     assert clean_cash["status"] == "MATCH"
+
+    incomplete = {
+        "events": [{
+            "id": "FUTU:FILL:INCOMPLETE",
+            "type": "FILL",
+            "symbol": "QQQ",
+            "quantity": 1,
+            "price": 700,
+            "multiplier": 1,
+            "fees": None,
+            "provenance": {"sourceTradeSide": "BUY"},
+        }]
+    }
+    incomplete_delta = known_cash_delta(incomplete)
+    assert incomplete_delta["blockingQuarantine"]
+    assert incomplete_delta["appliedEvents"] == []
+
+    impossible_close = reconstruct_positions({
+        "events": [{
+            "id": "CLOSE_TOO_MUCH",
+            "type": "FILL",
+            "symbol": "QQQ",
+            "quantity": 2,
+            "price": 700,
+            "multiplier": 1,
+            "fees": 0,
+            "provenance": {"sourceTradeSide": "SELL"},
+        }]
+    })
+    assert impossible_close["unsafe"]
+    assert impossible_close["positions"] == []
 
     print("BROKER RECONCILIATION GOLDEN TEST: PASS")
 
