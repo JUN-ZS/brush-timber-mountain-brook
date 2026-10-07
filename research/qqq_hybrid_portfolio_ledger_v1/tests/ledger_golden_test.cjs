@@ -89,6 +89,41 @@ near(crossPos.unrealizedPnl, 10, 1e-9, "crossed unrealized pnl");
 near(crossSnap.equity, 1030, 1e-9, "crossed equity");
 near(crossSnap.netPnl, 30, 1e-9, "crossed net pnl");
 
+
+
+// DATA-INTEGRITY V2: explicit timezone, stable id, multiplier/fee validation, non-negative marks
+let caught = false;
+try { L.normalizeEvent({ type:"FILL", timestamp:"2026-10-07T10:00:00", symbol:"QQQ", assetType:"EQUITY", side:"BUY", quantity:1, price:100 }); }
+catch (err) { caught = /event id is required/.test(String(err)); }
+ok(caught, "missing event id blocked before timestamp ambiguity");
+
+caught = false;
+try { L.normalizeEvent({ id:"naive-ts", type:"FILL", timestamp:"2026-10-07T10:00:00", symbol:"QQQ", assetType:"EQUITY", side:"BUY", quantity:1, price:100 }); }
+catch (err) { caught = /timestamp is invalid/.test(String(err)); }
+ok(caught, "timezone-less timestamp blocked");
+
+caught = false;
+try { L.normalizeEvent({ id:"bad-mult", type:"FILL", timestamp:"2026-10-07T10:00:00Z", symbol:"QQQ-OPT", assetType:"OPTION", side:"BUY", quantity:1, price:2, multiplier:0 }); }
+catch (err) { caught = /multiplier must be > 0/.test(String(err)); }
+ok(caught, "invalid multiplier blocked");
+
+caught = false;
+try { L.normalizeEvent({ id:"bad-fee", type:"FILL", timestamp:"2026-10-07T10:00:00Z", symbol:"QQQ", assetType:"EQUITY", side:"BUY", quantity:1, price:100, fees:"oops" }); }
+catch (err) { caught = /fees must be >= 0/.test(String(err)); }
+ok(caught, "invalid fees blocked");
+
+caught = false;
+try { L.parseMarksObject({ QQQ: -1 }, "manual marks"); }
+catch (err) { caught = /finite non-negative number/.test(String(err)); }
+ok(caught, "negative manual mark blocked");
+
+const negativeSnap = L.snapshot([
+  { type:"CASHFLOW", id:"pcf", timestamp:"2026-10-01T09:00:00Z", amount:1000 },
+  { id:"peq", timestamp:"2026-10-01T10:00:00Z", symbol:"QQQ", assetType:"EQUITY", side:"BUY", quantity:1, price:100 }
+], { QQQ: -1 });
+ok(negativeSnap.positions[0].mark === null, "negative live mark treated as unusable");
+ok(!negativeSnap.coverage.allMarksPresent, "negative mark cannot complete valuation");
+
 const defaultOption = L.normalizeEvent({
   id:"opt-default", timestamp:"2026-10-04T10:00:00Z", symbol:"QQQ-OPT",
   assetType:"OPTION", side:"SELL", quantity:1, price:5
