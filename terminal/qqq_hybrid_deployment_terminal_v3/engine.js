@@ -167,8 +167,12 @@ window.HybridEngineV3 = (() => {
     const mode=e.blocked?"PAUSED":e.action==="REDUCE"?"DEFEND":e.action==="HOLD"?"WATCH":acts.length?"BUILD / REBALANCE":hasPosition?"AT TARGET / MONITOR":"EMPTY / READY TO BUILD";
     const plan=[];
     if(e.blocked) plan.push("不新增、不減倉：等待完整新數據");
-    else if(e.action==="HOLD") plan.push("不新增 carry：保留現有倉位，等轉態");
+    else if(e.action==="HOLD"){
+      plan.push("不新增 carry：保留現有倉位，等轉態");
+      plan.push(...carryInventoryLines(book,d,opt));
+    }
     else if(e.action==="REDUCE"){
+      plan.push(...carryInventoryLines(book,d,opt));
       plan.push("減風險：VXX seller → "+fmtPct(book.target.vxxPct)+"；QQQ core 保留");
       if(book.target.qqqCalls<book.current.qqqCalls)plan.push("QQQ far call → 減至 "+fmtNum(book.target.qqqCalls)+" spreads");
       if(book.target.vxxCalls<book.current.vxxCalls)plan.push("VXX call → 減至 "+fmtNum(book.target.vxxCalls)+" spreads");
@@ -204,6 +208,42 @@ window.HybridEngineV3 = (() => {
   }
   function fmtNum(v){return Number.isFinite(Number(v))?Number(v).toLocaleString("en-US",{maximumFractionDigits:2}):"—";}
   function fmtPct(v){return Number.isFinite(Number(v))?fmtNum(v)+"%":"—";}
+  function carryInventoryLines(book,d,opt={}){
+    const cur=book.current||{};
+    const legs=(opt&&opt.currentOptionLegs)||null;
+    const lines=[];
+    const qShares=num(cur.qqqShares,0), vPct=num(cur.vxxPct,0), qCalls=num(cur.qqqCalls,0), vCalls=num(cur.vxxCalls,0);
+    const any=qShares>0||vPct>0||qCalls>0||vCalls>0;
+    if(!any){
+      lines.push("現有 carry：Memory 未填／空倉 — 填 Operator Memory 或「從 Journal 還原」先睇到你持有乜");
+      return lines;
+    }
+    lines.push("現有 carry（唔再增）：");
+    if(qShares>0) lines.push("· QQQ core "+fmtNum(qShares)+" shares");
+    else lines.push("· QQQ core：0");
+    if(vPct>0){
+      const implied=impliedVxxShares(num(opt.nav,num(book.nav,null)),vPct,num(d&&d.vxx,null));
+      lines.push("· VXX short exposure "+fmtPct(vPct)+(Number.isFinite(implied)?" ≈ "+fmtNum(implied)+" shares":""));
+    } else lines.push("· VXX short exposure：0% NAV");
+    lines.push("· "+heldOptionLine("QQQ far",qCalls,legs&&legs.qqq));
+    lines.push("· "+heldOptionLine("VXX call",vCalls,legs&&legs.vxx));
+    return lines;
+  }
+  function heldOptionLine(label,count,leg){
+    if(!(count>0)) return label+"：0 spreads";
+    if(leg&&leg.status==="READY"){
+      const ss=leg.shortStrike&&leg.shortStrike.status==="VALUE"?fmtNum(leg.shortStrike.value):"—";
+      const ls=leg.longStrike&&leg.longStrike.status==="VALUE"?fmtNum(leg.longStrike.value):"—";
+      const exp=leg.expiry&&leg.expiry.status==="VALUE"?String(leg.expiry.value):"—";
+      const dte=leg.dte&&leg.dte.status==="VALUE"?fmtNum(leg.dte.value):(leg.expiry&&leg.expiry.status==="VALUE"?"(from expiry)":"—");
+      const delta=leg.delta&&leg.delta.status==="VALUE"?fmtNum(leg.delta.value):"—";
+      const cr=leg.entryCredit&&leg.entryCredit.status==="VALUE"?fmtNum(leg.entryCredit.value):"—";
+      return label+"：持有 "+fmtNum(count)+" spreads · "+ss+"/"+ls+" · exp "+exp+" · DTE "+dte+" · Δ "+delta+" · entry "+cr;
+    }
+    if(leg&&(leg.status==="INCOMPLETE"||leg.status==="INVALID"))
+      return label+"：持有 "+fmtNum(count)+" spreads · 腿身份 "+leg.status+"（補 short/long/expiry）";
+    return label+"：持有 "+fmtNum(count)+" spreads · 未填腿身份（Qty only）";
+  }
   function optionPlan(label,c,n){
     if(!c)return label+" +"+fmtNum(n)+" spreads · candidate PENDING";
     return label+" +"+fmtNum(n)+" spreads · "+fmtNum(c.shortStrike)+"/"+fmtNum(c.longStrike)+" · DTE "+fmtNum(c.dte)+" · Δ "+fmtNum(c.delta)+" · credit "+fmtNum(c.credit);

@@ -250,7 +250,8 @@ function renderOperatorSummary(d,e,book){
     vxxDte:$("vxxDte")?$("vxxDte").value:"",vxxDelta:$("vxxDelta")?$("vxxDelta").value:"",
     currentOptionLegs:legs,
     forceFlat:!!($("forceFlat")&&$("forceFlat").checked),
-    today:d.today||null
+    today:d.today||null,
+    nav:$("nav")?$("nav").value:null
   };
   const s=E.operatorSummary(d,e,book,candidates,opt);
   if($("operatorMode"))$("operatorMode").textContent=s.mode;
