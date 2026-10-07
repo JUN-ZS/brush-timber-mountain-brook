@@ -196,7 +196,7 @@ def main() -> int:
         deals_for_normalizer.append(copied)
 
     raw = {
-        "deals": deals_for_normalizer,
+        "deals": deals,
         "fees": fee_rows,
         "cashflows": cashflows,
         "meta": {
@@ -215,9 +215,15 @@ def main() -> int:
     }
 
     normalizer = ROOT / "broker_event_normalizer.cjs"
+    normalizer_input = {
+        "deals": deals_for_normalizer,
+        "fees": fee_rows,
+        "cashflows": cashflows,
+        "meta": raw["meta"],
+    }
     proc = subprocess.run(
         ["node", "-e", "const N=require(process.argv[1]); const raw=JSON.parse(require('fs').readFileSync(0,'utf8')); const out=N.normalizeBundle(raw,{sourceTimezone:null,feeRows:raw.fees,importedAt:raw.meta.importedAt}); process.stdout.write(JSON.stringify(out));", str(normalizer)],
-        input=json.dumps(raw, ensure_ascii=False),
+        input=json.dumps(normalizer_input, ensure_ascii=False),
         text=True,
         capture_output=True,
         check=False,
@@ -236,6 +242,7 @@ def main() -> int:
         "schemaVersion": 1,
         "contract": "FUTU_BROKER_IMPORT_V1",
         "raw": raw,
+        "normalizerInput": normalizer_input,
         "normalized": normalized,
         "readOnly": True,
         "ordersPlaced": False,
