@@ -109,4 +109,31 @@ eq(unpaired.rows[0].eventKind, "INCOMPLETE", "unpaired remains incomplete");
 eq(unpaired.rows[0].realizedNetPnl, null, "no fabricated realized pnl for unpaired");
 eq(unpaired.campaigns[0].finalRealizedNetPnl, null, "unpaired campaign remains unpriced");
 
+
+const neverPaired = T.timeline([
+  {id:"np-short-open",timestamp:"2026-10-06T10:00:00Z",symbol:"QQQ261218C00900000",assetType:"OPTION",side:"SELL",quantity:1,price:8,fees:1,
+   positionIdentity:{campaignId:"C3",spreadId:"S3",legRole:"SHORT"}},
+  {id:"np-long-open",timestamp:"2026-10-06T10:01:00Z",symbol:"QQQ261218C00950000",assetType:"OPTION",side:"BUY",quantity:2,price:2,fees:1,
+   positionIdentity:{campaignId:"C3",spreadId:"S3",legRole:"LONG"}},
+  {id:"np-short-close",timestamp:"2026-10-06T10:02:00Z",symbol:"QQQ261218C00900000",assetType:"OPTION",side:"BUY",quantity:1,price:7,fees:1,
+   positionIdentity:{campaignId:"C3",spreadId:"S3",legRole:"SHORT"}},
+  {id:"np-long-close",timestamp:"2026-10-06T10:03:00Z",symbol:"QQQ261218C00950000",assetType:"OPTION",side:"SELL",quantity:2,price:3,fees:1,
+   positionIdentity:{campaignId:"C3",spreadId:"S3",legRole:"LONG"}}
+]);
+eq(neverPaired.rows[3].afterStatus, "CLOSED", "never-paired final state is closed");
+eq(neverPaired.rows[3].eventKind, "INCOMPLETE", "never-paired history is not a valid full-close milestone");
+eq(neverPaired.rows[3].pnlBasis, "NONE", "never-paired history does not fabricate spread pnl");
+eq(neverPaired.summary.fullCloses, 0, "never-paired full close not counted");
+
+const multi = T.timeline(base.concat([
+  {id:"m2s",timestamp:"2026-10-05T10:00:00Z",symbol:"QQQ261218C00850000",assetType:"OPTION",side:"SELL",quantity:2,price:4,fees:1,
+   positionIdentity:{campaignId:"C1",spreadId:"S2",legRole:"SHORT"}},
+  {id:"m2l",timestamp:"2026-10-05T10:01:00Z",symbol:"QQQ261218C00900000",assetType:"OPTION",side:"BUY",quantity:2,price:2,fees:1,
+   positionIdentity:{campaignId:"C1",spreadId:"S2",legRole:"LONG"}}
+]));
+eq(multi.campaigns.length, 1, "multiple spreads in one campaign stay grouped");
+eq(multi.rows.filter(x => x.spreadId === "S1").length, 2, "first spread history retained");
+eq(multi.rows.filter(x => x.spreadId === "S2").length, 2, "second spread history retained");
+eq(multi.rows.find(x => x.spreadId === "S2" && x.eventKind === "OPEN").afterStatus, "PAIRED", "second spread independently paired");
+
 console.log("PORTFOLIO CAMPAIGN TIMELINE GOLDEN TEST: PASS");
