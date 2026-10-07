@@ -58,20 +58,29 @@ window.HybridEngineV3 = (() => {
   }
   function targetLedger(d,e,ledger,candidates={}){
     const cur={qqqShares:num(ledger.qqqShares,0),vxxPct:num(ledger.vxxPct,0),qqqCalls:num(ledger.qqqCalls,0),vxxCalls:num(ledger.vxxCalls,0)};
-    if(e.blocked)return{current:cur,target:{...cur},deltas:{qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0},blocked:true,sizing:{qqqCalls:{status:"BLOCKED"},vxxCalls:{status:"BLOCKED"}}};
+    if(e.blocked)return{current:cur,target:{...cur},deltas:{qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0},blocked:true,inputBlocked:false,sizing:{qqqCalls:{status:"BLOCKED"},vxxCalls:{status:"BLOCKED"}}};
+    if(ledger.inputStatus&&ledger.inputStatus.status!=="READY"){
+      return{current:cur,target:{...cur},deltas:{qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0},blocked:false,inputBlocked:true,inputStatus:ledger.inputStatus,sizing:{qqqCalls:{status:"INPUT_INCOMPLETE"},vxxCalls:{status:"INPUT_INCOMPLETE"}}};
+    }
     const nav=num(ledger.nav,0),qqqPrice=num(d.qqq,0),rawShares=nav>0&&qqqPrice>0?(nav*e.targets.qqqCorePct/100)/qqqPrice:cur.qqqShares,buyAllowed=e.action==="BUY";
     const qc=candidates.qqq||null,vc=candidates.vxx||null,qQty=optionQty(nav,e.targets.qqqCallBudgetPct,qc?.credit),vQty=optionQty(nav,e.targets.vxxCallBudgetPct,vc?.credit);
-    const target={qqqShares:buyAllowed?Math.floor(rawShares):cur.qqqShares,vxxPct:buyAllowed?e.targets.vxxPct:Math.min(cur.vxxPct,e.targets.vxxPct),qqqCalls:buyAllowed?(qc?.sizingAvailable?qQty:cur.qqqCalls):Math.min(cur.qqqCalls,qQty),vxxCalls:buyAllowed?(vc?.sizingAvailable?vQty:cur.vxxCalls):Math.min(cur.vxxCalls,vQty)};
-    return{current:cur,target,deltas:{qqqShares:target.qqqShares-cur.qqqShares,vxxPct:target.vxxPct-cur.vxxPct,qqqCalls:target.qqqCalls-cur.qqqCalls,vxxCalls:target.vxxCalls-cur.vxxCalls},blocked:false,sizing:{qqqCalls:qc?.sizingAvailable?{status:"READY",credit:qc.credit,quantity:qQty,source:qc.source}:{status:"PENDING_CANDIDATE"},vxxCalls:vc?.sizingAvailable?{status:"READY",credit:vc.credit,quantity:vQty,source:vc.source}:{status:"PENDING_CANDIDATE"}}};
+    const qqqCallsTarget=e.action==="HOLD"?cur.qqqCalls:(buyAllowed?(qc?.sizingAvailable?qQty:cur.qqqCalls):Math.min(cur.qqqCalls,qQty));
+    const vxxCallsTarget=e.action==="HOLD"?cur.vxxCalls:(buyAllowed?(vc?.sizingAvailable?vQty:cur.vxxCalls):Math.min(cur.vxxCalls,vQty));
+    const target={qqqShares:buyAllowed?Math.floor(rawShares):cur.qqqShares,vxxPct:buyAllowed?e.targets.vxxPct:Math.min(cur.vxxPct,e.targets.vxxPct),qqqCalls:qqqCallsTarget,vxxCalls:vxxCallsTarget};
+    return{current:cur,target,deltas:{qqqShares:target.qqqShares-cur.qqqShares,vxxPct:target.vxxPct-cur.vxxPct,qqqCalls:target.qqqCalls-cur.qqqCalls,vxxCalls:target.vxxCalls-cur.vxxCalls},blocked:false,inputBlocked:false,sizing:{qqqCalls:qc?.sizingAvailable?{status:"READY",credit:qc.credit,quantity:qQty,source:qc.source}:{status:"PENDING_CANDIDATE"},vxxCalls:vc?.sizingAvailable?{status:"READY",credit:vc.credit,quantity:vQty,source:vc.source}:{status:"PENDING_CANDIDATE"}}};
   }
   function actionRows(book){return Object.entries(book.deltas).map(([key,diff])=>({key,diff,kind:Math.abs(diff)<1e-9?"HOLD":diff>0?"ADD":"REDUCE"}));}
   function triggers(d,e,opt={}){
     const rows=[];
-    if(Number.isFinite(d.s)){rows.push({id:"S_ZERO",label:"VX term to zero",value:d.s<=0?"TRIGGERED":d.s.toFixed(2)+"% → 0",fire:d.s<=0,priority:"HIGH"});rows.push({id:"S_SAFE",label:"VX carry line",value:d.s<=POLICY.termSafe?d.s.toFixed(2)+"% ≤ 5%":(d.s-POLICY.termSafe).toFixed(2)+"% above",fire:d.s<=POLICY.termSafe,priority:"MED"});}
-    if(Number.isFinite(d.vix))rows.push({id:"VIX_28",label:"VIX high line",value:d.vix>=POLICY.vixHigh?"TRIGGERED":(POLICY.vixHigh-d.vix).toFixed(2)+" away",fire:d.vix>=POLICY.vixHigh,priority:"HIGH"});
+    if(Number.isFinite(d.s)){
+      rows.push({id:"S_ZERO",label:"VX term to zero",value:d.s<=0?"TRIGGERED":d.s.toFixed(2)+"% → 0",fire:d.s<=0,mode:d.s<=0?"TRIGGER":"WATCH",priority:"HIGH"});
+      rows.push({id:"S_SAFE",label:"VX carry line",value:d.s<=POLICY.termSafe?d.s.toFixed(2)+"% ≤ 5%":"above 5%",fire:false,mode:d.s<=POLICY.termSafe?"WATCH":"NORMAL",priority:"MED"});
+    }
+    if(Number.isFinite(d.vix))rows.push({id:"VIX_28",label:"VIX high line",value:d.vix>=POLICY.vixHigh?"TRIGGERED":(POLICY.vixHigh-d.vix).toFixed(2)+" away",fire:d.vix>=POLICY.vixHigh,mode:d.vix>=POLICY.vixHigh?"TRIGGER":"WATCH",priority:"HIGH"});
     const qdte=num(opt.qqqDte),qdelta=num(opt.qqqDelta),vdte=num(opt.vxxDte),vdelta=num(opt.vxxDelta);
-    rows.push({id:"QQQ_ROLL",label:"QQQ far call roll",value:"DTE "+(Number.isFinite(qdte)?qdte:"—")+" · Δ "+(Number.isFinite(qdelta)?qdelta.toFixed(2):"—"),fire:(Number.isFinite(qdte)&&qdte<=POLICY.qqqRollDte)||(Number.isFinite(qdelta)&&qdelta>=POLICY.qqqRollDelta),priority:"MED"});
-    rows.push({id:"VXX_ROLL",label:"VXX call roll",value:"DTE "+(Number.isFinite(vdte)?vdte:"—")+" · Δ "+(Number.isFinite(vdelta)?vdelta.toFixed(2):"—"),fire:(Number.isFinite(vdte)&&vdte<=POLICY.vxxRollDte)||(Number.isFinite(vdelta)&&vdelta>=POLICY.vxxRollDelta)||e.state==="SHOCK",priority:"HIGH"});
+    const hasQ=opt.hasQQQCall===true,hasV=opt.hasVXXCall===true;
+    rows.push({id:"QQQ_ROLL",label:"QQQ far call roll",value:!hasQ?"NO POSITION":"DTE "+(Number.isFinite(qdte)?qdte:"—")+" · Δ "+(Number.isFinite(qdelta)?qdelta.toFixed(2):"—"),fire:hasQ&&((Number.isFinite(qdte)&&qdte<=POLICY.qqqRollDte)||(Number.isFinite(qdelta)&&qdelta>=POLICY.qqqRollDelta)),mode:!hasQ?"NO_POSITION":((Number.isFinite(qdte)||Number.isFinite(qdelta))?"TRIGGERABLE":"NEEDS_POSITION_DATA"),priority:"MED"});
+    rows.push({id:"VXX_ROLL",label:"VXX call roll",value:!hasV?"NO POSITION":"DTE "+(Number.isFinite(vdte)?vdte:"—")+" · Δ "+(Number.isFinite(vdelta)?vdelta.toFixed(2):"—"),fire:hasV&&((Number.isFinite(vdte)&&vdte<=POLICY.vxxRollDte)||(Number.isFinite(vdelta)&&vdelta>=POLICY.vxxRollDelta)||e.state==="SHOCK"),mode:!hasV?"NO_POSITION":((Number.isFinite(vdte)||Number.isFinite(vdelta)||e.state==="SHOCK")?"TRIGGERABLE":"NEEDS_POSITION_DATA"),priority:"HIGH"});
     return rows;
   }
   return{POLICY,num,operatorNumber,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers};
