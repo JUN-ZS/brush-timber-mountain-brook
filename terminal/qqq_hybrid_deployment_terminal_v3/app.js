@@ -328,9 +328,9 @@ function renderOperatorSummary(d,e,book){
   const s=E.operatorSummary(d,e,book,candidates,opt);
   if($("operatorMode"))$("operatorMode").textContent=s.mode;
   if($("operatorAction"))$("operatorAction").textContent=e.blocked?"HOLD / BLOCKED":e.action;
-  if($("operatorPlan"))$("operatorPlan").innerHTML=s.plan.map(x=>"<div class='operator-line'>"+x+"</div>").join("");
-  if($("operatorThresholds"))$("operatorThresholds").innerHTML=s.thresholds.length?s.thresholds.map((x,i)=>"<div class='operator-line'><b>"+x.label+"</b><span>"+x.text+"</span></div>").join(""):"<div class='operator-line'>等待有效市場數據</div>";
-  if($("operatorRolls"))$("operatorRolls").innerHTML=[s.rolls.qqq,s.rolls.vxx].map(x=>"<div class='operator-line'><b>"+x.label+"</b><span>"+x.text+"</span></div>").join("");
+  if($("operatorPlan"))$("operatorPlan").innerHTML=s.plan.map(x=>"<div class='operator-line'>"+escapeHtml(x)+"</div>").join("");
+  if($("operatorThresholds"))$("operatorThresholds").innerHTML=s.thresholds.length?s.thresholds.map((x,i)=>"<div class='operator-line'><b>"+escapeHtml(x.label)+"</b><span>"+escapeHtml(x.text)+"</span></div>").join(""):"<div class='operator-line'>等待有效市場數據</div>";
+  if($("operatorRolls"))$("operatorRolls").innerHTML=[s.rolls.qqq,s.rolls.vxx].map(x=>"<div class='operator-line'><b>"+escapeHtml(x.label)+"</b><span>"+escapeHtml(x.text)+"</span></div>").join("");
   if($("operatorBaseline"))$("operatorBaseline").textContent="Baseline · QQQ core "+E.POLICY.corePct+"% NAV · VXX short "+E.POLICY.vxxNormalPct+"% (VIX ≥ "+E.POLICY.vixHigh+" → "+E.POLICY.vxxHighPct+"%) · QQQ far-call budget "+E.POLICY.qqqCallBudgetPct+"% · VXX call budget "+E.POLICY.vxxCallBudgetPct+"%";
 }
 function render(d,e,book){
@@ -415,7 +415,7 @@ function render(d,e,book){
     ["VX M2",live?.m2_code||"—",live?.term_source?"OBSERVED":"BLOCKED"],
     ["S_t","(M2-M1)/M1","DERIVED"],
     ["Target","frozen policy + ledger","DERIVED"]
-  ].map(r=>'<div class="prov-row"><span>'+r[0]+' · '+r[1]+'</span><span class="tag '+r[2].toLowerCase()+'">'+r[2]+'</span></div>').join("");
+  ].map(r=>'<div class="prov-row"><span>'+escapeHtml(r[0])+' · '+escapeHtml(r[1])+'</span><span class="tag '+escapeHtml(r[2].toLowerCase())+'">'+escapeHtml(r[2])+'</span></div>').join("");
 }
 
 function candidateText(c){
@@ -539,7 +539,7 @@ async function loadJournal(){
   $("journalCount").textContent=journalRows.length;
   $("journalRows").innerHTML=journalRows.slice().reverse().map(x=>{
     const s=x.snapshot||{};
-    return '<div class="journal-row"><b>'+((x.journaled_at||"").slice(0,19).replace("T"," "))+'</b> · '+(x.engine_action||"—")+' · '+(x.state||"—")+' · M1/M2 '+fmt(s.m1)+'/'+fmt(s.m2)+' · '+(x.conflict||"NONE")+'</div>';
+    return '<div class="journal-row"><b>'+escapeHtml(String(x.journaled_at||"").slice(0,19).replace("T"," "))+'</b> · '+escapeHtml(x.engine_action||"—")+' · '+escapeHtml(x.state||"—")+' · M1/M2 '+fmt(s.m1)+'/'+fmt(s.m2)+' · '+escapeHtml(x.conflict||"NONE")+(x.action_bridge&&x.action_bridge.action_class?' · '+escapeHtml(x.action_bridge.action_class):'')+'</div>';
   }).join("") || '<div class="meta">No decisions journaled yet.</div>';
   renderChangeSinceJournal();
 }
