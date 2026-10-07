@@ -99,6 +99,6 @@ function setup(data=base,position={qqqShares:100,vxxPct:10,qqqCalls:2,vxxCalls:1
 console.log(JSON.stringify({
   cell:"16_STRATEGY_ACTION_BRIDGE",
   checks:6,
-  cases:["CARRY/BUILD","WEAKENING/MAINTAIN","SHOCK/DEFEND","BLOCKED/PAUSE","JOURNAL_BASELINE","JOURNAL_BRIDGE"],
+  cases:["CARRY/REBALANCE","WEAKENING/MAINTAIN","SHOCK/DEFEND","BLOCKED/PAUSE","JOURNAL_BASELINE","JOURNAL_BRIDGE"],
   PASS:true
 }));
