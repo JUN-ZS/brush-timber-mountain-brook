@@ -53,4 +53,7 @@ assert.ok(String(cell15.stdout).includes('"PASS":true'),"cell15 PASS marker");
 const cell16=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell16_strategy_action_bridge.js")],{encoding:"utf8"});
 assert.strictEqual(cell16.status,0,"cell16_strategy_action_bridge must PASS\n"+cell16.stdout+"\n"+cell16.stderr);
 assert.ok(String(cell16.stdout).includes('"PASS":true'),"cell16 PASS marker");
+const cell17=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell17_beginner_guided_input.js"),"--self-test"],{encoding:"utf8"});
+assert.strictEqual(cell17.status,0,"cell17_beginner_guided_input --self-test must PASS\n"+cell17.stdout+"\n"+cell17.stderr);
+assert.ok(String(cell17.stdout).includes('"PASS":true'),"cell17 PASS marker");
 console.log("V3 golden + Cell 14/15/16 operator loop PASS");
