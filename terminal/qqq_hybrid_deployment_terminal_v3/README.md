@@ -84,6 +84,7 @@ Cell 16 is the read-only hand-off that closes the operator loop:
 It takes the already-derived snapshot/state, the actual Memory position, the frozen target ledger, the Cell 15 funding context, current option-leg identity, and the last journal baseline. It returns one operator-facing **action class**:
 
 - BUILD = frozen target currently calls for additions
+- REBALANCE = engine remains BUY but Current → Target contains both additions and reductions
 - MAINTAIN = hold existing position and watch the next transition
 - DEFEND = frozen target currently calls for risk reduction
 - PAUSE = data gate is blocked
