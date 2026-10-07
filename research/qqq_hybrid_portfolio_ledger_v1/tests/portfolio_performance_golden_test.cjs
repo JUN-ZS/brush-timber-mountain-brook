@@ -111,4 +111,23 @@ eq(r.campaigns[0].status, "INCOMPLETE", "campaign blocked by incomplete spread")
 eq(r.campaigns[0].periodPnl, null, "incomplete campaign aggregate blocked");
 eq(r.spreadRows.filter(x => x.status === "COMPLETE").length, 2, "complete spreads retain their own attribution");
 
+
+const partialCampaign = [
+  {id:"pc-short",timestamp:"2026-10-10T10:00:00Z",symbol:"QQQ261218C01000000",assetType:"OPTION",side:"SELL",quantity:1,price:5,fees:0,
+   positionIdentity:{campaignId:"C4",spreadId:"PC1",legRole:"SHORT"}},
+  {id:"pc-long",timestamp:"2026-10-10T10:01:00Z",symbol:"QQQ261218C01050000",assetType:"OPTION",side:"BUY",quantity:1,price:2,fees:0,
+   positionIdentity:{spreadId:"PC1",legRole:"LONG"}}
+];
+r = P.performance(
+  partialCampaign,
+  "2026-10-10T09:00:00Z",
+  "2026-10-10T16:00:00Z",
+  {},
+  {"QQQ261218C01000000":4,"QQQ261218C01050000":3}
+);
+const partialCampaignRow = r.campaigns[0];
+if (partialCampaignRow.status !== "INCOMPLETE") throw new Error("partial campaign metadata must block campaign aggregate");
+if (partialCampaignRow.periodPnl !== null) throw new Error("partial campaign metadata must not fabricate campaign period pnl");
+if (!r.spreadRows[0] || r.spreadRows[0].campaignMetadata !== "INCOMPLETE") throw new Error("spread row must expose incomplete campaign metadata");
+
 console.log("PORTFOLIO CAMPAIGN PERFORMANCE GOLDEN TEST: PASS");
