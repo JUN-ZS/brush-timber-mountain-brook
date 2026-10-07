@@ -125,7 +125,7 @@ An option fill may carry:
       strategyRole?: "..."
     }
 
-The same spreadId is the only binding between legs. A spread is PAIRED only when exactly one active LONG contract and one active SHORT contract remain and their absolute open quantities match.
+The same spreadId is the only binding between legs. A spread is PAIRED only when exactly one active LONG contract and one active SHORT contract remain and their absolute open quantities match. Identity also records whether that spread has ever reached a valid paired state; a history that merely ends with both legs at zero but was never paired remains INCOMPLETE.
 
 Visible non-paired states are:
 
@@ -162,7 +162,7 @@ For the currently open exposure:
     netEntryCredit = entryCredit - entryDebit
     currentValue = signed marked market value of both legs
 
-currentValue is valuation context only. It is never used as the spread P&L calculation.
+currentValue is valuation context only. It is never used as the spread P&L calculation. For a rolled spread, historical realized P&L and fees from closed contracts remain in the spread totals, while current value and unrealized P&L continue to use only active contracts.
 
 Closed quantities remain represented through realized P&L; they are not silently folded back into the current entry premium.
 
@@ -217,3 +217,15 @@ Historical marks are supplied as an optional ordered series of { timestamp, mark
 
 This increment is accounting-only. It does not alter V3 strategy policy, BUY / HOLD / REDUCE logic, reconciliation targets, or broker routing.
 
+
+### Edge-case audit contract
+
+The accounting audit locks the following conservative rules:
+
+- Partial close: the two legs may temporarily become IMBALANCED between fills; the next valid PAIRED state is classified from the last stable paired quantity, so a one-unit reduction across two fills is still recorded as PARTIAL_CLOSE.
+- Roll: a new contract may create MULTI_CONTRACT / ROLL_START before the old contract closes. Historical realized P&L and fees from the closed leg remain attributable to the same spreadId after ROLL_COMPLETE.
+- Multi-spread campaign: independent spreadIds under one campaign aggregate only when every identified spread has complete period attribution. One incomplete spread blocks the campaign aggregate rather than partially fabricating a campaign number; complete spread rows remain individually attributable.
+- Incomplete history: a spread that never reached a valid paired state is not promoted to CLOSED merely because both active quantities later reach zero. Its spread and timeline P&L remain unpriced.
+- Historical marks: mark observations are carried forward per symbol. Only observations timestamped at or before the event can be used; future marks never leak backward.
+
+These rules are accounting-only and do not modify V3 strategy policy, reconciliation, BUY / HOLD / REDUCE logic, or broker routing.
