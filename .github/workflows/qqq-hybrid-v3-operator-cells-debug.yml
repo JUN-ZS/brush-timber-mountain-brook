@@ -14,6 +14,10 @@ on:
       - ".github/workflows/qqq-hybrid-v3-operator-cells-debug.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 concurrency:
   group: qhp-v3-operator-cells-debug
   cancel-in-progress: true
@@ -80,3 +84,42 @@ jobs:
 
       - name: Cell 15 — Strategy / Funding Context
         run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell15_strategy_funding_context.js
+
+
+  strategy_pool_replay:
+    name: Controlled Strategy Pool replay
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download verified Cboe REAL M1/M2 artifact
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 37506316510
+          name: original-hybrid-real-vx-pr84
+          path: original-hybrid-real-vx-pr84
+
+      - name: Verify Cboe REAL dataset
+        run: |
+          test -s original-hybrid-real-vx-pr84/artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv
+          python3 - <<'PY'
+          import csv
+          p="original-hybrid-real-vx-pr84/artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv"
+          rows=list(csv.DictReader(open(p,encoding="utf-8")))
+          assert rows[0]["trade_date"]=="2018-03-01"
+          assert rows[-1]["trade_date"]=="2026-09-04"
+          assert len(rows)>2000
+          print({"cboe_rows":len(rows),"first":rows[0]["trade_date"],"last":rows[-1]["trade_date"]})
+          PY
+
+      - name: Controlled deployment replay
+        run: |
+          python3 research/qqq_strategy_pool_deployment_replay_v1/replay.py             --spots attachments/spots_qqq_vxx_vix.1csv             --cboe-file original-hybrid-real-vx-pr84/artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv             --out-dir out/strategy-pool-replay
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strategy-pool-deployment-replay-v1-report
+          path: out/strategy-pool-replay/
