@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import assert from "node:assert";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const here=path.dirname(fileURLToPath(import.meta.url));
@@ -41,3 +42,12 @@ const pending=E.targetLedger(base,E.derive(base),{nav:100000,qqqShares:0,vxxPct:
 assert.strictEqual(pending.target.qqqCalls,0);
 assert.strictEqual(pending.sizing.qqqCalls.status,"PENDING_CANDIDATE");
 console.log("V3 golden engine PASS");
+
+// Cell 14 coverage via golden step (OAuth token lacks `workflow` scope to edit cells YAML).
+const cell14=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell14_journal_memory.js")],{encoding:"utf8"});
+assert.strictEqual(cell14.status,0,"cell14_journal_memory must PASS\n"+cell14.stdout+"\n"+cell14.stderr);
+assert.ok(String(cell14.stdout).includes('"PASS":true'),"cell14 PASS marker");
+const cell15=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell15_strategy_funding_context.js")],{encoding:"utf8"});
+assert.strictEqual(cell15.status,0,"cell15_strategy_funding_context must PASS\n"+cell15.stdout+"\n"+cell15.stderr);
+assert.ok(String(cell15.stdout).includes('"PASS":true'),"cell15 PASS marker");
+console.log("V3 golden + Cell 14 journal memory PASS");

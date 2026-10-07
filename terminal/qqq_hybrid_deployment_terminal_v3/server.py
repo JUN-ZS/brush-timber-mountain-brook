@@ -16,6 +16,16 @@ except Exception:
     fetch_cboe_vx = None
 
 try:
+    from providers.yahoo_options import fetch_option_chain as fetch_yahoo_options
+except Exception:
+    fetch_yahoo_options = None
+
+try:
+    from providers.option_candidate_fetch import fetch_option_candidate
+except Exception:
+    fetch_option_candidate = None
+
+try:
     import futu  # type: ignore
 except Exception:
     futu = None
@@ -175,6 +185,30 @@ def snapshot():
         out["source_chain"].append("YAHOO_FALLBACK")
     out["spot_asof"] = datetime.now(timezone.utc).astimezone().date().isoformat()
 
+    if fetch_cboe_vx is not None:
+        try:
+            vx = fetch_cboe_vx()
+            if vx.get("ok"):
+                out["m1"] = vx["m1"]["price"]
+                out["m2"] = vx["m2"]["price"]
+                out["m1_code"] = vx["m1"]["symbol"]
+                out["m2_code"] = vx["m2"]["symbol"]
+                out["m1_expiry"] = vx["m1"]["expiry"]
+                out["m2_expiry"] = vx["m2"]["expiry"]
+                out["term_slope"] = vx["term_slope"] * 100
+                out["term_state"] = vx["term_state"]
+                out["term_source"] = vx["source"]
+                out["term_asof"] = vx["data_asof"]
+                out["provenance"]["m1"] = "CBOE_PUBLIC_DELAYED_VX"
+                out["provenance"]["m2"] = "CBOE_PUBLIC_DELAYED_VX"
+                out["provenance"]["term_slope"] = "DERIVED_FROM_CBOE_M1_M2"
+                out["source_chain"].append("CBOE_PUBLIC_DELAYED_VX")
+            else:
+                out["errors"]["cboe_vx"] = vx.get("reason")
+        except Exception as exc:
+            out["errors"]["cboe_vx"] = f"{type(exc).__name__}: {exc}"
+
+    # Cboe delayed VX is the production primary. OpenD VX is fallback only when Cboe is unavailable/incomplete.
     if (out["m1"] is None or out["m2"] is None) and futu is not None:
         try:
             ctx = futu.OpenQuoteContext(host=OPEND_HOST, port=OPEND_PORT)
@@ -224,28 +258,7 @@ def snapshot():
         except Exception as exc:
             out["errors"]["opend_vx"] = f"{type(exc).__name__}: {exc}"
 
-    if (out["m1"] is None or out["m2"] is None) and fetch_cboe_vx is not None:
-        try:
-            vx = fetch_cboe_vx()
-            if vx.get("ok"):
-                out["m1"] = vx["m1"]["price"]
-                out["m2"] = vx["m2"]["price"]
-                out["m1_code"] = vx["m1"]["symbol"]
-                out["m2_code"] = vx["m2"]["symbol"]
-                out["m1_expiry"] = vx["m1"]["expiry"]
-                out["m2_expiry"] = vx["m2"]["expiry"]
-                out["term_slope"] = vx["term_slope"] * 100
-                out["term_state"] = vx["term_state"]
-                out["term_source"] = vx["source"]
-                out["term_asof"] = vx["data_asof"]
-                out["provenance"]["m1"] = "CBOE_PUBLIC_DELAYED_VX"
-                out["provenance"]["m2"] = "CBOE_PUBLIC_DELAYED_VX"
-                out["provenance"]["term_slope"] = "DERIVED_FROM_CBOE_M1_M2"
-                out["source_chain"].append("CBOE_PUBLIC_DELAYED_VX")
-            else:
-                out["errors"]["cboe_vx"] = vx.get("reason")
-        except Exception as exc:
-            out["errors"]["cboe_vx"] = f"{type(exc).__name__}: {exc}"
+
 
     out["source_chain"] = list(dict.fromkeys(out["source_chain"]))
     return out
@@ -294,34 +307,27 @@ class Handler(SimpleHTTPRequestHandler):
             return json_resp(self, {"ok": True, "rows": rows})
 
         if self.path.startswith("/api/options"):
+            # Cascade: Yahoo then OpenD via providers.option_candidate_fetch.
+            # LIVE -> HTTP 200 {ok:true, status:"LIVE", source YAHOO_OPTIONS|OPEND_OPTIONS, ...}
+            # BLOCKED_NO_OPEND / OPTIONS_SOURCE_DOWN -> HTTP 502 fail-soft (never invents strikes)
             query = urllib.parse.urlparse(self.path)
             params = urllib.parse.parse_qs(query.query)
             symbol = params.get("symbol", ["QQQ"])[0].upper()
             if symbol not in {"QQQ", "VXX"}:
-                return json_resp(self, {"ok": False, "error": "symbol must be QQQ or VXX"}, 400)
+                return json_resp(self, {"ok": False, "status": "OPTIONS_SOURCE_DOWN", "source": "OPTIONS_CASCADE", "symbol": symbol, "error": "symbol must be QQQ or VXX", "calls": [], "candidate": None}, 400)
             try:
                 target_dte = max(14, min(120, int(float(params.get("targetDte", ["45"])[0]))))
-                base_url = "https://query2.finance.yahoo.com/v7/finance/options/" + urllib.parse.quote(symbol, safe="")
-                req = urllib.request.Request(base_url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=10, context=ssl.create_default_context()) as response:
-                    root = json.load(response)
-                result = (root.get("optionChain") or {}).get("result") or []
-                if not result: raise RuntimeError("Yahoo option chain result unavailable")
-                meta = result[0]
-                expirations = [int(x) for x in (meta.get("expirationDates") or []) if num(x) is not None]
-                now_ts = datetime.now(timezone.utc).timestamp()
-                expiry = min(expirations, key=lambda x: abs((x-now_ts)/86400-target_dte)) if expirations else None
-                url = base_url + (("?date="+str(expiry)) if expiry else "")
-                req2 = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req2, timeout=10, context=ssl.create_default_context()) as response:
-                    payload = json.load(response)
-                result2 = (payload.get("optionChain") or {}).get("result") or []
-                if not result2: raise RuntimeError("Yahoo option expiry result unavailable")
-                opts = result2[0].get("options") or []
-                calls = opts[0].get("calls") if opts else []
-                return json_resp(self, {"ok": True, "symbol": symbol, "source": "YAHOO_OPTIONS", "target_dte": target_dte, "expiry": datetime.fromtimestamp(expiry, timezone.utc).date().isoformat() if expiry else None, "retrieved_at": now_iso(), "calls": calls or []})
-            except Exception as exc:
-                return json_resp(self, {"ok": False, "error": f"{type(exc).__name__}: {exc}"}, 502)
+            except (TypeError, ValueError):
+                target_dte = 45
+            if fetch_option_candidate is not None:
+                payload = fetch_option_candidate(symbol=symbol, target_dte=target_dte)
+            elif fetch_yahoo_options is not None:
+                payload = fetch_yahoo_options(symbol=symbol, target_dte=target_dte)
+            else:
+                return json_resp(self, {"ok": False, "status": "OPTIONS_SOURCE_DOWN", "source": "OPTIONS_CASCADE", "symbol": symbol, "error": "option candidate providers unavailable", "calls": [], "candidate": None}, 502)
+            if payload.get("ok"):
+                return json_resp(self, payload, 200)
+            return json_resp(self, payload, 502)
         return super().do_GET()
 
     def do_POST(self):
