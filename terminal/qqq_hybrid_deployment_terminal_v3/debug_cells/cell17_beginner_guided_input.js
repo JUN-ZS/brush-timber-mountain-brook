@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import assert from "node:assert";
-import { createInterface } from "node:readline/promises";
+import { createInterface } from "node:readline";
+import { spawnSync } from "node:child_process";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -34,9 +35,27 @@ function localDate() {
   return new Date().toLocaleDateString("en-CA");
 }
 
+// Beginner input parser (independent of engine.operatorNumber).
+// blank -> EMPTY (never 0), garbage / below min -> INVALID, explicit "0" -> VALUE 0.
+// "100,000" is accepted as 100000 (thousands separators stripped explicitly).
+function parseGuideNumber(v, { min = 0 } = {}) {
+  const raw = String(v ?? "").trim();
+  if (raw === "") return { status: "EMPTY", value: null };
+  const n = Number(raw.replace(/,/g, ""));
+  if (!Number.isFinite(n) || n < min) return { status: "INVALID", value: null };
+  return { status: "VALUE", value: n };
+}
+
 function finiteNumber(v) {
-  const n = Number(String(v ?? "").replace(/,/g, "").trim());
-  return Number.isFinite(n) ? n : null;
+  const r = parseGuideNumber(v, { min: Number.NEGATIVE_INFINITY });
+  return r.status === "VALUE" ? r.value : null;
+}
+
+function validIsoDate(v) {
+  const s = String(v ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const t = Date.parse(s + "T00:00:00Z");
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s;
 }
 
 function daysBetween(a, b) {
@@ -267,11 +286,15 @@ function summarizeGuide(data, current, audit) {
   console.log("VX：M1 " + data.m1 + " → M2 " + data.m2 + " · S = " + data.s.toFixed(2) + "%");
   console.log("狀態：" + actualData.state + " · Engine Action：" + actualData.action + " · Gate：" + actualData.gate);
   console.log("");
-  console.log("CURRENT → TARGET");
-  console.log("  QQQ  : " + current.qqqShares + " → " + actualBook.target.qqqShares + " (" + (actualBook.deltas.qqqShares >= 0 ? "+" : "") + actualBook.deltas.qqqShares + ")");
-  console.log("  VXX  : " + current.vxxPct + "% → " + actualBook.target.vxxPct + "% (" + (actualBook.deltas.vxxPct >= 0 ? "+" : "") + actualBook.deltas.vxxPct + " pp)");
-  console.log("  QQQ far-call: " + current.qqqCalls + " → " + actualBook.target.qqqCalls);
-  console.log("  VXX call    : " + current.vxxCalls + " → " + actualBook.target.vxxCalls);
+  const kind = v => (Math.abs(v) < 1e-9 ? "不變 HOLD" : v > 0 ? "增加 ADD" : "減少 REDUCE");
+  const usd = v => "USD " + v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  const vxxShares = pct => (data.vxx > 0 ? Math.round((current.nav * pct / 100) / data.vxx) : null);
+  console.log("CURRENT → TARGET（只係建議，唔會自動落單）");
+  console.log("  QQQ  : " + current.qqqShares + " → " + actualBook.target.qqqShares + " shares (" + (actualBook.deltas.qqqShares >= 0 ? "+" : "") + actualBook.deltas.qqqShares + ") · " + kind(actualBook.deltas.qqqShares));
+  console.log("  VXX short: " + current.vxxPct + "% → " + actualBook.target.vxxPct + "% NAV (" + (actualBook.deltas.vxxPct >= 0 ? "+" : "") + actualBook.deltas.vxxPct + " pp) · " + kind(actualBook.deltas.vxxPct) +
+    (vxxShares(actualBook.target.vxxPct) !== null ? " · 目標 ≈ " + usd(current.nav * actualBook.target.vxxPct / 100) + " ≈ " + vxxShares(actualBook.target.vxxPct) + " VXX shares short（% NAV，唔係 contracts）" : ""));
+  console.log("  QQQ far-call: " + current.qqqCalls + " → " + actualBook.target.qqqCalls + " spreads · " + kind(actualBook.deltas.qqqCalls) + (actualBook.sizing && actualBook.sizing.qqqCalls && actualBook.sizing.qqqCalls.status === "PENDING_CANDIDATE" && actualData.action === "BUY" ? "（未有 candidate：唔估張數）" : ""));
+  console.log("  VXX call    : " + current.vxxCalls + " → " + actualBook.target.vxxCalls + " spreads · " + kind(actualBook.deltas.vxxCalls) + (actualBook.sizing && actualBook.sizing.vxxCalls && actualBook.sizing.vxxCalls.status === "PENDING_CANDIDATE" && actualData.action === "BUY" ? "（未有 candidate：唔估張數）" : ""));
   console.log("");
   console.log("Cell 16 對人說：" + bridge.actionClass);
   console.log("操作提示：" + bridge.operatorInstruction);
@@ -324,19 +347,52 @@ function makeData({ qqPrice = 750, vxxPrice = 20, vix = 16, m1 = 16.2, m2 = 17.2
   };
 }
 
+function makeLineReader() {
+  // Queue-based reader: works for an interactive TTY and for piped / scripted stdin.
+  const rl = createInterface({ input, terminal: false });
+  const queue = [];
+  const waiters = [];
+  let closed = false;
+  rl.on("line", line => { if (waiters.length) waiters.shift()(line); else queue.push(line); });
+  rl.on("close", () => { closed = true; while (waiters.length) waiters.shift()(null); });
+  return {
+    question(prompt) {
+      output.write(prompt);
+      if (queue.length) return Promise.resolve(queue.shift());
+      if (closed) return Promise.resolve(null);
+      return new Promise(resolve => waiters.push(resolve));
+    },
+    close() { rl.close(); },
+  };
+}
+
 async function askLine(rl, label, defaultValue = "") {
   const suffix = defaultValue !== "" ? " [" + defaultValue + "]" : "";
-  const answer = (await rl.question(label + suffix + ": ")).trim();
-  return answer === "" ? String(defaultValue) : answer;
+  const answer = await rl.question(label + suffix + ": ");
+  if (answer === null) throw new Error("INPUT_ENDED: 未答完所有問題（stdin 已結束）");
+  const trimmed = answer.trim();
+  return trimmed === "" ? String(defaultValue) : trimmed;
 }
 
 async function askNumber(rl, label, { min = 0, allowBlank = false, defaultValue = "" } = {}) {
   while (true) {
     const raw = await askLine(rl, label, defaultValue);
-    if (allowBlank && raw === "") return null;
-    const n = finiteNumber(raw);
-    if (n !== null && n >= min) return n;
-    console.log("  請輸入 >= " + min + " 的數字。");
+    const parsed = parseGuideNumber(raw, { min });
+    if (parsed.status === "EMPTY") {
+      if (allowBlank) return null;
+      console.log("  EMPTY：留空唔等於 0。冇嘅話請明確輸入 0。");
+      continue;
+    }
+    if (parsed.status === "VALUE") return parsed.value;
+    console.log("  INVALID：請輸入 >= " + min + " 的數字（可用 100,000 或 100000）。");
+  }
+}
+
+async function askDate(rl, label, defaultValue) {
+  while (true) {
+    const raw = await askLine(rl, label, defaultValue);
+    if (validIsoDate(raw)) return raw;
+    console.log("  INVALID：日期要係 YYYY-MM-DD（例如 2026-10-08）。");
   }
 }
 
@@ -353,7 +409,7 @@ async function askChoice(rl, title, options, defaultIndex = 1) {
 }
 
 async function interactive() {
-  const rl = createInterface({ input, output });
+  const rl = makeLineReader();
   try {
     console.log("");
     console.log("QQQ HYBRID · BEGINNER GUIDED INPUT");
@@ -378,9 +434,9 @@ async function interactive() {
     const vix = await askNumber(rl, "VIX", { min: 0 });
     const m1 = await askNumber(rl, "VX M1", { min: 0.000001 });
     const m2 = await askNumber(rl, "VX M2", { min: 0.000001 });
-    const today = await askLine(rl, "今天日期 YYYY-MM-DD", localDate());
-    const termAsOf = await askLine(rl, "M1/M2 的資料日期 YYYY-MM-DD", today);
-    const spotAsOf = await askLine(rl, "QQQ/VXX/VIX 的資料日期 YYYY-MM-DD", today);
+    const today = await askDate(rl, "今天日期 YYYY-MM-DD", localDate());
+    const termAsOf = await askDate(rl, "M1/M2 的資料日期 YYYY-MM-DD", today);
+    const spotAsOf = await askDate(rl, "QQQ/VXX/VIX 的資料日期 YYYY-MM-DD", today);
     const sourceChoice = await askChoice(
       rl,
       "VX term source",
@@ -594,6 +650,118 @@ function runSelfTest() {
     }
   }
 
+  // Contract-pin cases: each frozen constant / gate boundary must be exercised by at least
+  // one case whose outcome flips if that constant drifts (engine OR this contract copy).
+  // Expected values come from independentExpected() + literal outcome labels, never from E.*.
+  {
+    const activeSeller = { nav: 100000, qqqShares: 100, vxxPct: 18, qqqCalls: 21, vxxCalls: 4 };
+    const daysBefore = (iso, n) => new Date(Date.parse(iso + "T00:00:00Z") - n * 86400000).toISOString().slice(0, 10);
+    const pins = [
+      // termSafe = 5: S 5.5 must be CARRY, S 4.5 must be WEAKENING
+      { name: "PIN termSafe · S≈5.5 → CARRY", cur: current, data: makeData({ today, m1: 20, m2: 21.1 }), want: "CARRY" },
+      { name: "PIN termSafe · S≈4.5 → WEAKENING", cur: activeSeller, data: makeData({ today, m1: 20, m2: 20.9 }), want: "WEAKENING" },
+      // vixHigh = 28: VIX 28.0 is HIGH (CAP), VIX 27.99 is not
+      { name: "PIN vixHigh · VIX 28.0 S+3 → PRE-SHOCK/CAP · VXX 18→10 · calls 21/4→0/0", cur: activeSeller, data: makeData({ today, vix: 28, m1: 16, m2: 16.48 }), want: "PRE-SHOCK", wantGate: "CAP", wantTarget: { qqqShares: 100, vxxPct: 10, qqqCalls: 0, vxxCalls: 0 } },
+      { name: "PIN vixHigh · VIX 27.99 S+3 → WEAKENING", cur: activeSeller, data: makeData({ today, vix: 27.99, m1: 16, m2: 16.48 }), want: "WEAKENING" },
+      { name: "PIN vixHigh · VIX 28.0 S+8 → PRE-SHOCK/CAP (not CARRY)", cur: activeSeller, data: makeData({ today, vix: 28, m1: 16, m2: 17.28 }), want: "PRE-SHOCK", wantGate: "CAP" },
+      // S = 0 boundary: backwardation includes S == 0
+      { name: "PIN S=0 · M1=M2 → PRE-SHOCK/CUT · VXX→0", cur: activeSeller, data: makeData({ today, m1: 16, m2: 16 }), want: "PRE-SHOCK", wantGate: "CUT", wantTarget: { qqqShares: 100, vxxPct: 0, qqqCalls: 0, vxxCalls: 0 } },
+      // maxTermAgeDays = 4 (spot dated with term so the 2-day MIX gate does not shadow it)
+      { name: "PIN maxTermAge · age 4d → FRESH/CARRY", cur: current, data: makeData({ today, termAsOf: daysBefore(today, 4), spotAsOf: daysBefore(today, 4) }), want: "CARRY" },
+      { name: "PIN maxTermAge · age 5d → DATA STALE", cur: current, data: makeData({ today, termAsOf: daysBefore(today, 5), spotAsOf: daysBefore(today, 5) }), want: "DATA STALE" },
+      // mixedDateBlockDays = 2
+      { name: "PIN dateMix · gap 2d → FRESH/CARRY", cur: current, data: makeData({ today, termAsOf: today, spotAsOf: daysBefore(today, 2) }), want: "CARRY" },
+      { name: "PIN dateMix · gap 3d → AS-OF MIXED", cur: current, data: makeData({ today, termAsOf: today, spotAsOf: daysBefore(today, 3) }), want: "AS-OF MIXED" },
+    ];
+    for (const c of pins) {
+      const e = independentExpected(c.data, c.cur);
+      const actual = E.derive(c.data);
+      const book = E.targetLedger(c.data, actual, { ...c.cur, inputStatus: { status: "READY", invalid: [], empty: [], fields: {} } }, {});
+      const expectedDeltas = {
+        qqqShares: e.target.qqqShares - c.cur.qqqShares,
+        vxxPct: e.target.vxxPct - c.cur.vxxPct,
+        qqqCalls: e.target.qqqCalls - c.cur.qqqCalls,
+        vxxCalls: e.target.vxxCalls - c.cur.vxxCalls,
+      };
+      const b = E.strategyActionBridge({ d: c.data, e: actual, book, funding: {}, currentOptionLegs: null, journalRows: [] });
+      const pass =
+        e.state === c.want &&
+        (c.wantGate === undefined || e.gate === c.wantGate) &&
+        (c.wantTarget === undefined || JSON.stringify(e.target) === JSON.stringify(c.wantTarget)) &&
+        actual.state === e.state && actual.action === e.action && actual.gate === e.gate && actual.blocked === e.blocked &&
+        JSON.stringify(book.target) === JSON.stringify(e.target) &&
+        JSON.stringify(book.deltas) === JSON.stringify(expectedDeltas) &&
+        b.actionClass === independentActionClass(e.action, expectedDeltas, positionExists(c.cur), e.blocked) &&
+        b.noBrokerOrder === true;
+      console.log((pass ? "PASS" : "FAIL") + " · " + c.name + " · engine " + actual.state + "/" + actual.gate + " · target " + JSON.stringify(book.target));
+      if (!pass) {
+        console.log("  independent:", e.state + "/" + e.gate, JSON.stringify(e.target), " literal want:", c.want, c.wantGate || "", c.wantTarget ? JSON.stringify(c.wantTarget) : "");
+        allPass = false;
+      }
+    }
+  }
+
+  // Option-budget pin: BUY + explicit candidate. Independent hand formula:
+  //   spreads = floor(NAV × budget% / (credit × 100)); REDUCE → 0 even with a candidate.
+  {
+    const nav = 100000;
+    const cur = { nav, qqqShares: 0, vxxPct: 0, qqqCalls: 0, vxxCalls: 0 };
+    const qCand = { shortStrike: 850, longStrike: 865, dte: 45, delta: 0.1, credit: 1.0, sizingAvailable: true, source: "CELL17_FIXTURE" };
+    const vCand = { shortStrike: 40, longStrike: 45, dte: 45, delta: 0.1, credit: 0.8, sizingAvailable: true, source: "CELL17_FIXTURE" };
+    const handQ = Math.floor((nav * CONTRACT.qqqCallBudgetPct / 100) / (qCand.credit * 100)); // 12
+    const handV = Math.floor((nav * CONTRACT.vxxCallBudgetPct / 100) / (vCand.credit * 100)); // 25
+    const carry = makeData({ today });
+    const eC = E.derive(carry);
+    const bookC = E.targetLedger(carry, eC, { ...cur, inputStatus: { status: "READY", invalid: [], empty: [], fields: {} } }, { qqq: qCand, vxx: vCand });
+    const shock = makeData({ today, vix: 35, m1: 16.2, m2: 15.5 });
+    const eS = E.derive(shock);
+    const bookS = E.targetLedger(shock, eS, { nav, qqqShares: 100, vxxPct: 18, qqqCalls: 21, vxxCalls: 4, inputStatus: { status: "READY", invalid: [], empty: [], fields: {} } }, { qqq: qCand, vxx: vCand });
+    const pass = handQ === 12 && handV === 25 &&
+      bookC.target.qqqCalls === handQ && bookC.target.vxxCalls === handV &&
+      bookS.target.qqqCalls === 0 && bookS.target.vxxCalls === 0;
+    console.log((pass ? "PASS" : "FAIL") + " · PIN option budgets · BUY+candidate QQQ " + bookC.target.qqqCalls + " (hand " + handQ + ") · VXX " + bookC.target.vxxCalls + " (hand " + handV + ") · SHOCK+candidate → " + bookS.target.qqqCalls + "/" + bookS.target.vxxCalls);
+    if (!pass) allPass = false;
+  }
+
+  // Beginner input parser: blank ≠ 0, invalid ≠ 0, explicit 0 is a value.
+  {
+    const want = [
+      ["", "EMPTY", null], ["0", "VALUE", 0], ["-1", "INVALID", null], ["abc", "INVALID", null],
+      ["100,000", "VALUE", 100000], [" 5 ", "VALUE", 5],
+    ];
+    let ok = true;
+    for (const [raw, st, val] of want) {
+      const r = parseGuideNumber(raw, { min: 0 });
+      if (r.status !== st || r.value !== val) { ok = false; console.log("  parse " + JSON.stringify(raw) + " → " + JSON.stringify(r) + " (want " + st + "/" + val + ")"); }
+    }
+    ok = ok && validIsoDate("2026-10-08") && !validIsoDate("abc") && !validIsoDate("2026/10/08") && !validIsoDate("2026-02-30");
+    console.log((ok ? "PASS" : "FAIL") + " · INPUT PARSER · blank=EMPTY · 0=VALUE · -1/abc=INVALID · 100,000=100000 · bad date rejected");
+    if (!ok) allPass = false;
+  }
+
+  // Scripted interactive run (piped stdin): exercises the real question path including
+  // NAV = cash + QQQ shares × price, and proves blank / garbage answers are re-asked, never 0.
+  {
+    const self = fileURLToPath(import.meta.url);
+    const answers = ["", "abc", "100,000", "", "100", "750", "20", "0", "0", "0", "16", "16.2", "17.2", today, "not-a-date", today, today, "1"].join("\n") + "\n";
+    const r = spawnSync(process.execPath, [self], { input: answers, encoding: "utf8", timeout: 20000 });
+    const out = String(r.stdout || "");
+    const ok = r.status === 0 &&
+      (out.match(/EMPTY：留空唔等於 0/g) || []).length === 2 &&
+      out.includes("INVALID：請輸入") &&
+      out.includes("INVALID：日期要係 YYYY-MM-DD") &&
+      out.includes("簡化 NAV = cash + QQQ 市值 = USD 175,000") &&
+      out.includes("QQQ  : 100 → 98 shares") &&
+      out.includes("Cell 16 對人說：REBALANCE") &&
+      out.includes("AUDIT RESULT: PASS");
+    console.log((ok ? "PASS" : "FAIL") + " · SCRIPTED INTERACTIVE · blank/abc re-asked · NAV 100,000 + 100×750 = 175,000 · exit " + r.status);
+    if (!ok) { console.log(out.slice(-1500)); console.log(String(r.stderr || "").slice(-800)); allPass = false; }
+    const truncated = spawnSync(process.execPath, [self], { input: "100000\n", encoding: "utf8", timeout: 20000 });
+    const okEof = truncated.status !== 0 && String(truncated.stderr || "").includes("INPUT_ENDED");
+    console.log((okEof ? "PASS" : "FAIL") + " · SCRIPTED INTERACTIVE · truncated stdin exits non-zero (exit " + truncated.status + ")");
+    if (!okEof) allPass = false;
+  }
+
   // Explicit small-white demo: 100 QQQ + USD 100,000 cash at QQQ 750.
   const demoData = makeData({ today, termAsOf: today, spotAsOf: today, qqPrice: 750, vxxPrice: 20, vix: 16, m1: 16.2, m2: 17.2 });
   const demo = summarizeGuide(demoData, current, { expected: independentExpected(demoData, current) });
@@ -601,7 +769,7 @@ function runSelfTest() {
   console.log("");
   console.log(JSON.stringify({
     cell: "17_BEGINNER_GUIDED_INPUT",
-    checks: cases.length + 1,
+    checks: cases.length + 16,
     contractIsIndependent: true,
     demo: {
       cash: 100000,
@@ -631,13 +799,14 @@ if (args.has("--self-test")) {
     m1: 16.2,
     m2: 17.2,
   });
-  summarizeGuide(
+  const demo = summarizeGuide(
     demoData,
     { nav: 175000, qqqShares: 100, vxxPct: 0, qqqCalls: 0, vxxCalls: 0 },
     { expected: independentExpected(demoData, { nav: 175000, qqqShares: 100, vxxPct: 0, qqqCalls: 0, vxxCalls: 0 }) },
   );
+  if (!demo.pass) process.exitCode = 1;
 } else {
-  interactive().catch(err => {
+  interactive().then(r => { if (r && r.pass === false) process.exitCode = 1; }).catch(err => {
     console.error("GUIDE ERROR:", err);
     process.exitCode = 1;
   });
