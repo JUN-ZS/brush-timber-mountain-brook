@@ -46,6 +46,22 @@ def main() -> None:
         assert body["status"] == "CORRUPT_JOURNAL"
         assert body["events"] == []
 
+
+
+    # Valid JSON but invalid event semantics must also block.
+    server.EVENTS.write_text(
+        json.dumps({"type": "FILL", "id": "bad-semantic", "timestamp": "2026-10-01T00:00:00",
+                    "symbol": "QQQ", "assetType": "EQUITY", "side": "BUY",
+                    "quantity": 1, "price": 100, "fees": 0}) + "\n",
+        encoding="utf-8",
+    )
+    try:
+        server.read_events()
+        raise AssertionError("semantically invalid journal event should block")
+    except server.CorruptJournalError as exc:
+        assert "CORRUPT_JOURNAL" in str(exc)
+        assert "timezone" in str(exc)
+
     httpd.shutdown()
     print("SERVER CORRUPT JOURNAL TEST: PASS")
 
