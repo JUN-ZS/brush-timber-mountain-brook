@@ -40,12 +40,14 @@ window.PortfolioPositionIdentityV1 = (() => {
           legs: { LONG: {}, SHORT: {} },
           everPaired: false,
           metadataConflict: false,
+          campaignMetadataIncomplete: !identity.campaignId,
           campaignIdsSeen: new Set(identity.campaignId ? [identity.campaignId] : [])
         };
       }
 
       const group = groups[spreadId];
-      // campaignId must be consistent for the same spreadId (no first-seen wins).
+      // campaignId must be explicit and consistent when any fill in a spread declares one.
+      // A missing campaignId is metadata-incomplete, not permission to inherit a first-seen value.
       if (identity.campaignId) {
         group.campaignIdsSeen.add(identity.campaignId);
         if (!group.campaignId) {
@@ -53,6 +55,8 @@ window.PortfolioPositionIdentityV1 = (() => {
         } else if (group.campaignId !== identity.campaignId) {
           group.metadataConflict = true;
         }
+      } else {
+        group.campaignMetadataIncomplete = true;
       }
       if (identity.strategyRole) group.strategyRoles.add(identity.strategyRole);
 
@@ -102,8 +106,11 @@ window.PortfolioPositionIdentityV1 = (() => {
 
       return {
         spreadId: group.spreadId,
-        campaignId: group.metadataConflict ? null : group.campaignId,
+        campaignId: group.metadataConflict || group.campaignMetadataIncomplete ? null : group.campaignId,
         campaignIds: [...group.campaignIdsSeen].sort(),
+        campaignMetadata: group.metadataConflict
+          ? "CONFLICT"
+          : (group.campaignMetadataIncomplete && group.campaignIdsSeen.size ? "INCOMPLETE" : (group.campaignIdsSeen.size ? "COMPLETE" : "UNASSIGNED")),
         strategyRole: group.strategyRoles.size === 1 ? [...group.strategyRoles][0] : (group.strategyRoles.size ? "MIXED" : null),
         status,
         units,
@@ -122,7 +129,8 @@ window.PortfolioPositionIdentityV1 = (() => {
         incomplete: rows.filter(r => r.status === "INCOMPLETE").length,
         imbalanced: rows.filter(r => r.status === "IMBALANCED").length,
         multiContract: rows.filter(r => r.status === "MULTI_CONTRACT").length,
-        metadataConflict: rows.filter(r => r.status === "METADATA_CONFLICT").length
+        metadataConflict: rows.filter(r => r.status === "METADATA_CONFLICT").length,
+        campaignMetadataIncomplete: rows.filter(r => r.campaignMetadata === "INCOMPLETE").length
       },
       contract: "POSITION_IDENTITY_V1"
     };
