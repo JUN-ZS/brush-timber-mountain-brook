@@ -126,8 +126,9 @@ window.HybridEngineV3 = (() => {
   }
   function rollDistance(label,count,dte,delta,dteLine,deltaLine){
     if(!(count>0))return{label,status:"OFF",text:"NO POSITION"};
-    const d=Number(dte),del=Number(delta);
-    if(!Number.isFinite(d)&&!Number.isFinite(del))return{label,status:"NEEDS_DATA",text:"輸入現有 spread DTE / Δ"};
+    const present=v=>v!==null&&v!==undefined&&String(v).trim()!=="";
+    const d=present(dte)?Number(dte):null,del=present(delta)?Number(delta):null;
+    if(d===null&&!Number.isFinite(del))return{label,status:"NEEDS_DATA",text:"輸入現有 spread DTE / Δ"};
     const dteLeft=Number.isFinite(d)?d-dteLine:null;
     const deltaLeft=Number.isFinite(del)?deltaLine-del:null;
     const fire=(Number.isFinite(dteLeft)&&dteLeft<=0)||(Number.isFinite(deltaLeft)&&deltaLeft<=0);
