@@ -36,8 +36,8 @@ window.PortfolioSpreadPnlV1 = (() => {
     if (asOf && !Number.isFinite(cutoff)) throw new Error("invalid asOf");
 
     const books = {};
-    for (const raw of (events || [])) {
-      const event = norm(raw);
+    const ordered = window.PortfolioLedgerV1.sortEvents ? window.PortfolioLedgerV1.sortEvents(events || []) : (events || []).map(norm);
+    for (const event of ordered) {
       if (event.type !== "FILL" || event.assetType !== "OPTION" || !event.positionIdentity) continue;
       const t = new Date(event.timestamp).getTime();
       if (t > cutoff) continue;
