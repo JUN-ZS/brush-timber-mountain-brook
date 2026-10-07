@@ -3,53 +3,22 @@ setlocal
 cd /d "%~dp0"
 if "%~1"=="" (
   echo Usage:
-  echo   RUN.cmd 1
-  echo   RUN.cmd 2
-  echo   RUN.cmd 3
-  echo   RUN.cmd 4
-  echo   RUN.cmd 5
-  echo   RUN.cmd 6
-  echo   RUN.cmd 7
-  echo   RUN.cmd 8
-  echo   RUN.cmd 9
-  echo   RUN.cmd 10
-  echo   RUN.cmd 11
-  echo   RUN.cmd 12
-  echo   RUN.cmd 13
-  echo   RUN.cmd 14
+  echo   RUN.cmd 1-17
   echo   RUN.cmd ALL
+  echo   RUN.cmd 17-demo
+  echo   RUN.cmd 17-selftest
   exit /b 2
 )
 if /I "%~1"=="ALL" (
-  call :cell 1
-  if errorlevel 1 exit /b 1
-  call :cell 2
-  if errorlevel 1 exit /b 1
-  call :cell 3
-  if errorlevel 1 exit /b 1
-  call :cell 4
-  if errorlevel 1 exit /b 1
-  call :cell 5
-  if errorlevel 1 exit /b 1
-  call :cell 6
-  if errorlevel 1 exit /b 1
-  call :cell 7
-  if errorlevel 1 exit /b 1
-  call :cell 8
-  if errorlevel 1 exit /b 1
-  call :cell 9
-  if errorlevel 1 exit /b 1
-  call :cell 10
-  if errorlevel 1 exit /b 1
-  call :cell 11
-  if errorlevel 1 exit /b 1
-  call :cell 12
-  if errorlevel 1 exit /b 1
-  call :cell 13
-  if errorlevel 1 exit /b 1
-  call :cell 14
+  for %%C in (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16) do (
+    call :cell %%C
+    if errorlevel 1 exit /b 1
+  )
+  call :cell 17self
   exit /b %errorlevel%
 )
+if /I "%~1"=="17-demo" goto cell17demo
+if /I "%~1"=="17-selftest" goto cell17self
 call :cell %~1
 exit /b %errorlevel%
 
@@ -111,5 +80,25 @@ if "%CELL%"=="14" (
   node cell14_journal_memory.js
   exit /b %errorlevel%
 )
+if "%CELL%"=="15" (
+  node cell15_strategy_funding_context.js
+  exit /b %errorlevel%
+)
+if "%CELL%"=="16" (
+  node cell16_strategy_action_bridge.js
+  exit /b %errorlevel%
+)
+if "%CELL%"=="17" (
+  node cell17_beginner_guided_input.js
+  exit /b %errorlevel%
+)
 echo Unknown cell: %CELL%
 exit /b 2
+
+:cell17demo
+node cell17_beginner_guided_input.js --demo
+exit /b %errorlevel%
+
+:cell17self
+node cell17_beginner_guided_input.js --self-test
+exit /b %errorlevel%
