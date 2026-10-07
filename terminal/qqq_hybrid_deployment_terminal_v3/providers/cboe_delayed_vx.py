@@ -32,6 +32,34 @@ def _date(v):
     return None
 
 
+NY = ZoneInfo("America/New_York")
+
+
+def payload_asof(payload):
+    """F2: observation date of the term structure = payload lastUpdate as a New York calendar date.
+
+    The Cboe VX payload has one timestamp, top-level ``lastUpdate`` (e.g.
+    ``2026-10-07T17:05:19.411998-05:00``); rows carry no trade/settlement date.
+    Only an ISO datetime WITH an explicit offset (or ``Z``) is accepted. Missing or
+    unparseable -> (None, status): never fall back to the fetch clock.
+    """
+    raw = payload.get("lastUpdate") if isinstance(payload, dict) else None
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return None, "MISSING_LAST_UPDATE", raw
+    if not isinstance(raw, str):
+        return None, "UNPARSEABLE_LAST_UPDATE", raw
+    text = raw.strip()
+    if text.endswith("Z") or text.endswith("z"):
+        text = text[:-1] + "+00:00"
+    try:
+        stamp = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None, "UNPARSEABLE_LAST_UPDATE", raw
+    if stamp.tzinfo is None or stamp.utcoffset() is None:
+        return None, "UNPARSEABLE_LAST_UPDATE", raw
+    return stamp.astimezone(NY).date().isoformat(), "PAYLOAD_LAST_UPDATE", raw
+
+
 def _rows(payload):
     if isinstance(payload, dict):
         if isinstance(payload.get("data"), list):
@@ -57,7 +85,7 @@ def _price(row, allow_last):
     return None, None
 
 
-def fetch(allow_last: bool = False) -> dict:
+def fetch(allow_last: bool = False, now: dt.datetime | None = None) -> dict:
     req = urllib.request.Request(
         API,
         headers={"User-Agent": UA, "Accept": "application/json"},
@@ -65,8 +93,18 @@ def fetch(allow_last: bool = False) -> dict:
     with urllib.request.urlopen(req, timeout=20) as r:
         payload = json.loads(r.read().decode("utf-8"))
 
-    now = dt.datetime.now(dt.timezone.utc)
-    ny_date = now.astimezone(ZoneInfo("America/New_York")).date()
+    now = now or dt.datetime.now(dt.timezone.utc)
+    # fetch clock: only used to skip already-expired contracts and for display (fetched_at).
+    ny_date = now.astimezone(NY).date()
+    # F2: data_asof comes from the payload, never from the fetch clock.
+    data_asof, asof_status, last_update_raw = payload_asof(payload)
+    dating = {
+        "data_asof": data_asof,
+        "asof_status": asof_status,
+        "last_update": last_update_raw,
+        "fetched_at": now.isoformat(),
+        "asof_utc": now.isoformat(),  # legacy alias of fetched_at (fetch time, NOT data time)
+    }
     candidates = []
 
     for row in _rows(payload):
@@ -102,8 +140,7 @@ def fetch(allow_last: bool = False) -> dict:
             "official_page": OFFICIAL_PAGE,
             "api": API,
             "reason": "fewer than two usable standard monthly VX contracts",
-            "asof_utc": now.isoformat(),
-            "data_asof": ny_date.isoformat(),
+            **dating,
         }
 
     m1, m2 = candidates[0], candidates[1]
@@ -111,12 +148,12 @@ def fetch(allow_last: bool = False) -> dict:
 
     return {
         "ok": True,
-        "status": "LIVE_DELAYED",
+        # UNDATED: values are usable but their date is unproven -> engine F1 gate blocks (TERM DATE INVALID).
+        "status": "LIVE_DELAYED" if data_asof else "UNDATED_PAYLOAD",
         "source": "CBOE_PUBLIC_DELAYED_VX",
         "official_page": OFFICIAL_PAGE,
         "api": API,
-        "asof_utc": now.isoformat(),
-        "data_asof": ny_date.isoformat(),
+        **dating,
         "m1": m1,
         "m2": m2,
         "term_slope": slope,

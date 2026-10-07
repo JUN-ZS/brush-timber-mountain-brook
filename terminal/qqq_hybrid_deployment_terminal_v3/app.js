@@ -372,7 +372,11 @@ function render(d,e,book){
   $("m2").textContent="M2 "+fmt(d.m2);
   $("termMeta").textContent=(live?.m1_code||live?.m1?.symbol||"—")+" → "+(live?.m2_code||live?.m2?.symbol||"—")+" · "+(live?.term_source||"BLOCKED");
   $("sourceMeta").textContent=(live?.source_chain||[]).join(" → ")||"NO SOURCE";
-  $("asof").textContent="term as-of "+(d.termAsOf||"—")+" · spot as-of "+(d.spotAsOf||"—");
+  // F2: term as-of = Cboe payload date (NY); fetched = when this terminal pulled it (display only).
+  const fetchedAt=live&&live.term_fetched_at?new Date(live.term_fetched_at):null;
+  const fetchedTxt=fetchedAt&&Number.isFinite(fetchedAt.getTime())?" · term fetched "+fetchedAt.toLocaleString():"";
+  const undated=live&&live.term_asof_status&&live.term_asof_status!=="PAYLOAD_LAST_UPDATE"?" · term date "+live.term_asof_status:"";
+  $("asof").textContent="term as-of "+(d.termAsOf||"—")+" · spot as-of "+(d.spotAsOf||"—")+fetchedTxt+undated;
   $("action").textContent=e.blocked?"HOLD / BLOCKED":e.action;
   $("reason").textContent=e.reason;
   $("stateBadge").textContent=e.state;

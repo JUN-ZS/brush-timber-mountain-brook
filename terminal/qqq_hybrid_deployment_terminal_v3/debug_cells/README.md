@@ -138,6 +138,9 @@ Run (Linux / CI):
 
 Windows (`RUN.cmd 9`) uses `python` / the launcher available on PATH.
 
+F2 (payload date): `data_asof` is the New York calendar date of the payload's top-level `lastUpdate` (the only observation timestamp Cboe ships; contract rows have no trade/settlement date). `fetched_at` is the fetch clock and is display-only. Missing / unparseable `lastUpdate` → `data_asof: null` / status `UNDATED_PAYLOAD` so the engine F1 gate BLOCKs; never fall back to "now". Fixture coverage lives in `tests/provider_fixture_test.py`.
+
+
 ## Cell 10 — Option Candidate Retrieval (real)
 
 Purpose: prove **retrieval** of a next-buy candidate from a real Yahoo options attempt, with fail-soft contract. Independent of Cell 04 (fixture selection) and Cell 08 (Current Leg identity).

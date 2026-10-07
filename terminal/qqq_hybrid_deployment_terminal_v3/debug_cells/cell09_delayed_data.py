@@ -30,6 +30,15 @@ def main() -> int:
     assert m1["price"] > 0 and m2["price"] > 0, (m1, m2)
     assert x["candidate_count"] >= 2, x
 
+    # F2: data_asof is the payload lastUpdate converted to a New York date (independent re-derivation),
+    # never the fetch clock. fetched_at is kept separately for display.
+    assert x["asof_status"] == "PAYLOAD_LAST_UPDATE", x
+    lu = dt.datetime.fromisoformat(str(x["last_update"]).replace("Z", "+00:00"))
+    assert lu.tzinfo is not None, x
+    from zoneinfo import ZoneInfo
+    assert x["data_asof"] == lu.astimezone(ZoneInfo("America/New_York")).date().isoformat(), x
+    assert x["fetched_at"] and x["fetched_at"] != x["last_update"], x
+
     expected = (m2["price"] - m1["price"]) / m1["price"]
     assert math.isclose(x["term_slope"], expected, rel_tol=1e-12, abs_tol=1e-12), x
     expected_state = "CONTANGO" if expected > 0 else ("BACKWARDATION" if expected < 0 else "FLAT")
@@ -42,6 +51,8 @@ def main() -> int:
         "cell": "09_DELAYED_DATA",
         "source": x["source"],
         "data_asof": x["data_asof"],
+        "last_update": x["last_update"],
+        "fetched_at": x["fetched_at"],
         "m1": {k: m1[k] for k in ("symbol", "expiry", "price", "price_basis")},
         "m2": {k: m2[k] for k in ("symbol", "expiry", "price", "price_basis")},
         "term_slope_pct": round(x["term_slope"] * 100, 6),

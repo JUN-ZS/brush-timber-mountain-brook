@@ -136,6 +136,31 @@ def yahoo(sym):
     return {"price": num(px), "timestamp": ts, "source": "YAHOO"}
 
 
+def apply_cboe_vx(out, vx):
+    """Merge a Cboe provider result into a snapshot dict (pure; tested by provider_fixture_test)."""
+    if vx.get("ok"):
+        out["m1"] = vx["m1"]["price"]
+        out["m2"] = vx["m2"]["price"]
+        out["m1_code"] = vx["m1"]["symbol"]
+        out["m2_code"] = vx["m2"]["symbol"]
+        out["m1_expiry"] = vx["m1"]["expiry"]
+        out["m2_expiry"] = vx["m2"]["expiry"]
+        out["term_slope"] = vx["term_slope"] * 100
+        out["term_state"] = vx["term_state"]
+        out["term_source"] = vx["source"]
+        # F2: payload lastUpdate as a New York date; None stays None so the engine F1 gate blocks.
+        out["term_asof"] = vx.get("data_asof")
+        out["term_asof_status"] = vx.get("asof_status")
+        out["term_fetched_at"] = vx.get("fetched_at")
+        out["provenance"]["m1"] = "CBOE_PUBLIC_DELAYED_VX"
+        out["provenance"]["m2"] = "CBOE_PUBLIC_DELAYED_VX"
+        out["provenance"]["term_slope"] = "DERIVED_FROM_CBOE_M1_M2"
+        out["source_chain"].append("CBOE_PUBLIC_DELAYED_VX")
+    else:
+        out["errors"]["cboe_vx"] = vx.get("reason")
+    return out
+
+
 def snapshot():
     out = {
         "captured_at": now_iso(),
@@ -187,24 +212,7 @@ def snapshot():
 
     if fetch_cboe_vx is not None:
         try:
-            vx = fetch_cboe_vx()
-            if vx.get("ok"):
-                out["m1"] = vx["m1"]["price"]
-                out["m2"] = vx["m2"]["price"]
-                out["m1_code"] = vx["m1"]["symbol"]
-                out["m2_code"] = vx["m2"]["symbol"]
-                out["m1_expiry"] = vx["m1"]["expiry"]
-                out["m2_expiry"] = vx["m2"]["expiry"]
-                out["term_slope"] = vx["term_slope"] * 100
-                out["term_state"] = vx["term_state"]
-                out["term_source"] = vx["source"]
-                out["term_asof"] = vx["data_asof"]
-                out["provenance"]["m1"] = "CBOE_PUBLIC_DELAYED_VX"
-                out["provenance"]["m2"] = "CBOE_PUBLIC_DELAYED_VX"
-                out["provenance"]["term_slope"] = "DERIVED_FROM_CBOE_M1_M2"
-                out["source_chain"].append("CBOE_PUBLIC_DELAYED_VX")
-            else:
-                out["errors"]["cboe_vx"] = vx.get("reason")
+            apply_cboe_vx(out, fetch_cboe_vx())
         except Exception as exc:
             out["errors"]["cboe_vx"] = f"{type(exc).__name__}: {exc}"
 
