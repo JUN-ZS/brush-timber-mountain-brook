@@ -244,6 +244,62 @@ window.HybridEngineV3 = (() => {
       return label+"：持有 "+fmtNum(count)+" spreads · 腿身份 "+leg.status+"（補 short/long/expiry）";
     return label+"：持有 "+fmtNum(count)+" spreads · 未填腿身份（Qty only）";
   }
+  // Cell 15 — funding/context layer. Advisory only: does NOT alter targetLedger or frozen policy math.
+  function fundingPlan({d={},e={},book={},strategyPool="",newCapital=""}={}){
+    const pool=operatorNumber(strategyPool,{allowZero:true,min:0});
+    const added=operatorNumber(newCapital,{allowZero:true,min:0});
+    const navSrc=book&&book.current?book.current.nav:undefined;
+    const nav=Number.isFinite(Number(navSrc))?Number(navSrc):(book&&book.nav!==undefined?num(book.nav,null):null);
+    const qqqPrice=Number.isFinite(Number(d.qqq))?Number(d.qqq):null;
+    const qqqShares=book&&book.current?num(book.current.qqqShares,null):null;
+    const qqqValue=Number.isFinite(qqqShares)&&Number.isFinite(qqqPrice)?qqqShares*qqqPrice:null;
+    const navBase=Number.isFinite(nav)?nav:null;
+    const contribution=added.status==="VALUE"?added.value:0;
+    const projectedNav=Number.isFinite(navBase)?navBase+contribution:null;
+    const targetPct=POLICY.corePct;
+    const targetValue=Number.isFinite(projectedNav)?projectedNav*(targetPct/100):null;
+    const gap=Number.isFinite(targetValue)&&Number.isFinite(qqqValue)?Math.max(0,targetValue-qqqValue):null;
+    const state=e.state||"UNKNOWN";
+    const blocked=e.blocked===true;
+    let route,shortCall;
+    if(blocked){route="PAUSED";shortCall="NO NEW"; }
+    else if(state==="CARRY"){route="FULL HYBRID";shortCall="ELIGIBLE";}
+    else if(state==="WEAKENING"){route="QQQ CORE ONLY";shortCall="MAINTAIN EXISTING · NO NEW";}
+    else if(state==="PRE-SHOCK"||state==="SHOCK"){route="DEFENSIVE / RESERVE";shortCall="NO NEW · REDUCE IF TRIGGERED";}
+    else{route="REVIEW";shortCall="REVIEW";}
+    const qqqTo=Number.isFinite(gap)?Math.min(contribution,gap):0;
+    const reserve=Math.max(0,contribution-qqqTo);
+    let message;
+    if(blocked) message="策略仍存在，但 DATA gate 未開：新資金先不部署。";
+    else if(added.status==="EMPTY") message="未輸入本輪新資金；策略仍照當前 regime 運作。";
+    else if(added.status==="INVALID") message="本輪新資金輸入無效；先修正本金資料，唔改策略。";
+    else if(state==="CARRY") message="正常 carry：可由新資金補 QQQ core；QQQ far-call credit spread 同 VXX carry 依 frozen target/候選再 build。";
+    else if(state==="WEAKENING") message="現時仍有策略：持有 QQQ core＋已有 carry；新資金只作 QQQ core／reserve，唔新增 short-vol carry。";
+    else message="現時係防守策略：保留 QQQ core／降低 seller risk；新資金暫作 reserve，唔追新 carry。";
+    return{
+      strategyName:"ORIGINAL HYBRID BASELINE",
+      formula:"QQQ core + QQQ far-call credit spreads + VXX short carry + VXX call hedge",
+      regime:state,
+      engineAction:e.action||null,
+      route,shortCall,
+      poolStatus:pool.status,
+      newCapitalStatus:added.status,
+      strategyPool:pool.value,
+      newCapital:added.value,
+      nav:navBase,
+      projectedNav,
+      qqqPrice,
+      qqqShares,
+      qqqValue,
+      qqqCurrentPct:Number.isFinite(qqqValue)&&Number.isFinite(navBase)&&navBase>0?qqqValue/navBase*100:null,
+      qqqTargetPct:targetPct,
+      qqqTargetValue:targetValue,
+      qqqGap:gap,
+      suggestedQqqFromNewCapital:qqqTo,
+      reserveAfterQqq:reserve,
+      message
+    };
+  }
   function optionPlan(label,c,n){
     if(!c)return label+" +"+fmtNum(n)+" spreads · candidate PENDING";
     return label+" +"+fmtNum(n)+" spreads · "+fmtNum(c.shortStrike)+"/"+fmtNum(c.longStrike)+" · DTE "+fmtNum(c.dte)+" · Δ "+fmtNum(c.delta)+" · credit "+fmtNum(c.credit);
@@ -408,18 +464,27 @@ window.HybridEngineV3 = (() => {
       deltas_guarded
     };
     if(currentOptionLegs!==undefined) record.current_option_legs=currentOptionLegs;
+    if(funding!==undefined) record.funding_context={
+      strategy_pool:funding.strategyPool,
+      new_capital:funding.newCapital,
+      route:funding.route,
+      strategy_name:funding.strategyName,
+      regime:funding.regime
+    };
     return record;
   }
   // Cell 14 — Journal → Operator Memory write-back (pure; 1:1 field map; never Candidate).
   // null in fields[id] means SKIP write (blank/missing). Explicit journal 0 → "0".
   const MEMORY_IDS=Object.freeze([
-    "nav","qqqShares","vxxPct","qqqCalls","vxxCalls",
+    "nav","strategyPool","newCapital","qqqShares","vxxPct","qqqCalls","vxxCalls",
     "qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit",
     "vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"
   ]);
   // Easy 1:1 map (Journal path → Memory UI id). Documented in README + UI help.
   const JOURNAL_MEMORY_MAP=Object.freeze([
     {journalPath:"current_position.nav",memoryId:"nav"},
+    {journalPath:"funding_context.strategy_pool",memoryId:"strategyPool"},
+    {journalPath:"funding_context.new_capital",memoryId:"newCapital"},
     {journalPath:"current_position.qqqShares",memoryId:"qqqShares"},
     {journalPath:"current_position.vxxPct",memoryId:"vxxPct"},
     {journalPath:"current_position.qqqCalls",memoryId:"qqqCalls"},
@@ -510,5 +575,5 @@ window.HybridEngineV3 = (() => {
     }
     return lines;
   }
-  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
 })();
