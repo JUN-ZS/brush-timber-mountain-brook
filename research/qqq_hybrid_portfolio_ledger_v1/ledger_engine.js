@@ -5,20 +5,27 @@ window.PortfolioLedgerV1 = (() => {
 
   const num = (v, d = null) => {
     if (v === null || v === undefined || v === "") return d;
+    if (typeof v === "boolean") return d;
     const x = Number(String(v).replace(/,/g, ""));
     return Number.isFinite(x) ? x : d;
   };
 
+  const hasExplicitTimezone = (v) =>
+    typeof v === "string" && /(?:Z|[+-]\d{2}:\d{2})$/i.test(v.trim());
+
   const iso = (v) => {
-    if (!v) return null;
+    if (!v || !hasExplicitTimezone(v)) return null;
     const x = new Date(v);
     return Number.isFinite(x.getTime()) ? x.toISOString() : null;
   };
 
   function multiplierFor(assetType, value) {
+    if (value === null || value === undefined || value === "") {
+      return assetType === ASSET_TYPES.OPTION ? 100 : 1;
+    }
     const n = num(value);
-    if (n !== null && n > 0) return n;
-    return assetType === ASSET_TYPES.OPTION ? 100 : 1;
+    if (n === null || n <= 0) throw new Error("multiplier must be > 0");
+    return n;
   }
 
   function normalizePositionIdentity(raw, assetType) {
@@ -69,7 +76,10 @@ window.PortfolioLedgerV1 = (() => {
     const quantity = num(raw.quantity);
     const price = num(raw.price);
     const multiplier = multiplierFor(assetType, raw.multiplier);
-    const fees = Math.max(0, num(raw.fees, 0));
+    const fees = raw.fees === null || raw.fees === undefined || raw.fees === ""
+      ? 0
+      : num(raw.fees);
+    if (fees === null || fees < 0) throw new Error("fees must be >= 0");
     const positionIdentity = normalizePositionIdentity(raw.positionIdentity, assetType);
 
     if (!timestamp) throw new Error("fill timestamp is invalid");
@@ -204,14 +214,16 @@ window.PortfolioLedgerV1 = (() => {
     for (const book of Object.values(state.books)) {
       const p = positionSummary(book);
       if (Math.abs(p.qty) <= 1e-12) continue;
-      const mark = num(marks[book.symbol]);
-      const mv = markValue(book, mark);
+      const rawMark = marks[book.symbol];
+      const mark = num(rawMark);
+      const usableMark = Number.isFinite(mark) && mark >= 0 ? mark : null;
+      const mv = markValue(book, usableMark);
       let upnl = null;
 
-      if (Number.isFinite(mark)) {
+      if (usableMark !== null) {
         upnl = book.lots.reduce((s, lot) => {
-          if (lot.qty > 0) return s + (mark - lot.price) * lot.qty * book.multiplier;
-          return s + (lot.price - mark) * Math.abs(lot.qty) * book.multiplier;
+          if (lot.qty > 0) return s + (usableMark - lot.price) * lot.qty * book.multiplier;
+          return s + (lot.price - usableMark) * Math.abs(lot.qty) * book.multiplier;
         }, 0);
         unrealizedPnl += upnl;
         marketValue += mv;
@@ -231,7 +243,7 @@ window.PortfolioLedgerV1 = (() => {
           timestamp: l.timestamp,
           id: l.id,
         })),
-        mark: Number.isFinite(mark) ? mark : null,
+        mark: usableMark,
         marketValue: mv,
         unrealizedPnl: upnl,
         realizedPnl: book.realizedPnl,
@@ -325,7 +337,7 @@ window.PortfolioLedgerV1 = (() => {
         );
       }
       const n = num(v);
-      if (n === null) throw new Error(label + ": mark for " + k + " must be a finite number");
+      if (n === null || n < 0) throw new Error(label + ": mark for " + k + " must be a finite non-negative number");
       out[String(k).toUpperCase()] = n;
     }
     return out;
