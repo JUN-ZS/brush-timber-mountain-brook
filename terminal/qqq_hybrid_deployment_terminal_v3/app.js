@@ -122,7 +122,7 @@ function render(d,e,book){
     vxxDelta:Number($("vxxDelta").value)
   };
   const tr=E.triggers(d,e,opts);
-  $("triggerRows").innerHTML=tr.map(x=>'<div class="trigger '+(x.fire?"fire":"")+'"><span><b>'+x.label+'</b><small> '+x.priority+'</small></span><span>'+x.value+'</span><strong>'+(x.fire?"TRIGGER":"WATCH")+'</strong></div>').join("");
+  $("triggerRows").innerHTML=tr.map(x=>'<div class="trigger '+(x.fire?"fire":"")+'"><span><b>'+x.label+'</b><small> '+x.priority+'</small></span><span>'+x.value+'</span><strong>'+(x.fire?"TRIGGER":x.mode==="NO_POSITION"?"OFF":x.mode==="NEEDS_POSITION_DATA"?"INCOMPLETE":x.mode==="WATCH"?"WATCH":"WATCH")+'</strong></div>').join("");
 
   $("prov").innerHTML=[
     ["QQQ/VXX/VIX",(live?.provenance?Object.entries(live.provenance).filter(([k])=>["qqq","vxx","vix"].includes(k)).map(([,v])=>v).join(" / "):"—"),"OBSERVED"],
