@@ -60,6 +60,24 @@ try {
 }
 ok(caught, "naive broker timestamp without timezone blocked");
 
+
+
+const shortOpen = N.normalizeDeal({
+  deal_id:"D-SO", order_id:"O-SO", code:"US.QQQ", qty:2, price:700,
+  trd_side:"SELL_SHORT", create_time:"2026-10-01T14:02:00Z"
+}, {feeByOrderId:{ "O-SO": 1 }, fillCountByOrderId:{ "O-SO": 1 }});
+eq(shortOpen.side, "SELL", "SELL_SHORT maps to opening SELL");
+eq(shortOpen.fees, 1, "short-open fee");
+eq(shortOpen.provenance.sourceTradeSide, "SELL_SHORT", "raw short-open side preserved");
+
+const buyBack = N.normalizeDeal({
+  deal_id:"D-BB", order_id:"O-BB", code:"US.QQQ", qty:2, price:690,
+  trd_side:"BUY_BACK", create_time:"2026-10-01T14:03:00Z"
+}, {feeByOrderId:{ "O-BB": 1 }, fillCountByOrderId:{ "O-BB": 1 }});
+eq(buyBack.side, "BUY", "BUY_BACK maps to closing BUY");
+eq(buyBack.provenance.sourceTradeSide, "BUY_BACK", "raw buy-back side preserved");
+
+
 const flows = [
   {
     cashflow_id: 101,
