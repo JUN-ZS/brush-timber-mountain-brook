@@ -1,6 +1,12 @@
 name: QQQ Hybrid Broker Import V1
 
 on:
+  push:
+    branches:
+      - "research/qqq-hybrid-broker-import-v1"
+    paths:
+      - "research/qqq_hybrid_broker_import_v1/**"
+      - ".github/workflows/qqq-hybrid-broker-import-v1.yml"
   pull_request:
     paths:
       - "research/qqq_hybrid_broker_import_v1/**"
