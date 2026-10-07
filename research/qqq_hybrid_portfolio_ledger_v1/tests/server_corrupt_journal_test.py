@@ -69,6 +69,22 @@ def main() -> None:
         except ValueError as exc:
             assert expected in str(exc)
 
+
+
+    # Duplicate event ids already present in the persisted journal are also corrupt.
+    server.EVENTS.write_text(
+        json.dumps({"type": "CASHFLOW", "id": "dup1", "timestamp": "2026-10-01T00:00:00Z", "amount": 1})
+        + "\n"
+        + json.dumps({"type": "CASHFLOW", "id": "dup1", "timestamp": "2026-10-02T00:00:00Z", "amount": 2})
+        + "\n",
+        encoding="utf-8",
+    )
+    try:
+        server.read_events()
+        raise AssertionError("duplicate journal id should block")
+    except server.CorruptJournalError as exc:
+        assert "duplicate event id" in str(exc)
+
     # Valid JSON but invalid event semantics must also block.
     server.EVENTS.write_text(
         json.dumps({"type": "FILL", "id": "bad-semantic", "timestamp": "2026-10-01T00:00:00",
