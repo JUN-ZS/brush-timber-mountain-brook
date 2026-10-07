@@ -60,6 +60,19 @@ Historical period queries never silently substitute today's live marks for a pas
 
 Null, blank, or non-finite mark values are rejected as missing — they are never coerced to price 0 (`Number(null)===0` must not invent P&L).
 
+## Data integrity hardening
+
+The live journal is fail-closed, not best-effort.
+
+- Every persisted event must have a stable non-empty string `id`.
+- Every event timestamp must carry an explicit timezone (`Z` or an explicit offset), so ordering is not environment-dependent.
+- A supplied multiplier must be finite and greater than zero; invalid values are rejected rather than silently falling back to the option default.
+- A supplied fee must be finite and non-negative; invalid values are rejected rather than coerced.
+- Journal reads validate both JSON syntax and event semantics. One malformed or semantically invalid line blocks the ledger as `CORRUPT_JOURNAL`; no line is silently skipped.
+- Marks must be finite and non-negative. Null, blank, non-finite, or negative marks cannot complete a valuation and cannot fabricate P&L.
+- Deterministic ordering uses `(timestamp, id)`, so imported event order cannot change FIFO or spread attribution when identifiers and timestamps are the same.
+
+The stress regression is deliberately part of CI: a 2,500-roll option lifecycle replay plus a 10,000-lot FIFO stress must preserve realized P&L and remain invariant under reordered imports.
 ## P&L and strategy signals are intentionally separate
 
 Portfolio profit does not change the strategy signal.
