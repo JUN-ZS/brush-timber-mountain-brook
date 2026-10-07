@@ -292,6 +292,8 @@ def simulate(model, days, market, pool_months):
         "max_dd": max_dd,
         "terminal_nav": daily[-1]["nav"],
         "terminal_qqq_pct": daily[-1]["qqq_pct"],
+        "terminal_qqq_shares": shares,
+        "terminal_qqq_price": market[days[-1]]["qqq"],
         "terminal_reserve": daily[-1]["reserve"],
         "total_contributed": sum(-x[1] for x in contributions),
         "pool_remaining": pool_remaining,
@@ -345,6 +347,8 @@ def summary(result):
         "reserve_added": result["reserve_added"],
         "routes": routes,
         "events": len(result["events"]),
+        "terminal_qqq_shares": result["terminal_qqq_shares"],
+        "terminal_qqq_price": result["terminal_qqq_price"],
     }
 
 
@@ -420,7 +424,7 @@ def main():
 
     report = {
         "research_id": "QQQ_STRATEGY_POOL_DEPLOYMENT_REPLAY_V1",
-        "status": "PASS",
+        "status": "REPLAY_COMPLETE",
         "base_head": "38e4c93fc81e255f9c461f365b494c9d54a91e05",
         "research_question": "Does current Strategy Pool routing add deployment value without changing frozen strategy policy?",
         "frozen_policy": {
@@ -450,7 +454,10 @@ def main():
             "cboe_rows": len(terms),
             "cboe_part_files": [str(p) for p in part_files],
             "spots_sha256": sha256_file(spots_path),
-            "term_source": "CBOE_PUBLIC_DAILY_SETTLEMENT",
+            "term_source": "CBOE_VX_CONTRACT_ARCHIVE_DAILY_SETTLEMENT",
+            "cboe_artifact_run_id": 37506316510,
+            "cboe_artifact_id": 11431373794,
+            "cboe_artifact_digest": "sha256:9df5be92107f4cf03c4ada406b125bbafdd060add3c144db73da452e7aec4337",
             "term_definition": "standard monthly VX only; expiry > trade date; M1/M2 sorted by actual expiry; S=(M2-M1)/M1",
             "integrity": integrity,
         },
@@ -556,7 +563,7 @@ def main():
     (out / "report.md").write_text("\n".join(md) + "\n", encoding="utf-8")
 
     print(json.dumps({
-        "status": "PASS",
+        "status": "REPLAY_COMPLETE",
         "research_id": report["research_id"],
         "days": len(days),
         "cboe_rows": len(terms),
