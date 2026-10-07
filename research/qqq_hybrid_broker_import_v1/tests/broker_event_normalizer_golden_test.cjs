@@ -38,7 +38,7 @@ const feeRows = [
 
 const normalizedDeals = deals.map(d => N.normalizeDeal(d, {
   sourceTimezone: "-04:00",
-  feeByOrderId: N.feeMap(feeRows),
+  feeByOrderId: { O1: 1.25, O2: 3.50 },
   importedAt: "2026-10-07T01:20:00Z",
 }));
 
