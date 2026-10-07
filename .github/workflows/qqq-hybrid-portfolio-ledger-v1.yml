@@ -49,6 +49,7 @@ jobs:
           test -f research/qqq_hybrid_portfolio_ledger_v1/app.js
           test -f research/qqq_hybrid_portfolio_ledger_v1/RUN.cmd
           python3 research/qqq_hybrid_portfolio_ledger_v1/tests/server_corrupt_journal_test.py
+          python3 research/qqq_hybrid_portfolio_ledger_v1/tests/server_journal_integrity_test.py
 
       - name: Safety invariants
         run: |
