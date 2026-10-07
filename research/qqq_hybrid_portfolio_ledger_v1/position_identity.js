@@ -15,8 +15,8 @@ window.PortfolioPositionIdentityV1 = (() => {
     let optionFills = 0;
     let unmappedOptionFills = 0;
 
-    for (const raw of (events || [])) {
-      const event = norm(raw);
+    const ordered = window.PortfolioLedgerV1.sortEvents ? window.PortfolioLedgerV1.sortEvents(events || []) : (events || []).map(norm);
+    for (const event of ordered) {
       if (event.type !== "FILL" || event.assetType !== "OPTION") continue;
       const t = new Date(event.timestamp).getTime();
       if (t > cutoff) continue;
