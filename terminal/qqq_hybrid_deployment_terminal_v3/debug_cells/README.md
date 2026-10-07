@@ -311,3 +311,24 @@ Run (Linux / CI):
     node cell14_journal_memory.js
 
 Windows (`RUN.cmd 14`) uses `node` on PATH.
+
+## Cell 15 — Strategy / Funding Context
+
+Purpose: make the strategy explicit even when the market action is HOLD, and separately show capital-pool context without changing frozen target math.
+
+Inputs:
+
+    strategy pool = capital assigned to this strategy
+    new capital   = this round's fresh contribution (not yet in NAV)
+
+The cell verifies:
+
+    ORIGINAL HYBRID BASELINE is always identifiable
+    CARRY          → FULL HYBRID; QQQ far-call is eligible
+    WEAKENING/HOLD → QQQ CORE ONLY; maintain existing short-vol, no new short-vol
+    PRE-SHOCK/SHOCK → DEFENSIVE / RESERVE; no new carry
+    QQQ current value / % NAV / frozen 42% target / target gap are visible
+    funding preview does not mutate targetLedger
+    funding context can be journaled and restored to Memory
+
+This is an operator-context layer. It does not remove or rewrite Decision, Build, Candidate, or Roll functions.
