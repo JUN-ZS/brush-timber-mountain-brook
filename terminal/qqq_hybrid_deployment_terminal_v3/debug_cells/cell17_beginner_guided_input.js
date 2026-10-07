@@ -67,7 +67,7 @@ function independentExpected(data, current) {
       gate: "BLOCKED",
       blocked: true,
       reasonClass: "MISSING_REQUIRED_DATA",
-      target: { ...current },
+      target: { qqqShares: current.qqqShares, vxxPct: current.vxxPct, qqqCalls: current.qqqCalls, vxxCalls: current.vxxCalls },
     };
   }
 
@@ -79,7 +79,7 @@ function independentExpected(data, current) {
       gate: "STALE",
       blocked: true,
       reasonClass: "STALE_TERM_DATA",
-      target: { ...current },
+      target: { qqqShares: current.qqqShares, vxxPct: current.vxxPct, qqqCalls: current.qqqCalls, vxxCalls: current.vxxCalls },
     };
   }
 
@@ -91,7 +91,7 @@ function independentExpected(data, current) {
       gate: "MIXED",
       blocked: true,
       reasonClass: "MATERIAL_DATE_MIX",
-      target: { ...current },
+      target: { qqqShares: current.qqqShares, vxxPct: current.vxxPct, qqqCalls: current.qqqCalls, vxxCalls: current.vxxCalls },
     };
   }
 
@@ -146,11 +146,13 @@ function independentExpected(data, current) {
       vxxCalls: current.vxxCalls,
     };
   } else if (action === "REDUCE") {
+    // Independent mirror of targetLedger REDUCE: option budgets are zero,
+    // so existing seller option legs converge toward zero via min(current, 0).
     target = {
       qqqShares: current.qqqShares,
       vxxPct: Math.min(current.vxxPct, vxxTarget),
-      qqqCalls: current.qqqCalls,
-      vxxCalls: current.vxxCalls,
+      qqqCalls: Math.min(current.qqqCalls, qqqCallBudget > 0 ? current.qqqCalls : 0),
+      vxxCalls: Math.min(current.vxxCalls, vxxCallBudget > 0 ? current.vxxCalls : 0),
     };
   }
 
