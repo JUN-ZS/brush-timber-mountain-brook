@@ -245,10 +245,10 @@ window.HybridEngineV3 = (() => {
     return label+"：持有 "+fmtNum(count)+" spreads · 未填腿身份（Qty only）";
   }
   // Cell 15 — funding/context layer. Advisory only: does NOT alter targetLedger or frozen policy math.
-  function fundingPlan({d={},e={},book={},strategyPool="",newCapital=""}={}){
+  function fundingPlan({d={},e={},book={},strategyPool="",newCapital="",nav:navInput}={}){
     const pool=operatorNumber(strategyPool,{allowZero:true,min:0});
     const added=operatorNumber(newCapital,{allowZero:true,min:0});
-    const navSrc=nav!==undefined&&nav!==null&&String(nav).trim()!==""?nav:(book&&book.current?book.current.nav:undefined);
+    const navSrc=navInput!==undefined&&navInput!==null&&String(navInput).trim()!==""?navInput:(book&&book.current?book.current.nav:undefined);
     const navValue=operatorNumber(navSrc,{allowZero:true,min:0});
     const nav=navValue.status==="VALUE"?navValue.value:(book&&book.nav!==undefined?num(book.nav,null):null);
     const qqqPrice=Number.isFinite(Number(d.qqq))?Number(d.qqq):null;
@@ -268,7 +268,9 @@ window.HybridEngineV3 = (() => {
     else if(state==="WEAKENING"){route="QQQ CORE ONLY";shortCall="MAINTAIN EXISTING · NO NEW";}
     else if(state==="PRE-SHOCK"||state==="SHOCK"){route="DEFENSIVE / RESERVE";shortCall="NO NEW · REDUCE IF TRIGGERED";}
     else{route="REVIEW";shortCall="REVIEW";}
-    const qqqTo=Number.isFinite(gap)?Math.min(contribution,gap):0;
+    // Only CARRY / WEAKENING lanes may route new money into QQQ core; PAUSED / DEFENSIVE / REVIEW → all reserve.
+    const coreLaneOpen=route==="FULL HYBRID"||route==="QQQ CORE ONLY";
+    const qqqTo=coreLaneOpen&&Number.isFinite(gap)?Math.min(contribution,gap):0;
     const reserve=Math.max(0,contribution-qqqTo);
     let message;
     if(blocked) message="策略仍存在，但 DATA gate 未開：新資金先不部署。";

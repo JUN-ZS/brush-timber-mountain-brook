@@ -47,4 +47,7 @@ console.log("V3 golden engine PASS");
 const cell14=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell14_journal_memory.js")],{encoding:"utf8"});
 assert.strictEqual(cell14.status,0,"cell14_journal_memory must PASS\n"+cell14.stdout+"\n"+cell14.stderr);
 assert.ok(String(cell14.stdout).includes('"PASS":true'),"cell14 PASS marker");
+const cell15=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell15_strategy_funding_context.js")],{encoding:"utf8"});
+assert.strictEqual(cell15.status,0,"cell15_strategy_funding_context must PASS\n"+cell15.stdout+"\n"+cell15.stderr);
+assert.ok(String(cell15.stdout).includes('"PASS":true'),"cell15 PASS marker");
 console.log("V3 golden + Cell 14 journal memory PASS");
