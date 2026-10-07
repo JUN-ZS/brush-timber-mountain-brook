@@ -482,6 +482,76 @@ function runSelfTest() {
     }
   }
 
+  // Active seller regression: reduction must also test existing option legs,
+  // not only a flat book. The production REDUCE budget is zero, so 21/4 -> 0/0.
+  {
+    const activeSeller = { nav: 100000, qqqShares: 100, vxxPct: 18, qqqCalls: 21, vxxCalls: 4 };
+    const shockData = makeData({
+      today,
+      qqPrice: 750,
+      vxxPrice: 20,
+      vix: 35,
+      m1: 16.2,
+      m2: 15.5,
+      termAsOf: today,
+      spotAsOf: today,
+    });
+    const e = independentExpected(shockData, activeSeller);
+    const actual = E.derive(shockData);
+    const book = E.targetLedger(
+      shockData,
+      actual,
+      {
+        nav: activeSeller.nav,
+        qqqShares: activeSeller.qqqShares,
+        vxxPct: activeSeller.vxxPct,
+        qqqCalls: activeSeller.qqqCalls,
+        vxxCalls: activeSeller.vxxCalls,
+        inputStatus: { status: "READY", invalid: [], empty: [], fields: {} },
+      },
+      {},
+    );
+    const f = E.fundingPlan({
+      d: shockData,
+      e: actual,
+      book: { current: { ...book.current, nav: activeSeller.nav } },
+      strategyPool: "",
+      newCapital: "",
+    });
+    const b = E.strategyActionBridge({
+      d: shockData,
+      e: actual,
+      book,
+      funding: f,
+      currentOptionLegs: E.currentOptionLegs({
+        qqq: { qty: activeSeller.qqqCalls },
+        vxx: { qty: activeSeller.vxxCalls },
+      }),
+      journalRows: [],
+    });
+    const expectedDeltas = {
+      qqqShares: e.target.qqqShares - activeSeller.qqqShares,
+      vxxPct: e.target.vxxPct - activeSeller.vxxPct,
+      qqqCalls: e.target.qqqCalls - activeSeller.qqqCalls,
+      vxxCalls: e.target.vxxCalls - activeSeller.vxxCalls,
+    };
+    const pass =
+      actual.state === "SHOCK" &&
+      actual.action === "REDUCE" &&
+      book.target.qqqCalls === 0 &&
+      book.target.vxxCalls === 0 &&
+      e.target.qqqCalls === 0 &&
+      e.target.vxxCalls === 0 &&
+      JSON.stringify(book.target) === JSON.stringify(e.target) &&
+      JSON.stringify(book.deltas) === JSON.stringify(expectedDeltas) &&
+      b.actionClass === "DEFEND";
+    console.log((pass ? "PASS" : "FAIL") + " · ACTIVE SELLER SHOCK · 21/4 → " + book.target.qqqCalls + "/" + book.target.vxxCalls + " · Cell16=" + b.actionClass);
+    if (!pass) {
+      console.log("  expected target:", JSON.stringify(e.target), "actual:", JSON.stringify(book.target));
+      allPass = false;
+    }
+  }
+
   // Explicit small-white demo: 100 QQQ + USD 100,000 cash at QQQ 750.
   const demoData = makeData({ today, termAsOf: today, spotAsOf: today, qqPrice: 750, vxxPrice: 20, vix: 16, m1: 16.2, m2: 17.2 });
   const demo = summarizeGuide(demoData, current, { expected: independentExpected(demoData, current) });
