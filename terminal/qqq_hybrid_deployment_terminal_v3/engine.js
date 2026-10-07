@@ -15,6 +15,15 @@ window.HybridEngineV3 = (() => {
     return{status:"VALUE",value:n};
   }
   function term(m1,m2){return Number.isFinite(m1)&&Number.isFinite(m2)&&m1!==0?((m2-m1)/m1)*100:null;}
+  // F1 — dates are proof of freshness. Only real YYYY-MM-DD calendar days are accepted.
+  function isoDay(v){
+    if(typeof v!=="string")return null;
+    const s=v.trim();
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;
+    const t=Date.parse(s+"T00:00:00Z");
+    if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==s)return null;
+    return s;
+  }
   function daysBetween(a,b){if(!a||!b)return null;const x=new Date(a+"T00:00:00Z").getTime(),y=new Date(b+"T00:00:00Z").getTime();if(!Number.isFinite(x)||!Number.isFinite(y))return null;return Math.abs(y-x)/86400000;}
   // Calendar days remaining from today → expiry (UTC YYYY-MM-DD). Past expiry → 0. Missing/invalid → null.
   function dteFromExpiry(expiry,today){
@@ -61,10 +70,22 @@ window.HybridEngineV3 = (() => {
     const cadence=sourceCadence(d);
     const hasSpot=[d.qqq,d.vxx,d.vix].every(Number.isFinite),hasTerm=Number.isFinite(d.m1)&&Number.isFinite(d.m2)&&Number.isFinite(d.s);
     if(!hasSpot||!hasTerm)return{status:"BLOCKED",label:"DATA BLOCKED",reason:"Required spot or VX term field missing.",...cadence};
-    const age=d.termAsOf&&d.today?daysBetween(d.termAsOf,d.today):0,asofGap=d.spotAsOf&&d.termAsOf?daysBetween(d.spotAsOf,d.termAsOf):0;
-    if(age!==null&&age>POLICY.maxTermAgeDays)return{status:"STALE",label:"DATA STALE",ageDays:age,reason:"VX term source is older than the permitted operator cadence.",...cadence};
+    // F1: freshness is fail-closed. Missing or unparseable dates never become age 0.
+    const today=isoDay(d.today),termDay=isoDay(d.termAsOf),spotDay=isoDay(d.spotAsOf);
+    const dateBlock=(code,reason)=>({status:"BLOCKED",code,label:"DATA BLOCKED · "+code.replace(/_/g," "),reason,...cadence});
+    if(!today)return dateBlock("NO_CLOCK","NO CLOCK: no valid today (YYYY-MM-DD) was supplied, so data age cannot be proven. Preserve current position.");
+    if(!termDay)return dateBlock("TERM_DATE_INVALID","TERM DATE INVALID: VX term values are present but their as-of date is missing or invalid. Preserve current position.");
+    if(!spotDay)return dateBlock("SPOT_DATE_INVALID","SPOT DATE INVALID: QQQ/VXX/VIX as-of date is missing or invalid. Preserve current position.");
+
+    const todayMs=Date.parse(today+"T00:00:00Z"),termMs=Date.parse(termDay+"T00:00:00Z"),spotMs=Date.parse(spotDay+"T00:00:00Z");
+    // F1: future as-of is impossible to prove and must block rather than produce a negative age.
+    if(termMs>todayMs)return dateBlock("TERM_DATE_FUTURE","TERM DATE FUTURE: VX term as-of date is later than the operator clock. Preserve current position.");
+    if(spotMs>todayMs)return dateBlock("SPOT_DATE_FUTURE","SPOT DATE FUTURE: spot as-of date is later than the operator clock. Preserve current position.");
+
+    const age=(todayMs-termMs)/86400000,asofGap=Math.abs(spotMs-termMs)/86400000;
+    if(age>POLICY.maxTermAgeDays)return{status:"STALE",label:"DATA STALE",ageDays:age,reason:"VX term source is older than the permitted operator cadence.",...cadence};
     // Date-gap MIXED (>2d) still blocks. Same-day MIXED_SOURCE is warn/badge only (status stays FRESH).
-    if(asofGap!==null&&asofGap>2)return{status:"MIXED",label:"AS-OF MIXED",ageDays:asofGap,reason:"Spot and term inputs are materially out of sync; review before acting.",...cadence};
+    if(asofGap>2)return{status:"MIXED",label:"AS-OF MIXED",ageDays:asofGap,reason:"Spot and term inputs are materially out of sync; review before acting.",...cadence};
     if(cadence.sourceMix==="MIXED_SOURCE"){
       return{status:"FRESH",label:"DATA FRESH · MIXED-SOURCE",ageDays:age,warnOnly:true,reason:"Same-calendar-day mix of delayed settlement term and live last spot; badge/warn only — regime still drives action.",...cadence};
     }
@@ -72,7 +93,7 @@ window.HybridEngineV3 = (() => {
   }
   function derive(d){
     const health=dataHealth(d);
-    if(health.status==="BLOCKED")return{state:"DATA BLOCKED",action:"HOLD",gate:"BLOCKED",targets:null,blocked:true,health,reason:"Data incomplete: preserve current position and do not invent a risk action."};
+    if(health.status==="BLOCKED")return{state:"DATA BLOCKED",action:"HOLD",gate:"BLOCKED",targets:null,blocked:true,health,reason:health.code&&health.code!=="MISSING_FIELD"?"Data date unproven: preserve current position and do not invent a risk action.":"Data incomplete: preserve current position and do not invent a risk action."};
     if(health.status==="STALE"||health.status==="MIXED")return{state:health.status==="STALE"?"DATA STALE":"AS-OF MIXED",action:"HOLD",gate:health.status,targets:null,blocked:true,health,reason:health.reason};
     const high=d.vix>=POLICY.vixHigh,back=d.s<=0,thin=d.s<=POLICY.termSafe;let state,action,gate,reason;
     if(high&&back){state="SHOCK";action="REDUCE";gate="CUT";reason="High VIX + VX backwardation: cut VXX seller risk first; preserve QQQ core.";}
