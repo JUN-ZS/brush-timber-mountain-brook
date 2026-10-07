@@ -124,3 +124,15 @@ Broker order submission remains disabled. V3 strategy policy remains untouched.
 ## CI evidence rule
 
 A broker-import change is considered validated only by the GitHub Actions run attached to the current branch head. A cancelled or stale-head run is not evidence for the current head.
+
+
+## Broker trade-side normalization
+
+Futu trade directions are normalized to the existing Ledger's BUY / SELL vocabulary without losing the broker-side meaning:
+
+    BUY        -> BUY
+    SELL       -> SELL
+    SELL_SHORT -> SELL   (opens / increases a short position)
+    BUY_BACK   -> BUY    (closes / reduces a short position)
+
+The original broker direction is retained in provenance. This avoids treating a legitimate short-open or buy-back deal as an unknown side while keeping the existing Ledger position sign contract unchanged.
