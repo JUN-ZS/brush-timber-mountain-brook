@@ -394,7 +394,7 @@ window.HybridEngineV3 = (() => {
   }
   // Cell 12 — journal payload construction (pure; no I/O). Conflict + option-delta guard.
   // Never copy Candidate strikes into current_position / Current Leg fields.
-  function journalRecord({engine,book,humanAction,optionsStatus,candidates,currentOptionLegs}={}){
+  function journalRecord({engine,book,humanAction,optionsStatus,candidates,currentOptionLegs,funding}={}){
     const e=engine&&typeof engine==="object"?engine:{};
     const b=book&&typeof book==="object"?book:{};
     const cand=candidates&&typeof candidates==="object"?candidates:{};
