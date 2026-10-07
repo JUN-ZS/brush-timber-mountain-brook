@@ -104,6 +104,29 @@ assert.strictEqual(both.conflict,"CONFLICT");
 assert.strictEqual(both.deltas.qqqCalls,0);
 assert.strictEqual(both.deltas_guarded,true);
 
+// 6) F4 HOLD trim (VXX 25% → 18%): recorded as-is, no false DELTA_ACTION_MISMATCH, no silent drop.
+{
+  const trimCur={nav:100000,qqqShares:50,vxxPct:25,qqqCalls:2,vxxCalls:3};
+  const trimBook=E.targetLedger(thin,holdE,trimCur,{});
+  const bridge=E.strategyActionBridge({d:thin,e:holdE,book:trimBook,funding:{}});
+  const rec=E.journalRecord({engine:holdE,book:trimBook,candidates:{},optionsStatus:"OPTIONS_SOURCE_DOWN",actionBridge:bridge});
+  assert.strictEqual(rec.engine_action,"HOLD");
+  assert.strictEqual(rec.conflict,"NONE");
+  assert.strictEqual(rec.deltas_guarded,false);
+  assert.strictEqual(rec.deltas.vxxPct,-7);
+  assert.strictEqual(rec.target_position.vxxPct,18);
+  assert.strictEqual(rec.current_position.vxxPct,25);
+  assert.strictEqual(rec.deltas.qqqCalls,0);
+  assert.strictEqual(rec.deltas.vxxCalls,0);
+  assert.strictEqual(rec.action_bridge.action_class,"TRIM");
+  assert.deepStrictEqual(rec.action_bridge.reduce_lines,["VXX short 25% → 18% NAV (TRIM − 7%)"]);
+  // Human typing the operator-facing class (TRIM) is not a conflict; an unrelated action still is.
+  const humanTrim=E.journalRecord({engine:holdE,book:trimBook,humanAction:"trim",candidates:{},actionBridge:bridge});
+  assert.strictEqual(humanTrim.conflict,"NONE");
+  const humanBuy=E.journalRecord({engine:holdE,book:trimBook,humanAction:"BUY",candidates:{},actionBridge:bridge});
+  assert.strictEqual(humanBuy.conflict,"CONFLICT");
+}
+
 console.log(JSON.stringify({
   cell:"12_JOURNAL_CONTRACT",
   hold:{conflict:holdRec.conflict,deltas:holdRec.deltas},

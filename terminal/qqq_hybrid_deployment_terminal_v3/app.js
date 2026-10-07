@@ -195,11 +195,14 @@ function renderStrategyBridge(d,e,book,funding){
   if($("bridgeAction")){
     $("bridgeAction").textContent=bridge.actionClass;
     $("bridgeAction").className="tag "+(
-      bridge.actionClass==="DEFEND"||bridge.actionClass==="PAUSE"?"retired":
+      bridge.actionClass==="DEFEND"||bridge.actionClass==="PAUSE"||bridge.actionClass==="TRIM"?"retired":
       bridge.actionClass==="BUILD"||bridge.actionClass==="REBALANCE"?"active":"research"
     );
   }
   if($("bridgeInstruction"))$("bridgeInstruction").textContent=bridge.operatorInstruction;
+  if($("bridgeReduce"))$("bridgeReduce").textContent=(bridge.reduceLines&&bridge.reduceLines.length)
+    ?(bridge.actionClass==="TRIM"?"TRIM（只減、唔加）：":"REDUCE：")+bridge.reduceLines.join(" · ")
+    :"";
   if($("bridgeStrategy"))$("bridgeStrategy").textContent=bridge.strategyName+" · "+bridge.regime;
   if($("bridgePosition"))$("bridgePosition").textContent=
     "QQQ "+fmt(bridge.current.qqqShares)+" shares · VXX short "+pct(bridge.current.vxxPct)+
@@ -288,6 +291,7 @@ function renderFlow(d,e,book){
   else if(e.action==="BUY" && !hasPosition){active="flowBuild";next="NEXT: REVIEW TARGET → BUILD POSITION";}
   else if(e.action==="BUY"){active="flowBuild";next="NEXT: EXECUTE DELTAS → JOURNAL";}
   else if(e.action==="REDUCE"){active="flowDecision";tone="danger";next="NEXT: REDUCE SELLER RISK → JOURNAL";}
+  else if(e.action==="HOLD"&&Object.values(book.deltas||{}).some(v=>Number(v)<-1e-9)){active="flowBuild";tone="warn";next="NEXT: TRIM 超出目標部分（只減唔加）→ JOURNAL";}
   else if(changed){active="flowWatch";tone="warn";next="NEXT: REVIEW WHAT CHANGED";}
   else {active="flowWatch";next="NEXT: REFRESH ON 1–2 DAY CADENCE";}
   const el=$(active);if(el)el.classList.add(tone);
