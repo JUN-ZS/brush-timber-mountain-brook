@@ -72,7 +72,21 @@ function renderFlow(d,e,book){
   }
 }
 
+function renderOperatorSummary(d,e,book){
+  const opt={
+    qqqDte:Number($("qqqDte").value),qqqDelta:Number($("qqqDelta").value),
+    vxxDte:Number($("vxxDte").value),vxxDelta:Number($("vxxDelta").value)
+  };
+  const s=E.operatorSummary(d,e,book,candidates,opt);
+  if($("operatorMode"))$("operatorMode").textContent=s.mode;
+  if($("operatorAction"))$("operatorAction").textContent=e.blocked?"HOLD / BLOCKED":e.action;
+  if($("operatorPlan"))$("operatorPlan").innerHTML=s.plan.map(x=>"<div class='operator-line'>"+x+"</div>").join("");
+  if($("operatorThresholds"))$("operatorThresholds").innerHTML=s.thresholds.length?s.thresholds.map((x,i)=>"<div class='operator-line'><b>"+x.label+"</b><span>"+x.text+"</span></div>").join(""):"<div class='operator-line'>等待有效市場數據</div>";
+  if($("operatorRolls"))$("operatorRolls").innerHTML=[s.rolls.qqq,s.rolls.vxx].map(x=>"<div class='operator-line'><b>"+x.label+"</b><span>"+x.text+"</span></div>").join("");
+  if($("operatorBaseline"))$("operatorBaseline").textContent="Baseline · QQQ core "+E.POLICY.corePct+"% NAV · VXX short "+E.POLICY.vxxNormalPct+"% (VIX ≥ "+E.POLICY.vixHigh+" → "+E.POLICY.vxxHighPct+"%) · QQQ far-call budget "+E.POLICY.qqqCallBudgetPct+"% · VXX call budget "+E.POLICY.vxxCallBudgetPct+"%";
+}
 function render(d,e,book){
+  renderOperatorSummary(d,e,book);
   renderFlow(d,e,book);
   $("qqq").textContent=fmt(d.qqq);
   $("vxx").textContent=fmt(d.vxx);
