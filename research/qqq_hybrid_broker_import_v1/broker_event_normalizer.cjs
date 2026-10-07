@@ -71,8 +71,8 @@
 
   function dealSide(raw) {
     const v = String(raw?.trd_side ?? raw?.trdSide ?? raw?.side ?? "").trim().toUpperCase();
-    if (v === "BUY" || v === "1") return "BUY";
-    if (v === "SELL" || v === "2") return "SELL";
+    if (v === "BUY" || v === "1" || v === "BUY_BACK" || v === "4") return "BUY";
+    if (v === "SELL" || v === "2" || v === "SELL_SHORT" || v === "3") return "SELL";
     throw new Error("unsupported Futu deal side: " + v);
   }
 
@@ -122,6 +122,7 @@
         source: "history_deal_list_query",
         sourceRecordId: dealId,
         sourceOrderId: orderId,
+        sourceTradeSide: String(raw?.trd_side ?? raw?.trdSide ?? raw?.side ?? "").trim() || null,
         importedAt: importedAt || null,
         sourceTimezone: sourceTimezone || null
       }
