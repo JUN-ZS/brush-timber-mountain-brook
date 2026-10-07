@@ -80,3 +80,6 @@ jobs:
 
       - name: Cell 15 — Strategy / Funding Context
         run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell15_strategy_funding_context.js
+
+      - name: Cell 16 — Strategy State → Funding → Operator Action Bridge
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell16_strategy_action_bridge.js
