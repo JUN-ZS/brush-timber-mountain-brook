@@ -21,6 +21,11 @@ except Exception:
     fetch_yahoo_options = None
 
 try:
+    from providers.option_candidate_fetch import fetch_option_candidate
+except Exception:
+    fetch_option_candidate = None
+
+try:
     import futu  # type: ignore
 except Exception:
     futu = None
@@ -302,22 +307,24 @@ class Handler(SimpleHTTPRequestHandler):
             return json_resp(self, {"ok": True, "rows": rows})
 
         if self.path.startswith("/api/options"):
-            # Structured Yahoo retrieval via providers.yahoo_options.
-            # LIVE -> HTTP 200 {ok:true, status:"LIVE", ...}
-            # OPTIONS_SOURCE_DOWN -> HTTP 502 {ok:false, status:"OPTIONS_SOURCE_DOWN", calls:[], candidate:null}
-            # (never invents strikes; opaque 502-only bodies retired)
+            # Cascade: Yahoo then OpenD via providers.option_candidate_fetch.
+            # LIVE -> HTTP 200 {ok:true, status:"LIVE", source YAHOO_OPTIONS|OPEND_OPTIONS, ...}
+            # BLOCKED_NO_OPEND / OPTIONS_SOURCE_DOWN -> HTTP 502 fail-soft (never invents strikes)
             query = urllib.parse.urlparse(self.path)
             params = urllib.parse.parse_qs(query.query)
             symbol = params.get("symbol", ["QQQ"])[0].upper()
             if symbol not in {"QQQ", "VXX"}:
-                return json_resp(self, {"ok": False, "status": "OPTIONS_SOURCE_DOWN", "source": "YAHOO_OPTIONS", "symbol": symbol, "error": "symbol must be QQQ or VXX", "calls": [], "candidate": None}, 400)
+                return json_resp(self, {"ok": False, "status": "OPTIONS_SOURCE_DOWN", "source": "OPTIONS_CASCADE", "symbol": symbol, "error": "symbol must be QQQ or VXX", "calls": [], "candidate": None}, 400)
             try:
                 target_dte = max(14, min(120, int(float(params.get("targetDte", ["45"])[0]))))
             except (TypeError, ValueError):
                 target_dte = 45
-            if fetch_yahoo_options is None:
-                return json_resp(self, {"ok": False, "status": "OPTIONS_SOURCE_DOWN", "source": "YAHOO_OPTIONS", "symbol": symbol, "error": "yahoo_options provider unavailable", "calls": [], "candidate": None}, 502)
-            payload = fetch_yahoo_options(symbol=symbol, target_dte=target_dte)
+            if fetch_option_candidate is not None:
+                payload = fetch_option_candidate(symbol=symbol, target_dte=target_dte)
+            elif fetch_yahoo_options is not None:
+                payload = fetch_yahoo_options(symbol=symbol, target_dte=target_dte)
+            else:
+                return json_resp(self, {"ok": False, "status": "OPTIONS_SOURCE_DOWN", "source": "OPTIONS_CASCADE", "symbol": symbol, "error": "option candidate providers unavailable", "calls": [], "candidate": None}, 502)
             if payload.get("ok"):
                 return json_resp(self, payload, 200)
             return json_resp(self, payload, 502)

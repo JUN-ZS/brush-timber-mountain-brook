@@ -79,7 +79,7 @@ Thin carry is WATCH only; it is not an execution trigger.
 
 ## Debug boundary
 
-Cells 01–08 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 attempts a real Yahoo options fetch (read-only, fail-soft). None call OpenD, place orders, or write the Ledger.
+Cells 01–08 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 is Yahoo-only option retrieval (unit). Cell 11 is the Yahoo→OpenD cascade (optional OpenD; never invents strikes). None place broker orders or write the Ledger.
 
 ## Cell 07 — Operator Summary
 
@@ -162,10 +162,42 @@ LIVE -> HTTP 200 `{ok:true,status:"LIVE",...}`;
 OPTIONS_SOURCE_DOWN -> HTTP 502 `{ok:false,status:"OPTIONS_SOURCE_DOWN",calls:[],candidate:null}`.
 
 Does not change Decision/Build policy. Does not auto-fill Current Leg from Candidate.
-No OpenD, no broker orders, no Ledger writes.
+Cell 10 stays Yahoo-only (stable unit). **Cell 11** adds the OpenD fallback cascade.
+No broker orders, no Ledger writes.
 
 Run (Linux / CI):
 
     python3 cell10_option_candidate_retrieval.py
 
 Windows (`RUN.cmd 10`) uses `python` / the launcher available on PATH.
+
+## Cell 11 — OpenD Option-Chain Fallback (cascade)
+
+Purpose: after Yahoo `OPTIONS_SOURCE_DOWN`, try Futu OpenD option chain so the operator still has a LIVE candidate path after hours (when OpenD is entitled). Prefer keeping Cell 10 as Yahoo-only; this cell owns the cascade.
+
+Priority:
+
+    1. Yahoo (`providers/yahoo_options.py`) → LIVE return
+    2. OpenD (`providers/opend_options.py`) when Yahoo down → LIVE return
+    3. Else honest fail-soft:
+       BLOCKED_NO_OPEND (no OpenD / not entitled / connect fail; expected on CI)
+       or OPTIONS_SOURCE_DOWN (both sources down)
+
+**Candidate ≠ Current Leg.** Never invents strikes. Always reports `currentLeg: null`.
+
+PASS paths (any is OK for CI — do not flake):
+
+    A) LIVE from YAHOO_OPTIONS or OPEND_OPTIONS
+       -> select via existing cell10 `candidateFromChain` harness when calls present
+    B) BLOCKED_NO_OPEND after Yahoo down (honest)
+    C) OPTIONS_SOURCE_DOWN from both (honest)
+
+`/api/options` uses `providers/option_candidate_fetch.py` (same cascade).
+Does not change Decision/Build. No broker orders, no Ledger writes.
+
+Run (Linux / CI):
+
+    python3 cell11_opend_option_fallback.py
+
+Windows (`RUN.cmd 11`) uses `python` / the launcher available on PATH.
+
