@@ -12,7 +12,7 @@ from pathlib import Path
 
 START = date.fromisoformat("2018-03-01")
 END = date.fromisoformat("2026-09-04")
-POOL = 120_000.0
+POOL = 100_000.0
 MONTHLY = POOL / 120.0
 INITIAL_NAV = 100_000.0
 INITIAL_QQQ_PCT = 0.42
@@ -58,6 +58,30 @@ def load_spots(path: Path):
         rows[d] = {"date": d, "qqq": qqq, "vix": vix}
     return rows
 
+
+def load_term_from_file(path: Path):
+    rows = {}
+    for r in read_csv(path):
+        d = date.fromisoformat(r["trade_date"][:10])
+        if d < START or d > END:
+            continue
+        if d in rows:
+            raise AssertionError("Duplicate Cboe trade date: %s" % d)
+        m1, m2 = num(r.get("m1_settlement")), num(r.get("m2_settlement"))
+        e1, e2 = date.fromisoformat(r["m1_expiry"][:10]), date.fromisoformat(r["m2_expiry"][:10])
+        if m1 is None or m2 is None or m1 <= 0 or m2 <= 0:
+            raise AssertionError("Invalid settlement at %s" % d)
+        if not (d < e1 < e2):
+            raise AssertionError("Expiry contract failed at %s: %s / %s" % (d, e1, e2))
+        if not str(r.get("m1_code", "")).startswith("VX_") or not str(r.get("m2_code", "")).startswith("VX_"):
+            raise AssertionError("Non-standard VX code at %s" % d)
+        rows[d] = {
+            "m1": m1, "m2": m2, "s": (m2 - m1) / m1,
+            "m1_symbol": r.get("m1_code", ""), "m2_symbol": r.get("m2_code", ""),
+            "m1_expiry": r.get("m1_expiry", ""), "m2_expiry": r.get("m2_expiry", ""),
+            "source": r.get("source", ""), "source_url": r.get("source_m1_url", "")
+        }
+    return rows, [path]
 
 def load_term_from_parts(parts_dir: Path):
     rows = {}
@@ -327,17 +351,23 @@ def summary(result):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--spots", required=True)
-    ap.add_argument("--cboe-parts", required=True)
+    ap.add_argument("--cboe-parts")
+    ap.add_argument("--cboe-file")
     ap.add_argument("--out-dir", required=True)
     args = ap.parse_args()
 
     spots_path = Path(args.spots)
-    parts_dir = Path(args.cboe_parts)
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
+    if bool(args.cboe_parts) == bool(args.cboe_file):
+        raise SystemExit("Provide exactly one of --cboe-file or --cboe-parts")
+
     spots = load_spots(spots_path)
-    terms, part_files = load_term_from_parts(parts_dir)
+    if args.cboe_file:
+        terms, part_files = load_term_from_file(Path(args.cboe_file))
+    else:
+        terms, part_files = load_term_from_parts(Path(args.cboe_parts))
     overlap = sorted(set(spots) & set(terms))
     market = {
         d: {
