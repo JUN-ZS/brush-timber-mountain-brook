@@ -124,10 +124,9 @@ for (let i = 0; i < FIFO_LOTS; i++) {
   });
 }
 const fifo = L.snapshot(fifoEvents, {});
-const fifoPos = fifo.positions.length ? fifo.positions[0] : null;
 const expectedFifoRealized = fifoEvents.slice(0, FIFO_LOTS)
   .reduce((sum, e) => sum + (110 - e.price), 0);
-if (!fifoPos || fifoPos.quantity !== 0 || Math.abs(fifo.realizedPnl - expectedFifoRealized) > 1e-9) {
+if (fifo.positions.length !== 0 || Math.abs(fifo.realizedPnl - expectedFifoRealized) > 1e-9) {
   throw new Error("FIFO stress mismatch");
 }
 
