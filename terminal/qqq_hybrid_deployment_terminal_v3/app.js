@@ -6,7 +6,7 @@ const candidates={qqq:null,vxx:null};
 let optionsStatus=null; // last /api/options status (LIVE | OPTIONS_SOURCE_DOWN | BLOCKED_NO_OPEND)
 let journalRows=[];
 const MEMORY_LS_KEY="qhv3.operatorMemory.snapshot";
-const MEMORY_FIELD_IDS=E.MEMORY_IDS||["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"];
+const MEMORY_FIELD_IDS=E.MEMORY_IDS||["nav","strategyPool","newCapital","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"];
 
 function readMemoryFields(){
   const out={};
@@ -158,6 +158,30 @@ function ledger(){
   };
 }
 
+function fundingInputs(){
+  return {
+    strategyPool:$("strategyPool")?$("strategyPool").value:"",
+    newCapital:$("newCapital")?$("newCapital").value:""
+  };
+}
+function renderFundingPlan(d,e,book){
+  const f=fundingInputs();
+  const plan=E.fundingPlan({d,e,book,strategyPool:f.strategyPool,newCapital:f.newCapital});
+  if($("strategyName"))$("strategyName").textContent=plan.strategyName;
+  if($("strategyFormula"))$("strategyFormula").textContent=plan.formula;
+  if($("fundingRegime"))$("fundingRegime").textContent=plan.regime+" · "+plan.route;
+  if($("fundingMessage"))$("fundingMessage").textContent=plan.message;
+  if($("fundingPoolStatus"))$("fundingPoolStatus").textContent=plan.poolStatus==="VALUE"?"READY · "+fmt(plan.strategyPool):plan.poolStatus;
+  if($("fundingNewCapital"))$("fundingNewCapital").textContent=plan.newCapitalStatus==="VALUE"?fmt(plan.newCapital):plan.newCapitalStatus;
+  if($("qqqFundingCurrent"))$("qqqFundingCurrent").textContent=Number.isFinite(plan.qqqValue)?fmt(plan.qqqValue):"—";
+  if($("qqqFundingPct"))$("qqqFundingPct").textContent=Number.isFinite(plan.qqqCurrentPct)?pct(plan.qqqCurrentPct):"—";
+  if($("qqqFundingTarget"))$("qqqFundingTarget").textContent=Number.isFinite(plan.qqqTargetValue)?fmt(plan.qqqTargetValue)+" · "+fmt(plan.qqqTargetPct,1)+"% NAV":"—";
+  if($("qqqFundingGap"))$("qqqFundingGap").textContent=Number.isFinite(plan.qqqGap)?fmt(plan.qqqGap):"—";
+  if($("qqqFundingSuggestion"))$("qqqFundingSuggestion").textContent=Number.isFinite(plan.suggestedQqqFromNewCapital)?fmt(plan.suggestedQqqFromNewCapital):"—";
+  if($("fundingReserve"))$("fundingReserve").textContent=Number.isFinite(plan.reserveAfterQqq)?fmt(plan.reserveAfterQqq):"—";
+  if($("shortCallFunding"))$("shortCallFunding").textContent=plan.shortCall;
+  return plan;
+}
 function optionLegs(){
   const qqqCalls=$("qqqCalls")?$("qqqCalls").value:"";
   const vxxCalls=$("vxxCalls")?$("vxxCalls").value:"";
@@ -262,6 +286,7 @@ function renderOperatorSummary(d,e,book){
   if($("operatorBaseline"))$("operatorBaseline").textContent="Baseline · QQQ core "+E.POLICY.corePct+"% NAV · VXX short "+E.POLICY.vxxNormalPct+"% (VIX ≥ "+E.POLICY.vixHigh+" → "+E.POLICY.vxxHighPct+"%) · QQQ far-call budget "+E.POLICY.qqqCallBudgetPct+"% · VXX call budget "+E.POLICY.vxxCallBudgetPct+"%";
 }
 function render(d,e,book){
+  renderFundingPlan(d,e,book);
   renderOperatorSummary(d,e,book);
   renderLegIdentity();
   renderFlow(d,e,book);
@@ -416,13 +441,15 @@ async function journalDecision(){
   // Attach nav onto current for optional Journal→Memory restore (never invent from candidate).
   const book={...bookRaw,current:{...bookRaw.current,nav:led.nav}};
   const human=($("humanAction").value||"").trim().toUpperCase();
+  const funding=renderFundingPlan(d,e,book);
   const rec=E.journalRecord({
     engine:e,
     book,
     humanAction:human||null,
     optionsStatus,
     candidates,
-    currentOptionLegs:optionLegs()
+    currentOptionLegs:optionLegs(),
+    funding
   });
   const eventId="QHV3-"+Date.now();
   const payload={
@@ -468,7 +495,7 @@ $("journalBtn").addEventListener("click",journalDecision);
 if($("restoreMemoryBtn")) $("restoreMemoryBtn").addEventListener("click",()=>{
   restoreMemoryFromLastJournal();
 });
-["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}})});
+["nav","strategyPool","newCapital","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqShortStrike","qqqLongStrike","qqqExpiry","qqqDte","qqqDelta","qqqEntryCredit","vxxShortStrike","vxxLongStrike","vxxExpiry","vxxDte","vxxDelta","vxxEntryCredit"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}})});
 if($("forceFlat")) $("forceFlat").addEventListener("change",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}});
 // Prefer explicit button for Journal restore; auto-restore last Memory snapshot on load if present.
 restoreMemorySnapshotOnLoad();
