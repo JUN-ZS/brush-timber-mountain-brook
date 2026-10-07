@@ -60,6 +60,8 @@ function validIsoDate(v) {
   return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s;
 }
 
+function normalizeGuideSlope(v) { return Number.isFinite(v) ? Math.round(v * 1e6) / 1e6 : null; }
+
 function daysBetween(a, b) {
   if (!a || !b) return null;
   const x = Date.parse(a + "T00:00:00Z");
@@ -146,9 +148,10 @@ function independentExpected(data, current) {
     };
   }
 
+  const s = normalizeGuideSlope(data.s);
   const high = data.vix >= CONTRACT.vixHigh;
-  const backwardation = data.s <= 0;
-  const thin = data.s <= CONTRACT.termSafe;
+  const backwardation = s <= 0;
+  const thin = s <= CONTRACT.termSafe;
 
   let state;
   let action;
@@ -377,7 +380,7 @@ function makeData({ qqPrice = 750, vxxPrice = 20, vix = 16, m1 = 16.2, m2 = 17.2
     vix,
     m1,
     m2,
-    s: ((m2 - m1) / m1) * 100,
+    s: normalizeGuideSlope(((m2 - m1) / m1) * 100),
     termAsOf,
     spotAsOf,
     today,
@@ -701,6 +704,9 @@ function runSelfTest() {
       // termSafe = 5: S 5.5 must be CARRY, S 4.5 must be WEAKENING
       { name: "PIN termSafe · S≈5.5 → CARRY", cur: current, data: makeData({ today, m1: 20, m2: 21.1 }), want: "CARRY" },
       { name: "PIN termSafe · S≈4.5 → WEAKENING", cur: activeSeller, data: makeData({ today, m1: 20, m2: 20.9 }), want: "WEAKENING" },
+      { name: "PIN F3 exact S=5 → WEAKENING (no floating-point leak)", cur: current, data: makeData({ today, m1: 16, m2: 16.8 }), want: "WEAKENING" },
+      { name: "PIN F3 just below 5 → WEAKENING", cur: current, data: makeData({ today, m1: 16, m2: 16.799999 }), want: "WEAKENING" },
+      { name: "PIN F3 just above 5 → CARRY", cur: current, data: makeData({ today, m1: 16, m2: 16.800001 }), want: "CARRY" },
       // vixHigh = 28: VIX 28.0 is HIGH (CAP), VIX 27.99 is not
       { name: "PIN vixHigh · VIX 28.0 S+3 → PRE-SHOCK/CAP · VXX 18→10 · calls 21/4→0/0", cur: activeSeller, data: makeData({ today, vix: 28, m1: 16, m2: 16.48 }), want: "PRE-SHOCK", wantGate: "CAP", wantTarget: { qqqShares: 100, vxxPct: 10, qqqCalls: 0, vxxCalls: 0 } },
       { name: "PIN vixHigh · VIX 27.99 S+3 → WEAKENING", cur: activeSeller, data: makeData({ today, vix: 27.99, m1: 16, m2: 16.48 }), want: "WEAKENING" },
@@ -825,7 +831,7 @@ function runSelfTest() {
   console.log("");
   console.log(JSON.stringify({
     cell: "17_BEGINNER_GUIDED_INPUT",
-    checks: cases.length + 26,
+    checks: cases.length + 29,
     contractIsIndependent: true,
     demo: {
       cash: 100000,
