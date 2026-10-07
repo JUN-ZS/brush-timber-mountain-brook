@@ -135,3 +135,9 @@ The cell performs a real read-only fetch and asserts:
     S = (M2-M1)/M1 and state are internally consistent
 
 This cell does not alter Decision, Build, Candidate, Ledger, or broker state.
+
+Run (Linux / CI):
+
+    python3 cell09_delayed_data.py
+
+Windows (`RUN.cmd 9`) uses `python` / the launcher available on PATH.

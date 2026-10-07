@@ -3,7 +3,11 @@ from __future__ import annotations
 import datetime as dt
 import math
 import re
+import sys
+from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from providers.cboe_delayed_vx import fetch
 
 STANDARD = re.compile(r"^VX/[FGHJKMNQUVXZ]\d{1,2}$")
