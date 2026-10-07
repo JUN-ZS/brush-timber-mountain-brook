@@ -96,9 +96,37 @@ function setup(data=base,position={qqqShares:100,vxxPct:10,qqqCalls:2,vxxCalls:1
   assert.strictEqual(rec.funding_context.route,f.route);
 }
 
+// 7) F4 HOLD trim: WEAKENING never adds; VXX above the frozen 18% target is trimmed → TRIM.
+{
+  const data={...base,s:3};
+  const trimCases=[
+    {vxxPct:25,wantClass:"TRIM",wantTarget:18,wantDelta:-7},
+    {vxxPct:10,wantClass:"MAINTAIN",wantTarget:10,wantDelta:0},
+    {vxxPct:18,wantClass:"MAINTAIN",wantTarget:18,wantDelta:0},
+  ];
+  for(const c of trimCases){
+    const {e,book,f}=setup(data,{qqqShares:100,vxxPct:c.vxxPct,qqqCalls:2,vxxCalls:1});
+    const b=E.strategyActionBridge({d:data,e,book,funding:f,currentOptionLegs:E.currentOptionLegs({qqq:{qty:2},vxx:{qty:1}}),journalRows:[]});
+    assert.strictEqual(e.action,"HOLD");
+    assert.strictEqual(b.engineAction,"HOLD");
+    assert.strictEqual(b.actionClass,c.wantClass,"VXX "+c.vxxPct);
+    assert.strictEqual(b.target.vxxPct,c.wantTarget);
+    assert.strictEqual(b.deltas.vxxPct,c.wantDelta);
+    assert.strictEqual(b.target.qqqShares,100);
+    assert.strictEqual(b.target.qqqCalls,2);
+    assert.strictEqual(b.target.vxxCalls,1);
+    assert.strictEqual(b.noBrokerOrder,true);
+    if(c.wantClass==="TRIM"){
+      assert.deepStrictEqual(b.reduceLines,["VXX short 25% → 18% NAV (TRIM − 7%)"]);
+    }else{
+      assert.deepStrictEqual(b.reduceLines,[]);
+    }
+  }
+}
+
 console.log(JSON.stringify({
   cell:"16_STRATEGY_ACTION_BRIDGE",
-  checks:6,
-  cases:["CARRY/REBALANCE","WEAKENING/MAINTAIN","SHOCK/DEFEND","BLOCKED/PAUSE","JOURNAL_BASELINE","JOURNAL_BRIDGE"],
+  checks:7,
+  cases:["CARRY/REBALANCE","WEAKENING/MAINTAIN","SHOCK/DEFEND","BLOCKED/PAUSE","JOURNAL_BASELINE","JOURNAL_BRIDGE","HOLD_TRIM_25_10_18"],
   PASS:true
 }));

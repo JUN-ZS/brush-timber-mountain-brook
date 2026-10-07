@@ -45,6 +45,16 @@ assert.strictEqual(h.rolls.vxx.status,"NEEDS_DATA");
 assert.strictEqual(h.thresholds[0].id,"S_0");
 assert.strictEqual(h.thresholds[0].text,"3 pp");
 
+// F4: HOLD with VXX above frozen target → plan shows the TRIM line after inventory; never adds.
+const trimBook=E.targetLedger(holdData,hold,ready({nav:100000,qqqShares:56,vxxPct:25,qqqCalls:2,vxxCalls:3}),{});
+const t=E.operatorSummary(holdData,hold,trimBook,{},{});
+assert.strictEqual(t.mode,"WATCH / TRIM");
+assert.ok(t.plan[0].includes("不新增"));
+const trimIdx=t.plan.indexOf("VXX short 25% → 18% NAV (TRIM − 7%)");
+const invIdx=t.plan.findIndex(x=>x.includes("現有 carry"));
+assert.ok(trimIdx>invIdx&&invIdx>=0,"TRIM line after carry inventory");
+assert.ok(!t.plan.some(x=>x.includes("+")),"HOLD plan never adds");
+
 const dRoll={...holdData,s:8};
 const eRoll=E.derive(dRoll);
 const bRoll=E.targetLedger(dRoll,eRoll,ready({nav:100000,qqqShares:56,vxxPct:18,qqqCalls:2,vxxCalls:0}),candidate);
@@ -58,6 +68,7 @@ console.log(JSON.stringify({
   cell:"07_OPERATOR_SUMMARY",
   buildMode:a.mode,
   holdMode:h.mode,
+  holdTrimMode:t.mode,
   nearestHoldChange:h.thresholds[0].label+" · "+h.thresholds[0].text,
   qqqRollDistance:roll.rolls.qqq.text,
   vxxRoll:roll.rolls.vxx.text,

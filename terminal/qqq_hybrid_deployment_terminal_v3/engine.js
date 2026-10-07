@@ -173,8 +173,9 @@ window.HybridEngineV3 = (() => {
   function operatorSummary(d,e,book,candidates={},opt={}){
     const hasPosition=book.current.qqqShares>0||book.current.vxxPct>0||book.current.qqqCalls>0||book.current.vxxCalls>0;
     const acts=Object.entries(book.deltas||{}).filter(([,v])=>Number.isFinite(v)&&Math.abs(v)>1e-9);
+    const holdTrims=(!e.blocked&&e.action==="HOLD")?reductionLines(book,"TRIM"):[];
     const needsInput=!e.blocked&&book&&book.inputBlocked===true;
-    const mode=e.blocked?"PAUSED":needsInput?"NEEDS INPUT":e.action==="REDUCE"?"DEFEND":e.action==="HOLD"?"WATCH":acts.length?"BUILD / REBALANCE":hasPosition?"AT TARGET / MONITOR":"EMPTY / READY TO BUILD";
+    const mode=e.blocked?"PAUSED":needsInput?"NEEDS INPUT":e.action==="REDUCE"?"DEFEND":e.action==="HOLD"?(holdTrims.length?"WATCH / TRIM":"WATCH"):acts.length?"BUILD / REBALANCE":hasPosition?"AT TARGET / MONITOR":"EMPTY / READY TO BUILD";
     const plan=[];
     if(e.blocked) plan.push("不新增、不減倉：等待完整新數據");
     else if(needsInput){
@@ -186,6 +187,10 @@ window.HybridEngineV3 = (() => {
     else if(e.action==="HOLD"){
       plan.push("不新增 carry：保留現有倉位，等轉態");
       plan.push(...carryInventoryLines(book,d,opt));
+      if(holdTrims.length){
+        plan.push("超出 frozen target → TRIM（只減、唔加）：");
+        plan.push(...holdTrims);
+      }
     }
     else if(e.action==="REDUCE"){
       plan.push(...carryInventoryLines(book,d,opt));
@@ -224,6 +229,23 @@ window.HybridEngineV3 = (() => {
   }
   function fmtNum(v){return Number.isFinite(Number(v))?Number(v).toLocaleString("en-US",{maximumFractionDigits:2}):"—";}
   function fmtPct(v){return Number.isFinite(Number(v))?fmtNum(v)+"%":"—";}
+  // F4 — human-readable REDUCE/TRIM lines from book deltas (display only; never changes targets).
+  function reductionLines(book,tag="REDUCE"){
+    const cur=book&&book.current||{},tgt=book&&book.target||{},dl=book&&book.deltas||{};
+    const rows=[
+      ["qqqShares","QQQ core",v=>fmtNum(v),v=>" shares",v=>fmtNum(v)],
+      ["vxxPct","VXX short",v=>fmtPct(v),v=>" NAV",v=>fmtPct(v)],
+      ["qqqCalls","QQQ far call",v=>fmtNum(v),v=>" spreads",v=>fmtNum(v)],
+      ["vxxCalls","VXX call",v=>fmtNum(v),v=>" spreads",v=>fmtNum(v)]
+    ];
+    const out=[];
+    for(const [k,label,f,unit,fd] of rows){
+      const dv=Number(dl[k]);
+      if(!(Number.isFinite(dv)&&dv<-1e-9))continue;
+      out.push(label+" "+f(cur[k])+" → "+f(tgt[k])+unit()+" ("+tag+" − "+fd(-dv)+")");
+    }
+    return out;
+  }
   function carryInventoryLines(book,d,opt={}){
     const cur=book.current||{};
     const legs=(opt&&opt.currentOptionLegs)||null;
@@ -430,10 +452,13 @@ window.HybridEngineV3 = (() => {
             ?"維持現有倉位，等待 NEXT regime / ROLL transition。"
             :"目前無倉位：等待有效 BUILD 條件；不因空倉自行創造目標。";
     }else if(e.action==="HOLD"){
-      actionClass=hasPosition?"MAINTAIN":"READY";
-      operatorInstruction=hasPosition
-        ?"維持現有倉位，等待 NEXT regime / ROLL transition；不新增 carry。"
-        :"目前無倉位：保持觀察，等待有效 BUILD 條件。";
+      // F4: HOLD never adds; a position above its frozen target is trimmed down to target.
+      actionClass=hasPosition?(hasReduction?"TRIM":"MAINTAIN"):"READY";
+      operatorInstruction=actionClass==="TRIM"
+        ?"不新增 carry；只將超出 frozen target 嘅部分減返落目標（TRIM）；逐項人工處理後 JOURNAL。"
+        :hasPosition
+          ?"維持現有倉位，等待 NEXT regime / ROLL transition；不新增 carry。"
+          :"目前無倉位：保持觀察，等待有效 BUILD 條件。";
     }else if(hasPosition){
       actionClass="MAINTAIN";
       operatorInstruction="維持現有倉位，等待下一個有效狀態。";
@@ -495,6 +520,7 @@ window.HybridEngineV3 = (() => {
       engineAction:e.action||null,
       actionClass,
       operatorInstruction,
+      reduceLines:reductionLines(book,actionClass==="TRIM"?"TRIM":"REDUCE"),
       current:{
         qqqShares:num(cur.qqqShares,0),
         vxxPct:num(cur.vxxPct,0),
@@ -627,7 +653,8 @@ window.HybridEngineV3 = (() => {
     const candidate_present={qqq:!!cand.qqq,vxx:!!cand.vxx};
     const human=(humanAction===null||humanAction===undefined||String(humanAction).trim()==="")?null:String(humanAction).trim().toUpperCase();
     let conflict="NONE";
-    if(human&&human!==e.action) conflict="CONFLICT";
+    const bridgeClass=actionBridge&&actionBridge.actionClass?String(actionBridge.actionClass).toUpperCase():null;
+    if(human&&human!==e.action&&human!==bridgeClass) conflict="CONFLICT";
     // Identity counts only — never candidate strikes
     const curSrc=b.current&&typeof b.current==="object"?b.current:{};
     const current_position={
@@ -700,6 +727,7 @@ window.HybridEngineV3 = (() => {
     if(actionBridge!==undefined) record.action_bridge={
       version:actionBridge.version,
       action_class:actionBridge.actionClass,
+      reduce_lines:Array.isArray(actionBridge.reduceLines)?actionBridge.reduceLines.slice():[],
       operator_instruction:actionBridge.operatorInstruction,
       next_step:actionBridge.nextStep,
       no_broker_order:actionBridge.noBrokerOrder===true
@@ -808,5 +836,5 @@ window.HybridEngineV3 = (() => {
     }
     return lines;
   }
-  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,beginnerNav,vxxSharesToPct,beginnerLedger,inputGapText,BEGINNER_FIELD_LABELS,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
+  return{POLICY,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,reductionLines,beginnerNav,vxxSharesToPct,beginnerLedger,inputGapText,BEGINNER_FIELD_LABELS,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
 })();
