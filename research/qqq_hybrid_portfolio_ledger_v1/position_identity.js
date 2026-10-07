@@ -37,7 +37,8 @@ window.PortfolioPositionIdentityV1 = (() => {
           spreadId,
           campaignId: identity.campaignId || null,
           strategyRoles: new Set(),
-          legs: { LONG: {}, SHORT: {} }
+          legs: { LONG: {}, SHORT: {} },
+          everPaired: false
         };
       }
 
@@ -48,6 +49,16 @@ window.PortfolioPositionIdentityV1 = (() => {
       const bySymbol = group.legs[legRole];
       if (!bySymbol[event.symbol]) bySymbol[event.symbol] = 0;
       bySymbol[event.symbol] += signedQty;
+
+      const activeLong = Object.values(group.legs.LONG).filter(q => Math.abs(q) > EPS);
+      const activeShort = Object.values(group.legs.SHORT).filter(q => Math.abs(q) > EPS);
+      if (activeLong.length === 1 && activeShort.length === 1) {
+        const lq = activeLong[0];
+        const sq = activeShort[0];
+        if (lq > EPS && sq < -EPS && Math.abs(Math.abs(lq) - Math.abs(sq)) <= EPS) {
+          group.everPaired = true;
+        }
+      }
     }
 
     const rows = Object.values(groups).map(group => {
@@ -82,6 +93,7 @@ window.PortfolioPositionIdentityV1 = (() => {
         strategyRole: group.strategyRoles.size === 1 ? [...group.strategyRoles][0] : (group.strategyRoles.size ? "MIXED" : null),
         status,
         units,
+        everPaired: Boolean(group.everPaired),
         legs: activeLegs
       };
     }).sort((a, b) => a.spreadId.localeCompare(b.spreadId));
