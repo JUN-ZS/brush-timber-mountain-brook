@@ -51,14 +51,19 @@ def validate_timestamp(value):
     if not isinstance(value, str) or not value.strip():
         raise ValueError("timestamp is required")
     try:
-        datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError("timestamp is invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("timestamp must include timezone (Z or explicit offset)")
 
 
 def validate_event(event):
     if not isinstance(event, dict):
         raise ValueError("event must be an object")
+    event_id = event.get("id")
+    if not isinstance(event_id, str) or not event_id.strip():
+        raise ValueError("event id is required and must be a non-empty string")
     event_type = str(event.get("type", "")).upper()
     if event_type not in {"FILL", "CASHFLOW"}:
         raise ValueError("event type must be FILL or CASHFLOW")
@@ -89,6 +94,11 @@ def validate_event(event):
         raise ValueError("price must be >= 0")
     if fees is None or fees < 0:
         raise ValueError("fees must be >= 0")
+
+    if "multiplier" in event and event.get("multiplier") not in (None, ""):
+        multiplier = num(event.get("multiplier"))
+        if multiplier is None or multiplier <= 0:
+            raise ValueError("multiplier must be > 0")
 
     identity = event.get("positionIdentity")
     if identity is not None:
@@ -142,10 +152,12 @@ def read_events():
         if not line.strip():
             continue
         try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError as exc:
+            event = json.loads(line)
+            validate_event(event)
+            out.append(event)
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
             raise CorruptJournalError(
-                "CORRUPT_JOURNAL: invalid JSON at line " + str(line_no) + ": " + str(exc)
+                "CORRUPT_JOURNAL: invalid event at line " + str(line_no) + ": " + str(exc)
             ) from exc
     return out
 
