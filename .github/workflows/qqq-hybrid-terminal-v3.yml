@@ -34,6 +34,7 @@ jobs:
         run: |
           python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/server.py
           python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/providers/cboe_delayed_vx.py
+          python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/providers/yahoo_options.py
           python3 terminal/qqq_hybrid_deployment_terminal_v3/tests/provider_fixture_test.py
       - name: Live Cboe delayed VX smoke
         run: |
