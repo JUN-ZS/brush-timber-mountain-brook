@@ -83,3 +83,7 @@ jobs:
 
       - name: Cell 16 — Strategy State → Funding → Operator Action Bridge
         run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell16_strategy_action_bridge.js
+
+      - name: Cell 17 — Beginner Guided Input + independent reverse audit
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell17_beginner_guided_input.js --self-test
+
