@@ -79,7 +79,7 @@ Thin carry is WATCH only; it is not an execution trigger.
 
 ## Debug boundary
 
-These cells use deterministic fixtures. They do not call OpenD, do not place orders, and do not write the Ledger.
+Cells 01–08 use deterministic fixtures. Cell 09 reads Cboe delayed VX (read-only). Cell 10 attempts a real Yahoo options fetch (read-only, fail-soft). None call OpenD, place orders, or write the Ledger.
 
 ## Cell 07 — Operator Summary
 
@@ -117,10 +117,6 @@ ROLL wiring (via `operatorSummary` + `currentOptionLegs`):
 
 This cell does not change Decision, Candidate, or Build target math.
 
-## Next increment
-
-Delayed-data DATA cell, then real option-candidate retrieval, each still isolated.
-
 ## Cell 09 — Delayed DATA
 
 Purpose: verify the production VX term-data boundary against the Cboe public delayed adapter itself.
@@ -141,3 +137,35 @@ Run (Linux / CI):
     python3 cell09_delayed_data.py
 
 Windows (`RUN.cmd 9`) uses `python` / the launcher available on PATH.
+
+## Cell 10 — Option Candidate Retrieval (real)
+
+Purpose: prove **retrieval** of a next-buy candidate from a real Yahoo options attempt, with fail-soft contract. Independent of Cell 04 (fixture selection) and Cell 08 (Current Leg identity).
+
+**Candidate ≠ Current Leg.** This cell never writes Current Leg fields and always reports `currentLeg: null`.
+
+PASS paths (either is OK for CI — do not flake):
+
+    A) LIVE
+       Yahoo returns non-empty calls
+       -> Node harness runs engine `candidateFromChain`
+       -> candidate has shortStrike, longStrike, dte, and delta/credit/sizingAvailable
+       -> source tagged YAHOO_OPTIONS (retrieval); engine estimate tag preserved on candidate
+
+    B) OPTIONS_SOURCE_DOWN
+       ok=false, status exact, candidate=null, calls=[]
+       -> still PASS:true with reason SOURCE_DOWN
+       -> never invents strikes (honest down)
+
+`/api/options` uses the same `providers/yahoo_options.py` helper:
+LIVE -> HTTP 200 `{ok:true,status:"LIVE",...}`;
+OPTIONS_SOURCE_DOWN -> HTTP 502 `{ok:false,status:"OPTIONS_SOURCE_DOWN",calls:[],candidate:null}`.
+
+Does not change Decision/Build policy. Does not auto-fill Current Leg from Candidate.
+No OpenD, no broker orders, no Ledger writes.
+
+Run (Linux / CI):
+
+    python3 cell10_option_candidate_retrieval.py
+
+Windows (`RUN.cmd 10`) uses `python` / the launcher available on PATH.

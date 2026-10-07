@@ -16,6 +16,11 @@ except Exception:
     fetch_cboe_vx = None
 
 try:
+    from providers.yahoo_options import fetch_option_chain as fetch_yahoo_options
+except Exception:
+    fetch_yahoo_options = None
+
+try:
     import futu  # type: ignore
 except Exception:
     futu = None
@@ -297,34 +302,25 @@ class Handler(SimpleHTTPRequestHandler):
             return json_resp(self, {"ok": True, "rows": rows})
 
         if self.path.startswith("/api/options"):
+            # Structured Yahoo retrieval via providers.yahoo_options.
+            # LIVE -> HTTP 200 {ok:true, status:"LIVE", ...}
+            # OPTIONS_SOURCE_DOWN -> HTTP 502 {ok:false, status:"OPTIONS_SOURCE_DOWN", calls:[], candidate:null}
+            # (never invents strikes; opaque 502-only bodies retired)
             query = urllib.parse.urlparse(self.path)
             params = urllib.parse.parse_qs(query.query)
             symbol = params.get("symbol", ["QQQ"])[0].upper()
             if symbol not in {"QQQ", "VXX"}:
-                return json_resp(self, {"ok": False, "error": "symbol must be QQQ or VXX"}, 400)
+                return json_resp(self, {"ok": False, "status": "OPTIONS_SOURCE_DOWN", "source": "YAHOO_OPTIONS", "symbol": symbol, "error": "symbol must be QQQ or VXX", "calls": [], "candidate": None}, 400)
             try:
                 target_dte = max(14, min(120, int(float(params.get("targetDte", ["45"])[0]))))
-                base_url = "https://query2.finance.yahoo.com/v7/finance/options/" + urllib.parse.quote(symbol, safe="")
-                req = urllib.request.Request(base_url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=10, context=ssl.create_default_context()) as response:
-                    root = json.load(response)
-                result = (root.get("optionChain") or {}).get("result") or []
-                if not result: raise RuntimeError("Yahoo option chain result unavailable")
-                meta = result[0]
-                expirations = [int(x) for x in (meta.get("expirationDates") or []) if num(x) is not None]
-                now_ts = datetime.now(timezone.utc).timestamp()
-                expiry = min(expirations, key=lambda x: abs((x-now_ts)/86400-target_dte)) if expirations else None
-                url = base_url + (("?date="+str(expiry)) if expiry else "")
-                req2 = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req2, timeout=10, context=ssl.create_default_context()) as response:
-                    payload = json.load(response)
-                result2 = (payload.get("optionChain") or {}).get("result") or []
-                if not result2: raise RuntimeError("Yahoo option expiry result unavailable")
-                opts = result2[0].get("options") or []
-                calls = opts[0].get("calls") if opts else []
-                return json_resp(self, {"ok": True, "symbol": symbol, "source": "YAHOO_OPTIONS", "target_dte": target_dte, "expiry": datetime.fromtimestamp(expiry, timezone.utc).date().isoformat() if expiry else None, "retrieved_at": now_iso(), "calls": calls or []})
-            except Exception as exc:
-                return json_resp(self, {"ok": False, "error": f"{type(exc).__name__}: {exc}"}, 502)
+            except (TypeError, ValueError):
+                target_dte = 45
+            if fetch_yahoo_options is None:
+                return json_resp(self, {"ok": False, "status": "OPTIONS_SOURCE_DOWN", "source": "YAHOO_OPTIONS", "symbol": symbol, "error": "yahoo_options provider unavailable", "calls": [], "candidate": None}, 502)
+            payload = fetch_yahoo_options(symbol=symbol, target_dte=target_dte)
+            if payload.get("ok"):
+                return json_resp(self, payload, 200)
+            return json_resp(self, payload, 502)
         return super().do_GET()
 
     def do_POST(self):
