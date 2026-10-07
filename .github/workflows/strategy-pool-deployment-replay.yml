@@ -1,0 +1,59 @@
+name: Strategy Pool Deployment Replay V1
+
+on:
+  push:
+    branches:
+      - research/qqq-strategy-pool-deployment-replay-v1-20261008
+  workflow_dispatch:
+
+concurrency:
+  group: strategy-pool-deployment-replay-v1
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    name: Cboe daily M1/M2 part ${{ matrix.part }}
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        part: [0,1,2,3,4,5,6,7,8,9]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch official Cboe daily settlement M1/M2
+        run: |
+          python3 research/cboe_vx_m1m2/fetch_cboe_vx_settlements.py \
+            --start 2018-03-01 \
+            --end 2026-09-04 \
+            --parts 10 \
+            --part-index ${{ matrix.part }} \
+            --out out/part_${{ matrix.part }}.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strategy-pool-cboe-part-${{ matrix.part }}
+          path: out/
+
+  replay:
+    name: Controlled Strategy Pool replay
+    needs: collect
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: strategy-pool-cboe-part-*
+          path: cboe-parts
+          merge-multiple: false
+      - name: Controlled replay
+        run: |
+          python3 research/qqq_strategy_pool_deployment_replay_v1/replay.py \
+            --spots attachments/spots_qqq_vxx_vix.1csv \
+            --cboe-parts cboe-parts \
+            --out-dir out/replay
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strategy-pool-deployment-replay-v1-report
+          path: out/replay/
