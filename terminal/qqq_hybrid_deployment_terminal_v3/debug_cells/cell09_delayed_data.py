@@ -18,6 +18,10 @@ def main() -> int:
     assert x.get("ok") is True, x
     assert x["status"] == "LIVE_DELAYED", x
     assert x["source"] == "CBOE_PUBLIC_DELAYED_VX", x
+    assert x["asof_status"] == "PAYLOAD_LAST_UPDATE", x
+    assert x["last_update"], x
+    assert x["fetched_at"], x
+    assert x["data_asof"], x
 
     m1, m2 = x["m1"], x["m2"]
     assert STANDARD.fullmatch(m1["symbol"]), m1
