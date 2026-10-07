@@ -20,3 +20,18 @@ label.memory-flash,input.memory-flash,select.memory-flash{
   box-shadow:0 0 0 2px rgba(91,141,239,0.25);
   transition:outline 0.2s ease, box-shadow 0.2s ease;
 }
+
+/* Cell 16 — read-only state/funding/operator bridge */
+.bridge-card{margin-bottom:10px;border-color:#33414d}
+.bridge-instruction{padding:9px 10px;background:#0b1116;border:1px dashed #33414d;border-radius:8px;font-size:11px;margin-bottom:9px}
+.bridge-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.bridge-grid>div{display:grid;gap:4px;padding:8px;background:#0b1116;border:1px solid #202a33;border-radius:8px;min-width:0}
+.bridge-grid b{font-size:11px;line-height:1.35}
+.bridge-loop-title{margin-top:10px;margin-bottom:6px}
+.bridge-loop{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.bridge-loop-step{padding:7px 6px;background:#0b1116;border:1px solid #202a33;border-radius:7px;display:grid;gap:3px;min-width:0}
+.bridge-loop-step b{font-size:9px;letter-spacing:.08em}
+.bridge-loop-step small{font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bridge-warning{margin-top:8px;padding:8px 10px;border:1px dashed #5c4a24;background:#16120a;border-radius:8px;color:var(--amber);font-size:10px}
+@media(max-width:1100px){.bridge-grid{grid-template-columns:1fr 1fr}.bridge-loop{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:700px){.bridge-grid,.bridge-loop{grid-template-columns:1fr 1fr}}

@@ -102,6 +102,29 @@
       <div id="fundingMessage" class="funding-message">—</div>
     </section>
 
+    <section class="card bridge-card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">CELL 16 · STRATEGY STATE → FUNDING → OPERATOR ACTION</div>
+          <h2>READ-ONLY CLOSED-LOOP BRIDGE</h2>
+        </div>
+        <span id="bridgeAction" class="tag research">—</span>
+      </div>
+      <div id="bridgeInstruction" class="bridge-instruction">Waiting for the current snapshot.</div>
+      <div class="bridge-grid">
+        <div><span class="eyebrow">STRATEGY / REGIME</span><b id="bridgeStrategy">—</b></div>
+        <div><span class="eyebrow">CURRENT</span><b id="bridgePosition">—</b></div>
+        <div><span class="eyebrow">FROZEN TARGET</span><b id="bridgeTarget">—</b></div>
+        <div><span class="eyebrow">QQQ GAP</span><b id="bridgeGap">—</b></div>
+        <div><span class="eyebrow">FUNDING CONTEXT</span><b id="bridgeFunding">—</b></div>
+        <div><span class="eyebrow">NEXT TRANSITION</span><b id="bridgeNext">—</b></div>
+        <div><span class="eyebrow">JOURNAL BASELINE</span><b id="bridgeJournal">—</b></div>
+      </div>
+      <div class="eyebrow bridge-loop-title">CLOSED LOOP · DATA → DECISION → CURRENT → TARGET → FUNDING → WATCH → JOURNAL</div>
+      <div id="bridgeLoop" class="bridge-loop"></div>
+      <div class="bridge-warning">Strategy Pool routing remains <b>CONTEXT ONLY / RESEARCH ONLY</b>. Cell 16 does not promote POOL_GATED into execution sizing and never sends broker orders.</div>
+    </section>
+
     <section class="decision-grid">
       <article class="card decision-card">
         <div class="eyebrow">NOW · PRIMARY DECISION</div>

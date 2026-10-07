@@ -182,6 +182,50 @@ function renderFundingPlan(d,e,book){
   if($("shortCallFunding"))$("shortCallFunding").textContent=plan.shortCall;
   return plan;
 }
+
+function escapeHtml(v){
+  return String(v??"").replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch]));
+}
+function renderStrategyBridge(d,e,book,funding){
+  const bridge=E.strategyActionBridge({
+    d,e,book,funding,
+    currentOptionLegs:optionLegs(),
+    journalRows
+  });
+  if($("bridgeAction")){
+    $("bridgeAction").textContent=bridge.actionClass;
+    $("bridgeAction").className="tag "+(
+      bridge.actionClass==="DEFEND"||bridge.actionClass==="PAUSE"?"retired":
+      bridge.actionClass==="BUILD"||bridge.actionClass==="REBALANCE"?"active":"research"
+    );
+  }
+  if($("bridgeInstruction"))$("bridgeInstruction").textContent=bridge.operatorInstruction;
+  if($("bridgeStrategy"))$("bridgeStrategy").textContent=bridge.strategyName+" · "+bridge.regime;
+  if($("bridgePosition"))$("bridgePosition").textContent=
+    "QQQ "+fmt(bridge.current.qqqShares)+" shares · VXX short "+pct(bridge.current.vxxPct)+
+    " NAV · QQQ far "+fmt(bridge.current.qqqCalls,0)+" · VXX call "+fmt(bridge.current.vxxCalls,0);
+  if($("bridgeTarget"))$("bridgeTarget").textContent=
+    "QQQ "+fmt(bridge.target.qqqShares)+" shares · VXX short "+pct(bridge.target.vxxPct)+
+    " · QQQ far "+fmt(bridge.target.qqqCalls,0)+" · VXX call "+fmt(bridge.target.vxxCalls,0);
+  if($("bridgeGap"))$("bridgeGap").textContent=Number.isFinite(bridge.qqqGap)
+    ?fmt(bridge.qqqGap)+" to "+fmt(bridge.qqqCoreTargetPct,1)+"% core target":"—";
+  if($("bridgeFunding"))$("bridgeFunding").textContent=
+    bridge.funding.route+" · "+bridge.funding.status+
+    (Number.isFinite(bridge.funding.newCapital)? " · new "+fmt(bridge.funding.newCapital):"");
+  if($("bridgeNext"))$("bridgeNext").textContent=
+    bridge.nextStep==="ROLL_OPTION"?"ROLL OPTION NOW":
+    (bridge.transition.length?bridge.transition[0].label:"WATCH NEXT TRANSITION");
+  if($("bridgeJournal"))$("bridgeJournal").textContent=
+    bridge.journal.eventId
+      ?("Last "+bridge.journal.eventId+" · "+(bridge.journal.changed?"CHANGED":"ALIGNED")+" · "+bridge.journal.conflict)
+      :"No journal baseline yet";
+  if($("bridgeLoop")){
+    $("bridgeLoop").innerHTML=bridge.closedLoop.map(x=>
+      "<span class='bridge-loop-step'><b>"+escapeHtml(x.stage)+"</b><small>"+escapeHtml(x.status)+"</small></span>"
+    ).join("");
+  }
+  return bridge;
+}
 function optionLegs(){
   const qqqCalls=$("qqqCalls")?$("qqqCalls").value:"";
   const vxxCalls=$("vxxCalls")?$("vxxCalls").value:"";
@@ -286,7 +330,8 @@ function renderOperatorSummary(d,e,book){
   if($("operatorBaseline"))$("operatorBaseline").textContent="Baseline · QQQ core "+E.POLICY.corePct+"% NAV · VXX short "+E.POLICY.vxxNormalPct+"% (VIX ≥ "+E.POLICY.vixHigh+" → "+E.POLICY.vxxHighPct+"%) · QQQ far-call budget "+E.POLICY.qqqCallBudgetPct+"% · VXX call budget "+E.POLICY.vxxCallBudgetPct+"%";
 }
 function render(d,e,book){
-  renderFundingPlan(d,e,book);
+  const funding=renderFundingPlan(d,e,book);
+  renderStrategyBridge(d,e,book,funding);
   renderOperatorSummary(d,e,book);
   renderLegIdentity();
   renderFlow(d,e,book);
@@ -442,14 +487,21 @@ async function journalDecision(){
   const book={...bookRaw,current:{...bookRaw.current,nav:led.nav}};
   const human=($("humanAction").value||"").trim().toUpperCase();
   const funding=renderFundingPlan(d,e,book);
+  const currentLegs=optionLegs();
+  const bridge=E.strategyActionBridge({
+    d,e,book,funding,
+    currentOptionLegs:currentLegs,
+    journalRows
+  });
   const rec=E.journalRecord({
     engine:e,
     book,
     humanAction:human||null,
     optionsStatus,
     candidates,
-    currentOptionLegs:optionLegs(),
-    funding
+    currentOptionLegs:currentLegs,
+    funding,
+    actionBridge:bridge
   });
   const eventId="QHV3-"+Date.now();
   const payload={

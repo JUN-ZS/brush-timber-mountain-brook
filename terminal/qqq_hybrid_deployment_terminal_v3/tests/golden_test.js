@@ -50,4 +50,7 @@ assert.ok(String(cell14.stdout).includes('"PASS":true'),"cell14 PASS marker");
 const cell15=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell15_strategy_funding_context.js")],{encoding:"utf8"});
 assert.strictEqual(cell15.status,0,"cell15_strategy_funding_context must PASS\n"+cell15.stdout+"\n"+cell15.stderr);
 assert.ok(String(cell15.stdout).includes('"PASS":true'),"cell15 PASS marker");
-console.log("V3 golden + Cell 14 journal memory PASS");
+const cell16=spawnSync(process.execPath,[path.join(here,"..","debug_cells","cell16_strategy_action_bridge.js")],{encoding:"utf8"});
+assert.strictEqual(cell16.status,0,"cell16_strategy_action_bridge must PASS\n"+cell16.stdout+"\n"+cell16.stderr);
+assert.ok(String(cell16.stdout).includes('"PASS":true'),"cell16 PASS marker");
+console.log("V3 golden + Cell 14/15/16 operator loop PASS");
