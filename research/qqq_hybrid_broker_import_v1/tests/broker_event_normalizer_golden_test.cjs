@@ -45,7 +45,7 @@ const normalizedDeals = deals.map(d => N.normalizeDeal(d, {
 eq(normalizedDeals[0].id, "FUTU:FILL:D1", "equity fill id");
 eq(normalizedDeals[0].assetType, "EQUITY", "equity classification");
 eq(normalizedDeals[0].fees, 1.25, "equity fee enrichment");
-eq(normalizedDeals[0].accountingStatus, "READY", "equity fill ready");
+eq(normalizedDeals[0].accountingStatus, "READY_FOR_LEDGER", "equity fill ready");
 eq(normalizedDeals[0].timestamp, "2026-10-01T14:00:00.000Z", "explicit offset conversion");
 
 eq(normalizedDeals[1].assetType, "OPTION", "option classification");
@@ -142,6 +142,8 @@ eq(bundle.quarantine.length, 3, "quarantine count");
 
 const byId = Object.fromEntries(bundle.events.map(e => [e.id, e]));
 eq(byId["FUTU:DIVIDEND:101"].type, "DIVIDEND", "dividend type");
+eq(byId["FUTU:DIVIDEND:101"].accountingStatus, "NORMALIZED_NOT_APPLIED", "dividend not yet applied");
+
 eq(byId["FUTU:INTEREST:102"].type, "INTEREST", "interest type");
 eq(byId["FUTU:BORROW_FEE:103"].type, "BORROW_FEE", "borrow type");
 eq(byId["FUTU:CASHFLOW:104"].type, "CASHFLOW", "external cashflow type");
