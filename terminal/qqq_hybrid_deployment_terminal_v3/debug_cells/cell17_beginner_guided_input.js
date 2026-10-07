@@ -500,9 +500,10 @@ function runSelfTest() {
       spotAsOf: today,
     });
     const holdExpected = independentExpected(holdData, current);
+    const holdEngine = E.derive(holdData);
     const holdActual = E.targetLedger(
       holdData,
-      E.derive(holdData),
+      holdEngine,
       {
         nav: current.nav,
         qqqShares: current.qqqShares,
@@ -515,7 +516,7 @@ function runSelfTest() {
     );
     const exactShape = JSON.stringify(holdExpected.target) === JSON.stringify(holdActual.target);
     const noNav = !Object.prototype.hasOwnProperty.call(holdExpected.target, "nav");
-    const pass = holdActual.state === "WEAKENING" && holdActual.action === "HOLD" && exactShape && noNav;
+    const pass = holdEngine.state === "WEAKENING" && holdEngine.action === "HOLD" && exactShape && noNav;
     console.log((pass ? "PASS" : "FAIL") + " · HOLD TARGET SHAPE · four Ledger fields only");
     if (!pass) {
       console.log("  expected target:", JSON.stringify(holdExpected.target), "actual:", JSON.stringify(holdActual.target));
