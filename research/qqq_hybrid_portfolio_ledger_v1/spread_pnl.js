@@ -76,7 +76,7 @@ window.PortfolioSpreadPnlV1 = (() => {
     // Never coerce null/undefined/""/non-finite to 0 (Number(null)===0 would invent P&L).
     if (mark === null || mark === undefined || mark === "") return null;
     const n = typeof mark === "number" ? mark : Number(mark);
-    return Number.isFinite(n) ? n : null;
+    return Number.isFinite(n) && n >= 0 ? n : null;
   }
 
   function legSnapshot(book, mark) {
