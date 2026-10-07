@@ -27,12 +27,13 @@ function setup(data=base,position={qqqShares:100,vxxPct:10,qqqCalls:2,vxxCalls:1
   return{e,book,f};
 }
 
-// 1) CARRY -> BUILD when frozen target produces additions.
+// 1) CARRY -> REBALANCE when frozen target has both additions and reductions; engine action remains BUY.
 {
   const {e,book,f}=setup();
   const b=E.strategyActionBridge({d:base,e,book,funding:f,currentOptionLegs:E.currentOptionLegs({qqq:{qty:2},vxx:{qty:1}}),journalRows:[]});
-  assert.strictEqual(b.actionClass,"BUILD");
+  assert.strictEqual(b.actionClass,"REBALANCE");
   assert.strictEqual(b.regime,"CARRY");
+  assert.strictEqual(b.engineAction,"BUY");
   assert.strictEqual(b.qqqCoreTargetPct,42);
   assert.strictEqual(b.noBrokerOrder,true);
   assert.strictEqual(b.funding.status,"CONTEXT_ONLY");
