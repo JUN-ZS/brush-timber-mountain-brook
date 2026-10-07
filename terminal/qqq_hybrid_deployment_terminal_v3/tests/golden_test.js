@@ -54,6 +54,10 @@ assert.strictEqual(pending.sizing.qqqCalls.status,"PENDING_CANDIDATE");
   }
 }
 
+const exactFive={...base,m1:16,m2:16.8,s:((16.8-16)/16)*100};
+assert.strictEqual(E.normalizeTermSlope(exactFive.s),5,"S=5 exact boundary normalization");
+assert.strictEqual(E.derive(exactFive).state,"WEAKENING","S=5 exact boundary must remain HOLD");
+assert.strictEqual(E.derive({...exactFive,s:5.000001}).state,"CARRY","S just above 5 must remain CARRY");
 assert.strictEqual(E.derive({...base,termAsOf:"2026-10-09",spotAsOf:"2026-10-08",today:"2026-10-08"}).health.code,"TERM_DATE_FUTURE");
 assert.strictEqual(E.derive({...base,termAsOf:"2026-10-08",spotAsOf:"2026-10-09",today:"2026-10-08"}).health.code,"SPOT_DATE_FUTURE");
 console.log("V3 golden engine PASS");
