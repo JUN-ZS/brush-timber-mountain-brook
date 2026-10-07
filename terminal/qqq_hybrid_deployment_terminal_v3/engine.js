@@ -83,5 +83,58 @@ window.HybridEngineV3 = (() => {
     rows.push({id:"VXX_ROLL",label:"VXX call roll",value:!hasV?"NO POSITION":"DTE "+(Number.isFinite(vdte)?vdte:"—")+" · Δ "+(Number.isFinite(vdelta)?vdelta.toFixed(2):"—"),fire:hasV&&((Number.isFinite(vdte)&&vdte<=POLICY.vxxRollDte)||(Number.isFinite(vdelta)&&vdelta>=POLICY.vxxRollDelta)||e.state==="SHOCK"),mode:!hasV?"NO_POSITION":((Number.isFinite(vdte)||Number.isFinite(vdelta)||e.state==="SHOCK")?"TRIGGERABLE":"NEEDS_POSITION_DATA"),priority:"HIGH"});
     return rows;
   }
-  return{POLICY,num,operatorNumber,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers};
+  function operatorSummary(d,e,book,candidates={},opt={}){
+    const hasPosition=book.current.qqqShares>0||book.current.vxxPct>0||book.current.qqqCalls>0||book.current.vxxCalls>0;
+    const acts=Object.entries(book.deltas||{}).filter(([,v])=>Number.isFinite(v)&&Math.abs(v)>1e-9);
+    const mode=e.blocked?"PAUSED":e.action==="REDUCE"?"DEFEND":e.action==="HOLD"?"WATCH":acts.length?"BUILD / REBALANCE":hasPosition?"AT TARGET / MONITOR":"EMPTY / READY TO BUILD";
+    const plan=[];
+    if(e.blocked) plan.push("不新增、不減倉：等待完整新數據");
+    else if(e.action==="HOLD") plan.push("不新增 carry：保留現有倉位，等轉態");
+    else if(e.action==="REDUCE"){
+      plan.push("減風險：VXX seller → "+fmtPct(book.target.vxxPct)+"；QQQ core 保留");
+      if(book.target.qqqCalls<book.current.qqqCalls)plan.push("QQQ far call → 減至 "+fmtNum(book.target.qqqCalls)+" spreads");
+      if(book.target.vxxCalls<book.current.vxxCalls)plan.push("VXX call → 減至 "+fmtNum(book.target.vxxCalls)+" spreads");
+    }else{
+      if(book.deltas.qqqShares>0)plan.push("QQQ core +"+fmtNum(book.deltas.qqqShares)+" shares → "+fmtPct(e.targets.qqqCorePct));
+      if(book.deltas.vxxPct>0)plan.push("VXX short +"+fmtPct(book.deltas.vxxPct)+" NAV → "+fmtPct(e.targets.vxxPct));
+      if(book.deltas.qqqCalls>0)plan.push(optionPlan("QQQ far",candidates.qqq,book.deltas.qqqCalls));
+      if(book.deltas.vxxCalls>0)plan.push(optionPlan("VXX call",candidates.vxx,book.deltas.vxxCalls));
+      if(!plan.length)plan.push("已在目標附近：不追買，只監察 / 轉倉");
+    }
+    const thresholds=[];
+    if(Number.isFinite(d.s)){
+      if(d.s>POLICY.termSafe) thresholds.push({id:"S_5",label:"S → 5% · WEAKENING",distance:d.s-POLICY.termSafe,text:fmtNum(d.s-POLICY.termSafe)+" pp"});
+      else if(d.s>0) thresholds.push({id:"S_0",label:"S → 0% · CUT",distance:d.s,text:fmtNum(d.s)+" pp"});
+      else thresholds.push({id:"S_POS",label:"S back > 0% · exit CUT",distance:-d.s,text:fmtNum(-d.s)+" pp"});
+    }
+    if(Number.isFinite(d.vix)){
+      if(d.vix<28) thresholds.push({id:"VIX_28",label:"VIX → 28 · PRE-SHOCK",distance:28-d.vix,text:fmtNum(28-d.vix)+" pts"});
+      else thresholds.push({id:"VIX_DOWN",label:"VIX back < 28 · remove CAP",distance:d.vix-28,text:fmtNum(d.vix-28)+" pts"});
+    }
+    thresholds.sort((a,b)=>Math.abs(a.distance)-Math.abs(b.distance));
+    const rolls={
+      qqq:rollDistance("QQQ far",book.current.qqqCalls,opt.qqqDte,opt.qqqDelta,POLICY.qqqRollDte,POLICY.qqqRollDelta),
+      vxx:rollDistance("VXX call",book.current.vxxCalls,opt.vxxDte,opt.vxxDelta,POLICY.vxxRollDte,POLICY.vxxRollDelta)
+    };
+    return{mode,plan,thresholds:thresholds.slice(0,3),rolls,hasPosition};
+  }
+  function fmtNum(v){return Number.isFinite(Number(v))?Number(v).toLocaleString("en-US",{maximumFractionDigits:2}):"—";}
+  function fmtPct(v){return Number.isFinite(Number(v))?fmtNum(v)+"%":"—";}
+  function optionPlan(label,c,n){
+    if(!c)return label+" +"+fmtNum(n)+" spreads · candidate PENDING";
+    return label+" +"+fmtNum(n)+" spreads · "+fmtNum(c.shortStrike)+"/"+fmtNum(c.longStrike)+" · DTE "+fmtNum(c.dte)+" · Δ "+fmtNum(c.delta)+" · credit "+fmtNum(c.credit);
+  }
+  function rollDistance(label,count,dte,delta,dteLine,deltaLine){
+    if(!(count>0))return{label,status:"OFF",text:"NO POSITION"};
+    const d=Number(dte),del=Number(delta);
+    if(!Number.isFinite(d)&&!Number.isFinite(del))return{label,status:"NEEDS_DATA",text:"輸入現有 spread DTE / Δ"};
+    const dteLeft=Number.isFinite(d)?d-dteLine:null;
+    const deltaLeft=Number.isFinite(del)?deltaLine-del:null;
+    const fire=(Number.isFinite(dteLeft)&&dteLeft<=0)||(Number.isFinite(deltaLeft)&&deltaLeft<=0);
+    const parts=[];
+    if(Number.isFinite(dteLeft))parts.push("DTE "+(dteLeft<=0?"ROLL NOW":fmtNum(dteLeft)+"d"));
+    if(Number.isFinite(deltaLeft))parts.push("Δ "+(deltaLeft<=0?"ROLL NOW":fmtNum(deltaLeft)));
+    return{label,status:fire?"ROLL_NOW":"WATCH",text:parts.join(" · ")};
+  }
+  return{POLICY,num,operatorNumber,term,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,triggers,operatorSummary};
 })();
