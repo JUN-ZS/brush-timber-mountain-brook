@@ -77,3 +77,6 @@ jobs:
 
       - name: Cell 14 — Journal → Memory write-back
         run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell14_journal_memory.js
+
+      - name: Cell 15 — Strategy / Funding Context
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell15_strategy_funding_context.js
