@@ -5,6 +5,7 @@ import os
 import re
 import ssl
 import subprocess
+import threading
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -24,6 +25,7 @@ HOST = "127.0.0.1"
 PORT = int(os.environ.get("QHP_LEDGER_PORT", "8790"))
 OPEND_HOST = "127.0.0.1"
 OPEND_PORT = 11111
+JOURNAL_LOCK = threading.RLock()
 
 
 def now_iso() -> str:
@@ -144,44 +146,66 @@ class CorruptJournalError(ValueError):
     """One corrupt journal line blocks the whole ledger (fail closed)."""
 
 
+class DuplicateEventIdConflict(ValueError):
+    """A reused event id with different content is ambiguous and blocks the write."""
+
+
 def read_events():
-    if not EVENTS.exists():
-        return []
-    out = []
-    for line_no, line in enumerate(EVENTS.read_text(encoding="utf-8").splitlines(), start=1):
-        if not line.strip():
-            continue
-        try:
-            event = json.loads(line)
-            validate_event(event)
-            out.append(event)
-        except (json.JSONDecodeError, ValueError, TypeError) as exc:
-            raise CorruptJournalError(
-                "CORRUPT_JOURNAL: invalid event at line " + str(line_no) + ": " + str(exc)
-            ) from exc
-    return out
+    with JOURNAL_LOCK:
+        if not EVENTS.exists():
+            return []
+        out = []
+        for line_no, line in enumerate(EVENTS.read_text(encoding="utf-8").splitlines(), start=1):
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+                validate_event(event)
+                out.append(event)
+            except (json.JSONDecodeError, ValueError, TypeError) as exc:
+                raise CorruptJournalError(
+                    "CORRUPT_JOURNAL: invalid event at line " + str(line_no) + ": " + str(exc)
+                ) from exc
+        return out
 
 
 def existing_ids():
     return {str(x.get("id")) for x in read_events() if x.get("id")}
 
 
+def _canonical_event(event):
+    return json.dumps(event, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
 def append_events(events):
-    ids = existing_ids()
-    added = 0
-    duplicates = 0
-    with EVENTS.open("a", encoding="utf-8") as handle:
+    with JOURNAL_LOCK:
+        current = read_events()
+        by_id = {str(x.get("id")): x for x in current if x.get("id")}
+        serialized = []
+        added = 0
+        duplicates = 0
+
         for event in events:
             event_id = str(event.get("id") or "")
             if not event_id:
                 raise ValueError("every imported event needs an id")
-            if event_id in ids:
+            previous = by_id.get(event_id)
+            if previous is not None:
+                if _canonical_event(previous) != _canonical_event(event):
+                    raise DuplicateEventIdConflict(
+                        "DUPLICATE_EVENT_ID_CONFLICT: id " + event_id + " already exists with different content"
+                    )
                 duplicates += 1
                 continue
-            handle.write(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
-            ids.add(event_id)
+
+            serialized.append(json.dumps(event, ensure_ascii=False, separators=(",", ":")) + "\n")
+            by_id[event_id] = event
             added += 1
-    return added, duplicates
+
+        if serialized:
+            with EVENTS.open("a", encoding="utf-8") as handle:
+                handle.writelines(serialized)
+        return added, duplicates
 
 
 def opend_marks(symbols):
@@ -335,11 +359,12 @@ class Handler(SimpleHTTPRequestHandler):
                     validate_event(event)
                 added, duplicates = append_events(incoming)
             return json_resp(self, {"ok": True, "added": added, "duplicates": duplicates})
-        except CorruptJournalError as exc:
+        except (CorruptJournalError, DuplicateEventIdConflict) as exc:
+            status = "CORRUPT_JOURNAL" if isinstance(exc, CorruptJournalError) else "DUPLICATE_EVENT_ID_CONFLICT"
             return json_resp(self, {
                 "ok": False,
                 "blocked": True,
-                "status": "CORRUPT_JOURNAL",
+                "status": status,
                 "error": str(exc),
             }, 409)
         except Exception as exc:
