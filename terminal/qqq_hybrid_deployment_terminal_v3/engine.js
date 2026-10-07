@@ -14,7 +14,13 @@ window.HybridEngineV3 = (() => {
     if((!allowZero&&n===0)||n<min)return{status:"INVALID",value:null};
     return{status:"VALUE",value:n};
   }
-  function term(m1,m2){return Number.isFinite(m1)&&Number.isFinite(m2)&&m1!==0?((m2-m1)/m1)*100:null;}
+  // F3 — normalize derived VX slope before any policy boundary comparison.
+  // This prevents IEEE-754 noise such as 5.000000000000004 from crossing the 5% gate.
+  function normalizeTermSlope(v){return Number.isFinite(v)?Math.round(v*1e6)/1e6:null;}
+  function term(m1,m2){
+    const raw=Number.isFinite(m1)&&Number.isFinite(m2)&&m1!==0?((m2-m1)/m1)*100:null;
+    return normalizeTermSlope(raw);
+  }
   // F1 — dates are proof of freshness. Only real YYYY-MM-DD calendar days are accepted.
   function isoDay(v){
     if(typeof v!=="string")return null;
@@ -95,7 +101,8 @@ window.HybridEngineV3 = (() => {
     const health=dataHealth(d);
     if(health.status==="BLOCKED")return{state:"DATA BLOCKED",action:"HOLD",gate:"BLOCKED",targets:null,blocked:true,health,reason:health.code&&health.code!=="MISSING_FIELD"?"Data date unproven: preserve current position and do not invent a risk action.":"Data incomplete: preserve current position and do not invent a risk action."};
     if(health.status==="STALE"||health.status==="MIXED")return{state:health.status==="STALE"?"DATA STALE":"AS-OF MIXED",action:"HOLD",gate:health.status,targets:null,blocked:true,health,reason:health.reason};
-    const high=d.vix>=POLICY.vixHigh,back=d.s<=0,thin=d.s<=POLICY.termSafe;let state,action,gate,reason;
+    const s=normalizeTermSlope(d.s);
+    const high=d.vix>=POLICY.vixHigh,back=s<=0,thin=s<=POLICY.termSafe;let state,action,gate,reason;
     if(high&&back){state="SHOCK";action="REDUCE";gate="CUT";reason="High VIX + VX backwardation: cut VXX seller risk first; preserve QQQ core.";}
     else if(back){state="PRE-SHOCK";action="REDUCE";gate="CUT";reason="VX backwardation: carry gate is broken; no new short-vol deployment.";}
     else if(high){state="PRE-SHOCK";action="REDUCE";gate="CAP";reason="VIX is high: cap seller exposure and stop adding new carry.";}
@@ -158,10 +165,10 @@ window.HybridEngineV3 = (() => {
     };
   }
   function triggers(d,e,opt={}){
-    const rows=[];
-    if(Number.isFinite(d.s)){
-      rows.push({id:"S_ZERO",label:"VX term to zero",value:d.s<=0?"TRIGGERED":d.s.toFixed(2)+"% → 0",fire:d.s<=0,mode:d.s<=0?"TRIGGER":"WATCH",priority:"HIGH"});
-      rows.push({id:"S_SAFE",label:"VX carry line",value:d.s<=POLICY.termSafe?d.s.toFixed(2)+"% ≤ 5%":"above 5%",fire:false,mode:d.s<=POLICY.termSafe?"WATCH":"NORMAL",priority:"MED"});
+    const rows=[];const s=normalizeTermSlope(d.s);
+    if(Number.isFinite(s)){
+      rows.push({id:"S_ZERO",label:"VX term to zero",value:s<=0?"TRIGGERED":s.toFixed(2)+"% → 0",fire:s<=0,mode:s<=0?"TRIGGER":"WATCH",priority:"HIGH"});
+      rows.push({id:"S_SAFE",label:"VX carry line",value:s<=POLICY.termSafe?s.toFixed(2)+"% ≤ 5%":"above 5%",fire:false,mode:s<=POLICY.termSafe?"WATCH":"NORMAL",priority:"MED"});
     }
     if(Number.isFinite(d.vix))rows.push({id:"VIX_28",label:"VIX high line",value:d.vix>=POLICY.vixHigh?"TRIGGERED":(POLICY.vixHigh-d.vix).toFixed(2)+" away",fire:d.vix>=POLICY.vixHigh,mode:d.vix>=POLICY.vixHigh?"TRIGGER":"WATCH",priority:"HIGH"});
     const qdte=num(opt.qqqDte),qdelta=num(opt.qqqDelta),vdte=num(opt.vxxDte),vdelta=num(opt.vxxDelta);
@@ -183,6 +190,7 @@ window.HybridEngineV3 = (() => {
     return rows;
   }
   function operatorSummary(d,e,book,candidates={},opt={}){
+    const s=normalizeTermSlope(d.s);
     const hasPosition=book.current.qqqShares>0||book.current.vxxPct>0||book.current.qqqCalls>0||book.current.vxxCalls>0;
     const acts=Object.entries(book.deltas||{}).filter(([,v])=>Number.isFinite(v)&&Math.abs(v)>1e-9);
     const holdTrims=(!e.blocked&&e.action==="HOLD")?reductionLines(book,"TRIM"):[];
@@ -210,10 +218,10 @@ window.HybridEngineV3 = (() => {
       if(!plan.length)plan.push("已在目標附近：不追買，只監察 / 轉倉");
     }
     const thresholds=[];
-    if(Number.isFinite(d.s)){
-      if(d.s>POLICY.termSafe) thresholds.push({id:"S_5",label:"S → 5% · WEAKENING",distance:d.s-POLICY.termSafe,text:fmtNum(d.s-POLICY.termSafe)+" pp"});
-      else if(d.s>0) thresholds.push({id:"S_0",label:"S → 0% · CUT",distance:d.s,text:fmtNum(d.s)+" pp"});
-      else thresholds.push({id:"S_POS",label:"S back > 0% · exit CUT",distance:-d.s,text:fmtNum(-d.s)+" pp"});
+    if(Number.isFinite(s)){
+      if(s>POLICY.termSafe) thresholds.push({id:"S_5",label:"S → 5% · WEAKENING",distance:s-POLICY.termSafe,text:fmtNum(s-POLICY.termSafe)+" pp"});
+      else if(s>0) thresholds.push({id:"S_0",label:"S → 0% · CUT",distance:s,text:fmtNum(s)+" pp"});
+      else thresholds.push({id:"S_POS",label:"S back > 0% · exit CUT",distance:-s,text:fmtNum(-s)+" pp"});
     }
     if(Number.isFinite(d.vix)){
       if(d.vix<28) thresholds.push({id:"VIX_28",label:"VIX → 28 · PRE-SHOCK",distance:28-d.vix,text:fmtNum(28-d.vix)+" pts"});
