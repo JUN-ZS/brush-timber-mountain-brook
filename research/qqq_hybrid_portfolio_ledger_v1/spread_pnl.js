@@ -131,6 +131,7 @@ window.PortfolioSpreadPnlV1 = (() => {
           rows.push({
             spreadId: paired.spreadId,
             campaignId: null,
+            campaignMetadata: paired.campaignMetadata || "CONFLICT",
             strategyRole: paired.strategyRole,
             status: "INCOMPLETE",
             reason: "POSITION_IDENTITY_METADATA_CONFLICT",
@@ -169,6 +170,7 @@ window.PortfolioSpreadPnlV1 = (() => {
           rows.push({
             spreadId: paired.spreadId,
             campaignId: paired.campaignId,
+            campaignMetadata: paired.campaignMetadata || "UNASSIGNED",
             strategyRole: paired.strategyRole,
             status: "CLOSED",
             reason: "PAIR_HISTORY_CLOSED",
@@ -190,6 +192,7 @@ window.PortfolioSpreadPnlV1 = (() => {
         rows.push({
           spreadId: paired.spreadId,
           campaignId: paired.campaignId,
+          campaignMetadata: paired.campaignMetadata || "UNASSIGNED",
           strategyRole: paired.strategyRole,
           status: "INCOMPLETE",
           reason: "POSITION_IDENTITY_" + paired.status,
@@ -219,6 +222,7 @@ window.PortfolioSpreadPnlV1 = (() => {
         rows.push({
           spreadId: paired.spreadId,
           campaignId: paired.campaignId,
+          campaignMetadata: paired.campaignMetadata || "UNASSIGNED",
           strategyRole: paired.strategyRole,
           status: "INCOMPLETE",
           reason: "LEG_DIRECTION_MISMATCH",
@@ -272,6 +276,7 @@ window.PortfolioSpreadPnlV1 = (() => {
       rows.push({
         spreadId: paired.spreadId,
         campaignId: paired.campaignId,
+        campaignMetadata: paired.campaignMetadata || "UNASSIGNED",
         strategyRole: paired.strategyRole,
         status: "PAIRED",
         reason: "PAIR_AND_MARKS_COMPLETE",
