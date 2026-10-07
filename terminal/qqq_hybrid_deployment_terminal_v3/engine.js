@@ -248,8 +248,9 @@ window.HybridEngineV3 = (() => {
   function fundingPlan({d={},e={},book={},strategyPool="",newCapital=""}={}){
     const pool=operatorNumber(strategyPool,{allowZero:true,min:0});
     const added=operatorNumber(newCapital,{allowZero:true,min:0});
-    const navSrc=book&&book.current?book.current.nav:undefined;
-    const nav=Number.isFinite(Number(navSrc))?Number(navSrc):(book&&book.nav!==undefined?num(book.nav,null):null);
+    const navSrc=nav!==undefined&&nav!==null&&String(nav).trim()!==""?nav:(book&&book.current?book.current.nav:undefined);
+    const navValue=operatorNumber(navSrc,{allowZero:true,min:0});
+    const nav=navValue.status==="VALUE"?navValue.value:(book&&book.nav!==undefined?num(book.nav,null):null);
     const qqqPrice=Number.isFinite(Number(d.qqq))?Number(d.qqq):null;
     const qqqShares=book&&book.current?num(book.current.qqqShares,null):null;
     const qqqValue=Number.isFinite(qqqShares)&&Number.isFinite(qqqPrice)?qqqShares*qqqPrice:null;
