@@ -127,7 +127,7 @@ const partialCampaign = [
   {id:"pc-long",timestamp:"2026-10-10T10:01:00Z",symbol:"QQQ261218C01050000",assetType:"OPTION",side:"BUY",quantity:1,price:2,
    positionIdentity:{spreadId:"PC1",legRole:"LONG"}}
 ];
-const partialCampaignResult = I.build(partialCampaign);
+const partialCampaignResult = P.build(partialCampaign);
 if(partialCampaignResult.rows[0].status !== "PAIRED") throw new Error("partial campaign metadata must not destroy leg pairing");
 if(partialCampaignResult.rows[0].campaignId !== null) throw new Error("partial campaign metadata must not be inherited");
 if(partialCampaignResult.rows[0].campaignMetadata !== "INCOMPLETE") throw new Error("partial campaign metadata must surface INCOMPLETE");
