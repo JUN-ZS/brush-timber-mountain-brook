@@ -82,6 +82,12 @@ assert.strictEqual(E.derive({...base,termAsOf:"2026-10-08",spotAsOf:"2026-10-09"
   const permBlockedBook=E.targetLedger(permBlockedData,permBlockedE,{nav:100000,qqqShares:100,vxxPct:18,qqqCalls:21,vxxCalls:4,inputStatus:{status:"READY",invalid:[],empty:[],fields:{}}},{});
   const pb=E.permissionLedger(permBlockedData,permBlockedE,permBlockedBook,{},100000);
   assert.strictEqual(pb.status,"BLOCKED / NO TRADE"); assert.ok(pb.rows.every(r=>r.maxBuy===0&&r.maxSell===0));
+  assert.ok(pb.note.includes("資料未通過"),"blocked permission must use blocked note");
+  assert.ok(!pb.note.includes("可留"),"blocked permission must not use HOLD wording");
+
+  // UI contract regression: QQQ FULL is presented as frozen 42% NAV plus approximate share count.
+  const appSource=fs.readFileSync(path.join(here,"..","app.js"),"utf8");
+  assert.ok(appSource.includes('"42% NAV (≈"+fmt(r.full,0)+" shares)"'),"QQQ FULL display contract");
 }
 
 console.log("V3 golden engine PASS");
