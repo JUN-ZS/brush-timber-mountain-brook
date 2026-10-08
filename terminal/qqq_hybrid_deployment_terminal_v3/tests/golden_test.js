@@ -72,6 +72,13 @@ assert.strictEqual(E.derive({...base,termAsOf:"2026-10-08",spotAsOf:"2026-10-09"
   const permHoldBook=E.targetLedger(permHoldData,permHoldE,{nav:100000,qqqShares:100,vxxPct:25,qqqCalls:2,vxxCalls:1,inputStatus:{status:"READY",invalid:[],empty:[],fields:{}}},{});
   const ph=E.permissionLedger(permHoldData,permHoldE,permHoldBook,{},100000);
   assert.strictEqual(ph.status,"HOLD / NO NEW CARRY"); assert.strictEqual(ph.rows[0].maxBuy,0); assert.strictEqual(ph.rows[1].nowMax,18); assert.strictEqual(ph.rows[1].maxSell,7); assert.strictEqual(ph.rows[2].maxBuy,0); assert.strictEqual(ph.rows[3].maxBuy,0);
+  const overCapHoldBook=E.targetLedger(permHoldData,permHoldE,{nav:100000,qqqShares:100,vxxPct:25,qqqCalls:1000,vxxCalls:1000,inputStatus:{status:"READY",invalid:[],empty:[],fields:{}}},{qqq:permCand,vxx:permCand});
+  assert.strictEqual(overCapHoldBook.target.qqqCalls,12,"HOLD trims QQQ far-call to frozen capacity");
+  assert.strictEqual(overCapHoldBook.target.vxxCalls,20,"HOLD trims VXX call to frozen capacity");
+  assert.strictEqual(overCapHoldBook.deltas.qqqCalls,-988); assert.strictEqual(overCapHoldBook.deltas.vxxCalls,-980);
+  const phOverCap=E.permissionLedger(permHoldData,permHoldE,overCapHoldBook,{qqq:permCand,vxx:permCand},100000);
+  assert.strictEqual(phOverCap.rows[2].nowMax,12); assert.strictEqual(phOverCap.rows[2].maxBuy,0); assert.strictEqual(phOverCap.rows[2].maxSell,988);
+  assert.strictEqual(phOverCap.rows[3].nowMax,20); assert.strictEqual(phOverCap.rows[3].maxBuy,0); assert.strictEqual(phOverCap.rows[3].maxSell,980);
 
   const permReduceData={...base,vix:32,s:-4},permReduceE=E.derive(permReduceData);
   const permReduceBook=E.targetLedger(permReduceData,permReduceE,{nav:100000,qqqShares:100,vxxPct:18,qqqCalls:21,vxxCalls:4,inputStatus:{status:"READY",invalid:[],empty:[],fields:{}}},{});
