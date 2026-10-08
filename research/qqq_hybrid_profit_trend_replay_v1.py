@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -157,6 +158,59 @@ def build_report(
     }
 
 
+def prepare_simulator_input(spots_path: Path) -> Path:
+    """Adapt repo universe.json shape to the preserved simulator contract.
+
+    The historical simulator expects top-level dates/qqq/vxx/vix arrays.
+    The current repo file stores series under c.{QQQ,VXX,VIX}.
+    This adapter only reshapes and window-slices. It does not alter simulator logic.
+    """
+    raw = json.loads(spots_path.read_text(encoding="utf-8"))
+    if all(k in raw for k in ("dates", "qqq", "vxx", "vix")):
+        return spots_path
+
+    series = raw.get("c") or {}
+    dates = raw.get("dates") or []
+    qqq = series.get("QQQ") or series.get("qqq")
+    vxx = series.get("VXX") or series.get("vxx")
+    vix = series.get("VIX") or series.get("vix")
+    if not dates or qqq is None or vxx is None or vix is None:
+        raise ValueError(
+            "Input is neither simulator shape nor universe.c shape with QQQ/VXX/VIX"
+        )
+    if not (len(dates) == len(qqq) == len(vxx) == len(vix)):
+        raise ValueError("dates/qqq/vxx/vix length mismatch after universe reshape")
+
+    start = pd.Timestamp(WINDOW_START)
+    end = pd.Timestamp(WINDOW_END)
+    kept_dates = []
+    kept_qqq = []
+    kept_vxx = []
+    kept_vix = []
+    for d, q, vx, vi in zip(dates, qqq, vxx, vix):
+        ts = pd.Timestamp(d)
+        if start <= ts <= end and q is not None and vx is not None and vi is not None:
+            kept_dates.append(d)
+            kept_qqq.append(float(q))
+            kept_vxx.append(float(vx))
+            kept_vix.append(float(vi))
+    if len(kept_dates) < 100:
+        raise ValueError(f"Windowed input too short: {len(kept_dates)} rows")
+
+    adapted = {
+        "dates": kept_dates,
+        "qqq": kept_qqq,
+        "vxx": kept_vxx,
+        "vix": kept_vix,
+        "source_adapter": "universe_c_to_simulator_arrays",
+        "window_start": WINDOW_START,
+        "window_end": WINDOW_END,
+    }
+    tmp = Path(tempfile.mkdtemp(prefix="qqq_hybrid_replay_")) / "spots_adapted.json"
+    tmp.write_text(json.dumps(adapted), encoding="utf-8")
+    return tmp
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--spots-path", required=True)
@@ -174,8 +228,9 @@ def main() -> int:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
 
+    spots = prepare_simulator_input(Path(args.spots_path))
     cagr, maxdd, final_nav, opens, closes, events, eq = simulate(
-        args.spots_path,
+        str(spots),
         dynamic=args.dynamic,
     )
     trend = build_profit_trend(eq)
@@ -210,6 +265,7 @@ def main() -> int:
                 "final_nav": float(final_nav),
                 "cagr": float(cagr),
                 "maxdd_daily_mtm": float(maxdd),
+                "input_adapter": str(spots),
             },
             indent=2,
         )
