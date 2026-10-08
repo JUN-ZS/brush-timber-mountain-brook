@@ -59,15 +59,17 @@ def build_corr_state(con, qu, su, base_state):
     x = q.merge(s, on="date", how="inner").sort_values("date").reset_index(drop=True)
     qr = np.log(x["Q_px"] / x["Q_px"].shift(1))
     sr = np.log(x["S_px"] / x["S_px"].shift(1))
-    x["corr60"] = qr.rolling(60, min_periods=40).corr(sr).shift(1)
+    # State is evaluated on the prior trading date before entry. Therefore
+    # corr60 may include information through that signal date, but the
+    # reference median excludes the current corr60 observation.
+    x["corr60"] = qr.rolling(60, min_periods=40).corr(sr)
     x["corr_med_252"] = x["corr60"].rolling(252, min_periods=126).median().shift(1)
 
     st = base_state.copy()
-    st["signal_date"] = pd.to_datetime(st["signal_date"])
+    st["date"] = pd.to_datetime(st["date"])
     corr = x[["date", "corr60", "corr_med_252"]].copy()
-    corr = corr.rename(columns={"date": "signal_date"})
-    corr["signal_date"] = pd.to_datetime(corr["signal_date"])
-    st = st.merge(corr, on="signal_date", how="left")
+    corr["date"] = pd.to_datetime(corr["date"])
+    st = st.merge(corr, on="date", how="left")
     st["corr_gate_ok"] = (
         st["corr60"].notna()
         & st["corr_med_252"].notna()
