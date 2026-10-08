@@ -400,11 +400,11 @@ def finalize_curve(curve, name):
             "sharpe": 0.0,
         }
 
-    ending = float(curve.eq.iloc[-1])
+    ending = float(curve["eq"].iloc[-1])
     years = max((curve.date.iloc[-1] - curve.date.iloc[0]).days / 365.25, 1 / 365.25)
     cagr = (ending / 100000.0) ** (1 / years) - 1
-    dd = float((curve.eq / curve.eq.cummax() - 1).min())
-    r = curve.eq.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
+    dd = float((curve["eq"] / curve["eq"].cummax() - 1).min())
+    r = curve["eq"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
     sharpe = float(r.mean() / r.std(ddof=1) * math.sqrt(TD)) if r.std(ddof=1) > 0 else 0.0
     return {
         "name": name,
@@ -425,21 +425,21 @@ def curve_metrics(base, qfilter, pair):
     q = q.reindex(ix).ffill()
     p = p.reindex(ix).ffill()
 
-    qret = q.eq.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
-    pret = p.eq.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
-    brets = b.eq.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
+    qret = q["eq"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
+    pret = p["eq"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
+    brets = b["eq"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0)
 
     worst = brets.nsmallest(max(1, int(len(brets) * 0.05))).index
     crash_capture = float((pret.loc[worst] - brets.loc[worst]).mean()) if len(worst) else 0.0
     qfilter_delta = float((pret.loc[worst] - qret.loc[worst]).mean()) if len(worst) else 0.0
 
     return {
-        "pair_minus_qqq_cagr_pp": (p.eq.iloc[-1] / 100000.0) ** (1 / max((p.index[-1] - p.index[0]).days / 365.25, 1 / 365.25)) - 1
-        - ((b.eq.iloc[-1] / 100000.0) ** (1 / max((b.index[-1] - b.index[0]).days / 365.25, 1 / 365.25)) - 1),
-        "pair_minus_qqq_maxdd_pp": float(p.eq.div(p.eq.cummax()).sub(1).min() - b.eq.div(b.eq.cummax()).sub(1).min()),
-        "pair_minus_activity_matched_qqq_cagr_pp": (p.eq.iloc[-1] / 100000.0) ** (1 / max((p.index[-1] - p.index[0]).days / 365.25, 1 / 365.25)) - 1
-        - ((q.eq.iloc[-1] / 100000.0) ** (1 / max((q.index[-1] - q.index[0]).days / 365.25, 1 / 365.25)) - 1),
-        "pair_minus_activity_matched_qqq_maxdd_pp": float(p.eq.div(p.eq.cummax()).sub(1).min() - q.eq.div(q.eq.cummax()).sub(1).min()),
+        "pair_minus_qqq_cagr_pp": (p["eq"].iloc[-1] / 100000.0) ** (1 / max((p.index[-1] - p.index[0]).days / 365.25, 1 / 365.25)) - 1
+        - ((b["eq"].iloc[-1] / 100000.0) ** (1 / max((b.index[-1] - b.index[0]).days / 365.25, 1 / 365.25)) - 1),
+        "pair_minus_qqq_maxdd_pp": float(p["eq"].div(p["eq"].cummax()).sub(1).min() - b["eq"].div(b["eq"].cummax()).sub(1).min()),
+        "pair_minus_activity_matched_qqq_cagr_pp": (p["eq"].iloc[-1] / 100000.0) ** (1 / max((p.index[-1] - p.index[0]).days / 365.25, 1 / 365.25)) - 1
+        - ((q["eq"].iloc[-1] / 100000.0) ** (1 / max((q.index[-1] - q.index[0]).days / 365.25, 1 / 365.25)) - 1),
+        "pair_minus_activity_matched_qqq_maxdd_pp": float(p["eq"].div(p["eq"].cummax()).sub(1).min() - q["eq"].div(q["eq"].cummax()).sub(1).min()),
         "crash_capture_vs_all_qqq_mean_daily_pp": crash_capture,
         "crash_capture_vs_activity_matched_qqq_mean_daily_pp": qfilter_delta,
     }
