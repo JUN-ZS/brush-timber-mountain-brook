@@ -75,7 +75,15 @@ Every decision records:
 
 ## Journal → Operator Memory (Cell 14)
 
-After journaling (or from the last journal row), the operator can **從 Journal 還原 Memory · Restore Memory from last Journal** so a reload does not wipe Operator Memory. Map is 1:1 and easy to verify — **never** Candidate / NOW plan strikes.\n\n## Strategy State → Operator Action Bridge (Cell 16)
+After journaling (or from the last journal row), the operator can **從 Journal 還原 Memory · Restore Memory from last Journal** so a reload does not wipe Operator Memory. Map is 1:1 and easy to verify — **never** Candidate / NOW plan strikes.\n\n## Current Permission · Full Strategy
+
+The operator screen now includes a read-only CURRENT PERMISSION · FULL STRATEGY table. It shows FULL frozen capacity, CAN KEEP NOW, MAX BUY NOW, and MAX SELL NOW for QQQ core, VXX short, QQQ far-call spreads, and VXX call spreads.
+
+Important: **CAN KEEP NOW does not mean CAN BUY NOW.** WEAKENING / HOLD keeps existing carry but permits no new short-vol carry; CARRY / BUY permits building toward the full target; REDUCE / SHOCK shows the current risk-reduction ceiling; DATA BLOCKED permits neither buy nor sell.
+
+This is a visibility layer only. It does not create a second strategy, change the frozen policy, or submit broker orders.
+
+## Strategy State → Operator Action Bridge (Cell 16)
 
 Cell 16 is the read-only hand-off that closes the operator loop:
 
