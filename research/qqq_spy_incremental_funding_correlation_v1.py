@@ -99,7 +99,7 @@ def make_position(component, qty, entry_date, exit_date):
 def build_candidates(con, state, qpath, spath, gated, name):
     days = entry_days(state)
     state_dates = sorted(pd.to_datetime(state.date).tolist())
-    st = state.set_index("entry_date")
+    st = state.set_index("date")
 
     q_candidates = []
     pair_candidates = []
@@ -110,7 +110,7 @@ def build_candidates(con, state, qpath, spath, gated, name):
         if sigd is None:
             continue
         try:
-            row = st.loc[d]
+            row = st.loc[pd.Timestamp(sigd)]
         except KeyError:
             continue
         if isinstance(row, pd.DataFrame):
@@ -451,7 +451,7 @@ def main():
     window_end = pd.Timestamp(END)
     if args.window == "oos":
         window_start = pd.Timestamp("2022-01-03")
-        state = state[state.entry_date >= window_start].copy()
+        state = state[state.date >= window_start].copy()
     elif args.window == "late_oos":
         window_start = pd.Timestamp("2024-01-02")
         state = state[state.entry_date >= window_start].copy()
