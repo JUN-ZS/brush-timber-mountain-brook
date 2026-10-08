@@ -13,7 +13,6 @@ on:
 permissions:
   contents: read
 
-# Only the self-hosted Windows runner pool; no Linux job and no GitHub-hosted runner.
 concurrency:
   group: qqq-spy-incremental-funding-correlation-v1
   cancel-in-progress: true
@@ -23,6 +22,7 @@ jobs:
     name: Trusted replay / self-hosted Windows
     runs-on: [self-hosted, windows, x64]
     timeout-minutes: 180
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,65 +33,66 @@ jobs:
           python-version: "3.12"
 
       - name: Runtime preflight
-        shell: pwsh
+        shell: cmd
         run: |
-          $ErrorActionPreference = "Stop"
-          Write-Host "runner=$env:COMPUTERNAME"
+          echo runner=%COMPUTERNAME%
           python --version
-          Get-Command python
-          Get-Command curl.exe
-          curl.exe --version | Select-Object -First 1
+          where python
+          where curl.exe
+          curl.exe --version
           python -c "import duckdb, pandas, pyarrow, numpy; print('PASS required Python modules')"
+          if errorlevel 1 exit /b 1
 
       - name: Download canonical QQQ/SPY data
-        shell: pwsh
+        shell: cmd
         run: |
-          $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Force -Path data, artifacts/qqq_spy_incremental_trusted | Out-Null
-          curl.exe -L --fail --retry 4 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
-          curl.exe -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
-          curl.exe -L --fail --retry 4 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
-          curl.exe -L --fail --retry 4 -o data/SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
-          foreach ($f in @(
-            "data/QQQ_options.parquet",
-            "data/SPY_options.parquet",
-            "data/QQQ_underlying.parquet",
-            "data/SPY_underlying.parquet"
-          )) {
-            if (-not (Test-Path $f) -or ((Get-Item $f).Length -le 0)) {
-              throw "Missing or empty data file: $f"
-            }
-          }
+          if not exist data mkdir data
+          if not exist artifacts\qqq_spy_incremental_trusted mkdir artifacts\qqq_spy_incremental_trusted
+          curl.exe -L --fail --retry 4 -o data\QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          if errorlevel 1 exit /b 1
+          curl.exe -L --fail --retry 4 -o data\SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
+          if errorlevel 1 exit /b 1
+          curl.exe -L --fail --retry 4 -o data\QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          if errorlevel 1 exit /b 1
+          curl.exe -L --fail --retry 4 -o data\SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
+          if errorlevel 1 exit /b 1
+          for %%F in (data\QQQ_options.parquet data\SPY_options.parquet data\QQQ_underlying.parquet data\SPY_underlying.parquet) do if not exist "%%F" exit /b 1
+          for %%F in (data\QQQ_options.parquet data\SPY_options.parquet data\QQQ_underlying.parquet data\SPY_underlying.parquet) do if %%~zF LEQ 0 exit /b 1
 
       - name: Contract gate
-        shell: pwsh
+        shell: cmd
         run: |
-          $ErrorActionPreference = "Stop"
-          $src = Get-Content -Raw research/qqq_spy_incremental_funding_correlation_v1.py
-          if ($src.Contains("pair[")) { throw "ERROR: stale pair[] symbol remains" }
-          if ($src.Contains("state.entry_date")) { throw "ERROR: stale state.entry_date contract remains" }
-          python -m py_compile research/qqq_spy_self_financing_range_v1.py
-          python -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
-          python -c "import sys; sys.path.insert(0,'research'); import qqq_spy_incremental_funding_correlation_v1 as m; assert m.NEW_POLICY == 'CORRELATION_MEDIAN_VETO'; print('PASS module contract')"
+          findstr /N /C:"pair[" research\qqq_spy_incremental_funding_correlation_v1.py >nul
+          if not errorlevel 1 exit /b 1
+          findstr /N /C:"state.entry_date" research\qqq_spy_incremental_funding_correlation_v1.py >nul
+          if not errorlevel 1 exit /b 1
+          python -m py_compile research\qqq_spy_self_financing_range_v1.py
+          if errorlevel 1 exit /b 1
+          python -m py_compile research\qqq_spy_incremental_funding_correlation_v1.py
+          if errorlevel 1 exit /b 1
+          set PYTHONPATH=research
+          python -c "import qqq_spy_incremental_funding_correlation_v1 as m; assert m.NEW_POLICY == 'CORRELATION_MEDIAN_VETO'; print('PASS module contract')"
+          if errorlevel 1 exit /b 1
 
       - name: Run full sample
-        shell: pwsh
+        shell: cmd
         run: |
-          $ErrorActionPreference = "Stop"
-          python research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_trusted/full --window full
+          python research\qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts\qqq_spy_incremental_trusted\full --window full
+          if errorlevel 1 exit /b 1
 
       - name: Run locked evaluation windows
-        shell: pwsh
+        shell: cmd
         run: |
-          $ErrorActionPreference = "Stop"
-          python research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_trusted/oos --window oos
-          python research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_trusted/late_oos --window late_oos
+          python research\qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts\qqq_spy_incremental_trusted\oos --window oos
+          if errorlevel 1 exit /b 1
+          python research\qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts\qqq_spy_incremental_trusted\late_oos --window late_oos
+          if errorlevel 1 exit /b 1
 
       - name: Verify trial ledger and guardrails
-        shell: pwsh
+        shell: cmd
         run: |
-          $ErrorActionPreference = "Stop"
-          python -c "import json; from pathlib import Path; root=Path('artifacts/qqq_spy_incremental_trusted'); [(_:=json.loads((root/w/'RESULTS.json').read_text(encoding='utf-8')), (_['guardrails']['research_only'] is True) or (_ and (_ for _ in ()).throw(AssertionError(f'{w}: research_only'))), (_['guardrails']['no_parameter_search'] is True) or (_ and (_ for _ in ()).throw(AssertionError(f'{w}: no_parameter_search'))), (_['guardrails']['no_live_orders'] is True) or (_ and (_ for _ in ()).throw(AssertionError(f'{w}: no_live_orders'))), (_['window']==w) or (_ and (_ for _ in ()).throw(AssertionError(f'{w}: window mismatch'))) ] for w in ['full','oos','late_oos']; x=json.loads((root/'full'/'TRIAL_LEDGER.json').read_text(encoding='utf-8')); assert x['selection_status']=='LOCKED_FOR_COMPARISON'; assert x['total_variant_window_cells']==12; assert x['no_parameter_search'] is True; assert x['no_live_orders'] is True; print('PASS trial ledger + all guardrails')"
+          python -c "import json; from pathlib import Path; root=Path(r'artifacts\qqq_spy_incremental_trusted'); ws=['full','oos','late_oos']; ms=[json.loads((root/w/'RESULTS.json').read_text(encoding='utf-8')) for w in ws]; assert all(m['guardrails']['research_only'] and m['guardrails']['no_parameter_search'] and m['guardrails']['no_live_orders'] and m['window']==w for m,w in zip(ms,ws)); x=json.loads((root/'full'/'TRIAL_LEDGER.json').read_text(encoding='utf-8')); assert x['selection_status']=='LOCKED_FOR_COMPARISON' and x['total_variant_window_cells']==12 and x['no_parameter_search'] and x['no_live_orders']; print('PASS trial ledger + all guardrails')"
+          if errorlevel 1 exit /b 1
 
       - name: Upload trusted evidence
         if: always()
