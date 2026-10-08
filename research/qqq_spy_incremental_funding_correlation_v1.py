@@ -245,6 +245,27 @@ def load_marks_for_candidates(con, qpath, spath, q_candidates, pair_candidates):
     return _load_marks(con, qpath, spath, ids)
 
 
+def current_mtm(active, marks, d):
+    total = 0.0
+    for p in active:
+        if "components" in p:
+            for comp in p["components"]:
+                for leg in comp["legs"]:
+                    _, _, mark = marks.get((comp["symbol"], str(leg[6]), d), (None, None, None))
+                    if mark is None:
+                        return None
+                    total += leg[4] * mark * M * p["qty"] * comp["units"]
+                total += comp["entry_cf"] * p["qty"] * comp["units"]
+        else:
+            for leg in p["legs"]:
+                _, _, mark = marks.get((p["symbol"], str(leg[6]), d), (None, None, None))
+                if mark is None:
+                    return None
+                total += leg[4] * mark * M * p["qty"]
+            total += p["entry_cf"] * p["qty"]
+    return total
+
+
 def run_q_only(con, state, marks, candidates, name, target_dates):
     by_entry = {}
     for p in candidates:
@@ -255,8 +276,9 @@ def run_q_only(con, state, marks, candidates, name, target_dates):
     rows = []
     for d in target_dates:
         d = pd.Timestamp(d)
+        nav_before = 100000.0 + realized + (current_mtm(active, marks, d) or 0.0)
         for p in by_entry.get(d, []):
-            qty = int(math.floor(max(100000.0 + realized, 1.0) * RISK_BUDGET / max(p["risk"], 1e-9)))
+            qty = int(math.floor(max(nav_before, 1.0) * RISK_BUDGET / max(p["risk"], 1e-9)))
             if qty > 0:
                 active.append(make_position(p, qty, d, p["target_exit"]))
 
@@ -309,8 +331,8 @@ def run_pair(con, state, marks, candidates, name, target_dates):
     rows = []
     for d in target_dates:
         d = pd.Timestamp(d)
+        nav_now = max(100000.0 + realized + (current_mtm(active, marks, d) or 0.0), 1.0)
         for b in by_entry.get(d, []):
-            nav_now = max(100000.0 + realized, 1.0)
             qty = int(math.floor(nav_now * RISK_BUDGET / max(b["risk"], 1e-9)))
             if qty > 0:
                 active.append({**b, "qty": qty, "component_open": [True, True]})
@@ -402,7 +424,7 @@ def curve_metrics(base, qfilter, pair):
 
     worst = brets.nsmallest(max(1, int(len(brets) * 0.05))).index
     crash_capture = float((pret.loc[worst] - brets.loc[worst]).mean()) if len(worst) else 0.0
-    qfilter_delta = float((qret.loc[worst] - brets.loc[worst]).mean()) if len(worst) else 0.0
+    qfilter_delta = float((pret.loc[worst] - qret.loc[worst]).mean()) if len(worst) else 0.0
 
     return {
         "pair_minus_qqq_cagr_pp": (p.eq.iloc[-1] / 100000.0) ** (1 / max((p.index[-1] - p.index[0]).days / 365.25, 1 / 365.25)) - 1
@@ -561,8 +583,9 @@ def main():
         "",
         "Incremental comparisons (pair minus QQQ) are reported separately from absolute performance.",
         "The activity-matched QQQ control uses the same pair eligibility dates, isolating the incremental contribution of the SPY leg.",
+        "Crash capture vs activity-matched QQQ is pair minus activity-matched QQQ on the worst 5% QQQ-only daily-return dates.",
         "",
-        "The correlation veto is a state filter, not a return predictor: Cboe notes correlation spikes reduce diversification benefits and coincide with greater systemic tail risk. citeturn486085search2turn486085search12",
+        "The correlation veto is a state filter, not a return predictor; external research rationale is documented separately from the executable artifact.",
         "This run is research-only and the structure family is not virgin OOS.",
     ]
     (out / "RESULTS.md").write_text("\n".join(lines), encoding="utf-8")
