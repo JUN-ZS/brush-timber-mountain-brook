@@ -13,9 +13,15 @@ on:
 permissions:
   contents: read
 
+# Only the newest research commit is allowed to consume a self-hosted runner.
 concurrency:
   group: qqq-spy-incremental-funding-correlation-v1
   cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_INPUT: "1"
 
 jobs:
   replay-linux:
@@ -27,47 +33,77 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare Python venv
+
+      - name: Runner preflight
         run: |
+          set -euo pipefail
+          echo "runner=$(hostname)"
+          echo "kernel=$(uname -a)"
+          command -v python3
           python3 --version
-          python3 -m venv "$RUNNER_TEMP/qqqspy-venv"
+          command -v curl
+          curl --version | head -n 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-qqq-spy-incremental.txt
+
+      - name: Prepare isolated Python venv
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/qqqspy-venv"
+          python -m venv "$RUNNER_TEMP/qqqspy-venv"
           "$RUNNER_TEMP/qqqspy-venv/bin/python" -m pip install --upgrade pip
-          "$RUNNER_TEMP/qqqspy-venv/bin/python" -m pip install duckdb pandas pyarrow numpy
+          "$RUNNER_TEMP/qqqspy-venv/bin/python" -m pip install -r requirements-qqq-spy-incremental.txt
           echo "PYTHON_BIN=$RUNNER_TEMP/qqqspy-venv/bin/python" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/qqqspy-venv/bin/python" --version
+          "$RUNNER_TEMP/qqqspy-venv/bin/python" -m pip freeze
 
       - name: Download canonical QQQ/SPY data
         run: |
+          set -euo pipefail
           mkdir -p data artifacts/qqq_spy_incremental_linux
           curl -L --fail --retry 4 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
           curl -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
           curl -L --fail --retry 4 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
           curl -L --fail --retry 4 -o data/SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
+          test -s data/QQQ_options.parquet
+          test -s data/SPY_options.parquet
+          test -s data/QQQ_underlying.parquet
+          test -s data/SPY_underlying.parquet
 
-      - name: Compile
+      - name: Validate source contract
         run: |
+          set -euo pipefail
+          grep -nF 'pair[' research/qqq_spy_incremental_funding_correlation_v1.py && {
+            echo "ERROR: stale pair[] symbol remains"
+            exit 1
+          } || true
+          grep -nF 'state.entry_date' research/qqq_spy_incremental_funding_correlation_v1.py && {
+            echo "ERROR: stale state.entry_date contract remains"
+            exit 1
+          } || true
           "$PYTHON_BIN" -m py_compile research/qqq_spy_self_financing_range_v1.py
           "$PYTHON_BIN" -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
+          "$PYTHON_BIN" -c "import research.qqq_spy_incremental_funding_correlation_v1 as m; assert m.NEW_POLICY == 'CORRELATION_MEDIAN_VETO'"
 
       - name: Run full sample
         run: |
-          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py \
-            --data-dir data \
-            --out artifacts/qqq_spy_incremental_linux/full \
-            --window full
+          set -euo pipefail
+          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_linux/full --window full
 
       - name: Run locked evaluation windows
         run: |
-          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py \
-            --data-dir data \
-            --out artifacts/qqq_spy_incremental_linux/oos \
-            --window oos
-          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py \
-            --data-dir data \
-            --out artifacts/qqq_spy_incremental_linux/late_oos \
-            --window late_oos
+          set -euo pipefail
+          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_linux/oos --window oos
+          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_linux/late_oos --window late_oos
 
       - name: Verify committed trial ledger
         run: |
+          set -euo pipefail
           "$PYTHON_BIN" - <<'PY'
           import json
           from pathlib import Path
@@ -94,48 +130,79 @@ jobs:
     timeout-minutes: 180
     defaults:
       run:
-        shell: bash
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
+
+      - name: Runner preflight
+        run: |
+          $ErrorActionPreference = "Stop"
+          Write-Host "runner=$env:COMPUTERNAME"
+          Write-Host "os=$([System.Environment]::OSVersion.VersionString)"
+          Get-Command python
+          python --version
+          Get-Command curl.exe
+          curl.exe --version | Select-Object -First 1
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-qqq-spy-incremental.txt
 
-      - name: Prepare Python
+      - name: Prepare isolated Python venv
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install duckdb pandas pyarrow numpy
+          $ErrorActionPreference = "Stop"
+          $venv = Join-Path $env:RUNNER_TEMP "qqqspy-venv"
+          if (Test-Path $venv) { Remove-Item -Recurse -Force $venv }
+          python -m venv $venv
+          $pythonBin = Join-Path $venv "Scripts/python.exe"
+          & $pythonBin -m pip install --upgrade pip
+          & $pythonBin -m pip install -r requirements-qqq-spy-incremental.txt
+          "PYTHON_BIN=$pythonBin" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          & $pythonBin --version
+          & $pythonBin -m pip freeze
 
       - name: Download canonical QQQ/SPY data
         run: |
-          mkdir -p data artifacts/qqq_spy_incremental_windows
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path data, artifacts/qqq_spy_incremental_windows | Out-Null
           curl.exe -L --fail --retry 4 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
           curl.exe -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
           curl.exe -L --fail --retry 4 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
           curl.exe -L --fail --retry 4 -o data/SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
+          foreach ($f in @(
+            "data/QQQ_options.parquet",
+            "data/SPY_options.parquet",
+            "data/QQQ_underlying.parquet",
+            "data/SPY_underlying.parquet"
+          )) {
+            if (-not (Test-Path $f) -or ((Get-Item $f).Length -le 0)) {
+              throw "Missing or empty data file: $f"
+            }
+          }
 
-      - name: Compile
+      - name: Validate source contract
         run: |
-          python -m py_compile research/qqq_spy_self_financing_range_v1.py
-          python -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
+          $ErrorActionPreference = "Stop"
+          $src = Get-Content -Raw research/qqq_spy_incremental_funding_correlation_v1.py
+          if ($src.Contains("pair[")) { throw "ERROR: stale pair[] symbol remains" }
+          if ($src.Contains("state.entry_date")) { throw "ERROR: stale state.entry_date contract remains" }
+          & $env:PYTHON_BIN -m py_compile research/qqq_spy_self_financing_range_v1.py
+          & $env:PYTHON_BIN -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
+          & $env:PYTHON_BIN -c "import research.qqq_spy_incremental_funding_correlation_v1 as m; assert m.NEW_POLICY == 'CORRELATION_MEDIAN_VETO'"
 
       - name: Run full sample
         run: |
-          python research/qqq_spy_incremental_funding_correlation_v1.py \
-            --data-dir data \
-            --out artifacts/qqq_spy_incremental_windows/full \
-            --window full
+          $ErrorActionPreference = "Stop"
+          & $env:PYTHON_BIN research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_windows/full --window full
 
       - name: Run locked evaluation windows
         run: |
-          python research/qqq_spy_incremental_funding_correlation_v1.py \
-            --data-dir data \
-            --out artifacts/qqq_spy_incremental_windows/oos \
-            --window oos
-          python research/qqq_spy_incremental_funding_correlation_v1.py \
-            --data-dir data \
-            --out artifacts/qqq_spy_incremental_windows/late_oos \
-            --window late_oos
+          $ErrorActionPreference = "Stop"
+          & $env:PYTHON_BIN research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_windows/oos --window oos
+          & $env:PYTHON_BIN research/qqq_spy_incremental_funding_correlation_v1.py --data-dir data --out artifacts/qqq_spy_incremental_windows/late_oos --window late_oos
 
       - name: Upload Windows evidence
         if: always()
@@ -151,16 +218,33 @@ jobs:
     needs: [replay-linux, replay-windows]
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
+
+      - name: Runner preflight
+        run: |
+          set -euo pipefail
+          echo "parity-runner=$(hostname)"
+          python3 --version
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-qqq-spy-incremental.txt
 
-      - name: Prepare Python
+      - name: Prepare parity Python
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install pandas numpy
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/qqqspy-parity-venv"
+          python -m venv "$RUNNER_TEMP/qqqspy-parity-venv"
+          "$RUNNER_TEMP/qqqspy-parity-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/qqqspy-parity-venv/bin/python" -m pip install -r requirements-qqq-spy-incremental.txt
+          echo "PYTHON_BIN=$RUNNER_TEMP/qqqspy-parity-venv/bin/python" >> "$GITHUB_ENV"
 
       - name: Download replay evidence
         uses: actions/download-artifact@v4
@@ -169,13 +253,13 @@ jobs:
           path: downloaded
           merge-multiple: false
 
-      - name: Verify parity and policy invariants
+      - name: Verify replay evidence and exact parity
         run: |
-          python - <<'PY'
+          set -euo pipefail
+          "$PYTHON_BIN" - <<'PY'
           from pathlib import Path
           import json
           import numpy as np
-          import pandas as pd
 
           root = Path("downloaded")
           out = Path("parity_artifact")
@@ -185,21 +269,25 @@ jobs:
           for window in ["full", "oos", "late_oos"]:
               l = root / "qqq-spy-incremental-linux" / window
               w = root / "qqq-spy-incremental-windows" / window
-              for platform, p in [("linux", l), ("windows", w)]:
-                  m = json.loads((p / "RESULTS.json").read_text(encoding="utf-8"))
+              if not (l / "RESULTS.json").exists():
+                  raise AssertionError(f"missing Linux RESULTS.json: {window}")
+              if not (w / "RESULTS.json").exists():
+                  raise AssertionError(f"missing Windows RESULTS.json: {window}")
+              lm = json.loads((l / "RESULTS.json").read_text(encoding="utf-8"))
+              wm = json.loads((w / "RESULTS.json").read_text(encoding="utf-8"))
+              for platform, m in [("linux", lm), ("windows", wm)]:
                   if m["guardrails"]["no_live_orders"] is not True:
                       raise AssertionError(f"{platform}/{window}: live orders guardrail failed")
                   if m["guardrails"]["no_parameter_search"] is not True:
                       raise AssertionError(f"{platform}/{window}: parameter-search guardrail failed")
                   if m["guardrails"]["research_only"] is not True:
                       raise AssertionError(f"{platform}/{window}: research-only guardrail failed")
-                  rows.append((window, platform, m))
+              rows.extend([(window, "linux", lm), (window, "windows", wm)])
 
           lines = [
-              "# QQQ-SPY Incremental Funding / Correlation — Parity",
+              "# QQQ-SPY Incremental Funding / Correlation — Exact Parity",
               "",
               "Policy: SPY funding is allowed only when prior-day 60D realized QQQ/SPY correlation is at or below its causal trailing 252-day median.",
-              "This is a state veto, not a forward-return predictor.",
               "",
               "| window | metric | absolute Linux-Windows diff |",
               "|---|---|---:|",
@@ -217,8 +305,8 @@ jobs:
                           raise AssertionError(f"parity mismatch {window}/{variant}/{metric}: {diff}")
                       lines.append(f"| {window} | {variant}.{metric} | {diff:.12g} |")
 
-          (out / "PARITY.md").write_text("\\n".join(lines), encoding="utf-8")
-          print("\\n".join(lines))
+          (out / "PARITY.md").write_text("\n".join(lines), encoding="utf-8")
+          print("\n".join(lines))
           PY
 
       - name: Upload parity evidence
