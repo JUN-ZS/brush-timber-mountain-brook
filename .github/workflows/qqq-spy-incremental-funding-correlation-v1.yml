@@ -27,14 +27,12 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Prepare Python
+      - name: Prepare Python (system)
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install duckdb pandas pyarrow numpy
+          python3 --version
+          python3 -m pip --version
+          python3 -m pip install --user --upgrade pip
+          python3 -m pip install --user duckdb pandas pyarrow numpy
 
       - name: Download canonical QQQ/SPY data
         run: |
@@ -46,8 +44,8 @@ jobs:
 
       - name: Compile
         run: |
-          python -m py_compile research/qqq_spy_self_financing_range_v1.py
-          python -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
+          python3 -m py_compile research/qqq_spy_self_financing_range_v1.py
+          python3 -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
 
       - name: Run full sample
         run: |
