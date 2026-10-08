@@ -79,7 +79,7 @@ After journaling (or from the last journal row), the operator can **從 Journal 
 
 The operator screen now includes a read-only CURRENT PERMISSION · FULL STRATEGY table. It shows FULL frozen capacity, CAN KEEP NOW, MAX BUY NOW, and MAX SELL NOW for QQQ core, VXX short, QQQ far-call spreads, and VXX call spreads. QQQ FULL is displayed as **42% NAV plus its approximate share equivalent**; the frozen policy remains percentage-based.
 
-Important: **CAN KEEP NOW does not mean CAN BUY NOW.** WEAKENING / HOLD keeps existing carry but permits no new short-vol carry; CARRY / BUY permits building toward the full target; REDUCE / SHOCK shows the current risk-reduction ceiling; DATA BLOCKED permits neither buy nor sell.
+Important: **CAN KEEP NOW does not mean CAN BUY NOW.** WEAKENING / HOLD permits no new carry, but existing option carry is kept **only up to the current frozen sizing capacity when a valid candidate exists**; anything above that capacity is a TRIM. Without a valid candidate, the terminal does not invent a contract count. CARRY / BUY permits building toward the full target; REDUCE / SHOCK shows the current risk-reduction ceiling; DATA BLOCKED permits neither buy nor sell.
 
 This is a visibility layer only. It does not create a second strategy, change the frozen policy, or submit broker orders.
 
