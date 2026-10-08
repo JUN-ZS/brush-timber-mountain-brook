@@ -60,6 +60,30 @@ assert.strictEqual(E.derive(exactFive).state,"WEAKENING","S=5 exact boundary mus
 assert.strictEqual(E.derive({...exactFive,s:5.000001}).state,"CARRY","S just above 5 must remain CARRY");
 assert.strictEqual(E.derive({...base,termAsOf:"2026-10-09",spotAsOf:"2026-10-08",today:"2026-10-08"}).health.code,"TERM_DATE_FUTURE");
 assert.strictEqual(E.derive({...base,termAsOf:"2026-10-08",spotAsOf:"2026-10-09",today:"2026-10-08"}).health.code,"SPOT_DATE_FUTURE");
+{
+  const permCarryData={...base,s:8};
+  const permCarryE=E.derive(permCarryData),permCand={credit:1,sizingAvailable:true};
+  const permCarryBook=E.targetLedger(permCarryData,permCarryE,{nav:100000,qqqShares:40,vxxPct:10,qqqCalls:2,vxxCalls:3,inputStatus:{status:"READY",invalid:[],empty:[],fields:{}}},{qqq:permCand,vxx:permCand});
+  const pc=E.permissionLedger(permCarryData,permCarryE,permCarryBook,{qqq:permCand,vxx:permCand},100000);
+  assert.strictEqual(pc.status,"CARRY / BUILD TOWARD FULL"); assert.strictEqual(pc.rows[0].maxBuy,16); assert.strictEqual(pc.rows[1].maxBuy,8);
+  assert.strictEqual(pc.rows[2].maxBuy,10); assert.strictEqual(pc.rows[3].maxBuy,17);
+
+  const permHoldData={...base,s:3},permHoldE=E.derive(permHoldData);
+  const permHoldBook=E.targetLedger(permHoldData,permHoldE,{nav:100000,qqqShares:100,vxxPct:25,qqqCalls:2,vxxCalls:1,inputStatus:{status:"READY",invalid:[],empty:[],fields:{}}},{});
+  const ph=E.permissionLedger(permHoldData,permHoldE,permHoldBook,{},100000);
+  assert.strictEqual(ph.status,"HOLD / NO NEW CARRY"); assert.strictEqual(ph.rows[0].maxBuy,0); assert.strictEqual(ph.rows[1].nowMax,18); assert.strictEqual(ph.rows[1].maxSell,7); assert.strictEqual(ph.rows[2].maxBuy,0); assert.strictEqual(ph.rows[3].maxBuy,0);
+
+  const permReduceData={...base,vix:32,s:-4},permReduceE=E.derive(permReduceData);
+  const permReduceBook=E.targetLedger(permReduceData,permReduceE,{nav:100000,qqqShares:100,vxxPct:18,qqqCalls:21,vxxCalls:4,inputStatus:{status:"READY",invalid:[],empty:[],fields:{}}},{});
+  const pr=E.permissionLedger(permReduceData,permReduceE,permReduceBook,{},100000);
+  assert.strictEqual(pr.status,"SHOCK / CUT"); assert.strictEqual(pr.rows[0].maxSell,0); assert.strictEqual(pr.rows[1].nowMax,0); assert.strictEqual(pr.rows[1].maxSell,18); assert.strictEqual(pr.rows[2].maxSell,21); assert.strictEqual(pr.rows[3].maxSell,4);
+
+  const permBlockedData={...base,m1:null,m2:null,s:null},permBlockedE=E.derive(permBlockedData);
+  const permBlockedBook=E.targetLedger(permBlockedData,permBlockedE,{nav:100000,qqqShares:100,vxxPct:18,qqqCalls:21,vxxCalls:4,inputStatus:{status:"READY",invalid:[],empty:[],fields:{}}},{});
+  const pb=E.permissionLedger(permBlockedData,permBlockedE,permBlockedBook,{},100000);
+  assert.strictEqual(pb.status,"BLOCKED / NO TRADE"); assert.ok(pb.rows.every(r=>r.maxBuy===0&&r.maxSell===0));
+}
+
 console.log("V3 golden engine PASS");
 
 // Cell 14 coverage via golden step (OAuth token lacks `workflow` scope to edit cells YAML).
