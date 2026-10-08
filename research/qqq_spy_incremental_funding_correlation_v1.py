@@ -521,7 +521,7 @@ def main():
         con, state, marks, q_all_candidates, "QQQ_ONLY_ALL", valuation
     )
     q_filter = run_q_only(
-        con, state, marks, q_gate_candidates, "QQQ_ONLY_ACTIVITY_MATCHED", valuation
+        con, state, marks, q_activity_candidates, "QQQ_ONLY_ACTIVITY_MATCHED", valuation
     )
     pair_base = run_pair(
         con, state, marks, pair_base_candidates, "PAIR_DYNAMIC3_BASE", valuation
