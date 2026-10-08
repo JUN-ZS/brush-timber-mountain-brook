@@ -562,20 +562,28 @@ def main():
         fixed_qty=1,
     )
 
+    gated_entry_count = len(pair_gate_candidates)
     unit_attribution = {
         "matched_qqq_unit_pnl_usd": float(q_unit["ending_nav"] - 100000.0),
         "base_pair_unit_pnl_usd": float(pair_base_unit["ending_nav"] - 100000.0),
         "base_spy_incremental_unit_pnl_usd": float(
             pair_base_unit["ending_nav"] - q_unit["ending_nav"]
         ),
-        "gated_pair_unit_pnl_usd": float(pair_gate_unit["ending_nav"] - 100000.0),
-        "gated_spy_incremental_unit_pnl_usd": float(
-            pair_gate_unit["ending_nav"] - q_unit["ending_nav"]
+        "gated_pair_unit_pnl_usd": (
+            float(pair_gate_unit["ending_nav"] - 100000.0)
+            if gated_entry_count > 0 else None
+        ),
+        "gated_spy_incremental_unit_pnl_usd": (
+            float(pair_gate_unit["ending_nav"] - q_unit["ending_nav"])
+            if gated_entry_count > 0 else None
         ),
         "matched_qqq_unit_maxdd": float(q_unit["maxdd"]),
         "base_pair_unit_maxdd": float(pair_base_unit["maxdd"]),
-        "gated_pair_unit_maxdd": float(pair_gate_unit["maxdd"]),
-        "interpretation": "The incremental unit P&L is the difference between the same-date one-unit pair basket and one-unit QQQ-only control; it isolates SPY financing/risk transfer without NAV sizing floors.",
+        "gated_pair_unit_maxdd": (
+            float(pair_gate_unit["maxdd"]) if gated_entry_count > 0 else None
+        ),
+        "gated_entry_count": gated_entry_count,
+        "interpretation": "The incremental unit P&L is the difference between the same-date one-unit pair basket and one-unit QQQ-only control; it isolates SPY financing/risk transfer without NAV sizing floors. When the gated policy has zero entries, gated unit P&L and SPY incremental P&L are reported as null rather than as an empty-cash performance number.",
     }
 
     metrics = {
