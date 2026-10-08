@@ -65,8 +65,9 @@ def build_corr_state(con, qu, su, base_state):
     st = base_state.copy()
     st["signal_date"] = pd.to_datetime(st["signal_date"])
     corr = x[["date", "corr60", "corr_med_252"]].copy()
-    corr["date"] = pd.to_datetime(corr["date"])
-    st = st.merge(corr, left_on="signal_date", right_on="date", how="left").drop(columns=["date"])
+    corr = corr.rename(columns={"date": "signal_date"})
+    corr["signal_date"] = pd.to_datetime(corr["signal_date"])
+    st = st.merge(corr, on="signal_date", how="left")
     st["corr_gate_ok"] = (
         st["corr60"].notna()
         & st["corr_med_252"].notna()
