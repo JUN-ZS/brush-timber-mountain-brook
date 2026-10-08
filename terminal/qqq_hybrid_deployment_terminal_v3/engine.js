@@ -188,12 +188,12 @@ window.HybridEngineV3 = (() => {
         make("qqqCalls","QQQ FAR CALL","spreads / "+POLICY.qqqCallBudgetPct+"% NAV budget",Number.isFinite(qQty)?qQty:null,nowMax.qqqCalls,allowBuy),
         make("vxxCalls","VXX CALL","spreads / "+POLICY.vxxCallBudgetPct+"% NAV budget",Number.isFinite(vQty)?vQty:null,nowMax.vxxCalls,allowBuy)
       ],
-      note:e.action==="BUY"
-        ?"現在可由 Current → Full target 補倉；option contracts 必須先有合格 candidate。"
-        :e.action==="HOLD"
-          ?"「可留」不等於「可加」：現在最多只留現有 carry；VXX 超過 frozen target 才 TRIM。"
-          :e.blocked
-            ?"資料未通過：不要因資料問題自行買或賣。"
+      note:e.blocked
+        ?"資料未通過：不要因資料問題自行買或賣。"
+        :e.action==="BUY"
+          ?"現在可由 Current → Full target 補倉；option contracts 必須先有合格 candidate。"
+          :e.action==="HOLD"
+            ?"「可留」不等於「可加」：現在最多只留現有 carry；VXX 超過 frozen target 才 TRIM。"
             :"現在只可按 frozen target 減風險；QQQ core 不因 shock 自動清倉。"
     };
   }
