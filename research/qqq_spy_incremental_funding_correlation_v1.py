@@ -75,40 +75,13 @@ def build_corr_state(con, qu, su, base_state):
     return st
 
 
-def choose_pair(signal_row, q_sig, s_sig, gated):
+def signal_qualifies(signal_row, q_sig, s_sig, gated):
     q_ratio = float(signal_row.q_rv60) / float(q_sig["atm_iv"])
     s_ratio = float(s_sig["atm_iv"]) / float(signal_row.s_rv30)
     qualify = q_ratio > 1.0 and s_ratio > 1.0
-
     if gated and not bool(signal_row.corr_gate_ok):
         qualify = False
-
-    if not qualify:
-        return {
-            "eligible": False,
-            "q_ratio": q_ratio,
-            "s_ratio": s_ratio,
-            "required_spy_units": np.nan,
-        }
-
-    q_debit = float(q_sig["entry_value"])
-    s_credit = float(s_sig["entry_value"])
-    if q_debit <= 0 or s_credit <= 0:
-        return {
-            "eligible": False,
-            "q_ratio": q_ratio,
-            "s_ratio": s_ratio,
-            "required_spy_units": np.nan,
-        }
-
-    required_units = int(math.ceil(q_debit / s_credit))
-    eligible = required_units <= PAIR_CAP
-    return {
-        "eligible": eligible,
-        "q_ratio": q_ratio,
-        "s_ratio": s_ratio,
-        "required_spy_units": required_units,
-    }
+    return qualify, q_ratio, s_ratio
 
 
 def make_position(component, qty, entry_date, exit_date):
@@ -147,7 +120,10 @@ def build_candidates(con, state, qpath, spath, gated, name):
         if q_sig is None or s_sig is None:
             continue
 
-        pair = choose_pair(row, q_sig, s_sig, gated)
+        qualifies, q_ratio, s_ratio = signal_qualifies(
+            row, q_sig, s_sig, gated
+        )
+
         signal_rows.append(
             {
                 "strategy": name,
@@ -158,44 +134,49 @@ def build_candidates(con, state, qpath, spath, gated, name):
                 "corr60": float(row.corr60) if pd.notna(row.corr60) else np.nan,
                 "corr_med_252": float(row.corr_med_252) if pd.notna(row.corr_med_252) else np.nan,
                 "corr_gate_ok": bool(row.corr_gate_ok) if pd.notna(row.corr_gate_ok) else False,
-                "eligible": bool(pair["eligible"]),
-                "required_spy_units": pair["required_spy_units"],
+                "eligible_signal": bool(qualifies),
+                "required_spy_units_entry": np.nan,
             }
         )
 
-        # Benchmark B: activity-matched QQQ-only. Same eligibility as the pair,
-        # but removes SPY. This isolates the incremental value of the SPY leg.
-        if pair["eligible"]:
-            q_entry = qqq_rc(
-                con, qpath, d, Q_TARGET, Q_WING_DELTA, Q_LONG_DELTA, Q_EXIT_DTE
-            )
-            if q_entry is not None:
-                q_exit = pd.Timestamp(q_entry["expiry"]) - pd.Timedelta(days=q_entry["exit_dte"])
-                q_candidates.append(
-                    {
-                        "name": f"{name}_Q_{len(q_candidates)}",
-                        "symbol": "QQQ",
-                        "legs": q_entry["legs"],
-                        "risk": float(q_entry["risk"]),
-                        "entry_value": float(q_entry["entry_value"]),
-                        "entry_cf": -float(q_entry["entry_value"]),
-                        "entry": pd.Timestamp(d),
-                        "expiry": pd.Timestamp(q_entry["expiry"]),
-                        "exit_dte": int(q_entry["exit_dte"]),
-                        "target_exit": q_exit,
-                    }
-                )
+        q_entry = None
+        s_entry = None
+        entry_units = np.nan
 
-        if pair["eligible"]:
+        if qualifies:
             q_entry = qqq_rc(
                 con, qpath, d, Q_TARGET, Q_WING_DELTA, Q_LONG_DELTA, Q_EXIT_DTE
             )
             s_entry = spy_ic(
                 con, spath, d, SPY_TARGET, SPY_WING_DELTA
             )
-            if q_entry is None or s_entry is None:
-                continue
-            units = int(pair["required_spy_units"])
+            if q_entry is not None and s_entry is not None:
+                q_debit_entry = float(q_entry["entry_value"])
+                s_credit_entry = float(s_entry["entry_value"])
+                if q_debit_entry > 0 and s_credit_entry > 0:
+                    entry_units = int(math.ceil(q_debit_entry / s_credit_entry))
+                qualifies = bool(entry_units == entry_units and entry_units <= PAIR_CAP)
+
+        # Benchmark B: activity-matched QQQ-only. Same final pair eligibility,
+        # but removes SPY. This isolates the incremental value of the SPY leg.
+        if qualifies and q_entry is not None:
+            q_exit = pd.Timestamp(q_entry["expiry"]) - pd.Timedelta(days=q_entry["exit_dte"])
+            q_candidates.append(
+                {
+                    "name": f"{name}_Q_{len(q_candidates)}",
+                    "symbol": "QQQ",
+                    "legs": q_entry["legs"],
+                    "risk": float(q_entry["risk"]),
+                    "entry_value": float(q_entry["entry_value"]),
+                    "entry_cf": -float(q_entry["entry_value"]),
+                    "entry": pd.Timestamp(d),
+                    "expiry": pd.Timestamp(q_entry["expiry"]),
+                    "exit_dte": int(q_entry["exit_dte"]),
+                    "target_exit": q_exit,
+                }
+            )
+
+        if qualifies and q_entry is not None and s_entry is not None and np.isfinite(entry_units):
             pair_candidates.append(
                 {
                     "name": f"{name}_PAIR_{len(pair_candidates)}",
@@ -217,19 +198,22 @@ def build_candidates(con, state, qpath, spath, gated, name):
                             "entry_cf": float(s_entry["entry_value"]),
                             "expiry": pd.Timestamp(s_entry["expiry"]),
                             "exit_dte": 7,
-                            "units": units,
+                            "units": int(entry_units),
                         },
                     ],
-                    "risk": float(q_entry["risk"]) + units * float(s_entry["risk"]),
-                    "q_ratio": pair["q_ratio"],
-                    "s_ratio": pair["s_ratio"],
+                    "risk": float(q_entry["risk"]) + int(entry_units) * float(s_entry["risk"]),
+                    "q_ratio": q_ratio,
+                    "s_ratio": s_ratio,
                     "corr60": float(row.corr60) if pd.notna(row.corr60) else np.nan,
                     "corr_med_252": float(row.corr_med_252) if pd.notna(row.corr_med_252) else np.nan,
                     "corr_gate_ok": bool(row.corr_gate_ok) if pd.notna(row.corr_gate_ok) else False,
-                    "spy_units": units,
+                    "spy_units": int(entry_units),
                 }
             )
 
+        signal_rows[-1]["eligible_final"] = bool(qualifies)
+        signal_rows[-1]["required_spy_units_entry"] = int(entry_units) if np.isfinite(entry_units) else np.nan
+        signal_rows[-1]["entry_funding_ok"] = bool(qualifies)
     return q_candidates, pair_candidates, pd.DataFrame(signal_rows)
 
 
@@ -460,12 +444,14 @@ def main():
     base_state = build_state(con, qu, su)
     state = build_corr_state(con, qu, su, base_state)
 
+    window_start = pd.Timestamp(START)
+    window_end = pd.Timestamp(END)
     if args.window == "oos":
-        cutoff = pd.Timestamp("2022-01-03")
-        state = state[state.entry_date >= cutoff].copy()
+        window_start = pd.Timestamp("2022-01-03")
+        state = state[state.entry_date >= window_start].copy()
     elif args.window == "late_oos":
-        cutoff = pd.Timestamp("2024-01-02")
-        state = state[state.entry_date >= cutoff].copy()
+        window_start = pd.Timestamp("2024-01-02")
+        state = state[state.entry_date >= window_start].copy()
 
     # QQQ-only broad benchmark.
     q_all_candidates, _, sig_all = build_candidates(
@@ -496,8 +482,8 @@ def main():
 
     valuation = load_px(con, qu, "Q")
     valuation = valuation[
-        (valuation.date >= pd.Timestamp(START))
-        & (valuation.date <= pd.Timestamp(END))
+        (valuation.date >= window_start)
+        & (valuation.date <= window_end)
     ].date.tolist()
 
     q_all = run_q_only(
@@ -516,12 +502,12 @@ def main():
     metrics = {
         "window": args.window,
         "new_policy": NEW_POLICY,
-        "policy_rule": "allow SPY funding only when prior-day 60D QQQ/SPY realized correlation <= causal trailing 252-day median",
+        "policy_rule": "signal qualifies when QQQ RV60/QQQ ATM IV > 1 and SPY ATM IV30/SPY RV30 > 1; SPY funding is additionally allowed only when prior-day 60D QQQ/SPY realized correlation <= causal trailing 252-day median",
         "structure": {
             "QQQ": f"{Q_TARGET}D reverse iron condor, long {Q_LONG_DELTA:.2f} delta, short {Q_WING_DELTA:.2f} wings, exit {Q_EXIT_DTE}D",
             "SPY": f"{SPY_TARGET}D short iron condor, short 0.50 delta body, long {SPY_WING_DELTA:.2f} wings, exit 7D",
         },
-        "pair_funding": f"1 QQQ convexity basket plus ceil(QQQ debit / SPY credit) SPY funding baskets, capped at {PAIR_CAP}x",
+        "pair_funding": f"1 QQQ convexity basket plus ceil(actual entry-day QQQ debit / actual entry-day SPY credit) SPY funding baskets, capped at {PAIR_CAP}x",
         "risk_budget": RISK_BUDGET,
         "data_provenance": {
             "QQQ_options_sha256": hash_file(Path(qpath)),
