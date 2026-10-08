@@ -64,7 +64,7 @@ jobs:
           fi
           python3 -m py_compile research/qqq_spy_self_financing_range_v1.py
           python3 -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
-          python3 -c "import research.qqq_spy_incremental_funding_correlation_v1 as m; assert m.NEW_POLICY == 'CORRELATION_MEDIAN_VETO'; print('PASS module contract')"
+          PYTHONPATH=research python3 -c "import qqq_spy_incremental_funding_correlation_v1 as m; assert m.NEW_POLICY == 'CORRELATION_MEDIAN_VETO'; print('PASS module contract')"
 
       - name: Run full sample
         run: |
