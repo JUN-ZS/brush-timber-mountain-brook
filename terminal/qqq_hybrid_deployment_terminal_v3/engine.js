@@ -138,8 +138,8 @@ window.HybridEngineV3 = (() => {
     }
     const nav=num(ledger.nav,0),qqqPrice=num(d.qqq,0),rawShares=nav>0&&qqqPrice>0?(nav*e.targets.qqqCorePct/100)/qqqPrice:cur.qqqShares,buyAllowed=e.action==="BUY";
     const qc=candidates.qqq||null,vc=candidates.vxx||null,qQty=optionQty(nav,e.targets.qqqCallBudgetPct,qc?.credit),vQty=optionQty(nav,e.targets.vxxCallBudgetPct,vc?.credit);
-    const qqqCallsTarget=e.action==="HOLD"?cur.qqqCalls:(buyAllowed?(qc?.sizingAvailable?qQty:cur.qqqCalls):Math.min(cur.qqqCalls,qQty));
-    const vxxCallsTarget=e.action==="HOLD"?cur.vxxCalls:(buyAllowed?(vc?.sizingAvailable?vQty:cur.vxxCalls):Math.min(cur.vxxCalls,vQty));
+    const qqqCallsTarget=e.action==="HOLD"?Math.min(cur.qqqCalls,Number.isFinite(qQty)?qQty:cur.qqqCalls):(buyAllowed?(qc?.sizingAvailable?qQty:cur.qqqCalls):Math.min(cur.qqqCalls,qQty));
+    const vxxCallsTarget=e.action==="HOLD"?Math.min(cur.vxxCalls,Number.isFinite(vQty)?vQty:cur.vxxCalls):(buyAllowed?(vc?.sizingAvailable?vQty:cur.vxxCalls):Math.min(cur.vxxCalls,vQty));
     const target={qqqShares:buyAllowed?Math.floor(rawShares):cur.qqqShares,vxxPct:buyAllowed?e.targets.vxxPct:Math.min(cur.vxxPct,e.targets.vxxPct),qqqCalls:qqqCallsTarget,vxxCalls:vxxCallsTarget};
     return{current:cur,target,deltas:{qqqShares:target.qqqShares-cur.qqqShares,vxxPct:target.vxxPct-cur.vxxPct,qqqCalls:target.qqqCalls-cur.qqqCalls,vxxCalls:target.vxxCalls-cur.vxxCalls},blocked:false,inputBlocked:false,sizing:{qqqCalls:qc?.sizingAvailable?{status:"READY",credit:qc.credit,quantity:qQty,source:qc.source}:{status:"PENDING_CANDIDATE"},vxxCalls:vc?.sizingAvailable?{status:"READY",credit:vc.credit,quantity:vQty,source:vc.source}:{status:"PENDING_CANDIDATE"}}};
   }
@@ -178,7 +178,8 @@ window.HybridEngineV3 = (() => {
     }else{
       nowMax.qqqShares=cur.qqqShares;
       nowMax.vxxPct=Math.min(cur.vxxPct,Number(e.targets?.vxxPct));
-      nowMax.qqqCalls=cur.qqqCalls; nowMax.vxxCalls=cur.vxxCalls;
+      nowMax.qqqCalls=Number.isFinite(qQty)?Math.min(cur.qqqCalls,qQty):cur.qqqCalls;
+      nowMax.vxxCalls=Number.isFinite(vQty)?Math.min(cur.vxxCalls,vQty):cur.vxxCalls;
     }
     return{
       status,regime:e.state||"UNKNOWN",engineAction:e.action||"HOLD",blocked:e.blocked===true,allowNewBuy:allowBuy,
@@ -193,7 +194,7 @@ window.HybridEngineV3 = (() => {
         :e.action==="BUY"
           ?"現在可由 Current → Full target 補倉；option contracts 必須先有合格 candidate。"
           :e.action==="HOLD"
-            ?"「可留」不等於「可加」：現在最多只留現有 carry；VXX 超過 frozen target 才 TRIM。"
+            ?"「可留」不等於「可加」：HOLD 不新增；超出 frozen capacity 的 carry 只可 TRIM，候選不足時不亂估數。"
             :"現在只可按 frozen target 減風險；QQQ core 不因 shock 自動清倉。"
     };
   }
