@@ -323,8 +323,9 @@ def main():
             )
     serial_eq_cmp = serial_eq.reset_index(drop=True).copy()
     worker_eq_cmp = worker_eq.reset_index(drop=True).copy()
-    serial_eq_cmp = serial_eq_cmp.drop(columns=["worker_index"], errors="ignore")
-    worker_eq_cmp = worker_eq_cmp.drop(columns=["worker_index"], errors="ignore")
+    metadata_cols = ["worker_index", "strategy", "orientation"]
+    serial_eq_cmp = serial_eq_cmp.drop(columns=metadata_cols, errors="ignore")
+    worker_eq_cmp = worker_eq_cmp.drop(columns=metadata_cols, errors="ignore")
     pd.testing.assert_frame_equal(
         serial_eq_cmp,
         worker_eq_cmp,
@@ -333,8 +334,8 @@ def main():
     if not serial_br.empty:
         serial_br_cmp = serial_br.reset_index(drop=True).copy()
         worker_br_cmp = worker_br.reset_index(drop=True).copy()
-        serial_br_cmp = serial_br_cmp.drop(columns=["worker_index"], errors="ignore")
-        worker_br_cmp = worker_br_cmp.drop(columns=["worker_index"], errors="ignore")
+        serial_br_cmp = serial_br_cmp.drop(columns=metadata_cols, errors="ignore")
+        worker_br_cmp = worker_br_cmp.drop(columns=metadata_cols, errors="ignore")
         pd.testing.assert_frame_equal(
             serial_br_cmp,
             worker_br_cmp,
