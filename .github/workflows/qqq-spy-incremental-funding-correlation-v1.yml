@@ -14,8 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: qqq-spy-incremental-funding-correlation-v1
-  cancel-in-progress: true
+  group: qqq-spy-incremental-funding-correlation-v1-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   replay-linux:
