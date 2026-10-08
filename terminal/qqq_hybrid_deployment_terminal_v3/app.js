@@ -186,6 +186,23 @@ function renderFundingPlan(d,e,book){
 function escapeHtml(v){
   return String(v??"").replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch]));
 }
+function renderPermission(d,e,book){
+  const p=E.permissionLedger(d,e,book,candidates,$("nav")?$("nav").value:"");
+  if($("permissionStatus")){
+    $("permissionStatus").textContent=p.status;
+    $("permissionStatus").className="tag "+(p.allowNewBuy?"active":p.blocked?"retired":"research");
+  }
+  if($("permissionNote"))$("permissionNote").textContent=p.note;
+  const fullText=r=>r.key==="vxxPct"?fmt(r.full,2)+"% NAV":r.key==="qqqShares"?(Number.isFinite(r.full)?fmt(r.full,0)+" shares":"42% NAV"):(Number.isFinite(r.full)?fmt(r.full,0)+" spreads":"budget only · candidate pending");
+  const nowText=r=>r.key==="vxxPct"?fmt(r.nowMax,2)+"% NAV":r.key==="qqqShares"?fmt(r.nowMax,0)+" shares":fmt(r.nowMax,0)+" spreads";
+  const buyText=r=>r.maxBuy<=0?"0":r.key==="vxxPct"?"+"+fmt(r.maxBuy,2)+"% NAV":"+"+fmt(r.maxBuy,0)+" "+(r.key==="qqqShares"?"shares":"spreads");
+  const sellText=r=>r.maxSell<=0?"0":r.key==="vxxPct"?"−"+fmt(r.maxSell,2)+"% NAV":"−"+fmt(r.maxSell,0)+" "+(r.key==="qqqShares"?"shares":"spreads");
+  if($("permissionRows"))$("permissionRows").innerHTML=p.rows.map(r=>"<div class='permission-row'>"+
+    "<b>"+escapeHtml(r.label)+"</b><span>"+escapeHtml(fullText(r))+"</span><span>"+escapeHtml(nowText(r))+"</span>"+
+    "<span class='"+(r.maxBuy>0?"ADD":"HOLD")+"'>"+escapeHtml(buyText(r))+"</span>"+
+    "<span class='"+(r.maxSell>0?"REDUCE":"HOLD")+"'>"+escapeHtml(sellText(r))+"</span></div>").join("");
+  return p;
+}
 function renderStrategyBridge(d,e,book,funding){
   const bridge=E.strategyActionBridge({
     d,e,book,funding,
@@ -332,6 +349,7 @@ function renderOperatorSummary(d,e,book){
 function render(d,e,book){
   const funding=renderFundingPlan(d,e,book);
   renderStrategyBridge(d,e,book,funding);
+  renderPermission(d,e,book);
   renderOperatorSummary(d,e,book);
   renderLegIdentity();
   renderFlow(d,e,book);
