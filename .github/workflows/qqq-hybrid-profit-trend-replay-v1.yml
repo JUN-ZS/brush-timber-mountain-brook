@@ -28,39 +28,59 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Discover Python
+        id: py
+        run: |
+          where py >nul 2>&1 && (
+            py -3 --version >nul 2>&1 && (
+              echo PY=py -3>>%GITHUB_ENV%
+              py -3 --version
+              py -3 -c "import sys; print(sys.executable)"
+              exit /b 0
+            )
+          )
+          where python >nul 2>&1 && (
+            echo PY=python>>%GITHUB_ENV%
+            python --version
+            python -c "import sys; print(sys.executable)"
+            exit /b 0
+          )
+          echo PYTHON_NOT_FOUND
+          exit /b 1
+
       - name: Runtime
         run: |
-          python --version
-          python -c "import sys; print(sys.executable)"
+          echo Using PY=%PY%
+          %PY% --version
           node --version
 
       - name: Verify replay and data inputs
         run: |
-          python -c "import hashlib,pathlib; p=pathlib.Path('research/qqq_hybrid_dynamic_deployment_v1_1_replay.py'); print('replay_sha256=' + hashlib.sha256(p.read_bytes()).hexdigest())"
-          python -c "import hashlib,pathlib; p=pathlib.Path('src/data/universe.json'); print('universe_sha256=' + hashlib.sha256(p.read_bytes()).hexdigest())"
-          python -c "import json; d=json.load(open('src/data/universe.json',encoding='utf-8')); print('asof=' + str(d.get('asof'))); print('series=' + ','.join(sorted(k for k in d.get('c',{}).keys()))); print('dates=' + str(len(d.get('dates',[]))))"
+          %PY% -c "import hashlib,pathlib; p=pathlib.Path('research/qqq_hybrid_dynamic_deployment_v1_1_replay.py'); print('replay_sha256=' + hashlib.sha256(p.read_bytes()).hexdigest())"
+          %PY% -c "import hashlib,pathlib; p=pathlib.Path('src/data/universe.json'); print('universe_sha256=' + hashlib.sha256(p.read_bytes()).hexdigest())"
+          %PY% -c "import json; d=json.load(open('src/data/universe.json',encoding='utf-8')); print('asof=' + str(d.get('asof'))); print('series=' + ','.join(sorted(k for k in d.get('c',{}).keys()))); print('dates=' + str(len(d.get('dates',[]))))"
 
       - name: Install research dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install numpy pandas scipy
+          %PY% -m pip install --upgrade pip
+          %PY% -m pip install numpy pandas scipy
 
       - name: Run historical baseline replay
         run: |
           if not exist artifacts\qqq_hybrid_profit_trend_replay_v1\baseline mkdir artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
-          python research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
+          %PY% research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
 
       - name: Run historical dynamic V1.1 replay
         run: |
           if not exist artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic mkdir artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic
-          python research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic --dynamic
+          %PY% research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic --dynamic
 
       - name: Contract checks
         run: |
-          python -m py_compile research\qqq_hybrid_dynamic_deployment_v1_1_replay.py
-          python -m py_compile research\qqq_hybrid_profit_trend_replay_v1.py
-          python -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/baseline/profit_trend.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; assert r['backtest_result']['final_nav'] > 0; print('baseline_contract=PASS')"
-          python -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/dynamic/profit_trend.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; assert r['backtest_result']['final_nav'] > 0; print('dynamic_contract=PASS')"
+          %PY% -m py_compile research\qqq_hybrid_dynamic_deployment_v1_1_replay.py
+          %PY% -m py_compile research\qqq_hybrid_profit_trend_replay_v1.py
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/baseline/profit_trend.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; assert r['backtest_result']['final_nav'] > 0; print('baseline_contract=PASS')"
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/dynamic/profit_trend.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; assert r['backtest_result']['final_nav'] > 0; print('dynamic_contract=PASS')"
 
       - name: Evidence
         uses: actions/upload-artifact@v4
