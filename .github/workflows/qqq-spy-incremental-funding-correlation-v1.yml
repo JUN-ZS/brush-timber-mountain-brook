@@ -67,6 +67,20 @@ jobs:
             --out artifacts/qqq_spy_incremental_linux/late_oos \
             --window late_oos
 
+      - name: Verify committed trial ledger
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/qqq_spy_incremental_linux/full/TRIAL_LEDGER.json")
+          x = json.loads(p.read_text(encoding="utf-8"))
+          assert x["selection_status"] == "LOCKED_FOR_COMPARISON"
+          assert x["total_variant_window_cells"] == 12
+          assert x["no_parameter_search"] is True
+          assert x["no_live_orders"] is True
+          print("PASS trial ledger")
+          PY
+
       - name: Upload Linux evidence
         if: always()
         uses: actions/upload-artifact@v4
