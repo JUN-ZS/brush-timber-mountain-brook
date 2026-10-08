@@ -554,6 +554,33 @@ def main():
         json.dumps(metrics, indent=2, allow_nan=True), encoding="utf-8"
     )
 
+    trial_ledger = {
+        "protocol_version": "qqq-spy-incremental-funding-correlation-v1",
+        "purpose": "test incremental QQQ convexity value contributed by a self-financing SPY sleeve, and whether a causal correlation veto improves that incremental value",
+        "research_only": True,
+        "selection_status": "LOCKED_FOR_COMPARISON",
+        "virgin_oos": False,
+        "why_not_virgin": metrics["family_not_virgin"],
+        "windows_in_protocol": ["full", "oos", "late_oos"],
+        "variants_in_protocol": [
+            "QQQ_ONLY_ALL",
+            "QQQ_ONLY_ACTIVITY_MATCHED",
+            "PAIR_DYNAMIC3_BASE",
+            NEW_POLICY,
+        ],
+        "total_variant_window_cells": 12,
+        "primary_comparison": "PAIR_DYNAMIC3_BASE vs PAIR_DYNAMIC3_CORRELATION_MEDIAN_VETO",
+        "incremental_control": "PAIR variant vs QQQ_ONLY_ACTIVITY_MATCHED on identical final eligibility dates",
+        "new_policy_rule": metrics["policy_rule"],
+        "trial_count_is_factual_not_selective": True,
+        "no_parameter_search": True,
+        "no_live_orders": True,
+        "do_not_select_winner_from_oos": True,
+    }
+    (out / "TRIAL_LEDGER.json").write_text(
+        json.dumps(trial_ledger, indent=2), encoding="utf-8"
+    )
+
     lines = [
         f"# QQQ-SPY Incremental Funding / Correlation Veto — {args.window.upper()}",
         "",
