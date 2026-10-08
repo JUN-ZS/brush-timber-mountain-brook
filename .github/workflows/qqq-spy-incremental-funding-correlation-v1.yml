@@ -15,8 +15,8 @@ permissions:
   actions: write
 
 concurrency:
-  group: qqq-spy-incremental-funding-correlation-v1-${{ github.sha }}
-  cancel-in-progress: false
+  group: qqq-spy-incremental-funding-correlation-v1
+  cancel-in-progress: true
 
 jobs:
   cleanup-stale:
