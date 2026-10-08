@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - research/qqq-hybrid-profit-trend-replay-v1-20261009
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
