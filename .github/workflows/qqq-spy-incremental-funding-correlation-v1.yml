@@ -50,25 +50,25 @@ jobs:
 
       - name: Run full sample
         run: |
-          python research/qqq_spy_incremental_funding_correlation_v1.py \
+          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py \
             --data-dir data \
             --out artifacts/qqq_spy_incremental_linux/full \
             --window full
 
       - name: Run locked evaluation windows
         run: |
-          python research/qqq_spy_incremental_funding_correlation_v1.py \
+          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py \
             --data-dir data \
             --out artifacts/qqq_spy_incremental_linux/oos \
             --window oos
-          python research/qqq_spy_incremental_funding_correlation_v1.py \
+          "$PYTHON_BIN" research/qqq_spy_incremental_funding_correlation_v1.py \
             --data-dir data \
             --out artifacts/qqq_spy_incremental_linux/late_oos \
             --window late_oos
 
       - name: Verify committed trial ledger
         run: |
-          python - <<'PY'
+          "$PYTHON_BIN" - <<'PY'
           import json
           from pathlib import Path
           p = Path("artifacts/qqq_spy_incremental_linux/full/TRIAL_LEDGER.json")
