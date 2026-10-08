@@ -75,17 +75,26 @@ jobs:
           if not exist artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic mkdir artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic
           %PY% research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic --dynamic
 
+      - name: Extract VXX call-spread contribution
+        run: |
+          if not exist artifacts\qqq_hybrid_vxx_call_spread_contribution_v1 mkdir artifacts\qqq_hybrid_vxx_call_spread_contribution_v1
+          %PY% research\qqq_hybrid_vxx_call_spread_contribution_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_vxx_call_spread_contribution_v1
+
       - name: Contract checks
         run: |
           %PY% -m py_compile research\qqq_hybrid_dynamic_deployment_v1_1_replay.py
           %PY% -m py_compile research\qqq_hybrid_profit_trend_replay_v1.py
+          %PY% -m py_compile research\qqq_hybrid_vxx_call_spread_contribution_v1.py
           %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/baseline/profit_trend.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; assert r['backtest_result']['final_nav'] > 0; print('baseline_contract=PASS')"
           %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/dynamic/profit_trend.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; assert r['backtest_result']['final_nav'] > 0; print('dynamic_contract=PASS')"
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_vxx_call_spread_contribution_v1/vxx_cc_report.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['vxx_call_spread']['opens'] >= 0; print('vxx_cc_contract=PASS')"
 
       - name: Evidence
         uses: actions/upload-artifact@v4
         with:
           name: qqq-hybrid-profit-trend-replay-v1
-          path: artifacts\qqq_hybrid_profit_trend_replay_v1\
+          path: |
+            artifacts\qqq_hybrid_profit_trend_replay_v1\
+            artifacts\qqq_hybrid_vxx_call_spread_contribution_v1\
           if-no-files-found: error
           retention-days: 30
