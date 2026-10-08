@@ -27,12 +27,13 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare Python (system)
+      - name: Prepare Python venv
         run: |
           python3 --version
-          python3 -m pip --version
-          python3 -m pip install --user --upgrade pip
-          python3 -m pip install --user duckdb pandas pyarrow numpy
+          python3 -m venv "$RUNNER_TEMP/qqqspy-venv"
+          "$RUNNER_TEMP/qqqspy-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/qqqspy-venv/bin/python" -m pip install duckdb pandas pyarrow numpy
+          echo "PYTHON_BIN=$RUNNER_TEMP/qqqspy-venv/bin/python" >> "$GITHUB_ENV"
 
       - name: Download canonical QQQ/SPY data
         run: |
@@ -44,8 +45,8 @@ jobs:
 
       - name: Compile
         run: |
-          python3 -m py_compile research/qqq_spy_self_financing_range_v1.py
-          python3 -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
+          "$PYTHON_BIN" -m py_compile research/qqq_spy_self_financing_range_v1.py
+          "$PYTHON_BIN" -m py_compile research/qqq_spy_incremental_funding_correlation_v1.py
 
       - name: Run full sample
         run: |
