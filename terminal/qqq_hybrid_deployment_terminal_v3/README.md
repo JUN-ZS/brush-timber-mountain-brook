@@ -77,7 +77,7 @@ Every decision records:
 
 After journaling (or from the last journal row), the operator can **從 Journal 還原 Memory · Restore Memory from last Journal** so a reload does not wipe Operator Memory. Map is 1:1 and easy to verify — **never** Candidate / NOW plan strikes.\n\n## Current Permission · Full Strategy
 
-The operator screen now includes a read-only CURRENT PERMISSION · FULL STRATEGY table. It shows FULL frozen capacity, CAN KEEP NOW, MAX BUY NOW, and MAX SELL NOW for QQQ core, VXX short, QQQ far-call spreads, and VXX call spreads.
+The operator screen now includes a read-only CURRENT PERMISSION · FULL STRATEGY table. It shows FULL frozen capacity, CAN KEEP NOW, MAX BUY NOW, and MAX SELL NOW for QQQ core, VXX short, QQQ far-call spreads, and VXX call spreads. QQQ FULL is displayed as **42% NAV plus its approximate share equivalent**; the frozen policy remains percentage-based.
 
 Important: **CAN KEEP NOW does not mean CAN BUY NOW.** WEAKENING / HOLD keeps existing carry but permits no new short-vol carry; CARRY / BUY permits building toward the full target; REDUCE / SHOCK shows the current risk-reduction ceiling; DATA BLOCKED permits neither buy nor sell.
 
