@@ -487,8 +487,12 @@ def main():
 
     # The same qualification as the new gated pair, but QQQ-only, gives an
     # activity-matched counterfactual for isolating the SPY contribution.
-    q_gate_candidates, _, sig_gate = build_candidates(
-        con, state, qpath, spath, gated=True, name="QQQ_ONLY_ACTIVITY_MATCHED", require_spy=True
+    q_activity_candidates, _, sig_activity = build_candidates(
+        con, state, qpath, spath, gated=False, name="QQQ_ONLY_ACTIVITY_MATCHED", require_spy=True
+    )
+
+    _, q_veto_candidates, sig_q_veto = build_candidates(
+        con, state, qpath, spath, gated=True, name="QQQ_ONLY_VETO_MATCHED", require_spy=True
     )
 
     _, pair_base_candidates, sig_pair_base = build_candidates(
@@ -500,7 +504,7 @@ def main():
     )
 
     all_q = q_all_candidates
-    all_q_filter = q_gate_candidates
+    all_q_filter = q_activity_candidates
     all_pairs = pair_base_candidates + pair_gate_candidates
 
     marks = load_marks_for_candidates(
@@ -533,7 +537,7 @@ def main():
         con,
         state,
         marks,
-        q_gate_candidates,
+        q_activity_candidates,
         "QQQ_ONLY_ACTIVITY_MATCHED_UNIT",
         valuation,
         fixed_qty=1,
@@ -617,7 +621,8 @@ def main():
     }
 
     pd.DataFrame(sig_all).to_csv(out / "signals_qqq_all.csv", index=False)
-    pd.DataFrame(sig_gate).to_csv(out / "signals_activity_matched.csv", index=False)
+    pd.DataFrame(sig_activity).to_csv(out / "signals_activity_matched.csv", index=False)
+    pd.DataFrame(sig_q_veto).to_csv(out / "signals_veto_matched.csv", index=False)
     pd.DataFrame(sig_pair_base).to_csv(out / "signals_pair_base.csv", index=False)
     pd.DataFrame(sig_pair_gate).to_csv(out / "signals_pair_gate.csv", index=False)
 
