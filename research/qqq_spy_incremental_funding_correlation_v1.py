@@ -155,28 +155,34 @@ def build_candidates(con, state, qpath, spath, gated, name, require_spy=True):
             }
         )
 
-        qualifies = q_candidate_eligible and require_spy
+        q_trade_eligible = bool(q_candidate_eligible)
+        pair_trade_eligible = bool(require_spy and q_candidate_eligible)
+
         q_entry = None
         s_entry = None
         entry_units = np.nan
 
-        if qualifies:
+        if q_trade_eligible:
             q_entry = qqq_rc(
                 con, qpath, d, Q_TARGET, Q_WING_DELTA, Q_LONG_DELTA, Q_EXIT_DTE
             )
-            s_entry = spy_ic(
-                con, spath, d, SPY_TARGET, SPY_WING_DELTA
-            )
-            if q_entry is not None and s_entry is not None:
+
+        if pair_trade_eligible:
+            s_entry = spy_ic(con, spath, d, SPY_TARGET, SPY_WING_DELTA)
+            if q_entry is None or s_entry is None:
+                pair_trade_eligible = False
+            else:
                 q_debit_entry = float(q_entry["entry_value"])
                 s_credit_entry = float(s_entry["entry_value"])
                 if q_debit_entry > 0 and s_credit_entry > 0:
                     entry_units = int(math.ceil(q_debit_entry / s_credit_entry))
-                qualifies = bool(entry_units == entry_units and entry_units <= PAIR_CAP)
+                pair_trade_eligible = bool(
+                    np.isfinite(entry_units) and entry_units <= PAIR_CAP
+                )
 
-        # Benchmark B: activity-matched QQQ-only. Same final pair eligibility,
-        # but removes SPY. This isolates the incremental value of the SPY leg.
-        if qualifies and q_entry is not None:
+        # QQQ-only candidate: for QQQ_ONLY_ALL this is the full QQQ signal family;
+        # for the other variants it is the activity-matched control.
+        if q_trade_eligible and q_entry is not None:
             q_exit = pd.Timestamp(q_entry["expiry"]) - pd.Timedelta(days=q_entry["exit_dte"])
             q_candidates.append(
                 {
@@ -193,7 +199,7 @@ def build_candidates(con, state, qpath, spath, gated, name, require_spy=True):
                 }
             )
 
-        if qualifies and q_entry is not None and s_entry is not None and np.isfinite(entry_units):
+        if pair_trade_eligible and q_entry is not None and s_entry is not None and np.isfinite(entry_units):
             pair_candidates.append(
                 {
                     "name": f"{name}_PAIR_{len(pair_candidates)}",
@@ -228,9 +234,9 @@ def build_candidates(con, state, qpath, spath, gated, name, require_spy=True):
                 }
             )
 
-        signal_rows[-1]["eligible_final"] = bool(qualifies)
+        signal_rows[-1]["eligible_final"] = bool(pair_trade_eligible if require_spy else q_trade_eligible)
         signal_rows[-1]["required_spy_units_entry"] = int(entry_units) if np.isfinite(entry_units) else np.nan
-        signal_rows[-1]["entry_funding_ok"] = bool(qualifies)
+        signal_rows[-1]["entry_funding_ok"] = bool(pair_trade_eligible)
     return q_candidates, pair_candidates, pd.DataFrame(signal_rows)
 
 
