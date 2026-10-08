@@ -273,7 +273,7 @@ def current_mtm(active, marks, d):
     return total
 
 
-def run_q_only(con, state, marks, candidates, name, target_dates):
+def run_q_only(con, state, marks, candidates, name, target_dates, fixed_qty=None):
     by_entry = {}
     for p in candidates:
         by_entry.setdefault(pd.Timestamp(p["entry"]), []).append(p)
@@ -285,7 +285,9 @@ def run_q_only(con, state, marks, candidates, name, target_dates):
         d = pd.Timestamp(d)
         nav_before = 100000.0 + realized + (current_mtm(active, marks, d) or 0.0)
         for p in by_entry.get(d, []):
-            qty = int(math.floor(max(nav_before, 1.0) * RISK_BUDGET / max(p["risk"], 1e-9)))
+            qty = int(fixed_qty) if fixed_qty is not None else int(
+                math.floor(max(nav_before, 1.0) * RISK_BUDGET / max(p["risk"], 1e-9))
+            )
             if qty > 0:
                 active.append(make_position(p, qty, d, p["target_exit"]))
 
@@ -328,7 +330,7 @@ def run_q_only(con, state, marks, candidates, name, target_dates):
     return finalize_curve(pd.DataFrame(rows, columns=["date", "eq"]), name)
 
 
-def run_pair(con, state, marks, candidates, name, target_dates):
+def run_pair(con, state, marks, candidates, name, target_dates, fixed_qty=None):
     by_entry = {}
     for b in candidates:
         by_entry.setdefault(pd.Timestamp(b["entry"]), []).append(b)
@@ -340,7 +342,9 @@ def run_pair(con, state, marks, candidates, name, target_dates):
         d = pd.Timestamp(d)
         nav_now = max(100000.0 + realized + (current_mtm(active, marks, d) or 0.0), 1.0)
         for b in by_entry.get(d, []):
-            qty = int(math.floor(nav_now * RISK_BUDGET / max(b["risk"], 1e-9)))
+            qty = int(fixed_qty) if fixed_qty is not None else int(
+                math.floor(nav_now * RISK_BUDGET / max(b["risk"], 1e-9))
+            )
             if qty > 0:
                 active.append({**b, "qty": qty, "component_open": [True, True]})
                 realized += sum(c["entry_cf"] * c["units"] for c in b["components"]) * qty
@@ -522,6 +526,53 @@ def main():
         con, state, marks, pair_gate_candidates, NEW_POLICY, valuation
     )
 
+    # Unit attribution isolates the SPY sleeve itself:
+    # one QQQ structure on the activity-matched dates versus one complete
+    # QQQ+SPY basket on the same dates. No NAV-based integer sizing is used.
+    q_unit = run_q_only(
+        con,
+        state,
+        marks,
+        q_gate_candidates,
+        "QQQ_ONLY_ACTIVITY_MATCHED_UNIT",
+        valuation,
+        fixed_qty=1,
+    )
+    pair_base_unit = run_pair(
+        con,
+        state,
+        marks,
+        pair_base_candidates,
+        "PAIR_DYNAMIC3_BASE_UNIT",
+        valuation,
+        fixed_qty=1,
+    )
+    pair_gate_unit = run_pair(
+        con,
+        state,
+        marks,
+        pair_gate_candidates,
+        "CORRELATION_MEDIAN_VETO_UNIT",
+        valuation,
+        fixed_qty=1,
+    )
+
+    unit_attribution = {
+        "matched_qqq_unit_pnl_usd": float(q_unit["ending_nav"] - 100000.0),
+        "base_pair_unit_pnl_usd": float(pair_base_unit["ending_nav"] - 100000.0),
+        "base_spy_incremental_unit_pnl_usd": float(
+            pair_base_unit["ending_nav"] - q_unit["ending_nav"]
+        ),
+        "gated_pair_unit_pnl_usd": float(pair_gate_unit["ending_nav"] - 100000.0),
+        "gated_spy_incremental_unit_pnl_usd": float(
+            pair_gate_unit["ending_nav"] - q_unit["ending_nav"]
+        ),
+        "matched_qqq_unit_maxdd": float(q_unit["maxdd"]),
+        "base_pair_unit_maxdd": float(pair_base_unit["maxdd"]),
+        "gated_pair_unit_maxdd": float(pair_gate_unit["maxdd"]),
+        "interpretation": "The incremental unit P&L is the difference between the same-date one-unit pair basket and one-unit QQQ-only control; it isolates SPY financing/risk transfer without NAV sizing floors.",
+    }
+
     metrics = {
         "window": args.window,
         "new_policy": NEW_POLICY,
@@ -557,6 +608,7 @@ def main():
             "base": curve_metrics(q_all["equity"], q_filter["equity"], pair_base["equity"]),
             "gated": curve_metrics(q_all["equity"], q_filter["equity"], pair_gate["equity"]),
         },
+        "unit_attribution": unit_attribution,
         "guardrails": {
             "no_live_orders": True,
             "no_parameter_search": True,
@@ -616,6 +668,11 @@ def main():
             f"| {nm} | {r['cagr']:.2%} | {r['maxdd']:.2%} | {r['sharpe']:.2f} | {r['ending_nav']:.2f} |"
         )
     lines += [
+        "",
+        "### Unit attribution",
+        "",
+        "Activity-matched one-unit QQQ P&L is compared directly with one-unit pair P&L on the same eligible dates.",
+        "SPY incremental unit P&L = pair unit P&L minus activity-matched QQQ unit P&L.",
         "",
         "Incremental comparisons (pair minus QQQ) are reported separately from absolute performance.",
         "The activity-matched QQQ control uses the same pair eligibility dates, isolating the incremental contribution of the SPY leg.",
