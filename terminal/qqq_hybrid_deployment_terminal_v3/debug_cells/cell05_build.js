@@ -19,6 +19,14 @@ assert.strictEqual(hold.target.vxxCalls,3);
 assert.strictEqual(hold.deltas.qqqCalls,0);
 assert.strictEqual(hold.deltas.vxxCalls,0);
 
+const holdOverCap=E.targetLedger({...d,qqq:750},E.derive({...d,s:3}),{
+  ...current,qqqCalls:1000,vxxCalls:1000
+},{qqq:candidate,vxx:candidate});
+assert.strictEqual(holdOverCap.target.qqqCalls,12);
+assert.strictEqual(holdOverCap.target.vxxCalls,20);
+assert.strictEqual(holdOverCap.deltas.qqqCalls,-988);
+assert.strictEqual(holdOverCap.deltas.vxxCalls,-980);
+
 const candidate={shortStrike:850,longStrike:865,dte:45,delta:0.10,credit:1,sizingAvailable:true,source:"DEBUG_FIXTURE"};
 const buy=E.targetLedger(d,e,current,{qqq:candidate,vxx:candidate});
 assert.ok(buy.target.qqqCalls>0);
