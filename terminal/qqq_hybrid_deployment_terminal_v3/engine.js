@@ -137,7 +137,9 @@ window.HybridEngineV3 = (() => {
       return{current:cur,target:{...cur},deltas:{qqqShares:0,vxxPct:0,qqqCalls:0,vxxCalls:0},blocked:false,inputBlocked:true,inputStatus:ledger.inputStatus,sizing:{qqqCalls:{status:"INPUT_INCOMPLETE"},vxxCalls:{status:"INPUT_INCOMPLETE"}}};
     }
     const nav=num(ledger.nav,0),qqqPrice=num(d.qqq,0),rawShares=nav>0&&qqqPrice>0?(nav*e.targets.qqqCorePct/100)/qqqPrice:cur.qqqShares,buyAllowed=e.action==="BUY";
-    const qc=candidates.qqq||null,vc=candidates.vxx||null,qQty=optionQty(nav,e.targets.qqqCallBudgetPct,qc?.credit),vQty=optionQty(nav,e.targets.vxxCallBudgetPct,vc?.credit);
+    const qc=candidates.qqq||null,vc=candidates.vxx||null;
+    const qQty=qc?.sizingAvailable===true&&Number.isFinite(Number(qc.credit))?optionQty(nav,e.targets.qqqCallBudgetPct,Number(qc.credit)):null;
+    const vQty=vc?.sizingAvailable===true&&Number.isFinite(Number(vc.credit))?optionQty(nav,e.targets.vxxCallBudgetPct,Number(vc.credit)):null;
     const qqqCallsTarget=e.action==="HOLD"?Math.min(cur.qqqCalls,Number.isFinite(qQty)?qQty:cur.qqqCalls):(buyAllowed?(qc?.sizingAvailable?qQty:cur.qqqCalls):Math.min(cur.qqqCalls,qQty));
     const vxxCallsTarget=e.action==="HOLD"?Math.min(cur.vxxCalls,Number.isFinite(vQty)?vQty:cur.vxxCalls):(buyAllowed?(vc?.sizingAvailable?vQty:cur.vxxCalls):Math.min(cur.vxxCalls,vQty));
     const target={qqqShares:buyAllowed?Math.floor(rawShares):cur.qqqShares,vxxPct:buyAllowed?e.targets.vxxPct:Math.min(cur.vxxPct,e.targets.vxxPct),qqqCalls:qqqCallsTarget,vxxCalls:vxxCallsTarget};
