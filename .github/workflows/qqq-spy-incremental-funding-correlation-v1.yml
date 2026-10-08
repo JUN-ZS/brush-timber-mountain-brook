@@ -12,44 +12,12 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 concurrency:
   group: qqq-spy-incremental-funding-correlation-v1
   cancel-in-progress: true
 
 jobs:
-  cleanup-stale:
-    name: Cleanup / stale runs on this research branch
-    runs-on: windows-latest
-    timeout-minutes: 5
-    steps:
-      - name: Cancel older queued/in-progress runs
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TARGET_BRANCH: ${{ github.ref_name }}
-          CURRENT_RUN: ${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          gh run list \
-            --repo "$GITHUB_REPOSITORY" \
-            --workflow "QQQ SPY Incremental Funding / Correlation V1" \
-            --branch "$TARGET_BRANCH" \
-            --limit 50 \
-            --json databaseId,status \
-          | jq -r --arg current "$CURRENT_RUN" '
-              .[]
-              | select((.databaseId | tostring) != $current)
-              | select(.status == "queued" or .status == "in_progress")
-              | .databaseId
-            ' \
-          | while read -r run_id; do
-              [ -z "$run_id" ] && continue
-              echo "cancel stale run $run_id"
-              gh run cancel "$run_id" --repo "$GITHUB_REPOSITORY" || true
-            done
-
   replay-linux:
     name: Replay / Linux self-hosted
     runs-on: [self-hosted, linux, x64]
