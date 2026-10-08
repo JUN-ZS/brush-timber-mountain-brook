@@ -485,26 +485,27 @@ def main():
         con, state, qpath, spath, gated=False, name="QQQ_ONLY_ALL", require_spy=False
     )
 
-    # The same qualification as the new gated pair, but QQQ-only, gives an
-    # activity-matched counterfactual for isolating the SPY contribution.
-    q_activity_candidates, _, sig_activity = build_candidates(
-        con, state, qpath, spath, gated=False, name="QQQ_ONLY_ACTIVITY_MATCHED", require_spy=True
-    )
-
-    _, q_veto_candidates, sig_q_veto = build_candidates(
-        con, state, qpath, spath, gated=True, name="QQQ_ONLY_VETO_MATCHED", require_spy=True
-    )
-
     _, pair_base_candidates, sig_pair_base = build_candidates(
         con, state, qpath, spath, gated=False, name="PAIR_DYNAMIC3_BASE", require_spy=True
     )
+
+    # Clean activity-matched control:
+    # take QQQ-only candidates from the broad QQQ family, then restrict them
+    # to the exact entry dates on which the base QQQ+SPY pair was actually
+    # eligible after SPY credit sizing and PAIR_CAP.
+    pair_base_dates = {pd.Timestamp(p["entry"]) for p in pair_base_candidates}
+    q_activity_candidates = [
+        p for p in q_all_candidates if pd.Timestamp(p["entry"]) in pair_base_dates
+    ]
+    sig_activity = sig_all[
+        sig_all["entry_date"].isin(pair_base_dates)
+    ].copy()
 
     _, pair_gate_candidates, sig_pair_gate = build_candidates(
         con, state, qpath, spath, gated=True, name=NEW_POLICY, require_spy=True
     )
 
     all_q = q_all_candidates
-    all_q_filter = q_activity_candidates
     all_pairs = pair_base_candidates + pair_gate_candidates
 
     marks = load_marks_for_candidates(
@@ -622,7 +623,6 @@ def main():
 
     pd.DataFrame(sig_all).to_csv(out / "signals_qqq_all.csv", index=False)
     pd.DataFrame(sig_activity).to_csv(out / "signals_activity_matched.csv", index=False)
-    pd.DataFrame(sig_q_veto).to_csv(out / "signals_veto_matched.csv", index=False)
     pd.DataFrame(sig_pair_base).to_csv(out / "signals_pair_base.csv", index=False)
     pd.DataFrame(sig_pair_gate).to_csv(out / "signals_pair_gate.csv", index=False)
 
