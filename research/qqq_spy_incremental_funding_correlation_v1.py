@@ -78,10 +78,15 @@ def build_corr_state(con, qu, su, base_state):
     return st
 
 
-def signal_qualifies(signal_row, q_sig, s_sig, gated):
+def qqq_signal_qualifies(signal_row, q_sig):
     q_ratio = float(signal_row.Q_rv60) / float(q_sig["atm_iv"])
+    return q_ratio > 1.0, q_ratio
+
+
+def signal_qualifies(signal_row, q_sig, s_sig, gated):
+    q_ok, q_ratio = qqq_signal_qualifies(signal_row, q_sig)
     s_ratio = float(s_sig["atm_iv"]) / float(signal_row.S_rv30)
-    qualify = q_ratio > 1.0 and s_ratio > 1.0
+    qualify = q_ok and s_ratio > 1.0
     if gated and not bool(signal_row.corr_gate_ok):
         qualify = False
     return qualify, q_ratio, s_ratio
@@ -96,7 +101,7 @@ def make_position(component, qty, entry_date, exit_date):
     }
 
 
-def build_candidates(con, state, qpath, spath, gated, name):
+def build_candidates(con, state, qpath, spath, gated, name, require_spy=True):
     days = entry_days(state)
     state_dates = sorted(pd.to_datetime(state.date).tolist())
     st = state.set_index("date")
@@ -119,29 +124,38 @@ def build_candidates(con, state, qpath, spath, gated, name):
         q_sig = qqq_rc(
             con, qpath, sigd, Q_TARGET, Q_WING_DELTA, Q_LONG_DELTA, Q_EXIT_DTE
         )
-        s_sig = spy_ic(con, spath, sigd, SPY_TARGET, SPY_WING_DELTA)
-        if q_sig is None or s_sig is None:
+        if q_sig is None:
             continue
 
-        qualifies, q_ratio, s_ratio = signal_qualifies(
-            row, q_sig, s_sig, gated
-        )
+        s_sig = spy_ic(con, spath, sigd, SPY_TARGET, SPY_WING_DELTA) if require_spy else None
+        if require_spy and s_sig is None:
+            continue
+
+        if require_spy:
+            pair_signal_ok, q_ratio, s_ratio = signal_qualifies(
+                row, q_sig, s_sig, gated
+            )
+            q_candidate_eligible = pair_signal_ok
+        else:
+            q_candidate_eligible, q_ratio = qqq_signal_qualifies(row, q_sig)
+            s_ratio = np.nan
 
         signal_rows.append(
             {
                 "strategy": name,
                 "signal_date": pd.Timestamp(sigd),
                 "entry_date": pd.Timestamp(d),
-                "q_ratio": pair["q_ratio"],
-                "s_ratio": pair["s_ratio"],
+                "q_ratio": q_ratio,
+                "s_ratio": s_ratio,
                 "corr60": float(row.corr60) if pd.notna(row.corr60) else np.nan,
                 "corr_med_252": float(row.corr_med_252) if pd.notna(row.corr_med_252) else np.nan,
                 "corr_gate_ok": bool(row.corr_gate_ok) if pd.notna(row.corr_gate_ok) else False,
-                "eligible_signal": bool(qualifies),
+                "eligible_signal": bool(q_candidate_eligible),
                 "required_spy_units_entry": np.nan,
             }
         )
 
+        qualifies = q_candidate_eligible and require_spy
         q_entry = None
         s_entry = None
         entry_units = np.nan
@@ -458,21 +472,21 @@ def main():
 
     # QQQ-only broad benchmark.
     q_all_candidates, _, sig_all = build_candidates(
-        con, state, qpath, spath, gated=False, name="QQQ_ONLY_ALL"
+        con, state, qpath, spath, gated=False, name="QQQ_ONLY_ALL", require_spy=False
     )
 
     # The same qualification as the new gated pair, but QQQ-only, gives an
     # activity-matched counterfactual for isolating the SPY contribution.
     q_gate_candidates, _, sig_gate = build_candidates(
-        con, state, qpath, spath, gated=True, name="QQQ_ONLY_ACTIVITY_MATCHED"
+        con, state, qpath, spath, gated=True, name="QQQ_ONLY_ACTIVITY_MATCHED", require_spy=True
     )
 
     _, pair_base_candidates, sig_pair_base = build_candidates(
-        con, state, qpath, spath, gated=False, name="PAIR_DYNAMIC3_BASE"
+        con, state, qpath, spath, gated=False, name="PAIR_DYNAMIC3_BASE", require_spy=True
     )
 
     _, pair_gate_candidates, sig_pair_gate = build_candidates(
-        con, state, qpath, spath, gated=True, name=NEW_POLICY
+        con, state, qpath, spath, gated=True, name=NEW_POLICY, require_spy=True
     )
 
     all_q = q_all_candidates
