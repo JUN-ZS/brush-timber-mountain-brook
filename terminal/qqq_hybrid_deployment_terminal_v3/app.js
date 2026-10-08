@@ -193,7 +193,7 @@ function renderPermission(d,e,book){
     $("permissionStatus").className="tag "+(p.allowNewBuy?"active":p.blocked?"retired":"research");
   }
   if($("permissionNote"))$("permissionNote").textContent=p.note;
-  const fullText=r=>r.key==="vxxPct"?fmt(r.full,2)+"% NAV":r.key==="qqqShares"?(Number.isFinite(r.full)?fmt(r.full,0)+" shares":"42% NAV"):(Number.isFinite(r.full)?fmt(r.full,0)+" spreads":"budget only · candidate pending");
+  const fullText=r=>r.key==="vxxPct"?fmt(r.full,2)+"% NAV":r.key==="qqqShares"?(Number.isFinite(r.full)?"42% NAV (≈"+fmt(r.full,0)+" shares)":"42% NAV"):(Number.isFinite(r.full)?fmt(r.full,0)+" spreads":"budget only · candidate pending");
   const nowText=r=>r.key==="vxxPct"?fmt(r.nowMax,2)+"% NAV":r.key==="qqqShares"?fmt(r.nowMax,0)+" shares":fmt(r.nowMax,0)+" spreads";
   const buyText=r=>r.maxBuy<=0?"0":r.key==="vxxPct"?"+"+fmt(r.maxBuy,2)+"% NAV":"+"+fmt(r.maxBuy,0)+" "+(r.key==="qqqShares"?"shares":"spreads");
   const sellText=r=>r.maxSell<=0?"0":r.key==="vxxPct"?"−"+fmt(r.maxSell,2)+"% NAV":"−"+fmt(r.maxSell,0)+" "+(r.key==="qqqShares"?"shares":"spreads");
