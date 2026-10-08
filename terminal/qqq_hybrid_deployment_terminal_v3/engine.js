@@ -143,6 +143,60 @@ window.HybridEngineV3 = (() => {
     const target={qqqShares:buyAllowed?Math.floor(rawShares):cur.qqqShares,vxxPct:buyAllowed?e.targets.vxxPct:Math.min(cur.vxxPct,e.targets.vxxPct),qqqCalls:qqqCallsTarget,vxxCalls:vxxCallsTarget};
     return{current:cur,target,deltas:{qqqShares:target.qqqShares-cur.qqqShares,vxxPct:target.vxxPct-cur.vxxPct,qqqCalls:target.qqqCalls-cur.qqqCalls,vxxCalls:target.vxxCalls-cur.vxxCalls},blocked:false,inputBlocked:false,sizing:{qqqCalls:qc?.sizingAvailable?{status:"READY",credit:qc.credit,quantity:qQty,source:qc.source}:{status:"PENDING_CANDIDATE"},vxxCalls:vc?.sizingAvailable?{status:"READY",credit:vc.credit,quantity:vQty,source:vc.source}:{status:"PENDING_CANDIDATE"}}};
   }
+  // CURRENT PERMISSION — visibility only. This does not alter derive() or targetLedger().
+  function permissionLedger(d,e,book,candidates={},navInput=null){
+    const cur={
+      qqqShares:num(book?.current?.qqqShares,0),
+      vxxPct:num(book?.current?.vxxPct,0),
+      qqqCalls:num(book?.current?.qqqCalls,0),
+      vxxCalls:num(book?.current?.vxxCalls,0)
+    };
+    const nav=num(navInput,0), qqqPrice=num(d?.qqq,0);
+    const fullQqqShares=nav>0&&qqqPrice>0?Math.floor(nav*(POLICY.corePct/100)/qqqPrice):null;
+    const qCand=candidates?.qqq||null, vCand=candidates?.vxx||null;
+    const qQty=(qCand?.sizingAvailable===true&&Number.isFinite(Number(qCand.credit)))?optionQty(nav,POLICY.qqqCallBudgetPct,Number(qCand.credit)):null;
+    const vQty=(vCand?.sizingAvailable===true&&Number.isFinite(Number(vCand.credit)))?optionQty(nav,POLICY.vxxCallBudgetPct,Number(vCand.credit)):null;
+    const make=(key,label,unit,full,nowMax,allowBuy)=>{
+      const current=Number.isFinite(Number(cur[key]))?Number(cur[key]):0;
+      const ceiling=Number.isFinite(Number(nowMax))?Number(nowMax):current;
+      return{key,label,unit,full,current,nowMax:ceiling,maxBuy:allowBuy?Math.max(0,ceiling-current):0,maxSell:Math.max(0,current-ceiling)};
+    };
+    let nowMax={qqqShares:cur.qqqShares,vxxPct:cur.vxxPct,qqqCalls:cur.qqqCalls,vxxCalls:cur.vxxCalls};
+    let allowBuy=false,status="HOLD / NO NEW CARRY";
+    if(e.blocked){status="BLOCKED / NO TRADE";}
+    else if(e.action==="BUY"){
+      allowBuy=true; status="CARRY / BUILD TOWARD FULL";
+      if(Number.isFinite(fullQqqShares))nowMax.qqqShares=fullQqqShares;
+      nowMax.vxxPct=Number(e.targets?.vxxPct);
+      nowMax.qqqCalls=Number.isFinite(qQty)?qQty:cur.qqqCalls;
+      nowMax.vxxCalls=Number.isFinite(vQty)?vQty:cur.vxxCalls;
+    }else if(e.action==="REDUCE"){
+      status=e.state==="SHOCK"?"SHOCK / CUT":"REDUCE / DEFEND";
+      nowMax.qqqShares=cur.qqqShares;
+      nowMax.vxxPct=Number(e.targets?.vxxPct);
+      nowMax.qqqCalls=0; nowMax.vxxCalls=0;
+    }else{
+      nowMax.qqqShares=cur.qqqShares;
+      nowMax.vxxPct=Math.min(cur.vxxPct,Number(e.targets?.vxxPct));
+      nowMax.qqqCalls=cur.qqqCalls; nowMax.vxxCalls=cur.vxxCalls;
+    }
+    return{
+      status,regime:e.state||"UNKNOWN",engineAction:e.action||"HOLD",blocked:e.blocked===true,allowNewBuy:allowBuy,
+      rows:[
+        make("qqqShares","QQQ CORE","shares",Number.isFinite(fullQqqShares)?fullQqqShares:null,nowMax.qqqShares,allowBuy),
+        make("vxxPct","VXX SHORT","% NAV",POLICY.vxxNormalPct,nowMax.vxxPct,allowBuy),
+        make("qqqCalls","QQQ FAR CALL","spreads / "+POLICY.qqqCallBudgetPct+"% NAV budget",Number.isFinite(qQty)?qQty:null,nowMax.qqqCalls,allowBuy),
+        make("vxxCalls","VXX CALL","spreads / "+POLICY.vxxCallBudgetPct+"% NAV budget",Number.isFinite(vQty)?vQty:null,nowMax.vxxCalls,allowBuy)
+      ],
+      note:e.action==="BUY"
+        ?"現在可由 Current → Full target 補倉；option contracts 必須先有合格 candidate。"
+        :e.action==="HOLD"
+          ?"「可留」不等於「可加」：現在最多只留現有 carry；VXX 超過 frozen target 才 TRIM。"
+          :e.blocked
+            ?"資料未通過：不要因資料問題自行買或賣。"
+            :"現在只可按 frozen target 減風險；QQQ core 不因 shock 自動清倉。"
+    };
+  }
   function actionRows(book){return Object.entries(book.deltas).map(([key,diff])=>({key,diff,kind:Math.abs(diff)<1e-9?"HOLD":diff>0?"ADD":"REDUCE"}));}
   // Cell 13 C — flat-book / no-option-legs silence (suppress ROLL fire from blank DTE).
   function flatBookSilence({qqqCalls,vxxCalls,forceFlat,currentOptionLegs}={}){
@@ -764,5 +818,5 @@ window.HybridEngineV3 = (() => {
     }
     return lines;
   }
-  return{POLICY,isoDay,normalizeTermSlope,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,reductionLines,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
+  return{POLICY,isoDay,normalizeTermSlope,num,operatorNumber,operatorExpiry,parseOptionLeg,currentOptionLegs,dteFromExpiry,term,sourceCadence,dataHealth,derive,optionQty,normalizeOptionChain,candidateFromChain,targetLedger,permissionLedger,actionRows,flatBookSilence,triggers,operatorSummary,fundingPlan,strategyActionBridge,reductionLines,exposureLabels,impliedVxxShares,journalRecord,MEMORY_IDS,JOURNAL_MEMORY_MAP,memoryFromJournal,memoryMapPreview};
 })();
