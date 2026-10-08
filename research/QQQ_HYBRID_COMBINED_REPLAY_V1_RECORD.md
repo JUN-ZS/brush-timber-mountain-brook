@@ -82,6 +82,37 @@ Latest descriptive trend (BASELINE):
 
 VXX call-spread is a positive contributor in this derived replay, but it is a small share of total profit. Most NAV comes from the other layers.
 
+## New program that uses the feed
+
+`research/qqq_hybrid_new_program_v1.py`
+
+It does exactly the intended chain:
+
+```
+Historical Profit Trend (four-layer hybrid)
+    +
+VXX call-spread attribution
+    +
+Current Market State
+    +
+Current Cash Pool
+    +
+Actual Current Holdings
+    ↓
+Current Target / Capacity
+    ↓
+Current vs Target
+```
+
+Run example:
+
+```
+python research/qqq_hybrid_new_program_v1.py \
+  --trend-json artifacts/qqq_hybrid_profit_trend_replay_v1/baseline/profit_trend.json \
+  --vxx-cc-json artifacts/qqq_hybrid_vxx_call_spread_contribution_v1/vxx_cc_report.json \
+  --current-json current_inputs.json
+```
+
 ## Hard boundaries (do not violate)
 
 1. **Historical 42% ≠ Current Frozen Sizing**  
@@ -108,28 +139,13 @@ qqq_call_contracts = EXTERNAL_INPUT
 vxx_call_contracts = EXTERNAL_INPUT
 ```
 
-Current capacity must come from:
-
-```
-Historical Profit Trend (evidence)
-    +
-Current Market State
-    +
-Current Cash Pool
-    +
-Actual Current Holdings
-    ↓
-Current Target / Capacity
-    ↓
-Current vs Target
-```
-
 ## Files for next AI
 
 - `research/qqq_hybrid_dynamic_deployment_v1_1_replay.py` — preserved four-layer simulator
 - `research/qqq_hybrid_profit_trend_replay_v1.py` — profit trend exporter
 - `research/qqq_hybrid_vxx_call_spread_contribution_v1.py` — VXX call-spread attribution
-- `research/qqq_hybrid_profit_trend_consumer_v1.py` — consumer that keeps sizing external
+- `research/qqq_hybrid_profit_trend_consumer_v1.py` — earlier consumer
+- `research/qqq_hybrid_new_program_v1.py` — new program entry that uses the feed
 - `.github/workflows/qqq-hybrid-profit-trend-replay-v1.yml` — self-hosted Windows runner
 
 ## What next AI must not do
@@ -142,4 +158,4 @@ Current vs Target
 
 ## One-line summary
 
-The hybrid was recovered for its VXX call-credit spread. The derived replay is verified. VXX call-spread contributed about +7,178 (≈3.6% of baseline profit). Historical 42% is not current frozen sizing. Current capacity remains EXTERNAL_INPUT.
+The hybrid was recovered for its VXX call-credit spread. The derived replay is verified. VXX call-spread contributed about +7,178 (≈3.6% of baseline profit). The new program consumes that feed as evidence only. Historical 42% is not current frozen sizing. Current capacity remains EXTERNAL_INPUT.
