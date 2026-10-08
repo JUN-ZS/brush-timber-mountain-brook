@@ -83,17 +83,19 @@ def audit_protocol() -> dict:
         {
             "date": pd.to_datetime(
                 ["2024-01-05", "2024-01-12", "2024-01-19", "2024-01-26", "2024-02-02", "2024-02-09",
-                 "2024-02-16", "2024-02-23", "2024-03-01", "2024-03-08", "2024-03-15", "2024-03-22"]
+                 "2024-02-16", "2024-02-23", "2024-03-01", "2024-03-08", "2024-03-15", "2024-03-22",
+                 "2024-03-29", "2024-04-05", "2024-04-12", "2024-04-19", "2024-04-26", "2024-05-03",
+                 "2024-05-10", "2024-05-17"]
             ),
-            "q_ret": np.linspace(-0.02, 0.02, 12),
-            "s_ret": np.linspace(0.015, -0.015, 12),
-            "dq_iv": np.linspace(0.01, -0.01, 12),
-            "ds_iv": np.linspace(-0.01, 0.01, 12),
-            "q_div": np.linspace(0.0001, 0.0008, 12),
-            "s_div": np.linspace(0.0002, 0.0007, 12),
+            "q_ret": np.linspace(-0.02, 0.02, 20),
+            "s_ret": np.linspace(0.015, -0.015, 20),
+            "dq_iv": np.linspace(0.01, -0.01, 20),
+            "ds_iv": np.linspace(-0.01, 0.01, 20),
+            "q_div": np.linspace(0.0001, 0.0008, 20),
+            "s_div": np.linspace(0.0002, 0.0007, 20),
         }
     )
-    target_date = pd.Timestamp("2024-03-15")
+    target_date = pd.Timestamp("2024-05-10")
     c1 = covariance_for_date(base, target_date)
     future = base.copy()
     future_rows = future.iloc[-3:].copy()
@@ -263,7 +265,7 @@ def main():
     }
     t_prep = time.perf_counter()
 
-    prep_path = out / "PREP_CACHE.pkl"
+    prep_path = out.parent / f".qqq_spy_ridge_prep_{os.getpid()}.pkl"
     with open(prep_path, "wb") as fh:
         pickle.dump(
             {
@@ -279,6 +281,66 @@ def main():
             fh,
             protocol=pickle.HIGHEST_PROTOCOL,
         )
+
+    regression_config = configs[0]
+    serial_rr, serial_eq, serial_br = simulate_config(
+        None,
+        None,
+        None,
+        qspots,
+        sspots,
+        dates,
+        hist,
+        covariance_cache,
+        selector,
+        mark_maps,
+        *regression_config,
+    )
+    with ProcessPoolExecutor(max_workers=1) as regression_pool:
+        regression_wr = next(
+            regression_pool.map(
+                worker_run,
+                [(str(prep_path), [regression_config], 0)],
+            )
+        )
+    worker_rr = regression_wr["results"][0]
+    worker_eq = regression_wr["curves"][0]
+    worker_br = regression_wr["balances"][0] if regression_wr["balances"] else pd.DataFrame()
+
+    compare_keys = [
+        "ending_nav", "cagr", "maxdd", "sharpe",
+        "mean_n_delta", "mean_n_mv", "mean_n_balanced",
+        "theta_feasible_pct", "mean_net_theta",
+        "mean_abs_net_delta", "mean_residual_var",
+    ]
+    for key in compare_keys:
+        if not math.isclose(
+            float(serial_rr[key]), float(worker_rr[key]), rel_tol=0.0, abs_tol=0.0
+        ):
+            raise AssertionError(
+                f"execution regression mismatch for {key}: "
+                f"{serial_rr[key]} != {worker_rr[key]}"
+            )
+    serial_eq_cmp = serial_eq.reset_index(drop=True).copy()
+    worker_eq_cmp = worker_eq.reset_index(drop=True).copy()
+    serial_eq_cmp = serial_eq_cmp.drop(columns=["worker_index"], errors="ignore")
+    worker_eq_cmp = worker_eq_cmp.drop(columns=["worker_index"], errors="ignore")
+    pd.testing.assert_frame_equal(
+        serial_eq_cmp,
+        worker_eq_cmp,
+        check_exact=True,
+    )
+    if not serial_br.empty:
+        serial_br_cmp = serial_br.reset_index(drop=True).copy()
+        worker_br_cmp = worker_br.reset_index(drop=True).copy()
+        serial_br_cmp = serial_br_cmp.drop(columns=["worker_index"], errors="ignore")
+        worker_br_cmp = worker_br_cmp.drop(columns=["worker_index"], errors="ignore")
+        pd.testing.assert_frame_equal(
+            serial_br_cmp,
+            worker_br_cmp,
+            check_exact=True,
+        )
+    regression = {"status": "PASS", "config": list(regression_config)}
 
     chunks = [configs[i::workers] for i in range(workers)]
     chunks = [c for c in chunks if c]
@@ -343,6 +405,7 @@ def main():
             "total_before_reporting": round(t_sim - t0, 3),
         },
         "worker_timings": worker_timings,
+        "execution_regression": regression,
         "audit": audit,
     }
     (out / "METHODOLOGY.json").write_text(
@@ -376,6 +439,11 @@ def main():
     print(f"Workers: {len(chunks)}")
     print(f"Prepare seconds: {t_prep - t0:.3f}")
     print(f"Simulation wall seconds: {t_sim - t_prep:.3f}")
+    try:
+        prep_path.unlink()
+    except FileNotFoundError:
+        pass
+    print(f"Execution regression: {regression['status']}")
     print(f"Total seconds: {t_sim - t0:.3f}")
 
 
