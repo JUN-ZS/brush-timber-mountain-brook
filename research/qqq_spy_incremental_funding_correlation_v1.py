@@ -79,8 +79,8 @@ def build_corr_state(con, qu, su, base_state):
 
 
 def signal_qualifies(signal_row, q_sig, s_sig, gated):
-    q_ratio = float(signal_row.q_rv60) / float(q_sig["atm_iv"])
-    s_ratio = float(s_sig["atm_iv"]) / float(signal_row.s_rv30)
+    q_ratio = float(signal_row.Q_rv60) / float(q_sig["atm_iv"])
+    s_ratio = float(s_sig["atm_iv"]) / float(signal_row.S_rv30)
     qualify = q_ratio > 1.0 and s_ratio > 1.0
     if gated and not bool(signal_row.corr_gate_ok):
         qualify = False
