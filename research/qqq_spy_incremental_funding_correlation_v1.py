@@ -474,7 +474,7 @@ def main():
         state = state[state.date >= window_start].copy()
     elif args.window == "late_oos":
         window_start = pd.Timestamp("2024-01-02")
-        state = state[state.entry_date >= window_start].copy()
+        state = state[state.date >= window_start].copy()
 
     # QQQ-only broad benchmark.
     q_all_candidates, _, sig_all = build_candidates(
