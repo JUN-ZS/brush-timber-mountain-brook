@@ -1,0 +1,225 @@
+name: QQQ SPY Cross-Underlying Ratio-Diagonal Balance Ridge V2 — GOVERNED
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-cross-ratio-ridge-governed-v2-20261008
+    paths:
+      - research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
+      - research/qqq_spy_cross_ratio_diagonal_balance_ridge_v2_governed.py
+      - research/qqq_spy_bounded_crossover_reanchor_v1.py
+      - .github/workflows/qqq-spy-cross-ratio-diagonal-balance-ridge-v2-governed.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay-linux:
+    name: Governed replay / Linux
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Prepare Python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install duckdb pandas pyarrow numpy
+
+      - name: Download canonical data
+        run: |
+          mkdir -p data artifacts/qqq_spy_ridge_v2_linux
+          curl -L --fail --retry 4 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
+          curl -L --fail --retry 4 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          curl -L --fail --retry 4 -o data/SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
+
+      - name: Compile
+        run: |
+          python -m py_compile research/qqq_spy_bounded_crossover_reanchor_v1.py
+          python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
+          python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v2_governed.py
+
+      - name: Run blind protocol audit
+        run: |
+          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v2_governed.py \
+            --out artifacts/qqq_spy_ridge_v2_linux \
+            --audit-only
+
+      - name: Run governed replay
+        run: |
+          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v2_governed.py \
+            --data-dir data \
+            --out artifacts/qqq_spy_ridge_v2_linux \
+            --orientation both \
+            --workers 5
+          cat artifacts/qqq_spy_ridge_v2_linux/RESULTS.md
+
+      - name: Upload Linux artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-spy-ridge-v2-governed-linux
+          path: artifacts/qqq_spy_ridge_v2_linux/
+          if-no-files-found: warn
+
+  replay-windows:
+    name: Governed replay / Windows
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 240
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Prepare Python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install duckdb pandas pyarrow numpy
+
+      - name: Download canonical data
+        run: |
+          mkdir -p data artifacts/qqq_spy_ridge_v2_windows
+          curl.exe -L --fail --retry 4 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl.exe -L --fail --retry 4 -o data/SPY_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_options.parquet
+          curl.exe -L --fail --retry 4 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          curl.exe -L --fail --retry 4 -o data/SPY_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/SPY_underlying.parquet
+
+      - name: Compile
+        run: |
+          python -m py_compile research/qqq_spy_bounded_crossover_reanchor_v1.py
+          python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v1.py
+          python -m py_compile research/qqq_spy_cross_ratio_diagonal_balance_ridge_v2_governed.py
+
+      - name: Run blind protocol audit
+        run: |
+          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v2_governed.py \
+            --out artifacts/qqq_spy_ridge_v2_windows \
+            --audit-only
+
+      - name: Run governed replay
+        run: |
+          python research/qqq_spy_cross_ratio_diagonal_balance_ridge_v2_governed.py \
+            --data-dir data \
+            --out artifacts/qqq_spy_ridge_v2_windows \
+            --orientation both \
+            --workers 5
+          cat artifacts/qqq_spy_ridge_v2_windows/RESULTS.md
+
+      - name: Upload Windows artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-spy-ridge-v2-governed-windows
+          path: artifacts/qqq_spy_ridge_v2_windows/
+          if-no-files-found: warn
+
+  parity:
+    name: Linux / Windows parity
+    if: always()
+    needs: [replay-linux, replay-windows]
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Prepare Python
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pandas numpy
+
+      - name: Download replay artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: qqq-spy-ridge-v2-governed-*
+          path: downloaded
+          merge-multiple: false
+
+      - name: Verify parity and governed contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import numpy as np
+          import pandas as pd
+
+          root = Path("downloaded")
+          linux = root / "qqq-spy-ridge-v2-governed-linux"
+          windows = root / "qqq-spy-ridge-v2-governed-windows"
+          out = Path("parity_artifact")
+          out.mkdir(parents=True, exist_ok=True)
+
+          for label, base in [("linux", linux), ("windows", windows)]:
+              m = json.loads((base / "METHODOLOGY.json").read_text(encoding="utf-8"))
+              if m["strategy_rules_changed"] is not False:
+                  raise AssertionError(f"{label}: strategy_rules_changed is not false")
+              if m["no_parameter_search"] is not True:
+                  raise AssertionError(f"{label}: no_parameter_search is not true")
+              if m["no_live_orders"] is not True:
+                  raise AssertionError(f"{label}: no_live_orders is not true")
+              if m["audit"]["audit"] != "PASS":
+                  raise AssertionError(f"{label}: protocol audit failed")
+              if m["execution_regression"]["status"] != "PASS":
+                  raise AssertionError(f"{label}: execution regression failed")
+
+          lr = pd.read_csv(linux / "results.csv")
+          wr = pd.read_csv(windows / "results.csv")
+          key = ["orientation", "long_asset", "short_asset", "long_dte", "short_dte"]
+          metrics = [
+              "ending_nav", "cagr", "maxdd", "sharpe", "mean_n_delta",
+              "mean_n_mv", "mean_n_balanced", "theta_feasible_pct",
+              "mean_net_theta", "mean_abs_net_delta", "mean_residual_var",
+          ]
+          l = lr[key + metrics].sort_values(key).reset_index(drop=True)
+          w = wr[key + metrics].sort_values(key).reset_index(drop=True)
+
+          if l[key].to_dict("records") != w[key].to_dict("records"):
+              raise AssertionError("Linux/Windows configuration universe differs")
+
+          max_diffs = {}
+          for col in metrics:
+              diff = np.abs(l[col].to_numpy(dtype=float) - w[col].to_numpy(dtype=float))
+              max_diffs[col] = float(np.nanmax(diff)) if len(diff) else 0.0
+              if not np.allclose(l[col].to_numpy(dtype=float), w[col].to_numpy(dtype=float), rtol=0.0, atol=0.0, equal_nan=True):
+                  raise AssertionError(f"Linux/Windows mismatch in {col}: max diff {max_diffs[col]}")
+
+          parity = [
+              "# Governed V2 Linux / Windows parity",
+              "",
+              f"Linux configs: {len(lr)}",
+              f"Windows configs: {len(wr)}",
+              "All governed contract checks: PASS",
+              "",
+              "| metric | max absolute diff |",
+              "|---|---:|",
+          ]
+          parity += [f"| {k} | {v:.12g} |" for k, v in max_diffs.items()]
+          parity += ["", "This verifies execution/platform parity; it does not establish alpha."]
+          (out / "PARITY.md").write_text("\\n".join(parity), encoding="utf-8")
+          print("\\n".join(parity))
+          PY
+
+      - name: Upload parity artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-spy-ridge-v2-governed-parity
+          path: parity_artifact/
+          if-no-files-found: warn
