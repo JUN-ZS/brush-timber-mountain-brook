@@ -19,10 +19,10 @@ input,select,textarea{background:#0b1118;color:var(--txt);border:1px solid #3a48
 <section class="panel"><div class="head"><div><div class="kicker">01 · INPUTS</div><h2>資料及風險設定</h2></div><span id="sourceBadge" class="tag bad">尚未載入報價</span></div>
 <div class="grid6">
 <label>到期日 <input id="expiry" type="date" value="2026-11-20"></label><label>報價觀察日（未知可留空）<input id="asof" type="date"></label>
-<label>合約乘數 <input id="mult" type="number" min="1" value="100"></label><label>單一候選風險預算（美元）<input id="budget" type="number" min="0" step="25" value="3200"></label>
-<label>損益圖組數 <input id="qty" type="number" min="1" step="1" value="1"></label>
+<label>期權權利金乘數（須核實） <input id="mult" type="number" min="1" value="100"></label><label>單一候選風險預算（美元）<input id="budget" type="number" min="0" step="25" value="3200"></label>
+<label>損益圖組數（正整數） <input id="qty" type="number" min="1" step="1" value="1"></label>
 <label>排序 <select id="sort"><option value="rr">權利金／風險（高至低）</option><option value="credit">淨權利金（高至低）</option><option value="loss">最大虧損（低至高）</option><option value="capacity">預算組數（高至低）</option></select></label>
-</div><div class="btns"><button class="primary" id="loadSample">載入本次截圖報價（樣本）</button><button id="clear" class="danger">清空全部報價</button><button id="export">匯出全部鏈 CSV</button></div><p class="tiny">風險預算只是單一候選的 what-if 額度，不會與主操作台的風險池相連。</p></section>
+</div><div class="btns"><button class="primary" id="loadSample">載入本次截圖報價（樣本）</button><button id="clear" class="danger">清空全部報價</button><button id="export">匯出全部鏈 CSV</button></div><p class="tiny">風險預算只是單一候選的 what-if 額度，不會與主操作台的風險池相連。清空或輸入無效乘數／預算時，計算會 BLOCK，不會暗中回復預設數字。VXX 合約交割未核實前，所有 VXX payoff 只屬標準乘數情景試算。</p></section>
 <section class="panel"><div class="head"><div><div class="kicker">02 · IMPORT / EDIT</div><h2>匯入或手動調整報價</h2></div><span class="tiny">CSV 格式：symbol,side,strike,bid,ask,delta；Put 例子須另行提供來源，不代表截圖已有 Put 報價</span></div>
 <textarea id="csv" class="csv" placeholder="QQQ,CALL,799,3.16,3.18,0.1456&#10;QQQ,CALL,810,1.87,1.89,0.0954&#10;VXX,CALL,21,0.58,0.72,0.2698&#10;VXX,CALL,24,0.24,0.34,0.1731"></textarea><div class="btns"><button id="import">匯入 CSV（替換全部四條鏈）</button><span id="importStatus" class="tiny"></span></div></section>
 <section class="panel"><div class="head"><div><div class="kicker">03 · CHAINS</div><h2>期權報價表</h2></div><span id="chainMeta" class="tag">尚未載入</span></div>
