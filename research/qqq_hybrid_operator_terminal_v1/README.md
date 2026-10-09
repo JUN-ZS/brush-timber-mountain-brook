@@ -6,7 +6,7 @@
 
 The primary workflow is **capital-first sizing**:
 
-> Enter principal / NAV (for example, $100,000), uncommitted deployable cash, cash reserve, stock allocation caps, a user-entered VXX margin estimate, and option max-loss budgets. The engine calculates maximum units for each Hybrid leg and available option candidate, capital/margin estimates, a shared option-risk envelope, and the target the current state permits. Current holdings are optional inputs only for ADD / HOLD / REDUCE deltas.
+> Enter principal / NAV, truly uncommitted cash, cash reserve, stock allocation caps and the VXX short-stock margin estimate. The primary option max-loss pool includes only QQQ far call-credit, VXX call-credit and VXX put-credit verticals. These quoted seller legs share one pool; QQQ stock purchases and VXX short-stock margin use the same cash reconciliation. Other catalogue structures stay visible for inspection but cannot change primary capacities. Current holdings are used to compare the permitted target with the current state.
 
 An intentionally excessive 1,000-unit input is a collapsed self-audit diagnostic only, not the normal workflow.
 
@@ -90,18 +90,19 @@ The number of contracts is bounded by both the individual leg budget and the sha
 - The legacy N:X hedge result is per campaign, not portfolio-wide capacity, and is never presented as max-loss-capped.
 - Public Yahoo option quotes may be delayed/incomplete and are not guaranteed executable; verify broker bid/ask, expiry, adjusted contracts and fills.
 
-## Joint portfolio budget across the Hybrid and Hub structures
+## Joint portfolio budget — primary whitelist only
 
-The **primary page** (\`http://127.0.0.1:8790/\`) is the authoritative joint-sizing page. QQQ Core and VXX Short Stock share one cash plan; every enabled, quoted option row also enters the single \`totalOptionRiskPool\`:
+The primary page (http://127.0.0.1:8790/) is the authoritative sizing page. Its cash plan accounts for QQQ core shares, the VXX short-stock margin estimate, cash reserve and incremental QQQ purchases. Its shared option max-loss pool includes exactly three quoted defined-risk seller verticals:
 
-- Original Hybrid options: QQQ Far Call-Credit and VXX Call-Credit.
-- Existing candidate add-ons: VXX Put-Credit, QQQ Bull-Put/Bear-Call, Covered Call, Protective Put, Long Call/Put, and explicitly entered debit / defined-risk structures.
-- Hub-researched candidate rows: Ratio-Call HARVEST/Dynamic-N package, State-Adaptive/Staggered five-leg package, and SHOCK-GATED Put Debit Spread.
-- Ratio Put remains **stress-only**, not hard-loss capped.
+- QQQ FAR CALL / CALL-CREDIT.
+- VXX CALL-CREDIT.
+- VXX PUT-CREDIT.
 
-Each strategy's \`risk budget % NAV\` is a requested weight against the same overall pool, not a separately spendable entitlement. If eligible requested weights sum above the pool, the engine applies one common proportional scale factor before integer-contract rounding and shows requested weights, common scale factor, allocated risk dollars, risk per package, target risk reserve and unused risk. Missing quotes and a Shock-Gated structure whose trigger is false reserve zero new risk. QQQ stock purchases, VXX short-margin estimate, cash reserve and the shared option-risk envelope still reconcile against the one uncommitted cash pool.
+The three eligible option legs request percentages of NAV but do not each receive an independent entitlement. After usable same-expiry quotes are available, the engine sums their requested risk, proportionally scales requests when they exceed the shared pool, and rounds to whole spreads. A quoted candidate with a budget too small for one whole spread still participates in the requested allocation before integer rounding. Missing quotes (including the VXX put chain in the uploaded screenshot fixture) remain PENDING and do not consume risk.
 
-The Hub-specific details page (\`hub_research_pack.html\`) remains a structure/rule inspector and single-profile diagnostic. Its standalone maximum must **not** be added to the main page's capacities. For deployable package counts, use the main page's one shared risk allocation table.
+QQQ bull-put/bear-call, covered calls, protective puts, long/debit options, iron flies/condors, calendars, ratio structures, Hub packages and legacy hedge diagnostics are outside the primary budget. They can remain visible as research references, but receive no primary capacity, target changes, or risk reservation. Do not add their research estimates to the primary table.
+
+The Hub-specific details page (hub_research_pack.html) is a structure/rule inspector, not a second allocation authority. Its standalone maximum must not be added to the primary page's capacities. All actions remain what-if/manual review; no broker order route is present.
 
 ## Hub-researched structures (separate research workbench)
 
@@ -120,6 +121,10 @@ It prioritizes structures that already have Hub research code / frozen geometry 
 Entry risk is calculated from the selected leg Bid/Ask and an expiry-payoff node proxy. It is not a daily MTM maximum-loss guarantee and does not replace the canonical historical real-chain backtest. The chain loader uses the server's public Yahoo option endpoint; quotes may be delayed/incomplete and a missing candidate remains pending. Provider Delta is labelled separately from Black-Scholes-estimated Delta.
 
 Capital safety boundary: the page computes **one selected research structure at a time**. Enter the existing Hybrid legs' already-reserved option risk in “base Hybrid option risk reserved” before using the remaining pool. This page is not yet automatically synchronized with the primary desk's holdings or allocations; do not add independent “maximum” values from both screens together. All actions remain what-if/manual review; no broker order route is present.
+
+## User-uploaded option-chain fixture
+
+The deterministic fixture tests/fixtures/user_uploaded_option_chain_2026-11-20.json records the QQQ call and VXX call rows visible in the screenshot uploaded on 2026-10-08. It preserves the displayed expiry, strikes, Bid/Ask and Delta and labels its provenance as USER_UPLOADED_SCREENSHOT; these are historical test inputs, not live quotes. That screenshot does not show VXX puts, so it must not be used to invent a VXX put candidate. The allocator regression uses QQQ 799C short / 810C wing, VXX 21C short / 24C wing, and checks that VXX put remains PENDING without a candidate quote.
 
 ## Tests
 
