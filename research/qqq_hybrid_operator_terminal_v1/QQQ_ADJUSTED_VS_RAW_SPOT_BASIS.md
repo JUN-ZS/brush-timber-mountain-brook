@@ -44,13 +44,28 @@ At these same listed strikes, switching only from the adjusted input to raw clos
 
 The model's target deltas were 0.16 / 0.08, yet actual paired contract Deltas above are materially lower (short 0.044–0.121; wing 0.008–0.039). This is consistent with another calibration issue in the VIX-to-QQQ-IV proxy and/or spread model, but does not by itself prove which component causes the gap. The exact selected legs' reported implied-volatility fields were not included in Run #5 output; the next audit revision will capture them and reprice the same strikes using those per-leg IVs as a diagnostic.
 
-## 4. What this establishes
+## 4. The model spread haircut is not sufficiently liquidity-aware
+
+For each selected pair, the model applies one VIX-derived half-spread percentage to both legs. The actual option-chain half-spread is calculated as \((Ask-Bid)/2 \div Mid\) on each observed leg.
+
+| Snapshot / pair | Model half-spread assumption | Observed short-leg half-spread / mid | Observed wing half-spread / mid | Read-through |
+|---|---:|---:|---:|---|
+| 2020-03-16 / 223C–240C | 7.84% | 42.55% | 50.00% | Both real quote spreads far wider than the model haircut |
+| 2020-03-16 / 214C–232C | 7.84% | 43.23% | 44.44% | Both real quote spreads far wider than the model haircut |
+| 2024-08-05 / 490C–510C | 4.31% | 4.44% | 19.44% | Short-leg haircut is close; wing spread remains much wider |
+| 2024-08-05 / 485C–505C | 4.31% | 3.65% | 4.85% | The observed spreads are close to the current model haircut |
+
+This is a separate error source from spot basis or volatility. In the 2020 shock snapshot, the current VIX-derived spread haircut is roughly five to six times narrower than the observed half-spread relative to midpoint. A single VIX-only haircut does not capture strike-/leg-specific liquidity. The 2024 examples are materially tighter on the short leg, but one wing remains much wider; a spread is only as executable as its less-liquid leg.
+
+**Consequence:** do not allow a model-generated credit to be described as an executable fill if its leg-level haircut is narrower than the corresponding observed quote spread. Where an historical entry/exit quote exists, the diagnostic must show short Bid and wing Ask explicitly; where it does not, report INSUFFICIENT_DATA rather than synthesize an exchange quote.
+
+## 5. What this establishes
 
 **Measured:** on two source-pinned dates, the adjusted-close QQQ series differs from raw nominal QQQ close, changes target strikes, and changes the model mark for the exact same listed option pair. The preserved model's conservative credit estimates also sit substantially above observed EOD quote-credit arithmetic on these examples.
 
 **Not established:** which single factor explains the complete discrepancy; whether source-provided IV is exchange-authoritative; intraday 15:45 quotes; actual fills, commissions or slippage; full-period strategy results; or VXX option history. This is not a performance claim and does not authorize a strategy change.
 
-## 5. Required next step
+## 6. Required next step
 
 Add each selected contract's source-reported IV and quote sizes; compare four controlled cases at exact same strikes:
 - adjusted spot + VIX-derived proxy IV (current model basis);

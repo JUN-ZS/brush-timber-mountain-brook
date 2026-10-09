@@ -98,3 +98,9 @@ The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CO
 - At exact same listed strikes, using raw close raises model credit by $0.33–$0.42/share. Yet proxy model credit remains materially higher than displayed short-Bid-minus-wing-Ask credit (about $0.96–$1.46/share above across selected pairs). Actual paired short-leg Deltas were 0.044–0.121 and wings 0.008–0.039 versus model target Deltas 0.16/0.08.
 - Interpretation: adjusted nominal price basis is a real contract-selection issue but not the only likely calibration error. Next add selected legs' source-reported IV and run a controlled spot-basis × IV-basis matrix at identical strikes; do not tune VIX→IV until the decomposition is measured. This two-date diagnostic is not a strategy-performance assertion.
 - Detailed report: [QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md](QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md).
+
+
+## Run #5 — per-leg spread realism diagnostic
+
+The same matched pairs show actual option half-spread/mid of 42.55% / 50.00% (short / wing) and 43.23% / 44.44% on 2020-03-16, versus the model haircut of 7.84%. On 2024-08-05, matched-pair leg ratios were 4.44% / 19.44% and 3.65% / 4.85%, versus model haircut 4.31%. The 2020 shock quote set and one 2024 wing demonstrate that a uniform VIX-only haircut is not sufficient for execution realism. Use observed leg Bid/Ask where available; otherwise label the fill assumption synthetic and stress it adversely.
+
