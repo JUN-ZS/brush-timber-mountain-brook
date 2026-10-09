@@ -99,6 +99,18 @@ assert.equal(provGood.ordersAuthorized,false,"complete metadata must never autho
 assert.equal(Lab.assessProvenance(goodMeta,"2026-11-20",2,true).status,"MANUAL_EDIT_RECHECK");
 assert.equal(Lab.assessProvenance({...goodMeta,sourceType:"MODEL_DERIVED"},"2026-11-20",2,false).status,"MODEL_ONLY");
 assert.equal(Lab.assessProvenance({...goodMeta,contractStatus:"UNKNOWN"},"2026-11-20",2,false).complete,false);
+const adjustedMeta={...goodMeta,contractStatus:"ADJUSTED_TERMS_RECORDED",contractSymbol:"VXX2"};
+const adjustedStatus=Lab.assessProvenance(adjustedMeta,"2026-11-20",2,false);
+assert.equal(adjustedStatus.status,"ADJUSTED_CONTRACT_SCENARIO_ONLY");
+assert.equal(adjustedStatus.complete,false);
+assert.equal(adjustedStatus.ordersAuthorized,false);
+const rootMismatch=Lab.assessProvenance({...goodMeta,contractSymbol:"VXX2",contractStatus:"STANDARD_TERMS_RECORDED"},"2026-11-20",2,false);
+assert.equal(rootMismatch.status,"CONTRACT_STATUS_CONFLICT");
+assert.equal(rootMismatch.complete,false);
+const adjustedCapacity=Lab.calculateVerticals("VXX_CALL",s.chains.VXX_CALL,100,3200,"ADJUSTED_TERMS_RECORDED");
+assert.equal(adjustedCapacity.candidates.length,0);
+assert.ok(adjustedCapacity.error.includes("調整合約"));
+
 const conflicting=Lab.parseCsv(richCsv.replace("2026-11-20,PUBLIC_DATA","2026-12-18,PUBLIC_DATA"));
 assert.ok(conflicting.metadataConflicts.length>0,"mixed expiry rows must be rejected");
 const partiallyMissingExpiry = Lab.parseCsv(richCsv.replace("2026-11-20,PUBLIC_DATA"," ,PUBLIC_DATA"));

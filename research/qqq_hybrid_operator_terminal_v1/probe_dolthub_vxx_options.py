@@ -89,6 +89,35 @@ def main() -> int:
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, RuntimeError, OSError) as exc:
             row["error"] = type(exc).__name__ + ": " + str(exc)[:240]
         report["results"].append(row)
+    # Check the symbol without a date predicate. This distinguishes six checkpoint gaps
+    # from no returned rows for act_symbol='VXX' anywhere in the queried table.
+    symbol_wide = {"status": "INCONCLUSIVE", "query": "act_symbol = 'VXX' with no date predicate"}
+    try:
+        sql = (
+            "SELECT date, act_symbol, expiration, strike, call_put, bid, ask, vol, delta "
+            "FROM option_chain WHERE act_symbol = 'VXX' "
+            "ORDER BY date DESC LIMIT 10"
+        )
+        payload = query(sql)
+        rows = payload.get("rows") or []
+        symbol_wide = {
+            "status": "ROWS_FOUND" if rows else "NO_ROWS_RETURNED",
+            "row_count": len(rows),
+            "distinct_dates_in_sample": sorted({str(q.get("date", ""))[:10] for q in rows}),
+            "sample_rows": [
+                {key: quote.get(key) for key in ("date", "act_symbol", "expiration", "strike", "call_put", "bid", "ask", "vol", "delta")}
+                for quote in rows[:10]
+            ],
+            "interpretation": (
+                "VXX rows exist in the table query; checkpoint gaps may reflect sparse/filtered history."
+                if rows else
+                "No rows returned for act_symbol='VXX' in this undated query; this excludes the current table/query as a demonstrated VXX source, but is not proof about other datasets or symbol aliases."
+            ),
+        }
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, RuntimeError, OSError) as exc:
+        symbol_wide["error"] = type(exc).__name__ + ": " + str(exc)[:240]
+    report["symbol_wide_probe"] = symbol_wide
+
     if not observed_any:
         overall = "INCONCLUSIVE_API_UNAVAILABLE"
     elif successes == len(CHECK_DATES):
@@ -103,6 +132,13 @@ def main() -> int:
         "checkpoints_total": len(CHECK_DATES),
         "api_responded_to_at_least_one_query": observed_any,
         "trade_replay_approved": False,
+        "symbol_wide_status": symbol_wide.get("status", "INCONCLUSIVE"),
+        "sourcewide_interpretation": (
+            "NO_VXX_ROWS_RETURNED_BY_UNDATED_QUERY" if symbol_wide.get("status") == "NO_ROWS_RETURNED" else
+            "VXX_ROWS_EXIST_BUT_CHECKPOINTS_GAP" if symbol_wide.get("status") == "ROWS_FOUND" and successes == 0 else
+            "VXX_ROWS_EXIST" if symbol_wide.get("status") == "ROWS_FOUND" else
+            "INCONCLUSIVE_SYMBOL_WIDE_QUERY"
+        ),
     }
     output = json.dumps(report, indent=2, sort_keys=True)
     print("DOLTHUB_VXX_OPTIONS_AUDIT_BEGIN")

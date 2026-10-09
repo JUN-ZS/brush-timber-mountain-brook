@@ -61,3 +61,12 @@ The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CO
 - [DoltHub post-no-preference/options](https://www.dolthub.com/repositories/post-no-preference/options) is a public community-maintained candidate with a SQL API. Public documentation reports irregular/filtered snapshots; the presence of VXX at required historical checkpoints has not been independently confirmed from this web environment because direct SQL API responses were not accessible.
 - The Windows-runnable script `probe_dolthub_vxx_options.py` checks 2019-03-04, 2020-03-16, 2022-06-13, 2024-08-05, 2025-04-07 and 2026-07-07. It records rows returned, expiries, two-sided quote quality and samples. Network/API errors are INCONCLUSIVE, not proof of absence.
 - Even if data rows are found, the public table schema does not establish executable fills or OCC adjusted deliverables. The probe can nominate a research source; it cannot clear the trade-replay gate.
+
+
+
+## Run #80 public SQL probe result — measured, not inferred
+
+- Windows self-hosted [Actions Run #80](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38001567750) successfully queried the DoltHub SQL API at six fixed dates (2019-03-04, 2020-03-16, 2022-06-13, 2024-08-05, 2025-04-07, 2026-07-07). Each date returned **zero** `act_symbol='VXX'` rows. The API responded successfully; this is not a network failure.
+- Six zero-row checkpoints disqualify that exact query as demonstrated VXX history coverage; they do **not** prove the entire database contains no VXX rows. The next probe adds an undated query on `act_symbol='VXX'` to distinguish sparse snapshots from absent symbol rows.
+- Regardless of source-wide result, DoltHub remains `COMMUNITY_MAINTAINED / NOT EXCHANGE-AUTHORITATIVE` and does not establish the exact OCC deliverable for adjusted contracts. It cannot be promoted to trade replay solely on row presence.
+- New hard gate: `ADJUSTED_TERMS_RECORDED` contracts and known adjusted roots (`VXX1`, `VXX2`, `1VXX1`, `1VXX2`) are blocked from capacity/payoff calculation while this Lab lacks deliverable/underlying-scale normalization. A root/status conflict also blocks.
