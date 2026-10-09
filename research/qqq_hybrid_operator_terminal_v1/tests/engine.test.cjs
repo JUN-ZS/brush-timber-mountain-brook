@@ -478,5 +478,5 @@ function row(result, key) {
   assert.notEqual(protectivePut.candidateKey, longPut.candidateKey);
 }
 
-console.log("QQQ HYBRID OPERATOR ENGINE: 25 TEST GROUPS PASS");
+console.log("QQQ HYBRID OPERATOR ENGINE: 26 TEST GROUPS PASS");
 
