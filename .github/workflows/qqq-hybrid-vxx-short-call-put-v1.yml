@@ -1,0 +1,83 @@
+name: QQQ Hybrid VXX Short Call Put V1
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - research/qqq-hybrid-profit-trend-replay-v1-20261009
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-hybrid-vxx-short-call-put-v1
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: VXX dual-sided hybrid replay / attribution / capacity contracts
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Discover Python
+        run: |
+          where py >nul 2>&1 && (
+            py -3 --version >nul 2>&1 && (
+              echo PY=py -3>>%GITHUB_ENV%
+              py -3 --version
+              py -3 -c "import sys; print(sys.executable)"
+              exit /b 0
+            )
+          )
+          where python >nul 2>&1 && (
+            echo PY=python>>%GITHUB_ENV%
+            python --version
+            python -c "import sys; print(sys.executable)"
+            exit /b 0
+          )
+          echo PYTHON_NOT_FOUND
+          exit /b 1
+
+      - name: Install research dependencies
+        run: |
+          %PY% -m pip install numpy pandas scipy
+
+      - name: Python syntax and unit tests
+        run: |
+          %PY% -m py_compile research\qqq_hybrid_dynamic_deployment_v1_1_replay.py
+          %PY% -m py_compile research\qqq_hybrid_profit_trend_replay_v1.py
+          %PY% -m py_compile research\qqq_hybrid_vxx_short_call_put_strategy_v1.py
+          %PY% -m py_compile research\qqq_hybrid_current_capacity_v2.py
+          %PY% research\test_qqq_hybrid_short_call_put_v1.py
+
+      - name: Run historical four-layer hybrid trend feed
+        run: |
+          if not exist artifacts\qqq_hybrid_profit_trend_replay_v1\baseline mkdir artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
+          %PY% research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
+
+      - name: Run VXX short call and put strategy replay
+        run: |
+          if not exist artifacts\qqq_hybrid_vxx_short_call_put_v1 mkdir artifacts\qqq_hybrid_vxx_short_call_put_v1
+          %PY% research\qqq_hybrid_vxx_short_call_put_strategy_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_vxx_short_call_put_v1
+
+      - name: Contract checks
+        run: |
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_vxx_short_call_put_v1/strategy_report.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['legacy_parity']['status']=='PASS'; assert r['variants']['DUAL_CALL_PUT']['vxx_total_option_risk_budget_pct']==2.0; assert r['variants']['CALL_PUT_ADDON']['vxx_total_option_risk_budget_pct']==3.0; assert r['variants']['DUAL_CALL_PUT']['component_sum_error_max_abs'] < 0.01; assert r['variants']['NO_VXX_OPTIONS']['vxx_options_component_final_pnl']==0.0; assert 'DUAL_CALL_PUT_vs_CALL_ONLY_1PCT' in r['controlled_comparisons']; assert 'CALL_PUT_ADDON_vs_CALL_ONLY_2PCT_NEW_QUOTE' in r['controlled_comparisons']; assert 'CALL_RSI_LT50_vs_CALL_RSI_GE50' in r['controlled_comparisons']; assert 'CALL_DTE_14_vs_CALL_DTE_30' in r['controlled_comparisons']; assert 'CALL_DTE_45_vs_CALL_DTE_30' in r['controlled_comparisons']; assert 'new_quote_call_only_final_nav_difference_usd' in r['counterfactual_portfolio_delta_vs_no_vxx_options']; assert 'call_put_addon_final_nav_difference_usd' in r['counterfactual_portfolio_delta_vs_no_vxx_options']; assert r['variants']['CALL_DTE_14']['vxx_option_dte_days']==14; assert r['variants']['CALL_DTE_45']['vxx_option_dte_days']==45; print('strategy_contract=PASS')"
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/baseline/profit_trend.json').read_text(encoding='utf-8')); assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; print('historical_sizing_boundary=PASS')"
+
+      - name: Upload research evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-hybrid-vxx-short-call-put-v1
+          path: |
+            artifacts\qqq_hybrid_profit_trend_replay_v1\baseline\
+            artifacts\qqq_hybrid_vxx_short_call_put_v1\
+            research\QQQ_HYBRID_VXX_SHORT_CALL_PUT_V1.md
+          if-no-files-found: error
+          retention-days: 30
