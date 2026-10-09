@@ -406,5 +406,19 @@ function row(result, key) {
   assert.equal(r.optionRiskReservedAtTargets, 0);
 }
 
-console.log("QQQ HYBRID OPERATOR ENGINE: 24 TEST GROUPS PASS");
+// Similar strategy labels have independent candidate keys so budgets do not duplicate one quote.
+{
+  const bearCall = E.OPTION_STRATEGIES.find(s => s.key === "qqqBearCallSpreads");
+  const farCall = E.OPTION_STRATEGIES.find(s => s.key === "qqqCallSpreads");
+  const protectivePut = E.OPTION_STRATEGIES.find(s => s.key === "protectivePuts");
+  const longPut = E.OPTION_STRATEGIES.find(s => s.key === "longPuts");
+  assert.equal(farCall.candidateKey, "qqqCall");
+  assert.equal(bearCall.candidateKey, "qqqBearCall");
+  assert.notEqual(farCall.candidateKey, bearCall.candidateKey);
+  assert.equal(protectivePut.candidateKey, "qqqProtectivePut");
+  assert.equal(longPut.candidateKey, "qqqLongPut");
+  assert.notEqual(protectivePut.candidateKey, longPut.candidateKey);
+}
+
+console.log("QQQ HYBRID OPERATOR ENGINE: 25 TEST GROUPS PASS");
 
