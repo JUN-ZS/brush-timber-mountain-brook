@@ -171,7 +171,7 @@
       ["vxxNormalPct", num(sizing.vxxNormalPct, REFERENCE_PROFILE.vxxNormalPct)],
       ["vxxHighPct", num(sizing.vxxHighPct, REFERENCE_PROFILE.vxxHighPct)],
       ["totalOptionRiskPct", optionRiskPct],
-      ...OPTION_STRATEGIES.map(strategy => [strategy.riskPctField, num(sizing[strategy.riskPctField], strategy.defaultRiskPct)])
+      ...OPTION_STRATEGIES.filter(strategy => strategy.mainBudgetEligible).map(strategy => [strategy.riskPctField, num(sizing[strategy.riskPctField], strategy.defaultRiskPct)])
     ];
     const invalidPercent = percentInputs.find(([key, value]) => !Number.isFinite(value) || value < 0 || value > 100);
     const invalidMarginMultiple = !Number.isFinite(vxxShortMarginMultiple) || vxxShortMarginMultiple <= 0 || vxxShortMarginMultiple > 10;
