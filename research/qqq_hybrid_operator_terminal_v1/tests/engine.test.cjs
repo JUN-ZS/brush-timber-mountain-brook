@@ -119,7 +119,7 @@ function row(result, key) {
     cashPool: 500,
     candidates: { qqqCall: { width: 5, credit: 0.8, source: "FIXTURE" } }
   }));
-  assert.equal(r.totalOptionRiskPool, 500);
+  assert.equal(r.totalOptionRiskPool, 450);
   assert.equal(row(r, "qqqCallSpreads").capacity, 1);
 }
 
@@ -311,4 +311,39 @@ function row(result, key) {
   assert.equal(row(r, "coveredCalls").maxLossIsHardCap, false);
 }
 
-console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 18 TEST GROUPS PASS");
+// Fresh $100,000 capital plan conserves cash across reserve, shares, margin and option risk.
+{
+  const r = E.calculatePortfolio(base());
+  assert.equal(r.cashReserveUsd, 10000);
+  assert.equal(r.totalOptionRiskPool, 3200);
+  assert.equal(row(r, "qqqShares").target, 420);
+  assert.equal(r.qqqAdditionalCapitalUsd, 42000);
+  assert.equal(row(r, "vxxShortShares").target, 900);
+  assert.equal(r.vxxAdditionalMarginUsd, 27000);
+  assert.equal(r.plannedCapitalRequiredUsd, 82200);
+  assert.equal(r.remainingUnallocatedCashUsd, 17800);
+  assert.ok(r.plannedCapitalRequiredUsd <= r.cashPool);
+}
+
+// A constrained $50,000 cash pool must not spend the same dollar twice.
+{
+  const r = E.calculatePortfolio(base({ cashPool: 50000 }));
+  assert.equal(r.cashReserveUsd, 5000);
+  assert.equal(r.totalOptionRiskPool, 3200);
+  assert.equal(row(r, "qqqShares").target, 418);
+  assert.equal(r.qqqAdditionalCapitalUsd, 41800);
+  assert.equal(row(r, "vxxShortShares").target, 0);
+  assert.equal(r.vxxAdditionalMarginUsd, 0);
+  assert.equal(r.plannedCapitalRequiredUsd, 50000);
+  assert.equal(r.remainingUnallocatedCashUsd, 0);
+}
+
+// Existing QQQ holdings use only incremental cash for a new target.
+{
+  const r = E.calculatePortfolio(base({ cashPool: 60000, holdings: { qqqShares: 200 } }));
+  assert.equal(row(r, "qqqShares").target, 420);
+  assert.equal(r.qqqAdditionalCapitalUsd, 22000);
+  assert.ok(r.plannedCapitalRequiredUsd <= 60000);
+}
+
+console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 21 TEST GROUPS PASS");

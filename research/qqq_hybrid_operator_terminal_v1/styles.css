@@ -87,3 +87,5 @@ input[type=checkbox]{width:15px;height:15px;accent-color:#6aa7d6}
 footer{padding:18px;text-align:center;color:#7185a0;border-top:1px solid var(--line);font:11px Consolas,monospace}
 @media(max-width:1050px){.market-grid,.two-col{grid-template-columns:1fr}.controls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.top{position:static;align-items:flex-start;flex-direction:column}.top-actions{justify-content:flex-start}}
 @media(max-width:600px){.snapshot-grid,.controls-grid,.controls-grid.compact{grid-template-columns:1fr 1fr}.section-head{align-items:flex-start;flex-direction:column}.gate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.footnotes{grid-template-columns:1fr}.candidate-row{grid-template-columns:1fr}.card{padding:12px}.top{padding:18px 14px}main{padding:12px}.metric-grid{grid-template-columns:1fr 1fr}}
+
+.diagnostic>summary{cursor:pointer;font-weight:800;color:var(--blue);padding:5px 0}.diagnostic[open]>summary{margin-bottom:14px}.option-table{min-width:1320px}

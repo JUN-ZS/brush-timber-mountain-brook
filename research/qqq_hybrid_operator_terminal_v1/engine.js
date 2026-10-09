@@ -3,6 +3,8 @@
 
   const REFERENCE_PROFILE = Object.freeze({
     name: "V3 policy reference — preview only",
+    cashReservePct: 10,
+    vxxShortMarginMultiple: 1.5,
     qqqCorePct: 42,
     vxxNormalPct: 18,
     vxxHighPct: 10,
@@ -150,7 +152,10 @@
     const candidates = d.candidates || {};
     const permissions = d.permissions || {};
     const optionRiskPct = num(sizing.totalOptionRiskPct, REFERENCE_PROFILE.totalOptionRiskPct);
+    const cashReservePct = num(sizing.cashReservePct, REFERENCE_PROFILE.cashReservePct);
+    const vxxShortMarginMultiple = num(sizing.vxxShortMarginMultiple, REFERENCE_PROFILE.vxxShortMarginMultiple);
     const percentInputs = [
+      ["cashReservePct", cashReservePct],
       ["qqqCorePct", num(sizing.qqqCorePct, REFERENCE_PROFILE.qqqCorePct)],
       ["vxxNormalPct", num(sizing.vxxNormalPct, REFERENCE_PROFILE.vxxNormalPct)],
       ["vxxHighPct", num(sizing.vxxHighPct, REFERENCE_PROFILE.vxxHighPct)],
@@ -158,53 +163,88 @@
       ...OPTION_STRATEGIES.map(strategy => [strategy.riskPctField, num(sizing[strategy.riskPctField], strategy.defaultRiskPct)])
     ];
     const invalidPercent = percentInputs.find(([key, value]) => !Number.isFinite(value) || value < 0 || value > 100);
-    const totalOptionRiskPool = Math.max(0, Math.min(nav * Math.max(0, optionRiskPct) / 100, Math.max(0, cashPool)));
+    const invalidMarginMultiple = !Number.isFinite(vxxShortMarginMultiple) || vxxShortMarginMultiple <= 0 || vxxShortMarginMultiple > 10;
+    const cashReserveUsd = Math.max(0, Math.min(cashPool, cashPool * cashReservePct / 100));
+    const availableAfterReserve = Math.max(0, cashPool - cashReserveUsd);
+    const totalOptionRiskPool = Math.max(0, Math.min(nav * Math.max(0, optionRiskPct) / 100, availableAfterReserve));
+    const stockCapitalPool = Math.max(0, availableAfterReserve - totalOptionRiskPool);
     const results = [];
-    if (market.blocked || !(nav > 0) || cashPool < 0 || invalidPercent) {
+    if (market.blocked || !(nav > 0) || cashPool < 0 || invalidPercent || invalidMarginMultiple) {
       for (const row of [{ key: "qqqShares", label: "QQQ CORE SHARES", current: whole(holdings.qqqShares) }, { key: "vxxShortShares", label: "VXX SHORT SHARES", current: whole(holdings.vxxShortShares) }]) {
-        results.push({ ...row, capacity: null, target: row.current, delta: 0, action: "BLOCKED", status: market.blocked ? market.status : invalidPercent ? "INVALID_PERCENT" : "INVALID_NAV_OR_CASH", reason: market.blocked ? market.reason : invalidPercent ? (invalidPercent[0] + " must be between 0 and 100; no sizing changes are produced.") : "NAV must be positive and cash pool cannot be negative." });
+        results.push({ ...row, capacity: null, target: row.current, delta: 0, action: "BLOCKED", status: market.blocked ? market.status : invalidPercent ? "INVALID_PERCENT" : invalidMarginMultiple ? "INVALID_MARGIN_MULTIPLE" : "INVALID_NAV_OR_CASH", reason: market.blocked ? market.reason : invalidPercent ? (invalidPercent[0] + " must be between 0 and 100; no sizing changes are produced.") : invalidMarginMultiple ? "VXX short margin reserve multiple must be > 0 and <= 10; no sizing changes are produced." : "NAV must be positive and cash pool cannot be negative." });
       }
       for (const strategy of OPTION_STRATEGIES) {
         const current = whole(holdings[strategy.key]);
-        results.push({ key: strategy.key, id: strategy.id, label: strategy.label, family: strategy.family, current, capacity: null, target: current, delta: 0, action: "BLOCKED", status: market.blocked ? market.status : invalidPercent ? "INVALID_PERCENT" : "INVALID_NAV_OR_CASH", reason: market.blocked ? market.reason : invalidPercent ? (invalidPercent[0] + " must be between 0 and 100; no sizing changes are produced.") : "NAV must be positive and cash pool cannot be negative." });
+        results.push({ key: strategy.key, id: strategy.id, label: strategy.label, family: strategy.family, current, capacity: null, target: current, delta: 0, action: "BLOCKED", status: market.blocked ? market.status : invalidPercent ? "INVALID_PERCENT" : invalidMarginMultiple ? "INVALID_MARGIN_MULTIPLE" : "INVALID_NAV_OR_CASH", reason: market.blocked ? market.reason : invalidPercent ? (invalidPercent[0] + " must be between 0 and 100; no sizing changes are produced.") : invalidMarginMultiple ? "VXX short margin reserve multiple must be > 0 and <= 10; no sizing changes are produced." : "NAV must be positive and cash pool cannot be negative." });
       }
-      return { ok: false, market, nav, cashPool, totalOptionRiskPool, rows: results, ratioCampaign: calculateRatioCampaign(d.ratioCampaign || {}, market), boundary: { brokerOrders: false, automaticMutation: false } };
+      return { ok: false, market, nav, cashPool, cashReservePct, cashReserveUsd, availableAfterReserve, totalOptionRiskPool, stockCapitalPool, vxxShortMarginMultiple, qqqAdditionalCapitalUsd: 0, vxxAdditionalMarginUsd: 0, qqqTargetNotionalUsd: null, vxxTargetMarginUsd: null, vxxTargetNotionalUsd: null, optionRiskReservedAtTargets: null, plannedCapitalRequiredUsd: null, remainingUnallocatedCashUsd: null, rows: results, ratioCampaign: calculateRatioCampaign(d.ratioCampaign || {}, market), boundary: { brokerOrders: false, automaticMutation: false } };
     }
 
+    // cashPool = uncommitted capital available for this plan. Reserve cash and
+    // the shared option-risk envelope first; then fund incremental QQQ buys and
+    // estimated VXX short-margin collateral. Existing holdings are not re-counted
+    // as fresh purchases; only positive ADD deltas consume this cash pool.
     const qqqCorePct = num(sizing.qqqCorePct, REFERENCE_PROFILE.qqqCorePct);
-    const coreCapacity = qqqCorePct >= 0 ? Math.floor(nav * qqqCorePct / 100 / market.qqq) : null;
+    const rawCoreCapacity = qqqCorePct >= 0 ? Math.floor(nav * qqqCorePct / 100 / market.qqq) : null;
     const currentQqq = whole(holdings.qqqShares);
+    const cashLimitedCoreCapacity = rawCoreCapacity === null ? null : currentQqq + Math.floor(stockCapitalPool / market.qqq);
+    const coreCapacity = rawCoreCapacity === null ? null : Math.min(rawCoreCapacity, cashLimitedCoreCapacity);
     let coreTarget, coreAction;
     if (coreCapacity === null) {
       coreTarget = currentQqq; coreAction = "PENDING";
-    } else if (currentQqq > coreCapacity) {
-      coreTarget = coreCapacity; coreAction = "REDUCE";
+    } else if (currentQqq > rawCoreCapacity) {
+      coreTarget = rawCoreCapacity; coreAction = "REDUCE";
     } else if (market.allowNew) {
-      const cashLimited = currentQqq + Math.floor(Math.max(0, cashPool) / market.qqq);
-      coreTarget = Math.min(coreCapacity, cashLimited);
+      coreTarget = Math.min(rawCoreCapacity, currentQqq + Math.floor(stockCapitalPool / market.qqq));
       coreAction = coreTarget > currentQqq ? "ADD" : "HOLD";
     } else {
       coreTarget = currentQqq; coreAction = "HOLD";
     }
-    results.push({ key: "qqqShares", id: "QQQ_CORE", label: "QQQ CORE SHARES", family: "hybrid", current: currentQqq, capacity: coreCapacity, target: coreTarget, delta: coreTarget - currentQqq, action: coreAction, status: "READY", reason: "Capacity is NAV × core allocation / QQQ price. Adds require CARRY; over-cap reduction remains visible in HOLD states." });
+    const qqqAdditionalCapitalUsd = Math.max(0, coreTarget - currentQqq) * market.qqq;
+    const qqqTargetNotionalUsd = Math.max(0, coreTarget) * market.qqq;
+    const cashAfterCore = Math.max(0, stockCapitalPool - qqqAdditionalCapitalUsd);
+    results.push({
+      key: "qqqShares", id: "QQQ_CORE", label: "QQQ CORE SHARES", family: "hybrid",
+      current: currentQqq, capacity: coreCapacity, target: coreTarget, delta: coreTarget - currentQqq,
+      action: coreAction, status: "READY",
+      unitPrice: market.qqq, incrementalCapitalUsd: qqqAdditionalCapitalUsd, targetNotionalUsd: qqqTargetNotionalUsd,
+      capacityNotionalUsd: coreCapacity === null ? null : coreCapacity * market.qqq,
+      reason: "Maximum shares are capped by NAV allocation and cash left after the cash reserve + shared option-risk envelope. Adds require CARRY; over-cap reductions remain visible."
+    });
 
     const vxxBasePct = market.backwardation ? 0 : (market.high ? num(sizing.vxxHighPct, REFERENCE_PROFILE.vxxHighPct) : num(sizing.vxxNormalPct, REFERENCE_PROFILE.vxxNormalPct));
-    const vxxCapacity = vxxBasePct >= 0 ? Math.floor(nav * vxxBasePct / 100 / market.vxx) : null;
+    const rawVxxCapacity = vxxBasePct >= 0 ? Math.floor(nav * vxxBasePct / 100 / market.vxx) : null;
     const currentVxx = whole(holdings.vxxShortShares);
+    const vxxMarginPerShare = market.vxx * vxxShortMarginMultiple;
+    const cashLimitedVxxCapacity = rawVxxCapacity === null ? null : currentVxx + Math.floor(cashAfterCore / vxxMarginPerShare);
+    const vxxCapacity = market.backwardation ? 0 : (rawVxxCapacity === null ? null : Math.min(rawVxxCapacity, cashLimitedVxxCapacity));
     let vxxTarget, vxxAction;
     if (market.backwardation) {
       vxxTarget = 0; vxxAction = currentVxx > 0 ? "REDUCE" : "HOLD";
     } else if (vxxCapacity === null) {
       vxxTarget = currentVxx; vxxAction = "PENDING";
-    } else if (currentVxx > vxxCapacity) {
-      vxxTarget = vxxCapacity; vxxAction = "REDUCE";
+    } else if (currentVxx > rawVxxCapacity) {
+      vxxTarget = rawVxxCapacity; vxxAction = "REDUCE";
     } else if (market.allowNew) {
-      vxxTarget = vxxCapacity; vxxAction = vxxTarget > currentVxx ? "ADD" : "HOLD";
+      vxxTarget = Math.min(rawVxxCapacity, currentVxx + Math.floor(cashAfterCore / vxxMarginPerShare));
+      vxxAction = vxxTarget > currentVxx ? "ADD" : "HOLD";
     } else {
       vxxTarget = currentVxx; vxxAction = "HOLD";
     }
-    results.push({ key: "vxxShortShares", id: "VXX_SHORT_STOCK", label: "VXX SHORT SHARES", family: "hybrid", current: currentVxx, capacity: vxxCapacity, target: vxxTarget, delta: vxxTarget - currentVxx, action: vxxAction, status: "READY", reason: market.backwardation ? "Backwardation policy target is zero. VXX short stock still has unbounded upside risk." : "Notional cap uses VIX regime (normal/high). This is a sizing ceiling, not a hard loss cap." });
-
+    const vxxAdditionalMarginUsd = Math.max(0, vxxTarget - currentVxx) * vxxMarginPerShare;
+    const vxxTargetMarginUsd = Math.max(0, vxxTarget) * vxxMarginPerShare;
+    const vxxTargetNotionalUsd = Math.max(0, vxxTarget) * market.vxx;
+    results.push({
+      key: "vxxShortShares", id: "VXX_SHORT_STOCK", label: "VXX SHORT SHARES", family: "hybrid",
+      current: currentVxx, capacity: vxxCapacity, target: vxxTarget, delta: vxxTarget - currentVxx,
+      action: vxxAction, status: "READY",
+      unitPrice: market.vxx, marginMultiple: vxxShortMarginMultiple,
+      incrementalCapitalUsd: vxxAdditionalMarginUsd, targetMarginUsd: vxxTargetMarginUsd, targetNotionalUsd: vxxTargetNotionalUsd,
+      capacityNotionalUsd: vxxCapacity === null ? null : vxxCapacity * market.vxx,
+      reason: market.backwardation
+        ? "Backwardation policy target is zero. VXX short stock still has unbounded upside risk."
+        : "Notional cap uses the VIX regime; incremental capacity also reserves the entered VXX short-margin multiple. Confirm this estimate with your broker. It is not a hard loss cap."
+    });
     const working = [];
     for (const strategy of OPTION_STRATEGIES) {
       const current = whole(holdings[strategy.key]);
@@ -232,7 +272,7 @@
         rawCapacity = null;
         status = "PENDING";
       } else if (strategy.kind === "coveredCall") {
-        rawCapacity = Math.floor(currentQqq / 100);
+        rawCapacity = Math.floor(Math.max(0, coreTarget) / 100);
         status = "READY";
         reason = "Covered call capacity is capped at floor(QQQ shares / 100); never sell more calls than covered shares.";
       } else {
@@ -265,8 +305,8 @@
         const actionResult = actionFor(current, capacity, canAdd);
         target = actionResult.target; action = actionResult.action; delta = actionResult.delta;
       }
-      if (strategy.kind === "coveredCall" && target > Math.floor(currentQqq / 100)) {
-        target = Math.floor(currentQqq / 100);
+      if (strategy.kind === "coveredCall" && target > Math.floor(Math.max(0, coreTarget) / 100)) {
+        target = Math.floor(Math.max(0, coreTarget) / 100);
         delta = target - current;
         action = delta < 0 ? "REDUCE" : delta > 0 ? "ADD" : "HOLD";
       }
@@ -291,8 +331,13 @@
 
     return {
       ok: true,
-      market, nav, cashPool, totalOptionRiskPool,
+      market, nav, cashPool, cashReservePct, cashReserveUsd, availableAfterReserve,
+      totalOptionRiskPool, stockCapitalPool, vxxShortMarginMultiple,
+      qqqAdditionalCapitalUsd, qqqTargetNotionalUsd, vxxAdditionalMarginUsd,
+      vxxTargetMarginUsd, vxxTargetNotionalUsd,
       optionRiskReservedAtTargets: results.filter(r => r.riskPerUnit && r.target > 0 && r.strategyKind !== "coveredCall").reduce((sum, r) => sum + r.riskPerUnit * r.target, 0),
+      plannedCapitalRequiredUsd: cashReserveUsd + totalOptionRiskPool + qqqAdditionalCapitalUsd + vxxAdditionalMarginUsd,
+      remainingUnallocatedCashUsd: Math.max(0, cashPool - cashReserveUsd - totalOptionRiskPool - qqqAdditionalCapitalUsd - vxxAdditionalMarginUsd),
       rows: results,
       ratioCampaign: calculateRatioCampaign(d.ratioCampaign || {}, market),
       boundary: {

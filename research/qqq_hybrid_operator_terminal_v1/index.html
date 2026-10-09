@@ -21,8 +21,8 @@
 
   <main>
     <section class="notice">
-      <b>Reverse sizing:</b> Enter an intentionally excessive current quantity such as 1000. The desk compares it with the market-state and budget-derived capacity and shows the target, reduction amount, and reason. This is a calculation preview, not an order ticket.
-      <small>V3 market context is read-only. The V3 reference profile is editable and only a what-if template; confirm current cash, budgets, positions and quotes yourself.</small>
+      <b>Capital-first sizing:</b> Enter principal / NAV (for example, $100,000), uncommitted cash, cash reserve and risk budgets. The desk calculates maximum units for every Hybrid leg and available option candidate, estimated capital / margin needs, the shared option max-loss reserve, and what current market state permits.
+      <small>Current holdings are optional inputs used only to compare ADD / HOLD / REDUCE. The intentionally excessive 1,000-unit case is a collapsed self-audit diagnostic, not the normal workflow. V3 market context is read-only; budgets remain editable what-if assumptions.</small>
     </section>
 
     <section class="grid market-grid">
@@ -65,12 +65,14 @@
 
     <section class="card">
       <div class="section-head">
-        <h2>3 · CAPITAL AND RISK BUDGET</h2>
+        <h2>1 · PRINCIPAL, CAPITAL AND PORTFOLIO RISK BUDGET</h2>
         <span class="tag warn">OPERATOR INPUT · WHAT-IF</span>
       </div>
       <div class="controls-grid">
         <label>NAV ($) <input id="nav" type="number" min="0" step="100" value="100000"></label>
-        <label>Available cash / risk pool ($) <input id="cashPool" type="number" min="0" step="100" value="100000"></label>
+        <label>Uncommitted cash available for this plan ($) <input id="cashPool" type="number" min="0" step="100" value="100000"></label>
+        <label>Cash reserve (% of available cash) <input id="cashReservePct" type="number" min="0" max="100" step="0.5" value="10"></label>
+        <label>VXX short-margin reserve multiple (estimate) <input id="vxxShortMarginMultiple" type="number" min="0.1" max="10" step="0.1" value="1.5"></label>
         <label>QQQ core (% NAV) <input id="qqqCorePct" type="number" min="0" max="100" step="0.1" value="42"></label>
         <label>VXX short normal (% NAV notional) <input id="vxxNormalPct" type="number" min="0" max="100" step="0.1" value="18"></label>
         <label>VXX short high-VIX (% NAV notional) <input id="vxxHighPct" type="number" min="0" max="100" step="0.1" value="10"></label>
@@ -85,30 +87,31 @@
       </div>
       <div class="inline-actions">
         <button id="v3ProfileBtn">Load V3 Reference Profile (Preview)</button>
-        <span class="muted">Profile values are not learned from historical CAGR and do not change broker holdings.</span>
+        <span class="muted">Reference values are editable what-if inputs, not frozen live sizing. Fresh $100,000 deployment: set NAV and uncommitted cash to $100,000. Existing portfolio: enter total equity as NAV and only truly uncommitted cash here. Confirm VXX margin with your broker.</span>
       </div>
     </section>
 
     <section class="grid two-col">
       <article class="card">
         <div class="section-head">
-          <h2>4 · SHARES: CURRENT → CAPACITY → ACTION TARGET</h2>
+          <h2>2 · SHARES: MAXIMUM CAPACITY → CURRENT-STATE TARGET</h2>
           <span class="tag">OVER-CAP TRIM ALLOWED</span>
         </div>
         <div class="table-wrap">
           <table class="decision-table">
-            <thead><tr><th>Leg</th><th>Current units</th><th>Capacity</th><th>Action target</th><th>Recommended delta</th></tr></thead>
+            <thead><tr><th>Leg</th><th>Current units (optional)</th><th>Max units</th><th>Action target</th><th>ADD / HOLD / REDUCE</th><th>Target exposure</th><th>New capital / margin estimate</th></tr></thead>
             <tbody>
-              <tr><td><b>QQQ CORE SHARES</b><small class="row-reason">Capacity = NAV × core allocation / QQQ price. Adds require CARRY; over-cap trims remain visible.</small></td><td><input id="current-qqqShares" type="number" min="0" step="1" value="0"></td><td id="capacity-qqqShares">—</td><td id="target-qqqShares">—</td><td id="action-qqqShares" class="action-cell">—</td></tr>
-              <tr><td><b>VXX SHORT SHARES</b><small class="row-reason">Notional ceiling only; VXX short stock has unbounded upside risk.</small></td><td><input id="current-vxxShortShares" type="number" min="0" step="1" value="0"></td><td id="capacity-vxxShortShares">—</td><td id="target-vxxShortShares">—</td><td id="action-vxxShortShares" class="action-cell">—</td></tr>
+              <tr><td><b>QQQ CORE SHARES</b><small class="row-reason">Capacity = NAV × core allocation / QQQ price. Adds require CARRY; over-cap trims remain visible.</small></td><td><input id="current-qqqShares" type="number" min="0" step="1" value="0"></td><td id="capacity-qqqShares">—</td><td id="target-qqqShares">—</td><td id="action-qqqShares" class="action-cell">—</td><td id="exposure-qqqShares">—</td><td id="capital-qqqShares">—</td></tr>
+              <tr><td><b>VXX SHORT SHARES</b><small class="row-reason">Notional ceiling only; VXX short stock has unbounded upside risk.</small></td><td><input id="current-vxxShortShares" type="number" min="0" step="1" value="0"></td><td id="capacity-vxxShortShares">—</td><td id="target-vxxShortShares">—</td><td id="action-vxxShortShares" class="action-cell">—</td><td id="exposure-vxxShortShares">—</td><td id="capital-vxxShortShares">—</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="muted">QQQ adds are limited by available cash. VXX short-share capacity is not a hard loss cap; short stock can have unbounded upside loss.</p>
+        <p class="muted">Cash is shared: cash reserve + option-risk envelope are set aside first; QQQ additions use the next budget; VXX short additions use what remains at the entered margin multiple. That is an estimate, not a broker quote or loss cap. VXX short stock has unbounded upside loss.</p>
       </article>
-      <article class="card">
+      <details class="card diagnostic">
+        <summary>Optional self-audit diagnostic — intentionally oversized input (not the normal capital-sizing workflow)</summary>
         <div class="section-head">
-          <h2>5 · REVERSE-SIZING QUICK TEST</h2>
+          <h2>DIAGNOSTIC ONLY · OVER-CAP TRIM CHECK</h2>
           <span class="tag warn">SIMULATION</span>
         </div>
         <label>Choose a position to test
@@ -122,14 +125,14 @@
           </select>
         </label>
         <button id="test1000Btn" class="primary full">Set current quantity = 1000 (test only)</button>
-        <div id="testResult" class="test-result">Load a valid market snapshot and candidates first; the test does not represent actual holdings.</div>
-        <p class="muted">A missing/non-positive option quote stays PENDING. No received-credit-only sizing and no fabricated contract counts.</p>
-      </article>
+        <div id="testResult" class="test-result">Diagnostic fixture only. Normal workflow starts from capital and risk budgets.</div>
+        <p class="muted">Use only to confirm the engine detects an over-cap position. It does not set the deployment strategy or imply that 1,000 is a sensible holding.</p>
+      </details>
     </section>
 
     <section class="card">
       <div class="section-head">
-        <h2>6 · HYBRID OPTION LEGS AND ALL DISCUSSED STRUCTURES</h2>
+        <h2>3 · HYBRID OPTION LEGS AND ALL DISCUSSED STRUCTURES</h2>
         <span class="tag">NO AUTOMATIC ORDERS</span>
       </div>
       <label class="toggle safety-toggle"><input id="allowProtectionBuys" type="checkbox"> Explicitly permit protective-put additions outside CARRY (still manual review only)</label>
@@ -147,7 +150,7 @@
       <div class="table-wrap">
         <table class="decision-table option-table">
           <thead>
-            <tr><th>Strategy / leg</th><th>Current contracts</th><th>Risk budget % NAV</th><th>Risk / unit ($)</th><th>Enable add-on</th><th>Capacity</th><th>Action target</th><th>Recommendation</th></tr>
+            <tr><th>Strategy / leg</th><th>Current contracts (optional)</th><th>Risk budget % NAV</th><th>Max loss / unit ($)</th><th>Enable add-on</th><th>Max contracts</th><th>Action target</th><th>Loss reserve @ target</th><th>Recommendation</th></tr>
           </thead>
           <tbody id="optionRows"></tbody>
         </table>
@@ -163,7 +166,7 @@
     <section class="grid two-col">
       <article class="card">
         <div class="section-head">
-          <h2>7 · LEGACY N:X HEDGE CAMPAIGN</h2>
+          <h2>4 · LEGACY N:X HEDGE CAMPAIGN</h2>
           <span class="tag danger">NO HARD MAX-LOSS CAP</span>
         </div>
         <label class="toggle"><input id="nxEnabled" type="checkbox"> Activate preview for one campaign (not a live order permission)</label>
@@ -184,7 +187,7 @@
       </article>
       <article class="card">
         <div class="section-head">
-          <h2>8 · PORTFOLIO READOUT</h2>
+          <h2>5 · PORTFOLIO CAPITAL / RISK RECONCILIATION</h2>
           <span class="tag">AUDITABLE EXPLANATION</span>
         </div>
         <div id="summaryMetrics" class="metric-grid"></div>

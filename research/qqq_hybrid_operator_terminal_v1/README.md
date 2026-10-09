@@ -4,17 +4,20 @@
 
 ## Purpose
 
-The missing workflow was **reverse sizing**:
+The primary workflow is **capital-first sizing**:
 
-> An operator enters an intentionally excessive current quantity (for example, 1,000 QQQ shares or VXX short shares). The engine compares it to capacity calculated from the current NAV, confirmed market state, cash pool, sizing inputs, and option-risk budget, then displays the action target and exact quantity difference.
+> Enter principal / NAV (for example, $100,000), uncommitted deployable cash, cash reserve, stock allocation caps, a user-entered VXX margin estimate, and option max-loss budgets. The engine calculates maximum units for each Hybrid leg and available option candidate, capital/margin estimates, a shared option-risk envelope, and the target the current state permits. Current holdings are optional inputs only for ADD / HOLD / REDUCE deltas.
+
+An intentionally excessive 1,000-unit input is a collapsed self-audit diagnostic only, not the normal workflow.
 
 The table distinguishes:
 
-- **Capacity:** the maximum units permitted by the entered sizing profile and risk pool.
+- **Capacity:** the maximum units permitted by NAV allocation, cash after reserve, VXX margin estimate, and the shared option-risk envelope.
 - **Action target:** the quantity this state permits now. Excess positions can be trimmed during HOLD; positions below capacity are not increased unless the regime permits new risk.
+- **Capital reconciliation:** planned incremental cash = cash reserve + shared option-risk envelope + incremental QQQ buys + estimated margin for incremental VXX short shares, preventing the same cash from being counted twice.
 - **Recommendation:** ADD / HOLD / REDUCE / PENDING / BLOCKED, with the reason retained.
 
-The V3 market snapshot is read-only. All sizing percentages are editable what-if inputs. The V3 reference profile is only a convenient preview preset; it is not automatically promoted into current sizing.
+The V3 market snapshot is read-only. All sizing percentages are editable what-if inputs. The V3 reference profile is only a convenient preview preset; it is not automatically promoted into current sizing. Initial deployment: set NAV and uncommitted cash to the principal amount. Existing portfolio: enter total current equity as NAV and only truly uncommitted cash as the cash pool.
 
 ## Components
 
@@ -64,6 +67,10 @@ V3 must be healthy for the read-only market bridge. If it is not available, the 
 
 Candidate lookup is available for QQQ/VXX call and put verticals and QQQ long calls/puts. Manually defined structures require an explicit per-unit maximum-loss or debit input. Missing candidate prices stay PENDING; no credit floor or quantity is invented.
 
+## Capital-first planning example
+
+With the editable V3-reference preview profile, NAV/cash of $100,000, 10% cash reserve, $3,200 shared option-risk envelope, QQQ at $100, VXX at $20, and a user-entered 1.5× VXX short-margin estimate, a fresh CARRY-state preview caps QQQ core at 420 shares ($42,000 notional) and VXX short stock at 900 shares ($18,000 notional / $27,000 estimated margin). The plan envelopes $10,000 cash reserve + $3,200 option-risk reserve + $42,000 QQQ + $27,000 VXX margin = $82,200, leaving $17,800 unallocated. This is arithmetic for an editable scenario, not a claim that these inputs are validated or safe.
+
 ## Sizing and risk boundaries
 
 For a credit vertical:
@@ -77,7 +84,8 @@ The number of contracts is bounded by both the individual leg budget and the sha
 - High VIX or backwardation disables seller-option targets.
 - Positive-but-thin contango holds new entries, but over-cap positions remain eligible for trimming.
 - Missing/stale VX M1/M2 or missing spot data blocks resizing.
-- The VXX short-stock notional cap is not a maximum-loss guarantee.
+- The VXX short-stock notional cap is not a maximum-loss guarantee. Its margin multiple is a broker-specific user estimate, not a universal requirement.
+- The cash pool means uncommitted cash available for this plan. Do not enter total NAV as available cash if some of that NAV is already tied up in existing holdings.
 - Ratio call/put structures may have unbounded tails. A manually entered stress loss yields a **stress-only estimate**, not a hard loss cap.
 - The legacy N:X hedge result is per campaign, not portfolio-wide capacity, and is never presented as max-loss-capped.
 - Public Yahoo option quotes may be delayed/incomplete and are not guaranteed executable; verify broker bid/ask, expiry, adjusted contracts and fills.

@@ -43,7 +43,7 @@
         '<td><input id="budget-' + s.key + '" type="number" min="0" max="100" step="0.1" value="' + budget + '" aria-label="' + esc(s.label) + ' risk budget percent"></td>' +
         '<td>' + riskCell + '</td>' +
         '<td>' + enableCell + '</td>' +
-        '<td id="capacity-' + s.key + '">—</td><td id="target-' + s.key + '">—</td><td id="action-' + s.key + '">—</td>' +
+        '<td id="capacity-' + s.key + '">—</td><td id="target-' + s.key + '">—</td><td id="reserved-' + s.key + '">—</td><td id="action-' + s.key + '">—</td>' +
       '</tr>';
     }).join("");
     for (const [key, id] of Object.entries(TOP_BUDGETS)) {
@@ -75,6 +75,8 @@
 
   function readInput() {
     const sizing = {
+      cashReservePct: inputNumber("cashReservePct", 10),
+      vxxShortMarginMultiple: inputNumber("vxxShortMarginMultiple", 1.5),
       qqqCorePct: inputNumber("qqqCorePct", 42),
       vxxNormalPct: inputNumber("vxxNormalPct", 18),
       vxxHighPct: inputNumber("vxxHighPct", 10),
@@ -252,6 +254,10 @@
       $("action-" + r.key).textContent = r.action + (r.delta ? " " + signed(r.delta) : "") + " shares";
       $("action-" + r.key).className = "action-cell " + String(r.action || "").toLowerCase();
       $("action-" + r.key).title = r.reason || "";
+      const exposureEl = $("exposure-" + r.key);
+      if (exposureEl) exposureEl.textContent = usd(r.targetNotionalUsd);
+      const capitalEl = $("capital-" + r.key);
+      if (capitalEl) capitalEl.textContent = usd(r.incrementalCapitalUsd);
     }
 
     for (const r of result.rows.filter(row => E.OPTION_STRATEGIES.some(s => s.key === row.key))) {
@@ -267,6 +273,8 @@
       }
       const sourceEl = $("source-" + r.key);
       if (sourceEl) sourceEl.textContent = r.candidateSource || r.riskSource || r.status;
+      const reservedEl = $("reserved-" + r.key);
+      if (reservedEl) reservedEl.textContent = r.strategyKind === "coveredCall" || r.riskPerUnit === null || r.riskPerUnit === undefined || r.target === null ? "N/A / PENDING" : usd(r.riskPerUnit * r.target);
     }
 
     const ratio = result.ratioCampaign;
@@ -281,14 +289,20 @@
     const optionRiskAtTargets = result.optionRiskReservedAtTargets || 0;
     $("summaryMetrics").innerHTML = [
       ["Market gate", m.state],
-      ["NAV / cash pool", usd(result.nav) + " / " + usd(result.cashPool)],
-      ["Max option-risk pool", usd(result.totalOptionRiskPool)],
-      ["Option risk reserved", usd(optionRiskAtTargets)],
+      ["NAV / uncommitted cash", usd(result.nav) + " / " + usd(result.cashPool)],
+      ["Cash reserve", usd(result.cashReserveUsd)],
+      ["Shared option-risk envelope", usd(result.totalOptionRiskPool)],
+      ["QQQ target notional", usd(result.qqqTargetNotionalUsd)],
+      ["VXX target short notional", usd(result.vxxTargetNotionalUsd)],
+      ["VXX target margin estimate", usd(result.vxxTargetMarginUsd)],
+      ["Known option loss at targets", result.optionRiskReservedAtTargets == null ? "PENDING / BLOCKED" : usd(optionRiskAtTargets)],
+      ["Capital required for planned adds + reserves", usd(result.plannedCapitalRequiredUsd)],
+      ["Unallocated cash after plan", usd(result.remainingUnallocatedCashUsd)],
       ["Sizing status", result.ok ? "CALCULATED / REVIEW" : "BLOCKED"]
     ].map(([k,v]) => '<div><small>' + esc(k) + '</small><b>' + esc(v) + '</b></div>').join("");
     $("summaryReasons").innerHTML = '<p><b>Why:</b> ' + esc(m.reason) + '</p>' +
-      '<p><b>Safety:</b> target capacities are derived from current inputs; excess is shown as REDUCE even when additions are blocked. Missing chain candidates stay PENDING.</p>' +
-      '<p><b>Ratio boundary:</b> stress-loss inputs do not turn an uncapped ratio tail into a hard loss limit.</p>';
+      '<p><b>Capital accounting:</b> planned cash = reserve + shared option-risk envelope + incremental QQQ purchases + estimated margin for incremental VXX short shares. Existing shares are not counted as fresh purchases.</p>' +
+      '<p><b>Risk boundary:</b> VXX margin is a user-entered estimate, not a loss cap. Missing option candidates stay PENDING; ratio stress estimates do not hard-cap ratio tails.</p>';
     updateTestResult(result);
   }
 
@@ -366,6 +380,7 @@
   function loadReferenceProfile() {
     const p = E.REFERENCE_PROFILE;
     for (const [k,v] of Object.entries({
+      cashReservePct:p.cashReservePct, vxxShortMarginMultiple:p.vxxShortMarginMultiple,
       qqqCorePct:p.qqqCorePct, vxxNormalPct:p.vxxNormalPct, vxxHighPct:p.vxxHighPct,
       qqqCallRiskPct:p.qqqCallRiskPct, vxxCallRiskPct:p.vxxCallRiskPct,
       vxxPutRiskPct:p.vxxPutRiskPct, qqqBullPutRiskPct:p.qqqBullPutRiskPct,
@@ -390,7 +405,7 @@
     });
     document.querySelectorAll("input,select").forEach(el => {
       if (el.id.startsWith("current-") || el.id.startsWith("budget-") || el.id.startsWith("risk-") || el.id.startsWith("enabled-") ||
-          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte"].includes(el.id)) {
+          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte"].includes(el.id)) {
         el.addEventListener("input", () => {
           if (["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday"].includes(el.id)) {
             marketTouched = true;
