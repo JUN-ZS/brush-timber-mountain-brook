@@ -129,12 +129,12 @@ This row-level comparison does **not** show a stable one-direction credit error 
 
 ## 8. Required next step
 
-The next engineering/research step is a standalone QQQ option-layer replay—not a change to the live Hybrid:
+Build a standalone QQQ option-layer replay—not a change to the frozen Hybrid:
 
-1. Keep the QQQ equity core's total-return accounting series separate from the **raw nominal QQQ spot** used for option strikes, Black–Scholes marks and payoff calculations. Record the raw/adjusted transformation and reconcile dividends/corporate actions explicitly; do not silently swap the stock accounting series.
-2. Compare three IV/quote modes on identical contract IDs: current VIX-derived proxy (MODEL_ONLY), reported per-leg IV with its source and circularity caveat (DIAGNOSTIC_ONLY), and historical observed leg Bid/Ask where the dataset supplies them. Do not call a mid-price match independent validation if the IV may be reverse-solved from the same quote.
-3. Model liquidity per leg. Use actual historical short Bid and protective-wing Ask for the EOD diagnostic; for full-period daily replay, either verify the snapshot-to-decision-time convention or apply a pre-registered adverse-fill rule whose slippage is not narrower than observed spreads. Flag missing/zero/crossed quotes instead of synthesizing executable fills.
-4. Add a separate `QQQ_CALL_CREDIT_RAW_SPOT_REPLAY_V1` report over a continuous date range only after confirming the public dataset's annual coverage and contract mapping. Keep VXX option P&L as `DERIVED_BS_VIX / NOT_OPRA`; do not imply the QQQ mirror provides VXX history.
-5. Compare paired no-QQQ-option baseline vs QQQ-call-credit variants over exactly the same dates, cash accounting, costs and corporate-action handling. The eight selected dates are development evidence, not final OOS; any later split in the familiar 2018–2025 span must be labelled previously exposed, not a virgin lockbox.
+1. Keep the QQQ equity core's total-return accounting series separate from **raw nominal QQQ spot** used for option strikes, option marks and payoff calculations. Reconcile dividends/corporate actions explicitly; do not silently change the stock accounting series.
+2. Keep IV data/proxy separate from price basis. The source-reported IV can support attribution, but must not be treated as independent validation if it may be derived from the same quote midpoint.
+3. Model liquidity per leg. Use historical short Bid and protective-wing Ask where available. If a historical order-time quote is missing, label the fill as an EOD proxy or apply a pre-registered adverse-fill rule no tighter than observed spreads; do not silently assume executable midpoints.
+4. Expand to a continuous QQQ option-history range after pinning and validating annual coverage. Then produce a research-only QQQ_CALL_CREDIT_RAW_SPOT_REPLAY_V1 with daily accounting reconciliation. The public EOD mirror covers QQQ, not VXX; VXX options remain DERIVED_BS_VIX / NOT_OPRA until an actual historical VXX chain source is validated.
+5. Compare the same-date no-QQQ-option baseline versus QQQ-call-credit variants with identical dates, timing, cash, costs and corporate-action handling. The eight selected dates are development evidence, not blind OOS; any familiar 2018–2025 split must be labelled previously exposed, not a virgin lockbox.
 
-No merge, frozen-policy change, or broker-order permission is implied by this research step.
+No main-branch merge, frozen policy change or broker-order permission follows from this diagnostic.
