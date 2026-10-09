@@ -15,6 +15,7 @@ import json
 import math
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from qqq_hybrid_dynamic_deployment_v1_1_replay import (
