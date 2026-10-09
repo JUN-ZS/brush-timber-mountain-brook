@@ -24,3 +24,13 @@ For each date, the audit reports option rows, call/put counts, percentage of row
 - This source can inform QQQ call-credit calibration only; it does not supply VXX option history or OCC deliverables for adjusted VXX contracts.
 - A successful row/quote audit is not a strategy backtest and does not authorize replacing the current model marks.
 - Next valid use: compare the QQQ far-call model's selected strike and estimated credit to same-date observed EOD quote ranges; include slippage/commissions and report exclusions before any integration proposal.
+
+
+
+## Measured outcome — public QQQ EOD chain audit Run #1
+
+- [Windows self-hosted QQQ audit Run #1](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38002570136) completed successfully with `SAMPLE_DATES_HAVE_QQQ_CHAIN_ROWS`.
+- All 3 files passed expected byte-count and Git blob SHA checks. At 2020-03-16, 5,760 QQQ option rows were returned; 89.76% had positive non-crossed two-sided Bid/Ask. At 2024-08-05, 7,704 rows were returned; 93.93% passed that basic quote test.
+- The probe found 47 and 25 call rows respectively within 30–60 calendar DTE and absolute delta 0.03–0.10. That is a diagnostic candidate count, not a recommended portfolio position.
+- Examples on 2020-03-16 had 68–121% spread/midpoint, including zero-volume / zero-OI quotes; the selected examples on 2024-08-05 had 7.62–15.53% spread/midpoint. This supports separating two-sided quote validity from executable liquidity and fill realism.
+- Detailed report: [QQQ_PUBLIC_EOD_AUDIT_RUN1_RESULTS.md](QQQ_PUBLIC_EOD_AUDIT_RUN1_RESULTS.md). The source is an EOD preservation mirror, QQQ only; it is not VXX history, not intraday 15:45 data, and not a strategy backtest.

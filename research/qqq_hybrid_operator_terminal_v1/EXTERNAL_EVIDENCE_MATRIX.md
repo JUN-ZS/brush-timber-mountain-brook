@@ -80,3 +80,11 @@ The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CO
 - The public preservation mirror [anahatsingh-ui/options-dataset-hist](https://github.com/anahatsingh-ui/options-dataset-hist) covers QQQ 2011–2025 according to its README, with a 4:00 PM Eastern EOD snapshot, and does not include VXX. It is a recovered preservation mirror, not an exchange-hosted endpoint; file-level Git blob SHA and byte size are checked by the separate workflow before parsing.
 - The two fixed QQQ audit dates are 2020-03-16 and 2024-08-05. The script samples annual Parquet files plus a small underlying-price file. It measures valid two-sided quote percentage and potential 30–60 DTE / absolute delta 0.03–0.10 call candidates. This calibrates QQQ model-mark plausibility only; the EOD snapshot is not 15:45 or an executable fill.
 - Current source audit workflow: [Run #1](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38002570136) is queued. No QQQ chain data or integrity result is treated as established until its log confirms the expected byte counts / Git blob SHAs and the two date probes.
+
+
+
+## Measured public QQQ EOD probe (Run #1)
+
+- [Run #1 passed](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38002570136): 2020-03-16 option rows 5,760 / valid non-crossed two-sided 89.76% / 47 DTE-Delta diagnostic candidates; 2024-08-05 rows 7,704 / valid two-sided 93.93% / 25 candidates. All 2020, 2024 and underlying Parquet downloads passed exact byte count and Git blob SHA checks.
+- The 2020 diagnostic call candidates included spread/midpoint from 67.61% to 121.31%; selected 2024 samples ranged 7.62% to 15.53%. Hence source availability and quote validity are a lower bar than practical liquidity. Details: [QQQ_PUBLIC_EOD_AUDIT_RUN1_RESULTS.md](QQQ_PUBLIC_EOD_AUDIT_RUN1_RESULTS.md).
+- Decision: this mirror is presently usable to **cross-check QQQ EOD quote distributions only**. It does not establish 15:45 executable fills, strategy-level OOS returns, or any VXX option history. No policy integration based on row counts alone.
