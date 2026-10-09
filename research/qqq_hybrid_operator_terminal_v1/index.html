@@ -21,7 +21,7 @@
 
   <main>
     <section class="notice">
-      <b>Primary capital-first budget:</b> QQQ core shares + VXX short-stock margin + these short-credit option legs only: QQQ far call-credit, VXX call-credit, and VXX put-credit. Only the three defined-risk credit verticals share the option max-loss pool; QQQ stock and VXX short-stock margin are reconciled in the same cash plan.
+      <b>Primary capital-first budget:</b> QQQ core shares + VXX short-stock margin + these short-credit option legs only: QQQ far call-credit and VXX call-credit. Only those two defined-risk credit verticals share the option max-loss pool; QQQ stock and VXX short-stock margin are reconciled in the same cash plan. VXX put is excluded.
       <small>Hub packages, debit/buy options, long options, and unrelated research structures remain visible for inspection but cannot alter main capacity. The intentionally excessive 1,000-unit case is a diagnostic only. V3 market context is read-only; budgets remain editable what-if assumptions.</small>
     </section>
 
@@ -84,7 +84,6 @@
         <label>Total option max-loss pool (% NAV) <input id="totalOptionRiskPct" type="number" min="0" max="100" step="0.1" value="3.2"></label>
         <label>QQQ call-credit risk budget (% NAV) <input id="qqqCallRiskPct" type="number" min="0" max="100" step="0.1" value="1.2"></label>
         <label>VXX call-credit risk budget (% NAV) <input id="vxxCallRiskPct" type="number" min="0" max="100" step="0.1" value="2"></label>
-        <label>VXX put-credit risk budget (% NAV) <input id="vxxPutRiskPct" type="number" min="0" max="100" step="0.1" value="0"></label>
         <label>QQQ bull-put (research-only; excluded from main budget) <input type="text" value="OUTSIDE MAIN BUDGET" disabled></label>
         <label>VIX high line <input id="vixHigh" type="number" min="1" max="100" step="1" value="28"></label>
         <label>VX term safe line (%) <input id="termSafe" type="number" min="0" max="100" step="0.1" value="5"></label>
@@ -125,7 +124,6 @@
             <option value="vxxShortShares">VXX short shares</option>
             <option value="qqqCallSpreads">QQQ far call-credit spreads</option>
             <option value="vxxCallSpreads">VXX call-credit spreads</option>
-            <option value="vxxPutSpreads">VXX put-credit spreads</option>
             <option value="qqqBullPutSpreads">QQQ bull-put spreads</option>
           </select>
         </label>
@@ -145,7 +143,6 @@
         <button data-find="qqqCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.16">Find QQQ Far Call-Credit</button>
         <button data-find="qqqBearCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.10">Find QQQ Bear-Call Vertical</button>
         <button data-find="vxxCall" data-symbol="VXX" data-right="call" data-kind="vertical">Find VXX Call Vertical</button>
-        <button data-find="vxxPut" data-symbol="VXX" data-right="put" data-kind="vertical">Find VXX Put Vertical</button>
         <button data-find="qqqPut" data-symbol="QQQ" data-right="put" data-kind="vertical">Find QQQ Put Vertical</button>
         <button data-find="qqqLongCall" data-symbol="QQQ" data-right="call" data-kind="long">Find QQQ Long Call</button>
         <button data-find="qqqLongPut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.25">Find QQQ Long Put</button>
@@ -159,7 +156,7 @@
         <label class="small-label">Hub shock 5D return (%) <input id="hubReturn5dPct" type="number" min="-100" max="100" step="0.1" value="0"></label>
       </div>
       <div id="candidateRows" class="candidate-rows"></div>
-      <p class="muted"><b>Primary short-option allocator:</b> only QQQ far call-credit, VXX call-credit and VXX put-credit candidates enter the shared option max-loss pool. Requested weights are scaled proportionally if their sum exceeds the pool, before whole-contract rounding. Missing quotes reserve no risk and keep that leg PENDING. Hub, long/debit and other research catalogue rows are explicitly outside main budget, even when their own research candidates are available.</p>
+      <p class="muted"><b>Primary short-option allocator:</b> only QQQ far call-credit and VXX call-credit candidates enter the shared option max-loss pool. Requested weights are scaled proportionally if their sum exceeds the pool, before whole-contract rounding. VXX put is disabled for this plan. Hub, long/debit and other research catalogue rows are explicitly outside main budget, even when their own research candidates are available.</p>
       <div class="table-wrap">
         <table class="decision-table option-table">
           <thead>
@@ -169,7 +166,7 @@
         </table>
       </div>
       <div class="footnotes">
-        <p><b>Main capital plan:</b> QQQ core shares + VXX short-stock margin estimate. Main shared option max-loss pool: QQQ far call-credit + VXX call-credit + VXX put-credit.</p>
+        <p><b>Main capital plan:</b> QQQ core shares + VXX short-stock margin estimate. Main shared option max-loss pool: QQQ far call-credit + VXX call-credit only. VXX put and all other research rows are excluded.</p>
         <p><b>Inspection-only structures:</b> QQQ bull-put / bear-call, covered call, protective put, long call / put / straddle, iron fly, iron condor, broken-wing butterfly, calendar and Hub packages. These do not affect the main budget.</p>
         <p><b>Ratio strategies:</b> Hub Call Ratio / Put Ratio and the legacy N:near-long hedge are shown separately. Naked ratio tails are not hard-capped. A user-entered stress loss only creates a stress-budget estimate, never a hard max-loss promise.</p>
         <p><b>Data boundary:</b> Option-chain candidates use public Yahoo chain data, which may be delayed/incomplete and is not a guaranteed executable quote. Verify strikes, bid/ask, expiry, contract adjustment and actual fills in OpenD/broker before use.</p>
