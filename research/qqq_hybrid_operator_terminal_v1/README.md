@@ -6,7 +6,7 @@
 
 The primary workflow is **capital-first sizing**:
 
-> Enter principal / NAV, truly uncommitted cash, cash reserve, stock allocation caps and the VXX short-stock margin estimate. The primary option max-loss pool includes only QQQ far call-credit, VXX call-credit and VXX put-credit verticals. These quoted seller legs share one pool; QQQ stock purchases and VXX short-stock margin use the same cash reconciliation. Other catalogue structures stay visible for inspection but cannot change primary capacities. Current holdings are used to compare the permitted target with the current state.
+> Enter principal / NAV, truly uncommitted cash, cash reserve, stock allocation caps and the VXX short-stock margin estimate. The primary option max-loss pool includes only QQQ far call-credit and VXX call-credit verticals. These quoted seller legs share one pool; QQQ stock purchases and VXX short-stock margin use the same cash reconciliation. VXX put and other catalogue structures stay outside the primary budget. Current holdings are used to compare the permitted target with the current state.
 
 An intentionally excessive 1,000-unit input is a collapsed self-audit diagnostic only, not the normal workflow.
 
@@ -92,15 +92,14 @@ The number of contracts is bounded by both the individual leg budget and the sha
 
 ## Joint portfolio budget — primary whitelist only
 
-The primary page (http://127.0.0.1:8790/) is the authoritative sizing page. Its cash plan accounts for QQQ core shares, the VXX short-stock margin estimate, cash reserve and incremental QQQ purchases. Its shared option max-loss pool includes exactly three quoted defined-risk seller verticals:
+The primary page (http://127.0.0.1:8790/) is the authoritative sizing page. Its cash plan accounts for QQQ core shares, the VXX short-stock margin estimate, cash reserve and incremental QQQ purchases. Its shared option max-loss pool includes exactly two quoted defined-risk seller verticals:
 
 - QQQ FAR CALL / CALL-CREDIT.
 - VXX CALL-CREDIT.
-- VXX PUT-CREDIT.
 
-The three eligible option legs request percentages of NAV but do not each receive an independent entitlement. After usable same-expiry quotes are available, the engine sums their requested risk, proportionally scales requests when they exceed the shared pool, and rounds to whole spreads. A quoted candidate with a budget too small for one whole spread still participates in the requested allocation before integer rounding. Missing quotes (including the VXX put chain in the uploaded screenshot fixture) remain PENDING and do not consume risk.
+The two eligible option legs request percentages of NAV but do not each receive an independent entitlement. After usable same-expiry quotes are available, the engine sums their requested risk, proportionally scales requests when they exceed the shared pool, and rounds to whole spreads. A quoted candidate with a budget too small for one whole spread still participates in the requested allocation before integer rounding. VXX put is intentionally excluded from this plan, regardless of whether a separate research quote is found.
 
-QQQ bull-put/bear-call, covered calls, protective puts, long/debit options, iron flies/condors, calendars, ratio structures, Hub packages and legacy hedge diagnostics are outside the primary budget. They can remain visible as research references, but receive no primary capacity, target changes, or risk reservation. Do not add their research estimates to the primary table.
+VXX put, QQQ bull-put/bear-call, covered calls, protective puts, long/debit options, iron flies/condors, calendars, ratio structures, Hub packages and legacy hedge diagnostics are outside the primary budget. They can remain visible as research references, but receive no primary capacity, target changes, or risk reservation. Do not add their research estimates to the primary table.
 
 The Hub-specific details page (hub_research_pack.html) is a structure/rule inspector, not a second allocation authority. Its standalone maximum must not be added to the primary page's capacities. All actions remain what-if/manual review; no broker order route is present.
 
