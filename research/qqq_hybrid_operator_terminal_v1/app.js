@@ -13,8 +13,7 @@
   const TOP_BUDGETS = {
     qqqCallSpreads: "qqqCallRiskPct",
     vxxCallSpreads: "vxxCallRiskPct",
-    vxxPutSpreads: "vxxPutRiskPct",
-    qqqBullPutSpreads: "qqqBullPutRiskPct"
+    vxxPutSpreads: "vxxPutRiskPct"
   };
   const STOCK_KEYS = ["qqqShares", "vxxShortShares"];
 
@@ -30,9 +29,11 @@
       const mainBudgetId = TOP_BUDGETS[s.key];
       const budget = mainBudgetId ? inputNumber(mainBudgetId, s.defaultRiskPct) : s.defaultRiskPct;
       const manualKind = ["manualDebit", "manualRisk", "stressOnly"].includes(s.kind);
-      const enableCell = s.baseline
-        ? '<span class="tag active">BASELINE</span>'
-        : '<label class="toggle small-toggle"><input id="enabled-' + s.key + '" type="checkbox"> enabled</label>';
+      const enableCell = !s.mainBudgetEligible
+        ? '<span class="tag">RESEARCH ONLY</span>'
+        : s.baseline
+          ? '<span class="tag active">PRIMARY</span>'
+          : '<label class="toggle small-toggle"><input id="enabled-' + s.key + '" type="checkbox"> enabled</label>';
       const riskCell = manualKind
         ? '<input id="risk-' + s.key + '" type="number" min="0" step="1" placeholder="' + (s.kind === "stressOnly" ? "stress loss" : s.kind === "manualDebit" ? "debit max loss" : "verified max loss") + '">'
         : '<span id="risk-' + s.key + '" class="risk-value">—</span>';
@@ -42,7 +43,9 @@
       return '<tr data-key="' + s.key + '">' +
         '<td class="strategy-cell"><b>' + esc(s.label) + '</b>' + sourceCell + '<small id="reason-' + s.key + '" class="row-reason">Not sized yet</small></td>' +
         '<td><input id="current-' + s.key + '" type="number" min="0" step="1" value="0" aria-label="' + esc(s.label) + ' current contracts"></td>' +
-        '<td><input id="budget-' + s.key + '" type="number" min="0" max="100" step="0.1" value="' + budget + '" aria-label="' + esc(s.label) + ' requested risk weight percent of NAV"></td>' +
+        '<td>' + (s.mainBudgetEligible
+          ? '<input id="budget-' + s.key + '" type="number" min="0" max="100" step="0.1" value="' + budget + '" aria-label="' + esc(s.label) + ' requested risk weight percent of NAV">'
+          : '<span class="tag">OUTSIDE MAIN BUDGET</span>') + '</td>' +
         '<td id="allocated-' + s.key + '">—</td>' +
         '<td>' + riskCell + '</td>' +
         '<td>' + enableCell + '</td>' +
@@ -95,9 +98,9 @@
     const permissions = { allowProtectionBuys: $("allowProtectionBuys")?.checked === true };
     const manualRiskPerUnit = {};
     for (const s of E.OPTION_STRATEGIES) {
-      sizing[s.riskPctField] = inputNumber("budget-" + s.key, s.defaultRiskPct);
+      sizing[s.riskPctField] = s.mainBudgetEligible ? inputNumber("budget-" + s.key, s.defaultRiskPct) : 0;
       holdings[s.key] = inputNumber("current-" + s.key, 0);
-      if (!s.baseline) permissions[s.key] = $("enabled-" + s.key)?.checked === true;
+      if (s.mainBudgetEligible && !s.baseline) permissions[s.key] = $("enabled-" + s.key)?.checked === true;
       if (["manualDebit", "manualRisk", "stressOnly"].includes(s.kind)) manualRiskPerUnit[s.key] = inputNumber("risk-" + s.key, null);
     }
     return {
@@ -388,9 +391,9 @@
     }
 
     for (const r of result.rows.filter(row => E.OPTION_STRATEGIES.some(s => s.key === row.key))) {
-      $("capacity-" + r.key).textContent = r.capacity === null || r.capacity === undefined ? "PENDING" : fmt(r.capacity);
-      $("target-" + r.key).textContent = r.target === null || r.target === undefined ? "PENDING" : fmt(r.target);
-      $("action-" + r.key).textContent = r.action + (r.delta ? " " + signed(r.delta) : "");
+      $("capacity-" + r.key).textContent = r.status === "OUTSIDE_MAIN_BUDGET" ? "EXCLUDED" : r.capacity === null || r.capacity === undefined ? "PENDING" : fmt(r.capacity);
+      $("target-" + r.key).textContent = r.status === "OUTSIDE_MAIN_BUDGET" ? "—" : r.target === null || r.target === undefined ? "PENDING" : fmt(r.target);
+      $("action-" + r.key).textContent = r.status === "OUTSIDE_MAIN_BUDGET" ? "OUTSIDE MAIN BUDGET" : r.action + (r.delta ? " " + signed(r.delta) : "");
       $("action-" + r.key).className = "action-cell " + String(r.action || "").toLowerCase();
       $("reason-" + r.key).textContent = r.reason || "";
       $("reason-" + r.key).title = r.reason || "";
@@ -401,9 +404,9 @@
       const sourceEl = $("source-" + r.key);
       if (sourceEl) sourceEl.textContent = r.candidateSource || r.riskSource || r.status;
       const allocatedEl = $("allocated-" + r.key);
-      if (allocatedEl) allocatedEl.textContent = r.allocatedRiskBudgetUsd > 0 ? usd(r.allocatedRiskBudgetUsd) : (r.status === "PENDING" ? "PENDING" : "$0");
+      if (allocatedEl) allocatedEl.textContent = r.status === "OUTSIDE_MAIN_BUDGET" ? "EXCLUDED" : r.allocatedRiskBudgetUsd > 0 ? usd(r.allocatedRiskBudgetUsd) : (r.status === "PENDING" ? "PENDING" : "$0");
       const reservedEl = $("reserved-" + r.key);
-      if (reservedEl) reservedEl.textContent = r.strategyKind === "coveredCall" || r.riskPerUnit === null || r.riskPerUnit === undefined || r.target === null ? "N/A / PENDING" : usd(r.riskPerUnit * r.target);
+      if (reservedEl) reservedEl.textContent = r.status === "OUTSIDE_MAIN_BUDGET" ? "EXCLUDED" : r.strategyKind === "coveredCall" || r.riskPerUnit === null || r.riskPerUnit === undefined || r.target === null ? "N/A / PENDING" : usd(r.riskPerUnit * r.target);
     }
 
     const ratio = result.ratioCampaign;
@@ -421,7 +424,7 @@
       ["NAV / uncommitted cash", usd(result.nav) + " / " + usd(result.cashPool)],
       ["Cash reserve", usd(result.cashReserveUsd)],
       ["Shared option-risk envelope", usd(result.totalOptionRiskPool)],
-      ["Requested option risk weights", usd(result.totalRequestedRiskBudgetsUsd)],
+      ["Quoted primary short-option requests", usd(result.totalRequestedRiskBudgetsUsd)],
       ["Common proportional scale factor", Number.isFinite(result.riskScaleFactor) ? fmt(result.riskScaleFactor, 3) + "×" : "—"],
       ["Risk still unused after integer sizing", usd(result.remainingRiskPool)],
       ["QQQ target notional", usd(result.qqqTargetNotionalUsd)],
@@ -433,8 +436,9 @@
       ["Sizing status", result.ok ? "CALCULATED / REVIEW" : "BLOCKED"]
     ].map(([k,v]) => '<div><small>' + esc(k) + '</small><b>' + esc(v) + '</b></div>').join("");
     $("summaryReasons").innerHTML = '<p><b>Why:</b> ' + esc(m.reason) + '</p>' +
-      '<p><b>Capital accounting:</b> planned cash = reserve + shared option-risk envelope + incremental QQQ purchases + estimated margin for incremental VXX short shares. Existing shares are not counted as fresh purchases.</p>' +
-      '<p><b>Risk boundary:</b> VXX margin is a user-entered estimate, not a loss cap. Missing option candidates stay PENDING; ratio stress estimates do not hard-cap ratio tails.</p>';
+      '<p><b>Main budget scope:</b> QQQ core shares + VXX short-stock margin + QQQ call-credit + VXX call-credit + VXX put-credit only. Hub packages, debit/buy options, and other catalogue structures are inspection-only and do not change main sizing.</p>' +
+      '<p><b>Capital accounting:</b> planned cash = reserve + shared primary seller-option risk envelope + incremental QQQ purchases + estimated margin for incremental VXX short shares. Existing shares are not counted as fresh purchases.</p>' +
+      '<p><b>Risk boundary:</b> VXX margin is a user-entered estimate, not a loss cap. Missing option candidates stay PENDING; ratio stress estimates do not hard-cap ratio tails. A VXX put with no supplied chain quote stays PENDING.</p>';
     updateTestResult(result);
   }
 
