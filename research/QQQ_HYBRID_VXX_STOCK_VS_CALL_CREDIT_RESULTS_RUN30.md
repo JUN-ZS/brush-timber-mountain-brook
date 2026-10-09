@@ -19,16 +19,18 @@ Every case keeps QQQ Core and QQQ Call-Credit logic enabled and unchanged. Only 
 
 The 0%, 3% and 10% annualized borrow rates are explicit hypothetical sensitivities, not observed historical VXX borrow fees. Costs accrue on marked short notional using calendar days and a 360-day denominator. Options commissions and real historical executable quotes remain unavailable.
 
-## Primary four-case comparison
+## Primary four-case comparison — using the user-specified 3% annual VXX stock-borrow fee
 
-| VXX sleeve case | VXX stock-short notional | VXX call-credit max-loss budget | Final NAV | CAGR | Daily MTM MaxDD | Annualized vol. | Sharpe (rf=0) |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Neither | 0% NAV | 0% NAV | $248,998.73 | 11.31% | -22.18% | 13.52% | 0.862 |
-| Stock only | 18% NAV | 0% NAV | $273,508.24 | 12.55% | -23.16% | 15.99% | 0.822 |
-| Call-credit only | 0% NAV | 2% NAV | $266,334.56 | 12.20% | -22.18% | 13.84% | 0.903 |
-| Both | 18% NAV | 2% NAV | $289,456.67 | 13.30% | -24.62% | 16.52% | 0.841 |
+The 3% borrow rate is treated as the user's stated planning assumption, not independently verified historical broker fee data. To avoid presenting a 0%-borrow stock short as the base case, use these rows for the practical comparison:
 
-These are four separate full-portfolio replays, not just isolated sleeve-PnL comparisons. NAV-dependent sizing feedback in the remaining Hybrid is retained.
+| VXX sleeve case | VXX stock-short notional | VXX call-credit max-loss budget | Borrow rate used | Final NAV | CAGR | Daily MTM MaxDD | Annualized vol. | Sharpe (rf=0) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Neither | 0% NAV | 0% NAV | — | $248,998.73 | 11.31% | -22.18% | 13.52% | 0.862 |
+| Stock only | 18% NAV | 0% NAV | 3% | $269,366.91 | 12.35% | -23.45% | 16.10% | 0.806 |
+| Call-credit only | 0% NAV | 2% NAV | — | $266,334.56 | 12.20% | -22.18% | 13.84% | 0.903 |
+| Both | 18% NAV | 2% NAV | 3% | $285,614.36 | 13.12% | -24.93% | 16.63% | 0.827 |
+
+These are four separate full-portfolio replays, not just isolated sleeve-PnL comparisons. NAV-dependent sizing feedback in the remaining Hybrid is retained. A parallel 0%-borrow scenario remains only as a frictionless upper-bound sensitivity; it is no longer the practical base case given the user's 3% assumption.
 
 ## Portfolio counterfactual deltas
 
@@ -71,11 +73,11 @@ These are simulated costs under stipulated rates. They must not be reported as h
 
 ## Interpretation
 
-1. **At the existing asymmetric settings**, stock-only (18% NAV notional) has higher terminal NAV and CAGR than call-only (2% max-loss budget), but materially higher volatility, a roughly 0.98 percentage-point worse MaxDD, and lower Sharpe. This does not establish stock-short superiority because the risk bases differ sharply.
-2. **Call-credit only** has a higher modeled Sharpe (0.903 vs 0.862) than the neither-sleeve control, with the same recorded MaxDD in this sample. The return improvement is smaller than for the 18% stock-short.
-3. **Both sleeves** produce the highest terminal NAV/CAGR in this model, but also the worst MaxDD (-24.62%) and higher volatility; adding stock-short to Call-only worsens MaxDD by about 2.44 percentage points.
+1. **Using the user's 3% annual borrow-fee assumption**, stock-only (18% NAV notional) has slightly higher terminal NAV and CAGR than call-credit only (2% max-loss budget), but higher volatility, about 1.28 percentage points worse MaxDD, and lower Sharpe. This does not establish stock-short superiority because the risk bases differ sharply.
+2. **Call-credit only** has a higher modeled Sharpe (0.903 vs 0.862) than the neither-sleeve control, with the same recorded MaxDD in this sample.
+3. **Both sleeves** produce the highest terminal NAV/CAGR, but also the worst MaxDD (-24.93%) and higher volatility; adding the 18% stock-short to Call-only worsens MaxDD by about 2.75 percentage points at the 3% fee assumption.
 4. **Under the limited +100% VXX shock reference**, the 2% NAV stock-short is much smaller than the original 18% stock-short. It has less terminal wealth than the 2% max-loss Call-credit, while its MaxDD is only marginally better. This supports further testing of the capped-loss option sleeve, not an unconditional declaration of a winner.
-5. **Borrow costs matter**: under the hypothetical 10% annual rate, the 18% stock-only NAV falls by about $14.1k vs the 0% cost case; the combined case falls by about $13.5k. Actual historical VXX borrow fees/availability were not in the input data.
+5. **Borrow costs matter**: the user's 3% assumption reduces model terminal NAV by approximately $4.1k in the stock-only case and $3.8k in the combined case versus the 0%-borrow versions (the modeled fees are about $4.26k and $4.31k respectively; portfolio path and position sizing also change). The 10% annual scenario is a stress sensitivity, not the user's base case. Actual historical VXX borrow fees/availability were not in the input data.
 
 ## Verification and artifact limitation
 
