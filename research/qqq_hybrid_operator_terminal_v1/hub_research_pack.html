@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hub Research Option Pack · QQQ Hybrid</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .pack-nav{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+    .pack-nav a{color:var(--blue);font-weight:800}
+    .pack-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .leg-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .leg-grid label,.pack-grid label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+    .leg-grid input,.pack-grid input,.pack-grid select{width:100%;min-width:0}
+    .leg-heading{font-weight:800;margin:8px 0;color:var(--text)}
+    .output-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .output-grid>div{background:var(--panel2);border:1px solid var(--line);padding:12px;border-radius:8px;min-width:0}
+    .output-grid small{display:block;color:var(--muted);font-size:10px;letter-spacing:.05em;text-transform:uppercase}
+    .output-grid b{display:block;margin-top:5px;font-size:18px;overflow-wrap:anywhere}
+    .pack-status{border:1px solid var(--line);padding:12px;border-radius:8px;white-space:normal}
+    .pack-status strong{display:block;margin-bottom:5px}
+    .pack-status p{margin:4px 0}
+    .pack-foot{font-size:12px;color:var(--muted);line-height:1.55}
+    .checkrow{display:flex!important;flex-direction:row!important;align-items:center;gap:8px!important}
+    .checkrow input{width:auto!important}
+    .warnbox{border-left:3px solid var(--orange);padding:10px 12px;background:var(--panel2);color:var(--muted);font-size:12px;line-height:1.5}
+    [hidden]{display:none!important}
+    @media(max-width:900px){.pack-grid,.leg-grid,.output-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:600px){.pack-grid,.leg-grid,.output-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <div class="eyebrow">HUB RESEARCH PACK · REAL-CHAIN RESEARCH GEOMETRIES</div>
+      <h1>Hub 特別期權研究模組</h1>
+      <p class="subtitle">RESEARCH STRUCTURE → ENTRY RISK → CAPITAL GATE → CURRENT ACTION</p>
+    </div>
+    <div class="top-actions"><span class="tag danger">PREVIEW ONLY · NO BROKER ORDERS</span></div>
+  </header>
+
+  <main>
+    <nav class="pack-nav">
+      <a href="index.html">← 返回 QQQ Hybrid 主操作台</a>
+      <span class="muted">專用研究模板；不改寫 V3 政策，不會發送訂單。</span>
+    </nav>
+
+    <section class="notice">
+      <b>優先採用 Hub 已研究過的結構，不是重抄一般策略清單。</b>
+      <small>此頁整合 Ratio-Call HARVEST50 / Dynamic-N、State-Adaptive Geometry、Staggered Stack 及 SHOCK-GATED Put Debit Spread。公式與進場結構取自研究分支；即時報價只作候選，BS delta 是估算，所有數量均為假設試算。</small>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>1 · 資本及共享風險額度</h2><span class="tag warn">WHAT-IF / MANUAL REVIEW</span></div>
+      <div class="pack-grid">
+        <label>NAV / 總資產 ($)<input id="nav" type="number" min="1" step="100" value="100000"></label>
+        <label>本計劃可動用未承諾現金 ($)<input id="cashPool" type="number" min="0" step="100" value="100000"></label>
+        <label>現金預留 (%)<input id="cashReservePct" type="number" min="0" max="100" step="0.5" value="10"></label>
+        <label>整體期權最大虧損池 (% NAV)<input id="totalOptionRiskPct" type="number" min="0" max="100" step="0.1" value="3.2"></label>
+        <label>原 Hybrid 已佔用期權風險 ($)<input id="baseRiskReservedUsd" type="number" min="0" step="10" value="0"></label>
+        <label>本次選取研究結構風險預算 (% NAV)<input id="strategyRiskPct" type="number" min="0" max="100" step="0.1" value="2"></label>
+        <label>QQQ 現價 ($)<input id="spot" type="number" min="0" step="0.01" placeholder="刷新 V3 或手動核實"></label>
+        <label>候選到期日 DTE<input id="targetDte" type="number" min="14" max="120" step="1" value="45"></label>
+        <label>研究結構
+          <select id="strategyMode">
+            <option value="ratio-harvest50">Hub Ratio-Call · HARVEST50 V1</option>
+            <option value="ratio-dynamic-v2">Hub Ratio-Call · Risk-Budget Dynamic-N V2</option>
+            <option value="ratio-fresh-v7">Hub Ratio-Call · Fresh-Pair Dynamic-N V7</option>
+            <option value="state-adaptive">Hub State-Adaptive Geometry</option>
+            <option value="staggered">Hub Staggered Stack · 1 / 2 / 4 layers</option>
+            <option value="shock-put">Hub SHOCK-GATED Put Debit Spread</option>
+          </select>
+        </label>
+      </div>
+      <div class="inline-actions">
+        <button id="refreshMarketBtn">Refresh V3 QQQ Spot</button>
+        <button id="loadChainBtn" class="primary">Load delayed QQQ option candidates</button>
+        <span id="chainStatus" class="muted">尚未載入報價；沒有報價便不會虛構合約。</span>
+      </div>
+      <div class="output-grid" id="capitalMetrics"></div>
+      <p class="pack-foot">「原 Hybrid 已佔用期權風險」請填主操作台已分配予 QQQ/VXX 期權的實際風險儲備。本頁只用剩餘池，避免同一筆風險額度重複使用。未輸入該值時，請勿把本頁最大值與主操作台最大值直接相加。</p>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>2 · Hub 研究專用報價腿</h2><span class="tag">同一到期日 · 可手動修正</span></div>
+      <div id="callLegGroup">
+        <div class="leg-heading">Call 結構：+1 ATM Call − N OTM Calls + N 更遠 OTM Call Wings</div>
+        <div class="leg-grid">
+          <label>ATM Call 行使價 K<input id="atmStrike" type="number" min="0" step="0.5"></label>
+          <label>ATM Call 買入 Ask ($)<input id="atmAsk" type="number" min="0" step="0.01"></label>
+          <label>Short Call 行使價 K<input id="shortStrike" type="number" min="0" step="0.5"></label>
+          <label>Short Call 賣出 Bid ($)<input id="shortBid" type="number" min="0" step="0.01"></label>
+          <label>Far Wing 行使價 K<input id="wingStrike" type="number" min="0" step="0.5"></label>
+          <label>Far Wing 買入 Ask ($)<input id="wingAsk" type="number" min="0" step="0.01"></label>
+        </div>
+      </div>
+      <div id="putLegGroup">
+        <div class="leg-heading">Put 結構：+1 約 25Δ Long Put −1 約 10Δ farther-OTM Short Put</div>
+        <div class="leg-grid">
+          <label>Long Put 行使價 K<input id="longPutStrike" type="number" min="0" step="0.5"></label>
+          <label>Long Put 買入 Ask ($)<input id="longPutAsk" type="number" min="0" step="0.01"></label>
+          <label>Short Put 行使價 K<input id="shortPutStrike" type="number" min="0" step="0.5"></label>
+          <label>Short Put 賣出 Bid ($)<input id="shortPutBid" type="number" min="0" step="0.01"></label>
+        </div>
+      </div>
+      <p class="pack-foot">自動載入會用候選鏈的 Ask/Bid，並在提供者沒有 Delta 時使用 Black-Scholes delta 作「選鏈參考」；不會把估算 Delta 說成真實希臘值。所有價格、到期日、 adjusted contract 與可成交性都要在 OpenD／券商鏈覆核。</p>
+    </section>
+
+    <section class="card" id="ratioControlGroup">
+      <div class="section-head"><h2>3A · Ratio-Call 進場與持倉狀態</h2><span class="tag">不改寫原研究版本</span></div>
+      <div class="pack-grid">
+        <label>HARVEST50 固定 N（V1）<input id="requestedN" type="number" min="1" max="6" step="1" value="2"></label>
+        <label>最大 N 上限<input id="maxN" type="number" min="1" max="6" step="1" value="4"></label>
+        <label>目前開倉 N / Pair 數<input id="currentN" type="number" min="0" max="6" step="1" value="2"></label>
+        <label>目前 Short Call 數<input id="currentShorts" type="number" min="0" max="100" step="1" value="2"></label>
+        <label>目前 Long Wing 數<input id="currentWings" type="number" min="0" max="100" step="1" value="2"></label>
+        <label>目前 Short Call Delta（估算或券商值）<input id="currentShortDelta" type="number" min="0" max="1" step="0.01" value="0.20"></label>
+        <label>低 Delta 連續交易日（V7 加倉閘）<input id="lowDeltaStreak" type="number" min="0" max="30" step="1" value="0"></label>
+        <label>距上次 N 變更交易日（V7 冷卻）<input id="sessionsSinceChange" type="number" min="0" max="100" step="1" value="99"></label>
+        <label>組合目前 MTM P&amp;L ($，虧損輸入負數)<input id="packagePnlUsd" type="number" step="10" value="0"></label>
+        <label>目前 Short Call 買回 Ask ($)<input id="currentShortAsk" type="number" min="0" step="0.01"></label>
+        <label>目前 Wing 賣出 Bid ($)<input id="currentWingBid" type="number" min="0" step="0.01"></label>
+        <label class="checkrow"><input id="approachTouched" type="checkbox"> High 觸及 Short Strike 的 98% 區域</label>
+        <label class="checkrow"><input id="nextDayReversal" type="checkbox"> 下一交易日 Close 回落</label>
+        <label class="checkrow"><input id="nextDayContinuation" type="checkbox"> 下一交易日 Close 延續／不回落</label>
+      </div>
+    </section>
+
+    <section class="card" id="stateControlGroup" hidden>
+      <div class="section-head"><h2>3B · State-Adaptive / Staggered 狀態</h2><span class="tag">Real-chain research profile</span></div>
+      <div class="pack-grid">
+        <label>已完成 wave 數 (0–2)<input id="wave" type="number" min="0" max="2" step="1" value="0"></label>
+        <label>前一日 Close ($)<input id="prevClose" type="number" min="0" step="0.01"></label>
+        <label>Anchor Close ($)<input id="anchorClose" type="number" min="0" step="0.01"></label>
+        <label>ATR20 ($)<input id="atr20" type="number" min="0" step="0.01"></label>
+        <label>Staggered 併行 Vintage 上限
+          <select id="layerCap"><option value="1">1 layer · no overlap</option><option value="2">2 layers · half stack</option><option value="4">4 layers · quarter stack</option></select>
+        </label>
+        <label>目前活躍 Vintage 數<input id="currentLayers" type="number" min="0" max="4" step="1" value="0"></label>
+      </div>
+    </section>
+
+    <section class="card" id="shockControlGroup" hidden>
+      <div class="section-head"><h2>3C · SHOCK-GATED Convexity 閘</h2><span class="tag warn">不在 Shock 狀態不加倉</span></div>
+      <div class="pack-grid">
+        <label>距過去 252 個交易日高位 Drawdown (%)<input id="drawdown252Pct" type="number" min="-100" max="100" step="0.1" value="0"></label>
+        <label>過去 5 個交易日回報 (%)<input id="return5dPct" type="number" min="-100" max="100" step="0.1" value="0"></label>
+      </div>
+      <p class="pack-foot">沿用已研究的固定閘：252 日 drawdown ≤ −8% 或 5 日回報 ≤ −4%。結構為 Long Put − farther-OTM Short Put；最大到期虧損取淨 Debit。</p>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>4 · Universal Harvest Bank（選用的風險權利閘）</h2><span class="tag">不是現金或保證金</span></div>
+      <label class="checkrow"><input id="applyRiskBank" type="checkbox"> 使用 Hub Isolated Risk-WIN Bank 限制本次入場</label>
+      <div class="pack-grid">
+        <label>單次已實現 N&gt;2 Risk-WIN（$）<input id="bankSeedWinUsd" type="number" min="0" step="10" value="0"></label>
+        <label>其後累計已實現虧損絕對值（$）<input id="bankLossesUsd" type="number" min="0" step="10" value="0"></label>
+        <label>比較模式
+          <select id="bankMode"><option value="isolated">ISOLATED · 權威研究規則</option><option value="replenish-comparator">REPLENISH · 污染比較組</option></select>
+        </label>
+        <label>REPLENISH 比較用後續淨 P&amp;L ($)<input id="bankNetPnlUsd" type="number" step="10" value="0"></label>
+      </div>
+      <p class="pack-foot">ISOLATED：以單次已實現正 Risk-WIN 作種子，之後的盈利不補回 Bank，只有虧損消耗餘額。V19 的研究是反事實風險權利實驗；Bank 不是 NAV、現金、券商保證金，也不證明可無限循環實盤。</p>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>5 · 本次研究結構：計算結果</h2><span class="tag danger">MANUAL REVIEW ONLY</span></div>
+      <div id="resultStatus" class="pack-status"><strong>等待有效資料</strong><p>載入有效的 QQQ 報價／手動輸入腿資料後才會計算。</p></div>
+      <div class="output-grid" id="resultMetrics"></div>
+      <div class="table-wrap" id="resultTableWrap"></div>
+      <div class="warnbox" id="riskBoundary"></div>
+    </section>
+
+    <footer>Hub Research Option Pack V1 · Derived from frozen research templates · Current quotes may be delayed · No broker order path</footer>
+  </main>
+  <script src="hub_research_pack.js"></script>
+  <script src="hub_research_pack_ui.js"></script>
+</body>
+</html>
