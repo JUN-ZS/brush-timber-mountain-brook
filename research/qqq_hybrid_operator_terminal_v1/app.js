@@ -241,19 +241,12 @@
     $("gAdds").textContent = m.blocked ? "BLOCKED" : m.allowNew ? "CARRY" : "HOLD / CUT";
     $("mSlope").value = Number.isFinite(m.slope) ? fmt(m.slope, 2) + "%" : "—";
 
-    const qRows = result.rows.filter(r => ["qqqShares","vxxShortShares"].includes(r.key));
-    $("shareRows").innerHTML = qRows.map(r => {
-      const suffix = r.key === "qqqShares" ? "shares" : "shares";
-      return '<tr><td><b>' + esc(r.label) + '</b><small class="row-reason">' + esc(r.reason || "") + '</small></td>' +
-        '<td><input id="current-' + r.key + '" type="number" min="0" step="1" value="' + fmt(r.current) + '"></td>' +
-        '<td>' + (r.capacity === null ? "PENDING" : fmt(r.capacity)) + '</td>' +
-        '<td>' + (r.target === null ? "PENDING" : fmt(r.target)) + '</td>' +
-        '<td class="action-cell ' + String(r.action).toLowerCase() + '">' + esc(r.action) + (r.delta ? " " + esc(signed(r.delta)) : "") + ' ' + suffix + '</td></tr>';
-    }).join("");
-    // Re-bind share inputs because that table is result-driven.
-    for (const key of STOCK_KEYS) {
-      const el = $("current-" + key);
-      if (el) el.addEventListener("input", () => renderPlan());
+    for (const r of result.rows.filter(row => ["qqqShares","vxxShortShares"].includes(row.key))) {
+      $("capacity-" + r.key).textContent = r.capacity === null || r.capacity === undefined ? "PENDING" : fmt(r.capacity);
+      $("target-" + r.key).textContent = r.target === null || r.target === undefined ? "PENDING" : fmt(r.target);
+      $("action-" + r.key).textContent = r.action + (r.delta ? " " + signed(r.delta) : "") + " shares";
+      $("action-" + r.key).className = "action-cell " + String(r.action || "").toLowerCase();
+      $("action-" + r.key).title = r.reason || "";
     }
 
     for (const r of result.rows.filter(row => E.OPTION_STRATEGIES.some(s => s.key === row.key))) {
@@ -318,28 +311,11 @@
 
   function setTest1000() {
     const key = $("testLeg").value;
-    if (key === "qqqShares" || key === "vxxShortShares") {
-      // Share rows are rebuilt by renderPlan; store the current qty in the input model below.
-      window.hybridTestOverrides = window.hybridTestOverrides || {};
-      window.hybridTestOverrides[key] = 1000;
-    } else {
-      $("current-" + key).value = 1000;
-    }
+    const input = $("current-" + key);
+    if (input) input.value = 1000;
     renderPlan();
+    $("journalStatus").textContent = "SIMULATION ONLY: current quantity set to 1000 for " + key + ". No actual position was changed.";
   }
-
-  const originalReadInput = readInput;
-  function readInputWithTestOverrides() {
-    const obj = originalReadInput();
-    if (window.hybridTestOverrides) {
-      for (const key of STOCK_KEYS) {
-        if (window.hybridTestOverrides[key] !== undefined) obj.holdings[key] = window.hybridTestOverrides[key];
-      }
-    }
-    return obj;
-  }
-  // Use the wrapper for the plan model. Keep normal manually entered values authoritative after editing.
-  readInput = readInputWithTestOverrides;
 
   function serializePlan() {
     if (!lastPlan) renderPlan();
