@@ -25,6 +25,12 @@ class FullHistoryAuditTests(unittest.TestCase):
         self.assertIsNone(audit.spread_pct_mid(1.2,1.0))
         self.assertIsNone(audit.spread_pct_mid(0,0.1))
 
+    def test_model_half_spread_matches_preserved_proxy_formula(self):
+        self.assertAlmostEqual(audit.model_half_spread_fraction(82.69), 0.078352, places=6)
+        self.assertAlmostEqual(audit.model_half_spread_fraction(12.42), 0.025, places=6)
+        self.assertAlmostEqual(audit.model_half_spread_fraction(1000), 0.1, places=6)
+        self.assertIsNone(audit.model_half_spread_fraction(None))
+
     def test_annual_file_manifest(self):
         self.assertEqual([x["year"] for x in audit.ANNUAL_FILES],list(range(2018,2026)))
         self.assertTrue(all(len(x["sha"])==40 and x["bytes"]>0 for x in audit.ANNUAL_FILES))

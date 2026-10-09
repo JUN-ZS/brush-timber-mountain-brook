@@ -105,6 +105,12 @@ def spread_pct_mid(bid,ask):
     mid=(a+b)/2
     return (a-b)/mid*100 if mid>0 else None
 
+def model_half_spread_fraction(vix):
+    """Same VIX-only haircut formula as the preserved QQQ quoteCC proxy."""
+    value=num(vix)
+    if value is None:return None
+    return min(max(0.025+0.08*max(value/100-0.16,0),0.02),0.1)
+
 def pair_metrics(pair,vix):
     if not pair:return None
     obs=num(pair.get("observed_credit_bid_minus_wing_ask"))
@@ -116,7 +122,7 @@ def pair_metrics(pair,vix):
     chain_mid=num(chain.get("model_mid_credit"))
     short_full=num(pair.get("spread_pct_of_short_mid"))
     wing_full=spread_pct_mid(pair.get("wing_bid"),pair.get("wing_ask"))
-    model_half=100*base.halfSpreadQ(vix) if num(vix) is not None else None
+    model_half=100*model_half_spread_fraction(vix)
     width=num(pair.get("strike_width"))
     return {
       "expiry":pair.get("expiry"),"calendar_dte":pair.get("calendar_dte"),
