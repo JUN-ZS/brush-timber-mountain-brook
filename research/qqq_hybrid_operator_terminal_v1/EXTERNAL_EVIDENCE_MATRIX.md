@@ -72,3 +72,11 @@ The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CO
 - Six zero-row checkpoints disqualify those exact dates as demonstrated VXX coverage; they do **not** prove the entire database contains no VXX rows. The undated symbol-wide query in Run #82 timed out, so its result is **INCONCLUSIVE**. The next probe replaces that full-table/sort query with four date-bounded history windows (early 2019, March 2020, June 2024, June–July 2026), each with a 12-second query timeout.
 - Regardless of source-wide result, DoltHub remains `COMMUNITY_MAINTAINED / NOT EXCHANGE-AUTHORITATIVE` and does not establish the exact OCC deliverable for adjusted contracts. It cannot be promoted to trade replay solely on row presence.
 - New hard gate: `ADJUSTED_TERMS_RECORDED` contracts and known adjusted roots (`VXX1`, `VXX2`, `1VXX1`, `1VXX2`) are blocked from capacity/payoff calculation while this Lab lacks deliverable/underlying-scale normalization. A root/status conflict also blocks.
+
+
+
+## New QQQ EOD mirror candidate (separate from VXX-source audit)
+
+- The public preservation mirror [anahatsingh-ui/options-dataset-hist](https://github.com/anahatsingh-ui/options-dataset-hist) covers QQQ 2011–2025 according to its README, with a 4:00 PM Eastern EOD snapshot, and does not include VXX. It is a recovered preservation mirror, not an exchange-hosted endpoint; file-level Git blob SHA and byte size are checked by the separate workflow before parsing.
+- The two fixed QQQ audit dates are 2020-03-16 and 2024-08-05. The script samples annual Parquet files plus a small underlying-price file. It measures valid two-sided quote percentage and potential 30–60 DTE / absolute delta 0.03–0.10 call candidates. This calibrates QQQ model-mark plausibility only; the EOD snapshot is not 15:45 or an executable fill.
+- Current source audit workflow: [Run #1](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38002570136) is queued. No QQQ chain data or integrity result is treated as established until its log confirms the expected byte counts / Git blob SHAs and the two date probes.

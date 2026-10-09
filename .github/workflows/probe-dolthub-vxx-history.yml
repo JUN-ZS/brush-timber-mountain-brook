@@ -1,0 +1,36 @@
+name: Public VXX Option History Probe (manual research only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-vxx-option-history-probe
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Probe public DoltHub VXX date coverage (inconclusive unless rows returned)
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Runtime and syntax
+        run: |
+          py -3 --version || exit /b 1
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\probe_dolthub_vxx_options.py || exit /b 1
+      - name: Probe VXX option snapshots (source discovery only)
+        timeout-minutes: 3
+        continue-on-error: true
+        run: |
+          py -3 research\qqq_hybrid_operator_terminal_v1\probe_dolthub_vxx_options.py || exit /b 1
+      - name: Interpretation boundary
+        run: |
+          echo Source probe is not exchange-authoritative and never approves historical trade replay.
+          echo NO_ROWS_IN_WINDOW is not proof of database-wide absence; INCONCLUSIVE remains inconclusive.
