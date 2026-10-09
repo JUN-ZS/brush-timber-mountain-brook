@@ -98,7 +98,10 @@
         <div class="table-wrap">
           <table class="decision-table">
             <thead><tr><th>Leg</th><th>Current units</th><th>Capacity</th><th>Action target</th><th>Recommended delta</th></tr></thead>
-            <tbody id="shareRows"></tbody>
+            <tbody>
+              <tr><td><b>QQQ CORE SHARES</b><small class="row-reason">Capacity = NAV × core allocation / QQQ price. Adds require CARRY; over-cap trims remain visible.</small></td><td><input id="current-qqqShares" type="number" min="0" step="1" value="0"></td><td id="capacity-qqqShares">—</td><td id="target-qqqShares">—</td><td id="action-qqqShares" class="action-cell">—</td></tr>
+              <tr><td><b>VXX SHORT SHARES</b><small class="row-reason">Notional ceiling only; VXX short stock has unbounded upside risk.</small></td><td><input id="current-vxxShortShares" type="number" min="0" step="1" value="0"></td><td id="capacity-vxxShortShares">—</td><td id="target-vxxShortShares">—</td><td id="action-vxxShortShares" class="action-cell">—</td></tr>
+            </tbody>
           </table>
         </div>
         <p class="muted">QQQ adds are limited by available cash. VXX short-share capacity is not a hard loss cap; short stock can have unbounded upside loss.</p>
@@ -129,6 +132,7 @@
         <h2>6 · HYBRID OPTION LEGS AND ALL DISCUSSED STRUCTURES</h2>
         <span class="tag">NO AUTOMATIC ORDERS</span>
       </div>
+      <label class="toggle safety-toggle"><input id="allowProtectionBuys" type="checkbox"> Explicitly permit protective-put additions outside CARRY (still manual review only)</label>
       <div class="candidate-tools">
         <button data-find="qqqCall" data-symbol="QQQ" data-right="call" data-kind="vertical">Find QQQ Call Vertical</button>
         <button data-find="vxxCall" data-symbol="VXX" data-right="call" data-kind="vertical">Find VXX Call Vertical</button>
