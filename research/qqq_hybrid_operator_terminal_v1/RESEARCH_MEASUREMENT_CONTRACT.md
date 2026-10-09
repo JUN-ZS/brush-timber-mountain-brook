@@ -40,8 +40,8 @@ For the existing VXX options study, model-generated Black–Scholes/VIX option m
 A new idea must nominate exactly one primary purpose before test:
 
 1. **Return enhancement:** net-of-cost final OOS CAGR improvement >= +0.50 percentage points; MaxDD must not worsen by more than 1.00 percentage point; Sharpe (rf=0) must not fall by more than 0.05.
-2. **Downside protection:** final OOS MaxDD improves by >= 2.00 percentage points **and** worst-5%-day / expected-shortfall measure improves by >= 10%; CAGR give-up <= 0.50 percentage points.
-3. **Capital deployment / timing:** either the downside-protection gate passes, or net-of-cost terminal NAV is not worse by more than 0.50% while the pre-registered primary drawdown or idle-cash metric improves materially. The selected primary metric and minimum effect must be recorded before looking at the lockbox.
+2. **Downside protection:** final OOS MaxDD improves by >= 2.00 percentage points **and** daily-return ES95 improves by >= 10%, where ES95 is the arithmetic mean of the worst 5% of daily portfolio returns and improvement means the candidate's absolute downside magnitude is at most 90% of the baseline's; CAGR give-up <= 0.50 percentage points.
+3. **Capital deployment / timing:** either the downside-protection gate passes, or net-of-cost terminal NAV is not worse by more than 0.50% of baseline and one pre-selected deployment metric improves by a stated threshold: average unallocated-cash / NAV falls by >= 5.00 percentage points, or time to reach the same target allocation falls by >= 20%, while all capital, margin and option-risk gates still pass. Select the metric and threshold before looking at the lockbox.
 
 These thresholds are project acceptance rules, not universal financial laws. If another objective is selected, update this document in a separately reviewed commit **before** running that experiment, not after seeing the result.
 
