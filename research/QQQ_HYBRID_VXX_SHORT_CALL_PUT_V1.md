@@ -103,5 +103,6 @@ The research design was expanded after reviewing public material:
 - Yes, public work on VXX short call spreads and RSI/DTE regime tests already exists.
 - I did not find a publicly accessible, independently auditable long-history result specifically validating our exact rule of selling both a VXX call-credit spread and a VXX put-credit spread inside the QQQ/VXX four-layer Hybrid.
 - The dual call/put version must therefore be treated as our own hypothesis, not as an internet-proven strategy.
-- The code now separates controlled tests: 1% call-only vs 1% call + 1% put; 2% call-only vs 2% call + 1% put; put-only vs no VXX options; and call-only RSI<50 vs RSI>=50.
+- The code now separates controlled tests: 1% call-only vs 1% call + 1% put; 2% call-only vs 2% call + 1% put; put-only vs no VXX options; call-only RSI<50 vs RSI>=50; and 14/30/45-calendar-day call-spread DTE sensitivity.
+- The preserved legacy control intentionally retains the old index-based option-time convention to prove exact source parity. New-model variants mark positions using explicit calendar expiry dates so the 14/30/45-day sensitivity does not inherit the old mismatch. Cross-variant comparisons must use new-model controls, not treat the legacy parity control as an apples-to-apples sizing winner.
 - This run still uses DERIVED_BS_VIX option prices. Its backtest numbers are useful for model screening only. A genuine option-chain replication would need historical VXX option bid/ask/greeks and correct reverse-split/contract-adjustment treatment; public webpages alone are not enough.
