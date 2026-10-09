@@ -7,6 +7,8 @@
   let marketSource = "BLOCKED";
   let marketMeta = "";
   let marketTouched = false;
+  let hubChainCandidates = null;
+  let hubChainMeta = null;
 
   const TOP_BUDGETS = {
     qqqCallSpreads: "qqqCallRiskPct",
@@ -145,6 +147,14 @@
 
   function currentCandidateText(candidate) {
     if (!candidate) return "PENDING · no usable chain candidate";
+    if (candidate.hubPackage === true) {
+      return "HUB QQQ package · " + (candidate.expiry || "expiry pending") +
+        " · max-loss/risk " + usd(candidate.riskPerUnit) +
+        " · debit " + usd(candidate.debitUsd) +
+        (candidate.n ? " · Ratio N=" + candidate.n : "") +
+        (candidate.maxUnits ? " · cap " + fmt(candidate.maxUnits) + " packages" : "") +
+        " · " + (candidate.gatePass === false ? "ENTRY GATE OFF" : "risk candidate ready");
+    }
     if (candidate.maxLossPerSpread !== undefined) {
       return candidate.right.toUpperCase() + " vertical · " + candidate.expiry + " · " +
         fmt(candidate.dte) + " DTE · " + fmt(candidate.shortStrike, 2) + "/" + fmt(candidate.longStrike, 2) +
@@ -153,6 +163,119 @@
     }
     return candidate.right.toUpperCase() + " long · " + candidate.expiry + " · " + fmt(candidate.dte) +
       " DTE · K " + fmt(candidate.strike, 2) + " · ask " + usd(candidate.ask) + " · " + candidate.source;
+  }
+
+  function syncHubResearchCandidates() {
+    if (!hubChainCandidates) {
+      delete candidates.hubRatioCall;
+      delete candidates.hubStateAdaptive;
+      delete candidates.hubShockPut;
+      return;
+    }
+    const H = window.HubOptionPackV1;
+    const c = hubChainCandidates;
+    const spot = E.num($("mQqq").value);
+    if (!H || !(spot > 0)) return;
+    if (Math.abs(spot - c.spotAtLoad) / c.spotAtLoad > 0.025) {
+      const stale = { ready: false, hubPackage: true, source: "HUB_CHAIN_STALE_SPOT", expiry: c.expiry,
+        riskPerUnit: null, debitUsd: null, error: "QQQ spot moved more than 2.5% since candidate lookup; reload the chain before sizing." };
+      candidates.hubRatioCall = { ...stale };
+      candidates.hubStateAdaptive = { ...stale };
+      candidates.hubShockPut = { ...stale };
+      return;
+    }
+
+    const common = {
+      spot,
+      atmStrike: c.atm.strike, atmAsk: c.atm.ask,
+      shortStrike: c.short.strike, shortBid: c.short.bid,
+      wingStrike: c.wing.strike, wingAsk: c.wing.ask,
+      longPutStrike: c.longPut.strike, longPutAsk: c.longPut.ask,
+      shortPutStrike: c.shortPut.strike, shortPutBid: c.shortPut.bid
+    };
+    const quoteSource = "HUB_QQQ_CHAIN_" + (c.deltaSource || "DELTA_UNKNOWN");
+    const n = Math.max(1, Math.min(4, inputNumber("hubRatioN", 2)));
+    const ratioRisk = H.terminalMaxLoss(H.ratioCallLegs(common, n), spot);
+    candidates.hubRatioCall = ratioRisk.ready ? {
+      hubPackage: true, ready: true, right: "call", expiry: c.expiry, n,
+      riskPerUnit: Math.max(ratioRisk.riskUsd, Math.max(0, ratioRisk.debitUsd)),
+      debitUsd: ratioRisk.debitUsd, maxUnits: 100, gatePass: true,
+      source: quoteSource,
+      reason: "Hub Ratio-Call package +1 ATM Call − N OTM Short Calls + N farther-OTM Wings; entry risk is shared with all other option rows."
+    } : {
+      hubPackage: true, ready: false, right: "call", expiry: c.expiry,
+      source: quoteSource, error: ratioRisk.error || "Ratio-call package risk could not be established."
+    };
+
+    const state = H.calculateStateAdaptive({
+      ...common, budgetUsd: 1e12, wave: 0, prevClose: null, anchorClose: null, atr20: null
+    });
+    const layerCap = [1,2,4].includes(Number($("hubStateLayerCap").value)) ? Number($("hubStateLayerCap").value) : 1;
+    candidates.hubStateAdaptive = state.ready ? {
+      hubPackage: true, ready: true, right: "call", expiry: c.expiry,
+      riskPerUnit: Math.max(state.riskUsd, Math.max(0, state.debitUsd)),
+      debitUsd: state.debitUsd, maxUnits: layerCap, gatePass: true,
+      source: quoteSource,
+      reason: "Hub State-Adaptive five-leg package; the selected 1/2/4 vintage cap applies, and all active vintages share the same pool."
+    } : {
+      hubPackage: true, ready: false, right: "call", expiry: c.expiry,
+      source: quoteSource, error: state.error || "State-Adaptive package risk could not be established."
+    };
+
+    const shock = H.calculateShockGatedPut({
+      ...common, budgetUsd: 1e12,
+      drawdown252Pct: inputNumber("hubDrawdown252Pct", 0),
+      return5dPct: inputNumber("hubReturn5dPct", 0)
+    });
+    candidates.hubShockPut = shock.ready ? {
+      hubPackage: true, ready: true, right: "put", expiry: c.expiry,
+      riskPerUnit: Math.max(shock.riskUsd, Math.max(0, shock.debitUsd)),
+      debitUsd: shock.debitUsd, maxUnits: 100, gatePass: shock.triggered,
+      source: quoteSource,
+      reason: shock.reason
+    } : {
+      hubPackage: true, ready: false, right: "put", expiry: c.expiry,
+      source: quoteSource, error: shock.error || "Shock-gated put spread risk could not be established."
+    };
+  }
+
+  async function findHubResearchCandidates() {
+    const button = $("findHubResearchBtn");
+    const status = $("journalStatus");
+    const spot = E.num($("mQqq").value);
+    if (!(spot > 0)) {
+      status.textContent = "Hub candidates need a verified QQQ spot. Refresh V3 first, or enter QQQ spot manually.";
+      return;
+    }
+    const targetDte = Math.max(14, Math.min(120, inputNumber("targetDte", 45)));
+    button.disabled = true;
+    button.textContent = "Finding Hub packages…";
+    try {
+      const response = await fetch("/api/options?symbol=QQQ&right=both&targetDte=" + encodeURIComponent(targetDte), { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "QQQ chain unavailable");
+      const result = window.HubOptionPackV1.chooseChainLegs(payload, spot, $("mToday").value || new Date().toISOString().slice(0, 10), targetDte);
+      if (!result.ready) throw new Error(result.error || "Could not form the researched five-leg QQQ package.");
+      hubChainCandidates = { ...result, spotAtLoad: spot };
+      hubChainMeta = { retrievedAt: payload.retrieved_at, source: payload.source, expiry: result.expiry };
+      syncHubResearchCandidates();
+      $("candidateRows").innerHTML = ["hubRatioCall","hubStateAdaptive","hubShockPut"].map(key =>
+        '<div class="candidate-row"><b>' + esc(key) + '</b><span>' + esc(currentCandidateText(candidates[key])) + '</span></div>'
+      ).join("");
+      status.textContent = "Hub QQQ candidates loaded for expiry " + result.expiry +
+        " (" + (result.deltaSource || "Delta source unknown") + "). Public quotes may be delayed/incomplete; enable rows and set their % NAV risk weights to use the common risk pool.";
+      renderPlan();
+    } catch (error) {
+      hubChainCandidates = null;
+      hubChainMeta = null;
+      syncHubResearchCandidates();
+      status.textContent = "Hub research candidates are PENDING: " + (error instanceof Error ? error.message : String(error)) + ". No substitute leg or price was fabricated.";
+      $("candidateRows").innerHTML = '<div class="empty">Hub candidates PENDING · ' + esc(error instanceof Error ? error.message : String(error)) + '</div>';
+      renderPlan();
+    } finally {
+      button.disabled = false;
+      button.textContent = "Find Hub Research Packages";
+    }
   }
 
   async function refreshMarket() {
@@ -230,6 +353,7 @@
 
   function renderPlan() {
     updateSlopeDisplay();
+    syncHubResearchCandidates();
     const input = readInput();
     // Manual edits make the source explicit rather than silently preserving a stale V3 provenance tag.
     if (marketTouched) input.market.term_source = "MANUAL_OPERATOR_INPUT";
@@ -273,6 +397,8 @@
       }
       const sourceEl = $("source-" + r.key);
       if (sourceEl) sourceEl.textContent = r.candidateSource || r.riskSource || r.status;
+      const allocatedEl = $("allocated-" + r.key);
+      if (allocatedEl) allocatedEl.textContent = r.allocatedRiskBudgetUsd > 0 ? usd(r.allocatedRiskBudgetUsd) : (r.status === "PENDING" ? "PENDING" : "$0");
       const reservedEl = $("reserved-" + r.key);
       if (reservedEl) reservedEl.textContent = r.strategyKind === "coveredCall" || r.riskPerUnit === null || r.riskPerUnit === undefined || r.target === null ? "N/A / PENDING" : usd(r.riskPerUnit * r.target);
     }
@@ -292,6 +418,9 @@
       ["NAV / uncommitted cash", usd(result.nav) + " / " + usd(result.cashPool)],
       ["Cash reserve", usd(result.cashReserveUsd)],
       ["Shared option-risk envelope", usd(result.totalOptionRiskPool)],
+      ["Requested option risk weights", usd(result.totalRequestedRiskBudgetsUsd)],
+      ["Common proportional scale factor", Number.isFinite(result.riskScaleFactor) ? fmt(result.riskScaleFactor, 3) + "×" : "—"],
+      ["Risk still unused after integer sizing", usd(result.remainingRiskPool)],
       ["QQQ target notional", usd(result.qqqTargetNotionalUsd)],
       ["VXX target short notional", usd(result.vxxTargetNotionalUsd)],
       ["VXX target margin estimate", usd(result.vxxTargetMarginUsd)],
@@ -399,13 +528,14 @@
     $("testLeg").addEventListener("change", () => { window.hybridTestOverrides = {}; renderPlan(); });
     $("exportBtn").addEventListener("click", exportPlan);
     $("journalBtn").addEventListener("click", appendJournal);
+    $("findHubResearchBtn").addEventListener("click", findHubResearchCandidates);
     document.querySelectorAll("[data-find]").forEach(btn => {
       btn.dataset.label = btn.textContent;
       btn.addEventListener("click", () => findCandidate(btn));
     });
     document.querySelectorAll("input,select").forEach(el => {
       if (el.id.startsWith("current-") || el.id.startsWith("budget-") || el.id.startsWith("risk-") || el.id.startsWith("enabled-") ||
-          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte"].includes(el.id)) {
+          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte","hubRatioN","hubStateLayerCap","hubDrawdown252Pct","hubReturn5dPct"].includes(el.id)) {
         el.addEventListener("input", () => {
           if (["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday"].includes(el.id)) {
             marketTouched = true;
