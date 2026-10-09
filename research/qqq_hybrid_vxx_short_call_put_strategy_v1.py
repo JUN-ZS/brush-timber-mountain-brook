@@ -27,9 +27,19 @@ RESEARCH_ID = "QQQ_HYBRID_VXX_SHORT_CALL_PUT_V1"
 SOURCE_REPLAY_SHA = "ac74b3812c826ad491fb829108f26397322e45eb"
 
 LEG_CONFIGS = {
-    "LEGACY_CALL_ONLY": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0},
-    "DUAL_CALL_PUT": {"vxx_call_risk_pct": 1.0, "vxx_put_risk_pct": 1.0},
-    "NO_VXX_OPTIONS": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0},
+    # Exact historical source parity control.
+    "LEGACY_CALL_ONLY": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "legacy_quote": True},
+    # Controlled comparisons isolate whether adding puts helps at the same call budget.
+    "CALL_ONLY_1PCT": {"vxx_call_risk_pct": 1.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE"},
+    "DUAL_CALL_PUT": {"vxx_call_risk_pct": 1.0, "vxx_put_risk_pct": 1.0, "rsi_filter": "NONE"},
+    "CALL_ONLY_2PCT_NEW_QUOTE": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE"},
+    "CALL_PUT_ADDON": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 1.0, "rsi_filter": "NONE"},
+    "PUT_ONLY_1PCT": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 1.0, "rsi_filter": "NONE"},
+    # Online VXX short-call research explores RSI regimes; filter only the option leg,
+    # not the separate VXX short-stock layer.
+    "CALL_RSI_LT50": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "LT50"},
+    "CALL_RSI_GE50": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "GE50"},
+    "NO_VXX_OPTIONS": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE"},
 }
 LEG_KEYS = ("qqq_core", "qqq_call", "vxx_short", "vxx_call", "vxx_put")
 
@@ -188,6 +198,16 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
     df["rV"] = df.vxx.pct_change().fillna(0.0)
     df["vixma"] = df.vix.rolling(20, min_periods=1).mean()
     df["ts"] = (df.vixma - df.vix).apply(lambda x: math.tanh(float(x) / 6.0) * 0.1)
+    # Wilder-style 14-session RSI on VXX, inspired by public VXX short-call
+    # backtest exploration that compares RSI<50 versus RSI>=50.
+    changes = df["vxx"].diff()
+    gains = changes.clip(lower=0.0)
+    losses = -changes.clip(upper=0.0)
+    avg_gain = gains.ewm(alpha=1.0 / 14.0, min_periods=14, adjust=False).mean()
+    avg_loss = losses.ewm(alpha=1.0 / 14.0, min_periods=14, adjust=False).mean()
+    rs = avg_gain / avg_loss.replace(0.0, np.nan)
+    df["vxx_rsi14"] = (100.0 - (100.0 / (1.0 + rs))).where(avg_loss > 0, 100.0)
+    df.loc[(avg_gain.fillna(0.0) == 0.0) & (avg_loss.fillna(0.0) == 0.0), "vxx_rsi14"] = 50.0
 
     cash = float(CAPITAL)
     legs: list[dict] = []
@@ -265,16 +285,25 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
                                    "max_loss_total_at_open": risk_per_share * 100.0 * n,
                                    "risk_budget_usd": nav_before_open * BASE_QCC_RISK})
 
-        want_vxx = not (row.rV > 0.06 or row.vix > 35 or row.rQ < -0.03) and row.ts >= 0
-        if want_vxx:
-            if "vxx-short" not in existing and float(row.vxx) > 0:
-                n = int(math.floor(nav_before_open * 0.18 / float(row.vxx)))
-                if n > 0:
-                    cash += float(row.vxx) * n
-                    legs.append({"structure": "vxx-short", "n": n, "S0": float(row.vxx), "expiry_i": i + 21})
-                    events.append({"date": str(row.date.date()), "event": "OPEN_VXX_SHORT", "shares": n})
+        want_vxx_stock = not (row.rV > 0.06 or row.vix > 35 or row.rQ < -0.03) and row.ts >= 0
+        # Keep the existing stock-seller gate unchanged. RSI experiments affect only
+        # the option legs, which avoids confounding short-stock exposure with options.
+        want_vxx_options = want_vxx_stock
+        if cfg.get("rsi_filter") == "LT50":
+            want_vxx_options = want_vxx_options and pd.notna(row.vxx_rsi14) and float(row.vxx_rsi14) < 50.0
+        elif cfg.get("rsi_filter") == "GE50":
+            want_vxx_options = want_vxx_options and pd.notna(row.vxx_rsi14) and float(row.vxx_rsi14) >= 50.0
+
+        if want_vxx_stock and "vxx-short" not in existing and float(row.vxx) > 0:
+            n = int(math.floor(nav_before_open * 0.18 / float(row.vxx)))
+            if n > 0:
+                cash += float(row.vxx) * n
+                legs.append({"structure": "vxx-short", "n": n, "S0": float(row.vxx), "expiry_i": i + 21})
+                events.append({"date": str(row.date.date()), "event": "OPEN_VXX_SHORT", "shares": n})
+
+        if want_vxx_options:
             if "vxx-cc" not in existing and cfg["vxx_call_risk_pct"] > 0:
-                if variant == "LEGACY_CALL_ONLY":
+                if cfg.get("legacy_quote", False):
                     half = halfSpreadV(float(row.vix))
                     q0 = quoteCC(float(row.vxx), float(row.vix), 30.0 / 365.0, "vxx", half)
                     q = {"short_k": q0["Ks"], "long_k": q0["Kl"], "credit": q0["premium"],
@@ -315,6 +344,7 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
         "variant": variant,
         "vxx_call_risk_pct": cfg["vxx_call_risk_pct"],
         "vxx_put_risk_pct": cfg["vxx_put_risk_pct"],
+        "vxx_options_rsi_filter": cfg.get("rsi_filter", "NONE"),
         "vxx_total_option_risk_budget_pct": cfg["vxx_call_risk_pct"] + cfg["vxx_put_risk_pct"],
         "option_contract_counts": {
             "vxx_call_open_events": sum(e["event"] == "OPEN_VXX_CC" for e in events),
@@ -353,6 +383,32 @@ def run_research(spots_path: Path, out_dir: Path) -> dict:
         raise AssertionError(f"Legacy parity failed: rows_match={same_rows}, max_abs_nav_diff={max_diff}")
 
     dual, no_opts, legacy = summaries["DUAL_CALL_PUT"], summaries["NO_VXX_OPTIONS"], summaries["LEGACY_CALL_ONLY"]
+    controlled_comparisons = {
+        "DUAL_CALL_PUT_vs_CALL_ONLY_1PCT": {
+            "final_nav_delta_usd": float(summaries["DUAL_CALL_PUT"]["final_nav"] - summaries["CALL_ONLY_1PCT"]["final_nav"]),
+            "cagr_delta": float(summaries["DUAL_CALL_PUT"]["cagr"] - summaries["CALL_ONLY_1PCT"]["cagr"]),
+            "maxdd_delta": float(summaries["DUAL_CALL_PUT"]["maxdd_daily_mtm"] - summaries["CALL_ONLY_1PCT"]["maxdd_daily_mtm"]),
+            "purpose": "Tests adding 1% put-risk budget while holding the call-risk budget at 1%.",
+        },
+        "CALL_PUT_ADDON_vs_CALL_ONLY_2PCT_NEW_QUOTE": {
+            "final_nav_delta_usd": float(summaries["CALL_PUT_ADDON"]["final_nav"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["final_nav"]),
+            "cagr_delta": float(summaries["CALL_PUT_ADDON"]["cagr"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["cagr"]),
+            "maxdd_delta": float(summaries["CALL_PUT_ADDON"]["maxdd_daily_mtm"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["maxdd_daily_mtm"]),
+            "purpose": "Tests adding 1% put-risk budget while retaining 2% call-risk budget; total option risk budget becomes 3%.",
+        },
+        "PUT_ONLY_1PCT_vs_NO_VXX_OPTIONS": {
+            "final_nav_delta_usd": float(summaries["PUT_ONLY_1PCT"]["final_nav"] - summaries["NO_VXX_OPTIONS"]["final_nav"]),
+            "cagr_delta": float(summaries["PUT_ONLY_1PCT"]["cagr"] - summaries["NO_VXX_OPTIONS"]["cagr"]),
+            "maxdd_delta": float(summaries["PUT_ONLY_1PCT"]["maxdd_daily_mtm"] - summaries["NO_VXX_OPTIONS"]["maxdd_daily_mtm"]),
+            "purpose": "Tests the VXX put vertical by itself inside the rest of the Hybrid.",
+        },
+        "CALL_RSI_LT50_vs_CALL_RSI_GE50": {
+            "final_nav_delta_usd": float(summaries["CALL_RSI_LT50"]["final_nav"] - summaries["CALL_RSI_GE50"]["final_nav"]),
+            "cagr_delta": float(summaries["CALL_RSI_LT50"]["cagr"] - summaries["CALL_RSI_GE50"]["cagr"]),
+            "maxdd_delta": float(summaries["CALL_RSI_LT50"]["maxdd_daily_mtm"] - summaries["CALL_RSI_GE50"]["maxdd_daily_mtm"]),
+            "purpose": "Compares public-source RSI regime split for VXX short calls; VXX stock gate is unchanged.",
+        },
+    }
     report = {
         "research_id": RESEARCH_ID, "status": "DERIVED_BS_VIX_RESEARCH_NOT_LIVE",
         "pricing_model": "DERIVED_BS_VIX", "not_opra": True,
@@ -388,6 +444,7 @@ def run_research(spots_path: Path, out_dir: Path) -> dict:
                 "NAV-based sizing feedback and is not a standalone option-only PnL attribution."
             ),
         },
+        "controlled_comparisons": controlled_comparisons,
         "caveats": [
             "VXX options use derived BS/VIX proxies, not historical OPRA quotes or fills.",
             "The dual-sided setup is a research hypothesis; every VXX short option is part of a defined-risk vertical.",
@@ -416,7 +473,7 @@ def main() -> int:
     report = run_research(Path(args.spots_path), out_dir)
     print(json.dumps({
         "research_id": report["research_id"], "legacy_parity": report["legacy_parity"],
-        "variants": report["variants"],
+        "variants": report["variants"], "controlled_comparisons": report["controlled_comparisons"],
         "counterfactual_portfolio_delta_vs_no_vxx_options": report["counterfactual_portfolio_delta_vs_no_vxx_options"],
         "report": str(out_dir / "strategy_report.json"),
     }, indent=2))
