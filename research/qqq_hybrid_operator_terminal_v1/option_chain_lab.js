@@ -1,9 +1,29 @@
 (function(root,factory){"use strict";var api=factory();if(typeof module!=="undefined"&&module.exports)module.exports=api;if(root&&root.document)api.init(root,root.document);})(typeof window!=="undefined"?window:null,function(){"use strict";
-var SAMPLE={expiration:"2026-11-20",source:"USER_UPLOADED_SCREENSHOT",observationDate:null,observationTimeVerified:false,multiplier:100,note:"Manually transcribed from user screenshot; non-live and not independently verified.",chains:{
-QQQ_CALL:[[797,3.43,3.45,.1639],[798,3.27,3.29,.1579],[799,3.11,3.13,.1519],[800,2.96,2.98,.1461],[805,2.30,2.32,.1195],[810,1.78,1.80,.0970],[815,1.37,1.38,.0702],[820,1.05,1.07,.0624],[825,.81,.82,.0497],[830,.62,.64,.0398],[835,.48,.50,.0318],[840,.37,.40,.0255],[845,.29,.31,.0203],[850,.22,.25,.0162],[855,.17,.21,.0133],[860,.14,.17,.0109],[865,.11,.14,.0089],[870,.09,.12,.0075]].map(r=>({strike:r[0],bid:r[1],ask:r[2],delta:r[3]})),
-QQQ_PUT:[[470,.13,.16,-.0033],[475,.14,.17,-.0035],[480,.15,.17,-.0037],[485,.16,.18,-.0039],[490,.17,.19,-.0043],[495,.17,.21,-.0045],[500,.20,.22,-.0050],[505,.20,.23,-.0052],[510,.21,.24,-.0055],[515,.23,.26,-.0060],[520,.24,.27,-.0064],[525,.26,.29,-.0070],[530,.27,.31,-.0074],[535,.29,.32,-.0079],[540,.31,.34,-.0086],[545,.34,.37,-.0093],[550,.36,.39,-.0100],[555,.39,.42,-.0108]].map(r=>({strike:r[0],bid:r[1],ask:r[2],delta:r[3]})),
-VXX_CALL:[[20,.64,.68,.2923],[21,.34,.69,.2372],[22,.35,.54,.2013],[23,.33,.50,.1804],[24,.31,.44,.1600],[25,.27,.33,.1321],[26,.24,.35,.1245],[27,.21,.39,.1206],[28,.16,.25,.0969],[29,.04,.30,.0761],[30,.16,.23,.0810],[31,.13,.25,.0771],[32,.10,.47,.0994],[33,.01,.25,.0555],[34,.03,.25,.0571],[35,.06,.24,.0587],[36,.01,.25,.0517],[37,null,.25,.0643]].map(r=>({strike:r[0],bid:r[1],ask:r[2],delta:r[3]})),
-VXX_PUT:[[6,null,2.13,-.0001],[7,null,2.13,-.0002],[8,null,2.13,-.0012],[9,null,.07,-.0048],[10,null,.07,-.0144],[11,null,.02,-.0262],[12,null,.02,-.0410],[13,.01,.07,-.0355],[14,.04,.21,-.0928],[15,.30,.37,-.1963],[16,.65,.77,-.3264]].map(r=>({strike:r[0],bid:r[1],ask:r[2],delta:r[3]}))
+var SAMPLE={
+expiration:"2026-11-20",
+source:"USER_UPLOADED_SCREENSHOT",
+originalFile:"未命名.png",
+uploadedOn:"2026-10-08",
+observationDate:null,
+observationTimeVerified:false,
+multiplier:100,
+note:"Transcribed from the canonical screenshot fixture. Only QQQ CALL and VXX CALL are visible; QQQ PUT and VXX PUT are intentionally empty. Quote time and contract deliverables remain unverified.",
+chains:{
+QQQ_CALL:[
+{strike:799,bid:3.16,ask:3.18,delta:0.1456},
+{strike:805,bid:2.37,ask:2.40,delta:0.1161},
+{strike:810,bid:1.87,ask:1.89,delta:0.0954}
+],
+QQQ_PUT:[],
+VXX_CALL:[
+{strike:21,bid:0.58,ask:0.72,delta:0.2698},
+{strike:22,bid:0.49,ask:0.60,delta:0.2280},
+{strike:23,bid:0.43,ask:0.51,delta:0.1963},
+{strike:24,bid:0.24,ask:0.34,delta:0.1731},
+{strike:25,bid:0.35,ask:0.40,delta:0.1532},
+{strike:26,bid:0.24,ask:0.36,delta:0.1269}
+],
+VXX_PUT:[]
 }};
 function num(x){if(x===null||x===undefined||String(x).trim()==="")return null;var n=Number(String(x).replace(/,/g,""));return Number.isFinite(n)?n:null}
 function money(n){return Number.isFinite(n)?"$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}):"—"}
