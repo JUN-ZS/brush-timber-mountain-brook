@@ -115,7 +115,7 @@
       return { riskPerUnit: null, source: "MISSING_CHAIN", ready: false, reason: "Need a positive observed option ask. No premium floor is fabricated." };
     }
     if (strategy.kind === "coveredCall") {
-      if (candidate && num(candidate.credit) > 0) return { riskPerUnit: null, source: candidate.source || "OBSERVED_CHAIN", ready: true, reason: "Contract target is bounded by QQQ shares / 100; candidate credit still needs review." };
+      if (candidate && (num(candidate.shortBid) > 0 || (candidate.type === "coveredCall" && num(candidate.credit) > 0))) return { riskPerUnit: null, source: candidate.source || "OBSERVED_CHAIN", ready: true, reason: "Contract target is bounded by QQQ shares / 100; confirm the actual covered-call short bid before use." };
       return { riskPerUnit: null, source: "MISSING_CHAIN", ready: false, reason: "Need a positive short-call bid minus long-hedge ask / covered-call candidate." };
     }
     if (strategy.kind === "manualDebit") {
@@ -216,6 +216,10 @@
         rawCapacity = 0;
         status = "NOT_ENABLED";
         reason = "Research/add-on entry permission is not explicitly enabled.";
+      } else if (sellerBlocked) {
+        rawCapacity = 0;
+        status = "RISK_OFF";
+        reason = "High VIX or VX backwardation disables this volatility-seller leg.";
       } else if (!risk.ready) {
         rawCapacity = null;
         status = "PENDING";
@@ -272,7 +276,7 @@
         riskSource: risk.source,
         candidateSource: item.candidate?.source || null,
         reason: sellerBlocked && !policyExit ? "No new seller entries in this market state; over-cap trimming remains allowed." : item.reason,
-        maxLossIsHardCap: strategy.kind !== "stressOnly" && strategy.kind !== "manualRisk" ? true : false,
+        maxLossIsHardCap: strategy.kind !== "stressOnly",
         strategyKind: strategy.kind
       });
     }
@@ -280,7 +284,7 @@
     return {
       ok: true,
       market, nav, cashPool, totalOptionRiskPool,
-      optionRiskReservedAtTargets: results.filter(r => r.family !== "hybrid" && r.riskPerUnit && r.target > 0 && r.strategyKind !== "coveredCall").reduce((sum, r) => sum + r.riskPerUnit * r.target, 0),
+      optionRiskReservedAtTargets: results.filter(r => r.riskPerUnit && r.target > 0 && r.strategyKind !== "coveredCall").reduce((sum, r) => sum + r.riskPerUnit * r.target, 0),
       rows: results,
       ratioCampaign: calculateRatioCampaign(d.ratioCampaign || {}, market),
       boundary: {
