@@ -10,7 +10,6 @@
     vxxHighPct: 10,
     qqqCallRiskPct: 1.2,
     vxxCallRiskPct: 2,
-    vxxPutRiskPct: 0,
     qqqBullPutRiskPct: 0,
     totalOptionRiskPct: 3.2,
     vixHigh: 28,
@@ -23,7 +22,7 @@
   const OPTION_STRATEGIES = Object.freeze([
     { key: "qqqCallSpreads", id: "QQQ_CALL_CREDIT", label: "QQQ FAR CALL / CALL-CREDIT", family: "hybrid", kind: "creditVertical", candidateKey: "qqqCall", riskPctField: "qqqCallRiskPct", defaultRiskPct: 1.2, seller: true, baseline: true, mainBudgetEligible: true, priority: 1 },
     { key: "vxxCallSpreads", id: "VXX_CALL_CREDIT", label: "VXX CALL-CREDIT", family: "hybrid", kind: "creditVertical", candidateKey: "vxxCall", riskPctField: "vxxCallRiskPct", defaultRiskPct: 2, seller: true, baseline: true, mainBudgetEligible: true, priority: 2 },
-    { key: "vxxPutSpreads", id: "VXX_PUT_CREDIT", label: "VXX PUT-CREDIT", family: "research", kind: "creditVertical", candidateKey: "vxxPut", riskPctField: "vxxPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, mainBudgetEligible: true, priority: 3 },
+    { key: "vxxPutSpreads", id: "VXX_PUT_CREDIT", label: "VXX PUT-CREDIT (RESEARCH ONLY)", family: "research", kind: "creditVertical", candidateKey: "vxxPut", riskPctField: "vxxPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 3 },
     { key: "qqqBullPutSpreads", id: "QQQ_BULL_PUT", label: "QQQ BULL-PUT CREDIT", family: "research", kind: "creditVertical", candidateKey: "qqqPut", riskPctField: "qqqBullPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 4 },
     { key: "qqqBearCallSpreads", id: "QQQ_BEAR_CALL", label: "QQQ BEAR-CALL CREDIT", family: "research", kind: "creditVertical", candidateKey: "qqqBearCall", riskPctField: "qqqBearCallRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 5 },
     { key: "coveredCalls", id: "COVERED_CALL", label: "COVERED CALL", family: "research", kind: "coveredCall", candidateKey: "qqqCoveredCall", riskPctField: "coveredCallRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 6 },
