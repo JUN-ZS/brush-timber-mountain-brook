@@ -1,0 +1,123 @@
+name: QQQ Hybrid Portfolio Ledger V1
+
+on:
+  pull_request:
+    paths:
+      - "research/qqq_hybrid_portfolio_ledger_v1/**"
+      - ".github/workflows/qqq-hybrid-portfolio-ledger-v1.yml"
+  workflow_dispatch:
+
+# Deterministic full-chain QA for the isolated accounting layer.
+concurrency:
+  group: qhp-ledger-v1
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node contract and golden test
+        run: |
+          node --check research/qqq_hybrid_portfolio_ledger_v1/ledger_engine.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/position_identity.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/spread_pnl.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/portfolio_performance.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/portfolio_timeline.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/reconciliation.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/app.js
+          node --check research/qqq_hybrid_portfolio_ledger_v1/v3_bridge.js
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/ledger_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/position_identity_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/spread_pnl_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/portfolio_performance_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/portfolio_timeline_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/reconciliation_golden_test.cjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/v3_bridge_test.mjs
+          node research/qqq_hybrid_portfolio_ledger_v1/tests/long_lifecycle_stress_test.cjs
+
+      - name: Python contract
+        run: |
+          python3 -m py_compile research/qqq_hybrid_portfolio_ledger_v1/server.py
+          test -f research/qqq_hybrid_portfolio_ledger_v1/index.html
+          test -f research/qqq_hybrid_portfolio_ledger_v1/position_identity.js
+          test -f research/qqq_hybrid_portfolio_ledger_v1/spread_pnl.js
+          test -f research/qqq_hybrid_portfolio_ledger_v1/portfolio_performance.js
+          test -f research/qqq_hybrid_portfolio_ledger_v1/portfolio_timeline.js
+          test -f research/qqq_hybrid_portfolio_ledger_v1/styles.css
+          test -f research/qqq_hybrid_portfolio_ledger_v1/app.js
+          test -f research/qqq_hybrid_portfolio_ledger_v1/RUN.cmd
+          python3 research/qqq_hybrid_portfolio_ledger_v1/tests/server_corrupt_journal_test.py
+          python3 research/qqq_hybrid_portfolio_ledger_v1/tests/server_journal_integrity_test.py
+
+      - name: Safety invariants
+        run: |
+          grep -q "broker_orders.*False" research/qqq_hybrid_portfolio_ledger_v1/server.py
+          grep -q "broker_orders.*False" research/qqq_hybrid_portfolio_ledger_v1/server.py
+          grep -q "ledger_authority.*ACTUAL_PORTFOLIO" research/qqq_hybrid_portfolio_ledger_v1/server.py
+          grep -q "connected.*False" research/qqq_hybrid_portfolio_ledger_v1/server.py
+          grep -q "strategyMutation.*false" research/qqq_hybrid_portfolio_ledger_v1/spread_pnl.js
+          grep -q "brokerOrders.*false" research/qqq_hybrid_portfolio_ledger_v1/spread_pnl.js
+          grep -q "strategyMutation.*false" research/qqq_hybrid_portfolio_ledger_v1/portfolio_performance.js
+          grep -q "brokerOrders.*false" research/qqq_hybrid_portfolio_ledger_v1/portfolio_performance.js
+          grep -q "strategyMutation.*false" research/qqq_hybrid_portfolio_ledger_v1/portfolio_timeline.js
+          grep -q "brokerOrders.*false" research/qqq_hybrid_portfolio_ledger_v1/portfolio_timeline.js
+
+      - name: Runtime smoke
+        run: |
+          python3 - <<'PY'
+          import json
+          import threading
+          import urllib.request
+          from http.server import ThreadingHTTPServer
+          import sys
+          sys.path.insert(0, "research/qqq_hybrid_portfolio_ledger_v1")
+          import server
+          httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+          thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+          thread.start()
+          base = "http://127.0.0.1:" + str(httpd.server_port)
+          import tempfile
+          from pathlib import Path
+          server.EVENTS = Path(tempfile.mkdtemp()) / "events.jsonl"
+          health = json.load(urllib.request.urlopen(base + "/api/health", timeout=5))
+          events = json.load(urllib.request.urlopen(base + "/api/events", timeout=5))
+          assert health["ok"] and health["app"] == "QQQ-HYBRID-PORTFOLIO-LEDGER-V1"
+          assert events["ok"] and isinstance(events["events"], list)
+          body = json.dumps({"type":"CASHFLOW","id":"smoke-cf","timestamp":"2026-10-07T00:00:00Z","amount":1000}).encode()
+          req = urllib.request.Request(base + "/api/events", data=body, headers={"Content-Type":"application/json"}, method="POST")
+          written = json.load(urllib.request.urlopen(req, timeout=5))
+          assert written["ok"] and written["added"] == 1
+
+          invalid = json.dumps({"type":"FILL","id":"bad-identity","timestamp":"2026-10-07T01:30:00Z","symbol":"QQQ","assetType":"EQUITY","side":"BUY","quantity":1,"price":700,"positionIdentity":{"spreadId":"S1","legRole":"LONG"}}).encode()
+          bad_req = urllib.request.Request(base + "/api/events", data=invalid, headers={"Content-Type":"application/json"}, method="POST")
+          try:
+              urllib.request.urlopen(bad_req, timeout=5)
+              raise AssertionError("invalid identity should be rejected")
+          except urllib.error.HTTPError as exc:
+              assert exc.code == 400
+
+          body = json.dumps({"events":[
+              {"type":"FILL","id":"smoke-fill","timestamp":"2026-10-07T01:00:00Z","symbol":"QQQ","assetType":"EQUITY","side":"BUY","quantity":1,"price":700,"fees":1}
+          ]}).encode()
+          req = urllib.request.Request(base + "/api/import", data=body, headers={"Content-Type":"application/json"}, method="POST")
+          imported = json.load(urllib.request.urlopen(req, timeout=5))
+          assert imported["ok"] and imported["added"] == 1
+          identity_event = {
+              "type":"FILL","id":"smoke-opt-short","timestamp":"2026-10-07T02:00:00Z",
+              "symbol":"QQQ261218C00750000","assetType":"OPTION","side":"SELL","quantity":1,"price":5,
+              "positionIdentity":{"spreadId":"smoke-spread","legRole":"SHORT"}
+          }
+          req = urllib.request.Request(base + "/api/events", data=json.dumps(identity_event).encode(), headers={"Content-Type":"application/json"}, method="POST")
+          identity_written = json.load(urllib.request.urlopen(req, timeout=5))
+          assert identity_written["ok"] and identity_written["added"] == 1
+
+          saved = json.load(urllib.request.urlopen(base + "/api/events", timeout=5))
+          assert len(saved["events"]) == 3
+          strategy = json.load(urllib.request.urlopen(base + "/api/strategy-status", timeout=5))
+          assert strategy["ok"] and strategy["connected"] is False
+          httpd.shutdown()
+          print("RUNTIME SMOKE: PASS")
+          PY
