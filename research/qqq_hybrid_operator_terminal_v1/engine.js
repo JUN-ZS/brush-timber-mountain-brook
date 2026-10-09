@@ -150,11 +150,19 @@
     const candidates = d.candidates || {};
     const permissions = d.permissions || {};
     const optionRiskPct = num(sizing.totalOptionRiskPct, REFERENCE_PROFILE.totalOptionRiskPct);
+    const percentInputs = [
+      ["qqqCorePct", num(sizing.qqqCorePct, REFERENCE_PROFILE.qqqCorePct)],
+      ["vxxNormalPct", num(sizing.vxxNormalPct, REFERENCE_PROFILE.vxxNormalPct)],
+      ["vxxHighPct", num(sizing.vxxHighPct, REFERENCE_PROFILE.vxxHighPct)],
+      ["totalOptionRiskPct", optionRiskPct],
+      ...OPTION_STRATEGIES.map(strategy => [strategy.riskPctField, num(sizing[strategy.riskPctField], strategy.defaultRiskPct)])
+    ];
+    const invalidPercent = percentInputs.find(([key, value]) => !Number.isFinite(value) || value < 0 || value > 100);
     const totalOptionRiskPool = Math.max(0, Math.min(nav * Math.max(0, optionRiskPct) / 100, Math.max(0, cashPool)));
     const results = [];
-    if (market.blocked || !(nav > 0) || cashPool < 0) {
+    if (market.blocked || !(nav > 0) || cashPool < 0 || invalidPercent) {
       for (const row of [{ key: "qqqShares", label: "QQQ CORE SHARES", current: whole(holdings.qqqShares) }, { key: "vxxShortShares", label: "VXX SHORT SHARES", current: whole(holdings.vxxShortShares) }]) {
-        results.push({ ...row, capacity: null, target: row.current, delta: 0, action: "BLOCKED", status: market.blocked ? market.status : "INVALID_NAV_OR_CASH", reason: market.reason || "NAV must be positive and cash pool cannot be negative." });
+        results.push({ ...row, capacity: null, target: row.current, delta: 0, action: "BLOCKED", status: market.blocked ? market.status : invalidPercent ? "INVALID_PERCENT" : "INVALID_NAV_OR_CASH", reason: market.blocked ? market.reason : invalidPercent ? (invalidPercent[0] + " must be between 0 and 100; no sizing changes are produced.") : "NAV must be positive and cash pool cannot be negative." });
       }
       for (const strategy of OPTION_STRATEGIES) {
         const current = whole(holdings[strategy.key]);
