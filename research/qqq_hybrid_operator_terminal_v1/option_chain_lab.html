@@ -15,7 +15,7 @@ input,select,textarea{background:#0b1118;color:var(--txt);border:1px solid #3a48
 </style></head><body>
 <header><div><div class="eyebrow">RESEARCH ONLY · SCREENSHOT CHAIN LAB</div><h1>QQQ / VXX Option Chain Lab</h1><p class="sub">報價鏈 → 價差組合 → 最大損益 → 風險容量 → 到期損益圖</p></div><div class="btns"><span class="tag bad">NO BROKER ORDERS</span><a href="index.html">← 返回 QQQ Hybrid PRO Terminal</a></div></header>
 <main>
-<div class="notice"><b>資料界線：</b>截圖選中的到期日為 2026-11-20。必須按「載入本次截圖報價」才會載入手動轉錄樣本；報價觀察時間未能確認，所以永遠標示為「截圖／手動樣本，非即時」。QQQ Put 和 VXX Put 只在此研究頁比較，不會加入主策略風險池。<small>每張暫按乘數 100 計算。VXX 可能有反向拆股後的非標準交割，必須先核對真實合約乘數／交割單位；圖中數字未經外部報價或成交驗證。</small></div>
+<div class="notice"><b>資料界線：</b>截圖選中的到期日為 2026-11-20。必須按「載入本次截圖報價」才會載入手動轉錄樣本；報價觀察時間未能確認，所以永遠標示為「截圖／手動樣本，非即時」。QQQ Put 和 VXX Put 只在此研究頁比較，不會加入主策略風險池。<small>本次截圖只包含 QQQ CALL 與 VXX CALL；QQQ PUT 和 VXX PUT 必須保持空白，除非另行匯入有來源的報價。每張暫按乘數 100 計算；VXX 可能有反向拆股後的非標準交割，必須核對 OCC 合約條款。圖中數字不是即時報價或成交驗證。</small></div>
 <section class="panel"><div class="head"><div><div class="kicker">01 · INPUTS</div><h2>資料及風險設定</h2></div><span id="sourceBadge" class="tag bad">尚未載入報價</span></div>
 <div class="grid6">
 <label>到期日 <input id="expiry" type="date" value="2026-11-20"></label><label>報價觀察日（未知可留空）<input id="asof" type="date"></label>
@@ -23,8 +23,8 @@ input,select,textarea{background:#0b1118;color:var(--txt);border:1px solid #3a48
 <label>損益圖組數 <input id="qty" type="number" min="1" step="1" value="1"></label>
 <label>排序 <select id="sort"><option value="rr">權利金／風險（高至低）</option><option value="credit">淨權利金（高至低）</option><option value="loss">最大虧損（低至高）</option><option value="capacity">預算組數（高至低）</option></select></label>
 </div><div class="btns"><button class="primary" id="loadSample">載入本次截圖報價（樣本）</button><button id="clear" class="danger">清空全部報價</button><button id="export">匯出全部鏈 CSV</button></div><p class="tiny">風險預算只是單一候選的 what-if 額度，不會與主操作台的風險池相連。</p></section>
-<section class="panel"><div class="head"><div><div class="kicker">02 · IMPORT / EDIT</div><h2>匯入或手動調整報價</h2></div><span class="tiny">CSV 格式：symbol,side,strike,bid,ask,delta</span></div>
-<textarea id="csv" class="csv" placeholder="QQQ,CALL,799,3.11,3.13,0.1519&#10;QQQ,PUT,555,0.39,0.42,-0.0108&#10;VXX,CALL,20,0.64,0.68,0.2923&#10;VXX,PUT,16,0.65,0.77,-0.3264"></textarea><div class="btns"><button id="import">匯入 CSV（替換全部四條鏈）</button><span id="importStatus" class="tiny"></span></div></section>
+<section class="panel"><div class="head"><div><div class="kicker">02 · IMPORT / EDIT</div><h2>匯入或手動調整報價</h2></div><span class="tiny">CSV 格式：symbol,side,strike,bid,ask,delta；Put 例子須另行提供來源，不代表截圖已有 Put 報價</span></div>
+<textarea id="csv" class="csv" placeholder="QQQ,CALL,799,3.16,3.18,0.1456&#10;QQQ,CALL,810,1.87,1.89,0.0954&#10;VXX,CALL,21,0.58,0.72,0.2698&#10;VXX,CALL,24,0.24,0.34,0.1731"></textarea><div class="btns"><button id="import">匯入 CSV（替換全部四條鏈）</button><span id="importStatus" class="tiny"></span></div></section>
 <section class="panel"><div class="head"><div><div class="kicker">03 · CHAINS</div><h2>期權報價表</h2></div><span id="chainMeta" class="tag">尚未載入</span></div>
 <div class="tabs" id="tabs"><button data-key="QQQ_CALL" class="active"><b>QQQ CALL</b><small>主策略候選</small></button><button data-key="VXX_CALL"><b>VXX CALL</b><small>主策略候選</small></button><button data-key="QQQ_PUT"><b>QQQ PUT</b><small>研究比較</small></button><button data-key="VXX_PUT"><b>VXX PUT</b><small>研究比較</small></button></div>
 <p id="qualitySummary" class="tiny">請先載入截圖樣本，或匯入你已核對的報價 CSV。</p><div class="wrap"><table class="quote"><thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Delta</th><th>Ask − Bid</th><th>報價品質</th></tr></thead><tbody id="quotes"><tr><td colspan="6" class="empty">沒有載入報價</td></tr></tbody></table></div><p class="tiny">可以直接編輯表格。賣出腿使用 Bid、保護腿使用 Ask，不以最後成交價代替可交易報價；缺少雙邊報價的合約不構成有效信用價差。</p></section>
