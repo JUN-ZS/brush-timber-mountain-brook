@@ -696,7 +696,6 @@
       cashReservePct:p.cashReservePct, vxxShortMarginMultiple:p.vxxShortMarginMultiple,
       qqqCorePct:p.qqqCorePct, vxxNormalPct:p.vxxNormalPct, vxxHighPct:p.vxxHighPct,
       qqqCallRiskPct:p.qqqCallRiskPct, vxxCallRiskPct:p.vxxCallRiskPct,
-      vxxPutRiskPct:p.vxxPutRiskPct, qqqBullPutRiskPct:p.qqqBullPutRiskPct,
       totalOptionRiskPct:p.totalOptionRiskPct, vixHigh:p.vixHigh, termSafe:p.termSafe, maxTermAgeDays:p.maxTermAgeDays
     })) $(k).value = v;
     syncBudgetInputsFromProfile();
