@@ -12,8 +12,7 @@
 
   const TOP_BUDGETS = {
     qqqCallSpreads: "qqqCallRiskPct",
-    vxxCallSpreads: "vxxCallRiskPct",
-    vxxPutSpreads: "vxxPutRiskPct"
+    vxxCallSpreads: "vxxCallRiskPct"
   };
   const STOCK_KEYS = ["qqqShares", "vxxShortShares"];
 
@@ -436,9 +435,9 @@
       ["Sizing status", result.ok ? "CALCULATED / REVIEW" : "BLOCKED"]
     ].map(([k,v]) => '<div><small>' + esc(k) + '</small><b>' + esc(v) + '</b></div>').join("");
     $("summaryReasons").innerHTML = '<p><b>Why:</b> ' + esc(m.reason) + '</p>' +
-      '<p><b>Main budget scope:</b> QQQ core shares + VXX short-stock margin + QQQ call-credit + VXX call-credit + VXX put-credit only. Hub packages, debit/buy options, and other catalogue structures are inspection-only and do not change main sizing.</p>' +
+      '<p><b>Main budget scope:</b> QQQ core shares + VXX short-stock margin + QQQ call-credit + VXX call-credit only. VXX put and all other catalogue structures are excluded from the primary plan.</p>' +
       '<p><b>Capital accounting:</b> planned cash = reserve + shared primary seller-option risk envelope + incremental QQQ purchases + estimated margin for incremental VXX short shares. Existing shares are not counted as fresh purchases.</p>' +
-      '<p><b>Risk boundary:</b> VXX margin is a user-entered estimate, not a loss cap. Missing option candidates stay PENDING; ratio stress estimates do not hard-cap ratio tails. A VXX put with no supplied chain quote stays PENDING.</p>';
+      '<p><b>Risk boundary:</b> VXX margin is a user-entered estimate, not a loss cap. VXX put and other research rows receive no primary capacity or risk reservation.</p>';
     updateTestResult(result);
   }
 
