@@ -33,7 +33,10 @@ LEG_CONFIGS = {
     # Controlled comparisons isolate whether adding puts helps at the same call budget.
     "CALL_ONLY_1PCT": {"vxx_call_risk_pct": 1.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE"},
     "DUAL_CALL_PUT": {"vxx_call_risk_pct": 1.0, "vxx_put_risk_pct": 1.0, "rsi_filter": "NONE"},
-    "CALL_ONLY_2PCT_NEW_QUOTE": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE"},
+    "CALL_ONLY_2PCT_NEW_QUOTE": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "vxx_option_dte_days": 30},
+    # Coarse DTE sensitivity inspired by public VXX short-call backtesting.
+    "CALL_DTE_14": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "vxx_option_dte_days": 14},
+    "CALL_DTE_45": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "vxx_option_dte_days": 45},
     "CALL_PUT_ADDON": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 1.0, "rsi_filter": "NONE"},
     "PUT_ONLY_1PCT": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 1.0, "rsi_filter": "NONE"},
     # Online VXX short-call research explores RSI regimes; filter only the option leg,
@@ -112,8 +115,15 @@ def spread_mark(S: float, vix: float, p: dict, dte: int) -> float:
     return max(short_ask - long_bid, 0.0)
 
 
+def position_dte(p: dict, row, i: int) -> int:
+    """Use calendar DTE for new-model positions and index-based DTE for legacy parity."""
+    if p.get("expiry_date"):
+        return max((pd.Timestamp(p["expiry_date"]).normalize() - pd.Timestamp(row.date).normalize()).days, 0)
+    return max(int(p["expiry_i"] - i), 0)
+
+
 def position_liquidation_value(row, p: dict, i: int) -> float:
-    dte = max(int(p["expiry_i"] - i), 0)
+    dte = position_dte(p, row, i)
     if p["structure"] == "qqq-long":
         return float(row.qqq) * p["n"]
     if p["structure"] == "vxx-short":
@@ -130,7 +140,8 @@ def leg_key(p: dict) -> str:
 
 
 def open_credit_vertical(legs: list, events: list, cash: float, nav: float, row, i: int,
-                         structure: str, risk_pct: float, quote: dict | None) -> tuple[list, list, float]:
+                         structure: str, risk_pct: float, quote: dict | None,
+                         calendar_dte_days: int | None = None) -> tuple[list, list, float]:
     if risk_pct <= 0 or quote is None:
         return legs, events, cash
     max_loss_per_contract = (float(quote["width"]) - float(quote["credit"])) * 100.0
@@ -144,15 +155,20 @@ def open_credit_vertical(legs: list, events: list, cash: float, nav: float, row,
         "structure": structure, "kind": "vxx", "side": quote["side"], "n": n,
         "short_k": float(quote["short_k"]), "long_k": float(quote["long_k"]),
         "credit": float(quote["credit"]), "width": float(quote["width"]),
-        "expiry_i": i + 21, "risk_budget_pct": risk_pct,
-        "max_loss_at_open": max_loss_per_contract * n,
+        "risk_budget_pct": risk_pct, "max_loss_at_open": max_loss_per_contract * n,
     }
+    if calendar_dte_days is None:
+        p["expiry_i"] = i + 21
+        expiry_fields = {"expiry_index": p["expiry_i"], "expiry_date": None}
+    else:
+        p["expiry_date"] = str((pd.Timestamp(row.date).normalize() + pd.Timedelta(days=calendar_dte_days)).date())
+        expiry_fields = {"expiry_index": None, "expiry_date": p["expiry_date"]}
     cash += p["credit"] * 100.0 * n
     legs.append(p)
     events.append({
         "date": str(row.date.date()), "event": "OPEN_" + structure.upper().replace("-", "_"),
         "contracts": n, "side": p["side"], "short_strike": p["short_k"],
-        "long_strike": p["long_k"], "expiry_index": p["expiry_i"],
+        "long_strike": p["long_k"], **expiry_fields,
         "credit_per_share": p["credit"], "width": p["width"],
         "max_loss_per_contract": max_loss_per_contract,
         "max_loss_total_at_open": p["max_loss_at_open"],
@@ -171,7 +187,7 @@ def component_pnls(row, i: int, legs: list, realized: dict) -> dict:
             out["vxx_short"] += (p["S0"] - float(row.vxx)) * p["n"]
         else:
             S = float(row.vxx if p["kind"] == "vxx" else row.qqq)
-            dte = max(int(p["expiry_i"] - i), 0)
+            dte = position_dte(p, row, i)
             liability = spread_mark(S, float(row.vix), p, dte)
             out[leg_key(p)] += (p["credit"] - liability) * 100.0 * p["n"]
     out["vxx_options"] = out["vxx_call"] + out["vxx_put"]
@@ -222,7 +238,7 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
     for i, row in df.iterrows():
         keep = []
         for p in legs:
-            dte = max(int(p["expiry_i"] - i), 0)
+            dte = position_dte(p, row, i)
             if p["structure"] == "qqq-long":
                 keep.append(p)
                 continue
@@ -281,7 +297,11 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
                 if n > 0:
                     p = {"structure": "qqq-cc", "kind": "qqq", "side": "call", "n": n,
                          "short_k": float(q["Ks"]), "long_k": float(q["Kl"]),
-                         "credit": float(q["premium"]), "width": float(q["width"]), "expiry_i": i + 21}
+                         "credit": float(q["premium"]), "width": float(q["width"])}
+                    if variant == "LEGACY_CALL_ONLY":
+                        p["expiry_i"] = i + 21
+                    else:
+                        p["expiry_date"] = str((pd.Timestamp(row.date).normalize() + pd.Timedelta(days=30)).date())
                     cash += p["credit"] * 100.0 * n
                     legs.append(p)
                     events.append({"date": str(row.date.date()), "event": "OPEN_QQQ_CC", "contracts": n,
@@ -307,23 +327,25 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
                 events.append({"date": str(row.date.date()), "event": "OPEN_VXX_SHORT", "shares": n})
 
         if want_vxx_options:
+            vxx_dte_days = int(cfg.get("vxx_option_dte_days", 30))
             if "vxx-cc" not in existing and cfg["vxx_call_risk_pct"] > 0:
                 if cfg.get("legacy_quote", False):
                     half = halfSpreadV(float(row.vix))
-                    q0 = quoteCC(float(row.vxx), float(row.vix), 30.0 / 365.0, "vxx", half)
+                    q0 = quoteCC(float(row.vxx), float(row.vix), vxx_dte_days / 365.0, "vxx", half)
                     q = {"short_k": q0["Ks"], "long_k": q0["Kl"], "credit": q0["premium"],
                          "width": q0["width"], "side": "call"}
                 else:
-                    q = quote_vxx_call_spread(float(row.vxx), float(row.vix), 30.0 / 365.0,
+                    q = quote_vxx_call_spread(float(row.vxx), float(row.vix), vxx_dte_days / 365.0,
                                               require_positive_credit=True)
                 legs, events, cash = open_credit_vertical(
                     legs, events, cash, nav_before_open, row, i, "vxx-cc",
-                    cfg["vxx_call_risk_pct"], q)
+                    cfg["vxx_call_risk_pct"], q,
+                    calendar_dte_days=None if cfg.get("legacy_quote", False) else vxx_dte_days)
             if "vxx-pc" not in existing and cfg["vxx_put_risk_pct"] > 0:
-                q = quote_vxx_put_spread(float(row.vxx), float(row.vix), 30.0 / 365.0)
+                q = quote_vxx_put_spread(float(row.vxx), float(row.vix), vxx_dte_days / 365.0)
                 legs, events, cash = open_credit_vertical(
                     legs, events, cash, nav_before_open, row, i, "vxx-pc",
-                    cfg["vxx_put_risk_pct"], q)
+                    cfg["vxx_put_risk_pct"], q, calendar_dte_days=vxx_dte_days)
 
         nav = cash + sum(position_liquidation_value(row, p, i) for p in legs)
         attrib = component_pnls(row, i, legs, realized)
@@ -350,6 +372,7 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
         "vxx_call_risk_pct": cfg["vxx_call_risk_pct"],
         "vxx_put_risk_pct": cfg["vxx_put_risk_pct"],
         "vxx_options_rsi_filter": cfg.get("rsi_filter", "NONE"),
+        "vxx_option_dte_days": int(cfg.get("vxx_option_dte_days", 30)),
         "vxx_total_option_risk_budget_pct": cfg["vxx_call_risk_pct"] + cfg["vxx_put_risk_pct"],
         "option_contract_counts": {
             "vxx_call_open_events": sum(e["event"] == "OPEN_VXX_CC" for e in events),
@@ -413,6 +436,18 @@ def run_research(spots_path: Path, out_dir: Path) -> dict:
             "maxdd_delta": float(summaries["CALL_RSI_LT50"]["maxdd_daily_mtm"] - summaries["CALL_RSI_GE50"]["maxdd_daily_mtm"]),
             "purpose": "Compares public-source RSI regime split for VXX short calls; VXX stock gate is unchanged.",
         },
+        "CALL_DTE_14_vs_CALL_DTE_30": {
+            "final_nav_delta_usd": float(summaries["CALL_DTE_14"]["final_nav"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["final_nav"]),
+            "cagr_delta": float(summaries["CALL_DTE_14"]["cagr"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["cagr"]),
+            "maxdd_delta": float(summaries["CALL_DTE_14"]["maxdd_daily_mtm"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["maxdd_daily_mtm"]),
+            "purpose": "Coarse 14 vs 30 calendar-day VXX short-call sensitivity using calendar-DTE marks in the new-model variants.",
+        },
+        "CALL_DTE_45_vs_CALL_DTE_30": {
+            "final_nav_delta_usd": float(summaries["CALL_DTE_45"]["final_nav"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["final_nav"]),
+            "cagr_delta": float(summaries["CALL_DTE_45"]["cagr"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["cagr"]),
+            "maxdd_delta": float(summaries["CALL_DTE_45"]["maxdd_daily_mtm"] - summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["maxdd_daily_mtm"]),
+            "purpose": "Coarse 45 vs 30 calendar-day VXX short-call sensitivity using calendar-DTE marks in the new-model variants.",
+        },
     }
     report = {
         "research_id": RESEARCH_ID, "status": "DERIVED_BS_VIX_RESEARCH_NOT_LIVE",
@@ -432,7 +467,8 @@ def run_research(spots_path: Path, out_dir: Path) -> dict:
             "total_vxx_option_max_loss_budget_pct_nav": 2.0,
             "allocation": "1% max-loss budget to calls + 1% to puts",
             "entry_gate": "same historical safe-state gate: no Shock and term-slope proxy >= 0",
-            "exit_gate": "DTE <= 7 sessions, PnL/max-risk <= -55%, or PnL/max-risk >= +50%",
+            "exit_gate": "calendar DTE <= 7 days for new model; legacy parity control retains index-based DTE; PnL/max-risk <= -55% or >= +50%",
+            "online_inspired_dte_sensitivity_days": [14, 30, 45],
         },
         "legacy_parity": {
             "status": "PASS", "rows_match": same_rows,
@@ -454,6 +490,8 @@ def run_research(spots_path: Path, out_dir: Path) -> dict:
             "VXX options use derived BS/VIX proxies, not historical OPRA quotes or fills.",
             "The dual-sided setup is a research hypothesis; every VXX short option is part of a defined-risk vertical.",
             "Cboe M1/M2 is not substituted into this exact-replay family; using it would be a separate model.",
+            "The legacy control preserves original index-based option-time handling for exact parity; new variants use consistent calendar-DTE marks.",
+            "VXX reverse splits and non-standard option contract adjustments are not reconstructed from historical OPRA chains; option prices remain model proxies.",
             "No live order, current capacity, broker action, or current frozen sizing is generated.",
         ],
         "artifact_files": [
