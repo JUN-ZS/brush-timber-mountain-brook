@@ -160,14 +160,14 @@ function row(result, key) {
   assert.equal(row(r, "qqqCallSpreads").action, "BLOCKED");
 }
 
-// Research ratio strategies do not get a fake hard max-loss capacity.
+// Generic Ratio Put remains stress-only: no fake hard max-loss capacity is allowed.
 {
   const r = E.calculatePortfolio(base({
-    sizing: { ...base().sizing, ratioCallRiskPct: 1 },
-    holdings: { ratioCalls: 3 },
-    permissions: { ratioCalls: true }
+    sizing: { ...base().sizing, ratioPutRiskPct: 1 },
+    holdings: { ratioPuts: 3 },
+    permissions: { ratioPuts: true }
   }));
-  const x = row(r, "ratioCalls");
+  const x = row(r, "ratioPuts");
   assert.equal(x.capacity, null);
   assert.equal(x.target, 3);
   assert.equal(x.status, "PENDING");
@@ -175,14 +175,14 @@ function row(result, key) {
   assert.equal(x.maxLossIsHardCap, false);
 }
 
-// A manually entered stress-loss estimate is marked stress-only, not a guaranteed hard cap.
+// A manually entered ratio-put stress estimate is marked stress-only, not a hard cap.
 {
   const r = E.calculatePortfolio(base({
-    sizing: { ...base().sizing, ratioCallRiskPct: 1 },
-    manualRiskPerUnit: { ratioCalls: 500 },
-    permissions: { ratioCalls: true }
+    sizing: { ...base().sizing, ratioPutRiskPct: 1 },
+    manualRiskPerUnit: { ratioPuts: 500 },
+    permissions: { ratioPuts: true }
   }));
-  const x = row(r, "ratioCalls");
+  const x = row(r, "ratioPuts");
   assert.equal(x.capacity, 2); // floor($1,000 / $500)
   assert.equal(x.status, "STRESS_ONLY");
   assert.equal(x.maxLossIsHardCap, false);
