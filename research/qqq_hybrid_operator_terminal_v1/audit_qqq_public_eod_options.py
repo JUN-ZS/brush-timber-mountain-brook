@@ -137,11 +137,10 @@ def nearest_quote_model_pairs(rows,day,model_geom,raw_close,repo_adj_close,vix):
     def select_pair(target):
         short_target=target["short_target_strike"]
         long_target=target["long_target_strike"]
-        shorts=sorted(eligible,key=lambda r:(
+        shorts=sorted((r for r in eligible if valid_quote(r)),key=lambda r:(
             abs(numeric(r.get("strike"))-short_target),
             abs(abs(numeric(r.get("delta")) or 0)-0.16),
             (numeric(r.get("ask")) or 0)-(numeric(r.get("bid")) or 0)))
-        )
         if not shorts: return None
         short=shorts[0]
         ks=numeric(short.get("strike"))
