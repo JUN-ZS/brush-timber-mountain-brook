@@ -42,7 +42,8 @@
       return '<tr data-key="' + s.key + '">' +
         '<td class="strategy-cell"><b>' + esc(s.label) + '</b>' + sourceCell + '<small id="reason-' + s.key + '" class="row-reason">Not sized yet</small></td>' +
         '<td><input id="current-' + s.key + '" type="number" min="0" step="1" value="0" aria-label="' + esc(s.label) + ' current contracts"></td>' +
-        '<td><input id="budget-' + s.key + '" type="number" min="0" max="100" step="0.1" value="' + budget + '" aria-label="' + esc(s.label) + ' risk budget percent"></td>' +
+        '<td><input id="budget-' + s.key + '" type="number" min="0" max="100" step="0.1" value="' + budget + '" aria-label="' + esc(s.label) + ' requested risk weight percent of NAV"></td>' +
+        '<td id="allocated-' + s.key + '">—</td>' +
         '<td>' + riskCell + '</td>' +
         '<td>' + enableCell + '</td>' +
         '<td id="capacity-' + s.key + '">—</td><td id="target-' + s.key + '">—</td><td id="reserved-' + s.key + '">—</td><td id="action-' + s.key + '">—</td>' +
