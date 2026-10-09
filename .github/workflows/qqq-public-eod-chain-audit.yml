@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: qqq-public-eod-chain-audit
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   audit:

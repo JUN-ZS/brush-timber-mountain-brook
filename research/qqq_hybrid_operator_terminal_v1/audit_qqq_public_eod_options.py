@@ -10,9 +10,9 @@ from statistics import NormalDist
 BASE = "https://raw.githubusercontent.com/anahatsingh-ui/options-dataset-hist/main/qqq"
 FILES = {
     "options_2020.parquet": {"url": BASE+"/options_2020.parquet", "size": 59412637,
-        "sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5", "dates": ["2020-03-16"]},
+        "sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5", "dates": ["2020-01-15", "2020-03-16", "2020-06-08", "2020-10-30"]},
     "options_2024.parquet": {"url": BASE+"/options_2024.parquet", "size": 82434832,
-        "sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3", "dates": ["2024-08-05"]},
+        "sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3", "dates": ["2024-02-01", "2024-04-15", "2024-08-05", "2024-11-06"]},
 }
 UNDERLYING = {"url": BASE+"/underlying_prices.parquet", "size": 332454,
     "sha": "f3a892bc4c88c692900b5c0071322c6db408996a"}
@@ -252,6 +252,7 @@ def inspect_day(day, rows):
 
 def main():
     report={"source":"anahatsingh-ui/options-dataset-hist","source_class":"PUBLIC_EOD_CHAIN_PRESERVATION_MIRROR",
+        "sample_design":"Eight preselected development diagnostics across baseline, shock, rebound/volatility and recovery regimes; not blind OOS and not a strategy backtest",
         "quote_convention":"README says 4:00 PM US Eastern; not a 15:45 or intraday fill",
         "role":"QQQ layer quote-quality cross-check only; does not cover VXX",
         "trade_replay_approved":False,"file_integrity":{},"results":[],"overall":"INCONCLUSIVE"}

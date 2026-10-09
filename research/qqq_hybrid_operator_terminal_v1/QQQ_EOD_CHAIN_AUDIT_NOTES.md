@@ -44,3 +44,8 @@ For each date, the audit reports option rows, call/put counts, percentage of row
 ## Run #8: per-leg IV attribution
 
 Windows self-hosted [Run #8](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38005010981) passed the pinned file/source hash checks, pairing tests, and QQQ EOD chain audit with per-leg source IVs. Proxy IV was 1.37×–1.62× source IV for selected short legs and 1.40×–1.77× for wings. Raw-spot repricing with source IV reproduced the source's midpoint values closely, but this is not independent validation because IV may have been calculated from the same quote mark. The model spread haircut remained far too narrow on the 2020 shock-day legs; see QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md and raw JSON QQQ_MODEL_PRICE_ALIGNMENT_RUN8.json. Do not promote any strategy result from this two-date probe.
+
+
+## Next step: preselected multi-regime QQQ quote diagnostic
+
+The next audit version samples eight dates from the already hash-pinned 2020 and 2024 annual Parquet files: 2020-01-15, 2020-03-16, 2020-06-08, 2020-10-30, 2024-02-01, 2024-04-15, 2024-08-05 and 2024-11-06. They are intended to cover lower-volatility, shock, rebound/rotation and recovery contexts. This expands regime coverage without adding new annual-file downloads. Because the date set was chosen after reviewing initial results, it is a development diagnostic—not blind OOS. Report the row/quote quality and price-basis × IV-basis comparisons at each date; do not collapse these observations into a strategy CAGR claim.

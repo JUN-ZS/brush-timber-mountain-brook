@@ -113,3 +113,8 @@ The same matched pairs show actual option half-spread/mid of 42.55% / 50.00% (sh
 - With the VIX-derived spread haircut left unchanged, chain-IV conservative credit was still above observed short-Bid/wing-Ask credit by ~$0.18 / $0.46 per share on the two 2020 pairs, but within ~$0.025 / $0.008 on the two 2024 pairs. This aligns with the spread diagnostic: on the 2020 shock sample, observed leg spreads were far wider than the model haircut.
 - Detailed raw output is pinned at [QQQ_MODEL_PRICE_ALIGNMENT_RUN8.json](QQQ_MODEL_PRICE_ALIGNMENT_RUN8.json); report tables are in [QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md](QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md). Both remain two-date development diagnostics, not a strategy backtest or blind OOS result.
 
+
+
+## Next step: preselected multi-regime QQQ quote diagnostic
+
+The next audit version samples eight dates from the already hash-pinned 2020 and 2024 annual Parquet files: 2020-01-15, 2020-03-16, 2020-06-08, 2020-10-30, 2024-02-01, 2024-04-15, 2024-08-05 and 2024-11-06. They are intended to cover lower-volatility, shock, rebound/rotation and recovery contexts. This expands regime coverage without adding new annual-file downloads. Because the date set was chosen after reviewing initial results, it is a development diagnostic—not blind OOS. Report the row/quote quality and price-basis × IV-basis comparisons at each date; do not collapse these observations into a strategy CAGR claim.

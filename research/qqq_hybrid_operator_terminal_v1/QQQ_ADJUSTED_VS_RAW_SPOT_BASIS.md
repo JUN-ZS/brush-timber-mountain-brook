@@ -59,15 +59,41 @@ This is a separate error source from spot basis or volatility. In the 2020 shock
 
 **Consequence:** do not allow a model-generated credit to be described as an executable fill if its leg-level haircut is narrower than the corresponding observed quote spread. Where an historical entry/exit quote exists, the diagnostic must show short Bid and wing Ask explicitly; where it does not, report INSUFFICIENT_DATA rather than synthesize an exchange quote.
 
-## 5. What this establishes
+## 5. VIX-derived IV proxy versus the chain's reported per-leg IV
+
+Run #8 added the selected contracts' source-reported implied volatility and re-priced the exact same listed strikes using each leg's IV. The proxy / source-IV ratios were:
+
+| Snapshot / pair | Proxy short σ | Source short IV | Ratio | Proxy wing σ | Source wing IV | Ratio |
+|---|---:|---:|---:|---:|---:|---:|
+| 2020-03-16 / 223C–240C | 84.84% | 52.22% | 1.62× | 80.37% | 47.34% | 1.70× |
+| 2020-03-16 / 214C–232C | 84.84% | 56.12% | 1.51× | 80.37% | 45.39% | 1.77× |
+| 2024-08-05 / 490C–510C | 39.57% | 27.83% | 1.42× | 37.49% | 26.85% | 1.40× |
+| 2024-08-05 / 485C–505C | 39.57% | 28.80% | 1.37× | 37.49% | 26.85% | 1.40× |
+
+The existing VIX→QQQ-IV rule therefore gives materially higher volatility than the chain's reported IV on all four selected pairs. This is a source-to-source comparison, not proof that the mirror IV is exchange-authoritative.
+
+### Controlled repricing using the per-leg source IV
+
+| Snapshot / pair | Observed midpoint credit | Observed executable-side credit | Chain-IV model midpoint credit, raw spot | Chain-IV model conservative credit, raw spot |
+|---|---:|---:|---:|---:|
+| 2020-03-16 / 223C–240C | $0.410 | $0.180 | $0.403 | $0.362 |
+| 2020-03-16 / 214C–232C | $1.055 | $0.520 | $1.075 | $0.977 |
+| 2024-08-05 / 490C–510C | $1.105 | $0.970 | $1.020 | $0.945 |
+| 2024-08-05 / 485C–505C | $1.540 | $1.440 | $1.541 | $1.433 |
+
+At raw close, repricing with the chain's per-leg IV reproduces snapshot midpoint credit closely in these examples. **This is not independent validation:** the published IV may itself be calculated from the same quote's mark/midpoint, and the calculation method has not been independently verified. Treat this as an internal arithmetic / attribution diagnostic.
+
+The chain-IV conservative credit still sits above observed executable-side credit on the two 2020 examples by about $0.18 and $0.46 per share, while the 2024 examples are within about $0.025 and $0.008. With Section 4's spread data, this is consistent with the VIX-only spread haircut being too narrow on the shock-day quotes.
+
+## 6. What this establishes
 
 **Measured:** on two source-pinned dates, the adjusted-close QQQ series differs from raw nominal QQQ close, changes target strikes, and changes the model mark for the exact same listed option pair. The preserved model's conservative credit estimates also sit substantially above observed EOD quote-credit arithmetic on these examples.
 
 **Not established:** which single factor explains the complete discrepancy; whether source-provided IV is exchange-authoritative; intraday 15:45 quotes; actual fills, commissions or slippage; full-period strategy results; or VXX option history. This is not a performance claim and does not authorize a strategy change.
 
-## 6. Required next step
+## 7. Required next step
 
-Add each selected contract's source-reported IV and quote sizes; compare four controlled cases at exact same strikes:
+Expand from the first two dates to eight preselected dates across normal, shock, rebound and recovery regimes using the same pinned 2020/2024 annual files; then compare raw/adjusted spot, per-leg source IV, modeled half-spread and observed Bid/Ask at identical strikes. These dates are development diagnostics selected after the initial two-date result, not blind OOS. Keep the same required attribution matrix:
 - adjusted spot + VIX-derived proxy IV (current model basis);
 - raw spot + VIX-derived proxy IV;
 - adjusted spot + the two legs' source-reported IVs (diagnostic only);
