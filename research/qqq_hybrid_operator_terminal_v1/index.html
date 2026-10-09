@@ -30,6 +30,81 @@
       <small><a href="hub_research_pack.html">開啟 Hub Research Option Pack →</a>（研究細節頁；主操作台的 QQQ/VXX 主賣方預算才是統一容量來源。）</small>
     </section>
 
+    <section id="proDashboard" class="pro-dashboard card">
+      <div class="pro-heading">
+        <div>
+          <div class="eyebrow">PRO CAPITAL CONSOLE · TWO-CALL HYBRID</div>
+          <h2 class="pro-title">Portfolio Allocation Dashboard</h2>
+          <p class="pro-subtitle">MAX CAPACITY · LIVE INPUTS · SHARED RISK · CASH RECONCILIATION</p>
+        </div>
+        <div id="proCalcStatus" class="pro-status">WAITING FOR VERIFIED MARKET DATA</div>
+      </div>
+
+      <div id="proKpis" class="pro-kpis">
+        <div class="pro-kpi"><small>PORTFOLIO NAV</small><b>—</b><span>Enter capital assumptions</span></div>
+        <div class="pro-kpi"><small>STOCK NOTIONAL</small><b>—</b><span>QQQ + VXX short exposure</span></div>
+        <div class="pro-kpi"><small>OPTION RISK USED</small><b>—</b><span>Two call-credit legs only</span></div>
+        <div class="pro-kpi"><small>UNALLOCATED CASH</small><b>—</b><span>After reserve and planned adds</span></div>
+      </div>
+
+      <div class="pro-chart-grid">
+        <article class="pro-panel">
+          <div class="pro-panel-head">
+            <div><span class="pro-index">01</span><h3>Cash Plan · Capital Required</h3></div>
+            <span id="proCashUtilization" class="pro-inline-value">—</span>
+          </div>
+          <div id="proCapitalChart" class="pro-capital-chart">
+            <div class="pro-empty">Load a verified V3 snapshot to calculate the cash plan.</div>
+          </div>
+          <div id="proCapitalLegend" class="pro-legend"></div>
+          <p class="pro-chart-note">Conservative accounting reserves the full option-risk envelope; VXX margin is an estimate, not a loss cap.</p>
+        </article>
+
+        <article class="pro-panel">
+          <div class="pro-panel-head">
+            <div><span class="pro-index">02</span><h3>Shared Option Risk · Max Loss</h3></div>
+            <span id="proOptionPoolLabel" class="pro-inline-value">—</span>
+          </div>
+          <div class="pro-risk-layout">
+            <div id="proRiskDonut" class="pro-risk-donut" style="--used:0"><div><b id="proRiskUsedPct">—</b><span>POOL USED</span></div></div>
+            <div id="proRiskBreakdown" class="pro-risk-breakdown"><div class="pro-empty">Option quotes are required.</div></div>
+          </div>
+          <div id="proRiskFoot" class="pro-risk-foot">QQQ call-credit + VXX call-credit only. VXX put is excluded.</div>
+        </article>
+      </div>
+
+      <div class="pro-capacity-head">
+        <div><span class="pro-index">03</span><h3>Maximum Position Capacity</h3></div>
+        <span class="pro-capacity-explainer">Calculated at current inputs · integer shares / spreads</span>
+      </div>
+      <div id="proCapacityGrid" class="pro-capacity-grid">
+        <div class="pro-capacity-card"><small>QQQ CORE</small><b>—</b><span>shares</span></div>
+        <div class="pro-capacity-card"><small>VXX SHORT STOCK</small><b>—</b><span>shares short</span></div>
+        <div class="pro-capacity-card"><small>QQQ CALL-CREDIT</small><b>—</b><span>spreads</span></div>
+        <div class="pro-capacity-card"><small>VXX CALL-CREDIT</small><b>—</b><span>spreads</span></div>
+      </div>
+
+      <div class="pro-table-head">
+        <div><span class="pro-index">04</span><h3>PRO Price & Allocation Table</h3></div>
+        <span class="pro-capacity-explainer">NAV % · notional · margin · max loss · credit</span>
+      </div>
+      <div class="table-wrap pro-table-wrap">
+        <table class="pro-table">
+          <thead>
+            <tr><th>Position / Contract</th><th>Price / Strikes</th><th>Max Qty</th><th>Notional / Margin</th><th>Net Credit</th><th>Max Loss</th><th>% NAV</th><th>Budget Status</th></tr>
+          </thead>
+          <tbody id="proAllocationRows"><tr><td colspan="8" class="pro-empty-cell">Refresh market data and load the two call-credit quotes to fill this table.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pro-total-row" id="proTotalsRow">
+        <span>STOCK NOTIONAL <b>—</b></span>
+        <span>OPTION MAX LOSS <b>—</b></span>
+        <span>PLANNED CAPITAL <b>—</b></span>
+        <span>FREE CASH <b>—</b></span>
+      </div>
+      <p class="pro-footnote">No VXX Put in the main budget. Other Hub / debit / long structures stay inspection-only. Scenario prices from past screenshots are test fixtures, not preloaded live quotes. Final ADD / HOLD / REDUCE remains gated by fresh market data; no broker orders are placed.</p>
+    </section>
+
     <section class="grid market-grid">
       <article class="card market-card">
         <div class="section-head">
