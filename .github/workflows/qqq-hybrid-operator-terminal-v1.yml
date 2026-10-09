@@ -58,10 +58,6 @@ jobs:
           echo broker_orders=FALSE>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
           echo sizing=CAPITAL_FIRST_MAIN_SELLER_WHITELIST>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
 
-      - name: Upload QA evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: qqq-hybrid-operator-terminal-v1-qa
-          path: artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
-          if-no-files-found: error
-          retention-days: 30
+      - name: Emit QA summary in job log
+        run: |
+          type artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt || exit /b 1
