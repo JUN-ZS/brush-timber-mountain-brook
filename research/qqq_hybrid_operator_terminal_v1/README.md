@@ -90,6 +90,19 @@ The number of contracts is bounded by both the individual leg budget and the sha
 - The legacy N:X hedge result is per campaign, not portfolio-wide capacity, and is never presented as max-loss-capped.
 - Public Yahoo option quotes may be delayed/incomplete and are not guaranteed executable; verify broker bid/ask, expiry, adjusted contracts and fills.
 
+## Joint portfolio budget across the Hybrid and Hub structures
+
+The **primary page** (\`http://127.0.0.1:8790/\`) is the authoritative joint-sizing page. QQQ Core and VXX Short Stock share one cash plan; every enabled, quoted option row also enters the single \`totalOptionRiskPool\`:
+
+- Original Hybrid options: QQQ Far Call-Credit and VXX Call-Credit.
+- Existing candidate add-ons: VXX Put-Credit, QQQ Bull-Put/Bear-Call, Covered Call, Protective Put, Long Call/Put, and explicitly entered debit / defined-risk structures.
+- Hub-researched candidate rows: Ratio-Call HARVEST/Dynamic-N package, State-Adaptive/Staggered five-leg package, and SHOCK-GATED Put Debit Spread.
+- Ratio Put remains **stress-only**, not hard-loss capped.
+
+Each strategy's \`risk budget % NAV\` is a requested weight against the same overall pool, not a separately spendable entitlement. If eligible requested weights sum above the pool, the engine applies one common proportional scale factor before integer-contract rounding and shows requested weights, common scale factor, allocated risk dollars, risk per package, target risk reserve and unused risk. Missing quotes and a Shock-Gated structure whose trigger is false reserve zero new risk. QQQ stock purchases, VXX short-margin estimate, cash reserve and the shared option-risk envelope still reconcile against the one uncommitted cash pool.
+
+The Hub-specific details page (\`hub_research_pack.html\`) remains a structure/rule inspector and single-profile diagnostic. Its standalone maximum must **not** be added to the main page's capacities. For deployable package counts, use the main page's one shared risk allocation table.
+
 ## Hub-researched structures (separate research workbench)
 
 Open \`http://127.0.0.1:8790/hub_research_pack.html\` from the same local server. This is a dedicated add-on to the original four-layer Hybrid, not a replacement for it.
