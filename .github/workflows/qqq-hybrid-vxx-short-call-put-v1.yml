@@ -72,7 +72,8 @@ jobs:
           %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/baseline/profit_trend.json').read_text(encoding='utf-8')); assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; print('historical_sizing_boundary=PASS')"
           %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_vxx_short_call_put_v1/strategy_report.json').read_text(encoding='utf-8')); c=r['vxx_sleeve_controlled_comparisons']; assert len(c)>=10; assert r['vxx_sleeve_experiment_contract']['vxx_stock_and_vxx_call_entry_switches_are_orthogonal'] is True; assert r['variants']['SLEEVE_STOCK_ONLY_18_BORROW_3']['vxx_short_borrow_cost_total_usd']>0; assert r['variants']['SLEEVE_STOCK_ONLY_18_BORROW_10']['vxx_short_borrow_cost_total_usd']>r['variants']['SLEEVE_STOCK_ONLY_18_BORROW_3']['vxx_short_borrow_cost_total_usd']; assert 'STOCK_ONLY_2_STRESS_vs_CALL_ONLY_2' in c; print('vxx_sleeve_experiment_contract=PASS')"
 
-      - name: Upload research evidence
+      - name: Upload research evidence (quota may block upload)
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: qqq-hybrid-vxx-short-call-put-v1
