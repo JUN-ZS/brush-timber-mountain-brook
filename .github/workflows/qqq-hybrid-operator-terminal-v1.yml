@@ -48,14 +48,14 @@ jobs:
 
       - name: Static asset / boundary contract
         run: |
-          py -3 -c "from pathlib import Path; p=Path('research/qqq_hybrid_operator_terminal_v1'); required=['index.html','app.js','engine.js','styles.css','server.py','README.md','hub_research_pack.html','hub_research_pack.js','hub_research_pack_ui.js','tests/engine.test.cjs','tests/hub_research_pack.test.cjs']; missing=[x for x in required if not (p/x).is_file()]; assert not missing, 'missing files: '+repr(missing); s=(p/'server.py').read_text(encoding='utf-8'); assert 'place_order' not in s and 'unlock_trade' not in s and '/api/journal' in s; h=(p/'index.html').read_text(encoding='utf-8'); assert 'current-qqqShares' in h and 'current-vxxShortShares' in h and 'Set current quantity = 1000' in h; print('terminal_asset_contract=PASS')" || exit /b 1
+          py -3 -c "from pathlib import Path; p=Path('research/qqq_hybrid_operator_terminal_v1'); required=['index.html','app.js','engine.js','styles.css','server.py','README.md','hub_research_pack.html','hub_research_pack.js','hub_research_pack_ui.js','tests/engine.test.cjs','tests/hub_research_pack.test.cjs','tests/fixtures/user_uploaded_option_chain_2026-11-20.json']; missing=[x for x in required if not (p/x).is_file()]; assert not missing, 'missing files: '+repr(missing); s=(p/'server.py').read_text(encoding='utf-8'); assert 'place_order' not in s and 'unlock_trade' not in s and '/api/journal' in s; e=(p/'engine.js').read_text(encoding='utf-8'); assert e.count('mainBudgetEligible: true') == 3; h=(p/'index.html').read_text(encoding='utf-8'); assert 'current-qqqShares' in h and 'current-vxxShortShares' in h and 'Set current quantity = 1000' in h and 'OUTSIDE MAIN BUDGET' in h; print('terminal_asset_contract=PASS')" || exit /b 1
 
       - name: Write QA summary
         run: |
           if not exist artifacts\qqq_hybrid_operator_terminal_v1 mkdir artifacts\qqq_hybrid_operator_terminal_v1
           echo QQQ_HYBRID_OPERATOR_TERMINAL_V1=PASS>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
           echo broker_orders=FALSE>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
-          echo sizing=CAPITAL_FIRST_WITH_HUB_RESEARCH_OPTION_PACK>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
+          echo sizing=CAPITAL_FIRST_MAIN_SELLER_WHITELIST>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
 
       - name: Upload QA evidence
         uses: actions/upload-artifact@v4
