@@ -229,4 +229,44 @@ function row(result, key) {
   assert.equal(r.boundary.missingCandidateNeverFabricated, true);
 }
 
-console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 14 TEST GROUPS PASS");
+// Invalid allocation percentages must block resizing and preserve current positions.
+{
+  const r = E.calculatePortfolio(base({
+    sizing: { ...base().sizing, qqqCorePct: 101 },
+    holdings: { qqqShares: 1000, vxxShortShares: 1000 }
+  }));
+  assert.equal(r.ok, false);
+  assert.equal(row(r, "qqqShares").target, 1000);
+  assert.equal(row(r, "qqqShares").status, "INVALID_PERCENT");
+  assert.match(row(r, "qqqShares").reason, /between 0 and 100/);
+}
+
+// Quote-backed call and put vertical candidates keep exact expiry/wing direction and defined max loss.
+{
+  const expiry = Date.parse("2026-11-20T00:00:00Z") / 1000;
+  const calls = [
+    { expiration: expiry, days: 42, strike: 105, bid: 2.0, ask: 2.1, delta: 0.16 },
+    { expiration: expiry, days: 42, strike: 107, bid: 1.2, ask: 1.4, delta: 0.10 },
+    { expiration: expiry, days: 42, strike: 110, bid: 0.4, ask: 0.6, delta: 0.05 }
+  ];
+  const call = E.findCreditVertical({ calls }, 100, "call", 45, 0.16, "2026-10-09");
+  assert.equal(call.shortStrike, 105);
+  assert.equal(call.longStrike, 107);
+  assert.equal(call.credit, 0.6);
+  assert.equal(call.maxLossPerSpread, 140);
+  assert.equal(call.expiry, "2026-11-20");
+
+  const puts = [
+    { expiration: expiry, days: 42, strike: 95, bid: 2.0, ask: 2.2, delta: -0.16 },
+    { expiration: expiry, days: 42, strike: 92.5, bid: 1.1, ask: 1.3, delta: -0.10 },
+    { expiration: expiry, days: 42, strike: 90, bid: 0.5, ask: 0.7, delta: -0.05 }
+  ];
+  const put = E.findCreditVertical({ puts }, 100, "put", 45, 0.16, "2026-10-09");
+  assert.equal(put.shortStrike, 95);
+  assert.equal(put.longStrike, 92.5);
+  assert.equal(put.credit, 0.7);
+  assert.equal(put.maxLossPerSpread, 180);
+  assert.equal(put.expiry, "2026-11-20");
+}
+
+console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 16 TEST GROUPS PASS");
