@@ -106,3 +106,44 @@ The research design was expanded after reviewing public material:
 - The code now separates controlled tests: 1% call-only vs 1% call + 1% put; 2% call-only vs 2% call + 1% put; put-only vs no VXX options; call-only RSI<50 vs RSI>=50; and 14/30/45-calendar-day call-spread DTE sensitivity.
 - The preserved legacy control intentionally retains the old index-based option-time convention to prove exact source parity. New-model variants mark positions using explicit calendar expiry dates so the 14/30/45-day sensitivity does not inherit the old mismatch. Cross-variant comparisons must use new-model controls, not treat the legacy parity control as an apples-to-apples sizing winner.
 - This run still uses DERIVED_BS_VIX option prices. Its backtest numbers are useful for model screening only. A genuine option-chain replication would need historical VXX option bid/ask/greeks and correct reverse-split/contract-adjustment treatment; public webpages alone are not enough.
+
+
+## Expanded historical model replay result (Windows self-hosted, 2026-10-09)
+
+Verified run: https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37866384647  
+Artifact: https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37866384647/artifacts/11587554930
+
+The run passed 7 unit tests, the exact legacy daily-NAV parity check, PnL component reconciliation and the contract checks for the comparison matrix. The source-parity legacy control matches the preserved simulator for all 2,141 observations; both end at $298,267.22. The largest component-to-NAV reconciliation error is less than one cent.
+
+### Model-derived results (not OPRA fills)
+
+| Variant | VXX call max-loss budget | VXX put max-loss budget | Final NAV | CAGR | Daily MTM MaxDD |
+|---|---:|---:|---:|---:|---:|
+| LEGACY_CALL_ONLY (source timing parity) | 2% | 0% | $298,267.22 | 13.70% | -23.02% |
+| CALL_ONLY_1PCT | 1% | 0% | $280,368.01 | 12.88% | -23.83% |
+| DUAL_CALL_PUT | 1% | 1% | $279,155.09 | 12.82% | -21.74% |
+| CALL_ONLY_2PCT_NEW_QUOTE | 2% | 0% | $289,456.67 | 13.30% | -24.62% |
+| CALL_PUT_ADDON | 2% | 1% | $287,711.11 | 13.22% | -22.54% |
+| PUT_ONLY_1PCT | 0% | 1% | $271,881.45 | 12.47% | -21.22% |
+| CALL_RSI_LT50 | 2% | 0% | $287,669.29 | 13.22% | -25.41% |
+| CALL_RSI_GE50 | 2% | 0% | $277,228.71 | 12.73% | -23.26% |
+| CALL_DTE_14 | 2% | 0% | $291,115.06 | 13.38% | -27.71% |
+| CALL_DTE_45 | 2% | 0% | $282,539.12 | 12.98% | -25.11% |
+| NO_VXX_OPTIONS (new-model control) | 0% | 0% | $273,508.24 | 12.55% | -23.16% |
+
+The legacy control is included to prove exact source reproduction; because it preserves the legacy index-based expiry convention, it is not an apples-to-apples performance comparator for the new calendar-DTE variants. Use the new-model controls below for strategy comparisons.
+
+### Controlled comparisons
+
+- Adding a 1% put-risk budget to a 1% call-risk budget: final NAV -$1,212.91 and CAGR -0.0575 percentage points; MaxDD improves by 2.096 percentage points (from -23.83% to -21.74%).
+- Adding a 1% put-risk budget to the new 2% call-only model: final NAV -$1,745.56 and CAGR -0.0805 percentage points; MaxDD improves by 2.080 percentage points (from -24.62% to -22.54%). This expands total VXX-option max-loss budget from 2% to 3%.
+- Put-only versus no VXX options: final NAV -$1,626.79 and CAGR -0.0789 percentage points; MaxDD improves by 1.938 percentage points.
+- RSI<50 versus RSI>=50 for VXX call entries: final NAV +$10,440.58 and CAGR +0.491 percentage points, but MaxDD is worse by 2.148 percentage points.
+- 14-day versus 30-day call-spread DTE: final NAV +$1,658.38 and CAGR +0.0761 percentage points, but MaxDD is worse by 3.088 percentage points.
+- 45-day versus 30-day call-spread DTE: final NAV -$6,917.55 and CAGR -0.3215 percentage points, with MaxDD worse by 0.495 percentage points.
+
+### Research conclusion
+
+In this model, adding the short put vertical does not improve terminal wealth or CAGR in either controlled comparison, though it does reduce the historical daily-MTM drawdown by around 2.1 percentage points. That is a possible risk-path tradeoff, not proof that the put spread adds positive expected return. The RSI<50 call-entry split and 14-day DTE each improve terminal wealth modestly versus their specified controls, but both show worse maximum drawdown. These findings are exploratory and subject to model risk, regime dependence, option cost assumptions and the absence of historical OPRA fills.
+
+All option quotes are derived BS/VIX proxies using QQQ/VXX/VIX underlying histories, with data ending 2026-09-04. This is not an exchange-chain reconstruction or tradeable-performance claim. Reverse-split/adjusted-contract handling and live bid/ask fills remain unverified.
