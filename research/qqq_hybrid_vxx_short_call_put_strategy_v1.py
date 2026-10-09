@@ -478,11 +478,16 @@ def run_research(spots_path: Path, out_dir: Path) -> dict:
         },
         "variants": summaries,
         "counterfactual_portfolio_delta_vs_no_vxx_options": {
-            "legacy_call_only_final_nav_difference_usd": float(legacy["final_nav"] - no_opts["final_nav"]),
+            "legacy_call_only_vs_no_options_non_comparable_final_nav_difference_usd": float(legacy["final_nav"] - no_opts["final_nav"]),
+            "new_quote_call_only_final_nav_difference_usd": float(summaries["CALL_ONLY_2PCT_NEW_QUOTE"]["final_nav"] - no_opts["final_nav"]),
             "dual_call_put_final_nav_difference_usd": float(dual["final_nav"] - no_opts["final_nav"]),
+            "call_put_addon_final_nav_difference_usd": float(summaries["CALL_PUT_ADDON"]["final_nav"] - no_opts["final_nav"]),
+            "put_only_final_nav_difference_usd": float(summaries["PUT_ONLY_1PCT"]["final_nav"] - no_opts["final_nav"]),
             "interpretation": (
-                "Same starting capital/data and same non-VXX-option rules; portfolio-level counterfactual includes "
-                "NAV-based sizing feedback and is not a standalone option-only PnL attribution."
+                "New-quote variants use matching calendar-DTE handling and same non-VXX-option rules; portfolio-level "
+                "counterfactual includes NAV-based sizing feedback and is not a standalone option-only PnL attribution. "
+                "The legacy source-parity control uses original index-based option timing, so its delta against a new-model "
+                "variant is reported only as a non-comparable reference."
             ),
         },
         "controlled_comparisons": controlled_comparisons,
