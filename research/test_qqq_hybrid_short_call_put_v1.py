@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from qqq_hybrid_current_capacity_v2 import build_capacity_report, option_spread_capacity
-from qqq_hybrid_vxx_short_call_put_strategy_v1 import quote_vxx_put_spread
+from qqq_hybrid_vxx_short_call_put_strategy_v1 import LEG_CONFIGS, quote_vxx_put_spread
 
 
 def trend_fixture():
@@ -26,6 +26,26 @@ def strategy_fixture():
 
 
 class CurrentCapacityTests(unittest.TestCase):
+    def test_research_matrix_contains_controlled_put_comparisons(self):
+        self.assertEqual(
+            (LEG_CONFIGS["CALL_ONLY_1PCT"]["vxx_call_risk_pct"], LEG_CONFIGS["CALL_ONLY_1PCT"]["vxx_put_risk_pct"]),
+            (1.0, 0.0),
+        )
+        self.assertEqual(
+            (LEG_CONFIGS["DUAL_CALL_PUT"]["vxx_call_risk_pct"], LEG_CONFIGS["DUAL_CALL_PUT"]["vxx_put_risk_pct"]),
+            (1.0, 1.0),
+        )
+        self.assertEqual(
+            (LEG_CONFIGS["CALL_ONLY_2PCT_NEW_QUOTE"]["vxx_call_risk_pct"], LEG_CONFIGS["CALL_ONLY_2PCT_NEW_QUOTE"]["vxx_put_risk_pct"]),
+            (2.0, 0.0),
+        )
+        self.assertEqual(
+            (LEG_CONFIGS["CALL_PUT_ADDON"]["vxx_call_risk_pct"], LEG_CONFIGS["CALL_PUT_ADDON"]["vxx_put_risk_pct"]),
+            (2.0, 1.0),
+        )
+        self.assertEqual(LEG_CONFIGS["CALL_RSI_LT50"]["rsi_filter"], "LT50")
+        self.assertEqual(LEG_CONFIGS["CALL_RSI_GE50"]["rsi_filter"], "GE50")
+
     def test_call_spread_contracts_use_max_loss_not_credit(self):
         got = option_spread_capacity(100000, 2.0, {
             "short_strike": 21, "long_strike": 24, "credit": 0.24,
