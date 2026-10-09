@@ -6,7 +6,17 @@ const sandbox = { module: { exports: {} } };
 vm.runInNewContext(fs.readFileSync(require.resolve("../option_chain_lab.js"), "utf8"), sandbox, { filename: "option_chain_lab.js" });
 const Lab = sandbox.module.exports;
 const s = Lab.SAMPLE;
+const fixture = JSON.parse(fs.readFileSync(require.resolve("./fixtures/user_uploaded_option_chain_2026-11-20.json"), "utf8"));
 function near(a,b,label){assert.ok(Math.abs(a-b)<1e-8,label+": expected "+b+", got "+a);}
+
+// Anti-drift: UI sample must match the canonical upload fixture exactly.
+assert.equal(s.expiration, fixture.expiration);
+for (const [symbol, key] of [["QQQ","QQQ_CALL"],["VXX","VXX_CALL"]]) {
+  const expected = fixture.instruments[symbol].quotes.map(q => ({strike:q.strike,bid:q.bid,ask:q.ask,delta:q.delta}));
+  assert.deepEqual(JSON.parse(JSON.stringify(s.chains[key])), expected, key + " must match canonical screenshot fixture");
+}
+assert.deepEqual(JSON.parse(JSON.stringify(s.chains.QQQ_PUT)), []);
+assert.deepEqual(JSON.parse(JSON.stringify(s.chains.VXX_PUT)), []);
 
 // Screenshot sample must match the canonical repository fixture.
 // QQQ CALL: 799 bid $3.16; 810 protective wing ask $1.89.
@@ -59,4 +69,13 @@ const missing=Lab.calculateVerticals("VXX_PUT",[
   {strike:15,bid:.30,ask:.37}
 ],100,3200);
 assert.equal(missing.candidates.length,0);
+
+// Invalid sizing inputs must BLOCK rather than silently use standard defaults.
+assert.ok(Lab.calculateVerticals("QQQ_CALL",s.chains.QQQ_CALL,0,3200).error);
+assert.ok(Lab.calculateVerticals("QQQ_CALL",s.chains.QQQ_CALL,null,3200).error);
+assert.ok(Lab.calculateVerticals("QQQ_CALL",s.chains.QQQ_CALL,100,null).error);
+assert.ok(Lab.calculateVerticals("QQQ_CALL",s.chains.QQQ_CALL,100,-1).error);
+assert.equal(Lab.expiryPnl(q2,810,0,1),null);
+assert.equal(Lab.expiryPnl(q2,810,100,0),null);
+assert.equal(Lab.expiryPnl(q2,810,100,1.5),null);
 console.log("option_chain_lab=PASS");
