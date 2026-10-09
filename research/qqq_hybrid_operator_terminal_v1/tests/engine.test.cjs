@@ -195,7 +195,7 @@ function row(result, key) {
     sizing: { ...base().sizing, longCallRiskPct: 1, coveredCallRiskPct: 1 },
     candidates: {
       qqqLongCall: { ask: 2.5, source: "FIXTURE" },
-      qqqCall: { shortBid: 0.5, credit: 0.2, source: "FIXTURE" }
+      qqqCoveredCall: { type: "coveredCall", shortBid: 0.5, source: "FIXTURE" }
     },
     permissions: { longCalls: true, coveredCalls: true }
   }));
