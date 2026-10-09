@@ -72,3 +72,36 @@ py -3 research\qqq_hybrid_vxx_short_call_put_strategy_v1.py --spots-path src\dat
 py -3 -m unittest research\test_qqq_hybrid_short_call_put_v1.py
 
 A separate Windows self-hosted workflow performs replay parity, attribution reconciliation, capacity tests, and artifact upload. Nothing submits broker orders.
+
+
+## Public web research (external evidence, not copied as proof)
+
+The research design was expanded after reviewing public material:
+
+1. **Option Alpha — VXX Short Call Spread Backtesting (2023-07-10)**  
+   https://www.youtube.com/watch?v=v5Z0DYy18UU  
+   The public description explicitly says the author compares DTE settings and separates VXX RSI below 50 versus above 50. The page does not expose numerical results in its description, so this is a test-design lead, not performance proof. This branch now adds RSI<50 and RSI>=50 call-only research variants. The filter applies only to the VXX option entry; it does not silently alter the separate short-stock leg.
+
+2. **ORATS — opposite VXX call-spread backtests (2019-08-07)**  
+   https://orats.com/blog/the-tale-of-two-backtests-why-arent-opposite-strategies-absolute-returns-equal  
+   ORATS reports an example in which a VXX short call spread returned +3.51% annualized versus -9.23% for the corresponding long call spread after costs. It attributes a large gap to estimated slippage and commissions, and says its historical entries use actual bid/ask snapshots around 14 minutes before close. This is evidence that costs are material, not a universal expected return for our Hybrid.
+
+3. **ORATS — cross-symbol VIX moving-average trigger (2021-03-23)**  
+   https://orats.com/blog/options-trading-using-stock-price-vs-moving-average  
+   The example is a long VXX put entered when VIX is below its 20-day moving average. This is directionally different from a VXX short put credit spread, so it must not be mislabelled as evidence supporting our short-put leg. It demonstrates that an external VIX regime trigger can be tested separately from VXX price-only signals.
+
+4. **Volatility Trading Strategies — VXX options as short-volatility exposure (2023-05-23)**  
+   https://www.volatilitytradingstrategies.com/blog/estimating-future-vxx-prices-for-short-volatility-trading  
+   The article compares long VXX puts, long VXX put verticals, long VXX put butterflies, short VXX straddles, and long SVIX as different ways to express short volatility. It also highlights borrow/availability issues with direct VXX short stock. These are related methods, but long puts and short puts are opposite directional exposures.
+
+5. **ORATS historical data/backtester availability**  
+   https://orats.com/backtester  
+   The vendor describes EOD option data/backtests back to 2007 and custom tests using historical chains. Its backtester is a paid product; this repo run did not use ORATS/OPRA option data.
+
+### What the web check means for our next experiment
+
+- Yes, public work on VXX short call spreads and RSI/DTE regime tests already exists.
+- I did not find a publicly accessible, independently auditable long-history result specifically validating our exact rule of selling both a VXX call-credit spread and a VXX put-credit spread inside the QQQ/VXX four-layer Hybrid.
+- The dual call/put version must therefore be treated as our own hypothesis, not as an internet-proven strategy.
+- The code now separates controlled tests: 1% call-only vs 1% call + 1% put; 2% call-only vs 2% call + 1% put; put-only vs no VXX options; and call-only RSI<50 vs RSI>=50.
+- This run still uses DERIVED_BS_VIX option prices. Its backtest numbers are useful for model screening only. A genuine option-chain replication would need historical VXX option bid/ask/greeks and correct reverse-split/contract-adjustment treatment; public webpages alone are not enough.
