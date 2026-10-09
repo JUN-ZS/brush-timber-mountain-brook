@@ -142,12 +142,14 @@
       </div>
       <label class="toggle safety-toggle"><input id="allowProtectionBuys" type="checkbox"> Explicitly permit protective-put additions outside CARRY (still manual review only)</label>
       <div class="candidate-tools">
-        <button data-find="qqqCall" data-symbol="QQQ" data-right="call" data-kind="vertical">Find QQQ Call Vertical</button>
+        <button data-find="qqqCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.16">Find QQQ Far Call-Credit</button>
+        <button data-find="qqqBearCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.10">Find QQQ Bear-Call Vertical</button>
         <button data-find="vxxCall" data-symbol="VXX" data-right="call" data-kind="vertical">Find VXX Call Vertical</button>
         <button data-find="vxxPut" data-symbol="VXX" data-right="put" data-kind="vertical">Find VXX Put Vertical</button>
         <button data-find="qqqPut" data-symbol="QQQ" data-right="put" data-kind="vertical">Find QQQ Put Vertical</button>
         <button data-find="qqqLongCall" data-symbol="QQQ" data-right="call" data-kind="long">Find QQQ Long Call</button>
-        <button data-find="qqqLongPut" data-symbol="QQQ" data-right="put" data-kind="long">Find QQQ Long Put</button>
+        <button data-find="qqqLongPut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.25">Find QQQ Long Put</button>
+        <button data-find="qqqProtectivePut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.35">Find QQQ Protective Put</button>
         <button data-find="qqqCoveredCall" data-symbol="QQQ" data-right="call" data-kind="short">Find Covered Call</button>
         <button id="findHubResearchBtn" class="primary">Find Hub Research Packages</button>
         <label class="small-label">Target DTE <input id="targetDte" type="number" min="14" max="120" step="1" value="45"></label>
