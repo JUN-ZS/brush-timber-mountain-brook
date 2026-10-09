@@ -48,3 +48,16 @@ The Option Chain Lab's loaded screenshot sample now follows the canonical fixtur
 ## Measurable external-evidence scoring
 
 The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CONTRACT.md) defines a pre-registered 0–12 evidence triage score and separate Accuracy / Generality / Integration gates. The source scores prioritize replication effort only; they are not a probability that an author's claim is true and cannot override missing instrument-matched historical quote data.
+
+
+## OCC VXX adjustment detail (July–August 2024)
+
+- [OCC Memo #54913](https://infomemo.theocc.com/infomemos?number=54913) says existing VXX/1VXX option roots changed to VXX2/1VXX2 effective 2024-07-24, with 25 post-split VXX shares as the deliverable for that adjusted series; the premium multiplier remains 100.
+- [OCC Memo #54914](https://infomemo.theocc.com/infomemos?number=54914) and [Memo #54997](https://infomemo.theocc.com/infomemos?number=54997) describe the separate adjusted VXX1 series, whose later deliverable became 6 VXX shares plus $11.90 cash in lieu of 0.25 share.
+- These are adjustment memos for specific adjusted roots, **not a claim that every current VXX option has those deliverables**. The APP must capture the actual option root / contract symbol before applying payoff arithmetic. Underlying label VXX alone is insufficient to classify a contract.
+
+## Free historical VXX chain coverage probe
+
+- [DoltHub post-no-preference/options](https://www.dolthub.com/repositories/post-no-preference/options) is a public community-maintained candidate with a SQL API. Public documentation reports irregular/filtered snapshots; the presence of VXX at required historical checkpoints has not been independently confirmed from this web environment because direct SQL API responses were not accessible.
+- The Windows-runnable script `probe_dolthub_vxx_options.py` checks 2019-03-04, 2020-03-16, 2022-06-13, 2024-08-05, 2025-04-07 and 2026-07-07. It records rows returned, expiries, two-sided quote quality and samples. Network/API errors are INCONCLUSIVE, not proof of absence.
+- Even if data rows are found, the public table schema does not establish executable fills or OCC adjusted deliverables. The probe can nominate a research source; it cannot clear the trade-replay gate.
