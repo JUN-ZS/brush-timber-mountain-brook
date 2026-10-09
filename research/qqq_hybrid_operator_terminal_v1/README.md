@@ -90,6 +90,24 @@ The number of contracts is bounded by both the individual leg budget and the sha
 - The legacy N:X hedge result is per campaign, not portfolio-wide capacity, and is never presented as max-loss-capped.
 - Public Yahoo option quotes may be delayed/incomplete and are not guaranteed executable; verify broker bid/ask, expiry, adjusted contracts and fills.
 
+## Hub-researched structures (separate research workbench)
+
+Open \`http://127.0.0.1:8790/hub_research_pack.html\` from the same local server. This is a dedicated add-on to the original four-layer Hybrid, not a replacement for it.
+
+It prioritizes structures that already have Hub research code / frozen geometry rather than treating every standard option strategy as equally researched:
+
+- **Ratio-Call HARVEST50 V1**: \`+1 ATM Call - N OTM Short Calls + N farther-OTM Call Wings\`. The approach/reversal harvest needs both the event sequence and positive pair P&L from observed exit quotes; missing exit quotes cannot be treated as zero-price fills.
+- **Risk-Budget Dynamic-N V2**: entry N is selected from N=1..4 by the entry terminal-payoff risk proxy and available budget; each +0.15 step from the 0.20 short-call delta target removes a pair. At/above 25% package-risk consumption the frozen downside pair target also applies.
+- **Fresh-Pair Dynamic-N V7**: starts with its frozen N=2 campaign, caps at N=4; add requires short delta <=0.10 for two sessions, a five-session change cooldown, and the resulting entry-risk proxy inside budget. Reduction / approach-state decisions are exposed as operator-entered state inputs, not inferred from a future bar.
+- **State-Adaptive Geometry**: \`+1 ~50Δ Call -2 ~20Δ Calls +2 ~8Δ farther call wings +1 ~25Δ Long Put -1 ~10Δ farther-OTM Short Put\`. A supplied prior close >= anchor + 1×ATR20 flags a wave; the target short-call delta steps 0.20→0.30→0.40 and short-put absolute delta 0.10→0.05 while the other frozen legs remain unchanged.
+- **Staggered Stack**: the same static per-vintage package under fixed 1 / 2 / 4 overlapping-vintage caps. This is distinct from strike migration within one vintage; all layers consume the shared risk amount entered on this page.
+- **SHOCK-GATED put debit spread**: \`+1 higher-strike Long Put -1 farther-OTM Short Put\`; the frozen trigger is trailing 252-session drawdown <= -8% OR 5-session return <= -4%. No target is permitted before the trigger, and the observed Long Put Ask minus Short Put Bid must be a positive debit.
+- **Universal Harvest Bank**: optional ISOLATED risk-rights gate uses one realized positive N>2 Risk-WIN seed; later wins are ignored and later losses consume the balance. \`REPLENISH\` exists only as a comparison mode. The research README explicitly treats this Bank as a *risk currency*, not NAV, uncommitted cash, margin or broker collateral; it is a counterfactual rights/lifetime experiment, not a guarantee of repeatable live deployment.
+
+Entry risk is calculated from the selected leg Bid/Ask and an expiry-payoff node proxy. It is not a daily MTM maximum-loss guarantee and does not replace the canonical historical real-chain backtest. The chain loader uses the server's public Yahoo option endpoint; quotes may be delayed/incomplete and a missing candidate remains pending. Provider Delta is labelled separately from Black-Scholes-estimated Delta.
+
+Capital safety boundary: the page computes **one selected research structure at a time**. Enter the existing Hybrid legs' already-reserved option risk in “base Hybrid option risk reserved” before using the remaining pool. This page is not yet automatically synchronized with the primary desk's holdings or allocations; do not add independent “maximum” values from both screens together. All actions remain what-if/manual review; no broker order route is present.
+
 ## Tests
 
 Run locally in Windows CMD:
