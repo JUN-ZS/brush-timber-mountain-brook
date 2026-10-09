@@ -40,8 +40,10 @@ jobs:
           node --check research\qqq_hybrid_operator_terminal_v1\app.js || exit /b 1
           node --check research\qqq_hybrid_operator_terminal_v1\hub_research_pack.js || exit /b 1
           node --check research\qqq_hybrid_operator_terminal_v1\hub_research_pack_ui.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\option_chain_lab.js || exit /b 1
           node research\qqq_hybrid_operator_terminal_v1\tests\engine.test.cjs || exit /b 1
           node research\qqq_hybrid_operator_terminal_v1\tests\hub_research_pack.test.cjs || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\chain_lab.test.cjs || exit /b 1
 
       - name: Python server syntax
         run: |
@@ -49,7 +51,7 @@ jobs:
 
       - name: Static asset / boundary contract
         run: |
-          py -3 -c "from pathlib import Path; p=Path('research/qqq_hybrid_operator_terminal_v1'); required=['index.html','app.js','engine.js','styles.css','server.py','README.md','hub_research_pack.html','hub_research_pack.js','hub_research_pack_ui.js','tests/engine.test.cjs','tests/hub_research_pack.test.cjs','tests/fixtures/user_uploaded_option_chain_2026-11-20.json']; missing=[x for x in required if not (p/x).is_file()]; assert not missing, 'missing files: '+repr(missing); s=(p/'server.py').read_text(encoding='utf-8'); assert 'place_order' not in s and 'unlock_trade' not in s and '/api/journal' in s; e=(p/'engine.js').read_text(encoding='utf-8'); assert e.count('mainBudgetEligible: true') == 2; h=(p/'index.html').read_text(encoding='utf-8'); assert 'current-qqqShares' in h and 'current-vxxShortShares' in h and 'Set current quantity = 1000' in h and 'OUTSIDE MAIN BUDGET' in h; assert 'proDashboard' in h and 'proRiskDonut' in h and 'proAllocationRows' in h; assert 'vxxPutRiskPct' not in h and 'data-find=' + chr(34) + 'vxxPut' + chr(34) not in h; a=(p/'app.js').read_text(encoding='utf-8'); assert 'function renderProDashboard(result, input)' in a and 'renderProDashboard(result, input)' in a and 'vxxPutRiskPct:p.' not in a; print('terminal_asset_contract=PASS')" || exit /b 1
+          py -3 -c "from pathlib import Path; p=Path('research/qqq_hybrid_operator_terminal_v1'); required=['index.html','app.js','engine.js','styles.css','server.py','README.md','hub_research_pack.html','hub_research_pack.js','hub_research_pack_ui.js','tests/engine.test.cjs','tests/hub_research_pack.test.cjs','tests/fixtures/user_uploaded_option_chain_2026-11-20.json','option_chain_lab.html','option_chain_lab.js','tests/chain_lab.test.cjs']; missing=[x for x in required if not (p/x).is_file()]; assert not missing, 'missing files: '+repr(missing); s=(p/'server.py').read_text(encoding='utf-8'); assert 'place_order' not in s and 'unlock_trade' not in s and '/api/journal' in s; e=(p/'engine.js').read_text(encoding='utf-8'); assert e.count('mainBudgetEligible: true') == 2; h=(p/'index.html').read_text(encoding='utf-8'); assert 'current-qqqShares' in h and 'current-vxxShortShares' in h and 'Set current quantity = 1000' in h and 'OUTSIDE MAIN BUDGET' in h; assert 'proDashboard' in h and 'proRiskDonut' in h and 'proAllocationRows' in h; lab=(p/'option_chain_lab.html').read_text(encoding='utf-8'); assert 'QQQ / VXX Option Chain Lab' in lab and 'option_chain_lab.js' in lab; assert 'vxxPutRiskPct' not in h and 'data-find=' + chr(34) + 'vxxPut' + chr(34) not in h; a=(p/'app.js').read_text(encoding='utf-8'); assert 'function renderProDashboard(result, input)' in a and 'renderProDashboard(result, input)' in a and 'vxxPutRiskPct:p.' not in a; print('terminal_asset_contract=PASS')" || exit /b 1
 
       - name: Write QA summary
         run: |
