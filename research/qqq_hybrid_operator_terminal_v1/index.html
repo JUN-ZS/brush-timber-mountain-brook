@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QQQ Hybrid Operator Terminal V1</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <div class="eyebrow">ORIGINAL HYBRID · OPERATOR WORKBENCH</div>
+      <h1>QQQ Hybrid Operator Terminal</h1>
+      <p class="subtitle">DATA → REGIME → CAPACITY → CURRENT / TARGET → MANUAL REVIEW</p>
+    </div>
+    <div class="top-actions">
+      <span class="tag danger">PREVIEW ONLY · NO BROKER ORDERS</span>
+      <button id="refreshBtn" class="primary">Refresh V3 Data</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="notice">
+      <b>Reverse sizing:</b> Enter an intentionally excessive current quantity such as 1000. The desk compares it with the market-state and budget-derived capacity and shows the target, reduction amount, and reason. This is a calculation preview, not an order ticket.
+      <small>V3 market context is read-only. The V3 reference profile is editable and only a what-if template; confirm current cash, budgets, positions and quotes yourself.</small>
+    </section>
+
+    <section class="grid market-grid">
+      <article class="card market-card">
+        <div class="section-head">
+          <h2>1 · MARKET SNAPSHOT</h2>
+          <span id="marketBadge" class="tag warn">WAITING FOR DATA</span>
+        </div>
+        <div class="snapshot-grid">
+          <label>QQQ spot <input id="mQqq" type="number" step="0.01" placeholder="V3 or manual"></label>
+          <label>VXX spot <input id="mVxx" type="number" step="0.01" placeholder="V3 or manual"></label>
+          <label>VIX <input id="mVix" type="number" step="0.01" placeholder="V3 or manual"></label>
+          <label>VX M1 <input id="mM1" type="number" step="0.0001" placeholder="front month"></label>
+          <label>VX M2 <input id="mM2" type="number" step="0.0001" placeholder="second month"></label>
+          <label>Term slope <input id="mSlope" type="text" readonly value="—"></label>
+          <label>Spot as-of <input id="mSpotAsOf" type="date"></label>
+          <label>Term as-of <input id="mTermAsOf" type="date"></label>
+          <label>Today <input id="mToday" type="date"></label>
+        </div>
+        <div id="marketMeta" class="muted">No snapshot loaded. Missing or stale required data blocks sizing recommendations.</div>
+        <div id="marketReason" class="reason">Start V3 on port 8788, then refresh. Manual fields are available for explicitly verified snapshots.</div>
+      </article>
+
+      <article class="card decision-card">
+        <div class="section-head">
+          <h2>2 · REGIME GATE</h2>
+          <span class="tag">READ ONLY / DERIVED</span>
+        </div>
+        <div id="stateName" class="state-name">DATA BLOCKED</div>
+        <p id="stateAction" class="state-action">HOLD · WAIT FOR DATA</p>
+        <div class="gate-grid">
+          <div><small>DATA</small><b id="gData">BLOCKED</b></div>
+          <div><small>VIX</small><b id="gVix">—</b></div>
+          <div><small>VX TERM</small><b id="gTerm">—</b></div>
+          <div><small>NEW RISK</small><b id="gAdds">BLOCKED</b></div>
+        </div>
+        <p class="muted">Policy: healthy contango + VIX below threshold permits build; thin contango holds new entries; high VIX/backwardation cuts volatility-seller exposure. QQQ core is not automatically liquidated by the volatility gate.</p>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>3 · CAPITAL AND RISK BUDGET</h2>
+        <span class="tag warn">OPERATOR INPUT · WHAT-IF</span>
+      </div>
+      <div class="controls-grid">
+        <label>NAV ($) <input id="nav" type="number" min="0" step="100" value="100000"></label>
+        <label>Available cash / risk pool ($) <input id="cashPool" type="number" min="0" step="100" value="100000"></label>
+        <label>QQQ core (% NAV) <input id="qqqCorePct" type="number" min="0" max="100" step="0.1" value="42"></label>
+        <label>VXX short normal (% NAV notional) <input id="vxxNormalPct" type="number" min="0" max="100" step="0.1" value="18"></label>
+        <label>VXX short high-VIX (% NAV notional) <input id="vxxHighPct" type="number" min="0" max="100" step="0.1" value="10"></label>
+        <label>Total option max-loss pool (% NAV) <input id="totalOptionRiskPct" type="number" min="0" max="100" step="0.1" value="3.2"></label>
+        <label>QQQ call-credit risk budget (% NAV) <input id="qqqCallRiskPct" type="number" min="0" max="100" step="0.1" value="1.2"></label>
+        <label>VXX call-credit risk budget (% NAV) <input id="vxxCallRiskPct" type="number" min="0" max="100" step="0.1" value="2"></label>
+        <label>VXX put-credit risk budget (% NAV) <input id="vxxPutRiskPct" type="number" min="0" max="100" step="0.1" value="0"></label>
+        <label>QQQ bull-put risk budget (% NAV) <input id="qqqBullPutRiskPct" type="number" min="0" max="100" step="0.1" value="0"></label>
+        <label>VIX high line <input id="vixHigh" type="number" min="1" max="100" step="1" value="28"></label>
+        <label>VX term safe line (%) <input id="termSafe" type="number" min="0" max="100" step="0.1" value="5"></label>
+        <label>Maximum term age (days) <input id="maxTermAgeDays" type="number" min="0" max="30" step="1" value="4"></label>
+      </div>
+      <div class="inline-actions">
+        <button id="v3ProfileBtn">Load V3 Reference Profile (Preview)</button>
+        <span class="muted">Profile values are not learned from historical CAGR and do not change broker holdings.</span>
+      </div>
+    </section>
+
+    <section class="grid two-col">
+      <article class="card">
+        <div class="section-head">
+          <h2>4 · SHARES: CURRENT → CAPACITY → ACTION TARGET</h2>
+          <span class="tag">OVER-CAP TRIM ALLOWED</span>
+        </div>
+        <div class="table-wrap">
+          <table class="decision-table">
+            <thead><tr><th>Leg</th><th>Current units</th><th>Capacity</th><th>Action target</th><th>Recommended delta</th></tr></thead>
+            <tbody id="shareRows"></tbody>
+          </table>
+        </div>
+        <p class="muted">QQQ adds are limited by available cash. VXX short-share capacity is not a hard loss cap; short stock can have unbounded upside loss.</p>
+      </article>
+      <article class="card">
+        <div class="section-head">
+          <h2>5 · REVERSE-SIZING QUICK TEST</h2>
+          <span class="tag warn">SIMULATION</span>
+        </div>
+        <label>Choose a position to test
+          <select id="testLeg">
+            <option value="qqqShares">QQQ core shares</option>
+            <option value="vxxShortShares">VXX short shares</option>
+            <option value="qqqCallSpreads">QQQ far call-credit spreads</option>
+            <option value="vxxCallSpreads">VXX call-credit spreads</option>
+            <option value="vxxPutSpreads">VXX put-credit spreads</option>
+            <option value="qqqBullPutSpreads">QQQ bull-put spreads</option>
+          </select>
+        </label>
+        <button id="test1000Btn" class="primary full">Set current quantity = 1000 (test only)</button>
+        <div id="testResult" class="test-result">Load a valid market snapshot and candidates first; the test does not represent actual holdings.</div>
+        <p class="muted">A missing/non-positive option quote stays PENDING. No received-credit-only sizing and no fabricated contract counts.</p>
+      </article>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>6 · HYBRID OPTION LEGS AND ALL DISCUSSED STRUCTURES</h2>
+        <span class="tag">NO AUTOMATIC ORDERS</span>
+      </div>
+      <div class="candidate-tools">
+        <button data-find="qqqCall" data-symbol="QQQ" data-right="call" data-kind="vertical">Find QQQ Call Vertical</button>
+        <button data-find="vxxCall" data-symbol="VXX" data-right="call" data-kind="vertical">Find VXX Call Vertical</button>
+        <button data-find="vxxPut" data-symbol="VXX" data-right="put" data-kind="vertical">Find VXX Put Vertical</button>
+        <button data-find="qqqPut" data-symbol="QQQ" data-right="put" data-kind="vertical">Find QQQ Put Vertical</button>
+        <button data-find="qqqLongCall" data-symbol="QQQ" data-right="call" data-kind="long">Find QQQ Long Call</button>
+        <button data-find="qqqLongPut" data-symbol="QQQ" data-right="put" data-kind="long">Find QQQ Long Put</button>
+        <label class="small-label">Target DTE <input id="targetDte" type="number" min="14" max="120" step="1" value="45"></label>
+      </div>
+      <div id="candidateRows" class="candidate-rows"></div>
+      <div class="table-wrap">
+        <table class="decision-table option-table">
+          <thead>
+            <tr><th>Strategy / leg</th><th>Current contracts</th><th>Risk budget % NAV</th><th>Risk / unit ($)</th><th>Enable add-on</th><th>Capacity</th><th>Action target</th><th>Recommendation</th></tr>
+          </thead>
+          <tbody id="optionRows"></tbody>
+        </table>
+      </div>
+      <div class="footnotes">
+        <p><b>Baseline Hybrid:</b> QQQ core shares, QQQ call-credit vertical, VXX short shares, VXX call-credit vertical.</p>
+        <p><b>Research add-ons:</b> VXX put-credit, QQQ bull-put / bear-call, covered call, protective put, long call / put / straddle, iron fly, iron condor, broken-wing butterfly and calendar.</p>
+        <p><b>Ratio strategies:</b> Hub Call Ratio / Put Ratio and the legacy N:near-long hedge are shown separately. Naked ratio tails are not hard-capped. A user-entered stress loss only creates a stress-budget estimate, never a hard max-loss promise.</p>
+        <p><b>Data boundary:</b> Option-chain candidates use public Yahoo chain data, which may be delayed/incomplete and is not a guaranteed executable quote. Verify strikes, bid/ask, expiry, contract adjustment and actual fills in OpenD/broker before use.</p>
+      </div>
+    </section>
+
+    <section class="grid two-col">
+      <article class="card">
+        <div class="section-head">
+          <h2>7 · LEGACY N:X HEDGE CAMPAIGN</h2>
+          <span class="tag danger">NO HARD MAX-LOSS CAP</span>
+        </div>
+        <label class="toggle"><input id="nxEnabled" type="checkbox"> Activate preview for one campaign (not a live order permission)</label>
+        <div class="controls-grid compact">
+          <label>Current far short contracts <input id="nxCurrentFar" type="number" min="0" value="0"></label>
+          <label>Current near long contracts <input id="nxCurrentNear" type="number" min="0" value="0"></label>
+          <label>Far abs delta <input id="nxFarDelta" type="number" min="0.01" max="1" step="0.01" value="0.08"></label>
+          <label>Near abs delta <input id="nxNearDelta" type="number" min="0.01" max="1" step="0.01" value="0.50"></label>
+          <label>Coverage multiplier <input id="nxCoverage" type="number" min="0" max="5" step="0.1" value="1.5"></label>
+          <label>Maximum near stack <input id="nxMaxStack" type="number" min="1" max="20" step="1" value="5"></label>
+          <label>Far short target / campaign <input id="nxNShort" type="number" min="1" max="100" step="1" value="10"></label>
+        </div>
+        <div id="nxResult" class="test-result">Current: 0 far / 0 near. Target is disabled until explicitly selected.</div>
+        <p class="muted">Near-long target follows ceil(coverage × far-contract target × |far delta| / |near delta|), capped by max stack. This does not hard-cap the residual far-short tail. Over-large current quantities are only compared with a per-campaign profile, not a portfolio-wide risk capacity.</p>
+      </article>
+      <article class="card">
+        <div class="section-head">
+          <h2>8 · PORTFOLIO READOUT</h2>
+          <span class="tag">AUDITABLE EXPLANATION</span>
+        </div>
+        <div id="summaryMetrics" class="metric-grid"></div>
+        <div id="summaryReasons" class="summary-reasons"></div>
+        <div class="inline-actions">
+          <button id="journalBtn" class="primary">Append Preview to Local Journal</button>
+          <button id="exportBtn">Export Current Plan JSON</button>
+        </div>
+        <div id="journalStatus" class="muted">Preview plans are local decision records only; no broker order or automatic position mutation exists.</div>
+      </article>
+    </section>
+  </main>
+  <footer>QQQ Hybrid Operator Terminal V1 · read-only V3 bridge · manual budget inputs · no broker order endpoint</footer>
+  <script src="engine.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
