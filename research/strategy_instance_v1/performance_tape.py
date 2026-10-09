@@ -28,10 +28,16 @@ def canonical_manual_action(strategy_ref):
     leg_action = str(ref.get("strategy_leg_action") or "").upper()
     top_action = str(ref.get("action") or "").upper()
     side = str(ref.get("side") or "").upper()
+    direction = str(ref.get("direction") or "").upper()
     if leg_action in STRATEGY_TO_MANUAL:
         return STRATEGY_TO_MANUAL[leg_action]
     if top_action in STRATEGY_TO_MANUAL:
         return STRATEGY_TO_MANUAL[top_action]
+    if top_action == "REPAIR_FAR":
+        if direction == "ADD" or side == "SELL":
+            return "SELL_FAR"
+        if direction == "REDUCE" or side == "BUY":
+            return "BUY_BACK_FAR"
     if top_action == "CLOSE_CAMPAIGN_EMERGENCY":
         if side == "BUY":
             return "BUY_BACK_FAR"
@@ -68,7 +74,7 @@ def _i(x):
         return 0
 
 
-def build_performance_tape(trades):
+def build_performance_tape(trades, baseline_lots=None):
     ordered = sorted(
         trades or [],
         key=lambda r: (str(r.get("timestamp_utc") or ""), _i(r.get("event_seq"))),
@@ -84,6 +90,29 @@ def build_performance_tape(trades):
     size_gap = 0
     unmatched_close_qty = 0
     observed_realized = 0.0
+    baseline_realized = 0.0
+    baseline_close_qty = 0
+
+    # T0 positions belong to the manual book but were not created by a
+    # USER_MANUAL decision in this tape. Queue them only for FIFO attribution
+    # so later closes do not become a false CHECK_REQUIRED mismatch.
+    for lot in baseline_lots or []:
+        q = _i(lot.get("qty"))
+        if q <= 0:
+            continue
+        side = str(lot.get("side") or "").upper()
+        if side not in {"LONG", "SHORT"}:
+            continue
+        code = str(lot.get("code") or "").upper()
+        if not code:
+            continue
+        queues.setdefault((code, side), []).append({
+            "trade_id": "BASELINE_T0:" + str(lot.get("lot_id") or code),
+            "qty": q,
+            "price": _f(lot.get("avg_price")) or 0.0,
+            "lot": max(1, _i(lot.get("lot_size")) or 100),
+            "rel": "BASELINE_T0",
+        })
 
     for n, t in enumerate(ordered, 1):
         action = str(t.get("action") or "").upper()
@@ -138,8 +167,12 @@ def build_performance_tape(trades):
                 take = min(rem, sl["qty"])
                 pnl = ((price - sl["price"]) if side == "LONG" else (sl["price"] - price)) * take * sl["lot"]
                 pnl = round(pnl, 4)
-                attributed[sl["rel"]] = round(attributed.get(sl["rel"], 0.0) + pnl, 4)
-                open_attr[sl["trade_id"]] = round(open_attr.get(sl["trade_id"], 0.0) + pnl, 4)
+                if sl["rel"] == "BASELINE_T0":
+                    baseline_realized = round(baseline_realized + pnl, 4)
+                    baseline_close_qty += take
+                else:
+                    attributed[sl["rel"]] = round(attributed.get(sl["rel"], 0.0) + pnl, 4)
+                    open_attr[sl["trade_id"]] = round(open_attr.get(sl["trade_id"], 0.0) + pnl, 4)
                 matched.append({
                     "open_trade_id": sl["trade_id"],
                     "qty": take,
@@ -206,10 +239,12 @@ def build_performance_tape(trades):
         "opening_counts": opening_counts,
         "closing_counts": closing_counts,
         "observed_realized": round(observed_realized, 4),
+        "baseline_t0_realized": round(baseline_realized, 4),
+        "baseline_t0_close_qty": baseline_close_qty,
         "attributed_realized": attributed,
-        "attribution_delta": round(observed_realized - sum(attributed.values()), 4),
+        "attribution_delta": round(observed_realized - baseline_realized - sum(attributed.values()), 4),
         "unmatched_close_qty": unmatched_close_qty,
-        "attribution_status": "CONSISTENT" if unmatched_close_qty == 0 and abs(observed_realized - sum(attributed.values())) < 0.01 else "CHECK_REQUIRED",
+        "attribution_status": "CONSISTENT" if unmatched_close_qty == 0 and abs(observed_realized - baseline_realized - sum(attributed.values())) < 0.01 else "CHECK_REQUIRED",
         "execution_slippage_estimate": round(slippage, 4),
         "size_gap_contracts": size_gap,
         "rows": rows,
