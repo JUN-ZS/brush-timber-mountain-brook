@@ -49,3 +49,8 @@ Windows self-hosted [Run #8](https://github.com/JUN-ZS/brush-timber-mountain-bro
 ## Next step: preselected multi-regime QQQ quote diagnostic
 
 The next audit version samples eight dates from the already hash-pinned 2020 and 2024 annual Parquet files: 2020-01-15, 2020-03-16, 2020-06-08, 2020-10-30, 2024-02-01, 2024-04-15, 2024-08-05 and 2024-11-06. They are intended to cover lower-volatility, shock, rebound/rotation and recovery contexts. This expands regime coverage without adding new annual-file downloads. Because the date set was chosen after reviewing initial results, it is a development diagnostic—not blind OOS. Report the row/quote quality and price-basis × IV-basis comparisons at each date; do not collapse these observations into a strategy CAGR claim.
+
+
+## Run #11: eight-date regime diagnostic
+
+[Windows self-hosted Run #11](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38005508316) passed all hash/source gates and all 8 preselected date queries. There were 4,712–8,560 option rows per date, with 89.76%–98.65% positive non-crossed two-sided quotes. Repo spot was 0.90%–3.73% below raw close on every date. The VIX proxy/source-IV ratio varied by regime (raw-target short leg 0.88×–1.62×, wing 0.84×–1.70×); on 2020-01-15, adjusted-input target Delta was 0.527/0.396 versus 0.143/0.075 for raw-spot target. This indicates regime-dependent error compensation, not validation. Raw output is pinned in QQQ_MULTI_REGIME_ALIGNMENT_RUN11.json; report and next-stage proposal are in QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md.

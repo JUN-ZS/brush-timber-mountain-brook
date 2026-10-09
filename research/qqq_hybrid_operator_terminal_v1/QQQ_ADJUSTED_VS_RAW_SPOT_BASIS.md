@@ -85,18 +85,56 @@ At raw close, repricing with the chain's per-leg IV reproduces snapshot midpoint
 
 The chain-IV conservative credit still sits above observed executable-side credit on the two 2020 examples by about $0.18 and $0.46 per share, while the 2024 examples are within about $0.025 and $0.008. With Section 4's spread data, this is consistent with the VIX-only spread haircut being too narrow on the shock-day quotes.
 
-## 6. What this establishes
+## 6. Eight-date price-basis × IV regime diagnostic — Run #11
+
+Windows self-hosted [Run #11](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38005508316) passed the byte-count/Git-blob checks for both annual option files and the underlying-price file, and passed the pinned repo universe/model source checks. All eight preselected dates returned QQQ option rows and matched a nearby 20–40 calendar DTE expiry. The rows are a development sample selected after inspecting the initial two dates; this is **not blind OOS** and not a strategy replay.
+
+| Date | VIX | Repo spot vs raw close | Raw-target short / wing Δ | Adjusted-target short / wing Δ | Proxy σ ÷ source IV, short / wing | Valid two-sided rows |
+|---|---:|---:|---:|---:|---:|---:|
+| 2020-01-15 | 12.42 | -3.7339% | 0.143 / 0.075 | 0.527 / 0.396 | 1.04× / 0.99× | 93.93% |
+| 2020-03-16 | 82.69 | -3.7338% | 0.044 / 0.008 | 0.092 / 0.011 | 1.62× / 1.70× | 89.76% |
+| 2020-06-08 | 25.81 | -3.5287% | 0.079 / 0.038 | 0.225 / 0.114 | 1.39× / 1.32× | 98.65% |
+| 2020-10-30 | 38.02 | -3.3610% | 0.070 / 0.027 | 0.173 / 0.070 | 1.35× / 1.28× | 97.14% |
+| 2024-02-01 | 13.88 | -1.3254% | 0.195 / 0.145 | 0.288 / 0.195 | 0.88× / 0.84× | 92.58% |
+| 2024-04-15 | 19.23 | -1.1949% | 0.136 / 0.084 | 0.245 / 0.136 | 1.09× / 1.09× | 93.66% |
+| 2024-08-05 | 38.57 | -1.0379% | 0.091 / 0.029 | 0.121 / 0.039 | 1.42× / 1.40× | 93.93% |
+| 2024-11-06 | 16.27 | -0.8988% | 0.145 / 0.088 | 0.215 / 0.124 | 1.10× / 0.98× | 95.72% |
+
+Eight daily chains held 4,712–8,560 option rows each; 89.76%–98.65% had a positive, non-crossed two-sided quote. For all eight dates, the repo's QQQ input series was below the public raw close by 0.8988%–3.7339%. Therefore its model target strikes were consistently shifted lower than targets generated from raw spot.
+
+The key regime effect is **error compensation**. On the quiet 2020-01-15 sample, the raw-target pair's actual Deltas were 0.143 / 0.075—close to the model targets 0.16 / 0.08—while the adjusted-target pair was 0.527 / 0.396. In the high-VIX 2020-03-16 sample, proxy-volatility was much higher than the per-leg source IV and the raw-target pair Deltas were only 0.044 / 0.008. On 2024-02-01, proxy/source-IV ratios fell below 1.0, so the proxy can also understate source IV in a quieter regime. Adjusted spot can accidentally offset an overly high IV proxy in some stress samples, and make the model appear better aligned; that is not evidence the adjusted price is appropriate for nominal option strikes.
+
+### Eight-date executable-credit cross-check using source IV
+
+The next table keeps the pair selected by the **raw-close target geometry** fixed. The “chain-IV model conservative credit” uses each leg's reported IV with the existing model half-spread haircut; it does not assume those quotes are independently verified or executable fills.
+
+| Date | Listed pair | Observed short Bid − wing Ask | Observed mid − mid | Chain-IV model conservative credit | Model minus observed executable-side credit |
+|---|---|---:|---:|---:|---:|
+| 2020-01-15 | 229C / 232C | $0.310 | $0.330 | $0.291 | $-0.019 |
+| 2020-03-16 | 223C / 240C | $0.180 | $0.410 | $0.362 | $0.182 |
+| 2020-06-08 | 262C / 267.5C | $0.200 | $0.225 | $0.274 | $0.074 |
+| 2020-10-30 | 304C / 315C | $0.390 | $0.425 | $0.410 | $0.020 |
+| 2024-02-01 | 441C / 445C | $0.610 | $0.670 | $0.507 | $-0.103 |
+| 2024-04-15 | 460C / 465C | $0.530 | $0.560 | $0.616 | $0.086 |
+| 2024-08-05 | 490C / 510C | $0.970 | $1.105 | $0.945 | $-0.025 |
+| 2024-11-06 | 532C / 541C | $0.890 | $0.930 | $0.564 | $-0.326 |
+
+This row-level comparison does **not** show a stable one-direction credit error after raw spot and source-reported IV are used: the eight-date model-minus-executable gap ranges from roughly -$0.103 to +$0.182 per share (depending on date and selected pair). However, it still inherits a model-derived half-spread and the IV field may be computed from the same quote's mark/midpoint, so the close midpoint fit is not independent validation. It is a price-attribution diagnostic only.
+
+## 7. What this establishes
 
 **Measured:** on two source-pinned dates, the adjusted-close QQQ series differs from raw nominal QQQ close, changes target strikes, and changes the model mark for the exact same listed option pair. The preserved model's conservative credit estimates also sit substantially above observed EOD quote-credit arithmetic on these examples.
 
 **Not established:** which single factor explains the complete discrepancy; whether source-provided IV is exchange-authoritative; intraday 15:45 quotes; actual fills, commissions or slippage; full-period strategy results; or VXX option history. This is not a performance claim and does not authorize a strategy change.
 
-## 7. Required next step
+## 8. Required next step
 
-Expand from the first two dates to eight preselected dates across normal, shock, rebound and recovery regimes using the same pinned 2020/2024 annual files; then compare raw/adjusted spot, per-leg source IV, modeled half-spread and observed Bid/Ask at identical strikes. These dates are development diagnostics selected after the initial two-date result, not blind OOS. Keep the same required attribution matrix:
-- adjusted spot + VIX-derived proxy IV (current model basis);
-- raw spot + VIX-derived proxy IV;
-- adjusted spot + the two legs' source-reported IVs (diagnostic only);
-- raw spot + the two legs' source-reported IVs (diagnostic only).
+The next engineering/research step is a standalone QQQ option-layer replay—not a change to the live Hybrid:
 
-Report predicted short/wing values, modelled credit, observed midpoint credit and Bid−Ask execution-side credit side by side. Preserve the EOD / preservation-mirror caveat. Only after this attribution should a separate raw-spot replay be proposed; do not change main, frozen sizing, VXX policy, or broker-order behavior.
+1. Keep the QQQ equity core's total-return accounting series separate from the **raw nominal QQQ spot** used for option strikes, Black–Scholes marks and payoff calculations. Record the raw/adjusted transformation and reconcile dividends/corporate actions explicitly; do not silently swap the stock accounting series.
+2. Compare three IV/quote modes on identical contract IDs: current VIX-derived proxy (MODEL_ONLY), reported per-leg IV with its source and circularity caveat (DIAGNOSTIC_ONLY), and historical observed leg Bid/Ask where the dataset supplies them. Do not call a mid-price match independent validation if the IV may be reverse-solved from the same quote.
+3. Model liquidity per leg. Use actual historical short Bid and protective-wing Ask for the EOD diagnostic; for full-period daily replay, either verify the snapshot-to-decision-time convention or apply a pre-registered adverse-fill rule whose slippage is not narrower than observed spreads. Flag missing/zero/crossed quotes instead of synthesizing executable fills.
+4. Add a separate `QQQ_CALL_CREDIT_RAW_SPOT_REPLAY_V1` report over a continuous date range only after confirming the public dataset's annual coverage and contract mapping. Keep VXX option P&L as `DERIVED_BS_VIX / NOT_OPRA`; do not imply the QQQ mirror provides VXX history.
+5. Compare paired no-QQQ-option baseline vs QQQ-call-credit variants over exactly the same dates, cash accounting, costs and corporate-action handling. The eight selected dates are development evidence, not final OOS; any later split in the familiar 2018–2025 span must be labelled previously exposed, not a virgin lockbox.
+
+No merge, frozen-policy change, or broker-order permission is implied by this research step.

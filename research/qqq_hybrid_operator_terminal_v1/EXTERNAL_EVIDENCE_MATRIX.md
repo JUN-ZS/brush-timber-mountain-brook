@@ -118,3 +118,13 @@ The same matched pairs show actual option half-spread/mid of 42.55% / 50.00% (sh
 ## Next step: preselected multi-regime QQQ quote diagnostic
 
 The next audit version samples eight dates from the already hash-pinned 2020 and 2024 annual Parquet files: 2020-01-15, 2020-03-16, 2020-06-08, 2020-10-30, 2024-02-01, 2024-04-15, 2024-08-05 and 2024-11-06. They are intended to cover lower-volatility, shock, rebound/rotation and recovery contexts. This expands regime coverage without adding new annual-file downloads. Because the date set was chosen after reviewing initial results, it is a development diagnostic—not blind OOS. Report the row/quote quality and price-basis × IV-basis comparisons at each date; do not collapse these observations into a strategy CAGR claim.
+
+
+## Run #11 — eight-date price-basis × IV regime diagnostic
+
+- Windows self-hosted [Run #11](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38005508316) passed. All 8 preselected dates returned QQQ chain rows (4,712–8,560 rows/date); 89.76%–98.65% had positive non-crossed two-sided quotes. All three downloaded Parquet files and the repo model/universe blobs passed the recorded hash checks.
+- The repo QQQ input was 0.8988%–3.7339% below raw QQQ close on every tested date. The raw-target pair's actual short/wing Deltas varied from 0.044/0.008 (2020-03-16 shock) to 0.195/0.145 (2024-02-01 quiet regime). The adjusted-target pair on 2020-01-15 had Delta 0.527/0.396, versus 0.143/0.075 for the raw-target pair.
+- The VIX-derived proxy/source-IV ratios on raw-target pairs varied by regime: short-leg 0.88×–1.62×; wing 0.84×–1.70×. It therefore tends to overstate source-reported IV in higher-volatility samples but can understate it in a quieter sample. A single mapping cannot be presumed valid across states.
+- Repricing raw-target pairs with raw close and each leg's reported IV left a model-minus-observed executable-side gap ranging roughly -$0.103 to +$0.182/share across the eight dates. This is not independent validation (the IV may be derived from the same quote), nor proof of executable fills. It does show the mismatch depends on volatility regime and leg-level liquidity rather than one universal offset.
+- The eight dates were selected after the first two-date investigation; these are development diagnostics, not blind OOS or strategy-level returns. Detailed raw JSON: [QQQ_MULTI_REGIME_ALIGNMENT_RUN11.json](QQQ_MULTI_REGIME_ALIGNMENT_RUN11.json). The next proposed unit of work is a separate raw-spot QQQ option replay with per-leg execution treatment, not an integration change.
+
