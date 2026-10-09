@@ -35,8 +35,10 @@
     { key: "ironCondors", id: "IRON_CONDOR", label: "IRON CONDOR", family: "research", kind: "manualRisk", candidateKey: null, riskPctField: "ironCondorRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 12 },
     { key: "brokenWings", id: "BROKEN_WING", label: "BROKEN-WING BUTTERFLY", family: "research", kind: "manualRisk", candidateKey: null, riskPctField: "brokenWingRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 13 },
     { key: "calendars", id: "CALENDAR", label: "CALENDAR SPREAD", family: "research", kind: "manualDebit", candidateKey: null, riskPctField: "calendarRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 14 },
-    { key: "ratioCalls", id: "CALL_RATIO_1_N_1", label: "CALL RATIO 1:N:1", family: "research", kind: "stressOnly", candidateKey: null, riskPctField: "ratioCallRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 15 },
-    { key: "ratioPuts", id: "PUT_RATIO_1_N_1", label: "PUT RATIO 1:N:1", family: "research", kind: "stressOnly", candidateKey: null, riskPctField: "ratioPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 16 }
+    { key: "ratioCalls", id: "HUB_RATIO_CALL_HARVEST", label: "HUB RATIO-CALL HARVEST / DYNAMIC-N", family: "research", kind: "hubDefinedRisk", candidateKey: "hubRatioCall", riskPctField: "ratioCallRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 15 },
+    { key: "hubStateAdaptive", id: "HUB_STATE_ADAPTIVE_STACK", label: "HUB STATE-ADAPTIVE / STAGGERED PACKAGE", family: "research", kind: "hubDefinedRisk", candidateKey: "hubStateAdaptive", riskPctField: "hubStateAdaptiveRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 16 },
+    { key: "hubShockPuts", id: "HUB_SHOCK_GATED_PUT", label: "HUB SHOCK-GATED PUT DEBIT SPREAD", family: "research", kind: "hubDefinedRisk", candidateKey: "hubShockPut", riskPctField: "hubShockPutRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 17 },
+    { key: "ratioPuts", id: "PUT_RATIO_1_N_1", label: "PUT RATIO (STRESS-ONLY)", family: "research", kind: "stressOnly", candidateKey: null, riskPctField: "ratioPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 18 }
   ]);
 
   function num(value, fallback = null) {
@@ -108,12 +110,13 @@
     if (strategy.kind === "creditVertical") {
       if (candidate && [candidate.width, candidate.credit].every(v => Number.isFinite(num(v))) &&
           num(candidate.width) > 0 && num(candidate.credit) > 0 && num(candidate.credit) < num(candidate.width)) {
-        return { riskPerUnit: (num(candidate.width) - num(candidate.credit)) * 100, source: candidate.source || "OBSERVED_CHAIN", ready: true, reason: "Defined-risk vertical: (width − net credit) × 100." };
+        const riskPerUnit = (num(candidate.width) - num(candidate.credit)) * 100;
+        return { riskPerUnit, capitalPerUnitUsd: riskPerUnit, debitPerUnitUsd: -num(candidate.credit) * 100, source: candidate.source || "OBSERVED_CHAIN", ready: true, reason: "Defined-risk vertical: (width − net credit) × 100." };
       }
       return { riskPerUnit: null, source: "MISSING_CHAIN", ready: false, reason: "Need a valid same-expiry vertical and positive observable net credit; no sizing invented." };
     }
     if (strategy.kind === "debit") {
-      if (candidate && num(candidate.ask) > 0) return { riskPerUnit: num(candidate.ask) * 100, source: candidate.source || "OBSERVED_CHAIN", ready: true, reason: "Long option risk is the debit paid (ask × multiplier)." };
+      if (candidate && num(candidate.ask) > 0) return { riskPerUnit: num(candidate.ask) * 100, capitalPerUnitUsd: num(candidate.ask) * 100, debitPerUnitUsd: num(candidate.ask) * 100, source: candidate.source || "OBSERVED_CHAIN", ready: true, reason: "Long option risk is the debit paid (ask × multiplier)." };
       return { riskPerUnit: null, source: "MISSING_CHAIN", ready: false, reason: "Need a positive observed option ask. No premium floor is fabricated." };
     }
     if (strategy.kind === "coveredCall") {
@@ -121,15 +124,23 @@
       return { riskPerUnit: null, source: "MISSING_CHAIN", ready: false, reason: "Need a positive short-call bid minus long-hedge ask / covered-call candidate." };
     }
     if (strategy.kind === "manualDebit") {
-      if (manual > 0) return { riskPerUnit: manual, source: "MANUAL_DEBIT_INPUT", ready: true, reason: "Manual debit / max loss per spread; verify the actual chain before use." };
+      if (manual > 0) return { riskPerUnit: manual, capitalPerUnitUsd: manual, debitPerUnitUsd: manual, source: "MANUAL_DEBIT_INPUT", ready: true, reason: "Manual debit / max loss per spread; verify the actual chain before use." };
       return { riskPerUnit: null, source: "PENDING_MANUAL_DEBIT", ready: false, reason: "Enter total debit per spread × multiplier; otherwise PENDING." };
     }
     if (strategy.kind === "manualRisk") {
-      if (manual > 0) return { riskPerUnit: manual, source: "MANUAL_DEFINED_RISK_INPUT", ready: true, reason: "Manual max loss per spread; verify strike geometry and net credit." };
+      if (manual > 0) return { riskPerUnit: manual, capitalPerUnitUsd: manual, source: "MANUAL_DEFINED_RISK_INPUT", ready: true, reason: "Manual max loss per spread; verify strike geometry and net credit." };
       return { riskPerUnit: null, source: "PENDING_MANUAL_RISK", ready: false, reason: "Enter the verified maximum loss per spread; otherwise PENDING." };
     }
+    if (strategy.kind === "hubDefinedRisk") {
+      const risk = num(candidate && (candidate.riskPerUnit ?? candidate.riskUsd));
+      if (candidate && candidate.ready !== false && risk !== null && risk > 0) {
+        const debit = num(candidate.debitUsd, 0);
+        return { riskPerUnit: Math.max(risk, Math.max(0, debit)), capitalPerUnitUsd: Math.max(risk, Math.max(0, debit)), debitPerUnitUsd: debit, source: candidate.source || "HUB_RESEARCH_ENTRY_PAYOFF_PROXY", ready: true, reason: candidate.reason || "Hub-researched package risk; one package is counted in the shared portfolio risk pool." };
+      }
+      return { riskPerUnit: null, capitalPerUnitUsd: null, source: "HUB_RESEARCH_CANDIDATE_PENDING", ready: false, reason: candidate?.error || "Run the Hub research-chain candidate lookup; missing prices do not create a capacity." };
+    }
     if (strategy.kind === "stressOnly") {
-      if (manual > 0) return { riskPerUnit: manual, source: "MANUAL_STRESS_ESTIMATE", ready: true, reason: "Stress-loss estimate only. Ratio tails remain unbounded; this is NOT a hard loss cap." };
+      if (manual > 0) return { riskPerUnit: manual, capitalPerUnitUsd: manual, source: "MANUAL_STRESS_ESTIMATE", ready: true, reason: "Stress-loss estimate only. Ratio tails remain unbounded; this is NOT a hard loss cap." };
       return { riskPerUnit: null, source: "UNBOUNDED_TAIL", ready: false, reason: "No finite hard max-loss figure is available for this ratio structure. Sizing remains PENDING." };
     }
     return { riskPerUnit: null, source: "UNSUPPORTED", ready: false, reason: "Unsupported sizing type." };
@@ -279,16 +290,46 @@
         rawCapacity = Math.floor((nav * budgetPct / 100) / risk.riskPerUnit);
         status = risk.source === "MANUAL_STRESS_ESTIMATE" ? "STRESS_ONLY" : (risk.source.startsWith("MANUAL") ? "MANUAL_RISK_INPUT" : "READY");
       }
-      working.push({ strategy, current, budgetPct, enabled, candidate, risk, rawCapacity, status, reason, sellerBlocked });
+      if (strategy.kind === "hubDefinedRisk" && candidate && candidate.gatePass === false) {
+        rawCapacity = 0;
+        status = "WAITING_FOR_GATE";
+        reason = candidate.reason || "The Hub research structure's entry gate has not fired.";
+      } else if (strategy.kind === "hubDefinedRisk" && candidate && Number.isFinite(num(candidate.maxUnits))) {
+        rawCapacity = Math.min(rawCapacity === null ? num(candidate.maxUnits) : rawCapacity, Math.max(0, whole(candidate.maxUnits)));
+      }
+      working.push({
+        strategy, current, budgetPct, enabled, candidate, risk, rawCapacity, status, reason, sellerBlocked,
+        requestedRiskBudgetUsd: Math.max(0, nav * budgetPct / 100),
+        allocatedRiskBudgetUsd: 0, capacity: rawCapacity
+      });
+    }
+
+    // Shared pool uses proportional allocation, not a priority queue. Each
+    // enabled/quoted strategy receives its share of the common risk pool based
+    // on its editable NAV percentage. If requested weights exceed the pool,
+    // every eligible strategy scales down by the same factor before integer
+    // contract rounding. Unquoted, disabled and gated-off legs reserve nothing.
+    const eligible = working.filter(item =>
+      item.enabled && item.budgetPct > 0 && item.rawCapacity !== null && item.rawCapacity > 0 &&
+      item.risk.ready && Number.isFinite(item.risk.riskPerUnit) && item.risk.riskPerUnit > 0 &&
+      item.strategy.kind !== "coveredCall" && !item.sellerBlocked
+    );
+    const totalRequestedRiskBudgetsUsd = eligible.reduce((sum, item) => sum + item.requestedRiskBudgetUsd, 0);
+    const riskScaleFactor = totalRequestedRiskBudgetsUsd > totalOptionRiskPool && totalRequestedRiskBudgetsUsd > 0
+      ? totalOptionRiskPool / totalRequestedRiskBudgetsUsd : 1;
+    for (const item of eligible) {
+      item.allocatedRiskBudgetUsd = item.requestedRiskBudgetUsd * riskScaleFactor;
+      item.capacity = Math.min(item.rawCapacity, Math.floor((item.allocatedRiskBudgetUsd + 1e-9) / item.risk.riskPerUnit));
     }
 
     let remainingRiskPool = totalOptionRiskPool;
     for (const item of working.sort((a, b) => a.strategy.priority - b.strategy.priority)) {
       const { strategy, current, budgetPct, risk, sellerBlocked } = item;
-      let capacity = item.rawCapacity;
+      let capacity = item.capacity;
       if (capacity !== null && capacity > 0 && risk.riskPerUnit > 0 && strategy.kind !== "coveredCall") {
-        const globalCap = Math.floor((remainingRiskPool + 1e-9) / risk.riskPerUnit);
-        capacity = Math.min(capacity, globalCap);
+        const actualRiskLimit = eligible.includes(item) ? item.allocatedRiskBudgetUsd : item.requestedRiskBudgetUsd;
+        capacity = Math.min(capacity, Math.floor((actualRiskLimit + 1e-9) / risk.riskPerUnit));
+        item.capacity = capacity;
         remainingRiskPool = Math.max(0, remainingRiskPool - capacity * risk.riskPerUnit);
       }
       let target, action, delta;
@@ -319,8 +360,11 @@
         current, capacity: capacity === null ? null : Math.max(0, capacity),
         target, delta, action,
         status: item.status,
-        riskBudgetUsd: nav * budgetPct / 100,
+        riskBudgetUsd: item.requestedRiskBudgetUsd,
+        allocatedRiskBudgetUsd: item.allocatedRiskBudgetUsd || (item.strategy.kind === "coveredCall" ? 0 : 0),
         riskPerUnit: risk.riskPerUnit,
+        capitalPerUnitUsd: risk.capitalPerUnitUsd ?? risk.riskPerUnit,
+        targetRiskReserveUsd: (risk.riskPerUnit && target > 0 && strategy.kind !== "coveredCall") ? risk.riskPerUnit * target : 0,
         riskSource: risk.source,
         candidateSource: item.candidate?.source || null,
         reason: sellerBlocked && !policyExit ? "No new seller entries in this market state; over-cap trimming remains allowed." : item.reason,
@@ -333,6 +377,7 @@
       ok: true,
       market, nav, cashPool, cashReservePct, cashReserveUsd, availableAfterReserve,
       totalOptionRiskPool, stockCapitalPool, vxxShortMarginMultiple,
+      totalRequestedRiskBudgetsUsd, riskScaleFactor, remainingRiskPool,
       qqqAdditionalCapitalUsd, qqqTargetNotionalUsd, vxxAdditionalMarginUsd,
       vxxTargetMarginUsd, vxxTargetNotionalUsd,
       optionRiskReservedAtTargets: results.filter(r => r.riskPerUnit && r.target > 0 && r.strategyKind !== "coveredCall").reduce((sum, r) => sum + r.riskPerUnit * r.target, 0),
