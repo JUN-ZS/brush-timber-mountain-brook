@@ -26,6 +26,28 @@ def strategy_fixture():
 
 
 class CurrentCapacityTests(unittest.TestCase):
+    def test_vxx_stock_and_call_sleeves_are_independently_switchable(self):
+        neither = LEG_CONFIGS["SLEEVE_NEITHER"]
+        stock = LEG_CONFIGS["SLEEVE_STOCK_ONLY_18_BORROW_0"]
+        calls = LEG_CONFIGS["SLEEVE_CALL_ONLY_2"]
+        both = LEG_CONFIGS["SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0"]
+        self.assertFalse(neither["include_vxx_short_stock"])
+        self.assertFalse(neither["include_vxx_calls"])
+        self.assertTrue(stock["include_vxx_short_stock"])
+        self.assertFalse(stock["include_vxx_calls"])
+        self.assertFalse(calls["include_vxx_short_stock"])
+        self.assertTrue(calls["include_vxx_calls"])
+        self.assertTrue(both["include_vxx_short_stock"])
+        self.assertTrue(both["include_vxx_calls"])
+        self.assertEqual(stock["vxx_short_notional_pct"], 18.0)
+        self.assertEqual(calls["vxx_call_risk_pct"], 2.0)
+        self.assertEqual(both["vxx_call_risk_pct"], 2.0)
+
+    def test_borrow_cost_scenarios_are_explicit_not_silent_defaults(self):
+        self.assertEqual(LEG_CONFIGS["SLEEVE_STOCK_ONLY_18_BORROW_0"]["vxx_short_borrow_annual_pct"], 0.0)
+        self.assertEqual(LEG_CONFIGS["SLEEVE_STOCK_ONLY_18_BORROW_3"]["vxx_short_borrow_annual_pct"], 3.0)
+        self.assertEqual(LEG_CONFIGS["SLEEVE_STOCK_ONLY_18_BORROW_10"]["vxx_short_borrow_annual_pct"], 10.0)
+        self.assertEqual(LEG_CONFIGS["SLEEVE_STOCK_ONLY_2_STRESS_BORROW_0"]["vxx_short_notional_pct"], 2.0)
     def test_research_matrix_contains_controlled_put_comparisons(self):
         self.assertEqual(
             (LEG_CONFIGS["CALL_ONLY_1PCT"]["vxx_call_risk_pct"], LEG_CONFIGS["CALL_ONLY_1PCT"]["vxx_put_risk_pct"]),
