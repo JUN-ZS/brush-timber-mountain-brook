@@ -88,3 +88,13 @@ The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CO
 - [Run #1 passed](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38002570136): 2020-03-16 option rows 5,760 / valid non-crossed two-sided 89.76% / 47 DTE-Delta diagnostic candidates; 2024-08-05 rows 7,704 / valid two-sided 93.93% / 25 candidates. All 2020, 2024 and underlying Parquet downloads passed exact byte count and Git blob SHA checks.
 - The 2020 diagnostic call candidates included spread/midpoint from 67.61% to 121.31%; selected 2024 samples ranged 7.62% to 15.53%. Hence source availability and quote validity are a lower bar than practical liquidity. Details: [QQQ_PUBLIC_EOD_AUDIT_RUN1_RESULTS.md](QQQ_PUBLIC_EOD_AUDIT_RUN1_RESULTS.md).
 - Decision: this mirror is presently usable to **cross-check QQQ EOD quote distributions only**. It does not establish 15:45 executable fills, strategy-level OOS returns, or any VXX option history. No policy integration based on row counts alone.
+
+
+## Run #5 — QQQ option nominal-spot basis / same-strike chain comparison
+
+- Windows self-hosted [Run #5](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38004657651) passed on the source-pinned model and universe blobs and compared two public EOD QQQ chain dates. Selected expiry was 32 calendar DTE on both days.
+- 2020-03-16: repo adjusted-series spot $162.9786 vs raw close $169.30 (-3.7338%); target strikes shift from 214.25/231.84 to 222.56/240.83 when raw close is used.
+- 2024-08-05: repo adjusted-series spot $430.8515 vs raw close $435.37 (-1.0379%); target strikes shift from 486.45/505.06 to 491.55/510.36 with raw close.
+- At exact same listed strikes, using raw close raises model credit by $0.33–$0.42/share. Yet proxy model credit remains materially higher than displayed short-Bid-minus-wing-Ask credit (about $0.96–$1.46/share above across selected pairs). Actual paired short-leg Deltas were 0.044–0.121 and wings 0.008–0.039 versus model target Deltas 0.16/0.08.
+- Interpretation: adjusted nominal price basis is a real contract-selection issue but not the only likely calibration error. Next add selected legs' source-reported IV and run a controlled spot-basis × IV-basis matrix at identical strikes; do not tune VIX→IV until the decomposition is measured. This two-date diagnostic is not a strategy-performance assertion.
+- Detailed report: [QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md](QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md).

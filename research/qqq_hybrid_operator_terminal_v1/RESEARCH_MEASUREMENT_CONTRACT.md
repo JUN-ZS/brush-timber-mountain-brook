@@ -16,6 +16,7 @@ Each change receives independent **Accuracy**, **Generality**, and **Integration
 | Invalid-input handling | Blank/zero/negative multiplier, blank/negative budget, invalid quantity | BLOCK/PENDING, no invisible defaults | Invalid input auto-converts to standard multiplier, budget, or 1 contract |
 | NAV attribution | Sum of layer P&L vs portfolio NAV change | Absolute reconciliation error <= $0.01 at every audited mark | Any unexplained difference > $0.01 |
 | Freshness | VX settlement age <= 4 calendar days; spot/VX as-of gap <= 2 calendar days; future/invalid source dates blocked | 100% of used source rows pass | Stale/mixed data can produce ADD/BUY sizing |
+| Option underlying price basis | Historical option strikes/marks/payoffs use contemporaneous raw nominal spot on the same contract basis, or an explicit corporate-action transformation is documented | 100% of option-pricing rows have raw/nominal spot provenance or a versioned transformation | Adjusted-close stock series is passed into option strike, delta, premium, or payoff formulas without a documented transformation |
 | Contract deliverable | Verified OCC/clearing contract ID, multiplier, share deliverable, cash component and applicable effective date | 100% of contracts used as trade-ready have verified terms | Unverified adjusted VXX contract treated as a standard 100-share contract |
 
 Scoring guide: 100 = all hard gates pass. 90–99 = no critical fail, only disclosed non-trade-critical metadata warnings. Below 90 = research-only. Any BLOCK row overrides the numeric average.
@@ -92,6 +93,7 @@ If the data cannot support a measure, write UNAVAILABLE or INSUFFICIENT_SAMPLE; 
 - Historical options replay in PR #98 uses DERIVED_BS_VIX marks, not a full historical OPRA quote-and-fill replay.
 - VXX stock borrow rate of 3% is an assumed planning input, not verified historical broker data.
 - The uploaded chain fixture is an observed transcription of visible rows only. Its exact quote timestamp and contract deliverable are not verified.
+- Run #5 confirmed the historical QQQ option layer's input row.qqq comes from a series labelled adjusted close. It shifts target strikes by $5–$9 on two fixed EOD checkpoints and the same-listed-strike model credits by $0.33–$0.42/share. The model-to-quote gap is larger than this isolated spot-basis effect; selected per-leg source IVs must now be captured before attributing the rest.
 - Underlying daily data through 2026-09-04 cannot substitute for a full VXX historical option chain.
 - The 2018–2026 range already reviewed in prior research PRs #97/#98 is not a virgin, untouched final lockbox. A later 60/20/20 split within that same familiar range may be a chronological holdout for a new, pre-specified comparison, but it must be labelled previously exposed / development-revisit rather than blind OOS. Claim a true untouched lockbox only for data or dates that were not used to design, select, or tune the candidate.
 - None of the thresholds above changes the frozen Original Hybrid policy or grants broker-order permission.

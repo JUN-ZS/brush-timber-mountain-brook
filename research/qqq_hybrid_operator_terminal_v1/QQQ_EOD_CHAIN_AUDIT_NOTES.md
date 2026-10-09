@@ -34,3 +34,8 @@ For each date, the audit reports option rows, call/put counts, percentage of row
 - The probe found 47 and 25 call rows respectively within 30–60 calendar DTE and absolute delta 0.03–0.10. That is a diagnostic candidate count, not a recommended portfolio position.
 - Examples on 2020-03-16 had 68–121% spread/midpoint, including zero-volume / zero-OI quotes; the selected examples on 2024-08-05 had 7.62–15.53% spread/midpoint. This supports separating two-sided quote validity from executable liquidity and fill realism.
 - Detailed report: [QQQ_PUBLIC_EOD_AUDIT_RUN1_RESULTS.md](QQQ_PUBLIC_EOD_AUDIT_RUN1_RESULTS.md). The source is an EOD preservation mirror, QQQ only; it is not VXX history, not intraday 15:45 data, and not a strategy backtest.
+
+
+## Run #5 follow-up: exact listed-contract comparison
+
+[Windows self-hosted Run #5](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38004657651) passed source blob pins and compared the preserved QQQ model with same-date public EOD chain contracts. Full results and caveats are in [QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md](QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md). Key finding: at identical listed strikes, replacing the repo adjusted-series spot with raw close raises the model's conservative credit by $0.33–$0.42/share; however the raw-close proxy mark remains around $1.30–$1.46/share above the snapshot's short-Bid-minus-wing-Ask credit on the raw-target pairs. The nominal-price correction is real but not sufficient. The next probe must include exact per-leg source IV and isolate spot basis from the VIX→QQQ-IV proxy; no strategy replay or policy change is approved from two dates.
