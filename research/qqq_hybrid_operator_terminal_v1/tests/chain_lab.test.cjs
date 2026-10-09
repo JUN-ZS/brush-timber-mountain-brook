@@ -1,6 +1,10 @@
 "use strict";
 const assert = require("node:assert/strict");
-const Lab = require("../option_chain_lab.js");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const sandbox = { module: { exports: {} } };
+vm.runInNewContext(fs.readFileSync(require.resolve("../option_chain_lab.js"), "utf8"), sandbox, { filename: "option_chain_lab.js" });
+const Lab = sandbox.module.exports;
 const s = Lab.SAMPLE;
 function near(a,b,label){assert.ok(Math.abs(a-b)<1e-8,label+": expected "+b+", got "+a);}
 const call = Lab.calculateVerticals("QQQ_CALL",s.chains.QQQ_CALL,100,3200);
