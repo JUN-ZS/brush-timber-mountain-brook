@@ -104,3 +104,12 @@ The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CO
 
 The same matched pairs show actual option half-spread/mid of 42.55% / 50.00% (short / wing) and 43.23% / 44.44% on 2020-03-16, versus the model haircut of 7.84%. On 2024-08-05, matched-pair leg ratios were 4.44% / 19.44% and 3.65% / 4.85%, versus model haircut 4.31%. The 2020 shock quote set and one 2024 wing demonstrate that a uniform VIX-only haircut is not sufficient for execution realism. Use observed leg Bid/Ask where available; otherwise label the fill assumption synthetic and stress it adversely.
 
+
+
+## Run #8 — source-reported per-leg IV attribution (not independent validation)
+
+- Selected-pair short-leg proxy σ / reported IV ratios were 1.37×–1.62×; wing ratios were 1.40×–1.77× across the two fixed dates. Example: 2020-03-16 raw-target pair's proxy σ was 84.84% / 80.37%, while the source-reported leg IVs were 52.22% / 47.34%; 2024-08-05 raw-target pair was 39.57% / 37.49% proxy versus 27.83% / 26.85% chain IV.
+- Using raw close and chain-reported per-leg IV, model midpoint credit came close to snapshot midpoint credit in all four matched pairs. This may be circular because the source IV may be calculated from the same quote's mark/mid; the IV calculation provenance is not independently verified. Do not call this independent validation.
+- With the VIX-derived spread haircut left unchanged, chain-IV conservative credit was still above observed short-Bid/wing-Ask credit by ~$0.18 / $0.46 per share on the two 2020 pairs, but within ~$0.025 / $0.008 on the two 2024 pairs. This aligns with the spread diagnostic: on the 2020 shock sample, observed leg spreads were far wider than the model haircut.
+- Detailed raw output is pinned at [QQQ_MODEL_PRICE_ALIGNMENT_RUN8.json](QQQ_MODEL_PRICE_ALIGNMENT_RUN8.json); report tables are in [QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md](QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md). Both remain two-date development diagnostics, not a strategy backtest or blind OOS result.
+

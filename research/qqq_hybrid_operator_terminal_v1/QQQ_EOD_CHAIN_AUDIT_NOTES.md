@@ -39,3 +39,8 @@ For each date, the audit reports option rows, call/put counts, percentage of row
 ## Run #5 follow-up: exact listed-contract comparison
 
 [Windows self-hosted Run #5](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38004657651) passed source blob pins and compared the preserved QQQ model with same-date public EOD chain contracts. Full results and caveats are in [QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md](QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md). Key finding: at identical listed strikes, replacing the repo adjusted-series spot with raw close raises the model's conservative credit by $0.33–$0.42/share; however the raw-close proxy mark remains around $1.30–$1.46/share above the snapshot's short-Bid-minus-wing-Ask credit on the raw-target pairs. The nominal-price correction is real but not sufficient. The next probe must include exact per-leg source IV and isolate spot basis from the VIX→QQQ-IV proxy; no strategy replay or policy change is approved from two dates.
+
+
+## Run #8: per-leg IV attribution
+
+Windows self-hosted [Run #8](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38005010981) passed the pinned file/source hash checks, pairing tests, and QQQ EOD chain audit with per-leg source IVs. Proxy IV was 1.37×–1.62× source IV for selected short legs and 1.40×–1.77× for wings. Raw-spot repricing with source IV reproduced the source's midpoint values closely, but this is not independent validation because IV may have been calculated from the same quote mark. The model spread haircut remained far too narrow on the 2020 shock-day legs; see QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md and raw JSON QQQ_MODEL_PRICE_ALIGNMENT_RUN8.json. Do not promote any strategy result from this two-date probe.
