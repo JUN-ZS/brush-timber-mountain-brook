@@ -24,7 +24,7 @@
     { key: "vxxPutSpreads", id: "VXX_PUT_CREDIT", label: "VXX PUT-CREDIT", family: "research", kind: "creditVertical", candidateKey: "vxxPut", riskPctField: "vxxPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 3 },
     { key: "qqqBullPutSpreads", id: "QQQ_BULL_PUT", label: "QQQ BULL-PUT CREDIT", family: "research", kind: "creditVertical", candidateKey: "qqqPut", riskPctField: "qqqBullPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 4 },
     { key: "qqqBearCallSpreads", id: "QQQ_BEAR_CALL", label: "QQQ BEAR-CALL CREDIT", family: "research", kind: "creditVertical", candidateKey: "qqqCall", riskPctField: "qqqBearCallRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 5 },
-    { key: "coveredCalls", id: "COVERED_CALL", label: "COVERED CALL", family: "research", kind: "coveredCall", candidateKey: "qqqCall", riskPctField: "coveredCallRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 6 },
+    { key: "coveredCalls", id: "COVERED_CALL", label: "COVERED CALL", family: "research", kind: "coveredCall", candidateKey: "qqqCoveredCall", riskPctField: "coveredCallRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 6 },
     { key: "protectivePuts", id: "QQQ_PROTECTIVE_PUT", label: "QQQ PROTECTIVE PUT", family: "research", kind: "debit", candidateKey: "qqqLongPut", riskPctField: "protectivePutRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 7 },
     { key: "longCalls", id: "LONG_CALL", label: "LONG CALL", family: "research", kind: "debit", candidateKey: "qqqLongCall", riskPctField: "longCallRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 8 },
     { key: "longPuts", id: "LONG_PUT", label: "LONG PUT", family: "research", kind: "debit", candidateKey: "qqqLongPut", riskPctField: "longPutRiskPct", defaultRiskPct: 0, seller: false, baseline: false, priority: 9 },
@@ -410,6 +410,30 @@
     };
   }
 
+  function findShortCall(payload, spot, targetDte = 45, targetAbsDelta = 0.16, asOf = null) {
+    if (!Number.isFinite(spot) || spot <= 0) return null;
+    const nowMs = asOf ? Date.parse(String(asOf) + "T00:00:00Z") : Date.now();
+    const rows = normalizeOptionChain(payload, "call").map(x => {
+      const exp = expiryMs(x.expiration ?? x.expiry ?? x.expirationDate);
+      const dte = num(x.days, Number.isFinite(exp) ? (exp-nowMs)/86400000 : null);
+      const strike = num(x.strike), bid = num(x.bid), ask = num(x.ask), iv = num(x.impliedVolatility), rawDelta = num(x.delta);
+      const delta = rawDelta !== null ? rawDelta : estimateDelta(spot, strike, dte, iv, "call");
+      return { ...x, expiryMs: exp, expiry: Number.isFinite(exp) ? new Date(exp).toISOString().slice(0,10) : null, dte, strike, bid, ask, iv, delta, deltaSource: rawDelta !== null ? "PROVIDER_DELTA" : "BS_ESTIMATE" };
+    }).filter(x => Number.isFinite(x.expiryMs) && Number.isFinite(x.dte) && x.dte >= 14 && x.dte <= 120 &&
+      Number.isFinite(x.strike) && x.strike >= spot && Number.isFinite(x.bid) && x.bid > 0 &&
+      Number.isFinite(x.ask) && x.ask >= x.bid && Number.isFinite(x.delta) && x.delta > 0 && x.delta <= 0.35);
+    if (!rows.length) return null;
+    rows.sort((a,b) => Math.abs(a.dte-targetDte)-Math.abs(b.dte-targetDte) ||
+      Math.abs(Math.abs(a.delta)-targetAbsDelta)-Math.abs(Math.abs(b.delta)-targetAbsDelta) || a.strike-b.strike);
+    const x = rows[0];
+    return {
+      type: "coveredCall", right: "call", expiry: x.expiry, dte: x.dte,
+      strike: x.strike, shortBid: x.bid, ask: x.ask, delta: x.delta,
+      deltaSource: x.deltaSource, source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED",
+      candidateStatus: "REVIEW_BEFORE_USE"
+    };
+  }
+
   function findLongOption(payload, spot, right, targetDte = 45, targetAbsDelta = 0.25, asOf = null) {
     if (!Number.isFinite(spot) || spot <= 0 || !["call","put"].includes(right)) return null;
     const nowMs = asOf ? Date.parse(String(asOf) + "T00:00:00Z") : Date.now();
@@ -427,7 +451,7 @@
     return { right, expiry: x.expiry, dte: x.dte, strike: x.strike, ask: x.ask, delta: x.delta, deltaSource: x.deltaSource, source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED", candidateStatus: "REVIEW_BEFORE_USE" };
   }
 
-  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption };
+  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
   root.HybridOperatorEngineV1 = Engine;
   if (typeof module !== "undefined" && module.exports) module.exports = Engine;
 })(typeof globalThis !== "undefined" ? globalThis : this);

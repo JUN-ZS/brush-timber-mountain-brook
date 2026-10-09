@@ -185,7 +185,9 @@
       if (!(spot > 0)) throw new Error("spot missing; refresh V3 or enter a verified spot first");
       const candidate = button.dataset.kind === "vertical"
         ? E.findCreditVertical(payload, spot, right, targetDte, 0.16, $("mToday").value)
-        : E.findLongOption(payload, spot, right, targetDte, right === "put" ? 0.25 : 0.16, $("mToday").value);
+        : button.dataset.kind === "short"
+          ? E.findShortCall(payload, spot, targetDte, 0.16, $("mToday").value)
+          : E.findLongOption(payload, spot, right, targetDte, right === "put" ? 0.25 : 0.16, $("mToday").value);
       if (!candidate) throw new Error("No candidate with valid strikes, expiry and positive bid/ask credit/debit. No substitute price was invented.");
       candidate.chainRetrievedAt = payload.retrieved_at;
       candidates[key] = candidate;
@@ -206,7 +208,7 @@
       button.textContent = button.dataset.label || ({
         qqqCall: "Find QQQ Call Vertical", vxxCall: "Find VXX Call Vertical",
         vxxPut: "Find VXX Put Vertical", qqqPut: "Find QQQ Put Vertical",
-        qqqLongCall: "Find QQQ Long Call", qqqLongPut: "Find QQQ Long Put"
+        qqqLongCall: "Find QQQ Long Call", qqqLongPut: "Find QQQ Long Put", qqqCoveredCall: "Find Covered Call"
       }[key] || "Find Candidate");
     }
   }

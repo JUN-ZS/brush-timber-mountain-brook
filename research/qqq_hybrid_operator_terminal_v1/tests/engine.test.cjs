@@ -287,4 +287,28 @@ function row(result, key) {
   assert.equal(r.ratioCampaign.noHardLossCap, true);
 }
 
-console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 17 TEST GROUPS PASS");
+// Covered call uses a single short-call bid, not a call-spread credit, and is capped by owned shares.
+{
+  const expiry = Date.parse("2026-11-20T00:00:00Z") / 1000;
+  const calls = [
+    { expiration: expiry, days: 42, strike: 105, bid: 2.0, ask: 2.1, delta: 0.16 },
+    { expiration: expiry, days: 42, strike: 107, bid: 1.2, ask: 1.4, delta: 0.10 }
+  ];
+  const candidate = E.findShortCall({ calls }, 100, 45, 0.16, "2026-10-09");
+  assert.equal(candidate.type, "coveredCall");
+  assert.equal(candidate.shortBid, 2.0);
+  assert.equal(candidate.strike, 105);
+  const r = E.calculatePortfolio(base({
+    holdings: { qqqShares: 450, coveredCalls: 10 },
+    sizing: { ...base().sizing, coveredCallRiskPct: 1 },
+    candidates: { qqqCoveredCall: candidate },
+    permissions: { coveredCalls: true }
+  }));
+  assert.equal(row(r, "coveredCalls").capacity, 4);
+  assert.equal(row(r, "coveredCalls").target, 4);
+  assert.equal(row(r, "coveredCalls").delta, -6);
+  assert.equal(row(r, "coveredCalls").action, "REDUCE");
+  assert.equal(row(r, "coveredCalls").maxLossIsHardCap, false);
+}
+
+console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 18 TEST GROUPS PASS");
