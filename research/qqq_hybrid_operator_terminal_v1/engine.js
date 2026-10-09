@@ -21,9 +21,9 @@
   // Strategies discussed across Hybrid, Live Hedge and Hub. Research-only legs
   // are present for comparison, but never authorize entries by their presence.
   const OPTION_STRATEGIES = Object.freeze([
-    { key: "qqqCallSpreads", id: "QQQ_CALL_CREDIT", label: "QQQ FAR CALL / CALL-CREDIT", family: "hybrid", kind: "creditVertical", candidateKey: "qqqCall", riskPctField: "qqqCallRiskPct", defaultRiskPct: 1.2, seller: true, baseline: true, priority: 1 },
-    { key: "vxxCallSpreads", id: "VXX_CALL_CREDIT", label: "VXX CALL-CREDIT", family: "hybrid", kind: "creditVertical", candidateKey: "vxxCall", riskPctField: "vxxCallRiskPct", defaultRiskPct: 2, seller: true, baseline: true, priority: 2 },
-    { key: "vxxPutSpreads", id: "VXX_PUT_CREDIT", label: "VXX PUT-CREDIT", family: "research", kind: "creditVertical", candidateKey: "vxxPut", riskPctField: "vxxPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 3 },
+    { key: "qqqCallSpreads", id: "QQQ_CALL_CREDIT", label: "QQQ FAR CALL / CALL-CREDIT", family: "hybrid", kind: "creditVertical", candidateKey: "qqqCall", riskPctField: "qqqCallRiskPct", defaultRiskPct: 1.2, seller: true, baseline: true, mainBudgetEligible: true, priority: 1 },
+    { key: "vxxCallSpreads", id: "VXX_CALL_CREDIT", label: "VXX CALL-CREDIT", family: "hybrid", kind: "creditVertical", candidateKey: "vxxCall", riskPctField: "vxxCallRiskPct", defaultRiskPct: 2, seller: true, baseline: true, mainBudgetEligible: true, priority: 2 },
+    { key: "vxxPutSpreads", id: "VXX_PUT_CREDIT", label: "VXX PUT-CREDIT", family: "research", kind: "creditVertical", candidateKey: "vxxPut", riskPctField: "vxxPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, mainBudgetEligible: true, priority: 3 },
     { key: "qqqBullPutSpreads", id: "QQQ_BULL_PUT", label: "QQQ BULL-PUT CREDIT", family: "research", kind: "creditVertical", candidateKey: "qqqPut", riskPctField: "qqqBullPutRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 4 },
     { key: "qqqBearCallSpreads", id: "QQQ_BEAR_CALL", label: "QQQ BEAR-CALL CREDIT", family: "research", kind: "creditVertical", candidateKey: "qqqBearCall", riskPctField: "qqqBearCallRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 5 },
     { key: "coveredCalls", id: "COVERED_CALL", label: "COVERED CALL", family: "research", kind: "coveredCall", candidateKey: "qqqCoveredCall", riskPctField: "coveredCallRiskPct", defaultRiskPct: 0, seller: true, baseline: false, priority: 6 },
@@ -259,47 +259,55 @@
     const working = [];
     for (const strategy of OPTION_STRATEGIES) {
       const current = whole(holdings[strategy.key]);
-      const budgetPct = Math.max(0, num(sizing[strategy.riskPctField], strategy.defaultRiskPct));
-      const enabled = strategy.baseline || permissions[strategy.key] === true;
+      const mainBudgetEligible = strategy.mainBudgetEligible === true;
+      const budgetPct = mainBudgetEligible ? Math.max(0, num(sizing[strategy.riskPctField], strategy.defaultRiskPct)) : 0;
+      const enabled = mainBudgetEligible && (strategy.baseline || permissions[strategy.key] === true);
       const candidate = strategy.candidateKey ? candidates[strategy.candidateKey] : null;
       const risk = candidateRisk(strategy, candidate, d.manualRiskPerUnit && d.manualRiskPerUnit[strategy.key]);
       const sellerBlocked = strategy.seller && (market.backwardation || market.high);
-      let rawCapacity = 0;
-      let status = "OFF";
-      let reason = risk.reason;
-      if (budgetPct <= 0) {
+      let rawCapacity = null;
+      let status = "OUTSIDE_MAIN_BUDGET";
+      let reason = "Research-only structure is deliberately excluded from the primary portfolio budget. It must not reserve the main option-risk pool or create a main-plan capacity.";
+
+      if (mainBudgetEligible) {
         rawCapacity = 0;
         status = "OFF";
-        reason = "Risk budget is 0%: strategy is disabled for new capacity; any recorded overage is visible for reduction.";
-      } else if (!enabled) {
-        rawCapacity = 0;
-        status = "NOT_ENABLED";
-        reason = "Research/add-on entry permission is not explicitly enabled.";
-      } else if (sellerBlocked) {
-        rawCapacity = 0;
-        status = "RISK_OFF";
-        reason = "High VIX or VX backwardation disables this volatility-seller leg.";
-      } else if (!risk.ready) {
-        rawCapacity = null;
-        status = "PENDING";
-      } else if (strategy.kind === "coveredCall") {
-        rawCapacity = Math.floor(Math.max(0, coreTarget) / 100);
-        status = "READY";
-        reason = "Covered call capacity is capped at floor(QQQ shares / 100); never sell more calls than covered shares.";
-      } else {
-        rawCapacity = Math.floor((nav * budgetPct / 100) / risk.riskPerUnit);
-        status = risk.source === "MANUAL_STRESS_ESTIMATE" ? "STRESS_ONLY" : (risk.source.startsWith("MANUAL") ? "MANUAL_RISK_INPUT" : "READY");
+        reason = risk.reason;
+        if (budgetPct <= 0) {
+          rawCapacity = 0;
+          status = "OFF";
+          reason = "Risk budget is 0%: no new capacity is allocated to this primary seller leg.";
+        } else if (!enabled) {
+          rawCapacity = 0;
+          status = "NOT_ENABLED";
+          reason = "This primary add-on is not enabled for capacity.";
+        } else if (sellerBlocked) {
+          rawCapacity = 0;
+          status = "RISK_OFF";
+          reason = "High VIX or VX backwardation disables this volatility-seller leg.";
+        } else if (!risk.ready) {
+          rawCapacity = null;
+          status = "PENDING";
+        } else if (strategy.kind === "coveredCall") {
+          rawCapacity = Math.floor(Math.max(0, coreTarget) / 100);
+          status = "READY";
+          reason = "Covered call capacity is capped at floor(QQQ shares / 100); never sell more calls than covered shares.";
+        } else {
+          rawCapacity = Math.floor((nav * budgetPct / 100) / risk.riskPerUnit);
+          status = risk.source === "MANUAL_STRESS_ESTIMATE" ? "STRESS_ONLY" : (risk.source.startsWith("MANUAL") ? "MANUAL_RISK_INPUT" : "READY");
+        }
+        if (strategy.kind === "hubDefinedRisk" && candidate && candidate.gatePass === false) {
+          rawCapacity = 0;
+          status = "WAITING_FOR_GATE";
+          reason = candidate.reason || "The Hub research structure's entry gate has not fired.";
+        } else if (strategy.kind === "hubDefinedRisk" && candidate && Number.isFinite(num(candidate.maxUnits))) {
+          rawCapacity = Math.min(rawCapacity === null ? num(candidate.maxUnits) : rawCapacity, Math.max(0, whole(candidate.maxUnits)));
+        }
       }
-      if (strategy.kind === "hubDefinedRisk" && candidate && candidate.gatePass === false) {
-        rawCapacity = 0;
-        status = "WAITING_FOR_GATE";
-        reason = candidate.reason || "The Hub research structure's entry gate has not fired.";
-      } else if (strategy.kind === "hubDefinedRisk" && candidate && Number.isFinite(num(candidate.maxUnits))) {
-        rawCapacity = Math.min(rawCapacity === null ? num(candidate.maxUnits) : rawCapacity, Math.max(0, whole(candidate.maxUnits)));
-      }
+
       working.push({
-        strategy, current, budgetPct, enabled, candidate, risk, rawCapacity, status, reason, sellerBlocked,
-        requestedRiskBudgetUsd: Math.max(0, nav * budgetPct / 100),
+        strategy, current, mainBudgetEligible, budgetPct, enabled, candidate, risk, rawCapacity, status, reason, sellerBlocked,
+        requestedRiskBudgetUsd: mainBudgetEligible ? Math.max(0, nav * budgetPct / 100) : 0,
         allocatedRiskBudgetUsd: 0, capacity: rawCapacity
       });
     }
@@ -310,7 +318,7 @@
     // every eligible strategy scales down by the same factor before integer
     // contract rounding. Unquoted, disabled and gated-off legs reserve nothing.
     const eligible = working.filter(item =>
-      item.enabled && item.budgetPct > 0 && item.rawCapacity !== null && item.rawCapacity > 0 &&
+      item.mainBudgetEligible && item.enabled && item.budgetPct > 0 && item.rawCapacity !== null &&
       item.risk.ready && Number.isFinite(item.risk.riskPerUnit) && item.risk.riskPerUnit > 0 &&
       item.strategy.kind !== "coveredCall" && !item.sellerBlocked
     );
@@ -333,9 +341,11 @@
         remainingRiskPool = Math.max(0, remainingRiskPool - capacity * risk.riskPerUnit);
       }
       let target, action, delta;
-      const policyExit = (strategy.seller && (market.backwardation || market.high)) || (!strategy.baseline && !item.enabled);
+      const policyExit = item.mainBudgetEligible && strategy.seller && (market.backwardation || market.high);
       if (market.blocked) {
         target = current; action = "BLOCKED"; delta = 0;
+      } else if (!item.mainBudgetEligible) {
+        target = current; action = "OUTSIDE_BUDGET"; delta = 0;
       } else if (policyExit) {
         target = 0; action = current > 0 ? "REDUCE" : "HOLD"; delta = target - current;
       } else if (capacity === null) {
@@ -346,7 +356,7 @@
         const actionResult = actionFor(current, capacity, canAdd);
         target = actionResult.target; action = actionResult.action; delta = actionResult.delta;
       }
-      if (strategy.kind === "coveredCall" && target > Math.floor(Math.max(0, coreTarget) / 100)) {
+      if (item.mainBudgetEligible && strategy.kind === "coveredCall" && target > Math.floor(Math.max(0, coreTarget) / 100)) {
         target = Math.floor(Math.max(0, coreTarget) / 100);
         delta = target - current;
         action = delta < 0 ? "REDUCE" : delta > 0 ? "ADD" : "HOLD";
@@ -360,11 +370,12 @@
         current, capacity: capacity === null ? null : Math.max(0, capacity),
         target, delta, action,
         status: item.status,
+        mainBudgetEligible: item.mainBudgetEligible,
         riskBudgetUsd: item.requestedRiskBudgetUsd,
-        allocatedRiskBudgetUsd: item.allocatedRiskBudgetUsd || (item.strategy.kind === "coveredCall" ? 0 : 0),
+        allocatedRiskBudgetUsd: item.mainBudgetEligible ? item.allocatedRiskBudgetUsd : 0,
         riskPerUnit: risk.riskPerUnit,
         capitalPerUnitUsd: risk.capitalPerUnitUsd ?? risk.riskPerUnit,
-        targetRiskReserveUsd: (risk.riskPerUnit && target > 0 && strategy.kind !== "coveredCall") ? risk.riskPerUnit * target : 0,
+        targetRiskReserveUsd: item.mainBudgetEligible && risk.riskPerUnit && target > 0 && strategy.kind !== "coveredCall" ? risk.riskPerUnit * target : 0,
         riskSource: risk.source,
         candidateSource: item.candidate?.source || null,
         reason: sellerBlocked && !policyExit ? "No new seller entries in this market state; over-cap trimming remains allowed." : item.reason,
@@ -380,7 +391,7 @@
       totalRequestedRiskBudgetsUsd, riskScaleFactor, remainingRiskPool,
       qqqAdditionalCapitalUsd, qqqTargetNotionalUsd, vxxAdditionalMarginUsd,
       vxxTargetMarginUsd, vxxTargetNotionalUsd,
-      optionRiskReservedAtTargets: results.filter(r => r.riskPerUnit && r.target > 0 && r.strategyKind !== "coveredCall").reduce((sum, r) => sum + r.riskPerUnit * r.target, 0),
+      optionRiskReservedAtTargets: results.filter(r => r.mainBudgetEligible && r.riskPerUnit && r.target > 0 && r.strategyKind !== "coveredCall").reduce((sum, r) => sum + r.riskPerUnit * r.target, 0),
       plannedCapitalRequiredUsd: cashReserveUsd + totalOptionRiskPool + qqqAdditionalCapitalUsd + vxxAdditionalMarginUsd,
       remainingUnallocatedCashUsd: Math.max(0, cashPool - cashReserveUsd - totalOptionRiskPool - qqqAdditionalCapitalUsd - vxxAdditionalMarginUsd),
       rows: results,
