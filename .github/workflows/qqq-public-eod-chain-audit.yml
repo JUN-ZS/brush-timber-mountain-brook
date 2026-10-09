@@ -35,6 +35,10 @@ jobs:
       - name: Compile audit script
         run: |
           py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\audit_qqq_public_eod_options.py || exit /b 1
+      - name: Offline price-basis pairing unit tests
+        run: |
+          py -3 research\qqq_hybrid_operator_terminal_v1\test_qqq_price_basis_audit.py || exit /b 1
+
       - name: Download hash-pinned samples and measure QQQ quote coverage
         run: |
           py -3 research\qqq_hybrid_operator_terminal_v1\audit_qqq_public_eod_options.py || exit /b 1
