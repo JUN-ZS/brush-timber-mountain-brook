@@ -206,8 +206,12 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
     avg_gain = gains.ewm(alpha=1.0 / 14.0, min_periods=14, adjust=False).mean()
     avg_loss = losses.ewm(alpha=1.0 / 14.0, min_periods=14, adjust=False).mean()
     rs = avg_gain / avg_loss.replace(0.0, np.nan)
-    df["vxx_rsi14"] = (100.0 - (100.0 / (1.0 + rs))).where(avg_loss > 0, 100.0)
-    df.loc[(avg_gain.fillna(0.0) == 0.0) & (avg_loss.fillna(0.0) == 0.0), "vxx_rsi14"] = 50.0
+    df["vxx_rsi14"] = 100.0 - (100.0 / (1.0 + rs))
+    no_loss = avg_loss.eq(0.0) & avg_loss.notna() & avg_gain.notna()
+    df.loc[no_loss & avg_gain.gt(0.0), "vxx_rsi14"] = 100.0
+    df.loc[no_loss & avg_gain.eq(0.0), "vxx_rsi14"] = 50.0
+    # Use yesterday's closed-bar RSI for today's modeled entry to avoid look-ahead.
+    df["vxx_rsi14_entry"] = df["vxx_rsi14"].shift(1)
 
     cash = float(CAPITAL)
     legs: list[dict] = []
@@ -290,9 +294,9 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
         # the option legs, which avoids confounding short-stock exposure with options.
         want_vxx_options = want_vxx_stock
         if cfg.get("rsi_filter") == "LT50":
-            want_vxx_options = want_vxx_options and pd.notna(row.vxx_rsi14) and float(row.vxx_rsi14) < 50.0
+            want_vxx_options = want_vxx_options and pd.notna(row.vxx_rsi14_entry) and float(row.vxx_rsi14_entry) < 50.0
         elif cfg.get("rsi_filter") == "GE50":
-            want_vxx_options = want_vxx_options and pd.notna(row.vxx_rsi14) and float(row.vxx_rsi14) >= 50.0
+            want_vxx_options = want_vxx_options and pd.notna(row.vxx_rsi14_entry) and float(row.vxx_rsi14_entry) >= 50.0
 
         if want_vxx_stock and "vxx-short" not in existing and float(row.vxx) > 0:
             n = int(math.floor(nav_before_open * 0.18 / float(row.vxx)))
