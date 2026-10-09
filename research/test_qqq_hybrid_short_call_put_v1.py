@@ -45,6 +45,9 @@ class CurrentCapacityTests(unittest.TestCase):
         )
         self.assertEqual(LEG_CONFIGS["CALL_RSI_LT50"]["rsi_filter"], "LT50")
         self.assertEqual(LEG_CONFIGS["CALL_RSI_GE50"]["rsi_filter"], "GE50")
+        self.assertEqual(LEG_CONFIGS["CALL_DTE_14"]["vxx_option_dte_days"], 14)
+        self.assertEqual(LEG_CONFIGS["CALL_ONLY_2PCT_NEW_QUOTE"]["vxx_option_dte_days"], 30)
+        self.assertEqual(LEG_CONFIGS["CALL_DTE_45"]["vxx_option_dte_days"], 45)
 
     def test_call_spread_contracts_use_max_loss_not_credit(self):
         got = option_spread_capacity(100000, 2.0, {
