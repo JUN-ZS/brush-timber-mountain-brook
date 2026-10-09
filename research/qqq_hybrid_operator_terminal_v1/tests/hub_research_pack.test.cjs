@@ -1,5 +1,9 @@
 const assert = require("node:assert/strict");
-const H = require("../hub_research_pack.js");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const sandbox = { module: { exports: {} } };
+vm.runInNewContext(fs.readFileSync(require.resolve("../hub_research_pack.js"), "utf8"), sandbox, { filename: "hub_research_pack.js" });
+const H = sandbox.module.exports;
 
 function ratioBase(overrides = {}) {
   return {
