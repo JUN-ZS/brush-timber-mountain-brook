@@ -60,6 +60,15 @@ class PriceBasisAuditTests(unittest.TestCase):
             )
             self.assertGreater(pair["wing_strike"], pair["short_strike"])
 
+    def test_chain_iv_diagnostic_reports_missing_and_present_iv(self):
+        missing = audit.model_credit_using_chain_ivs(169.3, 82.69, 223, 240, 32/365, None, 0.50)
+        self.assertEqual(missing["status"], "CHAIN_IV_MISSING")
+        result = audit.model_credit_using_chain_ivs(169.3, 82.69, 223, 240, 32/365, 0.52, 0.56)
+        self.assertEqual(result["status"], "CHAIN_IV_DIAGNOSTIC")
+        self.assertAlmostEqual(result["model_mid_credit"], result["model_short_mid"] - result["model_wing_mid"])
+        self.assertLess(result["model_conservative_credit_using_chain_ivs"], result["model_mid_credit"])
+        self.assertTrue(result["half_spread_still_model_derived"] > 0)
+
     def test_no_same_expiry_quote_is_invented(self):
         result = audit.nearest_quote_model_pairs(
             [], "2020-03-16",
