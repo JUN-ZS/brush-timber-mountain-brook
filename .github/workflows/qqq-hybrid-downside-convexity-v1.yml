@@ -1,0 +1,109 @@
+name: QQQ Hybrid Downside Convexity V1
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "scripts/run-qqq-hybrid-downside-convexity-v1.ts"
+      - "research/qqq_hybrid_downside_convexity_v1.md"
+      - "src/data/universe.json"
+      - "scripts/run-qqq-mutual-chase-sell-sensitivity-v1.ts"
+      - "scripts/run-qqq-mutual-chase-sell-timing-v1.ts"
+      - "scripts/run-qqq-mutual-chase-sell-state-machine-v1.ts"
+      - "scripts/run-qqq-mutual-chase-profit-target-reserve-v1.ts"
+      - "scripts/run-qqq-mutual-chase-profit-hold-v1.ts"
+      - "research/qqq_hybrid_downside_convexity_v1/SELL_TIMING_PREREGISTERED.md"
+      - "research/qqq_hybrid_downside_convexity_v1/PROFIT_TARGET_RESERVE_PREREGISTERED.md"
+      - "research/qqq_hybrid_downside_convexity_v1/PROFIT_HOLD_PREREGISTERED.md"
+      - "research/qqq_hybrid_downside_convexity_v1/SELL_SENSITIVITY_PREREGISTERED.md"
+      - "research/qqq_hybrid_downside_convexity_v1/SELL_STATE_MACHINE_PREREGISTERED.md"
+      - ".github/workflows/qqq-hybrid-downside-convexity-v1.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-hybrid-downside-convexity-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-convexity:
+    name: Research / QQQ hybrid downside convexity V1
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Run fixed deployment research
+        run: node --experimental-strip-types scripts/run-qqq-hybrid-downside-convexity-v1.ts
+      - name: Run fixed true-convexity research
+        run: node --experimental-strip-types scripts/run-qqq-hybrid-true-convexity-v1.ts
+      - name: Run causal mutual-chase research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-causal-v1.ts
+      - name: Run two-sided mutual-chase research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-two-sided-v1.ts
+      - name: Run fixed SELL sensitivity research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-sell-sensitivity-v1.ts
+      - name: Run fixed SELL timing research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-sell-timing-v1.ts
+      - name: Run fixed SELL state-machine research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-sell-state-machine-v1.ts
+      - name: Run fixed profit target/reserve research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-profit-target-reserve-v1.ts
+      - name: Run fixed profit-hold research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-profit-hold-v1.ts
+      - name: Validate research output
+        run: |
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_true_convexity_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_true_convexity_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_causal_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_causal_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_causal_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_two_sided_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_sensitivity_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_sensitivity_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_sensitivity_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_timing_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_timing_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_timing_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.csv
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_profit_target_reserve_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_profit_target_reserve_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_profit_hold_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_profit_hold_v1.md
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const base = "research/qqq_hybrid_downside_convexity_v1/qqq_hybrid_downside_convexity_v1.json";
+          const baseX = JSON.parse(fs.readFileSync(base, "utf8"));
+          if (baseX.researchId !== "QQQ_HYBRID_DOWNSIDE_CONVEXITY_V1") throw new Error("wrong base research id");
+          if (baseX.status !== "RESEARCH_ONLY") throw new Error("wrong base research status");
+          if (baseX.data.completeRollingWindows <= 0) throw new Error("no base rolling windows");
+          if (!Array.isArray(baseX.windows) || baseX.windows.length !== baseX.data.completeRollingWindows) throw new Error("base window count mismatch");
+          const p = "research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_sell_state_machine_v1.json";
+          const x = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (x.researchId !== "QQQ_MUTUAL_CHASE_SELL_STATE_MACHINE_V1") throw new Error("wrong state-machine research id");
+          if (x.status !== "RESEARCH_ONLY") throw new Error("wrong state-machine status");
+          if (x.fixedRule.futurePriceRead !== false) throw new Error("future price guard missing");
+          if (x.fixedRule.parameterSearch !== false) throw new Error("parameter search guard missing");
+          if (x.provenance.completeRollingWindows <= 0) throw new Error("no rolling windows");
+          if (!Array.isArray(x.windows) || x.windows.length !== x.provenance.completeRollingWindows) throw new Error("window count mismatch");
+          console.log("PASS state-machine windows=", x.windows.length);
+          NODE
+      - name: Upload research artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-hybrid-downside-convexity-v1
+          path: research/qqq_hybrid_downside_convexity_v1
+          if-no-files-found: error
