@@ -371,7 +371,7 @@ function row(result, key) {
   assert.equal(r.optionRiskReservedAtTargets, 3200);
 }
 
-// User-uploaded 2026-11-20 screenshot chain is the option-sizing fixture; unknown VXX puts stay pending.
+// User-uploaded 2026-11-20 screenshot chain sizes the two call-credit legs; VXX put is intentionally excluded from the primary plan.
 {
   const fixture = JSON.parse(fs.readFileSync(require.resolve("./fixtures/user_uploaded_option_chain_2026-11-20.json"), "utf8"));
   assert.equal(fixture.source, "USER_UPLOADED_SCREENSHOT");
@@ -421,14 +421,15 @@ function row(result, key) {
   assert.equal(row(r, "vxxCallSpreads").capacity, 7);
   assert.equal(row(r, "vxxCallSpreads").candidateSource, fixture.source + ":VXX_CALLS");
   assert.equal(r.totalOptionRiskPool, 3200);
-  assert.equal(r.totalRequestedRiskBudgetsUsd, 3200); // Unquoted VXX put does not consume request allocation.
+  assert.equal(r.totalRequestedRiskBudgetsUsd, 3200); // Only QQQ/VXX call-credit requests share the primary pool.
   assert.equal(r.riskScaleFactor, 1);
   assert.equal(r.optionRiskReservedAtTargets, 2905);
   assert.equal(r.remainingRiskPool, 295);
-  assert.equal(row(r, "vxxPutSpreads").status, "PENDING");
+  assert.equal(row(r, "vxxPutSpreads").status, "OUTSIDE_MAIN_BUDGET");
   assert.equal(row(r, "vxxPutSpreads").capacity, null);
-  assert.equal(row(r, "vxxPutSpreads").action, "PENDING");
+  assert.equal(row(r, "vxxPutSpreads").action, "OUTSIDE_BUDGET");
   assert.equal(row(r, "vxxPutSpreads").allocatedRiskBudgetUsd, 0);
+  assert.equal(row(r, "vxxPutSpreads").targetRiskReserveUsd, 0);
 }
 
 // Hub/debit/research structures remain visible but never join or alter the main seller-option budget.
