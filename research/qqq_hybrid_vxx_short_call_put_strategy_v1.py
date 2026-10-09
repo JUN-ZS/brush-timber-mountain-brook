@@ -589,6 +589,8 @@ def main() -> int:
     print(json.dumps({
         "research_id": report["research_id"], "legacy_parity": report["legacy_parity"],
         "variants": report["variants"], "controlled_comparisons": report["controlled_comparisons"],
+        "vxx_sleeve_controlled_comparisons": report["vxx_sleeve_controlled_comparisons"],
+        "vxx_sleeve_experiment_contract": report["vxx_sleeve_experiment_contract"],
         "counterfactual_portfolio_delta_vs_no_vxx_options": report["counterfactual_portfolio_delta_vs_no_vxx_options"],
         "report": str(out_dir / "strategy_report.json"),
     }, indent=2))
