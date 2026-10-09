@@ -101,5 +101,10 @@ assert.equal(Lab.assessProvenance({...goodMeta,sourceType:"MODEL_DERIVED"},"2026
 assert.equal(Lab.assessProvenance({...goodMeta,contractStatus:"UNKNOWN"},"2026-11-20",2,false).complete,false);
 const conflicting=Lab.parseCsv(richCsv.replace("2026-11-20,PUBLIC_DATA","2026-12-18,PUBLIC_DATA"));
 assert.ok(conflicting.metadataConflicts.length>0,"mixed expiry rows must be rejected");
+const partiallyMissingExpiry = Lab.parseCsv(richCsv.replace("2026-11-20,PUBLIC_DATA"," ,PUBLIC_DATA"));
+assert.ok(partiallyMissingExpiry.metadataConflicts.some(x=>x.includes("缺少到期日")));
+const partiallyMissingSource = Lab.parseCsv(richCsv.replace("PUBLIC_DATA,\"Example, feed\"","PUBLIC_DATA,"));
+assert.ok(partiallyMissingSource.metadataConflicts.some(x=>x.includes("source_name")));
+
 assert.equal(Lab.csvCell('Example, "quoted"'),'"Example, ""quoted"""');
 console.log("option_chain_lab=PASS");
