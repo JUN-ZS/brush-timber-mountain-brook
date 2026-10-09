@@ -147,3 +147,19 @@ The legacy control is included to prove exact source reproduction; because it pr
 In this model, adding the short put vertical does not improve terminal wealth or CAGR in either controlled comparison, though it does reduce the historical daily-MTM drawdown by around 2.1 percentage points. That is a possible risk-path tradeoff, not proof that the put spread adds positive expected return. The RSI<50 call-entry split and 14-day DTE each improve terminal wealth modestly versus their specified controls, but both show worse maximum drawdown. These findings are exploratory and subject to model risk, regime dependence, option cost assumptions and the absence of historical OPRA fills.
 
 All option quotes are derived BS/VIX proxies using QQQ/VXX/VIX underlying histories, with data ending 2026-09-04. This is not an exchange-chain reconstruction or tradeable-performance claim. Reverse-split/adjusted-contract handling and live bid/ask fills remain unverified.
+
+
+## VXX short-stock vs short-call-credit controlled comparison (2026-10-10)
+
+This extension isolates the two existing VXX sleeves without altering the QQQ core, QQQ call-credit sleeve, market entry gate, or existing exit rules:
+
+- **Stock-only:** VXX short stock at 18% of NAV notional, no VXX call-credit.
+- **Call-only:** VXX call-credit vertical with a 2% NAV maximum-loss budget, no VXX short stock.
+- **Both:** both sleeves at the above historical-model settings.
+- **Neither:** disable both VXX sleeves as the portfolio counterfactual.
+
+It also reports a stock-only 2% NAV-notional case as a limited stress comparison: a +100% VXX price increase would imply approximately a 2% NAV loss before costs. This does **not** make the stock short universally risk-equivalent to a call spread, whose maximum loss is capped by its vertical width and contract count.
+
+Borrow costs are tested at 0%, 3%, and 10% annualized on the VXX short-stock marked notional. These rates are explicitly hypothetical sensitivity inputs, **not observed historical VXX borrow fees**. A calendar-day accrual is charged using current marked notional and a 360-day denominator. Option commissions, historical executable OPRA bid/ask chains, VXX adjusted option deliverables and actual historical fills remain unavailable; do not promote the model results into an execution-performance claim.
+
+The generated `strategy_report.json` contains `vxx_sleeve_controlled_comparisons` with terminal NAV, CAGR, daily MTM MaxDD, annualized volatility and borrow-cost deltas. Positive MaxDD delta means a less-negative drawdown. The complete four-case matrix is run inside the full QQQ Hybrid so portfolio-size feedback is retained; component PnL alone is not treated as the causal counterfactual.
