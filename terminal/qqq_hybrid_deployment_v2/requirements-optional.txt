@@ -1,0 +1,3 @@
+# Optional secondary VX source
+# Python 3.10+
+databento>=0.64
