@@ -361,7 +361,7 @@
         delta = target - current;
         action = delta < 0 ? "REDUCE" : delta > 0 ? "ADD" : "HOLD";
       }
-      if (strategy.kind === "stressOnly" && item.status !== "OFF" && item.status !== "NOT_ENABLED" && item.status !== "PENDING") {
+      if (item.mainBudgetEligible && strategy.kind === "stressOnly" && item.status !== "OFF" && item.status !== "NOT_ENABLED" && item.status !== "PENDING") {
         item.status = "STRESS_ONLY";
         item.reason = "Target is based on a user-entered stress-loss estimate only; ratio tails are NOT hard-capped.";
       }
