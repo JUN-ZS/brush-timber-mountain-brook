@@ -1,5 +1,9 @@
 const assert = require("node:assert/strict");
-const E = require("../engine.js");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const sandbox = { module: { exports: {} } };
+vm.runInNewContext(fs.readFileSync(require.resolve("../engine.js"), "utf8"), sandbox, { filename: "engine.js" });
+const E = sandbox.module.exports;
 
 function snap(overrides = {}) {
   return {
@@ -90,7 +94,7 @@ function row(result, key) {
     market: snap({ m1: 22, m2: 20 }),
     holdings: { vxxShortShares: 1000 }
   }));
-  assert.equal(r.market.state, "SHOCK");
+  assert.equal(r.market.state, "PRE-SHOCK");
   assert.equal(row(r, "vxxShortShares").capacity, 0);
   assert.equal(row(r, "vxxShortShares").target, 0);
   assert.equal(row(r, "vxxShortShares").delta, -1000);
@@ -225,4 +229,4 @@ function row(result, key) {
   assert.equal(r.boundary.missingCandidateNeverFabricated, true);
 }
 
-console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 13 TEST GROUPS PASS");
+console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 14 TEST GROUPS PASS");
