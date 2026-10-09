@@ -64,9 +64,11 @@ The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CO
 
 
 
+- The unbounded `ORDER BY date DESC LIMIT 10` query timed out in Run #82. It was marked INCONCLUSIVE; it is not evidence that the full table has no VXX rows. The probe now uses date-bounded windows and reports `ROWS_FOUND`, `NO_ROWS_IN_WINDOW`, or `INCONCLUSIVE` for each window.
+
 ## Run #80 public SQL probe result — measured, not inferred
 
 - Windows self-hosted [Actions Run #80](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38001567750) successfully queried the DoltHub SQL API at six fixed dates (2019-03-04, 2020-03-16, 2022-06-13, 2024-08-05, 2025-04-07, 2026-07-07). Each date returned **zero** `act_symbol='VXX'` rows. The API responded successfully; this is not a network failure.
-- Six zero-row checkpoints disqualify that exact query as demonstrated VXX history coverage; they do **not** prove the entire database contains no VXX rows. The next probe adds an undated query on `act_symbol='VXX'` to distinguish sparse snapshots from absent symbol rows.
+- Six zero-row checkpoints disqualify those exact dates as demonstrated VXX coverage; they do **not** prove the entire database contains no VXX rows. The undated symbol-wide query in Run #82 timed out, so its result is **INCONCLUSIVE**. The next probe replaces that full-table/sort query with four date-bounded history windows (early 2019, March 2020, June 2024, June–July 2026), each with a 12-second query timeout.
 - Regardless of source-wide result, DoltHub remains `COMMUNITY_MAINTAINED / NOT EXCHANGE-AUTHORITATIVE` and does not establish the exact OCC deliverable for adjusted contracts. It cannot be promoted to trade replay solely on row presence.
 - New hard gate: `ADJUSTED_TERMS_RECORDED` contracts and known adjusted roots (`VXX1`, `VXX2`, `1VXX1`, `1VXX2`) are blocked from capacity/payoff calculation while this Lab lacks deliverable/underlying-scale normalization. A root/status conflict also blocks.

@@ -24,10 +24,10 @@ CHECK_DATES = [
     "2026-07-07",  # reported latest date in earlier source survey
 ]
 
-def query(sql: str) -> dict:
+def query(sql: str, timeout: int = 25) -> dict:
     url = API + "?" + urllib.parse.urlencode({"q": sql})
     req = urllib.request.Request(url, headers={"User-Agent": "qqq-hybrid-research-audit/1.0"})
-    with urllib.request.urlopen(req, timeout=25) as response:
+    with urllib.request.urlopen(req, timeout=timeout) as response:
         payload = json.loads(response.read().decode("utf-8"))
     if payload.get("query_execution_status") != "Success":
         raise RuntimeError(payload.get("query_execution_message", "Unknown DoltHub query error"))
@@ -89,34 +89,39 @@ def main() -> int:
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, RuntimeError, OSError) as exc:
             row["error"] = type(exc).__name__ + ": " + str(exc)[:240]
         report["results"].append(row)
-    # Check the symbol without a date predicate. This distinguishes six checkpoint gaps
-    # from no returned rows for act_symbol='VXX' anywhere in the queried table.
-    symbol_wide = {"status": "INCONCLUSIVE", "query": "act_symbol = 'VXX' with no date predicate"}
-    try:
-        sql = (
-            "SELECT date, act_symbol, expiration, strike, call_put, bid, ask, vol, delta "
-            "FROM option_chain WHERE act_symbol = 'VXX' "
-            "ORDER BY date DESC LIMIT 10"
-        )
-        payload = query(sql)
-        rows = payload.get("rows") or []
-        symbol_wide = {
-            "status": "ROWS_FOUND" if rows else "NO_ROWS_RETURNED",
-            "row_count": len(rows),
-            "distinct_dates_in_sample": sorted({str(q.get("date", ""))[:10] for q in rows}),
-            "sample_rows": [
-                {key: quote.get(key) for key in ("date", "act_symbol", "expiration", "strike", "call_put", "bid", "ask", "vol", "delta")}
-                for quote in rows[:10]
-            ],
-            "interpretation": (
-                "VXX rows exist in the table query; checkpoint gaps may reflect sparse/filtered history."
-                if rows else
-                "No rows returned for act_symbol='VXX' in this undated query; this excludes the current table/query as a demonstrated VXX source, but is not proof about other datasets or symbol aliases."
-            ),
-        }
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, RuntimeError, OSError) as exc:
-        symbol_wide["error"] = type(exc).__name__ + ": " + str(exc)[:240]
-    report["symbol_wide_probe"] = symbol_wide
+    # Avoid an unbounded whole-table scan: use bounded date windows over the source's
+    # reported history. Each query has a strict timeout. A zero-row result means only
+    # "not found in this tested window", never "absent from all history".
+    date_windows = [
+        {"label": "early-2019", "start": "2019-02-09", "end": "2019-03-31"},
+        {"label": "2020-shock", "start": "2020-03-01", "end": "2020-03-31"},
+        {"label": "2024-June-public-snapshot-window", "start": "2024-06-01", "end": "2024-06-30"},
+        {"label": "latest-2026", "start": "2026-06-01", "end": "2026-07-07"},
+    ]
+    window_probes = []
+    for window in date_windows:
+        result = {"label": window["label"], "start": window["start"], "end": window["end"], "status": "INCONCLUSIVE"}
+        try:
+            sql = (
+                "SELECT date, act_symbol, expiration, strike, call_put, bid, ask, vol, delta "
+                "FROM option_chain "
+                f"WHERE act_symbol = 'VXX' AND date >= '{window['start']}' AND date <= '{window['end']}' "
+                "ORDER BY date DESC LIMIT 10"
+            )
+            payload = query(sql, timeout=12)
+            rows = payload.get("rows") or []
+            result.update({
+                "status": "ROWS_FOUND" if rows else "NO_ROWS_IN_WINDOW",
+                "row_count": len(rows),
+                "sample_rows": [
+                    {key: quote.get(key) for key in ("date", "act_symbol", "expiration", "strike", "call_put", "bid", "ask", "vol", "delta")}
+                    for quote in rows[:10]
+                ],
+            })
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, RuntimeError, OSError) as exc:
+            result["error"] = type(exc).__name__ + ": " + str(exc)[:240]
+        window_probes.append(result)
+    report["bounded_window_probes"] = window_probes
 
     if not observed_any:
         overall = "INCONCLUSIVE_API_UNAVAILABLE"
@@ -132,12 +137,13 @@ def main() -> int:
         "checkpoints_total": len(CHECK_DATES),
         "api_responded_to_at_least_one_query": observed_any,
         "trade_replay_approved": False,
-        "symbol_wide_status": symbol_wide.get("status", "INCONCLUSIVE"),
-        "sourcewide_interpretation": (
-            "NO_VXX_ROWS_RETURNED_BY_UNDATED_QUERY" if symbol_wide.get("status") == "NO_ROWS_RETURNED" else
-            "VXX_ROWS_EXIST_BUT_CHECKPOINTS_GAP" if symbol_wide.get("status") == "ROWS_FOUND" and successes == 0 else
-            "VXX_ROWS_EXIST" if symbol_wide.get("status") == "ROWS_FOUND" else
-            "INCONCLUSIVE_SYMBOL_WIDE_QUERY"
+        "bounded_windows_with_rows": sum(1 for item in window_probes if item.get("status") == "ROWS_FOUND"),
+        "bounded_windows_no_rows": sum(1 for item in window_probes if item.get("status") == "NO_ROWS_IN_WINDOW"),
+        "bounded_windows_inconclusive": sum(1 for item in window_probes if item.get("status") == "INCONCLUSIVE"),
+        "bounded_window_interpretation": (
+            "VXX_ROWS_FOUND_IN_TESTED_WINDOWS" if any(item.get("status") == "ROWS_FOUND" for item in window_probes) else
+            "NO_VXX_ROWS_IN_TESTED_WINDOWS_ONLY" if all(item.get("status") == "NO_ROWS_IN_WINDOW" for item in window_probes) else
+            "INCONCLUSIVE_BOUNDED_WINDOWS"
         ),
     }
     output = json.dumps(report, indent=2, sort_keys=True)
