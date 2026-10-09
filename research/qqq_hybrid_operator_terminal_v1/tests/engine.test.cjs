@@ -346,4 +346,65 @@ function row(result, key) {
   assert.ok(r.plannedCapitalRequiredUsd <= 60000);
 }
 
-console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 21 TEST GROUPS PASS");
+
+// The option budgets are weights against one pool, not independent full-NAV entitlements.
+// 3% + 3% requested weights are proportionally reduced to fit the $3,200 total pool.
+{
+  const r = E.calculatePortfolio(base({
+    sizing: { ...base().sizing, totalOptionRiskPct: 3.2, qqqCallRiskPct: 3, vxxCallRiskPct: 3 },
+    candidates: {
+      qqqCall: { width: 5, credit: 4, source: "FIXTURE" }, // $100 max loss per spread
+      vxxCall: { width: 10, credit: 8, source: "FIXTURE" } // $200 max loss per spread
+    }
+  }));
+  assert.ok(Math.abs(r.riskScaleFactor - (3200 / 6000)) < 1e-9);
+  assert.ok(Math.abs(row(r, "qqqCallSpreads").allocatedRiskBudgetUsd - 1600) < 1e-9);
+  assert.ok(Math.abs(row(r, "vxxCallSpreads").allocatedRiskBudgetUsd - 1600) < 1e-9);
+  assert.equal(row(r, "qqqCallSpreads").capacity, 16);
+  assert.equal(row(r, "vxxCallSpreads").capacity, 8);
+  assert.equal(r.optionRiskReservedAtTargets, 3200);
+}
+
+// Hub ratio campaigns share the SAME pool as the two original Hybrid option legs.
+{
+  const r = E.calculatePortfolio(base({
+    sizing: { ...base().sizing, totalOptionRiskPct: 3.2, qqqCallRiskPct: 1.2, vxxCallRiskPct: 2, ratioCallRiskPct: 2 },
+    candidates: {
+      qqqCall: { width: 5, credit: 4, source: "FIXTURE" },
+      vxxCall: { width: 10, credit: 8, source: "FIXTURE" },
+      hubRatioCall: {
+        hubPackage: true, ready: true, riskPerUnit: 600, debitUsd: 200,
+        maxUnits: 10, gatePass: true, source: "HUB_FIXTURE"
+      }
+    },
+    permissions: { ratioCalls: true }
+  }));
+  assert.ok(Math.abs(r.riskScaleFactor - (3200 / 5200)) < 1e-9);
+  assert.ok(Math.abs(row(r, "ratioCalls").allocatedRiskBudgetUsd - (2000 * 3200 / 5200)) < 1e-9);
+  assert.equal(row(r, "ratioCalls").capacity, 2);
+  assert.equal(row(r, "ratioCalls").riskPerUnit, 600);
+  assert.equal(row(r, "ratioCalls").status, "READY");
+  assert.ok(r.optionRiskReservedAtTargets <= r.totalOptionRiskPool);
+}
+
+// An ungated Shock-Gated Hub put spread receives no capacity and consumes no shared risk.
+{
+  const r = E.calculatePortfolio(base({
+    sizing: { ...base().sizing, totalOptionRiskPct: 3.2, hubShockPutRiskPct: 1 },
+    candidates: {
+      hubShockPut: {
+        hubPackage: true, ready: true, riskPerUnit: 200, debitUsd: 200,
+        maxUnits: 100, gatePass: false, source: "HUB_FIXTURE",
+        reason: "Frozen shock threshold not reached."
+      }
+    },
+    permissions: { hubShockPuts: true }
+  }));
+  assert.equal(row(r, "hubShockPuts").capacity, 0);
+  assert.equal(row(r, "hubShockPuts").status, "WAITING_FOR_GATE");
+  assert.equal(row(r, "hubShockPuts").allocatedRiskBudgetUsd, 0);
+  assert.equal(r.optionRiskReservedAtTargets, 0);
+}
+
+console.log("QQQ HYBRID OPERATOR ENGINE: 24 TEST GROUPS PASS");
+
