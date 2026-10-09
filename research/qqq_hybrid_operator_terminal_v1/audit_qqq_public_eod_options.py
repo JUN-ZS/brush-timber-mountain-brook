@@ -105,9 +105,32 @@ def model_credit_at_listed_strikes(S,vix,short_strike,long_strike,T):
     half=min(max(0.025+0.08*max(vix/100-0.16,0),0.02),0.1)
     short_mid=bsm_call(S,short_strike,T,0.03,sigS,0.004)
     long_mid=bsm_call(S,long_strike,T,0.03,sigL,0.004)
-    return {"short_model_mid":short_mid,"long_model_mid":long_mid,
+    return {"short_sigma":sigS,"long_sigma":sigL,"short_model_mid":short_mid,"long_model_mid":long_mid,
             "model_bid_for_short":short_mid*(1-half),"model_ask_for_wing":long_mid*(1+half),
+            "model_mid_credit":short_mid-long_mid,
             "model_conservative_credit":short_mid*(1-half)-long_mid*(1+half)}
+
+def model_credit_using_chain_ivs(S,vix,short_strike,long_strike,T,short_iv,wing_iv):
+    """Diagnostic repricing using source-reported per-leg IV; this is not a fill model."""
+    s_iv,l_iv=numeric(short_iv),numeric(wing_iv)
+    if s_iv is None or l_iv is None or s_iv<=0 or l_iv<=0:
+        return {"status":"CHAIN_IV_MISSING","short_iv":s_iv,"wing_iv":l_iv}
+    half=min(max(0.025+0.08*max(vix/100-0.16,0),0.02),0.1)
+    short_mid=bsm_call(S,short_strike,T,0.03,s_iv,0.004)
+    wing_mid=bsm_call(S,long_strike,T,0.03,l_iv,0.004)
+    return {
+        "status":"CHAIN_IV_DIAGNOSTIC",
+        "short_iv":s_iv,
+        "wing_iv":l_iv,
+        "model_short_mid":short_mid,
+        "model_wing_mid":wing_mid,
+        "model_mid_credit":short_mid-wing_mid,
+        "model_short_bid_using_model_halfspread":short_mid*(1-half),
+        "model_wing_ask_using_model_halfspread":wing_mid*(1+half),
+        "model_conservative_credit_using_chain_ivs":short_mid*(1-half)-wing_mid*(1+half),
+        "half_spread_still_model_derived":half,
+        "caveat":"The input IV fields come from a public EOD mirror and are not independently verified as exchange-authoritative. The spread haircut remains model-derived."
+    }
 
 def standard_strike_grid(value):
     x=numeric(value)
@@ -154,6 +177,8 @@ def nearest_quote_model_pairs(rows,day,model_geom,raw_close,repo_adj_close,vix):
         kl=numeric(wing.get("strike"))
         sb,sa=numeric(short.get("bid")),numeric(short.get("ask"))
         wb,wa=numeric(wing.get("bid")),numeric(wing.get("ask"))
+        short_iv=numeric(short.get("implied_volatility"))
+        wing_iv=numeric(wing.get("implied_volatility"))
         width=kl-ks
         exec_credit=sb-wa
         mid_credit=(sb+sa)/2-(wb+wa)/2
@@ -163,10 +188,11 @@ def nearest_quote_model_pairs(rows,day,model_geom,raw_close,repo_adj_close,vix):
         return {
             "expiry":expiry,"calendar_dte":dte,"short_contract_id":short.get("contract_id"),
             "short_strike":ks,"short_bid":sb,"short_ask":sa,"short_delta":numeric(short.get("delta")),
+            "short_implied_volatility":short_iv,
             "short_volume":short.get("volume"),"short_open_interest":short.get("open_interest"),
             "wing_contract_id":wing.get("contract_id"),"wing_strike":kl,"wing_bid":wb,"wing_ask":wa,
-            "wing_delta":numeric(wing.get("delta")),"wing_volume":wing.get("volume"),
-            "wing_open_interest":wing.get("open_interest"),"strike_width":width,
+            "wing_delta":numeric(wing.get("delta")),"wing_implied_volatility":wing_iv,
+            "wing_volume":wing.get("volume"),"wing_open_interest":wing.get("open_interest"),"strike_width":width,
             "observed_credit_bid_minus_wing_ask":exec_credit,
             "observed_credit_mid_minus_mid":mid_credit,
             "observed_credit_is_valid_positive":0<exec_credit<width,
@@ -174,6 +200,12 @@ def nearest_quote_model_pairs(rows,day,model_geom,raw_close,repo_adj_close,vix):
             "spread_pct_of_short_mid":round((sa-sb)/((sa+sb)/2)*100,2) if sa+sb>0 else None,
             "model_using_repo_adjusted_spot_at_same_listed_strikes":model_repo,
             "model_using_raw_close_at_same_listed_strikes":model_raw,
+            "model_iv_proxy_short_sigma":model_repo["short_sigma"],
+            "model_iv_proxy_wing_sigma":model_repo["long_sigma"],
+            "model_to_chain_iv_ratio_short":model_repo["short_sigma"]/short_iv if short_iv is not None and short_iv>0 else None,
+            "model_to_chain_iv_ratio_wing":model_repo["long_sigma"]/wing_iv if wing_iv is not None and wing_iv>0 else None,
+            "model_using_repo_spot_and_chain_leg_ivs":model_credit_using_chain_ivs(repo_adj_close,vix,ks,kl,t_actual,short_iv,wing_iv),
+            "model_using_raw_close_and_chain_leg_ivs":model_credit_using_chain_ivs(raw_close,vix,ks,kl,t_actual,short_iv,wing_iv),
             "repo_spot_model_credit_minus_observed_executable":model_repo["model_conservative_credit"]-exec_credit,
             "raw_close_model_credit_minus_observed_executable":model_raw["model_conservative_credit"]-exec_credit,
             "notice":"No contract-root/deliverable verification is present in this EOD table; standard 100 multiplier remains an assumption."
