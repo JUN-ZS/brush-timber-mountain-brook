@@ -356,6 +356,183 @@
     }
   }
 
+  function renderProDashboard(result, input) {
+    const rows = result.rows || [];
+    const getRow = (key) => rows.find((r) => r.key === key) || {};
+    const nav = E.num(result.nav, 0);
+    const cash = E.num(result.cashPool, 0);
+    const qqq = getRow("qqqShares");
+    const vxx = getRow("vxxShortShares");
+    const qCall = getRow("qqqCallSpreads");
+    const vCall = getRow("vxxCallSpreads");
+    const inputCandidates = input.candidates || {};
+    const qCandidate = inputCandidates.qqqCall || null;
+    const vCandidate = inputCandidates.vxxCall || null;
+    const exactUsd = (value) => Number.isFinite(Number(value)) ? "$" + Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
+    const pct = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%" : "—";
+    const ratioPct = (value, base) => Number.isFinite(Number(value)) && Number(base) > 0 ? Number(value) / Number(base) * 100 : null;
+    const displayQty = (row, unit) => row.capacity === null || row.capacity === undefined || result.market.blocked
+      ? "PENDING" : fmt(row.capacity) + " " + unit;
+    const capacity = (row) => row.capacity === null || row.capacity === undefined || result.market.blocked ? null : Math.max(0, Number(row.capacity));
+    const card = (label, number, unit, meta, state = "ready") =>
+      '<article class="pro-capacity-card ' + state + '"><small>' + esc(label) + '</small><b>' + esc(number) + '</b><span>' + esc(unit) + '</span><div class="pro-card-meta">' +
+      meta.map((line) => '<span>' + line + '</span>').join("") + '</div></article>';
+    const qtyQ = capacity(qqq), qtyV = capacity(vxx), qtyQc = capacity(qCall), qtyVc = capacity(vCall);
+    const capQNotional = qtyQ !== null && Number.isFinite(Number(qqq.unitPrice)) ? qtyQ * Number(qqq.unitPrice) : null;
+    const capVNotional = qtyV !== null && Number.isFinite(Number(vxx.unitPrice)) ? qtyV * Number(vxx.unitPrice) : null;
+    const vxxMarginMultiple = E.num(input.sizing.vxxShortMarginMultiple, 1.5);
+    const capVMargin = capVNotional !== null ? capVNotional * vxxMarginMultiple : null;
+    const qRiskPerSpread = E.num(qCall.riskPerUnit);
+    const vRiskPerSpread = E.num(vCall.riskPerUnit);
+    const qMaxLoss = qtyQc !== null && qRiskPerSpread !== null ? qtyQc * qRiskPerSpread : null;
+    const vMaxLoss = qtyVc !== null && vRiskPerSpread !== null ? qtyVc * vRiskPerSpread : null;
+    const knownOptionRisk = (qMaxLoss === null ? 0 : qMaxLoss) + (vMaxLoss === null ? 0 : vMaxLoss);
+    const knownOptionLegs = [qMaxLoss, vMaxLoss].filter((v) => v !== null).length;
+    const pool = Number.isFinite(Number(result.totalOptionRiskPool)) ? Number(result.totalOptionRiskPool) : null;
+    const usedPct = pool > 0 ? Math.min(100, knownOptionRisk / pool * 100) : 0;
+    const stockNotional = capQNotional !== null && capVNotional !== null ? capQNotional + capVNotional : null;
+    const capitalRequired = E.num(result.plannedCapitalRequiredUsd);
+    const freeCash = E.num(result.remainingUnallocatedCashUsd);
+    const currentTargetRisk = E.num(result.optionRiskReservedAtTargets);
+    const calcStatus = $("proCalcStatus");
+    calcStatus.textContent = result.market.blocked ? "BLOCKED · REFRESH / VERIFY DATA" :
+      result.market.state + (result.market.allowNew ? " · ADDS PERMITTED BY GATE" : " · HOLD / REDUCE RULES");
+    calcStatus.className = "pro-status " + (result.market.blocked ? "bad" : result.market.state === "CARRY" ? "good" : "warn");
+
+    $("proKpis").innerHTML = [
+      ["PORTFOLIO NAV", usd(nav), "NAV basis for all allocation percentages"],
+      ["MAX STOCK NOTIONAL", stockNotional === null ? "PENDING" : exactUsd(stockNotional), stockNotional === null ? "Await valid market prices" : pct(ratioPct(stockNotional, nav)) + " of NAV · QQQ + VXX short"],
+      ["MAX OPTION LOSS", qMaxLoss === null && vMaxLoss === null ? "PENDING" : usd(knownOptionRisk), pool !== null ? pct(ratioPct(knownOptionRisk, nav)) + " NAV · " + pct(usedPct) + " of shared pool" : "Waiting for risk pool"],
+      ["FREE CASH AFTER PLAN", freeCash === null ? "PENDING" : exactUsd(freeCash), freeCash === null ? "Blocked until market data is fresh" : pct(ratioPct(freeCash, cash)) + " of uncommitted cash"]
+    ].map(([label, value, sub]) => '<article class="pro-kpi"><small>' + esc(label) + '</small><b>' + esc(value) + '</b><span>' + esc(sub) + '</span></article>').join("");
+
+    const components = [
+      { key: "reserve", label: "Cash reserve", value: E.num(result.cashReserveUsd), color: "reserve" },
+      { key: "risk", label: "Full option-risk envelope", value: E.num(result.totalOptionRiskPool), color: "risk" },
+      { key: "qqq", label: "Incremental QQQ purchase", value: E.num(result.qqqAdditionalCapitalUsd), color: "qqq" },
+      { key: "vxx", label: "Incremental VXX margin", value: E.num(result.vxxAdditionalMarginUsd), color: "vxx" },
+      { key: "free", label: "Unallocated cash", value: freeCash, color: "free" }
+    ];
+    if (!result.ok || !(cash > 0)) {
+      $("proCashUtilization").textContent = "PENDING";
+      $("proCapitalChart").innerHTML = '<div class="pro-empty">Capital chart is blocked until NAV, cash and the V3 / manually verified market snapshot pass the freshness gate.</div>';
+      $("proCapitalLegend").innerHTML = "";
+    } else {
+      $("proCashUtilization").textContent = pct(ratioPct(capitalRequired, cash)) + " USED";
+      $("proCapitalChart").innerHTML =
+        '<div class="pro-stack-track" aria-label="Cash plan allocation">' +
+        components.map((c) => {
+          const value = Number.isFinite(c.value) ? Math.max(0, c.value) : 0;
+          const width = Math.max(0, Math.min(100, value / cash * 100));
+          return '<div class="pro-stack-segment ' + c.color + '" title="' + esc(c.label + ": " + exactUsd(value)) + '" style="width:' + width.toFixed(4) + '%"></div>';
+        }).join("") + '</div><div class="pro-stack-scale"><span>$0</span><span>' + esc(exactUsd(cash)) + ' available</span></div>';
+      $("proCapitalLegend").innerHTML = components.map((c) => {
+        const value = Number.isFinite(c.value) ? Math.max(0, c.value) : null;
+        return '<div class="pro-legend-item"><i class="pro-legend-dot ' + c.color + '"></i><span class="pro-legend-label">' + esc(c.label) + '</span><b class="pro-legend-value">' + esc(value === null ? "PENDING" : exactUsd(value)) + '</b></div>';
+      }).join("");
+    }
+
+    $("proOptionPoolLabel").textContent = pool === null ? "PENDING" : exactUsd(pool) + " · " + pct(ratioPct(pool, nav)) + " NAV";
+    $("proRiskDonut").style.setProperty("--used", Number.isFinite(usedPct) ? usedPct.toFixed(2) : "0");
+    $("proRiskUsedPct").textContent = (qMaxLoss === null || vMaxLoss === null) ? "PARTIAL" : pct(usedPct);
+    const riskLegMarkup = [
+      { label: "QQQ Call-Credit", amount: qMaxLoss, max: pool, cls: "" },
+      { label: "VXX Call-Credit", amount: vMaxLoss, max: pool, cls: "vxx" },
+      { label: "Unused after rounding", amount: pool === null ? null : Math.max(0, pool - knownOptionRisk), max: pool, cls: "" }
+    ].map((item) => {
+      const barPct = Number.isFinite(item.amount) && Number(item.max) > 0 ? Math.min(100, item.amount / item.max * 100) : 0;
+      return '<div class="pro-risk-leg"><div class="pro-risk-leg-head"><span>' + esc(item.label) + '</span><b>' + esc(item.amount === null ? "PENDING" : exactUsd(item.amount)) + '</b></div><div class="pro-risk-track"><div class="pro-risk-fill ' + item.cls + '" style="width:' + barPct.toFixed(3) + '%"></div></div></div>';
+    }).join("");
+    $("proRiskBreakdown").innerHTML = riskLegMarkup;
+    $("proRiskFoot").textContent = (knownOptionLegs === 2
+      ? "Maximum spread risk at current contract capacity. "
+      : "Partial quote coverage: missing legs are not assumed to have zero risk. ") +
+      (currentTargetRisk === null ? "Current target risk is blocked/pending." : "Current policy target reserves " + exactUsd(currentTargetRisk) + ".") +
+      " VXX put is excluded.";
+
+    const qCreditPerSpread = E.num(qCandidate && qCandidate.credit);
+    const vCreditPerSpread = E.num(vCandidate && vCandidate.credit);
+    const qTotalCredit = qtyQc !== null && qCreditPerSpread !== null ? qCreditPerSpread * 100 * qtyQc : null;
+    const vTotalCredit = qtyVc !== null && vCreditPerSpread !== null ? vCreditPerSpread * 100 * qtyVc : null;
+    const qStrikes = qCandidate ? fmt(qCandidate.shortStrike, 2) + "C / " + fmt(qCandidate.longStrike, 2) + "C" : "Quote pending";
+    const vStrikes = vCandidate ? fmt(vCandidate.shortStrike, 2) + "C / " + fmt(vCandidate.longStrike, 2) + "C" : "Quote pending";
+    const expiryQ = qCandidate && qCandidate.expiry ? qCandidate.expiry : "same-expiry quote needed";
+    const expiryV = vCandidate && vCandidate.expiry ? vCandidate.expiry : "same-expiry quote needed";
+    const statusOf = (row, quantity, priceKnown) => result.market.blocked ? "BLOCKED" : quantity === null || !priceKnown ? "QUOTE / DATA PENDING" :
+      row.action === "ADD" || row.action === "HOLD" ? esc(row.action) + " · REVIEW" : esc(row.action) + " · REVIEW";
+    const statusClass = (text) => /PENDING|BLOCKED/.test(text) ? "pro-warn" : /ADD|READY|REVIEW/.test(text) ? "pro-good" : "pro-muted";
+    const tableRows = [
+      {
+        name: "QQQ Core Shares", sub: "Equity allocation cap",
+        price: result.market.blocked ? "PENDING" : exactUsd(result.market.qqq) + " / share",
+        qty: displayQty(qqq, "shares"),
+        exposure: capQNotional === null ? "PENDING" : exactUsd(capQNotional) + " notional",
+        credit: "—", loss: "—",
+        navPct: capQNotional === null ? "PENDING" : pct(ratioPct(capQNotional, nav)),
+        status: statusOf(qqq, qtyQ, capQNotional !== null)
+      },
+      {
+        name: "VXX Short Stock", sub: "Notional limit · short stock has uncapped upside risk",
+        price: result.market.blocked ? "PENDING" : exactUsd(result.market.vxx) + " / share",
+        qty: displayQty(vxx, "short shares"),
+        exposure: capVNotional === null || capVMargin === null ? "PENDING" : exactUsd(capVNotional) + " notional · " + exactUsd(capVMargin) + " margin",
+        credit: "—", loss: "Unbounded",
+        navPct: capVNotional === null || capVMargin === null ? "PENDING" : pct(ratioPct(capVNotional, nav)) + " notional / " + pct(ratioPct(capVMargin, nav)) + " margin",
+        status: statusOf(vxx, qtyV, capVMargin !== null)
+      },
+      {
+        name: "QQQ Call-Credit", sub: "Short call + long wing · " + expiryQ,
+        price: qCandidate ? qStrikes : "Quote pending",
+        qty: qtyQc === null ? "PENDING" : fmt(qtyQc) + " spreads",
+        exposure: qMaxLoss === null ? "PENDING" : exactUsd(qMaxLoss) + " max-loss exposure",
+        credit: qTotalCredit === null ? "PENDING" : exactUsd(qTotalCredit),
+        loss: qMaxLoss === null ? "PENDING" : exactUsd(qMaxLoss),
+        navPct: qMaxLoss === null ? "PENDING" : pct(ratioPct(qMaxLoss, nav)),
+        status: statusOf(qCall, qtyQc, qMaxLoss !== null)
+      },
+      {
+        name: "VXX Call-Credit", sub: "Short call + long wing · " + expiryV,
+        price: vCandidate ? vStrikes : "Quote pending",
+        qty: qtyVc === null ? "PENDING" : fmt(qtyVc) + " spreads",
+        exposure: vMaxLoss === null ? "PENDING" : exactUsd(vMaxLoss) + " max-loss exposure",
+        credit: vTotalCredit === null ? "PENDING" : exactUsd(vTotalCredit),
+        loss: vMaxLoss === null ? "PENDING" : exactUsd(vMaxLoss),
+        navPct: vMaxLoss === null ? "PENDING" : pct(ratioPct(vMaxLoss, nav)),
+        status: statusOf(vCall, qtyVc, vMaxLoss !== null)
+      }
+    ];
+    $("proAllocationRows").innerHTML = tableRows.map((row) => {
+      const c = statusClass(row.status);
+      return '<tr><td>' + esc(row.name) + '<small>' + esc(row.sub) + '</small></td>' +
+        '<td class="pro-number">' + esc(row.price) + '</td><td class="pro-number">' + esc(row.qty) + '</td>' +
+        '<td class="pro-number">' + esc(row.exposure) + '</td><td class="pro-number">' + esc(row.credit) + '</td>' +
+        '<td class="pro-number">' + esc(row.loss) + '</td><td class="pro-number">' + esc(row.navPct) + '</td>' +
+        '<td class="' + c + '">' + esc(row.status.replace(/<[^>]*>/g, "")) + '</td></tr>';
+    }).join("");
+
+    $("proCapacityGrid").innerHTML =
+      card("QQQ CORE SHARES", qtyQ === null ? "PENDING" : fmt(qtyQ), "shares · max capacity",
+        ['<b>' + esc(capQNotional === null ? "—" : exactUsd(capQNotional)) + '</b> notional', esc(pct(ratioPct(capQNotional, nav))) + ' NAV'],
+        qtyQ === null ? "pending" : "ready") +
+      card("VXX SHORT STOCK", qtyV === null ? "PENDING" : fmt(qtyV), "shares short · max capacity",
+        ['<b>' + esc(capVNotional === null ? "—" : exactUsd(capVNotional)) + '</b> notional', '<b>' + esc(capVMargin === null ? "—" : exactUsd(capVMargin)) + '</b> estimated margin'],
+        qtyV === null ? "pending" : "ready") +
+      card("QQQ CALL-CREDIT", qtyQc === null ? "PENDING" : fmt(qtyQc), "spreads · max capacity",
+        ['<b>' + esc(qMaxLoss === null ? "—" : exactUsd(qMaxLoss)) + '</b> max loss', '<b>' + esc(qTotalCredit === null ? "—" : exactUsd(qTotalCredit)) + '</b> estimated credit', esc(qCandidate ? qStrikes + " · " + expiryQ : "Load QQQ call quote")],
+        qtyQc === null ? "pending" : "ready") +
+      card("VXX CALL-CREDIT", qtyVc === null ? "PENDING" : fmt(qtyVc), "spreads · max capacity",
+        ['<b>' + esc(vMaxLoss === null ? "—" : exactUsd(vMaxLoss)) + '</b> max loss', '<b>' + esc(vTotalCredit === null ? "—" : exactUsd(vTotalCredit)) + '</b> estimated credit', esc(vCandidate ? vStrikes + " · " + expiryV : "Load VXX call quote")],
+        qtyVc === null ? "pending" : "ready");
+
+    const totalStockText = stockNotional === null ? "PENDING" : exactUsd(stockNotional);
+    const totalRiskText = qMaxLoss === null && vMaxLoss === null ? "PENDING" : exactUsd(knownOptionRisk);
+    $("proTotalsRow").innerHTML =
+      '<span>MAX STOCK NOTIONAL<b>' + esc(totalStockText) + '</b></span>' +
+      '<span>OPTION MAX LOSS @ CAPACITY<b>' + esc(totalRiskText) + '</b></span>' +
+      '<span>PLANNED CAPITAL REQUIRED<b>' + esc(capitalRequired === null ? "PENDING" : exactUsd(capitalRequired)) + '</b></span>' +
+      '<span>UNALLOCATED CASH<b>' + esc(freeCash === null ? "PENDING" : exactUsd(freeCash)) + '</b></span>';
+  }
+
   function renderPlan() {
     updateSlopeDisplay();
     syncHubResearchCandidates();
@@ -364,6 +541,7 @@
     if (marketTouched) input.market.term_source = "MANUAL_OPERATOR_INPUT";
     const result = E.calculatePortfolio(input);
     lastPlan = { generatedAt: new Date().toISOString(), input, result, candidates };
+    renderProDashboard(result, input);
     const m = result.market;
     $("marketBadge").textContent = m.status + (m.blocked ? " · NO SIZING" : "");
     $("marketBadge").className = "tag " + (m.blocked ? "danger" : m.state === "CARRY" ? "active" : "warn");
