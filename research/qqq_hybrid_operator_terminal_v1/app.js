@@ -108,7 +108,10 @@
         farDelta: inputNumber("nxFarDelta", 0.08),
         nearDelta: inputNumber("nxNearDelta", 0.5),
         coverageMult: inputNumber("nxCoverage", 1.5),
-        maxStack: inputNumber("nxMaxStack", 5)
+        maxStack: inputNumber("nxMaxStack", 5),
+        farDistancePct: inputNumber("nxFarDistancePct", 10),
+        gammaRel: inputNumber("nxGammaRel", 1),
+        deltaJump: inputNumber("nxDeltaJump", 0)
       }
     };
   }
@@ -268,6 +271,7 @@
     $("nxResult").innerHTML =
       '<div class="nx-grid"><div><small>FAR SHORT</small><b>' + fmt(ratio.currentFar) + ' → ' + fmt(ratio.targetFar) + '</b><span class="' + String(ratio.actionFar).toLowerCase() + '">' + esc(ratio.actionFar) + ' ' + signed(ratio.farDelta) + '</span></div>' +
       '<div><small>NEAR LONG</small><b>' + fmt(ratio.currentNear) + ' → ' + fmt(ratio.targetNear) + '</b><span class="' + String(ratio.actionNear).toLowerCase() + '">' + esc(ratio.actionNear) + ' ' + signed(ratio.nearDelta) + '</span></div></div>' +
+      '<p>Risk score ' + fmt(ratio.riskScore, 2) + ' = delta ' + ratio.dScore + ' × 0.50 + distance ' + ratio.xScore + ' × 0.30 + gamma/jump ' + ratio.gScore + ' × 0.20. Base near target ' + fmt(ratio.baseNearTarget) + ', stack adjustment +' + fmt(ratio.stackAdjustment) + '.</p>' +
       '<p>' + esc(ratio.note || "Disabled or risk gate active; this is a per-campaign reference only.") + '</p>' +
       '<b class="danger-text">Risk boundary: no hard max-loss cap.</b>';
 
@@ -384,7 +388,7 @@
     });
     document.querySelectorAll("input,select").forEach(el => {
       if (el.id.startsWith("current-") || el.id.startsWith("budget-") || el.id.startsWith("risk-") || el.id.startsWith("enabled-") ||
-          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","allowProtectionBuys","targetDte"].includes(el.id)) {
+          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte"].includes(el.id)) {
         el.addEventListener("input", () => {
           if (["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday"].includes(el.id)) {
             marketTouched = true;

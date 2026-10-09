@@ -309,22 +309,34 @@
     const enabled = d.enabled === true;
     const currentFar = whole(d.currentFarShort);
     const currentNear = whole(d.currentNearLong);
-    const nShort = Math.max(1, whole(d.nShort, 10) || 10);
-    const farDelta = Math.abs(num(d.farDelta, 0.08));
-    const nearDelta = Math.max(0.01, Math.abs(num(d.nearDelta, 0.5)));
-    const coverage = Math.max(0, num(d.coverageMult, 1.5));
-    const maxStack = Math.max(1, whole(d.maxStack, 5) || 5);
-    const proposedNear = Math.max(1, Math.min(maxStack, Math.ceil((coverage * nShort * farDelta) / nearDelta)));
+    const nShort = Math.min(100, Math.max(1, whole(d.nShort, 10) || 10));
+    const farDeltaAbs = Math.min(1, Math.max(0.01, Math.abs(num(d.farDelta, 0.08))));
+    const nearDeltaAbs = Math.min(1, Math.max(0.01, Math.abs(num(d.nearDelta, 0.5))));
+    const coverage = Math.min(5, Math.max(0, num(d.coverageMult, 1.5)));
+    const maxStack = Math.min(20, Math.max(1, whole(d.maxStack, 5) || 5));
+    const distancePct = Math.min(100, Math.max(0, num(d.farDistancePct, 10)));
+    const gammaRel = Math.min(100, Math.max(0, num(d.gammaRel, 1)));
+    const deltaJump = Math.min(1, Math.max(0, num(d.deltaJump, 0)));
+    // Preserves the legacy Live Hedge risk-state scoring: delta, distance,
+    // relative gamma and delta-jump affect the number of near-long contracts.
+    const dScore = farDeltaAbs < 0.04 ? 1 : farDeltaAbs < 0.06 ? 2 : farDeltaAbs < 0.08 ? 3 : farDeltaAbs < 0.10 ? 4 : 5;
+    const distance = distancePct / 100;
+    const xScore = distance > 0.10 ? 1 : distance > 0.07 ? 2 : distance > 0.04 ? 3 : distance > 0.02 ? 4 : 5;
+    const gScore = gammaRel < 1.20 && deltaJump < 0.01 ? 1 : gammaRel < 1.50 && deltaJump < 0.02 ? 2 : 3;
+    const riskScore = 0.50 * dScore + 0.30 * xScore + 0.20 * gScore;
+    const baseNearTarget = Math.max(1, Math.min(maxStack, Math.ceil((coverage * nShort * farDeltaAbs) / nearDeltaAbs)));
+    const stackAdjustment = riskScore >= 4.2 ? 2 : riskScore >= 3.2 ? 1 : 0;
+    const riskAdjustedNearTarget = Math.max(1, Math.min(maxStack, baseNearTarget + stackAdjustment));
+    const riskMeta = { farDeltaAbs, nearDeltaAbs, distancePct, gammaRel, deltaJump, dScore, xScore, gScore, riskScore, baseNearTarget, stackAdjustment };
     const targetFar = !enabled ? 0 : nShort;
-    const targetNear = !enabled ? 0 : proposedNear;
-    if (market.blocked) return { enabled, currentFar, currentNear, targetFar: currentFar, targetNear: currentNear, farDelta: targetFar-currentFar, nearDelta: targetNear-currentNear, actionFar: "BLOCKED", actionNear: "BLOCKED", noHardLossCap: true, status: "BLOCKED" };
-    if (market.riskOff) return { enabled, currentFar, currentNear, targetFar: 0, targetNear: 0, farDelta: -currentFar, nearDelta: -currentNear, actionFar: currentFar ? "REDUCE" : "HOLD", actionNear: currentNear ? "REDUCE" : "HOLD", noHardLossCap: true, status: "RISK_OFF_EXIT_REVIEW" };
-    if (!enabled) return { enabled, currentFar, currentNear, targetFar: 0, targetNear: 0, farDelta: -currentFar, nearDelta: -currentNear, actionFar: currentFar ? "REDUCE" : "HOLD", actionNear: currentNear ? "REDUCE" : "HOLD", noHardLossCap: true, status: "DISABLED_MANUAL_REVIEW" };
+    const targetNear = !enabled ? 0 : riskAdjustedNearTarget;
+    if (market.blocked) return { enabled, currentFar, currentNear, targetFar: currentFar, targetNear: currentNear, farDelta: 0, nearDelta: 0, actionFar: "BLOCKED", actionNear: "BLOCKED", noHardLossCap: true, status: "BLOCKED", ...riskMeta };
+    if (market.riskOff) return { enabled, currentFar, currentNear, targetFar: 0, targetNear: 0, farDelta: -currentFar, nearDelta: -currentNear, actionFar: currentFar ? "REDUCE" : "HOLD", actionNear: currentNear ? "REDUCE" : "HOLD", noHardLossCap: true, status: "RISK_OFF_EXIT_REVIEW", ...riskMeta };
+    if (!enabled) return { enabled, currentFar, currentNear, targetFar: 0, targetNear: 0, farDelta: -currentFar, nearDelta: -currentNear, actionFar: currentFar ? "REDUCE" : "HOLD", actionNear: currentNear ? "REDUCE" : "HOLD", noHardLossCap: true, status: "DISABLED_MANUAL_REVIEW", ...riskMeta };
     const nearAction = actionFor(currentNear, targetNear, market.allowNew);
     const farAction = actionFor(currentFar, targetFar, market.allowNew);
-    return { enabled, nShort, currentFar, currentNear, targetFar, targetNear, farDelta: farAction.delta, nearDelta: nearAction.delta, actionFar: farAction.action, actionNear: nearAction.action, noHardLossCap: true, status: "LEGACY_N_X_NO_HARD_LOSS_CAP", note: "Per campaign only. The 10:near-long rule is a legacy management profile, not a portfolio-wide capacity or max-loss guarantee." };
+    return { enabled, nShort, currentFar, currentNear, targetFar, targetNear, farDelta: farAction.delta, nearDelta: nearAction.delta, actionFar: farAction.action, actionNear: nearAction.action, noHardLossCap: true, status: "LEGACY_N_X_NO_HARD_LOSS_CAP", note: "Per campaign only. The legacy 10:near-long rule is a management profile, not a portfolio-wide capacity or max-loss guarantee.", ...riskMeta };
   }
-
   function normalizeOptionChain(payload, right) {
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload[right === "put" ? "puts" : "calls"])) return payload[right === "put" ? "puts" : "calls"];

@@ -252,8 +252,8 @@ function row(result, key) {
   const call = E.findCreditVertical({ calls }, 100, "call", 45, 0.16, "2026-10-09");
   assert.equal(call.shortStrike, 105);
   assert.equal(call.longStrike, 107);
-  assert.equal(call.credit, 0.6);
-  assert.equal(call.maxLossPerSpread, 140);
+  assert.ok(Math.abs(call.credit - 0.6) < 1e-9);
+  assert.ok(Math.abs(call.maxLossPerSpread - 140) < 1e-9);
   assert.equal(call.expiry, "2026-11-20");
 
   const puts = [
@@ -264,9 +264,27 @@ function row(result, key) {
   const put = E.findCreditVertical({ puts }, 100, "put", 45, 0.16, "2026-10-09");
   assert.equal(put.shortStrike, 95);
   assert.equal(put.longStrike, 92.5);
-  assert.equal(put.credit, 0.7);
-  assert.equal(put.maxLossPerSpread, 180);
+  assert.ok(Math.abs(put.credit - 0.7) < 1e-9);
+  assert.ok(Math.abs(put.maxLossPerSpread - 180) < 1e-9);
   assert.equal(put.expiry, "2026-11-20");
 }
 
-console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 16 TEST GROUPS PASS");
+// Legacy hedge raises near-long coverage when delta/distance/gamma risk score breaches thresholds.
+{
+  const r = E.calculatePortfolio(base({
+    ratioCampaign: {
+      enabled: true, currentFarShort: 10, currentNearLong: 1,
+      nShort: 10, farDelta: 0.12, nearDelta: 0.5, coverageMult: 1.5, maxStack: 5,
+      farDistancePct: 3, gammaRel: 1.6, deltaJump: 0.025
+    }
+  }));
+  assert.equal(r.ratioCampaign.dScore, 5);
+  assert.equal(r.ratioCampaign.xScore, 4);
+  assert.equal(r.ratioCampaign.gScore, 3);
+  assert.ok(Math.abs(r.ratioCampaign.riskScore - 4.3) < 1e-9);
+  assert.equal(r.ratioCampaign.stackAdjustment, 2);
+  assert.equal(r.ratioCampaign.targetNear, 5);
+  assert.equal(r.ratioCampaign.noHardLossCap, true);
+}
+
+console.log("QQQ HYBRID OPERATOR TERMINAL ENGINE: 17 TEST GROUPS PASS");
