@@ -93,4 +93,5 @@ If the data cannot support a measure, write UNAVAILABLE or INSUFFICIENT_SAMPLE; 
 - VXX stock borrow rate of 3% is an assumed planning input, not verified historical broker data.
 - The uploaded chain fixture is an observed transcription of visible rows only. Its exact quote timestamp and contract deliverable are not verified.
 - Underlying daily data through 2026-09-04 cannot substitute for a full VXX historical option chain.
+- The 2018–2026 range already reviewed in prior research PRs #97/#98 is not a virgin, untouched final lockbox. A later 60/20/20 split within that same familiar range may be a chronological holdout for a new, pre-specified comparison, but it must be labelled previously exposed / development-revisit rather than blind OOS. Claim a true untouched lockbox only for data or dates that were not used to design, select, or tune the candidate.
 - None of the thresholds above changes the frozen Original Hybrid policy or grants broker-order permission.
