@@ -82,7 +82,7 @@
   function ratioGeometryError(inputs) {
     const values = [inputs.atmStrike, inputs.shortStrike, inputs.wingStrike].map(v => num(v));
     const prices = [inputs.atmAsk, inputs.shortBid, inputs.wingAsk].map(v => num(v));
-    if (values.some(v => !(v > 0)) || prices.some(v => v === null || v < 0)) return "ATM/short/wing strikes and observed Ask/Bid prices are required.";
+    if (values.some(v => !(v > 0)) || prices.some(v => v === null || v < 0) || !(prices[0] > 0) || !(prices[2] > 0)) return "ATM/wing Ask must be positive; all strikes and observed Bid/Ask prices are required.";
     if (!(values[0] < values[1] && values[1] < values[2])) return "Call geometry must satisfy ATM strike < short-call strike < farther-OTM wing strike.";
     return null;
   }
@@ -130,9 +130,15 @@
     let reason = entryN ? "The selected entry structure fits the current risk budget; actual fills and position state still require manual verification." : "Chosen N does not fit the risk budget, or a required quote/geometry is missing.";
     let harvestedPairs = 0;
 
-    if (entryN && mode === "ratio-harvest50") {
-      const pairPnl = ((num(d.shortBid, 0) - num(d.wingAsk, 0)) - (num(d.currentShortAsk, 0) - num(d.currentWingBid, 0))) * MULTIPLIER;
-      if (d.approachTouched && d.nextDayReversal && pairPnl > 0 && currentN > 0) {
+    if (entryN && currentN === 0) {
+      action = "NEW ENTRY ELIGIBLE / REVIEW";
+      reason = "No current position quantity was entered. Entry N and risk fit are shown above; position-management actions wait until the actual open legs are entered.";
+    } else if (entryN && mode === "ratio-harvest50") {
+      const pairQuotes = [num(d.shortBid), num(d.wingAsk), num(d.currentShortAsk), num(d.currentWingBid)];
+      const pairPnl = pairQuotes.every(Number.isFinite)
+        ? ((pairQuotes[0] - pairQuotes[1]) - (pairQuotes[2] - pairQuotes[3])) * MULTIPLIER
+        : null;
+      if (d.approachTouched && d.nextDayReversal && pairPnl !== null && pairPnl > 0 && currentN > 0) {
         harvestedPairs = Math.ceil(currentN / 2);
         targetPairs = Math.max(0, currentN - harvestedPairs);
         targetShorts = targetPairs;
@@ -295,6 +301,7 @@
       { name: "Short farther-OTM put", right: "put", side: "SELL", qty: 1, strike: shortK, price: shortBid }
     ], spot);
     if (!risk.ready) return { ready: false, status: "PENDING", error: risk.error };
+    if (!(risk.debitUsd > 0)) return { ready: false, status: "PENDING", error: "This SHOCK-GATED template is a debit spread; observed Long Put Ask minus Short Put Bid must be positive." };
     const budgetUsd = Math.max(0, num(d.budgetUsd, 0));
     const capacity = risk.riskUsd > 0 ? Math.floor((budgetUsd + EPS) / risk.riskUsd) : 0;
     const drawdown = num(d.drawdown252Pct, 0);
@@ -390,7 +397,7 @@
     }
     return {
       ready: true, expiry,
-      deltaSource: [...atm, ...short, ...wing, ...longPut, ...shortPut].some(x => x.deltaSource === "BS_ESTIMATE") ? "BS_ESTIMATE" : "PROVIDER_DELTA",
+      deltaSource: [atm, short, wing, longPut, shortPut].some(x => x.deltaSource === "BS_ESTIMATE") ? "BS_ESTIMATE" : "PROVIDER_DELTA",
       atm, short, wing, longPut, shortPut,
       warning: "Public-chain prices may be delayed/incomplete; Greek targets may be Black-Scholes estimates. Review every contract in the broker chain."
     };
