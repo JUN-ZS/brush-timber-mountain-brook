@@ -24,7 +24,11 @@ function ratioBase(overrides = {}) {
 // The 1xNxN ratio's risk is evaluated from the package terminal payoff,
 // not the received premium alone.
 {
-  const legs = H.ratioCallLegs(ratioBase(), 2);
+  const legs = [
+    { name: "ATM long call", right: "call", side: "BUY", qty: 1, strike: 100, price: 6 },
+    { name: "OTM short calls", right: "call", side: "SELL", qty: 2, strike: 110, price: 2 },
+    { name: "Far OTM long wings", right: "call", side: "BUY", qty: 2, strike: 120, price: 0.8 }
+  ];
   const x = H.terminalMaxLoss(legs, 100);
   assert.equal(x.ready, true);
   assert.equal(x.debitUsd, 360);
