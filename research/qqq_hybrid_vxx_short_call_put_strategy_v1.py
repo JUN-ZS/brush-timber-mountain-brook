@@ -44,6 +44,19 @@ LEG_CONFIGS = {
     "CALL_RSI_LT50": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "LT50"},
     "CALL_RSI_GE50": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "GE50"},
     "NO_VXX_OPTIONS": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE"},
+    # Orthogonal VXX sleeve experiment: all other Hybrid layers and the market/exit rules remain unchanged.
+    # Stock notional and option max-loss budget are intentionally reported separately; they are not equal-risk by construction.
+    "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": True, "include_vxx_calls": True, "vxx_short_notional_pct": 18.0, "vxx_short_borrow_annual_pct": 0.0, "vxx_option_dte_days": 30},
+    "SLEEVE_STOCK_ONLY_18_BORROW_0": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": True, "include_vxx_calls": False, "vxx_short_notional_pct": 18.0, "vxx_short_borrow_annual_pct": 0.0},
+    "SLEEVE_CALL_ONLY_2": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": False, "include_vxx_calls": True, "vxx_short_notional_pct": 18.0, "vxx_short_borrow_annual_pct": 0.0, "vxx_option_dte_days": 30},
+    "SLEEVE_NEITHER": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": False, "include_vxx_calls": False, "vxx_short_notional_pct": 18.0, "vxx_short_borrow_annual_pct": 0.0},
+    "SLEEVE_STOCK_ONLY_18_BORROW_3": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": True, "include_vxx_calls": False, "vxx_short_notional_pct": 18.0, "vxx_short_borrow_annual_pct": 3.0},
+    "SLEEVE_STOCK_ONLY_18_BORROW_10": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": True, "include_vxx_calls": False, "vxx_short_notional_pct": 18.0, "vxx_short_borrow_annual_pct": 10.0},
+    "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_3": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": True, "include_vxx_calls": True, "vxx_short_notional_pct": 18.0, "vxx_short_borrow_annual_pct": 3.0, "vxx_option_dte_days": 30},
+    "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_10": {"vxx_call_risk_pct": 2.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": True, "include_vxx_calls": True, "vxx_short_notional_pct": 18.0, "vxx_short_borrow_annual_pct": 10.0, "vxx_option_dte_days": 30},
+    # A stress-normalized sensitivity: a 100% increase in VXX would lose approximately 2% NAV on a 2%-NAV short notional position before costs.
+    "SLEEVE_STOCK_ONLY_2_STRESS_BORROW_0": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": True, "include_vxx_calls": False, "vxx_short_notional_pct": 2.0, "vxx_short_borrow_annual_pct": 0.0},
+    "SLEEVE_STOCK_ONLY_5_BORROW_0": {"vxx_call_risk_pct": 0.0, "vxx_put_risk_pct": 0.0, "rsi_filter": "NONE", "include_vxx_short_stock": True, "include_vxx_calls": False, "vxx_short_notional_pct": 5.0, "vxx_short_borrow_annual_pct": 0.0},
 }
 LEG_KEYS = ("qqq_core", "qqq_call", "vxx_short", "vxx_call", "vxx_put")
 
@@ -234,6 +247,7 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
     legs: list[dict] = []
     events: list[dict] = []
     realized = {k: 0.0 for k in LEG_KEYS}
+    borrow_cost_total = 0.0
     rows = []
     for i, row in df.iterrows():
         keep = []
@@ -243,6 +257,15 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
                 keep.append(p)
                 continue
             if p["structure"] == "vxx-short":
+                # Borrow cost is an explicit scenario input, not claimed historical fee data.
+                # Accrue the prior close-to-current close calendar interval on current marked notional.
+                borrow_rate = max(float(cfg.get("vxx_short_borrow_annual_pct", 0.0)), 0.0) / 100.0
+                if i > 0 and borrow_rate > 0:
+                    elapsed_days = max((pd.Timestamp(row.date).normalize() - pd.Timestamp(df.iloc[i - 1].date).normalize()).days, 1)
+                    borrow_cost = float(row.vxx) * p["n"] * borrow_rate * elapsed_days / 360.0
+                    cash -= borrow_cost
+                    realized["vxx_short"] -= borrow_cost
+                    borrow_cost_total += borrow_cost
                 pnl = (p["S0"] - float(row.vxx)) * p["n"]
                 denom = p["S0"] * p["n"]
                 reasons = []
@@ -310,17 +333,19 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
                                    "max_loss_total_at_open": risk_per_share * 100.0 * n,
                                    "risk_budget_usd": nav_before_open * BASE_QCC_RISK})
 
-        want_vxx_stock = not (row.rV > 0.06 or row.vix > 35 or row.rQ < -0.03) and row.ts >= 0
-        # Keep the existing stock-seller gate unchanged. RSI experiments affect only
-        # the option legs, which avoids confounding short-stock exposure with options.
-        want_vxx_options = want_vxx_stock
+        market_allows_vxx_sellers = not (row.rV > 0.06 or row.vix > 35 or row.rQ < -0.03) and row.ts >= 0
+        # Explicitly separate the stock and call-credit sleeves while preserving their shared market-state gate.
+        # Defaults keep every pre-existing historical control bit-for-bit unchanged.
+        want_vxx_stock = cfg.get("include_vxx_short_stock", True) and market_allows_vxx_sellers
+        want_vxx_options = cfg.get("include_vxx_calls", True) and market_allows_vxx_sellers
         if cfg.get("rsi_filter") == "LT50":
             want_vxx_options = want_vxx_options and pd.notna(row.vxx_rsi14_entry) and float(row.vxx_rsi14_entry) < 50.0
         elif cfg.get("rsi_filter") == "GE50":
             want_vxx_options = want_vxx_options and pd.notna(row.vxx_rsi14_entry) and float(row.vxx_rsi14_entry) >= 50.0
 
         if want_vxx_stock and "vxx-short" not in existing and float(row.vxx) > 0:
-            n = int(math.floor(nav_before_open * 0.18 / float(row.vxx)))
+            short_notional_pct = max(float(cfg.get("vxx_short_notional_pct", 18.0)), 0.0) / 100.0
+            n = int(math.floor(nav_before_open * short_notional_pct / float(row.vxx)))
             if n > 0:
                 cash += float(row.vxx) * n
                 legs.append({"structure": "vxx-short", "n": n, "S0": float(row.vxx), "expiry_i": i + 21})
@@ -388,6 +413,11 @@ def simulate_variant(spots_path: str, variant: str) -> tuple[pd.DataFrame, list[
         "total_return": final_nav / CAPITAL - 1.0,
         "cagr": (final_nav / CAPITAL) ** (365.25 / days) - 1.0 if final_nav > 0 else -1.0,
         "maxdd_daily_mtm": float(eq["drawdown"].min()),
+        "annualized_volatility": float(eq["nav"].pct_change().dropna().std(ddof=1) * math.sqrt(252.0)),
+        "sharpe_rf0": float(eq["nav"].pct_change().dropna().mean() / eq["nav"].pct_change().dropna().std(ddof=1) * math.sqrt(252.0)) if eq["nav"].pct_change().dropna().std(ddof=1) > 0 else None,
+        "vxx_short_notional_pct_nav": float(cfg.get("vxx_short_notional_pct", 18.0)),
+        "vxx_short_borrow_annual_pct_scenario": float(cfg.get("vxx_short_borrow_annual_pct", 0.0)),
+        "vxx_short_borrow_cost_total_usd": float(borrow_cost_total),
         "rows": int(len(eq)),
         "window": {"start": str(eq["date"].iloc[0].date()), "end": str(eq["date"].iloc[-1].date())},
     }
@@ -449,6 +479,33 @@ def run_research(spots_path: Path, out_dir: Path) -> dict:
             "purpose": "Coarse 45 vs 30 calendar-day VXX short-call sensitivity using calendar-DTE marks in the new-model variants.",
         },
     }
+    def pair_delta(a: str, b: str, purpose: str) -> dict:
+        left, right = summaries[a], summaries[b]
+        return {
+            "variant_a": a, "variant_b": b, "purpose": purpose,
+            "final_nav_delta_usd_a_minus_b": float(left["final_nav"] - right["final_nav"]),
+            "cagr_delta_percentage_points_a_minus_b": float((left["cagr"] - right["cagr"]) * 100.0),
+            "maxdd_delta_percentage_points_a_minus_b": float((left["maxdd_daily_mtm"] - right["maxdd_daily_mtm"]) * 100.0),
+            "annualized_vol_delta_percentage_points_a_minus_b": float((left["annualized_volatility"] - right["annualized_volatility"]) * 100.0),
+            "borrow_cost_a_usd": float(left["vxx_short_borrow_cost_total_usd"]),
+            "borrow_cost_b_usd": float(right["vxx_short_borrow_cost_total_usd"]),
+            "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+        }
+
+    vxx_sleeve_comparisons = {
+        "STOCK_ONLY_18_BORROW_0_vs_NEITHER": pair_delta("SLEEVE_STOCK_ONLY_18_BORROW_0", "SLEEVE_NEITHER", "Current 18% NAV short-stock notional without VXX call-credit versus neither VXX sleeve; 0% borrow-cost assumption."),
+        "CALL_ONLY_2_vs_NEITHER": pair_delta("SLEEVE_CALL_ONLY_2", "SLEEVE_NEITHER", "2% NAV defined maximum-loss VXX call-credit budget without VXX short stock versus neither sleeve."),
+        "BOTH_18_STOCK_2_CALL_BORROW_0_vs_NEITHER": pair_delta("SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0", "SLEEVE_NEITHER", "Current 18% NAV VXX short-stock notional plus 2% NAV VXX call-credit max-loss budget versus neither sleeve."),
+        "BOTH_vs_STOCK_ONLY_18_BORROW_0": pair_delta("SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0", "SLEEVE_STOCK_ONLY_18_BORROW_0", "Incremental effect of adding the 2% call-credit max-loss budget to the 18% NAV short-stock leg."),
+        "BOTH_vs_CALL_ONLY_2": pair_delta("SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0", "SLEEVE_CALL_ONLY_2", "Incremental effect of adding the 18% NAV short-stock leg to the 2% call-credit max-loss budget."),
+        "STOCK_ONLY_2_STRESS_vs_CALL_ONLY_2": pair_delta("SLEEVE_STOCK_ONLY_2_STRESS_BORROW_0", "SLEEVE_CALL_ONLY_2", "Exploratory stress alignment: 2% NAV stock-short notional loses about 2% NAV for a +100% VXX price shock, before costs; options remain capped by 2% max-loss budget. Not universally risk-equivalent."),
+        "STOCK_ONLY_5_vs_CALL_ONLY_2": pair_delta("SLEEVE_STOCK_ONLY_5_BORROW_0", "SLEEVE_CALL_ONLY_2", "Stock-short notional sensitivity at 5% NAV versus the 2% option max-loss budget; not a claim of equal risk."),
+        "STOCK_BORROW_3_vs_0": pair_delta("SLEEVE_STOCK_ONLY_18_BORROW_3", "SLEEVE_STOCK_ONLY_18_BORROW_0", "Hypothetical 3% annual borrow fee sensitivity on the 18% NAV stock-short notional."),
+        "STOCK_BORROW_10_vs_0": pair_delta("SLEEVE_STOCK_ONLY_18_BORROW_10", "SLEEVE_STOCK_ONLY_18_BORROW_0", "Hypothetical 10% annual borrow fee sensitivity on the 18% NAV stock-short notional."),
+        "BOTH_BORROW_3_vs_0": pair_delta("SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_3", "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0", "Hypothetical 3% annual borrow fee sensitivity when both VXX sleeves are present."),
+        "BOTH_BORROW_10_vs_0": pair_delta("SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_10", "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0", "Hypothetical 10% annual borrow fee sensitivity when both VXX sleeves are present.")
+    }
+
     report = {
         "research_id": RESEARCH_ID, "status": "DERIVED_BS_VIX_RESEARCH_NOT_LIVE",
         "pricing_model": "DERIVED_BS_VIX", "not_opra": True,
@@ -491,6 +548,16 @@ def run_research(spots_path: Path, out_dir: Path) -> dict:
             ),
         },
         "controlled_comparisons": controlled_comparisons,
+        "vxx_sleeve_controlled_comparisons": vxx_sleeve_comparisons,
+        "vxx_sleeve_experiment_contract": {
+            "all_variants_keep_qqq_core_and_qqq_call_rules_unchanged": True,
+            "vxx_stock_and_vxx_call_entry_switches_are_orthogonal": True,
+            "stock_short_sizing_basis": "NAV notional percentage; unbounded upside loss",
+            "call_spread_sizing_basis": "defined maximum loss budget as percentage of NAV",
+            "risk_equivalence_caveat": "Different risk shapes cannot be made universally equal-risk by one scalar; 2% stock notional is only stress-aligned to a +100% VXX price increase.",
+            "borrow_cost_rates_are_scenario_inputs_not_observed_historical_fees": [0.0, 3.0, 10.0],
+            "option_price_source": "DERIVED_BS_VIX; not historical OPRA"
+        },
         "caveats": [
             "VXX options use derived BS/VIX proxies, not historical OPRA quotes or fills.",
             "The dual-sided setup is a research hypothesis; every VXX short option is part of a defined-risk vertical.",
