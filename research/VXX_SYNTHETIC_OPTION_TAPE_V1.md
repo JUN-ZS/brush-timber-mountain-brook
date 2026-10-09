@@ -1,0 +1,102 @@
+# VXX Synthetic Option Tape V1
+
+## Evidence class
+
+`MODEL_DERIVED_VXX_OPTION_TAPE` is a research-only reconstruction.
+
+It is **not** a historical VXX OPRA tape and must not be labelled LIVE,
+OBSERVED, or EXECUTED. The purpose is to answer structural questions when the
+repository has VXX/VIX spot history but no historical VXX option chain.
+
+## Observed inputs
+
+1. `attachments/spots_qqq_vxx_vix.1csv` — observed QQQ/VXX/VIX daily history.
+2. Canonical QQQ option data — observed historical QQQ bid/ask/delta/IV where available.
+3. Canonical QQQ underlying data — used for QQQ realized volatility.
+
+## Model construction
+
+The model is intentionally layered:
+
+```text
+VXX spot + causal RV20/RV60
+        + VIX level / causal regime
+        + QQQ observed option surface (lagged one observation)
+        ↓
+VXX ATM IV
+        ↓
+VXX call/put wing + tail skew
+        ↓
+Black-Scholes price + Greeks
+        ↓
+QQQ-informed liquidity envelope → Bid / Ask
+```
+
+The four surface families are deliberately separated rather than fitted to
+P&L:
+
+- `CONSERVATIVE`
+- `CENTRAL`
+- `HIGH_SKEW`
+- `STRESS`
+
+The same observed underlying path is used for all four.
+
+## Causality lock
+
+All rolling volatility inputs are shifted one observation before use.
+The QQQ option reference surface is also shifted one observation. Therefore a
+same-day VXX synthetic price cannot use same-day QQQ option information.
+
+## Quality gates
+
+The runner must reject the tape if any of the following fail:
+
+- every row is explicitly `MODEL_DERIVED_VXX_OPTION_TAPE`;
+- `bid <= mid <= ask` and quotes are non-negative;
+- IV stays inside the declared model bounds;
+- every expiry is strictly after the trade date;
+- finite IV / delta / gamma / vega / theta;
+- calibration source date is strictly earlier than trade date;
+- raw CALL price surfaces are projected to a monotone/convex no-arbitrage curve;
+- projected CALL prices decrease with strike inside each date/expiry;
+- projected PUT prices increase with strike;
+- projected CALL/PUT share one implied-volatility surface and satisfy put-call parity;
+- delta monotonicity is diagnostic only, not a hard gate, because strike-dependent smiles can make Black delta locally non-monotone even when price shape is valid;
+- every family/date state is represented exactly once.
+
+## Three-way runner verification
+
+The workflow deliberately separates computation across three execution surfaces,
+with the three producer jobs independent of one another:
+
+- **Windows self-hosted x64** builds the complete tape and is the canonical
+  artifact producer.
+- **Linux self-hosted x64** independently rebuilds the causal manifest under the
+  low-memory self-hosted environment.
+- **HUB WEB (ubuntu-latest)** independently rebuilds the same manifest on a
+  GitHub-hosted environment.
+
+A fourth lightweight **HUB WEB gate** runs only after those three producers
+finish. It downloads the three manifests and requires equality of canonical,
+family, and state fingerprints.
+
+The purpose is architectural separation: a slow or occupied self-hosted runner
+does not become the verification surface itself, while the hosted runner gives
+an independent platform reference. Runner availability can still queue an
+individual producer, but the jobs do not depend on one another for execution.
+
+This catches platform-dependent numerical or serialization drift before the
+synthetic tape is allowed into later research.
+
+## Important interpretation
+
+The canonical fingerprint proves reproducibility of **our model**, not truth
+of the historical VXX tape. The regression test deliberately reproduces the
+previous aggressive-wing failure and verifies that the explicit no-arbitrage
+projection removes the strike-price violation without changing the frozen V22
+strategy.
+
+The next research stage should compare Hybrid outcomes across all four surfaces,
+keeping V22 strategy logic frozen and keeping this synthetic VXX layer outside
+the strategy's source of truth.

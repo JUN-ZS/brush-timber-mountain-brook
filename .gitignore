@@ -22,3 +22,6 @@ research/strategy_instance_v1/instances/*/ledger.jsonl
 research/strategy_instance_v1/instances/*/state.json
 research/strategy_instance_v1/instances/*/snapshots/*
 research/strategy_instance_v1/instances/*/*.tmp
+
+# Ephemeral VXX synthetic-tape workflow outputs are carried by Actions artifacts.
+artifacts/vxx_synth_v1_hub/
