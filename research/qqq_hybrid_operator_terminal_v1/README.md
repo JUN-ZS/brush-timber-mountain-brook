@@ -26,6 +26,18 @@ The V3 market snapshot is read-only. All sizing percentages are editable what-if
 - \`index.html\` / \`app.js\` / \`styles.css\`: responsive operator workbench.
 - \`tests/engine.test.cjs\`: deterministic engine tests.
 
+## PRO dashboard and live visual summaries
+
+The primary page begins with a responsive **multi-row / multi-column PRO dashboard**. It is rendered from the current engine result and user-entered / refreshed prices, not from fixed screenshot values:
+
+- Four portfolio KPIs: NAV, combined QQQ/VXX stock notional, maximum option loss at available capacity, and unallocated cash.
+- A stacked capital-plan bar with cash reserve, the full shared option-risk envelope, incremental QQQ purchases, incremental VXX margin, and remaining cash.
+- A shared option-risk donut and per-leg bars for QQQ call-credit and VXX call-credit; if one or both quotes are missing, the chart labels incomplete quote coverage rather than pretending missing risk is zero.
+- Four capacity cards showing maximum QQQ shares, VXX short shares, QQQ call spreads and VXX call spreads.
+- A detailed price/allocation table showing strikes and expiry, maximum quantities, notional/margin, estimated net credit, max loss and NAV percentages.
+
+The visual grid shifts from four columns to two columns and then to a mobile layout as the viewport narrows. The existing operator table beneath it remains the authority for actual current-state ADD / HOLD / REDUCE review. The dashboard presents sizing outputs only; it does not place orders. Fresh market data and current option-chain candidates are required for fully populated live values. Historical uploaded quote fixtures exist only in regression tests and are not silently inserted into the live screen.
+
 ## Windows CMD launch
 
 Start V3 in its own CMD window first:
