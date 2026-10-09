@@ -1,0 +1,17 @@
+"use strict";
+const assert = require("node:assert/strict");
+const Lab = require("../option_chain_lab.js");
+const s = Lab.SAMPLE;
+function near(a,b,label){assert.ok(Math.abs(a-b)<1e-8,label+": expected "+b+", got "+a);}
+const call = Lab.calculateVerticals("QQQ_CALL",s.chains.QQQ_CALL,100,3200);
+const q1=call.candidates.find(x=>x.key==="799C/805C");
+const q2=call.candidates.find(x=>x.key==="799C/810C");
+assert.ok(q1 && q2);
+near(q1.credit,.79,"QQQ 799/805 credit per share");near(q1.maxProfit,79,"QQQ 799/805 max profit");near(q1.maxLoss,521,"QQQ 799/805 max loss");near(q1.breakEven,799.79,"QQQ 799/805 breakeven");
+near(q2.credit,1.31,"QQQ 799/810 credit per share");near(q2.maxLoss,969,"QQQ 799/810 max loss");assert.equal(q2.maxQty,3);
+const put=Lab.calculateVerticals("VXX_PUT",s.chains.VXX_PUT,100,3200);
+const vp=put.candidates.find(x=>x.key==="16P/15P");assert.ok(vp);near(vp.credit,.28,"VXX 16/15 credit");near(vp.maxProfit,28,"VXX 16/15 max profit");near(vp.maxLoss,72,"VXX 16/15 max loss");near(vp.breakEven,15.72,"VXX 16/15 breakeven");near(Lab.expiryPnl(vp,15,100,1),-72,"max loss at expiry");
+const csv=Lab.parseCsv("symbol,side,strike,bid,ask,delta\nQQQ,CALL,799,3.11,3.13,0.1519\nVXX,PUT,16,0.65,0.77,-0.3264");
+assert.equal(csv.total,2);assert.equal(csv.chains.QQQ_CALL[0].strike,799);assert.equal(csv.chains.VXX_PUT[0].bid,.65);
+const missing=Lab.calculateVerticals("VXX_PUT",[{strike:16,bid:null,ask:.77},{strike:15,bid:.30,ask:.37}],100,3200);assert.equal(missing.candidates.length,0);
+console.log("option_chain_lab=PASS");
