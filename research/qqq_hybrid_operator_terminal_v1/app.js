@@ -368,9 +368,9 @@
     const inputCandidates = input.candidates || {};
     const qCandidate = inputCandidates.qqqCall || null;
     const vCandidate = inputCandidates.vxxCall || null;
-    const exactUsd = (value) => Number.isFinite(Number(value)) ? "$" + Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
-    const pct = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%" : "—";
-    const ratioPct = (value, base) => Number.isFinite(Number(value)) && Number(base) > 0 ? Number(value) / Number(base) * 100 : null;
+    const exactUsd = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? "$" + Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
+    const pct = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%" : "—";
+    const ratioPct = (value, base) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) && Number(base) > 0 ? Number(value) / Number(base) * 100 : null;
     const displayQty = (row, unit) => row.capacity === null || row.capacity === undefined || result.market.blocked
       ? "PENDING" : fmt(row.capacity) + " " + unit;
     const capacity = (row) => row.capacity === null || row.capacity === undefined || result.market.blocked ? null : Math.max(0, Number(row.capacity));
