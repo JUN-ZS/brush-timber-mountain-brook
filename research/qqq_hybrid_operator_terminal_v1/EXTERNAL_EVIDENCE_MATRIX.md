@@ -43,3 +43,8 @@ Never silently upgrade ESTIMATED/HYPOTHETICAL to OBSERVED.
 ## First integrity correction made in PR #99
 
 The Option Chain Lab's loaded screenshot sample now follows the canonical fixture: QQQ CALL strikes 799/805/810 and VXX CALL strikes 21–26 only. QQQ PUT and VXX PUT arrays are empty because the screenshot did not show them. Tests pin the exact QQQ 799C/810C and VXX 21C/24C credit/max-loss arithmetic and confirm independently imported manual put rows still work. This corrects data lineage; it is not a strategy-performance claim.
+
+
+## Measurable external-evidence scoring
+
+The companion [QQQ Hybrid Research Measurement Contract](RESEARCH_MEASUREMENT_CONTRACT.md) defines a pre-registered 0–12 evidence triage score and separate Accuracy / Generality / Integration gates. The source scores prioritize replication effort only; they are not a probability that an author's claim is true and cannot override missing instrument-matched historical quote data.
