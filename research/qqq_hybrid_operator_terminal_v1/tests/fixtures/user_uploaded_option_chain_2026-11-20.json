@@ -1,0 +1,86 @@
+{
+  "schema": "user-uploaded-option-chain-fixture/v1",
+  "source": "USER_UPLOADED_SCREENSHOT",
+  "originalFile": "未命名.png",
+  "uploadedOn": "2026-10-08",
+  "expiration": "2026-11-20",
+  "provenanceNote": "Transcribed from the user-uploaded screenshot for deterministic tests; not a live quote or executable-price claim.",
+  "exampleMarketInputsFromConversation": {
+    "qqqSpot": 748,
+    "vxxSpot": 17.23,
+    "vix": 15.5,
+    "note": "Contextual example values from the conversation, not verified live prices."
+  },
+  "instruments": {
+    "QQQ": {
+      "right": "call",
+      "quotes": [
+        {
+          "strike": 799,
+          "bid": 3.16,
+          "ask": 3.18,
+          "delta": 0.1456
+        },
+        {
+          "strike": 805,
+          "bid": 2.37,
+          "ask": 2.4,
+          "delta": 0.1161
+        },
+        {
+          "strike": 810,
+          "bid": 1.87,
+          "ask": 1.89,
+          "delta": 0.0954
+        }
+      ]
+    },
+    "VXX": {
+      "right": "call",
+      "quotes": [
+        {
+          "strike": 21,
+          "bid": 0.58,
+          "ask": 0.72,
+          "delta": 0.2698
+        },
+        {
+          "strike": 22,
+          "bid": 0.49,
+          "ask": 0.6,
+          "delta": 0.228
+        },
+        {
+          "strike": 23,
+          "bid": 0.43,
+          "ask": 0.51,
+          "delta": 0.1963
+        },
+        {
+          "strike": 24,
+          "bid": 0.24,
+          "ask": 0.34,
+          "delta": 0.1731
+        },
+        {
+          "strike": 25,
+          "bid": 0.35,
+          "ask": 0.4,
+          "delta": 0.1532
+        },
+        {
+          "strike": 26,
+          "bid": 0.24,
+          "ask": 0.36,
+          "delta": 0.1269
+        }
+      ]
+    }
+  },
+  "unavailable": {
+    "vxxPuts": {
+      "present": false,
+      "reason": "The uploaded screenshot shows QQQ calls and VXX calls; no VXX put rows are visible. Do not fabricate a VXX put candidate."
+    }
+  }
+}
