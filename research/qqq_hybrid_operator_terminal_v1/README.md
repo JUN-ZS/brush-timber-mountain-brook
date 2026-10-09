@@ -38,6 +38,18 @@ The primary page begins with a responsive **multi-row / multi-column PRO dashboa
 
 The visual grid shifts from four columns to two columns and then to a mobile layout as the viewport narrows. The existing operator table beneath it remains the authority for actual current-state ADD / HOLD / REDUCE review. The dashboard presents sizing outputs only; it does not place orders. Fresh market data and current option-chain candidates are required for fully populated live values. Historical uploaded quote fixtures exist only in regression tests and are not silently inserted into the live screen.
 
+## QQQ / VXX Option Chain Lab (screenshot / research only)
+
+After starting the existing local server, open:
+
+`http://127.0.0.1:8790/option_chain_lab.html`
+
+The separate page includes four editable chains from the latest user screenshot: QQQ CALL, QQQ PUT, VXX CALL, and VXX PUT, selected expiry 2026-11-20. It can load the screenshot sample explicitly, import/export CSV (`symbol,side,strike,bid,ask,delta`), enumerate two-leg credit verticals, compute net credit / breakeven / max gain / max loss / quantity under a user-entered risk budget, and draw expiry payoff. The screenshot's quote observation time is not verified; it is always labelled non-live. Inspect suspicious or wide quotes before relying on any result.
+
+This page is an isolated calculator only. QQQ PUT and VXX PUT remain research-only and cannot enter the primary shared budget or send broker orders. Contract multiplier defaults to 100 as an assumption; verify VXX deliverables/adjustments before use.
+
+Windows self-hosted regression: [Run #66](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37983181658); option-chain unit test is `tests/chain_lab.test.cjs`.
+
 ## Windows CMD launch
 
 Start V3 in its own CMD window first:
