@@ -14,6 +14,11 @@ on:
       - research/qqq_dynamic_near_long_state_engine_v22_930c949.py
       - .github/workflows/qqq-v22-locked-oos-family-v2.yml
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:

@@ -22,7 +22,7 @@ from .campaign import (
     reconcile_ticket,
     transition_for_action,
 )
-from .engine import Contract, Order, Position, plan, select_far, select_near
+from .engine import N_SHORT, Contract, Order, Position, plan, select_far, select_near
 from .futu_reader import LiveFutuReader
 from .futu_trade_reader import FutuTradeReader
 from .state import StateStore
@@ -66,6 +66,16 @@ def _safe_float(v) -> float:
         return 0.0
 
 
+def _position_dicts(items):
+    """Normalize engine Position objects to the dict shape used by campaign.py."""
+    out = []
+    for p in items:
+        if hasattr(p, "__dict__"):
+            p = p.__dict__
+        out.append(dict(p))
+    return out
+
+
 def _evidence_positions(items):
     out = []
     for p in items:
@@ -103,7 +113,7 @@ def _evidence_deals(items):
 def _ticket_baseline_positions(current_positions):
     # A newly issued ticket freezes the account as seen at issuance.
     # Never reuse the previous cycle snapshot as the new ticket baseline.
-    return position_snapshot(current_positions)
+    return position_snapshot(_position_dicts(current_positions))
 
 
 def _format_price(v):
@@ -338,6 +348,126 @@ def _action_card(ticket):
         "manual_execution_only":True,
     }
 
+def _apply_signal_gate(plan_result, signal_active, signal_status):
+    """Block new decisions when signal state is unknown/incomplete."""
+    out = dict(plan_result)
+    status = str(signal_status or "OK").upper()
+    if signal_active is None or status != "OK":
+        out["status"] = "BLOCKED_SIGNAL_DATA_GAP"
+        out["candidate_actions"] = []
+        out["reasons"] = [
+            "signal unavailable: history/data gap",
+            "no new campaign decision is permitted until signal data is complete",
+        ] + list(out.get("reasons", []))
+    return out
+
+
+def _defer_actions_for_active_ticket(plan_result, active_ticket):
+    """Prevent a live ticket from being shadowed by fresh planner actions."""
+    if not active_ticket:
+        return plan_result
+    status = str(active_ticket.get("status", "")).upper()
+    if status not in {"OPEN", "PARTIAL"}:
+        return plan_result
+    plan_result = dict(plan_result)
+    plan_result["deferred_candidate_actions"] = list(plan_result.get("candidate_actions", []))
+    plan_result["candidate_actions"] = []
+    plan_result["status"] = "WAITING_ACTIVE_TICKET"
+    plan_result["reasons"] = list(plan_result.get("reasons", [])) + [
+        f"ACTIVE_TICKET_OPEN:{active_ticket.get('ticket_id')}",
+        "candidate actions deferred until the active ticket is reconciled",
+    ]
+    return plan_result
+
+
+def _strategy_positions_for_plan(positions, spot, contracts_by_code):
+    """
+    Restrict the planner's LONG side to the strategy-managed near CALL universe.
+    Unrelated QQQ long options (for example PUTs or longer-dated CALLs) must remain
+    visible in broker exposure but must not be harvested/reduced by the V22 desk.
+    FAR SHORTs remain available to the planner; it already matches the anchored far code.
+    """
+    out = []
+    for p in positions:
+        if p.side == "SHORT":
+            out.append(p)
+            continue
+        if p.side != "LONG" or p.qty <= 0:
+            continue
+        meta = contracts_by_code.get(p.code)
+        right = str(getattr(meta, "right", "")).upper()
+        if (
+            right == "CALL"
+            and p.strike is not None
+            and spot > 0
+            and p.strike <= spot * 1.01
+            and p.dte is not None
+            and 0 <= int(p.dte) <= 35
+        ):
+            out.append(p)
+    return out
+
+
+def _strategy_position_analysis(positions, market, far, near, risk_state, contracts_by_code):
+    spot = _safe_float((market or {}).get("spot"))
+    qqq = [
+        p for p in positions
+        if is_qqq_option_code(p.code) and p.qty > 0 and p.side in {"LONG", "SHORT"}
+    ]
+    far_code = getattr(far, "code", None)
+    far_shorts = [
+        p for p in qqq
+        if p.side == "SHORT"
+        and (far_code is None or p.code == far_code)
+        and str(getattr(contracts_by_code.get(p.code), "right", "")).upper() == "CALL"
+    ]
+    all_qqq_shorts = [p for p in qqq if p.side == "SHORT"]
+    unmanaged_shorts = [
+        p for p in all_qqq_shorts
+        if far_code is None or p.code != far_code
+    ]
+    near_longs = [
+        p for p in qqq
+        if p.side == "LONG"
+        and str(getattr(contracts_by_code.get(p.code), "right", "")).upper() == "CALL"
+        and p.strike is not None
+        and spot > 0
+        and p.strike <= spot * 1.01
+        and p.dte is not None
+        and 0 <= int(p.dte) <= 35
+    ]
+    desired_near = _safe_int(risk_state.get("desired_stack")) if risk_state else None
+    actual_far = sum(_safe_int(p.qty) for p in far_shorts)
+    actual_near = sum(_safe_int(p.qty) for p in near_longs)
+    return {
+        "definition": {
+            "far_short": "QQQ CALL; fixed 10 contracts at campaign entry",
+            "near_call": "QQQ CALL; 0-35 DTE including roll window; strike <= 1.01×spot; selected around 0.50 delta",
+        },
+        "far_short_contracts": actual_far,
+        "far_short_target_contracts": N_SHORT,
+        "far_short_gap_contracts": N_SHORT - actual_far,
+        "far_short_positions": [
+            {"code": p.code, "qty": p.qty, "avg_cost": p.avg_cost, "strike": p.strike, "dte": p.dte}
+            for p in far_shorts
+        ],
+        "unmanaged_qqq_short_contracts": sum(_safe_int(p.qty) for p in unmanaged_shorts),
+        "unmanaged_qqq_short_positions": [
+            {"code": p.code, "qty": p.qty, "avg_cost": p.avg_cost, "strike": p.strike, "dte": p.dte}
+            for p in unmanaged_shorts
+        ],
+        "near_call_contracts": actual_near,
+        "near_call_target_contracts": desired_near,
+        "near_call_gap_contracts": None if desired_near is None else desired_near - actual_near,
+        "near_call_positions": [
+            {"code": p.code, "qty": p.qty, "avg_cost": p.avg_cost, "strike": p.strike, "dte": p.dte}
+            for p in near_longs
+        ],
+        "all_qqq_long_option_contracts": sum(_safe_int(p.qty) for p in qqq if p.side == "LONG"),
+        "selected_near_candidate": near.__dict__ if near else None,
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--far-dte", type=int, default=120)
@@ -345,6 +475,8 @@ def main():
     ap.add_argument("--near-dte", type=int, default=30)
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=11111)
+    ap.add_argument("--acc-id", type=int, default=None,
+                    help="Futu trading account ID; falls back to FUTU_ACC_ID; never selects by acc_index")
     ap.add_argument("--simulate-account", action="store_true")
     ap.add_argument(
         "--adopt-existing-far",
@@ -409,6 +541,7 @@ def main():
                 "far_dte": args.far_dte,
                 "far_delta": args.far_delta,
                 "near_dte": args.near_dte,
+                "acc_id": args.acc_id,
                 "simulate_account": args.simulate_account,
                 "adopt_existing_far": args.adopt_existing_far,
             },
@@ -440,11 +573,45 @@ def main():
         if lot.get("code"):
             extra.append(lot["code"])
 
-    acct = FutuTradeReader(
-        args.host,
-        args.port,
-        real=not args.simulate_account,
-    ).read()
+    try:
+        acct = FutuTradeReader(
+            args.host,
+            args.port,
+            real=not args.simulate_account,
+            acc_id=args.acc_id,
+        ).read()
+    except RuntimeError as exc:
+        reason = str(exc)
+        evidence.append(
+            "DATA_GAP",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"stage": "ACCOUNT_SELECTION", "reason": reason},
+        )
+        evidence.append(
+            "CYCLE_FINALIZED",
+            cycle_id=cycle_id,
+            campaign_id=(state.get("campaign") or {}).get("id"),
+            timestamp_utc=now,
+            evidence_grade="DATA_GAP",
+            payload={"status": "BLOCKED_ACCOUNT_SELECTION", "reason": reason},
+        )
+        output = {
+            "status": "BLOCKED_ACCOUNT_SELECTION",
+            "timestamp": now,
+            "manual_execution_only": True,
+            "account": {"status": "BLOCKED", "reason": reason},
+            "instruction": "Set FUTU_ACC_ID (or pass --acc-id) to the exact Futu trading account ID. No account is guessed.",
+        }
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            json.dumps(output, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        print(json.dumps(output, indent=2, ensure_ascii=False))
+        return 3
 
     snap = LiveFutuReader(args.host, args.port).snapshot(sorted(set(extra)))
     if snap.get("status") != "OK":
@@ -656,6 +823,12 @@ def main():
             z.get("iv"),
         )
 
+    planner_positions = _strategy_positions_for_plan(
+        positions,
+        float(market["spot"]),
+        by,
+    )
+
     acct_orders = [
         Order(
             order_id=str(o.get("order_id", "")),
@@ -675,7 +848,7 @@ def main():
     reconcile_events = []
     reconcile = reconcile_ticket(
         state,
-        positions,
+        _position_dicts(positions),
         [o.__dict__ for o in acct_orders],
         acct.get("deals", []),
     )
@@ -760,7 +933,13 @@ def main():
             _transition(state, STATE_OPEN, now, store)
 
     campaign_active = campaign.get("state") != STATE_IDLE
-    signal_active = bool(market.get("signal_active"))
+    signal_active = market.get("signal_active")
+    signal_status = str(market.get("signal_status", "OK")).upper()
+
+    # Preserve tri-state signal semantics: DATA_GAP/unknown is not equivalent
+    # to an inactive signal. Unknown signal data must never open a new campaign.
+    if signal_status != "OK" or signal_active is None:
+        signal_active = None
 
     # A campaign cannot remain logically active after every managed QQQ option is gone.
     if campaign_active and not strict_positions and state.get("active_ticket") is None and not just_filled:
@@ -794,6 +973,7 @@ def main():
         "contracts": [x.__dict__ for x in contracts],
         "quotes": quotes,
         "account": {
+            "identity": acct.get("account"),
             "positions": _evidence_positions(positions),
             "orders": _evidence_orders(acct_orders),
             "deals": _evidence_deals(acct.get("deals", [])),
@@ -807,6 +987,10 @@ def main():
             "previous_far_delta_abs": previous_delta,
             "signal_active": signal_active,
             "signal_active_for_plan": signal_active and not unmanaged_short_block,
+            "planner_position_scope": "QQQ SHORTs + strategy-managed near CALL LONGs only",
+            "planner_long_positions": _evidence_positions(
+                [p for p in planner_positions if p.side == "LONG"]
+            ),
         },
     }
     snapshot_ref = write_snapshot(repo, cycle_id, snapshot_payload)
@@ -853,9 +1037,9 @@ def main():
         market=market,
         far=far,
         near=near,
-        positions=positions,
+        positions=planner_positions,
         orders=acct_orders,
-        signal_active=(signal_active and not unmanaged_short_block),
+        signal_active=(signal_active is True and not unmanaged_short_block),
         far_campaign_active=campaign_active,
         quotes_by_code=quotes,
         gamma_baseline=gamma_baseline,
@@ -863,6 +1047,14 @@ def main():
         near_lots=state.get("lots", []),
         now=datetime.fromisoformat(now),
     )
+
+    # An open strategy ticket already represents the current intended delta.
+    # Do not expose the planner's next-state repairs/additions as fresh actions
+    # while that ticket is awaiting manual execution/reconciliation.
+    active_ticket_for_gate = state.get("active_ticket")
+    p = _defer_actions_for_active_ticket(p, active_ticket_for_gate)
+
+    p = _apply_signal_gate(p, signal_active, signal_status)
 
     if unmanaged_short_block and not campaign_active:
         p["status"] = "BLOCKED_UNMANAGED_QQQ_SHORT"
@@ -970,6 +1162,14 @@ def main():
         instruction = "HOLD — no primary ticket."
 
     mark_summary = _mark_position_summary(strict_positions, quotes, by)
+    position_analysis = _strategy_position_analysis(
+        strict_positions,
+        market,
+        far,
+        near,
+        p.get("risk_state"),
+        by,
+    )
     action_card = _action_card(primary_ticket)
 
     evidence.append(
@@ -1018,6 +1218,7 @@ def main():
         "primary_ticket": primary_ticket,
         "action_card": action_card,
         "position_mark": mark_summary,
+        "position_analysis": position_analysis,
         "one_primary_ticket_per_cycle": True,
         "market": market,
         "far": p.get("far"),
@@ -1036,6 +1237,7 @@ def main():
         ],
         "lots": state.get("lots", []),
         "candidate_actions": p.get("candidate_actions", []),
+        "deferred_candidate_actions": p.get("deferred_candidate_actions", []),
         "next_triggers": p.get("next_triggers", []),
         "reasons": p.get("reasons", []),
         "reconcile_events": reconcile_events,

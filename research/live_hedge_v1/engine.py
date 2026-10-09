@@ -163,7 +163,9 @@ def plan(
     now=None,
 ):
     now = now or datetime.now(timezone.utc)
-    qage = quote_age_sec(market.get("timestamp"), now)
+    qage = market.get("source_age_sec")
+    if qage is None:
+        qage = quote_age_sec(market.get("timestamp"), now)
     if (
         market.get("source") != "LIVE QUOTE"
         or not market.get("spot")

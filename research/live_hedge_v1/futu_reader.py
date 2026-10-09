@@ -4,6 +4,92 @@ from typing import Any
 from backtest.futu_adapter import FutuOpenDAdapter
 from backtest.types import OptionContract, QQQ_CODE
 
+def _enrich_contracts_with_quotes(contracts, quote_objects):
+    """Attach LIVE option quote/greek fields to chain metadata before selection."""
+    by_code = {str(q.code): q for q in quote_objects}
+    out = []
+    for c in contracts:
+        q = by_code.get(str(c.code))
+        if q is None:
+            out.append(c)
+            continue
+        out.append(
+            OptionContract(
+                code=c.code,
+                underlying=c.underlying,
+                right=c.right,
+                strike=c.strike,
+                expiry=c.expiry,
+                dte=c.dte,
+                lot_size=c.lot_size,
+                bid=q.bid,
+                ask=q.ask,
+                last=q.last,
+                iv=q.iv,
+                delta=q.delta,
+                gamma=q.gamma,
+                theta=q.theta,
+                vega=q.vega,
+                oi=q.oi,
+                volume=q.volume,
+                source=q.source,
+                field_sources=q.field_sources,
+                reason=q.reason,
+            )
+        )
+    return out
+
+
+def _source_age_sec(quote, now=None):
+    now = now or datetime.now(timezone.utc)
+    extra = getattr(quote, "extra", {}) or {}
+    ts = extra.get("update_timestamp")
+    try:
+        if ts is None:
+            return None
+        return max(0.0, now.timestamp() - float(ts))
+    except (TypeError, ValueError):
+        return None
+
+
+def _compute_signal(last, history):
+    dates = [x[0] for x in history]
+    closes = [x[1] for x in history]
+    today = date.today().isoformat()
+    ref = closes[:-1] if dates and str(dates[-1])[:10] == today else closes
+    if last is None:
+        return {
+            "status": "DATA_GAP",
+            "active": None,
+            "ratio52": None,
+            "ext200": None,
+            "reference_count": len(ref),
+            "reason": "QQQ spot unavailable",
+        }
+    if len(ref) < 252:
+        return {
+            "status": "DATA_GAP",
+            "active": None,
+            "ratio52": None,
+            "ext200": None,
+            "reference_count": len(ref),
+            "reason": f"need >=252 reference daily closes; got {len(ref)}",
+        }
+    dma = sum(ref[-199:] + [last]) / 200
+    high = max(ref[-251:] + [last])
+    ext = last / dma - 1 if dma else None
+    ratio = last / high if high else None
+    active = bool(ratio is not None and ratio >= .98 and ext is not None and ext >= .08)
+    return {
+        "status": "OK",
+        "active": active,
+        "ratio52": ratio,
+        "ext200": ext,
+        "reference_count": len(ref),
+        "reason": None,
+    }
+
+
 class LiveFutuReader:
     """Live QQQ quote/chain reader. Never places or modifies orders."""
     def __init__(self,host="127.0.0.1",port=11111):
@@ -53,24 +139,30 @@ class LiveFutuReader:
         conn=self.connect()
         if conn.get("status") not in {"PASS","PARTIAL"}:return {"status":"BLOCKED","connection":conn}
         try:
-            q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc).isoformat()
+            q=self.a.get_qqq_quote(); hist=self.a.get_daily_closes(QQQ_CODE,n=320); collected_at=datetime.now(timezone.utc)
+            source_age = _source_age_sec(q, collected_at)
             order=sorted(zip(hist.get("dates") or [],hist.get("closes") or []),key=lambda z:z[0])
-            dates=[x[0] for x in order]; closes=[x[1] for x in order]
-            ref=closes[:-1] if dates and str(dates[-1])[:10]==date.today().isoformat() else closes
-            sig=False; ext=None; ratio=None
-            if q.last is not None and len(ref)>=252:
-                dma=sum(ref[-199:]+[q.last])/200; high=max(ref[-251:]+[q.last])
-                ext=q.last/dma-1 if dma else None; ratio=q.last/high if high else None
-                sig=bool(ratio is not None and ratio>=.98 and ext is not None and ext>=.08)
+            signal=_compute_signal(q.last, order)
             cs=self.contracts()
             # Keep the quote request practical: near-ATM calls plus the far OTM region,
             # while always including exact held/order codes for reconciliation.
             spot=q.last or 0.0
             tradable={c.code for c in cs if spot<=0 or (0.85*spot <= c.strike <= 1.60*spot)}
             codes=tradable|set(extra_codes or [])
-            quotes={x.code:x.to_dict() for x in self.a.get_option_quotes(list(codes))}
+            quote_objects = self.a.get_option_quotes(list(codes))
+            quotes={x.code:x.to_dict() for x in quote_objects}
+            live_contracts = _enrich_contracts_with_quotes(cs, quote_objects)
             return {"status":"OK","connection":conn,
-                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":collected_at,"source_timestamp":q.timestamp,"source":q.source,
-                          "signal_active":sig,"ratio52":ratio,"ext200":ext,"history_source":hist.get("source")},
-                "contracts":[x.__dict__ for x in cs],"quotes":quotes,"source":"FUTU_OPEND_READ_ONLY"}
+                "market":{"spot":q.last,"bid":q.bid,"ask":q.ask,"timestamp":collected_at.isoformat(),"source_timestamp":q.timestamp,"source":q.source,
+                          "signal_active":signal["active"],"signal_status":signal["status"],
+                          "source_age_sec":source_age,
+                          "ratio52":signal["ratio52"],"ext200":signal["ext200"],
+                          "history_source":hist.get("source"),
+                          "history_reference_count":signal["reference_count"],
+                          "history_requested":hist.get("requested"),
+                          "history_available":hist.get("available"),
+                          "history_start":hist.get("history_start"),
+                          "history_end":hist.get("history_end"),
+                          "history_reason":hist.get("reason") or signal["reason"]},
+                "contracts":[x.__dict__ for x in live_contracts],"quotes":quotes,"source":"FUTU_OPEND_READ_ONLY"}
         finally:self.close()
