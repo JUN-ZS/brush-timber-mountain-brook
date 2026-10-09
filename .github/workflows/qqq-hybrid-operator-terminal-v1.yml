@@ -30,25 +30,25 @@ jobs:
 
       - name: Runtime
         run: |
-          node --version
-          py -3 --version
+          node --version || exit /b 1
+          py -3 --version || exit /b 1
 
       - name: JavaScript syntax and golden cases
         run: |
-          node --check research\qqq_hybrid_operator_terminal_v1\engine.js
-          node --check research\qqq_hybrid_operator_terminal_v1\app.js
-          node --check research\qqq_hybrid_operator_terminal_v1\hub_research_pack.js
-          node --check research\qqq_hybrid_operator_terminal_v1\hub_research_pack_ui.js
-          node research\qqq_hybrid_operator_terminal_v1\tests\engine.test.cjs
-          node research\qqq_hybrid_operator_terminal_v1\tests\hub_research_pack.test.cjs
+          node --check research\qqq_hybrid_operator_terminal_v1\engine.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\app.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\hub_research_pack.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\hub_research_pack_ui.js || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\engine.test.cjs || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\hub_research_pack.test.cjs || exit /b 1
 
       - name: Python server syntax
         run: |
-          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\server.py
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\server.py || exit /b 1
 
       - name: Static asset / boundary contract
         run: |
-          py -3 -c "from pathlib import Path; p=Path('research/qqq_hybrid_operator_terminal_v1'); required=['index.html','app.js','engine.js','styles.css','server.py','README.md','hub_research_pack.html','hub_research_pack.js','hub_research_pack_ui.js','tests/engine.test.cjs','tests/hub_research_pack.test.cjs']; missing=[x for x in required if not (p/x).is_file()]; assert not missing, 'missing files: '+repr(missing); s=(p/'server.py').read_text(encoding='utf-8'); assert 'place_order' not in s and 'unlock_trade' not in s and '/api/journal' in s; h=(p/'index.html').read_text(encoding='utf-8'); assert 'current-qqqShares' in h and 'current-vxxShortShares' in h and 'Set current quantity = 1000' in h; print('terminal_asset_contract=PASS')"
+          py -3 -c "from pathlib import Path; p=Path('research/qqq_hybrid_operator_terminal_v1'); required=['index.html','app.js','engine.js','styles.css','server.py','README.md','hub_research_pack.html','hub_research_pack.js','hub_research_pack_ui.js','tests/engine.test.cjs','tests/hub_research_pack.test.cjs']; missing=[x for x in required if not (p/x).is_file()]; assert not missing, 'missing files: '+repr(missing); s=(p/'server.py').read_text(encoding='utf-8'); assert 'place_order' not in s and 'unlock_trade' not in s and '/api/journal' in s; h=(p/'index.html').read_text(encoding='utf-8'); assert 'current-qqqShares' in h and 'current-vxxShortShares' in h and 'Set current quantity = 1000' in h; print('terminal_asset_contract=PASS')" || exit /b 1
 
       - name: Write QA summary
         run: |
