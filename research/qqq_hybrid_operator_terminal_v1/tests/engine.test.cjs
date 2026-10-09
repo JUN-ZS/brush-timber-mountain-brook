@@ -170,8 +170,9 @@ function row(result, key) {
   const x = row(r, "ratioPuts");
   assert.equal(x.capacity, null);
   assert.equal(x.target, 3);
-  assert.equal(x.status, "PENDING");
+  assert.equal(x.status, "OUTSIDE_MAIN_BUDGET");
   assert.equal(x.riskSource, "UNBOUNDED_TAIL");
+  assert.equal(x.action, "OUTSIDE_BUDGET");
   assert.equal(x.maxLossIsHardCap, false);
 }
 
@@ -183,15 +184,18 @@ function row(result, key) {
     permissions: { ratioPuts: true }
   }));
   const x = row(r, "ratioPuts");
-  assert.equal(x.capacity, 2); // floor($1,000 / $500)
-  assert.equal(x.status, "STRESS_ONLY");
+  assert.equal(x.capacity, null);
+  assert.equal(x.status, "OUTSIDE_MAIN_BUDGET");
+  assert.equal(x.riskPerUnit, 500);
+  assert.equal(x.riskSource, "MANUAL_STRESS_ESTIMATE");
+  assert.equal(x.action, "OUTSIDE_BUDGET");
   assert.equal(x.maxLossIsHardCap, false);
 }
 
-// Long options use debit × 100; covered calls cannot exceed QQQ shares / 100.
+// Long options and covered calls remain inspection-only; even a valid quote cannot change the main plan.
 {
   const r = E.calculatePortfolio(base({
-    holdings: { qqqShares: 450, coveredCalls: 10 },
+    holdings: { qqqShares: 450, coveredCalls: 10, longCalls: 3 },
     sizing: { ...base().sizing, longCallRiskPct: 1, coveredCallRiskPct: 1 },
     candidates: {
       qqqLongCall: { ask: 2.5, source: "FIXTURE" },
@@ -200,10 +204,12 @@ function row(result, key) {
     permissions: { longCalls: true, coveredCalls: true }
   }));
   assert.equal(row(r, "longCalls").riskPerUnit, 250);
-  assert.equal(row(r, "longCalls").capacity, 4);
-  assert.equal(row(r, "coveredCalls").capacity, 4);
-  assert.equal(row(r, "coveredCalls").target, 4);
-  assert.equal(row(r, "coveredCalls").action, "REDUCE");
+  assert.equal(row(r, "longCalls").capacity, null);
+  assert.equal(row(r, "longCalls").target, 3);
+  assert.equal(row(r, "longCalls").status, "OUTSIDE_MAIN_BUDGET");
+  assert.equal(row(r, "coveredCalls").capacity, null);
+  assert.equal(row(r, "coveredCalls").target, 10);
+  assert.equal(row(r, "coveredCalls").action, "OUTSIDE_BUDGET");
 }
 
 // Legacy 10:N hedge is per campaign and explicitly does not claim a hard loss cap.
@@ -365,45 +371,97 @@ function row(result, key) {
   assert.equal(r.optionRiskReservedAtTargets, 3200);
 }
 
-// Hub ratio campaigns share the SAME pool as the two original Hybrid option legs.
+// User-uploaded 2026-11-20 screenshot chain is the option-sizing fixture; unknown VXX puts stay pending.
+{
+  const fixture = JSON.parse(fs.readFileSync(require.resolve("./fixtures/user_uploaded_option_chain_2026-11-20.json"), "utf8"));
+  assert.equal(fixture.source, "USER_UPLOADED_SCREENSHOT");
+  assert.equal(fixture.expiration, "2026-11-20");
+  assert.equal(fixture.instruments.VXX.right, "call");
+  assert.equal(fixture.unavailable.vxxPuts.present, false);
+
+  const qqqQuotes = fixture.instruments.QQQ.quotes;
+  const qqqShort = qqqQuotes.find(q => q.strike === 799);
+  const qqqWing = qqqQuotes.find(q => q.strike === 810);
+  const vxxQuotes = fixture.instruments.VXX.quotes;
+  const vxxShort = vxxQuotes.find(q => q.strike === 21);
+  const vxxWing = vxxQuotes.find(q => q.strike === 24);
+  const qqqCandidate = {
+    width: Math.abs(qqqWing.strike - qqqShort.strike),
+    credit: qqqShort.bid - qqqWing.ask,
+    shortBid: qqqShort.bid, longAsk: qqqWing.ask,
+    shortStrike: qqqShort.strike, longStrike: qqqWing.strike,
+    expiry: fixture.expiration, source: fixture.source + ":QQQ_CALLS"
+  };
+  const vxxCandidate = {
+    width: Math.abs(vxxWing.strike - vxxShort.strike),
+    credit: vxxShort.bid - vxxWing.ask,
+    shortBid: vxxShort.bid, longAsk: vxxWing.ask,
+    shortStrike: vxxShort.strike, longStrike: vxxWing.strike,
+    expiry: fixture.expiration, source: fixture.source + ":VXX_CALLS"
+  };
+  const r = E.calculatePortfolio(base({
+    market: snap({
+      qqq: fixture.exampleMarketInputsFromConversation.qqqSpot,
+      vxx: fixture.exampleMarketInputsFromConversation.vxxSpot,
+      vix: fixture.exampleMarketInputsFromConversation.vix
+    }),
+    sizing: {
+      ...base().sizing, totalOptionRiskPct: 3.2,
+      qqqCallRiskPct: 1.2, vxxCallRiskPct: 2, vxxPutRiskPct: 1
+    },
+    candidates: { qqqCall: qqqCandidate, vxxCall: vxxCandidate },
+    permissions: { vxxPutSpreads: true }
+  }));
+  assert.ok(Math.abs(qqqCandidate.credit - 1.27) < 1e-9);
+  assert.equal(row(r, "qqqCallSpreads").riskPerUnit, 973);
+  assert.equal(row(r, "qqqCallSpreads").capacity, 1);
+  assert.equal(row(r, "qqqCallSpreads").candidateSource, fixture.source + ":QQQ_CALLS");
+  assert.ok(Math.abs(vxxCandidate.credit - 0.24) < 1e-9);
+  assert.equal(row(r, "vxxCallSpreads").riskPerUnit, 276);
+  assert.equal(row(r, "vxxCallSpreads").capacity, 7);
+  assert.equal(row(r, "vxxCallSpreads").candidateSource, fixture.source + ":VXX_CALLS");
+  assert.equal(r.totalOptionRiskPool, 3200);
+  assert.equal(r.totalRequestedRiskBudgetsUsd, 3200); // Unquoted VXX put does not consume request allocation.
+  assert.equal(r.riskScaleFactor, 1);
+  assert.equal(r.optionRiskReservedAtTargets, 2905);
+  assert.equal(r.remainingRiskPool, 295);
+  assert.equal(row(r, "vxxPutSpreads").status, "PENDING");
+  assert.equal(row(r, "vxxPutSpreads").capacity, null);
+  assert.equal(row(r, "vxxPutSpreads").action, "PENDING");
+  assert.equal(row(r, "vxxPutSpreads").allocatedRiskBudgetUsd, 0);
+}
+
+// Hub/debit/research structures remain visible but never join or alter the main seller-option budget.
 {
   const r = E.calculatePortfolio(base({
-    sizing: { ...base().sizing, totalOptionRiskPct: 3.2, qqqCallRiskPct: 1.2, vxxCallRiskPct: 2, ratioCallRiskPct: 2 },
+    sizing: {
+      ...base().sizing, totalOptionRiskPct: 3.2,
+      qqqCallRiskPct: 1.2, vxxCallRiskPct: 2,
+      ratioCallRiskPct: 2, hubShockPutRiskPct: 1,
+      longCallRiskPct: 1, ratioPutRiskPct: 1
+    },
+    holdings: { ratioCalls: 2, hubShockPuts: 1, longCalls: 3, ratioPuts: 2 },
     candidates: {
       qqqCall: { width: 5, credit: 4, source: "FIXTURE" },
       vxxCall: { width: 10, credit: 8, source: "FIXTURE" },
-      hubRatioCall: {
-        hubPackage: true, ready: true, riskPerUnit: 600, debitUsd: 200,
-        maxUnits: 10, gatePass: true, source: "HUB_FIXTURE"
-      }
+      hubRatioCall: { hubPackage: true, ready: true, riskPerUnit: 600, debitUsd: 200, maxUnits: 10, gatePass: true, source: "HUB_FIXTURE" },
+      hubShockPut: { hubPackage: true, ready: true, riskPerUnit: 200, debitUsd: 200, maxUnits: 100, gatePass: false, source: "HUB_FIXTURE" },
+      qqqLongCall: { ask: 2.5, source: "FIXTURE" }
     },
-    permissions: { ratioCalls: true }
+    permissions: { ratioCalls: true, hubShockPuts: true, longCalls: true, ratioPuts: true },
+    manualRiskPerUnit: { ratioPuts: 500 }
   }));
-  assert.ok(Math.abs(r.riskScaleFactor - (3200 / 5200)) < 1e-9);
-  assert.ok(Math.abs(row(r, "ratioCalls").allocatedRiskBudgetUsd - (2000 * 3200 / 5200)) < 1e-9);
-  assert.equal(row(r, "ratioCalls").capacity, 2);
-  assert.equal(row(r, "ratioCalls").riskPerUnit, 600);
-  assert.equal(row(r, "ratioCalls").status, "READY");
-  assert.ok(r.optionRiskReservedAtTargets <= r.totalOptionRiskPool);
-}
-
-// An ungated Shock-Gated Hub put spread receives no capacity and consumes no shared risk.
-{
-  const r = E.calculatePortfolio(base({
-    sizing: { ...base().sizing, totalOptionRiskPct: 3.2, hubShockPutRiskPct: 1 },
-    candidates: {
-      hubShockPut: {
-        hubPackage: true, ready: true, riskPerUnit: 200, debitUsd: 200,
-        maxUnits: 100, gatePass: false, source: "HUB_FIXTURE",
-        reason: "Frozen shock threshold not reached."
-      }
-    },
-    permissions: { hubShockPuts: true }
-  }));
-  assert.equal(row(r, "hubShockPuts").capacity, 0);
-  assert.equal(row(r, "hubShockPuts").status, "WAITING_FOR_GATE");
-  assert.equal(row(r, "hubShockPuts").allocatedRiskBudgetUsd, 0);
-  assert.equal(r.optionRiskReservedAtTargets, 0);
+  assert.equal(r.totalRequestedRiskBudgetsUsd, 3200);
+  assert.equal(r.riskScaleFactor, 1);
+  assert.equal(r.optionRiskReservedAtTargets, 3200);
+  for (const key of ["ratioCalls", "hubShockPuts", "longCalls", "ratioPuts"]) {
+    assert.equal(row(r, key).status, "OUTSIDE_MAIN_BUDGET");
+    assert.equal(row(r, key).capacity, null);
+    assert.equal(row(r, key).action, "OUTSIDE_BUDGET");
+    assert.equal(row(r, key).target, row(r, key).current);
+    assert.equal(row(r, key).allocatedRiskBudgetUsd, 0);
+    assert.equal(row(r, key).targetRiskReserveUsd, 0);
+  }
 }
 
 // Similar strategy labels have independent candidate keys so budgets do not duplicate one quote.
