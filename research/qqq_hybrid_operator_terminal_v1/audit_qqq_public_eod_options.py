@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib, json, tempfile, urllib.request
 from datetime import date, datetime
 from pathlib import Path
+from math import erf, exp, log, sqrt
+from statistics import NormalDist
 
 BASE = "https://raw.githubusercontent.com/anahatsingh-ui/options-dataset-hist/main/qqq"
 FILES = {
@@ -16,6 +18,10 @@ UNDERLYING = {"url": BASE+"/underlying_prices.parquet", "size": 332454,
     "sha": "f3a892bc4c88c692900b5c0071322c6db408996a"}
 COLUMNS = ["contract_id","symbol","expiration","strike","type","bid","ask","bid_size","ask_size",
            "volume","open_interest","date","implied_volatility","delta"]
+UNIVERSE_PATH = Path("src/data/universe.json")
+UNIVERSE_GIT_BLOB_SHA = "43c1b3053d17b278cfc01bb0b87e41679f3e85c9"
+MODEL_SOURCE_PATH = Path("research/qqq_hybrid_dynamic_deployment_v1_1_replay.py")
+MODEL_SOURCE_GIT_BLOB_SHA = "ac74b3812c826ad491fb829108f26397322e45eb"
 
 def git_blob_sha(path, expected_size):
     h=hashlib.sha1(); h.update(f"blob {expected_size}\0".encode("ascii"))
@@ -55,6 +61,131 @@ def numeric(v):
         n=float(v)
         return n if n==n and abs(n)!=float("inf") else None
     except (TypeError,ValueError): return None
+
+def blob_sha_bytes(payload):
+    h=hashlib.sha1()
+    h.update(f"blob {len(payload)}\0".encode("ascii"))
+    h.update(payload)
+    return h.hexdigest()
+
+def bsm_call(S,K,T,r,sigma,q=0.0):
+    if T<=1/365 or sigma<1e-8:
+        return max(S-K,0.0)
+    vs=sigma*sqrt(max(T,1e-8))
+    d1=(log(S/K)+(r-q+0.5*sigma*sigma)*T)/vs
+    d2=d1-vs
+    return S*exp(-q*T)*0.5*(1+erf(d1/sqrt(2)))-K*exp(-r*T)*0.5*(1+erf(d2/sqrt(2)))
+
+def model_qqq_quote(S,vix,T=30/365):
+    """Mirror quoteCC(..., kind='qqq') from the SHA-pinned research source."""
+    iv=min(max(1.08*(vix/100),0.1),0.9)
+    sigS,sigL=iv*0.95,iv*0.90
+    q,r=0.004,0.03
+    def strike_for_delta(target,sigma):
+        p=min(max(target*exp(q*T),1e-6),1-1e-6)
+        d1=NormalDist().inv_cdf(p)
+        vs=sigma*sqrt(T)
+        return max(S*exp(-(d1*vs-(r-q+0.5*sigma*sigma)*T)),1e-6)
+    ks=strike_for_delta(0.16,sigS)
+    kl=strike_for_delta(0.08,sigL)
+    if kl<=ks: kl=ks*1.06
+    half=min(max(0.025+0.08*max(vix/100-0.16,0),0.02),0.1)
+    short_mid=bsm_call(S,ks,T,r,sigS,q)
+    long_mid=bsm_call(S,kl,T,r,sigL,q)
+    raw_credit=short_mid*(1-half)-long_mid*(1+half)
+    return {"spot_input":S,"vix_input":vix,"T_years":T,"ivQqq":iv,"short_sigma":sigS,"long_sigma":sigL,
+            "short_target_delta":0.16,"long_target_delta":0.08,"short_target_strike":ks,
+            "long_target_strike":kl,"width":kl-ks,"half_spread_fraction":half,
+            "short_mid_model":short_mid,"long_mid_model":long_mid,
+            "credit_before_source_floor":raw_credit,"premium_used_by_quoteCC":max(raw_credit,1e-4)}
+
+def model_credit_at_listed_strikes(S,vix,short_strike,long_strike,T):
+    iv=min(max(1.08*(vix/100),0.1),0.9)
+    sigS,sigL=iv*0.95,iv*0.90
+    half=min(max(0.025+0.08*max(vix/100-0.16,0),0.02),0.1)
+    short_mid=bsm_call(S,short_strike,T,0.03,sigS,0.004)
+    long_mid=bsm_call(S,long_strike,T,0.03,sigL,0.004)
+    return {"short_model_mid":short_mid,"long_model_mid":long_mid,
+            "model_bid_for_short":short_mid*(1-half),"model_ask_for_wing":long_mid*(1+half),
+            "model_conservative_credit":short_mid*(1-half)-long_mid*(1+half)}
+
+def standard_strike_grid(value):
+    x=numeric(value)
+    return x is not None and abs(x*2-round(x*2))<1e-5
+
+def nearest_quote_model_pairs(rows,day,model_geom,raw_close,repo_adj_close,vix):
+    """Pair real quotes at the nearest 30-calendar-day expiration and listed strikes."""
+    dated=[]
+    for row in rows:
+        if str(row.get("type","")).lower() not in ("c","call"): continue
+        try: dte=(date.fromisoformat(as_day(row.get("expiration")))-date.fromisoformat(day)).days
+        except ValueError: continue
+        bid,ask=numeric(row.get("bid")),numeric(row.get("ask"))
+        strike=numeric(row.get("strike"))
+        if 20<=dte<=40 and bid is not None and ask is not None and bid>0 and ask>0 and bid<=ask and standard_strike_grid(strike):
+            dated.append((dte,row))
+    if not dated:
+        return {"status":"NO_VALID_STANDARD_GRID_CALLS_WITH_20_40_DTE"}
+    expiries={}
+    for dte,row in dated: expiries.setdefault(as_day(row.get("expiration")),{"dte":dte,"rows":[]})["rows"].append(row)
+    expiry=min(expiries, key=lambda e:(abs(expiries[e]["dte"]-30),-len(expiries[e]["rows"]),e))
+    dte=expiries[expiry]["dte"]
+    eligible=expiries[expiry]["rows"]
+    def valid_quote(row):
+        bid,ask=numeric(row.get("bid")),numeric(row.get("ask"))
+        return bid is not None and ask is not None and bid>0 and ask>0 and bid<=ask
+    def select_pair(target):
+        short_target=target["short_target_strike"]
+        long_target=target["long_target_strike"]
+        shorts=sorted(eligible,key=lambda r:(
+            abs(numeric(r.get("strike"))-short_target),
+            abs(abs(numeric(r.get("delta")) or 0)-0.16),
+            (numeric(r.get("ask")) or 0)-(numeric(r.get("bid")) or 0)))
+        )
+        if not shorts: return None
+        short=shorts[0]
+        ks=numeric(short.get("strike"))
+        wings=[r for r in eligible if numeric(r.get("strike"))>ks and valid_quote(r)]
+        if not valid_quote(short) or not wings: return None
+        wings.sort(key=lambda r:(
+            abs(numeric(r.get("strike"))-long_target),
+            abs(abs(numeric(r.get("delta")) or 0)-0.08),
+            (numeric(r.get("ask")) or 0)-(numeric(r.get("bid")) or 0)))
+        wing=wings[0]
+        kl=numeric(wing.get("strike"))
+        sb,sa=numeric(short.get("bid")),numeric(short.get("ask"))
+        wb,wa=numeric(wing.get("bid")),numeric(wing.get("ask"))
+        width=kl-ks
+        exec_credit=sb-wa
+        mid_credit=(sb+sa)/2-(wb+wa)/2
+        t_actual=max(dte/365,1/365)
+        model_repo=model_credit_at_listed_strikes(repo_adj_close,vix,ks,kl,t_actual)
+        model_raw=model_credit_at_listed_strikes(raw_close,vix,ks,kl,t_actual)
+        return {
+            "expiry":expiry,"calendar_dte":dte,"short_contract_id":short.get("contract_id"),
+            "short_strike":ks,"short_bid":sb,"short_ask":sa,"short_delta":numeric(short.get("delta")),
+            "short_volume":short.get("volume"),"short_open_interest":short.get("open_interest"),
+            "wing_contract_id":wing.get("contract_id"),"wing_strike":kl,"wing_bid":wb,"wing_ask":wa,
+            "wing_delta":numeric(wing.get("delta")),"wing_volume":wing.get("volume"),
+            "wing_open_interest":wing.get("open_interest"),"strike_width":width,
+            "observed_credit_bid_minus_wing_ask":exec_credit,
+            "observed_credit_mid_minus_mid":mid_credit,
+            "observed_credit_is_valid_positive":0<exec_credit<width,
+            "observed_max_loss_per_standard_100_multiplier":(width-exec_credit)*100 if 0<exec_credit<width else None,
+            "spread_pct_of_short_mid":round((sa-sb)/((sa+sb)/2)*100,2) if sa+sb>0 else None,
+            "model_using_repo_adjusted_spot_at_same_listed_strikes":model_repo,
+            "model_using_raw_close_at_same_listed_strikes":model_raw,
+            "repo_spot_model_credit_minus_observed_executable":model_repo["model_conservative_credit"]-exec_credit,
+            "raw_close_model_credit_minus_observed_executable":model_raw["model_conservative_credit"]-exec_credit,
+            "notice":"No contract-root/deliverable verification is present in this EOD table; standard 100 multiplier remains an assumption."
+        }
+    pairs={}
+    for label,geom in model_geom.items():
+        pairs[label]=select_pair(geom)
+    return {"status":"MATCHED_NEAREST_20_40_DTE_EXPIRY","selected_expiry":expiry,"calendar_dte":dte,
+            "eligible_standard_grid_call_rows_in_expiry":len(eligible),"model_target_nearest_pairs":pairs,
+            "strike_grid_rule":"half-dollar/integer strike only; this is a screen, not OCC contract-root proof"}
+
 
 def read_dates(path, dates, pa, ds, columns=None):
     data=ds.dataset(str(path),format="parquet"); schema=data.schema
@@ -102,19 +233,72 @@ def main():
                 local[name],report["file_integrity"][name]=download(spec,name,temp)
             underlying,report["file_integrity"]["underlying_prices.parquet"]=download(UNDERLYING,"underlying_prices.parquet",temp)
             dates=sorted({d for spec in FILES.values() for d in spec["dates"]})
+            raw_rows={}
             for name,spec in FILES.items():
                 rows=read_dates(local[name],spec["dates"],pa,ds,COLUMNS)
                 by={d:[] for d in spec["dates"]}
                 for row in rows:
                     d=as_day(row.get("date"))
                     if d in by: by[d].append(row)
+                for d in spec["dates"]: raw_rows[d]=by[d]
                 report["results"].extend(inspect_day(d,by[d]) for d in spec["dates"])
             spots=read_dates(underlying,dates,pa,ds)
             smap={as_day(r.get("date")):r for r in spots}
             report["underlying_spots"]={d:({"close":numeric(smap[d].get("close")),
                 "adjusted_close":numeric(smap[d].get("adjusted_close")),"volume":smap[d].get("volume"),
                 "split_coefficient":smap[d].get("split_coefficient")} if d in smap else None) for d in dates}
-        integrity=all(x.get("status") in ("DOWNLOADED_HASH_VERIFIED","CACHED_HASH_VERIFIED") for x in report["file_integrity"].values())
+            universe_path=Path("src/data/universe.json")
+            model_path=MODEL_SOURCE_PATH
+            source_integrity={}
+            universe_bytes=universe_path.read_bytes()
+            model_bytes=model_path.read_bytes()
+            source_integrity["src/data/universe.json"]={"bytes":len(universe_bytes),
+                "git_blob_sha":blob_sha_bytes(universe_bytes),
+                "status":"HASH_VERIFIED" if blob_sha_bytes(universe_bytes)==UNIVERSE_GIT_BLOB_SHA else "HASH_MISMATCH"}
+            source_integrity[str(MODEL_SOURCE_PATH)]={"bytes":len(model_bytes),
+                "git_blob_sha":blob_sha_bytes(model_bytes),
+                "status":"HASH_VERIFIED" if blob_sha_bytes(model_bytes)==MODEL_SOURCE_GIT_BLOB_SHA else "HASH_MISMATCH"}
+            report["model_source_integrity"]=source_integrity
+            if all(item["status"]=="HASH_VERIFIED" for item in source_integrity.values()):
+                universe=json.loads(universe_bytes.decode("utf-8"))
+                position={d:i for i,d in enumerate(universe["dates"])}
+                report["model_price_alignment"]=[]
+                for day in dates:
+                    i=position.get(day)
+                    spotrow=smap.get(day)
+                    if i is None or spotrow is None:
+                        report["model_price_alignment"].append({"date":day,"status":"MISSING_UNIVERSE_OR_RAW_CLOSE"})
+                        continue
+                    repo_spot=numeric(universe["c"]["QQQ"][i])
+                    vix=numeric(universe["c"]["VIX"][i])
+                    raw_close=numeric(spotrow.get("close"))
+                    adj_close=numeric(spotrow.get("adjusted_close"))
+                    if None in (repo_spot,vix,raw_close):
+                        report["model_price_alignment"].append({"date":day,"status":"MISSING_SPOT_OR_VIX"})
+                        continue
+                    repo_geom=model_qqq_quote(repo_spot,vix)
+                    raw_geom=model_qqq_quote(raw_close,vix)
+                    record={
+                        "date":day,"universe_source":universe.get("source"),
+                        "model_source_file_sha":MODEL_SOURCE_GIT_BLOB_SHA,
+                        "repo_backtest_qqq_input":repo_spot,"public_source_raw_qqq_close":raw_close,
+                        "public_source_adjusted_qqq_close":adj_close,
+                        "repo_spot_vs_raw_close_pct":round((repo_spot/raw_close-1)*100,4),
+                        "vix_from_same_repo_universe":vix,
+                        "quoteCC_model_using_repo_spot_adjusted_series":repo_geom,
+                        "quoteCC_model_using_public_raw_close":raw_geom,
+                        "short_target_strike_shift_repo_minus_raw":repo_geom["short_target_strike"]-raw_geom["short_target_strike"],
+                        "long_target_strike_shift_repo_minus_raw":repo_geom["long_target_strike"]-raw_geom["long_target_strike"],
+                        "model_credit_shift_repo_minus_raw":repo_geom["premium_used_by_quoteCC"]-raw_geom["premium_used_by_quoteCC"],
+                        "market_chain_match":nearest_quote_model_pairs(raw_rows[day],day,
+                            {"repo_adjusted_spot":repo_geom,"raw_close_spot":raw_geom},
+                            raw_close,repo_spot,vix),
+                        "interpretation":"Diagnostic only: EOD chain mirror is QQQ-only; EOD quotes are not guaranteed fills. Historical share-price adjustment is suitable for total-return stock accounting but is not interchangeable with raw nominal spot used for option strikes/payoffs."
+                    }
+                    report["model_price_alignment"].append(record)
+            else:
+                report["model_price_alignment"]={"status":"MODEL_SOURCE_HASH_MISMATCH","detail":"No model-to-chain comparison performed because source series / replay code did not match pinned revisions."}
+        integrity=all(x.get("status") in ("DOWNLOADED_HASH_VERIFIED","CACHED_HASH_VERIFIED") for x in report["file_integrity"].values()) and all(x.get("status")=="HASH_VERIFIED" for x in report.get("model_source_integrity",{}).values())
         hits=sum(x["status"]=="ROWS_FOUND" for x in report["results"])
         report["integrity_ok"]=integrity
         report["overall"]=("SAMPLE_DATES_HAVE_QQQ_CHAIN_ROWS" if integrity and hits==len(report["results"]) else
