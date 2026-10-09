@@ -1,0 +1,40 @@
+name: QQQ Public EOD Option Chain Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py
+      - .github/workflows/qqq-public-eod-chain-audit.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-public-eod-chain-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Public QQQ EOD options source / provenance / quote-quality probe
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Runtime and pinned Parquet reader
+        run: |
+          py -3 --version || exit /b 1
+          py -3 -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0 || exit /b 1
+      - name: Compile audit script
+        run: |
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\audit_qqq_public_eod_options.py || exit /b 1
+      - name: Download hash-pinned samples and measure QQQ quote coverage
+        run: |
+          py -3 research\qqq_hybrid_operator_terminal_v1\audit_qqq_public_eod_options.py || exit /b 1
