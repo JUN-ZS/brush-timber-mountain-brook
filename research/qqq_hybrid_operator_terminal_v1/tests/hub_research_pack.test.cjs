@@ -210,4 +210,4 @@ function ratioBase(overrides = {}) {
   assert.equal(c.deltaSource, "PROVIDER_DELTA");
 }
 
-console.log("HUB RESEARCH OPTION PACK: 9 TEST GROUPS PASS");
+console.log("HUB RESEARCH OPTION PACK: 10 TEST GROUPS PASS");
