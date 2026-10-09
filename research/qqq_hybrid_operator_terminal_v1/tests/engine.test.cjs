@@ -293,7 +293,7 @@ function row(result, key) {
   assert.equal(r.ratioCampaign.noHardLossCap, true);
 }
 
-// Covered call uses a single short-call bid, not a call-spread credit, and is capped by owned shares.
+// Covered-call candidate detection remains testable, but covered calls are outside the primary budget.
 {
   const expiry = Date.parse("2026-11-20T00:00:00Z") / 1000;
   const calls = [
@@ -310,10 +310,10 @@ function row(result, key) {
     candidates: { qqqCoveredCall: candidate },
     permissions: { coveredCalls: true }
   }));
-  assert.equal(row(r, "coveredCalls").capacity, 4);
-  assert.equal(row(r, "coveredCalls").target, 4);
-  assert.equal(row(r, "coveredCalls").delta, -6);
-  assert.equal(row(r, "coveredCalls").action, "REDUCE");
+  assert.equal(row(r, "coveredCalls").capacity, null);
+  assert.equal(row(r, "coveredCalls").target, 10);
+  assert.equal(row(r, "coveredCalls").delta, 0);
+  assert.equal(row(r, "coveredCalls").action, "OUTSIDE_BUDGET");
   assert.equal(row(r, "coveredCalls").maxLossIsHardCap, false);
 }
 
