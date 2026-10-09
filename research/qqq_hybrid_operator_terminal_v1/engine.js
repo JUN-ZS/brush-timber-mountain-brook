@@ -284,7 +284,7 @@
         riskSource: risk.source,
         candidateSource: item.candidate?.source || null,
         reason: sellerBlocked && !policyExit ? "No new seller entries in this market state; over-cap trimming remains allowed." : item.reason,
-        maxLossIsHardCap: strategy.kind !== "stressOnly",
+        maxLossIsHardCap: !["stressOnly", "coveredCall"].includes(strategy.kind),
         strategyKind: strategy.kind
       });
     }
