@@ -78,4 +78,28 @@ assert.ok(Lab.calculateVerticals("QQQ_CALL",s.chains.QQQ_CALL,100,-1).error);
 assert.equal(Lab.expiryPnl(q2,810,0,1),null);
 assert.equal(Lab.expiryPnl(q2,810,100,0),null);
 assert.equal(Lab.expiryPnl(q2,810,100,1.5),null);
+// CSV with source and contract metadata survives quoted commas and records expiry.
+const richCsv = 'symbol,side,strike,bid,ask,delta,expiration,source_type,source_name,source_url,observed_at,timezone,contract_symbol,contract_status,deliverable_note,contract_evidence_url\n' +
+  'VXX,CALL,21,0.58,0.72,0.2698,2026-11-20,PUBLIC_DATA,"Example, feed",https://example.com/data,2026-10-09T15:45,America/New_York,VXX,STANDARD_TERMS_RECORDED,"100 shares",https://example.com/occ\n' +
+  'VXX,CALL,24,0.24,0.34,0.1731,2026-11-20,PUBLIC_DATA,"Example, feed",https://example.com/data,2026-10-09T15:45,America/New_York,VXX,STANDARD_TERMS_RECORDED,"100 shares",https://example.com/occ';
+const rich = Lab.parseCsv(richCsv);
+assert.equal(rich.total,2);
+assert.equal(rich.expiration,"2026-11-20");
+assert.equal(rich.metadata.sourceType,"PUBLIC_DATA");
+assert.equal(rich.metadata.sourceName,"Example, feed");
+assert.equal(rich.chainMetadata.VXX_CALL.contractSymbol,"VXX");
+assert.equal(rich.chainMetadata.VXX_CALL.deliverableNote,"100 shares");
+assert.equal(rich.metadataConflicts.length,0);
+assert.equal(Lab.parseCsv('symbol,side,strike,bid,ask,delta\nQQQ,CALL,799,3.16,3.18,0.1456').expiration,"","legacy CSV must not inherit the UI's prior expiry");
+
+const goodMeta={sourceType:"PUBLIC_DATA",sourceName:"Example feed",sourceUrl:"https://example.com/data",observedAt:"2026-10-09T15:45",timezone:"America/New_York",contractSymbol:"VXX",contractStatus:"STANDARD_TERMS_RECORDED",deliverableNote:"100 shares",contractEvidenceUrl:"https://example.com/occ"};
+const provGood=Lab.assessProvenance(goodMeta,"2026-11-20",2,false);
+assert.equal(provGood.complete,true);
+assert.equal(provGood.ordersAuthorized,false,"complete metadata must never authorize orders");
+assert.equal(Lab.assessProvenance(goodMeta,"2026-11-20",2,true).status,"MANUAL_EDIT_RECHECK");
+assert.equal(Lab.assessProvenance({...goodMeta,sourceType:"MODEL_DERIVED"},"2026-11-20",2,false).status,"MODEL_ONLY");
+assert.equal(Lab.assessProvenance({...goodMeta,contractStatus:"UNKNOWN"},"2026-11-20",2,false).complete,false);
+const conflicting=Lab.parseCsv(richCsv.replace("2026-11-20,PUBLIC_DATA","2026-12-18,PUBLIC_DATA"));
+assert.ok(conflicting.metadataConflicts.length>0,"mixed expiry rows must be rejected");
+assert.equal(Lab.csvCell('Example, "quoted"'),'"Example, ""quoted"""');
 console.log("option_chain_lab=PASS");
