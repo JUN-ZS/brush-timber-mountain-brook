@@ -21,13 +21,13 @@
 
   <main>
     <section class="notice">
-      <b>Capital-first sizing:</b> Enter principal / NAV (for example, $100,000), uncommitted cash, cash reserve and risk budgets. The desk calculates maximum units for every Hybrid leg and available option candidate, estimated capital / margin needs, the shared option max-loss reserve, and what current market state permits.
+      <b>Capital-first, joint portfolio sizing:</b> Enter principal / NAV, uncommitted cash, cash reserve and risk weights. The four original Hybrid layers and enabled Hub-researched option packages share one risk pool; when requested weights exceed the pool, all eligible weights scale together rather than receiving separate full budgets.
       <small>Current holdings are optional inputs used only to compare ADD / HOLD / REDUCE. The intentionally excessive 1,000-unit case is a collapsed self-audit diagnostic, not the normal workflow. V3 market context is read-only; budgets remain editable what-if assumptions.</small>
     </section>
 
     <section class="notice">
-      <b>Hub 特別期權研究模組：</b>先使用已研究的 Ratio-Call HARVEST50 / Dynamic-N、State-Adaptive Geometry、Staggered Stack 及 SHOCK-GATED Put Spread，不與原四層 Hybrid 混為同一策略。
-      <small><a href="hub_research_pack.html">開啟 Hub Research Option Pack →</a>（研究模板／手動覆核，不發送訂單；Risk-WIN Bank 不是現金或券商保證金。）</small>
+      <b>Hub 特別期權：</b>Ratio-Call、State-Adaptive / Staggered、SHOCK-GATED Put Spread 已納入本頁共用風險池；這個連結保留每種結構的細部研究狀態管理。
+      <small><a href="hub_research_pack.html">開啟 Hub Research Option Pack →</a>（細部研究模板；主操作台此頁才是共同預算與持倉容量的統一分配表。）</small>
     </section>
 
     <section class="grid market-grid">
@@ -149,9 +149,15 @@
         <button data-find="qqqLongCall" data-symbol="QQQ" data-right="call" data-kind="long">Find QQQ Long Call</button>
         <button data-find="qqqLongPut" data-symbol="QQQ" data-right="put" data-kind="long">Find QQQ Long Put</button>
         <button data-find="qqqCoveredCall" data-symbol="QQQ" data-right="call" data-kind="short">Find Covered Call</button>
+        <button id="findHubResearchBtn" class="primary">Find Hub Research Packages</button>
         <label class="small-label">Target DTE <input id="targetDte" type="number" min="14" max="120" step="1" value="45"></label>
+        <label class="small-label">Hub Ratio N <select id="hubRatioN"><option value="1">N=1</option><option value="2" selected>N=2</option><option value="3">N=3</option><option value="4">N=4</option></select></label>
+        <label class="small-label">State-Adaptive / Staggered max vintages <select id="hubStateLayerCap"><option value="1">1 vintage</option><option value="2">2 vintages</option><option value="4">4 vintages</option></select></label>
+        <label class="small-label">Hub shock 252D drawdown (%) <input id="hubDrawdown252Pct" type="number" min="-100" max="0" step="0.1" value="0"></label>
+        <label class="small-label">Hub shock 5D return (%) <input id="hubReturn5dPct" type="number" min="-100" max="100" step="0.1" value="0"></label>
       </div>
       <div id="candidateRows" class="candidate-rows"></div>
+      <p class="muted"><b>Joint allocator:</b> every enabled, quoted defined-risk option row (including Hub research rows below) enters the same total option-risk pool. The “risk budget % NAV” fields are requested weights. If their sum exceeds the shared pool, the engine proportionally scales all eligible weights by one common factor before whole-contract rounding; it no longer hands the entire pool to whichever row happens to appear first. Missing quote candidates and ungated Shock-Gated puts reserve no new risk.</p>
       <div class="table-wrap">
         <table class="decision-table option-table">
           <thead>
@@ -206,6 +212,7 @@
     </section>
   </main>
   <footer>QQQ Hybrid Operator Terminal V1 · read-only V3 bridge · manual budget inputs · no broker order endpoint</footer>
+  <script src="hub_research_pack.js"></script>
   <script src="engine.js"></script>
   <script src="app.js"></script>
 </body>
