@@ -160,7 +160,7 @@
         const current = whole(holdings[strategy.key]);
         results.push({ key: strategy.key, id: strategy.id, label: strategy.label, family: strategy.family, current, capacity: null, target: current, delta: 0, action: "BLOCKED", status: market.blocked ? market.status : "INVALID_NAV_OR_CASH", reason: market.reason || "NAV must be positive and cash pool cannot be negative." });
       }
-      return { ok: false, market, nav, cashPool, totalOptionRiskPool, rows: results, boundary: { brokerOrders: false, automaticMutation: false } };
+      return { ok: false, market, nav, cashPool, totalOptionRiskPool, rows: results, ratioCampaign: calculateRatioCampaign(d.ratioCampaign || {}, market), boundary: { brokerOrders: false, automaticMutation: false } };
     }
 
     const qqqCorePct = num(sizing.qqqCorePct, REFERENCE_PROFILE.qqqCorePct);
