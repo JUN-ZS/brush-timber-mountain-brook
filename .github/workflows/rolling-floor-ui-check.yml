@@ -1,0 +1,31 @@
+name: Rolling Floor UI Check
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  ui-build:
+    name: UI / 10Y Floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install app dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build app
+        run: npm run build:dev
+      - name: Verify 10Y Floor route is present
+        run: |
+          test -s src/routes/floor.tsx
+          grep -q "10Y CAPITAL FLOOR / CONTROL PLANE" src/routes/floor.tsx

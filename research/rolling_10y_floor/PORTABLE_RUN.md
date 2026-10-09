@@ -40,6 +40,7 @@ The command regenerates:
 
     output/rolling_floor_result.json
     output/rolling_floor_replays.jsonl
+    output/rolling_floor_state_path.json
     output/rolling_floor_report.md
 
 ## Three-machine topology
@@ -61,5 +62,7 @@ A failed or missing shard is not silently substituted by another channel.
 The QQQ target path remains the observed terminal outcome. NDX and NASDAQ Composite are proxy state channels only. Their own future returns are never used as the QQQ terminal payoff.
 
 The 10Y horizon remains fixed. The historical context scales remain 20Y/30Y/50Y. Cross-scale disagreement remains a first-class market state.
+
+The state-path file is descriptive, not a second controller. It reports how CONVERGENT / TENSION / DIVERGENT / THIN periods displaced cumulative deployment relative to the hard clock, including contiguous episode lengths and peak/end displacement.
 
 This bundle is research-only and does not claim live suitability or a guaranteed non-loss outcome.
