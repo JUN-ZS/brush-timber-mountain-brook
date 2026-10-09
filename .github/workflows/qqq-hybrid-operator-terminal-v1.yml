@@ -1,0 +1,63 @@
+name: QQQ Hybrid Operator Terminal V1
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/**
+      - .github/workflows/qqq-hybrid-operator-terminal-v1.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-hybrid-operator-terminal-v1
+  cancel-in-progress: true
+
+jobs:
+  engine-qa:
+    name: Hybrid reverse sizing / contracts / Windows smoke
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime
+        run: |
+          node --version
+          py -3 --version
+
+      - name: JavaScript syntax and golden cases
+        run: |
+          node --check research\qqq_hybrid_operator_terminal_v1\engine.js
+          node --check research\qqq_hybrid_operator_terminal_v1\app.js
+          node research\qqq_hybrid_operator_terminal_v1\tests\engine.test.cjs
+
+      - name: Python server syntax
+        run: |
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\server.py
+
+      - name: Static asset / boundary contract
+        run: |
+          py -3 -c "from pathlib import Path; p=Path('research/qqq_hybrid_operator_terminal_v1'); required=['index.html','app.js','engine.js','styles.css','server.py','README.md','tests/engine.test.cjs']; missing=[x for x in required if not (p/x).is_file()]; assert not missing, 'missing files: '+repr(missing); s=(p/'server.py').read_text(encoding='utf-8'); assert 'place_order' not in s and 'unlock_trade' not in s and '/api/journal' in s; h=(p/'index.html').read_text(encoding='utf-8'); assert 'current-qqqShares' in h and 'current-vxxShortShares' in h and 'Set current quantity = 1000' in h; print('terminal_asset_contract=PASS')"
+
+      - name: Write QA summary
+        run: |
+          if not exist artifacts\qqq_hybrid_operator_terminal_v1 mkdir artifacts\qqq_hybrid_operator_terminal_v1
+          echo QQQ_HYBRID_OPERATOR_TERMINAL_V1=PASS>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
+          echo broker_orders=FALSE>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
+          echo sizing=REVERSE_CAPACITY_WITH_EXCESS_TRIM>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
+
+      - name: Upload QA evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-hybrid-operator-terminal-v1-qa
+          path: artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
+          if-no-files-found: error
+          retention-days: 30
