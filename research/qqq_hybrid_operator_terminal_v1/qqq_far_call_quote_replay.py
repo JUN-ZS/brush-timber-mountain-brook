@@ -35,6 +35,11 @@ SHORT_DELTA_TARGET, WING_DELTA_TARGET = 0.16, 0.08
 STOP_DTE = 7
 STOP_LOSS_OVER_MAXLOSS = -0.55
 TAKE_PROFIT_OVER_MAXLOSS = 0.50
+# Attribution-only diagnostic bins; never used to select, size, or exit a trade.
+TREND_LOOKBACK_SESSIONS = 20
+TREND_MOMENTUM_BAND = 0.02
+SPREAD_TIGHT_MAX_PCT_MID = 10.0
+SPREAD_MODERATE_MAX_PCT_MID = 25.0
 OPTION_COLUMNS = ["contract_id", "symbol", "expiration", "strike", "type",
                   "bid", "ask", "bid_size", "ask_size", "volume", "open_interest",
                   "date", "implied_volatility", "delta"]
@@ -308,6 +313,209 @@ def regime(vix):
     return "HIGH_GTE35"
 
 
+def quote_spread_pct_mid(row):
+    """Observed leg spread as % of midpoint; diagnostic only, not a fill probability."""
+    bid, ask = n(row.get("bid")), n(row.get("ask"))
+    if bid is None or ask is None or bid <= 0 or ask < bid:
+        return None
+    mid = (bid + ask) / 2.0
+    if mid <= 0:
+        return None
+    return (ask - bid) / mid * 100.0
+
+
+def quote_quality_bucket(short_spread_pct_mid, wing_spread_pct_mid):
+    """Explicit descriptive bins; they do not gate trades or assert fillability."""
+    values = [n(short_spread_pct_mid), n(wing_spread_pct_mid)]
+    if any(value is None for value in values):
+        return "UNKNOWN_QUOTE_SPREAD"
+    widest = max(values)
+    if widest <= SPREAD_TIGHT_MAX_PCT_MID:
+        return "TIGHT_LE_10PCT_MID"
+    if widest <= SPREAD_MODERATE_MAX_PCT_MID:
+        return "MODERATE_10_25PCT_MID"
+    return "WIDE_GT25PCT_MID"
+
+
+def raw_spot_momentum20(raw_spot, prior_history):
+    """20-session nominal-close momentum, used only to stratify attribution."""
+    current = n(raw_spot)
+    if current is None or current <= 0:
+        return None, "UNKNOWN_CURRENT_RAW_SPOT"
+    if len(prior_history) < TREND_LOOKBACK_SESSIONS:
+        return None, "UNKNOWN_INSUFFICIENT_20_SESSION_HISTORY"
+    reference = n(prior_history[-TREND_LOOKBACK_SESSIONS][1])
+    if reference is None or reference <= 0:
+        return None, "UNKNOWN_MISSING_20_SESSION_REFERENCE"
+    change = current / reference - 1.0
+    if change >= TREND_MOMENTUM_BAND:
+        label = "UP_GE_2PCT_20S"
+    elif change <= -TREND_MOMENTUM_BAND:
+        label = "DOWN_LE_NEG2PCT_20S"
+    else:
+        label = "RANGE_ABS_LT2PCT_20S"
+    return change, label
+
+
+def attribute_closed_trade(trade):
+    """Reconcile closed-trade cash flows without inventing marks or fills."""
+    out = dict(trade)
+    quantity = n(trade.get("quantity"))
+    gross_entry_ps = n(trade.get("entry_gross_credit_per_share"))
+    net_entry_ps = n(trade.get("entry_net_credit_ps"))
+    net_exit_ps = n(trade.get("exit_net_debit_per_share"))
+    realized = n(trade.get("realized_pnl_after_scenario_costs"))
+    if any(value is None for value in (quantity, gross_entry_ps, net_entry_ps, net_exit_ps, realized)) or quantity < 1:
+        out.update({
+            "attribution_status": "BLOCKED_MISSING_CASH_FLOW_FIELDS",
+            "entry_gross_credit_cash_usd": None, "entry_execution_costs_usd": None,
+            "exit_gross_debit_cash_usd": None, "exit_execution_costs_usd": None,
+            "recomputed_net_pnl_usd": None, "pnl_reconciliation_error_usd": None,
+            "loss_as_pct_entry_max_loss": None,
+        })
+        return out
+
+    # Entry cash received before costs is the short Bid minus long-wing Ask.
+    entry_gross_cash = gross_entry_ps * 100.0 * quantity
+    entry_costs = (gross_entry_ps - net_entry_ps) * 100.0 * quantity
+    intrinsic_exit = n(trade.get("exit_intrinsic_debit_per_share"))
+    if intrinsic_exit is not None:
+        exit_gross_ps = intrinsic_exit
+        exit_basis = "INTRINSIC_SETTLEMENT_PROXY"
+    else:
+        short_ask = n(trade.get("exit_short_ask"))
+        wing_bid = n(trade.get("exit_wing_bid"))
+        if short_ask is None or wing_bid is None:
+            out.update({
+                "attribution_status": "BLOCKED_MISSING_EXIT_SIDE_QUOTES",
+                "entry_gross_credit_cash_usd": round(entry_gross_cash, 6),
+                "entry_execution_costs_usd": round(entry_costs, 6),
+                "exit_gross_debit_cash_usd": None, "exit_execution_costs_usd": None,
+                "recomputed_net_pnl_usd": None, "pnl_reconciliation_error_usd": None,
+                "loss_as_pct_entry_max_loss": None,
+            })
+            return out
+        exit_gross_ps = short_ask - wing_bid
+        exit_basis = "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID"
+    exit_gross_cash = exit_gross_ps * 100.0 * quantity
+    exit_costs = (net_exit_ps - exit_gross_ps) * 100.0 * quantity
+    recomputed = entry_gross_cash - entry_costs - exit_gross_cash - exit_costs
+    error = recomputed - realized
+    risk = n(trade.get("entry_total_max_loss_scenario_usd"))
+    loss_utilization = (max(0.0, -realized) / risk * 100.0) if risk is not None and risk > 0 else None
+
+    short_delta_drift = n(trade.get("exit_short_delta_drift"))
+    if short_delta_drift is None:
+        entry_delta, exit_delta = n(trade.get("short_delta")), n(trade.get("exit_short_delta"))
+        if entry_delta is not None and exit_delta is not None:
+            short_delta_drift = exit_delta - entry_delta
+    wing_delta_drift = n(trade.get("exit_wing_delta_drift"))
+    if wing_delta_drift is None:
+        entry_delta, exit_delta = n(trade.get("wing_delta")), n(trade.get("exit_wing_delta"))
+        if entry_delta is not None and exit_delta is not None:
+            wing_delta_drift = exit_delta - entry_delta
+
+    out.update({
+        "entry_gross_credit_cash_usd": round(entry_gross_cash, 6),
+        "entry_execution_costs_usd": round(entry_costs, 6),
+        "exit_gross_debit_per_share": round(exit_gross_ps, 8),
+        "exit_gross_debit_cash_usd": round(exit_gross_cash, 6),
+        "exit_execution_costs_usd": round(exit_costs, 6),
+        "exit_debit_basis": exit_basis,
+        "recomputed_net_pnl_usd": round(recomputed, 6),
+        "pnl_reconciliation_error_usd": round(error, 8),
+        "attribution_status": "PASS_CASH_FLOW_RECONCILIATION" if abs(error) <= 0.01 else "FAIL_CASH_FLOW_RECONCILIATION",
+        "entry_year": str(trade.get("entry_date") or "")[:4] or "UNKNOWN",
+        "exit_year": str(trade.get("exit_date") or "")[:4] or "UNKNOWN",
+        "loss_as_pct_entry_max_loss": round(loss_utilization, 6) if loss_utilization is not None else None,
+        "short_delta_drift": round(short_delta_drift, 8) if short_delta_drift is not None else None,
+        "wing_delta_drift": round(wing_delta_drift, 8) if wing_delta_drift is not None else None,
+        "entry_quote_quality_bucket": quote_quality_bucket(
+            trade.get("entry_short_spread_pct_mid"), trade.get("entry_wing_spread_pct_mid")),
+        "exit_quote_quality_bucket": quote_quality_bucket(
+            trade.get("exit_short_spread_pct_mid"), trade.get("exit_wing_spread_pct_mid")),
+    })
+    return out
+
+
+def _trade_group_metrics(trades):
+    def values(key):
+        return [x for row in trades if (x := n(row.get(key))) is not None]
+    def total(key):
+        xs = values(key)
+        return round(sum(xs), 6) if xs else None
+    pnl = values("realized_pnl_after_scenario_costs")
+    loss_util = values("loss_as_pct_entry_max_loss")
+    short_drift = values("short_delta_drift")
+    wing_drift = values("wing_delta_drift")
+    holding = values("holding_calendar_days")
+    errors = values("pnl_reconciliation_error_usd")
+    statuses = [row.get("attribution_status") for row in trades]
+    return {
+        "trade_count": len(trades),
+        "net_pnl_usd": round(sum(pnl), 2) if pnl else 0.0,
+        "mean_net_pnl_usd": round(sum(pnl) / len(pnl), 2) if pnl else None,
+        "win_fraction": sum(value > 0 for value in pnl) / len(pnl) if pnl else None,
+        "entry_gross_credit_cash_usd": total("entry_gross_credit_cash_usd"),
+        "entry_execution_costs_usd": total("entry_execution_costs_usd"),
+        "exit_gross_debit_cash_usd": total("exit_gross_debit_cash_usd"),
+        "exit_execution_costs_usd": total("exit_execution_costs_usd"),
+        "recomputed_net_pnl_usd": total("recomputed_net_pnl_usd"),
+        "reconciliation_failures": sum(value == "FAIL_CASH_FLOW_RECONCILIATION" for value in statuses),
+        "reconciliation_blocked": sum(str(value).startswith("BLOCKED") for value in statuses),
+        "max_abs_reconciliation_error_usd": round(max(abs(value) for value in errors), 8) if errors else None,
+        "mean_loss_as_pct_entry_max_loss": round(sum(loss_util) / len(loss_util), 6) if loss_util else None,
+        "mean_short_delta_drift": round(sum(short_drift) / len(short_drift), 8) if short_drift else None,
+        "mean_wing_delta_drift": round(sum(wing_drift) / len(wing_drift), 8) if wing_drift else None,
+        "mean_holding_calendar_days": round(sum(holding) / len(holding), 4) if holding else None,
+    }
+
+
+def build_trade_attribution(trades):
+    """Build by-scenario and stratified closed-trade diagnostics; no portfolio metrics."""
+    dimensions = ("exit_reason", "entry_regime", "exit_regime", "entry_trend_regime",
+                  "exit_trend_regime", "entry_quote_quality_bucket", "entry_year")
+    by_scenario = {}
+    csv_rows = []
+    scenario_ids = sorted({str(row.get("scenario_id") or row.get("scenario") or "UNKNOWN") for row in trades})
+    for scenario_id in scenario_ids:
+        subset = [row for row in trades if str(row.get("scenario_id") or row.get("scenario") or "UNKNOWN") == scenario_id]
+        scenario_summary = _trade_group_metrics(subset)
+        scenario_summary["groups"] = {}
+        for dimension in dimensions:
+            groups = defaultdict(list)
+            for row in subset:
+                value = row.get(dimension)
+                if value in (None, ""):
+                    value = "UNKNOWN"
+                groups[str(value)].append(row)
+            scenario_summary["groups"][dimension] = {}
+            for bucket in sorted(groups):
+                metrics = _trade_group_metrics(groups[bucket])
+                scenario_summary["groups"][dimension][bucket] = metrics
+                csv_rows.append({
+                    "scenario_id": scenario_id, "dimension": dimension, "bucket": bucket,
+                    **metrics,
+                })
+        by_scenario[scenario_id] = scenario_summary
+    total_metrics = _trade_group_metrics(trades)
+    summary = {
+        "status": "CLOSED_TRADE_ATTRIBUTION_ONLY; NOT_PORTFOLIO_PERFORMANCE",
+        "closed_trade_rows": len(trades),
+        "reconciliation_pass_rows": sum(row.get("attribution_status") == "PASS_CASH_FLOW_RECONCILIATION" for row in trades),
+        "reconciliation_fail_rows": sum(row.get("attribution_status") == "FAIL_CASH_FLOW_RECONCILIATION" for row in trades),
+        "reconciliation_blocked_rows": sum(str(row.get("attribution_status", "")).startswith("BLOCKED") for row in trades),
+        "all_scenario_cash_flow_totals": total_metrics,
+        "scenarios": by_scenario,
+        "group_rows_count": len(csv_rows),
+        "classification_note": (
+            "entry/exit regime and 20-session raw-spot momentum are post-hoc diagnostic strata only; "
+            "spread buckets use max leg spread/midpoint <=10%, <=25%, >25%; none is a trade rule."
+        ),
+    }
+    return summary, csv_rows
+
+
 class Replay:
     def __init__(self, budget_mode, slippage, commission):
         self.mode = budget_mode
@@ -335,6 +543,10 @@ class Replay:
         self.last_valid_nav = None
         self.unresolved_positions = []
         self.expired_unresolved_keys = set()
+        self.raw_spot_history = []  # one slot per expected session; missing closes remain explicit
+        self._signal_vix = None
+        self._signal_momentum20_pct = None
+        self._signal_trend_regime = "UNKNOWN"
         self.max_open_max_loss_usd = 0.0
         self.max_open_max_loss_pct_nav = 0.0
 
@@ -377,6 +589,7 @@ class Replay:
         else:
             self.counters["missing_chain_sessions"] += 1
         raw_spot = n((spot_info or {}).get("raw_close"))
+        trend_momentum20_pct, trend_regime_key = raw_spot_momentum20(raw_spot, self.raw_spot_history)
         core_value = self._core_value(spot_info)
         qmap = supplied_map
         if selected_pair is None:
@@ -420,6 +633,13 @@ class Replay:
                     **p, "exit_date": day_key, "settlement_price_date": settlement_price_date,
                     "settlement_spot": settlement_spot, "settlement_basis": settlement_basis,
                     "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+                    "exit_raw_spot": settlement_spot,
+                    "exit_vix": n(vix_value) if settlement_price_date == day_key else None,
+                    "exit_regime": regime(vix_value) if settlement_price_date == day_key else "UNKNOWN_SETTLEMENT_DATE_ALIGNMENT",
+                    "exit_momentum20_pct": trend_momentum20_pct if settlement_price_date == day_key else None,
+                    "exit_trend_regime": trend_regime_key if settlement_price_date == day_key else "UNKNOWN_SETTLEMENT_DATE_ALIGNMENT",
+                    "exit_short_delta": None, "exit_wing_delta": None,
+                    "exit_short_spread_pct_mid": None, "exit_wing_spread_pct_mid": None,
                     "exit_intrinsic_debit_per_share": intrinsic_debit,
                     "exit_net_debit_per_share": debit,
                     "realized_pnl_after_scenario_costs": realized,
@@ -456,8 +676,19 @@ class Replay:
                 self.cash -= debit * 100 * p["quantity"]
                 trade = {
                     **p, "exit_date": day_key, "exit_reason": p.get("exit_reason", "RULE_EXIT"),
+                    "exit_short_bid": n(qmap[p["short_id"]].get("bid")),
                     "exit_short_ask": n(qmap[p["short_id"]].get("ask")),
                     "exit_wing_bid": n(qmap[p["wing_id"]].get("bid")),
+                    "exit_wing_ask": n(qmap[p["wing_id"]].get("ask")),
+                    "exit_short_delta": n(qmap[p["short_id"]].get("delta")),
+                    "exit_wing_delta": n(qmap[p["wing_id"]].get("delta")),
+                    "exit_short_spread_pct_mid": quote_spread_pct_mid(qmap[p["short_id"]]),
+                    "exit_wing_spread_pct_mid": quote_spread_pct_mid(qmap[p["wing_id"]]),
+                    "exit_short_delta_drift": (n(qmap[p["short_id"]].get("delta")) - n(p.get("short_delta"))) if n(qmap[p["short_id"]].get("delta")) is not None and n(p.get("short_delta")) is not None else None,
+                    "exit_wing_delta_drift": (n(qmap[p["wing_id"]].get("delta")) - n(p.get("wing_delta"))) if n(qmap[p["wing_id"]].get("delta")) is not None and n(p.get("wing_delta")) is not None else None,
+                    "exit_raw_spot": raw_spot, "exit_vix": n(vix_value),
+                    "exit_regime": regime(vix_value), "exit_momentum20_pct": trend_momentum20_pct,
+                    "exit_trend_regime": trend_regime_key,
                     "exit_net_debit_per_share": debit, "realized_pnl_after_scenario_costs": realized,
                     "holding_calendar_days": (date.fromisoformat(day_key)-date.fromisoformat(p["entry_date"])).days,
                     "status": "CLOSED_EOD_SIDE_PROXY_NOT_CONFIRMED_FILL",
@@ -514,8 +745,17 @@ class Replay:
                             "budget_mode": self.mode["name"], "slippage_per_leg": self.slippage,
                             "commission_per_contract_per_side": self.commission,
                             "signal_date": self._signal_date, "entry_date": day_key,
+                            "signal_vix": self._signal_vix, "signal_regime": regime(self._signal_vix),
+                            "signal_momentum20_pct": self._signal_momentum20_pct,
+                            "signal_trend_regime": self._signal_trend_regime,
+                            "entry_raw_spot": raw_spot, "entry_vix": n(vix_value),
+                            "entry_momentum20_pct": trend_momentum20_pct, "entry_trend_regime": trend_regime_key,
                             "entry_selection_expiry": signal_pair.get("expiry") if signal_pair else None,
-                            "entry_short_bid": pair["short"]["bid"], "entry_wing_ask": pair["wing"]["ask"],
+                            "entry_short_bid": pair["short"]["bid"], "entry_short_ask": pair["short"]["ask"],
+                            "entry_wing_bid": pair["wing"]["bid"], "entry_wing_ask": pair["wing"]["ask"],
+                            "entry_short_spread_pct_mid": quote_spread_pct_mid(pair["short"]),
+                            "entry_wing_spread_pct_mid": quote_spread_pct_mid(pair["wing"]),
+                            "entry_quote_quality_bucket": quote_quality_bucket(quote_spread_pct_mid(pair["short"]), quote_spread_pct_mid(pair["wing"])),
                             "entry_gross_credit_per_share": pair["gross_observed_side_credit_per_share"],
                             "entry_net_credit_ps": net_credit, "entry_cash_credit": net_credit*100*quantity,
                             "short_id": pair["short"]["contract_id"], "wing_id": pair["wing"]["contract_id"],
@@ -607,6 +847,9 @@ class Replay:
             self.pending_open = True
             self.pending_selection = selected_pair
             self._signal_date = day_key
+            self._signal_vix = n(vix_value)
+            self._signal_momentum20_pct = trend_momentum20_pct
+            self._signal_trend_regime = trend_regime_key
         elif self.position is None and not chain_present:
             self.pending_open = False
             self.pending_selection = None
@@ -614,7 +857,9 @@ class Replay:
         marked = nav is not None
         self.daily.append({
             "date": day_key, "raw_spot": raw_spot, "adjusted_close_for_core_tr": n((spot_info or {}).get("adjusted_close")),
-            "vix": n(vix_value), "regime": regime(vix_value), "chain_present": chain_present,
+            "vix": n(vix_value), "regime": regime(vix_value),
+            "raw_spot_momentum20_pct": trend_momentum20_pct, "raw_spot_trend_regime": trend_regime_key,
+            "chain_present": chain_present,
             "quote_time_status": QUOTE_TIME_STATUS,
             "cash_balance": round(self.cash, 6), "core_value_adjusted_total_return_proxy": round(core_value, 6) if core_value is not None else None,
             "no_call_baseline_nav": round(core_value + INITIAL_CAPITAL * (1 - QQQ_CORE_FRACTION), 6) if core_value is not None else None,
@@ -629,6 +874,7 @@ class Replay:
             "pending_selection_expiry": self.pending_selection.get("expiry") if self.pending_selection and self.pending_selection.get("status") == "PAIR_SELECTED" else None,
             "source_status": EVIDENCE,
         })
+        self.raw_spot_history.append((day_key, raw_spot))
         if raw_spot is not None:
             self.last_raw_spot_date = day_key
             self.last_raw_spot = raw_spot
@@ -751,13 +997,18 @@ def run_replay(out_dir):
             "unresolved_positions": state.unresolved_positions,
         }
         scenarios.append(scenario)
-        all_trades.extend([{**t, "scenario": name, "slippage_per_leg_usd": state.slippage,
+        scenario_id = f"{name}|SLIP_PER_LEG_{state.slippage:.3f}|COMM_PER_CONTRACT_SIDE_{state.commission:.2f}"
+        all_trades.extend([{**t, "scenario": name, "scenario_id": scenario_id,
+                            "slippage_per_leg_usd": state.slippage,
                             "commission_per_contract_per_side_usd": state.commission}
                            for t in closed])
-        all_events.extend([{**e, "scenario": name, "slippage_per_leg_usd": state.slippage,
+        all_events.extend([{**e, "scenario": name, "scenario_id": scenario_id,
+                            "slippage_per_leg_usd": state.slippage,
                             "commission_per_contract_per_side_usd": state.commission}
                            for e in state.events])
 
+    attributed_trades = [attribute_closed_trade(trade) for trade in all_trades]
+    attribution_summary, attribution_group_rows = build_trade_attribution(attributed_trades)
     report = {
         "research_id": "QQQ_FAR_CALL_LISTED_CONTRACT_EOD_REPLAY_V1",
         "status": "RESEARCH_DIAGNOSTIC_NOT_PERFORMANCE_APPROVED",
@@ -788,13 +1039,19 @@ def run_replay(out_dir):
                      "days_by_pair_status": dict(pair_statuses),
                      "source_integrity": integrity, "option_file_integrity": file_integrity},
         "scenarios": scenarios,
+        "trade_attribution": attribution_summary,
         "interpretation": "Only closed-spread event P&L is summarized. It is a quote-side proxy under explicit hypothetical costs, not confirmed fills. CAGR, daily MTM MaxDD, Sharpe, ES95 are intentionally NULL because the observation path is incomplete and EOD snapshots do not prove fills.",
     }
     (out_dir / "qqq_far_call_replay_summary.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     with (out_dir / "qqq_far_call_replay_trades.csv").open("w", newline="", encoding="utf-8") as f:
-        fields = sorted({k for x in all_trades for k in x})
+        fields = sorted({k for x in attributed_trades for k in x})
         if not fields: fields = ["scenario", "status"]
-        writer = csv.DictWriter(f, fieldnames=fields); writer.writeheader(); writer.writerows(all_trades)
+        writer = csv.DictWriter(f, fieldnames=fields); writer.writeheader(); writer.writerows(attributed_trades)
+    (out_dir / "qqq_far_call_replay_attribution.json").write_text(json.dumps(attribution_summary, indent=2), encoding="utf-8")
+    with (out_dir / "qqq_far_call_replay_attribution.csv").open("w", newline="", encoding="utf-8") as f:
+        fields = sorted({k for x in attribution_group_rows for k in x})
+        if not fields: fields = ["scenario_id", "dimension", "bucket"]
+        writer = csv.DictWriter(f, fieldnames=fields); writer.writeheader(); writer.writerows(attribution_group_rows)
     with (out_dir / "qqq_far_call_replay_events.csv").open("w", newline="", encoding="utf-8") as f:
         fields = sorted({k for x in all_events for k in x})
         if not fields: fields = ["scenario", "event"]
@@ -831,6 +1088,28 @@ def run_replay(out_dir):
             s["unresolved_or_open_position_at_end"], s["missing_position_mark_sessions"]))
     lines += [
         "",
+        "## Trade-level attribution (closed spreads only)",
+        "",
+        f"Cash-flow reconciliation: {attribution_summary['reconciliation_pass_rows']} PASS, {attribution_summary['reconciliation_fail_rows']} FAIL, {attribution_summary['reconciliation_blocked_rows']} BLOCKED rows. Every trade decomposes into gross entry credit − entry costs − gross exit debit − exit costs; a mismatch over $0.01 is a hard diagnostic failure.",
+        "",
+        "The attributed trades CSV includes entry/exit leg quotes, leg spread/midpoint, Delta drift, raw nominal spot, VIX regime, 20-session raw-spot momentum regime, holding days and loss as a percentage of the recorded scenario max-loss budget. These are descriptive strata, not changes to strategy rules or proof of fills.",
+        "",
+        "| Scenario | Net P&L | Entry gross credit | Entry costs | Exit gross debit | Exit costs | Reconciliation failures | Mean short Delta drift | Mean loss / max-loss |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        *["| %s | $%.2f | $%.2f | $%.2f | $%.2f | $%.2f | %d | %s | %s |" % (
+            scenario_id,
+            metrics.get("net_pnl_usd") or 0.0,
+            metrics.get("entry_gross_credit_cash_usd") or 0.0,
+            metrics.get("entry_execution_costs_usd") or 0.0,
+            metrics.get("exit_gross_debit_cash_usd") or 0.0,
+            metrics.get("exit_execution_costs_usd") or 0.0,
+            metrics.get("reconciliation_failures") or 0,
+            ("%.4f" % metrics["mean_short_delta_drift"]) if metrics.get("mean_short_delta_drift") is not None else "—",
+            ("%.2f%%" % metrics["mean_loss_as_pct_entry_max_loss"]) if metrics.get("mean_loss_as_pct_entry_max_loss") is not None else "—")
+          for scenario_id, metrics in attribution_summary["scenarios"].items()],
+        "",
+        "Group attribution (exit reason, entry/exit VIX regime, 20-session raw-spot momentum, entry quote-spread bucket and entry year) is in `qqq_far_call_replay_attribution.csv` and `.json`. Trend bands are +/-2% over 20 expected sessions; leg spread bins are max spread/midpoint <=10%, <=25%, and >25%. They are attribution-only, not trade filters.",
+        "",
         "## Mark diagnostics",
         "",
         "The zero/near-zero markability pattern from the initial run is explicitly surfaced below; use the new run to verify it is resolved rather than infer from workflow success alone.",
@@ -863,6 +1142,10 @@ def run_replay(out_dir):
                       "mark_diagnostics": {"baseline_mark_status_counts": dict(replay_states[0].mark_status_counts),
                                            "baseline_first_mark_failures": replay_states[0].mark_failure_samples,
                                            "baseline_first_open_event": next((e for e in replay_states[0].events if e.get("event") == "OPEN"), None)},
+                      "trade_attribution": {"closed_trade_rows": attribution_summary["closed_trade_rows"],
+                                           "reconciliation_pass_rows": attribution_summary["reconciliation_pass_rows"],
+                                           "reconciliation_fail_rows": attribution_summary["reconciliation_fail_rows"],
+                                           "reconciliation_blocked_rows": attribution_summary["reconciliation_blocked_rows"]},
                       "scenarios": [{k: s[k] for k in ("scenario","slippage_per_leg_usd",
                                     "commission_per_contract_per_side_usd","opened_spreads","closed_spreads",
                                     "closed_trade_net_pnl_sum_usd","mean_closed_trade_net_pnl_usd",
