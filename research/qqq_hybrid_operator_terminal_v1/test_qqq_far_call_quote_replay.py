@@ -325,7 +325,8 @@ class QqqFarCallReplayTests(unittest.TestCase):
         self.assertEqual(state.trades[0]["exit_quote_missing_sessions"], 1)
         self.assertEqual(state.trades[0]["exit_signal_date"], entry_day)
         self.assertEqual(state.trades[0]["exit_delay_calendar_days"], 2)
-        self.assertEqual(state.trades[0]["exit_regime"], "NORMAL_15_25" if False else "NORMAL_15_25")
+        self.assertEqual(state.trades[0]["exit_regime"], "NORMAL_15_25")
+        self.assertEqual(state.trades[0]["exit_signal_regime"], "NORMAL_15_25")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
