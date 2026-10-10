@@ -327,6 +327,10 @@ class Replay:
         self.mark_status_counts = Counter()
         self.mark_failure_samples = []
         self.exit_quote_size_missing_sessions = 0
+        self.last_raw_spot_date = None
+        self.last_raw_spot = None
+        self.expiry_settlement_fallbacks = 0
+        self.expiry_settlement_missing_spot = 0
         self.missing_position_mark_dates = []
         self.last_valid_nav = None
         self.unresolved_positions = []
@@ -383,7 +387,67 @@ class Replay:
             self.counters["no_valid_pair_sessions"] += 1
 
         executed_close_today = False
-        if self.position is not None and self.pending_close and chain_present:
+        # Resolve a defined-risk call vertical at expiration using intrinsic value.
+        # If expiry is a non-session date or the exact expiry close is absent, a
+        # prior-session spot may be used only as an explicitly tagged fallback.
+        if self.position is not None and date.fromisoformat(day_key) >= date.fromisoformat(self.position["expiry"]):
+            p = self.position
+            expiry_day = date.fromisoformat(p["expiry"])
+            current_day = date.fromisoformat(day_key)
+            settlement_spot = None
+            settlement_price_date = None
+            settlement_basis = None
+            if current_day == expiry_day and raw_spot is not None:
+                settlement_spot = raw_spot
+                settlement_price_date = day_key
+                settlement_basis = "OBSERVED_RAW_CLOSE_ON_EXPIRY_DATE"
+            elif (current_day > expiry_day and self.last_raw_spot is not None and
+                  self.last_raw_spot_date is not None and
+                  date.fromisoformat(self.last_raw_spot_date) < expiry_day):
+                settlement_spot = self.last_raw_spot
+                settlement_price_date = self.last_raw_spot_date
+                settlement_basis = "FALLBACK_LAST_OBSERVED_SESSION_BEFORE_EXPIRY"
+                self.expiry_settlement_fallbacks += 1
+            if settlement_spot is not None:
+                intrinsic_short = max(settlement_spot - p["short_strike"], 0.0)
+                intrinsic_wing = max(settlement_spot - p["wing_strike"], 0.0)
+                intrinsic_debit = max(0.0, min(p["width"], intrinsic_short - intrinsic_wing))
+                friction = 2 * self.slippage + 2 * self.commission / 100
+                debit = intrinsic_debit + friction
+                realized = (p["entry_net_credit_ps"] - debit) * 100 * p["quantity"]
+                self.cash -= debit * 100 * p["quantity"]
+                trade = {
+                    **p, "exit_date": day_key, "settlement_price_date": settlement_price_date,
+                    "settlement_spot": settlement_spot, "settlement_basis": settlement_basis,
+                    "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+                    "exit_intrinsic_debit_per_share": intrinsic_debit,
+                    "exit_net_debit_per_share": debit,
+                    "realized_pnl_after_scenario_costs": realized,
+                    "holding_calendar_days": (date.fromisoformat(day_key) - date.fromisoformat(p["entry_date"])).days,
+                    "status": "SETTLED_INTRINSIC_PROXY_NOT_CONFIRMED_EXERCISE",
+                }
+                self.trades.append(trade)
+                self.events.append({
+                    "date": day_key, "event": "EXPIRY_SETTLEMENT_PROXY",
+                    "settlement_price_date": settlement_price_date, "settlement_spot": settlement_spot,
+                    "settlement_basis": settlement_basis, "intrinsic_debit_per_share": intrinsic_debit,
+                    "net_debit_per_share_with_scenario_costs": debit, "realized_pnl": round(realized, 2),
+                    "quantity": p["quantity"], "budget_mode": self.mode["name"],
+                    "slippage_per_leg": self.slippage,
+                    "commission_per_contract_per_side": self.commission,
+                })
+                self.position = None
+                self.pending_close = False
+                self.pending_open = False
+                self.pending_selection = None
+                self.counters["closed_trades"] += 1
+                self.counters["expiry_settlements"] += 1
+                executed_close_today = True
+            else:
+                self.expiry_settlement_missing_spot += 1
+                self.counters["expiry_settlement_missing_spot"] += 1
+
+        if self.position is not None and self.pending_close and chain_present and date.fromisoformat(day_key) < date.fromisoformat(self.position["expiry"]):
             debit, status = close_side_debit_per_share(self.position, qmap, self.slippage, self.commission)
             exp = date.fromisoformat(self.position["expiry"])
             if debit is not None and date.fromisoformat(day_key) < exp:
@@ -407,15 +471,6 @@ class Replay:
                 self.pending_close = False
                 executed_close_today = True
                 self.counters["closed_trades"] += 1
-            elif date.fromisoformat(day_key) >= exp:
-                unresolved_key = (self.position["short_id"], self.position["wing_id"],
-                                  self.position["expiry"], self.position["entry_date"])
-                if unresolved_key not in self.expired_unresolved_keys:
-                    self.expired_unresolved_keys.add(unresolved_key)
-                    self.counters["expired_unresolved"] += 1
-                    self.unresolved_positions.append({"date": day_key, "reason": "NO_VALID_EXIT_QUOTE_BEFORE_EXPIRY",
-                                                      "short_id": self.position["short_id"], "wing_id": self.position["wing_id"],
-                                                      "expiry": self.position["expiry"], "entry_date": self.position["entry_date"]})
             else:
                 self.counters["exit_delayed_missing_quote"] += 1
                 self.events.append({"date": day_key, "event": "CLOSE_DEFERRED", "status": status,
@@ -574,6 +629,9 @@ class Replay:
             "pending_selection_expiry": self.pending_selection.get("expiry") if self.pending_selection and self.pending_selection.get("status") == "PAIR_SELECTED" else None,
             "source_status": EVIDENCE,
         })
+        if raw_spot is not None:
+            self.last_raw_spot_date = day_key
+            self.last_raw_spot = raw_spot
 
 
 def iter_qqq_chain_days(option_paths):
@@ -672,6 +730,9 @@ def run_replay(out_dir):
             "entry_skipped_missing_next_session_chain": state.counters["entry_skipped_missing_next_session_chain"],
             "missing_position_mark_sessions": state.counters["missing_position_mark_sessions"],
             "exit_quote_size_missing_sessions": state.exit_quote_size_missing_sessions,
+            "expiry_settlements": state.counters["expiry_settlements"],
+            "expiry_settlement_fallbacks": state.expiry_settlement_fallbacks,
+            "expiry_settlement_missing_spot": state.expiry_settlement_missing_spot,
             "mark_status_counts": dict(state.mark_status_counts),
             "mark_failure_samples": state.mark_failure_samples,
             "unmarked_nav_sessions": state.counters["unmarked_nav_sessions"],
