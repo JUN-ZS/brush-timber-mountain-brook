@@ -111,6 +111,20 @@ class QqqFarCallReplayTests(unittest.TestCase):
         self.assertEqual(state.counters["missing_position_mark_sessions"], 1)
         self.assertTrue(state.position)
 
+    def test_quote_side_mtm_does_not_require_displayed_size_but_entry_does(self):
+        state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
+        spot = {"raw_close": 100.0, "adjusted_close": 100.0}
+        state.process(DAY, sample_chain(day_key=DAY), spot, 18.0)
+        state.process("2026-10-21", sample_chain(day_key="2026-10-21"), spot, 18.0)
+        self.assertIsNotNone(state.position)
+        no_size = sample_chain(day_key="2026-10-22")
+        for row in no_size:
+            row["bid_size"] = 0
+            row["ask_size"] = 0
+        state.process("2026-10-22", no_size, spot, 18.0)
+        self.assertIsNotNone(state.daily[-1]["nav_eod_marked"])
+        self.assertEqual(state.daily[-1]["nav_mark_status"], "OK")
+        self.assertEqual(state.exit_quote_size_missing_sessions, 1)
     def test_stale_chain_date_is_rejected_not_used_for_next_session_entry(self):
         state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
         spot = {"raw_close": 100.0, "adjusted_close": 100.0}
