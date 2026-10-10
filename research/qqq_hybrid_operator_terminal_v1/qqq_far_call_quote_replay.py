@@ -65,7 +65,7 @@ def normalized_contract_id(value):
 def contract_root(value):
     """Return OCC root only when the source ID parses as a full OCC-style symbol."""
     ident = normalized_contract_id(value)
-    match = re.fullmatch(r"([A-Z]{1,6})(\d{6})[CP](\d{8})", ident)
+    match = re.fullmatch(r"([A-Z0-9]{1,6})(\d{6})[CP](\d{8})", ident)
     return match.group(1) if match else None
 
 
