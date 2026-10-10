@@ -277,17 +277,48 @@ def refresh_pair_for_entry(signal_pair, rows_by_id, session_day):
     }
 
 
-def close_side_debit_per_share(position, rows_by_id, slippage, commission, require_size=False):
+def exit_side_quote_status(row, role, require_size=False, allow_zero_bid=False):
+    """Validate the sides used to close a credit vertical, not irrelevant entry sides.
+
+    Closing a short call uses its Ask; closing/selling the long wing uses its Bid.
+    An explicit zero Bid is a conservative zero-value mark for the long wing when
+    the row otherwise has a positive, non-crossed market. It is not evidence that
+    an order could have filled. Null/negative exit-side values still block marking.
+    """
+    if row is None:
+        return "CONTRACT_ROW_MISSING"
+    bid, ask = n(row.get("bid")), n(row.get("ask"))
+    if ask is None or ask <= 0:
+        return "ASK_MISSING_OR_NONPOSITIVE"
+    if bid is not None and bid < 0:
+        return "BID_NEGATIVE"
+    if bid is not None and bid > ask:
+        return "CROSSED_BID_ASK"
+    if role == "WING" and bid is None:
+        return "BID_MISSING"
+    if role == "WING" and bid == 0 and not allow_zero_bid:
+        return "BID_ZERO_NOT_EXECUTABLE"
+    if require_size:
+        size_key = "ask_size" if role == "SHORT" else "bid_size"
+        size = n(row.get(size_key))
+        if size is None or size <= 0:
+            return "SIZE_MISSING_OR_NONPOSITIVE"
+    return "OK"
+
+
+def close_side_debit_per_share(position, rows_by_id, slippage, commission, require_size=False,
+                              allow_zero_wing_bid=False):
     short = rows_by_id.get(position["short_id"])
     wing = rows_by_id.get(position["wing_id"])
     if short is None:
         return None, "SHORT_CONTRACT_ROW_MISSING"
     if wing is None:
         return None, "WING_CONTRACT_ROW_MISSING"
-    short_status = quote_validation_status(short, require_size=require_size)
+    short_status = exit_side_quote_status(short, "SHORT", require_size=require_size)
     if short_status != "OK":
         return None, f"SHORT_{short_status}"
-    wing_status = quote_validation_status(wing, require_size=require_size)
+    wing_status = exit_side_quote_status(wing, "WING", require_size=require_size,
+                                         allow_zero_bid=allow_zero_wing_bid)
     if wing_status != "OK":
         return None, f"WING_{wing_status}"
     if contract_root(short.get("contract_id")) != "QQQ":
@@ -297,8 +328,12 @@ def close_side_debit_per_share(position, rows_by_id, slippage, commission, requi
     short_ask, wing_bid = n(short.get("ask")), n(wing.get("bid"))
     if short_ask is None or wing_bid is None or short_ask < wing_bid:
         return None, "INCONSISTENT_VERTICAL_EXIT_MARK"
-    # Add slippage and fees on both legs for closing; assumptions are explicit scenarios.
-    return short_ask - wing_bid + 2 * slippage + 2 * commission / 100, "OK"
+    # This routine is used for both exit scenarios and NAV marks. A zero wing Bid is
+    # allowed only when explicitly requested by the NAV-mark path; it cannot prove
+    # the long wing could have been sold to close the spread.
+    # Add slippage and fees on both legs; these remain explicit scenario assumptions.
+    status = "OK_ZERO_WING_BID_FLOOR" if wing_bid == 0 and allow_zero_wing_bid else "OK"
+    return short_ask - wing_bid + 2 * slippage + 2 * commission / 100, status
 
 
 def entry_net_credit_per_share(pair, slippage, commission):
@@ -587,10 +622,13 @@ class Replay:
         exp_day = date.fromisoformat(position["expiry"])
         if date.fromisoformat(day_key) >= exp_day:
             return None, "POSITION_AT_OR_AFTER_EXPIRY"
-        debit, status = close_side_debit_per_share(position, quotes, self.slippage, self.commission)
+        debit, status = close_side_debit_per_share(
+            position, quotes, self.slippage, self.commission, allow_zero_wing_bid=True
+        )
         if debit is None:
             return None, status
-        return core_value + self.cash - debit * 100 * position["quantity"], "OK"
+        nav = core_value + self.cash - debit * 100 * position["quantity"]
+        return nav, status if status == "OK_ZERO_WING_BID_FLOOR" else "OK"
 
     def process(self, day_key, rows, spot_info, vix_value, selected_pair=None, qmap_override=None):
         supplied_map = qmap_override if qmap_override is not None else quote_map(rows)
@@ -874,30 +912,45 @@ class Replay:
         else:
             self.counters["marked_nav_sessions"] += 1
             self.last_valid_nav = nav
-        if self.position is not None and chain_present and not just_opened and not self.pending_close:
-            debit, status = close_side_debit_per_share(self.position, qmap, self.slippage, self.commission)
-            if debit is not None and date.fromisoformat(day_key) < date.fromisoformat(self.position["expiry"]):
-                pnl_per_spread = (self.position["entry_net_credit_ps"] - debit) * 100
-                risk = self.position["max_loss_per_spread_scenario"]
-                pnl_over_risk = pnl_per_spread / risk if risk and risk > 0 else None
-                dte = (date.fromisoformat(self.position["expiry"])-date.fromisoformat(day_key)).days
-                reason = None
-                if dte <= STOP_DTE: reason = "DTE_LE_7"
-                elif pnl_over_risk is not None and pnl_over_risk <= STOP_LOSS_OVER_MAXLOSS: reason = "PNL_OVER_MAXLOSS_LE_NEG_0P55"
-                elif pnl_over_risk is not None and pnl_over_risk >= TAKE_PROFIT_OVER_MAXLOSS: reason = "PNL_OVER_MAXLOSS_GE_0P50"
-                if reason:
-                    self.pending_close = True
-                    self.position["exit_reason"] = reason
-                    self.counters["close_signals"] += 1
-                    self.position["exit_signal_date"] = day_key
-                    self.position["exit_signal_vix"] = n(vix_value)
-                    self.position["exit_signal_regime"] = regime(vix_value)
-                    self.position["exit_signal_trend_regime"] = trend_regime_key
-                    self.events.append({"date": day_key, "event": "CLOSE_SIGNAL_NEXT_SESSION",
-                                        "reason": reason, "dte": dte,
-                                        "mark_pnl_per_spread": round(pnl_per_spread, 4),
-                                        "pnl_over_scenario_maxloss": round(pnl_over_risk, 6) if pnl_over_risk is not None else None,
-                                        "source_status": EVIDENCE})
+        if self.position is not None and not just_opened and not self.pending_close:
+            dte = (date.fromisoformat(self.position["expiry"]) - date.fromisoformat(day_key)).days
+            reason = None
+            pnl_per_spread = None
+            pnl_over_risk = None
+            # Calendar exits must not disappear just because today's chain is missing.
+            signal_mark_status = "TIME_EXIT_DOES_NOT_REQUIRE_QUOTE"
+            if dte <= STOP_DTE:
+                reason = "DTE_LE_7"
+            elif not chain_present:
+                signal_mark_status = "CHAIN_MISSING_PNL_EXIT_NOT_EVALUATED"
+            else:
+                # Use the conservative mark path for risk signals. A zero-bid wing can
+                # raise a pending exit, but does not authorize that exit to fill.
+                debit, signal_mark_status = close_side_debit_per_share(
+                    self.position, qmap, self.slippage, self.commission, allow_zero_wing_bid=True
+                )
+                if debit is not None:
+                    pnl_per_spread = (self.position["entry_net_credit_ps"] - debit) * 100
+                    risk = self.position["max_loss_per_spread_scenario"]
+                    pnl_over_risk = pnl_per_spread / risk if risk and risk > 0 else None
+                    if pnl_over_risk is not None and pnl_over_risk <= STOP_LOSS_OVER_MAXLOSS:
+                        reason = "PNL_OVER_MAXLOSS_LE_NEG_0P55"
+                    elif pnl_over_risk is not None and pnl_over_risk >= TAKE_PROFIT_OVER_MAXLOSS:
+                        reason = "PNL_OVER_MAXLOSS_GE_0P50"
+            if reason:
+                self.pending_close = True
+                self.position["exit_reason"] = reason
+                self.counters["close_signals"] += 1
+                self.position["exit_signal_date"] = day_key
+                self.position["exit_signal_vix"] = n(vix_value)
+                self.position["exit_signal_regime"] = regime(vix_value)
+                self.position["exit_signal_trend_regime"] = trend_regime_key
+                self.events.append({"date": day_key, "event": "CLOSE_SIGNAL_NEXT_SESSION",
+                                    "reason": reason, "dte": dte,
+                                    "mark_pnl_per_spread": round(pnl_per_spread, 4) if pnl_per_spread is not None else None,
+                                    "pnl_over_scenario_maxloss": round(pnl_over_risk, 6) if pnl_over_risk is not None else None,
+                                    "exit_trigger_mark_status": signal_mark_status,
+                                    "source_status": EVIDENCE})
         # A close fills on today's quote only if its trigger was observed on a prior session.
         # Flat policy signals at today's close are eligible only for a future session.
         if self.position is None and not self.pending_close and chain_present and raw_spot is not None:

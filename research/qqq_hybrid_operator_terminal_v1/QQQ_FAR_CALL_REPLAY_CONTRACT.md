@@ -62,3 +62,13 @@ Only consider integration if a pre-registered goal passes the existing measureme
 - Its EOD snapshots do not prove fills at the strategy decision time.
 - This dataset does not contain VXX option history; VXX option marks remain model-derived and cannot be represented as OPRA replay.
 - The 2018–2025 interval has been repeatedly inspected; it is not an untouched final holdout.
+
+## Close-side mark validity (Run #31 diagnostic follow-up)
+
+Entry and exit quote requirements are intentionally different. A new entry still requires both legs' positive, non-crossed, size-backed Bid/Ask because entry credit is Short Bid minus Wing Ask. To mark/close an existing short-call vertical from an observed quote row, use the actual close sides: **Short Ask minus long-wing Bid**.
+
+- The Short Bid is not required to value buying back the short call. If its Ask is positive and the row is otherwise non-crossed, a zero or missing Short Bid does not block the close-side mark.
+- A numeric Wing Bid of exactly zero is accepted only on the NAV-mark path as a conservative zero liquidation-value floor when its Ask is positive and the row is not crossed. The simulated close/exit path still blocks zero Wing Bid because it does not establish that the long wing could be sold to close the spread. Neither treatment implies a confirmed fill.
+- A missing/null or negative Wing Bid, missing/non-positive Short Ask, crossed quote, missing contract row, or inconsistent vertical exit mark remains blocked. No quote is forward-filled.
+- P&L stop/take-profit signals use the conservative mark-cost path, so a zero-wing-Bid floor can trigger a pending risk exit without pretending it filled. The DTE≤7 calendar exit is raised even when that day's chain is absent; the position remains pending until an admissible same-contract exit quote is observed. A pending signal is not an execution.
+- Report mark coverage and execution evidence separately. Fixing false blockers must not be presented as proof of fills or as a strategy-performance improvement. Full-period CAGR/MaxDD remains blocked while required core prices/chain observations are missing.

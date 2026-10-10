@@ -102,16 +102,49 @@ class QqqFarCallReplayTests(unittest.TestCase):
         pair = replay.choose_vertical(sample_chain(), DAY)
         pos = {"short_id": pair["short"]["contract_id"], "wing_id": pair["wing"]["contract_id"]}
         quotes = replay.quote_map(sample_chain())
-        quotes[pos["short_id"]]["bid"] = None
+        quotes[pos["short_id"]]["ask"] = None
         debit, status = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
         self.assertIsNone(debit)
-        self.assertEqual(status, "SHORT_BID_MISSING_OR_NONPOSITIVE")
+        self.assertEqual(status, "SHORT_ASK_MISSING_OR_NONPOSITIVE")
 
         quotes = replay.quote_map(sample_chain())
         quotes[pos["wing_id"]]["ask"] = -1
         debit, status = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
         self.assertIsNone(debit)
         self.assertEqual(status, "WING_ASK_MISSING_OR_NONPOSITIVE")
+
+    def test_exit_mark_accepts_zero_bid_as_conservative_mark_when_close_sides_are_observed(self):
+        pair = replay.choose_vertical(sample_chain(), DAY)
+        pos = {"short_id": pair["short"]["contract_id"], "wing_id": pair["wing"]["contract_id"]}
+        quotes = replay.quote_map(sample_chain())
+        # A zero short Bid is irrelevant when the short Ask is observed.
+        quotes[pos["short_id"]]["bid"] = 0.0
+        # A zero wing Bid is accepted as a conservative $0 exit value, not as a fill.
+        quotes[pos["wing_id"]]["bid"] = 0.0
+        close_debit, close_status = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
+        self.assertIsNone(close_debit)
+        self.assertEqual(close_status, "WING_BID_ZERO_NOT_EXECUTABLE")
+
+        mark_debit, mark_status = replay.close_side_debit_per_share(
+            pos, quotes, 0.0, 0.0, allow_zero_wing_bid=True
+        )
+        self.assertEqual(mark_status, "OK_ZERO_WING_BID_FLOOR")
+        self.assertAlmostEqual(mark_debit, quotes[pos["short_id"]]["ask"])
+
+    def test_exit_mark_ignores_missing_short_bid_but_blocks_missing_wing_bid(self):
+        pair = replay.choose_vertical(sample_chain(), DAY)
+        pos = {"short_id": pair["short"]["contract_id"], "wing_id": pair["wing"]["contract_id"]}
+        quotes = replay.quote_map(sample_chain())
+        quotes[pos["short_id"]]["bid"] = None
+        debit, status = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
+        self.assertEqual(status, "OK")
+        self.assertAlmostEqual(debit, quotes[pos["short_id"]]["ask"] - quotes[pos["wing_id"]]["bid"])
+
+        quotes = replay.quote_map(sample_chain())
+        quotes[pos["wing_id"]]["bid"] = None
+        debit2, status2 = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
+        self.assertIsNone(debit2)
+        self.assertEqual(status2, "WING_BID_MISSING")
 
     def test_exit_mark_distinguishes_inconsistent_vertical_from_bad_leg_quotes(self):
         pair = replay.choose_vertical(sample_chain(), DAY)
@@ -325,6 +358,49 @@ class QqqFarCallReplayTests(unittest.TestCase):
         self.assertIn("PNL_OVER_MAXLOSS_GE_0P50", summary["scenarios"][base["scenario_id"]]["groups"]["exit_reason"])
         self.assertTrue(any(row["dimension"] == "entry_trend_regime" for row in rows))
 
+
+    def test_zero_wing_bid_mark_can_trigger_risk_exit_but_cannot_fill_exit(self):
+        state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
+        spot = {"raw_close": 100.0, "adjusted_close": 100.0}
+        state.process(DAY, sample_chain(day_key=DAY), spot, 18.0)
+        entry_day = "2026-10-21"
+        state.process(entry_day, sample_chain(day_key=entry_day), spot, 18.0)
+        self.assertIsNotNone(state.position)
+
+        stress_day = "2026-10-22"
+        stressed = sample_chain(day_key=stress_day)
+        quotes = replay.quote_map(stressed)
+        quotes["QQQ261120C00100000"]["ask"] = 9.9
+        quotes["QQQ261120C00110000"]["bid"] = 0.0
+        state.process(stress_day, stressed, spot, 18.0)
+
+        self.assertIsNotNone(state.position)
+        self.assertTrue(state.pending_close)
+        self.assertEqual(state.position["exit_reason"], "PNL_OVER_MAXLOSS_LE_NEG_0P55")
+        self.assertEqual(state.daily[-1]["nav_mark_status"], "OK_ZERO_WING_BID_FLOOR")
+
+    def test_dte_exit_signal_is_raised_without_chain_and_waits_for_a_later_quote(self):
+        state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
+        spot = {"raw_close": 100.0, "adjusted_close": 100.0}
+        state.process(DAY, sample_chain(day_key=DAY), spot, 18.0)
+        entry_day = "2026-10-21"
+        state.process(entry_day, sample_chain(day_key=entry_day), spot, 18.0)
+        self.assertIsNotNone(state.position)
+
+        signal_day = "2026-11-13"  # Seven calendar days to the listed 2026-11-20 expiry.
+        state.process(signal_day, [], spot, 18.0)
+        self.assertIsNotNone(state.position)
+        self.assertTrue(state.pending_close)
+        self.assertEqual(state.position["exit_reason"], "DTE_LE_7")
+        self.assertEqual(state.position["exit_signal_date"], signal_day)
+        self.assertEqual(len(state.trades), 0)
+
+        close_day = "2026-11-14"
+        state.process(close_day, sample_chain(day_key=close_day), spot, 18.0)
+        self.assertIsNone(state.position)
+        self.assertEqual(state.trades[-1]["exit_date"], close_day)
+        self.assertEqual(state.trades[-1]["exit_signal_date"], signal_day)
+        self.assertEqual(state.trades[-1]["exit_delay_calendar_days"], 1)
 
     def test_close_signal_waits_for_current_quote_and_records_delay(self):
         state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
