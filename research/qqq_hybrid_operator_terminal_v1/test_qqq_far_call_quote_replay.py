@@ -200,5 +200,99 @@ class QqqFarCallReplayTests(unittest.TestCase):
         self.assertEqual(state.position["wing_id"], "QQQ261120C00110000")
         self.assertAlmostEqual(state.position["entry_gross_credit_per_share"], 2.8)
 
+
+    def test_quote_spread_bins_are_diagnostic_and_explicit(self):
+        self.assertEqual(replay.quote_quality_bucket(5.0, 10.0), "TIGHT_LE_10PCT_MID")
+        self.assertEqual(replay.quote_quality_bucket(10.01, 25.0), "MODERATE_10_25PCT_MID")
+        self.assertEqual(replay.quote_quality_bucket(25.01, 4.0), "WIDE_GT25PCT_MID")
+        self.assertEqual(replay.quote_quality_bucket(None, 4.0), "UNKNOWN_QUOTE_SPREAD")
+
+    def test_raw_spot_20_session_momentum_is_asof_and_unknown_when_incomplete(self):
+        missing, label = replay.raw_spot_momentum20(103.0, [])
+        self.assertIsNone(missing)
+        self.assertEqual(label, "UNKNOWN_INSUFFICIENT_20_SESSION_HISTORY")
+        prior = [(f"session-{i}", 100.0) for i in range(20)]
+        momentum, label = replay.raw_spot_momentum20(103.0, prior)
+        self.assertAlmostEqual(momentum, 0.03)
+        self.assertEqual(label, "UP_GE_2PCT_20S")
+        prior[-20] = ("missing-session", None)
+        momentum, label = replay.raw_spot_momentum20(103.0, prior)
+        self.assertIsNone(momentum)
+        self.assertEqual(label, "UNKNOWN_MISSING_20_SESSION_REFERENCE")
+
+    def _sample_attribution_trade(self):
+        return {
+            "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+            "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+            "quantity": 2,
+            "entry_date": "2020-01-10", "exit_date": "2020-01-20",
+            "entry_gross_credit_per_share": 1.0, "entry_net_credit_ps": 0.95,
+            "exit_short_ask": 1.2, "exit_wing_bid": 0.4,
+            "exit_net_debit_per_share": 0.9,
+            "realized_pnl_after_scenario_costs": 10.0,
+            "entry_total_max_loss_scenario_usd": 800.0,
+            "short_delta": 0.16, "wing_delta": 0.08,
+            "exit_short_delta": 0.25, "exit_wing_delta": 0.12,
+            "entry_short_spread_pct_mid": 20.0, "entry_wing_spread_pct_mid": 10.0,
+            "exit_short_spread_pct_mid": 15.0, "exit_wing_spread_pct_mid": 8.0,
+            "entry_regime": "NORMAL_15_25", "exit_regime": "ELEVATED_25_35",
+            "entry_trend_regime": "UP_GE_2PCT_20S", "exit_trend_regime": "RANGE_ABS_LT2PCT_20S",
+            "exit_reason": "PNL_OVER_MAXLOSS_GE_0P50", "holding_calendar_days": 10,
+        }
+
+    def test_trade_attribution_cash_flows_reconcile_and_measure_delta_drift(self):
+        trade = replay.attribute_closed_trade(self._sample_attribution_trade())
+        self.assertEqual(trade["attribution_status"], "PASS_CASH_FLOW_RECONCILIATION")
+        self.assertAlmostEqual(trade["entry_gross_credit_cash_usd"], 200.0)
+        self.assertAlmostEqual(trade["entry_execution_costs_usd"], 10.0)
+        self.assertAlmostEqual(trade["exit_gross_debit_cash_usd"], 160.0)
+        self.assertAlmostEqual(trade["exit_execution_costs_usd"], 20.0)
+        self.assertAlmostEqual(trade["recomputed_net_pnl_usd"], 10.0)
+        self.assertAlmostEqual(trade["pnl_reconciliation_error_usd"], 0.0)
+        self.assertAlmostEqual(trade["short_delta_drift"], 0.09)
+        self.assertAlmostEqual(trade["wing_delta_drift"], 0.04)
+        self.assertEqual(trade["entry_year"], "2020")
+        self.assertEqual(trade["entry_quote_quality_bucket"], "MODERATE_10_25PCT_MID")
+
+    def test_expiry_trade_attribution_uses_intrinsic_debit_not_missing_quote_fallback(self):
+        trade = self._sample_attribution_trade()
+        trade.update({
+            "quantity": 1, "entry_gross_credit_per_share": 1.0, "entry_net_credit_ps": 0.95,
+            "exit_intrinsic_debit_per_share": 0.5, "exit_net_debit_per_share": 0.55,
+            "realized_pnl_after_scenario_costs": 40.0,
+        })
+        trade.pop("exit_short_ask")
+        trade.pop("exit_wing_bid")
+        attributed = replay.attribute_closed_trade(trade)
+        self.assertEqual(attributed["attribution_status"], "PASS_CASH_FLOW_RECONCILIATION")
+        self.assertEqual(attributed["exit_debit_basis"], "INTRINSIC_SETTLEMENT_PROXY")
+        self.assertAlmostEqual(attributed["exit_gross_debit_cash_usd"], 50.0)
+        self.assertAlmostEqual(attributed["exit_execution_costs_usd"], 5.0)
+        self.assertIsNone(attributed["short_delta_drift"])
+
+    def test_trade_attribution_fails_reconciliation_when_cash_flows_do_not_match(self):
+        trade = self._sample_attribution_trade()
+        trade["realized_pnl_after_scenario_costs"] = 9.98
+        attributed = replay.attribute_closed_trade(trade)
+        self.assertEqual(attributed["attribution_status"], "FAIL_CASH_FLOW_RECONCILIATION")
+        self.assertGreater(abs(attributed["pnl_reconciliation_error_usd"]), 0.01)
+
+    def test_trade_attribution_groups_by_unique_cost_scenario_and_exit_reason(self):
+        base = replay.attribute_closed_trade(self._sample_attribution_trade())
+        second = dict(base)
+        second["scenario_id"] = "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00"
+        second["realized_pnl_after_scenario_costs"] = -50.0
+        # Keep the cash-flow components internally consistent for the loss arm.
+        second["exit_net_debit_per_share"] = 1.2
+        second["exit_short_ask"] = 1.5
+        second["exit_wing_bid"] = 0.3
+        second = replay.attribute_closed_trade(second)
+        summary, rows = replay.build_trade_attribution([base, second])
+        self.assertEqual(summary["closed_trade_rows"], 2)
+        self.assertEqual(summary["reconciliation_pass_rows"], 2)
+        self.assertEqual(len(summary["scenarios"]), 2)
+        self.assertIn("PNL_OVER_MAXLOSS_GE_0P50", summary["scenarios"][base["scenario_id"]]["groups"]["exit_reason"])
+        self.assertTrue(any(row["dimension"] == "entry_trend_regime" for row in rows))
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
