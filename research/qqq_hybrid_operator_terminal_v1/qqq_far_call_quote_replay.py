@@ -261,13 +261,13 @@ def refresh_pair_for_entry(signal_pair, rows_by_id, session_day):
     }
 
 
-def close_side_debit_per_share(position, rows_by_id, slippage, commission):
+def close_side_debit_per_share(position, rows_by_id, slippage, commission, require_size=False):
     short = rows_by_id.get(position["short_id"])
     wing = rows_by_id.get(position["wing_id"])
     if short is None or wing is None:
         return None, "CONTRACT_ROW_MISSING"
-    if not valid_quote(short, require_size=True) or not valid_quote(wing, require_size=True):
-        return None, "INVALID_OR_UNSIZED_EXIT_QUOTE"
+    if not valid_quote(short, require_size=require_size) or not valid_quote(wing, require_size=require_size):
+        return None, "INVALID_EXIT_QUOTE" if not require_size else "INVALID_OR_UNSIZED_EXIT_QUOTE"
     if contract_root(short.get("contract_id")) != "QQQ" or contract_root(wing.get("contract_id")) != "QQQ":
         return None, "EXIT_CONTRACT_ROOT_UNVERIFIED"
     short_ask, wing_bid = n(short.get("ask")), n(wing.get("bid"))
@@ -324,6 +324,9 @@ class Replay:
         self.trades = []
         self.daily = []
         self.counters = Counter()
+        self.mark_status_counts = Counter()
+        self.mark_failure_samples = []
+        self.exit_quote_size_missing_sessions = 0
         self.missing_position_mark_dates = []
         self.last_valid_nav = None
         self.unresolved_positions = []
@@ -495,7 +498,27 @@ class Replay:
 
         # Mark existing positions only from the current exact contract rows; never forward-fill.
         nav, mark_status = self._nav(core_value, self.position, qmap, day_key)
+        self.mark_status_counts[mark_status] += 1
+        if self.position is not None and qmap:
+            short_row = qmap.get(self.position["short_id"])
+            wing_row = qmap.get(self.position["wing_id"])
+            if short_row is not None and wing_row is not None and (
+                n(short_row.get("bid_size")) is None or n(short_row.get("ask_size")) is None or
+                n(wing_row.get("bid_size")) is None or n(wing_row.get("ask_size")) is None or
+                n(short_row.get("bid_size")) <= 0 or n(short_row.get("ask_size")) <= 0 or
+                n(wing_row.get("bid_size")) <= 0 or n(wing_row.get("ask_size")) <= 0
+            ):
+                self.exit_quote_size_missing_sessions += 1
         if nav is None:
+            if len(self.mark_failure_samples) < 8:
+                self.mark_failure_samples.append({
+                    "date": day_key, "mark_status": mark_status,
+                    "position_expiry": self.position.get("expiry") if self.position else None,
+                    "short_id": self.position.get("short_id") if self.position else None,
+                    "wing_id": self.position.get("wing_id") if self.position else None,
+                    "chain_present": chain_present, "quote_rows": len(qmap),
+                    "core_value_missing": core_value is None,
+                })
             self.counters["unmarked_nav_sessions"] += 1
             if self.position is not None:
                 self.missing_position_mark_dates.append(day_key)
@@ -648,6 +671,9 @@ def run_replay(out_dir):
             "stale_or_mixed_chain_dates_rejected": state.counters["stale_or_mixed_chain_dates"],
             "entry_skipped_missing_next_session_chain": state.counters["entry_skipped_missing_next_session_chain"],
             "missing_position_mark_sessions": state.counters["missing_position_mark_sessions"],
+            "exit_quote_size_missing_sessions": state.exit_quote_size_missing_sessions,
+            "mark_status_counts": dict(state.mark_status_counts),
+            "mark_failure_samples": state.mark_failure_samples,
             "unmarked_nav_sessions": state.counters["unmarked_nav_sessions"],
             "closed_trade_net_pnl_sum_usd": round(sum(pnls), 2) if pnls else 0.0,
             "mean_closed_trade_net_pnl_usd": round(sum(pnls)/len(pnls), 2) if pnls else None,
