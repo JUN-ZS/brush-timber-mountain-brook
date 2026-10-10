@@ -770,6 +770,16 @@ def run_replay(out_dir):
             s["unresolved_or_open_position_at_end"], s["missing_position_mark_sessions"]))
     lines += [
         "",
+        "## Mark diagnostics",
+        "",
+        "The zero/near-zero markability pattern from the initial run is explicitly surfaced below; use the new run to verify it is resolved rather than infer from workflow success alone.",
+        "",
+        "`mark_status_counts`: " + json.dumps(replay_states[0].mark_status_counts, sort_keys=True),
+        "",
+        "`first_mark_failure_samples`: " + json.dumps(replay_states[0].mark_failure_samples, sort_keys=True),
+        "",
+        "`first_open_event`: " + json.dumps(next((e for e in replay_states[0].events if e.get("event") == "OPEN"), None), sort_keys=True),
+        "",
         "## Hard limitations",
         "",
         "- Contract IDs and expiry are selected from the signal-day chain and pinned; next session may reprice only the same exact IDs. A changed candidate set does not substitute a new contract.",
@@ -789,10 +799,14 @@ def run_replay(out_dir):
     (out_dir / "qqq_far_call_replay_summary.md").write_text("\n".join(lines), encoding="utf-8")
     print(json.dumps({"research_id": report["research_id"], "status": report["status"],
                       "coverage": report["coverage"] | {"source_integrity": "HASH_VERIFIED"},
+                      "mark_diagnostics": {"baseline_mark_status_counts": dict(replay_states[0].mark_status_counts),
+                                           "baseline_first_mark_failures": replay_states[0].mark_failure_samples,
+                                           "baseline_first_open_event": next((e for e in replay_states[0].events if e.get("event") == "OPEN"), None)},
                       "scenarios": [{k: s[k] for k in ("scenario","slippage_per_leg_usd",
                                     "commission_per_contract_per_side_usd","opened_spreads","closed_spreads",
                                     "closed_trade_net_pnl_sum_usd","mean_closed_trade_net_pnl_usd",
                                     "unresolved_or_open_position_at_end","missing_position_mark_sessions",
+                                    "mark_status_counts","mark_failure_samples","exit_quote_size_missing_sessions",
                                     "performance_gate")} for s in scenarios],
                       "output_dir": str(out_dir)}, indent=2))
     return report
