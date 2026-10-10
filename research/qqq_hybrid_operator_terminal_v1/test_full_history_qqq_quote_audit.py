@@ -72,6 +72,40 @@ class FullHistoryAuditTests(unittest.TestCase):
         self.assertEqual(result["candidate_calls_30_60_dte_abs_delta_003_010"],7)
         self.assertEqual(result["eligible_rows_in_expiry"],42)
 
+
+    def test_spot_basis_comparison_flags_adjusted_geometry_delta_drift(self):
+        daily=[{
+            "raw_target_geometry":{"short":100.0,"wing":120.0},
+            "adjusted_target_geometry":{"short":95.0,"wing":114.0},
+            "raw_target_pair":{
+                "short_delta":0.16,"wing_delta":0.08,
+                "short_contract_id":"RAW_SHORT","wing_contract_id":"RAW_WING",
+            },
+            "adjusted_target_pair":{
+                "short_delta":0.30,"wing_delta":0.15,
+                "short_contract_id":"REPO_SHORT","wing_contract_id":"REPO_WING",
+            },
+        }]
+        result=audit.summarize_basis_comparison(daily)
+        self.assertEqual(result["days_with_both_target_pairs"],1)
+        self.assertEqual(result["raw_target_pair_days"],1)
+        self.assertEqual(result["repo_input_target_pair_days"],1)
+        self.assertAlmostEqual(result["raw_spot_target_pair_delta_error"]["short_abs_error_vs_0p16"]["median"],0.0)
+        self.assertAlmostEqual(result["repo_input_target_pair_delta_error"]["short_abs_error_vs_0p16"]["median"],0.14)
+        self.assertAlmostEqual(result["repo_input_target_pair_delta_error"]["wing_abs_error_vs_0p08"]["median"],0.07)
+        self.assertAlmostEqual(result["repo_input_geometry_shift_pct_vs_raw_target"]["short_target_strike"]["median"],-5.0)
+        self.assertAlmostEqual(result["repo_input_geometry_shift_pct_vs_raw_target"]["wing_target_strike"]["median"],-5.0)
+        self.assertEqual(result["fraction_repo_input_short_delta_gt_0p16"],1.0)
+        self.assertEqual(result["fraction_repo_input_wing_delta_gt_0p08"],1.0)
+        self.assertEqual(result["fraction_selected_short_contract_differs"],1.0)
+        self.assertEqual(result["fraction_selected_wing_contract_differs"],1.0)
+
+    def test_spot_basis_comparison_handles_no_matched_pairs(self):
+        result=audit.summarize_basis_comparison([{"raw_target_pair":None,"adjusted_target_pair":None}])
+        self.assertEqual(result["days_with_both_target_pairs"],0)
+        self.assertEqual(result["raw_spot_target_pair_delta_error"]["short_abs_error_vs_0p16"]["n"],0)
+        self.assertIsNone(result["fraction_repo_input_short_delta_gt_0p16"])
+
     def test_annual_file_manifest(self):
         self.assertEqual([x["year"] for x in audit.ANNUAL_FILES],list(range(2018,2026)))
         self.assertTrue(all(len(x["sha"])==40 and x["bytes"]>0 for x in audit.ANNUAL_FILES))

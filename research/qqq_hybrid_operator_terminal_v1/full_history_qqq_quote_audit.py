@@ -356,6 +356,65 @@ def aggregate(rows):
       "fraction_model_haircut_too_narrow_wing":sum(1 for r in matched if r["raw_target_pair"].get("model_haircut_narrower_than_observed_wing"))/len(matched) if matched else None,
     }
 
+
+def summarize_basis_comparison(daily):
+    """Compare target-pair selection using raw nominal spot vs the repo/universe spot input."""
+    raw_days=[r for r in daily if r.get("raw_target_pair")]
+    repo_days=[r for r in daily if r.get("adjusted_target_pair")]
+    matched=[r for r in daily if r.get("raw_target_pair") and r.get("adjusted_target_pair")]
+
+    def pair_values(pair_key, field):
+        return [num(r[pair_key].get(field)) for r in matched
+                if r.get(pair_key) and num(r[pair_key].get(field)) is not None]
+
+    def abs_delta_error(pair_key, field, target):
+        return summarize_numbers([abs(v-target) for v in pair_values(pair_key, field)])
+
+    def geometry_shift(field):
+        values=[]
+        for r in matched:
+            raw_geom=r.get("raw_target_geometry") or {}
+            repo_geom=r.get("adjusted_target_geometry") or {}
+            raw_strike,repo_strike=num(raw_geom.get(field)),num(repo_geom.get(field))
+            if raw_strike is not None and repo_strike is not None and raw_strike>0:
+                values.append(100*(repo_strike/raw_strike-1))
+        return summarize_numbers(values)
+
+    def fraction(condition):
+        return sum(1 for r in matched if condition(r))/len(matched) if matched else None
+
+    return {
+      "raw_target_pair_days":len(raw_days),
+      "repo_input_target_pair_days":len(repo_days),
+      "days_with_both_target_pairs":len(matched),
+      "raw_spot_target_pair_delta_error":{
+        "short_abs_error_vs_0p16":abs_delta_error("raw_target_pair","short_delta",0.16),
+        "wing_abs_error_vs_0p08":abs_delta_error("raw_target_pair","wing_delta",0.08),
+      },
+      "repo_input_target_pair_delta_error":{
+        "short_abs_error_vs_0p16":abs_delta_error("adjusted_target_pair","short_delta",0.16),
+        "wing_abs_error_vs_0p08":abs_delta_error("adjusted_target_pair","wing_delta",0.08),
+      },
+      "repo_input_selected_pair_delta":{
+        "short_delta":summarize_numbers(pair_values("adjusted_target_pair","short_delta")),
+        "wing_delta":summarize_numbers(pair_values("adjusted_target_pair","wing_delta")),
+      },
+      "repo_input_geometry_shift_pct_vs_raw_target":{
+        "short_target_strike":geometry_shift("short"),
+        "wing_target_strike":geometry_shift("wing"),
+      },
+      "fraction_repo_input_short_delta_gt_0p16":fraction(
+        lambda r:num(r["adjusted_target_pair"].get("short_delta")) is not None and num(r["adjusted_target_pair"].get("short_delta"))>0.16),
+      "fraction_repo_input_wing_delta_gt_0p08":fraction(
+        lambda r:num(r["adjusted_target_pair"].get("wing_delta")) is not None and num(r["adjusted_target_pair"].get("wing_delta"))>0.08),
+      "fraction_selected_short_contract_differs":fraction(
+        lambda r:r["raw_target_pair"].get("short_contract_id")!=r["adjusted_target_pair"].get("short_contract_id")),
+      "fraction_selected_wing_contract_differs":fraction(
+        lambda r:r["raw_target_pair"].get("wing_contract_id")!=r["adjusted_target_pair"].get("wing_contract_id")),
+      "interpretation":"The two target pairs can select different contracts. This measures target-geometry/selection sensitivity to spot basis; it is not a paired repricing of the same contracts and not a strategy-return test."
+    }
+
+
 def main():
     CACHE_DIR.mkdir(parents=True,exist_ok=True)
     report={
@@ -364,7 +423,7 @@ def main():
       "source":"anahatsingh-ui/options-dataset-hist QQQ EOD preservation mirror",
       "quote_time_caveat":"Repository README reports 4:00 PM US Eastern snapshot; this does not establish a fill at the model's decision timestamp.",
       "not_a_strategy_backtest":True,"trade_replay_approved":False,"file_integrity":{},
-      "model_source_integrity":{},"annual_file_stats":[],"daily_results":[],"annual_summary":{},"vix_regime_summary":{},"coverage":{},
+      "model_source_integrity":{},"annual_file_stats":[],"daily_results":[],"annual_summary":{},"vix_regime_summary":{},"coverage":{},"basis_comparison":{},
     }
     integrity,universe_by_day,spots,expected=build_inputs(CACHE_DIR)
     report["file_integrity"].update(integrity["files"])
@@ -383,6 +442,7 @@ def main():
     buckets=sorted({r.get("vix_bucket","UNKNOWN") for r in daily})
     report["vix_regime_summary"]={bucket:aggregate([r for r in daily if r.get("vix_bucket")==bucket and r.get("option_rows",0)>0]) for bucket in buckets}
     report["overall_alignment"]=aggregate([r for r in daily if r.get("option_rows",0)>0])
+    report["basis_comparison"]=summarize_basis_comparison(daily)
     integrity_ok=all(x.get("status") in ("CACHED_HASH_VERIFIED","DOWNLOADED_HASH_VERIFIED") for x in report["file_integrity"].values())
     source_ok=all(x.get("status")=="HASH_VERIFIED" for x in report["model_source_integrity"].values())
     report["integrity_ok"]=integrity_ok and source_ok
