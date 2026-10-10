@@ -473,8 +473,9 @@ def _trade_group_metrics(trades):
 
 def build_trade_attribution(trades):
     """Build by-scenario and stratified closed-trade diagnostics; no portfolio metrics."""
-    dimensions = ("exit_reason", "entry_regime", "exit_regime", "entry_trend_regime",
-                  "exit_trend_regime", "entry_quote_quality_bucket", "entry_year")
+    dimensions = ("exit_reason", "signal_regime", "entry_regime", "exit_regime",
+                  "signal_trend_regime", "entry_trend_regime", "exit_trend_regime",
+                  "entry_quote_quality_bucket", "exit_quote_quality_bucket", "entry_year", "exit_year")
     by_scenario = {}
     csv_rows = []
     scenario_ids = sorted({str(row.get("scenario_id") or row.get("scenario") or "UNKNOWN") for row in trades})
@@ -1115,9 +1116,9 @@ def run_replay(out_dir):
         "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
         "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
     )
-    attribution_dimensions = ("exit_reason", "entry_regime", "exit_regime",
-                              "entry_trend_regime", "exit_trend_regime",
-                              "entry_quote_quality_bucket", "entry_year")
+    attribution_dimensions = ("exit_reason", "signal_regime", "entry_regime", "exit_regime",
+                              "signal_trend_regime", "entry_trend_regime", "exit_trend_regime",
+                              "entry_quote_quality_bucket", "exit_quote_quality_bucket", "entry_year", "exit_year")
     for scenario_id in attribution_display_scenarios:
         scenario_attribution = attribution_summary["scenarios"].get(scenario_id)
         if scenario_attribution is None:
