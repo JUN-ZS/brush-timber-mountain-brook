@@ -52,13 +52,14 @@ class QqqFarCallReplayTests(unittest.TestCase):
 
     def test_picker_blocks_unverified_root_and_quotes_without_size(self):
         rows = sample_chain()
-        rows[0]["contract_id"] = "QQQ-contract-100"
-        rows[2]["contract_id"] = "QQQ-contract-110"
+        for row in rows:
+            row["contract_id"] = "QQQ-contract-" + str(row["strike"])
         pair = replay.choose_vertical(rows, DAY)
         self.assertNotEqual(pair["status"], "PAIR_SELECTED")
         no_size = sample_chain()
-        no_size[0]["bid_size"] = 0
-        no_size[2]["ask_size"] = 0
+        for row in no_size:
+            row["bid_size"] = 0
+            row["ask_size"] = 0
         pair2 = replay.choose_vertical(no_size, DAY)
         self.assertNotEqual(pair2["status"], "PAIR_SELECTED")
 
