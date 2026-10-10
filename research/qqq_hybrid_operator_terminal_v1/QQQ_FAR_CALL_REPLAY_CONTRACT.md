@@ -18,9 +18,9 @@ Run #22 found a median -2.72% gap between the repository QQQ input and raw nomin
 ## Two time-alignment tracks
 
 - **Track A — same-day EOD diagnostic:** use same-day 4:00 p.m. Eastern chain only to measure candidate availability, contract identity, quote quality, and theoretical executable-side credit (short Bid minus wing Ask). It is not a fill simulation.
-- **Track B — conservative delayed-entry replay:** derive the signal only from information available by session t close, then use the next session's available quote snapshot for entry, if a valid same-expiry pair exists. Exit/marking must also use a timestamped observation no earlier than the simulated event. If the source cannot support an event's timing, mark it missing; never forward-fill an option quote or claim an intraday fill from EOD data.
+- **Track B — conservative delayed-entry replay:** choose the actual Short/Wing contract IDs, expiry, and strikes using information available at session t close. At t+1, reprice only those exact IDs using t+1 quotes; if either leg is absent, stale, unsized, invalid, non-standard, or produces non-positive net credit, skip the entry and do not substitute a new pair selected from t+1 data. Exit/marking must also use a current timestamped observation no earlier than the simulated event. If the source cannot support the event timing, mark it missing; never forward-fill an option quote or claim an intraday fill from EOD data.
 
-Report both tracks separately. Track B is still an EOD proxy, not proof of executable fills.
+Report both tracks separately. Track B pins contract selection at signal time and reprices only those exact contract IDs on the next session. It is still an EOD proxy, not proof of executable fills. The source README reports a 4:00 p.m. US Eastern snapshot, but the exact tick timestamp remains UNVERIFIED.
 
 ## Price, contract, and fill invariants
 
