@@ -475,6 +475,7 @@ def build_trade_attribution(trades):
     """Build by-scenario and stratified closed-trade diagnostics; no portfolio metrics."""
     dimensions = ("exit_reason", "signal_regime", "entry_regime", "exit_regime",
                   "signal_trend_regime", "entry_trend_regime", "exit_trend_regime",
+                  "exit_signal_regime", "exit_quote_missing_sessions",
                   "entry_quote_quality_bucket", "exit_quote_quality_bucket", "entry_year", "exit_year")
     by_scenario = {}
     csv_rows = []
@@ -634,6 +635,7 @@ class Replay:
                     **p, "exit_date": day_key, "settlement_price_date": settlement_price_date,
                     "settlement_spot": settlement_spot, "settlement_basis": settlement_basis,
                     "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+                    "exit_delay_calendar_days": ((date.fromisoformat(day_key) - date.fromisoformat(p["exit_signal_date"])).days) if p.get("exit_signal_date") else None,
                     "exit_raw_spot": settlement_spot,
                     "exit_vix": n(vix_value) if settlement_price_date == day_key else None,
                     "exit_regime": regime(vix_value) if settlement_price_date == day_key else "UNKNOWN_SETTLEMENT_DATE_ALIGNMENT",
@@ -677,6 +679,7 @@ class Replay:
                 self.cash -= debit * 100 * p["quantity"]
                 trade = {
                     **p, "exit_date": day_key, "exit_reason": p.get("exit_reason", "RULE_EXIT"),
+                    "exit_delay_calendar_days": ((date.fromisoformat(day_key) - date.fromisoformat(p["exit_signal_date"])).days) if p.get("exit_signal_date") else None,
                     "exit_short_bid": n(qmap[p["short_id"]].get("bid")),
                     "exit_short_ask": n(qmap[p["short_id"]].get("ask")),
                     "exit_wing_bid": n(qmap[p["wing_id"]].get("bid")),
@@ -704,9 +707,20 @@ class Replay:
                 executed_close_today = True
                 self.counters["closed_trades"] += 1
             else:
+                self.position["exit_quote_missing_sessions"] = int(self.position.get("exit_quote_missing_sessions") or 0) + 1
                 self.counters["exit_delayed_missing_quote"] += 1
                 self.events.append({"date": day_key, "event": "CLOSE_DEFERRED", "status": status,
                                     "reason": self.position.get("exit_reason"), "budget_mode": self.mode["name"]})
+
+        if (self.position is not None and self.pending_close and not chain_present and
+                date.fromisoformat(day_key) < date.fromisoformat(self.position["expiry"])):
+            self.position["exit_quote_missing_sessions"] = int(self.position.get("exit_quote_missing_sessions") or 0) + 1
+            self.counters["exit_delayed_missing_chain_sessions"] += 1
+            self.events.append({"date": day_key, "event": "CLOSE_DEFERRED",
+                                "status": "NO_CURRENT_CHAIN", "reason": self.position.get("exit_reason"),
+                                "exit_signal_date": self.position.get("exit_signal_date"),
+                                "exit_quote_missing_sessions": self.position["exit_quote_missing_sessions"],
+                                "budget_mode": self.mode["name"]})
 
         just_opened = False
         if self.position is None and self.pending_open and chain_present:
@@ -768,6 +782,9 @@ class Replay:
                             "entry_total_max_loss_scenario_usd": total_max_loss,
                             "entry_total_max_loss_pct_nav": total_max_loss / nav_for_sizing if nav_for_sizing > 0 else None,
                             "source_status": EVIDENCE, "exit_reason": None,
+                            "exit_signal_date": None, "exit_signal_vix": None,
+                            "exit_signal_regime": "UNKNOWN", "exit_signal_trend_regime": "UNKNOWN",
+                            "exit_quote_missing_sessions": 0,
                             "entry_regime": regime(vix_value),
                         }
                         self.counters["opened_trades"] += 1
@@ -837,6 +854,10 @@ class Replay:
                     self.pending_close = True
                     self.position["exit_reason"] = reason
                     self.counters["close_signals"] += 1
+                    self.position["exit_signal_date"] = day_key
+                    self.position["exit_signal_vix"] = n(vix_value)
+                    self.position["exit_signal_regime"] = regime(vix_value)
+                    self.position["exit_signal_trend_regime"] = trend_regime_key
                     self.events.append({"date": day_key, "event": "CLOSE_SIGNAL_NEXT_SESSION",
                                         "reason": reason, "dte": dte,
                                         "mark_pnl_per_spread": round(pnl_per_spread, 4),
@@ -1093,7 +1114,7 @@ def run_replay(out_dir):
         "",
         f"Cash-flow reconciliation: {attribution_summary['reconciliation_pass_rows']} PASS, {attribution_summary['reconciliation_fail_rows']} FAIL, {attribution_summary['reconciliation_blocked_rows']} BLOCKED rows. Every trade decomposes into gross entry credit − entry costs − gross exit debit − exit costs; a mismatch over $0.01 is a hard diagnostic failure.",
         "",
-        "The attributed trades CSV includes entry/exit leg quotes, leg spread/midpoint, Delta drift, raw nominal spot, VIX regime, 20-session raw-spot momentum regime, holding days and loss as a percentage of the recorded scenario max-loss budget. These are descriptive strata, not changes to strategy rules or proof of fills.",
+        "The attributed trades CSV includes entry/exit leg quotes, leg spread/midpoint, Delta drift, raw nominal spot, signal/entry/exit VIX regime, 20-session raw-spot momentum regime, close-signal reason, missing-quote exit deferrals, holding days and loss as a percentage of the recorded scenario max-loss budget. These are descriptive strata, not changes to strategy rules or proof of fills.",
         "",
         "| Scenario | Net P&L | Entry gross credit | Entry costs | Exit gross debit | Exit costs | Reconciliation failures | Mean short Delta drift | Mean loss / max-loss |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
@@ -1118,6 +1139,7 @@ def run_replay(out_dir):
     )
     attribution_dimensions = ("exit_reason", "signal_regime", "entry_regime", "exit_regime",
                               "signal_trend_regime", "entry_trend_regime", "exit_trend_regime",
+                              "exit_signal_regime", "exit_quote_missing_sessions",
                               "entry_quote_quality_bucket", "exit_quote_quality_bucket", "entry_year", "exit_year")
     for scenario_id in attribution_display_scenarios:
         scenario_attribution = attribution_summary["scenarios"].get(scenario_id)
