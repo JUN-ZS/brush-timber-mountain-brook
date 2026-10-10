@@ -286,7 +286,7 @@ class Replay:
             return None, status
         return core_value + self.cash - debit * 100 * position["quantity"], "OK"
 
-    def process(self, day_key, rows, spot_info, vix_value, selected_pair=None):
+    def process(self, day_key, rows, spot_info, vix_value, selected_pair=None, qmap_override=None):
         chain_present = bool(rows)
         self.counters["expected_sessions"] += 1
         if chain_present:
@@ -295,7 +295,7 @@ class Replay:
             self.counters["missing_chain_sessions"] += 1
         raw_spot = n((spot_info or {}).get("raw_close"))
         core_value = self._core_value(spot_info)
-        qmap = quote_map(rows)
+        qmap = qmap_override if qmap_override is not None else quote_map(rows)
         selected_pair = selected_pair if selected_pair is not None else (choose_vertical(rows, day_key) if chain_present else {"status": "NO_CHAIN"})
         if selected_pair.get("status") == "PAIR_SELECTED":
             self.counters["candidate_pair_sessions"] += 1
@@ -499,8 +499,9 @@ def run_replay(out_dir):
         pair_statuses[pair.get("status", "UNKNOWN")] += 1
         spot = spots.get(session_day)
         vix = (universe_by_day.get(session_day) or {}).get("vix")
+        qmap = quote_map(rows)
         for state in replay_states:
-            state.process(session_day, rows, spot, vix, pair)
+            state.process(session_day, rows, spot, vix, pair, qmap)
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
