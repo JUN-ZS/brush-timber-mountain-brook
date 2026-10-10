@@ -10,6 +10,7 @@ import csv, json, math, re, sys
 from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
+from statistics import median
 
 import pyarrow.parquet as pq
 
@@ -264,6 +265,8 @@ class Replay:
         self.missing_position_mark_dates = []
         self.last_valid_nav = None
         self.unresolved_positions = []
+        self.max_open_max_loss_usd = 0.0
+        self.max_open_max_loss_pct_nav = 0.0
 
     def _core_value(self, spot_info):
         adj = n((spot_info or {}).get("adjusted_close"))
@@ -360,6 +363,10 @@ class Replay:
                                         "nav_for_sizing": round(nav_for_sizing, 2)})
                 else:
                     self.cash += net_credit * 100 * quantity
+                    total_max_loss = max_loss * quantity
+                    self.max_open_max_loss_usd = max(self.max_open_max_loss_usd, total_max_loss)
+                    self.max_open_max_loss_pct_nav = max(self.max_open_max_loss_pct_nav,
+                                                          total_max_loss / nav_for_sizing if nav_for_sizing > 0 else 0.0)
                     self.position = {
                         "budget_mode": self.mode["name"], "slippage_per_leg": self.slippage,
                         "commission_per_contract_per_side": self.commission,
@@ -373,6 +380,8 @@ class Replay:
                         "wing_delta": pair["wing"]["delta"], "width": pair["width"],
                         "entry_dte": pair["dte"], "quantity": quantity,
                         "max_loss_per_spread_scenario": max_loss,
+                        "entry_total_max_loss_scenario_usd": total_max_loss,
+                        "entry_total_max_loss_pct_nav": total_max_loss / nav_for_sizing if nav_for_sizing > 0 else None,
                         "source_status": EVIDENCE, "exit_reason": None,
                         "entry_regime": regime(vix_value),
                     }
@@ -536,7 +545,9 @@ def run_replay(out_dir):
             "unmarked_nav_sessions": state.counters["unmarked_nav_sessions"],
             "closed_trade_net_pnl_sum_usd": round(sum(pnls), 2) if pnls else 0.0,
             "mean_closed_trade_net_pnl_usd": round(sum(pnls)/len(pnls), 2) if pnls else None,
-            "median_closed_trade_net_pnl_usd": sorted(pnls)[len(pnls)//2] if pnls else None,
+            "median_closed_trade_net_pnl_usd": median(pnls) if pnls else None,
+            "max_open_max_loss_scenario_usd": round(state.max_open_max_loss_usd, 2),
+            "max_open_max_loss_scenario_pct_nav": state.max_open_max_loss_pct_nav,
             "closed_trade_win_fraction": win_count/len(pnls) if pnls else None,
             "median_scenario_max_loss_per_spread_usd": sorted(n(x) for x in loss_values if n(x) is not None)[len([x for x in loss_values if n(x) is not None])//2] if any(n(x) is not None for x in loss_values) else None,
             "marked_nav_rows": state.counters["marked_nav_sessions"],
