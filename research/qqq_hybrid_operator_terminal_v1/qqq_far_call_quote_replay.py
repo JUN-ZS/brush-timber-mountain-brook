@@ -39,6 +39,7 @@ OPTION_COLUMNS = ["contract_id", "symbol", "expiration", "strike", "type",
                   "bid", "ask", "bid_size", "ask_size", "volume", "open_interest",
                   "date", "implied_volatility", "delta"]
 EVIDENCE = "OBSERVED_EOD_QUOTES / DERIVED_SIDE_PRICE_REPLAY; NOT_CONFIRMED_FILLS"
+QUOTE_TIME_STATUS = "README_REPORTED_16:00_US_EASTERN_SNAPSHOT; EXACT_TICK_TIMESTAMP_UNVERIFIED"
 
 
 def n(value):
@@ -536,6 +537,7 @@ class Replay:
         self.daily.append({
             "date": day_key, "raw_spot": raw_spot, "adjusted_close_for_core_tr": n((spot_info or {}).get("adjusted_close")),
             "vix": n(vix_value), "regime": regime(vix_value), "chain_present": chain_present,
+            "quote_time_status": QUOTE_TIME_STATUS,
             "cash_balance": round(self.cash, 6), "core_value_adjusted_total_return_proxy": round(core_value, 6) if core_value is not None else None,
             "no_call_baseline_nav": round(core_value + INITIAL_CAPITAL * (1 - QQQ_CORE_FRACTION), 6) if core_value is not None else None,
             "nav_eod_marked": round(nav, 6) if nav is not None else None,
@@ -674,6 +676,11 @@ def run_replay(out_dir):
         "status": "RESEARCH_DIAGNOSTIC_NOT_PERFORMANCE_APPROVED",
         "strategy_policy_changed": False, "main_changed": False, "broker_orders_enabled": False,
         "not_opra_fills": True, "not_virgin_oos": True,
+        "source": {"repository": "anahatsingh-ui/options-dataset-hist",
+                   "source_type": "public preservation mirror; EOD option quote snapshots",
+                   "reported_snapshot_time": "16:00 US/Eastern",
+                   "exact_tick_timestamp_status": "UNVERIFIED",
+                   "underlying_prices_and_option_quotes_are_not_exchange_confirmed_fills": True},
         "price_basis": {"qqq_options": "raw nominal QQQ close and actual listed strikes",
                         "qqq_core_accounting": "adjusted-close total-return proxy; kept separate"},
         "contract_selection": {"expiry": "closest eligible 20-40 DTE expiry to 30 DTE",
@@ -683,7 +690,7 @@ def run_replay(out_dir):
                                "require_occ_root_QQQ": True, "require_positive_bid_ask_and_size": True},
         "rules": {"source_max_loss_budget_pct_nav": 0.008, "alternate_legacy_credit_budget_pct_nav": 0.012,
                   "close_signal": f"DTE <= {STOP_DTE} or P&L/max-loss <= {STOP_LOSS_OVER_MAXLOSS} or >= {TAKE_PROFIT_OVER_MAXLOSS}",
-                  "entry_exit_timing": "signal at close t; entry/exit proxy uses next observed eligible session quote; never same-close signal/fill",
+                  "entry_exit_timing": "select actual contracts at close t; t+1 may reprice only those exact contract IDs from t+1 quotes; if either is missing/invalid, skip without substitution. Exit signal at t closes no earlier than next observed session. EOD-side prices are proxies, not fill proof.",
                   "slippage_scenarios_per_leg_usd": list(SLIPPAGE_PER_LEG),
                   "commission_per_contract_per_side_scenarios_usd": list(COMMISSION_PER_CONTRACT_PER_SIDE)},
         "coverage": {"expected_sessions": len(expected), "chain_sessions": chain_day_count,
