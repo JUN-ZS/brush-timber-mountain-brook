@@ -296,5 +296,36 @@ class QqqFarCallReplayTests(unittest.TestCase):
         self.assertIn("PNL_OVER_MAXLOSS_GE_0P50", summary["scenarios"][base["scenario_id"]]["groups"]["exit_reason"])
         self.assertTrue(any(row["dimension"] == "entry_trend_regime" for row in rows))
 
+
+    def test_close_signal_waits_for_current_quote_and_records_delay(self):
+        state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
+        spot = {"raw_close": 100.0, "adjusted_close": 100.0}
+        state.process(DAY, sample_chain(day_key=DAY), spot, 18.0)
+        entry_day = "2026-10-21"
+        state.process(entry_day, sample_chain(day_key=entry_day), spot, 18.0)
+        self.assertIsNotNone(state.position)
+
+        # Mimic a previously raised exit signal. A missing chain must not fabricate an exit.
+        state.pending_close = True
+        state.position["exit_reason"] = "TEST_EXIT_SIGNAL"
+        state.position["exit_signal_date"] = entry_day
+        state.position["exit_signal_vix"] = 18.0
+        state.position["exit_signal_regime"] = "NORMAL_15_25"
+        state.position["exit_signal_trend_regime"] = "UNKNOWN"
+        state.process("2026-10-22", [], spot, 28.0)
+        self.assertIsNotNone(state.position)
+        self.assertEqual(state.position["exit_quote_missing_sessions"], 1)
+        self.assertEqual(state.counters["exit_delayed_missing_chain_sessions"], 1)
+        self.assertEqual(len(state.trades), 0)
+
+        # The exit uses the first later current-date quote set for the exact same contract IDs.
+        state.process("2026-10-23", sample_chain(day_key="2026-10-23"), spot, 21.0)
+        self.assertIsNone(state.position)
+        self.assertEqual(len(state.trades), 1)
+        self.assertEqual(state.trades[0]["exit_quote_missing_sessions"], 1)
+        self.assertEqual(state.trades[0]["exit_signal_date"], entry_day)
+        self.assertEqual(state.trades[0]["exit_delay_calendar_days"], 2)
+        self.assertEqual(state.trades[0]["exit_regime"], "NORMAL_15_25" if False else "NORMAL_15_25")
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
