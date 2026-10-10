@@ -415,6 +415,52 @@ def summarize_basis_comparison(daily):
     }
 
 
+
+ADVERSE_FILL_SLIPPAGE_PER_LEG_USD = (0.0, 0.01, 0.025, 0.05, 0.10)
+
+
+def summarize_adverse_fill_sensitivity(daily):
+    """Stress EOD short-Bid/wing-Ask credit by extra adverse slippage on each leg.
+
+    Per-leg slippage is a scenario input, not observed execution cost. A credit vertical
+    loses x on the short leg and x on the long wing, so net credit falls by 2*x/share.
+    This reports quote-credit sensitivity only; it is not a fill or strategy-P&L replay.
+    """
+    rows=[]
+    for day in daily:
+        pair=day.get("raw_target_pair") or {}
+        observed=num(pair.get("observed_executable_side_credit"))
+        proxy=num(pair.get("proxy_model_credit_raw_spot"))
+        if observed is not None and proxy is not None:
+            rows.append({
+                "observed_side_credit":observed,
+                "proxy_model_credit":proxy,
+                "source_iv_model_credit":num(pair.get("chain_iv_model_credit_raw_spot")),
+            })
+    scenarios=[]
+    for per_leg in ADVERSE_FILL_SLIPPAGE_PER_LEG_USD:
+        extra_two_leg=2*per_leg
+        stressed=[r["observed_side_credit"]-extra_two_leg for r in rows]
+        proxy_gap=[r["proxy_model_credit"]-credit for r,credit in zip(rows,stressed)]
+        source_iv_gap=[r["source_iv_model_credit"]-credit
+                       for r,credit in zip(rows,stressed)
+                       if r["source_iv_model_credit"] is not None]
+        scenarios.append({
+            "extra_adverse_slippage_per_leg_usd":per_leg,
+            "extra_two_leg_cost_per_share_usd":extra_two_leg,
+            "pairs":len(rows),
+            "observed_side_credit_after_slippage":summarize_numbers(stressed),
+            "fraction_credit_nonpositive":sum(1 for x in stressed if x<=0)/len(stressed) if stressed else None,
+            "proxy_model_minus_stressed_side_credit":summarize_numbers(proxy_gap),
+            "source_iv_model_minus_stressed_side_credit":summarize_numbers(source_iv_gap),
+        })
+    return {
+        "definition":"Subtract 2 × per-leg scenario slippage from observed EOD short Bid − wing Ask. Slippage amounts are analyst-selected sensitivities, not measured fills or fees.",
+        "not_a_fill_or_strategy_backtest":True,
+        "pairs":len(rows),
+        "scenarios":scenarios,
+    }
+
 def main():
     CACHE_DIR.mkdir(parents=True,exist_ok=True)
     report={
@@ -443,6 +489,7 @@ def main():
     report["vix_regime_summary"]={bucket:aggregate([r for r in daily if r.get("vix_bucket")==bucket and r.get("option_rows",0)>0]) for bucket in buckets}
     report["overall_alignment"]=aggregate([r for r in daily if r.get("option_rows",0)>0])
     report["basis_comparison"]=summarize_basis_comparison(daily)
+    report["adverse_fill_sensitivity"]=summarize_adverse_fill_sensitivity(daily)
     integrity_ok=all(x.get("status") in ("CACHED_HASH_VERIFIED","DOWNLOADED_HASH_VERIFIED") for x in report["file_integrity"].values())
     source_ok=all(x.get("status")=="HASH_VERIFIED" for x in report["model_source_integrity"].values())
     report["integrity_ok"]=integrity_ok and source_ok

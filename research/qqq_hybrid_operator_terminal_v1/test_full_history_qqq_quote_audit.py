@@ -106,6 +106,39 @@ class FullHistoryAuditTests(unittest.TestCase):
         self.assertEqual(result["raw_spot_target_pair_delta_error"]["short_abs_error_vs_0p16"]["n"],0)
         self.assertIsNone(result["fraction_repo_input_short_delta_gt_0p16"])
 
+
+    def test_adverse_fill_sensitivity_charges_both_legs_and_keeps_quote_only_label(self):
+        daily=[
+            {"raw_target_pair":{
+                "observed_executable_side_credit":0.30,
+                "proxy_model_credit_raw_spot":0.35,
+                "chain_iv_model_credit_raw_spot":0.32,
+            }},
+            {"raw_target_pair":{
+                "observed_executable_side_credit":0.02,
+                "proxy_model_credit_raw_spot":0.01,
+                "chain_iv_model_credit_raw_spot":0.03,
+            }},
+            {"raw_target_pair":None},
+        ]
+        result=audit.summarize_adverse_fill_sensitivity(daily)
+        self.assertTrue(result["not_a_fill_or_strategy_backtest"])
+        self.assertEqual(result["pairs"],2)
+        baseline=result["scenarios"][0]
+        stress=result["scenarios"][2]  # $0.025 per leg => $0.05/share total
+        self.assertAlmostEqual(baseline["observed_side_credit_after_slippage"]["median"],0.16)
+        self.assertAlmostEqual(stress["extra_two_leg_cost_per_share_usd"],0.05)
+        self.assertAlmostEqual(stress["observed_side_credit_after_slippage"]["median"],0.11)
+        self.assertAlmostEqual(stress["fraction_credit_nonpositive"],0.5)
+        self.assertAlmostEqual(stress["proxy_model_minus_stressed_side_credit"]["median"],0.07)
+        self.assertAlmostEqual(stress["source_iv_model_minus_stressed_side_credit"]["median"],0.065)
+
+    def test_adverse_fill_sensitivity_handles_missing_pairs(self):
+        result=audit.summarize_adverse_fill_sensitivity([{"raw_target_pair":None}])
+        self.assertEqual(result["pairs"],0)
+        self.assertIsNone(result["scenarios"][0]["fraction_credit_nonpositive"])
+        self.assertEqual(result["scenarios"][0]["observed_side_credit_after_slippage"]["n"],0)
+
     def test_annual_file_manifest(self):
         self.assertEqual([x["year"] for x in audit.ANNUAL_FILES],list(range(2018,2026)))
         self.assertTrue(all(len(x["sha"])==40 and x["bytes"]>0 for x in audit.ANNUAL_FILES))
