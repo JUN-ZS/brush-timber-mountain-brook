@@ -75,15 +75,26 @@ def contract_root(value):
     return match.group(1) if match else None
 
 
-def valid_quote(row, require_size=True):
+def quote_validation_status(row, require_size=False):
+    """Explain a quote failure without changing the conservative validity policy."""
+    if row is None:
+        return "CONTRACT_ROW_MISSING"
     bid, ask = n(row.get("bid")), n(row.get("ask"))
-    if bid is None or ask is None or bid <= 0 or ask <= 0 or bid > ask:
-        return False
+    if bid is None or bid <= 0:
+        return "BID_MISSING_OR_NONPOSITIVE"
+    if ask is None or ask <= 0:
+        return "ASK_MISSING_OR_NONPOSITIVE"
+    if bid > ask:
+        return "CROSSED_BID_ASK"
     if require_size:
         bs, ass = n(row.get("bid_size")), n(row.get("ask_size"))
-        if bs is None or ass is None or bs <= 0 or ass <= 0:
-            return False
-    return True
+        if bs is None or bs <= 0 or ass is None or ass <= 0:
+            return "SIZE_MISSING_OR_NONPOSITIVE"
+    return "OK"
+
+
+def valid_quote(row, require_size=True):
+    return quote_validation_status(row, require_size=require_size) == "OK"
 
 
 def valid_standard_qqq_call(row, session_day, require_size=True):
@@ -269,12 +280,20 @@ def refresh_pair_for_entry(signal_pair, rows_by_id, session_day):
 def close_side_debit_per_share(position, rows_by_id, slippage, commission, require_size=False):
     short = rows_by_id.get(position["short_id"])
     wing = rows_by_id.get(position["wing_id"])
-    if short is None or wing is None:
-        return None, "CONTRACT_ROW_MISSING"
-    if not valid_quote(short, require_size=require_size) or not valid_quote(wing, require_size=require_size):
-        return None, "INVALID_EXIT_QUOTE" if not require_size else "INVALID_OR_UNSIZED_EXIT_QUOTE"
-    if contract_root(short.get("contract_id")) != "QQQ" or contract_root(wing.get("contract_id")) != "QQQ":
-        return None, "EXIT_CONTRACT_ROOT_UNVERIFIED"
+    if short is None:
+        return None, "SHORT_CONTRACT_ROW_MISSING"
+    if wing is None:
+        return None, "WING_CONTRACT_ROW_MISSING"
+    short_status = quote_validation_status(short, require_size=require_size)
+    if short_status != "OK":
+        return None, f"SHORT_{short_status}"
+    wing_status = quote_validation_status(wing, require_size=require_size)
+    if wing_status != "OK":
+        return None, f"WING_{wing_status}"
+    if contract_root(short.get("contract_id")) != "QQQ":
+        return None, "SHORT_EXIT_CONTRACT_ROOT_UNVERIFIED"
+    if contract_root(wing.get("contract_id")) != "QQQ":
+        return None, "WING_EXIT_CONTRACT_ROOT_UNVERIFIED"
     short_ask, wing_bid = n(short.get("ask")), n(wing.get("bid"))
     if short_ask is None or wing_bid is None or short_ask < wing_bid:
         return None, "INCONSISTENT_VERTICAL_EXIT_MARK"
@@ -823,14 +842,30 @@ class Replay:
             ):
                 self.exit_quote_size_missing_sessions += 1
         if nav is None:
-            if len(self.mark_failure_samples) < 8:
+            sampled_this_status = sum(1 for sample in self.mark_failure_samples
+                                      if sample.get("mark_status") == mark_status)
+            if sampled_this_status < 3:
+                sample_position = self.position or {}
+                short_row = qmap.get(sample_position.get("short_id")) if qmap else None
+                wing_row = qmap.get(sample_position.get("wing_id")) if qmap else None
                 self.mark_failure_samples.append({
                     "date": day_key, "mark_status": mark_status,
-                    "position_expiry": self.position.get("expiry") if self.position else None,
-                    "short_id": self.position.get("short_id") if self.position else None,
-                    "wing_id": self.position.get("wing_id") if self.position else None,
+                    "position_expiry": sample_position.get("expiry"),
+                    "short_id": sample_position.get("short_id"),
+                    "wing_id": sample_position.get("wing_id"),
                     "chain_present": chain_present, "quote_rows": len(qmap),
                     "core_value_missing": core_value is None,
+                    "short_quote_status": quote_validation_status(short_row) if short_row else "CONTRACT_ROW_MISSING",
+                    "wing_quote_status": quote_validation_status(wing_row) if wing_row else "CONTRACT_ROW_MISSING",
+                    "short_bid": n(short_row.get("bid")) if short_row else None,
+                    "short_ask": n(short_row.get("ask")) if short_row else None,
+                    "wing_bid": n(wing_row.get("bid")) if wing_row else None,
+                    "wing_ask": n(wing_row.get("ask")) if wing_row else None,
+                    "short_ask_below_wing_bid": (
+                        n(short_row.get("ask")) < n(wing_row.get("bid"))
+                        if short_row and wing_row and n(short_row.get("ask")) is not None and
+                           n(wing_row.get("bid")) is not None else None
+                    ),
                 })
             self.counters["unmarked_nav_sessions"] += 1
             if self.position is not None:

@@ -96,7 +96,36 @@ class QqqFarCallReplayTests(unittest.TestCase):
         del quotes[pos["wing_id"]]
         debit2, status2 = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
         self.assertIsNone(debit2)
-        self.assertEqual(status2, "CONTRACT_ROW_MISSING")
+        self.assertEqual(status2, "WING_CONTRACT_ROW_MISSING")
+
+    def test_exit_mark_invalid_quote_reason_identifies_the_bad_leg(self):
+        pair = replay.choose_vertical(sample_chain(), DAY)
+        pos = {"short_id": pair["short"]["contract_id"], "wing_id": pair["wing"]["contract_id"]}
+        quotes = replay.quote_map(sample_chain())
+        quotes[pos["short_id"]]["bid"] = None
+        debit, status = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
+        self.assertIsNone(debit)
+        self.assertEqual(status, "SHORT_BID_MISSING_OR_NONPOSITIVE")
+
+        quotes = replay.quote_map(sample_chain())
+        quotes[pos["wing_id"]]["ask"] = -1
+        debit, status = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
+        self.assertIsNone(debit)
+        self.assertEqual(status, "WING_ASK_MISSING_OR_NONPOSITIVE")
+
+    def test_exit_mark_distinguishes_inconsistent_vertical_from_bad_leg_quotes(self):
+        pair = replay.choose_vertical(sample_chain(), DAY)
+        pos = {"short_id": pair["short"]["contract_id"], "wing_id": pair["wing"]["contract_id"]}
+        quotes = replay.quote_map(sample_chain())
+        short = quotes[pos["short_id"]]
+        wing = quotes[pos["wing_id"]]
+        short["ask"] = 1.5
+        short["bid"] = 1.4
+        wing["bid"] = 1.6
+        wing["ask"] = 1.7
+        debit, status = replay.close_side_debit_per_share(pos, quotes, 0.0, 0.0)
+        self.assertIsNone(debit)
+        self.assertEqual(status, "INCONSISTENT_VERTICAL_EXIT_MARK")
 
     def test_missing_chain_is_not_forward_filled_for_existing_position_mark(self):
         state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
