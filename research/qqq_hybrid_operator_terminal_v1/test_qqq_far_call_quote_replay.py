@@ -103,7 +103,7 @@ class QqqFarCallReplayTests(unittest.TestCase):
         spot = {"raw_close": 100.0, "adjusted_close": 100.0}
         state.process(DAY, sample_chain(), spot, 18.0)
         self.assertTrue(state.pending_open)
-        state.process("2026-10-21", sample_chain(), spot, 18.0)
+        state.process("2026-10-21", sample_chain(day_key="2026-10-21"), spot, 18.0)
         self.assertIsNotNone(state.position)
         state.process("2026-10-22", [], spot, 18.0)
         self.assertIsNone(state.daily[-1]["nav_eod_marked"])
