@@ -115,8 +115,8 @@ This evidence keeps the **Option underlying price basis** and **Per-leg spread r
 
 ## Corrected full-history QQQ EOD quote evidence — Run #18
 
-The corrected coverage run passed against the current PR head. Expected sessions: 1971; raw closes: 1960 (9944.2%); option-chain dates: 1956 (9923.9%); raw-target pairs: 1946 (9873.2%). Both sources end 2025-12-15, leaving 11 expected sessions through 2025-12-31 uncovered.
+The corrected coverage run passed against the current PR head. Expected sessions: 1971; raw closes: 1960 (99.44%); option-chain dates: 1956 (99.24%); raw-target pairs: 1946 (98.73%). Both sources end 2025-12-15, leaving 11 expected sessions through 2025-12-31 uncovered.
 
-Median repo QQQ input vs raw nominal close is —%. The proxy median model-minus-observed short-Bid/wing-Ask credit gap is +—/share; source-IV median absolute gap is —/share but source IV is not independent validation. Haircuts remain narrower than observed on —% short / —% wing legs, and 81.5% / 100.0% in VIX ≥35 (54 pairs). **Option underlying price basis** and **Per-leg spread realism** remain **BLOCKED for trade replay**. No threshold, policy rule, performance claim, or broker-order permission changes.
+Median repo QQQ input vs raw nominal close is -2.72%. The proxy median model-minus-observed short-Bid/wing-Ask credit gap is +$0.181/share; source-IV median absolute gap is $0.060/share but source IV is not independent validation. Haircuts remain narrower than observed on 30.0% short / 57.2% wing legs, and 81.5% / 100.0% in VIX ≥35 (54 pairs). **Option underlying price basis** and **Per-leg spread realism** remain **BLOCKED for trade replay**. No threshold, policy rule, performance claim, or broker-order permission changes.
 
 See [Run #18 report](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN18.md) and [summary JSON](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN18.json).

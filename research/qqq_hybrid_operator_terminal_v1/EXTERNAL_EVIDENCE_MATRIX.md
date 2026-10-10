@@ -147,6 +147,6 @@ The date denominator and output mappings were corrected and rerun successfully i
 ## Corrected full-history quote evidence — Run #18
 
 - [Corrected report](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN18.md) and [summary JSON](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN18.json) are based on successful Windows self-hosted [Actions Run #18](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38009943427) with source hashes verified.
-- Correct denominator: 1,971 expected sessions; raw-close coverage 99.44%, chain coverage 99.24%, raw-target pair coverage 98.73%. Both underlying and option data stop on 2025-12-15; requested coverage through 2025-12-31 is incomplete.
-- Median repo QQQ input vs raw nominal close: —%. VIX-proxy credit gap median: +—/share; source-IV absolute gap median: —/share, but source IV is not independent validation.
-- Haircut-too-narrow rates: —% short / —% wings; VIX ≥35: 81.5% / 100.0%. Price-basis and spread-realism gates stay blocked for trade replay.
+- Correct denominator: 1,971 expected sessions; raw underlying coverage 99.44%, chain coverage 99.24%, raw-target pair coverage 98.73%. Both underlying and option data stop on 2025-12-15; requested coverage through 2025-12-31 is incomplete.
+- Median repo QQQ input vs raw nominal close: -2.72%. VIX-proxy credit gap median: +$0.181/share; source-IV absolute gap median: $0.060/share, but source IV is not independent validation.
+- Haircut-too-narrow rates: 30.0% short / 57.2% wings; VIX ≥35: 81.5% / 100.0%. Price-basis and spread-realism gates remain blocked for trade replay.

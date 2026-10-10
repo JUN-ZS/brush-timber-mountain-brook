@@ -3,29 +3,29 @@
 **Status:** hash-verified source/quote diagnostic; **not** a strategy backtest.  
 **Actions:** [Run #18 — Windows self-hosted](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38009943427) · **PR:** [#99](https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/99) · **Branch head:** `8e983afe2f30711a0b6abf6e3da41c3c3944519a`  
 **Requested window:** 2018-03-01 to 2025-12-31 · **Last source observation:** 2025-12-15.  
-**Result:** `HASH_VERIFIED_SOURCE_COVERAGE_DIAGNOSTIC`; source/data integrity and streaming job succeeded.
+**Result:** `HASH_VERIFIED_SOURCE_COVERAGE_DIAGNOSTIC`; source/data integrity and full-history streaming job succeeded.
 
 ## Key finding
 
-The option quote layer is **not ready for trade replay**. Across 1,946 raw-spot target pairs, the repository's QQQ input is below contemporaneous raw nominal close by median **—%**. The VIX-proxy model's conservative credit minus observed EOD **short Bid − wing Ask** has median **+— per share** (median absolute gap **—**). The modeled per-leg half-spread haircut is narrower than observed on **—%** of short legs and **—%** of wings.
+The option quote layer is **not ready for trade replay**. Across 1,946 raw-spot target pairs, the repository's QQQ input is below contemporaneous raw nominal close by median **-2.72%**. The VIX-proxy model's conservative credit minus observed EOD **short Bid − wing Ask** has median **+$0.181 per share** (median absolute gap **$0.196**). The modeled per-leg half-spread haircut is narrower than observed on **30.0%** of short legs and **57.2%** of wings.
 
-Replacing proxy IV with source-reported per-leg IV lowers the median absolute gap to **— per share**. This is **not independent validation**, because source IV may be derived from the same quote midpoint. In the VIX ≥35 subset (54 pairs), the haircut is too narrow on **81.5%** of short legs and **100.0%** of wings.
+Replacing proxy IV with source-reported per-leg IV lowers the median absolute gap to **$0.060 per share**. This is **not independent validation**, because source IV may be derived from the same quote midpoint. In the VIX ≥35 subset (54 pairs), the haircut is too narrow on **81.5%** of short legs and **100.0%** of wings.
 
 ## Corrected source coverage
 
 | Measure | Observed | Coverage of all expected sessions |
 |---|---:|---:|
 | Repo-universe expected sessions | 1,971 | 100% denominator |
-| Raw underlying closes | 1,960 | 9944.2% |
-| QQQ option rows | 1,956 | 9923.9% |
-| Raw-spot target pairs | 1,946 | 9873.2% |
-| Target pairs / option dates | 1946 / 1956 | 9948.9% |
+| Raw underlying closes | 1,960 | 99.44% |
+| QQQ option rows | 1,956 | 99.24% |
+| Raw-spot target pairs | 1,946 | 98.73% |
+| Target pairs / option dates | 1946 / 1956 | 99.49% |
 
 **Not full-window-complete:** both raw underlying data and option rows stop on **2025-12-15**. The 11 expected terminal sessions not covered are: 2025-12-16, 2025-12-17, 2025-12-18, 2025-12-19, 2025-12-22, 2025-12-23, 2025-12-24, 2025-12-26, 2025-12-29, 2025-12-30, 2025-12-31. Option rows are also absent inside the earlier source span on: 2018-11-06, 2019-09-03, 2020-06-23, 2021-11-04. On 10 dates option rows exist but no valid raw-target pair was found: 2020-03-13, 2020-03-30, 2020-04-06, 2020-04-07, 2020-04-08, 2020-04-20, 2020-08-26, 2020-09-02, 2023-12-27, 2023-12-28.
 
 ## Annual diagnostics
 
-Pair coverage below is shown against the **full expected session count per year**, not only days where the source has rows. Credit gaps are model minus observed short-Bid/wing-Ask reference, USD/share; a positive proxy gap means model credit is greater than the observed-side reference.
+Pair coverage below is measured against the **full expected session count per year**, not only days where source rows exist. Credit gaps are model minus observed short-Bid/wing-Ask reference, USD/share; positive proxy gap means the model offers more credit than that observed-side reference.
 
 | Year | Expected sessions | Chain dates (% expected) | Raw-target pairs (% expected) | Median repo input vs raw close | Median proxy credit gap | Median absolute source-IV gap | Short haircut too narrow | Wing haircut too narrow |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -51,9 +51,9 @@ Pair coverage below is shown against the **full expected session count per year*
 
 - Median share of rows with valid positive non-crossed two-sided quotes on option dates: **93.91%**. Valid quotes do not establish executable size or fills.
 - Median proxy/source-IV ratio: short **1.102×**; wing **1.058×**. The ratio is regime-dependent; these results do not establish a single stable correction.
-- The dataset is the public `anahatsingh-ui/options-dataset-hist` QQQ EOD preservation mirror, not exchange-hosted OPRA data. The reported snapshot is 4:00 p.m. US Eastern and does not prove a fill at the strategy decision timestamp.
+- The source is the public `anahatsingh-ui/options-dataset-hist` QQQ EOD preservation mirror, not exchange-hosted OPRA data. The reported snapshot is 4:00 p.m. US Eastern and does not prove a fill at the strategy decision timestamp.
 - QQQ option files do not supply VXX option history. Existing VXX option marks remain `DERIVED_BS_VIX / NOT_OPRA`.
-- `trade_replay_approved=false` and `not_a_strategy_backtest=true`. No CAGR, MaxDD, deployability or incremental-edge claim is made.
+- `trade_replay_approved=false` and `not_a_strategy_backtest=true`. No CAGR, MaxDD, deployability, or incremental-edge claim is made.
 
 ## Decision / next research step
 
