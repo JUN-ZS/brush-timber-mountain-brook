@@ -145,8 +145,10 @@ def choose_vertical(rows, session_day):
     expiry_pairs = []
     for expiry, items in by_expiry.items():
         dte = items[0][0]
-        shorts = [x for x in items if 0.03 <= x[3] <= 0.30]
-        wings = [x for x in items if 0.01 <= x[3] <= 0.20]
+        shorts = sorted((x for x in items if 0.03 <= x[3] <= 0.30),
+                        key=lambda x: abs(x[3] - SHORT_DELTA_TARGET))[:30]
+        wings = sorted((x for x in items if 0.01 <= x[3] <= 0.20),
+                       key=lambda x: abs(x[3] - WING_DELTA_TARGET))[:30]
         for short in shorts:
             for wing in wings:
                 if short[2] >= wing[2] or short[3] <= wing[3]:
@@ -284,7 +286,7 @@ class Replay:
             return None, status
         return core_value + self.cash - debit * 100 * position["quantity"], "OK"
 
-    def process(self, day_key, rows, spot_info, vix_value):
+    def process(self, day_key, rows, spot_info, vix_value, selected_pair=None):
         chain_present = bool(rows)
         self.counters["expected_sessions"] += 1
         if chain_present:
@@ -294,7 +296,7 @@ class Replay:
         raw_spot = n((spot_info or {}).get("raw_close"))
         core_value = self._core_value(spot_info)
         qmap = quote_map(rows)
-        selected_pair = choose_vertical(rows, day_key) if chain_present else {"status": "NO_CHAIN"}
+        selected_pair = selected_pair if selected_pair is not None else (choose_vertical(rows, day_key) if chain_present else {"status": "NO_CHAIN"})
         if selected_pair.get("status") == "PAIR_SELECTED":
             self.counters["candidate_pair_sessions"] += 1
         else:
@@ -498,7 +500,7 @@ def run_replay(out_dir):
         spot = spots.get(session_day)
         vix = (universe_by_day.get(session_day) or {}).get("vix")
         for state in replay_states:
-            state.process(session_day, rows, spot, vix)
+            state.process(session_day, rows, spot, vix, pair)
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -601,7 +603,11 @@ def run_replay(out_dir):
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for s in scenarios:
-        lines.append(f"| {s['scenario']} | ${s['slippage_per_leg_usd']:.3f} | ${s['commission_per_contract_per_side_usd']:.2f} | {s['opened_spreads']} | {s['closed_spreads']} | ${s['closed_trade_net_pnl_sum_usd']:.2f} | {('—' if s['mean_closed_trade_net_pnl_usd'] is None else f'${s['mean_closed_trade_net_pnl_usd']:.2f}')} | {s['unresolved_or_open_position_at_end']} | {s['missing_position_mark_sessions']} |")
+        avg_pnl = "—" if s["mean_closed_trade_net_pnl_usd"] is None else ("$%.2f" % s["mean_closed_trade_net_pnl_usd"])
+        lines.append("| %s | $%.3f | $%.2f | %d | %d | $%.2f | %s | %d | %d |" % (
+            s["scenario"], s["slippage_per_leg_usd"], s["commission_per_contract_per_side_usd"],
+            s["opened_spreads"], s["closed_spreads"], s["closed_trade_net_pnl_sum_usd"], avg_pnl,
+            s["unresolved_or_open_position_at_end"], s["missing_position_mark_sessions"]))
     lines += [
         "",
         "## Hard limitations",
