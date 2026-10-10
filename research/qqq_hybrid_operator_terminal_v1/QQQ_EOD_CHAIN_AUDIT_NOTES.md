@@ -54,3 +54,25 @@ The next audit version samples eight dates from the already hash-pinned 2020 and
 ## Run #11: eight-date regime diagnostic
 
 [Windows self-hosted Run #11](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38005508316) passed all hash/source gates and all 8 preselected date queries. There were 4,712–8,560 option rows per date, with 89.76%–98.65% positive non-crossed two-sided quotes. Repo spot was 0.90%–3.73% below raw close on every date. The VIX proxy/source-IV ratio varied by regime (raw-target short leg 0.88×–1.62×, wing 0.84×–1.70×); on 2020-01-15, adjusted-input target Delta was 0.527/0.396 versus 0.143/0.075 for raw-spot target. This indicates regime-dependent error compensation, not validation. Raw output is pinned in QQQ_MULTI_REGIME_ALIGNMENT_RUN11.json; report and next-stage proposal are in QQQ_ADJUSTED_VS_RAW_SPOT_BASIS.md.
+
+
+## Run #16 — streamed full-history QQQ quote-alignment audit
+
+[Windows self-hosted Run #16](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38006925584) completed with all pinned source/model SHA checks verified. The script streamed the eight annual QQQ files and returned 1,956 chain dates and 1,946 raw-target matched pairs across its observed source span. **Important correction:** although the request window is 2018-03-01 to 2025-12-31, both the raw underlying-price source and QQQ option chain stop at **2025-12-15**. The repo universe has 1,971 expected sessions in the requested interval; 11 sessions after the source cutoff are not covered, in addition to four missing chain dates inside the source span (2018-11-06, 2019-09-03, 2020-06-23, 2021-11-04). The original Run #16 denominator intersected dates with raw spot first and therefore understated the missing-tail problem; the follow-up code uses the full universe date index and separately reports price, chain, and pair coverage.
+
+### Run #16 source-alignment measurements
+
+| Year | Expected universe sessions | Chain dates | Raw-target pairs | Median repo input vs raw close | Median proxy credit gap ($/share) | Median absolute chain-IV credit gap ($/share) | Short haircut too narrow | Wing haircut too narrow |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 2018 | 211 | 210 | 210 | -4.96% | +0.130 | 0.031 | 86.2% | 99.0% |
+| 2019 | 252 | 251 | 251 | -4.14% | +0.125 | 0.025 | 59.8% | 92.8% |
+| 2020 | 253 | 252 | 244 | -3.36% | +0.394 | 0.040 | 36.9% | 75.0% |
+| 2021 | 252 | 251 | 251 | -2.95% | +0.475 | 0.060 | 40.6% | 80.9% |
+| 2022 | 251 | 251 | 251 | -2.41% | +0.170 | 0.061 | 5.2% | 29.5% |
+| 2023 | 250 | 250 | 248 | -1.72% | -0.023 | 0.096 | 2.0% | 15.3% |
+| 2024 | 252 | 252 | 252 | -1.04% | +0.019 | 0.106 | 4.4% | 21.4% |
+| 2025 (through Dec 15 only) | 250 | 239 | 239 | -0.48% | +0.421 | 0.090 | 13.0% | 50.2% |
+
+Across 1,946 pairs, the median proxy model-minus-observed short-Bid/wing-Ask credit was **+$0.181/share** (median absolute gap **$0.196/share**); chain-IV repricing reduced the absolute median gap to **$0.060/share**, but this is not independent validation. Across all source dates, the modeled half-spread was narrower than observed leg half-spreads on 30.0% of short legs and 57.2% of wings. In 54 paired observations with VIX >=35, these were 81.5% and 100.0%. This diagnostic contains no strategy return/P&L and does not approve trade replay. Use raw nominal spot for option strikes/pricing, observed quote sides or documented adverse fills, and keep VXX history labelled unavailable / DERIVED_BS_VIX / NOT_OPRA.
+
+The next run fixes (1) the expected-date denominator to use all 1,971 repo-universe sessions rather than only dates with an underlying-price row and (2) two output mappings that incorrectly reported null candidate/eligible-call counts. After that run completes, add the hash-verified corrected coverage report. This note records Run #16 as the initial diagnostic, not as a calendar-end-complete sample.

@@ -102,3 +102,12 @@ If the data cannot support a measure, write UNAVAILABLE or INSUFFICIENT_SAMPLE; 
 - The 2018–2026 range already reviewed in prior research PRs #97/#98 is not a virgin, untouched final lockbox. A later 60/20/20 split within that same familiar range may be a chronological holdout for a new, pre-specified comparison, but it must be labelled previously exposed / development-revisit rather than blind OOS. Claim a true untouched lockbox only for data or dates that were not used to design, select, or tune the candidate.
 - Run #11's raw-spot + per-leg source-IV executable-credit gap varied from roughly -$0.326 to +$0.182/share across eight dates. The error direction changes after changing IV basis, so no one-direction correction is justified. Source IV may be derived from the same quote midpoint and the fill haircut is still modeled; this is attribution, not independent pricing validation or proof of fills.
 - None of the thresholds above changes the frozen Original Hybrid policy or grants broker-order permission.
+
+
+## Full-history QQQ EOD quote evidence — Run #16 (research-only)
+
+Run #16 passed the pinned-file and source-integrity checks, but the usable source ends on 2025-12-15 although the requested comparison window ends 2025-12-31. Its first coverage denominator was based on dates present in both the underlying-price source and the repo universe; this excluded 11 expected late-December sessions. Treat the Run #16 coverage percentage as source-overlap coverage, not full-window coverage. The follow-up audit fixes the denominator to the full repo-universe session index and reports missing underlying prices and option rows separately.
+
+On 1,946 raw-spot matched EOD pairs, the median model-minus-observed short-Bid/wing-Ask credit gap was +$0.181/share for the VIX-derived proxy, and the median absolute gap after replacing proxy IV with source-reported per-leg IV was $0.060/share. The latter may be circular because source IV may be calculated from the same quote mark. The modeled per-leg half-spread haircut was narrower than observed on 30.0% of short legs / 57.2% of wings overall, and 81.5% / 100% in the VIX >=35 subset.
+
+This evidence keeps the **Option underlying price basis** and **Per-leg spread realism** accuracy gates **BLOCKED for trade replay**. EOD snapshots are not decision-time fills; the source has no VXX option history; these measurements make no CAGR, MaxDD, or incremental-edge claim. The frozen Original Hybrid and broker-order boundary are unchanged.

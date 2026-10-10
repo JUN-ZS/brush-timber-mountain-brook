@@ -177,6 +177,54 @@ def aggregate_rows(rows):
       "fraction_model_haircut_too_narrow_wing":sum(1 for r in matched if r["raw_target_pair"].get("model_haircut_narrower_than_observed_wing"))/len(matched) if matched else None,
     }
 
+def build_coverage_summary(expected_dates, spots, daily, start_date, end_date):
+    """Measure source coverage against the repository's full date index, not only dates with raw spots."""
+    expected_set=set(expected_dates)
+    spot_dates=set(spots)
+    chain_days={r["date"] for r in daily if r.get("option_rows",0)>0}
+    pair_days={r["date"] for r in daily if r.get("raw_target_pair")}
+    expected_first=min(expected_set) if expected_set else None
+    expected_last=max(expected_set) if expected_set else None
+    last_spot=max((d for d in spot_dates if start_date<=d<=end_date),default=None)
+    last_chain=max((d for d in chain_days if start_date<=d<=end_date),default=None)
+    dates_after_spot=[d for d in sorted(expected_set) if last_spot is None or d>last_spot]
+    dates_after_chain=[d for d in sorted(expected_set) if last_chain is None or d>last_chain]
+    expected_n=len(expected_set)
+    chain_in_window=chain_days & expected_set
+    pairs_in_window=pair_days & expected_set
+    spot_in_window=spot_dates & expected_set
+    return {
+      "requested_window":{"start":start_date,"end":end_date},
+      "expected_trading_dates_from_repo_universe":expected_n,
+      "first_expected_trading_date":expected_first,
+      "last_expected_trading_date":expected_last,
+      "expected_dates_with_raw_underlying_price":len(spot_in_window),
+      "raw_underlying_price_date_coverage_pct":100*len(spot_in_window)/expected_n if expected_n else None,
+      "expected_dates_missing_raw_underlying_price":sorted(expected_set-spot_dates),
+      "dates_with_qqq_option_rows":len(chain_in_window),
+      "option_date_coverage_pct":100*len(chain_in_window)/expected_n if expected_n else None,
+      "dates_with_raw_target_pairs":len(pairs_in_window),
+      "raw_target_pair_coverage_pct_of_expected_dates":100*len(pairs_in_window)/expected_n if expected_n else None,
+      "raw_target_pair_coverage_pct_of_option_dates":100*len(pairs_in_window)/len(chain_in_window) if chain_in_window else None,
+      "expected_dates_missing_option_rows":sorted(expected_set-chain_days),
+      "expected_dates_with_chain_but_no_valid_pair":sorted(chain_in_window-pairs_in_window),
+      "option_dates_outside_universe_window":sorted(chain_days-expected_set),
+      "source_date_bounds":{
+        "first_raw_underlying_price_date":min(spot_dates) if spot_dates else None,
+        "last_raw_underlying_price_date":last_spot,
+        "first_qqq_option_chain_date":min(chain_in_window) if chain_in_window else None,
+        "last_qqq_option_chain_date":last_chain,
+        "expected_sessions_after_last_raw_underlying_price":dates_after_spot,
+        "expected_sessions_after_last_qqq_option_chain":dates_after_chain,
+        "source_window_complete_through_last_expected_session":bool(
+          expected_last and last_spot and last_chain and last_spot>=expected_last and last_chain>=expected_last),
+        "calendar_days_from_last_underlying_to_requested_end":
+          (date.fromisoformat(end_date)-date.fromisoformat(last_spot)).days if last_spot else None,
+        "calendar_days_from_last_option_chain_to_requested_end":
+          (date.fromisoformat(end_date)-date.fromisoformat(last_chain)).days if last_chain else None,
+      },
+    }
+
 def assert_date_ordered_parquet(parquet,path):
     names=list(parquet.schema_arrow.names)
     if "date" not in names:raise ValueError(f"{path.name} missing date")
@@ -222,7 +270,7 @@ def build_inputs(cache):
         day=day_string(row.get("date"))
         if START_DATE<=day<=END_DATE:
             spots[day]={"raw_close":num(row.get("close")),"adjusted_close":num(row.get("adjusted_close")),"volume":num(row.get("volume")),"split_coefficient":num(row.get("split_coefficient"))}
-    expected=sorted(d for d in spots if d in universe_by_day and universe_by_day[d]["repo_qqq_input"] is not None and universe_by_day[d]["vix"] is not None)
+    expected=sorted(d for d,values in universe_by_day.items() if START_DATE<=d<=END_DATE and values["repo_qqq_input"] is not None and values["vix"] is not None)
     return integrity,universe_by_day,spots,expected
 
 def finalize_day(day,rows,universe_by_day,spots):
@@ -242,9 +290,9 @@ def finalize_day(day,rows,universe_by_day,spots):
       "repo_spot_vs_raw_close_pct":100*(repo_spot/raw_close-1) if raw_close else None,
       "split_coefficient":spot.get("split_coefficient"),"option_rows":quote_stats.get("row_count",len(rows)),
       "valid_two_sided_quote_pct":quote_stats.get("valid_two_sided_quote_pct"),"call_rows":quote_stats.get("call_rows"),
-      "put_rows":quote_stats.get("put_rows"),"candidate_calls_30_60_dte_abs_delta_003_010":quote_stats.get("call_candidates_30_to_60_dte_abs_delta_0p03_to_0p10"),
+      "put_rows":quote_stats.get("put_rows"),"candidate_calls_30_60_dte_abs_delta_003_010":quote_stats.get("call_candidates_30_60_dte_abs_delta_0p03_0p10"),
       "selected_expiry":match.get("selected_expiry"),"selected_dte":match.get("calendar_dte"),
-      "eligible_rows_in_expiry":match.get("eligible_standard_grid_call_rows"),
+      "eligible_rows_in_expiry":match.get("eligible_standard_grid_call_rows_in_expiry"),
       "raw_target_geometry":{"short":raw_geom["short_target_strike"],"wing":raw_geom["long_target_strike"]},
       "adjusted_target_geometry":{"short":adj_geom["short_target_strike"],"wing":adj_geom["long_target_strike"]},
       "raw_target_pair":pair_metrics(pairs.get("raw_close_spot"),vix),
@@ -328,20 +376,8 @@ def main():
         report["annual_file_stats"].append(stats)
         daily.extend(rows)
     daily.sort(key=lambda r:r["date"])
-    expected_set=set(expected)
-    chain_days={r["date"] for r in daily if r.get("option_rows",0)>0}
-    pair_days={r["date"] for r in daily if r.get("raw_target_pair")}
     report["daily_results"]=daily
-    report["coverage"]={
-      "expected_trading_dates_from_universe_and_raw_spot":len(expected_set),
-      "dates_with_qqq_option_rows":len(chain_days),
-      "option_date_coverage_pct":100*len(chain_days&expected_set)/len(expected_set) if expected_set else None,
-      "dates_with_raw_target_pairs":len(pair_days),
-      "raw_target_pair_coverage_pct_of_expected_dates":100*len(pair_days&expected_set)/len(expected_set) if expected_set else None,
-      "expected_dates_missing_option_rows":sorted(expected_set-chain_days),
-      "expected_dates_with_chain_but_no_valid_pair":sorted((chain_days&expected_set)-pair_days),
-      "option_dates_outside_spot_universe_intersection":sorted(chain_days-expected_set),
-    }
+    report["coverage"]=build_coverage_summary(expected,spots,daily,START_DATE,END_DATE)
     report["annual_summary"]={str(year):aggregate([r for r in daily if r["year"]==year and r.get("option_rows",0)>0]) for year in range(2018,2026)}
     buckets=sorted({r.get("vix_bucket","UNKNOWN") for r in daily})
     report["vix_regime_summary"]={bucket:aggregate([r for r in daily if r.get("vix_bucket")==bucket and r.get("option_rows",0)>0]) for bucket in buckets}
@@ -349,7 +385,7 @@ def main():
     integrity_ok=all(x.get("status") in ("CACHED_HASH_VERIFIED","DOWNLOADED_HASH_VERIFIED") for x in report["file_integrity"].values())
     source_ok=all(x.get("status")=="HASH_VERIFIED" for x in report["model_source_integrity"].values())
     report["integrity_ok"]=integrity_ok and source_ok
-    report["overall"]="HASH_VERIFIED_FULL_HISTORY_DIAGNOSTIC" if report["integrity_ok"] else "INTEGRITY_OR_SOURCE_MISMATCH"
+    report["overall"]="HASH_VERIFIED_SOURCE_COVERAGE_DIAGNOSTIC" if report["integrity_ok"] else "INTEGRITY_OR_SOURCE_MISMATCH"
     report["limitations"]=[
       "QQQ chain is a public EOD preservation mirror, not exchange-hosted data.",
       "Source-reported IV may be derived from the same quote midpoint and is not independent validation.",
@@ -357,6 +393,16 @@ def main():
       "This report contains no portfolio-return or strategy-P&L claim.",
       "VXX option history is not supplied; existing VXX option marks remain DERIVED_BS_VIX / NOT_OPRA.",
     ]
+    if not report["coverage"]["source_date_bounds"]["source_window_complete_through_last_expected_session"]:
+        cov=report["coverage"]
+        end_dates=cov["source_date_bounds"]["expected_sessions_after_last_qqq_option_chain"]
+        report["limitations"].append(
+          f"Requested window ends {END_DATE}, but raw underlying prices end on "
+          f"{cov['source_date_bounds']['last_raw_underlying_price_date']} and QQQ option rows end on "
+          f"{cov['source_date_bounds']['last_qqq_option_chain_date']}; "
+          f"{len(end_dates)} expected repo-universe sessions remain uncovered after the last option date. "
+          "The date denominator is the full repo-universe session index, so missing tail dates are not excluded."
+        )
     print("QQQ_FULL_HISTORY_AUDIT_BEGIN")
     print(json.dumps(report,indent=1,sort_keys=True))
     print("QQQ_FULL_HISTORY_AUDIT_END")

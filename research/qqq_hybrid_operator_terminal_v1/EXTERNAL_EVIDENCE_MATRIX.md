@@ -128,3 +128,17 @@ The next audit version samples eight dates from the already hash-pinned 2020 and
 - Repricing raw-target pairs with raw close and each leg's reported IV left a model-minus-observed executable-side gap ranging roughly -$0.103 to +$0.182/share across the eight dates. This is not independent validation (the IV may be derived from the same quote), nor proof of executable fills. It does show the mismatch depends on volatility regime and leg-level liquidity rather than one universal offset.
 - The eight dates were selected after the first two-date investigation; these are development diagnostics, not blind OOS or strategy-level returns. Detailed raw JSON: [QQQ_MULTI_REGIME_ALIGNMENT_RUN11.json](QQQ_MULTI_REGIME_ALIGNMENT_RUN11.json). The next proposed unit of work is a separate raw-spot QQQ option replay with per-leg execution treatment, not an integration change.
 
+
+
+## Run #16 — full-period QQQ EOD quote-alignment evidence (source coverage caveat)
+
+[Windows self-hosted Run #16](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38006925584) completed successfully and verified all eight annual option-file Git blob SHA/byte-count pins, the underlying-price file, the repo universe, and the frozen replay/helper source blobs. This is a quote/price-basis diagnostic, **not** strategy P&L and not trade-replay approval.
+
+- Against the **1,971 expected repo-universe sessions** from 2018-03-01 through 2025-12-31, the source has raw underlying prices for 1,960 sessions, QQQ option rows for 1,956 sessions, and raw-target model/quote pairs on 1,946 sessions. The annual option and underlying files both stop at **2025-12-15**, leaving 11 expected late-December sessions unobserved; the four additional missing option dates inside the source span are 2018-11-06, 2019-09-03, 2020-06-23 and 2021-11-04. Do not call this calendar-end-complete coverage.
+- On 1,946 matched raw-spot pairs, the VIX-derived proxy model's conservative credit minus observed **short Bid − wing Ask** had median **+$0.181/share** and median absolute gap **$0.196/share**. Positive means the modeled credit was higher than the observed EOD executable-side reference. This is not a simulated fill or strategy return.
+- Repricing with per-leg source-reported IV reduced the absolute model-vs-observed credit-gap median to **$0.060/share**, but the source IV may be derived from the same quote midpoint; it is not independent pricing validation.
+- The model's VIX-only half-spread haircut was narrower than observed leg half-spreads on **30.0% of short legs** and **57.2% of wings**. In the VIX ≥35 subset (54 matched pairs), those rates were **81.5%** and **100%** respectively.
+- The repo option model's QQQ input was below raw close by a median **2.72%** over source dates. That basis difference can change strikes and modeled credit; option-layer strike/quote replay must use contemporaneous raw nominal spot or an explicit, versioned corporate-action transformation.
+- EOD rows are reported as 4:00 PM US Eastern snapshots; they do not prove fills at the model's decision timestamp. QQQ-only history does not supply VXX option history. VXX option marks remain DERIVED_BS_VIX / NOT_OPRA.
+
+Next: correct the source-date denominator and two null metric mappings, then rerun on the self-hosted Windows runner before storing a v2 audited summary. No strategy-policy or broker-order permission change is made.
