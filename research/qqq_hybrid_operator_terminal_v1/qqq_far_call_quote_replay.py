@@ -1108,7 +1108,40 @@ def run_replay(out_dir):
             ("%.2f%%" % metrics["mean_loss_as_pct_entry_max_loss"]) if metrics.get("mean_loss_as_pct_entry_max_loss") is not None else "—")
           for scenario_id, metrics in attribution_summary["scenarios"].items()],
         "",
-        "Group attribution (exit reason, entry/exit VIX regime, 20-session raw-spot momentum, entry quote-spread bucket and entry year) is in `qqq_far_call_replay_attribution.csv` and `.json`. Trend bands are +/-2% over 20 expected sessions; leg spread bins are max spread/midpoint <=10%, <=25%, and >25%. They are attribution-only, not trade filters.",
+        "Group attribution CSV contains all scenarios. The Actions summary below renders the pre-selected base and adverse-cost scenario strata for visibility even if artifact storage is unavailable.",
+        "",
+    ]
+    attribution_display_scenarios = (
+        "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+        "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+    )
+    attribution_dimensions = ("exit_reason", "entry_regime", "exit_regime",
+                              "entry_trend_regime", "exit_trend_regime",
+                              "entry_quote_quality_bucket", "entry_year")
+    for scenario_id in attribution_display_scenarios:
+        scenario_attribution = attribution_summary["scenarios"].get(scenario_id)
+        if scenario_attribution is None:
+            continue
+        lines += [
+            "",
+            f"### Attribution strata: `{scenario_id}`",
+            "",
+            "| Dimension | Bucket | Trades | Net P&L | Mean P&L | Win fraction | Mean loss / max-loss | Mean short Delta drift | Reconciliation fails |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+        for dimension in attribution_dimensions:
+            for bucket, metrics in scenario_attribution["groups"].get(dimension, {}).items():
+                mean_pnl = "—" if metrics.get("mean_net_pnl_usd") is None else ("$%.2f" % metrics["mean_net_pnl_usd"])
+                win_fraction = "—" if metrics.get("win_fraction") is None else ("%.1f%%" % (metrics["win_fraction"] * 100))
+                loss_usage = "—" if metrics.get("mean_loss_as_pct_entry_max_loss") is None else ("%.2f%%" % metrics["mean_loss_as_pct_entry_max_loss"])
+                short_drift = "—" if metrics.get("mean_short_delta_drift") is None else ("%.4f" % metrics["mean_short_delta_drift"])
+                lines.append("| %s | %s | %d | $%.2f | %s | %s | %s | %s | %d |" % (
+                    dimension, bucket, metrics["trade_count"], metrics["net_pnl_usd"],
+                    mean_pnl, win_fraction, loss_usage, short_drift,
+                    metrics["reconciliation_failures"]))
+    lines += [
+        "",
+        "Subgroup P&L is closed-trade-only. The base and adverse-cost scenario are independent reruns and must not be added together. Regime/quote-spread bins are descriptive diagnostics, not entry/exit filters; EOD snapshots remain unverified execution proxies.",
         "",
         "## Mark diagnostics",
         "",
