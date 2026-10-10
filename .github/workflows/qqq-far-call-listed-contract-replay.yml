@@ -19,7 +19,7 @@ permissions:
 
 concurrency:
   group: qqq-far-call-listed-contract-replay
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   listed-contract-replay:
