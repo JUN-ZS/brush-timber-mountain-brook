@@ -150,3 +150,15 @@ The date denominator and output mappings were corrected and rerun successfully i
 - Correct denominator: 1,971 expected sessions; raw underlying coverage 99.44%, chain coverage 99.24%, raw-target pair coverage 98.73%. Both underlying and option data stop on 2025-12-15; requested coverage through 2025-12-31 is incomplete.
 - Median repo QQQ input vs raw nominal close: -2.72%. VIX-proxy credit gap median: +$0.181/share; source-IV absolute gap median: $0.060/share, but source IV is not independent validation.
 - Haircut-too-narrow rates: 30.0% short / 57.2% wings; VIX ≥35: 81.5% / 100.0%. Price-basis and spread-realism gates remain blocked for trade replay.
+
+
+## Full-history adverse-fill validation — Run #22 (2026-10-10)
+
+The full-history diagnostic completed successfully on Windows self-hosted [Actions Run #22](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38015730909) at head `28532f97b2694138b1b85a08cb498001061358b5`. The machine-readable aggregate is [Run #22 JSON](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN22.json); date-level quote pairs are in [Run #22 daily CSV](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_DAILY_PAIRS_RUN22.csv).
+
+- **Scope / denominator:** 1,971 expected sessions (2018-03-01–2025-12-31); 1,960 raw-underlying dates (99.44%), 1,956 option-chain dates (99.24%), and 1,946 raw-target pairs (98.73% of expected sessions; 99.49% of chain dates). Both source series stop on 2025-12-15, leaving 11 terminal expected sessions uncovered; four additional interior dates have no option rows.
+- **Price basis:** median repository input vs raw close −2.72%; selected short/wing contracts differ under raw-vs-adjusted target geometry on 96.61% / 95.84% of matched dates. Repository-input pair Delta medians are 0.28174 / 0.16985, not the intended 0.16 / 0.08 targets.
+- **Quote gap:** median VIX-proxy model minus observed EOD short Bid − wing Ask is +$0.181/share (median absolute gap $0.196); median absolute source-IV gap is $0.060 but is not independent validation. Model half-spread haircuts are narrower than observed on 30.0% of short legs / 57.2% of wings, and 81.5% / 100.0% at VIX ≥35 (54 pairs).
+- **Adverse-fill sensitivity:** at $0.025 per leg, 1.23% of pairs have non-positive stressed credit; at $0.05 per leg, 2.93%; at $0.10 per leg, 13.62%. These are analyst-selected assumptions, not measured fills or fees. Price-basis and spread-realism gates remain BLOCKED for trade replay.
+
+This is source/quote-quality evidence only, not strategy P&L, not proof of executable fills, and not authorization to change frozen strategy policy or broker-order permissions.

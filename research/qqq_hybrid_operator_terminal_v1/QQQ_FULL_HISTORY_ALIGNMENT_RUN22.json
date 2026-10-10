@@ -1,0 +1,1322 @@
+{
+  "research_id": "QQQ_FULL_HISTORY_OPTION_QUOTE_ALIGNMENT_AUDIT_V1",
+  "run": {
+    "number": 22,
+    "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38015730909",
+    "head_sha": "28532f97b2694138b1b85a08cb498001061358b5",
+    "workflow_job_id": 114105429384,
+    "runner": "Windows self-hosted"
+  },
+  "status": "SOURCE_COVERAGE_DIAGNOSTIC",
+  "overall": "HASH_VERIFIED_SOURCE_COVERAGE_DIAGNOSTIC",
+  "integrity_ok": true,
+  "window": {
+    "end": "2025-12-31",
+    "start": "2018-03-01"
+  },
+  "source": "anahatsingh-ui/options-dataset-hist QQQ EOD preservation mirror",
+  "quote_time_caveat": "Repository README reports 4:00 PM US Eastern snapshot; this does not establish a fill at the model's decision timestamp.",
+  "file_integrity": {
+    "options_2018.parquet": {
+      "bytes": 29215815,
+      "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19",
+      "status": "CACHED_HASH_VERIFIED"
+    },
+    "options_2019.parquet": {
+      "bytes": 30998008,
+      "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca",
+      "status": "CACHED_HASH_VERIFIED"
+    },
+    "options_2020.parquet": {
+      "bytes": 59412637,
+      "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5",
+      "status": "CACHED_HASH_VERIFIED"
+    },
+    "options_2021.parquet": {
+      "bytes": 74224966,
+      "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d",
+      "status": "CACHED_HASH_VERIFIED"
+    },
+    "options_2022.parquet": {
+      "bytes": 69941736,
+      "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9",
+      "status": "CACHED_HASH_VERIFIED"
+    },
+    "options_2023.parquet": {
+      "bytes": 71647343,
+      "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063",
+      "status": "CACHED_HASH_VERIFIED"
+    },
+    "options_2024.parquet": {
+      "bytes": 82434832,
+      "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3",
+      "status": "CACHED_HASH_VERIFIED"
+    },
+    "options_2025.parquet": {
+      "bytes": 85765453,
+      "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf",
+      "status": "CACHED_HASH_VERIFIED"
+    },
+    "underlying_prices.parquet": {
+      "bytes": 332454,
+      "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a",
+      "status": "CACHED_HASH_VERIFIED"
+    }
+  },
+  "model_source_integrity": {
+    "research\\qqq_hybrid_dynamic_deployment_v1_1_replay.py": {
+      "bytes": 15102,
+      "expected": "ac74b3812c826ad491fb829108f26397322e45eb",
+      "git_blob_sha": "ac74b3812c826ad491fb829108f26397322e45eb",
+      "status": "HASH_VERIFIED"
+    },
+    "research\\qqq_hybrid_operator_terminal_v1\\audit_qqq_public_eod_options.py": {
+      "bytes": 21085,
+      "expected": "99337743e4133a6905c2904d889cf1b566997e9e",
+      "git_blob_sha": "99337743e4133a6905c2904d889cf1b566997e9e",
+      "status": "HASH_VERIFIED"
+    },
+    "src/data/universe.json": {
+      "bytes": 1045161,
+      "expected": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+      "git_blob_sha": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+      "status": "HASH_VERIFIED"
+    }
+  },
+  "annual_file_stats": [
+    {
+      "chain_dates": 210,
+      "file": "options_2018.parquet",
+      "paired_dates": 210,
+      "qqq_option_rows_in_window": 652324
+    },
+    {
+      "chain_dates": 251,
+      "file": "options_2019.parquet",
+      "paired_dates": 251,
+      "qqq_option_rows_in_window": 807230
+    },
+    {
+      "chain_dates": 252,
+      "file": "options_2020.parquet",
+      "paired_dates": 244,
+      "qqq_option_rows_in_window": 1490246
+    },
+    {
+      "chain_dates": 251,
+      "file": "options_2021.parquet",
+      "paired_dates": 251,
+      "qqq_option_rows_in_window": 1815366
+    },
+    {
+      "chain_dates": 251,
+      "file": "options_2022.parquet",
+      "paired_dates": 251,
+      "qqq_option_rows_in_window": 1696646
+    },
+    {
+      "chain_dates": 250,
+      "file": "options_2023.parquet",
+      "paired_dates": 248,
+      "qqq_option_rows_in_window": 1712828
+    },
+    {
+      "chain_dates": 252,
+      "file": "options_2024.parquet",
+      "paired_dates": 252,
+      "qqq_option_rows_in_window": 1958960
+    },
+    {
+      "chain_dates": 239,
+      "file": "options_2025.parquet",
+      "paired_dates": 239,
+      "qqq_option_rows_in_window": 2000800
+    }
+  ],
+  "coverage": {
+    "dates_with_qqq_option_rows": 1956,
+    "dates_with_raw_target_pairs": 1946,
+    "expected_dates_missing_option_rows": [
+      "2018-11-06",
+      "2019-09-03",
+      "2020-06-23",
+      "2021-11-04",
+      "2025-12-16",
+      "2025-12-17",
+      "2025-12-18",
+      "2025-12-19",
+      "2025-12-22",
+      "2025-12-23",
+      "2025-12-24",
+      "2025-12-26",
+      "2025-12-29",
+      "2025-12-30",
+      "2025-12-31"
+    ],
+    "expected_dates_missing_raw_underlying_price": [
+      "2025-12-16",
+      "2025-12-17",
+      "2025-12-18",
+      "2025-12-19",
+      "2025-12-22",
+      "2025-12-23",
+      "2025-12-24",
+      "2025-12-26",
+      "2025-12-29",
+      "2025-12-30",
+      "2025-12-31"
+    ],
+    "expected_dates_with_chain_but_no_valid_pair": [
+      "2020-03-13",
+      "2020-03-30",
+      "2020-04-06",
+      "2020-04-07",
+      "2020-04-08",
+      "2020-04-20",
+      "2020-08-26",
+      "2020-09-02",
+      "2023-12-27",
+      "2023-12-28"
+    ],
+    "expected_dates_with_raw_underlying_price": 1960,
+    "expected_trading_dates_from_repo_universe": 1971,
+    "first_expected_trading_date": "2018-03-01",
+    "last_expected_trading_date": "2025-12-31",
+    "option_date_coverage_pct": 99.23896499238965,
+    "option_dates_outside_universe_window": [],
+    "raw_target_pair_coverage_pct_of_expected_dates": 98.73160832064941,
+    "raw_target_pair_coverage_pct_of_option_dates": 99.48875255623722,
+    "raw_underlying_price_date_coverage_pct": 99.44190766108575,
+    "requested_window": {
+      "end": "2025-12-31",
+      "start": "2018-03-01"
+    },
+    "source_date_bounds": {
+      "calendar_days_from_last_option_chain_to_requested_end": 16,
+      "calendar_days_from_last_underlying_to_requested_end": 16,
+      "expected_sessions_after_last_qqq_option_chain": [
+        "2025-12-16",
+        "2025-12-17",
+        "2025-12-18",
+        "2025-12-19",
+        "2025-12-22",
+        "2025-12-23",
+        "2025-12-24",
+        "2025-12-26",
+        "2025-12-29",
+        "2025-12-30",
+        "2025-12-31"
+      ],
+      "expected_sessions_after_last_raw_underlying_price": [
+        "2025-12-16",
+        "2025-12-17",
+        "2025-12-18",
+        "2025-12-19",
+        "2025-12-22",
+        "2025-12-23",
+        "2025-12-24",
+        "2025-12-26",
+        "2025-12-29",
+        "2025-12-30",
+        "2025-12-31"
+      ],
+      "first_qqq_option_chain_date": "2018-03-01",
+      "first_raw_underlying_price_date": "2018-03-01",
+      "last_qqq_option_chain_date": "2025-12-15",
+      "last_raw_underlying_price_date": "2025-12-15",
+      "source_window_complete_through_last_expected_session": false
+    }
+  },
+  "overall_alignment": {
+    "chain_iv_credit_gap": {
+      "mean": -0.014881382236523475,
+      "median": -0.003987659530237719,
+      "n": 1946,
+      "p90": 0.08566566442474968
+    },
+    "chain_iv_credit_gap_abs": {
+      "mean": 0.07890616445788069,
+      "median": 0.05953009999450387,
+      "n": 1946,
+      "p90": 0.1578378729169725
+    },
+    "days_with_chain_rows": 1956,
+    "days_with_raw_target_pair": 1946,
+    "fraction_model_haircut_too_narrow_short": 0.29958890030832475,
+    "fraction_model_haircut_too_narrow_wing": 0.5719424460431655,
+    "pair_coverage_pct": 99.48875255623722,
+    "proxy_credit_gap": {
+      "mean": 0.25710774170439804,
+      "median": 0.1814212440619205,
+      "n": 1946,
+      "p90": 0.6409808436063703
+    },
+    "proxy_credit_gap_abs": {
+      "mean": 0.29315991187939994,
+      "median": 0.19581684837597207,
+      "n": 1946,
+      "p90": 0.6456090837258905
+    },
+    "proxy_source_iv_ratio_short": {
+      "mean": 1.1311079959441108,
+      "median": 1.1018976156920068,
+      "n": 1946,
+      "p90": 1.352717898355021
+    },
+    "proxy_source_iv_ratio_wing": {
+      "mean": 1.0804774185610486,
+      "median": 1.0575507781818068,
+      "n": 1946,
+      "p90": 1.2742155816435432
+    },
+    "repo_spot_vs_raw_close_pct": {
+      "mean": -2.656197604611131,
+      "median": -2.7193892826528288,
+      "n": 1956,
+      "p90": -0.7389725827317117
+    },
+    "short_delta_abs_error_vs_0p16": {
+      "mean": 0.03979048818088387,
+      "median": 0.032420000000000004,
+      "n": 1946,
+      "p90": 0.08011
+    },
+    "valid_two_sided_quote_pct_median": {
+      "mean": 93.7547137014315,
+      "median": 93.91499999999999,
+      "n": 1956,
+      "p90": 96.72
+    },
+    "wing_delta_abs_error_vs_0p08": {
+      "mean": 0.02649817574511819,
+      "median": 0.023015,
+      "n": 1946,
+      "p90": 0.05259
+    }
+  },
+  "annual_summary": {
+    "2018": {
+      "chain_iv_credit_gap": {
+        "mean": 0.030134937200529163,
+        "median": 0.026884630073072416,
+        "n": 210,
+        "p90": 0.08051169593890811
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.0420813935212013,
+        "median": 0.03143621461819733,
+        "n": 210,
+        "p90": 0.08273066060981343
+      },
+      "days_with_chain_rows": 210,
+      "days_with_raw_target_pair": 210,
+      "fraction_model_haircut_too_narrow_short": 0.861904761904762,
+      "fraction_model_haircut_too_narrow_wing": 0.9904761904761905,
+      "pair_coverage_pct": 100,
+      "proxy_credit_gap": {
+        "mean": 0.14124614746681244,
+        "median": 0.12991339359250142,
+        "n": 210,
+        "p90": 0.24548206370534323
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.14266042980751606,
+        "median": 0.12991339359250142,
+        "n": 210,
+        "p90": 0.24548206370534323
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.1335507713461155,
+        "median": 1.1100515590473854,
+        "n": 210,
+        "p90": 1.2788243551500262
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.0890414855196247,
+        "median": 1.0729040871624336,
+        "n": 210,
+        "p90": 1.21151781014213
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -4.984329805376313,
+        "median": -4.964112052967456,
+        "n": 210,
+        "p90": -4.793081688848099
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.03442614285714286,
+        "median": 0.030094999999999997,
+        "n": 210,
+        "p90": 0.06861
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 93.29680952380951,
+        "median": 93.445,
+        "n": 210,
+        "p90": 94.85
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.021422761904761906,
+        "median": 0.016990000000000005,
+        "n": 210,
+        "p90": 0.040940000000000004
+      }
+    },
+    "2019": {
+      "chain_iv_credit_gap": {
+        "mean": 0.010743664175273364,
+        "median": 0.006332728272599203,
+        "n": 251,
+        "p90": 0.07014098713940009
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.032029011380462005,
+        "median": 0.025422153241667494,
+        "n": 251,
+        "p90": 0.07086866035391051
+      },
+      "days_with_chain_rows": 251,
+      "days_with_raw_target_pair": 251,
+      "fraction_model_haircut_too_narrow_short": 0.5976095617529881,
+      "fraction_model_haircut_too_narrow_wing": 0.9282868525896414,
+      "pair_coverage_pct": 100,
+      "proxy_credit_gap": {
+        "mean": 0.1345847273108436,
+        "median": 0.12520751171587718,
+        "n": 251,
+        "p90": 0.22773792407699772
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.13510170972078736,
+        "median": 0.12520751171587718,
+        "n": 251,
+        "p90": 0.22773792407699772
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.2002381389035248,
+        "median": 1.1369583778014944,
+        "n": 251,
+        "p90": 1.324930629669157
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.1691130563995245,
+        "median": 1.1152663884114902,
+        "n": 251,
+        "p90": 1.28457732761979
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -4.21212814716115,
+        "median": -4.135469734319375,
+        "n": 251,
+        "p90": -3.942121241798058
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.04320342629482072,
+        "median": 0.03751,
+        "n": 251,
+        "p90": 0.07308
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 92.9803984063745,
+        "median": 93.13,
+        "n": 251,
+        "p90": 94.9
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.029472151394422313,
+        "median": 0.02592,
+        "n": 251,
+        "p90": 0.047400000000000005
+      }
+    },
+    "2020": {
+      "chain_iv_credit_gap": {
+        "mean": 0.0319323768878325,
+        "median": 0.031388236640125355,
+        "n": 244,
+        "p90": 0.08873665772851687
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.04877941942342814,
+        "median": 0.040120719230296656,
+        "n": 244,
+        "p90": 0.09410766573725071
+      },
+      "days_with_chain_rows": 252,
+      "days_with_raw_target_pair": 244,
+      "fraction_model_haircut_too_narrow_short": 0.36885245901639346,
+      "fraction_model_haircut_too_narrow_wing": 0.75,
+      "pair_coverage_pct": 96.82539682539682,
+      "proxy_credit_gap": {
+        "mean": 0.4614558609213802,
+        "median": 0.39390096167466915,
+        "n": 244,
+        "p90": 0.8399035413038538
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.4616862162739019,
+        "median": 0.39390096167466915,
+        "n": 244,
+        "p90": 0.8399035413038538
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.2768503640769453,
+        "median": 1.198718972115945,
+        "n": 244,
+        "p90": 1.6026105239860566
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.2142698737615587,
+        "median": 1.1507520072930544,
+        "n": 244,
+        "p90": 1.494146660276241
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -3.478727043047697,
+        "median": -3.3609883038058674,
+        "n": 252,
+        "p90": -3.360937242628892
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.060897827868852464,
+        "median": 0.052565,
+        "n": 244,
+        "p90": 0.11549000000000001
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 96.01519841269842,
+        "median": 96.63499999999999,
+        "n": 252,
+        "p90": 98.56
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.03377360655737705,
+        "median": 0.029065000000000004,
+        "n": 244,
+        "p90": 0.06602
+      }
+    },
+    "2021": {
+      "chain_iv_credit_gap": {
+        "mean": 0.042476142921283405,
+        "median": 0.04384600874542721,
+        "n": 251,
+        "p90": 0.11451606178266671
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.06599560691640773,
+        "median": 0.0602566132970499,
+        "n": 251,
+        "p90": 0.1155015765338065
+      },
+      "days_with_chain_rows": 251,
+      "days_with_raw_target_pair": 251,
+      "fraction_model_haircut_too_narrow_short": 0.4063745019920319,
+      "fraction_model_haircut_too_narrow_wing": 0.8087649402390438,
+      "pair_coverage_pct": 100,
+      "proxy_credit_gap": {
+        "mean": 0.5038405649493053,
+        "median": 0.47510634231528304,
+        "n": 251,
+        "p90": 0.7896729182342573
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.5038405649493053,
+        "median": 0.47510634231528304,
+        "n": 251,
+        "p90": 0.7896729182342573
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.2298250832357795,
+        "median": 1.1976548263567937,
+        "n": 251,
+        "p90": 1.4611685895050244
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.1401343685707868,
+        "median": 1.121785289845504,
+        "n": 251,
+        "p90": 1.3289033724895793
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -2.993540200556207,
+        "median": -2.951086098984901,
+        "n": 251,
+        "p90": -2.8434653515172825
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.05689438247011952,
+        "median": 0.0552,
+        "n": 251,
+        "p90": 0.09653
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 94.85191235059762,
+        "median": 94.66,
+        "n": 251,
+        "p90": 97.15
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.03084804780876494,
+        "median": 0.028770000000000004,
+        "n": 251,
+        "p90": 0.052640000000000006
+      }
+    },
+    "2022": {
+      "chain_iv_credit_gap": {
+        "mean": -0.026021841638128613,
+        "median": -0.022183878709599925,
+        "n": 251,
+        "p90": 0.07575086085208815
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.06942738009635661,
+        "median": 0.06110931080008353,
+        "n": 251,
+        "p90": 0.14228985654117898
+      },
+      "days_with_chain_rows": 251,
+      "days_with_raw_target_pair": 251,
+      "fraction_model_haircut_too_narrow_short": 0.05179282868525897,
+      "fraction_model_haircut_too_narrow_wing": 0.2948207171314741,
+      "pair_coverage_pct": 100,
+      "proxy_credit_gap": {
+        "mean": 0.22500320556209186,
+        "median": 0.17005088413897385,
+        "n": 251,
+        "p90": 0.6409808436063703
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.2440179352427655,
+        "median": 0.17005088413897385,
+        "n": 251,
+        "p90": 0.6409808436063703
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.0608653551204232,
+        "median": 1.0329218536663722,
+        "n": 251,
+        "p90": 1.2299153688603779
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.016137126022214,
+        "median": 0.9937994722955145,
+        "n": 251,
+        "p90": 1.1799678740663402
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -2.464411440531965,
+        "median": -2.4119036519036463,
+        "n": 251,
+        "p90": -2.2365005666654336
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.0248095219123506,
+        "median": 0.018199999999999994,
+        "n": 251,
+        "p90": 0.05896
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 92.64501992031873,
+        "median": 92.91,
+        "n": 251,
+        "p90": 95
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.017582549800796814,
+        "median": 0.013749999999999998,
+        "n": 251,
+        "p90": 0.03823
+      }
+    },
+    "2023": {
+      "chain_iv_credit_gap": {
+        "mean": -0.08472675177488934,
+        "median": -0.09179066559548699,
+        "n": 248,
+        "p90": 0.03206595618548791
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.10219635006518415,
+        "median": 0.09614413803800109,
+        "n": 248,
+        "p90": 0.18342570671406988
+      },
+      "days_with_chain_rows": 250,
+      "days_with_raw_target_pair": 248,
+      "fraction_model_haircut_too_narrow_short": 0.020161290322580645,
+      "fraction_model_haircut_too_narrow_wing": 0.1532258064516129,
+      "pair_coverage_pct": 99.2,
+      "proxy_credit_gap": {
+        "mean": -0.0017454239221889197,
+        "median": -0.02295749381697798,
+        "n": 248,
+        "p90": 0.23664581327894285
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.11229813394303485,
+        "median": 0.079389236519111,
+        "n": 248,
+        "p90": 0.26127028485217485
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 0.9853446606867079,
+        "median": 0.9757524947718939,
+        "n": 248,
+        "p90": 1.1387204542453453
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 0.9488262938987765,
+        "median": 0.9383177045280549,
+        "n": 248,
+        "p90": 1.1009597741707837
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -1.7603562771433243,
+        "median": -1.7161280824932346,
+        "n": 250,
+        "p90": -1.5738312031854829
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.02714407258064516,
+        "median": 0.023599999999999996,
+        "n": 248,
+        "p90": 0.05345
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 91.84975999999999,
+        "median": 92.19,
+        "n": 250,
+        "p90": 94.04
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.028600604838709676,
+        "median": 0.024995000000000003,
+        "n": 248,
+        "p90": 0.05957
+      }
+    },
+    "2024": {
+      "chain_iv_credit_gap": {
+        "mean": -0.10624629169394201,
+        "median": -0.10046788963989706,
+        "n": 252,
+        "p90": 0.02715449988167018
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.13231671667340322,
+        "median": 0.10554335649136204,
+        "n": 252,
+        "p90": 0.22476728796027245
+      },
+      "days_with_chain_rows": 252,
+      "days_with_raw_target_pair": 252,
+      "fraction_model_haircut_too_narrow_short": 0.04365079365079365,
+      "fraction_model_haircut_too_narrow_wing": 0.21428571428571427,
+      "pair_coverage_pct": 100,
+      "proxy_credit_gap": {
+        "mean": 0.0769649268735941,
+        "median": 0.01918383948094482,
+        "n": 252,
+        "p90": 0.4364638156343449
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.22227863749926974,
+        "median": 0.12479503442619094,
+        "n": 252,
+        "p90": 0.4577395560526626
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.006526676467659,
+        "median": 0.9772571017591147,
+        "n": 252,
+        "p90": 1.1839290214195715
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 0.9601305503808918,
+        "median": 0.9266790902205093,
+        "n": 252,
+        "p90": 1.1256711703807687
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -1.0964989142570687,
+        "median": -1.0378597483812535,
+        "n": 252,
+        "p90": -0.8987799183905465
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.03799472222222222,
+        "median": 0.02741500000000001,
+        "n": 252,
+        "p90": 0.05648
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 93.31603174603174,
+        "median": 94.09,
+        "n": 252,
+        "p90": 96.06
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.02886003968253968,
+        "median": 0.026409999999999996,
+        "n": 252,
+        "p90": 0.05719999999999999
+      }
+    },
+    "2025": {
+      "chain_iv_credit_gap": {
+        "mean": -0.008867765640319948,
+        "median": -0.061787676854203166,
+        "n": 239,
+        "p90": 0.1313860105382414
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.13428102946319664,
+        "median": 0.0904245306337188,
+        "n": 239,
+        "p90": 0.19627765870178981
+      },
+      "days_with_chain_rows": 239,
+      "days_with_raw_target_pair": 239,
+      "fraction_model_haircut_too_narrow_short": 0.1297071129707113,
+      "fraction_model_haircut_too_narrow_wing": 0.502092050209205,
+      "pair_coverage_pct": 100,
+      "proxy_credit_gap": {
+        "mean": 0.5120999787911542,
+        "median": 0.42148728477026776,
+        "n": 239,
+        "p90": 0.7865189895417054
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.5120999787911542,
+        "median": 0.42148728477026776,
+        "n": 239,
+        "p90": 0.7865189895417054
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.1602750547173029,
+        "median": 1.1447228571428574,
+        "n": 239,
+        "p90": 1.2746280383010067
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.111695202848761,
+        "median": 1.098724914675768,
+        "n": 239,
+        "p90": 1.2195703418874866
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -0.5379799921051656,
+        "median": -0.4793250703051588,
+        "n": 239,
+        "p90": -0.363938220053317
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.03215728033472803,
+        "median": 0.02803,
+        "n": 239,
+        "p90": 0.05896
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 95.05510460251045,
+        "median": 95.5,
+        "n": 239,
+        "p90": 96.74
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.02052987447698745,
+        "median": 0.01781,
+        "n": 239,
+        "p90": 0.03989
+      }
+    }
+  },
+  "vix_regime_summary": {
+    "ELEVATED_25_35": {
+      "chain_iv_credit_gap": {
+        "mean": -0.00034978389538962236,
+        "median": 0.011769090764450096,
+        "n": 283,
+        "p90": 0.07575086085208815
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.05967682408188718,
+        "median": 0.04768738344082857,
+        "n": 283,
+        "p90": 0.11907750619708635
+      },
+      "days_with_chain_rows": 284,
+      "days_with_raw_target_pair": 283,
+      "fraction_model_haircut_too_narrow_short": 0.23674911660777384,
+      "fraction_model_haircut_too_narrow_wing": 0.5512367491166078,
+      "pair_coverage_pct": 99.64788732394366,
+      "proxy_credit_gap": {
+        "mean": 0.4191722913881996,
+        "median": 0.30692743714854476,
+        "n": 283,
+        "p90": 0.8336560299901354
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.42388688916946327,
+        "median": 0.30692743714854476,
+        "n": 283,
+        "p90": 0.8336560299901354
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.1858676922396607,
+        "median": 1.123655756076825,
+        "n": 283,
+        "p90": 1.4850283494330114
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.1298380973776097,
+        "median": 1.0833410308919003,
+        "n": 283,
+        "p90": 1.3747588397559143
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -2.8241072884457683,
+        "median": -2.7193935496189425,
+        "n": 284,
+        "p90": -2.2365011555431025
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.04498190812720849,
+        "median": 0.03348000000000001,
+        "n": 283,
+        "p90": 0.10006000000000001
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 94.54957746478874,
+        "median": 94.36500000000001,
+        "n": 284,
+        "p90": 98.22
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.026402367491166076,
+        "median": 0.02223,
+        "n": 283,
+        "p90": 0.05674
+      }
+    },
+    "HIGH_GTE35": {
+      "chain_iv_credit_gap": {
+        "mean": 0.057836778805438506,
+        "median": 0.05444078526094499,
+        "n": 54,
+        "p90": 0.12072641805600726
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.060301478978225166,
+        "median": 0.05444078526094499,
+        "n": 54,
+        "p90": 0.12072641805600726
+      },
+      "days_with_chain_rows": 60,
+      "days_with_raw_target_pair": 54,
+      "fraction_model_haircut_too_narrow_short": 0.8148148148148148,
+      "fraction_model_haircut_too_narrow_wing": 1,
+      "pair_coverage_pct": 90,
+      "proxy_credit_gap": {
+        "mean": 0.9884438634447262,
+        "median": 0.862755433817433,
+        "n": 54,
+        "p90": 1.4038972520985038
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.9884438634447262,
+        "median": 0.862755433817433,
+        "n": 54,
+        "p90": 1.4038972520985038
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.5727336293404672,
+        "median": 1.540121513000745,
+        "n": 54,
+        "p90": 1.7660579997298151
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.5006027201739653,
+        "median": 1.4771186195999775,
+        "n": 54,
+        "p90": 1.721187449195253
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -3.2635384095876416,
+        "median": -3.5287223441613333,
+        "n": 60,
+        "p90": -2.7193752899335233
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.10721685185185185,
+        "median": 0.10674,
+        "n": 54,
+        "p90": 0.13209
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 94.7765,
+        "median": 95.035,
+        "n": 60,
+        "p90": 98.62
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.06191407407407407,
+        "median": 0.0643,
+        "n": 54,
+        "p90": 0.07284
+      }
+    },
+    "LOW_LT15": {
+      "chain_iv_credit_gap": {
+        "mean": -0.04400325040715613,
+        "median": -0.024892280798784416,
+        "n": 501,
+        "p90": 0.0696563639392756
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.07762140599745464,
+        "median": 0.06118035300727398,
+        "n": 501,
+        "p90": 0.1694859681440648
+      },
+      "days_with_chain_rows": 503,
+      "days_with_raw_target_pair": 501,
+      "fraction_model_haircut_too_narrow_short": 0.36127744510978044,
+      "fraction_model_haircut_too_narrow_wing": 0.5349301397205589,
+      "pair_coverage_pct": 99.6023856858847,
+      "proxy_credit_gap": {
+        "mean": 0.04943620613368949,
+        "median": 0.07800196779829682,
+        "n": 501,
+        "p90": 0.21861087043531446
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.13359435622749166,
+        "median": 0.11343975690109181,
+        "n": 501,
+        "p90": 0.24342543878169187
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.0496331063055815,
+        "median": 1.054632948686472,
+        "n": 501,
+        "p90": 1.226766511171127
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.0029062745055743,
+        "median": 1.0126491529585073,
+        "n": 501,
+        "p90": 1.165381782469924
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -2.8953654945790555,
+        "median": -3.7338540999701353,
+        "n": 503,
+        "p90": -1.0378522040655258
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.03684786427145709,
+        "median": 0.0335,
+        "n": 501,
+        "p90": 0.06623
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 92.82992047713716,
+        "median": 93.29,
+        "n": 503,
+        "p90": 95.33
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.029204011976047904,
+        "median": 0.027730000000000005,
+        "n": 501,
+        "p90": 0.056830000000000006
+      }
+    },
+    "NORMAL_15_25": {
+      "chain_iv_credit_gap": {
+        "mean": -0.008969078151072094,
+        "median": -0.004173509477736231,
+        "n": 1108,
+        "p90": 0.09360634681827906
+      },
+      "chain_iv_credit_gap_abs": {
+        "mean": 0.08530528028006573,
+        "median": 0.06255403783396976,
+        "n": 1108,
+        "p90": 0.1612800887994369
+      },
+      "days_with_chain_rows": 1109,
+      "days_with_raw_target_pair": 1108,
+      "fraction_model_haircut_too_narrow_short": 0.26263537906137185,
+      "fraction_model_haircut_too_narrow_wing": 0.5731046931407943,
+      "pair_coverage_pct": 99.90982867448152,
+      "proxy_credit_gap": {
+        "mean": 0.2739732842914299,
+        "median": 0.24575166882418115,
+        "n": 1108,
+        "p90": 0.576688692414095
+      },
+      "proxy_credit_gap_abs": {
+        "mean": 0.2980347091934708,
+        "median": 0.24812602918416737,
+        "n": 1108,
+        "p90": 0.5855426149914811
+      },
+      "proxy_source_iv_ratio_short": {
+        "mean": 1.132438448519796,
+        "median": 1.1083751222222427,
+        "n": 1108,
+        "p90": 1.2972992879941074
+      },
+      "proxy_source_iv_ratio_wing": {
+        "mean": 1.082469570889215,
+        "median": 1.063453183702448,
+        "n": 1108,
+        "p90": 1.2340352858151022
+      },
+      "repo_spot_vs_raw_close_pct": {
+        "mean": -2.471861944411407,
+        "median": -2.5991162710102267,
+        "n": 1109,
+        "p90": -0.5909465335913078
+      },
+      "short_delta_abs_error_vs_0p16": {
+        "mean": 0.03650895306859206,
+        "median": 0.029565000000000008,
+        "n": 1108,
+        "p90": 0.06903000000000001
+      },
+      "valid_two_sided_quote_pct_median": {
+        "mean": 93.91532912533815,
+        "median": 94.15,
+        "n": 1109,
+        "p90": 96.67
+      },
+      "wing_delta_abs_error_vs_0p08": {
+        "mean": 0.023573113718411552,
+        "median": 0.020105000000000005,
+        "n": 1108,
+        "p90": 0.04532
+      }
+    }
+  },
+  "basis_comparison": {
+    "days_with_both_target_pairs": 1946,
+    "fraction_repo_input_short_delta_gt_0p16": 0.9059609455292909,
+    "fraction_repo_input_wing_delta_gt_0p08": 0.8756423432682425,
+    "fraction_selected_short_contract_differs": 0.9660842754367934,
+    "fraction_selected_wing_contract_differs": 0.9583761562178829,
+    "interpretation": "The two target pairs can select different contracts. This measures target-geometry/selection sensitivity to spot basis; it is not a paired repricing of the same contracts and not a strategy-return test.",
+    "raw_spot_target_pair_delta_error": {
+      "short_abs_error_vs_0p16": {
+        "mean": 0.03979048818088387,
+        "median": 0.032420000000000004,
+        "n": 1946,
+        "p90": 0.08011
+      },
+      "wing_abs_error_vs_0p08": {
+        "mean": 0.02649817574511819,
+        "median": 0.023015,
+        "n": 1946,
+        "p90": 0.05259
+      }
+    },
+    "raw_target_pair_days": 1946,
+    "repo_input_geometry_shift_pct_vs_raw_target": {
+      "short_target_strike": {
+        "mean": -2.654045420784888,
+        "median": -2.719388114922289,
+        "n": 1946,
+        "p90": -0.7389723290213701
+      },
+      "wing_target_strike": {
+        "mean": -2.6540454207848874,
+        "median": -2.7193881149222943,
+        "n": 1946,
+        "p90": -0.7389723290213812
+      }
+    },
+    "repo_input_selected_pair_delta": {
+      "short_delta": {
+        "mean": 0.31063464028776977,
+        "median": 0.28174,
+        "n": 1946,
+        "p90": 0.52629
+      },
+      "wing_delta": {
+        "mean": 0.19958666495375127,
+        "median": 0.16985,
+        "n": 1946,
+        "p90": 0.39411
+      }
+    },
+    "repo_input_target_pair_days": 1953,
+    "repo_input_target_pair_delta_error": {
+      "short_abs_error_vs_0p16": {
+        "mean": 0.15674481500513873,
+        "median": 0.12199499999999999,
+        "n": 1946,
+        "p90": 0.36639
+      },
+      "wing_abs_error_vs_0p08": {
+        "mean": 0.12610909044193216,
+        "median": 0.089905,
+        "n": 1946,
+        "p90": 0.31425
+      }
+    }
+  },
+  "adverse_fill_sensitivity": {
+    "definition": "Subtract 2 × per-leg scenario slippage from observed EOD short Bid − wing Ask. Slippage amounts are analyst-selected sensitivities, not measured fills or fees.",
+    "not_a_fill_or_strategy_backtest": true,
+    "pairs": 1946,
+    "scenarios": [
+      {
+        "extra_adverse_slippage_per_leg_usd": 0,
+        "extra_two_leg_cost_per_share_usd": 0,
+        "fraction_credit_nonpositive": 0.0041109969167523125,
+        "observed_side_credit_after_slippage": {
+          "mean": 0.6216084275436794,
+          "median": 0.5800000000000001,
+          "n": 1946,
+          "p90": 1
+        },
+        "pairs": 1946,
+        "proxy_model_minus_stressed_side_credit": {
+          "mean": 0.25710774170439804,
+          "median": 0.1814212440619205,
+          "n": 1946,
+          "p90": 0.6409808436063703
+        },
+        "source_iv_model_minus_stressed_side_credit": {
+          "mean": -0.014881382236523475,
+          "median": -0.003987659530237719,
+          "n": 1946,
+          "p90": 0.08566566442474968
+        }
+      },
+      {
+        "extra_adverse_slippage_per_leg_usd": 0.01,
+        "extra_two_leg_cost_per_share_usd": 0.02,
+        "fraction_credit_nonpositive": 0.005652620760534429,
+        "observed_side_credit_after_slippage": {
+          "mean": 0.6016084275436794,
+          "median": 0.56,
+          "n": 1946,
+          "p90": 0.98
+        },
+        "pairs": 1946,
+        "proxy_model_minus_stressed_side_credit": {
+          "mean": 0.277107741704398,
+          "median": 0.20142124406192052,
+          "n": 1946,
+          "p90": 0.6609808436063703
+        },
+        "source_iv_model_minus_stressed_side_credit": {
+          "mean": 0.005118617763476535,
+          "median": 0.016012340469762285,
+          "n": 1946,
+          "p90": 0.10566566442474967
+        }
+      },
+      {
+        "extra_adverse_slippage_per_leg_usd": 0.025,
+        "extra_two_leg_cost_per_share_usd": 0.05,
+        "fraction_credit_nonpositive": 0.012332990750256937,
+        "observed_side_credit_after_slippage": {
+          "mean": 0.5716084275436792,
+          "median": 0.53,
+          "n": 1946,
+          "p90": 0.95
+        },
+        "pairs": 1946,
+        "proxy_model_minus_stressed_side_credit": {
+          "mean": 0.30710774170439803,
+          "median": 0.23142124406192052,
+          "n": 1946,
+          "p90": 0.6909808436063704
+        },
+        "source_iv_model_minus_stressed_side_credit": {
+          "mean": 0.035118617763476544,
+          "median": 0.04601234046976227,
+          "n": 1946,
+          "p90": 0.1356656644247497
+        }
+      },
+      {
+        "extra_adverse_slippage_per_leg_usd": 0.05,
+        "extra_two_leg_cost_per_share_usd": 0.1,
+        "fraction_credit_nonpositive": 0.029290853031860225,
+        "observed_side_credit_after_slippage": {
+          "mean": 0.5216084275436793,
+          "median": 0.4800000000000001,
+          "n": 1946,
+          "p90": 0.9
+        },
+        "pairs": 1946,
+        "proxy_model_minus_stressed_side_credit": {
+          "mean": 0.357107741704398,
+          "median": 0.2814212440619205,
+          "n": 1946,
+          "p90": 0.7409808436063703
+        },
+        "source_iv_model_minus_stressed_side_credit": {
+          "mean": 0.08511861776347653,
+          "median": 0.09601234046976229,
+          "n": 1946,
+          "p90": 0.1856656644247497
+        }
+      },
+      {
+        "extra_adverse_slippage_per_leg_usd": 0.1,
+        "extra_two_leg_cost_per_share_usd": 0.2,
+        "fraction_credit_nonpositive": 0.13617677286742036,
+        "observed_side_credit_after_slippage": {
+          "mean": 0.4216084275436794,
+          "median": 0.38000000000000006,
+          "n": 1946,
+          "p90": 0.8
+        },
+        "pairs": 1946,
+        "proxy_model_minus_stressed_side_credit": {
+          "mean": 0.457107741704398,
+          "median": 0.38142124406192046,
+          "n": 1946,
+          "p90": 0.8409808436063704
+        },
+        "source_iv_model_minus_stressed_side_credit": {
+          "mean": 0.18511861776347655,
+          "median": 0.1960123404697623,
+          "n": 1946,
+          "p90": 0.2856656644247497
+        }
+      }
+    ]
+  },
+  "limitations": [
+    "QQQ chain is a public EOD preservation mirror, not exchange-hosted data.",
+    "Source-reported IV may be derived from the same quote midpoint and is not independent validation.",
+    "EOD snapshots do not prove executable entry/exit at the strategy decision timestamp.",
+    "This report contains no portfolio-return or strategy-P&L claim.",
+    "VXX option history is not supplied; existing VXX option marks remain DERIVED_BS_VIX / NOT_OPRA.",
+    "Requested window ends 2025-12-31, but raw underlying prices end on 2025-12-15 and QQQ option rows end on 2025-12-15; 11 expected repo-universe sessions remain uncovered after the last option date. The date denominator is the full repo-universe session index, so missing tail dates are not excluded."
+  ],
+  "trade_replay_approved": false,
+  "not_a_strategy_backtest": true,
+  "daily_csv": {
+    "path": "research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_DAILY_PAIRS_RUN22.csv",
+    "chain_dates": 1956,
+    "valid_raw_target_pairs": 1946,
+    "contains_raw_target_quotes": true,
+    "contains_all_expected_dates": false
+  },
+  "interpretation": {
+    "option_underlying_price_basis": "BLOCKED_FOR_TRADE_REPLAY",
+    "per_leg_spread_realism": "BLOCKED_FOR_TRADE_REPLAY",
+    "source_coverage": "INCOMPLETE_THROUGH_2025-12-31",
+    "next_step": "Use raw nominal QQQ spot for option strike/quote geometry; retain adjusted-close data only for core total-return accounting. Add observed-side and adverse-fill scenarios before considering a strategy replay.",
+    "no_strategy_pnl_claim": true
+  }
+}

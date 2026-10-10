@@ -120,3 +120,20 @@ The corrected coverage run passed against the current PR head. Expected sessions
 Median repo QQQ input vs raw nominal close is -2.72%. The proxy median model-minus-observed short-Bid/wing-Ask credit gap is +$0.181/share; source-IV median absolute gap is $0.060/share but source IV is not independent validation. Haircuts remain narrower than observed on 30.0% short / 57.2% wing legs, and 81.5% / 100.0% in VIX ≥35 (54 pairs). **Option underlying price basis** and **Per-leg spread realism** remain **BLOCKED for trade replay**. No threshold, policy rule, performance claim, or broker-order permission changes.
 
 See [Run #18 report](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN18.md) and [summary JSON](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN18.json).
+
+
+## Run #22 — observed-side and adverse-fill gate review (2026-10-10)
+
+Windows self-hosted [Run #22](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38015730909) completed the SHA-pinned 2018–2025 streaming diagnostic on the PR branch head. The requested window contains 1,971 expected sessions; source spot and QQQ option rows stop on 2025-12-15, so 11 expected sessions to 2025-12-31 remain uncovered. Coverage: raw underlying 99.44%, chain dates 99.24%, raw-spot target pairs 98.73% of expected dates.
+
+The price-basis gate remains BLOCKED: median repo QQQ input vs raw close is −2.72%; target short/wing contract choices differ under raw vs adjusted geometry on 96.61% / 95.84% of matched dates, and repo-input selected-pair median Deltas are 0.28174 / 0.16985 vs intended 0.16 / 0.08. The spread-realism gate remains BLOCKED: proxy median model-minus-observed-side credit is +$0.181/share; observed EOD spread haircuts are wider than the model on 30.0% of short legs and 57.2% of wings.
+
+| Extra slippage per leg (hypothetical) | Pairs with stressed credit ≤ $0 | Median proxy-model minus stressed observed credit |
+|---:|---:|---:|
+| $0.000 | 0.41% | $0.181/share |
+| $0.010 | 0.57% | $0.201/share |
+| $0.025 | 1.23% | $0.231/share |
+| $0.050 | 2.93% | $0.281/share |
+| $0.100 | 13.62% | $0.381/share |
+
+These are scenario assumptions, not measured transaction costs or fill probabilities. Source-reported IV is not independent of source quotes. The diagnostic makes no strategy-return claim and does not change any acceptance threshold, frozen policy, or order permissions. See [Run #22 report](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN22.md) and [summary JSON](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN22.json).
