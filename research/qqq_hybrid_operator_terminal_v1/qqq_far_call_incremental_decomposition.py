@@ -504,7 +504,7 @@ def write_outputs(report, out_dir):
             "exit_gross_debit_cash_usd": cash.get("exit_gross_debit_cash_usd"),
             "exit_execution_costs_usd": cash.get("exit_execution_costs_usd"),
             "realized_pnl_usd": item.get("reported_closed_trade_net_pnl_usd"),
-            "independent_reconciliation_error_usd": cash.get("max_abs_independent_cashflow_reconciliation_error_usd"),
+            "independent_reconciliation_error_usd": cash.get("max_abs_independent_reconciliation_error_usd"),
             "matched_nav_sessions": path.get("matched_nav_sessions"),
             "unmatched_nav_sessions": path.get("unmatched_nav_sessions"),
             "last_incremental_nav_usd": path.get("last_observed_incremental_nav_usd"),
