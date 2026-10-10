@@ -141,4 +141,12 @@ The next audit version samples eight dates from the already hash-pinned 2020 and
 - The repo option model's QQQ input was below raw close by a median **2.72%** over source dates. That basis difference can change strikes and modeled credit; option-layer strike/quote replay must use contemporaneous raw nominal spot or an explicit, versioned corporate-action transformation.
 - EOD rows are reported as 4:00 PM US Eastern snapshots; they do not prove fills at the model's decision timestamp. QQQ-only history does not supply VXX option history. VXX option marks remain DERIVED_BS_VIX / NOT_OPRA.
 
-Next: correct the source-date denominator and two null metric mappings, then rerun on the self-hosted Windows runner before storing a v2 audited summary. No strategy-policy or broker-order permission change is made.
+The date denominator and output mappings were corrected and rerun successfully in Run #18. See the corrected full-history report linked below. No strategy-policy or broker-order permission change is made.
+
+
+## Corrected full-history quote evidence — Run #18
+
+- [Corrected report](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN18.md) and [summary JSON](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN18.json) are based on successful Windows self-hosted [Actions Run #18](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38009943427) with source hashes verified.
+- Correct denominator: 1,971 expected sessions; raw-close coverage 99.44%, chain coverage 99.24%, raw-target pair coverage 98.73%. Both underlying and option data stop on 2025-12-15; requested coverage through 2025-12-31 is incomplete.
+- Median repo QQQ input vs raw nominal close: —%. VIX-proxy credit gap median: +—/share; source-IV absolute gap median: —/share, but source IV is not independent validation.
+- Haircut-too-narrow rates: —% short / —% wings; VIX ≥35: 81.5% / 100.0%. Price-basis and spread-realism gates stay blocked for trade replay.
