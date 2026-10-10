@@ -6,6 +6,7 @@ Annual Parquet files are streamed one date at a time after Git-blob SHA validati
 """
 from __future__ import annotations
 import hashlib, json, sys, urllib.request
+from datetime import date
 from collections import defaultdict
 from pathlib import Path
 import pyarrow.parquet as pq
