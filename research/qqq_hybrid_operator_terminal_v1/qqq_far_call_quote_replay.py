@@ -200,6 +200,66 @@ def quote_map(rows):
     return result
 
 
+def refresh_pair_for_entry(signal_pair, rows_by_id, session_day):
+    """Reprice the exact contracts selected at the prior session's close.
+
+    This prevents using next-session Delta/contract identity to choose a trade
+    and then pretending the same EOD quote was an ex-ante selection.
+    """
+    if not signal_pair or signal_pair.get("status") != "PAIR_SELECTED":
+        return {"status": "NO_VALID_PAIR_AT_SIGNAL_CLOSE"}
+    selected_short = signal_pair["short"]
+    selected_wing = signal_pair["wing"]
+    short = rows_by_id.get(selected_short["contract_id"])
+    wing = rows_by_id.get(selected_wing["contract_id"])
+    if short is None or wing is None:
+        return {"status": "SIGNAL_CONTRACT_MISSING_NEXT_SESSION"}
+    for row, selected in ((short, selected_short), (wing, selected_wing)):
+        if day(row.get("date")) != session_day:
+            return {"status": "STALE_OR_MIXED_ENTRY_QUOTE_DATE"}
+        if str(row.get("symbol", "")).upper() != "QQQ":
+            return {"status": "ENTRY_UNDERLYING_MISMATCH"}
+        if str(row.get("type", "")).strip().lower() not in ("c", "call"):
+            return {"status": "ENTRY_OPTION_RIGHT_MISMATCH"}
+        if normalized_contract_id(row.get("contract_id")) != selected["contract_id"]:
+            return {"status": "ENTRY_CONTRACT_ID_MISMATCH"}
+        if contract_root(row.get("contract_id")) != "QQQ":
+            return {"status": "ENTRY_CONTRACT_ROOT_UNVERIFIED"}
+        if day(row.get("expiration")) != signal_pair["expiry"]:
+            return {"status": "ENTRY_EXPIRY_MISMATCH"}
+        if n(row.get("strike")) is None or abs(n(row.get("strike")) - selected["strike"]) > 1e-8:
+            return {"status": "ENTRY_STRIKE_MISMATCH"}
+        if not valid_quote(row, require_size=True):
+            return {"status": "INVALID_OR_UNSIZED_ENTRY_QUOTE"}
+    dte = (date.fromisoformat(signal_pair["expiry"]) - date.fromisoformat(session_day)).days
+    if dte <= 0:
+        return {"status": "SIGNAL_CONTRACT_EXPIRED_BEFORE_ENTRY"}
+    width = n(wing.get("strike")) - n(short.get("strike"))
+    gross_credit = n(short.get("bid")) - n(wing.get("ask"))
+    if width is None or width <= 0 or gross_credit is None or gross_credit <= 0 or gross_credit >= width:
+        return {"status": "NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT"}
+
+    def leg(row, name):
+        return {
+            "contract_id": normalized_contract_id(row.get("contract_id")),
+            "root": contract_root(row.get("contract_id")),
+            "expiry": signal_pair["expiry"], "strike": n(row.get("strike")),
+            "delta": n(row.get("delta")), "bid": n(row.get("bid")),
+            "ask": n(row.get("ask")), "bid_size": n(row.get("bid_size")),
+            "ask_size": n(row.get("ask_size")), "volume": n(row.get("volume")),
+            "open_interest": n(row.get("open_interest")),
+            "source_iv": n(row.get("implied_volatility")), "leg": name,
+        }
+    return {
+        "status": "PAIR_SELECTED", "expiry": signal_pair["expiry"], "dte": dte,
+        "short": leg(short, "SHORT"), "wing": leg(wing, "LONG_WING"),
+        "width": width, "gross_observed_side_credit_per_share": gross_credit,
+        "delta_score": signal_pair.get("delta_score"),
+        "selected_on_signal_date": True, "signal_date": session_day,
+        "evidence": EVIDENCE,
+    }
+
+
 def close_side_debit_per_share(position, rows_by_id, slippage, commission):
     short = rows_by_id.get(position["short_id"])
     wing = rows_by_id.get(position["wing_id"])
@@ -257,6 +317,7 @@ class Replay:
         self.first_adj_close = None
         self.position = None
         self.pending_open = False
+        self.pending_selection = None
         self.pending_close = False
         self.events = []
         self.trades = []
@@ -265,6 +326,7 @@ class Replay:
         self.missing_position_mark_dates = []
         self.last_valid_nav = None
         self.unresolved_positions = []
+        self.expired_unresolved_keys = set()
         self.max_open_max_loss_usd = 0.0
         self.max_open_max_loss_pct_nav = 0.0
 
@@ -290,6 +352,16 @@ class Replay:
         return core_value + self.cash - debit * 100 * position["quantity"], "OK"
 
     def process(self, day_key, rows, spot_info, vix_value, selected_pair=None, qmap_override=None):
+        supplied_map = qmap_override if qmap_override is not None else quote_map(rows)
+        row_dates = {day(row.get("date")) for row in rows}
+        map_dates = {day(row.get("date")) for row in supplied_map.values()}
+        stale_or_mixed = (bool(rows) and row_dates != {day_key}) or (bool(supplied_map) and map_dates != {day_key})
+        if stale_or_mixed:
+            # A quote with a prior/future/missing timestamp must never be reused.
+            self.counters["stale_or_mixed_chain_dates"] += 1
+            rows = []
+            supplied_map = {}
+            selected_pair = {"status": "STALE_OR_MIXED_CHAIN_DATE"}
         chain_present = bool(rows)
         self.counters["expected_sessions"] += 1
         if chain_present:
@@ -298,8 +370,9 @@ class Replay:
             self.counters["missing_chain_sessions"] += 1
         raw_spot = n((spot_info or {}).get("raw_close"))
         core_value = self._core_value(spot_info)
-        qmap = qmap_override if qmap_override is not None else quote_map(rows)
-        selected_pair = selected_pair if selected_pair is not None else (choose_vertical(rows, day_key) if chain_present else {"status": "NO_CHAIN"})
+        qmap = supplied_map
+        if selected_pair is None:
+            selected_pair = choose_vertical(rows, day_key) if chain_present else {"status": "NO_CHAIN"}
         if selected_pair.get("status") == "PAIR_SELECTED":
             self.counters["candidate_pair_sessions"] += 1
         else:
@@ -331,9 +404,14 @@ class Replay:
                 executed_close_today = True
                 self.counters["closed_trades"] += 1
             elif date.fromisoformat(day_key) >= exp:
-                self.counters["expired_unresolved"] += 1
-                self.unresolved_positions.append({"date": day_key, "reason": "NO_VALID_EXIT_QUOTE_BEFORE_EXPIRY",
-                                                  "short_id": self.position["short_id"], "wing_id": self.position["wing_id"]})
+                unresolved_key = (self.position["short_id"], self.position["wing_id"],
+                                  self.position["expiry"], self.position["entry_date"])
+                if unresolved_key not in self.expired_unresolved_keys:
+                    self.expired_unresolved_keys.add(unresolved_key)
+                    self.counters["expired_unresolved"] += 1
+                    self.unresolved_positions.append({"date": day_key, "reason": "NO_VALID_EXIT_QUOTE_BEFORE_EXPIRY",
+                                                      "short_id": self.position["short_id"], "wing_id": self.position["wing_id"],
+                                                      "expiry": self.position["expiry"], "entry_date": self.position["entry_date"]})
             else:
                 self.counters["exit_delayed_missing_quote"] += 1
                 self.events.append({"date": day_key, "event": "CLOSE_DEFERRED", "status": status,
@@ -342,63 +420,77 @@ class Replay:
         just_opened = False
         if self.position is None and self.pending_open and chain_present:
             self.pending_open = False
+            signal_pair = self.pending_selection
+            self.pending_selection = None
             if raw_spot is None or core_value is None:
                 self.counters["entry_blocked_missing_spot"] += 1
                 self.events.append({"date": day_key, "event": "ENTRY_BLOCKED", "reason": "RAW_OR_ADJUSTED_SPOT_MISSING"})
-            elif selected_pair.get("status") != "PAIR_SELECTED":
-                self.counters["entry_no_valid_pair"] += 1
-                self.events.append({"date": day_key, "event": "ENTRY_SKIPPED", "reason": selected_pair.get("status")})
             else:
-                pair = selected_pair
-                net_credit = entry_net_credit_per_share(pair, self.slippage, self.commission)
-                nav_for_sizing = core_value + self.cash
-                quantity, max_loss = pick_quantity(nav_for_sizing, pair, self.mode, net_credit,
-                                                   self.slippage, self.commission)
-                if net_credit <= 0:
-                    self.counters["entry_nonpositive_credit"] += 1
-                    self.events.append({"date": day_key, "event": "ENTRY_BLOCKED", "reason": "NONPOSITIVE_NET_CREDIT_AFTER_COSTS"})
-                elif quantity < 1:
-                    self.counters["entry_quantity_zero"] += 1
-                    self.events.append({"date": day_key, "event": "ENTRY_SKIPPED", "reason": "BUDGET_BELOW_ONE_SPREAD",
-                                        "nav_for_sizing": round(nav_for_sizing, 2)})
+                pair = refresh_pair_for_entry(signal_pair, qmap, day_key)
+                if pair.get("status") != "PAIR_SELECTED":
+                    self.counters["entry_no_valid_pair"] += 1
+                    self.events.append({"date": day_key, "event": "ENTRY_SKIPPED",
+                                        "reason": pair.get("status"), "signal_date": self._signal_date})
                 else:
-                    self.cash += net_credit * 100 * quantity
-                    total_max_loss = max_loss * quantity
-                    self.max_open_max_loss_usd = max(self.max_open_max_loss_usd, total_max_loss)
-                    self.max_open_max_loss_pct_nav = max(self.max_open_max_loss_pct_nav,
-                                                          total_max_loss / nav_for_sizing if nav_for_sizing > 0 else 0.0)
-                    self.position = {
-                        "budget_mode": self.mode["name"], "slippage_per_leg": self.slippage,
-                        "commission_per_contract_per_side": self.commission,
-                        "signal_date": self._signal_date, "entry_date": day_key,
-                        "entry_short_bid": pair["short"]["bid"], "entry_wing_ask": pair["wing"]["ask"],
-                        "entry_gross_credit_per_share": pair["gross_observed_side_credit_per_share"],
-                        "entry_net_credit_ps": net_credit, "entry_cash_credit": net_credit*100*quantity,
-                        "short_id": pair["short"]["contract_id"], "wing_id": pair["wing"]["contract_id"],
-                        "expiry": pair["expiry"], "short_strike": pair["short"]["strike"],
-                        "wing_strike": pair["wing"]["strike"], "short_delta": pair["short"]["delta"],
-                        "wing_delta": pair["wing"]["delta"], "width": pair["width"],
-                        "entry_dte": pair["dte"], "quantity": quantity,
-                        "max_loss_per_spread_scenario": max_loss,
-                        "entry_total_max_loss_scenario_usd": total_max_loss,
-                        "entry_total_max_loss_pct_nav": total_max_loss / nav_for_sizing if nav_for_sizing > 0 else None,
-                        "source_status": EVIDENCE, "exit_reason": None,
-                        "entry_regime": regime(vix_value),
-                    }
-                    self.counters["opened_trades"] += 1
-                    self.events.append({"date": day_key, "event": "OPEN",
-                                        "expiry": pair["expiry"], "short_id": pair["short"]["contract_id"],
-                                        "wing_id": pair["wing"]["contract_id"], "short_strike": pair["short"]["strike"],
-                                        "wing_strike": pair["wing"]["strike"], "short_delta": pair["short"]["delta"],
-                                        "wing_delta": pair["wing"]["delta"], "dte": pair["dte"],
-                                        "gross_credit_per_share": pair["gross_observed_side_credit_per_share"],
-                                        "net_credit_per_share": net_credit, "quantity": quantity,
-                                        "max_loss_per_spread_scenario": round(max_loss, 4),
-                                        "nav_for_sizing": round(nav_for_sizing, 2), "budget_mode": self.mode["name"],
-                                        "slippage_per_leg": self.slippage,
-                                        "commission_per_contract_per_side": self.commission,
-                                        "source_status": EVIDENCE})
-                    just_opened = True
+                    net_credit = entry_net_credit_per_share(pair, self.slippage, self.commission)
+                    nav_for_sizing = core_value + self.cash
+                    quantity, max_loss = pick_quantity(nav_for_sizing, pair, self.mode, net_credit,
+                                                       self.slippage, self.commission)
+                    if net_credit <= 0:
+                        self.counters["entry_nonpositive_credit"] += 1
+                        self.events.append({"date": day_key, "event": "ENTRY_BLOCKED",
+                                            "reason": "NONPOSITIVE_NET_CREDIT_AFTER_COSTS"})
+                    elif quantity < 1:
+                        self.counters["entry_quantity_zero"] += 1
+                        self.events.append({"date": day_key, "event": "ENTRY_SKIPPED",
+                                            "reason": "BUDGET_BELOW_ONE_SPREAD",
+                                            "nav_for_sizing": round(nav_for_sizing, 2)})
+                    else:
+                        self.cash += net_credit * 100 * quantity
+                        total_max_loss = max_loss * quantity
+                        self.max_open_max_loss_usd = max(self.max_open_max_loss_usd, total_max_loss)
+                        self.max_open_max_loss_pct_nav = max(self.max_open_max_loss_pct_nav,
+                                                              total_max_loss / nav_for_sizing if nav_for_sizing > 0 else 0.0)
+                        self.position = {
+                            "budget_mode": self.mode["name"], "slippage_per_leg": self.slippage,
+                            "commission_per_contract_per_side": self.commission,
+                            "signal_date": self._signal_date, "entry_date": day_key,
+                            "entry_selection_expiry": signal_pair.get("expiry") if signal_pair else None,
+                            "entry_short_bid": pair["short"]["bid"], "entry_wing_ask": pair["wing"]["ask"],
+                            "entry_gross_credit_per_share": pair["gross_observed_side_credit_per_share"],
+                            "entry_net_credit_ps": net_credit, "entry_cash_credit": net_credit*100*quantity,
+                            "short_id": pair["short"]["contract_id"], "wing_id": pair["wing"]["contract_id"],
+                            "expiry": pair["expiry"], "short_strike": pair["short"]["strike"],
+                            "wing_strike": pair["wing"]["strike"], "short_delta": pair["short"]["delta"],
+                            "wing_delta": pair["wing"]["delta"], "width": pair["width"],
+                            "entry_dte": pair["dte"], "quantity": quantity,
+                            "max_loss_per_spread_scenario": max_loss,
+                            "entry_total_max_loss_scenario_usd": total_max_loss,
+                            "entry_total_max_loss_pct_nav": total_max_loss / nav_for_sizing if nav_for_sizing > 0 else None,
+                            "source_status": EVIDENCE, "exit_reason": None,
+                            "entry_regime": regime(vix_value),
+                        }
+                        self.counters["opened_trades"] += 1
+                        self.events.append({"date": day_key, "event": "OPEN",
+                                            "expiry": pair["expiry"], "short_id": pair["short"]["contract_id"],
+                                            "wing_id": pair["wing"]["contract_id"], "short_strike": pair["short"]["strike"],
+                                            "wing_strike": pair["wing"]["strike"], "short_delta": pair["short"]["delta"],
+                                            "wing_delta": pair["wing"]["delta"], "dte": pair["dte"],
+                                            "gross_credit_per_share": pair["gross_observed_side_credit_per_share"],
+                                            "net_credit_per_share": net_credit, "quantity": quantity,
+                                            "max_loss_per_spread_scenario": round(max_loss, 4),
+                                            "nav_for_sizing": round(nav_for_sizing, 2), "budget_mode": self.mode["name"],
+                                            "slippage_per_leg": self.slippage,
+                                            "commission_per_contract_per_side": self.commission,
+                                            "selection_signal_date": self._signal_date,
+                                            "source_status": EVIDENCE})
+                        just_opened = True
+        elif self.position is None and self.pending_open and not chain_present:
+            self.pending_open = False
+            self.pending_selection = None
+            self.counters["entry_skipped_missing_next_session_chain"] += 1
+            self.events.append({"date": day_key, "event": "ENTRY_SKIPPED",
+                                "reason": "NO_NEXT_SESSION_CHAIN", "signal_date": self._signal_date})
 
         # Mark existing positions only from the current exact contract rows; never forward-fill.
         nav, mark_status = self._nav(core_value, self.position, qmap, day_key)
@@ -434,17 +526,27 @@ class Replay:
         # Flat policy signals at today's close are eligible only for a future session.
         if self.position is None and not self.pending_close and chain_present and raw_spot is not None:
             self.pending_open = True
+            self.pending_selection = selected_pair
             self._signal_date = day_key
         elif self.position is None and not chain_present:
             self.pending_open = False
+            self.pending_selection = None
 
         marked = nav is not None
         self.daily.append({
             "date": day_key, "raw_spot": raw_spot, "adjusted_close_for_core_tr": n((spot_info or {}).get("adjusted_close")),
             "vix": n(vix_value), "regime": regime(vix_value), "chain_present": chain_present,
+            "cash_balance": round(self.cash, 6), "core_value_adjusted_total_return_proxy": round(core_value, 6) if core_value is not None else None,
+            "no_call_baseline_nav": round(core_value + INITIAL_CAPITAL * (1 - QQQ_CORE_FRACTION), 6) if core_value is not None else None,
             "nav_eod_marked": round(nav, 6) if nav is not None else None,
+            "incremental_nav_vs_no_call": round(nav - (core_value + INITIAL_CAPITAL * (1 - QQQ_CORE_FRACTION)), 6) if nav is not None and core_value is not None else None,
             "nav_mark_status": mark_status, "position_open": self.position is not None,
+            "position_short_id": self.position.get("short_id") if self.position else None,
+            "position_wing_id": self.position.get("wing_id") if self.position else None,
+            "position_expiry": self.position.get("expiry") if self.position else None,
+            "position_quantity": self.position.get("quantity") if self.position else None,
             "pending_close": self.pending_close, "pending_open": self.pending_open,
+            "pending_selection_expiry": self.pending_selection.get("expiry") if self.pending_selection and self.pending_selection.get("status") == "PAIR_SELECTED" else None,
             "source_status": EVIDENCE,
         })
 
