@@ -643,6 +643,8 @@ def run_replay(out_dir):
             "skipped_entry_missing_pair": state.counters["entry_no_valid_pair"],
             "entries_blocked_nonpositive_net_credit": state.counters["entry_nonpositive_credit"],
             "entry_quantity_zero": state.counters["entry_quantity_zero"],
+            "stale_or_mixed_chain_dates_rejected": state.counters["stale_or_mixed_chain_dates"],
+            "entry_skipped_missing_next_session_chain": state.counters["entry_skipped_missing_next_session_chain"],
             "missing_position_mark_sessions": state.counters["missing_position_mark_sessions"],
             "unmarked_nav_sessions": state.counters["unmarked_nav_sessions"],
             "closed_trade_net_pnl_sum_usd": round(sum(pnls), 2) if pnls else 0.0,
@@ -703,6 +705,17 @@ def run_replay(out_dir):
         fields = sorted({k for x in all_events for k in x})
         if not fields: fields = ["scenario", "event"]
         writer = csv.DictWriter(f, fieldnames=fields); writer.writeheader(); writer.writerows(all_events)
+    all_daily = []
+    for state in replay_states:
+        scenario_name = state.mode["name"]
+        all_daily.extend([{**row, "scenario": scenario_name,
+                           "slippage_per_leg_usd": state.slippage,
+                           "commission_per_contract_per_side_usd": state.commission}
+                          for row in state.daily])
+    with (out_dir / "qqq_far_call_replay_daily.csv").open("w", newline="", encoding="utf-8") as f:
+        fields = sorted({k for x in all_daily for k in x})
+        if not fields: fields = ["scenario", "date", "nav_mark_status"]
+        writer = csv.DictWriter(f, fieldnames=fields); writer.writeheader(); writer.writerows(all_daily)
 
     lines = [
         "# QQQ FAR CALL listed-contract EOD-side replay",
@@ -726,8 +739,9 @@ def run_replay(out_dir):
         "",
         "## Hard limitations",
         "",
+        "- Contract IDs and expiry are selected from the signal-day chain and pinned; next session may reprice only the same exact IDs. A changed candidate set does not substitute a new contract.",
         "- No same-close entry/exit: signals are carried forward to a later quote session.",
-        "- No quote forward-fill. Exact contract identity, root, same expiry, bid/ask and displayed sizes must be present.",
+        "- Stale/mixed quote dates are rejected; no quote forward-fill. Exact contract identity, root, same expiry, bid/ask and displayed sizes must be present.",
         "- Non-standard/unparseable roots, crossed/invalid quotes and non-positive net credits block new positions.",
         "- The 0.8% max-loss sizing scenario reproduces the inspected source-model budget setting; 1.2% NAV credit budget is a separate legacy-interpretation scenario, not assumed equivalent.",
         "- Commissions ($0.00 / $0.65 per contract per side) and per-leg slippage are explicit scenarios, not verified broker fees or measured executions.",
