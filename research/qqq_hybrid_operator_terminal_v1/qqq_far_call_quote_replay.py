@@ -990,6 +990,51 @@ class Replay:
             self.last_raw_spot = raw_spot
 
 
+def paired_nav_diagnostic(daily_rows):
+    """Compare overlay NAV with the same core/cash allocation only on paired marked dates.
+
+    This is a descriptive matched-date diagnostic, not a complete portfolio return
+    series. Missing days are counted and excluded; never interpolate them.
+    """
+    matched = []
+    for row in daily_rows:
+        overlay_nav = n(row.get("nav_eod_marked"))
+        baseline_nav = n(row.get("no_call_baseline_nav"))
+        if overlay_nav is None or baseline_nav is None:
+            continue
+        matched.append((day(row.get("date")), overlay_nav - baseline_nav))
+    if not matched:
+        return {
+            "status": "NO_MATCHED_MARKS",
+            "matched_mark_sessions": 0,
+            "unmatched_sessions": len(daily_rows),
+            "first_matched_date": None,
+            "last_matched_date": None,
+            "last_incremental_nav_vs_no_call_usd": None,
+            "min_incremental_nav_vs_no_call_usd": None,
+            "max_incremental_nav_vs_no_call_usd": None,
+            "positive_mark_days": 0,
+            "positive_mark_day_fraction": None,
+            "performance_gate": "BLOCKED",
+        }
+    values = [value for _, value in matched]
+    positive = sum(value > 0 for value in values)
+    return {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": len(matched),
+        "unmatched_sessions": len(daily_rows) - len(matched),
+        "first_matched_date": matched[0][0],
+        "last_matched_date": matched[-1][0],
+        "last_incremental_nav_vs_no_call_usd": round(matched[-1][1], 2),
+        "min_incremental_nav_vs_no_call_usd": round(min(values), 2),
+        "max_incremental_nav_vs_no_call_usd": round(max(values), 2),
+        "positive_mark_days": positive,
+        "positive_mark_day_fraction": round(positive / len(values), 6),
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS",
+    }
+
+
 def iter_qqq_chain_days(option_paths):
     """Yield one QQQ chain per source date; input files are SHA-verified by caller."""
     for path in option_paths:
@@ -1065,7 +1110,9 @@ def run_replay(out_dir):
         pnls = [x for x in pnls if x is not None]
         win_count = sum(x > 0 for x in pnls)
         loss_values = [t.get("max_loss_per_spread_scenario") for t in closed]
+        paired_nav = paired_nav_diagnostic(state.daily)
         scenario = {
+            "paired_nav_diagnostic": paired_nav,
             "scenario": name, "budget_kind": state.mode["kind"], "budget_pct_nav": state.mode["pct"],
             "slippage_per_leg_usd": state.slippage,
             "commission_per_contract_per_side_usd": state.commission,
@@ -1197,6 +1244,26 @@ def run_replay(out_dir):
             s["opened_spreads"], s["closed_spreads"], s["closed_trade_net_pnl_sum_usd"], avg_pnl,
             s["unresolved_or_open_position_at_end"], s["missing_position_mark_sessions"]))
     lines += [
+        "",
+        "## Matched-day NAV difference vs no-call control",
+        "",
+        "This is a descriptive overlay-minus-control NAV difference on dates where both paths can be marked. It excludes unmarked dates without interpolation and is **not** CAGR, MaxDD, or performance approval.",
+        "",
+        "| Budget | Slip/leg | Commission/contract/side | Matched dates | Unmatched dates | Last matched date | Last NAV difference | Minimum observed difference | Maximum observed difference | Positive mark days |",
+        "|---|---:|---:|---:|---:|---|---:|---:|---:|---:|",
+    ]
+    for s in scenarios:
+        d = s["paired_nav_diagnostic"]
+        last_value = "—" if d["last_incremental_nav_vs_no_call_usd"] is None else ("$%.2f" % d["last_incremental_nav_vs_no_call_usd"])
+        min_value = "—" if d["min_incremental_nav_vs_no_call_usd"] is None else ("$%.2f" % d["min_incremental_nav_vs_no_call_usd"])
+        max_value = "—" if d["max_incremental_nav_vs_no_call_usd"] is None else ("$%.2f" % d["max_incremental_nav_vs_no_call_usd"])
+        lines.append("| %s | $%.3f | $%.2f | %d | %d | %s | %s | %s | %s | %d/%d |" % (
+            s["scenario"], s["slippage_per_leg_usd"], s["commission_per_contract_per_side_usd"],
+            d["matched_mark_sessions"], d["unmatched_sessions"], d["last_matched_date"] or "—",
+            last_value, min_value, max_value, d["positive_mark_days"], d["matched_mark_sessions"]))
+    lines += [
+        "",
+        "The control holds the same 42% QQQ core total-return proxy and static 58% cash but has no option trades. Option overlay marks include the conservative zero-wing-Bid floor where present. Since dates with missing marks are excluded, this table is a measurement/attribution diagnostic only; it cannot establish a complete portfolio CAGR or drawdown.",
         "",
         "## Trade-level attribution (closed spreads only)",
         "",

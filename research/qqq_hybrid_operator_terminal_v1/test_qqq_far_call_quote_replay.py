@@ -302,6 +302,35 @@ class QqqFarCallReplayTests(unittest.TestCase):
             "exit_reason": "PNL_OVER_MAXLOSS_GE_0P50", "holding_calendar_days": 10,
         }
 
+    def test_paired_nav_diagnostic_uses_only_dates_with_both_marks(self):
+        rows = [
+            {"date": "2024-01-02", "nav_eod_marked": 100200.0, "no_call_baseline_nav": 100000.0},
+            {"date": "2024-01-03", "nav_eod_marked": None, "no_call_baseline_nav": 100100.0},
+            {"date": "2024-01-04", "nav_eod_marked": 99950.0, "no_call_baseline_nav": 100000.0},
+        ]
+        result = replay.paired_nav_diagnostic(rows)
+        self.assertEqual(result["status"], "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED")
+        self.assertEqual(result["matched_mark_sessions"], 2)
+        self.assertEqual(result["unmatched_sessions"], 1)
+        self.assertEqual(result["first_matched_date"], "2024-01-02")
+        self.assertEqual(result["last_matched_date"], "2024-01-04")
+        self.assertEqual(result["last_incremental_nav_vs_no_call_usd"], -50.0)
+        self.assertEqual(result["min_incremental_nav_vs_no_call_usd"], -50.0)
+        self.assertEqual(result["max_incremental_nav_vs_no_call_usd"], 200.0)
+        self.assertEqual(result["positive_mark_days"], 1)
+        self.assertEqual(result["positive_mark_day_fraction"], 0.5)
+        self.assertEqual(result["performance_gate"], "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS")
+
+    def test_paired_nav_diagnostic_blocks_when_no_dates_have_both_marks(self):
+        result = replay.paired_nav_diagnostic([
+            {"date": "2024-01-02", "nav_eod_marked": None, "no_call_baseline_nav": 100000.0},
+            {"date": "2024-01-03", "nav_eod_marked": 100000.0, "no_call_baseline_nav": None},
+        ])
+        self.assertEqual(result["status"], "NO_MATCHED_MARKS")
+        self.assertEqual(result["matched_mark_sessions"], 0)
+        self.assertEqual(result["unmatched_sessions"], 2)
+        self.assertIsNone(result["last_incremental_nav_vs_no_call_usd"])
+
     def test_trade_attribution_cash_flows_reconcile_and_measure_delta_drift(self):
         trade = replay.attribute_closed_trade(self._sample_attribution_trade())
         self.assertEqual(trade["attribution_status"], "PASS_CASH_FLOW_RECONCILIATION")
