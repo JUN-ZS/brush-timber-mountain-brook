@@ -263,6 +263,8 @@ class QqqFarCallReplayTests(unittest.TestCase):
         })
         trade.pop("exit_short_ask")
         trade.pop("exit_wing_bid")
+        trade.pop("exit_short_delta")
+        trade.pop("exit_wing_delta")
         attributed = replay.attribute_closed_trade(trade)
         self.assertEqual(attributed["attribution_status"], "PASS_CASH_FLOW_RECONCILIATION")
         self.assertEqual(attributed["exit_debit_basis"], "INTRINSIC_SETTLEMENT_PROXY")
