@@ -1,0 +1,244 @@
+{
+  "report_id": "QQQ_FAR_CALL_REPLAY_RUN34",
+  "run": {
+    "run_number": 34,
+    "run_id": 38085894573,
+    "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38085894573",
+    "head_sha": "e3b3b8faab15374941b8a4dc4be448168a1c0f42",
+    "conclusion": "success"
+  },
+  "evidence_class": "Observed EOD quote sides + derived replay cash flows; not exchange-confirmed fills",
+  "source_window": {
+    "start": "2018-03-01",
+    "observed_end": "2025-12-15",
+    "requested_end": "2025-12-31",
+    "expected_sessions": 1971,
+    "sessions_with_chain_rows": 1956
+  },
+  "verification": {
+    "offline_tests_passed": 26,
+    "closed_trade_rows": 1688,
+    "cash_flow_reconciliation_pass": 1688,
+    "fail": 0,
+    "blocked": 0,
+    "tolerance_usd": 0.01,
+    "all_replay_output_files_created": true,
+    "artifact_upload": "FAILED_QUOTA_FULL_DETAILS_REMAIN_IN_ACTIONS_LOG"
+  },
+  "mark_diagnostics": {
+    "baseline_mark_status_counts": {
+      "OK": 1684,
+      "OK_ZERO_WING_BID_FLOOR": 263,
+      "SHORT_CONTRACT_ROW_MISSING": 5,
+      "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+      "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+    },
+    "missing_position_mark_sessions_base_scenario": 24,
+    "previous_run31_missing_position_mark_sessions": 273,
+    "zero_wing_bid_floor_is_conservative_mark_not_fill": true
+  },
+  "base_cost_exit_attribution": {
+    "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+    "slippage_per_leg": 0,
+    "commission_per_contract_per_side": 0,
+    "exit_reasons": [
+      {
+        "reason": "DTE_LE_7",
+        "closed_trades": 62,
+        "net_pnl_usd": -4746,
+        "win_fraction": 0.468
+      },
+      {
+        "reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+        "closed_trades": 34,
+        "net_pnl_usd": 3250,
+        "win_fraction": 1,
+        "measurement": "intrinsic settlement proxy not confirmed exercise/fill"
+      },
+      {
+        "reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+        "closed_trades": 9,
+        "net_pnl_usd": -4150,
+        "win_fraction": 0
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "slippage_per_leg": 0,
+      "commission_per_contract_per_side": 0,
+      "opened": 106,
+      "closed": 105,
+      "closed_trade_net_pnl_usd": -5646,
+      "mean_closed_trade_pnl_usd": -53.77,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "slippage_per_leg": 0,
+      "commission_per_contract_per_side": 0.65,
+      "opened": 106,
+      "closed": 105,
+      "closed_trade_net_pnl_usd": -6068.2,
+      "mean_closed_trade_pnl_usd": -57.79,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "slippage_per_leg": 0.025,
+      "commission_per_contract_per_side": 0,
+      "opened": 107,
+      "closed": 106,
+      "closed_trade_net_pnl_usd": -6730,
+      "mean_closed_trade_pnl_usd": -63.49,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "slippage_per_leg": 0.025,
+      "commission_per_contract_per_side": 0.65,
+      "opened": 107,
+      "closed": 106,
+      "closed_trade_net_pnl_usd": -7185,
+      "mean_closed_trade_pnl_usd": -67.78,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "slippage_per_leg": 0.05,
+      "commission_per_contract_per_side": 0,
+      "opened": 107,
+      "closed": 106,
+      "closed_trade_net_pnl_usd": -8566,
+      "mean_closed_trade_pnl_usd": -80.81,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "slippage_per_leg": 0.05,
+      "commission_per_contract_per_side": 0.65,
+      "opened": 107,
+      "closed": 106,
+      "closed_trade_net_pnl_usd": -9013.6,
+      "mean_closed_trade_pnl_usd": -85.03,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "slippage_per_leg": 0.1,
+      "commission_per_contract_per_side": 0,
+      "opened": 108,
+      "closed": 108,
+      "closed_trade_net_pnl_usd": -11268,
+      "mean_closed_trade_pnl_usd": -104.33,
+      "unresolved_or_open_at_end": 0,
+      "missing_position_mark_sessions": 13
+    },
+    {
+      "budget": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "slippage_per_leg": 0.1,
+      "commission_per_contract_per_side": 0.65,
+      "opened": 108,
+      "closed": 108,
+      "closed_trade_net_pnl_usd": -11369.2,
+      "mean_closed_trade_pnl_usd": -105.27,
+      "unresolved_or_open_at_end": 0,
+      "missing_position_mark_sessions": 14
+    },
+    {
+      "budget": "LEGACY_CREDIT_1P2PCT_NAV",
+      "slippage_per_leg": 0,
+      "commission_per_contract_per_side": 0,
+      "opened": 106,
+      "closed": 105,
+      "closed_trade_net_pnl_usd": -66685,
+      "mean_closed_trade_pnl_usd": -635.1,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "LEGACY_CREDIT_1P2PCT_NAV",
+      "slippage_per_leg": 0,
+      "commission_per_contract_per_side": 0.65,
+      "opened": 106,
+      "closed": 105,
+      "closed_trade_net_pnl_usd": -73538.2,
+      "mean_closed_trade_pnl_usd": -700.36,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "LEGACY_CREDIT_1P2PCT_NAV",
+      "slippage_per_leg": 0.025,
+      "commission_per_contract_per_side": 0,
+      "opened": 107,
+      "closed": 106,
+      "closed_trade_net_pnl_usd": -85711,
+      "mean_closed_trade_pnl_usd": -808.59,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "LEGACY_CREDIT_1P2PCT_NAV",
+      "slippage_per_leg": 0.025,
+      "commission_per_contract_per_side": 0.65,
+      "opened": 107,
+      "closed": 106,
+      "closed_trade_net_pnl_usd": -91838.6,
+      "mean_closed_trade_pnl_usd": -866.4,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "LEGACY_CREDIT_1P2PCT_NAV",
+      "slippage_per_leg": 0.05,
+      "commission_per_contract_per_side": 0,
+      "opened": 107,
+      "closed": 106,
+      "closed_trade_net_pnl_usd": -112071,
+      "mean_closed_trade_pnl_usd": -1057.27,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "LEGACY_CREDIT_1P2PCT_NAV",
+      "slippage_per_leg": 0.05,
+      "commission_per_contract_per_side": 0.65,
+      "opened": 107,
+      "closed": 106,
+      "closed_trade_net_pnl_usd": -118899.6,
+      "mean_closed_trade_pnl_usd": -1121.69,
+      "unresolved_or_open_at_end": 1,
+      "missing_position_mark_sessions": 24
+    },
+    {
+      "budget": "LEGACY_CREDIT_1P2PCT_NAV",
+      "slippage_per_leg": 0.1,
+      "commission_per_contract_per_side": 0,
+      "opened": 107,
+      "closed": 107,
+      "closed_trade_net_pnl_usd": -144091,
+      "mean_closed_trade_pnl_usd": -1346.64,
+      "unresolved_or_open_at_end": 0,
+      "missing_position_mark_sessions": 13
+    },
+    {
+      "budget": "LEGACY_CREDIT_1P2PCT_NAV",
+      "slippage_per_leg": 0.1,
+      "commission_per_contract_per_side": 0.65,
+      "opened": 97,
+      "closed": 97,
+      "closed_trade_net_pnl_usd": -148175.4,
+      "mean_closed_trade_pnl_usd": -1527.58,
+      "unresolved_or_open_at_end": 0,
+      "missing_position_mark_sessions": 12
+    }
+  ]
+}

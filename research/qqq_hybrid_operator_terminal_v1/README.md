@@ -161,3 +161,8 @@ py -3 -m py_compile research\\qqq_hybrid_operator_terminal_v1\\server.py
 \`\`\`
 
 The associated GitHub Actions workflow uses only \`[self-hosted, windows, x64]\`. There is no broker order endpoint and no policy mutation path.
+
+
+## Latest QQQ far-call replay result
+
+- [Run #34 result report](./QQQ_FAR_CALL_REPLAY_RUN34.md) and [machine-readable summary](./QQQ_FAR_CALL_REPLAY_RUN34.json) preserve the actual Windows self-hosted Actions output. Run #34 passed 26 replay tests and all 1,688 closed-trade cash-flow reconciliations; markability gaps fell from 273 to 24 sessions in the base-cost arm, but all 16 budget/cost scenarios remained negative. The report blocks CAGR/MaxDD/Sharpe/ES95 due EOD-only quotes and incomplete source/core-price coverage. No strategy integration approved.
