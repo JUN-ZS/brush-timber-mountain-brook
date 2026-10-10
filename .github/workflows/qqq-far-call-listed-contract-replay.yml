@@ -63,7 +63,9 @@ jobs:
           echo detail_trade_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_trades.csv
           echo detail_event_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_events.csv
           echo detail_daily_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_daily.csv
-          py -3 -c "from pathlib import Path; p=[Path('QQQ_FAR_CALL_REPLAY_RUN.json'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.json'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.md'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_trades.csv'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_events.csv'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_daily.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing replay outputs: '+repr(m); print('all_replay_outputs_exist=PASS')" || exit /b 1
+          echo detail_attribution_json=artifacts\qqq_far_call_replay\qqq_far_call_replay_attribution.json
+          echo detail_attribution_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_attribution.csv
+          py -3 -c "from pathlib import Path; p=[Path('QQQ_FAR_CALL_REPLAY_RUN.json'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.json'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.md'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_trades.csv'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_events.csv'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_daily.csv'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.json'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing replay outputs: '+repr(m); print('all_replay_outputs_exist=PASS')" || exit /b 1
           echo output_retention=GitHub_Actions_artifact_14_days
       - name: Upload reproducible replay outputs
         continue-on-error: true
@@ -77,5 +79,7 @@ jobs:
             artifacts/qqq_far_call_replay/qqq_far_call_replay_trades.csv
             artifacts/qqq_far_call_replay/qqq_far_call_replay_events.csv
             artifacts/qqq_far_call_replay/qqq_far_call_replay_daily.csv
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.json
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.csv
           if-no-files-found: error
           retention-days: 14
