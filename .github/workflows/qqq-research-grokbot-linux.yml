@@ -1,0 +1,238 @@
+name: QQQ Research Sync — Grok Bot Linux
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/**
+      - research/qqq_hybrid_dynamic_deployment_v1_1_replay.py
+      - src/data/universe.json
+      - .github/workflows/qqq-far-call-listed-contract-replay.yml
+      - .github/workflows/qqq-public-eod-chain-audit.yml
+      - .github/workflows/qqq-hybrid-operator-terminal-v1.yml
+      - .github/workflows/qqq-research-grokbot-linux.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-research-grokbot-linux
+  cancel-in-progress: false
+
+jobs:
+  far-call-replay:
+    name: Grok Bot Linux / Listed-contract replay + decomposition
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Linux Python environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Restore SHA-verified historical QQQ cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/qqq-options-full-history
+          key: qqq-options-full-history-2018-2025-sha-pinned-v1
+          enableCrossOsArchive: true
+
+      - name: Compile and run replay regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/qqq_far_call_quote_replay.py
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_quote_replay.py
+          $PY research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_quote_replay.py
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/qqq_far_call_incremental_decomposition.py
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_incremental_decomposition.py
+          $PY research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_incremental_decomposition.py
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/full_history_qqq_quote_audit.py
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py
+
+      - name: Run SHA-pinned replay and V2 decomposition
+        timeout-minutes: 50
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          mkdir -p artifacts/qqq_far_call_replay
+          $PY research/qqq_hybrid_operator_terminal_v1/qqq_far_call_quote_replay.py --out artifacts/qqq_far_call_replay > QQQ_FAR_CALL_REPLAY_RUN.json
+          cat QQQ_FAR_CALL_REPLAY_RUN.json
+          cat artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.md
+          cat artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.md >> "$GITHUB_STEP_SUMMARY"
+          $PY - <<'PY'
+          from pathlib import Path
+          required = [
+              Path("QQQ_FAR_CALL_REPLAY_RUN.json"),
+              Path("artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.json"),
+              Path("artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.md"),
+              Path("artifacts/qqq_far_call_replay/qqq_far_call_replay_trades.csv"),
+              Path("artifacts/qqq_far_call_replay/qqq_far_call_replay_events.csv"),
+              Path("artifacts/qqq_far_call_replay/qqq_far_call_replay_daily.csv"),
+              Path("artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.json"),
+              Path("artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.csv"),
+          ]
+          missing = [str(path) for path in required if not path.is_file()]
+          assert not missing, f"missing replay outputs: {missing!r}"
+          print("all_replay_outputs_exist=PASS")
+          PY
+          $PY research/qqq_hybrid_operator_terminal_v1/qqq_far_call_incremental_decomposition.py --input-dir artifacts/qqq_far_call_replay --out-dir artifacts/qqq_far_call_replay/incremental_decomposition > QQQ_FAR_CALL_INCREMENTAL_DECOMPOSITION_RUN.json
+          cat QQQ_FAR_CALL_INCREMENTAL_DECOMPOSITION_RUN.json
+          cat artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.md
+          cat artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.md >> "$GITHUB_STEP_SUMMARY"
+          $PY - <<'PY'
+          from pathlib import Path
+          required = [
+              Path("QQQ_FAR_CALL_INCREMENTAL_DECOMPOSITION_RUN.json"),
+              Path("artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.json"),
+              Path("artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.md"),
+              Path("artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.csv"),
+          ]
+          missing = [str(path) for path in required if not path.is_file()]
+          assert not missing, f"missing decomposition outputs: {missing!r}"
+          print("all_incremental_decomposition_outputs_exist=PASS")
+          PY
+
+  public-eod-audits:
+    name: Grok Bot Linux / Public EOD samples + full-history quote audit
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Linux Python environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Restore SHA-verified historical QQQ cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/qqq-options-full-history
+          key: qqq-options-full-history-2018-2025-sha-pinned-v1
+          enableCrossOsArchive: true
+
+      - name: Run sample source audit and price-basis regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/test_qqq_price_basis_audit.py
+          $PY research/qqq_hybrid_operator_terminal_v1/test_qqq_price_basis_audit.py
+          $PY research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py
+
+      - name: Run full-history quote audit offline regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/full_history_qqq_quote_audit.py
+          $PY -m py_compile research/qqq_hybrid_operator_terminal_v1/test_full_history_qqq_quote_audit.py
+          $PY research/qqq_hybrid_operator_terminal_v1/test_full_history_qqq_quote_audit.py
+
+      - name: Stream SHA-pinned 2018-2025 full-history quote audit
+        timeout-minutes: 60
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/qqq-options-full-history
+          .venv/bin/python research/qqq_hybrid_operator_terminal_v1/full_history_qqq_quote_audit.py > QQQ_FULL_HISTORY_AUDIT_LOG.json
+          cat QQQ_FULL_HISTORY_AUDIT_LOG.json
+          cat QQQ_FULL_HISTORY_AUDIT_LOG.json >> "$GITHUB_STEP_SUMMARY"
+
+  operator-terminal-qa:
+    name: Grok Bot Linux / Hybrid terminal tests + no-broker boundary
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          python3 --version
+
+      - name: JavaScript syntax and golden tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check research/qqq_hybrid_operator_terminal_v1/engine.js
+          node --check research/qqq_hybrid_operator_terminal_v1/app.js
+          node --check research/qqq_hybrid_operator_terminal_v1/hub_research_pack.js
+          node --check research/qqq_hybrid_operator_terminal_v1/hub_research_pack_ui.js
+          node --check research/qqq_hybrid_operator_terminal_v1/option_chain_lab.js
+          node research/qqq_hybrid_operator_terminal_v1/tests/engine.test.cjs
+          node research/qqq_hybrid_operator_terminal_v1/tests/hub_research_pack.test.cjs
+          node research/qqq_hybrid_operator_terminal_v1/tests/chain_lab.test.cjs
+
+      - name: Python syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/qqq_hybrid_operator_terminal_v1/server.py
+          python3 -m py_compile research/qqq_hybrid_operator_terminal_v1/probe_dolthub_vxx_options.py
+
+      - name: Static asset and no-broker contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("research/qqq_hybrid_operator_terminal_v1")
+          required = [
+              "index.html", "app.js", "engine.js", "styles.css", "server.py", "README.md",
+              "hub_research_pack.html", "hub_research_pack.js", "hub_research_pack_ui.js",
+              "tests/engine.test.cjs", "tests/hub_research_pack.test.cjs",
+              "tests/fixtures/user_uploaded_option_chain_2026-11-20.json",
+              "option_chain_lab.html", "option_chain_lab.js", "tests/chain_lab.test.cjs",
+          ]
+          missing = [x for x in required if not (p / x).is_file()]
+          assert not missing, f"missing files: {missing!r}"
+          s = (p / "server.py").read_text(encoding="utf-8")
+          assert "place_order" not in s and "unlock_trade" not in s and "/api/journal" in s
+          e = (p / "engine.js").read_text(encoding="utf-8")
+          assert e.count("mainBudgetEligible: true") == 2
+          h = (p / "index.html").read_text(encoding="utf-8")
+          assert "current-qqqShares" in h and "current-vxxShortShares" in h
+          assert "Set current quantity = 1000" in h and "OUTSIDE MAIN BUDGET" in h
+          assert "proDashboard" in h and "proRiskDonut" in h and "proAllocationRows" in h
+          lab = (p / "option_chain_lab.html").read_text(encoding="utf-8")
+          assert "QQQ / VXX Option Chain Lab" in lab and "option_chain_lab.js" in lab
+          assert "vxxPutRiskPct" not in h and 'data-find="vxxPut"' not in h
+          a = (p / "app.js").read_text(encoding="utf-8")
+          assert "function renderProDashboard(result, input)" in a
+          assert "renderProDashboard(result, input)" in a and "vxxPutRiskPct:p." not in a
+          print("terminal_asset_contract=PASS")
+          PY
+
+      - name: Emit QA summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/qqq_hybrid_operator_terminal_v1
+          {
+            echo "QQQ_HYBRID_OPERATOR_TERMINAL_V1=PASS"
+            echo "runner=grokbot-box-linux-x64"
+            echo "broker_orders=FALSE"
+            echo "sizing=CAPITAL_FIRST_MAIN_SELLER_WHITELIST"
+          } | tee artifacts/qqq_hybrid_operator_terminal_v1/qa_summary.txt
+          cat artifacts/qqq_hybrid_operator_terminal_v1/qa_summary.txt >> "$GITHUB_STEP_SUMMARY"
