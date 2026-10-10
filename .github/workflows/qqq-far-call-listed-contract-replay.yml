@@ -63,4 +63,17 @@ jobs:
           echo detail_trade_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_trades.csv
           echo detail_event_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_events.csv
           echo detail_daily_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_daily.csv
-          echo output_retention=local_self_hosted_runner_only_no_artifact_upload
+          echo output_retention=GitHub_Actions_artifact_14_days
+      - name: Upload reproducible replay outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-far-call-listed-contract-replay
+          path: |
+            QQQ_FAR_CALL_REPLAY_RUN.json
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.json
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.md
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_trades.csv
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_events.csv
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_daily.csv
+          if-no-files-found: error
+          retention-days: 14
