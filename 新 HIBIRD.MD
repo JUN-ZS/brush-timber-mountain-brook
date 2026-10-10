@@ -1987,3 +1987,34 @@ Run #31 正在等待 self-hosted runner，尚未得到新診斷結果或 22 項�
 
 目前仍不批准把 QQQ FAR CALL 整合進 Frozen Original Hybrid。 PR #99 仍是 Draft，尚未合併 main；原有策略、實盤 sizing 與券商下單權限均未改動。
 你已達到本次對話的長度上限，但是你可以開始新聊天以持續對話。
+
+---
+
+# 續進紀錄：Run #34 與配對對照研究
+
+## 已驗證的實際結果
+
+PR #99 的研究分支 `feat/qqq-hybrid-operator-terminal-v1-20261009` 已由 Windows self-hosted Actions 完成 Run #34，對應程式 HEAD `e3b3b8faab15374941b8a4dc4be448168a1c0f42`。
+
+- 26 個離線回歸測試全數通過，包括零 Bid 保守標記與實際退出分離、缺少期權鏈時仍提出 DTE 退出訊號，以及等待稍後有效同合約報價才平倉。
+- 1,688 / 1,688 已平倉交易現金流核對通過，容差 $0.01；0 FAIL、0 BLOCKED。
+- 基準成本／0.8% NAV 最大虧損預算的已平倉損益為 -$5,646；DTE 退出 62 筆合計 -$4,746、止損 9 筆合計 -$4,150、到期內在價值代理 34 筆合計 +$3,250。
+- 持倉標記缺失日由 Run #31 的 273 降至 24；其餘有 263 日只可採用 Long Wing Bid = 0 的保守 NAV 底價，不能當作可成交證據。仍有 5 日合約報價列缺失、8 日 Short Ask 無效，以及 11 日核心總回報價格缺失。
+- 16 組預算／成本情境的已平倉損益仍全部為負。由於退出生命週期亦已修正，Run #30 的 -$4,255 與 Run #34 的 -$5,646 不是完全相同策略政策的乾淨對照。
+- 詳細數字已持久化於 PR #99 研究分支：`QQQ_FAR_CALL_REPLAY_RUN34.md`、`QQQ_FAR_CALL_REPLAY_RUN34.json`。Actions 的 Artifact 上傳因 repo 儲存配額滿而失敗，但執行日誌、輸出存在性檢查及本文報告已保留。
+
+[Run #34](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38085894573) · [Run #34 報告](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FAR_CALL_REPLAY_RUN34.md)
+
+## 下一階段：逐日配對而不是再調參
+
+新 Commit `565fd0f85b831239516147c8c1c38a944c582a42` 加入 overlay 與 no-call 對照的逐日配對 NAV 差額：
+- 同一初始資金、相同 42% QQQ 核心及 58% 固定現金；對照組不開 QQQ FAR CALL。
+- 只比較兩邊均有標記的日期，明列被排除的日期，不插值、不前向填值。
+- 輸出最後配對日期、最後差額、已觀測最小／最大差額及正差額日比例；不據此宣稱 CAGR、MaxDD 或 Sharpe。
+- 新增兩個測試，目前測試檔共有 28 個測試方法。
+
+[Run #36](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38088699286) 已由 GitHub 建立，查核時仍為 Queued，尚無驗收結果。
+
+## 目前決策不變
+
+PR #99 仍為 Draft，合併目標是研究分支而非 main。Frozen Original Hybrid、live sizing、券商下單權限沒有改動。下一個決策點應由 Run #36 的配對差額與測試結果支持；不得因標記覆蓋率提升便把 FAR CALL 說成有增量收益。
