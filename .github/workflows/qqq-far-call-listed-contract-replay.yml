@@ -62,4 +62,5 @@ jobs:
           type artifacts\qqq_far_call_replay\qqq_far_call_replay_summary.md >> "%GITHUB_STEP_SUMMARY%" || exit /b 1
           echo detail_trade_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_trades.csv
           echo detail_event_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_events.csv
+          echo detail_daily_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_daily.csv
           echo output_retention=local_self_hosted_runner_only_no_artifact_upload
