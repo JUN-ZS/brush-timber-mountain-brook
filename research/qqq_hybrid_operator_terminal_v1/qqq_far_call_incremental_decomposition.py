@@ -515,6 +515,8 @@ def write_outputs(report, out_dir):
     rows.extend(report.get("exit_mechanism_csv_rows", []))
     rows.extend({"row_type": "cost_comparison", **item} for item in report.get("cost_scenario_comparisons", []))
     fields = sorted({field for row in rows for field in row})
+    if not fields:
+        fields = ["row_type", "scenario_id"]
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
