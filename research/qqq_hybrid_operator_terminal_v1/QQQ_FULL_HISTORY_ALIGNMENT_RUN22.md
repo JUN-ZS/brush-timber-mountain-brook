@@ -30,10 +30,10 @@ At **$0.025/leg** ($0.05/share across two legs), non-positive credit occurs on *
 | Measure | Observed | Coverage of all expected sessions |
 |---|---:|---:|
 | Repo-universe expected sessions | 1,971 | 100% denominator |
-| Raw underlying closes | 1,960 | 9944.19% |
-| QQQ option rows | 1,956 | 9923.90% |
-| Raw-spot target pairs | 1,946 | 9873.16% |
-| Target pairs / option dates | 1946 / 1956 | 9948.88% |
+| Raw underlying closes | 1,960 | 99.44% |
+| QQQ option rows | 1,956 | 99.24% |
+| Raw-spot target pairs | 1,946 | 98.73% |
+| Target pairs / option dates | 1946 / 1956 | 99.49% |
 
 **Not full-window-complete:** raw underlying and option sources both stop on **2025-12-15**. The 11 expected terminal sessions not covered are: 2025-12-16, 2025-12-17, 2025-12-18, 2025-12-19, 2025-12-22, 2025-12-23, 2025-12-24, 2025-12-26, 2025-12-29, 2025-12-30, 2025-12-31. Option rows are also absent inside the earlier source span on: 2018-11-06, 2019-09-03, 2020-06-23, 2021-11-04, 2025-12-16, 2025-12-17, 2025-12-18, 2025-12-19, 2025-12-22, 2025-12-23, 2025-12-24, 2025-12-26, 2025-12-29, 2025-12-30, 2025-12-31. On 10 dates option rows exist but no valid raw-target pair was found: 2020-03-13, 2020-03-30, 2020-04-06, 2020-04-07, 2020-04-08, 2020-04-20, 2020-08-26, 2020-09-02, 2023-12-27, 2023-12-28.
 
@@ -58,10 +58,10 @@ Pair coverage below is measured against the **full expected session count per ye
 
 | VIX bucket | Chain dates | Raw-target pairs (% of chain dates) | Median proxy credit gap | Median absolute source-IV gap | Short haircut too narrow | Wing haircut too narrow |
 |---|---:|---:|---:|---:|---:|---:|
-| ELEVATED_25_35 | 284 | 283 (9964.79%) | $0.307 | $0.048 | 23.67% | 55.12% |
-| HIGH_GTE35 | 60 | 54 (9000.00%) | $0.863 | $0.054 | 81.48% | 100.00% |
-| LOW_LT15 | 503 | 501 (9960.24%) | $0.078 | $0.061 | 36.13% | 53.49% |
-| NORMAL_15_25 | 1109 | 1108 (9990.98%) | $0.246 | $0.063 | 26.26% | 57.31% |
+| ELEVATED_25_35 | 284 | 283 (99.65%) | $0.307 | $0.048 | 23.67% | 55.12% |
+| HIGH_GTE35 | 60 | 54 (90.00%) | $0.863 | $0.054 | 81.48% | 100.00% |
+| LOW_LT15 | 503 | 501 (99.60%) | $0.078 | $0.061 | 36.13% | 53.49% |
+| NORMAL_15_25 | 1109 | 1108 (99.91%) | $0.246 | $0.063 | 26.26% | 57.31% |
 
 In the **VIX ≥35** subset, the haircut is too narrow on **81.5%** of short legs and **100.0%** of wings (54 matched pairs). The model/proxy gap is strongly regime-dependent; a single unconditional spread/IV correction is not supported by this diagnostic.
 
