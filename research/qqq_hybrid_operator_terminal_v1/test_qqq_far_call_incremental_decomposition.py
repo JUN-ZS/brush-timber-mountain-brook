@@ -148,6 +148,8 @@ class IncrementalDecompositionTests(unittest.TestCase):
             "scenarios": [scenario],
         }
         t = trade(-10)
+        t["exit_gross_debit_cash_usd"] = "180.00"
+        t["recomputed_net_pnl_usd"] = "-10.00"
         t["scenario_id"] = key
         t["scenario"] = scenario["scenario"]
         t["slippage_per_leg_usd"] = "0.0"
