@@ -111,6 +111,37 @@ class QqqFarCallReplayTests(unittest.TestCase):
         self.assertEqual(state.counters["missing_position_mark_sessions"], 1)
         self.assertTrue(state.position)
 
+    def test_expiry_uses_intrinsic_and_closes_open_position(self):
+        state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
+        spot = {"raw_close": 100.0, "adjusted_close": 100.0}
+        state.process(DAY, sample_chain(day_key=DAY), spot, 18.0)
+        state.process("2026-10-21", sample_chain(day_key="2026-10-21"), spot, 18.0)
+        self.assertIsNotNone(state.position)
+        state.position["expiry"] = "2026-10-22"
+        expiry_spot = {"raw_close": 120.0, "adjusted_close": 120.0}
+        state.process("2026-10-22", sample_chain(day_key="2026-10-22"), expiry_spot, 18.0)
+        self.assertIsNone(state.position)
+        self.assertEqual(state.counters["expiry_settlements"], 1)
+        self.assertEqual(state.trades[-1]["settlement_basis"], "OBSERVED_RAW_CLOSE_ON_EXPIRY_DATE")
+        self.assertAlmostEqual(state.trades[-1]["exit_intrinsic_debit_per_share"], 10.0)
+        self.assertEqual(state.trades[-1]["status"], "SETTLED_INTRINSIC_PROXY_NOT_CONFIRMED_EXERCISE")
+
+    def test_weekend_expiry_uses_tagged_last_pre_expiry_spot_fallback(self):
+        state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
+        spot = {"raw_close": 100.0, "adjusted_close": 100.0}
+        state.process(DAY, sample_chain(day_key=DAY), spot, 18.0)
+        state.process("2026-10-21", sample_chain(day_key="2026-10-21"), spot, 18.0)
+        self.assertIsNotNone(state.position)
+        state.position["expiry"] = "2026-10-24"  # Saturday
+        friday_spot = {"raw_close": 105.0, "adjusted_close": 105.0}
+        state.process("2026-10-23", sample_chain(day_key="2026-10-23"), friday_spot, 18.0)
+        monday_spot = {"raw_close": 120.0, "adjusted_close": 120.0}
+        state.process("2026-10-26", sample_chain(day_key="2026-10-26"), monday_spot, 18.0)
+        self.assertIsNone(state.position)
+        self.assertEqual(state.expiry_settlement_fallbacks, 1)
+        self.assertEqual(state.trades[-1]["settlement_price_date"], "2026-10-23")
+        self.assertEqual(state.trades[-1]["settlement_basis"], "FALLBACK_LAST_OBSERVED_SESSION_BEFORE_EXPIRY")
+        self.assertAlmostEqual(state.trades[-1]["settlement_spot"], 105.0)
     def test_quote_side_mtm_does_not_require_displayed_size_but_entry_does(self):
         state = replay.Replay(replay.BUDGET_MODES[0], 0.0, 0.0)
         spot = {"raw_close": 100.0, "adjusted_close": 100.0}
