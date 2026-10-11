@@ -93,6 +93,8 @@ function base(overrides = {}) {
   assert.equal(s.rows[0].markPrice, 120);
   assert.equal(s.rows[0].unrealizedPnl, 40);
   assert.equal(s.rows[0].markDerivedFromSnapshot, true);
+  assert.equal(s.rows[0].markSourceType, "UNKNOWN", "snapshot-derived mark source must not be falsely labelled EOD/live");
+  assert.match(s.rows[0].pnlStatus, /SOURCE UNVERIFIED/);
   assert.equal(s.rows[1].unrealizedPnl, null);
   assert.equal(s.incompletePnlCount, 1);
 }
