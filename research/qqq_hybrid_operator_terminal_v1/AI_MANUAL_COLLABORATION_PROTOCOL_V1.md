@@ -63,6 +63,10 @@ Return the following, in order:
 
 ## Current holdings: position facts and unrealized P&L
 
+Register mode is fail-closed on **inventory completeness**, not merely on row validity. Before using registered totals as Current quantities, the operator must explicitly confirm that all four primary categories (QQQ shares, VXX short shares, QQQ call-credit spreads, VXX call-credit spreads) have been reviewed and every omitted category is truly zero. Importing, adding/editing, or removing any position clears this confirmation and disables register sizing; the operator must reconcile the new complete snapshot again. An empty register cannot be selected as an implied zero-holdings account.
+
+
+
 The optional position register supports only four core quantities so far: QQQ long shares, VXX short stock, QQQ far call-credit packages and VXX call-credit packages. Each record separates quantity from entry/mark evidence, source type and as-of time. Stock P&L uses the position side; credit-spread P&L is (entry net credit − current estimated close debit) × package count × multiplier. It is **gross unrealized attribution**, not realized P&L, NAV or after-cost strategy performance.
 
 - Blank values remain unknown. For stock only, a blank mark may use the current APP spot snapshot, labelled as derived and not stored in the record. Option marks never substitute a different chain/candidate; the user must input a mark for the exact held vertical.
