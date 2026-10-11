@@ -21,6 +21,40 @@
     const optionCandidates = candidates || {};
     const snapshot = input.market || {};
     const toUsd = value => Number.isFinite(Number(value)) && value !== null ? "$" + Number(value).toFixed(2) : "PENDING";
+    const positionRegister = input.positionRegister || {};
+    const positionSummary = positionRegister.summary || {};
+    const registeredPositionRows = Array.isArray(positionSummary.rows) ? positionSummary.rows : [];
+    const positionMoney = value => Number.isFinite(Number(value)) && value !== null
+      ? (Number(value) > 0 ? "+$" : Number(value) < 0 ? "−$" : "$") + Math.abs(Number(value)).toFixed(2)
+      : "UNKNOWN";
+    const positionTable = registeredPositionRows.length
+      ? ["| Position / contract | Qty | Entry | Mark / close cost | Gross unrealized P&L | Mark freshness | Terms |",
+         "|---|---:|---:|---:|---:|---|---|"]
+          .concat(registeredPositionRows.map(row => "| " + [
+            cell(row.label || row.template),
+            cell(row.qty) + " " + cell(row.unit),
+            cell(row.entryPrice),
+            cell(row.markPrice),
+            positionMoney(row.unrealizedPnl) + (row.pnlStatus ? " (" + cell(row.pnlStatus) + ")" : ""),
+            cell(row.markFreshness || "UNKNOWN"),
+            cell(row.kind === "CREDIT_VERTICAL"
+              ? (row.termsComplete ? "VERIFIED" : "BLOCKED / INCOMPLETE") +
+                (row.adjustedDetected ? " · ADJUSTED ROOT" : "") +
+                (row.maxLossPerPackage !== null && row.maxLossPerPackage !== undefined ? " · max loss/pkg " + cell(row.maxLossPerPackage) : "")
+              : cell(row.entryEvidence || "UNKNOWN"))
+          ].join(" | ") + " |")).join("\n")
+      : "No position register records in this export.";
+    const positionRegisterSummary = [
+      "- Engine current-quantity source: " + (positionRegister.useForSizing ? "POSITION REGISTER (enabled)" : "MANUAL INPUTS (register attribution only)"),
+      "- Registered rows: " + cell(positionSummary.count ?? 0),
+      "- Calculated gross unrealized P&L subtotal: " + (Number.isFinite(Number(positionSummary.knownPnlSubtotal)) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +
+        " across " + cell(positionSummary.knownPnlRows ?? 0) + " row(s); excludes " + cell(positionSummary.incompletePnlCount ?? 0) + " row(s) with missing entry/mark",
+      "- Stale / source-unverified marks: " + cell(positionSummary.staleMarkCount ?? "UNKNOWN"),
+      "- Held option terms blocks: " + cell(positionSummary.termBlockedCount ?? "UNKNOWN"),
+      "- Strategy keys blocked by held option terms: " + (Array.isArray(positionRegister.blockingKeys) && positionRegister.blockingKeys.length ? positionRegister.blockingKeys.map(cell).join(", ") : "none recorded"),
+      "- Browser timezone label: " + cell(positionSummary.timezone || "UNKNOWN"),
+      "- P&L is gross mark-to-entry attribution only; it is not NAV, realized P&L, or after-fee performance."
+    ].join("\n");
     const resultRows = rows.map(row => ({
       key: row.key,
       label: row.label,
@@ -141,6 +175,13 @@
       "- Unallocated cash after plan: " + toUsd(result.remainingUnallocatedCashUsd),
       "- APP calculation status: " + (result.ok ? "CALCULATED / REVIEW" : "BLOCKED"),
       "",
+      "## Registered position facts and P&L attribution",
+      positionRegisterSummary,
+      "",
+      positionTable,
+      "",
+      "Source quality and as-of times are shown per position. If current quantities are sourced from this register, the aggregated units should reconcile exactly to the engine Current values; unresolved option terms block the affected strategy row.",
+      "",
       "### Candidate status",
       candidateSummary,
       "",
@@ -150,7 +191,7 @@
       "1. **Accuracy:** verify timestamps, source type and exact contract identity; recompute all price/quantity arithmetic independently; require quoted legs from the same expiry; verify bid/ask side, multiplier, adjusted deliverable, fees/slippage and fill assumptions. Cash-flow reconciliation tolerance is USD 0.01. Missing data stays missing; never forward-fill or invent fills. Quote width/mid is (ask-bid)/((ask+bid)/2), and is only a quote-quality diagnostic.",
       "2. **Generality:** identify whether the sample is development data or a genuinely untouched holdout. Previously inspected 2018–2025 data cannot be relabelled virgin OOS. Report coverage numerator/denominator, terminal source date, unmatched dates and each regime/rolling window where sample size permits. Require at least five chronological windows where possible, and disclose cost stress of at least 1.5× where relevant.",
       "3. **Integration / incremental value:** compare against a clearly identified matched baseline on identical dates, capital flows, marks and costs. Use the pre-registered objective bars in RESEARCH_MEASUREMENT_CONTRACT.md; do not change thresholds after seeing outcomes. CAGR, daily MTM MaxDD, Sharpe and ES95 must be UNAVAILABLE when the paired mark path is incomplete.",
-      "4. **Capital and risk:** shared risk pool includes only QQQ far call-credit and VXX call-credit; never double-count reserve, stock purchases, option loss budget or short-stock margin. VXX short margin is not a maximum-loss cap. Verify contract root/deliverable, especially any adjusted VXX option.",
+      "4. **Capital and risk:** shared risk pool includes only QQQ far call-credit and VXX call-credit; never double-count reserve, stock purchases, option loss budget or short-stock margin. VXX short margin is not a maximum-loss cap. Verify contract root/deliverable, especially any adjusted VXX option. If register mode is active, reconcile its aggregated quantities to engine holdings and list every blocked-key reason.",
       "5. **Execution readiness:** APP ADD / BUY is only a sizing preview. No order-ready status unless all market, quote, contract, cash, risk and human-confirmation gates pass. Otherwise output BLOCK or WAIT and name the exact missing evidence.",
       "",
       "## Current research lockbox (do not conceal)",
