@@ -128,6 +128,12 @@ assert.ok(mainHtml.includes('id="researchValidation"'), "main terminal must show
 assert.ok(mainHtml.includes("1,946 / 1,971 · 98.73%"), "main terminal must disclose paired-session coverage");
 assert.ok(mainHtml.includes("−2.72%"), "main terminal must disclose measured spot-basis mismatch");
 assert.ok(mainHtml.includes("does not change sizing, entry/exit rules, strategy weights, or broker permissions"), "validation lockbox must remain read-only");
+assert.ok(mainHtml.includes('id="optionTableWrap"'), "primary/research strategy table must support compact filtering");
+assert.ok(mainHtml.includes('id="toggleResearchRows"'), "research-only strategy rows must be explicitly expandable");
+assert.ok(mainHtml.includes('id="advancedResearchTools"'), "non-primary option lookups must be collapsed by default");
+assert.ok(mainHtml.includes("width / midpoint"), "quote spread quality definition must be visible");
+assert.ok(mainHtml.includes("not a verified exchange quote timestamp"), "fetch time must not be presented as quote time");
+assert.ok(!mainHtml.includes('id="budget-qqqCallSpreads"'), "primary risk budget must not be duplicated as a second input");
 assert.ok(labHtml.includes('id="historicalModelValidation"'), "Option Chain Lab must show model-fit evidence");
 assert.ok(labHtml.includes("+$0.181 / share"), "Option Chain Lab must disclose measured proxy credit gap");
 assert.ok(labHtml.includes("No missing quote is interpolated or forward-filled"), "Option Chain Lab must disclose the no-fill gap policy");
@@ -181,6 +187,7 @@ for (const required of [
 
 const handoffHtml = fs.readFileSync(require("node:path").join(__dirname, "../index.html"), "utf8");
 const handoffApp = fs.readFileSync(require("node:path").join(__dirname, "../app.js"), "utf8");
+const handoffEngine = fs.readFileSync(require("node:path").join(__dirname, "../engine.js"), "utf8");
 const handoffProtocol = fs.readFileSync(require("node:path").join(__dirname, "../AI_MANUAL_COLLABORATION_PROTOCOL_V1.md"), "utf8");
 assert.ok(handoffHtml.includes('id="aiHandoffBtn"'), "top-level AI handoff download must be discoverable");
 assert.ok(handoffHtml.includes('id="aiHandoffGuide"'), "manual collaboration steps must be visible in APP");
@@ -188,9 +195,12 @@ assert.ok(handoffHtml.includes('id="aiHandoffStatus"'), "export feedback must be
 assert.ok(handoffHtml.includes('src="ai_handoff.js"'), "handoff module must load before app runtime");
 assert.ok(handoffApp.includes("function exportAiReviewPack()"), "APP must create a live-state AI packet");
 assert.ok(handoffApp.includes("helper.serialize(lastPlan, candidates, marketMeta)"), "packet must use current plan and candidate evidence");
+assert.ok(handoffEngine.includes("shortQuoteWidthPctMid"), "candidate metrics must preserve both-leg relative quote width");
+assert.ok(handoffApp.includes("quote timestamp not verified"), "APP must distinguish chain fetch time from quote timestamp");
+assert.ok(handoffApp.includes("configured above"), "primary option risk percentage has one authoritative input");
 assert.ok(handoffProtocol.includes("Accuracy"), "durable collaboration protocol must define accuracy");
 assert.ok(handoffProtocol.includes("Generality"), "durable collaboration protocol must define generality");
 assert.ok(handoffProtocol.includes("Integration"), "durable collaboration protocol must define integration");
 assert.ok(handoffProtocol.includes("No order is placed"), "durable protocol must preserve the no-order boundary");
 
-console.log("option_chain_lab=PASS; ai_handoff=PASS");
+console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS");
