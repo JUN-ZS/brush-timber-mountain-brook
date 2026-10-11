@@ -227,6 +227,93 @@
       </article>
     </section>
 
+    <article class="card position-ledger-card" id="positionLedgerCard">
+      <div class="section-head">
+        <h2>POSITION FACTS · UNREALIZED P&amp;L</h2>
+        <span class="tag">OPTIONAL REGISTER · NO ORDERS</span>
+      </div>
+      <div id="positionLedgerHeadline" class="position-ledger-headline">
+        <div><small>KNOWN GROSS P&amp;L SUBTOTAL</small><b>—</b><span>No positions entered</span></div>
+        <div><small>INCOMPLETE P&amp;L ROWS</small><b>0</b><span>Blank entry/mark remains unknown</span></div>
+        <div><small>CONTRACT TERMS BLOCKS</small><b>0</b><span>Unverified held option terms block sizing when register mode is enabled</span></div>
+      </div>
+      <details id="positionRegisterPanel" class="position-register-details">
+        <summary>Open position register · save lots, attribute P&amp;L, or use actual holdings in Current → Target</summary>
+        <div class="position-register-controls">
+          <label class="toggle safety-toggle"><input id="positionUseRegister" type="checkbox"> Use registered holdings as current quantities for the primary sizing engine</label>
+          <div class="inline-actions">
+            <button id="positionExportBtn" type="button">Export Position Register JSON</button>
+            <button id="positionImportBtn" type="button">Import Position Register JSON</button>
+            <input id="positionImportFile" type="file" accept=".json,application/json" hidden>
+          </div>
+        </div>
+        <p id="positionRegisterModeStatus" class="muted">Register is attribution-only. Existing manual current-quantity inputs remain the sizing source until you explicitly enable register mode.</p>
+        <p class="position-measurement-note">Record only these primary units: QQQ long shares, VXX short shares, QQQ far call-credit packages, VXX call-credit packages. Stock P&amp;L is mark-to-entry; credit-spread P&amp;L = (entry net credit − current estimated close debit) × packages × multiplier. Gross unrealized P&amp;L excludes fees, slippage, dividends, borrow costs, assignment/exercise and taxes.</p>
+        <form id="positionForm" autocomplete="off">
+          <input id="positionEditId" type="hidden" value="">
+          <div class="position-form-grid">
+            <label>Position template
+              <select id="posTemplate">
+                <option value="QQQ_CORE">QQQ core shares · LONG</option>
+                <option value="VXX_SHORT_STOCK">VXX short stock · SHORT</option>
+                <option value="QQQ_CALL_CREDIT">QQQ far call-credit spread</option>
+                <option value="VXX_CALL_CREDIT">VXX call-credit spread</option>
+              </select>
+            </label>
+            <label>Quantity <input id="posQty" type="number" min="1" step="1" required value="1"></label>
+            <label>Entry date (leave blank if unknown) <input id="posEntryDate" type="date"></label>
+            <label><span id="posEntryPriceLabel">Average entry price ($ / share)</span> <input id="posEntryPrice" type="number" min="0" step="0.0001" placeholder="Unknown stays blank"></label>
+            <label><span id="posMarkPriceLabel">Current mark ($ / share)</span> <input id="posMarkPrice" type="number" min="0" step="0.0001" placeholder="Blank stock mark uses APP spot; option stays unknown"></label>
+            <label>Mark as-of (local time) <input id="posMarkAsOf" type="datetime-local"></label>
+            <label>Mark source type
+              <select id="posMarkSourceType">
+                <option value="UNKNOWN">Unknown / not recorded</option>
+                <option value="BROKER_LIVE">Broker live quote</option>
+                <option value="PUBLIC_DELAYED">Public delayed quote</option>
+                <option value="EOD_MARK">End-of-day mark</option>
+                <option value="MODEL_ESTIMATE">Model / manual estimate</option>
+              </select>
+            </label>
+            <label>Entry evidence
+              <select id="posEntryEvidence">
+                <option value="UNKNOWN">Unknown / not verified</option>
+                <option value="BROKER_FILL">Broker confirmed fill</option>
+                <option value="BROKER_STATEMENT">Broker statement / history</option>
+                <option value="MANUAL_ESTIMATE">Manual estimate</option>
+              </select>
+            </label>
+            <label>Entry source / reference <input id="posEntrySourceNote" type="text" maxlength="500" placeholder="e.g. statement row, deal ID label"></label>
+            <label>Mark source / reference <input id="posMarkSourceNote" type="text" maxlength="500" placeholder="e.g. broker chain screenshot time"></label>
+          </div>
+          <div id="positionOptionFields" class="position-option-fields" hidden>
+            <div class="position-form-grid">
+              <label>Option expiry <input id="posExpiry" type="date"></label>
+              <label>Short strike <input id="posShortStrike" type="number" min="0" step="0.01"></label>
+              <label>Long / protective strike <input id="posLongStrike" type="number" min="0" step="0.01"></label>
+              <label>Short contract symbol <input id="posShortSymbol" type="text" maxlength="100" placeholder="Exact OCC / broker symbol"></label>
+              <label>Long contract symbol <input id="posLongSymbol" type="text" maxlength="100" placeholder="Exact OCC / broker symbol"></label>
+              <label>Multiplier / package unit <input id="posMultiplier" type="number" min="1" step="1" value="100"></label>
+              <label class="toggle"><input id="posTermsVerified" type="checkbox"> Verified exact expiry, root, deliverable and multiplier against broker contract details</label>
+              <label>Deliverable / contract note <input id="posDeliverableNote" type="text" maxlength="500" placeholder="Required for adjusted/exception contracts"></label>
+            </div>
+            <p class="muted">A credit-spread mark is the estimated net debit required to close the whole vertical, quoted per underlying share. Entry is net credit per share. This is not a broker-confirmed execution price.</p>
+          </div>
+          <div class="inline-actions">
+            <button id="positionSaveBtn" class="primary" type="button">Add position record</button>
+            <button id="positionCancelEditBtn" type="button" hidden>Cancel edit</button>
+            <span id="positionFormStatus" class="muted" role="status">Position facts persist in this browser only. Export a JSON backup before clearing browser data.</span>
+          </div>
+        </form>
+        <div id="positionLedgerTotals" class="position-ledger-totals"></div>
+        <div class="table-wrap position-ledger-table-wrap">
+          <table class="position-ledger-table">
+            <thead><tr><th>Position / contract</th><th>Entry date</th><th>Qty</th><th>Entry</th><th>Mark / close cost</th><th>Gross unrealized P&amp;L</th><th>Mark quality</th><th>Terms / source</th><th>Record</th></tr></thead>
+            <tbody id="positionLedgerRows"><tr><td colspan="9" class="pro-empty-cell">No position records yet. Manual Current Quantity inputs remain available above.</td></tr></tbody>
+          </table>
+        </div>
+      </details>
+    </article>
+
     <section class="card">
       <div class="section-head">
         <h2>1 · PRINCIPAL, CAPITAL AND PORTFOLIO RISK BUDGET</h2>
@@ -386,6 +473,7 @@
   <footer>QQQ Hybrid Operator Terminal V1 · read-only V3 bridge · manual budget inputs · no broker order endpoint</footer>
   <script src="hub_research_pack.js"></script>
   <script src="engine.js"></script>
+  <script src="position_ledger.js"></script>
   <script src="ai_handoff.js"></script>
   <script src="app.js"></script>
 </body>
