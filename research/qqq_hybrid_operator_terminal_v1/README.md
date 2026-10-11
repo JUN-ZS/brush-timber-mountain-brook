@@ -169,6 +169,22 @@ Protocol: AI_MANUAL_COLLABORATION_PROTOCOL_V1.md. Regression coverage is include
 - Width/mid triage bins <=10% TIGHT, >10–25% WATCH, >25% WIDE are descriptive only; they are not trade-approval gates. Multiplier 100 remains an assumption until contract deliverables are confirmed.
 - New regressions cover quote-quality arithmetic, compact research-row controls, unique risk-weight input, visible source-time caveats, and AI packet transparency.
 
+## Position facts and unrealized P&L register
+
+The main workbench now has an optional, collapsed position register for only the four primary quantities: QQQ long shares, VXX short shares, QQQ far call-credit packages and VXX call-credit packages. Records persist in this browser's local storage; export/import the versioned JSON for backup or transfer. The register remains attribution-only unless the operator deliberately enables **Use registered holdings as current quantities**.
+
+Supported mark-to-entry arithmetic is explicit:
+- QQQ long shares: (current mark − average entry) × shares.
+- VXX short shares: (entry mark − current mark) × shares.
+- Credit vertical package: (entry net credit − current estimated close debit) × packages × multiplier.
+
+P&L is gross and unrealized; it excludes transaction costs, slippage, dividends, borrow fees, assignment/exercise, tax and cash-flow timing. Blank marks stay unknown; blank stock marks may use the current APP spot snapshot and are labelled as derived. Mark age and source are shown separately from arithmetic. This register is not a realized P&L ledger and does not automatically alter account NAV.
+
+When register mode is active, its four aggregated quantities feed the sizing engine. An option row with incomplete symbols, expiry, strikes, or unchecked broker-verified deliverable/multiplier blocks only the affected strategy's Current → Target sizing row. It does not pretend to calculate a safe reduction quantity from unknown terms. Existing manual current quantities are restored when register mode is switched off or when its last row is removed.
+
+Run the dedicated tests with Windows CMD:
+node research\qqq_hybrid_operator_terminal_v1\tests\position_ledger.test.cjs
+
 ## Tests
 
 Run locally in Windows CMD:
