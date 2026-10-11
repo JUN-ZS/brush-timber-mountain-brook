@@ -60,6 +60,21 @@ Return the following, in order:
 6. **Counter-evidence and failure modes:** missing data, stale quotes, price basis, spread realism, adjusted contracts, costs, uncovered positions, mismatched dates and evidence that could reverse the decision.
 7. **Human action:** choose only BLOCK, WAIT FOR DATA, or ELIGIBLE FOR HUMAN REVIEW. For an eligible review, enumerate what the operator must confirm. No unqualified order-ready BUY signal, and no claim that an order was placed.
 
+
+## Current holdings: position facts and unrealized P&L
+
+The optional position register supports only four core quantities so far: QQQ long shares, VXX short stock, QQQ far call-credit packages and VXX call-credit packages. Each record separates quantity from entry/mark evidence, source type and as-of time. Stock P&L uses the position side; credit-spread P&L is (entry net credit − current estimated close debit) × package count × multiplier. It is **gross unrealized attribution**, not realized P&L, NAV or after-cost strategy performance.
+
+- Blank values remain unknown. For stock only, a blank mark may use the current APP spot snapshot, labelled as derived and not stored in the record. Option marks never substitute a different chain/candidate; the user must input a mark for the exact held vertical.
+- BROKER_LIVE, PUBLIC_DELAYED, EOD_MARK, MODEL_ESTIMATE, and UNKNOWN marks are kept distinct. Freshness labels are descriptive and do not authorize trades.
+- The register is browser-local by default; JSON export/import provides a versioned backup. Keep sensitive account IDs, login details and access tokens out of source notes.
+- The register is attribution-only unless the operator deliberately enables it as the Current holdings source. When enabled, its four aggregate quantities are passed to the main engine. Manual quantity inputs are disabled temporarily and restored when switching the register off.
+- Missing option expiry, exact leg symbols/strikes, or explicit broker verification of multiplier/deliverable sets BLOCKED_POSITION_TERMS for that affected strategy row. A known count with unknown contract terms is not treated as an actionable risk target.
+- This is not yet a transaction-level realized ledger: there is no automatic fill import, realized lot matching, fee engine, cash-flow reconstruction or NAV reconciliation. Those remain separate accounting capabilities; do not infer them from the gross P&L subtotal.
+
+The dedicated tests/position_ledger.test.cjs covers long/short P&L signs, credit-spread mark-to-entry, source/freshness labels, adjusted VXX roots, missing marks, versioned import validation, and current-position term blocks.
+
+
 ## Current research lockbox
 
 The current Far-Call overlay result must be described precisely:
