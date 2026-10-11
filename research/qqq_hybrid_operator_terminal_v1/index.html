@@ -294,32 +294,42 @@
 
     <section class="card">
       <div class="section-head">
-        <h2>3 · HYBRID OPTION LEGS AND ALL DISCUSSED STRUCTURES</h2>
+        <h2>3 · PRIMARY HYBRID OPTION LEGS</h2>
         <span class="tag">NO AUTOMATIC ORDERS</span>
       </div>
-      <label class="toggle safety-toggle"><input id="allowProtectionBuys" type="checkbox"> Explicitly permit protective-put additions outside CARRY (still manual review only)</label>
       <div class="candidate-tools">
         <button data-find="qqqCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.16">Find QQQ Far Call-Credit</button>
-        <button data-find="qqqBearCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.10">Find QQQ Bear-Call Vertical</button>
         <button data-find="vxxCall" data-symbol="VXX" data-right="call" data-kind="vertical">Find VXX Call Vertical</button>
-        <button data-find="qqqPut" data-symbol="QQQ" data-right="put" data-kind="vertical">Find QQQ Put Vertical</button>
-        <button data-find="qqqLongCall" data-symbol="QQQ" data-right="call" data-kind="long">Find QQQ Long Call</button>
-        <button data-find="qqqLongPut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.25">Find QQQ Long Put</button>
-        <button data-find="qqqProtectivePut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.35">Find QQQ Protective Put</button>
-        <button data-find="qqqCoveredCall" data-symbol="QQQ" data-right="call" data-kind="short">Find Covered Call</button>
-        <button id="findHubResearchBtn" class="primary">Find Hub Research Packages</button>
-        <label class="small-label">Target DTE <input id="targetDte" type="number" min="14" max="120" step="1" value="45"></label>
-        <label class="small-label">Hub Ratio N <select id="hubRatioN"><option value="1">N=1</option><option value="2" selected>N=2</option><option value="3">N=3</option><option value="4">N=4</option></select></label>
-        <label class="small-label">State-Adaptive / Staggered max vintages <select id="hubStateLayerCap"><option value="1">1 vintage</option><option value="2">2 vintages</option><option value="4">4 vintages</option></select></label>
-        <label class="small-label">Hub shock 252D drawdown (%) <input id="hubDrawdown252Pct" type="number" min="-100" max="0" step="0.1" value="0"></label>
-        <label class="small-label">Hub shock 5D return (%) <input id="hubReturn5dPct" type="number" min="-100" max="100" step="0.1" value="0"></label>
+        <label class="small-label">Primary target DTE <input id="targetDte" type="number" min="14" max="120" step="1" value="45"></label>
+        <details class="advanced-option-tools" id="advancedResearchTools">
+          <summary>Optional research candidates / Hub controls — excluded from the primary budget</summary>
+          <div class="advanced-option-actions">
+            <label class="toggle safety-toggle"><input id="allowProtectionBuys" type="checkbox"> Permit protective-put additions outside CARRY (manual review only)</label>
+            <button data-find="qqqBearCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.10">Find QQQ Bear-Call Vertical</button>
+            <button data-find="qqqPut" data-symbol="QQQ" data-right="put" data-kind="vertical">Find QQQ Put Vertical</button>
+            <button data-find="qqqLongCall" data-symbol="QQQ" data-right="call" data-kind="long">Find QQQ Long Call</button>
+            <button data-find="qqqLongPut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.25">Find QQQ Long Put</button>
+            <button data-find="qqqProtectivePut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.35">Find QQQ Protective Put</button>
+            <button data-find="qqqCoveredCall" data-symbol="QQQ" data-right="call" data-kind="short">Find Covered Call</button>
+            <button id="findHubResearchBtn" class="primary">Find Hub Research Packages</button>
+            <label class="small-label">Hub Ratio N <select id="hubRatioN"><option value="1">N=1</option><option value="2" selected>N=2</option><option value="3">N=3</option><option value="4">N=4</option></select></label>
+            <label class="small-label">State-Adaptive / Staggered max vintages <select id="hubStateLayerCap"><option value="1">1 vintage</option><option value="2">2 vintages</option><option value="4">4 vintages</option></select></label>
+            <label class="small-label">Hub shock 252D drawdown (%) <input id="hubDrawdown252Pct" type="number" min="-100" max="0" step="0.1" value="0"></label>
+            <label class="small-label">Hub shock 5D return (%) <input id="hubReturn5dPct" type="number" min="-100" max="100" step="0.1" value="0"></label>
+          </div>
+        </details>
       </div>
+      <p class="tiny quote-measurement-guide">Quote width / midpoint = (Ask − Bid) ÷ ((Ask + Bid) / 2). Triage labels: ≤10% TIGHT; >10% to 25% WATCH; >25% WIDE. These are descriptive spread-width bins, not a trade approval score. The displayed chain retrieval time is not a verified exchange quote timestamp.</p>
       <div id="candidateRows" class="candidate-rows"></div>
       <p class="muted"><b>Primary short-option allocator:</b> only QQQ far call-credit and VXX call-credit candidates enter the shared option max-loss pool. Requested weights are scaled proportionally if their sum exceeds the pool, before whole-contract rounding. VXX put is disabled for this plan. Hub, long/debit and other research catalogue rows are explicitly outside main budget, even when their own research candidates are available.</p>
-      <div class="table-wrap">
+      <div class="option-table-toolbar">
+        <p class="muted">Default view shows only the two primary legs. Their risk budgets are edited once in the capital section above; this column is read-only to prevent conflicting duplicate inputs.</p>
+        <button id="toggleResearchRows" type="button" aria-expanded="false">Show 16 research-only rows</button>
+      </div>
+      <div class="table-wrap" id="optionTableWrap">
         <table class="decision-table option-table">
           <thead>
-            <tr><th>Strategy / leg</th><th>Current contracts (optional)</th><th>Requested risk % NAV</th><th>Allocated shared risk ($)</th><th>Risk / package ($)</th><th>Enable add-on</th><th>Max packages/contracts</th><th>Action target</th><th>Risk reserve @ target</th><th>Recommendation</th></tr>
+            <tr><th>Strategy / leg</th><th>Current contracts (optional)</th><th>Risk budget (% NAV; set above)</th><th>Allocated shared risk ($)</th><th>Risk / package ($)</th><th>Enable add-on</th><th>Max packages/contracts</th><th>Action target</th><th>Risk reserve @ target</th><th>Recommendation</th></tr>
           </thead>
           <tbody id="optionRows"></tbody>
         </table>
@@ -338,21 +348,25 @@
           <h2>4 · LEGACY N:X HEDGE CAMPAIGN</h2>
           <span class="tag danger">NO HARD MAX-LOSS CAP</span>
         </div>
-        <label class="toggle"><input id="nxEnabled" type="checkbox"> Activate preview for one campaign (not a live order permission)</label>
-        <div class="controls-grid compact">
-          <label>Current far short contracts <input id="nxCurrentFar" type="number" min="0" value="0"></label>
-          <label>Current near long contracts <input id="nxCurrentNear" type="number" min="0" value="0"></label>
-          <label>Far abs delta <input id="nxFarDelta" type="number" min="0.01" max="1" step="0.01" value="0.08"></label>
-          <label>Near abs delta <input id="nxNearDelta" type="number" min="0.01" max="1" step="0.01" value="0.50"></label>
-          <label>Far strike distance (%) <input id="nxFarDistancePct" type="number" min="0" max="100" step="0.1" value="10"></label>
-          <label>Gamma / baseline <input id="nxGammaRel" type="number" min="0" max="100" step="0.01" value="1"></label>
-          <label>Abs delta jump <input id="nxDeltaJump" type="number" min="0" max="1" step="0.001" value="0"></label>
-          <label>Coverage multiplier <input id="nxCoverage" type="number" min="0" max="5" step="0.1" value="1.5"></label>
-          <label>Maximum near stack <input id="nxMaxStack" type="number" min="1" max="20" step="1" value="5"></label>
-          <label>Far short target / campaign <input id="nxNShort" type="number" min="1" max="100" step="1" value="10"></label>
-        </div>
-        <div id="nxResult" class="test-result">Current: 0 far / 0 near. Target is disabled until explicitly selected.</div>
-        <p class="muted">Near-long target follows ceil(coverage × far-contract target × |far delta| / |near delta|), capped by max stack. This does not hard-cap the residual far-short tail. Over-large current quantities are only compared with a per-campaign profile, not a portfolio-wide risk capacity.</p>
+        <p class="muted">Legacy research-only per-campaign preview. The far-short tail is not hard-capped and is not part of the primary portfolio capacity.</p>
+        <details class="advanced-research-controls">
+          <summary>Open legacy N:X campaign inputs and sizing diagnostic</summary>
+          <label class="toggle"><input id="nxEnabled" type="checkbox"> Activate preview for one campaign (not a live order permission)</label>
+          <div class="controls-grid compact">
+            <label>Current far short contracts <input id="nxCurrentFar" type="number" min="0" value="0"></label>
+            <label>Current near long contracts <input id="nxCurrentNear" type="number" min="0" value="0"></label>
+            <label>Far abs delta <input id="nxFarDelta" type="number" min="0.01" max="1" step="0.01" value="0.08"></label>
+            <label>Near abs delta <input id="nxNearDelta" type="number" min="0.01" max="1" step="0.01" value="0.50"></label>
+            <label>Far strike distance (%) <input id="nxFarDistancePct" type="number" min="0" max="100" step="0.1" value="10"></label>
+            <label>Gamma / baseline <input id="nxGammaRel" type="number" min="0" max="100" step="0.01" value="1"></label>
+            <label>Abs delta jump <input id="nxDeltaJump" type="number" min="0" max="1" step="0.001" value="0"></label>
+            <label>Coverage multiplier <input id="nxCoverage" type="number" min="0" max="5" step="0.1" value="1.5"></label>
+            <label>Maximum near stack <input id="nxMaxStack" type="number" min="1" max="20" step="1" value="5"></label>
+            <label>Far short target / campaign <input id="nxNShort" type="number" min="1" max="100" step="1" value="10"></label>
+          </div>
+          <div id="nxResult" class="test-result">Current: 0 far / 0 near. Target is disabled until explicitly selected.</div>
+          <p class="muted">Near-long target follows ceil(coverage × far-contract target × |far delta| / |near delta|), capped by max stack. This does not hard-cap the residual far-short tail. Over-large current quantities are only compared with a per-campaign profile, not a portfolio-wide risk capacity.</p>
+        </details>
       </article>
       <article class="card">
         <div class="section-head">
