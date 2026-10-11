@@ -178,7 +178,7 @@ Supported mark-to-entry arithmetic is explicit:
 - VXX short shares: (entry mark − current mark) × shares.
 - Credit vertical package: (entry net credit − current estimated close debit) × packages × multiplier.
 
-P&L is gross and unrealized; it excludes transaction costs, slippage, dividends, borrow fees, assignment/exercise, tax and cash-flow timing. Blank marks stay unknown; blank stock marks may use the current APP spot snapshot and are labelled as derived. Mark age and source are shown separately from arithmetic. This register is not a realized P&L ledger and does not automatically alter account NAV.
+P&L is gross and unrealized; it excludes transaction costs, slippage, dividends, borrow fees, assignment/exercise, tax and cash-flow timing. Blank marks stay unknown; blank stock marks may use the current APP spot snapshot and are labelled as derived but SOURCE UNVERIFIED, because this register does not yet retain the snapshot’s per-symbol source class. Mark age and source are shown separately from arithmetic. This register is not a realized P&L ledger and does not automatically alter account NAV.
 
 When register mode is active, its four aggregated quantities feed the sizing engine only after the operator confirms all four primary categories have been reconciled (omitted categories mean zero). Importing, adding/editing, or removing a row clears that confirmation and disables register mode until reviewed again. An empty register cannot imply a zero-holdings account.
 
