@@ -149,6 +149,16 @@ Capital safety boundary: the page computes **one selected research structure at 
 
 The deterministic fixture tests/fixtures/user_uploaded_option_chain_2026-11-20.json records the QQQ call and VXX call rows visible in the screenshot uploaded on 2026-10-08. It preserves the displayed expiry, strikes, Bid/Ask and Delta and labels its provenance as USER_UPLOADED_SCREENSHOT; these are historical test inputs, not live quotes. That screenshot does not show VXX puts, so it must not be used to invent a VXX put candidate. The allocator regression uses QQQ 799C short / 810C wing, VXX 21C short / 24C wing, and checks that VXX put remains PENDING without a candidate quote.
 
+## Manual AI collaboration — fixed handoff protocol
+
+Use the top-level **Export AI Review Pack (.md)** button after entering actual NAV / uncommitted cash / current holdings, refreshing the V3 snapshot, and loading the two primary call-credit candidates. Attach that dated Markdown packet to ChatGPT with a fresh broker-chain screenshot or CSV and report any pending orders or holdings the app does not show.
+
+The packet contains the exact active APP input/result JSON, source timestamps, market gate, position-capacity rows, cash / risk reconciliation, option candidates, measurement lockbox and a fixed response contract. It explicitly separates Accuracy, Generality, Integration, and execution readiness; it does not average hard gates into one score. It instructs the reviewer to block or wait on missing/stale data, confirm exact option roots and deliverables, reconcile cash/risk arithmetic to USD 0.01, and return only BLOCK, WAIT FOR DATA, or ELIGIBLE FOR HUMAN REVIEW.
+
+The current isolated FAR CALL overlay remains research-only: trade-performance Accuracy is blocked, Generality is not demonstrated, and its current base integration screen failed. This is not a full-composite test of the Frozen Original Hybrid, but it is not permission to promote the incremental overlay. No broker orders, strategy promotion, or frozen policy mutations are available through the handoff.
+
+Protocol: AI_MANUAL_COLLABORATION_PROTOCOL_V1.md. Regression coverage is included in tests/chain_lab.test.cjs.
+
 ## Tests
 
 Run locally in Windows CMD:
