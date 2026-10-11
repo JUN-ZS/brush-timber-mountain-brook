@@ -215,6 +215,7 @@ footer{padding:18px;text-align:center;color:#7185a0;border-top:1px solid var(--l
 .position-ledger-headline b{font-size:18px;margin:6px 0;overflow-wrap:anywhere}
 .position-ledger-headline span{font-size:11px;color:var(--mut);line-height:1.4}
 .position-register-controls{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0}
+.position-register-controls .position-completeness-confirm{flex-basis:100%;line-height:1.4;max-width:980px}
 .position-register-controls .inline-actions{margin:0}
 .position-measurement-note{background:var(--p2);border-left:3px solid var(--blue);border-radius:4px;padding:9px 11px;font-size:12px;line-height:1.45}
 .position-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0}
