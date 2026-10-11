@@ -275,7 +275,11 @@
         rawCapacity = 0;
         status = "OFF";
         reason = risk.reason;
-        if (budgetPct <= 0) {
+        if (risk.source === "ADJUSTED_CONTRACT_BLOCKED") {
+          rawCapacity = null;
+          status = "BLOCKED_CONTRACT";
+          reason = risk.reason;
+        } else if (budgetPct <= 0) {
           rawCapacity = 0;
           status = "OFF";
           reason = "Risk budget is 0%: no new capacity is allocated to this primary seller leg.";
@@ -287,10 +291,6 @@
           rawCapacity = 0;
           status = "RISK_OFF";
           reason = "High VIX or VX backwardation disables this volatility-seller leg.";
-        } else if (!risk.ready && risk.source === "ADJUSTED_CONTRACT_BLOCKED") {
-          rawCapacity = null;
-          status = "BLOCKED_CONTRACT";
-          reason = risk.reason;
         } else if (!risk.ready) {
           rawCapacity = null;
           status = "PENDING";
@@ -350,12 +350,12 @@
       const policyExit = item.mainBudgetEligible && strategy.seller && (market.backwardation || market.high);
       if (market.blocked) {
         target = current; action = "BLOCKED"; delta = 0;
+      } else if (item.mainBudgetEligible && risk.source === "ADJUSTED_CONTRACT_BLOCKED") {
+        target = current; action = "BLOCKED"; delta = 0;
       } else if (!item.mainBudgetEligible) {
         target = current; action = "OUTSIDE_BUDGET"; delta = 0;
       } else if (policyExit) {
         target = 0; action = current > 0 ? "REDUCE" : "HOLD"; delta = target - current;
-      } else if (capacity === null && risk.source === "ADJUSTED_CONTRACT_BLOCKED") {
-        target = current; action = "BLOCKED"; delta = 0;
       } else if (capacity === null) {
         target = current; action = "PENDING"; delta = 0;
       } else {
