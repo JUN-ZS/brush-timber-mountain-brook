@@ -493,5 +493,33 @@ function row(result, key) {
   assert.notEqual(protectivePut.candidateKey, longPut.candidateKey);
 }
 
-console.log("QQQ HYBRID OPERATOR ENGINE: 26 TEST GROUPS PASS");
+
+
+// Adjusted VXX roots must block main-budget capacity instead of assuming a standard 100-unit deliverable.
+{
+  const expiry = Date.parse("2026-11-20T00:00:00Z") / 1000;
+  const vxx = {
+    symbol: "VXX",
+    calls: [
+      { expiration: expiry, days: 42, strike: 21, bid: 0.58, ask: 0.72, delta: 0.16, contractSymbol: "VXX2261120C00021000" },
+      { expiration: expiry, days: 42, strike: 24, bid: 0.24, ask: 0.34, delta: 0.08, contractSymbol: "VXX2261120C00024000" },
+      { expiration: expiry, days: 42, strike: 26, bid: 0.12, ask: 0.18, delta: 0.04, contractSymbol: "VXX2261120C00026000" }
+    ]
+  };
+  assert.equal(E.isAdjustedVxxContractSymbol("VXX2261120C00021000"), true);
+  assert.equal(E.isAdjustedVxxContractSymbol("VXX1261120C00021000"), true);
+  assert.equal(E.isAdjustedVxxContractSymbol("VXX261120C00021000"), false);
+  const candidate = E.findCreditVertical(vxx, 20, "call", 45, 0.16, "2026-10-09");
+  assert.ok(candidate);
+  assert.equal(candidate.contractTermsStatus, "ADJUSTED_DELIVERABLE_BLOCKED");
+  assert.equal(candidate.candidateStatus, "ADJUSTED_CONTRACT_BLOCKED");
+  const r = E.calculatePortfolio(base({ candidates: { vxxCall: candidate } }));
+  const x = row(r, "vxxCallSpreads");
+  assert.equal(x.capacity, null);
+  assert.equal(x.action, "BLOCKED");
+  assert.equal(x.status, "BLOCKED_CONTRACT");
+  assert.match(x.reason, /deliverable are verified/);
+}
+
+console.log("QQQ HYBRID OPERATOR ENGINE: 27 TEST GROUPS PASS");
 
