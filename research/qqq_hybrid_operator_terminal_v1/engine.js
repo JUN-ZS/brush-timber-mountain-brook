@@ -392,6 +392,26 @@
       });
     }
 
+    // If detailed held-option terms are incomplete, block only the affected strategy
+    // row. A count is not enough to claim a reliable target for an unknown deliverable.
+    const positionRegister = d.positionRegister || {};
+    if (positionRegister.useForSizing === true && Array.isArray(positionRegister.blockingKeys)) {
+      for (const key of positionRegister.blockingKeys) {
+        const row = results.find(item => item.key === key && item.mainBudgetEligible);
+        if (!row) continue;
+        row.capacity = null;
+        row.target = row.current;
+        row.delta = 0;
+        row.action = "BLOCKED";
+        row.status = "BLOCKED_POSITION_TERMS";
+        row.allocatedRiskBudgetUsd = 0;
+        row.riskPerUnit = null;
+        row.targetRiskReserveUsd = null;
+        row.riskSource = "POSITION_REGISTER_TERMS_UNVERIFIED";
+        row.reason = "The current position register has an option package with unverified expiry / leg identity / deliverable or multiplier. Verify the held contract terms before sizing changes for this strategy.";
+      }
+    }
+
     return {
       ok: true,
       market, nav, cashPool, cashReservePct, cashReserveUsd, availableAfterReserve,
