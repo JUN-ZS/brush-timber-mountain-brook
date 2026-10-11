@@ -238,6 +238,9 @@
       const terms = option
         ? (row.termsComplete ? "TERMS VERIFIED" : "BLOCKED · TERMS INCOMPLETE") + (row.adjustedDetected ? " · ADJUSTED ROOT" : "")
         : esc(row.entryEvidence || "UNKNOWN ENTRY");
+      const riskNote = option
+        ? (row.maxLossPerPackage === null ? "Per-package max loss UNKNOWN" : "Entry max loss/package (assumed terms): " + positionMoney(row.maxLossPerPackage))
+        : "";
       const pnlClass = row.unrealizedPnl === null ? "position-pnl-unknown" : row.unrealizedPnl < 0 ? "position-pnl-negative" : "position-pnl-positive";
       return '<tr>' +
         '<td><b>' + esc(row.label) + '</b><small>' + contractLine + '</small></td>' +
@@ -247,7 +250,7 @@
         '<td class="pro-number">' + esc(row.markPrice === null ? "UNKNOWN" : positionMoney(row.markPrice)) + (row.markDerivedFromSnapshot ? '<small>APP spot snapshot</small>' : '') + '</td>' +
         '<td class="' + pnlClass + '">' + esc(positionMoney(row.unrealizedPnl, true)) + '<small>' + esc(row.pnlStatus) + '</small></td>' +
         '<td>' + esc(row.markFreshness) + '<small>' + esc(row.markAsOf || "as-of missing") + '</small></td>' +
-        '<td>' + esc(terms) + '<small>' + esc(row.markSourceType + (row.markSourceNote ? " · " + row.markSourceNote : "")) + '</small></td>' +
+        '<td>' + esc(terms) + '<small>' + esc(riskNote) + '</small><small>' + esc(row.markSourceType + (row.markSourceNote ? " · " + row.markSourceNote : "")) + '</small></td>' +
         '<td><button type="button" data-position-action="edit" data-position-id="' + esc(row.id) + '">Edit</button> <button type="button" data-position-action="delete" data-position-id="' + esc(row.id) + '">Remove</button></td>' +
       '</tr>';
     }).join("") : '<tr><td colspan="9" class="pro-empty-cell">No position records yet. Manual Current Quantity inputs remain available.</td></tr>';
@@ -333,6 +336,13 @@
         return;
       }
       positionRecords = result.positions;
+      if ($("positionUseRegister").checked && positionRecords.length === 0) {
+        $("positionUseRegister").checked = false;
+        if (manualHoldingsBeforeRegister) {
+          for (const [id, value] of Object.entries(manualHoldingsBeforeRegister)) $(id).value = value;
+        }
+        manualHoldingsBeforeRegister = null;
+      }
       const saved = savePositionRecords();
       $("positionFormStatus").textContent = "Imported " + positionRecords.length + " record(s). " + (saved ? "Saved locally." : "Local save failed; export a backup.");
       renderPlan();
@@ -1076,6 +1086,9 @@
         savePositionRecords();
         if ($("positionUseRegister").checked && positionRecords.length === 0) {
           $("positionUseRegister").checked = false;
+          if (manualHoldingsBeforeRegister) {
+            for (const [fieldId, value] of Object.entries(manualHoldingsBeforeRegister)) $(fieldId).value = value;
+          }
           manualHoldingsBeforeRegister = null;
         }
         renderPlan();
