@@ -551,5 +551,29 @@ function row(result, key) {
   assert.match(x.reason, /unverified/);
 }
 
-console.log("QQQ HYBRID OPERATOR ENGINE: 28 TEST GROUPS PASS");
+// A held-position terms block must be excluded before proportional shared-risk allocation.
+{
+  const candidate = { width: 5, credit: 0.8, shortBid: 1.1, source: "FIXTURE" };
+  const r = E.calculatePortfolio(base({
+    sizing: { ...base().sizing, totalOptionRiskPct: 3.2, qqqCallRiskPct: 2, vxxCallRiskPct: 2 },
+    holdings: { qqqCallSpreads: 3 },
+    candidates: { qqqCall: candidate, vxxCall: candidate },
+    positionRegister: { useForSizing: true, blockingKeys: ["qqqCallSpreads"] }
+  }));
+  const qqq = row(r, "qqqCallSpreads");
+  const vxx = row(r, "vxxCallSpreads");
+  assert.equal(qqq.capacity, null);
+  assert.equal(qqq.target, 3);
+  assert.equal(qqq.action, "BLOCKED");
+  assert.equal(qqq.status, "BLOCKED_POSITION_TERMS");
+  assert.equal(r.totalRequestedRiskBudgetsUsd, 2000, "blocked QQQ request must not enter the shared risk allocator");
+  assert.equal(r.riskScaleFactor, 1, "the eligible VXX budget must not be diluted by a blocked QQQ row");
+  assert.equal(vxx.capacity, 4);
+  assert.equal(vxx.target, 4);
+  assert.equal(vxx.allocatedRiskBudgetUsd, 2000);
+  assert.equal(r.remainingRiskPool, 1520);
+  assert.equal(r.optionRiskReservedAtTargets, 1680);
+}
+
+console.log("QQQ HYBRID OPERATOR ENGINE: 29 TEST GROUPS PASS");
 
