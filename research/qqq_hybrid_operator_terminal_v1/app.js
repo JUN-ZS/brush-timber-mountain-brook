@@ -15,6 +15,11 @@
     vxxCallSpreads: "vxxCallRiskPct"
   };
   const STOCK_KEYS = ["qqqShares", "vxxShortShares"];
+  const PositionLedger = window.PositionLedgerV1;
+  let positionRecords = [];
+  let positionRegisterSummary = null;
+  let manualHoldingsBeforeRegister = null;
+  let positionStorageNotice = "";
 
   const fmt = (v, digits = 0) => Number.isFinite(Number(v)) ? Number(v).toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits }) : "—";
   const usd = (v) => Number.isFinite(Number(v)) ? "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "—";
@@ -79,6 +84,270 @@
     button.textContent = shown ? "Hide " + count + " research-only rows" : "Show " + count + " research-only rows";
   }
 
+
+  function loadPositionRecords() {
+    if (!PositionLedger) {
+      positionStorageNotice = "Position register module failed to load. Manual current-quantity inputs remain active.";
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(PositionLedger.STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : parsed && parsed.schema === PositionLedger.SCHEMA ? parsed.positions : null;
+      const normalized = PositionLedger.normalizeList(list);
+      if (!normalized.ok) {
+        positionStorageNotice = "Saved register could not be loaded safely: " + normalized.errors.join(" ");
+        positionRecords = [];
+        return;
+      }
+      positionRecords = normalized.positions;
+      positionStorageNotice = "Loaded " + positionRecords.length + " saved position record(s) from this browser.";
+    } catch (error) {
+      positionStorageNotice = "Saved register unavailable or invalid; no rows were guessed. " + (error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  function savePositionRecords() {
+    try {
+      localStorage.setItem(PositionLedger.STORAGE_KEY, JSON.stringify(PositionLedger.exportEnvelope(positionRecords)));
+      positionStorageNotice = "Saved " + positionRecords.length + " position record(s) in this browser. Export JSON for a portable backup.";
+      return true;
+    } catch (error) {
+      positionStorageNotice = "Browser storage failed; export the register JSON to preserve this snapshot. " + (error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  }
+
+  const positionMoney = (value, signedValue = false) => {
+    if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) return "UNKNOWN";
+    const n = Number(value);
+    const prefix = signedValue && n > 0 ? "+" : "";
+    return prefix + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/^/, n < 0 ? "−" : "");
+  };
+
+  function positionTemplate() {
+    return PositionLedger.TEMPLATES[$("posTemplate").value] || PositionLedger.TEMPLATES.QQQ_CORE;
+  }
+
+  function updatePositionFormMode() {
+    const template = positionTemplate();
+    const isOption = template.kind === "CREDIT_VERTICAL";
+    $("positionOptionFields").hidden = !isOption;
+    $("positionOptionFields").querySelectorAll("input,select").forEach(el => { el.disabled = !isOption; });
+    $("posMultiplier").value = isOption ? (Number($("posMultiplier").value) > 1 ? $("posMultiplier").value : template.multiplier) : 1;
+    $("posMultiplier").readOnly = !isOption;
+    $("posEntryPriceLabel").textContent = isOption ? "Entry net credit ($ / underlying share)" : "Average entry price ($ / share)";
+    $("posMarkPriceLabel").textContent = isOption ? "Current estimated close debit ($ / underlying share)" : "Current mark ($ / share)";
+    $("posMarkPrice").placeholder = isOption ? "Net exit debit; blank stays unknown" : "Blank uses the APP spot snapshot for attribution";
+    $("positionSaveBtn").textContent = $("positionEditId").value ? "Save position changes" : "Add position record";
+  }
+
+  function readPositionDraft() {
+    const template = $("posTemplate").value;
+    const options = PositionLedger.TEMPLATES[template]?.kind === "CREDIT_VERTICAL";
+    const rawNumber = id => $(id).value === "" ? null : Number($(id).value);
+    return PositionLedger.normalizeRecord({
+      id: $("positionEditId").value || undefined,
+      template,
+      qty: rawNumber("posQty"),
+      entryDate: $("posEntryDate").value,
+      entryPrice: rawNumber("posEntryPrice"),
+      markPrice: rawNumber("posMarkPrice"),
+      markAsOf: $("posMarkAsOf").value,
+      markSourceType: $("posMarkSourceType").value,
+      markSourceNote: $("posMarkSourceNote").value.trim(),
+      entryEvidence: $("posEntryEvidence").value,
+      entrySourceNote: $("posEntrySourceNote").value.trim(),
+      expiry: options ? $("posExpiry").value : "",
+      shortStrike: options ? rawNumber("posShortStrike") : null,
+      longStrike: options ? rawNumber("posLongStrike") : null,
+      shortSymbol: options ? $("posShortSymbol").value.trim() : "",
+      longSymbol: options ? $("posLongSymbol").value.trim() : "",
+      multiplier: options ? rawNumber("posMultiplier") : 1,
+      termsVerified: options && $("posTermsVerified").checked,
+      deliverableNote: options ? $("posDeliverableNote").value.trim() : ""
+    });
+  }
+
+  function resetPositionForm() {
+    $("positionForm").reset();
+    $("positionEditId").value = "";
+    $("posQty").value = 1;
+    $("posMarkSourceType").value = "UNKNOWN";
+    $("posEntryEvidence").value = "UNKNOWN";
+    $("posTermsVerified").checked = false;
+    $("positionCancelEditBtn").hidden = true;
+    updatePositionFormMode();
+    $("positionFormStatus").textContent = "Form reset. Existing registered position records remain unchanged.";
+  }
+
+  function fillPositionForm(record) {
+    const set = (id, value) => { if ($(id)) $(id).value = value === null || value === undefined ? "" : String(value); };
+    set("positionEditId", record.id);
+    set("posTemplate", record.template);
+    updatePositionFormMode();
+    set("posQty", record.qty);
+    set("posEntryDate", record.entryDate);
+    set("posEntryPrice", record.entryPrice);
+    set("posMarkPrice", record.markPrice);
+    set("posMarkAsOf", record.markAsOf);
+    set("posMarkSourceType", record.markSourceType);
+    set("posMarkSourceNote", record.markSourceNote);
+    set("posEntryEvidence", record.entryEvidence);
+    set("posEntrySourceNote", record.entrySourceNote);
+    set("posExpiry", record.expiry);
+    set("posShortStrike", record.shortStrike);
+    set("posLongStrike", record.longStrike);
+    set("posShortSymbol", record.shortSymbol);
+    set("posLongSymbol", record.longSymbol);
+    set("posMultiplier", record.multiplier);
+    set("posDeliverableNote", record.deliverableNote);
+    $("posTermsVerified").checked = record.termsVerified === true;
+    $("positionCancelEditBtn").hidden = false;
+    $("positionSaveBtn").textContent = "Save position changes";
+    $("positionRegisterPanel").open = true;
+    $("positionFormStatus").textContent = "Editing " + (PositionLedger.TEMPLATES[record.template]?.label || record.template) + ". Saving updates this browser record; it does not send orders.";
+  }
+
+  function renderPositionLedger() {
+    if (!PositionLedger) return;
+    const market = readMarket();
+    positionRegisterSummary = PositionLedger.summarize(positionRecords, market);
+    const summary = positionRegisterSummary;
+    $("positionLedgerHeadline").innerHTML =
+      '<div><small>KNOWN GROSS P&amp;L SUBTOTAL</small><b>' + (summary.knownPnlRows ? esc(positionMoney(summary.knownPnlSubtotal, true)) : "—") + '</b><span>Includes ' + summary.knownPnlRows + ' row(s); excludes incomplete P&amp;L rows</span></div>' +
+      '<div><small>INCOMPLETE P&amp;L ROWS</small><b>' + fmt(summary.incompletePnlCount) + '</b><span>Missing entry or mark; not assumed to be zero</span></div>' +
+      '<div><small>STALE / UNVERIFIED MARKS</small><b>' + fmt(summary.staleMarkCount) + '</b><span>Age/source affects confidence, not the arithmetic</span></div>' +
+      '<div><small>HELD OPTION TERMS BLOCKS</small><b>' + fmt(summary.termBlockedCount) + '</b><span>Blocks that strategy when register mode is on</span></div>';
+
+    $("positionLedgerTotals").innerHTML = [
+      ["REGISTERED UNITS", fmt(summary.count)],
+      ["QQQ SHARES", fmt(summary.holdings.qqqShares)],
+      ["VXX SHORT SHARES", fmt(summary.holdings.vxxShortShares)],
+      ["QQQ CALL-CREDIT", fmt(summary.holdings.qqqCallSpreads) + " spreads"],
+      ["VXX CALL-CREDIT", fmt(summary.holdings.vxxCallSpreads) + " spreads"]
+    ].map(([name, value]) => '<div><small>' + esc(name) + '</small><b>' + esc(value) + '</b></div>').join("");
+
+    $("positionLedgerRows").innerHTML = summary.rows.length ? summary.rows.map(row => {
+      const option = row.kind === "CREDIT_VERTICAL";
+      const contractLine = option
+        ? 'Exp ' + esc(row.expiry || "UNKNOWN") + ' · SHORT ' + esc(row.shortSymbol || ("K " + (row.shortStrike ?? "?"))) +
+          ' / LONG ' + esc(row.longSymbol || ("K " + (row.longStrike ?? "?")))
+        : esc(row.side + " · " + row.unit);
+      const terms = option
+        ? (row.termsComplete ? "TERMS VERIFIED" : "BLOCKED · TERMS INCOMPLETE") + (row.adjustedDetected ? " · ADJUSTED ROOT" : "")
+        : esc(row.entryEvidence || "UNKNOWN ENTRY");
+      const pnlClass = row.unrealizedPnl === null ? "position-pnl-unknown" : row.unrealizedPnl < 0 ? "position-pnl-negative" : "position-pnl-positive";
+      return '<tr>' +
+        '<td><b>' + esc(row.label) + '</b><small>' + contractLine + '</small></td>' +
+        '<td>' + esc(row.entryDate || "UNKNOWN") + '</td>' +
+        '<td class="pro-number">' + esc(fmt(row.qty)) + ' ' + esc(row.unit) + '</td>' +
+        '<td class="pro-number">' + esc(row.entryPrice === null ? "UNKNOWN" : positionMoney(row.entryPrice)) + '</td>' +
+        '<td class="pro-number">' + esc(row.markPrice === null ? "UNKNOWN" : positionMoney(row.markPrice)) + (row.markDerivedFromSnapshot ? '<small>APP spot snapshot</small>' : '') + '</td>' +
+        '<td class="' + pnlClass + '">' + esc(positionMoney(row.unrealizedPnl, true)) + '<small>' + esc(row.pnlStatus) + '</small></td>' +
+        '<td>' + esc(row.markFreshness) + '<small>' + esc(row.markAsOf || "as-of missing") + '</small></td>' +
+        '<td>' + esc(terms) + '<small>' + esc(row.markSourceType + (row.markSourceNote ? " · " + row.markSourceNote : "")) + '</small></td>' +
+        '<td><button type="button" data-position-action="edit" data-position-id="' + esc(row.id) + '">Edit</button> <button type="button" data-position-action="delete" data-position-id="' + esc(row.id) + '">Remove</button></td>' +
+      '</tr>';
+    }).join("") : '<tr><td colspan="9" class="pro-empty-cell">No position records yet. Manual Current Quantity inputs remain available.</td></tr>';
+
+    if (summary.error) positionStorageNotice = "Register validation issue: " + summary.error;
+    const active = $("positionUseRegister").checked;
+    $("positionRegisterModeStatus").textContent = (active
+      ? "ACTIVE: registered quantities are the Current inputs for QQQ core, VXX short stock, QQQ call-credit and VXX call-credit. Any term block freezes only the affected option strategy."
+      : "ATTRIBUTION ONLY: current quantities remain manual inputs until you enable register mode.") +
+      (positionStorageNotice ? " · " + positionStorageNotice : "") +
+      " · " + summary.note;
+    const quantityFields = {
+      qqqShares: "current-qqqShares", vxxShortShares: "current-vxxShortShares",
+      qqqCallSpreads: "current-qqqCallSpreads", vxxCallSpreads: "current-vxxCallSpreads"
+    };
+    for (const [key, id] of Object.entries(quantityFields)) {
+      const el = $(id);
+      if (!el) continue;
+      el.disabled = active;
+      if (active) el.value = summary.holdings[key] || 0;
+    }
+  }
+
+  function savePositionFromForm() {
+    const draft = readPositionDraft();
+    const verdict = PositionLedger.validateRecord(draft);
+    if (!verdict.ok) {
+      $("positionFormStatus").textContent = "Not saved: " + verdict.errors.join(" ");
+      return;
+    }
+    const index = positionRecords.findIndex(row => row.id === draft.id);
+    draft.updatedAt = new Date().toISOString();
+    if (index >= 0) positionRecords[index] = draft;
+    else {
+      draft.createdAt = new Date().toISOString();
+      positionRecords.push(draft);
+    }
+    savePositionRecords();
+    $("positionFormStatus").textContent = (index >= 0 ? "Position record updated. " : "Position record added. ") + positionStorageNotice;
+    resetPositionForm();
+    renderPlan();
+  }
+
+  function handlePositionRegisterMode() {
+    const use = $("positionUseRegister").checked;
+    if (use && positionRecords.length === 0) {
+      $("positionUseRegister").checked = false;
+      $("positionRegisterModeStatus").textContent = "Cannot switch to register mode: add at least one verified-identity position record first.";
+      return;
+    }
+    const ids = ["current-qqqShares", "current-vxxShortShares", "current-qqqCallSpreads", "current-vxxCallSpreads"];
+    if (use) {
+      manualHoldingsBeforeRegister = {};
+      for (const id of ids) manualHoldingsBeforeRegister[id] = $(id).value;
+    } else if (manualHoldingsBeforeRegister) {
+      for (const id of ids) $(id).value = manualHoldingsBeforeRegister[id];
+      manualHoldingsBeforeRegister = null;
+    }
+    renderPlan();
+  }
+
+  function exportPositionRegister() {
+    const payload = PositionLedger.exportEnvelope(positionRecords);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "qqq-hybrid-position-register-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    $("positionFormStatus").textContent = "Position register exported. Keep this file as a portable backup; browser storage is device/browser-specific.";
+  }
+
+  async function importPositionRegister(file) {
+    try {
+      if (!file) return;
+      if (positionRecords.length && !window.confirm("Replace the current browser position register with the imported records? Export a backup first if needed.")) return;
+      const result = PositionLedger.parseEnvelope(await file.text());
+      if (!result.ok) {
+        $("positionFormStatus").textContent = "Import rejected without changing existing rows: " + result.errors.join(" ");
+        return;
+      }
+      positionRecords = result.positions;
+      const saved = savePositionRecords();
+      $("positionFormStatus").textContent = "Imported " + positionRecords.length + " record(s). " + (saved ? "Saved locally." : "Local save failed; export a backup.");
+      renderPlan();
+    } catch (error) {
+      $("positionFormStatus").textContent = "Import failed without changing existing rows: " + (error instanceof Error ? error.message : String(error));
+    } finally {
+      $("positionImportFile").value = "";
+    }
+  }
+
+  function exportPositionRegisterJson() {
+    if (!PositionLedger) throw new Error("Position register module unavailable.");
+    exportPositionRegister();
+  }
+
   function readMarket() {
     const today = $("mToday").value || new Date().toISOString().slice(0, 10);
     return {
@@ -118,11 +387,20 @@
       if (s.mainBudgetEligible && !s.baseline) permissions[s.key] = $("enabled-" + s.key)?.checked === true;
       if (["manualDebit", "manualRisk", "stressOnly"].includes(s.kind)) manualRiskPerUnit[s.key] = inputNumber("risk-" + s.key, null);
     }
+    const positionSummary = PositionLedger ? PositionLedger.summarize(positionRecords, readMarket()) : null;
+    const usePositionRegister = $("positionUseRegister")?.checked === true && positionRecords.length > 0 && positionSummary && !positionSummary.error;
+    if (usePositionRegister) Object.assign(holdings, positionSummary.holdings);
     return {
       market: readMarket(),
       nav: inputNumber("nav", 0),
       cashPool: inputNumber("cashPool", 0),
       sizing, holdings, candidates, permissions, manualRiskPerUnit,
+      positionRegister: positionSummary ? {
+        useForSizing: usePositionRegister,
+        records: positionRecords,
+        summary: positionSummary,
+        blockingKeys: usePositionRegister ? positionSummary.blockingKeys : []
+      } : { useForSizing: false, records: [], blockingKeys: [] },
       ratioCampaign: {
         enabled: $("nxEnabled").checked,
         currentFarShort: inputNumber("nxCurrentFar", 0),
@@ -581,6 +859,7 @@
   function renderPlan() {
     updateSlopeDisplay();
     syncHubResearchCandidates();
+    renderPositionLedger();
     const input = readInput();
     // Manual edits make the source explicit rather than silently preserving a stale V3 provenance tag.
     if (marketTouched) input.market.term_source = "MANUAL_OPERATOR_INPUT";
@@ -774,6 +1053,34 @@
 
   function wire() {
     buildOptionRows();
+    loadPositionRecords();
+    updatePositionFormMode();
+    $("positionSaveBtn").addEventListener("click", savePositionFromForm);
+    $("positionCancelEditBtn").addEventListener("click", resetPositionForm);
+    $("posTemplate").addEventListener("change", updatePositionFormMode);
+    $("positionUseRegister").addEventListener("change", handlePositionRegisterMode);
+    $("positionExportBtn").addEventListener("click", exportPositionRegisterJson);
+    $("positionImportBtn").addEventListener("click", () => $("positionImportFile").click());
+    $("positionImportFile").addEventListener("change", event => importPositionRegister(event.target.files && event.target.files[0]));
+    $("positionLedgerRows").addEventListener("click", event => {
+      const button = event.target.closest("[data-position-action]");
+      if (!button) return;
+      const id = button.dataset.positionId;
+      const index = positionRecords.findIndex(row => row.id === id);
+      if (index < 0) return;
+      if (button.dataset.positionAction === "edit") {
+        fillPositionForm(positionRecords[index]);
+      } else if (button.dataset.positionAction === "delete" &&
+        window.confirm("Remove this local position record? No broker position will be changed.")) {
+        positionRecords.splice(index, 1);
+        savePositionRecords();
+        if ($("positionUseRegister").checked && positionRecords.length === 0) {
+          $("positionUseRegister").checked = false;
+          manualHoldingsBeforeRegister = null;
+        }
+        renderPlan();
+      }
+    });
     $("mToday").value = new Date().toISOString().slice(0,10);
     $("refreshBtn").addEventListener("click", refreshMarket);
     $("v3ProfileBtn").addEventListener("click", loadReferenceProfile);
