@@ -107,6 +107,9 @@
   function candidateRisk(strategy, candidate, manualRiskUnit) {
     const manual = num(manualRiskUnit);
     if (strategy.kind === "creditVertical") {
+      if (candidate && candidate.contractTermsStatus === "ADJUSTED_DELIVERABLE_BLOCKED") {
+        return { riskPerUnit: null, capitalPerUnitUsd: null, source: "ADJUSTED_CONTRACT_BLOCKED", ready: false, reason: "Adjusted VXX option root detected (" + (candidate.adjustedContractSymbols || []).join(", ") + "). The primary budget is blocked until the exact multiplier and deliverable are verified; do not size at 100 by assumption." };
+      }
       if (candidate && [candidate.width, candidate.credit].every(v => Number.isFinite(num(v))) &&
           num(candidate.width) > 0 && num(candidate.credit) > 0 && num(candidate.credit) < num(candidate.width)) {
         const riskPerUnit = (num(candidate.width) - num(candidate.credit)) * 100;
@@ -284,6 +287,10 @@
           rawCapacity = 0;
           status = "RISK_OFF";
           reason = "High VIX or VX backwardation disables this volatility-seller leg.";
+        } else if (!risk.ready && risk.source === "ADJUSTED_CONTRACT_BLOCKED") {
+          rawCapacity = null;
+          status = "BLOCKED_CONTRACT";
+          reason = risk.reason;
         } else if (!risk.ready) {
           rawCapacity = null;
           status = "PENDING";
@@ -347,6 +354,8 @@
         target = current; action = "OUTSIDE_BUDGET"; delta = 0;
       } else if (policyExit) {
         target = 0; action = current > 0 ? "REDUCE" : "HOLD"; delta = target - current;
+      } else if (capacity === null && risk.source === "ADJUSTED_CONTRACT_BLOCKED") {
+        target = current; action = "BLOCKED"; delta = 0;
       } else if (capacity === null) {
         target = current; action = "PENDING"; delta = 0;
       } else {
@@ -463,6 +472,13 @@
   }
 
 
+  function isAdjustedVxxContractSymbol(value) {
+    const symbol = String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    // Standard VXX symbols use root VXX + six expiry digits. Adjusted VXX1/VXX2
+    // roots add a root digit before that six-digit expiry; 1VXX2-style roots also exist.
+    return /^(?:VXX[12]|1VXX[12])\d{6}[CP]\d{8}$/.test(symbol);
+  }
+
   // Quote width / midpoint is a descriptive execution-quality triage metric.
   // It does not establish live executability or approve a strategy.
   function quoteQuality(row) {
@@ -516,6 +532,10 @@
     const width = Math.abs(wing.strike - short.strike);
     if (!(credit > 0 && width > credit)) return null;
     const shortQuote = quoteQuality(short), longQuote = quoteQuality(wing);
+    const isVxxChain = String(payload && payload.symbol || "").toUpperCase() === "VXX";
+    const adjustedSymbols = [short.contractSymbol || short.symbol, wing.contractSymbol || wing.symbol]
+      .filter(isAdjustedVxxContractSymbol);
+    const adjustedVxxTerms = isVxxChain && adjustedSymbols.length > 0;
     return {
       right, expiry: short.expiry, dte: short.dte,
       shortStrike: short.strike, longStrike: wing.strike,
@@ -531,10 +551,12 @@
       longQuoteWidthPctMid: longQuote.widthPctMid, longQuoteQuality: longQuote.quality,
       credit, width,
       multiplierAssumption: 100, multiplierVerified: false,
+      contractTermsStatus: adjustedVxxTerms ? "ADJUSTED_DELIVERABLE_BLOCKED" : "UNVERIFIED_NOT_BROKER_CONFIRMED",
+      adjustedContractSymbols: adjustedSymbols,
       maxLossPerSpread: (width-credit)*100,
       source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED",
       quoteTimestampStatus: "NOT_VERIFIED_BY_PROVIDER",
-      candidateStatus: "REVIEW_BEFORE_USE"
+      candidateStatus: adjustedVxxTerms ? "ADJUSTED_CONTRACT_BLOCKED" : "REVIEW_BEFORE_USE"
     };
   }
 
@@ -584,7 +606,7 @@
     return { right, expiry: x.expiry, dte: x.dte, strike: x.strike, ask: x.ask, delta: x.delta, deltaSource: x.deltaSource, source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED", candidateStatus: "REVIEW_BEFORE_USE" };
   }
 
-  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, quoteQuality, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
+  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, quoteQuality, isAdjustedVxxContractSymbol, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
   root.HybridOperatorEngineV1 = Engine;
   if (typeof module !== "undefined" && module.exports) module.exports = Engine;
 })(typeof globalThis !== "undefined" ? globalThis : this);
