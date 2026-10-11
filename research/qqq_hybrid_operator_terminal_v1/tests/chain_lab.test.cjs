@@ -188,9 +188,19 @@ for (const required of [
 const handoffHtml = fs.readFileSync(require("node:path").join(__dirname, "../index.html"), "utf8");
 const handoffApp = fs.readFileSync(require("node:path").join(__dirname, "../app.js"), "utf8");
 const handoffEngine = fs.readFileSync(require("node:path").join(__dirname, "../engine.js"), "utf8");
+const positionLedgerSource = fs.readFileSync(require("node:path").join(__dirname, "../position_ledger.js"), "utf8");
+const positionLedgerTest = fs.readFileSync(require("node:path").join(__dirname, "position_ledger.test.cjs"), "utf8");
 const handoffProtocol = fs.readFileSync(require("node:path").join(__dirname, "../AI_MANUAL_COLLABORATION_PROTOCOL_V1.md"), "utf8");
 assert.ok(handoffHtml.includes('id="aiHandoffBtn"'), "top-level AI handoff download must be discoverable");
 assert.ok(handoffHtml.includes('id="aiHandoffGuide"'), "manual collaboration steps must be visible in APP");
+assert.ok(handoffHtml.includes('id="positionLedgerCard"'), "position facts/P&L register must be present");
+assert.ok(handoffHtml.includes('id="positionUseRegister"'), "position register must require explicit use for sizing");
+assert.ok(handoffHtml.includes('id="positionImportFile"'), "position register must support portable JSON import");
+assert.ok(handoffHtml.includes('src="position_ledger.js"'), "position ledger module must load in the app");
+assert.ok(handoffApp.includes("positionRegister: positionSummary ?"), "current holdings and AI packet must include position register state");
+assert.ok(positionLedgerSource.includes("Gross unrealized mark-to-entry"), "position ledger must disclose P&L scope");
+assert.ok(positionLedgerTest.includes("7 TEST GROUPS PASS"), "dedicated position ledger tests must exist");
+assert.ok(handoffEngine.includes("BLOCKED_POSITION_TERMS"), "unverified held terms must block affected sizing rows");
 assert.ok(handoffHtml.includes('id="aiHandoffStatus"'), "export feedback must be visible");
 assert.ok(handoffHtml.includes('src="ai_handoff.js"'), "handoff module must load before app runtime");
 assert.ok(handoffApp.includes("function exportAiReviewPack()"), "APP must create a live-state AI packet");
@@ -205,4 +215,4 @@ assert.ok(handoffProtocol.includes("Generality"), "durable collaboration protoco
 assert.ok(handoffProtocol.includes("Integration"), "durable collaboration protocol must define integration");
 assert.ok(handoffProtocol.includes("No order is placed"), "durable protocol must preserve the no-order boundary");
 
-console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS");
+console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS");
