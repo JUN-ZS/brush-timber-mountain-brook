@@ -26,20 +26,35 @@ function base(overrides = {}) {
   assert.equal(qqq.rows[0].unrealizedPnl, 100);
   assert.equal(qqq.rows[0].pnlStatus, "GROSS UNREALIZED P&L");
   assert.equal(qqq.rows[0].markFreshness, "LIVE ≤15M");
+  assert.equal(qqq.qualifiedPnlSubtotal, 100);
+  assert.equal(qqq.qualifiedPnlRows, 1);
+  assert.equal(qqq.indicativePnlRows, 0);
   const vxx = P.summarize([base({ template: "VXX_SHORT_STOCK", qty: 20, entryPrice: 20, markPrice: 18, multiplier: 1 })], {}, Date.parse("2026-10-11T10:05"));
   assert.equal(vxx.holdings.vxxShortShares, 20);
   assert.equal(vxx.rows[0].unrealizedPnl, 40);
+  assert.equal(vxx.qualifiedPnlSubtotal, 40);
 
-  // A manual estimate is not promoted to a fully sourced P&L label.
+  // A manual estimate remains arithmetically useful, but is separated from the evidence-qualified subtotal.
   const estimatedEntry = P.summarize([base({ entryEvidence: "MANUAL_ESTIMATE" })], {}, Date.parse("2026-10-11T10:05"));
   assert.equal(estimatedEntry.rows[0].unrealizedPnl, 100);
-  assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY/SOURCE UNVERIFIED");
+  assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY UNVERIFIED");
+  assert.equal(estimatedEntry.qualifiedPnlRows, 0);
+  assert.equal(estimatedEntry.qualifiedPnlSubtotal, 0);
+  assert.equal(estimatedEntry.indicativePnlRows, 1);
+  assert.equal(estimatedEntry.indicativePnlSubtotal, 100);
 
-  // Invalid non-empty timestamps must fail closed as stale instead of appearing fresh.
+  // Invalid/old non-empty timestamps fail closed and cannot enter the qualified subtotal.
   const invalidAsOf = P.summarize([base({ markAsOf: "not-a-date" })], {}, Date.parse("2026-10-11T10:05"));
   assert.equal(invalidAsOf.rows[0].markFreshness, "AS-OF INVALID");
+  assert.equal(invalidAsOf.rows[0].pnlStatus, "INDICATIVE · MARK STALE/INVALID");
   assert.equal(invalidAsOf.rows[0].staleMark, true);
   assert.equal(invalidAsOf.staleMarkCount, 1);
+  assert.equal(invalidAsOf.qualifiedPnlRows, 0);
+  const staleLive = P.summarize([base({ markAsOf: "2026-10-11T09:30" })], {}, Date.parse("2026-10-11T10:05"));
+  assert.equal(staleLive.rows[0].markFreshness, "STALE LIVE");
+  assert.equal(staleLive.rows[0].pnlStatus, "INDICATIVE · MARK STALE/INVALID");
+  assert.equal(staleLive.qualifiedPnlRows, 0);
+  assert.equal(staleLive.indicativePnlRows, 1);
 }
 
 // Credit-spread package P&L uses entry credit minus exit debit, then verified/assumed multiplier.
@@ -58,7 +73,7 @@ function base(overrides = {}) {
 
   const estimatedEntry = P.summarize([{ ...row, id: "manual-entry", entryEvidence: "MANUAL_ESTIMATE" }], {}, Date.parse("2026-10-11T10:05"));
   near(estimatedEntry.rows[0].unrealizedPnl, -150);
-  assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY/TERMS/SOURCE UNVERIFIED");
+  assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY UNVERIFIED");
 }
 
 // Unknown option identity/deliverable blocks sizing only for that strategy.
@@ -67,7 +82,7 @@ function base(overrides = {}) {
   assert.equal(s.holdings.vxxCallSpreads, 2);
   assert.deepEqual(JSON.parse(JSON.stringify(s.blockingKeys)), ["vxxCallSpreads"]);
   assert.equal(s.termBlockedCount, 1);
-  assert.match(s.rows[0].pnlStatus, /TERMS\/SOURCE UNVERIFIED/);
+  assert.match(s.rows[0].pnlStatus, /CONTRACT IDENTITY UNVERIFIED/);
 }
 
 // Adjusted roots are identified and surfaced even if the record owner has not verified terms.

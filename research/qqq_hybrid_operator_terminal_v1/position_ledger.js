@@ -178,13 +178,8 @@
         pnl = template.side === "SHORT"
           ? (record.entryPrice - markPrice) * record.qty
           : (markPrice - record.entryPrice) * record.qty;
-        pnlStatus = !entryEvidenceVerified || markSourceType === "UNKNOWN" || markSourceType === "MODEL_ESTIMATE"
-          ? "INDICATIVE · ENTRY/SOURCE UNVERIFIED" : "GROSS UNREALIZED P&L";
       } else if (entryKnown && markKnown && option && record.multiplier > 0) {
         pnl = (record.entryPrice - markPrice) * record.qty * record.multiplier;
-        pnlStatus = record.termsVerified && entryEvidenceVerified &&
-          markSourceType !== "UNKNOWN" && markSourceType !== "MODEL_ESTIMATE"
-          ? "GROSS UNREALIZED P&L · BEFORE FEES" : "INDICATIVE · ENTRY/TERMS/SOURCE UNVERIFIED";
       }
 
       const markForFreshness = {
@@ -216,6 +211,23 @@
       );
       if (option && !termsComplete) blockedKeys.add(template.strategyKey);
 
+      // The aggregate may call a row "evidence-qualified" only when entry evidence,
+      // contract identity/terms (for options), mark provenance and mark freshness pass.
+      if (pnl !== null) {
+        const confidenceIssues = [];
+        if (!entryEvidenceVerified) confidenceIssues.push("ENTRY UNVERIFIED");
+        if (markSourceType === "UNKNOWN" || markSourceType === "MODEL_ESTIMATE") {
+          confidenceIssues.push("MARK SOURCE UNVERIFIED");
+        } else if (freshness.stale) {
+          confidenceIssues.push("MARK STALE/INVALID");
+        }
+        if (option && !identityComplete) confidenceIssues.push("CONTRACT IDENTITY UNVERIFIED");
+        else if (option && !termsComplete) confidenceIssues.push("CONTRACT TERMS UNVERIFIED");
+        pnlStatus = confidenceIssues.length
+          ? "INDICATIVE · " + confidenceIssues.join(" / ")
+          : option ? "GROSS UNREALIZED P&L · BEFORE FEES" : "GROSS UNREALIZED P&L";
+      }
+
       let maxLossPerPackage = null;
       if (option && width !== null && entryKnown && record.entryPrice > 0 && width > record.entryPrice && record.multiplier > 0) {
         maxLossPerPackage = (width - record.entryPrice) * record.multiplier;
@@ -235,6 +247,10 @@
     }
     const knownRows = rows.filter(row => row.pnlComplete);
     const knownPnlSubtotal = knownRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
+    const qualifiedPnlRows = knownRows.filter(row => row.pnlStatus.startsWith("GROSS UNREALIZED P&L"));
+    const indicativePnlRows = knownRows.filter(row => row.pnlStatus.startsWith("INDICATIVE"));
+    const qualifiedPnlSubtotal = qualifiedPnlRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
+    const indicativePnlSubtotal = indicativePnlRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
     const staleMarkCount = rows.filter(row => row.staleMark).length;
     const incompletePnlCount = rows.filter(row => !row.pnlComplete).length;
     const termBlockedCount = rows.filter(row => row.kind === "CREDIT_VERTICAL" && !row.termsComplete).length;
@@ -247,6 +263,10 @@
       blockingKeys: [...blockedKeys],
       knownPnlSubtotal,
       knownPnlRows: knownRows.length,
+      qualifiedPnlSubtotal,
+      qualifiedPnlRows: qualifiedPnlRows.length,
+      indicativePnlSubtotal,
+      indicativePnlRows: indicativePnlRows.length,
       incompletePnlCount,
       staleMarkCount,
       termBlockedCount,

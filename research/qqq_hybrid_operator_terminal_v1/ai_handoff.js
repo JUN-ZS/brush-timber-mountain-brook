@@ -48,7 +48,11 @@
       "- Engine current-quantity source: " + (positionRegister.useForSizing ? "POSITION REGISTER (enabled)" : "MANUAL INPUTS (register attribution only)"),
       "- Inventory completeness explicitly confirmed: " + (positionRegister.completeConfirmed ? "YES" : "NO — register cannot be used as Current sizing source"),
       "- Registered rows: " + cell(positionSummary.count ?? 0),
-      "- Calculated gross unrealized P&L subtotal: " + (Number.isFinite(Number(positionSummary.knownPnlSubtotal)) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +
+      "- Evidence-qualified unrealized P&L subtotal: " + (Number.isFinite(Number(positionSummary.qualifiedPnlSubtotal)) ? positionMoney(positionSummary.qualifiedPnlSubtotal) : "UNKNOWN") +
+        " across " + cell(positionSummary.qualifiedPnlRows ?? 0) + " row(s); indicative subtotal: " +
+        (Number.isFinite(Number(positionSummary.indicativePnlSubtotal)) ? positionMoney(positionSummary.indicativePnlSubtotal) : "UNKNOWN") +
+        " across " + cell(positionSummary.indicativePnlRows ?? 0) + " row(s); arithmetic subtotal across all complete rows: " +
+        (Number.isFinite(Number(positionSummary.knownPnlSubtotal)) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +
         " across " + cell(positionSummary.knownPnlRows ?? 0) + " row(s); excludes " + cell(positionSummary.incompletePnlCount ?? 0) + " row(s) with missing entry/mark",
       "- Stale / source-unverified marks: " + cell(positionSummary.staleMarkCount ?? "UNKNOWN"),
       "- Held option terms blocks: " + cell(positionSummary.termBlockedCount ?? "UNKNOWN"),

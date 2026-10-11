@@ -216,7 +216,7 @@
     positionRegisterSummary = PositionLedger.summarize(positionRecords, market);
     const summary = positionRegisterSummary;
     $("positionLedgerHeadline").innerHTML =
-      '<div><small>CALCULATED GROSS P&amp;L SUBTOTAL</small><b>' + (summary.knownPnlRows ? esc(positionMoney(summary.knownPnlSubtotal, true)) : "—") + '</b><span>Includes ' + summary.knownPnlRows + ' row(s); excludes incomplete P&amp;L rows</span></div>' +
+      '<div><small>EVIDENCE-QUALIFIED P&amp;L SUBTOTAL</small><b>' + (summary.qualifiedPnlRows ? esc(positionMoney(summary.qualifiedPnlSubtotal, true)) : "—") + '</b><span>' + summary.qualifiedPnlRows + ' qualified row(s); indicative subtotal ' + esc(positionMoney(summary.indicativePnlSubtotal, true)) + ' across ' + summary.indicativePnlRows + ' row(s), excluded from qualified total</span></div>' +
       '<div><small>INCOMPLETE P&amp;L ROWS</small><b>' + fmt(summary.incompletePnlCount) + '</b><span>Missing entry or mark; not assumed to be zero</span></div>' +
       '<div><small>STALE / UNVERIFIED MARKS</small><b>' + fmt(summary.staleMarkCount) + '</b><span>Age/source affects confidence, not the arithmetic</span></div>' +
       '<div><small>HELD OPTION TERMS BLOCKS</small><b>' + fmt(summary.termBlockedCount) + '</b><span>Blocks that strategy when register mode is on</span></div>';
