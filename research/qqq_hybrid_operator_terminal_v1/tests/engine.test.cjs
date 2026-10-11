@@ -531,5 +531,25 @@ function row(result, key) {
   assert.equal(riskOffRow.target, 1, "do not claim a computable reduction quantity when contract terms are unknown");
 }
 
-console.log("QQQ HYBRID OPERATOR ENGINE: 27 TEST GROUPS PASS");
+
+// Position register hard gate: held option terms unknown means current quantity is known,
+// but a safe strategy target / risk reserve is not asserted.
+{
+  const candidate = { width: 5, credit: 0.8, shortBid: 1.1, source: "FIXTURE" };
+  const r = E.calculatePortfolio(base({
+    holdings: { qqqCallSpreads: 3 },
+    candidates: { qqqCall: candidate },
+    positionRegister: { useForSizing: true, blockingKeys: ["qqqCallSpreads"] }
+  }));
+  const x = row(r, "qqqCallSpreads");
+  assert.equal(x.capacity, null);
+  assert.equal(x.target, 3);
+  assert.equal(x.delta, 0);
+  assert.equal(x.action, "BLOCKED");
+  assert.equal(x.status, "BLOCKED_POSITION_TERMS");
+  assert.equal(x.riskPerUnit, null);
+  assert.match(x.reason, /unverified/);
+}
+
+console.log("QQQ HYBRID OPERATOR ENGINE: 28 TEST GROUPS PASS");
 
