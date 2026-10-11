@@ -146,7 +146,7 @@
       JSON.stringify(payload, null, 2),
       "~~~~",
       "",
-      "End of packet — manual review only; no broker orders."
+      "No broker order is placed by this packet — manual review only."
     ].join("\n") + "\n";
   }
 
