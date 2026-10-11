@@ -125,6 +125,7 @@
       "- Market gate reason: " + cell(market.reason),
       "- Missing/stale/mixed required market data means BLOCK. Public option-chain results can be delayed or estimated and are not proof of executable prices.",
       "- Option quote width/mid bins: <=10% TIGHT; >10% to 25% WATCH; >25% WIDE. These are descriptive triage labels, not trade approval thresholds.",
+      "- Adjusted VXX root status: if any selected leg is recognized as VXX1/VXX2 (including 1VXX2-style symbol), primary sizing is BLOCKED until the actual deliverable/multiplier is verified.",
       "- Chain fetch time records when this app retrieved the chain; the provider does not establish an exact exchange quote timestamp in this feed.",
       "",
       "## APP-computed positions (capacity is not permission to trade)",
