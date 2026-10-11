@@ -29,6 +29,17 @@ function base(overrides = {}) {
   const vxx = P.summarize([base({ template: "VXX_SHORT_STOCK", qty: 20, entryPrice: 20, markPrice: 18, multiplier: 1 })], {}, Date.parse("2026-10-11T10:05"));
   assert.equal(vxx.holdings.vxxShortShares, 20);
   assert.equal(vxx.rows[0].unrealizedPnl, 40);
+
+  // A manual estimate is not promoted to a fully sourced P&L label.
+  const estimatedEntry = P.summarize([base({ entryEvidence: "MANUAL_ESTIMATE" })], {}, Date.parse("2026-10-11T10:05"));
+  assert.equal(estimatedEntry.rows[0].unrealizedPnl, 100);
+  assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY/SOURCE UNVERIFIED");
+
+  // Invalid non-empty timestamps must fail closed as stale instead of appearing fresh.
+  const invalidAsOf = P.summarize([base({ markAsOf: "not-a-date" })], {}, Date.parse("2026-10-11T10:05"));
+  assert.equal(invalidAsOf.rows[0].markFreshness, "AS-OF INVALID");
+  assert.equal(invalidAsOf.rows[0].staleMark, true);
+  assert.equal(invalidAsOf.staleMarkCount, 1);
 }
 
 // Credit-spread package P&L uses entry credit minus exit debit, then verified/assumed multiplier.
@@ -44,6 +55,10 @@ function base(overrides = {}) {
   near(s.rows[0].unrealizedPnl, -150);
   near(s.rows[0].maxLossPerPackage, 920);
   assert.equal(s.blockingKeys.length, 0);
+
+  const estimatedEntry = P.summarize([{ ...row, id: "manual-entry", entryEvidence: "MANUAL_ESTIMATE" }], {}, Date.parse("2026-10-11T10:05"));
+  near(estimatedEntry.rows[0].unrealizedPnl, -150);
+  assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY/TERMS/SOURCE UNVERIFIED");
 }
 
 // Unknown option identity/deliverable blocks sizing only for that strategy.
