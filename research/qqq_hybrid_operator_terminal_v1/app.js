@@ -216,7 +216,7 @@
     positionRegisterSummary = PositionLedger.summarize(positionRecords, market);
     const summary = positionRegisterSummary;
     $("positionLedgerHeadline").innerHTML =
-      '<div><small>KNOWN GROSS P&amp;L SUBTOTAL</small><b>' + (summary.knownPnlRows ? esc(positionMoney(summary.knownPnlSubtotal, true)) : "—") + '</b><span>Includes ' + summary.knownPnlRows + ' row(s); excludes incomplete P&amp;L rows</span></div>' +
+      '<div><small>CALCULATED GROSS P&amp;L SUBTOTAL</small><b>' + (summary.knownPnlRows ? esc(positionMoney(summary.knownPnlSubtotal, true)) : "—") + '</b><span>Includes ' + summary.knownPnlRows + ' row(s); excludes incomplete P&amp;L rows</span></div>' +
       '<div><small>INCOMPLETE P&amp;L ROWS</small><b>' + fmt(summary.incompletePnlCount) + '</b><span>Missing entry or mark; not assumed to be zero</span></div>' +
       '<div><small>STALE / UNVERIFIED MARKS</small><b>' + fmt(summary.staleMarkCount) + '</b><span>Age/source affects confidence, not the arithmetic</span></div>' +
       '<div><small>HELD OPTION TERMS BLOCKS</small><b>' + fmt(summary.termBlockedCount) + '</b><span>Blocks that strategy when register mode is on</span></div>';
@@ -250,7 +250,7 @@
         '<td class="pro-number">' + esc(row.markPrice === null ? "UNKNOWN" : positionMoney(row.markPrice)) + (row.markDerivedFromSnapshot ? '<small>APP spot snapshot</small>' : '') + '</td>' +
         '<td class="' + pnlClass + '">' + esc(positionMoney(row.unrealizedPnl, true)) + '<small>' + esc(row.pnlStatus) + '</small></td>' +
         '<td>' + esc(row.markFreshness) + '<small>' + esc(row.markAsOf || "as-of missing") + '</small></td>' +
-        '<td>' + esc(terms) + '<small>' + esc(riskNote) + '</small><small>' + esc(row.markSourceType + (row.markSourceNote ? " · " + row.markSourceNote : "")) + '</small></td>' +
+        '<td>' + esc(terms) + '<small>' + esc(riskNote) + '</small><small>Entry: ' + esc(row.entryEvidence || "UNKNOWN") + (row.entrySourceNote ? ' · ' + esc(row.entrySourceNote) : '') + '</small><small>Mark: ' + esc(row.markSourceType || "UNKNOWN") + (row.markSourceNote ? ' · ' + esc(row.markSourceNote) : '') + '</small></td>' +
         '<td><button type="button" data-position-action="edit" data-position-id="' + esc(row.id) + '">Edit</button> <button type="button" data-position-action="delete" data-position-id="' + esc(row.id) + '">Remove</button></td>' +
       '</tr>';
     }).join("") : '<tr><td colspan="9" class="pro-empty-cell">No position records yet. Manual Current Quantity inputs remain available.</td></tr>';
