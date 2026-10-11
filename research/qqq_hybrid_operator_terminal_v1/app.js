@@ -122,8 +122,8 @@
   const positionMoney = (value, signedValue = false) => {
     if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) return "UNKNOWN";
     const n = Number(value);
-    const prefix = signedValue && n > 0 ? "+" : "";
-    return prefix + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/^/, n < 0 ? "−" : "");
+    const sign = n < 0 ? "−" : signedValue && n > 0 ? "+" : "";
+    return sign + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   function positionTemplate() {
