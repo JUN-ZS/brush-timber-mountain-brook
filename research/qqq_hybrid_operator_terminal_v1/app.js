@@ -672,6 +672,31 @@
     URL.revokeObjectURL(url);
   }
 
+
+  function exportAiReviewPack() {
+    const helper = window.AiHandoffV1;
+    if (!helper || typeof helper.serialize !== "function") {
+      const status = $("aiHandoffStatus");
+      if (status) status.textContent = "AI handoff helper unavailable. Refresh the local app files before exporting.";
+      return;
+    }
+    if (!lastPlan) renderPlan();
+    const content = helper.serialize(lastPlan, candidates, marketMeta);
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const day = String(lastPlan?.generatedAt || new Date().toISOString()).slice(0, 10);
+    a.href = url;
+    a.download = "qqq-hybrid-ai-review-" + day + ".md";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    const status = $("aiHandoffStatus");
+    if (status) status.textContent = "AI review packet exported. Attach it to ChatGPT with a fresh broker option-chain screenshot/CSV. No order was sent.";
+    $("journalStatus").textContent = "AI review packet exported for manual review. It does not authorize an order or mutate a position.";
+  }
+
   async function appendJournal() {
     const payload = {
       record_type: "MANUAL_PREVIEW",
@@ -710,6 +735,7 @@
     $("test1000Btn").addEventListener("click", setTest1000);
     $("testLeg").addEventListener("change", () => { window.hybridTestOverrides = {}; renderPlan(); });
     $("exportBtn").addEventListener("click", exportPlan);
+    $("aiHandoffBtn").addEventListener("click", exportAiReviewPack);
     $("journalBtn").addEventListener("click", appendJournal);
     $("findHubResearchBtn").addEventListener("click", findHubResearchCandidates);
     document.querySelectorAll("[data-find]").forEach(btn => {
