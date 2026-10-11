@@ -19,7 +19,9 @@
   }
 
   function validDate(value) {
-    return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value + "T00:00:00Z"));
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const parsed = new Date(value + "T00:00:00Z");
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
   }
 
   function idFor(index = 0) {
@@ -62,7 +64,10 @@
     if (!Number.isFinite(x.qty) || x.qty <= 0 || !Number.isInteger(x.qty)) errors.push("Quantity must be a positive whole number.");
     if (x.entryPrice !== null && (x.entryPrice < 0 || !Number.isFinite(x.entryPrice))) errors.push("Entry price must be blank or a non-negative number.");
     if (x.markPrice !== null && (x.markPrice < 0 || !Number.isFinite(x.markPrice))) errors.push("Current mark / close cost must be blank or a non-negative number.");
+    if (t && t.kind === "STOCK" && x.entryPrice !== null && x.entryPrice <= 0) errors.push("A recorded stock entry price must be greater than zero.");
+    if (t && t.kind === "STOCK" && x.markPrice !== null && x.markPrice <= 0) errors.push("A recorded stock mark must be greater than zero.");
     if (x.entryDate && !validDate(x.entryDate)) errors.push("Entry date must be a valid YYYY-MM-DD date.");
+    if (x.expiry && !validDate(x.expiry)) errors.push("Option expiry must be a valid YYYY-MM-DD date.");
     if (t && t.kind === "CREDIT_VERTICAL") {
       if (x.multiplier <= 0 || !Number.isFinite(x.multiplier)) errors.push("Option multiplier must be greater than zero.");
       if (x.shortStrike !== null && x.shortStrike <= 0) errors.push("Short strike must be positive.");
