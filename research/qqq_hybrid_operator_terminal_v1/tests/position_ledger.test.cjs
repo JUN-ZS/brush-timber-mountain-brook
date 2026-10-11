@@ -6,6 +6,8 @@ const sandbox = { module: { exports: {} } };
 vm.runInNewContext(fs.readFileSync(require.resolve("../position_ledger.js"), "utf8"), sandbox, { filename: "position_ledger.js" });
 const P = sandbox.module.exports;
 
+function near(actual, expected, tolerance = 1e-8) { assert.ok(Math.abs(actual - expected) < tolerance, "expected " + expected + ", got " + actual); }
+
 function base(overrides = {}) {
   return {
     id: "row-1", template: "QQQ_CORE", qty: 10,
@@ -39,8 +41,8 @@ function base(overrides = {}) {
   });
   const s = P.summarize([row], {}, Date.parse("2026-10-11T10:05"));
   assert.equal(s.holdings.qqqCallSpreads, 3);
-  assert.equal(s.rows[0].unrealizedPnl, -150);
-  assert.equal(s.rows[0].maxLossPerPackage, 920);
+  near(s.rows[0].unrealizedPnl, -150);
+  near(s.rows[0].maxLossPerPackage, 920);
   assert.equal(s.blockingKeys.length, 0);
 }
 
