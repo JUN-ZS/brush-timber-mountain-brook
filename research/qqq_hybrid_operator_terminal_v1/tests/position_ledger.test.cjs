@@ -68,6 +68,20 @@ function base(overrides = {}) {
   })], {}, Date.parse("2026-10-11T10:05"));
   assert.equal(s.rows[0].adjustedDetected, true);
   assert.ok(s.blockingKeys.includes("vxxCallSpreads"));
+
+  const adjustedRecord = base({
+    id: "adjusted-position", template: "VXX_CALL_CREDIT", qty: 1,
+    entryPrice: 0.3, markPrice: 0.2, expiry: "2026-11-20",
+    shortStrike: 21, longStrike: 24,
+    shortSymbol: "VXX2261120C00021000", longSymbol: "VXX2261120C00024000",
+    multiplier: 100, termsVerified: true, deliverableNote: ""
+  });
+  const noDeliverableNote = P.summarize([adjustedRecord], {}, Date.parse("2026-10-11T10:05"));
+  assert.equal(noDeliverableNote.rows[0].termsComplete, false);
+  assert.ok(noDeliverableNote.blockingKeys.includes("vxxCallSpreads"));
+  const withDeliverableNote = P.summarize([{ ...adjustedRecord, deliverableNote: "Broker contract details verified; deliverable manually transcribed." }], {}, Date.parse("2026-10-11T10:05"));
+  assert.equal(withDeliverableNote.rows[0].termsComplete, true);
+  assert.equal(withDeliverableNote.blockingKeys.length, 0);
 }
 
 // Missing option marks remain missing; missing stock marks may use the explicitly labelled APP snapshot.
