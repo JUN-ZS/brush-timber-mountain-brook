@@ -134,8 +134,8 @@
       if (markPrice === null && !option && marketSpot > 0) {
         markPrice = marketSpot;
         markAsOf = String(template.symbol === "QQQ" ? market.spot_asof || "" : market.spot_asof || "");
-        markSourceType = "EOD_MARK";
-        markSourceNote = "Derived from current APP spot snapshot; not stored in the position record.";
+        markSourceType = "UNKNOWN";
+        markSourceNote = "Derived from APP spot snapshot; source class not preserved in position register; not stored in the position record.";
         markDerivedFromSnapshot = true;
       }
 
