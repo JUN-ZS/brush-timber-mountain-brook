@@ -168,9 +168,14 @@
         record.shortStrike > 0 && record.longStrike > 0 && record.shortStrike !== record.longStrike &&
         Boolean(record.shortSymbol) && Boolean(record.longSymbol)
       );
-      const termsComplete = !option || (identityComplete && record.termsVerified && record.multiplier > 0);
       const adjustedDetected = template.symbol === "VXX" &&
         (isAdjustedVxxSymbol(record.shortSymbol) || isAdjustedVxxSymbol(record.longSymbol));
+      // An adjusted VXX root needs an explicit deliverable note as well as the
+      // operator's broker-verification check before it can count toward sizing.
+      const termsComplete = !option || (
+        identityComplete && record.termsVerified && record.multiplier > 0 &&
+        (!adjustedDetected || Boolean(record.deliverableNote.trim()))
+      );
       if (option && !termsComplete) blockedKeys.add(template.strategyKey);
 
       let maxLossPerPackage = null;
