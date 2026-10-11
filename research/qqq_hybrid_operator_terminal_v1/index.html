@@ -45,6 +45,41 @@
         <div><small>FAR-CALL vs NO-CALL CONTROL</small><b>−$5,552</b><span>Last paired-date NAV gap · zero-cost source max-loss arm</span></div>
         <div><small>POSITIVE NAV-GAP DAYS</small><b>32 / 1,947</b><span>24 unmatched dates excluded; last paired date 2025-12-15</span></div>
       </div>
+
+      <section id="measurementScorecard" class="measurement-scorecard">
+        <div class="section-head">
+          <h3>THREE-AXIS RESEARCH MEASUREMENT</h3>
+          <span class="tag danger">NO STRATEGY PROMOTION</span>
+        </div>
+        <div class="measurement-axis-grid">
+          <article class="measurement-axis-card">
+            <small>01 · ACCURACY</small>
+            <span class="axis-status blocked">BLOCKED FOR TRADE PERFORMANCE</span>
+            <p><b>Accounting sub-gate PASS:</b> 1,688 / 1,688 closed-trade cash-flow rows independently reconcile; zero errors above $0.01 and maximum error $0.00. Trade-grade accuracy remains blocked by source gaps, price-basis / spread mismatch, and unverified fills.</p>
+          </article>
+          <article class="measurement-axis-card">
+            <small>02 · GENERALITY</small>
+            <span class="axis-status pending">NOT DEMONSTRATED</span>
+            <p>2018–2025 has been inspected repeatedly and is development evidence, not a virgin holdout. Eleven expected terminal sessions are missing; 24 NAV-mark dates are unmatched. Full-composite daily return metrics remain unavailable.</p>
+          </article>
+          <article class="measurement-axis-card">
+            <small>03 · INTEGRATION</small>
+            <span class="axis-status fail">FAIL CURRENT BASE SCREEN</span>
+            <p>Zero-cost 0.8% NAV max-loss arm: <b>−$5,646</b> closed-trade P&amp;L and <b>−$5,552</b> last paired-date NAV gap. This is an isolated no-call control, not the full Frozen Original Hybrid.</p>
+          </article>
+        </div>
+        <p class="reason">Do not average these gates into a misleading single PASS score. A successful workflow or a reconciled ledger is not proof of executable fills, OOS generality, or positive incremental value.</p>
+        <details class="validation-details">
+          <summary>Open pre-registered acceptance bars and next-step rules</summary>
+          <div class="summary-reasons">
+            <p><b>Return enhancement:</b> final OOS net-of-cost CAGR improves by at least +0.50 percentage points; MaxDD worsens by no more than 1.00 percentage point; Sharpe (risk-free rate 0) declines by no more than 0.05.</p>
+            <p><b>Downside protection:</b> final OOS MaxDD improves by at least 2.00 percentage points, daily-return ES95 improves by at least 10%, and CAGR give-up is no more than 0.50 percentage points. ES95 is the mean of the worst 5% of daily portfolio returns.</p>
+            <p><b>Capital deployment:</b> downside gate passes, or terminal NAV is no worse than −0.50% of baseline and a pre-selected metric improves: average unallocated cash / NAV falls by at least 5.00 percentage points, or time to the same target allocation falls by at least 20%.</p>
+            <p><b>All tracks:</b> accuracy hard gates and generality evidence must pass; zero same-close lookahead; at least five chronological windows where sample size permits; cost stress at 1.5× or greater where relevant; all variants and failures retained. Critical blocks override any scorecard average.</p>
+          </div>
+          <p><a href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md">Open applied scorecard — Run #50 / Linux Run #4 →</a> · <a href="RESEARCH_MEASUREMENT_CONTRACT.md">Open full pre-registered Measurement Contract →</a></p>
+        </details>
+      </section>
       <details class="validation-details">
         <summary>Open model-fit findings, data gaps, and promotion rules</summary>
         <div class="summary-reasons">
@@ -54,7 +89,7 @@
           <p><b>Coverage:</b> 11 expected sessions from 2025-12-16 through 2025-12-31 have no QQQ option chain or raw underlying price in this pinned source. Four earlier expected sessions also lack option rows. Missing observations are not interpolated or forward-filled.</p>
           <p><b>Execution / strategy gate:</b> the isolated FAR CALL replay failed its base screen. At zero modeled costs, 106 trades opened / 105 closed for <b>−$5,646 closed-trade P&amp;L</b>; the last paired-date NAV gap was <b>−$5,552</b> versus a control holding the same 42% QQQ core total-return proxy plus static 58% cash and no option trades. Only 1,947 dates are paired; 24 unmatched dates are excluded, and the last paired date is 2025-12-15. This control is <b>not the full Frozen Original Hybrid composite</b>; EOD quote-side marks are not confirmed fills. Keep Frozen Original Hybrid settings unchanged, but do not treat capacity math or successful QA as proof of positive incremental value. CAGR, daily MTM MaxDD, Sharpe and ES95 remain unapproved.</p>
         </div>
-        <p><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Open the committed full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475694">Grok Bot Linux Run #3 (successful retry) →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475712">Windows Far-Call Run #49 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475721">Public EOD Audit Run #78 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475618">Terminal QA Run #161 →</a> · <a href="QQQ_FAR_CALL_INCREMENTAL_VALUE_V2_RUN45.md">V2 entry/capital/exit decomposition archive (Run #45) →</a></p>
+        <p><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Open the committed full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339543">Grok Bot Linux Run #4 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339211">Windows Far-Call Run #50 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339179">Public EOD Audit Run #79 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339146">Terminal QA Run #162 →</a> · <a href="QQQ_FAR_CALL_INCREMENTAL_VALUE_V2_RUN45.md">V2 entry/capital/exit decomposition archive (Run #45) →</a></p>
       </details>
     </section>
 

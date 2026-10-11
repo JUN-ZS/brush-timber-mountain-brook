@@ -79,13 +79,23 @@ input[type=checkbox]{width:15px;height:15px;accent-color:#6aa7d6}
 .nx-grid span{font:700 11px Consolas,monospace}
 .danger-text{display:block;color:var(--red);font-size:12px;margin-top:8px}
 .metric-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+
+.measurement-axis-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}
+.measurement-axis-card{padding:11px;background:#0b1625;border:1px solid #273a53;border-radius:8px;min-width:0}
+.measurement-axis-card small{display:block;color:var(--muted);font-size:10px;letter-spacing:.06em;margin-bottom:5px}
+.measurement-axis-card p{font-size:11px;color:var(--muted);margin:7px 0 0;overflow-wrap:anywhere}
+.axis-status{display:inline-block;max-width:100%;padding:3px 6px;border:1px solid;border-radius:5px;font:800 10px/1.4 Consolas,monospace;overflow-wrap:anywhere}
+.axis-status.blocked{color:var(--yellow);border-color:#735d36;background:#2a251c}
+.axis-status.pending{color:#c1ccdc;border-color:#4a5a70;background:#172131}
+.axis-status.fail{color:var(--red);border-color:#874149;background:#321d27}
+.axis-status.pass{color:var(--green);border-color:#236c52;background:#153329}
 .metric-grid b{font-size:14px;overflow-wrap:anywhere}
 .summary-reasons{color:var(--muted);font-size:11px;margin-top:12px}
 .summary-reasons p{margin:5px 0}
 .safety-toggle{margin-bottom:12px}
 .empty{padding:10px;color:var(--muted);font-size:11px}
 footer{padding:18px;text-align:center;color:#7185a0;border-top:1px solid var(--line);font:11px Consolas,monospace}
-@media(max-width:1050px){.market-grid,.two-col{grid-template-columns:1fr}.controls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.top{position:static;align-items:flex-start;flex-direction:column}.top-actions{justify-content:flex-start}}
+@media(max-width:1050px){.measurement-axis-grid{grid-template-columns:1fr}.market-grid,.two-col{grid-template-columns:1fr}.controls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.top{position:static;align-items:flex-start;flex-direction:column}.top-actions{justify-content:flex-start}}
 @media(max-width:600px){.snapshot-grid,.controls-grid,.controls-grid.compact{grid-template-columns:1fr 1fr}.section-head{align-items:flex-start;flex-direction:column}.gate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.footnotes{grid-template-columns:1fr}.candidate-row{grid-template-columns:1fr}.card{padding:12px}.top{padding:18px 14px}main{padding:12px}.metric-grid{grid-template-columns:1fr 1fr}}
 
 .diagnostic>summary{cursor:pointer;font-weight:800;color:var(--blue);padding:5px 0}.diagnostic[open]>summary{margin-bottom:14px}.option-table{min-width:1320px}

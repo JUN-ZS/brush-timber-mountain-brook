@@ -11,6 +11,17 @@ input,select,textarea{background:#0b1118;color:var(--txt);border:1px solid #3a48
 .grid6{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));gap:10px}.tabs{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px;margin:10px 0}.tabs button{text-align:left}.tabs b,.tabs small{display:block}.tabs small{color:var(--mut);font-weight:400;font-size:11px}
 .btns{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:11px}.split{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(290px,1fr);gap:15px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0}.stat{background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:11px;min-width:0}.stat small{display:block;color:var(--mut);font-size:11px}.stat b{display:block;font-size:clamp(17px,2vw,25px);margin:5px 0;overflow-wrap:anywhere}.stat span{font-size:11px;color:var(--mut)}
 .wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;max-width:100%}table{width:100%;border-collapse:collapse;white-space:nowrap;font-variant-numeric:tabular-nums}th,td{padding:8px 9px;border-bottom:1px solid #27313f;text-align:right}th{position:sticky;top:0;background:#222d3b;color:#c8d5e4;font-size:11px;z-index:1}td{font-size:12px}th:first-child,td:first-child{text-align:left}tbody tr:last-child td{border-bottom:0}tbody tr:hover{background:#1c2836}.quote input{width:78px;text-align:right;padding:6px}.quote .st{width:74px}.quote .de{width:76px}.positive{color:var(--green)}.negative{color:var(--red)}.quality{font-size:10px;font-weight:800;padding:3px 5px;border-radius:4px;background:#40372a;color:#f6cc72}.quality.good{background:#153329;color:#78e8b7}.quality.bad{background:#422228;color:#ff9ca1}.cand{cursor:pointer}.cand.selected{background:#15392d;outline:1px solid #31825f;outline-offset:-1px}.empty{padding:20px!important;text-align:center;color:var(--mut)}.tiny{font-size:11px}.formula{font-family:Consolas,monospace;color:#c9e1ff;overflow-wrap:anywhere}.graph{background:#0b1118;border:1px solid var(--line);border-radius:8px;padding:5px}.graph svg{width:100%;height:auto;display:block}.csv{width:100%;min-height:80px;resize:vertical;font:12px/1.45 Consolas,monospace}footer{padding:15px clamp(14px,3vw,40px);border-top:1px solid var(--line);font-size:11px;color:var(--mut)}
+
+.measurement-axis-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:12px 0}
+.measurement-axis-card{background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.measurement-axis-card small{display:block;color:var(--mut);font-size:10px;letter-spacing:.06em;margin-bottom:5px}
+.measurement-axis-card p{font-size:11px;color:var(--mut);margin:7px 0 0;overflow-wrap:anywhere}
+.axis-status{display:inline-block;max-width:100%;padding:3px 6px;border:1px solid;border-radius:5px;font-size:10px;font-weight:800;overflow-wrap:anywhere}
+.axis-status.blocked{color:var(--gold);border-color:#816528;background:#342a18}
+.axis-status.pending{color:var(--mut);border-color:#526174;background:#18212b}
+.axis-status.fail{color:var(--red);border-color:#874149;background:#422228}
+.axis-status.pass{color:var(--green);border-color:#236c52;background:#153329}
+@media(max-width:1080px){.measurement-axis-grid{grid-template-columns:1fr}}
 @media(max-width:1080px){.grid6{grid-template-columns:repeat(3,minmax(0,1fr))}.split{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.grid6{grid-template-columns:repeat(2,minmax(0,1fr))}.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:11px}th,td{padding:7px}.quote input{width:68px}}
 </style></head><body>
 <header><div><div class="eyebrow">RESEARCH ONLY · SCREENSHOT CHAIN LAB</div><h1>QQQ / VXX Option Chain Lab</h1><p class="sub">報價鏈 → 價差組合 → 最大損益 → 風險容量 → 到期損益圖</p></div><div class="btns"><span class="tag bad">NO BROKER ORDERS</span><a href="index.html">← 返回 QQQ Hybrid PRO Terminal</a></div></header>
@@ -30,8 +41,25 @@ input,select,textarea{background:#0b1118;color:var(--txt);border:1px solid #3a48
 <details><summary>More interpretation and promotion criteria</summary>
 <p class="tiny">The model credit gap's median absolute value is $0.196/share (n=1,946). Repricing with the source-reported per-leg IV reduces median absolute gap to $0.060/share, but source IV may be derived from the same quote and is not independent validation. Model spread haircuts were narrower than observed on 30.0% of short legs and 57.2% of wings; in the VIX ≥35 subset (n=54), the rates were 81.5% and 100%. Repository spot versus raw nominal close has median difference −2.72% (n=1,956).</p>
 <p class="tiny">The isolated FAR CALL V2 screen remains <b>FAILS_CURRENT_BASE_SCREEN</b>. The −$5,552 gap is a paired-date overlay/control difference, not a complete portfolio return. Workflow success proves the code path and cash-flow ledger run, not executable fills or performance approval. Keep Frozen Original Hybrid settings unchanged; do not treat calculated maximum capacity as evidence of positive incremental value or as a BUY/HOLD/SELL signal.</p>
-<p class="tiny"><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475694">Grok Bot Linux Run #3 (successful retry) →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475712">Far-Call Run #49 →</a></p>
+<p class="tiny"><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339543">Grok Bot Linux Run #4 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339211">Far-Call Run #50 →</a></p>
 </details></section>
+
+
+<section class="panel" id="measurementScorecardLab">
+  <div class="head"><div><div class="kicker">MEASUREMENT / ACCEPTANCE CONTRACT</div><h2>Three-Axis Gate — Current Far-Call Evidence</h2></div><span class="tag bad">NOT APPROVED FOR INTEGRATION</span></div>
+  <div class="measurement-axis-grid">
+    <div class="measurement-axis-card"><small>01 · ACCURACY</small><span class="axis-status blocked">BLOCKED FOR TRADE PERFORMANCE</span><p><b>Accounting passes:</b> 1,688 / 1,688 closed-trade rows reconcile to $0.00 maximum error. But source coverage, price basis, per-leg spread realism and confirmed-fill gates remain blocked.</p></div>
+    <div class="measurement-axis-card"><small>02 · GENERALITY</small><span class="axis-status pending">NOT DEMONSTRATED</span><p>2018–2025 is a previously reviewed development range, not an untouched final holdout. Eleven terminal sessions are missing and 24 paired NAV dates are unmatched.</p></div>
+    <div class="measurement-axis-card"><small>03 · INTEGRATION</small><span class="axis-status fail">FAIL CURRENT BASE SCREEN</span><p>Zero-cost source max-loss arm: −$5,646 closed-trade P&amp;L; −$5,552 last paired-date NAV gap. Not a full Frozen Original Hybrid portfolio test.</p></div>
+  </div>
+  <p class="tiny">No single averaged score is published: hard-gate failure overrides all other passes. The EOD side-price replay is not confirmed fills; CAGR, daily MTM MaxDD, Sharpe and ES95 are not approved or inferred from unmatched marks.</p>
+  <details><summary>Pre-registered integration thresholds</summary>
+    <p class="tiny"><b>Return:</b> OOS CAGR +0.50 percentage points, MaxDD no more than 1.00 point worse, Sharpe decline no more than 0.05.</p>
+    <p class="tiny"><b>Downside:</b> OOS MaxDD improves at least 2.00 points and ES95 at least 10%, with CAGR give-up no more than 0.50 points.</p>
+    <p class="tiny"><b>Deployment:</b> downside gate passes, or terminal NAV is within −0.50% of baseline and average unallocated cash / NAV improves by at least 5.00 points or time to the same allocation falls at least 20%.</p>
+    <p class="tiny">All tracks require accuracy and generality gates, no same-close lookahead, chronological window robustness and pre-declared cost stress. <a href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md">Applied Run #50 scorecard →</a> · <a href="RESEARCH_MEASUREMENT_CONTRACT.md">Full measurement contract →</a></p>
+  </details>
+</section>
 
 <section class="panel"><div class="head"><div><div class="kicker">01 · INPUTS</div><h2>資料及風險設定</h2></div><span id="sourceBadge" class="tag bad">尚未載入報價</span></div>
 <div class="grid6">

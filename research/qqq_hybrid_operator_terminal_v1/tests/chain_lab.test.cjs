@@ -133,4 +133,24 @@ assert.ok(labHtml.includes("+$0.181 / share"), "Option Chain Lab must disclose m
 assert.ok(labHtml.includes("No missing quote is interpolated or forward-filled"), "Option Chain Lab must disclose the no-fill gap policy");
 assert.ok(labHtml.includes("FAILS_CURRENT_BASE_SCREEN"), "Option Chain Lab must not imply Far-Call performance approval");
 
+
+// Three-axis measurement scorecard is visible on both APP surfaces and keeps
+// accounting integrity separate from trade accuracy, generality, and integration.
+const measurementReport = fs.readFileSync(require("path").join(__dirname, "../QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md"), "utf8");
+for (const [html, id] of [[mainHtml, 'id="measurementScorecard"'], [labHtml, 'id="measurementScorecardLab"']]) {
+  assert.ok(html.includes(id), "both APP surfaces must expose the measurement scorecard");
+  assert.ok(html.includes("ACCURACY"), "accuracy axis must be shown");
+  assert.ok(html.includes("GENERALITY"), "generality axis must be shown");
+  assert.ok(html.includes("INTEGRATION"), "integration axis must be shown");
+  assert.ok(html.includes("FAIL CURRENT BASE SCREEN"), "negative integration gate must not be hidden");
+  assert.ok(html.includes("NOT DEMONSTRATED"), "generality must not be implied from QA success");
+  assert.ok(html.includes("−$5,646"), "negative closed-trade screen must be displayed");
+  assert.ok(html.includes("−$5,552"), "negative paired NAV comparison must be displayed");
+  assert.ok(html.includes("at least 2.00"), "pre-registered downside acceptance bar must be visible");
+  assert.ok(html.includes("at least 20%"), "pre-registered deployment acceptance bar must be visible");
+}
+assert.ok(measurementReport.includes("1,688 / 1,688"), "measurement report must record independent ledger coverage");
+assert.ok(measurementReport.includes("FAILS_CURRENT_BASE_SCREEN"), "measurement report must preserve the actual failed baseline screen");
+assert.ok(measurementReport.includes("No"), "measurement report must retain a no-promotion disposition");
+
 console.log("option_chain_lab=PASS");
