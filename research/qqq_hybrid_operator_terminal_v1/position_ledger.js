@@ -202,7 +202,7 @@
       const adjustedDetected = option && (
         (shortContract && shortContract.root !== template.symbol) ||
         (longContract && longContract.root !== template.symbol) ||
-        (template.symbol === "VXX" && (isAdjustedVxxSymbol(record.shortSymbol) || isAdjustedVxxSymbol(record.longSymbol))
+        (template.symbol === "VXX" && (isAdjustedVxxSymbol(record.shortSymbol) || isAdjustedVxxSymbol(record.longSymbol)))
       );
       // An adjusted VXX root needs an explicit deliverable note as well as the
       // operator's broker-verification check before it can count toward sizing.
