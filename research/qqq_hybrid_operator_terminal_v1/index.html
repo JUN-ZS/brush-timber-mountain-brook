@@ -31,6 +31,31 @@
       <small><a href="option_chain_lab.html">開啟 QQQ / VXX Option Chain Lab →</a>（四條 CALL／PUT 鏈、價差矩陣、損益圖；截圖數據只作非即時樣本。）</small>
     </section>
 
+    <section id="researchValidation" class="card">
+      <div class="section-head">
+        <h2>DATA / MODEL VALIDATION LOCKBOX</h2>
+        <span class="tag danger">PERFORMANCE PROMOTION BLOCKED</span>
+      </div>
+      <p class="reason"><b>Evidence state:</b> the full-history QQQ EOD source audit is hash-verified, but the option-price proxy has a measurable price-basis / spread-haircut mismatch. This panel is a read-only research warning; it does not change sizing, entry/exit rules, strategy weights, or broker permissions.</p>
+      <div class="metric-grid">
+        <div><small>EXPECTED SESSIONS</small><b>1,971</b><span>2018-03-01 → 2025-12-31</span></div>
+        <div><small>QQQ OPTION ROW DAYS</small><b>1,956 / 1,971 · 99.24%</b><span>Last observed option data: 2025-12-15</span></div>
+        <div><small>VALID RAW-SPOT TARGET PAIRS</small><b>1,946 / 1,971 · 98.73%</b><span>Only observed matched days count</span></div>
+        <div><small>VIX-PROXY CREDIT GAP</small><b>+$0.181 / share</b><span>Median model minus observed EOD side credit; n=1,946</span></div>
+      </div>
+      <details class="validation-details">
+        <summary>Open model-fit findings, data gaps, and promotion rules</summary>
+        <div class="summary-reasons">
+          <p><b>Price basis:</b> repository QQQ spot versus raw nominal close has a median difference of −2.72% on 1,956 chain days. Confirm the underlying price basis before using model-selected strikes or deltas.</p>
+          <p><b>Spread haircut:</b> the VIX-derived model haircut was narrower than the observed option-leg half-spread on 30.0% of short legs and 57.2% of wings. In the VIX ≥35 bucket, the rates were 81.5% and 100% respectively (54 matched pairs).</p>
+          <p><b>Source IV caution:</b> using the source-reported option IV narrows the median absolute credit gap to $0.060/share, but that IV may itself be derived from the same quote and is not independent validation. The VIX-only proxy's median absolute credit gap is $0.196/share.</p>
+          <p><b>Coverage:</b> 11 expected sessions from 2025-12-16 through 2025-12-31 have no QQQ option chain or raw underlying price in this pinned source. Four earlier expected sessions also lack option rows. Missing observations are not interpolated or forward-filled.</p>
+          <p><b>Execution / strategy gate:</b> the source is a public 4:00 PM US/Eastern EOD preservation mirror, not exchange-confirmed decision-time fills. Far-Call Run #48 passed as a program but V2 still reports <code>FAILS_CURRENT_BASE_SCREEN</code> and <code>DESCRIPTIVE_DECOMPOSITION_ONLY_NOT_PERFORMANCE_APPROVED</code>. Do not promote this overlay into the Frozen Original Hybrid on the strength of QA success.</p>
+        </div>
+        <p><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Open the committed full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38106167931">Linux Grok Bot Run #2</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38106167957">Windows Far-Call Run #48</a> · <a href="QQQ_FAR_CALL_INCREMENTAL_VALUE_V2_RUN45.md">V2 entry/capital/exit decomposition →</a></p>
+      </details>
+    </section>
+
     <section id="proDashboard" class="pro-dashboard card">
       <div class="pro-heading">
         <div>

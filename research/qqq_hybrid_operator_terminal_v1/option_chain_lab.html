@@ -16,6 +16,21 @@ input,select,textarea{background:#0b1118;color:var(--txt);border:1px solid #3a48
 <header><div><div class="eyebrow">RESEARCH ONLY · SCREENSHOT CHAIN LAB</div><h1>QQQ / VXX Option Chain Lab</h1><p class="sub">報價鏈 → 價差組合 → 最大損益 → 風險容量 → 到期損益圖</p></div><div class="btns"><span class="tag bad">NO BROKER ORDERS</span><a href="index.html">← 返回 QQQ Hybrid PRO Terminal</a></div></header>
 <main>
 <div class="notice"><b>資料界線：</b>截圖選中的到期日為 2026-11-20。必須按「載入本次截圖報價」才會載入手動轉錄樣本；報價觀察時間未能確認，所以永遠標示為「截圖／手動樣本，非即時」。QQQ Put 和 VXX Put 只在此研究頁比較，不會加入主策略風險池。<small>本次截圖只包含 QQQ CALL 與 VXX CALL；QQQ PUT 和 VXX PUT 必須保持空白，除非另行匯入有來源的報價。計算仍須輸入期權權利金乘數；合約 root／每張交割單位須分別核實。OCC 曾將指定既有 VXX 期權調整成 VXX2（25 股交割），另有 VXX1（6 股加固定現金）系列。選定或辨識到調整合約時，本 Lab 會封鎖容量／到期損益計算，直到交割與價格刻度另行正規化；不能只以頁尾警告代替。</small></div>
+
+<section class="panel" id="historicalModelValidation"><div class="head"><div><div class="kicker">MODEL VALIDATION / FULL-HISTORY EVIDENCE</div><h2>Historical QQQ Quote Fit — Research Gate</h2></div><span class="tag bad">NOT PERFORMANCE APPROVED</span></div>
+<div class="stats">
+  <div class="stat"><small>VALID RAW-SPOT PAIRS</small><b>1,946 / 1,971</b><span>98.73% of expected sessions</span></div>
+  <div class="stat"><small>VIX-PROXY CREDIT GAP</small><b>+$0.181 / share</b><span>Median model − observed EOD side credit</span></div>
+  <div class="stat"><small>REPO SPOT VS RAW CLOSE</small><b>−2.72%</b><span>Median difference over 1,956 chain days</span></div>
+  <div class="stat"><small>HAIRCUT TOO NARROW</small><b>30.0% / 57.2%</b><span>Observed short / wing half-spread comparison</span></div>
+</div>
+<p class="tiny">This read-only diagnostic does not alter spread calculations or capacity. The source is a third-party EOD snapshot mirror, not confirmed fills. Its last option-chain date is <b>2025-12-15</b>; 11 expected sessions through 2025-12-31 are missing. No missing quote is interpolated or forward-filled.</p>
+<details><summary>More interpretation and promotion criteria</summary>
+<p class="tiny">The model credit gap's median absolute value is $0.196/share (n=1,946). Repricing with the source-reported per-leg IV reduces median absolute gap to $0.060/share, but source IV may be derived from the same quote and is not independent validation. Model spread haircuts were narrower than observed on 30.0% of short legs and 57.2% of wings; in the VIX ≥35 subset (n=54), the rates were 81.5% and 100%. Repository spot versus raw nominal close has median difference −2.72% (n=1,956).</p>
+<p class="tiny">The FAR CALL V2 screen remains <b>FAILS_CURRENT_BASE_SCREEN</b>. Workflow success proves the code path and cash-flow ledger run; it does not prove executable fills, complete daily NAV, CAGR, MaxDD, Sharpe, ES95, or incremental benefit. Do not change the frozen strategy or treat this panel as a BUY/HOLD/SELL signal.</p>
+<p class="tiny"><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38106167931">Linux audit Run #2 →</a></p>
+</details></section>
+
 <section class="panel"><div class="head"><div><div class="kicker">01 · INPUTS</div><h2>資料及風險設定</h2></div><span id="sourceBadge" class="tag bad">尚未載入報價</span></div>
 <div class="grid6">
 <label>到期日（CSV 未提供時保持空白） <input id="expiry" type="date" value=""></label><label>報價觀察時間 <input id="asof" type="datetime-local" value=""></label>

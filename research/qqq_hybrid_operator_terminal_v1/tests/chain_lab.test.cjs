@@ -119,4 +119,18 @@ const partiallyMissingSource = Lab.parseCsv(richCsv.replace("PUBLIC_DATA,\"Examp
 assert.ok(partiallyMissingSource.metadataConflicts.some(x=>x.includes("source_name")));
 
 assert.equal(Lab.csvCell('Example, "quoted"'),'"Example, ""quoted"""');
+
+// UI integration: the main operator terminal and Option Chain Lab must expose
+// the source-backed validation gate, while clearly keeping it read-only.
+const mainHtml = fs.readFileSync(require("path").join(__dirname, "../index.html"), "utf8");
+const labHtml = fs.readFileSync(require("path").join(__dirname, "../option_chain_lab.html"), "utf8");
+assert.ok(mainHtml.includes('id="researchValidation"'), "main terminal must show the research validation lockbox");
+assert.ok(mainHtml.includes("1,946 / 1,971 · 98.73%"), "main terminal must disclose paired-session coverage");
+assert.ok(mainHtml.includes("−2.72%"), "main terminal must disclose measured spot-basis mismatch");
+assert.ok(mainHtml.includes("does not change sizing, entry/exit rules, strategy weights, or broker permissions"), "validation lockbox must remain read-only");
+assert.ok(labHtml.includes('id="historicalModelValidation"'), "Option Chain Lab must show model-fit evidence");
+assert.ok(labHtml.includes("+$0.181 / share"), "Option Chain Lab must disclose measured proxy credit gap");
+assert.ok(labHtml.includes("No missing quote is interpolated or forward-filled"), "Option Chain Lab must disclose the no-fill gap policy");
+assert.ok(labHtml.includes("FAILS_CURRENT_BASE_SCREEN"), "Option Chain Lab must not imply Far-Call performance approval");
+
 console.log("option_chain_lab=PASS");
