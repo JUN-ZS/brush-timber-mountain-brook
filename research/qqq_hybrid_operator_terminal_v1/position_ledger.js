@@ -127,7 +127,10 @@
 
   function markFreshness(row, nowMs) {
     if (!row.markPriceIsKnown) return { label: "NO MARK", stale: true, ageMinutes: null };
-    if (!row.markAsOfMs) return { label: "AS-OF MISSING", stale: true, ageMinutes: null };
+    if (row.markAsOfMs === null || row.markAsOfMs === undefined || row.markAsOfMs === "") {
+      return { label: "AS-OF MISSING", stale: true, ageMinutes: null };
+    }
+    if (!Number.isFinite(row.markAsOfMs)) return { label: "AS-OF INVALID", stale: true, ageMinutes: null };
     const ageMinutes = (nowMs - row.markAsOfMs) / 60000;
     if (ageMinutes < -5) return { label: "FUTURE TIMESTAMP", stale: true, ageMinutes };
     if (row.markSourceType === "BROKER_LIVE") {
@@ -168,19 +171,20 @@
       const width = option && record.shortStrike !== null && record.longStrike !== null
         ? Math.abs(record.shortStrike - record.longStrike) : null;
       const entryKnown = record.entryPrice !== null && Number.isFinite(record.entryPrice);
+      const entryEvidenceVerified = record.entryEvidence === "BROKER_FILL" || record.entryEvidence === "BROKER_STATEMENT";
       const markKnown = markPrice !== null && Number.isFinite(markPrice);
       let pnl = null, pnlStatus = "P&L INCOMPLETE";
       if (entryKnown && markKnown && template.kind === "STOCK") {
         pnl = template.side === "SHORT"
           ? (record.entryPrice - markPrice) * record.qty
           : (markPrice - record.entryPrice) * record.qty;
-        pnlStatus = record.entryEvidence === "UNKNOWN" || markSourceType === "UNKNOWN" || markSourceType === "MODEL_ESTIMATE"
-          ? "INDICATIVE · SOURCE UNVERIFIED" : "GROSS UNREALIZED P&L";
+        pnlStatus = !entryEvidenceVerified || markSourceType === "UNKNOWN" || markSourceType === "MODEL_ESTIMATE"
+          ? "INDICATIVE · ENTRY/SOURCE UNVERIFIED" : "GROSS UNREALIZED P&L";
       } else if (entryKnown && markKnown && option && record.multiplier > 0) {
         pnl = (record.entryPrice - markPrice) * record.qty * record.multiplier;
-        pnlStatus = record.termsVerified && record.entryEvidence !== "UNKNOWN" &&
+        pnlStatus = record.termsVerified && entryEvidenceVerified &&
           markSourceType !== "UNKNOWN" && markSourceType !== "MODEL_ESTIMATE"
-          ? "GROSS UNREALIZED P&L · BEFORE FEES" : "INDICATIVE · TERMS/SOURCE UNVERIFIED";
+          ? "GROSS UNREALIZED P&L · BEFORE FEES" : "INDICATIVE · ENTRY/TERMS/SOURCE UNVERIFIED";
       }
 
       const markForFreshness = {
