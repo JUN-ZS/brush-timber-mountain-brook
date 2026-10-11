@@ -196,6 +196,8 @@ assert.ok(handoffHtml.includes('src="ai_handoff.js"'), "handoff module must load
 assert.ok(handoffApp.includes("function exportAiReviewPack()"), "APP must create a live-state AI packet");
 assert.ok(handoffApp.includes("helper.serialize(lastPlan, candidates, marketMeta)"), "packet must use current plan and candidate evidence");
 assert.ok(handoffEngine.includes("shortQuoteWidthPctMid"), "candidate metrics must preserve both-leg relative quote width");
+assert.ok(handoffEngine.includes("ADJUSTED_DELIVERABLE_BLOCKED"), "adjusted VXX roots must fail closed in the primary budget");
+assert.ok(handoffApp.includes("ADJUSTED VXX ROOT DETECTED — CAPACITY BLOCKED"), "adjusted VXX contract blocker must be visible to the operator");
 assert.ok(handoffApp.includes("quote timestamp not verified"), "APP must distinguish chain fetch time from quote timestamp");
 assert.ok(handoffApp.includes("configured above"), "primary option risk percentage has one authoritative input");
 assert.ok(handoffProtocol.includes("Accuracy"), "durable collaboration protocol must define accuracy");
