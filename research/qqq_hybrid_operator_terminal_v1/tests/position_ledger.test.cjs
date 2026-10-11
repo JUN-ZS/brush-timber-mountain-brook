@@ -121,4 +121,27 @@ function base(overrides = {}) {
   assert.equal(P.validateRecord(base({ markPrice: -1 })).ok, false);
 }
 
-console.log("QQQ HYBRID POSITION REGISTER: 7 TEST GROUPS PASS");
+
+// Exact OCC symbols must agree with expiry, right and strike inputs; reversed call-credit legs are rejected.
+{
+  const good = base({
+    id: "verified-call", template: "QQQ_CALL_CREDIT", qty: 1,
+    entryPrice: 0.5, markPrice: 0.4,
+    expiry: "2026-11-20", shortStrike: 800, longStrike: 810,
+    shortSymbol: "QQQ261120C00800000", longSymbol: "QQQ261120C00810000",
+    multiplier: 100, termsVerified: true, deliverableNote: "Standard 100 QQQ shares"
+  });
+  assert.equal(P.parseOccOptionSymbol(good.shortSymbol).strike, 800);
+  assert.equal(P.parseOccOptionSymbol(good.shortSymbol).expiry, "2026-11-20");
+  assert.equal(P.validateRecord(good).ok, true);
+  const wrongExpiry = P.summarize([{ ...good, id: "wrong-expiry", shortSymbol: "QQQ261218C00800000" }], {}, Date.parse("2026-10-11T10:05"));
+  assert.ok(wrongExpiry.blockingKeys.includes("qqqCallSpreads"));
+  assert.equal(wrongExpiry.rows[0].identityComplete, false);
+  const wrongStrike = P.summarize([{ ...good, id: "wrong-strike", longSymbol: "QQQ261120C00805000" }], {}, Date.parse("2026-10-11T10:05"));
+  assert.ok(wrongStrike.blockingKeys.includes("qqqCallSpreads"));
+  const wrongRoot = P.summarize([{ ...good, id: "wrong-root", shortSymbol: "SPY261120C00800000" }], {}, Date.parse("2026-10-11T10:05"));
+  assert.ok(wrongRoot.blockingKeys.includes("qqqCallSpreads"));
+  assert.equal(P.validateRecord({ ...good, shortStrike: 810, longStrike: 800 }).ok, false);
+}
+
+console.log("QQQ HYBRID POSITION REGISTER: 8 TEST GROUPS PASS");
