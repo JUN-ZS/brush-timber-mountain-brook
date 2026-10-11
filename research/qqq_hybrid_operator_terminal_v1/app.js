@@ -43,7 +43,7 @@
         '<td class="strategy-cell"><b>' + esc(s.label) + '</b>' + sourceCell + '<small id="reason-' + s.key + '" class="row-reason">Not sized yet</small></td>' +
         '<td><input id="current-' + s.key + '" type="number" min="0" step="1" value="0" aria-label="' + esc(s.label) + ' current contracts"></td>' +
         '<td>' + (s.mainBudgetEligible
-          ? '<input id="budget-' + s.key + '" type="number" min="0" max="100" step="0.1" value="' + budget + '" aria-label="' + esc(s.label) + ' requested risk weight percent of NAV">'
+          ? '<span id="budget-display-' + s.key + '" class="muted budget-display">' + fmt(budget, 1) + '% NAV · configured above</span>'
           : '<span class="tag">OUTSIDE MAIN BUDGET</span>') + '</td>' +
         '<td id="allocated-' + s.key + '">—</td>' +
         '<td>' + riskCell + '</td>' +
@@ -52,15 +52,31 @@
       '</tr>';
     }).join("");
     for (const [key, id] of Object.entries(TOP_BUDGETS)) {
-      $("budget-" + key).value = inputNumber(id, 0);
-      $(id).addEventListener("input", () => { $("budget-" + key).value = $(id).value; renderPlan(); });
-      $("budget-" + key).addEventListener("input", () => { $(id).value = $("budget-" + key).value; renderPlan(); });
+      const display = $("budget-display-" + key);
+      const updateDisplay = () => {
+        if (display) display.textContent = fmt(inputNumber(id, 0), 1) + "% NAV · configured above";
+      };
+      updateDisplay();
+      $(id).addEventListener("input", () => { updateDisplay(); renderPlan(); });
     }
   }
 
   function syncBudgetInputsFromProfile() {
-    for (const [key, id] of Object.entries(TOP_BUDGETS)) $("budget-" + key).value = $(id).value;
+    for (const [key, id] of Object.entries(TOP_BUDGETS)) {
+      const display = $("budget-display-" + key);
+      if (display) display.textContent = fmt(inputNumber(id, 0), 1) + "% NAV · configured above";
+    }
     renderPlan();
+  }
+
+  function toggleResearchRows() {
+    const wrap = $("optionTableWrap");
+    const button = $("toggleResearchRows");
+    if (!wrap || !button) return;
+    const shown = wrap.classList.toggle("show-research-rows");
+    const count = E.OPTION_STRATEGIES.filter(s => !s.mainBudgetEligible).length;
+    button.setAttribute("aria-expanded", String(shown));
+    button.textContent = shown ? "Hide " + count + " research-only rows" : "Show " + count + " research-only rows";
   }
 
   function readMarket() {
@@ -97,7 +113,7 @@
     const permissions = { allowProtectionBuys: $("allowProtectionBuys")?.checked === true };
     const manualRiskPerUnit = {};
     for (const s of E.OPTION_STRATEGIES) {
-      sizing[s.riskPctField] = s.mainBudgetEligible ? inputNumber("budget-" + s.key, s.defaultRiskPct) : 0;
+      sizing[s.riskPctField] = s.mainBudgetEligible ? inputNumber(TOP_BUDGETS[s.key], s.defaultRiskPct) : 0;
       holdings[s.key] = inputNumber("current-" + s.key, 0);
       if (s.mainBudgetEligible && !s.baseline) permissions[s.key] = $("enabled-" + s.key)?.checked === true;
       if (["manualDebit", "manualRisk", "stressOnly"].includes(s.kind)) manualRiskPerUnit[s.key] = inputNumber("risk-" + s.key, null);
@@ -148,6 +164,13 @@
     renderPlan();
   }
 
+  const premium = (value) => Number.isFinite(Number(value))
+    ? "$" + Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : "—";
+  function quoteWidthLabel(value, quality) {
+    return Number.isFinite(Number(value)) ? Number(value).toFixed(1) + "% mid " + (quality || "UNKNOWN") : "UNKNOWN width";
+  }
+
   function currentCandidateText(candidate) {
     if (!candidate) return "PENDING · no usable chain candidate";
     if (candidate.hubPackage === true) {
@@ -159,13 +182,26 @@
         " · " + (candidate.gatePass === false ? "ENTRY GATE OFF" : "risk candidate ready");
     }
     if (candidate.maxLossPerSpread !== undefined) {
-      return candidate.right.toUpperCase() + " vertical · " + candidate.expiry + " · " +
-        fmt(candidate.dte) + " DTE · " + fmt(candidate.shortStrike, 2) + "/" + fmt(candidate.longStrike, 2) +
-        " · credit " + usd(candidate.credit) + " · max loss " + usd(candidate.maxLossPerSpread) +
-        " · " + candidate.source;
+      const shortLabel = candidate.shortContractSymbol || ("K " + fmt(candidate.shortStrike, 2));
+      const longLabel = candidate.longContractSymbol || ("K " + fmt(candidate.longStrike, 2));
+      const fetched = candidate.chainRetrievedAt
+        ? " · chain fetched " + candidate.chainRetrievedAt + " (quote timestamp not verified)"
+        : " · quote timestamp not verified";
+      return candidate.right.toUpperCase() + " vertical · expiry " + candidate.expiry + " · " +
+        fmt(candidate.dte) + " DTE · SHORT " + shortLabel + " Bid/Ask " +
+        premium(candidate.shortBid) + "/" + premium(candidate.shortAsk) + " · width " +
+        quoteWidthLabel(candidate.shortQuoteWidthPctMid, candidate.shortQuoteQuality) +
+        " · WING " + longLabel + " Bid/Ask " + premium(candidate.longBid) + "/" + premium(candidate.longAsk) +
+        " · width " + quoteWidthLabel(candidate.longQuoteWidthPctMid, candidate.longQuoteQuality) +
+        " · credit/share " + premium(candidate.credit) + " · max loss/spread " + usd(candidate.maxLossPerSpread) +
+        " (multiplier " + (candidate.multiplierAssumption || 100) + " assumed; not verified)" +
+        fetched + " · " + (candidate.chainSource || candidate.source || "source unknown");
     }
     return candidate.right.toUpperCase() + " long · " + candidate.expiry + " · " + fmt(candidate.dte) +
-      " DTE · K " + fmt(candidate.strike, 2) + " · ask " + usd(candidate.ask) + " · " + candidate.source;
+      " DTE · K " + fmt(candidate.strike, 2) + " · ask " + premium(candidate.ask) +
+      " · width " + quoteWidthLabel(candidate.shortQuoteWidthPctMid, candidate.shortQuoteQuality) +
+      " · " + (candidate.chainRetrievedAt ? "chain fetched " + candidate.chainRetrievedAt + " (quote time unverified)" : "quote time unverified") +
+      " · " + (candidate.chainSource || candidate.source || "source unknown");
   }
 
   function syncHubResearchCandidates() {
@@ -318,7 +354,13 @@
           ? E.findShortCall(payload, spot, targetDte, targetAbsDelta, $("mToday").value)
           : E.findLongOption(payload, spot, right, targetDte, targetAbsDelta, $("mToday").value);
       if (!candidate) throw new Error("No candidate with valid strikes, expiry and positive bid/ask credit/debit. No substitute price was invented.");
-      candidate.chainRetrievedAt = payload.retrieved_at;
+      candidate.chainRetrievedAt = payload.retrieved_at || null;
+      candidate.chainSource = payload.source || candidate.source || "SOURCE_UNSPECIFIED";
+      candidate.quoteTimestampStatus = "UNVERIFIED — API fetch time is not an exchange quote timestamp";
+      if (candidate.maxLossPerSpread !== undefined) {
+        candidate.multiplierAssumption = 100;
+        candidate.multiplierVerified = false;
+      }
       candidates[key] = candidate;
       $("candidateRows").innerHTML = Object.keys(candidates).filter(k => candidates[k]).map(k =>
         '<div class="candidate-row"><b>' + esc(k) + '</b><span>' + esc(currentCandidateText(candidates[k])) + '</span></div>'
@@ -735,6 +777,7 @@
     $("test1000Btn").addEventListener("click", setTest1000);
     $("testLeg").addEventListener("change", () => { window.hybridTestOverrides = {}; renderPlan(); });
     $("exportBtn").addEventListener("click", exportPlan);
+    $("toggleResearchRows").addEventListener("click", toggleResearchRows);
     $("aiHandoffBtn").addEventListener("click", exportAiReviewPack);
     $("journalBtn").addEventListener("click", appendJournal);
     $("findHubResearchBtn").addEventListener("click", findHubResearchCandidates);
