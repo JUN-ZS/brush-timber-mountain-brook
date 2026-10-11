@@ -42,6 +42,8 @@
         <div><small>QQQ OPTION ROW DAYS</small><b>1,956 / 1,971 · 99.24%</b><span>Last observed option data: 2025-12-15</span></div>
         <div><small>VALID RAW-SPOT TARGET PAIRS</small><b>1,946 / 1,971 · 98.73%</b><span>Only observed matched days count</span></div>
         <div><small>VIX-PROXY CREDIT GAP</small><b>+$0.181 / share</b><span>Median model minus observed EOD side credit; n=1,946</span></div>
+        <div><small>FAR-CALL vs NO-CALL CONTROL</small><b>−$5,552</b><span>Last paired-date NAV gap · zero-cost source max-loss arm</span></div>
+        <div><small>POSITIVE NAV-GAP DAYS</small><b>32 / 1,947</b><span>24 unmatched dates excluded; last paired date 2025-12-15</span></div>
       </div>
       <details class="validation-details">
         <summary>Open model-fit findings, data gaps, and promotion rules</summary>
@@ -50,9 +52,9 @@
           <p><b>Spread haircut:</b> the VIX-derived model haircut was narrower than the observed option-leg half-spread on 30.0% of short legs and 57.2% of wings. In the VIX ≥35 bucket, the rates were 81.5% and 100% respectively (54 matched pairs).</p>
           <p><b>Source IV caution:</b> using the source-reported option IV narrows the median absolute credit gap to $0.060/share, but that IV may itself be derived from the same quote and is not independent validation. The VIX-only proxy's median absolute credit gap is $0.196/share.</p>
           <p><b>Coverage:</b> 11 expected sessions from 2025-12-16 through 2025-12-31 have no QQQ option chain or raw underlying price in this pinned source. Four earlier expected sessions also lack option rows. Missing observations are not interpolated or forward-filled.</p>
-          <p><b>Execution / strategy gate:</b> the source is a public 4:00 PM US/Eastern EOD preservation mirror, not exchange-confirmed decision-time fills. Far-Call Run #48 passed as a program but V2 still reports <code>FAILS_CURRENT_BASE_SCREEN</code> and <code>DESCRIPTIVE_DECOMPOSITION_ONLY_NOT_PERFORMANCE_APPROVED</code>. Do not promote this overlay into the Frozen Original Hybrid on the strength of QA success.</p>
+          <p><b>Execution / strategy gate:</b> the isolated FAR CALL replay failed its base screen. At zero modeled costs, 106 trades opened / 105 closed for <b>−$5,646 closed-trade P&amp;L</b>; the last paired-date NAV gap was <b>−$5,552</b> versus a control holding the same 42% QQQ core total-return proxy plus static 58% cash and no option trades. Only 1,947 dates are paired; 24 unmatched dates are excluded, and the last paired date is 2025-12-15. This control is <b>not the full Frozen Original Hybrid composite</b>; EOD quote-side marks are not confirmed fills. Keep Frozen Original Hybrid settings unchanged, but do not treat capacity math or successful QA as proof of positive incremental value. CAGR, daily MTM MaxDD, Sharpe and ES95 remain unapproved.</p>
         </div>
-        <p><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Open the committed full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38106167931">Linux Grok Bot Run #2</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38106167957">Windows Far-Call Run #48</a> · <a href="QQQ_FAR_CALL_INCREMENTAL_VALUE_V2_RUN45.md">V2 entry/capital/exit decomposition →</a></p>
+        <p><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Open the committed full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475694">Grok Bot Linux Run #3 (successful retry) →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475712">Windows Far-Call Run #49 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475721">Public EOD Audit Run #78 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38107475618">Terminal QA Run #161 →</a> · <a href="QQQ_FAR_CALL_INCREMENTAL_VALUE_V2_RUN45.md">V2 entry/capital/exit decomposition archive (Run #45) →</a></p>
       </details>
     </section>
 

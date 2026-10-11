@@ -223,6 +223,7 @@ jobs:
           node research/qqq_hybrid_operator_terminal_v1/tests/engine.test.cjs
           node research/qqq_hybrid_operator_terminal_v1/tests/hub_research_pack.test.cjs
           node research/qqq_hybrid_operator_terminal_v1/tests/chain_lab.test.cjs
+          node research/qqq_hybrid_operator_terminal_v1/tests/research_lockbox.test.cjs
 
       - name: Python syntax
         shell: bash
@@ -244,6 +245,7 @@ jobs:
               "tests/engine.test.cjs", "tests/hub_research_pack.test.cjs",
               "tests/fixtures/user_uploaded_option_chain_2026-11-20.json",
               "option_chain_lab.html", "option_chain_lab.js", "tests/chain_lab.test.cjs",
+              "tests/research_lockbox.test.cjs",
           ]
           missing = [x for x in required if not (p / x).is_file()]
           assert not missing, f"missing files: {missing!r}"
