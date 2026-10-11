@@ -189,3 +189,16 @@ footer{padding:18px;text-align:center;color:#7185a0;border-top:1px solid var(--l
 .ai-handoff-gates{margin-top:10px;padding-top:8px;border-top:1px solid var(--line)}
 .ai-handoff-gates summary{cursor:pointer;font-size:12px;font-weight:700}
 @media(max-width:900px){.ai-handoff-steps{grid-template-columns:1fr}}
+
+
+/* A cleaner default view: primary Hybrid legs first; research catalogue remains one click away. */
+.option-table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:10px 0}
+.option-table-toolbar p{margin:0;max-width:760px}
+#optionTableWrap:not(.show-research-rows) tbody tr[data-key]:not([data-key="qqqCallSpreads"]):not([data-key="vxxCallSpreads"]){display:none}
+.budget-display{display:inline-block;min-width:145px;font-variant-numeric:tabular-nums}
+.advanced-option-tools,.advanced-research-controls{grid-column:1/-1;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--p2);min-width:0}
+.advanced-option-tools summary,.advanced-research-controls summary{cursor:pointer;font-weight:700;font-size:12px}
+.advanced-option-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;align-items:end}
+.quote-measurement-guide{padding:8px 10px;border-left:3px solid var(--blue);background:var(--p2);border-radius:4px}
+@media(max-width:900px){.advanced-option-actions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.advanced-option-actions{grid-template-columns:1fr}.option-table-toolbar{align-items:stretch}}
