@@ -180,6 +180,8 @@ Supported mark-to-entry arithmetic is explicit:
 
 P&L is gross and unrealized; it excludes transaction costs, slippage, dividends, borrow fees, assignment/exercise, tax and cash-flow timing. Blank marks stay unknown; blank stock marks may use the current APP spot snapshot and are labelled as derived. Mark age and source are shown separately from arithmetic. This register is not a realized P&L ledger and does not automatically alter account NAV.
 
+When register mode is active, its four aggregated quantities feed the sizing engine only after the operator confirms all four primary categories have been reconciled (omitted categories mean zero). Importing, adding/editing, or removing a row clears that confirmation and disables register mode until reviewed again. An empty register cannot imply a zero-holdings account.
+
 When register mode is active, its four aggregated quantities feed the sizing engine. An option row with incomplete symbols, expiry, strikes, or unchecked broker-verified deliverable/multiplier blocks only the affected strategy's Current → Target sizing row. It does not pretend to calculate a safe reduction quantity from unknown terms. Existing manual current quantities are restored when register mode is switched off or when its last row is removed.
 
 Run the dedicated tests with Windows CMD:
