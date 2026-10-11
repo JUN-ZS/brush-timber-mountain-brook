@@ -256,7 +256,7 @@
     }).join("") : '<tr><td colspan="9" class="pro-empty-cell">No position records yet. Manual Current Quantity inputs remain available.</td></tr>';
 
     if (summary.error) positionStorageNotice = "Register validation issue: " + summary.error;
-    const active = $("positionUseRegister").checked;
+    const active = $("positionUseRegister").checked && $("positionRegisterCompleteConfirmed").checked;
     $("positionRegisterModeStatus").textContent = (active
       ? "ACTIVE: registered quantities are the Current inputs for QQQ core, VXX short stock, QQQ call-credit and VXX call-credit. Any term block freezes only the affected option strategy."
       : "ATTRIBUTION ONLY: current quantities remain manual inputs until you enable register mode.") +
@@ -282,6 +282,7 @@
       return;
     }
     const index = positionRecords.findIndex(row => row.id === draft.id);
+    invalidatePositionRegisterCoverage("The position register changed.");
     draft.updatedAt = new Date().toISOString();
     if (index >= 0) positionRecords[index] = draft;
     else {
@@ -294,20 +295,43 @@
     renderPlan();
   }
 
+
+  function restoreManualPositionInputs() {
+    if (!manualHoldingsBeforeRegister) return;
+    for (const [id, value] of Object.entries(manualHoldingsBeforeRegister)) $(id).value = value;
+    manualHoldingsBeforeRegister = null;
+  }
+
+  function invalidatePositionRegisterCoverage(reason) {
+    $("positionRegisterCompleteConfirmed").checked = false;
+    if ($("positionUseRegister").checked) {
+      $("positionUseRegister").checked = false;
+      restoreManualPositionInputs();
+    } else {
+      manualHoldingsBeforeRegister = null;
+    }
+    $("positionRegisterModeStatus").textContent = reason +
+      " Register completeness confirmation has been cleared; re-check all four categories before switching it back into sizing.";
+  }
+
   function handlePositionRegisterMode() {
     const use = $("positionUseRegister").checked;
+    if (use && !$("positionRegisterCompleteConfirmed").checked) {
+      $("positionUseRegister").checked = false;
+      $("positionRegisterModeStatus").textContent = "Cannot use register for sizing until you confirm that all four primary position categories have been reviewed; omitted categories will be interpreted as zero.";
+      return;
+    }
     if (use && positionRecords.length === 0) {
       $("positionUseRegister").checked = false;
-      $("positionRegisterModeStatus").textContent = "Cannot switch to register mode: add at least one verified-identity position record first.";
+      $("positionRegisterModeStatus").textContent = "Cannot switch to register mode: add at least one verified-identity position record first. Use explicit manual inputs for a verified zero-holdings account.";
       return;
     }
     const ids = ["current-qqqShares", "current-vxxShortShares", "current-qqqCallSpreads", "current-vxxCallSpreads"];
     if (use) {
       manualHoldingsBeforeRegister = {};
       for (const id of ids) manualHoldingsBeforeRegister[id] = $(id).value;
-    } else if (manualHoldingsBeforeRegister) {
-      for (const id of ids) $(id).value = manualHoldingsBeforeRegister[id];
-      manualHoldingsBeforeRegister = null;
+    } else {
+      restoreManualPositionInputs();
     }
     renderPlan();
   }
@@ -335,14 +359,8 @@
         $("positionFormStatus").textContent = "Import rejected without changing existing rows: " + result.errors.join(" ");
         return;
       }
+      invalidatePositionRegisterCoverage("An imported register replaced the previous snapshot.");
       positionRecords = result.positions;
-      if ($("positionUseRegister").checked && positionRecords.length === 0) {
-        $("positionUseRegister").checked = false;
-        if (manualHoldingsBeforeRegister) {
-          for (const [id, value] of Object.entries(manualHoldingsBeforeRegister)) $(id).value = value;
-        }
-        manualHoldingsBeforeRegister = null;
-      }
       const saved = savePositionRecords();
       $("positionFormStatus").textContent = "Imported " + positionRecords.length + " record(s). " + (saved ? "Saved locally." : "Local save failed; export a backup.");
       renderPlan();
@@ -398,7 +416,7 @@
       if (["manualDebit", "manualRisk", "stressOnly"].includes(s.kind)) manualRiskPerUnit[s.key] = inputNumber("risk-" + s.key, null);
     }
     const positionSummary = PositionLedger ? PositionLedger.summarize(positionRecords, readMarket()) : null;
-    const usePositionRegister = $("positionUseRegister")?.checked === true && positionRecords.length > 0 && positionSummary && !positionSummary.error;
+    const usePositionRegister = $("positionUseRegister")?.checked === true && $("positionRegisterCompleteConfirmed")?.checked === true && positionRecords.length > 0 && positionSummary && !positionSummary.error;
     if (usePositionRegister) Object.assign(holdings, positionSummary.holdings);
     return {
       market: readMarket(),
@@ -407,6 +425,7 @@
       sizing, holdings, candidates, permissions, manualRiskPerUnit,
       positionRegister: positionSummary ? {
         useForSizing: usePositionRegister,
+        completeConfirmed: $("positionRegisterCompleteConfirmed")?.checked === true,
         records: positionRecords,
         summary: positionSummary,
         blockingKeys: usePositionRegister ? positionSummary.blockingKeys : []
@@ -1069,6 +1088,13 @@
     $("positionCancelEditBtn").addEventListener("click", resetPositionForm);
     $("posTemplate").addEventListener("change", updatePositionFormMode);
     $("positionUseRegister").addEventListener("change", handlePositionRegisterMode);
+    $("positionRegisterCompleteConfirmed").addEventListener("change", () => {
+      if (!$("positionRegisterCompleteConfirmed").checked && $("positionUseRegister").checked) {
+        $("positionUseRegister").checked = false;
+        restoreManualPositionInputs();
+      }
+      renderPlan();
+    });
     $("positionExportBtn").addEventListener("click", exportPositionRegisterJson);
     $("positionImportBtn").addEventListener("click", () => $("positionImportFile").click());
     $("positionImportFile").addEventListener("change", event => importPositionRegister(event.target.files && event.target.files[0]));
@@ -1082,15 +1108,9 @@
         fillPositionForm(positionRecords[index]);
       } else if (button.dataset.positionAction === "delete" &&
         window.confirm("Remove this local position record? No broker position will be changed.")) {
+        invalidatePositionRegisterCoverage("A position record was removed.");
         positionRecords.splice(index, 1);
         savePositionRecords();
-        if ($("positionUseRegister").checked && positionRecords.length === 0) {
-          $("positionUseRegister").checked = false;
-          if (manualHoldingsBeforeRegister) {
-            for (const [fieldId, value] of Object.entries(manualHoldingsBeforeRegister)) $(fieldId).value = value;
-          }
-          manualHoldingsBeforeRegister = null;
-        }
         renderPlan();
       }
     });
