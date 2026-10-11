@@ -519,6 +519,16 @@ function row(result, key) {
   assert.equal(x.action, "BLOCKED");
   assert.equal(x.status, "BLOCKED_CONTRACT");
   assert.match(x.reason, /deliverable are verified/);
+
+  const riskOff = E.calculatePortfolio(base({
+    market: snap({ vix: 31 }),
+    holdings: { vxxCallSpreads: 1 },
+    candidates: { vxxCall: candidate }
+  }));
+  const riskOffRow = row(riskOff, "vxxCallSpreads");
+  assert.equal(riskOffRow.capacity, null);
+  assert.equal(riskOffRow.action, "BLOCKED");
+  assert.equal(riskOffRow.target, 1, "do not claim a computable reduction quantity when contract terms are unknown");
 }
 
 console.log("QQQ HYBRID OPERATOR ENGINE: 27 TEST GROUPS PASS");
