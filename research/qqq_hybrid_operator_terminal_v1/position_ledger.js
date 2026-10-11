@@ -72,6 +72,7 @@
       if (x.multiplier <= 0 || !Number.isFinite(x.multiplier)) errors.push("Option multiplier must be greater than zero.");
       if (x.shortStrike !== null && x.shortStrike <= 0) errors.push("Short strike must be positive.");
       if (x.longStrike !== null && x.longStrike <= 0) errors.push("Protective-wing strike must be positive.");
+      if (x.shortStrike !== null && x.longStrike !== null && x.shortStrike >= x.longStrike) errors.push("For supported call-credit verticals, short strike must be below the protective-wing strike.");
       if (x.entryPrice !== null && x.entryPrice <= 0) errors.push("Entry net credit must be greater than zero.");
     }
     return { ok: errors.length === 0, errors, record: x };
@@ -92,6 +93,31 @@
       ids.add(r.id);
     });
     return { ok: errors.length === 0, errors, positions: errors.length ? [] : normalized };
+  }
+
+  function parseOccOptionSymbol(value) {
+    const symbol = String(value || "").toUpperCase().replace(/\s+/g, "");
+    const match = symbol.match(/^([A-Z0-9.]{1,6})(\d{6})([CP])(\d{8})$/);
+    if (!match) return null;
+    const expiryDigits = match[2];
+    const expiry = "20" + expiryDigits.slice(0, 2) + "-" + expiryDigits.slice(2, 4) + "-" + expiryDigits.slice(4, 6);
+    if (!validDate(expiry)) return null;
+    return {
+      symbol,
+      root: match[1],
+      expiry,
+      right: match[3],
+      strike: Number(match[4]) / 1000
+    };
+  }
+
+  function optionSymbolMatches(value, expectedRoot, expiry, strike) {
+    const parsed = parseOccOptionSymbol(value);
+    if (!parsed || !expectedRoot || !validDate(expiry) || strike === null || strike === undefined) return false;
+    return parsed.root.startsWith(expectedRoot) &&
+      parsed.expiry === expiry &&
+      parsed.right === "C" &&
+      Math.abs(parsed.strike - Number(strike)) < 0.000001;
   }
 
   function isAdjustedVxxSymbol(value) {
@@ -163,13 +189,21 @@
         markSourceType
       };
       const freshness = markFreshness(markForFreshness, nowMs);
+      const shortContract = option ? parseOccOptionSymbol(record.shortSymbol) : null;
+      const longContract = option ? parseOccOptionSymbol(record.longSymbol) : null;
+      const shortIdentityMatches = option && optionSymbolMatches(record.shortSymbol, template.symbol, record.expiry, record.shortStrike);
+      const longIdentityMatches = option && optionSymbolMatches(record.longSymbol, template.symbol, record.expiry, record.longStrike);
       const identityComplete = !option || (
         validDate(record.expiry) && record.shortStrike !== null && record.longStrike !== null &&
-        record.shortStrike > 0 && record.longStrike > 0 && record.shortStrike !== record.longStrike &&
+        record.shortStrike > 0 && record.longStrike > record.shortStrike &&
+        shortIdentityMatches && longIdentityMatches &&
         Boolean(record.shortSymbol) && Boolean(record.longSymbol)
       );
-      const adjustedDetected = template.symbol === "VXX" &&
-        (isAdjustedVxxSymbol(record.shortSymbol) || isAdjustedVxxSymbol(record.longSymbol));
+      const adjustedDetected = option && (
+        (shortContract && shortContract.root !== template.symbol) ||
+        (longContract && longContract.root !== template.symbol) ||
+        (template.symbol === "VXX" && (isAdjustedVxxSymbol(record.shortSymbol) || isAdjustedVxxSymbol(record.longSymbol))
+      );
       // An adjusted VXX root needs an explicit deliverable note as well as the
       // operator's broker-verification check before it can count toward sizing.
       const termsComplete = !option || (
@@ -233,7 +267,7 @@
     return normalizeList(data.positions);
   }
 
-  const api = { SCHEMA, STORAGE_KEY, TEMPLATES, normalizeRecord, validateRecord, normalizeList, summarize, exportEnvelope, parseEnvelope, isAdjustedVxxSymbol };
+  const api = { SCHEMA, STORAGE_KEY, TEMPLATES, normalizeRecord, validateRecord, normalizeList, summarize, exportEnvelope, parseEnvelope, isAdjustedVxxSymbol, parseOccOptionSymbol, optionSymbolMatches };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.PositionLedgerV1 = api;
 })(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));
