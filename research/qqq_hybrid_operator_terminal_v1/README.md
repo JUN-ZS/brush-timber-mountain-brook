@@ -159,6 +159,16 @@ The current isolated FAR CALL overlay remains research-only: trade-performance A
 
 Protocol: AI_MANUAL_COLLABORATION_PROTOCOL_V1.md. Regression coverage is included in tests/chain_lab.test.cjs.
 
+
+
+### Compact workflow and quote-width metrics (reviewed 2026-10-11)
+
+- Default strategy list shows only the two primary seller legs; a button reveals the 16 research-only rows without deleting their controls or calculations. Additional option candidates and legacy N:X sizing controls are collapsed under explicit advanced disclosures.
+- The QQQ/VXX primary risk weights have one canonical editable input in the capital section; the strategy table displays the configured percentage read-only.
+- Candidate cards preserve exact contract symbols where returned, both legs' bid/ask, per-leg spread width / midpoint, net credit, expiry, DTE, source, chain retrieval timestamp, and an explicit unverified quote-timestamp warning.
+- Width/mid triage bins <=10% TIGHT, >10–25% WATCH, >25% WIDE are descriptive only; they are not trade-approval gates. Multiplier 100 remains an assumption until contract deliverables are confirmed.
+- New regressions cover quote-quality arithmetic, compact research-row controls, unique risk-weight input, visible source-time caveats, and AI packet transparency.
+
 ## Tests
 
 Run locally in Windows CMD:
