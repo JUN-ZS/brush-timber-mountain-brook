@@ -74,7 +74,7 @@ function base(overrides = {}) {
 {
   const s = P.summarize([
     base({ template: "QQQ_CORE", qty: 2, entryPrice: 100, markPrice: null, markAsOf: "", markSourceType: "UNKNOWN", multiplier: 1 }),
-    base({ template: "QQQ_CALL_CREDIT", qty: 1, entryPrice: 0.7, markPrice: null, markAsOf: "", expiry: "2026-11-20", shortStrike: 110, longStrike: 115, shortSymbol: "QQQ261120C00110000", longSymbol: "QQQ261120C00115000", multiplier: 100, termsVerified: true })
+    base({ id: "row-2", template: "QQQ_CALL_CREDIT", qty: 1, entryPrice: 0.7, markPrice: null, markAsOf: "", expiry: "2026-11-20", shortStrike: 110, longStrike: 115, shortSymbol: "QQQ261120C00110000", longSymbol: "QQQ261120C00115000", multiplier: 100, termsVerified: true })
   ], { qqq: 120, vxx: 20, spot_asof: "2026-10-11" }, Date.parse("2026-10-11T10:05"));
   assert.equal(s.rows[0].markPrice, 120);
   assert.equal(s.rows[0].unrealizedPnl, 40);
