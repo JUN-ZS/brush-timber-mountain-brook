@@ -14,6 +14,7 @@
       <p class="subtitle">DATA → REGIME → CAPACITY → CURRENT / TARGET → MANUAL REVIEW</p>
     </div>
     <div class="top-actions">
+      <button id="aiHandoffBtn" class="primary">Export AI Review Pack (.md)</button>
       <span class="tag danger">PREVIEW ONLY · NO BROKER ORDERS</span>
       <button id="refreshBtn" class="primary">Refresh V3 Data</button>
     </div>
@@ -31,6 +32,26 @@
       <small><a href="option_chain_lab.html">開啟 QQQ / VXX Option Chain Lab →</a>（四條 CALL／PUT 鏈、價差矩陣、損益圖；截圖數據只作非即時樣本。）</small>
     </section>
 
+    <section class="card ai-handoff-guide" id="aiHandoffGuide">
+      <div class="section-head">
+        <h2>AI CO-OPERATION · INPUT → MEASURE → HUMAN REVIEW</h2>
+        <span class="tag warn">NO BROKER ORDERS</span>
+      </div>
+      <div class="ai-handoff-steps">
+        <div><b>1 · Enter reality</b><span>Set NAV, only truly uncommitted cash, current stock/share and option holdings, and pending orders.</span></div>
+        <div><b>2 · Refresh evidence</b><span>Refresh V3, check QQQ/VXX/VIX and VX M1/M2 dates, then load the two primary call-credit candidates. Confirm exact broker Bid/Ask, expiry and contract deliverable.</span></div>
+        <div><b>3 · Export to ChatGPT</b><span>Use the top button to download a dated Markdown packet. Attach it with a fresh broker-chain screenshot/CSV; I will return the same measured gate and decision-card structure each time.</span></div>
+      </div>
+      <p id="aiHandoffStatus" class="muted" role="status">Packet includes this preview, source dates, option candidates, capital/risk results and the fixed three-axis research lockbox. This file does not contain broker credentials or place orders.</p>
+      <details class="ai-handoff-gates">
+        <summary>Fixed measurement units and pass/fail rules</summary>
+        <p><b>Accuracy:</b> quote provenance and contract identity explicit; independently recomputed cash-flow arithmetic within USD 0.01; no fabricated or forward-filled marks.</p>
+        <p><b>Generality:</b> report coverage numerator/denominator, missing/unmatched dates, regimes and chronological windows. Previously inspected 2018–2025 is development data, not virgin OOS; where sample size permits require at least five chronological windows and disclose cost stress of at least 1.5×.</p>
+        <p><b>Integration:</b> compare against a named matched baseline on the same dates, capital flows, marks and costs. Use the pre-registered return / downside / deployment bars; never tune the thresholds after observing results. A hard-gate failure cannot be averaged away.</p>
+        <p><b>Current lockbox:</b> Far-Call Accuracy is BLOCKED, Generality is NOT DEMONSTRATED, and the isolated overlay fails its current integration base screen. This is not a complete backtest result for the full Frozen Original Hybrid; it is also not permission to promote the add-on.</p>
+        <p><b>Human action:</b> ChatGPT may say BLOCK, WAIT FOR DATA, or ELIGIBLE FOR HUMAN REVIEW. APP capacity and ADD previews are not orders, and no broker order route exists.</p>
+      </details>
+    </section>
     <section id="researchValidation" class="card">
       <div class="section-head">
         <h2>DATA / MODEL VALIDATION LOCKBOX</h2>
@@ -351,6 +372,7 @@
   <footer>QQQ Hybrid Operator Terminal V1 · read-only V3 bridge · manual budget inputs · no broker order endpoint</footer>
   <script src="hub_research_pack.js"></script>
   <script src="engine.js"></script>
+  <script src="ai_handoff.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
