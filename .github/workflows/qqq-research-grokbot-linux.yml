@@ -154,7 +154,47 @@ jobs:
           mkdir -p .cache/qqq-options-full-history
           .venv/bin/python research/qqq_hybrid_operator_terminal_v1/full_history_qqq_quote_audit.py > QQQ_FULL_HISTORY_AUDIT_LOG.json
           cat QQQ_FULL_HISTORY_AUDIT_LOG.json
-          cat QQQ_FULL_HISTORY_AUDIT_LOG.json >> "$GITHUB_STEP_SUMMARY"
+          .venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+
+          raw = Path("QQQ_FULL_HISTORY_AUDIT_LOG.json").read_text(encoding="utf-8")
+          begin = "QQQ_FULL_HISTORY_AUDIT_BEGIN"
+          end = "QQQ_FULL_HISTORY_AUDIT_END"
+          assert begin in raw and end in raw, "full-history audit markers missing"
+          payload = raw.split(begin, 1)[1].split(end, 1)[0].strip()
+          report = json.loads(payload)
+          compact = {
+              "research_id": report.get("research_id"),
+              "overall": report.get("overall"),
+              "integrity_ok": report.get("integrity_ok"),
+              "not_a_strategy_backtest": report.get("not_a_strategy_backtest"),
+              "trade_replay_approved": report.get("trade_replay_approved"),
+              "window": report.get("window"),
+              "coverage": report.get("coverage"),
+              "overall_alignment": report.get("overall_alignment"),
+              "annual_summary": report.get("annual_summary"),
+              "vix_regime_summary": report.get("vix_regime_summary"),
+              "basis_comparison": report.get("basis_comparison"),
+              "adverse_fill_sensitivity": report.get("adverse_fill_sensitivity"),
+              "file_integrity": {
+                  name: {key: meta.get(key) for key in ("status", "bytes", "git_blob_sha")}
+                  for name, meta in (report.get("file_integrity") or {}).items()
+              },
+              "model_source_integrity": report.get("model_source_integrity"),
+              "limitations": report.get("limitations"),
+          }
+          print("## QQQ full-history audit — compact verified summary")
+          print()
+          print("` ` `json".replace(" ", ""))
+          print(json.dumps(compact, indent=2, sort_keys=True))
+          print("` ` `".replace(" ", ""))
+          with open(Path(__import__("os").environ["GITHUB_STEP_SUMMARY"]), "a", encoding="utf-8") as out:
+              out.write("## QQQ full-history audit — compact verified summary\n\n")
+              out.write("```json\n")
+              out.write(json.dumps(compact, indent=2, sort_keys=True))
+              out.write("\n```\n")
+          PY
 
   operator-terminal-qa:
     name: Grok Bot Linux / Hybrid terminal tests + no-broker boundary
