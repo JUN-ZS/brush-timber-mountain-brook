@@ -46,16 +46,44 @@
             cell((row.status || "") + (row.reason ? " — " + row.reason : ""))
           ].join(" | ") + " |")).join("\n")
       : "No calculated position rows were included.";
-    const candidateLines = [
+    function candidateSummaryLine(label, candidate) {
+      if (!candidate) return "- **" + label + ":** PENDING — no usable candidate in this export.";
+      if (candidate.hubPackage === true) {
+        return "- **" + label + ":** " + cell(candidate.expiry || "expiry unknown") +
+          "; package risk " + cell(candidate.riskPerUnit) +
+          "; source " + cell(candidate.source || "source unknown") + ".";
+      }
+      if (candidate.maxLossPerSpread !== undefined) {
+        const widthText = value => Number.isFinite(Number(value)) ? Number(value).toFixed(1) + "% mid" : "UNKNOWN";
+        const qualityText = (value, quality) => widthText(value) + " " + cell(quality || "UNKNOWN");
+        const fetched = candidate.chainRetrievedAt || "not recorded";
+        return "- **" + label + ":** expiry " + cell(candidate.expiry) + ", " + cell(candidate.dte) + " DTE; " +
+          "short " + cell(candidate.shortContractSymbol || ("K " + candidate.shortStrike)) +
+          " Bid/Ask " + cell(candidate.shortBid) + "/" + cell(candidate.shortAsk) +
+          " (width/mid " + qualityText(candidate.shortQuoteWidthPctMid, candidate.shortQuoteQuality) + "); " +
+          "wing " + cell(candidate.longContractSymbol || ("K " + candidate.longStrike)) +
+          " Bid/Ask " + cell(candidate.longBid) + "/" + cell(candidate.longAsk) +
+          " (width/mid " + qualityText(candidate.longQuoteWidthPctMid, candidate.longQuoteQuality) + "); " +
+          "credit/share " + cell(candidate.credit) + "; width " + cell(candidate.width) +
+          "; max loss/spread " + cell(candidate.maxLossPerSpread) +
+          " at assumed multiplier " + cell(candidate.multiplierAssumption || 100) +
+          " (not verified); source " + cell(candidate.chainSource || candidate.source || "unknown") +
+          "; chain fetch " + cell(fetched) +
+          "; exchange quote timestamp UNVERIFIED.";
+      }
+      return "- **" + label + ":** " + cell(candidate.expiry || "expiry unknown") +
+        "; strike " + cell(candidate.strike) + "; bid " + cell(candidate.shortBid) +
+        "; ask " + cell(candidate.ask) + "; source " + cell(candidate.chainSource || candidate.source || "unknown") +
+        "; chain fetch " + cell(candidate.chainRetrievedAt || "not recorded") +
+        "; exchange quote timestamp UNVERIFIED.";
+    }
+    const primaryCandidates = [
       ["QQQ far call-credit", optionCandidates.qqqCall],
-      ["VXX call-credit", optionCandidates.vxxCall],
-      ["QQQ bear-call (research-only)", optionCandidates.qqqBearCall],
-      ["QQQ put (outside primary budget)", optionCandidates.qqqPut],
-      ["Other candidates", optionCandidates]
+      ["VXX call-credit", optionCandidates.vxxCall]
     ];
-    const candidateSummary = candidateLines.map(pair =>
-      "- **" + pair[0] + ":** " + (pair[1] ? cell(pair[1]) : "not present in this export")
-    ).join("\n");
+    const candidateSummary = primaryCandidates.map(pair => candidateSummaryLine(pair[0], pair[1])).join("\n") +
+      "\n- **Other research candidate keys:** " +
+      (Object.keys(optionCandidates).filter(key => !["qqqCall", "vxxCall"].includes(key)).join(", ") || "none");
     const payload = {
       schema: "QQQ_HYBRID_AI_REVIEW_PACK_V1",
       generatedAt,
@@ -96,6 +124,8 @@
       "- M1: " + cell(snapshot.m1) + "; M2: " + cell(snapshot.m2) + "; supplied/computed slope: " + cell(market.slope),
       "- Market gate reason: " + cell(market.reason),
       "- Missing/stale/mixed required market data means BLOCK. Public option-chain results can be delayed or estimated and are not proof of executable prices.",
+      "- Option quote width/mid bins: <=10% TIGHT; >10% to 25% WATCH; >25% WIDE. These are descriptive triage labels, not trade approval thresholds.",
+      "- Chain fetch time records when this app retrieved the chain; the provider does not establish an exact exchange quote timestamp in this feed.",
       "",
       "## APP-computed positions (capacity is not permission to trade)",
       rowTable,
@@ -116,7 +146,7 @@
       "## Non-negotiable measurement gates",
       "Report each axis separately. Do not average the axes into a single score; a critical hard-gate failure overrides other passes.",
       "",
-      "1. **Accuracy:** verify timestamps, source type and exact contract identity; recompute all price/quantity arithmetic independently; require quoted legs from the same expiry; verify bid/ask side, multiplier, adjusted deliverable, fees/slippage and fill assumptions. Cash-flow reconciliation tolerance is USD 0.01. Missing data stays missing; never forward-fill or invent fills.",
+      "1. **Accuracy:** verify timestamps, source type and exact contract identity; recompute all price/quantity arithmetic independently; require quoted legs from the same expiry; verify bid/ask side, multiplier, adjusted deliverable, fees/slippage and fill assumptions. Cash-flow reconciliation tolerance is USD 0.01. Missing data stays missing; never forward-fill or invent fills. Quote width/mid is (ask-bid)/((ask+bid)/2), and is only a quote-quality diagnostic.",
       "2. **Generality:** identify whether the sample is development data or a genuinely untouched holdout. Previously inspected 2018–2025 data cannot be relabelled virgin OOS. Report coverage numerator/denominator, terminal source date, unmatched dates and each regime/rolling window where sample size permits. Require at least five chronological windows where possible, and disclose cost stress of at least 1.5× where relevant.",
       "3. **Integration / incremental value:** compare against a clearly identified matched baseline on identical dates, capital flows, marks and costs. Use the pre-registered objective bars in RESEARCH_MEASUREMENT_CONTRACT.md; do not change thresholds after seeing outcomes. CAGR, daily MTM MaxDD, Sharpe and ES95 must be UNAVAILABLE when the paired mark path is incomplete.",
       "4. **Capital and risk:** shared risk pool includes only QQQ far call-credit and VXX call-credit; never double-count reserve, stock purchases, option loss budget or short-stock margin. VXX short margin is not a maximum-loss cap. Verify contract root/deliverable, especially any adjusted VXX option.",
