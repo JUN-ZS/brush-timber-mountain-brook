@@ -46,6 +46,7 @@
       : "No position register records in this export.";
     const positionRegisterSummary = [
       "- Engine current-quantity source: " + (positionRegister.useForSizing ? "POSITION REGISTER (enabled)" : "MANUAL INPUTS (register attribution only)"),
+      "- Inventory completeness explicitly confirmed: " + (positionRegister.completeConfirmed ? "YES" : "NO — register cannot be used as Current sizing source"),
       "- Registered rows: " + cell(positionSummary.count ?? 0),
       "- Calculated gross unrealized P&L subtotal: " + (Number.isFinite(Number(positionSummary.knownPnlSubtotal)) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +
         " across " + cell(positionSummary.knownPnlRows ?? 0) + " row(s); excludes " + cell(positionSummary.incompletePnlCount ?? 0) + " row(s) with missing entry/mark",
