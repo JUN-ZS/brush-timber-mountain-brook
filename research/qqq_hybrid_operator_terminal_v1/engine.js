@@ -164,6 +164,8 @@
     const holdings = d.holdings || {};
     const candidates = d.candidates || {};
     const permissions = d.permissions || {};
+    const positionRegister = d.positionRegister || {};
+    const registerTermsBlockedKeys = new Set(positionRegister.useForSizing === true && Array.isArray(positionRegister.blockingKeys) ? positionRegister.blockingKeys : []);
     const optionRiskPct = num(sizing.totalOptionRiskPct, REFERENCE_PROFILE.totalOptionRiskPct);
     const cashReservePct = num(sizing.cashReservePct, REFERENCE_PROFILE.cashReservePct);
     const vxxShortMarginMultiple = num(sizing.vxxShortMarginMultiple, REFERENCE_PROFILE.vxxShortMarginMultiple);
@@ -266,6 +268,14 @@
       const enabled = mainBudgetEligible && (strategy.baseline || permissions[strategy.key] === true);
       const candidate = strategy.candidateKey ? candidates[strategy.candidateKey] : null;
       const risk = candidateRisk(strategy, candidate, d.manualRiskPerUnit && d.manualRiskPerUnit[strategy.key]);
+      const positionTermsBlocked = mainBudgetEligible && registerTermsBlockedKeys.has(strategy.key);
+      if (positionTermsBlocked) {
+        risk.riskPerUnit = null;
+        risk.capitalPerUnitUsd = null;
+        risk.source = "POSITION_REGISTER_TERMS_UNVERIFIED";
+        risk.ready = false;
+        risk.reason = "The current position register has an option package with unverified expiry / leg identity / deliverable or multiplier. Verify the held contract terms before sizing changes for this strategy.";
+      }
       const sellerBlocked = strategy.seller && (market.backwardation || market.high);
       let rawCapacity = null;
       let status = "OUTSIDE_MAIN_BUDGET";
@@ -275,7 +285,11 @@
         rawCapacity = 0;
         status = "OFF";
         reason = risk.reason;
-        if (risk.source === "ADJUSTED_CONTRACT_BLOCKED") {
+        if (positionTermsBlocked) {
+          rawCapacity = null;
+          status = "BLOCKED_POSITION_TERMS";
+          reason = risk.reason;
+        } else if (risk.source === "ADJUSTED_CONTRACT_BLOCKED") {
           rawCapacity = null;
           status = "BLOCKED_CONTRACT";
           reason = risk.reason;
@@ -354,6 +368,8 @@
         target = current; action = "BLOCKED"; delta = 0;
       } else if (!item.mainBudgetEligible) {
         target = current; action = "OUTSIDE_BUDGET"; delta = 0;
+      } else if (item.status === "BLOCKED_POSITION_TERMS") {
+        target = current; action = "BLOCKED"; delta = 0;
       } else if (policyExit) {
         target = 0; action = current > 0 ? "REDUCE" : "HOLD"; delta = target - current;
       } else if (capacity === null) {
@@ -390,26 +406,6 @@
         maxLossIsHardCap: !["stressOnly", "coveredCall"].includes(strategy.kind),
         strategyKind: strategy.kind
       });
-    }
-
-    // If detailed held-option terms are incomplete, block only the affected strategy
-    // row. A count is not enough to claim a reliable target for an unknown deliverable.
-    const positionRegister = d.positionRegister || {};
-    if (positionRegister.useForSizing === true && Array.isArray(positionRegister.blockingKeys)) {
-      for (const key of positionRegister.blockingKeys) {
-        const row = results.find(item => item.key === key && item.mainBudgetEligible);
-        if (!row) continue;
-        row.capacity = null;
-        row.target = row.current;
-        row.delta = 0;
-        row.action = "BLOCKED";
-        row.status = "BLOCKED_POSITION_TERMS";
-        row.allocatedRiskBudgetUsd = 0;
-        row.riskPerUnit = null;
-        row.targetRiskReserveUsd = null;
-        row.riskSource = "POSITION_REGISTER_TERMS_UNVERIFIED";
-        row.reason = "The current position register has an option package with unverified expiry / leg identity / deliverable or multiplier. Verify the held contract terms before sizing changes for this strategy.";
-      }
     }
 
     return {
