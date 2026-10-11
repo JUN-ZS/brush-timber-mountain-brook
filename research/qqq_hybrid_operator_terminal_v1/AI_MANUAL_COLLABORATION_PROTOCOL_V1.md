@@ -72,3 +72,12 @@ The current Far-Call overlay result must be described precisely:
 ## Completion definition
 
 A manual session is auditable when its exported pack, the contemporaneous broker quotes/position facts and the AI review agree on source time, exact contracts, capital arithmetic and explicit blockers. A completed export is a communication artifact, not a validated trade or investment outcome. No order is placed by this protocol.
+
+
+## UI field and quote-quality audit
+
+The primary APP should expose only the two primary seller legs by default (QQQ Far Call-Credit and VXX Call Vertical). The other strategy rows, Hub research candidates, protective-put switches and legacy N:X controls remain available through explicit advanced disclosures. The two primary option-risk weights are edited in one canonical capital section and displayed read-only in the position table to prevent conflicting duplicate entries.
+
+Each public-chain credit vertical should preserve both legs' full observed Bid/Ask and contract symbols where the source returns them. The UI and AI packet calculate quote width/mid independently per leg: (Ask - Bid) / ((Ask + Bid) / 2) × 100. Existing audit bins are descriptive: <=10% TIGHT, >10% to 25% WATCH, >25% WIDE. These categories are not trade approval gates and cannot stand in for actual time-stamped broker quotes or execution costs. Display the chain retrieval timestamp separately and always label the exact exchange quote timestamp UNVERIFIED unless the provider actually supplies it.
+
+Keep the multiplier assumption explicit (currently 100 for the generic vertical calculation) and unverified until the exact listed contract deliverable is confirmed. For VXX, an adjusted root or deliverable mismatch blocks use regardless of a good width/mid label. The default view is a compact workbench, not a deletion of research options; a separate toggle reveals all excluded rows when the operator needs them.
