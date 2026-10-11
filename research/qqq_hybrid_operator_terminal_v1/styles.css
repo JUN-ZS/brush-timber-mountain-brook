@@ -177,3 +177,15 @@ footer{padding:18px;text-align:center;color:#7185a0;border-top:1px solid var(--l
 @media(max-width:1100px){.pro-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.pro-chart-grid{grid-template-columns:1fr}.pro-capacity-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pro-risk-layout{grid-template-columns:138px minmax(0,1fr)}}
 @media(max-width:600px){.pro-dashboard{padding:12px}.pro-heading{align-items:flex-start;flex-direction:column}.pro-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pro-kpi{padding:10px}.pro-kpi b{font-size:17px}.pro-capacity-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.pro-capacity-card{padding:10px}.pro-capacity-card b{font-size:21px}.pro-risk-layout{grid-template-columns:1fr;justify-items:center}.pro-risk-breakdown{width:100%;grid-template-columns:1fr 1fr;gap:10px}.pro-risk-donut{width:126px;height:126px}.pro-legend{gap:7px}.pro-capacity-head,.pro-table-head{align-items:flex-start;flex-direction:column}.pro-capacity-explainer{text-align:left}.pro-total-row{grid-template-columns:repeat(2,minmax(0,1fr))}.pro-inline-value{font-size:11px}}
 
+
+
+/* Manual AI handoff: compact, measurable, and visible without turning sizing into order permission. */
+.ai-handoff-guide{margin:12px 0}
+.ai-handoff-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ai-handoff-steps>div{background:var(--p2);border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+.ai-handoff-steps b,.ai-handoff-steps span{display:block}
+.ai-handoff-steps b{font-size:12px;margin-bottom:5px}
+.ai-handoff-steps span,.ai-handoff-gates p{font-size:12px;color:var(--mut);line-height:1.45}
+.ai-handoff-gates{margin-top:10px;padding-top:8px;border-top:1px solid var(--line)}
+.ai-handoff-gates summary{cursor:pointer;font-size:12px;font-weight:700}
+@media(max-width:900px){.ai-handoff-steps{grid-template-columns:1fr}}
