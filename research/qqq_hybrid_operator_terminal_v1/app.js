@@ -187,6 +187,9 @@
       const fetched = candidate.chainRetrievedAt
         ? " · chain fetched " + candidate.chainRetrievedAt + " (quote timestamp not verified)"
         : " · quote timestamp not verified";
+      const termsWarning = candidate.contractTermsStatus === "ADJUSTED_DELIVERABLE_BLOCKED"
+        ? " · ADJUSTED VXX ROOT DETECTED — CAPACITY BLOCKED"
+        : " · deliverable/multiplier not broker-verified";
       return candidate.right.toUpperCase() + " vertical · expiry " + candidate.expiry + " · " +
         fmt(candidate.dte) + " DTE · SHORT " + shortLabel + " Bid/Ask " +
         premium(candidate.shortBid) + "/" + premium(candidate.shortAsk) + " · width " +
@@ -195,7 +198,7 @@
         " · width " + quoteWidthLabel(candidate.longQuoteWidthPctMid, candidate.longQuoteQuality) +
         " · credit/share " + premium(candidate.credit) + " · max loss/spread " + usd(candidate.maxLossPerSpread) +
         " (multiplier " + (candidate.multiplierAssumption || 100) + " assumed; not verified)" +
-        fetched + " · " + (candidate.chainSource || candidate.source || "source unknown");
+        fetched + termsWarning + " · " + (candidate.chainSource || candidate.source || "source unknown");
     }
     return candidate.right.toUpperCase() + " long · " + candidate.expiry + " · " + fmt(candidate.dte) +
       " DTE · K " + fmt(candidate.strike, 2) + " · ask " + premium(candidate.ask) +
