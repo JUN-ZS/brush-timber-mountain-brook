@@ -192,7 +192,10 @@ Run locally in Windows CMD:
 \`\`\`cmd
 node --check research\\qqq_hybrid_operator_terminal_v1\\engine.js
 node --check research\\qqq_hybrid_operator_terminal_v1\\app.js
+node --check research\\qqq_hybrid_operator_terminal_v1\\position_ledger.js
 node research\\qqq_hybrid_operator_terminal_v1\\tests\\engine.test.cjs
+node research\\qqq_hybrid_operator_terminal_v1\\tests\\position_ledger.test.cjs
+node research\\qqq_hybrid_operator_terminal_v1\\tests\\chain_lab.test.cjs
 py -3 -m py_compile research\\qqq_hybrid_operator_terminal_v1\\server.py
 \`\`\`
 
