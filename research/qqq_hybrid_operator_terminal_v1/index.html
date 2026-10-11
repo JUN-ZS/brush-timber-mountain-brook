@@ -241,13 +241,14 @@
         <summary>Open position register · save lots, attribute P&amp;L, or use actual holdings in Current → Target</summary>
         <div class="position-register-controls">
           <label class="toggle safety-toggle"><input id="positionUseRegister" type="checkbox"> Use registered holdings as current quantities for the primary sizing engine</label>
+          <label class="toggle safety-toggle position-completeness-confirm"><input id="positionRegisterCompleteConfirmed" type="checkbox"> I confirm all four primary holding categories are accounted for here; any omitted category means zero. Reconfirm after importing or changing records.</label>
           <div class="inline-actions">
             <button id="positionExportBtn" type="button">Export Position Register JSON</button>
             <button id="positionImportBtn" type="button">Import Position Register JSON</button>
             <input id="positionImportFile" type="file" accept=".json,application/json" hidden>
           </div>
         </div>
-        <p id="positionRegisterModeStatus" class="muted">Register is attribution-only. Existing manual current-quantity inputs remain the sizing source until you explicitly enable register mode.</p>
+        <p id="positionRegisterModeStatus" class="muted">Register is attribution-only. Existing manual current-quantity inputs remain the sizing source until you explicitly enable register mode and confirm a complete inventory.</p>
         <p class="position-measurement-note">Record only these primary units: QQQ long shares, VXX short shares, QQQ far call-credit packages, VXX call-credit packages. Stock P&amp;L is mark-to-entry; credit-spread P&amp;L = (entry net credit − current estimated close debit) × packages × multiplier. Gross unrealized P&amp;L excludes fees, slippage, dividends, borrow costs, assignment/exercise and taxes; it is not realized profit, does not reconcile cash flows, and never changes NAV automatically.</p>
         <form id="positionForm" autocomplete="off">
           <input id="positionEditId" type="hidden" value="">
