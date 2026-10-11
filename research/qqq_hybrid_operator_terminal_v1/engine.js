@@ -462,6 +462,22 @@
     return 0.5*(1+erf);
   }
 
+
+  // Quote width / midpoint is a descriptive execution-quality triage metric.
+  // It does not establish live executability or approve a strategy.
+  function quoteQuality(row) {
+    const bid = num(row && row.bid), ask = num(row && row.ask);
+    if (bid === null || ask === null || bid <= 0 || ask < bid) {
+      return { bid, ask, width: null, midpoint: null, widthPctMid: null, quality: "UNKNOWN" };
+    }
+    const width = ask - bid;
+    const midpoint = (ask + bid) / 2;
+    const widthPctMid = midpoint > 0 ? width / midpoint * 100 : null;
+    const quality = widthPctMid === null ? "UNKNOWN" :
+      widthPctMid <= 10 ? "TIGHT" : widthPctMid <= 25 ? "WATCH" : "WIDE";
+    return { bid, ask, width, midpoint, widthPctMid, quality };
+  }
+
   function estimateDelta(spot, strike, dte, iv, right) {
     if (![spot, strike, dte, iv].every(Number.isFinite) || spot <= 0 || strike <= 0 || dte <= 0 || iv <= 0) return null;
     const t = dte / 365, sigma = iv, d1 = (Math.log(spot/strike)+(0.03+0.5*sigma*sigma)*t)/(sigma*Math.sqrt(t));
@@ -499,13 +515,25 @@
     const credit = short.bid - wing.ask;
     const width = Math.abs(wing.strike - short.strike);
     if (!(credit > 0 && width > credit)) return null;
+    const shortQuote = quoteQuality(short), longQuote = quoteQuality(wing);
     return {
       right, expiry: short.expiry, dte: short.dte,
       shortStrike: short.strike, longStrike: wing.strike,
-      shortDelta: short.delta, deltaSource: short.deltaSource,
-      shortBid: short.bid, longAsk: wing.ask, credit, width,
+      shortContractSymbol: short.contractSymbol || short.symbol || null,
+      longContractSymbol: wing.contractSymbol || wing.symbol || null,
+      shortDelta: short.delta, longDelta: wing.delta,
+      deltaSource: short.deltaSource,
+      shortBid: short.bid, shortAsk: short.ask,
+      longBid: wing.bid, longAsk: wing.ask,
+      shortQuoteWidth: shortQuote.width, shortQuoteMid: shortQuote.midpoint,
+      shortQuoteWidthPctMid: shortQuote.widthPctMid, shortQuoteQuality: shortQuote.quality,
+      longQuoteWidth: longQuote.width, longQuoteMid: longQuote.midpoint,
+      longQuoteWidthPctMid: longQuote.widthPctMid, longQuoteQuality: longQuote.quality,
+      credit, width,
+      multiplierAssumption: 100, multiplierVerified: false,
       maxLossPerSpread: (width-credit)*100,
       source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED",
+      quoteTimestampStatus: "NOT_VERIFIED_BY_PROVIDER",
       candidateStatus: "REVIEW_BEFORE_USE"
     };
   }
@@ -526,10 +554,15 @@
     rows.sort((a,b) => Math.abs(a.dte-targetDte)-Math.abs(b.dte-targetDte) ||
       Math.abs(Math.abs(a.delta)-targetAbsDelta)-Math.abs(Math.abs(b.delta)-targetAbsDelta) || a.strike-b.strike);
     const x = rows[0];
+    const shortQuote = quoteQuality(x);
     return {
       type: "coveredCall", right: "call", expiry: x.expiry, dte: x.dte,
-      strike: x.strike, shortBid: x.bid, ask: x.ask, delta: x.delta,
+      strike: x.strike, contractSymbol: x.contractSymbol || x.symbol || null,
+      shortBid: x.bid, shortAsk: x.ask, ask: x.ask, delta: x.delta,
+      shortQuoteWidth: shortQuote.width, shortQuoteMid: shortQuote.midpoint,
+      shortQuoteWidthPctMid: shortQuote.widthPctMid, shortQuoteQuality: shortQuote.quality,
       deltaSource: x.deltaSource, source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED",
+      quoteTimestampStatus: "NOT_VERIFIED_BY_PROVIDER",
       candidateStatus: "REVIEW_BEFORE_USE"
     };
   }
@@ -551,7 +584,7 @@
     return { right, expiry: x.expiry, dte: x.dte, strike: x.strike, ask: x.ask, delta: x.delta, deltaSource: x.deltaSource, source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED", candidateStatus: "REVIEW_BEFORE_USE" };
   }
 
-  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
+  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, quoteQuality, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
   root.HybridOperatorEngineV1 = Engine;
   if (typeof module !== "undefined" && module.exports) module.exports = Engine;
 })(typeof globalThis !== "undefined" ? globalThis : this);
