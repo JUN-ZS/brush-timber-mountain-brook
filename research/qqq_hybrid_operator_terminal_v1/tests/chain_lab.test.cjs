@@ -153,4 +153,44 @@ assert.ok(measurementReport.includes("1,688 / 1,688"), "measurement report must 
 assert.ok(measurementReport.includes("FAILS_CURRENT_BASE_SCREEN"), "measurement report must preserve the actual failed baseline screen");
 assert.ok(measurementReport.includes("No"), "measurement report must retain a no-promotion disposition");
 
-console.log("option_chain_lab=PASS");
+
+
+// AI handoff packet contract: the same active APP state must carry its raw JSON,
+// separate measurement axes, and fail-closed human action into the downloadable report.
+const handoffSandbox = { module: { exports: {} }, window: {} };
+vm.runInNewContext(fs.readFileSync(require("node:path").join(__dirname, "../ai_handoff.js"), "utf8"), handoffSandbox, { filename: "ai_handoff.js" });
+const Handoff = handoffSandbox.module.exports;
+assert.equal(typeof Handoff.serialize, "function");
+assert.equal(typeof handoffSandbox.window.AiHandoffV1.serialize, "function");
+const handoff = Handoff.serialize({
+  generatedAt: "2026-10-11T06:00:00.000Z",
+  input: { nav: 100000, cashPool: 100000, market: { qqq: 700, vxx: 20, vix: 25, m1: 18, m2: 19, spot_asof: "2026-10-11", term_asof: "2026-10-10", today: "2026-10-11" } },
+  result: {
+    ok: false, nav: 100000, cashPool: 100000, cashReserveUsd: 10000, totalOptionRiskPool: 3200,
+    qqqAdditionalCapitalUsd: 0, vxxAdditionalMarginUsd: 0, plannedCapitalRequiredUsd: null, remainingUnallocatedCashUsd: null,
+    market: { status: "BLOCKED", state: "DATA BLOCKED", action: "HOLD", slope: 5.55, reason: "Missing market source evidence." },
+    rows: [{ key: "qqqShares", label: "QQQ CORE", current: 0, capacity: null, target: 0, delta: 0, action: "BLOCKED", status: "BLOCKED", reason: "market source missing" }]
+  }
+}, { qqqCall: { source: "YAHOO_OPTIONS_DELAYED_OR_ESTIMATED", expiry: "2026-11-20" } }, "V3_READ_ONLY_LOCAL_SNAPSHOT · retrieved at sample time");
+for (const required of [
+  "QQQ Hybrid — Manual AI Review Pack", "DATA BLOCKED", "Current research lockbox",
+  "ACCURACY", "GENERALITY", "INTEGRATION", "FAILS_CURRENT_BASE_SCREEN",
+  "USD 0.01", "1.5×", "BLOCK or WAIT", "No broker order", "V3_READ_ONLY_LOCAL_SNAPSHOT",
+  "qqqCall", "QQQ_HYBRID_AI_REVIEW_PACK_V1", "~~~~json", "plannedCapitalRequiredUsd"
+]) assert.ok(handoff.includes(required), "AI review packet must include " + required);
+
+const handoffHtml = fs.readFileSync(require("node:path").join(__dirname, "../index.html"), "utf8");
+const handoffApp = fs.readFileSync(require("node:path").join(__dirname, "../app.js"), "utf8");
+const handoffProtocol = fs.readFileSync(require("node:path").join(__dirname, "../AI_MANUAL_COLLABORATION_PROTOCOL_V1.md"), "utf8");
+assert.ok(handoffHtml.includes('id="aiHandoffBtn"'), "top-level AI handoff download must be discoverable");
+assert.ok(handoffHtml.includes('id="aiHandoffGuide"'), "manual collaboration steps must be visible in APP");
+assert.ok(handoffHtml.includes('id="aiHandoffStatus"'), "export feedback must be visible");
+assert.ok(handoffHtml.includes('src="ai_handoff.js"'), "handoff module must load before app runtime");
+assert.ok(handoffApp.includes("function exportAiReviewPack()"), "APP must create a live-state AI packet");
+assert.ok(handoffApp.includes("helper.serialize(lastPlan, candidates, marketMeta)"), "packet must use current plan and candidate evidence");
+assert.ok(handoffProtocol.includes("Accuracy"), "durable collaboration protocol must define accuracy");
+assert.ok(handoffProtocol.includes("Generality"), "durable collaboration protocol must define generality");
+assert.ok(handoffProtocol.includes("Integration"), "durable collaboration protocol must define integration");
+assert.ok(handoffProtocol.includes("No order is placed"), "durable protocol must preserve the no-order boundary");
+
+console.log("option_chain_lab=PASS; ai_handoff=PASS");
