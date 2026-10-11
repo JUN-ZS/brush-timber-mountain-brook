@@ -251,9 +251,9 @@ function row(result, key) {
 {
   const expiry = Date.parse("2026-11-20T00:00:00Z") / 1000;
   const calls = [
-    { expiration: expiry, days: 42, strike: 105, bid: 2.0, ask: 2.1, delta: 0.16 },
-    { expiration: expiry, days: 42, strike: 107, bid: 1.2, ask: 1.4, delta: 0.10 },
-    { expiration: expiry, days: 42, strike: 110, bid: 0.4, ask: 0.6, delta: 0.05 }
+    { expiration: expiry, days: 42, strike: 105, bid: 2.0, ask: 2.1, delta: 0.16, contractSymbol: "QQQ_TEST_SHORT" },
+    { expiration: expiry, days: 42, strike: 107, bid: 1.2, ask: 1.4, delta: 0.10, contractSymbol: "QQQ_TEST_WING" },
+    { expiration: expiry, days: 42, strike: 110, bid: 0.4, ask: 0.6, delta: 0.05, contractSymbol: "QQQ_TEST_FAR_WING" }
   ];
   const call = E.findCreditVertical({ calls }, 100, "call", 45, 0.16, "2026-10-09");
   assert.equal(call.shortStrike, 105);
@@ -261,6 +261,20 @@ function row(result, key) {
   assert.ok(Math.abs(call.credit - 0.6) < 1e-9);
   assert.ok(Math.abs(call.maxLossPerSpread - 140) < 1e-9);
   assert.equal(call.expiry, "2026-11-20");
+  assert.equal(call.shortContractSymbol, "QQQ_TEST_SHORT");
+  assert.equal(call.longContractSymbol, "QQQ_TEST_WING");
+  assert.equal(call.shortBid, 2.0);
+  assert.equal(call.shortAsk, 2.1);
+  assert.equal(call.longBid, 1.2);
+  assert.equal(call.longAsk, 1.4);
+  assert.equal(call.multiplierAssumption, 100);
+  assert.equal(call.multiplierVerified, false);
+  assert.equal(call.shortQuoteQuality, "TIGHT");
+  assert.equal(call.longQuoteQuality, "WATCH");
+  assert.ok(Math.abs(call.shortQuoteWidthPctMid - (0.1 / 2.05 * 100)) < 1e-9);
+  assert.ok(Math.abs(call.longQuoteWidthPctMid - (0.2 / 1.3 * 100)) < 1e-9);
+  assert.equal(E.quoteQuality({bid: 1, ask: 1.5}).quality, "WIDE");
+  assert.equal(E.quoteQuality({bid: 1, ask: null}).quality, "UNKNOWN");
 
   const puts = [
     { expiration: expiry, days: 42, strike: 95, bid: 2.0, ask: 2.2, delta: -0.16 },
