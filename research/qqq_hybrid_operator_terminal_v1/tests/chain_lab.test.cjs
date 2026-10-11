@@ -195,6 +195,10 @@ assert.ok(handoffHtml.includes('id="aiHandoffBtn"'), "top-level AI handoff downl
 assert.ok(handoffHtml.includes('id="aiHandoffGuide"'), "manual collaboration steps must be visible in APP");
 assert.ok(handoffHtml.includes('id="positionLedgerCard"'), "position facts/P&L register must be present");
 assert.ok(handoffHtml.includes('id="positionUseRegister"'), "position register must require explicit use for sizing");
+assert.ok(handoffHtml.includes('id="positionRegisterCompleteConfirmed"'), "position register must require all four categories to be reconciled");
+assert.ok(handoffApp.includes("Cannot use register for sizing until you confirm"), "unconfirmed completeness must block register mode");
+assert.ok(handoffApp.includes("invalidatePositionRegisterCoverage"), "register edits/imports must invalidate stale completeness confirmation");
+assert.ok(handoffApp.includes('completeConfirmed: $("positionRegisterCompleteConfirmed")?.checked === true'), "AI packet must retain completeness confirmation");
 assert.ok(handoffHtml.includes('id="positionImportFile"'), "position register must support portable JSON import");
 assert.ok(handoffHtml.includes('src="position_ledger.js"'), "position ledger module must load in the app");
 assert.ok(handoffApp.includes("positionRegister: positionSummary ?"), "current holdings and AI packet must include position register state");
