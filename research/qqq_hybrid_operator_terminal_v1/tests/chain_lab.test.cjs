@@ -199,8 +199,13 @@ assert.ok(handoffHtml.includes("does not independently authenticate referenced b
 assert.ok(handoffHtml.includes("human attestation, not app-side verification"), "contract checkbox must not imply app-side verification");
 assert.ok(handoffApp.includes("METADATA-COMPLETE P&amp;L SUBTOTAL"), "P&L headline must describe metadata completeness, not verified evidence");
 assert.ok(handoffApp.includes("OPERATOR-ATTESTED TERMS"), "held-option terms must be described as operator-attested");
+assert.ok(handoffApp.includes("MARK STATUS / SOURCE GAPS"), "dashboard must separate mark status flags from source metadata gaps");
+assert.ok(handoffApp.includes("markSourceMetadataIncompleteCount"), "dashboard must expose a separate source-gap count");
+assert.ok(aiHandoffSource.includes("Mark source-metadata gaps"), "AI handoff must separate source gaps from mark status flags");
 assert.ok(aiHandoffSource.includes("source not independently authenticated"), "AI handoff must preserve the evidence-authentication limitation");
 assert.ok(positionLedgerSource.includes("metadataCompletePnlSubtotal"), "ledger aggregate must use metadata-complete terminology");
+assert.ok(positionLedgerSource.includes("markSourceMetadataIncompleteCount"), "ledger must calculate source metadata gaps separately");
+assert.ok(positionLedgerTest.includes("fresh timestamp must not be called stale"), "fresh-but-unreferenced marks must be tested separately from stale marks");
 assert.ok(handoffHtml.includes('id="positionUseRegister"'), "position register must require explicit use for sizing");
 assert.ok(handoffHtml.includes('id="positionRegisterCompleteConfirmed"'), "position register must require all four categories to be reconciled");
 assert.ok(handoffApp.includes("Cannot use register for sizing until you confirm"), "unconfirmed completeness must block register mode");

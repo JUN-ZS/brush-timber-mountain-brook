@@ -54,7 +54,8 @@
         " across " + cell(positionSummary.indicativePnlRows ?? 0) + " row(s); arithmetic subtotal across all complete rows: " +
         (Number.isFinite(Number(positionSummary.knownPnlSubtotal)) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +
         " across " + cell(positionSummary.knownPnlRows ?? 0) + " row(s); excludes " + cell(positionSummary.incompletePnlCount ?? 0) + " row(s) with missing entry/mark",
-      "- Stale / source-unverified marks: " + cell(positionSummary.staleMarkCount ?? "UNKNOWN"),
+      "- Mark status flags (missing / invalid / stale / unsupported source): " + cell(positionSummary.staleMarkCount ?? "UNKNOWN"),
+      "- Mark source-metadata gaps (known marks with UNKNOWN / MODEL_ESTIMATE or blank source reference; may overlap status flags): " + cell(positionSummary.markSourceMetadataIncompleteCount ?? "UNKNOWN"),
       "- Held option terms blocks: " + cell(positionSummary.termBlockedCount ?? "UNKNOWN"),
       "- Strategy keys blocked by held option terms: " + (Array.isArray(positionRegister.blockingKeys) && positionRegister.blockingKeys.length ? positionRegister.blockingKeys.map(cell).join(", ") : "none recorded"),
       "- Browser timezone label: " + cell(positionSummary.timezone || "UNKNOWN"),

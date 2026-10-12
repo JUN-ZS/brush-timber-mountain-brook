@@ -218,7 +218,7 @@
     $("positionLedgerHeadline").innerHTML =
       '<div><small>METADATA-COMPLETE P&amp;L SUBTOTAL</small><b>' + (summary.metadataCompletePnlRows ? esc(positionMoney(summary.metadataCompletePnlSubtotal, true)) : "—") + '</b><span>' + summary.metadataCompletePnlRows + ' metadata-complete row(s); indicative subtotal ' + esc(positionMoney(summary.indicativePnlSubtotal, true)) + ' across ' + summary.indicativePnlRows + ' row(s), excluded from metadata-complete total</span></div>' +
       '<div><small>INCOMPLETE P&amp;L ROWS</small><b>' + fmt(summary.incompletePnlCount) + '</b><span>Missing entry or mark; not assumed to be zero</span></div>' +
-      '<div><small>STALE / UNVERIFIED MARKS</small><b>' + fmt(summary.staleMarkCount) + '</b><span>Age/source affects confidence, not the arithmetic</span></div>' +
+      '<div><small>MARK STATUS / SOURCE GAPS</small><b>' + fmt(summary.staleMarkCount) + ' flags · ' + fmt(summary.markSourceMetadataIncompleteCount) + ' gaps</b><span>Flags include missing/stale/invalid marks or unsupported source. Gaps mean UNKNOWN/MODEL_ESTIMATE or no reference on a known mark; counts may overlap.</span></div>' +
       '<div><small>HELD OPTION TERMS BLOCKS</small><b>' + fmt(summary.termBlockedCount) + '</b><span>Blocks that strategy when register mode is on</span></div>';
 
     $("positionLedgerTotals").innerHTML = [

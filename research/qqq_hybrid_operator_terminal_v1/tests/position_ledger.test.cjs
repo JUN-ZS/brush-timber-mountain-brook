@@ -71,6 +71,9 @@ function base(overrides = {}) {
 
   const missingMarkReference = P.summarize([base({ markSourceNote: "" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(missingMarkReference.rows[0].pnlStatus, "INDICATIVE · MARK SOURCE UNVERIFIED");
+  assert.equal(missingMarkReference.rows[0].markFreshness, "LIVE ≤15M");
+  assert.equal(missingMarkReference.staleMarkCount, 0, "a fresh timestamp must not be called stale just because its source reference is missing");
+  assert.equal(missingMarkReference.markSourceMetadataIncompleteCount, 1, "source-reference gaps need a separate counter");
   assert.equal(missingMarkReference.metadataCompletePnlRows, 0);
 }
 
@@ -141,6 +144,7 @@ function base(overrides = {}) {
   assert.equal(s.rows[0].unrealizedPnl, 40);
   assert.equal(s.rows[0].markDerivedFromSnapshot, true);
   assert.equal(s.rows[0].markSourceType, "UNKNOWN", "snapshot-derived mark source must not be falsely labelled EOD/live");
+  assert.equal(s.markSourceMetadataIncompleteCount, 1, "snapshot-derived stock mark must expose its missing source class");
   assert.match(s.rows[0].pnlStatus, /SOURCE UNVERIFIED/);
   assert.equal(s.rows[1].unrealizedPnl, null);
   assert.equal(s.incompletePnlCount, 1);
@@ -155,6 +159,7 @@ function base(overrides = {}) {
   assert.equal(s.rows[0].markFreshness, "STALE LIVE");
   assert.equal(s.rows[1].markFreshness, "MODEL ESTIMATE");
   assert.equal(s.staleMarkCount, 2);
+  assert.equal(s.markSourceMetadataIncompleteCount, 1, "the model mark has a source-metadata gap while the live mark does not");
 }
 
 // Imports are versioned, bounded, and all-or-nothing.

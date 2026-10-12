@@ -265,6 +265,14 @@
     const metadataCompletePnlSubtotal = metadataCompletePnlRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
     const indicativePnlSubtotal = indicativePnlRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
     const staleMarkCount = rows.filter(row => row.staleMark).length;
+    // Separate missing/stale/unsupported mark status from source metadata gaps. These counters may overlap.
+    const markSourceMetadataIncompleteCount = rows.filter(row =>
+      row.markPriceIsKnown && (
+        row.markSourceType === "UNKNOWN" ||
+        row.markSourceType === "MODEL_ESTIMATE" ||
+        !String(row.markSourceNote || "").trim()
+      )
+    ).length;
     const incompletePnlCount = rows.filter(row => !row.pnlComplete).length;
     const termBlockedCount = rows.filter(row => row.kind === "CREDIT_VERTICAL" && !row.termsComplete).length;
     return {
@@ -282,6 +290,7 @@
       indicativePnlRows: indicativePnlRows.length,
       incompletePnlCount,
       staleMarkCount,
+      markSourceMetadataIncompleteCount,
       termBlockedCount,
       error: normalized.ok ? null : normalized.errors.join(" "),
       importErrors: normalized.errors,

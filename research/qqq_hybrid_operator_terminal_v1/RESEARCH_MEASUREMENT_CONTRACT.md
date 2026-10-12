@@ -24,6 +24,8 @@ Scoring guide: 100 = all hard gates pass. 90–99 = no critical fail, only discl
 
 **Position Register boundary:** the subtotal is *METADATA-COMPLETE*, not *evidence-qualified*. A source-type choice, reference string, timestamp, or terms checkbox confirms only operator-entered metadata; this app does not independently fetch/authenticate cited broker documents or reconcile actual account cash flows. UI and AI handoff must preserve that limitation.
 
+**Separate mark-quality axes:** report mark status flags (missing, invalid, stale, or unsupported source classification) separately from source-metadata gaps (a known mark with UNKNOWN / MODEL_ESTIMATE source or no reference). These counters can overlap and must not be conflated as one cause or interpreted as independent evidence of source authenticity.
+
 ### B. Generality (no result-driven tuning)
 
 | Metric | Measurement | PASS threshold | Interpretation |
