@@ -200,6 +200,9 @@ assert.ok(handoffApp.includes("Cannot use register for sizing until you confirm"
 assert.ok(handoffApp.includes("invalidatePositionRegisterCoverage"), "register edits/imports must invalidate stale completeness confirmation");
 assert.ok(handoffApp.includes('completeConfirmed: $("positionRegisterCompleteConfirmed")?.checked === true'), "AI packet must retain completeness confirmation");
 assert.ok(handoffHtml.includes('id="positionImportFile"'), "position register must support portable JSON import");
+assert.ok(handoffHtml.includes('id="posMarkAsOf" type="text"'), "position mark as-of must accept an explicit timezone-bearing timestamp");
+assert.ok(handoffHtml.includes("2026-10-09T16:00:00-04:00"), "position form must show an ISO 8601 timezone example");
+assert.ok(positionLedgerSource.includes("AS-OF TIMEZONE UNKNOWN"), "timestamps without explicit timezone must fail closed");
 assert.ok(handoffHtml.includes('src="position_ledger.js"'), "position ledger module must load in the app");
 assert.ok(handoffApp.includes("positionRegister: positionSummary ?"), "current holdings and AI packet must include position register state");
 assert.ok(positionLedgerSource.includes("Gross unrealized mark-to-entry"), "position ledger must disclose P&L scope");

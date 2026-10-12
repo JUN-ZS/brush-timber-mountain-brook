@@ -125,12 +125,18 @@
     return /^(?:VXX[12]|1VXX[12])\d{6}[CP]\d{8}$/.test(symbol);
   }
 
+  function hasExplicitTimezone(value) {
+    const stamp = typeof value === "string" ? value.trim() : "";
+    return /(?:Z|[+-][0-9]{2}:[0-9]{2})$/i.test(stamp);
+  }
+
   function markFreshness(row, nowMs) {
     if (!row.markPriceIsKnown) return { label: "NO MARK", stale: true, ageMinutes: null };
-    if (row.markAsOfMs === null || row.markAsOfMs === undefined || row.markAsOfMs === "") {
+    if (typeof row.markAsOf !== "string" || !row.markAsOf.trim()) {
       return { label: "AS-OF MISSING", stale: true, ageMinutes: null };
     }
     if (!Number.isFinite(row.markAsOfMs)) return { label: "AS-OF INVALID", stale: true, ageMinutes: null };
+    if (!hasExplicitTimezone(row.markAsOf)) return { label: "AS-OF TIMEZONE UNKNOWN", stale: true, ageMinutes: null };
     const ageMinutes = (nowMs - row.markAsOfMs) / 60000;
     if (ageMinutes < -5) return { label: "FUTURE TIMESTAMP", stale: true, ageMinutes };
     if (row.markSourceType === "BROKER_LIVE") {
@@ -171,7 +177,8 @@
       const width = option && record.shortStrike !== null && record.longStrike !== null
         ? Math.abs(record.shortStrike - record.longStrike) : null;
       const entryKnown = record.entryPrice !== null && Number.isFinite(record.entryPrice);
-      const entryEvidenceVerified = record.entryEvidence === "BROKER_FILL" || record.entryEvidence === "BROKER_STATEMENT";
+      const entryEvidenceTypeVerified = record.entryEvidence === "BROKER_FILL" || record.entryEvidence === "BROKER_STATEMENT";
+      const entryEvidenceVerified = entryEvidenceTypeVerified && Boolean(record.entrySourceNote.trim());
       const markKnown = markPrice !== null && Number.isFinite(markPrice);
       let pnl = null, pnlStatus = "P&L INCOMPLETE";
       if (entryKnown && markKnown && template.kind === "STOCK") {
@@ -184,6 +191,7 @@
 
       const markForFreshness = {
         markPriceIsKnown: markKnown,
+        markAsOf,
         markAsOfMs: markAsOf ? Date.parse(markAsOf) : null,
         markSourceType
       };
@@ -216,10 +224,15 @@
       if (pnl !== null) {
         const confidenceIssues = [];
         if (!entryEvidenceVerified) confidenceIssues.push("ENTRY UNVERIFIED");
-        if (markSourceType === "UNKNOWN" || markSourceType === "MODEL_ESTIMATE") {
+        if (markSourceType === "UNKNOWN" || markSourceType === "MODEL_ESTIMATE" || !markSourceNote.trim()) {
           confidenceIssues.push("MARK SOURCE UNVERIFIED");
-        } else if (freshness.stale) {
+        }
+        if (freshness.label === "AS-OF TIMEZONE UNKNOWN") {
+          confidenceIssues.push("MARK TIMEZONE UNKNOWN");
+        } else if (freshness.stale && freshness.label !== "NO MARK") {
           confidenceIssues.push("MARK STALE/INVALID");
+        } else if (freshness.label === "NO MARK") {
+          confidenceIssues.push("MARK MISSING");
         }
         if (option && !identityComplete) confidenceIssues.push("CONTRACT IDENTITY UNVERIFIED");
         else if (option && !termsComplete) confidenceIssues.push("CONTRACT TERMS UNVERIFIED");

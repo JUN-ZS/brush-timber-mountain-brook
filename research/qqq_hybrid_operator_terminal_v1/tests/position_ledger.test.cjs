@@ -12,7 +12,7 @@ function base(overrides = {}) {
   return {
     id: "row-1", template: "QQQ_CORE", qty: 10,
     entryDate: "2026-09-01", entryPrice: 100, markPrice: 110,
-    markAsOf: "2026-10-11T10:00", markSourceType: "BROKER_LIVE",
+    markAsOf: "2026-10-11T10:00:00Z", markSourceType: "BROKER_LIVE",
     entryEvidence: "BROKER_FILL", entrySourceNote: "fill record",
     markSourceNote: "broker quote", multiplier: 1,
     ...overrides
@@ -50,11 +50,28 @@ function base(overrides = {}) {
   assert.equal(invalidAsOf.rows[0].staleMark, true);
   assert.equal(invalidAsOf.staleMarkCount, 1);
   assert.equal(invalidAsOf.qualifiedPnlRows, 0);
-  const staleLive = P.summarize([base({ markAsOf: "2026-10-11T09:30" })], {}, Date.parse("2026-10-11T10:05"));
+  const staleLive = P.summarize([base({ markAsOf: "2026-10-11T09:30:00Z" })], {}, Date.parse("2026-10-11T10:05"));
   assert.equal(staleLive.rows[0].markFreshness, "STALE LIVE");
   assert.equal(staleLive.rows[0].pnlStatus, "INDICATIVE · MARK STALE/INVALID");
   assert.equal(staleLive.qualifiedPnlRows, 0);
   assert.equal(staleLive.indicativePnlRows, 1);
+
+  const missingTimezone = P.summarize([base({ markAsOf: "2026-10-11T10:00" })], {}, Date.parse("2026-10-11T10:05"));
+  assert.equal(missingTimezone.rows[0].markFreshness, "AS-OF TIMEZONE UNKNOWN");
+  assert.equal(missingTimezone.rows[0].pnlStatus, "INDICATIVE · MARK TIMEZONE UNKNOWN");
+  assert.equal(missingTimezone.qualifiedPnlRows, 0);
+
+  const offsetTimestamp = P.summarize([base({ markAsOf: "2026-10-11T10:00:00+08:00" })], {}, Date.parse("2026-10-11T10:05:00+08:00"));
+  assert.equal(offsetTimestamp.rows[0].markFreshness, "LIVE ≤15M");
+  assert.equal(offsetTimestamp.qualifiedPnlRows, 1);
+
+  const missingEntryReference = P.summarize([base({ entrySourceNote: "" })], {}, Date.parse("2026-10-11T10:05"));
+  assert.equal(missingEntryReference.rows[0].pnlStatus, "INDICATIVE · ENTRY UNVERIFIED");
+  assert.equal(missingEntryReference.qualifiedPnlRows, 0);
+
+  const missingMarkReference = P.summarize([base({ markSourceNote: "" })], {}, Date.parse("2026-10-11T10:05"));
+  assert.equal(missingMarkReference.rows[0].pnlStatus, "INDICATIVE · MARK SOURCE UNVERIFIED");
+  assert.equal(missingMarkReference.qualifiedPnlRows, 0);
 }
 
 // Credit-spread package P&L uses entry credit minus exit debit, then verified/assumed multiplier.
@@ -132,8 +149,8 @@ function base(overrides = {}) {
 // Old live quotes and model marks must not be labelled fresh.
 {
   const s = P.summarize([
-    base({ markAsOf: "2026-10-11T08:00", markSourceType: "BROKER_LIVE" }),
-    base({ id: "row-2", markAsOf: "2026-10-11T10:00", markSourceType: "MODEL_ESTIMATE" })
+    base({ markAsOf: "2026-10-11T08:00:00Z", markSourceType: "BROKER_LIVE" }),
+    base({ id: "row-2", markAsOf: "2026-10-11T10:00:00Z", markSourceType: "MODEL_ESTIMATE" })
   ], {}, Date.parse("2026-10-11T10:05"));
   assert.equal(s.rows[0].markFreshness, "STALE LIVE");
   assert.equal(s.rows[1].markFreshness, "MODEL ESTIMATE");

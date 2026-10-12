@@ -265,7 +265,7 @@
             <label>Entry date (leave blank if unknown) <input id="posEntryDate" type="date"></label>
             <label><span id="posEntryPriceLabel">Average entry price ($ / share)</span> <input id="posEntryPrice" type="number" min="0" step="0.0001" placeholder="Unknown stays blank"></label>
             <label><span id="posMarkPriceLabel">Current mark ($ / share)</span> <input id="posMarkPrice" type="number" min="0" step="0.0001" placeholder="Blank stock mark uses APP spot; option stays unknown"></label>
-            <label>Mark as-of (local time) <input id="posMarkAsOf" type="datetime-local"></label>
+            <label>Mark as-of (ISO 8601 with timezone) <input id="posMarkAsOf" type="text" maxlength="40" placeholder="2026-10-09T16:00:00-04:00 or ...Z"></label>
             <label>Mark source type
               <select id="posMarkSourceType">
                 <option value="UNKNOWN">Unknown / not recorded</option>
