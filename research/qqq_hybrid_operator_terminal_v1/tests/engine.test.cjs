@@ -444,8 +444,8 @@ function row(result, key) {
   // These are quote-side scenario estimates from the user-uploaded screenshot fixture, not confirmed fills or realized P&L.
   const qqqCapacityCreditUsd = qqqCandidate.credit * 100 * row(r, "qqqCallSpreads").capacity;
   const vxxCapacityCreditUsd = vxxCandidate.credit * 100 * row(r, "vxxCallSpreads").capacity;
-  assert.equal(qqqCapacityCreditUsd, 127);
-  assert.equal(vxxCapacityCreditUsd, 168);
+  assert.ok(Math.abs(qqqCapacityCreditUsd - 127) < 1e-9);
+  assert.ok(Math.abs(vxxCapacityCreditUsd - 168) < 1e-9);
   assert.ok(Math.abs(qqqCapacityCreditUsd / r.nav * 100 - 0.127) < 1e-9);
   assert.ok(Math.abs(vxxCapacityCreditUsd / r.nav * 100 - 0.168) < 1e-9);
   assert.ok(Math.abs(r.optionRiskReservedAtTargets / r.nav * 100 - 2.905) < 1e-9);
