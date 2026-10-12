@@ -205,6 +205,10 @@ assert.ok(aiHandoffSource.includes("Mark source-metadata gaps"), "AI handoff mus
 assert.ok(aiHandoffSource.includes("source not independently authenticated"), "AI handoff must preserve the evidence-authentication limitation");
 assert.ok(positionLedgerSource.includes("metadataCompletePnlSubtotal"), "ledger aggregate must use metadata-complete terminology");
 assert.ok(positionLedgerSource.includes("markSourceMetadataIncompleteCount"), "ledger must calculate source metadata gaps separately");
+assert.ok(positionLedgerSource.includes("ADJUSTED PAYOFF MODEL UNSUPPORTED"), "adjusted held VXX payoff must be explicitly marked unsupported");
+assert.ok(positionLedgerSource.includes("!adjustedDetected && identityComplete"), "adjusted held VXX must not pass the sizing terms gate");
+assert.ok(handoffApp.includes("BLOCKED · ADJUSTED PAYOFF UNSUPPORTED"), "operator UI must display the adjusted-payoff sizing block");
+assert.ok(handoffApp.includes("adjusted deliverable payoff is not modeled"), "operator UI must keep adjusted max loss unknown");
 assert.ok(positionLedgerTest.includes("fresh timestamp must not be called stale"), "fresh-but-unreferenced marks must be tested separately from stale marks");
 assert.ok(handoffHtml.includes('id="positionUseRegister"'), "position register must require explicit use for sizing");
 assert.ok(handoffHtml.includes('id="positionRegisterCompleteConfirmed"'), "position register must require all four categories to be reconciled");
