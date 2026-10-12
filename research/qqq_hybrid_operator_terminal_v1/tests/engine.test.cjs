@@ -531,7 +531,7 @@ function row(result, key) {
   assert.equal(x.capacity, null);
   assert.equal(x.action, "BLOCKED");
   assert.equal(x.status, "BLOCKED_CONTRACT");
-  assert.match(x.reason, /deliverable are verified/);
+  assert.match(x.reason, /does not model the contract's non-standard exercise payoff/);
 
   const riskOff = E.calculatePortfolio(base({
     market: snap({ vix: 31 }),
