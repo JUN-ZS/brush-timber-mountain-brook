@@ -218,7 +218,7 @@ assert.ok(positionLedgerSource.includes("AS-OF TIMEZONE UNKNOWN"), "timestamps w
 assert.ok(handoffHtml.includes('src="position_ledger.js"'), "position ledger module must load in the app");
 assert.ok(handoffApp.includes("positionRegister: positionSummary ?"), "current holdings and AI packet must include position register state");
 assert.ok(positionLedgerSource.includes("Gross unrealized mark-to-entry"), "position ledger must disclose P&L scope");
-assert.ok(positionLedgerTest.includes("8 TEST GROUPS PASS"), "dedicated position ledger tests must exist");
+assert.ok(positionLedgerTest.includes("QQQ HYBRID POSITION REGISTER:"), "dedicated position ledger test suite must exist regardless of group count");
 assert.ok(handoffEngine.includes("BLOCKED_POSITION_TERMS"), "unverified held terms must block affected sizing rows");
 assert.ok(handoffHtml.includes('id="aiHandoffStatus"'), "export feedback must be visible");
 assert.ok(handoffHtml.includes('src="ai_handoff.js"'), "handoff module must load before app runtime");
