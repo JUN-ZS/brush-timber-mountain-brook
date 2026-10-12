@@ -248,5 +248,6 @@ assert.ok(handoffApp.includes("knownOptionLegs === 2"), "combined max-loss KPI m
 assert.ok(handoffApp.includes('"PARTIAL · " + usd(knownOptionRisk)'), "one known leg must not be shown as total max loss");
 assert.ok(handoffApp.includes("Known leg only · other call-credit leg PENDING; no combined total"), "partial max-loss KPI must disclose missing exposure");
 assert.ok(handoffApp.includes("Waiting for two valid call-credit quotes"), "missing both option legs must remain pending");
+assert.ok(handoffApp.includes('amount: knownOptionLegs === 2 && pool !== null ? Math.max(0, pool - knownOptionRisk) : null'), "unused risk room must remain PENDING until both option legs and the risk pool are valid");
 
 console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS");

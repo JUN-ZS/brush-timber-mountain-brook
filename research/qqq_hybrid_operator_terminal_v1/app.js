@@ -803,7 +803,7 @@
     const riskLegMarkup = [
       { label: "QQQ Call-Credit", amount: qMaxLoss, max: pool, cls: "" },
       { label: "VXX Call-Credit", amount: vMaxLoss, max: pool, cls: "vxx" },
-      { label: "Unused after rounding", amount: pool === null ? null : Math.max(0, pool - knownOptionRisk), max: pool, cls: "" }
+      { label: "Unused after rounding", amount: knownOptionLegs === 2 && pool !== null ? Math.max(0, pool - knownOptionRisk) : null, max: pool, cls: "" }
     ].map((item) => {
       const barPct = Number.isFinite(item.amount) && Number(item.max) > 0 ? Math.min(100, item.amount / item.max * 100) : 0;
       return '<div class="pro-risk-leg"><div class="pro-risk-leg-head"><span>' + esc(item.label) + '</span><b>' + esc(item.amount === null ? "PENDING" : exactUsd(item.amount)) + '</b></div><div class="pro-risk-track"><div class="pro-risk-fill ' + item.cls + '" style="width:' + barPct.toFixed(3) + '%"></div></div></div>';
