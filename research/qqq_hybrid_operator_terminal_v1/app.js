@@ -742,6 +742,14 @@
     const knownOptionLegs = [qMaxLoss, vMaxLoss].filter((v) => v !== null).length;
     const pool = Number.isFinite(Number(result.totalOptionRiskPool)) ? Number(result.totalOptionRiskPool) : null;
     const usedPct = pool > 0 ? Math.min(100, knownOptionRisk / pool * 100) : 0;
+    const optionRiskKpiValue = knownOptionLegs === 2
+      ? usd(knownOptionRisk)
+      : knownOptionLegs === 1 ? "PARTIAL · " + usd(knownOptionRisk) : "PENDING";
+    const optionRiskKpiDetail = knownOptionLegs === 2
+      ? (pool !== null ? pct(ratioPct(knownOptionRisk, nav)) + " NAV · " + pct(usedPct) + " of shared pool" : "Waiting for risk pool")
+      : knownOptionLegs === 1
+        ? "Known leg only · other call-credit leg PENDING; no combined total"
+        : "Waiting for two valid call-credit quotes";
     const stockNotional = capQNotional !== null && capVNotional !== null ? capQNotional + capVNotional : null;
     const capitalRequired = E.num(result.plannedCapitalRequiredUsd);
     const freeCash = E.num(result.remainingUnallocatedCashUsd);
@@ -754,7 +762,7 @@
     $("proKpis").innerHTML = [
       ["PORTFOLIO NAV", usd(nav), "NAV basis for all allocation percentages"],
       ["MAX STOCK NOTIONAL", stockNotional === null ? "PENDING" : exactUsd(stockNotional), stockNotional === null ? "Await valid market prices" : pct(ratioPct(stockNotional, nav)) + " of NAV · QQQ + VXX short"],
-      ["MAX OPTION LOSS", qMaxLoss === null && vMaxLoss === null ? "PENDING" : usd(knownOptionRisk), pool !== null ? pct(ratioPct(knownOptionRisk, nav)) + " NAV · " + pct(usedPct) + " of shared pool" : "Waiting for risk pool"],
+      ["MAX OPTION LOSS", optionRiskKpiValue, optionRiskKpiDetail],
       ["FREE CASH AFTER PLAN", freeCash === null ? "PENDING" : exactUsd(freeCash), freeCash === null ? "Blocked until market data is fresh" : pct(ratioPct(freeCash, cash)) + " of uncommitted cash"]
     ].map(([label, value, sub]) => '<article class="pro-kpi"><small>' + esc(label) + '</small><b>' + esc(value) + '</b><span>' + esc(sub) + '</span></article>').join("");
 

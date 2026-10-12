@@ -235,5 +235,9 @@ assert.ok(mainHtml.includes("not premium/credit targets"), "UI must distinguish 
 assert.ok(mainHtml.includes("Est. Net Credit ($ / % NAV)"), "allocation table must promise both credit units");
 assert.ok(handoffApp.includes("pct(ratioPct(qTotalCredit, nav))"), "QQQ estimated credit must be expressed as % NAV");
 assert.ok(handoffApp.includes("pct(ratioPct(vTotalCredit, nav))"), "VXX estimated credit must be expressed as % NAV");
+assert.ok(handoffApp.includes("knownOptionLegs === 2"), "combined max-loss KPI must require both option legs");
+assert.ok(handoffApp.includes('"PARTIAL · " + usd(knownOptionRisk)'), "one known leg must not be shown as total max loss");
+assert.ok(handoffApp.includes("Known leg only · other call-credit leg PENDING; no combined total"), "partial max-loss KPI must disclose missing exposure");
+assert.ok(handoffApp.includes("Waiting for two valid call-credit quotes"), "missing both option legs must remain pending");
 
-console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS");
+console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS");
