@@ -233,7 +233,7 @@
         <span class="tag">OPTIONAL REGISTER · NO ORDERS</span>
       </div>
       <div id="positionLedgerHeadline" class="position-ledger-headline">
-        <div><small>KNOWN GROSS P&amp;L SUBTOTAL</small><b>—</b><span>No positions entered</span></div>
+        <div><small>METADATA-COMPLETE P&amp;L SUBTOTAL</small><b>—</b><span>No positions entered</span></div>
         <div><small>INCOMPLETE P&amp;L ROWS</small><b>0</b><span>Blank entry/mark remains unknown</span></div>
         <div><small>CONTRACT TERMS BLOCKS</small><b>0</b><span>Unverified held option terms block sizing when register mode is enabled</span></div>
       </div>
@@ -249,7 +249,7 @@
           </div>
         </div>
         <p id="positionRegisterModeStatus" class="muted">Register is attribution-only. Existing manual current-quantity inputs remain the sizing source until you explicitly enable register mode and confirm a complete inventory.</p>
-        <p class="position-measurement-note">Record only these primary units: QQQ long shares, VXX short shares, QQQ far call-credit packages, VXX call-credit packages. Stock P&amp;L is mark-to-entry; credit-spread P&amp;L = (entry net credit − current estimated close debit) × packages × multiplier. Gross unrealized P&amp;L excludes fees, slippage, dividends, borrow costs, assignment/exercise and taxes; it is not realized profit, does not reconcile cash flows, and never changes NAV automatically.</p>
+        <p class="position-measurement-note">Record only these primary units: QQQ long shares, VXX short shares, QQQ far call-credit packages, VXX call-credit packages. Stock P&amp;L is mark-to-entry; credit-spread P&amp;L = (entry net credit − current estimated close debit) × packages × multiplier. Gross unrealized P&amp;L excludes fees, slippage, dividends, borrow costs, assignment/exercise and taxes; it is not realized profit, does not reconcile cash flows, and never changes NAV automatically. A metadata-complete row means only that the operator-entered labels, references, contract fields and mark timestamp pass app checks. The app does not independently authenticate referenced broker documents or reconcile account cash flows. This subtotal is not verified account P&amp;L; the terms checkbox is a human attestation, not app-side verification.</p>
         <form id="positionForm" autocomplete="off">
           <input id="positionEditId" type="hidden" value="">
           <div class="position-form-grid">
@@ -294,7 +294,7 @@
               <label>Short contract symbol <input id="posShortSymbol" type="text" maxlength="100" placeholder="Exact OCC / broker symbol"></label>
               <label>Long contract symbol <input id="posLongSymbol" type="text" maxlength="100" placeholder="Exact OCC / broker symbol"></label>
               <label>Multiplier / package unit <input id="posMultiplier" type="number" min="1" step="1" value="100"></label>
-              <label class="toggle"><input id="posTermsVerified" type="checkbox"> Verified exact expiry, root, deliverable and multiplier against broker contract details</label>
+              <label class="toggle"><input id="posTermsVerified" type="checkbox"> I attest I checked exact expiry, root, deliverable and multiplier against broker contract details</label>
               <label>Deliverable / contract note <input id="posDeliverableNote" type="text" maxlength="500" placeholder="Required for adjusted/exception contracts"></label>
             </div>
             <p class="muted">A credit-spread mark is the estimated net debit required to close the whole vertical, quoted per underlying share. Entry is net credit per share. This is not a broker-confirmed execution price.</p>

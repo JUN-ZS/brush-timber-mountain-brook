@@ -24,22 +24,22 @@ function base(overrides = {}) {
   const qqq = P.summarize([base()], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(qqq.holdings.qqqShares, 10);
   assert.equal(qqq.rows[0].unrealizedPnl, 100);
-  assert.equal(qqq.rows[0].pnlStatus, "GROSS UNREALIZED P&L");
+  assert.equal(qqq.rows[0].pnlStatus, "GROSS UNREALIZED P&L · METADATA COMPLETE");
   assert.equal(qqq.rows[0].markFreshness, "LIVE ≤15M");
-  assert.equal(qqq.qualifiedPnlSubtotal, 100);
-  assert.equal(qqq.qualifiedPnlRows, 1);
+  assert.equal(qqq.metadataCompletePnlSubtotal, 100);
+  assert.equal(qqq.metadataCompletePnlRows, 1);
   assert.equal(qqq.indicativePnlRows, 0);
   const vxx = P.summarize([base({ template: "VXX_SHORT_STOCK", qty: 20, entryPrice: 20, markPrice: 18, multiplier: 1 })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(vxx.holdings.vxxShortShares, 20);
   assert.equal(vxx.rows[0].unrealizedPnl, 40);
-  assert.equal(vxx.qualifiedPnlSubtotal, 40);
+  assert.equal(vxx.metadataCompletePnlSubtotal, 40);
 
-  // A manual estimate remains arithmetically useful, but is separated from the evidence-qualified subtotal.
+  // A manual estimate remains arithmetically useful, but is separated from the metadata-complete subtotal.
   const estimatedEntry = P.summarize([base({ entryEvidence: "MANUAL_ESTIMATE" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(estimatedEntry.rows[0].unrealizedPnl, 100);
   assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY UNVERIFIED");
-  assert.equal(estimatedEntry.qualifiedPnlRows, 0);
-  assert.equal(estimatedEntry.qualifiedPnlSubtotal, 0);
+  assert.equal(estimatedEntry.metadataCompletePnlRows, 0);
+  assert.equal(estimatedEntry.metadataCompletePnlSubtotal, 0);
   assert.equal(estimatedEntry.indicativePnlRows, 1);
   assert.equal(estimatedEntry.indicativePnlSubtotal, 100);
 
@@ -49,29 +49,29 @@ function base(overrides = {}) {
   assert.equal(invalidAsOf.rows[0].pnlStatus, "INDICATIVE · MARK STALE/INVALID");
   assert.equal(invalidAsOf.rows[0].staleMark, true);
   assert.equal(invalidAsOf.staleMarkCount, 1);
-  assert.equal(invalidAsOf.qualifiedPnlRows, 0);
+  assert.equal(invalidAsOf.metadataCompletePnlRows, 0);
   const staleLive = P.summarize([base({ markAsOf: "2026-10-11T09:30:00Z" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(staleLive.rows[0].markFreshness, "STALE LIVE");
   assert.equal(staleLive.rows[0].pnlStatus, "INDICATIVE · MARK STALE/INVALID");
-  assert.equal(staleLive.qualifiedPnlRows, 0);
+  assert.equal(staleLive.metadataCompletePnlRows, 0);
   assert.equal(staleLive.indicativePnlRows, 1);
 
   const missingTimezone = P.summarize([base({ markAsOf: "2026-10-11T10:00" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(missingTimezone.rows[0].markFreshness, "AS-OF TIMEZONE UNKNOWN");
   assert.equal(missingTimezone.rows[0].pnlStatus, "INDICATIVE · MARK TIMEZONE UNKNOWN");
-  assert.equal(missingTimezone.qualifiedPnlRows, 0);
+  assert.equal(missingTimezone.metadataCompletePnlRows, 0);
 
   const offsetTimestamp = P.summarize([base({ markAsOf: "2026-10-11T10:00:00+08:00" })], {}, Date.parse("2026-10-11T10:05:00+08:00"));
   assert.equal(offsetTimestamp.rows[0].markFreshness, "LIVE ≤15M");
-  assert.equal(offsetTimestamp.qualifiedPnlRows, 1);
+  assert.equal(offsetTimestamp.metadataCompletePnlRows, 1);
 
   const missingEntryReference = P.summarize([base({ entrySourceNote: "" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(missingEntryReference.rows[0].pnlStatus, "INDICATIVE · ENTRY UNVERIFIED");
-  assert.equal(missingEntryReference.qualifiedPnlRows, 0);
+  assert.equal(missingEntryReference.metadataCompletePnlRows, 0);
 
   const missingMarkReference = P.summarize([base({ markSourceNote: "" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(missingMarkReference.rows[0].pnlStatus, "INDICATIVE · MARK SOURCE UNVERIFIED");
-  assert.equal(missingMarkReference.qualifiedPnlRows, 0);
+  assert.equal(missingMarkReference.metadataCompletePnlRows, 0);
 }
 
 // Credit-spread package P&L uses entry credit minus exit debit, then verified/assumed multiplier.

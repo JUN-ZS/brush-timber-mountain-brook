@@ -163,8 +163,9 @@ assert.ok(measurementReport.includes("No"), "measurement report must retain a no
 
 // AI handoff packet contract: the same active APP state must carry its raw JSON,
 // separate measurement axes, and fail-closed human action into the downloadable report.
+const aiHandoffSource = fs.readFileSync(require("node:path").join(__dirname, "../ai_handoff.js"), "utf8");
 const handoffSandbox = { module: { exports: {} }, window: {} };
-vm.runInNewContext(fs.readFileSync(require("node:path").join(__dirname, "../ai_handoff.js"), "utf8"), handoffSandbox, { filename: "ai_handoff.js" });
+vm.runInNewContext(aiHandoffSource, handoffSandbox, { filename: "ai_handoff.js" });
 const Handoff = handoffSandbox.module.exports;
 assert.equal(typeof Handoff.serialize, "function");
 assert.equal(typeof handoffSandbox.window.AiHandoffV1.serialize, "function");
@@ -194,6 +195,12 @@ const handoffProtocol = fs.readFileSync(require("node:path").join(__dirname, "..
 assert.ok(handoffHtml.includes('id="aiHandoffBtn"'), "top-level AI handoff download must be discoverable");
 assert.ok(handoffHtml.includes('id="aiHandoffGuide"'), "manual collaboration steps must be visible in APP");
 assert.ok(handoffHtml.includes('id="positionLedgerCard"'), "position facts/P&L register must be present");
+assert.ok(handoffHtml.includes("does not independently authenticate referenced broker documents"), "position register must disclose that source references are not authenticated");
+assert.ok(handoffHtml.includes("human attestation, not app-side verification"), "contract checkbox must not imply app-side verification");
+assert.ok(handoffApp.includes("METADATA-COMPLETE P&amp;L SUBTOTAL"), "P&L headline must describe metadata completeness, not verified evidence");
+assert.ok(handoffApp.includes("OPERATOR-ATTESTED TERMS"), "held-option terms must be described as operator-attested");
+assert.ok(aiHandoffSource.includes("source not independently authenticated"), "AI handoff must preserve the evidence-authentication limitation");
+assert.ok(positionLedgerSource.includes("metadataCompletePnlSubtotal"), "ledger aggregate must use metadata-complete terminology");
 assert.ok(handoffHtml.includes('id="positionUseRegister"'), "position register must require explicit use for sizing");
 assert.ok(handoffHtml.includes('id="positionRegisterCompleteConfirmed"'), "position register must require all four categories to be reconciled");
 assert.ok(handoffApp.includes("Cannot use register for sizing until you confirm"), "unconfirmed completeness must block register mode");

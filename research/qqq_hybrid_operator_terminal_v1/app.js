@@ -216,7 +216,7 @@
     positionRegisterSummary = PositionLedger.summarize(positionRecords, market);
     const summary = positionRegisterSummary;
     $("positionLedgerHeadline").innerHTML =
-      '<div><small>EVIDENCE-QUALIFIED P&amp;L SUBTOTAL</small><b>' + (summary.qualifiedPnlRows ? esc(positionMoney(summary.qualifiedPnlSubtotal, true)) : "—") + '</b><span>' + summary.qualifiedPnlRows + ' qualified row(s); indicative subtotal ' + esc(positionMoney(summary.indicativePnlSubtotal, true)) + ' across ' + summary.indicativePnlRows + ' row(s), excluded from qualified total</span></div>' +
+      '<div><small>METADATA-COMPLETE P&amp;L SUBTOTAL</small><b>' + (summary.metadataCompletePnlRows ? esc(positionMoney(summary.metadataCompletePnlSubtotal, true)) : "—") + '</b><span>' + summary.metadataCompletePnlRows + ' metadata-complete row(s); indicative subtotal ' + esc(positionMoney(summary.indicativePnlSubtotal, true)) + ' across ' + summary.indicativePnlRows + ' row(s), excluded from metadata-complete total</span></div>' +
       '<div><small>INCOMPLETE P&amp;L ROWS</small><b>' + fmt(summary.incompletePnlCount) + '</b><span>Missing entry or mark; not assumed to be zero</span></div>' +
       '<div><small>STALE / UNVERIFIED MARKS</small><b>' + fmt(summary.staleMarkCount) + '</b><span>Age/source affects confidence, not the arithmetic</span></div>' +
       '<div><small>HELD OPTION TERMS BLOCKS</small><b>' + fmt(summary.termBlockedCount) + '</b><span>Blocks that strategy when register mode is on</span></div>';
@@ -236,7 +236,7 @@
           ' / LONG ' + esc(row.longSymbol || ("K " + (row.longStrike ?? "?")))
         : esc(row.side + " · " + row.unit);
       const terms = option
-        ? (row.termsComplete ? "TERMS VERIFIED" : "BLOCKED · TERMS INCOMPLETE") + (row.adjustedDetected ? " · ADJUSTED ROOT" : "")
+        ? (row.termsComplete ? "OPERATOR-ATTESTED TERMS" : "BLOCKED · TERMS INCOMPLETE") + (row.adjustedDetected ? " · ADJUSTED ROOT" : "")
         : esc(row.entryEvidence || "UNKNOWN ENTRY");
       const riskNote = option
         ? (row.maxLossPerPackage === null ? "Per-package max loss UNKNOWN" : "Entry max loss/package (assumed terms): " + positionMoney(row.maxLossPerPackage))

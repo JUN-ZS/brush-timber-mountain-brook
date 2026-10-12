@@ -38,7 +38,7 @@
             positionMoney(row.unrealizedPnl) + (row.pnlStatus ? " (" + cell(row.pnlStatus) + ")" : ""),
             cell(row.markFreshness || "UNKNOWN"),
             cell(row.kind === "CREDIT_VERTICAL"
-              ? (row.termsComplete ? "VERIFIED" : "BLOCKED / INCOMPLETE") +
+              ? (row.termsComplete ? "OPERATOR-ATTESTED" : "BLOCKED / INCOMPLETE") +
                 (row.adjustedDetected ? " · ADJUSTED ROOT" : "") +
                 (row.maxLossPerPackage !== null && row.maxLossPerPackage !== undefined ? " · max loss/pkg " + cell(row.maxLossPerPackage) : "")
               : cell(row.entryEvidence || "UNKNOWN"))
@@ -48,8 +48,8 @@
       "- Engine current-quantity source: " + (positionRegister.useForSizing ? "POSITION REGISTER (enabled)" : "MANUAL INPUTS (register attribution only)"),
       "- Inventory completeness explicitly confirmed: " + (positionRegister.completeConfirmed ? "YES" : "NO — register cannot be used as Current sizing source"),
       "- Registered rows: " + cell(positionSummary.count ?? 0),
-      "- Evidence-qualified unrealized P&L subtotal: " + (Number.isFinite(Number(positionSummary.qualifiedPnlSubtotal)) ? positionMoney(positionSummary.qualifiedPnlSubtotal) : "UNKNOWN") +
-        " across " + cell(positionSummary.qualifiedPnlRows ?? 0) + " row(s); indicative subtotal: " +
+      "- Metadata-complete unrealized P&L subtotal (source not independently authenticated): " + (Number.isFinite(Number(positionSummary.metadataCompletePnlSubtotal)) ? positionMoney(positionSummary.metadataCompletePnlSubtotal) : "UNKNOWN") +
+        " across " + cell(positionSummary.metadataCompletePnlRows ?? 0) + " row(s); indicative subtotal: " +
         (Number.isFinite(Number(positionSummary.indicativePnlSubtotal)) ? positionMoney(positionSummary.indicativePnlSubtotal) : "UNKNOWN") +
         " across " + cell(positionSummary.indicativePnlRows ?? 0) + " row(s); arithmetic subtotal across all complete rows: " +
         (Number.isFinite(Number(positionSummary.knownPnlSubtotal)) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +

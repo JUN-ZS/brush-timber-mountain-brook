@@ -177,8 +177,8 @@
       const width = option && record.shortStrike !== null && record.longStrike !== null
         ? Math.abs(record.shortStrike - record.longStrike) : null;
       const entryKnown = record.entryPrice !== null && Number.isFinite(record.entryPrice);
-      const entryEvidenceTypeVerified = record.entryEvidence === "BROKER_FILL" || record.entryEvidence === "BROKER_STATEMENT";
-      const entryEvidenceVerified = entryEvidenceTypeVerified && Boolean(record.entrySourceNote.trim());
+      const entryEvidenceTypeDeclared = record.entryEvidence === "BROKER_FILL" || record.entryEvidence === "BROKER_STATEMENT";
+      const entryEvidenceDeclared = entryEvidenceTypeDeclared && Boolean(record.entrySourceNote.trim());
       const markKnown = markPrice !== null && Number.isFinite(markPrice);
       let pnl = null, pnlStatus = "P&L INCOMPLETE";
       if (entryKnown && markKnown && template.kind === "STOCK") {
@@ -219,11 +219,11 @@
       );
       if (option && !termsComplete) blockedKeys.add(template.strategyKey);
 
-      // The aggregate may call a row "evidence-qualified" only when entry evidence,
-      // contract identity/terms (for options), mark provenance and mark freshness pass.
+      // "Metadata-complete" means the operator-entered source declarations, required contract fields,
+      // and mark freshness pass internal checks. The app does not fetch or authenticate referenced documents.
       if (pnl !== null) {
         const confidenceIssues = [];
-        if (!entryEvidenceVerified) confidenceIssues.push("ENTRY UNVERIFIED");
+        if (!entryEvidenceDeclared) confidenceIssues.push("ENTRY UNVERIFIED");
         if (markSourceType === "UNKNOWN" || markSourceType === "MODEL_ESTIMATE" || !markSourceNote.trim()) {
           confidenceIssues.push("MARK SOURCE UNVERIFIED");
         }
@@ -238,7 +238,7 @@
         else if (option && !termsComplete) confidenceIssues.push("CONTRACT TERMS UNVERIFIED");
         pnlStatus = confidenceIssues.length
           ? "INDICATIVE · " + confidenceIssues.join(" / ")
-          : option ? "GROSS UNREALIZED P&L · BEFORE FEES" : "GROSS UNREALIZED P&L";
+          : option ? "GROSS UNREALIZED P&L · BEFORE FEES · METADATA COMPLETE" : "GROSS UNREALIZED P&L · METADATA COMPLETE";
       }
 
       let maxLossPerPackage = null;
@@ -260,9 +260,9 @@
     }
     const knownRows = rows.filter(row => row.pnlComplete);
     const knownPnlSubtotal = knownRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
-    const qualifiedPnlRows = knownRows.filter(row => row.pnlStatus.startsWith("GROSS UNREALIZED P&L"));
+    const metadataCompletePnlRows = knownRows.filter(row => row.pnlStatus.startsWith("GROSS UNREALIZED P&L"));
     const indicativePnlRows = knownRows.filter(row => row.pnlStatus.startsWith("INDICATIVE"));
-    const qualifiedPnlSubtotal = qualifiedPnlRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
+    const metadataCompletePnlSubtotal = metadataCompletePnlRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
     const indicativePnlSubtotal = indicativePnlRows.reduce((sum, row) => sum + row.unrealizedPnl, 0);
     const staleMarkCount = rows.filter(row => row.staleMark).length;
     const incompletePnlCount = rows.filter(row => !row.pnlComplete).length;
@@ -276,8 +276,8 @@
       blockingKeys: [...blockedKeys],
       knownPnlSubtotal,
       knownPnlRows: knownRows.length,
-      qualifiedPnlSubtotal,
-      qualifiedPnlRows: qualifiedPnlRows.length,
+      metadataCompletePnlSubtotal,
+      metadataCompletePnlRows: metadataCompletePnlRows.length,
       indicativePnlSubtotal,
       indicativePnlRows: indicativePnlRows.length,
       incompletePnlCount,

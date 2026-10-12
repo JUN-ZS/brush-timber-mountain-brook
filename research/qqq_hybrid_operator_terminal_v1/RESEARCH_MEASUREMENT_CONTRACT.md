@@ -22,6 +22,8 @@ Each change receives independent **Accuracy**, **Generality**, and **Integration
 
 Scoring guide: 100 = all hard gates pass. 90–99 = no critical fail, only disclosed non-trade-critical metadata warnings. Below 90 = research-only. Any BLOCK row overrides the numeric average.
 
+**Position Register boundary:** the subtotal is *METADATA-COMPLETE*, not *evidence-qualified*. A source-type choice, reference string, timestamp, or terms checkbox confirms only operator-entered metadata; this app does not independently fetch/authenticate cited broker documents or reconcile actual account cash flows. UI and AI handoff must preserve that limitation.
+
 ### B. Generality (no result-driven tuning)
 
 | Metric | Measurement | PASS threshold | Interpretation |
