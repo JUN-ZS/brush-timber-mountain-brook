@@ -108,7 +108,7 @@
     const manual = num(manualRiskUnit);
     if (strategy.kind === "creditVertical") {
       if (candidate && candidate.contractTermsStatus === "ADJUSTED_DELIVERABLE_BLOCKED") {
-        return { riskPerUnit: null, capitalPerUnitUsd: null, source: "ADJUSTED_CONTRACT_BLOCKED", ready: false, reason: "Adjusted VXX option root detected (" + (candidate.adjustedContractSymbols || []).join(", ") + "). The primary budget is blocked until the exact multiplier and deliverable are verified; do not size at 100 by assumption." };
+        return { riskPerUnit: null, capitalPerUnitUsd: null, source: "ADJUSTED_CONTRACT_BLOCKED", ready: false, reason: "Adjusted VXX option root detected (" + (candidate.adjustedContractSymbols || []).join(", ") + "). Primary budget remains blocked because this engine does not model the contract's non-standard exercise payoff; a note/attestation does not enable capacity. Do not size at 100 by assumption." };
       }
       if (candidate && [candidate.width, candidate.credit].every(v => Number.isFinite(num(v))) &&
           num(candidate.width) > 0 && num(candidate.credit) > 0 && num(candidate.credit) < num(candidate.width)) {
