@@ -229,4 +229,11 @@ assert.ok(handoffProtocol.includes("Generality"), "durable collaboration protoco
 assert.ok(handoffProtocol.includes("Integration"), "durable collaboration protocol must define integration");
 assert.ok(handoffProtocol.includes("No order is placed"), "durable protocol must preserve the no-order boundary");
 
-console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS");
+assert.ok(mainHtml.includes("QQQ call-credit max-loss allocation (% NAV)"), "primary percentage input must state it allocates maximum loss, not credit");
+assert.ok(mainHtml.includes("VXX call-credit max-loss allocation (% NAV)"), "VXX percentage input must state it allocates maximum loss, not credit");
+assert.ok(mainHtml.includes("not premium/credit targets"), "UI must distinguish risk budget from estimated opening credit");
+assert.ok(mainHtml.includes("Est. Net Credit ($ / % NAV)"), "allocation table must promise both credit units");
+assert.ok(handoffApp.includes("pct(ratioPct(qTotalCredit, nav))"), "QQQ estimated credit must be expressed as % NAV");
+assert.ok(handoffApp.includes("pct(ratioPct(vTotalCredit, nav))"), "VXX estimated credit must be expressed as % NAV");
+
+console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS");

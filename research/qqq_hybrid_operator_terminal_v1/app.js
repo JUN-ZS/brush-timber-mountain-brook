@@ -819,7 +819,7 @@
         price: result.market.blocked ? "PENDING" : exactUsd(result.market.qqq) + " / share",
         qty: displayQty(qqq, "shares"),
         exposure: capQNotional === null ? "PENDING" : exactUsd(capQNotional) + " notional",
-        credit: "—", loss: "—",
+        credit: "—", creditDetail: "", loss: "—",
         navPct: capQNotional === null ? "PENDING" : pct(ratioPct(capQNotional, nav)),
         status: statusOf(qqq, qtyQ, capQNotional !== null)
       },
@@ -828,7 +828,7 @@
         price: result.market.blocked ? "PENDING" : exactUsd(result.market.vxx) + " / share",
         qty: displayQty(vxx, "short shares"),
         exposure: capVNotional === null || capVMargin === null ? "PENDING" : exactUsd(capVNotional) + " notional · " + exactUsd(capVMargin) + " margin",
-        credit: "—", loss: "Unbounded",
+        credit: "—", creditDetail: "", loss: "Unbounded",
         navPct: capVNotional === null || capVMargin === null ? "PENDING" : pct(ratioPct(capVNotional, nav)) + " notional / " + pct(ratioPct(capVMargin, nav)) + " margin",
         status: statusOf(vxx, qtyV, capVMargin !== null)
       },
@@ -838,6 +838,7 @@
         qty: qtyQc === null ? "PENDING" : fmt(qtyQc) + " spreads",
         exposure: qMaxLoss === null ? "PENDING" : exactUsd(qMaxLoss) + " max-loss exposure",
         credit: qTotalCredit === null ? "PENDING" : exactUsd(qTotalCredit),
+        creditDetail: qTotalCredit === null ? "Quote / capacity pending" : pct(ratioPct(qTotalCredit, nav)) + " of NAV · max-capacity estimate",
         loss: qMaxLoss === null ? "PENDING" : exactUsd(qMaxLoss),
         navPct: qMaxLoss === null ? "PENDING" : pct(ratioPct(qMaxLoss, nav)),
         status: statusOf(qCall, qtyQc, qMaxLoss !== null)
@@ -848,6 +849,7 @@
         qty: qtyVc === null ? "PENDING" : fmt(qtyVc) + " spreads",
         exposure: vMaxLoss === null ? "PENDING" : exactUsd(vMaxLoss) + " max-loss exposure",
         credit: vTotalCredit === null ? "PENDING" : exactUsd(vTotalCredit),
+        creditDetail: vTotalCredit === null ? "Quote / capacity pending" : pct(ratioPct(vTotalCredit, nav)) + " of NAV · max-capacity estimate",
         loss: vMaxLoss === null ? "PENDING" : exactUsd(vMaxLoss),
         navPct: vMaxLoss === null ? "PENDING" : pct(ratioPct(vMaxLoss, nav)),
         status: statusOf(vCall, qtyVc, vMaxLoss !== null)
@@ -857,7 +859,7 @@
       const c = statusClass(row.status);
       return '<tr><td>' + esc(row.name) + '<small>' + esc(row.sub) + '</small></td>' +
         '<td class="pro-number">' + esc(row.price) + '</td><td class="pro-number">' + esc(row.qty) + '</td>' +
-        '<td class="pro-number">' + esc(row.exposure) + '</td><td class="pro-number">' + esc(row.credit) + '</td>' +
+        '<td class="pro-number">' + esc(row.exposure) + '</td><td class="pro-number">' + esc(row.credit) + (row.creditDetail ? '<small>' + esc(row.creditDetail) + '</small>' : '') + '</td>' +
         '<td class="pro-number">' + esc(row.loss) + '</td><td class="pro-number">' + esc(row.navPct) + '</td>' +
         '<td class="' + c + '">' + esc(row.status.replace(/<[^>]*>/g, "")) + '</td></tr>';
     }).join("");

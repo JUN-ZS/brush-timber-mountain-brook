@@ -175,7 +175,7 @@
       <div class="table-wrap pro-table-wrap">
         <table class="pro-table">
           <thead>
-            <tr><th>Position / Contract</th><th>Price / Strikes</th><th>Max Qty</th><th>Notional / Margin</th><th>Net Credit</th><th>Max Loss</th><th>% NAV</th><th>Budget Status</th></tr>
+            <tr><th>Position / Contract</th><th>Price / Strikes</th><th>Max Qty</th><th>Notional / Margin</th><th>Est. Net Credit ($ / % NAV)</th><th>Max Loss</th><th>% NAV</th><th>Budget Status</th></tr>
           </thead>
           <tbody id="proAllocationRows"><tr><td colspan="8" class="pro-empty-cell">Refresh market data and load the two call-credit quotes to fill this table.</td></tr></tbody>
         </table>
@@ -329,13 +329,14 @@
         <label>VXX short normal (% NAV notional) <input id="vxxNormalPct" type="number" min="0" max="100" step="0.1" value="18"></label>
         <label>VXX short high-VIX (% NAV notional) <input id="vxxHighPct" type="number" min="0" max="100" step="0.1" value="10"></label>
         <label>Total option max-loss pool (% NAV) <input id="totalOptionRiskPct" type="number" min="0" max="100" step="0.1" value="3.2"></label>
-        <label>QQQ call-credit risk budget (% NAV) <input id="qqqCallRiskPct" type="number" min="0" max="100" step="0.1" value="1.2"></label>
-        <label>VXX call-credit risk budget (% NAV) <input id="vxxCallRiskPct" type="number" min="0" max="100" step="0.1" value="2"></label>
+        <label>QQQ call-credit max-loss allocation (% NAV) <input id="qqqCallRiskPct" type="number" min="0" max="100" step="0.1" value="1.2"></label>
+        <label>VXX call-credit max-loss allocation (% NAV) <input id="vxxCallRiskPct" type="number" min="0" max="100" step="0.1" value="2"></label>
         <label>QQQ bull-put (research-only; excluded from main budget) <input type="text" value="OUTSIDE MAIN BUDGET" disabled></label>
         <label>VIX high line <input id="vixHigh" type="number" min="1" max="100" step="1" value="28"></label>
         <label>VX term safe line (%) <input id="termSafe" type="number" min="0" max="100" step="0.1" value="5"></label>
         <label>Maximum term age (days) <input id="maxTermAgeDays" type="number" min="0" max="30" step="1" value="4"></label>
       </div>
+      <p class="muted"><b>Measurement:</b> The two per-leg percentage inputs allocate max-loss exposure as % of NAV, not premium/credit targets. The shared pool is the max-loss envelope. Estimated opening net credit is shown separately in USD and % NAV at max capacity from the loaded quote; it is not a broker-confirmed fill.</p>
       <div class="inline-actions">
         <button id="v3ProfileBtn">Load V3 Reference Profile (Preview)</button>
         <span class="muted">Reference values are editable what-if inputs, not frozen live sizing. Fresh $100,000 deployment: set NAV and uncommitted cash to $100,000. Existing portfolio: enter total equity as NAV and only truly uncommitted cash here. Confirm VXX margin with your broker.</span>
