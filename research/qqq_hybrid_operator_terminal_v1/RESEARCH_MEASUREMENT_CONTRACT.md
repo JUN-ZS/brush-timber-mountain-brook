@@ -93,6 +93,14 @@ Every experiment report must show, at minimum:
 
 If the data cannot support a measure, write UNAVAILABLE or INSUFFICIENT_SAMPLE; do not replace it with zero.
 
+## Option Chain Lab execution hygiene (measurement only; no order authority)
+
+The Option Chain Lab now reports relative quote width for each leg as `(Ask − Bid) / midpoint × 100`, using the pre-registered bins already used in trade attribution: `≤10%`, `>10–25%`, and `>25%`. Candidate rows expose each leg and the worse-leg band. A wide quote remains visible as a scenario, but it must not be mistaken for liquid execution evidence; the band is a review aid, not a probability or an order signal.
+
+Quote observation timestamps must include an explicit ISO 8601 UTC offset (`Z` or `±HH:MM`). The Lab never parses an unzoned local timestamp using the browser machine timezone. An observation older than 15 minutes is labelled stale for manual execution review; missing, invalid, unzoned or future timestamps are separately blocked. Users may still inspect arithmetic on a stale/untimed scenario, but its status stays non-executable. Timestamp freshness does not authenticate the source, remove any vendor delay, or prove a fill.
+
+Every selected vertical also reports additional adverse slippage per leg of `$0.000`, `$0.025`, `$0.050`, and `$0.100`, aligned with the existing listed-contract replay contract. Under each sensitivity, stressed net credit is `short Bid − wing Ask − 2 × additional slippage per leg`; if stressed credit is not positive, the scenario is `NO TRADE`. Max loss and whole-spread quantity are recomputed from the stressed credit and the explicitly entered scenario risk budget. These amounts are hypothetical sensitivities, not measured execution costs or guaranteed capacity. No Option Chain Lab state authorizes a broker order.
+
 ## 4. Current known limits
 
 - Historical options replay in PR #98 uses DERIVED_BS_VIX marks, not a full historical OPRA quote-and-fill replay.

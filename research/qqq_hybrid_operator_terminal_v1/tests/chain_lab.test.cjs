@@ -31,6 +31,19 @@ near(q1.breakEven,799.76,"QQQ 799/805 breakeven");
 near(q2.credit,1.27,"QQQ 799/810 net credit per share");
 near(q2.maxLoss,973,"QQQ 799/810 max loss");
 assert.equal(q2.maxQty,3);
+assert.equal(q2.spreadBand,"≤10% MID");
+assert.ok(q2.shortSpreadPctMid < 10 && q2.wingSpreadPctMid < 10);
+near(q2.executionStress[1].creditPerShare,1.22,"QQQ 799/810 credit after $0.025 extra adverse slippage per leg");
+near(q2.executionStress[1].maxLoss,978,"QQQ 799/810 max loss under $0.025 per-leg slippage");
+assert.equal(q2.executionStress.length,4);
+assert.equal(q2.executionStress[3].maxQty,3);
+
+// Relative spread/mid tiers must expose wide cheap contracts that a fixed dollar floor could hide.
+assert.equal(Lab.quoteState({bid:.99,ask:1.01}).band,"TIGHT");
+assert.equal(Lab.quoteState({bid:.90,ask:1.10}).band,"MODERATE");
+const cheapWide=Lab.quoteState({bid:.01,ask:.11});
+assert.equal(cheapWide.band,"WIDE");
+assert.ok(cheapWide.spreadPctMid > 25 && cheapWide.wide);
 
 // VXX CALL values and sizing must follow the same uploaded fixture.
 const vcall = Lab.calculateVerticals("VXX_CALL",s.chains.VXX_CALL,100,3200);
@@ -40,6 +53,9 @@ near(vc.credit,.24,"VXX 21/24 net credit per share");
 near(vc.maxProfit,24,"VXX 21/24 max profit");
 near(vc.maxLoss,276,"VXX 21/24 max loss");
 near(vc.breakEven,21.24,"VXX 21/24 breakeven");
+near(vc.executionStress[1].creditPerShare,.19,"VXX 21/24 credit after $0.025 extra adverse slippage per leg");
+near(vc.executionStress[1].maxLoss,281,"VXX 21/24 max loss under $0.025 per-leg slippage");
+assert.equal(vc.executionStress[3].maxQty,10);
 
 // Do not fabricate puts absent from the screenshot. They remain importable separately.
 assert.equal(s.chains.QQQ_PUT.length,0,"screenshot QQQ put chain must remain empty");
@@ -80,8 +96,8 @@ assert.equal(Lab.expiryPnl(q2,810,100,0),null);
 assert.equal(Lab.expiryPnl(q2,810,100,1.5),null);
 // CSV with source and contract metadata survives quoted commas and records expiry.
 const richCsv = 'symbol,side,strike,bid,ask,delta,expiration,source_type,source_name,source_url,observed_at,timezone,contract_symbol,contract_status,deliverable_note,contract_evidence_url\n' +
-  'VXX,CALL,21,0.58,0.72,0.2698,2026-11-20,PUBLIC_DATA,"Example, feed",https://example.com/data,2026-10-09T15:45,America/New_York,VXX,STANDARD_TERMS_RECORDED,"100 shares",https://example.com/occ\n' +
-  'VXX,CALL,24,0.24,0.34,0.1731,2026-11-20,PUBLIC_DATA,"Example, feed",https://example.com/data,2026-10-09T15:45,America/New_York,VXX,STANDARD_TERMS_RECORDED,"100 shares",https://example.com/occ';
+  'VXX,CALL,21,0.58,0.72,0.2698,2026-11-20,PUBLIC_DATA,"Example, feed",https://example.com/data,2026-10-09T15:45:00-04:00,America/New_York,VXX,STANDARD_TERMS_RECORDED,"100 shares",https://example.com/occ\n' +
+  'VXX,CALL,24,0.24,0.34,0.1731,2026-11-20,PUBLIC_DATA,"Example, feed",https://example.com/data,2026-10-09T15:45:00-04:00,America/New_York,VXX,STANDARD_TERMS_RECORDED,"100 shares",https://example.com/occ';
 const rich = Lab.parseCsv(richCsv);
 assert.equal(rich.total,2);
 assert.equal(rich.expiration,"2026-11-20");
@@ -92,13 +108,21 @@ assert.equal(rich.chainMetadata.VXX_CALL.deliverableNote,"100 shares");
 assert.equal(rich.metadataConflicts.length,0);
 assert.equal(Lab.parseCsv('symbol,side,strike,bid,ask,delta\nQQQ,CALL,799,3.16,3.18,0.1456').expiration,"","legacy CSV must not inherit the UI's prior expiry");
 
-const goodMeta={sourceType:"PUBLIC_DATA",sourceName:"Example feed",sourceUrl:"https://example.com/data",observedAt:"2026-10-09T15:45",timezone:"America/New_York",contractSymbol:"VXX",contractStatus:"STANDARD_TERMS_RECORDED",deliverableNote:"100 shares",contractEvidenceUrl:"https://example.com/occ"};
-const provGood=Lab.assessProvenance(goodMeta,"2026-11-20",2,false);
+const goodMeta={sourceType:"PUBLIC_DATA",sourceName:"Example feed",sourceUrl:"https://example.com/data",observedAt:"2026-10-09T15:45:00-04:00",timezone:"America/New_York",contractSymbol:"VXX",contractStatus:"STANDARD_TERMS_RECORDED",deliverableNote:"100 shares",contractEvidenceUrl:"https://example.com/occ"};
+const freshNow=Date.parse("2026-10-09T15:50:00-04:00");
+const provGood=Lab.assessProvenance(goodMeta,"2026-11-20",2,false,freshNow);
 assert.equal(provGood.complete,true);
 assert.equal(provGood.ordersAuthorized,false,"complete metadata must never authorize orders");
-assert.equal(Lab.assessProvenance(goodMeta,"2026-11-20",2,true).status,"MANUAL_EDIT_RECHECK");
-assert.equal(Lab.assessProvenance({...goodMeta,sourceType:"MODEL_DERIVED"},"2026-11-20",2,false).status,"MODEL_ONLY");
-assert.equal(Lab.assessProvenance({...goodMeta,contractStatus:"UNKNOWN"},"2026-11-20",2,false).complete,false);
+assert.equal(provGood.freshnessStatus,"AS-OF ≤15M");
+assert.equal(Lab.assessProvenance(goodMeta,"2026-11-20",2,true,freshNow).status,"MANUAL_EDIT_RECHECK");
+assert.equal(Lab.assessProvenance({...goodMeta,sourceType:"MODEL_DERIVED"},"2026-11-20",2,false,freshNow).status,"MODEL_ONLY");
+assert.equal(Lab.assessProvenance({...goodMeta,contractStatus:"UNKNOWN"},"2026-11-20",2,false,freshNow).complete,false);
+const staleProv=Lab.assessProvenance(goodMeta,"2026-11-20",2,false,Date.parse("2026-10-09T16:01:00-04:00"));
+assert.equal(staleProv.status,"STALE_QUOTE");assert.equal(staleProv.complete,false);assert.equal(staleProv.freshnessStatus,"STALE >15M");
+const unzonedProv=Lab.assessProvenance({...goodMeta,observedAt:"2026-10-09T15:45"},"2026-11-20",2,false,freshNow);
+assert.equal(unzonedProv.status,"QUOTE_TIMEZONE_UNKNOWN");assert.equal(unzonedProv.complete,false);
+const futureProv=Lab.assessProvenance({...goodMeta,observedAt:"2026-10-09T16:00:00-04:00"},"2026-11-20",2,false,freshNow);
+assert.equal(futureProv.status,"FUTURE_QUOTE_TIMESTAMP");assert.equal(futureProv.complete,false);
 const adjustedMeta={...goodMeta,contractStatus:"ADJUSTED_TERMS_RECORDED",contractSymbol:"VXX2"};
 const adjustedStatus=Lab.assessProvenance(adjustedMeta,"2026-11-20",2,false);
 assert.equal(adjustedStatus.status,"ADJUSTED_CONTRACT_SCENARIO_ONLY");
@@ -128,6 +152,10 @@ assert.ok(mainHtml.includes('id="researchValidation"'), "main terminal must show
 assert.ok(mainHtml.includes("1,946 / 1,971 · 98.73%"), "main terminal must disclose paired-session coverage");
 assert.ok(mainHtml.includes("−2.72%"), "main terminal must disclose measured spot-basis mismatch");
 assert.ok(mainHtml.includes("does not change sizing, entry/exit rules, strategy weights, or broker permissions"), "validation lockbox must remain read-only");
+assert.ok(labHtml.includes('id="asof" type="text"'), "quote timestamp must require explicit timezone-bearing ISO string");
+assert.ok(labHtml.includes("Spread / mid"), "quote quality table must expose relative spread");
+assert.ok(fs.readFileSync(require("node:path").join(__dirname, "../option_chain_lab.js"), "utf8").includes("STALE >15M"), "stale quote gate must be wired in the Lab");
+assert.ok(fs.readFileSync(require("node:path").join(__dirname, "../option_chain_lab.js"), "utf8").includes("executionStress"), "slippage sensitivity must be calculated");
 assert.ok(mainHtml.includes('id="optionTableWrap"'), "primary/research strategy table must support compact filtering");
 assert.ok(mainHtml.includes('id="toggleResearchRows"'), "research-only strategy rows must be explicitly expandable");
 assert.ok(mainHtml.includes('id="advancedResearchTools"'), "non-primary option lookups must be collapsed by default");
