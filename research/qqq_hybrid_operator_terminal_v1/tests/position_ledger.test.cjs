@@ -196,4 +196,34 @@ function base(overrides = {}) {
   assert.equal(P.validateRecord({ ...good, shortStrike: 810, longStrike: 800 }).ok, false);
 }
 
-console.log("QQQ HYBRID POSITION REGISTER: 8 TEST GROUPS PASS");
+
+// A blank option multiplier must not silently normalize to the standard 100-unit assumption.
+{
+  const goodOption = base({
+    id: "blank-multiplier", template: "QQQ_CALL_CREDIT", qty: 1,
+    entryPrice: 0.5, markPrice: 0.4,
+    expiry: "2026-11-20", shortStrike: 800, longStrike: 810,
+    shortSymbol: "QQQ261120C00800000", longSymbol: "QQQ261120C00810000",
+    multiplier: 100, termsVerified: true, deliverableNote: "Broker contract details checked by operator"
+  });
+  const normalizedBlank = P.normalizeRecord({ ...goodOption, multiplier: "" });
+  assert.equal(normalizedBlank.multiplier, null, "a blank multiplier must remain unknown");
+  const validation = P.validateRecord({ ...goodOption, multiplier: null });
+  assert.equal(validation.ok, false, "blank multiplier must fail validation");
+  assert.match(validation.errors.join(" "), /explicitly entered and greater than zero/);
+
+  const summary = P.summarize([{ ...goodOption, multiplier: null }], {}, Date.parse("2026-10-11T10:05:00Z"));
+  assert.equal(summary.rows[0].multiplier, null);
+  assert.equal(summary.rows[0].unrealizedPnl, null, "option P&L needs an explicit multiplier");
+  assert.equal(summary.rows[0].termsComplete, false);
+  assert.ok(summary.blockingKeys.includes("qqqCallSpreads"), "blank multiplier must block that option strategy");
+  assert.equal(summary.incompletePnlCount, 1);
+
+  const imported = P.parseEnvelope(JSON.stringify({
+    schema: "QQQ_HYBRID_POSITION_REGISTER_V1",
+    positions: [{ ...goodOption, multiplier: null }]
+  }));
+  assert.equal(imported.ok, false, "imports with missing option multiplier must fail closed");
+}
+
+console.log("QQQ HYBRID POSITION REGISTER: 9 TEST GROUPS PASS");

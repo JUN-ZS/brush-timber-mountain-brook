@@ -48,7 +48,7 @@
       longStrike: numberOrNull(x.longStrike),
       shortSymbol: String(x.shortSymbol || "").trim().slice(0, 100),
       longSymbol: String(x.longSymbol || "").trim().slice(0, 100),
-      multiplier: numberOrNull(x.multiplier) ?? TEMPLATES[template]?.multiplier ?? 100,
+      multiplier: numberOrNull(x.multiplier) ?? (TEMPLATES[template]?.kind === "STOCK" ? 1 : null),
       termsVerified: x.termsVerified === true,
       deliverableNote: String(x.deliverableNote || "").slice(0, 500),
       createdAt: String(x.createdAt || new Date().toISOString()),
@@ -69,7 +69,7 @@
     if (x.entryDate && !validDate(x.entryDate)) errors.push("Entry date must be a valid YYYY-MM-DD date.");
     if (x.expiry && !validDate(x.expiry)) errors.push("Option expiry must be a valid YYYY-MM-DD date.");
     if (t && t.kind === "CREDIT_VERTICAL") {
-      if (x.multiplier <= 0 || !Number.isFinite(x.multiplier)) errors.push("Option multiplier must be greater than zero.");
+      if (x.multiplier === null || x.multiplier <= 0 || !Number.isFinite(x.multiplier)) errors.push("Option multiplier must be explicitly entered and greater than zero.");
       if (x.shortStrike !== null && x.shortStrike <= 0) errors.push("Short strike must be positive.");
       if (x.longStrike !== null && x.longStrike <= 0) errors.push("Protective-wing strike must be positive.");
       if (x.shortStrike !== null && x.longStrike !== null && x.shortStrike >= x.longStrike) errors.push("For supported call-credit verticals, short strike must be below the protective-wing strike.");
