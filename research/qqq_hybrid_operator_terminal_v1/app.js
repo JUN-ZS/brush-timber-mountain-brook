@@ -236,10 +236,15 @@
           ' / LONG ' + esc(row.longSymbol || ("K " + (row.longStrike ?? "?")))
         : esc(row.side + " · " + row.unit);
       const terms = option
-        ? (row.termsComplete ? "OPERATOR-ATTESTED TERMS" : "BLOCKED · TERMS INCOMPLETE") + (row.adjustedDetected ? " · ADJUSTED ROOT" : "")
+        ? (row.adjustedDetected
+            ? "BLOCKED · ADJUSTED PAYOFF UNSUPPORTED"
+            : row.termsComplete ? "OPERATOR-ATTESTED TERMS" : "BLOCKED · TERMS INCOMPLETE")
+          + (row.adjustedDetected ? " · ADJUSTED ROOT" : "")
         : esc(row.entryEvidence || "UNKNOWN ENTRY");
       const riskNote = option
-        ? (row.maxLossPerPackage === null ? "Per-package max loss UNKNOWN" : "Entry max loss/package (assumed terms): " + positionMoney(row.maxLossPerPackage))
+        ? (row.adjustedDetected
+            ? "Max loss UNKNOWN · adjusted deliverable payoff is not modeled"
+            : row.maxLossPerPackage === null ? "Per-package max loss UNKNOWN" : "Entry max loss/package (assumed terms): " + positionMoney(row.maxLossPerPackage))
         : "";
       const pnlClass = row.unrealizedPnl === null ? "position-pnl-unknown" : row.unrealizedPnl < 0 ? "position-pnl-negative" : "position-pnl-positive";
       return '<tr>' +
