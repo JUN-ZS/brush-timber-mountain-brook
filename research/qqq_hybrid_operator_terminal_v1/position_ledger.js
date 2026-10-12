@@ -211,10 +211,8 @@
         (longContract && longContract.root !== template.symbol) ||
         (template.symbol === "VXX" && (isAdjustedVxxSymbol(record.shortSymbol) || isAdjustedVxxSymbol(record.longSymbol)))
       );
-      // An adjusted VXX root needs an explicit deliverable note as well as the
-      // operator's broker-verification check before it can count toward sizing.
-      // Adjusted VXX deliverables can be recorded for attribution, but this ledger does not
-      // model their non-standard exercise payoff. A note/attestation alone must not enable sizing.
+      // Adjusted VXX roots can be recorded for audit and premium P&L attribution only.
+      // Until the non-standard exercise payoff is implemented, notes/attestation cannot enable sizing.
       const termsComplete = !option || (
         !adjustedDetected && identityComplete && record.termsVerified && record.multiplier > 0
       );
