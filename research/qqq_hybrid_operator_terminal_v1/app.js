@@ -823,8 +823,12 @@
     const vStrikes = vCandidate ? fmt(vCandidate.shortStrike, 2) + "C / " + fmt(vCandidate.longStrike, 2) + "C" : "Quote pending";
     const expiryQ = qCandidate && qCandidate.expiry ? qCandidate.expiry : "same-expiry quote needed";
     const expiryV = vCandidate && vCandidate.expiry ? vCandidate.expiry : "same-expiry quote needed";
-    const statusOf = (row, quantity, priceKnown) => result.market.blocked ? "BLOCKED" : quantity === null || !priceKnown ? "QUOTE / DATA PENDING" :
-      row.action === "ADD" || row.action === "HOLD" ? esc(row.action) + " · REVIEW" : esc(row.action) + " · REVIEW";
+    const statusOf = (row, quantity, priceKnown) => {
+      if (result.market.blocked) return "BLOCKED · MARKET DATA";
+      if (row.action === "BLOCKED" || String(row.status || "").startsWith("BLOCKED")) return "BLOCKED · SEE REASON";
+      if (quantity === null || !priceKnown) return "QUOTE / DATA PENDING";
+      return esc(row.action) + " · REVIEW";
+    };
     const statusClass = (text) => /PENDING|BLOCKED/.test(text) ? "pro-warn" : /ADD|READY|REVIEW/.test(text) ? "pro-good" : "pro-muted";
     const tableRows = [
       {

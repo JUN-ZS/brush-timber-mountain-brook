@@ -249,5 +249,8 @@ assert.ok(handoffApp.includes('"PARTIAL · " + usd(knownOptionRisk)'), "one know
 assert.ok(handoffApp.includes("Known leg only · other call-credit leg PENDING; no combined total"), "partial max-loss KPI must disclose missing exposure");
 assert.ok(handoffApp.includes("Waiting for two valid call-credit quotes"), "missing both option legs must remain pending");
 assert.ok(handoffApp.includes('amount: knownOptionLegs === 2 && pool !== null ? Math.max(0, pool - knownOptionRisk) : null'), "unused risk room must remain PENDING until both option legs and the risk pool are valid");
+const statusOfBlockIndex = handoffApp.indexOf('if (row.action === "BLOCKED" || String(row.status || "").startsWith("BLOCKED")) return "BLOCKED · SEE REASON";');
+const statusOfPendingIndex = handoffApp.indexOf('if (quantity === null || !priceKnown) return "QUOTE / DATA PENDING";', statusOfBlockIndex);
+assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, "explicit model/contract blocks must not be mislabeled as missing quotes");
 
 console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS");
