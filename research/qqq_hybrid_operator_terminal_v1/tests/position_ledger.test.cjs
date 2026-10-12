@@ -213,11 +213,9 @@ function base(overrides = {}) {
   assert.match(validation.errors.join(" "), /explicitly entered and greater than zero/);
 
   const summary = P.summarize([{ ...goodOption, multiplier: null }], {}, Date.parse("2026-10-11T10:05:00Z"));
-  assert.equal(summary.rows[0].multiplier, null);
-  assert.equal(summary.rows[0].unrealizedPnl, null, "option P&L needs an explicit multiplier");
-  assert.equal(summary.rows[0].termsComplete, false);
-  assert.ok(summary.blockingKeys.includes("qqqCallSpreads"), "blank multiplier must block that option strategy");
-  assert.equal(summary.incompletePnlCount, 1);
+  assert.equal(summary.count, 0, "invalid imported rows must not enter the ledger aggregate");
+  assert.equal(summary.knownPnlRows, 0, "a missing multiplier must never produce option P&L");
+  assert.match(summary.error || "", /multiplier must be explicitly entered and greater than zero/);
 
   const imported = P.parseEnvelope(JSON.stringify({
     schema: "QQQ_HYBRID_POSITION_REGISTER_V1",
