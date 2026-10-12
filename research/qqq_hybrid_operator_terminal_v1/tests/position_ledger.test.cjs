@@ -21,7 +21,7 @@ function base(overrides = {}) {
 
 // Stock long and short P&L use the correct sign and a clear share count.
 {
-  const qqq = P.summarize([base()], {}, Date.parse("2026-10-11T10:05"));
+  const qqq = P.summarize([base()], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(qqq.holdings.qqqShares, 10);
   assert.equal(qqq.rows[0].unrealizedPnl, 100);
   assert.equal(qqq.rows[0].pnlStatus, "GROSS UNREALIZED P&L");
@@ -29,13 +29,13 @@ function base(overrides = {}) {
   assert.equal(qqq.qualifiedPnlSubtotal, 100);
   assert.equal(qqq.qualifiedPnlRows, 1);
   assert.equal(qqq.indicativePnlRows, 0);
-  const vxx = P.summarize([base({ template: "VXX_SHORT_STOCK", qty: 20, entryPrice: 20, markPrice: 18, multiplier: 1 })], {}, Date.parse("2026-10-11T10:05"));
+  const vxx = P.summarize([base({ template: "VXX_SHORT_STOCK", qty: 20, entryPrice: 20, markPrice: 18, multiplier: 1 })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(vxx.holdings.vxxShortShares, 20);
   assert.equal(vxx.rows[0].unrealizedPnl, 40);
   assert.equal(vxx.qualifiedPnlSubtotal, 40);
 
   // A manual estimate remains arithmetically useful, but is separated from the evidence-qualified subtotal.
-  const estimatedEntry = P.summarize([base({ entryEvidence: "MANUAL_ESTIMATE" })], {}, Date.parse("2026-10-11T10:05"));
+  const estimatedEntry = P.summarize([base({ entryEvidence: "MANUAL_ESTIMATE" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(estimatedEntry.rows[0].unrealizedPnl, 100);
   assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY UNVERIFIED");
   assert.equal(estimatedEntry.qualifiedPnlRows, 0);
@@ -44,19 +44,19 @@ function base(overrides = {}) {
   assert.equal(estimatedEntry.indicativePnlSubtotal, 100);
 
   // Invalid/old non-empty timestamps fail closed and cannot enter the qualified subtotal.
-  const invalidAsOf = P.summarize([base({ markAsOf: "not-a-date" })], {}, Date.parse("2026-10-11T10:05"));
+  const invalidAsOf = P.summarize([base({ markAsOf: "not-a-date" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(invalidAsOf.rows[0].markFreshness, "AS-OF INVALID");
   assert.equal(invalidAsOf.rows[0].pnlStatus, "INDICATIVE · MARK STALE/INVALID");
   assert.equal(invalidAsOf.rows[0].staleMark, true);
   assert.equal(invalidAsOf.staleMarkCount, 1);
   assert.equal(invalidAsOf.qualifiedPnlRows, 0);
-  const staleLive = P.summarize([base({ markAsOf: "2026-10-11T09:30:00Z" })], {}, Date.parse("2026-10-11T10:05"));
+  const staleLive = P.summarize([base({ markAsOf: "2026-10-11T09:30:00Z" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(staleLive.rows[0].markFreshness, "STALE LIVE");
   assert.equal(staleLive.rows[0].pnlStatus, "INDICATIVE · MARK STALE/INVALID");
   assert.equal(staleLive.qualifiedPnlRows, 0);
   assert.equal(staleLive.indicativePnlRows, 1);
 
-  const missingTimezone = P.summarize([base({ markAsOf: "2026-10-11T10:00" })], {}, Date.parse("2026-10-11T10:05"));
+  const missingTimezone = P.summarize([base({ markAsOf: "2026-10-11T10:00" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(missingTimezone.rows[0].markFreshness, "AS-OF TIMEZONE UNKNOWN");
   assert.equal(missingTimezone.rows[0].pnlStatus, "INDICATIVE · MARK TIMEZONE UNKNOWN");
   assert.equal(missingTimezone.qualifiedPnlRows, 0);
@@ -65,11 +65,11 @@ function base(overrides = {}) {
   assert.equal(offsetTimestamp.rows[0].markFreshness, "LIVE ≤15M");
   assert.equal(offsetTimestamp.qualifiedPnlRows, 1);
 
-  const missingEntryReference = P.summarize([base({ entrySourceNote: "" })], {}, Date.parse("2026-10-11T10:05"));
+  const missingEntryReference = P.summarize([base({ entrySourceNote: "" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(missingEntryReference.rows[0].pnlStatus, "INDICATIVE · ENTRY UNVERIFIED");
   assert.equal(missingEntryReference.qualifiedPnlRows, 0);
 
-  const missingMarkReference = P.summarize([base({ markSourceNote: "" })], {}, Date.parse("2026-10-11T10:05"));
+  const missingMarkReference = P.summarize([base({ markSourceNote: "" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(missingMarkReference.rows[0].pnlStatus, "INDICATIVE · MARK SOURCE UNVERIFIED");
   assert.equal(missingMarkReference.qualifiedPnlRows, 0);
 }
@@ -82,20 +82,20 @@ function base(overrides = {}) {
     shortSymbol: "QQQ261120C00800000", longSymbol: "QQQ261120C00810000",
     multiplier: 100, termsVerified: true
   });
-  const s = P.summarize([row], {}, Date.parse("2026-10-11T10:05"));
+  const s = P.summarize([row], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(s.holdings.qqqCallSpreads, 3);
   near(s.rows[0].unrealizedPnl, -150);
   near(s.rows[0].maxLossPerPackage, 920);
   assert.equal(s.blockingKeys.length, 0);
 
-  const estimatedEntry = P.summarize([{ ...row, id: "manual-entry", entryEvidence: "MANUAL_ESTIMATE" }], {}, Date.parse("2026-10-11T10:05"));
+  const estimatedEntry = P.summarize([{ ...row, id: "manual-entry", entryEvidence: "MANUAL_ESTIMATE" }], {}, Date.parse("2026-10-11T10:05:00Z"));
   near(estimatedEntry.rows[0].unrealizedPnl, -150);
   assert.equal(estimatedEntry.rows[0].pnlStatus, "INDICATIVE · ENTRY UNVERIFIED");
 }
 
 // Unknown option identity/deliverable blocks sizing only for that strategy.
 {
-  const s = P.summarize([base({ template: "VXX_CALL_CREDIT", qty: 2, entryPrice: 0.3, markPrice: 0.2 })], {}, Date.parse("2026-10-11T10:05"));
+  const s = P.summarize([base({ template: "VXX_CALL_CREDIT", qty: 2, entryPrice: 0.3, markPrice: 0.2 })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(s.holdings.vxxCallSpreads, 2);
   assert.deepEqual(JSON.parse(JSON.stringify(s.blockingKeys)), ["vxxCallSpreads"]);
   assert.equal(s.termBlockedCount, 1);
@@ -112,7 +112,7 @@ function base(overrides = {}) {
     expiry: "2026-11-20", shortStrike: 21, longStrike: 24,
     shortSymbol: "VXX2261120C00021000", longSymbol: "VXX2261120C00024000",
     multiplier: 100, termsVerified: false
-  })], {}, Date.parse("2026-10-11T10:05"));
+  })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(s.rows[0].adjustedDetected, true);
   assert.ok(s.blockingKeys.includes("vxxCallSpreads"));
 
@@ -123,10 +123,10 @@ function base(overrides = {}) {
     shortSymbol: "VXX2261120C00021000", longSymbol: "VXX2261120C00024000",
     multiplier: 100, termsVerified: true, deliverableNote: ""
   });
-  const noDeliverableNote = P.summarize([adjustedRecord], {}, Date.parse("2026-10-11T10:05"));
+  const noDeliverableNote = P.summarize([adjustedRecord], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(noDeliverableNote.rows[0].termsComplete, false);
   assert.ok(noDeliverableNote.blockingKeys.includes("vxxCallSpreads"));
-  const withDeliverableNote = P.summarize([{ ...adjustedRecord, deliverableNote: "Broker contract details verified; deliverable manually transcribed." }], {}, Date.parse("2026-10-11T10:05"));
+  const withDeliverableNote = P.summarize([{ ...adjustedRecord, deliverableNote: "Broker contract details verified; deliverable manually transcribed." }], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(withDeliverableNote.rows[0].termsComplete, true);
   assert.equal(withDeliverableNote.blockingKeys.length, 0);
 }
@@ -136,7 +136,7 @@ function base(overrides = {}) {
   const s = P.summarize([
     base({ template: "QQQ_CORE", qty: 2, entryPrice: 100, markPrice: null, markAsOf: "", markSourceType: "UNKNOWN", multiplier: 1 }),
     base({ id: "row-2", template: "QQQ_CALL_CREDIT", qty: 1, entryPrice: 0.7, markPrice: null, markAsOf: "", expiry: "2026-11-20", shortStrike: 110, longStrike: 115, shortSymbol: "QQQ261120C00110000", longSymbol: "QQQ261120C00115000", multiplier: 100, termsVerified: true })
-  ], { qqq: 120, vxx: 20, spot_asof: "2026-10-11" }, Date.parse("2026-10-11T10:05"));
+  ], { qqq: 120, vxx: 20, spot_asof: "2026-10-11" }, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(s.rows[0].markPrice, 120);
   assert.equal(s.rows[0].unrealizedPnl, 40);
   assert.equal(s.rows[0].markDerivedFromSnapshot, true);
@@ -151,7 +151,7 @@ function base(overrides = {}) {
   const s = P.summarize([
     base({ markAsOf: "2026-10-11T08:00:00Z", markSourceType: "BROKER_LIVE" }),
     base({ id: "row-2", markAsOf: "2026-10-11T10:00:00Z", markSourceType: "MODEL_ESTIMATE" })
-  ], {}, Date.parse("2026-10-11T10:05"));
+  ], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(s.rows[0].markFreshness, "STALE LIVE");
   assert.equal(s.rows[1].markFreshness, "MODEL ESTIMATE");
   assert.equal(s.staleMarkCount, 2);
@@ -181,12 +181,12 @@ function base(overrides = {}) {
   assert.equal(P.parseOccOptionSymbol(good.shortSymbol).strike, 800);
   assert.equal(P.parseOccOptionSymbol(good.shortSymbol).expiry, "2026-11-20");
   assert.equal(P.validateRecord(good).ok, true);
-  const wrongExpiry = P.summarize([{ ...good, id: "wrong-expiry", shortSymbol: "QQQ261218C00800000" }], {}, Date.parse("2026-10-11T10:05"));
+  const wrongExpiry = P.summarize([{ ...good, id: "wrong-expiry", shortSymbol: "QQQ261218C00800000" }], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.ok(wrongExpiry.blockingKeys.includes("qqqCallSpreads"));
   assert.equal(wrongExpiry.rows[0].identityComplete, false);
-  const wrongStrike = P.summarize([{ ...good, id: "wrong-strike", longSymbol: "QQQ261120C00805000" }], {}, Date.parse("2026-10-11T10:05"));
+  const wrongStrike = P.summarize([{ ...good, id: "wrong-strike", longSymbol: "QQQ261120C00805000" }], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.ok(wrongStrike.blockingKeys.includes("qqqCallSpreads"));
-  const wrongRoot = P.summarize([{ ...good, id: "wrong-root", shortSymbol: "SPY261120C00800000" }], {}, Date.parse("2026-10-11T10:05"));
+  const wrongRoot = P.summarize([{ ...good, id: "wrong-root", shortSymbol: "SPY261120C00800000" }], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.ok(wrongRoot.blockingKeys.includes("qqqCallSpreads"));
   assert.equal(P.validateRecord({ ...good, shortStrike: 810, longStrike: 800 }).ok, false);
 }
