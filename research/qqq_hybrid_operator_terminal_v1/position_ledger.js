@@ -213,9 +213,10 @@
       );
       // An adjusted VXX root needs an explicit deliverable note as well as the
       // operator's broker-verification check before it can count toward sizing.
+      // Adjusted VXX deliverables can be recorded for attribution, but this ledger does not
+      // model their non-standard exercise payoff. A note/attestation alone must not enable sizing.
       const termsComplete = !option || (
-        identityComplete && record.termsVerified && record.multiplier > 0 &&
-        (!adjustedDetected || Boolean(record.deliverableNote.trim()))
+        !adjustedDetected && identityComplete && record.termsVerified && record.multiplier > 0
       );
       if (option && !termsComplete) blockedKeys.add(template.strategyKey);
 
@@ -235,6 +236,7 @@
           confidenceIssues.push("MARK MISSING");
         }
         if (option && !identityComplete) confidenceIssues.push("CONTRACT IDENTITY UNVERIFIED");
+        if (option && adjustedDetected) confidenceIssues.push("ADJUSTED PAYOFF MODEL UNSUPPORTED");
         else if (option && !termsComplete) confidenceIssues.push("CONTRACT TERMS UNVERIFIED");
         pnlStatus = confidenceIssues.length
           ? "INDICATIVE · " + confidenceIssues.join(" / ")
@@ -242,7 +244,7 @@
       }
 
       let maxLossPerPackage = null;
-      if (option && width !== null && entryKnown && record.entryPrice > 0 && width > record.entryPrice && record.multiplier > 0) {
+      if (option && !adjustedDetected && width !== null && entryKnown && record.entryPrice > 0 && width > record.entryPrice && record.multiplier > 0) {
         maxLossPerPackage = (width - record.entryPrice) * record.multiplier;
       }
       return {
