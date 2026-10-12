@@ -130,8 +130,10 @@ function base(overrides = {}) {
   assert.equal(noDeliverableNote.rows[0].termsComplete, false);
   assert.ok(noDeliverableNote.blockingKeys.includes("vxxCallSpreads"));
   const withDeliverableNote = P.summarize([{ ...adjustedRecord, deliverableNote: "Broker contract details verified; deliverable manually transcribed." }], {}, Date.parse("2026-10-11T10:05:00Z"));
-  assert.equal(withDeliverableNote.rows[0].termsComplete, true);
-  assert.equal(withDeliverableNote.blockingKeys.length, 0);
+  assert.equal(withDeliverableNote.rows[0].termsComplete, false, "operator notes do not make an adjusted payoff model valid for sizing");
+  assert.ok(withDeliverableNote.blockingKeys.includes("vxxCallSpreads"), "adjusted VXX holdings remain sizing-blocked even when terms are documented");
+  assert.equal(withDeliverableNote.rows[0].maxLossPerPackage, null, "standard width × multiplier must not be shown as max loss for adjusted deliverables");
+  assert.match(withDeliverableNote.rows[0].pnlStatus, /ADJUSTED PAYOFF MODEL UNSUPPORTED/);
 }
 
 // Missing option marks remain missing; missing stock marks may use the explicitly labelled APP snapshot.
