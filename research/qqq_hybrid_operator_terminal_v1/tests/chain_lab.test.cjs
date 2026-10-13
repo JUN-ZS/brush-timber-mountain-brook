@@ -418,6 +418,7 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.equal(q.event.ordersAuthorized, false);
   assert.equal(q.event.dataAuthentication, "NOT_INDEPENDENTLY_AUTHENTICATED");
   assert.equal(q.event.candidateContractSymbols.short, "QQQ261120C00799000");
+  assert.equal(J.makeStandardOptionSymbol("QQQ","2026-11-20","P",799), "QQQ261120P00799000", "PUT observations must preserve the option right");
   const env0 = J.emptyEnvelope(new Date(now).toISOString());
   const appended = J.appendEvent(env0, q.event);
   assert.equal(appended.ok, true);
