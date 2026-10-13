@@ -433,7 +433,7 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.equal(noTzFill.ok,false);
   const noRefFill = J.createOutcomeEvent({ eventId:"out-no-ref", recordedAt:new Date(now+60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.24, filledQuantity:1, outcomeAt:"2026-10-13T09:01:00Z", outcomeReference:"" },q.event);
   assert.equal(noRefFill.ok,false);
-  const fill = J.createOutcomeEvent({ eventId:"out-fill", recordedAt:new Date(now+60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.22, filledQuantity:2, outcomeAt:"2026-10-13T09:01:00Z", outcomeReference:"statement row label 1" },q.event);
+  const fill = J.createOutcomeEvent({ eventId:"out-fill", recordedAt:new Date(now+60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.22, filledQuantity:2, outcomeAt:"2026-10-13T09:01:00Z", outcomeReference:"statement row label 1", filledShortSymbol:q.event.candidateContractSymbols.short, filledLongSymbol:q.event.candidateContractSymbols.long },q.event);
   assert.equal(fill.ok,true);
   assert.equal(fill.event.dataAuthentication,"OPERATOR_REPORTED_NOT_AUTHENTICATED");
   const withFill = J.appendEvent(appended.envelope,fill.event);
@@ -444,6 +444,34 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.equal(summary.meanReportedFillCreditGapPerShare, -0.05);
   assert.equal(summary.meanReportedFillCreditGapPerContractUsd, -5);
   assert.equal(summary.fillComparisons[0].gapTotalUsd,-10);
+
+  assert.equal(summary.nonComparableReportedFillCount,0);
+  assert.equal(summary.fillComparisons[0].quoteToFillMinutes,6);
+  // Fill records are retained, but exact contract and quote/fill-time alignment gate the measured comparison.
+  const boundaryFill = J.createOutcomeEvent({ eventId:"out-boundary", recordedAt:new Date(now+17*60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.22, filledQuantity:1, outcomeAt:"2026-10-13T09:10:00Z", outcomeReference:"boundary test", filledShortSymbol:q.event.candidateContractSymbols.short, filledLongSymbol:q.event.candidateContractSymbols.long },q.event);
+  assert.equal(boundaryFill.ok,true);
+  const boundarySummary = J.summarize(J.appendEvent(appended.envelope,boundaryFill.event).envelope);
+  assert.equal(boundarySummary.eligibleReportedFillComparisons,1,"exactly 15 minutes is inside the inclusive boundary");
+  const lateFill = J.createOutcomeEvent({ eventId:"out-late", recordedAt:new Date(now+13*60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.22, filledQuantity:1, outcomeAt:"2026-10-13T09:11:00Z", outcomeReference:"late fill test", filledShortSymbol:q.event.candidateContractSymbols.short, filledLongSymbol:q.event.candidateContractSymbols.long },q.event);
+  assert.equal(lateFill.ok,true);
+  const lateSummary = J.summarize(J.appendEvent(appended.envelope,lateFill.event).envelope);
+  assert.equal(lateSummary.operatorReportedFillCount,1);
+  assert.equal(lateSummary.eligibleReportedFillComparisons,0);
+  assert.equal(lateSummary.nonComparableReportedFillCount,1);
+  assert.equal(lateSummary.comparisonExclusionCounts.QUOTE_FILL_GAP_OVER_15M,1);
+  const preQuoteFill = J.createOutcomeEvent({ eventId:"out-pre-quote", recordedAt:new Date(now+14*60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.22, filledQuantity:1, outcomeAt:"2026-10-13T08:54:00Z", outcomeReference:"pre-quote fill test", filledShortSymbol:q.event.candidateContractSymbols.short, filledLongSymbol:q.event.candidateContractSymbols.long },q.event);
+  assert.equal(preQuoteFill.ok,true);
+  const preQuoteSummary = J.summarize(J.appendEvent(appended.envelope,preQuoteFill.event).envelope);
+  assert.equal(preQuoteSummary.eligibleReportedFillComparisons,0);
+  assert.equal(preQuoteSummary.comparisonExclusionCounts.FILL_PRECEDES_QUOTE,1);
+  const wrongContractFill = J.createOutcomeEvent({ eventId:"out-wrong-contract", recordedAt:new Date(now+120000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.22, filledQuantity:1, outcomeAt:"2026-10-13T09:01:00Z", outcomeReference:"wrong contract test", filledShortSymbol:"QQQ261120C00800000", filledLongSymbol:q.event.candidateContractSymbols.long },q.event);
+  assert.equal(wrongContractFill.ok,true,"a reported outcome is retained even if it is not comparable");
+  const wrongContractSummary = J.summarize(J.appendEvent(appended.envelope,wrongContractFill.event).envelope);
+  assert.equal(wrongContractSummary.eligibleReportedFillComparisons,0);
+  assert.equal(wrongContractSummary.comparisonExclusionCounts.FILLED_CONTRACT_SYMBOL_MISMATCH,1);
+  const forgedSymbols = JSON.parse(JSON.stringify(appended.envelope));
+  forgedSymbols.events[0].candidateContractSymbols.short = "QQQ261120C00800000";
+  assert.equal(J.parseEnvelope(forgedSymbols).ok,false,"tampered quote OCC symbol derivation must be rejected");
   const hypothetical = J.createOutcomeEvent({ eventId:"out-paper", recordedAt:new Date(now+120000).toISOString(), outcomeType:"PAPER_ASSUMED_FILL", fillCreditPerShare:1.25, filledQuantity:1, outcomeAt:"", outcomeReference:"", note:"hypothesis only" },q.event);
   assert.equal(hypothetical.ok,true);
   const withHypothesis = J.appendEvent(withFill.envelope,hypothetical.event);
@@ -464,6 +492,8 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   const appSource = fs.readFileSync(require.resolve("../option_chain_lab.js"), "utf8");
   assert.ok(htmlSource.includes('id="paperObservationJournal"'));
   assert.ok(htmlSource.includes('id="paperJournalControls"'), "journal controls should be collapsed by default to avoid dashboard bloat");
+  assert.ok(htmlSource.includes('id="paperOutcomeShortSymbol"'), "fill comparisons require the reported short-leg contract symbol");
+  assert.ok(htmlSource.includes('id="paperOutcomeLongSymbol"'), "fill comparisons require the reported long-leg contract symbol");
   assert.ok(htmlSource.includes('id="recordPaperObservation"'));
   assert.ok(htmlSource.includes('id="importPaperJournal"'));
   assert.ok(htmlSource.includes('src="paper_observation_journal.js"'));

@@ -3,6 +3,7 @@ var SCHEMA="QQQ_HYBRID_PAPER_OBSERVATION_JOURNAL_V1";
 var STORAGE_KEY=SCHEMA;
 var CHAIN_KEYS=["QQQ_CALL","VXX_CALL","QQQ_PUT","VXX_PUT"];
 var OUTCOMES=["NO_TRADE","PAPER_ASSUMED_FILL","OPERATOR_REPORTED_FILL","OPERATOR_REPORTED_NO_FILL"];
+var MAX_FILL_QUOTE_GAP_MINUTES=15;
 function str(v,max){return String(v===null||v===undefined?"":v).trim().slice(0,max||1000)}
 function num(v){if(v===null||v===undefined||String(v).trim()==="")return null;var n=Number(v);return Number.isFinite(n)?n:null}
 function explicitTimestamp(v){var s=str(v,80);return /(?:Z|[+-][0-9]{2}:[0-9]{2})$/i.test(s)&&Number.isFinite(Date.parse(s))}
@@ -11,6 +12,7 @@ function emptyEnvelope(createdAt){var t=str(createdAt,80);if(!explicitTimestamp(
 function nextEventId(prefix,eventCount,nowMs){var stamp=new Date(Number.isFinite(nowMs)?nowMs:Date.now()).toISOString().replace(/[-:.]/g,"");return str(prefix,8)+"-"+stamp+"-"+String((Number(eventCount)||0)+1).padStart(4,"0")}
 function normalizeQuoteRows(rows){return(Array.isArray(rows)?rows:[]).map(function(r){return{strike:num(r&&r.strike),bid:num(r&&r.bid),ask:num(r&&r.ask),delta:num(r&&r.delta)}}).filter(function(r){return r.strike!==null})}
 function normalizeCandidate(c){if(!c||typeof c!=="object")return null;var out={};["key","shortStrike","longStrike","width","shortBid","shortAsk","longBid","longAsk","credit","maxLoss","maxProfit","breakEven","shortDelta","longDelta","shortSpreadPctMid","wingSpreadPctMid","maxLegSpreadPctMid","spreadBand","shortQuoteQuality","longQuoteQuality"].forEach(function(k){out[k]=typeof c[k]==="string"?str(c[k],100):num(c[k])});out.isCall=c.isCall===true;return out}
+function normalizedContractSymbol(value){return str(value,100).toUpperCase().replace(/\s+/g,"")}
 function makeStandardOptionSymbol(root,expiration,right,strike){var r=str(root,16).toUpperCase(),e=str(expiration,10),side=str(right,1).toUpperCase(),k=num(strike);if(["QQQ","VXX"].indexOf(r)<0||["C","P"].indexOf(side)<0||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(e)||!Number.isFinite(Date.parse(e+"T00:00:00Z"))||new Date(Date.parse(e+"T00:00:00Z")).toISOString().slice(0,10)!==e||k===null||k<0)return null;var milli=Math.round(k*1000);if(Math.abs(milli/1000-k)>1e-8||milli>99999999)return null;var ymd=e.slice(2,4)+e.slice(5,7)+e.slice(8,10);return r+ymd+side+String(milli).padStart(8,"0")}
 function normalizeSourceMeta(m){m=m||{};return{sourceType:str(m.sourceType,80)||"UNKNOWN",sourceName:str(m.sourceName,500),sourceUrl:str(m.sourceUrl,2000),observedAt:str(m.observedAt,80),timezone:str(m.timezone,100),contractSymbol:str(m.contractSymbol,100),contractStatus:str(m.contractStatus,80)||"UNKNOWN",deliverableNote:str(m.deliverableNote,500),contractEvidenceUrl:str(m.contractEvidenceUrl,2000)}}
 function createQuoteObservation(input){var x=input||{},recordedAt=str(x.recordedAt,80),chainKey=str(x.chainKey,20),eventId=str(x.eventId,160);if(!explicitTimestamp(recordedAt))return{ok:false,error:"Record time must be ISO 8601 with explicit timezone."};if(!eventId)return{ok:false,error:"Missing event ID."};if(CHAIN_KEYS.indexOf(chainKey)<0)return{ok:false,error:"Unknown option chain key."};if(!Array.isArray(x.chainRows))return{ok:false,error:"Chain rows must be an array; empty chain must be an explicit empty array."};var candidate=normalizeCandidate(x.candidate),sourceMeta=normalizeSourceMeta(x.sourceMeta),root=chainKey.split("_")[0],symbols=null;if(candidate&&sourceMeta.contractSymbol===root&&sourceMeta.contractStatus==="STANDARD_TERMS_RECORDED"){var right=chainKey.split("_")[1]==="CALL"?"C":"P";var shortSymbol=makeStandardOptionSymbol(root,x.expiration,right,candidate.shortStrike),longSymbol=makeStandardOptionSymbol(root,x.expiration,right,candidate.longStrike);if(shortSymbol&&longSymbol)symbols={short:shortSymbol,long:longSymbol,derivation:"DERIVED_FROM_OPERATOR_ENTERED_ROOT_EXPIRY_STRIKE_NOT_AUTHENTICATED"}}
@@ -18,14 +20,108 @@ var limit=num(x.intendedLimitCreditPerShare);if(limit!==null&&(!(limit>0)||!cand
 var mult=num(x.multiplier),budget=num(x.riskBudgetUsd),quantity=num(x.plannedQuantity);if(mult!==null&&mult<=0)return{ok:false,error:"Multiplier must be positive or blank."};if(budget!==null&&budget<0)return{ok:false,error:"Risk budget must be non-negative or blank."};if(quantity!==null&&(quantity<1||Math.floor(quantity)!==quantity))return{ok:false,error:"Planned quantity must be a positive integer or blank."};
 var event={schemaVersion:1,eventId:eventId,eventType:"QUOTE_OBSERVATION",recordedAt:recordedAt,recordedClock:"OPERATOR_DEVICE_CLOCK_NOT_AUTHENTICATED",chainKey:chainKey,expiration:str(x.expiration,10),quoteObservedAt:sourceMeta.observedAt,sourceTimezone:sourceMeta.timezone,sourceMeta:sourceMeta,provenanceAtCapture:str(x.provenanceStatus,100)||"SCENARIO_ONLY",freshnessAtCapture:str(x.freshnessStatus,100)||"UNKNOWN",quoteAgeMinutes:num(x.quoteAgeMinutes),provenanceCompleteAtCapture:x.provenanceComplete===true,manuallyEdited:x.manuallyEdited===true,multiplier:mult,riskBudgetUsd:budget,plannedQuantity:quantity,intendedLimitCreditPerShare:limit,candidate:candidate,candidateContractSymbols:symbols,chainRows:normalizeQuoteRows(x.chainRows),operatorNote:str(x.note,1000),status:"QUOTE_SNAPSHOT_ONLY_NOT_FILL",dataAuthentication:"NOT_INDEPENDENTLY_AUTHENTICATED",ordersAuthorized:false};
 var check=validateQuoteEvent(event);return check.ok?{ok:true,event:event}:{ok:false,error:check.error}}
-function validateQuoteEvent(e){if(!e||e.eventType!=="QUOTE_OBSERVATION")return{ok:false,error:"Invalid quote observation event."};if(!str(e.eventId,160)||!explicitTimestamp(e.recordedAt))return{ok:false,error:"Quote observation requires unique ID and timezone-bearing record time."};if(CHAIN_KEYS.indexOf(e.chainKey)<0||!Array.isArray(e.chainRows))return{ok:false,error:"Quote observation chain identity/rows invalid."};if(!e.sourceMeta||typeof e.sourceMeta!=="object")return{ok:false,error:"Quote observation source metadata missing."};if(e.candidate!==null&&typeof e.candidate!=="object")return{ok:false,error:"Selected candidate must be an object or null."};if(e.status!=="QUOTE_SNAPSHOT_ONLY_NOT_FILL"||e.ordersAuthorized!==false||e.dataAuthentication!=="NOT_INDEPENDENTLY_AUTHENTICATED")return{ok:false,error:"Quote event must preserve no-fill/no-order boundaries."};return{ok:true}}
+function validateQuoteEvent(e){
+if(!e||e.eventType!=="QUOTE_OBSERVATION")return{ok:false,error:"Invalid quote observation event."};
+if(!str(e.eventId,160)||!explicitTimestamp(e.recordedAt))return{ok:false,error:"Quote observation requires unique ID and timezone-bearing record time."};
+if(CHAIN_KEYS.indexOf(e.chainKey)<0||!Array.isArray(e.chainRows))return{ok:false,error:"Quote observation chain identity/rows invalid."};
+if(!e.sourceMeta||typeof e.sourceMeta!=="object")return{ok:false,error:"Quote observation source metadata missing."};
+if(e.candidate!==null&&typeof e.candidate!=="object")return{ok:false,error:"Selected candidate must be an object or null."};
+if(e.candidateContractSymbols!==null&&e.candidateContractSymbols!==undefined){
+var root=e.chainKey.split("_")[0],right=e.chainKey.split("_")[1]==="CALL"?"C":"P";
+var shortExpected=e.candidate&&makeStandardOptionSymbol(root,e.expiration,right,e.candidate.shortStrike);
+var longExpected=e.candidate&&makeStandardOptionSymbol(root,e.expiration,right,e.candidate.longStrike);
+if(e.sourceMeta.contractSymbol!==root||e.sourceMeta.contractStatus!=="STANDARD_TERMS_RECORDED"||
+!shortExpected||!longExpected||
+e.candidateContractSymbols.short!==shortExpected||e.candidateContractSymbols.long!==longExpected||
+e.candidateContractSymbols.derivation!=="DERIVED_FROM_OPERATOR_ENTERED_ROOT_EXPIRY_STRIKE_NOT_AUTHENTICATED"){
+return{ok:false,error:"Candidate OCC symbols must match the recorded root, expiry, right, and selected strikes."};
+}
+}
+if(e.status!=="QUOTE_SNAPSHOT_ONLY_NOT_FILL"||e.ordersAuthorized!==false||e.dataAuthentication!=="NOT_INDEPENDENTLY_AUTHENTICATED")return{ok:false,error:"Quote event must preserve no-fill/no-order boundaries."};
+return{ok:true};
+}
 function validateOutcomeEvent(e,observation){if(!e||e.eventType!=="OUTCOME_RECORDED"||!str(e.eventId,160)||!explicitTimestamp(e.recordedAt))return{ok:false,error:"Outcome event requires ID and timezone-bearing record time."};if(!observation||observation.eventType!=="QUOTE_OBSERVATION"||observation.candidate===null)return{ok:false,error:"Outcome must link to an earlier quote observation with a selected spread."};var type=str(e.outcomeType,80);if(OUTCOMES.indexOf(type)<0)return{ok:false,error:"Unknown outcome type."};if(type==="PAPER_ASSUMED_FILL"||type==="OPERATOR_REPORTED_FILL"){var credit=num(e.fillCreditPerShare),qty=num(e.filledQuantity),width=num(observation.candidate.width);if(credit===null||!(credit>0)||width===null||!(credit<width)||qty===null||qty<1||Math.floor(qty)!==qty)return{ok:false,error:"Fill credit must be positive and below spread width; quantity must be a positive whole number."};if(type==="OPERATOR_REPORTED_FILL"&&(!explicitTimestamp(e.outcomeAt)||!str(e.outcomeReference,500)))return{ok:false,error:"Operator-reported fill requires a timezone-bearing fill time and a reference."}}
 if(type==="OPERATOR_REPORTED_NO_FILL"&&(!explicitTimestamp(e.outcomeAt)||!str(e.outcomeReference,500)))return{ok:false,error:"Operator-reported no-fill requires a timezone-bearing outcome time and a reference."};if(type==="PAPER_ASSUMED_FILL"&&e.dataAuthentication!=="HYPOTHETICAL_NOT_EXECUTION_EVIDENCE")return{ok:false,error:"Paper-assumed fill must remain hypothetical."};if((type==="OPERATOR_REPORTED_FILL"||type==="OPERATOR_REPORTED_NO_FILL")&&e.dataAuthentication!=="OPERATOR_REPORTED_NOT_AUTHENTICATED")return{ok:false,error:"Operator-reported outcome must remain unauthenticated."};if(type==="NO_TRADE"&&e.dataAuthentication!=="NO_EXECUTION_CLAIM")return{ok:false,error:"No-trade event cannot claim execution."};if(e.ordersAuthorized!==false)return{ok:false,error:"The journal must never authorize orders."};return{ok:true}}
-function createOutcomeEvent(input,observation){var x=input||{},recordedAt=str(x.recordedAt,80),eventId=str(x.eventId,160),type=str(x.outcomeType,80);if(!explicitTimestamp(recordedAt))return{ok:false,error:"Record time must be ISO 8601 with explicit timezone."};if(!eventId)return{ok:false,error:"Missing event ID."};if(!observation||observation.eventType!=="QUOTE_OBSERVATION")return{ok:false,error:"Select an earlier quote observation first."};var e={schemaVersion:1,eventId:eventId,eventType:"OUTCOME_RECORDED",recordedAt:recordedAt,recordedClock:"OPERATOR_DEVICE_CLOCK_NOT_AUTHENTICATED",observationId:observation.eventId,outcomeType:type,outcomeAt:str(x.outcomeAt,80),outcomeReference:str(x.outcomeReference,500),fillCreditPerShare:num(x.fillCreditPerShare),filledQuantity:num(x.filledQuantity),note:str(x.note,1000),ordersAuthorized:false};e.dataAuthentication=type==="PAPER_ASSUMED_FILL"?"HYPOTHETICAL_NOT_EXECUTION_EVIDENCE":type==="NO_TRADE"?"NO_EXECUTION_CLAIM":"OPERATOR_REPORTED_NOT_AUTHENTICATED";var check=validateOutcomeEvent(e,observation);return check.ok?{ok:true,event:e}:{ok:false,error:check.error}}
+function createOutcomeEvent(input,observation){var x=input||{},recordedAt=str(x.recordedAt,80),eventId=str(x.eventId,160),type=str(x.outcomeType,80);if(!explicitTimestamp(recordedAt))return{ok:false,error:"Record time must be ISO 8601 with explicit timezone."};if(!eventId)return{ok:false,error:"Missing event ID."};if(!observation||observation.eventType!=="QUOTE_OBSERVATION")return{ok:false,error:"Select an earlier quote observation first."};var e={schemaVersion:1,eventId:eventId,eventType:"OUTCOME_RECORDED",recordedAt:recordedAt,recordedClock:"OPERATOR_DEVICE_CLOCK_NOT_AUTHENTICATED",observationId:observation.eventId,outcomeType:type,outcomeAt:str(x.outcomeAt,80),outcomeReference:str(x.outcomeReference,500),filledShortSymbol:str(x.filledShortSymbol,100),filledLongSymbol:str(x.filledLongSymbol,100),fillCreditPerShare:num(x.fillCreditPerShare),filledQuantity:num(x.filledQuantity),note:str(x.note,1000),ordersAuthorized:false};e.dataAuthentication=type==="PAPER_ASSUMED_FILL"?"HYPOTHETICAL_NOT_EXECUTION_EVIDENCE":type==="NO_TRADE"?"NO_EXECUTION_CLAIM":"OPERATOR_REPORTED_NOT_AUTHENTICATED";var check=validateOutcomeEvent(e,observation);return check.ok?{ok:true,event:e}:{ok:false,error:check.error}}
 function parseEnvelope(raw){var x=raw;try{if(typeof raw==="string")x=JSON.parse(raw)}catch(_){return{ok:false,error:"Journal backup is not valid JSON."}}if(!x||x.schema!==SCHEMA||!Array.isArray(x.events)||!explicitTimestamp(x.createdAt))return{ok:false,error:"Journal schema/createdAt/events are invalid."};var env;try{env=clone(x)}catch(_){return{ok:false,error:"Journal data cannot be copied safely."}}var ids={},quotes={};for(var i=0;i<env.events.length;i++){var e=env.events[i];if(!e||!str(e.eventId,160)||ids[e.eventId])return{ok:false,error:"Missing/duplicate event ID."};if(!explicitTimestamp(e.recordedAt))return{ok:false,error:"An event has an invalid or timezone-less record timestamp."};if(e.eventType==="QUOTE_OBSERVATION"){var q=validateQuoteEvent(e);if(!q.ok)return{ok:false,error:q.error};quotes[e.eventId]=e}else if(e.eventType==="OUTCOME_RECORDED"){var parent=quotes[e.observationId];var v=validateOutcomeEvent(e,parent);if(!v.ok)return{ok:false,error:v.error}}else return{ok:false,error:"Unknown journal event type."};ids[e.eventId]=true}return{ok:true,envelope:{schema:SCHEMA,createdAt:env.createdAt,events:env.events}}}
 function appendEvent(envelope,event){var parsed=parseEnvelope(envelope);if(!parsed.ok)return parsed;if(parsed.envelope.events.some(function(e){return e.eventId===event.eventId}))return{ok:false,error:"Duplicate event ID; no changes saved."};var next=clone(parsed.envelope);next.events.push(clone(event));var result=parseEnvelope(next);if(!result.ok)return result;return{ok:true,envelope:result.envelope}}
 function mergeEnvelopes(current,incoming){var a=parseEnvelope(current),b=parseEnvelope(incoming);if(!a.ok)return a;if(!b.ok)return b;var merged=clone(a.envelope),byId={};merged.events.forEach(function(e){byId[e.eventId]=e});var duplicates=0,added=0;for(var i=0;i<b.envelope.events.length;i++){var e=b.envelope.events[i];if(byId[e.eventId]){if(JSON.stringify(byId[e.eventId])!==JSON.stringify(e))return{ok:false,error:"Conflicting data for event ID "+e.eventId+"; nothing imported."};duplicates++;continue}merged.events.push(clone(e));byId[e.eventId]=e;added++}merged.events.sort(function(x,y){var d=Date.parse(x.recordedAt)-Date.parse(y.recordedAt);if(d)return d;if(x.eventType!==y.eventType)return x.eventType==="QUOTE_OBSERVATION"?-1:1;return x.eventId.localeCompare(y.eventId)});if(Date.parse(b.envelope.createdAt)<Date.parse(merged.createdAt))merged.createdAt=b.envelope.createdAt;var check=parseEnvelope(merged);if(!check.ok)return check;return{ok:true,envelope:check.envelope,added:added,duplicates:duplicates}}
-function summarize(envelope){var parsed=parseEnvelope(envelope);if(!parsed.ok)return{valid:false,error:parsed.error,quoteObservations:0,outcomeEvents:0};var env=parsed.envelope,quotes=env.events.filter(function(e){return e.eventType==="QUOTE_OBSERVATION"}),outcomes=env.events.filter(function(e){return e.eventType==="OUTCOME_RECORDED"}),byId={};quotes.forEach(function(q){byId[q.eventId]=q});var reported=outcomes.filter(function(e){return e.outcomeType==="OPERATOR_REPORTED_FILL"}),comparisons=[];reported.forEach(function(e){var q=byId[e.observationId];if(!q||!q.provenanceCompleteAtCapture||!q.candidateContractSymbols||!q.candidate||num(q.candidate.credit)===null||num(q.multiplier)===null||num(e.fillCreditPerShare)===null||num(e.filledQuantity)===null)return;var gap=Math.round((e.fillCreditPerShare-q.candidate.credit)*1e8)/1e8,contractGap=Math.round(gap*q.multiplier*1e6)/1e6,totalGap=Math.round(gap*q.multiplier*e.filledQuantity*1e6)/1e6;comparisons.push({eventId:e.eventId,observationId:q.eventId,gapPerShare:gap,gapPerContractUsd:contractGap,gapTotalUsd:totalGap,filledQuantity:e.filledQuantity})});var mean=function(items,field){return items.length?items.reduce(function(s,x){return s+x[field]},0)/items.length:null};return{valid:true,quoteObservations:quotes.length,metadataAndFreshnessPassAtCapture:quotes.filter(function(q){return q.provenanceCompleteAtCapture}).length,scenarioOnlyAtCapture:quotes.filter(function(q){return !q.provenanceCompleteAtCapture}).length,outcomeEvents:outcomes.length,noTradeCount:outcomes.filter(function(e){return e.outcomeType==="NO_TRADE"}).length,hypotheticalFillCount:outcomes.filter(function(e){return e.outcomeType==="PAPER_ASSUMED_FILL"}).length,operatorReportedFillCount:reported.length,operatorReportedNoFillCount:outcomes.filter(function(e){return e.outcomeType==="OPERATOR_REPORTED_NO_FILL"}).length,eligibleReportedFillComparisons:comparisons.length,meanReportedFillCreditGapPerShare:mean(comparisons,"gapPerShare"),meanReportedFillCreditGapPerContractUsd:mean(comparisons,"gapPerContractUsd"),totalReportedFilledSpreads:comparisons.reduce(function(s,x){return s+x.filledQuantity},0),fillComparisons:comparisons}}
+function summarize(envelope){
+var parsed=parseEnvelope(envelope);
+if(!parsed.ok)return{valid:false,error:parsed.error,quoteObservations:0,outcomeEvents:0};
+var env=parsed.envelope;
+var quotes=env.events.filter(function(e){return e.eventType==="QUOTE_OBSERVATION"});
+var outcomes=env.events.filter(function(e){return e.eventType==="OUTCOME_RECORDED"});
+var byId={};
+quotes.forEach(function(q){byId[q.eventId]=q});
+var reported=outcomes.filter(function(e){return e.outcomeType==="OPERATOR_REPORTED_FILL"});
+var comparisons=[],exclusions=[];
+var exclusionCounts={
+MISSING_QUOTE_EVIDENCE:0,
+FILLED_CONTRACT_SYMBOL_MISSING:0,
+FILLED_CONTRACT_SYMBOL_MISMATCH:0,
+QUOTE_OR_FILL_TIMESTAMP_INVALID:0,
+FILL_PRECEDES_QUOTE:0,
+QUOTE_FILL_GAP_OVER_15M:0
+};
+function exclude(event,reason){exclusionCounts[reason]++;exclusions.push({eventId:event.eventId,observationId:event.observationId,reason:reason})}
+reported.forEach(function(e){
+var q=byId[e.observationId],reason=null,quoteMs=null,fillMs=null,elapsedMinutes=null;
+var credit=q&&q.candidate?num(q.candidate.credit):null;
+var width=q&&q.candidate?num(q.candidate.width):null;
+var mult=q?num(q.multiplier):null;
+if(!q||q.provenanceCompleteAtCapture!==true||q.manuallyEdited===true||
+q.freshnessAtCapture!=="AS-OF ≤15M"||num(q.quoteAgeMinutes)===null||
+num(q.quoteAgeMinutes)<-5||num(q.quoteAgeMinutes)>15||
+!q.candidate||credit===null||!(credit>0)||width===null||!(credit<width)||
+mult===null||!(mult>0)||num(e.fillCreditPerShare)===null||num(e.filledQuantity)===null){
+reason="MISSING_QUOTE_EVIDENCE";
+}else if(!q.candidateContractSymbols||!str(q.candidateContractSymbols.short,100)||!str(q.candidateContractSymbols.long,100)||
+!normalizedContractSymbol(e.filledShortSymbol)||!normalizedContractSymbol(e.filledLongSymbol)){
+reason="FILLED_CONTRACT_SYMBOL_MISSING";
+}else if(normalizedContractSymbol(e.filledShortSymbol)!==normalizedContractSymbol(q.candidateContractSymbols.short)||
+normalizedContractSymbol(e.filledLongSymbol)!==normalizedContractSymbol(q.candidateContractSymbols.long)){
+reason="FILLED_CONTRACT_SYMBOL_MISMATCH";
+}else if(!explicitTimestamp(q.quoteObservedAt)||!explicitTimestamp(e.outcomeAt)||
+!Number.isFinite(Date.parse(q.quoteObservedAt))||!Number.isFinite(Date.parse(e.outcomeAt))){
+reason="QUOTE_OR_FILL_TIMESTAMP_INVALID";
+}else{
+quoteMs=Date.parse(q.quoteObservedAt);fillMs=Date.parse(e.outcomeAt);
+if(fillMs<quoteMs)reason="FILL_PRECEDES_QUOTE";
+else{
+elapsedMinutes=(fillMs-quoteMs)/60000;
+if(elapsedMinutes>MAX_FILL_QUOTE_GAP_MINUTES)reason="QUOTE_FILL_GAP_OVER_15M";
+}
+}
+if(reason){exclude(e,reason);return}
+var gap=Math.round((num(e.fillCreditPerShare)-credit)*1e8)/1e8;
+var contractGap=Math.round(gap*mult*1e6)/1e6;
+var totalGap=Math.round(gap*mult*num(e.filledQuantity)*1e6)/1e6;
+comparisons.push({
+eventId:e.eventId,observationId:q.eventId,gapPerShare:gap,gapPerContractUsd:contractGap,
+gapTotalUsd:totalGap,filledQuantity:num(e.filledQuantity),
+quoteToFillMinutes:Math.round(elapsedMinutes*1000)/1000,
+contractSymbolsMatched:true,timeAligned:true
+});
+});
+var mean=function(items,field){return items.length?items.reduce(function(s,x){return s+x[field]},0)/items.length:null};
+var nonComparable=exclusions.length;
+return{
+valid:true,maxFillQuoteGapMinutes:MAX_FILL_QUOTE_GAP_MINUTES,
+quoteObservations:quotes.length,metadataAndFreshnessPassAtCapture:quotes.filter(function(q){return q.provenanceCompleteAtCapture}).length,
+scenarioOnlyAtCapture:quotes.filter(function(q){return !q.provenanceCompleteAtCapture}).length,
+outcomeEvents:outcomes.length,noTradeCount:outcomes.filter(function(e){return e.outcomeType==="NO_TRADE"}).length,
+hypotheticalFillCount:outcomes.filter(function(e){return e.outcomeType==="PAPER_ASSUMED_FILL"}).length,
+operatorReportedFillCount:reported.length,
+operatorReportedNoFillCount:outcomes.filter(function(e){return e.outcomeType==="OPERATOR_REPORTED_NO_FILL"}).length,
+eligibleReportedFillComparisons:comparisons.length,nonComparableReportedFillCount:nonComparable,
+comparisonExclusionCounts:exclusionCounts,fillComparisonExclusions:exclusions,
+meanReportedFillCreditGapPerShare:mean(comparisons,"gapPerShare"),
+meanReportedFillCreditGapPerContractUsd:mean(comparisons,"gapPerContractUsd"),
+totalReportedFilledSpreads:comparisons.reduce(function(s,x){return s+x.filledQuantity},0),
+fillComparisons:comparisons
+};
+}
 function exportJson(envelope,exportedAt){var p=parseEnvelope(envelope);if(!p.ok)return p;var out=clone(p.envelope);out.exportedAt=explicitTimestamp(exportedAt)?exportedAt:new Date().toISOString();out.exportNote="Quote observations are not fills. Operator-reported fills are not independently authenticated. No orders are placed or authorized.";return{ok:true,text:JSON.stringify(out,null,2)}}
 return{SCHEMA:SCHEMA,STORAGE_KEY:STORAGE_KEY,CHAIN_KEYS:CHAIN_KEYS,OUTCOMES:OUTCOMES,emptyEnvelope:emptyEnvelope,nextEventId:nextEventId,makeStandardOptionSymbol:makeStandardOptionSymbol,createQuoteObservation:createQuoteObservation,createOutcomeEvent:createOutcomeEvent,parseEnvelope:parseEnvelope,appendEvent:appendEvent,mergeEnvelopes:mergeEnvelopes,summarize:summarize,exportJson:exportJson};
 });
