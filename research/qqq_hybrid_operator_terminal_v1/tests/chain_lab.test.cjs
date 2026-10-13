@@ -229,6 +229,10 @@ const positionLedgerTest = fs.readFileSync(require("node:path").join(__dirname, 
 const handoffProtocol = fs.readFileSync(require("node:path").join(__dirname, "../AI_MANUAL_COLLABORATION_PROTOCOL_V1.md"), "utf8");
 assert.ok(handoffHtml.includes('id="aiHandoffBtn"'), "top-level AI handoff download must be discoverable");
 assert.ok(handoffHtml.includes('id="aiHandoffGuide"'), "manual collaboration steps must be visible in APP");
+assert.ok(handoffHtml.includes('id="beginnerDecisionChecklist"'), "beginner decision gates must be visible without adding another dashboard");
+assert.ok(handoffHtml.includes('id="vxxShortBorrowAprPct"'), "VXX short carry cost must use an explicit editable APR assumption");
+assert.ok(handoffHtml.includes("max profit = net credit") && handoffHtml.includes("expiry breakeven"), "beginner checklist must explain option payoff measures");
+assert.ok(handoffHtml.includes("isolated QQQ Far-Call overlay fails its base integration screen"), "capacity must not be confused with strategy validation");
 assert.ok(handoffHtml.includes('id="positionLedgerCard"'), "position facts/P&L register must be present");
 assert.ok(handoffHtml.includes("does not independently authenticate referenced broker documents"), "position register must disclose that source references are not authenticated");
 assert.ok(handoffHtml.includes("human attestation, not app-side verification"), "contract checkbox must not imply app-side verification");
@@ -236,6 +240,12 @@ assert.ok(handoffApp.includes("METADATA-COMPLETE P&amp;L SUBTOTAL"), "P&L headli
 assert.ok(handoffApp.includes("OPERATOR-ATTESTED TERMS"), "held-option terms must be described as operator-attested");
 assert.ok(handoffApp.includes("MARK STATUS / SOURCE GAPS"), "dashboard must separate mark status flags from source metadata gaps");
 assert.ok(handoffApp.includes("markSourceMetadataIncompleteCount"), "dashboard must expose a separate source-gap count");
+assert.ok(handoffApp.includes("vxxShortBorrowAprPct"), "operator plan must capture the VXX short borrow cost assumption");
+assert.ok(handoffApp.includes("vxxBorrowAnnualStressAtCapacity"), "dashboard must show a 1.5x annual borrow-cost stress");
+assert.ok(handoffApp.includes("max profit / max loss"), "primary option table must show reward-to-max-loss");
+assert.ok(handoffApp.includes("ELIGIBLE FOR HUMAN REVIEW ONLY"), "regime state must not display BUY as an unqualified action");
+assert.ok(aiHandoffSource.includes("VXX short borrow APR assumption"), "AI packet must include borrow APR and its limitation");
+assert.ok(aiHandoffSource.includes("expiry breakeven"), "AI packet must report option breakeven arithmetic");
 assert.ok(aiHandoffSource.includes("Mark source-metadata gaps"), "AI handoff must separate source gaps from mark status flags");
 assert.ok(aiHandoffSource.includes("source not independently authenticated"), "AI handoff must preserve the evidence-authentication limitation");
 assert.ok(positionLedgerSource.includes("metadataCompletePnlSubtotal"), "ledger aggregate must use metadata-complete terminology");

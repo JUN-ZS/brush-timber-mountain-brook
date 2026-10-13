@@ -404,6 +404,7 @@
     const sizing = {
       cashReservePct: inputNumber("cashReservePct", 10),
       vxxShortMarginMultiple: inputNumber("vxxShortMarginMultiple", 1.5),
+      vxxShortBorrowAprPct: E.num($("vxxShortBorrowAprPct")?.value, null),
       qqqCorePct: inputNumber("qqqCorePct", 42),
       vxxNormalPct: inputNumber("vxxNormalPct", 18),
       vxxHighPct: inputNumber("vxxHighPct", 10),
@@ -792,6 +793,10 @@
     const capVNotional = qtyV !== null && Number.isFinite(Number(vxx.unitPrice)) ? qtyV * Number(vxx.unitPrice) : null;
     const vxxMarginMultiple = E.num(input.sizing.vxxShortMarginMultiple, 1.5);
     const capVMargin = capVNotional !== null ? capVNotional * vxxMarginMultiple : null;
+    const borrowAprInput = E.num(input.sizing && input.sizing.vxxShortBorrowAprPct);
+    const borrowApr = borrowAprInput !== null && borrowAprInput >= 0 && borrowAprInput <= 100 ? borrowAprInput : null;
+    const vxxBorrowAnnualAtCapacity = borrowApr !== null && capVNotional !== null ? capVNotional * borrowApr / 100 : null;
+    const vxxBorrowAnnualStressAtCapacity = vxxBorrowAnnualAtCapacity === null ? null : vxxBorrowAnnualAtCapacity * 1.5;
     const qRiskPerSpread = E.num(qCall.riskPerUnit);
     const vRiskPerSpread = E.num(vCall.riskPerUnit);
     const qMaxLoss = qtyQc !== null && qRiskPerSpread !== null ? qtyQc * qRiskPerSpread : null;
@@ -814,7 +819,7 @@
     const currentTargetRisk = E.num(result.optionRiskReservedAtTargets);
     const calcStatus = $("proCalcStatus");
     calcStatus.textContent = result.market.blocked ? "BLOCKED · REFRESH / VERIFY DATA" :
-      result.market.state + (result.market.allowNew ? " · ADDS PERMITTED BY GATE" : " · HOLD / REDUCE RULES");
+      result.market.state + (result.market.allowNew ? " · MARKET GATE PASSED — HUMAN REVIEW ONLY" : " · HOLD / REDUCE RULES");
     calcStatus.className = "pro-status " + (result.market.blocked ? "bad" : result.market.state === "CARRY" ? "good" : "warn");
 
     $("proKpis").innerHTML = [
@@ -872,6 +877,12 @@
     const vCreditPerSpread = E.num(vCandidate && vCandidate.credit);
     const qTotalCredit = qtyQc !== null && qCreditPerSpread !== null ? qCreditPerSpread * 100 * qtyQc : null;
     const vTotalCredit = qtyVc !== null && vCreditPerSpread !== null ? vCreditPerSpread * 100 * qtyVc : null;
+    const qRewardRiskPct = qCandidate && Number.isFinite(Number(qCandidate.maxLossPerSpread)) && Number(qCandidate.maxLossPerSpread) > 0 && qCreditPerSpread !== null
+      ? qCreditPerSpread * 100 / Number(qCandidate.maxLossPerSpread) * 100 : null;
+    const vRewardRiskPct = vCandidate && Number.isFinite(Number(vCandidate.maxLossPerSpread)) && Number(vCandidate.maxLossPerSpread) > 0 && vCreditPerSpread !== null
+      ? vCreditPerSpread * 100 / Number(vCandidate.maxLossPerSpread) * 100 : null;
+    const qBreakEven = qCandidate && E.num(qCandidate.shortStrike) !== null && qCreditPerSpread !== null ? E.num(qCandidate.shortStrike) + qCreditPerSpread : null;
+    const vBreakEven = vCandidate && E.num(vCandidate.shortStrike) !== null && vCreditPerSpread !== null ? E.num(vCandidate.shortStrike) + vCreditPerSpread : null;
     const qStrikes = qCandidate ? fmt(qCandidate.shortStrike, 2) + "C / " + fmt(qCandidate.longStrike, 2) + "C" : "Quote pending";
     const vStrikes = vCandidate ? fmt(vCandidate.shortStrike, 2) + "C / " + fmt(vCandidate.longStrike, 2) + "C" : "Quote pending";
     const expiryQ = qCandidate && qCandidate.expiry ? qCandidate.expiry : "same-expiry quote needed";
@@ -908,7 +919,7 @@
         qty: qtyQc === null ? "PENDING" : fmt(qtyQc) + " spreads",
         exposure: qMaxLoss === null ? "PENDING" : exactUsd(qMaxLoss) + " max-loss exposure",
         credit: qTotalCredit === null ? "PENDING" : exactUsd(qTotalCredit),
-        creditDetail: qTotalCredit === null ? "Quote / capacity pending" : pct(ratioPct(qTotalCredit, nav)) + " of NAV · max-capacity estimate",
+        creditDetail: qTotalCredit === null ? "Quote / capacity pending" : pct(ratioPct(qTotalCredit, nav)) + " of NAV · max-capacity estimate; max profit / max loss " + pct(qRewardRiskPct) + "; expiry breakeven " + (qBreakEven === null ? "PENDING" : exactUsd(qBreakEven) + "/share") + " before fees",
         loss: qMaxLoss === null ? "PENDING" : exactUsd(qMaxLoss),
         navPct: qMaxLoss === null ? "PENDING" : pct(ratioPct(qMaxLoss, nav)),
         status: statusOf(qCall, qtyQc, qMaxLoss !== null)
@@ -919,7 +930,7 @@
         qty: qtyVc === null ? "PENDING" : fmt(qtyVc) + " spreads",
         exposure: vMaxLoss === null ? "PENDING" : exactUsd(vMaxLoss) + " max-loss exposure",
         credit: vTotalCredit === null ? "PENDING" : exactUsd(vTotalCredit),
-        creditDetail: vTotalCredit === null ? "Quote / capacity pending" : pct(ratioPct(vTotalCredit, nav)) + " of NAV · max-capacity estimate",
+        creditDetail: vTotalCredit === null ? "Quote / capacity pending" : pct(ratioPct(vTotalCredit, nav)) + " of NAV · max-capacity estimate; max profit / max loss " + pct(vRewardRiskPct) + "; expiry breakeven " + (vBreakEven === null ? "PENDING" : exactUsd(vBreakEven) + "/share") + " before fees",
         loss: vMaxLoss === null ? "PENDING" : exactUsd(vMaxLoss),
         navPct: vMaxLoss === null ? "PENDING" : pct(ratioPct(vMaxLoss, nav)),
         status: statusOf(vCall, qtyVc, vMaxLoss !== null)
@@ -939,7 +950,10 @@
         ['<b>' + esc(capQNotional === null ? "—" : exactUsd(capQNotional)) + '</b> notional', esc(pct(ratioPct(capQNotional, nav))) + ' NAV'],
         qtyQ === null ? "pending" : "ready") +
       card("VXX SHORT STOCK", qtyV === null ? "PENDING" : fmt(qtyV), "shares short · max capacity",
-        ['<b>' + esc(capVNotional === null ? "—" : exactUsd(capVNotional)) + '</b> notional', '<b>' + esc(capVMargin === null ? "—" : exactUsd(capVMargin)) + '</b> estimated margin'],
+        ['<b>' + esc(capVNotional === null ? "—" : exactUsd(capVNotional)) + '</b> notional', '<b>' + esc(capVMargin === null ? "—" : exactUsd(capVMargin)) + '</b> estimated margin',
+          vxxBorrowAnnualAtCapacity === null
+            ? "Annual borrow cost PENDING · valid APR required"
+            : "Borrow est. " + exactUsd(vxxBorrowAnnualAtCapacity) + "/year at " + pct(borrowApr) + " APR · 1.5× stress " + exactUsd(vxxBorrowAnnualStressAtCapacity)],
         qtyV === null ? "pending" : "ready") +
       card("QQQ CALL-CREDIT", qtyQc === null ? "PENDING" : fmt(qtyQc), "spreads · max capacity",
         ['<b>' + esc(qMaxLoss === null ? "—" : exactUsd(qMaxLoss)) + '</b> max loss', '<b>' + esc(qTotalCredit === null ? "—" : exactUsd(qTotalCredit)) + '</b> estimated credit', esc(qCandidate ? qStrikes + " · " + expiryQ : "Load QQQ call quote")],
@@ -973,7 +987,13 @@
     $("marketMeta").textContent = marketMeta || (marketTouched ? "MANUAL_OPERATOR_INPUT — confirm source and dates." : "No source metadata.");
     $("marketReason").textContent = m.reason;
     $("stateName").textContent = m.state;
-    $("stateAction").textContent = m.action + (m.allowNew ? " · NEW ENTRIES ALLOWED" : " · NO NEW CARRY ADDS");
+    $("stateAction").textContent = m.blocked
+      ? "BLOCK · WAIT FOR VERIFIED DATA"
+      : m.allowNew
+        ? "CARRY · ELIGIBLE FOR HUMAN REVIEW ONLY"
+        : m.action === "REDUCE"
+          ? "RISK-OFF · REVIEW SELLER-LEG REDUCTIONS"
+          : "HOLD · NO NEW CARRY ADDS";
     $("gData").textContent = m.status;
     $("gVix").textContent = Number.isFinite(m.vix) ? fmt(m.vix, 2) + (m.high ? " · HIGH" : "") : "—";
     $("gTerm").textContent = Number.isFinite(m.slope) ? fmt(m.slope, 2) + "%" + (m.backwardation ? " · BACK" : m.thin ? " · THIN" : " · OK") : "—";
@@ -1243,7 +1263,7 @@
     });
     document.querySelectorAll("input,select").forEach(el => {
       if (el.id.startsWith("current-") || el.id.startsWith("budget-") || el.id.startsWith("risk-") || el.id.startsWith("enabled-") ||
-          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte","hubRatioN","hubStateLayerCap","hubDrawdown252Pct","hubReturn5dPct"].includes(el.id)) {
+          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","vxxShortBorrowAprPct","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte","hubRatioN","hubStateLayerCap","hubDrawdown252Pct","hubReturn5dPct"].includes(el.id)) {
         el.addEventListener("input", () => {
           if (["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday"].includes(el.id)) {
             marketTouched = true;

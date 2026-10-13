@@ -21,6 +21,13 @@
     const optionCandidates = candidates || {};
     const snapshot = input.market || {};
     const toUsd = value => Number.isFinite(Number(value)) && value !== null ? "$" + Number(value).toFixed(2) : "PENDING";
+    const borrowAprRaw = input.sizing?.vxxShortBorrowAprPct;
+    const borrowApr = borrowAprRaw !== null && borrowAprRaw !== undefined && borrowAprRaw !== "" &&
+      Number.isFinite(Number(borrowAprRaw)) && Number(borrowAprRaw) >= 0 && Number(borrowAprRaw) <= 100 ? Number(borrowAprRaw) : null;
+    const vxxStockRow = rows.find(row => row.key === "vxxShortShares") || {};
+    const vxxTargetNotionalUsd = vxxStockRow.targetNotionalUsd !== null && vxxStockRow.targetNotionalUsd !== undefined &&
+      Number.isFinite(Number(vxxStockRow.targetNotionalUsd)) ? Number(vxxStockRow.targetNotionalUsd) : null;
+    const vxxBorrowAnnualAtTargetUsd = borrowApr !== null && vxxTargetNotionalUsd !== null ? vxxTargetNotionalUsd * borrowApr / 100 : null;
     const positionRegister = input.positionRegister || {};
     const positionSummary = positionRegister.summary || {};
     const registeredPositionRows = Array.isArray(positionSummary.rows) ? positionSummary.rows : [];
@@ -107,7 +114,10 @@
           "credit/share " + cell(candidate.credit) + "; width " + cell(candidate.width) +
           "; max loss/spread " + cell(candidate.maxLossPerSpread) +
           " at assumed multiplier " + cell(candidate.multiplierAssumption || 100) +
-          " (not verified); source " + cell(candidate.chainSource || candidate.source || "unknown") +
+          " (not verified); max profit/spread " + (Number.isFinite(Number(candidate.credit)) ? toUsd(Number(candidate.credit) * Number(candidate.multiplierAssumption || 100)) : "UNKNOWN") +
+          "; expiry breakeven " + (Number.isFinite(Number(candidate.shortStrike)) && Number.isFinite(Number(candidate.credit)) ? toUsd(Number(candidate.shortStrike) + Number(candidate.credit)) + "/share before fees" : "UNKNOWN") +
+          "; max profit/max loss " + (Number.isFinite(Number(candidate.maxLossPerSpread)) && Number(candidate.maxLossPerSpread) > 0 && Number.isFinite(Number(candidate.credit)) ? (Number(candidate.credit) * Number(candidate.multiplierAssumption || 100) / Number(candidate.maxLossPerSpread) * 100).toFixed(2) + "% (not win probability)" : "UNKNOWN") +
+          "; source " + cell(candidate.chainSource || candidate.source || "unknown") +
           "; chain fetch " + cell(fetched) +
           "; exchange quote timestamp UNVERIFIED.";
       }
@@ -177,6 +187,10 @@
       "- Shared option max-loss pool: " + toUsd(result.totalOptionRiskPool),
       "- QQQ incremental capital: " + toUsd(result.qqqAdditionalCapitalUsd),
       "- VXX incremental margin estimate: " + toUsd(result.vxxAdditionalMarginUsd),
+      "- VXX short borrow APR assumption: " + (borrowApr === null ? "PENDING · valid broker-checked assumption required" : borrowApr.toFixed(2) + "% p.a.") +
+        "; estimated annual cost at target notional: " + toUsd(vxxBorrowAnnualAtTargetUsd) +
+        "; 1.5× borrow-cost stress: " + toUsd(vxxBorrowAnnualAtTargetUsd === null ? null : vxxBorrowAnnualAtTargetUsd * 1.5) +
+        ". This is an estimate, not a broker quote, and is not included in the margin/capacity calculation.",
       "- Planned required capital: " + toUsd(result.plannedCapitalRequiredUsd),
       "- Unallocated cash after plan: " + toUsd(result.remainingUnallocatedCashUsd),
       "- APP calculation status: " + (result.ok ? "CALCULATED / REVIEW" : "BLOCKED"),
@@ -197,7 +211,7 @@
       "1. **Accuracy:** verify timestamps, source type and exact contract identity; recompute all price/quantity arithmetic independently; require quoted legs from the same expiry; verify bid/ask side, multiplier, adjusted deliverable, fees/slippage and fill assumptions. Cash-flow reconciliation tolerance is USD 0.01. Missing data stays missing; never forward-fill or invent fills. Quote width/mid is (ask-bid)/((ask+bid)/2), and is only a quote-quality diagnostic.",
       "2. **Generality:** identify whether the sample is development data or a genuinely untouched holdout. Previously inspected 2018–2025 data cannot be relabelled virgin OOS. Report coverage numerator/denominator, terminal source date, unmatched dates and each regime/rolling window where sample size permits. Require at least five chronological windows where possible, and disclose cost stress of at least 1.5× where relevant.",
       "3. **Integration / incremental value:** compare against a clearly identified matched baseline on identical dates, capital flows, marks and costs. Use the pre-registered objective bars in RESEARCH_MEASUREMENT_CONTRACT.md; do not change thresholds after seeing outcomes. CAGR, daily MTM MaxDD, Sharpe and ES95 must be UNAVAILABLE when the paired mark path is incomplete.",
-      "4. **Capital and risk:** shared risk pool includes only QQQ far call-credit and VXX call-credit; never double-count reserve, stock purchases, option loss budget or short-stock margin. VXX short margin is not a maximum-loss cap. Verify contract root/deliverable, especially any adjusted VXX option. If register mode is active, reconcile its aggregated quantities to engine holdings and list every blocked-key reason.",
+      "4. **Capital and risk:** shared risk pool includes only QQQ far call-credit and VXX call-credit; never double-count reserve, stock purchases, option loss budget or short-stock margin. VXX short margin is not a maximum-loss cap. Measure borrow APR separately and stress annual borrow cost at 1.5×; do not treat the entered APR as broker-verified. Verify contract root/deliverable, especially any adjusted VXX option. If register mode is active, reconcile its aggregated quantities to engine holdings and list every blocked-key reason.",
       "5. **Execution readiness:** APP ADD / BUY is only a sizing preview. No order-ready status unless all market, quote, contract, cash, risk and human-confirmation gates pass. Otherwise output BLOCK or WAIT and name the exact missing evidence.",
       "",
       "## Current research lockbox (do not conceal)",

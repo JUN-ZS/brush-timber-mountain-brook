@@ -54,6 +54,17 @@
         <p><b>Current lockbox:</b> Far-Call Accuracy is BLOCKED, Generality is NOT DEMONSTRATED, and the isolated overlay fails its current integration base screen. This is not a complete backtest result for the full Frozen Original Hybrid; it is also not permission to promote the add-on.</p>
         <p><b>Human action:</b> ChatGPT may say BLOCK, WAIT FOR DATA, or ELIGIBLE FOR HUMAN REVIEW. APP capacity and ADD previews are not orders, and no broker order route exists.</p>
       </details>
+      <details class="ai-handoff-gates" id="beginnerDecisionChecklist">
+        <summary>Beginner decision basis · how to read ADD / HOLD / REDUCE</summary>
+        <p><b>0 · Money suitability:</b> Do not count emergency reserves or money needed for near-term spending as investable cash. Confirm your time horizon and that a plausible loss is affordable before treating NAV as risk capital.</p>
+        <p><b>1 · DATA:</b> Require current, dated QQQ/VXX spot, VIX and real VX M1/M2 with source/timezone and an acceptable age. Verify the exact option legs, same expiry, bid/ask, multiplier and deliverable. Missing, stale, mixed or unverified data means BLOCK / PENDING.</p>
+        <p><b>2 · REGIME:</b> CARRY only means the market gate permits consideration of additions; it is not a forecast that QQQ will rise. Thin contango means HOLD new carry entries; high VIX or backwardation cuts volatility-seller exposure first.</p>
+        <p><b>3 · CAPITAL:</b> Compare NAV, truly uncommitted cash, reserve, current holdings, target, maximum capacity, stock notional, estimated margin and the shared option max-loss pool. VXX short-stock margin is not a loss cap; short-stock loss is theoretically unbounded.</p>
+        <p><b>4 · OPTION economics:</b> For a standard call-credit spread, conservative entry credit = short-call Bid − long-wing Ask; maximum profit = net credit × multiplier; maximum loss = (spread width − net credit) × multiplier; expiry breakeven = short strike + net credit per share, before fees. Review each leg's bid/ask width and stress slippage; reward/max-loss is not a win probability.</p>
+        <p><b>5 · Carry cost:</b> VXX short annualized borrow cost is estimated as short notional × entered borrow APR. Compare the base rate with a 1.5× cost stress and confirm the actual rate with the broker; this estimate is not an execution quote or a loss limit.</p>
+        <p><b>6 · STRATEGY evidence:</b> The current lockbox says the isolated QQQ Far-Call overlay fails its base integration screen, with accuracy blocked and generality not demonstrated. A displayed capacity or ADD is not approval to open that overlay. This does not claim the full Frozen Original Hybrid was backtested and failed; the negative result is for the isolated overlay comparison only.</p>
+        <p><b>Action reading:</b> BLOCK / PENDING = do not act on the incomplete calculation; HOLD = no new exposure under the current rules; REDUCE = review trimming toward the risk target; ADD = capacity permits human review only, not an order instruction. Proceed only when the data, contract, capital, costs, strategy evidence and human review are all acceptable.</p>
+      </details>
     </section>
     <section id="researchValidation" class="card">
       <div class="section-head">
@@ -328,6 +339,7 @@
         <label>Uncommitted cash available for this plan ($) <input id="cashPool" type="number" min="0" step="100" value="100000"></label>
         <label>Cash reserve (% of available cash) <input id="cashReservePct" type="number" min="0" max="100" step="0.5" value="10"></label>
         <label>VXX short-margin reserve multiple (estimate) <input id="vxxShortMarginMultiple" type="number" min="0.1" max="10" step="0.1" value="1.5"></label>
+        <label>VXX short borrow APR (% p.a.; editable estimate) <input id="vxxShortBorrowAprPct" type="number" min="0" max="100" step="0.1" value="3"></label>
         <label>QQQ core (% NAV) <input id="qqqCorePct" type="number" min="0" max="100" step="0.1" value="42"></label>
         <label>VXX short normal (% NAV notional) <input id="vxxNormalPct" type="number" min="0" max="100" step="0.1" value="18"></label>
         <label>VXX short high-VIX (% NAV notional) <input id="vxxHighPct" type="number" min="0" max="100" step="0.1" value="10"></label>
@@ -339,7 +351,7 @@
         <label>VX term safe line (%) <input id="termSafe" type="number" min="0" max="100" step="0.1" value="5"></label>
         <label>Maximum term age (days) <input id="maxTermAgeDays" type="number" min="0" max="30" step="1" value="4"></label>
       </div>
-      <p class="muted"><b>Measurement:</b> The two per-leg percentage inputs allocate max-loss exposure as % of NAV, not premium/credit targets. The shared pool is the max-loss envelope. Estimated opening net credit is shown separately in USD and % NAV at max capacity from the loaded quote; it is not a broker-confirmed fill.</p>
+      <p class="muted"><b>Measurement:</b> The two per-leg percentage inputs allocate max-loss exposure as % of NAV, not premium/credit targets. The shared pool is the max-loss envelope. Estimated opening net credit is shown separately in USD and % NAV at max capacity from the loaded quote; it is not a broker-confirmed fill. VXX borrow APR is a separate editable cost assumption, defaulted to 3.0% for scenario analysis; verify the actual broker rate. Its annualized estimate and 1.5× stress do not alter margin or cap short-stock losses.</p>
       <div class="inline-actions">
         <button id="v3ProfileBtn">Load V3 Reference Profile (Preview)</button>
         <span class="muted">Reference values are editable what-if inputs, not frozen live sizing. Fresh $100,000 deployment: set NAV and uncommitted cash to $100,000. Existing portfolio: enter total equity as NAV and only truly uncommitted cash here. Confirm VXX margin with your broker.</span>
