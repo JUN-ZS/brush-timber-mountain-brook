@@ -218,13 +218,20 @@ const handoff = Handoff.serialize({
 {
   const incomplete = Handoff.serialize({
     generatedAt: "2026-10-11T06:00:00.000Z",
-    input: { nav: 100000, cashPool: 100000, sizing: { vxxShortBorrowAprPct: null } },
-    result: { ok: false, nav: 100000, cashPool: 100000, rows: [{ key: "vxxShortShares", targetNotionalUsd: null }] }
+    input: { nav: 100000, cashPool: 100000, sizing: { vxxShortBorrowAprPct: " " },
+      positionRegister: { summary: {
+        count: 1, metadataCompletePnlSubtotal: " ", metadataCompletePnlRows: 1,
+        indicativePnlSubtotal: " ", indicativePnlRows: 1, knownPnlSubtotal: " ", knownPnlRows: 1,
+        incompletePnlCount: 0, staleMarkCount: 0, markSourceMetadataIncompleteCount: 0, termBlockedCount: 0,
+        timezone: "UTC", rows: [{ label: "Whitespace P&L", qty: 1, unit: "shares", entryPrice: " ", markPrice: " ",
+          unrealizedPnl: " ", pnlStatus: "INDICATIVE", markFreshness: "UNKNOWN", kind: "STOCK" }]
+      } } },
+    result: { ok: false, nav: 100000, cashPool: 100000, rows: [{ key: "vxxShortShares", targetNotionalUsd: " " }] }
   }, {
     qqqCall: {
       expiry: "2026-11-20", dte: 40, shortStrike: null, longStrike: null,
       shortBid: null, shortAsk: null, longBid: null, longAsk: null,
-      shortQuoteWidthPctMid: null, longQuoteWidthPctMid: "", credit: null,
+      shortQuoteWidthPctMid: null, longQuoteWidthPctMid: " ", credit: null,
       width: null, maxLossPerSpread: null, multiplierAssumption: 100,
       source: "INCOMPLETE_FIXTURE"
     },
@@ -234,7 +241,30 @@ const handoff = Handoff.serialize({
   assert.ok(incomplete.includes("max profit/spread UNKNOWN"), "missing credit must not be shown as $0.00 profit");
   assert.ok(incomplete.includes("expiry breakeven UNKNOWN"), "missing strikes/credit must not create a $0.00 breakeven");
   assert.ok(incomplete.includes("max profit/max loss UNKNOWN"), "missing economics must remain unknown");
-  assert.ok(incomplete.includes("estimated annual cost at target notional: PENDING"), "missing target notional/APR must stay pending");
+  assert.ok(incomplete.includes("estimated annual cost at target notional: PENDING"), "blank target notional/APR must stay pending");
+  assert.ok(incomplete.includes("metadata-complete unrealized P&L subtotal (source not independently authenticated): UNKNOWN"),
+    "blank metadata subtotal must remain UNKNOWN, not zero");
+  assert.ok(incomplete.includes("indicative subtotal: UNKNOWN"), "blank indicative subtotal must remain UNKNOWN, not zero");
+  assert.ok(incomplete.includes("UNKNOWN (INDICATIVE)"), "blank row P&L must remain UNKNOWN, not $0.00");
+  assert.ok(!incomplete.includes("$0.00 (INDICATIVE)"), "blank row P&L must not look like a true zero result");
+
+  const invalidMultiplier = Handoff.serialize({
+    generatedAt: "2026-10-11T06:00:00.000Z",
+    input: { nav: 100000, cashPool: 100000, sizing: { vxxShortBorrowAprPct: "" } },
+    result: { ok: false, nav: 100000, cashPool: 100000, rows: [] }
+  }, {
+    qqqCall: {
+      expiry: "2026-11-20", dte: 40, shortStrike: 800, longStrike: 810,
+      shortBid: 1.25, shortAsk: 1.35, longBid: 0.20, longAsk: 0.30,
+      shortQuoteWidthPctMid: 8, longQuoteWidthPctMid: 20, credit: 1.0,
+      width: 10, maxLossPerSpread: 900, multiplierAssumption: " ", source: "INVALID_MULTIPLIER_FIXTURE"
+    },
+    vxxCall: null
+  }, "INVALID_MULTIPLIER_FIXTURE");
+  assert.ok(invalidMultiplier.includes("max loss/spread UNKNOWN at assumed multiplier UNKNOWN"),
+    "missing multiplier must not silently turn into a $100-contract assumption");
+  assert.ok(invalidMultiplier.includes("max profit/spread UNKNOWN"), "profit must stay unknown without an explicit multiplier");
+  assert.ok(invalidMultiplier.includes("max profit/max loss UNKNOWN"), "risk ratio must stay unknown without an explicit multiplier");
 }
 
 for (const required of [

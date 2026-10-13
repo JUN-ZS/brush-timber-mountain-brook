@@ -20,18 +20,17 @@
     const generatedAt = p.generatedAt || new Date().toISOString();
     const optionCandidates = candidates || {};
     const snapshot = input.market || {};
-    const hasNumber = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+    const hasNumber = value => (typeof value === "number" && Number.isFinite(value)) || (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value.trim())));
     const toUsd = value => hasNumber(value) ? "$" + Number(value).toFixed(2) : "PENDING";
     const borrowAprRaw = input.sizing?.vxxShortBorrowAprPct;
-    const borrowApr = borrowAprRaw !== null && borrowAprRaw !== undefined && borrowAprRaw !== "" &&
-      Number.isFinite(Number(borrowAprRaw)) && Number(borrowAprRaw) >= 0 && Number(borrowAprRaw) <= 100 ? Number(borrowAprRaw) : null;
+    const borrowApr = hasNumber(borrowAprRaw) && Number(borrowAprRaw) >= 0 && Number(borrowAprRaw) <= 100 ? Number(borrowAprRaw) : null;
     const vxxStockRow = rows.find(row => row.key === "vxxShortShares") || {};
     const vxxTargetNotionalUsd = hasNumber(vxxStockRow.targetNotionalUsd) ? Number(vxxStockRow.targetNotionalUsd) : null;
     const vxxBorrowAnnualAtTargetUsd = borrowApr !== null && vxxTargetNotionalUsd !== null ? vxxTargetNotionalUsd * borrowApr / 100 : null;
     const positionRegister = input.positionRegister || {};
     const positionSummary = positionRegister.summary || {};
     const registeredPositionRows = Array.isArray(positionSummary.rows) ? positionSummary.rows : [];
-    const positionMoney = value => Number.isFinite(Number(value)) && value !== null
+    const positionMoney = value => hasNumber(value)
       ? (Number(value) > 0 ? "+$" : Number(value) < 0 ? "−$" : "$") + Math.abs(Number(value)).toFixed(2)
       : "UNKNOWN";
     const positionTable = registeredPositionRows.length
@@ -55,11 +54,11 @@
       "- Engine current-quantity source: " + (positionRegister.useForSizing ? "POSITION REGISTER (enabled)" : "MANUAL INPUTS (register attribution only)"),
       "- Inventory completeness explicitly confirmed: " + (positionRegister.completeConfirmed ? "YES" : "NO — register cannot be used as Current sizing source"),
       "- Registered rows: " + cell(positionSummary.count ?? 0),
-      "- Metadata-complete unrealized P&L subtotal (source not independently authenticated): " + (Number.isFinite(Number(positionSummary.metadataCompletePnlSubtotal)) ? positionMoney(positionSummary.metadataCompletePnlSubtotal) : "UNKNOWN") +
+      "- Metadata-complete unrealized P&L subtotal (source not independently authenticated): " + (hasNumber(positionSummary.metadataCompletePnlSubtotal) ? positionMoney(positionSummary.metadataCompletePnlSubtotal) : "UNKNOWN") +
         " across " + cell(positionSummary.metadataCompletePnlRows ?? 0) + " row(s); indicative subtotal: " +
-        (Number.isFinite(Number(positionSummary.indicativePnlSubtotal)) ? positionMoney(positionSummary.indicativePnlSubtotal) : "UNKNOWN") +
+        (hasNumber(positionSummary.indicativePnlSubtotal) ? positionMoney(positionSummary.indicativePnlSubtotal) : "UNKNOWN") +
         " across " + cell(positionSummary.indicativePnlRows ?? 0) + " row(s); arithmetic subtotal across all complete rows: " +
-        (Number.isFinite(Number(positionSummary.knownPnlSubtotal)) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +
+        (hasNumber(positionSummary.knownPnlSubtotal) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +
         " across " + cell(positionSummary.knownPnlRows ?? 0) + " row(s); excludes " + cell(positionSummary.incompletePnlCount ?? 0) + " row(s) with missing entry/mark",
       "- Mark status flags (missing / invalid / stale / unsupported source): " + cell(positionSummary.staleMarkCount ?? "UNKNOWN"),
       "- Mark source-metadata gaps (known marks with UNKNOWN / MODEL_ESTIMATE or blank source reference; may overlap status flags): " + cell(positionSummary.markSourceMetadataIncompleteCount ?? "UNKNOWN"),
@@ -104,6 +103,8 @@
         const widthText = value => hasNumber(value) ? Number(value).toFixed(1) + "% mid" : "UNKNOWN";
         const qualityText = (value, quality) => widthText(value) + " " + cell(quality || "UNKNOWN");
         const fetched = candidate.chainRetrievedAt || "not recorded";
+        const multiplier = hasNumber(candidate.multiplierAssumption) && Number(candidate.multiplierAssumption) > 0
+          ? Number(candidate.multiplierAssumption) : null;
         return "- **" + label + ":** expiry " + cell(candidate.expiry) + ", " + cell(candidate.dte) + " DTE; " +
           "short " + cell(candidate.shortContractSymbol || (hasNumber(candidate.shortStrike) ? "K " + candidate.shortStrike : "strike UNKNOWN")) +
           " Bid/Ask " + cell(candidate.shortBid) + "/" + cell(candidate.shortAsk) +
@@ -112,11 +113,11 @@
           " Bid/Ask " + cell(candidate.longBid) + "/" + cell(candidate.longAsk) +
           " (width/mid " + qualityText(candidate.longQuoteWidthPctMid, candidate.longQuoteQuality) + "); " +
           "credit/share " + cell(candidate.credit) + "; width " + cell(candidate.width) +
-          "; max loss/spread " + cell(candidate.maxLossPerSpread) +
-          " at assumed multiplier " + cell(candidate.multiplierAssumption || 100) +
-          " (not verified); max profit/spread " + (hasNumber(candidate.credit) ? toUsd(Number(candidate.credit) * Number(candidate.multiplierAssumption || 100)) : "UNKNOWN") +
-          "; expiry breakeven " + (hasNumber(candidate.shortStrike) && hasNumber(candidate.credit) ? toUsd(Number(candidate.shortStrike) + Number(candidate.credit)) + "/share before fees" : "UNKNOWN") +
-          "; max profit/max loss " + (hasNumber(candidate.maxLossPerSpread) && Number(candidate.maxLossPerSpread) > 0 && hasNumber(candidate.credit) ? (Number(candidate.credit) * Number(candidate.multiplierAssumption || 100) / Number(candidate.maxLossPerSpread) * 100).toFixed(2) + "% (not win probability)" : "UNKNOWN") +
+          "; max loss/spread " + (hasNumber(candidate.maxLossPerSpread) && Number(candidate.maxLossPerSpread) > 0 && multiplier !== null ? cell(candidate.maxLossPerSpread) : "UNKNOWN") +
+          " at assumed multiplier " + (multiplier === null ? "UNKNOWN" : cell(multiplier)) +
+          " (not verified); max profit/spread " + (hasNumber(candidate.credit) && Number(candidate.credit) > 0 && multiplier !== null ? toUsd(Number(candidate.credit) * multiplier) : "UNKNOWN") +
+          "; expiry breakeven " + (hasNumber(candidate.shortStrike) && Number(candidate.shortStrike) > 0 && hasNumber(candidate.credit) && Number(candidate.credit) > 0 ? toUsd(Number(candidate.shortStrike) + Number(candidate.credit)) + "/share before fees" : "UNKNOWN") +
+          "; max profit/max loss " + (hasNumber(candidate.maxLossPerSpread) && Number(candidate.maxLossPerSpread) > 0 && hasNumber(candidate.credit) && Number(candidate.credit) > 0 && multiplier !== null ? (Number(candidate.credit) * multiplier / Number(candidate.maxLossPerSpread) * 100).toFixed(2) + "% (not win probability)" : "UNKNOWN") +
           "; source " + cell(candidate.chainSource || candidate.source || "unknown") +
           "; chain fetch " + cell(fetched) +
           "; exchange quote timestamp UNVERIFIED.";
