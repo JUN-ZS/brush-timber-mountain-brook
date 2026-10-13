@@ -177,7 +177,11 @@ assert.ok(labHtml.includes("FAILS_CURRENT_BASE_SCREEN"), "Option Chain Lab must 
 
 // Three-axis measurement scorecard is visible on both APP surfaces and keeps
 // accounting integrity separate from trade accuracy, generality, and integration.
-const measurementReport = fs.readFileSync(require("path").join(__dirname, "../QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md"), "utf8");
+const measurementReport = fs.readFileSync(require("path").join(__dirname, "../QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md"), "utf8");
+assert.ok(mainHtml.includes('href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md"'), "primary dashboard must link the latest measured scorecard snapshot");
+assert.ok(labHtml.includes('href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md"'), "Option Chain Lab must link the same latest measured scorecard snapshot");
+assert.ok(!mainHtml.includes('href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md"'), "primary dashboard must not foreground a stale scorecard");
+assert.ok(!labHtml.includes('href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md"'), "Option Chain Lab must not foreground a stale scorecard");
 for (const [html, id] of [[mainHtml, 'id="measurementScorecard"'], [labHtml, 'id="measurementScorecardLab"']]) {
   assert.ok(html.includes(id), "both APP surfaces must expose the measurement scorecard");
   assert.ok(html.includes("ACCURACY"), "accuracy axis must be shown");
@@ -191,7 +195,7 @@ for (const [html, id] of [[mainHtml, 'id="measurementScorecard"'], [labHtml, 'id
   assert.ok(html.includes("at least 20%"), "pre-registered deployment acceptance bar must be visible");
 }
 assert.ok(measurementReport.includes("1,688 / 1,688"), "measurement report must record independent ledger coverage");
-assert.ok(measurementReport.includes("FAILS_CURRENT_BASE_SCREEN"), "measurement report must preserve the actual failed baseline screen");
+assert.ok(measurementReport.includes("FAILS CURRENT BASE SCREEN"), "latest measured snapshot must preserve the actual failed baseline screen");
 assert.ok(measurementReport.includes("No"), "measurement report must retain a no-promotion disposition");
 
 
