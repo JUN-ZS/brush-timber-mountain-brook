@@ -214,6 +214,29 @@ const handoff = Handoff.serialize({
     rows: [{ key: "qqqShares", label: "QQQ CORE", current: 0, capacity: null, target: 0, delta: 0, action: "BLOCKED", status: "BLOCKED", reason: "market source missing" }]
   }
 }, { qqqCall: { source: "YAHOO_OPTIONS_DELAYED_OR_ESTIMATED", expiry: "2026-11-20" } }, "V3_READ_ONLY_LOCAL_SNAPSHOT · retrieved at sample time");
+// Missing numeric fields must remain UNKNOWN/PENDING, never coerce null or blank to $0.00.
+{
+  const incomplete = Handoff.serialize({
+    generatedAt: "2026-10-11T06:00:00.000Z",
+    input: { nav: 100000, cashPool: 100000, sizing: { vxxShortBorrowAprPct: null } },
+    result: { ok: false, nav: 100000, cashPool: 100000, rows: [{ key: "vxxShortShares", targetNotionalUsd: null }] }
+  }, {
+    qqqCall: {
+      expiry: "2026-11-20", dte: 40, shortStrike: null, longStrike: null,
+      shortBid: null, shortAsk: null, longBid: null, longAsk: null,
+      shortQuoteWidthPctMid: null, longQuoteWidthPctMid: "", credit: null,
+      width: null, maxLossPerSpread: null, multiplierAssumption: 100,
+      source: "INCOMPLETE_FIXTURE"
+    },
+    vxxCall: null
+  }, "INCOMPLETE_FIXTURE");
+  assert.ok(incomplete.includes("width/mid UNKNOWN"), "missing quote width must not be shown as 0.0% mid");
+  assert.ok(incomplete.includes("max profit/spread UNKNOWN"), "missing credit must not be shown as $0.00 profit");
+  assert.ok(incomplete.includes("expiry breakeven UNKNOWN"), "missing strikes/credit must not create a $0.00 breakeven");
+  assert.ok(incomplete.includes("max profit/max loss UNKNOWN"), "missing economics must remain unknown");
+  assert.ok(incomplete.includes("estimated annual cost at target notional: PENDING"), "missing target notional/APR must stay pending");
+}
+
 for (const required of [
   "QQQ Hybrid — Manual AI Review Pack", "DATA BLOCKED", "Current research lockbox",
   "ACCURACY", "GENERALITY", "INTEGRATION", "FAILS_CURRENT_BASE_SCREEN",

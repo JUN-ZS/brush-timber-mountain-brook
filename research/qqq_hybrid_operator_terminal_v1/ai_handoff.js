@@ -20,13 +20,13 @@
     const generatedAt = p.generatedAt || new Date().toISOString();
     const optionCandidates = candidates || {};
     const snapshot = input.market || {};
-    const toUsd = value => Number.isFinite(Number(value)) && value !== null ? "$" + Number(value).toFixed(2) : "PENDING";
+    const hasNumber = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+    const toUsd = value => hasNumber(value) ? "$" + Number(value).toFixed(2) : "PENDING";
     const borrowAprRaw = input.sizing?.vxxShortBorrowAprPct;
     const borrowApr = borrowAprRaw !== null && borrowAprRaw !== undefined && borrowAprRaw !== "" &&
       Number.isFinite(Number(borrowAprRaw)) && Number(borrowAprRaw) >= 0 && Number(borrowAprRaw) <= 100 ? Number(borrowAprRaw) : null;
     const vxxStockRow = rows.find(row => row.key === "vxxShortShares") || {};
-    const vxxTargetNotionalUsd = vxxStockRow.targetNotionalUsd !== null && vxxStockRow.targetNotionalUsd !== undefined &&
-      Number.isFinite(Number(vxxStockRow.targetNotionalUsd)) ? Number(vxxStockRow.targetNotionalUsd) : null;
+    const vxxTargetNotionalUsd = hasNumber(vxxStockRow.targetNotionalUsd) ? Number(vxxStockRow.targetNotionalUsd) : null;
     const vxxBorrowAnnualAtTargetUsd = borrowApr !== null && vxxTargetNotionalUsd !== null ? vxxTargetNotionalUsd * borrowApr / 100 : null;
     const positionRegister = input.positionRegister || {};
     const positionSummary = positionRegister.summary || {};
@@ -101,22 +101,22 @@
           "; source " + cell(candidate.source || "source unknown") + ".";
       }
       if (candidate.maxLossPerSpread !== undefined) {
-        const widthText = value => Number.isFinite(Number(value)) ? Number(value).toFixed(1) + "% mid" : "UNKNOWN";
+        const widthText = value => hasNumber(value) ? Number(value).toFixed(1) + "% mid" : "UNKNOWN";
         const qualityText = (value, quality) => widthText(value) + " " + cell(quality || "UNKNOWN");
         const fetched = candidate.chainRetrievedAt || "not recorded";
         return "- **" + label + ":** expiry " + cell(candidate.expiry) + ", " + cell(candidate.dte) + " DTE; " +
-          "short " + cell(candidate.shortContractSymbol || ("K " + candidate.shortStrike)) +
+          "short " + cell(candidate.shortContractSymbol || (hasNumber(candidate.shortStrike) ? "K " + candidate.shortStrike : "strike UNKNOWN")) +
           " Bid/Ask " + cell(candidate.shortBid) + "/" + cell(candidate.shortAsk) +
           " (width/mid " + qualityText(candidate.shortQuoteWidthPctMid, candidate.shortQuoteQuality) + "); " +
-          "wing " + cell(candidate.longContractSymbol || ("K " + candidate.longStrike)) +
+          "wing " + cell(candidate.longContractSymbol || (hasNumber(candidate.longStrike) ? "K " + candidate.longStrike : "strike UNKNOWN")) +
           " Bid/Ask " + cell(candidate.longBid) + "/" + cell(candidate.longAsk) +
           " (width/mid " + qualityText(candidate.longQuoteWidthPctMid, candidate.longQuoteQuality) + "); " +
           "credit/share " + cell(candidate.credit) + "; width " + cell(candidate.width) +
           "; max loss/spread " + cell(candidate.maxLossPerSpread) +
           " at assumed multiplier " + cell(candidate.multiplierAssumption || 100) +
-          " (not verified); max profit/spread " + (Number.isFinite(Number(candidate.credit)) ? toUsd(Number(candidate.credit) * Number(candidate.multiplierAssumption || 100)) : "UNKNOWN") +
-          "; expiry breakeven " + (Number.isFinite(Number(candidate.shortStrike)) && Number.isFinite(Number(candidate.credit)) ? toUsd(Number(candidate.shortStrike) + Number(candidate.credit)) + "/share before fees" : "UNKNOWN") +
-          "; max profit/max loss " + (Number.isFinite(Number(candidate.maxLossPerSpread)) && Number(candidate.maxLossPerSpread) > 0 && Number.isFinite(Number(candidate.credit)) ? (Number(candidate.credit) * Number(candidate.multiplierAssumption || 100) / Number(candidate.maxLossPerSpread) * 100).toFixed(2) + "% (not win probability)" : "UNKNOWN") +
+          " (not verified); max profit/spread " + (hasNumber(candidate.credit) ? toUsd(Number(candidate.credit) * Number(candidate.multiplierAssumption || 100)) : "UNKNOWN") +
+          "; expiry breakeven " + (hasNumber(candidate.shortStrike) && hasNumber(candidate.credit) ? toUsd(Number(candidate.shortStrike) + Number(candidate.credit)) + "/share before fees" : "UNKNOWN") +
+          "; max profit/max loss " + (hasNumber(candidate.maxLossPerSpread) && Number(candidate.maxLossPerSpread) > 0 && hasNumber(candidate.credit) ? (Number(candidate.credit) * Number(candidate.multiplierAssumption || 100) / Number(candidate.maxLossPerSpread) * 100).toFixed(2) + "% (not win probability)" : "UNKNOWN") +
           "; source " + cell(candidate.chainSource || candidate.source || "unknown") +
           "; chain fetch " + cell(fetched) +
           "; exchange quote timestamp UNVERIFIED.";
