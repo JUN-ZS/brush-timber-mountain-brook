@@ -281,4 +281,42 @@ const statusOfBlockIndex = handoffApp.indexOf('if (row.action === "BLOCKED" || S
 const statusOfPendingIndex = handoffApp.indexOf('if (quantity === null || !priceKnown) return "QUOTE / DATA PENDING";', statusOfBlockIndex);
 assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, "explicit model/contract blocks must not be mislabeled as missing quotes");
 
+
+// Handoff regression: allow only recent, operator-attested standard CALL contracts.
+{
+  const fixture=Lab.SAMPLE;
+  const quotes=Lab.calculateVerticals("QQQ_CALL",fixture.chains.QQQ_CALL,100,3200);
+  const q2=quotes.candidates.find(c=>c.key==="799C/810C");
+  const meta={
+    sourceType:"USER_SCREENSHOT_TRANSCRIPTION",sourceName:"Broker screenshot, manually transcribed",sourceUrl:"",
+    observedAt:"2026-10-13T08:50:00Z",timezone:"UTC",contractSymbol:"QQQ",
+    contractStatus:"STANDARD_TERMS_RECORDED",deliverableNote:"100 shares",contractEvidenceUrl:"https://www.theocc.com/"
+  };
+  const now=Date.parse("2026-10-13T09:00:00Z");
+  const h=Lab.buildPrimaryPlannerHandoff(meta,"2026-11-20","QQQ_CALL",q2,100,fixture.chains.QQQ_CALL.length,false,true,now);
+  assert.equal(h.ok,true);
+  assert.equal(h.candidate.shortContractSymbol,"QQQ261120C00799000");
+  assert.equal(h.candidate.longContractSymbol,"QQQ261120C00810000");
+  assert.equal(h.candidate.maxLossPerSpread,973);
+  assert.equal(h.candidate.candidateStatus,"HUMAN_REVIEW_REQUIRED");
+  assert.equal(Lab.buildPrimaryPlannerHandoff(meta,"2026-11-20","QQQ_PUT",q2,100,3,false,true,now).ok,false);
+  assert.equal(Lab.buildPrimaryPlannerHandoff(meta,"2026-11-20","QQQ_CALL",q2,100,3,false,false,now).ok,false);
+  assert.equal(Lab.buildPrimaryPlannerHandoff(meta,"2026-11-20","QQQ_CALL",q2,100,3,true,true,now).ok,false);
+  assert.equal(Lab.buildPrimaryPlannerHandoff({...meta,sourceType:"PUBLIC_DATA"},"2026-11-20","QQQ_CALL",q2,100,3,false,true,now).ok,false);
+  assert.equal(Lab.buildPrimaryPlannerHandoff({...meta,observedAt:"2026-10-13T08:40:00Z"},"2026-11-20","QQQ_CALL",q2,100,3,false,true,now).ok,false);
+  assert.equal(Lab.buildPrimaryPlannerHandoff({...meta,observedAt:"2026-10-13T08:50"},"2026-11-20","QQQ_CALL",q2,100,3,false,true,now).ok,false);
+  assert.equal(Lab.buildPrimaryPlannerHandoff({...meta,contractSymbol:"VXX2"},"2026-11-20","QQQ_CALL",q2,100,3,false,true,now).ok,false);
+  assert.equal(Lab.buildPrimaryPlannerHandoff(meta,"2026-11-20","QQQ_CALL",q2,50,3,false,true,now).ok,false);
+}
+{
+  const engineSource=fs.readFileSync(require("path").join(__dirname,"../engine.js"),"utf8");
+  const appSource=fs.readFileSync(require("path").join(__dirname,"../app.js"),"utf8");
+  const htmlSource=fs.readFileSync(require("path").join(__dirname,"../option_chain_lab.html"),"utf8");
+  assert.ok(engineSource.includes("validatePrimaryOptionHandoff"));
+  assert.ok(engineSource.includes("PENDING_OPTION_EVIDENCE"));
+  assert.ok(appSource.includes("OPTION_HANDOFF_PREFIX"));
+  assert.ok(htmlSource.includes('id="sendToMain"'));
+  assert.ok(htmlSource.includes('id="attestStandard"'));
+}
+
 console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS");

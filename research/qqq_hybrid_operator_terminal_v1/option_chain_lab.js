@@ -58,7 +58,7 @@ var loss=(width-credit)*mult;
 if(!(loss>0)){excluded++;continue}
 var maxLegSpreadPctMid=Math.max(qs.spreadPctMid,ql.spreadPctMid);
 var spreadBand=maxLegSpreadPctMid<=10?"≤10% MID":maxLegSpreadPctMid<=25?"10–25% MID":">25% MID";
-var c={key:s.strike+(call?"C":"P")+"/"+l.strike+(call?"C":"P"),shortStrike:s.strike,longStrike:l.strike,width:width,shortBid:s.bid,longAsk:l.ask,credit:credit,maxProfit:credit*mult,maxLoss:loss,rewardRisk:credit/(width-credit),breakEven:call?s.strike+credit:s.strike-credit,maxQty:bud>0?Math.floor((bud+1e-9)/loss):0,shortSpreadPctMid:qs.spreadPctMid,wingSpreadPctMid:ql.spreadPctMid,maxLegSpreadPctMid:maxLegSpreadPctMid,spreadBand:spreadBand,wide:maxLegSpreadPctMid>25,isCall:call,executionStress:executionStress(width,credit,mult,bud)};
+var c={key:s.strike+(call?"C":"P")+"/"+l.strike+(call?"C":"P"),shortStrike:s.strike,longStrike:l.strike,width:width,shortBid:s.bid,shortAsk:s.ask,longBid:l.bid,longAsk:l.ask,shortDelta:s.delta,longDelta:l.delta,credit:credit,maxProfit:credit*mult,maxLoss:loss,rewardRisk:credit/(width-credit),breakEven:call?s.strike+credit:s.strike-credit,maxQty:bud>0?Math.floor((bud+1e-9)/loss):0,shortSpreadPctMid:qs.spreadPctMid,wingSpreadPctMid:ql.spreadPctMid,shortQuoteQuality:qs.band,longQuoteQuality:ql.band,maxLegSpreadPctMid:maxLegSpreadPctMid,spreadBand:spreadBand,wide:maxLegSpreadPctMid>25,isCall:call,executionStress:executionStress(width,credit,mult,bud)};
 if(c.wide)wide++;
 valid.push(c);
 }
@@ -113,6 +113,51 @@ else if(!metadataComplete)status="INCOMPLETE";
 else status="RECORDED_REVIEW_REQUIRED";
 return{status:status,complete:complete,metadataComplete:metadataComplete,freshnessStatus:freshness.status,quoteAgeMinutes:freshness.ageMinutes,ordersAuthorized:false,reasons:reasons};
 }
+function buildPrimaryPlannerHandoff(meta,expiration,chainKey,candidate,multiplier,quoteCount,manuallyEdited,attested,nowMs){
+var fail=function(reason){return{ok:false,reason:reason}},m=meta||{},root=chainKey==="QQQ_CALL"?"QQQ":chainKey==="VXX_CALL"?"VXX":null,mult=num(multiplier),clock=nowMs===undefined?Date.now():nowMs;
+if(!root)return fail("只可把 QQQ CALL／VXX CALL 送進主風險池；Put 和其他研究組合保持隔離。");
+if(!candidate||candidate.isCall!==true)return fail("先選取一組有效 Call-Credit 價差。");
+if(!attested)return fail("請先勾選人工覆核聲明：確認來源、報價、到期日、每條腿和標準 100 股交割單位。");
+if(!["USER_SCREENSHOT_TRANSCRIPTION","BROKER_EXPORT"].includes(String(m.sourceType||"")))return fail("主風險池只接受使用者截圖轉錄或券商匯出；公開／模型資料只作情景分析。");
+if(String(m.contractSymbol||"").trim()!==root)return fail("合約 root 必須與主策略候選完全一致（"+root+"），不可用 VXX1／VXX2 或其他調整合約。");
+if(String(m.contractStatus||"")!=="STANDARD_TERMS_RECORDED")return fail("只支援已記錄並由操作員核對的標準合約條款；調整／未知條款封鎖。");
+if(mult!==100)return fail("主策略候選目前只接受已明確核對的 100 股標準乘數。");
+if(!/(100.{0,30}(shares?|股)|(shares?|股).{0,30}100)/i.test(String(m.deliverableNote||"")))return fail("請在每張實際交割單位記錄中明確寫出標準 100 股。");
+if(!validHttpUrl(m.contractEvidenceUrl))return fail("必須填寫 OCC／券商合約條款證據網址。");
+var provenanceResult=assessProvenance(m,expiration,quoteCount,manuallyEdited,clock);
+if(!provenanceResult.complete)return fail("來源／時間資料未過檢查："+provenanceResult.status+"；"+provenanceResult.reasons.join("；"));
+if(provenanceResult.freshnessStatus!=="AS-OF ≤15M")return fail("操作員記錄的觀察時間須在 15 分鐘內；這不會認證資料供應商時間戳。");
+var expiryMs=Date.parse(String(expiration||"")+"T00:00:00Z");
+if(!Number.isFinite(expiryMs)||new Date(expiryMs).toISOString().slice(0,10)!==expiration)return fail("到期日無效。");
+var todayMs=Date.parse(new Date(clock).toISOString().slice(0,10)+"T00:00:00Z"),dte=(expiryMs-todayMs)/86400000;
+if(dte<14||dte>120)return fail("主操作台支援 14–120 個日曆日 DTE；目前到期日不在這個範圍。");
+var shortQ=quoteState({bid:candidate.shortBid,ask:candidate.shortAsk}),longQ=quoteState({bid:candidate.longBid,ask:candidate.longAsk});
+if(!shortQ.ok||!longQ.ok)return fail("兩條腿都必須有有效正數 Bid／Ask。");
+var credit=candidate.shortBid-candidate.longAsk,width=candidate.longStrike-candidate.shortStrike;
+if(!(credit>0&&width>credit)||Math.abs(credit-candidate.credit)>1e-6||Math.abs(width-candidate.width)>1e-6)return fail("腿位、Bid／Ask、淨 credit 或最大虧損無法互相核對。");
+function occ(k){var ymd=expiration.slice(2,4)+expiration.slice(5,7)+expiration.slice(8,10),milli=Math.round(k*1000);if(Math.abs(milli/1000-k)>1e-8||milli<0||milli>99999999)return null;return root+ymd+"C"+String(milli).padStart(8,"0")}
+var shortSymbol=occ(candidate.shortStrike),longSymbol=occ(candidate.longStrike);
+if(!shortSymbol||!longSymbol)return fail("無法生成精確標準合約識別碼。");
+var maxLoss=(width-credit)*100;
+return{ok:true,candidate:{
+handoffSchema:"QQQ_HYBRID_PRIMARY_OPTION_CANDIDATE_V1",chainKey:chainKey,contractRoot:root,right:"call",
+expiry:expiration,dte:dte,shortStrike:candidate.shortStrike,longStrike:candidate.longStrike,
+shortContractSymbol:shortSymbol,longContractSymbol:longSymbol,
+shortBid:candidate.shortBid,shortAsk:candidate.shortAsk,longBid:candidate.longBid,longAsk:candidate.longAsk,
+shortDelta:candidate.shortDelta,longDelta:candidate.longDelta,
+shortQuoteWidthPctMid:shortQ.spreadPctMid,longQuoteWidthPctMid:longQ.spreadPctMid,
+shortQuoteQuality:shortQ.label,longQuoteQuality:longQ.label,credit:credit,width:width,
+maxLossPerSpread:maxLoss,maxProfitPerSpread:credit*100,multiplierAssumption:100,multiplierVerified:true,
+contractTermsStatus:"STANDARD_TERMS_RECORDED",adjustedContractSymbols:[],
+source:"MANUAL_LAB_OPTION_EVIDENCE",sourceType:m.sourceType,sourceName:String(m.sourceName||"").trim(),
+sourceUrl:String(m.sourceUrl||"").trim(),quoteObservedAt:String(m.observedAt||"").trim(),timezone:String(m.timezone||"").trim(),
+quoteTimestampStatus:"USER_RECORDED_ASOF_UNVERIFIED_BY_SOURCE",
+contractEvidenceUrl:String(m.contractEvidenceUrl||"").trim(),deliverableNote:String(m.deliverableNote||"").trim(),
+manualAttestation:true,sizingEvidence:"LAB_HUMAN_ATTESTED_STANDARD_TERMS",candidateStatus:"HUMAN_REVIEW_REQUIRED",
+issuedAt:new Date(clock).toISOString(),operatorObservationAgeMinutes:provenanceResult.quoteAgeMinutes,
+dataAuthentication:"NOT_INDEPENDENTLY_VERIFIED",ordersAuthorized:false
+},reason:"通過格式／算術／人工聲明檢查；來源真實性與實際成交仍未經程式驗證。"};
+}
 function parseCsv(text){var out={QQQ_CALL:[],QQQ_PUT:[],VXX_CALL:[],VXX_PUT:[]},errors=[],conflicts=[],lines=String(text||"").split(/\r?\n/).filter(x=>x.trim()!==""),idx={},start=0,hasHeader=false,hasMetaColumns=false,metadata={sourceType:"UNKNOWN",sourceName:"",sourceUrl:"",observedAt:"",timezone:""},chainMetadata={},expiryValues=[],commonValues={},commonMissing={},parsedDataRows=0;var commonCols={source_type:"sourceType",source_name:"sourceName",source_url:"sourceUrl",observed_at:"observedAt",timezone:"timezone"};var chainCols={contract_symbol:"contractSymbol",contract_status:"contractStatus",deliverable_note:"deliverableNote",contract_evidence_url:"contractEvidenceUrl"};if(!lines.length)return{chains:out,errors:errors,total:0,expiration:"",metadata:metadata,chainMetadata:chainMetadata,metadataConflicts:conflicts,hasMetadataColumns:false};var first=splitCsvRow(lines[0]).map(x=>x.trim().toLowerCase());if(first.indexOf("symbol")>=0&&first.indexOf("side")>=0&&first.indexOf("strike")>=0){hasHeader=true;first.forEach((x,i)=>idx[x]=i);start=1}else{idx={symbol:0,side:1,strike:2,bid:3,ask:4,delta:5};}hasMetaColumns=hasHeader&&["expiration","source_type","source_name","source_url","observed_at","timezone","contract_symbol","contract_status","deliverable_note","contract_evidence_url"].some(k=>idx[k]!==undefined);function field(a,key){return idx[key]===undefined?"":String(a[idx[key]]===undefined?"":a[idx[key]]).trim()}function addCommon(key,value){if(!value)return;if(!commonValues[key])commonValues[key]=[];if(commonValues[key].indexOf(value)<0)commonValues[key].push(value)}function addChain(k,key,value){if(!value)return;if(!chainMetadata[k])chainMetadata[k]={contractSymbol:"",contractStatus:"",deliverableNote:"",contractEvidenceUrl:""};var existing=chainMetadata[k][key];if(existing&&existing!==value)conflicts.push(k+" 的 "+key+" 值不一致");else chainMetadata[k][key]=value}for(var i=start;i<lines.length;i++){var a=splitCsvRow(lines[i]),sym=field(a,"symbol").toUpperCase(),side=field(a,"side").toUpperCase(),k=sym+"_"+side,st=num(field(a,"strike")),bid=num(field(a,"bid")),ask=num(field(a,"ask")),delta=num(field(a,"delta"));if(!out[k]||st===null){errors.push("第"+(i+1)+"行格式錯誤");continue}if((bid!==null&&bid<0)||(ask!==null&&ask<0)||(bid!==null&&ask!==null&&bid>ask)){errors.push("第"+(i+1)+"行 Bid／Ask 無效");continue}out[k].push({strike:st,bid:bid,ask:ask,delta:delta});parsedDataRows++;var exp=field(a,"expiration");if(exp)expiryValues.push(exp);for(var col in commonCols){var cv=field(a,col);if(cv)addCommon(col,cv);else commonMissing[col]=(commonMissing[col]||0)+1}for(var col2 in chainCols)addChain(k,chainCols[col2],field(a,col2));}for(var c in commonValues){if(commonValues[c].length>1)conflicts.push("跨資料列的 "+c+" 不一致");else metadata[commonCols[c]]=commonValues[c][0];if(commonMissing[c])conflicts.push("部分資料列缺少 "+c)}var uniqueExp=Array.from(new Set(expiryValues));if(uniqueExp.length>1)conflicts.push("同一 Lab 不可混合多個到期日");if(expiryValues.length>0&&expiryValues.length!==parsedDataRows)conflicts.push("部分資料列缺少到期日");Object.keys(out).forEach(k=>out[k]=sorted(out[k]));return{chains:out,errors:errors,total:Object.keys(out).reduce((n,k)=>n+out[k].length,0),expiration:uniqueExp.length===1?uniqueExp[0]:"",metadata:metadata,chainMetadata:chainMetadata,metadataConflicts:Array.from(new Set(conflicts)),hasMetadataColumns:hasMetaColumns}}
 function csvCell(value){var s=value===null||value===undefined?"":String(value);return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
 function init(win,doc){var chains={QQQ_CALL:[],QQQ_PUT:[],VXX_CALL:[],VXX_PUT:[]},active="QQQ_CALL",selected=null,loaded=false,manuallyEdited=false,provenance={sourceType:"UNKNOWN",sourceName:"",sourceUrl:"",observedAt:"",timezone:"",chainMetadata:{}};var $=id=>doc.getElementById(id),label=k=>k.replace("_"," ");function val(id,fb){var n=num($(id).value);return n===null?fb:n}
@@ -155,17 +200,31 @@ $("matrix").innerHTML=rows.length?rows.map(function(c){return "<tr class='cand "
 $("matrix").querySelectorAll("[data-c]").forEach(tr=>tr.addEventListener("click",()=>{selected=tr.dataset.c;renderAll()}));renderSelected(r);$("matrix").querySelectorAll("[data-c]").forEach(tr=>tr.classList.toggle("selected",tr.dataset.c===selected));
 }
 function renderProvenance(){
+commonFromInputs();activeChainMetaFromInputs();
 var m=currentMeta(),p=assessProvenance(m,$("expiry").value,sorted(chains[active]).length,manuallyEdited),age=p.quoteAgeMinutes===null?"":" · "+Math.round(p.quoteAgeMinutes)+" 分鐘";
+var handoffGate=buildPrimaryPlannerHandoff(m,$("expiry").value,active,selectedC(result()),val("mult",null),sorted(chains[active]).length,manuallyEdited,$("attestStandard").checked,Date.now());
+$("sendToMain").disabled=!handoffGate.ok;
+$("handoffStatus").textContent=handoffGate.ok?"可送入主操作台：人工記錄欄位與標準合約已通過結構檢查；仍須人工覆核，不代表可成交。":handoffGate.reason;
 var labelText=p.status==="NOT_LOADED"?"NO QUOTES":p.status==="MODEL_ONLY"?"MODEL ONLY · NOT HISTORICAL":p.status==="ADJUSTED_CONTRACT_SCENARIO_ONLY"?"ADJUSTED CONTRACT · CAPACITY BLOCKED":p.status==="CONTRACT_STATUS_CONFLICT"?"CONTRACT STATUS CONFLICT · BLOCKED":p.status==="MANUAL_EDIT_RECHECK"?"MANUAL EDIT · RECHECK SOURCE":p.status==="QUOTE_TIME_MISSING"?"QUOTE TIME MISSING · SCENARIO ONLY":p.status==="QUOTE_TIMEZONE_UNKNOWN"?"TIMEZONE OFFSET UNKNOWN · SCENARIO ONLY":p.status==="INVALID_QUOTE_TIMESTAMP"?"QUOTE TIMESTAMP INVALID · BLOCKED":p.status==="FUTURE_QUOTE_TIMESTAMP"?"FUTURE QUOTE TIMESTAMP · BLOCKED":p.status==="STALE_QUOTE"?"STALE QUOTE >15M · REFRESH REQUIRED":p.complete?"AS-OF + METADATA PASS · HUMAN REVIEW ONLY":"SCENARIO ONLY · PROVENANCE INCOMPLETE";
 $("provenanceStatus").textContent=labelText;
 $("provenanceDetail").textContent="報價時效："+p.freshnessStatus+age+"；"+(p.reasons.length?p.reasons.join("；"):"來源欄位已填，但本工具沒有獨立驗證資料供應商、成交可執行性或券商交割記錄。")+"；時間門檻通過仍不代表即時報價、可成交或實際成交；本工具永不授權下單。";
 $("sourceBadge").textContent=labelText;$("sourceBadge").className="tag "+(p.complete?"warn":"bad");
 }
 function renderAll(){renderTabs();renderQuotes();renderMatrix();renderProvenance()}
-function loadSample(){chains={};Object.keys(SAMPLE.chains).forEach(k=>chains[k]=sorted(SAMPLE.chains[k]));$("expiry").value=SAMPLE.expiration;active="QQQ_CALL";selected=null;loaded=true;provenance={sourceType:"USER_SCREENSHOT_TRANSCRIPTION",sourceName:"User-uploaded screenshot (conversation attachment)",sourceUrl:"",observedAt:"",timezone:"",chainMetadata:{}};manuallyEdited=false;writeCommonInputs();writeChainInputs();$("importStatus").textContent="已載入正式截圖 fixture：只有 QQQ CALL／VXX CALL；Put 鏈保持空白。觀察時間、合約 root 與交割條款未核實，因此只作情景算術。";renderAll()}
+function loadSample(){$("attestStandard").checked=false;chains={};Object.keys(SAMPLE.chains).forEach(k=>chains[k]=sorted(SAMPLE.chains[k]));$("expiry").value=SAMPLE.expiration;active="QQQ_CALL";selected=null;loaded=true;provenance={sourceType:"USER_SCREENSHOT_TRANSCRIPTION",sourceName:"User-uploaded screenshot (conversation attachment)",sourceUrl:"",observedAt:"",timezone:"",chainMetadata:{}};manuallyEdited=false;writeCommonInputs();writeChainInputs();$("importStatus").textContent="已載入正式截圖 fixture：只有 QQQ CALL／VXX CALL；Put 鏈保持空白。觀察時間、合約 root 與交割條款未核實，因此只作情景算術。";renderAll()}
 function clear(){chains={QQQ_CALL:[],QQQ_PUT:[],VXX_CALL:[],VXX_PUT:[]};loaded=false;selected=null;resetProvenance();$("expiry").value="";$("importStatus").textContent="已清空；來源、到期日與合約交割欄位均重置。";renderAll()}
-function importCsv(){var p=parseCsv($("csv").value);if(!p.total){$("importStatus").textContent="沒有有效列。"+p.errors.join("；");return}if(p.metadataConflicts.length){$("importStatus").textContent="拒絕匯入：CSV metadata 衝突。"+p.metadataConflicts.join("；");return}chains=p.chains;loaded=true;selected=null;manuallyEdited=false;provenance=Object.assign({},p.metadata,{chainMetadata:p.chainMetadata});$("expiry").value=p.expiration||"";writeCommonInputs();writeChainInputs();$("importStatus").textContent="匯入 "+p.total+" 列。"+(p.errors.length?" 已忽略無效列："+p.errors.join("；"):"")+(p.expiration?" 到期日已明確記錄。":" CSV 未帶到期日，已清空原日期，須自行核實。")+(p.hasMetadataColumns?"":" CSV 未帶來源／合約 metadata，狀態會維持 SCENARIO ONLY。");renderAll()}
+function importCsv(){var p=parseCsv($("csv").value);if(!p.total){$("importStatus").textContent="沒有有效列。"+p.errors.join("；");return}if(p.metadataConflicts.length){$("importStatus").textContent="拒絕匯入：CSV metadata 衝突。"+p.metadataConflicts.join("；");return}chains=p.chains;loaded=true;selected=null;manuallyEdited=false;$("attestStandard").checked=false;provenance=Object.assign({},p.metadata,{chainMetadata:p.chainMetadata});$("expiry").value=p.expiration||"";writeCommonInputs();writeChainInputs();$("importStatus").textContent="匯入 "+p.total+" 列。"+(p.errors.length?" 已忽略無效列："+p.errors.join("；"):"")+(p.expiration?" 到期日已明確記錄。":" CSV 未帶到期日，已清空原日期，須自行核實。")+(p.hasMetadataColumns?"":" CSV 未帶來源／合約 metadata，狀態會維持 SCENARIO ONLY。");renderAll()}
 function exportCsv(){commonFromInputs();activeChainMetaFromInputs();var lines=["symbol,side,strike,bid,ask,delta,expiration,source_type,source_name,source_url,observed_at,timezone,contract_symbol,contract_status,deliverable_note,contract_evidence_url"];Object.keys(chains).forEach(k=>sorted(chains[k]).forEach(r=>{var m=provenance.chainMetadata[k]||{};lines.push([k.split("_")[0],k.split("_")[1],r.strike,r.bid===null?"":r.bid,r.ask===null?"":r.ask,r.delta===null?"":r.delta,$("expiry").value,provenance.sourceType,provenance.sourceName,provenance.sourceUrl,provenance.observedAt,provenance.timezone,m.contractSymbol||"",m.contractStatus||"UNKNOWN",m.deliverableNote||"",m.contractEvidenceUrl||""].map(csvCell).join(","))}));var url=URL.createObjectURL(new Blob([lines.join("\r\n")],{type:"text/csv;charset=utf-8"})),a=doc.createElement("a");a.href=url;a.download="qqq_vxx_option_chain_"+($("expiry").value||"unknown")+".csv";doc.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
+function publishToMain(){
+commonFromInputs();activeChainMetaFromInputs();
+var gate=buildPrimaryPlannerHandoff(currentMeta(),$("expiry").value,active,selectedC(result()),val("mult",null),sorted(chains[active]).length,manuallyEdited,$("attestStandard").checked,Date.now());
+if(!gate.ok){$("handoffStatus").textContent=gate.reason;renderAll();return}
+try{
+win.localStorage.setItem("QQQ_HYBRID_PRIMARY_OPTION_CANDIDATE_V1:"+active,JSON.stringify(gate.candidate));
+$("handoffStatus").textContent="已寫入同源瀏覽器儲存；切回主操作台覆核。此時間是操作員記錄，並非供應商認證時間戳，不會下單。";
+$("importStatus").textContent="已送出 "+active+" 候選；主操作台仍標記 HUMAN REVIEW REQUIRED。";
+}catch(err){$("handoffStatus").textContent="本機交接失敗（儲存不可用）："+(err&&err.message?err.message:String(err))}
+}
 function copy(){
 var c=selectedC(result());if(!c)return;
 var m=currentMeta(),p=assessProvenance(m,$("expiry").value,sorted(chains[active]).length,manuallyEdited);
@@ -185,5 +244,5 @@ var lines=[
 var summary=lines.join("\n");
 if(win.navigator&&win.navigator.clipboard&&win.navigator.clipboard.writeText)win.navigator.clipboard.writeText(summary).then(()=>{$("importStatus").textContent="摘要已複製。"}).catch(()=>{$("importStatus").textContent=summary});else $("importStatus").textContent=summary;
 }
-doc.querySelectorAll("[data-key]").forEach(b=>b.addEventListener("click",()=>{commonFromInputs();activeChainMetaFromInputs();active=b.dataset.key;selected=null;writeChainInputs();renderAll()}));$("loadSample").addEventListener("click",loadSample);$("clear").addEventListener("click",clear);$("import").addEventListener("click",importCsv);$("export").addEventListener("click",exportCsv);$("copy").addEventListener("click",copy);["sourceType","sourceName","sourceUrl","asof","timezone"].forEach(k=>$(k).addEventListener("change",()=>{commonFromInputs();renderProvenance()}));["contractSymbol","contractStatus","deliverableNote","contractEvidenceUrl"].forEach(k=>$(k).addEventListener("change",()=>{activeChainMetaFromInputs();renderProvenance()}));["expiry","mult","budget","qty","sort"].forEach(k=>$(k).addEventListener("change",renderAll));$("quotes").addEventListener("change",ev=>{var e=ev.target;if(!e.hasAttribute("data-i"))return;var rs=sorted(chains[active]),i=Number(e.dataset.i),f=e.dataset.f;if(!rs[i]||["strike","bid","ask","delta"].indexOf(f)<0)return;rs[i][f]=num(e.value);chains[active]=sorted(rs);selected=null;manuallyEdited=true;renderAll()});renderAll()}
-return{SAMPLE:SAMPLE,sorted:sorted,quoteState:quoteState,calculateVerticals:calculateVerticals,expiryPnl:expiryPnl,parseCsv:parseCsv,splitCsvRow:splitCsvRow,assessProvenance:assessProvenance,num:num,init:init,csvCell:csvCell}});
+doc.querySelectorAll("[data-key]").forEach(b=>b.addEventListener("click",()=>{commonFromInputs();activeChainMetaFromInputs();active=b.dataset.key;selected=null;$("attestStandard").checked=false;writeChainInputs();renderAll()}));$("loadSample").addEventListener("click",loadSample);$("clear").addEventListener("click",clear);$("import").addEventListener("click",importCsv);$("export").addEventListener("click",exportCsv);$("copy").addEventListener("click",copy);$("sendToMain").addEventListener("click",publishToMain);$("attestStandard").addEventListener("change",renderAll);["sourceType","sourceName","sourceUrl","asof","timezone"].forEach(k=>$(k).addEventListener("change",()=>{commonFromInputs();$("attestStandard").checked=false;renderAll()}));["contractSymbol","contractStatus","deliverableNote","contractEvidenceUrl"].forEach(k=>$(k).addEventListener("change",()=>{activeChainMetaFromInputs();$("attestStandard").checked=false;renderAll()}));["expiry","mult","budget","qty","sort"].forEach(k=>$(k).addEventListener("change",()=>{if(k==="expiry"||k==="mult")$("attestStandard").checked=false;renderAll()}));$("quotes").addEventListener("change",ev=>{var e=ev.target;if(!e.hasAttribute("data-i"))return;var rs=sorted(chains[active]),i=Number(e.dataset.i),f=e.dataset.f;if(!rs[i]||["strike","bid","ask","delta"].indexOf(f)<0)return;rs[i][f]=num(e.value);chains[active]=sorted(rs);selected=null;manuallyEdited=true;$("attestStandard").checked=false;renderAll()});renderAll()}
+return{SAMPLE:SAMPLE,sorted:sorted,quoteState:quoteState,calculateVerticals:calculateVerticals,expiryPnl:expiryPnl,parseCsv:parseCsv,splitCsvRow:splitCsvRow,assessProvenance:assessProvenance,buildPrimaryPlannerHandoff:buildPrimaryPlannerHandoff,num:num,init:init,csvCell:csvCell}});

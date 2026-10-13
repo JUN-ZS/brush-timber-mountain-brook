@@ -588,5 +588,51 @@ function row(result, key) {
   assert.equal(r.optionRiskReservedAtTargets, 1680);
 }
 
+
+// Public chain arithmetic alone does not permit primary sizing; human handoffs are revalidated.
+{
+  const strategy = E.OPTION_STRATEGIES.find(s => s.key === "qqqCallSpreads");
+  const publicCandidate = {
+    width:11, credit:1.27, source:"YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED",
+    multiplierAssumption:100, multiplierVerified:false,
+    contractTermsStatus:"UNVERIFIED_NOT_BROKER_CONFIRMED",
+    quoteTimestampStatus:"NOT_VERIFIED_BY_PROVIDER", candidateStatus:"REVIEW_BEFORE_USE"
+  };
+  const publicRisk = E.candidateRisk(strategy, publicCandidate, null, Date.parse("2026-10-13T09:00:00Z"));
+  assert.equal(publicRisk.ready,false);
+  assert.equal(publicRisk.source,"PENDING_OPTION_EVIDENCE");
+
+  const now=Date.parse("2026-10-13T09:00:00Z");
+  const candidate={
+    handoffSchema:"QQQ_HYBRID_PRIMARY_OPTION_CANDIDATE_V1",chainKey:"QQQ_CALL",contractRoot:"QQQ",right:"call",
+    expiry:"2026-11-20",dte:38,shortStrike:799,longStrike:810,
+    shortContractSymbol:"QQQ261120C00799000",longContractSymbol:"QQQ261120C00810000",
+    shortBid:3.16,shortAsk:3.18,longBid:1.87,longAsk:1.89,
+    shortQuoteWidthPctMid:0.02/3.17*100,longQuoteWidthPctMid:0.02/1.88*100,
+    credit:1.27,width:11,maxLossPerSpread:973,maxProfitPerSpread:127,
+    multiplierAssumption:100,multiplierVerified:true,contractTermsStatus:"STANDARD_TERMS_RECORDED",
+    adjustedContractSymbols:[],source:"MANUAL_LAB_OPTION_EVIDENCE",sourceType:"USER_SCREENSHOT_TRANSCRIPTION",
+    sourceName:"broker screenshot operator transcription",sourceUrl:"",
+    quoteObservedAt:"2026-10-13T08:50:00Z",timezone:"UTC",
+    quoteTimestampStatus:"USER_RECORDED_ASOF_UNVERIFIED_BY_SOURCE",contractEvidenceUrl:"https://www.theocc.com/",
+    deliverableNote:"100 shares",manualAttestation:true,sizingEvidence:"LAB_HUMAN_ATTESTED_STANDARD_TERMS",
+    candidateStatus:"HUMAN_REVIEW_REQUIRED",issuedAt:"2026-10-13T09:00:00.000Z",
+    dataAuthentication:"NOT_INDEPENDENTLY_VERIFIED",ordersAuthorized:false
+  };
+  assert.equal(E.validatePrimaryOptionHandoff(candidate,now).ok,true);
+  const risk=E.candidateRisk(strategy,candidate,null,now);
+  assert.equal(risk.ready,true);
+  assert.equal(risk.source,"MANUAL_LAB_OPTION_EVIDENCE");
+  assert.equal(risk.riskPerUnit,973);
+  assert.equal(E.validatePrimaryOptionHandoff({...candidate,quoteObservedAt:"2026-10-13T08:40:00Z"},now).ok,false);
+  assert.equal(E.validatePrimaryOptionHandoff({...candidate,quoteObservedAt:"2026-10-13T08:50"},now).ok,false);
+  assert.equal(E.validatePrimaryOptionHandoff({...candidate,manualAttestation:false},now).ok,false);
+  assert.equal(E.validatePrimaryOptionHandoff({...candidate,shortContractSymbol:"QQQ261120C00800000"},now).ok,false);
+  assert.equal(E.validatePrimaryOptionHandoff({...candidate,sourceType:"PUBLIC_DATA"},now).ok,false);
+  assert.equal(E.validatePrimaryOptionHandoff({...candidate,contractRoot:"VXX"},now).ok,false);
+  assert.equal(E.validatePrimaryOptionHandoff({...candidate,multiplierAssumption:10},now).ok,false);
+  assert.equal(E.validatePrimaryOptionHandoff({...candidate,chainKey:"QQQ_PUT"},now).ok,false);
+}
+
 console.log("QQQ HYBRID OPERATOR ENGINE: 29 TEST GROUPS PASS");
 

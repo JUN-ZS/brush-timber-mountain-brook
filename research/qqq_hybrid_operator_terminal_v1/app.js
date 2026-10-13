@@ -14,6 +14,8 @@
     qqqCallSpreads: "qqqCallRiskPct",
     vxxCallSpreads: "vxxCallRiskPct"
   };
+  const OPTION_HANDOFF_PREFIX = "QQQ_HYBRID_PRIMARY_OPTION_CANDIDATE_V1:";
+  const OPTION_HANDOFF_SLOTS = Object.freeze({ QQQ_CALL: "qqqCall", VXX_CALL: "vxxCall" });
   const STOCK_KEYS = ["qqqShares", "vxxShortShares"];
   const PositionLedger = window.PositionLedgerV1;
   let positionRecords = [];
@@ -485,6 +487,16 @@
 
   function currentCandidateText(candidate) {
     if (!candidate) return "PENDING · no usable chain candidate";
+    if (candidate.handoffSchema === "QQQ_HYBRID_PRIMARY_OPTION_CANDIDATE_V1") {
+      const gate = E.validatePrimaryOptionHandoff(candidate);
+      return candidate.contractRoot + " CALL-CREDIT · " + candidate.shortContractSymbol + " / " + candidate.longContractSymbol +
+        " · expiry " + candidate.expiry + " · credit/share " + candidate.credit.toFixed(2) +
+        " · max loss/spread $" + candidate.maxLossPerSpread.toFixed(2) +
+        " · short spread/mid " + candidate.shortQuoteWidthPctMid.toFixed(1) + "% (" + candidate.shortQuoteQuality + ")" +
+        " · wing spread/mid " + candidate.longQuoteWidthPctMid.toFixed(1) + "% (" + candidate.longQuoteQuality + ")" +
+        " · operator observation " + candidate.quoteObservedAt + " (source timestamp not authenticated)" +
+        " · HUMAN REVIEW ONLY · " + (gate.ok ? "MANUAL RISK INPUT" : "PENDING · " + gate.reason) + " · NO ORDERS";
+    }
     if (candidate.hubPackage === true) {
       return "HUB QQQ package · " + (candidate.expiry || "expiry pending") +
         " · max-loss/risk " + usd(candidate.riskPerUnit) +
@@ -502,6 +514,9 @@
       const termsWarning = candidate.contractTermsStatus === "ADJUSTED_DELIVERABLE_BLOCKED"
         ? " · ADJUSTED VXX ROOT DETECTED — CAPACITY BLOCKED"
         : " · deliverable/multiplier not broker-verified";
+      const sizingWarning = candidate.sizingEvidence === "PUBLIC_CHAIN_SCENARIO_ONLY"
+        ? " · SCENARIO ONLY — MAIN CAPACITY PENDING MANUAL SOURCE/TERMS REVIEW"
+        : "";
       return candidate.right.toUpperCase() + " vertical · expiry " + candidate.expiry + " · " +
         fmt(candidate.dte) + " DTE · SHORT " + shortLabel + " Bid/Ask " +
         premium(candidate.shortBid) + "/" + premium(candidate.shortAsk) + " · width " +
@@ -510,7 +525,7 @@
         " · width " + quoteWidthLabel(candidate.longQuoteWidthPctMid, candidate.longQuoteQuality) +
         " · credit/share " + premium(candidate.credit) + " · max loss/spread " + usd(candidate.maxLossPerSpread) +
         " (multiplier " + (candidate.multiplierAssumption || 100) + " assumed; not verified)" +
-        fetched + termsWarning + " · " + (candidate.chainSource || candidate.source || "source unknown");
+        fetched + termsWarning + sizingWarning + " · " + (candidate.chainSource || candidate.source || "source unknown");
     }
     return candidate.right.toUpperCase() + " long · " + candidate.expiry + " · " + fmt(candidate.dte) +
       " DTE · K " + fmt(candidate.strike, 2) + " · ask " + premium(candidate.ask) +
@@ -651,6 +666,41 @@
     }
   }
 
+  function renderCandidateRows() {
+    const present = Object.keys(candidates).filter(k => candidates[k]);
+    $("candidateRows").innerHTML = present.map(k =>
+      '<div class="candidate-row"><b>' + esc(k) + '</b><span>' + esc(currentCandidateText(candidates[k])) + '</span></div>'
+    ).join("") || '<div class="empty">No usable candidates. Public/unverified chains remain scenario-only; missing evidence stays PENDING.</div>';
+  }
+
+  function restoreOptionCandidatesFromLocalStorage() {
+    for (const chainKey of Object.keys(OPTION_HANDOFF_SLOTS)) {
+      try {
+        const raw = window.localStorage.getItem(OPTION_HANDOFF_PREFIX + chainKey);
+        if (!raw) continue;
+        const packet = JSON.parse(raw), gate = E.validatePrimaryOptionHandoff(packet);
+        if (gate.ok && packet.chainKey === chainKey) candidates[OPTION_HANDOFF_SLOTS[chainKey]] = packet;
+        else { candidates[OPTION_HANDOFF_SLOTS[chainKey]] = null; $("journalStatus").textContent = "Stored "+chainKey+" handoff is PENDING/BLOCKED: "+(gate.reason||"chain key mismatch"); }
+      } catch (error) { candidates[OPTION_HANDOFF_SLOTS[chainKey]] = null; $("journalStatus").textContent = "Stored "+chainKey+" handoff could not be read; capacity remains PENDING."; }
+    }
+    renderCandidateRows();
+  }
+
+  function acceptOptionCandidatePacket(packet, expectedChainKey) {
+    const chainKey = expectedChainKey || (packet && packet.chainKey), slot = OPTION_HANDOFF_SLOTS[chainKey];
+    if (!slot) return;
+    const gate = E.validatePrimaryOptionHandoff(packet);
+    if (!gate.ok || packet.chainKey !== chainKey) {
+      candidates[slot] = null;
+      $("journalStatus").textContent = "Option Chain Lab handoff BLOCKED: " + (gate.reason || "chain key mismatch");
+    } else {
+      candidates[slot] = packet;
+      $("journalStatus").textContent = "Loaded operator-attested "+chainKey+" candidate. HUMAN REVIEW ONLY; source authenticity and fills are not independently verified. No broker order was sent.";
+    }
+    renderCandidateRows();
+    renderPlan();
+  }
+
   async function findCandidate(button) {
     const key = button.dataset.find, symbol = button.dataset.symbol, right = button.dataset.right;
     const targetDte = Math.max(14, Math.min(120, inputNumber("targetDte", 45)));
@@ -672,6 +722,7 @@
       candidate.chainRetrievedAt = payload.retrieved_at || null;
       candidate.chainSource = payload.source || candidate.source || "SOURCE_UNSPECIFIED";
       candidate.quoteTimestampStatus = "UNVERIFIED — API fetch time is not an exchange quote timestamp";
+      candidate.sizingEvidence = "PUBLIC_CHAIN_SCENARIO_ONLY";
       if (candidate.maxLossPerSpread !== undefined) {
         candidate.multiplierAssumption = 100;
         candidate.multiplierVerified = false;
@@ -1142,6 +1193,18 @@
     $("toggleResearchRows").addEventListener("click", toggleResearchRows);
     $("aiHandoffBtn").addEventListener("click", exportAiReviewPack);
     $("journalBtn").addEventListener("click", appendJournal);
+    window.addEventListener("storage", event => {
+      if (!event.key || !event.key.startsWith(OPTION_HANDOFF_PREFIX)) return;
+      const chainKey = event.key.slice(OPTION_HANDOFF_PREFIX.length), slot = OPTION_HANDOFF_SLOTS[chainKey];
+      if (!slot) return;
+      if (event.newValue === null) {
+        candidates[slot] = null; renderCandidateRows();
+        $("journalStatus").textContent = "Removed "+chainKey+" handoff; primary option capacity is PENDING.";
+        renderPlan(); return;
+      }
+      try { acceptOptionCandidatePacket(JSON.parse(event.newValue), chainKey); }
+      catch (error) { candidates[slot] = null; renderCandidateRows(); $("journalStatus").textContent = "Invalid "+chainKey+" handoff JSON; capacity remains PENDING."; renderPlan(); }
+    });
     $("findHubResearchBtn").addEventListener("click", findHubResearchCandidates);
     document.querySelectorAll("[data-find]").forEach(btn => {
       btn.dataset.label = btn.textContent;
@@ -1164,7 +1227,12 @@
       }
     });
     // Restore the first test model after initial render.
+    restoreOptionCandidatesFromLocalStorage();
     renderPlan();
+    // Age out operator-recorded quotes even if the page is otherwise idle.
+    window.setInterval(() => {
+      if (candidates.qqqCall || candidates.vxxCall) { renderCandidateRows(); renderPlan(); }
+    }, 60000);
     refreshMarket();
   }
 

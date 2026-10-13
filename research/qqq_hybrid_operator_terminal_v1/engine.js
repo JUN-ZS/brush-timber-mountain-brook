@@ -104,12 +104,105 @@
     return { blocked: false, status: "FRESH", state, action, allowNew: state === "CARRY", riskOff: state === "SHOCK" || state === "PRE-SHOCK", high, backwardation, thin, qqq, vxx, vix, m1, m2, slope, age, termAsOf, spotAsOf, reason };
   }
 
-  function candidateRisk(strategy, candidate, manualRiskUnit) {
+  function expectedPrimaryOccSymbol(root, expiry, right, strike) {
+    if (!["QQQ", "VXX"].includes(root) || right !== "call" || !Number.isFinite(strike) || strike <= 0) return null;
+    const match = String(expiry || "").match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/);
+    if (!match) return null;
+    const expiryMs = Date.parse(expiry + "T00:00:00Z");
+    if (!Number.isFinite(expiryMs) || new Date(expiryMs).toISOString().slice(0,10) !== expiry) return null;
+    const strikeMilli = Math.round(strike * 1000);
+    if (Math.abs(strikeMilli / 1000 - strike) > 1e-8 || strikeMilli > 99999999) return null;
+    return root + match[1].slice(2) + match[2] + match[3] + "C" + String(strikeMilli).padStart(8, "0");
+  }
+
+  // Structural check of a human-attested snapshot; it does not authenticate the source.
+  function validatePrimaryOptionHandoff(candidate, nowMs = Date.now()) {
+    const fail = reason => ({ ok: false, reason });
+    if (!candidate || candidate.handoffSchema !== "QQQ_HYBRID_PRIMARY_OPTION_CANDIDATE_V1") return fail("Missing/unsupported Option Chain Lab handoff schema.");
+    const chainKey = candidate.chainKey;
+    const expectedRoot = chainKey === "QQQ_CALL" ? "QQQ" : chainKey === "VXX_CALL" ? "VXX" : null;
+    if (!expectedRoot) return fail("Only QQQ CALL and VXX CALL may enter the primary option-risk pool.");
+    if (candidate.contractRoot !== expectedRoot || candidate.right !== "call") return fail("Underlying/root/right does not match the permitted primary call-credit leg.");
+    if (candidate.candidateStatus !== "HUMAN_REVIEW_REQUIRED" || candidate.sizingEvidence !== "LAB_HUMAN_ATTESTED_STANDARD_TERMS" || candidate.manualAttestation !== true) {
+      return fail("Explicit operator attestation and human-review-only handoff marker are required.");
+    }
+    if (!["USER_SCREENSHOT_TRANSCRIPTION", "BROKER_EXPORT"].includes(candidate.sourceType) || !String(candidate.sourceName || "").trim()) {
+      return fail("Primary sizing requires a named screenshot transcription or broker export; public/model-only chains remain scenario-only.");
+    }
+    if (candidate.source !== "MANUAL_LAB_OPTION_EVIDENCE" || candidate.contractTermsStatus !== "STANDARD_TERMS_RECORDED" ||
+        candidate.multiplierAssumption !== 100 || candidate.multiplierVerified !== true) {
+      return fail("Standard contract terms and the 100-share multiplier must be explicitly attested; adjusted/unknown contracts are blocked.");
+    }
+    if (candidate.quoteTimestampStatus !== "USER_RECORDED_ASOF_UNVERIFIED_BY_SOURCE" ||
+        candidate.dataAuthentication !== "NOT_INDEPENDENTLY_VERIFIED" || candidate.ordersAuthorized !== false) {
+      return fail("The packet must remain explicitly unauthenticated and never imply order authorization.");
+    }
+    if (!String(candidate.timezone || "").trim() || String(candidate.timezone).toUpperCase() === "UNKNOWN") return fail("An observation timezone label is required.");
+    if (!new RegExp("100.{0,30}(shares?|股)|(shares?|股).{0,30}100", "i").test(String(candidate.deliverableNote || ""))) return fail("The standard 100-share deliverable must be recorded explicitly.");
+    if (!/^https?:\/\/\S+$/i.test(String(candidate.contractEvidenceUrl || "").trim())) return fail("A contract-terms evidence URL is required.");
+    if (!Number.isFinite(nowMs)) return fail("Current timestamp is invalid.");
+    const observedAt = String(candidate.quoteObservedAt || "").trim();
+    if (!/(?:Z|[+-][0-9]{2}:[0-9]{2})$/i.test(observedAt)) return fail("Operator observation timestamp must include Z or a ±HH:MM offset.");
+    const observedMs = Date.parse(observedAt);
+    if (!Number.isFinite(observedMs)) return fail("Operator observation timestamp is invalid.");
+    const ageMinutes = (nowMs - observedMs) / 60000;
+    if (ageMinutes < -5) return fail("Operator observation timestamp is in the future; verify clock/timezone.");
+    if (ageMinutes > 15) return fail("Operator-recorded observation is older than 15 minutes; refresh/verify the source before sizing.");
+    const expiryMs = Date.parse(String(candidate.expiry || "") + "T00:00:00Z");
+    if (!Number.isFinite(expiryMs) || new Date(expiryMs).toISOString().slice(0,10) !== candidate.expiry) return fail("Expiry is missing or invalid.");
+    const todayMs = Date.parse(new Date(nowMs).toISOString().slice(0,10) + "T00:00:00Z");
+    const dte = (expiryMs - todayMs) / 86400000;
+    if (dte < 14 || dte > 120) return fail("Expiry must be 14–120 calendar days from current UTC date.");
+    const priceFields = ["shortBid","shortAsk","longBid","longAsk","credit","width","maxLossPerSpread"];
+    if (!priceFields.every(k => Number.isFinite(candidate[k])) || !Number.isFinite(candidate.shortStrike) || !Number.isFinite(candidate.longStrike)) {
+      return fail("Both option legs and defined-risk fields must be finite numeric values.");
+    }
+    if (!(candidate.shortStrike > 0 && candidate.longStrike > candidate.shortStrike && candidate.shortBid > 0 &&
+          candidate.shortAsk >= candidate.shortBid && candidate.longBid > 0 && candidate.longAsk >= candidate.longBid &&
+          candidate.credit > 0 && candidate.credit < candidate.width)) return fail("Call-credit quotes or defined-risk relationships are invalid.");
+    const computedCredit = candidate.shortBid - candidate.longAsk;
+    const computedWidth = candidate.longStrike - candidate.shortStrike;
+    const computedLoss = (computedWidth - computedCredit) * 100;
+    if (Math.abs(computedCredit - candidate.credit) > 1e-6 || Math.abs(computedWidth - candidate.width) > 1e-6 ||
+        Math.abs(computedLoss - candidate.maxLossPerSpread) > 1e-4) return fail("Credit, width and max-loss do not reconcile to supplied leg prices.");
+    if (candidate.shortContractSymbol !== expectedPrimaryOccSymbol(expectedRoot,candidate.expiry,"call",candidate.shortStrike) ||
+        candidate.longContractSymbol !== expectedPrimaryOccSymbol(expectedRoot,candidate.expiry,"call",candidate.longStrike)) {
+      return fail("Exact OCC-style root/expiry/right/strike identities do not match the candidate.");
+    }
+    const shortQ = quoteQuality({bid:candidate.shortBid,ask:candidate.shortAsk});
+    const longQ = quoteQuality({bid:candidate.longBid,ask:candidate.longAsk});
+    if (!Number.isFinite(candidate.shortQuoteWidthPctMid) || !Number.isFinite(candidate.longQuoteWidthPctMid) ||
+        Math.abs(shortQ.widthPctMid-candidate.shortQuoteWidthPctMid)>0.05 ||
+        Math.abs(longQ.widthPctMid-candidate.longQuoteWidthPctMid)>0.05) return fail("Per-leg spread/mid measurements do not reconcile to Bid/Ask.");
+    return {ok:true,reason:"Operator-attested arithmetic passed structural checks; source authenticity/provider timestamp/fills remain unverified.",ageMinutes,dte};
+  }
+
+  function candidateRisk(strategy, candidate, manualRiskUnit, nowMs = Date.now()) {
     const manual = num(manualRiskUnit);
     if (strategy.kind === "creditVertical") {
       if (candidate && candidate.contractTermsStatus === "ADJUSTED_DELIVERABLE_BLOCKED") {
         return { riskPerUnit: null, capitalPerUnitUsd: null, source: "ADJUSTED_CONTRACT_BLOCKED", ready: false, reason: "Adjusted VXX option root detected (" + (candidate.adjustedContractSymbols || []).join(", ") + "). Primary budget remains blocked because this engine does not model the contract's non-standard exercise payoff; a note/attestation does not enable capacity. Do not size at 100 by assumption." };
       }
+      if (candidate && candidate.handoffSchema === "QQQ_HYBRID_PRIMARY_OPTION_CANDIDATE_V1") {
+        const gate = validatePrimaryOptionHandoff(candidate, nowMs);
+        if (!gate.ok) return { riskPerUnit:null, capitalPerUnitUsd:null, source:"PENDING_OPTION_EVIDENCE", ready:false, reason:gate.reason };
+        const riskPerUnit = (num(candidate.width)-num(candidate.credit))*candidate.multiplierAssumption;
+        return { riskPerUnit, capitalPerUnitUsd:riskPerUnit, debitPerUnitUsd:-num(candidate.credit)*candidate.multiplierAssumption,
+          source:"MANUAL_LAB_OPTION_EVIDENCE", ready:true,
+          reason:"Operator-attested screenshot/broker-export arithmetic passed structural and ≤15-minute observation checks. Source authenticity, provider quote timestamp and fills are not independently verified; human review only, no order authorization." };
+      }
+      const explicitUnverifiedChain = candidate && (
+        candidate.sizingEvidence === "PUBLIC_CHAIN_SCENARIO_ONLY" ||
+        candidate.multiplierVerified === false ||
+        candidate.contractTermsStatus === "UNVERIFIED_NOT_BROKER_CONFIRMED" ||
+        candidate.quoteTimestampStatus === "NOT_VERIFIED_BY_PROVIDER" ||
+        String(candidate.quoteTimestampStatus || "").includes("UNVERIFIED") ||
+        candidate.candidateStatus === "REVIEW_BEFORE_USE" ||
+        candidate.source === "MANUAL_LAB_OPTION_EVIDENCE" ||
+        String(candidate.source || "").includes("YAHOO_OPTION_CHAIN")
+      );
+      if (explicitUnverifiedChain) return { riskPerUnit:null, capitalPerUnitUsd:null, source:"PENDING_OPTION_EVIDENCE", ready:false,
+        reason:"Public/unsigned option-chain candidate lacks verified multiplier/deliverable and provider quote timestamp. Main sizing stays PENDING until a recent operator-attested standard-contract handoff passes structural review." };
       if (candidate && [candidate.width, candidate.credit].every(v => Number.isFinite(num(v))) &&
           num(candidate.width) > 0 && num(candidate.credit) > 0 && num(candidate.credit) < num(candidate.width)) {
         const riskPerUnit = (num(candidate.width) - num(candidate.credit)) * 100;
@@ -622,7 +715,7 @@
     return { right, expiry: x.expiry, dte: x.dte, strike: x.strike, ask: x.ask, delta: x.delta, deltaSource: x.deltaSource, source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED", candidateStatus: "REVIEW_BEFORE_USE" };
   }
 
-  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, quoteQuality, isAdjustedVxxContractSymbol, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
+  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, quoteQuality, isAdjustedVxxContractSymbol, validatePrimaryOptionHandoff, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
   root.HybridOperatorEngineV1 = Engine;
   if (typeof module !== "undefined" && module.exports) module.exports = Engine;
 })(typeof globalThis !== "undefined" ? globalThis : this);

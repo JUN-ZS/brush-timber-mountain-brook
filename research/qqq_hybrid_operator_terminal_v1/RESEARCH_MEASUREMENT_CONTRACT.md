@@ -101,6 +101,14 @@ Quote observation timestamps must include an explicit ISO 8601 UTC offset (`Z` o
 
 Every selected vertical also reports additional adverse slippage per leg of `$0.000`, `$0.025`, `$0.050`, and `$0.100`, aligned with the existing listed-contract replay contract. Under each sensitivity, stressed net credit is `short Bid − wing Ask − 2 × additional slippage per leg`; if stressed credit is not positive, the scenario is `NO TRADE`. Max loss and whole-spread quantity are recomputed from the stressed credit and the explicitly entered scenario risk budget. These amounts are hypothetical sensitivities, not measured execution costs or guaranteed capacity. No Option Chain Lab state authorizes a broker order.
 
+## Primary option-sizing evidence gate and Lab handoff (measurement only; no order authority)
+
+Public Yahoo option-chain candidates are scenario inputs in the main terminal. A mathematically valid credit spread does not qualify for primary sizing while the multiplier/deliverable is unverified or the provider has not supplied an authenticated quote timestamp. Such candidates remain PENDING in the main shared-risk budget rather than yielding capacity from an assumed multiplier.
+
+The Option Chain Lab provides a narrow handoff for QQQ CALL and VXX CALL only. It requires a named user screenshot transcription or broker export, recorded source/contract metadata, a standard 100-share deliverable, exact root/expiry/right/strike identity, two valid Bid/Ask legs, explicit operator attestation, and a UTC-offset observation time recorded by the operator within 15 minutes. Put chains and adjusted VXX roots remain outside the primary risk pool. The main engine revalidates packets on every plan recalculation, including leg-price arithmetic, OCC-style identities, contract root, multiplier, timestamp age and expiry horizon. A stale, unzoned, incomplete, mismatched or tampered packet returns to PENDING.
+
+Important boundary: “recent” means recently recorded by the operator, not a provider-authenticated exchange quote timestamp. The program does not independently authenticate screenshot/CSV contents, evidence URLs, broker deliverables or fills. A passed handoff is a MANUAL RISK INPUT / HUMAN REVIEW state, never trade-ready and never permission to place a broker order. The bridge uses same-origin browser local storage and does not call a broker.
+
 ## 4. Current known limits
 
 - Historical options replay in PR #98 uses DERIVED_BS_VIX marks, not a full historical OPRA quote-and-fill replay.
