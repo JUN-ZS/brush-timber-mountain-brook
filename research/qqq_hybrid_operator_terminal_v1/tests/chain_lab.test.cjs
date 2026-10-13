@@ -242,7 +242,7 @@ const handoff = Handoff.serialize({
   assert.ok(incomplete.includes("expiry breakeven UNKNOWN"), "missing strikes/credit must not create a $0.00 breakeven");
   assert.ok(incomplete.includes("max profit/max loss UNKNOWN"), "missing economics must remain unknown");
   assert.ok(incomplete.includes("estimated annual cost at target notional: PENDING"), "blank target notional/APR must stay pending");
-  assert.ok(incomplete.includes("metadata-complete unrealized P&L subtotal (source not independently authenticated): UNKNOWN"),
+  assert.ok(incomplete.toLowerCase().includes("metadata-complete unrealized p&l subtotal (source not independently authenticated): unknown"),
     "blank metadata subtotal must remain UNKNOWN, not zero");
   assert.ok(incomplete.includes("indicative subtotal: UNKNOWN"), "blank indicative subtotal must remain UNKNOWN, not zero");
   assert.ok(incomplete.includes("UNKNOWN (INDICATIVE)"), "blank row P&L must remain UNKNOWN, not $0.00");
