@@ -2,6 +2,46 @@
 
 **Status:** pre-registered evaluation rules for future research; no live strategy policy change. Thresholds below are engineering/research acceptance criteria, not claims that any return target is achievable.
 
+## 0. Practical measurement when a condition may be wrong
+
+**Do not wait for perfect inputs to learn something. Measure whether the plausible error changes the decision.** This section allows imperfect, clearly-labelled inputs for exploration; it does not relax the hard gates for primary sizing, contract safety, or strategy promotion.
+
+### Repeatable workflow
+
+For each uncertain condition, record: (1) what may be wrong; (2) its evidence class (OBSERVED, DERIVED, ESTIMATED, HYPOTHETICAL, or UNKNOWN); (3) a defensible low/base/high range and where that range came from; (4) the output under each case; and (5) whether the conclusion changes. Prefer official exchange/clearing documents and broker records; use reputable vendor methods as comparison conventions; when evidence is unavailable, use an explicit stress grid rather than silently choosing a precise point estimate.
+
+Recalculate on the **same dates, same contracts, same capital path and same cost convention**. Change one uncertain variable at a time first; then run one combined adverse case to expose interactions. Report both the absolute change (USD, shares/contracts, percentage points) and a normalized change (percentage of NAV or the relevant risk budget). Record discrete changes too: selected contract, whole-contract capacity, action, and whether a risk limit or pre-registered acceptance bar is crossed.
+
+### Materiality classes
+
+| Class | Practical test | What may proceed |
+|---|---|---|
+| **CRITICAL** | Wrong contract/deliverable/multiplier; invalid or future timestamp; lookahead; an action changes; or a capital/margin/max-loss limit is crossed | Continue a labelled diagnostic or stress scenario, but block affected capacity / trade-ready status / promotion |
+| **MATERIAL** | Selected option legs change; whole-contract capacity changes; the effect changes sign; risk usage changes by >= 5% of the shared max-loss pool; or an existing return / drawdown / ES95 acceptance bar is crossed | Continue research under explicit scenarios and use the adverse case; do not promote on the base case alone |
+| **TOLERABLE FOR RESEARCH** | No action, contract, whole-contract count, or hard risk limit changes, and the output remains inside the pre-registered project tolerance under the plausible range | Use the approximation with its range and caveat; do not imply it is exact |
+| **UNBOUNDED / UNKNOWN** | No defensible range exists from a source or observed data | Do not invent a point estimate. Keep the field UNKNOWN and compare explicit hypothetical scenarios |
+
+The 5% risk-pool trigger is an **internal triage rule**, not a universal finance law. It is not used to excuse a discrete contract-count change or a hard-limit breach: either is material on its own. Existing promotion bars (+0.50 percentage points of CAGR, <=1.00 percentage point MaxDD worsening, or the separately defined downside/deployment bars) remain the strategy-level tolerances.
+
+**Missing-data coverage is not just a percentage.** Compute coverage against all expected sessions, list missing dates, and inspect whether the gap is clustered in a shock regime or at the end of the sample. A small terminal gap may leave most diagnostics useful while still making terminal NAV / final-window performance incomplete. Do not replace missing observations with zero or forward-fill option quotes.
+
+### What the current QQQ evidence says
+
+These are measured examples from the repository's pinned EOD diagnostic, not new strategy-return claims:
+
+- **Underlying-price basis is material.** The repository spot input is median -2.72% versus raw nominal close; the selected short / wing differs under raw versus adjusted geometry on 96.61% / 95.84% of matched dates. This is not a tiny price-noise problem. The option replay must use contemporaneous raw nominal spot for strike geometry, while the adjusted series can remain a separately-labelled core total-return proxy.
+- **Fill realism is material and regime-dependent.** Median VIX-proxy estimated credit exceeds the observed EOD short-Bid minus wing-Ask reference by $0.181/share. Model half-spread haircuts are narrower than observed on 30.0% of short legs and 57.2% of wings overall, rising to 81.5% / 100.0% when VIX >= 35 (54 pairs). Do not solve this with one universal correction; retain the explicit $0.000 / $0.025 / $0.050 / $0.100 per-leg sensitivity grid and calibrate against instrument- and regime-matched quotes or actual execution records.
+- **A high coverage percentage can still have a consequential gap.** The pinned source covers 1,946 raw-spot pairs out of 1,971 expected sessions (98.73%), but both underlying and option files stop on 2025-12-15, leaving 11 consecutive expected sessions at the sample end uncovered. Earlier-period quote-shape analysis can continue; full-window terminal performance cannot be called complete.
+- **What is already enough to decide:** the existing FAR CALL screening report is negative across tested budget/cost arms and has incomplete portfolio marks. Do not tune its stop/strike rules to rescue the already-reviewed window. Keep the overlay research-only while improving measurement; do not alter the Frozen Original Hybrid on this evidence.
+
+### External reference conventions (not automatic truths)
+
+- [ORATS backtester methodology](https://docs.orats.io/backtest-api-guide/backtester-methodology.html) publishes a two-leg slippage convention of 66% of each leg's quoted spread. Use this as one vendor convention for comparison, not as a fill guarantee or an instrument-independent constant.
+- [OCC information memos](https://infomemo.theocc.com/infomemo/search-memo) are the authoritative starting point for adjusted-option roots and deliverables; ticker/strike alone may be insufficient.
+- [Cboe's term-structure discussion](https://www.cboe.com/insights/posts/inside-volatility-trading-is-vix-backwardation-necessarily-a-sign-of-a-future-down-market/) treats contango/backwardation as curve states, not a deterministic forecast of market direction.
+
+This protocol distinguishes two questions: **"Is the approximation good enough to investigate the effect?"** and **"Is the evidence strong enough to size/promote a real trade?"** The first often can proceed with ranges; the second still must pass the relevant hard gates below.
+
 ## 1. Three dimensions and scorecards
 
 Each change receives independent **Accuracy**, **Generality**, and **Integration** decisions. These are not averaged: any critical fail blocks promotion.
