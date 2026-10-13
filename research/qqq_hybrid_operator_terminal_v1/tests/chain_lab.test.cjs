@@ -319,4 +319,81 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.ok(htmlSource.includes('id="attestStandard"'));
 }
 
+
+// Cross-layer integration: the exact Lab-produced handoff must be accepted by the planner,
+// and a tampered/stale packet must not create capacity even though its arithmetic still exists.
+{
+  const engineSandbox = { module: { exports: {} } };
+  vm.runInNewContext(fs.readFileSync(require.resolve("../engine.js"), "utf8"), engineSandbox, { filename: "engine.js" });
+  const E = engineSandbox.module.exports;
+  const now = Date.now();
+  const today = new Date(now).toISOString().slice(0, 10);
+  const todayMs = Date.parse(today + "T00:00:00Z");
+  const expiry = new Date(todayMs + 45 * 86400000).toISOString().slice(0, 10);
+  const observedAt = new Date(now - 5 * 60000).toISOString();
+  function handoffFor(chainKey, root, rows, pairKey) {
+    const values = Lab.calculateVerticals(chainKey, rows, 100, 3200);
+    const selected = values.candidates.find(c => c.key === pairKey);
+    assert.ok(selected, "integration fixture must contain " + pairKey);
+    const meta = {
+      sourceType: "USER_SCREENSHOT_TRANSCRIPTION",
+      sourceName: "Deterministic fixture, not authenticated evidence",
+      sourceUrl: "",
+      observedAt,
+      timezone: "UTC",
+      contractSymbol: root,
+      contractStatus: "STANDARD_TERMS_RECORDED",
+      deliverableNote: "100 shares",
+      contractEvidenceUrl: "https://www.theocc.com/"
+    };
+    const result = Lab.buildPrimaryPlannerHandoff(meta, expiry, chainKey, selected, 100, rows.length, false, true, now);
+    assert.equal(result.ok, true, "Option Chain Lab must produce a structurally valid handoff for " + chainKey);
+    return result.candidate;
+  }
+  const qqqCandidate = handoffFor("QQQ_CALL", "QQQ", s.chains.QQQ_CALL, "799C/810C");
+  const vxxCandidate = handoffFor("VXX_CALL", "VXX", s.chains.VXX_CALL, "21C/24C");
+  const qqqStrategy = E.OPTION_STRATEGIES.find(x => x.key === "qqqCallSpreads");
+  const vxxStrategy = E.OPTION_STRATEGIES.find(x => x.key === "vxxCallSpreads");
+  assert.equal(E.validatePrimaryOptionHandoff(qqqCandidate, now).ok, true);
+  assert.equal(E.validatePrimaryOptionHandoff(vxxCandidate, now).ok, true);
+  assert.equal(E.candidateRisk(qqqStrategy, qqqCandidate, null, now).riskPerUnit, 973);
+  assert.equal(E.candidateRisk(vxxStrategy, vxxCandidate, null, now).riskPerUnit, 276);
+
+  const sizingInput = {
+    market: { qqq: 748, vxx: 17.23, vix: 18, m1: 18, m2: 19, term_asof: today, spot_asof: today, today, term_source: "FIXTURE" },
+    nav: 100000,
+    cashPool: 100000,
+    sizing: { qqqCorePct: 42, vxxNormalPct: 18, vxxHighPct: 10, totalOptionRiskPct: 3.2, qqqCallRiskPct: 1.2, vxxCallRiskPct: 2, vixHigh: 28, termSafe: 5, maxTermAgeDays: 4 },
+    holdings: {},
+    candidates: { qqqCall: qqqCandidate, vxxCall: vxxCandidate },
+    permissions: {}
+  };
+  const cleanPlan = E.calculatePortfolio(sizingInput);
+  const row = (plan, key) => {
+    const found = plan.rows.find(x => x.key === key);
+    assert.ok(found, "missing plan row " + key);
+    return found;
+  };
+  assert.equal(row(cleanPlan, "qqqCallSpreads").riskPerUnit, 973);
+  assert.equal(row(cleanPlan, "qqqCallSpreads").capacity, 1);
+  assert.equal(row(cleanPlan, "vxxCallSpreads").riskPerUnit, 276);
+  assert.equal(row(cleanPlan, "vxxCallSpreads").capacity, 7);
+  assert.equal(cleanPlan.totalRequestedRiskBudgetsUsd, 3200);
+
+  const tampered = { ...qqqCandidate, credit: qqqCandidate.credit + 0.01 };
+  const blockedPlan = E.calculatePortfolio({ ...sizingInput, candidates: { qqqCall: tampered, vxxCall: vxxCandidate } });
+  assert.equal(row(blockedPlan, "qqqCallSpreads").riskPerUnit, null);
+  assert.equal(row(blockedPlan, "qqqCallSpreads").capacity, null);
+  assert.equal(row(blockedPlan, "qqqCallSpreads").action, "PENDING");
+  assert.equal(row(blockedPlan, "qqqCallSpreads").riskSource, "PENDING_OPTION_EVIDENCE");
+  assert.equal(row(blockedPlan, "vxxCallSpreads").capacity, 7, "a blocked QQQ candidate must not dilute valid VXX allocation");
+  assert.equal(blockedPlan.totalRequestedRiskBudgetsUsd, 2000);
+
+  const stale = { ...qqqCandidate, quoteObservedAt: new Date(now - 16 * 60000).toISOString() };
+  const stalePlan = E.calculatePortfolio({ ...sizingInput, candidates: { qqqCall: stale, vxxCall: vxxCandidate } });
+  assert.equal(row(stalePlan, "qqqCallSpreads").capacity, null);
+  assert.equal(row(stalePlan, "qqqCallSpreads").status, "PENDING");
+  assert.equal(row(stalePlan, "vxxCallSpreads").capacity, 7);
+}
+
 console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS");
