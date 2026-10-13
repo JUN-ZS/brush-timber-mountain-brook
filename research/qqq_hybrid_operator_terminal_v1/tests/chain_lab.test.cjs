@@ -194,7 +194,7 @@ for (const [html, id] of [[mainHtml, 'id="measurementScorecard"'], [labHtml, 'id
   assert.ok(html.includes("at least 2.00"), "pre-registered downside acceptance bar must be visible");
   assert.ok(html.includes("at least 20%"), "pre-registered deployment acceptance bar must be visible");
 }
-assert.ok(measurementReport.includes("1,688 / 1,688"), "measurement report must record independent ledger coverage");
+assert.ok(measurementReport.includes("1,688 pass, 0 fail, 0 blocked"), "latest scorecard must record exact independent ledger coverage");
 assert.ok(measurementReport.includes("FAILS CURRENT BASE SCREEN"), "latest measured snapshot must preserve the actual failed baseline screen");
 assert.ok(measurementReport.includes("No"), "measurement report must retain a no-promotion disposition");
 
