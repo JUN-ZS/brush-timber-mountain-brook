@@ -57,7 +57,7 @@
 
   function parseDateOnlyUtc(value) {
     const date = String(value ?? "").trim();
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
     const ms = Date.parse(date + "T00:00:00Z");
     if (!Number.isFinite(ms) || new Date(ms).toISOString().slice(0, 10) !== date) return null;
     return ms;
