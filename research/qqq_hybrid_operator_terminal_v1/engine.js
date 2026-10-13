@@ -55,11 +55,18 @@
     return Number.isFinite(m1) && Number.isFinite(m2) && m1 > 0 ? ((m2 - m1) / m1) * 100 : null;
   }
 
+  function parseDateOnlyUtc(value) {
+    const date = String(value ?? "").trim();
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return null;
+    const ms = Date.parse(date + "T00:00:00Z");
+    if (!Number.isFinite(ms) || new Date(ms).toISOString().slice(0, 10) !== date) return null;
+    return ms;
+  }
+
   function daysBetween(a, b) {
-    if (!a || !b) return null;
-    const x = Date.parse(String(a).slice(0, 10) + "T00:00:00Z");
-    const y = Date.parse(String(b).slice(0, 10) + "T00:00:00Z");
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const x = parseDateOnlyUtc(a);
+    const y = parseDateOnlyUtc(b);
+    if (x === null || y === null) return null;
     return Math.abs(y - x) / 86400000;
   }
 
@@ -78,13 +85,22 @@
     if (!hasAll || s.term_source === "BLOCKED") {
       return { blocked: true, status: "BLOCKED", state: "DATA BLOCKED", action: "HOLD", allowNew: false, riskOff: true, qqq, vxx, vix, m1, m2, slope, reason: "Missing/invalid spot or VX M1/M2. No target may be inferred from absent data." };
     }
-    const age = termAsOf ? daysBetween(termAsOf, today) : null;
-    const asofGap = spotAsOf && termAsOf ? daysBetween(spotAsOf, termAsOf) : 0;
-    if (age === null || age > maxAge) {
+    const todayMs = parseDateOnlyUtc(today);
+    const termAsOfMs = parseDateOnlyUtc(termAsOf);
+    const spotAsOfMs = parseDateOnlyUtc(spotAsOf);
+    if (todayMs === null || termAsOfMs === null || spotAsOfMs === null) {
+      return { blocked: true, status: "AS-OF INVALID", state: "AS-OF INVALID", action: "HOLD", allowNew: false, riskOff: true, qqq, vxx, vix, m1, m2, slope, age: null, reason: "Valid spot_asof, term_asof, and today dates in YYYY-MM-DD format are required; missing or invalid dates are not assumed fresh." };
+    }
+    if (termAsOfMs > todayMs || spotAsOfMs > todayMs) {
+      return { blocked: true, status: "FUTURE", state: "AS-OF FUTURE", action: "HOLD", allowNew: false, riskOff: true, qqq, vxx, vix, m1, m2, slope, age: null, reason: "Spot or VX term as-of date is in the future; verify the source date before sizing." };
+    }
+    const age = (todayMs - termAsOfMs) / 86400000;
+    const asofGap = Math.abs(spotAsOfMs - termAsOfMs) / 86400000;
+    if (age > maxAge) {
       return { blocked: true, status: "STALE", state: "DATA STALE", action: "HOLD", allowNew: false, riskOff: true, qqq, vxx, vix, m1, m2, slope, age, reason: "VX term as-of is missing or older than the permitted cadence. Freeze sizing changes until refreshed." };
     }
-    if (asofGap !== null && asofGap > 2) {
-      return { blocked: true, status: "MIXED", state: "AS-OF MIXED", action: "HOLD", allowNew: false, riskOff: true, qqq, vxx, vix, m1, m2, slope, age, reason: "Spot and VX term timestamps differ by more than two days." };
+    if (asofGap > 2) {
+      return { blocked: true, status: "MIXED", state: "AS-OF MIXED", action: "HOLD", allowNew: false, riskOff: true, qqq, vxx, vix, m1, m2, slope, age, reason: "Spot and VX term dates differ by more than two days." };
     }
     const high = vix >= num(settings.vixHigh, REFERENCE_PROFILE.vixHigh);
     const backwardation = slope <= 0;

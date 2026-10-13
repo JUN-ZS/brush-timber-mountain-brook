@@ -193,6 +193,33 @@ function row(result, key) {
   assert.equal(row(r, "qqqCallSpreads").action, "BLOCKED");
 }
 
+// Future, missing or malformed spot/VX as-of dates cannot create fresh-market sizing.
+{
+  const futureTerm = E.calculatePortfolio(base({
+    market: snap({ today: "2026-10-09", term_asof: "2026-10-10", spot_asof: "2026-10-10" })
+  }));
+  assert.equal(futureTerm.market.blocked, true);
+  assert.equal(futureTerm.market.state, "AS-OF FUTURE");
+
+  const futureSpot = E.calculatePortfolio(base({
+    market: snap({ today: "2026-10-09", term_asof: "2026-10-09", spot_asof: "2026-10-10" })
+  }));
+  assert.equal(futureSpot.market.blocked, true);
+  assert.equal(futureSpot.market.state, "AS-OF FUTURE");
+
+  const missingSpotDate = E.calculatePortfolio(base({
+    market: snap({ today: "2026-10-09", spot_asof: "" })
+  }));
+  assert.equal(missingSpotDate.market.blocked, true);
+  assert.equal(missingSpotDate.market.state, "AS-OF INVALID");
+
+  const invalidTermDate = E.calculatePortfolio(base({
+    market: snap({ today: "2026-10-09", term_asof: "2026-02-30" })
+  }));
+  assert.equal(invalidTermDate.market.blocked, true);
+  assert.equal(invalidTermDate.market.state, "AS-OF INVALID");
+}
+
 // Generic Ratio Put remains stress-only: no fake hard max-loss capacity is allowed.
 {
   const r = E.calculatePortfolio(base({
