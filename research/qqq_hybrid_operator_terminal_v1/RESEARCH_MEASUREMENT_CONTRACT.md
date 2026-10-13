@@ -2,6 +2,8 @@
 
 **Status:** pre-registered evaluation rules for future research; no live strategy policy change. Thresholds below are engineering/research acceptance criteria, not claims that any return target is achievable.
 
+**Latest measured snapshot:** [QQQ Hybrid Measurement Scorecard — Replay #148 / Audit #177](QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md). This immutable run snapshot is tied to code head `57fd41b2d47c8721b445a6f704610e0e524a890e`; it does not imply later documentation commits were replayed. Its disposition remains Accuracy **BLOCKED** for trade-performance use, Generality **NOT DEMONSTRATED**, and FAR CALL integration **FAILS CURRENT BASE SCREEN**.
+
 ## 0. Practical measurement when a condition may be wrong
 
 **Do not wait for perfect inputs to learn something. Measure whether the plausible error changes the decision.** This section allows imperfect, clearly-labelled inputs for exploration; it does not relax the hard gates for primary sizing, contract safety, or strategy promotion.
