@@ -138,7 +138,7 @@
     if (!Number.isFinite(row.markAsOfMs)) return { label: "AS-OF INVALID", stale: true, ageMinutes: null };
     if (!hasExplicitTimezone(row.markAsOf)) return { label: "AS-OF TIMEZONE UNKNOWN", stale: true, ageMinutes: null };
     const ageMinutes = (nowMs - row.markAsOfMs) / 60000;
-    if (ageMinutes < -5) return { label: "FUTURE TIMESTAMP", stale: true, ageMinutes };
+    if (ageMinutes < 0) return { label: "FUTURE TIMESTAMP", stale: true, ageMinutes };
     if (row.markSourceType === "BROKER_LIVE") {
       return { label: ageMinutes <= 15 ? "LIVE ≤15M" : "STALE LIVE", stale: ageMinutes > 15, ageMinutes };
     }

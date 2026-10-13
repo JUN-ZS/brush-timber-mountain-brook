@@ -56,6 +56,12 @@ function base(overrides = {}) {
   assert.equal(staleLive.metadataCompletePnlRows, 0);
   assert.equal(staleLive.indicativePnlRows, 1);
 
+  // Even a small future timestamp must fail closed; clock skew must not make a future quote look current.
+  const futureTimestamp = P.summarize([base({ markAsOf: "2026-10-11T10:06:00Z" })], {}, Date.parse("2026-10-11T10:05:00Z"));
+  assert.equal(futureTimestamp.rows[0].markFreshness, "FUTURE TIMESTAMP");
+  assert.equal(futureTimestamp.rows[0].pnlStatus, "INDICATIVE · MARK STALE/INVALID");
+  assert.equal(futureTimestamp.metadataCompletePnlRows, 0);
+
   const missingTimezone = P.summarize([base({ markAsOf: "2026-10-11T10:00" })], {}, Date.parse("2026-10-11T10:05:00Z"));
   assert.equal(missingTimezone.rows[0].markFreshness, "AS-OF TIMEZONE UNKNOWN");
   assert.equal(missingTimezone.rows[0].pnlStatus, "INDICATIVE · MARK TIMEZONE UNKNOWN");
