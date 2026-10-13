@@ -384,7 +384,9 @@
   }
 
   function readMarket() {
-    const today = $("mToday").value || new Date().toISOString().slice(0, 10);
+    // This is an operational desk, not a historical replay UI. Never let a
+    // snapshot or manually edited date make old quotes look fresh.
+    const today = E.currentMarketDate(Date.now()) || "";
     return {
       qqq: E.num($("mQqq").value),
       vxx: E.num($("mVxx").value),
@@ -469,7 +471,7 @@
     setInput("mM2", snapshot?.m2);
     setInput("mSpotAsOf", snapshot?.spot_asof);
     setInput("mTermAsOf", snapshot?.term_asof);
-    setInput("mToday", snapshot?.today || new Date().toISOString().slice(0, 10));
+    setInput("mToday", E.currentMarketDate(Date.now()) || "");
     marketMeta = meta || [
       snapshot?.bridge_source || snapshot?.source_chain?.join(" → ") || "V3 snapshot",
       snapshot?.provenance ? JSON.stringify(snapshot.provenance) : "",

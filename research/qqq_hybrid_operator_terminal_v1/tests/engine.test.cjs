@@ -220,6 +220,21 @@ function row(result, key) {
   assert.equal(invalidTermDate.market.state, "AS-OF INVALID");
 }
 
+// The operator desk must use the current US market date, not a snapshot's
+// historical "today" or a manually backdated UI field to make stale data fresh.
+{
+  assert.equal(E.currentMarketDate(Date.parse("2026-10-14T02:42:00+08:00")), "2026-10-13");
+  assert.equal(E.currentMarketDate(Date.parse("2026-10-14T12:00:00Z")), "2026-10-14");
+  assert.equal(E.currentMarketDate(Date.parse("2026-03-08T07:30:00Z")), "2026-03-08");
+  assert.equal(E.currentMarketDate(NaN), null);
+  const appSource = fs.readFileSync(require.resolve("../app.js"), "utf8");
+  const htmlSource = fs.readFileSync(require.resolve("../index.html"), "utf8");
+  assert.match(appSource, /const today = E\.currentMarketDate\(Date\.now\(\)\) \|\| "";/);
+  assert.match(appSource, /setInput\("mToday", E\.currentMarketDate\(Date\.now\(\)\) \|\| ""\);/);
+  assert.doesNotMatch(appSource, /snapshot\?\.today/, "snapshot today must not override operational clock");
+  assert.match(htmlSource, /id="mToday"[^>]*readonly/, "US market date is displayed but cannot be manually backdated");
+}
+
 // Generic Ratio Put remains stress-only: no fake hard max-loss capacity is allowed.
 {
   const r = E.calculatePortfolio(base({

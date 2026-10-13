@@ -55,6 +55,30 @@
     return Number.isFinite(m1) && Number.isFinite(m2) && m1 > 0 ? ((m2 - m1) / m1) * 100 : null;
   }
 
+  function currentMarketDate(nowMs = Date.now()) {
+    const ms = Number(nowMs);
+    if (!Number.isFinite(ms)) return null;
+    const instant = new Date(ms);
+    if (!Number.isFinite(instant.getTime())) return null;
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(instant);
+      const values = Object.fromEntries(parts
+        .filter(part => ["year", "month", "day"].includes(part.type))
+        .map(part => [part.type, part.value]));
+      if (!values.year || !values.month || !values.day) return null;
+      return values.year + "-" + values.month + "-" + values.day;
+    } catch (_) {
+      // If the exchange timezone is unavailable, fail closed rather than
+      // silently substituting the operator's local date or UTC date.
+      return null;
+    }
+  }
+
   function parseDateOnlyUtc(value) {
     const date = String(value ?? "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
@@ -735,7 +759,7 @@
     return { right, expiry: x.expiry, dte: x.dte, strike: x.strike, ask: x.ask, delta: x.delta, deltaSource: x.deltaSource, source: "YAHOO_OPTION_CHAIN_DELAYED_OR_ESTIMATED", candidateStatus: "REVIEW_BEFORE_USE" };
   }
 
-  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, assessMarket, quoteQuality, isAdjustedVxxContractSymbol, validatePrimaryOptionHandoff, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
+  const Engine = { REFERENCE_PROFILE, OPTION_STRATEGIES, num, termSlope, currentMarketDate, assessMarket, quoteQuality, isAdjustedVxxContractSymbol, validatePrimaryOptionHandoff, candidateRisk, calculatePortfolio, calculateRatioCampaign, findCreditVertical, findLongOption, findShortCall };
   root.HybridOperatorEngineV1 = Engine;
   if (typeof module !== "undefined" && module.exports) module.exports = Engine;
 })(typeof globalThis !== "undefined" ? globalThis : this);
