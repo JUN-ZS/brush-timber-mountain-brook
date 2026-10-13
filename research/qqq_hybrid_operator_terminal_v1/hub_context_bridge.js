@@ -26,10 +26,12 @@
     const registerUsable = positionRegister.useForSizing === true &&
       positionRegister.completeConfirmed === true;
     const recordedPositions = Array.isArray(positionRegister.records) ? positionRegister.records : [];
+    const recordedOptionPositions = recordedPositions.filter(item => item &&
+      (item.template === "QQQ_CALL_CREDIT" || item.template === "VXX_CALL_CREDIT") && finite(item.qty) > 0);
     let reservation = 0;
     let riskReservationReady = primarySizingReady;
     const riskReservationRows = [];
-    if (recordedPositions.length > 0 && !registerUsable) riskReservationReady = false;
+    if (recordedOptionPositions.length > 0 && !registerUsable) riskReservationReady = false;
     for (const key of PRIMARY_OPTION_KEYS) {
       const row = rows.find(item => item && item.key === key);
       if (!row) {

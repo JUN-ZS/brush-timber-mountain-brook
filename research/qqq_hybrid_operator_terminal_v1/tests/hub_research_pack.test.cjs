@@ -276,6 +276,19 @@ function ratioBase(overrides = {}) {
   assert.equal(matchedHeldRegister.riskReservationReady, true);
   assert.equal(matchedHeldRegister.baseRiskReservedUsd, 1676, "held risk comes from reconciled positions; candidate risk prices only incremental target adds");
 
+  const stockOnlyRegister = Bridge.contextFromPrimaryPlan({
+    ...plan,
+    input: {
+      ...plan.input,
+      positionRegister: {
+        useForSizing: false,
+        completeConfirmed: false,
+        records: [{ template: "QQQ_CORE", qty: 50 }, { template: "VXX_SHORT_STOCK", qty: 10 }]
+      }
+    }
+  });
+  assert.equal(stockOnlyRegister.riskReservationReady, true, "stock-only ledger rows do not reserve option risk or falsely block a zero-current option scenario");
+
   const unregisteredHeldRisk = Bridge.contextFromPrimaryPlan({
     ...plan,
     result: { ...plan.result, rows: [
