@@ -396,4 +396,77 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.equal(row(stalePlan, "vxxCallSpreads").capacity, 7);
 }
 
-console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS");
+
+// Prospective journal: quote snapshots and outcome events are append-only, separated, and never authorize orders.
+{
+  const journalSource = fs.readFileSync(require.resolve("../paper_observation_journal.js"), "utf8");
+  const journalSandbox = { module: { exports: {} } };
+  vm.runInNewContext(journalSource, journalSandbox, { filename: "paper_observation_journal.js" });
+  const J = journalSandbox.module.exports;
+  const now = Date.parse("2026-10-13T09:00:00Z");
+  const q = J.createQuoteObservation({
+    eventId: J.nextEventId("QUOTE", 0, now), recordedAt: new Date(now).toISOString(),
+    chainKey: "QQQ_CALL", expiration: "2026-11-20",
+    sourceMeta: { sourceType: "BROKER_EXPORT", sourceName: "operator-entered test metadata", sourceUrl: "", observedAt: "2026-10-13T08:55:00Z", timezone: "UTC", contractSymbol: "QQQ", contractStatus: "STANDARD_TERMS_RECORDED", deliverableNote: "100 shares", contractEvidenceUrl: "https://www.theocc.com/" },
+    provenanceStatus: "RECORDED_REVIEW_REQUIRED", freshnessStatus: "AS-OF ≤15M", quoteAgeMinutes: 5, provenanceComplete: true,
+    manuallyEdited: false, multiplier: 100, riskBudgetUsd: 3200, plannedQuantity: 1, intendedLimitCreditPerShare: 1.2,
+    candidate: { key: "799C/810C", shortStrike: 799, longStrike: 810, width: 11, shortBid: 3.16, shortAsk: 3.18, longBid: 1.87, longAsk: 1.89, credit: 1.27, maxLoss: 973, maxProfit: 127, breakEven: 800.27, isCall: true },
+    chainRows: [{strike:799,bid:3.16,ask:3.18,delta:0.1456},{strike:810,bid:1.87,ask:1.89,delta:0.0954}], note: "synthetic test only"
+  });
+  assert.equal(q.ok, true);
+  assert.equal(q.event.status, "QUOTE_SNAPSHOT_ONLY_NOT_FILL");
+  assert.equal(q.event.ordersAuthorized, false);
+  assert.equal(q.event.dataAuthentication, "NOT_INDEPENDENTLY_AUTHENTICATED");
+  assert.equal(q.event.candidateContractSymbols.short, "QQQ261120C00799000");
+  const env0 = J.emptyEnvelope(new Date(now).toISOString());
+  const appended = J.appendEvent(env0, q.event);
+  assert.equal(appended.ok, true);
+  assert.equal(J.summarize(appended.envelope).quoteObservations, 1);
+  assert.equal(J.summarize(appended.envelope).metadataAndFreshnessPassAtCapture, 1);
+  const invalidStamp = J.createQuoteObservation({ ...q.event, eventId: "bad", recordedAt: "2026-10-13T09:00:00" });
+  assert.equal(invalidStamp.ok, false);
+  const staleQuote = J.createQuoteObservation({ ...q.event, eventId: "stale", provenanceComplete: false, freshnessStatus: "STALE >15M" });
+  assert.equal(staleQuote.ok, true);
+  assert.equal(staleQuote.event.provenanceCompleteAtCapture, false);
+  const noTzFill = J.createOutcomeEvent({ eventId:"out-no-tz", recordedAt:new Date(now+60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.24, filledQuantity:1, outcomeAt:"2026-10-13T09:01:00", outcomeReference:"statement row 1" },q.event);
+  assert.equal(noTzFill.ok,false);
+  const noRefFill = J.createOutcomeEvent({ eventId:"out-no-ref", recordedAt:new Date(now+60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.24, filledQuantity:1, outcomeAt:"2026-10-13T09:01:00Z", outcomeReference:"" },q.event);
+  assert.equal(noRefFill.ok,false);
+  const fill = J.createOutcomeEvent({ eventId:"out-fill", recordedAt:new Date(now+60000).toISOString(), outcomeType:"OPERATOR_REPORTED_FILL", fillCreditPerShare:1.22, filledQuantity:2, outcomeAt:"2026-10-13T09:01:00Z", outcomeReference:"statement row label 1" },q.event);
+  assert.equal(fill.ok,true);
+  assert.equal(fill.event.dataAuthentication,"OPERATOR_REPORTED_NOT_AUTHENTICATED");
+  const withFill = J.appendEvent(appended.envelope,fill.event);
+  assert.equal(withFill.ok,true);
+  const summary = J.summarize(withFill.envelope);
+  assert.equal(summary.operatorReportedFillCount,1);
+  assert.equal(summary.eligibleReportedFillComparisons,1);
+  assert.equal(summary.meanReportedFillCreditGapPerShare, -0.05);
+  assert.equal(summary.meanReportedFillCreditGapPerContractUsd, -5);
+  assert.equal(summary.fillComparisons[0].gapTotalUsd,-10);
+  const hypothetical = J.createOutcomeEvent({ eventId:"out-paper", recordedAt:new Date(now+120000).toISOString(), outcomeType:"PAPER_ASSUMED_FILL", fillCreditPerShare:1.25, filledQuantity:1, outcomeAt:"", outcomeReference:"", note:"hypothesis only" },q.event);
+  assert.equal(hypothetical.ok,true);
+  const withHypothesis = J.appendEvent(withFill.envelope,hypothetical.event);
+  assert.equal(withHypothesis.ok,true);
+  assert.equal(J.summarize(withHypothesis.envelope).eligibleReportedFillComparisons,1,"hypothetical fills never contaminate reported-fill comparison");
+  assert.equal(J.summarize(withHypothesis.envelope).hypotheticalFillCount,1);
+  assert.equal(J.appendEvent(withHypothesis.envelope,q.event).ok,false,"duplicate IDs are rejected");
+  assert.equal(J.parseEnvelope(JSON.stringify(withHypothesis.envelope)).ok,true,"journal JSON round-trips");
+  const broken = JSON.parse(JSON.stringify(withHypothesis.envelope));
+  broken.events[1].observationId = "missing-parent";
+  assert.equal(J.parseEnvelope(broken).ok,false,"dangling outcomes are rejected");
+  const merged = J.mergeEnvelopes(withHypothesis.envelope, JSON.stringify(withFill.envelope));
+  assert.equal(merged.ok,true);
+  assert.equal(merged.duplicates,2);
+  assert.equal(merged.envelope.events.length,3);
+  assert.equal(J.createOutcomeEvent({eventId:"no-trade",recordedAt:new Date(now+120000).toISOString(),outcomeType:"NO_TRADE"},q.event).ok,true);
+  const htmlSource = fs.readFileSync(require.resolve("../option_chain_lab.html"), "utf8");
+  const appSource = fs.readFileSync(require.resolve("../option_chain_lab.js"), "utf8");
+  assert.ok(htmlSource.includes('id="paperObservationJournal"'));
+  assert.ok(htmlSource.includes('id="recordPaperObservation"'));
+  assert.ok(htmlSource.includes('id="importPaperJournal"'));
+  assert.ok(htmlSource.includes('src="paper_observation_journal.js"'));
+  assert.ok(appSource.includes("PaperJournal.createQuoteObservation"));
+  assert.ok(appSource.includes("renderPaperJournal"));
+}
+
+console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS; paper_observation_journal=PASS");
