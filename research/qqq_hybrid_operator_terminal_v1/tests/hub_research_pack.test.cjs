@@ -218,4 +218,76 @@ function ratioBase(overrides = {}) {
   assert.equal(c.deltaSource, "PROVIDER_DELTA");
 }
 
-console.log("HUB RESEARCH OPTION PACK: 10 TEST GROUPS PASS");
+
+// Main desk → Hub bridge: copy capital once, estimate Hybrid reservation conservatively,
+// and fail closed when the plan or any held option-risk unit is unknown.
+{
+  const Bridge = require("../hub_context_bridge.js");
+  const now = Date.parse("2026-10-13T10:00:00Z");
+  const plan = {
+    generatedAt: new Date(now).toISOString(),
+    input: {
+      nav: 100000, cashPool: 80000,
+      sizing: { cashReservePct: 10, totalOptionRiskPct: 3.2 },
+      market: { qqq: 500, spot_asof: "2026-10-13", term_asof: "2026-10-13", term_source: "V3_READ_ONLY" }
+    },
+    result: {
+      ok: true,
+      market: { status: "FRESH", state: "CARRY", blocked: false },
+      rows: [
+        { key: "qqqCallSpreads", current: 1, target: 1, riskPerUnit: 973 },
+        { key: "vxxCallSpreads", current: 2, target: 3, riskPerUnit: 276 }
+      ]
+    }
+  };
+  const packet = Bridge.contextFromPrimaryPlan(plan);
+  assert.equal(packet.schema, "QQQ_HYBRID_PRIMARY_CONTEXT_V1");
+  assert.equal(packet.riskReservationReady, true);
+  assert.equal(packet.baseRiskReservedUsd, 1801, "reservation uses max(current,target) per primary leg");
+  assert.equal(packet.market.qqqSpot, 500);
+  const valid = Bridge.validate(packet, now);
+  assert.equal(valid.ok, true);
+  assert.equal(valid.context.capital.nav, 100000);
+  assert.equal(valid.context.baseRiskReservedUsd, 1801);
+  assert.equal(valid.context.riskReservationBasis, "MAX_CURRENT_OR_TARGET_QTY_X_CURRENT_CANDIDATE_MAX_LOSS; ESTIMATE_NOT_CONFIRMED_FILL");
+
+  const heldRiskUnknown = Bridge.contextFromPrimaryPlan({
+    ...plan,
+    result: { ...plan.result, rows: [
+      { key: "qqqCallSpreads", current: 1, target: 1, riskPerUnit: null },
+      { key: "vxxCallSpreads", current: 0, target: 0, riskPerUnit: null }
+    ]}
+  });
+  assert.equal(heldRiskUnknown.riskReservationReady, false);
+  assert.equal(heldRiskUnknown.baseRiskReservedUsd, null);
+  assert.equal(Bridge.validate(heldRiskUnknown, now).ok, true, "unknown source context may carry capital but must preserve a null risk reservation");
+
+  const blockedPlan = Bridge.contextFromPrimaryPlan({
+    ...plan,
+    result: { ...plan.result, ok: false, market: { status: "STALE", state: "DATA STALE", blocked: true } }
+  });
+  assert.equal(blockedPlan.primarySizingReady, false);
+  assert.equal(blockedPlan.riskReservationReady, false);
+  assert.equal(blockedPlan.baseRiskReservedUsd, null);
+
+  assert.equal(Bridge.validate({ ...packet, generatedAt: "2026-10-13T10:00:00" }, now).ok, false, "context timestamp must include timezone");
+  assert.equal(Bridge.validate({ ...packet, generatedAt: new Date(now - Bridge.MAX_AGE_MS - 1).toISOString() }, now).ok, false, "stale context cannot be imported");
+  assert.equal(Bridge.validate({ ...packet, capital: { ...packet.capital, totalOptionRiskPct: 101 } }, now).ok, false);
+  assert.equal(Bridge.validate({ ...packet, riskReservationReady: false, baseRiskReservedUsd: 0 }, now).ok, false, "unknown risk reservation must never be represented as zero");
+
+  const mainHtml = fs.readFileSync(require("path").join(__dirname, "../index.html"), "utf8");
+  const mainApp = fs.readFileSync(require("path").join(__dirname, "../app.js"), "utf8");
+  const hubHtml = fs.readFileSync(require("path").join(__dirname, "../hub_research_pack.html"), "utf8");
+  const hubUi = fs.readFileSync(require("path").join(__dirname, "../hub_research_pack_ui.js"), "utf8");
+  assert.ok(mainHtml.includes('id="syncHubBtn"'));
+  assert.ok(mainHtml.indexOf('src="hub_context_bridge.js"') < mainHtml.indexOf('src="app.js"'), "main bridge script must load before app.js");
+  assert.ok(mainApp.includes("contextFromPrimaryPlan(lastPlan)"));
+  assert.ok(mainApp.includes("localStorage.setItem(bridge.STORAGE_KEY"));
+  assert.ok(hubHtml.includes('id="importPrimaryContextBtn"'));
+  assert.ok(hubHtml.includes('id="baseRiskReservedUsd"') && !/id="baseRiskReservedUsd"[^>]*value="0"/.test(hubHtml), "unknown Hybrid reservation must not default to zero");
+  assert.ok(hubHtml.indexOf('src="hub_context_bridge.js"') < hubHtml.indexOf('src="hub_research_pack_ui.js"'), "Hub bridge script must load before the UI");
+  assert.ok(hubUi.includes("function importPrimaryContext()"));
+  assert.ok(hubUi.includes("budget.remainingPool === null"), "unknown base reservation must block Hub calculations");
+}
+
+console.log("HUB RESEARCH OPTION PACK: 11 TEST GROUPS PASS");

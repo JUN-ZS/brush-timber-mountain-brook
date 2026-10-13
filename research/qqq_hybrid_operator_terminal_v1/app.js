@@ -1096,6 +1096,34 @@
   }
 
 
+
+  function syncCapitalContextToHub() {
+    const status = $("hubContextSyncStatus");
+    const link = $("openHubFromContextLink");
+    const bridge = window.HubContextBridgeV1;
+    if (!bridge || typeof bridge.contextFromPrimaryPlan !== "function") {
+      if (status) status.textContent = "Hub context bridge unavailable; refresh the local app files before syncing.";
+      return;
+    }
+    try {
+      renderPlan();
+      const packet = bridge.contextFromPrimaryPlan(lastPlan);
+      const checked = bridge.validate(packet, Date.now());
+      if (!checked.ok) throw new Error(checked.error || "Primary context validation failed.");
+      window.localStorage.setItem(bridge.STORAGE_KEY, JSON.stringify(packet));
+      if (link) link.hidden = false;
+      if (status) {
+        status.textContent = packet.riskReservationReady
+          ? "已保存本次主台情境。原 Hybrid 風險額度 = $" + packet.baseRiskReservedUsd.toFixed(2) +
+            "（按 primary current/target 數量 × 目前候選每組風險估算；不是已成交持倉證明）。"
+          : "已保存 NAV／現金設定，但主台 sizing 或現有風險估算未通過；Hub 的預留風險保持未知，不會自動當成 $0。";
+      }
+      try { window.open("hub_research_pack.html?fromPrimary=1", "_blank", "noopener,noreferrer"); } catch (_) {}
+    } catch (error) {
+      if (status) status.textContent = "未能同步到 Hub：" + (error instanceof Error ? error.message : String(error)) + "。主台輸入沒有改動。";
+    }
+  }
+
   function exportAiReviewPack() {
     const helper = window.AiHandoffV1;
     if (!helper || typeof helper.serialize !== "function") {
@@ -1192,6 +1220,7 @@
     $("exportBtn").addEventListener("click", exportPlan);
     $("toggleResearchRows").addEventListener("click", toggleResearchRows);
     $("aiHandoffBtn").addEventListener("click", exportAiReviewPack);
+    $("syncHubBtn").addEventListener("click", syncCapitalContextToHub);
     $("journalBtn").addEventListener("click", appendJournal);
     window.addEventListener("storage", event => {
       if (!event.key || !event.key.startsWith(OPTION_HANDOFF_PREFIX)) return;

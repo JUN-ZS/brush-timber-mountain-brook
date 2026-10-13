@@ -15,6 +15,7 @@
     </div>
     <div class="top-actions">
       <button id="aiHandoffBtn" class="primary">Export AI Review Pack (.md)</button>
+      <button id="syncHubBtn">Send capital → Hub</button>
       <span class="tag danger">PREVIEW ONLY · NO BROKER ORDERS</span>
       <button id="refreshBtn" class="primary">Refresh V3 Data</button>
     </div>
@@ -30,6 +31,8 @@
       <b>Hub 特別期權：</b>Ratio-Call、State-Adaptive / Staggered、SHOCK-GATED Put Spread 保留作研究檢視，<b>不進入主預算</b>，亦不會提供可與主倉加總的容量。
       <small><a href="hub_research_pack.html">開啟 Hub Research Option Pack →</a>（研究細節頁；主操作台的 QQQ/VXX 主賣方預算才是統一容量來源。）</small>
       <small><a href="option_chain_lab.html">開啟 QQQ / VXX Option Chain Lab →</a>（四條 CALL／PUT 鏈、價差矩陣、損益圖；截圖數據只作非即時樣本。）</small>
+      <small id="hubContextSyncStatus" role="status">同步只傳本次情境到同一瀏覽器，不代表成交或授權下單。</small>
+      <small><a id="openHubFromContextLink" href="hub_research_pack.html?fromPrimary=1" target="_blank" rel="noopener" hidden>用剛同步的主台情境開啟 Hub →</a></small>
     </section>
 
     <section class="card ai-handoff-guide" id="aiHandoffGuide">
@@ -477,6 +480,7 @@
   <script src="engine.js"></script>
   <script src="position_ledger.js"></script>
   <script src="ai_handoff.js"></script>
+  <script src="hub_context_bridge.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

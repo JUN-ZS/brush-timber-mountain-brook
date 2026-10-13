@@ -16,8 +16,8 @@
   const n = (id, fallback = null) => E.num($(id) ? $(id).value : null, fallback);
   const checked = (id) => $(id) && $(id).checked === true;
   const set = (id, value) => { if ($(id) && value !== undefined && value !== null && Number.isFinite(Number(value))) $(id).value = value; };
-  const usd = (v) => Number.isFinite(Number(v)) ? "$" + Number(v).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 }) : "—";
-  const fmt = (v, d = 0) => Number.isFinite(Number(v)) ? Number(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d }) : "—";
+  const usd = (v) => v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? "—" : "$" + Number(v).toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+  const fmt = (v, d = 0) => v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? "—" : Number(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
   const pct = (v) => Number.isFinite(Number(v)) ? (Number(v) * 100).toFixed(1) + "%" : "—";
   const esc = (value) => String(value === null || value === undefined ? "" : value).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   const metric = (label, value) => "<div><small>" + esc(label) + "</small><b>" + esc(value) + "</b></div>";
@@ -27,12 +27,13 @@
     const cash = n("cashPool", 0);
     const reservePct = Math.max(0, Math.min(100, n("cashReservePct", 10)));
     const poolPct = Math.max(0, n("totalOptionRiskPct", 3.2));
-    const baseReserved = Math.max(0, n("baseRiskReservedUsd", 0));
+    const baseReserved = n("baseRiskReservedUsd");
+    const baseReservationKnown = baseReserved !== null && baseReserved >= 0;
     const strategyPct = Math.max(0, n("strategyRiskPct", 2));
     const cashAfterReserve = Math.max(0, cash * (1 - reservePct / 100));
     const fullPool = Math.max(0, Math.min(nav * poolPct / 100, cashAfterReserve));
-    const remainingPool = Math.max(0, fullPool - baseReserved);
-    const strategyBudget = Math.max(0, Math.min(nav * strategyPct / 100, remainingPool));
+    const remainingPool = baseReservationKnown ? Math.max(0, fullPool - baseReserved) : null;
+    const strategyBudget = remainingPool === null ? null : Math.max(0, Math.min(nav * strategyPct / 100, remainingPool));
     const bank = E.calculateRiskBank({
       mode: $("bankMode").value === "replenish-comparator" ? "replenish-comparator" : "isolated",
       seedWinUsd: n("bankSeedWinUsd", 0),
@@ -41,8 +42,8 @@
       candidateRiskUsd: 0
     });
     const applyBank = checked("applyRiskBank");
-    const effectiveBudget = applyBank ? Math.min(strategyBudget, bank.availableRiskRightsUsd) : strategyBudget;
-    return { nav, cash, reservePct, cashAfterReserve, fullPool, baseReserved, remainingPool, strategyBudget, effectiveBudget, applyBank, bank };
+    const effectiveBudget = strategyBudget === null ? null : applyBank ? Math.min(strategyBudget, bank.availableRiskRightsUsd) : strategyBudget;
+    return { nav, cash, reservePct, cashAfterReserve, fullPool, baseReserved, baseReservationKnown, remainingPool, strategyBudget, effectiveBudget, applyBank, bank };
   }
 
   function currentInputs() {
@@ -149,6 +150,18 @@
     const bankMeta = budget.applyBank
       ? "Bank gate active · " + usd(budget.bank.availableRiskRightsUsd) + " research risk rights"
       : "Bank gate off · capital/risk budget only";
+
+    if (budget.remainingPool === null) {
+      const reason = "原 Hybrid 已佔用期權風險未知。從主操作台重新同步有效情境，或人手輸入已核對的預留額；空白不會當成 $0。";
+      return {
+        budget, mode, result: { ready: false, status: "PENDING", error: reason },
+        riskAtTarget: null, debitAtTarget: null, oneUnitRisk: null,
+        title: "需要原 Hybrid 風險預留值",
+        rows: [["共享期權風險池", "PENDING"], ["原 Hybrid 預留風險", "UNKNOWN · NOT ZERO"], ["下一步", reason]],
+        bank: budget.bank, bankCandidateRisk: null,
+        bankMeta: "Hub sizing blocked until the existing Hybrid risk reservation is known."
+      };
+    }
 
     if (mode.startsWith("ratio-")) {
       title = $("resultStatus").dataset.mode || mode;
@@ -258,15 +271,53 @@
     return { budget, mode, title, result, rows, riskAtTarget, debitAtTarget, oneUnitRisk, bank, bankCandidateRisk, bankMeta };
   }
 
+  function importPrimaryContext() {
+    const status = $("primaryContextStatus");
+    const bridge = window.HubContextBridgeV1;
+    if (!bridge || typeof bridge.validate !== "function") {
+      status.textContent = "Context bridge unavailable; refresh the local app files.";
+      return;
+    }
+    let raw;
+    try { raw = window.localStorage.getItem(bridge.STORAGE_KEY); }
+    catch (_) { status.textContent = "This browser blocks local storage; primary context cannot be imported."; return; }
+    if (!raw) {
+      status.textContent = "找不到主台快照。先返回主台按「Send capital → Hub」，再回來匯入。";
+      return;
+    }
+    const checked = bridge.validate(raw, Date.now());
+    if (!checked.ok) {
+      status.textContent = "匯入拒絕：" + checked.error;
+      return;
+    }
+    const c = checked.context;
+    set("nav", c.capital.nav);
+    set("cashPool", c.capital.cashPool);
+    set("cashReservePct", c.capital.cashReservePct);
+    set("totalOptionRiskPct", c.capital.totalOptionRiskPct);
+    if (c.market.qqqSpot !== null && c.market.qqqSpot > 0) set("spot", c.market.qqqSpot);
+    else $("spot").value = "";
+    if (c.riskReservationReady) {
+      set("baseRiskReservedUsd", c.baseRiskReservedUsd);
+      status.textContent = "已匯入主台情境 " + c.generatedAt + " · market gate " + c.market.status +
+        " · Hybrid 預留 $" + usd(c.baseRiskReservedUsd) + "。這是 current/target 候選風險估算，非已成交倉位認證。";
+    } else {
+      $("baseRiskReservedUsd").value = "";
+      status.textContent = "已匯入 NAV／現金／比例，但主台 gate=" + c.market.status +
+        " 或原 Hybrid 風險估算未通過。預留額保持 UNKNOWN（不是 $0）；Hub 計算維持 PENDING，請更新主台資料後重同步，或先核對實際風險再手動輸入。";
+    }
+    render();
+  }
+
   function render() {
     selectVisibleFields();
     const budget = commonBudget();
     $("capitalMetrics").innerHTML = [
       metric("Cash after reserve", usd(budget.cashAfterReserve)),
       metric("Total shared option-risk pool", usd(budget.fullPool)),
-      metric("Pool after existing Hybrid reservations", usd(budget.remainingPool)),
-      metric("This strategy budget cap", usd(budget.strategyBudget)),
-      metric("Effective risk budget after Bank", usd(budget.effectiveBudget)),
+      metric("Pool after existing Hybrid reservations", budget.remainingPool === null ? "PENDING / UNKNOWN RESERVE" : usd(budget.remainingPool)),
+      metric("This strategy budget cap", budget.strategyBudget === null ? "PENDING" : usd(budget.strategyBudget)),
+      metric("Effective risk budget after Bank", budget.effectiveBudget === null ? "PENDING" : usd(budget.effectiveBudget)),
       metric("Risk-WIN Bank available", usd(budget.bank.availableRiskRightsUsd))
     ].join("");
 
@@ -285,7 +336,7 @@
       metric("Risk capacity per structure", usd(out.oneUnitRisk)),
       metric("Risk reserved at target", usd(out.riskAtTarget)),
       metric("Positive debit cash requirement (preview)", usd(out.debitAtTarget)),
-      metric("Shared risk pool left after target", usd(Math.max(0, out.budget.remainingPool - out.riskAtTarget))),
+      metric("Shared risk pool left after target", out.budget.remainingPool === null || out.riskAtTarget === null ? "PENDING / BLOCKED" : usd(Math.max(0, out.budget.remainingPool - out.riskAtTarget))),
       metric("Bank available rights", usd(out.bank.availableRiskRightsUsd)),
       metric("Bank candidate gate", out.budget.applyBank ? (out.bank.eligible ? "PASS" : "BLOCK / CHECK") : "OFF")
     ].join("");
@@ -295,7 +346,7 @@
     $("riskBoundary").textContent = "風險邊界：" +
       "Entry risk 使用目前輸入的期權 Bid/Ask 與到期 payoff 節點計算；不是日內最大虧損保證、歷史回測結果或建議倉位。" +
       "研究模板只允許目前選取的一種專用結構；Risk-WIN Bank 是研究風險權利，不是現金／NAV／券商抵押品。" +
-      "此頁不與主 Hybrid 頁自動同步持倉或風險使用量，須把既有風險儲備填入上方，否則不得把多個頁面的最大張數相加。";
+      "可按「Import main desk capital & risk」帶入同一瀏覽器的主台情境；原 Hybrid 預留額是以主台 primary option current/target 數量乘目前候選每組風險的估算，不是已成交倉位證明。若來源 sizing BLOCKED 或持倉風險未知，預留額留空並令計算 PENDING。Hub 數值仍不能與主台最大容量相加。";
   }
 
   for (const id of ids) {
@@ -306,5 +357,13 @@
   }
   $("refreshMarketBtn").addEventListener("click", refreshMarket);
   $("loadChainBtn").addEventListener("click", loadChain);
+  $("importPrimaryContextBtn").addEventListener("click", importPrimaryContext);
+  $("baseRiskReservedUsd").addEventListener("change", () => {
+    $("primaryContextStatus").textContent = $("baseRiskReservedUsd").value.trim()
+      ? "Hybrid 預留風險已手動填入；請核對它與實際持倉／待成交單一致。手動輸入不是系統認證。"
+      : "原 Hybrid 預留風險為 UNKNOWN；此欄空白時 Hub 保持 PENDING，不會當成 $0。";
+    render();
+  });
+  if (new URLSearchParams(window.location.search).get("fromPrimary") === "1") importPrimaryContext();
   render();
 })();
