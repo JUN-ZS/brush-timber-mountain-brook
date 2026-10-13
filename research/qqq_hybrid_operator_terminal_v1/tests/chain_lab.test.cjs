@@ -463,6 +463,7 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   const htmlSource = fs.readFileSync(require.resolve("../option_chain_lab.html"), "utf8");
   const appSource = fs.readFileSync(require.resolve("../option_chain_lab.js"), "utf8");
   assert.ok(htmlSource.includes('id="paperObservationJournal"'));
+  assert.ok(htmlSource.includes('id="paperJournalControls"'), "journal controls should be collapsed by default to avoid dashboard bloat");
   assert.ok(htmlSource.includes('id="recordPaperObservation"'));
   assert.ok(htmlSource.includes('id="importPaperJournal"'));
   assert.ok(htmlSource.includes('src="paper_observation_journal.js"'));
