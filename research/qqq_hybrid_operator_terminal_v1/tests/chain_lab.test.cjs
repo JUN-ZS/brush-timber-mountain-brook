@@ -231,7 +231,7 @@ assert.ok(handoffHtml.includes('id="aiHandoffBtn"'), "top-level AI handoff downl
 assert.ok(handoffHtml.includes('id="aiHandoffGuide"'), "manual collaboration steps must be visible in APP");
 assert.ok(handoffHtml.includes('id="beginnerDecisionChecklist"'), "beginner decision gates must be visible without adding another dashboard");
 assert.ok(handoffHtml.includes('id="vxxShortBorrowAprPct"'), "VXX short carry cost must use an explicit editable APR assumption");
-assert.ok(handoffHtml.includes("max profit = net credit") && handoffHtml.includes("expiry breakeven"), "beginner checklist must explain option payoff measures");
+assert.ok(handoffHtml.includes("maximum profit = net credit") && handoffHtml.includes("expiry breakeven"), "beginner checklist must explain option payoff measures");
 assert.ok(handoffHtml.includes("isolated QQQ Far-Call overlay fails its base integration screen"), "capacity must not be confused with strategy validation");
 assert.ok(handoffHtml.includes('id="positionLedgerCard"'), "position facts/P&L register must be present");
 assert.ok(handoffHtml.includes("does not independently authenticate referenced broker documents"), "position register must disclose that source references are not authenticated");
