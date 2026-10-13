@@ -235,8 +235,8 @@ function ratioBase(overrides = {}) {
       ok: true,
       market: { status: "FRESH", state: "CARRY", blocked: false },
       rows: [
-        { key: "qqqCallSpreads", current: 1, target: 1, riskPerUnit: 973 },
-        { key: "vxxCallSpreads", current: 2, target: 3, riskPerUnit: 276 }
+        { key: "qqqCallSpreads", current: 0, target: 1, riskPerUnit: 973 },
+        { key: "vxxCallSpreads", current: 0, target: 3, riskPerUnit: 276 }
       ]
     }
   };
@@ -249,7 +249,40 @@ function ratioBase(overrides = {}) {
   assert.equal(valid.ok, true);
   assert.equal(valid.context.capital.nav, 100000);
   assert.equal(valid.context.baseRiskReservedUsd, 1801);
-  assert.equal(valid.context.riskReservationBasis, "MAX_CURRENT_OR_TARGET_QTY_X_CURRENT_CANDIDATE_MAX_LOSS; ESTIMATE_NOT_CONFIRMED_FILL");
+  assert.equal(valid.context.riskReservationBasis, "CONFIRMED_REGISTER_HELD_MAX_LOSS_PLUS_INCREMENTAL_TARGET_QTY_X_CURRENT_CANDIDATE_MAX_LOSS");
+
+  const matchedHeldRegister = Bridge.contextFromPrimaryPlan({
+    ...plan,
+    input: {
+      ...plan.input,
+      holdings: { qqqCallSpreads: 1, vxxCallSpreads: 2 },
+      positionRegister: {
+        useForSizing: true,
+        completeConfirmed: true,
+        records: [{ id: "q-held" }, { id: "v-held" }],
+        summary: { rows: [
+          { strategyKey: "qqqCallSpreads", qty: 1, termsComplete: true, identityComplete: true, adjustedDetected: false, maxLossPerPackage: 900 },
+          { strategyKey: "vxxCallSpreads", qty: 2, termsComplete: true, identityComplete: true, adjustedDetected: false, maxLossPerPackage: 250 }
+        ]}
+      }
+    },
+    result: { ...plan.result, rows: [
+      { key: "qqqCallSpreads", current: 1, target: 1, riskPerUnit: 973 },
+      { key: "vxxCallSpreads", current: 2, target: 3, riskPerUnit: 276 }
+    ]}
+  });
+  assert.equal(matchedHeldRegister.riskReservationReady, true);
+  assert.equal(matchedHeldRegister.baseRiskReservedUsd, 1676, "held risk comes from reconciled positions; candidate risk prices only incremental target adds");
+
+  const unregisteredHeldRisk = Bridge.contextFromPrimaryPlan({
+    ...plan,
+    result: { ...plan.result, rows: [
+      { key: "qqqCallSpreads", current: 1, target: 1, riskPerUnit: 973 },
+      { key: "vxxCallSpreads", current: 0, target: 0, riskPerUnit: null }
+    ]}
+  });
+  assert.equal(unregisteredHeldRisk.riskReservationReady, false, "held option quantities without a complete position register must block reservation");
+  assert.equal(unregisteredHeldRisk.baseRiskReservedUsd, null);
 
   const heldRiskUnknown = Bridge.contextFromPrimaryPlan({
     ...plan,

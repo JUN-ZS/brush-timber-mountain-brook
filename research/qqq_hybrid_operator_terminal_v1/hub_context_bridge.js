@@ -20,9 +20,16 @@
     const sizing = input.sizing || {};
     const primarySizingReady = result.ok === true && marketResult.blocked !== true;
     const rows = Array.isArray(result.rows) ? result.rows : [];
+    const positionRegister = input.positionRegister || {};
+    const registerRows = positionRegister.summary && Array.isArray(positionRegister.summary.rows)
+      ? positionRegister.summary.rows : [];
+    const registerUsable = positionRegister.useForSizing === true &&
+      positionRegister.completeConfirmed === true;
+    const recordedPositions = Array.isArray(positionRegister.records) ? positionRegister.records : [];
     let reservation = 0;
     let riskReservationReady = primarySizingReady;
     const riskReservationRows = [];
+    if (recordedPositions.length > 0 && !registerUsable) riskReservationReady = false;
     for (const key of PRIMARY_OPTION_KEYS) {
       const row = rows.find(item => item && item.key === key);
       if (!row) {
@@ -34,19 +41,46 @@
       const target = finite(row.target);
       if (current === null || target === null || current < 0 || target < 0) {
         riskReservationReady = false;
-        riskReservationRows.push({ key, status: "CURRENT_OR_TARGET_UNKNOWN", current, target, riskPerUnit: finite(row.riskPerUnit), reservedUsd: null });
+        riskReservationRows.push({ key, status: "CURRENT_OR_TARGET_UNKNOWN", current, target, riskPerUnit: finite(row.riskPerUnit), heldRiskUsd: null, targetAddRiskUsd: null, reservedUsd: null });
         continue;
       }
-      const quantity = Math.max(current, target);
+      let heldRiskUsd = 0;
+      if (current > 0) {
+        if (!registerUsable) {
+          riskReservationReady = false;
+          riskReservationRows.push({ key, status: "HELD_RISK_REQUIRES_CONFIRMED_POSITION_REGISTER", current, target, riskPerUnit: finite(row.riskPerUnit), heldRiskUsd: null, targetAddRiskUsd: null, reservedUsd: null });
+          continue;
+        }
+        const heldRows = registerRows.filter(item => item && item.strategyKey === key && finite(item.qty) > 0);
+        const registeredQty = heldRows.reduce((sum, item) => sum + finite(item.qty), 0);
+        if (Math.abs(registeredQty - current) > 1e-9 || heldRows.some(item =>
+          item.termsComplete !== true ||
+          item.identityComplete !== true ||
+          item.adjustedDetected === true ||
+          finite(item.maxLossPerPackage) === null ||
+          finite(item.maxLossPerPackage) < 0
+        )) {
+          riskReservationReady = false;
+          riskReservationRows.push({ key, status: "HELD_CONTRACT_RISK_INCOMPLETE", current, target, registeredQty, riskPerUnit: finite(row.riskPerUnit), heldRiskUsd: null, targetAddRiskUsd: null, reservedUsd: null });
+          continue;
+        }
+        heldRiskUsd = heldRows.reduce((sum, item) => sum + finite(item.qty) * finite(item.maxLossPerPackage), 0);
+      }
+      const targetAddQty = Math.max(0, target - current);
       const riskPerUnit = finite(row.riskPerUnit);
-      if (quantity > 0 && (riskPerUnit === null || riskPerUnit < 0)) {
+      if (targetAddQty > 0 && (riskPerUnit === null || riskPerUnit < 0)) {
         riskReservationReady = false;
-        riskReservationRows.push({ key, status: "RISK_PER_UNIT_UNKNOWN", current, target, quantity, riskPerUnit, reservedUsd: null });
+        riskReservationRows.push({ key, status: "TARGET_ADD_RISK_PER_UNIT_UNKNOWN", current, target, targetAddQty, riskPerUnit, heldRiskUsd, targetAddRiskUsd: null, reservedUsd: null });
         continue;
       }
-      const reservedUsd = quantity * (quantity === 0 ? 0 : riskPerUnit);
+      const targetAddRiskUsd = targetAddQty * (targetAddQty === 0 ? 0 : riskPerUnit);
+      const reservedUsd = heldRiskUsd + targetAddRiskUsd;
       reservation += reservedUsd;
-      riskReservationRows.push({ key, status: "ESTIMATED", current, target, quantity, riskPerUnit, reservedUsd });
+      riskReservationRows.push({
+        key,
+        status: current > 0 ? "HELD_REGISTER_PLUS_TARGET_ADDS" : "TARGET_ONLY_SCENARIO",
+        current, target, targetAddQty, riskPerUnit, heldRiskUsd, targetAddRiskUsd, reservedUsd
+      });
     }
     if (!riskReservationReady) reservation = null;
     const qqqSpot = finite(marketInput.qqq);
@@ -71,7 +105,7 @@
       primarySizingReady,
       riskReservationReady,
       baseRiskReservedUsd: riskReservationReady ? reservation : null,
-      riskReservationBasis: "MAX_CURRENT_OR_TARGET_QTY_X_CURRENT_CANDIDATE_MAX_LOSS; ESTIMATE_NOT_CONFIRMED_FILL",
+      riskReservationBasis: "CONFIRMED_REGISTER_HELD_MAX_LOSS_PLUS_INCREMENTAL_TARGET_QTY_X_CURRENT_CANDIDATE_MAX_LOSS",
       riskReservationRows,
       boundary: { brokerOrders: false, actualFillsAuthenticated: false, purpose: "Capital/risk context only; manual review required." }
     };
