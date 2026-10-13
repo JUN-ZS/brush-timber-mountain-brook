@@ -654,6 +654,9 @@ function row(result, key) {
     dataAuthentication:"NOT_INDEPENDENTLY_VERIFIED",ordersAuthorized:false
   };
   assert.equal(E.validatePrimaryOptionHandoff(candidate,now).ok,true);
+  const futureOneMinute = E.validatePrimaryOptionHandoff({...candidate,quoteObservedAt:"2026-10-13T09:01:00Z"},now);
+  assert.equal(futureOneMinute.ok,false,"a one-minute-future timestamp must not pass the primary sizing gate");
+  assert.ok(String(futureOneMinute.reason).toLowerCase().includes("future"));
   const risk=E.candidateRisk(strategy,candidate,null,now);
   assert.equal(risk.ready,true);
   assert.equal(risk.source,"MANUAL_LAB_OPTION_EVIDENCE");

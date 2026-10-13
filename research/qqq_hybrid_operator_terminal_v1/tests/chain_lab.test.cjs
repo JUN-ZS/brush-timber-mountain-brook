@@ -123,6 +123,10 @@ const unzonedProv=Lab.assessProvenance({...goodMeta,observedAt:"2026-10-09T15:45
 assert.equal(unzonedProv.status,"QUOTE_TIMEZONE_UNKNOWN");assert.equal(unzonedProv.complete,false);
 const futureProv=Lab.assessProvenance({...goodMeta,observedAt:"2026-10-09T16:00:00-04:00"},"2026-11-20",2,false,freshNow);
 assert.equal(futureProv.status,"FUTURE_QUOTE_TIMESTAMP");assert.equal(futureProv.complete,false);
+const futureByOneMinute=Lab.assessProvenance({...goodMeta,observedAt:"2026-10-09T15:51:00-04:00"},"2026-11-20",2,false,freshNow);
+assert.equal(futureByOneMinute.status,"FUTURE_QUOTE_TIMESTAMP","a one-minute-future timestamp must be blocked");
+assert.equal(futureByOneMinute.complete,false);
+assert.equal(futureByOneMinute.freshnessStatus,"FUTURE TIMESTAMP");
 const adjustedMeta={...goodMeta,contractStatus:"ADJUSTED_TERMS_RECORDED",contractSymbol:"VXX2"};
 const adjustedStatus=Lab.assessProvenance(adjustedMeta,"2026-11-20",2,false);
 assert.equal(adjustedStatus.status,"ADJUSTED_CONTRACT_SCENARIO_ONLY");

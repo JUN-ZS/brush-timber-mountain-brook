@@ -146,7 +146,7 @@
     const observedMs = Date.parse(observedAt);
     if (!Number.isFinite(observedMs)) return fail("Operator observation timestamp is invalid.");
     const ageMinutes = (nowMs - observedMs) / 60000;
-    if (ageMinutes < -5) return fail("Operator observation timestamp is in the future; verify clock/timezone.");
+    if (ageMinutes < 0) return fail("Operator observation timestamp is in the future; verify clock/timezone.");
     if (ageMinutes > 15) return fail("Operator-recorded observation is older than 15 minutes; refresh/verify the source before sizing.");
     const expiryMs = Date.parse(String(candidate.expiry || "") + "T00:00:00Z");
     if (!Number.isFinite(expiryMs) || new Date(expiryMs).toISOString().slice(0,10) !== candidate.expiry) return fail("Expiry is missing or invalid.");

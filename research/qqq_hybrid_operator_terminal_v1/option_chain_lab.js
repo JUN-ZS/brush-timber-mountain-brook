@@ -75,7 +75,7 @@ if(!/(?:Z|[+-][0-9]{2}:[0-9]{2})$/i.test(stamp))return{status:"TIMEZONE OFFSET U
 var stampMs=Date.parse(stamp);
 if(!Number.isFinite(stampMs))return{status:"AS-OF INVALID",ok:false,ageMinutes:null,reason:"報價觀察時間無效。"};
 var ageMinutes=(nowMs-stampMs)/60000;
-if(ageMinutes < -5)return{status:"FUTURE TIMESTAMP",ok:false,ageMinutes:ageMinutes,reason:"報價時間在未來超過 5 分鐘；時鐘／時區需核實。"};
+if(ageMinutes < 0)return{status:"FUTURE TIMESTAMP",ok:false,ageMinutes:ageMinutes,reason:"報價時間在未來；時鐘／時區需核實。"};
 if(ageMinutes>15)return{status:"STALE >15M",ok:false,ageMinutes:ageMinutes,reason:"報價時間已超過 15 分鐘；刷新報價後才可進行手動執行審查。"};
 return{status:"AS-OF ≤15M",ok:true,ageMinutes:ageMinutes,reason:"時間新鮮度門檻通過，但不代表有成交或可成交。"};
 }
