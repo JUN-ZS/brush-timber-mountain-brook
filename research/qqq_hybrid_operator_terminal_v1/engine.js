@@ -191,6 +191,10 @@
           source:"MANUAL_LAB_OPTION_EVIDENCE", ready:true,
           reason:"Operator-attested screenshot/broker-export arithmetic passed structural and ≤15-minute observation checks. Source authenticity, provider quote timestamp and fills are not independently verified; human review only, no order authorization." };
       }
+      if (strategy.mainBudgetEligible === true) {
+        return { riskPerUnit:null, capitalPerUnitUsd:null, source:"PENDING_OPTION_EVIDENCE", ready:false,
+          reason:"Only a structurally valid Option Chain Lab human-review handoff can create primary option capacity. Missing, public, raw screenshot, and unmarked width/credit candidates remain PENDING." };
+      }
       const explicitUnverifiedChain = candidate && (
         candidate.sizingEvidence === "PUBLIC_CHAIN_SCENARIO_ONLY" ||
         candidate.multiplierVerified === false ||

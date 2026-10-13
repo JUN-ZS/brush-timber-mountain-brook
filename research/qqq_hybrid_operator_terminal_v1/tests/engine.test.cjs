@@ -47,6 +47,39 @@ function base(overrides = {}) {
   };
 }
 
+function primaryTestCandidate({ root = "QQQ", shortStrike = 100, width = 5, credit = 0.8 } = {}) {
+  const nowMs = Date.now();
+  const todayUtc = Date.parse(new Date(nowMs).toISOString().slice(0, 10) + "T00:00:00Z");
+  const expiry = new Date(todayUtc + 45 * 86400000).toISOString().slice(0, 10);
+  const yyMMdd = expiry.slice(2, 4) + expiry.slice(5, 7) + expiry.slice(8, 10);
+  const longStrike = shortStrike + width;
+  const shortBid = credit + 0.2, shortAsk = shortBid + 0.02;
+  const longAsk = 0.2, longBid = 0.19;
+  const occ = strike => root + yyMMdd + "C" + String(Math.round(strike * 1000)).padStart(8, "0");
+  const widthPctMid = (bid, ask) => ((ask - bid) / ((ask + bid) / 2)) * 100;
+  return {
+    handoffSchema: "QQQ_HYBRID_PRIMARY_OPTION_CANDIDATE_V1",
+    chainKey: root + "_CALL", contractRoot: root, right: "call",
+    expiry, dte: 45, shortStrike, longStrike,
+    shortContractSymbol: occ(shortStrike), longContractSymbol: occ(longStrike),
+    shortBid, shortAsk, longBid, longAsk, credit, width,
+    maxLossPerSpread: (width - credit) * 100, maxProfitPerSpread: credit * 100,
+    shortQuoteWidthPctMid: widthPctMid(shortBid, shortAsk),
+    longQuoteWidthPctMid: widthPctMid(longBid, longAsk),
+    multiplierAssumption: 100, multiplierVerified: true,
+    contractTermsStatus: "STANDARD_TERMS_RECORDED", adjustedContractSymbols: [],
+    source: "MANUAL_LAB_OPTION_EVIDENCE", sourceType: "USER_SCREENSHOT_TRANSCRIPTION",
+    sourceName: "deterministic unit-test fixture; not authenticated market evidence", sourceUrl: "",
+    quoteObservedAt: new Date(nowMs - 60000).toISOString(), timezone: "UTC",
+    quoteTimestampStatus: "USER_RECORDED_ASOF_UNVERIFIED_BY_SOURCE",
+    contractEvidenceUrl: "https://example.com/option-terms-test",
+    deliverableNote: "100 shares; deterministic unit-test fixture only",
+    manualAttestation: true, sizingEvidence: "LAB_HUMAN_ATTESTED_STANDARD_TERMS",
+    candidateStatus: "HUMAN_REVIEW_REQUIRED", issuedAt: new Date(nowMs).toISOString(),
+    dataAuthentication: "NOT_INDEPENDENTLY_VERIFIED", ordersAuthorized: false
+  };
+}
+
 function row(result, key) {
   const value = result.rows.find(x => x.key === key);
   assert.ok(value, "missing result row " + key);
@@ -79,7 +112,7 @@ function row(result, key) {
   const r = E.calculatePortfolio(base({
     market: snap({ vix: 31 }),
     holdings: { vxxShortShares: 1000, vxxCallSpreads: 4 },
-    candidates: { vxxCall: { width: 5, credit: 0.8, shortBid: 1, source: "FIXTURE" } }
+    candidates: { vxxCall: primaryTestCandidate({ root: "VXX", shortStrike: 20, width: 5, credit: 0.8 }) }
   }));
   assert.equal(r.market.state, "PRE-SHOCK");
   assert.equal(row(r, "vxxShortShares").capacity, 500);
@@ -103,7 +136,7 @@ function row(result, key) {
 // Defined-risk credit vertical uses width minus credit, never credit by itself.
 {
   const r = E.calculatePortfolio(base({
-    candidates: { qqqCall: { width: 5, credit: 0.8, shortBid: 1.1, source: "FIXTURE" } }
+    candidates: { qqqCall: primaryTestCandidate({ root: "QQQ", shortStrike: 100, width: 5, credit: 0.8 }) }
   }));
   const x = row(r, "qqqCallSpreads");
   assert.equal(x.riskPerUnit, 420);
@@ -117,7 +150,7 @@ function row(result, key) {
 {
   const r = E.calculatePortfolio(base({
     cashPool: 500,
-    candidates: { qqqCall: { width: 5, credit: 0.8, source: "FIXTURE" } }
+    candidates: { qqqCall: primaryTestCandidate({ root: "QQQ", shortStrike: 100, width: 5, credit: 0.8 }) }
   }));
   assert.equal(r.totalOptionRiskPool, 450);
   assert.equal(row(r, "qqqCallSpreads").capacity, 1);
@@ -138,7 +171,7 @@ function row(result, key) {
   const r = E.calculatePortfolio(base({
     market: snap({ m1: 20, m2: 20.5 }),
     holdings: { qqqShares: 1000, vxxCallSpreads: 1 },
-    candidates: { vxxCall: { width: 5, credit: 0.8, shortBid: 1, source: "FIXTURE" } }
+    candidates: { vxxCall: primaryTestCandidate({ root: "VXX", shortStrike: 20, width: 5, credit: 0.8 }) }
   }));
   assert.equal(r.market.state, "WEAKENING");
   assert.equal(row(r, "qqqShares").target, 420);
@@ -373,8 +406,8 @@ function row(result, key) {
   const r = E.calculatePortfolio(base({
     sizing: { ...base().sizing, totalOptionRiskPct: 3.2, qqqCallRiskPct: 3, vxxCallRiskPct: 3 },
     candidates: {
-      qqqCall: { width: 5, credit: 4, source: "FIXTURE" }, // $100 max loss per spread
-      vxxCall: { width: 10, credit: 8, source: "FIXTURE" } // $200 max loss per spread
+      qqqCall: primaryTestCandidate({ root: "QQQ", shortStrike: 400, width: 5, credit: 4 }),
+      vxxCall: primaryTestCandidate({ root: "VXX", shortStrike: 20, width: 10, credit: 8 })
     }
   }));
   assert.ok(Math.abs(r.riskScaleFactor - (3200 / 6000)) < 1e-9);
@@ -385,7 +418,7 @@ function row(result, key) {
   assert.equal(r.optionRiskReservedAtTargets, 3200);
 }
 
-// User-uploaded 2026-11-20 screenshot chain sizes the two call-credit legs; VXX put is intentionally excluded from the primary plan.
+// User-uploaded 2026-11-20 screenshot values reproduce scenario arithmetic; without reviewed handoff they cannot size the primary plan. VXX put stays excluded.
 {
   const fixture = JSON.parse(fs.readFileSync(require.resolve("./fixtures/user_uploaded_option_chain_2026-11-20.json"), "utf8"));
   assert.equal(fixture.source, "USER_UPLOADED_SCREENSHOT");
@@ -427,31 +460,28 @@ function row(result, key) {
     permissions: { vxxPutSpreads: true }
   }));
   assert.ok(Math.abs(qqqCandidate.credit - 1.27) < 1e-9);
-  assert.equal(row(r, "qqqCallSpreads").riskPerUnit, 973);
-  assert.equal(row(r, "qqqCallSpreads").capacity, 1);
-  assert.equal(row(r, "qqqCallSpreads").candidateSource, fixture.source + ":QQQ_CALLS");
+  assert.equal((qqqCandidate.width - qqqCandidate.credit) * 100, 973, "fixture arithmetic remains reproducible as a scenario");
   assert.ok(Math.abs(vxxCandidate.credit - 0.24) < 1e-9);
-  assert.equal(row(r, "vxxCallSpreads").riskPerUnit, 276);
-  assert.equal(row(r, "vxxCallSpreads").capacity, 7);
-  assert.equal(row(r, "vxxCallSpreads").candidateSource, fixture.source + ":VXX_CALLS");
+  assert.equal((vxxCandidate.width - vxxCandidate.credit) * 100, 276, "fixture arithmetic remains reproducible as a scenario");
+
+  const qqq = row(r, "qqqCallSpreads");
+  const vxx = row(r, "vxxCallSpreads");
+  for (const item of [qqq, vxx]) {
+    assert.equal(item.riskPerUnit, null, "screenshot transcription without reviewed handoff must not create risk capacity");
+    assert.equal(item.capacity, null);
+    assert.equal(item.action, "PENDING");
+    assert.equal(item.status, "PENDING");
+    assert.equal(item.riskSource, "PENDING_OPTION_EVIDENCE");
+  }
+  assert.equal(qqq.target, 0);
+  assert.equal(vxx.target, 0);
   assert.equal(r.totalOptionRiskPool, 3200);
-  assert.equal(r.totalRequestedRiskBudgetsUsd, 3200); // Only QQQ/VXX call-credit requests share the primary pool.
+  assert.equal(r.totalRequestedRiskBudgetsUsd, 0, "unreviewed screenshot rows must not enter risk allocation");
   assert.equal(r.riskScaleFactor, 1);
-  assert.equal(r.optionRiskReservedAtTargets, 2905);
-  assert.equal(r.remainingRiskPool, 295);
-
-  // Keep exposure allocation separate from estimated opening credit and express both on the same $100k NAV basis.
-  // These are quote-side scenario estimates from the user-uploaded screenshot fixture, not confirmed fills or realized P&L.
-  const qqqCapacityCreditUsd = qqqCandidate.credit * 100 * row(r, "qqqCallSpreads").capacity;
-  const vxxCapacityCreditUsd = vxxCandidate.credit * 100 * row(r, "vxxCallSpreads").capacity;
-  assert.ok(Math.abs(qqqCapacityCreditUsd - 127) < 1e-9);
-  assert.ok(Math.abs(vxxCapacityCreditUsd - 168) < 1e-9);
-  assert.ok(Math.abs(qqqCapacityCreditUsd / r.nav * 100 - 0.127) < 1e-9);
-  assert.ok(Math.abs(vxxCapacityCreditUsd / r.nav * 100 - 0.168) < 1e-9);
-  assert.ok(Math.abs(r.optionRiskReservedAtTargets / r.nav * 100 - 2.905) < 1e-9);
-  assert.ok(Math.abs(r.totalOptionRiskPool / r.nav * 100 - 3.2) < 1e-9);
-  assert.ok(Math.abs(r.optionRiskReservedAtTargets / r.totalOptionRiskPool * 100 - 90.78125) < 1e-9);
-
+  assert.equal(r.optionRiskReservedAtTargets, 0);
+  assert.equal(r.remainingRiskPool, 3200);
+  assert.equal(qqq.candidateSource, fixture.source + ":QQQ_CALLS");
+  assert.equal(vxx.candidateSource, fixture.source + ":VXX_CALLS");
   assert.equal(row(r, "vxxPutSpreads").status, "OUTSIDE_MAIN_BUDGET");
   assert.equal(row(r, "vxxPutSpreads").capacity, null);
   assert.equal(row(r, "vxxPutSpreads").action, "OUTSIDE_BUDGET");
@@ -470,8 +500,8 @@ function row(result, key) {
     },
     holdings: { ratioCalls: 2, hubShockPuts: 1, longCalls: 3, ratioPuts: 2 },
     candidates: {
-      qqqCall: { width: 5, credit: 4, source: "FIXTURE" },
-      vxxCall: { width: 10, credit: 8, source: "FIXTURE" },
+      qqqCall: primaryTestCandidate({ root: "QQQ", shortStrike: 400, width: 5, credit: 4 }),
+      vxxCall: primaryTestCandidate({ root: "VXX", shortStrike: 20, width: 10, credit: 8 }),
       hubRatioCall: { hubPackage: true, ready: true, riskPerUnit: 600, debitUsd: 200, maxUnits: 10, gatePass: true, source: "HUB_FIXTURE" },
       hubShockPut: { hubPackage: true, ready: true, riskPerUnit: 200, debitUsd: 200, maxUnits: 100, gatePass: false, source: "HUB_FIXTURE" },
       qqqLongCall: { ask: 2.5, source: "FIXTURE" }
@@ -548,7 +578,7 @@ function row(result, key) {
 // Position register hard gate: held option terms unknown means current quantity is known,
 // but a safe strategy target / risk reserve is not asserted.
 {
-  const candidate = { width: 5, credit: 0.8, shortBid: 1.1, source: "FIXTURE" };
+  const candidate = primaryTestCandidate({ root: "QQQ", shortStrike: 100, width: 5, credit: 0.8 });
   const r = E.calculatePortfolio(base({
     holdings: { qqqCallSpreads: 3 },
     candidates: { qqqCall: candidate },
@@ -566,11 +596,12 @@ function row(result, key) {
 
 // A held-position terms block must be excluded before proportional shared-risk allocation.
 {
-  const candidate = { width: 5, credit: 0.8, shortBid: 1.1, source: "FIXTURE" };
+  const qqqCandidate = primaryTestCandidate({ root: "QQQ", shortStrike: 100, width: 5, credit: 0.8 });
+  const vxxCandidate = primaryTestCandidate({ root: "VXX", shortStrike: 20, width: 5, credit: 0.8 });
   const r = E.calculatePortfolio(base({
     sizing: { ...base().sizing, totalOptionRiskPct: 3.2, qqqCallRiskPct: 2, vxxCallRiskPct: 2 },
     holdings: { qqqCallSpreads: 3 },
-    candidates: { qqqCall: candidate, vxxCall: candidate },
+    candidates: { qqqCall: qqqCandidate, vxxCall: vxxCandidate },
     positionRegister: { useForSizing: true, blockingKeys: ["qqqCallSpreads"] }
   }));
   const qqq = row(r, "qqqCallSpreads");
@@ -601,6 +632,9 @@ function row(result, key) {
   const publicRisk = E.candidateRisk(strategy, publicCandidate, null, Date.parse("2026-10-13T09:00:00Z"));
   assert.equal(publicRisk.ready,false);
   assert.equal(publicRisk.source,"PENDING_OPTION_EVIDENCE");
+  const bareRisk = E.candidateRisk(strategy, { width: 5, credit: 0.8, source: "FIXTURE" }, null, Date.parse("2026-10-13T09:00:00Z"));
+  assert.equal(bareRisk.ready, false, "plain width/credit arithmetic must not bypass the primary evidence handoff");
+  assert.equal(bareRisk.source, "PENDING_OPTION_EVIDENCE");
 
   const now=Date.parse("2026-10-13T09:00:00Z");
   const candidate={
