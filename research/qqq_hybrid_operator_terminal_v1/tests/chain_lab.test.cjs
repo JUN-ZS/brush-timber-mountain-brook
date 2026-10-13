@@ -445,6 +445,9 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.equal(fill.event.dataAuthentication,"OPERATOR_REPORTED_NOT_AUTHENTICATED");
   const withFill = J.appendEvent(appended.envelope,fill.event);
   assert.equal(withFill.ok,true);
+  const forgedOutcomeSchema = JSON.parse(JSON.stringify(withFill.envelope));
+  forgedOutcomeSchema.events[1].schemaVersion = 2;
+  assert.equal(J.parseEnvelope(forgedOutcomeSchema).ok,false,"unsupported outcome event schema version must be rejected");
   const summary = J.summarize(withFill.envelope);
   assert.equal(summary.operatorReportedFillCount,1);
   assert.equal(summary.eligibleReportedFillComparisons,1);
@@ -478,7 +481,9 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.equal(wrongContractSummary.comparisonExclusionCounts.FILLED_CONTRACT_SYMBOL_MISMATCH,1);
   const forgedSymbols = JSON.parse(JSON.stringify(appended.envelope));
   forgedSymbols.events[0].candidateContractSymbols.short = "QQQ261120C00800000";
-  assert.equal(J.parseEnvelope(forgedSymbols).ok,false,"tampered quote OCC symbol derivation must be rejected");  const forgedMetadata = JSON.parse(JSON.stringify(appended.envelope));
+  assert.equal(J.parseEnvelope(forgedSymbols).ok,false,"tampered quote OCC symbol derivation must be rejected");
+
+  const forgedMetadata = JSON.parse(JSON.stringify(appended.envelope));
   forgedMetadata.events[0].sourceMeta.sourceName = "";
   assert.equal(J.parseEnvelope(forgedMetadata).ok,false,"metadata-pass flag cannot override missing required source metadata");
   const forgedAge = JSON.parse(JSON.stringify(appended.envelope));
@@ -487,6 +492,17 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   const forgedCandidate = JSON.parse(JSON.stringify(appended.envelope));
   forgedCandidate.events[0].candidate.credit = 2;
   assert.equal(J.parseEnvelope(forgedCandidate).ok,false,"candidate credit must reconcile to captured short Bid minus wing Ask");
+
+  const forgedProvenanceFlag = JSON.parse(JSON.stringify(appended.envelope));
+  forgedProvenanceFlag.events[0].provenanceCompleteAtCapture = "true";
+  assert.equal(J.parseEnvelope(forgedProvenanceFlag).ok,false,"string provenance flags must not count as metadata/time pass");
+  const forgedManualEditFlag = JSON.parse(JSON.stringify(appended.envelope));
+  forgedManualEditFlag.events[0].manuallyEdited = "true";
+  assert.equal(J.parseEnvelope(forgedManualEditFlag).ok,false,"string manual-edit flags must not bypass manual-edit rejection");
+  const forgedQuoteSchema = JSON.parse(JSON.stringify(appended.envelope));
+  forgedQuoteSchema.events[0].schemaVersion = 2;
+  assert.equal(J.parseEnvelope(forgedQuoteSchema).ok,false,"unsupported quote event schema version must be rejected");
+
   const forgedModelPass = J.createQuoteObservation({ ...q.event, eventId:"model-claimed-complete", sourceMeta:{...q.event.sourceMeta,sourceType:"MODEL_DERIVED"}, provenanceComplete:true });
   assert.equal(forgedModelPass.ok,false,"model-derived quote cannot claim metadata/time pass");
   const hypothetical = J.createOutcomeEvent({ eventId:"out-paper", recordedAt:new Date(now+120000).toISOString(), outcomeType:"PAPER_ASSUMED_FILL", fillCreditPerShare:1.25, filledQuantity:1, outcomeAt:"", outcomeReference:"", note:"hypothesis only" },q.event);
