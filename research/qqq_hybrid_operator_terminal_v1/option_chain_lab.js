@@ -84,6 +84,7 @@ var m=meta||{},reasons=[],sourceType=String(m.sourceType||"UNKNOWN"),sourceName=
 if(!(quoteCount>0))reasons.push("此鏈沒有報價列");
 if(!/^\d{4}-\d{2}-\d{2}$/.test(String(expiration||""))||!Number.isFinite(Date.parse(expiration+"T00:00:00Z")))reasons.push("到期日缺失或無效");
 if(sourceType==="UNKNOWN")reasons.push("資料來源類型未確認");
+if(sourceType==="MODEL_DERIVED")reasons.push("模型衍生數值不是實測來源報價，不能通過 metadata／freshness 合格門檻。");
 if(!sourceName)reasons.push("來源名稱缺失");
 if(sourceType==="PUBLIC_DATA"&&!validHttpUrl(sourceUrl))reasons.push("公開資料必須提供可追溯來源網址");
 if(!timezone||timezone.toUpperCase()==="UNKNOWN")reasons.push("報價時區標籤未記錄");

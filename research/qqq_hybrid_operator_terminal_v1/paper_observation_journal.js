@@ -20,14 +20,53 @@ var limit=num(x.intendedLimitCreditPerShare);if(limit!==null&&(!(limit>0)||!cand
 var mult=num(x.multiplier),budget=num(x.riskBudgetUsd),quantity=num(x.plannedQuantity);if(mult!==null&&mult<=0)return{ok:false,error:"Multiplier must be positive or blank."};if(budget!==null&&budget<0)return{ok:false,error:"Risk budget must be non-negative or blank."};if(quantity!==null&&(quantity<1||Math.floor(quantity)!==quantity))return{ok:false,error:"Planned quantity must be a positive integer or blank."};
 var event={schemaVersion:1,eventId:eventId,eventType:"QUOTE_OBSERVATION",recordedAt:recordedAt,recordedClock:"OPERATOR_DEVICE_CLOCK_NOT_AUTHENTICATED",chainKey:chainKey,expiration:str(x.expiration,10),quoteObservedAt:sourceMeta.observedAt,sourceTimezone:sourceMeta.timezone,sourceMeta:sourceMeta,provenanceAtCapture:str(x.provenanceStatus,100)||"SCENARIO_ONLY",freshnessAtCapture:str(x.freshnessStatus,100)||"UNKNOWN",quoteAgeMinutes:num(x.quoteAgeMinutes),provenanceCompleteAtCapture:x.provenanceComplete===true,manuallyEdited:x.manuallyEdited===true,multiplier:mult,riskBudgetUsd:budget,plannedQuantity:quantity,intendedLimitCreditPerShare:limit,candidate:candidate,candidateContractSymbols:symbols,chainRows:normalizeQuoteRows(x.chainRows),operatorNote:str(x.note,1000),status:"QUOTE_SNAPSHOT_ONLY_NOT_FILL",dataAuthentication:"NOT_INDEPENDENTLY_AUTHENTICATED",ordersAuthorized:false};
 var check=validateQuoteEvent(event);return check.ok?{ok:true,event:event}:{ok:false,error:check.error}}
+function validHttpUrl(value){return /^https?:\/\/[^\s]+$/i.test(String(value||"").trim())}
+function almostEqual(a,b){var x=num(a),y=num(b);return x!==null&&y!==null&&Math.abs(x-y)<=1e-6}
 function validateQuoteEvent(e){
 if(!e||e.eventType!=="QUOTE_OBSERVATION")return{ok:false,error:"Invalid quote observation event."};
 if(!str(e.eventId,160)||!explicitTimestamp(e.recordedAt))return{ok:false,error:"Quote observation requires unique ID and timezone-bearing record time."};
 if(CHAIN_KEYS.indexOf(e.chainKey)<0||!Array.isArray(e.chainRows))return{ok:false,error:"Quote observation chain identity/rows invalid."};
 if(!e.sourceMeta||typeof e.sourceMeta!=="object")return{ok:false,error:"Quote observation source metadata missing."};
 if(e.candidate!==null&&typeof e.candidate!=="object")return{ok:false,error:"Selected candidate must be an object or null."};
+var root=e.chainKey.split("_")[0],isCall=e.chainKey.split("_")[1]==="CALL",right=isCall?"C":"P";
+if(e.candidate!==null){
+var c=e.candidate,shortStrike=num(c.shortStrike),longStrike=num(c.longStrike);
+if(shortStrike===null||longStrike===null||shortStrike<0||longStrike<0)return{ok:false,error:"Selected candidate strikes are invalid."};
+var shortRows=e.chainRows.filter(function(r){return num(r&&r.strike)===shortStrike});
+var longRows=e.chainRows.filter(function(r){return num(r&&r.strike)===longStrike});
+if(shortRows.length!==1||longRows.length!==1)return{ok:false,error:"Selected candidate must map to exactly one source row per leg."};
+var sr=shortRows[0],lr=longRows[0],width=Math.abs(longStrike-shortStrike);
+var credit=num(sr.bid)-num(lr.ask),mult=num(e.multiplier);
+if(c.isCall!==isCall||(isCall?shortStrike>=longStrike:shortStrike<=longStrike)||
+!almostEqual(c.shortBid,sr.bid)||!almostEqual(c.shortAsk,sr.ask)||
+!almostEqual(c.longBid,lr.bid)||!almostEqual(c.longAsk,lr.ask)||
+!almostEqual(c.width,width)||!almostEqual(c.credit,credit)||!(credit>0)||!(credit<width)||
+mult===null||!(mult>0)||!almostEqual(c.maxProfit,credit*mult)||
+!almostEqual(c.maxLoss,(width-credit)*mult)||
+!almostEqual(c.breakEven,isCall?shortStrike+credit:shortStrike-credit)){
+return{ok:false,error:"Selected candidate prices/payoff do not reconcile to the captured source rows and multiplier."};
+}
+if(e.sourceMeta.contractSymbol===root&&e.sourceMeta.contractStatus==="STANDARD_TERMS_RECORDED"&&
+(!e.candidateContractSymbols||!str(e.candidateContractSymbols.short,100)||!str(e.candidateContractSymbols.long,100))){
+return{ok:false,error:"Standard-root candidate is missing its derived contract-symbol identities."};
+}
+}
+if(e.provenanceCompleteAtCapture===true){
+var m=e.sourceMeta,observedMs=Date.parse(e.quoteObservedAt),recordedMs=Date.parse(e.recordedAt);
+var age=(recordedMs-observedMs)/60000,sourceType=str(m.sourceType,80);
+var inconsistent=sourceType==="UNKNOWN"||sourceType==="MODEL_DERIVED"||!str(m.sourceName,500)||
+(sourceType==="PUBLIC_DATA"&&!validHttpUrl(m.sourceUrl))||
+!explicitTimestamp(m.observedAt)||m.observedAt!==e.quoteObservedAt||
+!str(m.timezone,100)||m.timezone.toUpperCase()==="UNKNOWN"||e.sourceTimezone!==m.timezone||
+m.contractSymbol!==root||m.contractStatus!=="STANDARD_TERMS_RECORDED"||
+!str(m.deliverableNote,500)||!validHttpUrl(m.contractEvidenceUrl)||
+!makeStandardOptionSymbol(root,e.expiration,right,0)||e.chainRows.length===0||
+e.manuallyEdited===true||e.freshnessAtCapture!=="AS-OF ≤15M"||
+num(e.quoteAgeMinutes)===null||num(e.quoteAgeMinutes)<0||num(e.quoteAgeMinutes)>15||
+!Number.isFinite(age)||age<0||age>15||Math.abs(age-num(e.quoteAgeMinutes))>0.1;
+if(inconsistent)return{ok:false,error:"Metadata/time PASS marker contradicts recorded source fields, selected timestamp or quote freshness."};
+}
 if(e.candidateContractSymbols!==null&&e.candidateContractSymbols!==undefined){
-var root=e.chainKey.split("_")[0],right=e.chainKey.split("_")[1]==="CALL"?"C":"P";
 var shortExpected=e.candidate&&makeStandardOptionSymbol(root,e.expiration,right,e.candidate.shortStrike);
 var longExpected=e.candidate&&makeStandardOptionSymbol(root,e.expiration,right,e.candidate.longStrike);
 if(e.sourceMeta.contractSymbol!==root||e.sourceMeta.contractStatus!=="STANDARD_TERMS_RECORDED"||
