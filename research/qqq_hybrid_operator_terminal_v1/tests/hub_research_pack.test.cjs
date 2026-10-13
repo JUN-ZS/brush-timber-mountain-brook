@@ -222,7 +222,9 @@ function ratioBase(overrides = {}) {
 // Main desk → Hub bridge: copy capital once, estimate Hybrid reservation conservatively,
 // and fail closed when the plan or any held option-risk unit is unknown.
 {
-  const Bridge = require("../hub_context_bridge.js");
+  const bridgeSandbox = { module: { exports: {} } };
+  vm.runInNewContext(fs.readFileSync(require.resolve("../hub_context_bridge.js"), "utf8"), bridgeSandbox, { filename: "hub_context_bridge.js" });
+  const Bridge = bridgeSandbox.module.exports;
   const now = Date.parse("2026-10-13T10:00:00Z");
   const plan = {
     generatedAt: new Date(now).toISOString(),
