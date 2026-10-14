@@ -51,7 +51,7 @@
     </section>
 
     <section id="decisionValueDesk" class="card decision-value-desk">
-      <div class="section-head"><div><h2>−1 · 進退性價比決策台 · DECISION VALUE ENGINE</h2><p class="decision-lead">接通主台市場閘、現有持倉及容量，再比較回報、損失、成本、時間和成功概率。不夠證據就寫 PENDING，不憑感覺填數。</p></div><span id="dvVerdictBadge" class="tag warn">PENDING · NEED INPUT</span></div>
+      <div class="section-head"><div><h2>1 · 進退性價比決策台 · DECISION VALUE ENGINE</h2><p class="decision-lead">接通主台市場閘、現有持倉及容量，再比較回報、損失、成本、時間和成功概率。不夠證據就寫 PENDING，不憑感覺填數。</p></div><span id="dvVerdictBadge" class="tag warn">PENDING · NEED INPUT</span></div>
       <div class="decision-workspace">
         <div class="decision-inputs">
           <div class="decision-field-grid">
@@ -63,6 +63,7 @@
             <label>Holding horizon (calendar days)<input id="dvHorizonDays" type="number" min="1" max="3650" step="1" placeholder="Use same horizon across candidates"></label>
           </div>
           <div id="dvEngineRoute" class="decision-route">Current sizing route will appear from the main calculator.</div>
+          <div id="dvHeldMeasurement" class="decision-route">Registered position mark / R / time review will appear here when present. Missing register rows are not zero holdings.</div>
           <div class="decision-subhead"><b>PAYOFF & COST · per unit</b><span>Same horizon and cost convention for fair comparison.</span></div>
           <div class="decision-field-grid">
             <label>Gain if successful ($)<input id="dvRewardUsd" type="number" min="0.01" step="0.01" placeholder="Before costs below"></label>
@@ -71,6 +72,12 @@
             <label>Extra adverse cost ($)<input id="dvCostStressUsd" type="number" min="0" step="0.01" placeholder="Enter 0 if none"></label>
             <label>Loss measurement<select id="dvRiskNature"><option value="DEFINED">Defined stop / verified max loss</option><option value="STRESS_ONLY" selected>Stress loss only · not a cap</option><option value="UNBOUNDED">Unbounded / unknown tail</option></select></label>
             <label>Probability calculation<select id="dvProbabilityMethod"><option value="MANUAL">Manual low / base / high</option><option value="EMPIRICAL">Wins / total outcomes → empirical rate</option></select></label>
+          </div>
+          <div class="decision-subhead"><b>OPPORTUNITY COST · same total capital + horizon</b><span>Required before evidence-backed relative-value review.</span></div>
+          <div class="decision-field-grid">
+            <label>Alternative / waiting expected value ($ total, after costs)<input id="dvAlternativeEVTotalUsd" type="number" step="0.01" placeholder="Blank = relative value PENDING; enter $0 explicitly if justified"></label>
+            <label>Alternative label / reference<input id="dvAlternativeLabel" type="text" maxlength="300" placeholder="e.g. wait in cash, hold current mix, or named control"></label>
+            <p class="decision-note">Comparator must use the same horizon and capital basis as the proposed position's total EV. This is not EV per candidate share/contract. A blank is UNKNOWN, not $0; AI or the APP must not fabricate the opportunity cost.</p>
           </div>
           <div id="dvManualProbabilityFields" class="decision-field-grid">
             <label>Low success probability (%)<input id="dvProbLowPct" type="number" min="0" max="100" step="0.1" placeholder="Adverse case"></label>
@@ -96,9 +103,9 @@
           <div id="dvMetrics" class="decision-metrics">
             <div class="decision-metric"><small>BREAK-EVEN PROBABILITY</small><b>—</b><span>Needs gain / loss / cost</span></div><div class="decision-metric"><small>BASE EXPECTED VALUE</small><b>—</b><span>After entered costs</span></div><div class="decision-metric"><small>ADVERSE EXPECTED VALUE</small><b>—</b><span>Low probability + stress cost</span></div><div class="decision-metric"><small>EV PER CALENDAR DAY</small><b>—</b><span>Needs quantity and horizon</span></div>
           </div>
-          <div class="table-wrap decision-sensitivity-wrap"><table class="decision-sensitivity"><thead><tr><th>Case</th><th>Success P</th><th>Cost / unit</th><th>EV / unit</th><th>EV total</th><th>vs WAIT ($0)</th></tr></thead><tbody id="dvSensitivityRows"><tr><td colspan="6" class="pro-empty-cell">Complete inputs to compare low / base / high cases.</td></tr></tbody></table></div>
+          <div class="table-wrap decision-sensitivity-wrap"><table class="decision-sensitivity"><thead><tr><th>Case</th><th>Success P</th><th>Cost / unit</th><th>EV / unit</th><th>EV total</th><th>Incremental EV vs alternative</th></tr></thead><tbody id="dvSensitivityRows"><tr><td colspan="6" class="pro-empty-cell">Complete inputs to compare low / base / high cases.</td></tr></tbody></table></div>
           <div id="dvDecisionReasons" class="decision-reasons">Positive model EV is not strategy approval. Current market, target capacity, contract safety and all three evidence axes still govern.</div>
-          <div class="decision-benchmark"><b>Break-even rule:</b> p* = (loss + base cost) / (gain + loss). A positive base case with a non-positive adverse case is fragile. EV alone does not describe tail severity, path-dependent losses or opportunity cost of waiting.</div>
+          <div class="decision-benchmark"><b>Break-even rule:</b> p* = (loss + base cost) / (gain + loss). The named alternative is a same-capital, same-horizon total EV; a positive EV versus $0 is not enough if waiting or another strategy is better. Base value must beat the comparator and the adverse case should beat it too. EV is not tail-risk proof.</div>
         </div>
       </div>
       <details class="decision-evidence-details"><summary>Repository evidence register · source results and limitations</summary><div class="decision-evidence-grid">
