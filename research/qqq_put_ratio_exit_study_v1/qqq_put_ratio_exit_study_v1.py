@@ -818,8 +818,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Base cost case: $0.05 per leg per side + $0.65 per contract per side",
         "",
-        "| Exit rule | Resolved | Net P&L | Expectancy / trade | Policy trigger N / % | Median trigger age | Median first-action age | Median resolution age | Net P&L / short-risk eq-session | Win rate | Profit factor | Missing marks |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Exit rule | Resolved | Net P&L | Expectancy / trade | Policy trigger N / % | DTE7 fallback N | Median trigger age | Median first-action age | Median resolution age | Net P&L / short-risk eq-session | Win rate | Profit factor | Missing marks |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for s in report.get("policy_summaries_base_cost", []):
         trigger_age = s["policy_rule_trigger_age_sessions_distribution"]["median"]
@@ -829,7 +829,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         delay = s["signal_to_first_action_delay_sessions_distribution"]["median"]
         exposure_rate = s["net_pnl_per_short_risk_equivalent_session_usd"]
         # These elapsed-session metrics are descriptive; age 0 is the entry-date observation.
-        lines.append(f"| {s['policy']} | {s['resolved_trades']}/{s['trade_episodes']} | {s['closed_trade_net_pnl_sum_usd']} | {s['expectancy_usd_per_resolved_trade']} | {trigger_text} | {trigger_age if trigger_age is not None else '—'} | {delay if delay is not None else '—'} | {resolution_age if resolution_age is not None else '—'} | {exposure_rate if exposure_rate is not None else '—'} | {s['win_rate']} | {s['profit_factor']} | {s['total_missing_mark_sessions']} |")
+        lines.append(f"| {s['policy']} | {s['resolved_trades']}/{s['trade_episodes']} | {s['closed_trade_net_pnl_sum_usd']} | {s['expectancy_usd_per_resolved_trade']} | {trigger_text} | {s['mandatory_dte7_fallback_trade_count']} | {trigger_age if trigger_age is not None else '—'} | {delay if delay is not None else '—'} | {resolution_age if resolution_age is not None else '—'} | {exposure_rate if exposure_rate is not None else '—'} | {s['win_rate']} | {s['profit_factor']} | {s['total_missing_mark_sessions']} |")
     rs = report.get("risk_summary_base_cost", {})
     lines += [
         "", "## Tail-risk and dollars-to-risk ratio", "",

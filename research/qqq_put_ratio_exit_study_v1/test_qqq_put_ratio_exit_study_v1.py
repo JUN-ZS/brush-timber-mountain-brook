@@ -140,6 +140,29 @@ class PutRatioExitStudyTests(unittest.TestCase):
             result['final_pnl_usd'] / 3.2
         )
 
+    def test_dte7_fallback_is_counted_separately_from_policy_trigger(self):
+        trade = trade_fixture()
+        trade['path'] = [
+            step('2024-02-08', 8, short_bid=4.0, short_ask=4.2, long_bid=4.9, long_ask=5.1),
+            step('2024-02-09', 7, short_bid=4.0, short_ask=4.2, long_bid=4.9, long_ask=5.1),
+            step('2024-02-12', 4, short_bid=4.0, short_ask=4.2, long_bid=4.9, long_ask=5.1),
+            step(EXPIRY, 0, short_bid=.01, short_ask=.02, long_bid=.1, long_ask=.2, spot=500.0)
+        ]
+        policy = next(x for x in S.policy_list() if x['kind'] == 'dte7')
+        result = S.simulate_policy(trade, policy, .05, .65)
+        self.assertEqual(result['first_signal_reason'], 'DTE7_MANDATORY_CLOSE_SHORT_RISK')
+        self.assertEqual(result['first_signal_holding_sessions'], 1)
+        self.assertEqual(result['exit_action_holding_sessions'], 2)
+        self.assertEqual(result['signal_to_action_delay_sessions'], 1)
+        summary = S.summarize_policy([result])
+        self.assertEqual(summary['policy_rule_triggered_trade_count'], 0)
+        self.assertEqual(summary['policy_rule_trigger_rate_pct'], 0.0)
+        self.assertEqual(summary['mandatory_dte7_fallback_trade_count'], 1)
+        self.assertIn('DTE7 fallback', S.render_markdown({
+            'status': 'TEST', 'generation': {}, 'policy_summaries_base_cost': [summary],
+            'risk_summary_base_cost': {}, 'event_study': {}, 'limitations': [], 'performance_gate': 'BLOCKED'
+        }))
+
     def test_fast_trim_is_one_shot(self):
         trade = trade_fixture()
         trade['entry_quotes']['short']['bid'] = 5.0
