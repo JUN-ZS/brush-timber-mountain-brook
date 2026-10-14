@@ -637,7 +637,8 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
     contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
   });
   assert.equal(oneToOne.ratio,"1:1");
-  near(oneToOne.pnlAtZeroPerPackageUsd,-950,"1:1 lower tail has no extra convexity");
+  near(oneToOne.pnlAtZeroPerPackageUsd,-725,"1:1 lower tail loss equals the long-strike valley");
+  near(oneToOne.pnlAtZeroPerPackageUsd,oneToOne.pnlAtLongStrikePerPackageUsd,"1:1 put vertical has no extra crash convexity below the long strike");
   assert.equal(Lab.calculatePutBackspread({
     expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
     contractSymbol:"QQQ",longPut:{strike:100,bid:2,ask:2.25},shortPut:{strike:90,bid:5,ask:5.2}
