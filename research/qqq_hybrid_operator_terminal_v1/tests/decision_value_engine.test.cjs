@@ -41,4 +41,95 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
  const heldReview=D.evaluate(fixture({lens:"HOLD",positionManagementRows:[{template:"QQQ_CORE",label:"QQQ core",action:"STOP MARK BREACHED · HUMAN REVIEW",pnlR:-1.2,pnl:-120}]}));
  assert.equal(heldReview.status,"POSITION_REVIEW_PRIORITY");
 }
-console.log("QQQ HYBRID DECISION VALUE ENGINE: 17 test groups PASS");
+{
+ // Full-use scenario matrix: missing data must be PENDING, not disguised as an invalid probability.
+ const missingManual=D.evaluate(fixture({probabilityMethod:"MANUAL",probabilityLowPct:null,probabilityBasePct:null,probabilityHighPct:null}));
+ assert.equal(missingManual.status,"NEEDS_PROBABILITY");
+ assert.equal(missingManual.expectedValueBaseUsd,null);
+ const missingEmpirical=D.evaluate(fixture({wins:null,trials:50}));
+ assert.equal(missingEmpirical.status,"NEEDS_PROBABILITY");
+ assert.equal(missingEmpirical.sampleSize,null);
+}
+{
+ // A mathematically impossible sample is invalid, unlike a blank sample.
+ const impossible=D.evaluate(fixture({wins:31,trials:30}));
+ assert.equal(impossible.status,"INVALID_RANGE");
+}
+{
+ // The evidence floor is enforced at 29, then accepts a 30-observation example only for review.
+ const below=D.evaluate(fixture({wins:23,trials:29}));
+ assert.equal(below.status,"EVIDENCE_INCOMPLETE");
+ assert.ok(below.warnings.some(x=>x.includes("30-trade")));
+ const atFloor=D.evaluate(fixture({wins:24,trials:30}));
+ assert.equal(atFloor.status,"ELIGIBLE_FOR_HUMAN_REVIEW");
+ assert.ok(atFloor.incrementalValueAdverseUsd>0);
+ assert.equal(atFloor.scenarioRiskPctNav,1);
+}
+{
+ // A low observed win rate does not get rescued by a positive headline or comparator.
+ const negative=D.evaluate(fixture({wins:10,trials:50}));
+ assert.equal(negative.status,"NEGATIVE_EXPECTED_VALUE");
+ assert.ok(negative.expectedValueBaseUsd<0);
+}
+{
+ // The same candidate loses to a better-priced comparator even when its own EV is positive.
+ const beaten=D.evaluate(fixture({alternativeEVTotalUsd:1400,alternativeLabel:"Same-capital alternative with priced expected EV"}));
+ assert.equal(beaten.status,"NEGATIVE_INCREMENTAL_VALUE");
+ assert.ok(beaten.expectedValueBaseTotalUsd>0);
+ assert.ok(beaten.incrementalValueBaseUsd<0);
+}
+{
+ // Severe extra costs make the base case look attractive but break the adverse case.
+ const stressed=D.evaluate(fixture({costStressUsd:300}));
+ assert.equal(stressed.status,"FRAGILE_EXPECTED_VALUE");
+ assert.ok(stressed.expectedValueBaseUsd>0);
+ assert.ok(stressed.expectedValueAdverseUsd<0);
+}
+{
+ // Material risk is disclosed as a warning rather than silently changing the selected scenario.
+ const largeRisk=D.evaluate(fixture({lossUsd:600}));
+ assert.ok(largeRisk.scenarioRiskPctNav>5);
+ assert.ok(largeRisk.warnings.some(x=>x.includes("exceeds 5% of NAV")));
+}
+{
+ // Main sizing BLOCK/PENDING state cannot be overridden by a positive EV.
+ const blockedRoute=D.evaluate(fixture({mainRow:{current:10,target:30,capacity:100,action:"BLOCKED",status:"BLOCKED",reason:"invalid/stale market"}}));
+ assert.equal(blockedRoute.status,"ADD_NOT_ALLOWED");
+ assert.equal(blockedRoute.mainRoute.maxAllowedAdd,null);
+}
+{
+ // HOLD cannot be priced on an empty position, even with otherwise good forward EV.
+ const emptyHold=D.evaluate(fixture({lens:"HOLD",mainRow:{current:0,target:30,capacity:100,action:"ADD",status:"READY",reason:"capacity"}}));
+ assert.equal(emptyHold.status,"ADD_NOT_ALLOWED");
+}
+{
+ // Partial low/base/high data are pending, not a fabricated zero or an adverse pass.
+ const noRange=D.evaluate(fixture({probabilityMethod:"MANUAL",probabilityLowPct:null,probabilityBasePct:80,probabilityHighPct:null}));
+ assert.equal(noRange.status,"NEEDS_PROBABILITY");
+ assert.equal(noRange.robustPositive,false);
+}
+{
+ const badManual=D.evaluate(fixture({probabilityMethod:"MANUAL",probabilityLowPct:60,probabilityBasePct:101,probabilityHighPct:110}));
+ assert.equal(badManual.status,"INVALID_RANGE");
+}
+{
+ // A breached long-horizon floor blocks new ADD, but an existing HOLD stays a review scenario.
+ const holdFloor=D.evaluate(fixture({lens:"HOLD",deploymentRoadmap:{status:"FLOOR_BREACH",floorGapUsd:-500},mainRow:{current:10,target:10,capacity:100,action:"HOLD",status:"READY",reason:"no sizing change"}}));
+ assert.equal(holdFloor.status,"ELIGIBLE_FOR_HUMAN_REVIEW");
+ assert.ok(holdFloor.warnings.some(x=>x.includes("CLOCK Floor is breached")));
+}
+{
+ // Custom research cannot obtain portfolio sizing just by supplying positive hypothetical EV.
+ const custom=D.evaluate(fixture({candidateKey:"custom",mainRow:null}));
+ assert.equal(custom.status,"NO_SIZING_ROUTE");
+}
+{
+ const missingPayoff=D.evaluate(fixture({rewardUsd:null}));
+ assert.equal(missingPayoff.status,"NEEDS_PAYOFF");
+}
+{
+ const noComparator=D.evaluate(fixture({alternativeEVTotalUsd:null,alternativeLabel:""}));
+ assert.equal(noComparator.status,"ALTERNATIVE_VALUE_PENDING");
+ assert.equal(noComparator.waitReferenceExpectedValueUsd,null,"unknown WAIT value must not be serialized as $0");
+}
+console.log("QQQ HYBRID DECISION VALUE ENGINE: 17 base + 15 full-use scenario checks PASS");

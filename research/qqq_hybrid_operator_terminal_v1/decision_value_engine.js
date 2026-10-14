@@ -74,6 +74,7 @@
     const riskPctNav=riskTotal!==null&&nav!==null&&nav>0?riskTotal/nav*100:null,evPctNav=baseTotal!==null&&nav!==null&&nav>0?baseTotal/nav*100:null;
     const evPerRisk=baseEV!==null&&loss!==null&&loss>0?baseEV/loss:null,rr=payoffComplete?reward/loss:null,margin=pBase!==null&&breakEven!==null?pBase-breakEven:null;
     const rangeComplete=pctRange(pLow)&&pctRange(pBase)&&pctRange(pHigh),adversePass=adverseEV!==null&&adverseEV>0,basePass=baseEV!==null&&baseEV>0;
+    const probabilityMissing=probabilityMethod==="EMPIRICAL"?(n(i.wins)===null||n(i.trials)===null):(pLow===null||pBase===null||pHigh===null);
     const routeAllowsAdd=!!route&&route.action==="ADD"&&route.maxAllowedAdd!==null&&route.maxAllowedAdd>0,routeCanHold=!!route&&route.current!==null&&route.current>0;
     const qtyOverTarget=lens==="ADD"&&routeAllowsAdd&&qtyComplete&&quantity>route.maxAllowedAdd;
     const addNotAllowed=lens==="ADD"&&!["custom","qqqFarCallOverlay","deploymentTiming"].includes(candidateKey)&&(!route||!routeAllowsAdd);
@@ -92,7 +93,8 @@
     else if(holdConflictsWithReduce){status="HOLD_CONFLICTS_WITH_REDUCE";nextAction="The main sizing engine requests REDUCE. A positive forward EV is counterfactual and cannot cancel the current reduction route.";}
     else if(lens==="HOLD"&&!routeCanHold&&!["custom","deploymentTiming","qqqFarCallOverlay"].includes(candidateKey)){status="ADD_NOT_ALLOWED";nextAction="No positive current exposure is available to score as HOLD. Reconcile quantities, or change the lens to ADD.";}
     else if(!payoffComplete||!qtyComplete||!timeComplete){status="NEEDS_PAYOFF";nextAction="Enter positive gain/loss per unit, non-negative base/adverse costs, integer quantity and calendar-day horizon. Missing values remain PENDING.";}
-    else if(!probComplete||pBase===null){status="INVALID_RANGE";nextAction="Probability inputs must be within [0,100], with low ≤ base ≤ high. Provide a base probability; do not use a blank as zero.";}
+    else if(probabilityMissing){status="NEEDS_PROBABILITY";nextAction="PENDING: enter low / base / high probability, or provide wins and total outcomes. Missing probability evidence is not a 0% probability or an invalid range.";}
+    else if(!probComplete||pBase===null){status="INVALID_RANGE";nextAction="Probability inputs must be within [0,100], with low ≤ base ≤ high. Correct the invalid range; do not use a blank as zero.";}
     else if(riskNature==="UNBOUNDED"){status="UNBOUNDED_TAIL";nextAction="This candidate has structurally unbounded/unknown tail risk. Scenario EV can be inspected, but a finite entered stress loss is not a maximum-loss cap.";}
     else if(noSizingRoute){status="NO_SIZING_ROUTE";nextAction="Scenario only: this candidate has no primary sizing route. It cannot become a portfolio allocation until a capacity model exists.";}
     else if(probabilityBasis==="MODEL_REPLAY"){status="MODEL_ONLY";nextAction=basePass?"Model EV is positive under entered assumptions, but model win frequency is not a real-execution probability. No trade-ready conclusion.":"The model scenario does not pass the entered base-EV screen; keep it research/scenario only.";}
@@ -101,7 +103,8 @@
     else if(!basePass){status="NEGATIVE_EXPECTED_VALUE";nextAction="Base expected value is zero or negative after entered costs. Under this payoff/probability specification, do not add exposure.";}
     else if(!alternativeComplete){status="ALTERNATIVE_VALUE_PENDING";nextAction="EV is positive under supplied assumptions, but the waiting / alternative path has no priced expected value for the same capital and horizon. Enter a sourced comparator; do not silently equate WAIT with $0.";}
     else if(incrementalEVBase<=0){status="NEGATIVE_INCREMENTAL_VALUE";nextAction="The candidate's base expected value is no better than the named waiting / alternative benchmark. Prefer WAIT / compare another candidate unless other objectives justify review.";}
-    else if(!rangeComplete||!adversePass||incrementalEVAdverse===null||incrementalEVAdverse<=0){status="FRAGILE_EXPECTED_VALUE";nextAction="Base EV beats the comparator, but the low-probability / adverse-cost case is missing or fails to beat it. Relative value is fragile; do not call it robust.";}
+    else if(!rangeComplete){status="NEEDS_PROBABILITY";nextAction="PENDING: the low / base / high probability range is incomplete, so robustness versus the comparator cannot be assessed.";}
+    else if(!adversePass||incrementalEVAdverse===null||incrementalEVAdverse<=0){status="FRAGILE_EXPECTED_VALUE";nextAction="Base EV beats the comparator, but the low-probability / adverse-cost case fails to beat it. Relative value is fragile; do not call it robust.";}
     else{status="ELIGIBLE_FOR_HUMAN_REVIEW";nextAction="Evidence, current sizing route, explicit alternative and adverse case pass the configured screen. ELIGIBLE FOR HUMAN REVIEW only—not trade approval, strategy promotion or an order.";}
     if(lens==="HOLD"&&heldPositions.length===0&&routeCanHold)warnings.push("No matching registered position row: current units exist in the sizing input, but stop / mark / age / DTE management evidence is not linked for this holding.");
     if(floorBreached&&lens!=="ADD")warnings.push("CLOCK Floor is breached. This EV remains a scenario; the long-horizon controller calls for NAV / cash-flow reconciliation and human review.");
@@ -128,7 +131,7 @@
       researchEvidence:{rollingFloor:EVIDENCE.rollingFloor,qqqFarCallOverlay:EVIDENCE.qqqFarCallOverlay,vxxCallCredit:EVIDENCE.vxxCallCredit,hybridReplay:EVIDENCE.hybridReplay},
       deploymentRoadmap:roadmap?{status:roadmap.status||null,floorUsd:roadmap.floorUsd??null,floorGapUsd:roadmap.floorGapUsd??null,elapsedMonths:roadmap.elapsedMonths??null,remainingMonths:roadmap.remainingMonths??null}:null,
       heldPositions,heldPositionReviewCount:heldReviews.length,
-      waitReferenceExpectedValueUsd:0,futureCashYieldIncluded:false,brokerOrders:false
+      waitReferenceExpectedValueUsd:null,futureCashYieldIncluded:false,brokerOrders:false
     };
   }
   const api={evaluate,wilson95,EVIDENCE};
