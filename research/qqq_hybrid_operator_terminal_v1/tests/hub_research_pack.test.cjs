@@ -338,4 +338,59 @@ function ratioBase(overrides = {}) {
   assert.ok(hubUi.includes("budget.remainingPool === null"), "unknown base reservation must block Hub calculations");
 }
 
-console.log("HUB RESEARCH OPTION PACK: 11 TEST GROUPS PASS");
+// QQQ protective ratio is explicitly N long puts : 1 lower-strike short put.
+{
+  const base = {
+    spot: 100, longPutStrike: 95, longPutAsk: 3,
+    shortPutStrike: 90, shortPutBid: 1.2, putRatioN: 2, budgetUsd: 1000
+  };
+  const r = H.calculatePutRatio(base);
+  assert.equal(r.ready, true);
+  assert.equal(r.status, "RISK_GATE_PASS");
+  assert.equal(r.putRatioN, 2);
+  assert.equal(r.debitUsd, 480);
+  assert.equal(r.riskUsd, 480);
+  assert.equal(r.maxPackages, 2);
+  assert.equal(r.longPutContracts, 4);
+  assert.equal(r.shortPutContracts, 2);
+  assert.equal(r.legs[0].qty, 2);
+  assert.equal(r.legs[1].qty, 1);
+
+  const nOne = H.calculatePutRatio({ ...base, putRatioN: 1 });
+  assert.equal(nOne.ready, true);
+  assert.equal(nOne.debitUsd, 180);
+
+  const tooSmall = H.calculatePutRatio({ ...base, budgetUsd: 400 });
+  assert.equal(tooSmall.ready, true);
+  assert.equal(tooSmall.maxPackages, 0);
+  assert.equal(tooSmall.status, "RISK_GATE_BLOCK");
+
+  const invalidRatio = H.calculatePutRatio({ ...base, putRatioN: 2.5 });
+  assert.equal(invalidRatio.ready, false);
+  assert.equal(invalidRatio.status, "PENDING");
+  assert.match(invalidRatio.error, /integer from 1 to 6/);
+
+  const invalidGeometry = H.calculatePutRatio({ ...base, longPutStrike: 90, shortPutStrike: 95 });
+  assert.equal(invalidGeometry.ready, false);
+  assert.equal(invalidGeometry.status, "PENDING");
+
+  const nonPositiveDebit = H.calculatePutRatio({ ...base, shortPutBid: 6 });
+  assert.equal(nonPositiveDebit.ready, false);
+  assert.equal(nonPositiveDebit.status, "PENDING");
+  assert.match(nonPositiveDebit.error, /positive net debit/);
+}
+
+// The new N:1 put ratio is visible in the dedicated Hub selector and never
+// replaces the main terminal's two-leg CALL risk-pool whitelist.
+{
+  const hubHtml = fs.readFileSync(require("node:path").join(__dirname, "../hub_research_pack.html"), "utf8");
+  const hubUi = fs.readFileSync(require("node:path").join(__dirname, "../hub_research_pack_ui.js"), "utf8");
+  const mainHtml = fs.readFileSync(require("node:path").join(__dirname, "../index.html"), "utf8");
+  assert.ok(hubHtml.includes('<option value="put-ratio">Hub QQQ Long Put N:1 / Short QQQ Put Ratio</option>'));
+  assert.ok(hubHtml.includes('id="putRatioN"'));
+  assert.ok(hubUi.includes("E.calculatePutRatio"));
+  assert.ok(mainHtml.includes("QQQ Long Put N:1 / Short QQQ Put Ratio"));
+  assert.ok(mainHtml.includes('Only those two defined-risk credit verticals share the option max-loss pool'));
+}
+
+console.log("HUB RESEARCH OPTION PACK: 13 TEST GROUPS PASS");

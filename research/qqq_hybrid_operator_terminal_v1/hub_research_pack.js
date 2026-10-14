@@ -319,6 +319,57 @@
     };
   }
 
+  function calculatePutRatio(input) {
+    const d = input || {};
+    const n = num(d.putRatioN);
+    if (!Number.isInteger(n) || n < 1 || n > 6) {
+      return { ready: false, status: "PENDING", error: "Put ratio N must be an integer from 1 to 6." };
+    }
+    const spot = num(d.spot);
+    const longK = num(d.longPutStrike);
+    const shortK = num(d.shortPutStrike);
+    const longAsk = num(d.longPutAsk);
+    const shortBid = num(d.shortPutBid);
+    if (!(spot > 0) || !(longK > shortK && shortK > 0) || !(longAsk > 0) || !(shortBid >= 0)) {
+      return {
+        ready: false, status: "PENDING",
+        error: "Need QQQ spot, same-expiry QQQ puts with Long Put strike > Short Put strike > 0, positive Long Put Ask and valid Short Put Bid."
+      };
+    }
+    const legs = [
+      { name: "Long QQQ puts (N)", right: "put", side: "BUY", qty: n, strike: longK, price: longAsk },
+      { name: "Short QQQ put (1)", right: "put", side: "SELL", qty: 1, strike: shortK, price: shortBid }
+    ];
+    const risk = terminalMaxLoss(legs, spot);
+    if (!risk.ready) return { ...risk, status: "PENDING" };
+    if (!(risk.debitUsd > 0) || !(risk.riskUsd > 0)) {
+      return {
+        ready: false, status: "PENDING", debitUsd: risk.debitUsd, riskUsd: risk.riskUsd,
+        error: "N:1 put package must show a positive net debit and positive terminal-loss estimate. Recheck same-expiry strikes and observed Ask/Bid."
+      };
+    }
+    const budgetUsd = Math.max(0, num(d.budgetUsd, 0));
+    const maxPackages = Math.floor((budgetUsd + EPS) / risk.riskUsd);
+    return {
+      ready: true,
+      status: budgetUsd > 0 && maxPackages > 0 ? "RISK_GATE_PASS" : "RISK_GATE_BLOCK",
+      putRatioN: n,
+      ratioLabel: n + ":1 Long QQQ Put : Short QQQ Put",
+      budgetUsd,
+      riskUsd: risk.riskUsd,
+      debitUsd: risk.debitUsd,
+      maxPackages,
+      longPutContracts: n * maxPackages,
+      shortPutContracts: maxPackages,
+      legs,
+      worstExpiryPnlUsd: risk.worstExpiryPnlUsd,
+      source: "HUB_QQQ_PUT_RATIO_N_TO_1_BID_ASK_TERMINAL_PAYOFF_PROXY",
+      reason: maxPackages > 0
+        ? "Research capacity only: each package buys N higher-strike QQQ puts and sells 1 lower-strike QQQ put at the same expiry. It does not add risk capacity or authorize an order in the main desk."
+        : "RISK_GATE_BLOCK: this research budget cannot cover one complete N:1 put package at the current observed-side debit."
+    };
+  }
+
   function calculateRiskBank(input) {
     const d = input || {};
     const seed = Math.max(0, num(d.seedWinUsd, 0));
@@ -405,7 +456,7 @@
 
   root.HubOptionPackV1 = {
     MULTIPLIER, num, whole, terminalMaxLoss, calculateRatioCall,
-    calculateStateAdaptive, calculateStaggered, calculateShockGatedPut,
+    calculateStateAdaptive, calculateStaggered, calculateShockGatedPut, calculatePutRatio,
     calculateRiskBank, blackScholesDelta, chooseChainLegs, ratioCallLegs, stateAdaptiveLegs
   };
   if (typeof module !== "undefined" && module.exports) module.exports = root.HubOptionPackV1;

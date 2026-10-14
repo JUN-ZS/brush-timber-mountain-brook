@@ -86,10 +86,10 @@ V3 must be healthy for the read-only market bridge. If it is not available, the 
 - QQQ protective put.
 - Long call, long put and long straddle.
 - Iron fly, iron condor, broken-wing butterfly and calendar spread.
-- Hub-style 1:N:1 call/put ratios.
+- Hub Call Ratio and the explicit QQQ Long Put N:1 / Short QQQ Put ratio (separate research calculator).
 - Legacy QQQ N-far-short / dynamic near-long hedge campaign.
 
-Candidate lookup is available for QQQ/VXX call and put verticals and QQQ long calls/puts. Manually defined structures require an explicit per-unit maximum-loss or debit input. Missing candidate prices stay PENDING; no credit floor or quantity is invented.
+Candidate lookup is available for QQQ/VXX call and put verticals and QQQ long calls/puts. The Hub research page includes a separate QQQ put-ratio calculator: each package buys N higher-strike QQQ puts and sells one lower-strike QQQ put at the same expiry; N is configurable from 1–6. It uses observed-side Long Put Ask and Short Put Bid, terminal-payoff risk, and the remaining research budget; it never enters the main QQQ/VXX CALL risk pool. Manually defined structures require an explicit per-unit maximum-loss or debit input. Missing candidate prices stay PENDING; no credit floor or quantity is invented.
 
 ## Capital-first planning example
 

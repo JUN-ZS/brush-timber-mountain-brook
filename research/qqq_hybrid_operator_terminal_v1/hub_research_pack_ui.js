@@ -11,7 +11,7 @@
     "shortPutStrike","shortPutBid","requestedN","maxN","currentN","currentShorts","currentWings","currentShortDelta",
     "lowDeltaStreak","sessionsSinceChange","packagePnlUsd","currentShortAsk","currentWingBid","approachTouched",
     "nextDayReversal","nextDayContinuation","wave","prevClose","anchorClose","atr20","layerCap","currentLayers",
-    "drawdown252Pct","return5dPct","applyRiskBank","bankSeedWinUsd","bankLossesUsd","bankMode","bankNetPnlUsd"
+    "drawdown252Pct","return5dPct","putRatioN","applyRiskBank","bankSeedWinUsd","bankLossesUsd","bankMode","bankNetPnlUsd"
   ];
   const n = (id, fallback = null) => E.num($(id) ? $(id).value : null, fallback);
   const checked = (id) => $(id) && $(id).checked === true;
@@ -62,18 +62,24 @@
     const ratio = mode.startsWith("ratio-");
     const state = mode === "state-adaptive" || mode === "staggered";
     const shock = mode === "shock-put";
+    const putRatio = mode === "put-ratio";
     $("ratioControlGroup").hidden = !ratio;
     $("stateControlGroup").hidden = !state;
     $("shockControlGroup").hidden = !shock;
-    $("callLegGroup").hidden = shock;
-    $("putLegGroup").hidden = !(state || mode === "staggered" || shock);
+    $("putRatioControlGroup").hidden = !putRatio;
+    $("callLegGroup").hidden = shock || putRatio;
+    $("putLegGroup").hidden = !(state || shock || putRatio);
+    $("putLegHeading").textContent = putRatio
+      ? "Put 比例結構：+N Long QQQ Put −1 Short QQQ Put（同到期）"
+      : "+1 約 25Δ Long Put −1 約 10Δ farther-OTM Short Put";
     const captions = {
       "ratio-harvest50": "Ratio-Call HARVEST50 V1",
       "ratio-dynamic-v2": "Ratio-Call Risk-Budget Dynamic-N V2",
       "ratio-fresh-v7": "Ratio-Call Fresh-Pair Dynamic-N V7",
       "state-adaptive": "State-Adaptive Geometry",
       "staggered": "Staggered Stack",
-      "shock-put": "SHOCK-GATED Put Debit Spread"
+      "shock-put": "SHOCK-GATED Put Debit Spread",
+      "put-ratio": "QQQ Long Put N:1 / Short QQQ Put Ratio"
     };
     $("resultStatus").dataset.mode = captions[mode];
   }
@@ -241,6 +247,27 @@
         ["剩餘研究風險額度", usd(result.remainingRiskUsd)],
         ["Action", result.action]
       ] : [["狀態", result.status], ["原因", result.error || "報價／結構資料不足"]];
+    } else if (mode === "put-ratio") {
+      title = "QQQ Long Put N:1 / Short QQQ Put Ratio";
+      result = E.calculatePutRatio({ ...input, budgetUsd: budget.effectiveBudget, putRatioN: n("putRatioN", 2) });
+      if (result.ready) {
+        riskAtTarget = result.riskUsd;
+        debitAtTarget = Math.max(0, result.debitUsd);
+        oneUnitRisk = result.riskUsd;
+      }
+      rows = result.ready ? [
+        ["結構", "+" + fmt(result.putRatioN) + " QQQ Long Put : −1 QQQ Short Put"],
+        ["每組 Long Put / Short Put 張數", fmt(result.putRatioN) + " / 1"],
+        ["每組淨 Debit（$，已用 Long Ask − Short Bid）", usd(result.debitUsd)],
+        ["每組到期最大虧損估算（$）", usd(result.riskUsd)],
+        ["此研究結構風險預算（$）", usd(result.budgetUsd)],
+        ["可負擔最大組數", fmt(result.maxPackages)],
+        ["最大容量對應 Long Put 總張數", fmt(result.longPutContracts)],
+        ["最大容量對應 Short Put 總張數", fmt(result.shortPutContracts)],
+        ["最大容量所需風險額度（$）", usd(result.maxPackages * result.riskUsd)],
+        ["資料／風險規則", "同到期 QQQ Put；Long strike > Short strike；買入用 Ask、賣出用 Bid；每張乘數假設 100"],
+        ["限制", result.reason]
+      ] : [["狀態", result.status || "PENDING"], ["原因", result.error || "缺少可驗證的腿資料"]];
     } else {
       title = "SHOCK-GATED Put Debit Spread";
       result = E.calculateShockGatedPut({ ...input, budgetUsd: budget.effectiveBudget, drawdown252Pct: n("drawdown252Pct", 0), return5dPct: n("return5dPct", 0) });

@@ -47,7 +47,7 @@
 
     <section class="notice">
       <b>此頁是 Hub 研究結構檢視器，不是獨立資金配置表。</b>
-      <small>Ratio-Call HARVEST50 / Dynamic-N、State-Adaptive Geometry、Staggered Stack 及 SHOCK-GATED Put Debit Spread 的細部風險和觸發規則在此檢視；最終可投入數量必須返回主操作台，由 Hybrid + 所有啟用的 Hub 結構共用同一個總風險池按比例分配。不可把此頁獨立顯示的最大值再加到主操作台。</small>
+      <small>Ratio-Call HARVEST50 / Dynamic-N、QQQ Long Put N:1 / Short Put 比例組合、State-Adaptive Geometry、Staggered Stack 及 SHOCK-GATED Put Debit Spread 的細部風險和觸發規則在此檢視；最終可投入數量必須返回主操作台，由 Hybrid + 所有啟用的 Hub 結構共用同一個總風險池按比例分配。不可把此頁獨立顯示的最大值再加到主操作台。</small>
     </section>
 
     <section class="notice">
@@ -77,6 +77,7 @@
             <option value="ratio-fresh-v7">Hub Ratio-Call · Fresh-Pair Dynamic-N V7</option>
             <option value="state-adaptive">Hub State-Adaptive Geometry</option>
             <option value="staggered">Hub Staggered Stack · 1 / 2 / 4 layers</option>
+            <option value="put-ratio">Hub QQQ Long Put N:1 / Short QQQ Put Ratio</option>
             <option value="shock-put">Hub SHOCK-GATED Put Debit Spread</option>
           </select>
         </label>
@@ -104,7 +105,7 @@
         </div>
       </div>
       <div id="putLegGroup">
-        <div class="leg-heading">Put 結構：+1 約 25Δ Long Put −1 約 10Δ farther-OTM Short Put</div>
+        <div class="leg-heading" id="putLegHeading">Put 結構：+1 約 25Δ Long Put −1 約 10Δ farther-OTM Short Put</div>
         <div class="leg-grid">
           <label>Long Put 行使價 K<input id="longPutStrike" type="number" min="0" step="0.5"></label>
           <label>Long Put 買入 Ask ($)<input id="longPutAsk" type="number" min="0" step="0.01"></label>
@@ -149,8 +150,17 @@
       </div>
     </section>
 
+    <section class="card" id="putRatioControlGroup" hidden>
+      <div class="section-head"><h2>3C · QQQ LONG PUT N:1 / SHORT QQQ PUT</h2><span class="tag">RESEARCH ONLY · OUTSIDE PRIMARY BUDGET</span></div>
+      <div class="pack-grid">
+        <label>N · 每組買入 Long QQQ Put 張數<input id="putRatioN" type="number" min="1" max="6" step="1" value="2"></label>
+        <label>每組賣出 Short QQQ Put 張數<input type="text" value="1 (fixed)" disabled></label>
+      </div>
+      <p class="pack-foot">每組固定為 +N 張較高行使價 QQQ Long Put、−1 張較低行使價 QQQ Short Put；同一到期日。使用 Long Put Ask 及 Short Put Bid，按到期各行使價／0 的 payoff 節點估算每組最大虧損與預算容量。此容量只屬 Hub 研究比較，不加進主台 QQQ/VXX CALL 配置，也不授權下單。</p>
+    </section>
+
     <section class="card" id="shockControlGroup" hidden>
-      <div class="section-head"><h2>3C · SHOCK-GATED Convexity 閘</h2><span class="tag warn">不在 Shock 狀態不加倉</span></div>
+      <div class="section-head"><h2>3D · SHOCK-GATED Convexity 閘</h2><span class="tag warn">不在 Shock 狀態不加倉</span></div>
       <div class="pack-grid">
         <label>距過去 252 個交易日高位 Drawdown (%)<input id="drawdown252Pct" type="number" min="-100" max="100" step="0.1" value="0"></label>
         <label>過去 5 個交易日回報 (%)<input id="return5dPct" type="number" min="-100" max="100" step="0.1" value="0"></label>
