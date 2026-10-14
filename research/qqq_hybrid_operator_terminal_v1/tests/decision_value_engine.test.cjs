@@ -1,7 +1,11 @@
 "use strict";
 const assert=require("node:assert/strict");
-const D=require("../decision_value_engine.js");
-function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quantity:10,horizonDays:10,nav:100000,rewardUsd:200,lossUsd:100,costUsd:5,costStressUsd:10,riskNature:"DEFINED",probabilityMethod:"EMPIRICAL",wins:40,trials:50,probabilityBasis:"INDEPENDENT_OOS",accuracy:"PASS",generality:"PASS",integration:"PASS",evidenceNote:"source hash + chronological OOS report",market:{blocked:false,allowNew:true,action:"BUY",state:"CARRY"},mainRow:{key:"qqqShares",current:10,target:30,capacity:100,delta:20,action:"ADD",status:"READY",reason:"eligible"},...overrides};}
+const fs=require("node:fs");
+const vm=require("node:vm");
+const sandbox={module:{exports:{}}};
+vm.runInNewContext(fs.readFileSync(require.resolve("../decision_value_engine.js"),"utf8"),sandbox,{filename:"decision_value_engine.js"});
+const D=sandbox.module.exports;
+function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quantity:10,horizonDays:10,nav:100000,rewardUsd:200,lossUsd:100,costUsd:5,costStressUsd:10,riskNature:"DEFINED",probabilityMethod:"EMPIRICAL",wins:40,trials:50,probabilityBasis:"INDEPENDENT_OOS",accuracy:"PASS",generality:"PASS",integration:"PASS",alternativeEVTotalUsd:0,alternativeLabel:"Explicit $0 direct-P&L WAIT baseline",evidenceNote:"source hash + chronological OOS report",market:{blocked:false,allowNew:true,action:"BUY",state:"CARRY"},mainRow:{key:"qqqShares",current:10,target:30,capacity:100,delta:20,action:"ADD",status:"READY",reason:"eligible"},...overrides};}
 {
  const r=D.evaluate(fixture());assert.equal(r.status,"ELIGIBLE_FOR_HUMAN_REVIEW");assert.equal(r.probabilityBasePct,80);
  assert.ok(r.probabilityLowPct<80&&r.probabilityHighPct>80);assert.equal(r.breakEvenProbabilityPct,35);
@@ -17,4 +21,24 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
 {const r=D.evaluate(fixture({candidateKey:"vxxShortShares",riskNature:"DEFINED"}));assert.equal(r.riskNature,"UNBOUNDED");assert.equal(r.status,"UNBOUNDED_TAIL");}
 {const r=D.evaluate(fixture({probabilityBasis:"INDEPENDENT_OOS",probabilityMethod:"MANUAL",probabilityLowPct:60,probabilityBasePct:70,probabilityHighPct:80}));assert.equal(r.status,"EVIDENCE_INCOMPLETE");}
 {assert.equal(D.wilson95(1,0),null);assert.equal(D.wilson95(4,3),null);assert.ok(D.wilson95(41,49).lowPct<D.wilson95(41,49).basePct);const r=D.evaluate(fixture({probabilityMethod:"MANUAL",probabilityBasis:"HYPOTHESIS",probabilityLowPct:80,probabilityBasePct:70,probabilityHighPct:90}));assert.equal(r.status,"INVALID_RANGE");}
-console.log("QQQ HYBRID DECISION VALUE ENGINE: 10 test groups PASS");
+
+{
+ const missing=D.evaluate(fixture({alternativeEVTotalUsd:null,alternativeLabel:""}));
+ assert.equal(missing.status,"ALTERNATIVE_VALUE_PENDING");
+ assert.equal(missing.incrementalValueBaseUsd,null);
+ const inferior=D.evaluate(fixture({alternativeEVTotalUsd:2000,alternativeLabel:"Cash + current portfolio comparator"}));
+ assert.equal(inferior.status,"NEGATIVE_INCREMENTAL_VALUE");
+ assert.ok(inferior.incrementalValueBaseUsd<0);
+ const fragile=D.evaluate(fixture({costStressUsd:300,alternativeEVTotalUsd:0,alternativeLabel:"Explicit $0 direct-P&L WAIT baseline"}));
+ assert.equal(fragile.status,"FRAGILE_EXPECTED_VALUE");
+ const floor=D.evaluate(fixture({deploymentRoadmap:{status:"FLOOR_BREACH",floorGapUsd:-500},market:{blocked:false,allowNew:true,action:"BUY",state:"CARRY"}}));
+ assert.equal(floor.status,"CLOCK_FLOOR_BREACH");
+ const noCarry=D.evaluate(fixture({candidateKey:"qqqShares",market:{blocked:false,allowNew:false,action:"HOLD",state:"THIN"}}));
+ assert.equal(noCarry.status,"ADD_NOT_ALLOWED","QQQ Core ADD must not bypass the current regime gate");
+ const missingRoute=D.evaluate(fixture({mainRow:{current:null,target:null,capacity:null,action:"ADD",status:"PENDING",reason:"unknown current/target"}}));
+ assert.equal(missingRoute.mainRoute.maxAllowedAdd,null);
+ assert.equal(missingRoute.status,"ADD_NOT_ALLOWED","unknown capacity cannot be coerced to an add gap");
+ const heldReview=D.evaluate(fixture({lens:"HOLD",positionManagementRows:[{template:"QQQ_CORE",label:"QQQ core",action:"STOP MARK BREACHED · HUMAN REVIEW",pnlR:-1.2,pnl:-120}]}));
+ assert.equal(heldReview.status,"POSITION_REVIEW_PRIORITY");
+}
+console.log("QQQ HYBRID DECISION VALUE ENGINE: 17 test groups PASS");

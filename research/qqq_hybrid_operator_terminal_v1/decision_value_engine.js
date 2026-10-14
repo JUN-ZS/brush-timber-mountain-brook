@@ -21,14 +21,22 @@
   function mainRoute(row,candidateKey){
     if(!row)return null;
     const current=n(row.current),target=n(row.target),capacity=n(row.capacity),action=String(row.action||row.status||"PENDING").toUpperCase();
-    const maxAllowedAdd=action==="ADD"&&current!==null&&target!==null?Math.max(0,target-current):0;
-    const maxAllowedTrim=action==="REDUCE"&&current!==null&&target!==null?Math.max(0,current-target):(action==="BLOCKED"?null:0);
+    const quantitiesKnown=current!==null&&target!==null;
+    const blocked=["BLOCKED","PENDING","WAIT FOR DATA","PLAN INCOMPLETE","INCOMPLETE","UNKNOWN"].includes(action);
+    const maxAllowedAdd=!quantitiesKnown||blocked?null:action==="ADD"?Math.max(0,target-current):0;
+    const maxAllowedTrim=!quantitiesKnown||blocked?null:action==="REDUCE"?Math.max(0,current-target):0;
     return {candidateKey,current,target,capacity,action,maxAllowedAdd,maxAllowedTrim,status:row.status||null,reason:row.reason||""};
   }
   function evaluate(input){
     const i=input&&typeof input==="object"?input:{}, candidateKey=String(i.candidateKey||"custom"),candidateLabel=strategyLabel(candidateKey),lens=i.lens==="HOLD"?"HOLD":"ADD";
     const nav=n(i.nav),quantity=n(i.quantity),horizonDays=n(i.horizonDays),reward=n(i.rewardUsd),loss=n(i.lossUsd),cost=n(i.costUsd),costStress=n(i.costStressUsd);
+    const alternativeEVTotalUsd=n(i.alternativeEVTotalUsd),alternativeLabel=String(i.alternativeLabel||"").trim();
     const warnings=[],market=i.market&&typeof i.market==="object"?i.market:null,route=mainRoute(i.mainRow,candidateKey);
+    const roadmap=i.deploymentRoadmap&&typeof i.deploymentRoadmap==="object"?i.deploymentRoadmap:null;
+    const positionTemplateFor={qqqShares:"QQQ_CORE",vxxShortShares:"VXX_SHORT_STOCK",qqqCallSpreads:"QQQ_CALL_CREDIT",vxxCallSpreads:"VXX_CALL_CREDIT"};
+    const relevantTemplates=positionTemplateFor[candidateKey]?[positionTemplateFor[candidateKey]]:[];
+    const heldPositions=Array.isArray(i.positionManagementRows)?i.positionManagementRows.filter(x=>relevantTemplates.includes(x.template)):[];
+    const heldReviews=heldPositions.filter(x=>!String(x.action||"").startsWith("MONITOR "));
     const axes={accuracy:String(i.accuracy||"UNREVIEWED"),generality:String(i.generality||"NOT_DEMONSTRATED"),integration:String(i.integration||"NOT_TESTED")};
     const evidenceNote=String(i.evidenceNote||"").trim(),probabilityMethod=String(i.probabilityMethod||"MANUAL"),probabilityBasis=String(i.probabilityBasis||"HYPOTHESIS");
     let pLow=n(i.probabilityLowPct),pBase=n(i.probabilityBasePct),pHigh=n(i.probabilityHighPct),sampleSize=null,empirical=null,probabilityMethodLabel="Manual low/base/high scenario",probabilityBasisLabel="Operator hypothesis";
@@ -56,34 +64,47 @@
     const adverseEV=payoffComplete&&pctRange(pLow)?ev(pLow/100,reward,loss,cost+costStress):null;
     const highEV=payoffComplete&&pctRange(pHigh)?ev(pHigh/100,reward,loss,cost):null;
     const baseTotal=baseEV!==null&&qtyComplete?baseEV*quantity:null,adverseTotal=adverseEV!==null&&qtyComplete?adverseEV*quantity:null,highTotal=highEV!==null&&qtyComplete?highEV*quantity:null;
+    const alternativeComplete=alternativeEVTotalUsd!==null&&Number.isFinite(alternativeEVTotalUsd)&&alternativeLabel.length>=3;
+    const incrementalEVBase=baseTotal!==null&&alternativeComplete?baseTotal-alternativeEVTotalUsd:null;
+    const incrementalEVAdverse=adverseTotal!==null&&alternativeComplete?adverseTotal-alternativeEVTotalUsd:null;
+    const incrementalEVHigh=highTotal!==null&&alternativeComplete?highTotal-alternativeEVTotalUsd:null;
+    const incrementalEVPerDay=incrementalEVBase!==null&&timeComplete?incrementalEVBase/horizonDays:null;
+    const incrementalEVPctNav=incrementalEVBase!==null&&nav!==null&&nav>0?incrementalEVBase/nav*100:null;
     const perDay=baseTotal!==null&&timeComplete?baseTotal/horizonDays:null,riskTotal=loss!==null&&loss>0&&qtyComplete?loss*quantity:null;
     const riskPctNav=riskTotal!==null&&nav!==null&&nav>0?riskTotal/nav*100:null,evPctNav=baseTotal!==null&&nav!==null&&nav>0?baseTotal/nav*100:null;
     const evPerRisk=baseEV!==null&&loss!==null&&loss>0?baseEV/loss:null,rr=payoffComplete?reward/loss:null,margin=pBase!==null&&breakEven!==null?pBase-breakEven:null;
     const rangeComplete=pctRange(pLow)&&pctRange(pBase)&&pctRange(pHigh),adversePass=adverseEV!==null&&adverseEV>0,basePass=baseEV!==null&&baseEV>0;
-    const routeAllowsAdd=!!route&&route.action==="ADD"&&route.maxAllowedAdd>0,routeCanHold=!!route&&route.current!==null&&route.current>0;
+    const routeAllowsAdd=!!route&&route.action==="ADD"&&route.maxAllowedAdd!==null&&route.maxAllowedAdd>0,routeCanHold=!!route&&route.current!==null&&route.current>0;
     const qtyOverTarget=lens==="ADD"&&routeAllowsAdd&&qtyComplete&&quantity>route.maxAllowedAdd;
     const addNotAllowed=lens==="ADD"&&!["custom","qqqFarCallOverlay","deploymentTiming"].includes(candidateKey)&&(!route||!routeAllowsAdd);
     const holdConflictsWithReduce=lens==="HOLD"&&route&&route.action==="REDUCE";
     const qqqOverlayLocked=candidateKey==="qqqFarCallOverlay",noSizingRoute=!route&&["custom","deploymentTiming"].includes(candidateKey);
     const riskNature=candidateKey==="vxxShortShares"?"UNBOUNDED":String(i.riskNature||"STRESS_ONLY");
+    const floorBreached=roadmap&&roadmap.status==="FLOOR_BREACH";
     const independentEvidenceOk=probabilityBasis==="INDEPENDENT_OOS"&&probabilityMethod==="EMPIRICAL"&&sampleSize!==null&&sampleSize>=30&&empirical!==null&&evidenceNote.length>=12&&axes.accuracy==="PASS"&&axes.generality==="PASS"&&axes.integration==="PASS";
-    let status="BASELINE_PENDING",nextAction="Complete payoff, cost, quantity, horizon and probability; no default success probability is inserted.";
-    if(!payoffComplete||!qtyComplete||!timeComplete){status="NEEDS_PAYOFF";nextAction="Enter positive gain/loss per unit, non-negative base/stress costs, integer quantity and calendar-day horizon. Missing values remain PENDING.";}
-    else if(!probComplete||pBase===null){status="INVALID_RANGE";nextAction="Probability inputs must be in [0,100], and low ≤ base ≤ high. Provide a base probability.";}
-    else if(!market||market.blocked===true){status="MARKET_BLOCKED";nextAction="BLOCK: main market data gate is blocked or unavailable. No deployment may be inferred from scenario EV.";}
-    else if(qqqOverlayLocked){status="QQQ_OVERLAY_LOCKBOX";nextAction="BLOCK promotion of incremental QQQ FAR CALL overlay. The current Accuracy / Generality / Integration lockbox fails; positive scenario EV cannot override it.";}
-    else if(noSizingRoute){status="NO_SIZING_ROUTE";nextAction="Scenario only: this candidate has no primary sizing row. It cannot turn into an allocation until a mapped capacity model exists.";}
-    else if(addNotAllowed||(lens==="ADD"&&qtyOverTarget)){status=qtyOverTarget?"QTY_OVER_TARGET":"ADD_NOT_ALLOWED";nextAction=qtyOverTarget?"BLOCK: proposed units exceed the main engine's current ADD gap. EV does not enlarge capacity.":"NO ADD: the main sizing row is not in ADD state or has no positive add gap. Respect HOLD / REDUCE / BLOCK / PENDING.";}
-    else if(lens==="ADD"&&market.allowNew!==true&&candidateKey!=="qqqShares"){status="ADD_NOT_ALLOWED";nextAction="Market state does not permit new exposure for this seller/risk-sensitive lane. Do not bypass the regime gate.";}
-    else if(holdConflictsWithReduce){status="HOLD_CONFLICTS_WITH_REDUCE";nextAction="Main sizing engine requests REDUCE. A positive forward EV is counterfactual and cannot cancel the reduction route.";}
-    else if(lens==="HOLD"&&!routeCanHold&&!["custom","deploymentTiming","qqqFarCallOverlay"].includes(candidateKey)){status="ADD_NOT_ALLOWED";nextAction="No registered current exposure is available to score as HOLD. Reconcile current units or change the lens to ADD.";}
-    else if(probabilityBasis==="MODEL_REPLAY"){status="MODEL_ONLY";nextAction=basePass?"Model EV is positive under entered assumptions, but model probability is not trade-ready evidence.":"Model EV does not pass the entered base scenario; keep it research/scenario only.";}
-    else if(probabilityBasis!=="INDEPENDENT_OOS"){status="HYPOTHESIS_ONLY";nextAction=basePass?"Base EV is positive versus $0 direct-P&L WAIT, but success probability remains a hypothesis.":"Hypothetical base EV is non-positive. Wait or remeasure; no evidence-backed probability exists.";}
+    let status="BASELINE_PENDING",nextAction="Complete payoff, cost, time and evidence inputs; no default success probability or alternative value is inserted.";
+    if(!market||market.blocked===true){status="MARKET_BLOCKED";nextAction="BLOCK: the main market-data gate is blocked or unavailable. Scenario EV cannot authorize deployment.";}
+    else if(qqqOverlayLocked){status="QQQ_OVERLAY_LOCKBOX";nextAction="BLOCK promotion of the incremental QQQ FAR CALL overlay. Accuracy / Generality / Integration lockbox failures cannot be overridden by a positive scenario EV.";}
+    else if(lens==="ADD"&&floorBreached){status="CLOCK_FLOOR_BREACH";nextAction="BLOCK new deployment while NAV is below the CLOCK Floor. Reconcile NAV, cash flows, holdings and pending orders; the floor is a review trigger, not an automatic sell.";}
+    else if(lens==="ADD"&&market.allowNew!==true){status="ADD_NOT_ALLOWED";nextAction="BLOCK new exposure: the current verified market state does not permit new Carry risk. QQQ Core and seller legs cannot use an EV score to bypass this gate.";}
+    else if(lens==="ADD"&&(addNotAllowed||qtyOverTarget)){status=qtyOverTarget?"QTY_OVER_TARGET":"ADD_NOT_ALLOWED";nextAction=qtyOverTarget?"BLOCK: proposed units exceed the current main-engine ADD gap. EV does not enlarge capacity.":"NO ADD: the main sizing row is not in ADD state or has no known positive add gap. Respect HOLD / REDUCE / BLOCK / PENDING.";}
+    else if(lens==="HOLD"&&heldReviews.length){status="POSITION_REVIEW_PRIORITY";nextAction="The registered position-management meter flags this holding for review before a new hold-vs-exit EV can be actioned: "+heldReviews.map(x=>String(x.label||x.template)+": "+String(x.action||"REVIEW")).join("; ")+". EV remains counterfactual and cannot override the position-specific gate.";}
+    else if(holdConflictsWithReduce){status="HOLD_CONFLICTS_WITH_REDUCE";nextAction="The main sizing engine requests REDUCE. A positive forward EV is counterfactual and cannot cancel the current reduction route.";}
+    else if(lens==="HOLD"&&!routeCanHold&&!["custom","deploymentTiming","qqqFarCallOverlay"].includes(candidateKey)){status="ADD_NOT_ALLOWED";nextAction="No positive current exposure is available to score as HOLD. Reconcile quantities, or change the lens to ADD.";}
+    else if(!payoffComplete||!qtyComplete||!timeComplete){status="NEEDS_PAYOFF";nextAction="Enter positive gain/loss per unit, non-negative base/adverse costs, integer quantity and calendar-day horizon. Missing values remain PENDING.";}
+    else if(!probComplete||pBase===null){status="INVALID_RANGE";nextAction="Probability inputs must be within [0,100], with low ≤ base ≤ high. Provide a base probability; do not use a blank as zero.";}
+    else if(riskNature==="UNBOUNDED"){status="UNBOUNDED_TAIL";nextAction="This candidate has structurally unbounded/unknown tail risk. Scenario EV can be inspected, but a finite entered stress loss is not a maximum-loss cap.";}
+    else if(noSizingRoute){status="NO_SIZING_ROUTE";nextAction="Scenario only: this candidate has no primary sizing route. It cannot become a portfolio allocation until a capacity model exists.";}
+    else if(probabilityBasis==="MODEL_REPLAY"){status="MODEL_ONLY";nextAction=basePass?"Model EV is positive under entered assumptions, but model win frequency is not a real-execution probability. No trade-ready conclusion.":"The model scenario does not pass the entered base-EV screen; keep it research/scenario only.";}
+    else if(probabilityBasis!=="INDEPENDENT_OOS"){status="HYPOTHESIS_ONLY";nextAction=basePass?"Base EV is positive under the scenario, but the success probability remains a hypothesis; relative value versus waiting/another strategy is not authenticated.":"Hypothetical base EV is non-positive. Wait or remeasure; no evidence-backed future probability exists.";}
     else if(!independentEvidenceOk){status="EVIDENCE_INCOMPLETE";nextAction="PENDING: at least 30 counted outcomes, a source/reference note and PASS on Accuracy, Generality and Integration are required. UI attestations do not authenticate evidence.";}
-    else if(riskNature==="UNBOUNDED"){status="UNBOUNDED_TAIL";nextAction="Scenario EV may be positive, but this exposure has unbounded/unknown tail risk. Entered stress loss is not a maximum-loss cap.";}
     else if(!basePass){status="NEGATIVE_EXPECTED_VALUE";nextAction="Base expected value is zero or negative after entered costs. Under this payoff/probability specification, do not add exposure.";}
-    else if(!rangeComplete||!adversePass){status="FRAGILE_EXPECTED_VALUE";nextAction="Base EV is positive but adverse EV is missing or non-positive. The opportunity is sensitive to probability/costs; do not call it robust.";}
-    else{status="ELIGIBLE_FOR_HUMAN_REVIEW";nextAction="Scenario, evidence-axis attestations and sizing route pass. ELIGIBLE FOR HUMAN REVIEW only—not trade approval, strategy promotion or an order.";}
+    else if(!alternativeComplete){status="ALTERNATIVE_VALUE_PENDING";nextAction="EV is positive under supplied assumptions, but the waiting / alternative path has no priced expected value for the same capital and horizon. Enter a sourced comparator; do not silently equate WAIT with $0.";}
+    else if(incrementalEVBase<=0){status="NEGATIVE_INCREMENTAL_VALUE";nextAction="The candidate's base expected value is no better than the named waiting / alternative benchmark. Prefer WAIT / compare another candidate unless other objectives justify review.";}
+    else if(!rangeComplete||!adversePass||incrementalEVAdverse===null||incrementalEVAdverse<=0){status="FRAGILE_EXPECTED_VALUE";nextAction="Base EV beats the comparator, but the low-probability / adverse-cost case is missing or fails to beat it. Relative value is fragile; do not call it robust.";}
+    else{status="ELIGIBLE_FOR_HUMAN_REVIEW";nextAction="Evidence, current sizing route, explicit alternative and adverse case pass the configured screen. ELIGIBLE FOR HUMAN REVIEW only—not trade approval, strategy promotion or an order.";}
+    if(lens==="HOLD"&&heldPositions.length===0&&routeCanHold)warnings.push("No matching registered position row: current units exist in the sizing input, but stop / mark / age / DTE management evidence is not linked for this holding.");
+    if(floorBreached&&lens!=="ADD")warnings.push("CLOCK Floor is breached. This EV remains a scenario; the long-horizon controller calls for NAV / cash-flow reconciliation and human review.");
     const candidateEvidence=qqqOverlayLocked?{accuracy:EVIDENCE.qqqFarCallOverlay.accuracy,generality:EVIDENCE.qqqFarCallOverlay.generality,integration:EVIDENCE.qqqFarCallOverlay.integration,sourceId:EVIDENCE.qqqFarCallOverlay.id}
       :probabilityBasis==="MODEL_REPLAY"&&candidateKey==="vxxCallSpreads"?{accuracy:"BLOCKED · MODEL_ONLY / NOT OPRA",generality:"NOT DEMONSTRATED",integration:"NOT PROVEN BY ISOLATED ATTRIBUTION",sourceId:EVIDENCE.vxxCallCredit.id}
       :{...axes,sourceId:evidenceNote||null,operatorAttested:probabilityBasis==="INDEPENDENT_OOS"};
@@ -97,11 +118,16 @@
       probabilityMethod,probabilityMethodLabel,probabilityBasis,probabilityBasisLabel,probabilityLowPct:pctRange(pLow)?pLow:null,probabilityBasePct:pctRange(pBase)?pBase:null,probabilityHighPct:pctRange(pHigh)?pHigh:null,
       sampleSize,empiricalInterval:empirical,breakEvenProbabilityPct:breakEven,expectedValueBaseUsd:baseEV,expectedValueAdverseUsd:adverseEV,expectedValueHighUsd:highEV,
       expectedValueBaseTotalUsd:baseTotal,expectedValueAdverseTotalUsd:adverseTotal,expectedValueHighTotalUsd:highTotal,
+      alternativeEVTotalUsd:alternativeComplete?alternativeEVTotalUsd:null,alternativeLabel:alternativeLabel||null,alternativeComplete,
+      incrementalValueBaseUsd:incrementalEVBase,incrementalValueAdverseUsd:incrementalEVAdverse,incrementalValueHighUsd:incrementalEVHigh,
+      incrementalValuePerCalendarDayUsd:incrementalEVPerDay,incrementalValuePctNav:incrementalEVPctNav,
       totalCostBaseUsd:cost!==null&&qtyComplete?cost*quantity:null,totalCostAdverseUsd:cost!==null&&costStress!==null&&qtyComplete?(cost+costStress)*quantity:null,
       expectedValuePerCalendarDayUsd:perDay,expectedValueBasePerRisk:evPerRisk,rewardRiskRatio:rr,probabilityMarginPct:margin,
       scenarioLossTotalUsd:riskTotal,scenarioRiskPctNav:riskPctNav,expectedValuePctNav:evPctNav,robustPositive:rangeComplete&&adversePass&&basePass,
       adverseProbabilityPct:pctRange(pLow)?pLow:null,favorableProbabilityPct:pctRange(pHigh)?pHigh:null,mainRoute:route,quantityOverTarget:qtyOverTarget,independentEvidenceOk,axes:candidateEvidence,evidenceNote:evidenceNote||null,warnings,
       researchEvidence:{rollingFloor:EVIDENCE.rollingFloor,qqqFarCallOverlay:EVIDENCE.qqqFarCallOverlay,vxxCallCredit:EVIDENCE.vxxCallCredit,hybridReplay:EVIDENCE.hybridReplay},
+      deploymentRoadmap:roadmap?{status:roadmap.status||null,floorUsd:roadmap.floorUsd??null,floorGapUsd:roadmap.floorGapUsd??null,elapsedMonths:roadmap.elapsedMonths??null,remainingMonths:roadmap.remainingMonths??null}:null,
+      heldPositions,heldPositionReviewCount:heldReviews.length,
       waitReferenceExpectedValueUsd:0,futureCashYieldIncluded:false,brokerOrders:false
     };
   }
