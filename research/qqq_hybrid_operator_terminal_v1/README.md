@@ -19,6 +19,20 @@ The table distinguishes:
 
 The V3 market snapshot is read-only. All sizing percentages are editable what-if inputs. The V3 reference profile is only a convenient preview preset; it is not automatically promoted into current sizing. Initial deployment: set NAV and uncommitted cash to the principal amount. Existing portfolio: enter total current equity as NAV and only truly uncommitted cash as the cash pool.
 
+
+## Long-term deployment roadmap — first-screen operating plan
+
+The first screen shows the whole-horizon contract before spot data and capacity tables:
+
+- Confirm an explicit starting baseline B and start date; the existing $100,000 NAV/cash presets are what-if inputs, not verified account data. The baseline button copies current NAV and today's local date only after an explicit click.
+- Default horizon is 120 months (editable). The CLOCK Floor uses the rule **C_t = B × min(elapsed whole months / H, 1)**; it reaches B at the horizon. It is a review threshold, not a principal guarantee, not adjusted for uncredited future deposits, and never causes an automatic sale. A NAV below the floor prioritizes reconciliation and pauses new risk pending manual review.
+- A planned monthly contribution only estimates future inflows over remaining months. It is **not** added to current NAV, available cash, or order capacity until it has actually settled and the operator updates the main inputs.
+- Every cycle reconciles NAV, uncommitted cash, holdings, pending orders, reserve and shared risk; applies verified data / regime / exact-contract gates; then compares CURRENT → TARGET and MAX CAPACITY. CARRY is permission to review, never an instruction to buy. Risk-off or stale data cannot be bypassed by long-term intent.
+- The position management meter then compares %NAV, R, P&L pace, remaining reward versus stop risk, age and expiry. No fixed dollar profit threshold triggers an automatic trim.
+- The current research lockbox remains unchanged: the FAR CALL isolated overlay is not approved for integration (trade-performance accuracy blocked, generality not demonstrated, current base integration screen failed). The roadmap does not project terminal NAV / CAGR / MaxDD or change Frozen Original Hybrid weights.
+
+The confirmed baseline and roadmap settings are stored in this browser's local storage and are included in both JSON export and the AI Review Pack. They are not broker records, and they do not authorize or place an order.
+
 ## Components
 
 - \`engine.js\`: market-state gate, capacity calculation, reverse-sizing deltas, defined-risk vertical sizing, strategy catalogue and N:X campaign preview.

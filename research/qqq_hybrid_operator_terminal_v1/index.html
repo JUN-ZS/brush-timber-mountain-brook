@@ -22,6 +22,33 @@
   </header>
 
   <main>
+
+    <section class="card deployment-roadmap-card" id="deploymentRoadmap">
+      <div class="section-head"><div><h2>0 · LONG-TERM DEPLOYMENT ROADMAP</h2><p class="roadmap-lead">先定全程規則，再按每輪真實資金、持倉、價格與風險更新部署；不靠預測回報，不因短期盈虧臨時改策略。</p></div><span id="deploymentRoadmapStatus" class="tag warn">BASELINE PENDING</span></div>
+      <div class="roadmap-controls">
+        <label>Starting capital B ($)<input id="planBaseCapital" type="number" min="0.01" step="100" placeholder="Confirm original plan capital"></label>
+        <label>Plan start date<input id="planStartDate" type="date"></label>
+        <label>Horizon (months)<input id="planHorizonMonths" type="number" min="1" max="600" step="1" value="120"></label>
+        <label>Planned monthly contribution ($)<input id="planMonthlyContribution" type="number" min="0" step="100" value="0"></label>
+      </div>
+      <div class="inline-actions roadmap-actions"><button id="setRoadmapBaselineBtn" class="primary" type="button">Lock baseline from current NAV + today</button><button id="clearRoadmapBaselineBtn" type="button">Clear baseline</button><span class="muted">NAV / cash 的 $100,000 預設值是 what-if 輸入，不是已核實帳戶餘額。只有確認後才鎖定基準。</span></div>
+      <div id="deploymentRoadmapHeadline" class="roadmap-next-action" role="status">先確認原始基準資金與起始日期。未鎖定基準時，全期進度與底線保持 PENDING。</div>
+      <div id="deploymentRoadmapMetrics" class="roadmap-metrics">
+        <div class="roadmap-metric"><small>STARTING CAPITAL B</small><b>PENDING</b><span>需要確認的起始基準</span></div>
+        <div class="roadmap-metric"><small>CURRENT NAV vs CLOCK FLOOR</small><b>PENDING</b><span>先鎖定基準，再計算進度底線</span></div>
+        <div class="roadmap-metric"><small>HORIZON REMAINING</small><b>120 months</b><span>可調整，預設十年</span></div>
+        <div class="roadmap-metric"><small>FUTURE CONTRIBUTIONS</small><b>$0</b><span>規劃值，不是今天可用現金</span></div>
+      </div>
+      <div class="roadmap-phase-grid">
+        <article class="roadmap-phase"><small>PHASE 0 · OPEN</small><b>鎖定全程基準</b><p>確認 B、起始日、期限、實際 NAV、已承諾資金、真正可用現金與已持有倉位。未確認前不將示例數字當真。</p></article>
+        <article class="roadmap-phase"><small>PHASE 1 · EACH REVIEW</small><b>重算，不猜測</b><p>每次以已結算資金更新 NAV／現金／持倉／待成交單，再看 CURRENT → TARGET、MAX CAPACITY、預留現金和剩餘風險池。未實際入帳的月供不計入今日容量。</p></article>
+        <article class="roadmap-phase"><small>PHASE 2 · DEPLOY</small><b>只部署合資格缺口</b><p>只有資料新鮮、期限結構閘允許、合約／Bid-Ask 可核對、風險預算與現金都通過，才可把目標缺口送交人工審查；容量不等於批准。</p></article>
+        <article class="roadmap-phase"><small>PHASE 3 · DEFEND</small><b>底線／風險先行</b><p>低於 CLOCK Floor、資料封鎖、停損／風險超限或 SHOCK 時，優先停加風險並覆核；VXX 賣方風險先按既定閘處理，QQQ Core 不因此自動清倉。</p></article>
+        <article class="roadmap-phase"><small>PHASE 4 · HARVEST / REVIEW</small><b>同一把尺看持倉</b><p>比較 %NAV、R、每曆日盈虧、剩餘報酬／止損風險、持有時間與 DTE。固定賺到 $1,000 不會單獨觸發減倉；只產生人工覆核，不自動下單。</p></article>
+      </div>
+      <p class="roadmap-contract"><b>CLOCK Floor:</b> Cₜ = B × min(t/H, 1)，其中 t 是已過完整月份，H 是總月份。這是隨時間上升的覆核底線，不是保本保證、不會自動 SELL，且暫不把未來月供加入 B；每次真實供款入帳後再更新 NAV／現金。</p>
+      <p class="roadmap-warning"><b>研究硬閘仍存在：</b>現有研究鎖箱對 FAR CALL 的準確性仍為 BLOCKED、一般性未證明，隔離 overlay 的目前整合基準未通過。因此本路線圖不預測 CAGR／MaxDD、不替研究策略放行，也不改 Frozen Original Hybrid 權重。</p>
+    </section>
     <section class="notice">
       <b>Primary capital-first budget:</b> QQQ core shares + VXX short-stock margin + these short-credit option legs only: QQQ far call-credit and VXX call-credit. Only those two defined-risk credit verticals share the option max-loss pool; QQQ stock and VXX short-stock margin are reconciled in the same cash plan. VXX put is excluded.
       <small>Hub packages, debit/buy options, long options, and unrelated research structures remain visible for inspection but cannot alter main capacity. The intentionally excessive 1,000-unit case is a diagnostic only. V3 market context is read-only; budgets remain editable what-if assumptions.</small>
@@ -525,6 +552,7 @@
   <script src="engine.js"></script>
   <script src="position_ledger.js"></script>
   <script src="position_management.js"></script>
+  <script src="deployment_roadmap.js"></script>
   <script src="ai_handoff.js"></script>
   <script src="hub_context_bridge.js"></script>
   <script src="app.js"></script>

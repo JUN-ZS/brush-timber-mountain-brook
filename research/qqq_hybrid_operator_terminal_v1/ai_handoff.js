@@ -15,6 +15,7 @@
     const p = plan || {};
     const input = p.input || {};
     const result = p.result || {};
+    const roadmap = p.deploymentRoadmap || {};
     const market = result.market || {};
     const rows = Array.isArray(result.rows) ? result.rows : [];
     const generatedAt = p.generatedAt || new Date().toISOString();
@@ -163,6 +164,7 @@
       marketMeta: marketMeta || "",
       input: input,
       result: result,
+      deploymentRoadmap: roadmap,
       candidates: optionCandidates,
       guardrails: {
         role: "Independent manual review; not an order instruction",
@@ -187,6 +189,16 @@
       "",
       "## How to use this packet",
       "Attach this Markdown file to the current ChatGPT conversation. Also provide a fresh broker option-chain screenshot or broker CSV for the exact candidate contracts, showing observation time and timezone. Tell the AI about any current holdings or pending orders not represented in the APP inputs. Never include passwords, account IDs, access tokens, or other secrets.",
+      "",
+      "## Long-term deployment roadmap (measurement only; no return forecast)",
+      "- State: " + cell(roadmap.statusLabel || roadmap.status || "BASELINE PENDING"),
+      "- Starting baseline B / date / horizon: " + cell(roadmap.baseCapitalUsd) + " / " + cell(roadmap.startDate) + " / " + cell(roadmap.horizonMonths) + " months",
+      "- Elapsed / remaining months: " + cell(roadmap.elapsedMonths) + " / " + cell(roadmap.remainingMonths),
+      "- Current NAV / CLOCK Floor / gap: " + cell(roadmap.currentNavUsd) + " / " + cell(roadmap.floorUsd) + " / " + cell(roadmap.floorGapUsd),
+      "- Planned future contributions (not spendable today): " + cell(roadmap.plannedFutureContributionsUsd),
+      "- Next action: " + cell(roadmap.nextAction),
+      "- CLOCK Floor is a review threshold, not a principal guarantee or automatic sell. No terminal NAV / CAGR / MaxDD forecast is manufactured.",
+      "- Existing research lockbox stays in force: FAR CALL trade-performance accuracy blocked, generality not demonstrated, isolated overlay failed its current integration base screen; this roadmap does not approve strategy promotion.",
       "",
       "## Data and source boundary",
       "- APP snapshot metadata: " + cell(marketMeta || "No source metadata recorded"),

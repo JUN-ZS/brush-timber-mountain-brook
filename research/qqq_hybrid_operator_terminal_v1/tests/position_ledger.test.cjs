@@ -303,4 +303,36 @@ function base(overrides = {}) {
   assert.equal(P.validateRecord(base({ stopMarkPrice: 110 })).ok, false, "long stock stop above entry is rejected");
   assert.equal(P.validateRecord(base({ riskBudgetUsd: 0 })).ok, false, "zero risk budget is not a valid denominator");
 }
-console.log("QQQ HYBRID POSITION REGISTER: 9 TEST GROUPS + shared management meter PASS");
+
+
+// Long-horizon roadmap uses an explicit starting baseline; future deposits never become today's cash.
+{
+  const roadmapSandbox = { module: { exports: {} } };
+  vm.runInNewContext(fs.readFileSync(require.resolve("../deployment_roadmap.js"), "utf8"), roadmapSandbox, { filename: "deployment_roadmap.js" });
+  const R = roadmapSandbox.module.exports;
+  const marketCarry = { blocked: false, allowNew: true, action: "HOLD", state: "CARRY" };
+  const pending = R.evaluate({ baseCapitalUsd:null,startDate:"",horizonMonths:120,monthlyContributionUsd:500,currentNavUsd:100000,currentCashUsd:90000,today:"2026-10-14",market:marketCarry });
+  assert.equal(pending.status,"BASELINE_PENDING");
+  assert.equal(pending.floorUsd,null);
+  const threeMonths = R.evaluate({ baseCapitalUsd:100000,startDate:"2026-07-14",horizonMonths:120,monthlyContributionUsd:500,currentNavUsd:100000,currentCashUsd:90000,today:"2026-10-14",market:marketCarry });
+  assert.equal(threeMonths.status,"CARRY_HUMAN_REVIEW");
+  assert.equal(threeMonths.elapsedMonths,3);
+  near(threeMonths.floorUsd,2500);
+  near(threeMonths.floorGapUsd,97500);
+  near(threeMonths.plannedFutureContributionsUsd,58500);
+  assert.equal(threeMonths.contributionsCountedInCurrentCash,false);
+  assert.equal(threeMonths.forecastedCagr,null);
+  const floorBreach = R.evaluate({ baseCapitalUsd:100000,startDate:"2016-10-14",horizonMonths:120,monthlyContributionUsd:0,currentNavUsd:95000,currentCashUsd:1000,today:"2026-10-14",market:marketCarry });
+  assert.equal(floorBreach.elapsedMonths,120);
+  near(floorBreach.floorUsd,100000);
+  assert.equal(floorBreach.status,"FLOOR_BREACH");
+  assert.match(floorBreach.nextAction,/不會自動 SELL/);
+  const blocked=R.evaluate({baseCapitalUsd:100000,startDate:"2026-09-14",horizonMonths:120,monthlyContributionUsd:0,currentNavUsd:100000,currentCashUsd:100000,today:"2026-10-14",market:{blocked:true,allowNew:false,action:"BLOCK",state:"UNKNOWN"}});
+  assert.equal(blocked.status,"WAIT_FOR_DATA");
+  const shock=R.evaluate({baseCapitalUsd:100000,startDate:"2026-09-14",horizonMonths:120,monthlyContributionUsd:0,currentNavUsd:100000,currentCashUsd:100000,today:"2026-10-14",market:{blocked:false,allowNew:false,action:"REDUCE",state:"SHOCK"}});
+  assert.equal(shock.status,"DEFENSIVE_REVIEW");
+  const future=R.evaluate({baseCapitalUsd:100000,startDate:"2026-12-01",horizonMonths:120,monthlyContributionUsd:0,currentNavUsd:100000,currentCashUsd:100000,today:"2026-10-14",market:marketCarry});
+  assert.equal(future.status,"BASELINE_PENDING");
+}
+console.log("QQQ HYBRID POSITION REGISTER: shared position + deployment roadmap PASS");
+

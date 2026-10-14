@@ -19,6 +19,8 @@
   const STOCK_KEYS = ["qqqShares", "vxxShortShares"];
   const PositionLedger = window.PositionLedgerV1;
   const PositionManagement = window.PositionManagementV1;
+  const DeploymentRoadmap = window.DeploymentRoadmapV1;
+  const DEPLOYMENT_STORAGE_KEY = "QQQ_HYBRID_DEPLOYMENT_ROADMAP_V1";
   let positionRecords = [];
   let positionRegisterSummary = null;
   let manualHoldingsBeforeRegister = null;
@@ -1039,6 +1041,70 @@
       '<span>UNALLOCATED CASH<b>' + esc(freeCash === null ? "PENDING" : exactUsd(freeCash)) + '</b></span>';
   }
 
+
+  function localCalendarDate() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+  }
+  function optionalNumber(id) {
+    const raw = String($(id)?.value ?? "").trim();
+    if (!raw) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  }
+  function readRoadmapSettings() {
+    return { baseCapitalUsd: optionalNumber("planBaseCapital"), startDate: String($("planStartDate")?.value || ""),
+      horizonMonths: optionalNumber("planHorizonMonths"), monthlyContributionUsd: optionalNumber("planMonthlyContribution") };
+  }
+  function persistRoadmapSettings() {
+    try { window.localStorage.setItem(DEPLOYMENT_STORAGE_KEY, JSON.stringify(readRoadmapSettings())); }
+    catch (_) { const status=$("deploymentRoadmapStatus"); if(status){status.textContent="LOCAL SAVE UNAVAILABLE";status.className="tag warn";} }
+  }
+  function restoreRoadmapSettings() {
+    try {
+      const raw=window.localStorage.getItem(DEPLOYMENT_STORAGE_KEY); if(!raw)return;
+      const saved=JSON.parse(raw); if(!saved||typeof saved!=="object"||Array.isArray(saved))return;
+      if(saved.baseCapitalUsd!==undefined&&saved.baseCapitalUsd!==null)$("planBaseCapital").value=String(saved.baseCapitalUsd);
+      if(typeof saved.startDate==="string")$("planStartDate").value=saved.startDate;
+      if(saved.horizonMonths!==undefined&&saved.horizonMonths!==null)$("planHorizonMonths").value=String(saved.horizonMonths);
+      if(saved.monthlyContributionUsd!==undefined&&saved.monthlyContributionUsd!==null)$("planMonthlyContribution").value=String(saved.monthlyContributionUsd);
+    } catch (_) { const status=$("deploymentRoadmapStatus"); if(status){status.textContent="SAVED PLAN INVALID · REVIEW INPUTS";status.className="tag warn";} }
+  }
+  function renderDeploymentRoadmap(result) {
+    if(!DeploymentRoadmap||typeof DeploymentRoadmap.evaluate!=="function")return null;
+    const settings=readRoadmapSettings();
+    const output=DeploymentRoadmap.evaluate({...settings,currentNavUsd:optionalNumber("nav"),currentCashUsd:optionalNumber("cashPool"),today:localCalendarDate(),market:result.market});
+    const usdOrPending=v=>typeof v==="number"&&Number.isFinite(v)?"$"+v.toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:0}):"PENDING";
+    const percentOrPending=v=>typeof v==="number"&&Number.isFinite(v)?v.toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1})+"%":"PENDING";
+    const labels={BASELINE_PENDING:"先鎖定基準",NAV_PENDING:"NAV 待確認",FLOOR_BREACH:"低於 CLOCK Floor · 暫停新增風險",WAIT_FOR_DATA:"市場資料封鎖 · 等資料",DEFENSIVE_REVIEW:"防守狀態 · 人工覆核",HOLD_NEW_CARRY:"HOLD · 暫停新增 Carry",CARRY_HUMAN_REVIEW:"CARRY · 只供人工審查"};
+    const status=$("deploymentRoadmapStatus");
+    if(status){status.textContent=labels[output.status]||"PENDING";status.className=output.status==="CARRY_HUMAN_REVIEW"?"tag active":["FLOOR_BREACH","DEFENSIVE_REVIEW"].includes(output.status)?"tag danger":"tag warn";}
+    $("deploymentRoadmapHeadline").textContent=output.nextAction||"路線圖待確認。";
+    const monthText=output.elapsedMonths===null||output.elapsedMonths===undefined?"PENDING":output.elapsedMonths+" / "+output.horizonMonths+" months";
+    const remainingText=output.remainingMonths===null||output.remainingMonths===undefined?"PENDING":output.remainingMonths+" months · "+percentOrPending(output.completionPct)+" complete";
+    const floorText=output.floorUsd===null||output.floorUsd===undefined?"PENDING":usdOrPending(output.currentNavUsd)+" / "+usdOrPending(output.floorUsd);
+    const gapText=output.floorGapUsd===null||output.floorGapUsd===undefined?"Need confirmed baseline":(output.floorGapUsd>=0?"+":"−")+usdOrPending(Math.abs(output.floorGapUsd))+" vs floor";
+    const contribText=output.plannedFutureContributionsUsd===null||output.plannedFutureContributionsUsd===undefined?"PENDING":usdOrPending(output.plannedFutureContributionsUsd);
+    $("deploymentRoadmapMetrics").innerHTML=[
+      ["STARTING CAPITAL B",usdOrPending(output.baseCapitalUsd),output.startDate?"Since "+output.startDate:"Original baseline date required"],
+      ["CURRENT NAV / CLOCK FLOOR",floorText,gapText],
+      ["HORIZON REMAINING",remainingText,"Progress "+monthText],
+      ["PLANNED FUTURE CONTRIBUTIONS",contribText,"Not spendable today; confirm when settled"]
+    ].map(([label,value,detail])=>'<div class="roadmap-metric"><small>'+esc(label)+'</small><b>'+esc(value)+'</b><span>'+esc(detail)+'</span></div>').join("");
+    return {schema:"QQQ_HYBRID_DEPLOYMENT_ROADMAP_V1",...output,settings,currentNavUsd:optionalNumber("nav"),currentCashUsd:optionalNumber("cashPool"),
+      generatedAt:new Date().toISOString(),brokerOrders:false,forecastedCagr:null,forecastedMaxDrawdown:null};
+  }
+  function lockRoadmapBaseline() {
+    const nav=optionalNumber("nav");
+    if(nav===null||nav<=0){$("deploymentRoadmapHeadline").textContent="無法鎖定：請先在 Principal / Capital 區輸入已核實且大於 $0 的 NAV。";return;}
+    $("planBaseCapital").value=String(nav);$("planStartDate").value=localCalendarDate();persistRoadmapSettings();renderPlan();
+    $("journalStatus").textContent="已把目前輸入 NAV 與今天鎖為本機長期路線圖基準；這是人工確認的規劃基準，並非券商核實。";
+  }
+  function clearRoadmapBaseline() {
+    $("planBaseCapital").value="";$("planStartDate").value="";persistRoadmapSettings();renderPlan();
+    $("journalStatus").textContent="長期基準已清除；路線圖回到 PENDING，不會改動 NAV、倉位或策略規則。";
+  }
+
   function renderPlan() {
     updateSlopeDisplay();
     syncHubResearchCandidates();
@@ -1047,7 +1113,8 @@
     // Manual edits make the source explicit rather than silently preserving a stale V3 provenance tag.
     if (marketTouched) input.market.term_source = "MANUAL_OPERATOR_INPUT";
     const result = E.calculatePortfolio(input);
-    lastPlan = { generatedAt: new Date().toISOString(), input, result, candidates };
+    const deploymentRoadmap = renderDeploymentRoadmap(result);
+    lastPlan = { generatedAt: new Date().toISOString(), input, result, candidates, deploymentRoadmap };
     renderProDashboard(result, input);
     const m = result.market;
     $("marketBadge").textContent = m.status + (m.blocked ? " · NO SIZING" : "");
@@ -1171,6 +1238,7 @@
       input: lastPlan.input,
       result: lastPlan.result,
       candidates,
+      deploymentRoadmap: lastPlan.deploymentRoadmap || null,
       boundary: { brokerOrders: false, automaticMutation: false, historicalSizingPromotedToLive: false }
     }, null, 2);
   }
@@ -1244,6 +1312,7 @@
       input: lastPlan?.input || readInput(),
       result: lastPlan?.result || null,
       candidates,
+      deploymentRoadmap: lastPlan?.deploymentRoadmap || null,
       boundary: { brokerOrders: false, automaticMutation: false }
     };
     try {
@@ -1302,6 +1371,9 @@
         renderPlan();
       }
     });
+    restoreRoadmapSettings();
+    $("setRoadmapBaselineBtn").addEventListener("click", lockRoadmapBaseline);
+    $("clearRoadmapBaselineBtn").addEventListener("click", clearRoadmapBaseline);
     $("mToday").value = new Date().toISOString().slice(0,10);
     $("refreshBtn").addEventListener("click", refreshMarket);
     $("v3ProfileBtn").addEventListener("click", loadReferenceProfile);
@@ -1331,13 +1403,14 @@
     });
     document.querySelectorAll("input,select").forEach(el => {
       if (el.id.startsWith("current-") || el.id.startsWith("budget-") || el.id.startsWith("risk-") || el.id.startsWith("enabled-") ||
-          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","vxxShortBorrowAprPct","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte","hubRatioN","hubStateLayerCap","hubDrawdown252Pct","hubReturn5dPct"].includes(el.id)) {
+          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","vxxShortBorrowAprPct","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte","hubRatioN","hubStateLayerCap","hubDrawdown252Pct","hubReturn5dPct","planBaseCapital","planStartDate","planHorizonMonths","planMonthlyContribution"].includes(el.id)) {
         el.addEventListener("input", () => {
           if (["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday"].includes(el.id)) {
             marketTouched = true;
             if (marketSource === "BLOCKED") marketSource = "MANUAL_OPERATOR_INPUT";
             marketMeta = "MANUAL_OPERATOR_INPUT — market prices and expiry state must be verified by the operator.";
           }
+          if (["planBaseCapital","planStartDate","planHorizonMonths","planMonthlyContribution"].includes(el.id)) persistRoadmapSettings();
           // Keep the top-level mirrors and option rows synchronized.
           const budgetKey = Object.entries(TOP_BUDGETS).find(([,id]) => id === el.id)?.[0];
           if (budgetKey) $("budget-" + budgetKey).value = el.value;
