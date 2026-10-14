@@ -181,6 +181,7 @@ assert.ok(mainHtml.includes("觀察到條件（Signal）不等於成交（Fill�
 assert.ok(mainHtml.includes("每風險暴露等效日損益"), "guide must describe a time/risk normalized comparison carefully");
 assert.ok(mainHtml.includes("首次觀察到 +$1,000 共 9 次，但 5 個持倉交易日內為 0 次"), "guide must retain measured fast-win event count");
 assert.ok(mainHtml.includes("$106,392"), "guide must surface the ratio structure tail-risk block");
+assert.ok(mainHtml.includes("$100,000 只作標準化分母"), "guide must not present a sum across fixed one-unit episodes as portfolio return or CAGR");
 assert.ok(mainHtml.includes('href="https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/101"'), "guide must link the isolated exit-measurement study");
 
 // Three-axis measurement scorecard is visible on both APP surfaces and keeps
