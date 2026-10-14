@@ -77,7 +77,7 @@ if(mult===null||!Number.isFinite(mult)||mult<=0)return fail("合約乘數須為�
 if(budget===null||!Number.isFinite(budget)||budget<0)return fail("風險預算必須是有效的非負數。");
 if(String(p.contractStatus||"").toUpperCase()==="ADJUSTED_TERMS_RECORDED")return fail("調整合約的交割／價格刻度尚未正規化；Put ratio 容量封鎖。");
 var root=String(p.contractSymbol||"").trim().toUpperCase();
-var fullOccMatch=root.match(/^QQQ\\s{0,3}(\\d{6})([CP])(\\d{8})$/);
+var fullOccMatch=root.match(/^QQQ\s{0,3}(\d{6})([CP])(\d{8})$/);
 if(root!=="QQQ"&&!fullOccMatch)return fail("合約根必須正好是 QQQ；若輸入完整 OCC 代碼，必須是標準 QQQ option symbol。");
 var lp=p.longPut||{},sp=p.shortPut||{};
 var L={strike:num(lp.strike),bid:num(lp.bid),ask:num(lp.ask),delta:num(lp.delta)};
