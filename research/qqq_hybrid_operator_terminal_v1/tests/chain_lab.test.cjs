@@ -183,6 +183,7 @@ assert.ok(mainHtml.includes("首次觀察到 +$1,000 共 9 次，但 5 個持倉
 assert.ok(mainHtml.includes("$106,392"), "guide must surface the ratio structure tail-risk block");
 assert.ok(mainHtml.includes("$100,000 只作標準化分母"), "guide must not present a sum across fixed one-unit episodes as portfolio return or CAGR");
 assert.ok(mainHtml.includes('href="https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/101"'), "guide must link the isolated exit-measurement study");
+assert.ok(mainHtml.includes("入場後第 20 個觀察交易日（入場日記為 age 0）"), "guide must define the day-20 age convention");
 
 // Three-axis measurement scorecard is visible on both APP surfaces and keeps
 // accounting integrity separate from trade accuracy, generality, and integration.
