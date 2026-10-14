@@ -232,4 +232,75 @@ function base(overrides = {}) {
   assert.equal(imported.ok, false, "imports with missing option multiplier must fail closed");
 }
 
-console.log("QQQ HYBRID POSITION REGISTER: 9 TEST GROUPS PASS");
+// Shared management meter uses the same dimensions and side-aware price semantics.
+{
+  const meterSandbox = { module: { exports: {} } };
+  vm.runInNewContext(fs.readFileSync(require.resolve("../position_management.js"), "utf8"), meterSandbox, { filename: "position_management.js" });
+  const M = meterSandbox.module.exports;
+  const baseRow = {
+    id: "managed-qqq", template: "QQQ_CORE", kind: "STOCK", side: "LONG", qty: 10, multiplier: 1,
+    entryDate: "2026-10-01", entryPrice: 100, markPrice: 110, stopMarkPrice: 95, targetMarkPrice: 115,
+    riskBudgetUsd: null, profitTargetR: null, maxHoldDays: 10, expiryReviewDte: null,
+    unrealizedPnl: 100, markFreshness: "LIVE ≤15M", staleMark: false,
+    pnlStatus: "GROSS UNREALIZED P&L · METADATA COMPLETE"
+  };
+  const gate = { blocked: false, riskOff: false, state: "CARRY" };
+  const threeDays = M.evaluate(baseRow, { nav: 100000, today: "2026-10-04", marketState: gate });
+  assert.equal(threeDays.elapsedCalendarDays, 3);
+  near(threeDays.riskBudgetUsd, 50);
+  near(threeDays.pnlR, 2);
+  near(threeDays.pnlPctNav, 0.1);
+  near(threeDays.pnlPerCalendarDay, 100 / 3);
+  near(threeDays.rPerCalendarDay, 2 / 3);
+  near(threeDays.riskToStopUsd, 150);
+  near(threeDays.targetRewardUsd, 50);
+  assert.equal(threeDays.action, "MONITOR · NO RULE TRIGGERED", "fast positive P&L alone must not force a trim");
+
+  const tenDays = M.evaluate({ ...baseRow, unrealizedPnl: 1000, markPrice: 115 }, { nav: 100000, today: "2026-10-11", marketState: gate });
+  assert.equal(tenDays.elapsedCalendarDays, 10);
+  near(tenDays.pnlPerCalendarDay, 100);
+  assert.equal(tenDays.timeLimitReached, true);
+  assert.equal(tenDays.action, "TIME LIMIT REACHED · HUMAN REVIEW");
+
+  const targetR = M.evaluate({ ...baseRow, riskBudgetUsd: 1000, profitTargetR: 1, unrealizedPnl: 1000 }, { nav: 100000, today: "2026-10-04", marketState: gate });
+  assert.equal(targetR.profitTargetRReached, true);
+  assert.equal(targetR.action, "PROFIT REVIEW THRESHOLD REACHED");
+
+  const stopHit = M.evaluate({ ...baseRow, markPrice: 94, unrealizedPnl: -60 }, { nav: 100000, today: "2026-10-04", marketState: gate });
+  assert.equal(stopHit.stopBreached, true);
+  assert.equal(stopHit.action, "STOP MARK BREACHED · HUMAN REVIEW");
+
+  const staleStop = M.evaluate({ ...baseRow, markFreshness: "STALE LIVE", staleMark: true }, { nav: 100000, today: "2026-10-04", marketState: gate });
+  assert.equal(staleStop.stopBreached, false);
+  assert.equal(staleStop.action, "PENDING · FRESH VERIFIED MARK REQUIRED");
+
+  const credit = M.evaluate({
+    ...baseRow, entryDate: "2026-10-10", maxHoldDays: 30,
+    template: "QQQ_CALL_CREDIT", kind: "CREDIT_VERTICAL", side: "CREDIT",
+    entryPrice: 0.8, markPrice: 1.2, stopMarkPrice: 1.4, targetMarkPrice: 0.4,
+    qty: 2, multiplier: 100, riskBudgetUsd: null, maxLossPerPackage: 420,
+    termsComplete: true, expiry: "2026-10-20", expiryReviewDte: 5,
+    unrealizedPnl: -80
+  }, { nav: 100000, today: "2026-10-14", marketState: gate });
+  near(credit.riskBudgetUsd, 120);
+  near(credit.pnlR, -80 / 120);
+  near(credit.riskToStopUsd, 40);
+  near(credit.targetRewardUsd, 160);
+  near(credit.rewardRiskRatio, 4);
+  assert.equal(credit.dte, 6);
+  assert.equal(credit.action, "MONITOR · NO RULE TRIGGERED");
+
+  const vxxShock = M.evaluate({
+    ...baseRow, template: "VXX_SHORT_STOCK", kind: "STOCK", side: "SHORT",
+    entryPrice: 20, markPrice: 17, stopMarkPrice: 22, targetMarkPrice: 15,
+    qty: 100, multiplier: 1, riskBudgetUsd: 200, unrealizedPnl: 300
+  }, { nav: 100000, today: "2026-10-04", marketState: { blocked: false, riskOff: true, state: "SHOCK" } });
+  assert.equal(vxxShock.action, "REGIME RISK REVIEW · HUMAN REVIEW");
+
+  const incomplete = M.evaluate({ ...baseRow, riskBudgetUsd: 100, stopMarkPrice: null, maxHoldDays: null }, { nav: 100000, today: "2026-10-04", marketState: gate });
+  assert.equal(incomplete.action, "PLAN INCOMPLETE · STOP MARK NOT SET");
+
+  assert.equal(P.validateRecord(base({ stopMarkPrice: 110 })).ok, false, "long stock stop above entry is rejected");
+  assert.equal(P.validateRecord(base({ riskBudgetUsd: 0 })).ok, false, "zero risk budget is not a valid denominator");
+}
+console.log("QQQ HYBRID POSITION REGISTER: 9 TEST GROUPS + shared management meter PASS");

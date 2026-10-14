@@ -30,6 +30,7 @@
     const positionRegister = input.positionRegister || {};
     const positionSummary = positionRegister.summary || {};
     const registeredPositionRows = Array.isArray(positionSummary.rows) ? positionSummary.rows : [];
+    const managementRows = Array.isArray(positionRegister.managementRows) ? positionRegister.managementRows : [];
     const positionMoney = value => hasNumber(value)
       ? (Number(value) > 0 ? "+$" : Number(value) < 0 ? "−$" : "$") + Math.abs(Number(value)).toFixed(2)
       : "UNKNOWN";
@@ -50,7 +51,27 @@
               : cell(row.entryEvidence || "UNKNOWN"))
           ].join(" | ") + " |")).join("\n")
       : "No position register records in this export.";
+    const managementTable = managementRows.length
+      ? ["| Position | Action / gate | Age / limit | P&L | R | P&L / day | R / day | Risk / NAV | Loss-to-stop | Reward left | Reward : risk | DTE |",
+         "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+          .concat(managementRows.map(row => "| " + [
+            cell(row.label || row.id),
+            cell(row.action) + " — " + cell(row.reason),
+            cell(row.elapsedCalendarDays === null || row.elapsedCalendarDays === undefined ? "UNKNOWN" :
+              row.elapsedCalendarDays + (row.maxHoldDays === null || row.maxHoldDays === undefined ? " days" : " / " + row.maxHoldDays + " days")),
+            positionMoney(row.pnl),
+            hasNumber(row.pnlR) ? Number(row.pnlR).toFixed(2) + "R" : "UNKNOWN",
+            positionMoney(row.pnlPerCalendarDay),
+            hasNumber(row.rPerCalendarDay) ? Number(row.rPerCalendarDay).toFixed(3) + "R/day" : "UNKNOWN",
+            hasNumber(row.riskBudgetPctNav) ? Number(row.riskBudgetPctNav).toFixed(2) + "%" : "UNKNOWN",
+            positionMoney(row.riskToStopUsd),
+            positionMoney(row.targetRewardUsd),
+            hasNumber(row.rewardRiskRatio) ? Number(row.rewardRiskRatio).toFixed(2) + ":1" : "UNKNOWN",
+            row.dte === null || row.dte === undefined ? "N/A" : cell(row.dte)
+          ].join(" | ") + " |")).join("\n")
+      : "No management rows are available.";
     const positionRegisterSummary = [
+      "- Management meter reports P&L/NAV, P&L/calendar day, R-multiple, R/day, risk budget %NAV, current loss-to-stop, remaining target reward, reward:loss-to-stop, holding age and optional DTE. Pace alone never triggers an exit.",
       "- Engine current-quantity source: " + (positionRegister.useForSizing ? "POSITION REGISTER (enabled)" : "MANUAL INPUTS (register attribution only)"),
       "- Inventory completeness explicitly confirmed: " + (positionRegister.completeConfirmed ? "YES" : "NO — register cannot be used as Current sizing source"),
       "- Registered rows: " + cell(positionSummary.count ?? 0),
@@ -200,6 +221,11 @@
       positionRegisterSummary,
       "",
       positionTable,
+      "",
+      "### Shared position management meter — human review only",
+      managementTable,
+      "",
+      "Fast profit is not by itself an exit rule. Explicit stop / risk budget, target, holding-time limit, expiry window, mark quality and market regime are measured together; the meter never creates or sends orders.",
       "",
       "Source quality and as-of times are shown per position. If current quantities are sourced from this register, the aggregated units should reconcile exactly to the engine Current values; unresolved option terms block the affected strategy row.",
       "",

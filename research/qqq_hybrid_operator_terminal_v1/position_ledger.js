@@ -38,6 +38,12 @@
       entryDate: String(x.entryDate || ""),
       entryPrice: numberOrNull(x.entryPrice),
       markPrice: numberOrNull(x.markPrice),
+      riskBudgetUsd: numberOrNull(x.riskBudgetUsd),
+      stopMarkPrice: numberOrNull(x.stopMarkPrice),
+      targetMarkPrice: numberOrNull(x.targetMarkPrice),
+      profitTargetR: numberOrNull(x.profitTargetR),
+      maxHoldDays: numberOrNull(x.maxHoldDays),
+      expiryReviewDte: numberOrNull(x.expiryReviewDte),
       markAsOf: String(x.markAsOf || ""),
       markSourceType: MARK_SOURCE.has(x.markSourceType) ? x.markSourceType : "UNKNOWN",
       markSourceNote: String(x.markSourceNote || "").slice(0, 500),
@@ -64,6 +70,26 @@
     if (!Number.isFinite(x.qty) || x.qty <= 0 || !Number.isInteger(x.qty)) errors.push("Quantity must be a positive whole number.");
     if (x.entryPrice !== null && (x.entryPrice < 0 || !Number.isFinite(x.entryPrice))) errors.push("Entry price must be blank or a non-negative number.");
     if (x.markPrice !== null && (x.markPrice < 0 || !Number.isFinite(x.markPrice))) errors.push("Current mark / close cost must be blank or a non-negative number.");
+    for (const [key,label] of [["riskBudgetUsd","Risk budget"],["stopMarkPrice","Stop mark / close debit"],["targetMarkPrice","Target mark / close debit"],["profitTargetR","Profit review R"]]) {
+      if (x[key] !== null && (!Number.isFinite(x[key]) || x[key] < 0 || (key === "riskBudgetUsd" && x[key] === 0) || (key === "profitTargetR" && x[key] === 0))) {
+        errors.push(label + " must be blank or positive; an entered risk budget / R threshold cannot be zero.");
+      }
+    }
+    for (const [key,label] of [["maxHoldDays","Maximum holding days"],["expiryReviewDte","Expiry-review DTE"]]) {
+      if (x[key] !== null && (!Number.isInteger(x[key]) || x[key] < 0 || (key === "maxHoldDays" && x[key] === 0))) errors.push(label + " must be blank or a valid whole-day count.");
+    }
+    if (t && x.entryPrice !== null) {
+      if (x.stopMarkPrice !== null) {
+        if (x.template === "QQQ_CORE" && x.stopMarkPrice >= x.entryPrice) errors.push("QQQ long stop mark should be below the entry price.");
+        if (x.template === "VXX_SHORT_STOCK" && x.stopMarkPrice <= x.entryPrice) errors.push("VXX short-stock stop mark should be above the entry price.");
+        if (t.kind === "CREDIT_VERTICAL" && x.stopMarkPrice <= x.entryPrice) errors.push("Credit-spread stop close debit should be above the entry net credit.");
+      }
+      if (x.targetMarkPrice !== null) {
+        if (x.template === "QQQ_CORE" && x.targetMarkPrice <= x.entryPrice) errors.push("QQQ long target mark should be above the entry price.");
+        if (x.template === "VXX_SHORT_STOCK" && x.targetMarkPrice >= x.entryPrice) errors.push("VXX short-stock target mark should be below the entry price.");
+        if (t.kind === "CREDIT_VERTICAL" && x.targetMarkPrice >= x.entryPrice) errors.push("Credit-spread target close debit should be below the entry net credit.");
+      }
+    }
     if (t && t.kind === "STOCK" && x.entryPrice !== null && x.entryPrice <= 0) errors.push("A recorded stock entry price must be greater than zero.");
     if (t && t.kind === "STOCK" && x.markPrice !== null && x.markPrice <= 0) errors.push("A recorded stock mark must be greater than zero.");
     if (x.entryDate && !validDate(x.entryDate)) errors.push("Entry date must be a valid YYYY-MM-DD date.");

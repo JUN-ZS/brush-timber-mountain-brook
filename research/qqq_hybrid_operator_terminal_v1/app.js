@@ -18,6 +18,7 @@
   const OPTION_HANDOFF_SLOTS = Object.freeze({ QQQ_CALL: "qqqCall", VXX_CALL: "vxxCall" });
   const STOCK_KEYS = ["qqqShares", "vxxShortShares"];
   const PositionLedger = window.PositionLedgerV1;
+  const PositionManagement = window.PositionManagementV1;
   let positionRecords = [];
   let positionRegisterSummary = null;
   let manualHoldingsBeforeRegister = null;
@@ -142,6 +143,10 @@
     $("posEntryPriceLabel").textContent = isOption ? "Entry net credit ($ / underlying share)" : "Average entry price ($ / share)";
     $("posMarkPriceLabel").textContent = isOption ? "Current estimated close debit ($ / underlying share)" : "Current mark ($ / share)";
     $("posMarkPrice").placeholder = isOption ? "Net exit debit; blank stays unknown" : "Blank uses the APP spot snapshot for attribution";
+    $("posStopMarkLabel").textContent = isOption ? "Stop close debit ($ / share)" : "Stop mark ($ / share)";
+    $("posTargetMarkLabel").textContent = isOption ? "Target close debit ($ / share)" : "Target mark ($ / share)";
+    $("posStopMarkPrice").placeholder = template === "QQQ_CORE" ? "Below entry" : "Above entry / credit";
+    $("posTargetMarkPrice").placeholder = template === "QQQ_CORE" ? "Above entry" : "Below entry / credit";
     $("positionSaveBtn").textContent = $("positionEditId").value ? "Save position changes" : "Add position record";
   }
 
@@ -156,6 +161,12 @@
       entryDate: $("posEntryDate").value,
       entryPrice: rawNumber("posEntryPrice"),
       markPrice: rawNumber("posMarkPrice"),
+      riskBudgetUsd: rawNumber("posRiskBudgetUsd"),
+      stopMarkPrice: rawNumber("posStopMarkPrice"),
+      targetMarkPrice: rawNumber("posTargetMarkPrice"),
+      profitTargetR: rawNumber("posProfitTargetR"),
+      maxHoldDays: rawNumber("posMaxHoldDays"),
+      expiryReviewDte: rawNumber("posExpiryReviewDte"),
       markAsOf: $("posMarkAsOf").value,
       markSourceType: $("posMarkSourceType").value,
       markSourceNote: $("posMarkSourceNote").value.trim(),
@@ -176,6 +187,12 @@
     $("positionForm").reset();
     $("positionEditId").value = "";
     $("posQty").value = 1;
+    $("posRiskBudgetUsd").value = "";
+    $("posStopMarkPrice").value = "";
+    $("posTargetMarkPrice").value = "";
+    $("posProfitTargetR").value = "";
+    $("posMaxHoldDays").value = "";
+    $("posExpiryReviewDte").value = "";
     $("posMarkSourceType").value = "UNKNOWN";
     $("posEntryEvidence").value = "UNKNOWN";
     $("posTermsVerified").checked = false;
@@ -193,6 +210,12 @@
     set("posEntryDate", record.entryDate);
     set("posEntryPrice", record.entryPrice);
     set("posMarkPrice", record.markPrice);
+    set("posRiskBudgetUsd", record.riskBudgetUsd);
+    set("posStopMarkPrice", record.stopMarkPrice);
+    set("posTargetMarkPrice", record.targetMarkPrice);
+    set("posProfitTargetR", record.profitTargetR);
+    set("posMaxHoldDays", record.maxHoldDays);
+    set("posExpiryReviewDte", record.expiryReviewDte);
     set("posMarkAsOf", record.markAsOf);
     set("posMarkSourceType", record.markSourceType);
     set("posMarkSourceNote", record.markSourceNote);
@@ -212,16 +235,39 @@
     $("positionFormStatus").textContent = "Editing " + (PositionLedger.TEMPLATES[record.template]?.label || record.template) + ". Saving updates this browser record; it does not send orders.";
   }
 
+  function managementContext(market, nav) {
+    const state = E.assessMarket(market, {
+      vixHigh: inputNumber("vixHigh", 28),
+      termSafe: inputNumber("termSafe", 5),
+      maxTermAgeDays: inputNumber("maxTermAgeDays", 4)
+    });
+    return { nav, today: market.today, marketState: state };
+  }
+
+  function measureRegisteredPositions(summary, market, nav) {
+    if (!PositionManagement || !summary || !Array.isArray(summary.rows)) return [];
+    const context = managementContext(market, nav);
+    return summary.rows.map(row => ({
+      id: row.id, label: row.label, template: row.template, qty: row.qty,
+      pnl: row.unrealizedPnl, pnlStatus: row.pnlStatus, markFreshness: row.markFreshness,
+      ...PositionManagement.evaluate(row, context)
+    }));
+  }
+
   function renderPositionLedger() {
     if (!PositionLedger) return;
     const market = readMarket();
     positionRegisterSummary = PositionLedger.summarize(positionRecords, market);
     const summary = positionRegisterSummary;
+    const measuredRows = measureRegisteredPositions(summary, market, inputNumber("nav", 0));
+    const managementById = new Map(measuredRows.map(row => [row.id, row]));
+    const managementReviews = measuredRows.filter(row => !String(row.action || "").startsWith("MONITOR ")).length;
     $("positionLedgerHeadline").innerHTML =
       '<div><small>METADATA-COMPLETE P&amp;L SUBTOTAL</small><b>' + (summary.metadataCompletePnlRows ? esc(positionMoney(summary.metadataCompletePnlSubtotal, true)) : "—") + '</b><span>' + summary.metadataCompletePnlRows + ' metadata-complete row(s); indicative subtotal ' + esc(positionMoney(summary.indicativePnlSubtotal, true)) + ' across ' + summary.indicativePnlRows + ' row(s), excluded from metadata-complete total</span></div>' +
       '<div><small>INCOMPLETE P&amp;L ROWS</small><b>' + fmt(summary.incompletePnlCount) + '</b><span>Missing entry or mark; not assumed to be zero</span></div>' +
       '<div><small>MARK STATUS / SOURCE GAPS</small><b>' + fmt(summary.staleMarkCount) + ' flags · ' + fmt(summary.markSourceMetadataIncompleteCount) + ' gaps</b><span>Flags include missing/stale/invalid marks or unsupported source. Gaps mean UNKNOWN/MODEL_ESTIMATE or no reference on a known mark; counts may overlap.</span></div>' +
-      '<div><small>HELD OPTION SIZING BLOCKS</small><b>' + fmt(summary.termBlockedCount) + '</b><span>Includes incomplete terms or adjusted payoffs the app cannot model</span></div>';
+      '<div><small>HELD OPTION SIZING BLOCKS</small><b>' + fmt(summary.termBlockedCount) + '</b><span>Includes incomplete terms or adjusted payoffs the app cannot model</span></div>' +
+      '<div><small>MANAGEMENT REVIEWS / INCOMPLETE PLANS</small><b>' + fmt(managementReviews) + '</b><span>Stop, loss budget, profit, regime, holding-time and expiry checks; no automatic orders</span></div>';
 
     $("positionLedgerTotals").innerHTML = [
       ["REGISTERED UNITS", fmt(summary.count)],
@@ -249,13 +295,32 @@
             : row.maxLossPerPackage === null ? "Per-package max loss UNKNOWN" : "Entry max loss/package (assumed terms): " + positionMoney(row.maxLossPerPackage))
         : "";
       const pnlClass = row.unrealizedPnl === null ? "position-pnl-unknown" : row.unrealizedPnl < 0 ? "position-pnl-negative" : "position-pnl-positive";
+      const meter = managementById.get(row.id) || {};
+      const signedR = meter.pnlR === null || meter.pnlR === undefined ? "—" : (meter.pnlR > 0 ? "+" : "") + fmt(meter.pnlR, 2) + "R";
+      const signedRDay = meter.rPerCalendarDay === null || meter.rPerCalendarDay === undefined ? "—" : (meter.rPerCalendarDay > 0 ? "+" : "") + fmt(meter.rPerCalendarDay, 3) + "R/day";
+      const pnlDay = meter.pnlPerCalendarDay === null || meter.pnlPerCalendarDay === undefined ? "—" : positionMoney(meter.pnlPerCalendarDay, true) + " / calendar day";
+      const pnlNav = meter.pnlPctNav === null || meter.pnlPctNav === undefined ? "—" : fmt(meter.pnlPctNav, 2) + "% NAV";
+      const riskRate = meter.riskBudgetPctNav === null || meter.riskBudgetPctNav === undefined ? "UNKNOWN" : fmt(meter.riskBudgetPctNav, 2) + "% NAV";
+      const lossToStop = meter.riskToStopUsd === null || meter.riskToStopUsd === undefined ? "—" : positionMoney(meter.riskToStopUsd);
+      const rewardLeft = meter.targetRewardUsd === null || meter.targetRewardUsd === undefined ? "—" : positionMoney(meter.targetRewardUsd);
+      const rr = meter.rewardRiskRatio === null || meter.rewardRiskRatio === undefined ? "—" : fmt(meter.rewardRiskRatio, 2) + ":1";
+      const age = meter.elapsedCalendarDays === null || meter.elapsedCalendarDays === undefined ? "UNKNOWN AGE" :
+        fmt(meter.elapsedCalendarDays) + (meter.maxHoldDays === null || meter.maxHoldDays === undefined ? " calendar days held" : " / " + fmt(meter.maxHoldDays) + " calendar days");
+      const dteText = meter.dte === null || meter.dte === undefined ? "" : " · " + fmt(meter.dte) + " DTE";
+      const managementHtml =
+        '<small>P&amp;L pace: ' + esc(pnlDay) + ' · ' + esc(signedRDay) + ' · ' + esc(pnlNav) + '</small>' +
+        '<small>P&amp;L / risk unit: ' + esc(signedR) + ' · risk budget ' + esc(riskRate) + ' (' + esc(meter.riskBudgetSource || "UNKNOWN") + ')</small>' +
+        '<small>From current mark: loss-to-stop ' + esc(lossToStop) + ' · target reward left ' + esc(rewardLeft) + ' · reward/risk ' + esc(rr) + '</small>' +
+        '<small>Time: ' + esc(age) + esc(dteText) + '</small>' +
+        '<b class="position-management-action">' + esc(meter.action || "PENDING · MANAGEMENT METER UNAVAILABLE") + '</b>' +
+        '<small>' + esc(meter.reason || "Required measurement is unavailable.") + '</small>';
       return '<tr>' +
         '<td><b>' + esc(row.label) + '</b><small>' + contractLine + '</small></td>' +
         '<td>' + esc(row.entryDate || "UNKNOWN") + '</td>' +
         '<td class="pro-number">' + esc(fmt(row.qty)) + ' ' + esc(row.unit) + '</td>' +
         '<td class="pro-number">' + esc(row.entryPrice === null ? "UNKNOWN" : positionMoney(row.entryPrice)) + '</td>' +
         '<td class="pro-number">' + esc(row.markPrice === null ? "UNKNOWN" : positionMoney(row.markPrice)) + (row.markDerivedFromSnapshot ? '<small>APP spot snapshot</small>' : '') + '</td>' +
-        '<td class="' + pnlClass + '">' + esc(positionMoney(row.unrealizedPnl, true)) + '<small>' + esc(row.pnlStatus) + '</small></td>' +
+        '<td class="' + pnlClass + '">' + esc(positionMoney(row.unrealizedPnl, true)) + '<small>' + esc(row.pnlStatus) + '</small>' + managementHtml + '</td>' +
         '<td>' + esc(row.markFreshness) + '<small>' + esc(row.markAsOf || "as-of missing") + '</small></td>' +
         '<td>' + esc(terms) + '<small>' + esc(riskNote) + '</small><small>Entry: ' + esc(row.entryEvidence || "UNKNOWN") + (row.entrySourceNote ? ' · ' + esc(row.entrySourceNote) : '') + '</small><small>Mark: ' + esc(row.markSourceType || "UNKNOWN") + (row.markSourceNote ? ' · ' + esc(row.markSourceNote) : '') + '</small></td>' +
         '<td><button type="button" data-position-action="edit" data-position-id="' + esc(row.id) + '">Edit</button> <button type="button" data-position-action="delete" data-position-id="' + esc(row.id) + '">Remove</button></td>' +
@@ -425,7 +490,9 @@
       if (s.mainBudgetEligible && !s.baseline) permissions[s.key] = $("enabled-" + s.key)?.checked === true;
       if (["manualDebit", "manualRisk", "stressOnly"].includes(s.kind)) manualRiskPerUnit[s.key] = inputNumber("risk-" + s.key, null);
     }
-    const positionSummary = PositionLedger ? PositionLedger.summarize(positionRecords, readMarket()) : null;
+    const currentMarket = readMarket();
+    const positionSummary = PositionLedger ? PositionLedger.summarize(positionRecords, currentMarket) : null;
+    const managementRows = measureRegisteredPositions(positionSummary, currentMarket, inputNumber("nav", 0));
     const usePositionRegister = $("positionUseRegister")?.checked === true && $("positionRegisterCompleteConfirmed")?.checked === true && positionRecords.length > 0 && positionSummary && !positionSummary.error;
     if (usePositionRegister) Object.assign(holdings, positionSummary.holdings);
     return {
@@ -438,6 +505,7 @@
         completeConfirmed: $("positionRegisterCompleteConfirmed")?.checked === true,
         records: positionRecords,
         summary: positionSummary,
+        managementRows,
         blockingKeys: usePositionRegister ? positionSummary.blockingKeys : []
       } : { useForSizing: false, records: [], blockingKeys: [] },
       ratioCampaign: {

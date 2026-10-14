@@ -207,3 +207,10 @@ The associated GitHub Actions workflow uses only \`[self-hosted, windows, x64]\`
 ## Latest QQQ far-call replay result
 
 - [Run #34 result report](./QQQ_FAR_CALL_REPLAY_RUN34.md) and [machine-readable summary](./QQQ_FAR_CALL_REPLAY_RUN34.json) preserve the actual Windows self-hosted Actions output. Run #34 passed 26 replay tests and all 1,688 closed-trade cash-flow reconciliations; markability gaps fell from 273 to 24 sessions in the base-cost arm, but all 16 budget/cost scenarios remained negative. The report blocks CAGR/MaxDD/Sharpe/ES95 due EOD-only quotes and incomplete source/core-price coverage. No strategy integration approved.
+
+
+## Shared Position Management Meter · price / risk / time / opportunity
+
+Every registered position can define a risk budget, stop mark, target mark, profit-review R threshold, maximum holding age in calendar days, and optional option expiry-review DTE. It reports P&L as % NAV, P&L/R, P&L per calendar day, R per calendar day, current loss-to-stop, remaining target reward and reward:loss-to-stop. See [POSITION_MANAGEMENT_MEASUREMENT_CONTRACT.md](./POSITION_MANAGEMENT_MEASUREMENT_CONTRACT.md).
+
+There is no fixed "$1,000 means sell" rule. $1,000 over 3 calendar days is $333.33/day; over 10 calendar days it is $100/day. Neither pace forces a cut. NAV, the risk denominator (R), remaining reward versus loss-to-stop, configured target, time limit, mark freshness and regime can change the decision. Stop / risk-budget breaches, regime risk-off, time / expiry limits and explicit targets produce human-review gates only. Missing parameters remain PLAN INCOMPLETE / PENDING rather than silently taking universal defaults.
