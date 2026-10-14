@@ -77,7 +77,7 @@
             <option value="ratio-fresh-v7">Hub Ratio-Call · Fresh-Pair Dynamic-N V7</option>
             <option value="state-adaptive">Hub State-Adaptive Geometry</option>
             <option value="staggered">Hub Staggered Stack · 1 / 2 / 4 layers</option>
-            <option value="put-ratio">Hub QQQ Long Put N:1 / Short QQQ Put Ratio</option>
+            <option value="put-ratio">Hub QQQ Put Ratio · N SHORT : 1 LONG / N LONG : 1 SHORT</option>
             <option value="shock-put">Hub SHOCK-GATED Put Debit Spread</option>
           </select>
         </label>
@@ -105,7 +105,7 @@
         </div>
       </div>
       <div id="putLegGroup">
-        <div class="leg-heading" id="putLegHeading">Put 結構：+1 約 25Δ Long Put −1 約 10Δ farther-OTM Short Put</div>
+        <div class="leg-heading" id="putLegHeading">Put 結構：先選方向，再確認兩腿的行使價與數量</div>
         <div class="leg-grid">
           <label>Long Put 行使價 K<input id="longPutStrike" type="number" min="0" step="0.5"></label>
           <label>Long Put 買入 Ask ($)<input id="longPutAsk" type="number" min="0" step="0.01"></label>
@@ -151,12 +151,22 @@
     </section>
 
     <section class="card" id="putRatioControlGroup" hidden>
-      <div class="section-head"><h2>3C · QQQ LONG PUT N:1 / SHORT QQQ PUT</h2><span class="tag">RESEARCH ONLY · OUTSIDE PRIMARY BUDGET</span></div>
+      <div class="section-head"><h2>3C · QQQ PUT RATIO — 先選方向</h2><span class="tag">RESEARCH ONLY · OUTSIDE PRIMARY BUDGET</span></div>
       <div class="pack-grid">
-        <label>N · 每組買入 Long QQQ Put 張數<input id="putRatioN" type="number" min="1" max="6" step="1" value="2"></label>
-        <label>每組賣出 Short QQQ Put 張數<input type="text" value="1 (fixed)" disabled></label>
+        <label>比例方向
+          <select id="putRatioDirection">
+            <option value="short-heavy" selected>N SHORT : 1 LONG · 急跌尾部風險較大</option>
+            <option value="long-heavy">N LONG : 1 SHORT · 下跌凸性／Backspread</option>
+          </select>
+        </label>
+        <label><span id="putRatioNLabel">N · 每組賣出 Short QQQ Put 張數</span><input id="putRatioN" type="number" min="1" max="6" step="1" value="2"></label>
+        <label><span id="putRatioOneLabel">每組買入 Long QQQ Put 張數</span><input type="text" value="1 (fixed)" disabled></label>
+        <label>兩腿共同到期日<input id="putRatioExpiry" type="date" aria-describedby="putRatioRecipe" required></label>
       </div>
-      <p class="pack-foot">每組固定為 +N 張較高行使價 QQQ Long Put、−1 張較低行使價 QQQ Short Put；同一到期日。使用 Long Put Ask 及 Short Put Bid，按到期各行使價／0 的 payoff 節點估算每組最大虧損與預算容量。此容量只屬 Hub 研究比較，不加進主台 QQQ/VXX CALL 配置，也不授權下單。</p>
+      <div class="warnbox" id="putRatioRecipe">預設方向 N SHORT : 1 LONG：BUY TO OPEN 1 張較高 K Long Put；SELL TO OPEN N 張較低 K Short Put。兩腿必須是 QQQ、同一到期日。這不是定義風險的保護價差；若 QQQ 急跌至低履約價以下，N−1 張空頭 Put 的下跌曝險仍在。</div>
+      <label class="checkrow"><input id="putRatioQuoteConfirmed" type="checkbox"> 我已在券商逐腿核對最新雙邊 Bid/Ask、報價時間／數量和相同到期日</label>
+      <label class="checkrow"><input id="putRatioStandardContractConfirmed" type="checkbox"> 我已確認兩腿是標準 QQQ 合約（每張 100 股交割、沒有 adjusted deliverable）</label>
+      <p class="pack-foot">初學者操作：只有在核對合約、報價與乘數後，才考慮用一張多腿組合限價單輸入兩腿；不要先單獨賣出裸 Put。勾選代表你已人工覆核，不代表 APP 能獨立驗真。此頁只試算，不會送出訂單；公開鏈可能延遲，手動填入數字不會自動變成已驗證報價。</p>
     </section>
 
     <section class="card" id="shockControlGroup" hidden>

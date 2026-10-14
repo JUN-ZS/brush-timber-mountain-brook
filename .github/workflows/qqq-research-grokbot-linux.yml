@@ -7,13 +7,24 @@ on:
     branches:
       - research/qqq-hybrid-vxx-short-call-put-v1-20261009
     paths:
-      - research/qqq_hybrid_operator_terminal_v1/**
+      # Long historical jobs run only when their research inputs or contracts change.
+      # UI/HUB-only commits are covered by the compact Windows terminal QA.
+      - research/qqq_hybrid_operator_terminal_v1/qqq_far_call_quote_replay.py
+      - research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_quote_replay.py
+      - research/qqq_hybrid_operator_terminal_v1/qqq_far_call_incremental_decomposition.py
+      - research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_incremental_decomposition.py
+      - research/qqq_hybrid_operator_terminal_v1/full_history_qqq_quote_audit.py
+      - research/qqq_hybrid_operator_terminal_v1/test_full_history_qqq_quote_audit.py
+      - research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py
+      - research/qqq_hybrid_operator_terminal_v1/test_qqq_price_basis_audit.py
+      - research/qqq_hybrid_operator_terminal_v1/QQQ_FAR_CALL_REPLAY_CONTRACT.md
+      - research/qqq_hybrid_operator_terminal_v1/QQQ_FAR_CALL_INCREMENTAL_VALUE_V2.md
       - research/qqq_hybrid_dynamic_deployment_v1_1_replay.py
       - src/data/universe.json
       - .github/workflows/qqq-far-call-listed-contract-replay.yml
       - .github/workflows/qqq-public-eod-chain-audit.yml
+      - .github/workflows/qqq-public-eod-full-history-audit.yml
       - .github/workflows/qqq-hybrid-operator-terminal-v1.yml
-      - .github/workflows/qqq-research-grokbot-linux.yml
 
 permissions:
   contents: read

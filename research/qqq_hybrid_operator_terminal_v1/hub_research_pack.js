@@ -322,51 +322,91 @@
   function calculatePutRatio(input) {
     const d = input || {};
     const n = num(d.putRatioN);
+    const direction = d.putRatioDirection === "long-heavy" ? "long-heavy" : "short-heavy";
+    const expiry = String(d.putRatioExpiry || "").trim();
     if (!Number.isInteger(n) || n < 1 || n > 6) {
-      return { ready: false, status: "PENDING", error: "Put ratio N must be an integer from 1 to 6." };
+      return { ready: false, status: "PENDING", error: "N must be a whole number from 1 to 6." };
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(expiry) || !Number.isFinite(Date.parse(expiry + "T00:00:00Z")) ||
+        new Date(expiry + "T00:00:00Z").toISOString().slice(0, 10) !== expiry) {
+      return { ready: false, status: "PENDING", error: "Enter the exact shared QQQ put expiry (YYYY-MM-DD); do not calculate a package with an unknown expiry." };
+    }
+    if (expiry < new Date().toISOString().slice(0, 10)) {
+      return { ready: false, status: "PENDING", error: "This expiry is already past. Load a current chain or enter a valid future expiry." };
+    }
+    if (d.putRatioQuoteConfirmed !== true) {
+      return { ready: false, status: "PENDING", error: "Manually compare both legs with the current broker chain, including quote timestamp, Bid/Ask and size, then confirm the quote check." };
+    }
+    if (d.putRatioStandardContractConfirmed !== true) {
+      return { ready: false, status: "PENDING", error: "Confirm both legs use the standard QQQ 100-share deliverable. Adjusted or unknown contract terms are not supported by this multiplier." };
+    }
+    const budgetRaw = num(d.budgetUsd);
+    if (budgetRaw === null || budgetRaw < 0) {
+      return { ready: false, status: "PENDING", error: "Remaining Hub risk budget is unknown; first resolve the existing Hybrid reservation. Unknown is not zero." };
     }
     const spot = num(d.spot);
     const longK = num(d.longPutStrike);
     const shortK = num(d.shortPutStrike);
     const longAsk = num(d.longPutAsk);
     const shortBid = num(d.shortPutBid);
-    if (!(spot > 0) || !(longK > shortK && shortK > 0) || !(longAsk > 0) || !(shortBid >= 0)) {
+    const correctGeometry = direction === "short-heavy"
+      ? longK > shortK && shortK > 0
+      : shortK > longK && longK > 0;
+    if (!(spot > 0) || !correctGeometry || !(longAsk > 0) || !(shortBid >= 0)) {
       return {
         ready: false, status: "PENDING",
-        error: "Need QQQ spot, same-expiry QQQ puts with Long Put strike > Short Put strike > 0, positive Long Put Ask and valid Short Put Bid."
+        error: direction === "short-heavy"
+          ? "N SHORT : 1 LONG needs the higher-strike Long Put (Long K > Short K > 0), a valid Long Ask, QQQ spot and exact expiry."
+          : "N LONG : 1 SHORT needs the higher-strike Short Put (Short K > Long K > 0), a valid Long Ask, QQQ spot and exact expiry."
       };
     }
+    const longPutQtyPerPackage = direction === "long-heavy" ? n : 1;
+    const shortPutQtyPerPackage = direction === "short-heavy" ? n : 1;
     const legs = [
-      { name: "Long QQQ puts (N)", right: "put", side: "BUY", qty: n, strike: longK, price: longAsk },
-      { name: "Short QQQ put (1)", right: "put", side: "SELL", qty: 1, strike: shortK, price: shortBid }
+      { name: "Long QQQ put", right: "put", side: "BUY", qty: longPutQtyPerPackage, strike: longK, price: longAsk },
+      { name: "Short QQQ put", right: "put", side: "SELL", qty: shortPutQtyPerPackage, strike: shortK, price: shortBid }
     ];
     const risk = terminalMaxLoss(legs, spot);
     if (!risk.ready) return { ...risk, status: "PENDING" };
-    if (!(risk.debitUsd > 0) || !(risk.riskUsd > 0)) {
+    if (!(risk.riskUsd > 0)) {
       return {
         ready: false, status: "PENDING", debitUsd: risk.debitUsd, riskUsd: risk.riskUsd,
-        error: "N:1 put package must show a positive net debit and positive terminal-loss estimate. Recheck same-expiry strikes and observed Ask/Bid."
+        error: "No positive finite expiry-loss amount was measured. Do not infer infinite capacity; verify quotes, multiplier and contract terms."
       };
     }
-    const budgetUsd = Math.max(0, num(d.budgetUsd, 0));
+    const budgetUsd = Math.max(0, budgetRaw);
     const maxPackages = Math.floor((budgetUsd + EPS) / risk.riskUsd);
+    let zeroSpotPnlUsd = -risk.debitUsd;
+    for (const leg of legs) {
+      zeroSpotPnlUsd += (leg.side === "BUY" ? 1 : -1) * num(leg.qty) * num(leg.strike) * MULTIPLIER;
+    }
+    const orientation = direction === "short-heavy" ? "N SHORT : 1 LONG" : "N LONG : 1 SHORT";
     return {
       ready: true,
       status: budgetUsd > 0 && maxPackages > 0 ? "RISK_GATE_PASS" : "RISK_GATE_BLOCK",
       putRatioN: n,
-      ratioLabel: n + ":1 Long QQQ Put : Short QQQ Put",
+      putRatioDirection: direction,
+      orientation,
+      expiry,
+      ratioLabel: orientation,
+      longPutQtyPerPackage,
+      shortPutQtyPerPackage,
       budgetUsd,
       riskUsd: risk.riskUsd,
       debitUsd: risk.debitUsd,
+      zeroSpotPnlUsd,
       maxPackages,
-      longPutContracts: n * maxPackages,
-      shortPutContracts: maxPackages,
+      longPutContracts: longPutQtyPerPackage * maxPackages,
+      shortPutContracts: shortPutQtyPerPackage * maxPackages,
       legs,
       worstExpiryPnlUsd: risk.worstExpiryPnlUsd,
-      source: "HUB_QQQ_PUT_RATIO_N_TO_1_BID_ASK_TERMINAL_PAYOFF_PROXY",
+      source: "HUB_QQQ_PUT_RATIO_DIRECTIONAL_BID_ASK_TERMINAL_PAYOFF_PROXY",
       reason: maxPackages > 0
-        ? "Research capacity only: each package buys N higher-strike QQQ puts and sells 1 lower-strike QQQ put at the same expiry. It does not add risk capacity or authorize an order in the main desk."
-        : "RISK_GATE_BLOCK: this research budget cannot cover one complete N:1 put package at the current observed-side debit."
+        ? (direction === "short-heavy"
+          ? "Research capacity only. N short puts against one long put leaves (N−1) net short puts below the lower strike when N>1. Loss can be substantial if QQQ falls toward zero."
+          : "Research capacity only. The long-put backspread may benefit from a sharp fall, but can lose around the lower long strike and has time/volatility/assignment risks.")
+          + " It is not included in the primary risk pool and does not authorize an order."
+        : "RISK_GATE_BLOCK: the remaining research risk budget cannot cover one complete package at the observed-side expiry-loss estimate."
     };
   }
 
@@ -424,7 +464,7 @@
     }).filter(row => row.strike > 0 && Number.isFinite(row.bid) && Number.isFinite(row.ask) && row.bid >= 0 && row.ask >= row.bid);
   }
 
-  function chooseChainLegs(payload, spot, asOf, targetDte = 45) {
+  function chooseChainLegs(payload, spot, asOf, targetDte = 45, putRatioDirection = "short-heavy") {
     const calls = normalizeRows(payload && payload.calls, "call", spot, asOf, payload && payload.expiry);
     const puts = normalizeRows(payload && payload.puts, "put", spot, asOf, payload && payload.expiry);
     const all = calls.concat(puts).filter(x => x.expiry && x.delta !== null);
@@ -441,8 +481,17 @@
     const atm = closest(c, x => Math.abs(x.strike - spot), x => x.strike > 0);
     const short = atm && closest(c, x => Math.abs(Math.abs(x.delta) - 0.20), x => x.strike > atm.strike && x.delta <= 0.35);
     const wing = short && closest(c, x => Math.abs(Math.abs(x.delta) - 0.08), x => x.strike > short.strike && x.delta <= 0.18);
-    const longPut = closest(p, x => Math.abs(Math.abs(x.delta) - 0.25), x => x.strike < spot && x.delta <= -0.10);
-    const shortPut = longPut && closest(p, x => Math.abs(Math.abs(x.delta) - 0.10), x => x.strike < longPut.strike && x.delta >= -0.20);
+    let longPut;
+    let shortPut;
+    if (putRatioDirection === "long-heavy") {
+      // Backspread: sell one higher-strike put, buy N lower-strike puts.
+      shortPut = closest(p, x => Math.abs(Math.abs(x.delta) - 0.25), x => x.strike < spot && x.delta <= -0.10);
+      longPut = shortPut && closest(p, x => Math.abs(Math.abs(x.delta) - 0.10), x => x.strike < shortPut.strike && x.delta >= -0.20);
+    } else {
+      // Short-heavy: buy one higher-strike put, sell N lower-strike puts.
+      longPut = closest(p, x => Math.abs(Math.abs(x.delta) - 0.25), x => x.strike < spot && x.delta <= -0.10);
+      shortPut = longPut && closest(p, x => Math.abs(Math.abs(x.delta) - 0.10), x => x.strike < longPut.strike && x.delta >= -0.20);
+    }
     if (!atm || !short || !wing || !longPut || !shortPut) {
       return { ready: false, error: "Could not build every researched leg from this expiry's observable chain. Check quotes/IV and select manually; no substitute quote is fabricated.", expiry, deltaSource: [...c, ...p].some(x => x.deltaSource === "BS_ESTIMATE") ? "BS_ESTIMATE" : "PROVIDER_DELTA" };
     }

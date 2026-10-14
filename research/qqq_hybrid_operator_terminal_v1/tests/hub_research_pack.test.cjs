@@ -192,8 +192,7 @@ function ratioBase(overrides = {}) {
   assert.equal(comparator.mode, "REPLENISH_COMPARATOR");
 }
 
-// Chain leg selector builds the researched five-leg geometry and correctly
-// marks when it used provider Delta rather than a BS estimate.
+// The selected ratio direction must change the put legs, not only the label.
 {
   const chain = {
     expiry: "2026-11-20",
@@ -207,15 +206,20 @@ function ratioBase(overrides = {}) {
       { strike: 90, bid: 1.1, ask: 1.2, delta: -0.10 }
     ]
   };
-  const c = H.chooseChainLegs(chain, 100, "2026-10-09", 45);
-  assert.equal(c.ready, true);
-  assert.equal(c.expiry, "2026-11-20");
-  assert.equal(c.atm.strike, 100);
-  assert.equal(c.short.strike, 110);
-  assert.equal(c.wing.strike, 120);
-  assert.equal(c.longPut.strike, 95);
-  assert.equal(c.shortPut.strike, 90);
-  assert.equal(c.deltaSource, "PROVIDER_DELTA");
+  const shortHeavy = H.chooseChainLegs(chain, 100, "2026-10-09", 45, "short-heavy");
+  assert.equal(shortHeavy.ready, true);
+  assert.equal(shortHeavy.expiry, "2026-11-20");
+  assert.equal(shortHeavy.atm.strike, 100);
+  assert.equal(shortHeavy.short.strike, 110);
+  assert.equal(shortHeavy.wing.strike, 120);
+  assert.equal(shortHeavy.longPut.strike, 95);
+  assert.equal(shortHeavy.shortPut.strike, 90);
+  assert.equal(shortHeavy.deltaSource, "PROVIDER_DELTA");
+
+  const longHeavy = H.chooseChainLegs(chain, 100, "2026-10-09", 45, "long-heavy");
+  assert.equal(longHeavy.ready, true);
+  assert.equal(longHeavy.longPut.strike, 90);
+  assert.equal(longHeavy.shortPut.strike, 95);
 }
 
 
@@ -338,59 +342,112 @@ function ratioBase(overrides = {}) {
   assert.ok(hubUi.includes("budget.remainingPool === null"), "unknown base reservation must block Hub calculations");
 }
 
-// QQQ protective ratio is explicitly N long puts : 1 lower-strike short put.
+// Both N:1 directions are distinct. Expiry and quote/contract evidence gates
+// are explicit; a net credit is valid and never substitutes for downside risk.
 {
-  const base = {
+  const futureExpiry = new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10);
+  const shortHeavyBase = {
     spot: 100, longPutStrike: 95, longPutAsk: 3,
-    shortPutStrike: 90, shortPutBid: 1.2, putRatioN: 2, budgetUsd: 1000
+    shortPutStrike: 90, shortPutBid: 1.2, putRatioN: 2,
+    putRatioDirection: "short-heavy", putRatioExpiry: futureExpiry,
+    putRatioQuoteConfirmed: true, putRatioStandardContractConfirmed: true,
+    budgetUsd: 10000
   };
-  const r = H.calculatePutRatio(base);
+  const r = H.calculatePutRatio(shortHeavyBase);
   assert.equal(r.ready, true);
   assert.equal(r.status, "RISK_GATE_PASS");
-  assert.equal(r.putRatioN, 2);
-  assert.equal(r.debitUsd, 480);
-  assert.equal(r.riskUsd, 480);
-  assert.equal(r.maxPackages, 2);
-  assert.equal(r.longPutContracts, 4);
+  assert.equal(r.orientation, "N SHORT : 1 LONG");
+  assert.equal(r.debitUsd, 60);
+  assert.equal(r.riskUsd, 8560);
+  assert.equal(r.zeroSpotPnlUsd, -8560);
+  assert.equal(r.maxPackages, 1);
+  assert.equal(r.longPutContracts, 1);
   assert.equal(r.shortPutContracts, 2);
-  assert.equal(r.legs[0].qty, 2);
-  assert.equal(r.legs[1].qty, 1);
+  assert.equal(r.longPutQtyPerPackage, 1);
+  assert.equal(r.shortPutQtyPerPackage, 2);
+  assert.equal(r.legs[0].qty, 1);
+  assert.equal(r.legs[1].qty, 2);
 
-  const nOne = H.calculatePutRatio({ ...base, putRatioN: 1 });
+  const longHeavy = H.calculatePutRatio({
+    ...shortHeavyBase, putRatioDirection: "long-heavy",
+    longPutStrike: 90, longPutAsk: 1.2, shortPutStrike: 95, shortPutBid: 3,
+    budgetUsd: 1000
+  });
+  assert.equal(longHeavy.ready, true);
+  assert.equal(longHeavy.status, "RISK_GATE_PASS");
+  assert.equal(longHeavy.orientation, "N LONG : 1 SHORT");
+  assert.equal(longHeavy.debitUsd, -60);
+  assert.equal(longHeavy.riskUsd, 440);
+  assert.equal(longHeavy.zeroSpotPnlUsd, 8560);
+  assert.equal(longHeavy.maxPackages, 2);
+  assert.equal(longHeavy.longPutContracts, 4);
+  assert.equal(longHeavy.shortPutContracts, 2);
+  assert.equal(longHeavy.legs[0].qty, 2);
+  assert.equal(longHeavy.legs[1].qty, 1);
+
+  const shortHeavyCredit = H.calculatePutRatio({ ...shortHeavyBase, shortPutBid: 2, budgetUsd: 10000 });
+  assert.equal(shortHeavyCredit.ready, true);
+  assert.equal(shortHeavyCredit.debitUsd, -100);
+  assert.equal(shortHeavyCredit.riskUsd, 8400);
+
+  const nOne = H.calculatePutRatio({ ...shortHeavyBase, putRatioN: 1, budgetUsd: 1000 });
   assert.equal(nOne.ready, true);
   assert.equal(nOne.debitUsd, 180);
+  assert.equal(nOne.riskUsd, 180);
 
-  const tooSmall = H.calculatePutRatio({ ...base, budgetUsd: 400 });
+  const tooSmall = H.calculatePutRatio({ ...shortHeavyBase, budgetUsd: 400 });
   assert.equal(tooSmall.ready, true);
   assert.equal(tooSmall.maxPackages, 0);
   assert.equal(tooSmall.status, "RISK_GATE_BLOCK");
 
-  const invalidRatio = H.calculatePutRatio({ ...base, putRatioN: 2.5 });
+  const invalidRatio = H.calculatePutRatio({ ...shortHeavyBase, putRatioN: 2.5 });
   assert.equal(invalidRatio.ready, false);
   assert.equal(invalidRatio.status, "PENDING");
-  assert.match(invalidRatio.error, /integer from 1 to 6/);
+  assert.match(invalidRatio.error, /whole number from 1 to 6/);
 
-  const invalidGeometry = H.calculatePutRatio({ ...base, longPutStrike: 90, shortPutStrike: 95 });
+  const invalidGeometry = H.calculatePutRatio({ ...shortHeavyBase, longPutStrike: 90, shortPutStrike: 95 });
   assert.equal(invalidGeometry.ready, false);
   assert.equal(invalidGeometry.status, "PENDING");
 
-  const nonPositiveDebit = H.calculatePutRatio({ ...base, shortPutBid: 6 });
-  assert.equal(nonPositiveDebit.ready, false);
-  assert.equal(nonPositiveDebit.status, "PENDING");
-  assert.match(nonPositiveDebit.error, /positive net debit/);
+  const missingExpiry = H.calculatePutRatio({ ...shortHeavyBase, putRatioExpiry: "" });
+  assert.equal(missingExpiry.ready, false);
+  assert.equal(missingExpiry.status, "PENDING");
+
+  const noQuoteConfirmation = H.calculatePutRatio({ ...shortHeavyBase, putRatioQuoteConfirmed: false });
+  assert.equal(noQuoteConfirmation.ready, false);
+  assert.equal(noQuoteConfirmation.status, "PENDING");
+
+  const noContractConfirmation = H.calculatePutRatio({ ...shortHeavyBase, putRatioStandardContractConfirmed: false });
+  assert.equal(noContractConfirmation.ready, false);
+  assert.equal(noContractConfirmation.status, "PENDING");
+
+  const unknownBudget = H.calculatePutRatio({ ...shortHeavyBase, budgetUsd: null });
+  assert.equal(unknownBudget.ready, false);
+  assert.equal(unknownBudget.status, "PENDING");
+
+  const expired = H.calculatePutRatio({ ...shortHeavyBase, putRatioExpiry: "2020-01-01" });
+  assert.equal(expired.ready, false);
+  assert.equal(expired.status, "PENDING");
 }
 
+// Both orientations remain research-only; neither enters the main call-credit pool.
 // The new N:1 put ratio is visible in the dedicated Hub selector and never
 // replaces the main terminal's two-leg CALL risk-pool whitelist.
 {
   const hubHtml = fs.readFileSync(require("node:path").join(__dirname, "../hub_research_pack.html"), "utf8");
   const hubUi = fs.readFileSync(require("node:path").join(__dirname, "../hub_research_pack_ui.js"), "utf8");
   const mainHtml = fs.readFileSync(require("node:path").join(__dirname, "../index.html"), "utf8");
-  assert.ok(hubHtml.includes('<option value="put-ratio">Hub QQQ Long Put N:1 / Short QQQ Put Ratio</option>'));
+  assert.ok(hubHtml.includes('<option value="put-ratio">Hub QQQ Put Ratio · N SHORT : 1 LONG / N LONG : 1 SHORT</option>'));
   assert.ok(hubHtml.includes('id="putRatioN"'));
+  assert.ok(hubHtml.includes('id="putRatioDirection"'));
+  assert.ok(hubHtml.includes('id="putRatioExpiry"'));
+  assert.ok(hubHtml.includes('id="putRatioQuoteConfirmed"'));
+  assert.ok(hubHtml.includes('id="putRatioStandardContractConfirmed"'));
+  assert.ok(hubHtml.includes("BUY TO OPEN"));
   assert.ok(hubUi.includes("E.calculatePutRatio"));
-  assert.ok(mainHtml.includes("QQQ Long Put N:1 / Short QQQ Put Ratio"));
+  assert.ok(hubUi.includes("SELL TO OPEN"));
+  assert.ok(mainHtml.includes("QQQ Put Ratio (N SHORT : 1 LONG / N LONG : 1 SHORT)"));
   assert.ok(mainHtml.includes('Only those two defined-risk credit verticals share the option max-loss pool'));
 }
 
-console.log("HUB RESEARCH OPTION PACK: 13 TEST GROUPS PASS");
+console.log("HUB RESEARCH OPTION PACK: directional put-ratio regression PASS");

@@ -1,30 +1,44 @@
-# QQQ Put Ratio Backspread — Measurement Contract
+# QQQ Put Ratio — Direction, Payoff and Entry Contract
 
-Status: research-only payoff calculator inside Option Chain Lab. It does not enter the primary shared risk budget, does not alter the frozen strategy, and never authorizes orders.
+Status: HUB research-only calculator. It is not a recommendation, not an execution-ready ticket, and not part of the primary QQQ/VXX call-credit risk pool. It does not change Frozen Original Hybrid, account targets, NAV, or broker permissions.
 
-## Locked interpretation
+## Direction must be selected first
 
-Here, N:1 means N long lower-strike QQQ puts for every one short higher-strike QQQ put. Both legs must share the same QQQ underlying and exact expiry, with K_short > K_long. This is a put ratio backspread. Do not silently reverse the counts; one long and N short puts have a different risk profile.
+The user explicitly selects one of two different structures. Here, N is the quantity on the selected "heavy" side; the other side is exactly one contract. Both legs must be QQQ puts with the exact same expiry and confirmed standard multiplier/deliverable.
 
-## Price convention and formula
+### A. Default: N SHORT : 1 LONG — short-heavy ratio put spread
 
-- Long put entry price: Ask.
-- Short put entry price: Bid.
-- C = Bid_short − N × Ask_long, per share. Positive C is an opening net credit; negative C is an opening net debit.
-- At expiry, P&L(S) = multiplier × [C + N × max(K_long − S, 0) − max(K_short − S, 0)].
-- For N ≥ 1 and K_short > K_long, the expiry loss valley is at the long strike. Maximum loss per package = max(0, (K_short − K_long − C) × verified multiplier).
-- At an underlying settlement of zero, payoff is multiplier × (C + N × K_long − K_short). Above the short strike, payoff is multiplier × C.
+- BUY TO OPEN 1 higher-strike QQQ put (Long Put), using its Ask as the conservative entry-side estimate.
+- SELL TO OPEN N lower-strike QQQ puts (Short Puts), using their Bid as the conservative entry-side estimate.
+- Geometry: K_long > K_short > 0.
+- Signed net debit D in dollars/package = 100 × (Ask_long − N × Bid_short). D > 0 means debit paid; D < 0 means credit received.
+- Expiry P&L at underlying settlement S = 100 × [max(K_long − S, 0) − N × max(K_short − S, 0)] − D.
+- At S = 0, P&L = 100 × (K_long − N × K_short) − D.
 
-Breakevens are emitted only when their algebraic root falls inside its valid price interval. N=1 is a 1:1 vertical and has no added crash convexity. The calculator only uses the provided chain and never invents missing Put rows.
+For N > 1, when QQQ falls below the lower Short Put strike, the one Long Put no longer offsets all N Short Puts: (N−1) net short puts remain. This is **not a defined-risk protective hedge**. Its loss can become very large if QQQ approaches zero; receiving a credit does not remove this tail risk. OIC describes the worst expiration outcome as the underlying becoming worthless and the maximum gain as occurring at the lower short strike. See [OIC: Short Ratio Put Spread](https://www.optionseducation.org/strategies/all-strategies/short-ratio-put-spread).
 
-## Risk and evidence gates
+### B. N LONG : 1 SHORT — long put ratio / put backspread
 
-The risk-budget package count is floor(candidate budget / maximum expiry loss per package) only. It excludes broker margin/buying power, early assignment/exercise, path risk and volatility changes before expiry, execution costs beyond the explicit sensitivity table, and interaction with the existing QQQ core. If expiry max loss is zero, capacity is not inferred as infinite.
+- BUY TO OPEN N lower-strike QQQ puts (Long Puts), using their Ask as the conservative entry-side estimate.
+- SELL TO OPEN 1 higher-strike QQQ put (Short Put), using its Bid as the conservative entry-side estimate.
+- Geometry: K_short > K_long > 0.
+- Signed net debit D in dollars/package = 100 × (N × Ask_long − Bid_short). D > 0 means debit paid; D < 0 means credit received.
+- Expiry P&L at settlement S = 100 × [N × max(K_long − S, 0) − max(K_short − S, 0)] − D.
+- This direction may benefit from a sufficiently sharp decline, but can lose around the lower Long Put strike; do not describe it as guaranteed protection. OIC identifies the maximum expiration loss at the lower long strike and notes initiation may be a debit or credit. See [OIC: Long Ratio Put Spread](https://www.optionseducation.org/strategies/all-strategies/long-ratio-put-spread).
 
-Quote sensitivity shocks move the short Bid down and long Ask up by the listed per-side amount (0, $0.025, $0.05, $0.10). This is hypothetical stress, not observed slippage or a fill claim. Both selected puts require valid two-sided quotes even though the calculation uses the executable-side short Bid and long Ask.
+When N = 1, the structure has no contract-count asymmetry, but buy/sell direction and strike ordering still define different vertical spreads. Do not infer that N=1 offers added crash convexity.
 
-The QQQ Put fixture remains empty because the supplied screenshot included CALL quotes only. Until the operator imports dated QQQ Put quotes with source metadata, the panel remains PENDING or SCENARIO ONLY. Adjusted contract terms are blocked; filling source fields never means the app independently authenticated them.
+## Measurement and sizing rules
 
-## Integration boundary
+1. The expiry field must be explicit, valid and not already past. The structure selector, Long/Short strike labels and N/1 quantities must agree; wrong geometry returns PENDING.
+2. Before capacity is displayed, the operator must attest that both legs have been cross-checked against the current broker chain (timestamps, Bid/Ask and size) and that both are standard QQQ 100-share contracts. This attestation is manual; the app does not authenticate the source.
+3. Net cash flow is signed: positive = debit outflow; negative = credit inflow. A net credit is a valid entry cash flow and must not be rejected merely because it is negative.
+4. For each package, calculate P&L at expiry across relevant strike breakpoints, including S = 0, then set estimated maximum loss to max(0, −minimum expiry P&L). The estimate uses supplied leg prices and the generic 100 multiplier.
+5. Research capacity = floor(known remaining research risk budget / estimated maximum expiry loss per package). Unknown Hybrid reservations stay PENDING, not zero. A zero/invalid risk denominator never yields infinite capacity.
+6. Display both legs as explicit BUY TO OPEN / SELL TO OPEN quantities, the same expiry, strike, source-side price, signed package cash flow, estimated terminal max loss, and P&L if QQQ expires at $0. These are calculations from input data, not predicted returns or guaranteed fills.
+7. The public chain can be delayed or incomplete. Verify exact expiry, contract root, multiplier and deliverable in the broker chain. Adjusted or unknown deliverables remain out of scope. Manual edits do not count as independently authenticated data.
+8. The UI may explain how to construct a broker's multi-leg LIMIT combo order, but never transmits an order. Never infer that the risk-budget count proves adequate broker buying power, margin or suitability. A multi-leg order may not fill at displayed reference prices; early assignment, expiration handling, execution cost, volatility changes and path risk are outside the expiry calculator.
 
-No main engine, current target, baseline strategy, option-risk pool, NAV or broker boundary is changed. Only the Option Chain Lab's isolated research panel and pure calculator are extended. The primary planner handoff remains restricted to its existing permitted QQQ/VXX call-credit candidates.
+## Explicit non-integration boundary
+
+This calculator is isolated inside HUB Research. Its package capacity must not be added to the main dashboard, and it cannot amend the primary risk whitelist (QQQ call-credit and VXX call-credit), Frozen Original Hybrid or live-order permissions.

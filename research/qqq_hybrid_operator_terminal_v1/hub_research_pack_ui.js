@@ -7,7 +7,7 @@
 
   const ids = [
     "nav","cashPool","cashReservePct","totalOptionRiskPct","baseRiskReservedUsd","strategyRiskPct","spot","targetDte",
-    "strategyMode","atmStrike","atmAsk","shortStrike","shortBid","wingStrike","wingAsk","longPutStrike","longPutAsk",
+    "strategyMode","putRatioDirection","putRatioExpiry","putRatioQuoteConfirmed","putRatioStandardContractConfirmed","atmStrike","atmAsk","shortStrike","shortBid","wingStrike","wingAsk","longPutStrike","longPutAsk",
     "shortPutStrike","shortPutBid","requestedN","maxN","currentN","currentShorts","currentWings","currentShortDelta",
     "lowDeltaStreak","sessionsSinceChange","packagePnlUsd","currentShortAsk","currentWingBid","approachTouched",
     "nextDayReversal","nextDayContinuation","wave","prevClose","anchorClose","atr20","layerCap","currentLayers",
@@ -53,7 +53,11 @@
       shortStrike: n("shortStrike"), shortBid: n("shortBid"),
       wingStrike: n("wingStrike"), wingAsk: n("wingAsk"),
       longPutStrike: n("longPutStrike"), longPutAsk: n("longPutAsk"),
-      shortPutStrike: n("shortPutStrike"), shortPutBid: n("shortPutBid")
+      shortPutStrike: n("shortPutStrike"), shortPutBid: n("shortPutBid"),
+      putRatioDirection: $("putRatioDirection") ? $("putRatioDirection").value : "short-heavy",
+      putRatioExpiry: $("putRatioExpiry") ? $("putRatioExpiry").value : "",
+      putRatioQuoteConfirmed: $("putRatioQuoteConfirmed") ? $("putRatioQuoteConfirmed").checked === true : false,
+      putRatioStandardContractConfirmed: $("putRatioStandardContractConfirmed") ? $("putRatioStandardContractConfirmed").checked === true : false
     };
   }
 
@@ -69,9 +73,21 @@
     $("putRatioControlGroup").hidden = !putRatio;
     $("callLegGroup").hidden = shock || putRatio;
     $("putLegGroup").hidden = !(state || shock || putRatio);
+    const longHeavy = $("putRatioDirection") && $("putRatioDirection").value === "long-heavy";
     $("putLegHeading").textContent = putRatio
-      ? "Put 比例結構：+N Long QQQ Put −1 Short QQQ Put（同到期）"
+      ? (longHeavy
+        ? "N LONG : 1 SHORT · 買 N 張較低 K Long Put；賣 1 張較高 K Short Put"
+        : "N SHORT : 1 LONG · 買 1 張較高 K Long Put；賣 N 張較低 K Short Put")
       : "+1 約 25Δ Long Put −1 約 10Δ farther-OTM Short Put";
+    if ($("putRatioNLabel")) $("putRatioNLabel").textContent = longHeavy
+      ? "N · 每組買入 Long QQQ Put 張數"
+      : "N · 每組賣出 Short QQQ Put 張數";
+    if ($("putRatioOneLabel")) $("putRatioOneLabel").textContent = longHeavy
+      ? "每組賣出 Short QQQ Put 張數"
+      : "每組買入 Long QQQ Put 張數";
+    if ($("putRatioRecipe")) $("putRatioRecipe").textContent = longHeavy
+      ? "N LONG : 1 SHORT（Put backspread）：BUY TO OPEN N 張較低 K Long Put @ Ask；SELL TO OPEN 1 張較高 K Short Put @ Bid。兩腿必須是 QQQ、同一到期日。急跌時的保護效果不是保證；到期損失低谷可出現在較低的 Long Put 行使價附近，淨 Credit/Debit 依實際報價而定。"
+      : "N SHORT : 1 LONG（Short Ratio Put Spread）：BUY TO OPEN 1 張較高 K Long Put @ Ask；SELL TO OPEN N 張較低 K Short Put @ Bid。兩腿必須是 QQQ、同一到期日。N>1 時，QQQ 跌穿較低 K 後仍有 N−1 張淨空頭 Put；不是定義風險保護價差。";
     const captions = {
       "ratio-harvest50": "Ratio-Call HARVEST50 V1",
       "ratio-dynamic-v2": "Ratio-Call Risk-Budget Dynamic-N V2",
@@ -79,7 +95,7 @@
       "state-adaptive": "State-Adaptive Geometry",
       "staggered": "Staggered Stack",
       "shock-put": "SHOCK-GATED Put Debit Spread",
-      "put-ratio": "QQQ Long Put N:1 / Short QQQ Put Ratio"
+      "put-ratio": "QQQ Put Ratio · both orientations"
     };
     $("resultStatus").dataset.mode = captions[mode];
   }
@@ -104,6 +120,19 @@
     return row ? { strike: row.strike, ask: row.ask, bid: row.bid, delta: row.delta, deltaSource: row.deltaSource } : null;
   }
 
+  function applyPutCandidates(candidates) {
+    if (!candidates || !candidates.ready) {
+      ["longPutStrike", "longPutAsk", "shortPutStrike", "shortPutBid"].forEach(id => { if ($(id)) $(id).value = ""; });
+      if ($("putRatioExpiry")) $("putRatioExpiry").value = candidates && candidates.expiry ? candidates.expiry : "";
+      return;
+    }
+    set("longPutStrike", candidates.longPut.strike);
+    set("longPutAsk", candidates.longPut.ask);
+    set("shortPutStrike", candidates.shortPut.strike);
+    set("shortPutBid", candidates.shortPut.bid);
+    if ($("putRatioExpiry")) $("putRatioExpiry").value = candidates.expiry || "";
+  }
+
   async function loadChain() {
     const status = $("chainStatus");
     const spot = n("spot");
@@ -119,9 +148,11 @@
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || "option chain not available");
       lastChain = data;
-      lastCandidates = E.chooseChainLegs(data, spot, new Date().toISOString().slice(0, 10), targetDte);
+      lastCandidates = E.chooseChainLegs(data, spot, new Date().toISOString().slice(0, 10), targetDte,
+        $("putRatioDirection") ? $("putRatioDirection").value : "short-heavy");
+      applyPutCandidates(lastCandidates);
       if (!lastCandidates.ready) {
-        status.textContent = "到期日 " + esc(data.expiry || "unknown") + "，但未能可靠配齊全部 Hub 研究腿：" + lastCandidates.error;
+        status.textContent = "到期日 " + esc(lastCandidates.expiry || data.expiry || "unknown") + "，但未能可靠配齊全部 Hub 研究腿：" + lastCandidates.error;
         render();
         return;
       }
@@ -129,8 +160,6 @@
       set("atmStrike", c.atm.strike); set("atmAsk", c.atm.ask);
       set("shortStrike", c.short.strike); set("shortBid", c.short.bid);
       set("wingStrike", c.wing.strike); set("wingAsk", c.wing.ask);
-      set("longPutStrike", c.longPut.strike); set("longPutAsk", c.longPut.ask);
-      set("shortPutStrike", c.shortPut.strike); set("shortPutBid", c.shortPut.bid);
       const source = c.deltaSource === "BS_ESTIMATE" ? "Delta 由 Black-Scholes 估算" : "採用資料來源提供的 Delta";
       status.textContent = "候選已載入 · " + c.expiry + " · " + source + " · " + (data.source || "public chain") + "。報價可能延遲，不是可成交保證。";
       render();
@@ -248,26 +277,40 @@
         ["Action", result.action]
       ] : [["狀態", result.status], ["原因", result.error || "報價／結構資料不足"]];
     } else if (mode === "put-ratio") {
-      title = "QQQ Long Put N:1 / Short QQQ Put Ratio";
-      result = E.calculatePutRatio({ ...input, budgetUsd: budget.effectiveBudget, putRatioN: n("putRatioN", 2) });
+      title = "QQQ Put Ratio · " + ($("putRatioDirection").value === "long-heavy" ? "N LONG : 1 SHORT" : "N SHORT : 1 LONG");
+      result = E.calculatePutRatio({ ...input, budgetUsd: budget.effectiveBudget,
+        putRatioN: n("putRatioN", 2), putRatioDirection: $("putRatioDirection").value,
+        putRatioExpiry: $("putRatioExpiry").value,
+        putRatioQuoteConfirmed: $("putRatioQuoteConfirmed").checked === true,
+        putRatioStandardContractConfirmed: $("putRatioStandardContractConfirmed").checked === true });
       if (result.ready) {
-        riskAtTarget = result.riskUsd;
-        debitAtTarget = Math.max(0, result.debitUsd);
+        riskAtTarget = result.riskUsd * result.maxPackages;
+        debitAtTarget = result.debitUsd * result.maxPackages;
         oneUnitRisk = result.riskUsd;
       }
+      const priceWord = result.ready
+        ? (result.debitUsd > 0 ? "NET DEBIT · 約支付 " + usd(result.debitUsd)
+          : result.debitUsd < 0 ? "NET CREDIT · 約收取 " + usd(Math.abs(result.debitUsd))
+          : "NET EVEN · 約 $0")
+        : "PENDING";
+      const expiry = result.ready ? result.expiry : ($("putRatioExpiry").value || "未確認");
       rows = result.ready ? [
-        ["結構", "+" + fmt(result.putRatioN) + " QQQ Long Put : −1 QQQ Short Put"],
-        ["每組 Long Put / Short Put 張數", fmt(result.putRatioN) + " / 1"],
-        ["每組淨 Debit（$，已用 Long Ask − Short Bid）", usd(result.debitUsd)],
-        ["每組到期最大虧損估算（$）", usd(result.riskUsd)],
-        ["此研究結構風險預算（$）", usd(result.budgetUsd)],
-        ["可負擔最大組數", fmt(result.maxPackages)],
-        ["最大容量對應 Long Put 總張數", fmt(result.longPutContracts)],
-        ["最大容量對應 Short Put 總張數", fmt(result.shortPutContracts)],
-        ["最大容量所需風險額度（$）", usd(result.maxPackages * result.riskUsd)],
-        ["資料／風險規則", "同到期 QQQ Put；Long strike > Short strike；買入用 Ask、賣出用 Bid；每張乘數假設 100"],
-        ["限制", result.reason]
-      ] : [["狀態", result.status || "PENDING"], ["原因", result.error || "缺少可驗證的腿資料"]];
+        ["比例方向", result.orientation],
+        ["共同到期日", expiry],
+        ["每組 Long Put / Short Put 張數", result.longPutQtyPerPackage + " / " + result.shortPutQtyPerPackage],
+        ["買入腿（每組）", "BUY TO OPEN " + result.longPutQtyPerPackage + " × QQQ " + expiry + " $" + fmt(input.longPutStrike, 2) + " PUT · 參考 Ask $" + fmt(input.longPutAsk, 2)],
+        ["賣出腿（每組）", "SELL TO OPEN " + result.shortPutQtyPerPackage + " × QQQ " + expiry + " $" + fmt(input.shortPutStrike, 2) + " PUT · 參考 Bid $" + fmt(input.shortPutBid, 2)],
+        ["每組開倉淨現金流", priceWord + "（正數為支出 Debit；負數為收入 Credit）"],
+        ["每組到期最大虧損估算", usd(result.riskUsd)],
+        ["到期 QQQ = $0 時的損益情境", usd(result.zeroSpotPnlUsd)],
+        ["每組研究風險預算", usd(result.budgetUsd)],
+        ["可負擔最大組數（只按到期虧損）", fmt(result.maxPackages)],
+        ["最大容量 Long Put 總張數", fmt(result.longPutContracts)],
+        ["最大容量 Short Put 總張數", fmt(result.shortPutContracts)],
+        ["最大容量風險儲備估算", usd(result.maxPackages * result.riskUsd)],
+        ["怎樣輸入券商單", "人工核對兩腿後，在券商選 QQQ 同到期 PUT ratio 多腿 LIMIT 組合單，一次輸入上列 BUY TO OPEN／SELL TO OPEN 數量。使用淨 Debit/Credit 限價；不要先獨立送出裸 Put。此頁不送單。"],
+        ["不可忽略", result.reason]
+      ] : [["狀態", result.status || "PENDING"], ["原因", result.error || "報價、到期日、合約乘數或風險額度未核實"]];
     } else {
       title = "SHOCK-GATED Put Debit Spread";
       result = E.calculateShockGatedPut({ ...input, budgetUsd: budget.effectiveBudget, drawdown252Pct: n("drawdown252Pct", 0), return5dPct: n("return5dPct", 0) });
@@ -362,7 +405,7 @@
     $("resultMetrics").innerHTML = [
       metric("Risk capacity per structure", usd(out.oneUnitRisk)),
       metric("Risk reserved at target", usd(out.riskAtTarget)),
-      metric("Positive debit cash requirement (preview)", usd(out.debitAtTarget)),
+      metric("Net entry cash flow at preview capacity (debit + / credit −)", usd(out.debitAtTarget)),
       metric("Shared risk pool left after target", out.budget.remainingPool === null || out.riskAtTarget === null ? "PENDING / BLOCKED" : usd(Math.max(0, out.budget.remainingPool - out.riskAtTarget))),
       metric("Bank available rights", usd(out.bank.availableRiskRightsUsd)),
       metric("Bank candidate gate", out.budget.applyBank ? (out.bank.eligible ? "PASS" : "BLOCK / CHECK") : "OFF")
@@ -384,6 +427,18 @@
   }
   $("refreshMarketBtn").addEventListener("click", refreshMarket);
   $("loadChainBtn").addEventListener("click", loadChain);
+  $("putRatioDirection").addEventListener("change", () => {
+    if (lastChain && n("spot") > 0) {
+      const targetDte = Math.max(14, Math.min(120, E.whole(n("targetDte", 45), 45)));
+      lastCandidates = E.chooseChainLegs(lastChain, n("spot"), new Date().toISOString().slice(0, 10),
+        targetDte, $("putRatioDirection").value);
+      applyPutCandidates(lastCandidates);
+      $("chainStatus").textContent = lastCandidates.ready
+        ? "已按新比例方向重新配對 " + lastCandidates.expiry + " 的 Put 腿；報價可能延遲，請對照券商鏈。"
+        : "此到期鏈無法配齊新方向的研究腿：" + (lastCandidates.error || "請手動輸入並核對兩腿。");
+    }
+    render();
+  });
   $("importPrimaryContextBtn").addEventListener("click", importPrimaryContext);
   $("baseRiskReservedUsd").addEventListener("change", () => {
     $("primaryContextStatus").textContent = $("baseRiskReservedUsd").value.trim()
