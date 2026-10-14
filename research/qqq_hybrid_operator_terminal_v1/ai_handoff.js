@@ -16,6 +16,7 @@
     const input = p.input || {};
     const result = p.result || {};
     const roadmap = p.deploymentRoadmap || {};
+    const decisionValue = p.decisionValue || {};
     const market = result.market || {};
     const rows = Array.isArray(result.rows) ? result.rows : [];
     const generatedAt = p.generatedAt || new Date().toISOString();
@@ -165,6 +166,7 @@
       input: input,
       result: result,
       deploymentRoadmap: roadmap,
+      decisionValue,
       candidates: optionCandidates,
       guardrails: {
         role: "Independent manual review; not an order instruction",
@@ -199,6 +201,18 @@
       "- Next action: " + cell(roadmap.nextAction),
       "- CLOCK Floor is a review threshold, not a principal guarantee or automatic sell. No terminal NAV / CAGR / MaxDD forecast is manufactured.",
       "- Existing research lockbox stays in force: FAR CALL trade-performance accuracy blocked, generality not demonstrated, isolated overlay failed its current integration base screen; this roadmap does not approve strategy promotion.",
+      "",
+      "## Incremental decision value — scenario analysis, not order authority",
+      "- Candidate / review lens: " + cell(decisionValue.candidateLabel) + " / " + cell(decisionValue.lens),
+      "- Status: " + cell(decisionValue.statusLabel || decisionValue.status || "PENDING"),
+      "- Base P / break-even P: " + cell(decisionValue.probabilityBasePct) + "% / " + cell(decisionValue.breakEvenProbabilityPct) + "%",
+      "- EV per unit / total / per calendar day: " + toUsd(decisionValue.expectedValueBaseUsd) + " / " + toUsd(decisionValue.expectedValueBaseTotalUsd) + " / " + toUsd(decisionValue.expectedValuePerCalendarDayUsd),
+      "- Adverse EV total / base EV as % NAV: " + toUsd(decisionValue.expectedValueAdverseTotalUsd) + " / " + cell(decisionValue.expectedValuePctNav),
+      "- Probability basis / method / sample size: " + cell(decisionValue.probabilityBasis) + " / " + cell(decisionValue.probabilityMethod) + " / " + cell(decisionValue.sampleSize),
+      "- Current engine route: " + cell(decisionValue.mainRoute && decisionValue.mainRoute.action) + " / current " + cell(decisionValue.mainRoute && decisionValue.mainRoute.current) + " / target " + cell(decisionValue.mainRoute && decisionValue.mainRoute.target),
+      "- Evidence axes: accuracy " + cell(decisionValue.axes && decisionValue.axes.accuracy) + "; generality " + cell(decisionValue.axes && decisionValue.axes.generality) + "; integration " + cell(decisionValue.axes && decisionValue.axes.integration),
+      "- Next action / caution: " + cell(decisionValue.nextAction) + " " + cell((decisionValue.warnings || []).join(" ")),
+      "- Historical replay frequencies and the 0/16 FAR CALL scenario screen are not future probabilities. EV is a binary approximation and excludes costs / tail not entered into the scenario.",
       "",
       "## Data and source boundary",
       "- APP snapshot metadata: " + cell(marketMeta || "No source metadata recorded"),

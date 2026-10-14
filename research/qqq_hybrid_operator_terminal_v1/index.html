@@ -49,6 +49,66 @@
       <p class="roadmap-contract"><b>CLOCK Floor:</b> Cₜ = B × min(t/H, 1)，其中 t 是已過完整月份，H 是總月份。這是隨時間上升的覆核底線，不是保本保證、不會自動 SELL，且暫不把未來月供加入 B；每次真實供款入帳後再更新 NAV／現金。</p>
       <p class="roadmap-warning"><b>研究硬閘仍存在：</b>現有研究鎖箱對 FAR CALL 的準確性仍為 BLOCKED、一般性未證明，隔離 overlay 的目前整合基準未通過。因此本路線圖不預測 CAGR／MaxDD、不替研究策略放行，也不改 Frozen Original Hybrid 權重。</p>
     </section>
+
+    <section id="decisionValueDesk" class="card decision-value-desk">
+      <div class="section-head"><div><h2>−1 · 進退性價比決策台 · DECISION VALUE ENGINE</h2><p class="decision-lead">接通主台市場閘、現有持倉及容量，再比較回報、損失、成本、時間和成功概率。不夠證據就寫 PENDING，不憑感覺填數。</p></div><span id="dvVerdictBadge" class="tag warn">PENDING · NEED INPUT</span></div>
+      <div class="decision-workspace">
+        <div class="decision-inputs">
+          <div class="decision-field-grid">
+            <label>Candidate / position<select id="dvCandidate">
+              <option value="qqqShares">QQQ CORE · shares</option><option value="vxxShortShares">VXX SHORT · shares</option><option value="qqqCallSpreads">QQQ CALL-CREDIT · primary budget leg</option><option value="vxxCallSpreads">VXX CALL-CREDIT · primary budget leg</option><option value="qqqFarCallOverlay">QQQ FAR CALL · incremental research overlay</option><option value="deploymentTiming">LONG-HORIZON · deploy now vs stage</option><option value="custom">Other / hypothetical candidate</option>
+            </select></label>
+            <label>Review lens<select id="dvLens"><option value="ADD">Add / deploy new exposure</option><option value="HOLD">Continue holding existing exposure</option></select></label>
+            <label>Units to evaluate (shares / spreads / units)<input id="dvQuantity" type="number" min="1" step="1" placeholder="Needed for whole-exposure EV"></label>
+            <label>Holding horizon (calendar days)<input id="dvHorizonDays" type="number" min="1" max="3650" step="1" placeholder="Use same horizon across candidates"></label>
+          </div>
+          <div id="dvEngineRoute" class="decision-route">Current sizing route will appear from the main calculator.</div>
+          <div class="decision-subhead"><b>PAYOFF & COST · per unit</b><span>Same horizon and cost convention for fair comparison.</span></div>
+          <div class="decision-field-grid">
+            <label>Gain if successful ($)<input id="dvRewardUsd" type="number" min="0.01" step="0.01" placeholder="Before costs below"></label>
+            <label>Loss if unsuccessful ($)<input id="dvLossUsd" type="number" min="0.01" step="0.01" placeholder="Stop / named stress amount"></label>
+            <label>Expected costs ($)<input id="dvCostUsd" type="number" min="0" step="0.01" placeholder="Fees / carry / borrow"></label>
+            <label>Extra adverse cost ($)<input id="dvCostStressUsd" type="number" min="0" step="0.01" placeholder="Enter 0 if none"></label>
+            <label>Loss measurement<select id="dvRiskNature"><option value="DEFINED">Defined stop / verified max loss</option><option value="STRESS_ONLY" selected>Stress loss only · not a cap</option><option value="UNBOUNDED">Unbounded / unknown tail</option></select></label>
+            <label>Probability calculation<select id="dvProbabilityMethod"><option value="MANUAL">Manual low / base / high</option><option value="EMPIRICAL">Wins / total outcomes → empirical rate</option></select></label>
+          </div>
+          <div id="dvManualProbabilityFields" class="decision-field-grid">
+            <label>Low success probability (%)<input id="dvProbLowPct" type="number" min="0" max="100" step="0.1" placeholder="Adverse case"></label>
+            <label>Base success probability (%)<input id="dvProbBasePct" type="number" min="0" max="100" step="0.1" placeholder="Evidence-based or hypothetical"></label>
+            <label>High success probability (%)<input id="dvProbHighPct" type="number" min="0" max="100" step="0.1" placeholder="Favourable case"></label>
+          </div>
+          <div id="dvEmpiricalProbabilityFields" class="decision-field-grid" hidden>
+            <label>Winning outcomes<input id="dvWins" type="number" min="0" step="1" placeholder="Wins under a fixed rule"></label>
+            <label>All counted outcomes<input id="dvTrials" type="number" min="1" step="1" placeholder="Wins + losses"></label>
+            <p class="decision-note">Shows observed win fraction + nominal 95% Wilson interval. Dependence, overlapping positions, model data or unrepresentative samples can invalidate the binomial interpretation.</p>
+          </div>
+          <div class="decision-probability-source"><label>Probability evidence basis<select id="dvProbabilityBasis"><option value="HYPOTHESIS">Hypothesis / scenario only</option><option value="MODEL_REPLAY">Repository model replay · not execution evidence</option><option value="INDEPENDENT_OOS">Independent chronological holdout / real outcomes</option></select></label><button id="dvLoadVxxReplayBtn" type="button">Load VXX model replay · 41 / 49</button></div>
+          <div class="decision-subhead"><b>THREE EVIDENCE AXES · NOT AVERAGED</b><span>PASS options are operator attestations, not authenticated by the APP.</span></div>
+          <div class="decision-field-grid decision-axes">
+            <label>Accuracy / source / execution<select id="dvAccuracy"><option value="UNREVIEWED">UNREVIEWED</option><option value="PASS">PASS · evidence reviewed</option><option value="BLOCKED">BLOCKED</option></select></label>
+            <label>Generality / out-of-sample<select id="dvGenerality"><option value="NOT_DEMONSTRATED">NOT DEMONSTRATED</option><option value="PASS">PASS · independent test</option><option value="FAIL">FAIL</option></select></label>
+            <label>Integration / incremental value<select id="dvIntegration"><option value="NOT_TESTED">NOT TESTED</option><option value="PASS">PASS · pre-registered comparator</option><option value="FAIL">FAIL</option></select></label>
+          </div>
+          <label>Source / report / sample window / fixed rule / costs<input id="dvEvidenceNote" type="text" maxlength="800" placeholder="Reference required for independent evidence"></label>
+        </div>
+        <div class="decision-results">
+          <div id="dvVerdictHeadline" class="decision-verdict-headline">PENDING — enter payoff, cost, horizon and probability. No default success probability is inserted.</div>
+          <div id="dvMetrics" class="decision-metrics">
+            <div class="decision-metric"><small>BREAK-EVEN PROBABILITY</small><b>—</b><span>Needs gain / loss / cost</span></div><div class="decision-metric"><small>BASE EXPECTED VALUE</small><b>—</b><span>After entered costs</span></div><div class="decision-metric"><small>ADVERSE EXPECTED VALUE</small><b>—</b><span>Low probability + stress cost</span></div><div class="decision-metric"><small>EV PER CALENDAR DAY</small><b>—</b><span>Needs quantity and horizon</span></div>
+          </div>
+          <div class="table-wrap decision-sensitivity-wrap"><table class="decision-sensitivity"><thead><tr><th>Case</th><th>Success P</th><th>Cost / unit</th><th>EV / unit</th><th>EV total</th><th>vs WAIT ($0)</th></tr></thead><tbody id="dvSensitivityRows"><tr><td colspan="6" class="pro-empty-cell">Complete inputs to compare low / base / high cases.</td></tr></tbody></table></div>
+          <div id="dvDecisionReasons" class="decision-reasons">Positive model EV is not strategy approval. Current market, target capacity, contract safety and all three evidence axes still govern.</div>
+          <div class="decision-benchmark"><b>Break-even rule:</b> p* = (loss + base cost) / (gain + loss). A positive base case with a non-positive adverse case is fragile. EV alone does not describe tail severity, path-dependent losses or opportunity cost of waiting.</div>
+        </div>
+      </div>
+      <details class="decision-evidence-details"><summary>Repository evidence register · source results and limitations</summary><div class="decision-evidence-grid">
+        <article><small>ROLLING 10Y DEPLOYMENT CONTROLLER</small><b>153 coupled replays · reported non-loss 100%</b><p>5% terminal quantile 2.0571×; worst terminal 1.9801×; worst MaxDD −32.6%. Historical replay only; independent 10Y regimes are limited. Not a 100% future non-loss probability.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/rolling_10y_floor/rolling_floor_report.md" target="_blank" rel="noreferrer">Source report →</a></article>
+        <article><small>QQQ FAR CALL · INCREMENTAL OVERLAY</small><b>0 / 16 budget-cost cases passed positive closed P&amp;L</b><p>Base arm: −$5,646 closed P&amp;L and −$5,552 last paired-date NAV gap. Data stops 2025-12-15; 11 expected terminal sessions missing. Accuracy BLOCKED · Generality NOT DEMONSTRATED · Integration FAILS CURRENT BASE SCREEN. Not a future-loss probability.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/qqq_hybrid_operator_terminal_v1/QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md" target="_blank" rel="noreferrer">Scorecard #148 →</a></article>
+        <article><small>VXX CALL-CREDIT · DERIVED MODEL REPLAY</small><b>41 / 49 wins · 83.7% historical model win fraction</b><p>8 losses; +$7,178 realized in that attribution. DERIVED_BS_VIX, not historical OPRA fills. Loadable as model reference only; it does not pass Accuracy / Generality gates.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/QQQ_HYBRID_PROFIT_TREND_REPLAY_V1_README.md" target="_blank" rel="noreferrer">Hybrid replay record →</a></article>
+        <article><small>FOUR-LAYER HYBRID · DESCRIPTIVE REPLAY</small><b>BASELINE 13.70% CAGR / −23.02% MaxDD</b><p>DEPLOY V1.1: 13.92% CAGR / −22.85% MaxDD, 2018-03-01 to 2026-09-04 (2,141 sessions). DERIVED_BS_VIX model outputs, not a complete historical OPRA replay or forecast.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/QQQ_HYBRID_PROFIT_TREND_REPLAY_V1_README.md" target="_blank" rel="noreferrer">Replay readme →</a></article>
+      </div></details>
+      <p class="decision-footer-note">No order authority. EV is a two-outcome approximation from entered gain / loss / cost. It omits multi-state payoff, path dependence, changing Greeks, volatility surface, borrow/margin calls, assignment, taxes, unentered costs and portfolio correlations.</p>
+    </section>
     <section class="notice">
       <b>Primary capital-first budget:</b> QQQ core shares + VXX short-stock margin + these short-credit option legs only: QQQ far call-credit and VXX call-credit. Only those two defined-risk credit verticals share the option max-loss pool; QQQ stock and VXX short-stock margin are reconciled in the same cash plan. VXX put is excluded.
       <small>Hub packages, debit/buy options, long options, and unrelated research structures remain visible for inspection but cannot alter main capacity. The intentionally excessive 1,000-unit case is a diagnostic only. V3 market context is read-only; budgets remain editable what-if assumptions.</small>
@@ -553,6 +613,7 @@
   <script src="position_ledger.js"></script>
   <script src="position_management.js"></script>
   <script src="deployment_roadmap.js"></script>
+  <script src="decision_value_engine.js"></script>
   <script src="ai_handoff.js"></script>
   <script src="hub_context_bridge.js"></script>
   <script src="app.js"></script>

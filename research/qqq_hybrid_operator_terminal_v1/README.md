@@ -20,6 +20,28 @@ The table distinguishes:
 The V3 market snapshot is read-only. All sizing percentages are editable what-if inputs. The V3 reference profile is only a convenient preview preset; it is not automatically promoted into current sizing. Initial deployment: set NAV and uncommitted cash to the principal amount. Existing portfolio: enter total current equity as NAV and only truly uncommitted cash as the cash pool.
 
 
+
+## Cross-strategy Decision Value Engine — incremental value / risk / probability
+
+The first-screen Decision Value Engine reuses the current portfolio calculation and market gate. It shows the selected strategy row's Current → Target, capacity, action and reason, then compares a user-entered opportunity's gain, loss, costs, probability and holding horizon. It cannot change frozen policy, raise capacity, mutate holdings or place orders.
+
+For a two-outcome approximation, it reports:
+- Break-even probability: **p* = (loss + base costs) / (gain + loss)**.
+- Expected value per unit and for the whole quantity: **p × gain − (1 − p) × loss − costs**.
+- Low/base/high EV; the adverse case combines low success probability with the explicitly entered adverse-cost stress.
+- EV per entered loss unit, reward:loss, expected value / NAV, scenario loss / NAV and EV per calendar day.
+- A direct $0 modeled-P&L WAIT reference, excluding cash yield and foregone future market gains instead of inventing them.
+
+Probability can be entered as a low/base/high hypothesis or calculated from wins / total counted outcomes. Empirical mode gives the observed win fraction and nominal 95% Wilson interval. This is not an edge proof: binomial independence is questionable for overlapping positions, clustered regimes, model-generated trades or an unrepresentative sample. Accuracy, Generality and Integration are displayed separately and never averaged. Independent OOS requires at least 30 counted outcomes, a source/reference note and all three axes marked PASS; these controls are operator attestations, not source authentication. Even then the best result is ELIGIBLE FOR HUMAN REVIEW, never an order instruction.
+
+Repository facts are displayed as evidence, not future odds:
+- Rolling 10Y report: 153 coupled replays; reported non-loss 100%, 5th-percentile terminal wealth 2.0571×, worst terminal 1.9801× and worst MaxDD −32.6%. This is not a 100% future non-loss probability.
+- QQQ FAR CALL isolated incremental overlay: 0/16 budget-cost scenarios with positive closed-trade P&L; base 0.8% NAV max-loss arm −$5,646 closed P&L and −$5,552 last paired-date NAV gap. Accuracy remains BLOCKED, Generality NOT DEMONSTRATED and integration fails the current base screen.
+- VXX call-credit attribution: 41/49 closed model trades won (83.7%) and +$7,178 realized, but pricing is DERIVED_BS_VIX, not historical OPRA. The UI can load this as MODEL REPLAY only, never as a verified current success probability.
+- Four-layer model replay: BASELINE 13.70% CAGR / −23.02% MaxDD; DEPLOY V1.1 13.92% / −22.85% for 2018-03-01 to 2026-09-04. These are historical model outputs, not forecasts.
+
+For primary listed legs, an ADD must fit the main engine's current ADD gap. HOLD/REDUCE/BLOCK/incomplete contract routes cannot be overridden by positive EV. VXX short shares always carry unbounded-tail risk; an entered stress loss is not a maximum-loss cap. Inputs persist in this browser and the output is included in JSON/journal/AI Review Pack.
+
 ## Long-term deployment roadmap — first-screen operating plan
 
 The first screen shows the whole-horizon contract before spot data and capacity tables:

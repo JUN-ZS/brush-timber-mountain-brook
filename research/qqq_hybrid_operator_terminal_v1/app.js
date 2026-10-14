@@ -20,6 +20,8 @@
   const PositionLedger = window.PositionLedgerV1;
   const PositionManagement = window.PositionManagementV1;
   const DeploymentRoadmap = window.DeploymentRoadmapV1;
+  const DecisionValueEngine = window.DecisionValueEngineV1;
+  const DECISION_VALUE_STORAGE_KEY = "QQQ_HYBRID_DECISION_VALUE_V1";
   const DEPLOYMENT_STORAGE_KEY = "QQQ_HYBRID_DEPLOYMENT_ROADMAP_V1";
   let positionRecords = [];
   let positionRegisterSummary = null;
@@ -1105,6 +1107,43 @@
     $("journalStatus").textContent="長期基準已清除；路線圖回到 PENDING，不會改動 NAV、倉位或策略規則。";
   }
 
+
+  const DECISION_INPUT_IDS=["dvCandidate","dvLens","dvQuantity","dvHorizonDays","dvRewardUsd","dvLossUsd","dvCostUsd","dvCostStressUsd","dvRiskNature","dvProbabilityMethod","dvProbLowPct","dvProbBasePct","dvProbHighPct","dvWins","dvTrials","dvProbabilityBasis","dvAccuracy","dvGenerality","dvIntegration","dvEvidenceNote"];
+  function readDecisionValueInputs(){
+    const n=id=>{const raw=String($(id)?.value??"").trim();if(!raw)return null;const v=Number(raw);return Number.isFinite(v)?v:null;};
+    return {candidateKey:$("dvCandidate").value,lens:$("dvLens").value,quantity:n("dvQuantity"),horizonDays:n("dvHorizonDays"),rewardUsd:n("dvRewardUsd"),lossUsd:n("dvLossUsd"),costUsd:n("dvCostUsd"),costStressUsd:n("dvCostStressUsd"),riskNature:$("dvRiskNature").value,probabilityMethod:$("dvProbabilityMethod").value,probabilityLowPct:n("dvProbLowPct"),probabilityBasePct:n("dvProbBasePct"),probabilityHighPct:n("dvProbHighPct"),wins:n("dvWins"),trials:n("dvTrials"),probabilityBasis:$("dvProbabilityBasis").value,accuracy:$("dvAccuracy").value,generality:$("dvGenerality").value,integration:$("dvIntegration").value,evidenceNote:String($("dvEvidenceNote").value||"").trim()};
+  }
+  function persistDecisionValueInputs(){try{window.localStorage.setItem(DECISION_VALUE_STORAGE_KEY,JSON.stringify(readDecisionValueInputs()));}catch(_){if($("dvVerdictBadge"))$("dvVerdictBadge").textContent="LOCAL SAVE UNAVAILABLE";}}
+  function restoreDecisionValueInputs(){
+    try{const raw=window.localStorage.getItem(DECISION_VALUE_STORAGE_KEY);if(!raw)return;const p=JSON.parse(raw);if(!p||typeof p!=="object"||Array.isArray(p))return;
+      const map={candidateKey:"dvCandidate",lens:"dvLens",quantity:"dvQuantity",horizonDays:"dvHorizonDays",rewardUsd:"dvRewardUsd",lossUsd:"dvLossUsd",costUsd:"dvCostUsd",costStressUsd:"dvCostStressUsd",riskNature:"dvRiskNature",probabilityMethod:"dvProbabilityMethod",probabilityLowPct:"dvProbLowPct",probabilityBasePct:"dvProbBasePct",probabilityHighPct:"dvProbHighPct",wins:"dvWins",trials:"dvTrials",probabilityBasis:"dvProbabilityBasis",accuracy:"dvAccuracy",generality:"dvGenerality",integration:"dvIntegration",evidenceNote:"dvEvidenceNote"};
+      for(const[k,id]of Object.entries(map))if(p[k]!==undefined&&p[k]!==null&&$(id))$(id).value=String(p[k]);
+    }catch(_){if($("dvVerdictBadge"))$("dvVerdictBadge").textContent="SAVED SCENARIO INVALID";}
+  }
+  function renderDecisionValueDesk(result){
+    if(!DecisionValueEngine||typeof DecisionValueEngine.evaluate!=="function")return null;
+    const inputs=readDecisionValueInputs(),row=Array.isArray(result.rows)?result.rows.find(x=>x.key===inputs.candidateKey)||null:null;
+    const out=DecisionValueEngine.evaluate({...inputs,nav:result.nav,market:result.market,mainRow:row});
+    const money=v=>typeof v==="number"&&Number.isFinite(v)?(v<0?"−$":"$")+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
+    const pct=v=>typeof v==="number"&&Number.isFinite(v)?v.toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1})+"%":"—";
+    const prob=v=>typeof v==="number"&&Number.isFinite(v)?pct(v):"UNKNOWN";
+    $("dvManualProbabilityFields").hidden=inputs.probabilityMethod!=="MANUAL";$("dvEmpiricalProbabilityFields").hidden=inputs.probabilityMethod!=="EMPIRICAL";
+    const route=out.mainRoute;
+    $("dvEngineRoute").innerHTML=!route?"<b>Primary sizing row:</b> NOT MAPPED — scenario only; the desk does not invent capacity.":
+      "<b>Current engine route:</b> "+esc(route.action||"PENDING")+" · current "+esc(route.current===null?"UNKNOWN":fmt(route.current))+" → target "+esc(route.target===null?"UNKNOWN":fmt(route.target))+" · capacity "+esc(route.capacity===null?"UNKNOWN":fmt(route.capacity))+
+      "<br>Maximum add gap: <b>"+esc(route.maxAllowedAdd===null?"UNKNOWN":fmt(route.maxAllowedAdd))+"</b> · trim gap: <b>"+esc(route.maxAllowedTrim===null?"UNKNOWN":fmt(route.maxAllowedTrim))+"</b><br>"+esc(route.reason||"No source reason returned.");
+    const labels={BASELINE_PENDING:"PENDING · NEED INPUT",NEEDS_PAYOFF:"PENDING · PAYOFF / COST / TIME MISSING",INVALID_RANGE:"BLOCK · PROBABILITY RANGE INVALID",MARKET_BLOCKED:"BLOCK · MARKET DATA GATE",ADD_NOT_ALLOWED:"BLOCK · CURRENT APP TARGET DOES NOT ALLOW ADD",QTY_OVER_TARGET:"BLOCK · PROPOSED UNITS EXCEED ADD GAP",HOLD_CONFLICTS_WITH_REDUCE:"FOLLOW REDUCE ROUTE · HOLD EV CANNOT OVERRIDE",QQQ_OVERLAY_LOCKBOX:"RESEARCH BLOCK · FAR CALL OVERLAY FAILED CURRENT SCREEN",MODEL_ONLY:"MODEL ONLY · NOT TRADE-READY",HYPOTHESIS_ONLY:"SCENARIO ONLY · PROBABILITY NOT EVIDENCED",EVIDENCE_INCOMPLETE:"PENDING · ACCURACY / GENERALITY / INTEGRATION",NO_SIZING_ROUTE:"SCENARIO ONLY · NO PRIMARY CAPACITY ROUTE",NEGATIVE_EXPECTED_VALUE:"WAIT / NO ADD · BASE EV NON-POSITIVE",FRAGILE_EXPECTED_VALUE:"FRAGILE · ADVERSE EV NON-POSITIVE",UNBOUNDED_TAIL:"SCENARIO ONLY · UNBOUNDED / STRESS RISK",ELIGIBLE_FOR_HUMAN_REVIEW:"ELIGIBLE FOR HUMAN REVIEW · NO ORDER"};
+    $("dvVerdictBadge").textContent=labels[out.status]||out.status;$("dvVerdictBadge").className=["QQQ_OVERLAY_LOCKBOX","MARKET_BLOCKED","ADD_NOT_ALLOWED","QTY_OVER_TARGET"].includes(out.status)?"tag danger":out.status==="ELIGIBLE_FOR_HUMAN_REVIEW"?"tag active":"tag warn";
+    $("dvVerdictHeadline").textContent=out.nextAction||"Decision value pending.";
+    const metrics=[["BREAK-EVEN P*",pct(out.breakEvenProbabilityPct),"Probability needed to cover loss + base costs"],["BASE EXPECTED VALUE",money(out.expectedValueBaseUsd),out.expectedValueBasePerRisk===null?"EV / entered loss UNKNOWN":fmt(out.expectedValueBasePerRisk,2)+" × entered loss unit"],["ADVERSE EXPECTED VALUE",money(out.expectedValueAdverseUsd),out.adverseProbabilityPct===null?"Low-probability / stress-cost unavailable":prob(out.adverseProbabilityPct)+" · stress costs included"],["EV PER CALENDAR DAY",money(out.expectedValuePerCalendarDayUsd),"Same horizon required for fair comparison"]];
+    $("dvMetrics").innerHTML=metrics.map(([t,v,d])=>'<div class="decision-metric"><small>'+esc(t)+'</small><b>'+esc(v)+'</b><span>'+esc(d)+'</span></div>').join("");
+    const cr=(name,p,cost,ev,total)=>'<tr><td>'+esc(name)+'</td><td>'+esc(prob(p))+'</td><td>'+esc(money(cost))+'</td><td>'+esc(money(ev))+'</td><td>'+esc(money(total))+'</td><td>'+esc(total===null?"UNKNOWN":money(total))+'</td></tr>';
+    $("dvSensitivityRows").innerHTML=out.expectedValueBaseUsd===null?'<tr><td colspan="6" class="pro-empty-cell">Complete positive gain/loss, costs, quantity, horizon and probability.</td></tr>':cr("LOW / ADVERSE",out.probabilityLowPct,out.totalCostAdverseUsd,out.expectedValueAdverseUsd,out.expectedValueAdverseTotalUsd)+cr("BASE",out.probabilityBasePct,out.totalCostBaseUsd,out.expectedValueBaseUsd,out.expectedValueBaseTotalUsd)+cr("HIGH / FAVOURABLE",out.probabilityHighPct,out.totalCostBaseUsd,out.expectedValueHighUsd,out.expectedValueHighTotalUsd);
+    const reasons=["<p><strong>Probability:</strong> "+esc(out.probabilityMethodLabel)+" · "+esc(out.probabilityBasisLabel)+" · sample "+esc(out.sampleSize===null?"UNKNOWN":fmt(out.sampleSize))+".</p>","<p><strong>Risk measurement:</strong> "+esc(out.riskNatureLabel)+"; scenario loss at entered quantity "+esc(money(out.scenarioLossTotalUsd))+" ("+esc(pct(out.scenarioRiskPctNav))+" NAV). Not a guarantee or VaR estimate.</p>","<p><strong>Risk / reward:</strong> "+esc(out.rewardRiskRatio===null?"UNKNOWN":fmt(out.rewardRiskRatio,2)+":1")+" · probability margin over break-even "+esc(out.probabilityMarginPct===null?"UNKNOWN":(out.probabilityMarginPct>=0?"+":"")+pct(out.probabilityMarginPct))+" · base EV as % NAV "+esc(pct(out.expectedValuePctNav))+".</p>","<p><strong>WAIT reference:</strong> $0 direct modeled P&amp;L, excluding cash yield and future market gains forgone.</p>","<p><strong>Three axes:</strong> Accuracy "+esc(out.axes.accuracy)+" · Generality "+esc(out.axes.generality)+" · Integration "+esc(out.axes.integration)+". PASS settings are operator-attested.</p>"];
+    if(out.warnings.length)reasons.push("<p><strong>Limits:</strong> "+esc(out.warnings.join(" "))+"</p>");$("dvDecisionReasons").innerHTML=reasons.join("");
+    return {schema:"QQQ_HYBRID_DECISION_VALUE_V1",...out,input:inputs,currentRow:row?{key:row.key,current:row.current,target:row.target,capacity:row.capacity,delta:row.delta,action:row.action,status:row.status,reason:row.reason}:null,generatedAt:new Date().toISOString(),brokerOrders:false,automaticPositionMutation:false};
+  }
+  function loadVxxModelReplayProbability(){$("dvCandidate").value="vxxCallSpreads";$("dvProbabilityMethod").value="EMPIRICAL";$("dvWins").value="41";$("dvTrials").value="49";$("dvProbabilityBasis").value="MODEL_REPLAY";$("dvEvidenceNote").value="Repo historical attribution: 41/49 closed wins, 2018-03-01 to 2026-09-04; DERIVED_BS_VIX, NOT OPRA; descriptive model-only reference.";persistDecisionValueInputs();renderPlan();}
   function renderPlan() {
     updateSlopeDisplay();
     syncHubResearchCandidates();
@@ -1114,7 +1153,8 @@
     if (marketTouched) input.market.term_source = "MANUAL_OPERATOR_INPUT";
     const result = E.calculatePortfolio(input);
     const deploymentRoadmap = renderDeploymentRoadmap(result);
-    lastPlan = { generatedAt: new Date().toISOString(), input, result, candidates, deploymentRoadmap };
+    const decisionValue = renderDecisionValueDesk(result);
+    lastPlan = { generatedAt: new Date().toISOString(), input, result, candidates, deploymentRoadmap, decisionValue };
     renderProDashboard(result, input);
     const m = result.market;
     $("marketBadge").textContent = m.status + (m.blocked ? " · NO SIZING" : "");
@@ -1239,6 +1279,7 @@
       result: lastPlan.result,
       candidates,
       deploymentRoadmap: lastPlan.deploymentRoadmap || null,
+      decisionValue: lastPlan.decisionValue || null,
       boundary: { brokerOrders: false, automaticMutation: false, historicalSizingPromotedToLive: false }
     }, null, 2);
   }
@@ -1313,6 +1354,7 @@
       result: lastPlan?.result || null,
       candidates,
       deploymentRoadmap: lastPlan?.deploymentRoadmap || null,
+      decisionValue: lastPlan?.decisionValue || null,
       boundary: { brokerOrders: false, automaticMutation: false }
     };
     try {
@@ -1372,6 +1414,8 @@
       }
     });
     restoreRoadmapSettings();
+    restoreDecisionValueInputs();
+    $("dvLoadVxxReplayBtn").addEventListener("click", loadVxxModelReplayProbability);
     $("setRoadmapBaselineBtn").addEventListener("click", lockRoadmapBaseline);
     $("clearRoadmapBaselineBtn").addEventListener("click", clearRoadmapBaseline);
     $("mToday").value = new Date().toISOString().slice(0,10);
@@ -1403,7 +1447,7 @@
     });
     document.querySelectorAll("input,select").forEach(el => {
       if (el.id.startsWith("current-") || el.id.startsWith("budget-") || el.id.startsWith("risk-") || el.id.startsWith("enabled-") ||
-          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","vxxShortBorrowAprPct","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte","hubRatioN","hubStateLayerCap","hubDrawdown252Pct","hubReturn5dPct","planBaseCapital","planStartDate","planHorizonMonths","planMonthlyContribution"].includes(el.id)) {
+          ["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday","nav","cashPool","cashReservePct","vxxShortMarginMultiple","vxxShortBorrowAprPct","qqqCorePct","vxxNormalPct","vxxHighPct","totalOptionRiskPct","vixHigh","termSafe","maxTermAgeDays","nxEnabled","nxCurrentFar","nxCurrentNear","nxFarDelta","nxNearDelta","nxCoverage","nxMaxStack","nxNShort","nxFarDistancePct","nxGammaRel","nxDeltaJump","allowProtectionBuys","targetDte","hubRatioN","hubStateLayerCap","hubDrawdown252Pct","hubReturn5dPct","planBaseCapital","planStartDate","planHorizonMonths","planMonthlyContribution",...DECISION_INPUT_IDS].includes(el.id)) {
         el.addEventListener("input", () => {
           if (["mQqq","mVxx","mVix","mM1","mM2","mSpotAsOf","mTermAsOf","mToday"].includes(el.id)) {
             marketTouched = true;
@@ -1411,6 +1455,7 @@
             marketMeta = "MANUAL_OPERATOR_INPUT — market prices and expiry state must be verified by the operator.";
           }
           if (["planBaseCapital","planStartDate","planHorizonMonths","planMonthlyContribution"].includes(el.id)) persistRoadmapSettings();
+          if (DECISION_INPUT_IDS.includes(el.id)) persistDecisionValueInputs();
           // Keep the top-level mirrors and option rows synchronized.
           const budgetKey = Object.entries(TOP_BUDGETS).find(([,id]) => id === el.id)?.[0];
           if (budgetKey) $("budget-" + budgetKey).value = el.value;
