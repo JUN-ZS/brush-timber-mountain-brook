@@ -77,7 +77,8 @@ if(mult===null||!Number.isFinite(mult)||mult<=0)return fail("合約乘數須為�
 if(budget===null||!Number.isFinite(budget)||budget<0)return fail("風險預算必須是有效的非負數。");
 if(String(p.contractStatus||"").toUpperCase()==="ADJUSTED_TERMS_RECORDED")return fail("調整合約的交割／價格刻度尚未正規化；Put ratio 容量封鎖。");
 var root=String(p.contractSymbol||"").trim().toUpperCase();
-if(!root||(root!=="QQQ"&&root.indexOf("QQQ")!==0))return fail("合約根／代碼必須可確認為 QQQ；缺失或其他標的均封鎖。");
+var fullOccMatch=root.match(/^QQQ\\s{0,3}(\\d{6})([CP])(\\d{8})$/);
+if(root!=="QQQ"&&!fullOccMatch)return fail("合約根必須正好是 QQQ；若輸入完整 OCC 代碼，必須是標準 QQQ option symbol。");
 var lp=p.longPut||{},sp=p.shortPut||{};
 var L={strike:num(lp.strike),bid:num(lp.bid),ask:num(lp.ask),delta:num(lp.delta)};
 var S={strike:num(sp.strike),bid:num(sp.bid),ask:num(sp.ask),delta:num(sp.delta)};
@@ -85,7 +86,12 @@ var lq=quoteState(L),sq=quoteState(S);
 if(!sq.ok)return fail("SHORT QQQ PUT 必須有有效雙邊 Bid/Ask；"+sq.label+"。");
 if(!lq.ok)return fail("LONG QQQ PUT 必須有有效雙邊 Bid/Ask；"+lq.label+"。");
 if(!(L.strike>0&&S.strike>L.strike))return fail("Put backspread 要求 LONG PUT 履約價低於 SHORT PUT；兩腿必須是同一 QQQ、同一到期日。");
+if(fullOccMatch){
+var symbolExpiry="20"+fullOccMatch[1].slice(0,2)+"-"+fullOccMatch[1].slice(2,4)+"-"+fullOccMatch[1].slice(4,6),symbolStrike=Number(fullOccMatch[3])/1000;
+if(fullOccMatch[2]!=="P"||symbolExpiry!==expiry||(Math.abs(symbolStrike-L.strike)>1e-8&&Math.abs(symbolStrike-S.strike)>1e-8))return fail("完整 OCC 代碼必須與選定到期日、PUT 權利及其中一個選定履約價一致。");
+}
 var width=S.strike-L.strike,credit=S.bid-n*L.ask;
+if(credit>=width-1e-8)return fail("SHORT Bid − N×LONG Ask 不可達到或超過履約價寬度；可能是不同步、錯列或套利邊界行情，須先核對報價。");
 function sharePnl(spot){return credit+n*Math.max(L.strike-spot,0)-Math.max(S.strike-spot,0)}
 function usdPerPackage(spot){return sharePnl(spot)*mult}
 var atZero=usdPerPackage(0),atLong=usdPerPackage(L.strike),atShort=usdPerPackage(S.strike),aboveShort=credit*mult;

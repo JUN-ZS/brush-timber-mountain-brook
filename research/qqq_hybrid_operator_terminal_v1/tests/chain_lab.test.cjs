@@ -649,6 +649,30 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   }).ok,false,"ratio helper rejects an incorrectly labelled underlying root");
   assert.equal(Lab.calculatePutBackspread({
     expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ1",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"QQQ-prefixed adjusted/ambiguous roots must not pass as standard QQQ");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ261120P00090000",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,true,"a complete standard OCC symbol may prove the QQQ root when it matches one selected leg");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ261218P00090000",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"a full OCC symbol with a different expiry must be rejected");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ261120C00090000",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"a full CALL symbol cannot identify a PUT chain");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:1,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:1,ask:1},shortPut:{strike:100,bid:12,ask:12.5}
+  }).ok,false,"net credit greater than spread width is a quote anomaly, not zero risk");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:1,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:1,ask:1},shortPut:{strike:100,bid:11,ask:11.5}
+  }).ok,false,"net credit at the spread-width boundary is blocked as an arbitrage/quote anomaly");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
     contractSymbol:"QQQ",contractStatus:"ADJUSTED_TERMS_RECORDED",
     longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
   }).ok,false,"adjusted contract terms remain blocked");
