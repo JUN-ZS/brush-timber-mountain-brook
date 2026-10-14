@@ -154,6 +154,7 @@ class PutRatioExitStudyTests(unittest.TestCase):
         self.assertEqual(result['first_signal_holding_sessions'], 1)
         self.assertEqual(result['exit_action_holding_sessions'], 2)
         self.assertEqual(result['signal_to_action_delay_sessions'], 1)
+        self.assertEqual(result['resolved_holding_sessions'], 2)
         summary = S.summarize_policy([result])
         self.assertEqual(summary['policy_rule_triggered_trade_count'], 0)
         self.assertEqual(summary['policy_rule_trigger_rate_pct'], 0.0)

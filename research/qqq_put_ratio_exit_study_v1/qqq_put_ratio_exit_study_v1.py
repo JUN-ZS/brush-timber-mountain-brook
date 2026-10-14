@@ -483,17 +483,22 @@ def simulate_policy(trade: dict[str, Any], policy: dict[str, Any], slippage: flo
 
         settled_today = False
         if dte <= 0:
-            spot = num(step.get("spot"))
-            if spot is not None:
-                final_pnl = expiry_intrinsic_pnl(state["cash"], state["n_short"], state["n_long"], trade["short_strike"], trade["long_strike"], spot)
-                state["cash"] = final_pnl
-                state["n_short"] = 0
-                state["n_long"] = 0
-                final_status = "INTRINSIC_SETTLEMENT_PROXY_BEFORE_EXERCISE_ASSIGNMENT_FEES"
-                resolved_holding_sessions = hold_sessions
+            # Keep cohort paths aligned through expiry, but don't overwrite the true close age/status
+            # when both legs were already liquidated on an earlier observed session.
+            if state["n_short"] == 0 and state["n_long"] == 0 and final_pnl is not None:
                 settled_today = True
             else:
-                final_status = "UNRESOLVED_MISSING_EXPIRY_UNDERLYING"
+                spot = num(step.get("spot"))
+                if spot is not None:
+                    final_pnl = expiry_intrinsic_pnl(state["cash"], state["n_short"], state["n_long"], trade["short_strike"], trade["long_strike"], spot)
+                    state["cash"] = final_pnl
+                    state["n_short"] = 0
+                    state["n_long"] = 0
+                    final_status = "INTRINSIC_SETTLEMENT_PROXY_BEFORE_EXERCISE_ASSIGNMENT_FEES"
+                    resolved_holding_sessions = hold_sessions
+                    settled_today = True
+                else:
+                    final_status = "UNRESOLVED_MISSING_EXPIRY_UNDERLYING"
         elif state["n_short"] == 0 and state["n_long"] == 0 and final_pnl is None:
             final_pnl = state["cash"]
             final_status = "CLOSED_AT_OBSERVED_SIDE_QUOTES"
