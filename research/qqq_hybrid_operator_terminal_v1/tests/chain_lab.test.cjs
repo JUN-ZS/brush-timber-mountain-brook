@@ -115,7 +115,10 @@ assert.equal(provGood.complete,true);
 assert.equal(provGood.ordersAuthorized,false,"complete metadata must never authorize orders");
 assert.equal(provGood.freshnessStatus,"AS-OF ≤15M");
 assert.equal(Lab.assessProvenance(goodMeta,"2026-11-20",2,true,freshNow).status,"MANUAL_EDIT_RECHECK");
-assert.equal(Lab.assessProvenance({...goodMeta,sourceType:"MODEL_DERIVED"},"2026-11-20",2,false,freshNow).status,"MODEL_ONLY");
+const modelOnly=Lab.assessProvenance({...goodMeta,sourceType:"MODEL_DERIVED"},"2026-11-20",2,false,freshNow);
+assert.equal(modelOnly.status,"MODEL_ONLY");
+assert.equal(modelOnly.metadataComplete,false,"model-derived quotes cannot pass provenance completeness");
+assert.equal(modelOnly.complete,false,"model-derived quotes must not count as metadata/time pass");
 assert.equal(Lab.assessProvenance({...goodMeta,contractStatus:"UNKNOWN"},"2026-11-20",2,false,freshNow).complete,false);
 const staleProv=Lab.assessProvenance(goodMeta,"2026-11-20",2,false,Date.parse("2026-10-09T16:01:00-04:00"));
 assert.equal(staleProv.status,"STALE_QUOTE");assert.equal(staleProv.complete,false);assert.equal(staleProv.freshnessStatus,"STALE >15M");
@@ -172,9 +175,21 @@ assert.ok(labHtml.includes("No missing quote is interpolated or forward-filled")
 assert.ok(labHtml.includes("FAILS_CURRENT_BASE_SCREEN"), "Option Chain Lab must not imply Far-Call performance approval");
 
 
+// Beginner-friendly holding-time / harvest explainer is collapsed by default and sourced.
+assert.ok(mainHtml.includes('id="timeHarvestMeasurementGuide"'), "beginner time / harvest guide must be present");
+assert.ok(mainHtml.includes("觀察到條件（Signal）不等於成交（Fill）"), "guide must distinguish a trigger from a fill");
+assert.ok(mainHtml.includes("每風險暴露等效日損益"), "guide must describe a time/risk normalized comparison carefully");
+assert.ok(mainHtml.includes("首次觀察到 +$1,000 共 9 次，但 5 個持倉交易日內為 0 次"), "guide must retain measured fast-win event count");
+assert.ok(mainHtml.includes("$106,392"), "guide must surface the ratio structure tail-risk block");
+assert.ok(mainHtml.includes('href="https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/101"'), "guide must link the isolated exit-measurement study");
+
 // Three-axis measurement scorecard is visible on both APP surfaces and keeps
 // accounting integrity separate from trade accuracy, generality, and integration.
-const measurementReport = fs.readFileSync(require("path").join(__dirname, "../QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md"), "utf8");
+const measurementReport = fs.readFileSync(require("path").join(__dirname, "../QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md"), "utf8");
+assert.ok(mainHtml.includes('href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md"'), "primary dashboard must link the latest measured scorecard snapshot");
+assert.ok(labHtml.includes('href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md"'), "Option Chain Lab must link the same latest measured scorecard snapshot");
+assert.ok(!mainHtml.includes('href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md"'), "primary dashboard must not foreground a stale scorecard");
+assert.ok(!labHtml.includes('href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md"'), "Option Chain Lab must not foreground a stale scorecard");
 for (const [html, id] of [[mainHtml, 'id="measurementScorecard"'], [labHtml, 'id="measurementScorecardLab"']]) {
   assert.ok(html.includes(id), "both APP surfaces must expose the measurement scorecard");
   assert.ok(html.includes("ACCURACY"), "accuracy axis must be shown");
@@ -187,8 +202,8 @@ for (const [html, id] of [[mainHtml, 'id="measurementScorecard"'], [labHtml, 'id
   assert.ok(html.includes("at least 2.00"), "pre-registered downside acceptance bar must be visible");
   assert.ok(html.includes("at least 20%"), "pre-registered deployment acceptance bar must be visible");
 }
-assert.ok(measurementReport.includes("1,688 / 1,688"), "measurement report must record independent ledger coverage");
-assert.ok(measurementReport.includes("FAILS_CURRENT_BASE_SCREEN"), "measurement report must preserve the actual failed baseline screen");
+assert.ok(measurementReport.includes("1,688 pass, 0 fail, 0 blocked"), "latest scorecard must record exact independent ledger coverage");
+assert.ok(measurementReport.includes("FAILS CURRENT BASE SCREEN"), "latest measured snapshot must preserve the actual failed baseline screen");
 assert.ok(measurementReport.includes("No"), "measurement report must retain a no-promotion disposition");
 
 
@@ -211,6 +226,59 @@ const handoff = Handoff.serialize({
     rows: [{ key: "qqqShares", label: "QQQ CORE", current: 0, capacity: null, target: 0, delta: 0, action: "BLOCKED", status: "BLOCKED", reason: "market source missing" }]
   }
 }, { qqqCall: { source: "YAHOO_OPTIONS_DELAYED_OR_ESTIMATED", expiry: "2026-11-20" } }, "V3_READ_ONLY_LOCAL_SNAPSHOT · retrieved at sample time");
+// Missing numeric fields must remain UNKNOWN/PENDING, never coerce null or blank to $0.00.
+{
+  const incomplete = Handoff.serialize({
+    generatedAt: "2026-10-11T06:00:00.000Z",
+    input: { nav: 100000, cashPool: 100000, sizing: { vxxShortBorrowAprPct: " " },
+      positionRegister: { summary: {
+        count: 1, metadataCompletePnlSubtotal: " ", metadataCompletePnlRows: 1,
+        indicativePnlSubtotal: " ", indicativePnlRows: 1, knownPnlSubtotal: " ", knownPnlRows: 1,
+        incompletePnlCount: 0, staleMarkCount: 0, markSourceMetadataIncompleteCount: 0, termBlockedCount: 0,
+        timezone: "UTC", rows: [{ label: "Whitespace P&L", qty: 1, unit: "shares", entryPrice: " ", markPrice: " ",
+          unrealizedPnl: " ", pnlStatus: "INDICATIVE", markFreshness: "UNKNOWN", kind: "STOCK" }]
+      } } },
+    result: { ok: false, nav: 100000, cashPool: 100000, rows: [{ key: "vxxShortShares", targetNotionalUsd: " " }] }
+  }, {
+    qqqCall: {
+      expiry: "2026-11-20", dte: 40, shortStrike: null, longStrike: null,
+      shortBid: null, shortAsk: null, longBid: null, longAsk: null,
+      shortQuoteWidthPctMid: null, longQuoteWidthPctMid: " ", credit: null,
+      width: null, maxLossPerSpread: null, multiplierAssumption: 100,
+      source: "INCOMPLETE_FIXTURE"
+    },
+    vxxCall: null
+  }, "INCOMPLETE_FIXTURE");
+  assert.ok(incomplete.includes("width/mid UNKNOWN"), "missing quote width must not be shown as 0.0% mid");
+  assert.ok(incomplete.includes("max profit/spread UNKNOWN"), "missing credit must not be shown as $0.00 profit");
+  assert.ok(incomplete.includes("expiry breakeven UNKNOWN"), "missing strikes/credit must not create a $0.00 breakeven");
+  assert.ok(incomplete.includes("max profit/max loss UNKNOWN"), "missing economics must remain unknown");
+  assert.ok(incomplete.includes("estimated annual cost at target notional: PENDING"), "blank target notional/APR must stay pending");
+  assert.ok(incomplete.toLowerCase().includes("metadata-complete unrealized p&l subtotal (source not independently authenticated): unknown"),
+    "blank metadata subtotal must remain UNKNOWN, not zero");
+  assert.ok(incomplete.includes("indicative subtotal: UNKNOWN"), "blank indicative subtotal must remain UNKNOWN, not zero");
+  assert.ok(incomplete.includes("UNKNOWN (INDICATIVE)"), "blank row P&L must remain UNKNOWN, not $0.00");
+  assert.ok(!incomplete.includes("$0.00 (INDICATIVE)"), "blank row P&L must not look like a true zero result");
+
+  const invalidMultiplier = Handoff.serialize({
+    generatedAt: "2026-10-11T06:00:00.000Z",
+    input: { nav: 100000, cashPool: 100000, sizing: { vxxShortBorrowAprPct: "" } },
+    result: { ok: false, nav: 100000, cashPool: 100000, rows: [] }
+  }, {
+    qqqCall: {
+      expiry: "2026-11-20", dte: 40, shortStrike: 800, longStrike: 810,
+      shortBid: 1.25, shortAsk: 1.35, longBid: 0.20, longAsk: 0.30,
+      shortQuoteWidthPctMid: 8, longQuoteWidthPctMid: 20, credit: 1.0,
+      width: 10, maxLossPerSpread: 900, multiplierAssumption: " ", source: "INVALID_MULTIPLIER_FIXTURE"
+    },
+    vxxCall: null
+  }, "INVALID_MULTIPLIER_FIXTURE");
+  assert.ok(invalidMultiplier.includes("max loss/spread UNKNOWN at assumed multiplier UNKNOWN"),
+    "missing multiplier must not silently turn into a $100-contract assumption");
+  assert.ok(invalidMultiplier.includes("max profit/spread UNKNOWN"), "profit must stay unknown without an explicit multiplier");
+  assert.ok(invalidMultiplier.includes("max profit/max loss UNKNOWN"), "risk ratio must stay unknown without an explicit multiplier");
+}
+
 for (const required of [
   "QQQ Hybrid — Manual AI Review Pack", "DATA BLOCKED", "Current research lockbox",
   "ACCURACY", "GENERALITY", "INTEGRATION", "FAILS_CURRENT_BASE_SCREEN",
@@ -226,6 +294,10 @@ const positionLedgerTest = fs.readFileSync(require("node:path").join(__dirname, 
 const handoffProtocol = fs.readFileSync(require("node:path").join(__dirname, "../AI_MANUAL_COLLABORATION_PROTOCOL_V1.md"), "utf8");
 assert.ok(handoffHtml.includes('id="aiHandoffBtn"'), "top-level AI handoff download must be discoverable");
 assert.ok(handoffHtml.includes('id="aiHandoffGuide"'), "manual collaboration steps must be visible in APP");
+assert.ok(handoffHtml.includes('id="beginnerDecisionChecklist"'), "beginner decision gates must be visible without adding another dashboard");
+assert.ok(handoffHtml.includes('id="vxxShortBorrowAprPct"'), "VXX short carry cost must use an explicit editable APR assumption");
+assert.ok(handoffHtml.includes("maximum profit = net credit") && handoffHtml.includes("expiry breakeven"), "beginner checklist must explain option payoff measures");
+assert.ok(handoffHtml.includes("isolated QQQ Far-Call overlay fails its base integration screen"), "capacity must not be confused with strategy validation");
 assert.ok(handoffHtml.includes('id="positionLedgerCard"'), "position facts/P&L register must be present");
 assert.ok(handoffHtml.includes("does not independently authenticate referenced broker documents"), "position register must disclose that source references are not authenticated");
 assert.ok(handoffHtml.includes("human attestation, not app-side verification"), "contract checkbox must not imply app-side verification");
@@ -233,6 +305,12 @@ assert.ok(handoffApp.includes("METADATA-COMPLETE P&amp;L SUBTOTAL"), "P&L headli
 assert.ok(handoffApp.includes("OPERATOR-ATTESTED TERMS"), "held-option terms must be described as operator-attested");
 assert.ok(handoffApp.includes("MARK STATUS / SOURCE GAPS"), "dashboard must separate mark status flags from source metadata gaps");
 assert.ok(handoffApp.includes("markSourceMetadataIncompleteCount"), "dashboard must expose a separate source-gap count");
+assert.ok(handoffApp.includes("vxxShortBorrowAprPct"), "operator plan must capture the VXX short borrow cost assumption");
+assert.ok(handoffApp.includes("vxxBorrowAnnualStressAtCapacity"), "dashboard must show a 1.5x annual borrow-cost stress");
+assert.ok(handoffApp.includes("max profit / max loss"), "primary option table must show reward-to-max-loss");
+assert.ok(handoffApp.includes("ELIGIBLE FOR HUMAN REVIEW ONLY"), "regime state must not display BUY as an unqualified action");
+assert.ok(aiHandoffSource.includes("VXX short borrow APR assumption"), "AI packet must include borrow APR and its limitation");
+assert.ok(aiHandoffSource.includes("expiry breakeven"), "AI packet must report option breakeven arithmetic");
 assert.ok(aiHandoffSource.includes("Mark source-metadata gaps"), "AI handoff must separate source gaps from mark status flags");
 assert.ok(aiHandoffSource.includes("source not independently authenticated"), "AI handoff must preserve the evidence-authentication limitation");
 assert.ok(positionLedgerSource.includes("metadataCompletePnlSubtotal"), "ledger aggregate must use metadata-complete terminology");
@@ -442,6 +520,9 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.equal(fill.event.dataAuthentication,"OPERATOR_REPORTED_NOT_AUTHENTICATED");
   const withFill = J.appendEvent(appended.envelope,fill.event);
   assert.equal(withFill.ok,true);
+  const forgedOutcomeSchema = JSON.parse(JSON.stringify(withFill.envelope));
+  forgedOutcomeSchema.events[1].schemaVersion = 2;
+  assert.equal(J.parseEnvelope(forgedOutcomeSchema).ok,false,"unsupported outcome event schema version must be rejected");
   const summary = J.summarize(withFill.envelope);
   assert.equal(summary.operatorReportedFillCount,1);
   assert.equal(summary.eligibleReportedFillComparisons,1);
@@ -476,6 +557,29 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   const forgedSymbols = JSON.parse(JSON.stringify(appended.envelope));
   forgedSymbols.events[0].candidateContractSymbols.short = "QQQ261120C00800000";
   assert.equal(J.parseEnvelope(forgedSymbols).ok,false,"tampered quote OCC symbol derivation must be rejected");
+
+  const forgedMetadata = JSON.parse(JSON.stringify(appended.envelope));
+  forgedMetadata.events[0].sourceMeta.sourceName = "";
+  assert.equal(J.parseEnvelope(forgedMetadata).ok,false,"metadata-pass flag cannot override missing required source metadata");
+  const forgedAge = JSON.parse(JSON.stringify(appended.envelope));
+  forgedAge.events[0].quoteAgeMinutes = 16;
+  assert.equal(J.parseEnvelope(forgedAge).ok,false,"metadata-pass flag cannot override stale quote age");
+  const forgedCandidate = JSON.parse(JSON.stringify(appended.envelope));
+  forgedCandidate.events[0].candidate.credit = 2;
+  assert.equal(J.parseEnvelope(forgedCandidate).ok,false,"candidate credit must reconcile to captured short Bid minus wing Ask");
+
+  const forgedProvenanceFlag = JSON.parse(JSON.stringify(appended.envelope));
+  forgedProvenanceFlag.events[0].provenanceCompleteAtCapture = "true";
+  assert.equal(J.parseEnvelope(forgedProvenanceFlag).ok,false,"string provenance flags must not count as metadata/time pass");
+  const forgedManualEditFlag = JSON.parse(JSON.stringify(appended.envelope));
+  forgedManualEditFlag.events[0].manuallyEdited = "true";
+  assert.equal(J.parseEnvelope(forgedManualEditFlag).ok,false,"string manual-edit flags must not bypass manual-edit rejection");
+  const forgedQuoteSchema = JSON.parse(JSON.stringify(appended.envelope));
+  forgedQuoteSchema.events[0].schemaVersion = 2;
+  assert.equal(J.parseEnvelope(forgedQuoteSchema).ok,false,"unsupported quote event schema version must be rejected");
+
+  const forgedModelPass = J.createQuoteObservation({ ...q.event, eventId:"model-claimed-complete", sourceMeta:{...q.event.sourceMeta,sourceType:"MODEL_DERIVED"}, provenanceComplete:true });
+  assert.equal(forgedModelPass.ok,false,"model-derived quote cannot claim metadata/time pass");
   const hypothetical = J.createOutcomeEvent({ eventId:"out-paper", recordedAt:new Date(now+120000).toISOString(), outcomeType:"PAPER_ASSUMED_FILL", fillCreditPerShare:1.25, filledQuantity:1, outcomeAt:"", outcomeReference:"", note:"hypothesis only" },q.event);
   assert.equal(hypothetical.ok,true);
   const withHypothesis = J.appendEvent(withFill.envelope,hypothetical.event);
@@ -505,4 +609,94 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.ok(appSource.includes("renderPaperJournal"));
 }
 
-console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS; paper_observation_journal=PASS");
+
+// QQQ put ratio backspread: N lower-strike LONG puts for each higher-strike SHORT put.
+{
+  const ratio = Lab.calculatePutBackspread({
+    expiry:"2026-11-20", longPerShort:2, packages:1, multiplier:100, budget:1000,
+    contractSymbol:"QQQ", contractStatus:"STANDARD_TERMS_RECORDED",
+    longPut:{strike:90,bid:2.00,ask:2.25,delta:-0.12},
+    shortPut:{strike:100,bid:5.00,ask:5.20,delta:-0.25}
+  });
+  assert.equal(ratio.ok,true);
+  assert.equal(ratio.ratio,"2:1");
+  assert.equal(ratio.longContracts,2);
+  assert.equal(ratio.shortContracts,1);
+  near(ratio.creditPerShare,.50,"2:1 put backspread net credit/share");
+  near(ratio.totalNetOpeningCashUsd,50,"2:1 put backspread opening cash");
+  near(ratio.maxLossPerPackageUsd,950,"loss valley at lower long strike");
+  near(ratio.totalMaxLossUsd,950,"planned maximum expiry loss");
+  near(ratio.pnlAtZeroPerPackageUsd,8050,"expiry P&L at QQQ zero");
+  near(ratio.pnlAtLongStrikePerPackageUsd,-950,"expiry P&L at lower long strike");
+  near(ratio.pnlAtShortStrikePerPackageUsd,50,"expiry P&L at short strike");
+  assert.equal(ratio.budgetCapacityPackages,1);
+  assert.deepEqual(JSON.parse(JSON.stringify(ratio.breakevens.map(x=>x.price===undefined?x.label:x.price))),[80.5,99.5]);
+  near(ratio.slippageStress[1].creditPerShare,.425,"$0.025 adverse price shift on each quote side for N=2");
+  near(ratio.slippageStress[1].maxLossPerPackageUsd,957.5,"stressed maximum expiry loss");
+  const three = Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:3,multiplier:100,budget:3200,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  });
+  assert.equal(three.longContracts,6);
+  assert.equal(three.shortContracts,3);
+  near(three.totalMaxLossUsd,2850,"3 packages have 6 long and 3 short contracts");
+  const oneToOne = Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:1,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  });
+  assert.equal(oneToOne.ratio,"1:1");
+  near(oneToOne.pnlAtZeroPerPackageUsd,-725,"1:1 lower tail loss equals the long-strike valley");
+  near(oneToOne.pnlAtZeroPerPackageUsd,oneToOne.pnlAtLongStrikePerPackageUsd,"1:1 put vertical has no extra crash convexity below the long strike");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:100,bid:2,ask:2.25},shortPut:{strike:90,bid:5,ask:5.2}
+  }).ok,false,"put backspread strike direction must not be reversed");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"VXX",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"ratio helper rejects an incorrectly labelled underlying root");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ1",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"QQQ-prefixed adjusted/ambiguous roots must not pass as standard QQQ");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ261120P00090000",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,true,"a complete standard OCC symbol may prove the QQQ root when it matches one selected leg");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ261218P00090000",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"a full OCC symbol with a different expiry must be rejected");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ261120C00090000",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"a full CALL symbol cannot identify a PUT chain");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:1,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:1,ask:1},shortPut:{strike:100,bid:12,ask:12.5}
+  }).ok,false,"net credit greater than spread width is a quote anomaly, not zero risk");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:1,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:1,ask:1},shortPut:{strike:100,bid:11,ask:11.5}
+  }).ok,false,"net credit at the spread-width boundary is blocked as an arbitrage/quote anomaly");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",contractStatus:"ADJUSTED_TERMS_RECORDED",
+    longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"adjusted contract terms remain blocked");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"underlying contract root is required");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:null},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"missing long quote fields cannot become a ratio quote");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"bad",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"invalid expiry is blocked");
+}
+assert.ok(fs.readFileSync(require.resolve("../option_chain_lab.html"),"utf8").includes('id="qqqPutRatioDetails"'),"put ratio UI must be collapsed by default");
+
+console.log("option_chain_lab=PASS; put_ratio_backspread=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS; paper_observation_journal=PASS");

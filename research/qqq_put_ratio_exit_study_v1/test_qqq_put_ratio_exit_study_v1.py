@@ -124,6 +124,21 @@ class PutRatioExitStudyTests(unittest.TestCase):
         self.assertEqual(trim['signal_date'], DAY1)
         self.assertEqual(trim['date'], DAY2)
         self.assertEqual(trim['quantity'], 4)
+        self.assertEqual(result['policy_rule_signal_date'], DAY1)
+        self.assertEqual(result['policy_rule_signal_holding_sessions'], 1)
+        self.assertEqual(result['exit_action_holding_sessions'], 2)
+        self.assertEqual(result['signal_to_action_delay_sessions'], 1)
+        self.assertEqual(result['resolved_holding_sessions'], 3)
+        self.assertAlmostEqual(result['short_risk_exposure_session_equivalents'], 3.2)
+        summary = S.summarize_policy([result])
+        self.assertEqual(summary['policy_rule_triggered_trade_count'], 1)
+        self.assertEqual(summary['policy_rule_trigger_rate_pct'], 100.0)
+        self.assertEqual(summary['policy_rule_trigger_age_sessions_distribution']['median'], 1.0)
+        self.assertEqual(summary['signal_to_first_action_delay_sessions_distribution']['median'], 1.0)
+        self.assertAlmostEqual(
+            summary['net_pnl_per_short_risk_equivalent_session_usd'],
+            result['final_pnl_usd'] / 3.2
+        )
 
     def test_fast_trim_is_one_shot(self):
         trade = trade_fixture()

@@ -28,7 +28,7 @@
     </section>
 
     <section class="notice">
-      <b>Hub 特別期權：</b>Ratio-Call、State-Adaptive / Staggered、SHOCK-GATED Put Spread 保留作研究檢視，<b>不進入主預算</b>，亦不會提供可與主倉加總的容量。
+      <b>Hub 特別期權：</b>Ratio-Call、QQQ Long Put N:1 / Short QQQ Put Ratio、State-Adaptive / Staggered、SHOCK-GATED Put Spread 保留作研究檢視，<b>不進入主預算</b>，亦不會提供可與主倉加總的容量。
       <small><a href="hub_research_pack.html">開啟 Hub Research Option Pack →</a>（研究細節頁；主操作台的 QQQ/VXX 主賣方預算才是統一容量來源。）</small>
       <small><a href="option_chain_lab.html">開啟 QQQ / VXX Option Chain Lab →</a>（四條 CALL／PUT 鏈、價差矩陣、損益圖；截圖數據只作非即時樣本。）</small>
       <small id="hubContextSyncStatus" role="status">同步只傳本次情境到同一瀏覽器，不代表成交或授權下單。</small>
@@ -53,6 +53,38 @@
         <p><b>Integration:</b> compare against a named matched baseline on the same dates, capital flows, marks and costs. Use the pre-registered return / downside / deployment bars; never tune the thresholds after observing results. A hard-gate failure cannot be averaged away.</p>
         <p><b>Current lockbox:</b> Far-Call Accuracy is BLOCKED, Generality is NOT DEMONSTRATED, and the isolated overlay fails its current integration base screen. This is not a complete backtest result for the full Frozen Original Hybrid; it is also not permission to promote the add-on.</p>
         <p><b>Human action:</b> ChatGPT may say BLOCK, WAIT FOR DATA, or ELIGIBLE FOR HUMAN REVIEW. APP capacity and ADD previews are not orders, and no broker order route exists.</p>
+      </details>
+      <details class="ai-handoff-gates" id="beginnerDecisionChecklist">
+        <summary>Beginner decision basis · how to read ADD / HOLD / REDUCE</summary>
+        <p><b>0 · Money suitability:</b> Do not count emergency reserves or money needed for near-term spending as investable cash. Confirm your time horizon and that a plausible loss is affordable before treating NAV as risk capital.</p>
+        <p><b>1 · DATA:</b> Require current, dated QQQ/VXX spot, VIX and real VX M1/M2 with source/timezone and an acceptable age. Verify the exact option legs, same expiry, bid/ask, multiplier and deliverable. Missing, stale, mixed or unverified data means BLOCK / PENDING.</p>
+        <p><b>2 · REGIME:</b> CARRY only means the market gate permits consideration of additions; it is not a forecast that QQQ will rise. Thin contango means HOLD new carry entries; high VIX or backwardation cuts volatility-seller exposure first.</p>
+        <p><b>3 · CAPITAL:</b> Compare NAV, truly uncommitted cash, reserve, current holdings, target, maximum capacity, stock notional, estimated margin and the shared option max-loss pool. VXX short-stock margin is not a loss cap; short-stock loss is theoretically unbounded.</p>
+        <p><b>4 · OPTION economics:</b> For a standard call-credit spread, conservative entry credit = short-call Bid − long-wing Ask; maximum profit = net credit × multiplier; maximum loss = (spread width − net credit) × multiplier; expiry breakeven = short strike + net credit per share, before fees. Review each leg's bid/ask width and stress slippage; reward/max-loss is not a win probability.</p>
+        <p><b>5 · Carry cost:</b> VXX short annualized borrow cost is estimated as short notional × entered borrow APR. Compare the base rate with a 1.5× cost stress and confirm the actual rate with the broker; this estimate is not an execution quote or a loss limit.</p>
+        <p><b>6 · STRATEGY evidence:</b> The current lockbox says the isolated QQQ Far-Call overlay fails its base integration screen, with accuracy blocked and generality not demonstrated. A displayed capacity or ADD is not approval to open that overlay. This does not claim the full Frozen Original Hybrid was backtested and failed; the negative result is for the isolated overlay comparison only.</p>
+        <p><b>Action reading:</b> BLOCK / PENDING = do not act on the incomplete calculation; HOLD = no new exposure under the current rules; REDUCE = review trimming toward the risk target; ADD = capacity permits human review only, not an order instruction. Proceed only when the data, contract, capital, costs, strategy evidence and human review are all acceptable.</p>
+      </details>
+      <details class="ai-handoff-gates" id="timeHarvestMeasurementGuide">
+        <summary>新手度量衡 · 持有多久、何時減倉／平倉、斬獲多少才值得？</summary>
+        <p><b>先看時間鏈：</b>入場日 → 首次達標／風險觸發的觀察日 → 最早可執行日 → 實際有足夠 Bid／Ask 與掛單量的執行日 → 最終淨損益。觀察到條件（Signal）不等於成交（Fill）；本研究是日終報價回放，不能證明盤中曾觸價或真實成交。</p>
+        <p><b>「斬獲性價比」不是只看賺了幾元：</b>一起看扣成本後每筆期望值、持倉交易日數、規則觸發率、觸發至第一次減／平倉的延遲、仍暴露的 short-risk、最差損失、報價覆蓋率，以及持有後 5／10 個交易日的回吐／恢復。每風險暴露等效日損益只作輔助比較；它不能代替尾部風險或勝率，也不能單獨選策略。</p>
+        <div class="table-wrap">
+          <table class="decision-table">
+            <thead><tr><th>研究出場規則</th><th>62 組樣本淨損益</th><th>每組期望值</th><th>勝率</th></tr></thead>
+            <tbody>
+              <tr><td>DTE ≤ 7 基準（到期前 7 日內依規則關閉 short risk）</td><td>+$18,067.60</td><td>+$291.41</td><td>95.16%</td></tr>
+              <tr><td>達 +$500 即關閉 short risk</td><td>+$14,199.60</td><td>+$229.03</td><td>93.55%</td></tr>
+              <tr><td>達 +$1,000 即關閉 short risk</td><td>+$18,067.60</td><td>+$291.41</td><td>95.16%</td></tr>
+              <tr><td>第 20 個持倉交易日 P&amp;L ≤ $0：關閉 short risk</td><td>+$10,789.60</td><td>+$174.03</td><td>90.32%</td></tr>
+              <tr><td>第 20 個持倉交易日 P&amp;L ≤ $0：減 4 張 short</td><td>+$9,568.60</td><td>+$154.33</td><td>85.48%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="tiny"><b>成本及口徑：</b>PR #101 Run #1；62 組非重疊、固定一組入場樣本；每腿每邊假設滑價 $0.05、每張合約每邊假設佣金 $0.65。這是 1 張較高履約價 long put + 5 張較低履約價 short put 的獨立研究，不是主操作台的 QQQ/VXX call-credit，也不是 Put Ratio Backspread。</p>
+        <p><b>初步解讀：</b>這次歷史 EOD 樣本中首次觀察到 +$1,000 共 9 次，但 5 個持倉交易日內為 0 次，所以「很快賺到 $1,000 就應提早走」目前沒有樣本支持。+$1,000 與 +$2,000 兩行的總結果恰好等同基準，不能因此說門檻沒作用或門檻最優；必須看每條規則實際觸發幾次、在哪個持倉日觸發、多久才執行。</p>
+        <p><b>重大風險閘：</b>該 1-long／5-short put 的 QQQ=$0 到期終端損失中位數約 $106,392（$100,000 參考 NAV 的 106.39%），且不含中途保證金追繳／強平風險。即使樣本勝率高，仍是 <b>BLOCKED FOR DEPLOYMENT</b>，不得把此研究當成主策略或下單依據。</p>
+        <p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/101">開啟 PR #101：獨立持倉時間／出場規則研究 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38463633227">Run #1 原始驗收紀錄 →</a> · <a href="RESEARCH_MEASUREMENT_CONTRACT.md">完整度量衡契約 →</a></p>
       </details>
     </section>
     <section id="researchValidation" class="card">
@@ -101,7 +133,7 @@
             <p><b>Capital deployment:</b> downside gate passes, or terminal NAV is no worse than −0.50% of baseline and a pre-selected metric improves: average unallocated cash / NAV falls by at least 5.00 percentage points, or time to the same target allocation falls by at least 20%.</p>
             <p><b>All tracks:</b> accuracy hard gates and generality evidence must pass; zero same-close lookahead; at least five chronological windows where sample size permits; cost stress at 1.5× or greater where relevant; all variants and failures retained. Critical blocks override any scorecard average.</p>
           </div>
-          <p><a href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN50.md">Open applied scorecard — Run #50 / Linux Run #4 →</a> · <a href="RESEARCH_MEASUREMENT_CONTRACT.md">Open full pre-registered Measurement Contract →</a></p>
+          <p><a href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md">Open measured snapshot — Replay #148 / Audit #177 (tested head 57fd41b2) →</a> · <a href="RESEARCH_MEASUREMENT_CONTRACT.md">Open full pre-registered Measurement Contract →</a></p>
         </details>
       </section>
       <details class="validation-details">
@@ -328,6 +360,7 @@
         <label>Uncommitted cash available for this plan ($) <input id="cashPool" type="number" min="0" step="100" value="100000"></label>
         <label>Cash reserve (% of available cash) <input id="cashReservePct" type="number" min="0" max="100" step="0.5" value="10"></label>
         <label>VXX short-margin reserve multiple (estimate) <input id="vxxShortMarginMultiple" type="number" min="0.1" max="10" step="0.1" value="1.5"></label>
+        <label>VXX short borrow APR (% p.a.; editable estimate) <input id="vxxShortBorrowAprPct" type="number" min="0" max="100" step="0.1" value="3"></label>
         <label>QQQ core (% NAV) <input id="qqqCorePct" type="number" min="0" max="100" step="0.1" value="42"></label>
         <label>VXX short normal (% NAV notional) <input id="vxxNormalPct" type="number" min="0" max="100" step="0.1" value="18"></label>
         <label>VXX short high-VIX (% NAV notional) <input id="vxxHighPct" type="number" min="0" max="100" step="0.1" value="10"></label>
@@ -339,7 +372,7 @@
         <label>VX term safe line (%) <input id="termSafe" type="number" min="0" max="100" step="0.1" value="5"></label>
         <label>Maximum term age (days) <input id="maxTermAgeDays" type="number" min="0" max="30" step="1" value="4"></label>
       </div>
-      <p class="muted"><b>Measurement:</b> The two per-leg percentage inputs allocate max-loss exposure as % of NAV, not premium/credit targets. The shared pool is the max-loss envelope. Estimated opening net credit is shown separately in USD and % NAV at max capacity from the loaded quote; it is not a broker-confirmed fill.</p>
+      <p class="muted"><b>Measurement:</b> The two per-leg percentage inputs allocate max-loss exposure as % of NAV, not premium/credit targets. The shared pool is the max-loss envelope. Estimated opening net credit is shown separately in USD and % NAV at max capacity from the loaded quote; it is not a broker-confirmed fill. VXX borrow APR is a separate editable cost assumption, defaulted to 3.0% for scenario analysis; verify the actual broker rate. Its annualized estimate and 1.5× stress do not alter margin or cap short-stock losses.</p>
       <div class="inline-actions">
         <button id="v3ProfileBtn">Load V3 Reference Profile (Preview)</button>
         <span class="muted">Reference values are editable what-if inputs, not frozen live sizing. Fresh $100,000 deployment: set NAV and uncommitted cash to $100,000. Existing portfolio: enter total equity as NAV and only truly uncommitted cash here. Confirm VXX margin with your broker.</span>
@@ -404,7 +437,7 @@
             <button data-find="qqqProtectivePut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.35">Find QQQ Protective Put</button>
             <button data-find="qqqCoveredCall" data-symbol="QQQ" data-right="call" data-kind="short">Find Covered Call</button>
             <button id="findHubResearchBtn" class="primary">Find Hub Research Packages</button>
-            <label class="small-label">Hub Ratio N <select id="hubRatioN"><option value="1">N=1</option><option value="2" selected>N=2</option><option value="3">N=3</option><option value="4">N=4</option></select></label>
+            <label class="small-label">Hub Call Ratio N <select id="hubRatioN"><option value="1">N=1</option><option value="2" selected>N=2</option><option value="3">N=3</option><option value="4">N=4</option></select></label>
             <label class="small-label">State-Adaptive / Staggered max vintages <select id="hubStateLayerCap"><option value="1">1 vintage</option><option value="2">2 vintages</option><option value="4">4 vintages</option></select></label>
             <label class="small-label">Hub shock 252D drawdown (%) <input id="hubDrawdown252Pct" type="number" min="-100" max="0" step="0.1" value="0"></label>
             <label class="small-label">Hub shock 5D return (%) <input id="hubReturn5dPct" type="number" min="-100" max="100" step="0.1" value="0"></label>

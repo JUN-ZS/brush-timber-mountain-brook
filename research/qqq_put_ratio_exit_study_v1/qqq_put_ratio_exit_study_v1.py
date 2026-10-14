@@ -368,6 +368,12 @@ def simulate_policy(trade: dict[str, Any], policy: dict[str, Any], slippage: flo
     action_date: str | None = None
     action_dte: int | None = None
     action_hold_sessions: int | None = None
+    resolved_holding_sessions: int | None = None
+    first_signal_holding_sessions: int | None = None
+    first_signal_reason: str | None = None
+    policy_rule_signal_date: str | None = None
+    policy_rule_signal_holding_sessions: int | None = None
+    short_risk_exposure_session_equivalents = 0.0
     primary_action: str | None = None
     policy_rule_fired = False
     actions: list[dict[str, Any]] = []
@@ -383,6 +389,9 @@ def simulate_policy(trade: dict[str, Any], policy: dict[str, Any], slippage: flo
     for i, step in enumerate(trade["path"]):
         hold_sessions = i
         dte = (date.fromisoformat(expiry) - date.fromisoformat(step["date"])).days
+        # Count each observed replay session by remaining short quantity, relative to the original
+        # five-short structure. This is a descriptive exposure-duration unit, not account capital or margin.
+        short_risk_exposure_session_equivalents += state["n_short"] / SHORT_QTY
         # If all short risk is gone, keep trying to sell a still-open long put when a positive bid reappears.
         if state["n_short"] == 0 and state["n_long"] > 0:
             sold, sell_status = sell_long_if_executable(state, step, slippage, commission)
@@ -419,9 +428,13 @@ def simulate_policy(trade: dict[str, Any], policy: dict[str, Any], slippage: flo
                 pending_action_reason = policy["name"]
                 pending_action_date = step["date"]
                 policy_rule_fired = True
+                policy_rule_signal_date = step["date"]
+                policy_rule_signal_holding_sessions = hold_sessions
                 if first_signal_date is None:
                     first_signal_date = step["date"]
                     first_signal_action = trigger
+                    first_signal_holding_sessions = hold_sessions
+                    first_signal_reason = pending_action_reason
 
         # Baseline and all exit rules share a DTE<=7 risk-close boundary. This is
         # also an EOD signal; execution must occur on a later session, not this mark.
@@ -432,6 +445,8 @@ def simulate_policy(trade: dict[str, Any], policy: dict[str, Any], slippage: flo
             if first_signal_date is None:
                 first_signal_date = step["date"]
                 first_signal_action = "CLOSE_SHORT_RISK"
+                first_signal_holding_sessions = hold_sessions
+                first_signal_reason = pending_action_reason
 
         action_status = "NONE"
         can_execute_pending = (
@@ -475,12 +490,14 @@ def simulate_policy(trade: dict[str, Any], policy: dict[str, Any], slippage: flo
                 state["n_short"] = 0
                 state["n_long"] = 0
                 final_status = "INTRINSIC_SETTLEMENT_PROXY_BEFORE_EXERCISE_ASSIGNMENT_FEES"
+                resolved_holding_sessions = hold_sessions
                 settled_today = True
             else:
                 final_status = "UNRESOLVED_MISSING_EXPIRY_UNDERLYING"
         elif state["n_short"] == 0 and state["n_long"] == 0 and final_pnl is None:
             final_pnl = state["cash"]
             final_status = "CLOSED_AT_OBSERVED_SIDE_QUOTES"
+            resolved_holding_sessions = hold_sessions
 
         if settled_today:
             pnl_after = final_pnl
@@ -506,6 +523,8 @@ def simulate_policy(trade: dict[str, Any], policy: dict[str, Any], slippage: flo
     if final_pnl is None and state["n_short"] == 0 and state["n_long"] == 0:
         final_pnl = state["cash"]
         final_status = "CLOSED_AT_OBSERVED_SIDE_QUOTES"
+        if trade["path"]:
+            resolved_holding_sessions = len(trade["path"]) - 1
     target_value = target
     return {
         "trade_id": trade["trade_id"], "policy": policy["name"],
@@ -521,8 +540,18 @@ def simulate_policy(trade: dict[str, Any], policy: dict[str, Any], slippage: flo
         "final_pnl_pct_reference_nav": round(final_pnl / REFERENCE_NAV_USD * 100, 6) if final_pnl is not None else None,
         "final_status": final_status, "exit_action": primary_action or "NONE",
         "exit_signal_date": first_signal_date, "exit_signal_action": first_signal_action,
+        "first_signal_holding_sessions": first_signal_holding_sessions, "first_signal_reason": first_signal_reason,
+        "policy_rule_signal_date": policy_rule_signal_date,
+        "policy_rule_signal_holding_sessions": policy_rule_signal_holding_sessions,
         "exit_action_date": action_date, "exit_action_dte": action_dte,
-        "exit_action_holding_sessions": action_hold_sessions, "action_deferred_sessions": action_deferred,
+        "exit_action_holding_sessions": action_hold_sessions,
+        "signal_to_action_delay_sessions": (
+            action_hold_sessions - first_signal_holding_sessions
+            if action_hold_sessions is not None and first_signal_holding_sessions is not None else None
+        ),
+        "resolved_holding_sessions": resolved_holding_sessions,
+        "short_risk_exposure_session_equivalents": round(short_risk_exposure_session_equivalents, 4),
+        "action_deferred_sessions": action_deferred,
         "marked_sessions_required": mark_required, "missing_mark_sessions": mark_missing,
         "mark_coverage_pct": round(100*(mark_required-mark_missing)/mark_required, 4) if mark_required else 100.0,
         "max_observed_trade_pnl_usd": round(max_observed, 2) if max_observed is not None else None,
@@ -559,6 +588,18 @@ def summarize_policy(results: list[dict[str, Any]]) -> dict[str, Any]:
     winners = [x for x in pnls if x > 0]
     losers = [x for x in pnls if x < 0]
     profit_factor = sum(winners) / abs(sum(losers)) if losers and sum(losers) != 0 else (None if not winners else None)
+    policy_triggered = [x for x in results if x.get("policy_rule_signal_date") is not None]
+    fallback_triggered = [
+        x for x in results
+        if x.get("first_signal_reason") == "DTE7_MANDATORY_CLOSE_SHORT_RISK"
+    ]
+    resolved_exposure_rows = [
+        x for x in closed
+        if num(x.get("short_risk_exposure_session_equivalents")) is not None
+        and float(x.get("short_risk_exposure_session_equivalents")) > 0
+    ]
+    resolved_exposure = sum(float(x["short_risk_exposure_session_equivalents"]) for x in resolved_exposure_rows)
+    resolved_pnl_on_exposure_rows = sum(float(x["final_pnl_usd"]) for x in resolved_exposure_rows)
     return {
         "policy": results[0]["policy"] if results else "UNKNOWN",
         "slippage_per_leg_usd": results[0]["slippage_per_leg_usd"] if results else None,
@@ -573,6 +614,27 @@ def summarize_policy(results: list[dict[str, Any]]) -> dict[str, Any]:
         "gross_wins_usd": round(sum(winners), 2), "gross_losses_usd": round(sum(losers), 2),
         "best_trade_usd": round(max(pnls), 2) if pnls else None,
         "worst_trade_usd": round(min(pnls), 2) if pnls else None,
+        "policy_rule_triggered_trade_count": len(policy_triggered),
+        "policy_rule_trigger_rate_pct": round(100 * len(policy_triggered) / len(results), 2) if results else None,
+        "mandatory_dte7_fallback_trade_count": len(fallback_triggered),
+        "policy_rule_trigger_age_sessions_distribution": _distribution([
+            x["policy_rule_signal_holding_sessions"] for x in policy_triggered
+            if x.get("policy_rule_signal_holding_sessions") is not None
+        ]),
+        "first_risk_action_age_sessions_distribution": _distribution([
+            x["exit_action_holding_sessions"] for x in results if x.get("exit_action_holding_sessions") is not None
+        ]),
+        "resolved_holding_age_sessions_distribution": _distribution([
+            x["resolved_holding_sessions"] for x in closed if x.get("resolved_holding_sessions") is not None
+        ]),
+        "signal_to_first_action_delay_sessions_distribution": _distribution([
+            x["signal_to_action_delay_sessions"] for x in results if x.get("signal_to_action_delay_sessions") is not None
+        ]),
+        "resolved_short_risk_exposure_session_equivalents": round(resolved_exposure, 4),
+        "net_pnl_per_short_risk_equivalent_session_usd": (
+            round(resolved_pnl_on_exposure_rows / resolved_exposure, 4) if resolved_exposure > 0 else None
+        ),
+        "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
         "mean_action_deferred_sessions_per_trade": round(statistics.mean([x["action_deferred_sessions"] for x in results]), 4) if results else None,
         "total_missing_mark_sessions": sum(x["missing_mark_sessions"] for x in results),
         "trade_mark_coverage_pct": round(100 * (sum(x["marked_sessions_required"]-x["missing_mark_sessions"] for x in results) / sum(x["marked_sessions_required"] for x in results)), 4) if sum(x["marked_sessions_required"] for x in results) else 100.0,
@@ -751,14 +813,23 @@ def render_markdown(report: dict[str, Any]) -> str:
         "- Use exact listed contract IDs at *t+1* for entry; long buy at Ask, five shorts sold at Bid; if quote/depth is invalid, skip rather than replace the legs.",
         "- Exit actions are based on EOD side marks only. Short-put closure buys back at Ask; risk-trim buys back four of five shorts and leaves a 1x1 defined-risk vertical. A residual long put can remain open if no positive Bid is available.",
         "- Same entry episodes for every rule, non-overlapping by expiry, fixed one-unit sizing. This isolates exit-rule effects; it is not a continuous re-entry portfolio simulation.",
+        "- Session age is the observed replay index since entry (entry-date mark is age 0). The policy-trigger count/rate distinguishes a custom rule firing from the shared DTE<=7 safety fallback; signal-to-action delay counts observed trading sessions to the first successful risk-reducing action.",
+        "- Net P&L per short-risk-equivalent session divides resolved after-cost P&L by the sum of each observed session weighted by remaining short contracts / original five shorts. This is a descriptive holding-time denominator only—not annualized return, risk-adjusted return, or a substitute for the tail-loss / mark-coverage / cost gates.",
         "",
         "## Base cost case: $0.05 per leg per side + $0.65 per contract per side",
         "",
-        "| Exit rule | Resolved | Net P&L | Expectancy / trade | Win rate | Profit factor | Missing mark sessions |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| Exit rule | Resolved | Net P&L | Expectancy / trade | Policy trigger N / % | Median trigger age | Median first-action age | Median resolution age | Net P&L / short-risk eq-session | Win rate | Profit factor | Missing marks |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for s in report.get("policy_summaries_base_cost", []):
-        lines.append(f"| {s['policy']} | {s['resolved_trades']}/{s['trade_episodes']} | {s['closed_trade_net_pnl_sum_usd']} | {s['expectancy_usd_per_resolved_trade']} | {s['win_rate']} | {s['profit_factor']} | {s['total_missing_mark_sessions']} |")
+        trigger_age = s["policy_rule_trigger_age_sessions_distribution"]["median"]
+        action_age = s["first_risk_action_age_sessions_distribution"]["median"]
+        resolution_age = s["resolved_holding_age_sessions_distribution"]["median"]
+        trigger_text = f"{s['policy_rule_triggered_trade_count']}/{s['trade_episodes']} ({s['policy_rule_trigger_rate_pct']}%)"
+        delay = s["signal_to_first_action_delay_sessions_distribution"]["median"]
+        exposure_rate = s["net_pnl_per_short_risk_equivalent_session_usd"]
+        # These elapsed-session metrics are descriptive; age 0 is the entry-date observation.
+        lines.append(f"| {s['policy']} | {s['resolved_trades']}/{s['trade_episodes']} | {s['closed_trade_net_pnl_sum_usd']} | {s['expectancy_usd_per_resolved_trade']} | {trigger_text} | {trigger_age if trigger_age is not None else '—'} | {delay if delay is not None else '—'} | {resolution_age if resolution_age is not None else '—'} | {exposure_rate if exposure_rate is not None else '—'} | {s['win_rate']} | {s['profit_factor']} | {s['total_missing_mark_sessions']} |")
     rs = report.get("risk_summary_base_cost", {})
     lines += [
         "", "## Tail-risk and dollars-to-risk ratio", "",

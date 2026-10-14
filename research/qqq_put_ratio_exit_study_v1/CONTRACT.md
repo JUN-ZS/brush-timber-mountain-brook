@@ -41,6 +41,17 @@ Event studies: first EOD mark >= +$1,000 within 5 sessions versus later, with su
 
 $1,000 equals 1% of the reference $100,000 NAV, but no round-dollar target is assumed optimal. A quick +$1,000 is a warning only if the conditional forward data supports it. Day-20 non-positive is not a directional forecast without measured cohort evidence.
 
+## Time-to-harvest measurement (descriptive, not an optimizer)
+
+For each exit policy, publish the following on the identical fixed entry cohort:
+
+- Custom policy trigger count and rate, separately from the shared mandatory DTE<=7 safety fallback.
+- Median/mean observed-session age at the first custom trigger, age at first successful risk-reducing action, signal-to-action delay in observed market sessions, and age when the episode finally resolves.
+- Count of short-risk-equivalent exposure sessions: on each observed replay session, add remaining short contracts / the original five short contracts. This captures whether a four-of-five trim reduces subsequent short exposure to 0.2 of the original unit, but is not capital, margin or complete portfolio risk.
+- Resolved net P&L divided by total short-risk-equivalent exposure sessions, alongside (never instead of) net expectancy, win rate, profit factor, worst trade, missing marks, deferred actions, mark coverage, and terminal tail-loss measurements.
+- Keep unresolved episode and exposure counts visible. A delay means observed market sessions from signal to the first successful action; it is not wall-clock time and does not assert an executable intraday fill.
+- These time-normalized fields are descriptive only. Do not pick the highest P&L/session as the best policy: early closes can mechanically shrink the denominator, tail loss and drawdown can dominate the ratio, and the historical sample is previously inspected DEVELOPMENT/REVISIT data.
+
 ## Promotion gates
 
 - Accuracy: standard contract identity/expiry/strike/right, actual listed contract IDs, conservative entry/exit sides, costs charged to all six contracts, no same-close fill, no forward fill, source hashes and terminal date verified.
