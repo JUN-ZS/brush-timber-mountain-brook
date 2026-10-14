@@ -135,9 +135,11 @@ class PutRatioExitStudyTests(unittest.TestCase):
         self.assertEqual(summary['policy_rule_trigger_rate_pct'], 100.0)
         self.assertEqual(summary['policy_rule_trigger_age_sessions_distribution']['median'], 1.0)
         self.assertEqual(summary['signal_to_first_action_delay_sessions_distribution']['median'], 1.0)
+        # Summary publishes this descriptive metric rounded to four decimals.
         self.assertAlmostEqual(
             summary['net_pnl_per_short_risk_equivalent_session_usd'],
-            result['final_pnl_usd'] / 3.2
+            result['final_pnl_usd'] / 3.2,
+            delta=0.0001
         )
 
     def test_dte7_fallback_is_counted_separately_from_policy_trigger(self):
