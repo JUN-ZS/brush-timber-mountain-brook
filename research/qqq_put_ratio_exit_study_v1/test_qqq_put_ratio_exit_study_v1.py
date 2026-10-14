@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+from datetime import date
 import unittest
 
 MODULE = Path(__file__).with_name('qqq_put_ratio_exit_study_v1.py')
@@ -181,15 +182,34 @@ class PutRatioExitStudyTests(unittest.TestCase):
         self.assertEqual(len(trims), 1)
         self.assertEqual(trims[0]['quantity'], 4)
 
-    def test_day20_nonpositive_rule_signal_and_execution_are_separated(self):
+    def test_day20_nonpositive_rule_signals_on_age_20_and_executes_next_observation(self):
         trade = trade_fixture()
-        trade['path'] = [step(f'2024-01-{i:02d}', 45-(i-1), short_bid=4.0, short_ask=4.2,
-                              long_bid=4.9, long_ask=5.1, spot=500.) for i in range(3, 24)]
-        trade['path'].append(step('2024-01-24', 23, short_bid=4.0, short_ask=4.2, long_bid=4.9, long_ask=5.1))
+        # Valid observed market sessions; skip weekends and the 2024-01-15 market holiday.
+        session_dates = [
+            '2024-01-03', '2024-01-04', '2024-01-05',
+            '2024-01-08', '2024-01-09', '2024-01-10', '2024-01-11', '2024-01-12',
+            '2024-01-16', '2024-01-17', '2024-01-18', '2024-01-19',
+            '2024-01-22', '2024-01-23', '2024-01-24', '2024-01-25', '2024-01-26',
+            '2024-01-29', '2024-01-30', '2024-01-31', '2024-02-01', '2024-02-02'
+        ]
+        self.assertEqual(len(session_dates), 22)
+        trade['path'] = [
+            step(day, (date.fromisoformat(EXPIRY) - date.fromisoformat(day)).days,
+                 short_bid=4.9, short_ask=5.1, long_bid=4.8, long_ask=5.0, spot=500.)
+            for day in session_dates
+        ]
         policy = next(x for x in S.policy_list() if x['kind'] == 'day20_close')
         result = S.simulate_policy(trade, policy, .05, .65)
-        if result['exit_signal_date'] is not None:
-            self.assertGreater(result['exit_action_date'], result['exit_signal_date'])
+        self.assertEqual(result['policy_rule_signal_date'], session_dates[20])
+        self.assertEqual(result['policy_rule_signal_holding_sessions'], 20)
+        self.assertEqual(result['exit_signal_date'], session_dates[20])
+        self.assertEqual(result['exit_action_date'], session_dates[21])
+        self.assertEqual(result['exit_action_holding_sessions'], 21)
+        self.assertEqual(result['signal_to_action_delay_sessions'], 1)
+        self.assertEqual(result['final_status'], 'CLOSED_AT_OBSERVED_SIDE_QUOTES')
+        summary = S.summarize_policy([result])
+        self.assertEqual(summary['policy_rule_triggered_trade_count'], 1)
+        self.assertEqual(summary['mandatory_dte7_fallback_trade_count'], 0)
 
     def test_report_has_after_cost_metrics_and_keeps_deployment_blocked(self):
         trade = trade_fixture()

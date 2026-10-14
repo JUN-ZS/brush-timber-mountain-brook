@@ -45,6 +45,9 @@ $1,000 equals 1% of the reference $100,000 NAV, but no round-dollar target is as
 
 For each exit policy, publish the following on the identical fixed entry cohort:
 
+**Age convention:** the entry-date EOD observation is session age 0. Each subsequent observed market session increments age by one. Therefore the day-20 threshold is checked after 20 observed-session transitions from entry (the 21st quote row when counting the entry observation), and a signal can only execute on a later valid observation.
+
+
 - Custom policy trigger count and rate, separately from the shared mandatory DTE<=7 safety fallback.
 - Median/mean observed-session age at the first custom trigger, age at first successful risk-reducing action, signal-to-action delay in observed market sessions, and age when the episode finally resolves.
 - Count of short-risk-equivalent exposure sessions: on each observed replay session, add remaining short contracts / the original five short contracts. This captures whether a four-of-five trim reduces subsequent short exposure to 0.2 of the original unit, but is not capital, margin or complete portfolio risk.
