@@ -22,7 +22,7 @@
     if(!row)return null;
     const current=n(row.current),target=n(row.target),capacity=n(row.capacity),action=String(row.action||row.status||"PENDING").toUpperCase();
     const quantitiesKnown=current!==null&&target!==null;
-    const blocked=["BLOCKED","PENDING","WAIT FOR DATA","PLAN INCOMPLETE","INCOMPLETE","UNKNOWN"].includes(action);
+    const blocked=["BLOCKED","BLOCK","PENDING","WAIT FOR DATA","PLAN INCOMPLETE","INCOMPLETE","UNKNOWN"].some(flag=>action.includes(flag));
     const maxAllowedAdd=!quantitiesKnown||blocked?null:action==="ADD"?Math.max(0,target-current):0;
     const maxAllowedTrim=!quantitiesKnown||blocked?null:action==="REDUCE"?Math.max(0,current-target):0;
     return {candidateKey,current,target,capacity,action,maxAllowedAdd,maxAllowedTrim,status:row.status||null,reason:row.reason||""};
