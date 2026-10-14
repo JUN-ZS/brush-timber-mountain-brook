@@ -601,4 +601,69 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   assert.ok(appSource.includes("renderPaperJournal"));
 }
 
-console.log("option_chain_lab=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS; paper_observation_journal=PASS");
+
+// QQQ put ratio backspread: N lower-strike LONG puts for each higher-strike SHORT put.
+{
+  const ratio = Lab.calculatePutBackspread({
+    expiry:"2026-11-20", longPerShort:2, packages:1, multiplier:100, budget:1000,
+    contractSymbol:"QQQ", contractStatus:"STANDARD_TERMS_RECORDED",
+    longPut:{strike:90,bid:2.00,ask:2.25,delta:-0.12},
+    shortPut:{strike:100,bid:5.00,ask:5.20,delta:-0.25}
+  });
+  assert.equal(ratio.ok,true);
+  assert.equal(ratio.ratio,"2:1");
+  assert.equal(ratio.longContracts,2);
+  assert.equal(ratio.shortContracts,1);
+  near(ratio.creditPerShare,.50,"2:1 put backspread net credit/share");
+  near(ratio.totalNetOpeningCashUsd,50,"2:1 put backspread opening cash");
+  near(ratio.maxLossPerPackageUsd,950,"loss valley at lower long strike");
+  near(ratio.totalMaxLossUsd,950,"planned maximum expiry loss");
+  near(ratio.pnlAtZeroPerPackageUsd,8050,"expiry P&L at QQQ zero");
+  near(ratio.pnlAtLongStrikePerPackageUsd,-950,"expiry P&L at lower long strike");
+  near(ratio.pnlAtShortStrikePerPackageUsd,50,"expiry P&L at short strike");
+  assert.equal(ratio.budgetCapacityPackages,1);
+  assert.deepEqual(JSON.parse(JSON.stringify(ratio.breakevens.map(x=>x.price===undefined?x.label:x.price))),[80.5,99.5]);
+  near(ratio.slippageStress[1].creditPerShare,.425,"$0.025 adverse price shift on each quote side for N=2");
+  near(ratio.slippageStress[1].maxLossPerPackageUsd,957.5,"stressed maximum expiry loss");
+  const three = Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:3,multiplier:100,budget:3200,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  });
+  assert.equal(three.longContracts,6);
+  assert.equal(three.shortContracts,3);
+  near(three.totalMaxLossUsd,2850,"3 packages have 6 long and 3 short contracts");
+  const oneToOne = Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:1,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  });
+  assert.equal(oneToOne.ratio,"1:1");
+  near(oneToOne.pnlAtZeroPerPackageUsd,-950,"1:1 lower tail has no extra convexity");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:100,bid:2,ask:2.25},shortPut:{strike:90,bid:5,ask:5.2}
+  }).ok,false,"put backspread strike direction must not be reversed");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"VXX",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"ratio helper rejects an incorrectly labelled underlying root");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",contractStatus:"ADJUSTED_TERMS_RECORDED",
+    longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"adjusted contract terms remain blocked");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"underlying contract root is required");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"2026-11-20",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:null},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"missing long quote fields cannot become a ratio quote");
+  assert.equal(Lab.calculatePutBackspread({
+    expiry:"bad",longPerShort:2,packages:1,multiplier:100,budget:1000,
+    contractSymbol:"QQQ",longPut:{strike:90,bid:2,ask:2.25},shortPut:{strike:100,bid:5,ask:5.2}
+  }).ok,false,"invalid expiry is blocked");
+}
+assert.ok(fs.readFileSync(require.resolve("../option_chain_lab.html"),"utf8").includes('id="qqqPutRatioDetails"'),"put ratio UI must be collapsed by default");
+
+console.log("option_chain_lab=PASS; put_ratio_backspread=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS; paper_observation_journal=PASS");

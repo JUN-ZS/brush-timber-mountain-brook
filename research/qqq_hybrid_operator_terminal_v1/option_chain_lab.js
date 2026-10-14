@@ -65,6 +65,57 @@ valid.push(c);
 return{candidates:valid,excluded:excluded,wide:wide,totalPairs:totalPairs,validQuotes:data.filter(r=>quoteState(r).ok).length};
 }
 function expiryPnl(c,spot,mult,qty){var s=num(spot),m=num(mult),n=num(qty);if(!c||s===null||m===null||m<=0||n===null||n<1||Math.floor(n)!==n)return null;var si,li;if(c.isCall){si=Math.max(s-c.shortStrike,0);li=Math.max(s-c.longStrike,0)}else{si=Math.max(c.shortStrike-s,0);li=Math.max(c.longStrike-s,0)}return(c.credit-si+li)*m*n}
+
+function calculatePutBackspread(input){
+var p=input||{},fail=function(error){return{ok:false,error:error}};
+var expiry=String(p.expiry||"").trim(),expMs=/^\d{4}-\d{2}-\d{2}$/.test(expiry)?Date.parse(expiry+"T00:00:00Z"):NaN;
+if(!Number.isFinite(expMs)||new Date(expMs).toISOString().slice(0,10)!==expiry)return fail("必須提供有效的同到期日 YYYY-MM-DD；未記錄／混合到期日不能計算。");
+var n=num(p.longPerShort),packages=num(p.packages),mult=num(p.multiplier),budget=num(p.budget);
+if(n===null||!Number.isSafeInteger(n)||n<1||n>100)return fail("N 必須是 1–100 的整數，口徑為 LONG PUT 張數／每 1 張 SHORT PUT。");
+if(packages===null||!Number.isSafeInteger(packages)||packages<1||packages>1000000)return fail("SHORT PUT 組數必須是正整數。");
+if(mult===null||!Number.isFinite(mult)||mult<=0)return fail("合約乘數須為有效正數；不會自動把空白乘數當作 100。");
+if(budget===null||!Number.isFinite(budget)||budget<0)return fail("風險預算必須是有效的非負數。");
+if(String(p.contractStatus||"").toUpperCase()==="ADJUSTED_TERMS_RECORDED")return fail("調整合約的交割／價格刻度尚未正規化；Put ratio 容量封鎖。");
+var root=String(p.contractSymbol||"").trim().toUpperCase();
+if(!root||(root!=="QQQ"&&root.indexOf("QQQ")!==0))return fail("合約根／代碼必須可確認為 QQQ；缺失或其他標的均封鎖。");
+var lp=p.longPut||{},sp=p.shortPut||{};
+var L={strike:num(lp.strike),bid:num(lp.bid),ask:num(lp.ask),delta:num(lp.delta)};
+var S={strike:num(sp.strike),bid:num(sp.bid),ask:num(sp.ask),delta:num(sp.delta)};
+var lq=quoteState(L),sq=quoteState(S);
+if(!sq.ok)return fail("SHORT QQQ PUT 必須有有效雙邊 Bid/Ask；"+sq.label+"。");
+if(!lq.ok)return fail("LONG QQQ PUT 必須有有效雙邊 Bid/Ask；"+lq.label+"。");
+if(!(L.strike>0&&S.strike>L.strike))return fail("Put backspread 要求 LONG PUT 履約價低於 SHORT PUT；兩腿必須是同一 QQQ、同一到期日。");
+var width=S.strike-L.strike,credit=S.bid-n*L.ask;
+function sharePnl(spot){return credit+n*Math.max(L.strike-spot,0)-Math.max(S.strike-spot,0)}
+function usdPerPackage(spot){return sharePnl(spot)*mult}
+var atZero=usdPerPackage(0),atLong=usdPerPackage(L.strike),atShort=usdPerPackage(S.strike),aboveShort=credit*mult;
+var minimum=Math.min(atZero,atLong,atShort),maximum=Math.max(atZero,atLong,atShort);
+var maxLoss=Math.max(0,(width-credit)*mult),capacity=maxLoss>0?Math.floor((budget+1e-9)/maxLoss):null;
+var eps=1e-8,breakevens=[],ranges=[];
+if(Math.abs(credit)<eps)ranges.push({kind:"range",low:S.strike,high:null,label:"SHORT strike 或以上"});
+if(n===1&&Math.abs(credit-width)<eps)ranges.push({kind:"range",low:0,high:L.strike,label:"0 至 LONG strike"});
+function addBreakeven(value,label){
+if(!Number.isFinite(value)||value< -eps||value>S.strike+eps)return;
+var x=Math.max(0,Math.min(S.strike,value));
+if(ranges.some(function(r){return x>=r.low-eps&&(r.high===null||x<=r.high+eps)}))return;
+if(breakevens.some(function(r){return Math.abs(r.price-x)<eps}))return;
+breakevens.push({kind:"point",price:x,label:label});
+}
+if(n>1)addBreakeven((credit+n*L.strike-S.strike)/(n-1),"下方 breakeven");
+addBreakeven(S.strike-credit,"兩履約價間 breakeven");
+breakevens=ranges.concat(breakevens).sort(function(a,b){return (a.low!==undefined?a.low:a.price)-(b.low!==undefined?b.low:b.price)});
+var spots=[{price:0,label:"QQQ = $0"},{price:L.strike,label:"LONG strike"},{price:(L.strike+S.strike)/2,label:"兩履約價中點"},{price:S.strike,label:"SHORT strike"},{price:S.strike*1.1,label:"SHORT strike +10%"}];
+var unique=[];
+spots.forEach(function(x){if(!unique.some(function(y){return Math.abs(y.price-x.price)<eps}))unique.push(x)});
+var scenarios=unique.map(function(x){var one=usdPerPackage(x.price);return{spot:x.price,label:x.label,pnlPerPackageUsd:one,plannedPnlUsd:one*packages}});
+var stress=[0,0.025,0.05,0.10].map(function(extra){
+var stressedShortBid=Math.max(0,S.bid-extra),stressedLongAsk=L.ask+extra;
+var stressedCredit=stressedShortBid-n*stressedLongAsk,stressedLoss=Math.max(0,(width-stressedCredit)*mult);
+return{extraPerSide:extra,shortBidAfterStress:stressedShortBid,longAskAfterStress:stressedLongAsk,creditPerShare:stressedCredit,netOpeningCashPerPackageUsd:stressedCredit*mult,maxLossPerPackageUsd:stressedLoss,budgetCapacityPackages:stressedLoss>0?Math.floor((budget+1e-9)/stressedLoss):null};
+});
+return{ok:true,expiry:expiry,ratio:n+":1",longPerShort:n,packages:packages,longContracts:n*packages,shortContracts:packages,longStrike:L.strike,shortStrike:S.strike,width:width,shortBid:S.bid,shortAsk:S.ask,longBid:L.bid,longAsk:L.ask,shortQuoteBand:sq.band,longQuoteBand:lq.band,shortDelta:S.delta,longDelta:L.delta,creditPerShare:credit,netOpeningCashPerPackageUsd:credit*mult,totalNetOpeningCashUsd:credit*mult*packages,maxLossPerPackageUsd:maxLoss,totalMaxLossUsd:maxLoss*packages,pnlAtZeroPerPackageUsd:atZero,pnlAtLongStrikePerPackageUsd:atLong,pnlAtShortStrikePerPackageUsd:atShort,pnlAboveShortStrikePerPackageUsd:aboveShort,bestTerminalPnlPerPackageUsd:maximum,bestTerminalPnlUsd:maximum*packages,riskBudgetUsd:budget,budgetCapacityPackages:capacity,budgetCapacityLongContracts:capacity===null?null:capacity*n,breakevens:breakevens,scenarios:scenarios,slippageStress:stress,maxLossLocation:n===1?"at or below LONG PUT strike (at expiry)":"at LONG PUT strike (at expiry)",limitations:"Expiry-only payoff. Budget capacity excludes broker margin/buying power, early assignment/exercise, path risk, fees and portfolio interaction; not connected to the main risk pool."};
+}
+
 function splitCsvRow(line){var out=[],cur="",quoted=false;for(var i=0;i<line.length;i++){var ch=line[i];if(ch==='"'){if(quoted&&line[i+1]==='"'){cur+='"';i++}else quoted=!quoted}else if(ch===","&&!quoted){out.push(cur);cur=""}else cur+=ch}out.push(cur);return out}
 function validHttpUrl(value){return /^https?:\/\/[^\s]+$/i.test(String(value||"").trim())}
 function isAdjustedRoot(value){return /^(?:1?VXX[12])/i.test(String(value||"").trim())}
@@ -252,7 +303,48 @@ $("paperJournalRows").innerHTML=rows||'<tr><td colspan="6" class="empty">尚無�
 if(paperJournalLoadError)$("paperJournalStatus").textContent=paperJournalLoadError;
 }
 
-function renderAll(){renderTabs();renderQuotes();renderMatrix();renderProvenance();renderPaperJournal()}
+
+function renderPutRatio(){
+var rows=sorted(chains.QQQ_PUT),longEl=$("putRatioLongStrike"),shortEl=$("putRatioShortStrike");
+function fillSelect(el,placeholder){
+var previous=el.value,options="<option value=\"\">"+placeholder+"</option>";
+options+=rows.map(function(r){var q=quoteState(r);return"<option value=\""+esc(r.strike)+"\">K "+esc(r.strike)+" · Bid "+(r.bid===null?"—":px(r.bid))+" / Ask "+(r.ask===null?"—":px(r.ask))+" · "+esc(q.label)+"</option>"}).join("");
+el.innerHTML=options;
+el.value=rows.some(function(r){return String(r.strike)===previous})?previous:"";
+}
+fillSelect(longEl,"選 LONG PUT（較低履約價）");fillSelect(shortEl,"選 SHORT PUT（較高履約價）");
+var n=num($("putRatioN").value),packages=num($("putRatioPackages").value),longStrike=num(longEl.value),shortStrike=num(shortEl.value);
+var meta=Object.assign({},provenance,provenance.chainMetadata.QQQ_PUT||{});
+var prov=assessProvenance(meta,$("expiry").value,rows.length,manuallyEdited);
+$("putRatioEvidence").textContent=prov.complete?"QQQ PUT METADATA + TIME PASS · HUMAN REVIEW ONLY":"SCENARIO ONLY · "+prov.status+" · "+(prov.reasons[0]||"報價來源仍未獨立驗證");
+$("putRatioEvidence").className="tag "+(prov.complete?"warn":"bad");
+function empty(msg,status){
+$("putRatioStatus").textContent=status;
+$("putRatioMetrics").innerHTML="<div class='stat'><small>NET OPENING CASH · PLANNED</small><b>—</b><span>等有效雙邊報價</span></div><div class='stat'><small>MAX LOSS / RATIO PACKAGE</small><b>—</b><span>等有效履約價</span></div><div class='stat'><small>LOSS VALLEY</small><b>—</b><span>通常位於 LONG strike</span></div><div class='stat'><small>RISK-BUDGET CAPACITY</small><b>—</b><span>不含券商 margin</span></div>";
+$("putRatioBreakevens").textContent=msg;
+$("putRatioScenarios").innerHTML="<tr><td colspan='4' class='empty'>"+esc(msg)+"</td></tr>";
+$("putRatioStress").innerHTML="<tr><td colspan='4' class='empty'>尚未計算。</td></tr>";
+}
+if(!rows.length){empty("QQQ PUT 鏈目前是空白；這次截圖沒有 Put 價格，不能代填。","PENDING · NO QQQ PUT QUOTES");return}
+if(longStrike===null||shortStrike===null){empty("先選同一到期日內的較低 LONG PUT strike 和較高 SHORT PUT strike；再輸入 N。","PENDING · SELECT TWO PUT STRIKES");return}
+var longMatches=rows.filter(function(r){return r.strike===longStrike}),shortMatches=rows.filter(function(r){return r.strike===shortStrike});
+if(longMatches.length!==1||shortMatches.length!==1){empty("選中的履約價必須各自只出現一列；重複列需先清理，不能任選其中一列。","BLOCKED · DUPLICATE STRIKES");return}
+var c=calculatePutBackspread({expiry:$("expiry").value,longPerShort:n,packages:packages,multiplier:val("mult",null),budget:val("budget",null),longPut:longMatches[0],shortPut:shortMatches[0],contractSymbol:meta.contractSymbol,contractStatus:meta.contractStatus});
+if(!c.ok){empty(c.error,"BLOCKED · INVALID RATIO INPUT");return}
+var cashLabel=c.totalNetOpeningCashUsd>0?"NET CREDIT":c.totalNetOpeningCashUsd<0?"NET DEBIT":"ZERO-COST";
+$("putRatioStatus").textContent="CALCULATED · EXPIRY PAYOFF ONLY";
+$("putRatioMetrics").innerHTML="<div class='stat'><small>RATIO / TOTAL LEGS</small><b>"+esc(c.ratio)+"</b><span>LONG "+fmtRatio(c.longContracts)+" / SHORT "+fmtRatio(c.shortContracts)+" · contracts</span></div>"+
+"<div class='stat'><small>"+cashLabel+" · PLANNED POSITION</small><b class='"+(c.totalNetOpeningCashUsd>=0?"positive":"negative")+"'>"+money(c.totalNetOpeningCashUsd)+"</b><span>"+money(c.netOpeningCashPerPackageUsd)+" per 1-short package · "+px(c.creditPerShare)+" / share</span></div>"+
+"<div class='stat'><small>MAX LOSS / PACKAGE</small><b class='negative'>"+money(c.maxLossPerPackageUsd)+"</b><span>at LONG strike · planned total "+money(c.totalMaxLossUsd)+"</span></div>"+
+"<div class='stat'><small>RISK-BUDGET CAPACITY</small><b>"+(c.budgetCapacityPackages===null?"NOT INFERRED":fmtRatio(c.budgetCapacityPackages))+"</b><span>"+(c.budgetCapacityPackages===null?"Zero expiry loss does not imply infinite buying power":"packages; "+fmtRatio(c.budgetCapacityLongContracts)+" LONG puts; excludes broker margin")+"</span></div>";
+$("putRatioBreakevens").textContent="Breakeven(s): "+(c.breakevens.length?c.breakevens.map(function(b){return b.kind==="range"?b.label+" (QQQ $"+px(b.low)+(b.high===null?" or higher":"–$"+px(b.high))+")":"$"+px(b.price)}).join(" · "):"無可達到的到期 breakeven")+
+"。到期 QQQ=$0 時每組損益 "+money(c.pnlAtZeroPerPackageUsd)+"；SHORT strike 以上每組 "+money(c.pnlAboveShortStrikePerPackageUsd)+"；風險預算 capacity 只除以到期最大虧損，非券商 margin／BUYING POWER。";
+$("putRatioScenarios").innerHTML=c.scenarios.map(function(x){return"<tr><td>"+esc(x.label)+"</td><td>$"+px(x.spot)+"</td><td>"+money(x.pnlPerPackageUsd)+"</td><td>"+money(x.plannedPnlUsd)+"</td></tr>"}).join("");
+$("putRatioStress").innerHTML=c.slippageStress.map(function(x){return"<tr><td>$"+x.extraPerSide.toFixed(3)+" / quote side</td><td>"+px(x.creditPerShare)+"</td><td>"+money(x.maxLossPerPackageUsd)+"</td><td>"+(x.budgetCapacityPackages===null?"NOT INFERRED":fmtRatio(x.budgetCapacityPackages))+"</td></tr>"}).join("");
+}
+function fmtRatio(value){return Number.isFinite(value)?Math.floor(value).toLocaleString("en-US"):"—"}
+
+function renderAll(){renderTabs();renderQuotes();renderMatrix();renderProvenance();renderPaperJournal();renderPutRatio()}
 function loadSample(){$("attestStandard").checked=false;chains={};Object.keys(SAMPLE.chains).forEach(k=>chains[k]=sorted(SAMPLE.chains[k]));$("expiry").value=SAMPLE.expiration;active="QQQ_CALL";selected=null;loaded=true;provenance={sourceType:"USER_SCREENSHOT_TRANSCRIPTION",sourceName:"User-uploaded screenshot (conversation attachment)",sourceUrl:"",observedAt:"",timezone:"",chainMetadata:{}};manuallyEdited=false;writeCommonInputs();writeChainInputs();$("importStatus").textContent="已載入正式截圖 fixture：只有 QQQ CALL／VXX CALL；Put 鏈保持空白。觀察時間、合約 root 與交割條款未核實，因此只作情景算術。";renderAll()}
 function clear(){chains={QQQ_CALL:[],QQQ_PUT:[],VXX_CALL:[],VXX_PUT:[]};loaded=false;selected=null;resetProvenance();$("expiry").value="";$("importStatus").textContent="已清空；來源、到期日與合約交割欄位均重置。";renderAll()}
 function importCsv(){var p=parseCsv($("csv").value);if(!p.total){$("importStatus").textContent="沒有有效列。"+p.errors.join("；");return}if(p.metadataConflicts.length){$("importStatus").textContent="拒絕匯入：CSV metadata 衝突。"+p.metadataConflicts.join("；");return}chains=p.chains;loaded=true;selected=null;manuallyEdited=false;$("attestStandard").checked=false;provenance=Object.assign({},p.metadata,{chainMetadata:p.chainMetadata});$("expiry").value=p.expiration||"";writeCommonInputs();writeChainInputs();$("importStatus").textContent="匯入 "+p.total+" 列。"+(p.errors.length?" 已忽略無效列："+p.errors.join("；"):"")+(p.expiration?" 到期日已明確記錄。":" CSV 未帶到期日，已清空原日期，須自行核實。")+(p.hasMetadataColumns?"":" CSV 未帶來源／合約 metadata，狀態會維持 SCENARIO ONLY。");renderAll()}
@@ -286,5 +378,5 @@ var lines=[
 var summary=lines.join("\n");
 if(win.navigator&&win.navigator.clipboard&&win.navigator.clipboard.writeText)win.navigator.clipboard.writeText(summary).then(()=>{$("importStatus").textContent="摘要已複製。"}).catch(()=>{$("importStatus").textContent=summary});else $("importStatus").textContent=summary;
 }
-doc.querySelectorAll("[data-key]").forEach(b=>b.addEventListener("click",()=>{commonFromInputs();activeChainMetaFromInputs();active=b.dataset.key;selected=null;$("attestStandard").checked=false;writeChainInputs();renderAll()}));$("loadSample").addEventListener("click",loadSample);$("clear").addEventListener("click",clear);$("import").addEventListener("click",importCsv);$("export").addEventListener("click",exportCsv);$("copy").addEventListener("click",copy);$("sendToMain").addEventListener("click",publishToMain);$("attestStandard").addEventListener("change",renderAll);["sourceType","sourceName","sourceUrl","asof","timezone"].forEach(k=>$(k).addEventListener("change",()=>{commonFromInputs();$("attestStandard").checked=false;renderAll()}));["contractSymbol","contractStatus","deliverableNote","contractEvidenceUrl"].forEach(k=>$(k).addEventListener("change",()=>{activeChainMetaFromInputs();$("attestStandard").checked=false;renderAll()}));["expiry","mult","budget","qty","sort"].forEach(k=>$(k).addEventListener("change",()=>{if(k==="expiry"||k==="mult")$("attestStandard").checked=false;renderAll()}));$("quotes").addEventListener("change",ev=>{var e=ev.target;if(!e.hasAttribute("data-i"))return;var rs=sorted(chains[active]),i=Number(e.dataset.i),f=e.dataset.f;if(!rs[i]||["strike","bid","ask","delta"].indexOf(f)<0)return;rs[i][f]=num(e.value);chains[active]=sorted(rs);selected=null;manuallyEdited=true;$("attestStandard").checked=false;renderAll()});$("recordPaperObservation").addEventListener("click",recordPaperObservation);$("recordPaperOutcome").addEventListener("click",recordPaperOutcome);$("exportPaperJournal").addEventListener("click",downloadPaperJson);$("importPaperJournal").addEventListener("click",function(){$("paperJournalFile").click()});$("paperJournalFile").addEventListener("change",importPaperJournalFile);initPaperJournal();renderAll()}
-return{SAMPLE:SAMPLE,sorted:sorted,quoteState:quoteState,calculateVerticals:calculateVerticals,expiryPnl:expiryPnl,parseCsv:parseCsv,splitCsvRow:splitCsvRow,assessProvenance:assessProvenance,buildPrimaryPlannerHandoff:buildPrimaryPlannerHandoff,num:num,init:init,csvCell:csvCell}});
+doc.querySelectorAll("[data-key]").forEach(b=>b.addEventListener("click",()=>{commonFromInputs();activeChainMetaFromInputs();active=b.dataset.key;selected=null;$("attestStandard").checked=false;writeChainInputs();renderAll()}));$("loadSample").addEventListener("click",loadSample);$("clear").addEventListener("click",clear);$("import").addEventListener("click",importCsv);$("export").addEventListener("click",exportCsv);$("copy").addEventListener("click",copy);$("sendToMain").addEventListener("click",publishToMain);$("attestStandard").addEventListener("change",renderAll);["sourceType","sourceName","sourceUrl","asof","timezone"].forEach(k=>$(k).addEventListener("change",()=>{commonFromInputs();$("attestStandard").checked=false;renderAll()}));["contractSymbol","contractStatus","deliverableNote","contractEvidenceUrl"].forEach(k=>$(k).addEventListener("change",()=>{activeChainMetaFromInputs();$("attestStandard").checked=false;renderAll()}));["expiry","mult","budget","qty","sort"].forEach(k=>$(k).addEventListener("change",()=>{if(k==="expiry"||k==="mult")$("attestStandard").checked=false;renderAll()}));$("quotes").addEventListener("change",ev=>{var e=ev.target;if(!e.hasAttribute("data-i"))return;var rs=sorted(chains[active]),i=Number(e.dataset.i),f=e.dataset.f;if(!rs[i]||["strike","bid","ask","delta"].indexOf(f)<0)return;rs[i][f]=num(e.value);chains[active]=sorted(rs);selected=null;manuallyEdited=true;$("attestStandard").checked=false;renderAll()});$("recordPaperObservation").addEventListener("click",recordPaperObservation);$("recordPaperOutcome").addEventListener("click",recordPaperOutcome);$("exportPaperJournal").addEventListener("click",downloadPaperJson);$("importPaperJournal").addEventListener("click",function(){$("paperJournalFile").click()});$("paperJournalFile").addEventListener("change",importPaperJournalFile);["putRatioN","putRatioPackages","putRatioLongStrike","putRatioShortStrike"].forEach(function(k){$(k).addEventListener("change",renderAll)});initPaperJournal();renderAll()}
+return{SAMPLE:SAMPLE,sorted:sorted,quoteState:quoteState,calculateVerticals:calculateVerticals,expiryPnl:expiryPnl,calculatePutBackspread:calculatePutBackspread,parseCsv:parseCsv,splitCsvRow:splitCsvRow,assessProvenance:assessProvenance,buildPrimaryPlannerHandoff:buildPrimaryPlannerHandoff,num:num,init:init,csvCell:csvCell}});
