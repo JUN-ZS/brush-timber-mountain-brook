@@ -175,6 +175,14 @@ assert.ok(labHtml.includes("No missing quote is interpolated or forward-filled")
 assert.ok(labHtml.includes("FAILS_CURRENT_BASE_SCREEN"), "Option Chain Lab must not imply Far-Call performance approval");
 
 
+// Beginner-friendly holding-time / harvest explainer is collapsed by default and sourced.
+assert.ok(mainHtml.includes('id="timeHarvestMeasurementGuide"'), "beginner time / harvest guide must be present");
+assert.ok(mainHtml.includes("觀察到條件（Signal）不等於成交（Fill）"), "guide must distinguish a trigger from a fill");
+assert.ok(mainHtml.includes("每風險暴露等效日損益"), "guide must describe a time/risk normalized comparison carefully");
+assert.ok(mainHtml.includes("首次觀察到 +$1,000 共 9 次，但 5 個持倉交易日內為 0 次"), "guide must retain measured fast-win event count");
+assert.ok(mainHtml.includes("$106,392"), "guide must surface the ratio structure tail-risk block");
+assert.ok(mainHtml.includes('href="https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/101"'), "guide must link the isolated exit-measurement study");
+
 // Three-axis measurement scorecard is visible on both APP surfaces and keeps
 // accounting integrity separate from trade accuracy, generality, and integration.
 const measurementReport = fs.readFileSync(require("path").join(__dirname, "../QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md"), "utf8");

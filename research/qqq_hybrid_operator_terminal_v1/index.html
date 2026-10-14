@@ -65,6 +65,27 @@
         <p><b>6 · STRATEGY evidence:</b> The current lockbox says the isolated QQQ Far-Call overlay fails its base integration screen, with accuracy blocked and generality not demonstrated. A displayed capacity or ADD is not approval to open that overlay. This does not claim the full Frozen Original Hybrid was backtested and failed; the negative result is for the isolated overlay comparison only.</p>
         <p><b>Action reading:</b> BLOCK / PENDING = do not act on the incomplete calculation; HOLD = no new exposure under the current rules; REDUCE = review trimming toward the risk target; ADD = capacity permits human review only, not an order instruction. Proceed only when the data, contract, capital, costs, strategy evidence and human review are all acceptable.</p>
       </details>
+      <details class="ai-handoff-gates" id="timeHarvestMeasurementGuide">
+        <summary>新手度量衡 · 持有多久、何時減倉／平倉、斬獲多少才值得？</summary>
+        <p><b>先看時間鏈：</b>入場日 → 首次達標／風險觸發的觀察日 → 最早可執行日 → 實際有足夠 Bid／Ask 與掛單量的執行日 → 最終淨損益。觀察到條件（Signal）不等於成交（Fill）；本研究是日終報價回放，不能證明盤中曾觸價或真實成交。</p>
+        <p><b>「斬獲性價比」不是只看賺了幾元：</b>一起看扣成本後每筆期望值、持倉交易日數、規則觸發率、觸發至第一次減／平倉的延遲、仍暴露的 short-risk、最差損失、報價覆蓋率，以及持有後 5／10 個交易日的回吐／恢復。每風險暴露等效日損益只作輔助比較；它不能代替尾部風險或勝率，也不能單獨選策略。</p>
+        <div class="table-wrap">
+          <table class="decision-table">
+            <thead><tr><th>研究出場規則</th><th>62 組樣本淨損益</th><th>每組期望值</th><th>勝率</th></tr></thead>
+            <tbody>
+              <tr><td>DTE ≤ 7 基準（到期前 7 日內依規則關閉 short risk）</td><td>+$18,067.60</td><td>+$291.41</td><td>95.16%</td></tr>
+              <tr><td>達 +$500 即關閉 short risk</td><td>+$14,199.60</td><td>+$229.03</td><td>93.55%</td></tr>
+              <tr><td>達 +$1,000 即關閉 short risk</td><td>+$18,067.60</td><td>+$291.41</td><td>95.16%</td></tr>
+              <tr><td>第 20 個持倉交易日 P&amp;L ≤ $0：關閉 short risk</td><td>+$10,789.60</td><td>+$174.03</td><td>90.32%</td></tr>
+              <tr><td>第 20 個持倉交易日 P&amp;L ≤ $0：減 4 張 short</td><td>+$9,568.60</td><td>+$154.33</td><td>85.48%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="tiny"><b>成本及口徑：</b>PR #101 Run #1；62 組非重疊、固定一組入場樣本；每腿每邊假設滑價 $0.05、每張合約每邊假設佣金 $0.65。這是 1 張較高履約價 long put + 5 張較低履約價 short put 的獨立研究，不是主操作台的 QQQ/VXX call-credit，也不是 Put Ratio Backspread。</p>
+        <p><b>初步解讀：</b>這次歷史 EOD 樣本中首次觀察到 +$1,000 共 9 次，但 5 個持倉交易日內為 0 次，所以「很快賺到 $1,000 就應提早走」目前沒有樣本支持。+$1,000 與 +$2,000 兩行的總結果恰好等同基準，不能因此說門檻沒作用或門檻最優；必須看每條規則實際觸發幾次、在哪個持倉日觸發、多久才執行。</p>
+        <p><b>重大風險閘：</b>該 1-long／5-short put 的 QQQ=$0 到期終端損失中位數約 $106,392（$100,000 參考 NAV 的 106.39%），且不含中途保證金追繳／強平風險。即使樣本勝率高，仍是 <b>BLOCKED FOR DEPLOYMENT</b>，不得把此研究當成主策略或下單依據。</p>
+        <p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/101">開啟 PR #101：獨立持倉時間／出場規則研究 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38463633227">Run #1 原始驗收紀錄 →</a> · <a href="RESEARCH_MEASUREMENT_CONTRACT.md">完整度量衡契約 →</a></p>
+      </details>
     </section>
     <section id="researchValidation" class="card">
       <div class="section-head">
