@@ -27,7 +27,7 @@ function goodPortfolioStress(overrides={}) {
 }
 function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quantity:10,horizonDays:10,nav:100000,rewardUsd:200,lossUsd:100,costUsd:5,costStressUsd:10,riskNature:"DEFINED",probabilityMethod:"EMPIRICAL",wins:40,trials:50,probabilityBasis:"INDEPENDENT_OOS",accuracy:"PASS",generality:"PASS",integration:"PASS",alternativeEVTotalUsd:0,alternativeLabel:"Explicit $0 direct-P&L WAIT baseline",candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:1000,alternativeRiskBudgetUsd:1000,alternativeHorizonDays:10,alternativeCostsIncluded:true,generalityDossierJson:goodGeneralityDossier(),portfolioStress:goodPortfolioStress(),evidenceNote:"source hash + chronological OOS report",market:{blocked:false,allowNew:true,action:"BUY",state:"CARRY"},mainRow:{key:"qqqShares",current:10,target:30,capacity:100,delta:20,action:"ADD",status:"READY",reason:"eligible"},...overrides};}
 {
- const r=D.evaluate(fixture());assert.equal(r.status,"ELIGIBLE_FOR_HUMAN_REVIEW");assert.equal(r.probabilityBasePct,80);
+ const r=D.evaluate(fixture());assert.equal(r.status,"EVIDENCE_INCOMPLETE","positive scenario EV cannot bypass the unauthenticated execution-probability gate");assert.equal(r.independentEvidenceOk,false);assert.equal(r.probabilityBasePct,80);
  assert.ok(r.probabilityLowPct<80&&r.probabilityHighPct>80);assert.equal(r.breakEvenProbabilityPct,35);
  assert.equal(r.expectedValueBaseUsd,0.8*200-0.2*100-5);assert.equal(r.expectedValueAdverseUsd,r.probabilityLowPct/100*200-(1-r.probabilityLowPct/100)*100-15);
  assert.equal(r.expectedValueBaseTotalUsd,r.expectedValueBaseUsd*10);assert.equal(r.expectedValuePerCalendarDayUsd,r.expectedValueBaseTotalUsd/10);
@@ -76,12 +76,13 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
  assert.equal(impossible.status,"INVALID_RANGE");
 }
 {
- // The evidence floor is enforced at 29, then accepts a 30-observation example only for review.
+ // The 30-observation floor is necessary but cannot bypass source authentication.
  const below=D.evaluate(fixture({wins:23,trials:29}));
  assert.equal(below.status,"EVIDENCE_INCOMPLETE");
  assert.ok(below.warnings.some(x=>x.includes("30-trade")));
  const atFloor=D.evaluate(fixture({wins:24,trials:30}));
- assert.equal(atFloor.status,"ELIGIBLE_FOR_HUMAN_REVIEW");
+ assert.equal(atFloor.status,"EVIDENCE_INCOMPLETE","30 outcomes alone cannot authenticate executions");
+ assert.equal(atFloor.independentEvidenceOk,false);
  assert.ok(atFloor.incrementalValueAdverseUsd>0);
  assert.equal(atFloor.scenarioRiskPctNav,1);
 }
