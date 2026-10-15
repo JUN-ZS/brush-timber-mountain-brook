@@ -5,6 +5,25 @@ const sandbox = { module: { exports: {} } };
 vm.runInNewContext(fs.readFileSync(require.resolve("../hub_research_pack.js"), "utf8"), sandbox, { filename: "hub_research_pack.js" });
 const H = sandbox.module.exports;
 
+{
+  const oneMillion = H.calculateNavExitReferences(1000000);
+  assert.equal(oneMillion.ready, true);
+  assert.equal(oneMillion.targets[0].percentNav, 0.5);
+  assert.equal(oneMillion.targets[0].usd, 5000);
+  assert.equal(oneMillion.targets[1].percentNav, 1);
+  assert.equal(oneMillion.targets[1].usd, 10000);
+  assert.equal(oneMillion.targets[2].percentNav, 2);
+  assert.equal(oneMillion.targets[2].usd, 20000);
+  const historicalReference = H.calculateNavExitReferences(100000);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(historicalReference.targets.map(x => x.usd))),
+    [500, 1000, 2000],
+    "historical Run #7 targets must map to .5% / 1% / 2% of the $100k reference NAV"
+  );
+  assert.equal(H.calculateNavExitReferences(0).ready, false);
+  assert.equal(H.calculateNavExitReferences(null).ready, false);
+}
+
 function ratioBase(overrides = {}) {
   return {
     mode: "ratio-dynamic-v2",
@@ -443,6 +462,12 @@ function ratioBase(overrides = {}) {
   assert.ok(hubHtml.includes('id="putRatioExpiry"'));
   assert.ok(hubHtml.includes('id="putRatioQuoteConfirmed"'));
   assert.ok(hubHtml.includes('id="putRatioStandardContractConfirmed"'));
+  assert.ok(hubHtml.includes('id="putRatioExitReference"'), "N:1 pane must show historical exit/risk references");
+  assert.ok(hubHtml.includes('id="putRatioExit05Usd"') && hubHtml.includes('id="putRatioExit10Usd"') && hubHtml.includes('id="putRatioExit20Usd"'));
+  assert.ok(hubUi.includes('E.calculateNavExitReferences(n("nav", null))'), "threshold dollar values must derive from the current NAV input");
+  assert.ok(hubHtml.includes("首 5 個持倉交易日"), "fast-exit small-sample warning must remain visible");
+  assert.ok(hubHtml.includes("10.64% / 21.47%"), "short-heavy historical terminal tail-risk reference must remain visible");
+  assert.ok(hubHtml.includes("QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md"), "full reference report must be linked from Hub");
   assert.ok(hubHtml.includes("BUY TO OPEN"));
   assert.ok(hubUi.includes("E.calculatePutRatio"));
   assert.ok(hubUi.includes("SELL TO OPEN"));

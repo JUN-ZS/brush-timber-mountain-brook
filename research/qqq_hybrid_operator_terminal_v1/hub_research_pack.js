@@ -10,6 +10,16 @@
     return Number.isFinite(parsed) ? parsed : fallback;
   }
 
+  function calculateNavExitReferences(navValue) {
+    const nav = num(navValue);
+    if (!(nav > 0)) return { ready: false, nav: null, targets: [], error: "NAV must be positive to normalize exit thresholds." };
+    const targets = [0.5, 1, 2].map(percentNav => ({
+      percentNav,
+      usd: Math.round(nav * percentNav) / 100
+    }));
+    return { ready: true, nav, targets };
+  }
+
   function whole(value, fallback = 0) {
     const n = num(value, fallback);
     return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : fallback;
@@ -504,7 +514,7 @@
   }
 
   root.HubOptionPackV1 = {
-    MULTIPLIER, num, whole, terminalMaxLoss, calculateRatioCall,
+    MULTIPLIER, num, whole, calculateNavExitReferences, terminalMaxLoss, calculateRatioCall,
     calculateStateAdaptive, calculateStaggered, calculateShockGatedPut, calculatePutRatio,
     calculateRiskBank, blackScholesDelta, chooseChainLegs, ratioCallLegs, stateAdaptiveLegs
   };

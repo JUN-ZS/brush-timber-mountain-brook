@@ -391,6 +391,12 @@
       metric("Risk-WIN Bank available", usd(budget.bank.availableRiskRightsUsd))
     ].join("");
 
+    const exitRefs = E.calculateNavExitReferences(n("nav", null));
+    $("putRatioExitNavDisplay").textContent = exitRefs.ready ? usd(exitRefs.nav) : "PENDING · ENTER POSITIVE NAV";
+    $("putRatioExit05Usd").textContent = exitRefs.ready ? usd(exitRefs.targets[0].usd) : "PENDING";
+    $("putRatioExit10Usd").textContent = exitRefs.ready ? usd(exitRefs.targets[1].usd) : "PENDING";
+    $("putRatioExit20Usd").textContent = exitRefs.ready ? usd(exitRefs.targets[2].usd) : "PENDING";
+
     const out = compute();
     const result = out.result;
     let status = result && result.status ? result.status : "PENDING";

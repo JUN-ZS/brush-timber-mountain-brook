@@ -129,6 +129,7 @@ V3 must be healthy for the read-only market bridge. If it is not available, the 
 - Long call, long put and long straddle.
 - Iron fly, iron condor, broken-wing butterfly and calendar spread.
 - Hub Call Ratio and the explicit QQQ Long Put N:1 / Short QQQ Put ratio (separate research calculator).
+- Historical 1 LONG : 5 SHORT QQQ Put exit study, normalized to $1m NAV: [QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md](QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md). Its percentage conversions are research candidates, not approved exit rules or an N=1–6 performance ranking.
 - Legacy QQQ N-far-short / dynamic near-long hedge campaign.
 
 Candidate lookup is available for QQQ/VXX call and put verticals and QQQ long calls/puts. The QQQ PUT N:1 research lane preserves **both** orientations, N SHORT : 1 LONG and N LONG : 1 SHORT, with N configurable from 1–6 and exact same-expiry QQQ puts. Each direction has its own strike ordering, signed entry debit/credit and terminal payoff; neither direction may be described as guaranteed crash protection. The main terminal exposes persistent direct links to the QQQ PUT chain, the put-ratio selector and the shock-gated put-debit research mode. These are discovery routes only: they do not add Put to the primary call-credit pool or create simultaneous cross-Hub reservations. The separate historical 1-long/5-short exit study and N=10/N=20 ATM-long/short-OTM strategy remain research-only, distinct from the Hub's current N=1–6 structures. Manually defined structures require explicit per-unit risk inputs; missing candidate prices stay PENDING.
