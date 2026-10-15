@@ -23,6 +23,12 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual({x["horizon_sessions"] for x in report["horizon_returns"]},{1,3,5,10,20,30,45})
         self.assertEqual({x["window_sessions"] for x in report["rolling_realized_volatility"]},{10,20,30,60})
         self.assertIn("not independent-trial forecasts",report["interpretation"])
+        spots.pop(days[-1])
+        partial=M.build_volatility_time_profile(days,spots,universe)
+        self.assertEqual(partial["source_end"],days[-2])
+        self.assertEqual(partial["expected_sessions"],len(days))
+        self.assertEqual(partial["observed_close_sessions"],len(days)-1)
+        self.assertEqual(partial["missing_expected_close_sessions"],1)
 
     def test_payoff_tail_checks_breakpoints_in_both_directions(self):
         short={"n_long":1,"n_short":3,"long_strike":105.0,"short_strike":90.0,"entry_quotes":{"long":{"ask":7.2},"short":{"bid":1.0}}}
@@ -49,5 +55,8 @@ class MatrixTests(unittest.TestCase):
         self.assertIn("DTE7_BASELINE",names)
         self.assertIn("FIRST3D_TP_1PCT_CLOSE_ALL",names)
         self.assertFalse(any(x["action"]=="TRIM_SHORT" for x in p))
+        # This policy axis spans all target percentages, regardless of the NAV risk-budget loop.
+        all_targets={x["target_pct"] for x in M.all_exit_policies(1000000,"short-heavy",5) if x["target_pct"] is not None}
+        self.assertEqual(all_targets,{0.5,1.0,2.0})
 
 if __name__=="__main__":unittest.main()

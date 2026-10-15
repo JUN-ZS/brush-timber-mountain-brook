@@ -144,6 +144,14 @@ def make_policies(nav:float,pct:float,orientation:str,n:int)->list[dict[str,Any]
             out.append({"name":f"FIRST{days}D_TP_{pct:g}PCT_TRIM_SHORT","kind":"TP_WINDOW_TRIM","target_usd":target,"target_pct":pct,"age_limit":days,"action":"TRIM_SHORT"})
     return out
 
+
+def all_exit_policies(nav:float,orientation:str,n:int)->list[dict[str,Any]]:
+    """Create the exit-target axis independently from the package risk-budget axis."""
+    policies=[{"name":"DTE7_BASELINE","kind":"DTE7","target_usd":None,"target_pct":None,"age_limit":None,"action":"CLOSE_ALL"}]
+    for target_pct in BUDGET_PCTS:
+        policies.extend(p for p in make_policies(nav,target_pct,orientation,n) if p["kind"]!="DTE7")
+    return policies
+
 def simulate_policy(trade:dict[str,Any],policy:dict[str,Any],packages:int,slip:float,commission:float,nav:float)->dict[str,Any]:
     nl0,ns0=int(trade["n_long"]),int(trade["n_short"]); nl,ns=nl0*packages,ns0*packages
     state={"cash":entry_cash_per_package(trade,slip,commission)*packages,"n_long":nl,"n_short":ns,"contracts_closed_short":0}
@@ -320,11 +328,8 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
                         "episodes_fitting_one_or_more_packages":sum(x>=1 for x in units_list),
                         "percent_episodes_fitting_one_or_more_packages":round(100*sum(x>=1 for x in units_list)/len(units_list),3) if units_list else None,
                         "median_package_capacity":round(statistics.median(units_list),3) if units_list else None,"max_package_capacity":max(units_list,default=None)})
-                    # Risk budget sets package count. Exit threshold is a separate NAV-percent axis.
-                    policies=[{"name":"DTE7_BASELINE","kind":"DTE7","target_usd":None,"target_pct":None,"age_limit":None,"action":"CLOSE_ALL"}]
-                    for target_pct in BUDGET_PCTS:
-                        policies.extend(p for p in make_policies(nav,target_pct,o,n) if p["kind"]!="DTE7")
-                    for policy in policies:
+                    # Risk budget sets package count; the policy set independently spans all target percentages.
+                    for policy in all_exit_policies(nav,o,n):
                         results=[];blocked=0
                         for cap in caps:
                             if cap["units"]<1:blocked+=1;continue
