@@ -451,6 +451,10 @@
   if (requestedResearchMode === "put-ratio" || requestedResearchMode === "shock-put") {
     $("strategyMode").value = requestedResearchMode;
   }
+  const requestedPutRatioDirection = routeParams.get("putRatioDirection");
+  if (requestedPutRatioDirection === "long-heavy" || requestedPutRatioDirection === "short-heavy") {
+    $("putRatioDirection").value = requestedPutRatioDirection;
+  }
   if (routeParams.get("fromPrimary") === "1") importPrimaryContext();
   render();
 })();

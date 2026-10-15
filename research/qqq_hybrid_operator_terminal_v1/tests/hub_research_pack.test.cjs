@@ -449,7 +449,10 @@ function ratioBase(overrides = {}) {
   assert.ok(mainHtml.includes("QQQ Put Ratio (N SHORT : 1 LONG / N LONG : 1 SHORT)"));
   assert.ok(mainHtml.includes('id="preservedResearchTracks"'), "main terminal must keep Put research discoverable above the long dashboard");
   assert.ok(mainHtml.includes('href="option_chain_lab.html?chain=QQQ_PUT"'), "QQQ LONG PUT chain entry must have a direct route");
-  assert.ok(mainHtml.includes('href="hub_research_pack.html?strategyMode=put-ratio"'), "N:1 Put ratio must have a one-click route");
+  assert.ok(mainHtml.includes('href="hub_research_pack.html?strategyMode=put-ratio&amp;putRatioDirection=long-heavy"'), "N LONG PUT : 1 SHORT PUT must have a direction-specific direct route");
+  assert.ok(mainHtml.includes('href="hub_research_pack.html?strategyMode=put-ratio&amp;putRatioDirection=short-heavy"'), "N SHORT PUT : 1 LONG PUT must have a direction-specific direct route");
+  assert.ok(hubUi.includes('get("putRatioDirection")'), "Hub must restore the requested ratio orientation from the route");
+  assert.ok(hubUi.includes('$("putRatioDirection").value = requestedPutRatioDirection'), "a direct link must not fall back to the opposite default ratio orientation");
   assert.ok(mainHtml.includes('href="hub_research_pack.html?strategyMode=shock-put"'), "shock-gated put-debit lane must have a one-click route");
   assert.ok(hubUi.includes('get("strategyMode")'), "Hub must honor the main-desk direct route");
   assert.ok(fs.readFileSync(require("node:path").join(__dirname, "../STRATEGY_PRESERVATION_REGISTER.md"), "utf8").includes("QQQ PUT N:1 RATIO"));
