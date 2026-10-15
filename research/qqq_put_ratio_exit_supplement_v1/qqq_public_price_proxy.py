@@ -32,6 +32,18 @@ def fetch_text(url: str, timeout: int = 30) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
+def validate_close(value: Any, session_date: date) -> float:
+    if value is None:
+        raise RuntimeError(f"Yahoo chart returned a missing/invalid close for dated bar {session_date.isoformat()}; refusing to bridge the gap.")
+    try:
+        close = float(value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"Yahoo chart returned a non-numeric close for {session_date.isoformat()}.") from exc
+    if not math.isfinite(close) or close <= 0:
+        raise RuntimeError(f"Yahoo chart returned a missing/invalid close for dated bar {session_date.isoformat()}; refusing to bridge the gap.")
+    return round(close, 6)
+
+
 def fetch_qqq(start: date, end: date) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     params = {
         "period1": int(datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc).timestamp()),
@@ -71,11 +83,10 @@ def fetch_qqq(start: date, end: date) -> tuple[list[dict[str, Any]], dict[str, A
             continue
         close = closes[i] if i < len(closes) else None
         adj_close = adj[i] if i < len(adj) else None
-        if close is None or not math.isfinite(float(close)) or float(close) <= 0:
-            raise RuntimeError(f"Yahoo chart returned a missing/invalid close for dated bar {d.isoformat()}; refusing to bridge the gap.")
+        clean_close = validate_close(close, d)
         rows.append({
             "date": d.isoformat(),
-            "raw_close": round(float(close), 6),
+            "raw_close": clean_close,
             "adj_close": round(float(adj_close), 6) if adj_close is not None else None,
             "vix": None,
             "price_source": "Yahoo Finance chart API",
