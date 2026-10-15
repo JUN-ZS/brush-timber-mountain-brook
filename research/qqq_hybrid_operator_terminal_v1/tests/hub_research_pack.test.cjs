@@ -460,7 +460,7 @@ function ratioBase(overrides = {}) {
   assert.ok(primaryUi.includes("syncCapitalContextToHub(false)"), "direct Hub routes must sync without spawning a duplicate window");
   assert.ok(primaryUi.includes('target.searchParams.set("fromPrimary", "1")'), "Hub direct routes must import current NAV/cash/risk context");
   assert.ok(primaryUi.includes("event.preventDefault()"), "failed primary-context sync must not silently open Hub with stale defaults");
-  assert.ok(mainHtml.includes("N=10／N=20 lower-strike SHORT PUTs"), "legacy N10/N20 study must remain discoverable without being conflated with Hub N1-6");
+  assert.ok(mainHtml.includes("N=10／20 lower-strike SHORT PUTs"), "legacy N10/N20 study must remain discoverable without being conflated with Hub N1-6");
   assert.ok(mainHtml.includes("1 LONG higher-strike : 5 SHORT lower-strike"), "legacy 1x5 exit study must remain discoverable");
   const preservationRegister = fs.readFileSync(require("node:path").join(__dirname, "../STRATEGY_PRESERVATION_REGISTER.md"), "utf8");
   assert.ok(preservationRegister.includes("QQQ_PUT_RATIO_N1_LONG_HEAVY"), "preservation register must explicitly retain N LONG PUT : 1 SHORT PUT");
