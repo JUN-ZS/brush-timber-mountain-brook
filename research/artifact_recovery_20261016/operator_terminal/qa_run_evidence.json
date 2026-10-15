@@ -1,0 +1,15 @@
+{
+  "component": "QQQ_HYBRID_OPERATOR_TERMINAL_V1",
+  "source_run_url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37881169553",
+  "observed_attempt": 2,
+  "tested_sha": "0427a5fe77f689f28a063ddbb772b879fe8e854e",
+  "checks": {
+    "engine_test_groups": "PASS (26)",
+    "hub_research_pack_test_groups": "PASS (10)",
+    "static_asset_contract": "PASS",
+    "broker_orders_enabled": false
+  },
+  "artifact_upload": "FAILED",
+  "artifact_upload_error": "GitHub Actions artifact storage quota has been hit; usage recalculation notice says 6-12 hours.",
+  "note": "This is the verified attempt-2 log record. Attempt 3 was requested but remained queued at the last status check; it is not claimed as passed."
+}
