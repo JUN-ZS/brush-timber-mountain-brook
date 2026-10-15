@@ -1,6 +1,10 @@
 "use strict";
 const assert=require("node:assert/strict");
-const X=require("../put_ratio_exit_sensitivity.js");
+const fs=require("node:fs");
+const vm=require("node:vm");
+const sandbox={module:{exports:{}}};
+vm.runInNewContext(fs.readFileSync(require.resolve("../put_ratio_exit_sensitivity.js"),"utf8"),sandbox,{filename:"put_ratio_exit_sensitivity.js"});
+const X=sandbox.module.exports;
 const now=Date.parse("2026-10-15T08:00:00Z");
 function valid(overrides={}){return{nav:1000000,thresholdPct:1,orientation:"short-heavy",ratioN:5,packages:1,longStrike:705,shortStrike:665,longEntryPrice:11.11,shortEntryPrice:2.67,currentLongBid:12.50,currentShortAsk:1.50,commissionPerContractSide:0.65,closeSlippagePerShare:0.05,dte:45,heldSessions:3,spot:728.92,quoteAsOf:"2026-10-15T07:58:00Z",...overrides}}
 function near(a,b,e=0.011){assert.ok(Math.abs(a-b)<=e,"expected "+b+" ± "+e+", got "+a)}
