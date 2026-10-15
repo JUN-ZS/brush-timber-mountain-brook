@@ -112,7 +112,7 @@ scenario("capital-first four-leg plan reproduces a credible $100k scenario", () 
 scenario("over-cap positions trim while market is weakening and new carry stays disabled", () => {
   const r = E.calculatePortfolio(planBase({
     market: snap({ m1: 20, m2: 20.5 }),
-    holdings: { qqqShares: 100, vxxShortShares: 1100, qqqCallSpreads: 2, vxxCallSpreads: 2 },
+    holdings: { qqqShares: 100, vxxShortShares: 1100, qqqCallSpreads: 1, vxxCallSpreads: 2 },
     candidates: { qqqCall: qqqCandidate, vxxCall: vxxCandidate }
   }));
   assert.equal(r.market.state, "WEAKENING");
@@ -120,7 +120,7 @@ scenario("over-cap positions trim while market is weakening and new carry stays 
   assert.equal(row(r, "qqqShares").target, 56);
   assert.equal(row(r, "vxxShortShares").action, "REDUCE");
   assert.equal(row(r, "vxxShortShares").target, 1044);
-  assert.equal(row(r, "qqqCallSpreads").target, 2);
+  assert.equal(row(r, "qqqCallSpreads").target, 1);
   assert.equal(row(r, "qqqCallSpreads").action, "HOLD");
   assert.equal(row(r, "vxxCallSpreads").target, 2);
 });
