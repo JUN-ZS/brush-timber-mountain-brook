@@ -342,3 +342,13 @@ footer{padding:18px;text-align:center;color:#7185a0;border-top:1px solid var(--l
 .decision-value-desk textarea{box-sizing:border-box;width:100%;max-width:100%;min-height:120px;border:1px solid var(--line);border-radius:7px;background:var(--panel);color:var(--text);padding:9px;font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;resize:vertical}
 .decision-value-desk .decision-evidence-details textarea{margin:8px 0}
 .decision-value-desk .position-completeness-confirm{display:block;margin:10px 0;line-height:1.45}
+
+/* Durable discovery routes: research remains visible without entering primary sizing. */
+.preserved-research-tracks{margin:14px 0 18px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.preserved-research-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.preserved-research-head strong{display:block;font-size:13px;letter-spacing:.035em}
+.preserved-research-head p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+.preserved-research-links{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px}
+.preserved-research-links a{display:inline-flex;align-items:center;min-height:34px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;color:var(--text);background:var(--panel);font-size:12px;font-weight:750;text-decoration:none}
+.preserved-research-links a:hover,.preserved-research-links a:focus-visible{border-color:var(--blue);color:var(--blue);outline-offset:2px}
+@media(max-width:760px){.preserved-research-head{flex-direction:column}.preserved-research-links{display:grid;grid-template-columns:1fr}.preserved-research-links a{width:100%;box-sizing:border-box}}

@@ -131,7 +131,7 @@ V3 must be healthy for the read-only market bridge. If it is not available, the 
 - Hub Call Ratio and the explicit QQQ Long Put N:1 / Short QQQ Put ratio (separate research calculator).
 - Legacy QQQ N-far-short / dynamic near-long hedge campaign.
 
-Candidate lookup is available for QQQ/VXX call and put verticals and QQQ long calls/puts. The Hub research page includes a separate QQQ put-ratio calculator: each package buys N higher-strike QQQ puts and sells one lower-strike QQQ put at the same expiry; N is configurable from 1–6. It uses observed-side Long Put Ask and Short Put Bid, terminal-payoff risk, and the remaining research budget; it never enters the main QQQ/VXX CALL risk pool. Manually defined structures require an explicit per-unit maximum-loss or debit input. Missing candidate prices stay PENDING; no credit floor or quantity is invented.
+Candidate lookup is available for QQQ/VXX call and put verticals and QQQ long calls/puts. The QQQ PUT N:1 research lane preserves **both** orientations, N SHORT : 1 LONG and N LONG : 1 SHORT, with N configurable from 1–6 and exact same-expiry QQQ puts. Each direction has its own strike ordering, signed entry debit/credit and terminal payoff; neither direction may be described as guaranteed crash protection. The main terminal exposes persistent direct links to the QQQ PUT chain, the put-ratio selector and the shock-gated put-debit research mode. These are discovery routes only: they do not add Put to the primary call-credit pool or create simultaneous cross-Hub reservations. Manually defined structures require explicit per-unit risk inputs; missing candidate prices stay PENDING.
 
 ## Capital-first planning example
 
@@ -165,7 +165,7 @@ The primary page (http://127.0.0.1:8790/) is the authoritative sizing page. Its 
 
 The two eligible option legs request percentages of NAV but do not each receive an independent entitlement. After usable same-expiry quotes are available, the engine sums their requested risk, proportionally scales requests when they exceed the shared pool, and rounds to whole spreads. A quoted candidate with a budget too small for one whole spread still participates in the requested allocation before integer rounding. VXX put is intentionally excluded from this plan, regardless of whether a separate research quote is found.
 
-VXX put, QQQ bull-put/bear-call, covered calls, protective puts, long/debit options, iron flies/condors, calendars, ratio structures, Hub packages and legacy hedge diagnostics are outside the primary budget. They can remain visible as research references, but receive no primary capacity, target changes, or risk reservation. Do not add their research estimates to the primary table.
+VXX put, QQQ bull-put/bear-call, covered calls, protective puts, long/debit options, iron flies/condors, calendars, QQQ put-ratio directions, Hub packages and legacy hedge diagnostics are outside the primary budget. They receive no primary capacity, target changes or risk reservation. Their research lines must remain discoverable through the visible main-desk routes in [STRATEGY_PRESERVATION_REGISTER.md](STRATEGY_PRESERVATION_REGISTER.md); a temporary simplification of primary sizing is not permission to delete or hide a separate research lane.
 
 The Hub-specific details page (hub_research_pack.html) is a structure/rule inspector, not a second allocation authority. Its standalone maximum must not be added to the primary page's capacities. All actions remain what-if/manual review; no broker order route is present.
 

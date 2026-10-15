@@ -47,12 +47,12 @@
 
     <section class="notice">
       <b>此頁是 Hub 研究結構檢視器，不是獨立資金配置表。</b>
-      <small>Ratio-Call HARVEST50 / Dynamic-N、QQQ Long Put N:1 / Short Put 比例組合、State-Adaptive Geometry、Staggered Stack 及 SHOCK-GATED Put Debit Spread 的細部風險和觸發規則在此檢視；最終可投入數量必須返回主操作台，由 Hybrid + 所有啟用的 Hub 結構共用同一個總風險池按比例分配。不可把此頁獨立顯示的最大值再加到主操作台。</small>
+      <small>本頁保留 Ratio-Call、QQQ LONG PUT、QQQ PUT N:1（N SHORT : 1 LONG 與 N LONG : 1 SHORT）、State-Adaptive、Staggered Stack 及 SHOCK-GATED Put Debit 研究。重要界線：主台目前只把 QQQ CALL-CREDIT 與 VXX CALL-CREDIT 納入主 option-risk pool。Hub 可用匯入的主台剩餘風險情境檢查單一研究結構，但不會把該 Put 風險登記回主台，也不會替多個 Hub 結構做同時、可回寫的共同配置。因此不可把 Hub 輸出的容量當作已預留資金或加到主台目標。</small>
     </section>
 
     <section class="notice">
       <b>配置權限：</b><a href="index.html">返回主操作台的共同風險分配表 →</a>
-      <small>主操作台的各個「Requested risk % NAV」共用一份預算。這頁的單一結構試算只供研究幾何／觸發分析，絕不能與主操作台的容量相加。</small>
+      <small>主台的「Requested risk % NAV」目前只協調 QQQ／VXX 兩條 Call-Credit。Hub 的預留額是讀取當時主台快照後的單次研究試算上限，不是主台已登記的增量持倉，也不會跨多個 Hub 研究結構自動鎖定額度；若要整合 Put，必須另外實作有持倉登記、同一資金池多策略分配與回歸測試的整合層。</small>
     </section>
 
     <section class="card">

@@ -447,6 +447,13 @@ function ratioBase(overrides = {}) {
   assert.ok(hubUi.includes("E.calculatePutRatio"));
   assert.ok(hubUi.includes("SELL TO OPEN"));
   assert.ok(mainHtml.includes("QQQ Put Ratio (N SHORT : 1 LONG / N LONG : 1 SHORT)"));
+  assert.ok(mainHtml.includes('id="preservedResearchTracks"'), "main terminal must keep Put research discoverable above the long dashboard");
+  assert.ok(mainHtml.includes('href="option_chain_lab.html?chain=QQQ_PUT"'), "QQQ LONG PUT chain entry must have a direct route");
+  assert.ok(mainHtml.includes('href="hub_research_pack.html?strategyMode=put-ratio"'), "N:1 Put ratio must have a one-click route");
+  assert.ok(mainHtml.includes('href="hub_research_pack.html?strategyMode=shock-put"'), "shock-gated put-debit lane must have a one-click route");
+  assert.ok(hubUi.includes('get("strategyMode")'), "Hub must honor the main-desk direct route");
+  assert.ok(fs.readFileSync(require("node:path").join(__dirname, "../STRATEGY_PRESERVATION_REGISTER.md"), "utf8").includes("QQQ PUT N:1 RATIO"));
+  assert.ok(!hubHtml.includes("由 Hybrid + 所有啟用的 Hub 結構共用同一個總風險池按比例分配"), "Hub must not claim a multi-structure allocator that is not wired");
   assert.ok(mainHtml.includes('Only those two defined-risk credit verticals share the option max-loss pool'));
 }
 

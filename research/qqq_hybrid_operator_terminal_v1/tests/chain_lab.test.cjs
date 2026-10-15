@@ -700,5 +700,12 @@ assert.ok(statusOfBlockIndex >= 0 && statusOfPendingIndex > statusOfBlockIndex, 
   }).ok,false,"invalid expiry is blocked");
 }
 assert.ok(fs.readFileSync(require.resolve("../option_chain_lab.html"),"utf8").includes('id="qqqPutRatioDetails"'),"put ratio UI must be collapsed by default");
+{
+  const labSource=fs.readFileSync(require.resolve("../option_chain_lab.js"),"utf8");
+  const mainHtml=fs.readFileSync(require.resolve("../index.html"),"utf8");
+  assert.ok(mainHtml.includes('href="option_chain_lab.html?chain=QQQ_PUT"'), "main desk must expose a direct QQQ PUT research route");
+  assert.ok(labSource.includes('new URLSearchParams(win.location&&win.location.search||"").get("chain")'), "deep link must select a chain without fabricating quotes");
+  assert.ok(labSource.includes('if(Object.prototype.hasOwnProperty.call(chains,requestedChain))active=requestedChain'), "requested chain must be validated against known chain keys");
+}
 
 console.log("option_chain_lab=PASS; put_ratio_backspread=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS; paper_observation_journal=PASS");

@@ -446,6 +446,11 @@
       : "原 Hybrid 預留風險為 UNKNOWN；此欄空白時 Hub 保持 PENDING，不會當成 $0。";
     render();
   });
-  if (new URLSearchParams(window.location.search).get("fromPrimary") === "1") importPrimaryContext();
+  const routeParams = new URLSearchParams(window.location.search);
+  const requestedResearchMode = routeParams.get("strategyMode");
+  if (requestedResearchMode === "put-ratio" || requestedResearchMode === "shock-put") {
+    $("strategyMode").value = requestedResearchMode;
+  }
+  if (routeParams.get("fromPrimary") === "1") importPrimaryContext();
   render();
 })();
