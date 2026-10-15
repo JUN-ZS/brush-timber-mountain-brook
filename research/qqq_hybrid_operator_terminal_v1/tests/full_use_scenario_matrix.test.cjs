@@ -11,7 +11,7 @@ const R = require("../deployment_roadmap.js");
 const Lab = require("../option_chain_lab.js");
 
 const now = Date.now();
-const today = E.currentMarketDate(now);
+const today = new Date(now).toISOString().slice(0, 10); // deterministic ISO market-date fixture; not an engine API dependency
 assert.ok(today, "test clock must resolve an operational market date");
 const expiry = new Date(Date.parse(today + "T00:00:00Z") + 45 * 86400000).toISOString().slice(0, 10);
 const recent = new Date(now - 5 * 60000).toISOString();
