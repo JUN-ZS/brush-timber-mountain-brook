@@ -1,0 +1,63 @@
+{
+  "schema": "app-artifact-recovery.v1",
+  "created_utc": "2026-10-16",
+  "repository": "JUN-ZS/brush-timber-mountain-brook",
+  "branch": "research/app-artifact-recovery-20261016",
+  "base_sha": "cc5ab6ed6dcfa40739bfde04577211a3567cddcd",
+  "recovery_method": "save complete JSON objects and QA marker only when printed in retained Actions job logs",
+  "original_zip_artifacts_restored": false,
+  "missing_unprinted_csvs_reconstructed": false,
+  "runs": [
+    {
+      "name": "operator-terminal-qa",
+      "run_id": 37881169553,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37881169553",
+      "attempt2": "tests passed; artifact upload quota failure",
+      "attempt3": "queued at last status check"
+    },
+    {
+      "name": "profit-trend-v1",
+      "run_id": 37845459299,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37845459299",
+      "status": "replays and contract checks passed; upload quota failure"
+    },
+    {
+      "name": "vxx-short-call-put-v1",
+      "run_id": 37866573537,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37866573537",
+      "status": "report JSON and contract checks passed; upload quota failure"
+    },
+    {
+      "name": "order-machine-replay-v1",
+      "run_id": 37184309811,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37184309811",
+      "status": "153-window JSON emitted; upload quota failure"
+    },
+    {
+      "name": "original-hybrid-real-vx",
+      "run_id": 37506316510,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37506316510",
+      "status": "REAL VX build/replay/contract checks passed; upload quota failure; external price validation FAIL"
+    },
+    {
+      "name": "qqq-put-ratio-exit-study-v1",
+      "run_id": 38778540717,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38778540717",
+      "status": "success; outputs persisted on its own research branch"
+    }
+  ],
+  "files": [
+    "operator_terminal/qa_summary.txt",
+    "operator_terminal/qa_run_evidence.json",
+    "profit_trend/baseline_run_summary.json",
+    "profit_trend/dynamic_v1_1_run_summary.json",
+    "profit_trend/vxx_call_spread_contribution.json",
+    "vxx_short_call_put/strategy_report.json",
+    "order_machine/RESULTS_ORDER_MACHINE_REPLAY.json",
+    "real_vx/real_vx_build_summary.json",
+    "real_vx/external_source_validation.json",
+    "real_vx/source_swap_parity.json",
+    "real_vx/delayed_vx_snapshot_2026-10-15.json",
+    "real_vx/historical_state_replay_summary.json"
+  ]
+}
