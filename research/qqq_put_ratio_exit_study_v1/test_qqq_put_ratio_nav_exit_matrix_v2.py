@@ -50,10 +50,10 @@ class MatrixTests(unittest.TestCase):
         self.assertIsNotNone(q);self.assertEqual(status,"OK")
 
     def test_displayed_entry_depth_caps_nav_budget_package_count(self):
-        trade={"n_long":1,"n_short":5,"long_strike":105.0,"short_strike":90.0,
-               "entry_quotes":{"long":{"ask":7.2,"bid_size":50,"ask_size":4},
-                               "short":{"bid":1.0,"ask_size":15,"bid_size":7}}}
-        cap=M.package_capacity(trade,1000000,1.0,0.05,0.65)
+        trade={"n_long":1,"n_short":5,"long_strike":21.0,"short_strike":20.0,
+               "entry_quotes":{"long":{"ask":2.0,"bid":1.8,"bid_size":50,"ask_size":4},
+                               "short":{"bid":1.0,"ask":1.2,"ask_size":15,"bid_size":7}}}
+        cap=M.package_capacity(trade,1000000,2.0,0.05,0.65)
         self.assertGreater(cap["risk_budget_capacity_packages"],cap["entry_depth_capacity_packages"])
         self.assertEqual(cap["entry_depth_capacity_packages"],1)
         self.assertEqual(cap["packages"],1)
