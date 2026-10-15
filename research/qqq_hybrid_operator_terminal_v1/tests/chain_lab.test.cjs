@@ -704,8 +704,13 @@ assert.ok(fs.readFileSync(require.resolve("../option_chain_lab.html"),"utf8").in
   const labSource=fs.readFileSync(require.resolve("../option_chain_lab.js"),"utf8");
   const mainHtml=fs.readFileSync(require.resolve("../index.html"),"utf8");
   assert.ok(mainHtml.includes('href="option_chain_lab.html?chain=QQQ_PUT"'), "main desk must expose a direct QQQ PUT research route");
-  assert.ok(labSource.includes('new URLSearchParams(win.location&&win.location.search||"").get("chain")'), "deep link must select a chain without fabricating quotes");
-  assert.ok(labSource.includes('if(Object.prototype.hasOwnProperty.call(chains,requestedChain))active=requestedChain'), "requested chain must be validated against known chain keys");
+  assert.equal(Lab.resolveInitialChain("?chain=QQQ_PUT"), "QQQ_PUT", "the QQQ LONG PUT direct route must select the QQQ PUT chain");
+  assert.equal(Lab.resolveInitialChain("?chain=QQQ_CALL"), "QQQ_CALL");
+  assert.equal(Lab.resolveInitialChain("?chain=VXX_PUT"), "VXX_PUT");
+  assert.equal(Lab.resolveInitialChain("?chain=NOT_A_CHAIN"), "QQQ_CALL", "unknown routes must fall back safely");
+  assert.equal(Lab.resolveInitialChain(""), "QQQ_CALL");
+  assert.deepEqual(JSON.parse(JSON.stringify(Lab.SAMPLE.chains.QQQ_PUT)), [], "routing to QQQ PUT must not fabricate a quote chain");
+  assert.ok(labSource.includes("active=resolveInitialChain(win.location&&win.location.search||\"\")"), "actual UI initialization must use the unit-tested route resolver");
 }
 
 console.log("option_chain_lab=PASS; put_ratio_backspread=PASS; ai_handoff=PASS; compact_ui=PASS; quote_quality=PASS; position_register=PASS; risk_credit_units=PASS; partial_risk_kpi=PASS; paper_observation_journal=PASS");
