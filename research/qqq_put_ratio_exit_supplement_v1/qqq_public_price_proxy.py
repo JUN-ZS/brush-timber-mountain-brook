@@ -23,6 +23,7 @@ HORIZONS = (1, 3, 5, 10, 20, 30, 45)
 SOURCE_END = date(2025, 12, 15)
 YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/QQQ"
 YAHOO_VIX_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX"
+YAHOO_VXN_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/%5EVXN"
 FRED_CSV = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS"
 USER_AGENT = "Mozilla/5.0 (compatible; QQQResearchSupplement/1.0)"
 
@@ -250,6 +251,80 @@ def vix_label(value: float | None) -> str | None:
     return "VIX_GTE35"
 
 
+def vxn_label(value: float | None) -> str | None:
+    if value is None:
+        return None
+    # VXN usually runs at a different level from VIX; use separately named buckets.
+    if value < 20:
+        return "VXN_LT20"
+    if value < 30:
+        return "VXN_20_30"
+    if value < 40:
+        return "VXN_30_40"
+    return "VXN_GTE40"
+
+
+
+def parse_yahoo_vxn_payload(payload: dict[str, Any], start: date, end: date) -> tuple[dict[str, float], dict[str, Any]]:
+    chart = payload.get("chart") or {}
+    if chart.get("error"):
+        raise RuntimeError(f"Yahoo ^VXN chart API error: {chart['error']}")
+    results = chart.get("result") or []
+    if not results:
+        raise RuntimeError("Yahoo ^VXN chart API returned no observations.")
+    item = results[0]
+    timestamps = item.get("timestamp") or []
+    quotes = ((item.get("indicators") or {}).get("quote") or [{}])[0]
+    closes = quotes.get("close") or []
+    values: dict[str, float] = {}
+    for i, ts in enumerate(timestamps):
+        d = datetime.fromtimestamp(int(ts), tz=timezone.utc).date()
+        if d < start or d > end:
+            continue
+        raw = closes[i] if i < len(closes) else None
+        # Missing VXN observations stay missing; never forward-fill an implied-volatility proxy.
+        if raw is None:
+            continue
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(val) and val > 0:
+            values[d.isoformat()] = val
+    if not values:
+        raise RuntimeError("Yahoo ^VXN chart API contained no valid daily Close observations.")
+    return values, {
+        "source": "Yahoo Finance chart API ^VXN daily Close",
+        "url": YAHOO_VXN_CHART,
+        "observations": len(values),
+        "first_date": min(values),
+        "last_date": max(values),
+        "note": "Nasdaq-100 implied-volatility index proxy; not a QQQ option IV/skew surface and not executable option data. Missing days are not forward-filled."
+    }
+
+
+def fetch_yahoo_vxn(start: date, end: date) -> tuple[dict[str, float], dict[str, Any]]:
+    params = {
+        "period1": int(datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc).timestamp()),
+        "period2": int(datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc).timestamp()),
+        "interval": "1d",
+        "events": "history"
+    }
+    url = YAHOO_VXN_CHART + "?" + urlencode(params)
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            payload = json.loads(fetch_text(url, timeout=20))
+            values, meta = parse_yahoo_vxn_payload(payload, start, end)
+            meta["url"] = url
+            return values, meta
+        except Exception as exc:
+            last_error = exc
+            if attempt < 1:
+                time.sleep(1.0)
+    raise RuntimeError(f"Yahoo ^VXN daily history unavailable: {last_error}")
+
+
 def wilson95(k: int, n: int) -> tuple[float | None, float | None]:
     if n <= 0:
         return None, None
@@ -281,11 +356,13 @@ def price_stats(rows: list[dict[str, Any]], rv: list[float | None], period_start
             ret = last / first - 1
             obj = {"index": i, "return": ret, "rv": rv[i], "vix": v}
             groups["ALL"].append(obj)
-            rlabel, vlabel = rv_label(rv[i]), vix_label(v)
+            rlabel, vlabel, xnlabel = rv_label(rv[i]), vix_label(v), vxn_label(rows[i].get("vxn"))
             if rlabel:
                 groups.setdefault(rlabel, []).append(obj)
             if vlabel:
                 groups.setdefault(vlabel, []).append(obj)
+            if xnlabel:
+                groups.setdefault(xnlabel, []).append(obj)
         for state, items in sorted(groups.items()):
             returns = [float(x["return"]) for x in items]
             n = len(returns)
@@ -347,8 +424,14 @@ def run(start: date, source_end: date, end: date, out: Path) -> dict[str, Any]:
         vix_status = "OK_YAHOO_FALLBACK" if vix_meta.get("fallback_used") else "OK_FRED"
     except Exception as exc:
         vix_map, vix_meta, vix_status = {}, {"source": "FRED VIXCLS then Yahoo ^VIX fallback", "error": str(exc)}, "UNAVAILABLE_RV_ONLY"
+    try:
+        vxn_map, vxn_meta = fetch_yahoo_vxn(start, end)
+        vxn_status = "OK_YAHOO"
+    except Exception as exc:
+        vxn_map, vxn_meta, vxn_status = {}, {"source": "Yahoo Finance chart API ^VXN", "error": str(exc)}, "UNAVAILABLE_VXN_PROXY_ONLY"
     for row in rows:
         row["vix"] = vix_map.get(row["date"])
+        row["vxn"] = vxn_map.get(row["date"])
     rv = rv_buckets(rows)
     full_start, full_end = start, date.fromisoformat(rows[-1]["date"])
     base_stats = price_stats(rows, rv, start, source_end, "YAHOO_PRICE_WINDOW_2018_03_TO_2025_12_15")
@@ -367,6 +450,7 @@ def run(start: date, source_end: date, end: date, out: Path) -> dict[str, Any]:
         "option_chain_boundary": SOURCE_END.isoformat(),
         "yahoo": yahoo_meta,
         "vix_proxy": {**vix_meta, "status": vix_status},
+        "vxn_proxy": {**vxn_meta, "status": vxn_status},
         "current_tape_observations": {
             "last_7_session_peak_close_usd": round(recent_peak, 4),
             "last_close_usd": round(recent_last, 4),
@@ -399,6 +483,7 @@ def run(start: date, source_end: date, end: date, out: Path) -> dict[str, Any]:
         f"- Yahoo daily Close window: {rows[0]['date']} to {rows[-1]['date']} ({len(rows)} observations).",
         f"- Option mirror boundary: {SOURCE_END.isoformat()}; use the post-boundary probability rows as an underlying-only sensitivity, not an option replay.",
         f"- Broad-market VIX proxy status: {vix_status}; source: {vix_meta.get('source', 'unavailable')}. This is not QQQ option IV/skew.",
+        f"- Nasdaq-100 VXN proxy status: {vxn_status}; source: {vxn_meta.get('source', 'unavailable')}. This is not a QQQ option IV/skew surface.",
         f"- Recent peak-to-last (up to 7 close-to-close sessions): {meta['current_tape_observations']['peak_to_last_pct']}%.",
         "",
         "## Downside frequencies by period",
@@ -407,7 +492,7 @@ def run(start: date, source_end: date, end: date, out: Path) -> dict[str, Any]:
         "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
     ]
     for item in base_stats + ext_stats:
-        if item["state"] != "ALL" or item["horizon_sessions"] not in (5, 10, 20, 45):
+        if item["state"] not in ("ALL", "VXN_20_30", "VXN_30_40", "VXN_GTE40", "VIX_25_35", "VIX_GTE35") or item["horizon_sessions"] not in (5, 10, 20, 45):
             continue
         lo, hi = item.get("p_down_5pct_wilson95_nominal_low"), item.get("p_down_5pct_wilson95_nominal_high")
         ci = "—" if lo is None else f"{lo}%–{hi}%"
