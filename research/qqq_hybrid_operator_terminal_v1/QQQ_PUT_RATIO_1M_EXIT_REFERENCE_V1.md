@@ -105,7 +105,13 @@ A 0.5% / 1% / 2% NAV loss budget at $1m is $5,000 / $10,000 / $20,000. The obser
 - Main terminal risk whitelist remains QQQ call-credit and VXX call-credit only. This work preserves QQQ Put research and does not silently activate it, merge the two N:1 directions, alter Frozen Original Hybrid or authorize broker orders.
 
 
-## 8. Interactive NAV-bar exit measurement contract
+## 8. Underlying volatility/time context (supporting evidence, not option P&L)
+
+The matrix reports QQQ forward-return distributions for 1/3/5/10/20/30/45 observed sessions; conditional frequencies by entry-date VIX proxy; rolling 10/20/30/60-session realized volatility; and forward-return frequencies conditioned on trailing 20-session QQQ realized-volatility bands (<20%, 20–35%, ≥35% annualized). The trailing RV band is computed only from returns available at that entry-date close.
+
+A separate event study selects dates only after the preceding three-session QQQ close-to-close move has reached +3% or +5%, then measures following 1/3/5/10-session returns. Event dates and forward windows overlap, so probabilities are descriptive historical frequencies, not independent-trial forecasts. These underlying-only layers help quantify time/volatility context but cannot answer whether a Put Ratio position should exit; that comparison uses after-cost option P&L at observed leg marks as % NAV and contrasts full close with reducing short exposure. A rise in QQQ alone is not an option P&L exit trigger.
+
+## 9. Interactive NAV-bar exit measurement contract
 
 Hub exposes a draggable candidate threshold from 0.1% to 3.0% NAV (default 1.0%), plus 0.5% / 1.0% / 2.0% comparison points. At $1,000,000 NAV, these points are $5,000 / $10,000 / $20,000. A $1,000 position gain is 0.10% of a $1m NAV, not the historical $1,000-per-$100k (1%) normalized reference.
 

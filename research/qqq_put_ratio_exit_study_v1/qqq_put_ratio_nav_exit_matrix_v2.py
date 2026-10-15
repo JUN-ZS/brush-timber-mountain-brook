@@ -137,6 +137,52 @@ def build_volatility_time_profile(expected:list[str],spots:dict[str,Any],univers
     for i in range(1,len(bars)):
         a,b=bars[i-1]["close"],bars[i]["close"]
         daily.append(math.log(b/a) if a and b and a>0 and b>0 else None)
+    # Pre-registered absolute RV bands: <20%, 20-35%, >=35% annualized.
+    # RV uses returns available at the entry-date close only.
+    rv20_by_index=[None]*len(bars)
+    for i in range(20,len(bars)):
+        xs=daily[i-19:i+1]
+        if len(xs)==20 and not any(x is None for x in xs):
+            rv20_by_index[i]=statistics.stdev(xs)*math.sqrt(252)*100
+    def rv20_bucket(value):
+        if value is None:return "UNKNOWN"
+        if value<20:return "RV20_LT20"
+        if value<35:return "RV20_20_35"
+        return "RV20_GTE35"
+    conditional_rv=[]
+    for h in (3,5,10,20,45):
+        grouped=defaultdict(list)
+        for i in range(len(bars)-h):
+            a,b=bars[i],bars[i+h]
+            if a["close"] is None or b["close"] is None or a["close"]<=0 or b["close"]<=0:continue
+            grouped[rv20_bucket(rv20_by_index[i])].append(100*(b["close"]/a["close"]-1))
+        for bucket in ("RV20_LT20","RV20_20_35","RV20_GTE35","UNKNOWN"):
+            xs=grouped.get(bucket,[])
+            conditional_rv.append({"horizon_sessions":h,"entry_rv20_bucket":bucket,**distribution(xs),
+                "gain_ge_3pct":event_rate(xs,lambda x:x>=3),"gain_ge_5pct":event_rate(xs,lambda x:x>=5),
+                "loss_le_minus3pct":event_rate(xs,lambda x:x<=-3),"loss_le_minus5pct":event_rate(xs,lambda x:x<=-5),
+                "loss_le_minus10pct":event_rate(xs,lambda x:x<=-10)})
+    # Event study after prior 3-session QQQ return has reached +3% / +5%.
+    # Event dates and forward windows overlap; these are descriptive, not independent trials.
+    surge_study=[]
+    for surge_threshold in (3.0,5.0):
+        event_indices=[]
+        for i in range(3,len(bars)):
+            a,b=bars[i-3],bars[i]
+            if a["close"] is not None and b["close"] is not None and a["close"]>0 and b["close"]>0:
+                if 100*(b["close"]/a["close"]-1)>=surge_threshold:event_indices.append(i)
+        for h in (1,3,5,10):
+            forward=[]
+            for i in event_indices:
+                if i+h>=len(bars):continue
+                a,b=bars[i],bars[i+h]
+                if a["close"] is not None and b["close"] is not None and a["close"]>0 and b["close"]>0:
+                    forward.append(100*(b["close"]/a["close"]-1))
+            surge_study.append({"prior_3_session_return_ge_pct":surge_threshold,"forward_horizon_sessions":h,
+                **distribution(forward),"negative_forward_return":event_rate(forward,lambda x:x<0),
+                "forward_loss_le_minus3pct":event_rate(forward,lambda x:x<=-3),
+                "forward_gain_ge_3pct":event_rate(forward,lambda x:x>=3),
+                "forward_gain_ge_5pct":event_rate(forward,lambda x:x>=5),"overlapping_event_dates":True})
     rv=[]
     for window in RV_WINDOWS:
         vals=[]; by_bucket=defaultdict(list)
@@ -152,6 +198,8 @@ def build_volatility_time_profile(expected:list[str],spots:dict[str,Any],univers
             "expected_sessions":len(bars),"observed_close_sessions":len(observed_days),
             "missing_expected_close_sessions":len(bars)-len(observed_days),
             "horizon_returns":horizons,"conditional_by_vix_proxy":conditional,
+            "conditional_by_entry_rv20":conditional_rv,"prior_3_session_surge_forward_study":surge_study,
+            "entry_rv20_bands_pct_annualized":{"RV20_LT20":"<20%","RV20_20_35":"20% to <35%","RV20_GTE35":">=35%"},
             "rolling_realized_volatility":rv,
             "interpretation":"Overlapping historical QQQ close-to-close frequencies are not independent-trial forecasts or probabilities of a specific option package profiting. VIX is S&P 500 implied-volatility context, not the QQQ option IV surface. Missing endpoint closes are excluded."}
 
@@ -365,7 +413,7 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
                                            "entry_depth_limited":cap["depth_limited"],
                                            "terminal_max_loss_per_package_usd":cap["risk"]["terminal_max_loss_usd"]})
                             results.append(result);episode_rows.append(result)
-                        summary=policy_summary(results,len(trades),blocked)
+                        summary=summarize_policy(results,len(trades),blocked)
                         policy_rows.append({"orientation":o,"n":n,"nav_usd":nav,"risk_budget_pct_nav":budget_pct,"cost_case":costs["name"],
                             "policy":policy["name"],"policy_kind":policy["kind"],"action":policy["action"],
                             "target_pct_nav":policy.get("target_pct"),"target_usd":policy.get("target_usd"),
@@ -399,7 +447,13 @@ def render_markdown(report:dict[str,Any])->str:
     "","## QQQ underlying return distributions by horizon (not option P&L probabilities)","","| Horizon | N | Median return | P(+3% or more) | P(+5% or more) | P(-3% or worse) | P(-5% or worse) | P(-10% or worse) |","|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for x in report["underlying_volatility_time_profile"]["horizon_returns"]:
         lines.append(f"| {x['horizon_sessions']} | {x['observations']} | {x['median']}% | {x['gain_ge_3pct']['probability_pct']}% | {x['gain_ge_5pct']['probability_pct']}% | {x['loss_le_minus3pct']['probability_pct']}% | {x['loss_le_minus5pct']['probability_pct']}% | {x['loss_le_minus10pct']['probability_pct']}% |")
-    lines+=["","## N=1-6, both directions, NAV and risk-budget sizing","","| Direction | N | NAV | Risk budget | Cost | Episodes | Median max loss/package | Median loss % NAV | Episodes fit ≥1 package | Median packages | DTE7 P&L | 3-day 0.5% close | 3-day 0.5% trim | 5-day 1% close | 5-day 1% trim |","|---|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    lines+=["","## Forward returns conditioned on trailing 20-session realized volatility","","Bands are fixed before comparing exit policies: <20%, 20–35%, and ≥35% annualized. RV uses only data through the entry-date close. These are QQQ-underlying frequencies, not option-profit probabilities.","","| Horizon | Entry RV20 band | N | Median return | P(+3%) | P(+5%) | P(≤−3%) | P(≤−5%) | P(≤−10%) |","|---:|---|---:|---:|---:|---:|---:|---:|---:|"]
+    for x in report["underlying_volatility_time_profile"]["conditional_by_entry_rv20"]:
+        lines.append(f"| {x['horizon_sessions']} | {x['entry_rv20_bucket']} | {x['observations']} | {x['median']}% | {x['gain_ge_3pct']['probability_pct']}% | {x['gain_ge_5pct']['probability_pct']}% | {x['loss_le_minus3pct']['probability_pct']}% | {x['loss_le_minus5pct']['probability_pct']}% | {x['loss_le_minus10pct']['probability_pct']}% |")
+    lines+=["","## Outcomes after a 3-session QQQ surge","","The event is defined after the preceding three-session return has already reached +3% or +5%. Forward windows and event dates overlap; results are descriptive, not independent trials. A spot surge alone is not an option exit rule.","","| Prior 3-session return | Forward sessions | N | Median forward return | P(next return < 0) | P(≤−3%) | P(≥+3%) | P(≥+5%) |","|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    for x in report["underlying_volatility_time_profile"]["prior_3_session_surge_forward_study"]:
+        lines.append(f"| ≥{x['prior_3_session_return_ge_pct']:g}% | {x['forward_horizon_sessions']} | {x['observations']} | {x['median']}% | {x['negative_forward_return']['probability_pct']}% | {x['forward_loss_le_minus3pct']['probability_pct']}% | {x['forward_gain_ge_3pct']['probability_pct']}% | {x['forward_gain_ge_5pct']['probability_pct']}% |")
+    lines+=[""],"## N=1-6, both directions, NAV and risk-budget sizing","","| Direction | N | NAV | Risk budget | Cost | Episodes | Median max loss/package | Median loss % NAV | Episodes fit ≥1 package | Median packages | DTE7 P&L | 3-day 0.5% close | 3-day 0.5% trim | 5-day 1% close | 5-day 1% trim |","|---|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     capacity=report["capacity_summary"];policies=report["policy_summary"]
     for x in capacity:
         if x["cost_case"]!="BASE_COST":continue

@@ -23,6 +23,12 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual({x["horizon_sessions"] for x in report["horizon_returns"]},{1,3,5,10,20,30,45})
         self.assertEqual({x["window_sessions"] for x in report["rolling_realized_volatility"]},{10,20,30,60})
         self.assertIn("not independent-trial forecasts",report["interpretation"])
+        rv_buckets={x["entry_rv20_bucket"] for x in report["conditional_by_entry_rv20"]}
+        self.assertTrue({"RV20_LT20","RV20_20_35","RV20_GTE35"}.issubset(rv_buckets))
+        surge=report["prior_3_session_surge_forward_study"]
+        self.assertEqual({x["prior_3_session_return_ge_pct"] for x in surge},{3.0,5.0})
+        self.assertEqual({x["forward_horizon_sessions"] for x in surge},{1,3,5,10})
+        self.assertTrue(all(x["overlapping_event_dates"] for x in surge))
         spots.pop(days[-1])
         partial=M.build_volatility_time_profile(days,spots,universe)
         self.assertEqual(partial["source_end"],days[-2])
@@ -58,6 +64,25 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual(cap["entry_depth_capacity_packages"],1)
         self.assertEqual(cap["packages"],1)
         self.assertTrue(cap["depth_limited"])
+
+    def test_policy_summary_reports_resolved_and_missing_cases_separately(self):
+        results=[
+            {"resolved":True,"final_pnl_usd":100.0,"packages":1,"custom_triggered":True,"dte7_fallback_triggered":False,
+             "mark_coverage_pct":100.0,"missing_mark_sessions":0,"deferred_action_sessions":0},
+            {"resolved":True,"final_pnl_usd":-50.0,"packages":2,"custom_triggered":False,"dte7_fallback_triggered":True,
+             "mark_coverage_pct":90.0,"missing_mark_sessions":1,"deferred_action_sessions":1},
+            {"resolved":False,"final_pnl_usd":None,"packages":1,"custom_triggered":False,"dte7_fallback_triggered":False,
+             "mark_coverage_pct":70.0,"missing_mark_sessions":3,"deferred_action_sessions":0},
+        ]
+        s=M.summarize_policy(results,candidate_n=4,blocked=1)
+        self.assertEqual(s["candidate_episodes"],4)
+        self.assertEqual(s["episodes_fitting_budget"],3)
+        self.assertEqual(s["resolved_episodes"],2)
+        self.assertEqual(s["unresolved_episodes"],1)
+        self.assertEqual(s["net_pnl_sum_usd"],50.0)
+        self.assertEqual(s["win_rate_pct"],50.0)
+        self.assertEqual(s["custom_triggered_episodes"],1)
+        self.assertEqual(s["dte7_fallback_episodes"],1)
 
     def test_dte_baseline_and_first_session_exit_policies_are_distinct(self):
         p=M.make_policies(1000000,1.0,"short-heavy",1)
