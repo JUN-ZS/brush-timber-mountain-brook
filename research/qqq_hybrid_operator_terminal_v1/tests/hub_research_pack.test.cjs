@@ -468,7 +468,11 @@ function ratioBase(overrides = {}) {
   assert.ok(hubHtml.includes('id="putRatioExit05Usd"') && hubHtml.includes('id="putRatioExit10Usd"') && hubHtml.includes('id="putRatioExit20Usd"'));
   assert.ok(hubUi.includes('E.calculateNavExitReferences(n("nav", null))'), "threshold dollar values must derive from the current NAV input");
   assert.ok(hubHtml.includes("首 5 個持倉交易日"), "fast-exit small-sample warning must remain visible");
-  assert.ok(hubHtml.includes("10.64% / 21.47%"), "short-heavy historical terminal tail-risk reference must remain visible");
+  assert.ok(hubHtml.includes("10.64% / 21.47%"), "short-heavy historical terminal tail-risk reference must remain visible"); 
+  const exitReference = fs.readFileSync(require("node:path").join(__dirname, "../QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md"), "utf8");
+  assert.ok(exitReference.includes("Worked $1m model scenario — not an observed option chain"), "modelled N-sweep example must be explicitly labelled hypothetical");
+  assert.ok(exitReference.includes("N=2–6 all exceed a 2% NAV tail budget"), "tail-budget gate must remain explicit");
+  assert.ok(exitReference.includes("does not model path-dependent margin calls or forced liquidation"), "terminal-payoff caveat must not disappear");
   assert.ok(hubHtml.includes("QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md"), "full reference report must be linked from Hub");
   assert.ok(hubHtml.includes("BUY TO OPEN"));
   assert.ok(hubUi.includes("E.calculatePutRatio"));

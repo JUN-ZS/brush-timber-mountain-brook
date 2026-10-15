@@ -63,13 +63,35 @@ A future shadow test should separately register:
 
 Missing or stale quotes must remain PENDING; an intraday touch cannot be inferred from an EOD mark.
 
-## 5. Tail risk is the first gating issue for short-heavy 1x5
+## 5. Worked $1m model scenario — not an observed option chain
+
+This is an illustrative model calculation so the N sensitivity is numerically visible, **not** a quote, a backtest, or a live ticket.
+
+Assumptions: QQQ reference close $728.92 (2026-10-14); 45 calendar days to expiry; flat 22% volatility; 3.75% annual risk-free rate; standard 100 multiplier. Black–Scholes gives approximately $11.06 for the $705 long put (absolute delta about 0.298) and $2.72 for the $665 short put (absolute delta about 0.099). For the entry scenario only, approximate the long Ask as model value + $0.05 and the short Bid as model value − $0.05; charge $0.65 per contract for entry commission. Actual expiry, bid/ask, displayed size, volatility skew, costs, assignment and margin are not authenticated.
+
+For N short puts at $665 and one long put at $705:
+- Entry net cash flow (positive = credit, negative = debit) = (100[N(2.7246-0.05)-(11.0642+0.05)]-0.65(N+1)).
+- P&L if QQQ settles at $0 = entry net cash flow + (100(705-N\times665)).
+- For N≥2, the zero-price outcome is the modeled terminal tail loss. For N=1 this is a 1×1 debit put vertical, not a short-heavy ratio; its maximum terminal loss is the entry debit.
+
+| N SHORT : 1 LONG | Modeled entry cash flow | P&L at QQQ = $0 | Estimated max terminal loss | % of $1m NAV |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 : 1 | $845.25 debit | +$3,154.75 | $845.25 | 0.085% |
+| 2 : 1 | $578.44 debit | −$63,078.44 | $63,078.44 | 6.308% |
+| 3 : 1 | $311.63 debit | −$129,311.63 | $129,311.63 | 12.931% |
+| 4 : 1 | $44.81 debit | −$195,544.81 | $195,544.81 | 19.554% |
+| 5 : 1 | $222.00 credit | −$261,778.00 | $261,778.00 | 26.178% |
+| 6 : 1 | $488.82 credit | −$328,011.18 | $328,011.18 | 32.801% |
+
+**What this scenario says:** under this particular assumed strike pair, N=2–6 all exceed a 2% NAV tail budget ($20,000). The credit received for N=5 or N=6 is tiny beside the zero-price tail. N=1 fits the budget but is not an asymmetric short-heavy ratio. This is not enough to choose a current trade: actual strikes/expiry/quotes can materially change the result, and the $0 payoff does not model path-dependent margin calls or forced liquidation. The Hub must remain PENDING until the current broker chain and contract terms have been checked.
+
+## 6. Tail risk is the first gating issue for short-heavy 1x5
 
 In the historical 1x5 sample, the median terminal loss if QQQ settled at $0 was **$106,392.40**, and the maximum observed case was **$214,696.90**. Scaled only as a reference to $1,000,000 NAV, that is approximately **10.64%** and **21.47%** of NAV. Actual loss varies with the selected expiry, strikes and entry credit; zero-price intrinsic arithmetic is not a forecast and is not the broker's margin requirement. It also omits interim volatility/margin calls, early assignment and forced liquidation.
 
 A 0.5% / 1% / 2% NAV loss budget at $1m is $5,000 / $10,000 / $20,000. The observed median 1x5 terminal-tail amount exceeds every one of these budgets. Thus the historical short-heavy 1x5 structure is **not cleared** by a low single-digit NAV tail budget on these observed contracts. Do not use the Hub package-count result as proof of adequate margin or capacity.
 
-## 6. Current decision boundary and next tests
+## 7. Current decision boundary and next tests
 
 - For now, use **0.5% / 1% / 2% NAV ($5k / $10k / $20k at $1m) as a research sensitivity grid only**. There is no statistically supported “best percentage” yet.
 - No automatic exit solely because QQQ's spot rose three sessions in a row. Evaluate the position's *net mark-to-liquidate P&L* and actual leg quotes.
