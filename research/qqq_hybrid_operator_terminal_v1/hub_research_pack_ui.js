@@ -11,7 +11,7 @@
     "shortPutStrike","shortPutBid","requestedN","maxN","currentN","currentShorts","currentWings","currentShortDelta",
     "lowDeltaStreak","sessionsSinceChange","packagePnlUsd","currentShortAsk","currentWingBid","approachTouched",
     "nextDayReversal","nextDayContinuation","wave","prevClose","anchorClose","atr20","layerCap","currentLayers",
-    "drawdown252Pct","return5dPct","putRatioN","applyRiskBank","bankSeedWinUsd","bankLossesUsd","bankMode","bankNetPnlUsd"
+    "drawdown252Pct","return5dPct","putRatioN","putRatioExitPctSlider","putRatioExitPackages","putRatioExitHoldingDays","putRatioExitDte","putRatioExitLongBid","putRatioExitShortAsk","putRatioExitQuoteAsOf","putRatioExitCommission","putRatioExitSlippage","putRatioExitSpot","applyRiskBank","bankSeedWinUsd","bankLossesUsd","bankMode","bankNetPnlUsd"
   ];
   const n = (id, fallback = null) => E.num($(id) ? $(id).value : null, fallback);
   const checked = (id) => $(id) && $(id).checked === true;
@@ -400,6 +400,59 @@
     $("putRatioExit10Usd").textContent = exitRefs.ready ? usd(exitRefs.targets[1].usd) : "PENDING";
     $("putRatioExit20Usd").textContent = exitRefs.ready ? usd(exitRefs.targets[2].usd) : "PENDING";
 
+    const exitApi = window.PutRatioExitSensitivityV1;
+    const exitAssessment = exitApi && typeof exitApi.evaluate === "function" ? exitApi.evaluate({
+      nav:n("nav",null), thresholdPct:n("putRatioExitPctSlider",1), orientation:$("putRatioDirection").value,
+      ratioN:n("putRatioN",2), packages:n("putRatioExitPackages",1), longStrike:n("longPutStrike"),
+      shortStrike:n("shortPutStrike"), longEntryPrice:n("longPutAsk"), shortEntryPrice:n("shortPutBid"),
+      currentLongBid:n("putRatioExitLongBid"), currentShortAsk:n("putRatioExitShortAsk"),
+      quoteAsOf:$("putRatioExitQuoteAsOf").value.trim(), commissionPerContractSide:n("putRatioExitCommission",0.65),
+      closeSlippagePerShare:n("putRatioExitSlippage",0.05), spot:n("putRatioExitSpot"),
+      dte:n("putRatioExitDte",7), heldSessions:n("putRatioExitHoldingDays",3)
+    }) : null;
+    const exitNav=n("nav",null), exitPct=n("putRatioExitPctSlider",1);
+    const selectedUsd=exitNav>0&&exitPct>0?exitNav*exitPct/100:null;
+    $("putRatioExitPctValue").textContent=Number.isFinite(exitPct)?exitPct.toFixed(1)+"% NAV":"PENDING";
+    $("putRatioExitSelectedUsd").textContent=selectedUsd!==null?usd(selectedUsd):"PENDING";
+    $("putRatioExitMilestoneExplanation").textContent=exitNav>0
+      ? "$1,000 = "+(1000/exitNav*100).toFixed(3)+"% NAV；所選門檻 "+exitPct.toFixed(1)+"% = "+usd(selectedUsd)+"。歷史 $1,000／$100k 是 1% NAV；不能把 $1,000 原額照搬到 $1m。"
+      : "$1,000 是金額不是通用門檻；先輸入有效 NAV 才可換算百分比。";
+    if(exitAssessment){
+      $("putRatioExitQuoteStatus").textContent=exitAssessment.ready
+        ? "數學計算已就緒 · "+exitAssessment.quoteQuality.status+" · "+exitAssessment.quoteQuality.note
+        : "PENDING · "+(exitAssessment.error||"退出量尺模組未就緒");
+      $("putRatioExitPnL").textContent=exitAssessment.ready?usd(exitAssessment.fullClosePnlUsd):"PENDING";
+      $("putRatioExitPnLPct").textContent=exitAssessment.ready?(exitAssessment.pnlPctNav>=0?"+":"")+exitAssessment.pnlPctNav.toFixed(3)+"% NAV · "+(exitAssessment.fullClosePnlUsd>=0?"profit":"loss"):"PENDING · % NAV";
+      $("putRatioExitThresholdState").textContent=exitAssessment.ready
+        ? exitAssessment.thresholdState==="PROFIT_TARGET_REACHED"?"PROFIT TARGET REACHED"
+          :exitAssessment.thresholdState==="LOSS_BUDGET_REACHED"?"LOSS BAND REACHED":"WITHIN CANDIDATE BAND"
+        :"PENDING";
+      $("putRatioExitBaselineState").textContent=exitAssessment.baselineDteActive===true?"DTE≤7 BASELINE WINDOW":exitAssessment.baselineDteActive===false?"DTE>7 · baseline not active":"DTE baseline PENDING";
+      $("putRatioExitTimingState").textContent=exitAssessment.timing
+        ?"Held day "+exitAssessment.heldSessions+" · "+(exitAssessment.timing.first3?"within first 3":"after first 3")+" · "+(exitAssessment.timing.first5?"within first 5":"after first 5")+" (context only)"
+        :"首 3／5 日只作比較窗口，不自動觸發";
+      const bar=$("putRatioExitBarFill");
+      const progress=exitAssessment.ready&&exitAssessment.thresholdPct>0?Math.min(100,Math.abs(exitAssessment.pnlPctNav/exitAssessment.thresholdPct)*100):0;
+      bar.style.width=progress.toFixed(1)+"%";
+      bar.dataset.state=exitAssessment.ready?(exitAssessment.pnlPctNav>=exitAssessment.thresholdPct?"profit":exitAssessment.pnlPctNav<=-exitAssessment.thresholdPct?"loss":"neutral"):"neutral";
+      bar.parentElement.setAttribute("aria-valuenow",String(Math.round(progress)));
+      $("putRatioExitBarText").textContent=exitAssessment.ready
+        ?"淨平倉 P&L 佔選定門檻 "+progress.toFixed(1)+"% · "+exitAssessment.pnlPctNav.toFixed(3)+"% NAV 相對 ±"+exitAssessment.thresholdPct.toFixed(1)+"% 候選帶。達標僅提示比較，不會自動 SELL／BUY TO CLOSE。"
+        :"輸入當前 Long Put Bid、Short Put Ask 及含時區觀察時間，才可試算淨平倉 P&L；未提供的報價不會以零代替。";
+      $("putRatioExitFullClosePnl").textContent=exitAssessment.ready?usd(exitAssessment.fullClosePnlUsd):"PENDING";
+      $("putRatioExitFullCloseDetail").textContent=exitAssessment.ready
+        ?"全數平倉後 Long = 0、Short = 0；含開／平倉 Commission 與不利平倉滑點。相對 NAV "+(exitAssessment.pnlPctNav>=0?"+":"")+exitAssessment.pnlPctNav.toFixed(3)+"%。"
+        :"將全部 Long 與 Short 組合按目前可用 Bid／Ask 平倉；尚缺報價或合法結構。";
+      $("putRatioExitTrimAction").textContent=exitAssessment.ready?exitAssessment.trimShort.shortContractsToClose+" SHORT close · "+exitAssessment.trimShort.remainingContracts+" contracts remain":"PENDING";
+      $("putRatioExitTrimDetail").textContent=exitAssessment.ready?exitAssessment.trimShort.description+" · "+exitAssessment.trimShort.riskProfile:"SHORT-heavy 會計算減至每 package 留 1 張 SHORT；LONG-heavy 會比較買回唯一 SHORT。";
+      $("putRatioExitTrimRealized").textContent=exitAssessment.ready?usd(exitAssessment.trimShort.realizedPnlOnTrimmedShortsAfterCostsUsd):"PENDING";
+      $("putRatioExitResidualPnl").textContent=exitAssessment.ready?usd(exitAssessment.trimShort.residualOpenPnlAfterCostsReservedUsd):"PENDING";
+      $("putRatioExitResidualContracts").textContent=exitAssessment.ready?"Long "+exitAssessment.trimShort.remainingLongQty+" / Short "+exitAssessment.trimShort.remainingShortQty:"PENDING";
+      $("putRatioExitResidualTail").textContent=exitAssessment.ready?usd(exitAssessment.trimShort.residualWorstExpiryLossFromCurrentMarkUsd)+" ("+exitAssessment.trimShort.residualWorstExpiryLossPctNav.toFixed(3)+"% NAV; expiry intrinsic-only)":"PENDING";
+    }else{
+      $("putRatioExitQuoteStatus").textContent="PENDING · 退出量尺模組未載入";
+    }
+
     const out = compute();
     const result = out.result;
     let status = result && result.status ? result.status : "PENDING";
@@ -454,6 +507,9 @@
       ? "Hybrid 預留風險已手動填入；請核對它與實際持倉／待成交單一致。手動輸入不是系統認證。"
       : "原 Hybrid 預留風險為 UNKNOWN；此欄空白時 Hub 保持 PENDING，不會當成 $0。";
     render();
+  });
+  document.querySelectorAll("[data-exit-pct]").forEach(button => {
+    button.addEventListener("click", () => { $("putRatioExitPctSlider").value=button.dataset.exitPct; render(); });
   });
   const routeParams = new URLSearchParams(window.location.search);
   const requestedResearchMode = routeParams.get("strategyMode");

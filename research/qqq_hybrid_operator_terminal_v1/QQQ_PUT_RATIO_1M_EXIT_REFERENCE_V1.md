@@ -98,3 +98,14 @@ A 0.5% / 1% / 2% NAV loss budget at $1m is $5,000 / $10,000 / $20,000. The obser
 - The evidence currently available is exact to **N=5 short-heavy only**. It does not rank N=1, 2, 3, 4 or 6, and does not provide historical exit results for N-long / 1-short.
 - Next empirical test required: paired, fixed source/calendar replay for N=1–6 and both orientations where the source has valid contract/depth, with matched entry-side quotes, $ costs applied to every contract, NAV-relative 0.5% / 1% / 2% exit levels, first-3-session and first-5-session trims, DTE≤7 baseline, day-20 close/trim, full tail-payoff grid and a separate untouched/forward period if one becomes available.
 - Main terminal risk whitelist remains QQQ call-credit and VXX call-credit only. This work preserves QQQ Put research and does not silently activate it, merge the two N:1 directions, alter Frozen Original Hybrid or authorize broker orders.
+
+
+## 8. Interactive NAV-bar exit measurement contract
+
+Hub exposes a draggable candidate threshold from 0.1% to 3.0% NAV (default 1.0%), plus 0.5% / 1.0% / 2.0% comparison points. At $1,000,000 NAV, these points are $5,000 / $10,000 / $20,000. A $1,000 position gain is 0.10% of a $1m NAV, not the historical $1,000-per-$100k (1%) normalized reference.
+
+For a current-position what-if, enter the current Long Put Bid, Short Put Ask, quote timestamp with explicit timezone, package count, held trading sessions, remaining DTE, commission and one-way close slippage. The opening reference prices are the existing Long Put Ask and Short Put Bid fields; if actual fills exist, use actual average fill prices instead. Missing marks leave P&L PENDING; marks older than 15 minutes or timestamps without timezone are not qualified as current. A fresh timestamp does not authenticate source or displayed size.
+
+The tool compares (A) full close after costs and (B) reduce SHORT: in short-heavy, buy back N−1 shorts per package and retain one SHORT plus one LONG; in long-heavy, buy back the one SHORT and retain N LONG puts. It reconciles both actions at the same current marks by reserving future close costs for residual contracts. Same-time whole-position P&L should reconcile; differences are realized-vs-open P&L and the residual expiry-only risk—not a claim that trimming creates extra instant P&L.
+
+DTE ≤ 7 remains the historical baseline comparator. Holding-day 3 / 5 windows are scenario labels, never automatic triggers. The bar cannot declare an optimum, force an exit, change the main call-credit whitelist or authorize orders. Residual expiry loss uses intrinsic payoffs at zero/strike/above-strike breakpoints relative to the current bid/ask mark; it excludes future IV/time-value paths, intraday margin calls, early assignment, liquidity gaps and forced liquidation.

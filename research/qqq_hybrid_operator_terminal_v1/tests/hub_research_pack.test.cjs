@@ -501,6 +501,12 @@ function ratioBase(overrides = {}) {
   assert.ok(preservationRegister.includes("QQQ_LONG_PUT"), "preservation register must explicitly retain the standalone QQQ LONG PUT chain");
   assert.ok(!hubHtml.includes("由 Hybrid + 所有啟用的 Hub 結構共用同一個總風險池按比例分配"), "Hub must not claim a multi-structure allocator that is not wired");
   assert.ok(mainHtml.includes('Only those two defined-risk credit verticals share the option max-loss pool'));
+  assert.ok(hubHtml.includes('id="putRatioExitPctSlider"'), "NAV % exit slider must be present");
+  assert.ok(hubHtml.includes('data-exit-pct="0.5"') && hubHtml.includes('data-exit-pct="1"') && hubHtml.includes('data-exit-pct="2"'), "0.5/1/2% sensitivity presets must be present");
+  assert.ok(hubHtml.includes('id="putRatioExitLongBid"') && hubHtml.includes('id="putRatioExitShortAsk"'), "current close-side marks must be explicit");
+  assert.ok(hubHtml.includes('id="putRatioExitDte"'), "DTE<=7 comparator must stay visible");
+  assert.ok(hubHtml.includes('id="putRatioExitFullClosePnl"') && hubHtml.includes('id="putRatioExitTrimRealized"'), "full close and reduce-short must be compared side by side");
+  assert.ok(hubUi.includes('window.PutRatioExitSensitivityV1') && hubUi.includes('exitApi.evaluate'), "Hub UI must wire the separate exit sensitivity module");
 }
 
 console.log("HUB RESEARCH OPTION PACK: directional put-ratio regression PASS");

@@ -27,6 +27,23 @@
     [hidden]{display:none!important}
     @media(max-width:900px){.pack-grid,.leg-grid,.output-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:600px){.pack-grid,.leg-grid,.output-grid{grid-template-columns:1fr}}
+    .put-ratio-exit-lab{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+    .put-ratio-exit-lab label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+    .put-ratio-exit-lab input[type=number],.put-ratio-exit-lab input[type=text]{width:100%;min-width:0;box-sizing:border-box}
+    .put-ratio-exit-slider{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center}
+    .put-ratio-exit-slider input[type=range]{width:100%;min-width:0}
+    .put-ratio-exit-presets{display:flex;gap:8px;flex-wrap:wrap}
+    .put-ratio-exit-presets button{padding:6px 11px}
+    .put-ratio-exit-bar{height:14px;border:1px solid var(--line);background:var(--panel2);border-radius:999px;overflow:hidden}
+    .put-ratio-exit-bar-fill{height:100%;width:0%;background:var(--blue);transition:width .12s ease}
+    .put-ratio-exit-bar-fill[data-state="profit"]{background:var(--green)}
+    .put-ratio-exit-bar-fill[data-state="loss"]{background:var(--red)}
+    .put-ratio-exit-action-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+    .put-ratio-exit-action{border:1px solid var(--line);border-radius:8px;padding:12px;min-width:0;background:var(--panel)}
+    .put-ratio-exit-action h4{margin:0 0 8px;font-size:14px}
+    .put-ratio-exit-action p{margin:6px 0;font-size:12px;line-height:1.5;color:var(--muted)}
+    .put-ratio-exit-marks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}
+    @media(max-width:700px){.put-ratio-exit-action-grid,.put-ratio-exit-marks{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -180,6 +197,21 @@
           <div><small>1.0% NAV target</small><b id="putRatioExit10Usd">PENDING</b><span>舊研究 $1,000 / $100k 的百分比等值</span></div>
           <div><small>2.0% NAV target</small><b id="putRatioExit20Usd">PENDING</b><span>舊研究 $2,000 / $100k 的百分比等值</span></div>
         </div>
+        <div class="put-ratio-exit-lab" id="putRatioExitSensitivityLab">
+          <div class="section-head"><h4>可拉動的 NAV 風險／獲利量尺</h4><span class="tag warn">SCENARIO TOOL · NO AUTO EXIT</span></div>
+          <p>這不是把 $1,000 寫死成門檻。先以 NAV 百分比選一把尺，再看當前組合含成本淨平倉損益、NAV 影響、全數平倉與減 SHORT 後剩餘曝險。首 3／5 個交易日只是比較情境；只有實際合約與兩腿平倉報價才可用於當下判斷。</p>
+          <div class="put-ratio-exit-slider"><label for="putRatioExitPctSlider">候選獲利目標／同幅度損失警戒（% NAV）<input id="putRatioExitPctSlider" type="range" min="0.1" max="3" step="0.1" value="1"></label><div><small>目前門檻</small><b id="putRatioExitPctValue">1.0% NAV</b><br><b id="putRatioExitSelectedUsd">$10,000</b></div></div>
+          <div class="put-ratio-exit-presets" aria-label="百分比敏感度快捷設定"><button type="button" data-exit-pct="0.5">0.5% NAV</button><button type="button" data-exit-pct="1">1% NAV</button><button type="button" data-exit-pct="2">2% NAV</button></div>
+          <p id="putRatioExitMilestoneExplanation" class="pack-foot">$1,000 只是金額；在 $1,000,000 NAV = 0.10%，並不等於歷史 $100,000 NAV 的 1% 研究門檻。</p>
+          <div class="put-ratio-exit-marks"><label>持倉 package 數（情境／實際數）<input id="putRatioExitPackages" type="number" min="1" step="1" value="1"></label><label>已持有交易日（0 = 入場日）<input id="putRatioExitHoldingDays" type="number" min="0" step="1" value="3"></label><label>現有倉位剩餘 DTE（情境；7 日為歷史基準）<input id="putRatioExitDte" type="number" min="0" step="1" value="7"></label></div>
+          <div class="pack-grid"><label>目前 Long Put 可賣 Bid ($／股)<input id="putRatioExitLongBid" type="number" min="0" step="0.01" placeholder="輸入目前可賣 Bid"></label><label>目前 Short Put 回補 Ask ($／股)<input id="putRatioExitShortAsk" type="number" min="0" step="0.01" placeholder="輸入目前回補 Ask"></label><label>目前報價時間（ISO 8601 含時區）<input id="putRatioExitQuoteAsOf" type="text" placeholder="2026-10-15T15:00:00-04:00"></label><label>每張每邊 Commission ($)<input id="putRatioExitCommission" type="number" min="0" step="0.01" value="0.65"></label><label>不利平倉滑點 ($／股、單邊)<input id="putRatioExitSlippage" type="number" min="0" step="0.01" value="0.05"></label><label>QQQ Spot（只用於尾部價位檢查）<input id="putRatioExitSpot" type="number" min="0" step="0.01" placeholder="輸入目前 QQQ 現價"></label></div>
+          <p id="putRatioExitQuoteStatus" class="warnbox">尚未輸入兩腿當前 Bid／Ask，淨平倉損益保持 PENDING。價格與時間由操作人員輸入；本頁不驗證來源或可成交數量。</p>
+          <div class="output-grid"><div><small>Current net close P&amp;L</small><b id="putRatioExitPnL">PENDING</b><span id="putRatioExitPnLPct">PENDING · % NAV</span></div><div><small>Selected NAV threshold</small><b id="putRatioExitThresholdState">PENDING</b><span>只比較門檻，不直接給出最佳策略</span></div><div><small>Baseline context</small><b id="putRatioExitBaselineState">DTE≤7 comparator</b><span id="putRatioExitTimingState">首 3／5 日只作比較窗口</span></div></div>
+          <div class="put-ratio-exit-bar" role="progressbar" aria-label="淨平倉損益相對候選 NAV 百分比門檻" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="putRatioExitBarFill" class="put-ratio-exit-bar-fill" data-state="neutral"></div></div>
+          <p id="putRatioExitBarText" class="pack-foot">輸入目前兩腿買賣價後，這條 BAR 會顯示淨平倉 P&amp;L 已走到所選 NAV 門檻的多少；它不會自動平倉。</p>
+          <div class="put-ratio-exit-action-grid"><article class="put-ratio-exit-action"><h4>方案 A · 全數平倉</h4><b id="putRatioExitFullClosePnl">PENDING</b><p id="putRatioExitFullCloseDetail">將全部 Long 與 Short 組合按目前可用 Bid／Ask 平倉；尚缺報價。</p></article><article class="put-ratio-exit-action"><h4>方案 B · 減少 SHORT 張數</h4><b id="putRatioExitTrimAction">PENDING</b><p id="putRatioExitTrimDetail">SHORT-heavy 會計算減至每 package 留 1 張 SHORT；LONG-heavy 會比較買回唯一 SHORT、保留 N 張 LONG Put。</p><p><b>減短腿已實現 P&amp;L（估算）</b> <span id="putRatioExitTrimRealized">PENDING</span></p><p><b>剩餘倉位的含預留平倉成本 P&amp;L</b> <span id="putRatioExitResidualPnl">PENDING</span></p><p><b>剩餘合約</b> <span id="putRatioExitResidualContracts">PENDING</span></p><p><b>剩餘倉位到期價位網格的最差增量損失</b> <span id="putRatioExitResidualTail">PENDING</span></p></article></div>
+          <p class="pack-foot">成本口徑：開倉參考價格使用上方 Long Put Ask／Short Put Bid（若已有成交，請以實際平均成交價替代）；每張每邊 Commission 按輸入值計，額外滑點只加在平倉端。剩餘到期損失是以目前 Bid／Ask 標記價對照到期 intrinsic 網格的簡化壓力，不包括未來 IV／時間價值變化、盤中路徑、保證金追繳、指派或強制平倉。兩個方案在同一時刻的整體含預留成本 P&amp;L 應一致；真正差異是實現比例和保留風險，不能單按總 P&amp;L 選勝者。</p>
+        </div>
         <p class="pack-foot">歷史 Run #7（2018-03-01 至最後可用鏈 2025-12-15；固定 1 LONG : 5 SHORT、62 個非重疊 episode、估算 EOD side marks 而非已確認成交）：$500 規則總損益 $14,199.60；$1,000 規則 $18,067.60，與 DTE≤7 基準相同；$2,000 規則沒有自訂觸發。這些固定單位樣本不是 $1m 複利帳戶回報，也沒有證明哪個百分比最優。</p>
         <p class="pack-foot"><b>「三日暴漲就走？」</b>不要只看 QQQ 正股三日變動。歷史 +$1,000 EOD 事件共 9 次，首次出現於首 5 個持倉交易日內是 0 次；「五日內達 $1,000 就減 4 張 SHORT」規則在 62 個 episode 內觸發 0 次。因此三日快勝樣本不足，必須用兩腿實際、含成本的淨平倉 P&amp;L 再做前瞻驗證。EOD 訊號只可在下一個有足夠 Ask/Bid size 的觀察時段執行。</p>
         <p class="pack-foot"><b>短腿尾部風險：</b>舊 1 LONG : 5 SHORT 樣本中，QQQ 到 $0 的中位數終值損失 $106,392，最大觀測值 $214,696；折算至 $1m 參考 NAV 為約 10.64% / 21.47%。這只屬歷史履約價組合的終值壓力計算，不是目前合約風險或券商 margin。精確到目前 N、K、到期日、credit 與成本前，容量仍不可認證。</p>
@@ -222,6 +254,7 @@
   </main>
   <script src="hub_context_bridge.js"></script>
   <script src="hub_research_pack.js"></script>
+  <script src="put_ratio_exit_sensitivity.js"></script>
   <script src="hub_research_pack_ui.js"></script>
 </body>
 </html>
