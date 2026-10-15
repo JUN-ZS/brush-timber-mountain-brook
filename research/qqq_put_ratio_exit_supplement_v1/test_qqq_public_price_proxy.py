@@ -1,6 +1,6 @@
 import importlib.util
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("qqq_public_price_proxy.py")
@@ -57,6 +57,33 @@ class PublicPriceProxyTests(unittest.TestCase):
         self.assertEqual(five["n"], 20)
         self.assertIn("window", five)
         self.assertEqual(five["window"], "external_extension")
+
+
+    def test_yahoo_vix_fallback_parser_preserves_missing_days(self):
+        dates = [
+            datetime(2026, 1, 5, 12, tzinfo=timezone.utc),
+            datetime(2026, 1, 6, 12, tzinfo=timezone.utc),
+            datetime(2026, 1, 7, 12, tzinfo=timezone.utc),
+        ]
+        payload = {
+            "chart": {
+                "error": None,
+                "result": [{
+                    "timestamp": [int(d.timestamp()) for d in dates],
+                    "indicators": {"quote": [{"close": [18.2, None, 21.4]}]},
+                }],
+            }
+        }
+        got, meta = M.parse_yahoo_vix_payload(payload, date(2026, 1, 5), date(2026, 1, 7))
+        self.assertEqual(got, {"2026-01-05": 18.2, "2026-01-07": 21.4})
+        self.assertNotIn("2026-01-06", got)
+        self.assertEqual(meta["observations"], 2)
+        self.assertIn("not QQQ IV", meta["note"])
+
+    def test_yahoo_vix_fallback_rejects_empty_payload(self):
+        with self.assertRaises(RuntimeError):
+            M.parse_yahoo_vix_payload({"chart": {"error": None, "result": []}},
+                                      date(2026, 1, 5), date(2026, 1, 7))
 
     def test_invalid_price_gap_is_not_silently_forward_filled(self):
         session = date(2026, 1, 5)
