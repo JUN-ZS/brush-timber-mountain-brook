@@ -64,14 +64,9 @@ jobs:
           py -3 research\qqq_hybrid_operator_terminal_v1\generality_auditor.py --source-alignment-json research\qqq_hybrid_operator_terminal_v1\QQQ_FULL_HISTORY_ALIGNMENT_RUN22.json --out-json artifacts\qqq_hybrid_operator_terminal_v1\generality_source_preflight.json --out-md artifacts\qqq_hybrid_operator_terminal_v1\generality_source_preflight.md || exit /b 1
           py -3 -c "import json; p=json.load(open('artifacts/qqq_hybrid_operator_terminal_v1/generality_source_preflight.json',encoding='utf-8')); assert p['auditStatus']=='SOURCE_DIAGNOSTIC_ONLY'; assert p['notAStrategyBacktest'] is True; assert p['tradeReplayApproved'] is False; assert len(p['missingRawUnderlyingDates'])==11; print('GENERALITY_SOURCE_PREFLIGHT=PASS · diagnostic only · 11 terminal source sessions missing · no strategy P&L claim')" || exit /b 1
 
-      - name: Upload Generality source-preflight artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: qqq-hybrid-generality-source-preflight
-          path: |
-            artifacts/qqq_hybrid_operator_terminal_v1/generality_source_preflight.json
-            artifacts/qqq_hybrid_operator_terminal_v1/generality_source_preflight.md
-          if-no-files-found: error
+      - name: Emit Generality source-preflight summary in log
+        run: |
+          py -3 -c "import json; p=json.load(open('artifacts/qqq_hybrid_operator_terminal_v1/generality_source_preflight.json',encoding='utf-8')); print(json.dumps({'auditStatus':p['auditStatus'],'notAStrategyBacktest':p['notAStrategyBacktest'],'tradeReplayApproved':p['tradeReplayApproved'],'expectedSessions':p['expectedTradingDates'],'rawTargetPairCoveragePct':p['rawTargetPairCoveragePct'],'lastOptionChainDate':p['sourceDateBounds'].get('last_qqq_option_chain_date'),'missingRawUnderlyingSessions':len(p['missingRawUnderlyingDates']),'missingRawUnderlyingDates':p['missingRawUnderlyingDates']},ensure_ascii=False,indent=2))" || exit /b 1
 
       - name: Static asset / boundary contract
         run: |
