@@ -4,11 +4,27 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const E = require("../engine.js");
-const P = require("../position_ledger.js");
-const D = require("../decision_value_engine.js");
-const R = require("../deployment_roadmap.js");
-const Lab = require("../option_chain_lab.js");
+const vm = require("node:vm");
+
+function loadUmd(relPath) {
+  const sandbox = { module: { exports: {} } };
+  vm.runInNewContext(
+    fs.readFileSync(require.resolve(relPath), "utf8"),
+    sandbox,
+    { filename: path.basename(relPath) }
+  );
+  return sandbox.module.exports;
+}
+
+// Repo package.json is "type":"module", so plain require of these browser UMDs
+// returns an empty Module namespace. Load them the same way sibling *.test.cjs files do.
+const E = loadUmd("../engine.js");
+const P = loadUmd("../position_ledger.js");
+const D = loadUmd("../decision_value_engine.js");
+const R = loadUmd("../deployment_roadmap.js");
+const Lab = loadUmd("../option_chain_lab.js");
+assert.ok(E && typeof E.assessMarket === "function", "engine UMD must export assessMarket");
+assert.ok(Lab && Lab.SAMPLE && Lab.SAMPLE.chains, "Lab SAMPLE fixture must load via UMD sandbox");
 
 const now = Date.now();
 const today = new Date(now).toISOString().slice(0, 10); // deterministic ISO market-date fixture; not an engine API dependency
@@ -176,8 +192,9 @@ scenario("QQQ/VXX option-chain arithmetic plus adverse slippage matches fixture"
   near(v.executionStress[1].creditPerShare, 0.19, 1e-8);
   near(v.executionStress[1].maxLoss, 281, 1e-8);
   assert.equal(Lab.SAMPLE.observationTimeVerified, false);
-  assert.deepEqual(Lab.SAMPLE.chains.QQQ_PUT, []);
-  assert.deepEqual(Lab.SAMPLE.chains.VXX_PUT, []);
+  // Clone out of the UMD vm realm so deepEqual does not fail on cross-context arrays.
+  assert.deepEqual(JSON.parse(JSON.stringify(Lab.SAMPLE.chains.QQQ_PUT)), []);
+  assert.deepEqual(JSON.parse(JSON.stringify(Lab.SAMPLE.chains.VXX_PUT)), []);
 });
 
 scenario("wide/missing quotes and adjusted contract terms do not masquerade as usable capacity", () => {
