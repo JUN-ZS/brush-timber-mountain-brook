@@ -1,0 +1,64 @@
+{
+  "schema": "backtest-v2-2-log-recovery.v1",
+  "source": {
+    "run_id": 37694035278,
+    "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37694035278",
+    "rerun_attempt": 2,
+    "workflow": "Backtest V2.2",
+    "status": "REPLAY_COMPLETED_BUT_ARTIFACT_UPLOAD_FAILED",
+    "upload_error": "GitHub Actions artifact storage quota has been hit.",
+    "note": "Metrics below were visible in the run's console report. The original backtest-result.json and backtest-curve.csv were written on the self-hosted runner but were not uploaded; these raw files are not reconstructed here."
+  },
+  "benchmarkHistoricalNotThisRun": {
+    "cagrPct": 12.52,
+    "maxDrawdownPct": -23.51
+  },
+  "layers": [
+    {
+      "layer": "Observed",
+      "what": "QQQ 100% price path",
+      "fullCagrPct": 15.12,
+      "fullMaxDrawdownPct": -53.4,
+      "oosCagrPct": 19.69,
+      "oosMaxDrawdownPct": -29.56,
+      "gate": "FAIL"
+    },
+    {
+      "layer": "Hypothetical",
+      "what": "Daily -1.5% floor toy",
+      "fullCagrPct": 39.65,
+      "fullMaxDrawdownPct": -15.04,
+      "oosCagrPct": 48.85,
+      "oosMaxDrawdownPct": -11.34,
+      "gate": "FAIL"
+    },
+    {
+      "layer": "Derived",
+      "what": "Frozen put overlay",
+      "fullCagrPct": 7.02,
+      "fullMaxDrawdownPct": -53.38,
+      "oosCagrPct": 11.64,
+      "oosMaxDrawdownPct": -28.59,
+      "gate": "FAIL"
+    }
+  ],
+  "gates": [
+    {
+      "condition": "CAGR >= 12%",
+      "observedOosCagrPct": 11.64,
+      "result": "FAIL"
+    },
+    {
+      "condition": "MaxDD >= -5%",
+      "observedOosMaxDrawdownPct": -28.59,
+      "result": "FAIL"
+    }
+  ],
+  "finalDecision": "FAIL",
+  "interpretation": "Do not elevate the frozen put overlay or daily floor toy to an accepted strategy from this replay. The reported OOS MaxDD is still far below the desired -5% threshold.",
+  "missingOriginalFiles": [
+    "artifacts/backtest-result.json",
+    "artifacts/backtest-curve.csv",
+    "src/data/backtest-v2-2.json"
+  ]
+}
