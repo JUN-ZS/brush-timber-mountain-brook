@@ -100,11 +100,12 @@
     if(finalCoverage!==100)issues.push("Final OOS coverage must be 100% for a complete final-window claim; missing sessions cannot be silently dropped.");
     const windows=Array.isArray(d.rollingWindows)?d.rollingWindows:[];
     if(windows.length<5)issues.push("At least five chronological rolling windows are required.");
-    const ids=new Set();let positive=0,catastrophic=0,windowsValid=true,lastStart="";
+    const ids=new Set(),dateRanges=new Set();let positive=0,catastrophic=0,windowsValid=true,lastStart="";
     for(let j=0;j<windows.length;j++){
       const w=windows[j]||{},id=String(w.id||"").trim();
       if(!id||ids.has(id))issues.push("Rolling window IDs must be present and unique: index "+j+".");ids.add(id);
       if(!validIsoDate(w.start)||!validIsoDate(w.end)||w.start>w.end){issues.push("Rolling window "+(id||j)+" has invalid dates.");windowsValid=false;}
+      if(validIsoDate(w.start)&&validIsoDate(w.end)){const dateKey=w.start+"|"+w.end;if(dateRanges.has(dateKey))issues.push("Duplicate rolling date range cannot count as another window: "+dateKey+".");dateRanges.add(dateKey);}
       if(validIsoDate(w.start)&&lastStart&&w.start<lastStart){issues.push("Rolling windows must be ordered chronologically.");windowsValid=false;}
       if(validIsoDate(w.start))lastStart=w.start;
       const obs=n(w.observations),coverage=n(w.coveragePct),effect=n(w.effectDeltaPct);

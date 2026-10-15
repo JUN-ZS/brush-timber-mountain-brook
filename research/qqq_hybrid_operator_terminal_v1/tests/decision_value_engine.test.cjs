@@ -179,6 +179,7 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
  assert.equal(D.evaluateGenerality({...dossier,finalUntouched:false}).pass,false);
  assert.equal(D.evaluateGenerality({...dossier,finalStart:"2023-12-01"}).pass,false);
  assert.equal(D.evaluateGenerality({...dossier,rollingWindows:dossier.rollingWindows.map((w,i)=>({...w,effectDeltaPct:i<3?0.2:-0.1}))}).pass,false);
+ assert.equal(D.evaluateGenerality({...dossier,rollingWindows:dossier.rollingWindows.map((w,i)=>i===0?{...w,id:"W_DUPLICATE"}:{...w,start:dossier.rollingWindows[0].start,end:dossier.rollingWindows[0].end})}).pass,false,"duplicate date windows cannot masquerade as independent breadth");
  assert.equal(D.evaluateGenerality({...dossier,rollingWindows:dossier.rollingWindows.map((w,i)=>i===4?{...w,catastrophicFailure:true}:w)}).pass,false);
  assert.equal(D.evaluateGenerality({...dossier,regimeObservations:{"CARRY":300,"WEAKENING":150,"PRE-SHOCK":99,"SHOCK_BACKWARDATION":110}}).pass,false);
  assert.equal(D.evaluateGenerality("{ bad JSON").status,"MISSING_DOSSIER");
