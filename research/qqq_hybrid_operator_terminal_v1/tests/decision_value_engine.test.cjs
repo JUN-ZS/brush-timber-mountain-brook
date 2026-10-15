@@ -136,7 +136,9 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
 {
  // A breached long-horizon floor blocks new ADD, but an existing HOLD stays a review scenario.
  const holdFloor=D.evaluate(fixture({lens:"HOLD",deploymentRoadmap:{status:"FLOOR_BREACH",floorGapUsd:-500},mainRow:{current:10,target:10,capacity:100,action:"HOLD",status:"READY",reason:"no sizing change"}}));
- assert.equal(holdFloor.status,"ELIGIBLE_FOR_HUMAN_REVIEW");
+ assert.equal(holdFloor.status,"EVIDENCE_INCOMPLETE","floor breach does not liquidate HOLD, but unauthenticated probability still cannot pass");
+ assert.notEqual(holdFloor.status,"CLOCK_FLOOR_BREACH");
+
  assert.ok(holdFloor.warnings.some(x=>x.includes("CLOCK Floor is breached")));
 }
 {
