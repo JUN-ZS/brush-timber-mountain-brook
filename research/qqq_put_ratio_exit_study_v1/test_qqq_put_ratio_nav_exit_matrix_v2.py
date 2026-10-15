@@ -9,6 +9,36 @@ assert SPEC and SPEC.loader
 SPEC.loader.exec_module(M)
 
 class MatrixTests(unittest.TestCase):
+    @staticmethod
+    def quote(day,strike,bid,ask,bid_size=100,ask_size=100):
+        expiry="2024-02-16";ymd=expiry[2:4]+expiry[5:7]+expiry[8:10]
+        return {"contract_id":f"QQQ{ymd}P{int(round(strike*1000)):08d}","symbol":"QQQ",
+                "expiration":expiry,"strike":strike,"type":"put","bid":bid,"ask":ask,
+                "bid_size":bid_size,"ask_size":ask_size,"open_interest":1000,"volume":100,
+                "date":day,"delta":-0.2}
+
+    def synthetic_trade(self,orientation="long-heavy",n=2):
+        day0,day1,day2,day3="2024-01-03","2024-01-04","2024-01-05","2024-01-08"
+        if orientation=="long-heavy":
+            long_strike,short_strike,long_qty,short_qty=90.0,105.0,n,1
+            long_bid,long_ask,short_bid,short_ask=1.0,1.2,8.0,8.5
+        else:
+            long_strike,short_strike,long_qty,short_qty=105.0,90.0,1,n
+            long_bid,long_ask,short_bid,short_ask=8.0,8.5,1.0,1.2
+        def step(day,lb,la,sb,sa,long_size=100,short_size=100):
+            return {"date":day,"spot":100.0,
+                    "long":self.quote(day,long_strike,lb,la,bid_size=long_size),
+                    "short":self.quote(day,short_strike,sb,sa,ask_size=short_size)}
+        return {"trade_id":1,"signal_date":day0,"entry_date":day0,"expiry":"2024-02-16","entry_dte":44,
+                "long_id":"LONG","short_id":"SHORT","long_strike":long_strike,"short_strike":short_strike,
+                "long_abs_delta":0.3,"short_abs_delta":0.1,"spot_entry":100.0,"vix_entry":18.0,
+                "entry_quotes":{"long":{"ask":long_ask,"bid":long_bid},"short":{"ask":short_ask,"bid":short_bid}},
+                "n_long":long_qty,"n_short":short_qty,"orientation":orientation,"n":n,
+                "path":[step(day0,long_bid,long_ask,short_bid,short_ask),
+                        step(day1,long_bid,long_ask,short_bid,0.05),
+                        step(day2,long_bid,long_ask,short_bid,0.05),
+                        step(day3,long_bid,long_ask,short_bid,0.05)]}
+
     def test_nav_percent_converts_for_both_account_sizes(self):
         self.assertEqual([100000*p/100 for p in (0.5,1,2)],[500,1000,2000])
         self.assertEqual([1000000*p/100 for p in (0.5,1,2)],[5000,10000,20000])
@@ -83,6 +113,28 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual(s["win_rate_pct"],50.0)
         self.assertEqual(s["custom_triggered_episodes"],1)
         self.assertEqual(s["dte7_fallback_episodes"],1)
+
+    def test_trim_short_preserves_long_heavy_long_puts(self):
+        trade=self.synthetic_trade("long-heavy",n=2)
+        policy=next(p for p in M.make_policies(100000,0.5,"long-heavy",2) if p["kind"]=="TP_WINDOW_TRIM" and p["age_limit"]==3)
+        result=M.simulate_policy(trade,policy,1,0.05,0.65,100000)
+        self.assertTrue(result["custom_triggered"])
+        self.assertIn("TRIM_SHORT",result["actions"])
+        self.assertEqual(result["remaining_short_contracts"],0)
+        self.assertEqual(result["remaining_long_contracts"],2)
+        self.assertEqual(result["residual_structure"],"LONG_ONLY")
+        self.assertFalse(result["resolved"],"long-only backspread remains open; short trim must not become delayed full close")
+
+    def test_full_close_retries_long_leg_only_when_initial_sale_is_not_executable(self):
+        trade=self.synthetic_trade("long-heavy",n=2)
+        trade["path"][2]["long"]["bid_size"]=1
+        policy=next(p for p in M.make_policies(100000,0.5,"long-heavy",2) if p["kind"]=="TP_WINDOW_CLOSE" and p["age_limit"]==3)
+        result=M.simulate_policy(trade,policy,1,0.05,0.65,100000)
+        self.assertTrue(result["custom_triggered"])
+        self.assertTrue(result["resolved"])
+        self.assertEqual(result["remaining_long_contracts"],0)
+        self.assertEqual(result["remaining_short_contracts"],0)
+        self.assertIn("SELL_RESIDUAL_LONG",result["actions"])
 
     def test_dte_baseline_and_first_session_exit_policies_are_distinct(self):
         p=M.make_policies(1000000,1.0,"short-heavy",1)

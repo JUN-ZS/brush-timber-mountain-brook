@@ -225,15 +225,19 @@ def all_exit_policies(nav:float,orientation:str,n:int)->list[dict[str,Any]]:
 def simulate_policy(trade:dict[str,Any],policy:dict[str,Any],packages:int,slip:float,commission:float,nav:float)->dict[str,Any]:
     nl0,ns0=int(trade["n_long"]),int(trade["n_short"]); nl,ns=nl0*packages,ns0*packages
     state={"cash":entry_cash_per_package(trade,slip,commission)*packages,"n_long":nl,"n_short":ns,"contracts_closed_short":0}
-    pending=None;pending_day=None;custom_fired=False;signal_age=None;action_age=None
+    pending=None;pending_day=None;custom_fired=False;signal_age=None;action_age=None;pending_long_close=False
     custom_trigger=False;fallback=False;deferred=0;required=0;missing=0;exposure=0.0
     final=None;final_status="UNRESOLVED";resolved=False;max_mark=None;min_mark=None;actions=[]
     for age,step in enumerate(trade["path"]):
         day=step["date"];dte=(date.fromisoformat(trade["expiry"])-date.fromisoformat(day)).days
         exposure+=state["n_short"]/max(1,ns)
-        if state["n_short"]==0 and state["n_long"]>0:
+        # Retry a residual Long Put sale only when a CLOSE_ALL action failed on that leg.
+        # TRIM_SHORT on a long-heavy ratio intentionally preserves its N Long Puts.
+        if pending_long_close and state["n_short"]==0 and state["n_long"]>0:
             sold,status=BASE.sell_long_if_executable(state,step,slip,commission)
-            if sold and state["n_long"]==0:actions.append("SELL_RESIDUAL_LONG")
+            if sold and state["n_long"]==0:
+                actions.append("SELL_RESIDUAL_LONG");pending_long_close=False
+            else:deferred+=1
         pnl,status=BASE.mark_pnl(state,step,slip,commission)
         if state["n_short"]>0 or state["n_long"]>0:
             required+=1
@@ -263,6 +267,7 @@ def simulate_policy(trade:dict[str,Any],policy:dict[str,Any],packages:int,slip:f
                 action_age=age;actions.append(pending)
                 if pending=="CLOSE_ALL":
                     sold,sell_status=BASE.sell_long_if_executable(state,step,slip,commission);actions.append("SELL_LONG_"+sell_status)
+                    pending_long_close=(not sold and state["n_long"]>0)
                 pending,pending_day=None,None
             else:deferred+=1
         if dte<=0:
@@ -287,7 +292,10 @@ def simulate_policy(trade:dict[str,Any],policy:dict[str,Any],packages:int,slip:f
         "signal_to_action_sessions":action_age-signal_age if action_age is not None and signal_age is not None else None,
         "mark_coverage_pct":round(100*(required-missing)/required,3) if required else 100.0,
         "missing_mark_sessions":missing,"required_mark_sessions":required,"deferred_action_sessions":deferred,
-        "short_risk_exposure_session_equivalents":round(exposure,4),"max_observed_mark_pnl_usd":round(max_mark,2) if max_mark is not None else None,
+        "short_risk_exposure_session_equivalents":round(exposure,4),
+        "remaining_long_contracts":state["n_long"],"remaining_short_contracts":state["n_short"],
+        "residual_structure":"LONG_ONLY" if state["n_long"]>0 and state["n_short"]==0 else "LONG_AND_SHORT" if state["n_long"]>0 and state["n_short"]>0 else "SHORT_ONLY" if state["n_short"]>0 else "FLAT",
+        "max_observed_mark_pnl_usd":round(max_mark,2) if max_mark is not None else None,
         "min_observed_mark_pnl_usd":round(min_mark,2) if min_mark is not None else None,"actions":";".join(actions)}
 
 def summarize_policy(results:list[dict[str,Any]],candidate_n:int,blocked:int)->dict[str,Any]:
