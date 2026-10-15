@@ -37,7 +37,7 @@
   }
   function validIsoDate(value){
     const s=String(value||"");
-    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(s))return false;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;
     const ms=Date.parse(s+"T00:00:00Z");
     return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===s;
   }
