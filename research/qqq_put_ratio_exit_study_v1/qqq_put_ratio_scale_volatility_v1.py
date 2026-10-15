@@ -545,6 +545,22 @@ def create_report(out: Path, prices: list[dict[str,Any]], trades: list[dict[str,
         b=x["risk_budgets"]; u="/".join(str(b[f"budget_{p*100:g}pct_nav"]["whole_units_using_worst_terminal_loss"]) for p in BUDGET_PCTS)
         lines.append(f"| {x['direction']} | {x['ratio_n']} | {x['n_long']}/{x['n_short']} | USD {x['nav_usd']:,.0f} | {x['depth_qualified']}/{x['cohort_episodes']} | {x['terminal_loss_median_usd']} | {x['terminal_loss_p95_usd']} | {x['terminal_loss_worst_usd']} | {x['terminal_loss_worst_pct_nav']}% | {u} |")
     lines += ["","Terminal loss is the lowest payoff across the expiry knots, not merely the QQQ=$0 outcome. Whole-unit counts use the worst observed qualifying episode and are terminal payoff arithmetic only. N=1 is mechanically the same 1-long/1-short spread in either label.","",
+        "## Cost tug-of-war BAR (base costs, 1% NAV target and 1% terminal-risk budget)",
+        "",
+        "The NAV target is the NET exit goal. The BAR estimates how far a midpoint-based gross mark would need to move to overcome observed spread crossing plus the selected slippage and commission assumptions. It is the P95 across per-episode median quote-mark drag, not a confirmed fill cost or an optimized trading rule.",
+        "",
+        "| Direction | N | NAV | Sized units | Sizing status | Cost BAR P50 | Cost BAR P95 | Net target | Midpoint gross needed (P95) | Target / BAR P95 | Exit depth |",
+        "|---|---:|---:|---|---|---:|---:|---:|---:|---:|---:|"]
+    barshown=[x for x in friction_rows if x["state"]=="OVERALL" and x["cost_case"]==BASE_COST and
+        x["tail_risk_budget_pct"]==0.01 and x["target_pct_nav"]==0.01 and x["ratio_n"] in (1,5)]
+    for x in barshown:
+        fmt=lambda v: "—" if v is None else f"{v:.2f}"
+        ratio= "—" if x["net_target_to_friction_p95_ratio"] is None else f"{x['net_target_to_friction_p95_ratio']:.2f}x"
+        depth= "—" if x["exit_depth_qualified_pct"] is None else f"{x['exit_depth_qualified_pct']:.1f}%"
+        lines.append(f"| {x['direction']} | {x['ratio_n']} | USD {x['nav_usd']:,.0f} | {x['ratio_units']} | {x['sizing_status']} | {fmt(x['friction_bar_p50_episode_median_usd'])} | {fmt(x['friction_bar_p95_episode_median_usd'])} | {fmt(x['net_profit_target_usd'])} | {fmt(x['midpoint_profit_needed_p95_usd'])} | {ratio} | {depth} |")
+    lines += ["",
+        "The friction_bar_matrix.csv also breaks the cost drag out by VIX and DTE state and shows all 0.5/1/2% targets, both NAV inputs, all N values, and zero/base/adverse cost scenarios. A missing BAR caused by no depth-qualified historical episodes is BLOCK/PENDING, never treated as zero friction.",
+        "",
         "## Exit samples at base costs and 1% tail budget (full grid in CSV)","","| Direction | N | NAV | Tail budget | Sized units | Sizing status | Policy | Resolved/eligible | Net P&L | Expectancy | Win% | Worst trade | Trigger% | DTE7 fallback | Deferred | Mark coverage |",
         "|---|---:|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for x in shown:

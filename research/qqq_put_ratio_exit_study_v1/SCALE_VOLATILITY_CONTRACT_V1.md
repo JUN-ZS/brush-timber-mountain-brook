@@ -29,3 +29,9 @@ Status: independent research only. No APP sizing policy, Frozen Original Hybrid,
 
 ## Evidence gate
 The public EOD preservation mirror reports 16:00 US/Eastern snapshots, but exact timestamp and fills are not authenticated. Option data ends 2025-12-15; 11 expected sessions through 2025-12-31 are missing. Prior-reviewed 2018–2025 is development/revisit data, not a blind final OOS. Live deployment remains BLOCKED pending genuinely unseen OOS, decision-time/fill evidence and broker margin/assignment/forced-liquidation treatment.
+
+## User NAV and cost BAR
+- CLI accepts any positive NAV using repeatable `--nav X` arguments; the workflow pins $100,000 and $1,000,000 as reproducible comparison cases.
+- The cost BAR reconciles a theoretical midpoint P&L mark with the conservative net liquidation mark using the long-leg Bid and short-leg Ask, and includes opening-side costs, closing-side costs, slippage and commissions.
+- Report the median and P95 across each episode's median observed quote-mark drag; stratify by VIX and DTE so the BAR changes with state. Compare this drag with the requested 0.5/1/2% NAV net target; show the corresponding midpoint gross mark needed, without pretending it is a fill or choosing a policy solely from this ratio.
+- If required displayed size is unavailable, report unavailable/PENDING instead of a zero-cost BAR.

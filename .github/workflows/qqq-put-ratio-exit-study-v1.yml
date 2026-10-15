@@ -81,5 +81,8 @@ jobs:
             artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md
             artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv
             artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json
+            artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv
+            artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json
+            artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md
           if-no-files-found: error
           retention-days: 14
