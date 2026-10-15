@@ -392,6 +392,9 @@
     ].join("");
 
     const exitRefs = E.calculateNavExitReferences(n("nav", null));
+    $("putRatioExitDirectionNotice").textContent = $("putRatioDirection").value === "short-heavy"
+      ? "方向一致：本卡的歷史結果只測過 SHORT-heavy 1 LONG : 5 SHORT；目前 N=" + n("putRatioN", 2) + "。其他 N 尚未有同規格歷史排名。"
+      : "方向不同：以下 Run #7 統計只測過 SHORT-heavy 1 LONG : 5 SHORT，不可當成目前 LONG-heavy N LONG : 1 SHORT 的績效或退出證據。";
     $("putRatioExitNavDisplay").textContent = exitRefs.ready ? usd(exitRefs.nav) : "PENDING · ENTER POSITIVE NAV";
     $("putRatioExit05Usd").textContent = exitRefs.ready ? usd(exitRefs.targets[0].usd) : "PENDING";
     $("putRatioExit10Usd").textContent = exitRefs.ready ? usd(exitRefs.targets[1].usd) : "PENDING";

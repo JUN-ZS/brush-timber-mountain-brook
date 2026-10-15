@@ -463,6 +463,8 @@ function ratioBase(overrides = {}) {
   assert.ok(hubHtml.includes('id="putRatioQuoteConfirmed"'));
   assert.ok(hubHtml.includes('id="putRatioStandardContractConfirmed"'));
   assert.ok(hubHtml.includes('id="putRatioExitReference"'), "N:1 pane must show historical exit/risk references");
+  assert.ok(hubHtml.includes('id="putRatioExitDirectionNotice"'), "the historical exit card must warn when the selected ratio orientation differs");
+  assert.ok(hubUi.includes('if the selected direction is long-heavy, historical SHORT-heavy results are not treated as its evidence') || hubUi.includes('不可當成目前 LONG-heavy N LONG : 1 SHORT 的績效或退出證據'), "LONG-heavy must never inherit SHORT-heavy exit results");
   assert.ok(hubHtml.includes('id="putRatioExit05Usd"') && hubHtml.includes('id="putRatioExit10Usd"') && hubHtml.includes('id="putRatioExit20Usd"'));
   assert.ok(hubUi.includes('E.calculateNavExitReferences(n("nav", null))'), "threshold dollar values must derive from the current NAV input");
   assert.ok(hubHtml.includes("首 5 個持倉交易日"), "fast-exit small-sample warning must remain visible");
