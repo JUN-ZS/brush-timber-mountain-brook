@@ -455,9 +455,18 @@ function ratioBase(overrides = {}) {
   assert.ok(hubUi.includes('$("putRatioDirection").value = requestedPutRatioDirection'), "a direct link must not fall back to the opposite default ratio orientation");
   assert.ok(mainHtml.includes('href="hub_research_pack.html?strategyMode=shock-put"'), "shock-gated put-debit lane must have a one-click route");
   assert.ok(hubUi.includes('get("strategyMode")'), "Hub must honor the main-desk direct route");
+  const primaryUi = fs.readFileSync(require("node:path").join(__dirname, "../app.js"), "utf8");
+  assert.ok(primaryUi.includes("function syncCapitalContextToHub(openHub = true)"), "direct Hub links must sync the live primary context");
+  assert.ok(primaryUi.includes("syncCapitalContextToHub(false)"), "direct Hub routes must sync without spawning a duplicate window");
+  assert.ok(primaryUi.includes('target.searchParams.set("fromPrimary", "1")'), "Hub direct routes must import current NAV/cash/risk context");
+  assert.ok(primaryUi.includes("event.preventDefault()"), "failed primary-context sync must not silently open Hub with stale defaults");
+  assert.ok(mainHtml.includes("N=10／N=20 lower-strike SHORT PUTs"), "legacy N10/N20 study must remain discoverable without being conflated with Hub N1-6");
+  assert.ok(mainHtml.includes("1 LONG higher-strike : 5 SHORT lower-strike"), "legacy 1x5 exit study must remain discoverable");
   const preservationRegister = fs.readFileSync(require("node:path").join(__dirname, "../STRATEGY_PRESERVATION_REGISTER.md"), "utf8");
   assert.ok(preservationRegister.includes("QQQ_PUT_RATIO_N1_LONG_HEAVY"), "preservation register must explicitly retain N LONG PUT : 1 SHORT PUT");
   assert.ok(preservationRegister.includes("QQQ_PUT_RATIO_N1_SHORT_HEAVY"), "preservation register must explicitly retain N SHORT PUT : 1 LONG PUT");
+  assert.ok(preservationRegister.includes("QQQ_PUT_RATIO_EXIT_1_LONG_5_SHORT"), "preservation register must retain the distinct historical 1-long/5-short exit study");
+  assert.ok(preservationRegister.includes("QQQ_PUT_ATM_N10_N20_SHORT_HEAVY"), "preservation register must retain the distinct historical N10/N20 ATM-long study");
   assert.ok(preservationRegister.includes("QQQ_LONG_PUT"), "preservation register must explicitly retain the standalone QQQ LONG PUT chain");
   assert.ok(!hubHtml.includes("由 Hybrid + 所有啟用的 Hub 結構共用同一個總風險池按比例分配"), "Hub must not claim a multi-structure allocator that is not wired");
   assert.ok(mainHtml.includes('Only those two defined-risk credit verticals share the option max-loss pool'));

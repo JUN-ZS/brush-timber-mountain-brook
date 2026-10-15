@@ -1310,13 +1310,13 @@
 
 
 
-  function syncCapitalContextToHub() {
+  function syncCapitalContextToHub(openHub = true) {
     const status = $("hubContextSyncStatus");
     const link = $("openHubFromContextLink");
     const bridge = window.HubContextBridgeV1;
     if (!bridge || typeof bridge.contextFromPrimaryPlan !== "function") {
       if (status) status.textContent = "Hub context bridge unavailable; refresh the local app files before syncing.";
-      return;
+      return false;
     }
     try {
       renderPlan();
@@ -1331,9 +1331,13 @@
             "（按 primary current/target 數量 × 目前候選每組風險估算；不是已成交持倉證明）。"
           : "已保存 NAV／現金設定，但主台 sizing 或現有風險估算未通過；Hub 的預留風險保持未知，不會自動當成 $0。";
       }
-      try { window.open("hub_research_pack.html?fromPrimary=1", "_blank", "noopener,noreferrer"); } catch (_) {}
+      if (openHub) {
+        try { window.open("hub_research_pack.html?fromPrimary=1", "_blank", "noopener,noreferrer"); } catch (_) {}
+      }
+      return true;
     } catch (error) {
       if (status) status.textContent = "未能同步到 Hub：" + (error instanceof Error ? error.message : String(error)) + "。主台輸入沒有改動。";
+      return false;
     }
   }
 
@@ -1442,6 +1446,22 @@
     $("toggleResearchRows").addEventListener("click", toggleResearchRows);
     $("aiHandoffBtn").addEventListener("click", exportAiReviewPack);
     $("syncHubBtn").addEventListener("click", syncCapitalContextToHub);
+    const preservedResearchTracks = $("preservedResearchTracks");
+    if (preservedResearchTracks) {
+      preservedResearchTracks.querySelectorAll("a[data-preserved-track]").forEach(route => {
+        route.addEventListener("click", event => {
+          const href = route.getAttribute("href") || "";
+          if (!href.startsWith("hub_research_pack.html?")) return;
+          if (!syncCapitalContextToHub(false)) {
+            event.preventDefault();
+            return;
+          }
+          const target = new URL(route.href, window.location.href);
+          target.searchParams.set("fromPrimary", "1");
+          route.href = target.toString();
+        });
+      });
+    }
     $("journalBtn").addEventListener("click", appendJournal);
     window.addEventListener("storage", event => {
       if (!event.key || !event.key.startsWith(OPTION_HANDOFF_PREFIX)) return;
