@@ -1,0 +1,57 @@
+{
+  "research_id": "QQQ_PUBLIC_PRICE_PROXY_SUPPLEMENT_V1",
+  "status": "PRICE_PATH_ONLY_OPTION_PNL_NOT_ESTIMATED",
+  "retrieved_at_utc": "2026-10-15T17:40:12.131079+00:00",
+  "start_date": "2018-03-01",
+  "end_date": "2026-10-15",
+  "daily_rows": 2169,
+  "option_chain_boundary": "2025-12-15",
+  "yahoo": {
+    "source": "Yahoo Finance chart API",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/QQQ?period1=1519862400&period2=1792108800&interval=1d&events=history&includeAdjustedClose=true",
+    "returned_rows": 2169,
+    "first_date": "2018-03-01",
+    "last_date": "2026-10-15",
+    "raw_close_definition": "Unadjusted daily Close returned by the provider; adjusted close retained separately for audit only."
+  },
+  "vix_proxy": {
+    "source": "Yahoo Finance chart API ^VIX daily Close",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?period1=1519862400&period2=1792108800&interval=1d&events=history",
+    "observations": 2171,
+    "first_date": "2018-03-01",
+    "last_date": "2026-10-15",
+    "note": "Broad S&P 500 implied volatility proxy only; not QQQ IV or QQQ put skew. Missing days are not forward-filled.",
+    "fallback_used": true,
+    "primary_source_error": "The read operation timed out",
+    "status": "OK_YAHOO_FALLBACK"
+  },
+  "vxn_proxy": {
+    "source": "Yahoo Finance chart API ^VXN daily Close",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EVXN?period1=1519862400&period2=1792108800&interval=1d&events=history",
+    "observations": 2168,
+    "first_date": "2018-03-01",
+    "last_date": "2026-10-14",
+    "note": "Nasdaq-100 implied-volatility index proxy; not a QQQ option IV/skew surface and not executable option data. Missing days are not forward-filled.",
+    "status": "OK_YAHOO"
+  },
+  "current_tape_observations": {
+    "last_7_session_peak_close_usd": 759.66,
+    "last_close_usd": 725.695,
+    "peak_to_last_pct": -4.4711,
+    "interpretation": "Observed price path only; neither an option-strategy loss estimate nor a tradable signal."
+  },
+  "limitations": [
+    "The Yahoo price series is a separately fetched vendor proxy, not the pinned option-source's underlying field.",
+    "VIXCLS, when available, is broad S&P 500 implied volatility; it is not QQQ IV or a QQQ put-skew surface.",
+    "Post-2025-12-15 probabilities describe QQQ prices only. No option-chain outcomes, bid/ask marks, fills, margin, or assignments are inferred.",
+    "Historical windows overlap; Wilson intervals are nominal and do not remove serial dependence.",
+    "2018-2025 remains development/revisit history, not a blind holdout."
+  ],
+  "outputs": [
+    "qqq_public_price_proxy_daily.csv",
+    "qqq_public_price_proxy_probabilities.csv",
+    "qqq_public_price_proxy_summary.md",
+    "qqq_public_price_proxy_summary.json"
+  ],
+  "probability_rows": 259
+}
