@@ -152,9 +152,11 @@ def run(out:Path):
     out.mkdir(parents=True,exist_ok=True)
     (out/"qqq_put_iv_realized_vol_study_v1.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     rows=report["daily_selected_quote_audit_rows"]
-    if rows:
-        with (out/"qqq_put_iv_realized_vol_daily_v1.csv").open("w",newline="",encoding="utf-8") as f:
-            w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
+    fields=["date","contract_id","expiry","dte","strike","abs_delta","iv_decimal","iv_pct","iv_source_format",
+            "bid","ask","bid_size","ask_size","spread_pct","open_interest","spot","rv20_annualized_pct",
+            "iv_minus_rv20_pct_points","iv_above_rv20"]
+    with (out/"qqq_put_iv_realized_vol_daily_v1.csv").open("w",newline="",encoding="utf-8") as f:
+        w=csv.DictWriter(f,fieldnames=fields);w.writeheader();w.writerows(rows)
     lines=["# QQQ Source IV versus Realized Volatility — V1","",
        f"**Status:** {report['status']}; historical EOD source-IV diagnostic, not option strategy P&L.",
        f"**Coverage:** {report['selected_iv_sessions']}/{report['expected_sessions']} sessions ({report['quote_coverage_pct']}%), {report['first_iv_date']} to {report['last_iv_date']}.",
