@@ -1,0 +1,76 @@
+name: QQQ Put Ratio NAV Exit Matrix V2 — Historical EOD Research
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_put_ratio_exit_study_v1/**
+      - research/qqq_hybrid_operator_terminal_v1/QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md
+      - .github/workflows/qqq-put-ratio-nav-exit-matrix-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-put-ratio-nav-exit-matrix-v2
+  cancel-in-progress: true
+
+jobs:
+  study:
+    name: SHA-pinned QQQ N=1-6 both-direction NAV exit replay
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime and pinned Parquet reader
+        run: |
+          py -3 --version || exit /b 1
+          py -3 -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0 || exit /b 1
+
+      - name: Restore SHA-verified public QQQ option cache
+        uses: actions/cache@v4
+        with:
+          path: .cache\qqq-options-full-history
+          key: qqq-options-full-history-2018-2025-sha-pinned-v1
+
+      - name: Compile and run offline contract tests
+        run: |
+          py -3 -m py_compile research\qqq_put_ratio_exit_study_v1\qqq_put_ratio_exit_study_v1.py || exit /b 1
+          py -3 -m py_compile research\qqq_put_ratio_exit_study_v1\test_qqq_put_ratio_exit_study_v1.py || exit /b 1
+          py -3 -m py_compile research\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_matrix_v2.py || exit /b 1
+          py -3 -m py_compile research\qqq_put_ratio_exit_study_v1\test_qqq_put_ratio_nav_exit_matrix_v2.py || exit /b 1
+          py -3 research\qqq_put_ratio_exit_study_v1\test_qqq_put_ratio_exit_study_v1.py || exit /b 1
+          py -3 research\qqq_put_ratio_exit_study_v1\test_qqq_put_ratio_nav_exit_matrix_v2.py || exit /b 1
+
+      - name: Run SHA-pinned full N/orientation/NAV exit matrix
+        timeout-minutes: 75
+        run: |
+          if not exist artifacts\qqq_put_ratio_exit_study_v1 mkdir artifacts\qqq_put_ratio_exit_study_v1
+          py -3 research\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_matrix_v2.py --out artifacts\qqq_put_ratio_exit_study_v1 > QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json || exit /b 1
+          type QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json || exit /b 1
+          type artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_matrix_v2.md || exit /b 1
+          type artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_matrix_v2.md >> "%GITHUB_STEP_SUMMARY%" || exit /b 1
+          py -3 -c "from pathlib import Path; p=[Path('QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.md'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_policy_matrix_v2.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_config_matrix_v2.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_episode_results_v2.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing outputs: '+repr(m); print('all_matrix_outputs_exist=PASS')" || exit /b 1
+
+      - name: Upload matrix outputs (non-blocking if Actions storage is full)
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-put-ratio-nav-exit-matrix-v2
+          path: |
+            QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json
+            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.json
+            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.md
+            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_policy_matrix_v2.csv
+            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_config_matrix_v2.csv
+            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_episode_results_v2.csv
+          if-no-files-found: error
+          retention-days: 14
