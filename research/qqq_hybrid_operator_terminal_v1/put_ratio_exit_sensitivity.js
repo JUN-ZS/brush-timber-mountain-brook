@@ -17,14 +17,15 @@ function evaluate(input,nowMs){
  const orientation=d.orientation==="long-heavy"?"long-heavy":d.orientation==="short-heavy"?"short-heavy":null;
  const n=whole(d.ratioN),packages=whole(d.packages),lk=num(d.longStrike),sk=num(d.shortStrike);
  const le=num(d.longEntryPrice),se=num(d.shortEntryPrice),lb=num(d.currentLongBid),sa=num(d.currentShortAsk);
- const commission=num(d.commissionPerContractSide),slippage=num(d.closeSlippagePerShare),dte=whole(d.dte),held=whole(d.heldSessions),spot=num(d.spot);
+ const commission=num(d.commissionPerContractSide),slippage=num(d.closeSlippagePerShare),entryDte=whole(d.entryDte),dte=whole(d.dte),held=whole(d.heldSessions),spot=num(d.spot);
  const thresholds=[0.5,1,2].map(p=>({pct:p,usd:nav>0?money(nav*p/100):null}));
  const targetUsd=nav>0&&thresholdPct>0?money(nav*thresholdPct/100):null;
- const base={ready:false,status:"PENDING",error:"",nav:nav>0?nav:null,thresholdPct,targetUsd,oneThousandPct:nav>0?1000/nav*100:null,thresholds,orientation,ratioN:n,packages,dte,baselineDteActive:dte!==null?dte<=7:null,heldSessions:held,
-  timing:held!==null?{first3:held>=0&&held<=3,first5:held>=0&&held<=5,note:"Holding-day window is context only; it does not fire an exit rule or predict future marks."}:null,
+ const base={ready:false,status:"PENDING",error:"",nav:nav>0?nav:null,thresholdPct,targetUsd,oneThousandPct:nav>0?1000/nav*100:null,thresholds,orientation,ratioN:n,packages,entryDte,dte,remainingDte:dte,baselineDteActive:dte!==null?dte<=7:null,heldSessions:held,
+  timing:held!==null?{first3:held>=0&&held<=3,first5:held>=0&&held<=5,note:"Holding-day age is counted from entry (entry day age 0), independent of entryDte. dte is current remaining calendar DTE; DTE<=7 is only a current-remaining-DTE baseline comparator, not a 3/5-day exit trigger."}:null,
   quoteQuality:quoteQuality(d.quoteAsOf,nowMs),disclaimer:"Manual what-if arithmetic only. A recent timestamp does not authenticate the source or prove executable size. No broker order is sent."};
  if(!(nav>0)||!(thresholdPct>0)||thresholdPct>100){base.error="Enter positive NAV and a threshold from >0% through 100% NAV.";return base}
- if(!orientation||!(n>=1&&n<=100)||!(packages>=1&&packages<=100000)||lk===null||sk===null||!(lk>0&&sk>0)||commission===null||commission<0||slippage===null||slippage<0||dte===null||dte<0||dte>1000||held===null||held<0){base.error="Need a valid direction, integer N/package count, positive strikes, non-negative costs, DTE and held-session count.";return base}
+ if(!orientation||!(n>=1&&n<=100)||!(packages>=1&&packages<=100000)||lk===null||sk===null||!(lk>0&&sk>0)||commission===null||commission<0||slippage===null||slippage<0||entryDte===null||entryDte<1||entryDte>1000||dte===null||dte<0||dte>1000||held===null||held<0){base.error="Need a valid direction, integer N/package count, positive strikes, non-negative costs, explicit entry DTE, current remaining DTE and held-session count.";return base}
+ if(dte>entryDte){base.error="Current remaining DTE cannot exceed the recorded entry DTE for the same position. Check the contract/entry date; the tool will not infer either value.";return base}
  if(!(orientation==="short-heavy"?lk>sk:sk>lk)){base.error=orientation==="short-heavy"?"SHORT-heavy geometry requires Long Put strike > Short Put strike.":"LONG-heavy geometry requires Short Put strike > Long Put strike.";return base}
  if([le,se,lb,sa].some(v=>v===null||v<0)||!(le>0)||!(se>0)){base.error="Enter opening reference/average fill prices plus current Long Put Bid and Short Put Ask. Missing marks stay PENDING.";return base}
  const lp=orientation==="short-heavy"?1:n,sp=orientation==="short-heavy"?n:1,lq=lp*packages,sq=sp*packages,contracts=lq+sq;

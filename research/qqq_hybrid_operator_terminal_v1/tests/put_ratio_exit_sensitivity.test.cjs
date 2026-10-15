@@ -6,13 +6,21 @@ const sandbox={module:{exports:{}}};
 vm.runInNewContext(fs.readFileSync(require.resolve("../put_ratio_exit_sensitivity.js"),"utf8"),sandbox,{filename:"put_ratio_exit_sensitivity.js"});
 const X=sandbox.module.exports;
 const now=Date.parse("2026-10-15T08:00:00Z");
-function valid(overrides={}){return{nav:1000000,thresholdPct:1,orientation:"short-heavy",ratioN:5,packages:1,longStrike:705,shortStrike:665,longEntryPrice:11.11,shortEntryPrice:2.67,currentLongBid:12.50,currentShortAsk:1.50,commissionPerContractSide:0.65,closeSlippagePerShare:0.05,dte:45,heldSessions:3,spot:728.92,quoteAsOf:"2026-10-15T07:58:00Z",...overrides}}
+function valid(overrides={}){return{nav:1000000,thresholdPct:1,orientation:"short-heavy",ratioN:5,packages:1,longStrike:705,shortStrike:665,longEntryPrice:11.11,shortEntryPrice:2.67,currentLongBid:12.50,currentShortAsk:1.50,commissionPerContractSide:0.65,closeSlippagePerShare:0.05,dte:45,heldSessions:3,spot:728.92,entryDte:45,quoteAsOf:"2026-10-15T07:58:00Z",...overrides}}
 function near(a,b,e=0.011){assert.ok(Math.abs(a-b)<=e,"expected "+b+" ± "+e+", got "+a)}
 {
  const r=X.evaluate(valid(),now);assert.equal(r.ready,true);
  near(r.thresholds[0].usd,5000);near(r.thresholds[1].usd,10000);near(r.thresholds[2].usd,20000);
  near(r.oneThousandPct,0.1);near(r.targetUsd,10000);near(r.fullClosePnlUsd,686.2);near(r.pnlPctNav,0.06862,0.0001);
- assert.equal(r.thresholdState,"WITHIN_CANDIDATE_BAND");assert.equal(r.baselineDteActive,false);assert.equal(r.timing.first3,true);assert.equal(r.timing.first5,true);assert.equal(r.quoteQuality.status,"TIME_WITHIN_15M_UNAUTHENTICATED");
+ assert.equal(r.thresholdState,"WITHIN_CANDIDATE_BAND");assert.equal(r.entryDte,45);assert.equal(r.remainingDte,45);assert.equal(r.baselineDteActive,false);assert.equal(r.timing.first3,true);assert.equal(r.timing.first5,true);assert.equal(r.quoteQuality.status,"TIME_WITHIN_15M_UNAUTHENTICATED");
+ const monthCohort=X.evaluate(valid({entryDte:30,dte:27,heldSessions:3}),now);
+ assert.equal(monthCohort.ready,true);assert.equal(monthCohort.timing.first3,true);assert.equal(monthCohort.baselineDteActive,false,"first three holding sessions on a ~30-DTE entry do not imply DTE<=7");
+ const lateBaseline=X.evaluate(valid({entryDte:30,dte:7,heldSessions:5}));
+ assert.equal(lateBaseline.ready,true);assert.equal(lateBaseline.timing.first5,true);assert.equal(lateBaseline.baselineDteActive,true,"DTE<=7 depends on current remaining DTE, not holding-day age");
+ const missingEntryDte=X.evaluate(valid({entryDte:null}));
+ assert.equal(missingEntryDte.ready,false);assert.match(missingEntryDte.error,/explicit entry DTE/i);
+ const impossibleClock=X.evaluate(valid({entryDte:30,dte:31}));
+ assert.equal(impossibleClock.ready,false);assert.match(impossibleClock.error,/cannot exceed the recorded entry DTE/i);
 }
 {
  const r=X.evaluate(valid(),now);near(r.trimShort.realizedPnlOnTrimmedShortsAfterCostsUsd,442.8);near(r.trimShort.residualOpenPnlAfterCostsReservedUsd,243.4);

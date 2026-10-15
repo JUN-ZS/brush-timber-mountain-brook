@@ -504,7 +504,11 @@ function ratioBase(overrides = {}) {
   assert.ok(hubHtml.includes('id="putRatioExitPctSlider"'), "NAV % exit slider must be present");
   assert.ok(hubHtml.includes('data-exit-pct="0.5"') && hubHtml.includes('data-exit-pct="1"') && hubHtml.includes('data-exit-pct="2"'), "0.5/1/2% sensitivity presets must be present");
   assert.ok(hubHtml.includes('id="putRatioExitLongBid"') && hubHtml.includes('id="putRatioExitShortAsk"'), "current close-side marks must be explicit");
-  assert.ok(hubHtml.includes('id="putRatioExitDte"'), "DTE<=7 comparator must stay visible");
+  assert.ok(hubHtml.includes('id="putRatioExitEntryDte"'), "entry DTE must be a separately recorded field");
+  assert.ok(hubHtml.includes('id="putRatioExitTimeScopeNotice"') && hubHtml.includes("30–60 個日曆日 DTE（目標 45）"), "the one-month-ish historical cohort and clock semantics must remain explicit");
+  assert.ok(hubHtml.includes('id="putRatioExitDte"') && !/id="putRatioExitDte"[^>]*value="7"/.test(hubHtml), "current remaining DTE must not silently default to the DTE<=7 baseline");
+  assert.ok(hubUi.includes('entryDte:n("putRatioExitEntryDte",null)') && hubUi.includes('dte:n("putRatioExitDte",null)'), "entry DTE and remaining DTE must both be explicit, with no DTE=7 fallback");
+  assert.ok(hubUi.includes('Entry DTE "+exitAssessment.entryDte+" → remaining DTE'), "display must show the separate DTE clocks");
   assert.ok(hubHtml.includes('id="putRatioExitFullClosePnl"') && hubHtml.includes('id="putRatioExitTrimRealized"'), "full close and reduce-short must be compared side by side");
   assert.ok(hubUi.includes('window.PutRatioExitSensitivityV1') && hubUi.includes('exitApi.evaluate'), "Hub UI must wire the separate exit sensitivity module");
 }

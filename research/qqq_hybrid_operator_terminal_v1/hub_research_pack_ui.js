@@ -11,7 +11,7 @@
     "shortPutStrike","shortPutBid","requestedN","maxN","currentN","currentShorts","currentWings","currentShortDelta",
     "lowDeltaStreak","sessionsSinceChange","packagePnlUsd","currentShortAsk","currentWingBid","approachTouched",
     "nextDayReversal","nextDayContinuation","wave","prevClose","anchorClose","atr20","layerCap","currentLayers",
-    "drawdown252Pct","return5dPct","putRatioN","putRatioExitPctSlider","putRatioExitPackages","putRatioExitHoldingDays","putRatioExitDte","putRatioExitLongBid","putRatioExitShortAsk","putRatioExitQuoteAsOf","putRatioExitCommission","putRatioExitSlippage","putRatioExitSpot","applyRiskBank","bankSeedWinUsd","bankLossesUsd","bankMode","bankNetPnlUsd"
+    "drawdown252Pct","return5dPct","putRatioN","putRatioExitPctSlider","putRatioExitPackages","putRatioExitHoldingDays","putRatioExitEntryDte","putRatioExitDte","putRatioExitLongBid","putRatioExitShortAsk","putRatioExitQuoteAsOf","putRatioExitCommission","putRatioExitSlippage","putRatioExitSpot","applyRiskBank","bankSeedWinUsd","bankLossesUsd","bankMode","bankNetPnlUsd"
   ];
   const n = (id, fallback = null) => E.num($(id) ? $(id).value : null, fallback);
   const checked = (id) => $(id) && $(id).checked === true;
@@ -408,7 +408,7 @@
       currentLongBid:n("putRatioExitLongBid"), currentShortAsk:n("putRatioExitShortAsk"),
       quoteAsOf:$("putRatioExitQuoteAsOf").value.trim(), commissionPerContractSide:n("putRatioExitCommission",0.65),
       closeSlippagePerShare:n("putRatioExitSlippage",0.05), spot:n("putRatioExitSpot"),
-      dte:n("putRatioExitDte",7), heldSessions:n("putRatioExitHoldingDays",3)
+      entryDte:n("putRatioExitEntryDte",null), dte:n("putRatioExitDte",null), heldSessions:n("putRatioExitHoldingDays",3)
     }) : null;
     const exitNav=n("nav",null), exitPct=n("putRatioExitPctSlider",1);
     const selectedUsd=exitNav>0&&exitPct>0?exitNav*exitPct/100:null;
@@ -429,7 +429,7 @@
         :"PENDING";
       $("putRatioExitBaselineState").textContent=exitAssessment.baselineDteActive===true?"DTE≤7 BASELINE WINDOW":exitAssessment.baselineDteActive===false?"DTE>7 · baseline not active":"DTE baseline PENDING";
       $("putRatioExitTimingState").textContent=exitAssessment.timing
-        ?"Held day "+exitAssessment.heldSessions+" · "+(exitAssessment.timing.first3?"within first 3":"after first 3")+" · "+(exitAssessment.timing.first5?"within first 5":"after first 5")+" (context only)"
+        ?"Entry DTE "+exitAssessment.entryDte+" → remaining DTE "+exitAssessment.remainingDte+" · held day "+exitAssessment.heldSessions+" · "+(exitAssessment.timing.first3?"within first 3":"after first 3")+" · "+(exitAssessment.timing.first5?"within first 5":"after first 5")+" (context only)"
         :"首 3／5 日只作比較窗口，不自動觸發";
       const bar=$("putRatioExitBarFill");
       const progress=exitAssessment.ready&&exitAssessment.thresholdPct>0?Math.min(100,Math.abs(exitAssessment.pnlPctNav/exitAssessment.thresholdPct)*100):0;
