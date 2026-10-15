@@ -955,6 +955,25 @@ def run_source_replay(out_dir: Path) -> dict[str, Any]:
     }
     report, summaries, per_trade, events = build_report(episodes, stats, source_integrity)
     out_dir.mkdir(parents=True, exist_ok=True)
+    # Export the exact pinned cohort and price/VIX rows for reuse; preserve missing values.
+    (out_dir / "qqq_put_ratio_exit_source_cohort.json").write_text(
+        json.dumps(
+            episodes, ensure_ascii=False, separators=(",", ":"),
+            default=lambda value: value.isoformat() if hasattr(value, "isoformat")
+            else value.item() if hasattr(value, "item") else str(value),
+        ), encoding="utf-8",
+    )
+    with (out_dir / "qqq_underlying_close_series.csv").open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=["date", "raw_close", "vix"])
+        writer.writeheader()
+        for session_day in expected:
+            spot_row = spots.get(session_day) or {}
+            vix_row = universe_by_day.get(session_day) or {}
+            writer.writerow({
+                "date": session_day,
+                "raw_close": spot_row.get("raw_close"),
+                "vix": vix_row.get("vix"),
+            })
     (out_dir / "qqq_put_ratio_exit_study_summary.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     (out_dir / "qqq_put_ratio_exit_study_summary.md").write_text(render_markdown(report), encoding="utf-8")
     _write_csv(out_dir / "qqq_put_ratio_exit_policy_summary.csv", summaries)
