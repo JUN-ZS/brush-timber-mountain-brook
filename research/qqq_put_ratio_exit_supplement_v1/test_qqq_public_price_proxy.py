@@ -59,10 +59,12 @@ class PublicPriceProxyTests(unittest.TestCase):
         self.assertEqual(five["window"], "external_extension")
 
     def test_invalid_price_gap_is_not_silently_forward_filled(self):
-        # The fetcher is designed to raise on a Yahoo bar with no/invalid Close;
-        # probability windows never accept a fabricated 0 or a forward-filled mark.
-        for value in (None, float("nan"), 0.0, -1.0):
-            self.assertTrue(value is None or value <= 0 or value != value)
+        session = date(2026, 1, 5)
+        for value in (None, "not-a-price", float("nan"), 0.0, -1.0):
+            with self.subTest(value=value):
+                with self.assertRaises(RuntimeError):
+                    M.validate_close(value, session)
+        self.assertEqual(M.validate_close("123.456789", session), 123.456789)
 
 
 if __name__ == "__main__":
