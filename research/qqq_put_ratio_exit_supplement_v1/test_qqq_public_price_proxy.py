@@ -85,6 +85,34 @@ class PublicPriceProxyTests(unittest.TestCase):
             M.parse_yahoo_vix_payload({"chart": {"error": None, "result": []}},
                                       date(2026, 1, 5), date(2026, 1, 7))
 
+
+    def test_vxn_proxy_uses_nasdaq_specific_buckets(self):
+        self.assertEqual(M.vxn_label(19.9), "VXN_LT20")
+        self.assertEqual(M.vxn_label(20.0), "VXN_20_30")
+        self.assertEqual(M.vxn_label(30.0), "VXN_30_40")
+        self.assertEqual(M.vxn_label(40.0), "VXN_GTE40")
+
+    def test_yahoo_vxn_parser_preserves_missing_observations(self):
+        dates = [
+            datetime(2026, 1, 5, 12, tzinfo=timezone.utc),
+            datetime(2026, 1, 6, 12, tzinfo=timezone.utc),
+            datetime(2026, 1, 7, 12, tzinfo=timezone.utc),
+        ]
+        payload = {
+            "chart": {
+                "error": None,
+                "result": [{
+                    "timestamp": [int(d.timestamp()) for d in dates],
+                    "indicators": {"quote": [{"close": [24.1, None, 33.2]}]},
+                }],
+            }
+        }
+        got, meta = M.parse_yahoo_vxn_payload(payload, date(2026, 1, 5), date(2026, 1, 7))
+        self.assertEqual(got, {"2026-01-05": 24.1, "2026-01-07": 33.2})
+        self.assertNotIn("2026-01-06", got)
+        self.assertEqual(meta["observations"], 2)
+        self.assertIn("not a QQQ option", meta["note"])
+
     def test_invalid_price_gap_is_not_silently_forward_filled(self):
         session = date(2026, 1, 5)
         for value in (None, "not-a-price", float("nan"), 0.0, -1.0):
