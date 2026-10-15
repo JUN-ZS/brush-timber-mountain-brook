@@ -3,7 +3,7 @@ name: QQQ 1x5 Put Ratio Exit Measurement V1
 on:
   workflow_dispatch:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, edited]
     branches:
       - feat/qqq-hybrid-operator-terminal-v1-20261009
     paths:
@@ -64,11 +64,11 @@ jobs:
         timeout-minutes: 30
         run: |
           if not exist artifacts\qqq_put_ratio_exit_study_v1\scale_volatility mkdir artifacts\qqq_put_ratio_exit_study_v1\scale_volatility
-          py -3 research\qqq_put_ratio_exit_study_v1\qqq_put_ratio_scale_volatility_v1.py --cohort artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_exit_source_cohort.json --prices artifacts\qqq_put_ratio_exit_study_v1\qqq_underlying_close_series.csv --out artifacts\qqq_put_ratio_exit_study_v1\scale_volatility > QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json || exit /b 1
+          py -3 research\qqq_put_ratio_exit_study_v1\qqq_put_ratio_scale_volatility_v1.py --cohort artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_exit_source_cohort.json --prices artifacts\qqq_put_ratio_exit_study_v1\qqq_underlying_close_series.csv --out artifacts\qqq_put_ratio_exit_study_v1\scale_volatility --nav 100000 --nav 1000000 > QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json || exit /b 1
           type QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json || exit /b 1
           type artifacts\qqq_put_ratio_exit_study_v1\scale_volatility\qqq_put_ratio_scale_volatility_summary.md || exit /b 1
           type artifacts\qqq_put_ratio_exit_study_v1\scale_volatility\qqq_put_ratio_scale_volatility_summary.md >> "%GITHUB_STEP_SUMMARY%" || exit /b 1
-          py -3 -c "from pathlib import Path; p=[Path('QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_risk_capacity.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_exit_policy_matrix.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing scale outputs: '+repr(m); print('scale_volatility_outputs_exist=PASS')" || exit /b 1
+          py -3 -c "from pathlib import Path; p=[Path('QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_risk_capacity.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_exit_policy_matrix.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing scale outputs: '+repr(m); print('scale_volatility_outputs_exist=PASS')" || exit /b 1
 
       - name: Upload replay metrics
         continue-on-error: true

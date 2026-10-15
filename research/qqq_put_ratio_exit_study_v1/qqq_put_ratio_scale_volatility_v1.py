@@ -286,7 +286,7 @@ def price_horizon_probabilities(rows: list[dict[str,Any]]) -> list[dict[str,Any]
                 "median_rv20_pct":round(100*mrv,4) if mrv is not None else None,"rv_sqrt_time_scale_ratio":round(ratio,4) if ratio is not None else None})
     return result
 
-def build_risk_matrix(trades: list[dict[str,Any]]) -> list[dict[str,Any]]:
+def build_risk_matrix(trades: list[dict[str,Any]], navs: tuple[float,...] = NAVS) -> list[dict[str,Any]]:
     rows=[]
     for direction in (SHORT_HEAVY,LONG_HEAVY):
         for n in RATIOS:
@@ -295,7 +295,7 @@ def build_risk_matrix(trades: list[dict[str,Any]]) -> list[dict[str,Any]]:
                 if entry_size_ok(t,direction,n):env.append(terminal_envelope(t,nl,ns,.05,.65))
             losses=[x["max_terminal_loss_usd"] for x in env]; p95=distribution(losses)["p95"] if losses else None
             worst=max(losses) if losses else None; zero=[x["terminal_pnl_if_qqq_zero_usd"] for x in env]
-            for nav in NAVS:
+            for nav in navs:
                 budgets={}
                 for pct in BUDGET_PCTS:
                     budgets[f"budget_{pct*100:g}pct_nav"]={"budget_usd":round(nav*pct,2),
@@ -335,11 +335,11 @@ def summarize_policy(res: list[dict[str,Any]], direction: str, n: int, nav: floa
         "median_resolution_age_sessions":distribution([x["resolved_holding_sessions"] for x in closed if x["resolved_holding_sessions"] is not None])["median"],
         "interpretation":"fixed one-unit cohort; EOD quote-side estimates, not fills"}
 
-def build_policy_matrix(trades: list[dict[str,Any]], risk_rows: list[dict[str,Any]]) -> list[dict[str,Any]]:
+def build_policy_matrix(trades: list[dict[str,Any]], risk_rows: list[dict[str,Any]], navs: tuple[float,...] = NAVS) -> list[dict[str,Any]]:
     out=[]
     for direction in (SHORT_HEAVY,LONG_HEAVY):
         for n in RATIOS:
-            for nav in NAVS:
+            for nav in navs:
                 risk=next(x for x in risk_rows if x["direction"]==direction and x["ratio_n"]==n and x["nav_usd"]==nav)
                 for risk_pct in BUDGET_PCTS:
                     key=f"budget_{risk_pct*100:g}pct_nav"
@@ -369,11 +369,149 @@ def write_csv(path: Path, rows: list[dict[str,Any]]) -> None:
         w=csv.DictWriter(fh,fieldnames=keys,extrasaction="ignore");w.writeheader()
         for row in rows:w.writerow({k:json.dumps(v,ensure_ascii=False) if isinstance(v,(dict,list)) else v for k,v in row.items()})
 
+
+def mid_price(row: Any) -> float | None:
+    if not isinstance(row, dict):
+        return None
+    bid, ask = num(row.get("bid")), num(row.get("ask"))
+    if bid is None or ask is None or bid < 0 or ask <= 0 or bid > ask:
+        return None
+    return (bid + ask) / 2.0
+
+
+def friction_observations(trade: dict[str, Any], nl: int, ns: int,
+                          slip: float, commission: float) -> list[dict[str, Any]]:
+    """Reconcile midpoint value to conservative quote-side liquidation value at each observed mark."""
+    quotes = trade.get("entry_quotes") or {}
+    long_mid, short_mid = mid_price(quotes.get("long")), mid_price(quotes.get("short"))
+    if long_mid is None or short_mid is None:
+        return []
+    midpoint_entry_cash = MULT * (ns * short_mid - nl * long_mid)
+    execution_state = {
+        "cash": entry_cashflow(trade, nl, ns, slip, commission),
+        "n_long": nl, "n_short": ns,
+    }
+    out = []
+    expiry = str(trade.get("expiry", ""))[:10]
+    for age, step in enumerate(trade.get("path") or []):
+        lm, sm = mid_price(step.get("long")), mid_price(step.get("short"))
+        if lm is None or sm is None:
+            continue
+        side_mark = mark_pnl(execution_state, step, slip, commission)
+        if side_mark is None:
+            continue
+        mid_mark = midpoint_entry_cash - ns * MULT * sm + nl * MULT * lm
+        friction = mid_mark - side_mark
+        try:
+            dte = int(num(step.get("dte"))) if num(step.get("dte")) is not None else (
+                date.fromisoformat(expiry) - date.fromisoformat(str(step.get("date"))[:10])
+            ).days
+        except (ValueError, TypeError):
+            dte = None
+        vix = num(step.get("vix"))
+        vb = "VIX_UNKNOWN" if vix is None else (
+            "VIX_LT15" if vix < 15 else "VIX_15_25" if vix < 25 else "VIX_25_35" if vix < 35 else "VIX_GTE35"
+        )
+        db = "DTE_UNKNOWN" if dte is None else (
+            "DTE_LE7" if dte <= 7 else "DTE_8_20" if dte <= 20 else "DTE_21_40" if dte <= 40 else "DTE_GT40"
+        )
+        exit_depth = (
+            quote_ok(step.get("short"), "ask", executable=True, qty=ns)
+            and quote_ok(step.get("long"), "bid", executable=True, qty=nl)
+        )
+        out.append({
+            "age": age, "date": step.get("date"), "vix": vix, "dte": dte,
+            "state_labels": ("OVERALL", vb, db),
+            "midpoint_mark_pnl_usd": mid_mark,
+            "quoted_side_net_liquidation_pnl_usd": side_mark,
+            "friction_drag_usd": friction,
+            "exit_depth_qualified": bool(exit_depth),
+        })
+    return out
+
+
+def build_friction_bar_matrix(trades: list[dict[str, Any]], risk_rows: list[dict[str, Any]],
+                              navs: tuple[float, ...]) -> list[dict[str, Any]]:
+    rows = []
+    for direction in (SHORT_HEAVY, LONG_HEAVY):
+        for n in RATIOS:
+            nl_unit, ns_unit = quantities(direction, n)
+            for nav in navs:
+                risk = next(x for x in risk_rows if x["direction"] == direction and x["ratio_n"] == n and x["nav_usd"] == nav)
+                for budget_pct in BUDGET_PCTS:
+                    key = f"budget_{budget_pct*100:g}pct_nav"
+                    units = risk["risk_budgets"][key]["whole_units_using_worst_terminal_loss"]
+                    eligible = [t for t in trades if units and entry_size_ok(t, direction, n, units)]
+                    status = ("PENDING_NO_TAIL_ESTIMATE" if units is None else
+                              "BLOCKED_ZERO_WHOLE_UNITS" if units == 0 else
+                              "SIZED_WITH_OBSERVED_DEPTH" if eligible else "BLOCKED_NO_EPISODE_HAS_REQUIRED_DEPTH")
+                    nl, ns = nl_unit * (units or 0), ns_unit * (units or 0)
+                    for cost in COSTS:
+                        grouped: dict[str, list[dict[str, Any]]] = {}
+                        for trade in eligible:
+                            obs = friction_observations(trade, nl, ns, cost["slippage"], cost["commission"])
+                            by_label: dict[str, list[float]] = {}
+                            depth_by_label: dict[str, list[bool]] = {}
+                            for item in obs:
+                                for label in item["state_labels"]:
+                                    by_label.setdefault(label, []).append(item["friction_drag_usd"])
+                                    depth_by_label.setdefault(label, []).append(item["exit_depth_qualified"])
+                            for label, vals in by_label.items():
+                                trade_stats = grouped.setdefault(label, [])
+                                trade_stats.append({
+                                    "trade_id": trade.get("trade_id"),
+                                    "median_drag": statistics.median(vals),
+                                    "p95_drag": distribution(vals)["p95"],
+                                    "max_drag": max(vals),
+                                    "mark_n": len(vals),
+                                    "depth_pct": 100 * sum(depth_by_label[label]) / len(depth_by_label[label]),
+                                })
+                        labels = sorted(set(grouped) | {"OVERALL"})
+                        if not eligible:
+                            labels = ["OVERALL", "VIX_LT15", "VIX_15_25", "VIX_25_35", "VIX_GTE35",
+                                      "DTE_LE7", "DTE_8_20", "DTE_21_40", "DTE_GT40"]
+                        for label in labels:
+                            stats = grouped.get(label, [])
+                            medians = [x["median_drag"] for x in stats]
+                            p95s = [x["p95_drag"] for x in stats]
+                            bar50 = distribution(medians)["median"] if medians else None
+                            bar95 = distribution(medians)["p95"] if medians else None
+                            max_trade_p95 = max(p95s) if p95s else None
+                            marks_n = sum(x["mark_n"] for x in stats)
+                            depth_pct = statistics.mean([x["depth_pct"] for x in stats]) if stats else None
+                            for target_pct in TRIGGER_PCTS:
+                                target = nav * target_pct
+                                rows.append({
+                                    "direction": direction, "ratio_n": n, "nav_usd": nav,
+                                    "tail_risk_budget_pct": budget_pct, "ratio_units": units,
+                                    "sizing_status": status, "cost_case": cost["name"],
+                                    "slippage_per_leg_usd": cost["slippage"],
+                                    "commission_per_contract_per_side_usd": cost["commission"],
+                                    "state": label, "target_pct_nav": target_pct,
+                                    "net_profit_target_usd": target, "net_loss_stop_usd": -target,
+                                    "episode_count": len(stats), "mark_observations": marks_n,
+                                    "friction_bar_p50_episode_median_usd": round(bar50, 2) if bar50 is not None else None,
+                                    "friction_bar_p95_episode_median_usd": round(bar95, 2) if bar95 is not None else None,
+                                    "worst_episode_p95_friction_usd": round(max_trade_p95, 2) if max_trade_p95 is not None else None,
+                                    "friction_p95_pct_of_nav": round(100*bar95/nav, 6) if bar95 is not None and nav else None,
+                                    "net_target_to_friction_p95_ratio": round(target/bar95, 4) if bar95 is not None and bar95 > 0 else None,
+                                    "midpoint_profit_needed_p50_usd": round(target+bar50, 2) if bar50 is not None else None,
+                                    "midpoint_profit_needed_p95_usd": round(target+bar95, 2) if bar95 is not None else None,
+                                    "midpoint_stop_line_equivalent_p50_usd": round(-target+bar50, 2) if bar50 is not None else None,
+                                    "midpoint_stop_line_equivalent_p95_usd": round(-target+bar95, 2) if bar95 is not None else None,
+                                    "exit_depth_qualified_pct": round(depth_pct, 4) if depth_pct is not None else None,
+                                    "bar_definition": "p95 of per-episode median midpoint-to-side-mark drag; quote-mark reconciliation, not fills or an optimized trigger",
+                                })
+    return rows
+
+
 def create_report(out: Path, prices: list[dict[str,Any]], trades: list[dict[str,Any]], risks: list[dict[str,Any]],
-                  matrix: list[dict[str,Any]], probs: list[dict[str,Any]]) -> dict[str,Any]:
+                  matrix: list[dict[str,Any]], probs: list[dict[str,Any]], friction_rows: list[dict[str,Any]],
+                  navs: tuple[float,...]) -> dict[str,Any]:
     out.mkdir(parents=True,exist_ok=True)
     write_csv(out/"ratio_risk_capacity.csv",risks);write_csv(out/"ratio_exit_policy_matrix.csv",matrix)
     write_csv(out/"qqq_volatility_horizon_probabilities.csv",probs)
+    write_csv(out/"friction_bar_matrix.csv",friction_rows)
     base=[x for x in matrix if x["cost_case"]==BASE_COST]
     policies_shown={"DTE7_CLOSE_SHORT_RISK","TP_1.0PCT_FULL_CLOSE","FAST3_1.0PCT_FULL_CLOSE","FAST3_1.0PCT_TRIM_SHORT_RISK",
         "FAST5_1.0PCT_FULL_CLOSE","FAST5_1.0PCT_TRIM_SHORT_RISK","DAY20_NONPOS_FULL_CLOSE","DAY20_NONPOS_TRIM_SHORT_RISK","SL_1.0PCT_FULL_CLOSE"}
@@ -382,9 +520,9 @@ def create_report(out: Path, prices: list[dict[str,Any]], trades: list[dict[str,
         "price_start":prices[0]["date"] if prices else None,"price_end":prices[-1]["date"] if prices else None,
         "price_expected_rows":len(prices),"price_valid_closes":sum(x["close"] is not None for x in prices),
         "option_cohort_episodes":len(trades),"option_source_end":SOURCE_END,"expected_option_sessions_missing_after_2025_12_15":11,
-        "directions":[SHORT_HEAVY,LONG_HEAVY],"N_values":list(RATIOS),"NAVs":list(NAVS),
+        "directions":[SHORT_HEAVY,LONG_HEAVY],"N_values":list(RATIOS),"NAVs":list(navs),
         "policy_summary_rows":len(matrix),"tail_risk_budgets_pct":list(BUDGET_PCTS),"volatility_probability_rows":len(probs),"source_evidence":EVIDENCE,
-        "outputs":["ratio_risk_capacity.csv","ratio_exit_policy_matrix.csv","qqq_volatility_horizon_probabilities.csv","qqq_put_ratio_scale_volatility_summary.md"],
+        "outputs":["ratio_risk_capacity.csv","ratio_exit_policy_matrix.csv","qqq_volatility_horizon_probabilities.csv","friction_bar_matrix.csv","qqq_put_ratio_scale_volatility_summary.md"],
         "blockers":["EOD quote mirror is not confirmed fills","history previously reviewed; not blind final OOS",
             "broker margin/assignment/forced liquidation unavailable","price movement probability is not option win probability"]}
     lines=["# QQQ Put Ratio: scale × exit × volatility/time","",
@@ -421,25 +559,36 @@ def create_report(out: Path, prices: list[dict[str,Any]], trades: list[dict[str,
     (out/"qqq_put_ratio_scale_volatility_summary.json").write_text(json.dumps(meta,indent=2),encoding="utf-8")
     picked=[x for x in shown if x["ratio_n"] in (1,5)]
     ex=[x for x in probs if x["state"] in ("ALL","RV20_GTE35","VIX_GTE35") and x["horizon_sessions"] in (5,20,45)]
+    fb=[x for x in friction_rows if x["state"]=="OVERALL" and x["cost_case"]==BASE_COST and
+        x["ratio_n"] in (1,5) and x["tail_risk_budget_pct"]==0.01 and x["target_pct_nav"]==0.01]
     return {**meta,"selected_risk_capacity":[x for x in risks if x["ratio_n"] in (1,5)],
-        "selected_policy_examples":picked,"volatility_examples":ex}
+        "selected_policy_examples":picked,"selected_friction_bars":fb,"volatility_examples":ex}
 
-def run(cohort_path: Path, price_path: Path, out: Path) -> dict[str,Any]:
+def run(cohort_path: Path, price_path: Path, out: Path, navs: tuple[float,...] = NAVS) -> dict[str,Any]:
     trades=json.loads(cohort_path.read_text(encoding="utf-8")); prices=load_prices(price_path)
     if not trades:raise ValueError("No option episodes; refusing a zero-sample PASS.")
     if not prices:raise ValueError("Underlying price series is empty.")
+    if not navs or any((not math.isfinite(float(x))) or float(x) <= 0 for x in navs):
+        raise ValueError("NAV inputs must be finite positive USD values.")
+    if len(set(float(x) for x in navs)) != len(navs):
+        raise ValueError("Duplicate NAV inputs are not allowed.")
+    navs=tuple(float(x) for x in navs)
     ds=[x["date"] for x in prices]
     if ds!=sorted(ds) or len(ds)!=len(set(ds)):raise ValueError("Price dates not unique ascending.")
     if prices[-1]["date"]!=SOURCE_END:raise ValueError(f"Expected source end {SOURCE_END}; got {prices[-1]['date']}")
-    risks=build_risk_matrix(trades); matrix=build_policy_matrix(trades,risks); probs=price_horizon_probabilities(prices)
-    report=create_report(out,prices,trades,risks,matrix,probs)
+    risks=build_risk_matrix(trades,navs); matrix=build_policy_matrix(trades,risks,navs)
+    friction_rows=build_friction_bar_matrix(trades,risks,navs)
+    probs=price_horizon_probabilities(prices)
+    report=create_report(out,prices,trades,risks,matrix,probs,friction_rows,navs)
     (out/"qqq_put_ratio_scale_volatility_run.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     return report
 
 def main() -> None:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cohort",type=Path,required=True);parser.add_argument("--prices",type=Path,required=True);parser.add_argument("--out",type=Path,required=True)
-    args=parser.parse_args();report=run(args.cohort,args.prices,args.out)
+    parser.add_argument("--nav",type=float,action="append",default=None,help="NAV in USD; repeat to compare multiple capital pools. Defaults to 100000 and 1000000.")
+    args=parser.parse_args();navs=tuple(args.nav) if args.nav else NAVS
+    report=run(args.cohort,args.prices,args.out,navs=navs)
     print(json.dumps(report,indent=2))
     print((args.out/"qqq_put_ratio_scale_volatility_summary.md").read_text(encoding="utf-8"))
 

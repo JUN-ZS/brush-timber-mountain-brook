@@ -63,6 +63,22 @@ class RatioScaleTests(unittest.TestCase):
         self.assertTrue(M.entry_size_ok(t,M.SHORT_HEAVY,1,units=2))
         r=M.simulate(t,M.SHORT_HEAVY,1,100000,{"name":"DTE7","kind":"DTE7"},0,0,units=2)
         self.assertEqual((r["n_long"],r["n_short"]),(2,2))
+
+    def test_arbitrary_navs_produce_dynamic_capacity_rows(self):
+        rows=M.build_risk_matrix([trade()],navs=(250000.0,750000.0))
+        self.assertTrue(rows)
+        self.assertEqual(sorted({x["nav_usd"] for x in rows}),[250000.0,750000.0])
+
+    def test_cost_bar_measures_midpoint_to_side_drag_and_scales_with_costs(self):
+        t=trade()
+        cheap=M.friction_observations(t,1,1,0.0,0.0)
+        costly=M.friction_observations(t,1,1,0.05,0.65)
+        cheap_next=next(x for x in cheap if x["age"]==1)
+        costly_next=next(x for x in costly if x["age"]==1)
+        self.assertAlmostEqual(cheap_next["friction_drag_usd"],80.0)
+        self.assertGreater(costly_next["friction_drag_usd"],cheap_next["friction_drag_usd"])
+        self.assertEqual(cheap_next["state_labels"][0],"OVERALL")
+
     def test_matrix_contains_full_trim_and_dte_baseline(self):
         names={x["name"] for x in M.policies()}
         for name in ("DTE7_CLOSE_SHORT_RISK","FAST3_1.0PCT_FULL_CLOSE","FAST3_1.0PCT_TRIM_SHORT_RISK",
