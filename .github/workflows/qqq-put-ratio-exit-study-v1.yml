@@ -17,7 +17,7 @@ on:
       - .github/workflows/qqq-put-ratio-exit-study-v1.yml
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: qqq-put-ratio-exit-study-v1
@@ -61,6 +61,9 @@ jobs:
           $PY -m py_compile research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_scale_volatility_v1.py
           $PY -m py_compile research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_scale_volatility_v1.py
           $PY research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_scale_volatility_v1.py
+          $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/qqq_public_price_proxy.py
+          $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/test_qqq_public_price_proxy.py
+          $PY research/qqq_put_ratio_exit_supplement_v1/test_qqq_public_price_proxy.py
 
       - name: Run SHA-pinned 1x5 exit policy replay
         timeout-minutes: 48
@@ -89,6 +92,25 @@ jobs:
           cat artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md >> "$GITHUB_STEP_SUMMARY"
           $PY -c "from pathlib import Path; p=[Path('QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_risk_capacity.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_exit_policy_matrix.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing scale outputs: '+repr(m); print('scale_volatility_outputs_exist=PASS')"
 
+
+      - name: Run public QQQ price proxy supplement (not option P&L)
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          PY=.venv/bin/python
+          mkdir -p artifacts/qqq_put_ratio_exit_study_v1/external_proxy
+          if $PY research/qqq_put_ratio_exit_supplement_v1/qqq_public_price_proxy.py --start 2018-03-01 --source-end 2025-12-15 --end 2026-10-15 --out artifacts/qqq_put_ratio_exit_study_v1/external_proxy > QQQ_PUBLIC_PRICE_PROXY_RUN.json; then
+            cat QQQ_PUBLIC_PRICE_PROXY_RUN.json
+            cat artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_summary.md
+            cat artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            rc=$?
+            echo "PUBLIC_PRICE_PROXY_STATUS=BLOCKED_EXTERNAL_FETCH_OR_VALIDATION (exit=$rc)"
+            echo "External QQQ price proxy could not be validated; no prices were fabricated or forward-filled." >> "$GITHUB_STEP_SUMMARY"
+            printf '{"research_id":"QQQ_PUBLIC_PRICE_PROXY_SUPPLEMENT_V1","status":"BLOCKED_EXTERNAL_FETCH_OR_VALIDATION","exit_code":%s,"strategy_pnl_estimated":false}\n' "$rc" > artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_summary.json
+          fi
+
       - name: Upload replay metrics
         continue-on-error: true
         uses: actions/upload-artifact@v4
@@ -107,5 +129,57 @@ jobs:
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md
-          if-no-files-found: error
+            QQQ_PUBLIC_PRICE_PROXY_RUN.json
+            artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_daily.csv
+            artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_probabilities.csv
+            artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_summary.json
+            artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_summary.md
+          if-no-files-found: warn
           retention-days: 14
+
+      - name: Persist validated research outputs on the research branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:8}"
+          result_dir="research/qqq_put_ratio_exit_results_v1/run-${short_sha}"
+          mkdir -p "$result_dir/replay" "$result_dir/scale_volatility" "$result_dir/external_proxy"
+          cp QQQ_PUT_RATIO_EXIT_STUDY_RUN.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_trades.csv "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv "$result_dir/replay/"
+          cp QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json "$result_dir/scale_volatility/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json "$result_dir/scale_volatility/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md "$result_dir/scale_volatility/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_risk_capacity.csv "$result_dir/scale_volatility/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_exit_policy_matrix.csv "$result_dir/scale_volatility/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv "$result_dir/scale_volatility/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv "$result_dir/scale_volatility/"
+          cp QQQ_PUBLIC_PRICE_PROXY_RUN.json "$result_dir/external_proxy/" 2>/dev/null || true
+          if [ -d artifacts/qqq_put_ratio_exit_study_v1/external_proxy ]; then
+            cp artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_* "$result_dir/external_proxy/" 2>/dev/null || true
+          fi
+          cat > "$result_dir/MANIFEST.md" <<EOF
+          # QQQ put-ratio research output
+
+          - Study commit tested: `$GITHUB_SHA`
+          - GitHub Actions run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          - Option-chain last observed date: 2025-12-15
+          - Replay and scale matrix: completed by this workflow before persistence.
+          - External Yahoo/FRED supplement: price-path-only; does not estimate option P&L after the option-chain boundary.
+          - Every output is research evidence only. Deployment and broker orders remain BLOCKED.
+          - Persisted because GitHub Actions artifact upload quota was exhausted; this directory is committed only on the isolated research branch.
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$result_dir"
+          if git diff --cached --quiet; then
+            echo "research_output_commit=NO_CHANGES"
+          else
+            git commit -m "research: persist QQQ put ratio run outputs ${short_sha}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
