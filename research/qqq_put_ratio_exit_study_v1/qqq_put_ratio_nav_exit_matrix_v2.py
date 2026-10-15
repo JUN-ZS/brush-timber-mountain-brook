@@ -276,7 +276,9 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
     import qqq_far_call_quote_replay as source_replay
     cache=ROOT/".cache"/"qqq-options-full-history"
     integrity,universe,spots,expected=audit.build_inputs(cache)
-    expected=sorted(d for d in expected if START_DATE<=d<=SOURCE_END_DATE);valid_days=set(expected)
+    # Keep the originally requested calendar through 2025-12-31 for underlying probability context.
+    # Option entries remain gated separately to the last available option-chain date below.
+    expected=sorted(d for d in expected if START_DATE<=d<=REQUESTED_END_DATE);valid_days=set(expected)
     option_paths=[];file_pins={}
     for spec in audit.ANNUAL_FILES:
         path,pin=audit.download_verified(spec,cache);option_paths.append(path);file_pins[spec["name"]]=pin
