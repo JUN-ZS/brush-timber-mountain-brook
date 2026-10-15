@@ -97,7 +97,7 @@ class GeneralityAuditorTests(unittest.TestCase):
             "rollingWindows": [
                 {"id": "W1", "start": "2020-01-01", "end": "2020-12-31"},
                 {"id": "W2", "start": "2021-01-01", "end": "2021-12-31"},
-                {"id": "W3", "start": "2022-01-01", "end": "2022-12-30"},
+                {"id": "W3", "start": "2022-01-03", "end": "2022-12-30"},
                 {"id": "W4", "start": "2023-01-02", "end": "2023-06-30"},
                 {"id": "W5", "start": "2023-07-03", "end": "2023-12-29"},
             ],
@@ -203,7 +203,7 @@ class GeneralityAuditorTests(unittest.TestCase):
         self.assertEqual(report["auditStatus"], "SOURCE_DIAGNOSTIC_ONLY")
         self.assertTrue(report["notAStrategyBacktest"])
         self.assertFalse(report["tradeReplayApproved"])
-        self.assertNotIn("rollingWindows", report)
+        self.assertEqual(report["rollingWindows"], [])
 
     def test_nonpositive_daily_wealth_is_blocked(self):
         self.write_rows(self.dates)
@@ -217,6 +217,22 @@ class GeneralityAuditorTests(unittest.TestCase):
         report = self.audit()
         self.assertEqual(report["auditStatus"], "INVALID_INPUT")
         self.assertTrue(any("NAV reached zero or below" in issue for issue in report["issues"]))
+
+    def test_self_declared_observed_execution_cannot_unlock_probability(self):
+        self.write_rows(self.dates)
+        rows = list(csv.DictReader(self.observations.read_text(encoding="utf-8").splitlines()))
+        for row in rows:
+            row["source_class"] = "OBSERVED"
+        with self.observations.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=FIELDS)
+            writer.writeheader()
+            writer.writerows(rows)
+        self.write_spec(evidenceClass="OBSERVED", outcomeClass="REAL_EXECUTION")
+        report = self.audit()
+        self.assertEqual(report["auditStatus"], "PASS_OPERATOR_ATTESTED", report["issues"])
+        self.assertFalse(report["sourceAuthenticated"])
+        self.assertFalse(report["canCountAsRealExecutionProbability"])
+        self.assertEqual(report["realExecutionProbabilityGate"], "BLOCKED_SOURCE_AUTHENTICATION")
 
     def test_adverse_cost_direction_is_reported_and_gates_pass(self):
         report = self.audit()

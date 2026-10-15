@@ -194,6 +194,8 @@ def _base_report() -> dict[str, Any]:
     return {
         "auditorVersion": AUDITOR_VERSION, "auditStatus": "NOT_PASS",
         "operatorAttested": True, "sourceAuthenticated": False,
+        "canCountAsRealExecutionProbability": False,
+        "realExecutionProbabilityGate": "BLOCKED_SOURCE_AUTHENTICATION",
         "evidenceClass": "UNKNOWN", "outcomeClass": "UNKNOWN",
         "inputIntegrity": {}, "dataQuality": {},
         "rollingWindows": [],
@@ -438,13 +440,14 @@ def audit_daily_series(observation_path: Path, calendar_path: Path, spec_path: P
             "canCountAsRealExecutionProbability": False,
         })
         report["auditStatus"] = "PASS_OPERATOR_ATTESTED" if not report["issues"] else "NOT_PASS"
-        report["canCountAsRealExecutionProbability"] = (
-            report["auditStatus"] == "PASS_OPERATOR_ATTESTED"
-            and report["outcomeClass"] == "REAL_EXECUTION"
-            and report["evidenceClass"] == "OBSERVED"
+        # This program has no independent source-authentication mechanism. Do not
+        # let caller-controlled evidenceClass/outcomeClass labels unlock empirical
+        # execution probabilities, even when arithmetic/coverage rules pass.
+        report["canCountAsRealExecutionProbability"] = False
+        report["realExecutionProbabilityGate"] = "BLOCKED_SOURCE_AUTHENTICATION"
+        report["limitations"].append(
+            "Real-execution probability is disabled until independent source authentication is implemented; row labels, source references and SHA-256 fingerprints alone do not authenticate observed fills."
         )
-        if not report["canCountAsRealExecutionProbability"]:
-            report["issues"].append("This data class is not eligible to count as real-execution probability; source and holdout remain unauthenticated")
         return report
     except (OSError, UnicodeError, json.JSONDecodeError, csv.Error, ValueError, TypeError) as exc:
         report["auditStatus"] = "INVALID_INPUT"

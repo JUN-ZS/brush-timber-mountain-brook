@@ -275,4 +275,4 @@ Run `py -3 research\qqq_hybrid_operator_terminal_v1\tests\test_generality_audito
 
 The Windows operator-terminal workflow now runs the auditor tests and emits a source-preflight report from the pinned QQQ EOD alignment diagnostic. This existing data remains diagnostic-only: the report makes no strategy P&L claim, approves no trade replay, and exposes 11 terminal expected sessions missing after 2025-12-15.
 
-The browser requires the auditor-format JSON envelope and three SHA-256 fingerprints before Generality can structurally pass. That remains operator-attested, not source-authenticated. Derived/model/synthetic outcomes cannot qualify as real-execution probability.
+The browser requires the auditor-format JSON envelope and three SHA-256 fingerprints before Generality can structurally pass. That remains operator-attested, not source-authenticated. Derived/model/synthetic outcomes cannot qualify as real-execution probability. In this version the execution-probability gate is hard-blocked for every pasted report: self-labeling rows as OBSERVED / REAL_EXECUTION, adding source URLs, or setting JSON booleans cannot authenticate source fills.

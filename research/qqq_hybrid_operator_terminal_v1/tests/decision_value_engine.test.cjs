@@ -178,10 +178,14 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
 {
  const dossier=goodGeneralityDossier(),result=D.evaluateGenerality(dossier);
  assert.equal(result.status,"PASS_OPERATOR_ATTESTED");assert.equal(result.positiveEffectWindows,5);assert.equal(result.evidenceAuthenticated,false);
- assert.equal(result.canCountAsRealExecutionProbability,true);
+ assert.equal(result.canCountAsRealExecutionProbability,false);
+ assert.equal(result.realExecutionProbabilityGate,"BLOCKED_SOURCE_AUTHENTICATION");
  assert.equal(D.evaluateGenerality({...dossier,inputIntegrity:null}).status,"AUDIT_REQUIRED","manual metrics without an auditor report must not pass");
  assert.equal(D.evaluateGenerality({...dossier,auditStatus:"BLOCKED_SOURCE_COVERAGE"}).status,"AUDIT_REQUIRED");
  assert.equal(D.evaluateGenerality({...dossier,evidenceClass:"DERIVED",outcomeClass:"MODEL_REPLAY"}).canCountAsRealExecutionProbability,false);
+ const callerForged=D.evaluateGenerality({...dossier,evidenceClass:"OBSERVED",outcomeClass:"REAL_EXECUTION",sourceAuthenticated:true,canCountAsRealExecutionProbability:true});
+ assert.equal(callerForged.canCountAsRealExecutionProbability,false,"caller-controlled flags cannot authenticate a pasted JSON report");
+ assert.equal(callerForged.evidenceAuthenticated,false);
  const fourOfFive=D.evaluateGenerality({...dossier,rollingWindows:dossier.rollingWindows.map((w,i)=>i===4?{...w,effectDeltaPct:-0.1}:w)});
  assert.equal(fourOfFive.status,"PASS_OPERATOR_ATTESTED","4/5 is the pre-registered minimum effect-direction rule");
  assert.equal(D.evaluateGenerality({...dossier,finalCoveragePct:99.5}).pass,false);
