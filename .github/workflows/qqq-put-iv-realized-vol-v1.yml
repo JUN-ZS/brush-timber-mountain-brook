@@ -1,0 +1,69 @@
+name: QQQ Put IV versus Realized Volatility — Historical EOD Research
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_put_ratio_exit_study_v1/qqq_put_iv_realized_vol_study_v1.py
+      - research/qqq_put_ratio_exit_study_v1/test_qqq_put_iv_realized_vol_study_v1.py
+      - .github/workflows/qqq-put-iv-realized-vol-v1.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-put-iv-realized-vol-v1
+  cancel-in-progress: true
+
+jobs:
+  qqq-iv-rv:
+    name: SHA-pinned QQQ source-IV / RV20 / forward-move profile
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime and pinned Parquet reader
+        run: |
+          py -3 --version || exit /b 1
+          py -3 -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0 || exit /b 1
+
+      - name: Restore SHA-verified historical QQQ option cache
+        uses: actions/cache@v4
+        with:
+          path: .cache\qqq-options-full-history
+          key: qqq-options-full-history-2018-2025-sha-pinned-v1
+
+      - name: Compile and run offline IV-contract tests
+        run: |
+          py -3 -m py_compile research\qqq_put_ratio_exit_study_v1\qqq_put_iv_realized_vol_study_v1.py || exit /b 1
+          py -3 -m py_compile research\qqq_put_ratio_exit_study_v1\test_qqq_put_iv_realized_vol_study_v1.py || exit /b 1
+          py -3 research\qqq_put_ratio_exit_study_v1\test_qqq_put_iv_realized_vol_study_v1.py || exit /b 1
+
+      - name: Run SHA-pinned daily QQQ source-IV profile
+        timeout-minutes: 40
+        run: |
+          py -3 research\qqq_put_ratio_exit_study_v1\qqq_put_iv_realized_vol_study_v1.py --out artifacts\qqq_put_ratio_exit_study_v1 > QQQ_PUT_IV_REALIZED_VOL_V1_RUN.json || exit /b 1
+          type QQQ_PUT_IV_REALIZED_VOL_V1_RUN.json || exit /b 1
+          type artifacts\qqq_put_ratio_exit_study_v1\qqq_put_iv_realized_vol_study_v1.md || exit /b 1
+          type artifacts\qqq_put_ratio_exit_study_v1\qqq_put_iv_realized_vol_study_v1.md >> "%GITHUB_STEP_SUMMARY%" || exit /b 1
+          py -3 -c "from pathlib import Path; p=[Path('QQQ_PUT_IV_REALIZED_VOL_V1_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_iv_realized_vol_study_v1.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_iv_realized_vol_study_v1.md'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_iv_realized_vol_daily_v1.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing IV outputs: '+repr(m); print('direct_qqq_iv_outputs_exist=PASS')" || exit /b 1
+
+      - name: Upload IV study outputs (non-blocking if Actions storage is full)
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-put-iv-realized-vol-v1
+          path: |
+            QQQ_PUT_IV_REALIZED_VOL_V1_RUN.json
+            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_iv_realized_vol_study_v1.json
+            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_iv_realized_vol_study_v1.md
+            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_iv_realized_vol_daily_v1.csv
+          if-no-files-found: error
+          retention-days: 14
