@@ -7,6 +7,8 @@ on:
       - research/qqq-put-ratio-exit-measurement-v1
     paths:
       - research/qqq_put_ratio_exit_study_v1/**
+      - research/qqq_put_ratio_exit_supplement_v1/**
+      - research/qqq_put_ratio_exit_supplement_v1/**
       - .github/workflows/qqq-put-ratio-exit-study-v1.yml
   pull_request:
     types: [opened, reopened, synchronize, edited]
@@ -64,6 +66,9 @@ jobs:
           $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/qqq_public_price_proxy.py
           $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/test_qqq_public_price_proxy.py
           $PY research/qqq_put_ratio_exit_supplement_v1/test_qqq_public_price_proxy.py
+          $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/cost_sensitivity_audit.py
+          $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/test_cost_sensitivity_audit.py
+          $PY research/qqq_put_ratio_exit_supplement_v1/test_cost_sensitivity_audit.py
 
       - name: Run SHA-pinned 1x5 exit policy replay
         timeout-minutes: 48
@@ -92,6 +97,18 @@ jobs:
           cat artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md >> "$GITHUB_STEP_SUMMARY"
           $PY -c "from pathlib import Path; p=[Path('QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_risk_capacity.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_exit_policy_matrix.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing scale outputs: '+repr(m); print('scale_volatility_outputs_exist=PASS')"
 
+
+      - name: Pair cost scenarios and audit friction BAR sample sufficiency
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          mkdir -p artifacts/qqq_put_ratio_exit_study_v1/cost_audit
+          $PY research/qqq_put_ratio_exit_supplement_v1/cost_sensitivity_audit.py --policy-matrix artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_exit_policy_matrix.csv --friction-matrix artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv --out artifacts/qqq_put_ratio_exit_study_v1/cost_audit > QQQ_COST_SENSITIVITY_AUDIT_RUN.json
+          cat QQQ_COST_SENSITIVITY_AUDIT_RUN.json
+          cat artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.md
+          cat artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.md >> "$GITHUB_STEP_SUMMARY"
+          $PY -c "from pathlib import Path; p=[Path('artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_by_policy.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/cost_audit/friction_cost_sensitivity.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.md')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing cost audit outputs: '+repr(m); print('cost_sensitivity_audit_outputs_exist=PASS')"
 
       - name: Run public QQQ price proxy supplement (not option P&L)
         shell: bash
@@ -129,6 +146,11 @@ jobs:
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md
+            QQQ_COST_SENSITIVITY_AUDIT_RUN.json
+            artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_by_policy.csv
+            artifacts/qqq_put_ratio_exit_study_v1/cost_audit/friction_cost_sensitivity.csv
+            artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.json
+            artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.md
             QQQ_PUBLIC_PRICE_PROXY_RUN.json
             artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_daily.csv
             artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_probabilities.csv
@@ -143,7 +165,7 @@ jobs:
           set -euo pipefail
           short_sha="${GITHUB_SHA:0:8}"
           result_dir="research/qqq_put_ratio_exit_results_v1/run-${short_sha}"
-          mkdir -p "$result_dir/replay" "$result_dir/scale_volatility" "$result_dir/external_proxy"
+          mkdir -p "$result_dir/replay" "$result_dir/scale_volatility" "$result_dir/external_proxy" "$result_dir/cost_audit"
           cp QQQ_PUT_RATIO_EXIT_STUDY_RUN.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md "$result_dir/replay/"
@@ -159,6 +181,11 @@ jobs:
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_exit_policy_matrix.csv "$result_dir/scale_volatility/"
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv "$result_dir/scale_volatility/"
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv "$result_dir/scale_volatility/"
+          cp QQQ_COST_SENSITIVITY_AUDIT_RUN.json "$result_dir/cost_audit/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_by_policy.csv "$result_dir/cost_audit/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/cost_audit/friction_cost_sensitivity.csv "$result_dir/cost_audit/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.json "$result_dir/cost_audit/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.md "$result_dir/cost_audit/"
           cp QQQ_PUBLIC_PRICE_PROXY_RUN.json "$result_dir/external_proxy/" 2>/dev/null || true
           if [ -d artifacts/qqq_put_ratio_exit_study_v1/external_proxy ]; then
             cp artifacts/qqq_put_ratio_exit_study_v1/external_proxy/qqq_public_price_proxy_* "$result_dir/external_proxy/" 2>/dev/null || true
@@ -170,7 +197,8 @@ jobs:
           - GitHub Actions run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           - Option-chain last observed date: 2025-12-15
           - Replay and scale matrix: completed by this workflow before persistence.
-          - External Yahoo/FRED, with Yahoo ^VIX fallback when FRED is unavailable, is price-path-only; it does not estimate option P&L after the option-chain boundary.
+          - External Yahoo/FRED and Yahoo ^VIX/^VXN proxies, when available, are price-path-only; they do not estimate option P&L after the option-chain boundary.
+          - Cost-sensitivity audit pairs zero/base/adverse model assumptions and screens friction BAR sample counts; it does not validate fills or promote any exit rule.
           - Every output is research evidence only. Deployment and broker orders remain BLOCKED.
           - Persisted because GitHub Actions artifact upload quota was exhausted; this directory is committed only on the isolated research branch.
           EOF
