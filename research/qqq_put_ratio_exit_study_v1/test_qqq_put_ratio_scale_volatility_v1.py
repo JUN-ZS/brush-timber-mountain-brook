@@ -56,6 +56,13 @@ class RatioScaleTests(unittest.TestCase):
             rows.append({"date":(d+timedelta(days=i)).isoformat(),"close":px,"vix":22.})
         got=M.price_horizon_probabilities(rows);h=next(x for x in got if x["horizon_sessions"]==5 and x["state"]=="ALL")
         self.assertGreater(h["n"],100);self.assertIn("p_down_5pct_wilson95_nominal_low",h);self.assertIsNotNone(h["nonoverlap_p_down5_min_pct"])
+    def test_multiple_units_scale_contracts_and_enforce_depth(self):
+        t=trade()
+        t["entry_quotes"]["short"]["bid_size"]=2
+        self.assertFalse(M.entry_size_ok(t,M.SHORT_HEAVY,1,units=3))
+        self.assertTrue(M.entry_size_ok(t,M.SHORT_HEAVY,1,units=2))
+        r=M.simulate(t,M.SHORT_HEAVY,1,100000,{"name":"DTE7","kind":"DTE7"},0,0,units=2)
+        self.assertEqual((r["n_long"],r["n_short"]),(2,2))
     def test_matrix_contains_full_trim_and_dte_baseline(self):
         names={x["name"] for x in M.policies()}
         for name in ("DTE7_CLOSE_SHORT_RISK","FAST3_1.0PCT_FULL_CLOSE","FAST3_1.0PCT_TRIM_SHORT_RISK",

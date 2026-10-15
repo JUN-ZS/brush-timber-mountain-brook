@@ -6,8 +6,10 @@ Status: independent research only. No APP sizing policy, Frozen Original Hybrid,
 - SHORT_HEAVY_1_LONG_N_SHORT = buy one higher-strike put and sell N lower-strike puts.
 - LONG_HEAVY_N_LONG_1_SHORT = buy N higher-strike puts and sell one lower-strike put.
 - N=1 is mechanically the same 1-long/1-short position under either label, not two independent ideas.
+- Unit counts use the worst observed one-unit expiry loss in this previously inspected cohort; this is a retrospective sizing sensitivity, not a live capacity guarantee.
 - N=1–6; reference NAVs $100,000 and $1,000,000. Thresholds are 0.5%, 1%, 2% NAV: $500/$1,000/$2,000 at $100k and $5,000/$10,000/$20,000 at $1m.
-- Use the same listed-contract cohort. If displayed size cannot support the ratio, exclude it for that N and retain the skipped count. Do not substitute legs or forward-fill marks.
+- Use the same listed-contract cohort. If displayed size cannot support the ratio multiplied by selected whole units, exclude the episode and retain the skipped count. Do not substitute legs or forward-fill marks.
+- Policy replay is scaled by whole ratio units derived from each NAV and tail-risk budget; entries are filtered again by displayed size for the entire position.
 - Cost cases: zero-friction bound, $0.05 per leg/side + $0.65 per contract/side, and $0.10 + $0.65. Hypothetical sensitivities only.
 
 ## Payoff and exits

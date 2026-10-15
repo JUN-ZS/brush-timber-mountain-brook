@@ -52,10 +52,10 @@ def quantities(direction: str, n: int) -> tuple[int, int]:
         return n, 1
     raise ValueError(f"Unknown direction: {direction}")
 
-def entry_size_ok(trade: dict[str, Any], direction: str, n: int) -> bool:
+def entry_size_ok(trade: dict[str, Any], direction: str, n: int, units: int = 1) -> bool:
     q = trade.get("entry_quotes") or {}
     nl, ns = quantities(direction, n)
-    return quote_ok(q.get("long"), "ask", executable=True, qty=nl) and quote_ok(q.get("short"), "bid", executable=True, qty=ns)
+    return quote_ok(q.get("long"), "ask", executable=True, qty=nl*units) and quote_ok(q.get("short"), "bid", executable=True, qty=ns*units)
 
 def entry_cashflow(trade: dict[str, Any], nl: int, ns: int, slip: float, commission: float) -> float:
     q = trade["entry_quotes"]
@@ -106,7 +106,7 @@ def sell_longs(state: dict[str, Any], step: dict[str, Any], qty: int, slip: floa
     return True, "OK"
 
 def act(state: dict[str, Any], step: dict[str, Any], action: str, direction: str, n: int,
-        slip: float, commission: float) -> tuple[bool, str]:
+        slip: float, commission: float, units: int = 1) -> tuple[bool, str]:
     if action == "FULL_CLOSE":
         if state["n_short"] and not quote_ok(step.get("short"), "ask", executable=True, qty=int(state["n_short"])):
             return False, "SHORT_ASK_OR_SIZE_INVALID"
@@ -124,7 +124,7 @@ def act(state: dict[str, Any], step: dict[str, Any], action: str, direction: str
         return close_shorts(state, step, int(state["n_short"]), slip, commission)
     if action == "TRIM_SHORT_RISK":
         current = int(state["n_short"])
-        target_short = (1 if n > 1 else 0) if direction == SHORT_HEAVY else 0
+        target_short = (units if n > 1 else 0) if direction == SHORT_HEAVY else 0
         qty = max(0, current - target_short)
         if qty == 0: return False, "NO_EXCESS_SHORT_TO_TRIM"
         return close_shorts(state, step, qty, slip, commission)
@@ -148,8 +148,9 @@ def policies() -> list[dict[str, Any]]:
     return rows
 
 def simulate(trade: dict[str, Any], direction: str, n: int, nav: float, policy: dict[str, Any],
-             slip: float, commission: float) -> dict[str, Any]:
-    nl, ns = quantities(direction, n)
+             slip: float, commission: float, units: int = 1) -> dict[str, Any]:
+    nl_unit, ns_unit = quantities(direction, n)
+    nl, ns = nl_unit*units, ns_unit*units
     state = {"cash": entry_cashflow(trade, nl, ns, slip, commission), "n_long": nl, "n_short": ns}
     custom_fired = False; trigger_age = None; action_age = None; pending = None
     policy_disabled_by_fallback = False; fallback_count = 0; deferred = missing = required = 0
@@ -160,7 +161,7 @@ def simulate(trade: dict[str, Any], direction: str, n: int, nav: float, policy: 
         try: dte = (date.fromisoformat(str(trade["expiry"])[:10]) - date.fromisoformat(day)).days
         except ValueError: dte = 9999
         if pending is not None and age > pending["signal_age"]:
-            ok, _why = act(state, step, pending["action"], direction, n, slip, commission)
+            ok, _why = act(state, step, pending["action"], direction, n, slip, commission, units=units)
             if ok:
                 if action_age is None: action_age = age
                 pending = None
@@ -199,7 +200,7 @@ def simulate(trade: dict[str, Any], direction: str, n: int, nav: float, policy: 
         final_pnl, final_status = float(state["cash"]), "CLOSED_AT_OBSERVED_SIDE_QUOTES"
         if resolved_age is None: resolved_age = len(path)-1
     return {"trade_id":trade.get("trade_id"),"direction":direction,"ratio_n":n,"n_long":nl,"n_short":ns,
-        "nav_usd":nav,"policy":policy["name"],"slippage_per_leg":slip,"commission_per_contract_per_side":commission,
+        "nav_usd":nav,"policy":policy["name"],"ratio_units":units,"slippage_per_leg":slip,"commission_per_contract_per_side":commission,
         "entry_date":trade.get("entry_date"),"expiry":trade.get("expiry"),"custom_triggered":trigger_age is not None,
         "custom_trigger_age_sessions":trigger_age,"first_action_age_sessions":action_age,
         "trigger_to_action_delay_sessions":action_age-trigger_age if action_age is not None and trigger_age is not None else None,
@@ -310,12 +311,14 @@ def build_risk_matrix(trades: list[dict[str,Any]]) -> list[dict[str,Any]]:
     return rows
 
 def summarize_policy(res: list[dict[str,Any]], direction: str, n: int, nav: float, policy: dict[str,Any],
-                     cost: dict[str,Any], qualified: int, skipped: int) -> dict[str,Any]:
+                     cost: dict[str,Any], risk_budget_pct: float, units: int | None, sizing_status: str,
+                     qualified: int, skipped: int) -> dict[str,Any]:
     closed=[x for x in res if x["final_pnl_usd"] is not None]; pnls=[float(x["final_pnl_usd"]) for x in closed]
     wins=[x for x in pnls if x>0]; losses=[x for x in pnls if x<0]; grossloss=abs(sum(losses))
     required=sum(x["mark_rows_required"] for x in res); missing=sum(x["missing_mark_rows"] for x in res)
     return {"direction":direction,"ratio_n":n,"n_long":quantities(direction,n)[0],"n_short":quantities(direction,n)[1],
-        "nav_usd":nav,"policy":policy["name"],"cost_case":cost["name"],"slippage_per_leg":cost["slippage"],
+        "nav_usd":nav,"policy":policy["name"],"cost_case":cost["name"],"tail_risk_budget_pct":risk_budget_pct,
+        "ratio_units":units,"sizing_status":sizing_status,"slippage_per_leg":cost["slippage"],
         "commission_per_contract_per_side":cost["commission"],"cohort_episodes":len(res)+skipped,
         "depth_qualified_episodes":qualified,"depth_skipped":skipped,"resolved":len(closed),"unresolved":len(res)-len(closed),
         "net_pnl_sum_usd":round(sum(pnls),2) if pnls else None,"net_pnl_sum_pct_nav":round(sum(pnls)/nav*100,6) if pnls else None,
@@ -332,16 +335,28 @@ def summarize_policy(res: list[dict[str,Any]], direction: str, n: int, nav: floa
         "median_resolution_age_sessions":distribution([x["resolved_holding_sessions"] for x in closed if x["resolved_holding_sessions"] is not None])["median"],
         "interpretation":"fixed one-unit cohort; EOD quote-side estimates, not fills"}
 
-def build_policy_matrix(trades: list[dict[str,Any]]) -> list[dict[str,Any]]:
+def build_policy_matrix(trades: list[dict[str,Any]], risk_rows: list[dict[str,Any]]) -> list[dict[str,Any]]:
     out=[]
     for direction in (SHORT_HEAVY,LONG_HEAVY):
         for n in RATIOS:
-            eligible=[t for t in trades if entry_size_ok(t,direction,n)]; skipped=len(trades)-len(eligible)
             for nav in NAVS:
-                for cost in COSTS:
-                    for policy in policies():
-                        res=[simulate(t,direction,n,nav,policy,cost["slippage"],cost["commission"]) for t in eligible]
-                        out.append(summarize_policy(res,direction,n,nav,policy,cost,len(eligible),skipped))
+                risk=next(x for x in risk_rows if x["direction"]==direction and x["ratio_n"]==n and x["nav_usd"]==nav)
+                for risk_pct in BUDGET_PCTS:
+                    key=f"budget_{risk_pct*100:g}pct_nav"
+                    units=risk["risk_budgets"][key]["whole_units_using_worst_terminal_loss"]
+                    if units is None:
+                        status="PENDING_NO_TAIL_ESTIMATE"; eligible=[]; skipped=len(trades)
+                    elif units==0:
+                        status="BLOCKED_ZERO_WHOLE_UNITS"; eligible=[]; skipped=len(trades)
+                    else:
+                        eligible=[t for t in trades if entry_size_ok(t,direction,n,units)]
+                        skipped=len(trades)-len(eligible)
+                        status="SIZED_WITH_OBSERVED_DEPTH" if eligible else "BLOCKED_NO_EPISODE_HAS_REQUIRED_DEPTH"
+                    for cost in COSTS:
+                        for policy in policies():
+                            res=[simulate(t,direction,n,nav,policy,cost["slippage"],cost["commission"],units=units)
+                                 for t in eligible] if units else []
+                            out.append(summarize_policy(res,direction,n,nav,policy,cost,risk_pct,units,status,len(eligible),skipped))
     return out
 
 def write_csv(path: Path, rows: list[dict[str,Any]]) -> None:
@@ -362,13 +377,13 @@ def create_report(out: Path, prices: list[dict[str,Any]], trades: list[dict[str,
     base=[x for x in matrix if x["cost_case"]==BASE_COST]
     policies_shown={"DTE7_CLOSE_SHORT_RISK","TP_1.0PCT_FULL_CLOSE","FAST3_1.0PCT_FULL_CLOSE","FAST3_1.0PCT_TRIM_SHORT_RISK",
         "FAST5_1.0PCT_FULL_CLOSE","FAST5_1.0PCT_TRIM_SHORT_RISK","DAY20_NONPOS_FULL_CLOSE","DAY20_NONPOS_TRIM_SHORT_RISK","SL_1.0PCT_FULL_CLOSE"}
-    shown=[x for x in base if x["ratio_n"] in (1,5) and x["policy"] in policies_shown]
+    shown=[x for x in base if x["ratio_n"] in (1,5) and x["policy"] in policies_shown and x["tail_risk_budget_pct"]==0.01]
     meta={"research_id":"QQQ_PUT_RATIO_SCALE_VOLATILITY_V1","status":"RESEARCH_DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED",
         "price_start":prices[0]["date"] if prices else None,"price_end":prices[-1]["date"] if prices else None,
         "price_expected_rows":len(prices),"price_valid_closes":sum(x["close"] is not None for x in prices),
         "option_cohort_episodes":len(trades),"option_source_end":SOURCE_END,"expected_option_sessions_missing_after_2025_12_15":11,
         "directions":[SHORT_HEAVY,LONG_HEAVY],"N_values":list(RATIOS),"NAVs":list(NAVS),
-        "policy_summary_rows":len(matrix),"volatility_probability_rows":len(probs),"source_evidence":EVIDENCE,
+        "policy_summary_rows":len(matrix),"tail_risk_budgets_pct":list(BUDGET_PCTS),"volatility_probability_rows":len(probs),"source_evidence":EVIDENCE,
         "outputs":["ratio_risk_capacity.csv","ratio_exit_policy_matrix.csv","qqq_volatility_horizon_probabilities.csv","qqq_put_ratio_scale_volatility_summary.md"],
         "blockers":["EOD quote mirror is not confirmed fills","history previously reviewed; not blind final OOS",
             "broker margin/assignment/forced liquidation unavailable","price movement probability is not option win probability"]}
@@ -392,10 +407,10 @@ def create_report(out: Path, prices: list[dict[str,Any]], trades: list[dict[str,
         b=x["risk_budgets"]; u="/".join(str(b[f"budget_{p*100:g}pct_nav"]["whole_units_using_worst_terminal_loss"]) for p in BUDGET_PCTS)
         lines.append(f"| {x['direction']} | {x['ratio_n']} | {x['n_long']}/{x['n_short']} | USD {x['nav_usd']:,.0f} | {x['depth_qualified']}/{x['cohort_episodes']} | {x['terminal_loss_median_usd']} | {x['terminal_loss_p95_usd']} | {x['terminal_loss_worst_usd']} | {x['terminal_loss_worst_pct_nav']}% | {u} |")
     lines += ["","Terminal loss is the lowest payoff across the expiry knots, not merely the QQQ=$0 outcome. Whole-unit counts use the worst observed qualifying episode and are terminal payoff arithmetic only. N=1 is mechanically the same 1-long/1-short spread in either label.","",
-        "## Exit samples at base costs (full grid in CSV)","","| Direction | N | NAV | Policy | Resolved/eligible | Net P&L | Expectancy | Win% | Worst trade | Trigger% | DTE7 fallback | Deferred | Mark coverage |",
-        "|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+        "## Exit samples at base costs and 1% tail budget (full grid in CSV)","","| Direction | N | NAV | Tail budget | Sized units | Sizing status | Policy | Resolved/eligible | Net P&L | Expectancy | Win% | Worst trade | Trigger% | DTE7 fallback | Deferred | Mark coverage |",
+        "|---|---:|---:|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for x in shown:
-        lines.append(f"| {x['direction']} | {x['ratio_n']} | USD {x['nav_usd']:,.0f} | {x['policy']} | {x['resolved']}/{x['depth_qualified_episodes']} | {x['net_pnl_sum_usd']} | {x['expectancy_usd_per_unit']} | {x['win_rate_pct']}% | {x['worst_trade_usd']} | {x['custom_trigger_pct']}% | {x['dte7_fallback_count']} | {x['deferred_action_sessions']} | {x['mark_coverage_pct']}% |")
+        lines.append(f"| {x['direction']} | {x['ratio_n']} | USD {x['nav_usd']:,.0f} | {x['tail_risk_budget_pct']*100:g}% | {x['ratio_units']} | {x['sizing_status']} | {x['policy']} | {x['resolved']}/{x['depth_qualified_episodes']} | {x['net_pnl_sum_usd']} | {x['expectancy_usd_per_unit']} | {x['win_rate_pct']}% | {x['worst_trade_usd']} | {x['custom_trigger_pct']}% | {x['dte7_fallback_count']} | {x['deferred_action_sessions']} | {x['mark_coverage_pct']}% |")
     lines += ["","## Self-audit / non-completion gates","",
         "- The option source reports a 16:00 ET preservation snapshot; exact quote timestamps and executable fills are not authenticated.",
         "- 2018–2025 has already been seen in previous repository research: DEVELOPMENT/REVISIT, not blind final OOS.",
@@ -416,7 +431,7 @@ def run(cohort_path: Path, price_path: Path, out: Path) -> dict[str,Any]:
     ds=[x["date"] for x in prices]
     if ds!=sorted(ds) or len(ds)!=len(set(ds)):raise ValueError("Price dates not unique ascending.")
     if prices[-1]["date"]!=SOURCE_END:raise ValueError(f"Expected source end {SOURCE_END}; got {prices[-1]['date']}")
-    risks=build_risk_matrix(trades); matrix=build_policy_matrix(trades); probs=price_horizon_probabilities(prices)
+    risks=build_risk_matrix(trades); matrix=build_policy_matrix(trades,risks); probs=price_horizon_probabilities(prices)
     report=create_report(out,prices,trades,risks,matrix,probs)
     (out/"qqq_put_ratio_scale_volatility_run.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     return report
