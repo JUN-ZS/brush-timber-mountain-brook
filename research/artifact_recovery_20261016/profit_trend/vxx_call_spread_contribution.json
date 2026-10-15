@@ -1,0 +1,22 @@
+{
+  "research_id": "QQQ_HYBRID_VXX_CALL_SPREAD_CONTRIBUTION_V1",
+  "status": "DERIVED_REPLAY_ATTRIBUTION",
+  "pricing_model": "DERIVED_BS_VIX",
+  "not_opra": true,
+  "source": "qqq_hybrid_dynamic_deployment_v1_1_replay.py",
+  "vxx_call_spread": {
+    "risk_budget": 0.02,
+    "structure": "short VXX call + long wing",
+    "delta_targets": {
+      "short": 0.35,
+      "long_wing": 0.16
+    },
+    "opens": 50,
+    "closes": 49,
+    "wins": 41,
+    "losses": 8,
+    "realized_pnl": 7177.632860187727
+  },
+  "final_nav": 107594.83307765333,
+  "caveat": "Derived BS/VIX proxy only. Not historical OPRA fills. Not current sizing."
+}
