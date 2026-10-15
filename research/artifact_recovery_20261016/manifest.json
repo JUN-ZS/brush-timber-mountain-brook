@@ -44,6 +44,17 @@
       "run_id": 38778540717,
       "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38778540717",
       "status": "success; outputs persisted on its own research branch"
+    },
+    {
+      "name": "backtest-v2-2",
+      "run_id": 37694035278,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/37694035278",
+      "status": "report summary printed; final gate FAIL; artifact upload quota failure",
+      "missing": [
+        "artifacts/backtest-result.json",
+        "artifacts/backtest-curve.csv",
+        "src/data/backtest-v2-2.json"
+      ]
     }
   ],
   "files": [
@@ -58,6 +69,7 @@
     "real_vx/external_source_validation.json",
     "real_vx/source_swap_parity.json",
     "real_vx/delayed_vx_snapshot_2026-10-15.json",
-    "real_vx/historical_state_replay_summary.json"
+    "real_vx/historical_state_replay_summary.json",
+    "backtest/backtest-v2-2-gate-summary.json"
   ]
 }
