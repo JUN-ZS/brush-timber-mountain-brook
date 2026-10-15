@@ -2,6 +2,12 @@ name: QQQ 1x5 Put Ratio Exit Measurement V1
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - research/qqq-put-ratio-exit-measurement-v1
+    paths:
+      - research/qqq_put_ratio_exit_study_v1/**
+      - .github/workflows/qqq-put-ratio-exit-study-v1.yml
   pull_request:
     types: [opened, reopened, synchronize, edited]
     branches:
