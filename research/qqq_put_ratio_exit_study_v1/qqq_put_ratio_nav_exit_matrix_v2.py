@@ -124,9 +124,12 @@ def build_volatility_time_profile(expected:list[str],spots:dict[str,Any],univers
             sig=statistics.stdev(xs)*math.sqrt(252)*100;vals.append(sig);by_bucket[bars[i]["bucket"]].append(sig)
         rv.append({"window_sessions":window,"annualization_factor":252,**distribution(vals),
                    "by_vix_bucket":{b:distribution(by_bucket.get(b,[])) for b in buckets}})
+    observed_days=[b["date"] for b in bars if b["close"] is not None]
     return {"status":"EMPIRICAL_UNDERLYING_CONTEXT_NOT_OPTION_PNL_PROBABILITY",
-            "source_start":bars[0]["date"] if bars else None,"source_end":bars[-1]["date"] if bars else None,
-            "observed_sessions":len(bars),"horizon_returns":horizons,"conditional_by_vix_proxy":conditional,
+            "source_start":observed_days[0] if observed_days else None,"source_end":observed_days[-1] if observed_days else None,
+            "expected_sessions":len(bars),"observed_close_sessions":len(observed_days),
+            "missing_expected_close_sessions":len(bars)-len(observed_days),
+            "horizon_returns":horizons,"conditional_by_vix_proxy":conditional,
             "rolling_realized_volatility":rv,
             "interpretation":"Overlapping historical QQQ close-to-close frequencies are not independent-trial forecasts or probabilities of a specific option package profiting. VIX is S&P 500 implied-volatility context, not the QQQ option IV surface. Missing endpoint closes are excluded."}
 
