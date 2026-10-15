@@ -353,12 +353,12 @@ scenario("CLOCK Floor, future contributions and market gates do not auto-invest 
   assert.equal(floorBreach.status, "FLOOR_BREACH");
   assert.match(floorBreach.nextAction, /不會自動 SELL/);
   const riskOff = R.evaluate({
-    baseCapitalUsd:100000,startDate:start,horizonMonths:120,monthlyContributionUsd:0,
+    baseCapitalUsd:100000,startDate:carryStart,horizonMonths:120,monthlyContributionUsd:0,
     currentNavUsd:100000,currentCashUsd:100000,today,market:shock
   });
   assert.equal(riskOff.status, "DEFENSIVE_REVIEW");
   const noData = R.evaluate({
-    baseCapitalUsd:100000,startDate:start,horizonMonths:120,monthlyContributionUsd:0,
+    baseCapitalUsd:100000,startDate:carryStart,horizonMonths:120,monthlyContributionUsd:0,
     currentNavUsd:100000,currentCashUsd:100000,today,market:{blocked:true,allowNew:false,state:"UNKNOWN",action:"HOLD"}
   });
   assert.equal(noData.status, "WAIT_FOR_DATA");
