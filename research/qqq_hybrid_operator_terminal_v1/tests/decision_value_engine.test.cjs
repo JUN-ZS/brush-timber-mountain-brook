@@ -194,7 +194,7 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
  assert.equal(D.evaluate(fixture({portfolioStress:{scenarioName:"Named shock",sourceNote:"operator estimate",reconciled:false,legs:{}}})).status,"PORTFOLIO_STRESS_PENDING");
  const tailRisk=D.evaluate(fixture({portfolioStress:goodPortfolioStress({legs:{qqqCore:{state:"ACTIVE",stressLossUsd:100},vxxShort:{state:"ACTIVE",stressLossUsd:500},qqqCallCredit:{state:"ZERO"},vxxCallCredit:{state:"ZERO"}}})}));
  assert.equal(tailRisk.status,"PORTFOLIO_TAIL_REVIEW");
- const tooMuchRisk=D.evaluate(fixture({portfolioStress:goodPortfolioStress({legs:{qqqCore:{state:"ACTIVE",stressLossUsd:4000},vxxShort:{state:"ZERO"},qqqCallCredit:{state:"ACTIVE",stressLossUsd:1000},vxxCallCredit:{state:"ZERO"}}})}));
+ const tooMuchRisk=D.evaluate(fixture({portfolioStress:goodPortfolioStress({legs:{qqqCore:{state:"ACTIVE",stressLossUsd:4001},vxxShort:{state:"ZERO"},qqqCallCredit:{state:"ACTIVE",stressLossUsd:1000},vxxCallCredit:{state:"ZERO"}}})}));
  assert.equal(tooMuchRisk.status,"PORTFOLIO_STRESS_REVIEW");
  assert.equal(D.evaluate(fixture({generalityDossierJson:{...goodGeneralityDossier(),finalCoveragePct:97}})).status,"GENERALITY_PENDING");
 }
