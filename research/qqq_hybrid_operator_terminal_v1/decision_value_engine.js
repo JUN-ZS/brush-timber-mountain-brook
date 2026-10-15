@@ -92,6 +92,15 @@
   function evaluateGenerality(raw){
     const d=parseObject(raw);
     if(!d)return {status:"MISSING_DOSSIER",pass:false,operatorAttested:false,evidenceAuthenticated:false,issues:["A structured chronological generality dossier is required."]};
+    const fingerprintKeys=["observationsSha256","calendarSha256","specSha256"];
+    const fingerprints=d.inputIntegrity&&typeof d.inputIntegrity==="object"?d.inputIntegrity:{};
+    const dataQuality=d.dataQuality&&typeof d.dataQuality==="object"?d.dataQuality:{};
+    const fingerprintsValid=fingerprintKeys.every(key=>typeof fingerprints[key]==="string"&&/^[a-f0-9]{64}$/i.test(fingerprints[key]));
+    const missingExpected=Array.isArray(dataQuality.missingExpectedDates)?dataQuality.missingExpectedDates:null;
+    const auditReady=d.auditorVersion==="QQQ_HYBRID_GENERALITY_AUDITOR_V1"&&d.auditStatus==="PASS_OPERATOR_ATTESTED"&&fingerprintsValid&&
+      n(dataQuality.expectedObservationCoveragePct)===100&&missingExpected!==null&&missingExpected.length===0&&
+      Number.isInteger(n(dataQuality.sourceRowCount))&&n(dataQuality.sourceRowCount)>=100;
+    if(!auditReady)return {status:"AUDIT_REQUIRED",pass:false,operatorAttested:true,evidenceAuthenticated:false,auditStatus:String(d.auditStatus||"MISSING"),issues:["Paste a completed generality_auditor.py JSON report, not manually entered rolling-window claims. Require three SHA-256 fingerprints, full expected-session coverage and no missing dates."]};
     const issues=[],requiredStrings=["baselineId","candidateId","sourceRef","trainStart","trainEnd","validationStart","validationEnd","finalStart","finalEnd"];
     const missing=requiredStrings.filter(k=>d[k]===undefined||d[k]===null||String(d[k]).trim()==="");
     if(missing.length)issues.push("Missing fields: "+missing.join(", "));
@@ -127,7 +136,7 @@
     if(windowsValid&&windows.length>=5&&positive<Math.ceil(windows.length*0.8))issues.push("Positive primary effect is below 80% of rolling windows.");
     if(catastrophic>0)issues.push("A rolling window reports catastrophic failure; Generality cannot pass.");
     const pass=issues.length===0;
-    return {status:pass?"PASS_OPERATOR_ATTESTED":"NOT_PASS",pass,operatorAttested:true,evidenceAuthenticated:false,baselineId:String(d.baselineId),candidateId:String(d.candidateId),sourceRef:String(d.sourceRef),rollingWindowCount:windows.length,positiveEffectWindows:positive,requiredPositiveWindows:Math.ceil(windows.length*0.8),catastrophicFailures:catastrophic,regimesMeasured:REQUIRED_REGIMES.filter(k=>!regimeMissing.includes(k)),finalCoveragePct:finalCoverage,finalObservationCount:finalObservations,issues,limitation:"Structural consistency only; the APP does not authenticate source files, prove holdout independence, or recalculate underlying returns."};
+    return {status:pass?"PASS_OPERATOR_ATTESTED":"NOT_PASS",pass,operatorAttested:true,evidenceAuthenticated:false,auditorVersion:d.auditorVersion,auditStatus:d.auditStatus,inputIntegrity:fingerprints,dataQuality,baselineId:String(d.baselineId),candidateId:String(d.candidateId),sourceRef:String(d.sourceRef),evidenceClass:String(d.evidenceClass||"UNKNOWN"),outcomeClass:String(d.outcomeClass||"UNKNOWN"),canCountAsRealExecutionProbability:d.canCountAsRealExecutionProbability===true&&d.evidenceClass==="OBSERVED"&&d.outcomeClass==="REAL_EXECUTION",rollingWindowCount:windows.length,positiveEffectWindows:positive,requiredPositiveWindows:Math.ceil(windows.length*0.8),catastrophicFailures:catastrophic,regimesMeasured:REQUIRED_REGIMES.filter(k=>!regimeMissing.includes(k)),finalCoveragePct:finalCoverage,finalObservationCount:finalObservations,issues,limitation:"Input fingerprints and arithmetic are structurally checked, but this APP cannot authenticate source files or prove the lockbox was untouched."};
   }
 
   function evaluate(input){
@@ -190,7 +199,7 @@
     const qqqOverlayLocked=candidateKey==="qqqFarCallOverlay",noSizingRoute=!route&&["custom","deploymentTiming"].includes(candidateKey);
     const riskNature=candidateKey==="vxxShortShares"?"UNBOUNDED":String(i.riskNature||"STRESS_ONLY");
     const floorBreached=roadmap&&roadmap.status==="FLOOR_BREACH";
-    const independentEvidenceOk=probabilityBasis==="INDEPENDENT_OOS"&&probabilityMethod==="EMPIRICAL"&&sampleSize!==null&&sampleSize>=30&&empirical!==null&&evidenceNote.length>=12&&axes.accuracy==="PASS"&&axes.generality==="PASS"&&axes.integration==="PASS"&&generalityReview.status==="PASS_OPERATOR_ATTESTED";
+    const independentEvidenceOk=probabilityBasis==="INDEPENDENT_OOS"&&probabilityMethod==="EMPIRICAL"&&sampleSize!==null&&sampleSize>=30&&empirical!==null&&evidenceNote.length>=12&&axes.accuracy==="PASS"&&axes.generality==="PASS"&&axes.integration==="PASS"&&generalityReview.status==="PASS_OPERATOR_ATTESTED"&&generalityReview.canCountAsRealExecutionProbability===true;
     let status="BASELINE_PENDING",nextAction="Complete payoff, cost, time and evidence inputs; no default success probability or alternative value is inserted.";
     if(!market||market.blocked===true){status="MARKET_BLOCKED";nextAction="BLOCK: the main market-data gate is blocked or unavailable. Scenario EV cannot authorize deployment.";}
     else if(qqqOverlayLocked){status="QQQ_OVERLAY_LOCKBOX";nextAction="BLOCK promotion of the incremental QQQ FAR CALL overlay. Accuracy / Generality / Integration lockbox failures cannot be overridden by a positive scenario EV.";}

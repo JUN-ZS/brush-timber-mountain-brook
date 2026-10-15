@@ -267,3 +267,12 @@ The desk now enforces three separate contracts:
 - **Generality dossier**: structured chronological train/validation/final-OOS metadata, five rolling windows, four required regimes, paired capital/costs, no lookahead, adverse-cost checks, trial ledger and complete final OOS coverage. A pass is operator-attested only; source data are not authenticated by the APP.
 
 Full specification: RESEARCH_MEASUREMENT_CONTRACT.md. Synthetic regression fixtures exist only to test the validator contract; never paste their values as empirical evidence. Frozen Original Hybrid, main sizing policy and broker boundary remain unchanged.
+
+
+## Source-backed Generality Auditor V1
+
+Run `py -3 research\qqq_hybrid_operator_terminal_v1\tests\test_generality_auditor.py` on Windows CMD. The auditor consumes paired daily P&L, explicit costs, one shared cash-flow path and a pinned expected-session calendar; fingerprints its inputs; computes after-cost NAV, returns, risk metrics and pre-registered rolling windows; and blocks missing sessions.
+
+The Windows operator-terminal workflow now runs the auditor tests and emits a source-preflight report from the pinned QQQ EOD alignment diagnostic. This existing data remains diagnostic-only: the report makes no strategy P&L claim, approves no trade replay, and exposes 11 terminal expected sessions missing after 2025-12-15.
+
+The browser requires the auditor-format JSON envelope and three SHA-256 fingerprints before Generality can structurally pass. That remains operator-attested, not source-authenticated. Derived/model/synthetic outcomes cannot qualify as real-execution probability.

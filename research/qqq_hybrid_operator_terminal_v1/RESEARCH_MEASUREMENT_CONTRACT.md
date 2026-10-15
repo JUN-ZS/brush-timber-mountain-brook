@@ -224,3 +224,18 @@ At least five chronologically listed rolling windows are required. Each reports 
 CARRY, WEAKENING, PRE-SHOCK and SHOCK/backwardation counts are recorded independently. A regime with fewer than 100 daily observations is INSUFFICIENT_SAMPLE, not inferred from another regime. The final OOS window requires at least 100 observations and 100% source coverage for a complete final-window claim. Missing terminal sessions are not filled or silently dropped.
 
 PASS_OPERATOR_ATTESTED means only that the entered metadata/metrics satisfy the schema. It is not an empirical pass: the evaluator does not load/recalculate the underlying time series, authenticate source hashes, verify the trial ledger, or prove that a purportedly untouched lockbox was never used in prior research. A true OOS result must be generated and audited from source data before any policy promotion.
+
+
+## 5. Reproducible Generality Auditor — source rows, paired costs and hashes
+
+The executable is `generality_auditor.py`; deterministic tests are `tests/test_generality_auditor.py`. It accepts a daily paired ledger with one row per expected trading session and these required fields: date, baseline/candidate gross mark-to-market P&L, baseline/candidate booked cost, incremental adverse cost per arm, one shared end-of-day external flow, regime, source class and source reference. Starting capital and cash-flow timing are shared by construction. Empty costs are invalid; an assumed zero must be explicit.
+
+The session calendar is a pinned file (for this project, `src/data/universe.json`). The auditor SHA-256 fingerprints the observation CSV, calendar and pre-registered spec; checks unique ordered rows, expected-session coverage, terminal gaps, non-negative costs and regime labels; rebuilds both NAV paths; computes base/adverse-cost returns and risk statistics; and calculates each pre-registered rolling window using the objective selected before running the report (`CAGR`, `MAX_DRAWDOWN_MAGNITUDE` or `ES95_MAGNITUDE`). Window lists are not selected by the tool after seeing the result. Missing expected sessions block complete metrics instead of being dropped or filled.
+
+CLI:
+- `py -3 research/qqq_hybrid_operator_terminal_v1/generality_auditor.py --observations <paired-ledger.csv> --calendar src/data/universe.json --spec <pre-registered-spec.json> --out-json <report.json> --out-md <report.md>`
+- `py -3 research/qqq_hybrid_operator_terminal_v1/generality_auditor.py --source-alignment-json research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN22.json --out-json <preflight.json> --out-md <preflight.md>`
+
+The second mode is intentionally only a source preflight. On the currently pinned QQQ EOD diagnostic, option/underlying data end on 2025-12-15 while 11 expected sessions through 2025-12-31 remain missing; raw target-pair coverage is 98.7316%. The report states that it is not a strategy backtest and does not approve trade replay. This preflight therefore cannot be promoted to Generality evidence.
+
+`PASS_OPERATOR_ATTESTED` means the paired ledger, fingerprints, coverage, costs, splits, rolling windows and computed metrics satisfy the declared structure. It does not verify that daily gross P&L or costs were truthfully entered, authenticate executions, or prove the final lockbox was untouched. The app now refuses manually typed rolling-window claims and requires an auditor-format JSON envelope with three SHA-256 fingerprints and complete expected-date coverage. Actual promotion still requires independent source review and separate Accuracy / Integration gates. Synthetic fixtures are tests only.

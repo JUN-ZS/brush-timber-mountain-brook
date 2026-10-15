@@ -6,7 +6,10 @@ const sandbox={module:{exports:{}}};
 vm.runInNewContext(fs.readFileSync(require.resolve("../decision_value_engine.js"),"utf8"),sandbox,{filename:"decision_value_engine.js"});
 const D=sandbox.module.exports;
 function goodGeneralityDossier(overrides={}) {
- return {baselineId:"FROZEN_BASELINE_TEST",candidateId:"CANDIDATE_TEST",sourceRef:"synthetic fixture for validator tests",
+ return {auditorVersion:"QQQ_HYBRID_GENERALITY_AUDITOR_V1",auditStatus:"PASS_OPERATOR_ATTESTED",evidenceClass:"OBSERVED",outcomeClass:"REAL_EXECUTION",canCountAsRealExecutionProbability:true,
+  inputIntegrity:{observationsSha256:"a".repeat(64),calendarSha256:"b".repeat(64),specSha256:"c".repeat(64)},
+  dataQuality:{sourceRowCount:1500,expectedObservationCoveragePct:100,missingExpectedDates:[]},
+  baselineId:"FROZEN_BASELINE_TEST",candidateId:"CANDIDATE_TEST",sourceRef:"synthetic fixture for validator tests",
   trainStart:"2018-01-02",trainEnd:"2019-12-31",validationStart:"2020-01-02",validationEnd:"2023-12-29",finalStart:"2024-01-02",finalEnd:"2024-12-31",
   finalUntouched:true,finalEvaluatedOnce:true,designFrozenBeforeFinal:true,noLookahead:true,trialLedgerComplete:true,finalCoveragePct:100,finalObservationCount:252,
   regimeObservations:{"CARRY":300,"WEAKENING":150,"PRE-SHOCK":120,"SHOCK_BACKWARDATION":110},
@@ -175,6 +178,10 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
 {
  const dossier=goodGeneralityDossier(),result=D.evaluateGenerality(dossier);
  assert.equal(result.status,"PASS_OPERATOR_ATTESTED");assert.equal(result.positiveEffectWindows,5);assert.equal(result.evidenceAuthenticated,false);
+ assert.equal(result.canCountAsRealExecutionProbability,true);
+ assert.equal(D.evaluateGenerality({...dossier,inputIntegrity:null}).status,"AUDIT_REQUIRED","manual metrics without an auditor report must not pass");
+ assert.equal(D.evaluateGenerality({...dossier,auditStatus:"BLOCKED_SOURCE_COVERAGE"}).status,"AUDIT_REQUIRED");
+ assert.equal(D.evaluateGenerality({...dossier,evidenceClass:"DERIVED",outcomeClass:"MODEL_REPLAY"}).canCountAsRealExecutionProbability,false);
  const fourOfFive=D.evaluateGenerality({...dossier,rollingWindows:dossier.rollingWindows.map((w,i)=>i===4?{...w,effectDeltaPct:-0.1}:w)});
  assert.equal(fourOfFive.status,"PASS_OPERATOR_ATTESTED","4/5 is the pre-registered minimum effect-direction rule");
  assert.equal(D.evaluateGenerality({...dossier,finalCoveragePct:99.5}).pass,false);
