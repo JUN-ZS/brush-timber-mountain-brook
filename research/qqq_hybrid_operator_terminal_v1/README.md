@@ -256,3 +256,14 @@ The associated GitHub Actions workflow uses only \`[self-hosted, windows, x64]\`
 Every registered position can define a risk budget, stop mark, target mark, profit-review R threshold, maximum holding age in calendar days, and optional option expiry-review DTE. It reports P&L as % NAV, P&L/R, P&L per calendar day, R per calendar day, current loss-to-stop, remaining target reward and reward:loss-to-stop. See [POSITION_MANAGEMENT_MEASUREMENT_CONTRACT.md](./POSITION_MANAGEMENT_MEASUREMENT_CONTRACT.md).
 
 There is no fixed "$1,000 means sell" rule. $1,000 over 3 calendar days is $333.33/day; over 10 calendar days it is $100/day. Neither pace forces a cut. NAV, the risk denominator (R), remaining reward versus loss-to-stop, configured target, time limit, mark freshness and regime can change the decision. Stop / risk-budget breaches, regime risk-off, time / expiry limits and explicit targets produce human-review gates only. Missing parameters remain PLAN INCOMPLETE / PENDING rather than silently taking universal defaults.
+
+
+## Decision Value Engine V2 · independent gates
+
+The desk now enforces three separate contracts:
+
+- **Fair comparator**: candidate/alternative capital basis and dollar risk budget must match within $0.01; calendar horizon must match; alternative total EV must be explicitly after costs. Missing bases are PENDING; mismatched bases are INCOMPARABLE, and neither yields incremental EV.
+- **Common portfolio stress**: reconcile QQQ Core, VXX short stock, QQQ call-credit and VXX call-credit as ACTIVE or verified ZERO under one named stress event. Unknown remains PENDING. The loss-only sum is not VaR, maximum loss, or a correlation/hedge-credit model. Any active VXX short stock retains an unbounded-tail human-review gate.
+- **Generality dossier**: structured chronological train/validation/final-OOS metadata, five rolling windows, four required regimes, paired capital/costs, no lookahead, adverse-cost checks, trial ledger and complete final OOS coverage. A pass is operator-attested only; source data are not authenticated by the APP.
+
+Full specification: RESEARCH_MEASUREMENT_CONTRACT.md. Synthetic regression fixtures exist only to test the validator contract; never paste their values as empirical evidence. Frozen Original Hybrid, main sizing policy and broker boundary remain unchanged.

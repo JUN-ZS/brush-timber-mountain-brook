@@ -200,3 +200,27 @@ The price-basis gate remains BLOCKED: median repo QQQ input vs raw close is −2
 | $0.100 | 13.62% | $0.381/share |
 
 These are scenario assumptions, not measured transaction costs or fill probabilities. Source-reported IV is not independent of source quotes. The diagnostic makes no strategy-return claim and does not change any acceptance threshold, frozen policy, or order permissions. See [Run #22 report](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN22.md) and [summary JSON](https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/feat/qqq-hybrid-operator-terminal-v1-20261009/research/qqq_hybrid_operator_terminal_v1/QQQ_FULL_HISTORY_ALIGNMENT_RUN22.json).
+
+
+## Decision Value Engine V2 — fair comparator, portfolio stress and Generality dossier
+
+### Fair comparator contract
+A named alternative EV is comparable only when these items are explicit and matched: (1) candidate and alternative capital basis within $0.01; (2) candidate and alternative risk-budget basis within $0.01; (3) identical calendar-day horizon; and (4) alternative EV explicitly confirmed net of all stated fees, spread/slippage, carry/borrow and other costs. Missing basis is COMPARATOR_CONTRACT_PENDING; any mismatch is ALTERNATIVE_NOT_COMPARABLE. Neither status may be treated as a zero comparator or used to calculate incremental EV. The entered EV must be total dollars for the candidate units, not per share/contract.
+
+Matched metadata does not prove matched utility: equal dollar risk budgets still may have different tail, liquidity and path risks. That residual difference remains subject to human review, and the APP does not authenticate either EV estimate.
+
+### Cross-strategy common-stress reconciliation
+Before a primary candidate can pass the decision screen, explicitly reconcile four exposure classes: QQQ Core shares, VXX short stock, QQQ call-credit, and VXX call-credit. Each class is ACTIVE with a positive loss estimate under the same named event, or ZERO only after current holdings are reconciled. UNKNOWN stays PENDING; a missing row never means zero.
+
+The displayed aggregate is a loss-only sum for one operator-supplied common event. It is not VaR, maximum loss, a probabilistic forecast, covariance estimate, or netted hedge result. Do not subtract hypothetical gains or assume correlation offsets without a supported joint-P&L replay. Any active VXX short-stock class is labelled unbounded-tail and prevents an automatic clean pass: a finite shock loss does not cap its theoretical upside risk. A scenario sum above 5% NAV raises review; 5% is an internal project materiality trigger, not a universal rule.
+
+The browser verifies input shape and addition only. It cannot authenticate holdings, quote marks, contract deliverables, stress assumptions or source references. Its state is operator-attested, not source-verified.
+
+### Generality dossier and final OOS lockbox
+A structured dossier is required before a manually selected Generality PASS can count toward the independent-OOS review. The dossier must provide baseline/candidate IDs and source reference; non-overlapping chronological train, validation and final-OOS periods; explicit attestations that final data were untouched during design, design was frozen before the final read, the lockbox was evaluated once, signals use no lookahead, and all attempted variants are recorded.
+
+At least five chronologically listed rolling windows are required. Each reports at least 100 observations, coverage of at least 98%, review of missing-date clusters, a numeric pre-selected-objective improvement, paired capital/cost basis, no-lookahead check, adverse-cost pass/fail, and catastrophic-failure status. The preselected effect must be positive in at least 80% of windows (at least 4/5 for five windows) and no window may report a catastrophic failure.
+
+CARRY, WEAKENING, PRE-SHOCK and SHOCK/backwardation counts are recorded independently. A regime with fewer than 100 daily observations is INSUFFICIENT_SAMPLE, not inferred from another regime. The final OOS window requires at least 100 observations and 100% source coverage for a complete final-window claim. Missing terminal sessions are not filled or silently dropped.
+
+PASS_OPERATOR_ATTESTED means only that the entered metadata/metrics satisfy the schema. It is not an empirical pass: the evaluator does not load/recalculate the underlying time series, authenticate source hashes, verify the trial ledger, or prove that a purportedly untouched lockbox was never used in prior research. A true OOS result must be generated and audited from source data before any policy promotion.

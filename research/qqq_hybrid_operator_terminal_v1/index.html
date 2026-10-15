@@ -75,10 +75,17 @@
           </div>
           <div class="decision-subhead"><b>OPPORTUNITY COST · same total capital + horizon</b><span>Required before evidence-backed relative-value review.</span></div>
           <div class="decision-field-grid">
-            <label>Alternative / waiting expected value ($ total, after costs)<input id="dvAlternativeEVTotalUsd" type="number" step="0.01" placeholder="Blank = relative value PENDING; enter $0 explicitly if justified"></label>
-            <label>Alternative label / reference<input id="dvAlternativeLabel" type="text" maxlength="300" placeholder="e.g. wait in cash, hold current mix, or named control"></label>
-            <p class="decision-note">Comparator must use the same horizon and capital basis as the proposed position's total EV. This is not EV per candidate share/contract. A blank is UNKNOWN, not $0; AI or the APP must not fabricate the opportunity cost.</p>
+            <label>Alternative / waiting expected value ($ total, after costs)<input id="dvAlternativeEVTotalUsd" type="number" step="0.01" placeholder="Blank = PENDING; $0 only when justified"></label>
+            <label>Alternative label / reference<input id="dvAlternativeLabel" type="text" maxlength="300" placeholder="Name the cash/control/hold alternative"></label>
+            <label>Candidate capital basis ($)<input id="dvCandidateCapitalUsd" type="number" min="0.01" step="0.01" placeholder="Capital assigned to this candidate"></label>
+            <label>Alternative capital basis ($)<input id="dvAlternativeCapitalUsd" type="number" min="0.01" step="0.01" placeholder="Must match candidate within $0.01"></label>
+            <label>Candidate risk budget ($)<input id="dvCandidateRiskBudgetUsd" type="number" min="0.01" step="0.01" placeholder="Same risk denominator"></label>
+            <label>Alternative risk budget ($)<input id="dvAlternativeRiskBudgetUsd" type="number" min="0.01" step="0.01" placeholder="Must match candidate within $0.01"></label>
+            <label>Alternative horizon (calendar days)<input id="dvAlternativeHorizonDays" type="number" min="1" max="3650" step="1" placeholder="Must equal candidate horizon"></label>
+            <label>Alternative EV explicitly net of all costs?<select id="dvAlternativeCostsIncluded"><option value="NO">NO / UNKNOWN</option><option value="YES">YES · fees, spread, carry/borrow included</option></select></label>
           </div>
+          <div id="dvComparatorStatus" class="decision-route">Fair-comparator contract: PENDING — enter matched capital, risk budget, horizon and all-in after-cost basis.</div>
+          <p class="decision-note">Only a matched capital basis, risk budget, calendar horizon and explicitly after-cost expected value produce an incremental EV. Matching metadata is still operator-attested and cannot prove that the estimate itself is correct.</p>
           <div id="dvManualProbabilityFields" class="decision-field-grid">
             <label>Low success probability (%)<input id="dvProbLowPct" type="number" min="0" max="100" step="0.1" placeholder="Adverse case"></label>
             <label>Base success probability (%)<input id="dvProbBasePct" type="number" min="0" max="100" step="0.1" placeholder="Evidence-based or hypothetical"></label>
@@ -97,6 +104,12 @@
             <label>Integration / incremental value<select id="dvIntegration"><option value="NOT_TESTED">NOT TESTED</option><option value="PASS">PASS · pre-registered comparator</option><option value="FAIL">FAIL</option></select></label>
           </div>
           <label>Source / report / sample window / fixed rule / costs<input id="dvEvidenceNote" type="text" maxlength="800" placeholder="Reference required for independent evidence"></label>
+          <details class="decision-evidence-details">
+            <summary>Generality dossier · chronological splits, rolling windows, regimes and untouched final OOS</summary>
+            <p class="decision-note">Paste JSON following RESEARCH_MEASUREMENT_CONTRACT.md §4. It must report five rolling windows, ≥100 observations per reported regime, common capital/cost rules, adverse-cost checks and a 100%-covered final lockbox. A passing structure is operator-attested only; it does not authenticate data or prove the lockbox was truly untouched.</p>
+            <textarea id="dvGeneralityDossierJson" rows="7" spellcheck="false" placeholder='{"baselineId":"...","candidateId":"...","sourceRef":"...","trainStart":"YYYY-MM-DD","trainEnd":"YYYY-MM-DD","validationStart":"YYYY-MM-DD","validationEnd":"YYYY-MM-DD","finalStart":"YYYY-MM-DD","finalEnd":"YYYY-MM-DD","finalUntouched":true,"finalEvaluatedOnce":true,"designFrozenBeforeFinal":true,"noLookahead":true,"trialLedgerComplete":true,"finalCoveragePct":100,"finalObservationCount":100,"regimeObservations":{"CARRY":100,"WEAKENING":100,"PRE-SHOCK":100,"SHOCK_BACKWARDATION":100},"rollingWindows":[...]}'></textarea>
+            <div id="dvGeneralityStatus" class="decision-route">Generality dossier: PENDING — no independent holdout has been structurally checked.</div>
+          </details>
         </div>
         <div class="decision-results">
           <div id="dvVerdictHeadline" class="decision-verdict-headline">PENDING — enter payoff, cost, horizon and probability. No default success probability is inserted.</div>
@@ -114,6 +127,26 @@
         <article><small>VXX CALL-CREDIT · DERIVED MODEL REPLAY</small><b>41 / 49 wins · 83.7% historical model win fraction</b><p>8 losses; +$7,178 realized in that attribution. DERIVED_BS_VIX, not historical OPRA fills. Loadable as model reference only; it does not pass Accuracy / Generality gates.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/QQQ_HYBRID_PROFIT_TREND_REPLAY_V1_README.md" target="_blank" rel="noreferrer">Hybrid replay record →</a></article>
         <article><small>FOUR-LAYER HYBRID · DESCRIPTIVE REPLAY</small><b>BASELINE 13.70% CAGR / −23.02% MaxDD</b><p>DEPLOY V1.1: 13.92% CAGR / −22.85% MaxDD, 2018-03-01 to 2026-09-04 (2,141 sessions). DERIVED_BS_VIX model outputs, not a complete historical OPRA replay or forecast.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/QQQ_HYBRID_PROFIT_TREND_REPLAY_V1_README.md" target="_blank" rel="noreferrer">Replay readme →</a></article>
       </div></details>
+      <details class="decision-evidence-details" id="portfolioStressDetails">
+        <summary>跨策略共同風險 · 同一衝擊情境下的 QQQ / VXX 四類持倉</summary>
+        <p class="decision-note">逐類填同一具名衝擊下的損失美元；ZERO 必須代表已核對無該類持倉，不是缺資料。這是損失加總的情境估計，不是 VaR、最大損失或經驗證的相關性模型。VXX SHORT 的尾部仍然無上限。</p>
+        <div class="decision-field-grid">
+          <label>Common stress event<input id="dvStressScenarioName" type="text" maxlength="240" placeholder="e.g. QQQ −20%, volatility spike, VX backwardation"></label>
+          <label>Source / assumptions reference<input id="dvStressSourceNote" type="text" maxlength="500" placeholder="Source, date, or explicitly labelled hypothetical assumption"></label>
+        </div>
+        <div class="decision-field-grid">
+          <label>QQQ CORE exposure<select id="dvStressQqqCoreState"><option value="UNKNOWN">UNKNOWN · not reconciled</option><option value="ACTIVE">ACTIVE · loss entered below</option><option value="ZERO">ZERO · verified none</option></select></label>
+          <label>QQQ CORE loss in this event ($)<input id="dvStressQqqCoreLoss" type="number" min="0" step="0.01" placeholder="Positive loss estimate if ACTIVE"></label>
+          <label>VXX SHORT-stock exposure<select id="dvStressVxxShortState"><option value="UNKNOWN">UNKNOWN · not reconciled</option><option value="ACTIVE">ACTIVE · unbounded tail</option><option value="ZERO">ZERO · verified none</option></select></label>
+          <label>VXX SHORT loss in this event ($)<input id="dvStressVxxShortLoss" type="number" min="0" step="0.01" placeholder="Stress illustration only, never a cap"></label>
+          <label>QQQ CALL-CREDIT exposure<select id="dvStressQqqCallState"><option value="UNKNOWN">UNKNOWN · not reconciled</option><option value="ACTIVE">ACTIVE · loss entered below</option><option value="ZERO">ZERO · verified none</option></select></label>
+          <label>QQQ CALL-CREDIT loss ($)<input id="dvStressQqqCallLoss" type="number" min="0" step="0.01" placeholder="Same named stress event"></label>
+          <label>VXX CALL-CREDIT exposure<select id="dvStressVxxCallState"><option value="UNKNOWN">UNKNOWN · not reconciled</option><option value="ACTIVE">ACTIVE · loss entered below</option><option value="ZERO">ZERO · verified none</option></select></label>
+          <label>VXX CALL-CREDIT loss ($)<input id="dvStressVxxCallLoss" type="number" min="0" step="0.01" placeholder="Same named stress event"></label>
+        </div>
+        <label class="position-completeness-confirm"><input type="checkbox" id="dvStressReconciled"> I reconciled all four primary categories against the current holdings register / sizing state. Missing categories are not zero.</label>
+        <div id="dvPortfolioRiskResult" class="decision-route">Common portfolio stress: PENDING — reconcile all four primary categories.</div>
+      </details>
       <p class="decision-footer-note">No order authority. EV is a two-outcome approximation from entered gain / loss / cost. It omits multi-state payoff, path dependence, changing Greeks, volatility surface, borrow/margin calls, assignment, taxes, unentered costs and portfolio correlations.</p>
     </section>
     <section class="notice">

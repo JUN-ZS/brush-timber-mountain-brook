@@ -5,7 +5,24 @@ const vm=require("node:vm");
 const sandbox={module:{exports:{}}};
 vm.runInNewContext(fs.readFileSync(require.resolve("../decision_value_engine.js"),"utf8"),sandbox,{filename:"decision_value_engine.js"});
 const D=sandbox.module.exports;
-function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quantity:10,horizonDays:10,nav:100000,rewardUsd:200,lossUsd:100,costUsd:5,costStressUsd:10,riskNature:"DEFINED",probabilityMethod:"EMPIRICAL",wins:40,trials:50,probabilityBasis:"INDEPENDENT_OOS",accuracy:"PASS",generality:"PASS",integration:"PASS",alternativeEVTotalUsd:0,alternativeLabel:"Explicit $0 direct-P&L WAIT baseline",evidenceNote:"source hash + chronological OOS report",market:{blocked:false,allowNew:true,action:"BUY",state:"CARRY"},mainRow:{key:"qqqShares",current:10,target:30,capacity:100,delta:20,action:"ADD",status:"READY",reason:"eligible"},...overrides};}
+function goodGeneralityDossier(overrides={}) {
+ return {baselineId:"FROZEN_BASELINE_TEST",candidateId:"CANDIDATE_TEST",sourceRef:"synthetic fixture for validator tests",
+  trainStart:"2018-01-02",trainEnd:"2019-12-31",validationStart:"2020-01-02",validationEnd:"2023-12-29",finalStart:"2024-01-02",finalEnd:"2024-12-31",
+  finalUntouched:true,finalEvaluatedOnce:true,designFrozenBeforeFinal:true,noLookahead:true,trialLedgerComplete:true,finalCoveragePct:100,finalObservationCount:252,
+  regimeObservations:{"CARRY":300,"WEAKENING":150,"PRE-SHOCK":120,"SHOCK_BACKWARDATION":110},
+  rollingWindows:[
+   {id:"W1",start:"2020-01-02",end:"2020-12-31",observations:252,coveragePct:100,missingDatesReviewed:true,sameCapitalAndCosts:true,lookaheadFree:true,costStressPass:true,catastrophicFailure:false,effectDeltaPct:0.4},
+   {id:"W2",start:"2021-01-04",end:"2021-12-31",observations:252,coveragePct:100,missingDatesReviewed:true,sameCapitalAndCosts:true,lookaheadFree:true,costStressPass:true,catastrophicFailure:false,effectDeltaPct:0.2},
+   {id:"W3",start:"2022-01-03",end:"2022-12-30",observations:252,coveragePct:100,missingDatesReviewed:true,sameCapitalAndCosts:true,lookaheadFree:true,costStressPass:true,catastrophicFailure:false,effectDeltaPct:0.3},
+   {id:"W4",start:"2023-01-03",end:"2023-06-30",observations:124,coveragePct:99.2,missingDatesReviewed:true,sameCapitalAndCosts:true,lookaheadFree:true,costStressPass:true,catastrophicFailure:false,effectDeltaPct:0.1},
+   {id:"W5",start:"2023-07-03",end:"2023-12-29",observations:125,coveragePct:99.2,missingDatesReviewed:true,sameCapitalAndCosts:true,lookaheadFree:true,costStressPass:true,catastrophicFailure:false,effectDeltaPct:0.15}
+  ],...overrides};
+}
+function goodPortfolioStress(overrides={}) {
+ return {scenarioName:"QQQ down 20%, volatility shock, VX backwardation",sourceNote:"Synthetic stress assumptions used only to test the input contract",reconciled:true,
+  legs:{qqqCore:{state:"ACTIVE",stressLossUsd:500},vxxShort:{state:"ZERO"},qqqCallCredit:{state:"ACTIVE",stressLossUsd:200},vxxCallCredit:{state:"ACTIVE",stressLossUsd:100}},...overrides};
+}
+function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quantity:10,horizonDays:10,nav:100000,rewardUsd:200,lossUsd:100,costUsd:5,costStressUsd:10,riskNature:"DEFINED",probabilityMethod:"EMPIRICAL",wins:40,trials:50,probabilityBasis:"INDEPENDENT_OOS",accuracy:"PASS",generality:"PASS",integration:"PASS",alternativeEVTotalUsd:0,alternativeLabel:"Explicit $0 direct-P&L WAIT baseline",candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:1000,alternativeRiskBudgetUsd:1000,alternativeHorizonDays:10,alternativeCostsIncluded:true,generalityDossierJson:goodGeneralityDossier(),portfolioStress:goodPortfolioStress(),evidenceNote:"source hash + chronological OOS report",market:{blocked:false,allowNew:true,action:"BUY",state:"CARRY"},mainRow:{key:"qqqShares",current:10,target:30,capacity:100,delta:20,action:"ADD",status:"READY",reason:"eligible"},...overrides};}
 {
  const r=D.evaluate(fixture());assert.equal(r.status,"ELIGIBLE_FOR_HUMAN_REVIEW");assert.equal(r.probabilityBasePct,80);
  assert.ok(r.probabilityLowPct<80&&r.probabilityHighPct>80);assert.equal(r.breakEvenProbabilityPct,35);
@@ -132,4 +149,48 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
  assert.equal(noComparator.status,"ALTERNATIVE_VALUE_PENDING");
  assert.equal(noComparator.waitReferenceExpectedValueUsd,null,"unknown WAIT value must not be serialized as $0");
 }
-console.log("QQQ HYBRID DECISION VALUE ENGINE: 17 base + 15 full-use scenario checks PASS");
+
+{
+ const fair=D.evaluateComparator({candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:2000,alternativeRiskBudgetUsd:2000,alternativeHorizonDays:30,alternativeCostsIncluded:true},30,25,"Cash yield after costs");
+ assert.equal(fair.status,"COMPARABLE");
+ assert.equal(D.evaluateComparator({candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:90000,candidateRiskBudgetUsd:2000,alternativeRiskBudgetUsd:2000,alternativeHorizonDays:30,alternativeCostsIncluded:true},30,25,"Other portfolio").status,"INCOMPARABLE");
+ assert.equal(D.evaluateComparator({candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:2000,alternativeRiskBudgetUsd:1500,alternativeHorizonDays:30,alternativeCostsIncluded:true},30,25,"Other portfolio").status,"INCOMPARABLE");
+ assert.equal(D.evaluateComparator({candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:2000,alternativeRiskBudgetUsd:2000,alternativeHorizonDays:31,alternativeCostsIncluded:true},30,25,"Other portfolio").status,"INCOMPARABLE");
+ assert.equal(D.evaluateComparator({candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:2000,alternativeRiskBudgetUsd:2000,alternativeHorizonDays:30,alternativeCostsIncluded:false},30,25,"Other portfolio").status,"INCOMPARABLE");
+ assert.equal(D.evaluateComparator({},30,25,"Other portfolio").status,"BASIS_PENDING");
+}
+{
+ const stress=D.evaluatePortfolioStress(goodPortfolioStress(),100000);
+ assert.equal(stress.status,"COMPLETE_SCENARIO_ESTIMATE");assert.equal(stress.totalLossUsd,800);assert.equal(stress.riskPctNav,0.8);assert.equal(stress.sourceAuthenticated,false);
+ assert.equal(D.evaluatePortfolioStress(goodPortfolioStress({reconciled:false}),100000).status,"PENDING");
+ const unbounded=goodPortfolioStress({legs:{qqqCore:{state:"ZERO"},vxxShort:{state:"ACTIVE",stressLossUsd:1000},qqqCallCredit:{state:"ZERO"},vxxCallCredit:{state:"ZERO"}}});
+ assert.equal(D.evaluatePortfolioStress(unbounded,100000).status,"UNBOUNDED_TAIL_SCENARIO");assert.equal(D.evaluatePortfolioStress(unbounded,100000).totalLossUsd,1000);
+ const invalid=goodPortfolioStress({legs:{qqqCore:{state:"MAYBE"},vxxShort:{state:"ZERO"},qqqCallCredit:{state:"ZERO"},vxxCallCredit:{state:"ZERO"}}});
+ assert.equal(D.evaluatePortfolioStress(invalid,100000).status,"INVALID");
+ const missing=goodPortfolioStress({legs:{qqqCore:{state:"ACTIVE",stressLossUsd:10},vxxShort:{state:"UNKNOWN"},qqqCallCredit:{state:"ZERO"},vxxCallCredit:{state:"ZERO"}}});
+ assert.equal(D.evaluatePortfolioStress(missing,100000).totalLossUsd,null,"unknown categories must not be treated as zero");
+}
+{
+ const dossier=goodGeneralityDossier(),result=D.evaluateGenerality(dossier);
+ assert.equal(result.status,"PASS_OPERATOR_ATTESTED");assert.equal(result.positiveEffectWindows,5);assert.equal(result.evidenceAuthenticated,false);
+ assert.equal(D.evaluateGenerality({...dossier,finalCoveragePct:99.5}).pass,false);
+ assert.equal(D.evaluateGenerality({...dossier,finalUntouched:false}).pass,false);
+ assert.equal(D.evaluateGenerality({...dossier,finalStart:"2023-12-01"}).pass,false);
+ assert.equal(D.evaluateGenerality({...dossier,rollingWindows:dossier.rollingWindows.map((w,i)=>({...w,effectDeltaPct:i<3?0.2:-0.1}))}).pass,false);
+ assert.equal(D.evaluateGenerality({...dossier,rollingWindows:dossier.rollingWindows.map((w,i)=>i===4?{...w,catastrophicFailure:true}:w)}).pass,false);
+ assert.equal(D.evaluateGenerality({...dossier,regimeObservations:{"CARRY":300,"WEAKENING":150,"PRE-SHOCK":99,"SHOCK_BACKWARDATION":110}}).pass,false);
+ assert.equal(D.evaluateGenerality("{ bad JSON").status,"MISSING_DOSSIER");
+}
+{
+ assert.equal(D.evaluate(fixture({alternativeCapitalBasisUsd:90000})).status,"ALTERNATIVE_NOT_COMPARABLE");
+ assert.equal(D.evaluate(fixture({alternativeRiskBudgetUsd:500})).status,"ALTERNATIVE_NOT_COMPARABLE");
+ assert.equal(D.evaluate(fixture({alternativeCostsIncluded:false})).status,"ALTERNATIVE_NOT_COMPARABLE");
+ assert.equal(D.evaluate(fixture({candidateRiskBudgetUsd:null})).status,"COMPARATOR_CONTRACT_PENDING");
+ assert.equal(D.evaluate(fixture({portfolioStress:{scenarioName:"Named shock",sourceNote:"operator estimate",reconciled:false,legs:{}}})).status,"PORTFOLIO_STRESS_PENDING");
+ const tailRisk=D.evaluate(fixture({portfolioStress:goodPortfolioStress({legs:{qqqCore:{state:"ACTIVE",stressLossUsd:100},vxxShort:{state:"ACTIVE",stressLossUsd:500},qqqCallCredit:{state:"ZERO"},vxxCallCredit:{state:"ZERO"}}})}));
+ assert.equal(tailRisk.status,"PORTFOLIO_TAIL_REVIEW");
+ const tooMuchRisk=D.evaluate(fixture({portfolioStress:goodPortfolioStress({legs:{qqqCore:{state:"ACTIVE",stressLossUsd:4000},vxxShort:{state:"ZERO"},qqqCallCredit:{state:"ACTIVE",stressLossUsd:1000},vxxCallCredit:{state:"ZERO"}}})}));
+ assert.equal(tooMuchRisk.status,"PORTFOLIO_STRESS_REVIEW");
+ assert.equal(D.evaluate(fixture({generalityDossierJson:{...goodGeneralityDossier(),finalCoveragePct:97}})).status,"GENERALITY_PENDING");
+}
+console.log("QQQ HYBRID DECISION VALUE ENGINE: 17 base + 15 full-use + fairness/risk/generality matrix PASS");
