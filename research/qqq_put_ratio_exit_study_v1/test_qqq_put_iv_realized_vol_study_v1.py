@@ -56,6 +56,6 @@ class QQQIVRVTests(unittest.TestCase):
         self.assertNotIn(days[0],{x["date"] for x in report["daily_selected_quote_audit_rows"]})
         self.assertEqual({x["horizon_sessions"] for x in report["conditional_forward_results"]},{3,5,10,20,30})
         self.assertTrue(any(x["observations"]>0 for x in report["conditional_forward_results"]))
-        self.assertIn("not option-package win probability"," ".join(report["limitations"]))
+        self.assertIn("probability the option strategy wins"," ".join(report["limitations"]))
 
 if __name__=="__main__":unittest.main(verbosity=2)
