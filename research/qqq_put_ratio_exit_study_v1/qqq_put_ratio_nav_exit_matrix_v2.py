@@ -60,8 +60,9 @@ def terminal_risk_per_package(trade:dict[str,Any],slip:float,commission:float)->
             "pnl_if_qqq_zero_usd":round(expiry_pnl(cash,nl,ns,kl,ks,0),2),
             "payoff_breakpoints_usd":{str(s):round(p,2) for s,p in zip(points,pnls)}}
 
-def shape_quote_pair(pair:dict[str,Any],rows:list[dict[str,Any]],entry_day:str,n:int,orientation:str)->tuple[dict[str,Any]|None,str]:
-    qmap=BASE.quote_map(rows); high=qmap.get(pair.get("long_id")); low=qmap.get(pair.get("short_id"))
+def shape_quote_pair(pair:dict[str,Any],rows:list[dict[str,Any]],entry_day:str,n:int,orientation:str,qmap:dict[str,dict[str,Any]]|None=None)->tuple[dict[str,Any]|None,str]:
+    qmap=qmap if qmap is not None else BASE.quote_map(rows)
+    high=qmap.get(pair.get("long_id")); low=qmap.get(pair.get("short_id"))
     if high is None or low is None:return None,"NEXT_SESSION_CONTRACT_ROW_MISSING"
     if BASE.as_day(high.get("date"))!=entry_day or BASE.as_day(low.get("date"))!=entry_day:return None,"ENTRY_QUOTE_DATE_MISMATCH"
     if not BASE.standard_put_identity(high) or not BASE.standard_put_identity(low):return None,"ENTRY_CONTRACT_IDENTITY_INVALID"
@@ -260,17 +261,20 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
             rows=next_chain[1];next_chain=next(chains,None);last_chain=day
         else:rows=[]
         spot=BASE.num((spots.get(day) or {}).get("raw_close"));vix=BASE.num((universe.get(day) or {}).get("vix"))
+        # Reuse one option lookup and one pair selection across all shape states for this session.
+        qmap_day=BASE.quote_map(rows) if rows else {}
+        pair_today=BASE.choose_ratio_put(rows,day,valid_days,audit.base.standard_strike_grid) if rows and spot is not None and vix is not None else None
         for key,state in states.items():
             if state["pending"] is not None and state["active"] is None:
                 pair=state["pending"]
-                quote,status=shape_quote_pair(pair,rows,day,state["n"],state["o"]) if rows else (None,"NEXT_SESSION_CHAIN_MISSING")
+                quote,status=shape_quote_pair(pair,rows,day,state["n"],state["o"],qmap_day) if rows else (None,"NEXT_SESSION_CHAIN_MISSING")
                 if quote is not None and spot is not None:
                     state["active"]=create_trade(pair,quote,state["n"],state["o"],day,spot,vix,len(episodes[key])+1)
                     state["opened"]+=1;state["pending"]=None
                 else:state["skips"][status if quote is None else "ENTRY_RAW_SPOT_MISSING"]+=1;state["pending"]=None
             active=state["active"]
             if active is not None:
-                qmap=BASE.quote_map(rows);lr=qmap.get(active["long_id"]);sr=qmap.get(active["short_id"])
+                lr=qmap_day.get(active["long_id"]);sr=qmap_day.get(active["short_id"])
                 active["path"].append({"date":day,"dte":(date.fromisoformat(active["expiry"])-date.fromisoformat(day)).days,
                     "long":dict(lr) if lr is not None else None,"short":dict(sr) if sr is not None else None,"spot":spot,"vix":vix})
                 if day==active["expiry"]:
@@ -280,7 +284,7 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
         for key,state in states.items():
             if state["active"] is not None or state["pending"] is not None:continue
             if state["last_expiry"] is not None and day<=state["last_expiry"]:continue
-            pair=BASE.choose_ratio_put(rows,day,valid_days,audit.base.standard_strike_grid)
+            pair=pair_today or {"status":"NO_PAIR_SELECTION"}
             state["selection_status"][pair.get("status","UNKNOWN")]+=1
             if pair.get("status")!="PAIR_SELECTED":continue
             state["selected"]+=1
