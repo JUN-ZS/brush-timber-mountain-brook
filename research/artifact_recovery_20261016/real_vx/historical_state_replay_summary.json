@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "role": "OBSERVED_REPLAY",
+  "rows": 1540,
+  "coverage": [
+    "2016-03-01",
+    "2022-04-08"
+  ],
+  "overlap": 1059,
+  "meanTs": 0.06623419831600848,
+  "backwardationRows": 232,
+  "backwardationEpisodes": 44,
+  "longestBackwardationRun": 52,
+  "stateCounts": {
+    "Decay-Optimal": 1230,
+    "Normal": 174,
+    "Shock": 136
+  },
+  "actionCounts": {
+    "PAIR": 1265,
+    "QQQ_CC_ONLY": 275
+  },
+  "overlapStateCounts": {
+    "Decay-Optimal": 768,
+    "Shock": 136,
+    "Normal": 155
+  },
+  "overlapActionCounts": {
+    "PAIR": 803,
+    "QQQ_CC_ONLY": 256
+  },
+  "carryOn": 803,
+  "carryOff": 256,
+  "carryEpisodes": 74,
+  "longestCarryRun": 74,
+  "actionTransitions": 146,
+  "stateTransitions": 218,
+  "outputs": [
+    "research/data/real_historical_state_replay_2018_2022.csv",
+    "research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md"
+  ]
+}
