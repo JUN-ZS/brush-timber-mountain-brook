@@ -449,6 +449,90 @@ def write_csv(path:Path,rows:list[dict[str,Any]])->None:
         w=csv.DictWriter(f,fieldnames=fields,extrasaction="ignore");w.writeheader()
         for row in rows:w.writerow(row)
 
+def _fmt_money(value:Any)->str:
+    return "—" if value is None else "$" + f"{float(value):,.2f}"
+
+
+def _fmt_num(value:Any,digits:int=2)->str:
+    return "—" if value is None else f"{float(value):.{digits}f}"
+
+
+def render_exit_policy_sensitivity(policy_rows:list[dict[str,Any]])->str:
+    """Render every first-3/first-5 NAV-target action at base cost, not just selected winners."""
+    baseline_by_key={}
+    for row in policy_rows:
+        if row.get("cost_case")=="BASE_COST" and row.get("policy_kind")=="DTE7":
+            key=(row.get("orientation"),row.get("n"),row.get("nav_usd"),row.get("risk_budget_pct_nav"),row.get("cost_case"))
+            baseline_by_key[key]=row
+    selected=[r for r in policy_rows
+              if r.get("cost_case")=="BASE_COST"
+              and r.get("policy_kind") in {"TP_WINDOW_CLOSE","TP_WINDOW_TRIM"}
+              and r.get("target_pct_nav") in BUDGET_PCTS
+              and r.get("holding_window_sessions") in (3,5)]
+    selected.sort(key=lambda r:(float(r["nav_usd"]),float(r["risk_budget_pct_nav"]),str(r["orientation"]),int(r["n"]),
+                                float(r["target_pct_nav"]),int(r["holding_window_sessions"]),str(r["action"])))
+    lines=[
+        "| Direction | N | NAV | Risk budget | Exit target | Window | Action | Eligible / blocked | Resolved / unresolved | Trigger / DTE7 fallback | DTE7 resolved / P&L | Policy resolved / P&L | Expectancy | Win% | PF | Worst trade | Mark coverage | Deferred actions |",
+        "|---|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+    ]
+    for row in selected:
+        key=(row.get("orientation"),row.get("n"),row.get("nav_usd"),row.get("risk_budget_pct_nav"),row.get("cost_case"))
+        base=baseline_by_key.get(key,{})
+        target=row.get("target_pct_nav")
+        eligible=row.get("episodes_fitting_budget",0)
+        blocked=row.get("episodes_blocked_zero_capacity",0)
+        resolved=row.get("resolved_episodes",0)
+        unresolved=row.get("unresolved_episodes",0)
+        action="CLOSE ALL" if row.get("action")=="CLOSE_ALL" else "TRIM SHORT"
+        window=int(row["holding_window_sessions"])
+        target_txt=f"{float(target):g}% / ${float(row.get('target_usd') or 0):,.0f}"
+        base_txt=f"{base.get('resolved_episodes',0)} / {_fmt_money(base.get('net_pnl_sum_usd'))}"
+        policy_txt=f"{resolved} / {_fmt_money(row.get('net_pnl_sum_usd'))}"
+        lines.append(
+            f"| {row['orientation']} | {row['n']} | ${float(row['nav_usd']):,.0f} | {float(row['risk_budget_pct_nav']):g}% "
+            f"| {target_txt} | {window} | {action} | {eligible} / {blocked} | {resolved} / {unresolved} "
+            f"| {row.get('custom_triggered_episodes',0)} / {row.get('dte7_fallback_episodes',0)} "
+            f"| {base_txt} | {policy_txt} | {_fmt_money(row.get('expectancy_usd_per_resolved_episode'))} "
+            f"| {_fmt_num(row.get('win_rate_pct'))}% | {_fmt_num(row.get('profit_factor'),3)} "
+            f"| {_fmt_money(row.get('worst_trade_usd'))} | {_fmt_num(row.get('mean_mark_coverage_pct'))}% "
+            f"| {row.get('deferred_action_sessions',0)} |"
+        )
+    return "\n".join(lines)
+
+
+def render_adverse_cost_sensitivity(policy_rows:list[dict[str,Any]])->str:
+    """Show BASE vs ADVERSE costs on the $1m NAV / 1% risk-budget slice for all early-exit policies."""
+    by_key={}
+    for row in policy_rows:
+        if row.get("nav_usd")!=1000000.0 or row.get("risk_budget_pct_nav")!=1.0:
+            continue
+        if row.get("policy_kind") not in {"TP_WINDOW_CLOSE","TP_WINDOW_TRIM"}:
+            continue
+        key=(row.get("orientation"),row.get("n"),row.get("target_pct_nav"),row.get("holding_window_sessions"),
+             row.get("action"),row.get("cost_case"))
+        by_key[key]=row
+    keys=sorted({k[:5] for k in by_key},key=lambda k:(str(k[0]),int(k[1]),float(k[2]),int(k[3]),str(k[4])))
+    lines=[
+        "| Direction | N | Target | Window | Action | Base resolved / P&L | Adverse resolved / P&L | Base triggers | Adverse triggers | Base worst | Adverse worst |",
+        "|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|"
+    ]
+    for key in keys:
+        o,n,pct,window,action=key
+        base=by_key.get((*key,"BASE_COST"))
+        adverse=by_key.get((*key,"ADVERSE_COST"))
+        if base is None or adverse is None:
+            continue
+        label="CLOSE ALL" if action=="CLOSE_ALL" else "TRIM SHORT"
+        lines.append(
+            f"| {o} | {n} | {float(pct):g}% | {window} | {label} "
+            f"| {base.get('resolved_episodes',0)} / {_fmt_money(base.get('net_pnl_sum_usd'))} "
+            f"| {adverse.get('resolved_episodes',0)} / {_fmt_money(adverse.get('net_pnl_sum_usd'))} "
+            f"| {base.get('custom_triggered_episodes',0)} | {adverse.get('custom_triggered_episodes',0)} "
+            f"| {_fmt_money(base.get('worst_trade_usd'))} | {_fmt_money(adverse.get('worst_trade_usd'))} |"
+        )
+    return "\n".join(lines)
+
+
 def render_markdown(report:dict[str,Any])->str:
     lines=["# QQQ Put Ratio NAV Exit Matrix V2","","**Status:** DEVELOPMENT_DIAGNOSTIC_NOT_LIVE_APPROVAL. Public EOD quote-side replay, not confirmed fills.",
     f"**Window:** {report['underlying_volatility_time_profile']['source_start']} to {report['underlying_volatility_time_profile']['source_end']}; requested history through 2025-12-31 has 11 missing expected sessions.",
@@ -473,10 +557,27 @@ def render_markdown(report:dict[str,Any])->str:
             return "—" if found["net_pnl_sum_usd"] is None else str(round(found["net_pnl_sum_usd"],2))
         baseline=next((r for r in rows if r["policy_kind"]=="DTE7"),None)
         lines.append(f"| {o} | {n} | {int(nav):,} | {b:g}% | BASE | {x['episodes']} | {x['median_terminal_max_loss_per_package_usd']} | {x['median_max_loss_pct_nav']}% | {x['percent_episodes_fitting_one_or_more_packages']}% | {x['median_package_capacity']} | {baseline['net_pnl_sum_usd'] if baseline else '—'} | {pval('TP_WINDOW_CLOSE',.5,3,'CLOSE_ALL')} | {pval('TP_WINDOW_TRIM',.5,3,'TRIM_SHORT')} | {pval('TP_WINDOW_CLOSE',1.0,5,'CLOSE_ALL')} | {pval('TP_WINDOW_TRIM',1.0,5,'TRIM_SHORT')} |")
-    lines+=["","NAV targets are proportional: 0.5/1/2% = $500/$1,000/$2,000 at $100k and $5,000/$10,000/$20,000 at $1m. Package capacity is floored from each episode's terminal max-loss estimate; zero capacity means no package fits that terminal-loss budget, not a broker margin conclusion.",
-    "","Return probabilities are overlapping historical QQQ underlying moves, not independent-trial forecasts or option-package profit probabilities. VIX is an S&P 500 proxy, not QQQ IV.",
-    "","Entry DTE, first-3/first-5 holding age and remaining DTE≤7 are separate clocks. Signals are EOD and actions use later quote-side marks. Missing quotes are not forward-filled.",
-    "","This is a fixed non-overlapping episode cohort, not continuously reinvested account CAGR/MaxDD. Historical data has been inspected previously, so this is DEVELOPMENT/REVISIT rather than virgin OOS. Broker margin, intraday IV/margin paths, assignment and forced liquidation remain unmeasured."]
+    lines += ["","## Complete first-3 / first-5 NAV exit sensitivity (BASE costs)",
+    "",
+    "This table prints all 0.5% / 1% / 2% NAV targets for both $100k and $1m NAV, each tested independently against the 0.5% / 1% / 2% terminal-tail risk-budget axis. It includes close-all and reduce-short actions, with the DTE≤7 baseline side by side.",
+    "",
+    "P&L sums and expectancy are calculated over resolved episodes only; read resolved / unresolved and eligible / blocked counts before comparing. The episodes form a fixed non-overlapping development cohort, not one compounded account. TRIM SHORT means short-heavy retains one short per package, while long-heavy buys back its only short and retains N long puts. Short-heavy N=1 has no excess short to trim, so that action is not a valid candidate.",
+    "",
+    render_exit_policy_sensitivity(policies),
+    "",
+    "## Adverse-cost check: $1m NAV, 1% terminal-tail risk budget",
+    "",
+    "BASE uses $0.05 per-share slippage per leg per side + $0.65 commission/contract/side; ADVERSE doubles slippage to $0.10. This slice compares all target/window/action combinations. Resolved counts may differ, so do not subtract aggregate totals as though every row were a perfectly paired episode cohort.",
+    "",
+    render_adverse_cost_sensitivity(policies),
+    "",
+    "NAV targets are proportional: 0.5/1/2% = $500/$1,000/$2,000 at $100k and $5,000/$10,000/$20,000 at $1m. Package capacity is floored from each episode's terminal max-loss estimate; zero capacity means no package fits that terminal-loss budget, not a broker margin conclusion.",
+    "",
+    "Return probabilities are overlapping historical QQQ underlying moves, not independent-trial forecasts or option-package profit probabilities. VIX is an S&P 500 proxy, not QQQ IV.",
+    "",
+    "Entry DTE, first-3/first-5 holding age and remaining DTE≤7 are separate clocks. Signals are EOD and actions use later quote-side marks. Missing quotes are not forward-filled.",
+    "",
+    "This is a fixed non-overlapping episode cohort, not continuously reinvested account CAGR/MaxDD. Historical data has been inspected previously, so this is DEVELOPMENT/REVISIT rather than virgin OOS. Broker margin, intraday IV/margin paths, assignment and forced liquidation remain unmeasured."]
     return "\n".join(lines)+"\n"
 
 def main()->None:

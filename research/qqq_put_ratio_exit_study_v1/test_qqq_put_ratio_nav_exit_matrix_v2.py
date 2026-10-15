@@ -146,4 +146,50 @@ class MatrixTests(unittest.TestCase):
         all_targets={x["target_pct"] for x in M.all_exit_policies(1000000,"short-heavy",5) if x["target_pct"] is not None}
         self.assertEqual(all_targets,{0.5,1.0,2.0})
 
+    def test_rendered_exit_report_exposes_all_thresholds_days_actions_and_baseline(self):
+        rows=[]
+        key={"orientation":"long-heavy","n":2,"nav_usd":1000000.0,"risk_budget_pct_nav":1.0,"cost_case":"BASE_COST"}
+        rows.append({**key,"policy":"DTE7_BASELINE","policy_kind":"DTE7","action":"CLOSE_ALL","target_pct_nav":None,
+            "target_usd":None,"holding_window_sessions":None,"candidate_episodes":10,"episodes_fitting_budget":8,
+            "episodes_blocked_zero_capacity":2,"resolved_episodes":8,"unresolved_episodes":0,"net_pnl_sum_usd":1500.0,
+            "expectancy_usd_per_resolved_episode":187.5,"win_rate_pct":62.5,"profit_factor":1.5,"worst_trade_usd":-700.0,
+            "custom_triggered_episodes":0,"dte7_fallback_episodes":8,"mean_mark_coverage_pct":99.0,"deferred_action_sessions":1})
+        for target in (0.5,1.0,2.0):
+            for age in (3,5):
+                for action,kind in (("CLOSE_ALL","TP_WINDOW_CLOSE"),("TRIM_SHORT","TP_WINDOW_TRIM")):
+                    rows.append({**key,"policy":f"{kind}_{target}_{age}","policy_kind":kind,"action":action,
+                        "target_pct_nav":target,"target_usd":1000000*target/100,"holding_window_sessions":age,
+                        "candidate_episodes":10,"episodes_fitting_budget":8,"episodes_blocked_zero_capacity":2,
+                        "resolved_episodes":7,"unresolved_episodes":1,"net_pnl_sum_usd":1200.0-target*10-age,
+                        "expectancy_usd_per_resolved_episode":(1200.0-target*10-age)/7,"win_rate_pct":57.1,
+                        "profit_factor":1.2,"worst_trade_usd":-900.0,"custom_triggered_episodes":2,
+                        "dte7_fallback_episodes":1,"mean_mark_coverage_pct":98.5,"deferred_action_sessions":1})
+        text=M.render_exit_policy_sensitivity(rows)
+        self.assertIn("0.5% / $5,000",text)
+        self.assertIn("1% / $10,000",text)
+        self.assertIn("2% / $20,000",text)
+        self.assertIn("CLOSE ALL",text)
+        self.assertIn("TRIM SHORT",text)
+        self.assertIn("DTE7 resolved / P&L",text)
+        self.assertEqual(sum(1 for line in text.splitlines() if line.startswith("| long-heavy |")),12)
+
+    def test_adverse_cost_grid_pairs_all_early_exit_policies(self):
+        rows=[]
+        base={"orientation":"long-heavy","n":2,"nav_usd":1000000.0,"risk_budget_pct_nav":1.0,
+              "resolved_episodes":7,"net_pnl_sum_usd":1000.0,"custom_triggered_episodes":2,"worst_trade_usd":-900.0}
+        for cost in ("BASE_COST","ADVERSE_COST"):
+            for target in (0.5,1.0,2.0):
+                for age in (3,5):
+                    for action,kind in (("CLOSE_ALL","TP_WINDOW_CLOSE"),("TRIM_SHORT","TP_WINDOW_TRIM")):
+                        rows.append({**base,"cost_case":cost,"target_pct_nav":target,"holding_window_sessions":age,
+                            "action":action,"policy_kind":kind,"net_pnl_sum_usd":1000.0 if cost=="BASE_COST" else 700.0,
+                            "resolved_episodes":7 if cost=="BASE_COST" else 6,
+                            "custom_triggered_episodes":2 if cost=="BASE_COST" else 3,
+                            "worst_trade_usd":-900.0 if cost=="BASE_COST" else -1200.0})
+        text=M.render_adverse_cost_sensitivity(rows)
+        self.assertEqual(sum(1 for line in text.splitlines() if line.startswith("| long-heavy |")),12)
+        self.assertIn("$1,000.00",text)
+        self.assertIn("$700.00",text)
+        self.assertIn("$1,200.00",text)
+
 if __name__=="__main__":unittest.main()
