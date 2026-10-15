@@ -1,0 +1,28 @@
+# QQQ public-price proxy supplement
+
+**Status: price-path supplement only. No option strategy P&L is estimated for dates without an option chain.**
+
+- Yahoo daily Close window: 2018-03-01 to 2026-10-15 (2169 observations).
+- Option mirror boundary: 2025-12-15; use the post-boundary probability rows as an underlying-only sensitivity, not an option replay.
+- Broad-market VIX proxy status: OK_YAHOO_FALLBACK; source: Yahoo Finance chart API ^VIX daily Close. This is not QQQ option IV/skew.
+- Recent peak-to-last (up to 7 close-to-close sessions): -4.629%.
+
+## Downside frequencies by period
+
+| Window | State | Sessions | N | P(down >=3%) | P(down >=5%) | P(down >=10%) | P05 return | Median | P95 return | Nominal 95% interval for down >=5% |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| YAHOO_PRICE_WINDOW_2018_03_TO_2025_12_15 | ALL | 5 | 1955 | 11.8159% | 4.2967% | 0.665% | -4.6824% | 0.6606% | 4.998% | 3.4838%–5.2888% |
+| YAHOO_PRICE_WINDOW_2018_03_TO_2025_12_15 | ALL | 10 | 1950 | 17.1282% | 9.8974% | 1.3846% | -6.9463% | 1.3761% | 6.5905% | 8.6498%–11.3028% |
+| YAHOO_PRICE_WINDOW_2018_03_TO_2025_12_15 | ALL | 20 | 1940 | 20.9794% | 13.8144% | 3.8144% | -9.1083% | 2.3931% | 9.8603% | 12.3504%–15.4215% |
+| YAHOO_PRICE_WINDOW_2018_03_TO_2025_12_15 | ALL | 45 | 1915 | 19.2689% | 15.1436% | 8.1462% | -12.7006% | 4.4438% | 15.5659% | 13.6079%–16.8188% |
+| YAHOO_PRICE_ONLY_EXTENSION_AFTER_2025_12_15 | ALL | 5 | 204 | 10.2941% | 2.451% | 0.0% | -4.0793% | 0.2255% | 5.1659% | 1.0514%–5.6083% |
+| YAHOO_PRICE_ONLY_EXTENSION_AFTER_2025_12_15 | ALL | 10 | 199 | 11.5578% | 2.5126% | 0.0% | -3.9672% | 0.5267% | 8.0324% | 1.0779%–5.7459% |
+| YAHOO_PRICE_ONLY_EXTENSION_AFTER_2025_12_15 | ALL | 20 | 189 | 17.4603% | 3.7037% | 0.5291% | -4.3938% | 0.4556% | 14.3381% | 1.8055%–7.4464% |
+| YAHOO_PRICE_ONLY_EXTENSION_AFTER_2025_12_15 | ALL | 45 | 164 | 20.122% | 10.3659% | 0.6098% | -6.3989% | 3.1083% | 22.4093% | 6.5732%–15.9728% |
+
+## Data boundaries / use
+
+- This supplement intentionally does not extend option-strategy P&L. A QQQ price down-move is not the probability of a particular put ratio losing money.
+- A current-market observation can inform a stress scenario, but without QQQ option bid/ask and IV/skew on the same decision dates it cannot recreate fills, strategy gamma/vega, or margin actions.
+- Any unavailable Yahoo data blocks this external supplement; it must not be silently substituted with zeros or forward-filled prices.
+- All price-frequency estimates are empirical overlapping windows; non-overlap ranges are sensitivity checks, not independent-trial confidence intervals.
