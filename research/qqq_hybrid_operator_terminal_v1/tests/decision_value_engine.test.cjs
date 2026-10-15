@@ -158,10 +158,12 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
  assert.equal(D.evaluateComparator({candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:2000,alternativeRiskBudgetUsd:2000,alternativeHorizonDays:31,alternativeCostsIncluded:true},30,25,"Other portfolio").status,"INCOMPARABLE");
  assert.equal(D.evaluateComparator({candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:2000,alternativeRiskBudgetUsd:2000,alternativeHorizonDays:30,alternativeCostsIncluded:false},30,25,"Other portfolio").status,"INCOMPARABLE");
  assert.equal(D.evaluateComparator({},30,25,"Other portfolio").status,"BASIS_PENDING");
+ assert.equal(D.evaluateComparator({candidateCapitalBasisUsd:100000,alternativeCapitalBasisUsd:100000,candidateRiskBudgetUsd:2000,alternativeRiskBudgetUsd:2000,alternativeHorizonDays:30.5,alternativeCostsIncluded:true},30,25,"Other portfolio").status,"BASIS_PENDING","fractional horizon cannot pass a calendar-day comparator contract");
 }
 {
  const stress=D.evaluatePortfolioStress(goodPortfolioStress(),100000);
  assert.equal(stress.status,"COMPLETE_SCENARIO_ESTIMATE");assert.equal(stress.totalLossUsd,800);assert.equal(stress.riskPctNav,0.8);assert.equal(stress.sourceAuthenticated,false);
+ assert.equal(D.evaluatePortfolioStress(goodPortfolioStress(),null).status,"PENDING","missing NAV denominator cannot produce a completed portfolio stress gate");
  assert.equal(D.evaluatePortfolioStress(goodPortfolioStress({reconciled:false}),100000).status,"PENDING");
  const unbounded=goodPortfolioStress({legs:{qqqCore:{state:"ZERO"},vxxShort:{state:"ACTIVE",stressLossUsd:1000},qqqCallCredit:{state:"ZERO"},vxxCallCredit:{state:"ZERO"}}});
  assert.equal(D.evaluatePortfolioStress(unbounded,100000).status,"UNBOUNDED_TAIL_SCENARIO");assert.equal(D.evaluatePortfolioStress(unbounded,100000).totalLossUsd,1000);

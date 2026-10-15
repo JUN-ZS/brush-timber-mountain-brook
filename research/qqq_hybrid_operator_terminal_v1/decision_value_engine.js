@@ -51,6 +51,9 @@
        candidateRisk===null||candidateRisk<=0||alternativeRisk===null||alternativeRisk<=0||
        candidateHorizonDays===null||alternativeHorizon===null)
       return {status:"BASIS_PENDING",comparable:false,reason:"Candidate/alternative capital, risk budget, and horizon must be explicit."};
+    if(!Number.isInteger(candidateHorizonDays)||candidateHorizonDays<1||candidateHorizonDays>3650||
+       !Number.isInteger(alternativeHorizon)||alternativeHorizon<1||alternativeHorizon>3650)
+      return {status:"BASIS_PENDING",comparable:false,reason:"Candidate and alternative horizons must be integer calendar days from 1 to 3650."};
     if(Math.abs(candidateCapital-alternativeCapital)>0.01)return {status:"INCOMPARABLE",comparable:false,reason:"Capital basis differs by more than $0.01."};
     if(Math.abs(candidateRisk-alternativeRisk)>0.01)return {status:"INCOMPARABLE",comparable:false,reason:"Risk-budget basis differs by more than $0.01; normalize risk before comparing."};
     if(candidateHorizonDays!==alternativeHorizon)return {status:"INCOMPARABLE",comparable:false,reason:"Candidate and alternative calendar horizons differ."};
@@ -76,7 +79,9 @@
       totalLossUsd+=loss;activeLegs.push({key,stressLossUsd:loss});
       if(key==="vxxShort")unboundedTail=true;
     }
-    const navValue=n(nav),riskPctNav=navValue!==null&&navValue>0&&missing.length===0&&invalid.length===0?totalLossUsd/navValue*100:null;
+    const navValue=n(nav);
+    if(navValue===null||navValue<=0)missing.push("positive NAV denominator");
+    const riskPctNav=navValue!==null&&navValue>0&&missing.length===0&&invalid.length===0?totalLossUsd/navValue*100:null;
     let status=invalid.length?"INVALID":missing.length?"PENDING":unboundedTail?"UNBOUNDED_TAIL_SCENARIO":"COMPLETE_SCENARIO_ESTIMATE";
     const warnings=[];
     if(status==="COMPLETE_SCENARIO_ESTIMATE")warnings.push("Loss-only sum for one operator-defined event; not VaR, maximum loss, authenticated evidence, or a correlation/hedge-credit model.");
