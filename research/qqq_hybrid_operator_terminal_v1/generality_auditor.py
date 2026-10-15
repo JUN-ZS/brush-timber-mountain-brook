@@ -356,6 +356,7 @@ def audit_daily_series(observation_path: Path, calendar_path: Path, spec_path: P
         seen_ids: set[str] = set()
         seen_ranges: set[tuple[str, str]] = set()
         previous_start = ""
+        previous_end = ""
         for item in spec_windows:
             if not isinstance(item, dict):
                 report["issues"].append("Every rolling window must be an object")
@@ -374,7 +375,11 @@ def audit_daily_series(observation_path: Path, calendar_path: Path, spec_path: P
             seen_ranges.add((start, end))
             if previous_start and start < previous_start:
                 report["issues"].append("Rolling windows must be ordered by start date")
+            if previous_end and start <= previous_end:
+                report["issues"].append("Rolling window " + window_id + " overlaps an earlier window; overlapping dates cannot count as separate Generality breadth")
             previous_start = start
+            if not previous_end or end > previous_end:
+                previous_end = end
             if start < report["trainStart"] or end > report["validationEnd"]:
                 report["issues"].append("Rolling window " + window_id + " must lie before final OOS")
                 continue

@@ -218,6 +218,14 @@ class GeneralityAuditorTests(unittest.TestCase):
         self.assertEqual(report["auditStatus"], "INVALID_INPUT")
         self.assertTrue(any("NAV reached zero or below" in issue for issue in report["issues"]))
 
+    def test_overlapping_rolling_windows_do_not_inflate_generality(self):
+        spec = json.loads(self.spec_path.read_text(encoding="utf-8"))
+        spec["rollingWindows"][1]["start"] = "2020-07-01"
+        self.spec_path.write_text(json.dumps(spec), encoding="utf-8")
+        report = self.audit()
+        self.assertEqual(report["auditStatus"], "NOT_PASS")
+        self.assertTrue(any("overlaps an earlier window" in issue for issue in report["issues"]))
+
     def test_self_declared_observed_execution_cannot_unlock_probability(self):
         self.write_rows(self.dates)
         rows = list(csv.DictReader(self.observations.read_text(encoding="utf-8").splitlines()))
