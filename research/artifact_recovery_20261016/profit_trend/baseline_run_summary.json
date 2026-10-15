@@ -1,0 +1,11 @@
+{
+  "research_id": "QQQ_HYBRID_PROFIT_TREND_REPLAY_V1",
+  "variant": "BASELINE",
+  "csv": "artifacts\\qqq_hybrid_profit_trend_replay_v1\\baseline\\profit_trend.csv",
+  "json": "artifacts\\qqq_hybrid_profit_trend_replay_v1\\baseline\\profit_trend.json",
+  "rows": 2141,
+  "final_nav": 298267.2239640743,
+  "cagr": 0.13699190415586338,
+  "maxdd_daily_mtm": -0.23021273091214212,
+  "input_adapter": "C:\\Users\\user\\AppData\\Local\\Temp\\qqq_hybrid_replay_ybay26s9\\spots_adapted.json"
+}
