@@ -16,12 +16,13 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 HORIZONS = (1, 3, 5, 10, 20, 30, 45)
 SOURCE_END = date(2025, 12, 15)
 YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/QQQ"
+YAHOO_VIX_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX"
 FRED_CSV = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS"
 USER_AGENT = "Mozilla/5.0 (compatible; QQQResearchSupplement/1.0)"
 
@@ -107,42 +108,109 @@ def fetch_qqq(start: date, end: date) -> tuple[list[dict[str, Any]], dict[str, A
     }
 
 
-def fetch_vix() -> tuple[dict[str, float], dict[str, Any]]:
+def parse_yahoo_vix_payload(payload: dict[str, Any], start: date, end: date) -> tuple[dict[str, float], dict[str, Any]]:
+    chart = payload.get("chart") or {}
+    if chart.get("error"):
+        raise RuntimeError(f"Yahoo ^VIX chart API error: {chart['error']}")
+    results = chart.get("result") or []
+    if not results:
+        raise RuntimeError("Yahoo ^VIX chart API returned no observations.")
+    item = results[0]
+    timestamps = item.get("timestamp") or []
+    quotes = ((item.get("indicators") or {}).get("quote") or [{}])[0]
+    closes = quotes.get("close") or []
+    values: dict[str, float] = {}
+    for i, ts in enumerate(timestamps):
+        d = datetime.fromtimestamp(int(ts), tz=timezone.utc).date()
+        if d < start or d > end:
+            continue
+        raw = closes[i] if i < len(closes) else None
+        # A missing VIX observation stays missing; we never forward-fill a volatility value.
+        if raw is None:
+            continue
+        try:
+            val = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(val) and val > 0:
+            values[d.isoformat()] = val
+    if not values:
+        raise RuntimeError("Yahoo ^VIX chart API contained no valid daily Close observations.")
+    return values, {
+        "source": "Yahoo Finance chart API ^VIX daily Close",
+        "url": YAHOO_VIX_CHART,
+        "observations": len(values),
+        "first_date": min(values),
+        "last_date": max(values),
+        "note": "Broad S&P 500 implied volatility proxy only; not QQQ IV or QQQ put skew. Missing days are not forward-filled."
+    }
+
+
+def fetch_yahoo_vix(start: date, end: date) -> tuple[dict[str, float], dict[str, Any]]:
+    params = {
+        "period1": int(datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc).timestamp()),
+        "period2": int(datetime.combine(end + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc).timestamp()),
+        "interval": "1d",
+        "events": "history"
+    }
+    url = YAHOO_VIX_CHART + "?" + urlencode(params)
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            payload = json.loads(fetch_text(url, timeout=20))
+            values, meta = parse_yahoo_vix_payload(payload, start, end)
+            meta["url"] = url
+            return values, meta
+        except Exception as exc:
+            last_error = exc
+            if attempt < 1:
+                time.sleep(1.0)
+    raise RuntimeError(f"Yahoo ^VIX daily history unavailable: {last_error}")
+
+
+def fetch_vix(start: date, end: date) -> tuple[dict[str, float], dict[str, Any]]:
     last_error: Exception | None = None
     text = None
-    for attempt in range(3):
+    # FRED can stall on a multi-year CSV. Bound retries, then use Yahoo ^VIX as a
+    # clearly labeled broad-market proxy; never imply this is QQQ option IV/skew.
+    for attempt in range(2):
         try:
-            text = fetch_text(FRED_CSV)
+            text = fetch_text(FRED_CSV, timeout=8)
             break
         except Exception as exc:
             last_error = exc
-            if attempt < 2:
-                time.sleep(1.5 * (attempt + 1))
-    if text is None:
-        raise RuntimeError(f"FRED VIXCLS history unavailable: {last_error}")
-    reader = csv.DictReader(text.splitlines())
-    vix: dict[str, float] = {}
-    for row in reader:
-        d = row.get("observation_date") or row.get("DATE") or row.get("date")
-        value = row.get("VIXCLS") or row.get("value")
-        if not d or not value or value.strip() in (".", ""):
-            continue
-        try:
-            val = float(value)
-        except ValueError:
-            continue
-        if math.isfinite(val) and val > 0:
-            vix[d[:10]] = val
-    if not vix:
-        raise RuntimeError("FRED CSV returned no valid VIXCLS observations.")
-    return vix, {
-        "source": "FRED VIXCLS daily series (Cboe VIX close)",
-        "url": FRED_CSV,
-        "observations": len(vix),
-        "first_date": min(vix),
-        "last_date": max(vix),
-        "note": "VIX is a broad U.S. equity implied-volatility proxy, not QQQ option implied volatility or QQQ put skew.",
-    }
+            if attempt < 1:
+                time.sleep(0.75)
+    if text is not None:
+        reader = csv.DictReader(text.splitlines())
+        vix: dict[str, float] = {}
+        for row in reader:
+            d = row.get("observation_date") or row.get("DATE") or row.get("date")
+            value = row.get("VIXCLS") or row.get("value")
+            if not d or not value or value.strip() in (".", ""):
+                continue
+            try:
+                val = float(value)
+            except ValueError:
+                continue
+            if math.isfinite(val) and val > 0:
+                vix[d[:10]] = val
+        if vix:
+            return vix, {
+                "source": "FRED VIXCLS daily series (Cboe VIX close)",
+                "url": FRED_CSV,
+                "observations": len(vix),
+                "first_date": min(vix),
+                "last_date": max(vix),
+                "fallback_used": False,
+                "note": "VIX is a broad U.S. equity implied-volatility proxy, not QQQ option implied volatility or QQQ put skew.",
+            }
+        last_error = RuntimeError("FRED CSV returned no valid VIXCLS observations.")
+    fred_error = str(last_error or "FRED VIXCLS unavailable.")
+    yahoo_values, yahoo_meta = fetch_yahoo_vix(start, end)
+    yahoo_meta["fallback_used"] = True
+    yahoo_meta["primary_source_error"] = fred_error
+    return yahoo_values, yahoo_meta
 
 
 def rv_buckets(rows: list[dict[str, Any]]) -> list[float | None]:
@@ -275,9 +343,10 @@ def run(start: date, source_end: date, end: date, out: Path) -> dict[str, Any]:
     rows, yahoo_meta = fetch_qqq(start, end)
     vix_status = "OK"
     try:
-        vix_map, fred_meta = fetch_vix()
+        vix_map, vix_meta = fetch_vix(start, end)
+        vix_status = "OK_YAHOO_FALLBACK" if vix_meta.get("fallback_used") else "OK_FRED"
     except Exception as exc:
-        vix_map, fred_meta, vix_status = {}, {"source": FRED_CSV, "error": str(exc)}, "UNAVAILABLE_RV_ONLY"
+        vix_map, vix_meta, vix_status = {}, {"source": "FRED VIXCLS then Yahoo ^VIX fallback", "error": str(exc)}, "UNAVAILABLE_RV_ONLY"
     for row in rows:
         row["vix"] = vix_map.get(row["date"])
     rv = rv_buckets(rows)
@@ -297,7 +366,7 @@ def run(start: date, source_end: date, end: date, out: Path) -> dict[str, Any]:
         "daily_rows": len(rows),
         "option_chain_boundary": SOURCE_END.isoformat(),
         "yahoo": yahoo_meta,
-        "fred_vix": {**fred_meta, "status": vix_status},
+        "vix_proxy": {**vix_meta, "status": vix_status},
         "current_tape_observations": {
             "last_7_session_peak_close_usd": round(recent_peak, 4),
             "last_close_usd": round(recent_last, 4),
@@ -329,7 +398,7 @@ def run(start: date, source_end: date, end: date, out: Path) -> dict[str, Any]:
         "",
         f"- Yahoo daily Close window: {rows[0]['date']} to {rows[-1]['date']} ({len(rows)} observations).",
         f"- Option mirror boundary: {SOURCE_END.isoformat()}; use the post-boundary probability rows as an underlying-only sensitivity, not an option replay.",
-        f"- FRED VIXCLS status: {vix_status}; available VIX values do not substitute for QQQ option IV/skew.",
+        f"- Broad-market VIX proxy status: {vix_status}; source: {vix_meta.get('source', 'unavailable')}. This is not QQQ option IV/skew.",
         f"- Recent peak-to-last (up to 7 close-to-close sessions): {meta['current_tape_observations']['peak_to_last_pct']}%.",
         "",
         "## Downside frequencies by period",
