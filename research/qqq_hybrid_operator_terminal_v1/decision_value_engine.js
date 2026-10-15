@@ -27,11 +27,111 @@
     const maxAllowedTrim=!quantitiesKnown||blocked?null:action==="REDUCE"?Math.max(0,current-target):0;
     return {candidateKey,current,target,capacity,action,maxAllowedAdd,maxAllowedTrim,status:row.status||null,reason:row.reason||""};
   }
+
+  const PRIMARY_STRESS_LEGS=Object.freeze(["qqqCore","vxxShort","qqqCallCredit","vxxCallCredit"]);
+  const REQUIRED_REGIMES=Object.freeze(["CARRY","WEAKENING","PRE-SHOCK","SHOCK_BACKWARDATION"]);
+  function parseObject(value){
+    if(value&&typeof value==="object"&&!Array.isArray(value))return value;
+    if(typeof value==="string"&&value.trim()){try{const parsed=JSON.parse(value);return parsed&&typeof parsed==="object"&&!Array.isArray(parsed)?parsed:null;}catch(_){return null;}}
+    return null;
+  }
+  function validIsoDate(value){
+    const s=String(value||"");
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(s))return false;
+    const ms=Date.parse(s+"T00:00:00Z");
+    return Number.isFinite(ms)&&new Date(ms).toISOString().slice(0,10)===s;
+  }
+  function evaluateComparator(i,candidateHorizonDays,alternativeEVTotalUsd,alternativeLabel){
+    const label=String(alternativeLabel||"").trim();
+    if(alternativeEVTotalUsd===null||alternativeEVTotalUsd===undefined||!label||label.length<3)
+      return {status:"VALUE_PENDING",comparable:false,reason:"Named alternative EV is missing."};
+    const candidateCapital=n(i.candidateCapitalBasisUsd),alternativeCapital=n(i.alternativeCapitalBasisUsd);
+    const candidateRisk=n(i.candidateRiskBudgetUsd),alternativeRisk=n(i.alternativeRiskBudgetUsd),alternativeHorizon=n(i.alternativeHorizonDays);
+    if(candidateCapital===null||candidateCapital<=0||alternativeCapital===null||alternativeCapital<=0||
+       candidateRisk===null||candidateRisk<=0||alternativeRisk===null||alternativeRisk<=0||
+       candidateHorizonDays===null||alternativeHorizon===null)
+      return {status:"BASIS_PENDING",comparable:false,reason:"Candidate/alternative capital, risk budget, and horizon must be explicit."};
+    if(Math.abs(candidateCapital-alternativeCapital)>0.01)return {status:"INCOMPARABLE",comparable:false,reason:"Capital basis differs by more than $0.01."};
+    if(Math.abs(candidateRisk-alternativeRisk)>0.01)return {status:"INCOMPARABLE",comparable:false,reason:"Risk-budget basis differs by more than $0.01; normalize risk before comparing."};
+    if(candidateHorizonDays!==alternativeHorizon)return {status:"INCOMPARABLE",comparable:false,reason:"Candidate and alternative calendar horizons differ."};
+    if(i.alternativeCostsIncluded!==true)return {status:"INCOMPARABLE",comparable:false,reason:"Alternative EV is not explicitly confirmed net of all stated costs."};
+    return {status:"COMPARABLE",comparable:true,reason:"Same capital, risk budget, calendar horizon, and explicitly after-cost alternative EV.",candidateCapitalBasisUsd:candidateCapital,alternativeCapitalBasisUsd:alternativeCapital,candidateRiskBudgetUsd:candidateRisk,alternativeRiskBudgetUsd:alternativeRisk,horizonDays:candidateHorizonDays,afterCosts:true};
+  }
+  function evaluatePortfolioStress(raw,nav){
+    const b=parseObject(raw);
+    if(!b)return {status:"PENDING",complete:false,scenarioName:null,totalLossUsd:null,riskPctNav:null,activeLegs:[],missingLegs:PRIMARY_STRESS_LEGS.slice(),unboundedTail:false,warnings:["Reconcile all four primary exposure categories under one named common stress event."]};
+    const scenarioName=String(b.scenarioName||"").trim(),sourceNote=String(b.sourceNote||"").trim(),legs=b.legs&&typeof b.legs==="object"&&!Array.isArray(b.legs)?b.legs:{};
+    const missing=[],invalid=[],activeLegs=[];let totalLossUsd=0,unboundedTail=false;
+    if(scenarioName.length<3)missing.push("scenarioName");
+    if(sourceNote.length<8)missing.push("sourceNote");
+    if(b.reconciled!==true)missing.push("explicit reconciliation of all four primary categories");
+    for(const key of PRIMARY_STRESS_LEGS){
+      const leg=legs[key],state=String(leg&&leg.state||"UNKNOWN").toUpperCase();
+      if(!leg||!["ACTIVE","ZERO","UNKNOWN"].includes(state)){invalid.push(key+": state must be ACTIVE, ZERO, or UNKNOWN");continue;}
+      if(state==="UNKNOWN"){missing.push(key);continue;}
+      if(state==="ZERO")continue;
+      const loss=n(leg.stressLossUsd);
+      if(loss===null||loss<=0){missing.push(key+": positive same-scenario loss estimate");continue;}
+      totalLossUsd+=loss;activeLegs.push({key,stressLossUsd:loss});
+      if(key==="vxxShort")unboundedTail=true;
+    }
+    const navValue=n(nav),riskPctNav=navValue!==null&&navValue>0&&missing.length===0&&invalid.length===0?totalLossUsd/navValue*100:null;
+    let status=invalid.length?"INVALID":missing.length?"PENDING":unboundedTail?"UNBOUNDED_TAIL_SCENARIO":"COMPLETE_SCENARIO_ESTIMATE";
+    const warnings=[];
+    if(status==="COMPLETE_SCENARIO_ESTIMATE")warnings.push("Loss-only sum for one operator-defined event; not VaR, maximum loss, authenticated evidence, or a correlation/hedge-credit model.");
+    if(unboundedTail)warnings.push("VXX short stock has structurally unbounded upside risk; this finite stress estimate is not a cap.");
+    if(riskPctNav!==null&&riskPctNav>5)warnings.push("Common-scenario loss sum exceeds 5% NAV; internal review trigger, not a universal law.");
+    return {status,complete:status==="COMPLETE_SCENARIO_ESTIMATE"||status==="UNBOUNDED_TAIL_SCENARIO",scenarioName:scenarioName||null,sourceNote:sourceNote||null,totalLossUsd:missing.length||invalid.length?null:totalLossUsd,riskPctNav,activeLegs,missingLegs:missing,invalid,unboundedTail,warnings,reconciled:b.reconciled===true,sourceAuthenticated:false};
+  }
+  function evaluateGenerality(raw){
+    const d=parseObject(raw);
+    if(!d)return {status:"MISSING_DOSSIER",pass:false,operatorAttested:false,evidenceAuthenticated:false,issues:["A structured chronological generality dossier is required."]};
+    const issues=[],requiredStrings=["baselineId","candidateId","sourceRef","trainStart","trainEnd","validationStart","validationEnd","finalStart","finalEnd"];
+    const missing=requiredStrings.filter(k=>d[k]===undefined||d[k]===null||String(d[k]).trim()==="");
+    if(missing.length)issues.push("Missing fields: "+missing.join(", "));
+    for(const k of ["trainStart","trainEnd","validationStart","validationEnd","finalStart","finalEnd"])if(d[k]!==undefined&&!validIsoDate(d[k]))issues.push(k+" must be a real YYYY-MM-DD date.");
+    if(missing.length||issues.length)return {status:missing.length?"NEEDS_DATA":"INVALID",pass:false,operatorAttested:false,evidenceAuthenticated:false,issues};
+    if(!(d.trainStart<=d.trainEnd&&d.trainEnd<d.validationStart&&d.validationStart<=d.validationEnd&&d.validationEnd<d.finalStart&&d.finalStart<=d.finalEnd))issues.push("Train, validation, and final OOS dates must be chronological and non-overlapping.");
+    for(const k of ["finalUntouched","finalEvaluatedOnce","designFrozenBeforeFinal","noLookahead","trialLedgerComplete"])if(d[k]!==true)issues.push(k+" must be explicitly true.");
+    const finalCoverage=n(d.finalCoveragePct),finalObservations=n(d.finalObservationCount);
+    if(finalCoverage===null||finalCoverage<0||finalCoverage>100)issues.push("finalCoveragePct must be within 0–100.");
+    if(finalObservations===null||!Number.isInteger(finalObservations)||finalObservations<100)issues.push("Final OOS needs at least 100 observations to publish daily risk/return statistics.");
+    if(finalCoverage!==100)issues.push("Final OOS coverage must be 100% for a complete final-window claim; missing sessions cannot be silently dropped.");
+    const windows=Array.isArray(d.rollingWindows)?d.rollingWindows:[];
+    if(windows.length<5)issues.push("At least five chronological rolling windows are required.");
+    const ids=new Set();let positive=0,catastrophic=0,windowsValid=true,lastStart="";
+    for(let j=0;j<windows.length;j++){
+      const w=windows[j]||{},id=String(w.id||"").trim();
+      if(!id||ids.has(id))issues.push("Rolling window IDs must be present and unique: index "+j+".");ids.add(id);
+      if(!validIsoDate(w.start)||!validIsoDate(w.end)||w.start>w.end){issues.push("Rolling window "+(id||j)+" has invalid dates.");windowsValid=false;}
+      if(validIsoDate(w.start)&&lastStart&&w.start<lastStart){issues.push("Rolling windows must be ordered chronologically.");windowsValid=false;}
+      if(validIsoDate(w.start))lastStart=w.start;
+      const obs=n(w.observations),coverage=n(w.coveragePct),effect=n(w.effectDeltaPct);
+      if(obs===null||!Number.isInteger(obs)||obs<100){issues.push("Rolling window "+(id||j)+" has fewer than 100 observations.");windowsValid=false;}
+      if(coverage===null||coverage<98||coverage>100||w.missingDatesReviewed!==true){issues.push("Rolling window "+(id||j)+" needs >=98% coverage and missing-date review.");windowsValid=false;}
+      if(w.sameCapitalAndCosts!==true||w.lookaheadFree!==true||w.costStressPass!==true||typeof w.catastrophicFailure!=="boolean"){issues.push("Rolling window "+(id||j)+" must document paired capital/costs, no-lookahead, adverse costs and catastrophic-failure status.");windowsValid=false;}
+      if(effect===null){issues.push("Rolling window "+(id||j)+" needs a numeric pre-selected-objective effectDeltaPct.");windowsValid=false;}else if(effect>0)positive++;
+      if(w.catastrophicFailure===true)catastrophic++;
+      if(validIsoDate(w.end)&&validIsoDate(d.validationEnd)&&w.end>d.validationEnd)issues.push("Rolling window "+(id||j)+" overlaps the final OOS lockbox.");
+    }
+    const rc=d.regimeObservations&&typeof d.regimeObservations==="object"&&!Array.isArray(d.regimeObservations)?d.regimeObservations:{};
+    const regimeMissing=REQUIRED_REGIMES.filter(k=>{const v=n(rc[k]);return v===null||!Number.isInteger(v)||v<100;});
+    if(regimeMissing.length)issues.push("Regimes need >=100 daily observations: "+regimeMissing.join(", ")+". Otherwise mark INSUFFICIENT_SAMPLE.");
+    if(windowsValid&&windows.length>=5&&positive<Math.ceil(windows.length*0.8))issues.push("Positive primary effect is below 80% of rolling windows.");
+    if(catastrophic>0)issues.push("A rolling window reports catastrophic failure; Generality cannot pass.");
+    const pass=issues.length===0;
+    return {status:pass?"PASS_OPERATOR_ATTESTED":"NOT_PASS",pass,operatorAttested:true,evidenceAuthenticated:false,baselineId:String(d.baselineId),candidateId:String(d.candidateId),sourceRef:String(d.sourceRef),rollingWindowCount:windows.length,positiveEffectWindows:positive,requiredPositiveWindows:Math.ceil(windows.length*0.8),catastrophicFailures:catastrophic,regimesMeasured:REQUIRED_REGIMES.filter(k=>!regimeMissing.includes(k)),finalCoveragePct:finalCoverage,finalObservationCount:finalObservations,issues,limitation:"Structural consistency only; the APP does not authenticate source files, prove holdout independence, or recalculate underlying returns."};
+  }
+
   function evaluate(input){
     const i=input&&typeof input==="object"?input:{}, candidateKey=String(i.candidateKey||"custom"),candidateLabel=strategyLabel(candidateKey),lens=i.lens==="HOLD"?"HOLD":"ADD";
     const nav=n(i.nav),quantity=n(i.quantity),horizonDays=n(i.horizonDays),reward=n(i.rewardUsd),loss=n(i.lossUsd),cost=n(i.costUsd),costStress=n(i.costStressUsd);
     const alternativeEVTotalUsd=n(i.alternativeEVTotalUsd),alternativeLabel=String(i.alternativeLabel||"").trim();
     const warnings=[],market=i.market&&typeof i.market==="object"?i.market:null,route=mainRoute(i.mainRow,candidateKey);
+    const comparator=evaluateComparator(i,horizonDays,alternativeEVTotalUsd,alternativeLabel);
+    const portfolioStress=evaluatePortfolioStress(i.portfolioStress,nav);
+    const generalityReview=evaluateGenerality(i.generalityDossierJson);
+    const primaryCandidate=["qqqShares","vxxShortShares","qqqCallSpreads","vxxCallSpreads"].includes(candidateKey);
     const roadmap=i.deploymentRoadmap&&typeof i.deploymentRoadmap==="object"?i.deploymentRoadmap:null;
     const positionTemplateFor={qqqShares:"QQQ_CORE",vxxShortShares:"VXX_SHORT_STOCK",qqqCallSpreads:"QQQ_CALL_CREDIT",vxxCallSpreads:"VXX_CALL_CREDIT"};
     const relevantTemplates=positionTemplateFor[candidateKey]?[positionTemplateFor[candidateKey]]:[];
@@ -64,7 +164,8 @@
     const adverseEV=payoffComplete&&pctRange(pLow)?ev(pLow/100,reward,loss,cost+costStress):null;
     const highEV=payoffComplete&&pctRange(pHigh)?ev(pHigh/100,reward,loss,cost):null;
     const baseTotal=baseEV!==null&&qtyComplete?baseEV*quantity:null,adverseTotal=adverseEV!==null&&qtyComplete?adverseEV*quantity:null,highTotal=highEV!==null&&qtyComplete?highEV*quantity:null;
-    const alternativeComplete=alternativeEVTotalUsd!==null&&Number.isFinite(alternativeEVTotalUsd)&&alternativeLabel.length>=3;
+    const alternativeValuePresent=alternativeEVTotalUsd!==null&&Number.isFinite(alternativeEVTotalUsd)&&alternativeLabel.length>=3;
+    const alternativeComplete=comparator.status==="COMPARABLE";
     const incrementalEVBase=baseTotal!==null&&alternativeComplete?baseTotal-alternativeEVTotalUsd:null;
     const incrementalEVAdverse=adverseTotal!==null&&alternativeComplete?adverseTotal-alternativeEVTotalUsd:null;
     const incrementalEVHigh=highTotal!==null&&alternativeComplete?highTotal-alternativeEVTotalUsd:null;
@@ -82,7 +183,7 @@
     const qqqOverlayLocked=candidateKey==="qqqFarCallOverlay",noSizingRoute=!route&&["custom","deploymentTiming"].includes(candidateKey);
     const riskNature=candidateKey==="vxxShortShares"?"UNBOUNDED":String(i.riskNature||"STRESS_ONLY");
     const floorBreached=roadmap&&roadmap.status==="FLOOR_BREACH";
-    const independentEvidenceOk=probabilityBasis==="INDEPENDENT_OOS"&&probabilityMethod==="EMPIRICAL"&&sampleSize!==null&&sampleSize>=30&&empirical!==null&&evidenceNote.length>=12&&axes.accuracy==="PASS"&&axes.generality==="PASS"&&axes.integration==="PASS";
+    const independentEvidenceOk=probabilityBasis==="INDEPENDENT_OOS"&&probabilityMethod==="EMPIRICAL"&&sampleSize!==null&&sampleSize>=30&&empirical!==null&&evidenceNote.length>=12&&axes.accuracy==="PASS"&&axes.generality==="PASS"&&axes.integration==="PASS"&&generalityReview.status==="PASS_OPERATOR_ATTESTED";
     let status="BASELINE_PENDING",nextAction="Complete payoff, cost, time and evidence inputs; no default success probability or alternative value is inserted.";
     if(!market||market.blocked===true){status="MARKET_BLOCKED";nextAction="BLOCK: the main market-data gate is blocked or unavailable. Scenario EV cannot authorize deployment.";}
     else if(qqqOverlayLocked){status="QQQ_OVERLAY_LOCKBOX";nextAction="BLOCK promotion of the incremental QQQ FAR CALL overlay. Accuracy / Generality / Integration lockbox failures cannot be overridden by a positive scenario EV.";}
@@ -92,17 +193,24 @@
     else if(lens==="HOLD"&&heldReviews.length){status="POSITION_REVIEW_PRIORITY";nextAction="The registered position-management meter flags this holding for review before a new hold-vs-exit EV can be actioned: "+heldReviews.map(x=>String(x.label||x.template)+": "+String(x.action||"REVIEW")).join("; ")+". EV remains counterfactual and cannot override the position-specific gate.";}
     else if(holdConflictsWithReduce){status="HOLD_CONFLICTS_WITH_REDUCE";nextAction="The main sizing engine requests REDUCE. A positive forward EV is counterfactual and cannot cancel the current reduction route.";}
     else if(lens==="HOLD"&&!routeCanHold&&!["custom","deploymentTiming","qqqFarCallOverlay"].includes(candidateKey)){status="ADD_NOT_ALLOWED";nextAction="No positive current exposure is available to score as HOLD. Reconcile quantities, or change the lens to ADD.";}
+    else if(riskNature==="UNBOUNDED"){status="UNBOUNDED_TAIL";nextAction="This candidate has structurally unbounded/unknown tail risk. Scenario EV can be inspected, but a finite entered stress loss is not a maximum-loss cap.";}
+    else if(primaryCandidate&&portfolioStress.status==="PENDING"){status="PORTFOLIO_STRESS_PENDING";nextAction="PENDING: reconcile QQQ Core, VXX short-stock, QQQ call-credit and VXX call-credit under one named common stress event. Unknown categories are not zero.";}
+    else if(primaryCandidate&&portfolioStress.status==="INVALID"){status="PORTFOLIO_STRESS_INVALID";nextAction="BLOCK: common portfolio stress inputs contain invalid states or values. Correct the stress ledger before evaluating integration.";}
+    else if(primaryCandidate&&portfolioStress.unboundedTail){status="PORTFOLIO_TAIL_REVIEW";nextAction="HUMAN REVIEW: the combined portfolio includes VXX short-stock with unbounded upside risk. The finite common-stress sum is not a loss cap.";}
+    else if(lens==="ADD"&&primaryCandidate&&portfolioStress.riskPctNav!==null&&portfolioStress.riskPctNav>5){status="PORTFOLIO_STRESS_REVIEW";nextAction="HUMAN REVIEW: summed loss under the named common stress exceeds 5% NAV. This is an internal materiality gate, not a universal finance law.";}
+    else if(noSizingRoute){status="NO_SIZING_ROUTE";nextAction="Scenario only: this candidate has no primary sizing route. It cannot become a portfolio allocation until a capacity model exists.";}
     else if(!payoffComplete||!qtyComplete||!timeComplete){status="NEEDS_PAYOFF";nextAction="Enter positive gain/loss per unit, non-negative base/adverse costs, integer quantity and calendar-day horizon. Missing values remain PENDING.";}
     else if(probabilityMissing){status="NEEDS_PROBABILITY";nextAction="PENDING: enter low / base / high probability, or provide wins and total outcomes. Missing probability evidence is not a 0% probability or an invalid range.";}
     else if(!probComplete||pBase===null){status="INVALID_RANGE";nextAction="Probability inputs must be within [0,100], with low ≤ base ≤ high. Correct the invalid range; do not use a blank as zero.";}
-    else if(riskNature==="UNBOUNDED"){status="UNBOUNDED_TAIL";nextAction="This candidate has structurally unbounded/unknown tail risk. Scenario EV can be inspected, but a finite entered stress loss is not a maximum-loss cap.";}
-    else if(noSizingRoute){status="NO_SIZING_ROUTE";nextAction="Scenario only: this candidate has no primary sizing route. It cannot become a portfolio allocation until a capacity model exists.";}
     else if(probabilityBasis==="MODEL_REPLAY"){status="MODEL_ONLY";nextAction=basePass?"Model EV is positive under entered assumptions, but model win frequency is not a real-execution probability. No trade-ready conclusion.":"The model scenario does not pass the entered base-EV screen; keep it research/scenario only.";}
     else if(probabilityBasis!=="INDEPENDENT_OOS"){status="HYPOTHESIS_ONLY";nextAction=basePass?"Base EV is positive under the scenario, but the success probability remains a hypothesis; relative value versus waiting/another strategy is not authenticated.":"Hypothetical base EV is non-positive. Wait or remeasure; no evidence-backed future probability exists.";}
-    else if(!independentEvidenceOk){status="EVIDENCE_INCOMPLETE";nextAction="PENDING: at least 30 counted outcomes, a source/reference note and PASS on Accuracy, Generality and Integration are required. UI attestations do not authenticate evidence.";}
+    else if(probabilityBasis==="INDEPENDENT_OOS"&&generalityReview.status!=="PASS_OPERATOR_ATTESTED"){status="GENERALITY_PENDING";nextAction="PENDING: chronological/rolling/regime/final-OOS dossier has not passed structural checks. A UI dropdown alone cannot certify Generality.";}
+    else if(!independentEvidenceOk){status="EVIDENCE_INCOMPLETE";nextAction="PENDING: at least 30 counted outcomes, source reference, valid Generality dossier and PASS on Accuracy / Generality / Integration are required.";}
     else if(!basePass){status="NEGATIVE_EXPECTED_VALUE";nextAction="Base expected value is zero or negative after entered costs. Under this payoff/probability specification, do not add exposure.";}
-    else if(!alternativeComplete){status="ALTERNATIVE_VALUE_PENDING";nextAction="EV is positive under supplied assumptions, but the waiting / alternative path has no priced expected value for the same capital and horizon. Enter a sourced comparator; do not silently equate WAIT with $0.";}
-    else if(incrementalEVBase<=0){status="NEGATIVE_INCREMENTAL_VALUE";nextAction="The candidate's base expected value is no better than the named waiting / alternative benchmark. Prefer WAIT / compare another candidate unless other objectives justify review.";}
+    else if(comparator.status==="VALUE_PENDING"){status="ALTERNATIVE_VALUE_PENDING";nextAction="EV is positive under supplied assumptions, but the named waiting / alternative expected value is missing. Do not silently equate WAIT with $0.";}
+    else if(comparator.status==="BASIS_PENDING"){status="COMPARATOR_CONTRACT_PENDING";nextAction="PENDING: enter candidate and alternative capital bases, both risk budgets, same horizon, and after-cost confirmation.";}
+    else if(comparator.status==="INCOMPARABLE"){status="ALTERNATIVE_NOT_COMPARABLE";nextAction="Candidate and alternative fail the fair-comparison contract: "+comparator.reason+" Normalize the basis or keep scenario-only.";}
+    else if(incrementalEVBase<=0){status="NEGATIVE_INCREMENTAL_VALUE";nextAction="Candidate base EV is no better than the alternative under the validated capital/risk/time/cost basis. Prefer WAIT or a better comparator.";}
     else if(!rangeComplete){status="NEEDS_PROBABILITY";nextAction="PENDING: the low / base / high probability range is incomplete, so robustness versus the comparator cannot be assessed.";}
     else if(!adversePass||incrementalEVAdverse===null||incrementalEVAdverse<=0){status="FRAGILE_EXPECTED_VALUE";nextAction="Base EV beats the comparator, but the low-probability / adverse-cost case fails to beat it. Relative value is fragile; do not call it robust.";}
     else{status="ELIGIBLE_FOR_HUMAN_REVIEW";nextAction="Evidence, current sizing route, explicit alternative and adverse case pass the configured screen. ELIGIBLE FOR HUMAN REVIEW only—not trade approval, strategy promotion or an order.";}
@@ -112,6 +220,9 @@
       :probabilityBasis==="MODEL_REPLAY"&&candidateKey==="vxxCallSpreads"?{accuracy:"BLOCKED · MODEL_ONLY / NOT OPRA",generality:"NOT DEMONSTRATED",integration:"NOT PROVEN BY ISOLATED ATTRIBUTION",sourceId:EVIDENCE.vxxCallCredit.id}
       :{...axes,sourceId:evidenceNote||null,operatorAttested:probabilityBasis==="INDEPENDENT_OOS"};
     if(riskNature==="UNBOUNDED")warnings.push("VXX short-stock risk is structurally unbounded; entered stress loss cannot cap the tail.");
+    warnings.push(...portfolioStress.warnings);
+    if(generalityReview.status!=="PASS_OPERATOR_ATTESTED")warnings.push("Generality dossier status: "+generalityReview.status+". Structural checks do not authenticate source data or prove the final holdout was untouched.");
+    else warnings.push("Generality dossier is structurally complete but operator-attested only; source data and holdout independence are not authenticated by the APP.");
     if(candidateKey==="qqqCallSpreads")warnings.push("The isolated incremental FAR CALL overlay failed its current research screen. This is not a full-composite return replay and does not prove primary-leg future probability.");
     if(baseEV!==null&&baseEV>0&&adverseEV!==null&&adverseEV<=0)warnings.push("Base EV is positive but low-probability plus adverse-cost EV is non-positive.");
     if(riskTotal!==null&&nav!==null&&nav>0&&riskTotal/nav>0.05)warnings.push("Entered scenario loss exceeds 5% of NAV; this is a project materiality warning, not a universal finance law.");
@@ -121,7 +232,9 @@
       probabilityMethod,probabilityMethodLabel,probabilityBasis,probabilityBasisLabel,probabilityLowPct:pctRange(pLow)?pLow:null,probabilityBasePct:pctRange(pBase)?pBase:null,probabilityHighPct:pctRange(pHigh)?pHigh:null,
       sampleSize,empiricalInterval:empirical,breakEvenProbabilityPct:breakEven,expectedValueBaseUsd:baseEV,expectedValueAdverseUsd:adverseEV,expectedValueHighUsd:highEV,
       expectedValueBaseTotalUsd:baseTotal,expectedValueAdverseTotalUsd:adverseTotal,expectedValueHighTotalUsd:highTotal,
-      alternativeEVTotalUsd:alternativeComplete?alternativeEVTotalUsd:null,alternativeLabel:alternativeLabel||null,alternativeComplete,
+      alternativeEVTotalUsd:alternativeValuePresent?alternativeEVTotalUsd:null,alternativeLabel:alternativeLabel||null,alternativeComplete,comparatorContract:comparator,
+      candidateCapitalBasisUsd:n(i.candidateCapitalBasisUsd),alternativeCapitalBasisUsd:n(i.alternativeCapitalBasisUsd),candidateRiskBudgetUsd:n(i.candidateRiskBudgetUsd),alternativeRiskBudgetUsd:n(i.alternativeRiskBudgetUsd),alternativeHorizonDays:n(i.alternativeHorizonDays),alternativeCostsIncluded:i.alternativeCostsIncluded===true,
+      portfolioStress,generalityReview,
       incrementalValueBaseUsd:incrementalEVBase,incrementalValueAdverseUsd:incrementalEVAdverse,incrementalValueHighUsd:incrementalEVHigh,
       incrementalValuePerCalendarDayUsd:incrementalEVPerDay,incrementalValuePctNav:incrementalEVPctNav,
       totalCostBaseUsd:cost!==null&&qtyComplete?cost*quantity:null,totalCostAdverseUsd:cost!==null&&costStress!==null&&qtyComplete?(cost+costStress)*quantity:null,
@@ -134,7 +247,7 @@
       waitReferenceExpectedValueUsd:null,futureCashYieldIncluded:false,brokerOrders:false
     };
   }
-  const api={evaluate,wilson95,EVIDENCE};
+  const api={evaluate,wilson95,evaluateComparator,evaluatePortfolioStress,evaluateGenerality,EVIDENCE};
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
   if(root)root.DecisionValueEngineV1=api;
 })(typeof window!=="undefined"?window:(typeof globalThis!=="undefined"?globalThis:this));
