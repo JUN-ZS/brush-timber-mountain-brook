@@ -1130,11 +1130,11 @@
     if(comparatorStatus)comparatorStatus.textContent="Fair comparator: "+out.comparatorContract.status+" — "+out.comparatorContract.reason;
     const generalityStatus=$("dvGeneralityStatus");
     if(generalityStatus)generalityStatus.textContent="Generality dossier: "+out.generalityReview.status+" · rolling windows "+(out.generalityReview.rollingWindowCount??"UNKNOWN")+" · positive "+(out.generalityReview.positiveEffectWindows??"UNKNOWN")+" · source authenticated by app: NO. "+(out.generalityReview.issues||[]).join(" ");
+    const prob=v=>typeof v==="number"&&Number.isFinite(v)?pct(v):"UNKNOWN";
     const stress=out.portfolioStress,stressStatus=$("dvPortfolioRiskResult");
     if(stressStatus)stressStatus.textContent="Common stress: "+stress.status+" · event "+(stress.scenarioName||"UNKNOWN")+" · loss sum "+(typeof stress.totalLossUsd==="number"?money(stress.totalLossUsd):"UNKNOWN")+" · NAV "+(typeof stress.riskPctNav==="number"?pct(stress.riskPctNav):"UNKNOWN")+" · active categories "+(stress.activeLegs||[]).length+"/4 · unbounded tail "+(stress.unboundedTail?"YES":"not flagged")+" · "+[...(stress.missingLegs||[]),...(stress.invalid||[])].join("; ");
     const money=v=>typeof v==="number"&&Number.isFinite(v)?(v<0?"−$":"$")+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}):"—";
     const pct=v=>typeof v==="number"&&Number.isFinite(v)?v.toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1})+"%":"—";
-    const prob=v=>typeof v==="number"&&Number.isFinite(v)?pct(v):"UNKNOWN";
     $("dvManualProbabilityFields").hidden=inputs.probabilityMethod!=="MANUAL";$("dvEmpiricalProbabilityFields").hidden=inputs.probabilityMethod!=="EMPIRICAL";
     const route=out.mainRoute;
     const moneySigned=v=>typeof v==="number"&&Number.isFinite(v)?(v<0?"−$":v>0?"+$":"$")+Math.abs(v).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}):"UNKNOWN";

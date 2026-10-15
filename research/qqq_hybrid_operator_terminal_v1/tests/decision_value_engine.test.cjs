@@ -173,6 +173,8 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
 {
  const dossier=goodGeneralityDossier(),result=D.evaluateGenerality(dossier);
  assert.equal(result.status,"PASS_OPERATOR_ATTESTED");assert.equal(result.positiveEffectWindows,5);assert.equal(result.evidenceAuthenticated,false);
+ const fourOfFive=D.evaluateGenerality({...dossier,rollingWindows:dossier.rollingWindows.map((w,i)=>i===4?{...w,effectDeltaPct:-0.1}:w)});
+ assert.equal(fourOfFive.status,"PASS_OPERATOR_ATTESTED","4/5 is the pre-registered minimum effect-direction rule");
  assert.equal(D.evaluateGenerality({...dossier,finalCoveragePct:99.5}).pass,false);
  assert.equal(D.evaluateGenerality({...dossier,finalUntouched:false}).pass,false);
  assert.equal(D.evaluateGenerality({...dossier,finalStart:"2023-12-01"}).pass,false);
@@ -192,5 +194,9 @@ function fixture(overrides={}){return {candidateKey:"qqqShares",lens:"ADD",quant
  const tooMuchRisk=D.evaluate(fixture({portfolioStress:goodPortfolioStress({legs:{qqqCore:{state:"ACTIVE",stressLossUsd:4000},vxxShort:{state:"ZERO"},qqqCallCredit:{state:"ACTIVE",stressLossUsd:1000},vxxCallCredit:{state:"ZERO"}}})}));
  assert.equal(tooMuchRisk.status,"PORTFOLIO_STRESS_REVIEW");
  assert.equal(D.evaluate(fixture({generalityDossierJson:{...goodGeneralityDossier(),finalCoveragePct:97}})).status,"GENERALITY_PENDING");
+}
+{
+ const appSource=fs.readFileSync(require.resolve("../app.js"),"utf8");
+ assert.ok(appSource.indexOf("const prob=v=>")<appSource.indexOf('const stress=out.portfolioStress,stressStatus=$("dvPortfolioRiskResult");'),"risk metrics render only after money/pct/prob formatters are initialized");
 }
 console.log("QQQ HYBRID DECISION VALUE ENGINE: 17 base + 15 full-use + fairness/risk/generality matrix PASS");
