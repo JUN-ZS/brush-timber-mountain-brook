@@ -60,6 +60,28 @@ def terminal_risk_per_package(trade:dict[str,Any],slip:float,commission:float)->
             "pnl_if_qqq_zero_usd":round(expiry_pnl(cash,nl,ns,kl,ks,0),2),
             "payoff_breakpoints_usd":{str(s):round(p,2) for s,p in zip(points,pnls)}}
 
+def package_capacity(trade:dict[str,Any],nav:float,budget_pct:float,slip:float,commission:float)->dict[str,Any]:
+    risk=terminal_risk_per_package(trade,slip,commission)
+    loss=risk["terminal_max_loss_usd"]
+    risk_cap=math.floor(nav*budget_pct/100/loss) if loss>0 else 0
+    long_size=BASE.num(trade["entry_quotes"]["long"].get("ask_size"))
+    short_size=BASE.num(trade["entry_quotes"]["short"].get("bid_size"))
+    n_long,n_short=int(trade["n_long"]),int(trade["n_short"])
+    depth_known=long_size is not None and short_size is not None and long_size>=0 and short_size>=0
+    if depth_known:
+        long_cap=math.floor(long_size/n_long) if n_long>0 else 0
+        short_cap=math.floor(short_size/n_short) if n_short>0 else 0
+        depth_cap=min(long_cap,short_cap)
+    else:
+        long_cap=short_cap=depth_cap=0
+    return {"risk":risk,"risk_budget_capacity_packages":risk_cap,
+            "entry_depth_capacity_packages":depth_cap,
+            "entry_long_ask_size":long_size,"entry_short_bid_size":short_size,
+            "entry_depth_known":depth_known,
+            "packages":min(risk_cap,depth_cap),
+            "depth_limited":depth_known and depth_cap<risk_cap}
+
+
 def shape_quote_pair(pair:dict[str,Any],rows:list[dict[str,Any]],entry_day:str,n:int,orientation:str,qmap:dict[str,dict[str,Any]]|None=None)->tuple[dict[str,Any]|None,str]:
     qmap=qmap if qmap is not None else BASE.quote_map(rows)
     high=qmap.get(pair.get("long_id")); low=qmap.get(pair.get("short_id"))
@@ -314,10 +336,8 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
                 for costs in COST_CASES:
                     caps=[]
                     for trade in trades:
-                        risk=terminal_risk_per_package(trade,costs["slippage"],costs["commission"])
-                        loss=risk["terminal_max_loss_usd"]
-                        units=math.floor(nav*budget_pct/100/loss) if loss>0 else 0
-                        caps.append({"trade":trade,"risk":risk,"units":units})
+                        sizing=package_capacity(trade,nav,budget_pct,costs["slippage"],costs["commission"])
+                        caps.append({"trade":trade,**sizing,"units":sizing["packages"]})
                     units_list=[x["units"] for x in caps]
                     capacity_rows.append({"orientation":o,"n":n,"nav_usd":nav,"risk_budget_pct_nav":budget_pct,"cost_case":costs["name"],
                         "selected_pair_count":state["selected"],"opened_episode_count":state["opened"],"episodes":len(trades),
@@ -325,6 +345,9 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
                         "median_terminal_max_loss_per_package_usd":round(statistics.median([x["risk"]["terminal_max_loss_usd"] for x in caps]),2) if caps else None,
                         "p95_terminal_max_loss_per_package_usd":quantile([x["risk"]["terminal_max_loss_usd"] for x in caps],.95),
                         "median_max_loss_pct_nav":round(statistics.median([100*x["risk"]["terminal_max_loss_usd"]/nav for x in caps]),4) if caps else None,
+                        "median_risk_budget_package_capacity":round(statistics.median([x["risk_budget_capacity_packages"] for x in caps]),3) if caps else None,
+                        "median_entry_depth_capacity_packages":round(statistics.median([x["entry_depth_capacity_packages"] for x in caps]),3) if caps else None,
+                        "episodes_limited_by_displayed_entry_depth":sum(x["depth_limited"] for x in caps),
                         "episodes_fitting_one_or_more_packages":sum(x>=1 for x in units_list),
                         "percent_episodes_fitting_one_or_more_packages":round(100*sum(x>=1 for x in units_list)/len(units_list),3) if units_list else None,
                         "median_package_capacity":round(statistics.median(units_list),3) if units_list else None,"max_package_capacity":max(units_list,default=None)})
@@ -335,6 +358,9 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
                             if cap["units"]<1:blocked+=1;continue
                             result=simulate_policy(cap["trade"],policy,cap["units"],costs["slippage"],costs["commission"],nav)
                             result.update({"risk_budget_pct_nav":budget_pct,"cost_case":costs["name"],"capacity_packages":cap["units"],
+                                           "risk_budget_capacity_packages":cap["risk_budget_capacity_packages"],
+                                           "entry_depth_capacity_packages":cap["entry_depth_capacity_packages"],
+                                           "entry_depth_limited":cap["depth_limited"],
                                            "terminal_max_loss_per_package_usd":cap["risk"]["terminal_max_loss_usd"]})
                             results.append(result);episode_rows.append(result)
                         summary=policy_summary(results,len(trades),blocked)
