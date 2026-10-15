@@ -1,0 +1,346 @@
+{
+  "schema": "qqq-order-machine-replay-v1",
+  "generatedAt": "2026-10-15T17:44:40.183Z",
+  "dataAsOf": "2026-09-04",
+  "source": "src/data/universe.json / c.QQQ / Yahoo adjclose",
+  "windows": 153,
+  "frontloads": [
+    0,
+    0.4,
+    1
+  ],
+  "assumptions": {
+    "execution": "daily-close touch only; fill at resting limit; one confirmed fill per side per daily observation; no fees/slippage",
+    "orderValidity": "persistent across market dates; new day marks ARMED as STALE; no automatic cancel",
+    "matching": "causal DAY/WEEK/MONTH volatility percentiles + causal 5D signed-return percentile; max distance 0.32; top 25 matches",
+    "rungs": "NEAR 1D/70%, MID 5D/50%, DEEP 21D/30%; weights 50/30/20",
+    "capital": "B=100000 fully available as deployment reserve at window start; frontload changes target curve, not cash availability",
+    "baseline": "daily close target tracker against the same front-loaded target curve"
+  },
+  "results": [
+    {
+      "frontload": 0,
+      "mode": "BUY_ONLY",
+      "windows": 153,
+      "meanTerminalClock": 194933.92764227025,
+      "meanTerminalMachine": 100414.70727106143,
+      "meanTerminalDelta": -94519.22037120882,
+      "medianTerminalDelta": -92015.29465562092,
+      "terminalWinRate": 0,
+      "meanCAGRClock": 0.06825341260160529,
+      "meanCAGRMachine": 0.0004048029704773641,
+      "meanCAGRDelta": -0.06784860963112797,
+      "meanMaxDDClock": -0.15761840639367009,
+      "meanMaxDDMachine": -0.0011601670569215466,
+      "meanMaxDDDelta": 0.15645823933674866,
+      "maxDDBetterRate": 1,
+      "avgBuyFills": 0.8104575163398693,
+      "avgSellFills": 0,
+      "avgTouched": 0.8104575163398693,
+      "avgHarvestReserveEnd": 0,
+      "avgDeploymentReserveEnd": 99910.15802134127,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "clock": 176906.2128318678,
+          "machine": 100000,
+          "delta": -76906.2128318678,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "clock": 181014.2743632439,
+          "machine": 100000,
+          "delta": -81014.2743632439,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "clock": 177370.91169348487,
+          "machine": 100000,
+          "delta": -77370.91169348487,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    },
+    {
+      "frontload": 0,
+      "mode": "TWO_SIDED",
+      "windows": 153,
+      "meanTerminalClock": 194933.92764227025,
+      "meanTerminalMachine": 100414.70727106143,
+      "meanTerminalDelta": -94519.22037120882,
+      "medianTerminalDelta": -92015.29465562092,
+      "terminalWinRate": 0,
+      "meanCAGRClock": 0.06825341260160529,
+      "meanCAGRMachine": 0.0004048029704773641,
+      "meanCAGRDelta": -0.06784860963112797,
+      "meanMaxDDClock": -0.15761840639367009,
+      "meanMaxDDMachine": -0.0011601670569215466,
+      "meanMaxDDDelta": 0.15645823933674866,
+      "maxDDBetterRate": 1,
+      "avgBuyFills": 0.8104575163398693,
+      "avgSellFills": 0,
+      "avgTouched": 0.8104575163398693,
+      "avgHarvestReserveEnd": 0,
+      "avgDeploymentReserveEnd": 99910.15802134127,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "clock": 176906.2128318678,
+          "machine": 100000,
+          "delta": -76906.2128318678,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "clock": 181014.2743632439,
+          "machine": 100000,
+          "delta": -81014.2743632439,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "clock": 177370.91169348487,
+          "machine": 100000,
+          "delta": -77370.91169348487,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    },
+    {
+      "frontload": 0.4,
+      "mode": "BUY_ONLY",
+      "windows": 153,
+      "meanTerminalClock": 226924.4914645738,
+      "meanTerminalMachine": 196078.7874743863,
+      "meanTerminalDelta": -30845.703990187594,
+      "medianTerminalDelta": -6888.0927095527295,
+      "terminalWinRate": 0.39215686274509803,
+      "meanCAGRClock": 0.08435591970279004,
+      "meanCAGRMachine": 0.058378950273631,
+      "meanCAGRDelta": -0.025976969429159044,
+      "meanMaxDDClock": -0.20684233894965395,
+      "meanMaxDDMachine": -0.12720840601719213,
+      "meanMaxDDDelta": 0.07963393293246182,
+      "maxDDBetterRate": 0.49019607843137253,
+      "avgBuyFills": 0.8496732026143791,
+      "avgSellFills": 0,
+      "avgTouched": 0.8496732026143791,
+      "avgHarvestReserveEnd": 0,
+      "avgDeploymentReserveEnd": 79493.49000318238,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "clock": 192813.28961841564,
+          "machine": 100000,
+          "delta": -92813.28961841564,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "clock": 196607.01367791148,
+          "machine": 100000,
+          "delta": -96607.01367791148,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "clock": 193218.3521708375,
+          "machine": 100000,
+          "delta": -93218.35217083749,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    },
+    {
+      "frontload": 0.4,
+      "mode": "TWO_SIDED",
+      "windows": 153,
+      "meanTerminalClock": 226924.4914645738,
+      "meanTerminalMachine": 195370.4134332661,
+      "meanTerminalDelta": -31554.078031307818,
+      "medianTerminalDelta": -7048.760816381429,
+      "terminalWinRate": 0.39215686274509803,
+      "meanCAGRClock": 0.08435591970279004,
+      "meanCAGRMachine": 0.05812061327498817,
+      "meanCAGRDelta": -0.026235306427801874,
+      "meanMaxDDClock": -0.20684233894965395,
+      "meanMaxDDMachine": -0.12681150009347783,
+      "meanMaxDDDelta": 0.0800308388561761,
+      "maxDDBetterRate": 0.49019607843137253,
+      "avgBuyFills": 0.8496732026143791,
+      "avgSellFills": 0.6601307189542484,
+      "avgTouched": 1.5098039215686274,
+      "avgHarvestReserveEnd": 174.51165930237,
+      "avgDeploymentReserveEnd": 79493.49000318238,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "clock": 192813.28961841564,
+          "machine": 100000,
+          "delta": -92813.28961841564,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "clock": 196607.01367791148,
+          "machine": 100000,
+          "delta": -96607.01367791148,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "clock": 193218.3521708375,
+          "machine": 100000,
+          "delta": -93218.35217083749,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    },
+    {
+      "frontload": 1,
+      "mode": "BUY_ONLY",
+      "windows": 153,
+      "meanTerminalClock": 271304.58693777985,
+      "meanTerminalMachine": 203043.48843533298,
+      "meanTerminalDelta": -68261.09850244693,
+      "medianTerminalDelta": -60935.95299096749,
+      "terminalWinRate": 0.21568627450980393,
+      "meanCAGRClock": 0.10327772649792158,
+      "meanCAGRMachine": 0.06083821588388257,
+      "meanCAGRDelta": -0.04243951061403902,
+      "meanMaxDDClock": -0.2747494206310706,
+      "meanMaxDDMachine": -0.13121268628248053,
+      "meanMaxDDDelta": 0.14353673434859002,
+      "maxDDBetterRate": 0.5032679738562091,
+      "avgBuyFills": 0.8496732026143791,
+      "avgSellFills": 0,
+      "avgTouched": 0.8496732026143791,
+      "avgHarvestReserveEnd": 0,
+      "avgDeploymentReserveEnd": 77908.49673202615,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "clock": 209897.35497263385,
+          "machine": 100000,
+          "delta": -109897.35497263385,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "clock": 212140.83566885005,
+          "machine": 100000,
+          "delta": -112140.83566885005,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "clock": 209084.2196821915,
+          "machine": 100000,
+          "delta": -109084.2196821915,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    },
+    {
+      "frontload": 1,
+      "mode": "TWO_SIDED",
+      "windows": 153,
+      "meanTerminalClock": 271304.58693777985,
+      "meanTerminalMachine": 202880.51439470984,
+      "meanTerminalDelta": -68424.07254307004,
+      "medianTerminalDelta": -61164.147150988574,
+      "terminalWinRate": 0.21568627450980393,
+      "meanCAGRClock": 0.10327772649792158,
+      "meanCAGRMachine": 0.06078046829123912,
+      "meanCAGRDelta": -0.04249725820668247,
+      "meanMaxDDClock": -0.2747494206310706,
+      "meanMaxDDMachine": -0.1309980539389054,
+      "meanMaxDDDelta": 0.1437513666921651,
+      "maxDDBetterRate": 0.5032679738562091,
+      "avgBuyFills": 0.8496732026143791,
+      "avgSellFills": 0.46405228758169936,
+      "avgTouched": 1.3137254901960784,
+      "avgHarvestReserveEnd": 135.9497547728473,
+      "avgDeploymentReserveEnd": 77908.49673202615,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "clock": 209897.35497263385,
+          "machine": 100000,
+          "delta": -109897.35497263385,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "clock": 212140.83566885005,
+          "machine": 100000,
+          "delta": -112140.83566885005,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "clock": 209084.2196821915,
+          "machine": 100000,
+          "delta": -109084.2196821915,
+          "machineMaxDD": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    }
+  ]
+}
