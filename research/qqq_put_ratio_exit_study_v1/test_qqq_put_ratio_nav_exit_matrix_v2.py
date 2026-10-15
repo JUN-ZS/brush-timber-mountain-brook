@@ -190,6 +190,6 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual(sum(1 for line in text.splitlines() if line.startswith("| long-heavy |")),12)
         self.assertIn("$1,000.00",text)
         self.assertIn("$700.00",text)
-        self.assertIn("$1,200.00",text)
+        self.assertIn("-$1,200.00",text)
 
 if __name__=="__main__":unittest.main()

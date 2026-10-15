@@ -450,7 +450,10 @@ def write_csv(path:Path,rows:list[dict[str,Any]])->None:
         for row in rows:w.writerow(row)
 
 def _fmt_money(value:Any)->str:
-    return "—" if value is None else "$" + f"{float(value):,.2f}"
+    if value is None:
+        return "—"
+    number=float(value)
+    return "-$" + f"{abs(number):,.2f}" if number < 0 else "$" + f"{number:,.2f}"
 
 
 def _fmt_num(value:Any,digits:int=2)->str:
