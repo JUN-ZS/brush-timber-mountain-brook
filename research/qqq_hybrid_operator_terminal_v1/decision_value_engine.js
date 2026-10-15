@@ -67,7 +67,8 @@
     if(b.reconciled!==true)missing.push("explicit reconciliation of all four primary categories");
     for(const key of PRIMARY_STRESS_LEGS){
       const leg=legs[key],state=String(leg&&leg.state||"UNKNOWN").toUpperCase();
-      if(!leg||!["ACTIVE","ZERO","UNKNOWN"].includes(state)){invalid.push(key+": state must be ACTIVE, ZERO, or UNKNOWN");continue;}
+      if(!leg){missing.push(key);continue;}
+      if(!["ACTIVE","ZERO","UNKNOWN"].includes(state)){invalid.push(key+": state must be ACTIVE, ZERO, or UNKNOWN");continue;}
       if(state==="UNKNOWN"){missing.push(key);continue;}
       if(state==="ZERO")continue;
       const loss=n(leg.stressLossUsd);
