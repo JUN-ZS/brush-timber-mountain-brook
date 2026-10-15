@@ -72,7 +72,7 @@ def fetch_qqq(start: date, end: date) -> tuple[list[dict[str, Any]], dict[str, A
         close = closes[i] if i < len(closes) else None
         adj_close = adj[i] if i < len(adj) else None
         if close is None or not math.isfinite(float(close)) or float(close) <= 0:
-            continue
+            raise RuntimeError(f"Yahoo chart returned a missing/invalid close for dated bar {d.isoformat()}; refusing to bridge the gap.")
         rows.append({
             "date": d.isoformat(),
             "raw_close": round(float(close), 6),
@@ -192,7 +192,7 @@ def price_stats(rows: list[dict[str, Any]], rv: list[float | None], period_start
             if not (period_start <= dates[i] <= period_end):
                 continue
             future = rows[i:i + h + 1]
-            if len(future) != h + 1:
+            if len(future) != h + 1 or dates[i + h] > period_end:
                 continue
             # Yahoo provides trading-session bars only; a missing returned close censors the path.
             first, last = float(future[0]["raw_close"]), float(future[-1]["raw_close"])
