@@ -313,7 +313,11 @@ def run_matrix(out_dir:Path)->dict[str,Any]:
                         "episodes_fitting_one_or_more_packages":sum(x>=1 for x in units_list),
                         "percent_episodes_fitting_one_or_more_packages":round(100*sum(x>=1 for x in units_list)/len(units_list),3) if units_list else None,
                         "median_package_capacity":round(statistics.median(units_list),3) if units_list else None,"max_package_capacity":max(units_list,default=None)})
-                    for policy in make_policies(nav,budget_pct,o,n):
+                    # Risk budget sets package count. Exit threshold is a separate NAV-percent axis.
+                    policies=[{"name":"DTE7_BASELINE","kind":"DTE7","target_usd":None,"target_pct":None,"age_limit":None,"action":"CLOSE_ALL"}]
+                    for target_pct in BUDGET_PCTS:
+                        policies.extend(p for p in make_policies(nav,target_pct,o,n) if p["kind"]!="DTE7")
+                    for policy in policies:
                         results=[];blocked=0
                         for cap in caps:
                             if cap["units"]<1:blocked+=1;continue
