@@ -48,7 +48,7 @@ function evaluate(input,nowMs){
  base.fullClose={action:"CLOSE_ALL",realizedPnlAfterCostsUsd:full,realizedPnlPctNav:pct,remainingLongQty:0,remainingShortQty:0,remainingContracts:0,residualTailLossFromCurrentMarkUsd:0};
  base.trimShort={action:orientation==="short-heavy"?"BUY_TO_CLOSE_EXCESS_SHORTS":"BUY_TO_CLOSE_THE_SHORT",
   description:orientation==="short-heavy"?(n===1?"N=1: no excess SHORT can be reduced; compare CLOSE ALL or DTE≤7 baseline.":"Buy to close "+trimEach+" SHORT per package; retain 1 SHORT + the LONG."):"Buy to close 1 SHORT per package; retain N LONG puts.",
-  shortContractsToClose:trimQty,remainingLongQty:rlq,remainingShortQty:rsq,remainingContracts,
+  shortContractsToClose:trimQty,remainingLongQty:rlq,remainingShortQty:rsq,remainingContracts:remainContracts,
   realizedPnlOnTrimmedShortsAfterCostsUsd:trimNet,residualOpenPnlAfterCostsReservedUsd:residualNet,combinedPnlWithResidualExitCostReservedUsd:combined,combinedPnlPctNavWithResidualExitCostReserved:combined/nav*100,
   residualMarkValueUsd:money(markValue),residualWorstExpiryLossFromCurrentMarkUsd:tailLoss,residualWorstExpiryLossPctNav:tailLoss/nav*100,
   riskProfile:orientation==="short-heavy"?(n===1?"N=1: no excess SHORT can be trimmed; both legs remain.":"Retains 1 SHORT + 1 LONG per package; tail risk is reduced, not erased under every path."):"Closes the single SHORT per package and retains N LONG puts; residual risk is long premium exposure.",expiryScenarios:scenarios};
