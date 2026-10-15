@@ -35,9 +35,9 @@ class MatrixTests(unittest.TestCase):
                 "entry_quotes":{"long":{"ask":long_ask,"bid":long_bid},"short":{"ask":short_ask,"bid":short_bid}},
                 "n_long":long_qty,"n_short":short_qty,"orientation":orientation,"n":n,
                 "path":[step(day0,long_bid,long_ask,short_bid,short_ask),
-                        step(day1,long_bid,long_ask,short_bid,0.05),
-                        step(day2,long_bid,long_ask,short_bid,0.05),
-                        step(day3,long_bid,long_ask,short_bid,0.05)]}
+                        step(day1,long_bid,long_ask,0.01,0.05),
+                        step(day2,long_bid,long_ask,0.01,0.05),
+                        step(day3,long_bid,long_ask,0.01,0.05)]}
 
     def test_nav_percent_converts_for_both_account_sizes(self):
         self.assertEqual([100000*p/100 for p in (0.5,1,2)],[500,1000,2000])
