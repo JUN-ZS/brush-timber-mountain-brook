@@ -455,7 +455,10 @@ function ratioBase(overrides = {}) {
   assert.ok(hubUi.includes('$("putRatioDirection").value = requestedPutRatioDirection'), "a direct link must not fall back to the opposite default ratio orientation");
   assert.ok(mainHtml.includes('href="hub_research_pack.html?strategyMode=shock-put"'), "shock-gated put-debit lane must have a one-click route");
   assert.ok(hubUi.includes('get("strategyMode")'), "Hub must honor the main-desk direct route");
-  assert.ok(fs.readFileSync(require("node:path").join(__dirname, "../STRATEGY_PRESERVATION_REGISTER.md"), "utf8").includes("QQQ PUT N:1 RATIO"));
+  const preservationRegister = fs.readFileSync(require("node:path").join(__dirname, "../STRATEGY_PRESERVATION_REGISTER.md"), "utf8");
+  assert.ok(preservationRegister.includes("QQQ_PUT_RATIO_N1_LONG_HEAVY"), "preservation register must explicitly retain N LONG PUT : 1 SHORT PUT");
+  assert.ok(preservationRegister.includes("QQQ_PUT_RATIO_N1_SHORT_HEAVY"), "preservation register must explicitly retain N SHORT PUT : 1 LONG PUT");
+  assert.ok(preservationRegister.includes("QQQ_LONG_PUT"), "preservation register must explicitly retain the standalone QQQ LONG PUT chain");
   assert.ok(!hubHtml.includes("由 Hybrid + 所有啟用的 Hub 結構共用同一個總風險池按比例分配"), "Hub must not claim a multi-structure allocator that is not wired");
   assert.ok(mainHtml.includes('Only those two defined-risk credit verticals share the option max-loss pool'));
 }
