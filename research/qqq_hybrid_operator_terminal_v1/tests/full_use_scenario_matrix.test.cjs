@@ -334,19 +334,20 @@ scenario("Decision Value engine refuses forged execution evidence while retainin
 });
 
 scenario("CLOCK Floor, future contributions and market gates do not auto-invest or auto-sell", () => {
-  const start = (Number(today.slice(0,4))-10) + today.slice(4);
+  const carryStart = (Number(today.slice(0,4))-9) + today.slice(4);
+  const floorStart = (Number(today.slice(0,4))-10) + today.slice(4);
   const carryRoadmap = R.evaluate({
-    baseCapitalUsd:100000,startDate:start,horizonMonths:120,monthlyContributionUsd:500,
+    baseCapitalUsd:100000,startDate:carryStart,horizonMonths:120,monthlyContributionUsd:500,
     currentNavUsd:105000,currentCashUsd:50000,today,market:carry
   });
   assert.equal(carryRoadmap.status, "CARRY_HUMAN_REVIEW");
-  near(carryRoadmap.floorUsd, 100000);
-  assert.equal(carryRoadmap.plannedFutureContributionsUsd, 60000);
+  near(carryRoadmap.floorUsd, 90000);
+  assert.equal(carryRoadmap.plannedFutureContributionsUsd, 6000);
   assert.equal(carryRoadmap.contributionsCountedInCurrentCash, false);
   assert.equal(carryRoadmap.forecastedCagr, null);
   assert.equal(carryRoadmap.brokerOrders, false);
   const floorBreach = R.evaluate({...{
-    baseCapitalUsd:100000,startDate:start,horizonMonths:120,monthlyContributionUsd:500,
+    baseCapitalUsd:100000,startDate:floorStart,horizonMonths:120,monthlyContributionUsd:500,
     currentNavUsd:90000,currentCashUsd:50000,today,market:carry
   }});
   assert.equal(floorBreach.status, "FLOOR_BREACH");
