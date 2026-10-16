@@ -1,0 +1,623 @@
+{
+  "cost_convention": {
+    "slippage_per_leg_usd": 0.05,
+    "commission_per_contract_per_side_usd": 0.65
+  },
+  "critical_timing_caveat": "Threshold events are EOD quote-mark events, not intraday threshold touches. Source reports 16:00 ET; exact tick timestamp and fill availability are unverified.",
+  "plus_1000_events_total": 9,
+  "plus_1000_first_hit_within_5_sessions": 0,
+  "plus_1000_first_hit_after_5_sessions": 9,
+  "early_1000_then_hold_original_1x5": {
+    "5_session_forward": {
+      "n": 0,
+      "median_pnl_change_usd": null,
+      "mean_pnl_change_usd": null,
+      "fraction_future_pnl_nonpositive": null,
+      "fraction_pnl_giveback_ge_50pct_of_1000_target": null,
+      "future_pnl_distribution_usd": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p05": null,
+        "p95": null
+      }
+    },
+    "10_session_forward": {
+      "n": 0,
+      "median_pnl_change_usd": null,
+      "mean_pnl_change_usd": null,
+      "fraction_future_pnl_nonpositive": null,
+      "fraction_pnl_giveback_ge_50pct_of_1000_target": null,
+      "future_pnl_distribution_usd": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p05": null,
+        "p95": null
+      }
+    }
+  },
+  "late_1000_then_hold_original_1x5": {
+    "5_session_forward": {
+      "n": 1,
+      "median_pnl_change_usd": 1065.8999999999999,
+      "mean_pnl_change_usd": 1065.9,
+      "fraction_future_pnl_nonpositive": 0.0,
+      "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0,
+      "future_pnl_distribution_usd": {
+        "n": 1,
+        "mean": 2249.1,
+        "median": 2249.1,
+        "p05": 2249.1,
+        "p95": 2249.1
+      }
+    },
+    "10_session_forward": {
+      "n": 0,
+      "median_pnl_change_usd": null,
+      "mean_pnl_change_usd": null,
+      "fraction_future_pnl_nonpositive": null,
+      "fraction_pnl_giveback_ge_50pct_of_1000_target": null,
+      "future_pnl_distribution_usd": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p05": null,
+        "p95": null
+      }
+    }
+  },
+  "day20_nonpositive_then_hold_original_1x5": {
+    "5_session_forward": {
+      "n": 5,
+      "median_pnl_change_usd": 332.0,
+      "mean_pnl_change_usd": 278.2,
+      "fraction_future_pnl_nonpositive": 0.2,
+      "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0,
+      "future_pnl_distribution_usd": {
+        "n": 5,
+        "mean": 235.8,
+        "median": 207.2,
+        "p05": -2.8,
+        "p95": 644.2
+      }
+    },
+    "10_session_forward": {
+      "n": 2,
+      "median_pnl_change_usd": 21.825,
+      "mean_pnl_change_usd": 21.82,
+      "fraction_future_pnl_nonpositive": 0.0,
+      "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0,
+      "future_pnl_distribution_usd": {
+        "n": 2,
+        "mean": 17.025,
+        "median": 17.025,
+        "p05": 1.85,
+        "p95": 32.2
+      }
+    }
+  },
+  "day20_positive_then_hold_original_1x5": {
+    "5_session_forward": {
+      "n": 56,
+      "median_pnl_change_usd": 3.150000000000002,
+      "mean_pnl_change_usd": -131.89,
+      "fraction_future_pnl_nonpositive": 0.0714,
+      "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0357,
+      "future_pnl_distribution_usd": {
+        "n": 56,
+        "mean": 138.8812,
+        "median": 175.7,
+        "p05": -53.8,
+        "p95": 876.2
+      }
+    },
+    "10_session_forward": {
+      "n": 28,
+      "median_pnl_change_usd": 20.650000000000013,
+      "mean_pnl_change_usd": 125.84,
+      "fraction_future_pnl_nonpositive": 0.0,
+      "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0,
+      "future_pnl_distribution_usd": {
+        "n": 28,
+        "mean": 394.2536,
+        "median": 194.65,
+        "p05": 60.1,
+        "p95": 2186.2
+      }
+    }
+  },
+  "events": [
+    {
+      "trade_id": 1,
+      "event": "DAY20_NONPOSITIVE",
+      "event_date": "2018-04-02",
+      "age_sessions": 20,
+      "pnl_usd": -129.8
+    },
+    {
+      "trade_id": 2,
+      "event": "DAY20_NONPOSITIVE",
+      "event_date": "2018-05-15",
+      "age_sessions": 20,
+      "pnl_usd": -7.8
+    },
+    {
+      "trade_id": 3,
+      "event": "DAY20_NONPOSITIVE",
+      "event_date": "2018-07-03",
+      "age_sessions": 20,
+      "pnl_usd": -1.8
+    },
+    {
+      "trade_id": 4,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2018-08-21",
+      "age_sessions": 20,
+      "pnl_usd": 64.2
+    },
+    {
+      "trade_id": 5,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2018-10-03",
+      "age_sessions": 20,
+      "pnl_usd": 142.2
+    },
+    {
+      "trade_id": 6,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2018-11-20",
+      "age_sessions": 20,
+      "pnl_usd": 336.2
+    },
+    {
+      "trade_id": 7,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2019-01-04",
+      "age_sessions": 20,
+      "pnl_usd": 82.2
+    },
+    {
+      "trade_id": 8,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2019-02-21",
+      "age_sessions": 20,
+      "pnl_usd": 74.2
+    },
+    {
+      "trade_id": 9,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2019-04-16",
+      "age_sessions": 20,
+      "pnl_usd": 15.2
+    },
+    {
+      "trade_id": 10,
+      "event": "DAY20_NONPOSITIVE",
+      "event_date": "2019-05-29",
+      "age_sessions": 20,
+      "pnl_usd": -30.8
+    },
+    {
+      "trade_id": 11,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2019-07-10",
+      "age_sessions": 20,
+      "pnl_usd": 80.2
+    },
+    {
+      "trade_id": 12,
+      "event": "DAY20_NONPOSITIVE",
+      "event_date": "2019-08-27",
+      "age_sessions": 20,
+      "pnl_usd": -41.8
+    },
+    {
+      "trade_id": 13,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2019-10-08",
+      "age_sessions": 20,
+      "pnl_usd": 152.2
+    },
+    {
+      "trade_id": 14,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2019-11-26",
+      "age_sessions": 20,
+      "pnl_usd": 49.2
+    },
+    {
+      "trade_id": 15,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-01-09",
+      "age_sessions": 20,
+      "pnl_usd": 17.2
+    },
+    {
+      "trade_id": 16,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-02-26",
+      "age_sessions": 20,
+      "pnl_usd": 19.2
+    },
+    {
+      "trade_id": 17,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-04-07",
+      "age_sessions": 20,
+      "pnl_usd": 35.2
+    },
+    {
+      "trade_id": 18,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-05-19",
+      "age_sessions": 20,
+      "pnl_usd": 416.2
+    },
+    {
+      "trade_id": 19,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-06-30",
+      "age_sessions": 20,
+      "pnl_usd": 114.2
+    },
+    {
+      "trade_id": 20,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-08-18",
+      "age_sessions": 20,
+      "pnl_usd": 267.2
+    },
+    {
+      "trade_id": 21,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-09-30",
+      "age_sessions": 20,
+      "pnl_usd": 638.2
+    },
+    {
+      "trade_id": 22,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-11-17",
+      "age_sessions": 20,
+      "pnl_usd": 99.2
+    },
+    {
+      "trade_id": 23,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2020-12-30",
+      "age_sessions": 20,
+      "pnl_usd": 185.2
+    },
+    {
+      "trade_id": 24,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2021-02-18",
+      "age_sessions": 20,
+      "pnl_usd": 139.2
+    },
+    {
+      "trade_id": 25,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2021-03-30",
+      "age_sessions": 20,
+      "pnl_usd": 599.2
+    },
+    {
+      "trade_id": 26,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2021-05-18",
+      "age_sessions": 20,
+      "pnl_usd": 544.2
+    },
+    {
+      "trade_id": 27,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2021-06-30",
+      "age_sessions": 20,
+      "pnl_usd": 158.2
+    },
+    {
+      "trade_id": 28,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2021-08-17",
+      "age_sessions": 20,
+      "pnl_usd": 184.2
+    },
+    {
+      "trade_id": 29,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2021-10-11",
+      "age_sessions": 28,
+      "pnl_usd": 1189.2
+    },
+    {
+      "trade_id": 29,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2021-09-29",
+      "age_sessions": 20,
+      "pnl_usd": 388.2
+    },
+    {
+      "trade_id": 30,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2021-11-16",
+      "age_sessions": 20,
+      "pnl_usd": 120.2
+    },
+    {
+      "trade_id": 31,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2021-12-29",
+      "age_sessions": 20,
+      "pnl_usd": 513.2
+    },
+    {
+      "trade_id": 32,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2022-02-18",
+      "age_sessions": 27,
+      "pnl_usd": 1132.2
+    },
+    {
+      "trade_id": 32,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2022-02-09",
+      "age_sessions": 20,
+      "pnl_usd": 351.2
+    },
+    {
+      "trade_id": 33,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2022-03-29",
+      "age_sessions": 20,
+      "pnl_usd": 419.2
+    },
+    {
+      "trade_id": 34,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2022-05-26",
+      "age_sessions": 27,
+      "pnl_usd": 2244.2
+    },
+    {
+      "trade_id": 34,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2022-05-17",
+      "age_sessions": 20,
+      "pnl_usd": 557.2
+    },
+    {
+      "trade_id": 35,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2022-07-12",
+      "age_sessions": 27,
+      "pnl_usd": 1033.2
+    },
+    {
+      "trade_id": 35,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2022-06-30",
+      "age_sessions": 20,
+      "pnl_usd": 692.2
+    },
+    {
+      "trade_id": 36,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2022-08-17",
+      "age_sessions": 20,
+      "pnl_usd": 142.2
+    },
+    {
+      "trade_id": 37,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2022-09-30",
+      "age_sessions": 22,
+      "pnl_usd": 1183.2
+    },
+    {
+      "trade_id": 37,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2022-09-28",
+      "age_sessions": 20,
+      "pnl_usd": 782.2
+    },
+    {
+      "trade_id": 38,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2022-11-08",
+      "age_sessions": 20,
+      "pnl_usd": 302.2
+    },
+    {
+      "trade_id": 39,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2023-01-05",
+      "age_sessions": 25,
+      "pnl_usd": 1120.2
+    },
+    {
+      "trade_id": 39,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2022-12-28",
+      "age_sessions": 20,
+      "pnl_usd": 773.2
+    },
+    {
+      "trade_id": 40,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2023-02-08",
+      "age_sessions": 20,
+      "pnl_usd": 80.2
+    },
+    {
+      "trade_id": 41,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2023-03-28",
+      "age_sessions": 20,
+      "pnl_usd": 25.2
+    },
+    {
+      "trade_id": 42,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2023-05-09",
+      "age_sessions": 20,
+      "pnl_usd": 198.2
+    },
+    {
+      "trade_id": 43,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2023-06-29",
+      "age_sessions": 20,
+      "pnl_usd": 112.2
+    },
+    {
+      "trade_id": 44,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2023-08-08",
+      "age_sessions": 20,
+      "pnl_usd": 138.2
+    },
+    {
+      "trade_id": 45,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2023-09-27",
+      "age_sessions": 20,
+      "pnl_usd": 345.2
+    },
+    {
+      "trade_id": 46,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2023-11-07",
+      "age_sessions": 20,
+      "pnl_usd": 184.2
+    },
+    {
+      "trade_id": 48,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2024-02-07",
+      "age_sessions": 20,
+      "pnl_usd": 6.2
+    },
+    {
+      "trade_id": 49,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2024-03-26",
+      "age_sessions": 20,
+      "pnl_usd": 145.2
+    },
+    {
+      "trade_id": 50,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2024-05-07",
+      "age_sessions": 20,
+      "pnl_usd": 228.2
+    },
+    {
+      "trade_id": 51,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2024-06-27",
+      "age_sessions": 20,
+      "pnl_usd": 182.2
+    },
+    {
+      "trade_id": 52,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2024-08-20",
+      "age_sessions": 20,
+      "pnl_usd": 252.2
+    },
+    {
+      "trade_id": 53,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2024-10-02",
+      "age_sessions": 20,
+      "pnl_usd": 291.2
+    },
+    {
+      "trade_id": 54,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2024-11-19",
+      "age_sessions": 20,
+      "pnl_usd": 395.2
+    },
+    {
+      "trade_id": 55,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2025-01-02",
+      "age_sessions": 20,
+      "pnl_usd": 391.2
+    },
+    {
+      "trade_id": 56,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2025-02-27",
+      "age_sessions": 25,
+      "pnl_usd": 1118.2
+    },
+    {
+      "trade_id": 56,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2025-02-20",
+      "age_sessions": 20,
+      "pnl_usd": 176.2
+    },
+    {
+      "trade_id": 57,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2025-04-14",
+      "age_sessions": 29,
+      "pnl_usd": 1776.2
+    },
+    {
+      "trade_id": 57,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2025-04-01",
+      "age_sessions": 20,
+      "pnl_usd": 855.2
+    },
+    {
+      "trade_id": 58,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2025-05-20",
+      "age_sessions": 20,
+      "pnl_usd": 119.2
+    },
+    {
+      "trade_id": 59,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2025-07-02",
+      "age_sessions": 20,
+      "pnl_usd": 300.2
+    },
+    {
+      "trade_id": 60,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2025-08-19",
+      "age_sessions": 20,
+      "pnl_usd": 403.2
+    },
+    {
+      "trade_id": 61,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2025-10-01",
+      "age_sessions": 20,
+      "pnl_usd": 264.2
+    },
+    {
+      "trade_id": 62,
+      "event": "EOD_MARK_FIRST_REACHES_PLUS_1000",
+      "event_date": "2025-11-21",
+      "age_sessions": 23,
+      "pnl_usd": 1041.2
+    },
+    {
+      "trade_id": 62,
+      "event": "DAY20_POSITIVE",
+      "event_date": "2025-11-18",
+      "age_sessions": 20,
+      "pnl_usd": 616.2
+    }
+  ],
+  "interpretation_rule": "These are conditional historical diagnostics, not causal proof or a forecast; small event counts remain inconclusive."
+}

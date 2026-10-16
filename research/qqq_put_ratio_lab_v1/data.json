@@ -14,7 +14,15 @@
     },
     "studyCommit": "7653cfbaea92f07b123e9377d6b720c2b37a95b9",
     "workflowRun": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38778540717",
-    "sourceDocs": "https://github.com/JUN-ZS/brush-timber-mountain-brook/tree/research/qqq-put-ratio-exit-measurement-v1/research/qqq_put_ratio_exit_results_v1/run-7653cfba"
+    "sourceDocs": "https://github.com/JUN-ZS/brush-timber-mountain-brook/tree/research/qqq-put-ratio-exit-measurement-v1/research/qqq_put_ratio_exit_results_v1/run-7653cfba",
+    "profitThresholdReplay": {
+      "cohortN": 62,
+      "sourceEnd": "2025-12-15",
+      "baseCostSlippagePerLegSideUsd": 0.05,
+      "baseCostCommissionPerContractSideUsd": 0.65,
+      "target800IsOnePctOnlyAtNavUsd": 80000,
+      "deploymentStatus": "BLOCKED_RESEARCH_ONLY"
+    }
   },
   "policies": [
     {
@@ -47,6 +55,22 @@
       "fallbackCount": 46,
       "medianResolutionSessions": 24,
       "markCoveragePct": 99.2424,
+      "missingMarkSessions": 12
+    },
+    {
+      "id": "TP_USD_800_CLOSE_SHORT_RISK",
+      "n": 62,
+      "resolved": 62,
+      "netPnlUsd": 17091.6,
+      "expectancyUsd": 275.67,
+      "winRatePct": 95.16,
+      "profitFactor": 18.433293,
+      "worstTradeUsd": -922.8,
+      "triggerCount": 6,
+      "triggerPct": 9.68,
+      "fallbackCount": 56,
+      "medianResolutionSessions": 24.5,
+      "markCoveragePct": 99.2732,
       "missingMarkSessions": 12
     },
     {
@@ -958,6 +982,106 @@
     "plus1000After5Sessions": 9,
     "day20NonpositiveForward5N": 5,
     "day20NonpositiveFuturePnlNonpositiveFrac": 0.2,
-    "day20NonpositiveForward5MedianPnlChangeUsd": 332
+    "day20NonpositiveForward5MedianPnlChangeUsd": 332,
+    "profitThresholds": {
+      "800": {
+        "targetUsd": 800,
+        "cohortN": 62,
+        "counterfactualFirstMarkHitCount": 12,
+        "counterfactualFirstHitWithin5Sessions": 0,
+        "counterfactualFirstHitAfter5Sessions": 12,
+        "counterfactualFirstHitForwardIfHeld": {
+          "5": {
+            "n": 5,
+            "medianPnlChangeUsd": 187.0,
+            "meanPnlChangeUsd": -926.22,
+            "fractionGivebackGeHalfTargetPct": 20.0,
+            "fractionFuturePnlNonpositivePct": 20.0
+          },
+          "10": {
+            "n": 1,
+            "medianPnlChangeUsd": -206.0,
+            "meanPnlChangeUsd": -206.0,
+            "fractionGivebackGeHalfTargetPct": 0.0,
+            "fractionFuturePnlNonpositivePct": 0.0
+          }
+        },
+        "actualPolicyTriggerCount": 6,
+        "actualPolicyTriggerPct": 9.68,
+        "actualPolicyTriggerWithin5Sessions": 0,
+        "actualPolicyTriggerAfter5Sessions": 6,
+        "medianTriggerAgeSessions": 22.0,
+        "executionAttemptCount": 6,
+        "successfulExitActionCount": 6,
+        "successfulActionOnNextObservedSessionCount": 6,
+        "medianSignalToActionSessions": 1.0,
+        "forwardIfOriginal1x5Held": {
+          "5": {
+            "n": 5,
+            "medianPnlChangeUsd": 187.0,
+            "meanPnlChangeUsd": -926.22,
+            "fractionGivebackGeHalfTargetPct": 20.0,
+            "fractionFuturePnlNonpositivePct": 20.0
+          },
+          "10": {
+            "n": 1,
+            "medianPnlChangeUsd": -206.0,
+            "meanPnlChangeUsd": -206.0,
+            "fractionGivebackGeHalfTargetPct": 0.0,
+            "fractionFuturePnlNonpositivePct": 0.0
+          }
+        },
+        "sampleStatus": "INSUFFICIENT_SMALL_TRIGGER_COHORT"
+      },
+      "1000": {
+        "targetUsd": 1000,
+        "cohortN": 62,
+        "counterfactualFirstMarkHitCount": 9,
+        "counterfactualFirstHitWithin5Sessions": 0,
+        "counterfactualFirstHitAfter5Sessions": 9,
+        "counterfactualFirstHitForwardIfHeld": {
+          "5": {
+            "n": 1,
+            "medianPnlChangeUsd": 1065.9,
+            "meanPnlChangeUsd": 1065.9,
+            "fractionGivebackGeHalfTargetPct": 0.0,
+            "fractionFuturePnlNonpositivePct": 0.0
+          },
+          "10": {
+            "n": 0,
+            "medianPnlChangeUsd": null,
+            "meanPnlChangeUsd": null,
+            "fractionGivebackGeHalfTargetPct": null,
+            "fractionFuturePnlNonpositivePct": null
+          }
+        },
+        "actualPolicyTriggerCount": 3,
+        "actualPolicyTriggerPct": 4.84,
+        "actualPolicyTriggerWithin5Sessions": 0,
+        "actualPolicyTriggerAfter5Sessions": 3,
+        "medianTriggerAgeSessions": 23,
+        "executionAttemptCount": 3,
+        "successfulExitActionCount": 3,
+        "successfulActionOnNextObservedSessionCount": 3,
+        "medianSignalToActionSessions": 1,
+        "forwardIfOriginal1x5Held": {
+          "5": {
+            "n": 1,
+            "medianPnlChangeUsd": 1065.9,
+            "meanPnlChangeUsd": 1065.9,
+            "fractionGivebackGeHalfTargetPct": 0.0,
+            "fractionFuturePnlNonpositivePct": 0.0
+          },
+          "10": {
+            "n": 0,
+            "medianPnlChangeUsd": null,
+            "meanPnlChangeUsd": null,
+            "fractionGivebackGeHalfTargetPct": null,
+            "fractionFuturePnlNonpositivePct": null
+          }
+        },
+        "sampleStatus": "INSUFFICIENT_SMALL_TRIGGER_COHORT"
+      }
+    }
   }
 }

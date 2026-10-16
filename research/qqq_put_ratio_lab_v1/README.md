@@ -35,7 +35,16 @@
 
 <!-- PROFIT_WARNING_RESULTS_START -->
 
-結果會由 self-hosted 歷史重播直接寫入；在此之前不以 $500／$1,000 插值猜測 $800 的結果。
+Both targets were directly re-run on the same frozen 62-episode LONG 1 / SHORT 5 cohort with shared DTE <= 7 safety fallback and next-observed-session execution. USD 800 equals +1% only at USD 80,000 NAV; the live app's current-NAV percentage alert is a separate manual-review alert, not a proportional re-run of every historical trade.
+
+| Fixed target | Counterfactual first EOD mark hit | Actual policy triggers | Successful close actions | 5-session held-path forward n / median ΔP&L / large giveback | 10-session held-path forward n / median ΔP&L / large giveback | Net P&L | Win rate | Serial quote-mark MaxDD |
+|---:|---:|---:|---|---|---|---:|---:|---|
+| USD 800 | 12/62 | 6/62 (9.68%) | 6/6 | n=5; median USD 187.00; giveback 20.00% | n=1; median USD -206.00; giveback 0.00% | USD 17,091.60 | 95.16% | -5.96% (2024-05-02 → 2024-08-05) |
+| USD 1,000 | 9/62 | 3/62 (4.84%) | 3/3 | n=1; median USD 1,065.90; giveback 0.00% | n=0; median —; giveback — | USD 18,067.60 | 95.16% | -8.28% (2025-04-01 → 2025-04-08) |
+
+The 5/10-session forward metrics are **counterfactual marks for holding the original 1x5** after the warning signal; they are not realized P&L after exiting. Counterfactual first mark hits and actual policy triggers are intentionally separate. With a small trigger/forward sample and previously inspected data, these measurements do not select an optimal target.
+
+Public EOD marks are not confirmed fills, action attempts may be deferred, and missing marks are not filled. Deployment remains **BLOCKED** pending blind OOS, verified timestamps/fills, and broker margin/assignment/forced-liquidation evidence.
 
 <!-- PROFIT_WARNING_RESULTS_END -->
 
