@@ -119,6 +119,8 @@ requireText(html, /PENDING_LEG_QUOTE_TIMESTAMP/, "per-leg quote timestamp gate i
 requireText(html, /PENDING_LEG_SOURCE_REFERENCE/, "per-leg source reference gate is missing");
 requireText(html, /USER_ASSERTED_NOT_INDEPENDENTLY_VERIFIED/, "user-supplied evidence class is not labelled");
 requireText(html, /HUB_PREFLIGHT_CONFIG_READY/, "HUB label must describe preflight, not actual execution");
+requireText(html, /version:\s*'qqq-hybrid\.shared-contract\.v4\.4'/, "shared contract version must be V4.4");
+requireText(html, /frozenPolicyTargetVxxPct/, "frozen policy target must be separate from capacity-limited target");
 assert.doesNotMatch(html, /status:\s*'VERIFIED_CONTRACT',/, "a user-asserted contract must not be labelled verified");
 assert.doesNotMatch(html, /HUB_EXECUTION_VERIFIED_READY|VERIFIED_EXCHANGE_QUOTE|ADJUSTED_VERIFIED_25/, "misleading legacy evidence/status labels remain");
 
