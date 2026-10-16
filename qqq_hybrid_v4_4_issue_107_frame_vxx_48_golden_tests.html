@@ -2635,7 +2635,8 @@
           const shortIdentity = parseOccOptionId(shortId);
           const longIdentity = parseOccOptionId(longId);
           if (!shortIdentity || !longIdentity) return { valid:false, status:'BLOCKED_INVALID_OCC_CONTRACT_ID', fullQty:null, maxExpirationLossPerSpread:null, reason:'Contract ID 不符合可解析的 root + expiry + CALL/PUT + strike 格式' };
-          if (shortIdentity.optionType !== cfg.optionType || longIdentity.optionType !== cfg.optionType) return { valid:false, status:'BLOCKED_LEG_OPTION_TYPE_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'合約 ID 編碼的 CALL/PUT 類型與價差類型不一致' };
+          const expectedOccOptionType = cfg.optionType === 'CALL' ? 'C' : 'P';
+          if (shortIdentity.optionType !== expectedOccOptionType || longIdentity.optionType !== expectedOccOptionType) return { valid:false, status:'BLOCKED_LEG_OPTION_TYPE_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'合約 ID 編碼的 CALL/PUT 類型與價差類型不一致' };
           if (shortIdentity.expiryDate !== longIdentity.expiryDate) return { valid:false, status:'BLOCKED_LEG_EXPIRY_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'短腿與保護長腿 ID 的到期日不一致' };
           if (!cfg.isVxx && (shortIdentity.root !== 'QQQ' || longIdentity.root !== 'QQQ')) return { valid:false, status:'BLOCKED_LEG_ROOT_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'QQQ vertical 兩腿 root 必須為 QQQ' };
           if (cfg.isVxx) {
