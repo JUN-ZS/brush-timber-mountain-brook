@@ -1,0 +1,6 @@
+﻿run_id=38961486947
+run_attempt=1
+tested_sha=9c2d9b648a328025a9a7af2b5f2b3544d1b18862
+source_branch=research/shared-contract-engine-v4-3-20261017
+source_workflow=Shared Contract Engine V4.3 strict evidence and round-trip tests
+source_run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38961486947

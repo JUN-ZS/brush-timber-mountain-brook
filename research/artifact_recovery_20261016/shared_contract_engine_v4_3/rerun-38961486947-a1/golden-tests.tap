@@ -1,0 +1,337 @@
+TAP version 13
+# Subtest: 01 strict parser distinguishes empty, zero and invalid
+ok 1 - 01 strict parser distinguishes empty, zero and invalid
+  ---
+  duration_ms: 1.3912
+  type: 'test'
+  ...
+# Subtest: 02 strict parser rejects booleans, arrays, objects, NaN and infinities
+ok 2 - 02 strict parser rejects booleans, arrays, objects, NaN and infinities
+  ---
+  duration_ms: 0.1263
+  type: 'test'
+  ...
+# Subtest: 03 canonical hashes are invariant to object key order
+ok 3 - 03 canonical hashes are invariant to object key order
+  ---
+  duration_ms: 41.8639
+  type: 'test'
+  ...
+# Subtest: 04 CSV parser handles CRLF and a quoted comma
+ok 4 - 04 CSV parser handles CRLF and a quoted comma
+  ---
+  duration_ms: 1.0343
+  type: 'test'
+  ...
+# Subtest: 05 CSV parser rejects malformed quotes and inconsistent column counts
+ok 5 - 05 CSV parser rejects malformed quotes and inconsistent column counts
+  ---
+  duration_ms: 0.9888
+  type: 'test'
+  ...
+# Subtest: 06 empty source store does not ship any synthetic episode or raw quote
+ok 6 - 06 empty source store does not ship any synthetic episode or raw quote
+  ---
+  duration_ms: 0.2854
+  type: 'test'
+  ...
+# Subtest: 07 quote CSV import requires source identity and stores raw-file SHA-256
+ok 7 - 07 quote CSV import requires source identity and stores raw-file SHA-256
+  ---
+  duration_ms: 4.6206
+  type: 'test'
+  ...
+# Subtest: 08 quote importer rejects missing values rather than defaulting to zero
+ok 8 - 08 quote importer rejects missing values rather than defaulting to zero
+  ---
+  duration_ms: 0.5215
+  type: 'test'
+  ...
+# Subtest: 09 quote importer rejects timezone-less timestamps and crossed markets
+ok 9 - 09 quote importer rejects timezone-less timestamps and crossed markets
+  ---
+  duration_ms: 0.7616
+  type: 'test'
+  ...
+# Subtest: 10 quote importer rejects negative and fractional liquidity size
+ok 10 - 10 quote importer rejects negative and fractional liquidity size
+  ---
+  duration_ms: 0.8385
+  type: 'test'
+  ...
+# Subtest: 11 OCC symbol terms must agree with expiry, right and strike
+ok 11 - 11 OCC symbol terms must agree with expiry, right and strike
+  ---
+  duration_ms: 0.8189
+  type: 'test'
+  ...
+# Subtest: 12 coverage never substitutes spot-only history for option-chain coverage
+ok 12 - 12 coverage never substitutes spot-only history for option-chain coverage
+  ---
+  duration_ms: 0.8423
+  type: 'test'
+  ...
+# Subtest: 13 duplicate exact quotes are rejected as ambiguous source rows
+ok 13 - 13 duplicate exact quotes are rejected as ambiguous source rows
+  ---
+  duration_ms: 0.4433
+  type: 'test'
+  ...
+# Subtest: 14 price-path drop statistics are not called option-strategy win rate
+ok 14 - 14 price-path drop statistics are not called option-strategy win rate
+  ---
+  duration_ms: 39.967
+  type: 'test'
+  ...
+# Subtest: 15 market importer requires price adjustment basis
+ok 15 - 15 market importer requires price adjustment basis
+  ---
+  duration_ms: 4.6348
+  type: 'test'
+  ...
+# Subtest: 16 exact 1xN replay uses conservative quote sides and no confirmed-fill claim
+ok 16 - 16 exact 1xN replay uses conservative quote sides and no confirmed-fill claim
+  ---
+  duration_ms: 0.9947
+  type: 'test'
+  ...
+# Subtest: 17 replay requires sufficient side-specific displayed depth
+ok 17 - 17 replay requires sufficient side-specific displayed depth
+  ---
+  duration_ms: 0.5049
+  type: 'test'
+  ...
+# Subtest: 18 replay refuses missing exact quotes instead of forward-filling
+ok 18 - 18 replay refuses missing exact quotes instead of forward-filling
+  ---
+  duration_ms: 0.3181
+  type: 'test'
+  ...
+# Subtest: 19 zero slippage and zero commission remain zero
+ok 19 - 19 zero slippage and zero commission remain zero
+  ---
+  duration_ms: 0.114
+  type: 'test'
+  ...
+# Subtest: 20 missing or negative costs block without default substitution
+ok 20 - 20 missing or negative costs block without default substitution
+  ---
+  duration_ms: 0.0827
+  type: 'test'
+  ...
+# Subtest: 21 positive QQQ holding requires its entry basis and current spot
+ok 21 - 21 positive QQQ holding requires its entry basis and current spot
+  ---
+  duration_ms: 0.44
+  type: 'test'
+  ...
+# Subtest: 22 positive VXX short holding requires its own entry price
+ok 22 - 22 positive VXX short holding requires its own entry price
+  ---
+  duration_ms: 0.0969
+  type: 'test'
+  ...
+# Subtest: 23 positive option quantity requires entry credit and current mark
+ok 23 - 23 positive option quantity requires entry credit and current mark
+  ---
+  duration_ms: 0.09
+  type: 'test'
+  ...
+# Subtest: 24 external statement NAV mismatch blocks reconciled NAV
+ok 24 - 24 external statement NAV mismatch blocks reconciled NAV
+  ---
+  duration_ms: 0.1313
+  type: 'test'
+  ...
+# Subtest: 25 manual NAV override is not treated as an independent statement
+ok 25 - 25 manual NAV override is not treated as an independent statement
+  ---
+  duration_ms: 0.0798
+  type: 'test'
+  ...
+# Subtest: 26 ledger does not add short-sale proceeds a second time
+ok 26 - 26 ledger does not add short-sale proceeds a second time
+  ---
+  duration_ms: 0.1196
+  type: 'test'
+  ...
+# Subtest: 36 statement NAV without source identity/hash is not treated as externally reconciled
+ok 27 - 36 statement NAV without source identity/hash is not treated as externally reconciled
+  ---
+  duration_ms: 0.0675
+  type: 'test'
+  ...
+# Subtest: 37 malformed or zero statement NAV is blocked, not relabeled as absent
+ok 28 - 37 malformed or zero statement NAV is blocked, not relabeled as absent
+  ---
+  duration_ms: 0.0675
+  type: 'test'
+  ...
+# Subtest: 27 invalid option candidate blocks joint stress without fixed $420 fallback
+ok 29 - 27 invalid option candidate blocks joint stress without fixed $420 fallback
+  ---
+  duration_ms: 0.5087
+  type: 'test'
+  ...
+# Subtest: 28 state bundle hashes full source, all parameter groups and engine output
+ok 30 - 28 state bundle hashes full source, all parameter groups and engine output
+  ---
+  duration_ms: 8.1564
+  type: 'test'
+  ...
+# Subtest: 29 source row alteration without sourceHash update is rejected
+not ok 31 - 29 source row alteration without sourceHash update is rejected
+  ---
+  duration_ms: 1.2687
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:256:1'
+  failureType: 'testCodeFailure'
+  error: 'NON_CANONICAL_VALUE: Undefined, functions, symbols and bigints cannot be hashed.'
+  code: 'NON_CANONICAL_VALUE'
+  stack: |-
+    fail (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:15:19)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:60:7)
+    file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:66
+    Array.map (<anonymous>)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:27)
+    sha256Hex (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:76:54)
+    Module.buildFullStateBundle (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:575:33)
+    async TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:259:18)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 30 parameter alteration without scenarioHash update is rejected
+not ok 32 - 30 parameter alteration without scenarioHash update is rejected
+  ---
+  duration_ms: 2.3052
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:263:1'
+  failureType: 'testCodeFailure'
+  error: 'NON_CANONICAL_VALUE: Undefined, functions, symbols and bigints cannot be hashed.'
+  code: 'NON_CANONICAL_VALUE'
+  stack: |-
+    fail (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:15:19)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:60:7)
+    file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:66
+    Array.map (<anonymous>)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:27)
+    sha256Hex (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:76:54)
+    Module.buildFullStateBundle (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:575:33)
+    async TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:266:18)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 31 embedded engine output alteration without matching hash is rejected
+not ok 33 - 31 embedded engine output alteration without matching hash is rejected
+  ---
+  duration_ms: 1.9285
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:270:1'
+  failureType: 'testCodeFailure'
+  error: 'NON_CANONICAL_VALUE: Undefined, functions, symbols and bigints cannot be hashed.'
+  code: 'NON_CANONICAL_VALUE'
+  stack: |-
+    fail (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:15:19)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:60:7)
+    file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:66
+    Array.map (<anonymous>)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:27)
+    sha256Hex (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:76:54)
+    Module.buildFullStateBundle (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:575:33)
+    async TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:273:18)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 32 engine output is independently recomputed, not merely re-hashed
+not ok 34 - 32 engine output is independently recomputed, not merely re-hashed
+  ---
+  duration_ms: 1.6152
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:277:1'
+  failureType: 'testCodeFailure'
+  error: 'NON_CANONICAL_VALUE: Undefined, functions, symbols and bigints cannot be hashed.'
+  code: 'NON_CANONICAL_VALUE'
+  stack: |-
+    fail (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:15:19)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:60:7)
+    file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:66
+    Array.map (<anonymous>)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:27)
+    sha256Hex (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:76:54)
+    Module.buildFullStateBundle (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:575:33)
+    async TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:280:18)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 33 schema and no-broker boundary are checked before state restore
+not ok 35 - 33 schema and no-broker boundary are checked before state restore
+  ---
+  duration_ms: 0.7096
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:285:1'
+  failureType: 'testCodeFailure'
+  error: 'NON_CANONICAL_VALUE: Undefined, functions, symbols and bigints cannot be hashed.'
+  code: 'NON_CANONICAL_VALUE'
+  stack: |-
+    fail (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:15:19)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:60:7)
+    file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:66
+    Array.map (<anonymous>)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:27)
+    sha256Hex (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:76:54)
+    Module.buildFullStateBundle (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:575:33)
+    async TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:288:18)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 34 failed verification does not commit; successful restore commits a staged state
+not ok 36 - 34 failed verification does not commit; successful restore commits a staged state
+  ---
+  duration_ms: 1.3927
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:292:1'
+  failureType: 'testCodeFailure'
+  error: 'NON_CANONICAL_VALUE: Undefined, functions, symbols and bigints cannot be hashed.'
+  code: 'NON_CANONICAL_VALUE'
+  stack: |-
+    fail (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:15:19)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:60:7)
+    file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:66
+    Array.map (<anonymous>)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:27)
+    sha256Hex (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:76:54)
+    Module.buildFullStateBundle (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:575:33)
+    async TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:295:18)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 35 failed commit restores previous state when adapter supports rollback
+not ok 37 - 35 failed commit restores previous state when adapter supports rollback
+  ---
+  duration_ms: 0.7043
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:306:1'
+  failureType: 'testCodeFailure'
+  error: 'NON_CANONICAL_VALUE: Undefined, functions, symbols and bigints cannot be hashed.'
+  code: 'NON_CANONICAL_VALUE'
+  stack: |-
+    fail (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:15:19)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:60:7)
+    file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:66
+    Array.map (<anonymous>)
+    canonicalize (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:70:27)
+    sha256Hex (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:76:54)
+    Module.buildFullStateBundle (file:///C:/actions-runner/_work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js:575:33)
+    async TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:309:18)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+1..37
+# tests 37
+# suites 0
+# pass 30
+# fail 7
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 222.4698
