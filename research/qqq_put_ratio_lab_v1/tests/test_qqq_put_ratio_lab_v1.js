@@ -16,6 +16,9 @@ assert.equal(cap.unitsByTerminalTail, 0, "$80k NAV at 1% terminal budget must bl
 assert.ok(cap.lossPctOfNav > 268 && cap.lossPctOfNav < 269, "1x5 tail-loss arithmetic must be ~268% of $80k NAV");
 assert.equal(L.matchedHistory("SHORT_HEAVY", 5, data).n, 62);
 assert.equal(L.matchedHistory("SHORT_HEAVY", 4, data), null, "do not copy 1x5 win rate to other N");
+assert.equal(L.matchedHistory("SHORT_HEAVY", 5, data, "TP_USD_500_CLOSE_SHORT_RISK").winRatePct, 93.5484, "headline win rate must follow the selected historical exit policy");
+assert.equal(L.profitTargetPolicy(800, data).targetUsd, 800, "NAV percentage target of $800 should link to the directly replayed $800 policy");
+assert.equal(L.profitTargetPolicy(600, data), null, "must not interpolate a non-replayed fixed-dollar profit threshold");
 assert.equal(L.volState(""), "ALL");
 assert.equal(L.volState(14.9), "RV20_LT15");
 assert.equal(L.volState(20), "RV20_15_25");
@@ -24,10 +27,17 @@ assert.equal(L.volState(35), "RV20_GTE35");
 const high = L.volRow(data, 40, 5);
 const all = L.volRow(data, "", 5);
 assert.ok(high.selected.down5Pct > all.all.down5Pct * 2, "high RV20 sample should show at least 2x the ALL 5-day >=5% down rate");
+const highVol10 = L.volStress(data, 40, 10);
+assert.ok(highVol10.elevated && highVol10.down10Ratio > 1.5, "volatility alert should catch elevated 10-day >=10% downside even when >=5% is below the trigger multiple");
 const alerts = L.alerts({nav:80000,direction:"SHORT_HEAVY",n:5,riskPct:1,profitPct:1,currentPnl:900,age:3,dte:25,rv20:40,horizon:5}, data);
 assert.ok(alerts.some(a => a.title.includes("獲利 BAR 已達")));
 assert.ok(alerts.some(a => a.title.includes("早段獲利")));
 assert.ok(alerts.some(a => a.title.includes("尾部風險")));
+assert.ok(alerts.some(a => a.title.includes("波動警示")), "high RV20 and selected horizon should surface underlying downside-frequency alert");
+assert.ok(alerts.some(a => a.title.includes("時間／期限 × 波動共同警示")), "profit/age/DTE plus elevated volatility should escalate to combined manual review");
+const positiveAgedAlerts = L.alerts({nav:80000,direction:"SHORT_HEAVY",n:5,riskPct:1,profitPct:1,currentPnl:900,age:22,dte:25,rv20:20,horizon:5}, data);
+assert.ok(positiveAgedAlerts.some(a => a.title.includes("持有 ≥20 日仍有盈利")), "positive P&L at age >=20 must not be mislabeled as missing P&L");
+assert.ok(!positiveAgedAlerts.some(a => a.title.includes("未輸入 P&L")));
 assert.equal(data.metadata.priceRows, 1960);
 assert.equal(data.metadata.optionEpisodes, 62);
 assert.equal(data.events.plus1000Within5Sessions, 0);
@@ -48,4 +58,10 @@ if (data.events.profitThresholds) {
   assert.ok(data.events.profitThresholds["800"].actualPolicyTriggerCount <= 62);
 }
 
-console.log("QQQ Put Ratio Lab contract PASS — NAV tail budget, matched history, time/vol alerts, drawdown tiers");
+const ddDates = ["2020-01-01","2020-02-01","2020-03-01","2020-04-01","2020-05-01","2020-06-01"];
+const ddPoints = [100,95,90,100,80,105].map((eq,i)=>({i,date:ddDates[i],eq}));
+const ddStats = L.drawdownCycleStats(ddDates, ddPoints);
+assert.equal(ddStats.levels.find(x=>x.level===3).count, 2, "drawdown frequency counts peak-to-recovery cycles, not every down day");
+assert.deepEqual(ddStats.levels.find(x=>x.level===10).eventYears, ["2020"], "drawdown table should expose actual event years");
+assert.equal(ddStats.levels.find(x=>x.level===20).count, 1);
+console.log("QQQ Put Ratio Lab contract PASS — selected-policy win rate, direct target matching, time × volatility alerts, strategy drawdown cycles");
