@@ -137,7 +137,7 @@ jobs:
           short_sha="${GITHUB_SHA:0:8}"
           result_dir="research/qqq_put_ratio_exit_results_v1/profit-warning-${short_sha}"
           mkdir -p "$result_dir/replay"
-          cp QQQ_PUT_RATIO_EXIT_STUDY_RUN.json QQQ_SERIAL_CURVE_RUN.json QQQ_PROFIT_WARNING_SYNC_RUN.json "$result_dir/replay/"
+          cp QQQ_SERIAL_CURVE_RUN.json QQQ_PROFIT_WARNING_SYNC_RUN.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv "$result_dir/replay/"
