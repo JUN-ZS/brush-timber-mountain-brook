@@ -220,6 +220,25 @@ class PutRatioExitStudyTests(unittest.TestCase):
         self.assertGreaterEqual(len(summaries), 12)
         self.assertTrue(per_trade)
         self.assertIn('critical_timing_caveat', events)
+        # Win rate is an observed percentage with the resolved-trade denominator, not a fraction mislabeled as a percent.
+        for summary in summaries:
+            self.assertIn("win_rate_pct", summary)
+            self.assertEqual(
+                summary["winning_trades"] + summary["losing_trades"] + summary["flat_trades"],
+                summary["resolved_trades"],
+            )
+            if summary["resolved_trades"]:
+                expected_pct = round(100 * summary["winning_trades"] / summary["resolved_trades"], 2)
+                self.assertEqual(summary["win_rate_pct"], expected_pct)
+                self.assertLessEqual(summary["win_rate_wilson95_nominal_low_pct"], expected_pct)
+                self.assertGreaterEqual(summary["win_rate_wilson95_nominal_high_pct"], expected_pct)
+            else:
+                self.assertIsNone(summary["win_rate_pct"])
+                self.assertIsNone(summary["win_rate_wilson95_nominal_low_pct"])
+                self.assertIsNone(summary["win_rate_wilson95_nominal_high_pct"])
+        lo, hi = S._wilson95_pct(59, 62)
+        self.assertLess(lo, round(100 * 59 / 62, 2))
+        self.assertGreater(hi, round(100 * 59 / 62, 2))
 
 
 if __name__ == '__main__':
