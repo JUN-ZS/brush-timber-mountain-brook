@@ -1,0 +1,45 @@
+name: Shared Contract Engine V4.3 strict evidence and round-trip tests
+
+on:
+  push:
+    branches:
+      - research/shared-contract-engine-v4-3-20261017
+    paths:
+      - research/shared_contract_engine_v4_3/**
+      - .github/workflows/shared-contract-engine-v4-3.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - research/shared_contract_engine_v4_3/**
+      - .github/workflows/shared-contract-engine-v4-3.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shared-contract-engine-v4-3
+  cancel-in-progress: false
+
+jobs:
+  strict-contract-tests:
+    name: V4.3 strict source / ledger / round-trip
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Runtime
+        run: |
+          node --version || exit /b 1
+      - name: Syntax and golden tests
+        run: |
+          node --check research\shared_contract_engine_v4_3\shared_contract_engine_v4_3.js || exit /b 1
+          node --test research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs || exit /b 1
+      - name: Assert no performance data is silently shipped
+        run: |
+          node -e "const E=require('./research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js');const s=E.createEmptySourceStore();if(s.quotes.length!==0||s.episodes.length!==0||s.status!=='REPO_SUMMARY_REFERENCE_ONLY (UNVERIFIED_RAW_CHAIN)')process.exit(1);console.log('NO_SYNTHETIC_HISTORY_SHIPPED=PASS')" || exit /b 1
