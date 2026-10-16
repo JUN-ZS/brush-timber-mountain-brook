@@ -14,7 +14,7 @@
 - Zero slippage and zero commission are valid and remain zero. Missing or negative costs block.
 - Joint stress has no fixed $420 fallback. Active option holdings require a valid candidate and explicit maximum-expiry loss.
 - State bundle includes the full source store, inputs and all three parameter groups. Import verifies full sourceHash, scenarioHash, embedded engineOutputHash, then independently recomputes the engine output before exposing staged state. UI state is committed only after verification.
-- Thirty-five Golden Tests use clearly labeled TEST_ONLY arithmetic fixtures. They are not historical market data and are not performance evidence.
+- Thirty-seven Golden Tests use clearly labeled TEST_ONLY arithmetic fixtures. They are not historical market data and are not performance evidence.
 
 ## Provenance and integrity boundaries
 

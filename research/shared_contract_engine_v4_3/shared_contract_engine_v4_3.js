@@ -558,23 +558,35 @@ const SharedContractEngineV43 = (function (factory) {
   async function buildFullStateBundle(state) {
     const x = state || {};
     if (!x.inputs || !x.barParams || !x.probParams || !x.floorAndDveParams || !x.engineOutput) fail("INCOMPLETE_STATE", "inputs, barParams, probParams, floorAndDveParams and engineOutput are required.");
-    const sourceStore = JSON.parse(JSON.stringify(x.sourceStore || createEmptySourceStore()));
+
+    // Hash the exact JSON-compatible snapshot that is exported, not the pre-serialization
+    // object. JSON omits undefined object properties; hashing the original object would
+    // create a hash for data that is not actually present in the bundle.
+    function jsonSnapshot(value, label) {
+      let encoded;
+      try { encoded = JSON.stringify(value); }
+      catch (error) { fail("STATE_NOT_JSON_SERIALIZABLE", label + " cannot be serialized: " + error.message); }
+      if (encoded === undefined) fail("STATE_NOT_JSON_SERIALIZABLE", label + " did not produce a JSON value.");
+      try { return JSON.parse(encoded); }
+      catch (_) { fail("STATE_NOT_JSON_SERIALIZABLE", label + " did not produce valid JSON."); }
+    }
+    const sourceStore = jsonSnapshot(x.sourceStore || createEmptySourceStore(), "sourceStore");
+    const inputs = jsonSnapshot(x.inputs, "inputs");
+    const barParams = jsonSnapshot(x.barParams, "barParams");
+    const probParams = jsonSnapshot(x.probParams, "probParams");
+    const floorAndDveParams = jsonSnapshot(x.floorAndDveParams, "floorAndDveParams");
+    const engineOutput = jsonSnapshot(x.engineOutput, "engineOutput");
     validateSourceStore(sourceStore);
-    const scenario = { inputs: x.inputs, barParams: x.barParams, probParams: x.probParams, floorAndDveParams: x.floorAndDveParams };
+    const scenario = { inputs, barParams, probParams, floorAndDveParams };
     return {
       schema: STATE_SCHEMA, brokerOrdersAllowed: false, exportedAt: textValue(x.exportedAt) || null,
-      sourceStore,
-      inputs: JSON.parse(JSON.stringify(x.inputs)),
-      barParams: JSON.parse(JSON.stringify(x.barParams)),
-      probParams: JSON.parse(JSON.stringify(x.probParams)),
-      floorAndDveParams: JSON.parse(JSON.stringify(x.floorAndDveParams)),
-      engineOutput: JSON.parse(JSON.stringify(x.engineOutput)),
+      sourceStore, inputs, barParams, probParams, floorAndDveParams, engineOutput,
       hashes: {
         sourceHash: await sha256Hex(sourceStore),
         scenarioHash: await sha256Hex(scenario),
-        engineOutputHash: await sha256Hex(x.engineOutput)
+        engineOutputHash: await sha256Hex(engineOutput)
       },
-      integrityNote: "Hashes detect inconsistency relative to the bundle; they are not a digital signature or source-authentication proof."
+      integrityNote: "Hashes cover the exact embedded JSON snapshot and detect inconsistency relative to the bundle; they are not a digital signature or source-authentication proof."
     };
   }
 
