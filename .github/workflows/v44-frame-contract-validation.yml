@@ -5,7 +5,8 @@ on:
     paths:
       - "qqq_hybrid_v4_4_issue_107_frame_vxx_48_golden_tests.html"
       - "scripts/validate-v44-frame-contracts.mjs"
-      - "scripts/v44-frame-browser-e2e.mjs"
+      - "browser-tests/v44-frame-browser-e2e.mjs"
+      - "browser-tests/package.json"
       - ".github/workflows/rolling-floor.yml"
       - ".github/workflows/v44-frame-contract-validation.yml"
       - "docs/QQQ_HYBRID_V44_ASSUMPTION_LEDGER_V1.md"
@@ -24,22 +25,24 @@ jobs:
         with:
           node-version: "22"
           check-latest: false
-      - name: Verify Node-only validation runtime
+      - name: Verify isolated FRAME test runtime
         shell: bash
         run: |
           set -euo pipefail
           node --version
           test -s qqq_hybrid_v4_4_issue_107_frame_vxx_48_golden_tests.html
           test -s scripts/validate-v44-frame-contracts.mjs
-      - name: Install locked project dependencies for Playwright
+          test -s browser-tests/v44-frame-browser-e2e.mjs
+          test -s browser-tests/package.json
+      - name: Install only the isolated, pinned Playwright dependency
         shell: bash
-        run: npm ci --no-audit --no-fund
+        run: npm install --prefix browser-tests --no-audit --no-fund --package-lock=false
       - name: Ensure Chromium browser is installed
         shell: bash
-        run: npx playwright install chromium
+        run: browser-tests/node_modules/.bin/playwright install chromium
       - name: Run static, parser, and assumption-profile checks
         shell: bash
         run: node scripts/validate-v44-frame-contracts.mjs
       - name: Run real-browser UI and transactional PUSH/PULL checks
         shell: bash
-        run: node scripts/v44-frame-browser-e2e.mjs
+        run: node browser-tests/v44-frame-browser-e2e.mjs
