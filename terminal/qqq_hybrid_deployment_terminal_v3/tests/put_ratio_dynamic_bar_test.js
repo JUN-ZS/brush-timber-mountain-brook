@@ -1,9 +1,13 @@
-const fs=require("node:fs");
-const path=require("node:path");
-const assert=require("node:assert/strict");
-const root=path.resolve(__dirname,"..");
-const M=require(path.join(root,"put_ratio_dynamic_bar.js"));
+import fs from "node:fs";
+import path from "node:path";
+import assert from "node:assert/strict";
+import {fileURLToPath} from "node:url";
+import "../put_ratio_dynamic_bar.js";
+const here=path.dirname(fileURLToPath(import.meta.url));
+const root=path.resolve(here,"..");
+const M=globalThis.PutRatioDynamicBarV1;
 const s=JSON.parse(fs.readFileSync(path.join(root,"put_ratio_dynamic_bar_v1.json"),"utf8"));
+assert.ok(M,"browser/ESM global API should be initialized");
 assert.equal(M.validateSnapshot(s).ok,true,JSON.stringify(M.validateSnapshot(s).reasons));
 assert.equal(s.metadata.allowedUnits,0);
 assert.equal(s.metadata.budgetBreachEpisodes,62);
