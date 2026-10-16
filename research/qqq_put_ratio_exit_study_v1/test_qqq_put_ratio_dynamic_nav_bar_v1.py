@@ -127,7 +127,7 @@ class DynamicNavBarTests(unittest.TestCase):
         summary, episodes, daily = M.replay_scenario(
             [trade], prices, 100000, 214012, M.core.SHORT_HEAVY, 1, .02,
             {"name": "DTE7_CLOSE_SHORT_RISK", "kind": "DTE7"},
-            M.cost_by_name("BASE_005_065"), "FIXED_1_UNIT_BUDGET_BYPASS"
+            next(cost for cost in M.core.COSTS if cost["name"] == "BASE_005_065"), "PER_TRADE_TERMINAL_BUDGET"
         )
         self.assertEqual(summary["executed_episodes"], 1)
         self.assertEqual(len(episodes), 1)
