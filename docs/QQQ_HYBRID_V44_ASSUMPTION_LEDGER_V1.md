@@ -11,6 +11,8 @@
 
 The dropdown previously named `VERIFIED_EXCHANGE_QUOTE` was misleading because it did not verify an external source. V4.4 labels this mode `USER_ASSERTED_OBSERVED_QUOTE`. Model prices marked `MODEL_ESTIMATE_BS_VIX` remain blocked from being treated as observed quote/capacity evidence.
 
+The JSON bundle field `baseEngineCommitRef` is explicitly the **inherited V4.3 engine ancestry anchor** (`f5f4f6bf267b33691b03246b1b2b13e1a1fb6587`). It is not the current V4.4 branch-head SHA. The V4.4 HTML file evolves across commits, so a static self-referential current-head SHA would immediately become stale. The verifier checks that this base-engine ancestry field matches the contract’s declared ancestry, and rejects a forged value; it does not claim the base SHA represents the current V4.4 revision.
+
 ## 2. The contract engine now checks identities before risk arithmetic
 
 For each vertical:
