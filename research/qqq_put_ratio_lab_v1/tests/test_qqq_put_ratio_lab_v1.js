@@ -36,4 +36,16 @@ assert.deepEqual(levels.map(x => x.levelPct), [3,5,10,15,20,25,30]);
 for (let i=1; i<levels.length; i++) {
   assert.ok(levels[i].episodes <= levels[i-1].episodes, "deeper drawdown counts cannot increase");
 }
+
+const tp800 = data.policies.find(x => x.id === "TP_USD_800_CLOSE_SHORT_RISK");
+if (tp800) {
+  assert.equal(tp800.n, 62, "$800 policy must use the same 62 episodes");
+  assert.ok(Number.isFinite(tp800.netPnlUsd), "$800 net P&L must come from a direct replay");
+}
+if (data.events.profitThresholds) {
+  assert.ok(data.events.profitThresholds["800"], "must expose direct $800 threshold event study");
+  assert.ok(data.events.profitThresholds["1000"], "must retain direct $1,000 comparison");
+  assert.ok(data.events.profitThresholds["800"].actualPolicyTriggerCount <= 62);
+}
+
 console.log("QQQ Put Ratio Lab contract PASS — NAV tail budget, matched history, time/vol alerts, drawdown tiers");
