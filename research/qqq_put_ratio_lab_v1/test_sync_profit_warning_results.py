@@ -11,7 +11,7 @@ spec.loader.exec_module(M)
 
 def fixture():
     expiry = "2024-02-16"
-    return {"trade_id": 1, "entry_date": "2024-01-03", "expiry": expiry,
+    return {"trade_id": 1, "entry_date": "2024-01-03", "signal_date": "2024-01-02", "expiry": expiry,
         "long_id": "LONG", "short_id": "SHORT", "long_strike": 480.0,
         "short_strike": 450.0, "spot_entry": 500.0,
         "entry_quotes": {"long": {"ask": 5.0}, "short": {"bid": 4.9}},
