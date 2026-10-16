@@ -210,7 +210,7 @@
         </div>
         <div class="put-ratio-dynamic-wrap">
           <div class="section-head"><h2>動態 NAV BAR 拉扯 × VIX／DTE 分層</h2><span id="putRatioDynamicBadge" class="tag retired">BUDGET-BYPASS DIAGNOSTIC</span></div>
-          <p class="put-ratio-dynamic-explainer">這一區來自已驗證的動態 NAV 回放，獨立於上面的固定單位歷史 WIN／MaxDD 曲線。條件固定為 $100,000、LONG PUT 1 : SHORT PUT 5、$0.05／腿邊滑價 + $0.65／合約邊佣金；但為量度 BAR 形狀而強制持有 1 組，歷史 62 組全數突破 1% NAV 終端尾部預算，故只作風險診斷，不代表可下單。可切換退出政策及 VIX／DTE 分層；低樣本格會標 PENDING。</p>
+          <p class="put-ratio-dynamic-explainer">這一區來自已驗證的動態 NAV 回放，獨立於上面的固定單位歷史 WIN／MaxDD 曲線。條件固定為 $100,000、LONG PUT 1 : SHORT PUT 5、$0.05／腿邊滑價 + $0.65／合約邊佣金。此處的「0 組」專指用假設持有到期且 QQQ=0 的全到期最差損失作 1% NAV 預算分母；它是災難風險護欄，不代表 DTE7 管理路徑無法按 NAV 比率配置。本面板尚未計算政策條件式 MAE 配置；固定 1 組／高倍數曲線僅作風險診斷，不代表可下單。可切換退出政策及 VIX／DTE 分層；低樣本格會標 PENDING。</p>
           <div class="put-ratio-dynamic-controls">
             <label>動態 BAR 退出政策
               <select id="putRatioDynamicPolicy">
