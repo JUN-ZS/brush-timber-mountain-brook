@@ -7,6 +7,8 @@ let journalRows=[];
 let putRatioSnapshot=null;
 let putRatioCurrentOutput=null;
 let putRatioLoadError=null;
+let putRatioDynamicSnapshot=null;
+let putRatioDynamicLoadError=null;
 
 const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 const pct=(v,d=2)=>Number.isFinite(Number(v))?((Number(v)>=0?"+":"")+Number(v).toFixed(d)+"%"):"—";
@@ -233,6 +235,68 @@ async function loadPutRatioEvidence(){
   }catch(err){putRatioSnapshot=null;putRatioLoadError=String(err.message||err);}
   renderPutRatioEvidence();
 }
+async function loadPutRatioDynamicBar(){
+  try{
+    const r=await fetch("/api/research/put-ratio-dynamic-bar?ts="+Date.now(),{cache:"no-store"});
+    const j=await r.json();
+    if(!r.ok||!j.ok)throw new Error(j.error||"Dynamic BAR evidence source unavailable");
+    const validation=window.PutRatioDynamicBarV1?.validateSnapshot(j.evidence);
+    if(!validation?.ok)throw new Error((validation?.reasons||["Dynamic BAR snapshot evaluator unavailable."]).join(" "));
+    putRatioDynamicSnapshot=j.evidence;putRatioDynamicLoadError=null;
+  }catch(err){putRatioDynamicSnapshot=null;putRatioDynamicLoadError=String(err.message||err);}
+  renderPutRatioDynamicBar();
+}
+function renderPutRatioDynamicBar(){
+  const badge=$("putRatioDynamicBadge"),metrics=$("putRatioDynamicMetrics"),status=$("putRatioDynamicStatus"),barRows=$("putRatioDynamicBarRows"),ddRows=$("putRatioDynamicDdRows"),prov=$("putRatioDynamicProvenance");
+  if(!badge||!metrics||!status||!barRows||!ddRows||!prov)return;
+  metrics.textContent="";
+  const s=putRatioDynamicSnapshot,api=window.PutRatioDynamicBarV1;
+  if(!s||!api){
+    badge.textContent=putRatioDynamicLoadError?"BAR EVIDENCE BLOCKED":"BAR EVIDENCE PENDING";
+    badge.className="tag retired";
+    makePutRatioMetric(metrics,"BAR 交易樣本","PENDING","固定來源動態快照未載入");
+    status.className="put-ratio-overlay-status block";
+    status.textContent="PENDING / BLOCKED · "+(putRatioDynamicLoadError||"等待唯讀 dynamic BAR API");
+    barRows.innerHTML='<tr><td colspan="5">PENDING · 不回填、不把未知當作 0%</td></tr>';
+    ddRows.innerHTML='<tr><td colspan="6">PENDING · 動態 NAV 標記曲線未載入</td></tr>';
+    prov.textContent="Evidence API: /api/research/put-ratio-dynamic-bar";
+    return;
+  }
+  const validation=api.validateSnapshot(s);
+  if(!validation.ok){
+    badge.textContent="BAR EVIDENCE BLOCKED";badge.className="tag retired";
+    status.className="put-ratio-overlay-status block";status.textContent=validation.reasons.join(" ");
+    barRows.innerHTML='<tr><td colspan="5">BLOCKED · 快照契約不符</td></tr>';
+    ddRows.innerHTML='<tr><td colspan="6">BLOCKED · 快照契約不符</td></tr>';
+    return;
+  }
+  const policyId=$("putRatioDynamicPolicy")?.value||s.policies[1].id;
+  const policyIndex=s.policies.findIndex(p=>p.id===policyId);
+  const policy=s.policies[policyIndex];
+  const stateIndex=Math.max(0,Math.min(8,Number($("putRatioDynamicState")?.value||0)));
+  const stateName=s.metadata.states[stateIndex];
+  const typeLabels=["淨獲利 BAR","淨虧損 BAR","模擬滑價／佣金 BAR"];
+  const rows=api.barRowsFor(s,policyIndex,stateIndex);
+  const dds=api.drawdownRowsFor(s,policyIndex);
+  badge.textContent="PINNED · 62 EPISODES · DIAGNOSTIC ONLY";badge.className="tag retired";
+  makePutRatioMetric(metrics,"該退出政策累計淨損益",putRatioMoney(policy.pnl),"固定 1 組逐筆串接 NAV · 非預算內配置");
+  makePutRatioMetric(metrics,"動態 NAV MaxDD",putRatioPercent(policy.maxDD),"逐日 EOD side marks · "+policy.missing+" 個缺失標記");
+  makePutRatioMetric(metrics,"觀察 CAGR",putRatioPercent(policy.cagr),"2018-03-01 至 2025-12-15 · 歷史已被檢視");
+  makePutRatioMetric(metrics,"可用整組數","0","1% NAV 預算 $"+Number(s.metadata.budgetUsd).toLocaleString("en-US")+"；單組最差終端損失 $"+Number(s.metadata.oneUnitWorstTerminalLossUsd).toLocaleString("en-US"));
+  status.className="put-ratio-overlay-status block";
+  status.textContent="部署閘門：BLOCKED · "+policy.budgetBreaches+"/62 組突破 1% NAV 終端尾部預算。以下百分比是歷史報價標記觸及率，不是未來機率或實際成交率。分層："+stateName+"；不同分層可能重疊。";
+  barRows.innerHTML=rows.map(r=>{
+    const pctText=r.episodePct===null?"—":Number(r.episodePct).toFixed(2)+"% ("+r.episodeHits+"/"+r.episodeN+")";
+    const markText=r.markPct===null?"—":Number(r.markPct).toFixed(2)+"% ("+r.markHits+"/"+r.markN+")";
+    const stat=r.sampleStatus==="PENDING_SMALL_EPISODE_SAMPLE"?"PENDING · 樣本不足":r.sampleStatus==="BLOCKED_NO_EXECUTED_EPISODES"?"BLOCKED · 無有效樣本":"診斷樣本";
+    return '<tr><td>'+typeLabels[r.barTypeIndex]+'</td><td>±'+Number(r.levelPct).toFixed(1)+'% NAV</td><td>'+pctText+'</td><td>'+markText+'</td><td class="'+(r.sampleStatus==="BAR_SAMPLE_OK_DIAGNOSTIC_ONLY"?"":"put-ratio-status-pending")+'">'+stat+'</td></tr>';
+  }).join("")||'<tr><td colspan="5">BLOCKED · 此狀態沒有可用列</td></tr>';
+  ddRows.innerHTML=dds.map(r=>{
+    const years=r.eventYears.length?r.eventYears.join(", "):"無觀察事件";
+    return '<tr><td>−'+r.levelPct+'%</td><td>'+r.cycles+'</td><td>'+Number(r.cyclesPerYear).toFixed(2)+'</td><td>'+Number(r.eventYearPct).toFixed(1)+'%</td><td>'+years+'</td><td>'+Number(r.dayPct).toFixed(2)+'% ('+r.daysAtOrBelow+'/'+r.validDays+')</td></tr>';
+  }).join("")||'<tr><td colspan="6">BLOCKED · 無有效回撤列</td></tr>';
+  prov.textContent="Run: "+s.metadata.runUrl+" · Tested commit: "+s.metadata.testedCommit+" · Output commit: "+s.metadata.outputCommit+" · Cost: $"+s.metadata.slipPerLegSide+"/leg-side slippage + $"+s.metadata.commissionPerContractSide+"/contract-side commission. Missing marks remain unknown.";
+}
 function putRatioPolicySummary(){
   renderPutRatioEvidence();
   const o=putRatioCurrentOutput;
@@ -303,7 +367,7 @@ async function refresh(){
   try{
     const res=await fetch("/api/snapshot?ts="+Date.now(),{cache:"no-store"});
     live=await res.json();
-    await loadPutRatioEvidence();
+    await Promise.all([loadPutRatioEvidence(),loadPutRatioDynamicBar()]);
     const d=inputRow();
     const e=E.derive(d);
     const book=E.targetLedger(d,e,ledger(),candidates);
@@ -374,4 +438,5 @@ $("journalBtn").addEventListener("click",journalDecision);
 ["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqDte","qqqDelta","vxxDte","vxxDelta"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}}));
 ["putRatioDirection","putRatioN","putRatioPolicy","putRatioRiskPct","putRatioProfitPct","putRatioCurrentPnl","putRatioAge","putRatioDte","putRatioRv20","putRatioHorizon","putRatioCombined"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",renderPutRatioEvidence);});
 if($("putRatioCombined"))$("putRatioCombined").addEventListener("change",renderPutRatioEvidence);
+["putRatioDynamicPolicy","putRatioDynamicState"].forEach(id=>{const el=$(id);if(el)el.addEventListener("change",renderPutRatioDynamicBar);});
 refresh();
