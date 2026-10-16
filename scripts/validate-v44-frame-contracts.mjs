@@ -63,6 +63,13 @@ assert.equal(actualFailures.length, 0, "actual Golden Tests failed: " + actualFa
 // Direct negative tests against actual engine method, not text-only assertions.
 const E = browserContext.__v44Harness.SharedContractEngine;
 const P = browserContext.__v44Harness.PRESETS;
+const validBundle = E.buildContractBundle({
+  inputs: { ...P.live_thin },
+  barParams: { barNav:"100000", barRiskPct:"1.00", slippage:"0.05", commission:"0.65", spreadMult:"1.00", execLagDays:"1", ratioDir:"SHORT_HEAVY_PUT", ratioN:"5", quoteDepth:"25", marginVerified:"UNVERIFIED", shortStrikeInput:"820", holdingDay:"1", pmCurPnl:"0", pmDaysHeld:"1", pmDteLeft:"20", pmRiskUnitR:"1", pmRemUpside:"0", pmDistToStop:"0" },
+  probParams: { regFilter:"ALL", customDrop:"5.0", maxVix:"50" },
+  floorAndDveParams: { baseB:"100000", month:"12", actualPct:"12", s20:"15", s30:"14", s50:"14", dveWinProb:"80", dveSampleN:"35", dveGainPerUnit:"2000", dveLossPerUnit:"1000", dveAltName:"WAIT_T_BILL_10D", dveAltEv:"110", dveAltCap:"100000", dveFairMatch:"MATCHED", stressQqqCore:"0", stressVxxShort:"0", stressQqqCall:"0", stressVxxCall:"0", stressVxxPut:"0" },
+  sourceState: browserContext.VerifiedSourceStore.exportState()
+});
 const width = E.evaluateDecision({ ...P.live_thin, candVxxWidth: "1", candVxxLegStrikes: "21/26" });
 const type = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261120P00026000" });
 const expiry = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261218C00026000" });
@@ -85,6 +92,15 @@ assert.equal(engineChecks.strike, "BLOCKED_LEG_STRIKE_ID_MISMATCH");
 assert.equal(engineChecks.missingSource, "PENDING_LEG_SOURCE_REFERENCE");
 assert.equal(engineChecks.placeholderSource, "PENDING_LEG_SOURCE_REFERENCE");
 assert.equal(engineChecks.invalidWidthCapacity, null);
+assert.equal(validBundle.schema, "qqq-hybrid.shared-contract.v4.4");
+assert.equal(validBundle.brokerOrdersAllowed, false);
+assert.match(validBundle.baseEngineCommitRef, /^[0-9a-f]{40}$/);
+assert.equal(E.verifyContractBundle(JSON.parse(JSON.stringify(validBundle))).ok, true);
+const forgedBaseRef = JSON.parse(JSON.stringify(validBundle));
+forgedBaseRef.baseEngineCommitRef = "0".repeat(40);
+const forgedBaseResult = E.verifyContractBundle(forgedBaseRef);
+assert.equal(forgedBaseResult.ok, false);
+assert.match(forgedBaseResult.error, /BASE_ENGINE_COMMIT_MISMATCH/);
 
 console.log("PASS actual SharedContractEngine Golden Tests:", actualGoldenResults.length + "/" + actualGoldenResults.length);
 console.log("PASS direct engine negative contract probes:", JSON.stringify(engineChecks));
@@ -129,6 +145,9 @@ requireText(html, /USER_ASSERTED_NOT_INDEPENDENTLY_VERIFIED/, "user-supplied evi
 requireText(html, /HUB_PREFLIGHT_CONFIG_READY/, "HUB label must describe preflight, not actual execution");
 requireText(html, /version:\s*'qqq-hybrid\.shared-contract\.v4\.4'/, "shared contract version must be V4.4");
 requireText(html, /frozenPolicyTargetVxxPct/, "frozen policy target must be separate from capacity-limited target");
+requireText(html, /baseEngineCommitRef/, "V4.4 bundle must label inherited engine ancestry separately");
+requireText(html, /BASE_ENGINE_COMMIT_MISMATCH/, "forged inherited-engine ancestry must be rejected");
+assert.doesNotMatch(html, /commitRef:\s*this\.commitHash|SharedContractEngine\.commitHash/, "V4.4 must not present the V4.3 ancestry anchor as current commit");
 assert.doesNotMatch(html, /status:\s*'VERIFIED_CONTRACT',/, "a user-asserted contract must not be labelled verified");
 assert.doesNotMatch(html, /HUB_EXECUTION_VERIFIED_READY|VERIFIED_EXCHANGE_QUOTE|ADJUSTED_VERIFIED_25/, "misleading legacy evidence/status labels remain");
 
