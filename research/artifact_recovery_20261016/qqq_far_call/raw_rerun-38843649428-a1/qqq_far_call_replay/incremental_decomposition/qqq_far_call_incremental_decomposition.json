@@ -1,0 +1,4190 @@
+{
+  "study_id": "QQQ_FAR_CALL_INCREMENTAL_VALUE_V2",
+  "status": "DESCRIPTIVE_DECOMPOSITION_ONLY_NOT_PERFORMANCE_APPROVED",
+  "decision": {
+    "base_screen": "FAILS_CURRENT_BASE_SCREEN",
+    "integration_eligible": false,
+    "no_parameter_search": true,
+    "reason": "The source max-loss zero-cost arm must show defensible incremental value; the observed base screen is negative and source completeness, timestamp/fill and lockbox gates remain blocked.",
+    "frozen_original_hybrid_changed": false,
+    "main_changed": false,
+    "broker_orders_enabled": false
+  },
+  "global_ledger_quality": {
+    "closed_trade_rows": 1688,
+    "independently_rechecked_rows": 1688,
+    "blocked_rows": 0,
+    "upstream_attribution_status_counts": {
+      "PASS_CASH_FLOW_RECONCILIATION": 1688
+    },
+    "max_abs_independent_reconciliation_error_usd": 0.0,
+    "independent_failures_over_1cent": 0,
+    "status": "PASS"
+  },
+  "evidence_limits": {
+    "quote_evidence": "Public preservation-mirror EOD quote sides; not confirmed fills.",
+    "exact_quote_tick_timestamp": "UNVERIFIED",
+    "source_last_observation": "2025-12-15",
+    "requested_last_date": "2025-12-31",
+    "terminal_source_gap_sessions": 11,
+    "terminal_source_gap_dates": [
+      "2025-12-16",
+      "2025-12-17",
+      "2025-12-18",
+      "2025-12-19",
+      "2025-12-22",
+      "2025-12-23",
+      "2025-12-24",
+      "2025-12-26",
+      "2025-12-29",
+      "2025-12-30",
+      "2025-12-31"
+    ],
+    "virgin_holdout": false,
+    "CAGR_MaxDD_Sharpe_ES95": "BLOCKED; not calculated or claimed."
+  },
+  "coverage": {
+    "expected_sessions": 1971,
+    "chain_sessions": 1956,
+    "first_expected_date": "2018-03-01",
+    "last_expected_date": "2025-12-31",
+    "last_source_observation": "2025-12-15",
+    "terminal_missing_sessions": [
+      "2025-12-16",
+      "2025-12-17",
+      "2025-12-18",
+      "2025-12-19",
+      "2025-12-22",
+      "2025-12-23",
+      "2025-12-24",
+      "2025-12-26",
+      "2025-12-29",
+      "2025-12-30",
+      "2025-12-31"
+    ],
+    "days_by_pair_status": {
+      "PAIR_SELECTED": 1953,
+      "NO_CHAIN": 15,
+      "NO_VALID_STANDARD_QQQ_CALLS": 2,
+      "NO_VALID_POSITIVE_CREDIT_VERTICAL": 1
+    },
+    "source_integrity": {
+      "files": {
+        "underlying_prices.parquet": {
+          "status": "DOWNLOADED_HASH_VERIFIED",
+          "bytes": 332454,
+          "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a"
+        }
+      },
+      "repo_sources": {
+        "src/data/universe.json": {
+          "bytes": 1045161,
+          "git_blob_sha": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+          "expected": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+          "status": "HASH_VERIFIED"
+        },
+        "research\\qqq_hybrid_dynamic_deployment_v1_1_replay.py": {
+          "bytes": 15102,
+          "git_blob_sha": "ac74b3812c826ad491fb829108f26397322e45eb",
+          "expected": "ac74b3812c826ad491fb829108f26397322e45eb",
+          "status": "HASH_VERIFIED"
+        },
+        "research\\qqq_hybrid_operator_terminal_v1\\audit_qqq_public_eod_options.py": {
+          "bytes": 21085,
+          "git_blob_sha": "99337743e4133a6905c2904d889cf1b566997e9e",
+          "expected": "99337743e4133a6905c2904d889cf1b566997e9e",
+          "status": "HASH_VERIFIED"
+        }
+      }
+    },
+    "option_file_integrity": {
+      "options_2018.parquet": {
+        "status": "DOWNLOADED_HASH_VERIFIED",
+        "bytes": 29215815,
+        "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19"
+      },
+      "options_2019.parquet": {
+        "status": "DOWNLOADED_HASH_VERIFIED",
+        "bytes": 30998008,
+        "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca"
+      },
+      "options_2020.parquet": {
+        "status": "DOWNLOADED_HASH_VERIFIED",
+        "bytes": 59412637,
+        "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5"
+      },
+      "options_2021.parquet": {
+        "status": "DOWNLOADED_HASH_VERIFIED",
+        "bytes": 74224966,
+        "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d"
+      },
+      "options_2022.parquet": {
+        "status": "DOWNLOADED_HASH_VERIFIED",
+        "bytes": 69941736,
+        "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9"
+      },
+      "options_2023.parquet": {
+        "status": "DOWNLOADED_HASH_VERIFIED",
+        "bytes": 71647343,
+        "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063"
+      },
+      "options_2024.parquet": {
+        "status": "DOWNLOADED_HASH_VERIFIED",
+        "bytes": 82434832,
+        "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3"
+      },
+      "options_2025.parquet": {
+        "status": "DOWNLOADED_HASH_VERIFIED",
+        "bytes": 85765453,
+        "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf"
+      }
+    }
+  },
+  "scenario_decompositions": {
+    "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00": {
+      "scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "budget_kind": "credit",
+      "budget_pct_nav": 0.012,
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.0,
+      "opened_spreads": 106,
+      "closed_spreads": 105,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 106,
+          "CLOSE_SIGNAL_NEXT_SESSION": 106,
+          "CLOSE_DEFERRED": 134,
+          "EXPIRY_SETTLEMENT_PROXY": 34,
+          "CLOSE": 71,
+          "ENTRY_SKIPPED": 3
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 106,
+        "open_event_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.77311321,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.77311321,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "open_event_quantity": {
+          "n": 106,
+          "mean": 23.91509434,
+          "median": 17.0,
+          "min": 4.0,
+          "max": 87.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 105,
+          "mean": 0.77038095,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 105,
+          "mean": 0.77038095,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "closed_trade_entry_cost_usd": 0.0,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 8,
+          "MODERATE_10_25PCT_MID": 17,
+          "TIGHT_LE_10PCT_MID": 80
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 128189.0,
+        "entry_execution_costs_usd": 0.0,
+        "exit_gross_debit_cash_usd": 194874.0,
+        "exit_execution_costs_usd": 0.0,
+        "recomputed_net_pnl_usd": -66685.0,
+        "realized_pnl_after_scenario_costs": -66685.0,
+        "closed_trade_rows": 105,
+        "independently_rechecked_rows": 105,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 105
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 62,
+          "net_pnl_usd": -60179.0,
+          "mean_net_pnl_usd": -970.62903226,
+          "holding_calendar_days": {
+            "n": 62,
+            "mean": 24.64516129,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 62
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 34,
+          "net_pnl_usd": 40541.0,
+          "mean_net_pnl_usd": 1192.38235294,
+          "holding_calendar_days": {
+            "n": 34,
+            "mean": 28.26470588,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 129.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 34
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -47047.0,
+          "mean_net_pnl_usd": -5227.44444444,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 18.22222222,
+            "median": 15.0,
+            "min": 13.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -64993.0,
+        "minimum_observed_incremental_nav_usd": -72682.0,
+        "maximum_observed_incremental_nav_usd": 2374.0,
+        "positive_incremental_mark_days": 30,
+        "positive_incremental_mark_fraction": 0.015408,
+        "position_open_days": 1861,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 240,
+        "pending_open_days": 109,
+        "mark_status_counts": {
+          "OK": 1673,
+          "OK_ZERO_WING_BID_FLOOR": 274,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -66685.0,
+      "reported_last_incremental_nav_usd": -64993.0,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -64993.0,
+        "min_incremental_nav_vs_no_call_usd": -72682.0,
+        "max_incremental_nav_vs_no_call_usd": 2374.0,
+        "positive_mark_days": 30,
+        "positive_mark_day_fraction": 0.015408,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65": {
+      "scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "budget_kind": "credit",
+      "budget_pct_nav": 0.012,
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.65,
+      "opened_spreads": 106,
+      "closed_spreads": 105,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 106,
+          "CLOSE_SIGNAL_NEXT_SESSION": 106,
+          "CLOSE_DEFERRED": 134,
+          "EXPIRY_SETTLEMENT_PROXY": 34,
+          "CLOSE": 71,
+          "ENTRY_SKIPPED": 3
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 106,
+        "open_event_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.77311321,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.76011321,
+          "median": 0.727,
+          "min": 0.117,
+          "max": 2.147
+        },
+        "open_event_quantity": {
+          "n": 106,
+          "mean": 24.0,
+          "median": 17.0,
+          "min": 4.0,
+          "max": 94.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 105,
+          "mean": 0.77038095,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 105,
+          "mean": 0.75738095,
+          "median": 0.727,
+          "min": 0.117,
+          "max": 2.147
+        },
+        "closed_trade_entry_cost_usd": 3285.1,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 8,
+          "MODERATE_10_25PCT_MID": 17,
+          "TIGHT_LE_10PCT_MID": 80
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 125506.0,
+        "entry_execution_costs_usd": 3285.1,
+        "exit_gross_debit_cash_usd": 192474.0,
+        "exit_execution_costs_usd": 3285.1,
+        "recomputed_net_pnl_usd": -73538.2,
+        "realized_pnl_after_scenario_costs": -73538.2,
+        "closed_trade_rows": 105,
+        "independently_rechecked_rows": 105,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 105
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 62,
+          "net_pnl_usd": -63259.2,
+          "mean_net_pnl_usd": -1020.30967742,
+          "holding_calendar_days": {
+            "n": 62,
+            "mean": 24.64516129,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 62
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 34,
+          "net_pnl_usd": 37395.8,
+          "mean_net_pnl_usd": 1099.87647059,
+          "holding_calendar_days": {
+            "n": 34,
+            "mean": 28.26470588,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 129.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 34
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -47674.8,
+          "mean_net_pnl_usd": -5297.2,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 18.22222222,
+            "median": 15.0,
+            "min": 13.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -71984.4,
+        "minimum_observed_incremental_nav_usd": -79309.8,
+        "maximum_observed_incremental_nav_usd": 2201.6,
+        "positive_incremental_mark_days": 27,
+        "positive_incremental_mark_fraction": 0.013867,
+        "position_open_days": 1861,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 240,
+        "pending_open_days": 109,
+        "mark_status_counts": {
+          "OK": 1673,
+          "OK_ZERO_WING_BID_FLOOR": 274,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -73538.2,
+      "reported_last_incremental_nav_usd": -71984.4,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -71984.4,
+        "min_incremental_nav_vs_no_call_usd": -79309.8,
+        "max_incremental_nav_vs_no_call_usd": 2201.6,
+        "positive_mark_days": 27,
+        "positive_mark_day_fraction": 0.013867,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00": {
+      "scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "budget_kind": "credit",
+      "budget_pct_nav": 0.012,
+      "slippage_per_leg_usd": 0.025,
+      "commission_per_contract_per_side_usd": 0.0,
+      "opened_spreads": 107,
+      "closed_spreads": 106,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 129,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "CLOSE": 73,
+          "ENTRY_SKIPPED": 3
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.77859813,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.72859813,
+          "median": 0.69,
+          "min": 0.1,
+          "max": 2.11
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 25.19626168,
+          "median": 16.0,
+          "min": 4.0,
+          "max": 118.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.7759434,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.7259434,
+          "median": 0.69,
+          "min": 0.1,
+          "max": 2.11
+        },
+        "closed_trade_entry_cost_usd": 13400.0,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 7,
+          "MODERATE_10_25PCT_MID": 14,
+          "TIGHT_LE_10PCT_MID": 85
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 129438.0,
+        "entry_execution_costs_usd": 13400.0,
+        "exit_gross_debit_cash_usd": 188349.0,
+        "exit_execution_costs_usd": 13400.0,
+        "recomputed_net_pnl_usd": -85711.0,
+        "realized_pnl_after_scenario_costs": -85711.0,
+        "closed_trade_rows": 106,
+        "independently_rechecked_rows": 106,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 106
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 64,
+          "net_pnl_usd": -69155.0,
+          "mean_net_pnl_usd": -1080.546875,
+          "holding_calendar_days": {
+            "n": 64,
+            "mean": 24.515625,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 64
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 30962.0,
+          "mean_net_pnl_usd": 938.24242424,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.57575758,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 124.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -47518.0,
+          "mean_net_pnl_usd": -5279.77777778,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 15.77777778,
+            "median": 15.0,
+            "min": 10.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -84367.0,
+        "minimum_observed_incremental_nav_usd": -91029.0,
+        "maximum_observed_incremental_nav_usd": 1540.0,
+        "positive_incremental_mark_days": 14,
+        "positive_incremental_mark_fraction": 0.007191,
+        "position_open_days": 1860,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 236,
+        "pending_open_days": 110,
+        "mark_status_counts": {
+          "OK": 1693,
+          "OK_ZERO_WING_BID_FLOOR": 254,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -85711.0,
+      "reported_last_incremental_nav_usd": -84367.0,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -84367.0,
+        "min_incremental_nav_vs_no_call_usd": -91029.0,
+        "max_incremental_nav_vs_no_call_usd": 1540.0,
+        "positive_mark_days": 14,
+        "positive_mark_day_fraction": 0.007191,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65": {
+      "scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "budget_kind": "credit",
+      "budget_pct_nav": 0.012,
+      "slippage_per_leg_usd": 0.025,
+      "commission_per_contract_per_side_usd": 0.65,
+      "opened_spreads": 107,
+      "closed_spreads": 106,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 129,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "CLOSE": 73,
+          "ENTRY_SKIPPED": 3
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.77859813,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.71559813,
+          "median": 0.677,
+          "min": 0.087,
+          "max": 2.097
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 25.43925234,
+          "median": 16.0,
+          "min": 4.0,
+          "max": 136.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.7759434,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.7129434,
+          "median": 0.677,
+          "min": 0.087,
+          "max": 2.097
+        },
+        "closed_trade_entry_cost_usd": 17047.8,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 7,
+          "MODERATE_10_25PCT_MID": 14,
+          "TIGHT_LE_10PCT_MID": 85
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 126318.0,
+        "entry_execution_costs_usd": 17047.8,
+        "exit_gross_debit_cash_usd": 184061.0,
+        "exit_execution_costs_usd": 17047.8,
+        "recomputed_net_pnl_usd": -91838.6,
+        "realized_pnl_after_scenario_costs": -91838.6,
+        "closed_trade_rows": 106,
+        "independently_rechecked_rows": 106,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 106
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 64,
+          "net_pnl_usd": -71911.6,
+          "mean_net_pnl_usd": -1123.61875,
+          "holding_calendar_days": {
+            "n": 64,
+            "mean": 24.515625,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 64
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 27709.8,
+          "mean_net_pnl_usd": 839.69090909,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.57575758,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 124.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -47636.8,
+          "mean_net_pnl_usd": -5292.97777778,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 15.77777778,
+            "median": 15.0,
+            "min": 10.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -90536.2,
+        "minimum_observed_incremental_nav_usd": -97135.8,
+        "maximum_observed_incremental_nav_usd": 1195.6,
+        "positive_incremental_mark_days": 13,
+        "positive_incremental_mark_fraction": 0.006677,
+        "position_open_days": 1860,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 236,
+        "pending_open_days": 110,
+        "mark_status_counts": {
+          "OK": 1693,
+          "OK_ZERO_WING_BID_FLOOR": 254,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -91838.6,
+      "reported_last_incremental_nav_usd": -90536.2,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -90536.2,
+        "min_incremental_nav_vs_no_call_usd": -97135.8,
+        "max_incremental_nav_vs_no_call_usd": 1195.6,
+        "positive_mark_days": 13,
+        "positive_mark_day_fraction": 0.006677,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00": {
+      "scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "budget_kind": "credit",
+      "budget_pct_nav": 0.012,
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.0,
+      "opened_spreads": 107,
+      "closed_spreads": 106,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 129,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "CLOSE": 73,
+          "ENTRY_SKIPPED": 3
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.77168224,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.67168224,
+          "median": 0.64,
+          "min": 0.05,
+          "max": 2.06
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 26.27102804,
+          "median": 13.0,
+          "min": 2.0,
+          "max": 236.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.76896226,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.66896226,
+          "median": 0.64,
+          "min": 0.05,
+          "max": 2.06
+        },
+        "closed_trade_entry_cost_usd": 27970.0,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 7,
+          "MODERATE_10_25PCT_MID": 15,
+          "TIGHT_LE_10PCT_MID": 84
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 113851.0,
+        "entry_execution_costs_usd": 27970.0,
+        "exit_gross_debit_cash_usd": 169982.0,
+        "exit_execution_costs_usd": 27970.0,
+        "recomputed_net_pnl_usd": -112071.0,
+        "realized_pnl_after_scenario_costs": -112071.0,
+        "closed_trade_rows": 106,
+        "independently_rechecked_rows": 106,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 106
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 64,
+          "net_pnl_usd": -79883.0,
+          "mean_net_pnl_usd": -1248.171875,
+          "holding_calendar_days": {
+            "n": 64,
+            "mean": 24.546875,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 64
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 16324.0,
+          "mean_net_pnl_usd": 494.66666667,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.6969697,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 124.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -48512.0,
+          "mean_net_pnl_usd": -5390.22222222,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 15.66666667,
+            "median": 15.0,
+            "min": 10.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -111035.0,
+        "minimum_observed_incremental_nav_usd": -116528.0,
+        "maximum_observed_incremental_nav_usd": 567.0,
+        "positive_incremental_mark_days": 6,
+        "positive_incremental_mark_fraction": 0.003082,
+        "position_open_days": 1860,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 236,
+        "pending_open_days": 110,
+        "mark_status_counts": {
+          "OK": 1693,
+          "OK_ZERO_WING_BID_FLOOR": 254,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -112071.0,
+      "reported_last_incremental_nav_usd": -111035.0,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -111035.0,
+        "min_incremental_nav_vs_no_call_usd": -116528.0,
+        "max_incremental_nav_vs_no_call_usd": 567.0,
+        "positive_mark_days": 6,
+        "positive_mark_day_fraction": 0.003082,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65": {
+      "scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "budget_kind": "credit",
+      "budget_pct_nav": 0.012,
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "opened_spreads": 107,
+      "closed_spreads": 106,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 129,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "CLOSE": 73,
+          "ENTRY_SKIPPED": 3
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.77168224,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.65868224,
+          "median": 0.627,
+          "min": 0.037,
+          "max": 2.047
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 26.76635514,
+          "median": 12.0,
+          "min": 2.0,
+          "max": 318.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.76896226,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.65596226,
+          "median": 0.627,
+          "min": 0.037,
+          "max": 2.047
+        },
+        "closed_trade_entry_cost_usd": 32216.3,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 7,
+          "MODERATE_10_25PCT_MID": 15,
+          "TIGHT_LE_10PCT_MID": 84
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 108577.0,
+        "entry_execution_costs_usd": 32216.3,
+        "exit_gross_debit_cash_usd": 163044.0,
+        "exit_execution_costs_usd": 32216.3,
+        "recomputed_net_pnl_usd": -118899.6,
+        "realized_pnl_after_scenario_costs": -118899.6,
+        "closed_trade_rows": 106,
+        "independently_rechecked_rows": 106,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 106
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 64,
+          "net_pnl_usd": -81537.2,
+          "mean_net_pnl_usd": -1274.01875,
+          "holding_calendar_days": {
+            "n": 64,
+            "mean": 24.546875,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 64
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 11152.2,
+          "mean_net_pnl_usd": 337.94545455,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.6969697,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 124.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -48514.6,
+          "mean_net_pnl_usd": -5390.51111111,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 15.66666667,
+            "median": 15.0,
+            "min": 10.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -117971.4,
+        "minimum_observed_incremental_nav_usd": -123166.0,
+        "maximum_observed_incremental_nav_usd": 435.2,
+        "positive_incremental_mark_days": 6,
+        "positive_incremental_mark_fraction": 0.003082,
+        "position_open_days": 1860,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 236,
+        "pending_open_days": 110,
+        "mark_status_counts": {
+          "OK": 1693,
+          "OK_ZERO_WING_BID_FLOOR": 254,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -118899.6,
+      "reported_last_incremental_nav_usd": -117971.4,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -117971.4,
+        "min_incremental_nav_vs_no_call_usd": -123166.0,
+        "max_incremental_nav_vs_no_call_usd": 435.2,
+        "positive_mark_days": 6,
+        "positive_mark_day_fraction": 0.003082,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00": {
+      "scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "budget_kind": "credit",
+      "budget_pct_nav": 0.012,
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.0,
+      "opened_spreads": 107,
+      "closed_spreads": 107,
+      "unresolved_or_open_at_end": 0,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 122,
+          "EXPIRY_SETTLEMENT_PROXY": 32,
+          "ENTRY_BLOCKED": 6,
+          "CLOSE": 75,
+          "ENTRY_SKIPPED": 29
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_BLOCKED:NONPOSITIVE_NET_CREDIT_AFTER_COSTS": 6,
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 2,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 25,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.76551402,
+          "median": 0.75,
+          "min": 0.21,
+          "max": 2.21
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.56551402,
+          "median": 0.55,
+          "min": 0.01,
+          "max": 2.01
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 28.47663551,
+          "median": 6.0,
+          "min": 1.0,
+          "max": 538.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.76551402,
+          "median": 0.75,
+          "min": 0.21,
+          "max": 2.21
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.56551402,
+          "median": 0.55,
+          "min": 0.01,
+          "max": 2.01
+        },
+        "closed_trade_entry_cost_usd": 60940.0,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 4,
+          "MODERATE_10_25PCT_MID": 22,
+          "TIGHT_LE_10PCT_MID": 81
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 106171.0,
+        "entry_execution_costs_usd": 60940.0,
+        "exit_gross_debit_cash_usd": 128382.0,
+        "exit_execution_costs_usd": 60940.0,
+        "recomputed_net_pnl_usd": -144091.0,
+        "realized_pnl_after_scenario_costs": -144091.0,
+        "closed_trade_rows": 107,
+        "independently_rechecked_rows": 107,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 107
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 60,
+          "net_pnl_usd": -98745.0,
+          "mean_net_pnl_usd": -1645.75,
+          "holding_calendar_days": {
+            "n": 60,
+            "mean": 24.45,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 1.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 60
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 32,
+          "net_pnl_usd": -12074.0,
+          "mean_net_pnl_usd": -377.3125,
+          "holding_calendar_days": {
+            "n": 32,
+            "mean": 28.78125,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 121.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 32
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 15,
+          "net_pnl_usd": -33272.0,
+          "mean_net_pnl_usd": -2218.13333333,
+          "holding_calendar_days": {
+            "n": 15,
+            "mean": 15.73333333,
+            "median": 15.0,
+            "min": 2.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 15
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -144091.0,
+        "minimum_observed_incremental_nav_usd": -148750.0,
+        "maximum_observed_incremental_nav_usd": 0.0,
+        "positive_incremental_mark_days": 0,
+        "positive_incremental_mark_fraction": 0.0,
+        "position_open_days": 1817,
+        "position_open_but_unmarked_days": 13,
+        "pending_close_days": 229,
+        "pending_open_days": 142,
+        "mark_status_counts": {
+          "OK": 1710,
+          "OK_ZERO_WING_BID_FLOOR": 237,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 13,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -144091.0,
+      "reported_last_incremental_nav_usd": -144091.0,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -144091.0,
+        "min_incremental_nav_vs_no_call_usd": -148750.0,
+        "max_incremental_nav_vs_no_call_usd": 0.0,
+        "positive_mark_days": 0,
+        "positive_mark_day_fraction": 0.0,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65": {
+      "scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "budget_kind": "credit",
+      "budget_pct_nav": 0.012,
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.65,
+      "opened_spreads": 97,
+      "closed_spreads": 97,
+      "unresolved_or_open_at_end": 0,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 97,
+          "CLOSE_SIGNAL_NEXT_SESSION": 97,
+          "CLOSE_DEFERRED": 114,
+          "EXPIRY_SETTLEMENT_PROXY": 30,
+          "ENTRY_BLOCKED": 34,
+          "CLOSE": 67,
+          "ENTRY_SKIPPED": 200
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_BLOCKED:NONPOSITIVE_NET_CREDIT_AFTER_COSTS": 34,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 195,
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 3,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 97,
+        "open_event_gross_credit_per_share": {
+          "n": 97,
+          "mean": 0.7656701,
+          "median": 0.72,
+          "min": 0.22,
+          "max": 2.21
+        },
+        "open_event_net_credit_per_share": {
+          "n": 97,
+          "mean": 0.5526701,
+          "median": 0.507,
+          "min": 0.007,
+          "max": 1.997
+        },
+        "open_event_quantity": {
+          "n": 97,
+          "mean": 39.88659794,
+          "median": 5.0,
+          "min": 1.0,
+          "max": 1491.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 97,
+          "mean": 0.7656701,
+          "median": 0.72,
+          "min": 0.22,
+          "max": 2.21
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 97,
+          "mean": 0.5526701,
+          "median": 0.507,
+          "min": 0.007,
+          "max": 1.997
+        },
+        "closed_trade_entry_cost_usd": 82409.7,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 5,
+          "MODERATE_10_25PCT_MID": 23,
+          "TIGHT_LE_10PCT_MID": 69
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 118977.0,
+        "entry_execution_costs_usd": 82409.7,
+        "exit_gross_debit_cash_usd": 102333.0,
+        "exit_execution_costs_usd": 82409.7,
+        "recomputed_net_pnl_usd": -148175.4,
+        "realized_pnl_after_scenario_costs": -148175.4,
+        "closed_trade_rows": 97,
+        "independently_rechecked_rows": 97,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 97
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 52,
+          "net_pnl_usd": -78449.0,
+          "mean_net_pnl_usd": -1508.63461538,
+          "holding_calendar_days": {
+            "n": 52,
+            "mean": 24.46153846,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 1.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 52
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 30,
+          "net_pnl_usd": -42040.6,
+          "mean_net_pnl_usd": -1401.35333333,
+          "holding_calendar_days": {
+            "n": 30,
+            "mean": 28.53333333,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 113.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 30
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 15,
+          "net_pnl_usd": -27685.8,
+          "mean_net_pnl_usd": -1845.72,
+          "holding_calendar_days": {
+            "n": 15,
+            "mean": 14.4,
+            "median": 15.0,
+            "min": 2.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 15
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1948,
+        "unmatched_nav_sessions": 23,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -148175.4,
+        "minimum_observed_incremental_nav_usd": -152808.4,
+        "maximum_observed_incremental_nav_usd": 0.0,
+        "positive_incremental_mark_days": 0,
+        "positive_incremental_mark_fraction": 0.0,
+        "position_open_days": 1627,
+        "position_open_but_unmarked_days": 12,
+        "pending_close_days": 211,
+        "pending_open_days": 331,
+        "mark_status_counts": {
+          "OK": 1742,
+          "OK_ZERO_WING_BID_FLOOR": 206,
+          "SHORT_CONTRACT_ROW_MISSING": 4,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 12,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -148175.4,
+      "reported_last_incremental_nav_usd": -148175.4,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1948,
+        "unmatched_sessions": 23,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -148175.4,
+        "min_incremental_nav_vs_no_call_usd": -152808.4,
+        "max_incremental_nav_vs_no_call_usd": 0.0,
+        "positive_mark_days": 0,
+        "positive_mark_day_fraction": 0.0,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00": {
+      "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "budget_kind": "max_loss",
+      "budget_pct_nav": 0.008,
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.0,
+      "opened_spreads": 106,
+      "closed_spreads": 105,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 106,
+          "CLOSE_SIGNAL_NEXT_SESSION": 106,
+          "CLOSE_DEFERRED": 134,
+          "EXPIRY_SETTLEMENT_PROXY": 34,
+          "CLOSE": 71,
+          "ENTRY_SKIPPED": 6
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 3,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 106,
+        "open_event_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.74858491,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.74858491,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "open_event_quantity": {
+          "n": 106,
+          "mean": 1.70754717,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 6.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 105,
+          "mean": 0.74561905,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 105,
+          "mean": 0.74561905,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "closed_trade_entry_cost_usd": 0.0,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 8,
+          "MODERATE_10_25PCT_MID": 17,
+          "TIGHT_LE_10PCT_MID": 80
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 10782.0,
+        "entry_execution_costs_usd": 0.0,
+        "exit_gross_debit_cash_usd": 16428.0,
+        "exit_execution_costs_usd": 0.0,
+        "recomputed_net_pnl_usd": -5646.0,
+        "realized_pnl_after_scenario_costs": -5646.0,
+        "closed_trade_rows": 105,
+        "independently_rechecked_rows": 105,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 105
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 62,
+          "net_pnl_usd": -4746.0,
+          "mean_net_pnl_usd": -76.5483871,
+          "holding_calendar_days": {
+            "n": 62,
+            "mean": 24.61290323,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 62
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 34,
+          "net_pnl_usd": 3250.0,
+          "mean_net_pnl_usd": 95.58823529,
+          "holding_calendar_days": {
+            "n": 34,
+            "mean": 28.23529412,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 129.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 34
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -4150.0,
+          "mean_net_pnl_usd": -461.11111111,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 18.22222222,
+            "median": 15.0,
+            "min": 13.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -5552.0,
+        "minimum_observed_incremental_nav_usd": -5926.0,
+        "maximum_observed_incremental_nav_usd": 88.0,
+        "positive_incremental_mark_days": 32,
+        "positive_incremental_mark_fraction": 0.016436,
+        "position_open_days": 1858,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 240,
+        "pending_open_days": 112,
+        "mark_status_counts": {
+          "OK": 1684,
+          "OK_ZERO_WING_BID_FLOOR": 263,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -5646.0,
+      "reported_last_incremental_nav_usd": -5552.0,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -5552.0,
+        "min_incremental_nav_vs_no_call_usd": -5926.0,
+        "max_incremental_nav_vs_no_call_usd": 88.0,
+        "positive_mark_days": 32,
+        "positive_mark_day_fraction": 0.016436,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65": {
+      "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "budget_kind": "max_loss",
+      "budget_pct_nav": 0.008,
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.65,
+      "opened_spreads": 106,
+      "closed_spreads": 105,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 106,
+          "CLOSE_SIGNAL_NEXT_SESSION": 106,
+          "CLOSE_DEFERRED": 134,
+          "EXPIRY_SETTLEMENT_PROXY": 34,
+          "CLOSE": 71,
+          "ENTRY_SKIPPED": 6
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 3,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 106,
+        "open_event_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.74858491,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.73558491,
+          "median": 0.727,
+          "min": 0.117,
+          "max": 2.147
+        },
+        "open_event_quantity": {
+          "n": 106,
+          "mean": 1.67924528,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 6.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 105,
+          "mean": 0.74561905,
+          "median": 0.74,
+          "min": 0.13,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 105,
+          "mean": 0.73261905,
+          "median": 0.727,
+          "min": 0.117,
+          "max": 2.147
+        },
+        "closed_trade_entry_cost_usd": 230.1,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 8,
+          "MODERATE_10_25PCT_MID": 17,
+          "TIGHT_LE_10PCT_MID": 80
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 10680.0,
+        "entry_execution_costs_usd": 230.1,
+        "exit_gross_debit_cash_usd": 16288.0,
+        "exit_execution_costs_usd": 230.1,
+        "recomputed_net_pnl_usd": -6068.2,
+        "realized_pnl_after_scenario_costs": -6068.2,
+        "closed_trade_rows": 105,
+        "independently_rechecked_rows": 105,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 105
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 62,
+          "net_pnl_usd": -5040.2,
+          "mean_net_pnl_usd": -81.29354839,
+          "holding_calendar_days": {
+            "n": 62,
+            "mean": 24.61290323,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 62
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 34,
+          "net_pnl_usd": 3076.0,
+          "mean_net_pnl_usd": 90.47058824,
+          "holding_calendar_days": {
+            "n": 34,
+            "mean": 28.23529412,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 129.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 34
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -4104.0,
+          "mean_net_pnl_usd": -456.0,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 18.22222222,
+            "median": 15.0,
+            "min": 13.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -5976.8,
+        "minimum_observed_incremental_nav_usd": -6345.6,
+        "maximum_observed_incremental_nav_usd": 77.6,
+        "positive_incremental_mark_days": 30,
+        "positive_incremental_mark_fraction": 0.015408,
+        "position_open_days": 1858,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 240,
+        "pending_open_days": 112,
+        "mark_status_counts": {
+          "OK": 1684,
+          "OK_ZERO_WING_BID_FLOOR": 263,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -6068.2,
+      "reported_last_incremental_nav_usd": -5976.8,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -5976.8,
+        "min_incremental_nav_vs_no_call_usd": -6345.6,
+        "max_incremental_nav_vs_no_call_usd": 77.6,
+        "positive_mark_days": 30,
+        "positive_mark_day_fraction": 0.015408,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00": {
+      "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "budget_kind": "max_loss",
+      "budget_pct_nav": 0.008,
+      "slippage_per_leg_usd": 0.025,
+      "commission_per_contract_per_side_usd": 0.0,
+      "opened_spreads": 107,
+      "closed_spreads": 106,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 129,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "CLOSE": 73,
+          "ENTRY_SKIPPED": 6
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 3,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.75429907,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.70429907,
+          "median": 0.69,
+          "min": 0.1,
+          "max": 2.11
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 1.64485981,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 6.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.75141509,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.70141509,
+          "median": 0.69,
+          "min": 0.1,
+          "max": 2.11
+        },
+        "closed_trade_entry_cost_usd": 875.0,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 7,
+          "MODERATE_10_25PCT_MID": 14,
+          "TIGHT_LE_10PCT_MID": 85
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 10959.0,
+        "entry_execution_costs_usd": 875.0,
+        "exit_gross_debit_cash_usd": 15939.0,
+        "exit_execution_costs_usd": 875.0,
+        "recomputed_net_pnl_usd": -6730.0,
+        "realized_pnl_after_scenario_costs": -6730.0,
+        "closed_trade_rows": 106,
+        "independently_rechecked_rows": 106,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 106
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 64,
+          "net_pnl_usd": -5263.0,
+          "mean_net_pnl_usd": -82.234375,
+          "holding_calendar_days": {
+            "n": 64,
+            "mean": 24.484375,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 64
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 2641.0,
+          "mean_net_pnl_usd": 80.03030303,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.54545455,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 124.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -4108.0,
+          "mean_net_pnl_usd": -456.44444444,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 15.77777778,
+            "median": 15.0,
+            "min": 10.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -6646.0,
+        "minimum_observed_incremental_nav_usd": -7000.0,
+        "maximum_observed_incremental_nav_usd": 43.0,
+        "positive_incremental_mark_days": 26,
+        "positive_incremental_mark_fraction": 0.013354,
+        "position_open_days": 1857,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 236,
+        "pending_open_days": 113,
+        "mark_status_counts": {
+          "OK": 1704,
+          "OK_ZERO_WING_BID_FLOOR": 243,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -6730.0,
+      "reported_last_incremental_nav_usd": -6646.0,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -6646.0,
+        "min_incremental_nav_vs_no_call_usd": -7000.0,
+        "max_incremental_nav_vs_no_call_usd": 43.0,
+        "positive_mark_days": 26,
+        "positive_mark_day_fraction": 0.013354,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65": {
+      "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "budget_kind": "max_loss",
+      "budget_pct_nav": 0.008,
+      "slippage_per_leg_usd": 0.025,
+      "commission_per_contract_per_side_usd": 0.65,
+      "opened_spreads": 107,
+      "closed_spreads": 106,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 129,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "CLOSE": 73,
+          "ENTRY_SKIPPED": 6
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 3,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.75429907,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.69129907,
+          "median": 0.677,
+          "min": 0.087,
+          "max": 2.097
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 1.64485981,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 6.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.75141509,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.68841509,
+          "median": 0.677,
+          "min": 0.087,
+          "max": 2.097
+        },
+        "closed_trade_entry_cost_usd": 1102.5,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 7,
+          "MODERATE_10_25PCT_MID": 14,
+          "TIGHT_LE_10PCT_MID": 85
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 10959.0,
+        "entry_execution_costs_usd": 1102.5,
+        "exit_gross_debit_cash_usd": 15939.0,
+        "exit_execution_costs_usd": 1102.5,
+        "recomputed_net_pnl_usd": -7185.0,
+        "realized_pnl_after_scenario_costs": -7185.0,
+        "closed_trade_rows": 106,
+        "independently_rechecked_rows": 106,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 106
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 64,
+          "net_pnl_usd": -5538.6,
+          "mean_net_pnl_usd": -86.540625,
+          "holding_calendar_days": {
+            "n": 64,
+            "mean": 24.484375,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 64
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 2511.0,
+          "mean_net_pnl_usd": 76.09090909,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.54545455,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 124.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -4157.4,
+          "mean_net_pnl_usd": -461.93333333,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 15.77777778,
+            "median": 15.0,
+            "min": 10.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -7103.6,
+        "minimum_observed_incremental_nav_usd": -7452.4,
+        "maximum_observed_incremental_nav_usd": 35.2,
+        "positive_incremental_mark_days": 24,
+        "positive_incremental_mark_fraction": 0.012327,
+        "position_open_days": 1857,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 236,
+        "pending_open_days": 113,
+        "mark_status_counts": {
+          "OK": 1704,
+          "OK_ZERO_WING_BID_FLOOR": 243,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -7185.0,
+      "reported_last_incremental_nav_usd": -7103.6,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -7103.6,
+        "min_incremental_nav_vs_no_call_usd": -7452.4,
+        "max_incremental_nav_vs_no_call_usd": 35.2,
+        "positive_mark_days": 24,
+        "positive_mark_day_fraction": 0.012327,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00": {
+      "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "budget_kind": "max_loss",
+      "budget_pct_nav": 0.008,
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.0,
+      "opened_spreads": 107,
+      "closed_spreads": 106,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 129,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "CLOSE": 73,
+          "ENTRY_SKIPPED": 6
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 3,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.74738318,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.64738318,
+          "median": 0.64,
+          "min": 0.05,
+          "max": 2.06
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 1.61682243,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 5.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.74443396,
+          "median": 0.73,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.64443396,
+          "median": 0.63,
+          "min": 0.05,
+          "max": 2.06
+        },
+        "closed_trade_entry_cost_usd": 1720.0,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 7,
+          "MODERATE_10_25PCT_MID": 15,
+          "TIGHT_LE_10PCT_MID": 84
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 10629.0,
+        "entry_execution_costs_usd": 1720.0,
+        "exit_gross_debit_cash_usd": 15755.0,
+        "exit_execution_costs_usd": 1720.0,
+        "recomputed_net_pnl_usd": -8566.0,
+        "realized_pnl_after_scenario_costs": -8566.0,
+        "closed_trade_rows": 106,
+        "independently_rechecked_rows": 106,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 106
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 64,
+          "net_pnl_usd": -6583.0,
+          "mean_net_pnl_usd": -102.859375,
+          "holding_calendar_days": {
+            "n": 64,
+            "mean": 24.515625,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 64
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 1946.0,
+          "mean_net_pnl_usd": 58.96969697,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.66666667,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 124.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -3929.0,
+          "mean_net_pnl_usd": -436.55555556,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 15.66666667,
+            "median": 15.0,
+            "min": 10.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -8492.0,
+        "minimum_observed_incremental_nav_usd": -8826.0,
+        "maximum_observed_incremental_nav_usd": 18.0,
+        "positive_incremental_mark_days": 12,
+        "positive_incremental_mark_fraction": 0.006163,
+        "position_open_days": 1857,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 236,
+        "pending_open_days": 113,
+        "mark_status_counts": {
+          "OK": 1704,
+          "OK_ZERO_WING_BID_FLOOR": 243,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -8566.0,
+      "reported_last_incremental_nav_usd": -8492.0,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -8492.0,
+        "min_incremental_nav_vs_no_call_usd": -8826.0,
+        "max_incremental_nav_vs_no_call_usd": 18.0,
+        "positive_mark_days": 12,
+        "positive_mark_day_fraction": 0.006163,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65": {
+      "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "budget_kind": "max_loss",
+      "budget_pct_nav": 0.008,
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "opened_spreads": 107,
+      "closed_spreads": 106,
+      "unresolved_or_open_at_end": 1,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 107,
+          "CLOSE_SIGNAL_NEXT_SESSION": 107,
+          "CLOSE_DEFERRED": 129,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "CLOSE": 73,
+          "ENTRY_SKIPPED": 6
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 3,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 107,
+        "open_event_gross_credit_per_share": {
+          "n": 107,
+          "mean": 0.74738318,
+          "median": 0.74,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "open_event_net_credit_per_share": {
+          "n": 107,
+          "mean": 0.63438318,
+          "median": 0.627,
+          "min": 0.037,
+          "max": 2.047
+        },
+        "open_event_quantity": {
+          "n": 107,
+          "mean": 1.60747664,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 5.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 106,
+          "mean": 0.74443396,
+          "median": 0.73,
+          "min": 0.15,
+          "max": 2.16
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 106,
+          "mean": 0.63143396,
+          "median": 0.617,
+          "min": 0.037,
+          "max": 2.047
+        },
+        "closed_trade_entry_cost_usd": 1932.3,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 7,
+          "MODERATE_10_25PCT_MID": 15,
+          "TIGHT_LE_10PCT_MID": 84
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 10604.0,
+        "entry_execution_costs_usd": 1932.3,
+        "exit_gross_debit_cash_usd": 15753.0,
+        "exit_execution_costs_usd": 1932.3,
+        "recomputed_net_pnl_usd": -9013.6,
+        "realized_pnl_after_scenario_costs": -9013.6,
+        "closed_trade_rows": 106,
+        "independently_rechecked_rows": 106,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 106
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 64,
+          "net_pnl_usd": -6856.4,
+          "mean_net_pnl_usd": -107.13125,
+          "holding_calendar_days": {
+            "n": 64,
+            "mean": 24.515625,
+            "median": 26.0,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 2.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 64
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 1818.6,
+          "mean_net_pnl_usd": 55.10909091,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.66666667,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 124.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 9,
+          "net_pnl_usd": -3975.8,
+          "mean_net_pnl_usd": -441.75555556,
+          "holding_calendar_days": {
+            "n": 9,
+            "mean": 15.66666667,
+            "median": 15.0,
+            "min": 10.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 9
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -8942.2,
+        "minimum_observed_incremental_nav_usd": -9271.0,
+        "maximum_observed_incremental_nav_usd": 12.8,
+        "positive_incremental_mark_days": 10,
+        "positive_incremental_mark_fraction": 0.005136,
+        "position_open_days": 1857,
+        "position_open_but_unmarked_days": 24,
+        "pending_close_days": 236,
+        "pending_open_days": 113,
+        "mark_status_counts": {
+          "OK": 1704,
+          "OK_ZERO_WING_BID_FLOOR": 243,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 24,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -9013.6,
+      "reported_last_incremental_nav_usd": -8942.2,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -8942.2,
+        "min_incremental_nav_vs_no_call_usd": -9271.0,
+        "max_incremental_nav_vs_no_call_usd": 12.8,
+        "positive_mark_days": 10,
+        "positive_mark_day_fraction": 0.005136,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00": {
+      "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "budget_kind": "max_loss",
+      "budget_pct_nav": 0.008,
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.0,
+      "opened_spreads": 108,
+      "closed_spreads": 108,
+      "unresolved_or_open_at_end": 0,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 108,
+          "CLOSE_SIGNAL_NEXT_SESSION": 108,
+          "CLOSE_DEFERRED": 127,
+          "EXPIRY_SETTLEMENT_PROXY": 33,
+          "ENTRY_BLOCKED": 8,
+          "CLOSE": 75,
+          "ENTRY_SKIPPED": 9
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_BLOCKED:NONPOSITIVE_NET_CREDIT_AFTER_COSTS": 8,
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 2,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 5,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1
+        },
+        "opened_event_rows": 108,
+        "open_event_gross_credit_per_share": {
+          "n": 108,
+          "mean": 0.79740741,
+          "median": 0.675,
+          "min": 0.21,
+          "max": 3.49
+        },
+        "open_event_net_credit_per_share": {
+          "n": 108,
+          "mean": 0.59740741,
+          "median": 0.475,
+          "min": 0.01,
+          "max": 3.29
+        },
+        "open_event_quantity": {
+          "n": 108,
+          "mean": 1.50925926,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 4.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 108,
+          "mean": 0.79740741,
+          "median": 0.675,
+          "min": 0.21,
+          "max": 3.49
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 108,
+          "mean": 0.59740741,
+          "median": 0.475,
+          "min": 0.01,
+          "max": 3.29
+        },
+        "closed_trade_entry_cost_usd": 3260.0,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 3,
+          "MODERATE_10_25PCT_MID": 25,
+          "TIGHT_LE_10PCT_MID": 80
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 11067.0,
+        "entry_execution_costs_usd": 3260.0,
+        "exit_gross_debit_cash_usd": 15815.0,
+        "exit_execution_costs_usd": 3260.0,
+        "recomputed_net_pnl_usd": -11268.0,
+        "realized_pnl_after_scenario_costs": -11268.0,
+        "closed_trade_rows": 108,
+        "independently_rechecked_rows": 108,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 108
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 60,
+          "net_pnl_usd": -5665.0,
+          "mean_net_pnl_usd": -94.41666667,
+          "holding_calendar_days": {
+            "n": 60,
+            "mean": 24.36666667,
+            "median": 25.5,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 1.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 60
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 33,
+          "net_pnl_usd": 1221.0,
+          "mean_net_pnl_usd": 37.0,
+          "holding_calendar_days": {
+            "n": 33,
+            "mean": 28.90909091,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 126.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 33
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 15,
+          "net_pnl_usd": -6824.0,
+          "mean_net_pnl_usd": -454.93333333,
+          "holding_calendar_days": {
+            "n": 15,
+            "mean": 15.2,
+            "median": 15.0,
+            "min": 2.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 15
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1947,
+        "unmatched_nav_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -11268.0,
+        "minimum_observed_incremental_nav_usd": -11697.0,
+        "maximum_observed_incremental_nav_usd": 9.0,
+        "positive_incremental_mark_days": 3,
+        "positive_incremental_mark_fraction": 0.001541,
+        "position_open_days": 1834,
+        "position_open_but_unmarked_days": 13,
+        "pending_close_days": 235,
+        "pending_open_days": 125,
+        "mark_status_counts": {
+          "OK": 1705,
+          "OK_ZERO_WING_BID_FLOOR": 242,
+          "SHORT_CONTRACT_ROW_MISSING": 5,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 13,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -11268.0,
+      "reported_last_incremental_nav_usd": -11268.0,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1947,
+        "unmatched_sessions": 24,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -11268.0,
+        "min_incremental_nav_vs_no_call_usd": -11697.0,
+        "max_incremental_nav_vs_no_call_usd": 9.0,
+        "positive_mark_days": 3,
+        "positive_mark_day_fraction": 0.001541,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    },
+    "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65": {
+      "scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "budget_kind": "max_loss",
+      "budget_pct_nav": 0.008,
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.65,
+      "opened_spreads": 108,
+      "closed_spreads": 108,
+      "unresolved_or_open_at_end": 0,
+      "entry_economics": {
+        "event_counts": {
+          "OPEN": 108,
+          "CLOSE_SIGNAL_NEXT_SESSION": 108,
+          "CLOSE_DEFERRED": 131,
+          "EXPIRY_SETTLEMENT_PROXY": 34,
+          "ENTRY_BLOCKED": 10,
+          "CLOSE": 74,
+          "ENTRY_SKIPPED": 8
+        },
+        "entry_skip_or_block_reasons": {
+          "ENTRY_BLOCKED:NONPOSITIVE_NET_CREDIT_AFTER_COSTS": 10,
+          "ENTRY_SKIPPED:NONPOSITIVE_OR_INVALID_NEXT_SESSION_CREDIT": 1,
+          "ENTRY_SKIPPED:BUDGET_BELOW_ONE_SPREAD": 5,
+          "ENTRY_SKIPPED:INVALID_OR_UNSIZED_ENTRY_QUOTE": 1,
+          "ENTRY_SKIPPED:NO_NEXT_SESSION_CHAIN": 1
+        },
+        "opened_event_rows": 108,
+        "open_event_gross_credit_per_share": {
+          "n": 108,
+          "mean": 0.80055556,
+          "median": 0.675,
+          "min": 0.22,
+          "max": 3.49
+        },
+        "open_event_net_credit_per_share": {
+          "n": 108,
+          "mean": 0.58755556,
+          "median": 0.462,
+          "min": 0.007,
+          "max": 3.277
+        },
+        "open_event_quantity": {
+          "n": 108,
+          "mean": 1.4537037,
+          "median": 1.0,
+          "min": 1.0,
+          "max": 4.0
+        },
+        "closed_trade_entry_gross_credit_per_share": {
+          "n": 108,
+          "mean": 0.80055556,
+          "median": 0.675,
+          "min": 0.22,
+          "max": 3.49
+        },
+        "closed_trade_entry_net_credit_per_share": {
+          "n": 108,
+          "mean": 0.58755556,
+          "median": 0.462,
+          "min": 0.007,
+          "max": 3.277
+        },
+        "closed_trade_entry_cost_usd": 3344.1,
+        "closed_trade_entry_quote_quality_counts": {
+          "WIDE_GT25PCT_MID": 4,
+          "MODERATE_10_25PCT_MID": 28,
+          "TIGHT_LE_10PCT_MID": 76
+        },
+        "note": "Trade and event counts are preserved as reported; a higher-cost arm may change selection eligibility, size, and number of trades."
+      },
+      "cashflow_waterfall": {
+        "entry_gross_credit_cash_usd": 10945.0,
+        "entry_execution_costs_usd": 3344.1,
+        "exit_gross_debit_cash_usd": 15626.0,
+        "exit_execution_costs_usd": 3344.1,
+        "recomputed_net_pnl_usd": -11369.2,
+        "realized_pnl_after_scenario_costs": -11369.2,
+        "closed_trade_rows": 108,
+        "independently_rechecked_rows": 108,
+        "blocked_rows": 0,
+        "upstream_attribution_status_counts": {
+          "PASS_CASH_FLOW_RECONCILIATION": 108
+        },
+        "max_abs_independent_reconciliation_error_usd": 0.0,
+        "independent_failures_over_1cent": 0,
+        "status": "PASS"
+      },
+      "exit_mechanism_attribution": {
+        "DTE_LE_7": {
+          "closed_trade_count": 58,
+          "net_pnl_usd": -5009.4,
+          "mean_net_pnl_usd": -86.36896552,
+          "holding_calendar_days": {
+            "n": 58,
+            "mean": 24.39655172,
+            "median": 25.5,
+            "min": 18.0,
+            "max": 28.0
+          },
+          "exit_quote_missing_sessions": 1.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 58
+          },
+          "reconciliation_failures": 0
+        },
+        "EXPIRY_INTRINSIC_SETTLEMENT": {
+          "closed_trade_count": 34,
+          "net_pnl_usd": 1013.6,
+          "mean_net_pnl_usd": 29.81176471,
+          "holding_calendar_days": {
+            "n": 34,
+            "mean": 29.0,
+            "median": 29.0,
+            "min": 25.0,
+            "max": 31.0
+          },
+          "exit_quote_missing_sessions": 130.0,
+          "exit_basis_counts": {
+            "INTRINSIC_SETTLEMENT_PROXY": 34
+          },
+          "reconciliation_failures": 0
+        },
+        "PNL_OVER_MAXLOSS_LE_NEG_0P55": {
+          "closed_trade_count": 16,
+          "net_pnl_usd": -7373.4,
+          "mean_net_pnl_usd": -460.8375,
+          "holding_calendar_days": {
+            "n": 16,
+            "mean": 15.125,
+            "median": 15.0,
+            "min": 2.0,
+            "max": 24.0
+          },
+          "exit_quote_missing_sessions": 0.0,
+          "exit_basis_counts": {
+            "OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID": 16
+          },
+          "reconciliation_failures": 0
+        }
+      },
+      "daily_capital_and_mark_path": {
+        "daily_rows": 1971,
+        "expected_sessions": 1971,
+        "daily_row_count_matches_expected": true,
+        "matched_nav_sessions": 1946,
+        "unmatched_nav_sessions": 25,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_observed_incremental_nav_usd": -11369.2,
+        "minimum_observed_incremental_nav_usd": -11795.6,
+        "maximum_observed_incremental_nav_usd": 1.2,
+        "positive_incremental_mark_days": 1,
+        "positive_incremental_mark_fraction": 0.000514,
+        "position_open_days": 1834,
+        "position_open_but_unmarked_days": 14,
+        "pending_close_days": 239,
+        "pending_open_days": 126,
+        "mark_status_counts": {
+          "OK": 1709,
+          "OK_ZERO_WING_BID_FLOOR": 237,
+          "SHORT_CONTRACT_ROW_MISSING": 6,
+          "SHORT_ASK_MISSING_OR_NONPOSITIVE": 8,
+          "CORE_TOTAL_RETURN_PRICE_MISSING": 11
+        },
+        "interpretation": "Matched EOD mark differences only; missing dates excluded, never interpolated. Not a complete return series."
+      },
+      "source_and_completeness": {
+        "expected_sessions": 1971,
+        "sessions_with_chain": 1956,
+        "chain_coverage_fraction": 0.99239,
+        "first_expected_date": "2018-03-01",
+        "last_expected_date": "2025-12-31",
+        "last_source_observation": "2025-12-15",
+        "terminal_missing_sessions": [
+          "2025-12-16",
+          "2025-12-17",
+          "2025-12-18",
+          "2025-12-19",
+          "2025-12-22",
+          "2025-12-23",
+          "2025-12-24",
+          "2025-12-26",
+          "2025-12-29",
+          "2025-12-30",
+          "2025-12-31"
+        ],
+        "source_rows_cover_requested_end": false,
+        "complete_by_observed_rows": false,
+        "reported_missing_position_mark_sessions": 14,
+        "EOD_quotes_confirm_executable_fills": false,
+        "exact_quote_timestamp_verified": false,
+        "virgin_holdout": false,
+        "performance_gate": "BLOCKED"
+      },
+      "reported_closed_trade_net_pnl_usd": -11369.2,
+      "reported_last_incremental_nav_usd": -11369.2,
+      "reported_paired_nav_diagnostic": {
+        "status": "DESCRIPTIVE_MATCHED_MARK_DAYS_ONLY_NOT_PERFORMANCE_APPROVED",
+        "baseline_definition": "same initial capital: 42% QQQ adjusted-close total-return proxy plus 58% fixed cash; no option overlay",
+        "matched_mark_sessions": 1946,
+        "unmatched_sessions": 25,
+        "first_matched_date": "2018-03-01",
+        "last_matched_date": "2025-12-15",
+        "last_incremental_nav_vs_no_call_usd": -11369.2,
+        "min_incremental_nav_vs_no_call_usd": -11795.6,
+        "max_incremental_nav_vs_no_call_usd": 1.2,
+        "positive_mark_days": 1,
+        "positive_mark_day_fraction": 0.000514,
+        "performance_gate": "BLOCKED_INCOMPLETE_MARK_PATH_AND_EOD_NOT_CONFIRMED_FILLS"
+      },
+      "nav_path_complete_claimed_by_replay": false
+    }
+  },
+  "cost_scenario_comparisons": [
+    {
+      "budget_scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.0,
+      "closed_trade_pnl_usd": -66685.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": 0.0,
+      "opened_count_difference_vs_zero_cost": 0,
+      "closed_count_difference_vs_zero_cost": 0,
+      "last_nav_difference_vs_zero_cost_usd": 0.0,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65",
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.65,
+      "closed_trade_pnl_usd": -73538.2,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -6853.2,
+      "opened_count_difference_vs_zero_cost": 0,
+      "closed_count_difference_vs_zero_cost": 0,
+      "last_nav_difference_vs_zero_cost_usd": -6991.4,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00",
+      "slippage_per_leg_usd": 0.025,
+      "commission_per_contract_per_side_usd": 0.0,
+      "closed_trade_pnl_usd": -85711.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -19026.0,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 1,
+      "last_nav_difference_vs_zero_cost_usd": -19374.0,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65",
+      "slippage_per_leg_usd": 0.025,
+      "commission_per_contract_per_side_usd": 0.65,
+      "closed_trade_pnl_usd": -91838.6,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -25153.6,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 1,
+      "last_nav_difference_vs_zero_cost_usd": -25543.2,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.0,
+      "closed_trade_pnl_usd": -112071.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -45386.0,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 1,
+      "last_nav_difference_vs_zero_cost_usd": -46042.0,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "closed_trade_pnl_usd": -118899.6,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -52214.6,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 1,
+      "last_nav_difference_vs_zero_cost_usd": -52978.4,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00",
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.0,
+      "closed_trade_pnl_usd": -144091.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -77406.0,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 2,
+      "last_nav_difference_vs_zero_cost_usd": -79098.0,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "LEGACY_CREDIT_1P2PCT_NAV",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65",
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.65,
+      "closed_trade_pnl_usd": -148175.4,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -81490.4,
+      "opened_count_difference_vs_zero_cost": -9,
+      "closed_count_difference_vs_zero_cost": -8,
+      "last_nav_difference_vs_zero_cost_usd": -83182.4,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.0,
+      "closed_trade_pnl_usd": -5646.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": 0.0,
+      "opened_count_difference_vs_zero_cost": 0,
+      "closed_count_difference_vs_zero_cost": 0,
+      "last_nav_difference_vs_zero_cost_usd": 0.0,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65",
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.65,
+      "closed_trade_pnl_usd": -6068.2,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -422.2,
+      "opened_count_difference_vs_zero_cost": 0,
+      "closed_count_difference_vs_zero_cost": 0,
+      "last_nav_difference_vs_zero_cost_usd": -424.8,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00",
+      "slippage_per_leg_usd": 0.025,
+      "commission_per_contract_per_side_usd": 0.0,
+      "closed_trade_pnl_usd": -6730.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -1084.0,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 1,
+      "last_nav_difference_vs_zero_cost_usd": -1094.0,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65",
+      "slippage_per_leg_usd": 0.025,
+      "commission_per_contract_per_side_usd": 0.65,
+      "closed_trade_pnl_usd": -7185.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -1539.0,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 1,
+      "last_nav_difference_vs_zero_cost_usd": -1551.6,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.0,
+      "closed_trade_pnl_usd": -8566.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -2920.0,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 1,
+      "last_nav_difference_vs_zero_cost_usd": -2940.0,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "closed_trade_pnl_usd": -9013.6,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -3367.6,
+      "opened_count_difference_vs_zero_cost": 1,
+      "closed_count_difference_vs_zero_cost": 1,
+      "last_nav_difference_vs_zero_cost_usd": -3390.2,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00",
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.0,
+      "closed_trade_pnl_usd": -11268.0,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -5622.0,
+      "opened_count_difference_vs_zero_cost": 2,
+      "closed_count_difference_vs_zero_cost": 3,
+      "last_nav_difference_vs_zero_cost_usd": -5716.0,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    },
+    {
+      "budget_scenario": "SOURCE_MAX_LOSS_0P8PCT_NAV",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65",
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.65,
+      "closed_trade_pnl_usd": -11369.2,
+      "closed_trade_pnl_difference_vs_zero_cost_usd": -5723.2,
+      "opened_count_difference_vs_zero_cost": 2,
+      "closed_count_difference_vs_zero_cost": 3,
+      "last_nav_difference_vs_zero_cost_usd": -5817.2,
+      "interpretation": "Independent cost arm, not pure fee subtraction; size, entry eligibility, and trade counts may differ."
+    }
+  ],
+  "exit_mechanism_csv_rows": [
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 62,
+      "net_pnl_usd": -60179.0,
+      "mean_holding_calendar_days": 24.64516129,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 62}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 34,
+      "net_pnl_usd": 40541.0,
+      "mean_holding_calendar_days": 28.26470588,
+      "exit_quote_missing_sessions": 129.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 34}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -47047.0,
+      "mean_holding_calendar_days": 18.22222222,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 62,
+      "net_pnl_usd": -63259.2,
+      "mean_holding_calendar_days": 24.64516129,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 62}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 34,
+      "net_pnl_usd": 37395.8,
+      "mean_holding_calendar_days": 28.26470588,
+      "exit_quote_missing_sessions": 129.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 34}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -47674.8,
+      "mean_holding_calendar_days": 18.22222222,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 64,
+      "net_pnl_usd": -69155.0,
+      "mean_holding_calendar_days": 24.515625,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 64}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 30962.0,
+      "mean_holding_calendar_days": 28.57575758,
+      "exit_quote_missing_sessions": 124.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -47518.0,
+      "mean_holding_calendar_days": 15.77777778,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 64,
+      "net_pnl_usd": -71911.6,
+      "mean_holding_calendar_days": 24.515625,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 64}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 27709.8,
+      "mean_holding_calendar_days": 28.57575758,
+      "exit_quote_missing_sessions": 124.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -47636.8,
+      "mean_holding_calendar_days": 15.77777778,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 64,
+      "net_pnl_usd": -79883.0,
+      "mean_holding_calendar_days": 24.546875,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 64}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 16324.0,
+      "mean_holding_calendar_days": 28.6969697,
+      "exit_quote_missing_sessions": 124.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -48512.0,
+      "mean_holding_calendar_days": 15.66666667,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 64,
+      "net_pnl_usd": -81537.2,
+      "mean_holding_calendar_days": 24.546875,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 64}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 11152.2,
+      "mean_holding_calendar_days": 28.6969697,
+      "exit_quote_missing_sessions": 124.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -48514.6,
+      "mean_holding_calendar_days": 15.66666667,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 60,
+      "net_pnl_usd": -98745.0,
+      "mean_holding_calendar_days": 24.45,
+      "exit_quote_missing_sessions": 1.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 60}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 32,
+      "net_pnl_usd": -12074.0,
+      "mean_holding_calendar_days": 28.78125,
+      "exit_quote_missing_sessions": 121.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 32}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 15,
+      "net_pnl_usd": -33272.0,
+      "mean_holding_calendar_days": 15.73333333,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 15}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 52,
+      "net_pnl_usd": -78449.0,
+      "mean_holding_calendar_days": 24.46153846,
+      "exit_quote_missing_sessions": 1.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 52}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 30,
+      "net_pnl_usd": -42040.6,
+      "mean_holding_calendar_days": 28.53333333,
+      "exit_quote_missing_sessions": 113.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 30}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "LEGACY_CREDIT_1P2PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 15,
+      "net_pnl_usd": -27685.8,
+      "mean_holding_calendar_days": 14.4,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 15}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 62,
+      "net_pnl_usd": -4746.0,
+      "mean_holding_calendar_days": 24.61290323,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 62}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 34,
+      "net_pnl_usd": 3250.0,
+      "mean_holding_calendar_days": 28.23529412,
+      "exit_quote_missing_sessions": 129.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 34}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -4150.0,
+      "mean_holding_calendar_days": 18.22222222,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 62,
+      "net_pnl_usd": -5040.2,
+      "mean_holding_calendar_days": 24.61290323,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 62}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 34,
+      "net_pnl_usd": 3076.0,
+      "mean_holding_calendar_days": 28.23529412,
+      "exit_quote_missing_sessions": 129.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 34}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.000|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -4104.0,
+      "mean_holding_calendar_days": 18.22222222,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 64,
+      "net_pnl_usd": -5263.0,
+      "mean_holding_calendar_days": 24.484375,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 64}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 2641.0,
+      "mean_holding_calendar_days": 28.54545455,
+      "exit_quote_missing_sessions": 124.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -4108.0,
+      "mean_holding_calendar_days": 15.77777778,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 64,
+      "net_pnl_usd": -5538.6,
+      "mean_holding_calendar_days": 24.484375,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 64}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 2511.0,
+      "mean_holding_calendar_days": 28.54545455,
+      "exit_quote_missing_sessions": 124.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.025|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -4157.4,
+      "mean_holding_calendar_days": 15.77777778,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 64,
+      "net_pnl_usd": -6583.0,
+      "mean_holding_calendar_days": 24.515625,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 64}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 1946.0,
+      "mean_holding_calendar_days": 28.66666667,
+      "exit_quote_missing_sessions": 124.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -3929.0,
+      "mean_holding_calendar_days": 15.66666667,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 64,
+      "net_pnl_usd": -6856.4,
+      "mean_holding_calendar_days": 24.515625,
+      "exit_quote_missing_sessions": 2.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 64}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 1818.6,
+      "mean_holding_calendar_days": 28.66666667,
+      "exit_quote_missing_sessions": 124.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.050|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 9,
+      "net_pnl_usd": -3975.8,
+      "mean_holding_calendar_days": 15.66666667,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 9}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 60,
+      "net_pnl_usd": -5665.0,
+      "mean_holding_calendar_days": 24.36666667,
+      "exit_quote_missing_sessions": 1.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 60}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 33,
+      "net_pnl_usd": 1221.0,
+      "mean_holding_calendar_days": 28.90909091,
+      "exit_quote_missing_sessions": 126.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 33}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.00",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 15,
+      "net_pnl_usd": -6824.0,
+      "mean_holding_calendar_days": 15.2,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 15}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "DTE_LE_7",
+      "closed_trade_count": 58,
+      "net_pnl_usd": -5009.4,
+      "mean_holding_calendar_days": 24.39655172,
+      "exit_quote_missing_sessions": 1.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 58}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "EXPIRY_INTRINSIC_SETTLEMENT",
+      "closed_trade_count": 34,
+      "net_pnl_usd": 1013.6,
+      "mean_holding_calendar_days": 29.0,
+      "exit_quote_missing_sessions": 130.0,
+      "exit_basis_counts_json": "{\"INTRINSIC_SETTLEMENT_PROXY\": 34}"
+    },
+    {
+      "row_type": "exit_mechanism",
+      "scenario_id": "SOURCE_MAX_LOSS_0P8PCT_NAV|SLIP_PER_LEG_0.100|COMM_PER_CONTRACT_SIDE_0.65",
+      "exit_reason": "PNL_OVER_MAXLOSS_LE_NEG_0P55",
+      "closed_trade_count": 16,
+      "net_pnl_usd": -7373.4,
+      "mean_holding_calendar_days": 15.125,
+      "exit_quote_missing_sessions": 0.0,
+      "exit_basis_counts_json": "{\"OBSERVED_EOD_SHORT_ASK_MINUS_WING_BID\": 16}"
+    }
+  ],
+  "methodology": {
+    "A_entry_economics": "Summarize the frozen entry selection, observed-side gross/net credits, costs, sizes, and entry skip/block reasons. Do not turn post-hoc quote bins into entry rules.",
+    "B_mark_and_capital_occupancy": "Paired overlay-minus-no-call NAV only on dates where both values exist; missing days are excluded and never interpolated.",
+    "C_exit_lifecycle": "Group actual existing exit reasons, holding duration, quote-delay counts and settlement basis; do not tune exit thresholds or infer causality from group membership alone.",
+    "D_data_integrity_and_incremental_value": "Expose source gaps, missing marks, unresolved positions and paired matched-day values. EOD-only quotes keep performance approval blocked.",
+    "costs": "Scenario differences are not isolated cost deductions because sizing and trade counts can differ across independently replayed arms."
+  }
+}

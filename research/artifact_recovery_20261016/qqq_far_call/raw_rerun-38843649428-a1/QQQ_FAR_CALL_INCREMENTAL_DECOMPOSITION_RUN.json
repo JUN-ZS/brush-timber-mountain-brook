@@ -1,0 +1,31 @@
+{
+  "study_id": "QQQ_FAR_CALL_INCREMENTAL_VALUE_V2",
+  "status": "DESCRIPTIVE_DECOMPOSITION_ONLY_NOT_PERFORMANCE_APPROVED",
+  "decision": {
+    "base_screen": "FAILS_CURRENT_BASE_SCREEN",
+    "integration_eligible": false,
+    "no_parameter_search": true,
+    "reason": "The source max-loss zero-cost arm must show defensible incremental value; the observed base screen is negative and source completeness, timestamp/fill and lockbox gates remain blocked.",
+    "frozen_original_hybrid_changed": false,
+    "main_changed": false,
+    "broker_orders_enabled": false
+  },
+  "global_ledger_quality": {
+    "closed_trade_rows": 1688,
+    "independently_rechecked_rows": 1688,
+    "blocked_rows": 0,
+    "upstream_attribution_status_counts": {
+      "PASS_CASH_FLOW_RECONCILIATION": 1688
+    },
+    "max_abs_independent_reconciliation_error_usd": 0.0,
+    "independent_failures_over_1cent": 0,
+    "status": "PASS"
+  },
+  "scenario_count": 16,
+  "cost_comparison_rows": 16,
+  "outputs": {
+    "json": "artifacts\\qqq_far_call_replay\\incremental_decomposition\\qqq_far_call_incremental_decomposition.json",
+    "markdown": "artifacts\\qqq_far_call_replay\\incremental_decomposition\\qqq_far_call_incremental_decomposition.md",
+    "csv": "artifacts\\qqq_far_call_replay\\incremental_decomposition\\qqq_far_call_incremental_decomposition.csv"
+  }
+}
