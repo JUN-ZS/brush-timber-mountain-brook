@@ -21,7 +21,7 @@ For the 0.5%, 1%, 2% levels, report:
 - NET_PROFIT_BAR: percent of executed episodes with at least one observed net-liquidation P&L mark at or above the NAV-relative positive line.
 - NET_LOSS_BAR: percent with at least one mark at or below the NAV-relative negative line.
 - FRICTION_COST_BAR: percent with midpoint-to-side-quote liquidation drag at or above the same dollar line.
-All rates have episode and mark denominators, hit counts, nominal Wilson bounds for episode incidence, and sample gates. The regime file slices BAR rates by VIX and DTE for the 1% tail-budget, base-cost, per-trade-sizing branch.
+All rates have episode and mark denominators, hit counts, nominal Wilson bounds for episode incidence, and sample gates. The regime file slices BAR rates by VIX and DTE for (a) all ratios under the 1% tail-budget, base-cost, per-trade-sizing branch and (b) a separate exact 1-long/5-short, fixed-1-unit, 1%-reference-level diagnostic that intentionally bypasses the terminal-loss budget. The latter measures BAR shape only and is not a sizing recommendation.
 Daily portfolio NAV rates include -3%, -5%, -10%, -15%, -20%, -25%, and -30% drawdown cycle counts, cycles/year, event years, event-year share and share of valid days at or below each tier.
 
 A zero-episode BAR row is BLOCKED/PENDING rather than 0%. Rates are historical occurrence, not forward probabilities.
@@ -35,4 +35,4 @@ A zero-episode BAR row is BLOCKED/PENDING rather than 0%. Rates are historical o
 - No live Hybrid policy constants, app target mutation or broker order permissions change.
 
 ## Acceptance
-The dynamic test file covers optional mark-curve preservation, whole-unit sizing/budget breaches, episode vs mark BAR hit rates, DD cycle/year rates, and a single-episode compounded NAV run. Formal acceptance requires this test, all existing research tests, the full matrix run and output-existence checks on the self-hosted runner.
+The dynamic test file covers optional mark-curve preservation, both DTE7 residual-long variants, whole-unit sizing/budget breaches, episode vs mark BAR hit rates, DD cycle/year rates, and a single-episode compounded NAV run. Formal acceptance requires this test, all existing research tests, the full matrix run and output-existence checks on the self-hosted runner.
