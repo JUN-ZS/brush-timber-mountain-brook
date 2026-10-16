@@ -2,6 +2,8 @@
 
 **文件用途：**把 repo 長期反覆修正後的核心要求固定成可開發、可測試、可審核的 UI 契約。這是需求規格，不代表本文件列出的研究面板已全部實作，也不把任何歷史回放提升為實盤優勢證明。
 
+**先決文件：**[Logic, Causality & Evidence Framework V1](./QQQ_HYBRID_LOGIC_CAUSALITY_FRAMEWORK_V1.md) · [Shared Data Contracts V1](./QQQ_HYBRID_SHARED_DATA_CONTRACTS_V1.md)。未通過資料／因果契約與 Gate 1–3 前，不把新的研究控制接入正式 UI。
+
 ## 0. 不可破壞的設計原則
 
 1. **先量度，後建議。** 任意輸入 NAV（例如 100,000 或 1,000,000 USD）都要沿同一計算鏈得出美元／百分比尺度、風險容量和資料缺口；不可寫死「賺 $1,000」、固定合約數或固定最佳 N。
