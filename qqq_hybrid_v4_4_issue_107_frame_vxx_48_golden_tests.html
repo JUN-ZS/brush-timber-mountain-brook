@@ -102,7 +102,7 @@
         04 · 十年部署 153 視窗實證與進退性價比台 (10Y Floor &amp; DVE)
       </button>
       <button type="button" data-tab="tab-audit" class="nav-tab px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
-        05 · F1–F7 實時驗收與 14 組 Golden Tests (Live Contract Runner)
+        05 · F1–F7 實時驗收與 52 組 Golden Tests (Live Contract Runner)
       </button>
     </div>
   </header>
@@ -211,7 +211,7 @@
           <span id="kpiF1F7Badge" class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-mono">7/7 PASS</span>
         </div>
         <div id="kpiWinRateMain" class="text-xl font-bold mono-num text-amber-300 mt-1">PENDING <span class="text-xs font-normal text-slate-400">(0 筆真實退出路徑)</span></div>
-        <div id="kpiGoldenSub" class="text-[11px] text-slate-400 mt-0.5 mono-num">Golden Tests: 14/14 PASS</div>
+        <div id="kpiGoldenSub" class="text-[11px] text-slate-400 mt-0.5 mono-num">Golden Tests: 52/52 PASS</div>
       </div>
     </section>
 
@@ -676,9 +676,16 @@
               <div class="flex flex-wrap items-center justify-between gap-1">
                 <span class="text-[11px] font-semibold text-indigo-300">FRAME 逐腿合約規格核驗 (短腿 + 保護性長腿 · 禁假設乘數=100 · 禁模型估價充當成交)</span>
                 <select id="inpQuoteProvenance" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-[10px] font-mono text-emerald-300">
-                  <option value="USER_ASSERTED_OBSERVED_QUOTE" selected>來源: USER_ASSERTED_OBSERVED_QUOTE (真實掛單報價)</option>
-                  <option value="MODEL_ESTIMATE_BS_VIX">來源: MODEL_ESTIMATE_BS_VIX (模型估價 → 觸發 BLOCK)</option>
+                  <option value="USER_ASSERTED_OBSERVED_QUOTE" selected>來源分類：使用者聲稱為觀察報價（未獨立核實）</option>
+                  <option value="MODEL_ESTIMATE_BS_VIX">來源分類：MODEL_ESTIMATE_BS_VIX（禁止當成真實報價容量）</option>
                 </select>
+                <label class="text-[10px] text-amber-300">容量／衝擊假設
+                  <select id="inpAssumptionProfile" class="bg-slate-900 border border-amber-700 rounded px-2 py-0.5 text-[10px] font-mono text-amber-200">
+                    <option value="BASELINE" selected>BASELINE（保留既有常數）</option>
+                    <option value="CONSERVATIVE">CONSERVATIVE（保守情境）</option>
+                    <option value="STRESS">STRESS（壓力情境）</option>
+                  </select>
+                </label>
               </div>
 
               <!-- QQQ Far Call Short/Long Leg Contract Spec -->
@@ -709,6 +716,13 @@
                 </div>
               </div>
 
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] rounded bg-slate-900/50 p-2">
+                <label class="text-slate-400">QQQ Short Quote As-Of (ISO-8601 TZ)<input id="candQqqShortAsOf" type="text" value="2026-10-15T16:00:00-04:00" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-white" /></label>
+                <label class="text-slate-400">QQQ Short Source Ref<input id="candQqqShortSourceRef" type="text" value="USER_SUPPLIED_UNVERIFIED" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-amber-200" /></label>
+                <label class="text-slate-400">QQQ Long Quote As-Of (ISO-8601 TZ)<input id="candQqqLongAsOf" type="text" value="2026-10-15T16:00:00-04:00" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-white" /></label>
+                <label class="text-slate-400">QQQ Long Source Ref<input id="candQqqLongSourceRef" type="text" value="USER_SUPPLIED_UNVERIFIED" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-amber-200" /></label>
+              </div>
+
               <!-- VXX Call Spread Short/Long Leg Contract Spec -->
               <div class="grid grid-cols-3 sm:grid-cols-6 gap-1.5 text-[10px]">
                 <div>
@@ -735,6 +749,13 @@
                   <span class="block text-slate-400">LongBid / Size</span>
                   <input id="candVxxLongBid" type="number" step="0.05" value="0.30" class="w-1/2 inline bg-slate-900 border border-slate-700 rounded px-1 py-0.5 mono-num text-slate-300" /><input id="candVxxLongSize" type="number" step="1" value="40" class="w-1/2 inline bg-slate-900 border border-slate-700 rounded px-1 py-0.5 mono-num text-sky-300" />
                 </div>
+              </div>
+
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] rounded bg-slate-900/50 p-2">
+                <label class="text-slate-400">VXX Call Short Quote As-Of (ISO-8601 TZ)<input id="candVxxShortAsOf" type="text" value="2026-10-15T16:00:00-04:00" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-white" /></label>
+                <label class="text-slate-400">VXX Call Short Source Ref<input id="candVxxShortSourceRef" type="text" value="USER_SUPPLIED_UNVERIFIED" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-amber-200" /></label>
+                <label class="text-slate-400">VXX Call Long Quote As-Of (ISO-8601 TZ)<input id="candVxxLongAsOf" type="text" value="2026-10-15T16:00:00-04:00" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-white" /></label>
+                <label class="text-slate-400">VXX Call Long Source Ref<input id="candVxxLongSourceRef" type="text" value="USER_SUPPLIED_UNVERIFIED" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-amber-200" /></label>
               </div>
 
               <!-- VXX Put Spread Short/Long Leg Contract Spec -->
@@ -764,17 +785,33 @@
                   <input id="candVxxPutLongBid" type="number" step="0.05" value="0.22" class="w-1/2 inline bg-slate-900 border border-slate-700 rounded px-1 py-0.5 mono-num text-slate-300" /><input id="candVxxPutLongSize" type="number" step="1" value="32" class="w-1/2 inline bg-slate-900 border border-slate-700 rounded px-1 py-0.5 mono-num text-sky-300" />
                 </div>
               </div>
+
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[10px] rounded bg-slate-900/50 p-2">
+                <label class="text-slate-400">VXX Put Short Quote As-Of (ISO-8601 TZ)<input id="candVxxPutShortAsOf" type="text" value="2026-10-15T16:00:00-04:00" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-white" /></label>
+                <label class="text-slate-400">VXX Put Short Source Ref<input id="candVxxPutShortSourceRef" type="text" value="USER_SUPPLIED_UNVERIFIED" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-amber-200" /></label>
+                <label class="text-slate-400">VXX Put Long Quote As-Of (ISO-8601 TZ)<input id="candVxxPutLongAsOf" type="text" value="2026-10-15T16:00:00-04:00" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-white" /></label>
+                <label class="text-slate-400">VXX Put Long Source Ref<input id="candVxxPutLongSourceRef" type="text" value="USER_SUPPLIED_UNVERIFIED" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 mono-num text-amber-200" /></label>
+              </div>
             </div>
 
             <div class="flex items-center justify-between pt-1 border-t border-slate-800/70">
               <span class="text-[11px] text-slate-400">VXX 合約交割規格與乘數檢查 (F4 / PR #98):</span>
               <select id="inpVxxContractRoot" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-[11px] text-slate-200">
                 <option value="STANDARD_100">標準 VXX (100 股交割 · 要求短長腿乘數=100)</option>
-                <option value="ADJUSTED_USER_ASSERTED_25">已核實反向拆股調整合約 (25 股交割 · 要求短長腿乘數=25)</option>
+                <option value="ADJUSTED_USER_ASSERTED_25">使用者聲稱已核實的調整合約（25 股交割；必填來源 URL + SHA-256，仍非獨立核實）</option>
                 <option value="ADJUSTED_VXX1">VXX1/VXX2 未核實調整合約 (觸發 F4 BLOCK 禁假設100)</option>
               </select>
             </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[10px]">
+              <label class="text-slate-400">調整交割規格來源 URL（使用者提供、需另行核對）<input id="inpVxxDeliverableEvidenceRef" type="text" value="" placeholder="https://... 官方合約／公司行動文件" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-1 mono-num text-white" /></label>
+              <label class="text-slate-400">該來源 SHA-256（格式檢查不等於真實性驗證）<input id="inpVxxDeliverableEvidenceSha" type="text" value="" placeholder="sha256:64位小寫十六進位" class="mt-0.5 w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-1 mono-num text-white" /></label>
+            </div>
             <div id="candDerivedSummary" class="text-[11px] font-mono text-slate-300 pt-1"></div>
+            <div class="mt-2 rounded border border-amber-700/50 bg-amber-950/20 p-2">
+              <div class="text-[11px] font-semibold text-amber-300">假設帳（Hypothesis / Assumption Ledger）— 不修改 Frozen Policy</div>
+              <p class="text-[10px] text-slate-400 mt-1">BASELINE 保留既有容量常數；CONSERVATIVE／STRESS 是容量與壓力假設，不是歷史勝率或觀察事實。手動來源引用只代表使用者聲稱，未經獨立驗證。</p>
+              <div id="frameAssumptionLedger" class="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1414,7 +1451,7 @@
     </section>
 
     <!-- ===================================================================== -->
-    <!-- TAB 05: LIVE F1-F7 CONTRACT EVALUATOR & 14 GOLDEN TESTS RUNNER        -->
+    <!-- TAB 05: LIVE F1-F7 CONTRACT EVALUATOR & 52 GOLDEN TESTS RUNNER        -->
     <!-- ===================================================================== -->
     <section id="tab-audit" class="tab-panel hidden space-y-6">
       <div class="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
@@ -1424,10 +1461,10 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" id="btnRunGoldenTests" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
-            ▶ 重新執行 14 組 Golden Tests
+            ▶ 重新執行 52 組 Golden Tests
           </button>
           <button type="button" id="btnRun37GoldenTests" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition">
-            ▶ 執行 V4.3 全量 37 組 Golden Tests (CI 對齊)
+            ▶ 執行 V4.3 全量 52 組 Golden Tests (CI 對齊)
           </button>
           <button type="button" id="btnRunBrowserRoundTrip" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition">
             ⟳ 執行匯出→清空→匯入→逐欄重現測試
@@ -1436,7 +1473,7 @@
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <!-- Left 6 cols: Live F1-F7 State Evaluator + 14 Golden Tests -->
+        <!-- Left 6 cols: Live F1-F7 State Evaluator + 52 Golden Tests -->
         <div class="lg:col-span-6 bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-4">
           <div class="flex items-center justify-between border-b border-slate-800 pb-3">
             <div>
@@ -1449,8 +1486,8 @@
 
           <div class="pt-3 border-t border-slate-800">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-bold text-white">B. 內建 37 組自動化回歸測試 (V4.3 Golden Test Suite · 標記 TEST_ONLY 算術測試資料)</span>
-              <span id="goldenSuiteSummaryBadge" class="px-2 py-0.5 text-[11px] font-mono rounded bg-emerald-500/15 text-emerald-300">37 / 37 PASS</span>
+              <span class="text-xs font-bold text-white">B. 內建 52 組自動化回歸測試 (V4.3 Golden Test Suite · 標記 TEST_ONLY 算術測試資料)</span>
+              <span id="goldenSuiteSummaryBadge" class="px-2 py-0.5 text-[11px] font-mono rounded bg-emerald-500/15 text-emerald-300">52 / 52 PASS</span>
             </div>
             <div id="goldenTestsResultList" class="space-y-1.5 max-h-64 overflow-y-auto text-[11px] font-mono"></div>
           </div>
@@ -1585,6 +1622,15 @@
     };
 
     const FRAME_DEFAULT_EXTRAS = {
+      assumptionProfile: 'BASELINE',
+      vxxDeliverableEvidenceRef: '',
+      vxxDeliverableEvidenceSha: '',
+      candQqqShortAsOf: '2026-10-15T16:00:00-04:00', candQqqLongAsOf: '2026-10-15T16:00:00-04:00',
+      candQqqShortSourceRef: 'USER_SUPPLIED_UNVERIFIED', candQqqLongSourceRef: 'USER_SUPPLIED_UNVERIFIED',
+      candVxxShortAsOf: '2026-10-15T16:00:00-04:00', candVxxLongAsOf: '2026-10-15T16:00:00-04:00',
+      candVxxShortSourceRef: 'USER_SUPPLIED_UNVERIFIED', candVxxLongSourceRef: 'USER_SUPPLIED_UNVERIFIED',
+      candVxxPutShortAsOf: '2026-10-15T16:00:00-04:00', candVxxPutLongAsOf: '2026-10-15T16:00:00-04:00',
+      candVxxPutShortSourceRef: 'USER_SUPPLIED_UNVERIFIED', candVxxPutLongSourceRef: 'USER_SUPPLIED_UNVERIFIED',
       vxxBorrowCostPct: '12.50',
       vxxMarginReqPct: '150',
       vxxLocateDepth: '15000',
@@ -2210,6 +2256,10 @@
       if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0,10) !== expiryDate) return null;
       return { id, root:m[1], expiryDate, optionType:m[5], strike:Number(m[6])/1000 };
     }
+    function isIsoTimestampWithTimezone(value) {
+      const v = String(value || '').trim();
+      return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(v) && Number.isFinite(Date.parse(v));
+    }
 
     const SharedContractEngine = {
       version: 'qqq-hybrid.shared-contract.v4.3',
@@ -2564,7 +2614,20 @@
           }
           if (!quoteProvenanceValid) return { valid:false, status:'BLOCKED_UNKNOWN_QUOTE_PROVENANCE', fullQty:null, maxExpirationLossPerSpread:null, reason:'未知來源分類，拒絕把自訂標籤當成已核實證據' };
           if (!quoteTsValid) {
-            return { valid: false, status: 'PENDING_QUOTE_TIMESTAMP', fullQty: null, maxExpirationLossPerSpread: null, reason: '缺少或過期之期權報價時間戳 (Quote As-Of)' };
+            return { valid: false, status: 'PENDING_QUOTE_TIMESTAMP', fullQty: null, maxExpirationLossPerSpread: null, reason: '缺少或過期之整體行情報價時間戳' };
+          }
+          const shortAsOf = String(cfg.shortAsOf || '').trim();
+          const longAsOf = String(cfg.longAsOf || '').trim();
+          const shortSourceRef = String(cfg.shortSourceRef || '').trim();
+          const longSourceRef = String(cfg.longSourceRef || '').trim();
+          const legAge = value => isIsoTimestampWithTimezone(value) ? this.signedDaysBetween(value.slice(0,10), inputs.todayDate || '2026-10-16') : null;
+          const shortLegAge = legAge(shortAsOf);
+          const longLegAge = legAge(longAsOf);
+          if (shortLegAge === null || longLegAge === null || shortLegAge < 0 || longLegAge < 0 || shortLegAge > assumptions.quoteMaxAgeDays || longLegAge > assumptions.quoteMaxAgeDays) {
+            return { valid:false, status:'PENDING_LEG_QUOTE_TIMESTAMP', fullQty:null, maxExpirationLossPerSpread:null, reason:'短腿與長腿均需 ISO-8601 timezone 時間戳，且不得未來或超出報價新鮮度假設' };
+          }
+          if (!shortSourceRef || !longSourceRef) {
+            return { valid:false, status:'PENDING_LEG_SOURCE_REFERENCE', fullQty:null, maxExpirationLossPerSpread:null, reason:'短腿與長腿均需獨立來源引用；USER_SUPPLIED 仍只屬使用者聲稱' };
           }
           const shortId = String(cfg.shortId !== undefined ? cfg.shortId : '').trim();
           const longId = String(cfg.longId !== undefined ? cfg.longId : '').trim();
@@ -2675,6 +2738,8 @@
             deliverableSpec: cfg.isVxx ? vxxRoot : 'STANDARD_100',
             quoteProvenance,
             evidenceClass: 'USER_ASSERTED_NOT_INDEPENDENTLY_VERIFIED',
+            quoteAsOfByLeg: { short: shortAsOf, long: longAsOf },
+            sourceRefByLeg: { short: shortSourceRef, long: longSourceRef },
             assumptionProfile: assumptions.profileKey,
             assumptionEvidenceClass: assumptions.evidenceClass,
             netCreditPerShare,
@@ -2713,6 +2778,8 @@
           lSizeStr: inputs.candQqqLongSize,
           sMultStr: inputs.candQqqMult,
           lMultStr: inputs.candQqqMult,
+          shortAsOf: inputs.candQqqShortAsOf, longAsOf: inputs.candQqqLongAsOf,
+          shortSourceRef: inputs.candQqqShortSourceRef, longSourceRef: inputs.candQqqLongSourceRef,
           budgetUsd: totalNav * assumptions.qqqCallMaxLossBudgetFraction
         });
 
@@ -2734,6 +2801,8 @@
           lSizeStr: inputs.candVxxLongSize,
           sMultStr: inputs.candVxxShortMult,
           lMultStr: inputs.candVxxLongMult,
+          shortAsOf: inputs.candVxxShortAsOf, longAsOf: inputs.candVxxLongAsOf,
+          shortSourceRef: inputs.candVxxShortSourceRef, longSourceRef: inputs.candVxxLongSourceRef,
           budgetUsd: totalNav * assumptions.vxxCallMaxLossBudgetFraction
         });
 
@@ -2755,6 +2824,8 @@
           lSizeStr: inputs.candVxxPutLongSize !== undefined ? inputs.candVxxPutLongSize : '32',
           sMultStr: inputs.candVxxPutShortMult !== undefined ? inputs.candVxxPutShortMult : '100',
           lMultStr: inputs.candVxxPutLongMult !== undefined ? inputs.candVxxPutLongMult : '100',
+          shortAsOf: inputs.candVxxPutShortAsOf, longAsOf: inputs.candVxxPutLongAsOf,
+          shortSourceRef: inputs.candVxxPutShortSourceRef, longSourceRef: inputs.candVxxPutLongSourceRef,
           budgetUsd: totalNav * assumptions.vxxPutMaxLossBudgetFraction
         });
 
@@ -2935,12 +3006,12 @@
         }
         return {
           hubRunAllowed: true,
-          status: 'HUB_EXECUTION_VERIFIED_READY',
+          status: 'HUB_PREFLIGHT_CONFIG_READY',
           entryCmd,
           sourceSha,
           outputSha,
           logPath,
-          reason: `HUB 專用執行規格、Runner、來源/輸出 SHA-256 與日誌路徑已全部核實 (${entryCmd})。`
+          reason: `HUB 前置設定欄位格式已填齊 (${entryCmd})；這只是 preflight，未證明 Runner、來源/輸出雜湊或日誌真實存在，也不代表已執行。`
         };
       },
 
@@ -3733,8 +3804,8 @@
       ];
     }
 
-    // Complete 37 Golden Tests Suite (Hardened against Defects A, B, C, D, E)
-    function runAutomated14GoldenTests() {
+    // Complete 52 Golden Tests Suite (Hardened against Defects A, B, C, D, E)
+    function runAutomated52GoldenTests() {
       const results = [];
       const savedStoreState = VerifiedSourceStore.exportState();
 
@@ -4335,8 +4406,8 @@
           hubOutputSha: 'sha256:' + sha256Hex('hub-out-v4.4'),
           hubLogPath: 'gh-run://hub-web-nasdaqcom-run-107.log'
         });
-        if (!outReady.hubEval.hubRunAllowed || outReady.hubEval.status !== 'HUB_EXECUTION_VERIFIED_READY') {
-          throw new Error(`Expected HUB_EXECUTION_VERIFIED_READY, got ${outReady.hubEval.status}`);
+        if (!outReady.hubEval.hubRunAllowed || outReady.hubEval.status !== 'HUB_PREFLIGHT_CONFIG_READY') {
+          throw new Error(`Expected HUB_PREFLIGHT_CONFIG_READY, got ${outReady.hubEval.status}`);
         }
         return `ubuntu-latest→BLOCKED · MissingHash→PENDING · Verified→${outReady.hubEval.status}`;
       });
@@ -4378,6 +4449,24 @@
         if (badExpiry.candEval.vxxCand.status !== 'BLOCKED_LEG_EXPIRY_MISMATCH') throw new Error('expiry mismatch was not blocked');
         if (badStrike.candEval.vxxCand.status !== 'BLOCKED_LEG_STRIKE_ID_MISMATCH') throw new Error('strike mismatch was not blocked');
         return 'Option type, expiry and strike-ID mismatch → BLOCKED';
+      });
+
+      assertCase('GT-51', '逐腿時間戳與來源引用分別保存；缺失時 PENDING', () => {
+        const noTime = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxLongAsOf: '' });
+        const noSource = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxShortSourceRef: '' });
+        if (noTime.candEval.vxxCand.status !== 'PENDING_LEG_QUOTE_TIMESTAMP') throw new Error('Missing long-leg timestamp was not blocked');
+        if (noSource.candEval.vxxCand.status !== 'PENDING_LEG_SOURCE_REFERENCE') throw new Error('Missing short-leg source reference was not blocked');
+        if (noTime.candEval.vxxCand.fullQty !== null || noSource.candEval.vxxCand.fullQty !== null) throw new Error('Missing leg evidence must not produce capacity');
+        return 'Missing per-leg timestamp/source → PENDING, FULL=null';
+      });
+      assertCase('GT-52', '假設能力：BASELINE／CONSERVATIVE／STRESS 可比較，但 Frozen Policy target 不變', () => {
+        const base = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, assumptionProfile:'BASELINE' });
+        const cons = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, assumptionProfile:'CONSERVATIVE' });
+        const stress = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, assumptionProfile:'STRESS' });
+        if (cons.candEval.qqqCand.fullQty > base.candEval.qqqCand.fullQty || stress.candEval.qqqCand.fullQty > cons.candEval.qqqCand.fullQty) throw new Error('Tighter assumption profile expanded capacity');
+        if (base.candEval.assumptions.profileKey !== 'BASELINE' || cons.candEval.assumptions.evidenceClass !== 'HYPOTHETICAL_SCENARIO_NOT_OBSERVED' || stress.candEval.assumptions.profileKey !== 'STRESS') throw new Error('Profile provenance missing');
+        if (base.targetVxxPct !== cons.targetVxxPct || base.targetVxxPct !== stress.targetVxxPct) throw new Error('Assumption scenario changed Frozen Policy target');
+        return 'BASELINE / CONSERVATIVE / STRESS compared; policy target invariant';
       });
 
       return results;
@@ -4473,6 +4562,21 @@
         vxxPutEntryCr: document.getElementById('inpVxxPutEntryCr').value,
         vxxPutCurMark: document.getElementById('inpVxxPutCurMark').value,
         quoteProvenance: document.getElementById('inpQuoteProvenance').value,
+        assumptionProfile: document.getElementById('inpAssumptionProfile').value,
+        vxxDeliverableEvidenceRef: document.getElementById('inpVxxDeliverableEvidenceRef').value,
+        vxxDeliverableEvidenceSha: document.getElementById('inpVxxDeliverableEvidenceSha').value,
+        candQqqShortAsOf: document.getElementById('candQqqShortAsOf').value,
+        candQqqLongAsOf: document.getElementById('candQqqLongAsOf').value,
+        candQqqShortSourceRef: document.getElementById('candQqqShortSourceRef').value,
+        candQqqLongSourceRef: document.getElementById('candQqqLongSourceRef').value,
+        candVxxShortAsOf: document.getElementById('candVxxShortAsOf').value,
+        candVxxLongAsOf: document.getElementById('candVxxLongAsOf').value,
+        candVxxShortSourceRef: document.getElementById('candVxxShortSourceRef').value,
+        candVxxLongSourceRef: document.getElementById('candVxxLongSourceRef').value,
+        candVxxPutShortAsOf: document.getElementById('candVxxPutShortAsOf').value,
+        candVxxPutLongAsOf: document.getElementById('candVxxPutLongAsOf').value,
+        candVxxPutShortSourceRef: document.getElementById('candVxxPutShortSourceRef').value,
+        candVxxPutLongSourceRef: document.getElementById('candVxxPutLongSourceRef').value,
         candQqqShortId: document.getElementById('candQqqShortId').value,
         candQqqLongId: document.getElementById('candQqqLongId').value,
         candQqqExpiry: document.getElementById('candQqqExpiry').value,
@@ -4590,6 +4694,15 @@
         vxxPutQty: 'inpVxxPutQty', vxxPutStrikes: 'inpVxxPutStrikes', vxxPutDte: 'inpVxxPutDte',
         vxxPutDelta: 'inpVxxPutDelta', vxxPutEntryCr: 'inpVxxPutEntryCr', vxxPutCurMark: 'inpVxxPutCurMark',
         quoteProvenance: 'inpQuoteProvenance',
+        assumptionProfile: 'inpAssumptionProfile',
+        vxxDeliverableEvidenceRef: 'inpVxxDeliverableEvidenceRef',
+        vxxDeliverableEvidenceSha: 'inpVxxDeliverableEvidenceSha',
+        candQqqShortAsOf: 'candQqqShortAsOf', candQqqLongAsOf: 'candQqqLongAsOf',
+        candQqqShortSourceRef: 'candQqqShortSourceRef', candQqqLongSourceRef: 'candQqqLongSourceRef',
+        candVxxShortAsOf: 'candVxxShortAsOf', candVxxLongAsOf: 'candVxxLongAsOf',
+        candVxxShortSourceRef: 'candVxxShortSourceRef', candVxxLongSourceRef: 'candVxxLongSourceRef',
+        candVxxPutShortAsOf: 'candVxxPutShortAsOf', candVxxPutLongAsOf: 'candVxxPutLongAsOf',
+        candVxxPutShortSourceRef: 'candVxxPutShortSourceRef', candVxxPutLongSourceRef: 'candVxxPutLongSourceRef',
         candQqqShortId: 'candQqqShortId', candQqqLongId: 'candQqqLongId', candQqqExpiry: 'candQqqExpiry',
         candQqqLegStrikes: 'candQqqLegStrikes', candQqqMult: 'candQqqMult', candQqqLongBid: 'candQqqLongBid', candQqqLongSize: 'candQqqLongSize',
         candVxxShortId: 'candVxxShortId', candVxxLongId: 'candVxxLongId', candVxxExpiry: 'candVxxExpiry',
@@ -5835,8 +5948,27 @@
       document.getElementById('aiReviewPackTextarea').value = mdPack;
     }
 
+    function renderFrameAssumptionLedger() {
+      const inputs = readInputsFromDom();
+      const a = resolveFrameAssumptions(inputs);
+      const pct = v => (v * 100).toFixed(v < 0.01 ? 2 : 1) + '%';
+      const rows = [
+        ['OPTION-QUOTE-AGE','最長報價年齡',a.quoteMaxAgeDays + ' days'],
+        ['OPTION-QUOTE-SPREAD','短腿 Bid/Ask spread 上限',pct(a.maxShortQuoteSpreadPct/100)],
+        ['QQQ-CALL-MAXLOSS','QQQ Far Call 最大損失預算',pct(a.qqqCallMaxLossBudgetFraction)],
+        ['VXX-CALL-MAXLOSS','VXX Call 最大損失預算',pct(a.vxxCallMaxLossBudgetFraction)],
+        ['VXX-PUT-MAXLOSS','VXX Put 最大損失預算',pct(a.vxxPutMaxLossBudgetFraction)],
+        ['PORTFOLIO-STRESS-CAP','組合期間壓力上限',pct(a.portfolioInterimStressCapFraction)],
+        ['DEPLOYABLE-MARGIN','可部署保證金假設',pct(a.deployableMarginFraction)],
+        ['QQQ/VXX-SHOCK','QQQ shock / VXX shock',pct(a.qqqCoreShockFraction)+' / '+pct(a.vxxUnderlyingShockFraction)]
+      ];
+      document.getElementById('frameAssumptionLedger').innerHTML = rows.map(([id,label,value]) =>
+        '<div class="rounded border border-slate-800 bg-slate-950 p-1.5"><div class="text-[9px] text-slate-500">'+id+'</div><div class="text-[10px] text-slate-300">'+label+'</div><div class="text-[11px] font-mono text-amber-200">'+value+'</div><div class="text-[9px] text-amber-500">'+a.profileKey+' · HYPOTHETICAL_SCENARIO_NOT_OBSERVED</div></div>'
+      ).join('');
+    }
     function renderGoldenTestsUI() {
-      const results = runAutomated14GoldenTests();
+      renderFrameAssumptionLedger();
+      const results = runAutomated52GoldenTests();
       const passedCount = results.filter(r => r.passed).length;
       const badge = document.getElementById('goldenSuiteSummaryBadge');
       badge.textContent = `${passedCount} / ${results.length} PASS`;
@@ -5883,6 +6015,7 @@
       }
 
       document.getElementById('presetSelect').addEventListener('change', (e) => applyPresetObject(PRESETS[e.target.value]));
+      document.getElementById('inpAssumptionProfile').addEventListener('change', () => { recomputeAll(); renderFrameAssumptionLedger(); });
       document.getElementById('btnDemo100k').addEventListener('click', () => {
         document.getElementById('presetSelect').value = 'carry_100k';
         applyPresetObject(PRESETS.carry_100k);
