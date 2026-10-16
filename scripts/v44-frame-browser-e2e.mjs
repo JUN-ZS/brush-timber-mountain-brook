@@ -41,6 +41,7 @@ try {
   }, null, { timeout: 30000 });
 
   // 1. The browser actually loads the HTML, wires events and renders 52 successful tests.
+  await page.locator('.nav-tab[data-tab="tab-audit"]').click();
   await page.locator("#btnRunGoldenTests").click();
   const resultRows = await page.locator("#goldenTestsResultList > div").count();
   assert.equal(resultRows, 52, "browser rendered Golden Test rows");
