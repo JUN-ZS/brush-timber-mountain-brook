@@ -51,6 +51,11 @@ try {
 
   // 2. The real UI changes assumptions and refreshes the visible assumptions ledger.
   await page.locator('.nav-tab[data-tab="tab-cockpit"]').click();
+  // Real-input form must not seed a plausible timestamp or treat a provenance placeholder as evidence.
+  assert.equal(await page.locator("#candVxxShortAsOf").inputValue(), "", "VXX quote timestamp must start empty");
+  assert.equal(await page.locator("#candVxxShortSourceRef").inputValue(), "", "VXX source reference must start empty");
+  const initialLiveReport = await page.locator("#aiReviewPackTextarea").inputValue();
+  assert.match(initialLiveReport, /VXX Call Spread Candidate[\s\S]*PENDING_LEG_QUOTE_TIMESTAMP/, "empty per-leg timestamp must leave real-input capacity pending");
   const assumptions = page.locator("#frameAssumptionLedger");
   await page.locator("#inpAssumptionProfile").selectOption("CONSERVATIVE");
   await page.waitForFunction(() => document.querySelector("#frameAssumptionLedger")?.innerText.includes("CONSERVATIVE"));
@@ -61,8 +66,28 @@ try {
   await page.locator("#inpAssumptionProfile").selectOption("BASELINE");
   await page.waitForFunction(() => document.querySelector("#frameAssumptionLedger")?.innerText.includes("BASELINE"));
 
-  // 3. UI-level width mismatch must surface as BLOCKED and must not present a FULL capacity.
-  await page.locator('.nav-tab[data-tab="tab-cockpit"]').click();
+  // 3. Supply explicit per-leg evidence references and as-of times; a provenance label alone is insufficient.
+  const asOf = "2026-10-15T16:00:00-04:00";
+  for (const id of ["candQqqShortAsOf","candQqqLongAsOf","candVxxShortAsOf","candVxxLongAsOf","candVxxPutShortAsOf","candVxxPutLongAsOf"]) {
+    await page.locator("#" + id).fill(asOf);
+  }
+  const refs = {
+    candQqqShortSourceRef: "SCREENSHOT:V44_E2E_QQQ_SHORT.png",
+    candQqqLongSourceRef: "SCREENSHOT:V44_E2E_QQQ_LONG.png",
+    candVxxShortSourceRef: "SCREENSHOT:V44_E2E_VXX_CALL_SHORT.png",
+    candVxxLongSourceRef: "SCREENSHOT:V44_E2E_VXX_CALL_LONG.png",
+    candVxxPutShortSourceRef: "SCREENSHOT:V44_E2E_VXX_PUT_SHORT.png",
+    candVxxPutLongSourceRef: "SCREENSHOT:V44_E2E_VXX_PUT_LONG.png"
+  };
+  for (const [id, value] of Object.entries(refs)) await page.locator("#" + id).fill(value);
+
+  await page.locator("#candVxxShortSourceRef").fill("USER_SUPPLIED_UNVERIFIED");
+  await page.waitForFunction(() => document.querySelector("#aiReviewPackTextarea")?.value.includes("PENDING_LEG_SOURCE_REFERENCE"));
+  const placeholderReport = await page.locator("#aiReviewPackTextarea").inputValue();
+  assert.match(placeholderReport, /VXX Call Spread Candidate[\s\S]*PENDING_LEG_SOURCE_REFERENCE/, "source provenance placeholder must not act as a source ID");
+  await page.locator("#candVxxShortSourceRef").fill(refs.candVxxShortSourceRef);
+
+  // 4. UI-level width mismatch must surface as BLOCKED and must not present a FULL capacity.
   await page.locator("#candVxxWidth").fill("1");
   await page.waitForFunction(() => document.querySelector("#aiReviewPackTextarea")?.value.includes("BLOCKED_STRIKE_WIDTH_MISMATCH"));
   const badWidthReport = await page.locator("#aiReviewPackTextarea").inputValue();
