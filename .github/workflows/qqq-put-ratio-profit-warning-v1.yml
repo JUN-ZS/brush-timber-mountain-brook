@@ -28,7 +28,7 @@ jobs:
         shell: bash
     steps:
       - name: Checkout PR head
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.head_ref || github.ref_name }}
           persist-credentials: false
@@ -159,7 +159,7 @@ jobs:
           EOF
 
       - name: Upload replay evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: qqq-put-ratio-profit-warning-${{ github.run_id }}
           path: artifacts/qqq_put_ratio_profit_warning/
