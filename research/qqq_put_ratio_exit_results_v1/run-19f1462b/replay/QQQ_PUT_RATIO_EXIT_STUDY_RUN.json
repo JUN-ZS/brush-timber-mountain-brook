@@ -1,0 +1,1068 @@
+{
+  "research_id": "QQQ_PUT_RATIO_EXIT_MEASUREMENT_V1",
+  "status": "DEVELOPMENT_DIAGNOSTIC_NOT_LIVE_APPROVAL",
+  "generation": {
+    "expected_sessions_to_source_end": 1960,
+    "sessions_with_option_chain": 1956,
+    "option_rows": 12134400,
+    "opened_trade_episodes": 62,
+    "entry_skip_counts": {
+      "SHORT_BID_OR_SIZE_INSUFFICIENT": 1
+    },
+    "selection_status_counts": {
+      "PAIR_SELECTED": 63,
+      "NO_VALID_STANDARD_1X5_PUT_RATIO": 11
+    },
+    "observed_last_chain_date": "2025-12-15",
+    "source_coverage": {
+      "expected_sessions_to_2025_12_15": 1960,
+      "sessions_with_chain": 1956,
+      "chain_session_coverage_pct": 99.7959,
+      "last_chain_date": "2025-12-15",
+      "universe_expected_sessions_after_source_end_to_requested_end": 11,
+      "missing_chain_sessions_not_filled": 4
+    }
+  },
+  "risk_summary_base_cost": {
+    "base_slippage_per_leg_usd": 0.05,
+    "base_commission_per_contract_per_side_usd": 0.65,
+    "trade_count": 62,
+    "median_tail_loss_if_qqq_zero_usd": 106392.4,
+    "max_tail_loss_if_qqq_zero_usd": 214696.9,
+    "median_tail_loss_pct_reference_nav": 106.3924,
+    "max_tail_loss_pct_reference_nav": 214.6969,
+    "tail_budget_capacity_0p5pct_nav_units": 0.0,
+    "tail_budget_capacity_1pct_nav_units": 0.0,
+    "tail_budget_capacity_2pct_nav_units": 0.0,
+    "required_nav_for_one_unit_at_1pct_tail_budget_median_usd": 10639240.0,
+    "one_unit_feasibility_for_100k_reference_nav": "BLOCKED if any one-unit terminal zero-price loss exceeds 100% of reference NAV; exact broker initial/maintenance margin remains UNKNOWN."
+  },
+  "base_cost_policy_summaries": [
+    {
+      "policy": "BASE_DTE7_CLOSE_SHORT_RISK",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 18067.6,
+      "closed_trade_net_pnl_pct_reference_nav": 18.0676,
+      "expectancy_usd_per_resolved_trade": 291.41,
+      "median_trade_pnl_usd": 192.7,
+      "win_rate": 0.951613,
+      "win_rate_pct": 95.16,
+      "winning_trades": 59,
+      "losing_trades": 3,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 86.71,
+      "win_rate_wilson95_nominal_high_pct": 98.34,
+      "profit_factor": 19.428805,
+      "gross_wins_usd": 19048.0,
+      "gross_losses_usd": -980.4,
+      "best_trade_usd": 1801.2,
+      "worst_trade_usd": -922.8,
+      "policy_rule_triggered_trade_count": 0,
+      "policy_rule_trigger_rate_pct": 0.0,
+      "mandatory_dte7_fallback_trade_count": 62,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p05": null,
+        "p95": null
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 25.8033,
+        "median": 25.0,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 25.9194,
+        "median": 25.5,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0164,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1662.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 10.871,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.281,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "TP_USD_500_CLOSE_SHORT_RISK",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 14199.6,
+      "closed_trade_net_pnl_pct_reference_nav": 14.1996,
+      "expectancy_usd_per_resolved_trade": 229.03,
+      "median_trade_pnl_usd": 181.7,
+      "win_rate": 0.935484,
+      "win_rate_pct": 93.55,
+      "winning_trades": 58,
+      "losing_trades": 4,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 84.55,
+      "win_rate_wilson95_nominal_high_pct": 97.46,
+      "profit_factor": 7.347041,
+      "gross_wins_usd": 16436.8,
+      "gross_losses_usd": -2237.2,
+      "best_trade_usd": 741.2,
+      "worst_trade_usd": -1256.8,
+      "policy_rule_triggered_trade_count": 16,
+      "policy_rule_trigger_rate_pct": 25.81,
+      "mandatory_dte7_fallback_trade_count": 46,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 16,
+        "mean": 19.0625,
+        "median": 19.0,
+        "p05": 15.0,
+        "p95": 23.0
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 24.4098,
+        "median": 24.0,
+        "p05": 17.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 24.5484,
+        "median": 24.0,
+        "p05": 17.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0164,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1577.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 9.0042,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.2424,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "TP_USD_1000_CLOSE_SHORT_RISK",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 18067.6,
+      "closed_trade_net_pnl_pct_reference_nav": 18.0676,
+      "expectancy_usd_per_resolved_trade": 291.41,
+      "median_trade_pnl_usd": 192.7,
+      "win_rate": 0.951613,
+      "win_rate_pct": 95.16,
+      "winning_trades": 59,
+      "losing_trades": 3,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 86.71,
+      "win_rate_wilson95_nominal_high_pct": 98.34,
+      "profit_factor": 19.428805,
+      "gross_wins_usd": 19048.0,
+      "gross_losses_usd": -980.4,
+      "best_trade_usd": 1801.2,
+      "worst_trade_usd": -922.8,
+      "policy_rule_triggered_trade_count": 3,
+      "policy_rule_trigger_rate_pct": 4.84,
+      "mandatory_dte7_fallback_trade_count": 59,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 3,
+        "mean": 24.0,
+        "median": 23.0,
+        "p05": 22.0,
+        "p95": 27.0
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 25.8033,
+        "median": 25.0,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 25.9194,
+        "median": 25.5,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0164,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1662.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 10.871,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.281,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "TP_USD_2000_CLOSE_SHORT_RISK",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 18067.6,
+      "closed_trade_net_pnl_pct_reference_nav": 18.0676,
+      "expectancy_usd_per_resolved_trade": 291.41,
+      "median_trade_pnl_usd": 192.7,
+      "win_rate": 0.951613,
+      "win_rate_pct": 95.16,
+      "winning_trades": 59,
+      "losing_trades": 3,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 86.71,
+      "win_rate_wilson95_nominal_high_pct": 98.34,
+      "profit_factor": 19.428805,
+      "gross_wins_usd": 19048.0,
+      "gross_losses_usd": -980.4,
+      "best_trade_usd": 1801.2,
+      "worst_trade_usd": -922.8,
+      "policy_rule_triggered_trade_count": 0,
+      "policy_rule_trigger_rate_pct": 0.0,
+      "mandatory_dte7_fallback_trade_count": 62,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p05": null,
+        "p95": null
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 25.8033,
+        "median": 25.0,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 25.9194,
+        "median": 25.5,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0164,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1662.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 10.871,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.281,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "TP_25PCT_MAX_TERMINAL_GAIN",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 17220.6,
+      "closed_trade_net_pnl_pct_reference_nav": 17.2206,
+      "expectancy_usd_per_resolved_trade": 277.75,
+      "median_trade_pnl_usd": 192.7,
+      "win_rate": 0.951613,
+      "win_rate_pct": 95.16,
+      "winning_trades": 59,
+      "losing_trades": 3,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 86.71,
+      "win_rate_wilson95_nominal_high_pct": 98.34,
+      "profit_factor": 18.564871,
+      "gross_wins_usd": 18201.0,
+      "gross_losses_usd": -980.4,
+      "best_trade_usd": 1801.2,
+      "worst_trade_usd": -922.8,
+      "policy_rule_triggered_trade_count": 7,
+      "policy_rule_trigger_rate_pct": 11.29,
+      "mandatory_dte7_fallback_trade_count": 55,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 7,
+        "mean": 22.1429,
+        "median": 21.0,
+        "p05": 19.0,
+        "p95": 27.0
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 25.5574,
+        "median": 24.0,
+        "p05": 22.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 25.6774,
+        "median": 24.5,
+        "p05": 22.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0164,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1647.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 10.4557,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.2745,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "TP_50PCT_MAX_TERMINAL_GAIN",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 18067.6,
+      "closed_trade_net_pnl_pct_reference_nav": 18.0676,
+      "expectancy_usd_per_resolved_trade": 291.41,
+      "median_trade_pnl_usd": 192.7,
+      "win_rate": 0.951613,
+      "win_rate_pct": 95.16,
+      "winning_trades": 59,
+      "losing_trades": 3,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 86.71,
+      "win_rate_wilson95_nominal_high_pct": 98.34,
+      "profit_factor": 19.428805,
+      "gross_wins_usd": 19048.0,
+      "gross_losses_usd": -980.4,
+      "best_trade_usd": 1801.2,
+      "worst_trade_usd": -922.8,
+      "policy_rule_triggered_trade_count": 0,
+      "policy_rule_trigger_rate_pct": 0.0,
+      "mandatory_dte7_fallback_trade_count": 62,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p05": null,
+        "p95": null
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 25.8033,
+        "median": 25.0,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 25.9194,
+        "median": 25.5,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0164,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1662.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 10.871,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.281,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "FAST_1000_WITHIN_5D_TRIM_4_SHORTS",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 18067.6,
+      "closed_trade_net_pnl_pct_reference_nav": 18.0676,
+      "expectancy_usd_per_resolved_trade": 291.41,
+      "median_trade_pnl_usd": 192.7,
+      "win_rate": 0.951613,
+      "win_rate_pct": 95.16,
+      "winning_trades": 59,
+      "losing_trades": 3,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 86.71,
+      "win_rate_wilson95_nominal_high_pct": 98.34,
+      "profit_factor": 19.428805,
+      "gross_wins_usd": 19048.0,
+      "gross_losses_usd": -980.4,
+      "best_trade_usd": 1801.2,
+      "worst_trade_usd": -922.8,
+      "policy_rule_triggered_trade_count": 0,
+      "policy_rule_trigger_rate_pct": 0.0,
+      "mandatory_dte7_fallback_trade_count": 62,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 0,
+        "mean": null,
+        "median": null,
+        "p05": null,
+        "p95": null
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 25.8033,
+        "median": 25.0,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 25.9194,
+        "median": 25.5,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0164,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1662.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 10.871,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.281,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "DAY20_NONPOSITIVE_CLOSE_SHORT_RISK",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 10789.6,
+      "closed_trade_net_pnl_pct_reference_nav": 10.7896,
+      "expectancy_usd_per_resolved_trade": 174.03,
+      "median_trade_pnl_usd": 174.7,
+      "win_rate": 0.903226,
+      "win_rate_pct": 90.32,
+      "winning_trades": 56,
+      "losing_trades": 6,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 80.45,
+      "win_rate_wilson95_nominal_high_pct": 95.49,
+      "profit_factor": 2.636573,
+      "gross_wins_usd": 17382.4,
+      "gross_losses_usd": -6592.8,
+      "best_trade_usd": 1801.2,
+      "worst_trade_usd": -4737.8,
+      "policy_rule_triggered_trade_count": 10,
+      "policy_rule_trigger_rate_pct": 16.13,
+      "mandatory_dte7_fallback_trade_count": 52,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 10,
+        "mean": 21.1,
+        "median": 20.5,
+        "p05": 20.0,
+        "p95": 25.0
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 25.2131,
+        "median": 24.0,
+        "p05": 21.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 25.3387,
+        "median": 24.0,
+        "p05": 21.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1626.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 6.6357,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0484,
+      "total_missing_mark_sessions": 11,
+      "trade_mark_coverage_pct": 99.3264,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "DAY20_NONPOSITIVE_TRIM_4_SHORTS",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 9568.6,
+      "closed_trade_net_pnl_pct_reference_nav": 9.5686,
+      "expectancy_usd_per_resolved_trade": 154.33,
+      "median_trade_pnl_usd": 174.7,
+      "win_rate": 0.854839,
+      "win_rate_pct": 85.48,
+      "winning_trades": 53,
+      "losing_trades": 9,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 74.66,
+      "win_rate_wilson95_nominal_high_pct": 92.17,
+      "profit_factor": 2.205842,
+      "gross_wins_usd": 17503.8,
+      "gross_losses_usd": -7935.2,
+      "best_trade_usd": 1801.2,
+      "worst_trade_usd": -5714.8,
+      "policy_rule_triggered_trade_count": 10,
+      "policy_rule_trigger_rate_pct": 16.13,
+      "mandatory_dte7_fallback_trade_count": 52,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 10,
+        "mean": 21.1,
+        "median": 20.5,
+        "p05": 20.0,
+        "p95": 25.0
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 25.2131,
+        "median": 24.0,
+        "p05": 21.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 25.9355,
+        "median": 25.5,
+        "p05": 23.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1633.4,
+      "net_pnl_per_short_risk_equivalent_session_usd": 5.8581,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.2814,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "SL_USD_500_CLOSE_SHORT_RISK",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 751.6,
+      "closed_trade_net_pnl_pct_reference_nav": 0.7516,
+      "expectancy_usd_per_resolved_trade": 12.12,
+      "median_trade_pnl_usd": 101.2,
+      "win_rate": 0.709677,
+      "win_rate_pct": 70.97,
+      "winning_trades": 44,
+      "losing_trades": 18,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 58.71,
+      "win_rate_wilson95_nominal_high_pct": 80.78,
+      "profit_factor": 1.075172,
+      "gross_wins_usd": 10750.0,
+      "gross_losses_usd": -9998.4,
+      "best_trade_usd": 1403.2,
+      "worst_trade_usd": -1224.8,
+      "policy_rule_triggered_trade_count": 20,
+      "policy_rule_trigger_rate_pct": 32.26,
+      "mandatory_dte7_fallback_trade_count": 42,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 20,
+        "mean": 6.4,
+        "median": 5.0,
+        "p05": 1.0,
+        "p95": 12.0
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 19.7377,
+        "median": 24.0,
+        "p05": 3.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 19.9516,
+        "median": 24.0,
+        "p05": 3.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1292.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 0.5817,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0484,
+      "total_missing_mark_sessions": 11,
+      "trade_mark_coverage_pct": 99.1532,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "SL_USD_1000_CLOSE_SHORT_RISK",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": 14.6,
+      "closed_trade_net_pnl_pct_reference_nav": 0.0146,
+      "expectancy_usd_per_resolved_trade": 0.24,
+      "median_trade_pnl_usd": 144.2,
+      "win_rate": 0.83871,
+      "win_rate_pct": 83.87,
+      "winning_trades": 52,
+      "losing_trades": 10,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 72.79,
+      "win_rate_wilson95_nominal_high_pct": 91.0,
+      "profit_factor": 1.001094,
+      "gross_wins_usd": 13363.6,
+      "gross_losses_usd": -13349.0,
+      "best_trade_usd": 1403.2,
+      "worst_trade_usd": -4737.8,
+      "policy_rule_triggered_trade_count": 10,
+      "policy_rule_trigger_rate_pct": 16.13,
+      "mandatory_dte7_fallback_trade_count": 52,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 10,
+        "mean": 7.3,
+        "median": 6.0,
+        "p05": 1.0,
+        "p95": 23.0
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 22.9508,
+        "median": 24.0,
+        "p05": 5.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 23.1129,
+        "median": 24.0,
+        "p05": 5.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1488.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": 0.0098,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0484,
+      "total_missing_mark_sessions": 11,
+      "trade_mark_coverage_pct": 99.2642,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    },
+    {
+      "policy": "SL_USD_2000_CLOSE_SHORT_RISK",
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65,
+      "trade_episodes": 62,
+      "resolved_trades": 62,
+      "unresolved_trades": 0,
+      "closed_trade_net_pnl_sum_usd": -5325.4,
+      "closed_trade_net_pnl_pct_reference_nav": -5.3254,
+      "expectancy_usd_per_resolved_trade": -85.89,
+      "median_trade_pnl_usd": 168.2,
+      "win_rate": 0.870968,
+      "win_rate_pct": 87.1,
+      "winning_trades": 54,
+      "losing_trades": 8,
+      "flat_trades": 0,
+      "win_rate_wilson95_nominal_low_pct": 76.55,
+      "win_rate_wilson95_nominal_high_pct": 93.31,
+      "profit_factor": 0.737295,
+      "gross_wins_usd": 14946.0,
+      "gross_losses_usd": -20271.4,
+      "best_trade_usd": 1403.2,
+      "worst_trade_usd": -5450.8,
+      "policy_rule_triggered_trade_count": 6,
+      "policy_rule_trigger_rate_pct": 9.68,
+      "mandatory_dte7_fallback_trade_count": 56,
+      "policy_rule_trigger_age_sessions_distribution": {
+        "n": 6,
+        "mean": 12.0,
+        "median": 10.5,
+        "p05": 4.0,
+        "p95": 23.0
+      },
+      "first_risk_action_age_sessions_distribution": {
+        "n": 61,
+        "mean": 24.5574,
+        "median": 24.0,
+        "p05": 13.0,
+        "p95": 29.0
+      },
+      "resolved_holding_age_sessions_distribution": {
+        "n": 62,
+        "mean": 24.6935,
+        "median": 24.0,
+        "p05": 13.0,
+        "p95": 29.0
+      },
+      "signal_to_first_action_delay_sessions_distribution": {
+        "n": 61,
+        "mean": 1.0164,
+        "median": 1.0,
+        "p05": 1.0,
+        "p95": 1.0
+      },
+      "resolved_short_risk_exposure_session_equivalents": 1586.0,
+      "net_pnl_per_short_risk_equivalent_session_usd": -3.3578,
+      "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+      "mean_action_deferred_sessions_per_trade": 0.0645,
+      "total_missing_mark_sessions": 12,
+      "trade_mark_coverage_pct": 99.2467,
+      "terminal_tail_loss_zero_usd_distribution": {
+        "n": 62,
+        "mean": 112820.5452,
+        "median": 106392.4,
+        "p05": 58576.9,
+        "p95": 188585.9
+      },
+      "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+    }
+  ],
+  "event_study": {
+    "cost_convention": {
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65
+    },
+    "critical_timing_caveat": "Threshold events are EOD quote-mark events, not intraday threshold touches. Source reports 16:00 ET; exact tick timestamp and fill availability are unverified.",
+    "plus_1000_events_total": 9,
+    "plus_1000_first_hit_within_5_sessions": 0,
+    "plus_1000_first_hit_after_5_sessions": 9,
+    "early_1000_then_hold_original_1x5": {
+      "5_session_forward": {
+        "n": 0,
+        "median_pnl_change_usd": null,
+        "mean_pnl_change_usd": null,
+        "fraction_future_pnl_nonpositive": null,
+        "fraction_pnl_giveback_ge_50pct_of_1000_target": null,
+        "future_pnl_distribution_usd": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p05": null,
+          "p95": null
+        }
+      },
+      "10_session_forward": {
+        "n": 0,
+        "median_pnl_change_usd": null,
+        "mean_pnl_change_usd": null,
+        "fraction_future_pnl_nonpositive": null,
+        "fraction_pnl_giveback_ge_50pct_of_1000_target": null,
+        "future_pnl_distribution_usd": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p05": null,
+          "p95": null
+        }
+      }
+    },
+    "late_1000_then_hold_original_1x5": {
+      "5_session_forward": {
+        "n": 1,
+        "median_pnl_change_usd": 1065.8999999999999,
+        "mean_pnl_change_usd": 1065.9,
+        "fraction_future_pnl_nonpositive": 0.0,
+        "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0,
+        "future_pnl_distribution_usd": {
+          "n": 1,
+          "mean": 2249.1,
+          "median": 2249.1,
+          "p05": 2249.1,
+          "p95": 2249.1
+        }
+      },
+      "10_session_forward": {
+        "n": 0,
+        "median_pnl_change_usd": null,
+        "mean_pnl_change_usd": null,
+        "fraction_future_pnl_nonpositive": null,
+        "fraction_pnl_giveback_ge_50pct_of_1000_target": null,
+        "future_pnl_distribution_usd": {
+          "n": 0,
+          "mean": null,
+          "median": null,
+          "p05": null,
+          "p95": null
+        }
+      }
+    },
+    "day20_nonpositive_then_hold_original_1x5": {
+      "5_session_forward": {
+        "n": 5,
+        "median_pnl_change_usd": 332.0,
+        "mean_pnl_change_usd": 278.2,
+        "fraction_future_pnl_nonpositive": 0.2,
+        "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0,
+        "future_pnl_distribution_usd": {
+          "n": 5,
+          "mean": 235.8,
+          "median": 207.2,
+          "p05": -2.8,
+          "p95": 644.2
+        }
+      },
+      "10_session_forward": {
+        "n": 2,
+        "median_pnl_change_usd": 21.825,
+        "mean_pnl_change_usd": 21.82,
+        "fraction_future_pnl_nonpositive": 0.0,
+        "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0,
+        "future_pnl_distribution_usd": {
+          "n": 2,
+          "mean": 17.025,
+          "median": 17.025,
+          "p05": 1.85,
+          "p95": 32.2
+        }
+      }
+    },
+    "day20_positive_then_hold_original_1x5": {
+      "5_session_forward": {
+        "n": 56,
+        "median_pnl_change_usd": 3.150000000000002,
+        "mean_pnl_change_usd": -131.89,
+        "fraction_future_pnl_nonpositive": 0.0714,
+        "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0357,
+        "future_pnl_distribution_usd": {
+          "n": 56,
+          "mean": 138.8812,
+          "median": 175.7,
+          "p05": -53.8,
+          "p95": 876.2
+        }
+      },
+      "10_session_forward": {
+        "n": 28,
+        "median_pnl_change_usd": 20.650000000000013,
+        "mean_pnl_change_usd": 125.84,
+        "fraction_future_pnl_nonpositive": 0.0,
+        "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0,
+        "future_pnl_distribution_usd": {
+          "n": 28,
+          "mean": 394.2536,
+          "median": 194.65,
+          "p05": 60.1,
+          "p95": 2186.2
+        }
+      }
+    },
+    "interpretation_rule": "These are conditional historical diagnostics, not causal proof or a forecast; small event counts remain inconclusive."
+  },
+  "performance_gate": "BLOCKED_FOR_DEPLOYMENT: EOD timing/fills unverified, broker margin/assignment costs unavailable, one-unit 1x5 tail risk may exceed reference NAV, and history is previously inspected development data.",
+  "output_dir": "artifacts/qqq_put_ratio_exit_study_v1"
+}
+# QQQ 1x5 Put Ratio Exit Measurement — V1
+
+**Status:** `DEVELOPMENT_DIAGNOSTIC_NOT_LIVE_APPROVAL`  
+**Window:** 2018-03-01 to 2025-12-15 (requested end 2025-12-31; source is incomplete after Dec 15, 2025)  
+**Evidence:** public EOD preservation mirror / conservative quote-side replay; not confirmed fills.  
+**Entry episodes:** 62; selection skips: {}
+
+## Frozen test definition
+
+- On session *t*, choose one standard QQQ put near abs(Delta) 0.30 and five standard lower-strike puts near abs(Delta) 0.10, same expiry, 30–60 DTE (target 45).
+- Use exact listed contract IDs at *t+1* for entry; long buy at Ask, five shorts sold at Bid; if quote/depth is invalid, skip rather than replace the legs.
+- Exit actions are based on EOD side marks only. Short-put closure buys back at Ask; risk-trim buys back four of five shorts and leaves a 1x1 defined-risk vertical. A residual long put can remain open if no positive Bid is available.
+- Same entry episodes for every rule, non-overlapping by expiry, fixed one-unit sizing. This isolates exit-rule effects; it is not a continuous re-entry portfolio simulation.
+- Session age is the observed replay index since entry (entry-date mark is age 0). The policy-trigger count/rate distinguishes a custom rule firing from the shared DTE<=7 safety fallback; signal-to-action delay counts observed trading sessions to the first successful risk-reducing action.
+- Net P&L per short-risk-equivalent session divides resolved after-cost P&L by the sum of each observed session weighted by remaining short contracts / original five shorts. This is a descriptive holding-time denominator only—not annualized return, risk-adjusted return, or a substitute for the tail-loss / mark-coverage / cost gates.
+
+## Base cost case: $0.05 per leg per side + $0.65 per contract per side
+
+| Exit rule | Resolved | Net P&L | Expectancy / trade | Policy trigger N / % | DTE7 fallback N | Median trigger age | Median first-action age | Median resolution age | Net P&L / short-risk eq-session | Winners / resolved | Win rate % | Nominal Wilson 95% range | Profit factor | Missing marks |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| BASE_DTE7_CLOSE_SHORT_RISK | 62/62 | 18067.6 | 291.41 | 0/62 (0.0%) | 62 | — | 1.0 | 25.5 | 10.871 | 59/62 | 95.16% | 86.71–98.34% | 19.428805 | 12 |
+| TP_USD_500_CLOSE_SHORT_RISK | 62/62 | 14199.6 | 229.03 | 16/62 (25.81%) | 46 | 19.0 | 1.0 | 24.0 | 9.0042 | 58/62 | 93.55% | 84.55–97.46% | 7.347041 | 12 |
+| TP_USD_1000_CLOSE_SHORT_RISK | 62/62 | 18067.6 | 291.41 | 3/62 (4.84%) | 59 | 23.0 | 1.0 | 25.5 | 10.871 | 59/62 | 95.16% | 86.71–98.34% | 19.428805 | 12 |
+| TP_USD_2000_CLOSE_SHORT_RISK | 62/62 | 18067.6 | 291.41 | 0/62 (0.0%) | 62 | — | 1.0 | 25.5 | 10.871 | 59/62 | 95.16% | 86.71–98.34% | 19.428805 | 12 |
+| TP_25PCT_MAX_TERMINAL_GAIN | 62/62 | 17220.6 | 277.75 | 7/62 (11.29%) | 55 | 21.0 | 1.0 | 24.5 | 10.4557 | 59/62 | 95.16% | 86.71–98.34% | 18.564871 | 12 |
+| TP_50PCT_MAX_TERMINAL_GAIN | 62/62 | 18067.6 | 291.41 | 0/62 (0.0%) | 62 | — | 1.0 | 25.5 | 10.871 | 59/62 | 95.16% | 86.71–98.34% | 19.428805 | 12 |
+| FAST_1000_WITHIN_5D_TRIM_4_SHORTS | 62/62 | 18067.6 | 291.41 | 0/62 (0.0%) | 62 | — | 1.0 | 25.5 | 10.871 | 59/62 | 95.16% | 86.71–98.34% | 19.428805 | 12 |
+| DAY20_NONPOSITIVE_CLOSE_SHORT_RISK | 62/62 | 10789.6 | 174.03 | 10/62 (16.13%) | 52 | 20.5 | 1.0 | 24.0 | 6.6357 | 56/62 | 90.32% | 80.45–95.49% | 2.636573 | 11 |
+| DAY20_NONPOSITIVE_TRIM_4_SHORTS | 62/62 | 9568.6 | 154.33 | 10/62 (16.13%) | 52 | 20.5 | 1.0 | 25.5 | 5.8581 | 53/62 | 85.48% | 74.66–92.17% | 2.205842 | 12 |
+| SL_USD_500_CLOSE_SHORT_RISK | 62/62 | 751.6 | 12.12 | 20/62 (32.26%) | 42 | 5.0 | 1.0 | 24.0 | 0.5817 | 44/62 | 70.97% | 58.71–80.78% | 1.075172 | 11 |
+| SL_USD_1000_CLOSE_SHORT_RISK | 62/62 | 14.6 | 0.24 | 10/62 (16.13%) | 52 | 6.0 | 1.0 | 24.0 | 0.0098 | 52/62 | 83.87% | 72.79–91.0% | 1.001094 | 11 |
+| SL_USD_2000_CLOSE_SHORT_RISK | 62/62 | -5325.4 | -85.89 | 6/62 (9.68%) | 56 | 10.5 | 1.0 | 24.0 | -3.3578 | 54/62 | 87.1% | 76.55–93.31% | 0.737295 | 12 |
+
+_Win-rate interval is a nominal Wilson 95% interval over resolved episodes; it does not adjust for dependence, regime clustering, or selection bias._
+
+## Tail-risk and dollars-to-risk ratio
+
+- Median terminal loss if QQQ reaches $0: **$106392.4** (106.3924% of the $100,000 reference NAV).
+- Maximum observed selected-trade terminal loss if QQQ reaches $0: **$214696.9** (214.6969% of reference NAV).
+- Median reference NAV needed for one 1x5 unit to fit a 1% terminal tail-risk budget: **$10639240.0**. This is terminal payoff arithmetic, not a broker margin figure.
+- $500 / $1,000 / $2,000 are also 0.5% / 1% / 2% of the $100,000 reference NAV, but those profit/loss thresholds are not inherently optimal. Compare each against the much larger terminal tail loss and the after-cost trade distribution.
+
+## Conditional event study (base costs; EOD marks)
+
+- First EOD mark at +$1,000: 9 events; within 5 sessions: 0; later than 5 sessions: 9.
+- Early +$1,000 then hold the original 1x5: {"5_session_forward": {"n": 0, "median_pnl_change_usd": null, "mean_pnl_change_usd": null, "fraction_future_pnl_nonpositive": null, "fraction_pnl_giveback_ge_50pct_of_1000_target": null, "future_pnl_distribution_usd": {"n": 0, "mean": null, "median": null, "p05": null, "p95": null}}, "10_session_forward": {"n": 0, "median_pnl_change_usd": null, "mean_pnl_change_usd": null, "fraction_future_pnl_nonpositive": null, "fraction_pnl_giveback_ge_50pct_of_1000_target": null, "future_pnl_distribution_usd": {"n": 0, "mean": null, "median": null, "p05": null, "p95": null}}}
+- Day-20 non-positive then hold the original 1x5: {"5_session_forward": {"n": 5, "median_pnl_change_usd": 332.0, "mean_pnl_change_usd": 278.2, "fraction_future_pnl_nonpositive": 0.2, "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0, "future_pnl_distribution_usd": {"n": 5, "mean": 235.8, "median": 207.2, "p05": -2.8, "p95": 644.2}}, "10_session_forward": {"n": 2, "median_pnl_change_usd": 21.825, "mean_pnl_change_usd": 21.82, "fraction_future_pnl_nonpositive": 0.0, "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0, "future_pnl_distribution_usd": {"n": 2, "mean": 17.025, "median": 17.025, "p05": 1.85, "p95": 32.2}}}
+- Day-20 positive comparison group: {"5_session_forward": {"n": 56, "median_pnl_change_usd": 3.150000000000002, "mean_pnl_change_usd": -131.89, "fraction_future_pnl_nonpositive": 0.0714, "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0357, "future_pnl_distribution_usd": {"n": 56, "mean": 138.8812, "median": 175.7, "p05": -53.8, "p95": 876.2}}, "10_session_forward": {"n": 28, "median_pnl_change_usd": 20.650000000000013, "mean_pnl_change_usd": 125.84, "fraction_future_pnl_nonpositive": 0.0, "fraction_pnl_giveback_ge_50pct_of_1000_target": 0.0, "future_pnl_distribution_usd": {"n": 28, "mean": 394.2536, "median": 194.65, "p05": 60.1, "p95": 2186.2}}}
+
+## Decision gates
+
+- **No `WIN $1,000` rule is accepted just because it is round.** Compare after-cost expectancy, giveback after threshold, risk reduced by closing/trim, action execution coverage, and return per unit of tail loss.
+- **A +$1,000 EOD mark within 5 sessions is not automatically a warning.** It is a warning only if the event cohort shows systematically worse subsequent giveback / loss than later +$1,000 events, with enough observations and consistent quote coverage.
+- **No profit by day 20 is not automatically bearish or failure.** It is informative only if the 5-/10-session forward conditional outcomes differ from trades already profitable on day 20. Missing marks are censored, not assumed flat.
+- Deployment gate: **BLOCKED_FOR_DEPLOYMENT: EOD timing/fills unverified, broker margin/assignment costs unavailable, one-unit 1x5 tail risk may exceed reference NAV, and history is previously inspected development data.**
+
+## Data integrity / caveats
+
+- This is a short-ratio put structure: one higher-strike long put only offsets one of the five lower-strike short puts. The remaining four short puts create severe downside exposure.
+- Zero-underlying tail loss is terminal intrinsic arithmetic; it does not model interim volatility expansion, margin calls, forced liquidation, execution gaps, or broker-specific margin.
+- All exit triggers are EOD quote-mark rules; the dataset does not establish intraday touches or fills.
+- Missing option marks are never forward-filled. A missing quote can defer a close action; unresolved trades do not enter closed-P&L totals.
+- Intrinsic expiry settlement is a proxy before broker exercise/assignment fees, taxes, or operational frictions.
+- No app capacity, Frozen Original Hybrid, main branch, or broker-order permission was modified.
+
