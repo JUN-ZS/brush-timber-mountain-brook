@@ -1,9 +1,18 @@
 name: QQQ Public EOD Option Chain Audit
 
 on:
+  push:
+    branches:
+      - feat/qqq-hybrid-operator-terminal-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py
+      - research/qqq_hybrid_operator_terminal_v1/full_history_qqq_quote_audit.py
+      - research/qqq_hybrid_operator_terminal_v1/test_full_history_qqq_quote_audit.py
+      - .github/workflows/qqq-public-eod-chain-audit.yml
+      - .github/workflows/qqq-public-eod-full-history-audit.yml
   workflow_dispatch:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened]
     branches:
       - research/qqq-hybrid-vxx-short-call-put-v1-20261009
     paths:
@@ -14,7 +23,7 @@ on:
       - .github/workflows/qqq-public-eod-full-history-audit.yml
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: qqq-public-eod-chain-audit
@@ -44,7 +53,46 @@ jobs:
 
       - name: Download hash-pinned samples and measure QQQ quote coverage
         run: |
-          py -3 research\qqq_hybrid_operator_terminal_v1\audit_qqq_public_eod_options.py || exit /b 1
+          py -3 research\qqq_hybrid_operator_terminal_v1\audit_qqq_public_eod_options.py > QQQ_PUBLIC_EOD_AUDIT_LOG.txt || exit /b 1
+          type QQQ_PUBLIC_EOD_AUDIT_LOG.txt || exit /b 1
+
+
+      - name: Persist public EOD sample-date audit log
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
+          $payload = Join-Path $env:RUNNER_TEMP ("recovery-payload-" + $tag)
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          $log = Join-Path $env:GITHUB_WORKSPACE 'QQQ_PUBLIC_EOD_AUDIT_LOG.txt'
+          if (!(Test-Path $log)) { throw 'Public EOD audit log missing' }
+          Copy-Item -Path $log -Destination $payload -Force
+          git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+          git checkout -B recovery-output "origin/research/app-artifact-recovery-20261016"
+          $dest = "research/artifact_recovery_20261016/public_eod_chain_audit/rerun-" + $tag
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path (Join-Path $payload '*') -Destination $dest -Recurse -Force
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","output=8_date_public_EOD_chain_source_and_quote_quality_probe") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $dest
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "recover: persist Persist public EOD sample-date audit log outputs $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery commit failed' }
+            $pushed = $false
+            for ($attempt = 0; $attempt -lt 3; $attempt++) {
+              git push origin HEAD:research/app-artifact-recovery-20261016
+              if ($LASTEXITCODE -eq 0) { $pushed = $true; break }
+              git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+              git rebase "origin/research/app-artifact-recovery-20261016"
+              if ($LASTEXITCODE -ne 0) { throw 'Recovery rebase failed' }
+            }
+            if (!$pushed) { throw 'Recovery push failed after retries' }
+          } else {
+            Write-Host 'No new recovery files to commit'
+          }
 
   full-history-audit:
     name: SHA-pinned 2018-2025 QQQ EOD quote alignment diagnostic
@@ -74,5 +122,42 @@ jobs:
         timeout-minutes: 35
         run: |
           if not exist .cache\\qqq-options-full-history mkdir .cache\\qqq-options-full-history
-          py -3 research\\qqq_hybrid_operator_terminal_v1\\full_history_qqq_quote_audit.py > QQQ_FULL_HISTORY_AUDIT_LOG.json || exit /b 1
-          type QQQ_FULL_HISTORY_AUDIT_LOG.json
+          py -3 research\\qqq_hybrid_operator_terminal_v1\\full_history_qqq_quote_audit.py > QQQ_FULL_HISTORY_AUDIT_LOG.txt || exit /b 1
+          type QQQ_FULL_HISTORY_AUDIT_LOG.txt
+
+      - name: Persist full-history QQQ quote-alignment audit log
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
+          $payload = Join-Path $env:RUNNER_TEMP ("recovery-payload-" + $tag)
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          $log = Join-Path $env:GITHUB_WORKSPACE 'QQQ_FULL_HISTORY_AUDIT_LOG.txt'
+          if (!(Test-Path $log)) { throw 'Full-history audit log missing' }
+          Copy-Item -Path $log -Destination $payload -Force
+          git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+          git checkout -B recovery-output "origin/research/app-artifact-recovery-20261016"
+          $dest = "research/artifact_recovery_20261016/public_eod_full_history_audit/rerun-" + $tag
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path (Join-Path $payload '*') -Destination $dest -Recurse -Force
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","output=full_2018_2025_QQQ_EOD_quote_alignment_console_report; excludes_raw_Parquet_cache") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $dest
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "recover: persist Persist full-history QQQ quote-alignment audit log outputs $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery commit failed' }
+            $pushed = $false
+            for ($attempt = 0; $attempt -lt 3; $attempt++) {
+              git push origin HEAD:research/app-artifact-recovery-20261016
+              if ($LASTEXITCODE -eq 0) { $pushed = $true; break }
+              git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+              git rebase "origin/research/app-artifact-recovery-20261016"
+              if ($LASTEXITCODE -ne 0) { throw 'Recovery rebase failed' }
+            }
+            if (!$pushed) { throw 'Recovery push failed after retries' }
+          } else {
+            Write-Host 'No new recovery files to commit'
+          }

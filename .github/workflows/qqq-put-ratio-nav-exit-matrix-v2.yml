@@ -1,8 +1,15 @@
 name: QQQ Put Ratio NAV Exit Matrix V2 — Historical EOD Research
 
 on:
+  push:
+    branches:
+      - feat/qqq-hybrid-operator-terminal-v1-20261009
+    paths:
+      - research/qqq_put_ratio_exit_study_v1/**
+      - research/qqq_hybrid_operator_terminal_v1/QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md
+      - .github/workflows/qqq-put-ratio-nav-exit-matrix-v2.yml
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened]
     branches:
       - research/qqq-hybrid-vxx-short-call-put-v1-20261009
     paths:
@@ -12,7 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: qqq-put-ratio-nav-exit-matrix-v2
@@ -59,6 +66,43 @@ jobs:
           type artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_matrix_v2.md || exit /b 1
           type artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_matrix_v2.md >> "%GITHUB_STEP_SUMMARY%" || exit /b 1
           py -3 -c "from pathlib import Path; p=[Path('QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.md'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_policy_matrix_v2.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_config_matrix_v2.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_episode_results_v2.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing outputs: '+repr(m); print('all_matrix_outputs_exist=PASS')" || exit /b 1
+
+
+      - name: Persist QQQ put-ratio NAV matrix outputs to recovery branch
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
+          $payload = Join-Path $env:RUNNER_TEMP ("recovery-payload-" + $tag)
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          $items = @('QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json','artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_matrix_v2.json','artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_matrix_v2.md','artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_policy_matrix_v2.csv','artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_config_matrix_v2.csv','artifacts\qqq_put_ratio_exit_study_v1\qqq_put_ratio_nav_exit_episode_results_v2.csv')
+          foreach ($rel in $items) { $full = Join-Path $env:GITHUB_WORKSPACE $rel; if (!(Test-Path $full)) { throw ('Missing matrix output: ' + $rel) }; Copy-Item -Path $full -Destination $payload -Force }
+          git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+          git checkout -B recovery-output "origin/research/app-artifact-recovery-20261016"
+          $dest = "research/artifact_recovery_20261016/put_ratio_nav_exit_matrix/rerun-" + $tag
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path (Join-Path $payload '*') -Destination $dest -Recurse -Force
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","output=full_N_1_to_6_both_orientation_NAV_exit_matrix") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $dest
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "recover: persist Persist QQQ put-ratio NAV matrix outputs to recovery branch outputs $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery commit failed' }
+            $pushed = $false
+            for ($attempt = 0; $attempt -lt 3; $attempt++) {
+              git push origin HEAD:research/app-artifact-recovery-20261016
+              if ($LASTEXITCODE -eq 0) { $pushed = $true; break }
+              git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+              git rebase "origin/research/app-artifact-recovery-20261016"
+              if ($LASTEXITCODE -ne 0) { throw 'Recovery rebase failed' }
+            }
+            if (!$pushed) { throw 'Recovery push failed after retries' }
+          } else {
+            Write-Host 'No new recovery files to commit'
+          }
 
       - name: Upload matrix outputs (non-blocking if Actions storage is full)
         continue-on-error: true
