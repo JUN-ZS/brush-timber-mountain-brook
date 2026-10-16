@@ -93,6 +93,13 @@
       "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843599343",
       "status": "replay, contract checks and raw-file persistence completed successfully; final workflow was in post-checkout at last check; ZIP backup may still fail due quota",
       "pricing": "derived research/non-OPRA"
+    },
+    {
+      "name": "backtest-v2-2-raw-recovery",
+      "run_id": 38842775770,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842775770",
+      "status": "engine and direct recovery commit completed; original curve and JSON persisted to recovery branch; Actions artifact list empty",
+      "decision": "FAIL: OOS CAGR 11.64%, OOS MaxDD -28.59%"
     }
   ],
   "files": [
@@ -172,6 +179,11 @@
     "vxx_short_call_put/rerun-38843599343-a1/strategy/sleeve_stock_only_2_stress_borrow_0_equity_attribution.csv",
     "vxx_short_call_put/rerun-38843599343-a1/strategy/sleeve_stock_only_2_stress_borrow_0_events.json",
     "vxx_short_call_put/rerun-38843599343-a1/strategy/sleeve_stock_only_5_borrow_0_equity_attribution.csv",
-    "vxx_short_call_put/rerun-38843599343-a1/strategy/sleeve_stock_only_5_borrow_0_events.json"
+    "vxx_short_call_put/rerun-38843599343-a1/strategy/sleeve_stock_only_5_borrow_0_events.json",
+    "backtest/raw_v2_2/rerun-38842775770-a1/backtest-result.json",
+    "backtest/raw_v2_2/rerun-38842775770-a1/backtest-curve.csv",
+    "backtest/raw_v2_2/rerun-38842775770-a1/backtest-report.md",
+    "backtest/raw_v2_2/rerun-38842775770-a1/backtest-v2-2.json",
+    "backtest/raw_v2_2/rerun-38842775770-a1/RECOVERY_META.txt"
   ]
 }
