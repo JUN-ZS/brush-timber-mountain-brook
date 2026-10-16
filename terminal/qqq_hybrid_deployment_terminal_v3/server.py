@@ -25,6 +25,7 @@ RUNTIME = ROOT / "runtime"
 RUNTIME.mkdir(parents=True, exist_ok=True)
 JOURNAL = RUNTIME / "decision_journal.jsonl"
 PUT_RATIO_EVIDENCE_SNAPSHOT = ROOT / "put_ratio_evidence_v1.json"
+PUT_RATIO_DYNAMIC_BAR_SNAPSHOT = ROOT / "put_ratio_dynamic_bar_v1.json"
 HOST = "127.0.0.1"
 PORT = 8788
 OPEND_HOST = "127.0.0.1"
@@ -90,6 +91,38 @@ def load_put_ratio_evidence():
         raise ValueError("Put Ratio evidence snapshot source window mismatch.")
     if int(curve.get("trade_count") or 0) != 62 or not manifest.get("dataJsonBlobSha") or not manifest.get("portfolioCurveBlobSha"):
         raise ValueError("Put Ratio evidence snapshot provenance / curve checks failed.")
+    return payload
+
+
+def load_put_ratio_dynamic_bar():
+    """Load source-pinned 1:5 BAR/DD diagnostic; reject missing or budget-compliant claims."""
+    if not PUT_RATIO_DYNAMIC_BAR_SNAPSHOT.is_file():
+        raise FileNotFoundError("Pinned dynamic Put Ratio BAR snapshot is unavailable.")
+    payload = json.loads(PUT_RATIO_DYNAMIC_BAR_SNAPSHOT.read_text(encoding="utf-8"))
+    if payload.get("schemaVersion") != "QQQ_PUT_RATIO_DYNAMIC_BAR_SNAPSHOT_V1":
+        raise ValueError("Unsupported dynamic BAR snapshot schema.")
+    meta = payload.get("metadata") or {}
+    if payload.get("status") != "RESEARCH_DIAGNOSTIC_ONLY_BUDGET_BYPASS":
+        raise ValueError("Dynamic BAR deployment-blocked status mismatch.")
+    if (meta.get("start") != "2018-03-01" or meta.get("end") != "2025-12-15"
+            or int(meta.get("episodes") or 0) != 62):
+        raise ValueError("Dynamic BAR source window / cohort mismatch.")
+    if (meta.get("direction") != "SHORT_HEAVY_1_LONG_N_SHORT"
+            or int(meta.get("long") or 0) != 1 or int(meta.get("short") or 0) != 5):
+        raise ValueError("Dynamic BAR must match LONG 1 : SHORT 5.")
+    if (meta.get("sizing") != "FIXED_1_UNIT_BUDGET_BYPASS"
+            or int(meta.get("allowedUnits", -1)) != 0
+            or int(meta.get("budgetBreachEpisodes") or 0) != 62
+            or float(meta.get("oneUnitWorstTerminalLossUsd") or 0) <= float(meta.get("budgetUsd") or 0)):
+        raise ValueError("Dynamic BAR budget-bypass guard mismatch.")
+    if len(payload.get("policies") or []) != 2 or len(payload.get("barRows") or []) != 162 or len(payload.get("drawdownRows") or []) != 14:
+        raise ValueError("Dynamic BAR payload dimensions mismatch.")
+    if len(meta.get("states") or []) != 9 or len(meta.get("barTypes") or []) != 3:
+        raise ValueError("Dynamic BAR state dictionary mismatch.")
+    if not str(meta.get("runUrl") or "").startswith("https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/"):
+        raise ValueError("Dynamic BAR run provenance missing.")
+    if len(str(meta.get("testedCommit") or "")) != 40:
+        raise ValueError("Dynamic BAR tested commit SHA missing.")
     return payload
 
 
@@ -300,6 +333,14 @@ class Handler(SimpleHTTPRequestHandler):
         if urllib.parse.urlparse(self.path).path == "/api/research/put-ratio-evidence":
             try:
                 return json_resp(self, {"ok": True, "evidence": load_put_ratio_evidence()})
+            except FileNotFoundError as exc:
+                return json_resp(self, {"ok": False, "status": "PENDING", "error": str(exc)}, 503)
+            except Exception as exc:
+                return json_resp(self, {"ok": False, "status": "BLOCKED", "error": f"{type(exc).__name__}: {exc}"}, 502)
+
+        if urllib.parse.urlparse(self.path).path == "/api/research/put-ratio-dynamic-bar":
+            try:
+                return json_resp(self, {"ok": True, "evidence": load_put_ratio_dynamic_bar()})
             except FileNotFoundError as exc:
                 return json_resp(self, {"ok": False, "status": "PENDING", "error": str(exc)}, 503)
             except Exception as exc:
