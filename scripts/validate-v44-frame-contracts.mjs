@@ -31,19 +31,19 @@ const helperEnd = html.indexOf("const SharedContractEngine = {", helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, "assumption/parser module markers missing");
 const helpers = html.slice(helperStart, helperEnd);
 const contractChecks = [
-  "const qqq = parseOccOptionId(\\"QQQ261120C00820000\\");",
-  "if (!qqq || qqq.root !== \\"QQQ\\" || qqq.expiryDate !== \\"2026-11-20\\" || qqq.optionType !== \\"C\\" || qqq.strike !== 820) throw new Error(\\"QQQ OCC ID parse mismatch\\");",
-  "const vxxPut = parseOccOptionId(\\"VXX261120P00015000\\");",
-  "if (!vxxPut || vxxPut.root !== \\"VXX\\" || vxxPut.optionType !== \\"P\\" || vxxPut.strike !== 15) throw new Error(\\"VXX put OCC ID parse mismatch\\");",
-  "if (parseOccOptionId(\\"VXX2613320C00021000\\") !== null) throw new Error(\\"invalid OCC expiry must be rejected\\");",
-  "const b = resolveFrameAssumptions({ assumptionProfile: \\"BASELINE\\" });",
-  "const c = resolveFrameAssumptions({ assumptionProfile: \\"CONSERVATIVE\\" });",
-  "const st = resolveFrameAssumptions({ assumptionProfile: \\"STRESS\\" });",
-  "if (b.qqqCallMaxLossBudgetFraction !== 0.012 || b.vxxCallMaxLossBudgetFraction !== 0.020 || b.vxxPutMaxLossBudgetFraction !== 0.010) throw new Error(\\"baseline changed unexpectedly\\");",
-  "if (!(c.qqqCallMaxLossBudgetFraction < b.qqqCallMaxLossBudgetFraction && st.qqqCallMaxLossBudgetFraction < c.qqqCallMaxLossBudgetFraction)) throw new Error(\\"profiles are not ordered by capacity severity\\");",
-  "if (st.evidenceClass !== \\"HYPOTHETICAL_SCENARIO_NOT_OBSERVED\\") throw new Error(\\"profile evidence class missing\\");"
-].join("\\n");
-assert.doesNotThrow(() => vm.runInNewContext(helpers + "\\n" + contractChecks, {}), "OCC parser/profile logic failed");
+  'const qqq = parseOccOptionId("QQQ261120C00820000");',
+  'if (!qqq || qqq.root !== "QQQ" || qqq.expiryDate !== "2026-11-20" || qqq.optionType !== "C" || qqq.strike !== 820) throw new Error("QQQ OCC ID parse mismatch");',
+  'const vxxPut = parseOccOptionId("VXX261120P00015000");',
+  'if (!vxxPut || vxxPut.root !== "VXX" || vxxPut.optionType !== "P" || vxxPut.strike !== 15) throw new Error("VXX put OCC ID parse mismatch");',
+  'if (parseOccOptionId("VXX2613320C00021000") !== null) throw new Error("invalid OCC expiry must be rejected");',
+  'const b = resolveFrameAssumptions({ assumptionProfile: "BASELINE" });',
+  'const c = resolveFrameAssumptions({ assumptionProfile: "CONSERVATIVE" });',
+  'const st = resolveFrameAssumptions({ assumptionProfile: "STRESS" });',
+  'if (b.qqqCallMaxLossBudgetFraction !== 0.012 || b.vxxCallMaxLossBudgetFraction !== 0.020 || b.vxxPutMaxLossBudgetFraction !== 0.010) throw new Error("baseline changed unexpectedly");',
+  'if (!(c.qqqCallMaxLossBudgetFraction < b.qqqCallMaxLossBudgetFraction && st.qqqCallMaxLossBudgetFraction < c.qqqCallMaxLossBudgetFraction)) throw new Error("profiles are not ordered by capacity severity");',
+  'if (st.evidenceClass !== "HYPOTHETICAL_SCENARIO_NOT_OBSERVED") throw new Error("profile evidence class missing");'
+].join("\n");
+assert.doesNotThrow(() => vm.runInNewContext(helpers + "\n" + contractChecks, {}), "OCC parser/profile logic failed");
 
 requireText(html, /BLOCKED_STRIKE_WIDTH_MISMATCH/, "strike-width inconsistency guard is missing");
 requireText(html, /BLOCKED_LEG_STRIKE_ID_MISMATCH/, "strike encoded in contract ID is not checked");
