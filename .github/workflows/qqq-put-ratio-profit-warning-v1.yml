@@ -146,7 +146,7 @@ jobs:
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv "$result_dir/replay/"
           cp research/qqq_put_ratio_lab_v1/profit_warning_analysis.json "$result_dir/replay/"
           cat > "$result_dir/MANIFEST.md" <<EOF
-          # Direct $800/$1,000 profit-warning replay
+          # Direct \$800/\$1,000 profit-warning replay
 
           - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           - Study commit: ${GITHUB_SHA}
