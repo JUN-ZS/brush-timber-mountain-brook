@@ -12,7 +12,7 @@ on:
       - .github/workflows/qqq-put-ratio-profit-warning-v1.yml
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: qqq-put-ratio-profit-warning-frozen-cohort-v2
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   replay:
     name: Frozen cohort $800/$1,000 replay and serial curve
-    runs-on: [self-hosted, grokbot-box]
+    runs-on: ubuntu-latest
     timeout-minutes: 75
     defaults:
       run:
@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref || github.ref_name }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Runtime and offline contracts
         run: |
@@ -131,11 +131,10 @@ jobs:
           print("13 policy curves validated; live deployment remains BLOCKED.")
           PY
 
-      - name: Persist results on the isolated PR branch
+      - name: Package replay evidence for download
         run: |
           set -euo pipefail
-          short_sha="${GITHUB_SHA:0:8}"
-          result_dir="research/qqq_put_ratio_exit_results_v1/profit-warning-${short_sha}"
+          result_dir="artifacts/qqq_put_ratio_profit_warning"
           mkdir -p "$result_dir/replay"
           cp QQQ_SERIAL_CURVE_RUN.json QQQ_PROFIT_WARNING_SYNC_RUN.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json "$result_dir/replay/"
@@ -143,26 +142,26 @@ jobs:
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_trades.csv "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv "$result_dir/replay/"
+          cp research/qqq_put_ratio_lab_v1/data.json research/qqq_put_ratio_lab_v1/portfolio_curve.json "$result_dir/replay/"
           cp research/qqq_put_ratio_lab_v1/profit_warning_analysis.json "$result_dir/replay/"
           cat > "$result_dir/MANIFEST.md" <<EOF
-          # Direct \$800/\$1,000 profit-warning replay
+          # QQQ put-ratio direct profit-warning replay evidence
 
           - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           - Study commit: ${GITHUB_SHA}
           - Frozen cohort: 62 non-overlapping 1-long/5-short episodes
           - Cohort blob: 9d7ce5414c3034d03d94796c69438b0bc044e485 (reused, not duplicated)
           - Option source ends 2025-12-15; EOD quote-side estimates, not confirmed fills
-          - \$800 equals +1% only at fixed \$80,000 NAV
+          - 800 USD target equals 1% only at fixed 80000 USD NAV
           - Deployment and broker orders remain BLOCKED
           EOF
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$result_dir" research/qqq_put_ratio_lab_v1/data.json research/qqq_put_ratio_lab_v1/portfolio_curve.json research/qqq_put_ratio_lab_v1/profit_warning_analysis.json research/qqq_put_ratio_lab_v1/README.md
-          if git diff --cached --quiet; then
-            echo "result_persistence=NO_CHANGES"
-          else
-            git commit -m "research: persist direct profit warning replay ${short_sha} [skip ci]"
-            target_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
-            git push origin "HEAD:${target_branch}"
-          fi
+
+      - name: Upload replay evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-put-ratio-profit-warning-${{ github.run_id }}
+          path: artifacts/qqq_put_ratio_profit_warning/
+          if-no-files-found: error
+          retention-days: 30
