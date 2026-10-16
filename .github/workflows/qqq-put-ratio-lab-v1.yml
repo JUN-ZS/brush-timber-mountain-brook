@@ -18,11 +18,13 @@ concurrency:
 
 jobs:
   ui-contract:
-    name: Research UI contract tests (self-hosted)
-    runs-on: [self-hosted, grokbot-box-linux-x64]
+    name: Research UI contract tests (GitHub-hosted)
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Runtime
         run: |
           node --version
