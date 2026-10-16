@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Panel, Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { frozenV22 as frozen } from "@/lib/pulse/v22-result";
-import { buyHoldQQQ, historicalBenchmark, sampleWindow, targetGate } from "@/lib/pulse/backtest";
+import { buyHoldQQQ, historicalBenchmark, sampleWindow } from "@/lib/pulse/backtest";
 import { DEFAULT_PROTECTED, runProtected, type ProtectedSpec } from "@/lib/pulse/protected";
 import { fmtPct } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/backtest")({ component: Page });
 
 type Frozen = typeof frozen & {
   executed?: boolean;
-  oos?: { cagr: number; maxDd: number; sharpe: number; sortino: number; es: number };
+  oos?: { cagr: number; maxDd: number; sharpe: number; sortino: number; es: number; positiveDays?: number; negativeDays?: number; flatDays?: number; positiveDayRatePct?: number; nDays?: number };
   validation?: { cagr: number; maxDd: number };
   train?: { cagr: number; maxDd: number };
   full?: { cagr: number; maxDd: number };
@@ -26,7 +26,6 @@ type Frozen = typeof frozen & {
     buildingPut: number;
   };
   extras?: { validation?: { premiumDrag: number; protectionEfficiency: number }; oos?: { premiumDrag: number; protectionEfficiency: number } };
-  targetGate?: { final?: string; oos?: { pass: boolean; cagrPass: boolean; ddPass: boolean } };
   buyHoldQQQ?: { oos: { cagr: number; maxDd: number }; full: { cagr: number; maxDd: number } };
   dailyFloorProxy?: { oos: { cagr: number; maxDd: number } };
   pareto?: Array<{
@@ -67,8 +66,6 @@ function Page() {
   const live = useMemo(() => runProtected(spec), [putDistance, dte, rollDays, calmPut, unstablePut, tailPut, recoveryPut]);
   const hold = useMemo(() => buyHoldQQQ(), []);
   const bench = historicalBenchmark();
-  const liveGate = targetGate(live.split.oos);
-  const frozenGatePass = F.targetGate?.oos?.pass ?? false;
 
   return (
     <Shell>
@@ -84,7 +81,7 @@ function Page() {
             <Metric k="Frozen OOS CAGR" v={fmtPct(F.oos?.cagr ?? live.split.oos.cagr, 2)} />
             <Metric k="Frozen OOS MaxDD" v={fmtPct(F.oos?.maxDd ?? live.split.oos.maxDd, 2)} />
             <Metric k="Val prot. eff" v={(F.extras?.validation?.protectionEfficiency ?? live.extras.validation.protectionEfficiency).toFixed(2)} />
-            <Metric k="OOS Gate 12%/−5%" v={F.targetGate?.final ?? (liveGate.pass ? "PASS" : "FAIL")} />
+            <Metric k="OOS positive-return days" v={`${F.oos?.positiveDays ?? live.split.oos.positiveDays}/${F.oos?.nDays ?? live.split.oos.nDays} · ${(F.oos?.positiveDayRatePct ?? live.split.oos.positiveDayRatePct).toFixed(2)}%`} />
           </div>
           <p className="mt-3 font-mono text-xs text-subtle">
             {w.trainDate} → train {w.trainEndDate} → val {w.valEndDate} → OOS {w.oosStartDate} → {w.endDate} · {w.nBars}{" "}
@@ -145,7 +142,7 @@ function Page() {
               </tbody>
             </table>
           </div>
-          <Badge tone={liveGate.pass ? "pass" : "lock"}>{liveGate.pass ? "LIVE OOS GATE PASS" : "LIVE OOS GATE FAIL"}</Badge>
+          <p className="mt-3 text-xs text-subtle">正收益日比例是逐日模型收益的觀察頻率，不是期權逐筆勝率；MaxDD、ES 與 premium drag 保留作風險衡量，不設固定二元門檻。</p>
         </Panel>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -199,18 +196,18 @@ function Page() {
               <div className="text-xs text-subtle">
                 Bench {fmtPct(bench.cagr, 2)} / {fmtPct(bench.maxDd, 2)} is not this run
               </div>
-              <Badge tone={frozenGatePass ? "pass" : "lock"}>{frozenGatePass ? "OOS GATE PASS" : "OOS GATE FAIL"}</Badge>
+              <div className="text-xs text-subtle">OOS 正收益日：{F.oos?.positiveDays ?? live.split.oos.positiveDays}/{F.oos?.nDays ?? live.split.oos.nDays}（{(F.oos?.positiveDayRatePct ?? live.split.oos.positiveDayRatePct).toFixed(2)}%）</div>
             </div>
           </Panel>
         </div>
 
-        <Panel kicker="AUDIT" title="V2.2 刻意不把 12% / −5% 做成調參答案">
+        <Panel kicker="AUDIT" title="用可觀察頻率、風險與資料品質描述結果">
           <ul className="space-y-2 text-sm text-muted">
             <li>• 只搜 PROTECTED overlay。CONVEX / 每日 −1.5% floor 不進官方 ranking。</li>
             <li>• Controller A（QQQ）第一波鎖 100%。Controller B（Put）跟狀態走，只加不減直到 roll。</li>
             <li>• BUILDING 用 vol/VIX 加速度 + 5d 下跌提前加保護，不必等 VIX≥30。</li>
-            <li>• Score 含 Protection Efficiency = DD reduction / premium drag。Pareto 看 CAGR、MaxDD、prem。</li>
-            <li>• OOS 不參與 generation / ranking。oosLeakage = false。</li>
+            <li>• Score 含 Protection Efficiency = DD reduction / premium drag。Pareto 並列 CAGR、MaxDD、premium drag，不轉成固定二元門檻。</li>
+            <li>• OOS 不參與 generation / ranking。oosLeakage = false；正收益日率只描述逐日模型路徑，不等於期權逐筆勝率。</li>
             <li>• 沒有歷史 option chain：這是 Derived BS + Estimated spread，不是成交。</li>
           </ul>
         </Panel>
