@@ -174,7 +174,13 @@ jobs:
           cat QQQ_POLICY_MAE_REVERSAL_RUN.json
           cat "$out/policy_mae_study_summary.md"
           cat "$out/policy_mae_study_summary.md" >> "$GITHUB_STEP_SUMMARY"
-          $PY -c "from pathlib import Path; p=[Path('QQQ_POLICY_MAE_REVERSAL_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_nav_matrix.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_trade_rows.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_unit_episode_reference.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_study_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_study_summary.md')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing policy-MAE outputs: '+repr(m); print('policy_mae_reversal_outputs_exist=PASS')
+          test -f QQQ_POLICY_MAE_REVERSAL_RUN.json
+          test -f artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_nav_matrix.csv
+          test -f artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_trade_rows.csv
+          test -f artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_unit_episode_reference.csv
+          test -f artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_study_summary.json
+          test -f artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_study_summary.md
+          echo policy_mae_reversal_outputs_exist=PASS
 
       - name: Run public QQQ price proxy supplement (not option P&L)
         shell: bash
