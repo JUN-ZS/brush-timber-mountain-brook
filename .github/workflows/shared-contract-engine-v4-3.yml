@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: shared-contract-engine-v4-3
@@ -39,7 +39,36 @@ jobs:
       - name: Syntax and golden tests
         run: |
           node --check research\shared_contract_engine_v4_3\shared_contract_engine_v4_3.js || exit /b 1
-          node --test research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs || exit /b 1
+          node --test --test-reporter=tap research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs > "%RUNNER_TEMP%\v43-test-report.tap" 2>&1
+          set "TEST_EXIT=%ERRORLEVEL%"
+          type "%RUNNER_TEMP%\v43-test-report.tap"
+          if not "%TEST_EXIT%"=="0" exit /b %TEST_EXIT%
+      - name: Preserve V4.3 test transcript for audit
+        if: always() && github.event_name == 'push'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = Join-Path $env:RUNNER_TEMP 'v43-test-report.tap'
+          if (!(Test-Path $report)) {
+            'Test report was not created; check syntax step or runner interruption.' | Set-Content -Path $report -Encoding utf8
+          }
+          $tag = "$env:GITHUB_RUN_ID-a$env:GITHUB_RUN_ATTEMPT"
+          git fetch origin research/app-artifact-recovery-20261016
+          git checkout -B recovery-output origin/research/app-artifact-recovery-20261016
+          $dest = "research/artifact_recovery_20261016/shared_contract_engine_v4_3/rerun-" + $tag
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path $report -Destination (Join-Path $dest 'golden-tests.tap') -Force
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_workflow=\${{ github.workflow }}","source_run_url=\${{ github.server_url }}/\${{ github.repository }}/actions/runs/\${{ github.run_id }}") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $dest
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "recover: persist V4.3 golden test transcript $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery transcript commit failed' }
+            git push origin HEAD:research/app-artifact-recovery-20261016
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery transcript push failed' }
+          }
       - name: Assert no performance data is silently shipped
         run: |
           node -e "const E=require('./research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js');const s=E.createEmptySourceStore();if(s.quotes.length!==0||s.episodes.length!==0||s.status!=='REPO_SUMMARY_REFERENCE_ONLY (UNVERIFIED_RAW_CHAIN)')process.exit(1);console.log('NO_SYNTHETIC_HISTORY_SHIPPED=PASS')" || exit /b 1
