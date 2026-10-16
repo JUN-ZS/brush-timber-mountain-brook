@@ -43,7 +43,7 @@ jobs:
           py -3 -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0 || exit /b 1
 
       - name: Restore SHA-verified public QQQ option cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: .cache\qqq-options-full-history
           key: qqq-options-full-history-2018-2025-sha-pinned-v1
