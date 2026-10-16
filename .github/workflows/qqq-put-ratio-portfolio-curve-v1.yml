@@ -1,13 +1,6 @@
 name: QQQ Put Ratio Serial Equity Curve V1
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - research/qqq-put-ratio-lab-v1-20261016
-    paths:
-      - research/qqq_put_ratio_lab_v1/build_portfolio_curve.py
-      - research/qqq_put_ratio_lab_v1/tests/**
-      - .github/workflows/qqq-put-ratio-portfolio-curve-v1.yml
 permissions:
   contents: write
 concurrency:
@@ -81,7 +74,7 @@ jobs:
           assert x["status"] == "RESEARCH_DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED"
           assert x["trade_count"] == 62, x["trade_count"]
           assert len(x["session_dates"]) == 1960, len(x["session_dates"])
-          assert len(x["cumulative_pnl_usd_by_policy"]) == 12
+          assert len(x["cumulative_pnl_usd_by_policy"]) == 13
           baseline=x["metrics_by_policy_at_80k_nav"]["BASE_DTE7_CLOSE_SHORT_RISK"]
           assert baseline["trades_in_serial_cohort"] == 62
           assert baseline["resolved_trades"] == 62
