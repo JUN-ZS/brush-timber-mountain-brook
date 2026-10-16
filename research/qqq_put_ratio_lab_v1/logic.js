@@ -45,7 +45,7 @@ function drawdownCycleStats(dates,points){
   var span=(Date.parse(dates[dates.length-1])-Date.parse(dates[0]))/(365.2425*86400000);
   var allYears=Array.from(new Set(dates.map(function(x){return String(x).slice(0,4);}))).sort();
   var levels=[3,5,10,15,20,25,30].map(function(level){
-    var hit=cycles.filter(function(x){return x.worst<=-level;}).sort(function(a,b){return a.index-b.index;});
+    var hit=cycles.filter(function(x){return x.worst<=-level+1e-9;}).sort(function(a,b){return a.index-b.index;});
     var gaps=hit.slice(1).map(function(x,i){return x.index-hit[i].index;}).sort(function(a,b){return a-b;});
     var eventYears=Array.from(new Set(hit.map(function(x){return x.trough.slice(0,4);}))).sort();
     return {level:level,count:hit.length,perYear:span>0?hit.length/span:0,years:eventYears.length,allYears:allYears.length,eventYears:eventYears,
