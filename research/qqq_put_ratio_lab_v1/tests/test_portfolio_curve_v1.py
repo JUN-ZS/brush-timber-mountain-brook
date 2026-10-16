@@ -3,8 +3,8 @@ import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "research" / "qqq_put_ratio_lab_v1"))
+LAB = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(LAB))
 import build_portfolio_curve as curve
 
 
