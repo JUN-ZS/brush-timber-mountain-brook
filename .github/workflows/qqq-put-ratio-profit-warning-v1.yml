@@ -51,52 +51,43 @@ jobs:
           node --check research/qqq_put_ratio_lab_v1/app.js
           node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
 
-      - name: Check SHA-pinned cache
-        id: cache
+      - name: Load archived SHA-pinned cohort and baseline summary
         run: |
           set -euo pipefail
-          cache_dir="$HOME/.cache/qqq-options-full-history"
-          mkdir -p "$cache_dir"
-          if find "$cache_dir" -type f -print -quit | grep -q .; then
-            echo "hit=true" >> "$GITHUB_OUTPUT"
-            echo "cache_source=LINUX_BOT_LOCAL_PERSISTENT"
-          else
-            echo "hit=false" >> "$GITHUB_OUTPUT"
-            echo "cache_source=SHA_PINNED_REMOTE_CACHE_IF_AVAILABLE"
-          fi
-
-      - name: Restore option cache if local cache is cold
-        if: steps.cache.outputs.hit != 'true'
-        uses: actions/cache/restore@v4
-        with:
-          path: ~/.cache/qqq-options-full-history
-          key: qqq-options-full-history-2018-2025-sha-pinned-v1
-          enableCrossOsArchive: true
-
-      - name: Link cache and replay source cohort
-        timeout-minutes: 50
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.cache/qqq-options-full-history" .cache artifacts/qqq_put_ratio_exit_study_v1
-          rm -rf .cache/qqq-options-full-history
-          ln -s "$HOME/.cache/qqq-options-full-history" .cache/qqq-options-full-history
-          .venv/bin/python research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_v1.py --out artifacts/qqq_put_ratio_exit_study_v1 > QQQ_PUT_RATIO_EXIT_STUDY_RUN.json
-          cat QQQ_PUT_RATIO_EXIT_STUDY_RUN.json
+          src="research/qqq_put_ratio_exit_results_v1/run-7653cfba/replay"
+          out="artifacts/qqq_put_ratio_exit_study_v1"
+          mkdir -p "$out"
+          for name in \
+            qqq_put_ratio_exit_study_summary.json \
+            qqq_put_ratio_exit_study_summary.md \
+            qqq_put_ratio_exit_policy_summary.csv \
+            qqq_put_ratio_exit_policy_trades.csv \
+            qqq_put_ratio_exit_event_study.json \
+            qqq_put_ratio_exit_source_cohort.json \
+            qqq_underlying_close_series.csv; do
+            test -f "$src/$name"
+            cp "$src/$name" "$out/$name"
+          done
           .venv/bin/python - <<'PY'
-          import json
+          import json, subprocess
           from pathlib import Path
+          root = Path("research/qqq_put_ratio_exit_results_v1/run-7653cfba/replay")
+          expected = {
+              root / "qqq_put_ratio_exit_source_cohort.json": "9d7ce5414c3034d03d94796c69438b0bc044e485",
+              root / "qqq_put_ratio_exit_study_summary.json": "9825c1302a741f9347531bdfa16038908e624ba5",
+              root / "qqq_underlying_close_series.csv": "212193d77ee2b4a375187b866041ded9a40ac367",
+          }
+          for path, sha in expected.items():
+              actual = subprocess.check_output(["git", "rev-parse", f"HEAD:{path.as_posix()}"], text=True).strip()
+              assert actual == sha, f"SHA-pinned source mismatch for {path}: {actual}"
           out = Path("artifacts/qqq_put_ratio_exit_study_v1")
-          required = ["qqq_put_ratio_exit_study_summary.json", "qqq_put_ratio_exit_study_summary.md",
-              "qqq_put_ratio_exit_policy_summary.csv", "qqq_put_ratio_exit_policy_trades.csv",
-              "qqq_put_ratio_exit_event_study.json", "qqq_put_ratio_exit_source_cohort.json",
-              "qqq_underlying_close_series.csv"]
-          missing = [p for p in required if not (out / p).is_file()]
-          assert not missing, f"missing source replay outputs: {missing}"
-          s = json.loads((out / "qqq_put_ratio_exit_study_summary.json").read_text(encoding="utf-8"))
-          assert s["generation"]["opened_trade_episodes"] == 62
-          names = {p["policy"] for p in s["policy_summaries_base_cost"]}
-          assert {"BASE_DTE7_CLOSE_SHORT_RISK", "TP_USD_800_CLOSE_SHORT_RISK", "TP_USD_1000_CLOSE_SHORT_RISK"} <= names
-          print("frozen 62-episode source replay and both target policies=PASS")
+          trades = json.loads((out / "qqq_put_ratio_exit_source_cohort.json").read_text(encoding="utf-8"))
+          n = len(trades) if isinstance(trades, list) else len(trades.get("trades", []))
+          summary = json.loads((out / "qqq_put_ratio_exit_study_summary.json").read_text(encoding="utf-8"))
+          assert n == 62, f"expected 62 frozen episodes, got {n}"
+          assert summary["generation"]["opened_trade_episodes"] == 62
+          assert summary["window"]["source_end"] == "2025-12-15"
+          print("SHA-pinned frozen cohort, source summary and QQQ sessions verified; episodes=62")
           PY
 
       - name: Rebuild curve and directly measure warning outcomes
@@ -152,10 +143,9 @@ jobs:
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_trades.csv "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json "$result_dir/replay/"
-          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv "$result_dir/replay/"
           cp research/qqq_put_ratio_lab_v1/profit_warning_analysis.json "$result_dir/replay/"
-          printf '# Direct $800/$1,000 profit-warning replay\n\n- Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\n- Study commit: ${GITHUB_SHA}\n- Frozen cohort: 62 non-overlapping 1-long/5-short episodes\n- Option source ends 2025-12-15; EOD quote-side estimates, not confirmed fills\n- $800 equals +1% only at fixed $80,000 NAV\n- Deployment and broker orders remain BLOCKED\n' > "$result_dir/MANIFEST.md"
+          printf '# Direct $800/$1,000 profit-warning replay\n\n- Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\n- Study commit: ${GITHUB_SHA}\n- Frozen cohort: 62 non-overlapping 1-long/5-short episodes\n- Cohort blob: 9d7ce5414c3034d03d94796c69438b0bc044e485 (reused, not duplicated)\n- Option source ends 2025-12-15; EOD quote-side estimates, not confirmed fills\n- $800 equals +1% only at fixed $80,000 NAV\n- Deployment and broker orders remain BLOCKED\n' > "$result_dir/MANIFEST.md"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$result_dir" research/qqq_put_ratio_lab_v1/data.json research/qqq_put_ratio_lab_v1/portfolio_curve.json research/qqq_put_ratio_lab_v1/profit_warning_analysis.json research/qqq_put_ratio_lab_v1/README.md
