@@ -1688,6 +1688,12 @@
       PRESETS[k] = {
         ...FRAME_DEFAULT_EXTRAS,
         ...p,
+        // Keep test/demo contract IDs in sync with any synthetic width preset.
+        // This is an internally consistent test fixture, not an observed option chain.
+        candQqqShortId: 'QQQ261120C00820000',
+        candQqqLongId: wQqq === 2 ? 'QQQ261120C00822000' : 'QQQ261120C00830000',
+        candVxxShortId: 'VXX261120C00021000',
+        candVxxLongId: wVxx === 2 ? 'VXX261120C00023000' : 'VXX261120C00026000',
         candQqqLegStrikes: wQqq === 2 ? '820/822' : '820/830',
         candVxxLegStrikes: wVxx === 2 ? '21/23' : '21/26'
       };
