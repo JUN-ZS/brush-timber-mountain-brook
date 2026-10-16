@@ -462,27 +462,55 @@
     const vxxCallUnrealizedPnl = vxxCallQty * (parsed.vxxCallEntryCredit - parsed.vxxCallCurrentMark) * parsed.vxxCallMultiplier;
     const qqqCallMaxExpiryLoss = qqqCallQty * Math.max(0, parsed.qqqCallWidth - parsed.qqqCallEntryCredit) * parsed.qqqCallMultiplier;
     const vxxCallMaxExpiryLoss = vxxCallQty * Math.max(0, parsed.vxxCallWidth - parsed.vxxCallEntryCredit) * parsed.vxxCallMultiplier;
-    const statementParsed = parseStrictNumber(x.statementNav);
-    const hasStatement = statementParsed.state === "VALID" && statementParsed.value > 0;
-    const conservationDelta = hasStatement ? Math.abs(derivedNav - statementParsed.value) : null;
-    if (hasStatement && conservationDelta > 0.01) {
-      return {
-        ledgerComplete: false, reconciledWithStatement: false, status: "BLOCKED_STATEMENT_RECONCILIATION_MISMATCH",
-        missingFields: ["Independent statement NAV differs from ledger-derived NAV by $" + conservationDelta.toFixed(2) + " (tolerance $0.01)."],
-        ledgerDerivedNav: derivedNav, totalNav: null, conservationDelta
-      };
-    }
-    return {
-      ledgerComplete: true, reconciledWithStatement: hasStatement,
-      status: hasStatement ? "VERIFIED_EXTERNAL_RECONCILIATION" : "UNRECONCILED_NO_STATEMENT",
+    const baseResult = {
+      ledgerComplete: true, reconciledWithStatement: false, status: "UNRECONCILED_NO_STATEMENT",
       missingFields: [], cashBalance, qqqShares, qqqMarketValue, qqqUnrealizedPnl,
       vxxShortQty, vxxShortLiability, vxxUnrealizedPnl,
       qqqCallQty, qqqCallLiability, qqqCallUnrealizedPnl, qqqCallMaxExpiryLoss,
       vxxCallQty, vxxCallLiability, vxxCallUnrealizedPnl, vxxCallMaxExpiryLoss,
       totalAssets, totalLiabilities, ledgerDerivedNav: derivedNav, totalNav: derivedNav,
-      conservationDelta, statementNav: hasStatement ? statementParsed.value : null,
+      conservationDelta: null, statementNav: null,
       manualNavOverride: optionalNumber(x.navOverride),
       accountingAssumption: "Cash balance includes posted short-sale proceeds and option premiums; they are not added a second time."
+    };
+    const statementParsed = parseStrictNumber(x.statementNav);
+    if (statementParsed.state === "EMPTY") return baseResult;
+    if (statementParsed.state !== "VALID" || statementParsed.value <= 0) {
+      return {
+        ...baseResult, ledgerComplete: false, status: "BLOCKED_INVALID_STATEMENT_NAV", totalNav: null,
+        missingFields: ["statementNav must be a positive finite value when provided."]
+      };
+    }
+    const statementEvidence = {
+      sourceId: textValue(x.statementSourceId),
+      asOf: textValue(x.statementAsOf),
+      fileSha256: textValue(x.statementFileSha256).toLowerCase()
+    };
+    const statementProvenanceMissing = [];
+    if (!statementEvidence.sourceId) statementProvenanceMissing.push("statementSourceId");
+    if (!validInstant(statementEvidence.asOf)) statementProvenanceMissing.push("statementAsOf (ISO timestamp with timezone)");
+    if (!/^[a-f0-9]{64}$/.test(statementEvidence.fileSha256)) statementProvenanceMissing.push("statementFileSha256 (SHA-256 of the source file)");
+    if (statementProvenanceMissing.length) {
+      return {
+        ...baseResult, status: "UNRECONCILED_STATEMENT_PROVENANCE_MISSING",
+        missingFields: statementProvenanceMissing,
+        statementNavCandidate: statementParsed.value
+      };
+    }
+    const conservationDelta = Math.abs(derivedNav - statementParsed.value);
+    if (conservationDelta > 0.01) {
+      return {
+        ...baseResult, ledgerComplete: false, status: "BLOCKED_STATEMENT_RECONCILIATION_MISMATCH",
+        missingFields: ["Source-tagged statement NAV differs from ledger-derived NAV by $" + conservationDelta.toFixed(2) + " (tolerance $0.01)."],
+        totalNav: null, conservationDelta, statementNavCandidate: statementParsed.value,
+        statementEvidence
+      };
+    }
+    return {
+      ...baseResult, reconciledWithStatement: true,
+      status: "RECONCILED_TO_SOURCE_TAGGED_STATEMENT_NOT_AUTHENTICATED",
+      missingFields: [], conservationDelta, statementNav: statementParsed.value, statementEvidence,
+      note: "The statement file hash and source metadata are recorded, but source authenticity still requires independent verification."
     };
   }
 

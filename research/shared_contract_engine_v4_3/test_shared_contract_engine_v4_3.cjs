@@ -193,7 +193,7 @@ test("23 positive option quantity requires entry credit and current mark", () =>
   assert.ok(out.missingFields.some(field => /qqqCallCurrentMark/.test(field)));
 });
 test("24 external statement NAV mismatch blocks reconciled NAV", () => {
-  const out = E.evaluateLedger(zeroLedger({ statementNav: 1200 }));
+  const out = E.evaluateLedger(zeroLedger({ statementNav: 1200, statementSourceId: "TEST_ONLY_STATEMENT", statementAsOf: "2030-01-02T20:00:00Z", statementFileSha256: HASH }));
   assert.equal(out.status, "BLOCKED_STATEMENT_RECONCILIATION_MISMATCH");
   assert.equal(out.totalNav, null);
   assert.equal(out.conservationDelta, 200);
@@ -208,13 +208,25 @@ test("25 manual NAV override is not treated as an independent statement", () => 
 test("26 ledger does not add short-sale proceeds a second time", () => {
   const out = E.evaluateLedger(zeroLedger({
     cashBalance: 1000, qqqShares: 2, qqqEntryPrice: 100, qqqSpot: 110,
-    vxxShortQty: 10, vxxEntryPrice: 25, vxxSpot: 20, statementNav: 1020
+    vxxShortQty: 10, vxxEntryPrice: 25, vxxSpot: 20, statementNav: 1020,
+    statementSourceId: "TEST_ONLY_STATEMENT", statementAsOf: "2030-01-02T20:00:00Z", statementFileSha256: HASH
   }));
-  assert.equal(out.status, "VERIFIED_EXTERNAL_RECONCILIATION");
+  assert.equal(out.status, "RECONCILED_TO_SOURCE_TAGGED_STATEMENT_NOT_AUTHENTICATED");
   assert.equal(out.totalAssets, 1220);
   assert.equal(out.totalLiabilities, 200);
   assert.equal(out.totalNav, 1020);
   assert.equal(out.vxxUnrealizedPnl, 50);
+});
+test("36 statement NAV without source identity/hash is not treated as externally reconciled", () => {
+  const out = E.evaluateLedger(zeroLedger({ statementNav: 1000 }));
+  assert.equal(out.status, "UNRECONCILED_STATEMENT_PROVENANCE_MISSING");
+  assert.equal(out.reconciledWithStatement, false);
+  assert.equal(out.conservationDelta, null);
+  assert.equal(out.totalNav, 1000);
+});
+test("37 malformed or zero statement NAV is blocked, not relabeled as absent", () => {
+  assert.equal(E.evaluateLedger(zeroLedger({ statementNav: "n/a" })).status, "BLOCKED_INVALID_STATEMENT_NAV");
+  assert.equal(E.evaluateLedger(zeroLedger({ statementNav: 0 })).status, "BLOCKED_INVALID_STATEMENT_NAV");
 });
 test("27 invalid option candidate blocks joint stress without fixed $420 fallback", () => {
   const ledger = E.evaluateLedger(zeroLedger({ vxxCallQty: 1, vxxCallEntryCredit: 0.5, vxxCallCurrentMark: 0.4, vxxCallWidth: 5, vxxCallMultiplier: 100 }));
