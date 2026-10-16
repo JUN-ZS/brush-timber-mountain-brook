@@ -92,14 +92,15 @@ function render(d,e,book){
   }).join("");
 
   const acts=E.actionRows(book).filter(x=>Math.abs(x.diff)>1e-9);
-  $("queue").innerHTML=(e.blocked
-    ? '<div class="queue-item HOLD"><b>DATA GATE</b><span>BLOCKED · CURRENT KEPT; RISK NOT CLEARED</span></div>'
-    : acts.length
-      ? acts.map(x=>'<div class="queue-item '+x.kind+'"><b>'+x.key+'</b><span>'+x.kind+' · '+fmt(x.diff)+'</span></div>').join("")
-      : (book.unresolvedTargets?.length
-        ? '<div class="queue-item HOLD"><b>OPTION TARGET PENDING</b><span>CURRENT QUANTITY RETAINED · CAPACITY NOT VERIFIED</span></div>'
-        : '<div class="queue-item HOLD"><b>NO POSITION CHANGE</b><span>WAIT / HOLD</span></div>')
-  );
+  const queueRows=[];
+  if(e.blocked){
+    queueRows.push('<div class="queue-item HOLD"><b>DATA GATE</b><span>BLOCKED · CURRENT KEPT; RISK NOT CLEARED</span></div>');
+  }else{
+    if(acts.length) queueRows.push(acts.map(x=>'<div class="queue-item '+x.kind+'"><b>'+x.key+'</b><span>'+x.kind+' · '+fmt(x.diff)+'</span></div>').join(""));
+    if(book.unresolvedTargets?.length) queueRows.push('<div class="queue-item HOLD"><b>OPTION TARGET PENDING</b><span>CURRENT QUANTITY RETAINED · CAPACITY NOT VERIFIED</span></div>');
+    if(!acts.length&&!book.unresolvedTargets?.length) queueRows.push('<div class="queue-item HOLD"><b>NO POSITION CHANGE</b><span>WAIT / HOLD</span></div>');
+  }
+  $("queue").innerHTML=queueRows.join("");
 
   const opts={
     qqqDte:Number($("qqqDte").value),
@@ -123,7 +124,7 @@ function optionSizingText(s){
   if(!s) return "PENDING";
   if(s.status==="READY") return "CAP VERIFIED · "+fmt(s.quantity,0)+" spreads · human review required";
   if(s.status==="POLICY_TARGET_ZERO") return "POLICY TARGET 0 · exit capacity separate";
-  const theoretical=Number.isFinite(Number(s.creditBudgetQuantity))?" · credit-only "+fmt(s.creditBudgetQuantity,0)+" theoretical":"";
+  const theoretical=s.creditBudgetQuantity!==null&&s.creditBudgetQuantity!==undefined&&Number.isFinite(Number(s.creditBudgetQuantity))?" · credit-only "+fmt(s.creditBudgetQuantity,0)+" theoretical":"";
   return String(s.status||"PENDING").replaceAll("_"," ")+theoretical;
 }
 
