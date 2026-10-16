@@ -106,10 +106,30 @@ class PutRatioExitStudyTests(unittest.TestCase):
 
     def test_policy_matrix_compares_usd_pct_fast_win_and_day20(self):
         names = {x['name'] for x in S.policy_list()}
-        for name in ('TP_USD_1000_CLOSE_SHORT_RISK', 'TP_25PCT_MAX_TERMINAL_GAIN',
+        for name in ('TP_USD_800_CLOSE_SHORT_RISK', 'TP_USD_1000_CLOSE_SHORT_RISK', 'TP_25PCT_MAX_TERMINAL_GAIN',
                      'FAST_1000_WITHIN_5D_TRIM_4_SHORTS', 'DAY20_NONPOSITIVE_CLOSE_SHORT_RISK',
                      'DAY20_NONPOSITIVE_TRIM_4_SHORTS', 'SL_USD_1000_CLOSE_SHORT_RISK'):
             self.assertIn(name, names)
+
+
+    def test_800_dollar_target_signals_eod_and_closes_next_observed_session(self):
+        trade = trade_fixture()
+        trade['path'] = [
+            step(DAY0, 44, short_bid=4.9, short_ask=5.1, long_bid=4.8, long_ask=5.0),
+            step(DAY1, 43, short_bid=.8, short_ask=1.0, long_bid=15.0, long_ask=15.2),
+            step(DAY2, 42, short_bid=.05, short_ask=.10, long_bid=.1, long_ask=.15),
+            step(EXPIRY, 0, short_bid=.01, short_ask=.02, long_bid=.1, long_ask=.2, spot=500.0),
+        ]
+        policy = next(x for x in S.policy_list() if x['name'] == 'TP_USD_800_CLOSE_SHORT_RISK')
+        self.assertEqual(policy['target'], 800.0)
+        result = S.simulate_policy(trade, policy, .05, .65)
+        self.assertEqual(result['policy_rule_signal_date'], DAY1)
+        self.assertEqual(result['policy_rule_signal_holding_sessions'], 1)
+        self.assertEqual(result['exit_action_date'], DAY2)
+        self.assertEqual(result['signal_to_action_delay_sessions'], 1)
+        action = next(a for a in result['actions'] if a.get('reason') == policy['name'] and a.get('status') == 'OK')
+        self.assertEqual(action['signal_date'], DAY1)
+        self.assertEqual(action['date'], DAY2)
 
     def test_fast_one_thousand_signals_eod_then_executes_next_session(self):
         trade = trade_fixture()
