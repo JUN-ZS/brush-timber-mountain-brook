@@ -8,7 +8,6 @@ import {
   historicalBenchmark,
   runBacktest,
   sampleWindow,
-  targetGate,
   type Metrics,
 } from "../src/lib/pulse/backtest.ts";
 import {
@@ -44,6 +43,10 @@ function row(m: Metrics) {
     turnover: m.turnover,
     nDays: m.nDays,
     totalReturn: m.totalReturn,
+    positiveDays: m.positiveDays,
+    negativeDays: m.negativeDays,
+    flatDays: m.flatDays,
+    positiveDayRatePct: m.positiveDayRatePct,
   };
 }
 
@@ -90,9 +93,6 @@ function main() {
   const champion = freezeProtected(ranked);
   const frontier = paretoProtected(ranked).slice(0, 16);
   const bench = historicalBenchmark();
-  const oosGate = targetGate(champion.split.oos);
-  const holdGate = targetGate(hold.split.oos);
-  const floorGate = targetGate(dailyFloor.split.oos);
 
   const json = {
     version: "2.2",
@@ -136,7 +136,6 @@ function main() {
       validation: row(hold.split.validation),
       oos: row(hold.split.oos),
       full: row(hold.metrics),
-      oosGate: holdGate,
     },
     dailyFloorProxy: {
       layer: "Hypothetical",
@@ -145,7 +144,6 @@ function main() {
       validation: row(dailyFloor.split.validation),
       oos: row(dailyFloor.split.oos),
       full: row(dailyFloor.metrics),
-      oosGate: floorGate,
     },
     selectedSpec: specRow(champion.spec),
     layer: "Derived",
@@ -161,11 +159,10 @@ function main() {
       full: extraRow(champion.extras.full),
     },
     score: champion.score,
-    targetGate: {
-      rule: "OOS CAGR >= 12% AND OOS MaxDD >= -5%",
-      oos: oosGate,
-      final: oosGate.pass ? "PASS" : "FAIL",
-      note: "Gate evaluated once on frozen OOS. Not a reason to re-search.",
+    oosReturnFrequency: {
+      metric: "Positive-return sessions / observed daily sessions; not option trade-level win rate.",
+      protectedPutOverlay: { positiveDays: champion.split.oos.positiveDays, negativeDays: champion.split.oos.negativeDays, flatDays: champion.split.oos.flatDays, totalDays: champion.split.oos.nDays, positiveDayRatePct: champion.split.oos.positiveDayRatePct },
+      observedQQQ: { positiveDays: hold.split.oos.positiveDays, negativeDays: hold.split.oos.negativeDays, flatDays: hold.split.oos.flatDays, totalDays: hold.split.oos.nDays, positiveDayRatePct: hold.split.oos.positiveDayRatePct },
     },
     selection: {
       score: "protectedScore(validation) including protection efficiency; OOS unused",
@@ -213,11 +210,11 @@ Benchmark (historical, not this run): CAGR ${pct(bench.cagr)}  MaxDD ${pct(bench
 
 ## Layers
 
-| Layer | What | FULL CAGR | FULL MaxDD | OOS CAGR | OOS MaxDD | Gate |
-| --- | --- | --- | --- | --- | --- | --- |
-| Observed | QQQ 100% price path | ${pct(hold.metrics.cagr)} | ${pct(hold.metrics.maxDd)} | ${pct(hold.split.oos.cagr)} | ${pct(hold.split.oos.maxDd)} | ${holdGate.pass ? "PASS" : "FAIL"} |
-| Hypothetical | Daily −1.5% floor toy | ${pct(dailyFloor.metrics.cagr)} | ${pct(dailyFloor.metrics.maxDd)} | ${pct(dailyFloor.split.oos.cagr)} | ${pct(dailyFloor.split.oos.maxDd)} | ${floorGate.pass ? "PASS" : "FAIL"} |
-| Derived | Frozen put overlay | ${pct(champion.metrics.cagr)} | ${pct(champion.metrics.maxDd)} | ${pct(champion.split.oos.cagr)} | ${pct(champion.split.oos.maxDd)} | ${oosGate.pass ? "PASS" : "FAIL"} |
+| Layer | What | FULL CAGR | FULL MaxDD | OOS CAGR | OOS MaxDD | OOS positive days | OOS positive-day rate |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Observed | QQQ 100% price path | ${pct(hold.metrics.cagr)} | ${pct(hold.metrics.maxDd)} | ${pct(hold.split.oos.cagr)} | ${pct(hold.split.oos.maxDd)} | ${hold.split.oos.positiveDays}/${hold.split.oos.nDays} | ${hold.split.oos.positiveDayRatePct.toFixed(2)}% |
+| Hypothetical | Daily −1.5% floor toy | ${pct(dailyFloor.metrics.cagr)} | ${pct(dailyFloor.metrics.maxDd)} | ${pct(dailyFloor.split.oos.cagr)} | ${pct(dailyFloor.split.oos.maxDd)} | ${dailyFloor.split.oos.positiveDays}/${dailyFloor.split.oos.nDays} | ${dailyFloor.split.oos.positiveDayRatePct.toFixed(2)}% |
+| Derived | Frozen put overlay | ${pct(champion.metrics.cagr)} | ${pct(champion.metrics.maxDd)} | ${pct(champion.split.oos.cagr)} | ${pct(champion.split.oos.maxDd)} | ${champion.split.oos.positiveDays}/${champion.split.oos.nDays} | ${champion.split.oos.positiveDayRatePct.toFixed(2)}% |
 
 Selected structure:
 - distance ${pct(champion.spec.putDistance)} OTM · DTE ${champion.spec.dte}d · roll ${champion.spec.rollDays}d
@@ -225,17 +222,17 @@ Selected structure:
 - QQQ exposure 100% all states
 - spread ${pct(champion.spec.spread)} estimated
 
-| Split | CAGR | MaxDD | Sharpe | Sortino | ES | Prem drag | Prot. eff | nDays |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TRAIN | ${pct(champion.split.train.cagr)} | ${pct(champion.split.train.maxDd)} | ${champion.split.train.sharpe.toFixed(2)} | ${champion.split.train.sortino.toFixed(2)} | ${pct(champion.split.train.es)} | ${pct(champion.extras.train.premiumDrag)} | ${champion.extras.train.protectionEfficiency.toFixed(2)} | ${champion.split.train.nDays} |
-| VALIDATION | ${pct(champion.split.validation.cagr)} | ${pct(champion.split.validation.maxDd)} | ${champion.split.validation.sharpe.toFixed(2)} | ${champion.split.validation.sortino.toFixed(2)} | ${pct(champion.split.validation.es)} | ${pct(champion.extras.validation.premiumDrag)} | ${champion.extras.validation.protectionEfficiency.toFixed(2)} | ${champion.split.validation.nDays} |
-| OOS | ${pct(champion.split.oos.cagr)} | ${pct(champion.split.oos.maxDd)} | ${champion.split.oos.sharpe.toFixed(2)} | ${champion.split.oos.sortino.toFixed(2)} | ${pct(champion.split.oos.es)} | ${pct(champion.extras.oos.premiumDrag)} | ${champion.extras.oos.protectionEfficiency.toFixed(2)} | ${champion.split.oos.nDays} |
-| FULL | ${pct(champion.metrics.cagr)} | ${pct(champion.metrics.maxDd)} | ${champion.metrics.sharpe.toFixed(2)} | ${champion.metrics.sortino.toFixed(2)} | ${pct(champion.metrics.es)} | ${pct(champion.extras.full.premiumDrag)} | ${champion.extras.full.protectionEfficiency.toFixed(2)} | ${champion.metrics.nDays} |
+| Split | CAGR | MaxDD | Positive / observed days | Positive-day rate | Sharpe | Sortino | ES | Prem drag | Prot. eff |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| TRAIN | ${pct(champion.split.train.cagr)} | ${pct(champion.split.train.maxDd)} | ${champion.split.train.positiveDays}/${champion.split.train.nDays} | ${champion.split.train.positiveDayRatePct.toFixed(2)}% | ${champion.split.train.sharpe.toFixed(2)} | ${champion.split.train.sortino.toFixed(2)} | ${pct(champion.split.train.es)} | ${pct(champion.extras.train.premiumDrag)} | ${champion.extras.train.protectionEfficiency.toFixed(2)} |
+| VALIDATION | ${pct(champion.split.validation.cagr)} | ${pct(champion.split.validation.maxDd)} | ${champion.split.validation.positiveDays}/${champion.split.validation.nDays} | ${champion.split.validation.positiveDayRatePct.toFixed(2)}% | ${champion.split.validation.sharpe.toFixed(2)} | ${champion.split.validation.sortino.toFixed(2)} | ${pct(champion.split.validation.es)} | ${pct(champion.extras.validation.premiumDrag)} | ${champion.extras.validation.protectionEfficiency.toFixed(2)} |
+| OOS | ${pct(champion.split.oos.cagr)} | ${pct(champion.split.oos.maxDd)} | ${champion.split.oos.positiveDays}/${champion.split.oos.nDays} | ${champion.split.oos.positiveDayRatePct.toFixed(2)}% | ${champion.split.oos.sharpe.toFixed(2)} | ${champion.split.oos.sortino.toFixed(2)} | ${pct(champion.split.oos.es)} | ${pct(champion.extras.oos.premiumDrag)} | ${champion.extras.oos.protectionEfficiency.toFixed(2)} |
+| FULL | ${pct(champion.metrics.cagr)} | ${pct(champion.metrics.maxDd)} | ${champion.metrics.positiveDays}/${champion.metrics.nDays} | ${champion.metrics.positiveDayRatePct.toFixed(2)}% | ${champion.metrics.sharpe.toFixed(2)} | ${champion.metrics.sortino.toFixed(2)} | ${pct(champion.metrics.es)} | ${pct(champion.extras.full.premiumDrag)} | ${champion.extras.full.protectionEfficiency.toFixed(2)} |
 
-TARGET (OOS only, once):
-- CAGR >= 12%: ${oosGate.cagrPass ? "PASS" : "FAIL"} (${pct(champion.split.oos.cagr)})
-- MaxDD >= -5%: ${oosGate.ddPass ? "PASS" : "FAIL"} (${pct(champion.split.oos.maxDd)})
-- FINAL: **${oosGate.pass ? "PASS" : "FAIL"}**
+## Empirical OOS daily-return frequency — no fixed pass/fail threshold
+- Derived put overlay: ${champion.split.oos.positiveDays}/${champion.split.oos.nDays} positive-return sessions (${champion.split.oos.positiveDayRatePct.toFixed(2)}%).
+- Observed QQQ buy-and-hold: ${hold.split.oos.positiveDays}/${hold.split.oos.nDays} positive-return sessions (${hold.split.oos.positiveDayRatePct.toFixed(2)}%).
+- This is a daily positive-return frequency, not an option trade-level win rate or a claim of executable option fills. See the listed-contract quote-side replay for actual option-episode win rates.
 
 OOS leakage: **false** (selection window ends ${w.valEndDate})
 Put cushion guard: **true** (${putGuard.date} qqq=${putGuard.qqq.toFixed(4)} overlay=${putGuard.overlay.toFixed(4)})
@@ -247,11 +244,11 @@ Do not treat ${pct(bench.cagr)} / ${pct(bench.maxDd)} as V2.2 output.
   const summary = [
     `## Backtest V2.2 Protected overlay`,
     ``,
-    `| Layer | OOS CAGR | OOS MaxDD | Gate |`,
+    `| Layer | OOS CAGR | OOS MaxDD | OOS positive-day rate |`,
     `| --- | --- | --- | --- |`,
-    `| Observed QQQ | ${pct(hold.split.oos.cagr)} | ${pct(hold.split.oos.maxDd)} | ${holdGate.pass ? "PASS" : "FAIL"} |`,
-    `| Daily floor toy | ${pct(dailyFloor.split.oos.cagr)} | ${pct(dailyFloor.split.oos.maxDd)} | ${floorGate.pass ? "PASS" : "FAIL"} |`,
-    `| **Frozen put overlay** | **${pct(champion.split.oos.cagr)}** | **${pct(champion.split.oos.maxDd)}** | **${oosGate.pass ? "PASS" : "FAIL"}** |`,
+    `| Observed QQQ | ${pct(hold.split.oos.cagr)} | ${pct(hold.split.oos.maxDd)} | ${hold.split.oos.positiveDayRatePct.toFixed(2)}% (${hold.split.oos.positiveDays}/${hold.split.oos.nDays}) |`,
+    `| Daily floor toy | ${pct(dailyFloor.split.oos.cagr)} | ${pct(dailyFloor.split.oos.maxDd)} | ${dailyFloor.split.oos.positiveDayRatePct.toFixed(2)}% (${dailyFloor.split.oos.positiveDays}/${dailyFloor.split.oos.nDays}) |`,
+    `| **Frozen put overlay** | **${pct(champion.split.oos.cagr)}** | **${pct(champion.split.oos.maxDd)}** | **${champion.split.oos.positiveDayRatePct.toFixed(2)}% (${champion.split.oos.positiveDays}/${champion.split.oos.nDays})** |`,
     ``,
     `Spec: ${pct(champion.spec.putDistance)} OTM · DTE ${champion.spec.dte} · roll ${champion.spec.rollDays} · put C/U/T/R ${pct(champion.spec.calmPut)}/${pct(champion.spec.unstablePut)}/${pct(champion.spec.tailPut)}/${pct(champion.spec.recoveryPut)}`,
     `Val prem drag ${pct(champion.extras.validation.premiumDrag)} · prot.eff ${champion.extras.validation.protectionEfficiency.toFixed(2)}`,
@@ -267,7 +264,7 @@ Do not treat ${pct(bench.cagr)} / ${pct(bench.maxDd)} as V2.2 output.
   console.log("WROTE", join(outDir, "backtest-result.json"));
   console.log("WROTE", join(outDir, "backtest-curve.csv"));
   console.log("WROTE", join(outDir, "backtest-report.md"));
-  console.log("FINAL", oosGate.pass ? "PASS" : "FAIL");
+  console.log("OOS_POSITIVE_DAY_RATE_PCT", champion.split.oos.positiveDayRatePct.toFixed(2));
 }
 
 main();
