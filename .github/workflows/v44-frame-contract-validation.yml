@@ -25,6 +25,15 @@ jobs:
         with:
           node-version: "22"
           check-latest: false
+      - name: Verify dedicated self-hosted runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_NAME:-}" != "grokbot-box-linux-x64" ]; then
+            echo "::error::FRAME validation requires runner grokbot-box-linux-x64; actual runner is ${RUNNER_NAME:-unknown}"
+            exit 1
+          fi
+          echo "PASS dedicated runner: $RUNNER_NAME"
       - name: Verify isolated FRAME test runtime
         shell: bash
         run: |
