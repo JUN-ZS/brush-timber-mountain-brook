@@ -1,6 +1,6 @@
 # QQQ Hybrid V4.4 — Assumption Ledger V1
 
-**Status:** branch implementation / needs executable regression verification. This ledger does not authorize HUB execution, alter Frozen Original Hybrid policy targets, or grant broker-order permissions.
+**Status:** isolated branch; self-hosted engine + Chromium E2E passed. Still requires human FRAME acceptance before any HUB data run. This ledger does not authorize HUB execution, alter Frozen Original Hybrid policy targets, or grant broker-order permissions.
 
 ## 1. Separate four kinds of input
 
@@ -24,7 +24,7 @@ For each vertical:
 
 For a credit vertical, the expiry max-loss formula remains `(strike-derived width - net credit per underlying unit) * verified-entered multiplier`. This is still only as reliable as the user-asserted source inputs. It is not a confirmed fill or proof of an exchange quote.
 
-Every leg has its own timezone-aware ISO-8601 quote timestamp and source reference. A manual source marker like `USER_SUPPLIED_UNVERIFIED` explicitly denotes user assertion, not independent verification.
+Every leg has its own timezone-aware ISO-8601 quote timestamp and source reference. In the live form, timestamps and source references start blank, so capacity remains PENDING until both legs are populated. Reserved source labels such as `USER_SUPPLIED_UNVERIFIED`, `UNKNOWN`, `NONE`, `N/A`, and `UNSET` do not count as source references. Use a real pointer (for example, a screenshot filename/ID, record ID, or URL). A usable reference still means only that the user supplied a pointer: it does not establish source authenticity or independently verify the quote.
 
 ## 3. Adjusted VXX deliverables
 
@@ -68,7 +68,7 @@ All fractions below are inputs to a sensitivity scenario, not estimated probabil
 
 ## 5. Required executable regression evidence before HUB
 
-V4.4 adds GT-49 (strike/width consistency), GT-50 (OCC ID/type/expiry/strike consistency), GT-51 (independent leg timestamp/source fields), and GT-52 (scenario-profile monotonic capacity / frozen-target invariance). The test labels shown by the HTML must match the actual number of defined test cases.
+V4.4 defines GT-01 through GT-52. On self-hosted run `38982679271`, all 52 actual `SharedContractEngine` Golden Tests passed. Chromium Playwright E2E passed as well: the browser rendered all 52 PASS rows; profile changes updated the assumptions ledger; a strike-width mismatch returned BLOCKED with `FULL=null`; V4.4 PUSH/PULL reproduced 151/151 fields and all three SHA-256 values; a corrupted scenario hash was rejected without overwriting the pre-import cash field; and there were zero uncaught browser errors. These checks do not verify real exchange data or adjusted deliverables.
 
 The browser's “preflight” label means input-format checks only. A well-formatted hash string or non-empty log path is not proof that a real workflow ran. Actual HUB execution evidence must come from an accepted run ID and self-hosted runner name, plus generated source hashes, output hash, output row count, and uploaded manifest/logs.
 
