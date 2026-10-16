@@ -94,6 +94,16 @@ class PolicyMaeStrictReversalTests(unittest.TestCase):
         self.assertEqual(result["units"], 0)
         self.assertEqual(result["status"], "PENDING_NO_PRIOR_MAE")
 
+    def test_unexecutable_inverse_entry_cannot_train_mae(self):
+        original = sample_trade()
+        original["entry_quotes"]["long"]["bid_size"] = 0
+        transformed = M.invert_same_contract_trade(original)
+        result = M.reference(transformed, 0, M.ORIENTATIONS[1], M.core.LONG_HEAVY, 5,
+                             M.POLICIES[0], 0)
+        self.assertFalse(result["entry_capacity_eligible"])
+        self.assertFalse(result["training_eligible"])
+        self.assertEqual(result["training_exclusion_reason"], "ENTRY_DEPTH_INSUFFICIENT")
+
     def test_target_is_normalized_to_starting_nav(self):
         self.assertAlmostEqual(100_000 * M.TARGET_MULTIPLE, 314_012)
         self.assertAlmostEqual(1_000_000 * M.TARGET_MULTIPLE, 3_140_120)

@@ -101,14 +101,15 @@ def reference(t:dict[str,Any],i:int,ori:str,direction:str,n:int,p:dict[str,Any],
  m=mark_stats(r);pnl=core.num(r.get("final_pnl_usd"));curve=m["_curve"]
  ex=day(curve[-1].get("date")) if curve and pnl is not None else None
  env=core.terminal_envelope(prepared,*core.quantities(direction,n),SLIP,FEE)
- clean=pnl is not None and m["missing_mark_rows"]==0 and m["observed_policy_mae_usd"] is not None
+ entry_capacity_ok=core.entry_size_ok(t,direction,n)
+ clean=pnl is not None and m["missing_mark_rows"]==0 and m["observed_policy_mae_usd"] is not None and entry_capacity_ok
  return {"trade_index":i,"trade_id":t.get("trade_id"),"entry_date":day(t.get("entry_date")),"exit_date":ex,
   "orientation":ori,"policy":p["name"],"forced_exit_delay_sessions":delay,"forced_short_exit_blocked_sessions":forced,
   "one_unit_final_pnl_usd":round(pnl,4) if pnl is not None else None,"one_unit_final_status":r.get("final_status"),
   "one_unit_max_terminal_loss_usd":core.num(env.get("max_terminal_loss_usd")),
   "valid_mark_rows":m["valid_mark_rows"],"missing_mark_rows":m["missing_mark_rows"],
   "observed_policy_mae_usd":m["observed_policy_mae_usd"],"observed_policy_mfe_usd":m["observed_policy_mfe_usd"],
-  "training_eligible":bool(clean),"training_exclusion_reason":"" if clean else ("UNRESOLVED_FINAL_PNL" if pnl is None else "MISSING_OR_NO_VALID_MARK"),
+  "training_eligible":bool(clean),"entry_capacity_eligible":bool(entry_capacity_ok),"training_exclusion_reason":"" if clean else ("UNRESOLVED_FINAL_PNL" if pnl is None else "MISSING_OR_NO_VALID_MARK" if m["missing_mark_rows"] or m["observed_policy_mae_usd"] is None else "ENTRY_DEPTH_INSUFFICIENT"),
   "trigger_age_sessions":r.get("custom_trigger_age_sessions"),"trigger_to_action_delay_sessions":r.get("trigger_to_action_delay_sessions"),
   "evidence":"SHA_PINNED_EOD_QUOTE_SIDE_MODEL_NOT_CONFIRMED_FILLS"}
 
