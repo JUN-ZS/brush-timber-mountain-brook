@@ -1,0 +1,132 @@
+name: QQQ Hybrid VXX Short Call Put V1
+on:
+  push:
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_hybrid_vxx_short_call_put_strategy_v1.py
+      - research/qqq_hybrid_profit_trend_replay_v1.py
+      - research/qqq_hybrid_dynamic_deployment_v1_1_replay.py
+      - research/qqq_hybrid_current_capacity_v2.py
+      - research/test_qqq_hybrid_short_call_put_v1.py
+      - .github/workflows/qqq-hybrid-vxx-short-call-put-v1.yml
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - research/qqq-hybrid-profit-trend-replay-v1-20261009
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-hybrid-vxx-short-call-put-v1
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: VXX dual-sided hybrid replay / attribution / capacity contracts
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Discover Python
+        run: |
+          where py >nul 2>&1 && (
+            py -3 --version >nul 2>&1 && (
+              echo PY=py -3>>%GITHUB_ENV%
+              py -3 --version
+              py -3 -c "import sys; print(sys.executable)"
+              exit /b 0
+            )
+          )
+          where python >nul 2>&1 && (
+            echo PY=python>>%GITHUB_ENV%
+            python --version
+            python -c "import sys; print(sys.executable)"
+            exit /b 0
+          )
+          echo PYTHON_NOT_FOUND
+          exit /b 1
+
+      - name: Install research dependencies
+        run: |
+          %PY% -m pip install numpy pandas scipy
+
+      - name: Python syntax and unit tests
+        run: |
+          %PY% -m py_compile research\qqq_hybrid_dynamic_deployment_v1_1_replay.py
+          %PY% -m py_compile research\qqq_hybrid_profit_trend_replay_v1.py
+          %PY% -m py_compile research\qqq_hybrid_vxx_short_call_put_strategy_v1.py
+          %PY% -m py_compile research\qqq_hybrid_current_capacity_v2.py
+          %PY% research\test_qqq_hybrid_short_call_put_v1.py
+
+      - name: Run historical four-layer hybrid trend feed
+        run: |
+          if not exist artifacts\qqq_hybrid_profit_trend_replay_v1\baseline mkdir artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
+          %PY% research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
+
+      - name: Run VXX short call and put strategy replay
+        run: |
+          if not exist artifacts\qqq_hybrid_vxx_short_call_put_v1 mkdir artifacts\qqq_hybrid_vxx_short_call_put_v1
+          %PY% research\qqq_hybrid_vxx_short_call_put_strategy_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_vxx_short_call_put_v1
+
+      - name: Contract checks
+        run: |
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_vxx_short_call_put_v1/strategy_report.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['legacy_parity']['status']=='PASS'; assert r['variants']['DUAL_CALL_PUT']['vxx_total_option_risk_budget_pct']==2.0; assert r['variants']['CALL_PUT_ADDON']['vxx_total_option_risk_budget_pct']==3.0; assert r['variants']['DUAL_CALL_PUT']['component_sum_error_max_abs'] < 0.01; assert r['variants']['NO_VXX_OPTIONS']['vxx_options_component_final_pnl']==0.0; assert 'DUAL_CALL_PUT_vs_CALL_ONLY_1PCT' in r['controlled_comparisons']; assert 'CALL_PUT_ADDON_vs_CALL_ONLY_2PCT_NEW_QUOTE' in r['controlled_comparisons']; assert 'CALL_RSI_LT50_vs_CALL_RSI_GE50' in r['controlled_comparisons']; assert 'CALL_DTE_14_vs_CALL_DTE_30' in r['controlled_comparisons']; assert 'CALL_DTE_45_vs_CALL_DTE_30' in r['controlled_comparisons']; assert r['variants']['CALL_DTE_14']['vxx_option_dte_days']==14; assert r['variants']['CALL_DTE_45']['vxx_option_dte_days']==45; print('strategy_contract=PASS')"
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/baseline/profit_trend.json').read_text(encoding='utf-8')); assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; print('historical_sizing_boundary=PASS')"
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_vxx_short_call_put_v1/strategy_report.json').read_text(encoding='utf-8')); c=r['vxx_sleeve_controlled_comparisons']; assert len(c)>=10; assert r['vxx_sleeve_experiment_contract']['vxx_stock_and_vxx_call_entry_switches_are_orthogonal'] is True; assert r['variants']['SLEEVE_STOCK_ONLY_18_BORROW_3']['vxx_short_borrow_cost_total_usd']>0; assert r['variants']['SLEEVE_STOCK_ONLY_18_BORROW_10']['vxx_short_borrow_cost_total_usd']>r['variants']['SLEEVE_STOCK_ONLY_18_BORROW_3']['vxx_short_borrow_cost_total_usd']; assert 'STOCK_ONLY_2_STRESS_vs_CALL_ONLY_2' in c; print('vxx_sleeve_experiment_contract=PASS')"
+
+
+      - name: Persist generated replay outputs to recovery branch
+        if: always()
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
+          $payload = Join-Path $env:RUNNER_TEMP ("recovery-payload-" + $tag)
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          $baseline = Join-Path $env:GITHUB_WORKSPACE 'artifacts\qqq_hybrid_profit_trend_replay_v1\baseline'
+          $strategy = Join-Path $env:GITHUB_WORKSPACE 'artifacts\qqq_hybrid_vxx_short_call_put_v1'
+          if (!(Test-Path $baseline) -or !(Test-Path $strategy)) { throw 'Required VXX replay outputs missing' }
+          New-Item -ItemType Directory -Force -Path (Join-Path $payload 'profit_trend_baseline') | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $payload 'strategy') | Out-Null
+          Copy-Item -Path (Join-Path $baseline '*') -Destination (Join-Path $payload 'profit_trend_baseline') -Recurse -Force
+          Copy-Item -Path (Join-Path $strategy '*') -Destination (Join-Path $payload 'strategy') -Recurse -Force
+          $report = Join-Path $env:GITHUB_WORKSPACE 'research\QQQ_HYBRID_VXX_SHORT_CALL_PUT_V1.md'
+          if (Test-Path $report) { Copy-Item -Path $report -Destination (Join-Path $payload 'QQQ_HYBRID_VXX_SHORT_CALL_PUT_V1.md') -Force }
+          git fetch origin research/app-artifact-recovery-20261016
+          git checkout -B recovery-output origin/research/app-artifact-recovery-20261016
+          $dest = "research/artifact_recovery_20261016/vxx_short_call_put/rerun-" + $tag
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path (Join-Path $payload '*') -Destination $dest -Recurse -Force
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_workflow=${{ github.workflow }}","source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","outputs=baseline_profit_trend_plus_vxx_short_call_put_strategy") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $dest
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "recover: persist Persist generated replay outputs to recovery branch outputs $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery commit failed' }
+            git push origin HEAD:research/app-artifact-recovery-20261016
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery push failed' }
+          } else {
+            Write-Host 'No new recovery files to commit'
+          }
+
+      - name: Upload research evidence (quota may block upload)
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-hybrid-vxx-short-call-put-v1
+          path: |
+            artifacts\qqq_hybrid_profit_trend_replay_v1\baseline\
+            artifacts\qqq_hybrid_vxx_short_call_put_v1\
+            research\QQQ_HYBRID_VXX_SHORT_CALL_PUT_V1.md
+          if-no-files-found: error
+          retention-days: 30
