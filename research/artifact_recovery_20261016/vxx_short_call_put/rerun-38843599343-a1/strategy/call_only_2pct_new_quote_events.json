@@ -1,0 +1,7000 @@
+[
+  {
+    "date": "2018-03-01",
+    "event": "OPEN_QQQ_CORE",
+    "shares": 269
+  },
+  {
+    "date": "2018-03-01",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 167.02593984530318,
+    "long_strike": 170.74649628574375,
+    "credit_per_share": 0.4607108673457555,
+    "max_loss_total_at_open": 651.969114618961,
+    "risk_budget_usd": 800.0
+  },
+  {
+    "date": "2018-03-01",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 5
+  },
+  {
+    "date": "2018-03-19",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 5,
+    "realized_pnl": 1225.6005000000005,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-03-26",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 91.30750684777503,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-03-26",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 166.4677356691023,
+    "long_strike": 169.93804530498988,
+    "credit_per_share": 0.43386863754144384,
+    "max_loss_total_at_open": 607.2881996692288,
+    "risk_budget_usd": 810.9157376547821
+  },
+  {
+    "date": "2018-04-05",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 5
+  },
+  {
+    "date": "2018-04-06",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 5,
+    "realized_pnl": -777.6004999999986,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-04-11",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 5
+  },
+  {
+    "date": "2018-04-18",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 84.67776296640469,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-04-18",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 165.73554320483873,
+    "long_strike": 168.29797012255708,
+    "credit_per_share": 0.33183133775031,
+    "max_loss_total_at_open": 669.1786739904092,
+    "risk_budget_usd": 833.1900109585135
+  },
+  {
+    "date": "2018-04-25",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 5,
+    "realized_pnl": 1680.0,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2018-04-26",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 6
+  },
+  {
+    "date": "2018-05-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 6,
+    "realized_pnl": -207.3606000000009,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2018-05-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 7
+  },
+  {
+    "date": "2018-05-11",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 83.47125953713989,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-05-11",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 167.23297193254814,
+    "long_strike": 169.32936636259404,
+    "credit_per_share": 0.2751557879948887,
+    "max_loss_total_at_open": 728.4954568204064,
+    "risk_budget_usd": 844.1683026348106
+  },
+  {
+    "date": "2018-05-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 7,
+    "realized_pnl": 1344.0,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2018-05-16",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 8
+  },
+  {
+    "date": "2018-05-29",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 8,
+    "realized_pnl": -1205.7599999999984,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-06-01",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 8
+  },
+  {
+    "date": "2018-06-04",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": -30.554227471135697,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-06-04",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 172.05633094543947,
+    "long_strike": 174.22854303715363,
+    "credit_per_share": 0.28499030377082546,
+    "max_loss_total_at_open": 754.8887151773331,
+    "risk_budget_usd": 838.8867792150415
+  },
+  {
+    "date": "2018-06-19",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 8,
+    "realized_pnl": 1172.9928,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-06-20",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 9
+  },
+  {
+    "date": "2018-06-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 9,
+    "realized_pnl": -1221.1190999999967,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-06-27",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": 110.99754088812787,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-06-27",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 170.578557213106,
+    "long_strike": 173.60665177786655,
+    "credit_per_share": 0.38650704118687507,
+    "max_loss_total_at_open": 792.4762570721025,
+    "risk_budget_usd": 830.8045603421467
+  },
+  {
+    "date": "2018-07-06",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 8
+  },
+  {
+    "date": "2018-07-20",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -154.75135174713242,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-07-20",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 177.12855938911807,
+    "long_strike": 179.38588287854628,
+    "credit_per_share": 0.2959951249432427,
+    "max_loss_total_at_open": 784.5313457939895,
+    "risk_budget_usd": 861.1942095281697
+  },
+  {
+    "date": "2018-07-26",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 8,
+    "realized_pnl": 1958.3999999999996,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-07-26",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 9
+  },
+  {
+    "date": "2018-07-30",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 9,
+    "realized_pnl": -915.8399999999999,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-07-31",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 9
+  },
+  {
+    "date": "2018-08-01",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 9,
+    "realized_pnl": 218.87909999999965,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-08-02",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 9
+  },
+  {
+    "date": "2018-08-10",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 9,
+    "realized_pnl": 414.7208999999991,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-08-13",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": 94.4987065280264,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-08-13",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 179.49075145234275,
+    "long_strike": 182.11989243048305,
+    "credit_per_share": 0.3417476229295681,
+    "max_loss_total_at_open": 686.2180065632192,
+    "risk_budget_usd": 865.3901927803939
+  },
+  {
+    "date": "2018-08-17",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2018-08-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": 19.200999999998203,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-08-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2018-08-28",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": 12.799999999999727,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-08-29",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2018-08-30",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": -550.4000000000019,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-09-05",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 70.552502475159,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-09-05",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 182.12264702660076,
+    "long_strike": 184.63322406294984,
+    "credit_per_share": 0.32763323560842544,
+    "max_loss_total_at_open": 654.8831402221953,
+    "risk_budget_usd": 868.2087600001952
+  },
+  {
+    "date": "2018-09-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2018-09-17",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": 332.7999999999997,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-09-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2018-09-28",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 80.67589291008031,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-09-28",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 183.77584739014208,
+    "long_strike": 185.98305043730497,
+    "credit_per_share": 0.2903985964791921,
+    "max_loss_total_at_open": 766.72178027348,
+    "risk_budget_usd": 883.8980903434758
+  },
+  {
+    "date": "2018-10-04",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": 160.0,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-10-22",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": 116.14771258749441,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-10-22",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 176.03163954458637,
+    "long_strike": 179.45860208027443,
+    "credit_per_share": 0.43242833812193443,
+    "max_loss_total_at_open": 598.9068395132256,
+    "risk_budget_usd": 854.8550760441758
+  },
+  {
+    "date": "2018-11-01",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 8
+  },
+  {
+    "date": "2018-11-12",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 8,
+    "realized_pnl": 158.71840000000157,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-11-13",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 8
+  },
+  {
+    "date": "2018-11-14",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 86.46075801303148,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-11-14",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 8,
+    "realized_pnl": -481.27920000000086,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-11-14",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 168.0523389528263,
+    "long_strike": 171.59235943085875,
+    "credit_per_share": 0.44193610374916115,
+    "max_loss_total_at_open": 619.6168748566597,
+    "risk_budget_usd": 835.12060050828
+  },
+  {
+    "date": "2018-11-15",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 8
+  },
+  {
+    "date": "2018-11-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 8,
+    "realized_pnl": -1254.4000000000015,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-11-26",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 7
+  },
+  {
+    "date": "2018-12-04",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 7,
+    "realized_pnl": -129.9200000000028,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2018-12-07",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 87.28409494327896,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-12-07",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 165.18267796865848,
+    "long_strike": 168.98672630774786,
+    "credit_per_share": 0.4686642170562678,
+    "max_loss_total_at_open": 667.0768244066219,
+    "risk_budget_usd": 816.9177044678263
+  },
+  {
+    "date": "2018-12-31",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 93.64692285075772,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2018-12-31",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 159.43757921050158,
+    "long_strike": 163.4557708061138,
+    "credit_per_share": 0.48783922526512835,
+    "max_loss_total_at_open": 706.0704740694188,
+    "risk_budget_usd": 803.9833878506323
+  },
+  {
+    "date": "2019-01-02",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 6
+  },
+  {
+    "date": "2019-01-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 6,
+    "realized_pnl": -729.599400000001,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-01-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 6
+  },
+  {
+    "date": "2019-01-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 6,
+    "realized_pnl": 1359.3599999999997,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2019-01-23",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 34.79116562742912,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-01-23",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 164.5364960264503,
+    "long_strike": 167.72008724016752,
+    "credit_per_share": 0.4020390408584965,
+    "max_loss_total_at_open": 556.3104345717451,
+    "risk_budget_usd": 825.5112483756517
+  },
+  {
+    "date": "2019-01-23",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 7
+  },
+  {
+    "date": "2019-02-12",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 7,
+    "realized_pnl": 3068.799299999999,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-02-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 9
+  },
+  {
+    "date": "2019-02-15",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -125.86481597233214,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-02-15",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 172.01608716143784,
+    "long_strike": 174.55791587996984,
+    "credit_per_share": 0.3302024576895131,
+    "max_loss_total_at_open": 663.4878782527468,
+    "risk_budget_usd": 872.2118242478732
+  },
+  {
+    "date": "2019-03-05",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 9,
+    "realized_pnl": 1359.3599999999997,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-03-05",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2019-03-06",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": -582.4000000000001,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-03-11",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 78.02240472746726,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-03-11",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 174.49828802994918,
+    "long_strike": 176.97643491135364,
+    "credit_per_share": 0.32278253429116616,
+    "max_loss_total_at_open": 862.1457388453159,
+    "risk_budget_usd": 881.7431162856928
+  },
+  {
+    "date": "2019-03-11",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2019-03-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": -812.8010000000017,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-03-28",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2019-04-03",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": -435.85052444119066,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-04-03",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 183.5401466172343,
+    "long_strike": 186.03932550115448,
+    "credit_per_share": 0.326398478073404,
+    "max_loss_total_at_open": 869.1121623387048,
+    "risk_budget_usd": 897.8458544901633
+  },
+  {
+    "date": "2019-04-09",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": 851.2000000000012,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-04-10",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 11
+  },
+  {
+    "date": "2019-04-25",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 11,
+    "realized_pnl": 1302.400000000001,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-04-26",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": -138.16123908262676,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-04-26",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 189.81769241173467,
+    "long_strike": 192.2122597768695,
+    "credit_per_share": 0.31417720601729143,
+    "max_loss_total_at_open": 832.1560636470165,
+    "risk_budget_usd": 921.3014173775022
+  },
+  {
+    "date": "2019-04-26",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 12
+  },
+  {
+    "date": "2019-04-29",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 12,
+    "realized_pnl": -299.51880000000074,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-05-03",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 12
+  },
+  {
+    "date": "2019-05-06",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 12,
+    "realized_pnl": -1105.9199999999983,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-05-20",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": 125.66998228837272,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-05-20",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 181.13149073247513,
+    "long_strike": 184.05949044973642,
+    "credit_per_share": 0.37770640792860116,
+    "max_loss_total_at_open": 765.0879927998058,
+    "risk_budget_usd": 889.0377620358094
+  },
+  {
+    "date": "2019-05-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 11
+  },
+  {
+    "date": "2019-05-23",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 11,
+    "realized_pnl": -1084.1599999999994,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-05-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2019-05-28",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": -543.9999999999986,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-06-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2019-06-12",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 90.12656023821961,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-06-12",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 183.3123759086195,
+    "long_strike": 186.2029120200877,
+    "credit_per_share": 0.3737913212701259,
+    "max_loss_total_at_open": 755.0234370594246,
+    "risk_budget_usd": 888.0019817177151
+  },
+  {
+    "date": "2019-06-24",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": 1689.601,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-06-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 12
+  },
+  {
+    "date": "2019-06-25",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 12,
+    "realized_pnl": -514.561200000001,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-06-27",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 11
+  },
+  {
+    "date": "2019-07-05",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -203.4561520503048,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-07-05",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 190.9551483184443,
+    "long_strike": 193.46819763774334,
+    "credit_per_share": 0.3288982777698135,
+    "max_loss_total_at_open": 873.6604166116974,
+    "risk_budget_usd": 924.2193117013127
+  },
+  {
+    "date": "2019-07-18",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 11,
+    "realized_pnl": 2326.720000000002,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-07-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 14
+  },
+  {
+    "date": "2019-07-19",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 14,
+    "realized_pnl": -237.43860000000086,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-07-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 14
+  },
+  {
+    "date": "2019-07-29",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": 83.35049684909083,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-07-29",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 194.2577088131568,
+    "long_strike": 196.7275477643942,
+    "credit_per_share": 0.3239057604623879,
+    "max_loss_total_at_open": 858.3732763100016,
+    "risk_budget_usd": 940.7119316761053
+  },
+  {
+    "date": "2019-07-30",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 14,
+    "realized_pnl": 510.72000000000025,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-08-19",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 12
+  },
+  {
+    "date": "2019-08-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 12,
+    "realized_pnl": -476.16000000000076,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-08-21",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": 129.21819290383527,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-08-21",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 189.99119694356276,
+    "long_strike": 192.96632152833303,
+    "credit_per_share": 0.38492335448810067,
+    "max_loss_total_at_open": 777.0603690846509,
+    "risk_budget_usd": 921.923287619336
+  },
+  {
+    "date": "2019-08-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 12
+  },
+  {
+    "date": "2019-08-23",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 12,
+    "realized_pnl": -2810.8788000000004,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-08-29",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 11
+  },
+  {
+    "date": "2019-09-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 11,
+    "realized_pnl": -943.3599999999999,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-09-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 11
+  },
+  {
+    "date": "2019-09-13",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 82.01205507490495,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-09-13",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 192.71385465402835,
+    "long_strike": 195.33794755722633,
+    "credit_per_share": 0.3427125346800015,
+    "max_loss_total_at_open": 912.5521474071899,
+    "risk_budget_usd": 919.591655259935
+  },
+  {
+    "date": "2019-09-24",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 11,
+    "realized_pnl": 1612.1599999999994,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE",
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-10-07",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": 135.2511867166421,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-10-07",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 191.1861295686079,
+    "long_strike": 194.570566570615,
+    "credit_per_share": 0.4321337734086336,
+    "max_loss_total_at_open": 885.690968579541,
+    "risk_budget_usd": 906.5034583536681
+  },
+  {
+    "date": "2019-10-11",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 13
+  },
+  {
+    "date": "2019-10-30",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -35.28732809521484,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-10-30",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 196.72120590188715,
+    "long_strike": 199.124844631367,
+    "credit_per_share": 0.3159416159817614,
+    "max_loss_total_at_open": 835.0788453992418,
+    "risk_budget_usd": 947.9375197289065
+  },
+  {
+    "date": "2019-10-31",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 13,
+    "realized_pnl": 2720.6399999999994,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-10-31",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 16
+  },
+  {
+    "date": "2019-11-19",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 16,
+    "realized_pnl": 2232.3199999999997,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-11-22",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": -10.304986159142103,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-11-22",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 201.5607103889892,
+    "long_strike": 204.02547900105344,
+    "credit_per_share": 0.3239619851891658,
+    "max_loss_total_at_open": 856.3226507500269,
+    "risk_budget_usd": 973.8550382396332
+  },
+  {
+    "date": "2019-11-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 19
+  },
+  {
+    "date": "2019-11-29",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 19,
+    "realized_pnl": 899.8381000000029,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2019-12-13",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 22
+  },
+  {
+    "date": "2019-12-16",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": -199.32804111599353,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2019-12-16",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 4,
+    "short_strike": 208.86415048662343,
+    "long_strike": 211.37681309684817,
+    "credit_per_share": 0.33055743086267375,
+    "max_loss_total_at_open": 872.8420717448254,
+    "risk_budget_usd": 998.5559371107054
+  },
+  {
+    "date": "2019-12-30",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 22,
+    "realized_pnl": -323.8400000000006,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-01-02",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 24
+  },
+  {
+    "date": "2020-01-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 24,
+    "realized_pnl": -1198.079999999999,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-01-08",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": -324.09833520885275,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-01-08",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 218.064085394076,
+    "long_strike": 220.9706564560089,
+    "credit_per_share": 0.38010656462293574,
+    "max_loss_total_at_open": 757.9393491929918,
+    "risk_budget_usd": 997.3331536290344
+  },
+  {
+    "date": "2020-01-09",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 24
+  },
+  {
+    "date": "2020-01-24",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 24,
+    "realized_pnl": -92.16000000000076,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-01-31",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 42.55666745869483,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-01-31",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 223.655728552156,
+    "long_strike": 227.83235211040105,
+    "credit_per_share": 0.5298297729456583,
+    "max_loss_total_at_open": 729.3587570598766,
+    "risk_budget_usd": 1000.913868568704
+  },
+  {
+    "date": "2020-02-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 27
+  },
+  {
+    "date": "2020-02-19",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -510.51922110462124,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2020-02-19",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 238.65243811742235,
+    "long_strike": 242.05350600143657,
+    "credit_per_share": 0.44289346531963475,
+    "max_loss_total_at_open": 887.452325608377,
+    "risk_budget_usd": 1031.721152399867
+  },
+  {
+    "date": "2020-02-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 27,
+    "realized_pnl": -1105.9199999999978,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-03-13",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 131.659811113634,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-04-03",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 205.21547297853795,
+    "long_strike": 214.74279243746355,
+    "credit_per_share": 0.9993785365111647,
+    "max_loss_total_at_open": 852.7940922414439,
+    "risk_budget_usd": 915.887431688776
+  },
+  {
+    "date": "2020-04-27",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -331.9334295577017,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-04-27",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 230.81182385745154,
+    "long_strike": 238.43159124603972,
+    "credit_per_share": 0.8771925922758103,
+    "max_loss_total_at_open": 674.2574796312363,
+    "risk_budget_usd": 980.0603874523144
+  },
+  {
+    "date": "2020-04-27",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 8
+  },
+  {
+    "date": "2020-05-01",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 8,
+    "realized_pnl": -1397.760000000002,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "VIX_SHOCK"
+    ]
+  },
+  {
+    "date": "2020-05-05",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 8
+  },
+  {
+    "date": "2020-05-12",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 8,
+    "realized_pnl": 1418.2383999999984,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2020-05-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 9
+  },
+  {
+    "date": "2020-05-20",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -5.043817675256346,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-05-20",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 243.60866238642316,
+    "long_strike": 250.36943243675663,
+    "credit_per_share": 0.8067446716689494,
+    "max_loss_total_at_open": 595.4025378664513,
+    "risk_budget_usd": 1030.4200841109125
+  },
+  {
+    "date": "2020-06-04",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 9,
+    "realized_pnl": 3818.880900000001,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-06-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 11
+  },
+  {
+    "date": "2020-06-11",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 11,
+    "realized_pnl": -7582.08,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "VIX_SHOCK",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-06-12",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 36.41844100575399,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-06-12",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 254.86026650911208,
+    "long_strike": 263.9823212487004,
+    "credit_per_share": 1.0302740281654776,
+    "max_loss_total_at_open": 809.1780711422816,
+    "risk_budget_usd": 992.5550596389585
+  },
+  {
+    "date": "2020-06-30",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2020-07-06",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -53.059537718477,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-07-06",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 272.4643042986314,
+    "long_strike": 280.01237338927996,
+    "credit_per_share": 0.900994549633026,
+    "max_loss_total_at_open": 664.7074541015513,
+    "risk_budget_usd": 1048.3460697372107
+  },
+  {
+    "date": "2020-07-13",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": -825.6009999999969,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-07-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 10
+  },
+  {
+    "date": "2020-07-29",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 87.49605654992719,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-07-29",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 270.6265608975202,
+    "long_strike": 277.0925157181058,
+    "credit_per_share": 0.7919922466279424,
+    "max_loss_total_at_open": 567.3962573957638,
+    "risk_budget_usd": 1060.5177365896102
+  },
+  {
+    "date": "2020-08-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 10,
+    "realized_pnl": 3039.9999999999977,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-08-03",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 13
+  },
+  {
+    "date": "2020-08-21",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -236.27116308235458,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-08-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 13,
+    "realized_pnl": 3186.5600000000013,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-08-21",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 292.2215051090833,
+    "long_strike": 298.7511271409443,
+    "credit_per_share": 0.8081754467276715,
+    "max_loss_total_at_open": 572.144658513331,
+    "risk_budget_usd": 1130.6439496849514
+  },
+  {
+    "date": "2020-08-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 16
+  },
+  {
+    "date": "2020-08-26",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 16,
+    "realized_pnl": -307.2016000000003,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-09-14",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 80.00589971397056,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-09-14",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 288.23953189581795,
+    "long_strike": 295.62681350203826,
+    "credit_per_share": 0.8942875648413436,
+    "max_loss_total_at_open": 649.2994041378969,
+    "risk_budget_usd": 1114.871740082663
+  },
+  {
+    "date": "2020-09-15",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 15
+  },
+  {
+    "date": "2020-09-16",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 15,
+    "realized_pnl": 67.2014999999999,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-09-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 15
+  },
+  {
+    "date": "2020-09-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 15,
+    "realized_pnl": -758.3984999999996,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-09-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 15
+  },
+  {
+    "date": "2020-09-23",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 15,
+    "realized_pnl": -1286.3999999999999,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-09-25",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 15
+  },
+  {
+    "date": "2020-10-02",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 15,
+    "realized_pnl": -230.3985000000023,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-10-07",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 64.7352815649857,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-10-07",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 295.27934194306175,
+    "long_strike": 303.4946193225984,
+    "credit_per_share": 0.9798447098194587,
+    "max_loss_total_at_open": 723.5432669717186,
+    "risk_budget_usd": 1107.625073535183
+  },
+  {
+    "date": "2020-10-08",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 16
+  },
+  {
+    "date": "2020-10-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 16,
+    "realized_pnl": 1433.6000000000022,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-10-30",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 93.19113380548269,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-10-30",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 293.3938303926245,
+    "long_strike": 304.45723764302875,
+    "credit_per_share": 1.233129904941939,
+    "max_loss_total_at_open": 983.0277345462285,
+    "risk_budget_usd": 1097.9193458056268
+  },
+  {
+    "date": "2020-11-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 17
+  },
+  {
+    "date": "2020-11-12",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 17,
+    "realized_pnl": 2197.7600000000034,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2020-11-13",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 21
+  },
+  {
+    "date": "2020-11-23",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 96.64044344300501,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-11-23",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 301.16708383998457,
+    "long_strike": 307.9324479743988,
+    "credit_per_share": 0.8366827463018169,
+    "max_loss_total_at_open": 592.868138811244,
+    "risk_budget_usd": 1167.7099821531713
+  },
+  {
+    "date": "2020-12-04",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 21,
+    "realized_pnl": 2647.6799999999985,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-12-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 24
+  },
+  {
+    "date": "2020-12-09",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 24,
+    "realized_pnl": -138.23999999999978,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-12-16",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -123.82973938293587,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2020-12-16",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 320.28708649704373,
+    "long_strike": 327.4311170100162,
+    "credit_per_share": 0.8844573281386648,
+    "max_loss_total_at_open": 625.9573184833785,
+    "risk_budget_usd": 1217.7145346381074
+  },
+  {
+    "date": "2020-12-17",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 25
+  },
+  {
+    "date": "2020-12-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 25,
+    "realized_pnl": -2704.000000000002,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2020-12-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 24
+  },
+  {
+    "date": "2020-12-29",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 24,
+    "realized_pnl": -844.8024000000005,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-01-07",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 25
+  },
+  {
+    "date": "2021-01-08",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 36.913536946716185,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-01-08",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 330.33563155782036,
+    "long_strike": 337.3957375829211,
+    "credit_per_share": 0.8795648754796832,
+    "max_loss_total_at_open": 618.0541149621025,
+    "risk_budget_usd": 1213.6428309336814
+  },
+  {
+    "date": "2021-01-11",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 25,
+    "realized_pnl": -1343.9999999999998,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-01-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 24
+  },
+  {
+    "date": "2021-01-14",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 24,
+    "realized_pnl": 107.52000000000044,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-01-19",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 25
+  },
+  {
+    "date": "2021-01-25",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 25,
+    "realized_pnl": -688.0024999999989,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-01-26",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 24
+  },
+  {
+    "date": "2021-01-27",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 24,
+    "realized_pnl": -4684.800000000001,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "VIX_SHOCK",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-02-01",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 49.472564006668534,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-02-01",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 343.09543721255596,
+    "long_strike": 353.3833566642886,
+    "credit_per_share": 1.2091166016951642,
+    "max_loss_total_at_open": 907.8802850037483,
+    "risk_budget_usd": 1166.3070002457343
+  },
+  {
+    "date": "2021-02-03",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 23
+  },
+  {
+    "date": "2021-02-24",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 120.41005575233923,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-02-24",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 23,
+    "realized_pnl": 4077.4399999999996,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-02-24",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 335.3867784238901,
+    "long_strike": 342.4816414916808,
+    "credit_per_share": 0.8851917167071012,
+    "max_loss_total_at_open": 620.9671351083596,
+    "risk_budget_usd": 1203.452651891753
+  },
+  {
+    "date": "2021-02-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 29
+  },
+  {
+    "date": "2021-02-25",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 29,
+    "realized_pnl": -4287.362899999996,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-03-10",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 27
+  },
+  {
+    "date": "2021-03-19",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 88.42809304063802,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-03-19",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 323.6227522875779,
+    "long_strike": 330.3435483500088,
+    "credit_per_share": 0.84070199679325,
+    "max_loss_total_at_open": 588.0094065637657,
+    "risk_budget_usd": 1171.9857638360784
+  },
+  {
+    "date": "2021-03-30",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 27,
+    "realized_pnl": 5339.5199999999995,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-03-30",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 36
+  },
+  {
+    "date": "2021-04-12",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -259.9452419973601,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-04-12",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 344.0603060020512,
+    "long_strike": 349.8267917716254,
+    "credit_per_share": 0.74092252219972,
+    "max_loss_total_at_open": 1005.112649474888,
+    "risk_budget_usd": 1262.0248811000993
+  },
+  {
+    "date": "2021-04-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 36,
+    "realized_pnl": 2511.3599999999997,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE",
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-04-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 45
+  },
+  {
+    "date": "2021-04-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 45,
+    "realized_pnl": -1756.7999999999984,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-04-23",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 43
+  },
+  {
+    "date": "2021-04-29",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 43,
+    "realized_pnl": 1100.800000000001,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-05-05",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 146.68543493762522,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-05-05",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 338.580616438744,
+    "long_strike": 345.00749702154553,
+    "credit_per_share": 0.8136131739030156,
+    "max_loss_total_at_open": 1122.6534817797,
+    "risk_budget_usd": 1237.5885421796004
+  },
+  {
+    "date": "2021-05-07",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 47
+  },
+  {
+    "date": "2021-05-10",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 47,
+    "realized_pnl": -1210.7199999999996,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-05-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 44
+  },
+  {
+    "date": "2021-05-17",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 44,
+    "realized_pnl": -890.5600000000004,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-05-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 45
+  },
+  {
+    "date": "2021-05-28",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 144.33856583845025,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-05-28",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 341.1028901677811,
+    "long_strike": 346.76906516207606,
+    "credit_per_share": 0.7287560307110533,
+    "max_loss_total_at_open": 987.4837927167848,
+    "risk_budget_usd": 1249.6078107063079
+  },
+  {
+    "date": "2021-06-14",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 45,
+    "realized_pnl": 4766.399999999998,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-06-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 58
+  },
+  {
+    "date": "2021-06-16",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 58,
+    "realized_pnl": -890.8800000000008,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-06-21",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -1.8621847618647047,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-06-21",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 353.39055022289836,
+    "long_strike": 359.6568960481439,
+    "credit_per_share": 0.7999444993622412,
+    "max_loss_total_at_open": 1093.2802651766592,
+    "risk_budget_usd": 1285.7353236282129
+  },
+  {
+    "date": "2021-06-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 58
+  },
+  {
+    "date": "2021-07-08",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 58,
+    "realized_pnl": -631.0399999999997,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-07-09",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 62
+  },
+  {
+    "date": "2021-07-13",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 62,
+    "realized_pnl": -158.72000000000014,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-07-14",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -274.93113236320556,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-07-14",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 370.8096283193808,
+    "long_strike": 376.8111396142016,
+    "credit_per_share": 0.774081320509043,
+    "max_loss_total_at_open": 1045.485994862346,
+    "risk_budget_usd": 1316.2935953693072
+  },
+  {
+    "date": "2021-07-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 64
+  },
+  {
+    "date": "2021-07-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 64,
+    "realized_pnl": -430.0799999999981,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-08-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 62
+  },
+  {
+    "date": "2021-08-06",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 119.67189178959077,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-08-06",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 375.6883172679911,
+    "long_strike": 381.7017251102746,
+    "credit_per_share": 0.7765381755605023,
+    "max_loss_total_at_open": 1047.3739333445935,
+    "risk_budget_usd": 1335.876651303624
+  },
+  {
+    "date": "2021-08-17",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 62,
+    "realized_pnl": 2549.4400000000005,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-08-23",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 71
+  },
+  {
+    "date": "2021-08-26",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 71,
+    "realized_pnl": -499.84000000000145,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-08-27",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 73
+  },
+  {
+    "date": "2021-08-30",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -3.3935500660182027,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-08-30",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 388.19932851021565,
+    "long_strike": 394.4283917259605,
+    "credit_per_share": 0.8041743089039206,
+    "max_loss_total_at_open": 1084.9777813681903,
+    "risk_budget_usd": 1368.510377303096
+  },
+  {
+    "date": "2021-09-07",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 73,
+    "realized_pnl": 350.40000000000083,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-09-22",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 157.88764595255412,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-09-22",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 383.1971076813224,
+    "long_strike": 391.1246957328423,
+    "credit_per_share": 0.992187459418831,
+    "max_loss_total_at_open": 693.5400592101101,
+    "risk_budget_usd": 1348.6773800707165
+  },
+  {
+    "date": "2021-09-23",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 75
+  },
+  {
+    "date": "2021-09-28",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 75,
+    "realized_pnl": -2460.000000000001,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-10-07",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 73
+  },
+  {
+    "date": "2021-10-15",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 98.68137243749322,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-10-15",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 377.1877839262957,
+    "long_strike": 383.28130285705834,
+    "credit_per_share": 0.7861042923790396,
+    "max_loss_total_at_open": 1061.4829276767175,
+    "risk_budget_usd": 1351.5490566502162
+  },
+  {
+    "date": "2021-10-27",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 73,
+    "realized_pnl": 3866.0800000000027,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-10-27",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 88
+  },
+  {
+    "date": "2021-11-03",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -636.8907133319775,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2021-11-03",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 400.4961380889684,
+    "long_strike": 406.48960450780845,
+    "credit_per_share": 0.7779210153679486,
+    "max_loss_total_at_open": 1043.1090806944217,
+    "risk_budget_usd": 1428.9763173435606
+  },
+  {
+    "date": "2021-11-08",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 88,
+    "realized_pnl": 1534.7199999999998,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-11-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 98
+  },
+  {
+    "date": "2021-11-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 98,
+    "realized_pnl": 376.31999999999755,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2021-11-26",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 47.38436855600416,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-11-26",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 415.6120803033625,
+    "long_strike": 427.4062382213062,
+    "credit_per_share": 1.401398645138594,
+    "max_loss_total_at_open": 1039.2759272805072,
+    "risk_budget_usd": 1416.5118050920087
+  },
+  {
+    "date": "2021-12-08",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 93
+  },
+  {
+    "date": "2021-12-20",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 140.1208760160871,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-12-20",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 397.70014111896677,
+    "long_strike": 406.7168663486105,
+    "credit_per_share": 1.1135490304546825,
+    "max_loss_total_at_open": 790.3176199189044,
+    "risk_budget_usd": 1381.6758345001372
+  },
+  {
+    "date": "2021-12-29",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 93,
+    "realized_pnl": 4181.279999999998,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2021-12-29",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 110
+  },
+  {
+    "date": "2022-01-03",
+    "event": "OPEN_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "short_strike": 321.3484115609558,
+    "long_strike": 364.76171548612433,
+    "expiry_index": null,
+    "expiry_date": "2022-02-02",
+    "credit_per_share": 8.123055147915,
+    "width": 43.41330392516852,
+    "max_loss_per_contract": 3529.0248777253523,
+    "max_loss_total_at_open": 3529.0248777253523,
+    "risk_budget_usd": 3711.4884319999674,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2022-01-05",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 110,
+    "realized_pnl": -1020.799999999997,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-01-07",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 105
+  },
+  {
+    "date": "2022-01-10",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 105,
+    "realized_pnl": 588.0000000000024,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-01-11",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 113
+  },
+  {
+    "date": "2022-01-12",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 105.6814752575826,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-01-12",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 398.12591395747125,
+    "long_strike": 405.0788949368982,
+    "credit_per_share": 0.8891865339915679,
+    "max_loss_total_at_open": 1212.75888908708,
+    "risk_budget_usd": 1445.1927879663829
+  },
+  {
+    "date": "2022-01-13",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 113,
+    "realized_pnl": -1663.3599999999967,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-01-21",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -2521.846754043524,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2022-02-01",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 96
+  },
+  {
+    "date": "2022-02-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 96,
+    "realized_pnl": -2979.840000000002,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-02-04",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 177.82246596567884,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-02-04",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 374.4159425154182,
+    "long_strike": 383.03478042557754,
+    "credit_per_share": 1.0619241846076701,
+    "max_loss_total_at_open": 755.6913725551686,
+    "risk_budget_usd": 1324.130365597575
+  },
+  {
+    "date": "2022-02-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 88
+  },
+  {
+    "date": "2022-02-10",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 88,
+    "realized_pnl": 760.3199999999988,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2022-02-15",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 87
+  },
+  {
+    "date": "2022-02-17",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 87,
+    "realized_pnl": -2185.4400000000005,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-02-28",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 104.2908173878746,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-02-28",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 370.710383450504,
+    "long_strike": 381.79323984383905,
+    "credit_per_share": 1.3033372480030525,
+    "max_loss_total_at_open": 977.9519145331969,
+    "risk_budget_usd": 1290.0955265366779
+  },
+  {
+    "date": "2022-03-15",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 61
+  },
+  {
+    "date": "2022-03-23",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 126.33830420794088,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-03-23",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 368.8109538585495,
+    "long_strike": 377.4288403230902,
+    "credit_per_share": 1.0593250312265656,
+    "max_loss_total_at_open": 755.8561433314109,
+    "risk_budget_usd": 1327.6108057703416
+  },
+  {
+    "date": "2022-04-04",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 61,
+    "realized_pnl": 4167.5199999999995,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-04-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 78
+  },
+  {
+    "date": "2022-04-11",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 78,
+    "realized_pnl": -2084.160000000002,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-04-18",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 105.93225087925956,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-04-18",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 353.48823686124115,
+    "long_strike": 361.2570918462714,
+    "credit_per_share": 0.9639335143292792,
+    "max_loss_total_at_open": 680.492147070098,
+    "risk_budget_usd": 1292.5193069773757
+  },
+  {
+    "date": "2022-04-19",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 74
+  },
+  {
+    "date": "2022-04-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 74,
+    "realized_pnl": -153.91999999999882,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-05-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 72
+  },
+  {
+    "date": "2022-05-05",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 72,
+    "realized_pnl": -2476.7999999999984,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-05-11",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 96.39296932466871,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-05-11",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 314.76188576473726,
+    "long_strike": 324.9250107842418,
+    "credit_per_share": 1.1758067994304349,
+    "max_loss_total_at_open": 898.7318220074113,
+    "risk_budget_usd": 1174.043981131973
+  },
+  {
+    "date": "2022-05-13",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 64
+  },
+  {
+    "date": "2022-05-18",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 64,
+    "realized_pnl": -122.88000000000102,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-05-19",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 64
+  },
+  {
+    "date": "2022-06-03",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 87.86582773351161,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-06-03",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 322.20815366187935,
+    "long_strike": 330.12711727050095,
+    "credit_per_share": 0.9654933835000065,
+    "max_loss_total_at_open": 695.3470225121589,
+    "risk_budget_usd": 1232.248526153841
+  },
+  {
+    "date": "2022-06-09",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 64,
+    "realized_pnl": 2278.4000000000015,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-06-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 72
+  },
+  {
+    "date": "2022-06-27",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 96.45838493395172,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-06-27",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 310.4347481698836,
+    "long_strike": 318.7297256443814,
+    "credit_per_share": 0.9967740492255746,
+    "max_loss_total_at_open": 729.820342527221,
+    "risk_budget_usd": 1200.0117780333128
+  },
+  {
+    "date": "2022-06-28",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 72,
+    "realized_pnl": 391.67999999999984,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-07-01",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 73
+  },
+  {
+    "date": "2022-07-20",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 65.54266675184275,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-07-20",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 318.5751597207025,
+    "long_strike": 326.1171886644355,
+    "credit_per_share": 0.9251581126562961,
+    "max_loss_total_at_open": 661.6870831076691,
+    "risk_budget_usd": 1230.1598889673276
+  },
+  {
+    "date": "2022-07-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 73,
+    "realized_pnl": 1331.5200000000007,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-07-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 80
+  },
+  {
+    "date": "2022-08-11",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 80,
+    "realized_pnl": -371.20000000000346,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-08-11",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 82
+  },
+  {
+    "date": "2022-08-12",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -327.4332494625888,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-08-12",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 342.66803751547855,
+    "long_strike": 349.3016674293915,
+    "credit_per_share": 0.8376707045359667,
+    "max_loss_total_at_open": 1159.1918418753976,
+    "risk_budget_usd": 1279.839573371627
+  },
+  {
+    "date": "2022-08-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 82,
+    "realized_pnl": 616.6400000000032,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-09-06",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 167.53413678616005,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-09-06",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 311.0324378688588,
+    "long_strike": 319.3310398588819,
+    "credit_per_share": 0.9974779876995968,
+    "max_loss_total_at_open": 730.1124002323547,
+    "risk_budget_usd": 1211.4739376659165
+  },
+  {
+    "date": "2022-09-09",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 94
+  },
+  {
+    "date": "2022-09-12",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 94,
+    "realized_pnl": 481.2800000000004,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-09-29",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 99.6591745648146,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-09-29",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 293.63696572933236,
+    "long_strike": 302.90815361105996,
+    "credit_per_share": 1.0778722979364705,
+    "max_loss_total_at_open": 819.3315583791127,
+    "risk_budget_usd": 1172.6674062624345
+  },
+  {
+    "date": "2022-10-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 80
+  },
+  {
+    "date": "2022-10-24",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 101.26811481927325,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-10-24",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 298.83981474051444,
+    "long_strike": 307.6850311037801,
+    "credit_per_share": 1.042305033426286,
+    "max_loss_total_at_open": 780.2911329839363,
+    "risk_budget_usd": 1192.4409367809887
+  },
+  {
+    "date": "2022-11-07",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 80,
+    "realized_pnl": 4198.4000000000015,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-11-07",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 98
+  },
+  {
+    "date": "2022-11-16",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 95.57287113809411,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-11-16",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 300.8387880844714,
+    "long_strike": 308.02957455296615,
+    "credit_per_share": 0.8807153842137739,
+    "max_loss_total_at_open": 631.007108428099,
+    "risk_budget_usd": 1241.6473221500935
+  },
+  {
+    "date": "2022-11-28",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 98,
+    "realized_pnl": 2257.919999999999,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-11-28",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 111
+  },
+  {
+    "date": "2022-12-01",
+    "event": "OPEN_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "short_strike": 265.116218429751,
+    "long_strike": 303.2708941827434,
+    "expiry_index": null,
+    "expiry_date": "2022-12-31",
+    "credit_per_share": 6.92919774454635,
+    "width": 38.15467575299243,
+    "max_loss_per_contract": 3122.547800844608,
+    "max_loss_total_at_open": 3122.547800844608,
+    "risk_budget_usd": 3218.4271579904757,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2022-12-07",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 111,
+    "realized_pnl": 763.6800000000027,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-12-09",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 86.98633811794275,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-12-09",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 296.0678056586343,
+    "long_strike": 302.76855575655327,
+    "credit_per_share": 0.8277514909074213,
+    "max_loss_total_at_open": 1174.5997214023068,
+    "risk_budget_usd": 1251.8437857719468
+  },
+  {
+    "date": "2022-12-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 126
+  },
+  {
+    "date": "2022-12-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 126,
+    "realized_pnl": -1774.0800000000015,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-12-20",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 117
+  },
+  {
+    "date": "2022-12-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 117,
+    "realized_pnl": -393.1200000000016,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-12-23",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 118
+  },
+  {
+    "date": "2022-12-27",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 638.2754144738758,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2022-12-28",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 118,
+    "realized_pnl": 75.51999999999839,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2022-12-29",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 120
+  },
+  {
+    "date": "2023-01-03",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 165.55008751177195,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-01-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 120,
+    "realized_pnl": 268.8000000000011,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-01-03",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 278.35987999132243,
+    "long_strike": 284.6791876389486,
+    "credit_per_share": 0.7802665176585091,
+    "max_loss_total_at_open": 1107.8082259935275,
+    "risk_budget_usd": 1210.3301224709223
+  },
+  {
+    "date": "2023-01-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 125
+  },
+  {
+    "date": "2023-01-05",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 125,
+    "realized_pnl": -220.00000000000242,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-01-06",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 127
+  },
+  {
+    "date": "2023-01-06",
+    "event": "OPEN_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "short_strike": 243.51499760055844,
+    "long_strike": 279.4194235245553,
+    "expiry_index": null,
+    "expiry_date": "2023-02-05",
+    "credit_per_share": 6.4430067930115005,
+    "width": 35.90442592399688,
+    "max_loss_per_contract": 2946.141913098538,
+    "max_loss_total_at_open": 2946.141913098538,
+    "risk_budget_usd": 3043.1684679780074,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-01-23",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -658.0788897327583,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2023-01-23",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 301.216651600456,
+    "long_strike": 307.1314953434524,
+    "credit_per_share": 0.7455170420674742,
+    "max_loss_total_at_open": 1033.86534018579,
+    "risk_budget_usd": 1280.690621245735
+  },
+  {
+    "date": "2023-01-27",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 127,
+    "realized_pnl": 4267.199999999999,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-01-27",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 162
+  },
+  {
+    "date": "2023-01-30",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 640.0636792145375,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-01-30",
+    "event": "OPEN_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "short_strike": 209.75946396566638,
+    "long_strike": 240.0046401084762,
+    "expiry_index": null,
+    "expiry_date": "2023-03-01",
+    "credit_per_share": 5.48768685244524,
+    "width": 30.24517614280981,
+    "max_loss_per_contract": 2475.748929036457,
+    "max_loss_total_at_open": 2475.748929036457,
+    "risk_budget_usd": 3227.948443691016,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-02-02",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -616.9330574278667,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2023-02-02",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 323.8589836545798,
+    "long_strike": 329.87150141424297,
+    "credit_per_share": 0.7632806504635853,
+    "max_loss_total_at_open": 1049.8474218399197,
+    "risk_budget_usd": 1339.71137536314
+  },
+  {
+    "date": "2023-02-08",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 162,
+    "realized_pnl": -933.1199999999985,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-02-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 164
+  },
+  {
+    "date": "2023-02-16",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 164,
+    "realized_pnl": -997.1199999999974,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-02-22",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 138.24276293070685,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-02-27",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 152.65559159058168,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-02-27",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 307.49296597930277,
+    "long_strike": 313.87878867060255,
+    "credit_per_share": 0.7988002965531661,
+    "max_loss_total_at_open": 1117.4044789493228,
+    "risk_budget_usd": 1286.6418583635236
+  },
+  {
+    "date": "2023-03-02",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 161
+  },
+  {
+    "date": "2023-03-02",
+    "event": "OPEN_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "short_strike": 203.04578107491807,
+    "long_strike": 232.12893646494115,
+    "expiry_index": null,
+    "expiry_date": "2023-04-01",
+    "credit_per_share": 5.293966203784764,
+    "width": 29.08315539002308,
+    "max_loss_per_contract": 2378.918918623832,
+    "max_loss_total_at_open": 2378.918918623832,
+    "risk_budget_usd": 3215.4283668499284,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-03-09",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 161,
+    "realized_pnl": -1693.719999999997,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-03-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 151
+  },
+  {
+    "date": "2023-03-22",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -55.74219420099882,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-03-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 151,
+    "realized_pnl": -1256.319999999999,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-03-22",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 322.0402593782637,
+    "long_strike": 329.14671501385675,
+    "credit_per_share": 0.8812158715307158,
+    "max_loss_total_at_open": 1245.0479528124613,
+    "risk_budget_usd": 1286.0145175159926
+  },
+  {
+    "date": "2023-03-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 146
+  },
+  {
+    "date": "2023-03-27",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 181.8654176924627,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-03-27",
+    "event": "OPEN_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "short_strike": 217.6216820580248,
+    "long_strike": 249.39290204012755,
+    "expiry_index": null,
+    "expiry_date": "2023-04-26",
+    "credit_per_share": 5.7294252850810565,
+    "width": 31.771219982102764,
+    "max_loss_per_contract": 2604.1794697021705,
+    "max_loss_total_at_open": 2604.1794697021705,
+    "risk_budget_usd": 3261.485843581403,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-04-14",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 93.78878454256471,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-04-14",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 146,
+    "realized_pnl": 5331.920000000002,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-04-14",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 329.7980189492106,
+    "long_strike": 335.3778011157299,
+    "credit_per_share": 0.7161753651710883,
+    "max_loss_total_at_open": 972.7213602696413,
+    "risk_budget_usd": 1364.8477289151988
+  },
+  {
+    "date": "2023-04-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 189
+  },
+  {
+    "date": "2023-04-19",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 572.2306333783256,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-04-19",
+    "event": "OPEN_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "short_strike": 175.3750245098593,
+    "long_strike": 199.0010840222866,
+    "expiry_index": null,
+    "expiry_date": "2023-05-19",
+    "credit_per_share": 4.4263441165920945,
+    "width": 23.626059512427304,
+    "max_loss_per_contract": 1919.971539583521,
+    "max_loss_total_at_open": 1919.971539583521,
+    "risk_budget_usd": 3436.7284141337705,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-04-25",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 189,
+    "realized_pnl": -1270.0799999999997,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-04-27",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 193
+  },
+  {
+    "date": "2023-05-02",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 193,
+    "realized_pnl": 416.8799999999993,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-05-05",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 198
+  },
+  {
+    "date": "2023-05-08",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 115.32620151767831,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-05-08",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 335.00569411444775,
+    "long_strike": 340.6436811660488,
+    "credit_per_share": 0.7240768416606563,
+    "max_loss_total_at_open": 982.7820419880776,
+    "risk_budget_usd": 1376.146031926062
+  },
+  {
+    "date": "2023-05-09",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 198,
+    "realized_pnl": -221.7600000000009,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-05-10",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 204
+  },
+  {
+    "date": "2023-05-12",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 378.66639963582196,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-05-12",
+    "event": "OPEN_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "short_strike": 168.54112423181516,
+    "long_strike": 191.50735993440932,
+    "expiry_index": null,
+    "expiry_date": "2023-06-11",
+    "credit_per_share": 4.280290093420407,
+    "width": 22.96623570259416,
+    "max_loss_per_contract": 1868.5945609173752,
+    "max_loss_total_at_open": 1868.5945609173752,
+    "risk_budget_usd": 3440.0899195533175,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-05-16",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 204,
+    "realized_pnl": 187.68000000000325,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-05-17",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 214
+  },
+  {
+    "date": "2023-05-23",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 214,
+    "realized_pnl": -111.28000000000219,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-05-26",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -703.1774746330515,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2023-05-26",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 361.6569952708624,
+    "long_strike": 368.09144457106345,
+    "credit_per_share": 0.8210778026881645,
+    "max_loss_total_at_open": 1122.6742995025747,
+    "risk_budget_usd": 1420.1905920811153
+  },
+  {
+    "date": "2023-05-30",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 230
+  },
+  {
+    "date": "2023-05-31",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 230,
+    "realized_pnl": 248.39999999999634,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-06-01",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 247
+  },
+  {
+    "date": "2023-06-05",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 427.8252549274632,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-06-05",
+    "event": "OPEN_VXX_CC",
+    "contracts": 2,
+    "side": "call",
+    "short_strike": 136.70624400489967,
+    "long_strike": 154.48216665917369,
+    "expiry_index": null,
+    "expiry_date": "2023-07-05",
+    "credit_per_share": 3.3699426367773095,
+    "width": 17.775922654274012,
+    "max_loss_per_contract": 1440.5980017496702,
+    "max_loss_total_at_open": 2881.1960034993403,
+    "risk_budget_usd": 3631.1419201953204,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-06-20",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -185.5796374922922,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-06-20",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 376.6596343519976,
+    "long_strike": 381.8407167342222,
+    "credit_per_share": 0.6762297362082892,
+    "max_loss_total_at_open": 1351.4557938048897,
+    "risk_budget_usd": 1507.5540722041098
+  },
+  {
+    "date": "2023-06-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 247,
+    "realized_pnl": 6263.920000000004,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-06-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 326
+  },
+  {
+    "date": "2023-06-28",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 673.3517424893699,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-06-28",
+    "event": "OPEN_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "short_strike": 110.51778362857242,
+    "long_strike": 124.50019654215764,
+    "expiry_index": null,
+    "expiry_date": "2023-07-28",
+    "credit_per_share": 2.6714505502928154,
+    "width": 13.982412913585222,
+    "max_loss_per_contract": 1131.0962363292406,
+    "max_loss_total_at_open": 3393.2887089877217,
+    "risk_budget_usd": 3818.895933006266,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-07-05",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 326,
+    "realized_pnl": 1408.319999999998,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-07-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 361
+  },
+  {
+    "date": "2023-07-13",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -127.02462154683337,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-07-13",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 388.9156931267812,
+    "long_strike": 394.16124131867724,
+    "credit_per_share": 0.6854864003736698,
+    "max_loss_total_at_open": 1368.0185374567095,
+    "risk_budget_usd": 1555.393170390989
+  },
+  {
+    "date": "2023-07-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 361,
+    "realized_pnl": 115.52000000000267,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-07-21",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 705.1013564122537,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-07-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 368
+  },
+  {
+    "date": "2023-07-21",
+    "event": "OPEN_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "short_strike": 105.53467682552913,
+    "long_strike": 118.93507021402324,
+    "expiry_index": null,
+    "expiry_date": "2023-08-20",
+    "credit_per_share": 2.5576543775274505,
+    "width": 13.400393388494109,
+    "max_loss_per_contract": 1084.273901096666,
+    "max_loss_total_at_open": 3252.8217032899975,
+    "risk_budget_usd": 3885.3074486380747,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-07-27",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 368,
+    "realized_pnl": -147.2000000000021,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-07-28",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 385
+  },
+  {
+    "date": "2023-08-02",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 385,
+    "realized_pnl": -3264.8000000000015,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-08-07",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 203.97879035890625,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-08-07",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 387.39887513150376,
+    "long_strike": 393.4537355605929,
+    "credit_per_share": 0.7834887587582366,
+    "max_loss_total_at_open": 1054.2743340661848,
+    "risk_budget_usd": 1526.8476962160685
+  },
+  {
+    "date": "2023-08-14",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 608.5420470973106,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-08-25",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 350
+  },
+  {
+    "date": "2023-08-25",
+    "event": "OPEN_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "short_strike": 108.34853135742057,
+    "long_strike": 122.71578818954589,
+    "expiry_index": null,
+    "expiry_date": "2023-09-24",
+    "credit_per_share": 2.7082671439480066,
+    "width": 14.367256832125321,
+    "max_loss_per_contract": 1165.8989688177314,
+    "max_loss_total_at_open": 3497.696906453194,
+    "risk_budget_usd": 3772.7153773749583,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-08-30",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 150.4849429428463,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-08-30",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 386.8845983474629,
+    "long_strike": 392.206328614367,
+    "credit_per_share": 0.694586958683903,
+    "max_loss_total_at_open": 1388.142992466067,
+    "risk_budget_usd": 1564.6300034563135
+  },
+  {
+    "date": "2023-09-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 350,
+    "realized_pnl": 4927.999999999999,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-09-15",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 427
+  },
+  {
+    "date": "2023-09-18",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 810.9102011206123,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-09-18",
+    "event": "OPEN_VXX_CC",
+    "contracts": 4,
+    "side": "call",
+    "short_strike": 91.42474584110043,
+    "long_strike": 103.1322807546041,
+    "expiry_index": null,
+    "expiry_date": "2023-10-18",
+    "credit_per_share": 2.229215767957453,
+    "width": 11.707534913503665,
+    "max_loss_per_contract": 947.8319145546212,
+    "max_loss_total_at_open": 3791.327658218485,
+    "risk_budget_usd": 3935.1562033696628,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-09-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 427,
+    "realized_pnl": -854.0,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-09-22",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 208.33255123836153,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-09-22",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 371.71837487331464,
+    "long_strike": 378.055325068523,
+    "credit_per_share": 0.8126602912389853,
+    "max_loss_total_at_open": 1104.8579807938777,
+    "risk_budget_usd": 1529.6845888132277
+  },
+  {
+    "date": "2023-10-03",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 4,
+    "side": "call",
+    "realized_pnl": -2272.4069763143807,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2023-10-11",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 393
+  },
+  {
+    "date": "2023-10-11",
+    "event": "OPEN_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "short_strike": 99.14305699817876,
+    "long_strike": 112.39983813193126,
+    "expiry_index": null,
+    "expiry_date": "2023-11-10",
+    "credit_per_share": 2.492090379872919,
+    "width": 13.256781133752497,
+    "max_loss_per_contract": 1076.4690753879577,
+    "max_loss_total_at_open": 3229.407226163873,
+    "risk_budget_usd": 3867.6743096457294,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-10-13",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 393,
+    "realized_pnl": -5030.399999999999,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-10-16",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 30.455738032182865,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-10-16",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 383.6738331664117,
+    "long_strike": 390.21840189172775,
+    "credit_per_share": 0.8392301012837216,
+    "max_loss_total_at_open": 1141.0677248064608,
+    "risk_budget_usd": 1502.0331893736432
+  },
+  {
+    "date": "2023-10-16",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 368
+  },
+  {
+    "date": "2023-10-17",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 368,
+    "realized_pnl": -942.0800000000008,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-10-31",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 349
+  },
+  {
+    "date": "2023-11-03",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 658.3277287099844,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-11-03",
+    "event": "OPEN_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "short_strike": 94.63581877707266,
+    "long_strike": 106.98741083894284,
+    "expiry_index": null,
+    "expiry_date": "2023-12-03",
+    "credit_per_share": 2.339080731964847,
+    "width": 12.351592061870178,
+    "max_loss_per_contract": 1001.2511329905332,
+    "max_loss_total_at_open": 3003.7533989715994,
+    "risk_budget_usd": 3812.171212023827,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-11-08",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 158.81806357497868,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-11-08",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 384.0809803306969,
+    "long_strike": 389.5812297600408,
+    "credit_per_share": 0.7160242470206402,
+    "max_loss_total_at_open": 1435.2675546969808,
+    "risk_budget_usd": 1551.1287327638236
+  },
+  {
+    "date": "2023-11-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 349,
+    "realized_pnl": 7021.8799999999965,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-11-20",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 490
+  },
+  {
+    "date": "2023-11-27",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 701.2778237721114,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-11-27",
+    "event": "OPEN_VXX_CC",
+    "contracts": 5,
+    "side": "call",
+    "short_strike": 77.92102716706543,
+    "long_strike": 87.62386023017392,
+    "expiry_index": null,
+    "expiry_date": "2023-12-27",
+    "credit_per_share": 1.8620008248880477,
+    "width": 9.702833063108486,
+    "max_loss_per_contract": 784.0832238220438,
+    "max_loss_total_at_open": 3920.416119110219,
+    "risk_budget_usd": 4043.0025987318277,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2023-12-01",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -405.36861294914473,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-12-01",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 399.3719000466006,
+    "long_strike": 404.3704158332619,
+    "credit_per_share": 0.6561244644832868,
+    "max_loss_total_at_open": 1302.7173966534042,
+    "risk_budget_usd": 1624.3741988366298
+  },
+  {
+    "date": "2023-12-11",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 490,
+    "realized_pnl": 4018.0000000000014,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-12-11",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 568
+  },
+  {
+    "date": "2023-12-19",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -802.4438169671241,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2023-12-19",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 419.76646594209006,
+    "long_strike": 424.97862030519747,
+    "credit_per_share": 0.6844787246512051,
+    "max_loss_total_at_open": 1358.3026915368591,
+    "risk_budget_usd": 1679.1375772706265
+  },
+  {
+    "date": "2023-12-20",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 5,
+    "side": "call",
+    "realized_pnl": 663.4398639202243,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2023-12-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 568,
+    "realized_pnl": -2385.6000000000017,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2023-12-27",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 603
+  },
+  {
+    "date": "2023-12-27",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 68.90109229684748,
+    "long_strike": 77.43247500621699,
+    "expiry_index": null,
+    "expiry_date": "2024-01-26",
+    "credit_per_share": 1.6397333237753249,
+    "width": 8.53138270936951,
+    "max_loss_per_contract": 689.1649385594185,
+    "max_loss_total_at_open": 4134.989631356511,
+    "risk_budget_usd": 4162.310299923709,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-01-02",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 603,
+    "realized_pnl": 0.0,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-01-09",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 628
+  },
+  {
+    "date": "2024-01-11",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 193.4536592917068,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-01-11",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 420.067589656391,
+    "long_strike": 425.2459996276804,
+    "credit_per_share": 0.6803256724097356,
+    "max_loss_total_at_open": 1349.4252896638986,
+    "risk_budget_usd": 1671.9780325106726
+  },
+  {
+    "date": "2024-01-16",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 628,
+    "realized_pnl": -1306.2399999999989,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-01-19",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 821.5741974873755,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-01-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 652
+  },
+  {
+    "date": "2024-01-22",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 64.49909952875831,
+    "long_strike": 72.617581266086,
+    "expiry_index": null,
+    "expiry_date": "2024-02-21",
+    "credit_per_share": 1.553322760512077,
+    "width": 8.118481737327699,
+    "max_loss_per_contract": 656.5158976815621,
+    "max_loss_total_at_open": 3939.095386089373,
+    "risk_budget_usd": 4203.055034378981,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-01-25",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 652,
+    "realized_pnl": -286.8799999999985,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-01-30",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 658
+  },
+  {
+    "date": "2024-01-31",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 658,
+    "realized_pnl": -1921.360000000001,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-02-02",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -744.4999235871582,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2024-02-02",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 442.1324086102262,
+    "long_strike": 448.2009393704399,
+    "credit_per_share": 0.792166895330827,
+    "max_loss_total_at_open": 1582.9091594648676,
+    "risk_budget_usd": 1674.946862554176
+  },
+  {
+    "date": "2024-02-06",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 671
+  },
+  {
+    "date": "2024-02-12",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 671,
+    "realized_pnl": -724.6799999999988,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-02-14",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 596.7172532402415,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-02-23",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 683
+  },
+  {
+    "date": "2024-02-23",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 62.053606232143004,
+    "long_strike": 69.95807136591826,
+    "expiry_index": null,
+    "expiry_date": "2024-03-24",
+    "credit_per_share": 1.5073280772523634,
+    "width": 7.904465133775254,
+    "max_loss_per_contract": 639.713705652289,
+    "max_loss_total_at_open": 3838.282233913734,
+    "risk_budget_usd": 4230.814883034089,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-02-26",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 160.35592134356858,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-02-26",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 449.7523543353762,
+    "long_strike": 455.87641824000207,
+    "credit_per_share": 0.7998167521960806,
+    "max_loss_total_at_open": 1597.2741457289371,
+    "risk_budget_usd": 1695.4634756539936
+  },
+  {
+    "date": "2024-03-05",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 683,
+    "realized_pnl": -546.4000000000029,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-03-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 704
+  },
+  {
+    "date": "2024-03-14",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 704,
+    "realized_pnl": -788.4799999999982,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-03-18",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 697.0405665175218,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-03-19",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 707
+  },
+  {
+    "date": "2024-03-19",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 60.01536714055012,
+    "long_strike": 67.67154471786785,
+    "expiry_index": null,
+    "expiry_date": "2024-04-18",
+    "credit_per_share": 1.4593710068791004,
+    "width": 7.656177577317727,
+    "max_loss_per_contract": 619.6806570438627,
+    "max_loss_total_at_open": 3718.083942263176,
+    "risk_budget_usd": 4236.247127089655,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-03-20",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 146.8409615706629,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-03-20",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 456.8219498130254,
+    "long_strike": 462.7252102024912,
+    "credit_per_share": 0.7734406103729923,
+    "max_loss_total_at_open": 1538.9459337278422,
+    "risk_budget_usd": 1711.7555142210433
+  },
+  {
+    "date": "2024-04-02",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 707,
+    "realized_pnl": 56.56000000000382,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-04-11",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 540.457136611725,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-04-12",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 215.43892474586818,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-04-12",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 457.0856156073641,
+    "long_strike": 464.9277493341541,
+    "credit_per_share": 1.004955842751438,
+    "max_loss_total_at_open": 1367.4355768077114,
+    "risk_budget_usd": 1699.9501527993727
+  },
+  {
+    "date": "2024-04-23",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 686
+  },
+  {
+    "date": "2024-04-23",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 61.38419334640015,
+    "long_strike": 69.52553766338796,
+    "expiry_index": null,
+    "expiry_date": "2024-05-23",
+    "credit_per_share": 1.5345735551957347,
+    "width": 8.141344316987812,
+    "max_loss_per_contract": 660.6770761792077,
+    "max_loss_total_at_open": 3964.062457075246,
+    "risk_budget_usd": 4183.497372049873,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-05-06",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 199.6321994273994,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-05-06",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 453.8187158896577,
+    "long_strike": 459.88565397045795,
+    "credit_per_share": 0.7932587629494714,
+    "max_loss_total_at_open": 1582.103795355231,
+    "risk_budget_usd": 1739.9576115483926
+  },
+  {
+    "date": "2024-05-13",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 686,
+    "realized_pnl": 4170.880000000004,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-05-13",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 808
+  },
+  {
+    "date": "2024-05-16",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 918.6766882836396,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-05-16",
+    "event": "OPEN_VXX_CC",
+    "contracts": 8,
+    "side": "call",
+    "short_strike": 51.09736962471588,
+    "long_strike": 57.422905963376564,
+    "expiry_index": null,
+    "expiry_date": "2024-06-15",
+    "credit_per_share": 1.2158416316228742,
+    "width": 6.325536338660683,
+    "max_loss_per_contract": 510.96947070378087,
+    "max_loss_total_at_open": 4087.755765630247,
+    "risk_budget_usd": 4467.084412532296,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-05-29",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -315.0139882406254,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-05-29",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 808,
+    "realized_pnl": 840.3199999999993,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-05-29",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 471.6408153472979,
+    "long_strike": 478.3154640821023,
+    "credit_per_share": 0.8695817220373921,
+    "max_loss_total_at_open": 1741.5201038301045,
+    "risk_budget_usd": 1783.8312407896508
+  },
+  {
+    "date": "2024-06-05",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 897
+  },
+  {
+    "date": "2024-06-10",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 8,
+    "side": "call",
+    "realized_pnl": 902.0915154152435,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-06-10",
+    "event": "OPEN_VXX_CC",
+    "contracts": 9,
+    "side": "call",
+    "short_strike": 49.31783732346884,
+    "long_strike": 55.46560895966324,
+    "expiry_index": null,
+    "expiry_date": "2024-07-10",
+    "credit_per_share": 1.1794231932509205,
+    "width": 6.147771636194406,
+    "max_loss_per_contract": 496.8348442943485,
+    "max_loss_total_at_open": 4471.513598649137,
+    "risk_budget_usd": 4539.473726268955,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-06-11",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 897,
+    "realized_pnl": 717.6000000000038,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-06-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 946
+  },
+  {
+    "date": "2024-06-17",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -1234.183780447944,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2024-06-17",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 946,
+    "realized_pnl": -1135.199999999996,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-06-17",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 498.88687856130827,
+    "long_strike": 505.19027443220375,
+    "credit_per_share": 0.8269565348770351,
+    "max_loss_total_at_open": 1642.931800805535,
+    "risk_budget_usd": 1839.508111976104
+  },
+  {
+    "date": "2024-06-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 930
+  },
+  {
+    "date": "2024-06-20",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 930,
+    "realized_pnl": -1562.3999999999996,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-06-25",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 931
+  },
+  {
+    "date": "2024-07-03",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 9,
+    "side": "call",
+    "realized_pnl": 982.5091463492274,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-07-03",
+    "event": "OPEN_VXX_CC",
+    "contracts": 10,
+    "side": "call",
+    "short_strike": 46.219240901158386,
+    "long_strike": 51.8998153282509,
+    "expiry_index": null,
+    "expiry_date": "2024-08-02",
+    "credit_per_share": 1.0940189153489306,
+    "width": 5.680574427092516,
+    "max_loss_per_contract": 458.6555511743585,
+    "max_loss_total_at_open": 4586.555511743585,
+    "risk_budget_usd": 4668.126306198683,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-07-10",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": -445.9936336280774,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-07-10",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 931,
+    "realized_pnl": 2681.2800000000025,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-07-10",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 3,
+    "short_strike": 518.2766423602519,
+    "long_strike": 524.8764128207639,
+    "credit_per_share": 0.8654447513332545,
+    "max_loss_total_at_open": 1720.2977127536208,
+    "risk_budget_usd": 1893.8246210370426
+  },
+  {
+    "date": "2024-07-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1040
+  },
+  {
+    "date": "2024-07-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1040,
+    "realized_pnl": -624.0000000000015,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-07-26",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 10,
+    "side": "call",
+    "realized_pnl": -890.4148956837872,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-08-02",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 259.63170405775713,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-08-02",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 477.6801758759492,
+    "long_strike": 488.75666534886307,
+    "credit_per_share": 1.363180510045382,
+    "max_loss_total_at_open": 971.3308962868482,
+    "risk_budget_usd": 1767.4737316436356
+  },
+  {
+    "date": "2024-08-13",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 801
+  },
+  {
+    "date": "2024-08-13",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 56.80217189660302,
+    "long_strike": 64.71065512819514,
+    "expiry_index": null,
+    "expiry_date": "2024-09-12",
+    "credit_per_share": 1.4592318256833035,
+    "width": 7.908483231592122,
+    "max_loss_per_contract": 644.9251405908818,
+    "max_loss_total_at_open": 3869.550843545291,
+    "risk_budget_usd": 4492.332285471388,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-08-26",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 0.33834404269810214,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-08-26",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 494.77041269410614,
+    "long_strike": 502.68989313326557,
+    "credit_per_share": 1.0226778314235352,
+    "max_loss_total_at_open": 1379.3605215471787,
+    "risk_budget_usd": 1858.1905172870224
+  },
+  {
+    "date": "2024-09-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 801,
+    "realized_pnl": -2499.119999999998,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE",
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-09-05",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 366.8211510137187,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-09-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 829
+  },
+  {
+    "date": "2024-09-12",
+    "event": "OPEN_VXX_CC",
+    "contracts": 7,
+    "side": "call",
+    "short_strike": 54.980537741235025,
+    "long_strike": 62.47842801181923,
+    "expiry_index": null,
+    "expiry_date": "2024-10-12",
+    "credit_per_share": 1.396892522918523,
+    "width": 7.497890270584207,
+    "max_loss_per_contract": 610.0997747665684,
+    "max_loss_total_at_open": 4270.698423365979,
+    "risk_budget_usd": 4509.285424878504,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-09-18",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 194.48724514491914,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-09-18",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 829,
+    "realized_pnl": -779.260000000004,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-09-18",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 493.85775362509105,
+    "long_strike": 502.78141621789894,
+    "credit_per_share": 1.1366074717476562,
+    "max_loss_total_at_open": 1557.4110242120462,
+    "risk_budget_usd": 1792.5138090520188
+  },
+  {
+    "date": "2024-09-19",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 857
+  },
+  {
+    "date": "2024-10-01",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 857,
+    "realized_pnl": -4893.470000000001,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-10-07",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 7,
+    "side": "call",
+    "realized_pnl": -1431.5516042928225,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-10-11",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -302.79221136203176,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-10-11",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 521.1271144862926,
+    "long_strike": 531.6962465124159,
+    "credit_per_share": 1.3264072106070421,
+    "max_loss_total_at_open": 924.2724815516228,
+    "risk_budget_usd": 1789.1979710400067
+  },
+  {
+    "date": "2024-10-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 787
+  },
+  {
+    "date": "2024-10-18",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 57.678266906701644,
+    "long_strike": 65.69460084635644,
+    "expiry_index": null,
+    "expiry_date": "2024-11-17",
+    "credit_per_share": 1.480358086966084,
+    "width": 8.016333939654793,
+    "max_loss_per_contract": 653.5975852688708,
+    "max_loss_total_at_open": 3921.585511613225,
+    "risk_budget_usd": 4479.923521423072,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-10-25",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 787,
+    "realized_pnl": -3210.9599999999987,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-10-28",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 754
+  },
+  {
+    "date": "2024-10-30",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 754,
+    "realized_pnl": -791.6999999999979,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-11-04",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 131.1664388884546,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-11-04",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 515.7945212225077,
+    "long_strike": 527.0332677989514,
+    "credit_per_share": 1.3962345963652125,
+    "max_loss_total_at_open": 984.2511980078547,
+    "risk_budget_usd": 1740.6253592978715
+  },
+  {
+    "date": "2024-11-06",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 861
+  },
+  {
+    "date": "2024-11-11",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 883.8412750835174,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-11-11",
+    "event": "OPEN_VXX_CC",
+    "contracts": 8,
+    "side": "call",
+    "short_strike": 49.88377453785526,
+    "long_strike": 56.40255973831738,
+    "expiry_index": null,
+    "expiry_date": "2024-12-11",
+    "credit_per_share": 1.2340503225833963,
+    "width": 6.518785200462119,
+    "max_loss_per_contract": 528.4734877878723,
+    "max_loss_total_at_open": 4227.787902302978,
+    "risk_budget_usd": 4553.996695054355,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-11-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 861,
+    "realized_pnl": 129.14999999999878,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2024-11-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 892
+  },
+  {
+    "date": "2024-11-27",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 106.64883370089031,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-11-27",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 523.405464536312,
+    "long_strike": 530.719264913639,
+    "credit_per_share": 0.9536333849007512,
+    "max_loss_total_at_open": 1272.0333984852439,
+    "risk_budget_usd": 1807.086743338778
+  },
+  {
+    "date": "2024-12-04",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 8,
+    "side": "call",
+    "realized_pnl": 897.4063643992338,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-12-04",
+    "event": "OPEN_VXX_CC",
+    "contracts": 9,
+    "side": "call",
+    "short_strike": 47.10491546885167,
+    "long_strike": 53.06704552207254,
+    "expiry_index": null,
+    "expiry_date": "2025-01-03",
+    "credit_per_share": 1.13897613132204,
+    "width": 5.962130053220868,
+    "max_loss_per_contract": 482.3153921898828,
+    "max_loss_total_at_open": 4340.838529708945,
+    "risk_budget_usd": 4633.091464060874,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-12-09",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 892,
+    "realized_pnl": 1784.0,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2024-12-09",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 968
+  },
+  {
+    "date": "2024-12-16",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -953.2942886342717,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2024-12-16",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 968,
+    "realized_pnl": -319.43999999999835,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2024-12-16",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 558.4569987293951,
+    "long_strike": 566.5873136106846,
+    "credit_per_share": 1.057249067778313,
+    "max_loss_total_at_open": 1414.6131627022503,
+    "risk_budget_usd": 1873.7228445142262
+  },
+  {
+    "date": "2024-12-18",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 9,
+    "side": "call",
+    "realized_pnl": -2416.346131258773,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2024-12-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 979
+  },
+  {
+    "date": "2024-12-24",
+    "event": "OPEN_VXX_CC",
+    "contracts": 9,
+    "side": "call",
+    "short_strike": 47.14964520814557,
+    "long_strike": 53.22186723053918,
+    "expiry_index": null,
+    "expiry_date": "2025-01-23",
+    "credit_per_share": 1.1543388292609431,
+    "width": 6.0722220223936105,
+    "max_loss_per_contract": 491.7883193132667,
+    "max_loss_total_at_open": 4426.0948738194,
+    "risk_budget_usd": 4600.384882810512,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2024-12-27",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 979,
+    "realized_pnl": -2104.8499999999985,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-01-03",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 916
+  },
+  {
+    "date": "2025-01-07",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 916,
+    "realized_pnl": -2115.9599999999955,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-01-08",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 211.27713753761745,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-01-08",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 540.5190369971409,
+    "long_strike": 550.0016986637887,
+    "credit_per_share": 1.212054374400026,
+    "max_loss_total_at_open": 1654.121458449555,
+    "risk_budget_usd": 1769.5029720247608
+  },
+  {
+    "date": "2025-01-15",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 920
+  },
+  {
+    "date": "2025-01-16",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 9,
+    "side": "call",
+    "realized_pnl": 437.36917809623725,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-01-16",
+    "event": "OPEN_VXX_CC",
+    "contracts": 8,
+    "side": "call",
+    "short_strike": 48.94279927475172,
+    "long_strike": 55.55483948849422,
+    "expiry_index": null,
+    "expiry_date": "2025-02-15",
+    "credit_per_share": 1.2371776031845418,
+    "width": 6.612040213742496,
+    "max_loss_per_contract": 537.4862610557955,
+    "max_loss_total_at_open": 4299.890088446364,
+    "risk_budget_usd": 4436.971238514987,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-01-27",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 920,
+    "realized_pnl": -864.8000000000045,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-01-28",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 935
+  },
+  {
+    "date": "2025-01-31",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 205.8955828243382,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-01-31",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 545.749628940333,
+    "long_strike": 554.6366480737288,
+    "credit_per_share": 1.1455003645553044,
+    "max_loss_total_at_open": 1548.3037537681041,
+    "risk_budget_usd": 1782.1361655846586
+  },
+  {
+    "date": "2025-02-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 935,
+    "realized_pnl": -1916.7499999999973,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-02-05",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 939
+  },
+  {
+    "date": "2025-02-10",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 8,
+    "side": "call",
+    "realized_pnl": 880.1606528110098,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-02-10",
+    "event": "OPEN_VXX_CC",
+    "contracts": 8,
+    "side": "call",
+    "short_strike": 47.97856137876471,
+    "long_strike": 54.35752927737693,
+    "expiry_index": null,
+    "expiry_date": "2025-03-12",
+    "credit_per_share": 1.201515165128504,
+    "width": 6.378967898612224,
+    "max_loss_per_contract": 517.7452733483719,
+    "max_loss_total_at_open": 4141.9621867869755,
+    "risk_budget_usd": 4486.981256365283,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-02-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 939,
+    "realized_pnl": -1436.670000000001,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-02-24",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 217.5817263265253,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-02-24",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 547.5008844760188,
+    "long_strike": 557.8011324766436,
+    "credit_per_share": 1.305435287973968,
+    "max_loss_total_at_open": 899.4812712650865,
+    "risk_budget_usd": 1764.0356222518185
+  },
+  {
+    "date": "2025-03-05",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 8,
+    "side": "call",
+    "realized_pnl": -800.4739718850695,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-03-17",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 763
+  },
+  {
+    "date": "2025-03-17",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 56.13825178050332,
+    "long_strike": 64.32022780986641,
+    "expiry_index": null,
+    "expiry_date": "2025-04-16",
+    "credit_per_share": 1.4767189840916641,
+    "width": 8.181976029363092,
+    "max_loss_per_contract": 670.5257045271428,
+    "max_loss_total_at_open": 4023.154227162857,
+    "risk_budget_usd": 4202.359269383595,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-03-18",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 763,
+    "realized_pnl": -984.2699999999993,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-03-19",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 130.5433372995813,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-03-19",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 507.8923109601252,
+    "long_strike": 517.9108860339932,
+    "credit_per_share": 1.2620034034048764,
+    "max_loss_total_at_open": 875.6571670463088,
+    "risk_budget_usd": 1668.4938148524268
+  },
+  {
+    "date": "2025-03-19",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 763
+  },
+  {
+    "date": "2025-03-28",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 763,
+    "realized_pnl": -1709.1200000000015,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2025-04-02",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 740
+  },
+  {
+    "date": "2025-04-03",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": -2288.7521509890043,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2025-04-03",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 740,
+    "realized_pnl": -9175.999999999998,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-04-11",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 115.22581691836761,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-04-14",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 500.90134849253843,
+    "long_strike": 516.2443189850346,
+    "credit_per_share": 1.795307155389665,
+    "max_loss_total_at_open": 1354.7663337106528,
+    "risk_budget_usd": 1516.035931048956
+  },
+  {
+    "date": "2025-04-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 472
+  },
+  {
+    "date": "2025-04-22",
+    "event": "OPEN_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "short_strike": 82.75041686325704,
+    "long_strike": 97.10655130516308,
+    "expiry_index": null,
+    "expiry_date": "2025-05-22",
+    "credit_per_share": 2.3570318523451617,
+    "width": 14.356134441906036,
+    "max_loss_per_contract": 1199.9102589560873,
+    "max_loss_total_at_open": 3599.730776868262,
+    "risk_budget_usd": 3722.8660601790484,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-05-07",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 96.99912776118708,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-05-07",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 517.039346350772,
+    "long_strike": 529.1105779630714,
+    "credit_per_share": 1.4840144921019862,
+    "max_loss_total_at_open": 1058.7217120197372,
+    "risk_budget_usd": 1607.462717456222
+  },
+  {
+    "date": "2025-05-12",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 472,
+    "realized_pnl": 8859.439999999999,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-05-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 732
+  },
+  {
+    "date": "2025-05-15",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 3,
+    "side": "call",
+    "realized_pnl": 707.1008337525064,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-05-15",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 58.61552137239245,
+    "long_strike": 66.73022369503764,
+    "expiry_index": null,
+    "expiry_date": "2025-06-14",
+    "credit_per_share": 1.5012844327096433,
+    "width": 8.114702322645186,
+    "max_loss_per_contract": 661.3417889935544,
+    "max_loss_total_at_open": 3968.050733961326,
+    "risk_budget_usd": 4307.193329144967,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-05-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 732,
+    "realized_pnl": -2554.679999999996,
+    "reasons": [
+      "VXX_DAILY_SPIKE"
+    ]
+  },
+  {
+    "date": "2025-05-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 689
+  },
+  {
+    "date": "2025-05-23",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 689,
+    "realized_pnl": -2542.4099999999985,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-05-27",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 717
+  },
+  {
+    "date": "2025-05-30",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -262.8712760911261,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-05-30",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 546.8233181606238,
+    "long_strike": 556.8884393043212,
+    "credit_per_share": 1.2791093074401414,
+    "max_loss_total_at_open": 878.601183625727,
+    "risk_budget_usd": 1676.813944748704
+  },
+  {
+    "date": "2025-06-09",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 833.5173014511236,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-06-09",
+    "event": "OPEN_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "short_strike": 56.54440251666628,
+    "long_strike": 64.26938800689135,
+    "expiry_index": null,
+    "expiry_date": "2025-07-09",
+    "credit_per_share": 1.4380126307994519,
+    "width": 7.724985490225066,
+    "max_loss_per_contract": 628.6972859425614,
+    "max_loss_total_at_open": 3772.1837156553684,
+    "risk_budget_usd": 4320.2625945397,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-06-13",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 717,
+    "realized_pnl": -1627.5899999999972,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-06-23",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 64.00919705291378,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-06-23",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 562.8492730163794,
+    "long_strike": 573.9128347386219,
+    "credit_per_share": 1.3942849780579754,
+    "max_loss_total_at_open": 966.927674418455,
+    "risk_budget_usd": 1702.9527133903855
+  },
+  {
+    "date": "2025-06-24",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 789
+  },
+  {
+    "date": "2025-07-02",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 6,
+    "side": "call",
+    "realized_pnl": 764.4795530507187,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-07-02",
+    "event": "OPEN_VXX_CC",
+    "contracts": 7,
+    "side": "call",
+    "short_strike": 53.76199318944457,
+    "long_strike": 61.030930659627856,
+    "expiry_index": null,
+    "expiry_date": "2025-08-01",
+    "credit_per_share": 1.3595908114982118,
+    "width": 7.268937470183289,
+    "max_loss_per_contract": 590.9346658685078,
+    "max_loss_total_at_open": 4136.542661079554,
+    "risk_budget_usd": 4396.523907830747,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-07-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 789,
+    "realized_pnl": 2793.0599999999995,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-07-15",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 882
+  },
+  {
+    "date": "2025-07-16",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -61.701922211639996,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-07-16",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 585.1548620257289,
+    "long_strike": 595.1072033403442,
+    "credit_per_share": 1.2766413441387146,
+    "max_loss_total_at_open": 1735.1399940953165,
+    "risk_budget_usd": 1789.1604755959115
+  },
+  {
+    "date": "2025-07-25",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 7,
+    "side": "call",
+    "realized_pnl": 936.6701967142633,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-07-25",
+    "event": "OPEN_VXX_CC",
+    "contracts": 9,
+    "side": "call",
+    "short_strike": 47.28687468031809,
+    "long_strike": 53.46117947141687,
+    "expiry_index": null,
+    "expiry_date": "2025-08-24",
+    "credit_per_share": 1.1691179119857158,
+    "width": 6.174304791098777,
+    "max_loss_per_contract": 500.5186879113062,
+    "max_loss_total_at_open": 4504.668191201756,
+    "risk_budget_usd": 4593.652578099066,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-07-31",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 882,
+    "realized_pnl": 2778.299999999999,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-08-07",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 983
+  },
+  {
+    "date": "2025-08-08",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 85.4973292642565,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-08-08",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 599.5736043981112,
+    "long_strike": 608.5760142466607,
+    "credit_per_share": 1.1681996954509857,
+    "max_loss_total_at_open": 1566.8420306197067,
+    "risk_budget_usd": 1869.8944808149329
+  },
+  {
+    "date": "2025-08-18",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 9,
+    "side": "call",
+    "realized_pnl": 1033.41835958546,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-08-18",
+    "event": "OPEN_VXX_CC",
+    "contracts": 10,
+    "side": "call",
+    "short_strike": 42.568228370734744,
+    "long_strike": 48.1333260552888,
+    "expiry_index": null,
+    "expiry_date": "2025-09-17",
+    "credit_per_share": 1.0533845923122724,
+    "width": 5.565097684554054,
+    "max_loss_per_contract": 451.1713092241782,
+    "max_loss_total_at_open": 4511.713092241782,
+    "risk_budget_usd": 4753.176935485285,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-08-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 983,
+    "realized_pnl": 2890.0199999999977,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-08-22",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1178
+  },
+  {
+    "date": "2025-09-02",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 232.85206756631206,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-09-02",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1178,
+    "realized_pnl": -1660.9800000000043,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-09-02",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 593.9196472891763,
+    "long_strike": 604.0269509094888,
+    "credit_per_share": 1.2964334608261923,
+    "max_loss_total_at_open": 1762.1740318972745,
+    "risk_budget_usd": 1858.7377382081468
+  },
+  {
+    "date": "2025-09-04",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1196
+  },
+  {
+    "date": "2025-09-10",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 10,
+    "side": "call",
+    "realized_pnl": 1016.4341696268107,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-09-10",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1196,
+    "realized_pnl": 1124.2400000000057,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-09-11",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1276
+  },
+  {
+    "date": "2025-09-11",
+    "event": "OPEN_VXX_CC",
+    "contracts": 12,
+    "side": "call",
+    "short_strike": 37.60229912235879,
+    "long_strike": 42.48969432256581,
+    "expiry_index": null,
+    "expiry_date": "2025-10-11",
+    "credit_per_share": 0.9266587084507167,
+    "width": 4.887395200207024,
+    "max_loss_per_contract": 396.07364917563075,
+    "max_loss_total_at_open": 4752.883790107569,
+    "risk_budget_usd": 4775.830088990816,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-09-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1276,
+    "realized_pnl": -293.47999999999604,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-09-25",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -422.33955428217706,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-09-25",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 623.125113437678,
+    "long_strike": 633.4636947419505,
+    "credit_per_share": 1.3298741114950572,
+    "max_loss_total_at_open": 1801.7414385554791,
+    "risk_budget_usd": 1928.7156438721577
+  },
+  {
+    "date": "2025-09-26",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1327
+  },
+  {
+    "date": "2025-09-29",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1327,
+    "realized_pnl": -570.6099999999997,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-10-06",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 12,
+    "side": "call",
+    "realized_pnl": 966.9910274465992,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-10-20",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 69.52150203977926,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-10-20",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 644.9822353405365,
+    "long_strike": 656.636611128475,
+    "credit_per_share": 1.4844185850104161,
+    "max_loss_total_at_open": 1016.9957202928117,
+    "risk_budget_usd": 1970.6483799507714
+  },
+  {
+    "date": "2025-10-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1314
+  },
+  {
+    "date": "2025-10-21",
+    "event": "OPEN_VXX_CC",
+    "contracts": 11,
+    "side": "call",
+    "short_strike": 37.962872719263615,
+    "long_strike": 43.222563876469096,
+    "expiry_index": null,
+    "expiry_date": "2025-11-20",
+    "credit_per_share": 0.97272658945134,
+    "width": 5.259691157205481,
+    "max_loss_per_contract": 428.6964567754141,
+    "max_loss_total_at_open": 4715.661024529555,
+    "risk_budget_usd": 4925.661119311785,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-10-22",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1314,
+    "realized_pnl": -696.4200000000014,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-10-23",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1319
+  },
+  {
+    "date": "2025-11-04",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1319,
+    "realized_pnl": -1872.9800000000023,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-11-05",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1322
+  },
+  {
+    "date": "2025-11-06",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1322,
+    "realized_pnl": -1758.260000000007,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-11-10",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1347
+  },
+  {
+    "date": "2025-11-12",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 117.68742087763546,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-11-12",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 653.5933500896792,
+    "long_strike": 664.9365781950304,
+    "credit_per_share": 1.451692664411426,
+    "max_loss_total_at_open": 989.1535440939732,
+    "risk_budget_usd": 1963.280883061375
+  },
+  {
+    "date": "2025-11-13",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 11,
+    "side": "call",
+    "realized_pnl": 362.49591780619426,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-11-13",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1347,
+    "realized_pnl": -3192.3899999999967,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2025-11-25",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1275
+  },
+  {
+    "date": "2025-11-25",
+    "event": "OPEN_VXX_CC",
+    "contracts": 10,
+    "side": "call",
+    "short_strike": 37.98803886967182,
+    "long_strike": 43.32256614682771,
+    "expiry_index": null,
+    "expiry_date": "2025-12-25",
+    "credit_per_share": 0.9803163421590836,
+    "width": 5.3345272771558925,
+    "max_loss_per_contract": 435.4210934996809,
+    "max_loss_total_at_open": 4354.21093499681,
+    "risk_budget_usd": 4773.89587707015,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-12-05",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 137.4969941130114,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-12-05",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 653.9981103533185,
+    "long_strike": 663.9863089027679,
+    "credit_per_share": 1.2945831105383183,
+    "max_loss_total_at_open": 1738.7230877822176,
+    "risk_budget_usd": 1980.7503782006247
+  },
+  {
+    "date": "2025-12-16",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1275,
+    "realized_pnl": 5291.249999999998,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-12-16",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1499
+  },
+  {
+    "date": "2025-12-18",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 10,
+    "side": "call",
+    "realized_pnl": 972.1690189550867,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-12-18",
+    "event": "OPEN_VXX_CC",
+    "contracts": 13,
+    "side": "call",
+    "short_strike": 32.494715564068855,
+    "long_strike": 36.90848342187952,
+    "expiry_index": null,
+    "expiry_date": "2026-01-17",
+    "credit_per_share": 0.8238166872155015,
+    "width": 4.413767857810662,
+    "max_loss_per_contract": 358.995117059516,
+    "max_loss_total_at_open": 4666.936521773709,
+    "risk_budget_usd": 4922.9645448965875,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2025-12-29",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 257.55719438970874,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2025-12-29",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 647.6177237651074,
+    "long_strike": 656.731419484389,
+    "credit_per_share": 1.187776979962933,
+    "max_loss_total_at_open": 1585.1837478637378,
+    "risk_budget_usd": 2029.2447255398718
+  },
+  {
+    "date": "2026-01-07",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1499,
+    "realized_pnl": 4631.91,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE",
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-01-09",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1788
+  },
+  {
+    "date": "2026-01-12",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 13,
+    "side": "call",
+    "realized_pnl": 1064.9986828470323,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-01-12",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1788,
+    "realized_pnl": -160.91999999999973,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-01-21",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 221.3763089152608,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-01-21",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 648.1613735873705,
+    "long_strike": 659.018195940987,
+    "credit_per_share": 1.3950604098610524,
+    "max_loss_total_at_open": 1892.352388751091,
+    "risk_budget_usd": 2025.5220650540032
+  },
+  {
+    "date": "2026-02-13",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 273.7548268138657,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-02-13",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 640.3300396322447,
+    "long_strike": 653.4056901095383,
+    "credit_per_share": 1.6394431153803521,
+    "max_loss_total_at_open": 1143.6207361913255,
+    "risk_budget_usd": 1996.8821212685139
+  },
+  {
+    "date": "2026-02-25",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1666
+  },
+  {
+    "date": "2026-02-25",
+    "event": "OPEN_VXX_CC",
+    "contracts": 14,
+    "side": "call",
+    "short_strike": 30.830079426686012,
+    "long_strike": 35.106566689104106,
+    "expiry_index": null,
+    "expiry_date": "2026-03-27",
+    "credit_per_share": 0.7904564089272184,
+    "width": 4.276487262418094,
+    "max_loss_per_contract": 348.60308534908756,
+    "max_loss_total_at_open": 4880.443194887226,
+    "risk_budget_usd": 5071.197630595169,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-02-27",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1666,
+    "realized_pnl": -2532.3199999999993,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-03-06",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 14,
+    "side": "call",
+    "realized_pnl": -3323.423296757331,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2026-03-09",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 121.71711935688876,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-03-09",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 656.5157434390394,
+    "long_strike": 673.113556854215,
+    "credit_per_share": 2.0140201407897536,
+    "max_loss_total_at_open": 1458.3793274385798,
+    "risk_budget_usd": 1963.5481094493107
+  },
+  {
+    "date": "2026-03-17",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1375
+  },
+  {
+    "date": "2026-03-17",
+    "event": "OPEN_VXX_CC",
+    "contracts": 10,
+    "side": "call",
+    "short_strike": 36.458142111725486,
+    "long_strike": 41.95744671033807,
+    "expiry_index": null,
+    "expiry_date": "2026-04-16",
+    "credit_per_share": 0.975521258584552,
+    "width": 5.499304598612582,
+    "max_loss_per_contract": 452.37833400280306,
+    "max_loss_total_at_open": 4523.783340028031,
+    "risk_budget_usd": 4887.412688769586,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-03-18",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1375,
+    "realized_pnl": -3698.750000000002,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-03-31",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1175
+  },
+  {
+    "date": "2026-04-01",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 201.17939252298603,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-04-01",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 630.0776666951903,
+    "long_strike": 645.4068951525105,
+    "credit_per_share": 1.8720990264978548,
+    "max_loss_total_at_open": 1345.71294308224,
+    "risk_budget_usd": 1891.9887179075572
+  },
+  {
+    "date": "2026-04-09",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 10,
+    "side": "call",
+    "realized_pnl": 879.2064239630917,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-04-09",
+    "event": "OPEN_VXX_CC",
+    "contracts": 12,
+    "side": "call",
+    "short_strike": 34.36325783674828,
+    "long_strike": 39.275885167746075,
+    "expiry_index": null,
+    "expiry_date": "2026-05-09",
+    "credit_per_share": 0.8950659533264624,
+    "width": 4.912627330997793,
+    "max_loss_per_contract": 401.7561377671331,
+    "max_loss_total_at_open": 4821.073653205597,
+    "risk_budget_usd": 4995.600486561524,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-04-16",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -744.013662179571,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2026-04-16",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 676.6126502295997,
+    "long_strike": 688.6439472977618,
+    "credit_per_share": 1.5353738557835774,
+    "max_loss_total_at_open": 1049.5923212378498,
+    "risk_budget_usd": 2071.1514381446214
+  },
+  {
+    "date": "2026-04-21",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1175,
+    "realized_pnl": 6826.750000000003,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-04-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1560
+  },
+  {
+    "date": "2026-05-04",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 12,
+    "side": "call",
+    "realized_pnl": 1032.83616409168,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-05-04",
+    "event": "OPEN_VXX_CC",
+    "contracts": 14,
+    "side": "call",
+    "short_strike": 32.3137745813316,
+    "long_strike": 36.8277269311504,
+    "expiry_index": null,
+    "expiry_date": "2026-06-03",
+    "credit_per_share": 0.8315876395953932,
+    "width": 4.513952349818801,
+    "max_loss_per_contract": 368.23647102234077,
+    "max_loss_total_at_open": 5155.31059431277,
+    "risk_budget_usd": 5384.794111581109,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-05-06",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": -847.6366118495687,
+    "reasons": [
+      "LOSS_55PCT_MAX_RISK"
+    ]
+  },
+  {
+    "date": "2026-05-06",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 733.7902934902764,
+    "long_strike": 746.438020309565,
+    "credit_per_share": 1.6199266448409153,
+    "max_loss_total_at_open": 2205.560034889527,
+    "risk_budget_usd": 2206.6988000564397
+  },
+  {
+    "date": "2026-05-11",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1560,
+    "realized_pnl": 2215.2000000000025,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE",
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-05-12",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1803
+  },
+  {
+    "date": "2026-05-15",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1803,
+    "realized_pnl": -162.26999999999975,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-05-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1841
+  },
+  {
+    "date": "2026-05-19",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1841,
+    "realized_pnl": -699.5799999999982,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-05-20",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 1864
+  },
+  {
+    "date": "2026-05-27",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 14,
+    "side": "call",
+    "realized_pnl": 1150.2654875658914,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-05-27",
+    "event": "OPEN_VXX_CC",
+    "contracts": 18,
+    "side": "call",
+    "short_strike": 28.050075167473235,
+    "long_strike": 31.815969333664754,
+    "expiry_index": null,
+    "expiry_date": "2026-06-26",
+    "credit_per_share": 0.70664034581288,
+    "width": 3.7658941661915186,
+    "max_loss_per_contract": 305.92538203786387,
+    "max_loss_total_at_open": 5506.65687668155,
+    "risk_budget_usd": 5754.195839000459,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-05-29",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": -908.4270329189328,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-05-29",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 773.7286803461599,
+    "long_strike": 785.476410902309,
+    "credit_per_share": 1.5232641602484247,
+    "max_loss_total_at_open": 2044.8932791801394,
+    "risk_budget_usd": 2332.0176343363432
+  },
+  {
+    "date": "2026-06-05",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 1864,
+    "realized_pnl": 3336.5599999999986,
+    "reasons": [
+      "VXX_DAILY_SPIKE",
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-06-15",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 2330
+  },
+  {
+    "date": "2026-06-17",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 2330,
+    "realized_pnl": -2283.400000000001,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-06-18",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 2282
+  },
+  {
+    "date": "2026-06-22",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 18,
+    "side": "call",
+    "realized_pnl": 1266.6076566248555,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-06-22",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 281.3575066269546,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-06-22",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 1,
+    "short_strike": 778.8670740190319,
+    "long_strike": 792.2067786241608,
+    "credit_per_share": 1.7097993156823001,
+    "max_loss_total_at_open": 1162.9905289446685,
+    "risk_budget_usd": 2314.67677044489
+  },
+  {
+    "date": "2026-06-22",
+    "event": "OPEN_VXX_CC",
+    "contracts": 20,
+    "side": "call",
+    "short_strike": 25.313727522828543,
+    "long_strike": 28.78029340155827,
+    "expiry_index": null,
+    "expiry_date": "2026-07-22",
+    "credit_per_share": 0.6445933613985533,
+    "width": 3.466565878729728,
+    "max_loss_per_contract": 282.19725173311747,
+    "max_loss_total_at_open": 5643.945034662349,
+    "risk_budget_usd": 5786.691926112224,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-06-23",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 2282,
+    "realized_pnl": -2441.7400000000007,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-06-29",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 2255
+  },
+  {
+    "date": "2026-07-13",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 2255,
+    "realized_pnl": 1736.349999999999,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-07-14",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 2379
+  },
+  {
+    "date": "2026-07-15",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 1,
+    "side": "call",
+    "realized_pnl": 170.9257321966593,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-07-15",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 20,
+    "side": "call",
+    "realized_pnl": 1218.249109249302,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-07-15",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 753.8050259621606,
+    "long_strike": 765.51188623676,
+    "credit_per_share": 1.5155402541080805,
+    "max_loss_total_at_open": 2038.2640040982683,
+    "risk_budget_usd": 2284.1045691764575
+  },
+  {
+    "date": "2026-07-15",
+    "event": "OPEN_VXX_CC",
+    "contracts": 22,
+    "side": "call",
+    "short_strike": 23.33685331002908,
+    "long_strike": 26.430739709362697,
+    "expiry_index": null,
+    "expiry_date": "2026-08-14",
+    "credit_per_share": 0.5832410277725877,
+    "width": 3.0938863993336163,
+    "max_loss_per_contract": 251.06453715610283,
+    "max_loss_total_at_open": 5523.419817434262,
+    "risk_budget_usd": 5710.261422941144,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-07-17",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 2379,
+    "realized_pnl": -2307.6299999999974,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-07-21",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 2350
+  },
+  {
+    "date": "2026-07-23",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 2350,
+    "realized_pnl": -2702.499999999997,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-07-30",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 2226
+  },
+  {
+    "date": "2026-08-07",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 273.720253097029,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-08-07",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 22,
+    "side": "call",
+    "realized_pnl": 1054.9732412241358,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-08-07",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 757.5756279363425,
+    "long_strike": 768.7625771693862,
+    "credit_per_share": 1.4533342356481278,
+    "max_loss_total_at_open": 1946.7229994791182,
+    "risk_budget_usd": 2280.1880371310262
+  },
+  {
+    "date": "2026-08-07",
+    "event": "OPEN_VXX_CC",
+    "contracts": 23,
+    "side": "call",
+    "short_strike": 22.697704032139978,
+    "long_strike": 25.659528183959818,
+    "expiry_index": null,
+    "expiry_date": "2026-09-06",
+    "credit_per_share": 0.5609285587210293,
+    "width": 2.9618241518198403,
+    "max_loss_per_contract": 240.0895593098811,
+    "max_loss_total_at_open": 5522.059864127265,
+    "risk_budget_usd": 5700.470092827566,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-08-19",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 2226,
+    "realized_pnl": 6166.019999999999,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-08-19",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 2711
+  },
+  {
+    "date": "2026-08-31",
+    "event": "CLOSE_QQQ_CC",
+    "contracts": 2,
+    "side": "call",
+    "realized_pnl": 288.46927567549335,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-08-31",
+    "event": "CLOSE_VXX_CC",
+    "contracts": 23,
+    "side": "call",
+    "realized_pnl": 1276.0068824035818,
+    "reasons": [
+      "DTE_EXIT"
+    ]
+  },
+  {
+    "date": "2026-08-31",
+    "event": "OPEN_QQQ_CC",
+    "contracts": 2,
+    "short_strike": 751.0519193819238,
+    "long_strike": 762.1574298922561,
+    "credit_per_share": 1.442622590208451,
+    "max_loss_total_at_open": 1932.57758402478,
+    "risk_budget_usd": 2324.5993663956588
+  },
+  {
+    "date": "2026-08-31",
+    "event": "OPEN_VXX_CC",
+    "contracts": 27,
+    "side": "call",
+    "short_strike": 20.107286891630945,
+    "long_strike": 22.732175677570854,
+    "expiry_index": null,
+    "expiry_date": "2026-09-30",
+    "credit_per_share": 0.4970581151857349,
+    "width": 2.624888785939909,
+    "max_loss_per_contract": 212.78306707541742,
+    "max_loss_total_at_open": 5745.14281103627,
+    "risk_budget_usd": 5811.498415989147,
+    "risk_budget_pct_nav": 2.0,
+    "risk_budget_check": true
+  },
+  {
+    "date": "2026-09-01",
+    "event": "CLOSE_VXX_SHORT",
+    "contracts_or_shares": 2711,
+    "realized_pnl": 1355.5,
+    "reasons": [
+      "TERM_SLOPE_PROXY_NEGATIVE"
+    ]
+  },
+  {
+    "date": "2026-09-03",
+    "event": "OPEN_VXX_SHORT",
+    "shares": 2956
+  }
+]

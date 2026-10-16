@@ -1,0 +1,1054 @@
+{
+  "research_id": "QQQ_HYBRID_VXX_SHORT_CALL_PUT_V1",
+  "status": "DERIVED_BS_VIX_RESEARCH_NOT_LIVE",
+  "pricing_model": "DERIVED_BS_VIX",
+  "not_opra": true,
+  "source_replay": "qqq_hybrid_dynamic_deployment_v1_1_replay.py",
+  "source_replay_sha": "ac74b3812c826ad491fb829108f26397322e45eb",
+  "data_path": "src\\data\\universe.json",
+  "historical_sizing_only": {
+    "qqq_core_pct_nav": 42.0,
+    "qqq_call_risk_pct_nav": 0.8,
+    "vxx_short_notional_pct_nav": 18.0,
+    "legacy_vxx_call_max_loss_budget_pct_nav": 2.0,
+    "meaning": "Historical replay parameters only; NOT current frozen sizing."
+  },
+  "new_dual_sided_hypothesis": {
+    "vxx_short_call_vertical": "short call + higher-strike long call wing",
+    "vxx_short_put_vertical": "short put + lower-strike long put wing",
+    "short_delta_abs_targets": {
+      "call": 0.35,
+      "put": 0.35
+    },
+    "long_wing_delta_abs_targets": {
+      "call": 0.16,
+      "put": 0.16
+    },
+    "total_vxx_option_max_loss_budget_pct_nav": 2.0,
+    "allocation": "1% max-loss budget to calls + 1% to puts",
+    "entry_gate": "same historical safe-state gate: no Shock and term-slope proxy >= 0",
+    "exit_gate": "calendar DTE <= 7 days for new model; legacy parity control retains index-based DTE; PnL/max-risk <= -55% or >= +50%",
+    "online_inspired_dte_sensitivity_days": [
+      14,
+      30,
+      45
+    ]
+  },
+  "legacy_parity": {
+    "status": "PASS",
+    "rows_match": true,
+    "max_abs_daily_nav_difference_usd": 5.820766091346741e-11,
+    "preserved_source_final_nav": 298267.2239640743,
+    "replayed_control_final_nav": 298267.2239640743
+  },
+  "variants": {
+    "LEGACY_CALL_ONLY": {
+      "variant": "LEGACY_CALL_ONLY",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 57,
+        "vxx_call_close_events": 56,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": 1093.9717441984037,
+        "vxx_short": 24346.547200000066,
+        "vxx_call": 21317.431519876038,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 21317.431519876038,
+      "component_sum_error_max_abs": 3.7834979593753815e-10,
+      "final_nav": 298267.2239640743,
+      "final_profit": 198267.22396407428,
+      "total_return": 1.9826722396407428,
+      "cagr": 0.13699190415586338,
+      "maxdd_daily_mtm": -0.23021273091214212,
+      "annualized_volatility": 0.1621905142086118,
+      "sharpe_rf0": 0.8750676353490969,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "CALL_ONLY_1PCT": {
+      "variant": "CALL_ONLY_1PCT",
+      "vxx_call_risk_pct": 1.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 1.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 44,
+        "vxx_call_close_events": 43,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2962.364166118225,
+        "vxx_short": 24443.437300000063,
+        "vxx_call": 7377.659828982184,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 7377.659828982184,
+      "component_sum_error_max_abs": 2.3283064365386963e-10,
+      "final_nav": 280368.0064628642,
+      "final_profit": 180368.00646286423,
+      "total_return": 1.8036800646286424,
+      "cagr": 0.12875532643737486,
+      "maxdd_daily_mtm": -0.2383275702496046,
+      "annualized_volatility": 0.16188713842095118,
+      "sharpe_rf0": 0.8315750416139621,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "DUAL_CALL_PUT": {
+      "variant": "DUAL_CALL_PUT",
+      "vxx_call_risk_pct": 1.0,
+      "vxx_put_risk_pct": 1.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 44,
+        "vxx_call_close_events": 43,
+        "vxx_put_open_events": 51,
+        "vxx_put_close_events": 50
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2550.969572635577,
+        "vxx_short": 24518.01730000007,
+        "vxx_call": 7377.659828982184,
+        "vxx_put": -1698.887585862857
+      },
+      "vxx_options_component_final_pnl": 5678.772243119327,
+      "component_sum_error_max_abs": 1.6007106751203537e-10,
+      "final_nav": 279155.0934704838,
+      "final_profit": 179155.0934704838,
+      "total_return": 1.791550934704838,
+      "cagr": 0.12818054726842432,
+      "maxdd_daily_mtm": -0.21736350907691437,
+      "annualized_volatility": 0.15816623723814796,
+      "sharpe_rf0": 0.8441124215928879,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "CALL_ONLY_2PCT_NEW_QUOTE": {
+      "variant": "CALL_ONLY_2PCT_NEW_QUOTE",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 52,
+        "vxx_call_close_events": 51,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -3503.564020695633,
+        "vxx_short": 24056.457300000042,
+        "vxx_call": 17394.505341669614,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 17394.505341669614,
+      "component_sum_error_max_abs": 2.6193447411060333e-10,
+      "final_nav": 289456.6721209738,
+      "final_profit": 189456.67212097382,
+      "total_return": 1.8945667212097383,
+      "cagr": 0.13299379660095267,
+      "maxdd_daily_mtm": -0.24616889317743296,
+      "annualized_volatility": 0.16518363423610552,
+      "sharpe_rf0": 0.8410538194466577,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "CALL_DTE_14": {
+      "variant": "CALL_DTE_14",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 14,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 176,
+        "vxx_call_close_events": 175,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2962.364166118225,
+        "vxx_short": 24067.987300000055,
+        "vxx_call": 18500.15970302762,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 18500.15970302762,
+      "component_sum_error_max_abs": 2.0372681319713593e-10,
+      "final_nav": 291115.0563369093,
+      "final_profit": 191115.0563369093,
+      "total_return": 1.9111505633690928,
+      "cagr": 0.13375447876519475,
+      "maxdd_daily_mtm": -0.27705210880686004,
+      "annualized_volatility": 0.16868847851443827,
+      "sharpe_rf0": 0.8311202422328992,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "CALL_DTE_45": {
+      "variant": "CALL_DTE_45",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 45,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 32,
+        "vxx_call_close_events": 31,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2962.364166118225,
+        "vxx_short": 23989.53730000005,
+        "vxx_call": 10002.672650808441,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 10002.672650808441,
+      "component_sum_error_max_abs": 2.0372681319713593e-10,
+      "final_nav": 282539.1192846901,
+      "final_profit": 182539.11928469012,
+      "total_return": 1.8253911928469013,
+      "cagr": 0.12977872290706793,
+      "maxdd_daily_mtm": -0.25111658804597714,
+      "annualized_volatility": 0.16324423004108857,
+      "sharpe_rf0": 0.8316120737757152,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "CALL_PUT_ADDON": {
+      "variant": "CALL_PUT_ADDON",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 1.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 3.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 52,
+        "vxx_call_close_events": 51,
+        "vxx_put_open_events": 51,
+        "vxx_put_close_events": 50
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -3503.564020695633,
+        "vxx_short": 24152.10730000006,
+        "vxx_call": 17354.79321065056,
+        "vxx_put": -1801.5024666940117
+      },
+      "vxx_options_component_final_pnl": 15553.29074395655,
+      "component_sum_error_max_abs": 3.4924596548080444e-10,
+      "final_nav": 287711.1075232607,
+      "final_profit": 187711.1075232607,
+      "total_return": 1.877111075232607,
+      "cagr": 0.13218895965952981,
+      "maxdd_daily_mtm": -0.22536611663588513,
+      "annualized_volatility": 0.16140436929504964,
+      "sharpe_rf0": 0.8524722297743933,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "PUT_ONLY_1PCT": {
+      "variant": "PUT_ONLY_1PCT",
+      "vxx_call_risk_pct": 0.0,
+      "vxx_put_risk_pct": 1.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 1.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 0,
+        "vxx_call_close_events": 0,
+        "vxx_put_open_events": 51,
+        "vxx_put_close_events": 50
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2550.969572635577,
+        "vxx_short": 24617.517300000058,
+        "vxx_call": 0.0,
+        "vxx_put": -1694.366312847821
+      },
+      "vxx_options_component_final_pnl": -1694.366312847821,
+      "component_sum_error_max_abs": 2.3283064365386963e-10,
+      "final_nav": 271881.45491451654,
+      "final_profit": 171881.45491451654,
+      "total_return": 1.7188145491451654,
+      "cagr": 0.12468672107746337,
+      "maxdd_daily_mtm": -0.21219586232085663,
+      "annualized_volatility": 0.15636557258534,
+      "sharpe_rf0": 0.8320920629019886,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "CALL_RSI_LT50": {
+      "variant": "CALL_RSI_LT50",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "LT50",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 49,
+        "vxx_call_close_events": 48,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -3049.350504236167,
+        "vxx_short": 24027.267300000018,
+        "vxx_call": 15182.098999872413,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 15182.098999872413,
+      "component_sum_error_max_abs": 1.4551915228366852e-10,
+      "final_nav": 287669.2892956362,
+      "final_profit": 187669.28929563618,
+      "total_return": 1.8766928929563615,
+      "cagr": 0.13216962550135736,
+      "maxdd_daily_mtm": -0.25405606518615165,
+      "annualized_volatility": 0.16475499834480925,
+      "sharpe_rf0": 0.838387430243643,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "CALL_RSI_GE50": {
+      "variant": "CALL_RSI_GE50",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "GE50",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 17,
+        "vxx_call_close_events": 17,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2962.364166118225,
+        "vxx_short": 24127.197300000058,
+        "vxx_call": 4554.605295837645,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 4554.605295837645,
+      "component_sum_error_max_abs": 2.0372681319713593e-10,
+      "final_nav": 277228.71192971943,
+      "final_profit": 177228.71192971943,
+      "total_return": 1.7722871192971943,
+      "cagr": 0.1272631213058102,
+      "maxdd_daily_mtm": -0.23258051071226837,
+      "annualized_volatility": 0.16201995752499077,
+      "sharpe_rf0": 0.8228676877645915,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "NO_VXX_OPTIONS": {
+      "variant": "NO_VXX_OPTIONS",
+      "vxx_call_risk_pct": 0.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 0.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 0,
+        "vxx_call_close_events": 0,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2550.969572635577,
+        "vxx_short": 24549.937300000056,
+        "vxx_call": 0.0,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 0.0,
+      "component_sum_error_max_abs": 1.3096723705530167e-10,
+      "final_nav": 273508.24122736446,
+      "final_profit": 173508.24122736446,
+      "total_return": 1.7350824122736448,
+      "cagr": 0.12547523275803152,
+      "maxdd_daily_mtm": -0.23157410722484284,
+      "annualized_volatility": 0.15990867052243407,
+      "sharpe_rf0": 0.8215810593563742,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0": {
+      "variant": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 52,
+        "vxx_call_close_events": 51,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -3503.564020695633,
+        "vxx_short": 24056.457300000042,
+        "vxx_call": 17394.505341669614,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 17394.505341669614,
+      "component_sum_error_max_abs": 2.6193447411060333e-10,
+      "final_nav": 289456.6721209738,
+      "final_profit": 189456.67212097382,
+      "total_return": 1.8945667212097383,
+      "cagr": 0.13299379660095267,
+      "maxdd_daily_mtm": -0.24616889317743296,
+      "annualized_volatility": 0.16518363423610552,
+      "sharpe_rf0": 0.8410538194466577,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_STOCK_ONLY_18_BORROW_0": {
+      "variant": "SLEEVE_STOCK_ONLY_18_BORROW_0",
+      "vxx_call_risk_pct": 0.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 0.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 0,
+        "vxx_call_close_events": 0,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2550.969572635577,
+        "vxx_short": 24549.937300000056,
+        "vxx_call": 0.0,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 0.0,
+      "component_sum_error_max_abs": 1.3096723705530167e-10,
+      "final_nav": 273508.24122736446,
+      "final_profit": 173508.24122736446,
+      "total_return": 1.7350824122736448,
+      "cagr": 0.12547523275803152,
+      "maxdd_daily_mtm": -0.23157410722484284,
+      "annualized_volatility": 0.15990867052243407,
+      "sharpe_rf0": 0.8215810593563742,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_CALL_ONLY_2": {
+      "variant": "SLEEVE_CALL_ONLY_2",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 50,
+        "vxx_call_close_events": 49,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2748.6518006453457,
+        "vxx_short": 0.0,
+        "vxx_call": 17573.940173583498,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 17573.940173583498,
+      "component_sum_error_max_abs": 5.820766091346741e-11,
+      "final_nav": 266334.5618729382,
+      "final_profit": 166334.56187293818,
+      "total_return": 1.663345618729382,
+      "cagr": 0.12196643942666374,
+      "maxdd_daily_mtm": -0.22179493601277922,
+      "annualized_volatility": 0.13837335410673693,
+      "sharpe_rf0": 0.9031555339231913,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_NEITHER": {
+      "variant": "SLEEVE_NEITHER",
+      "vxx_call_risk_pct": 0.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 0.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 0,
+        "vxx_call_close_events": 0,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2510.542766989244,
+        "vxx_short": 0.0,
+        "vxx_call": 0.0,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 0.0,
+      "component_sum_error_max_abs": 5.820766091346741e-11,
+      "final_nav": 248998.73073301077,
+      "final_profit": 148998.73073301077,
+      "total_return": 1.4899873073301078,
+      "cagr": 0.11312986678478709,
+      "maxdd_daily_mtm": -0.22179493601277922,
+      "annualized_volatility": 0.13523093267631991,
+      "sharpe_rf0": 0.8622939919424373,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_STOCK_ONLY_18_BORROW_3": {
+      "variant": "SLEEVE_STOCK_ONLY_18_BORROW_3",
+      "vxx_call_risk_pct": 0.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 0.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 0,
+        "vxx_call_close_events": 0,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2680.704575385648,
+        "vxx_short": 20538.343024291724,
+        "vxx_call": 0.0,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 0.0,
+      "component_sum_error_max_abs": 2.9103830456733704e-10,
+      "final_nav": 269366.91194890597,
+      "final_profit": 169366.91194890597,
+      "total_return": 1.6936691194890598,
+      "cagr": 0.12345967849360151,
+      "maxdd_daily_mtm": -0.23454721677496815,
+      "annualized_volatility": 0.16097102544045216,
+      "sharpe_rf0": 0.806054220594957,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 3.0,
+      "vxx_short_borrow_cost_total_usd": 4256.454175708334,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_STOCK_ONLY_18_BORROW_10": {
+      "variant": "SLEEVE_STOCK_ONLY_18_BORROW_10",
+      "vxx_call_risk_pct": 0.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 0.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 0,
+        "vxx_call_close_events": 0,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2777.3847203219543,
+        "vxx_short": 10720.185728222237,
+        "vxx_call": 0.0,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 0.0,
+      "component_sum_error_max_abs": 5.529727786779404e-10,
+      "final_nav": 259452.07450790078,
+      "final_profit": 159452.07450790078,
+      "total_return": 1.5945207450790075,
+      "cagr": 0.1185207802557966,
+      "maxdd_daily_mtm": -0.2418679770752299,
+      "annualized_volatility": 0.1639411440401795,
+      "sharpe_rf0": 0.767453843923258,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 10.0,
+      "vxx_short_borrow_cost_total_usd": 13843.921871777793,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_3": {
+      "variant": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_3",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 52,
+        "vxx_call_close_events": 51,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -3049.350504236167,
+        "vxx_short": 19980.421109708404,
+        "vxx_call": 17174.011662191828,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 17174.011662191828,
+      "component_sum_error_max_abs": 3.92901711165905e-10,
+      "final_nav": 285614.355767664,
+      "final_profit": 185614.35576766398,
+      "total_return": 1.8561435576766399,
+      "cagr": 0.1312164821807944,
+      "maxdd_daily_mtm": -0.2493140140674146,
+      "annualized_volatility": 0.1663183911588282,
+      "sharpe_rf0": 0.8269861267231162,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 3.0,
+      "vxx_short_borrow_cost_total_usd": 4309.226090291668,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_10": {
+      "variant": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_10",
+      "vxx_call_risk_pct": 2.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 2.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 52,
+        "vxx_call_close_events": 51,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2761.411764336092,
+        "vxx_short": 9986.940878222249,
+        "vxx_call": 17244.280171160433,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 17244.280171160433,
+      "component_sum_error_max_abs": 3.7834979593753815e-10,
+      "final_nav": 275979.0827850468,
+      "final_profit": 175979.08278504678,
+      "total_return": 1.759790827850468,
+      "cagr": 0.1266649808954874,
+      "maxdd_daily_mtm": -0.25523392165581094,
+      "annualized_volatility": 0.16889613168234072,
+      "sharpe_rf0": 0.7929868282202329,
+      "vxx_short_notional_pct_nav": 18.0,
+      "vxx_short_borrow_annual_pct_scenario": 10.0,
+      "vxx_short_borrow_cost_total_usd": 14036.696721777782,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_STOCK_ONLY_2_STRESS_BORROW_0": {
+      "variant": "SLEEVE_STOCK_ONLY_2_STRESS_BORROW_0",
+      "vxx_call_risk_pct": 0.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 0.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 0,
+        "vxx_call_close_events": 0,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2694.2569709185377,
+        "vxx_short": 1288.3536000000038,
+        "vxx_call": 0.0,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 0.0,
+      "component_sum_error_max_abs": 8.731149137020111e-11,
+      "final_nav": 250103.37012908148,
+      "final_profit": 150103.37012908148,
+      "total_return": 1.5010337012908148,
+      "cagr": 0.11370888216737884,
+      "maxdd_daily_mtm": -0.22057849945325558,
+      "annualized_volatility": 0.13738999818333406,
+      "sharpe_rf0": 0.8546992762593236,
+      "vxx_short_notional_pct_nav": 2.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    "SLEEVE_STOCK_ONLY_5_BORROW_0": {
+      "variant": "SLEEVE_STOCK_ONLY_5_BORROW_0",
+      "vxx_call_risk_pct": 0.0,
+      "vxx_put_risk_pct": 0.0,
+      "vxx_options_rsi_filter": "NONE",
+      "vxx_option_dte_days": 30,
+      "vxx_total_option_risk_budget_pct": 0.0,
+      "option_contract_counts": {
+        "vxx_call_open_events": 0,
+        "vxx_call_close_events": 0,
+        "vxx_put_open_events": 0,
+        "vxx_put_close_events": 0
+      },
+      "component_final_pnl": {
+        "qqq_core": 151509.27350000004,
+        "qqq_call": -2396.6591357407287,
+        "vxx_short": 5522.106800000011,
+        "vxx_call": 0.0,
+        "vxx_put": 0.0
+      },
+      "vxx_options_component_final_pnl": 0.0,
+      "component_sum_error_max_abs": 8.731149137020111e-11,
+      "final_nav": 254634.72116425924,
+      "final_profit": 154634.72116425924,
+      "total_return": 1.5463472116425923,
+      "cagr": 0.11606069427338994,
+      "maxdd_daily_mtm": -0.21689843335084968,
+      "annualized_volatility": 0.1399993950121076,
+      "sharpe_rf0": 0.8565081757601142,
+      "vxx_short_notional_pct_nav": 5.0,
+      "vxx_short_borrow_annual_pct_scenario": 0.0,
+      "vxx_short_borrow_cost_total_usd": 0.0,
+      "rows": 2141,
+      "window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    }
+  },
+  "counterfactual_portfolio_delta_vs_no_vxx_options": {
+    "legacy_call_only_vs_no_options_non_comparable_final_nav_difference_usd": 24758.98273670982,
+    "new_quote_call_only_final_nav_difference_usd": 15948.430893609358,
+    "dual_call_put_final_nav_difference_usd": 5646.852243119327,
+    "call_put_addon_final_nav_difference_usd": 14202.866295896238,
+    "put_only_final_nav_difference_usd": -1626.786312847922,
+    "interpretation": "New-quote variants use matching calendar-DTE handling and same non-VXX-option rules; portfolio-level counterfactual includes NAV-based sizing feedback and is not a standalone option-only PnL attribution. The legacy source-parity control uses original index-based option timing, so its delta against a new-model variant is reported only as a non-comparable reference."
+  },
+  "controlled_comparisons": {
+    "DUAL_CALL_PUT_vs_CALL_ONLY_1PCT": {
+      "final_nav_delta_usd": -1212.912992380443,
+      "cagr_delta": -0.0005747791689505455,
+      "maxdd_delta": 0.02096406117269023,
+      "purpose": "Tests adding 1% put-risk budget while holding the call-risk budget at 1%."
+    },
+    "CALL_PUT_ADDON_vs_CALL_ONLY_2PCT_NEW_QUOTE": {
+      "final_nav_delta_usd": -1745.5645977131207,
+      "cagr_delta": -0.0008048369414228596,
+      "maxdd_delta": 0.02080277654154783,
+      "purpose": "Tests adding 1% put-risk budget while retaining 2% call-risk budget; total option risk budget becomes 3%."
+    },
+    "PUT_ONLY_1PCT_vs_NO_VXX_OPTIONS": {
+      "final_nav_delta_usd": -1626.786312847922,
+      "cagr_delta": -0.0007885116805681491,
+      "maxdd_delta": 0.019378244903986208,
+      "purpose": "Tests the VXX put vertical by itself inside the rest of the Hybrid."
+    },
+    "CALL_RSI_LT50_vs_CALL_RSI_GE50": {
+      "final_nav_delta_usd": 10440.577365916746,
+      "cagr_delta": 0.004906504195547168,
+      "maxdd_delta": -0.021475554473883274,
+      "purpose": "Compares public-source RSI regime split for VXX short calls; VXX stock gate is unchanged."
+    },
+    "CALL_DTE_14_vs_CALL_DTE_30": {
+      "final_nav_delta_usd": 1658.3842159354826,
+      "cagr_delta": 0.0007606821642420769,
+      "maxdd_delta": -0.030883215629427085,
+      "purpose": "Coarse 14 vs 30 calendar-day VXX short-call sensitivity using calendar-DTE marks in the new-model variants."
+    },
+    "CALL_DTE_45_vs_CALL_DTE_30": {
+      "final_nav_delta_usd": -6917.552836283692,
+      "cagr_delta": -0.00321507369388474,
+      "maxdd_delta": -0.0049476948685441835,
+      "purpose": "Coarse 45 vs 30 calendar-day VXX short-call sensitivity using calendar-DTE marks in the new-model variants."
+    }
+  },
+  "vxx_sleeve_controlled_comparisons": {
+    "STOCK_ONLY_18_BORROW_0_vs_NEITHER": {
+      "variant_a": "SLEEVE_STOCK_ONLY_18_BORROW_0",
+      "variant_b": "SLEEVE_NEITHER",
+      "purpose": "Current 18% NAV short-stock notional without VXX call-credit versus neither VXX sleeve; 0% borrow-cost assumption.",
+      "final_nav_delta_usd_a_minus_b": 24509.510494353686,
+      "cagr_delta_percentage_points_a_minus_b": 1.2345365973244427,
+      "maxdd_delta_percentage_points_a_minus_b": -0.977917121206362,
+      "annualized_vol_delta_percentage_points_a_minus_b": 2.4677737846114156,
+      "borrow_cost_a_usd": 0.0,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "CALL_ONLY_2_vs_NEITHER": {
+      "variant_a": "SLEEVE_CALL_ONLY_2",
+      "variant_b": "SLEEVE_NEITHER",
+      "purpose": "2% NAV defined maximum-loss VXX call-credit budget without VXX short stock versus neither sleeve.",
+      "final_nav_delta_usd_a_minus_b": 17335.83113992741,
+      "cagr_delta_percentage_points_a_minus_b": 0.883657264187665,
+      "maxdd_delta_percentage_points_a_minus_b": 0.0,
+      "annualized_vol_delta_percentage_points_a_minus_b": 0.3142421430417014,
+      "borrow_cost_a_usd": 0.0,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "BOTH_18_STOCK_2_CALL_BORROW_0_vs_NEITHER": {
+      "variant_a": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0",
+      "variant_b": "SLEEVE_NEITHER",
+      "purpose": "Current 18% NAV VXX short-stock notional plus 2% NAV VXX call-credit max-loss budget versus neither sleeve.",
+      "final_nav_delta_usd_a_minus_b": 40457.941387963045,
+      "cagr_delta_percentage_points_a_minus_b": 1.9863929816165582,
+      "maxdd_delta_percentage_points_a_minus_b": -2.4373957164653737,
+      "annualized_vol_delta_percentage_points_a_minus_b": 2.9952701559785604,
+      "borrow_cost_a_usd": 0.0,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "BOTH_vs_STOCK_ONLY_18_BORROW_0": {
+      "variant_a": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0",
+      "variant_b": "SLEEVE_STOCK_ONLY_18_BORROW_0",
+      "purpose": "Incremental effect of adding the 2% call-credit max-loss budget to the 18% NAV short-stock leg.",
+      "final_nav_delta_usd_a_minus_b": 15948.430893609358,
+      "cagr_delta_percentage_points_a_minus_b": 0.7518563842921155,
+      "maxdd_delta_percentage_points_a_minus_b": -1.4594785952590117,
+      "annualized_vol_delta_percentage_points_a_minus_b": 0.5274963713671449,
+      "borrow_cost_a_usd": 0.0,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "BOTH_vs_CALL_ONLY_2": {
+      "variant_a": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0",
+      "variant_b": "SLEEVE_CALL_ONLY_2",
+      "purpose": "Incremental effect of adding the 18% NAV short-stock leg to the 2% call-credit max-loss budget.",
+      "final_nav_delta_usd_a_minus_b": 23122.110248035635,
+      "cagr_delta_percentage_points_a_minus_b": 1.1027357174288932,
+      "maxdd_delta_percentage_points_a_minus_b": -2.4373957164653737,
+      "annualized_vol_delta_percentage_points_a_minus_b": 2.681028012936859,
+      "borrow_cost_a_usd": 0.0,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "STOCK_ONLY_2_STRESS_vs_CALL_ONLY_2": {
+      "variant_a": "SLEEVE_STOCK_ONLY_2_STRESS_BORROW_0",
+      "variant_b": "SLEEVE_CALL_ONLY_2",
+      "purpose": "Exploratory stress alignment: 2% NAV stock-short notional loses about 2% NAV for a +100% VXX price shock, before costs; options remain capped by 2% max-loss budget. Not universally risk-equivalent.",
+      "final_nav_delta_usd_a_minus_b": -16231.191743856703,
+      "cagr_delta_percentage_points_a_minus_b": -0.8257557259284898,
+      "maxdd_delta_percentage_points_a_minus_b": 0.1216436559523637,
+      "annualized_vol_delta_percentage_points_a_minus_b": -0.09833559234028733,
+      "borrow_cost_a_usd": 0.0,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "STOCK_ONLY_5_vs_CALL_ONLY_2": {
+      "variant_a": "SLEEVE_STOCK_ONLY_5_BORROW_0",
+      "variant_b": "SLEEVE_CALL_ONLY_2",
+      "purpose": "Stock-short notional sensitivity at 5% NAV versus the 2% option max-loss budget; not a claim of equal risk.",
+      "final_nav_delta_usd_a_minus_b": -11699.840708678938,
+      "cagr_delta_percentage_points_a_minus_b": -0.59057451532738,
+      "maxdd_delta_percentage_points_a_minus_b": 0.4896502661929536,
+      "annualized_vol_delta_percentage_points_a_minus_b": 0.16260409053706626,
+      "borrow_cost_a_usd": 0.0,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "STOCK_BORROW_3_vs_0": {
+      "variant_a": "SLEEVE_STOCK_ONLY_18_BORROW_3",
+      "variant_b": "SLEEVE_STOCK_ONLY_18_BORROW_0",
+      "purpose": "Hypothetical 3% annual borrow fee sensitivity on the 18% NAV stock-short notional.",
+      "final_nav_delta_usd_a_minus_b": -4141.329278458492,
+      "cagr_delta_percentage_points_a_minus_b": -0.20155542644300084,
+      "maxdd_delta_percentage_points_a_minus_b": -0.2973109550125308,
+      "annualized_vol_delta_percentage_points_a_minus_b": 0.10623549180180936,
+      "borrow_cost_a_usd": 4256.454175708334,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "STOCK_BORROW_10_vs_0": {
+      "variant_a": "SLEEVE_STOCK_ONLY_18_BORROW_10",
+      "variant_b": "SLEEVE_STOCK_ONLY_18_BORROW_0",
+      "purpose": "Hypothetical 10% annual borrow fee sensitivity on the 18% NAV stock-short notional.",
+      "final_nav_delta_usd_a_minus_b": -14056.166719463683,
+      "cagr_delta_percentage_points_a_minus_b": -0.695445250223492,
+      "maxdd_delta_percentage_points_a_minus_b": -1.029386985038705,
+      "annualized_vol_delta_percentage_points_a_minus_b": 0.40324735177454385,
+      "borrow_cost_a_usd": 13843.921871777793,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "BOTH_BORROW_3_vs_0": {
+      "variant_a": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_3",
+      "variant_b": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0",
+      "purpose": "Hypothetical 3% annual borrow fee sensitivity when both VXX sleeves are present.",
+      "final_nav_delta_usd_a_minus_b": -3842.3163533098414,
+      "cagr_delta_percentage_points_a_minus_b": -0.17773144201582713,
+      "maxdd_delta_percentage_points_a_minus_b": -0.3145120889981645,
+      "annualized_vol_delta_percentage_points_a_minus_b": 0.11347569227226906,
+      "borrow_cost_a_usd": 4309.226090291668,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    },
+    "BOTH_BORROW_10_vs_0": {
+      "variant_a": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_10",
+      "variant_b": "SLEEVE_BOTH_18_STOCK_2_CALL_BORROW_0",
+      "purpose": "Hypothetical 10% annual borrow fee sensitivity when both VXX sleeves are present.",
+      "final_nav_delta_usd_a_minus_b": -13477.589335927041,
+      "cagr_delta_percentage_points_a_minus_b": -0.6328815705465285,
+      "maxdd_delta_percentage_points_a_minus_b": -0.9065028478377979,
+      "annualized_vol_delta_percentage_points_a_minus_b": 0.3712497446235197,
+      "borrow_cost_a_usd": 14036.696721777782,
+      "borrow_cost_b_usd": 0.0,
+      "note": "Positive MaxDD delta means variant A has a less negative (better) maximum drawdown than variant B."
+    }
+  },
+  "vxx_sleeve_experiment_contract": {
+    "all_variants_keep_qqq_core_and_qqq_call_rules_unchanged": true,
+    "vxx_stock_and_vxx_call_entry_switches_are_orthogonal": true,
+    "stock_short_sizing_basis": "NAV notional percentage; unbounded upside loss",
+    "call_spread_sizing_basis": "defined maximum loss budget as percentage of NAV",
+    "risk_equivalence_caveat": "Different risk shapes cannot be made universally equal-risk by one scalar; 2% stock notional is only stress-aligned to a +100% VXX price increase.",
+    "borrow_cost_rates_are_scenario_inputs_not_observed_historical_fees": [
+      0.0,
+      3.0,
+      10.0
+    ],
+    "option_price_source": "DERIVED_BS_VIX; not historical OPRA"
+  },
+  "caveats": [
+    "VXX options use derived BS/VIX proxies, not historical OPRA quotes or fills.",
+    "The dual-sided setup is a research hypothesis; every VXX short option is part of a defined-risk vertical.",
+    "Cboe M1/M2 is not substituted into this exact-replay family; using it would be a separate model.",
+    "The legacy control preserves original index-based option-time handling for exact parity; new variants use consistent calendar-DTE marks.",
+    "VXX reverse splits and non-standard option contract adjustments are not reconstructed from historical OPRA chains; option prices remain model proxies.",
+    "No live order, current capacity, broker action, or current frozen sizing is generated."
+  ],
+  "artifact_files": [
+    "legacy_call_only_equity_attribution.csv",
+    "dual_call_put_equity_attribution.csv",
+    "no_vxx_options_equity_attribution.csv",
+    "legacy_call_only_events.json",
+    "dual_call_put_events.json",
+    "no_vxx_options_events.json",
+    "strategy_report.json"
+  ]
+}

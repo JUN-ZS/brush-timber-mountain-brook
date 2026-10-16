@@ -1,0 +1,7 @@
+﻿run_id=38843599343
+run_attempt=1
+tested_sha=61b35a2ed0ec943f4072834c55a4a8dc6f328e31
+source_branch=98/merge
+source_workflow=QQQ Hybrid VXX Short Call Put V1
+source_run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843599343
+outputs=baseline_profit_trend_plus_vxx_short_call_put_strategy

@@ -1,0 +1,45 @@
+{
+  "research_id": "QQQ_HYBRID_PROFIT_TREND_REPLAY_V1",
+  "status": "DERIVED_REPLAY_TREND_EXPORT",
+  "pricing_model": "DERIVED_BS_VIX",
+  "not_opra": true,
+  "source_replay": "QQQ_HYBRID_DYNAMIC_DEPLOYMENT_V1_1",
+  "source_replay_sha": "ac74b3812c826ad491fb829108f26397322e45eb",
+  "replay_variant": "BASELINE",
+  "window": {
+    "start": "2018-03-01",
+    "end": "2026-09-04",
+    "rows": 2141
+  },
+  "backtest_result": {
+    "initial_nav": 100025.43886602944,
+    "final_nav": 298267.2239640743,
+    "final_profit": 198241.78509804484,
+    "cagr": 0.13699190415586338,
+    "maxdd_daily_mtm": -0.23021273091214212
+  },
+  "latest_descriptive_trend": {
+    "return_1m": 0.020837832431580994,
+    "return_3m": 0.024958753170602588,
+    "return_6m": 0.18166276220990185,
+    "return_12m": 0.21270242700116326,
+    "profit_slope_63d": 43.64927409308908,
+    "drawdown": -0.018479695565022825
+  },
+  "source_trade_counts": {
+    "opens": 418,
+    "closes": 414,
+    "events": 422
+  },
+  "current_sizing_contract": {
+    "qqq_core_pct": "EXTERNAL_INPUT",
+    "vxx_short_pct": "EXTERNAL_INPUT",
+    "qqq_call_contracts": "EXTERNAL_INPUT",
+    "vxx_call_contracts": "EXTERNAL_INPUT",
+    "note": "Historical replay sizing remains inside the preserved replay only. It is never promoted to current frozen capacity."
+  },
+  "consumer_contract": {
+    "allowed": "Use profit/NAV trend as historical descriptive evidence.",
+    "forbidden": "Do not infer or hardcode current QQQ/VXX sizing from historical allocation percentages."
+  }
+}
