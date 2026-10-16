@@ -21,6 +21,58 @@ for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
 }
 assert.ok(inlineCount >= 1, "expected at least one inline JavaScript block");
 
+// Execute the actual SharedContractEngine and its actual 52-case Golden Test function
+// in a VM with DOM-ready callbacks deliberately disabled. This does not run browser UI or HUB.
+const inlineScripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+  .filter(m => !/\bsrc\s*=/.test(m[1] || "") && (m[2] || "").includes("const SharedContractEngine = {"));
+assert.equal(inlineScripts.length, 1, "expected exactly one core application script");
+const coreScript = inlineScripts[0][2];
+const fakeDocument = {
+  addEventListener() {},
+  querySelectorAll() { return []; },
+  getElementById() { return { value: "", textContent: "", innerHTML: "", className: "", addEventListener() {} }; }
+};
+const browserContext = vm.createContext({
+  window: { addEventListener() {} },
+  document: fakeDocument,
+  console,
+  setTimeout,
+  clearTimeout
+});
+const exposedScript = coreScript + "\n;globalThis.__v44Harness = { runAutomated52GoldenTests, SharedContractEngine, PRESETS, resolveFrameAssumptions };";
+assert.doesNotThrow(() => vm.runInContext(exposedScript, browserContext, { timeout: 10000 }), "core app script could not initialize in isolated test VM");
+const actualGoldenResults = browserContext.__v44Harness.runAutomated52GoldenTests();
+assert.equal(actualGoldenResults.length, 52, "engine's actual Golden Test function must return 52 results");
+const actualFailures = actualGoldenResults.filter(r => !r.passed);
+assert.equal(actualFailures.length, 0, "actual Golden Tests failed: " + actualFailures.map(r => r.id + " " + r.name + " :: " + r.detail).join(" | "));
+
+// Direct negative tests against actual engine method, not text-only assertions.
+const E = browserContext.__v44Harness.SharedContractEngine;
+const P = browserContext.__v44Harness.PRESETS;
+const width = E.evaluateDecision({ ...P.live_thin, candVxxWidth: "1", candVxxLegStrikes: "21/26" });
+const type = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261120P00026000" });
+const expiry = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261218C00026000" });
+const strike = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261120C00025000" });
+const missingSource = E.evaluateDecision({ ...P.live_thin, candVxxLongSourceRef: "" });
+const engineChecks = {
+  width: width.candEval.vxxCand.status,
+  type: type.candEval.vxxCand.status,
+  expiry: expiry.candEval.vxxCand.status,
+  strike: strike.candEval.vxxCand.status,
+  missingSource: missingSource.candEval.vxxCand.status,
+  invalidWidthCapacity: width.candEval.vxxCand.fullQty
+};
+assert.equal(engineChecks.width, "BLOCKED_STRIKE_WIDTH_MISMATCH");
+assert.equal(engineChecks.type, "BLOCKED_LEG_OPTION_TYPE_MISMATCH");
+assert.equal(engineChecks.expiry, "BLOCKED_LEG_EXPIRY_MISMATCH");
+assert.equal(engineChecks.strike, "BLOCKED_LEG_STRIKE_ID_MISMATCH");
+assert.equal(engineChecks.missingSource, "PENDING_LEG_SOURCE_REFERENCE");
+assert.equal(engineChecks.invalidWidthCapacity, null);
+
+console.log("PASS actual SharedContractEngine Golden Tests:", actualGoldenResults.length + "/" + actualGoldenResults.length);
+console.log("PASS direct engine negative contract probes:", JSON.stringify(engineChecks));
+
+
 const ids = [...html.matchAll(/assertCase\(['"](GT-\d+)['"]/g)].map((m) => m[1]);
 assert.equal(ids.length, 52, "Golden Test count must match the user-visible 52-test label");
 assert.equal(new Set(ids).size, 52, "Golden Test IDs must be unique");
