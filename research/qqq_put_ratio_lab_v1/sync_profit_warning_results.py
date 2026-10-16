@@ -71,6 +71,7 @@ def build_threshold_study(trades: list[dict[str, Any]], replay: Any, target: int
         row = {
             "tradeId": trade_id, "signalDate": signal_date, "signalAgeSessions": age,
             "signalMarkPnlUsd": signal.get("pnl_before_action_usd"),
+            "signalPnlUsd": signal.get("pnl_before_action_usd"),
             "executionAttemptCount": len(attempt_rows), "firstActionAttemptDate": attempt_rows[0]["date"] if attempt_rows else None,
             "firstActionAttemptStatus": attempt_rows[0]["status"] if attempt_rows else None, "actionAttempts": attempt_rows,
             "executionDate": exit_date, "executionStatus": exit_action.get("status") if exit_action else None,
@@ -194,7 +195,6 @@ def _write(path: Path, value: Any) -> None:
 
 def _readme(summary: dict[str, Any], curve: dict[str, Any], thresholds: dict[str, Any]) -> str:
     lines = [
-        "## $800 vs $1,000 fixed profit-warning recheck", "",
         "Both targets were directly re-run on the same frozen 62-episode LONG 1 / SHORT 5 cohort with shared DTE <= 7 safety fallback and next-observed-session execution. USD 800 equals +1% only at USD 80,000 NAV; the live app's current-NAV percentage alert is a separate manual-review alert, not a proportional re-run of every historical trade.", "",
         "| Fixed target | Counterfactual first EOD mark hit | Actual policy triggers | Successful close actions | 5-session held-path forward n / median ΔP&L / large giveback | 10-session held-path forward n / median ΔP&L / large giveback | Net P&L | Win rate | Serial quote-mark MaxDD |",
         "|---:|---:|---:|---|---|---|---:|---:|---|",
