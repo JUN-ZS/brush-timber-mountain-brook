@@ -55,6 +55,37 @@
         "artifacts/backtest-curve.csv",
         "src/data/backtest-v2-2.json"
       ]
+    },
+    {
+      "name": "real-vx-output-recovery",
+      "run_id": 38842692626,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842692626",
+      "status": "success; raw REAL VX, source-swap and historical replay outputs persisted; ZIP backup failed due quota",
+      "validation": "external_vs_real_price_validation=FAIL"
+    },
+    {
+      "name": "order-machine-v2-current",
+      "run_id": 38842599615,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842599615",
+      "status": "success; current deterministic parent-intent replay JSON/CSV persisted; ZIP backup failed due quota"
+    },
+    {
+      "name": "order-machine-v2-current-duplicate",
+      "run_id": 38842604455,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842604455",
+      "status": "success; current deterministic parent-intent replay JSON/CSV persisted; ZIP backup failed due quota"
+    },
+    {
+      "name": "vxx-retry-windows-shell-fix",
+      "run_id": 38843599343,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843599343",
+      "status": "queued at time of manifest update; not yet claimed successful"
+    },
+    {
+      "name": "profit-trend-retry-windows-shell-fix",
+      "run_id": 38843606498,
+      "url": "https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843606498",
+      "status": "queued at time of manifest update; not yet claimed successful"
     }
   ],
   "files": [
@@ -70,6 +101,23 @@
     "real_vx/source_swap_parity.json",
     "real_vx/delayed_vx_snapshot_2026-10-15.json",
     "real_vx/historical_state_replay_summary.json",
-    "backtest/backtest-v2-2-gate-summary.json"
+    "backtest/backtest-v2-2-gate-summary.json",
+    "real_vx/raw_rerun-38842692626-a1/real-vx/build_metadata.json",
+    "real_vx/raw_rerun-38842692626-a1/real-vx/cboe_vx_m1_m2_2018_2026.csv",
+    "real_vx/raw_rerun-38842692626-a1/real-vx/delayed_vx_m1_m2.json",
+    "real_vx/raw_rerun-38842692626-a1/real-vx/overlap_gate.json",
+    "real_vx/raw_rerun-38842692626-a1/real-vx/overlap_rows.csv",
+    "real_vx/raw_rerun-38842692626-a1/real-vx/source-swap/source_swap_metrics.json",
+    "real_vx/raw_rerun-38842692626-a1/real-vx/source-swap/source_swap_rows.csv",
+    "real_vx/raw_rerun-38842692626-a1/real-vx/source-swap/SOURCE_SWAP_PARITY.md",
+    "real_vx/raw_rerun-38842692626-a1/historical_state_replay/real_historical_state_replay_2018_2022.csv",
+    "real_vx/raw_rerun-38842692626-a1/historical_state_replay/REAL_HISTORICAL_STATE_REPLAY.md",
+    "real_vx/raw_rerun-38842692626-a1/RECOVERY_META.txt",
+    "order_machine/current_v2/rerun-38842599615-a1/RESULTS_ORDER_MACHINE_REPLAY.json",
+    "order_machine/current_v2/rerun-38842599615-a1/RESULTS_ORDER_MACHINE_REPLAY.csv",
+    "order_machine/current_v2/rerun-38842599615-a1/RECOVERY_META.txt",
+    "order_machine/current_v2/rerun-38842604455-a1/RESULTS_ORDER_MACHINE_REPLAY.json",
+    "order_machine/current_v2/rerun-38842604455-a1/RESULTS_ORDER_MACHINE_REPLAY.csv",
+    "order_machine/current_v2/rerun-38842604455-a1/RECOVERY_META.txt"
   ]
 }
