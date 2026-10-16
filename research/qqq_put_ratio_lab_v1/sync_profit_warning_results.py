@@ -113,12 +113,21 @@ def build_threshold_study(trades: list[dict[str, Any]], replay: Any, target: int
     }
 
 
-def _policy(summary: dict[str, Any], target: int) -> dict[str, Any]:
+def _prior_policy(summary: dict[str, Any], target: int) -> dict[str, Any] | None:
     name = f"TP_USD_{target}_CLOSE_SHORT_RISK"
-    for p in summary.get("policy_summaries_base_cost", []):
-        if p.get("policy") == name:
-            return p
-    raise ValueError(f"missing direct replay policy {name}")
+    return next((p for p in summary.get("policy_summaries_base_cost", []) if p.get("policy") == name), None)
+
+
+def _direct_policy_summary(trades: list[dict[str, Any]], replay: Any, target: int) -> dict[str, Any]:
+    name = f"TP_USD_{target}_CLOSE_SHORT_RISK"
+    policy = next((p for p in replay.policy_list() if p.get("name") == name), None)
+    if policy is None or policy.get("target") != float(target):
+        raise ValueError(f"target {target} is not directly defined in policy_list()")
+    results = [replay.simulate_policy(t, policy, replay.BASE_EVENT_SLIPPAGE, replay.BASE_EVENT_COMMISSION) for t in trades]
+    row = replay.summarize_policy(results)
+    if int(row.get("trade_episodes") or 0) != len(trades):
+        raise ValueError(f"direct policy replay episode count mismatch for USD {target}")
+    return row
 
 
 def build_payload(summary: dict[str, Any], curve: dict[str, Any], data: dict[str, Any], trades: list[dict[str, Any]], replay: Any) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -126,10 +135,18 @@ def build_payload(summary: dict[str, Any], curve: dict[str, Any], data: dict[str
         raise ValueError("expected the frozen 62-episode cohort")
     if int(curve.get("trade_count") or 0) != 62 or curve.get("source_option_end") != "2025-12-15":
         raise ValueError("serial curve does not match the pinned cohort")
-    thresholds, outcomes = {}, {}
+    thresholds, outcomes, direct_rows = {}, {}, {}
     for target in (800, 1000):
         e = build_threshold_study(trades, replay, target)
-        p = _policy(summary, target)
+        p = _direct_policy_summary(trades, replay, target)
+        archived = _prior_policy(summary, target)
+        if archived is not None:
+            if int(archived.get("policy_rule_triggered_trade_count") or 0) != int(p.get("policy_rule_triggered_trade_count") or 0):
+                raise ValueError(f"archived summary versus direct replay trigger count mismatch for USD {target}")
+            if abs(float(archived.get("closed_trade_net_pnl_sum_usd") or 0) - float(p.get("closed_trade_net_pnl_sum_usd") or 0)) > 0.02:
+                raise ValueError(f"archived summary versus direct replay P&L mismatch for USD {target}")
+        elif target != 800:
+            raise ValueError(f"archived baseline summary lacks comparison policy USD {target}")
         c = curve.get("metrics_by_policy_at_80k_nav", {}).get(f"TP_USD_{target}_CLOSE_SHORT_RISK")
         if not c:
             raise ValueError(f"missing serial curve for directly replayed target {target}")
@@ -138,6 +155,7 @@ def build_payload(summary: dict[str, Any], curve: dict[str, Any], data: dict[str
         if abs(float(p.get("closed_trade_net_pnl_sum_usd") or 0) - float(c.get("net_pnl_sum_closed_trades_usd") or 0)) > 0.02:
             raise ValueError(f"replay and serial curve P&L mismatch for USD {target}")
         thresholds[str(target)] = e
+        direct_rows[str(target)] = p
         outcomes[str(target)] = {
             "policy": p,
             "serialCurve": {k: c.get(k) for k in ("net_pnl_last_observed_usd", "net_pnl_sum_closed_trades_usd",
@@ -147,7 +165,7 @@ def build_payload(summary: dict[str, Any], curve: dict[str, Any], data: dict[str
         }
 
     compact = {key: {k: v for k, v in value.items() if k not in ("actualEvents", "counterfactualFirstHitEvents")} for key, value in thresholds.items()}
-    p = _policy(summary, 800)
+    p = direct_rows["800"]
     new_row = {
         "id": "TP_USD_800_CLOSE_SHORT_RISK", "n": int(p.get("trade_episodes") or 0),
         "resolved": int(p.get("resolved_trades") or 0), "netPnlUsd": p.get("closed_trade_net_pnl_sum_usd"),
@@ -193,14 +211,14 @@ def _write(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def _readme(summary: dict[str, Any], curve: dict[str, Any], thresholds: dict[str, Any]) -> str:
+def _readme(curve: dict[str, Any], thresholds: dict[str, Any], policy_rows: dict[str, dict[str, Any]]) -> str:
     lines = [
         "Both targets were directly re-run on the same frozen 62-episode LONG 1 / SHORT 5 cohort with shared DTE <= 7 safety fallback and next-observed-session execution. USD 800 equals +1% only at USD 80,000 NAV; the live app's current-NAV percentage alert is a separate manual-review alert, not a proportional re-run of every historical trade.", "",
         "| Fixed target | Counterfactual first EOD mark hit | Actual policy triggers | Successful close actions | 5-session held-path forward n / median ΔP&L / large giveback | 10-session held-path forward n / median ΔP&L / large giveback | Net P&L | Win rate | Serial quote-mark MaxDD |",
         "|---:|---:|---:|---|---|---|---:|---:|---|",
     ]
     for target in (800, 1000):
-        p = _policy(summary, target)
+        p = policy_rows[str(target)]
         c = curve["metrics_by_policy_at_80k_nav"][f"TP_USD_{target}_CLOSE_SHORT_RISK"]
         e = thresholds[str(target)]
         bits = []
@@ -239,7 +257,7 @@ def main() -> None:
         raise ValueError("README threshold-results markers are missing")
     head, tail = readme.split(start, 1)
     _, after = tail.split(end, 1)
-    args.readme.write_text(head + start + "\n\n" + _readme(summary, curve, updated["events"]["profitThresholds"]) + "\n\n" + end + after, encoding="utf-8")
+    args.readme.write_text(head + start + "\n\n" + _readme(curve, updated["events"]["profitThresholds"], {k: v["policy"] for k, v in detail["thresholds"].items()}) + "\n\n" + end + after, encoding="utf-8")
     print(json.dumps({
         "researchId": detail["researchId"], "status": detail["status"], "cohortN": detail["cohort"]["episodes"],
         "thresholds": {k: {"actualPolicyTriggers": v["thresholdStudy"]["actualPolicyTriggerCount"],
