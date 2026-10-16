@@ -131,7 +131,8 @@ function optionSizingText(s){
 function candidateText(c){
   if(!c) return "—";
   const credit=Number.isFinite(Number(c.credit))?Number(c.credit).toFixed(2):"—";
-  return "short "+fmt(c.shortStrike)+" / long "+fmt(c.longStrike)+" · DTE "+fmt(c.dte,0)+" · Δ "+fmt(c.delta,2)+" · credit "+credit+" · "+(c.deltaSource||"ESTIMATE");
+  const quoteTime=c.quoteTimestampVerified?"SOURCE QUOTE TIME VERIFIED":"SOURCE QUOTE TIME UNVERIFIED (retrieval time only)";
+  return "short "+fmt(c.shortStrike)+" / long "+fmt(c.longStrike)+" · DTE "+fmt(c.dte,0)+" · Δ "+fmt(c.delta,2)+" · credit "+credit+" · "+(c.deltaSource||"ESTIMATE")+" · "+quoteTime;
 }
 
 function applyCandidate(sym,c){
