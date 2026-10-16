@@ -289,7 +289,8 @@ function renderPutRatioDynamicBar(){
     const pctText=r.episodePct===null?"—":Number(r.episodePct).toFixed(2)+"% ("+r.episodeHits+"/"+r.episodeN+")";
     const markText=r.markPct===null?"—":Number(r.markPct).toFixed(2)+"% ("+r.markHits+"/"+r.markN+")";
     const stat=r.sampleStatus==="PENDING_SMALL_EPISODE_SAMPLE"?"PENDING · 樣本不足":r.sampleStatus==="BLOCKED_NO_EXECUTED_EPISODES"?"BLOCKED · 無有效樣本":"診斷樣本";
-    return '<tr><td>'+typeLabels[r.barTypeIndex]+'</td><td>±'+Number(r.levelPct).toFixed(1)+'% NAV</td><td>'+pctText+'</td><td>'+markText+'</td><td class="'+(r.sampleStatus==="BAR_SAMPLE_OK_DIAGNOSTIC_ONLY"?"":"put-ratio-status-pending")+'">'+stat+'</td></tr>';
+    const levelLabel=r.barTypeIndex===0?"+"+Number(r.levelPct).toFixed(1)+"% NAV":r.barTypeIndex===1?"−"+Number(r.levelPct).toFixed(1)+"% NAV":Number(r.levelPct).toFixed(1)+"% NAV drag";
+    return '<tr><td>'+typeLabels[r.barTypeIndex]+'</td><td>'+levelLabel+'</td><td>'+pctText+'</td><td>'+markText+'</td><td class="'+(r.sampleStatus==="BAR_SAMPLE_OK_DIAGNOSTIC_ONLY"?"":"put-ratio-status-pending")+'">'+stat+'</td></tr>';
   }).join("")||'<tr><td colspan="5">BLOCKED · 此狀態沒有可用列</td></tr>';
   ddRows.innerHTML=dds.map(r=>{
     const years=r.eventYears.length?r.eventYears.join(", "):"無觀察事件";
