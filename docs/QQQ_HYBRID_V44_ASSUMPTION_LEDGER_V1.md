@@ -62,7 +62,7 @@ All fractions below are inputs to a sensitivity scenario, not estimated probabil
 - The profile names communicate severity, not statistically calibrated confidence.
 - Do not infer that a 15% quote-spread cap or 60% underlying shock has any particular empirical probability without an explicitly sourced calibration study.
 - Compare profiles on the same position ledger, quotes, time point, and policy target. Record which constraint binds for each leg.
-- The profile may reduce/increase **capacity** only; it must not overwrite the frozen regime target. Golden Test GT-52 checks the target remains invariant across profiles.
+- The profile may reduce/increase **capacity**, which can lower the capacity-limited feasible target. The engine therefore exposes two separate fields: `frozenPolicyTargetVxxPct` (the regime-rule target before capacity checks) and `targetVxxPct` (the feasible target after the capacity cap). GT-52 requires the frozen policy target to remain invariant and the capacity-limited target never to exceed it.
 - Never tune the profile until it “passes.” Keep BASELINE/CONSERVATIVE/STRESS together, show sensitivity, and retain adverse results.
 - Missing fields remain PENDING/BLOCKED; no replacement with zero or a fallback value.
 
