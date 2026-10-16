@@ -43,6 +43,10 @@ jobs:
           set "TEST_EXIT=%ERRORLEVEL%"
           type "%RUNNER_TEMP%\v43-test-report.tap"
           if not "%TEST_EXIT%"=="0" exit /b %TEST_EXIT%
+      - name: Assert no performance data is silently shipped
+        run: |
+          node -e "const E=require('./research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js');const s=E.createEmptySourceStore();if(s.quotes.length!==0||s.episodes.length!==0||s.status!=='REPO_SUMMARY_REFERENCE_ONLY (UNVERIFIED_RAW_CHAIN)')process.exit(1);console.log('NO_SYNTHETIC_HISTORY_SHIPPED=PASS')" || exit /b 1
+
       - name: Preserve V4.3 test transcript for audit
         if: always() && github.event_name == 'push'
         shell: powershell
@@ -69,6 +73,3 @@ jobs:
             git push origin HEAD:research/app-artifact-recovery-20261016
             if ($LASTEXITCODE -ne 0) { throw 'Recovery transcript push failed' }
           }
-      - name: Assert no performance data is silently shipped
-        run: |
-          node -e "const E=require('./research/shared_contract_engine_v4_3/shared_contract_engine_v4_3.js');const s=E.createEmptySourceStore();if(s.quotes.length!==0||s.episodes.length!==0||s.status!=='REPO_SUMMARY_REFERENCE_ONLY (UNVERIFIED_RAW_CHAIN)')process.exit(1);console.log('NO_SYNTHETIC_HISTORY_SHIPPED=PASS')" || exit /b 1
