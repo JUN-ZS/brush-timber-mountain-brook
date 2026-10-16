@@ -8,7 +8,6 @@ on:
     paths:
       - research/qqq_put_ratio_exit_study_v1/**
       - research/qqq_put_ratio_exit_supplement_v1/**
-      - research/qqq_put_ratio_exit_supplement_v1/**
       - .github/workflows/qqq-put-ratio-exit-study-v1.yml
   pull_request:
     types: [opened, reopened, synchronize, edited]
@@ -45,12 +44,40 @@ jobs:
           python3 -m venv .venv
           .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
 
-      - name: Restore SHA-verified public QQQ option cache
-        uses: actions/cache@v4
+      - name: Check persistent option cache on Linux BOT
+        id: local_option_cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          cache_dir="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$cache_dir"
+          if find "$cache_dir" -type f -print -quit | grep -q .; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+            echo "option_cache=LINUX_BOT_LOCAL_PERSISTENT"
+          else
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+            echo "option_cache=EMPTY_TRY_SHA_PINNED_REMOTE_CACHE"
+          fi
+
+      - name: Restore SHA-pinned option cache only when Linux BOT is cold
+        if: steps.local_option_cache.outputs.hit != 'true'
+        uses: actions/cache/restore@v4
         with:
-          path: .cache/qqq-options-full-history
+          path: ~/.cache/qqq-options-full-history
           key: qqq-options-full-history-2018-2025-sha-pinned-v1
           enableCrossOsArchive: true
+
+      - name: Link persistent cache into the checked-out source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          cache_dir="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$cache_dir" .cache
+          rm -rf .cache/qqq-options-full-history
+          ln -s "$cache_dir" .cache/qqq-options-full-history
+          echo "option_cache_path=$cache_dir"
+          echo "option_cache_persistence=outside_git_workspace"
+          echo "option_cache_integrity=verified_by_SHA_pinned_source_audit"
 
       - name: Compile and run offline contract tests
         shell: bash
