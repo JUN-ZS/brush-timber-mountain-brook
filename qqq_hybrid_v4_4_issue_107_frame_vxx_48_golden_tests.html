@@ -676,7 +676,7 @@
               <div class="flex flex-wrap items-center justify-between gap-1">
                 <span class="text-[11px] font-semibold text-indigo-300">FRAME 逐腿合約規格核驗 (短腿 + 保護性長腿 · 禁假設乘數=100 · 禁模型估價充當成交)</span>
                 <select id="inpQuoteProvenance" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-[10px] font-mono text-emerald-300">
-                  <option value="VERIFIED_EXCHANGE_QUOTE" selected>來源: VERIFIED_EXCHANGE_QUOTE (真實掛單報價)</option>
+                  <option value="USER_ASSERTED_OBSERVED_QUOTE" selected>來源: USER_ASSERTED_OBSERVED_QUOTE (真實掛單報價)</option>
                   <option value="MODEL_ESTIMATE_BS_VIX">來源: MODEL_ESTIMATE_BS_VIX (模型估價 → 觸發 BLOCK)</option>
                 </select>
               </div>
@@ -770,7 +770,7 @@
               <span class="text-[11px] text-slate-400">VXX 合約交割規格與乘數檢查 (F4 / PR #98):</span>
               <select id="inpVxxContractRoot" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-[11px] text-slate-200">
                 <option value="STANDARD_100">標準 VXX (100 股交割 · 要求短長腿乘數=100)</option>
-                <option value="ADJUSTED_VERIFIED_25">已核實反向拆股調整合約 (25 股交割 · 要求短長腿乘數=25)</option>
+                <option value="ADJUSTED_USER_ASSERTED_25">已核實反向拆股調整合約 (25 股交割 · 要求短長腿乘數=25)</option>
                 <option value="ADJUSTED_VXX1">VXX1/VXX2 未核實調整合約 (觸發 F4 BLOCK 禁假設100)</option>
               </select>
             </div>
@@ -1596,7 +1596,7 @@
       vxxPutDelta: '0.16',
       vxxPutEntryCr: '0.65',
       vxxPutCurMark: '0.40',
-      quoteProvenance: 'VERIFIED_EXCHANGE_QUOTE',
+      quoteProvenance: 'USER_ASSERTED_OBSERVED_QUOTE',
       candQqqShortId: 'QQQ261120C00820000',
       candQqqLongId: 'QQQ261120C00830000',
       candQqqExpiry: '2026-11-20',
@@ -2190,6 +2190,27 @@
     // =========================================================================
     // PURE FUNCTIONAL ENGINE: SharedContractEngine v4.3
     // =========================================================================
+    // Scenario assumptions are explicit hypotheses, never observed facts or Frozen Policy changes.
+    const FRAME_ASSUMPTION_PROFILES = Object.freeze({
+      BASELINE: Object.freeze({ quoteMaxAgeDays:4, maxShortQuoteSpreadPct:25, qqqCallMaxLossBudgetFraction:0.012, vxxCallMaxLossBudgetFraction:0.020, vxxPutMaxLossBudgetFraction:0.010, portfolioInterimStressCapFraction:0.050, deployableMarginFraction:0.65, vxxStockStressBudgetFraction:0.065, vxxStockMarginBudgetFraction:0.45, vxxUnderlyingShockFraction:0.35, qqqCoreShockFraction:0.08, qqqCallStressFraction:0.50, vxxPutStressFraction:0.45, interimLossFloorFraction:0.65 }),
+      CONSERVATIVE: Object.freeze({ quoteMaxAgeDays:2, maxShortQuoteSpreadPct:15, qqqCallMaxLossBudgetFraction:0.008, vxxCallMaxLossBudgetFraction:0.012, vxxPutMaxLossBudgetFraction:0.005, portfolioInterimStressCapFraction:0.035, deployableMarginFraction:0.50, vxxStockStressBudgetFraction:0.045, vxxStockMarginBudgetFraction:0.35, vxxUnderlyingShockFraction:0.45, qqqCoreShockFraction:0.10, qqqCallStressFraction:0.65, vxxPutStressFraction:0.60, interimLossFloorFraction:0.80 }),
+      STRESS: Object.freeze({ quoteMaxAgeDays:1, maxShortQuoteSpreadPct:10, qqqCallMaxLossBudgetFraction:0.004, vxxCallMaxLossBudgetFraction:0.006, vxxPutMaxLossBudgetFraction:0.0025, portfolioInterimStressCapFraction:0.025, deployableMarginFraction:0.35, vxxStockStressBudgetFraction:0.025, vxxStockMarginBudgetFraction:0.25, vxxUnderlyingShockFraction:0.60, qqqCoreShockFraction:0.15, qqqCallStressFraction:0.80, vxxPutStressFraction:0.75, interimLossFloorFraction:0.90 })
+    });
+    function resolveFrameAssumptions(inputs = {}) {
+      const requested = String(inputs.assumptionProfile || 'BASELINE').trim().toUpperCase();
+      const profileKey = Object.prototype.hasOwnProperty.call(FRAME_ASSUMPTION_PROFILES, requested) ? requested : 'BASELINE';
+      return { profileKey, evidenceClass: 'HYPOTHETICAL_SCENARIO_NOT_OBSERVED', ...FRAME_ASSUMPTION_PROFILES[profileKey] };
+    }
+    function parseOccOptionId(value) {
+      const id = String(value || '').trim().toUpperCase();
+      const m = /^([A-Z][A-Z0-9.]{0,5}?)(\d{2})(\d{2})(\d{2})([CP])(\d{8})$/.exec(id);
+      if (!m) return null;
+      const expiryDate = '20' + m[2] + '-' + m[3] + '-' + m[4];
+      const date = new Date(expiryDate + 'T00:00:00Z');
+      if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0,10) !== expiryDate) return null;
+      return { id, root:m[1], expiryDate, optionType:m[5], strike:Number(m[6])/1000 };
+    }
+
     const SharedContractEngine = {
       version: 'qqq-hybrid.shared-contract.v4.3',
       commitHash: 'f5f4f6bf267b33691b03246b1b2b13e1a1fb6587',
@@ -2498,20 +2519,24 @@
 
       // 2. Evaluate Leg-by-Leg Option Contracts & 6-Dimension Separated Capacity (Issue #107 / PR #102 / PR #98)
       evaluateCandidateCapacity(inputs, ledger) {
+        const assumptions = resolveFrameAssumptions(inputs);
         const quoteAge = this.signedDaysBetween(inputs.quoteAsOf, inputs.todayDate);
-        const quoteTsValid = quoteAge !== null && quoteAge >= 0 && quoteAge <= 4 && inputs.candidateState !== 'PENDING_TS';
+        const quoteTsValid = quoteAge !== null && quoteAge >= 0 && quoteAge <= assumptions.quoteMaxAgeDays && inputs.candidateState !== 'PENDING_TS';
         const vxxRoot = String(inputs.vxxContractRoot !== undefined ? inputs.vxxContractRoot : 'STANDARD_100');
-        const vxxContractBlocked = vxxRoot === 'ADJUSTED_VXX1';
-        const quoteProvenance = String(inputs.quoteProvenance !== undefined ? inputs.quoteProvenance : 'VERIFIED_EXCHANGE_QUOTE');
-        const modelEstimateBlocked = quoteProvenance !== 'VERIFIED_EXCHANGE_QUOTE';
+        const allowedRoots = ['STANDARD_100','ADJUSTED_USER_ASSERTED_25','ADJUSTED_VXX1'];
+        const vxxRootInvalid = !allowedRoots.includes(vxxRoot);
+        const vxxContractBlocked = vxxRoot === 'ADJUSTED_VXX1' || vxxRootInvalid;
+        const quoteProvenance = String(inputs.quoteProvenance !== undefined ? inputs.quoteProvenance : 'USER_ASSERTED_OBSERVED_QUOTE');
+        const quoteProvenanceValid = ['USER_ASSERTED_OBSERVED_QUOTE','MODEL_ESTIMATE_BS_VIX'].includes(quoteProvenance);
+        const modelEstimateBlocked = quoteProvenance === 'MODEL_ESTIMATE_BS_VIX' || !quoteProvenanceValid;
 
         const totalNav = ledger.ledgerComplete ? ledger.totalNav : 0;
         const reserveP = this.parseStrictNumber(inputs.reservePct !== undefined ? inputs.reservePct : '10');
         const reservePct = reserveP.state === 'VALID' && reserveP.value >= 0 ? reserveP.value : 10;
         const reserveUsd = totalNav * (reservePct / 100);
         const deployableCashUsd = ledger.ledgerComplete ? Math.max(0, ledger.cash - reserveUsd) : 0;
-        const portfolioStressCapUsd = totalNav * 0.050;
-        const deployableMarginUsd = ledger.ledgerComplete ? Math.max(0, totalNav * 0.65) : 0;
+        const portfolioStressCapUsd = totalNav * assumptions.portfolioInterimStressCapFraction;
+        const deployableMarginUsd = ledger.ledgerComplete ? Math.max(0, totalNav * assumptions.deployableMarginFraction) : 0;
 
         const parseLegStrikePair = (pairStr, fallbackShort, fallbackLong) => {
           if (pairStr === undefined || pairStr === null) return { valid: true, shortK: fallbackShort, longK: fallbackLong };
@@ -2537,17 +2562,36 @@
           if (cfg.isVxx && vxxContractBlocked) {
             return { valid: false, status: 'BLOCKED_ADJUSTED_CONTRACT', fullQty: null, maxExpirationLossPerSpread: null, reason: 'F4 阻斷：非標準未核實調整合約 (VXX1)，嚴禁假設乘數為 100' };
           }
+          if (!quoteProvenanceValid) return { valid:false, status:'BLOCKED_UNKNOWN_QUOTE_PROVENANCE', fullQty:null, maxExpirationLossPerSpread:null, reason:'未知來源分類，拒絕把自訂標籤當成已核實證據' };
           if (!quoteTsValid) {
             return { valid: false, status: 'PENDING_QUOTE_TIMESTAMP', fullQty: null, maxExpirationLossPerSpread: null, reason: '缺少或過期之期權報價時間戳 (Quote As-Of)' };
           }
-
-          const shortId = String(cfg.shortId !== undefined ? cfg.shortId : 'DEFAULT_SHORT_ID').trim();
-          const longId = String(cfg.longId !== undefined ? cfg.longId : 'DEFAULT_LONG_ID').trim();
-          if (!shortId || !longId || shortId === longId) {
-            return { valid: false, status: 'PENDING_CONTRACT_ID', fullQty: null, maxExpirationLossPerSpread: null, reason: '短腿或保護性長腿缺少獨立真實合約識別 (Contract ID)' };
+          const shortId = String(cfg.shortId !== undefined ? cfg.shortId : '').trim();
+          const longId = String(cfg.longId !== undefined ? cfg.longId : '').trim();
+          if (!shortId || !longId || shortId === longId) return { valid:false, status:'PENDING_CONTRACT_ID', fullQty:null, maxExpirationLossPerSpread:null, reason:'短腿或保護性長腿缺少獨立合約識別' };
+          const shortIdentity = parseOccOptionId(shortId);
+          const longIdentity = parseOccOptionId(longId);
+          if (!shortIdentity || !longIdentity) return { valid:false, status:'BLOCKED_INVALID_OCC_CONTRACT_ID', fullQty:null, maxExpirationLossPerSpread:null, reason:'Contract ID 不符合可解析的 root + expiry + CALL/PUT + strike 格式' };
+          if (shortIdentity.optionType !== cfg.optionType || longIdentity.optionType !== cfg.optionType) return { valid:false, status:'BLOCKED_LEG_OPTION_TYPE_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'合約 ID 編碼的 CALL/PUT 類型與價差類型不一致' };
+          if (shortIdentity.expiryDate !== longIdentity.expiryDate) return { valid:false, status:'BLOCKED_LEG_EXPIRY_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'短腿與保護長腿 ID 的到期日不一致' };
+          if (!cfg.isVxx && (shortIdentity.root !== 'QQQ' || longIdentity.root !== 'QQQ')) return { valid:false, status:'BLOCKED_LEG_ROOT_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'QQQ vertical 兩腿 root 必須為 QQQ' };
+          if (cfg.isVxx) {
+            const rootsMatch = vxxRoot === 'STANDARD_100'
+              ? (shortIdentity.root === 'VXX' && longIdentity.root === 'VXX')
+              : (vxxRoot === 'ADJUSTED_USER_ASSERTED_25' ? (/^VXX[0-9]+$/.test(shortIdentity.root) && /^VXX[0-9]+$/.test(longIdentity.root)) : false);
+            if (!rootsMatch) return { valid:false, status:'BLOCKED_LEG_ROOT_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'VXX 兩腿 root 與標準／調整交割分類不一致' };
           }
-
-          const expStr = String(cfg.expiryDate !== undefined ? cfg.expiryDate : '2026-11-20').trim();
+          const expStr = String(cfg.expiryDate !== undefined ? cfg.expiryDate : '').trim();
+          const expDateObject = new Date(expStr + 'T00:00:00Z');
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(expStr) || !Number.isFinite(expDateObject.getTime()) || expDateObject.toISOString().slice(0,10) !== expStr ||
+              shortIdentity.expiryDate !== expStr || longIdentity.expiryDate !== expStr) {
+            return { valid:false, status:'BLOCKED_LEG_EXPIRY_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'到期日必須是有效日期，且同時符合兩腿 ID' };
+          }
+          if (cfg.isVxx && vxxRoot === 'ADJUSTED_USER_ASSERTED_25') {
+            const evidenceRef = String(inputs.vxxDeliverableEvidenceRef || '').trim();
+            const evidenceSha = String(inputs.vxxDeliverableEvidenceSha || '').trim();
+            if (!/^https?:\/\/\S+$/.test(evidenceRef) || !/^sha256:[0-9a-f]{64}$/.test(evidenceSha)) return { valid:false, status:'BLOCKED_ADJUSTED_DELIVERABLE_EVIDENCE_MISSING', fullQty:null, maxExpirationLossPerSpread:null, reason:'調整交割規格須附使用者提供的來源 URL 與 SHA-256；格式正確仍不是獨立真實性驗證' };
+          }
           const expDte = this.signedDaysBetween(inputs.todayDate || '2026-10-16', expStr);
           if (expDte === null || expDte <= 0) {
             return { valid: false, status: 'BLOCKED_INVALID_EXPIRY', fullQty: null, maxExpirationLossPerSpread: null, reason: `候選合約到期日無效或已到期 (${expStr})` };
@@ -2577,31 +2621,26 @@
             if (vxxRoot === 'STANDARD_100' && mult !== 100) {
               return { valid: false, status: 'BLOCKED_MULTIPLIER_DELIVERABLE_MISMATCH', fullQty: null, maxExpirationLossPerSpread: null, reason: `標準 100 股交割規格但合約乘數=${mult} ≠ 100` };
             }
-            if (vxxRoot === 'ADJUSTED_VERIFIED_25' && mult !== 25) {
+            if (vxxRoot === 'ADJUSTED_USER_ASSERTED_25' && mult !== 25) {
               return { valid: false, status: 'BLOCKED_MULTIPLIER_DELIVERABLE_MISMATCH', fullQty: null, maxExpirationLossPerSpread: null, reason: `25 股調整交割規格但合約乘數=${mult} ≠ 25` };
             }
           } else if (mult !== 100) {
             return { valid: false, status: 'BLOCKED_QQQ_MULTIPLIER_MISMATCH', fullQty: null, maxExpirationLossPerSpread: null, reason: `QQQ 標準期權乘數必須核實為 100 (收到 ${mult})` };
           }
 
-          // Verify explicit short & protective long strikes if provided
-          if (cfg.legStrikesStr !== undefined) {
-            const sp = parseLegStrikePair(cfg.legStrikesStr, cfg.defaultShortK, cfg.defaultLongK);
-            if (!sp.valid) {
-              return { valid: false, status: 'BLOCKED_INVALID_LEG_STRIKES', fullQty: null, maxExpirationLossPerSpread: null, reason: '短腿/保護性長腿 Strike 格式無效或缺失' };
-            }
-            if (cfg.optionType === 'CALL' && sp.shortK >= sp.longK) {
-              return { valid: false, status: 'BLOCKED_INVALID_CALL_SPREAD_STRIKES', fullQty: null, maxExpirationLossPerSpread: null, reason: `Call Spread 保護性長腿 Strike (${sp.longK}) 必須高於賣出短腿 Strike (${sp.shortK})` };
-            }
-            if (cfg.optionType === 'PUT' && sp.shortK <= sp.longK) {
-              return { valid: false, status: 'BLOCKED_INVALID_PUT_SPREAD_STRIKES', fullQty: null, maxExpirationLossPerSpread: null, reason: `Put Spread 保護性長腿 Strike (${sp.longK}) 必須低於賣出短腿 Strike (${sp.shortK})` };
-            }
-          }
-
+          // Strike fields must match both IDs; width is derived from the exact strike pair.
+          if (cfg.legStrikesStr === undefined || cfg.legStrikesStr === null || String(cfg.legStrikesStr).trim() === '') return { valid:false, status:'BLOCKED_INVALID_LEG_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:'兩腿 Strike 必填，不允許從寬度或預設值反推' };
+          const sp = parseLegStrikePair(cfg.legStrikesStr, cfg.defaultShortK, cfg.defaultLongK);
+          if (!sp.valid) return { valid:false, status:'BLOCKED_INVALID_LEG_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:'短腿／保護長腿 Strike 格式無效或缺失' };
+          if (Math.abs(shortIdentity.strike-sp.shortK)>0.001 || Math.abs(longIdentity.strike-sp.longK)>0.001) return { valid:false, status:'BLOCKED_LEG_STRIKE_ID_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'Strike 欄位與合約 ID 編碼的 Strike 不一致' };
+          if (cfg.optionType === 'CALL' && sp.shortK >= sp.longK) return { valid:false, status:'BLOCKED_INVALID_CALL_SPREAD_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:\`Call Spread 長腿 Strike (\${sp.longK}) 必須高於短腿 (\${sp.shortK})\` };
+          if (cfg.optionType === 'PUT' && sp.shortK <= sp.longK) return { valid:false, status:'BLOCKED_INVALID_PUT_SPREAD_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:\`Put Spread 長腿 Strike (\${sp.longK}) 必須低於短腿 (\${sp.shortK})\` };
+          const strikeDerivedWidth = Math.abs(sp.longK - sp.shortK);
+          if (Math.abs(w.value - strikeDerivedWidth) > 0.001) return { valid:false, status:'BLOCKED_STRIKE_WIDTH_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:\`輸入價差寬度 \${w.value} 與 Strike 推導寬度 \${strikeDerivedWidth} 不一致，最大損失容量不得計算\` };
           const shortMid = (sb.value + sa.value) / 2;
           const spreadWidthPct = shortMid > 0 ? ((sa.value - sb.value) / shortMid) * 100 : 999;
-          if (spreadWidthPct > 25) {
-            return { valid: false, status: 'BLOCKED_WIDE_SPREAD', fullQty: null, maxExpirationLossPerSpread: null, reason: `買賣價差過寬 (${spreadWidthPct.toFixed(1)}% > 25% 上限)` };
+          if (spreadWidthPct > assumptions.maxShortQuoteSpreadPct) {
+            return { valid: false, status: 'BLOCKED_WIDE_SPREAD', fullQty: null, maxExpirationLossPerSpread: null, reason: `買賣價差過寬 (${spreadWidthPct.toFixed(1)}% > ${assumptions.maxShortQuoteSpreadPct}% 上限)` };
           }
           const netCreditPerShare = sb.value - la.value;
           const closeMarkPerShare = sa.value - lb.value;
@@ -2612,7 +2651,7 @@
           // 6-Dimension Separated Capacity Calculation (Using Verified Multiplier, NEVER hardcoded 100!)
           const netCreditUsdPerSpread = netCreditPerShare * mult;
           const maxExpirationLossPerSpread = (w.value - netCreditPerShare) * mult;
-          const interimStressLossPerSpread = Math.max(netCreditUsdPerSpread, maxExpirationLossPerSpread * 0.65);
+          const interimStressLossPerSpread = Math.max(netCreditUsdPerSpread, maxExpirationLossPerSpread * assumptions.interimLossFloorFraction);
           const marginReqPerSpread = w.value * mult;
           const cashCollateralPerSpread = maxExpirationLossPerSpread;
 
@@ -2635,6 +2674,9 @@
             multiplier: mult,
             deliverableSpec: cfg.isVxx ? vxxRoot : 'STANDARD_100',
             quoteProvenance,
+            evidenceClass: 'USER_ASSERTED_NOT_INDEPENDENTLY_VERIFIED',
+            assumptionProfile: assumptions.profileKey,
+            assumptionEvidenceClass: assumptions.evidenceClass,
             netCreditPerShare,
             closeMarkPerShare,
             netCreditUsdPerSpread,
@@ -2671,7 +2713,7 @@
           lSizeStr: inputs.candQqqLongSize,
           sMultStr: inputs.candQqqMult,
           lMultStr: inputs.candQqqMult,
-          budgetUsd: totalNav * 0.012
+          budgetUsd: totalNav * assumptions.qqqCallMaxLossBudgetFraction
         });
 
         const vxxCand = evalSpreadCandidate({
@@ -2692,7 +2734,7 @@
           lSizeStr: inputs.candVxxLongSize,
           sMultStr: inputs.candVxxShortMult,
           lMultStr: inputs.candVxxLongMult,
-          budgetUsd: totalNav * 0.020
+          budgetUsd: totalNav * assumptions.vxxCallMaxLossBudgetFraction
         });
 
         const vxxPutCand = evalSpreadCandidate({
@@ -2713,7 +2755,7 @@
           lSizeStr: inputs.candVxxPutLongSize !== undefined ? inputs.candVxxPutLongSize : '32',
           sMultStr: inputs.candVxxPutShortMult !== undefined ? inputs.candVxxPutShortMult : '100',
           lMultStr: inputs.candVxxPutLongMult !== undefined ? inputs.candVxxPutLongMult : '100',
-          budgetUsd: totalNav * 0.010
+          budgetUsd: totalNav * assumptions.vxxPutMaxLossBudgetFraction
         });
 
         // Evaluate VXX Short Stock 6-Dimension Capacity
@@ -2747,9 +2789,9 @@
         } else {
           const capPct = recallState === 'ELEVATED_RECALL_WARNING' ? 10.0 : 18.0;
           const sharesByBudget = Math.floor((totalNav * (capPct / 100)) / vxxSpot);
-          const sharesByStress = Math.floor((totalNav * 0.065) / (vxxSpot * 0.35));
+          const sharesByStress = Math.floor((totalNav * assumptions.vxxStockStressBudgetFraction) / (vxxSpot * assumptions.vxxUnderlyingShockFraction));
           const sharesByCash = Math.floor(deployableCashUsd / vxxSpot);
-          const sharesByMargin = Math.floor((totalNav * 0.45) / (vxxSpot * (marginP.value / 100)));
+          const sharesByMargin = Math.floor((totalNav * assumptions.vxxStockMarginBudgetFraction) / (vxxSpot * (marginP.value / 100)));
           const sharesByLocate = Math.floor(locateP.value);
           const fullShares = Math.min(sharesByBudget, sharesByStress, sharesByCash, sharesByMargin, sharesByLocate);
           const fullPctNav = totalNav > 0 ? (fullShares >= sharesByBudget ? capPct : +(((fullShares * vxxSpot) / totalNav) * 100).toFixed(2)) : 0;
@@ -2771,6 +2813,7 @@
         }
 
         return {
+          assumptions,
           quoteTsValid,
           vxxContractBlocked,
           modelEstimateBlocked,
@@ -2787,6 +2830,7 @@
       // V4.4 Joint Stress Derivation from Holdings — NO Fixed Fallback Allowed!
       computeJointStressFromHoldings(inputs, decisionOut) {
         const { ledger, candEval } = decisionOut;
+        const assumptions = resolveFrameAssumptions(inputs);
         if (!ledger.ledgerComplete) {
           return { valid: false, status: 'BLOCKED_LEDGER_INCOMPLETE', reason: '帳本未完成，拒絕計算聯合衝擊' };
         }
@@ -2811,14 +2855,14 @@
             reason: 'VXX Put 持倉 > 0 但候選合約或最大到期損失未知，嚴禁退回固定風險數字'
           };
         }
-        const qqqStress = -Math.round(ledger.qqqMarketValue * 0.08);
-        const vxxStress = -Math.round(ledger.vxxShortLiability * 0.35);
-        const qqqCallStress = Math.round(ledger.qqqCallLiability * 0.50);
+        const qqqStress = -Math.round(ledger.qqqMarketValue * assumptions.qqqCoreShockFraction);
+        const vxxStress = -Math.round(ledger.vxxShortLiability * assumptions.vxxUnderlyingShockFraction);
+        const qqqCallStress = Math.round(ledger.qqqCallLiability * assumptions.qqqCallStressFraction);
         const vxxCallStress = ledger.vxxCallQty > 0
           ? -Math.round(ledger.vxxCallQty * candEval.vxxCand.maxExpirationLossPerSpread)
           : 0;
         const vxxPutStress = ledger.vxxPutQty > 0
-          ? Math.round(ledger.vxxPutLiability * 0.45)
+          ? Math.round(ledger.vxxPutLiability * assumptions.vxxPutStressFraction)
           : 0;
 
         return {
@@ -4170,11 +4214,12 @@
       assertCase('GT-41', 'VXX 調整合約禁一概假設乘數為 100：核實 25 股調整乘數算術與跨腿乘數不匹配阻斷 (PR #98)', () => {
         const outMult25 = SharedContractEngine.evaluateDecision({
           ...PRESETS.live_thin,
-          vxxContractRoot: 'ADJUSTED_VERIFIED_25',
-          candVxxShortMult: '25',
-          candVxxLongMult: '25',
-          candVxxPutShortMult: '25',
-          candVxxPutLongMult: '25'
+          vxxContractRoot: 'ADJUSTED_USER_ASSERTED_25',
+          vxxDeliverableEvidenceRef: 'https://example.invalid/test-only-adjusted-deliverable',
+          vxxDeliverableEvidenceSha: 'sha256:' + sha256Hex('TEST_ONLY_NOT_REAL_DELIVERABLE_EVIDENCE'),
+          candVxxShortId: 'VXX1261120C00021000', candVxxLongId: 'VXX1261120C00026000',
+          candVxxPutShortId: 'VXX1261120P00015000', candVxxPutLongId: 'VXX1261120P00012000',
+          candVxxShortMult: '25', candVxxLongMult: '25', candVxxPutShortMult: '25', candVxxPutLongMult: '25'
         });
         if (!outMult25.candEval.vxxCand.valid || outMult25.candEval.vxxCand.maxExpirationLossPerSpread !== (5 - 0.80) * 25) {
           throw new Error(`Expected mult=25 maxLoss=$105, got ${outMult25.candEval.vxxCand.maxExpirationLossPerSpread}`);
@@ -4187,7 +4232,8 @@
         if (outMismatch.candEval.vxxCand.valid || outMismatch.candEval.vxxCand.status !== 'BLOCKED_LEG_MULTIPLIER_MISMATCH') {
           throw new Error('Mismatched short/long leg multipliers did not block');
         }
-        return `Verified Mult=25 MaxLoss=$${outMult25.candEval.vxxCand.maxExpirationLossPerSpread} · 100vs25→BLOCKED`;
+        if (outMult25.candEval.vxxCand.evidenceClass !== 'USER_ASSERTED_NOT_INDEPENDENTLY_VERIFIED') throw new Error('Adjusted fixture was mislabeled independently verified');
+        return `User-asserted Mult=25 MaxLoss=${outMult25.candEval.vxxCand.maxExpirationLossPerSpread} · 100vs25→BLOCKED · not independently verified`;
       });
 
       assertCase('GT-42', '來源證據閘：模型估價 (MODEL_ESTIMATE_BS_VIX) 嚴禁充當真實掛單或成交容量 (PR #98)', () => {
@@ -4315,6 +4361,23 @@
           throw new Error('V4.4 bundle verification failed');
         }
         return `fullVxxPuts=${b.engineOutput.fullVxxPuts} · hub=${b.engineOutput.hubStatus}`;
+      });
+
+      assertCase('GT-49', 'Strike 推導寬度必須等於輸入寬度；不一致阻斷 Call/Put 容量', () => {
+        const badCallWidth = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxWidth: '1', candVxxLegStrikes: '21/26' });
+        const badPutWidth = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxPutWidth: '4', candVxxPutLegStrikes: '15/12' });
+        if (badCallWidth.candEval.vxxCand.valid || badCallWidth.candEval.vxxCand.status !== 'BLOCKED_STRIKE_WIDTH_MISMATCH') throw new Error('Call width/strike mismatch was not blocked');
+        if (badPutWidth.candEval.vxxPutCand.valid || badPutWidth.candEval.vxxPutCand.status !== 'BLOCKED_STRIKE_WIDTH_MISMATCH') throw new Error('Put width/strike mismatch was not blocked');
+        return 'Call 1 vs strike width 5 → BLOCKED; Put 4 vs strike width 3 → BLOCKED';
+      });
+      assertCase('GT-50', '每腿 OCC ID 必須對得上期權類型、到期日及 Strike 欄位', () => {
+        const badType = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxLongId: 'VXX261120P00026000' });
+        const badExpiry = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxLongId: 'VXX261218C00026000' });
+        const badStrike = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxLongId: 'VXX261120C00025000' });
+        if (badType.candEval.vxxCand.status !== 'BLOCKED_LEG_OPTION_TYPE_MISMATCH') throw new Error('CALL/PUT ID mismatch was not blocked');
+        if (badExpiry.candEval.vxxCand.status !== 'BLOCKED_LEG_EXPIRY_MISMATCH') throw new Error('expiry mismatch was not blocked');
+        if (badStrike.candEval.vxxCand.status !== 'BLOCKED_LEG_STRIKE_ID_MISMATCH') throw new Error('strike mismatch was not blocked');
+        return 'Option type, expiry and strike-ID mismatch → BLOCKED';
       });
 
       return results;
