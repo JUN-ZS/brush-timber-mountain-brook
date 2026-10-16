@@ -1,0 +1,7 @@
+﻿run_id=38957732683
+run_attempt=1
+tested_sha=8d9ef4dd9eebc3e9cdd09a197940681d501290db
+source_branch=feat/qqq-hybrid-operator-terminal-v1-20261009
+source_workflow=QQQ Hybrid Operator Terminal V1
+source_run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38957732683
+artifact_upload_attempt=not_required_for_recovery
