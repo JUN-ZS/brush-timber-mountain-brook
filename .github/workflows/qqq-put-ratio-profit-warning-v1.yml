@@ -15,13 +15,13 @@ permissions:
   contents: write
 
 concurrency:
-  group: qqq-put-ratio-profit-warning-v1
+  group: qqq-put-ratio-profit-warning-frozen-cohort-v2
   cancel-in-progress: true
 
 jobs:
   replay:
     name: Frozen cohort $800/$1,000 replay and serial curve
-    runs-on: [self-hosted, grokbot-box-linux-x64]
+    runs-on: [self-hosted, grokbot-box]
     timeout-minutes: 75
     defaults:
       run:
