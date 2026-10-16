@@ -44,6 +44,20 @@ assert.doesNotThrow(() => vm.runInContext(exposedScript, browserContext, { timeo
 const actualGoldenResults = browserContext.__v44Harness.runAutomated52GoldenTests();
 assert.equal(actualGoldenResults.length, 52, "engine's actual Golden Test function must return 52 results");
 const actualFailures = actualGoldenResults.filter(r => !r.passed);
+if (actualFailures.length) {
+  const E0 = browserContext.__v44Harness.SharedContractEngine;
+  const P0 = browserContext.__v44Harness.PRESETS;
+  const sample = E0.evaluateDecision(P0.live_thin);
+  console.log("GOLDEN FAILURE DETAILS:", JSON.stringify(actualFailures.map(r => ({id:r.id, name:r.name, detail:r.detail})));
+  console.log("BASELINE CANDIDATE DIAGNOSTICS:", JSON.stringify({
+    preset: Object.fromEntries(["todayDate","quoteAsOf","candidateState","quoteProvenance","candVxxShortAsOf","candVxxLongAsOf","candVxxShortSourceRef","candVxxLongSourceRef","candVxxWidth","candVxxLegStrikes"].map(k => [k, P0.live_thin[k]])),
+    qqq: {valid:sample.candEval.qqqCand.valid,status:sample.candEval.qqqCand.status,reason:sample.candEval.qqqCand.reason},
+    vxx: {valid:sample.candEval.vxxCand.valid,status:sample.candEval.vxxCand.status,reason:sample.candEval.vxxCand.reason},
+    put: {valid:sample.candEval.vxxPutCand.valid,status:sample.candEval.vxxPutCand.status,reason:sample.candEval.vxxPutCand.reason},
+    fullQqqCalls:sample.fullQqqCalls,fullVxxCalls:sample.fullVxxCalls,fullVxxPuts:sample.fullVxxPuts,
+    frameReady:sample.frameReady,hub:sample.hubEval.status,targetVxxPct:sample.targetVxxPct
+  }));
+}
 assert.equal(actualFailures.length, 0, "actual Golden Tests failed: " + actualFailures.map(r => r.id + " " + r.name + " :: " + r.detail).join(" | "));
 
 // Direct negative tests against actual engine method, not text-only assertions.
