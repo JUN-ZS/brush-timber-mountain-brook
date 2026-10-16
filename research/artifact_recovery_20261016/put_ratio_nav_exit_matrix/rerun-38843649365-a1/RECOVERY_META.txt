@@ -1,0 +1,6 @@
+﻿run_id=38843649365
+run_attempt=1
+tested_sha=312712015dbd0c308988ce14fabdeea2e9a4f70a
+source_branch=feat/qqq-hybrid-operator-terminal-v1-20261009
+source_run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843649365
+output=full_N_1_to_6_both_orientation_NAV_exit_matrix
