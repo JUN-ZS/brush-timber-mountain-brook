@@ -104,6 +104,8 @@ try {
   const bundle = JSON.parse(exportedJson);
   assert.equal(bundle.schema, "qqq-hybrid.shared-contract.v4.4");
   assert.equal(bundle.brokerOrdersAllowed, false);
+  assert.match(bundle.baseEngineCommitRef, /^[0-9a-f]{40}$/);
+  assert.equal(bundle.baseEngineCommitRef, "f5f4f6bf267b33691b03246b1b2b13e1a1fb6587");
   assert.match(bundle.hashes.sourceHash, /^[0-9a-f]{64}$/);
   assert.match(bundle.hashes.scenarioHash, /^[0-9a-f]{64}$/);
   assert.match(bundle.hashes.engineOutputHash, /^[0-9a-f]{64}$/);
@@ -129,7 +131,17 @@ try {
   assert.equal(await page.locator("#inpCash").inputValue(), cashBeforeBadPull, "failed PULL preserves pre-commit state");
   assert.match(await page.locator("#importJsonTextarea").inputValue(), /PULL.*拒絕|已拒絕提交|SCENARIO_HASH_MISMATCH/i);
 
-  // 6. Exercise the built-in Clear -> PULL -> field/hash comparison from the real DOM.
+  // 6. Forged inherited-engine ancestry metadata must also be blocked transactionally.
+  await page.locator("#inpCash").fill("23456");
+  const cashBeforeForgedBase = await page.locator("#inpCash").inputValue();
+  const forgedBaseBundle = structuredClone(bundle);
+  forgedBaseBundle.baseEngineCommitRef = "0".repeat(40);
+  await page.locator("#importJsonTextarea").fill(JSON.stringify(forgedBaseBundle));
+  await page.locator("#btnApplyImportJson").click();
+  assert.equal(await page.locator("#inpCash").inputValue(), cashBeforeForgedBase, "forged ancestry PULL preserves pre-commit state");
+  assert.match(await page.locator("#importJsonTextarea").inputValue(), /BASE_ENGINE_COMMIT_MISMATCH/i);
+
+  // 7. Exercise the built-in Clear -> PULL -> field/hash comparison from the real DOM.
   await page.locator("#btnCloseImportModal").click();
   await page.locator('.nav-tab[data-tab="tab-audit"]').click();
   await page.locator("#btnRunBrowserRoundTrip").click();
