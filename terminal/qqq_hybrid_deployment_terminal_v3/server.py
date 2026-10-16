@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent
 RUNTIME = ROOT / "runtime"
 RUNTIME.mkdir(parents=True, exist_ok=True)
 JOURNAL = RUNTIME / "decision_journal.jsonl"
+PUT_RATIO_EVIDENCE_SNAPSHOT = ROOT / "put_ratio_evidence_v1.json"
 HOST = "127.0.0.1"
 PORT = 8788
 OPEND_HOST = "127.0.0.1"
@@ -71,6 +72,25 @@ def _row_get(row, *names):
         except Exception:
             pass
     return None
+
+
+def load_put_ratio_evidence():
+    """Load the fixed, source-pinned research snapshot; never fetch or mutate trading state."""
+    if not PUT_RATIO_EVIDENCE_SNAPSHOT.is_file():
+        raise FileNotFoundError("Pinned Put Ratio evidence snapshot is unavailable.")
+    payload = json.loads(PUT_RATIO_EVIDENCE_SNAPSHOT.read_text(encoding="utf-8"))
+    if payload.get("schemaVersion") != "QQQ_PUT_RATIO_EVIDENCE_SNAPSHOT_V1":
+        raise ValueError("Unsupported Put Ratio evidence snapshot schema.")
+    metadata = payload.get("metadata") or {}
+    curve = payload.get("curve") or {}
+    manifest = payload.get("manifest") or {}
+    if int(metadata.get("optionEpisodes") or 0) != 62:
+        raise ValueError("Put Ratio evidence snapshot episode count mismatch.")
+    if metadata.get("optionSourceEnd") != "2025-12-15" or curve.get("source_option_end") != "2025-12-15":
+        raise ValueError("Put Ratio evidence snapshot source window mismatch.")
+    if int(curve.get("trade_count") or 0) != 62 or not manifest.get("dataJsonBlobSha") or not manifest.get("portfolioCurveBlobSha"):
+        raise ValueError("Put Ratio evidence snapshot provenance / curve checks failed.")
+    return payload
 
 
 def opend_snapshot(codes):
@@ -276,6 +296,14 @@ class Handler(SimpleHTTPRequestHandler):
                     "journal": str(JOURNAL),
                 },
             )
+
+        if urllib.parse.urlparse(self.path).path == "/api/research/put-ratio-evidence":
+            try:
+                return json_resp(self, {"ok": True, "evidence": load_put_ratio_evidence()})
+            except FileNotFoundError as exc:
+                return json_resp(self, {"ok": False, "status": "PENDING", "error": str(exc)}, 503)
+            except Exception as exc:
+                return json_resp(self, {"ok": False, "status": "BLOCKED", "error": f"{type(exc).__name__}: {exc}"}, 502)
 
         if self.path.startswith("/api/snapshot"):
             try:

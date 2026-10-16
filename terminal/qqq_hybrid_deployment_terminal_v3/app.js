@@ -4,6 +4,9 @@ const $=id=>document.getElementById(id);
 let live=null;
 const candidates={qqq:null,vxx:null};
 let journalRows=[];
+let putRatioSnapshot=null;
+let putRatioCurrentOutput=null;
+let putRatioLoadError=null;
 
 const fmt=(v,d=2)=>Number.isFinite(Number(v))?Number(v).toFixed(d):"—";
 const pct=(v,d=2)=>Number.isFinite(Number(v))?((Number(v)>=0?"+":"")+Number(v).toFixed(d)+"%"):"—";
@@ -118,6 +121,126 @@ function render(d,e,book){
     ["S_t","(M2-M1)/M1","DERIVED"],
     ["Target","frozen policy + ledger","DERIVED"]
   ].map(r=>'<div class="prov-row"><span>'+r[0]+' · '+r[1]+'</span><span class="tag '+r[2].toLowerCase()+'">'+r[2]+'</span></div>').join("");
+  renderPutRatioEvidence();
+}
+
+function putRatioMoney(value){
+  const x=Number(value);
+  if(!Number.isFinite(x))return "—";
+  return (x<0?"−$":"$")+Math.abs(x).toLocaleString("en-US",{minimumFractionDigits:0,maximumFractionDigits:2});
+}
+function putRatioPercent(value){
+  const x=Number(value);
+  return Number.isFinite(x)?x.toFixed(2)+"%":"—";
+}
+function putRatioInput(id){const el=$(id);return el?el.value:"";}
+function makePutRatioMetric(host,label,value,detail){
+  const card=document.createElement("div");card.className="put-ratio-metric";
+  const l=document.createElement("span");l.textContent=label;
+  const v=document.createElement("b");v.textContent=value;
+  const d=document.createElement("small");d.textContent=detail||"";
+  card.append(l,v,d);host.appendChild(card);
+}
+function makePutRatioAlert(host,tone,title,text){
+  const card=document.createElement("div");card.className="put-ratio-alert "+(tone||"");
+  const h=document.createElement("b");h.textContent=title;
+  const p=document.createElement("div");p.textContent=text;
+  card.append(h,p);host.appendChild(card);
+}
+function putRatioInputs(){
+  return {
+    nav:ledger().nav,
+    direction:putRatioInput("putRatioDirection"),
+    n:putRatioInput("putRatioN"),
+    policyId:putRatioInput("putRatioPolicy"),
+    riskPct:putRatioInput("putRatioRiskPct"),
+    profitPct:putRatioInput("putRatioProfitPct"),
+    currentPnl:putRatioInput("putRatioCurrentPnl"),
+    age:putRatioInput("putRatioAge"),
+    dte:putRatioInput("putRatioDte"),
+    rv20:putRatioInput("putRatioRv20"),
+    horizon:putRatioInput("putRatioHorizon"),
+    combinedReview:!!$("putRatioCombined")?.checked
+  };
+}
+function renderPutRatioEvidence(){
+  const badge=$("putRatioEvidenceBadge"),metrics=$("putRatioMetrics"),status=$("putRatioOverlayStatus"),alerts=$("putRatioAlerts"),ddRows=$("putRatioDdRows"),prov=$("putRatioProvenance"),gate=$("putRatioDecisionGate");
+  if(!badge||!metrics||!status||!alerts||!ddRows||!prov)return;
+  metrics.textContent="";alerts.textContent="";
+  const combined=!!$("putRatioCombined")?.checked;
+  if(!putRatioSnapshot||!window.PutRatioEvidenceV1){
+    badge.textContent=putRatioLoadError?"EVIDENCE BLOCKED":"EVIDENCE PENDING";
+    badge.className="tag research";
+    makePutRatioMetric(metrics,"歷史 WIN","PENDING","固定來源證據尚未載入");
+    makePutRatioMetric(metrics,"尾部風險","PENDING","不假設零損失");
+    status.className="put-ratio-overlay-status";
+    status.textContent=(combined?"COMBINED REVIEW":"ISOLATED EVIDENCE")+" · PENDING · "+(putRatioLoadError||"等待 read-only evidence API");
+    ddRows.innerHTML='<tr><td colspan="5">PENDING · 沒有回填或虛構 MaxDD</td></tr>';
+    makePutRatioAlert(alerts,"warn","研究證據未載入",putRatioLoadError||"固定 SHA 來源證據尚未讀取；Hybrid 原政策照常獨立運行。");
+    prov.textContent="Evidence API: /api/research/put-ratio-evidence";
+    if(gate){gate.textContent="PUT RATIO EVIDENCE · PENDING · PRIMARY FROZEN ACTION UNCHANGED";gate.className="put-ratio-decision-line off";}
+    putRatioCurrentOutput=null;
+    return;
+  }
+  const out=window.PutRatioEvidenceV1.evaluate(putRatioSnapshot,putRatioInputs());
+  putRatioCurrentOutput=out;
+  const matched=out.history;
+  const curve=out.serialCurve;
+  badge.textContent=out.evidenceStatus==="AVAILABLE_RESEARCH_ONLY"?"PINNED · 62 HISTORICAL EPISODES":"EVIDENCE BLOCKED";
+  badge.className="tag "+(out.evidenceStatus==="AVAILABLE_RESEARCH_ONLY"?"research":"retired");
+  makePutRatioMetric(metrics,"歷史 WIN",matched?putRatioPercent(matched.winRatePct):"NO MATCH",matched?matched.resolved+"/62 組已結算 · "+matched.policyId:"此方向／N 沒有直接歷史勝率");
+  makePutRatioMetric(metrics,"累計淨損益",matched?putRatioMoney(matched.netPnlUsd):"—",matched?"固定一組一組、不複利": "不沿用 1:5 結果");
+  makePutRatioMetric(metrics,"策略 MaxDD",curve?pct(curve.maxPct):"NO MATCH",curve?curve.maxPeakDate+" → "+curve.maxTroughDate:"沒有同結構逐日曲線");
+  makePutRatioMetric(metrics,"最差觀察尾部損失",out.tail.worstUsd===null?"PENDING":putRatioMoney(out.tail.worstUsd),out.tail.lossPctOfNav===null?"NAV 未知":pct(out.tail.lossPctOfNav)+" of current NAV");
+  makePutRatioMetric(metrics,"尾部預算整組數",out.tail.wholeUnits===null?"PENDING":String(out.tail.wholeUnits),putRatioMoney(out.tail.budgetUsd)+" budget · theoretical only");
+  makePutRatioMetric(metrics,"目前獲利線",putRatioMoney(out.profitTarget.navTargetUsd),out.profitTarget.directFixedTargetUsd!==null&&matched?"直接匹配 +$"+out.profitTarget.directFixedTargetUsd+" 歷史政策":"無同額直接回測，不能插值");
+  const vol=out.volatility,sv=vol?.selected,av=vol?.all;
+  makePutRatioMetric(metrics,"QQQ 跌 ≥5% 頻率",sv?pct(sv.down5Pct):"—",sv?"N="+sv.n+" · "+vol.horizon+" sessions": "RV20 / horizon data pending");
+  makePutRatioMetric(metrics,"QQQ 跌 ≥10% 頻率",sv?pct(sv.down10Pct):"—",sv&&av?"ALL 基準 "+pct(av.down10Pct):"Underlying-only");
+  status.className="put-ratio-overlay-status "+(combined&&out.combinedReview.status==="BLOCK_PUT_RATIO_ADDITION"?"block":combined&&out.combinedReview.status==="REVIEW_PUT_RATIO_SCENARIO"?"review":"");
+  status.textContent=(combined?"COMBINED REVIEW":"ISOLATED EVIDENCE")+" · "+out.combinedReview.status+" · "+out.combinedReview.reason+" Frozen Hybrid action/target unchanged; no broker order.";
+  ddRows.innerHTML=curve?curve.levels.map(x=>{
+    const years=x.eventYears.length?x.eventYears.map(y=>y+" ("+x.yearCounts[y]+")").join(", "):"無觀察事件";
+    return '<tr><td>−'+x.level+'%</td><td>'+x.count+'</td><td>'+x.perYear.toFixed(2)+'</td><td>'+years+'</td><td>'+(x.medianGap===null?"—":Math.round(x.medianGap))+'</td></tr>';
+  }).join(""):'<tr><td colspan="5">NO MATCHED HISTORY · 不會把 1:5 的曲線套用到其他比例</td></tr>';
+  if(!matched)makePutRatioAlert(alerts,"warn","沒有直接匹配的期權策略歷史","目前選擇 "+(out.inputs.direction==="SHORT_HEAVY"?"LONG 1 : SHORT "+out.inputs.n:"LONG "+out.inputs.n+" : SHORT 1")+"。只有 LONG 1 : SHORT 5 具備這份 62 組直接歷史樣本；不複製其他比例的 WIN／MaxDD。");
+  (out.alerts||[]).forEach(a=>makePutRatioAlert(alerts,a.tone,a.title,a.text));
+  if(!out.alerts.length&&matched)makePutRatioAlert(alerts,"good","沒有額外條件觸發","不代表可部署；歷史資料、尾部預算及實際成交限制仍須人工核對。");
+  prov.textContent=[
+    "研究 ID: "+(putRatioSnapshot.metadata?.researchId||"—")+" · study SHA: "+(out.manifest?.sourceStudyCommit||"—"),
+    "Data SHA: "+(out.manifest?.dataJsonBlobSha||"—"),
+    "Curve SHA: "+(out.manifest?.portfolioCurveBlobSha||"—"),
+    "Profit-trigger SHA: "+(out.manifest?.profitWarningAnalysisBlobSha||"—"),
+    "Option source: "+(putRatioSnapshot.metadata?.optionSource||"—")+" · cutoff "+(putRatioSnapshot.metadata?.optionSourceEnd||"—")+" · N="+(putRatioSnapshot.metadata?.optionEpisodes||"—"),
+    "Cost: $"+putRatioSnapshot.metadata?.costCase?.slippagePerLegSideUsd+"/leg/side slippage + $"+putRatioSnapshot.metadata?.costCase?.commissionPerContractSideUsd+"/contract/side commission.",
+    "Missing daily marks remain null. QQQ price-path frequencies are not Put Ratio loss probabilities. Margin, assignment, interim liquidation and confirmed fills remain unknown."
+  ].join("\n");
+  if(gate){
+    if(!combined){gate.textContent="PUT RATIO EVIDENCE · ISOLATED · "+(matched?"62-EPISODE HISTORY AVAILABLE":"NO MATCHED STRATEGY HISTORY")+" · PRIMARY FROZEN ACTION UNCHANGED";gate.className="put-ratio-decision-line off";}
+    else if(out.combinedReview.status==="BLOCK_PUT_RATIO_ADDITION"){gate.textContent="COMBINED REVIEW · BLOCK NEW PUT RATIO ADDITIONS (TAIL BUDGET) · EXISTING HYBRID TARGETS UNCHANGED";gate.className="put-ratio-decision-line block";}
+    else if(out.combinedReview.status==="REVIEW_PUT_RATIO_SCENARIO"){gate.textContent="COMBINED REVIEW · MANUAL PUT RATIO RISK REVIEW REQUIRED · EXISTING HYBRID TARGETS UNCHANGED";gate.className="put-ratio-decision-line review";}
+    else{gate.textContent="COMBINED REVIEW · RESEARCH CONTEXT ONLY · NO NEW PUT RATIO AUTHORITY";gate.className="put-ratio-decision-line off";}
+  }
+}
+async function loadPutRatioEvidence(){
+  try{
+    const r=await fetch("/api/research/put-ratio-evidence?ts="+Date.now(),{cache:"no-store"});
+    const j=await r.json();
+    if(!r.ok||!j.ok)throw new Error(j.error||"Put Ratio evidence source unavailable");
+    putRatioSnapshot=j.evidence;putRatioLoadError=null;
+  }catch(err){putRatioSnapshot=null;putRatioLoadError=String(err.message||err);}
+  renderPutRatioEvidence();
+}
+function putRatioPolicySummary(){
+  renderPutRatioEvidence();
+  const o=putRatioCurrentOutput;
+  if(!o)return {status:"PENDING",combinedReview:!!$("putRatioCombined")?.checked,executionEnabled:false};
+  return {status:o.combinedReview.status,scenarioId:o.scenarioId,evidenceStatus:o.evidenceStatus,history:o.history?{policyId:o.history.policyId,winRatePct:o.history.winRatePct,netPnlUsd:o.history.netPnlUsd,episodes:o.history.episodes}:null,
+    tail:{worstUsd:o.tail.worstUsd,lossPctOfNav:o.tail.lossPctOfNav,budgetUsd:o.tail.budgetUsd,wholeUnits:o.tail.wholeUnits,status:o.tail.status},
+    profitTarget:{navTargetUsd:o.profitTarget.navTargetUsd,directFixedTargetUsd:o.profitTarget.directFixedTargetUsd,directPolicyId:o.history?o.profitTarget.directPolicy?.id||null:null},
+    volatility:{state:o.volatility?.state,horizon:o.volatility?.horizon,elevated:o.volatility?.elevated},
+    alerts:o.alerts.map(a=>({code:a.code,tone:a.tone,title:a.title})),primaryHybridActionMutation:false,primaryHybridTargetMutation:false,executionEnabled:false,
+    sourceStudyCommit:o.manifest?.sourceStudyCommit||null,dataBlobSha:o.manifest?.dataJsonBlobSha||null,curveBlobSha:o.manifest?.portfolioCurveBlobSha||null};
 }
 
 function optionSizingText(s){
@@ -178,6 +301,7 @@ async function refresh(){
   try{
     const res=await fetch("/api/snapshot?ts="+Date.now(),{cache:"no-store"});
     live=await res.json();
+    await loadPutRatioEvidence();
     const d=inputRow();
     const e=E.derive(d);
     const book=E.targetLedger(d,e,ledger(),candidates);
@@ -195,6 +319,7 @@ async function refresh(){
 async function journalDecision(){
   if(!live) return;
   const d=inputRow(), e=E.derive(d), book=E.targetLedger(d,e,ledger(),candidates);
+  const researchEvidence=putRatioPolicySummary();
   const human=($("humanAction").value||"").trim().toUpperCase();
   const conflict=human && human!==e.action ? "CONFLICT":"NONE";
   const payload={
@@ -218,6 +343,7 @@ async function journalDecision(){
     target_position:book.target,
     deltas:book.deltas,
     human_action:human||null,
+    research_evidence:{...researchEvidence,mode:$("putRatioCombined")?.checked?"COMBINED_REVIEW":"ISOLATED"},
     conflict,
   };
   const r=await fetch("/api/journal",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
@@ -233,7 +359,8 @@ async function loadJournal(){
   $("journalCount").textContent=journalRows.length;
   $("journalRows").innerHTML=journalRows.slice().reverse().map(x=>{
     const s=x.snapshot||{};
-    return '<div class="journal-row"><b>'+((x.journaled_at||"").slice(0,19).replace("T"," "))+'</b> · '+(x.engine_action||"—")+' · '+(x.state||"—")+' · M1/M2 '+fmt(s.m1)+'/'+fmt(s.m2)+' · '+(x.conflict||"NONE")+'</div>';
+    const ov=x.research_evidence?.combinedReview||x.research_evidence?.status;
+    return '<div class="journal-row"><b>'+((x.journaled_at||"").slice(0,19).replace("T"," "))+'</b> · '+(x.engine_action||"—")+' · '+(x.state||"—")+' · M1/M2 '+fmt(s.m1)+'/'+fmt(s.m2)+' · PUT RATIO '+(ov||"—")+' · '+(x.conflict||"NONE")+'</div>';
   }).join("") || '<div class="meta">No decisions journaled yet.</div>';
   renderChangeSinceJournal();
 }
@@ -243,4 +370,6 @@ if($("findQQQ")) $("findQQQ").addEventListener("click",()=>loadCandidate("qqq"))
 if($("findVXX")) $("findVXX").addEventListener("click",()=>loadCandidate("vxx"));
 $("journalBtn").addEventListener("click",journalDecision);
 ["nav","qqqShares","vxxPct","qqqCalls","vxxCalls","qqqDte","qqqDelta","vxxDte","vxxDelta"].forEach(id=>$(id).addEventListener("input",()=>{if(live){const d=inputRow(),e=E.derive(d),book=E.targetLedger(d,e,ledger(),candidates);render(d,e,book)}}));
+["putRatioDirection","putRatioN","putRatioPolicy","putRatioRiskPct","putRatioProfitPct","putRatioCurrentPnl","putRatioAge","putRatioDte","putRatioRv20","putRatioHorizon","putRatioCombined"].forEach(id=>{const el=$(id);if(el)el.addEventListener("input",renderPutRatioEvidence);});
+if($("putRatioCombined"))$("putRatioCombined").addEventListener("change",renderPutRatioEvidence);
 refresh();
