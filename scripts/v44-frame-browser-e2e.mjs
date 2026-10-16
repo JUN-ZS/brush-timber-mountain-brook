@@ -50,6 +50,7 @@ try {
   assert.match(await page.locator("#goldenSuiteSummaryBadge").innerText(), /52\s*\/\s*52 PASS/);
 
   // 2. The real UI changes assumptions and refreshes the visible assumptions ledger.
+  await page.locator('.nav-tab[data-tab="tab-cockpit"]').click();
   const assumptions = page.locator("#frameAssumptionLedger");
   await page.locator("#inpAssumptionProfile").selectOption("CONSERVATIVE");
   await page.waitForFunction(() => document.querySelector("#frameAssumptionLedger")?.innerText.includes("CONSERVATIVE"));
@@ -105,6 +106,7 @@ try {
 
   // 6. Exercise the built-in Clear -> PULL -> field/hash comparison from the real DOM.
   await page.locator("#btnCloseImportModal").click();
+  await page.locator('.nav-tab[data-tab="tab-audit"]').click();
   await page.locator("#btnRunBrowserRoundTrip").click();
   await page.waitForFunction(() => document.querySelector("#e2eRoundTripBadge")?.textContent.startsWith("PASS"));
   const roundTripBadge = await page.locator("#e2eRoundTripBadge").innerText();
