@@ -282,9 +282,9 @@ function renderPutRatioDynamicBar(){
   makePutRatioMetric(metrics,"該退出政策累計淨損益",putRatioMoney(policy.pnl),"固定 1 組逐筆串接 NAV · 非預算內配置");
   makePutRatioMetric(metrics,"動態 NAV MaxDD",putRatioPercent(policy.maxDD),"逐日 EOD side marks · "+policy.missing+" 個缺失標記");
   makePutRatioMetric(metrics,"觀察 CAGR",putRatioPercent(policy.cagr),"2018-03-01 至 2025-12-15 · 歷史已被檢視");
-  makePutRatioMetric(metrics,"可用整組數","0","1% NAV 預算 $"+Number(s.metadata.budgetUsd).toLocaleString("en-US")+"；單組最差終端損失 $"+Number(s.metadata.oneUnitWorstTerminalLossUsd).toLocaleString("en-US"));
+  makePutRatioMetric(metrics,"全到期尾損預算整組數","0","假設持有到期／QQQ=0 的單組壓力損失 $"+Number(s.metadata.oneUnitWorstTerminalLossUsd).toLocaleString("en-US")+"；1% NAV 預算 $"+Number(s.metadata.budgetUsd).toLocaleString("en-US"));
   status.className="put-ratio-overlay-status block";
-  status.textContent="部署閘門：BLOCKED · "+policy.budgetBreaches+"/62 組突破 1% NAV 終端尾部預算。以下百分比是歷史報價標記觸及率，不是未來機率或實際成交率。分層："+stateName+"；不同分層可能重疊。";
+  status.textContent="全到期終端尾損護欄：BLOCKED · "+policy.budgetBreaches+"/62 組突破 1% NAV 全到期壓力預算。這不等於 DTE7 管理策略不可行，也不是以 MaxDD 否決；本區尚未計算政策條件式 MAE 配置。以下 BAR 為歷史報價觸及率，不是未來機率或成交保證。分層："+stateName+"；不同分層可能重疊。";
   barRows.innerHTML=rows.map(r=>{
     const pctText=r.episodePct===null?"—":Number(r.episodePct).toFixed(2)+"% ("+r.episodeHits+"/"+r.episodeN+")";
     const markText=r.markPct===null?"—":Number(r.markPct).toFixed(2)+"% ("+r.markHits+"/"+r.markN+")";
