@@ -11,7 +11,8 @@ permissions:
 jobs:
   hub-only-nasdaqcom:
     name: HUB-only / NASDAQCOM proxy-state shard
-    if: ${{ github.ref_name == 'run/hub-only-frame-accepted-2026-10-17' }}
+    # Run data generation only on the first push; future branch edits must not repeat the data run.
+    if: ${{ github.ref_name == 'run/hub-only-frame-accepted-2026-10-17' && github.run_number == 1 && github.run_attempt == 1 }}
     runs-on: [self-hosted, linux, x64, grokbot-box-linux-x64]
     timeout-minutes: 20
     steps:
