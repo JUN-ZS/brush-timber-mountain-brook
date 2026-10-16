@@ -81,7 +81,7 @@ class RatioScaleTests(unittest.TestCase):
 
     def test_matrix_contains_full_trim_and_dte_baseline(self):
         names={x["name"] for x in M.policies()}
-        for name in ("DTE7_CLOSE_SHORT_RISK","FAST3_1.0PCT_FULL_CLOSE","FAST3_1.0PCT_TRIM_SHORT_RISK",
+        for name in ("DTE7_CLOSE_SHORT_RISK","DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE","FAST3_1.0PCT_FULL_CLOSE","FAST3_1.0PCT_TRIM_SHORT_RISK",
             "FAST5_1.0PCT_FULL_CLOSE","FAST5_1.0PCT_TRIM_SHORT_RISK","DAY20_NONPOS_FULL_CLOSE","DAY20_NONPOS_TRIM_SHORT_RISK","SL_1.0PCT_FULL_CLOSE"):
             self.assertIn(name,names)
 
