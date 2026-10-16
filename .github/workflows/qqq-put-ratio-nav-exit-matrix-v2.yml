@@ -103,18 +103,3 @@ jobs:
           } else {
             Write-Host 'No new recovery files to commit'
           }
-
-      - name: Upload matrix outputs (non-blocking if Actions storage is full)
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: qqq-put-ratio-nav-exit-matrix-v2
-          path: |
-            QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json
-            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.json
-            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.md
-            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_policy_matrix_v2.csv
-            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_config_matrix_v2.csv
-            artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_episode_results_v2.csv
-          if-no-files-found: error
-          retention-days: 14
