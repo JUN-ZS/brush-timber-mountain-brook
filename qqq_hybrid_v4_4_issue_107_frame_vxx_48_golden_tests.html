@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QQQ Hybrid 度量衡 · 范 · 融 決策與研究總台 V4.4 (Issue #107 FRAME · VXX 短長腿契約 · 48 Golden Tests)</title>
+  <title>QQQ Hybrid 度量衡 · 范 · 融 決策與研究總台 V4.4 (Issue #107 FRAME · VXX 短長腿契約 · 52 Golden Tests)</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -128,7 +128,7 @@
       <div class="flex items-center justify-between border-b border-slate-800 pb-2">
         <div>
           <h3 class="text-sm font-bold text-white">真實歷史期權鏈 CSV / JSON 匯入與覆蓋核對器 (V4.3 VerifiedSourceStore)</h3>
-          <p class="text-[11px] text-slate-400">V4.3 已徹底移除合成 62 筆 Episode / 240 視窗生成器；未匯入真實期權鏈前固定標記為 REPO_SUMMARY_REFERENCE_ONLY (UNVERIFIED_RAW_CHAIN)</p>
+          <p class="text-[11px] text-slate-400">V4.4 沒有把合成 62 筆 Episode / 240 視窗當成真實歷史樣本；未匯入真實期權鏈前固定標記為 REPO_SUMMARY_REFERENCE_ONLY (UNVERIFIED_RAW_CHAIN)</p>
         </div>
         <button type="button" id="btnCloseRawChainModal" class="text-xs text-slate-400 hover:text-white">關閉視窗 ✕</button>
       </div>
@@ -1456,7 +1456,7 @@
     <section id="tab-audit" class="tab-panel hidden space-y-6">
       <div class="bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span class="text-[11px] font-mono uppercase tracking-wider text-emerald-300 font-semibold">工程升級 05 · 廢除假 PASS 徽章！F1–F7 由當前狀態即時判定 + 內建 14 組可執行 Golden Tests</span>
+          <span class="text-[11px] font-mono uppercase tracking-wider text-emerald-300 font-semibold">工程升級 05 · F1–F7 即時判定 + 52 組可執行 Golden Tests</span>
           <h2 class="text-base font-bold text-white mt-0.5">第五層：Contract Gate Live Evaluator &amp; Automated Golden Test Suite</h2>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -1464,7 +1464,7 @@
             ▶ 重新執行 52 組 Golden Tests
           </button>
           <button type="button" id="btnRun37GoldenTests" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition">
-            ▶ 執行 V4.3 全量 52 組 Golden Tests (CI 對齊)
+            ▶ 執行 V4.4 全量 52 組 Golden Tests (CI 對齊)
           </button>
           <button type="button" id="btnRunBrowserRoundTrip" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition">
             ⟳ 執行匯出→清空→匯入→逐欄重現測試
@@ -1486,7 +1486,7 @@
 
           <div class="pt-3 border-t border-slate-800">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-bold text-white">B. 內建 52 組自動化回歸測試 (V4.3 Golden Test Suite · 標記 TEST_ONLY 算術測試資料)</span>
+              <span class="text-xs font-bold text-white">B. 內建 52 組自動化回歸測試 (V4.4 Golden Test Suite · 標記 TEST_ONLY 算術測試資料)</span>
               <span id="goldenSuiteSummaryBadge" class="px-2 py-0.5 text-[11px] font-mono rounded bg-emerald-500/15 text-emerald-300">52 / 52 PASS</span>
             </div>
             <div id="goldenTestsResultList" class="space-y-1.5 max-h-64 overflow-y-auto text-[11px] font-mono"></div>
@@ -4922,7 +4922,7 @@
       if (!ledger.ledgerComplete) {
         consBadge.textContent = `NEEDS_INPUT (${ledger.missingFields.join(',')})`;
         consBadge.className = 'px-2 py-0.5 text-[11px] font-mono rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
-        document.getElementById('ledgerBreakdownStrip').innerHTML = `<div class="text-rose-300 font-semibold">⚠️ 帳本或持倉基準未完成：缺少必填欄位 (${ledger.missingFields.join(', ')})。V4.3 嚴格區分 EMPTY 與 0，禁止退回現價或開倉預設值！</div>`;
+        document.getElementById('ledgerBreakdownStrip').innerHTML = `<div class="text-rose-300 font-semibold">⚠️ 帳本或持倉基準未完成：缺少必填欄位 (${ledger.missingFields.join(', ')})。V4.4 嚴格區分 EMPTY 與 0，禁止退回現價或開倉預設值！</div>`;
       } else {
         if (ledger.statementMismatchBlocked) {
           consBadge.textContent = `STATEMENT MISMATCH (Δ=$${ledger.conservationDelta.toFixed(2)})`;
@@ -5500,7 +5500,7 @@
         document.getElementById('episodeDrilldownBody').innerHTML = `
           <tr>
             <td colspan="8" class="py-4 px-3 text-center text-amber-300">
-              尚未匯入任何真實歷史期權鏈 Episode (0 筆)。V4.3 已徹底移除預設 62 筆合成樣本；請由頂部「匯入真實歷史 CSV/JSON 並核對覆蓋」載入資料。
+              尚未匯入任何真實歷史期權鏈 Episode (0 筆)。V4.4 不把預設 62 筆合成樣本當成真實歷史；請由頂部「匯入真實歷史 CSV/JSON 並核對覆蓋」載入資料。
             </td>
           </tr>
         `;
@@ -6211,7 +6211,7 @@
         const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'QQQ_Hybrid_AI_Review_Pack_v4_3.md';
+        a.download = 'QQQ_Hybrid_AI_Review_Pack_v4_4.md';
         a.click();
       });
 
@@ -6223,7 +6223,7 @@
         const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `qqq_hybrid_contract_v4_3_${bundle.hashes.scenarioHash.slice(0, 16)}.json`;
+        a.download = `qqq_hybrid_contract_v4_4_${bundle.hashes.scenarioHash.slice(0, 16)}.json`;
         a.click();
       });
 
@@ -6240,7 +6240,7 @@
           document.getElementById('importJsonModal').classList.add('hidden');
           showToast(`PULL 驗證通過：已還原 ${res.checkedFieldsCount} 個欄位與來源資料 (scenarioHash=${res.hashes.scenarioHash.slice(0, 12)}..)`);
         } else {
-          document.getElementById('importJsonTextarea').value = `【V4.3 PULL 驗證攔截 — 已拒絕提交並保護原狀態】\n錯誤原因：${res.error}\n\n原始輸入：\n${raw}`;
+          document.getElementById('importJsonTextarea').value = `【V4.4 PULL 驗證攔截 — 已拒絕提交並保護原狀態】\n錯誤原因：${res.error}\n\n原始輸入：\n${raw}`;
         }
       });
 
