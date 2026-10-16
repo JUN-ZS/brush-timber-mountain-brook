@@ -295,6 +295,8 @@ def replay_scenario(
         "max_drawdown_pct_observed": dd_meta["max_drawdown_pct"],
         "daily_valid_nav_marks": dd_meta["valid_marks"],
         "daily_missing_nav_marks": dd_meta["missing_marks"],
+        "daily_nonpositive_nav_marks": dd_meta.get("nonpositive_nav_marks", 0),
+        "ruin_or_nonpositive_nav": bool(nav <= 0 or dd_meta.get("nonpositive_nav_seen", False)),
         "daily_nav_coverage_pct": dd_meta["coverage_pct"],
         "evidence": "2018-03-01 to 2025-12-15 EOD quote-side replay, not confirmed fills",
         "deployment_status": "BLOCKED_RESEARCH_ONLY",
@@ -357,17 +359,22 @@ def drawdown_tiers(
     prices: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     points = [{"date": x["date"], "nav": number(x.get("nav_usd"))} for x in daily]
-    valid = [x for x in points if x["nav"] is not None and x["nav"] > 0]
+    valid = [x for x in points if x["nav"] is not None and math.isfinite(float(x["nav"]))]
     missing = len(points) - len(valid)
+    nonpositive_marks = sum(1 for x in valid if x["nav"] <= 0)
     if not valid:
-        return {"max_drawdown_pct": None, "valid_marks": 0, "missing_marks": len(points), "coverage_pct": 0.0}, []
+        return {"max_drawdown_pct": None, "valid_marks": 0, "missing_marks": len(points), "coverage_pct": 0.0, "nonpositive_nav_marks": 0}, []
     peak = valid[0]
+    if peak["nav"] <= 0:
+        positive = [x for x in valid if x["nav"] > 0]
+        if positive:
+            peak = positive[0]
     worst = 0.0
     trough = peak
     cycles: list[dict[str, Any]] = []
     drawdowns: dict[str, float] = {}
     for point in valid:
-        if point["nav"] >= peak["nav"]:
+        if point["nav"] > 0 and point["nav"] >= peak["nav"]:
             if worst < 0:
                 cycles.append({"worst_pct": worst, "trough_date": trough["date"]})
             peak = point
@@ -375,7 +382,9 @@ def drawdown_tiers(
             trough = point
             drawdowns[point["date"]] = 0.0
         else:
-            dd = (point["nav"] / peak["nav"] - 1) * 100
+            # A zero/negative NAV is a capital-failure boundary. Cap drawdown at -100%
+            # while separately reporting nonpositive marks, rather than calling them missing.
+            dd = -100.0 if point["nav"] <= 0 else ((point["nav"] / peak["nav"] - 1) * 100 if peak["nav"] > 0 else -100.0)
             drawdowns[point["date"]] = dd
             if dd < worst:
                 worst = dd
@@ -415,6 +424,8 @@ def drawdown_tiers(
         "valid_marks": len(valid),
         "missing_marks": missing,
         "coverage_pct": round(100 * len(valid) / len(points), 4) if points else None,
+        "nonpositive_nav_marks": nonpositive_marks,
+        "nonpositive_nav_seen": nonpositive_marks > 0,
         "span_years": round(years, 4),
     }, result
 

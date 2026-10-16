@@ -98,6 +98,22 @@ class DynamicNavBarTests(unittest.TestCase):
         self.assertEqual(five["cycle_count"], 1)
         self.assertEqual(three["valid_day_incidence_pct"], 40.0)
 
+    def test_nonpositive_nav_is_capital_failure_not_missing_data(self):
+        prices = [{"date": (date(2024, 1, 1) + timedelta(days=i)).isoformat(), "close": 100, "vix": 20}
+                  for i in range(5)]
+        daily = [
+            {"date": prices[0]["date"], "nav_usd": 100000.0},
+            {"date": prices[1]["date"], "nav_usd": 1000.0},
+            {"date": prices[2]["date"], "nav_usd": 0.0},
+            {"date": prices[3]["date"], "nav_usd": -100.0},
+            {"date": prices[4]["date"], "nav_usd": 900.0},
+        ]
+        meta, tiers = M.drawdown_tiers(daily, prices)
+        self.assertEqual(meta["valid_marks"], 5)
+        self.assertEqual(meta["missing_marks"], 0)
+        self.assertEqual(meta["nonpositive_nav_marks"], 2)
+        self.assertEqual(meta["max_drawdown_pct"], -100.0)
+
     def test_one_episode_dynamic_replay_outputs_nav_curve(self):
         trade = simple_trade()
         prices = [
