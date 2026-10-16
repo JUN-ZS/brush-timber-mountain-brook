@@ -1,0 +1,31 @@
+{
+  "status": "FAIL",
+  "thresholds": {
+    "min_overlap_rows": 900,
+    "max_abs_diff": 0.1,
+    "min_each_price_match_rate": 0.99,
+    "min_combined_price_match_rate": 0.99,
+    "max_term_sign_mismatch_rate": 0.01,
+    "max_expiry_order_violations": 0
+  },
+  "metrics": {
+    "overlap_rows": 1036,
+    "m1_match_rate": 0.9111969111969112,
+    "m2_match_rate": 0.918918918918919,
+    "combined_match_rate": 0.887065637065637,
+    "term_sign_match_rate": 0.9893822393822393,
+    "term_sign_mismatch_rate": 0.010617760617760652,
+    "expiry_order_violations": 0
+  },
+  "checks": {
+    "overlap_rows_ge_900": true,
+    "m1_abs_diff_le_0_10_rate_ge_99pct": false,
+    "m2_abs_diff_le_0_10_rate_ge_99pct": false,
+    "combined_m1_m2_abs_diff_le_0_10_rate_ge_99pct": false,
+    "term_sign_mismatch_le_1pct": false,
+    "expiry_order_violations_eq_0": true
+  },
+  "cboe_rows": 2143,
+  "external_rows": 1540,
+  "generated_utc": "2026-10-16T03:02:14.713815+00:00"
+}

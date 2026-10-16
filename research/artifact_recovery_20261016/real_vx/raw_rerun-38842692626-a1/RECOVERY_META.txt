@@ -1,0 +1,6 @@
+run_id=38842692626
+run_attempt=1
+tested_sha=3147089cad027b27e12cdcd435ca019bb5403526
+source_branch=research/original-hybrid-real-run-v1-20261007
+source_run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842692626
+note=External source validation may legitimately remain FAIL; original outcomes are preserved.

@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "source": "CBOE_PUBLIC_DELAYED_VX_FUTURES_API",
+  "official_page": "https://www.cboe.com/delayed_quotes/vx/future_quotes/",
+  "api": "https://www-api.cboe.com/us/futures/api/data/?symbol=VX",
+  "asof_utc": "2026-10-16T03:02:14.997770+00:00",
+  "signal_date_new_york": "2026-10-15",
+  "selection_rule": "standard monthly VX only; exclude weekly numbered VX contracts; expiry > New York data date; sort expiry",
+  "price_rule": "settlement preferred",
+  "m1": {
+    "symbol": "VX/V6",
+    "expiration": "2026-10-21",
+    "price": 17.4227,
+    "price_basis": "settlement",
+    "last_price": 17.2,
+    "settlement": 17.4227,
+    "prev_close": 17.5,
+    "volume": 2376.0,
+    "open_interest": 102436.0
+  },
+  "m2": {
+    "symbol": "VX/X6",
+    "expiration": "2026-11-18",
+    "price": 17.9231,
+    "price_basis": "settlement",
+    "last_price": 17.8,
+    "settlement": 17.9231,
+    "prev_close": 18.0,
+    "volume": 1908.0,
+    "open_interest": 193113.0
+  },
+  "term_slope": 0.028721151141901234,
+  "term_state": "CONTANGO",
+  "action_hint": "TERM_CARRY",
+  "contract_count_after_filter": 9
+}

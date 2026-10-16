@@ -1,0 +1,345 @@
+{
+  "overlapRows": 1036,
+  "termSignAgreementPct": 99.42084942084942,
+  "archiveStateAgreementPct": 99.51737451737452,
+  "archiveActionAgreementPct": 99.51737451737452,
+  "archiveVxxCarryAgreementPct": 99.51737451737452,
+  "actionMismatchRows": 5,
+  "stateMismatchRows": 5,
+  "termSignMismatchRows": 6,
+  "carryMismatchRows": 5,
+  "sampleMismatches": [
+    {
+      "date": "2018-03-21",
+      "vix": 17.86,
+      "old": {
+        "m1": 17.35,
+        "m2": 17.32,
+        "s": -0.0017291066282421404,
+        "state": "Normal",
+        "action": "QQQ_CC_ONLY",
+        "carry": false
+      },
+      "real": {
+        "m1": 17.325,
+        "m2": 17.325,
+        "s": 0,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": -0.02500000000000213,
+        "m2": 0.004999999999999005,
+        "s": 0.0017291066282421404
+      },
+      "rQ": -0.004354433118599399,
+      "rV": -0.03643629391321801,
+      "matches": {
+        "termSign": true,
+        "state": false,
+        "action": false,
+        "carry": false
+      }
+    },
+    {
+      "date": "2018-05-03",
+      "vix": 15.9,
+      "old": {
+        "m1": 16.5,
+        "m2": 16.53,
+        "s": 0.0018181818181818871,
+        "state": "Shock",
+        "action": "QQQ_CC_ONLY",
+        "carry": false
+      },
+      "real": {
+        "m1": 16.525,
+        "m2": 16.525,
+        "s": 0,
+        "state": "Shock",
+        "action": "QQQ_CC_ONLY",
+        "carry": false
+      },
+      "delta": {
+        "m1": 0.02499999999999858,
+        "m2": -0.005000000000002558,
+        "s": -0.0018181818181818871
+      },
+      "rQ": -0.00012316025299330402,
+      "rV": 0.08148897610227679,
+      "matches": {
+        "termSign": false,
+        "state": true,
+        "action": true,
+        "carry": true
+      }
+    },
+    {
+      "date": "2018-10-17",
+      "vix": 17.4,
+      "old": {
+        "m1": 17.15,
+        "m2": 17.15,
+        "s": 0,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "real": {
+        "m1": 17.125,
+        "m2": 17.175,
+        "s": 0.0029197080291971217,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": -0.02499999999999858,
+        "m2": 0.02500000000000213,
+        "s": 0.0029197080291971217
+      },
+      "rQ": 0.0003947235068517685,
+      "rV": 0.011845288544006571,
+      "matches": {
+        "termSign": false,
+        "state": true,
+        "action": true,
+        "carry": true
+      }
+    },
+    {
+      "date": "2019-01-08",
+      "vix": 20.47,
+      "old": {
+        "m1": 20.61,
+        "m2": 20.62,
+        "s": 0.00048520135856387986,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "real": {
+        "m1": 20.625,
+        "m2": 20.625,
+        "s": 0,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": 0.015000000000000568,
+        "m2": 0.004999999999999005,
+        "s": -0.00048520135856387986
+      },
+      "rQ": 0.009045786759522834,
+      "rV": -0.020289251242958106,
+      "matches": {
+        "termSign": false,
+        "state": true,
+        "action": true,
+        "carry": true
+      }
+    },
+    {
+      "date": "2019-01-28",
+      "vix": 18.87,
+      "old": {
+        "m1": 19.13,
+        "m2": 19.1,
+        "s": -0.0015682174594875895,
+        "state": "Normal",
+        "action": "QQQ_CC_ONLY",
+        "carry": false
+      },
+      "real": {
+        "m1": 19.125,
+        "m2": 19.125,
+        "s": 0,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": -0.004999999999999005,
+        "m2": 0.02499999999999858,
+        "s": 0.0015682174594875895
+      },
+      "rQ": -0.012353179553296734,
+      "rV": 0.041364491001880443,
+      "matches": {
+        "termSign": true,
+        "state": false,
+        "action": false,
+        "carry": false
+      }
+    },
+    {
+      "date": "2019-08-26",
+      "vix": 19.32,
+      "old": {
+        "m1": 19.45,
+        "m2": 19.47,
+        "s": 0.0010282776349614176,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "real": {
+        "m1": 19.425,
+        "m2": 19.425,
+        "s": 0,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": -0.02499999999999858,
+        "m2": -0.04499999999999815,
+        "s": -0.0010282776349614176
+      },
+      "rQ": 0.015104222169512349,
+      "rV": -0.02969608024517012,
+      "matches": {
+        "termSign": false,
+        "state": true,
+        "action": true,
+        "carry": true
+      }
+    },
+    {
+      "date": "2019-09-03",
+      "vix": 19.66,
+      "old": {
+        "m1": 19.55,
+        "m2": 19.5,
+        "s": -0.0025575447570332843,
+        "state": "Normal",
+        "action": "QQQ_CC_ONLY",
+        "carry": false
+      },
+      "real": {
+        "m1": 19.525,
+        "m2": 19.525,
+        "s": 0,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": -0.02500000000000213,
+        "m2": 0.02499999999999858,
+        "s": 0.0025575447570332843
+      },
+      "rQ": -0.009708030171847737,
+      "rV": 0.044074074074074154,
+      "matches": {
+        "termSign": true,
+        "state": false,
+        "action": false,
+        "carry": false
+      }
+    },
+    {
+      "date": "2020-02-04",
+      "vix": 16.05,
+      "old": {
+        "m1": 16.55,
+        "m2": 16.5,
+        "s": -0.0030211480362538194,
+        "state": "Normal",
+        "action": "QQQ_CC_ONLY",
+        "carry": false
+      },
+      "real": {
+        "m1": 16.525,
+        "m2": 16.525,
+        "s": 0,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": -0.02500000000000213,
+        "m2": 0.02499999999999858,
+        "s": 0.0030211480362538194
+      },
+      "rQ": 0.022889003282002607,
+      "rV": -0.0481386392811296,
+      "matches": {
+        "termSign": true,
+        "state": false,
+        "action": false,
+        "carry": false
+      }
+    },
+    {
+      "date": "2020-06-22",
+      "vix": 31.77,
+      "old": {
+        "m1": 31.7,
+        "m2": 31.7,
+        "s": 0,
+        "state": "Normal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "real": {
+        "m1": 31.625,
+        "m2": 31.675,
+        "s": 0.0015810276679842123,
+        "state": "Normal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": -0.07499999999999929,
+        "m2": -0.02499999999999858,
+        "s": 0.0015810276679842123
+      },
+      "rQ": 0.01199296838063102,
+      "rV": -0.04879371103280017,
+      "matches": {
+        "termSign": false,
+        "state": true,
+        "action": true,
+        "carry": true
+      }
+    },
+    {
+      "date": "2022-02-15",
+      "vix": 25.7,
+      "old": {
+        "m1": 26.34,
+        "m2": 26,
+        "s": -0.012908124525436594,
+        "state": "Normal",
+        "action": "QQQ_CC_ONLY",
+        "carry": false
+      },
+      "real": {
+        "m1": 25.3833,
+        "m2": 25.5484,
+        "s": 0.006504276433718329,
+        "state": "Decay-Optimal",
+        "action": "PAIR",
+        "carry": true
+      },
+      "delta": {
+        "m1": -0.9567000000000014,
+        "m2": -0.4515999999999991,
+        "s": 0.019412400959154922
+      },
+      "rQ": 0.024864187830803575,
+      "rV": -0.08236808236808224,
+      "matches": {
+        "termSign": false,
+        "state": false,
+        "action": false,
+        "carry": false
+      }
+    }
+  ],
+  "oldSource": "EXTERNAL_OBSERVED / UNVALIDATED",
+  "realSource": "CBOE per-expiry VX historical daily settlement"
+}
