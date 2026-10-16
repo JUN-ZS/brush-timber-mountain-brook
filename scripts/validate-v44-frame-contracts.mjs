@@ -68,7 +68,7 @@ const validBundle = E.buildContractBundle({
   barParams: { barNav:"100000", barRiskPct:"1.00", slippage:"0.05", commission:"0.65", spreadMult:"1.00", execLagDays:"1", ratioDir:"SHORT_HEAVY_PUT", ratioN:"5", quoteDepth:"25", marginVerified:"UNVERIFIED", shortStrikeInput:"820", holdingDay:"1", pmCurPnl:"0", pmDaysHeld:"1", pmDteLeft:"20", pmRiskUnitR:"1", pmRemUpside:"0", pmDistToStop:"0" },
   probParams: { regFilter:"ALL", customDrop:"5.0", maxVix:"50" },
   floorAndDveParams: { baseB:"100000", month:"12", actualPct:"12", s20:"15", s30:"14", s50:"14", dveWinProb:"80", dveSampleN:"35", dveGainPerUnit:"2000", dveLossPerUnit:"1000", dveAltName:"WAIT_T_BILL_10D", dveAltEv:"110", dveAltCap:"100000", dveFairMatch:"MATCHED", stressQqqCore:"0", stressVxxShort:"0", stressQqqCall:"0", stressVxxCall:"0", stressVxxPut:"0" },
-  sourceState: browserContext.VerifiedSourceStore.exportState()
+  sourceState: browserContext.__v44Harness.VerifiedSourceStore.exportState()
 });
 const width = E.evaluateDecision({ ...P.live_thin, candVxxWidth: "1", candVxxLegStrikes: "21/26" });
 const type = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261120P00026000" });
