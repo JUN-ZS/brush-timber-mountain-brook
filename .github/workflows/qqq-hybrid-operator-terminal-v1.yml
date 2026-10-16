@@ -1,0 +1,121 @@
+name: QQQ Hybrid Operator Terminal V1
+
+on:
+  push:
+    branches:
+      - feat/qqq-hybrid-operator-terminal-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/**
+      - .github/workflows/qqq-hybrid-operator-terminal-v1.yml
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened]
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/**
+      - .github/workflows/qqq-hybrid-operator-terminal-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-hybrid-operator-terminal-v1
+  cancel-in-progress: false
+
+jobs:
+  engine-qa:
+    name: Hybrid reverse sizing / contracts / Windows smoke
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime
+        run: |
+          node --version || exit /b 1
+          py -3 --version || exit /b 1
+
+      - name: JavaScript syntax and golden cases
+        run: |
+          node --check research\qqq_hybrid_operator_terminal_v1\engine.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\app.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\position_ledger.js || exit /b 1
+          node --check research\\qqq_hybrid_operator_terminal_v1\\decision_value_engine.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\hub_research_pack.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\hub_research_pack_ui.js || exit /b 1
+          node --check research\qqq_hybrid_operator_terminal_v1\option_chain_lab.js || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\engine.test.cjs || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\position_ledger.test.cjs || exit /b 1
+          node research\\qqq_hybrid_operator_terminal_v1\\tests\\decision_value_engine.test.cjs || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\put_ratio_exit_sensitivity.test.cjs || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\hub_research_pack.test.cjs || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\chain_lab.test.cjs || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\full_use_scenario_matrix.test.cjs || exit /b 1
+          node research\qqq_hybrid_operator_terminal_v1\tests\research_lockbox.test.cjs || exit /b 1
+
+      - name: Python server syntax
+        run: |
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\server.py || exit /b 1
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\probe_dolthub_vxx_options.py || exit /b 1
+
+      - name: Reproducible source-backed Generality audit
+        run: |
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\generality_auditor.py || exit /b 1
+          py -3 research\qqq_hybrid_operator_terminal_v1\tests\test_generality_auditor.py || exit /b 1
+          if not exist artifacts\qqq_hybrid_operator_terminal_v1 mkdir artifacts\qqq_hybrid_operator_terminal_v1
+          py -3 research\qqq_hybrid_operator_terminal_v1\generality_auditor.py --source-alignment-json research\qqq_hybrid_operator_terminal_v1\QQQ_FULL_HISTORY_ALIGNMENT_RUN22.json --out-json artifacts\qqq_hybrid_operator_terminal_v1\generality_source_preflight.json --out-md artifacts\qqq_hybrid_operator_terminal_v1\generality_source_preflight.md || exit /b 1
+          py -3 -c "import json; p=json.load(open('artifacts/qqq_hybrid_operator_terminal_v1/generality_source_preflight.json',encoding='utf-8')); assert p['auditStatus']=='SOURCE_DIAGNOSTIC_ONLY'; assert p['notAStrategyBacktest'] is True; assert p['tradeReplayApproved'] is False; assert len(p['missingRawUnderlyingDates'])==11; print('GENERALITY_SOURCE_PREFLIGHT=PASS · diagnostic only · 11 terminal source sessions missing · no strategy P&L claim')" || exit /b 1
+
+      - name: Emit Generality source-preflight summary in log
+        run: |
+          py -3 -c "import json; p=json.load(open('artifacts/qqq_hybrid_operator_terminal_v1/generality_source_preflight.json',encoding='utf-8')); print(json.dumps({'auditStatus':p['auditStatus'],'notAStrategyBacktest':p['notAStrategyBacktest'],'tradeReplayApproved':p['tradeReplayApproved'],'expectedSessions':p['expectedTradingDates'],'rawTargetPairCoveragePct':p['rawTargetPairCoveragePct'],'lastOptionChainDate':p['sourceDateBounds'].get('last_qqq_option_chain_date'),'missingRawUnderlyingSessions':len(p['missingRawUnderlyingDates']),'missingRawUnderlyingDates':p['missingRawUnderlyingDates']},ensure_ascii=False,indent=2))" || exit /b 1
+
+      - name: Static asset / boundary contract
+        run: |
+          py -3 -c "from pathlib import Path; p=Path('research/qqq_hybrid_operator_terminal_v1'); required=['index.html','app.js','engine.js','position_ledger.js','decision_value_engine.js','styles.css','server.py','README.md','hub_research_pack.html','hub_research_pack.js','hub_research_pack_ui.js','tests/engine.test.cjs','tests/position_ledger.test.cjs','tests/decision_value_engine.test.cjs','tests/test_generality_auditor.py','generality_auditor.py','QQQ_FULL_HISTORY_ALIGNMENT_RUN22.json','tests/hub_research_pack.test.cjs','put_ratio_exit_sensitivity.js','tests/put_ratio_exit_sensitivity.test.cjs','tests/fixtures/user_uploaded_option_chain_2026-11-20.json','option_chain_lab.html','option_chain_lab.js','tests/chain_lab.test.cjs','tests/full_use_scenario_matrix.test.cjs','tests/research_lockbox.test.cjs','STRATEGY_PRESERVATION_REGISTER.md','QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md']; missing=[x for x in required if not (p/x).is_file()]; assert not missing, 'missing files: '+repr(missing); s=(p/'server.py').read_text(encoding='utf-8'); assert 'place_order' not in s and 'unlock_trade' not in s and '/api/journal' in s; e=(p/'engine.js').read_text(encoding='utf-8'); assert e.count('mainBudgetEligible: true') == 2; h=(p/'index.html').read_text(encoding='utf-8'); assert 'current-qqqShares' in h and 'current-vxxShortShares' in h and 'Set current quantity = 1000' in h and 'OUTSIDE MAIN BUDGET' in h; assert 'decisionValueDesk' in h and 'decision_value_engine.js' in h and h.index('decision_value_engine.js') < h.index('app.js'); assert 'positionLedgerCard' in h and 'positionUseRegister' in h and 'positionRegisterCompleteConfirmed' in h and h.index('position_ledger.js') < h.index('app.js'); assert 'BLOCKED_POSITION_TERMS' in e; assert 'proDashboard' in h and 'proRiskDonut' in h and 'proAllocationRows' in h; lab=(p/'option_chain_lab.html').read_text(encoding='utf-8'); assert 'QQQ / VXX Option Chain Lab' in lab and 'option_chain_lab.js' in lab; assert 'vxxPutRiskPct' not in h and 'data-find=' + chr(34) + 'vxxPut' + chr(34) not in h; a=(p/'app.js').read_text(encoding='utf-8'); assert 'function renderProDashboard(result, input)' in a and 'renderProDashboard(result, input)' in a and 'vxxPutRiskPct:p.' not in a; assert 'function renderPositionLedger()' in a and 'useForSizing: usePositionRegister' in a and 'invalidatePositionRegisterCoverage' in a and 'positionRegisterCompleteConfirmed' in a; print('terminal_asset_contract=PASS; position_register=PASS; decision_value_engine=PASS')" || exit /b 1
+
+      - name: Write QA summary
+        run: |
+          if not exist artifacts\qqq_hybrid_operator_terminal_v1 mkdir artifacts\qqq_hybrid_operator_terminal_v1
+          echo QQQ_HYBRID_OPERATOR_TERMINAL_V1=PASS>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
+          echo broker_orders=FALSE>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
+          echo sizing=CAPITAL_FIRST_MAIN_SELLER_WHITELIST>>artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt
+
+      - name: Emit QA summary in job log
+        run: |
+          type artifacts\qqq_hybrid_operator_terminal_v1\qa_summary.txt || exit /b 1
+
+      - name: Persist QA evidence to recovery branch
+        if: always()
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
+          $payload = Join-Path $env:RUNNER_TEMP ("recovery-payload-" + $tag)
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          $source = Join-Path $env:GITHUB_WORKSPACE 'artifacts\qqq_hybrid_operator_terminal_v1'
+          if (!(Test-Path $source)) { throw 'Operator QA output directory missing' }
+          Copy-Item -Path (Join-Path $source '*') -Destination $payload -Recurse -Force
+          git fetch origin research/app-artifact-recovery-20261016
+          git checkout -B recovery-output origin/research/app-artifact-recovery-20261016
+          $dest = "research/artifact_recovery_20261016/operator_terminal/rerun-" + $tag
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path (Join-Path $payload '*') -Destination $dest -Recurse -Force
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_workflow=${{ github.workflow }}","source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","artifact_upload_attempt=not_required_for_recovery") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $dest
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "recover: persist Persist QA evidence to recovery branch outputs $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery commit failed' }
+            git push origin HEAD:research/app-artifact-recovery-20261016
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery push failed' }
+          } else {
+            Write-Host 'No new recovery files to commit'
+          }

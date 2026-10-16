@@ -1,0 +1,305 @@
+(function (root) {
+  "use strict";
+
+  function text(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  }
+
+  function cell(value) {
+    return text(value).replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+  }
+
+  function serialize(plan, candidates, marketMeta) {
+    const p = plan || {};
+    const input = p.input || {};
+    const result = p.result || {};
+    const roadmap = p.deploymentRoadmap || {};
+    const decisionValue = p.decisionValue || {};
+    const market = result.market || {};
+    const rows = Array.isArray(result.rows) ? result.rows : [];
+    const generatedAt = p.generatedAt || new Date().toISOString();
+    const optionCandidates = candidates || {};
+    const snapshot = input.market || {};
+    const hasNumber = value => (typeof value === "number" && Number.isFinite(value)) || (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value.trim())));
+    const toUsd = value => hasNumber(value) ? "$" + Number(value).toFixed(2) : "PENDING";
+    const borrowAprRaw = input.sizing?.vxxShortBorrowAprPct;
+    const borrowApr = hasNumber(borrowAprRaw) && Number(borrowAprRaw) >= 0 && Number(borrowAprRaw) <= 100 ? Number(borrowAprRaw) : null;
+    const vxxStockRow = rows.find(row => row.key === "vxxShortShares") || {};
+    const vxxTargetNotionalUsd = hasNumber(vxxStockRow.targetNotionalUsd) ? Number(vxxStockRow.targetNotionalUsd) : null;
+    const vxxBorrowAnnualAtTargetUsd = borrowApr !== null && vxxTargetNotionalUsd !== null ? vxxTargetNotionalUsd * borrowApr / 100 : null;
+    const positionRegister = input.positionRegister || {};
+    const positionSummary = positionRegister.summary || {};
+    const registeredPositionRows = Array.isArray(positionSummary.rows) ? positionSummary.rows : [];
+    const managementRows = Array.isArray(positionRegister.managementRows) ? positionRegister.managementRows : [];
+    const positionMoney = value => hasNumber(value)
+      ? (Number(value) > 0 ? "+$" : Number(value) < 0 ? "−$" : "$") + Math.abs(Number(value)).toFixed(2)
+      : "UNKNOWN";
+    const positionTable = registeredPositionRows.length
+      ? ["| Position / contract | Qty | Entry | Mark / close cost | Gross unrealized P&L | Mark freshness | Terms |",
+         "|---|---:|---:|---:|---:|---|---|"]
+          .concat(registeredPositionRows.map(row => "| " + [
+            cell(row.label || row.template),
+            cell(row.qty) + " " + cell(row.unit),
+            cell(row.entryPrice),
+            cell(row.markPrice),
+            positionMoney(row.unrealizedPnl) + (row.pnlStatus ? " (" + cell(row.pnlStatus) + ")" : ""),
+            cell(row.markFreshness || "UNKNOWN"),
+            cell(row.kind === "CREDIT_VERTICAL"
+              ? (row.termsComplete ? "OPERATOR-ATTESTED" : "BLOCKED / INCOMPLETE") +
+                (row.adjustedDetected ? " · ADJUSTED ROOT" : "") +
+                (row.maxLossPerPackage !== null && row.maxLossPerPackage !== undefined ? " · max loss/pkg " + cell(row.maxLossPerPackage) : "")
+              : cell(row.entryEvidence || "UNKNOWN"))
+          ].join(" | ") + " |")).join("\n")
+      : "No position register records in this export.";
+    const managementTable = managementRows.length
+      ? ["| Position | Action / gate | Age / limit | P&L | R | P&L / day | R / day | Risk / NAV | Loss-to-stop | Reward left | Reward : risk | DTE |",
+         "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+          .concat(managementRows.map(row => "| " + [
+            cell(row.label || row.id),
+            cell(row.action) + " — " + cell(row.reason),
+            cell(row.elapsedCalendarDays === null || row.elapsedCalendarDays === undefined ? "UNKNOWN" :
+              row.elapsedCalendarDays + (row.maxHoldDays === null || row.maxHoldDays === undefined ? " days" : " / " + row.maxHoldDays + " days")),
+            positionMoney(row.pnl),
+            hasNumber(row.pnlR) ? Number(row.pnlR).toFixed(2) + "R" : "UNKNOWN",
+            positionMoney(row.pnlPerCalendarDay),
+            hasNumber(row.rPerCalendarDay) ? Number(row.rPerCalendarDay).toFixed(3) + "R/day" : "UNKNOWN",
+            hasNumber(row.riskBudgetPctNav) ? Number(row.riskBudgetPctNav).toFixed(2) + "%" : "UNKNOWN",
+            positionMoney(row.riskToStopUsd),
+            positionMoney(row.targetRewardUsd),
+            hasNumber(row.rewardRiskRatio) ? Number(row.rewardRiskRatio).toFixed(2) + ":1" : "UNKNOWN",
+            row.dte === null || row.dte === undefined ? "N/A" : cell(row.dte)
+          ].join(" | ") + " |")).join("\n")
+      : "No management rows are available.";
+    const positionRegisterSummary = [
+      "- Management meter reports P&L/NAV, P&L/calendar day, R-multiple, R/day, risk budget %NAV, current loss-to-stop, remaining target reward, reward:loss-to-stop, holding age and optional DTE. Pace alone never triggers an exit.",
+      "- Engine current-quantity source: " + (positionRegister.useForSizing ? "POSITION REGISTER (enabled)" : "MANUAL INPUTS (register attribution only)"),
+      "- Inventory completeness explicitly confirmed: " + (positionRegister.completeConfirmed ? "YES" : "NO — register cannot be used as Current sizing source"),
+      "- Registered rows: " + cell(positionSummary.count ?? 0),
+      "- Metadata-complete unrealized P&L subtotal (source not independently authenticated): " + (hasNumber(positionSummary.metadataCompletePnlSubtotal) ? positionMoney(positionSummary.metadataCompletePnlSubtotal) : "UNKNOWN") +
+        " across " + cell(positionSummary.metadataCompletePnlRows ?? 0) + " row(s); indicative subtotal: " +
+        (hasNumber(positionSummary.indicativePnlSubtotal) ? positionMoney(positionSummary.indicativePnlSubtotal) : "UNKNOWN") +
+        " across " + cell(positionSummary.indicativePnlRows ?? 0) + " row(s); arithmetic subtotal across all complete rows: " +
+        (hasNumber(positionSummary.knownPnlSubtotal) ? positionMoney(positionSummary.knownPnlSubtotal) : "UNKNOWN") +
+        " across " + cell(positionSummary.knownPnlRows ?? 0) + " row(s); excludes " + cell(positionSummary.incompletePnlCount ?? 0) + " row(s) with missing entry/mark",
+      "- Mark status flags (missing / invalid / stale / unsupported source): " + cell(positionSummary.staleMarkCount ?? "UNKNOWN"),
+      "- Mark source-metadata gaps (known marks with UNKNOWN / MODEL_ESTIMATE or blank source reference; may overlap status flags): " + cell(positionSummary.markSourceMetadataIncompleteCount ?? "UNKNOWN"),
+      "- Held option terms blocks: " + cell(positionSummary.termBlockedCount ?? "UNKNOWN"),
+      "- Strategy keys blocked by held option terms: " + (Array.isArray(positionRegister.blockingKeys) && positionRegister.blockingKeys.length ? positionRegister.blockingKeys.map(cell).join(", ") : "none recorded"),
+      "- Browser timezone label: " + cell(positionSummary.timezone || "UNKNOWN"),
+      "- P&L is gross mark-to-entry attribution only; it is not NAV, realized P&L, or after-fee performance."
+    ].join("\n");
+    const resultRows = rows.map(row => ({
+      key: row.key,
+      label: row.label,
+      current: row.current,
+      capacity: row.capacity,
+      target: row.target,
+      delta: row.delta,
+      action: row.action,
+      status: row.status,
+      riskPerUnit: row.riskPerUnit,
+      allocatedRiskBudgetUsd: row.allocatedRiskBudgetUsd,
+      targetRiskReserveUsd: row.targetRiskReserveUsd,
+      incrementalCapitalUsd: row.incrementalCapitalUsd,
+      targetNotionalUsd: row.targetNotionalUsd,
+      reason: row.reason
+    }));
+    const rowTable = resultRows.length
+      ? ["| Position | Current | Capacity | Target | Action | Status / reason |",
+         "|---|---:|---:|---:|---|---|"]
+          .concat(resultRows.map(row => "| " + [
+            cell(row.label || row.key), cell(row.current), cell(row.capacity),
+            cell(row.target), cell(row.action),
+            cell((row.status || "") + (row.reason ? " — " + row.reason : ""))
+          ].join(" | ") + " |")).join("\n")
+      : "No calculated position rows were included.";
+    function candidateSummaryLine(label, candidate) {
+      if (!candidate) return "- **" + label + ":** PENDING — no usable candidate in this export.";
+      if (candidate.hubPackage === true) {
+        return "- **" + label + ":** " + cell(candidate.expiry || "expiry unknown") +
+          "; package risk " + cell(candidate.riskPerUnit) +
+          "; source " + cell(candidate.source || "source unknown") + ".";
+      }
+      if (candidate.maxLossPerSpread !== undefined) {
+        const widthText = value => hasNumber(value) ? Number(value).toFixed(1) + "% mid" : "UNKNOWN";
+        const qualityText = (value, quality) => widthText(value) + " " + cell(quality || "UNKNOWN");
+        const fetched = candidate.chainRetrievedAt || "not recorded";
+        const multiplier = hasNumber(candidate.multiplierAssumption) && Number(candidate.multiplierAssumption) > 0
+          ? Number(candidate.multiplierAssumption) : null;
+        return "- **" + label + ":** expiry " + cell(candidate.expiry) + ", " + cell(candidate.dte) + " DTE; " +
+          "short " + cell(candidate.shortContractSymbol || (hasNumber(candidate.shortStrike) ? "K " + candidate.shortStrike : "strike UNKNOWN")) +
+          " Bid/Ask " + cell(candidate.shortBid) + "/" + cell(candidate.shortAsk) +
+          " (width/mid " + qualityText(candidate.shortQuoteWidthPctMid, candidate.shortQuoteQuality) + "); " +
+          "wing " + cell(candidate.longContractSymbol || (hasNumber(candidate.longStrike) ? "K " + candidate.longStrike : "strike UNKNOWN")) +
+          " Bid/Ask " + cell(candidate.longBid) + "/" + cell(candidate.longAsk) +
+          " (width/mid " + qualityText(candidate.longQuoteWidthPctMid, candidate.longQuoteQuality) + "); " +
+          "credit/share " + cell(candidate.credit) + "; width " + cell(candidate.width) +
+          "; max loss/spread " + (hasNumber(candidate.maxLossPerSpread) && Number(candidate.maxLossPerSpread) > 0 && multiplier !== null ? cell(candidate.maxLossPerSpread) : "UNKNOWN") +
+          " at assumed multiplier " + (multiplier === null ? "UNKNOWN" : cell(multiplier)) +
+          " (not verified); max profit/spread " + (hasNumber(candidate.credit) && Number(candidate.credit) > 0 && multiplier !== null ? toUsd(Number(candidate.credit) * multiplier) : "UNKNOWN") +
+          "; expiry breakeven " + (hasNumber(candidate.shortStrike) && Number(candidate.shortStrike) > 0 && hasNumber(candidate.credit) && Number(candidate.credit) > 0 ? toUsd(Number(candidate.shortStrike) + Number(candidate.credit)) + "/share before fees" : "UNKNOWN") +
+          "; max profit/max loss " + (hasNumber(candidate.maxLossPerSpread) && Number(candidate.maxLossPerSpread) > 0 && hasNumber(candidate.credit) && Number(candidate.credit) > 0 && multiplier !== null ? (Number(candidate.credit) * multiplier / Number(candidate.maxLossPerSpread) * 100).toFixed(2) + "% (not win probability)" : "UNKNOWN") +
+          "; source " + cell(candidate.chainSource || candidate.source || "unknown") +
+          "; chain fetch " + cell(fetched) +
+          "; exchange quote timestamp UNVERIFIED.";
+      }
+      return "- **" + label + ":** " + cell(candidate.expiry || "expiry unknown") +
+        "; strike " + cell(candidate.strike) + "; bid " + cell(candidate.shortBid) +
+        "; ask " + cell(candidate.ask) + "; source " + cell(candidate.chainSource || candidate.source || "unknown") +
+        "; chain fetch " + cell(candidate.chainRetrievedAt || "not recorded") +
+        "; exchange quote timestamp UNVERIFIED.";
+    }
+    const primaryCandidates = [
+      ["QQQ far call-credit", optionCandidates.qqqCall],
+      ["VXX call-credit", optionCandidates.vxxCall]
+    ];
+    const candidateSummary = primaryCandidates.map(pair => candidateSummaryLine(pair[0], pair[1])).join("\n") +
+      "\n- **Other research candidate keys:** " +
+      (Object.keys(optionCandidates).filter(key => !["qqqCall", "vxxCall"].includes(key)).join(", ") || "none");
+    const payload = {
+      schema: "QQQ_HYBRID_AI_REVIEW_PACK_V1",
+      generatedAt,
+      operatorTerminalSchema: "QQQ_HYBRID_OPERATOR_TERMINAL_V1",
+      marketMeta: marketMeta || "",
+      input: input,
+      result: result,
+      deploymentRoadmap: roadmap,
+      decisionValue,
+      candidates: optionCandidates,
+      guardrails: {
+        role: "Independent manual review; not an order instruction",
+        brokerOrders: false,
+        automaticMutation: false,
+        historicalSizingPromotedToLive: false,
+        missingDataPolicy: "BLOCK or WAIT; do not impute, infer, or silently use stale values",
+        separateResearchAxes: ["ACCURACY", "GENERALITY", "INTEGRATION"],
+        currentFarCallOverlayDisposition: "RESEARCH ONLY; not approved for Frozen Original Hybrid integration"
+      }
+    };
+    const currentGate = (market.status || "UNKNOWN") + " / " +
+      (market.state || "STATE UNKNOWN") + " / action=" + (market.action || "UNKNOWN");
+    return [
+      "# QQQ Hybrid — Manual AI Review Pack",
+      "",
+      "**Generated (UTC if ISO timestamp):** " + generatedAt,
+      "**Pack schema:** QQQ_HYBRID_AI_REVIEW_PACK_V1",
+      "**Market gate:** " + currentGate,
+      "**APP sizing result:** " + (result.ok ? "CALCULATED — HUMAN REVIEW REQUIRED" : "BLOCKED / INCOMPLETE — no sizing approval"),
+      "**Broker orders:** disabled. This packet cannot place, modify, or cancel an order.",
+      "",
+      "## How to use this packet",
+      "Attach this Markdown file to the current ChatGPT conversation. Also provide a fresh broker option-chain screenshot or broker CSV for the exact candidate contracts, showing observation time and timezone. Tell the AI about any current holdings or pending orders not represented in the APP inputs. Never include passwords, account IDs, access tokens, or other secrets.",
+      "",
+      "## Long-term deployment roadmap (measurement only; no return forecast)",
+      "- State: " + cell(roadmap.statusLabel || roadmap.status || "BASELINE PENDING"),
+      "- Starting baseline B / date / horizon: " + cell(roadmap.baseCapitalUsd) + " / " + cell(roadmap.startDate) + " / " + cell(roadmap.horizonMonths) + " months",
+      "- Elapsed / remaining months: " + cell(roadmap.elapsedMonths) + " / " + cell(roadmap.remainingMonths),
+      "- Current NAV / CLOCK Floor / gap: " + cell(roadmap.currentNavUsd) + " / " + cell(roadmap.floorUsd) + " / " + cell(roadmap.floorGapUsd),
+      "- Planned future contributions (not spendable today): " + cell(roadmap.plannedFutureContributionsUsd),
+      "- Next action: " + cell(roadmap.nextAction),
+      "- CLOCK Floor is a review threshold, not a principal guarantee or automatic sell. No terminal NAV / CAGR / MaxDD forecast is manufactured.",
+      "- Existing research lockbox stays in force: FAR CALL trade-performance accuracy blocked, generality not demonstrated, isolated overlay failed its current integration base screen; this roadmap does not approve strategy promotion.",
+      "",
+      "## Incremental decision value — scenario analysis, not order authority",
+      "- Candidate / review lens: " + cell(decisionValue.candidateLabel) + " / " + cell(decisionValue.lens),
+      "- Status: " + cell(decisionValue.statusLabel || decisionValue.status || "PENDING"),
+      "- Base P / break-even P: " + cell(decisionValue.probabilityBasePct) + "% / " + cell(decisionValue.breakEvenProbabilityPct) + "%",
+      "- EV per unit / total / per calendar day: " + toUsd(decisionValue.expectedValueBaseUsd) + " / " + toUsd(decisionValue.expectedValueBaseTotalUsd) + " / " + toUsd(decisionValue.expectedValuePerCalendarDayUsd),
+      "- Named same-capital / same-horizon alternative: " + cell(decisionValue.alternativeLabel) + " / total EV " + toUsd(decisionValue.alternativeEVTotalUsd),
+      "- Incremental EV vs alternative (base / adverse / per calendar day): " + toUsd(decisionValue.incrementalValueBaseUsd) + " / " + toUsd(decisionValue.incrementalValueAdverseUsd) + " / " + toUsd(decisionValue.incrementalValuePerCalendarDayUsd),
+      "- Held-position management gate(s): " + cell((decisionValue.heldPositions || []).map(x => (x.label || x.template) + ": " + x.action).join("; ") || "No matching registered position record"),
+      "- CLOCK Floor / gap: " + cell(decisionValue.deploymentRoadmap && decisionValue.deploymentRoadmap.status) + " / " + toUsd(decisionValue.deploymentRoadmap && decisionValue.deploymentRoadmap.floorGapUsd),
+      "- Adverse EV total / base EV as % NAV: " + toUsd(decisionValue.expectedValueAdverseTotalUsd) + " / " + cell(decisionValue.expectedValuePctNav),
+      "- Probability basis / method / sample size: " + cell(decisionValue.probabilityBasis) + " / " + cell(decisionValue.probabilityMethod) + " / " + cell(decisionValue.sampleSize),
+      "- Current engine route: " + cell(decisionValue.mainRoute && decisionValue.mainRoute.action) + " / current " + cell(decisionValue.mainRoute && decisionValue.mainRoute.current) + " / target " + cell(decisionValue.mainRoute && decisionValue.mainRoute.target),
+      "- Evidence axes: accuracy " + cell(decisionValue.axes && decisionValue.axes.accuracy) + "; generality " + cell(decisionValue.axes && decisionValue.axes.generality) + "; integration " + cell(decisionValue.axes && decisionValue.axes.integration),
+      "- Next action / caution: " + cell(decisionValue.nextAction) + " " + cell((decisionValue.warnings || []).join(" ")),
+      "- Historical replay frequencies and the 0/16 FAR CALL scenario screen are not future probabilities. EV is a binary approximation and excludes costs / tail not entered into the scenario.",
+      "",
+      "## Data and source boundary",
+      "- APP snapshot metadata: " + cell(marketMeta || "No source metadata recorded"),
+      "- QQQ spot as-of: " + cell(snapshot.spot_asof),
+      "- VX M1/M2 as-of: " + cell(snapshot.term_asof),
+      "- Snapshot date: " + cell(snapshot.today),
+      "- M1: " + cell(snapshot.m1) + "; M2: " + cell(snapshot.m2) + "; supplied/computed slope: " + cell(market.slope),
+      "- Market gate reason: " + cell(market.reason),
+      "- Missing/stale/mixed required market data means BLOCK. Public option-chain results can be delayed or estimated and are not proof of executable prices.",
+      "- Option quote width/mid bins: <=10% TIGHT; >10% to 25% WATCH; >25% WIDE. These are descriptive triage labels, not trade approval thresholds.",
+      "- Adjusted VXX root status: if any selected leg is recognized as VXX1/VXX2 (including 1VXX2-style symbol), primary sizing is BLOCKED until the actual deliverable/multiplier is verified.",
+      "- Chain fetch time records when this app retrieved the chain; the provider does not establish an exact exchange quote timestamp in this feed.",
+      "",
+      "## APP-computed positions (capacity is not permission to trade)",
+      rowTable,
+      "",
+      "### Available capital / risk reconciliation",
+      "- NAV: " + toUsd(result.nav) + "; truly uncommitted cash: " + toUsd(result.cashPool),
+      "- Cash reserve: " + toUsd(result.cashReserveUsd),
+      "- Shared option max-loss pool: " + toUsd(result.totalOptionRiskPool),
+      "- QQQ incremental capital: " + toUsd(result.qqqAdditionalCapitalUsd),
+      "- VXX incremental margin estimate: " + toUsd(result.vxxAdditionalMarginUsd),
+      "- VXX short borrow APR assumption: " + (borrowApr === null ? "PENDING · valid broker-checked assumption required" : borrowApr.toFixed(2) + "% p.a.") +
+        "; estimated annual cost at target notional: " + toUsd(vxxBorrowAnnualAtTargetUsd) +
+        "; 1.5× borrow-cost stress: " + toUsd(vxxBorrowAnnualAtTargetUsd === null ? null : vxxBorrowAnnualAtTargetUsd * 1.5) +
+        ". This is an estimate, not a broker quote, and is not included in the margin/capacity calculation.",
+      "- Planned required capital: " + toUsd(result.plannedCapitalRequiredUsd),
+      "- Unallocated cash after plan: " + toUsd(result.remainingUnallocatedCashUsd),
+      "- APP calculation status: " + (result.ok ? "CALCULATED / REVIEW" : "BLOCKED"),
+      "",
+      "## Registered position facts and P&L attribution",
+      positionRegisterSummary,
+      "",
+      positionTable,
+      "",
+      "### Shared position management meter — human review only",
+      managementTable,
+      "",
+      "Fast profit is not by itself an exit rule. Explicit stop / risk budget, target, holding-time limit, expiry window, mark quality and market regime are measured together; the meter never creates or sends orders.",
+      "",
+      "Source quality and as-of times are shown per position. If current quantities are sourced from this register, the aggregated units should reconcile exactly to the engine Current values; unresolved option terms block the affected strategy row.",
+      "",
+      "### Candidate status",
+      candidateSummary,
+      "",
+      "## Non-negotiable measurement gates",
+      "Report each axis separately. Do not average the axes into a single score; a critical hard-gate failure overrides other passes.",
+      "",
+      "1. **Accuracy:** verify timestamps, source type and exact contract identity; recompute all price/quantity arithmetic independently; require quoted legs from the same expiry; verify bid/ask side, multiplier, adjusted deliverable, fees/slippage and fill assumptions. Cash-flow reconciliation tolerance is USD 0.01. Missing data stays missing; never forward-fill or invent fills. Quote width/mid is (ask-bid)/((ask+bid)/2), and is only a quote-quality diagnostic.",
+      "2. **Generality:** identify whether the sample is development data or a genuinely untouched holdout. Previously inspected 2018–2025 data cannot be relabelled virgin OOS. Report coverage numerator/denominator, terminal source date, unmatched dates and each regime/rolling window where sample size permits. Require at least five chronological windows where possible, and disclose cost stress of at least 1.5× where relevant.",
+      "3. **Integration / incremental value:** compare against a clearly identified matched baseline on identical dates, capital flows, marks and costs. Use the pre-registered objective bars in RESEARCH_MEASUREMENT_CONTRACT.md; do not change thresholds after seeing outcomes. CAGR, daily MTM MaxDD, Sharpe and ES95 must be UNAVAILABLE when the paired mark path is incomplete.",
+      "4. **Capital and risk:** shared risk pool includes only QQQ far call-credit and VXX call-credit; never double-count reserve, stock purchases, option loss budget or short-stock margin. VXX short margin is not a maximum-loss cap. Measure borrow APR separately and stress annual borrow cost at 1.5×; do not treat the entered APR as broker-verified. Verify contract root/deliverable, especially any adjusted VXX option. If register mode is active, reconcile its aggregated quantities to engine holdings and list every blocked-key reason.",
+      "5. **Execution readiness:** APP ADD / BUY is only a sizing preview. No order-ready status unless all market, quote, contract, cash, risk and human-confirmation gates pass. Otherwise output BLOCK or WAIT and name the exact missing evidence.",
+      "",
+      "## Current research lockbox (do not conceal)",
+      "- Accuracy for trade-performance use: BLOCKED. The accounting sub-gate reconciled 1,688 / 1,688 closed rows to USD 0.00 maximum error, but quote/source/fill accuracy is still blocked.",
+      "- Generality: NOT DEMONSTRATED. The previously examined 2018–2025 sample is not an untouched final holdout; the pinned option source ends 2025-12-15, with 11 expected terminal sessions missing and 24 unmatched NAV dates.",
+      "- Integration: FAILS_CURRENT_BASE_SCREEN for the isolated FAR CALL overlay. Its zero-cost 0.8% NAV max-loss arm reported -USD 5,646 closed-trade P&L and -USD 5,552 last paired-date NAV gap versus the no-call control.",
+      "- Important scope: that negative result is an isolated overlay versus a 42% QQQ total-return proxy plus static 58% cash; it is NOT a complete performance result for the full Frozen Original Hybrid. It nevertheless does not approve the incremental overlay.",
+      "- No new strategy tuning or integration until the accuracy and generality hard gates pass and the pre-registered integration bar is satisfied.",
+      "",
+      "## Required AI response format",
+      "Return these sections in order:",
+      "1. **Gate verdict:** DATA (PASS / BLOCK / WAIT), CONTRACT (PASS / BLOCK / WAIT), CAPITAL (PASS / BLOCK / WAIT), EXECUTION EVIDENCE (PASS / BLOCK / WAIT), STRATEGY EVIDENCE (PASS / NOT DEMONSTRATED / FAIL). Give evidence for every verdict.",
+      "2. **Market state:** as-of timestamps, M1/M2 slope calculation, VIX regime, source mismatches and freshness.",
+      "3. **Position table:** current → target → proposed delta, exact symbol/side/strike/expiry/quantity when supported, otherwise UNKNOWN/PENDING.",
+      "4. **Per-trade arithmetic:** bid/ask used, net credit/debit, spread width, verified multiplier/deliverable, max profit, max loss, breakeven, fees/slippage assumption, total risk consumed.",
+      "5. **Capital reconciliation:** NAV, uncommitted cash, reserve, incremental QQQ cash, VXX margin estimate, shared option risk, planned capital, residual cash; explicitly show any discrepancy above USD 0.01.",
+      "6. **Counter-evidence / failure modes:** which input could reverse the decision, price-basis issue, quote gaps, execution realism, unmatched marks and model assumptions.",
+      "7. **Human action:** only one of BLOCK, WAIT FOR DATA, or ELIGIBLE FOR HUMAN REVIEW. Do not claim an order was placed or use an unqualified BUY signal.",
+      "",
+      "## Raw machine-readable snapshot",
+      "The JSON below is the machine-readable companion to the human summary. Inspect it rather than inferring values from this text alone.",
+      "",
+      "~~~~json",
+      JSON.stringify(payload, null, 2),
+      "~~~~",
+      "",
+      "No broker order is placed by this packet — manual review only."
+    ].join("\n") + "\n";
+  }
+
+  const api = { serialize: serialize };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  if (root) root.AiHandoffV1 = api;
+})(typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this));

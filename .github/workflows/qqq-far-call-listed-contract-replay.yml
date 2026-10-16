@@ -1,0 +1,147 @@
+name: QQQ Far-Call Listed-Contract EOD Replay
+
+on:
+  push:
+    branches:
+      - feat/qqq-hybrid-operator-terminal-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/qqq_far_call_quote_replay.py
+      - research/qqq_hybrid_operator_terminal_v1/qqq_far_call_incremental_decomposition.py
+      - research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_quote_replay.py
+      - research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_incremental_decomposition.py
+      - .github/workflows/qqq-far-call-listed-contract-replay.yml
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened]
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/qqq_far_call_quote_replay.py
+      - research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_quote_replay.py
+      - research/qqq_hybrid_operator_terminal_v1/full_history_qqq_quote_audit.py
+      - research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py
+      - research/qqq_hybrid_operator_terminal_v1/QQQ_FAR_CALL_REPLAY_CONTRACT.md
+      - research/qqq_hybrid_operator_terminal_v1/qqq_far_call_incremental_decomposition.py
+      - research/qqq_hybrid_operator_terminal_v1/test_qqq_far_call_incremental_decomposition.py
+      - research/qqq_hybrid_operator_terminal_v1/QQQ_FAR_CALL_INCREMENTAL_VALUE_V2.md
+      - .github/workflows/qqq-far-call-listed-contract-replay.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-far-call-listed-contract-replay
+  cancel-in-progress: true
+
+jobs:
+  listed-contract-replay:
+    name: SHA-pinned listed-contract QQQ call-credit replay
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime and pinned Parquet reader
+        run: |
+          py -3 --version || exit /b 1
+          py -3 -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0 || exit /b 1
+
+      - name: Restore previously verified public QQQ cache
+        uses: actions/cache@v4
+        with:
+          path: .cache\qqq-options-full-history
+          key: qqq-options-full-history-2018-2025-sha-pinned-v1
+
+      - name: Compile and run offline regressions
+        run: |
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\qqq_far_call_quote_replay.py || exit /b 1
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\test_qqq_far_call_quote_replay.py || exit /b 1
+          py -3 research\qqq_hybrid_operator_terminal_v1\test_qqq_far_call_quote_replay.py || exit /b 1
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\qqq_far_call_incremental_decomposition.py || exit /b 1
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\test_qqq_far_call_incremental_decomposition.py || exit /b 1
+          py -3 research\qqq_hybrid_operator_terminal_v1\test_qqq_far_call_incremental_decomposition.py || exit /b 1
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\full_history_qqq_quote_audit.py || exit /b 1
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\audit_qqq_public_eod_options.py || exit /b 1
+
+      - name: Run SHA-pinned historical quote replay
+        timeout-minutes: 38
+        run: |
+          if not exist artifacts\qqq_far_call_replay mkdir artifacts\qqq_far_call_replay
+          py -3 research\qqq_hybrid_operator_terminal_v1\qqq_far_call_quote_replay.py --out artifacts\qqq_far_call_replay > QQQ_FAR_CALL_REPLAY_RUN.json || exit /b 1
+          type QQQ_FAR_CALL_REPLAY_RUN.json || exit /b 1
+          type artifacts\qqq_far_call_replay\qqq_far_call_replay_summary.md || exit /b 1
+          type artifacts\qqq_far_call_replay\qqq_far_call_replay_summary.md >> "%GITHUB_STEP_SUMMARY%" || exit /b 1
+          echo detail_trade_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_trades.csv
+          echo detail_event_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_events.csv
+          echo detail_daily_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_daily.csv
+          echo detail_attribution_json=artifacts\qqq_far_call_replay\qqq_far_call_replay_attribution.json
+          echo detail_attribution_csv=artifacts\qqq_far_call_replay\qqq_far_call_replay_attribution.csv
+          py -3 -c "from pathlib import Path; p=[Path('QQQ_FAR_CALL_REPLAY_RUN.json'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.json'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.md'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_trades.csv'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_events.csv'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_daily.csv'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.json'),Path('artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing replay outputs: '+repr(m); print('all_replay_outputs_exist=PASS')" || exit /b 1
+          echo output_retention=GitHub_Actions_artifact_14_days
+      - name: Decompose entry, capital path, exits, and source completeness
+        run: |
+          py -3 research\qqq_hybrid_operator_terminal_v1\qqq_far_call_incremental_decomposition.py --input-dir artifacts\qqq_far_call_replay --out-dir artifacts\qqq_far_call_replay\incremental_decomposition > QQQ_FAR_CALL_INCREMENTAL_DECOMPOSITION_RUN.json || exit /b 1
+          type QQQ_FAR_CALL_INCREMENTAL_DECOMPOSITION_RUN.json || exit /b 1
+          type artifacts\qqq_far_call_replay\incremental_decomposition\qqq_far_call_incremental_decomposition.md || exit /b 1
+          type artifacts\qqq_far_call_replay\incremental_decomposition\qqq_far_call_incremental_decomposition.md >> "%GITHUB_STEP_SUMMARY%" || exit /b 1
+          py -3 -c "from pathlib import Path; p=[Path('QQQ_FAR_CALL_INCREMENTAL_DECOMPOSITION_RUN.json'),Path('artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.json'),Path('artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.md'),Path('artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing decomposition outputs: '+repr(m); print('all_incremental_decomposition_outputs_exist=PASS')" || exit /b 1
+
+      - name: Persist QQQ far-call replay outputs to recovery branch
+        if: always()
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
+          $payload = Join-Path $env:RUNNER_TEMP ("recovery-farcall-" + $tag)
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          $run1 = Join-Path $env:GITHUB_WORKSPACE 'QQQ_FAR_CALL_REPLAY_RUN.json'
+          $run2 = Join-Path $env:GITHUB_WORKSPACE 'QQQ_FAR_CALL_INCREMENTAL_DECOMPOSITION_RUN.json'
+          $src = Join-Path $env:GITHUB_WORKSPACE 'artifacts\qqq_far_call_replay'
+          if (!(Test-Path $run1) -or !(Test-Path $run2) -or !(Test-Path $src)) { throw 'Far-call replay output files missing' }
+          Copy-Item -Path $run1 -Destination $payload -Force
+          Copy-Item -Path $run2 -Destination $payload -Force
+          New-Item -ItemType Directory -Force -Path (Join-Path $payload 'qqq_far_call_replay') | Out-Null
+          Copy-Item -Path (Join-Path $src '*') -Destination (Join-Path $payload 'qqq_far_call_replay') -Recurse -Force
+          git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+          git checkout -B recovery-output "origin/research/app-artifact-recovery-20261016"
+          $dest = "research/artifact_recovery_20261016/qqq_far_call/raw_rerun-" + $tag
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path (Join-Path $payload '*') -Destination $dest -Recurse -Force
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","output=listed_contract_replay_and_incremental_decomposition") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $dest
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "recover: persist QQQ far-call replay outputs $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery commit failed' }
+            git push origin HEAD:research/app-artifact-recovery-20261016
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery push failed' }
+          } else {
+            Write-Host 'No new recovery files to commit'
+          }
+
+      - name: Upload reproducible replay outputs
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-far-call-listed-contract-replay
+          path: |
+            QQQ_FAR_CALL_REPLAY_RUN.json
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.json
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_summary.md
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_trades.csv
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_events.csv
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_daily.csv
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.json
+            artifacts/qqq_far_call_replay/qqq_far_call_replay_attribution.csv
+            QQQ_FAR_CALL_INCREMENTAL_DECOMPOSITION_RUN.json
+            artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.json
+            artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.md
+            artifacts/qqq_far_call_replay/incremental_decomposition/qqq_far_call_incremental_decomposition.csv
+          if-no-files-found: error
+          retention-days: 14

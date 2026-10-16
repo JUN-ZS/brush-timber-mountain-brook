@@ -1,0 +1,51 @@
+name: QQQ Full-History EOD Option Quote Alignment Audit
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - research/qqq-hybrid-profit-trend-replay-v1-20261009
+    paths:
+      - research/qqq_hybrid_operator_terminal_v1/full_history_qqq_quote_audit.py
+      - research/qqq_hybrid_operator_terminal_v1/test_full_history_qqq_quote_audit.py
+      - .github/workflows/qqq-public-eod-full-history-audit.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-full-history-audit
+  cancel-in-progress: true
+
+jobs:
+  full-history-audit:
+    name: Eight-year QQQ EOD option quote alignment diagnostic
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python and pinned Parquet reader
+        run: |
+          py -3 --version || exit /b 1
+          py -3 -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0 || exit /b 1
+      - name: Restore SHA-verified QQQ data cache
+        uses: actions/cache@v4
+        with:
+          path: .cache\qqq-options-full-history
+          key: qqq-options-full-history-2018-2025-sha-pinned-v1
+      - name: Compile and run offline tests
+        run: |
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\full_history_qqq_quote_audit.py || exit /b 1
+          py -3 -m py_compile research\qqq_hybrid_operator_terminal_v1\test_full_history_qqq_quote_audit.py || exit /b 1
+          py -3 research\qqq_hybrid_operator_terminal_v1\test_full_history_qqq_quote_audit.py || exit /b 1
+      - name: Download pinned files and stream daily option chains
+        timeout-minutes: 35
+        run: |
+          if not exist .cache\qqq-options-full-history mkdir .cache\qqq-options-full-history
+          py -3 research\qqq_hybrid_operator_terminal_v1\full_history_qqq_quote_audit.py > QQQ_FULL_HISTORY_AUDIT_LOG.json || exit /b 1
+          type QQQ_FULL_HISTORY_AUDIT_LOG.json

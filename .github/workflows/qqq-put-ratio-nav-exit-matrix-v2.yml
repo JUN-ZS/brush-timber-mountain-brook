@@ -1,0 +1,137 @@
+name: QQQ Put Ratio NAV Exit Matrix V2 — Historical EOD Research
+
+on:
+  push:
+    branches:
+      - feat/qqq-hybrid-operator-terminal-v1-20261009
+    paths:
+      - research/qqq_put_ratio_exit_study_v1/**
+      - research/qqq_hybrid_operator_terminal_v1/QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md
+      - .github/workflows/qqq-put-ratio-nav-exit-matrix-v2.yml
+  pull_request:
+    types: [opened, reopened]
+    branches:
+      - research/qqq-hybrid-vxx-short-call-put-v1-20261009
+    paths:
+      - research/qqq_put_ratio_exit_study_v1/**
+      - research/qqq_hybrid_operator_terminal_v1/QQQ_PUT_RATIO_1M_EXIT_REFERENCE_V1.md
+      - .github/workflows/qqq-put-ratio-nav-exit-matrix-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-put-ratio-nav-exit-matrix-v2
+  cancel-in-progress: true
+
+jobs:
+  study:
+    name: SHA-pinned QQQ N=1-6 both-direction NAV exit replay
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Runtime, pinned Parquet reader, and persistent runner cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+          # Store the 400 MB verified source set outside the checkout so it survives git clean.
+          local_cache="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$local_cache" .cache
+          if [[ -d .cache/qqq-options-full-history && ! -L .cache/qqq-options-full-history ]]; then
+            cp -an .cache/qqq-options-full-history/. "$local_cache/" || true
+            rm -rf .cache/qqq-options-full-history
+          fi
+          rm -f .cache/qqq-options-full-history
+          ln -s "$local_cache" .cache/qqq-options-full-history
+          echo "runner_local_option_cache=$local_cache"
+          du -sh "$local_cache" || true
+          echo "No GitHub Actions cache save/upload: large option data stays on the self-hosted Linux runner."
+
+      - name: Compile and run offline contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          "$PY" -m py_compile research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_v1.py
+          "$PY" -m py_compile research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_exit_study_v1.py
+          "$PY" -m py_compile research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.py
+          "$PY" -m py_compile research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_nav_exit_matrix_v2.py
+          "$PY" research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_exit_study_v1.py
+          "$PY" research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_nav_exit_matrix_v2.py
+
+      - name: Run SHA-pinned full N/orientation/NAV exit matrix
+        timeout-minutes: 75
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/qqq_put_ratio_exit_study_v1
+          .venv/bin/python research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.py --out artifacts/qqq_put_ratio_exit_study_v1 > QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json
+          cat QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json
+          cat artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.md
+          cat artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.md >> "$GITHUB_STEP_SUMMARY"
+          .venv/bin/python -c "from pathlib import Path; p=[Path('QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.md'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_policy_matrix_v2.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_config_matrix_v2.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_episode_results_v2.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing outputs: '+repr(m); print('all_matrix_outputs_exist=PASS')"
+
+      - name: Persist QQQ put-ratio NAV matrix outputs to recovery branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_RUN_ID-a$GITHUB_RUN_ATTEMPT"
+          payload="$RUNNER_TEMP/recovery-payload-$tag"
+          mkdir -p "$payload"
+          items=(
+            "QQQ_PUT_RATIO_NAV_EXIT_MATRIX_V2_RUN.json"
+            "artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.json"
+            "artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_matrix_v2.md"
+            "artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_policy_matrix_v2.csv"
+            "artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_config_matrix_v2.csv"
+            "artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_nav_exit_episode_results_v2.csv"
+          )
+          for rel in "${items[@]}"; do
+            if [[ ! -f "$rel" ]]; then
+              echo "Missing matrix output: $rel"
+              exit 1
+            fi
+            cp -- "$rel" "$payload/"
+          done
+
+          git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+          git checkout -B recovery-output "origin/research/app-artifact-recovery-20261016"
+          dest="research/artifact_recovery_20261016/put_ratio_nav_exit_matrix/rerun-$tag"
+          mkdir -p "$dest"
+          cp -a "$payload/." "$dest/"
+          printf 'run_id=%s\nrun_attempt=%s\ntested_sha=%s\nsource_branch=%s\nsource_run_url=%s/%s/actions/runs/%s\noutput=full_N_1_to_6_both_orientation_NAV_exit_matrix\ncache=runner-local-sha-verified-no-github-cache-upload\n' \
+            "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$dest/RECOVERY_META.txt"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$dest"
+          if git diff --cached --quiet; then
+            echo "No new recovery files to commit"
+          else
+            git commit -m "recover: persist QQQ put-ratio NAV matrix outputs $tag"
+            pushed=false
+            for attempt in 1 2 3; do
+              if git push origin HEAD:research/app-artifact-recovery-20261016; then
+                pushed=true
+                break
+              fi
+              git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+              git rebase "origin/research/app-artifact-recovery-20261016"
+            done
+            if [[ "$pushed" != true ]]; then
+              echo "Recovery push failed after retries"
+              exit 1
+            fi
+          fi

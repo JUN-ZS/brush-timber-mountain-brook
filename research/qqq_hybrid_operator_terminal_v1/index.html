@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QQQ Hybrid Operator Terminal V1</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <div class="eyebrow">ORIGINAL HYBRID · OPERATOR WORKBENCH</div>
+      <h1>QQQ Hybrid Operator Terminal</h1>
+      <p class="subtitle">DATA → REGIME → CAPACITY → CURRENT / TARGET → MANUAL REVIEW</p>
+    </div>
+    <div class="top-actions">
+      <button id="aiHandoffBtn" class="primary">Export AI Review Pack (.md)</button>
+      <button id="syncHubBtn">Send capital → Hub</button>
+      <span class="tag danger">PREVIEW ONLY · NO BROKER ORDERS</span>
+      <button id="refreshBtn" class="primary">Refresh V3 Data</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="preserved-research-tracks" id="preservedResearchTracks" aria-label="Preserved QQQ put research tracks">
+      <div class="preserved-research-head">
+        <div>
+          <strong>保留研究線 · PRESERVED RESEARCH TRACKS</strong>
+          <p>簡化主 sizing 不等於刪除研究。以下 Put 路線會保留獨立入口，但目前不加入主台容量、目標或主策略風險池。</p>
+        </div>
+        <span class="tag warn">RESEARCH ONLY</span>
+      </div>
+      <nav class="preserved-research-links" aria-label="QQQ put research routes">
+        <a href="option_chain_lab.html?chain=QQQ_PUT" data-preserved-track="qqq-long-put">QQQ LONG PUT · 開啟 QQQ PUT 報價鏈 →</a>
+        <a href="hub_research_pack.html?strategyMode=put-ratio&amp;putRatioDirection=long-heavy" data-preserved-track="qqq-put-ratio-long-heavy">QQQ LONG PUT N : 1 SHORT PUT →</a>
+        <a href="hub_research_pack.html?strategyMode=put-ratio&amp;putRatioDirection=short-heavy" data-preserved-track="qqq-put-ratio-short-heavy">QQQ SHORT PUT N : 1 LONG PUT →</a>
+        <a href="hub_research_pack.html?strategyMode=shock-put" data-preserved-track="shock-gated-put">SHOCK-GATED PUT DEBIT SPREAD →</a>
+      </nav>
+      <details class="preserved-legacy-variants">
+        <summary>先前 N=5／N=10／N=20 Put 方案（獨立歷史研究，不能套用目前 HUB 的 N=1–6）</summary>
+        <p>這些是不同的腿位與風險形狀，不是上面 N LONG : 1 SHORT backspread 的同義版本。點開只看研究契約／程式，不會載入報價或批准倉位。</p>
+        <p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/research/qqq-put-ratio-exit-measurement-v1/research/qqq_put_ratio_exit_study_v1/CONTRACT.md" target="_blank" rel="noopener noreferrer">1 LONG higher-strike : 5 SHORT lower-strike · exit study contract →</a></p>
+        <p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/research/qqq-put-nplus10-20-atm-20260930/research/qqq_put_atm_n10_n20.py" target="_blank" rel="noopener noreferrer">1 ATM-ish LONG PUT + N=10／20 lower-strike SHORT PUTs · historical research script →</a></p>
+      </details>
+    </section>
+
+    <section class="card deployment-roadmap-card" id="deploymentRoadmap">
+      <div class="section-head"><div><h2>0 · LONG-TERM DEPLOYMENT ROADMAP</h2><p class="roadmap-lead">先定全程規則，再按每輪真實資金、持倉、價格與風險更新部署；不靠預測回報，不因短期盈虧臨時改策略。</p></div><span id="deploymentRoadmapStatus" class="tag warn">BASELINE PENDING</span></div>
+      <div class="roadmap-controls">
+        <label>Starting capital B ($)<input id="planBaseCapital" type="number" min="0.01" step="100" placeholder="Confirm original plan capital"></label>
+        <label>Plan start date<input id="planStartDate" type="date"></label>
+        <label>Horizon (months)<input id="planHorizonMonths" type="number" min="1" max="600" step="1" value="120"></label>
+        <label>Planned monthly contribution ($)<input id="planMonthlyContribution" type="number" min="0" step="100" value="0"></label>
+      </div>
+      <div class="inline-actions roadmap-actions"><button id="setRoadmapBaselineBtn" class="primary" type="button">Lock baseline from current NAV + today</button><button id="clearRoadmapBaselineBtn" type="button">Clear baseline</button><span class="muted">NAV / cash 的 $100,000 預設值是 what-if 輸入，不是已核實帳戶餘額。只有確認後才鎖定基準。</span></div>
+      <div id="deploymentRoadmapHeadline" class="roadmap-next-action" role="status">先確認原始基準資金與起始日期。未鎖定基準時，全期進度與底線保持 PENDING。</div>
+      <div id="deploymentRoadmapMetrics" class="roadmap-metrics">
+        <div class="roadmap-metric"><small>STARTING CAPITAL B</small><b>PENDING</b><span>需要確認的起始基準</span></div>
+        <div class="roadmap-metric"><small>CURRENT NAV vs CLOCK FLOOR</small><b>PENDING</b><span>先鎖定基準，再計算進度底線</span></div>
+        <div class="roadmap-metric"><small>HORIZON REMAINING</small><b>120 months</b><span>可調整，預設十年</span></div>
+        <div class="roadmap-metric"><small>FUTURE CONTRIBUTIONS</small><b>$0</b><span>規劃值，不是今天可用現金</span></div>
+      </div>
+      <div class="roadmap-phase-grid">
+        <article class="roadmap-phase"><small>PHASE 0 · OPEN</small><b>鎖定全程基準</b><p>確認 B、起始日、期限、實際 NAV、已承諾資金、真正可用現金與已持有倉位。未確認前不將示例數字當真。</p></article>
+        <article class="roadmap-phase"><small>PHASE 1 · EACH REVIEW</small><b>重算，不猜測</b><p>每次以已結算資金更新 NAV／現金／持倉／待成交單，再看 CURRENT → TARGET、MAX CAPACITY、預留現金和剩餘風險池。未實際入帳的月供不計入今日容量。</p></article>
+        <article class="roadmap-phase"><small>PHASE 2 · DEPLOY</small><b>只部署合資格缺口</b><p>只有資料新鮮、期限結構閘允許、合約／Bid-Ask 可核對、風險預算與現金都通過，才可把目標缺口送交人工審查；容量不等於批准。</p></article>
+        <article class="roadmap-phase"><small>PHASE 3 · DEFEND</small><b>底線／風險先行</b><p>低於 CLOCK Floor、資料封鎖、停損／風險超限或 SHOCK 時，優先停加風險並覆核；VXX 賣方風險先按既定閘處理，QQQ Core 不因此自動清倉。</p></article>
+        <article class="roadmap-phase"><small>PHASE 4 · HARVEST / REVIEW</small><b>同一把尺看持倉</b><p>比較 %NAV、R、每曆日盈虧、剩餘報酬／止損風險、持有時間與 DTE。固定賺到 $1,000 不會單獨觸發減倉；只產生人工覆核，不自動下單。</p></article>
+      </div>
+      <p class="roadmap-contract"><b>CLOCK Floor:</b> Cₜ = B × min(t/H, 1)，其中 t 是已過完整月份，H 是總月份。這是隨時間上升的覆核底線，不是保本保證、不會自動 SELL，且暫不把未來月供加入 B；每次真實供款入帳後再更新 NAV／現金。</p>
+      <p class="roadmap-warning"><b>研究硬閘仍存在：</b>現有研究鎖箱對 FAR CALL 的準確性仍為 BLOCKED、一般性未證明，隔離 overlay 的目前整合基準未通過。因此本路線圖不預測 CAGR／MaxDD、不替研究策略放行，也不改 Frozen Original Hybrid 權重。</p>
+    </section>
+
+    <section id="decisionValueDesk" class="card decision-value-desk">
+      <div class="section-head"><div><h2>1 · 進退性價比決策台 · DECISION VALUE ENGINE</h2><p class="decision-lead">接通主台市場閘、現有持倉及容量，再比較回報、損失、成本、時間和成功概率。不夠證據就寫 PENDING，不憑感覺填數。</p></div><span id="dvVerdictBadge" class="tag warn">PENDING · NEED INPUT</span></div>
+      <div class="decision-workspace">
+        <div class="decision-inputs">
+          <div class="decision-field-grid">
+            <label>Candidate / position<select id="dvCandidate">
+              <option value="qqqShares">QQQ CORE · shares</option><option value="vxxShortShares">VXX SHORT · shares</option><option value="qqqCallSpreads">QQQ CALL-CREDIT · primary budget leg</option><option value="vxxCallSpreads">VXX CALL-CREDIT · primary budget leg</option><option value="qqqFarCallOverlay">QQQ FAR CALL · incremental research overlay</option><option value="deploymentTiming">LONG-HORIZON · deploy now vs stage</option><option value="custom">Other / hypothetical candidate</option>
+            </select></label>
+            <label>Review lens<select id="dvLens"><option value="ADD">Add / deploy new exposure</option><option value="HOLD">Continue holding existing exposure</option></select></label>
+            <label>Units to evaluate (shares / spreads / units)<input id="dvQuantity" type="number" min="1" step="1" placeholder="Needed for whole-exposure EV"></label>
+            <label>Holding horizon (calendar days)<input id="dvHorizonDays" type="number" min="1" max="3650" step="1" placeholder="Use same horizon across candidates"></label>
+          </div>
+          <div id="dvEngineRoute" class="decision-route">Current sizing route will appear from the main calculator.</div>
+          <div id="dvHeldMeasurement" class="decision-route">Registered position mark / R / time review will appear here when present. Missing register rows are not zero holdings.</div>
+          <div class="decision-subhead"><b>PAYOFF & COST · per unit</b><span>Same horizon and cost convention for fair comparison.</span></div>
+          <div class="decision-field-grid">
+            <label>Gain if successful ($)<input id="dvRewardUsd" type="number" min="0.01" step="0.01" placeholder="Before costs below"></label>
+            <label>Loss if unsuccessful ($)<input id="dvLossUsd" type="number" min="0.01" step="0.01" placeholder="Stop / named stress amount"></label>
+            <label>Expected costs ($)<input id="dvCostUsd" type="number" min="0" step="0.01" placeholder="Fees / carry / borrow"></label>
+            <label>Extra adverse cost ($)<input id="dvCostStressUsd" type="number" min="0" step="0.01" placeholder="Enter 0 if none"></label>
+            <label>Loss measurement<select id="dvRiskNature"><option value="DEFINED">Defined stop / verified max loss</option><option value="STRESS_ONLY" selected>Stress loss only · not a cap</option><option value="UNBOUNDED">Unbounded / unknown tail</option></select></label>
+            <label>Probability calculation<select id="dvProbabilityMethod"><option value="MANUAL">Manual low / base / high</option><option value="EMPIRICAL">Wins / total outcomes → empirical rate</option></select></label>
+          </div>
+          <div class="decision-subhead"><b>OPPORTUNITY COST · same total capital + horizon</b><span>Required before evidence-backed relative-value review.</span></div>
+          <div class="decision-field-grid">
+            <label>Alternative / waiting expected value ($ total, after costs)<input id="dvAlternativeEVTotalUsd" type="number" step="0.01" placeholder="Blank = PENDING; $0 only when justified"></label>
+            <label>Alternative label / reference<input id="dvAlternativeLabel" type="text" maxlength="300" placeholder="Name the cash/control/hold alternative"></label>
+            <label>Candidate capital basis ($)<input id="dvCandidateCapitalUsd" type="number" min="0.01" step="0.01" placeholder="Capital assigned to this candidate"></label>
+            <label>Alternative capital basis ($)<input id="dvAlternativeCapitalUsd" type="number" min="0.01" step="0.01" placeholder="Must match candidate within $0.01"></label>
+            <label>Candidate risk budget ($)<input id="dvCandidateRiskBudgetUsd" type="number" min="0.01" step="0.01" placeholder="Same risk denominator"></label>
+            <label>Alternative risk budget ($)<input id="dvAlternativeRiskBudgetUsd" type="number" min="0.01" step="0.01" placeholder="Must match candidate within $0.01"></label>
+            <label>Alternative horizon (calendar days)<input id="dvAlternativeHorizonDays" type="number" min="1" max="3650" step="1" placeholder="Must equal candidate horizon"></label>
+            <label>Alternative EV explicitly net of all costs?<select id="dvAlternativeCostsIncluded"><option value="NO">NO / UNKNOWN</option><option value="YES">YES · fees, spread, carry/borrow included</option></select></label>
+          </div>
+          <div id="dvComparatorStatus" class="decision-route">Fair-comparator contract: PENDING — enter matched capital, risk budget, horizon and all-in after-cost basis.</div>
+          <p class="decision-note">Only a matched capital basis, risk budget, calendar horizon and explicitly after-cost expected value produce an incremental EV. Matching metadata is still operator-attested and cannot prove that the estimate itself is correct.</p>
+          <div id="dvManualProbabilityFields" class="decision-field-grid">
+            <label>Low success probability (%)<input id="dvProbLowPct" type="number" min="0" max="100" step="0.1" placeholder="Adverse case"></label>
+            <label>Base success probability (%)<input id="dvProbBasePct" type="number" min="0" max="100" step="0.1" placeholder="Evidence-based or hypothetical"></label>
+            <label>High success probability (%)<input id="dvProbHighPct" type="number" min="0" max="100" step="0.1" placeholder="Favourable case"></label>
+          </div>
+          <div id="dvEmpiricalProbabilityFields" class="decision-field-grid" hidden>
+            <label>Winning outcomes<input id="dvWins" type="number" min="0" step="1" placeholder="Wins under a fixed rule"></label>
+            <label>All counted outcomes<input id="dvTrials" type="number" min="1" step="1" placeholder="Wins + losses"></label>
+            <p class="decision-note">Shows observed win fraction + nominal 95% Wilson interval. Dependence, overlapping positions, model data or unrepresentative samples can invalidate the binomial interpretation.</p>
+          </div>
+          <div class="decision-probability-source"><label>Probability evidence basis<select id="dvProbabilityBasis"><option value="HYPOTHESIS">Hypothesis / scenario only</option><option value="MODEL_REPLAY">Repository model replay · not execution evidence</option><option value="INDEPENDENT_OOS">Independent chronological holdout / real outcomes</option></select></label><button id="dvLoadVxxReplayBtn" type="button">Load VXX model replay · 41 / 49</button></div>
+          <div class="decision-subhead"><b>THREE EVIDENCE AXES · NOT AVERAGED</b><span>PASS options are operator attestations, not authenticated by the APP.</span></div>
+          <div class="decision-field-grid decision-axes">
+            <label>Accuracy / source / execution<select id="dvAccuracy"><option value="UNREVIEWED">UNREVIEWED</option><option value="PASS">PASS · evidence reviewed</option><option value="BLOCKED">BLOCKED</option></select></label>
+            <label>Generality / out-of-sample<select id="dvGenerality"><option value="NOT_DEMONSTRATED">NOT DEMONSTRATED</option><option value="PASS">PASS · independent test</option><option value="FAIL">FAIL</option></select></label>
+            <label>Integration / incremental value<select id="dvIntegration"><option value="NOT_TESTED">NOT TESTED</option><option value="PASS">PASS · pre-registered comparator</option><option value="FAIL">FAIL</option></select></label>
+          </div>
+          <label>Source / report / sample window / fixed rule / costs<input id="dvEvidenceNote" type="text" maxlength="800" placeholder="Reference required for independent evidence"></label>
+          <details class="decision-evidence-details">
+            <summary>Generality dossier · chronological splits, rolling windows, regimes and untouched final OOS</summary>
+            <p class="decision-note">Paste JSON following RESEARCH_MEASUREMENT_CONTRACT.md §4. It must report five rolling windows, ≥100 observations per reported regime, common capital/cost rules, adverse-cost checks and a 100%-covered final lockbox. A passing structure is operator-attested only; it does not authenticate data or prove the lockbox was truly untouched.</p>
+            <textarea id="dvGeneralityDossierJson" rows="7" spellcheck="false" placeholder='Paste the complete JSON report generated by generality_auditor.py. Manual rolling-window claims are rejected; the report needs three SHA-256 input fingerprints and 100% expected-session coverage.'></textarea>
+            <div id="dvGeneralityStatus" class="decision-route">Generality dossier: PENDING — no independent holdout has been structurally checked.</div>
+          </details>
+        </div>
+        <div class="decision-results">
+          <div id="dvVerdictHeadline" class="decision-verdict-headline">PENDING — enter payoff, cost, horizon and probability. No default success probability is inserted.</div>
+          <div id="dvMetrics" class="decision-metrics">
+            <div class="decision-metric"><small>BREAK-EVEN PROBABILITY</small><b>—</b><span>Needs gain / loss / cost</span></div><div class="decision-metric"><small>BASE EXPECTED VALUE</small><b>—</b><span>After entered costs</span></div><div class="decision-metric"><small>ADVERSE EXPECTED VALUE</small><b>—</b><span>Low probability + stress cost</span></div><div class="decision-metric"><small>EV PER CALENDAR DAY</small><b>—</b><span>Needs quantity and horizon</span></div>
+          </div>
+          <div class="table-wrap decision-sensitivity-wrap"><table class="decision-sensitivity"><thead><tr><th>Case</th><th>Success P</th><th>Cost / unit</th><th>EV / unit</th><th>EV total</th><th>Incremental EV vs alternative</th></tr></thead><tbody id="dvSensitivityRows"><tr><td colspan="6" class="pro-empty-cell">Complete inputs to compare low / base / high cases.</td></tr></tbody></table></div>
+          <div id="dvDecisionReasons" class="decision-reasons">Positive model EV is not strategy approval. Current market, target capacity, contract safety and all three evidence axes still govern.</div>
+          <div class="decision-benchmark"><b>Break-even rule:</b> p* = (loss + base cost) / (gain + loss). The named alternative is a same-capital, same-horizon total EV; a positive EV versus $0 is not enough if waiting or another strategy is better. Base value must beat the comparator and the adverse case should beat it too. EV is not tail-risk proof.</div>
+        </div>
+      </div>
+      <details class="decision-evidence-details"><summary>Repository evidence register · source results and limitations</summary><div class="decision-evidence-grid">
+        <article><small>ROLLING 10Y DEPLOYMENT CONTROLLER</small><b>153 coupled replays · reported non-loss 100%</b><p>5% terminal quantile 2.0571×; worst terminal 1.9801×; worst MaxDD −32.6%. Historical replay only; independent 10Y regimes are limited. Not a 100% future non-loss probability.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/rolling_10y_floor/rolling_floor_report.md" target="_blank" rel="noreferrer">Source report →</a></article>
+        <article><small>QQQ FAR CALL · INCREMENTAL OVERLAY</small><b>0 / 16 budget-cost cases passed positive closed P&amp;L</b><p>Base arm: −$5,646 closed P&amp;L and −$5,552 last paired-date NAV gap. Data stops 2025-12-15; 11 expected terminal sessions missing. Accuracy BLOCKED · Generality NOT DEMONSTRATED · Integration FAILS CURRENT BASE SCREEN. Not a future-loss probability.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/qqq_hybrid_operator_terminal_v1/QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md" target="_blank" rel="noreferrer">Scorecard #148 →</a></article>
+        <article><small>VXX CALL-CREDIT · DERIVED MODEL REPLAY</small><b>41 / 49 wins · 83.7% historical model win fraction</b><p>8 losses; +$7,178 realized in that attribution. DERIVED_BS_VIX, not historical OPRA fills. Loadable as model reference only; it does not pass Accuracy / Generality gates.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/QQQ_HYBRID_PROFIT_TREND_REPLAY_V1_README.md" target="_blank" rel="noreferrer">Hybrid replay record →</a></article>
+        <article><small>FOUR-LAYER HYBRID · DESCRIPTIVE REPLAY</small><b>BASELINE 13.70% CAGR / −23.02% MaxDD</b><p>DEPLOY V1.1: 13.92% CAGR / −22.85% MaxDD, 2018-03-01 to 2026-09-04 (2,141 sessions). DERIVED_BS_VIX model outputs, not a complete historical OPRA replay or forecast.</p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/blob/0e710153382c72ce336f63c3465d45bff0c636f9/research/QQQ_HYBRID_PROFIT_TREND_REPLAY_V1_README.md" target="_blank" rel="noreferrer">Replay readme →</a></article>
+      </div></details>
+      <details class="decision-evidence-details" id="portfolioStressDetails">
+        <summary>跨策略共同風險 · 同一衝擊情境下的 QQQ / VXX 四類持倉</summary>
+        <p class="decision-note">逐類填同一具名衝擊下的損失美元；ZERO 必須代表已核對無該類持倉，不是缺資料。這是損失加總的情境估計，不是 VaR、最大損失或經驗證的相關性模型。VXX SHORT 的尾部仍然無上限。</p>
+        <div class="decision-field-grid">
+          <label>Common stress event<input id="dvStressScenarioName" type="text" maxlength="240" placeholder="e.g. QQQ −20%, volatility spike, VX backwardation"></label>
+          <label>Source / assumptions reference<input id="dvStressSourceNote" type="text" maxlength="500" placeholder="Source, date, or explicitly labelled hypothetical assumption"></label>
+        </div>
+        <div class="decision-field-grid">
+          <label>QQQ CORE exposure<select id="dvStressQqqCoreState"><option value="UNKNOWN">UNKNOWN · not reconciled</option><option value="ACTIVE">ACTIVE · loss entered below</option><option value="ZERO">ZERO · verified none</option></select></label>
+          <label>QQQ CORE loss in this event ($)<input id="dvStressQqqCoreLoss" type="number" min="0" step="0.01" placeholder="Positive loss estimate if ACTIVE"></label>
+          <label>VXX SHORT-stock exposure<select id="dvStressVxxShortState"><option value="UNKNOWN">UNKNOWN · not reconciled</option><option value="ACTIVE">ACTIVE · unbounded tail</option><option value="ZERO">ZERO · verified none</option></select></label>
+          <label>VXX SHORT loss in this event ($)<input id="dvStressVxxShortLoss" type="number" min="0" step="0.01" placeholder="Stress illustration only, never a cap"></label>
+          <label>QQQ CALL-CREDIT exposure<select id="dvStressQqqCallState"><option value="UNKNOWN">UNKNOWN · not reconciled</option><option value="ACTIVE">ACTIVE · loss entered below</option><option value="ZERO">ZERO · verified none</option></select></label>
+          <label>QQQ CALL-CREDIT loss ($)<input id="dvStressQqqCallLoss" type="number" min="0" step="0.01" placeholder="Same named stress event"></label>
+          <label>VXX CALL-CREDIT exposure<select id="dvStressVxxCallState"><option value="UNKNOWN">UNKNOWN · not reconciled</option><option value="ACTIVE">ACTIVE · loss entered below</option><option value="ZERO">ZERO · verified none</option></select></label>
+          <label>VXX CALL-CREDIT loss ($)<input id="dvStressVxxCallLoss" type="number" min="0" step="0.01" placeholder="Same named stress event"></label>
+        </div>
+        <label class="position-completeness-confirm"><input type="checkbox" id="dvStressReconciled"> I reconciled all four primary categories against the current holdings register / sizing state. Missing categories are not zero.</label>
+        <div id="dvPortfolioRiskResult" class="decision-route">Common portfolio stress: PENDING — reconcile all four primary categories.</div>
+      </details>
+      <p class="decision-footer-note">No order authority. EV is a two-outcome approximation from entered gain / loss / cost. It omits multi-state payoff, path dependence, changing Greeks, volatility surface, borrow/margin calls, assignment, taxes, unentered costs and portfolio correlations.</p>
+    </section>
+    <section class="notice">
+      <b>Primary capital-first budget:</b> QQQ core shares + VXX short-stock margin + these short-credit option legs only: QQQ far call-credit and VXX call-credit. Only those two defined-risk credit verticals share the option max-loss pool; QQQ stock and VXX short-stock margin are reconciled in the same cash plan. VXX put is excluded.
+      <small>Hub packages, debit/buy options, long options, and unrelated research structures remain visible for inspection but cannot alter main capacity. The intentionally excessive 1,000-unit case is a diagnostic only. V3 market context is read-only; budgets remain editable what-if assumptions.</small>
+    </section>
+
+    <section class="notice">
+      <b>Hub 特別期權：</b>Ratio-Call、QQQ Put Ratio (N SHORT : 1 LONG / N LONG : 1 SHORT)、State-Adaptive / Staggered、SHOCK-GATED Put Spread 保留作研究檢視，<b>不進入主預算</b>，亦不會提供可與主倉加總的容量。
+      <small><a href="hub_research_pack.html">開啟 Hub Research Option Pack →</a>（研究細節頁；主操作台的 QQQ/VXX 主賣方預算才是統一容量來源。）</small>
+      <small><a href="option_chain_lab.html">開啟 QQQ / VXX Option Chain Lab →</a>（四條 CALL／PUT 鏈、價差矩陣、損益圖；截圖數據只作非即時樣本。）</small>
+      <small id="hubContextSyncStatus" role="status">同步只傳本次情境到同一瀏覽器，不代表成交或授權下單。</small>
+      <small><a id="openHubFromContextLink" href="hub_research_pack.html?fromPrimary=1" target="_blank" rel="noopener" hidden>用剛同步的主台情境開啟 Hub →</a></small>
+    </section>
+
+    <section class="card ai-handoff-guide" id="aiHandoffGuide">
+      <div class="section-head">
+        <h2>AI CO-OPERATION · INPUT → MEASURE → HUMAN REVIEW</h2>
+        <span class="tag warn">NO BROKER ORDERS</span>
+      </div>
+      <div class="ai-handoff-steps">
+        <div><b>1 · Enter reality</b><span>Set NAV, only truly uncommitted cash, current stock/share and option holdings, and pending orders.</span></div>
+        <div><b>2 · Refresh evidence</b><span>Refresh V3, check QQQ/VXX/VIX and VX M1/M2 dates, then load the two primary call-credit candidates. Confirm exact broker Bid/Ask, expiry and contract deliverable.</span></div>
+        <div><b>3 · Export to ChatGPT</b><span>Use the top button to download a dated Markdown packet. Attach it with a fresh broker-chain screenshot/CSV; I will return the same measured gate and decision-card structure each time.</span></div>
+      </div>
+      <p id="aiHandoffStatus" class="muted" role="status">Packet includes this preview, source dates, option candidates, capital/risk results and the fixed three-axis research lockbox. This file does not contain broker credentials or place orders.</p>
+      <details class="ai-handoff-gates">
+        <summary>Fixed measurement units and pass/fail rules</summary>
+        <p><b>Accuracy:</b> quote provenance and contract identity explicit; independently recomputed cash-flow arithmetic within USD 0.01; no fabricated or forward-filled marks.</p>
+        <p><b>Generality:</b> report coverage numerator/denominator, missing/unmatched dates, regimes and chronological windows. Previously inspected 2018–2025 is development data, not virgin OOS; where sample size permits require at least five chronological windows and disclose cost stress of at least 1.5×.</p>
+        <p><b>Integration:</b> compare against a named matched baseline on the same dates, capital flows, marks and costs. Use the pre-registered return / downside / deployment bars; never tune the thresholds after observing results. A hard-gate failure cannot be averaged away.</p>
+        <p><b>Current lockbox:</b> Far-Call Accuracy is BLOCKED, Generality is NOT DEMONSTRATED, and the isolated overlay fails its current integration base screen. This is not a complete backtest result for the full Frozen Original Hybrid; it is also not permission to promote the add-on.</p>
+        <p><b>Human action:</b> ChatGPT may say BLOCK, WAIT FOR DATA, or ELIGIBLE FOR HUMAN REVIEW. APP capacity and ADD previews are not orders, and no broker order route exists.</p>
+      </details>
+      <details class="ai-handoff-gates" id="beginnerDecisionChecklist">
+        <summary>Beginner decision basis · how to read ADD / HOLD / REDUCE</summary>
+        <p><b>0 · Money suitability:</b> Do not count emergency reserves or money needed for near-term spending as investable cash. Confirm your time horizon and that a plausible loss is affordable before treating NAV as risk capital.</p>
+        <p><b>1 · DATA:</b> Require current, dated QQQ/VXX spot, VIX and real VX M1/M2 with source/timezone and an acceptable age. Verify the exact option legs, same expiry, bid/ask, multiplier and deliverable. Missing, stale, mixed or unverified data means BLOCK / PENDING.</p>
+        <p><b>2 · REGIME:</b> CARRY only means the market gate permits consideration of additions; it is not a forecast that QQQ will rise. Thin contango means HOLD new carry entries; high VIX or backwardation cuts volatility-seller exposure first.</p>
+        <p><b>3 · CAPITAL:</b> Compare NAV, truly uncommitted cash, reserve, current holdings, target, maximum capacity, stock notional, estimated margin and the shared option max-loss pool. VXX short-stock margin is not a loss cap; short-stock loss is theoretically unbounded.</p>
+        <p><b>4 · OPTION economics:</b> For a standard call-credit spread, conservative entry credit = short-call Bid − long-wing Ask; maximum profit = net credit × multiplier; maximum loss = (spread width − net credit) × multiplier; expiry breakeven = short strike + net credit per share, before fees. Review each leg's bid/ask width and stress slippage; reward/max-loss is not a win probability.</p>
+        <p><b>5 · Carry cost:</b> VXX short annualized borrow cost is estimated as short notional × entered borrow APR. Compare the base rate with a 1.5× cost stress and confirm the actual rate with the broker; this estimate is not an execution quote or a loss limit.</p>
+        <p><b>6 · STRATEGY evidence:</b> The current lockbox says the isolated QQQ Far-Call overlay fails its base integration screen, with accuracy blocked and generality not demonstrated. A displayed capacity or ADD is not approval to open that overlay. This does not claim the full Frozen Original Hybrid was backtested and failed; the negative result is for the isolated overlay comparison only.</p>
+        <p><b>Action reading:</b> BLOCK / PENDING = do not act on the incomplete calculation; HOLD = no new exposure under the current rules; REDUCE = review trimming toward the risk target; ADD = capacity permits human review only, not an order instruction. Proceed only when the data, contract, capital, costs, strategy evidence and human review are all acceptable.</p>
+      </details>
+      <details class="ai-handoff-gates" id="timeHarvestMeasurementGuide">
+        <summary>新手度量衡 · 持有多久、何時減倉／平倉、斬獲多少才值得？</summary>
+        <p><b>先看時間鏈：</b>入場日 → 首次達標／風險觸發的觀察日 → 最早可執行日 → 實際有足夠 Bid／Ask 與掛單量的執行日 → 最終淨損益。觀察到條件（Signal）不等於成交（Fill）；本研究是日終報價回放，不能證明盤中曾觸價或真實成交。</p>
+        <p><b>「斬獲性價比」不是只看賺了幾元：</b>一起看扣成本後每筆期望值、持倉交易日數、規則觸發率、觸發至第一次減／平倉的延遲、仍暴露的 short-risk、最差損失、報價覆蓋率，以及持有後 5／10 個交易日的回吐／恢復。每風險暴露等效日損益只作輔助比較；它不能代替尾部風險或勝率，也不能單獨選策略。</p>
+        <div class="table-wrap">
+          <table class="decision-table">
+            <thead><tr><th>研究出場規則</th><th>62 組樣本淨損益</th><th>每組期望值</th><th>勝率</th></tr></thead>
+            <tbody>
+              <tr><td>DTE ≤ 7 基準（到期前 7 日內依規則關閉 short risk）</td><td>+$18,067.60</td><td>+$291.41</td><td>95.16%</td></tr>
+              <tr><td>達 +$500 即關閉 short risk</td><td>+$14,199.60</td><td>+$229.03</td><td>93.55%</td></tr>
+              <tr><td>達 +$1,000 即關閉 short risk</td><td>+$18,067.60</td><td>+$291.41</td><td>95.16%</td></tr>
+              <tr><td>入場後第 20 個觀察交易日（入場日記為 age 0）P&amp;L ≤ $0：關閉 short risk</td><td>+$10,789.60</td><td>+$174.03</td><td>90.32%</td></tr>
+              <tr><td>入場後第 20 個觀察交易日（入場日記為 age 0）P&amp;L ≤ $0：減 4 張 short</td><td>+$9,568.60</td><td>+$154.33</td><td>85.48%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="tiny"><b>成本及口徑：</b>PR #101 Run #1；62 組非重疊、固定一組入場樣本；每腿每邊假設滑價 $0.05、每張合約每邊假設佣金 $0.65。這是 1 張較高履約價 long put + 5 張較低履約價 short put 的獨立研究，不是主操作台的 QQQ/VXX call-credit，也不是 Put Ratio Backspread。表內累計美元淨損益是 62 個固定單位樣本的加總；$100,000 只作標準化分母，不代表同一個 $100,000 帳戶連續再投資所得的回報，也不是組合收益率或 CAGR。</p>
+        <p><b>初步解讀：</b>這次歷史 EOD 樣本中首次觀察到 +$1,000 共 9 次，但 5 個持倉交易日內為 0 次，所以「很快賺到 $1,000 就應提早走」目前沒有樣本支持。+$1,000 與 +$2,000 兩行的總結果恰好等同基準，不能因此說門檻沒作用或門檻最優；必須看每條規則實際觸發幾次、在哪個持倉日觸發、多久才執行。</p>
+        <p><b>重大風險閘：</b>該 1-long／5-short put 的 QQQ=$0 到期終端損失中位數約 $106,392（$100,000 參考 NAV 的 106.39%），且不含中途保證金追繳／強平風險。即使樣本勝率高，仍是 <b>BLOCKED FOR DEPLOYMENT</b>，不得把此研究當成主策略或下單依據。</p>
+        <p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/pull/101">開啟 PR #101：獨立持倉時間／出場規則研究 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38463633227">Run #1 原始驗收紀錄 →</a> · <a href="RESEARCH_MEASUREMENT_CONTRACT.md">完整度量衡契約 →</a></p>
+      </details>
+    </section>
+    <section id="researchValidation" class="card">
+      <div class="section-head">
+        <h2>DATA / MODEL VALIDATION LOCKBOX</h2>
+        <span class="tag danger">PERFORMANCE PROMOTION BLOCKED</span>
+      </div>
+      <p class="reason"><b>Evidence state:</b> the full-history QQQ EOD source audit is hash-verified, but the option-price proxy has a measurable price-basis / spread-haircut mismatch. This panel is a read-only research warning; it does not change sizing, entry/exit rules, strategy weights, or broker permissions.</p>
+      <div class="metric-grid">
+        <div><small>EXPECTED SESSIONS</small><b>1,971</b><span>2018-03-01 → 2025-12-31</span></div>
+        <div><small>QQQ OPTION ROW DAYS</small><b>1,956 / 1,971 · 99.24%</b><span>Last observed option data: 2025-12-15</span></div>
+        <div><small>VALID RAW-SPOT TARGET PAIRS</small><b>1,946 / 1,971 · 98.73%</b><span>Only observed matched days count</span></div>
+        <div><small>VIX-PROXY CREDIT GAP</small><b>+$0.181 / share</b><span>Median model minus observed EOD side credit; n=1,946</span></div>
+        <div><small>FAR-CALL vs NO-CALL CONTROL</small><b>−$5,552</b><span>Last paired-date NAV gap · zero-cost source max-loss arm</span></div>
+        <div><small>POSITIVE NAV-GAP DAYS</small><b>32 / 1,947</b><span>24 unmatched dates excluded; last paired date 2025-12-15</span></div>
+      </div>
+
+      <section id="measurementScorecard" class="measurement-scorecard">
+        <div class="section-head">
+          <h3>THREE-AXIS RESEARCH MEASUREMENT</h3>
+          <span class="tag danger">NO STRATEGY PROMOTION</span>
+        </div>
+        <div class="measurement-axis-grid">
+          <article class="measurement-axis-card">
+            <small>01 · ACCURACY</small>
+            <span class="axis-status blocked">BLOCKED FOR TRADE PERFORMANCE</span>
+            <p><b>Accounting sub-gate PASS:</b> 1,688 / 1,688 closed-trade cash-flow rows independently reconcile; zero errors above $0.01 and maximum error $0.00. Trade-grade accuracy remains blocked by source gaps, price-basis / spread mismatch, and unverified fills.</p>
+          </article>
+          <article class="measurement-axis-card">
+            <small>02 · GENERALITY</small>
+            <span class="axis-status pending">NOT DEMONSTRATED</span>
+            <p>2018–2025 has been inspected repeatedly and is development evidence, not a virgin holdout. Eleven expected terminal sessions are missing; 24 NAV-mark dates are unmatched. Full-composite daily return metrics remain unavailable.</p>
+          </article>
+          <article class="measurement-axis-card">
+            <small>03 · INTEGRATION</small>
+            <span class="axis-status fail">FAIL CURRENT BASE SCREEN</span>
+            <p>Zero-cost 0.8% NAV max-loss arm: <b>−$5,646</b> closed-trade P&amp;L and <b>−$5,552</b> last paired-date NAV gap. This is an isolated no-call control, not the full Frozen Original Hybrid.</p>
+          </article>
+        </div>
+        <p class="reason">Do not average these gates into a misleading single PASS score. A successful workflow or a reconciled ledger is not proof of executable fills, OOS generality, or positive incremental value.</p>
+        <details class="validation-details">
+          <summary>Open pre-registered acceptance bars and next-step rules</summary>
+          <div class="summary-reasons">
+            <p><b>Return enhancement:</b> final OOS net-of-cost CAGR improves by at least +0.50 percentage points; MaxDD worsens by no more than 1.00 percentage point; Sharpe (risk-free rate 0) declines by no more than 0.05.</p>
+            <p><b>Downside protection:</b> final OOS MaxDD improves by at least 2.00 percentage points, daily-return ES95 improves by at least 10%, and CAGR give-up is no more than 0.50 percentage points. ES95 is the mean of the worst 5% of daily portfolio returns.</p>
+            <p><b>Capital deployment:</b> downside gate passes, or terminal NAV is no worse than −0.50% of baseline and a pre-selected metric improves: average unallocated cash / NAV falls by at least 5.00 percentage points, or time to the same target allocation falls by at least 20%.</p>
+            <p><b>All tracks:</b> accuracy hard gates and generality evidence must pass; zero same-close lookahead; at least five chronological windows where sample size permits; cost stress at 1.5× or greater where relevant; all variants and failures retained. Critical blocks override any scorecard average.</p>
+          </div>
+          <p><a href="QQQ_HYBRID_MEASUREMENT_SCORECARD_RUN148.md">Open measured snapshot — Replay #148 / Audit #177 (tested head 57fd41b2) →</a> · <a href="RESEARCH_MEASUREMENT_CONTRACT.md">Open full pre-registered Measurement Contract →</a></p>
+        </details>
+      </section>
+      <details class="validation-details">
+        <summary>Open model-fit findings, data gaps, and promotion rules</summary>
+        <div class="summary-reasons">
+          <p><b>Price basis:</b> repository QQQ spot versus raw nominal close has a median difference of −2.72% on 1,956 chain days. Confirm the underlying price basis before using model-selected strikes or deltas.</p>
+          <p><b>Spread haircut:</b> the VIX-derived model haircut was narrower than the observed option-leg half-spread on 30.0% of short legs and 57.2% of wings. In the VIX ≥35 bucket, the rates were 81.5% and 100% respectively (54 matched pairs).</p>
+          <p><b>Source IV caution:</b> using the source-reported option IV narrows the median absolute credit gap to $0.060/share, but that IV may itself be derived from the same quote and is not independent validation. The VIX-only proxy's median absolute credit gap is $0.196/share.</p>
+          <p><b>Coverage:</b> 11 expected sessions from 2025-12-16 through 2025-12-31 have no QQQ option chain or raw underlying price in this pinned source. Four earlier expected sessions also lack option rows. Missing observations are not interpolated or forward-filled.</p>
+          <p><b>Execution / strategy gate:</b> the isolated FAR CALL replay failed its base screen. At zero modeled costs, 106 trades opened / 105 closed for <b>−$5,646 closed-trade P&amp;L</b>; the last paired-date NAV gap was <b>−$5,552</b> versus a control holding the same 42% QQQ core total-return proxy plus static 58% cash and no option trades. Only 1,947 dates are paired; 24 unmatched dates are excluded, and the last paired date is 2025-12-15. This control is <b>not the full Frozen Original Hybrid composite</b>; EOD quote-side marks are not confirmed fills. Keep Frozen Original Hybrid settings unchanged, but do not treat capacity math or successful QA as proof of positive incremental value. CAGR, daily MTM MaxDD, Sharpe and ES95 remain unapproved.</p>
+        </div>
+        <p><a href="QQQ_FULL_HISTORY_GROKBOT_RUN2.md">Open the committed full-history audit report →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339543">Grok Bot Linux Run #4 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339211">Windows Far-Call Run #50 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339179">Public EOD Audit Run #79 →</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38112339146">Terminal QA Run #162 →</a> · <a href="QQQ_FAR_CALL_INCREMENTAL_VALUE_V2_RUN45.md">V2 entry/capital/exit decomposition archive (Run #45) →</a></p>
+      </details>
+    </section>
+
+    <section id="proDashboard" class="pro-dashboard card">
+      <div class="pro-heading">
+        <div>
+          <div class="eyebrow">PRO CAPITAL CONSOLE · TWO-CALL HYBRID</div>
+          <h2 class="pro-title">Portfolio Allocation Dashboard</h2>
+          <p class="pro-subtitle">MAX CAPACITY · LIVE INPUTS · SHARED RISK · CASH RECONCILIATION</p>
+        </div>
+        <div id="proCalcStatus" class="pro-status">WAITING FOR VERIFIED MARKET DATA</div>
+      </div>
+
+      <div id="proKpis" class="pro-kpis">
+        <div class="pro-kpi"><small>PORTFOLIO NAV</small><b>—</b><span>Enter capital assumptions</span></div>
+        <div class="pro-kpi"><small>STOCK NOTIONAL</small><b>—</b><span>QQQ + VXX short exposure</span></div>
+        <div class="pro-kpi"><small>OPTION RISK USED</small><b>—</b><span>Two call-credit legs only</span></div>
+        <div class="pro-kpi"><small>UNALLOCATED CASH</small><b>—</b><span>After reserve and planned adds</span></div>
+      </div>
+
+      <div class="pro-chart-grid">
+        <article class="pro-panel">
+          <div class="pro-panel-head">
+            <div><span class="pro-index">01</span><h3>Cash Plan · Capital Required</h3></div>
+            <span id="proCashUtilization" class="pro-inline-value">—</span>
+          </div>
+          <div id="proCapitalChart" class="pro-capital-chart">
+            <div class="pro-empty">Load a verified V3 snapshot to calculate the cash plan.</div>
+          </div>
+          <div id="proCapitalLegend" class="pro-legend"></div>
+          <p class="pro-chart-note">Conservative accounting reserves the full option-risk envelope; VXX margin is an estimate, not a loss cap.</p>
+        </article>
+
+        <article class="pro-panel">
+          <div class="pro-panel-head">
+            <div><span class="pro-index">02</span><h3>Shared Option Risk · Max Loss</h3></div>
+            <span id="proOptionPoolLabel" class="pro-inline-value">—</span>
+          </div>
+          <div class="pro-risk-layout">
+            <div id="proRiskDonut" class="pro-risk-donut" style="--used:0"><div><b id="proRiskUsedPct">—</b><span>POOL USED</span></div></div>
+            <div id="proRiskBreakdown" class="pro-risk-breakdown"><div class="pro-empty">Option quotes are required.</div></div>
+          </div>
+          <div id="proRiskFoot" class="pro-risk-foot">QQQ call-credit + VXX call-credit only. VXX put is excluded.</div>
+        </article>
+      </div>
+
+      <div class="pro-capacity-head">
+        <div><span class="pro-index">03</span><h3>Maximum Position Capacity</h3></div>
+        <span class="pro-capacity-explainer">Calculated at current inputs · integer shares / spreads</span>
+      </div>
+      <div id="proCapacityGrid" class="pro-capacity-grid">
+        <div class="pro-capacity-card"><small>QQQ CORE</small><b>—</b><span>shares</span></div>
+        <div class="pro-capacity-card"><small>VXX SHORT STOCK</small><b>—</b><span>shares short</span></div>
+        <div class="pro-capacity-card"><small>QQQ CALL-CREDIT</small><b>—</b><span>spreads</span></div>
+        <div class="pro-capacity-card"><small>VXX CALL-CREDIT</small><b>—</b><span>spreads</span></div>
+      </div>
+
+      <div class="pro-table-head">
+        <div><span class="pro-index">04</span><h3>PRO Price & Allocation Table</h3></div>
+        <span class="pro-capacity-explainer">NAV % · notional · margin · max loss · credit</span>
+      </div>
+      <div class="table-wrap pro-table-wrap">
+        <table class="pro-table">
+          <thead>
+            <tr><th>Position / Contract</th><th>Price / Strikes</th><th>Max Qty</th><th>Notional / Margin</th><th>Est. Net Credit ($ / % NAV)</th><th>Max Loss</th><th>% NAV</th><th>Budget Status</th></tr>
+          </thead>
+          <tbody id="proAllocationRows"><tr><td colspan="8" class="pro-empty-cell">Refresh market data and load the two call-credit quotes to fill this table.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pro-total-row" id="proTotalsRow">
+        <span>STOCK NOTIONAL <b>—</b></span>
+        <span>OPTION MAX LOSS <b>—</b></span>
+        <span>PLANNED CAPITAL <b>—</b></span>
+        <span>FREE CASH <b>—</b></span>
+      </div>
+      <p class="pro-footnote">No VXX Put in the main budget. Other Hub / debit / long structures stay inspection-only. Scenario prices from past screenshots are test fixtures, not preloaded live quotes. Final ADD / HOLD / REDUCE remains gated by fresh market data; no broker orders are placed.</p>
+    </section>
+
+    <section class="grid market-grid">
+      <article class="card market-card">
+        <div class="section-head">
+          <h2>1 · MARKET SNAPSHOT</h2>
+          <span id="marketBadge" class="tag warn">WAITING FOR DATA</span>
+        </div>
+        <div class="snapshot-grid">
+          <label>QQQ spot <input id="mQqq" type="number" step="0.01" placeholder="V3 or manual"></label>
+          <label>VXX spot <input id="mVxx" type="number" step="0.01" placeholder="V3 or manual"></label>
+          <label>VIX <input id="mVix" type="number" step="0.01" placeholder="V3 or manual"></label>
+          <label>VX M1 <input id="mM1" type="number" step="0.0001" placeholder="front month"></label>
+          <label>VX M2 <input id="mM2" type="number" step="0.0001" placeholder="second month"></label>
+          <label>Term slope <input id="mSlope" type="text" readonly value="—"></label>
+          <label>Spot as-of <input id="mSpotAsOf" type="date"></label>
+          <label>Term as-of <input id="mTermAsOf" type="date"></label>
+          <label>US market date (auto · New York) <input id="mToday" type="date" readonly aria-readonly="true"></label>
+        </div>
+        <div id="marketMeta" class="muted">No snapshot loaded. Missing or stale required data blocks sizing recommendations.</div>
+        <div id="marketReason" class="reason">Start V3 on port 8788, then refresh. Manual fields are available for explicitly verified snapshots.</div>
+      </article>
+
+      <article class="card decision-card">
+        <div class="section-head">
+          <h2>2 · REGIME GATE</h2>
+          <span class="tag">READ ONLY / DERIVED</span>
+        </div>
+        <div id="stateName" class="state-name">DATA BLOCKED</div>
+        <p id="stateAction" class="state-action">HOLD · WAIT FOR DATA</p>
+        <div class="gate-grid">
+          <div><small>DATA</small><b id="gData">BLOCKED</b></div>
+          <div><small>VIX</small><b id="gVix">—</b></div>
+          <div><small>VX TERM</small><b id="gTerm">—</b></div>
+          <div><small>NEW RISK</small><b id="gAdds">BLOCKED</b></div>
+        </div>
+        <p class="muted">Policy: healthy contango + VIX below threshold permits build; thin contango holds new entries; high VIX/backwardation cuts volatility-seller exposure. QQQ core is not automatically liquidated by the volatility gate.</p>
+      </article>
+    </section>
+
+    <article class="card position-ledger-card" id="positionLedgerCard">
+      <div class="section-head">
+        <h2>POSITION FACTS · UNREALIZED P&amp;L</h2>
+        <span class="tag">OPTIONAL REGISTER · NO ORDERS</span>
+      </div>
+      <div id="positionLedgerHeadline" class="position-ledger-headline">
+        <div><small>METADATA-COMPLETE P&amp;L SUBTOTAL</small><b>—</b><span>No positions entered</span></div>
+        <div><small>INCOMPLETE P&amp;L ROWS</small><b>0</b><span>Blank entry/mark remains unknown</span></div>
+        <div><small>CONTRACT TERMS BLOCKS</small><b>0</b><span>Unverified held option terms block sizing when register mode is enabled</span></div>
+      </div>
+      <details id="positionRegisterPanel" class="position-register-details">
+        <summary>Open position register · save lots, attribute P&amp;L, or use actual holdings in Current → Target</summary>
+        <div class="position-register-controls">
+          <label class="toggle safety-toggle"><input id="positionUseRegister" type="checkbox"> Use registered holdings as current quantities for the primary sizing engine</label>
+          <label class="toggle safety-toggle position-completeness-confirm"><input id="positionRegisterCompleteConfirmed" type="checkbox"> I confirm all four primary holding categories are accounted for here; any omitted category means zero. Reconfirm after importing or changing records.</label>
+          <div class="inline-actions">
+            <button id="positionExportBtn" type="button">Export Position Register JSON</button>
+            <button id="positionImportBtn" type="button">Import Position Register JSON</button>
+            <input id="positionImportFile" type="file" accept=".json,application/json" hidden>
+          </div>
+        </div>
+        <p id="positionRegisterModeStatus" class="muted">Register is attribution-only. Existing manual current-quantity inputs remain the sizing source until you explicitly enable register mode and confirm a complete inventory.</p>
+        <p class="position-measurement-note">Record only these primary units: QQQ long shares, VXX short shares, QQQ far call-credit packages, VXX call-credit packages. Stock P&amp;L is mark-to-entry; credit-spread P&amp;L = (entry net credit − current estimated close debit) × packages × multiplier. Gross unrealized P&amp;L excludes fees, slippage, dividends, borrow costs, assignment/exercise and taxes; it is not realized profit, does not reconcile cash flows, and never changes NAV automatically. A metadata-complete row means only that the operator-entered labels, references, contract fields and mark timestamp pass app checks. The app does not independently authenticate referenced broker documents or reconcile account cash flows. This subtotal is not verified account P&amp;L; the terms checkbox is a human attestation, not app-side verification.</p>
+        <form id="positionForm" autocomplete="off">
+          <input id="positionEditId" type="hidden" value="">
+          <div class="position-form-grid">
+            <label>Position template
+              <select id="posTemplate">
+                <option value="QQQ_CORE">QQQ core shares · LONG</option>
+                <option value="VXX_SHORT_STOCK">VXX short stock · SHORT</option>
+                <option value="QQQ_CALL_CREDIT">QQQ far call-credit spread</option>
+                <option value="VXX_CALL_CREDIT">VXX call-credit spread</option>
+              </select>
+            </label>
+            <label>Quantity <input id="posQty" type="number" min="1" step="1" required value="1"></label>
+            <label>Entry date (leave blank if unknown) <input id="posEntryDate" type="date"></label>
+            <label><span id="posEntryPriceLabel">Average entry price ($ / share)</span> <input id="posEntryPrice" type="number" min="0" step="0.0001" placeholder="Unknown stays blank"></label>
+            <label><span id="posMarkPriceLabel">Current mark ($ / share)</span> <input id="posMarkPrice" type="number" min="0" step="0.0001" placeholder="Blank stock mark uses APP spot; option stays unknown"></label>
+            <label>Mark as-of (ISO 8601 with timezone) <input id="posMarkAsOf" type="text" maxlength="40" placeholder="2026-10-09T16:00:00-04:00 or ...Z"></label>
+            <label>Mark source type
+              <select id="posMarkSourceType">
+                <option value="UNKNOWN">Unknown / not recorded</option>
+                <option value="BROKER_LIVE">Broker live quote</option>
+                <option value="PUBLIC_DELAYED">Public delayed quote</option>
+                <option value="EOD_MARK">End-of-day mark</option>
+                <option value="MODEL_ESTIMATE">Model / manual estimate</option>
+              </select>
+            </label>
+            <label>Entry evidence
+              <select id="posEntryEvidence">
+                <option value="UNKNOWN">Unknown / not verified</option>
+                <option value="BROKER_FILL">Broker confirmed fill</option>
+                <option value="BROKER_STATEMENT">Broker statement / history</option>
+                <option value="MANUAL_ESTIMATE">Manual estimate</option>
+              </select>
+            </label>
+            <label>Entry source / reference <input id="posEntrySourceNote" type="text" maxlength="500" placeholder="e.g. statement row, deal ID label"></label>
+            <label>Mark source / reference <input id="posMarkSourceNote" type="text" maxlength="500" placeholder="e.g. broker chain screenshot time"></label>
+          </div>
+          <div class="position-management-fields">
+          <h3>SHARED MANAGEMENT METER · PRICE / RISK / TIME</h3>
+          <div class="position-form-grid">
+            <label>Planned risk budget / loss allowance ($) <input id="posRiskBudgetUsd" type="number" min="0.01" step="1" placeholder="Blank = derive from stop or known spread max loss"></label>
+            <label><span id="posStopMarkLabel">Stop mark ($ / share)</span> <input id="posStopMarkPrice" type="number" min="0" step="0.0001" placeholder="Set a measured stop"></label>
+            <label><span id="posTargetMarkLabel">Target mark ($ / share)</span> <input id="posTargetMarkPrice" type="number" min="0" step="0.0001" placeholder="Optional profit-review price"></label>
+            <label>Profit review threshold (R) <input id="posProfitTargetR" type="number" min="0.1" max="100" step="0.1" placeholder="e.g. 1.0R; blank disables"></label>
+            <label>Maximum holding age (calendar days) <input id="posMaxHoldDays" type="number" min="1" max="3650" step="1" placeholder="e.g. 10; weekends count"></label>
+            <label>Option expiry-review threshold (DTE) <input id="posExpiryReviewDte" type="number" min="0" max="1200" step="1" placeholder="Optional; e.g. 7 calendar days"></label>
+          </div>
+          <p class="muted">Price meaning depends on position: QQQ long shares stop below entry / target above; VXX short shares stop above entry / target below; credit spreads use net debit to close, so stop debit is above entry credit / target debit below. R uses an entered risk budget, entry-to-stop risk, or known standard-spread expiry max loss. Empty rules remain PLAN INCOMPLETE, not silently defaulted.</p>
+        </div>
+        <div id="positionOptionFields" class="position-option-fields" hidden>
+            <div class="position-form-grid">
+              <label>Option expiry <input id="posExpiry" type="date"></label>
+              <label>Short strike <input id="posShortStrike" type="number" min="0" step="0.01"></label>
+              <label>Long / protective strike <input id="posLongStrike" type="number" min="0" step="0.01"></label>
+              <label>Short contract symbol <input id="posShortSymbol" type="text" maxlength="100" placeholder="Exact OCC / broker symbol"></label>
+              <label>Long contract symbol <input id="posLongSymbol" type="text" maxlength="100" placeholder="Exact OCC / broker symbol"></label>
+              <label>Multiplier / package unit <input id="posMultiplier" type="number" min="1" step="1" value="100"></label>
+              <label class="toggle"><input id="posTermsVerified" type="checkbox"> I attest I checked exact expiry, root, deliverable and multiplier against broker contract details</label>
+              <label>Deliverable / contract note <input id="posDeliverableNote" type="text" maxlength="500" placeholder="Record broker terms; adjusted VXX remains blocked"></label>
+            </div>
+            <p class="muted">A credit-spread mark is the estimated net debit required to close the whole vertical, quoted per underlying share. Entry is net credit per share. This is not a broker-confirmed execution price.</p>
+          </div>
+          <div class="inline-actions">
+            <button id="positionSaveBtn" class="primary" type="button">Add position record</button>
+            <button id="positionCancelEditBtn" type="button" hidden>Cancel edit</button>
+            <span id="positionFormStatus" class="muted" role="status">Position facts persist in this browser only. Export a JSON backup before clearing browser data.</span>
+          </div>
+        </form>
+        <div id="positionLedgerTotals" class="position-ledger-totals"></div>
+        <div class="table-wrap position-ledger-table-wrap">
+          <table class="position-ledger-table">
+            <thead><tr><th>Position / contract</th><th>Entry date</th><th>Qty</th><th>Entry</th><th>Mark / close cost</th><th>Gross unrealized P&amp;L</th><th>Mark quality</th><th>Terms / source</th><th>Record</th></tr></thead>
+            <tbody id="positionLedgerRows"><tr><td colspan="9" class="pro-empty-cell">No position records yet. Manual Current Quantity inputs remain available above.</td></tr></tbody>
+          </table>
+        </div>
+      </details>
+    </article>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>1 · PRINCIPAL, CAPITAL AND PORTFOLIO RISK BUDGET</h2>
+        <span class="tag warn">OPERATOR INPUT · WHAT-IF</span>
+      </div>
+      <div class="controls-grid">
+        <label>NAV ($) <input id="nav" type="number" min="0" step="100" value="100000"></label>
+        <label>Uncommitted cash available for this plan ($) <input id="cashPool" type="number" min="0" step="100" value="100000"></label>
+        <label>Cash reserve (% of available cash) <input id="cashReservePct" type="number" min="0" max="100" step="0.5" value="10"></label>
+        <label>VXX short-margin reserve multiple (estimate) <input id="vxxShortMarginMultiple" type="number" min="0.1" max="10" step="0.1" value="1.5"></label>
+        <label>VXX short borrow APR (% p.a.; editable estimate) <input id="vxxShortBorrowAprPct" type="number" min="0" max="100" step="0.1" value="3"></label>
+        <label>QQQ core (% NAV) <input id="qqqCorePct" type="number" min="0" max="100" step="0.1" value="42"></label>
+        <label>VXX short normal (% NAV notional) <input id="vxxNormalPct" type="number" min="0" max="100" step="0.1" value="18"></label>
+        <label>VXX short high-VIX (% NAV notional) <input id="vxxHighPct" type="number" min="0" max="100" step="0.1" value="10"></label>
+        <label>Total option max-loss pool (% NAV) <input id="totalOptionRiskPct" type="number" min="0" max="100" step="0.1" value="3.2"></label>
+        <label>QQQ call-credit max-loss allocation (% NAV) <input id="qqqCallRiskPct" type="number" min="0" max="100" step="0.1" value="1.2"></label>
+        <label>VXX call-credit max-loss allocation (% NAV) <input id="vxxCallRiskPct" type="number" min="0" max="100" step="0.1" value="2"></label>
+        <label>QQQ bull-put (research-only; excluded from main budget) <input type="text" value="OUTSIDE MAIN BUDGET" disabled></label>
+        <label>VIX high line <input id="vixHigh" type="number" min="1" max="100" step="1" value="28"></label>
+        <label>VX term safe line (%) <input id="termSafe" type="number" min="0" max="100" step="0.1" value="5"></label>
+        <label>Maximum term age (days) <input id="maxTermAgeDays" type="number" min="0" max="30" step="1" value="4"></label>
+      </div>
+      <p class="muted"><b>Measurement:</b> The two per-leg percentage inputs allocate max-loss exposure as % of NAV, not premium/credit targets. The shared pool is the max-loss envelope. Estimated opening net credit is shown separately in USD and % NAV at max capacity from the loaded quote; it is not a broker-confirmed fill. VXX borrow APR is a separate editable cost assumption, defaulted to 3.0% for scenario analysis; verify the actual broker rate. Its annualized estimate and 1.5× stress do not alter margin or cap short-stock losses.</p>
+      <div class="inline-actions">
+        <button id="v3ProfileBtn">Load V3 Reference Profile (Preview)</button>
+        <span class="muted">Reference values are editable what-if inputs, not frozen live sizing. Fresh $100,000 deployment: set NAV and uncommitted cash to $100,000. Existing portfolio: enter total equity as NAV and only truly uncommitted cash here. Confirm VXX margin with your broker.</span>
+      </div>
+    </section>
+
+    <section class="grid two-col">
+      <article class="card">
+        <div class="section-head">
+          <h2>2 · SHARES: MAXIMUM CAPACITY → CURRENT-STATE TARGET</h2>
+          <span class="tag">OVER-CAP TRIM ALLOWED</span>
+        </div>
+        <div class="table-wrap">
+          <table class="decision-table">
+            <thead><tr><th>Leg</th><th>Current units (optional)</th><th>Max units</th><th>Action target</th><th>ADD / HOLD / REDUCE</th><th>Target exposure</th><th>New capital / margin estimate</th></tr></thead>
+            <tbody>
+              <tr><td><b>QQQ CORE SHARES</b><small class="row-reason">Capacity = NAV × core allocation / QQQ price. Adds require CARRY; over-cap trims remain visible.</small></td><td><input id="current-qqqShares" type="number" min="0" step="1" value="0"></td><td id="capacity-qqqShares">—</td><td id="target-qqqShares">—</td><td id="action-qqqShares" class="action-cell">—</td><td id="exposure-qqqShares">—</td><td id="capital-qqqShares">—</td></tr>
+              <tr><td><b>VXX SHORT SHARES</b><small class="row-reason">Notional ceiling only; VXX short stock has unbounded upside risk.</small></td><td><input id="current-vxxShortShares" type="number" min="0" step="1" value="0"></td><td id="capacity-vxxShortShares">—</td><td id="target-vxxShortShares">—</td><td id="action-vxxShortShares" class="action-cell">—</td><td id="exposure-vxxShortShares">—</td><td id="capital-vxxShortShares">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">Cash is shared: cash reserve + option-risk envelope are set aside first; QQQ additions use the next budget; VXX short additions use what remains at the entered margin multiple. That is an estimate, not a broker quote or loss cap. VXX short stock has unbounded upside loss.</p>
+      </article>
+      <details class="card diagnostic">
+        <summary>Optional self-audit diagnostic — intentionally oversized input (not the normal capital-sizing workflow)</summary>
+        <div class="section-head">
+          <h2>DIAGNOSTIC ONLY · OVER-CAP TRIM CHECK</h2>
+          <span class="tag warn">SIMULATION</span>
+        </div>
+        <label>Choose a position to test
+          <select id="testLeg">
+            <option value="qqqShares">QQQ core shares</option>
+            <option value="vxxShortShares">VXX short shares</option>
+            <option value="qqqCallSpreads">QQQ far call-credit spreads</option>
+            <option value="vxxCallSpreads">VXX call-credit spreads</option>
+            <option value="qqqBullPutSpreads">QQQ bull-put spreads</option>
+          </select>
+        </label>
+        <button id="test1000Btn" class="primary full">Set current quantity = 1000 (test only)</button>
+        <div id="testResult" class="test-result">Diagnostic fixture only. Normal workflow starts from capital and risk budgets.</div>
+        <p class="muted">Use only to confirm the engine detects an over-cap position. It does not set the deployment strategy or imply that 1,000 is a sensible holding.</p>
+      </details>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>3 · PRIMARY HYBRID OPTION LEGS</h2>
+        <span class="tag">NO AUTOMATIC ORDERS</span>
+      </div>
+      <div class="candidate-tools">
+        <button data-find="qqqCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.16">Find QQQ Far Call-Credit</button>
+        <button data-find="vxxCall" data-symbol="VXX" data-right="call" data-kind="vertical">Find VXX Call Vertical</button>
+        <label class="small-label">Primary target DTE <input id="targetDte" type="number" min="14" max="120" step="1" value="45"></label>
+        <details class="advanced-option-tools" id="advancedResearchTools">
+          <summary>Optional research candidates / Hub controls — excluded from the primary budget</summary>
+          <div class="advanced-option-actions">
+            <label class="toggle safety-toggle"><input id="allowProtectionBuys" type="checkbox"> Permit protective-put additions outside CARRY (manual review only)</label>
+            <button data-find="qqqBearCall" data-symbol="QQQ" data-right="call" data-kind="vertical" data-target-delta="0.10">Find QQQ Bear-Call Vertical</button>
+            <button data-find="qqqPut" data-symbol="QQQ" data-right="put" data-kind="vertical">Find QQQ Put Vertical</button>
+            <button data-find="qqqLongCall" data-symbol="QQQ" data-right="call" data-kind="long">Find QQQ Long Call</button>
+            <button data-find="qqqLongPut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.25">Find QQQ Long Put</button>
+            <button data-find="qqqProtectivePut" data-symbol="QQQ" data-right="put" data-kind="long" data-target-delta="0.35">Find QQQ Protective Put</button>
+            <button data-find="qqqCoveredCall" data-symbol="QQQ" data-right="call" data-kind="short">Find Covered Call</button>
+            <button id="findHubResearchBtn" class="primary">Find Hub Research Packages</button>
+            <label class="small-label">Hub Call Ratio N <select id="hubRatioN"><option value="1">N=1</option><option value="2" selected>N=2</option><option value="3">N=3</option><option value="4">N=4</option></select></label>
+            <label class="small-label">State-Adaptive / Staggered max vintages <select id="hubStateLayerCap"><option value="1">1 vintage</option><option value="2">2 vintages</option><option value="4">4 vintages</option></select></label>
+            <label class="small-label">Hub shock 252D drawdown (%) <input id="hubDrawdown252Pct" type="number" min="-100" max="0" step="0.1" value="0"></label>
+            <label class="small-label">Hub shock 5D return (%) <input id="hubReturn5dPct" type="number" min="-100" max="100" step="0.1" value="0"></label>
+          </div>
+        </details>
+      </div>
+      <p class="tiny quote-measurement-guide">Quote width / midpoint = (Ask − Bid) ÷ ((Ask + Bid) / 2). Triage labels: ≤10% TIGHT; >10% to 25% WATCH; >25% WIDE. These are descriptive spread-width bins, not a trade approval score. The displayed chain retrieval time is not a verified exchange quote timestamp. Adjusted VXX option roots remain blocked until the app has a tested deliverable-aware payoff model; a note/checkbox alone cannot unlock sizing.</p>
+      <div id="candidateRows" class="candidate-rows"></div>
+      <p class="muted"><b>Primary short-option allocator:</b> only QQQ far call-credit and VXX call-credit candidates enter the shared option max-loss pool. Requested weights are scaled proportionally if their sum exceeds the pool, before whole-contract rounding. VXX put is disabled for this plan. Hub, long/debit and other research catalogue rows are explicitly outside main budget, even when their own research candidates are available.</p>
+      <div class="option-table-toolbar">
+        <p class="muted">Default view shows only the two primary legs. Their risk budgets are edited once in the capital section above; this column is read-only to prevent conflicting duplicate inputs.</p>
+        <button id="toggleResearchRows" type="button" aria-expanded="false">Show 16 research-only rows</button>
+      </div>
+      <div class="table-wrap" id="optionTableWrap">
+        <table class="decision-table option-table">
+          <thead>
+            <tr><th>Strategy / leg</th><th>Current contracts (optional)</th><th>Risk budget (% NAV; set above)</th><th>Allocated shared risk ($)</th><th>Risk / package ($)</th><th>Enable add-on</th><th>Max packages/contracts</th><th>Action target</th><th>Risk reserve @ target</th><th>Recommendation</th></tr>
+          </thead>
+          <tbody id="optionRows"></tbody>
+        </table>
+      </div>
+      <div class="footnotes">
+        <p><b>Main capital plan:</b> QQQ core shares + VXX short-stock margin estimate. Main shared option max-loss pool: QQQ far call-credit + VXX call-credit only. VXX put and all other research rows are excluded.</p>
+        <p><b>Inspection-only structures:</b> QQQ bull-put / bear-call, covered call, protective put, long call / put / straddle, iron fly, iron condor, broken-wing butterfly, calendar and Hub packages. These do not affect the main budget.</p>
+        <p><b>Ratio strategies:</b> Hub Call Ratio / Put Ratio and the legacy N:near-long hedge are shown separately. Naked ratio tails are not hard-capped. A user-entered stress loss only creates a stress-budget estimate, never a hard max-loss promise.</p>
+        <p><b>Data boundary:</b> Option-chain candidates use public Yahoo chain data, which may be delayed/incomplete and is not a guaranteed executable quote. Verify strikes, bid/ask, expiry, contract adjustment and actual fills in OpenD/broker before use.</p>
+      </div>
+    </section>
+
+    <section class="grid two-col">
+      <article class="card">
+        <div class="section-head">
+          <h2>4 · LEGACY N:X HEDGE CAMPAIGN</h2>
+          <span class="tag danger">NO HARD MAX-LOSS CAP</span>
+        </div>
+        <p class="muted">Legacy research-only per-campaign preview. The far-short tail is not hard-capped and is not part of the primary portfolio capacity.</p>
+        <details class="advanced-research-controls">
+          <summary>Open legacy N:X campaign inputs and sizing diagnostic</summary>
+          <label class="toggle"><input id="nxEnabled" type="checkbox"> Activate preview for one campaign (not a live order permission)</label>
+          <div class="controls-grid compact">
+            <label>Current far short contracts <input id="nxCurrentFar" type="number" min="0" value="0"></label>
+            <label>Current near long contracts <input id="nxCurrentNear" type="number" min="0" value="0"></label>
+            <label>Far abs delta <input id="nxFarDelta" type="number" min="0.01" max="1" step="0.01" value="0.08"></label>
+            <label>Near abs delta <input id="nxNearDelta" type="number" min="0.01" max="1" step="0.01" value="0.50"></label>
+            <label>Far strike distance (%) <input id="nxFarDistancePct" type="number" min="0" max="100" step="0.1" value="10"></label>
+            <label>Gamma / baseline <input id="nxGammaRel" type="number" min="0" max="100" step="0.01" value="1"></label>
+            <label>Abs delta jump <input id="nxDeltaJump" type="number" min="0" max="1" step="0.001" value="0"></label>
+            <label>Coverage multiplier <input id="nxCoverage" type="number" min="0" max="5" step="0.1" value="1.5"></label>
+            <label>Maximum near stack <input id="nxMaxStack" type="number" min="1" max="20" step="1" value="5"></label>
+            <label>Far short target / campaign <input id="nxNShort" type="number" min="1" max="100" step="1" value="10"></label>
+          </div>
+          <div id="nxResult" class="test-result">Current: 0 far / 0 near. Target is disabled until explicitly selected.</div>
+          <p class="muted">Near-long target follows ceil(coverage × far-contract target × |far delta| / |near delta|), capped by max stack. This does not hard-cap the residual far-short tail. Over-large current quantities are only compared with a per-campaign profile, not a portfolio-wide risk capacity.</p>
+        </details>
+      </article>
+      <article class="card">
+        <div class="section-head">
+          <h2>5 · PORTFOLIO CAPITAL / RISK RECONCILIATION</h2>
+          <span class="tag">AUDITABLE EXPLANATION</span>
+        </div>
+        <div id="summaryMetrics" class="metric-grid"></div>
+        <div id="summaryReasons" class="summary-reasons"></div>
+        <div class="inline-actions">
+          <button id="journalBtn" class="primary">Append Preview to Local Journal</button>
+          <button id="exportBtn">Export Current Plan JSON</button>
+        </div>
+        <div id="journalStatus" class="muted">Preview plans are local decision records only; no broker order or automatic position mutation exists.</div>
+      </article>
+    </section>
+  </main>
+  <footer>QQQ Hybrid Operator Terminal V1 · read-only V3 bridge · manual budget inputs · no broker order endpoint</footer>
+  <script src="hub_research_pack.js"></script>
+  <script src="engine.js"></script>
+  <script src="position_ledger.js"></script>
+  <script src="position_management.js"></script>
+  <script src="deployment_roadmap.js"></script>
+  <script src="decision_value_engine.js"></script>
+  <script src="ai_handoff.js"></script>
+  <script src="hub_context_bridge.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
