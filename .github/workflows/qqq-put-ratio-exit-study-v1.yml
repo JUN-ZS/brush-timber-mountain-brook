@@ -213,6 +213,12 @@ jobs:
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md
             QQQ_DYNAMIC_NAV_BAR_RUN.json
+            QQQ_POLICY_MAE_REVERSAL_RUN.json
+            artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_nav_matrix.csv
+            artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_trade_rows.csv
+            artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_unit_episode_reference.csv
+            artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_study_summary.json
+            artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_study_summary.md
             artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.json
             artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.md
             artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_portfolio_matrix.csv
@@ -241,6 +247,7 @@ jobs:
           short_sha="${GITHUB_SHA:0:8}"
           result_dir="research/qqq_put_ratio_exit_results_v1/run-${short_sha}"
           mkdir -p "$result_dir/replay" "$result_dir/scale_volatility" "$result_dir/dynamic_nav" "$result_dir/external_proxy" "$result_dir/cost_audit"
+          mkdir -p "$result_dir/policy_mae_reversal"
           cp QQQ_PUT_RATIO_EXIT_STUDY_RUN.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md "$result_dir/replay/"
@@ -257,6 +264,12 @@ jobs:
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv "$result_dir/scale_volatility/"
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv "$result_dir/scale_volatility/"
           cp QQQ_DYNAMIC_NAV_BAR_RUN.json "$result_dir/dynamic_nav/"
+          cp QQQ_POLICY_MAE_REVERSAL_RUN.json "$result_dir/policy_mae_reversal/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_nav_matrix.csv "$result_dir/policy_mae_reversal/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_trade_rows.csv "$result_dir/policy_mae_reversal/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_unit_episode_reference.csv "$result_dir/policy_mae_reversal/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_study_summary.json "$result_dir/policy_mae_reversal/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/policy_mae_reversal/policy_mae_study_summary.md "$result_dir/policy_mae_reversal/"
           cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.json "$result_dir/dynamic_nav/"
           cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.md "$result_dir/dynamic_nav/"
           cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_portfolio_matrix.csv "$result_dir/dynamic_nav/"
@@ -282,6 +295,7 @@ jobs:
           - Option-chain last observed date: 2025-12-15
           - Replay, scale matrix, and dynamic NAV/BAR/MaxDD stress matrix: completed by this workflow before persistence.
           - Dynamic results compound closed episodes into the next NAV; BAR rates are observed episode/mark frequency, not forward probability.
+          - Policy-MAE sensitivity uses only clean prior resolved episode marks; strict sign-reversal uses the same original contract IDs and strikes. Full-terminal exposure remains separate and outputs are retained in policy_mae_reversal/.
           - External Yahoo/FRED and Yahoo ^VIX/^VXN proxies, when available, are price-path-only; they do not estimate option P&L after the option-chain boundary.
           - Cost-sensitivity audit pairs zero/base/adverse model assumptions and screens friction BAR sample counts; it does not validate fills or promote any exit rule.
           - Every output is research evidence only. Deployment and broker orders remain BLOCKED.
