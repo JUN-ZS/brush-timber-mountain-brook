@@ -1,9 +1,9 @@
 name: QQQ Put Ratio Serial Equity Curve V1
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, edited]
+  workflow_dispatch:
+  push:
     branches:
-      - research/qqq-put-ratio-exit-measurement-v1
+      - research/qqq-put-ratio-lab-v1-20261016
     paths:
       - research/qqq_put_ratio_lab_v1/build_portfolio_curve.py
       - research/qqq_put_ratio_lab_v1/tests/**
@@ -25,7 +25,7 @@ jobs:
       - name: Checkout pull-request head
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.ref_name }}
           persist-credentials: true
       - name: Runtime and test curve contract
         run: |
@@ -101,5 +101,5 @@ jobs:
             echo "portfolio_curve_commit=NO_CHANGES"
           else
             git commit -m "research: persist serial QQQ Put Ratio portfolio curve"
-            git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
