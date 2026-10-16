@@ -39,4 +39,6 @@ jobs:
           test -s research/qqq_put_ratio_lab_v1/app.js
           test -s research/qqq_put_ratio_lab_v1/styles.css
           grep -q "data.json" research/qqq_put_ratio_lab_v1/app.js
+          grep -q "TP_USD_800_CLOSE_SHORT_RISK" research/qqq_put_ratio_lab_v1/index.html
+          grep -q "profitWarningEvidence" research/qqq_put_ratio_lab_v1/app.js
           echo "QQQ Put Ratio Lab UI contract PASS"
