@@ -45,7 +45,7 @@
 <section class="panel">
 <div class="section-title"><div><div class="eyebrow">03 · HISTORY</div><h2>直接歷史回放：退出政策比較</h2></div><span class="pill">62 組非重疊事件</span></div>
 <p class="explainer">只有 LONG 1 : SHORT 5 可直接引用這組回放。其他 N 不會複製同一個勝率。成本假設為每腿每邊滑點 $0.05、每張每邊佣金 $0.65。這是固定一組交易的合計，不是 NAV 複利報酬。</p>
-<div class="table-wrap"><table><thead><tr><th>政策</th><th>觸發交易</th><th>勝率</th><th>淨損益</th><th>單筆最差</th><th>Profit Factor</th></tr></thead><tbody id="policyRows"></tbody></table></div><div class="source-note" id="policyNote"></div>
+<div class="table-wrap"><table><thead><tr><th>政策</th><th>觸發交易</th><th>勝率</th><th>淨損益</th><th>單筆最差</th><th>Profit Factor</th></tr></thead><tbody id="policyRows"></tbody></table></div><div class="source-note" id="policyNote"></div><div id="profitWarningEvidence" class="alerts"></div>
 </section>
 <section class="panel">
 <div class="section-title"><div><div class="eyebrow">04 · STRATEGY EQUITY</div><h2>策略逐日估值曲線與 MaxDD</h2></div><span id="portfolioState" class="pill">PENDING</span></div>
@@ -54,6 +54,7 @@
 <label>比較退出政策<select id="curvePolicy">
 <option value="BASE_DTE7_CLOSE_SHORT_RISK">基準：DTE ≤ 7</option>
 <option value="TP_USD_500_CLOSE_SHORT_RISK">獲利 +$500</option>
+<option value="TP_USD_800_CLOSE_SHORT_RISK">獲利 +$800（$80k NAV 的 +1%）</option>
 <option value="TP_USD_1000_CLOSE_SHORT_RISK">獲利 +$1,000</option>
 <option value="TP_USD_2000_CLOSE_SHORT_RISK">獲利 +$2,000</option>
 <option value="TP_25PCT_MAX_TERMINAL_GAIN">終端最大收益 25%</option>
