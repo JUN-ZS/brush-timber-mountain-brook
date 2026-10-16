@@ -1,0 +1,114 @@
+name: V4.4 One-Shot HUB-Only NASDAQCOM Shard
+
+on:
+  push:
+    branches:
+      - run/hub-only-frame-accepted-2026-10-17
+
+permissions:
+  contents: read
+
+jobs:
+  hub-only-nasdaqcom:
+    name: HUB-only / NASDAQCOM proxy-state shard
+    if: ${{ github.ref_name == 'run/hub-only-frame-accepted-2026-10-17' }}
+    runs-on: [self-hosted, linux, x64, grokbot-box-linux-x64]
+    timeout-minutes: 20
+    steps:
+      - name: Enforce the dedicated runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_NAME:-}" != "grokbot-box-linux-x64" ]; then
+            echo "::error::HUB-only shard requires grokbot-box-linux-x64; actual runner is ${RUNNER_NAME:-unknown}"
+            exit 1
+          fi
+          echo "PASS dedicated runner: $RUNNER_NAME"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Verify HUB-only source runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          test -s scripts/run-rolling-floor.ts
+          test -s src/lib/pulse/rolling-floor.ts
+          test -s src/lib/pulse/bars.ts
+          test -s src/data/universe.json
+      - name: Compute only the NASDAQCOM proxy-state shard
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/rolling-floor-nasdaqcom"
+          mkdir -p "$OUT"
+          node --experimental-strip-types scripts/run-rolling-floor.ts \
+            --mode shard \
+            --channel NASDAQCOM \
+            --out-dir "$OUT"
+      - name: Validate the produced shard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "$RUNNER_TEMP/rolling-floor-nasdaqcom/NASDAQCOM.json"
+          HUB_OUT="$RUNNER_TEMP/rolling-floor-nasdaqcom/NASDAQCOM.json" node - <<'NODE'
+          const fs = require("node:fs");
+          const x = JSON.parse(fs.readFileSync(process.env.HUB_OUT, "utf8"));
+          if (x.kind !== "CHANNEL_SHARD" || x.channel !== "NASDAQCOM") throw new Error("Expected CHANNEL_SHARD / NASDAQCOM");
+          if (x.layer !== "PROXY_PRICE") throw new Error("NASDAQCOM must remain explicitly PROXY_PRICE");
+          if (!Array.isArray(x.signals) || x.signals.length === 0) throw new Error("NASDAQCOM signals are empty");
+          if (!Array.isArray(x.points) || x.points.length === 0) throw new Error("NASDAQCOM source points are empty");
+          if (!x.data || !x.data.source || !x.data.sha256_16) throw new Error("Missing upstream source provenance");
+          console.log("PASS NASDAQCOM shard; signals=", x.signals.length, "months=", x.data.months, "range=", x.data.first, "to", x.data.last);
+          console.log("PROXY_PRICE only; this is not VXX historical option-chain evidence.");
+          NODE
+      - name: Record source/output hashes and run manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/rolling-floor-nasdaqcom"
+          sha256sum \
+            .github/workflows/v44-hub-only-once.yml \
+            scripts/run-rolling-floor.ts \
+            src/lib/pulse/rolling-floor.ts \
+            src/lib/pulse/bars.ts \
+            src/data/universe.json > "$OUT/source.sha256"
+          sha256sum "$OUT/NASDAQCOM.json" > "$OUT/output.sha256"
+          HUB_OUT="$OUT/NASDAQCOM.json" SOURCE_HASH_FILE="$OUT/source.sha256" OUTPUT_HASH_FILE="$OUT/output.sha256" MANIFEST_PATH="$OUT/run_manifest.json" node - <<'NODE'
+          const fs = require("node:fs");
+          const shard = JSON.parse(fs.readFileSync(process.env.HUB_OUT, "utf8"));
+          const manifest = {
+            commit: process.env.GITHUB_SHA,
+            run_id: process.env.GITHUB_RUN_ID,
+            workflow: process.env.GITHUB_WORKFLOW,
+            ref: process.env.GITHUB_REF,
+            branch: process.env.GITHUB_REF_NAME,
+            runner_name: process.env.RUNNER_NAME,
+            runner_os: process.env.RUNNER_OS,
+            runner_arch: process.env.RUNNER_ARCH,
+            run_scope: "hub_only",
+            frame_acceptance_basis: "explicit user GO after FRAME engine and Chromium validation",
+            channel: shard.channel,
+            layer: shard.layer,
+            data_source: shard.data.source,
+            upstream_csv_sha256_16: shard.data.sha256_16,
+            first_month: shard.data.first,
+            last_month: shard.data.last,
+            source_months: shard.data.months,
+            signal_rows: shard.signals.length,
+            qqq_snapshot_hash: shard.qqqHash,
+            source_code_hashes_file: fs.readFileSync(process.env.SOURCE_HASH_FILE, "utf8").trim(),
+            output_file_hash: fs.readFileSync(process.env.OUTPUT_HASH_FILE, "utf8").trim(),
+            scope_note: "NASDAQCOM proxy-price shard only; no QQQ Windows audit, no NDX shard, no Bridge replay, no broker orders."
+          };
+          fs.writeFileSync(process.env.MANIFEST_PATH, JSON.stringify(manifest, null, 2) + "\n");
+          console.log(JSON.stringify(manifest, null, 2));
+          NODE
+      - name: Upload the isolated HUB-only shard and audit manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: hub-only-nasdaqcom-2026-10-17
+          path: ${{ runner.temp }}/rolling-floor-nasdaqcom/
+          if-no-files-found: error
