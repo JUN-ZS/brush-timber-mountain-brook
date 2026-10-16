@@ -2,7 +2,7 @@
 
 **狀態：**架構契約／待驗收，不代表每個子系統已實作。先完成此文件與各項契約測試，才可把研究輸出接進 UI。本文不批准新策略、不改 Frozen Original Hybrid、不改任何 live sizing，也不開啟券商訂單。
 
-**配套文件：**[Measurement UI Contract V1](./QQQ_HYBRID_MEASUREMENT_UI_CONTRACT_V1.md)  
+**配套文件：**[Measurement UI Contract V1](./QQQ_HYBRID_MEASUREMENT_UI_CONTRACT_V1.md) · [Shared Data Contracts V1](./QQQ_HYBRID_SHARED_DATA_CONTRACTS_V1.md)  
 **現有實作基準：**V3 `engine.js`、`RECONSTRUCTION_CONTRACT.md`；獨立 Put Ratio replay 與 `SCALE_VOLATILITY_CONTRACT_V1.md`。規格中的「Observed／Code-reviewed」是已讀取的資料或程式；「Derived」是可由規則推導；「Hypothesis」是待測因果解釋；「Unknown」是尚無足夠資料的事項。
 
 ---
