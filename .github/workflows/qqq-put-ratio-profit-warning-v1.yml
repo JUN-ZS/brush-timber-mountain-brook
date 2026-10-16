@@ -1,0 +1,168 @@
+name: QQQ Put Ratio Direct Profit Warning Replay V1
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches:
+      - research/qqq-put-ratio-exit-measurement-v1
+    paths:
+      - research/qqq_put_ratio_exit_study_v1/**
+      - research/qqq_put_ratio_lab_v1/**
+      - .github/workflows/qqq-put-ratio-profit-warning-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-put-ratio-profit-warning-v1
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Frozen cohort $800/$1,000 replay and serial curve
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: true
+
+      - name: Runtime and offline contracts
+        run: |
+          set -euo pipefail
+          python3 --version
+          node --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+          PY=.venv/bin/python
+          $PY -m py_compile research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_v1.py
+          $PY -m py_compile research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_exit_study_v1.py
+          $PY research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_exit_study_v1.py
+          $PY -m py_compile research/qqq_put_ratio_lab_v1/build_portfolio_curve.py
+          $PY -m py_compile research/qqq_put_ratio_lab_v1/sync_profit_warning_results.py
+          $PY -m py_compile research/qqq_put_ratio_lab_v1/test_sync_profit_warning_results.py
+          $PY research/qqq_put_ratio_lab_v1/test_sync_profit_warning_results.py
+          node --check research/qqq_put_ratio_lab_v1/app.js
+          node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
+
+      - name: Check SHA-pinned cache
+        id: cache
+        run: |
+          set -euo pipefail
+          cache_dir="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$cache_dir"
+          if find "$cache_dir" -type f -print -quit | grep -q .; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+            echo "cache_source=LINUX_BOT_LOCAL_PERSISTENT"
+          else
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+            echo "cache_source=SHA_PINNED_REMOTE_CACHE_IF_AVAILABLE"
+          fi
+
+      - name: Restore option cache if local cache is cold
+        if: steps.cache.outputs.hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/qqq-options-full-history
+          key: qqq-options-full-history-2018-2025-sha-pinned-v1
+          enableCrossOsArchive: true
+
+      - name: Link cache and replay source cohort
+        timeout-minutes: 50
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.cache/qqq-options-full-history" .cache artifacts/qqq_put_ratio_exit_study_v1
+          rm -rf .cache/qqq-options-full-history
+          ln -s "$HOME/.cache/qqq-options-full-history" .cache/qqq-options-full-history
+          .venv/bin/python research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_v1.py --out artifacts/qqq_put_ratio_exit_study_v1 > QQQ_PUT_RATIO_EXIT_STUDY_RUN.json
+          cat QQQ_PUT_RATIO_EXIT_STUDY_RUN.json
+          .venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          out = Path("artifacts/qqq_put_ratio_exit_study_v1")
+          required = ["qqq_put_ratio_exit_study_summary.json", "qqq_put_ratio_exit_study_summary.md",
+              "qqq_put_ratio_exit_policy_summary.csv", "qqq_put_ratio_exit_policy_trades.csv",
+              "qqq_put_ratio_exit_event_study.json", "qqq_put_ratio_exit_source_cohort.json",
+              "qqq_underlying_close_series.csv"]
+          missing = [p for p in required if not (out / p).is_file()]
+          assert not missing, f"missing source replay outputs: {missing}"
+          s = json.loads((out / "qqq_put_ratio_exit_study_summary.json").read_text(encoding="utf-8"))
+          assert s["generation"]["opened_trade_episodes"] == 62
+          names = {p["policy"] for p in s["policy_summaries_base_cost"]}
+          assert {"BASE_DTE7_CLOSE_SHORT_RISK", "TP_USD_800_CLOSE_SHORT_RISK", "TP_USD_1000_CLOSE_SHORT_RISK"} <= names
+          print("frozen 62-episode source replay and both target policies=PASS")
+          PY
+
+      - name: Rebuild curve and directly measure warning outcomes
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          $PY research/qqq_put_ratio_lab_v1/build_portfolio_curve.py \
+            --cohort artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json \
+            --sessions artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv \
+            --out research/qqq_put_ratio_lab_v1/portfolio_curve.json > QQQ_SERIAL_CURVE_RUN.json
+          cat QQQ_SERIAL_CURVE_RUN.json
+          $PY research/qqq_put_ratio_lab_v1/sync_profit_warning_results.py \
+            --cohort artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json \
+            --summary artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json \
+            --curve research/qqq_put_ratio_lab_v1/portfolio_curve.json \
+            --data research/qqq_put_ratio_lab_v1/data.json \
+            --details research/qqq_put_ratio_lab_v1/profit_warning_analysis.json \
+            --readme research/qqq_put_ratio_lab_v1/README.md > QQQ_PROFIT_WARNING_SYNC_RUN.json
+          cat QQQ_PROFIT_WARNING_SYNC_RUN.json
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/data.json > /dev/null
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/portfolio_curve.json > /dev/null
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/profit_warning_analysis.json > /dev/null
+          $PY research/qqq_put_ratio_lab_v1/test_sync_profit_warning_results.py
+          node --check research/qqq_put_ratio_lab_v1/app.js
+          node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
+          $PY - <<'PY'
+          import json
+          from pathlib import Path
+          curve=json.loads(Path("research/qqq_put_ratio_lab_v1/portfolio_curve.json").read_text(encoding="utf-8"))
+          data=json.loads(Path("research/qqq_put_ratio_lab_v1/data.json").read_text(encoding="utf-8"))
+          detail=json.loads(Path("research/qqq_put_ratio_lab_v1/profit_warning_analysis.json").read_text(encoding="utf-8"))
+          assert curve["trade_count"] == 62
+          assert len(curve["cumulative_pnl_usd_by_policy"]) == 13
+          assert any(x.get("id") == "TP_USD_800_CLOSE_SHORT_RISK" and x.get("n") == 62 for x in data["policies"])
+          for target in ("800", "1000"):
+            t=detail["thresholds"][target]["thresholdStudy"]
+            p=detail["thresholds"][target]["policy"]
+            c=detail["thresholds"][target]["serialCurve"]
+            print(f"target={target} counterfactual_hits={t['counterfactualFirstMarkHitCount']} actual_triggers={t['actualPolicyTriggerCount']} successful_exits={t['successfulExitActionCount']} next_session_success={t['successfulActionOnNextObservedSessionCount']} forward5_n={t['forwardIfOriginal1x5Held']['5']['n']} forward10_n={t['forwardIfOriginal1x5Held']['10']['n']}")
+            print(f"target={target} pnl={p['closed_trade_net_pnl_sum_usd']} win_rate={p['win_rate_pct']} PF={p['profit_factor']} MaxDD={c['max_drawdown_pct_of_prior_equity_peak']} peak={c['max_drawdown_peak_date']} trough={c['max_drawdown_trough_date']} coverage={c['mark_coverage_pct']} missing={c['missing_marks_not_filled']}")
+          print("13 policy curves validated; live deployment remains BLOCKED.")
+          PY
+
+      - name: Persist results on the isolated PR branch
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:8}"
+          result_dir="research/qqq_put_ratio_exit_results_v1/profit-warning-${short_sha}"
+          mkdir -p "$result_dir/replay"
+          cp QQQ_PUT_RATIO_EXIT_STUDY_RUN.json QQQ_SERIAL_CURVE_RUN.json QQQ_PROFIT_WARNING_SYNC_RUN.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_trades.csv "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv "$result_dir/replay/"
+          cp research/qqq_put_ratio_lab_v1/profit_warning_analysis.json "$result_dir/replay/"
+          printf '# Direct $800/$1,000 profit-warning replay\n\n- Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\n- Study commit: ${GITHUB_SHA}\n- Frozen cohort: 62 non-overlapping 1-long/5-short episodes\n- Option source ends 2025-12-15; EOD quote-side estimates, not confirmed fills\n- $800 equals +1% only at fixed $80,000 NAV\n- Deployment and broker orders remain BLOCKED\n' > "$result_dir/MANIFEST.md"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$result_dir" research/qqq_put_ratio_lab_v1/data.json research/qqq_put_ratio_lab_v1/portfolio_curve.json research/qqq_put_ratio_lab_v1/profit_warning_analysis.json research/qqq_put_ratio_lab_v1/README.md
+          if git diff --cached --quiet; then
+            echo "result_persistence=NO_CHANGES"
+          else
+            git commit -m "research: persist direct profit warning replay ${short_sha} [skip ci]"
+            target_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+            git push origin "HEAD:${target_branch}"
+          fi
