@@ -2274,7 +2274,8 @@
 
     const SharedContractEngine = {
       version: 'qqq-hybrid.shared-contract.v4.4',
-      commitHash: 'f5f4f6bf267b33691b03246b1b2b13e1a1fb6587',
+      // Explicit V4.3 ancestry anchor; not the current V4.4 branch-head SHA.
+      baseEngineCommitHash: 'f5f4f6bf267b33691b03246b1b2b13e1a1fb6587',
       syntheticGeneratorsRemoved: true,
 
       parseIsoDateStrict(s) {
@@ -3642,7 +3643,7 @@
 
         return {
           schema: this.version,
-          commitRef: this.commitHash,
+          baseEngineCommitRef: this.baseEngineCommitHash,
           brokerOrdersAllowed: false,
           sourceMeta,
           hashes: {
@@ -3662,6 +3663,9 @@
         }
         if (bundle.schema !== this.version) {
           return { ok: false, error: `SCHEMA_MISMATCH: 預期 ${this.version}，收到 ${bundle.schema}` };
+        }
+        if (bundle.baseEngineCommitRef !== this.baseEngineCommitHash) {
+          return { ok: false, error: 'BASE_ENGINE_COMMIT_MISMATCH: 狀態包的 V4.3 繼承引擎來源引用與當前契約不符' };
         }
         if (bundle.brokerOrdersAllowed !== false) {
           return { ok: false, error: 'BROKER_ORDERS_VIOLATION: brokerOrdersAllowed 必須嚴格為 false' };
@@ -4449,7 +4453,13 @@
         if (!v.ok || b.engineOutput.fullVxxPuts === null || b.engineOutput.hubStatus !== 'HOLD_AWAITING_USER_FRAME_ACCEPTANCE') {
           throw new Error('V4.4 bundle verification failed');
         }
-        return `fullVxxPuts=${b.engineOutput.fullVxxPuts} · hub=${b.engineOutput.hubStatus}`;
+        const forgedBaseRef = JSON.parse(JSON.stringify(b));
+        forgedBaseRef.baseEngineCommitRef = '0'.repeat(40);
+        const forgedBaseCheck = SharedContractEngine.verifyContractBundle(forgedBaseRef);
+        if (forgedBaseCheck.ok || !String(forgedBaseCheck.error).includes('BASE_ENGINE_COMMIT_MISMATCH')) {
+          throw new Error('Forged inherited-engine provenance reference was not rejected');
+        }
+        return `fullVxxPuts=${b.engineOutput.fullVxxPuts} · baseRef=${b.baseEngineCommitRef.slice(0, 8)}… · forged ref→BLOCKED · hub=${b.engineOutput.hubStatus}`;
       });
 
       assertCase('GT-49', 'Strike 推導寬度必須等於輸入寬度；不一致阻斷 Call/Put 容量', () => {
@@ -5938,8 +5948,8 @@
 
       const { ledger, candEval, sSlope, regimeState, engineAction, cell16Action } = decisionOut;
       const srcMeta = VerifiedSourceStore.getMetadata();
-      const mdPack = `# QQQ Hybrid AI Review Pack (SharedContractEngine v4.3 · Standard SHA-256)
-- **Schema & Commit**: \`${SharedContractEngine.version}\` | \`commit=${SharedContractEngine.commitHash}\`
+      const mdPack = `# QQQ Hybrid AI Review Pack (SharedContractEngine v4.4 · Standard SHA-256)
+- **Schema & Base Engine Ancestry**: \`${SharedContractEngine.version}\` | \`baseEngineCommit=${SharedContractEngine.baseEngineCommitHash}\` (V4.3 ancestry anchor; not the current V4.4 branch head)
 - **FIPS 180-4 SHA-256 Hashes**:
   - \`sourceHash=${bundle.hashes.sourceHash}\`
   - \`scenarioHash=${bundle.hashes.scenarioHash}\`
