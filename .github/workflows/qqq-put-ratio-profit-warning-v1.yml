@@ -145,7 +145,17 @@ jobs:
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv "$result_dir/replay/"
           cp research/qqq_put_ratio_lab_v1/profit_warning_analysis.json "$result_dir/replay/"
-          printf '# Direct $800/$1,000 profit-warning replay\n\n- Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\n- Study commit: ${GITHUB_SHA}\n- Frozen cohort: 62 non-overlapping 1-long/5-short episodes\n- Cohort blob: 9d7ce5414c3034d03d94796c69438b0bc044e485 (reused, not duplicated)\n- Option source ends 2025-12-15; EOD quote-side estimates, not confirmed fills\n- $800 equals +1% only at fixed $80,000 NAV\n- Deployment and broker orders remain BLOCKED\n' > "$result_dir/MANIFEST.md"
+          cat > "$result_dir/MANIFEST.md" <<EOF
+          # Direct $800/$1,000 profit-warning replay
+
+          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - Study commit: ${GITHUB_SHA}
+          - Frozen cohort: 62 non-overlapping 1-long/5-short episodes
+          - Cohort blob: 9d7ce5414c3034d03d94796c69438b0bc044e485 (reused, not duplicated)
+          - Option source ends 2025-12-15; EOD quote-side estimates, not confirmed fills
+          - \$800 equals +1% only at fixed \$80,000 NAV
+          - Deployment and broker orders remain BLOCKED
+          EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$result_dir" research/qqq_put_ratio_lab_v1/data.json research/qqq_put_ratio_lab_v1/portfolio_curve.json research/qqq_put_ratio_lab_v1/profit_warning_analysis.json research/qqq_put_ratio_lab_v1/README.md
