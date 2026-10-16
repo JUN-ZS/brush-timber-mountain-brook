@@ -49,4 +49,4 @@ function drawdownRowsFor(s,policyIndex){
 }
 const api={validateSnapshot,policyById,barRowsFor,drawdownRowsFor};
 if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.PutRatioDynamicBarV1=api;
-})(typeof window!=="undefined"?window:this);
+})(typeof window!=="undefined"?window:globalThis);
