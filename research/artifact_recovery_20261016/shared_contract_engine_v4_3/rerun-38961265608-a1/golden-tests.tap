@@ -1,0 +1,753 @@
+TAP version 13
+# Subtest: 01 strict parser distinguishes empty, zero and invalid
+not ok 1 - 01 strict parser distinguishes empty, zero and invalid
+  ---
+  duration_ms: 0.8586
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:53:1'
+  failureType: 'testCodeFailure'
+  error: 'E.parseStrictNumber is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:54:22)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.start (node:internal/test_runner/test:1242:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+  ...
+# Subtest: 02 strict parser rejects booleans, arrays, objects, NaN and infinities
+not ok 2 - 02 strict parser rejects booleans, arrays, objects, NaN and infinities
+  ---
+  duration_ms: 0.1104
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:60:1'
+  failureType: 'testCodeFailure'
+  error: 'E.parseStrictNumber is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:61:76)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+# Subtest: 03 canonical hashes are invariant to object key order
+not ok 3 - 03 canonical hashes are invariant to object key order
+  ---
+  duration_ms: 0.1522
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:63:1'
+  failureType: 'testCodeFailure'
+  error: 'E.sha256Hex is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:64:24)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 04 CSV parser handles CRLF and a quoted comma
+not ok 4 - 04 CSV parser handles CRLF and a quoted comma
+  ---
+  duration_ms: 0.0904
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:66:1'
+  failureType: 'testCodeFailure'
+  error: 'E.parseCSV is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:67:18)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 05 CSV parser rejects malformed quotes and inconsistent column counts
+not ok 5 - 05 CSV parser rejects malformed quotes and inconsistent column counts
+  ---
+  duration_ms: 1.1435
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:71:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /INVALID_CSV/. Input:
+    
+    'TypeError: E.parseCSV is not a function'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual:
+  error: 'E.parseCSV is not a function'
+  name: 'TypeError'
+  stack: |-
+    C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:72:25
+    getActual (node:assert:611:5)
+    strict.throws (node:assert:759:24)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:72:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  operator: 'throws'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:72:10)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 06 empty source store does not ship any synthetic episode or raw quote
+not ok 6 - 06 empty source store does not ship any synthetic episode or raw quote
+  ---
+  duration_ms: 0.1072
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:75:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:76:19)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 07 quote CSV import requires source identity and stores raw-file SHA-256
+not ok 7 - 07 quote CSV import requires source identity and stores raw-file SHA-256
+  ---
+  duration_ms: 0.1816
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:81:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:83:59
+    waitForActual (node:assert:632:21)
+    strict.rejects (node:assert:769:31)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:83:16)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 08 quote importer rejects missing values rather than defaulting to zero
+not ok 8 - 08 quote importer rejects missing values rather than defaulting to zero
+  ---
+  duration_ms: 0.1289
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:89:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:91:84
+    waitForActual (node:assert:632:21)
+    strict.rejects (node:assert:769:31)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:91:16)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 09 quote importer rejects timezone-less timestamps and crossed markets
+not ok 9 - 09 quote importer rejects timezone-less timestamps and crossed markets
+  ---
+  duration_ms: 0.1794
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:93:1'
+  failureType: 'testCodeFailure'
+  error: 'E.importQuotesCSV is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:95:32
+    waitForActual (node:assert:632:21)
+    strict.rejects (node:assert:769:31)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:95:16)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 10 quote importer rejects negative and fractional liquidity size
+not ok 10 - 10 quote importer rejects negative and fractional liquidity size
+  ---
+  duration_ms: 0.2329
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:98:1'
+  failureType: 'testCodeFailure'
+  error: 'E.importQuotesCSV is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:100:32
+    waitForActual (node:assert:632:21)
+    strict.rejects (node:assert:769:31)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:100:16)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 11 OCC symbol terms must agree with expiry, right and strike
+not ok 11 - 11 OCC symbol terms must agree with expiry, right and strike
+  ---
+  duration_ms: 0.4877
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:103:1'
+  failureType: 'testCodeFailure'
+  error: 'E.importQuotesCSV is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:105:32
+    waitForActual (node:assert:632:21)
+    strict.rejects (node:assert:769:31)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:105:16)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 12 coverage never substitutes spot-only history for option-chain coverage
+not ok 12 - 12 coverage never substitutes spot-only history for option-chain coverage
+  ---
+  duration_ms: 0.3585
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:107:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    replayStore (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:23:19)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:108:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 13 duplicate exact quotes are rejected as ambiguous source rows
+not ok 13 - 13 duplicate exact quotes are rejected as ambiguous source rows
+  ---
+  duration_ms: 0.1976
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:121:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    replayStore (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:23:19)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:122:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 14 price-path drop statistics are not called option-strategy win rate
+not ok 14 - 14 price-path drop statistics are not called option-strategy win rate
+  ---
+  duration_ms: 0.232
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:126:1'
+  failureType: 'testCodeFailure'
+  error: 'E.deriveHistoricalPriceDropStats is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:133:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 15 market importer requires price adjustment basis
+not ok 15 - 15 market importer requires price adjustment basis
+  ---
+  duration_ms: 0.352
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:138:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:140:80)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 16 exact 1xN replay uses conservative quote sides and no confirmed-fill claim
+not ok 16 - 16 exact 1xN replay uses conservative quote sides and no confirmed-fill claim
+  ---
+  duration_ms: 0.2822
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:145:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    replayStore (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:23:19)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:146:39)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 17 replay requires sufficient side-specific displayed depth
+not ok 17 - 17 replay requires sufficient side-specific displayed depth
+  ---
+  duration_ms: 0.2057
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:155:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    replayStore (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:23:19)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:156:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 18 replay refuses missing exact quotes instead of forward-filling
+not ok 18 - 18 replay refuses missing exact quotes instead of forward-filling
+  ---
+  duration_ms: 0.2404
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:162:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    replayStore (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:23:19)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:163:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 19 zero slippage and zero commission remain zero
+not ok 19 - 19 zero slippage and zero commission remain zero
+  ---
+  duration_ms: 0.1159
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:169:1'
+  failureType: 'testCodeFailure'
+  error: 'E.computeDynamicCostStrict is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:170:22)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 20 missing or negative costs block without default substitution
+not ok 20 - 20 missing or negative costs block without default substitution
+  ---
+  duration_ms: 0.0478
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:174:1'
+  failureType: 'testCodeFailure'
+  error: 'E.computeDynamicCostStrict is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:175:18)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 21 positive QQQ holding requires its entry basis and current spot
+not ok 21 - 21 positive QQQ holding requires its entry basis and current spot
+  ---
+  duration_ms: 0.1029
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:179:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:180:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 22 positive VXX short holding requires its own entry price
+not ok 22 - 22 positive VXX short holding requires its own entry price
+  ---
+  duration_ms: 0.073
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:185:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:186:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 23 positive option quantity requires entry credit and current mark
+not ok 23 - 23 positive option quantity requires entry credit and current mark
+  ---
+  duration_ms: 0.0787
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:190:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:191:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 24 external statement NAV mismatch blocks reconciled NAV
+not ok 24 - 24 external statement NAV mismatch blocks reconciled NAV
+  ---
+  duration_ms: 0.0634
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:195:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:196:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 25 manual NAV override is not treated as an independent statement
+not ok 25 - 25 manual NAV override is not treated as an independent statement
+  ---
+  duration_ms: 0.0549
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:201:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:202:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 26 ledger does not add short-sale proceeds a second time
+not ok 26 - 26 ledger does not add short-sale proceeds a second time
+  ---
+  duration_ms: 0.064
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:208:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:209:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 36 statement NAV without source identity/hash is not treated as externally reconciled
+not ok 27 - 36 statement NAV without source identity/hash is not treated as externally reconciled
+  ---
+  duration_ms: 0.0531
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:220:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:221:17)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 37 malformed or zero statement NAV is blocked, not relabeled as absent
+not ok 28 - 37 malformed or zero statement NAV is blocked, not relabeled as absent
+  ---
+  duration_ms: 0.0528
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:227:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:228:18)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 27 invalid option candidate blocks joint stress without fixed $420 fallback
+not ok 29 - 27 invalid option candidate blocks joint stress without fixed $420 fallback
+  ---
+  duration_ms: 0.0648
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:231:1'
+  failureType: 'testCodeFailure'
+  error: 'E.evaluateLedger is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:232:20)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 28 state bundle hashes full source, all parameter groups and engine output
+not ok 30 - 28 state bundle hashes full source, all parameter groups and engine output
+  ---
+  duration_ms: 0.1503
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:238:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    replayStore (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:23:19)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:244:18)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 29 source row alteration without sourceHash update is rejected
+not ok 31 - 29 source row alteration without sourceHash update is rejected
+  ---
+  duration_ms: 0.1013
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:256:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    replayStore (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:23:19)
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:257:153)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 30 parameter alteration without scenarioHash update is rejected
+not ok 32 - 30 parameter alteration without scenarioHash update is rejected
+  ---
+  duration_ms: 0.0868
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:263:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:264:155)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 31 embedded engine output alteration without matching hash is rejected
+not ok 33 - 31 embedded engine output alteration without matching hash is rejected
+  ---
+  duration_ms: 0.0868
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:270:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:271:155)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 32 engine output is independently recomputed, not merely re-hashed
+not ok 34 - 32 engine output is independently recomputed, not merely re-hashed
+  ---
+  duration_ms: 0.0719
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:277:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:278:155)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 33 schema and no-broker boundary are checked before state restore
+not ok 35 - 33 schema and no-broker boundary are checked before state restore
+  ---
+  duration_ms: 0.0802
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:285:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:286:155)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 34 failed verification does not commit; successful restore commits a staged state
+not ok 36 - 34 failed verification does not commit; successful restore commits a staged state
+  ---
+  duration_ms: 0.109
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:292:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:293:155)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+# Subtest: 35 failed commit restores previous state when adapter supports rollback
+not ok 37 - 35 failed commit restores previous state when adapter supports rollback
+  ---
+  duration_ms: 0.0846
+  type: 'test'
+  location: 'C:\\actions-runner\\_work\\brush-timber-mountain-brook\\brush-timber-mountain-brook\\research\\shared_contract_engine_v4_3\\test_shared_contract_engine_v4_3.cjs:306:1'
+  failureType: 'testCodeFailure'
+  error: 'E.createEmptySourceStore is not a function'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (C:\actions-runner\_work\brush-timber-mountain-brook\brush-timber-mountain-brook\research\shared_contract_engine_v4_3\test_shared_contract_engine_v4_3.cjs:307:155)
+    Test.runInAsyncScope (node:async_hooks:227:14)
+    Test.run (node:internal/test_runner/test:1382:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+    Test.postRun (node:internal/test_runner/test:1522:19)
+    Test.run (node:internal/test_runner/test:1447:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+  ...
+1..37
+# tests 37
+# suites 0
+# pass 0
+# fail 37
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 141.9765
