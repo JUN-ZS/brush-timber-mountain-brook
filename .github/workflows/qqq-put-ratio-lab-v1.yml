@@ -1,0 +1,40 @@
+name: QQQ Put Ratio Lab V1 UI Contract
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches:
+      - research/qqq-put-ratio-exit-measurement-v1
+    paths:
+      - research/qqq_put_ratio_lab_v1/**
+      - .github/workflows/qqq-put-ratio-lab-v1.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-put-ratio-lab-v1-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ui-contract:
+    name: Research UI contract tests (self-hosted)
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Runtime
+        run: |
+          node --version
+          python3 --version
+      - name: JSON contract
+        run: python3 -m json.tool research/qqq_put_ratio_lab_v1/data.json > /dev/null
+      - name: UI logic tests
+        run: node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
+      - name: Static UI checks
+        run: |
+          test -s research/qqq_put_ratio_lab_v1/index.html
+          test -s research/qqq_put_ratio_lab_v1/app.js
+          test -s research/qqq_put_ratio_lab_v1/styles.css
+          grep -q "data.json" research/qqq_put_ratio_lab_v1/app.js
+          echo "QQQ Put Ratio Lab UI contract PASS"
