@@ -39,7 +39,7 @@ const browserContext = vm.createContext({
   setTimeout,
   clearTimeout
 });
-const exposedScript = coreScript + "\n;globalThis.__v44Harness = { runAutomated52GoldenTests, SharedContractEngine, PRESETS, resolveFrameAssumptions };";
+const exposedScript = coreScript + "\n;globalThis.__v44Harness = { runAutomated52GoldenTests, SharedContractEngine, PRESETS, resolveFrameAssumptions, VerifiedSourceStore };";
 assert.doesNotThrow(() => vm.runInContext(exposedScript, browserContext, { timeout: 10000 }), "core app script could not initialize in isolated test VM");
 const actualGoldenResults = browserContext.__v44Harness.runAutomated52GoldenTests();
 assert.equal(actualGoldenResults.length, 52, "engine's actual Golden Test function must return 52 results");
