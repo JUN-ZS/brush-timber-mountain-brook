@@ -1,6 +1,15 @@
 name: QQQ Order Machine Replay V2
 
 on:
+  push:
+    branches:
+      - feat/rolling-floor-dynamic-floor-v1-20261004
+    paths:
+      - scripts/run-qqq-order-machine-replay-v1.ts
+      - src/lib/floor/order-machine.ts
+      - src/lib/floor/yahoo-live.ts
+      - src/lib/floor/deployment.ts
+      - .github/workflows/qqq-order-machine-replay-v1.yml
   pull_request:
     branches:
       - main
@@ -17,7 +26,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   replay:
@@ -34,8 +43,44 @@ jobs:
         run: |
           rm -rf "$RUNNER_TEMP/qqq-order-machine-replay"
           node --experimental-strip-types scripts/run-qqq-order-machine-replay-v1.ts "$RUNNER_TEMP/qqq-order-machine-replay"
+
+      - name: Persist generated order-machine replay to recovery branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          payload="$RUNNER_TEMP/recovery-payload-$tag"
+          mkdir -p "$payload"
+          cp "$RUNNER_TEMP/qqq-order-machine-replay/RESULTS_ORDER_MACHINE_REPLAY.json" "$payload/"
+          cp "$RUNNER_TEMP/qqq-order-machine-replay/RESULTS_ORDER_MACHINE_REPLAY.csv" "$payload/"
+          git fetch origin research/app-artifact-recovery-20261016
+          git checkout -B recovery-output origin/research/app-artifact-recovery-20261016
+          dest="research/artifact_recovery_20261016/order_machine/current_v2/rerun-$tag"
+          mkdir -p "$dest"
+          cp -a "$payload/." "$dest/"
+          cat > "$dest/RECOVERY_META.txt" <<EOF
+          run_id=$GITHUB_RUN_ID
+          run_attempt=$GITHUB_RUN_ATTEMPT
+          tested_sha=$GITHUB_SHA
+          source_branch=$GITHUB_REF_NAME
+          source_workflow=${{ github.workflow }}
+          source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          output=deterministic_parent_intent_contract_replay
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$dest"
+          if git diff --cached --quiet; then
+            echo "No new recovery files to commit"
+          else
+            git commit -m "recover: persist Persist generated order-machine replay to recovery branch outputs $tag"
+            git push origin HEAD:research/app-artifact-recovery-20261016
+          fi
+
       - name: Upload replay artifact
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: qqq-order-machine-replay-v2
