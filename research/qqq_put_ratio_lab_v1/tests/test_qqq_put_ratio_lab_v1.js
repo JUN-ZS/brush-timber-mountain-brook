@@ -62,6 +62,6 @@ const ddDates = ["2020-01-01","2020-02-01","2020-03-01","2020-04-01","2020-05-01
 const ddPoints = [100,95,90,100,80,105].map((eq,i)=>({i,date:ddDates[i],eq}));
 const ddStats = L.drawdownCycleStats(ddDates, ddPoints);
 assert.equal(ddStats.levels.find(x=>x.level===3).count, 2, "drawdown frequency counts peak-to-recovery cycles, not every down day");
-assert.deepEqual(ddStats.levels.find(x=>x.level===10).eventYears, ["2020"], "drawdown table should expose actual event years");
+assert.equal(ddStats.levels.find(x=>x.level===10).eventYears.join(","), "2020", "drawdown table should expose actual event years");
 assert.equal(ddStats.levels.find(x=>x.level===20).count, 1);
 console.log("QQQ Put Ratio Lab contract PASS — selected-policy win rate, direct target matching, time × volatility alerts, strategy drawdown cycles");
