@@ -45,6 +45,19 @@ class DynamicNavBarTests(unittest.TestCase):
         self.assertEqual(tracked["mark_curve"][-1]["status"], "EXPIRY_INTRINSIC_PROXY_NOT_BROKER_SETTLEMENT")
         self.assertEqual(base["final_pnl_usd"], tracked["final_pnl_usd"])
 
+    def test_dte7_variant_sells_residual_long_when_executable(self):
+        trade = simple_trade()
+        policy = next(p for p in M.core.policies()
+                      if p["name"] == "DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE")
+        result = M.core.simulate(
+            trade, M.core.SHORT_HEAVY, 1, 100000, policy, .05, .65,
+            include_mark_path=True
+        )
+        self.assertEqual(result["final_status"], "CLOSED_AT_OBSERVED_SIDE_QUOTES")
+        self.assertEqual(len(result["mark_curve"]), 2)
+        self.assertEqual(result["mark_curve"][-1]["n_long_remaining"], 0)
+        self.assertAlmostEqual(result["final_pnl_usd"], 7.4)
+
     def test_whole_units_follow_budget_and_depth(self):
         blocked = M.choose_units(100000, .01, 3000, 0, 20, "PER_TRADE_TERMINAL_BUDGET")
         self.assertEqual(blocked["planned_units"], 0)
