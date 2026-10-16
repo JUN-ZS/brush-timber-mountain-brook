@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Runtime and pinned Parquet reader
         shell: bash
@@ -96,6 +98,9 @@ jobs:
           $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/cost_sensitivity_audit.py
           $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/test_cost_sensitivity_audit.py
           $PY research/qqq_put_ratio_exit_supplement_v1/test_cost_sensitivity_audit.py
+          $PY -m py_compile research/qqq_put_ratio_lab_v1/sync_profit_warning_results.py
+          $PY -m py_compile research/qqq_put_ratio_lab_v1/test_sync_profit_warning_results.py
+          $PY research/qqq_put_ratio_lab_v1/test_sync_profit_warning_results.py
 
       - name: Run SHA-pinned 1x5 exit policy replay
         timeout-minutes: 48
@@ -110,6 +115,22 @@ jobs:
           cat artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md >> "$GITHUB_STEP_SUMMARY"
           $PY -c "from pathlib import Path; p=[Path('QQQ_PUT_RATIO_EXIT_STUDY_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_trades.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing outputs: '+repr(m); print('all_replay_outputs_exist=PASS')"
           echo "output_retention=GitHub_Actions_artifact_14_days"
+
+      - name: Build serial curves and directly replay $800/$1,000 profit warnings
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          $PY research/qqq_put_ratio_lab_v1/build_portfolio_curve.py --cohort artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json --sessions artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv --out research/qqq_put_ratio_lab_v1/portfolio_curve.json > QQQ_SERIAL_CURVE_RUN.json
+          cat QQQ_SERIAL_CURVE_RUN.json
+          $PY research/qqq_put_ratio_lab_v1/sync_profit_warning_results.py --cohort artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json --summary artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json --curve research/qqq_put_ratio_lab_v1/portfolio_curve.json --data research/qqq_put_ratio_lab_v1/data.json --details research/qqq_put_ratio_lab_v1/profit_warning_analysis.json --readme research/qqq_put_ratio_lab_v1/README.md > QQQ_PROFIT_WARNING_SYNC_RUN.json
+          cat QQQ_PROFIT_WARNING_SYNC_RUN.json
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/data.json > /dev/null
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/portfolio_curve.json > /dev/null
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/profit_warning_analysis.json > /dev/null
+          node --check research/qqq_put_ratio_lab_v1/app.js
+          node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
+          echo "QQQ direct threshold replay and generated UI payload PASS" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run NAV-scaled ratio and volatility-time matrix
         timeout-minutes: 30
@@ -166,6 +187,10 @@ jobs:
             artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md
             artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv
             artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json
+            QQQ_SERIAL_CURVE_RUN.json
+            QQQ_PROFIT_WARNING_SYNC_RUN.json
+            research/qqq_put_ratio_lab_v1/profit_warning_analysis.json
+            research/qqq_put_ratio_lab_v1/portfolio_curve.json
             QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_risk_capacity.csv
@@ -201,6 +226,9 @@ jobs:
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv "$result_dir/replay/"
+          cp QQQ_SERIAL_CURVE_RUN.json "$result_dir/replay/"
+          cp QQQ_PROFIT_WARNING_SYNC_RUN.json "$result_dir/replay/"
+          cp research/qqq_put_ratio_lab_v1/profit_warning_analysis.json "$result_dir/replay/"
           cp QQQ_PUT_RATIO_SCALE_VOLATILITY_RUN.json "$result_dir/scale_volatility/"
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json "$result_dir/scale_volatility/"
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md "$result_dir/scale_volatility/"
@@ -231,10 +259,11 @@ jobs:
           EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "$result_dir"
+          git add "$result_dir" research/qqq_put_ratio_lab_v1/data.json research/qqq_put_ratio_lab_v1/portfolio_curve.json research/qqq_put_ratio_lab_v1/profit_warning_analysis.json research/qqq_put_ratio_lab_v1/README.md
           if git diff --cached --quiet; then
             echo "research_output_commit=NO_CHANGES"
           else
-            git commit -m "research: persist QQQ put ratio run outputs ${short_sha}"
-            git push origin "HEAD:${GITHUB_REF_NAME}"
+            git commit -m "research: persist QQQ put ratio run outputs ${short_sha} [skip ci]"
+            target_branch="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+            git push origin "HEAD:${target_branch}"
           fi

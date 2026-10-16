@@ -1,0 +1,167 @@
+name: QQQ Put Ratio Direct Profit Warning Replay V1
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches:
+      - research/qqq-put-ratio-exit-measurement-v1
+    paths:
+      - research/qqq_put_ratio_exit_study_v1/**
+      - research/qqq_put_ratio_lab_v1/**
+      - .github/workflows/qqq-put-ratio-profit-warning-v1.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-put-ratio-profit-warning-frozen-cohort-v2
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Frozen cohort $800/$1,000 replay and serial curve
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: false
+
+      - name: Runtime and offline contracts
+        run: |
+          set -euo pipefail
+          python3 --version
+          node --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+          PY=.venv/bin/python
+          $PY -m py_compile research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_v1.py
+          $PY -m py_compile research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_exit_study_v1.py
+          $PY research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_exit_study_v1.py
+          $PY -m py_compile research/qqq_put_ratio_lab_v1/build_portfolio_curve.py
+          $PY -m py_compile research/qqq_put_ratio_lab_v1/sync_profit_warning_results.py
+          $PY -m py_compile research/qqq_put_ratio_lab_v1/test_sync_profit_warning_results.py
+          $PY research/qqq_put_ratio_lab_v1/test_sync_profit_warning_results.py
+          node --check research/qqq_put_ratio_lab_v1/app.js
+          node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
+
+      - name: Load archived SHA-pinned cohort and baseline summary
+        run: |
+          set -euo pipefail
+          src="research/qqq_put_ratio_exit_results_v1/run-7653cfba/replay"
+          out="artifacts/qqq_put_ratio_exit_study_v1"
+          mkdir -p "$out"
+          for name in \
+            qqq_put_ratio_exit_study_summary.json \
+            qqq_put_ratio_exit_study_summary.md \
+            qqq_put_ratio_exit_policy_summary.csv \
+            qqq_put_ratio_exit_policy_trades.csv \
+            qqq_put_ratio_exit_event_study.json \
+            qqq_put_ratio_exit_source_cohort.json \
+            qqq_underlying_close_series.csv; do
+            test -f "$src/$name"
+            cp "$src/$name" "$out/$name"
+          done
+          .venv/bin/python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          root = Path("research/qqq_put_ratio_exit_results_v1/run-7653cfba/replay")
+          expected = {
+              root / "qqq_put_ratio_exit_source_cohort.json": "9d7ce5414c3034d03d94796c69438b0bc044e485",
+              root / "qqq_put_ratio_exit_study_summary.json": "9825c1302a741f9347531bdfa16038908e624ba5",
+              root / "qqq_underlying_close_series.csv": "212193d77ee2b4a375187b866041ded9a40ac367",
+          }
+          for path, sha in expected.items():
+              actual = subprocess.check_output(["git", "rev-parse", f"HEAD:{path.as_posix()}"], text=True).strip()
+              assert actual == sha, f"SHA-pinned source mismatch for {path}: {actual}"
+          out = Path("artifacts/qqq_put_ratio_exit_study_v1")
+          trades = json.loads((out / "qqq_put_ratio_exit_source_cohort.json").read_text(encoding="utf-8"))
+          n = len(trades) if isinstance(trades, list) else len(trades.get("trades", []))
+          summary = json.loads((out / "qqq_put_ratio_exit_study_summary.json").read_text(encoding="utf-8"))
+          assert n == 62, f"expected 62 frozen episodes, got {n}"
+          assert summary["generation"]["opened_trade_episodes"] == 62
+          assert summary["window"]["source_end"] == "2025-12-15"
+          print("SHA-pinned frozen cohort, source summary and QQQ sessions verified; episodes=62")
+          PY
+
+      - name: Rebuild curve and directly measure warning outcomes
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          $PY research/qqq_put_ratio_lab_v1/build_portfolio_curve.py \
+            --cohort artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json \
+            --sessions artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv \
+            --out research/qqq_put_ratio_lab_v1/portfolio_curve.json > QQQ_SERIAL_CURVE_RUN.json
+          cat QQQ_SERIAL_CURVE_RUN.json
+          $PY research/qqq_put_ratio_lab_v1/sync_profit_warning_results.py \
+            --cohort artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json \
+            --summary artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json \
+            --curve research/qqq_put_ratio_lab_v1/portfolio_curve.json \
+            --data research/qqq_put_ratio_lab_v1/data.json \
+            --details research/qqq_put_ratio_lab_v1/profit_warning_analysis.json \
+            --readme research/qqq_put_ratio_lab_v1/README.md > QQQ_PROFIT_WARNING_SYNC_RUN.json
+          cat QQQ_PROFIT_WARNING_SYNC_RUN.json
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/data.json > /dev/null
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/portfolio_curve.json > /dev/null
+          $PY -m json.tool research/qqq_put_ratio_lab_v1/profit_warning_analysis.json > /dev/null
+          $PY research/qqq_put_ratio_lab_v1/test_sync_profit_warning_results.py
+          node --check research/qqq_put_ratio_lab_v1/app.js
+          node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
+          $PY - <<'PY'
+          import json
+          from pathlib import Path
+          curve=json.loads(Path("research/qqq_put_ratio_lab_v1/portfolio_curve.json").read_text(encoding="utf-8"))
+          data=json.loads(Path("research/qqq_put_ratio_lab_v1/data.json").read_text(encoding="utf-8"))
+          detail=json.loads(Path("research/qqq_put_ratio_lab_v1/profit_warning_analysis.json").read_text(encoding="utf-8"))
+          assert curve["trade_count"] == 62
+          assert len(curve["cumulative_pnl_usd_by_policy"]) == 13
+          assert any(x.get("id") == "TP_USD_800_CLOSE_SHORT_RISK" and x.get("n") == 62 for x in data["policies"])
+          for target in ("800", "1000"):
+            t=detail["thresholds"][target]["thresholdStudy"]
+            p=detail["thresholds"][target]["policy"]
+            c=detail["thresholds"][target]["serialCurve"]
+            print(f"target={target} counterfactual_hits={t['counterfactualFirstMarkHitCount']} actual_triggers={t['actualPolicyTriggerCount']} successful_exits={t['successfulExitActionCount']} next_session_success={t['successfulActionOnNextObservedSessionCount']} forward5_n={t['forwardIfOriginal1x5Held']['5']['n']} forward10_n={t['forwardIfOriginal1x5Held']['10']['n']}")
+            print(f"target={target} pnl={p['closed_trade_net_pnl_sum_usd']} win_rate={p['win_rate_pct']} PF={p['profit_factor']} MaxDD={c['max_drawdown_pct_of_prior_equity_peak']} peak={c['max_drawdown_peak_date']} trough={c['max_drawdown_trough_date']} coverage={c['mark_coverage_pct']} missing={c['missing_marks_not_filled']}")
+          print("13 policy curves validated; live deployment remains BLOCKED.")
+          PY
+
+      - name: Package replay evidence for download
+        run: |
+          set -euo pipefail
+          result_dir="artifacts/qqq_put_ratio_profit_warning"
+          mkdir -p "$result_dir/replay"
+          cp QQQ_SERIAL_CURVE_RUN.json QQQ_PROFIT_WARNING_SYNC_RUN.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_summary.csv "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_policy_trades.csv "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_event_study.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json "$result_dir/replay/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv "$result_dir/replay/"
+          cp research/qqq_put_ratio_lab_v1/data.json research/qqq_put_ratio_lab_v1/portfolio_curve.json "$result_dir/replay/"
+          cp research/qqq_put_ratio_lab_v1/profit_warning_analysis.json "$result_dir/replay/"
+          cat > "$result_dir/MANIFEST.md" <<EOF
+          # QQQ put-ratio direct profit-warning replay evidence
+
+          - Workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - Study commit: ${GITHUB_SHA}
+          - Frozen cohort: 62 non-overlapping 1-long/5-short episodes
+          - Cohort blob: 9d7ce5414c3034d03d94796c69438b0bc044e485 (reused, not duplicated)
+          - Option source ends 2025-12-15; EOD quote-side estimates, not confirmed fills
+          - 800 USD target equals 1% only at fixed 80000 USD NAV
+          - Deployment and broker orders remain BLOCKED
+          EOF
+
+      - name: Upload replay evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: qqq-put-ratio-profit-warning-${{ github.run_id }}
+          path: artifacts/qqq_put_ratio_profit_warning/
+          if-no-files-found: error
+          retention-days: 30

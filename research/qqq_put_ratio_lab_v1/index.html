@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QQQ Put Ratio Research Lab</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div>
+    <div class="eyebrow">RESEARCH ONLY · HISTORICAL EVIDENCE</div>
+    <h1>QQQ Put Ratio Lab</h1>
+    <p>歷史勝率、尾部風險、時間與波動預警</p>
+  </div>
+  <div class="status"><span class="pill amber">部署狀態：BLOCKED</span><span class="pill">期權資料截至 2025-12-15</span></div>
+</header>
+<main>
+<section class="notice">
+<strong>重要：</strong>歷史交易勝率不代表資金安全。1 Long / 5 Short 的歷史回放可能有很高勝率，但尾部損失可遠超帳戶資金。本頁只作研究及人工覆核，不會連接券商或自動下單。
+</section>
+<section class="panel">
+<div class="section-title"><div><div class="eyebrow">01 · INPUT</div><h2>設定資金、比例及預警線</h2></div></div>
+<div class="controls">
+<label>帳戶 NAV (USD)<input id="nav" type="number" min="1" step="1000" value="80000"></label>
+<label>比例方向<select id="direction"><option value="SHORT_HEAVY">LONG 1 : SHORT N</option><option value="LONG_HEAVY">LONG N : SHORT 1</option></select></label>
+<label>N（1–6）<select id="ratioN"><option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option></select></label>
+<label>尾部風險預算<select id="riskPct"><option value="0.5">0.5% NAV</option><option value="1" selected>1% NAV</option><option value="2">2% NAV</option></select></label>
+<label>獲利預警線<select id="profitPct"><option value="0.5">+0.5% NAV</option><option value="1" selected>+1% NAV</option><option value="2">+2% NAV</option></select></label>
+<label>目前估算淨清算損益 (USD)<input id="currentPnl" type="number" step="10" placeholder="可留空；按各腿報價估算"></label>
+<label>持倉交易日數<input id="age" type="number" min="0" step="1" value="0"></label>
+<label>剩餘到期日 DTE<input id="dte" type="number" min="0" step="1" placeholder="例如 25"></label>
+<label>當前 RV20 年化波動率 (%)<input id="rv20" type="number" min="0" step="0.1" placeholder="留空使用 ALL 基準"></label>
+<label>正股波動期限<select id="horizon"><option value="5" selected>5 個交易日</option><option value="10">10 個交易日</option><option value="20">20 個交易日</option><option value="45">45 個交易日</option></select></label>
+</div>
+<div id="inputSummary" class="input-summary"></div>
+</section>
+<section class="grid four">
+<article class="metric"><span>直接歷史勝率</span><strong id="winRate">—</strong><small id="winRateSub">—</small></article>
+<article class="metric"><span>獲利預警金額</span><strong id="profitTarget">—</strong><small id="profitTargetSub">百分比是候選提醒線</small></article>
+<article class="metric"><span>最差觀察尾部損失</span><strong id="tailLoss">—</strong><small id="tailLossSub">—</small></article>
+<article class="metric"><span>尾部預算整組數</span><strong id="units">—</strong><small id="unitsSub">—</small></article>
+</section>
+<section class="panel">
+<div class="section-title"><div><div class="eyebrow">AT A GLANCE · HISTORY × DECISION</div><h2>這組比例的歷史證據與目前獲利預警</h2></div><span class="pill">研究資訊 · 人工覆核</span></div>
+<div id="historyAnswer" class="vol-summary"><div class="empty">正在載入同結構歷史樣本及所選政策。</div></div>
+<div id="targetEvidence" class="alerts"><div class="empty">正在對照目前 NAV 百分比預警與直接回放門檻。</div></div>
+<p class="subtle">歷史勝率只對直接回放過的 LONG PUT 1 : SHORT PUT 5 有效。目標金額必須與實際重播過的固定門檻一致，才顯示同額結果；沒有插值、沒有把正股跌幅概率當作 Put Ratio 失敗率，也不會自動平倉。</p>
+</section>
+<section class="panel"><div class="section-title"><div><div class="eyebrow">02 · ALERTS</div><h2>目前預警與風險裁決</h2></div></div><div id="alerts" class="alerts"></div><div id="riskVerdict" class="verdict"></div></section>
+<section class="panel">
+<div class="section-title"><div><div class="eyebrow">03 · HISTORY</div><h2>直接歷史回放：退出政策比較</h2></div><span class="pill">62 組非重疊事件</span></div>
+<p class="explainer">只有 LONG 1 : SHORT 5 可直接引用這組回放。其他 N 不會複製同一個勝率。成本假設為每腿每邊滑點 $0.05、每張每邊佣金 $0.65。這是固定一組交易的合計，不是 NAV 複利報酬。</p>
+<div class="table-wrap"><table><thead><tr><th>政策</th><th>觸發交易</th><th>勝率</th><th>淨損益</th><th>單筆最差</th><th>Profit Factor</th></tr></thead><tbody id="policyRows"></tbody></table></div><div class="source-note" id="policyNote"></div><div id="profitWarningEvidence" class="alerts"></div>
+</section>
+<section class="panel">
+<div class="section-title"><div><div class="eyebrow">04 · STRATEGY EQUITY</div><h2>策略逐日估值曲線與 MaxDD</h2></div><span id="portfolioState" class="pill">PENDING</span></div>
+<p class="explainer">由每個歷史 episode 的逐日 Put 腿 Bid／Ask 淨清算估值串接；持倉間不重疊、每次固定 1 組，不複利。這不是根據單筆最終 P&amp;L 假造的曲線。</p>
+<div class="controls curve-controls">
+<label>比較退出政策<select id="curvePolicy">
+<option value="BASE_DTE7_CLOSE_SHORT_RISK">基準：DTE ≤ 7</option>
+<option value="TP_USD_500_CLOSE_SHORT_RISK">獲利 +$500</option>
+<option value="TP_USD_800_CLOSE_SHORT_RISK">獲利 +$800（$80k NAV 的 +1%）</option>
+<option value="TP_USD_1000_CLOSE_SHORT_RISK">獲利 +$1,000</option>
+<option value="TP_USD_2000_CLOSE_SHORT_RISK">獲利 +$2,000</option>
+<option value="TP_25PCT_MAX_TERMINAL_GAIN">終端最大收益 25%</option>
+<option value="TP_50PCT_MAX_TERMINAL_GAIN">終端最大收益 50%</option>
+<option value="FAST_1000_WITHIN_5D_TRIM_4_SHORTS">5 日內 +$1,000 減 4 張 Short</option>
+<option value="DAY20_NONPOSITIVE_CLOSE_SHORT_RISK">第 20 日非正損益平短倉</option>
+<option value="DAY20_NONPOSITIVE_TRIM_4_SHORTS">第 20 日非正損益減 4 張 Short</option>
+<option value="SL_USD_500_CLOSE_SHORT_RISK">止損 −$500</option>
+<option value="SL_USD_1000_CLOSE_SHORT_RISK">止損 −$1,000</option>
+<option value="SL_USD_2000_CLOSE_SHORT_RISK">止損 −$2,000</option>
+</select></label>
+</div>
+<div id="portfolioTradeMeta" class="input-summary">等候可核對的逐日回放資料。</div>
+<div id="portfolioMetrics" class="grid four"><div class="empty">PENDING · 正在補建策略層面歷史 MaxDD。</div></div>
+<div id="equityChart" class="equity-chart"></div>
+<div class="table-wrap"><table><thead><tr><th>策略資產回撤至少</th><th>回撤週期數</th><th>平均每年次數</th><th>發生年份</th><th>事件間隔中位數（交易日）</th></tr></thead><tbody id="strategyDdRows"><tr><td colspan="5">PENDING</td></tr></tbody></table></div>
+<div class="subtle" id="portfolioCaveat">尚未生成每日回放；不以 QQQ 正股回撤冒充策略 MaxDD。</div>
+</section>
+<section class="panel">
+<div class="section-title"><div><div class="eyebrow">05 · TIME × VOL</div><h2>時間／波動：QQQ 正股下跌頻率</h2></div><span id="volStateBadge" class="pill">—</span></div>
+<p class="explainer">這些是 QQQ 正股價格路徑頻率，不是 Put Ratio 的虧損機率。期限視窗互相重疊，不能當成獨立樣本或保證未來發生率。</p>
+<div id="volSummary" class="vol-summary"></div>
+<div class="table-wrap"><table><thead><tr><th>期限</th><th>狀態</th><th>樣本 N</th><th>P(跌 ≥3%)</th><th>P(跌 ≥5%)</th><th>P(跌 ≥10%)</th><th>5%跌幅名義區間</th><th>5%分位回報</th></tr></thead><tbody id="volRows"></tbody></table></div>
+</section>
+<section class="panel">
+<div class="section-title"><div><div class="eyebrow">06 · DRAWDOWN</div><h2>QQQ 正股回撤各級發生頻率</h2></div><span class="pill">不是策略帳戶 MaxDD</span></div>
+<p class="explainer">將「歷史高位到下一次創新高」視作一個週期，再計其最大峰谷回撤。平均每年次數按資料跨度換算；不同級別互相巢狀，不能相加。</p>
+<div class="dd-summary" id="ddSummary"></div>
+<div class="table-wrap"><table><thead><tr><th>回撤至少</th><th>週期數</th><th>平均每年次數</th><th>有發生的年份</th><th>事件間隔中位數（交易日）</th></tr></thead><tbody id="ddRows"></tbody></table></div>
+<div class="subtle" id="ddCaveat"></div>
+</section>
+<section class="panel">
+<div class="section-title"><div><div class="eyebrow">07 · TAIL RISK</div><h2>改變 N 時的尾部風險比較</h2></div><span class="pill">到期 payoff 算術</span></div>
+<div class="table-wrap"><table><thead><tr><th>結構</th><th>N</th><th>尾部中位數</th><th>P95 尾部損失</th><th>最差觀察尾部</th><th>相對 NAV</th><th>預算整組數</th></tr></thead><tbody id="tailRows"></tbody></table></div>
+<div class="subtle">沒有包括券商保證金、途中追加保證金、強制平倉或實際成交容量。必要資料未驗證時，不得標作可執行。</div>
+</section>
+<footer>
+<p>來源：QQQ 正股 1,960 筆日收市資料，2018-03-01 至 2025-12-15；期權回放 62 組，最近期權鏈日 2025-12-15。歷史報價估值非已確認成交。</p>
+<p><a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/tree/research/qqq-put-ratio-exit-measurement-v1/research/qqq_put_ratio_exit_results_v1/run-7653cfba">開啟原始研究輸出</a> · <a href="https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38778540717">開啟已驗證研究 Run</a></p>
+</footer>
+</main>
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body></html>

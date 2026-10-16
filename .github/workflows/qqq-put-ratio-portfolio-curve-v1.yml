@@ -1,0 +1,98 @@
+name: QQQ Put Ratio Serial Equity Curve V1
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: qqq-put-ratio-portfolio-curve-v1
+  cancel-in-progress: true
+jobs:
+  serial-curve:
+    name: SHA-pinned serial equity curve (self-hosted Linux)
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout pull-request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+      - name: Runtime and test curve contract
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+          .venv/bin/python -m py_compile research/qqq_put_ratio_lab_v1/build_portfolio_curve.py
+          .venv/bin/python research/qqq_put_ratio_lab_v1/tests/test_portfolio_curve_v1.py
+      - name: Check persistent SHA-pinned option cache
+        id: cache
+        run: |
+          set -euo pipefail
+          cache_dir="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$cache_dir"
+          if find "$cache_dir" -type f -print -quit | grep -q .; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+            echo "option_cache=LINUX_BOT_LOCAL_PERSISTENT"
+          else
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+            echo "option_cache=EMPTY_TRY_SHA_PINNED_REMOTE_CACHE"
+          fi
+      - name: Restore option cache only if Linux runner is cold
+        if: steps.cache.outputs.hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/qqq-options-full-history
+          key: qqq-options-full-history-2018-2025-sha-pinned-v1
+          enableCrossOsArchive: true
+      - name: Link persistent cache into workspace
+        run: |
+          set -euo pipefail
+          mkdir -p .cache
+          rm -rf .cache/qqq-options-full-history
+          ln -s "$HOME/.cache/qqq-options-full-history" .cache/qqq-options-full-history
+      - name: Regenerate original SHA-pinned EOD replay source cohort
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          mkdir -p .work/put-ratio-portfolio
+          .venv/bin/python research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_v1.py --out .work/put-ratio-portfolio/replay > .work/put-ratio-portfolio/replay-run.json
+          .venv/bin/python research/qqq_put_ratio_lab_v1/build_portfolio_curve.py --cohort .work/put-ratio-portfolio/replay/qqq_put_ratio_exit_source_cohort.json --sessions .work/put-ratio-portfolio/replay/qqq_underlying_close_series.csv --out research/qqq_put_ratio_lab_v1/portfolio_curve.json > .work/put-ratio-portfolio/curve-run.json
+          cat .work/put-ratio-portfolio/curve-run.json
+          .venv/bin/python -m json.tool research/qqq_put_ratio_lab_v1/portfolio_curve.json > /dev/null
+          echo "portfolio_curve_json=PASS"
+      - name: Verify output matches the source replay cohort
+        run: |
+          set -euo pipefail
+          .venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path("research/qqq_put_ratio_lab_v1/portfolio_curve.json").read_text(encoding="utf-8"))
+          assert x["status"] == "RESEARCH_DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED"
+          assert x["trade_count"] == 62, x["trade_count"]
+          assert len(x["session_dates"]) == 1960, len(x["session_dates"])
+          assert len(x["cumulative_pnl_usd_by_policy"]) == 13
+          baseline=x["metrics_by_policy_at_80k_nav"]["BASE_DTE7_CLOSE_SHORT_RISK"]
+          assert baseline["trades_in_serial_cohort"] == 62
+          assert baseline["resolved_trades"] == 62
+          assert baseline["missing_marks_not_filled"] > 0 or baseline["mark_coverage_pct"] == 100
+          assert baseline["net_pnl_sum_closed_trades_usd"] > 0
+          print("serial_portfolio_curve_source_contract=PASS")
+          print("baseline_max_drawdown_pct=", baseline["max_drawdown_pct_of_prior_equity_peak"])
+          print("baseline_mark_coverage_pct=", baseline["mark_coverage_pct"])
+          PY
+      - name: Persist the computed curve on the isolated PR branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_put_ratio_lab_v1/portfolio_curve.json
+          if git diff --cached --quiet; then
+            echo "portfolio_curve_commit=NO_CHANGES"
+          else
+            git commit -m "research: persist serial QQQ Put Ratio portfolio curve"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi

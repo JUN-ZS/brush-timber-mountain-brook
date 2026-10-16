@@ -1,0 +1,107 @@
+{
+  "research_id": "QQQ_PUT_RATIO_SERIAL_PORTFOLIO_CURVE_V1",
+  "status": "RESEARCH_DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED",
+  "trade_count": 62,
+  "session_count": 1960,
+  "policy_count": 13,
+  "outputs": "research/qqq_put_ratio_lab_v1/portfolio_curve.json",
+  "baseline": {
+    "starting_nav_usd": 80000.0,
+    "ending_nav_last_observed_usd": 98067.6,
+    "net_pnl_last_observed_usd": 18067.6,
+    "known_marks": 1949,
+    "expected_sessions": 1960,
+    "mark_coverage_pct": 99.4388,
+    "missing_marks_not_filled": 11,
+    "max_drawdown_usd_peak_to_trough": 8000.0,
+    "max_drawdown_pct_of_prior_equity_peak": -8.2796,
+    "max_drawdown_peak_date": "2025-04-01",
+    "max_drawdown_trough_date": "2025-04-08",
+    "max_drawdown_cycle_count": 506,
+    "drawdown_levels": [
+      {
+        "level_pct": 3,
+        "episodes": 4,
+        "events_per_year": 0.5133,
+        "years_with_event": 4,
+        "calendar_years": 8,
+        "median_gap_sessions": 307.0,
+        "trough_year_counts": {
+          "2018": 1,
+          "2020": 1,
+          "2024": 1,
+          "2025": 1
+        }
+      },
+      {
+        "level_pct": 5,
+        "episodes": 2,
+        "events_per_year": 0.2567,
+        "years_with_event": 2,
+        "calendar_years": 8,
+        "median_gap_sessions": 169.0,
+        "trough_year_counts": {
+          "2024": 1,
+          "2025": 1
+        }
+      },
+      {
+        "level_pct": 10,
+        "episodes": 0,
+        "events_per_year": 0.0,
+        "years_with_event": 0,
+        "calendar_years": 8,
+        "median_gap_sessions": null,
+        "trough_year_counts": {}
+      },
+      {
+        "level_pct": 15,
+        "episodes": 0,
+        "events_per_year": 0.0,
+        "years_with_event": 0,
+        "calendar_years": 8,
+        "median_gap_sessions": null,
+        "trough_year_counts": {}
+      },
+      {
+        "level_pct": 20,
+        "episodes": 0,
+        "events_per_year": 0.0,
+        "years_with_event": 0,
+        "calendar_years": 8,
+        "median_gap_sessions": null,
+        "trough_year_counts": {}
+      },
+      {
+        "level_pct": 25,
+        "episodes": 0,
+        "events_per_year": 0.0,
+        "years_with_event": 0,
+        "calendar_years": 8,
+        "median_gap_sessions": null,
+        "trough_year_counts": {}
+      },
+      {
+        "level_pct": 30,
+        "episodes": 0,
+        "events_per_year": 0.0,
+        "years_with_event": 0,
+        "calendar_years": 8,
+        "median_gap_sessions": null,
+        "trough_year_counts": {}
+      }
+    ],
+    "status": "OBSERVED_QUOTE_SIDE_SERIAL_FIXED_UNIT_REPLAY_NOT_LIVE_EQUITY",
+    "limitations": [
+      "One ratio unit per non-overlapping historical episode; no reinvestment, compounding, or NAV-scaled quantity.",
+      "Missing option marks stay null; drawdowns are observed-mark estimates and may understate unobserved intraday/in-between-mark troughs.",
+      "EOD preservation-mirror quotes are not confirmed fills; exact quote times, broker margin, assignment and forced liquidation are unavailable.",
+      "A terminal-tail-loss budget that permits zero units blocks live use regardless of this historical mark-to-market curve."
+    ],
+    "trades_in_serial_cohort": 62,
+    "resolved_trades": 62,
+    "win_rate_pct": 95.1613,
+    "net_pnl_sum_closed_trades_usd": 18067.6,
+    "mark_coverage_across_active_trade_sessions_pct": 99.4168
+  }
+}
