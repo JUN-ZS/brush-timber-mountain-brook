@@ -5,6 +5,7 @@ on:
     paths:
       - "qqq_hybrid_v4_4_issue_107_frame_vxx_48_golden_tests.html"
       - "scripts/validate-v44-frame-contracts.mjs"
+      - "scripts/v44-frame-browser-e2e.mjs"
       - ".github/workflows/rolling-floor.yml"
       - ".github/workflows/v44-frame-contract-validation.yml"
       - "docs/QQQ_HYBRID_V44_ASSUMPTION_LEDGER_V1.md"
@@ -16,7 +17,7 @@ jobs:
   validate-frame-contracts:
     name: Validate V4.4 FRAME contracts (no HUB data run)
     runs-on: [self-hosted, linux, x64]
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,6 +31,15 @@ jobs:
           node --version
           test -s qqq_hybrid_v4_4_issue_107_frame_vxx_48_golden_tests.html
           test -s scripts/validate-v44-frame-contracts.mjs
+      - name: Install locked project dependencies for Playwright
+        shell: bash
+        run: npm ci --no-audit --no-fund
+      - name: Ensure Chromium browser is installed
+        shell: bash
+        run: npx playwright install chromium
       - name: Run static, parser, and assumption-profile checks
         shell: bash
         run: node scripts/validate-v44-frame-contracts.mjs
+      - name: Run real-browser UI and transactional PUSH/PULL checks
+        shell: bash
+        run: node scripts/v44-frame-browser-e2e.mjs
