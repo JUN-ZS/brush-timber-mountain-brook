@@ -1,0 +1,25 @@
+{
+  "researchId": "QQQ_PUT_RATIO_PROFIT_WARNING_THRESHOLD_STUDY_V1",
+  "status": "RESEARCH_DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED",
+  "cohortN": 62,
+  "thresholds": {
+    "800": {
+      "actualPolicyTriggers": 6,
+      "successfulExitActions": 6,
+      "netPnlUsd": 17091.6,
+      "winRatePct": 95.16,
+      "maxDrawdownPct": -5.9633,
+      "forward5N": 5,
+      "forward10N": 1
+    },
+    "1000": {
+      "actualPolicyTriggers": 3,
+      "successfulExitActions": 3,
+      "netPnlUsd": 18067.6,
+      "winRatePct": 95.16,
+      "maxDrawdownPct": -8.2796,
+      "forward5N": 1,
+      "forward10N": 0
+    }
+  }
+}
