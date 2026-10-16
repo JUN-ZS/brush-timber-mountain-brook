@@ -32,7 +32,7 @@ assert.strictEqual(missingTermTime.blocked,true);
 assert.strictEqual(E.derive({...base,spotAsOf:undefined}).health.status,"PENDING");
 assert.strictEqual(E.derive({...base,today:"not-a-date"}).health.status,"PENDING");
 assert.strictEqual(E.derive({...base,termAsOf:"2026-10-08"}).health.status,"PENDING");
-assert.strictEqual(E.derive({...base,termAsOf:"2026-10-03"}).health.status,"FRESH"); // inclusive max age = 4 days
+assert.strictEqual(E.derive({...base,termAsOf:"2026-10-03",spotAsOf:"2026-10-03"}).health.status,"FRESH"); // inclusive max age = 4 days, timestamps aligned
 assert.strictEqual(E.derive({...base,termAsOf:"2026-10-02"}).health.status,"STALE"); // 5 days
 assert.strictEqual(E.derive({...base,spotAsOf:"2026-10-04"}).health.status,"MIXED");
 
