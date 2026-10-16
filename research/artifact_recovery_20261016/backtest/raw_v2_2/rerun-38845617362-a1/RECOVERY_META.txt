@@ -1,0 +1,7 @@
+run_id=38845617362
+run_attempt=1
+tested_sha=b5a07975d4d29ba24194c48bbc4362ce203b8c39
+source_branch=research/backtest-v2-2-artifact-recovery-20261016
+source_workflow=Backtest V2.2
+source_run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38845617362
+outputs=backtest_result_curve_report_and_source_data

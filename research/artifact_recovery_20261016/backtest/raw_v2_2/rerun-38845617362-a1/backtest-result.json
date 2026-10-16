@@ -1,0 +1,565 @@
+{
+  "version": "2.2",
+  "executed": true,
+  "executedAt": "2026-10-16T05:24:01.229Z",
+  "oosLeakage": false,
+  "officialSearch": "PROTECTED put overlay only",
+  "dataStart": "2004-01-02",
+  "dataEnd": "2026-09-04",
+  "nBars": 5706,
+  "nObservations": 5644,
+  "window": {
+    "start": 60,
+    "end": 5705,
+    "trainEnd": 3446,
+    "valEnd": 4575,
+    "oosStart": 4576,
+    "trainDate": "2004-03-30",
+    "trainEndDate": "2017-09-11",
+    "valEndDate": "2022-03-07",
+    "oosStartDate": "2022-03-08",
+    "endDate": "2026-09-04",
+    "nBars": 5706,
+    "vxxStart": "2018-01-25",
+    "vxxStartIndex": 3540,
+    "trainHasVxx": false,
+    "validationHasVxx": true,
+    "oosHasVxx": true
+  },
+  "coverage": {
+    "vxxBars": 2165,
+    "vxxStartIndex": 3540,
+    "vxxEndIndex": 5705,
+    "vxxStart": "2018-01-25",
+    "vxxEnd": "2026-09-04",
+    "vxxFirstClose": 1770.24,
+    "missingVxxAsZeroReturn": true,
+    "windowNotSilentlyShrunk": true,
+    "note": "Missing VXX bars are treated as 0 return in QQQ_VXX, so pre-2018 QQQ_VXX ≈ QQQ. The official window is NOT silently shrunk to the VXX era."
+  },
+  "dataLayer": {
+    "qqq": "Observed",
+    "vix": "Observed (used as IV proxy)",
+    "putPrice": "Derived Black-Scholes",
+    "iv": "Derived — VIX as IV, flat term structure, not QQQ option IV, not this DTE",
+    "spread": "Estimated 10% of mid on open and early close",
+    "fills": "NOT OPRA. Not a historical option-chain fill backtest."
+  },
+  "intendedGrid": {
+    "putDistance": [
+      0.01,
+      0.015,
+      0.02,
+      0.025,
+      0.03,
+      0.04,
+      0.05
+    ],
+    "dte": [
+      7,
+      14,
+      21,
+      30,
+      45,
+      60,
+      90
+    ],
+    "rollDays": [
+      7,
+      14,
+      21,
+      30
+    ],
+    "putSize": [
+      0.25,
+      0.5,
+      0.75,
+      1,
+      1.5
+    ],
+    "note": "First wave searches a subset so the freeze protocol can actually run. Intended grid is recorded, not silently treated as searched."
+  },
+  "searchedGrid": {
+    "n": 648,
+    "putDistance": [
+      0.02,
+      0.03,
+      0.05
+    ],
+    "dte": [
+      21,
+      30,
+      45
+    ],
+    "rollDays": [
+      7,
+      14
+    ],
+    "calmPut": [
+      0,
+      0.25
+    ],
+    "unstablePut": [
+      0.25,
+      0.5,
+      0.75
+    ],
+    "tailPut": [
+      0.75,
+      1,
+      1.5
+    ],
+    "recoveryPut": [
+      0.25,
+      0.5
+    ],
+    "qqqExposure": "frozen at 100% all states (convexity, not de-risk)",
+    "emergencyDd": null,
+    "buildingPut": 0.75
+  },
+  "putGuard": {
+    "ok": true,
+    "date": "2008-10-15",
+    "qqq": -0.0895572933765062,
+    "overlay": -0.014562646817435493
+  },
+  "benchmark": {
+    "label": "historical benchmark (not V2 result)",
+    "cagr": 0.1252,
+    "maxDd": -0.2351,
+    "winRate": 0.562,
+    "profitFactor": 1.74,
+    "sharpe": 0.88,
+    "sortino": 1.26,
+    "trades": 104
+  },
+  "buyHoldQQQ": {
+    "layer": "Observed",
+    "train": {
+      "cagr": 0.11947815003952145,
+      "maxDd": -0.5340403817977011,
+      "sharpe": 0.6637412244455362,
+      "sortino": 0.8749232616033957,
+      "es": -0.02985061458126932,
+      "calmar": 0.22372493562627396,
+      "volatility": 0.20029459137793512,
+      "worstDay": -0.0895572933765062,
+      "turnover": 0.00017717930545712261,
+      "nDays": 3387,
+      "totalReturn": 3.5581991203094434,
+      "positiveDays": 1854,
+      "negativeDays": 1506,
+      "flatDays": 27,
+      "positiveDayRatePct": 54.738706820194864
+    },
+    "validation": {
+      "cagr": 0.20408588939966998,
+      "maxDd": -0.2855936159627235,
+      "sharpe": 0.8942326946930322,
+      "sortino": 1.0789124846892948,
+      "es": -0.03693427653465995,
+      "calmar": 0.714602421036988,
+      "volatility": 0.24020577851934027,
+      "worstDay": -0.11978777078856306,
+      "turnover": 0.00017717930545712261,
+      "nDays": 1129,
+      "totalReturn": 1.2980435501874275,
+      "positiveDays": 652,
+      "negativeDays": 476,
+      "flatDays": 1,
+      "positiveDayRatePct": 57.750221434898144
+    },
+    "oos": {
+      "cagr": 0.19686119151457948,
+      "maxDd": -0.2956176094422118,
+      "sharpe": 0.8984786539406695,
+      "sortino": 1.2918327166217485,
+      "es": -0.032175827615190174,
+      "calmar": 0.6659318837129777,
+      "volatility": 0.22926131694588642,
+      "worstDay": -0.06210892577804139,
+      "turnover": 0.00017717930545712261,
+      "nDays": 1128,
+      "totalReturn": 1.23531559298246,
+      "positiveDays": 616,
+      "negativeDays": 512,
+      "flatDays": 0,
+      "positiveDayRatePct": 54.60992907801418
+    },
+    "full": {
+      "cagr": 0.15118899699566346,
+      "maxDd": -0.5340403817977011,
+      "sharpe": 0.7632075270891777,
+      "sortino": 0.999368997168239,
+      "es": -0.03196542582542649,
+      "calmar": 0.2831040538296505,
+      "volatility": 0.21477260105518162,
+      "worstDay": -0.11978777078856306,
+      "turnover": 0.00017717930545712261,
+      "nDays": 5644,
+      "totalReturn": 22.414796916268795,
+      "positiveDays": 3122,
+      "negativeDays": 2494,
+      "flatDays": 28,
+      "positiveDayRatePct": 55.31537916371367
+    }
+  },
+  "dailyFloorProxy": {
+    "layer": "Hypothetical",
+    "label": "V2.1 daily -1.5% floor + 2.5bps, no state-risk overlay",
+    "train": {
+      "cagr": 0.3031684485347772,
+      "maxDd": -0.15043833448968902,
+      "sharpe": 1.6392669962094117,
+      "sortino": 3.3248754222700883,
+      "es": -0.01524999999999999,
+      "calmar": 2.015234013080331,
+      "volatility": 0.1703751940777789,
+      "worstDay": -0.01525,
+      "turnover": 0.00017717930545712261,
+      "nDays": 3387,
+      "totalReturn": 34.128713286296346,
+      "positiveDays": 1821,
+      "negativeDays": 1566,
+      "flatDays": 0,
+      "positiveDayRatePct": 53.764393268379095
+    },
+    "validation": {
+      "cagr": 0.6122288674240339,
+      "maxDd": -0.10928123443522253,
+      "sharpe": 2.592794112498593,
+      "sortino": 5.589169197780235,
+      "es": -0.015249999999999988,
+      "calmar": 5.602323862720807,
+      "volatility": 0.1913549747075812,
+      "worstDay": -0.01525,
+      "turnover": 0.00017717930545712261,
+      "nDays": 1129,
+      "totalReturn": 7.497760948894115,
+      "positiveDays": 637,
+      "negativeDays": 492,
+      "flatDays": 0,
+      "positiveDayRatePct": 56.421612046058456
+    },
+    "oos": {
+      "cagr": 0.4885175072119652,
+      "maxDd": -0.1133961960187464,
+      "sharpe": 2.127651292596242,
+      "sortino": 4.793431390222583,
+      "es": -0.01524999999999999,
+      "calmar": 4.308059038693014,
+      "volatility": 0.19602671938142088,
+      "worstDay": -0.01525,
+      "turnover": 0.00017717930545712261,
+      "nDays": 1128,
+      "totalReturn": 4.933071364265987,
+      "positiveDays": 605,
+      "negativeDays": 523,
+      "flatDays": 0,
+      "positiveDayRatePct": 53.63475177304965
+    },
+    "full": {
+      "cagr": 0.39646980926254893,
+      "maxDd": -0.15043833448968902,
+      "sharpe": 1.943893753780577,
+      "sortino": 4.081159646639763,
+      "es": -0.01524999999999999,
+      "calmar": 2.635430727197547,
+      "volatility": 0.18015723542246875,
+      "worstDay": -0.01525,
+      "turnover": 0.00017717930545712261,
+      "nDays": 5644,
+      "totalReturn": 1770.113218695502,
+      "positiveDays": 3063,
+      "negativeDays": 2581,
+      "flatDays": 0,
+      "positiveDayRatePct": 54.27002126151665
+    }
+  },
+  "selectedSpec": {
+    "putDistance": 0.05,
+    "dte": 45,
+    "rollDays": 7,
+    "calmPut": 0.25,
+    "unstablePut": 0.75,
+    "tailPut": 0.75,
+    "recoveryPut": 0.25,
+    "buildingPut": 0.75,
+    "qqq": {
+      "calm": 1,
+      "unstable": 1,
+      "tail": 1,
+      "recovery": 1
+    },
+    "emergencyDd": null,
+    "spread": 0.1
+  },
+  "layer": "Derived",
+  "proxyDisclaimer": "Derived BS put overlay using VIX as IV. Estimated 10% spread haircut. NOT an OPRA fill backtest.",
+  "train": {
+    "cagr": 0.041372104569468604,
+    "maxDd": -0.5338270645844991,
+    "sharpe": 0.3409351417941143,
+    "sortino": 0.47032528655043726,
+    "es": -0.02256984552980902,
+    "calmar": 0.07750094986598388,
+    "volatility": 0.1535654214148427,
+    "worstDay": -0.06490947648330579,
+    "turnover": 0.09355067328136074,
+    "nDays": 3387,
+    "totalReturn": 0.7243769817691996,
+    "positiveDays": 1810,
+    "negativeDays": 1577,
+    "flatDays": 0,
+    "positiveDayRatePct": 53.43962208444051
+  },
+  "validation": {
+    "cagr": 0.11376199696276701,
+    "maxDd": -0.1945547038666745,
+    "sharpe": 0.7184376897705719,
+    "sortino": 0.951788412310781,
+    "es": -0.02550150470145764,
+    "calmar": 0.5847301283485103,
+    "volatility": 0.17022931972799818,
+    "worstDay": -0.04862183959598596,
+    "turnover": 0.09355067328136074,
+    "nDays": 1129,
+    "totalReturn": 0.6204564262143333,
+    "positiveDays": 638,
+    "negativeDays": 491,
+    "flatDays": 0,
+    "positiveDayRatePct": 56.51018600531443
+  },
+  "oos": {
+    "cagr": 0.11638063168577739,
+    "maxDd": -0.2859003014674699,
+    "sharpe": 0.7030542626597225,
+    "sortino": 1.0944029574229914,
+    "es": -0.023736095138356575,
+    "calmar": 0.4070671877169018,
+    "volatility": 0.17949834057763212,
+    "worstDay": -0.04263830896849077,
+    "turnover": 0.09355067328136074,
+    "nDays": 1128,
+    "totalReturn": 0.6368803361517676,
+    "positiveDays": 589,
+    "negativeDays": 539,
+    "flatDays": 0,
+    "positiveDayRatePct": 52.21631205673759
+  },
+  "full": {
+    "cagr": 0.07024018662488163,
+    "maxDd": -0.5338270645844991,
+    "sharpe": 0.4992331085776351,
+    "sortino": 0.700013553829724,
+    "es": -0.023502838884927827,
+    "calmar": 0.13157854160045748,
+    "volatility": 0.1624587119108177,
+    "worstDay": -0.06490947648330579,
+    "turnover": 0.09355067328136074,
+    "nDays": 5644,
+    "totalReturn": 3.5738983212574,
+    "positiveDays": 3037,
+    "negativeDays": 2607,
+    "flatDays": 0,
+    "positiveDayRatePct": 53.809355067328134
+  },
+  "extras": {
+    "train": {
+      "premiumDrag": 0.06647253173420176,
+      "premiumSum": 0.8934224800942117,
+      "nRolls": 127,
+      "nAddOns": 54,
+      "nOpens": 182,
+      "protectionEfficiency": 0.003209103183476157,
+      "avgPutSize": 0.6250552472501129,
+      "daysWithPut": 3387
+    },
+    "validation": {
+      "premiumDrag": 0.06517843708028746,
+      "premiumSum": 0.2920097439033514,
+      "nRolls": 42,
+      "nAddOns": 15,
+      "nOpens": 57,
+      "protectionEfficiency": 1.396764270120597,
+      "avgPutSize": 0.6335628848226041,
+      "daysWithPut": 1129
+    },
+    "oos": {
+      "premiumDrag": 0.05977237032467952,
+      "premiumSum": 0.2675525147866607,
+      "nRolls": 48,
+      "nAddOns": 13,
+      "nOpens": 62,
+      "protectionEfficiency": 0.16257190273630007,
+      "avgPutSize": 0.6232852920279557,
+      "daysWithPut": 1128
+    },
+    "full": {
+      "premiumDrag": 0.06487458436811205,
+      "premiumSum": 1.4529847387842239,
+      "nRolls": 217,
+      "nAddOns": 82,
+      "nOpens": 301,
+      "protectionEfficiency": 0.003288147666450392,
+      "avgPutSize": 0.6264033360751929,
+      "daysWithPut": 5644
+    }
+  },
+  "score": -6.808110631449669,
+  "oosReturnFrequency": {
+    "metric": "Positive-return sessions / observed daily sessions; not option trade-level win rate.",
+    "protectedPutOverlay": {
+      "positiveDays": 589,
+      "negativeDays": 539,
+      "flatDays": 0,
+      "totalDays": 1128,
+      "positiveDayRatePct": 52.21631205673759
+    },
+    "observedQQQ": {
+      "positiveDays": 616,
+      "negativeDays": 512,
+      "flatDays": 0,
+      "totalDays": 1128,
+      "positiveDayRatePct": 54.60992907801418
+    }
+  },
+  "selection": {
+    "score": "protectedScore(validation) including protection efficiency; OOS unused",
+    "nCandidates": 648,
+    "frozenOn": "train+validation window only",
+    "oosTouchedDuringSelection": false
+  },
+  "pareto": [
+    {
+      "spec": {
+        "putDistance": 0.05,
+        "dte": 45,
+        "rollDays": 7,
+        "calmPut": 0.25,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqq": {
+          "calm": 1,
+          "unstable": 1,
+          "tail": 1,
+          "recovery": 1
+        },
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "valCagr": 0.11376199696276701,
+      "valMaxDd": -0.1945547038666745,
+      "valEs": -0.02550150470145764,
+      "valPrem": 0.06517843708028746,
+      "valEff": 1.396764270120597,
+      "score": -6.784240231912689
+    },
+    {
+      "spec": {
+        "putDistance": 0.03,
+        "dte": 45,
+        "rollDays": 7,
+        "calmPut": 0.25,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqq": {
+          "calm": 1,
+          "unstable": 1,
+          "tail": 1,
+          "recovery": 1
+        },
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "valCagr": 0.06944273940623402,
+      "valMaxDd": -0.1910389020960993,
+      "valEs": -0.023787014666056996,
+      "valPrem": 0.10214428034564402,
+      "valEff": 0.9256975872428915,
+      "score": -17.908735703829475
+    },
+    {
+      "spec": {
+        "putDistance": 0.05,
+        "dte": 30,
+        "rollDays": 7,
+        "calmPut": 0.25,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqq": {
+          "calm": 1,
+          "unstable": 1,
+          "tail": 1,
+          "recovery": 1
+        },
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "valCagr": 0.12278225579837088,
+      "valMaxDd": -0.24297737395218466,
+      "valEs": -0.02856289374391286,
+      "valPrem": 0.0771640735945204,
+      "valEff": 0.5522808740564611,
+      "score": -21.414557264547717
+    },
+    {
+      "spec": {
+        "putDistance": 0.05,
+        "dte": 30,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.25,
+        "buildingPut": 0.75,
+        "qqq": {
+          "calm": 1,
+          "unstable": 1,
+          "tail": 1,
+          "recovery": 1
+        },
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "valCagr": 0.1184201919526302,
+      "valMaxDd": -0.24909372924212103,
+      "valEs": -0.027987628081975087,
+      "valPrem": 0.07533994621817094,
+      "valEff": 0.4844692431144739,
+      "score": -23.223175978310458
+    },
+    {
+      "spec": {
+        "putDistance": 0.05,
+        "dte": 30,
+        "rollDays": 7,
+        "calmPut": 0,
+        "unstablePut": 0.75,
+        "tailPut": 0.75,
+        "recoveryPut": 0.5,
+        "buildingPut": 0.75,
+        "qqq": {
+          "calm": 1,
+          "unstable": 1,
+          "tail": 1,
+          "recovery": 1
+        },
+        "emergencyDd": null,
+        "spread": 0.1
+      },
+      "valCagr": 0.11738878324593038,
+      "valMaxDd": -0.2490937292421208,
+      "valEs": -0.027987628081975083,
+      "valPrem": 0.07581875186636107,
+      "valEff": 0.4814097544752221,
+      "score": -23.42086494304808
+    }
+  ]
+}
