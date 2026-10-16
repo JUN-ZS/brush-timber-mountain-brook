@@ -1,0 +1,67 @@
+{
+  "research_id": "QQQ_PUT_RATIO_COST_SENSITIVITY_AUDIT_V1",
+  "status": "DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED",
+  "cost_cases": {
+    "ZERO_FRICTION_BOUND": {
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.0
+    },
+    "BASE_005_065": {
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65
+    },
+    "ADVERSE_010_065": {
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.65
+    }
+  },
+  "policy_comparison": {
+    "input_rows": 4752,
+    "unique_policy_comparisons": 1584,
+    "complete_zero_base_adverse_triplets": 1584,
+    "incomplete_triplets": 0,
+    "duplicate_cost_case_rows": 0,
+    "expected_cost_cases": [
+      "ZERO_FRICTION_BOUND",
+      "BASE_005_065",
+      "ADVERSE_010_065"
+    ]
+  },
+  "friction_comparison": {
+    "input_rows": 5832,
+    "unique_friction_comparisons": 1944,
+    "complete_zero_base_adverse_triplets": 1944,
+    "incomplete_triplets": 0,
+    "duplicate_cost_case_rows": 0,
+    "blocked_zero_unit_comparisons": 1296,
+    "small_sample_comparisons": 96,
+    "minimum_episode_gate_overall": 30,
+    "minimum_mark_gate_overall": 500,
+    "minimum_episode_gate_regime": 20,
+    "minimum_mark_gate_regime": 100,
+    "expected_cost_cases": [
+      "ZERO_FRICTION_BOUND",
+      "BASE_005_065",
+      "ADVERSE_010_065"
+    ]
+  },
+  "friction_bar_quality": {
+    "rows_with_adequate_minimum_sample_for_diagnostic": 552,
+    "blocked_zero_units": 1296,
+    "pending_small_or_incomplete_sample": 96,
+    "sample_thresholds_are_screening_rules_not_statistical_validation": true
+  },
+  "outputs": [
+    "cost_sensitivity_by_policy.csv",
+    "friction_cost_sensitivity.csv",
+    "cost_sensitivity_audit_summary.json",
+    "cost_sensitivity_audit_summary.md"
+  ],
+  "interpretation": [
+    "Cost scenarios are modeled slippage/commission assumptions on historical quote-side marks, not confirmed fills.",
+    "Zero friction is a lower-bound comparison only, never the expected executable outcome.",
+    "Episode and mark-count gates screen sample sufficiency, but do not correct for overlapping observations, source timing, selection bias, or fills.",
+    "Rows with zero sized units have no BAR sample; their null BAR is not zero cost and remains blocked.",
+    "No exit policy is promoted based on this audit."
+  ]
+}

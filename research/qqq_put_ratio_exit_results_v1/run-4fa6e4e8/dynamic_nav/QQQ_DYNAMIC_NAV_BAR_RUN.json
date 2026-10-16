@@ -1,0 +1,135 @@
+{
+  "research_id": "QQQ_DYNAMIC_NAV_BAR_STRESS_V1",
+  "status": "RESEARCH_DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED",
+  "date_start": "2018-03-01",
+  "date_end": "2025-12-15",
+  "option_source_end": "2025-12-15",
+  "option_episode_candidates": 62,
+  "start_nav_usd": 100000.0,
+  "target_profit_usd": 214012.0,
+  "target_nav_usd": 314012.0,
+  "required_cagr_pct": 15.8179,
+  "budget_tiers_pct_nav": [
+    0.5,
+    1.0,
+    2.0
+  ],
+  "bar_tiers_pct_nav": [
+    0.5,
+    1.0,
+    2.0
+  ],
+  "drawdown_tiers_pct": [
+    3,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30
+  ],
+  "ratio_directions": [
+    "SHORT_HEAVY_1_LONG_N_SHORT",
+    "LONG_HEAVY_N_LONG_1_SHORT"
+  ],
+  "N_values": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "policy_count": 22,
+  "cost_cases": [
+    "ZERO_FRICTION_BOUND",
+    "BASE_005_065",
+    "ADVERSE_010_065"
+  ],
+  "sizing_modes": [
+    "PER_TRADE_TERMINAL_BUDGET",
+    "EXPANDING_WORST_TERMINAL_BUDGET",
+    "FIXED_1_UNIT_BUDGET_BYPASS",
+    "FIXED_12_UNIT_BUDGET_BYPASS"
+  ],
+  "scenario_count": 9504,
+  "bar_occurrence_rows": 85536,
+  "regime_bar_occurrence_rows": 23166,
+  "drawdown_tier_rows": 66528,
+  "annual_path_rows": 76032,
+  "selected_daily_curve_rows": 105840,
+  "target_touched_config_count": 36,
+  "target_reached_final_config_count": 36,
+  "target_counts_are_search_grid_not_probabilities": true,
+  "source_evidence": "PUBLIC_EOD_PRESERVATION_MIRROR / CONSERVATIVE_QUOTE_SIDE_REPLAY / NOT_CONFIRMED_FILLS",
+  "limitations": [
+    "EOD preservation-mirror quote marks are not confirmed fills.",
+    "History has been previously reviewed; no scenario is blind final out-of-sample.",
+    "Daily open-position NAV becomes null when option quote marks are missing; observed drawdown can understate hidden loss.",
+    "Margin, assignment, forced liquidation and broker buying-power records are not modeled.",
+    "Fixed 1-unit and fixed 12-unit budget-bypass sizing modes are shown only as tail-budget-violating diagnostics; 12 units is a scaling stress, not an assumption of linear P&L.",
+    "Search-grid goal counts are correlated historical configurations, not success probabilities."
+  ],
+  "bar_definition": "Historical episode/mark crossing rate, not future probability or confirmed fill rate.",
+  "regime_bar_cohorts": [
+    "All ratios: 1% NAV budget, base cost, PER_TRADE_TERMINAL_BUDGET; zero-unit blocked rows remain pending.",
+    "Exact 1-long/5-short only: 1% NAV reference levels, base cost, FIXED_1_UNIT_BUDGET_BYPASS; diagnostic only and intentionally outside the selected terminal-loss budget when breached."
+  ]
+}
+# Dynamic NAV x BAR occurrence x drawdown stress
+
+Research only; deployment and broker orders remain BLOCKED.
+
+## Fixed objective
+
+Initial NAV: USD 100,000.00
+Net profit target: USD 214,012.00; target final NAV: USD 314,012.00
+Required CAGR over observed source span: 15.818%
+Option episodes: 62; option quote source ends 2025-12-15
+Scenario configurations: 9504; these are a search grid, not independent trials.
+
+## Best in-sample configurations (not promoted)
+
+| Direction | N | Budget | Policy | Cost | Sizing | Done/62 | Net P&L | Final NAV | CAGR | MaxDD | Target final? |
+|---|---:|---:|---|---|---|---:|---:|---:|---:|---:|---|
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 0.5% | DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE | ZERO_FRICTION_BOUND | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 305940.0 | 405940.0 | 19.6981 | -46.2389 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 1.0% | DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE | ZERO_FRICTION_BOUND | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 305940.0 | 405940.0 | 19.6981 | -46.2389 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 2.0% | DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE | ZERO_FRICTION_BOUND | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 305940.0 | 405940.0 | 19.6981 | -46.2389 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 0.5% | DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE | BASE_005_065 | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 257429.1 | 357429.1 | 17.7589 | -48.7805 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 1.0% | DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE | BASE_005_065 | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 257429.1 | 357429.1 | 17.7589 | -48.7805 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 2.0% | DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE | BASE_005_065 | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 257429.1 | 357429.1 | 17.7589 | -48.7805 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 0.5% | DTE7_CLOSE_SHORT_RISK | ZERO_FRICTION_BOUND | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 249645.0 | 349645.0 | 17.4266 | -52.1348 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 0.5% | FAST3_2.0PCT_FULL_CLOSE | ZERO_FRICTION_BOUND | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 249645.0 | 349645.0 | 17.4266 | -52.1348 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 0.5% | FAST3_2.0PCT_TRIM_SHORT_RISK | ZERO_FRICTION_BOUND | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 249645.0 | 349645.0 | 17.4266 | -52.1348 | True |
+| SHORT_HEAVY_1_LONG_N_SHORT | 6 | 1.0% | DTE7_CLOSE_SHORT_RISK | ZERO_FRICTION_BOUND | FIXED_12_UNIT_BUDGET_BYPASS | 61 | 249645.0 | 349645.0 | 17.4266 | -52.1348 | True |
+
+## Best in-sample configurations with risk budget respected and at least 30 episodes
+
+| Direction | N | Budget | Policy | Cost | Sizing | Done/62 | Net P&L | Final NAV | CAGR | MaxDD | Target final? |
+|---|---:|---:|---|---|---|---:|---:|---:|---:|---:|---|
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | 2.0% | TP_0.5PCT_FULL_CLOSE | ZERO_FRICTION_BOUND | EXPANDING_WORST_TERMINAL_BUDGET | 61 | 8508.0 | 108508.0 | 1.0534 | -7.1299 | False |
+| LONG_HEAVY_N_LONG_1_SHORT | 3 | 2.0% | TP_0.5PCT_FULL_CLOSE | ZERO_FRICTION_BOUND | PER_TRADE_TERMINAL_BUDGET | 53 | 6891.0 | 106891.0 | 0.8589 | -7.454 | False |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | 2.0% | TP_0.5PCT_FULL_CLOSE | ZERO_FRICTION_BOUND | EXPANDING_WORST_TERMINAL_BUDGET | 62 | 6445.0 | 106445.0 | 0.8048 | -8.6213 | False |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | 2.0% | TP_0.5PCT_FULL_CLOSE | ZERO_FRICTION_BOUND | EXPANDING_WORST_TERMINAL_BUDGET | 62 | 6445.0 | 106445.0 | 0.8048 | -8.6213 | False |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | 2.0% | TP_0.5PCT_FULL_CLOSE | BASE_005_065 | EXPANDING_WORST_TERMINAL_BUDGET | 61 | 3770.35 | 103770.35 | 0.4761 | -8.1948 | False |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | 2.0% | TP_1.0PCT_FULL_CLOSE | ZERO_FRICTION_BOUND | EXPANDING_WORST_TERMINAL_BUDGET | 61 | 3322.0 | 103322.0 | 0.4203 | -11.9725 | False |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | 2.0% | TP_0.5PCT_FULL_CLOSE | ZERO_FRICTION_BOUND | PER_TRADE_TERMINAL_BUDGET | 61 | 3057.0 | 103057.0 | 0.3872 | -10.8622 | False |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | 2.0% | TP_0.5PCT_FULL_CLOSE | BASE_005_065 | EXPANDING_WORST_TERMINAL_BUDGET | 62 | 2603.9 | 102603.9 | 0.3304 | -9.0134 | False |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | 2.0% | TP_0.5PCT_FULL_CLOSE | BASE_005_065 | EXPANDING_WORST_TERMINAL_BUDGET | 62 | 2603.9 | 102603.9 | 0.3304 | -9.0134 | False |
+| LONG_HEAVY_N_LONG_1_SHORT | 3 | 2.0% | TP_0.5PCT_FULL_CLOSE | BASE_005_065 | PER_TRADE_TERMINAL_BUDGET | 52 | 2124.6 | 102124.6 | 0.2702 | -9.8059 | False |
+
+## BAR levels and definition
+
+NET_PROFIT_BAR: at least one observed option-side net-liq mark reaches 0.5%, 1%, or 2% of that episode entry NAV.
+NET_LOSS_BAR: at least one observed option-side net-liq mark reaches the same negative NAV percentage.
+FRICTION_COST_BAR: midpoint-to-side-quote liquidation drag reaches the same NAV percentage; this is modeled quote drag, not fill cost.
+Tables contain episode incidence and mark-level incidence; regime table includes the 1% budget / base-cost / per-trade-sized cohort for all ratios plus a separate fixed-one-unit budget-bypass diagnostic for exact 1-long/5-short, both sliced by VIX and DTE.
+BAR rows with zero executable episodes are BLOCKED/PENDING, not 0% occurrence.
+
+## Caveats
+
+No automatic trades. No live sizing or Frozen Original Hybrid policy changes.
+Year-2018 sample is partial; daily missing quote marks remain null.
+Historical BAR rates are descriptive; serial dependence and prior study selection mean these are not calibrated future probabilities.
+A high in-sample total P&L does not mean the setup is executable or that the target has a similar future success probability.
+
