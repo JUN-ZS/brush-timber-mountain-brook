@@ -1,0 +1,137 @@
+name: QQQ Hybrid Profit Trend Replay V1
+
+on:
+  push:
+    branches:
+      - research/qqq-hybrid-profit-trend-replay-v1-20261009
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-hybrid-profit-trend-replay-v1
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Historical hybrid replay / profit trend export
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Discover Python
+        id: py
+        run: |
+          where py >nul 2>&1 && (
+            py -3 --version >nul 2>&1 && (
+              echo PY=py -3>>%GITHUB_ENV%
+              py -3 --version
+              py -3 -c "import sys; print(sys.executable)"
+              exit /b 0
+            )
+          )
+          where python >nul 2>&1 && (
+            echo PY=python>>%GITHUB_ENV%
+            python --version
+            python -c "import sys; print(sys.executable)"
+            exit /b 0
+          )
+          echo PYTHON_NOT_FOUND
+          exit /b 1
+
+      - name: Runtime
+        run: |
+          echo Using PY=%PY%
+          %PY% --version
+          node --version
+
+      - name: Verify replay and data inputs
+        run: |
+          %PY% -c "import hashlib,pathlib; p=pathlib.Path('research/qqq_hybrid_dynamic_deployment_v1_1_replay.py'); print('replay_sha256=' + hashlib.sha256(p.read_bytes()).hexdigest())"
+          %PY% -c "import hashlib,pathlib; p=pathlib.Path('src/data/universe.json'); print('universe_sha256=' + hashlib.sha256(p.read_bytes()).hexdigest())"
+          %PY% -c "import json; d=json.load(open('src/data/universe.json',encoding='utf-8')); print('asof=' + str(d.get('asof'))); print('series=' + ','.join(sorted(k for k in d.get('c',{}).keys()))); print('dates=' + str(len(d.get('dates',[]))))"
+
+      - name: Install research dependencies
+        run: |
+          %PY% -m pip install --upgrade pip
+          %PY% -m pip install numpy pandas scipy
+
+      - name: Run historical baseline replay
+        run: |
+          if not exist artifacts\qqq_hybrid_profit_trend_replay_v1\baseline mkdir artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
+          %PY% research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\baseline
+
+      - name: Run historical dynamic V1.1 replay
+        run: |
+          if not exist artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic mkdir artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic
+          %PY% research\qqq_hybrid_profit_trend_replay_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic --dynamic
+
+      - name: Extract VXX call-spread contribution
+        run: |
+          if not exist artifacts\qqq_hybrid_vxx_call_spread_contribution_v1 mkdir artifacts\qqq_hybrid_vxx_call_spread_contribution_v1
+          %PY% research\qqq_hybrid_vxx_call_spread_contribution_v1.py --spots-path src\data\universe.json --out artifacts\qqq_hybrid_vxx_call_spread_contribution_v1
+
+      - name: Contract checks
+        run: |
+          %PY% -m py_compile research\qqq_hybrid_dynamic_deployment_v1_1_replay.py
+          %PY% -m py_compile research\qqq_hybrid_profit_trend_replay_v1.py
+          %PY% -m py_compile research\qqq_hybrid_vxx_call_spread_contribution_v1.py
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/baseline/profit_trend.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; assert r['backtest_result']['final_nav'] > 0; print('baseline_contract=PASS')"
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_profit_trend_replay_v1/dynamic/profit_trend.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['current_sizing_contract']['qqq_core_pct']=='EXTERNAL_INPUT'; assert r['backtest_result']['final_nav'] > 0; print('dynamic_contract=PASS')"
+          %PY% -c "import json; from pathlib import Path; r=json.loads(Path('artifacts/qqq_hybrid_vxx_call_spread_contribution_v1/vxx_cc_report.json').read_text(encoding='utf-8')); assert r['not_opra'] is True; assert r['vxx_call_spread']['opens'] >= 0; print('vxx_cc_contract=PASS')"
+
+
+      - name: Persist generated backtest outputs to recovery branch
+        if: always()
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
+          $payload = Join-Path $env:RUNNER_TEMP ("recovery-payload-" + $tag)
+          New-Item -ItemType Directory -Force -Path $payload | Out-Null
+          $baseline = Join-Path $env:GITHUB_WORKSPACE 'artifacts\qqq_hybrid_profit_trend_replay_v1\baseline'
+          $dynamic = Join-Path $env:GITHUB_WORKSPACE 'artifacts\qqq_hybrid_profit_trend_replay_v1\dynamic'
+          $spread = Join-Path $env:GITHUB_WORKSPACE 'artifacts\qqq_hybrid_vxx_call_spread_contribution_v1'
+          if (!(Test-Path $baseline) -or !(Test-Path $dynamic) -or !(Test-Path $spread)) { throw 'Required Profit Trend outputs missing' }
+          foreach ($name in @('baseline','dynamic','vxx_call_spread_contribution')) { New-Item -ItemType Directory -Force -Path (Join-Path $payload $name) | Out-Null }
+          Copy-Item -Path (Join-Path $baseline '*') -Destination (Join-Path $payload 'baseline') -Recurse -Force
+          Copy-Item -Path (Join-Path $dynamic '*') -Destination (Join-Path $payload 'dynamic') -Recurse -Force
+          Copy-Item -Path (Join-Path $spread '*') -Destination (Join-Path $payload 'vxx_call_spread_contribution') -Recurse -Force
+          git fetch origin research/app-artifact-recovery-20261016
+          git checkout -B recovery-output origin/research/app-artifact-recovery-20261016
+          $dest = "research/artifact_recovery_20261016/profit_trend/rerun-" + $tag
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Path (Join-Path $payload '*') -Destination $dest -Recurse -Force
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_workflow=${{ github.workflow }}","source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}","outputs=baseline_dynamic_v1_1_and_vxx_call_spread_contribution") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- $dest
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "recover: persist Persist generated backtest outputs to recovery branch outputs $tag"
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery commit failed' }
+            git push origin HEAD:research/app-artifact-recovery-20261016
+            if ($LASTEXITCODE -ne 0) { throw 'Recovery push failed' }
+          } else {
+            Write-Host 'No new recovery files to commit'
+          }
+
+      - name: Evidence
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-hybrid-profit-trend-replay-v1
+          path: |
+            artifacts\qqq_hybrid_profit_trend_replay_v1\
+            artifacts\qqq_hybrid_vxx_call_spread_contribution_v1\
+          if-no-files-found: error
+          retention-days: 30
