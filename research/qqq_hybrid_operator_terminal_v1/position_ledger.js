@@ -12,10 +12,45 @@
   const ENTRY_EVIDENCE = new Set(["BROKER_FILL", "BROKER_STATEMENT", "MANUAL_ESTIMATE", "UNKNOWN"]);
   const MARK_SOURCE = new Set(["BROKER_LIVE", "PUBLIC_DELAYED", "EOD_MARK", "MODEL_ESTIMATE", "UNKNOWN"]);
 
+  const NUMERIC_FIELDS = Object.freeze([
+    "qty", "entryPrice", "markPrice", "riskBudgetUsd", "stopMarkPrice",
+    "targetMarkPrice", "profitTargetR", "maxHoldDays", "expiryReviewDte",
+    "shortStrike", "longStrike", "multiplier"
+  ]);
+  const NUMERIC_FIELD_LABELS = Object.freeze({
+    qty: "Quantity", entryPrice: "Entry price", markPrice: "Current mark / close cost",
+    riskBudgetUsd: "Risk budget", stopMarkPrice: "Stop mark / close debit",
+    targetMarkPrice: "Target mark / close debit", profitTargetR: "Profit review R",
+    maxHoldDays: "Maximum holding days", expiryReviewDte: "Expiry-review DTE",
+    shortStrike: "Short strike", longStrike: "Protective-wing strike", multiplier: "Option multiplier"
+  });
+  const DECIMAL_NUMBER = /^[+-]?(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][+-]?\\d+)?$/;
+
+  // Preserve EMPTY vs numeric zero. Reject booleans/arrays/objects and non-decimal
+  // strings instead of letting JavaScript's Number() coerce them into plausible values.
+  function parseStrictNumber(value) {
+    if (value === null || value === undefined) return { state: "EMPTY", value: null };
+    if (typeof value === "string") {
+      const raw = value.trim();
+      if (!raw) return { state: "EMPTY", value: null };
+      if (!DECIMAL_NUMBER.test(raw)) return { state: "INVALID", value: null };
+      const n = Number(raw);
+      return Number.isFinite(n)
+        ? { state: "VALID", value: n }
+        : { state: "INVALID", value: null };
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return { state: "VALID", value };
+    }
+    return { state: "INVALID", value: null };
+  }
+
   function numberOrNull(value) {
-    if (value === null || value === undefined || value === "") return null;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
+    return parseStrictNumber(value).value;
+  }
+
+  function invalidNumericFields(raw) {
+    return NUMERIC_FIELDS.filter(key => parseStrictNumber(raw?.[key]).state === "INVALID");
   }
 
   function validDate(value) {
@@ -63,8 +98,12 @@
   }
 
   function validateRecord(record) {
-    const x = record && record.template ? normalizeRecord(record) : normalizeRecord(record || {});
+    const raw = record && typeof record === "object" ? record : {};
+    const x = normalizeRecord(raw);
     const errors = [];
+    for (const key of invalidNumericFields(raw)) {
+      errors.push((NUMERIC_FIELD_LABELS[key] || key) + " must be blank or a finite decimal number; invalid input is not treated as blank.");
+    }
     const t = TEMPLATES[x.template];
     if (!t) errors.push("Choose a supported position template.");
     if (!Number.isFinite(x.qty) || x.qty <= 0 || !Number.isInteger(x.qty)) errors.push("Quantity must be a positive whole number.");
@@ -109,8 +148,10 @@
     if (rawRows.length > 200) return { ok: false, errors: ["Position register is limited to 200 records per snapshot."], positions: [] };
     const normalized = rawRows.map((r, i) => normalizeRecord(r, i));
     const errors = [];
-    normalized.forEach((r, i) => {
-      const verdict = validateRecord(r);
+    // Validate the raw row before normalization; normalization alone can erase an invalid
+    // non-empty value by mapping it to null, making a corrupted field look intentionally blank.
+    rawRows.forEach((raw, i) => {
+      const verdict = validateRecord(raw);
       if (!verdict.ok) errors.push("Row " + (i + 1) + ": " + verdict.errors.join(" "));
     });
     const ids = new Set();
@@ -326,7 +367,16 @@
   }
 
   function exportEnvelope(positions, exportedAt = new Date().toISOString()) {
-    return { schema: SCHEMA, exportedAt, timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UNKNOWN"; } catch (_) { return "UNKNOWN"; } })(), positions: normalizeList(positions).positions };
+    const normalized = normalizeList(positions);
+    if (!normalized.ok) {
+      throw new TypeError("Cannot export invalid position register: " + normalized.errors.join(" "));
+    }
+    return {
+      schema: SCHEMA,
+      exportedAt,
+      timezone: (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UNKNOWN"; } catch (_) { return "UNKNOWN"; } })(),
+      positions: normalized.positions
+    };
   }
 
   function parseEnvelope(raw) {

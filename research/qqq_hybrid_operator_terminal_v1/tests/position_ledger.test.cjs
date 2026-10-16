@@ -19,6 +19,33 @@ function base(overrides = {}) {
   };
 }
 
+// Strict number parsing keeps blank distinct from explicit zero and rejects coercive inputs.
+{
+  const blank = P.normalizeRecord(base({ markPrice: "   " }));
+  assert.equal(blank.markPrice, null, "whitespace-only mark is EMPTY, never numeric zero");
+
+  const option = base({
+    template: "QQQ_CALL_CREDIT", qty: 1, entryPrice: "0.5", markPrice: "0",
+    expiry: "2026-11-20", shortStrike: "800", longStrike: "810",
+    shortSymbol: "QQQ261120C00800000", longSymbol: "QQQ261120C00810000",
+    multiplier: "100", termsVerified: true
+  });
+  const explicitZero = P.normalizeRecord(option);
+  assert.equal(explicitZero.markPrice, 0, "an explicit numeric zero stays zero");
+  assert.equal(P.validateRecord(option).ok, true, "zero is not conflated with an empty field");
+
+  const blankOptionMark = { ...option, id: "blank-option-mark", markPrice: "   " };
+  const blankSummary = P.summarize([blankOptionMark], {}, Date.parse("2026-10-11T10:05:00Z"));
+  assert.equal(blankSummary.rows[0].markPrice, null);
+  assert.equal(blankSummary.rows[0].unrealizedPnl, null, "blank option mark remains unknown P&L, not an implied zero-debit close");
+  assert.equal(blankSummary.incompletePnlCount, 1);
+
+  for (const invalid of ["12USD", "0x10", true, [], {}, Infinity]) {
+    assert.equal(P.validateRecord(base({ markPrice: invalid })).ok, false, "invalid numeric input rejected: " + String(invalid));
+    assert.equal(P.normalizeList([base({ markPrice: invalid })]).ok, false, "invalid numeric input must block the whole imported register");
+  }
+}
+
 // Stock long and short P&L use the correct sign and a clear share count.
 {
   const qqq = P.summarize([base()], {}, Date.parse("2026-10-11T10:05:00Z"));
@@ -170,7 +197,7 @@ function base(overrides = {}) {
   assert.equal(s.markSourceMetadataIncompleteCount, 1, "the model mark has a source-metadata gap while the live mark does not");
 }
 
-// Imports are versioned, bounded, and all-or-nothing.
+// Imports/exports are versioned, bounded, and all-or-nothing.
 {
   const envelope = P.exportEnvelope([base()], "2026-10-11T10:00:00Z");
   assert.equal(envelope.schema, "QQQ_HYBRID_POSITION_REGISTER_V1");
@@ -179,6 +206,14 @@ function base(overrides = {}) {
   assert.equal(P.normalizeList([base(), base({ id: "row-1" })]).ok, false);
   assert.equal(P.validateRecord(base({ qty: 1.5 })).ok, false);
   assert.equal(P.validateRecord(base({ markPrice: -1 })).ok, false);
+  assert.throws(() => P.exportEnvelope([base({ qty: "not-a-number" })]), /Cannot export invalid position register/);
+  assert.equal(P.exportEnvelope([]).positions.length, 0, "an intentionally empty register remains exportable");
+  const whitespaceImport = P.parseEnvelope(JSON.stringify({
+    schema: "QQQ_HYBRID_POSITION_REGISTER_V1",
+    positions: [base({ template: "QQQ_CALL_CREDIT", qty: 1, entryPrice: 0.5, markPrice: "  ", expiry: "2026-11-20", shortStrike: 800, longStrike: 810, shortSymbol: "QQQ261120C00800000", longSymbol: "QQQ261120C00810000", multiplier: 100, termsVerified: true })]
+  }));
+  assert.equal(whitespaceImport.ok, true, "blank optional mark is accepted only as unknown, never coerced to 0");
+  assert.equal(whitespaceImport.positions[0].markPrice, null);
 }
 
 
