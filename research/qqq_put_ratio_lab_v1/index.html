@@ -48,20 +48,45 @@
 <div class="table-wrap"><table><thead><tr><th>政策</th><th>觸發交易</th><th>勝率</th><th>淨損益</th><th>單筆最差</th><th>Profit Factor</th></tr></thead><tbody id="policyRows"></tbody></table></div><div class="source-note" id="policyNote"></div>
 </section>
 <section class="panel">
-<div class="section-title"><div><div class="eyebrow">04 · TIME × VOL</div><h2>時間／波動：QQQ 正股下跌頻率</h2></div><span id="volStateBadge" class="pill">—</span></div>
+<div class="section-title"><div><div class="eyebrow">04 · STRATEGY EQUITY</div><h2>策略逐日估值曲線與 MaxDD</h2></div><span id="portfolioState" class="pill">PENDING</span></div>
+<p class="explainer">由每個歷史 episode 的逐日 Put 腿 Bid／Ask 淨清算估值串接；持倉間不重疊、每次固定 1 組，不複利。這不是根據單筆最終 P&amp;L 假造的曲線。</p>
+<div class="controls curve-controls">
+<label>比較退出政策<select id="curvePolicy">
+<option value="BASE_DTE7_CLOSE_SHORT_RISK">基準：DTE ≤ 7</option>
+<option value="TP_USD_500_CLOSE_SHORT_RISK">獲利 +$500</option>
+<option value="TP_USD_1000_CLOSE_SHORT_RISK">獲利 +$1,000</option>
+<option value="TP_USD_2000_CLOSE_SHORT_RISK">獲利 +$2,000</option>
+<option value="TP_25PCT_MAX_TERMINAL_GAIN">終端最大收益 25%</option>
+<option value="TP_50PCT_MAX_TERMINAL_GAIN">終端最大收益 50%</option>
+<option value="FAST_1000_WITHIN_5D_TRIM_4_SHORTS">5 日內 +$1,000 減 4 張 Short</option>
+<option value="DAY20_NONPOSITIVE_CLOSE_SHORT_RISK">第 20 日非正損益平短倉</option>
+<option value="DAY20_NONPOSITIVE_TRIM_4_SHORTS">第 20 日非正損益減 4 張 Short</option>
+<option value="SL_USD_500_CLOSE_SHORT_RISK">止損 −$500</option>
+<option value="SL_USD_1000_CLOSE_SHORT_RISK">止損 −$1,000</option>
+<option value="SL_USD_2000_CLOSE_SHORT_RISK">止損 −$2,000</option>
+</select></label>
+</div>
+<div id="portfolioTradeMeta" class="input-summary">等候可核對的逐日回放資料。</div>
+<div id="portfolioMetrics" class="grid four"><div class="empty">PENDING · 正在補建策略層面歷史 MaxDD。</div></div>
+<div id="equityChart" class="equity-chart"></div>
+<div class="table-wrap"><table><thead><tr><th>策略資產回撤至少</th><th>回撤週期數</th><th>平均每年次數</th><th>發生年份</th><th>事件間隔中位數（交易日）</th></tr></thead><tbody id="strategyDdRows"><tr><td colspan="5">PENDING</td></tr></tbody></table></div>
+<div class="subtle" id="portfolioCaveat">尚未生成每日回放；不以 QQQ 正股回撤冒充策略 MaxDD。</div>
+</section>
+<section class="panel">
+<div class="section-title"><div><div class="eyebrow">05 · TIME × VOL</div><h2>時間／波動：QQQ 正股下跌頻率</h2></div><span id="volStateBadge" class="pill">—</span></div>
 <p class="explainer">這些是 QQQ 正股價格路徑頻率，不是 Put Ratio 的虧損機率。期限視窗互相重疊，不能當成獨立樣本或保證未來發生率。</p>
 <div id="volSummary" class="vol-summary"></div>
 <div class="table-wrap"><table><thead><tr><th>期限</th><th>狀態</th><th>樣本 N</th><th>P(跌 ≥3%)</th><th>P(跌 ≥5%)</th><th>P(跌 ≥10%)</th><th>5%跌幅名義區間</th><th>5%分位回報</th></tr></thead><tbody id="volRows"></tbody></table></div>
 </section>
 <section class="panel">
-<div class="section-title"><div><div class="eyebrow">05 · DRAWDOWN</div><h2>QQQ 正股回撤各級發生頻率</h2></div><span class="pill">不是策略帳戶 MaxDD</span></div>
+<div class="section-title"><div><div class="eyebrow">06 · DRAWDOWN</div><h2>QQQ 正股回撤各級發生頻率</h2></div><span class="pill">不是策略帳戶 MaxDD</span></div>
 <p class="explainer">將「歷史高位到下一次創新高」視作一個週期，再計其最大峰谷回撤。平均每年次數按資料跨度換算；不同級別互相巢狀，不能相加。</p>
 <div class="dd-summary" id="ddSummary"></div>
 <div class="table-wrap"><table><thead><tr><th>回撤至少</th><th>週期數</th><th>平均每年次數</th><th>有發生的年份</th><th>事件間隔中位數（交易日）</th></tr></thead><tbody id="ddRows"></tbody></table></div>
 <div class="subtle" id="ddCaveat"></div>
 </section>
 <section class="panel">
-<div class="section-title"><div><div class="eyebrow">06 · TAIL RISK</div><h2>改變 N 時的尾部風險比較</h2></div><span class="pill">到期 payoff 算術</span></div>
+<div class="section-title"><div><div class="eyebrow">07 · TAIL RISK</div><h2>改變 N 時的尾部風險比較</h2></div><span class="pill">到期 payoff 算術</span></div>
 <div class="table-wrap"><table><thead><tr><th>結構</th><th>N</th><th>尾部中位數</th><th>P95 尾部損失</th><th>最差觀察尾部</th><th>相對 NAV</th><th>預算整組數</th></tr></thead><tbody id="tailRows"></tbody></table></div>
 <div class="subtle">沒有包括券商保證金、途中追加保證金、強制平倉或實際成交容量。必要資料未驗證時，不得標作可執行。</div>
 </section>
