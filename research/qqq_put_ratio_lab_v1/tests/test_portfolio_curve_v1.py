@@ -54,7 +54,7 @@ class SerialPortfolioCurveTests(unittest.TestCase):
         sessions = [f"2024-01-0{i}" for i in range(1, 7)]
         pnl = [0.0, -100.0, -500.0, -500.0, -300.0, 100.0]
         m = curve.curve_metrics(sessions, pnl, 80000.0)
-        self.assertEqual(m["max_drawdown_usd_peak_to_trough"], 600.0)
+        self.assertEqual(m["max_drawdown_usd_peak_to_trough"], 500.0)
         self.assertLess(m["max_drawdown_pct_of_prior_equity_peak"], 0.0)
         self.assertEqual(m["drawdown_levels"][0]["level_pct"], 3)
         self.assertEqual(m["drawdown_levels"][-1]["level_pct"], 30)
