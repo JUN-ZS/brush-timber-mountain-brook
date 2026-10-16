@@ -4263,7 +4263,7 @@
         if (!outOk.candEval.vxxCand.valid || outOk.candEval.vxxCand.shortId !== 'VXX261120C00021000' || outOk.candEval.vxxCand.longId !== 'VXX261120C00026000') {
           throw new Error('VXX Call Spread short/long leg IDs not preserved');
         }
-        const outBadStrike = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxLegStrikes: '26/21' });
+        const outBadStrike = SharedContractEngine.evaluateDecision({ ...PRESETS.live_thin, candVxxShortId: 'VXX261120C00026000', candVxxLongId: 'VXX261120C00021000', candVxxLegStrikes: '26/21' });
         if (outBadStrike.candEval.vxxCand.valid || outBadStrike.candEval.vxxCand.status !== 'BLOCKED_INVALID_CALL_SPREAD_STRIKES') {
           throw new Error('Inverted Call Spread strikes (shortK >= longK) did not block');
         }
@@ -4275,7 +4275,7 @@
         if (!outPut.ledger.ledgerComplete || outPut.ledger.vxxPutLiability !== 180 || outPut.ledger.vxxPutUnrealizedPnl !== 100) {
           throw new Error(`VXX Put Spread ledger mismatch: liab=${outPut.ledger.vxxPutLiability}, pnl=${outPut.ledger.vxxPutUnrealizedPnl}`);
         }
-        const outBadPutK = SharedContractEngine.evaluateDecision({ ...PRESETS.carry_100k, candVxxPutLegStrikes: '12/15' });
+        const outBadPutK = SharedContractEngine.evaluateDecision({ ...PRESETS.carry_100k, candVxxPutShortId: 'VXX261120P00012000', candVxxPutLongId: 'VXX261120P00015000', candVxxPutLegStrikes: '12/15' });
         if (outBadPutK.candEval.vxxPutCand.valid || outBadPutK.candEval.vxxPutCand.status !== 'BLOCKED_INVALID_PUT_SPREAD_STRIKES') {
           throw new Error('Inverted Put Spread strikes (longK >= shortK) did not block');
         }
