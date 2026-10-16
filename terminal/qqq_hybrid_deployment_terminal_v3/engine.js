@@ -52,12 +52,14 @@ window.HybridEngineV3 = (() => {
     if(!Number.isFinite(spot)||spot<=0)return null;
     const chain=normalizeOptionChain(payload);
     if(!chain.length)return null;
-    const asOfMs=parseDay(asOf),quoteStamp=typeof quoteMeta?.retrievedAt==="string"?Date.parse(quoteMeta.retrievedAt):null;
-    const quoteDay=typeof quoteMeta?.retrievedAt==="string"?parseDay(quoteMeta.retrievedAt.slice(0,10)):null;
+    const asOfMs=parseDay(asOf),retrievedAt=typeof quoteMeta?.retrievedAt==="string"?quoteMeta.retrievedAt:null;
+    const retrievalStamp=retrievedAt?Date.parse(retrievedAt):null,quoteAsOf=typeof quoteMeta?.quoteAsOf==="string"?quoteMeta.quoteAsOf:null;
+    const quoteStamp=quoteAsOf?Date.parse(quoteAsOf):null,quoteDay=quoteAsOf?parseDay(quoteAsOf.slice(0,10)):null;
     const root=String(quoteMeta?.symbol||"").trim().toUpperCase(),source=String(quoteMeta?.source||"").trim();
-    if(asOfMs===null||!Number.isFinite(quoteStamp)||quoteDay===null||!root||!source)return null;
-    const quoteAgeDays=(asOfMs-quoteDay)/86400000;
-    if(quoteAgeDays<0||quoteAgeDays>POLICY.maxOptionQuoteAgeDays)return null;
+    if(asOfMs===null||!Number.isFinite(retrievalStamp)||!root||!source)return null;
+    const quoteAgeDays=Number.isFinite(quoteStamp)&&quoteDay!==null?(asOfMs-quoteDay)/86400000:null;
+    const quoteTimestampVerified=quoteAgeDays!==null&&quoteAgeDays>=0&&quoteAgeDays<=POLICY.maxOptionQuoteAgeDays;
+    if(quoteAsOf!==null&&!quoteTimestampVerified)return null;
     const identity=(symbol,strike,expiry)=>{
       const m=/^([A-Z]{1,6})(\d{6})([CP])(\d{8})$/.exec(String(symbol||"").trim().toUpperCase());
       if(!m||m[1]!==root)return false;
@@ -93,8 +95,8 @@ window.HybridEngineV3 = (() => {
       credit,shortBid:short.bid,shortAsk:short.ask,longBid:long.bid,longAsk:long.ask,
       shortBidSize:short.bidSize,shortAskSize:short.askSize,longBidSize:long.bidSize,longAskSize:long.askSize,
       width,contractMultiplier:multiplier,maxLossPerSpread:(width-credit)*multiplier,
-      expiration:new Date(short.expiryMs).toISOString().slice(0,10),quoteAsOf:quoteMeta.retrievedAt,
-      quoteAgeDays,source,contractIdentityValidated:true,quoteValidated:true,sizingAvailable:true
+      expiration:new Date(short.expiryMs).toISOString().slice(0,10),retrievedAt,quoteAsOf,quoteTimestampVerified,
+      quoteAgeDays:quoteTimestampVerified?quoteAgeDays:null,source,contractIdentityValidated:true,quoteValidated:true,sizingAvailable:true
     };
   }
   function optionSizing(nav,budgetPct,candidate,constraints={}){
@@ -120,6 +122,7 @@ window.HybridEngineV3 = (() => {
     if(Number.isFinite(pct)&&pct===0)return{...base,status:"POLICY_TARGET_ZERO",budgetSemantics:"ZERO_BY_FROZEN_POLICY",quantity:0,recommendedQuantity:0,reason:"Frozen regime explicitly sets this option sleeve target to zero; executable exit capacity remains a separate quote/margin question."};
     if(!Number.isFinite(n)||n<=0||!Number.isFinite(pct)||pct<0)return{...base,status:"BLOCKED_BUDGET_INPUT",reason:"NAV and the configured premium-credit budget percent must be valid."};
     if(!candidate||candidate.contractIdentityValidated!==true||candidate.quoteValidated!==true||candidate.sizingAvailable!==true)return{...base,status:"PENDING_CANDIDATE",reason:"No fully identified same-expiry spread with valid bid/ask and quote sizes; retain current position target."};
+    if(candidate.quoteTimestampVerified!==true)return{...base,status:"PENDING_QUOTE_TIMESTAMP",reason:"The chain retrieval time is not a source quote as-of timestamp; freshness of these bid/ask marks is unverified."};
     if(maxLossPerSpread===null)return{...base,status:"BLOCKED_MAX_LOSS_UNKNOWN",reason:"Spread width, net credit, or contract multiplier is invalid; maximum expiry loss is unknown."};
     const riskPct=num(constraints.maxLossBudgetPct),stressPct=num(constraints.interimStressBudgetPct),stressLoss=num(constraints.interimStressLossPerSpread);
     if(constraints.budgetSemantics!=="MAX_EXPIRY_LOSS"||!Number.isFinite(riskPct)||riskPct<0)return{...base,status:"PENDING_RISK_BUDGET",reason:"The legacy percent only sizes premium credit. Explicit MAX_EXPIRY_LOSS budget semantics and percentage are required before recommending a quantity."};
@@ -136,7 +139,7 @@ window.HybridEngineV3 = (() => {
     const exitDepthQuantity=Math.floor(Math.min(candidate.shortAskSize,candidate.longBidSize));
     const caps={expiryLoss:maxLossBudgetQuantity,interimStress:interimStressQuantity,cash:constraints.cashMaxQty,brokerMargin:constraints.brokerMarginMaxQty,entryDepth:entryDepthQuantity};
     const quantity=Math.max(0,Math.min(...Object.values(caps)));
-    return{...baseWithRisk,status:quantity>0?"READY":"CAPACITY_ZERO",maxLossBudgetQuantity,interimStressQuantity,entryDepthQuantity,exitDepthQuantity,caps,quantity,recommendedQuantity:quantity,executable:quantity>0,reason:quantity>0?"Quantity is capped by the strictest verified risk/cash/margin/depth limit; human review still required.":"At least one verified capacity limit allows zero complete spreads."};
+    return{...baseWithRisk,status:quantity>0?"READY":"CAPACITY_ZERO",maxLossBudgetQuantity,interimStressQuantity,entryDepthQuantity,exitDepthQuantity,caps,quantity,recommendedQuantity:quantity,executable:false,capacityVerified:quantity>0,reason:quantity>0?"Quantity is capped by the strictest verified risk/cash/margin/depth limit; human review still required.":"At least one verified capacity limit allows zero complete spreads."};
   }
   function targetLedger(d,e,ledger,candidates={},constraints={}){
     const cur={qqqShares:num(ledger.qqqShares,0),vxxPct:num(ledger.vxxPct,0),qqqCalls:num(ledger.qqqCalls,0),vxxCalls:num(ledger.vxxCalls,0)};
