@@ -587,6 +587,21 @@ def _distribution(values: list[float]) -> dict[str, Any]:
     return {"n": len(xs), "mean": round(sum(xs)/len(xs), 4), "median": round(statistics.median(xs), 4), "p05": round(q(.05), 4), "p95": round(q(.95), 4)}
 
 
+def _wilson95_pct(successes: int, total: int) -> tuple[float | None, float | None]:
+    """Nominal Wilson 95% interval for observed resolved-trade win rate, in percent.
+
+    This binomial interval does not adjust for dependence, regime clustering, or
+    selection bias; the report labels it nominal and never treats it as proof of edge.
+    """
+    if total <= 0:
+        return None, None
+    z = 1.959963984540054
+    p = successes / total
+    den = 1 + z * z / total
+    center = (p + z * z / (2 * total)) / den
+    half = z * math.sqrt(p * (1 - p) / total + z * z / (4 * total * total)) / den
+    return 100 * (center - half), 100 * (center + half)
+
 def summarize_policy(results: list[dict[str, Any]]) -> dict[str, Any]:
     closed = [x for x in results if x["final_pnl_usd"] is not None]
     pnls = [float(x["final_pnl_usd"]) for x in closed]
@@ -614,7 +629,12 @@ def summarize_policy(results: list[dict[str, Any]]) -> dict[str, Any]:
         "closed_trade_net_pnl_pct_reference_nav": round(sum(pnls)/REFERENCE_NAV_USD*100, 6) if pnls else None,
         "expectancy_usd_per_resolved_trade": round(sum(pnls)/len(pnls), 2) if pnls else None,
         "median_trade_pnl_usd": round(statistics.median(pnls), 2) if pnls else None,
-        "win_rate": round(len(winners)/len(pnls), 6) if pnls else None,
+                "win_rate": round(len(winners)/len(pnls), 6) if pnls else None,  # compatibility: fraction in [0, 1]
+        "win_rate_pct": round(100 * len(winners) / len(pnls), 2) if pnls else None,
+        "winning_trades": len(winners), "losing_trades": len(losers),
+        "flat_trades": len(pnls) - len(winners) - len(losers),
+        "win_rate_wilson95_nominal_low_pct": round(_wilson95_pct(len(winners), len(pnls))[0], 2) if pnls else None,
+        "win_rate_wilson95_nominal_high_pct": round(_wilson95_pct(len(winners), len(pnls))[1], 2) if pnls else None,
         "profit_factor": round(profit_factor, 6) if profit_factor is not None else None,
         "gross_wins_usd": round(sum(winners), 2), "gross_losses_usd": round(sum(losers), 2),
         "best_trade_usd": round(max(pnls), 2) if pnls else None,
@@ -823,8 +843,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## Base cost case: $0.05 per leg per side + $0.65 per contract per side",
         "",
-        "| Exit rule | Resolved | Net P&L | Expectancy / trade | Policy trigger N / % | DTE7 fallback N | Median trigger age | Median first-action age | Median resolution age | Net P&L / short-risk eq-session | Win rate | Profit factor | Missing marks |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Exit rule | Resolved | Net P&L | Expectancy / trade | Policy trigger N / % | DTE7 fallback N | Median trigger age | Median first-action age | Median resolution age | Net P&L / short-risk eq-session | Winners / resolved | Win rate % | Nominal Wilson 95% range | Profit factor | Missing marks |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for s in report.get("policy_summaries_base_cost", []):
         trigger_age = s["policy_rule_trigger_age_sessions_distribution"]["median"]
@@ -834,7 +854,11 @@ def render_markdown(report: dict[str, Any]) -> str:
         delay = s["signal_to_first_action_delay_sessions_distribution"]["median"]
         exposure_rate = s["net_pnl_per_short_risk_equivalent_session_usd"]
         # These elapsed-session metrics are descriptive; age 0 is the entry-date observation.
-        lines.append(f"| {s['policy']} | {s['resolved_trades']}/{s['trade_episodes']} | {s['closed_trade_net_pnl_sum_usd']} | {s['expectancy_usd_per_resolved_trade']} | {trigger_text} | {s['mandatory_dte7_fallback_trade_count']} | {trigger_age if trigger_age is not None else '—'} | {delay if delay is not None else '—'} | {resolution_age if resolution_age is not None else '—'} | {exposure_rate if exposure_rate is not None else '—'} | {s['win_rate']} | {s['profit_factor']} | {s['total_missing_mark_sessions']} |")
+        win_pct = f"{s['win_rate_pct']}%" if s.get("win_rate_pct") is not None else "—"
+        win_low, win_high = s.get("win_rate_wilson95_nominal_low_pct"), s.get("win_rate_wilson95_nominal_high_pct")
+        win_interval = f"{win_low}–{win_high}%" if win_low is not None and win_high is not None else "—"
+        lines.append(f"| {s['policy']} | {s['resolved_trades']}/{s['trade_episodes']} | {s['closed_trade_net_pnl_sum_usd']} | {s['expectancy_usd_per_resolved_trade']} | {trigger_text} | {s['mandatory_dte7_fallback_trade_count']} | {trigger_age if trigger_age is not None else '—'} | {delay if delay is not None else '—'} | {resolution_age if resolution_age is not None else '—'} | {exposure_rate if exposure_rate is not None else '—'} | {s['winning_trades']}/{s['resolved_trades']} | {win_pct} | {win_interval} | {s['profit_factor']} | {s['total_missing_mark_sessions']} |")
+    lines += ["", "_Win-rate interval is a nominal Wilson 95% interval over resolved episodes; it does not adjust for dependence, regime clustering, or selection bias._"]
     rs = report.get("risk_summary_base_cost", {})
     lines += [
         "", "## Tail-risk and dollars-to-risk ratio", "",
