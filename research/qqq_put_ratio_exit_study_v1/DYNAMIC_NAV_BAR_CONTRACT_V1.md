@@ -51,3 +51,19 @@ The observed grid demonstrates why MaxDD must not be used as a rejection shortcu
 These comparisons show that high observed MaxDD does not mathematically prevent a historical path from reaching the target; they do **not** establish that the fixed-12 exposure is suitable. The grid's defensible statement is narrower: no configuration in the tested grid reached the target while also satisfying the chosen full-terminal-loss cap, base/adverse cost convention, and minimum sample screen. It did not test every NAV-relative policy-risk budget.
 
 The alternative `LONG_HEAVY_N_LONG_1_SHORT` family is **not** the exact sign-reversal of the same high-strike/low-strike options. This cohort does not yet test the true strike-preserving inverted legs, so no "reverse side wins" claim is supported. The follow-up research must separately compare (1) full-terminal catastrophe exposure, (2) policy-conditioned observed adverse excursions and exit-fill delays, (3) current-NAV sizing/compounding over a wider risk-budget ladder, and (4) a true same-contract sign-reversal, with walk-forward calibration and missing-mark/margin caveats. MaxDD is an outcome metric, not a PASS/FAIL selector.
+
+
+## Walk-forward policy-MAE, exit-delay and strict same-contract reversal V1
+
+This study is separate from the full-to-expiry terminal-loss budget. It compares the original +1 high-strike / -5 low-strike puts with the strict sign reversal: -1 of the same original high-strike contract and +5 of the same original low-strike contract. It swaps the two original contract identities, strikes and quote streams together; it does not substitute the former long-heavy ratio family.
+
+For each direction, both DTE7 residual-long handling policies, deterministic forced short-close delays (0/1/2/3/5 extra observed sessions), MAE stress multiples (1.0/1.5/2.0), and NAV risk budgets (2/5/10/15/20/30/40/50/75/100%), the study:
+
+- Runs one-unit historical references at base modeled costs ($0.05 per option leg of slippage and $0.65 per contract per side).
+- Uses only previously resolved episodes with complete mark paths and exit dates strictly before the next candidate entry. At least 10 clean prior outcomes are required; warm-up entries are PENDING and do not trade.
+- Sizes whole units as floor(current NAV × budget / (prior worst clean one-unit policy MAE × stress multiplier)), then caps by observed entry-side displayed depth.
+- Reports MAE, missing marks, action delay, final modeled P&L, compounded NAV, descriptive MaxDD and the full-to-expiry QQQ=0 terminal loss separately.
+
+Forced-delay scenarios leave quote prices unchanged but set the short-leg ask size to zero for the selected number of observations after the first observed DTE<=7 signal. This is a deterministic stress, not a delay-probability estimate. Missing marks are not forward-filled and cannot calibrate future MAE.
+
+The 100% budget and other ladder points are sensitivities, not approved risk limits. EOD marks can miss intraday losses, historical maximum MAE is not a guarantee, and whole-unit P&L may not scale linearly. Margin, assignment and forced liquidation are not fully modeled. A policy may fit its observed MAE budget while retaining terminal loss many times current NAV. MaxDD is never an acceptance/rejection gate. No App behavior, main branch, Frozen Hybrid setting, broker-order permission or live order flow changes.
