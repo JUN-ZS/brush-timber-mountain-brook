@@ -40,9 +40,6 @@ jobs:
           fi
       - name: Run backtest engine
         run: npm run backtest
-      - name: Upload artifacts
-        continue-on-error: true
-
       - name: Persist backtest result and curve to recovery branch
         if: always()
         shell: bash
@@ -78,6 +75,8 @@ jobs:
             git commit -m "recover: persist backtest V2.2 outputs $tag"
             git push origin HEAD:research/app-artifact-recovery-20261016
           fi
+      - name: Upload artifacts
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: backtest-v2-2
