@@ -114,7 +114,7 @@ class DynamicNavBarTests(unittest.TestCase):
         self.assertEqual(len(episodes), 1)
         self.assertEqual(len(daily), 3)
         self.assertIsNotNone(summary["final_nav_usd"])
-        self.assertEqual(episodes[0]["ratio_units"], 1)
+        self.assertEqual(episodes[0]["ratio_units"], 6, "2% of $100k divided by the one-unit terminal envelope should size six contracts, within displayed depth")
 
 
 if __name__ == "__main__":
