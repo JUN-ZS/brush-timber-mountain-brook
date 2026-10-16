@@ -56,10 +56,3 @@ jobs:
           test -f terminal/qqq_hybrid_deployment_terminal_v3/server.py
           test -f terminal/qqq_hybrid_deployment_terminal_v3/RUN.cmd
           echo "V3 manifest PASS"
-      - name: Evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: qqq-hybrid-terminal-v3-qa
-          path: artifacts/qhv3/cboe_delayed_vx.json
-          if-no-files-found: error
-          retention-days: 14

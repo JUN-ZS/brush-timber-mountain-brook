@@ -74,8 +74,8 @@ function render(d,e,book){
   $("dataBadge").className="badge "+(e.health.status==="FRESH"?"ok":e.blocked?"block":"warn");
   $("stateBadge").className="badge "+(e.state==="CARRY"?"ok":e.state==="SHOCK"||e.state==="PRE-SHOCK"?"block":"warn");
   $("monitorTag").textContent=e.blocked?"NO ACTION":e.gate;
-  if($("qqqSize")) $("qqqSize").textContent=book.sizing?.qqqCalls?.status==="READY"?"READY · "+fmt(book.sizing.qqqCalls.quantity,0)+" spreads":"PENDING";
-  if($("vxxSize")) $("vxxSize").textContent=book.sizing?.vxxCalls?.status==="READY"?"READY · "+fmt(book.sizing.vxxCalls.quantity,0)+" spreads":"PENDING";
+  if($("qqqSize")) $("qqqSize").textContent=optionSizingText(book.sizing?.qqqCalls);
+  if($("vxxSize")) $("vxxSize").textContent=optionSizingText(book.sizing?.vxxCalls);
   if($("qqqCandidate")) $("qqqCandidate").textContent=candidates.qqq?candidateText(candidates.qqq):"No QQQ candidate";
   if($("vxxCandidate")) $("vxxCandidate").textContent=candidates.vxx?candidateText(candidates.vxx):"No VXX candidate";
   if($("candidateSource")) $("candidateSource").textContent=[candidates.qqq?.source,candidates.vxx?.source].filter(Boolean).join(" / ")||"NONE";
@@ -92,12 +92,15 @@ function render(d,e,book){
   }).join("");
 
   const acts=E.actionRows(book).filter(x=>Math.abs(x.diff)>1e-9);
-  $("queue").innerHTML=(e.blocked
-    ? '<div class="queue-item HOLD"><b>DATA GATE</b><span>BLOCKED · CURRENT = TARGET</span></div>'
-    : acts.length
-      ? acts.map(x=>'<div class="queue-item '+x.kind+'"><b>'+x.key+'</b><span>'+x.kind+' · '+fmt(x.diff)+'</span></div>').join("")
-      : '<div class="queue-item HOLD"><b>NO POSITION CHANGE</b><span>WAIT / HOLD</span></div>'
-  );
+  const queueRows=[];
+  if(e.blocked){
+    queueRows.push('<div class="queue-item HOLD"><b>DATA GATE</b><span>BLOCKED · CURRENT KEPT; RISK NOT CLEARED</span></div>');
+  }else{
+    if(acts.length) queueRows.push(acts.map(x=>'<div class="queue-item '+x.kind+'"><b>'+x.key+'</b><span>'+x.kind+' · '+fmt(x.diff)+'</span></div>').join(""));
+    if(book.unresolvedTargets?.length) queueRows.push('<div class="queue-item HOLD"><b>OPTION TARGET PENDING</b><span>CURRENT QUANTITY RETAINED · CAPACITY NOT VERIFIED</span></div>');
+    if(!acts.length&&!book.unresolvedTargets?.length) queueRows.push('<div class="queue-item HOLD"><b>NO POSITION CHANGE</b><span>WAIT / HOLD</span></div>');
+  }
+  $("queue").innerHTML=queueRows.join("");
 
   const opts={
     qqqDte:Number($("qqqDte").value),
@@ -117,10 +120,19 @@ function render(d,e,book){
   ].map(r=>'<div class="prov-row"><span>'+r[0]+' · '+r[1]+'</span><span class="tag '+r[2].toLowerCase()+'">'+r[2]+'</span></div>').join("");
 }
 
+function optionSizingText(s){
+  if(!s) return "PENDING";
+  if(s.status==="READY") return "CAP VERIFIED · "+fmt(s.quantity,0)+" spreads · human review required";
+  if(s.status==="POLICY_TARGET_ZERO") return "POLICY TARGET 0 · exit capacity separate";
+  const theoretical=s.creditBudgetQuantity!==null&&s.creditBudgetQuantity!==undefined&&Number.isFinite(Number(s.creditBudgetQuantity))?" · credit-only "+fmt(s.creditBudgetQuantity,0)+" theoretical":"";
+  return String(s.status||"PENDING").replaceAll("_"," ")+theoretical;
+}
+
 function candidateText(c){
   if(!c) return "—";
   const credit=Number.isFinite(Number(c.credit))?Number(c.credit).toFixed(2):"—";
-  return "short "+fmt(c.shortStrike)+" / long "+fmt(c.longStrike)+" · DTE "+fmt(c.dte,0)+" · Δ "+fmt(c.delta,2)+" · credit "+credit+" · "+(c.deltaSource||"ESTIMATE");
+  const quoteTime=c.quoteTimestampVerified?"SOURCE QUOTE TIME VERIFIED":"SOURCE QUOTE TIME UNVERIFIED (retrieval time only)";
+  return "short "+fmt(c.shortStrike)+" / long "+fmt(c.longStrike)+" · DTE "+fmt(c.dte,0)+" · Δ "+fmt(c.delta,2)+" · credit "+credit+" · "+(c.deltaSource||"ESTIMATE")+" · "+quoteTime;
 }
 
 function applyCandidate(sym,c){
@@ -138,7 +150,8 @@ async function loadCandidate(sym){
     const r=await fetch("/api/options?symbol="+encodeURIComponent(sym.toUpperCase())+"&targetDte="+E.POLICY.optionTargetDte,{cache:"no-store"});
     const j=await r.json();
     if(!r.ok || !j.ok) throw new Error(j.error||"option source unavailable");
-    const c=E.candidateFromChain(j.calls,Number(live[sym]),0.10,E.POLICY.optionTargetDte);
+    const asOf=String(live.today||live.captured_at||"").slice(0,10);
+    const c=E.candidateFromChain(j.calls,Number(live[sym]),0.10,E.POLICY.optionTargetDte,asOf,{retrievedAt:j.retrieved_at,source:j.source,symbol:sym.toUpperCase()});
     if(!c) throw new Error("no qualifying call spread candidate");
     c.apiExpiry=j.expiry||c.expiration;
     applyCandidate(sym,c);
