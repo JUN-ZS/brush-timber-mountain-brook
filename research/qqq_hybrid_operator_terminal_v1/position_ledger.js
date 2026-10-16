@@ -24,7 +24,7 @@
     maxHoldDays: "Maximum holding days", expiryReviewDte: "Expiry-review DTE",
     shortStrike: "Short strike", longStrike: "Protective-wing strike", multiplier: "Option multiplier"
   });
-  const DECIMAL_NUMBER = /^[+-]?(?:(?:\\d+(?:\\.\\d*)?)|(?:\\.\\d+))(?:[eE][+-]?\\d+)?$/;
+  const DECIMAL_NUMBER = /^[+-]?(?:(?:\d+(?:\.\d*)?)|(?:\.\d+))(?:[eE][+-]?\d+)?$/;
 
   // Preserve EMPTY vs numeric zero. Reject booleans/arrays/objects and non-decimal
   // strings instead of letting JavaScript's Number() coerce them into plausible values.
