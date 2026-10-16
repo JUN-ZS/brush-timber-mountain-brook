@@ -158,7 +158,9 @@ try {
   console.log("Assumption profiles: BASELINE / CONSERVATIVE / STRESS UI events PASS");
   console.log("Width mismatch UI gate: BLOCKED, FULL=null");
   console.log("PUSH/PULL schema + three hashes: PASS");
+  console.log("Base-engine ancestry field:", bundle.baseEngineCommitRef, "(V4.3 ancestry anchor; not current V4.4 head)");
   console.log("Corrupt-hash import rollback: PASS");
+  console.log("Forged base-engine ancestry rejection and rollback: PASS");
   console.log("Browser round-trip:", roundTripBadge);
   console.log("Uncaught browser errors:", pageErrors.length);
   console.log("Optional CDN requests blocked:", failedRequests.length);
