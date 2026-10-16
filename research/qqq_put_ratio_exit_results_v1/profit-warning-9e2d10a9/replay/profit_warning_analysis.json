@@ -1,0 +1,859 @@
+{
+  "researchId": "QQQ_PUT_RATIO_PROFIT_WARNING_THRESHOLD_STUDY_V1",
+  "status": "RESEARCH_DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED",
+  "cohort": {
+    "episodes": 62,
+    "start": "2018-03-01",
+    "optionSourceEnd": "2025-12-15",
+    "structure": "fixed 1 long / 5 short, non-overlapping episodes"
+  },
+  "costConvention": {
+    "slippagePerLegPerSideUsd": 0.05,
+    "commissionPerContractPerSideUsd": 0.65
+  },
+  "targetDefinition": "USD 800 is a fixed-dollar policy and equals +1% only at USD 80,000 NAV; the app's current-NAV percentage alert is a separate manual-review alert.",
+  "thresholds": {
+    "800": {
+      "policy": {
+        "policy": "TP_USD_800_CLOSE_SHORT_RISK",
+        "slippage_per_leg_usd": 0.05,
+        "commission_per_contract_per_side_usd": 0.65,
+        "trade_episodes": 62,
+        "resolved_trades": 62,
+        "unresolved_trades": 0,
+        "closed_trade_net_pnl_sum_usd": 17091.6,
+        "closed_trade_net_pnl_pct_reference_nav": 17.0916,
+        "expectancy_usd_per_resolved_trade": 275.67,
+        "median_trade_pnl_usd": 192.7,
+        "win_rate": 0.951613,
+        "win_rate_pct": 95.16,
+        "winning_trades": 59,
+        "losing_trades": 3,
+        "flat_trades": 0,
+        "win_rate_wilson95_nominal_low_pct": 86.71,
+        "win_rate_wilson95_nominal_high_pct": 98.34,
+        "profit_factor": 18.433293,
+        "gross_wins_usd": 18072.0,
+        "gross_losses_usd": -980.4,
+        "best_trade_usd": 1183.2,
+        "worst_trade_usd": -922.8,
+        "policy_rule_triggered_trade_count": 6,
+        "policy_rule_trigger_rate_pct": 9.68,
+        "mandatory_dte7_fallback_trade_count": 56,
+        "policy_rule_trigger_age_sessions_distribution": {
+          "n": 6,
+          "mean": 22.1667,
+          "median": 22.0,
+          "p05": 18.0,
+          "p95": 26.0
+        },
+        "first_risk_action_age_sessions_distribution": {
+          "n": 61,
+          "mean": 25.5082,
+          "median": 24.0,
+          "p05": 22.0,
+          "p95": 29.0
+        },
+        "resolved_holding_age_sessions_distribution": {
+          "n": 62,
+          "mean": 25.629,
+          "median": 24.5,
+          "p05": 22.0,
+          "p95": 29.0
+        },
+        "signal_to_first_action_delay_sessions_distribution": {
+          "n": 61,
+          "mean": 1.0164,
+          "median": 1.0,
+          "p05": 1.0,
+          "p95": 1.0
+        },
+        "resolved_short_risk_exposure_session_equivalents": 1644.0,
+        "net_pnl_per_short_risk_equivalent_session_usd": 10.3964,
+        "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+        "mean_action_deferred_sessions_per_trade": 0.0645,
+        "total_missing_mark_sessions": 12,
+        "trade_mark_coverage_pct": 99.2732,
+        "terminal_tail_loss_zero_usd_distribution": {
+          "n": 62,
+          "mean": 112820.5452,
+          "median": 106392.4,
+          "p05": 58576.9,
+          "p95": 188585.9
+        },
+        "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+      },
+      "serialCurve": {
+        "net_pnl_last_observed_usd": 17091.6,
+        "net_pnl_sum_closed_trades_usd": 17091.6,
+        "max_drawdown_usd_peak_to_trough": 5521.6,
+        "max_drawdown_pct_of_prior_equity_peak": -5.9633,
+        "max_drawdown_peak_date": "2024-05-02",
+        "max_drawdown_trough_date": "2024-08-05",
+        "mark_coverage_pct": 99.4388,
+        "missing_marks_not_filled": 11,
+        "drawdown_levels": [
+          {
+            "level_pct": 3,
+            "episodes": 3,
+            "events_per_year": 0.385,
+            "years_with_event": 3,
+            "calendar_years": 8,
+            "median_gap_sessions": 705.5,
+            "trough_year_counts": {
+              "2018": 1,
+              "2020": 1,
+              "2024": 1
+            }
+          },
+          {
+            "level_pct": 5,
+            "episodes": 1,
+            "events_per_year": 0.1283,
+            "years_with_event": 1,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {
+              "2024": 1
+            }
+          },
+          {
+            "level_pct": 10,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          },
+          {
+            "level_pct": 15,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          },
+          {
+            "level_pct": 20,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          },
+          {
+            "level_pct": 25,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          },
+          {
+            "level_pct": 30,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          }
+        ],
+        "status": "OBSERVED_QUOTE_SIDE_SERIAL_FIXED_UNIT_REPLAY_NOT_LIVE_EQUITY"
+      },
+      "thresholdStudy": {
+        "targetUsd": 800,
+        "cohortN": 62,
+        "counterfactualFirstMarkHitCount": 12,
+        "counterfactualFirstHitWithin5Sessions": 0,
+        "counterfactualFirstHitAfter5Sessions": 12,
+        "counterfactualFirstHitForwardIfHeld": {
+          "5": {
+            "n": 5,
+            "medianPnlChangeUsd": 187.0,
+            "meanPnlChangeUsd": -926.22,
+            "fractionGivebackGeHalfTargetPct": 20.0,
+            "fractionFuturePnlNonpositivePct": 20.0
+          },
+          "10": {
+            "n": 1,
+            "medianPnlChangeUsd": -206.0,
+            "meanPnlChangeUsd": -206.0,
+            "fractionGivebackGeHalfTargetPct": 0.0,
+            "fractionFuturePnlNonpositivePct": 0.0
+          }
+        },
+        "counterfactualFirstHitEvents": [
+          {
+            "tradeId": 5,
+            "date": "2018-10-18",
+            "ageSessions": 31,
+            "signalPnlUsd": 801.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 7,
+            "date": "2019-01-14",
+            "ageSessions": 26,
+            "signalPnlUsd": 828.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 29,
+            "date": "2021-10-05",
+            "ageSessions": 24,
+            "signalPnlUsd": 891.2,
+            "forwardPnlUsd5": 1409.2,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 31,
+            "date": "2022-01-07",
+            "ageSessions": 27,
+            "signalPnlUsd": 935.1,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 32,
+            "date": "2022-02-17",
+            "ageSessions": 26,
+            "signalPnlUsd": 893.2,
+            "forwardPnlUsd5": 2022.1,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 34,
+            "date": "2022-05-26",
+            "ageSessions": 27,
+            "signalPnlUsd": 2244.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 35,
+            "date": "2022-07-01",
+            "ageSessions": 21,
+            "signalPnlUsd": 882.2,
+            "forwardPnlUsd5": 814.2,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 37,
+            "date": "2022-09-29",
+            "ageSessions": 21,
+            "signalPnlUsd": 919.2,
+            "forwardPnlUsd5": 1106.2,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 39,
+            "date": "2023-01-03",
+            "ageSessions": 23,
+            "signalPnlUsd": 901.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 56,
+            "date": "2025-02-27",
+            "ageSessions": 25,
+            "signalPnlUsd": 1118.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 57,
+            "date": "2025-03-28",
+            "ageSessions": 18,
+            "signalPnlUsd": 811.2,
+            "forwardPnlUsd5": -5585.8,
+            "forwardPnlUsd10": 605.2
+          },
+          {
+            "tradeId": 62,
+            "date": "2025-11-21",
+            "ageSessions": 23,
+            "signalPnlUsd": 1041.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          }
+        ],
+        "actualPolicyTriggerCount": 6,
+        "actualPolicyTriggerPct": 9.68,
+        "actualPolicyTriggerWithin5Sessions": 0,
+        "actualPolicyTriggerAfter5Sessions": 6,
+        "medianTriggerAgeSessions": 22.0,
+        "executionAttemptCount": 6,
+        "successfulExitActionCount": 6,
+        "successfulActionOnNextObservedSessionCount": 6,
+        "medianSignalToActionSessions": 1.0,
+        "forwardIfOriginal1x5Held": {
+          "5": {
+            "n": 5,
+            "medianPnlChangeUsd": 187.0,
+            "meanPnlChangeUsd": -926.22,
+            "fractionGivebackGeHalfTargetPct": 20.0,
+            "fractionFuturePnlNonpositivePct": 20.0
+          },
+          "10": {
+            "n": 1,
+            "medianPnlChangeUsd": -206.0,
+            "meanPnlChangeUsd": -206.0,
+            "fractionGivebackGeHalfTargetPct": 0.0,
+            "fractionFuturePnlNonpositivePct": 0.0
+          }
+        },
+        "actualEvents": [
+          {
+            "tradeId": 29,
+            "signalDate": "2021-10-05",
+            "signalAgeSessions": 24,
+            "signalMarkPnlUsd": 891.2,
+            "signalPnlUsd": 891.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2021-10-06",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2021-10-06",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2021-10-06",
+            "executionStatus": "OK",
+            "executionAgeSessions": 25,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 876.2,
+            "executionMarkPnlAfterActionUsd": 876.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 876.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": 1409.2,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 32,
+            "signalDate": "2022-02-17",
+            "signalAgeSessions": 26,
+            "signalMarkPnlUsd": 893.2,
+            "signalPnlUsd": 893.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2022-02-18",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2022-02-18",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2022-02-18",
+            "executionStatus": "OK",
+            "executionAgeSessions": 27,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 1132.2,
+            "executionMarkPnlAfterActionUsd": 1132.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 1132.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": 2022.1,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 35,
+            "signalDate": "2022-07-01",
+            "signalAgeSessions": 21,
+            "signalMarkPnlUsd": 882.2,
+            "signalPnlUsd": 882.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2022-07-05",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2022-07-05",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2022-07-05",
+            "executionStatus": "OK",
+            "executionAgeSessions": 22,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 848.2,
+            "executionMarkPnlAfterActionUsd": 848.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 848.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": 814.2,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 37,
+            "signalDate": "2022-09-29",
+            "signalAgeSessions": 21,
+            "signalMarkPnlUsd": 919.2,
+            "signalPnlUsd": 919.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2022-09-30",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2022-09-30",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2022-09-30",
+            "executionStatus": "OK",
+            "executionAgeSessions": 22,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 1183.2,
+            "executionMarkPnlAfterActionUsd": 1183.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 1183.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": 1106.2,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 57,
+            "signalDate": "2025-03-28",
+            "signalAgeSessions": 18,
+            "signalMarkPnlUsd": 811.2,
+            "signalPnlUsd": 811.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2025-03-31",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2025-03-31",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2025-03-31",
+            "executionStatus": "OK",
+            "executionAgeSessions": 19,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 797.2,
+            "executionMarkPnlAfterActionUsd": 797.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 797.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": -5585.8,
+            "forwardPnlUsd10": 605.2
+          },
+          {
+            "tradeId": 62,
+            "signalDate": "2025-11-21",
+            "signalAgeSessions": 23,
+            "signalMarkPnlUsd": 1041.2,
+            "signalPnlUsd": 1041.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2025-11-24",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2025-11-24",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2025-11-24",
+            "executionStatus": "OK",
+            "executionAgeSessions": 24,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 567.2,
+            "executionMarkPnlAfterActionUsd": 567.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 567.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          }
+        ],
+        "sampleStatus": "INSUFFICIENT_SMALL_TRIGGER_COHORT"
+      }
+    },
+    "1000": {
+      "policy": {
+        "policy": "TP_USD_1000_CLOSE_SHORT_RISK",
+        "slippage_per_leg_usd": 0.05,
+        "commission_per_contract_per_side_usd": 0.65,
+        "trade_episodes": 62,
+        "resolved_trades": 62,
+        "unresolved_trades": 0,
+        "closed_trade_net_pnl_sum_usd": 18067.6,
+        "closed_trade_net_pnl_pct_reference_nav": 18.0676,
+        "expectancy_usd_per_resolved_trade": 291.41,
+        "median_trade_pnl_usd": 192.7,
+        "win_rate": 0.951613,
+        "win_rate_pct": 95.16,
+        "winning_trades": 59,
+        "losing_trades": 3,
+        "flat_trades": 0,
+        "win_rate_wilson95_nominal_low_pct": 86.71,
+        "win_rate_wilson95_nominal_high_pct": 98.34,
+        "profit_factor": 19.428805,
+        "gross_wins_usd": 19048.0,
+        "gross_losses_usd": -980.4,
+        "best_trade_usd": 1801.2,
+        "worst_trade_usd": -922.8,
+        "policy_rule_triggered_trade_count": 3,
+        "policy_rule_trigger_rate_pct": 4.84,
+        "mandatory_dte7_fallback_trade_count": 59,
+        "policy_rule_trigger_age_sessions_distribution": {
+          "n": 3,
+          "mean": 24.0,
+          "median": 23.0,
+          "p05": 22.0,
+          "p95": 27.0
+        },
+        "first_risk_action_age_sessions_distribution": {
+          "n": 61,
+          "mean": 25.8033,
+          "median": 25.0,
+          "p05": 23.0,
+          "p95": 29.0
+        },
+        "resolved_holding_age_sessions_distribution": {
+          "n": 62,
+          "mean": 25.9194,
+          "median": 25.5,
+          "p05": 23.0,
+          "p95": 29.0
+        },
+        "signal_to_first_action_delay_sessions_distribution": {
+          "n": 61,
+          "mean": 1.0164,
+          "median": 1.0,
+          "p05": 1.0,
+          "p95": 1.0
+        },
+        "resolved_short_risk_exposure_session_equivalents": 1662.0,
+        "net_pnl_per_short_risk_equivalent_session_usd": 10.871,
+        "net_pnl_per_short_risk_equivalent_session_note": "Closed-trade net P&L divided by the sum of observed replay sessions weighted by remaining short contracts / original 5 shorts; descriptive only, not annualized, not risk-adjusted, and not a stand-alone policy selector.",
+        "mean_action_deferred_sessions_per_trade": 0.0645,
+        "total_missing_mark_sessions": 12,
+        "trade_mark_coverage_pct": 99.281,
+        "terminal_tail_loss_zero_usd_distribution": {
+          "n": 62,
+          "mean": 112820.5452,
+          "median": 106392.4,
+          "p05": 58576.9,
+          "p95": 188585.9
+        },
+        "full_portfolio_return_metrics_status": "BLOCKED: fixed 1x5 unit path; source EOD marks/entry timing not confirmed fills; margin and complete broker execution records unavailable"
+      },
+      "serialCurve": {
+        "net_pnl_last_observed_usd": 18067.6,
+        "net_pnl_sum_closed_trades_usd": 18067.6,
+        "max_drawdown_usd_peak_to_trough": 8000.0,
+        "max_drawdown_pct_of_prior_equity_peak": -8.2796,
+        "max_drawdown_peak_date": "2025-04-01",
+        "max_drawdown_trough_date": "2025-04-08",
+        "mark_coverage_pct": 99.4388,
+        "missing_marks_not_filled": 11,
+        "drawdown_levels": [
+          {
+            "level_pct": 3,
+            "episodes": 4,
+            "events_per_year": 0.5133,
+            "years_with_event": 4,
+            "calendar_years": 8,
+            "median_gap_sessions": 307.0,
+            "trough_year_counts": {
+              "2018": 1,
+              "2020": 1,
+              "2024": 1,
+              "2025": 1
+            }
+          },
+          {
+            "level_pct": 5,
+            "episodes": 2,
+            "events_per_year": 0.2567,
+            "years_with_event": 2,
+            "calendar_years": 8,
+            "median_gap_sessions": 169.0,
+            "trough_year_counts": {
+              "2024": 1,
+              "2025": 1
+            }
+          },
+          {
+            "level_pct": 10,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          },
+          {
+            "level_pct": 15,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          },
+          {
+            "level_pct": 20,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          },
+          {
+            "level_pct": 25,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          },
+          {
+            "level_pct": 30,
+            "episodes": 0,
+            "events_per_year": 0.0,
+            "years_with_event": 0,
+            "calendar_years": 8,
+            "median_gap_sessions": null,
+            "trough_year_counts": {}
+          }
+        ],
+        "status": "OBSERVED_QUOTE_SIDE_SERIAL_FIXED_UNIT_REPLAY_NOT_LIVE_EQUITY"
+      },
+      "thresholdStudy": {
+        "targetUsd": 1000,
+        "cohortN": 62,
+        "counterfactualFirstMarkHitCount": 9,
+        "counterfactualFirstHitWithin5Sessions": 0,
+        "counterfactualFirstHitAfter5Sessions": 9,
+        "counterfactualFirstHitForwardIfHeld": {
+          "5": {
+            "n": 1,
+            "medianPnlChangeUsd": 1065.9,
+            "meanPnlChangeUsd": 1065.9,
+            "fractionGivebackGeHalfTargetPct": 0.0,
+            "fractionFuturePnlNonpositivePct": 0.0
+          },
+          "10": {
+            "n": 0,
+            "medianPnlChangeUsd": null,
+            "meanPnlChangeUsd": null,
+            "fractionGivebackGeHalfTargetPct": null,
+            "fractionFuturePnlNonpositivePct": null
+          }
+        },
+        "counterfactualFirstHitEvents": [
+          {
+            "tradeId": 29,
+            "date": "2021-10-11",
+            "ageSessions": 28,
+            "signalPnlUsd": 1189.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 32,
+            "date": "2022-02-18",
+            "ageSessions": 27,
+            "signalPnlUsd": 1132.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 34,
+            "date": "2022-05-26",
+            "ageSessions": 27,
+            "signalPnlUsd": 2244.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 35,
+            "date": "2022-07-12",
+            "ageSessions": 27,
+            "signalPnlUsd": 1033.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 37,
+            "date": "2022-09-30",
+            "ageSessions": 22,
+            "signalPnlUsd": 1183.2,
+            "forwardPnlUsd5": 2249.1,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 39,
+            "date": "2023-01-05",
+            "ageSessions": 25,
+            "signalPnlUsd": 1120.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 56,
+            "date": "2025-02-27",
+            "ageSessions": 25,
+            "signalPnlUsd": 1118.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 57,
+            "date": "2025-04-14",
+            "ageSessions": 29,
+            "signalPnlUsd": 1776.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 62,
+            "date": "2025-11-21",
+            "ageSessions": 23,
+            "signalPnlUsd": 1041.2,
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          }
+        ],
+        "actualPolicyTriggerCount": 3,
+        "actualPolicyTriggerPct": 4.84,
+        "actualPolicyTriggerWithin5Sessions": 0,
+        "actualPolicyTriggerAfter5Sessions": 3,
+        "medianTriggerAgeSessions": 23,
+        "executionAttemptCount": 3,
+        "successfulExitActionCount": 3,
+        "successfulActionOnNextObservedSessionCount": 3,
+        "medianSignalToActionSessions": 1,
+        "forwardIfOriginal1x5Held": {
+          "5": {
+            "n": 1,
+            "medianPnlChangeUsd": 1065.9,
+            "meanPnlChangeUsd": 1065.9,
+            "fractionGivebackGeHalfTargetPct": 0.0,
+            "fractionFuturePnlNonpositivePct": 0.0
+          },
+          "10": {
+            "n": 0,
+            "medianPnlChangeUsd": null,
+            "meanPnlChangeUsd": null,
+            "fractionGivebackGeHalfTargetPct": null,
+            "fractionFuturePnlNonpositivePct": null
+          }
+        },
+        "actualEvents": [
+          {
+            "tradeId": 32,
+            "signalDate": "2022-02-18",
+            "signalAgeSessions": 27,
+            "signalMarkPnlUsd": 1132.2,
+            "signalPnlUsd": 1132.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2022-02-22",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2022-02-22",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2022-02-22",
+            "executionStatus": "OK",
+            "executionAgeSessions": 28,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 1801.2,
+            "executionMarkPnlAfterActionUsd": 1801.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 1801.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 37,
+            "signalDate": "2022-09-30",
+            "signalAgeSessions": 22,
+            "signalMarkPnlUsd": 1183.2,
+            "signalPnlUsd": 1183.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2022-10-03",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2022-10-03",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2022-10-03",
+            "executionStatus": "OK",
+            "executionAgeSessions": 23,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 1403.2,
+            "executionMarkPnlAfterActionUsd": 1403.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 1403.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": 2249.1,
+            "forwardPnlUsd10": null
+          },
+          {
+            "tradeId": 62,
+            "signalDate": "2025-11-21",
+            "signalAgeSessions": 23,
+            "signalMarkPnlUsd": 1041.2,
+            "signalPnlUsd": 1041.2,
+            "executionAttemptCount": 1,
+            "firstActionAttemptDate": "2025-11-24",
+            "firstActionAttemptStatus": "OK",
+            "actionAttempts": [
+              {
+                "date": "2025-11-24",
+                "status": "OK",
+                "quantity": 5
+              }
+            ],
+            "executionDate": "2025-11-24",
+            "executionStatus": "OK",
+            "executionAgeSessions": 24,
+            "signalToExecutionSessions": 1,
+            "executionMarkPnlBeforeActionUsd": 567.2,
+            "executionMarkPnlAfterActionUsd": 567.2,
+            "executionDailyStatus": "EXECUTED_CLOSE_SHORT_RISK",
+            "finalNetPnlUsd": 567.2,
+            "finalStatus": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+            "forwardPnlUsd5": null,
+            "forwardPnlUsd10": null
+          }
+        ],
+        "sampleStatus": "INSUFFICIENT_SMALL_TRIGGER_COHORT"
+      }
+    }
+  },
+  "deploymentGate": "BLOCKED_FOR_DEPLOYMENT: EOD timing/fills unverified, broker margin/assignment costs unavailable, one-unit 1x5 tail risk may exceed reference NAV, and history is previously inspected development data.",
+  "limitations": [
+    "Public EOD quote marks are not exchange-confirmed fills; exact timestamps and intraday touches are unverified.",
+    "First mark hit is counterfactual and distinct from actual policy triggers after DTE7 fallback sequencing.",
+    "5/10-session forward marks assume the original 1x5 position remains open after its policy signal; these are not post-exit realized returns.",
+    "Close actions occur only on a later observed session and may be deferred for invalid or insufficient option quotes.",
+    "The 62 episodes were previously inspected, are not a blind holdout, and do not validate broker margin, assignment or forced liquidation."
+  ]
+}
