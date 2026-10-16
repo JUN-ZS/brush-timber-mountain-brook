@@ -141,7 +141,7 @@ jobs:
   hub-web:
     name: Worker / NASDAQCOM / HUB-Web
     if: ${{ inputs.frame_acceptance == 'ACCEPTED_AFTER_FRAME_REVIEW' }}
-    runs-on: [self-hosted, linux, x64]
+    runs-on: [self-hosted, linux, x64, grokbot-box-linux-x64]
     timeout-minutes: 20
     steps:
       - name: Enforce approved HUB runner
