@@ -31,6 +31,8 @@ jobs:
         run: python3 -m json.tool research/qqq_put_ratio_lab_v1/data.json > /dev/null
       - name: UI logic tests
         run: node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
+      - name: Parse browser JavaScript
+        run: node --check research/qqq_put_ratio_lab_v1/app.js
       - name: Static UI checks
         run: |
           test -s research/qqq_put_ratio_lab_v1/index.html
