@@ -19,7 +19,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: shared-contract-engine-v4-3
+  group: shared-contract-engine-v4-3-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:

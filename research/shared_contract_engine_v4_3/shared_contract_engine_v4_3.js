@@ -612,11 +612,18 @@ const SharedContractEngineV43 = (function (factory) {
     if (await sha256Hex(scenario) !== bundle.hashes.scenarioHash) fail("HASH_INTEGRITY_MISMATCH", "scenarioHash does not match all inputs and parameter groups.");
     if (await sha256Hex(bundle.engineOutput) !== bundle.hashes.engineOutputHash) fail("HASH_INTEGRITY_MISMATCH", "engineOutputHash does not match the embedded output.");
     if (typeof opts.evaluate !== "function") fail("RECOMPUTE_REQUIRED", "An independent deterministic evaluator is required before restore.");
-    const derivedOutput = await opts.evaluate({
-      inputs: JSON.parse(JSON.stringify(bundle.inputs)), barParams: JSON.parse(JSON.stringify(bundle.barParams)),
-      probParams: JSON.parse(JSON.stringify(bundle.probParams)), floorAndDveParams: JSON.parse(JSON.stringify(bundle.floorAndDveParams)),
-      sourceStore: JSON.parse(JSON.stringify(bundle.sourceStore))
-    });
+    let serializedDerivedOutput;
+    try {
+      serializedDerivedOutput = JSON.stringify(await opts.evaluate({
+        inputs: JSON.parse(JSON.stringify(bundle.inputs)), barParams: JSON.parse(JSON.stringify(bundle.barParams)),
+        probParams: JSON.parse(JSON.stringify(bundle.probParams)), floorAndDveParams: JSON.parse(JSON.stringify(bundle.floorAndDveParams)),
+        sourceStore: JSON.parse(JSON.stringify(bundle.sourceStore))
+      }));
+    } catch (error) {
+      fail("OUTPUT_NOT_JSON_SERIALIZABLE", "Recomputed engine output cannot be serialized: " + error.message);
+    }
+    if (serializedDerivedOutput === undefined) fail("OUTPUT_NOT_JSON_SERIALIZABLE", "Recomputed engine output did not produce a JSON value.");
+    const derivedOutput = JSON.parse(serializedDerivedOutput);
     if (await sha256Hex(derivedOutput) !== bundle.hashes.engineOutputHash) fail("OUTPUT_REPRODUCIBILITY_MISMATCH", "Recomputed engine output does not match engineOutputHash.");
     return {
       ok: true,
