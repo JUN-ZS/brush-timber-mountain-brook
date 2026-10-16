@@ -1,8 +1,15 @@
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const L = require("../logic.js");
-const data = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "data.json"), "utf8"));
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import vm from "node:vm";
+
+const root = process.cwd();
+const logicPath = path.join(root, "research", "qqq_put_ratio_lab_v1", "logic.js");
+const dataPath = path.join(root, "research", "qqq_put_ratio_lab_v1", "data.json");
+const moduleBox = { exports: {} };
+vm.runInNewContext(fs.readFileSync(logicPath, "utf8"), { module: moduleBox, console });
+const L = moduleBox.exports;
+const data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 
 const cap = L.ratioInfo(80000, "SHORT_HEAVY", 5, 1, data);
 assert.equal(cap.unitsByTerminalTail, 0, "$80k NAV at 1% terminal budget must block a 1x5 whole unit");
