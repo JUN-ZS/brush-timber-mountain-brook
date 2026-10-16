@@ -14,6 +14,9 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+permissions:
+  contents: write
+
 jobs:
   backtest:
     runs-on: [self-hosted, windows, x64]
@@ -38,6 +41,43 @@ jobs:
       - name: Run backtest engine
         run: npm run backtest
       - name: Upload artifacts
+        continue-on-error: true
+
+      - name: Persist backtest result and curve to recovery branch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          payload="$RUNNER_TEMP/recovery-payload-$tag"
+          mkdir -p "$payload"
+          cp artifacts/backtest-result.json "$payload/"
+          cp artifacts/backtest-curve.csv "$payload/"
+          cp artifacts/backtest-report.md "$payload/"
+          cp src/data/backtest-v2-2.json "$payload/"
+          git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+          git checkout -B recovery-output "origin/research/app-artifact-recovery-20261016"
+          dest="research/artifact_recovery_20261016/backtest/raw_v2_2/rerun-$tag"
+          mkdir -p "$dest"
+          cp -a "$payload/." "$dest/"
+          cat > "$dest/RECOVERY_META.txt" <<EOF
+          run_id=$GITHUB_RUN_ID
+          run_attempt=$GITHUB_RUN_ATTEMPT
+          tested_sha=$GITHUB_SHA
+          source_branch=$GITHUB_REF_NAME
+          source_workflow=${{ github.workflow }}
+          source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          outputs=backtest_result_curve_report_and_source_data
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$dest"
+          if git diff --cached --quiet; then
+            echo "No new recovery files to commit"
+          else
+            git commit -m "recover: persist backtest V2.2 outputs $tag"
+            git push origin HEAD:research/app-artifact-recovery-20261016
+          fi
         uses: actions/upload-artifact@v4
         with:
           name: backtest-v2-2
