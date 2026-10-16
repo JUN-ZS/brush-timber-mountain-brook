@@ -68,12 +68,14 @@ const type = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261120P0002
 const expiry = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261218C00026000" });
 const strike = E.evaluateDecision({ ...P.live_thin, candVxxLongId: "VXX261120C00025000" });
 const missingSource = E.evaluateDecision({ ...P.live_thin, candVxxLongSourceRef: "" });
+const placeholderSource = E.evaluateDecision({ ...P.live_thin, candVxxShortSourceRef: "USER_SUPPLIED_UNVERIFIED" });
 const engineChecks = {
   width: width.candEval.vxxCand.status,
   type: type.candEval.vxxCand.status,
   expiry: expiry.candEval.vxxCand.status,
   strike: strike.candEval.vxxCand.status,
   missingSource: missingSource.candEval.vxxCand.status,
+  placeholderSource: placeholderSource.candEval.vxxCand.status,
   invalidWidthCapacity: width.candEval.vxxCand.fullQty
 };
 assert.equal(engineChecks.width, "BLOCKED_STRIKE_WIDTH_MISMATCH");
@@ -81,6 +83,7 @@ assert.equal(engineChecks.type, "BLOCKED_LEG_OPTION_TYPE_MISMATCH");
 assert.equal(engineChecks.expiry, "BLOCKED_LEG_EXPIRY_MISMATCH");
 assert.equal(engineChecks.strike, "BLOCKED_LEG_STRIKE_ID_MISMATCH");
 assert.equal(engineChecks.missingSource, "PENDING_LEG_SOURCE_REFERENCE");
+assert.equal(engineChecks.placeholderSource, "PENDING_LEG_SOURCE_REFERENCE");
 assert.equal(engineChecks.invalidWidthCapacity, null);
 
 console.log("PASS actual SharedContractEngine Golden Tests:", actualGoldenResults.length + "/" + actualGoldenResults.length);
@@ -107,7 +110,9 @@ const contractChecks = [
   'const st = resolveFrameAssumptions({ assumptionProfile: "STRESS" });',
   'if (b.qqqCallMaxLossBudgetFraction !== 0.012 || b.vxxCallMaxLossBudgetFraction !== 0.020 || b.vxxPutMaxLossBudgetFraction !== 0.010) throw new Error("baseline changed unexpectedly");',
   'if (!(c.qqqCallMaxLossBudgetFraction < b.qqqCallMaxLossBudgetFraction && st.qqqCallMaxLossBudgetFraction < c.qqqCallMaxLossBudgetFraction)) throw new Error("profiles are not ordered by capacity severity");',
-  'if (st.evidenceClass !== "HYPOTHETICAL_SCENARIO_NOT_OBSERVED") throw new Error("profile evidence class missing");'
+  'if (st.evidenceClass !== "HYPOTHETICAL_SCENARIO_NOT_OBSERVED") throw new Error("profile evidence class missing");',
+  'if (isUsableLegSourceReference("USER_SUPPLIED_UNVERIFIED")) throw new Error("provenance placeholder must not count as a source reference");',
+  'if (!isUsableLegSourceReference("SCREENSHOT:V44_source.png")) throw new Error("usable evidence pointer was rejected");'
 ].join("\n");
 assert.doesNotThrow(() => vm.runInNewContext(helpers + "\n" + contractChecks, {}), "OCC parser/profile logic failed");
 
@@ -117,6 +122,9 @@ requireText(html, /BLOCKED_LEG_OPTION_TYPE_MISMATCH/, "option type encoded in co
 requireText(html, /BLOCKED_LEG_EXPIRY_MISMATCH/, "leg expiry consistency guard is missing");
 requireText(html, /PENDING_LEG_QUOTE_TIMESTAMP/, "per-leg quote timestamp gate is missing");
 requireText(html, /PENDING_LEG_SOURCE_REFERENCE/, "per-leg source reference gate is missing");
+requireText(html, /isUsableLegSourceReference/, "source-ref placeholder validation is missing");
+assert.match(html, /id="candVxxShortAsOf" type="text" value="" placeholder=/, "live VXX timestamp must start empty");
+assert.match(html, /id="candVxxShortSourceRef" type="text" value="" placeholder=/, "live VXX source reference must start empty");
 requireText(html, /USER_ASSERTED_NOT_INDEPENDENTLY_VERIFIED/, "user-supplied evidence class is not labelled");
 requireText(html, /HUB_PREFLIGHT_CONFIG_READY/, "HUB label must describe preflight, not actual execution");
 requireText(html, /version:\s*'qqq-hybrid\.shared-contract\.v4\.4'/, "shared contract version must be V4.4");
