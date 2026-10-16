@@ -39,6 +39,7 @@ Current P&L, age, DTE and RV20 are manually entered measurements, not silently r
 
 The primary V3 engine remains the source of Frozen market-regime decision and its Current → Target / action queue. The overlay produces a separate PUT_RATIO_RESEARCH_OVERLAY_OUTPUT_V1 containing evidence status, matched history, serial drawdown statistics, tail budget, profit/time/volatility alerts, provenance, and an optional human-review status.
 
+- When an elevated RV20-conditioned downside-frequency alert overlaps a profit-line, holding-age ≥20 sessions, or DTE ≤7 warning, the engine emits an explicit priority human-review alert. This is conjunctive context only; it is not an order or a calibrated Put Ratio loss probability.
 - BLOCK_PUT_RATIO_ADDITION means the selected terminal-tail-loss budget allows zero complete Put Ratio units under the historical terminal-payoff estimate. It does not rewrite unrelated QQQ core or VXX sleeve targets.
 - REVIEW_PUT_RATIO_SCENARIO asks for human review of the research scenario. It is not an execution command.
 - Data/schema/source mismatch returns PENDING/BLOCKED and does not replace the primary Hybrid action.

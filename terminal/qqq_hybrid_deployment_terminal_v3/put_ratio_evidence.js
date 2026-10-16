@@ -124,6 +124,15 @@ function evaluate(s,rawInputs={}){
     if(vol.down10Elevated)reasons.push("≥10% drop rate "+vol.down10Ratio.toFixed(2)+"× ALL");
     alerts.push({tone:"warn",code:"VOL_DOWNSIDE_ELEVATED",title:"Time × volatility warning — QQQ downside frequency elevated",text:"RV20 "+pct(inputs.rv20)+" ("+vol.state+"), horizon "+inputs.horizon+" sessions, N="+vol.selected.n+". "+reasons.join("; ")+". This is underlying price-path frequency, not Put Ratio loss probability."});
   }
+  const timingPressure=alerts.filter(a=>["PROFIT_TARGET_REACHED","AGE_20","DTE_7"].includes(a.code));
+  if(vol.elevated&&timingPressure.length){
+    alerts.push({
+      tone:"bad",
+      code:"TIME_VOL_PRIORITY_REVIEW",
+      title:"優先人工覆核：時間／期限 × 高波動下行風險重疊",
+      text:"已觸發 "+timingPressure.map(a=>a.title).join("、")+"，且 RV20×觀察期限的 QQQ 下跌頻率高於 ALL 歷史基準。請重新核對整組 Put Ratio 的即時淨清算回補成本、短 Put Gamma／指派風險及尾部壓力；這是人工覆核提示，不是自動平倉指令，也不是 Put Ratio 虧損機率。"
+    });
+  }
   const timeOrPnl=alerts.some(a=>["PROFIT_TARGET_REACHED","AGE_20","DTE_7","VOL_DOWNSIDE_ELEVATED"].includes(a.code));
   const combinedStatus=!inputs.combinedReview?"ISOLATED_EVIDENCE":tail.status==="BLOCKED_TAIL_BUDGET"?"BLOCK_PUT_RATIO_ADDITION":timeOrPnl?"REVIEW_PUT_RATIO_SCENARIO":"RESEARCH_CONTEXT_ONLY";
   return {

@@ -56,6 +56,7 @@ assert.ok(target800.alerts.some(x=>x.code==="PROFIT_TARGET_REACHED"));
 assert.ok(target800.alerts.some(x=>x.code==="TAIL_BUDGET_ZERO"));
 assert.ok(target800.alerts.some(x=>x.code==="VOL_DOWNSIDE_ELEVATED"));
 assert.ok(target800.alerts.some(x=>x.code==="VOL_DOWNSIDE_ELEVATED"&&x.text.includes("5 sessions")));
+assert.ok(target800.alerts.some(x=>x.code==="TIME_VOL_PRIORITY_REVIEW"),"profit line + elevated volatility should trigger explicit priority review");
 assert.equal(target800.combinedReview.primaryHybridActionMutation,false);
 assert.equal(target800.combinedReview.primaryHybridTargetMutation,false);
 assert.equal(target800.combinedReview.executionEnabled,false);
@@ -75,6 +76,10 @@ const n1=P.evaluate(evidence,{nav:80000,direction:"SHORT_HEAVY",n:1,policyId:"BA
 assert.equal(n1.history,null,"N=1 must not borrow the N=5 option win rate");
 assert.equal(n1.serialCurve,null,"N=1 must not borrow the N=5 strategy MaxDD curve");
 assert.equal(n1.tail.wholeUnits,1);
+
+const volOnly=P.evaluate(evidence,{nav:80000,direction:"SHORT_HEAVY",n:5,policyId:"BASE_DTE7_CLOSE_SHORT_RISK",riskPct:1,profitPct:1,currentPnl:0,age:3,dte:25,rv20:40,horizon:5,combinedReview:true});
+assert.ok(volOnly.alerts.some(x=>x.code==="VOL_DOWNSIDE_ELEVATED"));
+assert.ok(!volOnly.alerts.some(x=>x.code==="TIME_VOL_PRIORITY_REVIEW"),"volatility alone must not masquerade as a conjunctive time/volatility signal");
 
 const longHeavy=P.evaluate(evidence,{nav:80000,direction:"LONG_HEAVY",n:5,policyId:"BASE_DTE7_CLOSE_SHORT_RISK",riskPct:1,profitPct:1,combinedReview:true});
 assert.equal(longHeavy.history,null,"reverse direction must not inherit the short-heavy option history");
