@@ -25,6 +25,7 @@ on:
       - .github/workflows/qqq-public-eod-chain-audit.yml
       - .github/workflows/qqq-public-eod-full-history-audit.yml
       - .github/workflows/qqq-hybrid-operator-terminal-v1.yml
+      - .github/workflows/qqq-research-grokbot-linux.yml
 
 permissions:
   contents: read
