@@ -208,6 +208,51 @@
           </div>
           <p class="reference-mini">有事件年份占比 = 至少出現一次該級回撤的觀察年份／全部觀察年份；2018 為不完整年度，因此這是樣本描述，不是未來發生機率。平均／年按實際日期跨度計算；缺失的每日估值可能掩蓋或改變回撤週期。谷底間隔以交易日計。</p>
         </div>
+        <div class="put-ratio-dynamic-wrap">
+          <div class="section-head"><h2>動態 NAV BAR 拉扯 × VIX／DTE 分層</h2><span id="putRatioDynamicBadge" class="tag retired">BUDGET-BYPASS DIAGNOSTIC</span></div>
+          <p class="put-ratio-dynamic-explainer">這一區來自已驗證的動態 NAV 回放，獨立於上面的固定單位歷史 WIN／MaxDD 曲線。條件固定為 $100,000、LONG PUT 1 : SHORT PUT 5、$0.05／腿邊滑價 + $0.65／合約邊佣金；但為量度 BAR 形狀而強制持有 1 組，歷史 62 組全數突破 1% NAV 終端尾部預算，故只作風險診斷，不代表可下單。可切換退出政策及 VIX／DTE 分層；低樣本格會標 PENDING。</p>
+          <div class="put-ratio-dynamic-controls">
+            <label>動態 BAR 退出政策
+              <select id="putRatioDynamicPolicy">
+                <option value="DTE7_CLOSE_SHORT_RISK">DTE7：平短腿後保留長腿</option>
+                <option value="DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE" selected>DTE7：平短腿後嘗試平長腿</option>
+              </select>
+            </label>
+            <label>觀察分層
+              <select id="putRatioDynamicState">
+                <option value="0">全部樣本（ALL）</option>
+                <option value="1">VIX &lt; 15</option>
+                <option value="2">VIX 15–25</option>
+                <option value="3">VIX 25–35</option>
+                <option value="4">VIX ≥ 35</option>
+                <option value="5">剩餘 DTE ≤ 7</option>
+                <option value="6">剩餘 DTE 8–20</option>
+                <option value="7">剩餘 DTE 21–40</option>
+                <option value="8">剩餘 DTE &gt; 40</option>
+              </select>
+            </label>
+          </div>
+          <div id="putRatioDynamicMetrics" class="put-ratio-metrics">
+            <div class="empty">動態 BAR 快照載入中。</div>
+          </div>
+          <div id="putRatioDynamicStatus" class="put-ratio-overlay-status">Dynamic BAR status: PENDING</div>
+          <div class="table-wrap">
+            <table class="put-ratio-dd-table put-ratio-dynamic-table">
+              <thead><tr><th>BAR 類型</th><th>門檻（NAV）</th><th>交易觸及率</th><th>逐日標記觸及率</th><th>樣本狀態</th></tr></thead>
+              <tbody id="putRatioDynamicBarRows"><tr><td colspan="5">PENDING</td></tr></tbody>
+            </table>
+          </div>
+          <div class="put-ratio-dd-wrap">
+            <div class="section-head"><h2>動態 NAV 回撤週期（同一診斷組）</h2><span class="tag research">EOD MARKED · NOT STATIC CURVE</span></div>
+            <div class="table-wrap">
+              <table class="put-ratio-dd-table put-ratio-dynamic-table">
+                <thead><tr><th>MaxDD 至少</th><th>週期數</th><th>平均／年</th><th>有事件年份占比</th><th>發生年份</th><th>低於該 DD 的觀察日占比</th></tr></thead>
+                <tbody id="putRatioDynamicDdRows"><tr><td colspan="6">PENDING</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="putRatioDynamicProvenance" class="reference-mini">等待動態 BAR 快照來源。</div>
+        </div>
         <details class="put-ratio-provenance">
           <summary>來源、SHA、樣本和限制</summary>
           <div id="putRatioProvenance" class="reference-mini">等待來源資訊。</div>
@@ -233,6 +278,7 @@
   </main>
 <script src="engine.js"></script>
 <script src="put_ratio_evidence.js"></script>
+<script src="put_ratio_dynamic_bar.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
