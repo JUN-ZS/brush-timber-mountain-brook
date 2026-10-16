@@ -30,8 +30,7 @@ function portfolioStats(nav,policy){
  for(const p of pts){
   if(p.eq>=peak.eq){peak=p;continue;}
   const usd=peak.eq-p.eq,pctDrop=peak.eq>0?(p.eq/peak.eq-1)*100:null;
-  if(usd>maxUsd)maxUsd=usd;
-  if(pctDrop!==null&&pctDrop<maxPct){maxPct=pctDrop;maxPeakDate=peak.date;maxTroughDate=p.date;}
+  if(pctDrop!==null&&pctDrop<maxPct){maxPct=pctDrop;maxUsd=usd;maxPeakDate=peak.date;maxTroughDate=p.date;}
  }
  const cycles=[];let cp=pts[0],cw=0,ct=pts[0];
  for(let i=1;i<pts.length;i++){
