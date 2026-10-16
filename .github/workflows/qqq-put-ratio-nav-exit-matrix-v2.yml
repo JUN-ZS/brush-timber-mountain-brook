@@ -70,7 +70,7 @@ jobs:
 
       - name: Persist QQQ put-ratio NAV matrix outputs to recovery branch
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"

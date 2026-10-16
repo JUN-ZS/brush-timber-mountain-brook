@@ -92,7 +92,7 @@ jobs:
 
       - name: Persist QA evidence to recovery branch
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"

@@ -59,7 +59,7 @@ jobs:
 
       - name: Persist public EOD sample-date audit log
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
@@ -127,7 +127,7 @@ jobs:
 
       - name: Persist full-history QQQ quote-alignment audit log
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = "${{ github.run_id }}-a${{ github.run_attempt }}"
