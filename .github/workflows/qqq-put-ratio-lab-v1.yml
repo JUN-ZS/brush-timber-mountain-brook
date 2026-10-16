@@ -33,8 +33,10 @@ jobs:
         run: python3 -m json.tool research/qqq_put_ratio_lab_v1/data.json > /dev/null
       - name: UI logic tests
         run: node research/qqq_put_ratio_lab_v1/tests/test_qqq_put_ratio_lab_v1.js
-      - name: Parse browser JavaScript
-        run: node --check research/qqq_put_ratio_lab_v1/app.js
+      - name: Parse browser JavaScript and shared logic
+        run: |
+          node --check research/qqq_put_ratio_lab_v1/app.js
+          node --check research/qqq_put_ratio_lab_v1/logic.js
       - name: Static UI checks
         run: |
           test -s research/qqq_put_ratio_lab_v1/index.html
@@ -43,4 +45,8 @@ jobs:
           grep -q "data.json" research/qqq_put_ratio_lab_v1/app.js
           grep -q "TP_USD_800_CLOSE_SHORT_RISK" research/qqq_put_ratio_lab_v1/index.html
           grep -q "profitWarningEvidence" research/qqq_put_ratio_lab_v1/app.js
+          grep -q "historyAnswer" research/qqq_put_ratio_lab_v1/index.html
+          grep -q "targetEvidence" research/qqq_put_ratio_lab_v1/index.html
+          grep -q "renderQuickEvidence" research/qqq_put_ratio_lab_v1/app.js
+          grep -q "drawdownCycleStats" research/qqq_put_ratio_lab_v1/logic.js
           echo "QQQ Put Ratio Lab UI contract PASS"
