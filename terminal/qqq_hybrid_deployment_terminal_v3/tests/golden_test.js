@@ -47,7 +47,7 @@ const chain=[
   {contractSymbol:"QQQ261218C00850000",expiration:"2026-12-18",strike:850,bid:3.00,ask:3.10,bidSize:9,askSize:9,impliedVolatility:0.28},
   {contractSymbol:"QQQ261218C00865000",expiration:"2026-12-18",strike:865,bid:1.60,ask:1.70,bidSize:8,askSize:8,impliedVolatility:0.28}
 ];
-const quoteMeta={retrievedAt:"2026-10-07T15:00:00Z",source:"TEST_FIXTURE",symbol:"QQQ"};
+const quoteMeta={retrievedAt:"2026-10-07T15:00:00Z",quoteAsOf:"2026-10-07T14:50:00Z",source:"TEST_FIXTURE",symbol:"QQQ"};
 const cand=E.candidateFromChain(chain,750,0.10,45,"2026-10-07",quoteMeta);
 assert.ok(cand,"candidate selected only from a fully validated chain");
 assert.strictEqual(cand.shortStrike,850);
@@ -60,13 +60,28 @@ assert.strictEqual(cand.longAskSize,11);
 assert.strictEqual(cand.contractIdentityValidated,true);
 assert.strictEqual(cand.quoteValidated,true);
 assert.strictEqual(E.candidateFromChain(chain,750,0.10,45,"2026-10-07"),null); // no quote timestamp/source/root
-assert.strictEqual(E.candidateFromChain(chain,750,0.10,45,"2026-10-07",{...quoteMeta,retrievedAt:"2026-10-05T15:00:00Z"}),null); // stale quote
+assert.strictEqual(E.candidateFromChain(chain,750,0.10,45,"2026-10-07",{...quoteMeta,quoteAsOf:"2026-10-05T14:00:00Z"}),null); // stale source quote
 assert.strictEqual(E.candidateFromChain(chain,750,0.10,45,"2026-10-07",{...quoteMeta,symbol:"SPY"}),null); // wrong root
+assert.strictEqual(E.candidateFromChain(chain,750,0.10,45,"2026-10-07",{...quoteMeta,quoteAsOf:"not-a-date"}),null); // invalid source quote timestamp
 assert.strictEqual(E.candidateFromChain(chain.map(x=>({...x,contractSymbol:undefined})),750,0.10,45,"2026-10-07",quoteMeta),null); // missing identity on all candidate legs
 assert.strictEqual(E.candidateFromChain(chain.map(x=>({...x,bidSize:undefined})),750,0.10,45,"2026-10-07",quoteMeta),null); // missing size on all candidate legs
 assert.strictEqual(E.candidateFromChain(chain.map(x=>({...x,bid:x.ask+0.1})),750,0.10,45,"2026-10-07",quoteMeta),null); // crossed quotes on all candidate legs
 
 // F3/F7 — credit budget is distinct from max-expiry-loss budget.
+const unverifiedQuoteTime=E.candidateFromChain(chain,750,0.10,45,"2026-10-07",{...quoteMeta,quoteAsOf:undefined});
+assert.ok(unverifiedQuoteTime,"retrieved chain can be shown without asserting source quote timestamp");
+assert.strictEqual(unverifiedQuoteTime.quoteTimestampVerified,false);
+const quoteTimePending=E.targetLedger(
+  {...base,qqq:750},
+  E.derive(base),
+  {nav:100000,qqqShares:0,vxxPct:0,qqqCalls:2,vxxCalls:0},
+  {qqq:unverifiedQuoteTime,vxx:null}
+);
+assert.strictEqual(quoteTimePending.sizing.qqqCalls.status,"PENDING_QUOTE_TIMESTAMP");
+assert.strictEqual(quoteTimePending.sizing.qqqCalls.recommendedQuantity,null);
+assert.strictEqual(quoteTimePending.target.qqqCalls,2); // current quantity retained
+assert.strictEqual(quoteTimePending.executionAllowed,false);
+
 const noSizingConstraints=E.targetLedger(
   {...base,qqq:750},
   E.derive(base),
@@ -74,6 +89,8 @@ const noSizingConstraints=E.targetLedger(
   {qqq:cand,vxx:null}
 );
 assert.strictEqual(noSizingConstraints.sizing.qqqCalls.status,"PENDING_RISK_BUDGET");
+assert.strictEqual(noSizingConstraints.sizing.qqqCalls.capacityVerified,undefined);
+assert.strictEqual(noSizingConstraints.sizing.qqqCalls.executable,false);
 assert.strictEqual(noSizingConstraints.sizing.qqqCalls.legacyFormulaSemantics,"PREMIUM_CREDIT_CAP_ONLY");
 assert.strictEqual(noSizingConstraints.sizing.qqqCalls.creditBudgetAmount,1200);
 assert.strictEqual(noSizingConstraints.sizing.qqqCalls.creditBudgetQuantity,12);
@@ -96,6 +113,8 @@ assert.strictEqual(verified.sizing.qqqCalls.interimStressQuantity,1);
 assert.strictEqual(verified.sizing.qqqCalls.quantity,1);
 assert.strictEqual(verified.target.qqqCalls,1);
 assert.strictEqual(verified.executionAllowed,false); // no broker/order permission
+assert.strictEqual(verified.sizing.qqqCalls.capacityVerified,true);
+assert.strictEqual(verified.sizing.qqqCalls.executable,false); // capacity is not an executable order
 
 // F2 — absent candidate while existing options are held must preserve current quantity.
 const weak=E.derive({...base,s:3});
