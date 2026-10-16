@@ -131,7 +131,10 @@ def act(state: dict[str, Any], step: dict[str, Any], action: str, direction: str
     return False, "UNKNOWN_ACTION"
 
 def policies() -> list[dict[str, Any]]:
-    rows = [{"name": "DTE7_CLOSE_SHORT_RISK", "kind": "DTE7"}]
+    rows = [
+        {"name": "DTE7_CLOSE_SHORT_RISK", "kind": "DTE7", "sell_residual_longs": False},
+        {"name": "DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE", "kind": "DTE7", "sell_residual_longs": True},
+    ]
     for pct in TRIGGER_PCTS:
         label = f"{pct*100:.1f}PCT"
         rows.append({"name": f"TP_{label}_FULL_CLOSE", "kind": "TP", "pct": pct, "action": "FULL_CLOSE"})
@@ -170,6 +173,11 @@ def simulate(trade: dict[str, Any], direction: str, n: int, nav: float, policy: 
                 if state["n_short"] == 0 and state["n_long"] == 0:
                     final_pnl, final_status, resolved_age = float(state["cash"]), "CLOSED_AT_OBSERVED_SIDE_QUOTES", age
             else: deferred += 1
+        # Optional apples-to-apples policy: after short risk is closed, sell residual long puts
+        # only when their observed bid and displayed size are executable. If not, retry on later
+        # observations. The default DTE7 policy intentionally retains the long put.
+        if policy.get("sell_residual_longs", False) and state["n_short"] == 0 and state["n_long"] > 0:
+            sell_longs(state, step, int(state["n_long"]), slip, commission)
         if state["n_short"] == 0 and state["n_long"] == 0:
             if include_mark_path:
                 mark_curve.append({"date": day, "holding_age_sessions": age, "pnl_usd": round(float(state["cash"]), 4),
