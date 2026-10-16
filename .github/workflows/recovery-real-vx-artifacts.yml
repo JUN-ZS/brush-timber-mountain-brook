@@ -1,0 +1,133 @@
+name: Recovery REAL VX + Original Hybrid outputs
+
+on:
+  push:
+    branches:
+      - research/original-hybrid-real-run-v1-20261007
+    paths:
+      - .github/workflows/recovery-real-vx-artifacts.yml
+      - research/cboe_vx_m1m2/**
+      - research/m1_m2_reconstruction_lab/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: recovery-real-vx-artifacts
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    name: Rebuild REAL VX outputs and persist off-runner
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Runtime
+        run: |
+          set -euo pipefail
+          python3 --version
+          node --version
+
+      - name: Build REAL VX M1/M2
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/real-vx
+          python3 research/cboe_vx_m1m2/build_real_vx_m1_m2.py \
+            --start 2018-03-01 \
+            --end 2026-09-04 \
+            --out artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv
+
+      - name: Historical overlap diagnostic
+        continue-on-error: true
+        run: |
+          python3 research/cboe_vx_m1m2/validate_against_external.py \
+            --cboe artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv \
+            --external research/data/vx_m1_m2_external_2016_2022.csv \
+            --out artifacts/real-vx/overlap_gate.json \
+            --diagnostic
+
+      - name: Old external vs REAL CBOE source-swap parity
+        run: |
+          set -euo pipefail
+          node research/cboe_vx_m1m2/compare_sources.js \
+            --real artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv \
+            --external research/data/vx_m1_m2_external_2016_2022.csv \
+            --spots research/data/archive_spots_overlap_2018_2022.csv \
+            --engine research/m1_m2_reconstruction_lab/engine.js \
+            --out-dir artifacts/real-vx/source-swap
+
+      - name: Free delayed Cboe live snapshot
+        continue-on-error: true
+        run: |
+          python3 research/cboe_vx_m1m2/collect_delayed_vx_m1_m2.py \
+            --out artifacts/real-vx/delayed_vx_m1_m2.json
+
+      - name: Fixed REAL M1/M2 archive replay
+        run: node research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
+
+      - name: Contract checks
+        run: |
+          set -euo pipefail
+          node --check research/m1_m2_reconstruction_lab/engine.js
+          node --check research/m1_m2_reconstruction_lab/tests/real_historical_state_replay.js
+          node --check research/cboe_vx_m1m2/compare_sources.js
+          python3 -m py_compile research/cboe_vx_m1m2/build_real_vx_m1_m2.py
+          python3 -m py_compile research/cboe_vx_m1m2/validate_against_external.py
+          python3 -m py_compile research/cboe_vx_m1m2/collect_delayed_vx_m1_m2.py
+          test -s research/data/real_historical_state_replay_2018_2022.csv
+          test -s research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
+          test -s artifacts/real-vx/source-swap/source_swap_metrics.json
+          test -s artifacts/real-vx/source-swap/SOURCE_SWAP_PARITY.md
+          test -s artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv
+
+      - name: Persist all generated REAL VX files to recovery branch
+        if: always()
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_RUN_ID}-a${GITHUB_RUN_ATTEMPT}"
+          payload="$RUNNER_TEMP/recovery-real-vx-$tag"
+          mkdir -p "$payload/real-vx" "$payload/historical_state_replay"
+          if [ -d artifacts/real-vx ]; then cp -a artifacts/real-vx/. "$payload/real-vx/"; fi
+          cp -f research/data/real_historical_state_replay_2018_2022.csv "$payload/historical_state_replay/" 2>/dev/null || true
+          cp -f research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md "$payload/historical_state_replay/" 2>/dev/null || true
+          git fetch origin "refs/heads/research/app-artifact-recovery-20261016:refs/remotes/origin/research/app-artifact-recovery-20261016"
+          git checkout -B recovery-output "origin/research/app-artifact-recovery-20261016"
+          dest="research/artifact_recovery_20261016/real_vx/raw_rerun-$tag"
+          mkdir -p "$dest"
+          cp -a "$payload/." "$dest/"
+          cat > "$dest/RECOVERY_META.txt" <<EOF
+          run_id=$GITHUB_RUN_ID
+          run_attempt=$GITHUB_RUN_ATTEMPT
+          tested_sha=$GITHUB_SHA
+          source_branch=$GITHUB_REF_NAME
+          source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          note=External source validation may legitimately remain FAIL; original outcomes are preserved.
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$dest"
+          if git diff --cached --quiet; then
+            echo "No new recovery files to commit"
+          else
+            git commit -m "recover: persist REAL VX research outputs $tag"
+            git push origin HEAD:research/app-artifact-recovery-20261016
+          fi
+
+      - name: Upload secondary backup artifact
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovered-real-vx-and-original-hybrid
+          path: |
+            artifacts/real-vx/
+            research/data/real_historical_state_replay_2018_2022.csv
+            research/m1_m2_reconstruction_lab/REAL_HISTORICAL_STATE_REPLAY.md
+          if-no-files-found: warn
+          retention-days: 30
