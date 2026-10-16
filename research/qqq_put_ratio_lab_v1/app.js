@@ -38,9 +38,18 @@ function portfolioStats(nav,policy){
  const span=dd.spanYears;
  return {dates,series,pts,maxUsd,maxPct,maxPeakDate,maxTroughDate,levels,coverage:100*pts.length/dates.length,missing:dates.length-pts.length,spanYears:span,finalPnl:pts[pts.length-1].pnl,minEquity:Math.min(...pts.map(x=>x.eq)),summary:curveData.metrics_by_policy_at_80k_nav?.[policy]||{}};
 }
-function renderPortfolio(nav){
+function renderPortfolio(nav,dir,n){
  const policy=$("curvePolicy")?.value||"BASE_DTE7_CLOSE_SHORT_RISK";
  const status=$("portfolioState"),cards=$("portfolioMetrics"),rows=$("strategyDdRows"),chart=$("equityChart"),note=$("portfolioCaveat");
+ if(dir!=="SHORT_HEAVY"||Number(n)!==5){
+  status.textContent="NO MATCHED HISTORY";
+  cards.innerHTML='<div class="empty">目前組合沒有相同結構的逐日期權回放；不顯示或沿用 LONG PUT 1 : SHORT PUT 5 的策略 MaxDD。</div>';
+  rows.innerHTML='<tr><td colspan="5">NO MATCHED HISTORY · 此方向／N 未有直接回測的逐日策略回撤週期</td></tr>';
+  chart.innerHTML="";
+  $("portfolioTradeMeta").textContent="目前結構未有可直接引用的逐日歷史曲線。";
+  note.textContent="portfolio_curve.json 只對應 LONG PUT 1 : SHORT PUT 5 的固定一組、非複利歷史序列。改變方向或 N 後，不得把原曲線當作新結構的勝率或 MaxDD。";
+  return;
+ }
  if(!curveData){
   status.textContent="PENDING";
   cards.innerHTML='<div class="empty">逐日組合回放尚未保存；未完成真實歷史重算前不會顯示策略 MaxDD。</div>';
@@ -150,10 +159,10 @@ function renderQuickEvidence(nav,dir,n,profitPct){
   }
  }
  const amount=nav*profitPct/100,match=L.profitTargetPolicy(amount,data);
- const box=document.createElement("div");box.className="alert "+(match?"good":"warn");
+ const box=document.createElement("div");box.className="alert "+(match&&row?"good":"warn");
  const title=document.createElement("strong");title.textContent="目前獲利預警："+money(amount)+"（"+Number(profitPct).toFixed(2)+"% NAV）";
  const body=document.createElement("div");
- if(match){
+ if(match&&row){
   const p=match.policy,study=data.events?.profitThresholds?.[String(match.targetUsd)],m=portfolioStats(nav,p.id);
   let details="直接重播的同額固定目標 +$"+match.targetUsd+"：WIN "+pct(p.winRatePct)+"；淨損益 "+money(p.netPnlUsd)+"；政策觸發 "+p.triggerCount+"/62；DTE ≤ 7 fallback "+p.fallbackCount+"/62。";
   if(m)details+=" 以目前輸入 NAV 重算的固定一組序列 MaxDD "+pct(m.maxPct)+"（"+m.maxPeakDate+" → "+m.maxTroughDate+"）。";
@@ -161,6 +170,8 @@ function renderQuickEvidence(nav,dir,n,profitPct){
   else details+=" 此目標的逐日 first-hit 時間分布未單獨保存，不借用其他金額的時間結果。";
   details+=" 這是同額歷史對照，不是最佳獲利百分比；觸線只提示人工覆核。";
   body.textContent=details;
+ }else if(!row){
+  body.textContent="目前方向／N 沒有可直接引用的歷史政策。即使金額剛好等於 $500、$800、$1,000 或 $2,000，對應結果仍只屬於 LONG PUT 1 : SHORT PUT 5；不可套用到目前結構。當前預警只作人工提醒。";
  }else{
   body.textContent="此 NAV 百分比換算出的金額，並非本批直接重播的固定目標（$500、$800、$1,000、$2,000）。不插值、不借用鄰近目標的勝率／MaxDD；當前門檻只作人工提醒。可在下方政策比較表檢視已實際重播的目標。";
  }
@@ -214,7 +225,7 @@ function draw(){
   const lossPct=r.worstUsd/nav*100,units=Math.max(0,Math.floor((nav*riskPct/100)/r.worstUsd));
   return '<tr class="'+(r.n===Number(n)?"highlight":"")+'"><td>'+(dir==="SHORT_HEAVY"?"LONG 1 : SHORT N":"LONG N : SHORT 1")+'</td><td>'+r.n+'</td><td>'+money(r.medianUsd)+'</td><td>'+money(r.p95Usd)+'</td><td>'+money(r.worstUsd)+'</td><td class="'+(lossPct>100?"bad":"")+'">'+pct(lossPct)+'</td><td class="'+(units===0?"bad":"")+'">'+units+'</td></tr>';
  }).join("");
- renderPortfolio(nav);
+ renderPortfolio(nav,dir,n);
  renderQuickEvidence(nav,dir,n,profitPct);
  if(dir==="SHORT_HEAVY"&&n===1)$("inputSummary").textContent+=" · N=1 兩方向的 legs 數相同，但須確認同一合約與腿方向後才可視作同一結構。";
 }
