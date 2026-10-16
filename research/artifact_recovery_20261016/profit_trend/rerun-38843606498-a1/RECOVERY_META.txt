@@ -1,0 +1,7 @@
+﻿run_id=38843606498
+run_attempt=1
+tested_sha=b34f54c97605a6e0e92372aa8a84c7cd509b4bb3
+source_branch=97/merge
+source_workflow=QQQ Hybrid Profit Trend Replay V1
+source_run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843606498
+outputs=baseline_dynamic_v1_1_and_vxx_call_spread_contribution
