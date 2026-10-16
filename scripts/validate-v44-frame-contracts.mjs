@@ -48,7 +48,7 @@ if (actualFailures.length) {
   const E0 = browserContext.__v44Harness.SharedContractEngine;
   const P0 = browserContext.__v44Harness.PRESETS;
   const sample = E0.evaluateDecision(P0.live_thin);
-  console.log("GOLDEN FAILURE DETAILS:", JSON.stringify(actualFailures.map(r => ({id:r.id, name:r.name, detail:r.detail})));
+  console.log("GOLDEN FAILURE DETAILS:", JSON.stringify(actualFailures.map(r => ({id:r.id, name:r.name, detail:r.detail}))));
   console.log("BASELINE CANDIDATE DIAGNOSTICS:", JSON.stringify({
     preset: Object.fromEntries(["todayDate","quoteAsOf","candidateState","quoteProvenance","candVxxShortAsOf","candVxxLongAsOf","candVxxShortSourceRef","candVxxLongSourceRef","candVxxWidth","candVxxLegStrikes"].map(k => [k, P0.live_thin[k]])),
     qqq: {valid:sample.candEval.qqqCand.valid,status:sample.candEval.qqqCand.status,reason:sample.candEval.qqqCand.reason},
