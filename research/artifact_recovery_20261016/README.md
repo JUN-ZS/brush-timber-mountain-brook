@@ -83,3 +83,15 @@ Files are under `vxx_short_call_put/rerun-38843599343-a1/`, including:
 - Recovery metadata with the tested commit and run URL.
 
 These results remain derived research / non-OPRA, not confirmed option fills. Artifact ZIP upload is a secondary backup and is still not the recovery source of truth.
+
+
+### Backtest V2.2 — original result and equity curve now persisted
+
+Source run: [38842775770](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842775770). The backtest engine and persistence step completed successfully; the original generated files now exist under `backtest/raw_v2_2/rerun-38842775770-a1/`:
+- `backtest-result.json`
+- `backtest-curve.csv`
+- `backtest-report.md`
+- `backtest-v2-2.json`
+- `RECOVERY_META.txt`
+
+The run's Actions artifact list remains empty, so this recovery came from the direct Git branch commit, not from the original ZIP. The model decision remains **FAIL**: OOS CAGR 11.64%, OOS MaxDD −28.59%, below the stated CAGR ≥12% and MaxDD ≥−5% gates. These files are now available for review rather than only the console summary.
