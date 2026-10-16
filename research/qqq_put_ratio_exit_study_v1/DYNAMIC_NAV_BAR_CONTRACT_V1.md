@@ -36,3 +36,18 @@ A zero-episode BAR row is BLOCKED/PENDING rather than 0%. Rates are historical o
 
 ## Acceptance
 The dynamic test file covers optional mark-curve preservation, both DTE7 residual-long variants, whole-unit sizing/budget breaches, episode vs mark BAR hit rates, DD cycle/year rates, and a single-episode compounded NAV run. Formal acceptance requires this test, all existing research tests, the full matrix run and output-existence checks on the self-hosted runner.
+
+
+## Self-audit addendum — MaxDD is not a feasibility gate
+
+Do **not** interpret the 0.5% / 1% / 2% `PER_TRADE_TERMINAL_BUDGET` result as proof that a DTE7-managed NAV-scaled strategy is impossible. The current denominator is `core.terminal_envelope(...)["max_terminal_loss_usd"]`: a hypothetical full-to-expiry terminal payoff stress including QQQ=0. For the 1-long/5-short structure this is about $214,696.90 per unit, so a $100,000 account under a $500 / $1,000 / $2,000 full-terminal-loss budget permits zero whole units. That is a deliberate catastrophe-reserve rule, not a policy-conditioned estimate of the loss path when DTE7 exits succeed. Because exits can be delayed or unfillable and margin/assignment are not modeled, the terminal stress remains important—but it must be reported separately from an exit-policy-specific risk budget.
+
+The observed grid demonstrates why MaxDD must not be used as a rejection shortcut:
+- Exact 1-long/5-short, fixed 12-unit stress comparator, base costs, DTE7 with residual-long close: +$201,287.80 net, final NAV $301,287.80, MaxDD −38.6858%; it does **not** reach the $314,012 target and all 62 executed episodes breach the full-terminal-loss budget.
+- Same 1-long/5-short comparator with zero-friction lower-bound costs: +$244,273 net, final NAV $344,273, MaxDD −36.7677%; it reaches the target only under zero friction, and all 62 episodes still breach the full-terminal-loss budget.
+- 1-long/6-short, fixed 12-unit comparator, base costs: +$257,429.10 net, final NAV $357,429.10, MaxDD −48.7805%; it reaches the target but all 61 executed episodes breach the terminal-loss budget.
+- One-unit 1-long/5-short, base costs, same exit: +$18,067.60 net and observed MaxDD −6.8597%.
+
+These comparisons show that high observed MaxDD does not mathematically prevent a historical path from reaching the target; they do **not** establish that the fixed-12 exposure is suitable. The grid's defensible statement is narrower: no configuration in the tested grid reached the target while also satisfying the chosen full-terminal-loss cap, base/adverse cost convention, and minimum sample screen. It did not test every NAV-relative policy-risk budget.
+
+The alternative `LONG_HEAVY_N_LONG_1_SHORT` family is **not** the exact sign-reversal of the same high-strike/low-strike options. This cohort does not yet test the true strike-preserving inverted legs, so no "reverse side wins" claim is supported. The follow-up research must separately compare (1) full-terminal catastrophe exposure, (2) policy-conditioned observed adverse excursions and exit-fill delays, (3) current-NAV sizing/compounding over a wider risk-budget ladder, and (4) a true same-contract sign-reversal, with walk-forward calibration and missing-mark/margin caveats. MaxDD is an outcome metric, not a PASS/FAIL selector.
