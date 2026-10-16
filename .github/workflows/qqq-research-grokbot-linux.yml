@@ -50,12 +50,21 @@ jobs:
           python3 -m venv .venv
           .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
 
-      - name: Restore SHA-verified historical QQQ cache
-        uses: actions/cache@v4
-        with:
-          path: .cache/qqq-options-full-history
-          key: qqq-options-full-history-2018-2025-sha-pinned-v1
-          enableCrossOsArchive: true
+      - name: Attach persistent runner-local SHA-verified option cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          local_cache="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$local_cache" .cache
+          if [[ -d .cache/qqq-options-full-history && ! -L .cache/qqq-options-full-history ]]; then
+            cp -an .cache/qqq-options-full-history/. "$local_cache/" || true
+            rm -rf .cache/qqq-options-full-history
+          fi
+          rm -f .cache/qqq-options-full-history
+          ln -s "$local_cache" .cache/qqq-options-full-history
+          echo "runner_local_option_cache=$local_cache"
+          du -sh "$local_cache" || true
+          echo "GitHub Actions cache save/upload disabled; SHA pins remain enforced by research code."
 
       - name: Compile and run replay regressions
         shell: bash
@@ -131,12 +140,21 @@ jobs:
           python3 -m venv .venv
           .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
 
-      - name: Restore SHA-verified historical QQQ cache
-        uses: actions/cache@v4
-        with:
-          path: .cache/qqq-options-full-history
-          key: qqq-options-full-history-2018-2025-sha-pinned-v1
-          enableCrossOsArchive: true
+      - name: Attach persistent runner-local SHA-verified option cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          local_cache="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$local_cache" .cache
+          if [[ -d .cache/qqq-options-full-history && ! -L .cache/qqq-options-full-history ]]; then
+            cp -an .cache/qqq-options-full-history/. "$local_cache/" || true
+            rm -rf .cache/qqq-options-full-history
+          fi
+          rm -f .cache/qqq-options-full-history
+          ln -s "$local_cache" .cache/qqq-options-full-history
+          echo "runner_local_option_cache=$local_cache"
+          du -sh "$local_cache" || true
+          echo "GitHub Actions cache save/upload disabled; SHA pins remain enforced by research code."
 
       - name: Run sample source audit and price-basis regressions
         shell: bash
