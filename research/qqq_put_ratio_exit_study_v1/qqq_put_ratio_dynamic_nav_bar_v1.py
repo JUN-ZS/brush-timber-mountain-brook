@@ -601,7 +601,15 @@ def run_study(
                                 row.update(config)
                             drawdown_rows.extend(dds)
                             annual_rows.extend(build_annual_rows(daily, prices, config, start_nav))
-                            if cost["name"] == BASE_COST and abs(budget_pct - 0.01) < 1e-10 and sizing_mode == "PER_TRADE_TERMINAL_BUDGET":
+                            regime_budget_slice = cost["name"] == BASE_COST and abs(budget_pct - 0.01) < 1e-10
+                            all_ratio_risk_budget = sizing_mode == "PER_TRADE_TERMINAL_BUDGET"
+                            # Exact 1x5 cannot be sized under the terminal-loss budget at this NAV.
+                            # Include a separately labelled fixed-one-unit bypass diagnostic for BAR shape only.
+                            exact_1x5_budget_bypass_diagnostic = (
+                                direction == core.SHORT_HEAVY and n == 5
+                                and sizing_mode == "FIXED_1_UNIT_BUDGET_BYPASS"
+                            )
+                            if regime_budget_slice and (all_ratio_risk_budget or exact_1x5_budget_bypass_diagnostic):
                                 regime_bar_rows.extend(build_bar_rows(executed, config, REGIME_STATES))
                             if selected_daily(config):
                                 for point in daily:
@@ -725,7 +733,7 @@ def run_study(
         "NET_PROFIT_BAR: at least one observed option-side net-liq mark reaches 0.5%, 1%, or 2% of that episode entry NAV.",
         "NET_LOSS_BAR: at least one observed option-side net-liq mark reaches the same negative NAV percentage.",
         "FRICTION_COST_BAR: midpoint-to-side-quote liquidation drag reaches the same NAV percentage; this is modeled quote drag, not fill cost.",
-        "Tables contain episode incidence and mark-level incidence; regime table slices the 1% budget / base-cost / per-trade-sized cohort by VIX and DTE.",
+        "Tables contain episode incidence and mark-level incidence; regime table includes the 1% budget / base-cost / per-trade-sized cohort for all ratios plus a separate fixed-one-unit budget-bypass diagnostic for exact 1-long/5-short, both sliced by VIX and DTE.",
         "BAR rows with zero executable episodes are BLOCKED/PENDING, not 0% occurrence.",
         "",
         "## Caveats",
@@ -737,6 +745,10 @@ def run_study(
     ]
     (out / "dynamic_nav_bar_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     meta["bar_definition"] = "Historical episode/mark crossing rate, not future probability or confirmed fill rate."
+    meta["regime_bar_cohorts"] = [
+        "All ratios: 1% NAV budget, base cost, PER_TRADE_TERMINAL_BUDGET; zero-unit blocked rows remain pending.",
+        "Exact 1-long/5-short only: 1% NAV reference levels, base cost, FIXED_1_UNIT_BUDGET_BYPASS; diagnostic only and intentionally outside the selected terminal-loss budget when breached."
+    ]
     (out / "dynamic_nav_bar_summary.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return meta
 
