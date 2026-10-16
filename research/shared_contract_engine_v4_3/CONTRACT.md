@@ -1,6 +1,6 @@
 # SharedContractEngine V4.3 — isolated strict contract module
 
-**Status:** additive research implementation; not wired into the user's Canvas HTML and not a live trading engine. It contains no broker API or order path.
+**Status:** additive ES module research implementation; not wired into the user's Canvas HTML and not a live trading engine. Import it as an ES module (or use Node 24+ `require(ESM)`); it also exposes `globalThis.SharedContractEngineV43` after module evaluation. It contains no broker API or order path.
 
 ## Implemented
 

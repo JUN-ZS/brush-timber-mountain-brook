@@ -1,9 +1,7 @@
-(function (root, factory) {
+const SharedContractEngineV43 = (function (factory) {
   "use strict";
-  const api = factory();
-  if (typeof module !== "undefined" && module.exports) module.exports = api;
-  if (root) root.SharedContractEngineV43 = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  return factory();
+})(function () {
   "use strict";
   const SOURCE_SCHEMA = "qqq-hybrid.verified-source-store.v1";
   const STATE_SCHEMA = "qqq-hybrid.shared-contract.v4.3";
@@ -642,3 +640,30 @@
     buildFullStateBundle, verifyAndStageFullStateBundle, restoreFullStateBundle
   });
 });
+if (typeof globalThis !== "undefined") globalThis.SharedContractEngineV43 = SharedContractEngineV43;
+export const SOURCE_SCHEMA = SharedContractEngineV43.SOURCE_SCHEMA;
+export const STATE_SCHEMA = SharedContractEngineV43.STATE_SCHEMA;
+export const QUOTE_SCHEMA = SharedContractEngineV43.QUOTE_SCHEMA;
+export const parseStrictNumber = SharedContractEngineV43.parseStrictNumber;
+export const strictNumber = SharedContractEngineV43.strictNumber;
+export const canonicalize = SharedContractEngineV43.canonicalize;
+export const sha256Hex = SharedContractEngineV43.sha256Hex;
+export const parseCSV = SharedContractEngineV43.parseCSV;
+export const parseOcc = SharedContractEngineV43.parseOcc;
+export const createEmptySourceStore = SharedContractEngineV43.createEmptySourceStore;
+export const validateSourceStore = SharedContractEngineV43.validateSourceStore;
+export const importQuotesCSV = SharedContractEngineV43.importQuotesCSV;
+export const importQuotesJSON = SharedContractEngineV43.importQuotesJSON;
+export const importEpisodesCSV = SharedContractEngineV43.importEpisodesCSV;
+export const importMarketCSV = SharedContractEngineV43.importMarketCSV;
+export const coverageReport = SharedContractEngineV43.coverageReport;
+export const deriveHistoricalPriceDropStats = SharedContractEngineV43.deriveHistoricalPriceDropStats;
+export const replayPutRatioEpisode = SharedContractEngineV43.replayPutRatioEpisode;
+export const summarizeEpisodeReplays = SharedContractEngineV43.summarizeEpisodeReplays;
+export const evaluateLedger = SharedContractEngineV43.evaluateLedger;
+export const computeDynamicCostStrict = SharedContractEngineV43.computeDynamicCostStrict;
+export const deriveJointStressFromHoldingsStrict = SharedContractEngineV43.deriveJointStressFromHoldingsStrict;
+export const buildFullStateBundle = SharedContractEngineV43.buildFullStateBundle;
+export const verifyAndStageFullStateBundle = SharedContractEngineV43.verifyAndStageFullStateBundle;
+export const restoreFullStateBundle = SharedContractEngineV43.restoreFullStateBundle;
+export default SharedContractEngineV43;
