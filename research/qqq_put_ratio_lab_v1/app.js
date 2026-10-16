@@ -15,10 +15,73 @@ const labels={
  SL_USD_1000_CLOSE_SHORT_RISK:"止損 −$1,000：全平短倉風險",
  SL_USD_2000_CLOSE_SHORT_RISK:"止損 −$2,000：全平短倉風險"
 };
-let data;
+let data, curveData=null;
 const money=L.money,pct=L.pct;
 function input(id){return L.num($(id).value);}
 function stateName(s){return ({ALL:"全部歷史樣本",RV20_LT15:"RV20 < 15%",RV20_15_25:"RV20 15–25%",RV20_25_35:"RV20 25–35%",RV20_GTE35:"RV20 ≥ 35%"}[s]||s);}
+
+function portfolioStats(nav,policy){
+ const dates=curveData?.session_dates||[],series=curveData?.cumulative_pnl_usd_by_policy?.[policy]||[];
+ if(!dates.length||series.length!==dates.length)return null;
+ const pts=[];
+ for(let i=0;i<dates.length;i++)if(series[i]!==null&&series[i]!==undefined&&Number.isFinite(Number(series[i])))pts.push({i,date:dates[i],pnl:Number(series[i]),eq:nav+Number(series[i])});
+ if(!pts.length)return null;
+ let peak=pts[0],maxUsd=0,maxPct=0,maxPeakDate=peak.date,maxTroughDate=peak.date;
+ for(const p of pts){
+  if(p.eq>=peak.eq){peak=p;continue;}
+  const usd=peak.eq-p.eq,pctDrop=peak.eq>0?(p.eq/peak.eq-1)*100:null;
+  if(usd>maxUsd)maxUsd=usd;
+  if(pctDrop!==null&&pctDrop<maxPct){maxPct=pctDrop;maxPeakDate=peak.date;maxTroughDate=p.date;}
+ }
+ const cycles=[];let cp=pts[0],cw=0,ct=pts[0];
+ for(let i=1;i<pts.length;i++){
+  const p=pts[i],d=cp.eq>0?(p.eq/cp.eq-1)*100:0;
+  if(p.eq>=cp.eq){cycles.push({worst:cw,trough:ct.date,index:ct.i});cp=p;cw=0;ct=p;}
+  else if(d<cw){cw=d;ct=p;}
+ }
+ cycles.push({worst:cw,trough:ct.date,index:ct.i});
+ const span=(Date.parse(dates.at(-1))-Date.parse(dates[0]))/(365.2425*86400000);
+ const levels=[3,5,10,15,20,25,30].map(level=>{
+  const hit=cycles.filter(x=>x.worst<=-level).sort((a,b)=>a.index-b.index),gaps=hit.slice(1).map((x,i)=>x.index-hit[i].index).sort((a,b)=>a-b);
+  return {level,count:hit.length,perYear:span>0?hit.length/span:0,years:new Set(hit.map(x=>x.trough.slice(0,4))).size,allYears:new Set(dates.map(x=>x.slice(0,4))).size,medianGap:gaps.length?(gaps.length%2?gaps[(gaps.length-1)/2]:(gaps[gaps.length/2-1]+gaps[gaps.length/2])/2):null};
+ });
+ return {dates,series,pts,maxUsd,maxPct,maxPeakDate,maxTroughDate,levels,coverage:100*pts.length/dates.length,missing:dates.length-pts.length,spanYears:span,finalPnl:pts[pts.length-1].pnl,minEquity:Math.min(...pts.map(x=>x.eq)),summary:curveData.metrics_by_policy_at_80k_nav?.[policy]||{}};
+}
+function renderPortfolio(nav){
+ const policy=$("curvePolicy")?.value||"BASE_DTE7_CLOSE_SHORT_RISK";
+ const status=$("portfolioState"),cards=$("portfolioMetrics"),rows=$("strategyDdRows"),chart=$("equityChart"),note=$("portfolioCaveat");
+ if(!curveData){
+  status.textContent="PENDING";
+  cards.innerHTML='<div class="empty">逐日組合回放尚未保存；未完成真實歷史重算前不會顯示策略 MaxDD。</div>';
+  rows.innerHTML='<tr><td colspan="5">PENDING · 不以正股回撤代替期權策略 MaxDD</td></tr>';
+  chart.innerHTML="";
+  note.textContent="等候以保存的每日期權腿估值重建序列組合曲線；單筆終值不能拼成逐日曲線。";
+  return;
+ }
+ const m=portfolioStats(nav,policy);
+ if(!m){status.textContent="BLOCKED";cards.innerHTML='<div class="empty">此政策沒有可用逐日曲線。</div>';rows.innerHTML="";chart.innerHTML="";return;}
+ status.textContent="QUOTE-MARK REPLAY · NOT LIVE";
+ const money=L.money,pct=L.pct,s=m.summary;
+ cards.innerHTML=[
+  ["逐日觀察 MaxDD",pct(m.maxPct),m.maxPeakDate+" → "+m.maxTroughDate],
+  ["MaxDD 金額",money(-m.maxUsd),"峰值減谷值"],
+  ["最後可觀察淨 P&L",money(m.finalPnl),"非複利、每段固定 1 單位"],
+  ["估值覆蓋",pct(m.coverage),m.missing+" / "+m.dates.length+" sessions 未知"]
+ ].map(x=>'<article class="metric"><span>'+x[0]+'</span><strong>'+x[1]+'</strong><small>'+x[2]+'</small></article>').join("");
+ $("portfolioTradeMeta").textContent="政策："+(labels[policy]||policy)+" · "+(s.resolved_trades??"—")+"/"+(s.trades_in_serial_cohort??"—")+" 組結算 · WIN "+pct(s.win_rate_pct)+" · 起始 NAV "+money(nav)+" · 固定一組一組回放";
+ rows.innerHTML=m.levels.map(x=>'<tr><td>−'+x.level+'%</td><td>'+x.count+'</td><td>'+x.perYear.toFixed(2)+'</td><td>'+x.years+'/'+x.allYears+'</td><td>'+(x.medianGap===null?"—":Math.round(x.medianGap))+'</td></tr>').join("");
+ const vals=m.pts.map(x=>x.eq),lo=Math.min(...vals),hi=Math.max(...vals),range=hi-lo||1,w=920,h=180,pad=14;
+ let path="",open=false;
+ for(let i=0;i<m.series.length;i++){
+  const v=m.series[i];
+  if(v===null||v===undefined||!Number.isFinite(Number(v))){open=false;continue;}
+  const yv=nav+Number(v),x=pad+(i/Math.max(1,m.series.length-1))*(w-pad*2),y=h-pad-((yv-lo)/range)*(h-pad*2);
+  path+=(open?" L ":" M ")+x.toFixed(2)+" "+y.toFixed(2);open=true;
+ }
+ chart.innerHTML='<svg viewBox="0 0 '+w+' '+h+'" role="img" aria-label="歷史逐日淨值估值"><line x1="'+pad+'" y1="'+(h-pad)+'" x2="'+(w-pad)+'" y2="'+(h-pad)+'" stroke="#30425b"/><path d="'+path+'" fill="none" stroke="#71b8ff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg><div class="chart-legend"><span>'+m.dates[0]+'</span><span>最低可觀察淨值 '+money(m.minEquity)+'</span><span>'+m.dates[m.dates.length-1]+'</span></div>';
+ note.textContent="這是使用歷史 EOD 報價方向估算的逐日淨清算曲線，不是實際成交。缺失估值保持未知、不補值；缺口內可能漏掉更深回撤。每個歷史 episode 固定 1 單位、非重疊、不複利，也沒有券商保證金、指派或強制平倉模擬。若尾部風險限制的可用組數為 0，部署仍然 BLOCKED。";
+}
+
 function draw(){
  const nav=input("nav")||0,dir=$("direction").value,n=input("ratioN")||5,riskPct=input("riskPct")||1,profitPct=input("profitPct")||1;
  const pnl=input("currentPnl"),age=input("age"),dte=input("dte"),rv=input("rv20"),horizon=input("horizon")||5;
@@ -64,12 +127,12 @@ function draw(){
   const lossPct=r.worstUsd/nav*100,units=Math.max(0,Math.floor((nav*riskPct/100)/r.worstUsd));
   return '<tr class="'+(r.n===Number(n)?"highlight":"")+'"><td>'+(dir==="SHORT_HEAVY"?"LONG 1 : SHORT N":"LONG N : SHORT 1")+'</td><td>'+r.n+'</td><td>'+money(r.medianUsd)+'</td><td>'+money(r.p95Usd)+'</td><td>'+money(r.worstUsd)+'</td><td class="'+(lossPct>100?"bad":"")+'">'+pct(lossPct)+'</td><td class="'+(units===0?"bad":"")+'">'+units+'</td></tr>';
  }).join("");
- if(dir==="SHORT_HEAVY"&&n===1)$("inputSummary").textContent+=" · N=1 兩方向的 legs 數相同，但須確認同一合約與腿方向後才可視作同一結構。";
+ renderPortfolio(nav);\n if(dir==="SHORT_HEAVY"&&n===1)$("inputSummary").textContent+=" · N=1 兩方向的 legs 數相同，但須確認同一合約與腿方向後才可視作同一結構。";
 }
 (async function init(){
  try{
-  const r=await fetch("data.json",{cache:"no-store"});if(!r.ok)throw new Error("data.json load failed: "+r.status);data=await r.json();
-  ["nav","direction","ratioN","riskPct","profitPct","currentPnl","age","dte","rv20","horizon"].forEach(id=>$(id).addEventListener("input",draw));
+  const r=await fetch("data.json",{cache:"no-store"});if(!r.ok)throw new Error("data.json load failed: "+r.status);data=await r.json();const cr=await fetch("portfolio_curve.json",{cache:"no-store"});if(cr.ok)curveData=await cr.json();
+  ["nav","direction","ratioN","riskPct","profitPct","currentPnl","age","dte","rv20","horizon","curvePolicy"].forEach(id=>$(id).addEventListener("input",draw));
   draw();
  }catch(e){$("alerts").innerHTML='<div class="alert bad"><strong>DATA LOAD ERROR</strong><div>'+String(e.message||e)+'</div>請從 RUN.cmd 啟動本機 HTTP Server，而非直接打開 HTML 檔案。</div>';}
 })();
