@@ -2,6 +2,23 @@ name: Rolling 10Y Capital Floor
 
 on:
   workflow_dispatch:
+    inputs:
+      run_scope:
+        description: "Choose a single HUB-Web shard or the full rolling-floor pipeline."
+        type: choice
+        required: true
+        default: full_pipeline
+        options:
+          - full_pipeline
+          - hub_only
+      frame_acceptance:
+        description: "HUB remains locked until the FRAME is explicitly accepted by the user."
+        type: choice
+        required: true
+        default: HOLD_AWAITING_USER_FRAME_ACCEPTANCE
+        options:
+          - HOLD_AWAITING_USER_FRAME_ACCEPTANCE
+          - ACCEPTED_AFTER_FRAME_REVIEW
 
 
 permissions:
@@ -10,6 +27,7 @@ permissions:
 
 jobs:
   cleanup-stale-research-runs:
+    if: ${{ inputs.run_scope != 'hub_only' }}
     name: Cleanup / this research branch only
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -43,6 +61,7 @@ jobs:
           done
 
   qqq-windows-audit:
+    if: ${{ inputs.run_scope != 'hub_only' }}
     name: Worker / QQQ / Windows audit
     runs-on: windows-latest
     continue-on-error: true
@@ -76,6 +95,7 @@ jobs:
           if-no-files-found: warn
 
   ndx-linux:
+    if: ${{ inputs.run_scope != 'hub_only' }}
     name: Worker / NDX / Linux
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
@@ -120,9 +140,19 @@ jobs:
 
   hub-web:
     name: Worker / NASDAQCOM / HUB-Web
-    runs-on: ubuntu-latest
+    if: ${{ inputs.frame_acceptance == 'ACCEPTED_AFTER_FRAME_REVIEW' }}
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 20
     steps:
+      - name: Enforce approved HUB runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "\${RUNNER_NAME:-}" != "grokbot-box-linux-x64" ]; then
+            echo "::error::HUB requires runner grokbot-box-linux-x64; actual runner is \${RUNNER_NAME:-unknown}"
+            exit 1
+          fi
+          echo "PASS approved HUB runner: $RUNNER_NAME"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -154,16 +184,41 @@ jobs:
           if (!Array.isArray(x.signals) || x.signals.length === 0) throw new Error("empty NASDAQCOM signals");
           console.log("PASS NASDAQCOM signals=", x.signals.length);
           NODE
-      - name: Upload NASDAQCOM shard
+      - name: Record source/output hashes and run manifest
+        shell: bash
+        env:
+          RUN_SCOPE: ${{ inputs.run_scope }}
+          FRAME_ACCEPTANCE: ${{ inputs.frame_acceptance }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/rolling-floor-nasdaqcom"
+          sha256sum scripts/run-rolling-floor.ts src/lib/pulse/rolling-floor.ts src/lib/pulse/bars.ts src/data/universe.json > "$OUT/source.sha256"
+          sha256sum "$OUT/NASDAQCOM.json" > "$OUT/output.sha256"
+          ROWS=$(node -e 'const fs=require("node:fs"); const p=process.env.RUNNER_TEMP+"/rolling-floor-nasdaqcom/NASDAQCOM.json"; const x=JSON.parse(fs.readFileSync(p,"utf8")); console.log(x.signals.length)')
+          {
+            printf 'commit=%s\n' "$GITHUB_SHA"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+            printf 'runner_name=%s\n' "$RUNNER_NAME"
+            printf 'runner_os=%s\n' "$RUNNER_OS"
+            printf 'runner_arch=%s\n' "$RUNNER_ARCH"
+            printf 'run_scope=%s\n' "$RUN_SCOPE"
+            printf 'frame_acceptance=%s\n' "$FRAME_ACCEPTANCE"
+            printf 'channel=NASDAQCOM\n'
+            printf 'row_count=%s\n' "$ROWS"
+          } > "$OUT/run_manifest.txt"
+          cat "$OUT/run_manifest.txt"
+          cat "$OUT/source.sha256"
+          cat "$OUT/output.sha256"
+      - name: Upload NASDAQCOM shard plus audit manifest
         uses: actions/upload-artifact@v4
         with:
           name: rolling-floor-shard-NASDAQCOM
-          path: ${{ runner.temp }}/rolling-floor-nasdaqcom/NASDAQCOM.json
+          path: ${{ runner.temp }}/rolling-floor-nasdaqcom/
           if-no-files-found: error
 
   bridge:
     name: Bridge / coupled QQQ replay
-    if: ${{ always() && !cancelled() }}
+    if: ${{ inputs.run_scope != 'hub_only' && inputs.frame_acceptance == 'ACCEPTED_AFTER_FRAME_REVIEW' && always() && !cancelled() && needs.ndx-linux.result == 'success' && needs.hub-web.result == 'success' }}
     needs: [ndx-linux, hub-web]
     runs-on: ubuntu-latest
     timeout-minutes: 20
