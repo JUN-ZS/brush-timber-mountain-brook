@@ -58,7 +58,7 @@ jobs:
           $dest = "research/artifact_recovery_20261016/shared_contract_engine_v4_3/rerun-" + $tag
           New-Item -ItemType Directory -Force -Path $dest | Out-Null
           Copy-Item -Path $report -Destination (Join-Path $dest 'golden-tests.tap') -Force
-          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_workflow=\${{ github.workflow }}","source_run_url=\${{ github.server_url }}/\${{ github.repository }}/actions/runs/\${{ github.run_id }}") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
+          @("run_id=$env:GITHUB_RUN_ID","run_attempt=$env:GITHUB_RUN_ATTEMPT","tested_sha=$env:GITHUB_SHA","source_branch=$env:GITHUB_REF_NAME","source_workflow=${{ github.workflow }}","source_run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}") | Set-Content -Path (Join-Path $dest 'RECOVERY_META.txt') -Encoding utf8
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- $dest
