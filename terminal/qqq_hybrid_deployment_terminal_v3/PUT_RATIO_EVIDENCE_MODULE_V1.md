@@ -29,7 +29,7 @@ Current P&L, age, DTE and RV20 are manually entered measurements, not silently r
 
 - The pinned option cohort is 62 non-overlapping LONG PUT 1 / SHORT PUT 5 episodes from 2018-03-01 through 2025-12-15.
 - Each policy summary is one fixed ratio unit per episode; it is neither compounding nor a NAV-scaled account replay.
-- The serial option-side equity curve has 1,960 QQQ sessions, 13 policy series, and 11 unknown daily marks on the direct replay curve. Unknown marks remain null.
+- The serial option-side equity curve has 1,960 QQQ sessions, 13 policy series, and 11 unknown daily marks on the direct replay curve. Unknown marks remain null. The MaxDD table reports both event cycles per observed year-span and the share of observed calendar years with at least one event; year-share is descriptive, not a forward probability, and the first calendar year is partial. Adjacent event-trough gap is measured in QQQ trading sessions.
 - The saved data, curve and $800/$1,000 first-hit analysis are bound by source blob SHAs in the manifest. The app does not re-pick contracts, forward-fill quote marks, or synthesize missing option P&L at run time.
 - Direct option history / strategy MaxDD is only shown for the exactly matching SHORT_HEAVY N=5 configuration. Other directions or N values can show their distinct terminal payoff arithmetic, but never inherit 1:5 win rate, drawdown, or policy-trigger statistics.
 - NAV-relative target money is compared only with directly replayed fixed target levels ($500/$800/$1,000/$2,000). No interpolation or borrowing of another target's time statistics is permitted.

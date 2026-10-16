@@ -175,7 +175,7 @@ function renderPutRatioEvidence(){
     makePutRatioMetric(metrics,"尾部風險","PENDING","不假設零損失");
     status.className="put-ratio-overlay-status";
     status.textContent=(combined?"COMBINED REVIEW":"ISOLATED EVIDENCE")+" · PENDING · "+(putRatioLoadError||"等待 read-only evidence API");
-    ddRows.innerHTML='<tr><td colspan="5">PENDING · 沒有回填或虛構 MaxDD</td></tr>';
+    ddRows.innerHTML='<tr><td colspan="6">PENDING · 沒有回填或虛構 MaxDD</td></tr>';
     makePutRatioAlert(alerts,"warn","研究證據未載入",putRatioLoadError||"固定 SHA 來源證據尚未讀取；Hybrid 原政策照常獨立運行。");
     prov.textContent="Evidence API: /api/research/put-ratio-evidence";
     if(gate){gate.textContent="PUT RATIO EVIDENCE · PENDING · PRIMARY FROZEN ACTION UNCHANGED";gate.className="put-ratio-decision-line off";}
@@ -201,8 +201,10 @@ function renderPutRatioEvidence(){
   status.textContent=(combined?"COMBINED REVIEW":"ISOLATED EVIDENCE")+" · "+out.combinedReview.status+" · "+out.combinedReview.reason+" Frozen Hybrid action/target unchanged; no broker order.";
   ddRows.innerHTML=curve?curve.levels.map(x=>{
     const years=x.eventYears.length?x.eventYears.map(y=>y+" ("+x.yearCounts[y]+")").join(", "):"無觀察事件";
-    return '<tr><td>−'+x.level+'%</td><td>'+x.count+'</td><td>'+x.perYear.toFixed(2)+'</td><td>'+years+'</td><td>'+(x.medianGap===null?"—":Math.round(x.medianGap))+'</td></tr>';
-  }).join(""):'<tr><td colspan="5">NO MATCHED HISTORY · 不會把 1:5 的曲線套用到其他比例</td></tr>';
+    const incidence=x.yearIncidencePct===null?"—":x.yearIncidencePct.toFixed(1)+"% ("+x.years+"/"+x.allYears+")";
+    const gap=x.medianGap===null?"—":Math.round(x.medianGap);
+    return '<tr><td>−'+x.level+'%</td><td>'+x.count+'</td><td>'+x.perYear.toFixed(2)+'</td><td>'+incidence+'</td><td>'+years+'</td><td>'+gap+'</td></tr>';
+  }).join(""):'<tr><td colspan="6">NO MATCHED HISTORY · 不會把 1:5 的曲線套用到其他比例</td></tr>';
   if(!matched)makePutRatioAlert(alerts,"warn","沒有直接匹配的期權策略歷史","目前選擇 "+(out.inputs.direction==="SHORT_HEAVY"?"LONG 1 : SHORT "+out.inputs.n:"LONG "+out.inputs.n+" : SHORT 1")+"。只有 LONG 1 : SHORT 5 具備這份 62 組直接歷史樣本；不複製其他比例的 WIN／MaxDD。");
   (out.alerts||[]).forEach(a=>makePutRatioAlert(alerts,a.tone,a.title,a.text));
   if(!out.alerts.length&&matched)makePutRatioAlert(alerts,"good","沒有額外條件觸發","不代表可部署；歷史資料、尾部預算及實際成交限制仍須人工核對。");

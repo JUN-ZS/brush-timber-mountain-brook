@@ -59,7 +59,8 @@ function drawdownStats(s,nav,policyId){
     const gaps=hit.slice(1).map((x,i)=>x.index-hit[i].index).sort((a,b)=>a-b);
     const yearCounts={};
     hit.forEach(x=>{const y=x.trough.slice(0,4);yearCounts[y]=(yearCounts[y]||0)+1;});
-    return {level,count:hit.length,perYear:spanYears>0?hit.length/spanYears:0,years:Object.keys(yearCounts).length,allYears:allYears.length,eventYears:Object.keys(yearCounts).sort(),yearCounts,
+    const eventYearCount=Object.keys(yearCounts).length;
+    return {level,count:hit.length,perYear:spanYears>0?hit.length/spanYears:0,years:eventYearCount,allYears:allYears.length,yearIncidencePct:allYears.length?100*eventYearCount/allYears.length:null,eventYears:Object.keys(yearCounts).sort(),yearCounts,
       medianGap:gaps.length?(gaps.length%2?gaps[(gaps.length-1)/2]:(gaps[gaps.length/2-1]+gaps[gaps.length/2])/2):null};
   });
   return {maxPct,maxUsd,maxPeakDate,maxTroughDate,levels,coverage:100*pts.length/dates.length,knownMarks:pts.length,expectedMarks:dates.length,missingMarks:dates.length-pts.length,spanYears,finalPnl:pts[pts.length-1].pnl,minimumEquity:Math.min(...pts.map(x=>x.eq))};
