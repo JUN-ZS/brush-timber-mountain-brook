@@ -1,0 +1,173 @@
+{
+  "research_id": "QQQ_PUT_RATIO_COST_SENSITIVITY_AUDIT_V1",
+  "status": "DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED",
+  "cost_cases": {
+    "ZERO_FRICTION_BOUND": {
+      "slippage_per_leg_usd": 0.0,
+      "commission_per_contract_per_side_usd": 0.0
+    },
+    "BASE_005_065": {
+      "slippage_per_leg_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65
+    },
+    "ADVERSE_010_065": {
+      "slippage_per_leg_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.65
+    }
+  },
+  "policy_comparison": {
+    "input_rows": 4536,
+    "unique_policy_comparisons": 1512,
+    "complete_zero_base_adverse_triplets": 1512,
+    "incomplete_triplets": 0,
+    "duplicate_cost_case_rows": 0,
+    "expected_cost_cases": [
+      "ZERO_FRICTION_BOUND",
+      "BASE_005_065",
+      "ADVERSE_010_065"
+    ]
+  },
+  "friction_comparison": {
+    "input_rows": 5832,
+    "unique_friction_comparisons": 1944,
+    "complete_zero_base_adverse_triplets": 1944,
+    "incomplete_triplets": 0,
+    "duplicate_cost_case_rows": 0,
+    "blocked_zero_unit_comparisons": 1296,
+    "small_sample_comparisons": 96,
+    "minimum_episode_gate_overall": 30,
+    "minimum_mark_gate_overall": 500,
+    "minimum_episode_gate_regime": 20,
+    "minimum_mark_gate_regime": 100,
+    "expected_cost_cases": [
+      "ZERO_FRICTION_BOUND",
+      "BASE_005_065",
+      "ADVERSE_010_065"
+    ]
+  },
+  "friction_bar_quality": {
+    "rows_with_adequate_minimum_sample_for_diagnostic": 552,
+    "blocked_zero_units": 1296,
+    "pending_small_or_incomplete_sample": 96,
+    "sample_thresholds_are_screening_rules_not_statistical_validation": true
+  },
+  "outputs": [
+    "cost_sensitivity_by_policy.csv",
+    "friction_cost_sensitivity.csv",
+    "cost_sensitivity_audit_summary.json",
+    "cost_sensitivity_audit_summary.md"
+  ],
+  "interpretation": [
+    "Cost scenarios are modeled slippage/commission assumptions on historical quote-side marks, not confirmed fills.",
+    "Zero friction is a lower-bound comparison only, never the expected executable outcome.",
+    "Episode and mark-count gates screen sample sufficiency, but do not correct for overlapping observations, source timing, selection bias, or fills.",
+    "Rows with zero sized units have no BAR sample; their null BAR is not zero cost and remains blocked.",
+    "No exit policy is promoted based on this audit."
+  ]
+}
+# QQQ put-ratio cost sensitivity and sample audit
+
+**Status: diagnostic only; deployment remains BLOCKED.**
+
+## Scenario coverage
+
+- Policy matrix input rows: 4536; unique cost-paired configurations: 1512.
+- Full zero/base/adverse policy triplets: 1512; incomplete triplets: 0; duplicate cost rows: 0.
+- Friction BAR input rows: 5832; unique cost-paired BAR configurations: 1944.
+- Full zero/base/adverse BAR triplets: 1944; incomplete triplets: 0; duplicate cost rows: 0.
+
+Cost cases: ZERO_FRICTION_BOUND (0 slippage/commission); BASE_005_065 (USD 0.05/leg slippage + USD 0.65/contract/side commission); ADVERSE_010_065 (USD 0.10/leg + USD 0.65/contract/side).
+
+## Representative 1% NAV tail-budget sensitivity
+
+| Direction | N | NAV | Policy | Eligible episodes | Zero friction net P&L | Base net P&L | Adverse net P&L | Adverse minus base | Base worst trade | Base win rate | Median trigger-to-action delay (sessions) |
+|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 100,000 | DAY20_NONPOS_FULL_CLOSE | 62 | -10,359.00 | -11,645.45 | -13,862.10 | -2,216.65 | -728.60 | 11.29 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 100,000 | DTE7_CLOSE_SHORT_RISK | 62 | -13,415.00 | -14,460.25 | -15,385.25 | -925.00 | -778.95 | 11.29 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 100,000 | FAST3_1.0PCT_FULL_CLOSE | 62 | -13,415.00 | -14,460.25 | -15,385.25 | -925.00 | -778.95 | 11.29 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 100,000 | FAST5_1.0PCT_FULL_CLOSE | 62 | -13,415.00 | -14,460.25 | -15,385.25 | -925.00 | -778.95 | 11.29 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 100,000 | SL_1.0PCT_FULL_CLOSE | 62 | -13,415.00 | -14,460.25 | -15,385.25 | -925.00 | -778.95 | 11.29 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 100,000 | TP_1.0PCT_FULL_CLOSE | 62 | -8,427.00 | -10,553.15 | -11,508.15 | -955.00 | -778.95 | 14.52 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 1,000,000 | DAY20_NONPOS_FULL_CLOSE | 52 | -94,224.00 | -108,083.30 | -116,069.85 | -7,986.55 | -9,471.80 | 11.54 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 1,000,000 | DTE7_CLOSE_SHORT_RISK | 52 | -119,171.00 | -130,555.75 | -140,630.75 | -10,075.00 | -10,126.35 | 13.46 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 1,000,000 | FAST3_1.0PCT_FULL_CLOSE | 52 | -119,171.00 | -130,555.75 | -140,630.75 | -10,075.00 | -10,126.35 | 13.46 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 1,000,000 | FAST5_1.0PCT_FULL_CLOSE | 52 | -108,797.00 | -130,555.75 | -140,630.75 | -10,075.00 | -10,126.35 | 13.46 | 5.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 1,000,000 | SL_1.0PCT_FULL_CLOSE | 52 | -119,171.00 | -126,703.20 | -136,409.65 | -9,706.45 | -10,126.35 | 13.46 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 1 | USD 1,000,000 | TP_1.0PCT_FULL_CLOSE | 52 | -52,962.00 | -62,538.45 | -73,614.45 | -11,076.00 | -10,126.35 | 21.15 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 100,000 | DAY20_NONPOS_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 100,000 | DTE7_CLOSE_SHORT_RISK | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 100,000 | FAST3_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 100,000 | FAST5_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 100,000 | SL_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 100,000 | TP_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 1,000,000 | DAY20_NONPOS_FULL_CLOSE | 55 | -117,905.00 | -113,742.75 | -117,069.25 | -3,326.50 | -8,734.50 | 14.55 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 1,000,000 | DTE7_CLOSE_SHORT_RISK | 55 | -135,020.00 | -141,206.75 | -146,681.75 | -5,475.00 | -9,278.00 | 12.73 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 1,000,000 | FAST3_1.0PCT_FULL_CLOSE | 55 | -135,020.00 | -141,206.75 | -146,681.75 | -5,475.00 | -9,278.00 | 12.73 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 1,000,000 | FAST5_1.0PCT_FULL_CLOSE | 55 | -135,020.00 | -141,206.75 | -146,681.75 | -5,475.00 | -9,278.00 | 12.73 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 1,000,000 | SL_1.0PCT_FULL_CLOSE | 55 | -135,020.00 | -141,206.75 | -146,681.75 | -5,475.00 | -9,278.00 | 12.73 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 2 | USD 1,000,000 | TP_1.0PCT_FULL_CLOSE | 55 | -50,995.00 | -57,633.75 | -63,508.75 | -5,875.00 | -9,278.00 | 20.00 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 100,000 | DAY20_NONPOS_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 100,000 | DTE7_CLOSE_SHORT_RISK | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 100,000 | FAST3_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 100,000 | FAST5_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 100,000 | SL_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 100,000 | TP_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 1,000,000 | DAY20_NONPOS_FULL_CLOSE | 61 | -71,753.00 | -75,572.40 | -78,220.40 | -2,648.00 | -4,801.80 | 13.11 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 1,000,000 | DTE7_CLOSE_SHORT_RISK | 61 | -92,701.00 | -95,107.90 | -97,237.90 | -2,130.00 | -5,085.55 | 11.48 | 1.00 |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 1,000,000 | FAST3_1.0PCT_FULL_CLOSE | 61 | -92,701.00 | -95,107.90 | -97,237.90 | -2,130.00 | -5,085.55 | 11.48 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 1,000,000 | FAST5_1.0PCT_FULL_CLOSE | 61 | -92,701.00 | -95,107.90 | -97,237.90 | -2,130.00 | -5,085.55 | 11.48 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 1,000,000 | SL_1.0PCT_FULL_CLOSE | 61 | -92,701.00 | -95,107.90 | -97,237.90 | -2,130.00 | -5,085.55 | 11.48 | — |
+| LONG_HEAVY_N_LONG_1_SHORT | 5 | USD 1,000,000 | TP_1.0PCT_FULL_CLOSE | 61 | -67,794.00 | -66,377.65 | -68,582.65 | -2,205.00 | -5,085.55 | 13.11 | 1.00 |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 100,000 | DAY20_NONPOS_FULL_CLOSE | 62 | -10,359.00 | -11,645.45 | -13,862.10 | -2,216.65 | -728.60 | 11.29 | 1.00 |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 100,000 | DTE7_CLOSE_SHORT_RISK | 62 | -13,415.00 | -14,460.25 | -15,385.25 | -925.00 | -778.95 | 11.29 | 1.00 |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 100,000 | FAST3_1.0PCT_FULL_CLOSE | 62 | -13,415.00 | -14,460.25 | -15,385.25 | -925.00 | -778.95 | 11.29 | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 100,000 | FAST5_1.0PCT_FULL_CLOSE | 62 | -13,415.00 | -14,460.25 | -15,385.25 | -925.00 | -778.95 | 11.29 | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 100,000 | SL_1.0PCT_FULL_CLOSE | 62 | -13,415.00 | -14,460.25 | -15,385.25 | -925.00 | -778.95 | 11.29 | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 100,000 | TP_1.0PCT_FULL_CLOSE | 62 | -8,427.00 | -10,553.15 | -11,508.15 | -955.00 | -778.95 | 14.52 | 1.00 |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 1,000,000 | DAY20_NONPOS_FULL_CLOSE | 52 | -94,224.00 | -108,083.30 | -116,069.85 | -7,986.55 | -9,471.80 | 11.54 | 1.00 |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 1,000,000 | DTE7_CLOSE_SHORT_RISK | 52 | -119,171.00 | -130,555.75 | -140,630.75 | -10,075.00 | -10,126.35 | 13.46 | 1.00 |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 1,000,000 | FAST3_1.0PCT_FULL_CLOSE | 52 | -119,171.00 | -130,555.75 | -140,630.75 | -10,075.00 | -10,126.35 | 13.46 | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 1,000,000 | FAST5_1.0PCT_FULL_CLOSE | 52 | -108,797.00 | -130,555.75 | -140,630.75 | -10,075.00 | -10,126.35 | 13.46 | 5.00 |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 1,000,000 | SL_1.0PCT_FULL_CLOSE | 52 | -119,171.00 | -126,703.20 | -136,409.65 | -9,706.45 | -10,126.35 | 13.46 | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 1 | USD 1,000,000 | TP_1.0PCT_FULL_CLOSE | 52 | -52,962.00 | -62,538.45 | -73,614.45 | -11,076.00 | -10,126.35 | 21.15 | 1.00 |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 100,000 | DAY20_NONPOS_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 100,000 | DTE7_CLOSE_SHORT_RISK | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 100,000 | FAST3_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 100,000 | FAST5_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 100,000 | SL_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 100,000 | TP_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 1,000,000 | DAY20_NONPOS_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 1,000,000 | DTE7_CLOSE_SHORT_RISK | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 1,000,000 | FAST3_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 1,000,000 | FAST5_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 1,000,000 | SL_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 2 | USD 1,000,000 | TP_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 100,000 | DAY20_NONPOS_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 100,000 | DTE7_CLOSE_SHORT_RISK | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 100,000 | FAST3_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 100,000 | FAST5_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 100,000 | SL_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 100,000 | TP_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 1,000,000 | DAY20_NONPOS_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 1,000,000 | DTE7_CLOSE_SHORT_RISK | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 1,000,000 | FAST3_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 1,000,000 | FAST5_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 1,000,000 | SL_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+| SHORT_HEAVY_1_LONG_N_SHORT | 5 | USD 1,000,000 | TP_1.0PCT_FULL_CLOSE | 0 | — | — | — | — | — | — | — |
+
+## Friction BAR eligibility
+
+- BAR rows passing the minimum episode/mark-count screen (diagnostic only): 552.
+- BAR rows blocked by zero whole units: 1296.
+- BAR rows pending small/incomplete sample: 96.
+- OVERALL BAR screen: at least 30 qualifying episodes and 500 quote-mark observations in every cost case.
+- Regime BAR screen: at least 20 qualifying episodes and 100 quote-mark observations in every cost case.
+- Meeting the screen does not establish fill realism, independent observations, statistical significance, or a profitable exit rule.
+
+## Required interpretation
+
+- Compare net P&L, worst observed trade, win rate, profit factor, and trigger-to-action delay together. A lower-cost scenario is not evidence that the modeled costs will be achievable.
+- The policy matrix holds the same risk-budget sizing inputs constant while varying slippage/commission; capacity remains driven by worst observed terminal payoff and displayed entry depth.
+- Quote-side EOD marks remain unverified fills. All prior 2018–2025 observations remain development/revisit data, not blind final OOS.
+- No policy is promoted; unresolved margin, assignment, forced liquidation, decision-time marks and unseen OOS keep deployment BLOCKED.
+

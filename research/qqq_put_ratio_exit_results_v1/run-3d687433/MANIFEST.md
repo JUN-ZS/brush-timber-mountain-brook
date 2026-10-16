@@ -1,0 +1,10 @@
+# QQQ put-ratio research output
+
+- Study commit tested: 3d6874335728aa823ff8a000f331559365f177fc
+- GitHub Actions run: https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38845021150
+- Option-chain last observed date: 2025-12-15
+- Replay and scale matrix: completed by this workflow before persistence.
+- External Yahoo/FRED and Yahoo ^VIX/^VXN proxies, when available, are price-path-only; they do not estimate option P&L after the option-chain boundary.
+- Cost-sensitivity audit pairs zero/base/adverse model assumptions and screens friction BAR sample counts; it does not validate fills or promote any exit rule.
+- Every output is research evidence only. Deployment and broker orders remain BLOCKED.
+- Persisted because GitHub Actions artifact upload quota was exhausted; this directory is committed only on the isolated research branch.
