@@ -148,7 +148,7 @@ test("16 exact 1xN replay uses conservative quote sides and no confirmed-fill cl
   }, { slippageUsdPerContractPerSide: 0, commissionUsdPerContractPerSide: 0 });
   assert.equal(out.grossPnlUsd, (7 - 3.2 + 5 * (1.05 - 4.2)) * 100);
   assert.equal(out.frictionCostUsd, 0);
-  assert.equal(out.netPnlUsd, -1195);
+  assert.ok(Math.abs(out.netPnlUsd + 1195) < 1e-8, "floating-point cents remain within tolerance");
   assert.equal(out.confirmedFill, false);
   assert.equal(out.executionEvidence, "EOD_QUOTE_SIDE_REPLAY");
 });
@@ -245,7 +245,7 @@ test("29 source row alteration without sourceHash update is rejected", async () 
   const state = { inputs: { cashBalance: 1000 }, barParams: { risk: 3 }, probParams: { filter: "ALL" }, floorAndDveParams: { floor: 100 }, sourceStore: replayStore() };
   state.engineOutput = await deterministicEvaluate(state);
   const bundle = await E.buildFullStateBundle(state);
-  bundle.sourceStore.quotes[0].bid = 999;
+  bundle.sourceStore.quotes[0].bid = 3.15;
   await assert.rejects(() => E.verifyAndStageFullStateBundle(bundle, { evaluate: deterministicEvaluate }), /HASH_INTEGRITY_MISMATCH/);
 });
 test("30 parameter alteration without scenarioHash update is rejected", async () => {
