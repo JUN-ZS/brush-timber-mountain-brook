@@ -148,8 +148,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "\${RUNNER_NAME:-}" != "grokbot-box-linux-x64" ]; then
-            echo "::error::HUB requires runner grokbot-box-linux-x64; actual runner is \${RUNNER_NAME:-unknown}"
+          if [ "${RUNNER_NAME:-}" != "grokbot-box-linux-x64" ]; then
+            echo "::error::HUB requires runner grokbot-box-linux-x64; actual runner is ${RUNNER_NAME:-unknown}"
             exit 1
           fi
           echo "PASS approved HUB runner: $RUNNER_NAME"
