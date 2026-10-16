@@ -82,20 +82,50 @@ function renderPortfolio(nav){
  note.textContent="這是使用歷史 EOD 報價方向估算的逐日淨清算曲線，不是實際成交。缺失估值保持未知、不補值；缺口內可能漏掉更深回撤。每個歷史 episode 固定 1 單位、非重疊、不複利，也沒有券商保證金、指派或強制平倉模擬。若尾部風險限制的可用組數為 0，部署仍然 BLOCKED。";
 }
 
-
 function renderProfitWarningEvidence(){
- const el=$("profitWarningEvidence");if(!el)return;
- const pts=(data&&data.events&&data.events.profitThresholds)||{};
- const forward=(p,h)=>{
-  const v=p&&p.forwardIfOriginal1x5Held&&p.forwardIfOriginal1x5Held[String(h)];
-  if(!v)return "未有足夠資料";
-  const med=v.medianPnlChangeUsd===null?"—":money(v.medianPnlChangeUsd);
-  const gb=v.fractionGivebackGeHalfTargetPct===null?"—":pct(v.fractionGivebackGeHalfTargetPct);
-  return "n="+v.n+"；原倉持續持有中位 ΔP&L "+med+"；回吐達目標一半比率 "+gb;
+ const el=$("profitWarningEvidence");
+ if(!el)return;
+ el.textContent="";
+ const points=(data&&data.events&&data.events.profitThresholds)||{};
+ const dollar=String.fromCharCode(36);
+ const addLine=(card,value)=>{
+  const line=document.createElement("div");
+  line.textContent=value;
+  card.appendChild(line);
  };
- const render=(key)=>{
-  const p=pts[key];
-  if(!p)return '<div class="alert warn"><strong>+
+ const forwardText=(record,horizon)=>{
+  const f=record&&record.forwardIfOriginal1x5Held&&record.forwardIfOriginal1x5Held[String(horizon)];
+  if(!f)return String(horizon)+"-session forward: pending.";
+  const med=f.medianPnlChangeUsd===null?"—":money(f.medianPnlChangeUsd);
+  const giveback=f.fractionGivebackGeHalfTargetPct===null?"—":pct(f.fractionGivebackGeHalfTargetPct);
+  return String(horizon)+"-session forward (original 1:5 hypothetically held): n="+f.n+
+   "; median P&L change "+med+"; at-least-half-target giveback "+giveback+".";
+ };
+ ["800","1000"].forEach((key)=>{
+  const p=points[key];
+  const card=document.createElement("div");
+  card.className="alert "+(!p||p.sampleStatus==="INSUFFICIENT_SMALL_TRIGGER_COHORT"?"warn":"good");
+  const title=document.createElement("strong");
+  title.textContent="Fixed target "+dollar+key+" policy — research only";
+  card.appendChild(title);
+  if(!p){
+   addLine(card,"PENDING: awaiting direct replay of the same 62 episodes; no interpolation from adjacent targets.");
+   el.appendChild(card);
+   return;
+  }
+  addLine(card,"Counterfactual first EOD mark hit: "+p.counterfactualFirstMarkHitCount+"/62. Actual policy triggers: "+p.actualPolicyTriggerCount+"/62 ("+pct(p.actualPolicyTriggerPct)+"). Successful closes: "+p.successfulExitActionCount+"/"+p.actualPolicyTriggerCount+". Successful action on the next observed session: "+p.successfulActionOnNextObservedSessionCount+".");
+  addLine(card,forwardText(p,5));
+  addLine(card,forwardText(p,10));
+  addLine(card,"Median trigger age: "+(p.medianTriggerAgeSessions===null?"—":p.medianTriggerAgeSessions)+" sessions. Median signal-to-action delay: "+(p.medianSignalToActionSessions===null?"—":p.medianSignalToActionSessions)+" sessions. "+p.sampleStatus+".");
+  el.appendChild(card);
+ });
+ const caveat=document.createElement("p");
+ caveat.className="subtle";
+ caveat.textContent="First EOD mark hit counts the untouched original 1:5 hold path. Actual policy triggers account for DTE ≤ 7 fallback sequencing and pending actions. The 5/10-session marks assume continued holding of the original 1:5 after the signal; they are not realized post-exit returns. EOD quote marks are not confirmed fills.";
+ el.appendChild(caveat);
+}
+
+function draw(){
  const nav=input("nav")||0,dir=$("direction").value,n=input("ratioN")||5,riskPct=input("riskPct")||1,profitPct=input("profitPct")||1;
  const pnl=input("currentPnl"),age=input("age"),dte=input("dte"),rv=input("rv20"),horizon=input("horizon")||5;
  const ratio=L.ratioInfo(nav,dir,n,riskPct,data),matched=L.matchedHistory(dir,n,data);
