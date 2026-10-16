@@ -7,7 +7,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { sampleWindow, targetGate, type Metrics } from "../src/lib/pulse/backtest.ts";
+import { sampleWindow, type Metrics } from "../src/lib/pulse/backtest.ts";
 import {
   evaluateProtectedWindow,
   firstWaveGrid,
@@ -33,22 +33,16 @@ function row(m: Metrics | null) {
     maxDd: pct(m.maxDd),
     sharpe: pct(m.sharpe),
     nDays: m.nDays,
+    positiveDays: m.positiveDays,
+    negativeDays: m.negativeDays,
+    flatDays: m.flatDays,
+    positiveDayRatePct: m.positiveDayRatePct,
     totalReturn: pct(m.totalReturn),
   };
 }
 
 function specKey(s: ProtectedSpec) {
   return `d${s.putDistance}_dte${s.dte}_roll${s.rollDays}_c${s.calmPut}_u${s.unstablePut}_t${s.tailPut}_r${s.recoveryPut}`;
-}
-
-function stretch(m: Metrics | null) {
-  return !!m && m.cagr >= 0.12 && m.maxDd >= -0.05;
-}
-function cagrBand(m: Metrics | null) {
-  return !!m && m.cagr >= 0.1 && m.cagr <= 0.15;
-}
-function jointBand(m: Metrics | null) {
-  return !!m && m.cagr >= 0.1 && m.cagr <= 0.15 && m.maxDd >= -0.1;
 }
 
 function makeBlocks(nBlocks: number) {
@@ -118,10 +112,6 @@ function runFold(label: string, win: ProtectedWindow) {
     train: row(evaled.train),
     validation: row(evaled.validation),
     test: row(evaled.test),
-    test_stretch: stretch(evaled.test),
-    test_cagr_in_10_15: cagrBand(evaled.test),
-    test_joint_band_10_15_dd10: jointBand(evaled.test),
-    test_gate_official_12_dd5: evaled.test ? targetGate(evaled.test) : null,
     nGrid: firstWaveGrid().length,
   };
 }
@@ -160,7 +150,7 @@ function main() {
     const fold = runFold(`walk_forward_test_block_${test.id}`, win);
     walkForward.push(fold);
     console.log(
-      `  selected=${fold.selected} testCAGR=${fold.test?.cagr} testMaxDD=${fold.test?.maxDd} stretch=${fold.test_stretch} (${fold.ms}ms)`,
+      `  selected=${fold.selected} testCAGR=${fold.test?.cagr} testMaxDD=${fold.test?.maxDd} positiveDayRate=${fold.test?.positiveDayRatePct ?? "—"}% (${fold.test?.positiveDays ?? 0}/${fold.test?.nDays ?? 0}; ${fold.ms}ms)`,
     );
   }
 
@@ -183,7 +173,7 @@ function main() {
     const fold = runFold(label, win);
     purged.push(fold);
     console.log(
-      `  selected=${fold.selected} testCAGR=${fold.test?.cagr} testMaxDD=${fold.test?.maxDd} stretch=${fold.test_stretch} (${fold.ms}ms)`,
+      `  selected=${fold.selected} testCAGR=${fold.test?.cagr} testMaxDD=${fold.test?.maxDd} positiveDayRate=${fold.test?.positiveDayRatePct ?? "—"}% (${fold.test?.positiveDays ?? 0}/${fold.test?.nDays ?? 0}; ${fold.ms}ms)`,
     );
   }
 
@@ -196,10 +186,6 @@ function main() {
       "Re-fit: firstWaveGrid search with protectedScore(validation) on train-prefix windows only; test evaluated once. Walk-forward over 6 blocks + purged adjacent-block pairs. Embargo=21d before test. Non-contiguous post-hole train excluded to prevent path leak.",
     evidence_class: "REFIT_CPCV_TRAIN_ONLY_SELECTION",
     not: "frozen_curve_sensitivity",
-    labels: {
-      THEORETICAL_TARGET_BAND: "CAGR 10-15% and MaxDD >= -10%",
-      STRETCH_HYPOTHESIS: "CAGR >= 12% and MaxDD >= -5%",
-    },
     grid_n: firstWaveGrid().length,
     embargo_days: EMBARGO,
     n_walk_forward: walkForward.length,
@@ -209,17 +195,8 @@ function main() {
     test_cagr_max: cagrs.length ? pct(Math.max(...cagrs)) : null,
     test_maxdd_mean: dds.length ? pct(dds.reduce((a, b) => a + b, 0) / dds.length) : null,
     test_maxdd_worst: dds.length ? pct(Math.min(...dds)) : null,
-    folds_stretch_pass: allTest.filter((f) => f.test_stretch).length,
-    folds_cagr_in_10_15: allTest.filter((f) => f.test_cagr_in_10_15).length,
-    folds_joint_band: allTest.filter((f) => f.test_joint_band_10_15_dd10).length,
-    verdict: {
-      STRETCH_HYPOTHESIS:
-        allTest.every((f) => !f.test_stretch) ? "REJECTED_ON_REFIT_TEST_FOLDS" : "SOME_FOLDS_HIT_STRETCH_INSPECT",
-      THEORETICAL_JOINT_BAND:
-        allTest.filter((f) => f.test_joint_band_10_15_dd10).length === 0
-          ? "NOT_SURVIVED_ON_REFIT_TEST_FOLDS"
-          : "PARTIAL_HIT_INSPECT",
-    },
+    test_positive_day_rate_mean_across_folds_pct: allTest.length ? Math.round(allTest.reduce((sum, f) => sum + (f.test?.positiveDayRatePct ?? 0), 0) / allTest.length * 100) / 100 : null,
+    frequency_note: "Positive-day rate describes daily model returns. Fold summaries are not independent option trades; this is not option trade-level win rate.",
   };
 
   const payload = {
@@ -251,29 +228,24 @@ function main() {
     `- folds: walk-forward **${summary.n_walk_forward}** + purged-adjacent **${summary.n_purged_adjacent}**`,
     `- test CAGR mean/min/max: **${summary.test_cagr_mean}** / ${summary.test_cagr_min} / ${summary.test_cagr_max}`,
     `- test MaxDD mean/worst: **${summary.test_maxdd_mean}** / ${summary.test_maxdd_worst}`,
-    `- Stretch passes: **${summary.folds_stretch_pass}**`,
-    `- CAGR in 10–15%: **${summary.folds_cagr_in_10_15}**`,
-    `- Joint band (10–15% & DD≥-10%): **${summary.folds_joint_band}**`,
-    "",
-    `### Verdict`,
-    "",
-    `- STRETCH: **${summary.verdict.STRETCH_HYPOTHESIS}**`,
-    `- THEORETICAL joint: **${summary.verdict.THEORETICAL_JOINT_BAND}**`,
+    `- Mean positive-return session frequency across test folds (descriptive, not option trade win rate): **${summary.test_positive_day_rate_mean_across_folds_pct}%**`,
+    `- ${summary.frequency_note}`,
+
     "",
     "## Walk-forward folds",
     "",
-    "| Fold | Selected | Test CAGR | Test MaxDD | Stretch |",
-    "| --- | --- | --- | --- | --- |",
+    "| Fold | Selected | Test CAGR | Test MaxDD | Positive / observed days | Positive-day rate |",
+    "| --- | --- | --- | --- | --- | --- |",
   ];
   for (const f of walkForward) {
     lines.push(
-      `| ${f.label} | \`${f.selected}\` | ${f.test?.cagr} | ${f.test?.maxDd} | ${f.test_stretch} |`,
+      `| ${f.label} | \`${f.selected}\` | ${f.test?.cagr} | ${f.test?.maxDd} | ${f.test?.positiveDays ?? "—"}/${f.test?.nDays ?? "—"} | ${f.test?.positiveDayRatePct ?? "—"}% |`,
     );
   }
-  lines.push("", "## Purged adjacent-block folds", "", "| Fold | Selected | Test CAGR | Test MaxDD | Stretch |", "| --- | --- | --- | --- | --- |");
+  lines.push("", "## Purged adjacent-block folds", "", "| Fold | Selected | Test CAGR | Test MaxDD | Positive / observed days | Positive-day rate |", "| --- | --- | --- | --- | --- | --- |");
   for (const f of purged) {
     lines.push(
-      `| ${f.label} | \`${f.selected}\` | ${f.test?.cagr} | ${f.test?.maxDd} | ${f.test_stretch} |`,
+      `| ${f.label} | \`${f.selected}\` | ${f.test?.cagr} | ${f.test?.maxDd} | ${f.test?.positiveDays ?? "—"}/${f.test?.nDays ?? "—"} | ${f.test?.positiveDayRatePct ?? "—"}% |`,
     );
   }
   lines.push(
