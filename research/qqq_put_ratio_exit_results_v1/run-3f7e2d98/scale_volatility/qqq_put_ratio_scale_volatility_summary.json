@@ -1,0 +1,48 @@
+{
+  "research_id": "QQQ_PUT_RATIO_SCALE_VOLATILITY_V1",
+  "status": "RESEARCH_DIAGNOSTIC_ONLY_DEPLOYMENT_BLOCKED",
+  "price_start": "2018-03-01",
+  "price_end": "2025-12-15",
+  "price_expected_rows": 1960,
+  "price_valid_closes": 1960,
+  "option_cohort_episodes": 62,
+  "option_source_end": "2025-12-15",
+  "expected_option_sessions_missing_after_2025_12_15": 11,
+  "directions": [
+    "SHORT_HEAVY_1_LONG_N_SHORT",
+    "LONG_HEAVY_N_LONG_1_SHORT"
+  ],
+  "N_values": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "NAVs": [
+    100000.0,
+    1000000.0
+  ],
+  "policy_summary_rows": 4752,
+  "tail_risk_budgets_pct": [
+    0.005,
+    0.01,
+    0.02
+  ],
+  "volatility_probability_rows": 63,
+  "source_evidence": "PUBLIC_EOD_PRESERVATION_MIRROR / CONSERVATIVE_QUOTE_SIDE_REPLAY / NOT_CONFIRMED_FILLS",
+  "outputs": [
+    "ratio_risk_capacity.csv",
+    "ratio_exit_policy_matrix.csv",
+    "qqq_volatility_horizon_probabilities.csv",
+    "friction_bar_matrix.csv",
+    "qqq_put_ratio_scale_volatility_summary.md"
+  ],
+  "blockers": [
+    "EOD quote mirror is not confirmed fills",
+    "history previously reviewed; not blind final OOS",
+    "broker margin/assignment/forced liquidation unavailable",
+    "price movement probability is not option win probability"
+  ]
+}

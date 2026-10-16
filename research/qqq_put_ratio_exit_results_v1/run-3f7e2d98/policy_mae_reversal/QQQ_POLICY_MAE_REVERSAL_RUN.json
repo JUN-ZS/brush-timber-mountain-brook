@@ -1,0 +1,210 @@
+{
+  "research_id": "QQQ_PUT_RATIO_POLICY_MAE_AND_STRICT_REVERSAL_V1",
+  "status": "RESEARCH_ONLY_NO_POLICY_PROMOTED",
+  "source_episode_count": 62,
+  "option_source_end": "2025-12-15",
+  "orientation_contract": {
+    "original": "+1 original high-strike / -5 original low-strike puts",
+    "strict_inverse": "-1 same original high-strike contract / +5 same original low-strike contract",
+    "replacement_strikes_or_ids": false
+  },
+  "risk_method": {
+    "walk_forward": true,
+    "training_max_policy_mae_from_clean_prior_resolved_episodes": true,
+    "minimum_clean_prior_episodes": 10,
+    "nav_risk_budget_pct": [
+      2.0,
+      5.0,
+      10.0,
+      15.0,
+      20.0,
+      30.0,
+      40.0,
+      50.0,
+      75.0,
+      100.0
+    ],
+    "mae_stress_multipliers": [
+      1.0,
+      1.5,
+      2.0
+    ],
+    "forced_exit_delay_sessions": [
+      0,
+      1,
+      2,
+      3,
+      5
+    ],
+    "displayed_entry_depth_cap": true,
+    "terminal_loss_reported_separately": true
+  },
+  "costs": {
+    "case": "BASE_005_065",
+    "slippage_per_leg_usd": 0.05,
+    "commission_per_contract_per_side_usd": 0.65
+  },
+  "configurations": 1200,
+  "resolved_nav_configurations": 1200,
+  "configurations_reaching_scaled_target": 92,
+  "target_definition": "Ending NAV >= 3.14012x starting NAV; searched historical path, not forward probability or acceptance gate.",
+  "maxdd_policy": "Descriptive outcome only; never used as a pass/fail filter.",
+  "best_historical_paths_for_inspection_only": [
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_RETAIN_RESIDUAL_LONG",
+      "forced_exit_delay_sessions": 5,
+      "mae_stress_multiplier": 1.0,
+      "nav_risk_budget_pct": 100.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1822690.5,
+      "cagr_pct": 8.0087,
+      "max_drawdown_pct": -18.6634,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2590.3798
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_SELL_RESIDUAL_LONG_IF_EXECUTABLE",
+      "forced_exit_delay_sessions": 5,
+      "mae_stress_multiplier": 1.0,
+      "nav_risk_budget_pct": 100.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1822690.5,
+      "cagr_pct": 8.0087,
+      "max_drawdown_pct": -18.6634,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2590.3798
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_RETAIN_RESIDUAL_LONG",
+      "forced_exit_delay_sessions": 5,
+      "mae_stress_multiplier": 1.0,
+      "nav_risk_budget_pct": 75.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1806666.0,
+      "cagr_pct": 7.8864,
+      "max_drawdown_pct": -15.37,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2616.4912
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_SELL_RESIDUAL_LONG_IF_EXECUTABLE",
+      "forced_exit_delay_sessions": 5,
+      "mae_stress_multiplier": 1.0,
+      "nav_risk_budget_pct": 75.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1806666.0,
+      "cagr_pct": 7.8864,
+      "max_drawdown_pct": -15.37,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2616.4912
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_RETAIN_RESIDUAL_LONG",
+      "forced_exit_delay_sessions": 5,
+      "mae_stress_multiplier": 1.5,
+      "nav_risk_budget_pct": 100.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1796298.2,
+      "cagr_pct": 7.8067,
+      "max_drawdown_pct": -13.6846,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2422.6249
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_SELL_RESIDUAL_LONG_IF_EXECUTABLE",
+      "forced_exit_delay_sessions": 5,
+      "mae_stress_multiplier": 1.5,
+      "nav_risk_budget_pct": 100.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1796298.2,
+      "cagr_pct": 7.8067,
+      "max_drawdown_pct": -13.6846,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2422.6249
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_SELL_RESIDUAL_LONG_IF_EXECUTABLE",
+      "forced_exit_delay_sessions": 2,
+      "mae_stress_multiplier": 1.0,
+      "nav_risk_budget_pct": 100.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1790095.7,
+      "cagr_pct": 7.7589,
+      "max_drawdown_pct": -18.7233,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2622.4301
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_SELL_RESIDUAL_LONG_IF_EXECUTABLE",
+      "forced_exit_delay_sessions": 3,
+      "mae_stress_multiplier": 1.0,
+      "nav_risk_budget_pct": 100.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1788816.15,
+      "cagr_pct": 7.749,
+      "max_drawdown_pct": -18.7207,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2645.1631
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_SELL_RESIDUAL_LONG_IF_EXECUTABLE",
+      "forced_exit_delay_sessions": 2,
+      "mae_stress_multiplier": 1.0,
+      "nav_risk_budget_pct": 75.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1773715.1,
+      "cagr_pct": 7.6318,
+      "max_drawdown_pct": -15.3459,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2649.796
+    },
+    {
+      "start_nav_usd": 1000000.0,
+      "orientation": "ORIGINAL_1_LONG_5_SHORT",
+      "policy": "DTE7_SELL_RESIDUAL_LONG_IF_EXECUTABLE",
+      "forced_exit_delay_sessions": 3,
+      "mae_stress_multiplier": 1.0,
+      "nav_risk_budget_pct": 75.0,
+      "executed_episodes": 49,
+      "final_nav_usd": 1772435.55,
+      "cagr_pct": 7.6218,
+      "max_drawdown_pct": -15.3438,
+      "target_reached": false,
+      "max_modeled_terminal_loss_pct_current_nav": 2673.0081
+    }
+  ],
+  "outputs": [
+    "policy_mae_nav_matrix.csv",
+    "policy_mae_trade_rows.csv",
+    "policy_mae_unit_episode_reference.csv",
+    "policy_mae_study_summary.json",
+    "policy_mae_study_summary.md"
+  ],
+  "integrity_limits": [
+    "Option-chain mirror ends 2025-12-15; no later option P&L is inferred.",
+    "Daily quote-side MAE can miss intraday losses and missing marks; incomplete-mark episodes cannot calibrate.",
+    "Forced 1/2/3/5-session delays are deterministic depth-block stresses, not delay probabilities.",
+    "Prior-worst MAE is an in-sample walk-forward feature, not a guarantee or validated tail quantile.",
+    "Whole-unit P&L may not scale linearly; impact, margin, assignment and forced liquidation are not fully modeled.",
+    "Expiry intrinsic proxy is not broker settlement; terminal QQQ=0 loss can exceed the MAE budget by multiples.",
+    "The study period was previously examined; MaxDD is descriptive, not a feasibility gate."
+  ]
+}
