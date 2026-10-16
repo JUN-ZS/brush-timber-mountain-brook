@@ -70,3 +70,16 @@ VXX persistence step ran its calculations and contract checks successfully, then
 - Operator QA, FAR CALL, NAV exit matrix, IV/RV and public EOD quote audit are also queued from the corrected workflow revision. The branch's PR synchronize trigger was removed from these workflows to reduce duplicate replay storms.
 
 The original Action ZIPs are still not available from the old runs. Raw file persistence into this branch is now the primary recovery path; ZIP upload remains a secondary backup only.
+
+
+### VXX short-call/put raw replay — persisted successfully
+
+Source run: [38843599343](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843599343). This retry completed the four-layer baseline, VXX short-call/put replay, and strategy contract checks; the persistence step itself succeeded. The old run at commit `c46e2ed5` did not persist because `pwsh` was missing; the retry uses Windows PowerShell.
+
+Files are under `vxx_short_call_put/rerun-38843599343-a1/`, including:
+- Baseline profit-trend CSV/JSON.
+- Strategy report Markdown and JSON.
+- Per-variant equity-attribution CSVs and event JSONs for legacy, call-only, call/put, RSI/DTE and stock-sleeve comparisons.
+- Recovery metadata with the tested commit and run URL.
+
+These results remain derived research / non-OPRA, not confirmed option fills. Artifact ZIP upload is a secondary backup and is still not the recovery source of truth.
