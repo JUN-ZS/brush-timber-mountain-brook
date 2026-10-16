@@ -26,6 +26,10 @@ export type Metrics = {
   es: number;
   turnover: number;
   nDays: number;
+  positiveDays: number;
+  negativeDays: number;
+  flatDays: number;
+  positiveDayRatePct: number;
 };
 
 export type CurvePoint = {
@@ -105,6 +109,10 @@ export function emptyMetrics(): Metrics {
     es: 0,
     turnover: 0,
     nDays: 0,
+    positiveDays: 0,
+    negativeDays: 0,
+    flatDays: 0,
+    positiveDayRatePct: 0,
   };
 }
 
@@ -121,6 +129,9 @@ export function metrics(rs: number[], turnover = 0): Metrics {
   const vol = stdev(rs) * Math.sqrt(DAYS);
   const down = stdev(rs.filter((r) => r < 0)) * Math.sqrt(DAYS);
   const cagr = Math.pow(eq, DAYS / rs.length) - 1;
+  const positiveDays = rs.filter((r) => r > 0).length;
+  const negativeDays = rs.filter((r) => r < 0).length;
+  const flatDays = rs.length - positiveDays - negativeDays;
   return {
     cagr,
     maxDd,
@@ -133,6 +144,10 @@ export function metrics(rs: number[], turnover = 0): Metrics {
     es: expectedShortfall(rs, 0.05),
     turnover,
     nDays: rs.length,
+    positiveDays,
+    negativeDays,
+    flatDays,
+    positiveDayRatePct: (positiveDays / rs.length) * 100,
   };
 }
 
@@ -440,16 +455,6 @@ export function pareto(results: BacktestResult[]) {
             b.split.validation.maxDd > a.split.validation.maxDd),
       ),
   );
-}
-
-export function targetGate(r: Metrics, cagrTarget = 0.12, ddTarget = -0.05) {
-  return {
-    cagrPass: r.cagr >= cagrTarget,
-    ddPass: r.maxDd >= ddTarget,
-    pass: r.cagr >= cagrTarget && r.maxDd >= ddTarget,
-    cagrTarget,
-    ddTarget,
-  };
 }
 
 export function historicalBenchmark() {
