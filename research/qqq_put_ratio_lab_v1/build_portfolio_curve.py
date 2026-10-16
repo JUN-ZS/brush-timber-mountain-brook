@@ -56,7 +56,7 @@ def combine_episode_daily(session_dates: list[str], trade_results: list[dict[str
     """
     ordered = sorted(trade_results, key=lambda t: (str(t.get("entry_date", "")), int(t.get("trade_id", 0))))
     date_index = {d: i for i, d in enumerate(session_dates)}
-    for trade in ordered:
+    for trade_index, trade in enumerate(ordered):
         if trade.get("entry_date") not in date_index:
             raise ValueError(f"Entry date outside session calendar: {trade.get('entry_date')}")
         daily = trade.get("daily")
@@ -67,8 +67,8 @@ def combine_episode_daily(session_dates: list[str], trade_results: list[dict[str
         for row in daily:
             if row.get("date") not in date_index:
                 raise ValueError(f"Trade path date outside session calendar: {row.get('date')}")
-        if ordered.index(trade) > 0:
-            previous = ordered[ordered.index(trade)-1]
+        if trade_index > 0:
+            previous = ordered[trade_index-1]
             previous_last = previous.get("daily", [{}])[-1].get("date")
             if str(trade["entry_date"]) <= str(previous_last):
                 raise ValueError("Episode paths overlap; serial equity replay would double-count exposure")
@@ -222,7 +222,6 @@ def curve_metrics(session_dates: list[str], pnl_curve: list[float | None], nav: 
         "max_drawdown_trough_date": max_dd_trough_date,
         "max_drawdown_cycle_count": len(cycles),
         "drawdown_levels": levels,
-        "trades_in_serial_cohort": len(ordered_trade_ids := []),  # filled by caller
         "status": "OBSERVED_QUOTE_SIDE_SERIAL_FIXED_UNIT_REPLAY_NOT_LIVE_EQUITY",
         "limitations": [
             "One ratio unit per non-overlapping historical episode; no reinvestment, compounding, or NAV-scaled quantity.",
