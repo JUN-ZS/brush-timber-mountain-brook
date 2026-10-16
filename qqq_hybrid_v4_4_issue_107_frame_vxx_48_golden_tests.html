@@ -2696,10 +2696,10 @@
           const sp = parseLegStrikePair(cfg.legStrikesStr, cfg.defaultShortK, cfg.defaultLongK);
           if (!sp.valid) return { valid:false, status:'BLOCKED_INVALID_LEG_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:'短腿／保護長腿 Strike 格式無效或缺失' };
           if (Math.abs(shortIdentity.strike-sp.shortK)>0.001 || Math.abs(longIdentity.strike-sp.longK)>0.001) return { valid:false, status:'BLOCKED_LEG_STRIKE_ID_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:'Strike 欄位與合約 ID 編碼的 Strike 不一致' };
-          if (cfg.optionType === 'CALL' && sp.shortK >= sp.longK) return { valid:false, status:'BLOCKED_INVALID_CALL_SPREAD_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:\`Call Spread 長腿 Strike (\${sp.longK}) 必須高於短腿 (\${sp.shortK})\` };
-          if (cfg.optionType === 'PUT' && sp.shortK <= sp.longK) return { valid:false, status:'BLOCKED_INVALID_PUT_SPREAD_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:\`Put Spread 長腿 Strike (\${sp.longK}) 必須低於短腿 (\${sp.shortK})\` };
+          if (cfg.optionType === 'CALL' && sp.shortK >= sp.longK) return { valid:false, status:'BLOCKED_INVALID_CALL_SPREAD_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:`Call Spread 長腿 Strike (${sp.longK}) 必須高於短腿 (${sp.shortK})` };
+          if (cfg.optionType === 'PUT' && sp.shortK <= sp.longK) return { valid:false, status:'BLOCKED_INVALID_PUT_SPREAD_STRIKES', fullQty:null, maxExpirationLossPerSpread:null, reason:`Put Spread 長腿 Strike (${sp.longK}) 必須低於短腿 (${sp.shortK})` };
           const strikeDerivedWidth = Math.abs(sp.longK - sp.shortK);
-          if (Math.abs(w.value - strikeDerivedWidth) > 0.001) return { valid:false, status:'BLOCKED_STRIKE_WIDTH_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:\`輸入價差寬度 \${w.value} 與 Strike 推導寬度 \${strikeDerivedWidth} 不一致，最大損失容量不得計算\` };
+          if (Math.abs(w.value - strikeDerivedWidth) > 0.001) return { valid:false, status:'BLOCKED_STRIKE_WIDTH_MISMATCH', fullQty:null, maxExpirationLossPerSpread:null, reason:`輸入價差寬度 ${w.value} 與 Strike 推導寬度 ${strikeDerivedWidth} 不一致，最大損失容量不得計算` };
           const shortMid = (sb.value + sa.value) / 2;
           const spreadWidthPct = shortMid > 0 ? ((sa.value - sb.value) / shortMid) * 100 : 999;
           if (spreadWidthPct > assumptions.maxShortQuoteSpreadPct) {
