@@ -33,18 +33,9 @@ function portfolioStats(nav,policy){
   const usd=peak.eq-p.eq,pctDrop=peak.eq>0?(p.eq/peak.eq-1)*100:null;
   if(pctDrop!==null&&pctDrop<maxPct){maxPct=pctDrop;maxUsd=usd;maxPeakDate=peak.date;maxTroughDate=p.date;}
  }
- const cycles=[];let cp=pts[0],cw=0,ct=pts[0];
- for(let i=1;i<pts.length;i++){
-  const p=pts[i],d=cp.eq>0?(p.eq/cp.eq-1)*100:0;
-  if(p.eq>=cp.eq){cycles.push({worst:cw,trough:ct.date,index:ct.i});cp=p;cw=0;ct=p;}
-  else if(d<cw){cw=d;ct=p;}
- }
- cycles.push({worst:cw,trough:ct.date,index:ct.i});
- const span=(Date.parse(dates.at(-1))-Date.parse(dates[0]))/(365.2425*86400000);
- const levels=[3,5,10,15,20,25,30].map(level=>{
-  const hit=cycles.filter(x=>x.worst<=-level).sort((a,b)=>a.index-b.index),gaps=hit.slice(1).map((x,i)=>x.index-hit[i].index).sort((a,b)=>a-b);
-  return {level,count:hit.length,perYear:span>0?hit.length/span:0,years:new Set(hit.map(x=>x.trough.slice(0,4))).size,allYears:new Set(dates.map(x=>x.slice(0,4))).size,medianGap:gaps.length?(gaps.length%2?gaps[(gaps.length-1)/2]:(gaps[gaps.length/2-1]+gaps[gaps.length/2])/2):null};
- });
+ const dd=L.drawdownCycleStats(dates,pts);
+ const levels=dd.levels;
+ const span=dd.spanYears;
  return {dates,series,pts,maxUsd,maxPct,maxPeakDate,maxTroughDate,levels,coverage:100*pts.length/dates.length,missing:dates.length-pts.length,spanYears:span,finalPnl:pts[pts.length-1].pnl,minEquity:Math.min(...pts.map(x=>x.eq)),summary:curveData.metrics_by_policy_at_80k_nav?.[policy]||{}};
 }
 function renderPortfolio(nav){
@@ -69,7 +60,7 @@ function renderPortfolio(nav){
   ["估值覆蓋",pct(m.coverage),m.missing+" / "+m.dates.length+" sessions 未知"]
  ].map(x=>'<article class="metric"><span>'+x[0]+'</span><strong>'+x[1]+'</strong><small>'+x[2]+'</small></article>').join("");
  $("portfolioTradeMeta").textContent="政策："+(labels[policy]||policy)+" · "+(s.resolved_trades??"—")+"/"+(s.trades_in_serial_cohort??"—")+" 組結算 · WIN "+pct(s.win_rate_pct)+" · 起始 NAV "+money(nav)+" · 固定一組一組回放";
- rows.innerHTML=m.levels.map(x=>'<tr><td>−'+x.level+'%</td><td>'+x.count+'</td><td>'+x.perYear.toFixed(2)+'</td><td>'+x.years+'/'+x.allYears+'</td><td>'+(x.medianGap===null?"—":Math.round(x.medianGap))+'</td></tr>').join("");
+ rows.innerHTML=m.levels.map(x=>'<tr><td>−'+x.level+'%</td><td>'+x.count+'</td><td>'+x.perYear.toFixed(2)+'</td><td>'+(x.eventYears.length?x.eventYears.join(", "):"—")+' ('+x.years+'/'+x.allYears+' 年)</td><td>'+(x.medianGap===null?"—":Math.round(x.medianGap))+'</td></tr>').join("");
  const vals=m.pts.map(x=>x.eq),lo=Math.min(...vals),hi=Math.max(...vals),range=hi-lo||1,w=920,h=180,pad=14;
  let path="",open=false;
  for(let i=0;i<m.series.length;i++){
@@ -125,13 +116,65 @@ function renderProfitWarningEvidence(){
  el.appendChild(caveat);
 }
 
+function renderQuickEvidence(nav,dir,n,profitPct){
+ const history=$("historyAnswer"),targetEl=$("targetEvidence");
+ if(!history||!targetEl)return;
+ history.textContent="";
+ targetEl.textContent="";
+ const policyId=$("curvePolicy")?.value||"BASE_DTE7_CLOSE_SHORT_RISK";
+ const row=L.matchedHistory(dir,n,data,policyId);
+ const addChip=(parent,label,value,detail)=>{
+  const chip=document.createElement("div");chip.className="vol-chip";
+  const l=document.createElement("span");l.textContent=label;
+  const v=document.createElement("strong");v.textContent=value;
+  const d=document.createElement("small");d.textContent=detail||"";
+  chip.append(l,v,d);parent.appendChild(chip);
+ };
+ if(!row){
+  const box=document.createElement("div");box.className="alert warn";
+  const title=document.createElement("strong");title.textContent="沒有可直接引用的歷史勝率";
+  const body=document.createElement("div");body.textContent="目前設定 "+(dir==="SHORT_HEAVY"?"LONG PUT 1 : SHORT PUT "+n:"LONG PUT "+n+" : SHORT PUT 1")+"，但保存的 62 組期權 episode 只直接驗證 LONG PUT 1 : SHORT PUT 5。其他方向／N 不複製勝率、MaxDD 或退出觸發率。";
+  box.append(title,body);history.appendChild(box);
+ }else{
+  const m=portfolioStats(nav,policyId);
+  const title=document.createElement("p");title.className="subtle";
+  title.textContent="直接證據：LONG PUT 1 : SHORT PUT 5 · 所選政策「"+(labels[policyId]||policyId)+"」· 62 組非重疊歷史 episode（2018-03-01 至 2025-12-15）。以下累計損益固定每次一組、不複利。";
+  history.appendChild(title);
+  addChip(history,"歷史 WIN",pct(row.winRatePct),row.resolved+"/62 已結算");
+  addChip(history,"累計淨損益",money(row.netPnlUsd),"固定一組、不複利");
+  addChip(history,"逐日 MaxDD",m?pct(m.maxPct):"PENDING",m?m.maxPeakDate+" → "+m.maxTroughDate:"沒有曲線");
+  if(m){
+   const rates=document.createElement("p");rates.className="subtle";
+   rates.textContent="策略 MaxDD 週期年平均（依目前 NAV 與所選政策）："+m.levels.filter(x=>[3,5,10,20,30].includes(x.level)).map(x=>"−"+x.level+"%： "+x.perYear.toFixed(2)+"/年（"+x.count+" 次）").join("；")+". 明細見下方 MaxDD 分級表；缺失估值可能令回撤被低估。";
+   history.appendChild(rates);
+  }
+ }
+ const amount=nav*profitPct/100,match=L.profitTargetPolicy(amount,data);
+ const box=document.createElement("div");box.className="alert "+(match?"good":"warn");
+ const title=document.createElement("strong");title.textContent="目前獲利預警："+money(amount)+"（"+Number(profitPct).toFixed(2)+"% NAV）";
+ const body=document.createElement("div");
+ if(match){
+  const p=match.policy,study=data.events?.profitThresholds?.[String(match.targetUsd)],m=portfolioStats(nav,p.id);
+  let details="直接重播的同額固定目標 +$"+match.targetUsd+"：WIN "+pct(p.winRatePct)+"；淨損益 "+money(p.netPnlUsd)+"；政策觸發 "+p.triggerCount+"/62；DTE ≤ 7 fallback "+p.fallbackCount+"/62。";
+  if(m)details+=" 以目前輸入 NAV 重算的固定一組序列 MaxDD "+pct(m.maxPct)+"（"+m.maxPeakDate+" → "+m.maxTroughDate+"）。";
+  if(study)details+=" 原倉反事實 EOD first-hit "+study.counterfactualFirstMarkHitCount+"/62，5 日內 "+study.counterfactualFirstHitWithin5Sessions+"/62；這不是退出後已實現收益。";
+  else details+=" 此目標的逐日 first-hit 時間分布未單獨保存，不借用其他金額的時間結果。";
+  details+=" 這是同額歷史對照，不是最佳獲利百分比；觸線只提示人工覆核。";
+  body.textContent=details;
+ }else{
+  body.textContent="此 NAV 百分比換算出的金額，並非本批直接重播的固定目標（$500、$800、$1,000、$2,000）。不插值、不借用鄰近目標的勝率／MaxDD；當前門檻只作人工提醒。可在下方政策比較表檢視已實際重播的目標。";
+ }
+ box.append(title,body);targetEl.appendChild(box);
+}
+
 function draw(){
  const nav=input("nav")||0,dir=$("direction").value,n=input("ratioN")||5,riskPct=input("riskPct")||1,profitPct=input("profitPct")||1;
  const pnl=input("currentPnl"),age=input("age"),dte=input("dte"),rv=input("rv20"),horizon=input("horizon")||5;
- const ratio=L.ratioInfo(nav,dir,n,riskPct,data),matched=L.matchedHistory(dir,n,data);
+ const activePolicyId=$("curvePolicy")?.value||"BASE_DTE7_CLOSE_SHORT_RISK";
+ const ratio=L.ratioInfo(nav,dir,n,riskPct,data),matched=L.matchedHistory(dir,n,data,activePolicyId);
  $("winRate").textContent=matched?pct(matched.winRatePct):"PENDING";
  $("winRate").className=matched?"good":"warn";
- $("winRateSub").textContent=matched?"62 組直接歷史回放 · "+matched.resolved+"/62 已結算":"此方向／N 未有可在這裡直接引用的單位勝率；不沿用 1:5 數字";
+ $("winRateSub").textContent=matched?"所選政策 · "+matched.resolved+"/62 組已結算 · 觸發 "+matched.triggerCount+"/62":"此方向／N 未有可在這裡直接引用的單位勝率；不沿用 1:5 數字";
  $("profitTarget").textContent=money(nav*profitPct/100);
  $("profitTargetSub").textContent=Number(profitPct).toFixed(2)+"% NAV；候選預警線，非經證實最佳退出";
  $("tailLoss").textContent=money(ratio.lossUsd);
@@ -172,6 +215,7 @@ function draw(){
   return '<tr class="'+(r.n===Number(n)?"highlight":"")+'"><td>'+(dir==="SHORT_HEAVY"?"LONG 1 : SHORT N":"LONG N : SHORT 1")+'</td><td>'+r.n+'</td><td>'+money(r.medianUsd)+'</td><td>'+money(r.p95Usd)+'</td><td>'+money(r.worstUsd)+'</td><td class="'+(lossPct>100?"bad":"")+'">'+pct(lossPct)+'</td><td class="'+(units===0?"bad":"")+'">'+units+'</td></tr>';
  }).join("");
  renderPortfolio(nav);
+ renderQuickEvidence(nav,dir,n,profitPct);
  if(dir==="SHORT_HEAVY"&&n===1)$("inputSummary").textContent+=" · N=1 兩方向的 legs 數相同，但須確認同一合約與腿方向後才可視作同一結構。";
 }
 (async function init(){
