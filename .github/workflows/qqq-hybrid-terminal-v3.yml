@@ -29,16 +29,20 @@ jobs:
         run: |
           node --check terminal/qqq_hybrid_deployment_terminal_v3/engine.js
           node --check terminal/qqq_hybrid_deployment_terminal_v3/put_ratio_evidence.js
+          node --check terminal/qqq_hybrid_deployment_terminal_v3/put_ratio_dynamic_bar.js
           node --check terminal/qqq_hybrid_deployment_terminal_v3/app.js
           node terminal/qqq_hybrid_deployment_terminal_v3/tests/golden_test.js
           node terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_evidence_test.js
+          node terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_dynamic_bar_test.js
       - name: Python checks
         run: |
           python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/server.py
           python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/providers/cboe_delayed_vx.py
           python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_evidence_api_test.py
+          python3 -m py_compile terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_dynamic_bar_api_test.py
           python3 terminal/qqq_hybrid_deployment_terminal_v3/tests/provider_fixture_test.py
           python3 terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_evidence_api_test.py
+          python3 terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_dynamic_bar_api_test.py
       - name: Live Cboe delayed VX smoke
         run: |
           mkdir -p artifacts/qhv3
@@ -59,6 +63,10 @@ jobs:
           test -f terminal/qqq_hybrid_deployment_terminal_v3/engine.js
           test -f terminal/qqq_hybrid_deployment_terminal_v3/put_ratio_evidence.js
           test -f terminal/qqq_hybrid_deployment_terminal_v3/put_ratio_evidence_v1.json
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/put_ratio_dynamic_bar.js
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/put_ratio_dynamic_bar_v1.json
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_dynamic_bar_test.js
+          test -f terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_dynamic_bar_api_test.py
           test -f terminal/qqq_hybrid_deployment_terminal_v3/PUT_RATIO_EVIDENCE_MODULE_V1.md
           test -f terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_evidence_test.js
           test -f terminal/qqq_hybrid_deployment_terminal_v3/tests/put_ratio_evidence_api_test.py
