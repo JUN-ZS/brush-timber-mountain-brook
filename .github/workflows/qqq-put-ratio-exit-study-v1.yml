@@ -96,6 +96,9 @@ jobs:
           $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/cost_sensitivity_audit.py
           $PY -m py_compile research/qqq_put_ratio_exit_supplement_v1/test_cost_sensitivity_audit.py
           $PY research/qqq_put_ratio_exit_supplement_v1/test_cost_sensitivity_audit.py
+          $PY -m py_compile research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_dynamic_nav_bar_v1.py
+          $PY -m py_compile research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_dynamic_nav_bar_v1.py
+          $PY research/qqq_put_ratio_exit_study_v1/test_qqq_put_ratio_dynamic_nav_bar_v1.py
 
       - name: Run SHA-pinned 1x5 exit policy replay
         timeout-minutes: 48
@@ -137,6 +140,19 @@ jobs:
           cat artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.md >> "$GITHUB_STEP_SUMMARY"
           $PY -c "from pathlib import Path; p=[Path('artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_by_policy.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/cost_audit/friction_cost_sensitivity.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_audit_summary.md')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing cost audit outputs: '+repr(m); print('cost_sensitivity_audit_outputs_exist=PASS')"
 
+      - name: Run dynamic NAV, BAR hit-rate and drawdown stress replay
+        timeout-minutes: 30
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          mkdir -p artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav
+          $PY research/qqq_put_ratio_exit_study_v1/qqq_put_ratio_dynamic_nav_bar_v1.py --cohort artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_source_cohort.json --prices artifacts/qqq_put_ratio_exit_study_v1/qqq_underlying_close_series.csv --out artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav --start-nav 100000 --target-profit 214012 > QQQ_DYNAMIC_NAV_BAR_RUN.json
+          cat QQQ_DYNAMIC_NAV_BAR_RUN.json
+          cat artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.md
+          cat artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.md >> "$GITHUB_STEP_SUMMARY"
+          $PY -c "from pathlib import Path; p=[Path('QQQ_DYNAMIC_NAV_BAR_RUN.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.json'),Path('artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_portfolio_matrix.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_bar_occurrence.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_bar_occurrence_by_regime.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_drawdown_tiers.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_annual_path.csv'),Path('artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_daily_selected.csv')]; m=[str(x) for x in p if not x.is_file()]; assert not m, 'missing dynamic outputs: '+repr(m); print('dynamic_nav_bar_outputs_exist=PASS')"
+
       - name: Run public QQQ price proxy supplement (not option P&L)
         shell: bash
         continue-on-error: true
@@ -173,6 +189,15 @@ jobs:
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.json
             artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_put_ratio_scale_volatility_summary.md
+            QQQ_DYNAMIC_NAV_BAR_RUN.json
+            artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.json
+            artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.md
+            artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_portfolio_matrix.csv
+            artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_bar_occurrence.csv
+            artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_bar_occurrence_by_regime.csv
+            artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_drawdown_tiers.csv
+            artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_annual_path.csv
+            artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_daily_selected.csv
             QQQ_COST_SENSITIVITY_AUDIT_RUN.json
             artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_by_policy.csv
             artifacts/qqq_put_ratio_exit_study_v1/cost_audit/friction_cost_sensitivity.csv
@@ -192,7 +217,7 @@ jobs:
           set -euo pipefail
           short_sha="${GITHUB_SHA:0:8}"
           result_dir="research/qqq_put_ratio_exit_results_v1/run-${short_sha}"
-          mkdir -p "$result_dir/replay" "$result_dir/scale_volatility" "$result_dir/external_proxy" "$result_dir/cost_audit"
+          mkdir -p "$result_dir/replay" "$result_dir/scale_volatility" "$result_dir/dynamic_nav" "$result_dir/external_proxy" "$result_dir/cost_audit"
           cp QQQ_PUT_RATIO_EXIT_STUDY_RUN.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.json "$result_dir/replay/"
           cp artifacts/qqq_put_ratio_exit_study_v1/qqq_put_ratio_exit_study_summary.md "$result_dir/replay/"
@@ -208,6 +233,15 @@ jobs:
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/ratio_exit_policy_matrix.csv "$result_dir/scale_volatility/"
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/qqq_volatility_horizon_probabilities.csv "$result_dir/scale_volatility/"
           cp artifacts/qqq_put_ratio_exit_study_v1/scale_volatility/friction_bar_matrix.csv "$result_dir/scale_volatility/"
+          cp QQQ_DYNAMIC_NAV_BAR_RUN.json "$result_dir/dynamic_nav/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.json "$result_dir/dynamic_nav/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_bar_summary.md "$result_dir/dynamic_nav/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_portfolio_matrix.csv "$result_dir/dynamic_nav/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_bar_occurrence.csv "$result_dir/dynamic_nav/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_bar_occurrence_by_regime.csv "$result_dir/dynamic_nav/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_drawdown_tiers.csv "$result_dir/dynamic_nav/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_annual_path.csv "$result_dir/dynamic_nav/"
+          cp artifacts/qqq_put_ratio_exit_study_v1/dynamic_nav/dynamic_nav_daily_selected.csv "$result_dir/dynamic_nav/"
           cp QQQ_COST_SENSITIVITY_AUDIT_RUN.json "$result_dir/cost_audit/"
           cp artifacts/qqq_put_ratio_exit_study_v1/cost_audit/cost_sensitivity_by_policy.csv "$result_dir/cost_audit/"
           cp artifacts/qqq_put_ratio_exit_study_v1/cost_audit/friction_cost_sensitivity.csv "$result_dir/cost_audit/"
@@ -223,7 +257,8 @@ jobs:
           - Study commit tested: $GITHUB_SHA
           - GitHub Actions run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
           - Option-chain last observed date: 2025-12-15
-          - Replay and scale matrix: completed by this workflow before persistence.
+          - Replay, scale matrix, and dynamic NAV/BAR/MaxDD stress matrix: completed by this workflow before persistence.
+          - Dynamic results compound closed episodes into the next NAV; BAR rates are observed episode/mark frequency, not forward probability.
           - External Yahoo/FRED and Yahoo ^VIX/^VXN proxies, when available, are price-path-only; they do not estimate option P&L after the option-chain boundary.
           - Cost-sensitivity audit pairs zero/base/adverse model assumptions and screens friction BAR sample counts; it does not validate fills or promote any exit rule.
           - Every output is research evidence only. Deployment and broker orders remain BLOCKED.

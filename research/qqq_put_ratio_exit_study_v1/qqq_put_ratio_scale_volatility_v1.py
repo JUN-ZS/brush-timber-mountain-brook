@@ -148,13 +148,15 @@ def policies() -> list[dict[str, Any]]:
     return rows
 
 def simulate(trade: dict[str, Any], direction: str, n: int, nav: float, policy: dict[str, Any],
-             slip: float, commission: float, units: int = 1) -> dict[str, Any]:
+             slip: float, commission: float, units: int = 1,
+             include_mark_path: bool = False) -> dict[str, Any]:
     nl_unit, ns_unit = quantities(direction, n)
     nl, ns = nl_unit*units, ns_unit*units
     state = {"cash": entry_cashflow(trade, nl, ns, slip, commission), "n_long": nl, "n_short": ns}
     custom_fired = False; trigger_age = None; action_age = None; pending = None
     policy_disabled_by_fallback = False; fallback_count = 0; deferred = missing = required = 0
-    marks: list[float] = []; final_pnl = None; final_status = "UNRESOLVED_SOURCE_END"; resolved_age = None
+    marks: list[float] = []; mark_curve: list[dict[str, Any]] = []
+    final_pnl = None; final_status = "UNRESOLVED_SOURCE_END"; resolved_age = None
     path = trade.get("path") or []
     for age, step in enumerate(path):
         day = str(step.get("date", ""))[:10]
@@ -168,10 +170,21 @@ def simulate(trade: dict[str, Any], direction: str, n: int, nav: float, policy: 
                 if state["n_short"] == 0 and state["n_long"] == 0:
                     final_pnl, final_status, resolved_age = float(state["cash"]), "CLOSED_AT_OBSERVED_SIDE_QUOTES", age
             else: deferred += 1
-        if state["n_short"] == 0 and state["n_long"] == 0: break
+        if state["n_short"] == 0 and state["n_long"] == 0:
+            if include_mark_path:
+                mark_curve.append({"date": day, "holding_age_sessions": age, "pnl_usd": round(float(state["cash"]), 4),
+                    "vix": num(step.get("vix")), "dte": dte, "status": "CLOSED_AT_OBSERVED_SIDE_QUOTES",
+                    "n_long_remaining": 0, "n_short_remaining": 0})
+            break
         mark = mark_pnl(state, step, slip, commission); required += 1
         if mark is None: missing += 1
         else: marks.append(mark)
+        if include_mark_path:
+            mark_curve.append({"date": day, "holding_age_sessions": age,
+                "pnl_usd": round(float(mark), 4) if mark is not None else None,
+                "vix": num(step.get("vix")), "dte": dte,
+                "status": "OPTION_SIDE_MARK" if mark is not None else "MISSING_OPTION_MARK",
+                "n_long_remaining": int(state["n_long"]), "n_short_remaining": int(state["n_short"])})
         if dte <= 0:
             spot = num(step.get("spot"))
             if spot is None: final_status = "UNRESOLVED_MISSING_EXPIRY_UNDERLYING"
@@ -179,6 +192,9 @@ def simulate(trade: dict[str, Any], direction: str, n: int, nav: float, policy: 
                 final_pnl = terminal_pnl(float(state["cash"]), int(state["n_long"]), int(state["n_short"]),
                     float(trade["long_strike"]), float(trade["short_strike"]), spot)
                 final_status, resolved_age = "EXPIRY_INTRINSIC_PROXY_NOT_BROKER_SETTLEMENT", age
+                if include_mark_path and mark_curve and mark_curve[-1]["date"] == day:
+                    mark_curve[-1]["pnl_usd"] = round(float(final_pnl), 4)
+                    mark_curve[-1]["status"] = "EXPIRY_INTRINSIC_PROXY_NOT_BROKER_SETTLEMENT"
             break
         if pending is None and state["n_short"] > 0 and dte <= 7:
             pending = {"action": "CLOSE_SHORT_RISK", "signal_age": age}
@@ -208,7 +224,8 @@ def simulate(trade: dict[str, Any], direction: str, n: int, nav: float, policy: 
         "missing_mark_rows":missing,"mark_coverage_pct":100*(required-missing)/required if required else None,
         "worst_observed_mark_pnl_usd":min(marks) if marks else None,"best_observed_mark_pnl_usd":max(marks) if marks else None,
         "final_pnl_usd":final_pnl,"final_pnl_pct_nav":final_pnl/nav*100 if final_pnl is not None else None,
-        "final_status":final_status,"resolved_holding_sessions":resolved_age,"evidence":EVIDENCE}
+        "final_status":final_status,"resolved_holding_sessions":resolved_age,"evidence":EVIDENCE,
+        "mark_curve":mark_curve if include_mark_path else None}
 
 def distribution(values: list[float]) -> dict[str, Any]:
     xs=sorted(float(x) for x in values if x is not None and math.isfinite(float(x)))
