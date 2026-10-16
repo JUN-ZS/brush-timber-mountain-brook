@@ -40,3 +40,33 @@ This branch preserves report objects and QA summaries that were fully printed in
 - The 2026-10-15 delayed VX snapshot belongs to that run's timestamp and should not be treated as a current quote.
 - No main branch was changed, no PR was merged, and broker-order permission was not enabled.
 - This recovery branch does not claim restoration of the original GitHub Actions ZIPs. Those uploads were rejected with: “Artifact storage quota has been hit. Usage is recalculated every 6-12 hours.”
+
+
+## Additional raw-file recoveries verified on 2026-10-16
+
+### REAL VX + historical state replay — persisted successfully
+
+Source run: [38842692626](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842692626). All workflow calculation, parity-diagnostic, delayed snapshot, replay, and contract-check steps completed; the recovery commit succeeded. The secondary Artifact ZIP still failed to upload due to the Actions storage quota.
+
+Saved under `real_vx/raw_rerun-38842692626-a1/`:
+- Full REAL VX M1/M2 CSV (2,143 rows, 2018-03-01 to 2026-09-04) plus build metadata.
+- Cboe delayed VX snapshot and external overlap diagnostic.
+- Full overlap CSV.
+- Full source-swap metrics, source-swap rows CSV, and parity Markdown.
+- Historical state replay CSV and Markdown.
+
+The external-vs-REAL price comparison remains **FAIL** and is not overridden by high state/action agreement.
+
+### Order Machine V2 — current replay files persisted
+
+Two duplicate push-triggered runs completed successfully: [38842599615](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842599615) and [38842604455](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842604455). Their raw JSON/CSV and metadata are saved under `order_machine/current_v2/rerun-38842599615-a1/` and `order_machine/current_v2/rerun-38842604455-a1/`. ZIP upload still fails due to the quota. This deterministic parent-intent replay is a newer test than the older 153-window order-machine run log; it does not replace that older dataset.
+
+### Windows persistence runner correction
+
+VXX persistence step ran its calculations and contract checks successfully, then failed before saving because the Windows self-hosted runner does not have `pwsh` installed (`pwsh: command not found`). Windows recovery steps were changed to use Windows PowerShell (`shell: powershell`) and retriggered. The new runs are queued at the time of this note; no success is claimed until the raw files appear in this recovery branch.
+
+- VXX retry: [38843599343](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843599343)
+- Profit Trend retry: [38843606498](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38843606498)
+- Operator QA, FAR CALL, NAV exit matrix, IV/RV and public EOD quote audit are also queued from the corrected workflow revision. The branch's PR synchronize trigger was removed from these workflows to reduce duplicate replay storms.
+
+The original Action ZIPs are still not available from the old runs. Raw file persistence into this branch is now the primary recovery path; ZIP upload remains a secondary backup only.
