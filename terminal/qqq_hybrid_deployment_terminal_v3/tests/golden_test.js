@@ -62,9 +62,9 @@ assert.strictEqual(cand.quoteValidated,true);
 assert.strictEqual(E.candidateFromChain(chain,750,0.10,45,"2026-10-07"),null); // no quote timestamp/source/root
 assert.strictEqual(E.candidateFromChain(chain,750,0.10,45,"2026-10-07",{...quoteMeta,retrievedAt:"2026-10-05T15:00:00Z"}),null); // stale quote
 assert.strictEqual(E.candidateFromChain(chain,750,0.10,45,"2026-10-07",{...quoteMeta,symbol:"SPY"}),null); // wrong root
-assert.strictEqual(E.candidateFromChain(chain.map((x,i)=>i===0?({...x,contractSymbol:undefined}):x),750,0.10,45,"2026-10-07",quoteMeta),null); // missing identity
-assert.strictEqual(E.candidateFromChain(chain.map((x,i)=>i===0?({...x,bidSize:undefined}):x),750,0.10,45,"2026-10-07",quoteMeta),null); // missing size
-assert.strictEqual(E.candidateFromChain(chain.map((x,i)=>i===0?({...x,bid:2.2,ask:2.1}):x),750,0.10,45,"2026-10-07",quoteMeta),null); // crossed quote
+assert.strictEqual(E.candidateFromChain(chain.map(x=>({...x,contractSymbol:undefined})),750,0.10,45,"2026-10-07",quoteMeta),null); // missing identity on all candidate legs
+assert.strictEqual(E.candidateFromChain(chain.map(x=>({...x,bidSize:undefined})),750,0.10,45,"2026-10-07",quoteMeta),null); // missing size on all candidate legs
+assert.strictEqual(E.candidateFromChain(chain.map(x=>({...x,bid:x.ask+0.1})),750,0.10,45,"2026-10-07",quoteMeta),null); // crossed quotes on all candidate legs
 
 // F3/F7 — credit budget is distinct from max-expiry-loss budget.
 const noSizingConstraints=E.targetLedger(
