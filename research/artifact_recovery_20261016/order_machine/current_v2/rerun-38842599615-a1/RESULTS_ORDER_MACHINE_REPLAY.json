@@ -1,0 +1,158 @@
+{
+  "schema": "qqq-order-machine-replay-v2-contract",
+  "generatedAt": "2026-10-16T02:53:10.190Z",
+  "dataAsOf": "2026-09-04",
+  "source": "src/data/universe.json / c.QQQ / Yahoo adjclose",
+  "windows": 153,
+  "frontloads": [
+    0,
+    0.4,
+    1
+  ],
+  "assumptions": {
+    "purpose": "execution-contract/invariant replay only; NOT a strategy alpha or CAGR comparison",
+    "parent": "DEV/Vite dynamicTradeIntent from deploymentGap is the only BUY/SELL source",
+    "execution": "ladder chooses child rung/limit; child notional = parent intent notional × rung weight 50/30/20",
+    "fill": "daily-close touch only; manual paper fill confirmation; no fees/slippage",
+    "orderValidity": "persistent across market dates; new day marks ARMED as STALE; no automatic cancel",
+    "matching": "causal DAY/WEEK/MONTH volatility percentiles + causal 5D signed-return percentile; max distance 0.32; top 25 matches",
+    "rungs": "NEAR 1D/70%, MID 5D/50%, DEEP 21D/30%; weights 50/30/20"
+  },
+  "results": [
+    {
+      "frontload": 0,
+      "windows": 153,
+      "meanParentIntentDays": 2536.8366013071895,
+      "meanBuyIntentDays": 2536.8366013071895,
+      "meanSellIntentDays": 0,
+      "meanArmedOrders": 0.7124183006535948,
+      "meanFills": 0.8431372549019608,
+      "meanBuyFills": 0.8431372549019608,
+      "meanSellFills": 0,
+      "meanTouched": 0.8431372549019608,
+      "maxObservedActiveOrders": 1,
+      "meanParentNotional": 127717809.21054214,
+      "meanChildNotional": 9.375197503437299,
+      "meanFilledNotional": 24.948342720427455,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "parentIntentDays": 2538,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "parentIntentDays": 2537,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "parentIntentDays": 2538,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    },
+    {
+      "frontload": 0.4,
+      "windows": 153,
+      "meanParentIntentDays": 2537.483660130719,
+      "meanBuyIntentDays": 2470.156862745098,
+      "meanSellIntentDays": 67.32679738562092,
+      "meanArmedOrders": 0.8758169934640523,
+      "meanFills": 1.1241830065359477,
+      "meanBuyFills": 0.8496732026143791,
+      "meanSellFills": 0.27450980392156865,
+      "meanTouched": 1.1241830065359477,
+      "maxObservedActiveOrders": 1,
+      "meanParentNotional": 121626732.6145528,
+      "meanChildNotional": 8804.216711299412,
+      "meanFilledNotional": 8898.019652083442,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "parentIntentDays": 2538,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "parentIntentDays": 2537,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "parentIntentDays": 2539,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    },
+    {
+      "frontload": 1,
+      "windows": 153,
+      "meanParentIntentDays": 2537.483660130719,
+      "meanBuyIntentDays": 1936.8562091503268,
+      "meanSellIntentDays": 600.6274509803922,
+      "meanArmedOrders": 0.9673202614379085,
+      "meanFills": 1.3594771241830066,
+      "meanBuyFills": 0.8496732026143791,
+      "meanSellFills": 0.5098039215686274,
+      "meanTouched": 1.3594771241830066,
+      "maxObservedActiveOrders": 1,
+      "meanParentNotional": 176163986.66364935,
+      "meanChildNotional": 21993.232940094014,
+      "meanFilledNotional": 22226.960822835244,
+      "firstWindows": [
+        {
+          "start": "2004-01-02",
+          "end": "2014-01-31",
+          "parentIntentDays": 2538,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-02-02",
+          "end": "2014-02-28",
+          "parentIntentDays": 2537,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        },
+        {
+          "start": "2004-03-01",
+          "end": "2014-03-31",
+          "parentIntentDays": 2539,
+          "armedOrders": 0,
+          "fills": 0,
+          "buyFills": 0,
+          "sellFills": 0
+        }
+      ]
+    }
+  ]
+}

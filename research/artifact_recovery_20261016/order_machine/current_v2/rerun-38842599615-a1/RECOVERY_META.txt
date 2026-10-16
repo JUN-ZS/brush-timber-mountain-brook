@@ -1,0 +1,7 @@
+run_id=38842599615
+run_attempt=1
+tested_sha=02782cc6ad8cfca1fba047b1c77ebbc0f9b242c7
+source_branch=feat/rolling-floor-dynamic-floor-v1-20261004
+source_workflow=QQQ Order Machine Replay V2
+source_run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/38842599615
+output=deterministic_parent_intent_contract_replay
