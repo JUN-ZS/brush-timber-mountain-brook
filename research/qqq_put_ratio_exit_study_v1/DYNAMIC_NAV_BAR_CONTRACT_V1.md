@@ -14,7 +14,7 @@ Each resolved episode is added to NAV. The next entry uses the latest resolved N
 Three sizing modes are compared:
 1. PER_TRADE_TERMINAL_BUDGET: calculate whole units from current NAV times the selected risk budget divided by the current contract's expiry payoff maximum loss.
 2. EXPANDING_WORST_TERMINAL_BUDGET: divide by the larger of the current expiry loss and the worst expiry-loss envelope seen among prior candidates.
-3. FIXED_1_UNIT_BUDGET_BYPASS: force one unit when the displayed entry size allows it, regardless of whether it exceeds the selected tail budget. This is only an unsafe diagnostic comparator and reports the number of budget breaches.
+3. FIXED_1_UNIT_BUDGET_BYPASS and FIXED_12_UNIT_BUDGET_BYPASS: force 1 or 12 units when displayed entry size allows it, regardless of whether they exceed the selected tail budget. These are unsafe diagnostic comparators; 12 units is a scale stress test, not an assumption of linear P&L.
 
 ## BAR and drawdown rates
 For the 0.5%, 1%, 2% levels, report:
@@ -31,7 +31,7 @@ A zero-episode BAR row is BLOCKED/PENDING rather than 0%. Rates are historical o
 - The 2018-2025 period has already been examined during development and is not blind OOS.
 - Daily NAV marks are unknown while active quote prices are missing; observed drawdown may understate hidden losses.
 - The terminal-payoff budget is not a broker margin, assignment or forced-liquidation model.
-- The configuration grid is a search, so the number of configurations that hit the target is not a probability.
+- The configuration grid is a search, so the number of configurations that hit the target is not a probability. Fixed-unit budget-bypass modes are not candidates for promotion when they breach the terminal-payoff budget.
 - No live Hybrid policy constants, app target mutation or broker order permissions change.
 
 ## Acceptance

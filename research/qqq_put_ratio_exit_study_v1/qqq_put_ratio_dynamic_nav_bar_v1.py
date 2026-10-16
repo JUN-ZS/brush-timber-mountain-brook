@@ -23,6 +23,7 @@ SIZING_MODES = (
     "PER_TRADE_TERMINAL_BUDGET",
     "EXPANDING_WORST_TERMINAL_BUDGET",
     "FIXED_1_UNIT_BUDGET_BYPASS",
+    "FIXED_12_UNIT_BUDGET_BYPASS",
 )
 REGIME_STATES = (
     "ALL", "VIX_LT15", "VIX_15_25", "VIX_25_35", "VIX_GTE35",
@@ -61,8 +62,8 @@ def choose_units(
     observed_depth_cap: int,
     sizing_mode: str,
 ) -> dict[str, Any]:
-    if sizing_mode == "FIXED_1_UNIT_BUDGET_BYPASS":
-        planned = 1
+    if sizing_mode.startswith("FIXED_") and sizing_mode.endswith("_UNIT_BUDGET_BYPASS"):
+        planned = int(sizing_mode.split("_")[1])
         denom = one_unit_loss
     else:
         denom = one_unit_loss
@@ -541,7 +542,7 @@ def selected_daily(config: dict[str, Any]) -> bool:
         and abs(float(config["tail_budget_pct"]) - 0.01) < 1e-10
         and config["ratio_n"] in (1, 3, 5)
         and config["policy"] in ("DTE7_CLOSE_SHORT_RISK", "TP_1.0PCT_FULL_CLOSE", "FAST5_1.0PCT_TRIM_SHORT_RISK")
-        and config["sizing_mode"] in ("PER_TRADE_TERMINAL_BUDGET", "FIXED_1_UNIT_BUDGET_BYPASS")
+        and config["sizing_mode"] in ("PER_TRADE_TERMINAL_BUDGET", "FIXED_1_UNIT_BUDGET_BYPASS", "FIXED_12_UNIT_BUDGET_BYPASS")
     )
 
 
@@ -616,7 +617,7 @@ def run_study(
     viable = [row for row in portfolio_rows if row["net_pnl_usd"] is not None]
     budgeted = [
         row for row in viable
-        if row["sizing_mode"] != "FIXED_1_UNIT_BUDGET_BYPASS"
+        if not row["sizing_mode"].startswith("FIXED_")
         and row["tail_budget_breach_episodes"] == 0
         and row["executed_episodes"] >= 30
     ]
@@ -674,7 +675,7 @@ def run_study(
             "History has been previously reviewed; no scenario is blind final out-of-sample.",
             "Daily open-position NAV becomes null when option quote marks are missing; observed drawdown can understate hidden loss.",
             "Margin, assignment, forced liquidation and broker buying-power records are not modeled.",
-            "Fixed-one-unit bypass sizing is shown only as a tail-budget-violating diagnostic.",
+            "Fixed 1-unit and fixed 12-unit budget-bypass sizing modes are shown only as tail-budget-violating diagnostics; 12 units is a scaling stress, not an assumption of linear P&L.",
             "Search-grid goal counts are correlated historical configurations, not success probabilities.",
         ],
     }

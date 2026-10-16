@@ -52,6 +52,9 @@ class DynamicNavBarTests(unittest.TestCase):
         fixed = M.choose_units(100000, .01, 3000, 0, 20, "FIXED_1_UNIT_BUDGET_BYPASS")
         self.assertEqual(fixed["actual_units"], 1)
         self.assertTrue(fixed["breaches_tail_budget"])
+        fixed12 = M.choose_units(100000, .01, 3000, 0, 20, "FIXED_12_UNIT_BUDGET_BYPASS")
+        self.assertEqual(fixed12["actual_units"], 12)
+        self.assertTrue(fixed12["breaches_tail_budget"])
 
     def test_bar_occurrence_reports_episode_and_mark_rates(self):
         episodes = [
