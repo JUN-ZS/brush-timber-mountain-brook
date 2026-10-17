@@ -11,6 +11,7 @@ import argparse, csv, json, math, re, sys
 from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -281,11 +282,11 @@ def summarise(trades: list[dict[str, Any]], signal_counts: dict[str, Any]) -> di
             "win_rate_pct": round(100*wins/len(pnls), 4) if pnls else None,
             "total_one_unit_net_pnl_usd": round(sum(pnls), 2) if pnls else None,
             "mean_one_unit_net_pnl_usd": round(sum(pnls)/len(pnls), 2) if pnls else None,
-            "median_one_unit_net_pnl_usd": round(sorted(pnls)[len(pnls)//2], 2) if pnls else None,
+            "median_one_unit_net_pnl_usd": round(median(pnls), 2) if pnls else None,
             "worst_one_unit_net_pnl_usd": round(min(pnls), 2) if pnls else None,
             "best_one_unit_net_pnl_usd": round(max(pnls), 2) if pnls else None,
             "profit_factor": round(gross_wins/gross_losses, 5) if gross_losses else (None if not gross_wins else "INF_NO_LOSSES_IN_SAMPLE"),
-            "median_net_pnl_over_entry_terminal_worst_loss": round(sorted(risk_returns)[len(risk_returns)//2], 5) if risk_returns else None,
+            "median_net_pnl_over_entry_terminal_worst_loss": round(median(risk_returns), 5) if risk_returns else None,
             "tail_budget_1pct_nav_sizeable_episode_count": sum(int(x.get("units_at_1pct_nav_tail_budget") or 0) > 0 for x in all_rows),
         }
     return {"signal_summary": signal_counts, "strategy_summary": out}

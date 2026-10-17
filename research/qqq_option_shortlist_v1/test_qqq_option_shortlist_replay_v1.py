@@ -84,6 +84,17 @@ class ShortlistTests(unittest.TestCase):
         self.assertEqual(risk["terminal_worst_loss_usd"], 38600.0)
         self.assertIn(100.0, [x["spot"] for x in risk["terminal_pnl_knots"]])
 
+    def test_even_sample_medians_average_the_middle_pair(self):
+        rows = [
+            {"strategy_id": "S", "status": "RESOLVED", "net_pnl_usd": -100.0,
+             "terminal_worst_loss_usd": 200.0, "units_at_1pct_nav_tail_budget": 0},
+            {"strategy_id": "S", "status": "RESOLVED", "net_pnl_usd": 300.0,
+             "terminal_worst_loss_usd": 100.0, "units_at_1pct_nav_tail_budget": 1},
+        ]
+        result = study.summarise(rows, {})["strategy_summary"]["S"]
+        self.assertEqual(result["median_one_unit_net_pnl_usd"], 100.0)
+        self.assertEqual(result["median_net_pnl_over_entry_terminal_worst_loss"], 1.25)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
