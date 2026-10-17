@@ -339,8 +339,7 @@ function exportTapeCsv(){
   if(!rows.length){setMsg("No tape rows match the current filter.","yellow");return;}
   const head=["seq","timestamp_utc","relationship","action","code","qty","strategy_ticket_id","strategy_action","strategy_expected_manual_action","strategy_qty","qty_delta","price","strategy_price","execution_slippage_estimate","realized_pnl_delta","attributed_close_pnl","open_qty_remaining","note"];
   const cell=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
-  const csv=[head.join(","),...rows.map(t=>head.map(k=>cell(t[k])).join(","))].join("
-");
+  const csv=[head.join(","),...rows.map(t=>head.map(k=>cell(t[k])).join(","))].join("\r\n");
   const blob=new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
