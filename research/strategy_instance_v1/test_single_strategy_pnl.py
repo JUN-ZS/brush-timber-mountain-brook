@@ -1,8 +1,20 @@
 from __future__ import annotations
 
 import unittest
+import json
+import tempfile
+from pathlib import Path
 
-from .run_instance import manual_apply_trade, manual_position_snapshot, summarize_strategy_pnl
+from .ledger import InstanceLedger
+from .run_instance import (
+    STATE_SCHEMA,
+    instance_summary,
+    manual_apply_trade,
+    manual_position_snapshot,
+    mhash,
+    record_manual_trade,
+    summarize_strategy_pnl,
+)
 
 
 class SingleStrategyPnlTests(unittest.TestCase):
@@ -83,6 +95,109 @@ class SingleStrategyPnlTests(unittest.TestCase):
         ], expected_realized_pnl=99.0)
         self.assertEqual(out["reconciliation"]["status"], "CHECK_REQUIRED")
         self.assertAlmostEqual(out["reconciliation"]["realized_delta"], 1.0)
+
+
+
+
+    def test_real_manual_ledger_keeps_same_contract_strategies_separate(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            instance_id = "TEST_SINGLE_STRATEGY"
+            folder = repo / "research" / "strategy_instance_v1" / "instances" / instance_id
+            folder.mkdir(parents=True)
+            manifest = {
+                "schema": "STRATEGY_INSTANCE_MANIFEST.v1",
+                "schema_version": 1,
+                "instance_id": instance_id,
+                "created_at_utc": "2026-10-01T00:00:00+00:00",
+                "start_at_utc": "2026-10-01T00:00:00+00:00",
+                "strategy_id": "DEFAULT_STRATEGY",
+                "strategy_version": "TEST",
+                "research_engine_commit": None,
+                "strategy_lock_hash": None,
+                "far_dte": 120,
+                "far_delta": 0.08,
+                "near_dte": 30,
+                "coverage_mult": 1.5,
+                "initial_cash": 100000.0,
+                "far_code_hint": None,
+                "initial_positions": [],
+                "notes": "isolated fixture",
+                "mutation_rule": "immutable test T0",
+            }
+            manifest["manifest_hash"] = mhash(manifest)
+            (folder / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            state = {
+                "schema": STATE_SCHEMA, "schema_version": 1, "instance_id": instance_id,
+                "processed_deal_ids": [], "lots": [], "realized_pnl": 0.0,
+                "last_cycle_at": None, "last_history_backfill_at": None,
+                "last_snapshot_hash": None, "last_reconcile": None,
+                "cycle_count": 0, "data_gaps": 0, "manual_lots": [],
+                "manual_realized_pnl": 0.0, "manual_trade_count": 0, "manual_last_mark": None,
+            }
+            (folder / "state.json").write_text(json.dumps(state), encoding="utf-8")
+            ledger = InstanceLedger(
+                folder / "ledger.jsonl",
+                {
+                    "instance_id": instance_id,
+                    "manifest_hash": manifest["manifest_hash"],
+                    "strategy_id": manifest["strategy_id"],
+                    "strategy_version": manifest["strategy_version"],
+                    "research_engine_commit": None,
+                },
+            )
+            ledger.append(
+                "INSTANCE_CREATED", instance_id=instance_id, cycle_id="INIT",
+                timestamp_utc="2026-10-01T00:00:00+00:00", payload={"fixture": True},
+                source="USER_INITIAL",
+            )
+
+            common = {
+                "repo": repo, "instance_id": instance_id, "action": "ADD",
+                "code": "US.QQQ.SAME_CONTRACT", "qty": 2, "lot_size": 100,
+                "timestamp_utc": "2026-10-01T00:01:00+00:00",
+            }
+            record_manual_trade(
+                common["repo"], instance_id=common["instance_id"], action="ADD",
+                code=common["code"], qty=2, price=5.0, lot_size=100,
+                timestamp_utc="2026-10-01T00:01:00+00:00", trade_id="OPEN_A",
+                strategy_id="STRAT_A",
+            )
+            record_manual_trade(
+                common["repo"], instance_id=common["instance_id"], action="ADD",
+                code=common["code"], qty=2, price=7.0, lot_size=100,
+                timestamp_utc="2026-10-01T00:02:00+00:00", trade_id="OPEN_B",
+                strategy_id="STRAT_B",
+            )
+            record_manual_trade(
+                common["repo"], instance_id=common["instance_id"], action="REDUCE",
+                code=common["code"], qty=1, price=8.0, lot_size=100,
+                timestamp_utc="2026-10-01T00:03:00+00:00", trade_id="CLOSE_A",
+                strategy_id="STRAT_A",
+            )
+
+            report = instance_summary(repo, instance_id)
+            pnl = report["strategy_pnl"]["by_strategy"]
+            positions = {x["strategy_id"]: x for x in report["manual_book"]["positions"]}
+            self.assertEqual(pnl["STRAT_A"]["realized_pnl"], 300.0)
+            self.assertEqual(pnl["STRAT_B"]["realized_pnl"], 0.0)
+            self.assertEqual(positions["STRAT_A"]["qty"], 1)
+            self.assertEqual(positions["STRAT_B"]["qty"], 2)
+            self.assertEqual(positions["STRAT_A"]["avg_cost"], 5.0)
+            self.assertEqual(positions["STRAT_B"]["avg_cost"], 7.0)
+            self.assertEqual(report["strategy_pnl"]["reconciliation"]["status"], "PENDING_MARKS")
+
+            with self.assertRaisesRegex(SystemExit, "MANUAL_REDUCE_EXCEEDS_POSITION"):
+                record_manual_trade(
+                    repo, instance_id=instance_id, action="REDUCE",
+                    code="US.QQQ.SAME_CONTRACT", qty=2, price=9.0, lot_size=100,
+                    timestamp_utc="2026-10-01T00:04:00+00:00", trade_id="BAD_CLOSE_A",
+                    strategy_id="STRAT_A",
+                )
+            report_after = instance_summary(repo, instance_id)
+            positions_after = {x["strategy_id"]: x for x in report_after["manual_book"]["positions"]}
+            self.assertEqual(positions_after["STRAT_A"]["qty"], 1)
+            self.assertEqual(positions_after["STRAT_B"]["qty"], 2)
 
 
 if __name__ == "__main__":
