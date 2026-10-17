@@ -1,0 +1,10 @@
+period,cost_case,exact_call_leg_pairs,mean_pnl_delta_combo_minus_call_usd,median_pnl_delta_combo_minus_call_usd,combo_higher_pnl_count,combo_lower_pnl_count,mean_mae_delta_combo_minus_call_usd,combo_less_adverse_mae_count,combo_more_adverse_mae_count,identity_mismatch_rows_excluded,interpretation
+FULL,ZERO,24,-60.29,-77.0,4,19,40.37,12,12,0,same-signal exact-call-leg comparison; later period is not virgin OOS
+FULL,BASE,24,-71.59,-88.3,3,21,29.07,12,12,0,same-signal exact-call-leg comparison; later period is not virgin OOS
+FULL,STRESS,24,-81.59,-98.3,3,21,19.07,11,13,0,same-signal exact-call-leg comparison; later period is not virgin OOS
+2018-2022,ZERO,15,-57.33,-91.0,3,11,29.4,7,8,0,same-signal exact-call-leg comparison; later period is not virgin OOS
+2018-2022,BASE,15,-68.63,-102.3,2,13,18.1,7,8,0,same-signal exact-call-leg comparison; later period is not virgin OOS
+2018-2022,STRESS,15,-78.63,-112.3,2,13,8.1,6,9,0,same-signal exact-call-leg comparison; later period is not virgin OOS
+2023-2025,ZERO,9,-65.22,-72.0,1,8,58.67,5,4,0,same-signal exact-call-leg comparison; later period is not virgin OOS
+2023-2025,BASE,9,-76.52,-83.3,1,8,47.37,5,4,0,same-signal exact-call-leg comparison; later period is not virgin OOS
+2023-2025,STRESS,9,-86.52,-93.3,1,8,37.37,5,4,0,same-signal exact-call-leg comparison; later period is not virgin OOS
