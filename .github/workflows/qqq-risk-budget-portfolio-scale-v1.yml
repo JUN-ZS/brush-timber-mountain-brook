@@ -1,0 +1,94 @@
+name: QQQ Event-Driven Portfolio NAV Scale Replay V1
+
+on:
+  push:
+    branches:
+      - research/qqq-option-portfolio-scale-v1-20261017
+    paths:
+      - research/qqq_option_portfolio_scale_v1/risk_budget_portfolio_scale_replay_v1.py
+      - research/qqq_option_portfolio_scale_v1/test_risk_budget_portfolio_scale_replay_v1.py
+      - research/qqq_option_portfolio_scale_v1/aggregate_portfolio_scale_v1.py
+      - research/qqq_option_portfolio_scale_v1/test_aggregate_portfolio_scale_v1.py
+      - research/qqq_option_portfolio_scale_v1/README.md
+      - .github/workflows/qqq-risk-budget-portfolio-scale-v1.yml
+
+permissions:
+  contents: write
+concurrency:
+  group: qqq-risk-budget-portfolio-scale-v1
+  cancel-in-progress: false
+jobs:
+  replay:
+    name: Three-NAV QQQ account replay (Linux BOT)
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout isolated NAV-scale branch
+      - name: Compile and run offline contract tests
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+          .venv/bin/python -m py_compile research/qqq_option_portfolio_scale_v1/risk_budget_portfolio_scale_replay_v1.py
+          .venv/bin/python research/qqq_option_portfolio_scale_v1/test_risk_budget_portfolio_scale_replay_v1.py
+          .venv/bin/python -m py_compile research/qqq_option_portfolio_scale_v1/aggregate_portfolio_scale_v1.py
+          .venv/bin/python research/qqq_option_portfolio_scale_v1/test_aggregate_portfolio_scale_v1.py
+      - name: Reuse SHA-verified persistent Linux BOT cache
+        run: |
+          set -euo pipefail
+          cache_dir="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$cache_dir" .cache
+          rm -rf .cache/qqq-options-full-history
+          ln -s "$cache_dir" .cache/qqq-options-full-history
+          find "$cache_dir" -maxdepth 1 -type f -printf '%f %s bytes\n' | head -20 || true
+      - name: Run identical account replay at USD 80k, 100k and 1m
+        timeout-minutes: 135
+        run: |
+          set -euo pipefail
+          OUT="artifacts/qqq_option_portfolio_scale_v1"
+          mkdir -p "$OUT/by_nav"
+          for nav in 80000 100000 1000000; do
+            echo "=== initial NAV $nav ==="
+            QQQ_INITIAL_NAV_USD="$nav" .venv/bin/python research/qqq_option_portfolio_scale_v1/risk_budget_portfolio_scale_replay_v1.py \
+              --out "$OUT/by_nav/$nav" | tee "$OUT/runner-$nav.json"
+            test -s "$OUT/by_nav/$nav/manifest.json"
+            test -s "$OUT/by_nav/$nav/summary.csv"
+            test -s "$OUT/by_nav/$nav/trade_ledger.csv"
+            test -s "$OUT/by_nav/$nav/daily_nav.csv.gz"
+          done
+          .venv/bin/python research/qqq_option_portfolio_scale_v1/aggregate_portfolio_scale_v1.py \
+            --input-root "$OUT/by_nav" --out "$OUT"
+          test -s "$OUT/scale_summary.csv"
+          test -s "$OUT/nav_scaling_nonlinearity.csv"
+          test -s "$OUT/REPORT.md"
+          .venv/bin/python - <<'PY'
+          import csv,json
+          from pathlib import Path
+          p=Path("artifacts/qqq_option_portfolio_scale_v1")
+          m=json.loads((p/"manifest.json").read_text())
+          assert m["navs_tested"]==[80000,100000,1000000]
+          assert m["combined_account_rows"]==129
+          assert m["signal_count"]==28
+          assert m["max_abs_nav_reconciliation_error_usd"]<0.01
+          with (p/"scale_summary.csv").open(newline="") as f: rows=list(csv.DictReader(f))
+          assert len(rows)==129
+          print("Three NAV manifests, 129 accounts, source parity, and NAV reconciliation=PASS")
+          print((p/"REPORT.md").read_text())
+          PY
+      - name: Persist audited outputs without Actions artifact quota
+        if: success()
+        run: |
+          set -euo pipefail
+          dest="research/qqq_option_portfolio_scale_v1/results/run-$GITHUB_RUN_ID-$GITHUB_SHA"
+          mkdir -p "$dest"
+          cp -a artifacts/qqq_option_portfolio_scale_v1/. "$dest/"
+          printf 'tested_sha=%s\nrun_id=%s\nrunner_name=%s\nsource_end=2025-12-15\nscope=research-only; no orders; no live policy changes\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$RUNNER_NAME" > "$dest/RECOVERY_META.txt"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$dest"
+          git commit -m "research output: QQQ NAV scale replay $GITHUB_RUN_ID"
+          git push origin "HEAD:$GITHUB_REF_NAME"
