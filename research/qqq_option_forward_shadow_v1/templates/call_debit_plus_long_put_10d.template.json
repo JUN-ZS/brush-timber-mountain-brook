@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "snapshot_id": "FILL_REQUIRED_UNIQUE_SNAPSHOT_ID",
+  "event_id": "FILL_REQUIRED_UNIQUE_EVENT_ID",
+  "strategy_id": "CALL_DEBIT_PLUS_LONG_PUT_10D",
+  "event_type": "SIGNAL",
+  "snapshot_date": "FILL_REQUIRED_YYYY-MM-DD",
+  "captured_at": "FILL_REQUIRED_ISO8601_TIMESTAMP_WITH_OFFSET",
+  "nav_usd": null,
+  "market": {
+    "symbol": "QQQ",
+    "qqq_price": null,
+    "qqq_observed_at": "FILL_REQUIRED_ISO8601_TIMESTAMP_WITH_OFFSET",
+    "vix": null,
+    "vix_observed_at": "FILL_REQUIRED_ISO8601_TIMESTAMP_WITH_OFFSET"
+  },
+  "signal": {
+    "rule_id": "QQQ_REVERSAL_2P1_MA20_VIX5D_V1",
+    "state": "INCOMPLETE",
+    "qqq_close_vs_ma20_pct": null,
+    "previous_close_vs_ma20_pct": null,
+    "qqq_up_day": null,
+    "vix_5_session_change_pct": null
+  },
+  "source": {
+    "source_type": "MANUAL_SCREEN_CAPTURE",
+    "provider": "FILL_REQUIRED_PERMITTED_PROVIDER",
+    "observation_timezone": "America/New_York",
+    "evidence_file": "evidence/FILL_REQUIRED_ORIGINAL_CAPTURE.ext",
+    "evidence_sha256": "FILL_REQUIRED_64_HEX_SHA256"
+  },
+  "execution_enabled": false,
+  "order_placed": false,
+  "legs": [
+    {
+      "contract_id": "FILL_REQUIRED_QQQ_OCC_CALL_ID",
+      "symbol": "QQQ",
+      "right": "C",
+      "expiry": "FILL_REQUIRED_YYYY-MM-DD",
+      "strike": null,
+      "position_side": "LONG",
+      "qty": 1,
+      "quote_status": "FILL_REQUIRED_OBSERVED_OR_MISSING",
+      "quote_date": "FILL_REQUIRED_YYYY-MM-DD",
+      "quote_captured_at": "FILL_REQUIRED_ISO8601_TIMESTAMP_WITH_OFFSET",
+      "bid": null,
+      "ask": null,
+      "bid_size": null,
+      "ask_size": null,
+      "delta": null,
+      "missing_reason": "FILL_REQUIRED_IF_MISSING"
+    },
+    {
+      "contract_id": "FILL_REQUIRED_QQQ_OCC_CALL_ID",
+      "symbol": "QQQ",
+      "right": "C",
+      "expiry": "FILL_REQUIRED_YYYY-MM-DD",
+      "strike": null,
+      "position_side": "SHORT",
+      "qty": 1,
+      "quote_status": "FILL_REQUIRED_OBSERVED_OR_MISSING",
+      "quote_date": "FILL_REQUIRED_YYYY-MM-DD",
+      "quote_captured_at": "FILL_REQUIRED_ISO8601_TIMESTAMP_WITH_OFFSET",
+      "bid": null,
+      "ask": null,
+      "bid_size": null,
+      "ask_size": null,
+      "delta": null,
+      "missing_reason": "FILL_REQUIRED_IF_MISSING"
+    },
+    {
+      "contract_id": "FILL_REQUIRED_QQQ_OCC_PUT_ID",
+      "symbol": "QQQ",
+      "right": "P",
+      "expiry": "FILL_REQUIRED_SAME_EXPIRY_YYYY-MM-DD",
+      "strike": null,
+      "position_side": "LONG",
+      "qty": 1,
+      "quote_status": "FILL_REQUIRED_OBSERVED_OR_MISSING",
+      "quote_date": "FILL_REQUIRED_YYYY-MM-DD",
+      "quote_captured_at": "FILL_REQUIRED_ISO8601_TIMESTAMP_WITH_OFFSET",
+      "bid": null,
+      "ask": null,
+      "bid_size": null,
+      "ask_size": null,
+      "delta": null,
+      "missing_reason": "FILL_REQUIRED_IF_MISSING"
+    }
+  ]
+}
