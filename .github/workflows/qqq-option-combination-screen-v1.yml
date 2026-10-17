@@ -1,0 +1,118 @@
+name: QQQ Option Combination Screen V1
+on:
+  push:
+    branches:
+      - research/qqq-option-combination-screen-v1-20261017
+    paths:
+      - research/qqq_option_combination_screen_v1/qqq_option_combination_screen_v1.py
+      - research/qqq_option_combination_screen_v1/test_qqq_option_combination_screen_v1.py
+      - research/qqq_option_combination_screen_v1/README.md
+      - .github/workflows/qqq-option-combination-screen-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-option-combination-screen-v1
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: SHA-pinned QQQ real-chain combination screen
+    runs-on: [self-hosted, linux, x64, grokbot-box-linux-x64]
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          ref: research/qqq-option-combination-screen-v1-20261017
+
+      - name: Runtime, dependencies, and offline contract tests
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location duckdb==1.4.1 pandas==2.3.3 pyarrow==21.0.0 tabulate==0.9.0
+          .venv/bin/python -m py_compile research/qqq_option_combination_screen_v1/qqq_option_combination_screen_v1.py
+          .venv/bin/python research/qqq_option_combination_screen_v1/test_qqq_option_combination_screen_v1.py
+
+      - name: Reuse or restore the isolated SHA-verified Linux BOT data cache
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          CACHE="$HOME/.cache/qqq-option-data-v1"
+          mkdir -p "$CACHE"
+          EXPECT_OPT="1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734"
+          EXPECT_UND="78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351"
+          valid_cache=true
+          [[ -s "$CACHE/QQQ_options.parquet" ]] || valid_cache=false
+          [[ -s "$CACHE/QQQ_underlying.parquet" ]] || valid_cache=false
+          if [[ "$valid_cache" == "true" ]]; then
+            [[ "$(sha256sum "$CACHE/QQQ_options.parquet" | awk '{print $1}')" == "$EXPECT_OPT" ]] || valid_cache=false
+            [[ "$(sha256sum "$CACHE/QQQ_underlying.parquet" | awk '{print $1}')" == "$EXPECT_UND" ]] || valid_cache=false
+          fi
+          if [[ "$valid_cache" != "true" ]]; then
+            TMP="$RUNNER_TEMP/qqq-option-data-v1"
+            rm -rf "$TMP"
+            mkdir -p "$TMP"
+            gh release download data-v1 --repo lambdaclass/options_portfolio_backtester --pattern "QQQ_options.parquet" --pattern "QQQ_underlying.parquet" --dir "$TMP"
+            ACT_OPT="$(sha256sum "$TMP/QQQ_options.parquet" | awk '{print $1}')"
+            ACT_UND="$(sha256sum "$TMP/QQQ_underlying.parquet" | awk '{print $1}')"
+            [[ "$ACT_OPT" == "$EXPECT_OPT" ]] || { echo "::error::QQQ options SHA mismatch"; exit 1; }
+            [[ "$ACT_UND" == "$EXPECT_UND" ]] || { echo "::error::QQQ underlying SHA mismatch"; exit 1; }
+            cp "$TMP/QQQ_options.parquet" "$CACHE/QQQ_options.parquet"
+            cp "$TMP/QQQ_underlying.parquet" "$CACHE/QQQ_underlying.parquet"
+          fi
+          mkdir -p data
+          ln -sf "$CACHE/QQQ_options.parquet" data/QQQ_options.parquet
+          ln -sf "$CACHE/QQQ_underlying.parquet" data/QQQ_underlying.parquet
+          sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
+
+      - name: Run QQQ plus option combination screen
+        run: |
+          set -euo pipefail
+          .venv/bin/python research/qqq_option_combination_screen_v1/qqq_option_combination_screen_v1.py \
+            --data-dir data \
+            --out research/qqq_option_combination_screen_v1/results \
+            --navs 80000 1000000 \
+            --start-date 2011-03-23 \
+            --end-date 2025-12-15
+
+      - name: Verify study outputs and NAV attribution
+        run: |
+          set -euo pipefail
+          .venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          p = Path("research/qqq_option_combination_screen_v1/results")
+          required = ["summary.csv", "daily_nav.csv", "trade_ledger.csv", "manifest.json", "REPORT.md"]
+          assert all((p / x).is_file() for x in required), "missing study output"
+          s = pd.read_csv(p / "summary.csv")
+          assert len(s) == 16, f"expected 16 comparison rows, got {len(s)}"
+          assert s["max_abs_nav_reconciliation_error_usd"].dropna().max() < 0.01
+          m = json.loads((p / "manifest.json").read_text())
+          assert m["options_sha256"] == "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734"
+          assert m["underlying_sha256"] == "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351"
+          print(s[["variant", "cost_case", "initial_nav_usd", "final_nav_usd", "cagr_pct", "maxdd_observed_marks_pct", "entries", "exits", "missing_or_incomplete_nav_marks"]].to_string(index=False))
+          print("manifest and NAV attribution contract=PASS")
+          PY
+
+      - name: Persist audited outputs on this research branch (no artifact quota dependency)
+        if: success()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_option_combination_screen_v1/results
+          if git diff --cached --quiet; then
+            echo "No output changes to persist."
+          else
+            git commit -m "research: persist QQQ option combination screen results"
+            git push origin HEAD:research/qqq-option-combination-screen-v1-20261017
+          fi
