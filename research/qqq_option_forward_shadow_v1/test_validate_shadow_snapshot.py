@@ -91,7 +91,7 @@ class ShadowSnapshotTests(unittest.TestCase):
                                     "ask_size":None,"delta":None,"missing_reason":"Contract row absent from source"})
             result=shadow.validate_snapshot(snap,root)
             self.assertEqual(result["contract_signature"][0]["contract_id"],"QQQ261120C00520000")
-            self.assertEqual(result["contract_signature"][0]["quote_status"],"MISSING")
+            self.assertEqual(result["leg_quote_statuses"][0],"MISSING")
 
     def test_evidence_hash_mismatch_is_rejected(self):
         with tempfile.TemporaryDirectory() as d:
@@ -108,6 +108,29 @@ class ShadowSnapshotTests(unittest.TestCase):
             snap["legs"][0]["quote_date"]="2026-10-19"
             with self.assertRaises(shadow.SnapshotValidationError):
                 shadow.validate_snapshot(snap,root)
+
+
+    def test_scaled_positions_keep_same_ratio_signature(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            signal=make_snapshot(root,event_type="SIGNAL")
+            signal["signal"]={"rule_id":shadow.SIGNAL_RULE_ID,"state":"TRIGGERED",
+                              "qqq_close_vs_ma20_pct":-2.4,"previous_close_vs_ma20_pct":-2.3,
+                              "qqq_up_day":True,"vix_5_session_change_pct":-4.0}
+            entry=make_snapshot(root)
+            entry["snapshot_id"]="SNAP_20261021_155500_001"
+            entry["snapshot_date"]="2026-10-21"
+            entry["captured_at"]="2026-10-21T15:55:00-04:00"
+            entry["event_type"]="ENTRY"
+            entry["market"]["qqq_observed_at"]="2026-10-21T15:55:00-04:00"
+            entry["market"]["vix_observed_at"]="2026-10-21T15:55:00-04:00"
+            for leg in entry["legs"]:
+                leg["qty"]=2
+                leg["quote_date"]="2026-10-21"
+                leg["quote_captured_at"]="2026-10-21T15:55:00-04:00"
+            a=shadow.validate_snapshot(signal,root)
+            b=shadow.validate_snapshot(entry,root)
+            self.assertEqual(a["contract_signature"],b["contract_signature"])
 
     def test_automatic_execution_is_rejected(self):
         with tempfile.TemporaryDirectory() as d:

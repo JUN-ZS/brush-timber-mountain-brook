@@ -238,13 +238,19 @@ def validate_snapshot(snapshot: Any, shadow_root: Path) -> dict[str, Any]:
     if event_type in {"ENTRY", "EXIT"} and not legs:
         raise SnapshotValidationError(f"{event_type} requires exact contract legs")
     normalized = [_validate_leg(leg, snapshot_date, event_type, i) for i, leg in enumerate(legs)]
-    signature = [{k: leg[k] for k in ("contract_id", "right", "expiry", "strike", "position_side", "qty")}
-                 for leg in normalized]
+    quantities = [int(leg["qty"]) for leg in normalized]
+    common = math.gcd(*quantities) if quantities else 1
+    signature = [
+        {**{k: leg[k] for k in ("contract_id", "right", "expiry", "strike", "position_side")},
+         "ratio_qty": int(leg["qty"]) // common}
+        for leg in normalized
+    ]
     return {
         "status": "VALID_RESEARCH_SNAPSHOT",
         "snapshot_id": snapshot_id, "event_id": event_id, "strategy_id": strategy_id,
         "event_type": event_type, "snapshot_date": snapshot_date, "evidence": evidence,
-        "contract_signature": signature, "leg_count": len(normalized),
+        "contract_signature": signature, "leg_quote_statuses": [leg["quote_status"] for leg in normalized],
+        "leg_count": len(normalized),
         "execution_enabled": False, "order_placed": False,
         "note": "Checks identity/provenance/field consistency; does not prove a fill or strategy edge.",
     }
@@ -284,11 +290,18 @@ def validate_directory(snapshot_dir: Path, shadow_root: Path) -> dict[str, Any]:
                 signal_date = record["snapshot_date"]
                 signature = record["contract_signature"]
             elif kind == "ENTRY":
+                if signal_date is None:
+                    raise SnapshotValidationError(f"{key}: ENTRY requires a preceding frozen SIGNAL record")
                 if entry_date is not None:
                     raise SnapshotValidationError(f"{key}: duplicate ENTRY record")
-                if signal_date is not None and record["snapshot_date"] <= signal_date:
+                if record["snapshot_date"] <= signal_date:
                     raise SnapshotValidationError(f"{key}: ENTRY must occur after signal date; no same-close fills")
                 entry_date = record["snapshot_date"]
+            elif kind == "BLOCKED_ENTRY":
+                if signal_date is None:
+                    raise SnapshotValidationError(f"{key}: BLOCKED_ENTRY requires a preceding SIGNAL record")
+                if record["snapshot_date"] <= signal_date:
+                    raise SnapshotValidationError(f"{key}: entry attempt must occur after signal date")
             elif kind in {"MARK", "MISSING_MARK", "EXIT", "BLOCKED_EXIT", "CENSORED"}:
                 if entry_date is None:
                     raise SnapshotValidationError(f"{key}: {kind} cannot precede ENTRY")
