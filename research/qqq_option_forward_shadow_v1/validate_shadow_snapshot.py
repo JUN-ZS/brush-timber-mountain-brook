@@ -228,6 +228,7 @@ def validate_snapshot(snapshot: Any, shadow_root: Path) -> dict[str, Any]:
             raise SnapshotValidationError(
                 f"market.{field} date in source.observation_timezone must equal snapshot_date"
             )
+    signal_state = None
     signal = snapshot.get("signal")
     if event_type == "SIGNAL":
         if not isinstance(signal, dict):
@@ -235,6 +236,7 @@ def validate_snapshot(snapshot: Any, shadow_root: Path) -> dict[str, Any]:
         if signal.get("rule_id") != SIGNAL_RULE_ID:
             raise SnapshotValidationError(f"signal.rule_id must be frozen as {SIGNAL_RULE_ID}")
         state = str(signal.get("state", "")).upper()
+        signal_state = state
         if state not in {"TRIGGERED", "NOT_TRIGGERED", "INCOMPLETE"}:
             raise SnapshotValidationError("signal.state must be TRIGGERED, NOT_TRIGGERED or INCOMPLETE")
         if state == "TRIGGERED":
@@ -254,21 +256,30 @@ def validate_snapshot(snapshot: Any, shadow_root: Path) -> dict[str, Any]:
         raise SnapshotValidationError("legs must be a list; use [] when no contracts were selected")
     if event_type in {"ENTRY", "EXIT"} and not legs:
         raise SnapshotValidationError(f"{event_type} requires exact contract legs")
+    if event_type == "SIGNAL" and signal_state == "NOT_TRIGGERED" and legs:
+        raise SnapshotValidationError("NOT_TRIGGERED signal must not contain option legs")
     normalized = [
         _validate_leg(leg, snapshot_date, event_type, i, observation_timezone)
         for i, leg in enumerate(legs)
     ]
-    quantities = [int(leg["qty"]) for leg in normalized]
-    common = math.gcd(*quantities) if quantities else 1
+    if event_type in {"ENTRY", "EXIT", "MARK"}:
+        if not normalized:
+            raise SnapshotValidationError(f"{event_type} requires exact contract legs")
+        if any(leg["quote_status"] != "OBSERVED" for leg in normalized):
+            raise SnapshotValidationError(f"{event_type} requires observed quotes for every leg; use BLOCKED_* or MISSING_MARK")
+    if event_type == "MISSING_MARK":
+        if not normalized or not any(leg["quote_status"] == "MISSING" for leg in normalized):
+            raise SnapshotValidationError("MISSING_MARK requires at least one explicitly missing leg quote")
     signature = [
         {**{k: leg[k] for k in ("contract_id", "right", "expiry", "strike", "position_side")},
-         "ratio_qty": int(leg["qty"]) // common}
+         "qty": int(leg["qty"])}
         for leg in normalized
     ]
     return {
         "status": "VALID_RESEARCH_SNAPSHOT",
         "snapshot_id": snapshot_id, "event_id": event_id, "strategy_id": strategy_id,
         "event_type": event_type, "snapshot_date": snapshot_date, "evidence": evidence,
+        "captured_at_epoch": captured_at.timestamp(), "signal_state": signal_state,
         "contract_signature": signature, "leg_quote_statuses": [leg["quote_status"] for leg in normalized],
         "leg_count": len(normalized),
         "execution_enabled": False, "order_placed": False,
@@ -297,47 +308,65 @@ def validate_directory(snapshot_dir: Path, shadow_root: Path) -> dict[str, Any]:
 
     checks = 0
     for key, items in by_event.items():
-        items.sort(key=lambda item: (item[0]["snapshot_date"], item[0]["snapshot_id"]))
-        signal_date = None
-        entry_date = None
-        exit_date = None
+        # Capture timestamps, not arbitrary snapshot IDs, define event order.
+        items.sort(key=lambda item: (item[0]["captured_at_epoch"], item[0]["snapshot_id"]))
+        signal_record = None
+        entry_record = None
+        entry_blocked = False
+        terminal_kind = None
         signature = None
         for record, _path in items:
             kind = record["event_type"]
+            if terminal_kind is not None:
+                raise SnapshotValidationError(f"{key}: {kind} is not allowed after terminal {terminal_kind}")
+
             if kind == "SIGNAL":
-                if signal_date is not None:
+                if signal_record is not None:
                     raise SnapshotValidationError(f"{key}: duplicate SIGNAL record")
-                signal_date = record["snapshot_date"]
+                if entry_record is not None or entry_blocked:
+                    raise SnapshotValidationError(f"{key}: SIGNAL must precede every entry attempt")
+                signal_record = record
                 signature = record["contract_signature"]
-            elif kind == "ENTRY":
-                if signal_date is None:
-                    raise SnapshotValidationError(f"{key}: ENTRY requires a preceding frozen SIGNAL record")
-                if entry_date is not None:
-                    raise SnapshotValidationError(f"{key}: duplicate ENTRY record")
-                if record["snapshot_date"] <= signal_date:
-                    raise SnapshotValidationError(f"{key}: ENTRY must occur after signal date; no same-close fills")
-                entry_date = record["snapshot_date"]
-            elif kind == "BLOCKED_ENTRY":
-                if signal_date is None:
-                    raise SnapshotValidationError(f"{key}: BLOCKED_ENTRY requires a preceding SIGNAL record")
-                if record["snapshot_date"] <= signal_date:
-                    raise SnapshotValidationError(f"{key}: entry attempt must occur after signal date")
-            elif kind in {"MARK", "MISSING_MARK", "EXIT", "BLOCKED_EXIT", "CENSORED"}:
-                if entry_date is None:
-                    raise SnapshotValidationError(f"{key}: {kind} cannot precede ENTRY")
-            if kind == "EXIT":
-                if exit_date is not None:
-                    raise SnapshotValidationError(f"{key}: duplicate EXIT record")
-                if record["snapshot_date"] < entry_date:
-                    raise SnapshotValidationError(f"{key}: EXIT precedes ENTRY")
-                exit_date = record["snapshot_date"]
-            if kind in {"ENTRY", "MARK", "MISSING_MARK", "EXIT", "BLOCKED_EXIT", "CENSORED"}:
-                current_signature = record["contract_signature"]
-                if signature is None:
-                    signature = current_signature
-                elif signature != current_signature:
-                    raise SnapshotValidationError(f"{key}: contract IDs/legs changed; silent substitution is forbidden")
-            checks += 1
+                checks += 1
+                continue
+
+            if signal_record is None:
+                raise SnapshotValidationError(f"{key}: {kind} requires a preceding frozen SIGNAL record")
+
+            if kind in {"ENTRY", "BLOCKED_ENTRY"}:
+                if signal_record["signal_state"] != "TRIGGERED":
+                    raise SnapshotValidationError(
+                        f"{key}: entry attempt requires SIGNAL state TRIGGERED, got {signal_record['signal_state']}"
+                    )
+                if record["snapshot_date"] <= signal_record["snapshot_date"]:
+                    raise SnapshotValidationError(f"{key}: entry attempt must occur after signal date; no same-close fills")
+                if entry_record is not None or entry_blocked:
+                    raise SnapshotValidationError(f"{key}: only one entry attempt is allowed per frozen signal")
+                if record["contract_signature"] != signature:
+                    raise SnapshotValidationError(f"{key}: contract IDs, sides, or quantities changed from SIGNAL")
+                if kind == "BLOCKED_ENTRY":
+                    entry_blocked = True
+                    terminal_kind = "BLOCKED_ENTRY"
+                else:
+                    entry_record = record
+                checks += 1
+                continue
+
+            if kind in {"MARK", "MISSING_MARK", "EXIT", "BLOCKED_EXIT", "CENSORED"}:
+                if entry_record is None:
+                    raise SnapshotValidationError(f"{key}: {kind} requires a successful ENTRY")
+                if record["captured_at_epoch"] <= entry_record["captured_at_epoch"]:
+                    raise SnapshotValidationError(f"{key}: {kind} must occur after ENTRY")
+                if record["contract_signature"] != signature:
+                    raise SnapshotValidationError(f"{key}: contract IDs, sides, or quantities changed; silent substitution is forbidden")
+                if kind == "EXIT":
+                    terminal_kind = "EXIT"
+                elif kind == "CENSORED":
+                    terminal_kind = "CENSORED"
+                checks += 1
+                continue
+
+            raise SnapshotValidationError(f"{key}: unsupported lifecycle event {kind!r}")
     return {
         "status": "VALID_APPEND_ONLY_SHADOW_LEDGER", "snapshots_validated": len(records),
         "event_strategy_pairs": len(by_event), "unique_snapshot_ids": len(seen),
