@@ -75,6 +75,12 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
         <button data-action="SELL_FAR" onclick="setAction('SELL_FAR')">SELL FAR</button>
         <button data-action="BUY_BACK_FAR" onclick="setAction('BUY_BACK_FAR')">BUY BACK FAR</button>
       </div>
+      <div class="field" style="margin:8px 0 12px">
+        <label>Strategy ID · independent manual-book P&amp;L attribution</label>
+        <input id="strategyId" list="strategyIds" placeholder="e.g. QQQ_PUT_RATIO_1X5" autocomplete="off">
+        <datalist id="strategyIds"></datalist>
+        <div class="tiny">Opening and closing lots stay inside this ID. Legacy events without an ID are UNALLOCATED. This does not change strategy rules or submit orders.</div>
+      </div>
       <div class="grid3">
         <div class="field"><label>Option Code</label><input id="code" list="codes" placeholder="US.QQQ..." autocomplete="off"></div>
         <div class="field"><label>Quantity</label><input id="qty" class="num" type="number" min="1" step="1" value="1"></div>
@@ -103,14 +109,25 @@ pre{white-space:pre-wrap;word-break:break-word;margin:0}
     </div>
   </div>
 
+  <div class="card">
+    <h2>SINGLE STRATEGY P&amp;L · STRATEGY ID SELECTOR</h2>
+    <div class="grid3">
+      <div class="preview"><div class="label">Selected Strategy · Realized</div><div class="kpi" id="spRealized">—</div><div class="tiny" id="spTradeCount">trades: —</div></div>
+      <div class="preview"><div class="label">Selected Strategy · Unrealized</div><div class="kpi" id="spUnrealized">—</div><div class="tiny" id="spMarks">marks: —</div></div>
+      <div class="preview"><div class="label">Selected Strategy · Total P&amp;L</div><div class="kpi" id="spTotal">—</div><div class="tiny">realized + marked open-lot P&amp;L</div></div>
+    </div>
+    <div class="notice" id="spReconciliation">P&amp;L reconciliation pending.</div>
+    <div class="tiny" style="margin-top:8px">Scope: USER_MANUAL option ledger only, not whole-account NAV, broker book, QQQ shares, cash interest, margin, fees not entered, or tax. Any missing mark remains PENDING, not zero.</div>
+  </div>
+
   <div class="grid2">
     <div class="card">
       <h2>MANUAL POSITIONS</h2>
-      <div class="scroll"><table><thead><tr><th>Side</th><th>Code</th><th>Qty</th><th>Avg Cost</th><th>Mark</th><th>uPnL</th></tr></thead><tbody id="positions"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Strategy ID</th><th>Side</th><th>Code</th><th>Qty</th><th>Avg Cost</th><th>Mark</th><th>uPnL</th></tr></thead><tbody id="positions"></tbody></table></div>
     </div>
     <div class="card">
       <h2>RECENT MANUAL TRADES</h2>
-      <div class="scroll"><table><thead><tr><th>Time</th><th>Action</th><th>Code</th><th>Qty</th><th>Price</th><th>Realized Δ</th><th>Relation</th></tr></thead><tbody id="trades"></tbody></table></div>
+      <div class="scroll"><table><thead><tr><th>Time</th><th>Strategy ID</th><th>Action</th><th>Code</th><th>Qty</th><th>Price</th><th>Realized Δ</th><th>Relation</th></tr></thead><tbody id="trades"></tbody></table></div>
     </div>
   </div>
 
@@ -158,6 +175,25 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&
 const fmt=v=>v==null?"—":Number(v).toFixed(4);
 
 function setMsg(s,kind=""){ $("msg").textContent=s; $("msg").className="notice "+kind; }
+let strategyInstanceBound=null;
+function renderSelectedStrategyPnl(){
+  if(!state) return;
+  const sid=String($("strategyId").value||"UNALLOCATED").trim()||"UNALLOCATED";
+  const book=state.strategy_pnl||{};
+  const row=(book.by_strategy||{})[sid]||{realized_pnl:0,unrealized_pnl:0,total_pnl:0,trade_count:0,open_lot_count:0,marked_open_lot_count:0,mark_status:"EMPTY"};
+  $("spRealized").textContent=money(row.realized_pnl);
+  $("spUnrealized").textContent=row.unrealized_pnl==null?"PENDING":money(row.unrealized_pnl);
+  $("spTotal").textContent=row.total_pnl==null?"PENDING":money(row.total_pnl);
+  $("spTradeCount").textContent="trades: "+(row.trade_count??0)+" · open lots: "+(row.open_lot_count??0);
+  $("spMarks").textContent="mark status: "+(row.mark_status||"—")+" · marked "+(row.marked_open_lot_count??0)+"/"+(row.open_lot_count??0);
+  const r=book.reconciliation||{};
+  $("spReconciliation").textContent="All strategy IDs ↔ aggregate USER_MANUAL book: "+(r.status||"PENDING")+
+    " · realized Δ "+(r.realized_delta==null?"—":money(r.realized_delta))+
+    " · unrealized Δ "+(r.unrealized_delta==null?"—":money(r.unrealized_delta))+
+    " · total Δ "+(r.total_delta==null?"—":money(r.total_delta))+
+    " · marks "+(r.mark_status||"—");
+}
+$("strategyId").addEventListener("input",renderSelectedStrategyPnl);
 function setAction(a){
   action=a;
   document.querySelectorAll("[data-action]").forEach(b=>b.classList.toggle("active",b.dataset.action===a));
@@ -198,6 +234,14 @@ function populateCodes(s){
 }
 function renderState(){
   const m=state.manual_book||{}, b=state.broker_book||{};
+  if(!strategyInstanceBound || strategyInstanceBound!==state.instance_id){
+    $("strategyId").value=state.strategy_id||"UNALLOCATED";
+    strategyInstanceBound=state.instance_id;
+  }
+  const strategyBook=state.strategy_pnl||{};
+  const knownIds=new Set([...(strategyBook.strategy_ids||[]),String(state.strategy_id||"UNALLOCATED"),"UNALLOCATED"]);
+  $("strategyIds").innerHTML=[...knownIds].sort().map(x=>'<option value="'+esc(x)+'"></option>').join("");
+  renderSelectedStrategyPnl();
   $("mRealized").textContent=money(m.realized_pnl);
   $("mUnrealized").textContent=money(m.unrealized_pnl);
   $("mTotal").textContent=money(m.total_pnl);
@@ -210,13 +254,14 @@ function renderState(){
   $("metaHash").textContent=state.ledger_head_hash||"—";
 
   $("positions").innerHTML=(m.positions||[]).map(p=>{
-    const mark=(m.marks||[]).find(x=>x.code===p.code&&x.side===p.side);
-    return '<tr><td>'+esc(p.side)+'</td><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.qty)+'</td><td>'+fmt(p.avg_cost)+'</td><td>'+fmt(mark?.mid)+'</td><td class="'+((mark?.unrealized_pnl||0)>=0?'green':'red')+'">'+money(mark?.unrealized_pnl)+'</td></tr>';
-  }).join("")||'<tr><td colspan="6" class="tiny">No manual positions.</td></tr>';
+    const sid=p.strategy_id||"UNALLOCATED";
+    const mark=(m.marks||[]).find(x=>x.code===p.code&&x.side===p.side&&(x.strategy_id||"UNALLOCATED")===sid);
+    return '<tr><td>'+esc(sid)+'</td><td>'+esc(p.side)+'</td><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.qty)+'</td><td>'+fmt(p.avg_cost)+'</td><td>'+fmt(mark?.mid)+'</td><td class="'+((mark?.unrealized_pnl||0)>=0?'green':'red')+'">'+(mark?.unrealized_pnl==null?'—':money(mark.unrealized_pnl))+'</td></tr>';
+  }).join("")||'<tr><td colspan="7" class="tiny">No manual positions.</td></tr>';
 
   $("trades").innerHTML=(state.recent_manual_trades||[]).slice().reverse().map(t=>{
-    return '<tr><td class="tiny">'+esc(t.timestamp_utc||"")+'</td><td>'+esc(t.action||"")+'</td><td class="mono">'+esc(t.code||"")+'</td><td>'+esc(t.qty??"")+'</td><td>'+fmt(t.price)+'</td><td class="'+(Number(t.realized_pnl_delta||0)>=0?'green':'red')+'">'+money(t.realized_pnl_delta)+'</td><td><span class="pill">'+esc(t.relationship_to_strategy||"OPERATOR_ONLY")+'</span></td></tr>';
-  }).join("")||'<tr><td colspan="7" class="tiny">No manual trades yet.</td></tr>';
+    return '<tr><td class="tiny">'+esc(t.timestamp_utc||"")+'</td><td>'+esc(t.strategy_id||"UNALLOCATED")+'</td><td>'+esc(t.action||"")+'</td><td class="mono">'+esc(t.code||"")+'</td><td>'+esc(t.qty??"")+'</td><td>'+fmt(t.price)+'</td><td class="'+(Number(t.realized_pnl_delta||0)>=0?'green':'red')+'">'+money(t.realized_pnl_delta)+'</td><td><span class="pill">'+esc(t.relationship_to_strategy||"OPERATOR_ONLY")+'</span></td></tr>';
+  }).join("")||'<tr><td colspan="8" class="tiny">No manual trades yet.</td></tr>';
 
   const tape=state.performance_tape||{};
   tapeRows=tape.rows||[];
@@ -344,7 +389,8 @@ async function preview(){
   const id=$("instance").value, code=$("code").value.trim(), q=Number($("qty").value), px=Number($("price").value), lot=Number($("lotSize").value)||100;
   if(!id||!code||!q||!px){$("previewMain").textContent="Enter code, quantity and price.";return;}
   try{
-    const j=await jsonFetch("/api/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instance_id:id,action,code,qty:q,price:px,lot_size:lot})});
+    const sid=String($("strategyId").value||state?.strategy_id||"UNALLOCATED").trim()||"UNALLOCATED";
+    const j=await jsonFetch("/api/preview",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({instance_id:id,strategy_id:sid,action,code,qty:q,price:px,lot_size:lot})});
     const p=j.preview||{};
     if(p.remaining_unmatched>0){$("previewMain").innerHTML='<strong class="red">BLOCKED: not enough existing position</strong>';}
     else {$("previewMain").innerHTML='<strong class="'+(Number(p.realized_pnl_preview||0)>=0?'green':'red')+'">'+money(p.realized_pnl_preview||0)+'</strong> projected realized P&L';}
@@ -355,7 +401,7 @@ async function preview(){
 
 async function recordTrade(){
   const localTime=$("tradeTime").value;
-  const payload={instance_id:$("instance").value,action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null};
+  const payload={instance_id:$("instance").value,strategy_id:String($("strategyId").value||state?.strategy_id||"UNALLOCATED").trim()||"UNALLOCATED",action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null};
   if(!payload.instance_id||!payload.code||payload.qty<1||payload.price<=0){setMsg("Please enter instance, QQQ option code, quantity and positive price.","yellow");return;}
   if((action==="REDUCE"||action==="BUY_BACK_FAR")) {
     const p=state?.manual_book?.positions?.find(x=>x.code===payload.code&&((action==="REDUCE"&&x.side==="LONG")||(action==="BUY_BACK_FAR"&&x.side==="SHORT")));
