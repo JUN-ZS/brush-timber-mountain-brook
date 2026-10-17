@@ -168,14 +168,15 @@ def _validate_leg(leg: Any, snapshot_date: str, event_type: str, index: int,
         raise SnapshotValidationError(
             f"{prefix}.quote_captured_at: date in source.observation_timezone must equal snapshot_date"
         )
-    if event_type in {"ENTRY", "EXIT"}:
-        if event_type == "ENTRY":
+    if event_type in {"ENTRY", "BLOCKED_ENTRY", "EXIT", "BLOCKED_EXIT"}:
+        if event_type in {"ENTRY", "BLOCKED_ENTRY"}:
             price, size = (ask, ask_size) if side == "LONG" else (bid, bid_size)
         else:
             price, size = (bid, bid_size) if side == "LONG" else (ask, ask_size)
-        if price <= 0 or size < qty:
+        executable = price > 0 and size >= qty
+        if event_type in {"ENTRY", "EXIT"} and not executable:
             raise SnapshotValidationError(f"{prefix}: insufficient side-correct displayed size; record BLOCKED_{event_type}")
-    if event_type == "SIGNAL":
+    elif event_type == "SIGNAL":
         executable = ((ask_size >= qty and ask > 0) if side == "LONG" else (bid_size >= qty and bid > 0))
     else:
         executable = True
@@ -270,6 +271,11 @@ def validate_snapshot(snapshot: Any, shadow_root: Path) -> dict[str, Any]:
     if event_type == "MISSING_MARK":
         if not normalized or not any(leg["quote_status"] == "MISSING" for leg in normalized):
             raise SnapshotValidationError("MISSING_MARK requires at least one explicitly missing leg quote")
+    if event_type in {"BLOCKED_ENTRY", "BLOCKED_EXIT"}:
+        if not normalized or all(leg["executable_at_visible_size"] for leg in normalized):
+            raise SnapshotValidationError(
+                f"{event_type} requires at least one missing or insufficient side-correct leg quote"
+            )
     signature = [
         {**{k: leg[k] for k in ("contract_id", "right", "expiry", "strike", "position_side")},
          "qty": int(leg["qty"])}
