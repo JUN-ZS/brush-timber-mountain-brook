@@ -5,7 +5,9 @@ on:
     branches:
       - research/qqq-option-shortlist-replay-v1
     paths:
-      - research/qqq_option_portfolio_sizing_v1/**
+      - research/qqq_option_portfolio_sizing_v1/risk_budget_portfolio_replay_v1.py
+      - research/qqq_option_portfolio_sizing_v1/test_risk_budget_portfolio_replay_v1.py
+      - research/qqq_option_portfolio_sizing_v1/README.md
       - .github/workflows/qqq-risk-budget-portfolio-replay-v1.yml
 
 permissions:
