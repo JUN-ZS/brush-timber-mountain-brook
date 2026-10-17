@@ -174,5 +174,29 @@ class ShadowSnapshotTests(unittest.TestCase):
                 shadow.validate_snapshot(snap,root)
 
 
+    def test_daily_not_triggered_signal_status_allows_zero_option_legs(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            snap = make_snapshot(
+                root,
+                event_type="SIGNAL",
+                strategy_id="QQQ_REVERSAL_SIGNAL_ONLY",
+                legs=[],
+            )
+            snap["signal"] = {
+                "rule_id": shadow.SIGNAL_RULE_ID,
+                "state": "NOT_TRIGGERED",
+                "qqq_close_vs_ma20_pct": -1.2,
+                "previous_close_vs_ma20_pct": -0.8,
+                "qqq_up_day": False,
+                "vix_5_session_change_pct": 2.4,
+            }
+            result = shadow.validate_snapshot(snap, root)
+            self.assertEqual(result["status"], "VALID_RESEARCH_SNAPSHOT")
+            self.assertEqual(result["leg_count"], 0)
+            self.assertEqual(result["contract_signature"], [])
+            self.assertFalse(result["execution_enabled"])
+            self.assertFalse(result["order_placed"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
