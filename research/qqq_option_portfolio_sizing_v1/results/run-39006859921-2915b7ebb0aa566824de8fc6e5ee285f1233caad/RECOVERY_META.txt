@@ -1,0 +1,5 @@
+tested_sha=2915b7ebb0aa566824de8fc6e5ee285f1233caad
+run_id=39006859921
+run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/39006859921
+runner_name=grokbot-box-linux-x64
+source_branch=research/qqq-option-shortlist-replay-v1
