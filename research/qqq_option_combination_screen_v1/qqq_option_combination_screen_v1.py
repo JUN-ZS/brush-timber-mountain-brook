@@ -204,17 +204,54 @@ def quote_for(qmap, dt: pd.Timestamp, contract_id: str):
 
 
 def vertical_quotes(qmap, dt, candidate, kind):
+    width = float(candidate["width"])
     if kind == "CALL_CREDIT":
         short = quote_for(qmap, dt, candidate["short_id"])
         wing = quote_for(qmap, dt, candidate["wing_id"])
         if short is None or wing is None or candidate["wing_strike"] <= candidate["short_strike"]:
+            return None
+        # Liability mark for the short-call vertical must be between zero and width.
+        liability_mid = short["mid"] - wing["mid"]
+        if liability_mid < -1e-8 or liability_mid > width + 1e-8:
             return None
         return {"short": short, "wing": wing}
     long = quote_for(qmap, dt, candidate["long_id"])
     short = quote_for(qmap, dt, candidate["short_id"])
     if long is None or short is None or candidate["long_strike"] <= candidate["short_strike"]:
         return None
+    # Value of the long-put vertical must be between zero and width.
+    debit_mid = long["mid"] - short["mid"]
+    if debit_mid < -1e-8 or debit_mid > width + 1e-8:
+        return None
     return {"long": long, "short": short}
+
+
+def entry_vertical_consistent(kind, q, width: float) -> bool:
+    eps = 1e-8
+    if kind == "PUT_DEBIT":
+        package_price = q["long"]["ask"] - q["short"]["bid"]
+        return package_price > 0 and package_price <= width + eps
+    package_credit = q["short"]["bid"] - q["wing"]["ask"]
+    return package_credit > 0 and package_credit <= width + eps
+
+
+def exit_vertical_consistent(kind, q, width: float) -> bool:
+    eps = 1e-8
+    if kind == "PUT_DEBIT":
+        package_value = q["long"]["bid"] - q["short"]["ask"]
+        return package_value >= -eps and package_value <= width + eps
+    package_cashflow = q["wing"]["bid"] - q["short"]["ask"]
+    return package_cashflow >= -width - eps and package_cashflow <= eps
+
+
+def expiry_intrinsic_cashflow(kind: str, position: dict[str, Any], spot: float,
+                              qty: int, commission: float) -> float:
+    if kind == "PUT_DEBIT":
+        payoff_per_share = max(float(position["long_strike"]) - spot, 0.0) - max(float(position["short_strike"]) - spot, 0.0)
+    else:
+        payoff_per_share = max(spot - float(position["wing_strike"]), 0.0) - max(spot - float(position["short_strike"]), 0.0)
+    # Two-leg commission proxy; close-based intrinsic is not official OCC settlement.
+    return payoff_per_share * 100.0 * qty - 2.0 * commission * qty
 
 
 def entry_cashflow(kind: str, q: dict[str, dict[str, float]], qty: int,
@@ -300,21 +337,53 @@ def run_one(underlying: pd.DataFrame, candidates, qmap, nav0: float,
             pos = positions[sleeve]
             if pos is None or sleeve not in active_sleeves:
                 continue
-            if (pd.Timestamp(pos["expiry"]) - dt).days <= ROLL_DTE:
+            expiry = pd.Timestamp(pos["expiry"])
+            dte = (expiry - dt).days
+            if dte <= 0:
+                # If quotes did not permit a close, settle from the last observed QQQ close
+                # on or before expiration; never use a post-expiry close as the payoff input.
+                eligible_spots = [d for d in spot_by_date if d <= expiry]
+                if not eligible_spots:
+                    blocked_exits += 1
+                    ledger.append({"date": str(dt.date()), "event": "EXPIRY_SETTLEMENT_BLOCKED_NO_SPOT",
+                                   "variant": variant, "initial_nav_usd": nav0, "cost_case": cost_name,
+                                   "sleeve": sleeve, "qty": pos["qty"], "expiry": str(expiry.date()),
+                                   "reason": "No underlying close on or before expiry; position retained and NAV mark may be unknown."})
+                    continue
+                settle_date = max(eligible_spots)
+                settle_spot = float(spot_by_date[settle_date])
+                cf = expiry_intrinsic_cashflow(sleeve, pos, settle_spot, int(pos["qty"]), commission)
+                cash += cf
+                flows[sleeve] += cf
+                ledger.append({"date": str(dt.date()), "event": "EXPIRY_SETTLEMENT_INTRINSIC_PROXY",
+                               "variant": variant, "initial_nav_usd": nav0, "cost_case": cost_name,
+                               "sleeve": sleeve, "qty": pos["qty"], "expiry": str(expiry.date()),
+                               "settlement_reference_date": str(settle_date.date()), "settlement_reference_spot": settle_spot,
+                               "cashflow_usd": cf, "entry_date": pos["entry_date"],
+                               "reason": "Last observed QQQ close on/before expiry; intrinsic payoff and two-leg commission proxy; not official exchange settlement."})
+                positions[sleeve] = None
+                continue
+            if dte <= ROLL_DTE:
                 q = vertical_quotes(qmap, dt, pos, sleeve)
                 if q is None:
                     blocked_exits += 1
-                    ledger.append({"date": str(dt.date()), "event": "EXIT_BLOCKED_MISSING_QUOTE",
+                    ledger.append({"date": str(dt.date()), "event": "EXIT_BLOCKED_MISSING_OR_INVALID_QUOTE",
                                    "variant": variant, "initial_nav_usd": nav0, "cost_case": cost_name,
-                                   "sleeve": sleeve, "qty": pos["qty"], "expiry": str(pd.Timestamp(pos["expiry"]).date()),
-                                   "reason": "Exact held-contract quote missing/invalid; position retained, no interpolation."})
+                                   "sleeve": sleeve, "qty": pos["qty"], "expiry": str(expiry.date()),
+                                   "reason": "Exact held-contract quote missing/invalid or the package mark violates its vertical width; position retained, no interpolation."})
+                elif not exit_vertical_consistent(sleeve, q, float(pos["width"])):
+                    blocked_exits += 1
+                    ledger.append({"date": str(dt.date()), "event": "EXIT_BLOCKED_VERTICAL_BOUNDS",
+                                   "variant": variant, "initial_nav_usd": nav0, "cost_case": cost_name,
+                                   "sleeve": sleeve, "qty": pos["qty"], "expiry": str(expiry.date()),
+                                   "reason": "Exact exit package value violates vertical payoff bounds; position retained, no synthetic fill."})
                 else:
                     cf = exit_cashflow(sleeve, q, int(pos["qty"]), slip, commission)
                     cash += cf
                     flows[sleeve] += cf
                     ledger.append({"date": str(dt.date()), "event": "EXIT", "variant": variant,
                                    "initial_nav_usd": nav0, "cost_case": cost_name, "sleeve": sleeve,
-                                   "qty": pos["qty"], "expiry": str(pd.Timestamp(pos["expiry"]).date()),
+                                   "qty": pos["qty"], "expiry": str(expiry.date()),
                                    "reason": "DTE_LE_7", "cashflow_usd": cf, "entry_date": pos["entry_date"],
                                    "short_id": pos["short_id"], "other_leg_id": pos.get("wing_id", pos.get("long_id"))})
                     positions[sleeve] = None
@@ -342,6 +411,12 @@ def run_one(underlying: pd.DataFrame, candidates, qmap, nav0: float,
                                    "variant": variant, "initial_nav_usd": nav0, "cost_case": cost_name,
                                    "sleeve": sleeve, "expiry": str(expiry.date()),
                                    "reason": "Exact preselected contract quotes missing/invalid; no replacement."})
+                    continue
+                if not entry_vertical_consistent(sleeve, q, float(cand["width"])):
+                    ledger.append({"date": str(dt.date()), "event": "ENTRY_BLOCKED_VERTICAL_BOUNDS",
+                                   "variant": variant, "initial_nav_usd": nav0, "cost_case": cost_name,
+                                   "sleeve": sleeve, "expiry": str(expiry.date()),
+                                   "reason": "Exact entry package price violates vertical payoff bounds; no synthetic fill."})
                     continue
 
                 if sleeve == "PUT_DEBIT":
@@ -494,7 +569,7 @@ def generate_report(summary_df: pd.DataFrame, manifest: dict[str, Any], report_p
         "- CORE_PLUS_CALL_CREDIT: the same core plus a 18–35 DTE QQQ call credit vertical (sell approximately 16-delta call, buy higher-strike approximately 8-delta protective call). Budget: 0.8% of prior observed NAV in conservative vertical max loss.",
         "- CORE_PLUS_CALL_AND_PUT: both option sleeves at their single-sleeve budgets. This has a larger combined nominal budget, so raw CAGR is not a matched-total-risk comparison.",
         "",
-        "Candidates are selected from the prior observed session and entered next session using the exact same contract IDs. Invalid/missing quotes are not replaced or interpolated. Existing positions are closed using exact held-contract side quotes when DTE reaches 7 calendar days or less.",
+        "Candidates are selected from the prior observed session and entered next session using the exact same contract IDs. Each package midpoint/entry/exit value must respect zero-to-width vertical payoff bounds. Invalid quotes are not replaced or interpolated. Existing positions are closed using exact held-contract side quotes when DTE reaches 7 calendar days or less; if a position survives expiry because no valid close quote was available, it is settled with the last observed QQQ close on or before expiry as an explicitly labelled intrinsic-payoff proxy plus two-leg commission, not as official exchange settlement.",
         "",
         "## Source and execution",
         "",
@@ -509,7 +584,7 @@ def generate_report(summary_df: pd.DataFrame, manifest: dict[str, Any], report_p
         summary_df[["variant", "cost_case", "initial_nav_usd", "final_nav_usd", "cagr_pct", "maxdd_observed_marks_pct", "worst_observed_calendar_year_pct", "worst_observed_daily_return_pct", "entries", "exits", "missing_or_incomplete_nav_marks"]].to_markdown(index=False, floatfmt=".4f"),
         "",
         "## Interpretation limits", "",
-        "- MaxDD and annual results are observed-mark metrics. Missing held-leg marks stay unknown, so the observed MaxDD may understate losses; no forward fill is used.",
+        "- MaxDD and annual results are observed-mark metrics. Missing held-leg marks stay unknown, so the observed MaxDD may understate losses; no forward fill is used. Expiry intrinsic values use the last observed QQQ close on/before expiry only when the position could not be closed on valid quotes; this is a close-based proxy, not official settlement.",
         "- The combined portfolio adds the two sleeve budgets. It should not be declared superior based on raw CAGR alone.",
         "- No VXX stock short, no VXX option leg and no QQQ 1:5 ratio is included in these candidate portfolios.",
         "- The source option history ends on its last observed chain date; there is no QQQ option-chain evidence past that date.",
@@ -573,6 +648,7 @@ def main() -> None:
         "source_type": "historical quote-side simulation; executable fills/depth not authenticated",
         "same_close_lookahead": False, "quote_interpolation": False, "black_scholes": False,
         "dividends_included": False, "vxx_stock_short_included": False, "vxx_options_included": False,
+        "vertical_bounds_enforced": True, "expiry_intrinsic_settlement_proxy": True,
         "parameter_optimization": False, "deployment_status": "BLOCKED_RESEARCH_ONLY",
     }
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")

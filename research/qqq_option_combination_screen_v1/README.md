@@ -20,7 +20,7 @@ The 42% share allocation and risk budgets are research normalization only and do
 - BASE costs: $0.05 per option leg per share of slippage per side plus $0.65 per contract per leg per side. STRESS doubles per-leg per-share slippage to $0.10.
 - Only one active vertical per sleeve; existing vertical is closed when DTE <= 7 calendar days if exact exit quotes exist. Missing quotes block the transaction and remain disclosed.
 - P&L is attributed to QQQ price-only core, put-debit sleeve, and call-credit sleeve, and their sum must reconcile with NAV within $0.01 on complete marks.
-- No dividends are added to QQQ core return. Mark gaps are not forward-filled. MaxDD is therefore labelled observed-mark-only and may understate risk when marks are absent.
+- No dividends are added to QQQ core return. Mark gaps are not forward-filled. Expiry intrinsic proxy settlements are separately labelled. MaxDD is therefore labelled observed-mark-only and may understate risk when marks are absent.
 
 ## Comparison
 Initial NAVs: $80,000 and $1,000,000. Costs: BASE and STRESS. Total design: 4 structures × 2 NAVs × 2 cost cases = 16 rows. Compare CAGR, observed-mark MaxDD, worst observed calendar-year return, worst observed daily return, sleeve P&L attribution, quote completeness, trade count, and NAV reconciliation. Do not create one weighted score or hard-code an acceptable CAGR/MaxDD threshold.
