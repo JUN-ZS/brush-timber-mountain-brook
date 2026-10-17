@@ -40,37 +40,47 @@ jobs:
           .venv/bin/python -m py_compile research/qqq_option_combination_screen_v1/qqq_option_combination_screen_v1.py
           .venv/bin/python research/qqq_option_combination_screen_v1/test_qqq_option_combination_screen_v1.py
 
-      - name: Reuse or restore the isolated SHA-verified Linux BOT data cache
-        env:
-          GH_TOKEN: \${{ github.token }}
+      - name: Reuse verified Linux BOT cache or download public release assets
         run: |
           set -euo pipefail
           CACHE="$HOME/.cache/qqq-option-data-v1"
+          LEGACY_CACHE="$HOME/.cache/qqq-options-full-history"
           mkdir -p "$CACHE"
           EXPECT_OPT="1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734"
           EXPECT_UND="78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351"
-          valid_cache=true
-          [[ -s "$CACHE/QQQ_options.parquet" ]] || valid_cache=false
-          [[ -s "$CACHE/QQQ_underlying.parquet" ]] || valid_cache=false
-          if [[ "$valid_cache" == "true" ]]; then
-            [[ "$(sha256sum "$CACHE/QQQ_options.parquet" | awk '{print $1}')" == "$EXPECT_OPT" ]] || valid_cache=false
-            [[ "$(sha256sum "$CACHE/QQQ_underlying.parquet" | awk '{print $1}')" == "$EXPECT_UND" ]] || valid_cache=false
-          fi
-          if [[ "$valid_cache" != "true" ]]; then
+          SOURCE_CACHE=""
+          for candidate in "$CACHE" "$LEGACY_CACHE"; do
+            if [[ -s "$candidate/QQQ_options.parquet" && -s "$candidate/QQQ_underlying.parquet" ]]; then
+              ACT_OPT="$(sha256sum "$candidate/QQQ_options.parquet" | awk '{print $1}')"
+              ACT_UND="$(sha256sum "$candidate/QQQ_underlying.parquet" | awk '{print $1}')"
+              if [[ "$ACT_OPT" == "$EXPECT_OPT" && "$ACT_UND" == "$EXPECT_UND" ]]; then
+                SOURCE_CACHE="$candidate"
+                echo "Using SHA-verified local data cache: $SOURCE_CACHE"
+                break
+              fi
+            fi
+          done
+          if [[ -z "$SOURCE_CACHE" ]]; then
             TMP="$RUNNER_TEMP/qqq-option-data-v1"
             rm -rf "$TMP"
             mkdir -p "$TMP"
-            gh release download data-v1 --repo lambdaclass/options_portfolio_backtester --pattern "QQQ_options.parquet" --pattern "QQQ_underlying.parquet" --dir "$TMP"
+            curl --fail --location --retry 3 --retry-delay 2 --connect-timeout 30 \
+              "https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet" \
+              --output "$TMP/QQQ_options.parquet"
+            curl --fail --location --retry 3 --retry-delay 2 --connect-timeout 30 \
+              "https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet" \
+              --output "$TMP/QQQ_underlying.parquet"
             ACT_OPT="$(sha256sum "$TMP/QQQ_options.parquet" | awk '{print $1}')"
             ACT_UND="$(sha256sum "$TMP/QQQ_underlying.parquet" | awk '{print $1}')"
             [[ "$ACT_OPT" == "$EXPECT_OPT" ]] || { echo "::error::QQQ options SHA mismatch"; exit 1; }
             [[ "$ACT_UND" == "$EXPECT_UND" ]] || { echo "::error::QQQ underlying SHA mismatch"; exit 1; }
             cp "$TMP/QQQ_options.parquet" "$CACHE/QQQ_options.parquet"
             cp "$TMP/QQQ_underlying.parquet" "$CACHE/QQQ_underlying.parquet"
+            SOURCE_CACHE="$CACHE"
           fi
           mkdir -p data
-          ln -sf "$CACHE/QQQ_options.parquet" data/QQQ_options.parquet
-          ln -sf "$CACHE/QQQ_underlying.parquet" data/QQQ_underlying.parquet
+          ln -sf "$SOURCE_CACHE/QQQ_options.parquet" data/QQQ_options.parquet
+          ln -sf "$SOURCE_CACHE/QQQ_underlying.parquet" data/QQQ_underlying.parquet
           sha256sum data/QQQ_options.parquet data/QQQ_underlying.parquet
 
       - name: Run QQQ plus option combination screen
