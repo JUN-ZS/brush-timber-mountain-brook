@@ -1,0 +1,342 @@
+{
+  "signal_summary": {
+    "signal_rule": "QQQ close <= 2.1% below rolling MA20 on current and prior session; QQQ up day; repository VIX below its level 5 sessions earlier",
+    "signal_count": 28,
+    "signals_processed": 28,
+    "source_window": [
+      "2018-03-01",
+      "2025-12-15"
+    ],
+    "source_sessions": 1960,
+    "entry_clock": "signal at EOD t; exact selected contract IDs entered no earlier than next observed QQQ/VIX session t+1",
+    "exit_clock": "first valid exact-ID quote-side close at/after 10 observed sessions; defer up to 3 sessions then censor",
+    "base_cost_assumption": {
+      "slippage_usd_per_share_per_leg_side": 0.05,
+      "commission_usd_per_contract_per_side": 0.65
+    },
+    "nav_sizing_reference_usd": 80000.0,
+    "signal_cooldown_sessions": 15,
+    "status_counts": {
+      "CANDIDATE:CALL_DEBIT_PLUS_LONG_PUT_10D:NO_VALID_SAME_EXPIRY_10D_LONG_PUT": 4,
+      "OPENED:CALL_DEBIT_50D_10D": 28,
+      "OPENED:PUT_SHORT_HEAVY_1x1": 28,
+      "OPENED:PUT_LONG_HEAVY_1x1": 28,
+      "OPENED:PUT_SHORT_HEAVY_1x2": 28,
+      "OPENED:PUT_LONG_HEAVY_2x1": 28,
+      "OPENED:PUT_SHORT_HEAVY_1x3": 28,
+      "OPENED:PUT_LONG_HEAVY_3x1": 28,
+      "OPENED:PUT_SHORT_HEAVY_1x4": 28,
+      "OPENED:PUT_LONG_HEAVY_4x1": 28,
+      "OPENED:PUT_SHORT_HEAVY_1x5": 28,
+      "OPENED:PUT_LONG_HEAVY_5x1": 28,
+      "OPENED:PUT_SHORT_HEAVY_1x6": 28,
+      "OPENED:PUT_LONG_HEAVY_6x1": 27,
+      "RESOLVED:CALL_DEBIT_50D_10D": 28,
+      "RESOLVED:PUT_SHORT_HEAVY_1x1": 28,
+      "RESOLVED:PUT_LONG_HEAVY_1x1": 28,
+      "RESOLVED:PUT_SHORT_HEAVY_1x2": 28,
+      "RESOLVED:PUT_LONG_HEAVY_2x1": 28,
+      "RESOLVED:PUT_SHORT_HEAVY_1x3": 28,
+      "RESOLVED:PUT_LONG_HEAVY_3x1": 28,
+      "RESOLVED:PUT_SHORT_HEAVY_1x4": 28,
+      "RESOLVED:PUT_LONG_HEAVY_4x1": 28,
+      "RESOLVED:PUT_SHORT_HEAVY_1x5": 28,
+      "RESOLVED:PUT_LONG_HEAVY_5x1": 28,
+      "RESOLVED:PUT_SHORT_HEAVY_1x6": 28,
+      "RESOLVED:PUT_LONG_HEAVY_6x1": 27,
+      "OPENED:CALL_DEBIT_PLUS_LONG_PUT_10D": 24,
+      "RESOLVED:CALL_DEBIT_PLUS_LONG_PUT_10D": 24,
+      "ENTRY_BLOCKED:INSUFFICIENT_BUY_SIDE_SIZE_OR_PRICE": 1
+    }
+  },
+  "strategy_summary": {
+    "CALL_DEBIT_50D_10D": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 57.1429,
+      "total_one_unit_net_pnl_usd": 2596.2,
+      "mean_one_unit_net_pnl_usd": 92.72,
+      "median_one_unit_net_pnl_usd": 198.4,
+      "worst_one_unit_net_pnl_usd": -972.6,
+      "best_one_unit_net_pnl_usd": 1508.4,
+      "profit_factor": 1.40138,
+      "median_net_pnl_over_entry_terminal_worst_loss": 0.18114,
+      "tail_budget_1pct_nav_sizeable_episode_count": 7
+    },
+    "CALL_DEBIT_PLUS_LONG_PUT_10D": {
+      "opened_episodes": 24,
+      "resolved": 24,
+      "unresolved": 0,
+      "win_rate_pct": 58.3333,
+      "total_one_unit_net_pnl_usd": 1176.4,
+      "mean_one_unit_net_pnl_usd": 49.02,
+      "median_one_unit_net_pnl_usd": 134.1,
+      "worst_one_unit_net_pnl_usd": -984.9,
+      "best_one_unit_net_pnl_usd": 1392.1,
+      "profit_factor": 1.20505,
+      "median_net_pnl_over_entry_terminal_worst_loss": 0.10921,
+      "tail_budget_1pct_nav_sizeable_episode_count": 3
+    },
+    "PUT_LONG_HEAVY_1x1": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 25.0,
+      "total_one_unit_net_pnl_usd": -4319.8,
+      "mean_one_unit_net_pnl_usd": -154.28,
+      "median_one_unit_net_pnl_usd": -208.6,
+      "worst_one_unit_net_pnl_usd": -578.6,
+      "best_one_unit_net_pnl_usd": 626.4,
+      "profit_factor": 0.27842,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.56011,
+      "tail_budget_1pct_nav_sizeable_episode_count": 27
+    },
+    "PUT_LONG_HEAVY_2x1": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 25.0,
+      "total_one_unit_net_pnl_usd": -9939.2,
+      "mean_one_unit_net_pnl_usd": -354.97,
+      "median_one_unit_net_pnl_usd": -473.9,
+      "worst_one_unit_net_pnl_usd": -1375.9,
+      "best_one_unit_net_pnl_usd": 1716.1,
+      "profit_factor": 0.28939,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.57769,
+      "tail_budget_1pct_nav_sizeable_episode_count": 7
+    },
+    "PUT_LONG_HEAVY_3x1": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 25.0,
+      "total_one_unit_net_pnl_usd": -15558.6,
+      "mean_one_unit_net_pnl_usd": -555.66,
+      "median_one_unit_net_pnl_usd": -739.2,
+      "worst_one_unit_net_pnl_usd": -2173.2,
+      "best_one_unit_net_pnl_usd": 2805.8,
+      "profit_factor": 0.29238,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.58236,
+      "tail_budget_1pct_nav_sizeable_episode_count": 2
+    },
+    "PUT_LONG_HEAVY_4x1": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 25.0,
+      "total_one_unit_net_pnl_usd": -21178.0,
+      "mean_one_unit_net_pnl_usd": -756.36,
+      "median_one_unit_net_pnl_usd": -1004.5,
+      "worst_one_unit_net_pnl_usd": -2970.5,
+      "best_one_unit_net_pnl_usd": 3895.5,
+      "profit_factor": 0.29377,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.58452,
+      "tail_budget_1pct_nav_sizeable_episode_count": 2
+    },
+    "PUT_LONG_HEAVY_5x1": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 25.0,
+      "total_one_unit_net_pnl_usd": -26797.4,
+      "mean_one_unit_net_pnl_usd": -957.05,
+      "median_one_unit_net_pnl_usd": -1269.8,
+      "worst_one_unit_net_pnl_usd": -3767.8,
+      "best_one_unit_net_pnl_usd": 4985.2,
+      "profit_factor": 0.29458,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.58577,
+      "tail_budget_1pct_nav_sizeable_episode_count": 0
+    },
+    "PUT_LONG_HEAVY_6x1": {
+      "opened_episodes": 27,
+      "resolved": 27,
+      "unresolved": 0,
+      "win_rate_pct": 25.9259,
+      "total_one_unit_net_pnl_usd": -27851.7,
+      "mean_one_unit_net_pnl_usd": -1031.54,
+      "median_one_unit_net_pnl_usd": -1535.1,
+      "worst_one_unit_net_pnl_usd": -4444.1,
+      "best_one_unit_net_pnl_usd": 6074.9,
+      "profit_factor": 0.32763,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.58658,
+      "tail_budget_1pct_nav_sizeable_episode_count": 0
+    },
+    "PUT_SHORT_HEAVY_1x1": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 25.0,
+      "total_one_unit_net_pnl_usd": -4319.8,
+      "mean_one_unit_net_pnl_usd": -154.28,
+      "median_one_unit_net_pnl_usd": -208.6,
+      "worst_one_unit_net_pnl_usd": -578.6,
+      "best_one_unit_net_pnl_usd": 626.4,
+      "profit_factor": 0.27842,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.56011,
+      "tail_budget_1pct_nav_sizeable_episode_count": 27
+    },
+    "PUT_SHORT_HEAVY_1x2": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 28.5714,
+      "total_one_unit_net_pnl_usd": -3020.2,
+      "mean_one_unit_net_pnl_usd": -107.86,
+      "median_one_unit_net_pnl_usd": -148.9,
+      "worst_one_unit_net_pnl_usd": -445.9,
+      "best_one_unit_net_pnl_usd": 344.1,
+      "profit_factor": 0.2402,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.00504,
+      "tail_budget_1pct_nav_sizeable_episode_count": 0
+    },
+    "PUT_SHORT_HEAVY_1x3": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 32.1429,
+      "total_one_unit_net_pnl_usd": -1720.6,
+      "mean_one_unit_net_pnl_usd": -61.45,
+      "median_one_unit_net_pnl_usd": -73.2,
+      "worst_one_unit_net_pnl_usd": -494.2,
+      "best_one_unit_net_pnl_usd": 231.8,
+      "profit_factor": 0.31226,
+      "median_net_pnl_over_entry_terminal_worst_loss": -0.00143,
+      "tail_budget_1pct_nav_sizeable_episode_count": 0
+    },
+    "PUT_SHORT_HEAVY_1x4": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 53.5714,
+      "total_one_unit_net_pnl_usd": -421.0,
+      "mean_one_unit_net_pnl_usd": -15.04,
+      "median_one_unit_net_pnl_usd": 22.5,
+      "worst_one_unit_net_pnl_usd": -763.5,
+      "best_one_unit_net_pnl_usd": 247.5,
+      "profit_factor": 0.77929,
+      "median_net_pnl_over_entry_terminal_worst_loss": 0.00048,
+      "tail_budget_1pct_nav_sizeable_episode_count": 0
+    },
+    "PUT_SHORT_HEAVY_1x5": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 78.5714,
+      "total_one_unit_net_pnl_usd": 878.6,
+      "mean_one_unit_net_pnl_usd": 31.38,
+      "median_one_unit_net_pnl_usd": 54.2,
+      "worst_one_unit_net_pnl_usd": -1226.8,
+      "best_one_unit_net_pnl_usd": 401.2,
+      "profit_factor": 1.41137,
+      "median_net_pnl_over_entry_terminal_worst_loss": 0.00036,
+      "tail_budget_1pct_nav_sizeable_episode_count": 0
+    },
+    "PUT_SHORT_HEAVY_1x6": {
+      "opened_episodes": 28,
+      "resolved": 28,
+      "unresolved": 0,
+      "win_rate_pct": 78.5714,
+      "total_one_unit_net_pnl_usd": 2178.2,
+      "mean_one_unit_net_pnl_usd": 77.79,
+      "median_one_unit_net_pnl_usd": 96.9,
+      "worst_one_unit_net_pnl_usd": -1690.1,
+      "best_one_unit_net_pnl_usd": 575.9,
+      "profit_factor": 1.77115,
+      "median_net_pnl_over_entry_terminal_worst_loss": 0.00093,
+      "tail_budget_1pct_nav_sizeable_episode_count": 0
+    }
+  },
+  "qqq_core_1000_notional_control": {
+    "episodes": 28,
+    "resolved": 28,
+    "mean_10_session_pnl_on_1000_usd_notional": 13.15,
+    "median_10_session_pnl_on_1000_usd_notional": 20.59,
+    "worst_10_session_pnl_on_1000_usd_notional": -74.4,
+    "positive_10_session_ratio_pct": 60.7143,
+    "note": "Underlying-only matched price-path control; not option P&L or a $80k portfolio return."
+  },
+  "research_id": "QQQ_OPTION_SHORTLIST_REPLAY_V1",
+  "evidence_class": "OBSERVED_EOD_QUOTES_WITH_DERIVED_QUOTE_SIDE_REPLAY_NOT_CONFIRMED_FILLS",
+  "source_integrity": {
+    "underlying_and_repo_source_pins": {
+      "files": {
+        "underlying_prices.parquet": {
+          "status": "CACHED_HASH_VERIFIED",
+          "bytes": 332454,
+          "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a"
+        }
+      },
+      "repo_sources": {
+        "src/data/universe.json": {
+          "bytes": 1045161,
+          "git_blob_sha": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+          "expected": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+          "status": "HASH_VERIFIED"
+        },
+        "research/qqq_hybrid_dynamic_deployment_v1_1_replay.py": {
+          "bytes": 15102,
+          "git_blob_sha": "ac74b3812c826ad491fb829108f26397322e45eb",
+          "expected": "ac74b3812c826ad491fb829108f26397322e45eb",
+          "status": "HASH_VERIFIED"
+        },
+        "research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py": {
+          "bytes": 21085,
+          "git_blob_sha": "99337743e4133a6905c2904d889cf1b566997e9e",
+          "expected": "99337743e4133a6905c2904d889cf1b566997e9e",
+          "status": "HASH_VERIFIED"
+        }
+      }
+    },
+    "annual_option_files": {
+      "options_2018.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 29215815,
+        "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19"
+      },
+      "options_2019.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 30998008,
+        "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca"
+      },
+      "options_2020.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 59412637,
+        "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5"
+      },
+      "options_2021.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 74224966,
+        "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d"
+      },
+      "options_2022.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 69941736,
+        "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9"
+      },
+      "options_2023.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 71647343,
+        "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063"
+      },
+      "options_2024.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 82434832,
+        "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3"
+      },
+      "options_2025.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 85765453,
+        "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf"
+      }
+    }
+  },
+  "limitations": [
+    "Source option chains end 2025-12-15; no option P&L beyond that date.",
+    "Quotes are public EOD preservation snapshots reported as 16:00 ET; exact tick timestamp and fills are unverified.",
+    "Episode results are a matched fixed-horizon event study, not compounded portfolio CAGR/MaxDD.",
+    "No broker margin, assignment, early exercise, forced liquidation, multi-leg fill sequencing, or market impact model.",
+    "Terminal loss is intrinsic payoff at strike knots using observed entry-side prices; it does not bound interim liquidation losses.",
+    "Candidate selection is fixed by DTE/delta and not optimized on P&L; the signal-family thresholds are a research hypothesis and require a later unseen holdout."
+  ]
+}

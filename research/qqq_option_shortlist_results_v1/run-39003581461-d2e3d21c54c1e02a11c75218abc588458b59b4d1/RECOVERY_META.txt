@@ -1,0 +1,6 @@
+tested_sha=d2e3d21c54c1e02a11c75218abc588458b59b4d1
+run_id=39003581461
+run_url=https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/39003581461
+runner_name=grokbot-box-linux-x64
+source_branch=research/qqq-option-shortlist-replay-v1
+output_scope=research-only; no orders; no live policy changes
