@@ -1,0 +1,23 @@
+name: Single Strategy PnL Reconciliation v1
+
+on:
+  pull_request:
+    paths:
+      - "research/strategy_instance_v1/**"
+      - ".github/workflows/single-strategy-pnl-ledger-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  python-ledger-contract:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Python runtime
+        run: |
+          python3 --version
+          python3 -m compileall -q research/strategy_instance_v1
+      - name: Run single-strategy ledger invariants
+        run: python3 -m unittest research.strategy_instance_v1.test_single_strategy_pnl -v
