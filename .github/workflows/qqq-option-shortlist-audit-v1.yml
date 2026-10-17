@@ -1,0 +1,72 @@
+name: QQQ Option Shortlist Temporal and Friction Audit V1
+
+on:
+  push:
+    branches:
+      - research/qqq-option-shortlist-replay-v1
+    paths:
+      - research/qqq_option_shortlist_audit_v1/**
+      - .github/workflows/qqq-option-shortlist-audit-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-option-shortlist-audit-v1
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit pinned shortlist output (Linux BOT)
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+      - name: Compile and run offline audit tests
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m py_compile research/qqq_option_shortlist_audit_v1/period_cost_audit.py
+          python3 research/qqq_option_shortlist_audit_v1/test_period_cost_audit.py
+      - name: Locate latest committed source replay output
+        run: |
+          set -euo pipefail
+          SOURCE_DIR="$(find research/qqq_option_shortlist_results_v1 -mindepth 2 -maxdepth 2 -type f -name manifest.json -printf '%h\n' | sort | tail -n 1)"
+          test -n "$SOURCE_DIR"
+          test -s "$SOURCE_DIR/trades.csv"
+          test -s "$SOURCE_DIR/manifest.json"
+          test -s "$SOURCE_DIR/RECOVERY_META.txt"
+          echo "source_dir=$SOURCE_DIR"
+          echo "source_trade_sha256=$(sha256sum "$SOURCE_DIR/trades.csv" | awk '{print $1}')"
+          echo "source_tested_sha=$(grep '^tested_sha=' "$SOURCE_DIR/RECOVERY_META.txt" | cut -d= -f2-)"
+          echo "SOURCE_DIR=$SOURCE_DIR" >> "$GITHUB_ENV"
+      - name: Run period, friction, and exact-leg paired audit
+        run: |
+          set -euo pipefail
+          python3 research/qqq_option_shortlist_audit_v1/period_cost_audit.py \
+            --trades "$SOURCE_DIR/trades.csv" \
+            --manifest "$SOURCE_DIR/manifest.json" \
+            --run-meta "$SOURCE_DIR/RECOVERY_META.txt" \
+            --out "$SOURCE_DIR/audit"
+          test -s "$SOURCE_DIR/audit/period_cost_audit.json"
+          test -s "$SOURCE_DIR/audit/summary.csv"
+          test -s "$SOURCE_DIR/audit/paired_call_put.csv"
+          test -s "$SOURCE_DIR/audit/REPORT.md"
+          cat "$SOURCE_DIR/audit/REPORT.md"
+      - name: Persist audit outputs on the research branch
+        if: success()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$SOURCE_DIR/audit"
+          if git diff --cached --quiet; then
+            echo "No audit output changes to persist."
+          else
+            git commit -m "research: add QQQ shortlist period and friction audit"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi

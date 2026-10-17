@@ -1,0 +1,21 @@
+{
+  "research_id": "QQQ_OPTION_SHORTLIST_REPLAY_V1",
+  "source_end": "2025-12-15",
+  "source_sessions": 1960,
+  "signals": 28,
+  "trade_rows": 387,
+  "source_file_count": 8,
+  "source_file_git_blob_sha": {
+    "options_2018.parquet": "4a130fe579ee141c5836ccaaf093c0cb752ebb19",
+    "options_2019.parquet": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca",
+    "options_2020.parquet": "9d7abe1144c55e0091d28eca61deec4ac72393a5",
+    "options_2021.parquet": "3488cffd498a8851861a8dca7d1849a748bc759d",
+    "options_2022.parquet": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9",
+    "options_2023.parquet": "bbaa5aeefc54c76628142a6e95c7424995049063",
+    "options_2024.parquet": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3",
+    "options_2025.parquet": "e92ad6b5c2e757d2c869f747a94853e630142cbf"
+  },
+  "pricing_evidence": "OBSERVED_EOD_QUOTES_WITH_DERIVED_QUOTE_SIDE_REPLAY_NOT_CONFIRMED_FILLS",
+  "nav_reference_usd": 80000.0,
+  "source_integrity_status": "PINNED_SOURCE_VERIFICATION_COMPLETED_BY_REUSED_AUDIT"
+}

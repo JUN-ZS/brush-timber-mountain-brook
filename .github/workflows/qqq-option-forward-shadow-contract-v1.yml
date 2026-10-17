@@ -1,0 +1,31 @@
+name: QQQ Forward Shadow Snapshot Contract V1
+
+on:
+  push:
+    branches:
+      - research/qqq-option-shortlist-replay-v1
+    paths:
+      - research/qqq_option_forward_shadow_v1/**
+      - .github/workflows/qqq-option-forward-shadow-contract-v1.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-option-forward-shadow-contract-v1
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Offline forward-shadow data contract tests
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run offline snapshot contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/qqq_option_forward_shadow_v1/validate_shadow_snapshot.py
+          python3 research/qqq_option_forward_shadow_v1/test_validate_shadow_snapshot.py
+          echo "Forward shadow snapshot contract=PASS; no network retrieval or orders."

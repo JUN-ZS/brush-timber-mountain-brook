@@ -1,0 +1,84 @@
+name: QQQ Option Shortlist Replay V1
+
+on:
+  push:
+    branches:
+      - research/qqq-option-shortlist-replay-v1
+    paths:
+      - research/qqq_option_shortlist_v1/**
+      - .github/workflows/qqq-option-shortlist-replay-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-option-shortlist-replay-v1
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: SHA-pinned QQQ option shortlist replay (Linux BOT)
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+      - name: Verify runner and reuse persistent option cache
+        run: |
+          set -euo pipefail
+          python3 --version
+          test "$RUNNER_NAME" = "grokbot-box-linux-x64"
+          cache_dir="$HOME/.cache/qqq-options-full-history"
+          mkdir -p "$cache_dir" .cache
+          rm -rf .cache/qqq-options-full-history
+          ln -s "$cache_dir" .cache/qqq-options-full-history
+          echo "runner_name=$RUNNER_NAME"
+          echo "cache_path=$cache_dir"
+          find "$cache_dir" -maxdepth 1 -type f -printf '%f %s bytes\n' | head -20 || true
+      - name: Install pinned Parquet reader
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and run deterministic contract tests
+        run: |
+          set -euo pipefail
+          PY=.venv/bin/python
+          $PY -m py_compile research/qqq_option_shortlist_v1/qqq_option_shortlist_replay_v1.py
+          $PY -m py_compile research/qqq_option_shortlist_v1/test_qqq_option_shortlist_replay_v1.py
+          $PY research/qqq_option_shortlist_v1/test_qqq_option_shortlist_replay_v1.py
+      - name: Run SHA-pinned option-chain shortlist replay
+        timeout-minutes: 75
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/qqq_option_shortlist_v1
+          .venv/bin/python research/qqq_option_shortlist_v1/qqq_option_shortlist_replay_v1.py --out artifacts/qqq_option_shortlist_v1 | tee QQQ_OPTION_SHORTLIST_RUN.json
+          test -s artifacts/qqq_option_shortlist_v1/summary.json
+          test -s artifacts/qqq_option_shortlist_v1/summary.md
+          test -s artifacts/qqq_option_shortlist_v1/trades.csv
+          test -s artifacts/qqq_option_shortlist_v1/core_control.csv
+          test -s artifacts/qqq_option_shortlist_v1/signals.csv
+      - name: Persist evidence to research branch without using Actions artifact quota
+        if: success()
+        run: |
+          set -euo pipefail
+          dest="research/qqq_option_shortlist_results_v1/run-$GITHUB_RUN_ID-$GITHUB_SHA"
+          mkdir -p "$dest"
+          cp -a artifacts/qqq_option_shortlist_v1/. "$dest/"
+          cp QQQ_OPTION_SHORTLIST_RUN.json "$dest/runner_stdout.json"
+          {
+            printf 'tested_sha=%s\n' "$GITHUB_SHA"
+            printf 'run_id=%s\n' "$GITHUB_RUN_ID"
+            printf 'run_url=%s/actions/runs/%s\n' "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"
+            printf 'runner_name=%s\n' "$RUNNER_NAME"
+            printf 'source_branch=%s\n' "$GITHUB_REF_NAME"
+            printf 'output_scope=research-only; no orders; no live policy changes\n'
+          } > "$dest/RECOVERY_META.txt"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$dest"
+          git commit -m "research output: QQQ option shortlist run $GITHUB_RUN_ID"
+          git push origin "HEAD:$GITHUB_REF_NAME"
