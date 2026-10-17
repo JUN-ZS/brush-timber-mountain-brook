@@ -7,11 +7,11 @@ Which small set of QQQ-and-option structures merits further investigation under 
 
 ## Prespecified candidates
 1. CORE_ONLY: fixed QQQ shares equal to 42% of initial NAV; remaining cash stays uninvested.
-2. CORE_PLUS_PUT_DEBIT: same QQQ core plus a defined-risk QQQ put debit vertical (long approximately 25-delta put, short lower-strike approximately 10-delta put), 18–35 DTE at next-session entry; entry premium budget 2% of prior observed NAV.
+2. CORE_PLUS_PUT_DEBIT: same QQQ core plus a defined-risk QQQ put debit vertical (long approximately 25-delta put, short lower-strike approximately 10-delta put), 18–35 DTE at next-session entry; annualized gross premium-spend budget of 2% of NAV, prorated by expected holding days for each cycle (entry DTE minus the 7-day roll threshold).
 3. CORE_PLUS_CALL_CREDIT: same core plus a defined-risk QQQ call credit vertical (short approximately 16-delta call, protective higher-strike approximately 8-delta call), 18–35 DTE at entry; maximum-loss budget 0.8% of prior observed NAV.
 4. CORE_PLUS_CALL_AND_PUT: both option sleeves, using the same budgets as in candidates 2 and 3. Its combined nominal risk budget is greater than either single-sleeve variant; do not describe raw CAGR as a matched-total-risk win.
 
-The 42% share allocation and risk budgets are research normalization only and do not become current HUB targets. The 1-long/5-short put ratio is deliberately not in the eligible candidate set due to its previously observed very large terminal-tail loss estimate; it may remain a separate stress/control study.
+The 42% share allocation and risk budgets are research normalization only and do not become current HUB targets. Put debit premiums are capped at a 2% annualized gross spend rate, prorated to planned hold days; this avoids allocating 2% of NAV repeatedly on every roll. The 1-long/5-short put ratio is deliberately not in the eligible candidate set due to its previously observed very large terminal-tail loss estimate; it may remain a separate stress/control study.
 
 ## Execution and accounting
 - SHA-pinned canonical QQQ option and underlying Parquet files from lambdaclass/options_portfolio_backtester release data-v1.

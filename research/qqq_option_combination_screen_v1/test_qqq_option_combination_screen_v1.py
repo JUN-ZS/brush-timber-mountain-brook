@@ -22,6 +22,22 @@ class CombinationScreenTests(unittest.TestCase):
         q = {"long": {"bid": 1.20}, "short": {"ask": 1.80}}
         self.assertAlmostEqual(screen.exit_cashflow("PUT_DEBIT", q, 1, 0.05, 0.65), -71.30)
 
+    def test_put_budget_is_annualized_and_state_dependent(self):
+        nav = 80_000
+        short_hold_budget = screen.put_budget_for_holding_period(nav, 23)
+        long_hold_budget = screen.put_budget_for_holding_period(nav, 33)
+        self.assertAlmostEqual(short_hold_budget, nav * 0.02 * 16 / 365.25)
+        self.assertGreater(long_hold_budget, short_hold_budget)
+        self.assertLess(short_hold_budget, nav * 0.02)
+
+    def test_put_contract_count_obeys_prorated_budget_and_available_cash(self):
+        q = {"long": {"ask": 2.00}, "short": {"bid": 0.80}}
+        qty, unit_risk = screen.size_put_debit(500.0, q, 0.05, 0.65, 270.0)
+        self.assertAlmostEqual(unit_risk, 131.30)
+        self.assertEqual(qty, 2)
+        self.assertLessEqual(qty * unit_risk, 270.0)
+        self.assertLessEqual(qty * unit_risk, 500.0)
+
     def test_call_risk_uses_width_minus_credit_not_received_credit(self):
         nav = 100_000
         q = {"short": {"bid": 1.50}, "wing": {"ask": 0.50}}

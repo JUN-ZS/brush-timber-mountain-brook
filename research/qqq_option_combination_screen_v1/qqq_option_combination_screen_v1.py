@@ -15,7 +15,7 @@ import pandas as pd
 OPTIONS_SHA256 = "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734"
 UNDERLYING_SHA256 = "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351"
 CORE_WEIGHT = 0.42
-PUT_PREMIUM_BUDGET = 0.020
+PUT_ANNUAL_PREMIUM_BUDGET = 0.020
 CALL_MAX_LOSS_BUDGET = 0.008
 DTE_MIN, DTE_MAX = 18, 35
 ROLL_DTE = 7
@@ -241,11 +241,19 @@ def mark_value(kind: str, q: dict[str, dict[str, float]], qty: int) -> float:
     return (q["wing"]["mid"] - q["short"]["mid"]) * 100.0 * qty
 
 
-def size_put_debit(nav: float, cash: float, q, slip: float, commission: float) -> tuple[int, float]:
+def put_budget_for_holding_period(nav: float, entry_dte: int) -> float:
+    # Annualized gross premium spend cap, prorated over expected exposure days.
+    # The vertical is scheduled to close at DTE <= 7, so this avoids spending
+    # 2% of NAV afresh on every roll and exhausting the cash reserve.
+    planned_hold_days = max(1, int(entry_dte) - ROLL_DTE)
+    return nav * PUT_ANNUAL_PREMIUM_BUDGET * planned_hold_days / 365.25
+
+
+def size_put_debit(cash: float, q, slip: float, commission: float, budget: float) -> tuple[int, float]:
     debit_risk = ((q["long"]["ask"] + slip) - (q["short"]["bid"] - slip)) * 100.0 + 2 * commission
     if not np.isfinite(debit_risk) or debit_risk <= 0:
         return 0, debit_risk
-    qty = min(math.floor(nav * PUT_PREMIUM_BUDGET / debit_risk),
+    qty = min(math.floor(max(0.0, budget) / debit_risk),
               math.floor(max(0.0, cash) / debit_risk))
     return max(0, qty), debit_risk
 
@@ -337,8 +345,8 @@ def run_one(underlying: pd.DataFrame, candidates, qmap, nav0: float,
                     continue
 
                 if sleeve == "PUT_DEBIT":
-                    qty, unit_risk = size_put_debit(prior_nav, cash, q, slip, commission)
-                    budget = prior_nav * PUT_PREMIUM_BUDGET
+                    budget = put_budget_for_holding_period(prior_nav, exec_dte)
+                    qty, unit_risk = size_put_debit(cash, q, slip, commission, budget)
                 else:
                     qty, unit_risk = size_call_credit(prior_nav, q, cand, slip, commission)
                     budget = prior_nav * CALL_MAX_LOSS_BUDGET
@@ -448,8 +456,8 @@ def run_one(underlying: pd.DataFrame, candidates, qmap, nav0: float,
         "variant": variant, "cost_case": cost_name, "initial_nav_usd": nav0,
         "date_start": str(first_date.date()), "date_end": str(final_date.date()),
         "qqq_core_weight_normalization": CORE_WEIGHT,
-        "put_premium_budget_pct_prior_nav": PUT_PREMIUM_BUDGET if "PUT_DEBIT" in active_sleeves else 0,
-        "call_max_loss_budget_pct_prior_nav": CALL_MAX_LOSS_BUDGET if "CALL_CREDIT" in active_sleeves else 0,
+        "put_annual_premium_budget_pct_nav": 100 * PUT_ANNUAL_PREMIUM_BUDGET if "PUT_DEBIT" in active_sleeves else 0,
+        "call_max_loss_budget_pct_prior_nav": 100 * CALL_MAX_LOSS_BUDGET if "CALL_CREDIT" in active_sleeves else 0,
         "slippage_per_leg_per_share": slip, "commission_per_contract_per_side": commission,
         "final_nav_usd": final_nav, "total_return_pct": (final_nav / nav0 - 1) * 100 if np.isfinite(final_nav) else float("nan"),
         "cagr_pct": cagr * 100 if np.isfinite(cagr) else float("nan"),
@@ -482,7 +490,7 @@ def generate_report(summary_df: pd.DataFrame, manifest: dict[str, Any], report_p
         "**Status: research-only; no live sizing changes and no broker orders.**", "",
         "## Prespecified candidates", "",
         "- CORE_ONLY: buy-and-hold QQQ shares sized to 42% of initial NAV; the remaining cash stays uninvested.",
-        "- CORE_PLUS_PUT_DEBIT: the same core plus a 18–35 DTE QQQ put debit vertical (buy approximately 25-delta put, sell lower-strike approximately 10-delta put). Entry debit budget: 2% of prior observed NAV.",
+        "- CORE_PLUS_PUT_DEBIT: the same core plus a 18–35 DTE QQQ put debit vertical (buy approximately 25-delta put, sell lower-strike approximately 10-delta put). Annualized gross premium budget: 2% of NAV, prorated by planned exposure days (entry DTE minus the 7-day roll threshold).",
         "- CORE_PLUS_CALL_CREDIT: the same core plus a 18–35 DTE QQQ call credit vertical (sell approximately 16-delta call, buy higher-strike approximately 8-delta protective call). Budget: 0.8% of prior observed NAV in conservative vertical max loss.",
         "- CORE_PLUS_CALL_AND_PUT: both option sleeves at their single-sleeve budgets. This has a larger combined nominal budget, so raw CAGR is not a matched-total-risk comparison.",
         "",
@@ -561,6 +569,7 @@ def main() -> None:
         "loaded_exact_contract_quote_rows": len(qmap), "candidate_selection_rejections": candidate_rejections,
         "underlying_sessions": int(len(underlying)), "variants": list(VARIANTS),
         "navs_usd": args.navs, "cost_cases": COSTS,
+        "put_annual_premium_budget_pct_nav": 100 * PUT_ANNUAL_PREMIUM_BUDGET,
         "source_type": "historical quote-side simulation; executable fills/depth not authenticated",
         "same_close_lookahead": False, "quote_interpolation": False, "black_scholes": False,
         "dividends_included": False, "vxx_stock_short_included": False, "vxx_options_included": False,
