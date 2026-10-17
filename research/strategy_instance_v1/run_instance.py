@@ -89,15 +89,18 @@ def pos_spec(x):
             "lot_size":max(1,si(p[4]) if len(p)==5 else 100),"source":"USER_INITIAL"}
 
 def init_lots(m):
+    strategy_id = str(m.get("strategy_id") or "UNALLOCATED").strip() or "UNALLOCATED"
     return [{"lot_id":f"T0-{n:04d}","code":p["code"],"side":p["side"],"qty":si(p["qty"]),
              "avg_price":sf(p["avg_cost"]),"lot_size":max(1,si(p.get("lot_size")) or 100),
-             "opened_at":m["start_at_utc"],"source":"USER_INITIAL","status":"OPEN"}
+             "strategy_id":strategy_id,"opened_at":m["start_at_utc"],"source":"USER_INITIAL","status":"OPEN"}
             for n,p in enumerate(m["initial_positions"],1) if si(p["qty"])>0]
 
-def close_fifo(lots,code,side,qty,price,lot_size):
+def close_fifo(lots,code,side,qty,price,lot_size,strategy_id=None):
     rem=qty; pnl=0.0
     for l in lots:
         if rem<=0: break
+        lot_strategy_id=str(l.get("strategy_id") or "UNALLOCATED").strip() or "UNALLOCATED"
+        if strategy_id is not None and lot_strategy_id != strategy_id: continue
         if l.get("status","OPEN")!="OPEN" or str(l.get("code","")).upper()!=code.upper() or str(l.get("side")).upper()!=side: continue
         take=min(rem,si(l["qty"])); entry=sf(l["avg_price"]); size=max(1,si(l.get("lot_size")) or lot_size or 100)
         pnl += ((price-entry) if side=="LONG" else (entry-price))*take*size
@@ -122,7 +125,7 @@ def apply_deal(lots,d):
         lots.append({"lot_id":f"D-{d.get('deal_id','X')}-S","code":code,"side":"SHORT","qty":q,"avg_price":px,"lot_size":size,"opened_at":d.get("created_at"),"source":"BROKER_DEAL","status":"OPEN"}); return 0.0
     return 0.0
 
-def manual_apply_trade(lots, *, action, code, qty, price, lot_size, trade_id, timestamp):
+def manual_apply_trade(lots, *, action, code, qty, price, lot_size, trade_id, timestamp, strategy_id="UNALLOCATED"):
     """Apply a user-entered execution to the separate manual operator book.
 
     This book is intentionally independent from broker-observed lots/pnl. It
@@ -134,6 +137,7 @@ def manual_apply_trade(lots, *, action, code, qty, price, lot_size, trade_id, ti
     q = si(qty)
     px = sf(price)
     size = max(1, si(lot_size) or 100)
+    strategy_id = str(strategy_id or "UNALLOCATED").strip() or "UNALLOCATED"
     if not code or q <= 0 or px <= 0:
         raise SystemExit("MANUAL_TRADE_INVALID")
     if action == "ADD":
@@ -144,13 +148,14 @@ def manual_apply_trade(lots, *, action, code, qty, price, lot_size, trade_id, ti
             "qty": q,
             "avg_price": px,
             "lot_size": size,
+            "strategy_id": strategy_id,
             "opened_at": timestamp,
             "source": "USER_MANUAL",
             "status": "OPEN",
         })
         return 0.0, 0
     if action == "REDUCE":
-        rem, pnl = close_fifo(lots, code, "LONG", q, px, size)
+        rem, pnl = close_fifo(lots, code, "LONG", q, px, size, strategy_id=strategy_id)
         if rem:
             raise SystemExit(f"MANUAL_REDUCE_EXCEEDS_POSITION:{code}:{rem}")
         return pnl, 0
@@ -168,7 +173,7 @@ def manual_apply_trade(lots, *, action, code, qty, price, lot_size, trade_id, ti
         })
         return 0.0, 0
     if action == "BUY_BACK_FAR":
-        rem, pnl = close_fifo(lots, code, "SHORT", q, px, size)
+        rem, pnl = close_fifo(lots, code, "SHORT", q, px, size, strategy_id=strategy_id)
         if rem:
             raise SystemExit(f"MANUAL_COVER_EXCEEDS_POSITION:{code}:{rem}")
         return pnl, 0
@@ -179,12 +184,13 @@ def manual_position_snapshot(lots):
     for l in lots:
         if l.get("status","OPEN") != "OPEN" or si(l.get("qty")) <= 0:
             continue
-        k=(str(l["code"]).upper(),str(l["side"]).upper())
-        row=out.setdefault(k, {"code":l["code"],"side":l["side"],"qty":0,"avg_cost":0.0,"notional":0.0})
+        strategy_id=str(l.get("strategy_id") or "UNALLOCATED").strip() or "UNALLOCATED"
+        k=(strategy_id,str(l["code"]).upper(),str(l["side"]).upper())
+        row=out.setdefault(k, {"strategy_id":strategy_id,"code":l["code"],"side":l["side"],"qty":0,"avg_cost":0.0,"notional":0.0})
         q=si(l["qty"]); px=sf(l["avg_price"]); row["qty"] += q
         row["notional"] += q*px
         row["avg_cost"] = row["notional"]/row["qty"] if row["qty"] else 0.0
-    return sorted(out.values(), key=lambda x:(x["side"],x["code"]))
+    return sorted(out.values(), key=lambda x:(x["strategy_id"],x["side"],x["code"]))
 
 def mark_lots(lots, cmap, quotes):
     rows=[]; unreal=0.0
@@ -197,13 +203,13 @@ def mark_lots(lots, cmap, quotes):
         if mid is None and bid is not None and ask is not None and float(ask)>=float(bid):
             mid=(float(bid)+float(ask))/2
         if mid is None:
-            rows.append({"code":code,"side":l.get("side"),"qty":si(l.get("qty")),"avg_cost":sf(l.get("avg_price")),"status":"NO_MARK"})
+            rows.append({"lot_id":l.get("lot_id"),"strategy_id":str(l.get("strategy_id") or "UNALLOCATED"),"code":code,"side":l.get("side"),"qty":si(l.get("qty")),"avg_cost":sf(l.get("avg_price")),"status":"NO_MARK"})
             continue
         size=max(1,si(l.get("lot_size")) or (cmap.get(code).lot_size if cmap.get(code) else 100))
         px=sf(l.get("avg_price")); qty=si(l.get("qty")); side=str(l.get("side")).upper()
         u=((float(mid)-px) if side=="LONG" else (px-float(mid)))*qty*size
         unreal += u
-        rows.append({"code":code,"side":side,"qty":qty,"avg_cost":px,"lot_size":size,"mid":float(mid),"unrealized_pnl":u,"status":"MARKED"})
+        rows.append({"lot_id":l.get("lot_id"),"strategy_id":str(l.get("strategy_id") or "UNALLOCATED"),"code":code,"side":side,"qty":qty,"avg_cost":px,"lot_size":size,"mid":float(mid),"unrealized_pnl":u,"status":"MARKED"})
     return {"rows":rows,"unrealized_pnl":unreal,"status":"OK" if rows and all(x["status"]=="MARKED" for x in rows) else ("PARTIAL" if rows else "EMPTY")}
 
 def option_positions(ps):
@@ -311,7 +317,9 @@ def cycle(args):
              payload={"snapshot_sha256":sh,"snapshot_ref":str(sr.relative_to(repo)),"positions":len(ps),
                       "orders":len(orders),"new_deals":len(new),"reconcile":s["last_reconcile"],"deal_warning":tr.get("deal_warning"),
                       "history_backfill_used":history_used,"history_start":tr.get("history_start"),"history_end":tr.get("history_end")},source="BROKER_OBSERVED")
-    mk=marks(ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])\n    mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)\n    s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
+    mk=marks(ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
+    mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
+    s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
     l.append("MARK_TO_MARKET",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={
         "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],
         "gross_pnl":gross,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
@@ -353,14 +361,15 @@ def init_cmd(a):
     l.append("INITIAL_STATE_RECORDED",instance_id=a.instance_id,cycle_id=c,timestamp_utc=created,payload={"initial_cash":a.initial_cash,"initial_positions":ps,"economic_t0":start,"observation_t0":created},source="USER_INITIAL")
     print(json.dumps({"status":"INSTANCE_CREATED","instance_id":a.instance_id,"start_at_utc":start,"created_at_utc":created,"manifest_hash":m["manifest_hash"],"path":str(d)},ensure_ascii=False,indent=2)); return 0
 
-def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
+def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size, strategy_id="UNALLOCATED"):
     action=str(action).upper(); code=str(code).strip().upper(); q=si(qty); px=sf(price)
     size=max(1,si(lot_size) or 100)
+    strategy_id=str(strategy_id or "UNALLOCATED").strip() or "UNALLOCATED"
     if action=="REDUCE":
         remaining=q; pnl=0.0; matched=0; entries=[]
         for lot in lots:
             if remaining<=0: break
-            if lot.get("status","OPEN")!="OPEN" or str(lot.get("code","")).upper()!=code or str(lot.get("side","")).upper()!="LONG":
+            if lot.get("status","OPEN")!="OPEN" or str(lot.get("strategy_id") or "UNALLOCATED")!=strategy_id or str(lot.get("code","")).upper()!=code or str(lot.get("side","")).upper()!="LONG":
                 continue
             take=min(remaining,si(lot.get("qty"))); entry=sf(lot.get("avg_price")); s=max(1,si(lot.get("lot_size")) or size)
             pnl += (px-entry)*take*s; matched += take; entries.append({"lot_id":lot.get("lot_id"),"qty":take,"entry_price":entry,"pnl":(px-entry)*take*s})
@@ -371,7 +380,7 @@ def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
         remaining=q; pnl=0.0; matched=0; entries=[]
         for lot in lots:
             if remaining<=0: break
-            if lot.get("status","OPEN")!="OPEN" or str(lot.get("code","")).upper()!=code or str(lot.get("side","")).upper()!="SHORT":
+            if lot.get("status","OPEN")!="OPEN" or str(lot.get("strategy_id") or "UNALLOCATED")!=strategy_id or str(lot.get("code","")).upper()!=code or str(lot.get("side","")).upper()!="SHORT":
                 continue
             take=min(remaining,si(lot.get("qty"))); entry=sf(lot.get("avg_price")); s=max(1,si(lot.get("lot_size")) or size)
             pnl += (entry-px)*take*s; matched += take; entries.append({"lot_id":lot.get("lot_id"),"qty":take,"entry_price":entry,"pnl":(entry-px)*take*s})
@@ -381,9 +390,10 @@ def manual_book_pnl_preview(lots, *, action, code, qty, price, lot_size):
     return {"action":action,"code":code,"qty":q,"price":px,"lot_size":size,
             "matched_qty":q,"remaining_unmatched":0,"realized_pnl_preview":0.0,"lots":[]}
 
-def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None):
+def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size=100, timestamp_utc=None, trade_id=None, note="", strategy_context=None, strategy_id=None):
     m,s,l=load_instance(Path(repo).resolve(),instance_id)
     t=timestamp_utc or now(); action=str(action).upper(); code=str(code).strip().upper()
+    strategy_id=str(strategy_id or m.get("strategy_id") or "UNALLOCATED").strip() or "UNALLOCATED"
     if not code.startswith("US.QQQ") or code=="US.QQQ":
         raise SystemExit("MANUAL_CODE_MUST_BE_QQQ_OPTION")
     trade_id=trade_id or ("MANUAL_"+t.replace(":","").replace("-","").replace(".","").replace("+00:00","Z"))
@@ -391,13 +401,13 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
     if trade_id in existing_manual_ids:
         raise SystemExit(f"MANUAL_TRADE_ID_EXISTS:{trade_id}")
     lots=json.loads(json.dumps(s.get("manual_lots",[])))
-    preview=manual_book_pnl_preview(lots,action=action,code=code,qty=qty,price=price,lot_size=lot_size)
+    preview=manual_book_pnl_preview(lots,action=action,code=code,qty=qty,price=price,lot_size=lot_size,strategy_id=strategy_id)
     if preview["remaining_unmatched"]>0:
         if action=="REDUCE":
             raise SystemExit(f"MANUAL_REDUCE_EXCEEDS_POSITION:{code}:{preview['remaining_unmatched']}")
         if action=="BUY_BACK_FAR":
             raise SystemExit(f"MANUAL_COVER_EXCEEDS_POSITION:{code}:{preview['remaining_unmatched']}")
-    pnl_delta,_=manual_apply_trade(lots,action=action,code=code,qty=qty,price=price,lot_size=lot_size,trade_id=trade_id,timestamp=t)
+    pnl_delta,_=manual_apply_trade(lots,action=action,code=code,qty=qty,price=price,lot_size=lot_size,trade_id=trade_id,timestamp=t,strategy_id=strategy_id)
     s["manual_lots"]=lots; s["manual_realized_pnl"]=sf(s.get("manual_realized_pnl"))+sf(pnl_delta)
     s["manual_trade_count"]=si(s.get("manual_trade_count"))+1
     s["manual_last_mark"]={"unrealized_pnl":None,"status":"STALE_AFTER_MANUAL_TRADE","rows":[],"marked_at_utc":t}
@@ -409,7 +419,7 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
     strategy_qty=si(sc.get("qty"))
     relationship = classify_relationship(action, code, qty, sc)
     l.append("MANUAL_TRADE_RECORDED",instance_id=instance_id,cycle_id="MANUAL_"+trade_id,timestamp_utc=t,
-             payload={"trade_id":trade_id,"action":action,"code":code,"qty":si(qty),"price":sf(price),
+             payload={"trade_id":trade_id,"strategy_id":strategy_id,"action":action,"code":code,"qty":si(qty),"price":sf(price),
                       "lot_size":max(1,si(lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
                       "manual_realized_pnl_after":s["manual_realized_pnl"],"positions_after":positions,
                       "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc,"lots_after":lots},
@@ -417,14 +427,14 @@ def record_manual_trade(repo, *, instance_id, action, code, qty, price, lot_size
     save(spath(Path(repo).resolve(),instance_id),s)
     return {"status":"MANUAL_TRADE_RECORDED","instance_id":instance_id,"trade_id":trade_id,
             "timestamp_utc":t,"action":action,"code":code,"qty":si(qty),"price":sf(price),
-            "lot_size":max(1,si(lot_size) or 100),"realized_pnl_delta":sf(pnl_delta),
+            "lot_size":max(1,si(lot_size) or 100),"strategy_id":strategy_id,"realized_pnl_delta":sf(pnl_delta),
             "manual_realized_pnl":s["manual_realized_pnl"],"manual_positions":positions,
             "pnl_preview":preview,"note":note,"relationship_to_strategy":relationship,"strategy_reference":sc}
 
 def manual_cmd(a):
     out=record_manual_trade(
         a.repo_root,instance_id=a.instance_id,action=a.action,code=a.code,qty=a.qty,price=a.price,
-        lot_size=a.lot_size,timestamp_utc=a.timestamp_utc,trade_id=a.trade_id,note=a.note
+        lot_size=a.lot_size,timestamp_utc=a.timestamp_utc,trade_id=a.trade_id,note=a.note,strategy_id=a.strategy_id
     )
     print(json.dumps(out,ensure_ascii=False,indent=2)); return 0
 
@@ -432,6 +442,98 @@ def note_cmd(a):
     repo=Path(a.repo_root).resolve(); m,s,l=load_instance(repo,a.instance_id); t=now(); c="NOTE_"+t.replace(":","").replace("-","").replace(".","")
     l.append("HUMAN_NOTE",instance_id=a.instance_id,cycle_id=c,timestamp_utc=t,payload={"note":a.text,"tag":a.tag},source="USER_MANUAL")
     print(json.dumps({"status":"NOTE_RECORDED","instance_id":a.instance_id,"timestamp_utc":t},ensure_ascii=False,indent=2)); return 0
+
+def summarize_strategy_pnl(manual_lots, manual_mark, trade_events, expected_realized_pnl):
+    """Reconcile per-strategy P&L against the aggregate USER_MANUAL option book.
+
+    Missing strategy IDs in legacy records are UNALLOCATED. Missing marks remain
+    PENDING and are never converted into zero P&L.
+    """
+    realized = {}
+    trade_counts = {}
+    for event in trade_events or []:
+        sid = str(event.get("strategy_id") or "UNALLOCATED").strip() or "UNALLOCATED"
+        realized[sid] = round(realized.get(sid, 0.0) + sf(event.get("realized_pnl_delta")), 4)
+        trade_counts[sid] = trade_counts.get(sid, 0) + 1
+
+    open_counts = {}
+    for lot in manual_lots or []:
+        if lot.get("status", "OPEN") != "OPEN" or si(lot.get("qty")) <= 0:
+            continue
+        sid = str(lot.get("strategy_id") or "UNALLOCATED").strip() or "UNALLOCATED"
+        open_counts[sid] = open_counts.get(sid, 0) + 1
+
+    unrealized = {}
+    marked_counts = {}
+    missing_counts = {}
+    mark_rows = (manual_mark or {}).get("rows", []) or []
+    for row in mark_rows:
+        sid = str(row.get("strategy_id") or "UNALLOCATED").strip() or "UNALLOCATED"
+        if row.get("status") == "MARKED" and row.get("unrealized_pnl") is not None:
+            unrealized[sid] = round(unrealized.get(sid, 0.0) + sf(row.get("unrealized_pnl")), 4)
+            marked_counts[sid] = marked_counts.get(sid, 0) + 1
+        else:
+            missing_counts[sid] = missing_counts.get(sid, 0) + 1
+
+    ids = set(realized) | set(open_counts) | set(unrealized) | set(marked_counts) | set(missing_counts)
+    if not ids:
+        ids.add("UNALLOCATED")
+    by_strategy = {}
+    all_marks_complete = True
+    for sid in sorted(ids):
+        expected_open = open_counts.get(sid, 0)
+        marked = marked_counts.get(sid, 0)
+        missing = missing_counts.get(sid, 0)
+        if expected_open == 0:
+            mark_status, unreal = "EMPTY", 0.0
+        elif marked == expected_open and missing == 0:
+            mark_status, unreal = "OK", round(unrealized.get(sid, 0.0), 4)
+        else:
+            mark_status, unreal = "PENDING", None
+            all_marks_complete = False
+        rpnl = round(realized.get(sid, 0.0), 4)
+        by_strategy[sid] = {
+            "strategy_id": sid,
+            "realized_pnl": rpnl,
+            "unrealized_pnl": unreal,
+            "total_pnl": round(rpnl + unreal, 4) if unreal is not None else None,
+            "trade_count": trade_counts.get(sid, 0),
+            "open_lot_count": expected_open,
+            "marked_open_lot_count": marked,
+            "mark_status": mark_status,
+        }
+
+    realized_sum = round(sum(x["realized_pnl"] for x in by_strategy.values()), 4)
+    realized_delta = round(realized_sum - sf(expected_realized_pnl), 4)
+    has_open = sum(open_counts.values()) > 0
+    global_mark_status = str((manual_mark or {}).get("status") or "MISSING")
+    if has_open and not all_marks_complete:
+        unrealized_sum = unrealized_delta = total_delta = None
+        status = "PENDING_MARKS"
+    else:
+        unrealized_sum = round(sum((x["unrealized_pnl"] or 0.0) for x in by_strategy.values()), 4)
+        expected_unrealized = sf((manual_mark or {}).get("unrealized_pnl")) if global_mark_status == "OK" else 0.0
+        unrealized_delta = round(unrealized_sum - expected_unrealized, 4)
+        total_delta = round((realized_sum + unrealized_sum) - (sf(expected_realized_pnl) + expected_unrealized), 4)
+        status = "RECONCILED" if abs(realized_delta) < 0.01 and abs(unrealized_delta) < 0.01 and abs(total_delta) < 0.01 else "CHECK_REQUIRED"
+    return {
+        "schema": "SINGLE_STRATEGY_PNL_RECONCILIATION.v1",
+        "scope": "USER_MANUAL_BOOK_ONLY_NOT_TOTAL_ACCOUNT_NAV",
+        "strategy_ids": sorted(by_strategy),
+        "by_strategy": by_strategy,
+        "reconciliation": {
+            "status": status,
+            "realized_pnl_sum": realized_sum,
+            "expected_manual_realized_pnl": round(sf(expected_realized_pnl), 4),
+            "realized_delta": realized_delta,
+            "unrealized_pnl_sum": unrealized_sum,
+            "unrealized_delta": unrealized_delta,
+            "total_delta": total_delta,
+            "open_lots": sum(open_counts.values()),
+            "mark_status": global_mark_status,
+        },
+    }
+
 
 def instance_summary(repo, instance_id):
     repo=Path(repo).resolve(); m,s,l=load_instance(repo,instance_id)
@@ -458,6 +560,11 @@ def instance_summary(repo, instance_id):
             "data_gaps":si(s.get("data_gaps")),
         },
         "recent_manual_trades":[r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")} for r in recent],
+        "strategy_pnl":summarize_strategy_pnl(
+            s.get("manual_lots",[]), mark,
+            [r.get("payload",{}) for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"],
+            s.get("manual_realized_pnl",0.0),
+        ),
         "performance_tape":build_performance_tape(
             [r.get("payload",{}) | {"timestamp_utc":r.get("timestamp_utc"),"event_seq":r.get("event_seq")}
              for r in rows if r.get("event_type")=="MANUAL_TRADE_RECORDED"]
@@ -516,7 +623,7 @@ def parser():
         x=s.add_parser(name); x.add_argument("--instance-id",required=True); x.add_argument("--host",default="127.0.0.1"); x.add_argument("--port",type=int,default=11111); x.add_argument("--simulate",action="store_true"); x.add_argument("--observe-strategy-plan",action="store_true"); x.add_argument("--backfill-after-minutes",type=int,default=10)
         if name=="watch": x.add_argument("--interval",type=int,default=300); x.add_argument("--once",action="store_true"); x.add_argument("--stop-on-error",action="store_true")
         x.set_defaults(fn=cycle if name=="cycle" else watch)
-    x=s.add_parser("manual"); x.add_argument("--instance-id",required=True); x.add_argument("--action",required=True,choices=["ADD","REDUCE","SELL_FAR","BUY_BACK_FAR"]); x.add_argument("--code",required=True); x.add_argument("--qty",type=int,required=True); x.add_argument("--price",type=float,required=True); x.add_argument("--lot-size",type=int,default=100); x.add_argument("--timestamp-utc",default=None); x.add_argument("--trade-id",default=None); x.add_argument("--note",default=""); x.set_defaults(fn=manual_cmd)
+    x=s.add_parser("manual"); x.add_argument("--instance-id",required=True); x.add_argument("--strategy-id",default=None,help="Strategy ID to isolate this manual lot; defaults to the instance manifest strategy_id."); x.add_argument("--action",required=True,choices=["ADD","REDUCE","SELL_FAR","BUY_BACK_FAR"]); x.add_argument("--code",required=True); x.add_argument("--qty",type=int,required=True); x.add_argument("--price",type=float,required=True); x.add_argument("--lot-size",type=int,default=100); x.add_argument("--timestamp-utc",default=None); x.add_argument("--trade-id",default=None); x.add_argument("--note",default=""); x.set_defaults(fn=manual_cmd)
     x=s.add_parser("instances"); x.set_defaults(fn=lambda a: print(json.dumps({"instances":list_instances(a.repo_root)},ensure_ascii=False,indent=2)) or 0)
     x=s.add_parser("note"); x.add_argument("--instance-id",required=True); x.add_argument("--text",required=True); x.add_argument("--tag",default="USER_MANUAL"); x.set_defaults(fn=note_cmd)
     for name,fn in (("report",report),("verify",verify)):

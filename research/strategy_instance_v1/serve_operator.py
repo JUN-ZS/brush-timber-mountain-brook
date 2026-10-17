@@ -89,6 +89,7 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                     qty=body.get("qty"),
                     price=body.get("price"),
                     lot_size=body.get("lot_size", 100),
+                    strategy_id=body.get("strategy_id", "UNALLOCATED"),
                 )
                 self._json(200, {"status": "OK", "preview": preview})
                 return
@@ -130,6 +131,7 @@ class OperatorHandler(SimpleHTTPRequestHandler):
                     trade_id=body.get("trade_id"),
                     note=body.get("note", ""),
                     strategy_context=strategy_context,
+                    strategy_id=body.get("strategy_id"),
                 )
                 self._json(200, out)
                 return
