@@ -1,0 +1,15 @@
+
+{
+  "classification": "REFERENCE_ONLY",
+  "historical_source_aligned_replay": {
+    "cagr": 0.127049,
+    "daily_mtm_max_drawdown": -0.231837
+  },
+  "cboe_source_swap_overlap": {
+    "rows": 1036,
+    "archive_action_agreement_pct": 99.51737451737452,
+    "archive_state_agreement_pct": 99.51737451737452,
+    "term_sign_agreement_pct": 99.42084942084942
+  },
+  "rule": "Reference metadata never alters live policy targets or engine decisions."
+}
