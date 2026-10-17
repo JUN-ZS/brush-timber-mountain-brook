@@ -255,8 +255,11 @@ function renderState(){
 
   $("positions").innerHTML=(m.positions||[]).map(p=>{
     const sid=p.strategy_id||"UNALLOCATED";
-    const mark=(m.marks||[]).find(x=>x.code===p.code&&x.side===p.side&&(x.strategy_id||"UNALLOCATED")===sid);
-    return '<tr><td>'+esc(sid)+'</td><td>'+esc(p.side)+'</td><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.qty)+'</td><td>'+fmt(p.avg_cost)+'</td><td>'+fmt(mark?.mid)+'</td><td class="'+((mark?.unrealized_pnl||0)>=0?'green':'red')+'">'+(mark?.unrealized_pnl==null?'—':money(mark.unrealized_pnl))+'</td></tr>';
+    const marks=(m.marks||[]).filter(x=>x.code===p.code&&x.side===p.side&&(x.strategy_id||"UNALLOCATED")===sid);
+    const mark=marks.find(x=>x.status==="MARKED");
+    const complete=marks.length>0&&marks.every(x=>x.status==="MARKED"&&x.unrealized_pnl!=null);
+    const u=complete?marks.reduce((sum,x)=>sum+Number(x.unrealized_pnl||0),0):null;
+    return '<tr><td>'+esc(sid)+'</td><td>'+esc(p.side)+'</td><td class="mono">'+esc(p.code)+'</td><td>'+esc(p.qty)+'</td><td>'+fmt(p.avg_cost)+'</td><td>'+fmt(mark?.mid)+'</td><td class="'+((u||0)>=0?'green':'red')+'">'+(u==null?'PENDING':money(u))+'</td></tr>';
   }).join("")||'<tr><td colspan="7" class="tiny">No manual positions.</td></tr>';
 
   $("trades").innerHTML=(state.recent_manual_trades||[]).slice().reverse().map(t=>{
@@ -404,10 +407,10 @@ async function recordTrade(){
   const payload={instance_id:$("instance").value,strategy_id:String($("strategyId").value||state?.strategy_id||"UNALLOCATED").trim()||"UNALLOCATED",action,code:$("code").value.trim(),qty:Number($("qty").value),price:Number($("price").value),lot_size:Number($("lotSize").value)||100,trade_id:$("tradeId").value.trim()||null,note:$("note").value,timestamp_utc:localTime?new Date(localTime).toISOString():null};
   if(!payload.instance_id||!payload.code||payload.qty<1||payload.price<=0){setMsg("Please enter instance, QQQ option code, quantity and positive price.","yellow");return;}
   if((action==="REDUCE"||action==="BUY_BACK_FAR")) {
-    const p=state?.manual_book?.positions?.find(x=>x.code===payload.code&&((action==="REDUCE"&&x.side==="LONG")||(action==="BUY_BACK_FAR"&&x.side==="SHORT")));
+    const p=state?.manual_book?.positions?.find(x=>x.code===payload.code&&(x.strategy_id||"UNALLOCATED")===payload.strategy_id&&((action==="REDUCE"&&x.side==="LONG")||(action==="BUY_BACK_FAR"&&x.side==="SHORT")));
     if(!p || payload.qty>Number(p.qty)){setMsg("This action exceeds the current manual position. Preview is blocked too.","yellow");return;}
   }
-  if(!confirm("Record "+action+" "+payload.qty+" "+payload.code+" @ "+payload.price+" as USER_MANUAL?")) return;
+  if(!confirm("Record "+action+" "+payload.qty+" "+payload.code+" @ "+payload.price+" under strategy "+payload.strategy_id+" as USER_MANUAL?")) return;
   try{
     const j=await jsonFetch("/api/manual",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
     setMsg("Recorded "+j.trade_id+" · realized Δ "+money(j.realized_pnl_delta),"green");
@@ -417,8 +420,8 @@ async function recordTrade(){
 }
 
 function copyCommand(){
-  const a=action, id=$("instance").value, code=$("code").value.trim(), q=$("qty").value, px=$("price").value, ls=$("lotSize").value, note=$("note").value.replace(/"/g,'\\"');
-  const cmd='python -m research.strategy_instance_v1.run_instance manual --instance-id '+id+' --action '+a+' --code '+code+' --qty '+q+' --price '+px+' --lot-size '+ls+' --note "'+note+'"';
+  const a=action, id=$("instance").value, sid=String($("strategyId").value||"UNALLOCATED").trim()||"UNALLOCATED", code=$("code").value.trim(), q=$("qty").value, px=$("price").value, ls=$("lotSize").value, note=$("note").value.replace(/"/g,'\\"');
+  const cmd='python -m research.strategy_instance_v1.run_instance manual --instance-id '+id+' --strategy-id '+sid+' --action '+a+' --code '+code+' --qty '+q+' --price '+px+' --lot-size '+ls+' --note "'+note+'"';
   navigator.clipboard?.writeText(cmd); setMsg("CMD copied: "+cmd);
 }
 async function brokerRefresh(){
