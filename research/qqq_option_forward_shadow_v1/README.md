@@ -2,7 +2,7 @@
 
 This is an **intake kit, not a dataset**. No current market prices or forward observations are populated. The pinned historical QQQ option archive ends on 2025-12-15, so the next evidence should be collected prospectively from a permitted manual capture, broker export or licensed source.
 
-Read CAPTURE_PROTOCOL_V1.md before creating snapshots. Blank structure templates live under templates/; they are deliberately invalid until actual fields and source evidence are supplied. Do not put templates in snapshots/ or count them as observations.
+Read CAPTURE_PROTOCOL_V1.md before creating snapshots. Blank structure templates live under templates/; they are deliberately invalid until actual fields and source evidence are supplied. The daily signal-status template is for every observed session: record TRIGGERED, NOT_TRIGGERED or INCOMPLETE, using legs: [] when no option contracts were selected. This preserves the denominator and prevents a winners-only event log. Use the separate CALL_DEBIT_50D_10D and CALL_DEBIT_PLUS_LONG_PUT_10D templates only for their respective strategy events. Do not put templates in snapshots/ or count them as observations.
 
 The validator:
 - checks SHA-256 against the unchanged evidence file;
