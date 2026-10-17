@@ -1,0 +1,14 @@
+{
+  "research_id": "QQQ_EVENT_RISK_BUDGET_PORTFOLIO_REPLAY_V1",
+  "source_window": [
+    "2018-03-01",
+    "2025-12-15"
+  ],
+  "source_sessions": 1960,
+  "signal_count": 28,
+  "account_count": 43,
+  "daily_account_marks": 84280,
+  "trade_ledger_rows": 1540,
+  "max_abs_nav_reconciliation_error_usd": 0.0,
+  "output_dir": "artifacts/qqq_option_portfolio_scale_v1/by_nav/80000"
+}

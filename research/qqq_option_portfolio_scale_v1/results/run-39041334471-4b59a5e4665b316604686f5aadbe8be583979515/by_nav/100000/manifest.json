@@ -1,0 +1,113 @@
+{
+  "research_id": "QQQ_EVENT_RISK_BUDGET_PORTFOLIO_REPLAY_V1",
+  "run_id": "39041334471",
+  "tested_sha": "4b59a5e4665b316604686f5aadbe8be583979515",
+  "source_window": [
+    "2018-03-01",
+    "2025-12-15"
+  ],
+  "source_sessions": 1960,
+  "signal_count": 28,
+  "initial_nav_usd": 100000.0,
+  "qqq_core_initial_weight": 0.42,
+  "risk_budgets": [
+    0.005,
+    0.01,
+    0.02
+  ],
+  "cost_cases": {
+    "BASE": {
+      "slippage_per_share_per_leg_side_usd": 0.05,
+      "commission_per_contract_per_side_usd": 0.65
+    },
+    "STRESS": {
+      "slippage_per_share_per_leg_side_usd": 0.1,
+      "commission_per_contract_per_side_usd": 0.65
+    }
+  },
+  "account_count": 43,
+  "daily_account_marks": 84280,
+  "trade_ledger_rows": 1595,
+  "options_source_files": {
+    "options_2018.parquet": {
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 29215815,
+      "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19"
+    },
+    "options_2019.parquet": {
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 30998008,
+      "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca"
+    },
+    "options_2020.parquet": {
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 59412637,
+      "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5"
+    },
+    "options_2021.parquet": {
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 74224966,
+      "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d"
+    },
+    "options_2022.parquet": {
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 69941736,
+      "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9"
+    },
+    "options_2023.parquet": {
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 71647343,
+      "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063"
+    },
+    "options_2024.parquet": {
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 82434832,
+      "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3"
+    },
+    "options_2025.parquet": {
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 85765453,
+      "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf"
+    }
+  },
+  "underlying_and_repo_source_integrity": {
+    "files": {
+      "underlying_prices.parquet": {
+        "status": "CACHED_HASH_VERIFIED",
+        "bytes": 332454,
+        "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a"
+      }
+    },
+    "repo_sources": {
+      "src/data/universe.json": {
+        "bytes": 1045161,
+        "git_blob_sha": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+        "expected": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+        "status": "HASH_VERIFIED"
+      },
+      "research/qqq_hybrid_dynamic_deployment_v1_1_replay.py": {
+        "bytes": 15102,
+        "git_blob_sha": "ac74b3812c826ad491fb829108f26397322e45eb",
+        "expected": "ac74b3812c826ad491fb829108f26397322e45eb",
+        "status": "HASH_VERIFIED"
+      },
+      "research/qqq_hybrid_operator_terminal_v1/audit_qqq_public_eod_options.py": {
+        "bytes": 21085,
+        "git_blob_sha": "99337743e4133a6905c2904d889cf1b566997e9e",
+        "expected": "99337743e4133a6905c2904d889cf1b566997e9e",
+        "status": "HASH_VERIFIED"
+      }
+    }
+  },
+  "source_option_terminal_date": "2025-12-15",
+  "pricing_evidence": "OBSERVED_EOD_QUOTES_WITH_DERIVED_SIDE_PRICE_EXECUTION_MODEL_NOT_CONFIRMED_FILLS",
+  "max_abs_nav_reconciliation_error_usd": 0.0,
+  "metrics": "DAILY_SIDE_QUOTE_LIQUIDATION_MARKS; no forward fill; absent displayed depth means incomplete NAV mark",
+  "limitations": [
+    "No broker margin, assignment, early exercise, forced liquidation, or multi-leg fill sequencing model.",
+    "Cash reserve for credit structures is a conservative proxy based on modeled terminal loss, not broker margin.",
+    "Terminal payoff loss does not bound interim mark-to-market loss.",
+    "Historical option chain ends 2025-12-15 and the signal/structure screen is exploratory, not virgin OOS.",
+    "QQQ core is fixed shares, raw price-only, no dividends and no rebalancing."
+  ]
+}
