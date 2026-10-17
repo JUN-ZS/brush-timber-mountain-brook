@@ -16,6 +16,7 @@ import gzip
 import hashlib
 import json
 import math
+import os
 import re
 import sys
 from collections import defaultdict
@@ -498,7 +499,7 @@ def render_report(summary: list[dict[str, Any]], manifest: dict[str, Any]) -> st
     lines = [
         "# QQQ Event-Driven Risk-Budget Account Replay V1", "",
         "**Status: research only. No broker orders, no HUB execution, and no Frozen Original Hybrid policy change.**", "",
-        f"- Run ID: {manifest['run_id']}; tested SHA: {manifest['tested_sha']}.",
+        f"- Run ID: {manifest.get('run_id') or 'CLI_NOT_GITHUB_ACTIONS'}; tested SHA: {manifest.get('tested_sha') or 'UNSET'}."
         f"- Source window: {manifest['source_window'][0]} to {manifest['source_window'][1]}; {manifest['source_sessions']} sessions and {manifest['signal_count']} event signals.",
         f"- Starting NAV: USD {INITIAL_NAV:,.0f}; fixed QQQ Core shares initially funded with {CORE_WEIGHT:.0%} of NAV; no dividends or rebalancing.",
         "- Every option account is independently sized from the prior complete NAV at a 0.5%, 1%, or 2% terminal-tail budget. Units are capped by displayed entry-side depth and conservative free-cash/reserve arithmetic.",
@@ -636,6 +637,8 @@ def run(out_dir: Path) -> dict[str, Any]:
     daily_by_date = len(expected)
     manifest = {
         "research_id": "QQQ_EVENT_RISK_BUDGET_PORTFOLIO_REPLAY_V1",
+        "run_id": os.environ.get("GITHUB_RUN_ID"),
+        "tested_sha": os.environ.get("GITHUB_SHA"),
         "source_window": [expected[0], expected[-1]],
         "source_sessions": len(expected),
         "signal_count": len(signal_days),
