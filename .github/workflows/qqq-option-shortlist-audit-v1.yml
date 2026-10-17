@@ -3,7 +3,7 @@ name: QQQ Option Shortlist Cost and Holdout Audit V1
 on:
   push:
     branches:
-      - research/qqq-option-shortlist-replay-v1
+      - research/qqq-option-shortlist-audit-v1
     paths:
       - research/qqq_option_shortlist_audit_v1/**
       - .github/workflows/qqq-option-shortlist-audit-v1.yml
@@ -67,5 +67,5 @@ jobs:
             echo "No audit output changes."
           else
             git commit -m "research: persist QQQ option shortlist cost and capacity audit"
-            git push origin HEAD:research/qqq-option-shortlist-replay-v1
+            git push origin HEAD:research/qqq-option-shortlist-audit-v1
           fi
