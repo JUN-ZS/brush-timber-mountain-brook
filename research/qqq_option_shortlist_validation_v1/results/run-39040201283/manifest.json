@@ -1,0 +1,18 @@
+{
+  "research_id": "QQQ_OPTION_SHORTLIST_VALIDATION_V1",
+  "source_run_id": 39003581461,
+  "source_sha": "d2e3d21c54c1e02a11c75218abc588458b59b4d1",
+  "input_trades_git_blob_sha1": "ba5fc1fa0fabf8cd914735503905cac6ee1f631e",
+  "unique_signal_dates": 28,
+  "input_rows": 387,
+  "resolved_rows": 387,
+  "nav_reference_usd": 80000.0,
+  "source_option_end": "2025-12-15",
+  "cost_cases": {
+    "ZERO_FRICTION": "BASE P&L + $11.30 per option contract",
+    "BASE": "$0.05/share/leg/side slippage plus $0.65/contract/side commission",
+    "STRESS": "BASE P&L - $10 per option contract for doubled slippage"
+  },
+  "time_split": "2023-2025 already inspected; descriptive only, not virgin holdout",
+  "evidence_class": "OBSERVED_EOD_QUOTES_WITH_DERIVED_QUOTE_SIDE_REPLAY_NOT_CONFIRMED_FILLS"
+}

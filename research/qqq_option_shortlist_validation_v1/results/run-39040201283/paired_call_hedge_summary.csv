@@ -1,0 +1,4 @@
+cost_case,events_with_less_adverse_MAE,hedged_higher_PnL_count,hedged_higher_PnL_pct,mean_MAE_delta_hedged_minus_call_usd_base_cost,mean_hedged_minus_call_PnL_usd,median_hedged_minus_call_PnL_usd,paired_events,warning
+ZERO_FRICTION,12,4,16.67,29.07,-60.29,-77.0,24,paired historical episodes; does not establish a causal hedge benefit
+BASE,12,3,12.5,29.07,-71.59,-88.3,24,paired historical episodes; does not establish a causal hedge benefit
+STRESS,12,3,12.5,29.07,-81.59,-98.3,24,paired historical episodes; does not establish a causal hedge benefit
