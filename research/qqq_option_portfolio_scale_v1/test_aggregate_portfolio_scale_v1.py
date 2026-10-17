@@ -19,6 +19,18 @@ class ScaleAggregateTests(unittest.TestCase):
   self.assertEqual(a.validate_manifests(ms)["signal_count"],28)
   ms[1000000]={**ms[1000000],"options_source_files":{"a":{"sha":"different"}}}
   with self.assertRaises(ValueError):a.validate_manifests(ms)
+
+ def test_download_vs_cached_status_does_not_change_content_identity(self):
+  base={"source_window":["2018-03-01","2025-12-15"],"source_sessions":1960,"signal_count":28,"source_option_terminal_date":"2025-12-15",
+        "options_source_files":{"2018":{"status":"DOWNLOADED_HASH_VERIFIED","bytes":123,"git_blob_sha":"same-sha"}},
+        "underlying_and_repo_source_integrity":{"files":{"underlying":{"status":"DOWNLOADED_HASH_VERIFIED","bytes":5,"git_blob_sha":"same-spot-sha"}},
+                                               "repo_sources":{"universe":{"status":"HASH_VERIFIED","git_blob_sha":"repo-sha","expected":"repo-sha"}}},
+        "max_abs_nav_reconciliation_error_usd":0}
+  ms={nav:{**base,"initial_nav_usd":nav} for nav in a.NAVS}
+  ms[100000]["options_source_files"]={"2018":{"status":"CACHED_HASH_VERIFIED","bytes":123,"git_blob_sha":"same-sha"}}
+  ms[100000]["underlying_and_repo_source_integrity"]={"files":{"underlying":{"status":"CACHED_HASH_VERIFIED","bytes":5,"git_blob_sha":"same-spot-sha"}},
+                                                       "repo_sources":{"universe":{"status":"HASH_VERIFIED","git_blob_sha":"repo-sha","expected":"repo-sha"}}}
+  self.assertEqual(a.validate_manifests(ms)["signal_count"],28)
  def test_manifest_rejects_bad_reconciliation(self):
   common={"source_window":["2018-03-01","2025-12-15"],"source_sessions":1960,"signal_count":28,"source_option_terminal_date":"2025-12-15","options_source_files":{"a":{"sha":"abc"}},"underlying_and_repo_source_integrity":{"sha":"def"},"max_abs_nav_reconciliation_error_usd":0}
   ms={nav:{**common,"initial_nav_usd":nav} for nav in a.NAVS}

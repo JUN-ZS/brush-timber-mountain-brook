@@ -36,6 +36,15 @@ def compare_to_core(row:dict[str,Any],core:dict[str,Any])->dict[str,Any]:
     return out
 
 
+def source_fingerprint(value: Any) -> Any:
+    """Compare source identity, not transient download/cache verification status."""
+    if isinstance(value, dict):
+        return {key: source_fingerprint(item) for key, item in value.items() if key != "status"}
+    if isinstance(value, list):
+        return [source_fingerprint(item) for item in value]
+    return value
+
+
 def validate_manifests(manifests:dict[int,dict[str,Any]])->dict[str,Any]:
     if set(manifests)!=set(NAVS):
         raise ValueError(f"Expected NAV cases {NAVS}, got {sorted(manifests)}")
@@ -49,10 +58,10 @@ def validate_manifests(manifests:dict[int,dict[str,Any]])->dict[str,Any]:
             raise ValueError("Source sessions/signals mismatch across NAV cases")
         if m.get("source_option_terminal_date")!=SOURCE_END:
             raise ValueError("Unexpected option source end date")
-        if m.get("options_source_files")!=reference.get("options_source_files"):
-            raise ValueError("Pinned annual option source signatures differ across NAV cases")
-        if m.get("underlying_and_repo_source_integrity")!=reference.get("underlying_and_repo_source_integrity"):
-            raise ValueError("Underlying/repo source signatures differ across NAV cases")
+        if source_fingerprint(m.get("options_source_files"))!=source_fingerprint(reference.get("options_source_files")):
+            raise ValueError("Pinned annual option content signatures differ across NAV cases")
+        if source_fingerprint(m.get("underlying_and_repo_source_integrity"))!=source_fingerprint(reference.get("underlying_and_repo_source_integrity")):
+            raise ValueError("Underlying/repo source content signatures differ across NAV cases")
         err=float(m.get("max_abs_nav_reconciliation_error_usd",math.inf))
         if not math.isfinite(err) or err>=0.01:
             raise ValueError(f"NAV reconciliation failed for {nav}: {err}")
