@@ -1,0 +1,5 @@
+tested_sha=4b59a5e4665b316604686f5aadbe8be583979515
+run_id=39041334471
+runner_name=grokbot-box-linux-x64
+source_end=2025-12-15
+scope=research-only; no orders; no live policy changes
