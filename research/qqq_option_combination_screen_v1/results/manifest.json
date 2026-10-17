@@ -1,0 +1,47 @@
+{
+  "black_scholes": false,
+  "candidate_selection_rejections": {
+    "NO_CALL_VERTICAL_ON_SELECTION_DATE": 1,
+    "NO_PUT_VERTICAL_ON_SELECTION_DATE": 0
+  },
+  "candidate_structures_by_selection_date": 7081,
+  "cost_cases": {
+    "BASE": {
+      "commission_per_contract_per_side": 0.65,
+      "slippage_per_leg_per_share": 0.05
+    },
+    "STRESS": {
+      "commission_per_contract_per_side": 0.65,
+      "slippage_per_leg_per_share": 0.1
+    }
+  },
+  "date_end": "2025-12-15",
+  "date_start": "2011-03-23",
+  "deployment_status": "BLOCKED_RESEARCH_ONLY",
+  "dividends_included": false,
+  "expiry_intrinsic_settlement_proxy": true,
+  "loaded_exact_contract_quote_rows": 527381,
+  "navs_usd": [
+    80000.0,
+    1000000.0
+  ],
+  "options_sha256": "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734",
+  "parameter_optimization": false,
+  "put_annual_premium_budget_pct_nav": 2.0,
+  "quote_interpolation": false,
+  "same_close_lookahead": false,
+  "selected_contract_ids": 9877,
+  "source_type": "historical quote-side simulation; executable fills/depth not authenticated",
+  "study": "QQQ_OPTION_COMBINATION_SCREEN_V1",
+  "underlying_sessions": 3706,
+  "underlying_sha256": "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351",
+  "variants": [
+    "CORE_ONLY",
+    "CORE_PLUS_PUT_DEBIT",
+    "CORE_PLUS_CALL_CREDIT",
+    "CORE_PLUS_CALL_AND_PUT"
+  ],
+  "vertical_bounds_enforced": true,
+  "vxx_options_included": false,
+  "vxx_stock_short_included": false
+}
