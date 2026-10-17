@@ -95,6 +95,15 @@ The console provides:
 
 The console binds to `127.0.0.1` by default. Browser actions write only the `USER_MANUAL` instance ledger; they never submit broker orders.
 
+### Single-strategy P&L isolation (v1)
+
+- Each manual open lot and each `MANUAL_TRADE_RECORDED` event carries an explicit `strategy_id`. The Operator Console lets the user select/type this ID before recording an entry/exit.
+- FIFO closes are restricted to the same strategy ID; they cannot silently close a different strategy's lot just because the option code matches.
+- The P&L panel shows that ID's realized P&L, marked unrealized P&L, total manual-book P&L, open-lot coverage and mark status.
+- The reconciliation checks per-strategy realized P&L against aggregate manual-book realized P&L and, when all open manual lots are marked, verifies that the sum of per-strategy total P&L equals aggregate USER_MANUAL book P&L within one cent.
+- Legacy events/lots without a trustworthy ID are shown as `UNALLOCATED`; they are not silently assigned to a strategy. Missing marks show `PENDING`, never zero.
+- **Scope boundary:** this is a single-strategy sub-ledger within the manual option book, not total brokerage-account NAV. It excludes cash/QQQ share holdings, broker-observed P&L, interest/borrow, margin, fees not entered, assignment and taxes. No broker order path is added.
+
 ### Recommended operating flow
 
 1. Start Futu OpenD.
