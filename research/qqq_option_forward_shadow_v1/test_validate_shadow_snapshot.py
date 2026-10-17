@@ -27,6 +27,7 @@ def make_snapshot(root: Path, **overrides):
         "market": {"symbol":"QQQ","qqq_price":520.0,"qqq_observed_at":ts,"vix":22.0,"vix_observed_at":ts},
         "signal": None,
         "source": {"source_type":"MANUAL_SCREEN_CAPTURE","provider":"CBOE_DELAYED_SCREEN",
+                   "observation_timezone":"America/New_York",
                    "evidence_file":"evidence/shot.bin","evidence_sha256":sha},
         "execution_enabled": False,
         "order_placed": False,
@@ -131,6 +132,39 @@ class ShadowSnapshotTests(unittest.TestCase):
             a=shadow.validate_snapshot(signal,root)
             b=shadow.validate_snapshot(entry,root)
             self.assertEqual(a["contract_signature"],b["contract_signature"])
+
+
+    def test_manila_capture_after_et_close_validates_against_market_date(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            snap=make_snapshot(root)
+            # 03:55 in Manila on Oct 21 is 15:55 EDT on the prior U.S. market date.
+            local_ts="2026-10-21T03:55:00+08:00"
+            snap["captured_at"]=local_ts
+            snap["market"]["qqq_observed_at"]=local_ts
+            snap["market"]["vix_observed_at"]=local_ts
+            for leg in snap["legs"]:
+                leg["quote_captured_at"]=local_ts
+            result=shadow.validate_snapshot(snap,root)
+            self.assertEqual(result["snapshot_date"],"2026-10-20")
+            self.assertEqual(result["evidence"]["observation_timezone"],"America/New_York")
+
+    def test_timestamp_on_next_market_date_is_rejected_after_timezone_conversion(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            snap=make_snapshot(root)
+            next_market_day="2026-10-21T17:00:00+08:00"
+            snap["captured_at"]=next_market_day
+            with self.assertRaises(shadow.SnapshotValidationError):
+                shadow.validate_snapshot(snap,root)
+
+    def test_invalid_observation_timezone_is_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            snap=make_snapshot(root)
+            snap["source"]["observation_timezone"]="Mars/Olympus"
+            with self.assertRaises(shadow.SnapshotValidationError):
+                shadow.validate_snapshot(snap,root)
 
     def test_automatic_execution_is_rejected(self):
         with tempfile.TemporaryDirectory() as d:

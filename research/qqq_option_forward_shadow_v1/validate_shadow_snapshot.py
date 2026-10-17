@@ -9,6 +9,7 @@ import math
 import re
 from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Any
 
 SCHEMA_VERSION = 1
@@ -80,6 +81,13 @@ def _validate_evidence(snapshot: dict[str, Any], root: Path) -> dict[str, str]:
     if source_type not in SOURCE_TYPES:
         raise SnapshotValidationError(f"source.source_type: unsupported value {source_type!r}")
     provider = _required_text(source.get("provider"), "source.provider")
+    observation_timezone = _required_text(source.get("observation_timezone"), "source.observation_timezone")
+    try:
+        ZoneInfo(observation_timezone)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise SnapshotValidationError(
+            "source.observation_timezone: valid IANA timezone required (for example America/New_York)"
+        ) from exc
     evidence_file = _required_text(source.get("evidence_file"), "source.evidence_file")
     expected_sha = str(source.get("evidence_sha256", "")).lower()
     if not SHA256_RE.fullmatch(expected_sha):
@@ -90,11 +98,12 @@ def _validate_evidence(snapshot: dict[str, Any], root: Path) -> dict[str, str]:
     actual_sha = _sha256(path)
     if actual_sha != expected_sha:
         raise SnapshotValidationError(f"source.evidence_sha256 mismatch: expected {expected_sha}, actual {actual_sha}")
-    return {"source_type": source_type, "provider": provider, "evidence_file": evidence_file,
-            "evidence_sha256": actual_sha}
+    return {"source_type": source_type, "provider": provider, "observation_timezone": observation_timezone,
+            "evidence_file": evidence_file, "evidence_sha256": actual_sha}
 
 
-def _validate_leg(leg: Any, snapshot_date: str, event_type: str, index: int) -> dict[str, Any]:
+def _validate_leg(leg: Any, snapshot_date: str, event_type: str, index: int,
+                  observation_timezone: ZoneInfo) -> dict[str, Any]:
     prefix = f"legs[{index}]"
     if not isinstance(leg, dict):
         raise SnapshotValidationError(f"{prefix}: object required")
@@ -155,8 +164,10 @@ def _validate_leg(leg: Any, snapshot_date: str, event_type: str, index: int) -> 
     if delta is None or abs(delta) >= 1 or delta == 0:
         raise SnapshotValidationError(f"{prefix}.delta: finite non-zero Delta with abs(value)<1 required")
     qtime = _aware_datetime(leg.get("quote_captured_at"), f"{prefix}.quote_captured_at")
-    if qtime.date().isoformat() != snapshot_date:
-        raise SnapshotValidationError(f"{prefix}.quote_captured_at: local date must equal snapshot_date")
+    if qtime.astimezone(observation_timezone).date().isoformat() != snapshot_date:
+        raise SnapshotValidationError(
+            f"{prefix}.quote_captured_at: date in source.observation_timezone must equal snapshot_date"
+        )
     if event_type in {"ENTRY", "EXIT"}:
         if event_type == "ENTRY":
             price, size = (ask, ask_size) if side == "LONG" else (bid, bid_size)
@@ -190,14 +201,18 @@ def validate_snapshot(snapshot: Any, shadow_root: Path) -> dict[str, Any]:
     except ValueError as exc:
         raise SnapshotValidationError("snapshot_date must be ISO YYYY-MM-DD") from exc
     captured_at = _aware_datetime(snapshot.get("captured_at"), "captured_at")
-    if captured_at.date().isoformat() != snapshot_date:
-        raise SnapshotValidationError("captured_at date must equal snapshot_date")
     nav = _num(snapshot.get("nav_usd"))
     if nav is None or nav <= 0:
         raise SnapshotValidationError("nav_usd must be a positive finite value")
     if snapshot.get("execution_enabled") is not False or snapshot.get("order_placed") is not False:
         raise SnapshotValidationError("execution_enabled and order_placed must both be false")
     evidence = _validate_evidence(snapshot, shadow_root)
+    observation_timezone = ZoneInfo(evidence["observation_timezone"])
+    if captured_at.astimezone(observation_timezone).date().isoformat() != snapshot_date:
+        raise SnapshotValidationError(
+            "captured_at date in source.observation_timezone must equal snapshot_date; "
+            "do not falsify the timestamp to bypass a timezone boundary"
+        )
     market = snapshot.get("market")
     if not isinstance(market, dict) or str(market.get("symbol", "")).upper() != "QQQ":
         raise SnapshotValidationError("market must contain a QQQ observation")
@@ -209,8 +224,10 @@ def validate_snapshot(snapshot: Any, shadow_root: Path) -> dict[str, Any]:
         raise SnapshotValidationError("market.vix must be positive; missing VIX is not inferred")
     for field in ("qqq_observed_at", "vix_observed_at"):
         dt = _aware_datetime(market.get(field), f"market.{field}")
-        if dt.date().isoformat() != snapshot_date:
-            raise SnapshotValidationError(f"market.{field} date must equal snapshot_date")
+        if dt.astimezone(observation_timezone).date().isoformat() != snapshot_date:
+            raise SnapshotValidationError(
+                f"market.{field} date in source.observation_timezone must equal snapshot_date"
+            )
     signal = snapshot.get("signal")
     if event_type == "SIGNAL":
         if not isinstance(signal, dict):
@@ -237,7 +254,10 @@ def validate_snapshot(snapshot: Any, shadow_root: Path) -> dict[str, Any]:
         raise SnapshotValidationError("legs must be a list; use [] when no contracts were selected")
     if event_type in {"ENTRY", "EXIT"} and not legs:
         raise SnapshotValidationError(f"{event_type} requires exact contract legs")
-    normalized = [_validate_leg(leg, snapshot_date, event_type, i) for i, leg in enumerate(legs)]
+    normalized = [
+        _validate_leg(leg, snapshot_date, event_type, i, observation_timezone)
+        for i, leg in enumerate(legs)
+    ]
     quantities = [int(leg["qty"]) for leg in normalized]
     common = math.gcd(*quantities) if quantities else 1
     signature = [
