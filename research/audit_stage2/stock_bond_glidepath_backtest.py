@@ -496,13 +496,13 @@ def generate_results(outdir: Path, schedule_path: Path | None = None) -> dict:
             "調整收市價代理總回報；不等於未來預期回報", True),
         "04_withdrawal_shortfall_sample.svg": render_metric_chart(sample_flow, "windows_with_withdrawal_shortfall",
             "遞增提款示例：無法全額支付的歷史窗口數",
-            "示例合計提款12,800美元、後續投入5,000美元；不是預設支出", False),
+            "示例合計提款12,800美元、後續投入5,000美元；不是預設支出", False, value_format="count"),
         "05_withdrawal_shortfall_500.svg": render_metric_chart(monthly_500, "windows_with_withdrawal_shortfall",
             "固定每月提款500美元：缺口窗口數",
-            "十年累計要求提款60,000美元；純壓力情境，不是使用者預設", False),
+            "十年累計要求提款60,000美元；純壓力情境，不是使用者預設", False, value_format="count"),
         "06_withdrawal_shortfall_1000.svg": render_metric_chart(monthly_1000, "windows_with_withdrawal_shortfall",
             "固定每月提款1,000美元：缺口窗口數",
-            "十年累計要求提款120,000美元；純壓力情境，不是使用者預設", False),
+            "十年累計要求提款120,000美元；純壓力情境，不是使用者預設", False, value_format="count"),
     }
     for filename, content in charts.items():
         (outdir / filename).write_text(content, encoding="utf-8")
