@@ -116,6 +116,7 @@ jobs:
           EVIDENCE_DIR: ${{ runner.temp }}/stage1-packet
           WORKSPACE: ${{ runner.temp }}/stage1-gemini-workspace
           RESULT_DIR: ${{ runner.temp }}/stage1-gemini-result
+          EVIDENCE_RUN_ID: ${{ steps.packet.outputs.run_id }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -318,8 +319,6 @@ jobs:
               f.write(f"result_dir={result_dir}\n")
               f.write(f"expected_sha={expected_sha}\n")
           PY
-        env:
-          EVIDENCE_RUN_ID: ${{ steps.packet.outputs.run_id }}
 
       - name: Run the blind independent reviewer (Gemini CLI)
         id: gemini
