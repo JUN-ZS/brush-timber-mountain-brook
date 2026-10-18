@@ -68,7 +68,7 @@ def sample_cohorts():
                             "worst_terminal_nav_usd":base*.5,"median_time_weighted_cagr":.06+ti*.002,
                             "p05_time_weighted_cagr":-.08+ti*.002,"worst_time_weighted_cagr":-.2,
                             "median_daily_max_drawdown":-.2,"worst_daily_max_drawdown":-.55,
-                            "windows_with_withdrawal_shortfall":fi*2,
+                            "windows_with_withdrawal_shortfall":fi*2,"windows_below_initial_capital":2 if cohort_year==2003 else 0,"initial_capital_usd":100000.0,
                         })
     return rows
 
@@ -93,19 +93,21 @@ def sample_rows():
 
 class DashboardTests(unittest.TestCase):
     def test_start_year_cohorts_preserve_all_real_window_rows(self):
-        fields=["window_start","bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode","terminal_nav_usd","time_weighted_cagr","daily_max_drawdown","withdrawal_shortfall_usd"]
+        fields=["window_start","initial_capital_usd","bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode","terminal_nav_usd","time_weighted_cagr","daily_max_drawdown","withdrawal_shortfall_usd"]
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/"windows.csv"
             with path.open("w",newline="",encoding="utf-8") as handle:
                 writer=csv.DictWriter(handle,fieldnames=fields)
                 writer.writeheader()
                 for i,date in enumerate(("2003-01-31","2003-02-28","2003-03-31","2004-01-31","2004-02-29","2004-03-31")):
-                    writer.writerow({"window_start":date,"bond_proxy":"AGG","target_bond_conversion_pct_at_year10":60,"timing_rule":"linear","cashflow_mode":"no_withdrawals","terminal_nav_usd":100000+i*1000,"time_weighted_cagr":.04+i*.005,"daily_max_drawdown":-.1-i*.02,"withdrawal_shortfall_usd":100.0 if i==5 else 0.0})
+                    writer.writerow({"window_start":date,"initial_capital_usd":100000.0,"bond_proxy":"AGG","target_bond_conversion_pct_at_year10":60,"timing_rule":"linear","cashflow_mode":"no_withdrawals","terminal_nav_usd":90000.0 if i==0 else 100000+i*1000,"time_weighted_cagr":.04+i*.005,"daily_max_drawdown":-.1-i*.02,"withdrawal_shortfall_usd":100.0 if i==5 else 0.0})
             result=build_cohort_profiles(path,expected_scenarios=1,expected_windows=6)
         self.assertEqual({r["start_year"] for r in result},{2003,2004})
         self.assertEqual(sum(r["window_count"] for r in result),6)
         self.assertEqual(next(r for r in result if r["start_year"]==2003)["window_count"],3)
         self.assertEqual(next(r for r in result if r["start_year"]==2004)["windows_with_withdrawal_shortfall"],1)
+        self.assertEqual(next(r for r in result if r["start_year"]==2003)["windows_below_initial_capital"],1)
+        self.assertEqual(next(r for r in result if r["start_year"]==2004)["windows_below_initial_capital"],0)
     def test_histogram_summary_conserves_samples_and_orders_percentiles(self):
         values=[float(i*i%97) for i in range(157)]
         summary=summarize_histogram(values)
@@ -171,6 +173,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('function histogram(s)',page_template)
         self.assertIn('HIST.find(',page_template)
         self.assertIn('function cohortChart(s)',page_template)
+        self.assertIn('windows_below_initial_capital',page_template)
+        self.assertIn('低於起始本金窗口',page_template)
         self.assertIn('COHORT.filter(',page_template)
         self.assertIn('function build_cohort_profiles(',page_template)
         self.assertIn('function build_window_histograms(',page_template)
