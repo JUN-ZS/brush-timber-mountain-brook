@@ -28,7 +28,6 @@ jobs:
     env:
       REPOSITORY: ${{ github.repository }}
       EVIDENCE_RUN_ID_INPUT: ${{ inputs.evidence_run_id || '' }}
-      RUNNER_TEMP_PATH: ${{ runner.temp }}
       GEMINI_MODEL: gemini-4-argon
       GEMINI_CLI_VERSION: "0.64.0"
     steps:
