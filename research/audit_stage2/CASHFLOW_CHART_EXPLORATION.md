@@ -20,3 +20,25 @@ The workflow uploads an HTML report (index.html), independent SVG charts, method
 - Treasury floor cost is not a historical STRIPS price or executable quote; bond market value, duration, reinvestment and early-sale liquidity are not simulated.
 - The 30%-100% glidepath chart shows target weights only. For example, a 60% target ends at 40% stocks / 60% bonds in year 10. It must not be read as a backtested stock/bond allocation strategy; bond price/total-return history is required to compare performance.
 - The withdrawal amounts are test values, not spending defaults or recommendations.
+
+## Expanded offline interactive glidepath dashboard
+
+The separate `interactive_dashboard.html` is a single-file, offline research UI built from the 768 scenario summaries and 8,448 year-specific summaries. It now offers eleven coordinated views:
+
+1. The selected-year comparison curves for NAV, P05 NAV, cumulative time-weighted CAGR, and withdrawal-shortfall window count.
+2. A return-versus-drawdown scatter for the currently selected year and cash-flow mode; choosing a point updates the selected strategy.
+3. The ten-year glidepath with six distinct timing curves.
+4. A historical NAV distribution fan (P05/P50/P95 plus the worst window) for the selected strategy.
+5. An underwater-style path for median and worst cumulative maximum drawdown.
+6. An 8-target by 6-timing heatmap. The user can switch the heatmap metric among median NAV, P05 NAV, cumulative CAGR, drawdown-to-date and shortfall-window count. Clicking a cell updates the other views.
+7. A six-rule timing comparison table and same-strategy cash-flow comparison.
+8. Local CSV export for the selected 48 target/timing combinations or the complete 8,448 annual-summary rows.
+
+The fan is a descriptive percentile range across overlapping historical windows, **not** a forecast confidence interval. Heatmap colors rank only the selected metric within the currently filtered 48-cell set; a high value is not universally desirable (for example, fewer shortfall windows is better). The return/drawdown scatter is filtered to the selected year and flow, so it intentionally shows at most 48 points.
+
+The interaction pattern takes inspiration from linked brushing and cross-filtering rather than placing unrelated charts on one page. Reference techniques:
+- Observable, [linked brushing across views](https://observablehq.com/blog/linked-brushing): selecting one subset and reflecting it in linked charts.
+- D3, [brush interactions](https://d3js.org/d3-brush): point/region selection and cross-filtering interaction primitives.
+- Marketcalls, [OpenStatz quant tearsheets](https://github.com/marketcalls/openstatz): an offline single-file portfolio report with distinct performance, risk, drawdown and return-distribution sections.
+
+These references provide design patterns, not validation of the glidepath strategy. The research UI remains offline, and all displayed numbers come from the pinned replay output; it must not silently interpolate missing annual data or treat historical sample frequencies as future probabilities.
