@@ -92,6 +92,7 @@ class StockBondGlidepathTests(unittest.TestCase):
             row = {
                 "bond_proxy": bond,
                 "target_bond_conversion_pct_at_year10": 30,
+                "timing_rule": "linear",
                 "cashflow_mode": "no_withdrawals",
                 "terminal_nav_usd": 105000.0,
                 "time_weighted_cagr": 0.005,
