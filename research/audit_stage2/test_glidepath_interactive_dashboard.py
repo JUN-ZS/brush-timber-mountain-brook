@@ -15,8 +15,39 @@ class MarkupIDAudit(HTMLParser):
         if element_id in self.id_to_tag:
             self.duplicates.add(element_id)
         self.id_to_tag[element_id] = tag
-from glidepath_interactive_dashboard import FIELDS, ANNUAL_FIELDS, render_dashboard
+from glidepath_interactive_dashboard import FIELDS, ANNUAL_FIELDS, HISTOGRAM_METRICS, render_dashboard, summarize_histogram
 from stock_bond_glidepath_backtest import BOND_TICKERS, TARGET_CONVERSIONS, TIMING_RULES
+
+def sample_histograms():
+    rows=[]
+    flow_modes=("no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress")
+    counts=[5,10,15,20,30,25,22,30]
+    for bi,bond in enumerate(BOND_TICKERS):
+        for target in TARGET_CONVERSIONS:
+            for ti,timing in enumerate(TIMING_RULES):
+                for fi,flow in enumerate(flow_modes):
+                    for metric in HISTOGRAM_METRICS:
+                        if metric=="terminal_nav_usd":
+                            low=90000+target*300+bi*2000+ti*500+fi*1000
+                            width=5000.0
+                        elif metric=="time_weighted_cagr":
+                            low=-0.18+target/1000+bi*.005+ti*.002
+                            width=.04
+                        elif metric=="daily_max_drawdown":
+                            low=-.75+target/1000+bi*.005+ti*.002
+                            width=.03
+                        else:
+                            low=fi*100.0
+                            width=100.0
+                        bins=[{"low":low+i*width,"high":low+(i+1)*width,"count":n} for i,n in enumerate(counts)]
+                        rows.append({
+                            "bond_proxy":bond,"target_bond_conversion_pct_at_year10":target,
+                            "timing_rule":timing,"cashflow_mode":flow,"metric":metric,"n":157,
+                            "min":low,"max":low+8*width,"p05":low+.4*width,
+                            "median":low+4*width,"p95":low+7.6*width,"bins":bins,
+                        })
+    return rows
+
 
 def sample_rows():
     cases, annual = [], []
@@ -37,19 +68,32 @@ def sample_rows():
     return cases, annual
 
 class DashboardTests(unittest.TestCase):
+    def test_histogram_summary_conserves_samples_and_orders_percentiles(self):
+        values=[float(i*i%97) for i in range(157)]
+        summary=summarize_histogram(values)
+        self.assertEqual(summary["n"],157)
+        self.assertEqual(sum(b["count"] for b in summary["bins"]),157)
+        self.assertLessEqual(summary["min"],summary["p05"])
+        self.assertLessEqual(summary["p05"],summary["median"])
+        self.assertLessEqual(summary["median"],summary["p95"])
+        self.assertLessEqual(summary["p95"],summary["max"])
+        flat=summarize_histogram([0.0]*15)
+        self.assertEqual(flat["bins"],[{"low":0.0,"high":0.0,"count":15}])
     def test_embeds_complete_scenario_grid_and_all_annual_marks(self):
         cases, annual = sample_rows()
         self.assertEqual(len(cases),768)
         self.assertEqual(len(annual),8448)
-        page=render_dashboard(cases,annual)
-        for token in ('id="target"','id="year"','id="heatMetric"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','id="fan"','id="drawdownPath"','id="heatmap"','id="exportMatrix"','id="exportAnnual"','addEventListener("input",update)','data-pick=','data-year=','拖動 BAR','不是預測','P05–P95','__ANNUAL__'):
+        page=render_dashboard(cases,annual,sample_histograms())
+        for token in ('id="target"','id="year"','id="heatMetric"','id="histMetric"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','id="fan"','id="drawdownPath"','id="heatmap"','id="histogram"','id="exportMatrix"','id="exportAnnual"','addEventListener("input",update)','data-pick=','data-year=','拖動 BAR','不是預測','P05–P95','__ANNUAL__'):
             if token=="__ANNUAL__":
                 continue
             self.assertIn(token,page)
         payload=page.split("const D=",1)[1].split(",A=",1)[0]
-        annual_payload=page.split("const D=",1)[1].split(",A=",1)[1].split(",TG=",1)[0]
+        annual_payload=page.split("const D=",1)[1].split(",A=",1)[1].split(",HIST=",1)[0]
+        histogram_payload=page.split(",HIST=",1)[1].split(",TG=",1)[0]
         self.assertEqual(len(json.loads(payload)),768)
         self.assertEqual(len(json.loads(annual_payload)),8448)
+        self.assertEqual(len(json.loads(histogram_payload)),768*len(HISTOGRAM_METRICS))
         self.assertNotIn("__DATA__",page)
         self.assertNotIn("__ANNUAL__",page)
         markup=MarkupIDAudit()
@@ -57,9 +101,11 @@ class DashboardTests(unittest.TestCase):
         self.assertFalse(markup.duplicates, f"duplicate element IDs: {sorted(markup.duplicates)}")
         self.assertEqual(markup.id_to_tag.get("year"),"input", "year BAR must parse as a real range input")
         self.assertEqual(markup.id_to_tag.get("heatMetric"),"select", "heatmap metric selector must parse as a real select")
+        self.assertEqual(markup.id_to_tag.get("histMetric"),"select", "distribution selector must parse as a real select")
         self.assertEqual(markup.id_to_tag.get("fan"),"div")
         self.assertEqual(markup.id_to_tag.get("drawdownPath"),"div")
         self.assertEqual(markup.id_to_tag.get("heatmap"),"div")
+        self.assertEqual(markup.id_to_tag.get("histogram"),"div")
         self.assertEqual(markup.id_to_tag.get("exportMatrix"),"button")
         self.assertEqual(markup.id_to_tag.get("exportAnnual"),"button")
 
@@ -77,6 +123,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('function drawdownPath(s)',page_template)
         self.assertIn('function heatmap(s)',page_template)
         self.assertIn('function exportMatrix()',page_template)
+        self.assertIn('function histogram(s)',page_template)
+        self.assertIn('HIST.find(',page_template)
         self.assertIn('cashflow_mode===s.flow',page_template)
         self.assertIn('data-year="'+"'"+'+y+',page_template)
 
