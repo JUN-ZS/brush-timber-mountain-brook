@@ -198,7 +198,7 @@ jobs:
           assert (Path("/tmp/stock-bond-glidepath/decision_summary.md")).stat().st_size > 2000
           assert (Path("/tmp/stock-bond-glidepath/interactive_dashboard.html")).stat().st_size > 200000
           interactive = Path("/tmp/stock-bond-glidepath/interactive_dashboard.html").read_text(encoding="utf-8")
-          for token in ('id="target"', 'id="year"', 'id="heatMetric"', 'id="histMetric"', 'id="cohortMetric"', 'id="wealth"', 'id="drawdown"', 'id="returns"', 'id="gaps"', 'id="frontier"', 'id="flows"', 'id="glide"', 'id="table"', 'id="fan"', 'id="drawdownPath"', 'id="heatmap"', 'id="histogram"', 'id="cohort"', 'id="cohortDetail"', 'id="exportMatrix"', 'id="exportAnnual"'):
+          for token in ('id="target"', 'id="year"', 'id="heatMetric"', 'id="histMetric"', 'id="cohortMetric"', '低於起始本金窗口', 'id="wealth"', 'id="drawdown"', 'id="returns"', 'id="gaps"', 'id="frontier"', 'id="flows"', 'id="glide"', 'id="table"', 'id="fan"', 'id="drawdownPath"', 'id="heatmap"', 'id="histogram"', 'id="cohort"', 'id="cohortDetail"', 'id="exportMatrix"', 'id="exportAnnual"'):
               assert token in interactive, token
           assert "__HIST__" not in interactive
           assert "__COHORT__" not in interactive
@@ -233,6 +233,8 @@ jobs:
               assert row["last_window_start"][:4] == str(row["start_year"])
               assert row["first_window_start"] <= row["last_window_start"]
               assert row["windows_with_withdrawal_shortfall"] <= row["window_count"]
+              assert 0 <= row["windows_below_initial_capital"] <= row["window_count"]
+              assert row["initial_capital_usd"] == glide["method"]["initial_capital_usd"]
               if row["median_terminal_nav_usd"] is not None and row["p05_terminal_nav_usd"] is not None:
                   assert row["p05_terminal_nav_usd"] <= row["median_terminal_nav_usd"] <= row["p95_terminal_nav_usd"]
               if row["median_daily_max_drawdown"] is not None and row["worst_daily_max_drawdown"] is not None:
@@ -253,7 +255,7 @@ jobs:
           assert glide["cashflow_schedule"]["rows"] == 9
           assert glide["cashflow_schedule"]["withdrawal_total_usd"] == 12800.0
           assert glide["cashflow_schedule"]["deposit_total_usd"] == 5000.0
-          print("PASS: 768 scenarios, 8,448 annual summaries, 3,072 outcome histograms, start-year cohorts conserving all 157 windows per strategy; linked views, CSV exports and pinned replay contracts")
+          print("PASS: 768 scenarios, 8,448 annual summaries, 3,072 outcome histograms, start-year cohorts and nominal principal-floor counts; all 157 windows conserved per strategy")
           PY
 
       - name: Upload research results and chart pack
