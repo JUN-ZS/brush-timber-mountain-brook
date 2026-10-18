@@ -41,19 +41,27 @@ class ChartExplorationTests(unittest.TestCase):
             "QQQ buy & hold", "SPY buy & hold", "12m relative-strength rotation"
         })
 
-    def test_glidepath_rules_are_bounded_and_have_expected_endpoints(self):
-        rows = glidepath_data((0, 5, 10, 15, 20))
-        by_label = {row["label"]: row for row in rows}
-        self.assertEqual(by_label["每年轉0個百分點"]["stocks"][10], 100)
-        self.assertEqual(by_label["每年轉10個百分點"]["stocks"][5], 50)
-        self.assertEqual(by_label["每年轉10個百分點"]["bonds"][10], 100)
+    def test_glidepath_compares_year_ten_conversion_targets_30_to_100(self):
+        rows = glidepath_data()
+        by_target = {row["target_conversion_percent"]: row for row in rows}
+        self.assertEqual(sorted(by_target), [30, 40, 50, 60, 70, 80, 90, 100])
+        self.assertEqual(by_target[30]["stocks"][-1], 70)
+        self.assertEqual(by_target[30]["bonds"][-1], 30)
+        self.assertEqual(by_target[60]["stocks"][-1], 40)
+        self.assertEqual(by_target[60]["bonds"][-1], 60)
+        self.assertEqual(by_target[100]["stocks"][-1], 0)
+        self.assertEqual(by_target[100]["bonds"][-1], 100)
         for row in rows:
             self.assertEqual(len(row["stocks"]), 11)
             self.assertEqual(len(row["bonds"]), 11)
+            self.assertEqual(row["stocks"][0], 100)
+            self.assertEqual(row["bonds"][0], 0)
             for stock, bond in zip(row["stocks"], row["bonds"]):
                 self.assertGreaterEqual(stock, 0)
                 self.assertLessEqual(stock, 100)
-                self.assertEqual(stock + bond, 100)
+                self.assertAlmostEqual(stock + bond, 100)
+        with self.assertRaises(ValueError):
+            glidepath_data((30, 110))
 
     def test_svg_charts_are_documents_with_labels(self):
         points = monthly_points(30)
@@ -66,7 +74,8 @@ class ChartExplorationTests(unittest.TestCase):
         self.assertIn("QQQ buy &amp; hold", svg)
         self.assertIn("Source note", svg)
         glidepath = render_glidepath_svg()
-        self.assertIn("每年轉10個百分點", glidepath)
+        self.assertIn("比較第10年轉換30%–100%", glidepath)
+        self.assertIn("第10年轉100%到債券", glidepath)
         self.assertIn("不是報酬回測", glidepath)
 
     def test_cashflow_chart_displays_withdrawals_and_reinvestment(self):
