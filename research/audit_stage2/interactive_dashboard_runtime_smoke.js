@@ -15,9 +15,17 @@ for (const timing of ["front_fast", "front_loaded", "linear", "mid_loaded", "bac
 }
 for (const token of ["__DATA__", "__ANNUAL__"]) assert(!html.includes(token), "unexpanded data placeholder " + token);
 
-const defaults = {bond:"AGG", timing:"linear", flow:"no_withdrawals", target:"60", year:"5"};
+const defaults = {bond:"AGG", timing:"linear", flow:"no_withdrawals", target:"60", year:"5", heatMetric:"median_nav_usd"};
 const nodes = new Map();
 const documentHandlers = {};
+const downloads = [];
+const blobStore = new Map();
+let blobSequence = 0;
+class BlobFake { constructor(parts, options) { this.parts = parts; this.options = options; } }
+const URLFake = {
+  createObjectURL(blob) { const key = "blob:smoke-" + (++blobSequence); blobStore.set(key, blob); return key; },
+  revokeObjectURL(key) { blobStore.delete(key); },
+};
 function getElementById(id) {
   if (!nodes.has(id)) {
     nodes.set(id, {
@@ -32,10 +40,19 @@ function getElementById(id) {
   return nodes.get(id);
 }
 const document = {
+  body: {appendChild() {}},
   getElementById,
   addEventListener(type, fn) { documentHandlers[type] = fn; },
+  createElement(tag) {
+    assert.strictEqual(tag, "a");
+    return {
+      href: "", download: "",
+      click() { const blob = blobStore.get(this.href); downloads.push({filename:this.download, contents:blob ? blob.parts.join("") : ""}); },
+      remove() {},
+    };
+  },
 };
-const context = vm.createContext({document, console});
+const context = vm.createContext({document, console, Blob:BlobFake, URL:URLFake, setTimeout(fn) { fn(); return 1; }});
 vm.runInContext(js, context, {timeout: 15000});
 
 const year = getElementById("year");
