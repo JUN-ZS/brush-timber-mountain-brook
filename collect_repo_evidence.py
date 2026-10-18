@@ -101,8 +101,7 @@ def is_narrative_doc(path: str) -> bool:
     if (
         name.startswith(("readme", "prompt", "stage2", "stage_2", "stage-2"))
         or "adversarial" in name
-        or re.search(r"(^|/)(prompt|stage2|stage_2|stage-2)(/|_|-|\.)", p.as_posix().lower())
-    ):
+            ):
         return True
 
     if suffix in {".md", ".mdx", ".txt", ".rst", ".pdf", ".docx", ".html"} and NARRATIVE_PATTERNS.search(p.as_posix()):
