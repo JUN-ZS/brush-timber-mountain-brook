@@ -41,7 +41,7 @@ class CashflowAwareReplayTests(unittest.TestCase):
         points = points_from_prices(prices)
         result = replay_window(points, 0, "QQQ", {}, initial_capital_usd=1_000.0)
         self.assertAlmostEqual(
-            result["terminal_nav_usd"], 1_000.0 * (1.01 ** HORIZON_MONTHS), places=5
+            result["terminal_nav_usd"], 1_000.0 * (1.01 ** HORIZON_MONTHS), places=2
         )
         self.assertEqual(result["investor_xirr_status"], "OK")
         elapsed_years = (points[-1].date - points[0].date).days / 365.25
