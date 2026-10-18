@@ -28,10 +28,14 @@ def make_repo(base: Path) -> Path:
     run_git(repo, "config", "user.email", "audit-test@example.invalid")
     (repo / "README.md").write_text("Prior narrative recommendation.\n", encoding="utf-8")
     (repo / "prompt_stage2_adversarial.md").write_text("Stage 2 only.\n", encoding="utf-8")
+    (repo / ".grok").mkdir()
+    (repo / ".grok" / "app-env.json").write_text('{"VITE_AUTH_ENABLED":"false"}', encoding="utf-8")
+    (repo / ".vercel" / "output").mkdir(parents=True)
+    (repo / ".vercel" / "output" / "bundle.mjs").write_text("/* generated bundle */", encoding="utf-8")
     (repo / "portfolio_memo.md").write_text("Possible prior recommendation must be quarantined.\\n", encoding="utf-8")
     (repo / "strategy.py").write_text("def qqq_strategy():\n    return 'test'\n", encoding="utf-8")
     (repo / "data.csv").write_text("date,close\n2020-01-01,100\n2020-01-02,101\n", encoding="utf-8")
-    run_git(repo, "add", "README.md", "prompt_stage2_adversarial.md", "portfolio_memo.md", "strategy.py", "data.csv")
+    run_git(repo, "add", "README.md", "prompt_stage2_adversarial.md", "portfolio_memo.md", ".grok/app-env.json", ".vercel/output/bundle.mjs", "strategy.py", "data.csv")
     run_git(repo, "commit", "-qm", "fixture")
     return repo
 
@@ -43,6 +47,10 @@ class CollectorIsolationTests(unittest.TestCase):
         self.assertTrue(COLLECTOR.is_narrative_doc("stage2_review_notes.md"))
         self.assertTrue(COLLECTOR.is_narrative_doc("portfolio_memo.md"))
         self.assertTrue(COLLECTOR.is_narrative_doc("docs/technical_notes.txt"))
+        self.assertTrue(COLLECTOR.snapshot_excluded_path(".grok/app-env.json"))
+        self.assertTrue(COLLECTOR.snapshot_excluded_path(".vercel/output/bundle.mjs"))
+        self.assertTrue(COLLECTOR.snapshot_excluded_path("node_modules/library/index.js"))
+        self.assertFalse(COLLECTOR.snapshot_excluded_path("research/qqq_strategy.py"))
 
     def test_blind_snapshot_excludes_prompts_and_readmes(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -76,6 +84,10 @@ class CollectorIsolationTests(unittest.TestCase):
             self.assertIn("README.md", stage2_names)
             self.assertIn("prompt_stage2_adversarial.md", stage2_names)
             self.assertIn("portfolio_memo.md", stage2_names)
+            self.assertNotIn(".grok/app-env.json", blind_names)
+            self.assertNotIn(".vercel/output/bundle.mjs", blind_names)
+            self.assertNotIn(".grok/app-env.json", stage2_names)
+            self.assertNotIn(".vercel/output/bundle.mjs", stage2_names)
 
     def test_dirty_worktree_is_rejected_before_output_creation(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
