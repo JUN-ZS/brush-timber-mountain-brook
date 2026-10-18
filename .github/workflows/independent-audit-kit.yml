@@ -1,6 +1,16 @@
 name: Independent Audit Kit Safeguards
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "collect_repo_evidence.py"
+      - "prompt_stage1_blind.md"
+      - "prompt_stage2_adversarial.md"
+      - "tests/test_audit_collector_safeguards.py"
+      - ".github/workflows/independent-audit-kit.yml"
+      - ".github/workflows/stage1-gemini-blind-review.yml"
+      - ".github/workflows/validate-stage1-gemini-workflow.yml"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -9,6 +19,8 @@ on:
       - "prompt_stage2_adversarial.md"
       - "tests/test_audit_collector_safeguards.py"
       - ".github/workflows/independent-audit-kit.yml"
+      - ".github/workflows/stage1-gemini-blind-review.yml"
+      - ".github/workflows/validate-stage1-gemini-workflow.yml"
   workflow_dispatch:
 
 permissions:
@@ -27,6 +39,22 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Lint the Stage 1 Gemini workflow
+        run: |
+          set -euo pipefail
+          target=".github/workflows/stage1-gemini-blind-review.yml"
+          if [[ ! -f "$target" ]]; then
+            echo "Stage 1 Gemini workflow is not in this commit; syntax lint deferred until it appears."
+            exit 0
+          fi
+          archive="$RUNNER_TEMP/actionlint_1.7.12_linux_amd64.tar.gz"
+          expected="8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz" -o "$archive"
+          echo "$expected  $archive" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/actionlint-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/actionlint-bin" actionlint
+          "$RUNNER_TEMP/actionlint-bin/actionlint" -color "$target"
 
       - name: Compile evidence collector
         run: python3 -m py_compile collect_repo_evidence.py
