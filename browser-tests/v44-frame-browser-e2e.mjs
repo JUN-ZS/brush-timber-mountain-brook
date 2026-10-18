@@ -49,6 +49,27 @@ try {
   assert.doesNotMatch(failingRows, /\[FAIL\]/, "browser Golden Test results contain a failure");
   assert.match(await page.locator("#goldenSuiteSummaryBadge").innerText(), /52\s*\/\s*52 PASS/);
 
+  // 1b. Every extension chart is a separate, initially collapsed disclosure and can reopen/close.
+  const chartDisclosures = [
+    { tab: "tab-bars", disclosure: "ratioComparisonDisclosure", canvas: "ratioComparisonChart" },
+    { tab: "tab-prob", disclosure: "volHorizonDisclosure", canvas: "volHorizonChart" },
+    { tab: "tab-floor", disclosure: "floorTrajectoryDisclosure", canvas: "floorTrajectoryChart" }
+  ];
+  for (const chartCase of chartDisclosures) {
+    await page.locator('.nav-tab[data-tab="' + chartCase.tab + '"]').click();
+    const detail = page.locator("#" + chartCase.disclosure);
+    assert.equal(await detail.evaluate(el => el.open), false, chartCase.disclosure + " defaults collapsed");
+    assert.equal(await detail.locator("canvas").getAttribute("id"), chartCase.canvas);
+    assert.ok((await detail.locator("summary").innerText()).includes("展開"), chartCase.disclosure + " must have a clear expand label");
+    await detail.locator("summary").click();
+    assert.equal(await detail.evaluate(el => el.open), true, chartCase.disclosure + " expands");
+    assert.match(await detail.locator(".chart-disclosure-icon").innerText(), /−/);
+    await detail.locator("summary").click();
+    assert.equal(await detail.evaluate(el => el.open), false, chartCase.disclosure + " collapses");
+    assert.match(await detail.locator(".chart-disclosure-icon").innerText(), /＋/);
+  }
+  console.log("Collapsible charts: ratio / volatility-time / 20Y-30Y-50Y mutual tracking PASS");
+
   // 2. The real UI changes assumptions and refreshes the visible assumptions ledger.
   await page.locator('.nav-tab[data-tab="tab-cockpit"]').click();
   // Real-input form must not seed a plausible timestamp or treat a provenance placeholder as evidence.
