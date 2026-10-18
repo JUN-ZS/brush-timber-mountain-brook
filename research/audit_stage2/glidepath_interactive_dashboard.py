@@ -14,10 +14,10 @@ HTML = r'''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta
 <section class="panel"><h2>2. 中位最大回撤</h2><p>顯示截至所選年份的最大回撤；提款本身不直接算成投資回撤。</p><div id="drawdown"></div><div id="leg2" class="legend"></div></section>
 <section class="panel"><h2>3. 年化時間加權回報</h2><p>顯示由起點累計至所選年份的時間加權年化回報；第0年尚未形成回報期。</p><div id="returns"></div><div id="leg3" class="legend"></div></section>
 <section class="panel"><h2>4. 提款缺口窗口數</h2><p>截至所選年份，157個歷史窗口中已出現提款缺口的窗口數；滑桿改變時本圖也更新。</p><div id="gaps"></div><div id="leg4" class="legend"></div></section>
-<section class="panel"><h2>5. 回報 × 回撤互追圖</h2><p>每點為一個策略；點擊後其他圖表同步追蹤。越左回撤越小，越高回報越高。</p><div id="frontier"></div><div class="legend">顏色＝AGG／SHY／IEF／TLT；○ 線性　□ 加速前置　△ 前置　◇ 中段S曲線　▽ 後置　＋ 延後</div></section>
+<section class="panel"><h2>5. 回報 × 回撤互追圖</h2><p>每點為一個策略，套用目前選定的現金流模式；點擊後其他圖表同步追蹤。越左回撤越小，越高回報越高。</p><div id="frontier"></div><div class="legend">顏色＝AGG／SHY／IEF／TLT；○ 線性　□ 加速前置　△ 前置　◇ 中段S曲線　▽ 後置　＋ 延後</div></section>
 <section class="panel"><h2>6. 同策略現金流對照</h2><p>固定目前策略，比較四種現金流假設的中位終值和提款缺口。</p><div id="flows"></div><p class="tiny">提款示例和月提款模式僅用作壓力測試。</p></section>
-<section class="panel"><h2>7. 十年配置路徑</h2><p>拖動查看年份 BAR，比較三條路徑和所選年份的股票／債券配置。</p><div id="glide"></div><div id="shares"></div></section>
-<section class="panel"><h2>8. 同目標、不同時間規則</h2><p>固定目標、債券代理及現金流，逐行比較三種規則。</p><div id="table" class="tablebox"></div></section>
+<section class="panel"><h2>7. 十年配置路徑</h2><p>拖動查看年份 BAR，比較六條轉換曲線和所選年份的股票／債券配置。</p><div id="glide"></div><div id="shares"></div></section>
+<section class="panel"><h2>8. 同目標、不同時間規則</h2><p>固定目標、債券代理及現金流，逐行比較六種轉換規則。</p><div id="table" class="tablebox"></div></section>
 </div><p class="foot">資料：Yahoo Finance 股息／拆股調整收市價作近似總回報；共同日資料 5,788 筆（2003-09-29 至 2026-09-30），277 個共同月末，157 個重疊十年窗口。稅項、交易成本和買賣差價未另行建模。資料 SHA-256：8d34a8772fd5c74a7df20957cab971c3c2685963e54b160c3c958c8b9d4b7e70。</p></main>
 <script>
 const D=__DATA__,A=__ANNUAL__,TG=[30,40,50,60,70,80,90,100],TM=["front_fast","front_loaded","linear","mid_loaded","back_loaded","back_late"],FL=["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"],TN={front_fast:"加速前置",front_loaded:"前置",linear:"線性",mid_loaded:"中段S曲線",back_loaded:"後置",back_late:"延後"},FN={no_withdrawals:"不提款",delayed_stepup_example:"延遲提款＋投入",monthly_withdrawal_500_usd_stress:"每月$500",monthly_withdrawal_1000_usd_stress:"每月$1,000"},C={blue:"#3977a8",teal:"#329b8a",AGG:"#3274a1",SHY:"#2a9d8f",IEF:"#e07a35",TLT:"#7966a8",front_fast:"#c94c4c",front_loaded:"#dd8547",linear:"#3274a1",mid_loaded:"#59a14f",back_loaded:"#8c78bd",back_late:"#b07aa1",grid:"#e8edf3",muted:"#718096",navy:"#203a59"},$=x=>document.getElementById(x),usd=n=>n==null?"—":"$"+Math.round(n).toLocaleString("en-US"),pct=n=>n==null?"—":(n*100).toFixed(2)+"%";
@@ -49,11 +49,11 @@ function chart(metric,flow,title,fmt,s){
  return z+"</svg>";
 }
 function scatter(s){
- let rr=A.filter(r=>r.cashflow_mode==="no_withdrawals"&&+r.year===s.year&&r.median_cumulative_twr_cagr!=null);
+ let rr=A.filter(r=>r.cashflow_mode===s.flow&&+r.year===s.year&&r.median_cumulative_twr_cagr!=null);
  if(!rr.length)return '<p class="tiny">第0年尚未形成回報／回撤座標。</p>';
  let w=800,h=290,x0=62,y0=18,pw=690,ph=195,xx=rr.map(r=>Math.abs(+r.median_drawdown_to_date)),yy=rr.map(r=>+r.median_cumulative_twr_cagr),mx=Math.max(.01,...xx)*1.1,mn=Math.min(0,...yy)*1.1,mr=Math.max(.01,...yy)*1.08;
  if(mr===mn)mr=mn+.01;
- let xp=v=>x0+v/mx*pw,yp=v=>y0+ph-(v-mn)/(mr-mn)*ph,z=H("所選年份的回報與回撤",w,h);
+ let xp=v=>x0+v/mx*pw,yp=v=>y0+ph-(v-mn)/(mr-mn)*ph,z=H("第"+s.year+"年回報與回撤（"+FN[s.flow]+"）",w,h);
  for(let i=0;i<=4;i++){let a=mx*i/4,x=xp(a),b=mn+(mr-mn)*i/4,y=yp(b);z+='<line x1="'+x+'" y1="'+y0+'" x2="'+x+'" y2="'+(y0+ph)+'" stroke="'+C.grid+'"/><text x="'+x+'" y="'+(y0+ph+16)+'" font-size="10" text-anchor="middle">'+Math.round(a*100)+'%</text><line x1="'+x0+'" y1="'+y+'" x2="'+(x0+pw)+'" y2="'+y+'" stroke="'+C.grid+'"/><text x="'+(x0-6)+'" y="'+(y+3)+'" text-anchor="end" font-size="10">'+(b*100).toFixed(1)+'%</text>';}
  rr.forEach(r=>{
    let x=xp(Math.abs(+r.median_drawdown_to_date)),y=yp(+r.median_cumulative_twr_cagr),sel=r.bond_proxy===s.bond&&+r.target_bond_conversion_pct_at_year10===s.target&&r.timing_rule===s.timing;
@@ -65,7 +65,7 @@ function scatter(s){
    else if(shape==="back_loaded")mark='<polygon points="'+(x-4.5)+','+(y-3.5)+' '+(x+4.5)+','+(y-3.5)+' '+x+','+(y+5)+'"';
    else mark='<path d="M '+(x-4)+' '+y+' H '+(x+4)+' M '+x+' '+(y-4)+' V '+(y+4)+'" ';
    let close=shape==="front_fast"?"</rect>":shape==="front_loaded"||shape==="mid_loaded"||shape==="back_loaded"?"</polygon>":shape==="linear"?"</circle>":"</path>";
-   z+=mark+' data-pick="1" data-bond="'+r.bond_proxy+'" data-target="'+r.target_bond_conversion_pct_at_year10+'" data-timing="'+r.timing_rule+'" fill="'+(shape==="back_late"?"none":C[r.bond_proxy])+'" stroke="'+(sel?C.navy:C[r.bond_proxy])+'" stroke-width="'+(sel?3:1.4)+'"><title>'+r.bond_proxy+' '+r.target_bond_conversion_pct_at_year10+'% '+TN[r.timing_rule]+' · '+pct(r.median_cumulative_twr_cagr)+' · '+pct(r.median_drawdown_to_date)+'</title>'+close;
+   z+=mark+' data-pick="1" data-flow="'+r.cashflow_mode+'" data-bond="'+r.bond_proxy+'" data-target="'+r.target_bond_conversion_pct_at_year10+'" data-timing="'+r.timing_rule+'" fill="'+(shape==="back_late"?"none":C[r.bond_proxy])+'" stroke="'+(sel?C.navy:C[r.bond_proxy])+'" stroke-width="'+(sel?3:1.4)+'"><title>'+r.bond_proxy+' '+r.target_bond_conversion_pct_at_year10+'% '+TN[r.timing_rule]+' · '+pct(r.median_cumulative_twr_cagr)+' · '+pct(r.median_drawdown_to_date)+'</title>'+close;
  });
  return z+'<text x="'+(x0+pw/2)+'" y="'+(h-5)+'" text-anchor="middle" font-size="11">截至第'+s.year+'年：中位最大回撤幅度（越左越小）</text></svg>';
 }
@@ -106,13 +106,68 @@ def generate(outdir):
     if not source.exists():
         raise FileNotFoundError(f"Run the glidepath backtest first: {source}")
     report=json.loads(source.read_text(encoding="utf-8"))
-    if len(report.get("scenarios",[]))!=768:
-        raise ValueError("Expected 768 scenarios (target x six timing rules x bond proxy x cash-flow mode)")
+    scenarios=report.get("scenarios",[])
+    if len(scenarios)!=768:
+        raise ValueError("Expected 768 scenarios (8 targets x 6 timing rules x 4 bond proxies x 4 cash-flow modes)")
     annual=report.get("annual_scenarios",[])
     if len(annual)!=8448 or {int(r["year"]) for r in annual}!=set(range(11)):
         raise ValueError("Expected 8,448 annual summaries covering every year 0-10")
     if any(row.get("median_nav_usd") is None for row in annual):
         raise ValueError("Annual summaries must contain year-specific NAVs")
+
+    # Audit the full data contract before embedding 200k+ bytes in an interactive page.
+    scenario_key=lambda r:(r["bond_proxy"],int(r["target_bond_conversion_pct_at_year10"]),r["timing_rule"],r["cashflow_mode"])
+    annual_key=lambda r:(r["bond_proxy"],int(r["target_bond_conversion_pct_at_year10"]),r["timing_rule"],r["cashflow_mode"],int(r["year"]))
+    scenarios_by_key={scenario_key(r):r for r in scenarios}
+    annual_by_key={annual_key(r):r for r in annual}
+    if len(scenarios_by_key)!=768 or len(annual_by_key)!=8448:
+        raise ValueError("Duplicate scenario/annual keys would make the UI select an ambiguous row")
+    if {r["bond_proxy"] for r in scenarios}!={"AGG","SHY","IEF","TLT"}:
+        raise ValueError("Bond-proxy set is incomplete")
+    if {int(r["target_bond_conversion_pct_at_year10"]) for r in scenarios}!={30,40,50,60,70,80,90,100}:
+        raise ValueError("Target conversion set is incomplete")
+    if {r["timing_rule"] for r in scenarios}!={"front_fast","front_loaded","linear","mid_loaded","back_loaded","back_late"}:
+        raise ValueError("Six-timing-rule set is incomplete")
+    if {r["cashflow_mode"] for r in scenarios}!={"no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"}:
+        raise ValueError("Cash-flow mode set is incomplete")
+    paths_by_group={}
+    for row in annual:
+        key=scenario_key(row)
+        year=int(row["year"])
+        wb=row.get("median_target_bond_weight")
+        ws=row.get("median_target_stock_weight")
+        if wb is None or ws is None or not (-1e-10<=float(wb)<=1+1e-10) or not (-1e-10<=float(ws)<=1+1e-10):
+            raise ValueError(f"Invalid annual target weight at {key}, year {year}")
+        if abs(float(wb)+float(ws)-1.0)>1e-9:
+            raise ValueError(f"Stock/bond target weights do not sum to 100% at {key}, year {year}")
+        paths_by_group.setdefault((row["bond_proxy"],int(row["target_bond_conversion_pct_at_year10"]),row["cashflow_mode"]),{}).setdefault(row["timing_rule"],[]).append((year,float(wb)))
+        if year==0 and row.get("median_cumulative_twr_cagr") is not None:
+            raise ValueError("Year zero must not report an annualized return before an elapsed period")
+        if year==10:
+            sr=scenarios_by_key.get(key)
+            if sr is None or abs(float(row["median_nav_usd"])-float(sr["median_terminal_nav_usd"]))>0.02:
+                raise ValueError(f"Year-10 NAV does not reconcile to terminal summary for {key}")
+            if row.get("median_cumulative_twr_cagr") is not None and sr.get("median_time_weighted_cagr") is not None:
+                if abs(float(row["median_cumulative_twr_cagr"])-float(sr["median_time_weighted_cagr"]))>1e-8:
+                    raise ValueError(f"Year-10 cumulative return does not reconcile for {key}")
+            if abs(float(row["median_drawdown_to_date"])-float(sr["median_daily_max_drawdown"]))>1e-8:
+                raise ValueError(f"Year-10 drawdown does not reconcile for {key}")
+            if int(row["windows_with_withdrawal_shortfall"])!=int(sr["windows_with_withdrawal_shortfall"]):
+                raise ValueError(f"Year-10 shortfall-window count does not reconcile for {key}")
+    for (bond,target,flow), timing_paths in paths_by_group.items():
+        normalized=[]
+        for timing,marks in timing_paths.items():
+            marks=sorted(marks)
+            if len(marks)!=11 or [year for year,_ in marks]!=list(range(11)):
+                raise ValueError(f"Incomplete yearly timing path: {bond}/{target}/{flow}/{timing}")
+            weights=[weight for _,weight in marks]
+            if abs(weights[0])>1e-9 or abs(weights[-1]-target/100.0)>1e-9:
+                raise ValueError(f"Timing path endpoints invalid: {bond}/{target}/{flow}/{timing}")
+            if any(a>b+1e-9 for a,b in zip(weights,weights[1:])):
+                raise ValueError(f"Bond share must not decline: {bond}/{target}/{flow}/{timing}")
+            normalized.append(tuple(round(weight,10) for weight in weights))
+        if len(timing_paths)!=6 or len(set(normalized))!=6:
+            raise ValueError(f"Six timing options must have six distinct annual paths: {bond}/{target}/{flow}")
     output=outdir/"interactive_dashboard.html"
     output.write_text(render_dashboard(report["scenarios"],annual),encoding="utf-8")
     return output
