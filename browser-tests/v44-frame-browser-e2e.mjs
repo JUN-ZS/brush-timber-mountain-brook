@@ -13,7 +13,7 @@ const pageErrors = [];
 const failedRequests = [];
 
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   page.on("pageerror", e => pageErrors.push(e.stack || e.message));
   page.on("requestfailed", request => failedRequests.push({ url: request.url(), error: request.failure()?.errorText || "failed" }));
 
@@ -39,6 +39,32 @@ try {
     const badge = document.querySelector("#goldenSuiteSummaryBadge");
     return badge && badge.textContent.includes("52 / 52 PASS");
   }, null, { timeout: 30000 });
+
+  // 0. The 16:9 overview is the landing surface and mirrors current engine output values.
+  await page.waitForFunction(() => {
+    const a = document.querySelector("#overviewNavValue")?.textContent?.trim();
+    return a && a !== "—" && a !== "等待來源／必要輸入";
+  }, null, { timeout: 15000 });
+  assert.equal(await page.locator("#tab-overview").evaluate(el => el.classList.contains("hidden")), false, "overview should be the initial visible panel");
+  assert.equal(await page.locator("#tab-cockpit").evaluate(el => el.classList.contains("hidden")), true, "detailed cockpit should be a separate tab");
+  assert.equal(await page.locator("#globalKpiStrip").evaluate(el => el.classList.contains("hidden")), true, "legacy KPI strip should not duplicate the overview at first view");
+  assert.equal(
+    (await page.locator("#overviewNavValue").innerText()).trim(),
+    (await page.locator("#kpiNavValue").innerText()).trim(),
+    "overview NAV must mirror the live KPI source"
+  );
+  assert.equal(
+    (await page.locator("#overviewDecisionTitle").innerText()).trim(),
+    (await page.locator("#nowHeadline").innerText()).trim(),
+    "overview decision headline must mirror the live engine source"
+  );
+  const widthRule = await page.evaluate(() => getComputedStyle(document.querySelector("main.max-w-7xl")).maxWidth);
+  assert.match(widthRule, /1840px/, "1920px viewport should use the widened workspace");
+  await page.locator('[data-overview-tab="tab-floor"]').click();
+  assert.equal(await page.locator("#tab-floor").evaluate(el => el.classList.contains("hidden")), false, "overview shortcut should open mutual-tracking research");
+  assert.equal(await page.locator("#globalKpiStrip").evaluate(el => el.classList.contains("hidden")), false, "detail tabs should restore the shared KPI strip");
+  await page.locator('.nav-tab[data-tab="tab-overview"]').click();
+  assert.equal(await page.locator("#globalKpiStrip").evaluate(el => el.classList.contains("hidden")), true, "returning to overview should hide duplicate KPIs");
 
   // 1. The browser actually loads the HTML, wires events and renders 52 successful tests.
   await page.locator('.nav-tab[data-tab="tab-audit"]').click();
