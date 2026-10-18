@@ -6,9 +6,11 @@ import {
   couple,
   monthlyize,
   qqqMonthly,
+  quantile,
   recommendForScale,
   replayOne,
   summarizeReplays,
+  summarizeStatePath,
   TRAP_SCALES_YEARS,
   type ChannelScaleSignal,
   type Channel,
@@ -19,7 +21,7 @@ type ChannelId = "QQQ" | "NDX" | "NASDAQCOM";
 type Mode = "full" | "shard" | "bridge";
 
 type ShardPayload = {
-  version: "rolling-floor.shard.v2";
+  version: "rolling-floor.shard.v3";
   kind: "CHANNEL_SHARD";
   channel: ChannelId;
   layer: Channel["layer"];
@@ -144,7 +146,7 @@ async function makeShard(channel: ChannelId): Promise<ShardPayload> {
   }
 
   return {
-    version: "rolling-floor.shard.v2",
+    version: "rolling-floor.shard.v3",
     kind: "CHANNEL_SHARD",
     channel,
     layer: channelLayer(channel),
@@ -168,17 +170,16 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
   if (startIndex + h >= q.length) return null;
   let cash = 1;
   const lots: { amount: number; entry: number }[] = [];
+  const curve: number[] = [1];
+  let peak = 1;
+  let maxDd = 0;
+
   for (let j = 0; j < h; j++) {
     const amount = cash / (h - j);
     const px = q[startIndex + j].value;
     lots.push({ amount, entry: px });
     cash -= amount;
-  }
-  const curve: number[] = [];
-  let peak = 1;
-  let maxDd = 0;
-  for (let j = 0; j <= h; j++) {
-    const px = q[startIndex + j].value;
+
     const e =
       cash +
       lots.reduce((s, lot) => s + lot.amount * (px / lot.entry), 0);
@@ -186,8 +187,17 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
     peak = Math.max(peak, e);
     maxDd = Math.min(maxDd, e / peak - 1);
   }
+
+  const finalPx = q[startIndex + h].value;
+  const terminal =
+    cash +
+    lots.reduce((s, lot) => s + lot.amount * (finalPx / lot.entry), 0);
+  curve.push(terminal);
+  peak = Math.max(peak, terminal);
+  maxDd = Math.min(maxDd, terminal / peak - 1);
+
   return {
-    terminalWealth: curve.at(-1) ?? 1,
+    terminalWealth: terminal,
     maxDrawdown: maxDd,
   };
 }
@@ -235,7 +245,7 @@ function validateShards(shards: ShardPayload[], qqq: MonthlyPoint[]) {
   }
   const qqqHash = hashPoints(qqq);
   for (const shard of shards) {
-    if (shard.version !== "rolling-floor.shard.v2" || shard.kind !== "CHANNEL_SHARD") {
+    if (shard.version !== "rolling-floor.shard.v3" || shard.kind !== "CHANNEL_SHARD") {
       throw new Error("Invalid shard: " + shard.channel);
     }
     if (shard.qqqHash !== qqqHash) {
@@ -271,22 +281,31 @@ function runReplay(
   panel: Map<string, ReturnType<typeof couple>>,
 ) {
   const replays = [];
+  const adaptiveCredit = [];
   const clock = [];
   const lump = [];
   for (let start = 0; start + 120 < qqq.length; start++) {
-    const r = replayOne(qqq, panel, start);
-    if (!r) continue;
-    replays.push(r);
+    const coupled = replayOne(qqq, panel, start, "COUPLED");
+    const credit = replayOne(qqq, panel, start, "ADAPTIVE_CREDIT_ONLY");
+    if (!coupled || !credit) continue;
+    replays.push(coupled);
+    adaptiveCredit.push(credit);
     clock.push(clockReplay(qqq, start));
     lump.push(lumpReplay(qqq, start));
   }
-  return { replays, clock: clock.filter(Boolean), lump: lump.filter(Boolean) };
+  return {
+    replays,
+    adaptiveCredit,
+    clock: clock.filter(Boolean),
+    lump: lump.filter(Boolean),
+  };
 }
 
 function baselineSummary(
   rows: Array<{ terminalWealth: number; maxDrawdown: number }>,
 ) {
   const ws = rows.map((r) => r.terminalWealth);
+  const q05 = quantile(ws, 0.05) ?? 0;
   const a = [...ws].sort((x, y) => x - y);
   const m = Math.floor(a.length / 2);
   return {
@@ -295,6 +314,8 @@ function baselineSummary(
       ws.filter((x) => x >= 1).length / Math.max(1, ws.length),
     medianTerminal:
       a.length === 0 ? 0 : a.length % 2 ? a[m] : ((a[m - 1] ?? 0) + a[m]) / 2,
+    q05Terminal: q05,
+    principalFailureRate: 1 - ws.filter((x) => x >= 1).length / Math.max(1, ws.length),
     worstTerminal: a.length ? a[0] : 0,
     meanMaxDd:
       rows.reduce((s, x) => s + x.maxDrawdown, 0) /
@@ -317,7 +338,7 @@ function writeOutputs(
     couple(latestDate, 0, byDate.get(latestDate) ?? []);
 
   const payload = {
-    version: "rolling-floor.v2",
+    version: "rolling-floor.v3-adaptive-credit",
     evidenceClass: "RESEARCH_ONLY",
     topology: {
       workers: [
@@ -330,7 +351,7 @@ function writeOutputs(
         {
           lane: "linux",
           channel: "NDX",
-          runner: '["self-hosted","linux","x64"]',
+          runner: '["ubuntu-latest"]',
         },
         {
           lane: "hub-web",
@@ -351,6 +372,8 @@ function writeOutputs(
       scalesYears: [...TRAP_SCALES_YEARS],
       rule:
         "10Y is terminal horizon; 20/30/50Y are parallel historical context scales. An analog is admitted only after its following QQQ 10Y path is fully mature.",
+      signalObjective:
+        "For each scale, target is the nearest-rank 95% fraction of front-loaded capital required for the analog paths to reach terminal principal under the fixed 10Y deployment ladder. This is a floor requirement, not a terminal-return maximizer.",
       divergence:
         "Scale disagreement is a first-class state; CONVERGENT permits forward pull, TENSION halves it, DIVERGENT/THIN return authority to the deadline clock.",
     },
@@ -373,13 +396,17 @@ function writeOutputs(
       firstInjectionFraction: Math.max(1 / 120, current.coupledTarget),
       signalCount: current.signals.length,
       perScale: current.perScale,
+      mutualChase: current.mutualChase,
     },
     replay: {
       n: replay.replays.length,
       coupled: summarizeReplays(replay.replays),
+      adaptiveCreditOnly: summarizeReplays(replay.adaptiveCredit),
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
     },
+    statePath: summarizeStatePath(replay.replays),
+    mutualChasePath: summarizeStatePath(replay.replays, "mutualChaseState"),
     provenance: {
       runner: "scripts/run-rolling-floor.ts",
       mode: "BRIDGE",
@@ -397,9 +424,17 @@ function writeOutputs(
     join(outDir, "rolling_floor_replays.jsonl"),
     replay.replays.map((r) => JSON.stringify(r)).join("\n") + "\n",
   );
+  writeFileSync(
+    join(outDir, "rolling_floor_adaptive_credit_replays.jsonl"),
+    replay.adaptiveCredit.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_state_path.json"),
+    JSON.stringify(summarizeStatePath(replay.replays), null, 2),
+  );
 
   const report = [
-    "# Rolling 10Y Capital-Floor Controller v2",
+    "# Rolling 10Y Capital-Floor Controller v3 — Reversible Adaptive Credit",
     "",
     "Data end: " + latestDate,
     "",
@@ -407,7 +442,7 @@ function writeOutputs(
     "",
     "- One workflow launches three parallel machine workers.",
     "- Windows (windows-latest) computes a non-blocking QQQ audit shard; Bridge uses the repo QQQ snapshot as canonical target input.",
-    "- Linux self-hosted computes NASDAQ-100 proxy state signals.",
+    "- Linux hosted computes NASDAQ-100 proxy state signals.",
     "- HUB-Web (ubuntu-latest) computes NASDAQ Composite proxy state signals.",
     "- A separate Bridge collector on ubuntu-latest joins the required immutable NDX/NASDAQCOM shards with the canonical QQQ snapshot, applies the coupling state machine, and performs the QQQ replay.",
     "",
@@ -416,7 +451,46 @@ function writeOutputs(
     "- The portable bundle contains the exact runner source, QQQ source snapshot, required proxy shards, and the prior output.",
     "- RUN.cmd / RUN.sh invoke Node 22 directly; npm and FRED network access are not required for bridge replay.",
     "",
+    "## State-conditioned capital path",
+    "",
+    "The state analysis is descriptive: it compares cumulative deployed capital with the hard clock target without changing any controller rule.",
+    "",
+    ...payload.statePath.map((s) =>
+      [
+        "- " + s.state +
+          ": observations=" + s.observations +
+          ", share=" + (s.shareOfObservedMonths * 100).toFixed(1) + "%" +
+          ", mean ahead-of-clock=" + (s.meanAheadOfClock * 100).toFixed(2) + "%" +
+          ", q05/q95 ahead=" + (s.q05AheadOfClock * 100).toFixed(2) +
+          "%/" + (s.q95AheadOfClock * 100).toFixed(2) + "%" +
+          ", episodes=" + s.episodes +
+          ", mean episode=" + s.meanEpisodeMonths.toFixed(1) + "m" +
+          ", max episode=" + s.maxEpisodeMonths + "m",
+      ].join("")
+    ),
+    "",
+    "Interpretation: CONVERGENT records where scale consensus is permitted to pull capital ahead of the deadline; TENSION records partial authority; DIVERGENT removes historical pull and returns to the clock; THIN means insufficient scale evidence.",
+    "",
+    "## Mutual-chase topology",
+    "",
+    ...payload.mutualChasePath.map((s) =>
+      [
+        "- " + s.state +
+          ": observations=" + s.observations +
+          ", share=" + (s.shareOfObservedMonths * 100).toFixed(1) + "%" +
+          ", mean ahead-of-clock=" + (s.meanAheadOfClock * 100).toFixed(2) + "%" +
+          ", episodes=" + s.episodes +
+          ", mean episode=" + s.meanEpisodeMonths.toFixed(1) + "m",
+      ].join("")
+    ),
+    "",
+    "Mutual-chase state is diagnostic only; it does not alter the replay action.",
+    "",
     "## Replay",
+    "",
+    "Signal objective: 95% terminal-principal floor front-load requirement, not maximum terminal wealth.",
+    "",
+    "The adaptive-credit replay is a separate BUY-only controller: it ignores the historical forward-pull target and uses only reversible NAV surplus credit against the hard clock.",
     "",
     "Coupled replays: " + replay.replays.length,
     "Coupled non-loss rate: " +
@@ -430,12 +504,27 @@ function writeOutputs(
       (payload.replay.coupled.worstMaxDd * 100).toFixed(1) +
       "%",
     "",
-    "Clock-only non-loss: " +
-      (payload.replay.clockOnly.nonLossRate * 100).toFixed(1) +
+    "Adaptive-credit-only principal failure rate: " +
+      ((1 - payload.replay.adaptiveCreditOnly.nonLossRate) * 100).toFixed(1) +
       "%",
-    "Lump-now non-loss: " +
-      (payload.replay.lumpNow.nonLossRate * 100).toFixed(1) +
+    "Adaptive-credit-only 5% terminal quantile: " +
+      payload.replay.adaptiveCreditOnly.q05Terminal.toFixed(4),
+    "Adaptive-credit mean total deployed: " +
+      (payload.replay.adaptiveCreditOnly.meanTotalInvested * 100).toFixed(2) +
       "%",
+    "Adaptive-credit mean undeployed at end: " +
+      (payload.replay.adaptiveCreditOnly.meanUndeployedAtEnd * 100).toFixed(2) +
+      "%",
+    "Clock-only principal failure rate: " +
+      ((1 - payload.replay.clockOnly.nonLossRate) * 100).toFixed(1) +
+      "%",
+    "Clock-only 5% terminal quantile: " +
+      payload.replay.clockOnly.q05Terminal.toFixed(4),
+    "Lump-now principal failure rate: " +
+      ((1 - payload.replay.lumpNow.nonLossRate) * 100).toFixed(1) +
+      "%",
+    "Lump-now 5% terminal quantile: " +
+      payload.replay.lumpNow.q05Terminal.toFixed(4),
     "",
     "## Current",
     "",
