@@ -96,18 +96,20 @@ def is_narrative_doc(path: str) -> bool:
     name = p.name.lower()
     suffix = p.suffix.lower()
 
-    # Prompts and Stage-2/adversarial instructions must never enter the blind-safe
-    # Stage-1 snapshot, even when their names do not contain generic report words.
+    # Free-form document formats are quarantined by default. Filename heuristics alone
+    # cannot reliably distinguish neutral technical notes from prior AI conclusions.
+    # HTML source can contain the application/engine, so only quarantine narrative HTML.
     if (
         name.startswith(("readme", "prompt", "stage2", "stage_2", "stage-2"))
         or "adversarial" in name
-            ):
+    ):
         return True
 
-    if suffix in {".md", ".mdx", ".txt", ".rst", ".pdf", ".docx", ".html"} and NARRATIVE_PATTERNS.search(p.as_posix()):
+    if suffix in {".md", ".mdx", ".txt", ".rst", ".pdf", ".docx"}:
+        return True
+    if suffix == ".html" and NARRATIVE_PATTERNS.search(p.as_posix()):
         return True
     return False
-
 
 def run(cmd: List[str], cwd: Optional[Path] = None, timeout: int = 60) -> Dict[str, Any]:
     try:
