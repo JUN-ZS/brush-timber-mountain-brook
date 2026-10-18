@@ -15,7 +15,7 @@ for (const timing of ["front_fast", "front_loaded", "linear", "mid_loaded", "bac
 }
 for (const token of ["__DATA__", "__ANNUAL__", "__HIST__", "__COHORT__"]) assert(!html.includes(token), "unexpanded data placeholder " + token);
 
-const defaults = {bond:"AGG", timing:"linear", flow:"no_withdrawals", target:"60", year:"5", heatMetric:"median_nav_usd", histMetric:"terminal_nav_usd"};
+const defaults = {bond:"AGG", timing:"linear", flow:"no_withdrawals", target:"60", year:"5", heatMetric:"median_nav_usd", histMetric:"terminal_nav_usd", cohortMetric:"median_terminal_nav_usd"};
 const nodes = new Map();
 const documentHandlers = {};
 const downloads = [];
@@ -117,6 +117,10 @@ cohortMetric.value = "p05_terminal_nav_usd";
 fire("cohortMetric");
 assert(getElementById("cohort").innerHTML.includes("P05終值"), "cohort metric selector should rerender the historical start-year series");
 assert((getElementById("cohort").innerHTML.match(/data-cohort-year=/g) || []).length > 0, "cohort chart should expose selectable start-year bars");
+const cohortMetric = getElementById("cohortMetric");
+cohortMetric.value = "p05_terminal_nav_usd";
+fire("cohortMetric");
+assert(getElementById("cohort").innerHTML.includes("P05終值"), "cohort metric selector should change the start-period chart");
 flow.value = "monthly_withdrawal_1000_usd_stress";
 fire("flow");
 assert(getElementById("label").textContent.includes("每月$1,000"), "cash-flow selector should update the chosen scenario");
