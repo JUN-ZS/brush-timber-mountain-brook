@@ -171,6 +171,23 @@ requireText(workflow, /needs\.ndx-linux\.result == 'success'[\s\S]*needs\.hub-we
 requireText(ledger, /HYPOTHETICAL_SCENARIO_NOT_OBSERVED/, "assumption ledger must classify scenario assumptions");
 requireText(ledger, /independently verified/i, "assumption ledger must preserve evidence limitation");
 
+// The initial 16:9 overview is a live mirror of existing engine outputs, not a separate source of truth.
+assert.ok(html.includes('data-tab="tab-overview"'), "missing dedicated overview navigation");
+assert.ok(html.includes('<section id="tab-overview" class="tab-panel overview-shell space-y-4">'), "overview panel missing or not the intended first panel");
+assert.ok(html.includes('id="globalKpiStrip"'), "legacy KPI strip needs a visibility hook for overview mode");
+assert.ok(html.includes("globalKpiStrip.classList.toggle('hidden', targetId === 'tab-overview')"), "KPI strip must be hidden only on overview and visible on detail tabs");
+assert.ok(html.includes("max-width: min(1840px, calc(100vw - 56px))"), "widescreen layout width limit is missing");
+for (const id of [
+  "overviewNavValue", "overviewTermValue", "overviewBarValue", "overviewRatioValue",
+  "overviewDecisionTitle", "overviewDecisionReason", "overviewSourceBadge",
+  "overviewLedgerBadge", "overviewStrategyBadge", "overviewCapacityBadge",
+  "overviewTestBadge", "overviewCarryBar", "overviewBackBar", "overviewVixBar"
+]) assert.ok(html.includes('id="' + id + '"'), "missing overview field " + id);
+assert.ok(html.includes('["kpiNavValue", "overviewNavValue"]'), "overview NAV must mirror the existing KPI value");
+assert.ok(html.includes('["nowHeadline", "overviewDecisionTitle"]'), "overview decision must mirror the existing engine headline");
+assert.ok(html.includes('data-overview-tab="tab-floor"'), "overview needs a direct navigation path to mutual-tracking research");
+assert.ok(html.includes("broker_orders = FALSE") || html.includes("BROKER ORDERS OFF"), "overview must preserve visible execution boundary");
+
 // The three research charts are secondary detail, accessible and independently collapsible.
 for (const [disclosureId, canvasId] of [
   ["ratioComparisonDisclosure", "ratioComparisonChart"],
