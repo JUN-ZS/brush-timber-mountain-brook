@@ -29,8 +29,9 @@ class MonthlyPrice:
     date: dt.date
     qqq: float
     spy: float
+    daily_points: tuple[tuple[dt.date, float, float], ...] = ()
 
-    def price(self, ticker: str) -> float:
+    def price(self, ticker: str):
         if ticker == "QQQ":
             return self.qqq
         if ticker == "SPY":
@@ -56,7 +57,7 @@ def load_monthly_prices(path: Path) -> tuple[list[MonthlyPrice], str]:
             "Do not silently accept changed market data; review and deliberately repin."
         )
 
-    by_month: dict[tuple[int, int], MonthlyPrice] = {}
+    daily_by_month: dict[tuple[int, int], list[tuple[dt.date, float, float]]] = {}
     with path.open("r", newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
         required = {"Date", "QQQ", "SPY"}
@@ -71,9 +72,13 @@ def load_monthly_prices(path: Path) -> tuple[list[MonthlyPrice], str]:
                 continue
             if not (math.isfinite(qqq) and math.isfinite(spy) and qqq > 0 and spy > 0):
                 continue
-            by_month[(date.year, date.month)] = MonthlyPrice(date, qqq, spy)
+            daily_by_month.setdefault((date.year, date.month), []).append((date, qqq, spy))
 
-    points = sorted(by_month.values(), key=lambda point: point.date)
+    points: list[MonthlyPrice] = []
+    for month_key in sorted(daily_by_month):
+        bars = sorted(daily_by_month[month_key], key=lambda bar: bar[0])
+        last_date, last_qqq, last_spy = bars[-1]
+        points.append(MonthlyPrice(last_date, last_qqq, last_spy, tuple(bars)))
     if len(points) != EXPECTED_MONTHLY_OBSERVATIONS:
         raise ValueError(
             f"Expected {EXPECTED_MONTHLY_OBSERVATIONS} monthly observations from pinned "
@@ -262,7 +267,17 @@ def replay_window(
     if terminal_nav > 1e-10:
         investor_cashflows.append((end.date, terminal_nav))
     xirr, xirr_status = solve_xirr(investor_cashflows)
-    path_prices = [point.price(ticker) for point in points[start_index : end_index + 1]]
+    daily_path: list[tuple[dt.date, float]] = []
+    for monthly_point in points[start_index : end_index + 1]:
+        for daily_date, qqq_value, spy_value in monthly_point.daily_points:
+            if start.date <= daily_date <= end.date:
+                daily_path.append((daily_date, qqq_value if ticker == "QQQ" else spy_value))
+    if daily_path:
+        daily_path.sort(key=lambda item: item[0])
+        drawdown_prices = [value for _, value in daily_path]
+    else:
+        # Synthetic tests may provide monthly points only.
+        drawdown_prices = [point.price(ticker) for point in points[start_index : end_index + 1]]
     elapsed_years = (end.date - start.date).days / 365.25
     market_price_cagr = (
         (path_prices[-1] / path_prices[0]) ** (1.0 / elapsed_years) - 1.0
@@ -288,7 +303,7 @@ def replay_window(
         "investor_xirr": xirr,
         "investor_xirr_status": xirr_status,
         "underlying_price_cagr": market_price_cagr,
-        "underlying_price_max_drawdown": _max_drawdown(path_prices),
+        "underlying_price_max_drawdown": _max_drawdown(drawdown_prices),
         "ever_depleted_at_month_end": first_depletion_month is not None,
         "first_depletion_month_index": first_depletion_month,
     }
@@ -396,6 +411,7 @@ def run_research(
             "external_flow_sign_convention": "deposit increases invested NAV and is a negative investor cash flow; a withdrawal is paid only up to available NAV and the paid amount is a positive investor cash flow; unpaid withdrawal demand is recorded as shortfall",
             "xirr": "annualized actual/365.25 money-weighted return; unique root searched from -99.9% to +1000%; no-root and multiple-root cases remain null/status-coded",
             "price_only": True,
+            "drawdown_marking": "full daily source marks from the monthly-start close through the monthly-end close; synthetic fixtures fall back to monthly marks",
             "dividends_reinvested": False,
             "transaction_costs_and_taxes": 0.0,
             "cash_interest": 0.0,
