@@ -165,7 +165,7 @@ function histogram(s){
  const metric=$("histMetric").value;
  const labels={terminal_nav_usd:"第十年資產終值",time_weighted_cagr:"十年年化時間加權回報",daily_max_drawdown:"十年每日最大回撤",withdrawal_shortfall_usd:"十年累計提款缺口"};
  const d=HIST.find(h=>h.bond_proxy===s.bond&&+h.target_bond_conversion_pct_at_year10===s.target&&h.timing_rule===s.timing&&h.cashflow_mode===s.flow&&h.metric===metric);
- if(!d||!d.bins||!d.bins.length)return '<p class="tiny">此策略沒有足夠有效窗口計算所選指標。</p>';
+ if(!d||!d.bins||!d.bins.length){$("histLegend").innerHTML="";return '<p class="tiny">此策略沒有足夠有效窗口計算所選指標。</p>';}
  let lo=+d.min,hi=+d.max;
  if(lo===hi){lo-=Math.max(1,Math.abs(lo)*0.02);hi+=Math.max(1,Math.abs(hi)*0.02);}
  const fmt=v=>(metric==="terminal_nav_usd"||metric==="withdrawal_shortfall_usd")?usd(v):pct(v);
