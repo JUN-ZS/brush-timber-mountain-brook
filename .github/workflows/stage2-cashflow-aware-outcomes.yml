@@ -193,9 +193,12 @@ jobs:
           assert (Path("/tmp/stock-bond-glidepath/decision_summary.md")).stat().st_size > 2000
           assert (Path("/tmp/stock-bond-glidepath/interactive_dashboard.html")).stat().st_size > 200000
           interactive = Path("/tmp/stock-bond-glidepath/interactive_dashboard.html").read_text(encoding="utf-8")
-          for token in ('id="target"', 'id="year"', 'id="heatMetric"', 'id="histMetric"', 'id="wealth"', 'id="drawdown"', 'id="returns"', 'id="gaps"', 'id="frontier"', 'id="flows"', 'id="glide"', 'id="table"', 'id="fan"', 'id="drawdownPath"', 'id="heatmap"', 'id="histogram"', 'id="exportMatrix"', 'id="exportAnnual"'):
+          for token in ('id="target"', 'id="year"', 'id="heatMetric"', 'id="histMetric"', 'id="cohortMetric"', 'id="wealth"', 'id="drawdown"', 'id="returns"', 'id="gaps"', 'id="frontier"', 'id="flows"', 'id="glide"', 'id="table"', 'id="fan"', 'id="drawdownPath"', 'id="heatmap"', 'id="histogram"', 'id="cohort"', 'id="cohortDetail"', 'id="exportMatrix"', 'id="exportAnnual"'):
               assert token in interactive, token
           assert "__HIST__" not in interactive
+          assert "__COHORT__" not in interactive
+          assert "function cohortChart(s)" in interactive
+          assert "COHORT.filter(" in interactive
           assert interactive.count('"bond_proxy"') >= 300
           histogram_report = json.loads(Path("/tmp/stock-bond-glidepath/window_distribution_summary.json").read_text(encoding="utf-8"))
           assert histogram_report["schema"] == "stock-bond-glidepath-window-distributions.v1"
@@ -209,6 +212,29 @@ jobs:
                   assert 1 <= len(distribution["bins"]) <= 18
                   assert sum(item["count"] for item in distribution["bins"]) == distribution["n"]
           assert len({(d["bond_proxy"], d["target_bond_conversion_pct_at_year10"], d["timing_rule"], d["cashflow_mode"], d["metric"]) for d in histogram_report["distributions"]}) == 768 * 4
+
+          cohort_report = json.loads(Path("/tmp/stock-bond-glidepath/window_start_cohort_summary.json").read_text(encoding="utf-8"))
+          assert cohort_report["schema"] == "stock-bond-glidepath-start-cohorts.v1"
+          assert cohort_report["rolling_windows_per_scenario"] == 157
+          cohorts = cohort_report["cohorts"]
+          assert len(cohorts) >= 768
+          cohort_keys = {(row["bond_proxy"], row["target_bond_conversion_pct_at_year10"], row["timing_rule"], row["cashflow_mode"], row["start_year"]) for row in cohorts}
+          assert len(cohort_keys) == len(cohorts), "duplicate start-year cohort key"
+          cohort_windows = {}
+          for row in cohorts:
+              key = (row["bond_proxy"], row["target_bond_conversion_pct_at_year10"], row["timing_rule"], row["cashflow_mode"])
+              assert row["window_count"] > 0
+              assert row["first_window_start"][:4] == str(row["start_year"])
+              assert row["last_window_start"][:4] == str(row["start_year"])
+              assert row["first_window_start"] <= row["last_window_start"]
+              assert row["windows_with_withdrawal_shortfall"] <= row["window_count"]
+              if row["median_terminal_nav_usd"] is not None and row["p05_terminal_nav_usd"] is not None:
+                  assert row["p05_terminal_nav_usd"] <= row["median_terminal_nav_usd"] <= row["p95_terminal_nav_usd"]
+              if row["median_daily_max_drawdown"] is not None and row["worst_daily_max_drawdown"] is not None:
+                  assert row["worst_daily_max_drawdown"] <= row["median_daily_max_drawdown"]
+              cohort_windows[key] = cohort_windows.get(key, 0) + row["window_count"]
+          assert len(cohort_windows) == 768
+          assert all(n == 157 for n in cohort_windows.values()), "start-year cohorts must conserve all rolling windows"
           assert "median_target_bond_weight" in interactive
           assert "W(s.target,y,m)" not in interactive
           decision = glide["decision_summary"]
@@ -222,7 +248,7 @@ jobs:
           assert glide["cashflow_schedule"]["rows"] == 9
           assert glide["cashflow_schedule"]["withdrawal_total_usd"] == 12800.0
           assert glide["cashflow_schedule"]["deposit_total_usd"] == 5000.0
-          print("PASS: 768 scenarios, 8,448 annual summaries, 3,072 distribution histograms; linked fan/underwater/heatmap views, interactive CSV exports and pinned replay contracts")
+          print("PASS: 768 scenarios, 8,448 annual summaries, 3,072 outcome histograms, start-year cohorts conserving all 157 windows per strategy; linked views, CSV exports and pinned replay contracts")
           PY
 
       - name: Upload research results and chart pack
@@ -243,6 +269,7 @@ jobs:
             /tmp/stock-bond-glidepath/decision_summary.md
             /tmp/stock-bond-glidepath/interactive_dashboard.html
             /tmp/stock-bond-glidepath/window_distribution_summary.json
+            /tmp/stock-bond-glidepath/window_start_cohort_summary.json
             /tmp/stock-bond-glidepath/stock_bond_glidepath_windows.csv
             /tmp/stock-bond-glidepath/historical_adjusted_close_panel.csv
             /tmp/stock-bond-glidepath/*.svg
