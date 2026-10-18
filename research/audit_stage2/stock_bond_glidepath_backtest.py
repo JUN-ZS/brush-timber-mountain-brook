@@ -26,6 +26,8 @@ TICKERS = ("QQQ", "SPY", "AGG", "SHY", "IEF", "TLT")
 STOCK_TICKERS = ("QQQ", "SPY")
 BOND_TICKERS = ("AGG", "SHY", "IEF", "TLT")
 TARGET_CONVERSIONS = (30, 40, 50, 60, 70, 80, 90, 100)
+TIMING_RULES = ("linear", "front_loaded", "back_loaded")
+TIMING_LABELS = {"linear": "線性", "front_loaded": "前置轉換", "back_loaded": "後置轉換"}
 INITIAL_CAPITAL_USD = 100_000.0
 HORIZON_MONTHS = 120
 DATA_START = dt.date(2003, 7, 1)
@@ -148,10 +150,22 @@ def load_common_market_panel() -> tuple[list[dt.date], dict[str, list[float]], l
 def _month_index_by_day(dates: list[dt.date], monthly_indices: list[int]) -> dict[int, int]:
     return {daily_index: month_no for month_no, daily_index in enumerate(monthly_indices)}
 
-def _target_bond_weight(target_pct: int, elapsed_months: int) -> float:
-    """Linear 10-year stepwise glidepath, rebalance after each 12-month anniversary."""
-    completed_years = min(10, max(0, elapsed_months // 12))
-    return target_pct / 100.0 * completed_years / 10.0
+def _target_bond_weight(target_pct: int, elapsed_months: int, timing_rule: str = "linear") -> float:
+    """Stepwise ten-year glidepath; target is the year-10 bond share of initial capital."""
+    if timing_rule not in TIMING_RULES:
+        raise ValueError(f"Unsupported timing rule: {timing_rule}")
+    year = min(10, max(0, elapsed_months // 12))
+    if timing_rule == "linear":
+        progress = year / 10.0
+    elif timing_rule == "front_loaded":
+        # Reach half of the requested year-10 conversion by year 3, then the other
+        # half evenly over years 4-10.
+        progress = 0.5 * year / 3.0 if year <= 3 else 0.5 + 0.5 * (year - 3) / 7.0
+    else:
+        # Hold the all-stock starting allocation through year 5, then convert evenly
+        # during years 6-10.
+        progress = max(0.0, (year - 5) / 5.0)
+    return target_pct / 100.0 * progress
 
 def _set_target_weights(units: dict[str, float], prices: dict[str, list[float]], daily_index: int,
                         nav: float, bond_ticker: str, bond_weight: float) -> None:
@@ -176,12 +190,15 @@ def replay_one_window(
     schedule: dict[int, list[FlowEvent]] | None = None,
     initial_capital_usd: float = INITIAL_CAPITAL_USD,
     compute_xirr: bool = True,
+    timing_rule: str = "linear",
 ) -> dict:
     """Daily adjusted-mark replay with annual rebalances and month-end external cash flows."""
     if bond_ticker not in BOND_TICKERS:
         raise ValueError(f"Unsupported bond proxy: {bond_ticker}")
     if target_conversion_pct not in TARGET_CONVERSIONS:
         raise ValueError(f"Target conversion must be one of {TARGET_CONVERSIONS}")
+    if timing_rule not in TIMING_RULES:
+        raise ValueError(f"Timing rule must be one of {TIMING_RULES}")
     schedule = schedule or {}
     start_daily_index = monthly_indices[start_month_index]
     end_month_index = start_month_index + HORIZON_MONTHS
@@ -228,7 +245,7 @@ def replay_one_window(
                             units[ticker] += amount * (position_value / value_now) / prices[ticker][daily_index]
                     else:
                         # If the portfolio was fully depleted, restart at the active step's target weights.
-                        weight = _target_bond_weight(target_conversion_pct, relative_month - 1)
+                        weight = _target_bond_weight(target_conversion_pct, relative_month - 1, timing_rule)
                         stock_weight = 1.0 - weight
                         units["QQQ"] += amount * stock_weight * 0.5 / prices["QQQ"][daily_index]
                         units["SPY"] += amount * stock_weight * 0.5 / prices["SPY"][daily_index]
@@ -251,7 +268,7 @@ def replay_one_window(
                 first_growth_depletion_month = relative_month
             # At the 12-month close, change the weights for the following year.
             if relative_month % 12 == 0:
-                next_bond_weight = target_conversion_pct / 100.0 * (relative_month // 12) / 10.0
+                next_bond_weight = _target_bond_weight(target_conversion_pct, relative_month, timing_rule)
                 _set_target_weights(units, prices, daily_index, nav_after_flow, bond_ticker, next_bond_weight)
                 nav_after_flow = sum(units[ticker] * prices[ticker][daily_index] for ticker in TICKERS)
         nav_previous_after_flow = nav_after_flow
@@ -270,6 +287,7 @@ def replay_one_window(
         "window_end": end_date.isoformat(),
         "bond_proxy": bond_ticker,
         "target_bond_conversion_pct_at_year10": target_conversion_pct,
+        "timing_rule": timing_rule,
         "cashflow_mode": "custom_schedule" if schedule else "no_withdrawals",
         "initial_capital_usd": round(initial_capital_usd, 2),
         "additional_deposits_usd": round(deposits, 2),
@@ -298,6 +316,7 @@ def summarize_group(rows: list[dict]) -> dict:
     return {
         "bond_proxy": rows[0]["bond_proxy"],
         "target_bond_conversion_pct_at_year10": rows[0]["target_bond_conversion_pct_at_year10"],
+        "timing_rule": rows[0]["timing_rule"],
         "cashflow_mode": rows[0]["cashflow_mode"],
         "rolling_windows": len(rows),
         "median_terminal_nav_usd": round(_quantile(terminals, 0.50) or 0.0, 2),
@@ -335,18 +354,19 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
     if window_count <= 0:
         raise ValueError("Not enough common monthly observations for rolling 10-year backtests")
     for mode_name, active_schedule, compute_xirr in schedules:
-        for bond in BOND_TICKERS:
-            for target in TARGET_CONVERSIONS:
-                group = [
-                    replay_one_window(dates, prices, monthly_indices, start, bond, target,
-                                      schedule=active_schedule, initial_capital_usd=initial_capital_usd,
-                                      compute_xirr=compute_xirr)
-                    for start in range(window_count)
-                ]
-                for row in group:
-                    row["cashflow_mode"] = mode_name
-                summaries.append(summarize_group(group))
-                all_rows.extend(group)
+        for timing_rule in TIMING_RULES:
+            for bond in BOND_TICKERS:
+                for target in TARGET_CONVERSIONS:
+                    group = [
+                        replay_one_window(dates, prices, monthly_indices, start, bond, target,
+                                          schedule=active_schedule, initial_capital_usd=initial_capital_usd,
+                                          compute_xirr=compute_xirr, timing_rule=timing_rule)
+                        for start in range(window_count)
+                    ]
+                    for row in group:
+                        row["cashflow_mode"] = mode_name
+                    summaries.append(summarize_group(group))
+                    all_rows.extend(group)
     report = {
         "schema": "stock-bond-glidepath-backtest.v1",
         "method": {
@@ -354,7 +374,8 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
             "rolling_windows_per_scenario": window_count,
             "initial_capital_usd": initial_capital_usd,
             "stock_sleeve": "QQQ/SPY 50/50 on each annual glidepath rebalance; both use dividend/split-adjusted close",
-            "glidepath_rule": "Start at 0% bond. At each 12-month anniversary, transfer an equal fraction so the target total bond weight is reached at month 120. Targets: 30%-100% in 10-point steps.",
+            "glidepath_rule": "Start at 0% bond. At each 12-month anniversary, rebalance to a stepwise target bond weight; the selected year-10 target is reached at month 120. Targets: 30%-100% in 10-point steps.",
+            "timing_rules": {"linear": "equal conversion steps across years 1-10", "front_loaded": "reach 50% of final target by year 3, then reach the rest evenly by year 10", "back_loaded": "no bond allocation through year 5; convert evenly in years 6-10"},
             "bond_exposures": "AGG is broad aggregate fixed income; SHY, IEF and TLT are short-, intermediate- and long-duration Treasury ETF proxies.",
             "total_return_proxy": "Yahoo Finance adjusted close series; the adjusted-price ratio is used to approximate reinvested distributions and splits.",
             "rebalancing": "Annual rebalancing when target glidepath changes; no other rebalancing within each year. Holdings drift between annual steps.",
