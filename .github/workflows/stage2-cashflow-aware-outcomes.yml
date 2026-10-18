@@ -32,6 +32,14 @@ jobs:
             --out /tmp/cashflow-aware-summary.json \
             --rows-out /tmp/cashflow-aware-windows.csv
 
+      - name: Run an explicit deferred and step-up cash-flow example
+        run: |
+          python3 research/audit_stage2/cashflow_aware_qqq_spy.py \
+            --input artifacts/pulse_v2/data_market_data.csv \
+            --flows-csv research/audit_stage2/example_delayed_stepup_schedule.csv \
+            --out /tmp/cashflow-aware-stepped-summary.json \
+            --rows-out /tmp/cashflow-aware-stepped-windows.csv
+
       - name: Validate expected research contract
         run: |
           python3 - <<'PY'
@@ -58,7 +66,19 @@ jobs:
           assert report["method"]["default_cashflow_behavior"].startswith("No deposit or withdrawal")
           rows = Path("/tmp/cashflow-aware-windows.csv").read_text(encoding="utf-8").splitlines()
           assert len(rows) == 1 + (2 + 4) * 211, len(rows)
-          print("PASS: pinned source, 331 monthly marks, 211 windows, no-withdrawal default, floor-first scenarios, XIRR parity")
+          stepped = json.loads(Path("/tmp/cashflow-aware-stepped-summary.json").read_text(encoding="utf-8"))
+          assert stepped["schema"] == "cashflow-aware-investor-outcomes.v2"
+          assert stepped["input"]["actual_sha256"] == report["input"]["actual_sha256"]
+          assert stepped["method"]["custom_schedule_rows"] == 9
+          assert len(stepped["scenario_summaries"]) == 2
+          assert len(stepped["capital_floor_summaries"]) == 4
+          assert all(row["cashflow_mode"] == "custom_schedule" for row in stepped["capital_floor_summaries"])
+          assert all(row["windows_floor_not_met_by_model_before_tax_costs"] == 0 for row in stepped["capital_floor_summaries"])
+          assert all(row["floor_payment_used_for_spending"] is False for row in stepped["capital_floor_summaries"])
+          assert all(row["windows_with_any_unfunded_withdrawal"] >= 0 for row in stepped["capital_floor_summaries"])
+          step_rows = Path("/tmp/cashflow-aware-stepped-windows.csv").read_text(encoding="utf-8").splitlines()
+          assert len(step_rows) == 1 + (2 + 4) * 211, len(step_rows)
+          print("PASS: pinned source, no-withdrawal default, floor-first outcomes, optional delayed/step-up flows, floor never used for spending, XIRR parity")
           PY
 
       - name: Upload auditable result bundle
@@ -68,5 +88,7 @@ jobs:
           path: |
             /tmp/cashflow-aware-summary.json
             /tmp/cashflow-aware-windows.csv
+            /tmp/cashflow-aware-stepped-summary.json
+            /tmp/cashflow-aware-stepped-windows.csv
           if-no-files-found: error
           retention-days: 14
