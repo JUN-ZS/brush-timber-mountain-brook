@@ -149,6 +149,8 @@ class CashflowAwareReplayTests(unittest.TestCase):
         self.assertAlmostEqual(qqq_row["growth_sleeve_terminal_usd"], 36_250.0, places=6)
         self.assertAlmostEqual(qqq_row["protected_maturity_payment_usd"], 100_000.0, places=6)
         self.assertFalse(qqq_row["floor_payment_used_for_spending"])
+        self.assertIsNone(qqq_row["terminal_cagr"])
+        self.assertEqual(qqq_row["investor_xirr_status"], "OK")
 
     def test_floor_is_never_used_when_withdrawal_exceeds_growth_sleeve(self):
         points = points_from_prices([100.0] * (HORIZON_MONTHS + 1))
