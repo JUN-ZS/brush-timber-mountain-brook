@@ -171,6 +171,20 @@ requireText(workflow, /needs\.ndx-linux\.result == 'success'[\s\S]*needs\.hub-we
 requireText(ledger, /HYPOTHETICAL_SCENARIO_NOT_OBSERVED/, "assumption ledger must classify scenario assumptions");
 requireText(ledger, /independently verified/i, "assumption ledger must preserve evidence limitation");
 
+// The three research charts are secondary detail, accessible and independently collapsible.
+for (const [disclosureId, canvasId] of [
+  ["ratioComparisonDisclosure", "ratioComparisonChart"],
+  ["volHorizonDisclosure", "volHorizonChart"],
+  ["floorTrajectoryDisclosure", "floorTrajectoryChart"]
+]) {
+  const match = html.match(new RegExp("<details\\\\b[^>]*id=\\\\"" + disclosureId + "\\\\"[\\\\s\\\\S]*?</details>"));
+  assert.ok(match, "missing collapsible chart wrapper " + disclosureId);
+  assert.ok(match[0].includes('id="' + canvasId + '"'), canvasId + " must live inside " + disclosureId);
+  assert.match(match[0], /<summary\\b/, disclosureId + " needs an accessible summary");
+}
+assert.match(html, /153 個滾動 10Y 歷史視窗 \\+ 20Y\\/30Y\\/50Y 互追/, "mutual-tracking chart label was lost");
+assert.match(html, /ChartCtor\\.getChart\\(canvas\\)/, "collapsed Chart.js canvases must be resized after opening");
+
 console.log("PASS V4.4 static/frame checks");
 console.log("inline JS blocks syntax-checked:", inlineCount);
 console.log("Golden Tests defined:", ids.length, "(GT-01..GT-52)");
