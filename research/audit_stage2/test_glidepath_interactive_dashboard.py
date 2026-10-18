@@ -1,5 +1,7 @@
 import json
 import unittest
+import csv
+import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -15,7 +17,7 @@ class MarkupIDAudit(HTMLParser):
         if element_id in self.id_to_tag:
             self.duplicates.add(element_id)
         self.id_to_tag[element_id] = tag
-from glidepath_interactive_dashboard import FIELDS, ANNUAL_FIELDS, HISTOGRAM_METRICS, render_dashboard, summarize_histogram
+from glidepath_interactive_dashboard import FIELDS, ANNUAL_FIELDS, HISTOGRAM_METRICS, render_dashboard, summarize_histogram, build_cohort_profiles
 from stock_bond_glidepath_backtest import BOND_TICKERS, TARGET_CONVERSIONS, TIMING_RULES
 
 def sample_histograms():
@@ -49,6 +51,28 @@ def sample_histograms():
     return rows
 
 
+def sample_cohorts():
+    rows=[]
+    flow_modes=("no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress")
+    for bi,bond in enumerate(BOND_TICKERS):
+        for target in TARGET_CONVERSIONS:
+            for ti,timing in enumerate(TIMING_RULES):
+                for fi,flow in enumerate(flow_modes):
+                    for cohort_year in (2003,2004):
+                        base=100000+target*100+bi*1000+ti*250+fi*500+(cohort_year-2003)*3000
+                        rows.append({
+                            "bond_proxy":bond,"target_bond_conversion_pct_at_year10":target,"timing_rule":timing,
+                            "cashflow_mode":flow,"start_year":cohort_year,"window_count":6,
+                            "first_window_start":f"{cohort_year}-01-31","last_window_start":f"{cohort_year}-06-30",
+                            "median_terminal_nav_usd":base,"p05_terminal_nav_usd":base*.8,"p95_terminal_nav_usd":base*1.2,
+                            "worst_terminal_nav_usd":base*.5,"median_time_weighted_cagr":.06+ti*.002,
+                            "p05_time_weighted_cagr":-.08+ti*.002,"worst_time_weighted_cagr":-.2,
+                            "median_daily_max_drawdown":-.2,"worst_daily_max_drawdown":-.55,
+                            "windows_with_withdrawal_shortfall":fi*2,
+                        })
+    return rows
+
+
 def sample_rows():
     cases, annual = [], []
     for b in BOND_TICKERS:
@@ -68,6 +92,20 @@ def sample_rows():
     return cases, annual
 
 class DashboardTests(unittest.TestCase):
+    def test_start_year_cohorts_preserve_all_real_window_rows(self):
+        fields=["window_start","bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode","terminal_nav_usd","time_weighted_cagr","daily_max_drawdown","withdrawal_shortfall_usd"]
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/"windows.csv"
+            with path.open("w",newline="",encoding="utf-8") as handle:
+                writer=csv.DictWriter(handle,fieldnames=fields)
+                writer.writeheader()
+                for i,date in enumerate(("2003-01-31","2003-02-28","2003-03-31","2004-01-31","2004-02-29","2004-03-31")):
+                    writer.writerow({"window_start":date,"bond_proxy":"AGG","target_bond_conversion_pct_at_year10":60,"timing_rule":"linear","cashflow_mode":"no_withdrawals","terminal_nav_usd":100000+i*1000,"time_weighted_cagr":.04+i*.005,"daily_max_drawdown":-.1-i*.02,"withdrawal_shortfall_usd":100.0 if i==5 else 0.0})
+            result=build_cohort_profiles(path,expected_scenarios=1,expected_windows=6)
+        self.assertEqual({r["start_year"] for r in result},{2003,2004})
+        self.assertEqual(sum(r["window_count"] for r in result),6)
+        self.assertEqual(next(r for r in result if r["start_year"]==2003)["window_count"],3)
+        self.assertEqual(next(r for r in result if r["start_year"]==2004)["windows_with_withdrawal_shortfall"],1)
     def test_histogram_summary_conserves_samples_and_orders_percentiles(self):
         values=[float(i*i%97) for i in range(157)]
         summary=summarize_histogram(values)
@@ -83,31 +121,36 @@ class DashboardTests(unittest.TestCase):
         cases, annual = sample_rows()
         self.assertEqual(len(cases),768)
         self.assertEqual(len(annual),8448)
-        page=render_dashboard(cases,annual,sample_histograms())
-        for token in ('id="target"','id="year"','id="heatMetric"','id="histMetric"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','id="fan"','id="drawdownPath"','id="heatmap"','id="histogram"','id="exportMatrix"','id="exportAnnual"','addEventListener("input",update)','data-pick=','data-year=','拖動 BAR','不是預測','P05–P95','__ANNUAL__'):
+        page=render_dashboard(cases,annual,sample_histograms(),sample_cohorts())
+        for token in ('id="target"','id="year"','id="heatMetric"','id="histMetric"','id="cohortMetric"','id="cohort"','id="cohortDetail"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','id="fan"','id="drawdownPath"','id="heatmap"','id="histogram"','id="exportMatrix"','id="exportAnnual"','addEventListener("input",update)','data-pick=','data-year=','拖動 BAR','不是預測','P05–P95','__ANNUAL__'):
             if token=="__ANNUAL__":
                 continue
             self.assertIn(token,page)
         payload=page.split("const D=",1)[1].split(",A=",1)[0]
         annual_payload=page.split("const D=",1)[1].split(",A=",1)[1].split(",HIST=",1)[0]
-        histogram_payload=page.split(",HIST=",1)[1].split(",TG=",1)[0]
+        histogram_payload=page.split(",HIST=",1)[1].split(",COHORT=",1)[0]
+        cohort_payload=page.split(",COHORT=",1)[1].split(",TG=",1)[0]
         self.assertEqual(len(json.loads(payload)),768)
         self.assertEqual(len(json.loads(annual_payload)),8448)
         self.assertEqual(len(json.loads(histogram_payload)),768*len(HISTOGRAM_METRICS))
+        self.assertEqual(len(json.loads(cohort_payload)),768*4*2)
         self.assertNotIn("__DATA__",page)
         self.assertNotIn("__ANNUAL__",page)
         self.assertNotIn("__HIST__",page)
-        self.assertNotIn("__HIST__",page)
+        self.assertNotIn("__COHORT__",page)
         markup=MarkupIDAudit()
         markup.feed(page)
         self.assertFalse(markup.duplicates, f"duplicate element IDs: {sorted(markup.duplicates)}")
         self.assertEqual(markup.id_to_tag.get("year"),"input", "year BAR must parse as a real range input")
         self.assertEqual(markup.id_to_tag.get("heatMetric"),"select", "heatmap metric selector must parse as a real select")
         self.assertEqual(markup.id_to_tag.get("histMetric"),"select", "distribution selector must parse as a real select")
+        self.assertEqual(markup.id_to_tag.get("cohortMetric"),"select", "start-cohort metric selector must parse as a real select")
         self.assertEqual(markup.id_to_tag.get("fan"),"div")
         self.assertEqual(markup.id_to_tag.get("drawdownPath"),"div")
         self.assertEqual(markup.id_to_tag.get("heatmap"),"div")
         self.assertEqual(markup.id_to_tag.get("histogram"),"div")
+        self.assertEqual(markup.id_to_tag.get("cohort"),"div")
+        self.assertEqual(markup.id_to_tag.get("cohortDetail"),"div")
         self.assertEqual(markup.id_to_tag.get("exportMatrix"),"button")
         self.assertEqual(markup.id_to_tag.get("exportAnnual"),"button")
 
@@ -127,6 +170,9 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('function exportMatrix()',page_template)
         self.assertIn('function histogram(s)',page_template)
         self.assertIn('HIST.find(',page_template)
+        self.assertIn('function cohortChart(s)',page_template)
+        self.assertIn('COHORT.filter(',page_template)
+        self.assertIn('function build_cohort_profiles(',page_template)
         self.assertIn('function build_window_histograms(',page_template)
         self.assertIn('function summarize_histogram(',page_template)
         self.assertIn('cashflow_mode===s.flow',page_template)
