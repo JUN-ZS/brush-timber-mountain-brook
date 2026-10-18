@@ -1,25 +1,52 @@
-# Cash-flow-aware ten-year outcomes (research only)
+# Ten-year outcomes with an explicit nominal capital floor
 
-## Why this exists
+## Investor objective
 
-An ending balance alone is not a useful comparison when money is repeatedly taken out or put back in. This calculator keeps four different quantities separate:
+The default investor starts with USD 100,000 and makes no external deposits or withdrawals unless a cash-flow schedule is supplied. The first question is not "how much remains after assumed monthly spending?" It is:
 
-1. **Ending NAV** still invested after the last scheduled cash flow.
-2. **Actual cash withdrawn** and **unpaid withdrawal demand** (shortfall).
-3. **Additional deposits** made after the initial USD 100,000.
-4. **Investor XIRR**, which includes the dates and actual amounts of initial capital, later deposits, paid withdrawals, and ending NAV.
+**Can a maturity-matched nominal principal floor be protected at year 10, while the remaining capital seeks higher return?**
 
-A nominal accounting cross-check is also reported: actual withdrawals + ending NAV - additional deposits - initial capital. It is not time-adjusted; XIRR is the dated cash-flow return.
+The report keeps the terminal value of the protected floor and the performance of the growth sleeve separate. It deliberately does not promise a 10% CAGR: a nominal maturity floor and high growth are competing constraints, so upside is measured as a distribution, not declared in advance.
 
-## Historical comparison
+## Default no-withdrawal replay
 
-The default scenario grid replays 120-month windows for QQQ and SPY at nominal monthly withdrawals of USD 0, 250, 500, 1,000, 1,500 and 2,000. Each window begins with USD 100,000 fully invested at the initial monthly close. For each subsequent month, monthly-close price return is applied first, then the month's external cash-flow events are processed at that close. Maximum drawdown uses the full available daily price marks between the monthly window endpoints, so an intramonth selloff is not hidden by month-end sampling. The rolling windows overlap; counts are historical sample counts, not independent trials or forward probabilities.
+With no --flows-csv and no --withdrawal-grid, the program compares:
+- QQQ buy-and-hold price-path control;
+- SPY buy-and-hold price-path control;
+- a nominal maturity floor plus the remaining balance in zero-yield cash;
+- the same floor plus the remaining balance in QQQ;
+- the same floor plus the remaining balance in SPY;
+- the same floor plus an unlevered 50/50 QQQ/SPY growth sleeve.
 
-The input file is SHA-pinned. If the market data changes, the program fails closed until a deliberate source review and re-pin occurs.
+The fixed-withdrawal sensitivity grid is **opt-in** via --withdrawal-grid; it is never assumed to represent the user's actual spending. For an irregular pattern of taking money out and putting money back in, supply --flows-csv with relative-month events.
 
-## Provide your own add/withdraw rhythm
+## Indicative principal-floor sizing
 
-Optional --flows-csv uses relative month numbers shared by every replay window. For example, save the following as a CSV file:
+The default scenario protects a nominal USD 100,000 maturity payment. Its illustrative purchase-cost placeholder is calculated from the official 10-year Treasury par yield of 5.09% on 2026-10-16 using semiannual compounding:
+
+100,000 / (1 + 0.0509 / 2)^20 = USD 60,493.71
+
+That leaves an indicative USD 39,506.29 growth sleeve. This is **not an executable STRIPS quote**: the Treasury par yield is not the zero-coupon yield or ask price of a specific maturity-matched STRIPS CUSIP. Replace it with an actual quote and include purchase fees, tax/phantom-income reserve and any other cash costs before treating the floor as investable.
+
+Treasury STRIPS are zero-coupon securities that make a single payment at maturity and are bought through an eligible financial institution, broker or dealer. The modeled floor pays its face value only at the horizon. It is not daily marked-to-market, not liquid spending capacity before maturity, and not a promise that the whole portfolio value cannot fall below USD 100,000 at interim dates.
+
+The default floor calculation excludes taxes, transaction costs and tax payments from the protected payment. If those must be paid from the same USD 100,000 pool and cannot be paid externally, the floor face value or separate reserve needs to be sized to cover them; don't label the illustrative model as net-of-tax principal protection.
+
+## Historical comparison method
+
+The pinned daily CSV is converted to 331 month-end observations from 1999-03-31 through 2026-09-03, producing 211 overlapping 120-month windows. Market returns and scheduled cash flows use month-end prices. Maximum drawdown for the unprotected QQQ/SPY control uses daily marks within each 10-year window, so an intramonth selloff is not hidden by month-end sampling.
+
+The floor-plus-growth outcomes use the exact same 211 windows for the growth-sleeve price multiple:
+- QQQ-only growth;
+- SPY-only growth;
+- unlevered 50/50 QQQ/SPY;
+- zero-yield cash control.
+
+At the endpoint, total scenario wealth is modeled as floor face payment + remaining growth sleeve value. The principal-floor claim is about the matched security's nominal maturity payment, conditional on holding it to maturity and not drawing its protected value to fund spending. It is not derived from historical QQQ returns and cannot be treated as proof of a historically executable bond strategy.
+
+## Optional personal cash-flow schedule
+
+For custom deposits/withdrawals, pass --flows-csv with month_index,flow_type,amount_usd,note, for example:
 
     month_index,flow_type,amount_usd,note
     3,withdrawal,1200,spending
@@ -28,27 +55,42 @@ Optional --flows-csv uses relative month numbers shared by every replay window. 
     24,deposit,2500,top-up
     120,withdrawal,1000,final month spending
 
-- month_index ranges from 1 to 120; month 1 means the first monthly close after initial investment.
-- flow_type is deposit or withdrawal; amount_usd is always a positive magnitude.
-- Deposits increase invested NAV and are negative investor cash flows.
-- A withdrawal is paid only up to available NAV. Any unpaid part is a visible shortfall; NAV is never allowed to become negative.
-- When multiple rows share a month, file order defines their order.
-- The same schedule is replayed on each historical start date. It is a sensitivity analysis of a cash-flow pattern, not a prediction of your future withdrawals.
+Month indices range from 1 to 120. Amounts are positive; flow_type is deposit or withdrawal. Same-month rows are processed in file order. A withdrawal is paid only up to available portfolio NAV, and any shortfall is explicitly recorded instead of making NAV negative. Deposits are negative investor cash flows; paid withdrawals and ending NAV are positive investor cash flows for XIRR.
 
-## Run
+In this version, a supplied custom schedule is applied to the unprotected QQQ/SPY baseline. The floor-plus-growth scenarios remain no-withdrawal maturity-floor comparisons; a later withdrawal waterfall must spend from a separate liquid reserve/growth sleeve first and keep the protected bond untouched. No claim of floor-preserving withdrawals is made until that separate model is implemented and tested.
+
+## Run commands
+
+Default: no withdrawals, includes the nominal floor:
 
     python3 research/audit_stage2/cashflow_aware_qqq_spy.py \
       --input artifacts/pulse_v2/data_market_data.csv \
       --out /tmp/cashflow_summary.json \
       --rows-out /tmp/cashflow_windows.csv
 
-Append --flows-csv path/to/my_schedule.csv to use a custom pattern instead of the default fixed-withdrawal grid.
+Opt in to fixed withdrawal sensitivities:
 
-## Boundaries
+    python3 research/audit_stage2/cashflow_aware_qqq_spy.py \
+      --input artifacts/pulse_v2/data_market_data.csv \
+      --out /tmp/cashflow_sensitivity.json \
+      --rows-out /tmp/cashflow_sensitivity.csv \
+      --withdrawal-grid
 
-- The pinned source is a **price series**, not a dividend-reinvested total-return series. Dividends are excluded.
-- The run assumes zero transaction costs, zero taxes, zero cash interest and no leverage or options.
-- Additional deposits are invested at that month's close; external flows happen after that month's market return.
-- XIRR is searched from -99.9% to +1,000% annualized. No-root or multiple-root cash flows remain explicitly status-coded; they are not filled with zero or a chosen root.
-- The underlying price CAGR and MaxDD describe the asset path, not the user's actual spending capacity. Actual cash paid, ending NAV and shortfall must be read together.
-- No strategy is declared a winner by a CAGR threshold. This tool is a baseline for withdrawal-aware comparisons, not a deployment recommendation or broker integration.
+Supply a specific floor instrument all-in purchase cost once available:
+
+    python3 research/audit_stage2/cashflow_aware_qqq_spy.py \
+      --input artifacts/pulse_v2/data_market_data.csv \
+      --out /tmp/floor_quote_sensitivity.json \
+      --rows-out /tmp/floor_quote_sensitivity.csv \
+      --floor-cost-usd 61234.56
+
+## Evidence and interpretation limits
+
+- The input is SHA-pinned; it fails closed if market data changes without an explicit re-pin.
+- The source is price-only, not a dividend-reinvested total-return series.
+- No stock transaction costs, taxes, cash yield, options, leverage or live orders are modeled.
+- Rolling windows overlap; historical window fractions are not independent trials or forward probabilities.
+- Terminal CAGR is a scenario statistic; the median or best result is not a forecast.
+- The maturity-floor scenarios don't calculate daily bond market value or liquidity; a bond can be worth less than its face before maturity when market yields move.
+- This model reports nominal USD preservation only. Inflation-adjusted purchasing power is a separate goal.
+- It does not declare any strategy a winner based on a fixed CAGR threshold. The next strategy must show incremental after-cost upside without spending or risking the protected floor.
