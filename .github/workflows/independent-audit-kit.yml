@@ -1,4 +1,4 @@
-name: Independent Audit Kit Safeguards
+name: Independent Audit Kit Safeguards and Stage 1
 
 on:
   pull_request:
@@ -13,6 +13,9 @@ on:
 
 permissions:
   contents: read
+  actions: read
+  pull-requests: read
+  issues: read
 
 concurrency:
   group: independent-audit-kit-${{ github.event.pull_request.number || github.ref }}
@@ -33,3 +36,168 @@ jobs:
 
       - name: Run blind-isolation regression tests
         run: python3 -m unittest discover -s tests -p 'test_audit_collector_safeguards.py' -v
+
+  stage1-blind-review:
+    needs: safeguard-tests
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+    steps:
+      - name: Checkout exact source commit
+        uses: actions/checkout@v4
+
+      - name: Collect pinned-HEAD evidence and isolated blind snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/independent-audit-evidence"
+          python3 collect_repo_evidence.py "$GITHUB_WORKSPACE" \
+            --out "$OUT" --snapshot \
+            --max-file-bytes 25000000 --max-snapshot-mb 100
+
+          python3 - "$OUT" "$RUNNER_TEMP/stage1-blind-workspace" <<'PY'
+          import json, sys, tarfile
+          from pathlib import Path
+
+          evidence = Path(sys.argv[1])
+          workspace = Path(sys.argv[2])
+          source = workspace / "source"
+          source.mkdir(parents=True, exist_ok=True)
+
+          archive = evidence / "repository_text_snapshot_BLIND_SAFE_HEAD.tar.gz"
+          with tarfile.open(archive, "r:gz") as tar:
+              # Archive entries are generated from tracked Git paths by the collector.
+              tar.extractall(source)
+
+          manifest = json.loads((evidence / "collection_manifest.json").read_text(encoding="utf-8"))
+          inventory = json.loads((evidence / "git" / "file_inventory_HEAD.json").read_text(encoding="utf-8"))
+          categories = json.loads((evidence / "git" / "evidence_path_categories.json").read_text(encoding="utf-8"))
+          previews = json.loads((evidence / "git" / "data_files_preview.json").read_text(encoding="utf-8"))
+          archive_manifest = json.loads((evidence / "repository_text_snapshot_manifest.json").read_text(encoding="utf-8"))
+
+          (workspace / "collection_manifest.json").write_text(
+              json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+          (workspace / "stage1_csv_coverage_preview.json").write_text(
+              json.dumps(previews, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+          (workspace / "repository_text_snapshot_manifest.json").write_text(
+              json.dumps(archive_manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+          # Include path-only inventory for discovery; never include quarantined document bodies,
+          # Git history/messages, PR/Issue text, or workflow names in the Stage-1 packet.
+          safe_inventory = []
+          for entry in inventory:
+              if entry.get("sensitive_path_filtered"):
+                  continue
+              safe_inventory.append({
+                  "path": entry.get("path"),
+                  "size_bytes": entry.get("size_bytes"),
+                  "suffix": entry.get("suffix"),
+                  "git_blob_sha": entry.get("git_blob_sha"),
+                  "sha256": entry.get("sha256"),
+                  "quarantined_narrative_doc": entry.get("quarantined_narrative_doc"),
+                  "relevance_candidate": entry.get("relevance_candidate"),
+                  "matched_keywords": entry.get("matched_keywords", []),
+                  "included_in_blind_snapshot": entry.get("path") in set(
+                      (workspace / "source").joinpath().as_posix() + "" for _ in []
+                  ),
+              })
+          archive_names = set()
+          with tarfile.open(archive, "r:gz") as tar:
+              archive_names = set(tar.getnames())
+          for entry in safe_inventory:
+              entry["included_in_blind_snapshot"] = entry["path"] in archive_names
+          (workspace / "stage1_file_index.json").write_text(
+              json.dumps(safe_inventory, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+          # The Stage-1 prompt is intentionally quarantined from snapshots; copy this one
+          # instruction file explicitly. The Stage-2 prompt and narrative archive stay hidden.
+          (workspace / "PROMPT_STAGE1_BLIND.md").write_text(
+              Path("prompt_stage1_blind.md").read_text(encoding="utf-8"), encoding="utf-8")
+
+          if "prompt_stage2_adversarial.md" in archive_names:
+              raise SystemExit("FATAL: Stage-2 prompt leaked into the blind-safe archive.")
+          if any(Path(p).name.lower().startswith("readme") for p in archive_names):
+              raise SystemExit("FATAL: README leaked into the blind-safe archive.")
+
+          print("stage1_head_sha=" + str(manifest.get("head_sha")))
+          print("blind_snapshot_files=" + str(len(archive_names)))
+          print("blind_snapshot_bytes=" + str(archive.stat().st_size))
+          print("stage2_prompt_absent=true")
+          print("readme_bodies_absent=true")
+          PY
+
+      - name: Run Stage 1 with Gemini CLI in read-only Plan Mode
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          set -euo pipefail
+          WS="$RUNNER_TEMP/stage1-blind-workspace"
+          REPORT="$RUNNER_TEMP/STAGE1_INDEPENDENT_FINDINGS.md"
+          ERR="$RUNNER_TEMP/stage1-gemini-stderr.log"
+
+          if ! command -v gemini >/dev/null 2>&1; then
+            echo "STAGE1_STATUS=BLOCKED_NO_GEMINI_CLI" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "Gemini CLI is not installed on the Linux BOT. No model call was made." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "Gemini CLI version: $(gemini --version 2>&1 | head -n 1)"
+
+          # Use a clean HOME so global memory/GEMINI.md/settings cannot contaminate blind review.
+          CLEAN_HOME="$RUNNER_TEMP/stage1-clean-home"
+          mkdir -p "$CLEAN_HOME"
+          if [ -z "${GEMINI_API_KEY:-}" ] && [ -z "${GOOGLE_API_KEY:-}" ]; then
+            if [ -f "$HOME/.gemini/oauth_creds.json" ]; then
+              mkdir -p "$CLEAN_HOME/.gemini"
+              cp "$HOME/.gemini/oauth_creds.json" "$CLEAN_HOME/.gemini/oauth_creds.json"
+              if [ -f "$HOME/.gemini/google_accounts.json" ]; then
+                cp "$HOME/.gemini/google_accounts.json" "$CLEAN_HOME/.gemini/google_accounts.json"
+              fi
+            else
+              echo "STAGE1_STATUS=BLOCKED_NO_GEMINI_AUTH" | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "Gemini CLI exists but no API key or reusable OAuth credential was detected. No model call was made." | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+          fi
+
+          PROMPT="$(cat "$WS/PROMPT_STAGE1_BLIND.md")
+
+          Additional strict execution boundary:
+          - Your only project workspace is $WS/source. It contains the blind-safe bounded snapshot, not the full repository.
+          - Read the provided collection manifest, file index, CSV coverage preview, and snapshot manifest.
+          - Do not search the network, access other folders, inspect user memory/configuration, or attempt to obtain Stage-2 materials.
+          - This is a read-only research pass. Do not modify files, run broker tools, use credentials for anything other than this model request, or place orders.
+          - Save a complete report titled STAGE1_INDEPENDENT_FINDINGS.md in the current directory. Separate VERIFIED / ESTIMATED / UNVERIFIED / BLOCKED claims. Include exact file paths and visible line references where possible.
+          "
+          cd "$WS"
+          set +e
+          HOME="$CLEAN_HOME" gemini --skip-trust --approval-mode=plan --output-format text --prompt "$PROMPT" > "$REPORT" 2> "$ERR"
+          RC=$?
+          set -e
+          if [ "$RC" -ne 0 ] || [ ! -s "$REPORT" ]; then
+            echo "STAGE1_STATUS=BLOCKED_GEMINI_CALL_FAILED (exit $RC)" | tee -a "$GITHUB_STEP_SUMMARY"
+            sed -E 's/(key|token|secret)[=: ][^ ]+/\1=[REDACTED]/Ig' "$ERR" | tail -n 80 | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          sha256sum "$REPORT" > "$RUNNER_TEMP/STAGE1_INDEPENDENT_FINDINGS.sha256"
+          chmod 444 "$REPORT"
+          {
+            echo "## Stage 1: Blind Independent Findings"
+            echo ""
+            echo "- Source HEAD: $(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["head_sha"])' "$WS/collection_manifest.json")"
+            echo "- Report SHA-256: $(cut -d' ' -f1 "$RUNNER_TEMP/STAGE1_INDEPENDENT_FINDINGS.sha256")"
+            echo "- Stage-2 prompt and README bodies excluded from the model workspace."
+            echo ""
+            cat "$REPORT"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "STAGE1_REPORT_BEGIN"
+          cat "$REPORT"
+          echo "STAGE1_REPORT_END"
+          echo "STAGE1_REPORT_SHA256=$(cut -d' ' -f1 "$RUNNER_TEMP/STAGE1_INDEPENDENT_FINDINGS.sha256")"
