@@ -102,6 +102,13 @@ jobs:
           assert chart["input"]["monthly_observations"] == 331
           assert chart["input"]["rolling_ten_year_windows"] == 211
           assert len(chart["chart_files"]) == 5
+          glidepaths = chart["glidepath_scenarios"]
+          assert [row["target_conversion_percent"] for row in glidepaths] == [30, 40, 50, 60, 70, 80, 90, 100]
+          for row in glidepaths:
+              assert len(row["stocks"]) == 11 and len(row["bonds"]) == 11
+              assert row["stocks"][0] == 100 and row["bonds"][0] == 0
+              assert abs(row["stocks"][-1] + row["bonds"][-1] - 100) < 1e-9
+              assert abs(row["bonds"][-1] - row["target_conversion_percent"]) < 1e-9
           for filename in chart["chart_files"]:
               body = (outdir / filename).read_text(encoding="utf-8")
               assert body.startswith("<svg ") and body.rstrip().endswith("</svg>"), filename
