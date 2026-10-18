@@ -35,6 +35,113 @@
     .chart-disclosure > summary:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
     .chart-disclosure[open] > summary { border-bottom: 1px solid #1e293b; }
   </style>
+  <style>
+    /* 16:9 desktop workspace: wider canvas, tighter chrome, stronger reading order. */
+    @media (min-width: 1440px) {
+      .max-w-7xl { max-width: min(1840px, calc(100vw - 56px)) !important; }
+      .overview-nav .nav-tab { padding-left: 14px; padding-right: 14px; }
+    }
+    @media (min-width: 1600px) and (min-height: 850px) {
+      main.max-w-7xl { padding-top: 14px !important; padding-bottom: 16px !important; }
+      .overview-shell { gap: 12px !important; }
+      .overview-heading { padding: 16px 22px !important; }
+      .overview-metric { padding: 12px 15px !important; min-height: 94px !important; }
+      .overview-hero, .overview-evidence, .overview-thresholds, .overview-research { padding: 15px 17px !important; }
+    }
+    .overview-shell { --ov-line: #23364d; --ov-muted: #94a8c3; --ov-text: #e8f0fb; --ov-cyan: #6bd5f5; color: var(--ov-text); }
+    .overview-heading { display:flex; justify-content:space-between; align-items:center; gap:22px; min-width:0; padding:19px 23px; border:1px solid #27435a; border-radius:17px; background:radial-gradient(ellipse at 88% 0%,rgba(36,140,184,.17),transparent 44%),linear-gradient(115deg,#0d1a2a 0%,#101a2a 57%,#0c2231 100%); box-shadow:0 10px 30px rgba(0,0,0,.12); }
+    .overview-heading-copy { min-width:0; }
+    .overview-eyebrow { display:flex; align-items:center; gap:8px; color:#72d8fa; font:700 10px/1.2 "JetBrains Mono",ui-monospace,monospace; letter-spacing:.16em; }
+    .overview-live-dot,.overview-footnote-mark { width:7px; height:7px; flex:0 0 7px; display:inline-block; border-radius:50%; background:#62d9ac; box-shadow:0 0 0 4px rgba(98,217,172,.09); }
+    .overview-eyebrow-divider { color:#506780; }
+    .overview-heading h2 { margin:8px 0 0; color:#f4f8ff; font-size:clamp(24px,2.1vw,32px); font-weight:760; letter-spacing:-.04em; }
+    .overview-heading h2 span { margin-left:8px; color:#7ebbd6; font-size:.56em; font-weight:600; letter-spacing:.02em; white-space:nowrap; }
+    .overview-heading p { max-width:800px; margin:6px 0 0; color:#9eb1c9; font-size:12px; line-height:1.55; }
+    .overview-heading-meta { display:grid; grid-template-columns:1fr; gap:7px; min-width:210px; }
+    .overview-meta-box { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 11px; border:1px solid rgba(117,147,179,.18); border-radius:8px; background:rgba(5,13,24,.42); }
+    .overview-meta-box > span { color:#7d94b1; font:700 9px/1.2 "JetBrains Mono",monospace; letter-spacing:.1em; white-space:nowrap; }
+    .overview-meta-box > strong { color:#dceaf8; font:650 10px/1.3 "JetBrains Mono",monospace; text-align:right; overflow-wrap:anywhere; }
+    .overview-lock { display:inline-flex; align-items:center; gap:6px; color:#86dfbb !important; }
+    .overview-lock span { display:inline-block; width:6px; height:6px; border-radius:50%; background:#65d6a2; }
+    .overview-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .overview-metric { min-width:0; min-height:103px; padding:14px 17px; position:relative; overflow:hidden; border:1px solid #23364d; border-radius:13px; background:linear-gradient(145deg,rgba(17,31,48,.98),rgba(10,20,34,.98)); }
+    .overview-metric::after { content:""; position:absolute; width:106px; height:106px; right:-36px; bottom:-57px; border-radius:50%; opacity:.18; filter:blur(1px); pointer-events:none; }
+    .overview-metric-nav::after { background:#45c3f4; }
+    .overview-metric-regime::after { background:#a5a0ff; }
+    .overview-metric-target::after { background:#5cdfb3; }
+    .overview-metric-risk::after { background:#ff838f; }
+    .overview-metric-top { display:flex; align-items:center; justify-content:space-between; gap:10px; color:#8ea4bf; font:700 9px/1.2 "JetBrains Mono",monospace; letter-spacing:.1em; }
+    .overview-metric-mark { padding:3px 6px; color:#a8cce4; border:1px solid rgba(121,179,210,.24); border-radius:5px; background:rgba(84,153,190,.08); letter-spacing:.04em; }
+    .overview-metric-value { position:relative; z-index:1; margin-top:8px; color:#f3f8ff; font:750 clamp(22px,2vw,29px)/1.05 "JetBrains Mono",ui-monospace,monospace; letter-spacing:-.055em; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    .overview-metric-sub { position:relative; z-index:1; margin-top:6px; color:#91a6bf; font-size:10px; line-height:1.4; overflow-wrap:anywhere; }
+    .overview-main-grid { display:grid; grid-template-columns:minmax(0,1.18fr) minmax(420px,.92fr); gap:12px; min-width:0; }
+    .overview-hero,.overview-evidence,.overview-thresholds,.overview-research { min-width:0; padding:17px 19px; border:1px solid #23364d; border-radius:14px; background:linear-gradient(150deg,rgba(15,27,43,.97),rgba(10,19,32,.98)); }
+    .overview-hero { position:relative; overflow:hidden; background:radial-gradient(ellipse at 100% 0%,rgba(56,189,248,.12),transparent 43%),linear-gradient(145deg,#101e30,#0d1928); }
+    .overview-card-head { display:flex; justify-content:space-between; align-items:center; gap:12px; min-width:0; padding-bottom:10px; border-bottom:1px solid rgba(79,108,140,.22); }
+    .overview-card-head > div:first-child { min-width:0; }
+    .overview-section-index { display:block; color:#72cae9; font:700 9px/1.2 "JetBrains Mono",monospace; letter-spacing:.14em; }
+    .overview-card-head h3 { margin:4px 0 0; color:#ecf4ff; font-size:14px; font-weight:700; letter-spacing:-.01em; }
+    .overview-state-badge { display:inline-flex; align-items:center; justify-content:center; max-width:48%; padding:5px 8px; border:1px solid #3a4c61; border-radius:6px; color:#cbd8e7; background:#17273a; font:700 9px/1.3 "JetBrains Mono",monospace; text-align:center; overflow-wrap:anywhere; }
+    .overview-state-badge[data-state="good"] { border-color:#23694f; color:#8ae6bb; background:rgba(24,107,77,.15); }
+    .overview-state-badge[data-state="warn"] { border-color:#795b2b; color:#f3ca7b; background:rgba(151,99,22,.14); }
+    .overview-state-badge[data-state="bad"] { border-color:#803d4a; color:#ff9eaa; background:rgba(143,43,60,.15); }
+    .overview-state-badge[data-state="pending"] { border-color:#71582e; color:#f3ca7b; background:rgba(121,84,24,.13); }
+    .overview-decision-title { margin-top:16px; color:#f3f8ff; font-size:clamp(19px,1.65vw,25px); font-weight:760; line-height:1.25; letter-spacing:-.035em; overflow-wrap:anywhere; }
+    .overview-decision-reason { min-height:36px; max-width:900px; margin-top:8px; color:#a6b8ce; font-size:12px; line-height:1.65; }
+    .overview-hero-bottom { margin-top:12px; padding-top:10px; border-top:1px solid rgba(79,108,140,.20); }
+    .overview-next-label { color:#6f91b0; font:700 9px/1.2 "JetBrains Mono",monospace; letter-spacing:.15em; }
+    .overview-decision-bullets { margin-top:6px; color:#c8d6e6; font-size:11px; line-height:1.65; white-space:pre-line; max-height:86px; overflow:auto; }
+    .overview-small-tag { color:#8ea3bd; font:700 9px/1.25 "JetBrains Mono",monospace; letter-spacing:.06em; text-align:right; }
+    .overview-evidence-list { display:grid; grid-template-columns:1fr; }
+    .overview-evidence-row { display:grid; grid-template-columns:28px minmax(0,1fr) auto; align-items:center; gap:9px; min-width:0; padding:9px 0; border-bottom:1px solid rgba(79,108,140,.15); }
+    .overview-evidence-row:last-child { border-bottom:0; padding-bottom:0; }
+    .overview-evidence-icon { display:flex; align-items:center; justify-content:center; width:27px; height:27px; color:#8eb8d2; background:#12263b; border:1px solid #2b4863; border-radius:7px; font:700 9px "JetBrains Mono",monospace; }
+    .overview-evidence-copy { display:flex; flex-direction:column; gap:3px; min-width:0; }
+    .overview-evidence-copy strong { color:#dce7f5; font-size:11px; font-weight:650; }
+    .overview-evidence-copy small { color:#879cb5; font-size:10px; line-height:1.35; overflow-wrap:anywhere; }
+    .overview-lower-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(400px,.92fr); gap:12px; min-width:0; }
+    .overview-rail { margin-top:11px; }
+    .overview-rail-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px; color:#cbd8e8; font-size:11px; }
+    .overview-rail-head b { color:#7fa0bd; font:650 10px "JetBrains Mono",monospace; }
+    .overview-rail-head strong { color:#dbe9f7; font:650 10px "JetBrains Mono",monospace; text-align:right; }
+    .overview-rail-track { height:5px; width:100%; border-radius:99px; overflow:hidden; background:#1c2b3e; }
+    .overview-rail-fill { display:block; height:100%; width:0; border-radius:99px; transition:width .18s ease; }
+    .overview-rail-fill.carry { background:linear-gradient(90deg,#287f82,#60d8ba); }
+    .overview-rail-fill.backward { background:linear-gradient(90deg,#bd673d,#ff9b83); }
+    .overview-rail-fill.volatility { background:linear-gradient(90deg,#526dd8,#b4a2ff); }
+    .overview-threshold-foot { margin-top:11px; color:#7188a3; font-size:9px; line-height:1.5; }
+    .overview-shortcuts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:11px; }
+    .overview-shortcut { display:flex; align-items:center; gap:9px; min-width:0; padding:9px 10px; border:1px solid #273d54; border-radius:9px; color:#d7e5f5; background:rgba(15,31,48,.8); text-align:left; cursor:pointer; transition:background .15s,border-color .15s,transform .15s; }
+    .overview-shortcut:hover { background:#152d43; border-color:#4780a3; transform:translateY(-1px); }
+    .overview-shortcut:focus-visible { outline:2px solid #68d4f3; outline-offset:2px; }
+    .overview-shortcut-index { flex:0 0 22px; display:flex; align-items:center; justify-content:center; height:22px; border:1px solid #31526d; border-radius:6px; color:#71c9e9; background:#12283c; font:700 10px "JetBrains Mono",monospace; }
+    .overview-shortcut > span:nth-child(2) { display:flex; flex-direction:column; gap:3px; min-width:0; }
+    .overview-shortcut strong { font-size:10px; font-weight:700; }
+    .overview-shortcut small { color:#8ca2ba; font-size:9px; line-height:1.35; }
+    .overview-arrow { margin-left:auto; color:#75acc9; font-size:13px; }
+    .overview-footnote { display:flex; align-items:center; gap:9px; padding:3px 2px 0; color:#758ba6; font-size:10px; line-height:1.45; }
+    .overview-footnote-mark { width:5px; height:5px; flex-basis:5px; background:#6fb7de; box-shadow:none; }
+    @media (max-width: 1200px) {
+      .overview-heading { align-items:flex-start; }
+      .overview-main-grid,.overview-lower-grid { grid-template-columns:minmax(0,1fr) minmax(330px,.9fr); }
+      .overview-heading-meta { min-width:185px; }
+      .overview-metric-value { font-size:clamp(20px,2vw,26px); }
+      .overview-shortcuts { grid-template-columns:1fr; gap:6px; }
+    }
+    @media (max-width: 850px) {
+      .overview-heading { flex-direction:column; gap:14px; }
+      .overview-heading-meta { width:100%; grid-template-columns:1fr 1fr; }
+      .overview-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .overview-main-grid,.overview-lower-grid { grid-template-columns:1fr; }
+      .overview-shortcuts { grid-template-columns:1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      .overview-heading-meta { grid-template-columns:1fr; }
+      .overview-shortcuts { grid-template-columns:1fr; }
+      .overview-metric-value { font-size:20px; }
+    }
+  </style>
+
 </head>
 <body class="min-h-screen bg-[#090d16] text-slate-100 antialiased selection:bg-sky-500/30 selection:text-sky-200">
 
@@ -92,22 +199,25 @@
       <div id="causalRibbon" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 mt-2.5 pt-2.5 border-t border-slate-800/80 text-[11px]"></div>
     </div>
 
-    <!-- Main Navigation Tabs -->
-    <div class="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto border-t border-slate-800/60 bg-slate-950/60">
-      <button type="button" data-tab="tab-cockpit" class="nav-tab px-4 py-2.5 text-xs font-semibold border-b-2 border-sky-400 text-sky-300 whitespace-nowrap transition">
-        01 · 決策操作台與完整守恆帳 (Decision Cockpit &amp; Full Ledger)
+    <!-- Main Navigation Tabs · optimized for a 16:9 desktop workspace -->
+    <div class="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto border-t border-slate-800/60 bg-slate-950/80 overview-nav">
+      <button type="button" data-tab="tab-overview" class="nav-tab px-3 py-2 text-xs font-semibold border-b-2 border-sky-400 text-sky-300 whitespace-nowrap transition">
+        00 · 決策總覽
       </button>
-      <button type="button" data-tab="tab-bars" class="nav-tab px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
-        02 · 度量衡拉扯 BAR 與 62 筆逐筆重算 (Live Episode Replay &amp; N=1 對稱證明)
+      <button type="button" data-tab="tab-cockpit" class="nav-tab px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
+        01 · 操作台／守恆帳
       </button>
-      <button type="button" data-tab="tab-prob" class="nav-tab px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
-        03 · 波動×時間機率與如實勝率% (移除寫死 CAGR 門檻)
+      <button type="button" data-tab="tab-bars" class="nav-tab px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
+        02 · 度量衡 BAR／逐筆回放
       </button>
-      <button type="button" data-tab="tab-floor" class="nav-tab px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
-        04 · 十年部署 153 視窗實證與進退性價比台 (10Y Floor &amp; DVE)
+      <button type="button" data-tab="tab-prob" class="nav-tab px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
+        03 · 波動 × 時間
       </button>
-      <button type="button" data-tab="tab-audit" class="nav-tab px-4 py-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
-        05 · F1–F7 實時驗收與 52 組 Golden Tests (Live Contract Runner)
+      <button type="button" data-tab="tab-floor" class="nav-tab px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
+        04 · 長期資金底線／互追法
+      </button>
+      <button type="button" data-tab="tab-audit" class="nav-tab px-3 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap transition">
+        05 · 契約驗收／52 Tests
       </button>
     </div>
   </header>
@@ -164,7 +274,7 @@
   <main class="max-w-7xl mx-auto px-4 py-5 space-y-6">
 
     <!-- GLOBAL TOP KPI SUMMARY STRIP -->
-    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <section id="globalKpiStrip" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 hidden">
       <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5">
         <div class="flex items-center justify-between text-[11px] text-slate-400">
           <span>淨清算總資產 (Total NAV)</span>
@@ -221,9 +331,133 @@
     </section>
 
     <!-- ===================================================================== -->
+    <!-- TAB 00: 16:9 EXECUTIVE DECISION OVERVIEW                              -->
+    <!-- ===================================================================== -->
+    <section id="tab-overview" class="tab-panel overview-shell space-y-4">
+      <div class="overview-heading">
+        <div class="overview-heading-copy">
+          <div class="overview-eyebrow"><span class="overview-live-dot"></span> V4.4 FRAMEWORK <span class="overview-eyebrow-divider">/</span> 16:9 DESK VIEW</div>
+          <h2>決策總覽 <span>度量衡 · 范 · 融</span></h2>
+          <p>先看當前決策、資料可信度與可承擔容量；深入逐筆證據和互追圖表時，再進入研究分頁。</p>
+        </div>
+        <div class="overview-heading-meta">
+          <div class="overview-meta-box"><span>EXECUTION</span><strong class="overview-lock"><span></span> BROKER ORDERS OFF</strong></div>
+          <div class="overview-meta-box"><span>DATA PROVENANCE</span><strong id="overviewProvenance">等待來源檢查</strong></div>
+        </div>
+      </div>
+
+      <div class="overview-metrics">
+        <article class="overview-metric overview-metric-nav">
+          <div class="overview-metric-top"><span>01 / CAPITAL</span><span class="overview-metric-mark">NAV</span></div>
+          <div id="overviewNavValue" class="overview-metric-value">—</div>
+          <div id="overviewNavSub" class="overview-metric-sub">完整帳本狀態同步中</div>
+        </article>
+        <article class="overview-metric overview-metric-regime">
+          <div class="overview-metric-top"><span>02 / MARKET STATE</span><span class="overview-metric-mark">VX</span></div>
+          <div id="overviewTermValue" class="overview-metric-value">—</div>
+          <div id="overviewTermSub" class="overview-metric-sub">等待 M1／M2／VIX 狀態</div>
+        </article>
+        <article class="overview-metric overview-metric-target">
+          <div class="overview-metric-top"><span>03 / DECISION BAR</span><span class="overview-metric-mark">BAR</span></div>
+          <div id="overviewBarValue" class="overview-metric-value">—</div>
+          <div id="overviewBarSub" class="overview-metric-sub">淨目標與成本敏感度尚未同步</div>
+        </article>
+        <article class="overview-metric overview-metric-risk">
+          <div class="overview-metric-top"><span>04 / TAIL CAPACITY</span><span class="overview-metric-mark">N:1</span></div>
+          <div id="overviewRatioValue" class="overview-metric-value">—</div>
+          <div id="overviewRatioSub" class="overview-metric-sub">依當前方向、N 及尾部預算計算</div>
+        </article>
+      </div>
+
+      <div class="overview-main-grid">
+        <article class="overview-hero">
+          <div class="overview-card-head">
+            <div><span class="overview-section-index">NOW / 01</span><h3>此刻的引擎判斷</h3></div>
+            <span id="overviewDecisionBadge" class="overview-state-badge" data-state="pending">計算中</span>
+          </div>
+          <div id="overviewDecisionTitle" class="overview-decision-title">等待引擎輸出</div>
+          <p id="overviewDecisionReason" class="overview-decision-reason">來源、帳本或必要輸入未完成時，這裡會保留待定狀態，不以預設值補成結論。</p>
+          <div class="overview-hero-bottom">
+            <div class="overview-next-label">DECISION NOTES</div>
+            <div id="overviewDecisionBullets" class="overview-decision-bullets">等待當前決策原因與下一步。</div>
+          </div>
+        </article>
+
+        <article class="overview-evidence">
+          <div class="overview-card-head">
+            <div><span class="overview-section-index">EVIDENCE / 02</span><h3>資料鏈與風險閘</h3></div>
+            <span class="overview-small-tag">NO SILENT DEFAULTS</span>
+          </div>
+          <div class="overview-evidence-list">
+            <div class="overview-evidence-row">
+              <div class="overview-evidence-icon">01</div>
+              <div class="overview-evidence-copy"><strong>來源與報價新鮮度</strong><small id="overviewSourceDetail">等待來源狀態</small></div>
+              <span id="overviewSourceBadge" class="overview-state-badge" data-state="pending">PENDING</span>
+            </div>
+            <div class="overview-evidence-row">
+              <div class="overview-evidence-icon">02</div>
+              <div class="overview-evidence-copy"><strong>完整守恆帳</strong><small id="overviewLedgerDetail">等待帳本核對</small></div>
+              <span id="overviewLedgerBadge" class="overview-state-badge" data-state="pending">PENDING</span>
+            </div>
+            <div class="overview-evidence-row">
+              <div class="overview-evidence-icon">03</div>
+              <div class="overview-evidence-copy"><strong>策略狀態</strong><small id="overviewStrategyDetail">等待共用引擎裁決</small></div>
+              <span id="overviewStrategyBadge" class="overview-state-badge" data-state="pending">PENDING</span>
+            </div>
+            <div class="overview-evidence-row">
+              <div class="overview-evidence-icon">04</div>
+              <div class="overview-evidence-copy"><strong>尾部容量</strong><small id="overviewCapacityDetail">等待完整合約風險核算</small></div>
+              <span id="overviewCapacityBadge" class="overview-state-badge" data-state="pending">PENDING</span>
+            </div>
+            <div class="overview-evidence-row">
+              <div class="overview-evidence-icon">05</div>
+              <div class="overview-evidence-copy"><strong>程式契約驗收</strong><small id="overviewTestDetail">等待驗收狀態</small></div>
+              <span id="overviewTestBadge" class="overview-state-badge" data-state="pending">PENDING</span>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="overview-lower-grid">
+        <article class="overview-thresholds">
+          <div class="overview-card-head">
+            <div><span class="overview-section-index">NEXT / 03</span><h3>狀態轉換臨界點</h3></div>
+            <span class="overview-small-tag">LIVE THRESHOLDS</span>
+          </div>
+          <div class="overview-rail">
+            <div class="overview-rail-head"><span>重新開倉線 <b>S &gt; +5.00%</b></span><strong id="overviewCarryDist">—</strong></div>
+            <div class="overview-rail-track"><span id="overviewCarryBar" class="overview-rail-fill carry"></span></div>
+          </div>
+          <div class="overview-rail">
+            <div class="overview-rail-head"><span>倒掛斷路線 <b>S ≤ 0.00%</b></span><strong id="overviewBackDist">—</strong></div>
+            <div class="overview-rail-track"><span id="overviewBackBar" class="overview-rail-fill backward"></span></div>
+          </div>
+          <div class="overview-rail">
+            <div class="overview-rail-head"><span>高波減倉線 <b>VIX ≥ 28</b></span><strong id="overviewVixDist">—</strong></div>
+            <div class="overview-rail-track"><span id="overviewVixBar" class="overview-rail-fill volatility"></span></div>
+          </div>
+          <div class="overview-threshold-foot">距離按現有引擎參數同步；實際可行倉位仍受資料完整度與容量閘限制。</div>
+        </article>
+
+        <article class="overview-research">
+          <div class="overview-card-head">
+            <div><span class="overview-section-index">DRILL DOWN / 04</span><h3>研究與證據工作區</h3></div>
+          </div>
+          <div class="overview-shortcuts">
+            <button type="button" class="overview-shortcut" data-overview-tab="tab-bars"><span class="overview-shortcut-index">A</span><span><strong>度量衡 BAR／逐筆回放</strong><small>N=1–6 方向、退出與尾部成本</small></span><span class="overview-arrow">↗</span></button>
+            <button type="button" class="overview-shortcut" data-overview-tab="tab-prob"><span class="overview-shortcut-index">B</span><span><strong>波動 × 時間機率</strong><small>以對應樣本分母查看價格路徑</small></span><span class="overview-arrow">↗</span></button>
+            <button type="button" class="overview-shortcut" data-overview-tab="tab-floor"><span class="overview-shortcut-index">C</span><span><strong>長期資金底線／互追法</strong><small>153 個滾動 10Y 視窗與 20Y／30Y／50Y 類比</small></span><span class="overview-arrow">↗</span></button>
+            <button type="button" class="overview-shortcut" data-overview-tab="tab-audit"><span class="overview-shortcut-index">D</span><span><strong>契約驗收／假設帳</strong><small>來源、合約身分及 52 組 Golden Tests</small></span><span class="overview-arrow">↗</span></button>
+          </div>
+        </article>
+      </div>
+      <div class="overview-footnote"><span class="overview-footnote-mark"></span><span id="overviewEvidenceFootnote">這是摘要視圖，不會提升任何資料的證據等級。歷史報價估值、模型推算及用戶輸入會各自保留原有標籤。</span></div>
+    </section>
+
+    <!-- ===================================================================== -->
     <!-- TAB 01: DECISION COCKPIT & FULL ACCOUNTING LEDGER CONSERVATION        -->
     <!-- ===================================================================== -->
-    <section id="tab-cockpit" class="tab-panel space-y-6">
+    <section id="tab-cockpit" class="tab-panel hidden space-y-6">
       <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-sky-950/40 border border-slate-800 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <span class="text-[11px] font-mono uppercase tracking-wider text-sky-400 font-semibold">工程升級 01 &amp; 02 · 完整資產負債守恆帳 (Current Ledger) + 真實期權合約雙邊報價容量</span>
