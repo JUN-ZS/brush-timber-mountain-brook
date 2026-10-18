@@ -13,7 +13,7 @@ A nominal accounting cross-check is also reported: actual withdrawals + ending N
 
 ## Historical comparison
 
-The default scenario grid replays 120-month windows for QQQ and SPY at nominal monthly withdrawals of USD 0, 250, 500, 1,000, 1,500 and 2,000. Each window begins with USD 100,000 fully invested at the initial monthly close. For each subsequent month, market price return is applied first, then the month's external cash-flow events are processed at that close. The rolling windows overlap; counts are historical sample counts, not independent trials or forward probabilities.
+The default scenario grid replays 120-month windows for QQQ and SPY at nominal monthly withdrawals of USD 0, 250, 500, 1,000, 1,500 and 2,000. Each window begins with USD 100,000 fully invested at the initial monthly close. For each subsequent month, monthly-close price return is applied first, then the month's external cash-flow events are processed at that close. Maximum drawdown uses the full available daily price marks between the monthly window endpoints, so an intramonth selloff is not hidden by month-end sampling. The rolling windows overlap; counts are historical sample counts, not independent trials or forward probabilities.
 
 The input file is SHA-pinned. If the market data changes, the program fails closed until a deliberate source review and re-pin occurs.
 
