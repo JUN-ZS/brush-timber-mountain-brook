@@ -6281,6 +6281,8 @@
       document.querySelectorAll('.nav-tab').forEach(btn => {
         btn.addEventListener('click', () => {
           const targetId = btn.getAttribute('data-tab');
+          const globalKpiStrip = document.getElementById('globalKpiStrip');
+          if (globalKpiStrip) globalKpiStrip.classList.toggle('hidden', targetId === 'tab-overview');
           document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
           document.getElementById(targetId).classList.remove('hidden');
 
@@ -6517,6 +6519,121 @@
       recomputeAll();
       runBrowserRoundTripVerification();
     });
+  </script>
+  <script>
+    (function () {
+      "use strict";
+      const byId = id => document.getElementById(id);
+      const pairs = [
+        ["kpiNavValue", "overviewNavValue"],
+        ["kpiCashSub", "overviewNavSub"],
+        ["kpiTermSlope", "overviewTermValue"],
+        ["kpiTermSub", "overviewTermSub"],
+        ["kpiGrossTarget", "overviewBarValue"],
+        ["kpiCostDragSub", "overviewBarSub"],
+        ["kpiRatioUnits", "overviewRatioValue"],
+        ["kpiRatioSub", "overviewRatioSub"],
+        ["hdrProvenanceBadge", "overviewProvenance"],
+        ["nowHeadline", "overviewDecisionTitle"],
+        ["nowReasonText", "overviewDecisionReason"],
+        ["nowBulletList", "overviewDecisionBullets"],
+        ["kpiGoldenSub", "overviewTestDetail"]
+      ];
+      let queued = false;
+      function tone(text) {
+        const t = String(text || "").toUpperCase();
+        if (/BLOCKED|BLOCK|FAIL|MISMATCH|CUT|STOP|0 組|NEEDS_INPUT|INCOMPLETE/.test(t)) return "bad";
+        if (/PASS|FRESH|VALID|RECONCILED|CONVERGENT|CARRY|READY/.test(t)) return "good";
+        if (/PENDING|WATCH|HOLD|UNVERIFIED|MODEL_ONLY|INSUFFICIENT|UNKNOWN|NEEDS/.test(t)) return "warn";
+        return "pending";
+      }
+      function copyText(sourceId, targetId, fallback) {
+        const src = byId(sourceId), dest = byId(targetId);
+        if (!dest) return "";
+        const value = src ? String(src.textContent || "").trim() : "";
+        dest.textContent = value || fallback || "—";
+        return value;
+      }
+      function setBadge(targetId, value, stateValue) {
+        const el = byId(targetId);
+        if (!el) return;
+        const text = String(value || "").trim();
+        el.textContent = text || "PENDING";
+        el.dataset.state = tone(stateValue || text);
+      }
+      function copyRail(sourceValueId, targetValueId, sourceBarId, targetBarId) {
+        copyText(sourceValueId, targetValueId, "—");
+        const src = byId(sourceBarId), dest = byId(targetBarId);
+        if (!src || !dest) return;
+        const width = src.style.width || "0%";
+        dest.style.width = /^\d+(?:\.\d+)?%$/.test(width) ? width : "0%";
+      }
+      function sync() {
+        queued = false;
+        pairs.forEach(([from, to]) => copyText(from, to, "等待來源／必要輸入"));
+        const source = copyText("kpiDataBadge", "overviewSourceBadge", "PENDING");
+        setBadge("overviewSourceBadge", source, source);
+        copyText("hdrProvenanceBadge", "overviewSourceDetail", "尚未提供已核對的來源標記");
+        const ledger = copyText("ledgerConservationBadge", "overviewLedgerBadge", "PENDING");
+        setBadge("overviewLedgerBadge", ledger, ledger);
+        copyText("kpiCashSub", "overviewLedgerDetail", "帳本狀態尚未同步");
+        const decision = copyText("kpiDecisionText", "overviewStrategyDetail", "等待共用引擎裁決");
+        const gate = copyText("kpiGateBadge", "overviewStrategyBadge", "PENDING");
+        setBadge("overviewStrategyBadge", gate, (gate + " " + decision));
+        const capacity = copyText("kpiRatioUnits", "overviewCapacityBadge", "PENDING");
+        setBadge("overviewCapacityBadge", capacity, capacity);
+        copyText("kpiRatioSub", "overviewCapacityDetail", "尾部容量尚未完成核算");
+        const tests = copyText("kpiF1F7Badge", "overviewTestBadge", "PENDING");
+        setBadge("overviewTestBadge", tests, tests);
+        copyText("kpiGoldenSub", "overviewTestDetail", "尚未同步 Golden Tests 狀態");
+        const action = copyText("nowActionBadge", "overviewDecisionBadge", "PENDING");
+        setBadge("overviewDecisionBadge", action, action);
+        copyRail("pinCarryDist", "overviewCarryDist", "pinCarryBar", "overviewCarryBar");
+        copyRail("pinBackDist", "overviewBackDist", "pinBackBar", "overviewBackBar");
+        copyRail("pinVixDist", "overviewVixDist", "pinVixBar", "overviewVixBar");
+        const sourceFoot = byId("hdrProvenanceBadge");
+        const foot = byId("overviewEvidenceFootnote");
+        if (foot && sourceFoot) {
+          foot.textContent = "來源標記：" + (sourceFoot.textContent.trim() || "PENDING") +
+            "。摘要只同步既有引擎輸出，不提升證據等級；歷史報價估值、模型推算與用戶輸入仍按原分類處理。";
+        }
+      }
+      function scheduleSync() {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(sync);
+      }
+      function install() {
+        const globalKpiStrip = byId("globalKpiStrip");
+        if (globalKpiStrip) globalKpiStrip.classList.add("hidden");
+        const sourceIds = [
+          ...pairs.map(pair => pair[0]),
+          "kpiDataBadge", "ledgerConservationBadge", "kpiDecisionText", "kpiGateBadge",
+          "kpiRatioUnits", "kpiRatioSub", "kpiF1F7Badge", "nowActionBadge",
+          "pinCarryDist", "pinCarryBar", "pinBackDist", "pinBackBar", "pinVixDist", "pinVixBar"
+        ];
+        const seen = new Set();
+        const observer = new MutationObserver(scheduleSync);
+        sourceIds.forEach(id => {
+          const el = byId(id);
+          if (!el || seen.has(el)) return;
+          seen.add(el);
+          observer.observe(el, { childList: true, characterData: true, subtree: true, attributes: true });
+        });
+        document.querySelectorAll("[data-overview-tab]").forEach(button => {
+          button.addEventListener("click", () => {
+            const target = button.getAttribute("data-overview-tab");
+            const nav = document.querySelector('.nav-tab[data-tab="' + target + '"]');
+            if (nav) nav.click();
+          });
+        });
+        document.addEventListener("input", scheduleSync, true);
+        document.addEventListener("change", scheduleSync, true);
+        sync();
+      }
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", install, { once: true });
+      else install();
+    })();
   </script>
   <script>
     // Keep secondary charts collapsed by default; resize Chart.js canvases only when opened.
