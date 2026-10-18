@@ -11,6 +11,8 @@ on:
       - "research/audit_stage2/test_stock_bond_glidepath_backtest.py"
       - "research/audit_stage2/glidepath_decision_report.py"
       - "research/audit_stage2/test_glidepath_decision_report.py"
+      - "research/audit_stage2/glidepath_interactive_dashboard.py"
+      - "research/audit_stage2/test_glidepath_interactive_dashboard.py"
       - "research/audit_stage2/CASHFLOW_AWARE_OUTCOMES.md"
       - "research/audit_stage2/CASHFLOW_CHART_EXPLORATION.md"
       - ".github/workflows/stage2-cashflow-aware-outcomes.yml"
@@ -70,6 +72,11 @@ jobs:
         run: |
           python3 -m unittest discover -s research/audit_stage2 -p 'test_glidepath_decision_report.py' -v
           python3 research/audit_stage2/glidepath_decision_report.py --outdir /tmp/stock-bond-glidepath
+
+      - name: Test and generate interactive drag-bar dashboard
+        run: |
+          python3 -m unittest discover -s research/audit_stage2 -p 'test_glidepath_interactive_dashboard.py' -v
+          python3 research/audit_stage2/glidepath_interactive_dashboard.py --outdir /tmp/stock-bond-glidepath
 
       - name: Validate pinned replay and chart contracts
         run: |
@@ -169,6 +176,11 @@ jobs:
               assert len(chart_body) > 1000, name
           assert (Path("/tmp/stock-bond-glidepath/index.html")).stat().st_size > 10000
           assert (Path("/tmp/stock-bond-glidepath/decision_summary.md")).stat().st_size > 2000
+          assert (Path("/tmp/stock-bond-glidepath/interactive_dashboard.html")).stat().st_size > 200000
+          interactive = Path("/tmp/stock-bond-glidepath/interactive_dashboard.html").read_text(encoding="utf-8")
+          for token in ('id="target"', 'id="year"', 'id="wealth"', 'id="drawdown"', 'id="returns"', 'id="gaps"', 'id="frontier"', 'id="flows"', 'id="glide"', 'id="table"'):
+              assert token in interactive, token
+          assert interactive.count('"bond_proxy"') >= 300
           decision = glide["decision_summary"]
           assert decision["no_withdrawal_configurations"] == 96
           assert len(decision["agg_linear_target_scan"]) == 8
@@ -198,6 +210,7 @@ jobs:
             /tmp/stock-bond-glidepath/index.html
             /tmp/stock-bond-glidepath/stock_bond_glidepath_summary.json
             /tmp/stock-bond-glidepath/decision_summary.md
+            /tmp/stock-bond-glidepath/interactive_dashboard.html
             /tmp/stock-bond-glidepath/stock_bond_glidepath_windows.csv
             /tmp/stock-bond-glidepath/historical_adjusted_close_panel.csv
             /tmp/stock-bond-glidepath/*.svg
