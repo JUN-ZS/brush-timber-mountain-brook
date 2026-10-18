@@ -23,7 +23,7 @@ The workflow uploads an HTML report (index.html), independent SVG charts, method
 
 ## Expanded offline interactive glidepath dashboard
 
-The separate `interactive_dashboard.html` is a single-file, offline research UI built from the 768 scenario summaries and 8,448 year-specific summaries. It now offers eleven coordinated views:
+The separate `interactive_dashboard.html` is a single-file, offline research UI built from the 768 scenario summaries and 8,448 year-specific summaries. It now offers twelve coordinated views:
 
 1. The selected-year comparison curves for NAV, P05 NAV, cumulative time-weighted CAGR, and withdrawal-shortfall window count.
 2. A return-versus-drawdown scatter for the currently selected year and cash-flow mode; choosing a point updates the selected strategy.
@@ -33,8 +33,9 @@ The separate `interactive_dashboard.html` is a single-file, offline research UI 
 6. An 8-target by 6-timing heatmap. The user can switch the heatmap metric among median NAV, P05 NAV, cumulative CAGR, drawdown-to-date and shortfall-window count. Clicking a cell updates the other views.
 7. A six-rule timing comparison table and same-strategy cash-flow comparison.
 8. Local CSV export for the selected 48 target/timing combinations or the complete 8,448 annual-summary rows.
+9. A tenth-year outcome histogram for the selected strategy, switchable among terminal NAV, ten-year time-weighted CAGR, daily maximum drawdown and cumulative withdrawal shortfall. It is built from all 157 window rows in the replay CSV, then stored compactly as `window_distribution_summary.json` rather than embedding the entire per-window ledger.
 
-The fan is a descriptive percentile range across overlapping historical windows, **not** a forecast confidence interval. Heatmap colors rank only the selected metric within the currently filtered 48-cell set; a high value is not universally desirable (for example, fewer shortfall windows is better). The return/drawdown scatter is filtered to the selected year and flow, so it intentionally shows at most 48 points.
+The fan is a descriptive percentile range across overlapping historical windows, **not** a forecast confidence interval. The histogram shows the distribution shape of the actual window-level observations; every bin count must reconcile to the valid row count for that strategy/metric. Heatmap colors rank only the selected metric within the currently filtered 48-cell set; a high value is not universally desirable (for example, fewer shortfall windows is better). The return/drawdown scatter is filtered to the selected year and flow, so it intentionally shows at most 48 points.
 
 The interaction pattern takes inspiration from linked brushing and cross-filtering rather than placing unrelated charts on one page. Reference techniques:
 - Observable, [linked brushing across views](https://observablehq.com/blog/linked-brushing): selecting one subset and reflecting it in linked charts.
