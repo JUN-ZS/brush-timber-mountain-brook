@@ -13,7 +13,7 @@ const js = scriptMatch[1];
 for (const timing of ["front_fast", "front_loaded", "linear", "mid_loaded", "back_loaded", "back_late"]) {
   assert(html.includes('value="' + timing + '"'), "missing selectable timing option: " + timing);
 }
-for (const token of ["__DATA__", "__ANNUAL__", "__HIST__"]) assert(!html.includes(token), "unexpanded data placeholder " + token);
+for (const token of ["__DATA__", "__ANNUAL__", "__HIST__", "__COHORT__"]) assert(!html.includes(token), "unexpanded data placeholder " + token);
 
 const defaults = {bond:"AGG", timing:"linear", flow:"no_withdrawals", target:"60", year:"5", heatMetric:"median_nav_usd", histMetric:"terminal_nav_usd"};
 const nodes = new Map();
@@ -112,6 +112,11 @@ const histMetric = getElementById("histMetric");
 histMetric.value = "daily_max_drawdown";
 fire("histMetric");
 assert(getElementById("histogram").innerHTML.includes("十年每日最大回撤"), "histogram metric selector should rerender the selected distribution");
+const cohortMetric = getElementById("cohortMetric");
+cohortMetric.value = "p05_terminal_nav_usd";
+fire("cohortMetric");
+assert(getElementById("cohort").innerHTML.includes("P05終值"), "cohort metric selector should rerender the historical start-year series");
+assert((getElementById("cohort").innerHTML.match(/data-cohort-year=/g) || []).length > 0, "cohort chart should expose selectable start-year bars");
 flow.value = "monthly_withdrawal_1000_usd_stress";
 fire("flow");
 assert(getElementById("label").textContent.includes("每月$1,000"), "cash-flow selector should update the chosen scenario");
@@ -119,6 +124,12 @@ assert(getElementById("flows").innerHTML.includes("每月$1,000"), "cash-flow co
 
 const clickHandler = documentHandlers.click;
 assert(clickHandler, "delegated chart-click listener must be installed");
+const cohortPoint = {dataset:{bond:"SHY",target:"50",timing:"back_loaded",flow:"no_withdrawals",cohortYear:"2003"}};
+clickHandler({target:{closest(selector) { return selector === "[data-target]" ? cohortPoint : null; }}});
+assert.strictEqual(bond.value, "SHY", "cohort selection should update bond proxy");
+assert.strictEqual(target.value, "50", "cohort selection should update target");
+assert.strictEqual(timing.value, "back_loaded", "cohort selection should update timing");
+assert(getElementById("cohortDetail").innerHTML.includes("2003"), "cohort selection should update the focused start-year detail");
 const heatCell = {dataset:{bond:"IEF",target:"70",timing:"mid_loaded",year:"4"}};
 clickHandler({target:{closest(selector) { return selector === "[data-target]" ? heatCell : null; }}});
 assert.strictEqual(bond.value, "IEF", "heatmap selection should update bond proxy");
@@ -151,6 +162,8 @@ console.log(JSON.stringify({
   historicalFanPoints:11,
   underwaterPoints:11,
   heatmapCells:48,
+  startYearCohortPoints:(getElementById("cohort").innerHTML.match(/data-cohort-year=/g)||[]).length,
+  cohortMetricTested:getElementById("cohortMetric").value,
   histogramMetricTested:getElementById("histMetric").value,
   csvExports:downloads.map(x=>({filename:x.filename,rows:x.contents.split("\r\n").length-1})),
   dashboardBytes:Buffer.byteLength(html),
