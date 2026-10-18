@@ -68,6 +68,7 @@ jobs:
           forbidden_prefixes = ("readme", "prompt", "stage2", "stage_2", "stage-2")
           forbidden_markers = ("adversarial", "independent_findings", "recommendation", "conclusion", "analysis_report")
           quarantined_suffixes = {".md", ".mdx", ".txt", ".rst", ".pdf", ".docx"}
+          excluded_path_parts = {".grok", ".vercel", ".next", "node_modules", "dist", "build", "coverage", "playwright-report", "test-results"}
           bad = []
           for member in names:
               path = Path(member)
@@ -77,6 +78,7 @@ jobs:
                   base.startswith(forbidden_prefixes)
                   or any(marker in base for marker in forbidden_markers)
                   or suffix in quarantined_suffixes
+                  or any(part.lower() in excluded_path_parts for part in path.parts)
               ):
                   bad.append(member)
           assert not bad, "Potential narrative/prompt leakage into blind archive: " + ", ".join(bad[:30])
