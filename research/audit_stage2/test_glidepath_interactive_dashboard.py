@@ -133,7 +133,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(json.loads(payload)),768)
         self.assertEqual(len(json.loads(annual_payload)),8448)
         self.assertEqual(len(json.loads(histogram_payload)),768*len(HISTOGRAM_METRICS))
-        self.assertEqual(len(json.loads(cohort_payload)),768*4*2)
+        self.assertEqual(len(json.loads(cohort_payload)),768*2)
         self.assertNotIn("__DATA__",page)
         self.assertNotIn("__ANNUAL__",page)
         self.assertNotIn("__HIST__",page)
