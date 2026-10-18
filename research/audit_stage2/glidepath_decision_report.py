@@ -10,6 +10,7 @@ from pathlib import Path
 from stock_bond_glidepath_backtest import (
     BOND_TICKERS,
     COLORS,
+    TIMING_RULES,
     TIMING_LABELS,
     _esc,
     _money,
@@ -92,7 +93,7 @@ def build_decision_summary(scenarios: list[dict]) -> dict:
     )
     agg_60 = sorted(
         (r for r in noflow if r["bond_proxy"] == "AGG" and int(r["target_bond_conversion_pct_at_year10"]) == 60),
-        key=lambda r: ("linear", "front_loaded", "back_loaded").index(r["timing_rule"]),
+        key=lambda r: TIMING_RULES.index(r["timing_rule"]),
     )
     cashflow = {}
     for mode, label in FLOW_LABELS.items():
@@ -160,7 +161,7 @@ def render_frontier(rows: list[dict]) -> str:
         )
         svg.append(f'<path d="{path}" fill="none" stroke="{COLORS["navy"]}" stroke-width="2.8" stroke-dasharray="5 4"/>')
 
-    shapes = {"linear": "circle", "front_loaded": "square", "back_loaded": "triangle"}
+    shapes = {"front_fast":"square","front_loaded":"triangle","linear":"circle","mid_loaded":"diamond","back_loaded":"inverted","back_late":"cross"}
     for r in valid:
         x = xp(abs(float(r["median_daily_max_drawdown"])))
         y = yp(float(r["median_time_weighted_cagr"]))
@@ -169,6 +170,12 @@ def render_frontier(rows: list[dict]) -> str:
             svg.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4.5" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
         elif shape == "square":
             svg.append(f'<rect x="{x-4:.2f}" y="{y-4:.2f}" width="8" height="8" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
+        elif shape == "diamond":
+            svg.append(f'<polygon points="{x:.2f},{y-5:.2f} {x-5:.2f},{y:.2f} {x:.2f},{y+5:.2f} {x+5:.2f},{y:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
+        elif shape == "inverted":
+            svg.append(f'<polygon points="{x-4.5:.2f},{y-4:.2f} {x+4.5:.2f},{y-4:.2f} {x:.2f},{y+5:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
+        elif shape == "cross":
+            svg.append(f'<path d="M {x-4:.2f} {y:.2f} H {x+4:.2f} M {x:.2f} {y-4:.2f} V {y+4:.2f}" stroke="{color}" stroke-width="2.5" opacity=".9"/>')
         else:
             svg.append(f'<polygon points="{x:.2f},{y-5:.2f} {x-4.5:.2f},{y+4:.2f} {x+4.5:.2f},{y+4:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
     short = {"linear": "線", "front_loaded": "前", "back_loaded": "後"}
@@ -193,7 +200,7 @@ def render_frontier(rows: list[dict]) -> str:
     ly += 8
     svg.append(f'<text x="{lx}" y="{ly}" font-size="15" font-weight="700" fill="{COLORS["navy"]}">形狀：轉換時間</text>')
     ly += 28
-    for label, shape in (("線性","circle"),("前置","square"),("後置","triangle")):
+    for label, shape in (("加速前置","square"),("前置","triangle"),("線性","circle"),("中段S曲線","diamond"),("後置","inverted"),("延後","cross")):
         if shape == "circle":
             marker = f'<circle cx="{lx+6}" cy="{ly-4}" r="4.5" fill="{COLORS["muted"]}"/>'
         elif shape == "square":

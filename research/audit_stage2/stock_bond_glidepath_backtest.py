@@ -26,8 +26,15 @@ TICKERS = ("QQQ", "SPY", "AGG", "SHY", "IEF", "TLT")
 STOCK_TICKERS = ("QQQ", "SPY")
 BOND_TICKERS = ("AGG", "SHY", "IEF", "TLT")
 TARGET_CONVERSIONS = (30, 40, 50, 60, 70, 80, 90, 100)
-TIMING_RULES = ("linear", "front_loaded", "back_loaded")
-TIMING_LABELS = {"linear": "線性", "front_loaded": "前置轉換", "back_loaded": "後置轉換"}
+TIMING_RULES = ("front_fast", "front_loaded", "linear", "mid_loaded", "back_loaded", "back_late")
+TIMING_LABELS = {
+    "front_fast": "加速前置（第2年半程）",
+    "front_loaded": "前置（第3年半程）",
+    "linear": "線性",
+    "mid_loaded": "中段加速（S曲線）",
+    "back_loaded": "後置（第5年開始）",
+    "back_late": "延後（第7年開始）",
+}
 INITIAL_CAPITAL_USD = 100_000.0
 HORIZON_MONTHS = 120
 DATA_START = dt.date(2003, 7, 1)
@@ -155,16 +162,19 @@ def _target_bond_weight(target_pct: int, elapsed_months: int, timing_rule: str =
     if timing_rule not in TIMING_RULES:
         raise ValueError(f"Unsupported timing rule: {timing_rule}")
     year = min(10, max(0, elapsed_months // 12))
-    if timing_rule == "linear":
-        progress = year / 10.0
+    if timing_rule == "front_fast":
+        progress = 0.5 * year / 2.0 if year <= 2 else 0.5 + 0.5 * (year - 2) / 8.0
     elif timing_rule == "front_loaded":
-        # Reach half of the requested year-10 conversion by year 3, then the other
-        # half evenly over years 4-10.
         progress = 0.5 * year / 3.0 if year <= 3 else 0.5 + 0.5 * (year - 3) / 7.0
-    else:
-        # Hold the all-stock starting allocation through year 5, then convert evenly
-        # during years 6-10.
+    elif timing_rule == "linear":
+        progress = year / 10.0
+    elif timing_rule == "mid_loaded":
+        x = year / 10.0
+        progress = 3.0 * x * x - 2.0 * x * x * x
+    elif timing_rule == "back_loaded":
         progress = max(0.0, (year - 5) / 5.0)
+    else:  # back_late
+        progress = max(0.0, (year - 7) / 3.0)
     return target_pct / 100.0 * progress
 
 def _set_target_weights(units: dict[str, float], prices: dict[str, list[float]], daily_index: int,
@@ -214,6 +224,14 @@ def replay_one_window(
     running_peak = performance_index
     max_drawdown = 0.0
     first_growth_depletion_month = None
+    yearly_marks = [{
+        "year": 0, "date": start_date.isoformat(),
+        "nav_usd": round(initial_capital_usd, 2), "performance_index": performance_index,
+        "year_twr": None, "cumulative_twr_cagr": None,
+        "max_drawdown_to_date": 0.0, "actual_withdrawals_usd": 0.0,
+        "withdrawal_shortfall_usd": 0.0, "additional_deposits_usd": 0.0,
+        "target_bond_weight": 0.0, "target_stock_weight": 1.0,
+    }]
     current_month_index = start_month_index
     # Fast map month-end daily row -> relative month in the active 10-year window.
     month_end_rel = {
@@ -272,6 +290,26 @@ def replay_one_window(
                 _set_target_weights(units, prices, daily_index, nav_after_flow, bond_ticker, next_bond_weight)
                 nav_after_flow = sum(units[ticker] * prices[ticker][daily_index] for ticker in TICKERS)
         nav_previous_after_flow = nav_after_flow
+        if relative_month is not None and relative_month > 0 and relative_month % 12 == 0:
+            marked_nav = max(0.0, sum(units[ticker] * prices[ticker][daily_index] for ticker in TICKERS))
+            previous_index = yearly_marks[-1]["performance_index"]
+            year_twr = performance_index / previous_index - 1.0 if previous_index > 1e-10 else None
+            elapsed = (dates[daily_index] - start_date).days / 365.25
+            cumulative_cagr = (
+                (performance_index / initial_capital_usd) ** (1.0 / elapsed) - 1.0
+                if elapsed > 0 and performance_index > 0 else None
+            )
+            bond_weight = _target_bond_weight(target_conversion_pct, relative_month, timing_rule)
+            yearly_marks.append({
+                "year": relative_month // 12, "date": dates[daily_index].isoformat(),
+                "nav_usd": round(marked_nav, 2), "performance_index": performance_index,
+                "year_twr": year_twr, "cumulative_twr_cagr": cumulative_cagr,
+                "max_drawdown_to_date": max_drawdown,
+                "actual_withdrawals_usd": round(actual_withdrawals, 2),
+                "withdrawal_shortfall_usd": round(shortfall, 2),
+                "additional_deposits_usd": round(deposits, 2),
+                "target_bond_weight": bond_weight, "target_stock_weight": 1.0 - bond_weight,
+            })
 
     terminal_nav = max(0.0, sum(units[ticker] * prices[ticker][end_daily_index] for ticker in TICKERS))
     elapsed_years = (end_date - start_date).days / 365.25
@@ -304,6 +342,7 @@ def replay_one_window(
         "first_nav_depletion_month": first_growth_depletion_month,
         "ending_stock_weight": 1.0 - target_conversion_pct / 100.0,
         "ending_bond_weight": target_conversion_pct / 100.0,
+        "yearly_marks": yearly_marks,
     }
 
 def summarize_group(rows: list[dict]) -> dict:
@@ -336,6 +375,41 @@ def summarize_group(rows: list[dict]) -> dict:
         "xirr_defined_windows": len(xirrs),
     }
 
+
+def summarize_annual_group(rows: list[dict], year_index: int) -> dict:
+    marks = [row["yearly_marks"][year_index] for row in rows]
+    navs = [float(mark["nav_usd"]) for mark in marks]
+    cagrs = [float(mark["cumulative_twr_cagr"]) for mark in marks if mark["cumulative_twr_cagr"] is not None]
+    year_returns = [float(mark["year_twr"]) for mark in marks if mark["year_twr"] is not None]
+    drawdowns = [float(mark["max_drawdown_to_date"]) for mark in marks]
+    shortfalls = [float(mark["withdrawal_shortfall_usd"]) for mark in marks]
+    withdrawals = [float(mark["actual_withdrawals_usd"]) for mark in marks]
+    first = rows[0]
+    return {
+        "year": year_index, "date_from_window_start_month": year_index * 12,
+        "bond_proxy": first["bond_proxy"],
+        "target_bond_conversion_pct_at_year10": first["target_bond_conversion_pct_at_year10"],
+        "timing_rule": first["timing_rule"], "cashflow_mode": first["cashflow_mode"],
+        "rolling_windows": len(rows),
+        "median_nav_usd": round(_quantile(navs, 0.50) or 0.0, 2),
+        "p05_nav_usd": round(_quantile(navs, 0.05) or 0.0, 2),
+        "p95_nav_usd": round(_quantile(navs, 0.95) or 0.0, 2),
+        "worst_nav_usd": round(min(navs), 2),
+        "median_cumulative_twr_cagr": _quantile(cagrs, 0.50),
+        "p05_cumulative_twr_cagr": _quantile(cagrs, 0.05),
+        "median_year_twr": _quantile(year_returns, 0.50),
+        "p05_year_twr": _quantile(year_returns, 0.05),
+        "median_drawdown_to_date": _quantile(drawdowns, 0.50),
+        "worst_drawdown_to_date": min(drawdowns),
+        "windows_below_initial_capital": sum(v < INITIAL_CAPITAL_USD for v in navs),
+        "windows_with_withdrawal_shortfall": sum(v > 0.01 for v in shortfalls),
+        "median_actual_withdrawals_usd": round(_quantile(withdrawals, 0.50) or 0.0, 2),
+        "median_shortfall_usd": round(_quantile(shortfalls, 0.50) or 0.0, 2),
+        "p95_shortfall_usd": round(_quantile(shortfalls, 0.95) or 0.0, 2),
+        "median_target_bond_weight": _quantile([float(m["target_bond_weight"]) for m in marks], 0.50),
+        "median_target_stock_weight": _quantile([float(m["target_stock_weight"]) for m in marks], 0.50),
+    }
+
 def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEvent]] | None = None,
                  initial_capital_usd: float = INITIAL_CAPITAL_USD) -> tuple[dict, list[dict]]:
     def fixed_monthly_schedule(amount: float) -> dict[int, list[FlowEvent]]:
@@ -349,7 +423,7 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
         ("monthly_withdrawal_500_usd_stress", fixed_monthly_schedule(500.0), False),
         ("monthly_withdrawal_1000_usd_stress", fixed_monthly_schedule(1000.0), False),
     ])
-    all_rows, summaries = [], []
+    all_rows, summaries, annual_summaries = [], [], []
     window_count = len(monthly_indices) - HORIZON_MONTHS
     if window_count <= 0:
         raise ValueError("Not enough common monthly observations for rolling 10-year backtests")
@@ -366,6 +440,10 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
                     for row in group:
                         row["cashflow_mode"] = mode_name
                     summaries.append(summarize_group(group))
+                    for year_index in range(HORIZON_MONTHS // 12 + 1):
+                        annual_summaries.append(summarize_annual_group(group, year_index))
+                    for row in group:
+                        row.pop("yearly_marks", None)
                     all_rows.extend(group)
     report = {
         "schema": "stock-bond-glidepath-backtest.v1",
@@ -375,7 +453,14 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
             "initial_capital_usd": initial_capital_usd,
             "stock_sleeve": "QQQ/SPY 50/50 on each annual glidepath rebalance; both use dividend/split-adjusted close",
             "glidepath_rule": "Start at 0% bond. At each 12-month anniversary, rebalance to a stepwise target bond weight; the selected year-10 target is reached at month 120. Targets: 30%-100% in 10-point steps.",
-            "timing_rules": {"linear": "equal conversion steps across years 1-10", "front_loaded": "reach 50% of final target by year 3, then reach the rest evenly by year 10", "back_loaded": "no bond allocation through year 5; convert evenly in years 6-10"},
+            "timing_rules": {
+                "front_fast": "reach 50% of target by year 2; finish evenly by year 10",
+                "front_loaded": "reach 50% of target by year 3; finish evenly by year 10",
+                "linear": "equal conversion steps across years 1-10",
+                "mid_loaded": "smooth S-curve, faster conversion during middle years",
+                "back_loaded": "0% bonds through year 5; convert evenly during years 6-10",
+                "back_late": "0% bonds through year 7; convert evenly during years 8-10",
+            },
             "bond_exposures": "AGG is broad aggregate fixed income; SHY, IEF and TLT are short-, intermediate- and long-duration Treasury ETF proxies.",
             "total_return_proxy": "Yahoo Finance adjusted close series; the adjusted-price ratio is used to approximate reinvested distributions and splits.",
             "rebalancing": "Annual rebalancing when target glidepath changes; no other rebalancing within each year. Holdings drift between annual steps.",
@@ -393,6 +478,7 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
         },
         "data": {},
         "scenarios": summaries,
+        "annual_scenarios": annual_summaries,
     }
     return report, all_rows
 
@@ -452,7 +538,7 @@ def render_metric_chart(rows: list[dict], metric: str, title: str, subtitle: str
         x = x0 + plot_w * idx / (len(targets)-1)
         svg.append(f'<line x1="{x:.2f}" y1="{y0}" x2="{x:.2f}" y2="{y0+plot_h}" stroke="{COLORS["grid"]}"/>')
         svg.append(f'<text x="{x:.2f}" y="{y0+plot_h+22}" text-anchor="middle" font-size="11" fill="{COLORS["muted"]}">{target}%</text>')
-    dash_by_timing = {"linear": "", "front_loaded": "8 4", "back_loaded": "2 4"}
+    dash_by_timing = {"front_fast": "1 3", "front_loaded": "8 4", "linear": "", "mid_loaded": "6 2 1 2", "back_loaded": "2 4", "back_late": "10 3"}
     for bond in bonds:
         for timing in timings:
             vals = [data[(bond, target, timing)].get(metric) for target in targets]

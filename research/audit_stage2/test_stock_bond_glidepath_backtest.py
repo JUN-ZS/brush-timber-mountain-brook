@@ -7,6 +7,7 @@ from stock_bond_glidepath_backtest import (
     TARGET_CONVERSIONS,
     TIMING_RULES,
     _target_bond_weight,
+    summarize_annual_group,
     replay_one_window,
     summarize_group,
 )
@@ -34,16 +35,27 @@ def market_fixture(months=121):
 class StockBondGlidepathTests(unittest.TestCase):
     def test_targets_are_30_to_100_and_weight_steps_are_linear(self):
         self.assertEqual(TARGET_CONVERSIONS, (30, 40, 50, 60, 70, 80, 90, 100))
-        self.assertEqual(TIMING_RULES, ("linear", "front_loaded", "back_loaded"))
+        self.assertEqual(TIMING_RULES, ("front_fast", "front_loaded", "linear", "mid_loaded", "back_loaded", "back_late"))
         self.assertAlmostEqual(_target_bond_weight(60, 0), 0.0)
         self.assertAlmostEqual(_target_bond_weight(60, 12), 0.06)
         self.assertAlmostEqual(_target_bond_weight(60, 60), 0.30)
         self.assertAlmostEqual(_target_bond_weight(60, 120), 0.60)
         self.assertAlmostEqual(_target_bond_weight(100, 120), 1.0)
+        self.assertAlmostEqual(_target_bond_weight(60, 24, "front_fast"), 0.30)
+        self.assertAlmostEqual(_target_bond_weight(60, 120, "front_fast"), 0.60)
         self.assertAlmostEqual(_target_bond_weight(60, 36, "front_loaded"), 0.30)
         self.assertAlmostEqual(_target_bond_weight(60, 120, "front_loaded"), 0.60)
+        self.assertAlmostEqual(_target_bond_weight(60, 60, "mid_loaded"), 0.30)
+        self.assertAlmostEqual(_target_bond_weight(60, 120, "mid_loaded"), 0.60)
         self.assertAlmostEqual(_target_bond_weight(60, 60, "back_loaded"), 0.0)
         self.assertAlmostEqual(_target_bond_weight(60, 72, "back_loaded"), 0.12)
+        self.assertAlmostEqual(_target_bond_weight(60, 84, "back_late"), 0.0)
+        self.assertAlmostEqual(_target_bond_weight(60, 96, "back_late"), 0.20)
+        for timing in TIMING_RULES:
+            ws = [_target_bond_weight(60, month, timing) for month in range(0, 121, 12)]
+            self.assertAlmostEqual(ws[0], 0.0)
+            self.assertAlmostEqual(ws[-1], 0.60)
+            self.assertTrue(all(0 <= a <= b <= 0.60 for a,b in zip(ws,ws[1:])))
         self.assertAlmostEqual(_target_bond_weight(60, 120, "back_loaded"), 0.60)
 
     def test_one_hundred_percent_target_ends_all_bond_and_no_market_loss(self):
@@ -107,6 +119,32 @@ class StockBondGlidepathTests(unittest.TestCase):
         self.assertEqual(summary["windows_below_initial_capital_at_year10"], 0)
         self.assertEqual(summary["windows_with_withdrawal_shortfall"], 0)
         self.assertAlmostEqual(summary["median_daily_max_drawdown"], -0.2)
+
+    def test_each_replay_exposes_selected_year_marks_with_nav_and_weights(self):
+        dates, prices, monthly = market_fixture()
+        row = replay_one_window(dates, prices, monthly, 0, "AGG", 60, timing_rule="linear")
+        self.assertEqual(len(row["yearly_marks"]), 11)
+        self.assertEqual(row["yearly_marks"][0]["nav_usd"], 100000.0)
+        self.assertAlmostEqual(row["yearly_marks"][0]["target_bond_weight"], 0.0)
+        self.assertAlmostEqual(row["yearly_marks"][1]["target_bond_weight"], 0.06)
+        self.assertAlmostEqual(row["yearly_marks"][9]["target_bond_weight"], 0.54)
+        self.assertAlmostEqual(row["yearly_marks"][10]["target_bond_weight"], 0.60)
+        self.assertNotEqual(row["yearly_marks"][1]["nav_usd"], row["yearly_marks"][10]["nav_usd"])
+
+    def test_annual_summary_uses_requested_year_not_terminal_only(self):
+        base={"bond_proxy":"AGG","target_bond_conversion_pct_at_year10":60,"timing_rule":"linear","cashflow_mode":"no_withdrawals"}
+        rows=[]
+        for nav,dd in ((90000.0,-0.25),(120000.0,-0.05)):
+            marks=[
+                {"year":0,"nav_usd":100000.0,"performance_index":100000.0,"year_twr":None,"cumulative_twr_cagr":None,"max_drawdown_to_date":0.0,"actual_withdrawals_usd":0.0,"withdrawal_shortfall_usd":0.0,"additional_deposits_usd":0.0,"target_bond_weight":0.0,"target_stock_weight":1.0},
+                {"year":1,"nav_usd":nav,"performance_index":nav,"year_twr":0.02,"cumulative_twr_cagr":0.02,"max_drawdown_to_date":dd,"actual_withdrawals_usd":0.0,"withdrawal_shortfall_usd":0.0,"additional_deposits_usd":0.0,"target_bond_weight":0.06,"target_stock_weight":0.94},
+            ]
+            rows.append(dict(base,yearly_marks=marks))
+        summary=summarize_annual_group(rows,1)
+        self.assertEqual(summary["median_nav_usd"],105000.0)
+        self.assertEqual(summary["windows_below_initial_capital"],1)
+        self.assertEqual(summary["rolling_windows"],2)
+
 
 if __name__ == "__main__":
     unittest.main()
