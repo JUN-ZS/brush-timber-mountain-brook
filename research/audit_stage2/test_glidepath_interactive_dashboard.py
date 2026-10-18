@@ -1,6 +1,20 @@
 import json
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
+
+class MarkupIDAudit(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.id_to_tag = {}
+        self.duplicates = set()
+    def handle_starttag(self, tag, attrs):
+        element_id = dict(attrs).get("id")
+        if not element_id:
+            return
+        if element_id in self.id_to_tag:
+            self.duplicates.add(element_id)
+        self.id_to_tag[element_id] = tag
 from glidepath_interactive_dashboard import FIELDS, ANNUAL_FIELDS, render_dashboard
 from stock_bond_glidepath_backtest import BOND_TICKERS, TARGET_CONVERSIONS, TIMING_RULES
 
@@ -38,6 +52,16 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(json.loads(annual_payload)),8448)
         self.assertNotIn("__DATA__",page)
         self.assertNotIn("__ANNUAL__",page)
+        markup=MarkupIDAudit()
+        markup.feed(page)
+        self.assertFalse(markup.duplicates, f"duplicate element IDs: {sorted(markup.duplicates)}")
+        self.assertEqual(markup.id_to_tag.get("year"),"input", "year BAR must parse as a real range input")
+        self.assertEqual(markup.id_to_tag.get("heatMetric"),"select", "heatmap metric selector must parse as a real select")
+        self.assertEqual(markup.id_to_tag.get("fan"),"div")
+        self.assertEqual(markup.id_to_tag.get("drawdownPath"),"div")
+        self.assertEqual(markup.id_to_tag.get("heatmap"),"div")
+        self.assertEqual(markup.id_to_tag.get("exportMatrix"),"button")
+        self.assertEqual(markup.id_to_tag.get("exportAnnual"),"button")
 
     def test_selected_year_is_read_from_annual_rows_and_all_six_timings_have_paths(self):
         page_template=Path(__import__("glidepath_interactive_dashboard").__file__).read_text(encoding="utf-8")
