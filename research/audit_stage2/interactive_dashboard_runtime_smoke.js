@@ -99,6 +99,14 @@ year.value = "9";
 fire("year");
 assert(getElementById("shares").innerHTML.includes("53.3%"), "year 9 late conversion should show 53.3% bonds for an 80% target");
 assert(getElementById("shares").innerHTML.includes("46.7%"), "year 9 late conversion should show 46.7% stocks for an 80% target");
+assert((getElementById("fan").innerHTML.match(/data-year=/g) || []).length === 11, "fan chart should expose all 11 historical-year selection points");
+assert(getElementById("fan").innerHTML.includes("P05") && getElementById("fan").innerHTML.includes("P95"), "fan chart must expose historical quantiles");
+assert((getElementById("drawdownPath").innerHTML.match(/data-year=/g) || []).length === 11, "underwater path should expose all 11 year points");
+assert((getElementById("heatmap").innerHTML.match(/data-target=/g) || []).length === 48, "heatmap should include all 8 targets x 6 timing rules");
+const heatMetric = getElementById("heatMetric");
+heatMetric.value = "windows_with_withdrawal_shortfall";
+fire("heatMetric");
+assert(getElementById("heatmap").innerHTML.includes("提款缺口窗口"), "heatmap metric selector should change the displayed metric");
 flow.value = "monthly_withdrawal_1000_usd_stress";
 fire("flow");
 assert(getElementById("label").textContent.includes("每月$1,000"), "cash-flow selector should update the chosen scenario");
@@ -106,14 +114,27 @@ assert(getElementById("flows").innerHTML.includes("每月$1,000"), "cash-flow co
 
 const clickHandler = documentHandlers.click;
 assert(clickHandler, "delegated chart-click listener must be installed");
-const point = {dataset:{bond:"TLT",target:"90",timing:"front_fast"}};
+const heatCell = {dataset:{bond:"IEF",target:"70",timing:"mid_loaded",year:"4"}};
+clickHandler({target:{closest(selector) { return selector === "[data-target]" ? heatCell : null; }}});
+assert.strictEqual(bond.value, "IEF", "heatmap selection should update bond proxy");
+assert.strictEqual(target.value, "70", "heatmap selection should update target");
+assert.strictEqual(timing.value, "mid_loaded", "heatmap selection should update timing");
+assert.strictEqual(year.value, "4", "heatmap selection should update selected year");
+assert(getElementById("label").textContent.includes("第4年"), "linked chart state should move to the selected year");
+const point = {dataset:{bond:"TLT",target:"90",timing:"front_fast",flow:"monthly_withdrawal_1000_usd_stress"}};
 clickHandler({target:{closest(selector) { return selector === "[data-target]" ? point : null; }}});
 assert.strictEqual(bond.value, "TLT", "clicking a scatter point must update bond proxy");
 assert.strictEqual(target.value, "90", "clicking a scatter point must update target percentage");
 assert.strictEqual(timing.value, "front_fast", "clicking a scatter point must update timing rule");
 assert(getElementById("label").textContent.includes("加速前置"), "scenario title must follow the clicked point");
 const pickCount = (getElementById("frontier").innerHTML.match(/data-pick=/g) || []).length;
-assert(pickCount >= 100, "frontier should contain the complete year-specific no-flow comparison");
+assert(pickCount > 0 && pickCount <= 48, "frontier should contain only the selected-year, selected-flow comparison");
+getElementById("exportMatrix").listeners.click();
+assert(downloads.at(-1).filename.includes("glidepath-year-4-matrix.csv"), "matrix export should reflect the selected year");
+assert(downloads.at(-1).contents.split("\\r\\n").length === 49, "matrix export must include 48 strategy rows plus header");
+getElementById("exportAnnual").listeners.click();
+assert(downloads.at(-1).filename === "glidepath-all-annual-summaries.csv", "annual summary export name should be stable");
+assert(downloads.at(-1).contents.split("\\r\\n").length === 8449, "annual export must include 8,448 records plus header");
 
 console.log(JSON.stringify({
   status:"PASS",
@@ -122,5 +143,9 @@ console.log(JSON.stringify({
   flowModeTested:"monthly_withdrawal_1000_usd_stress",
   clickSelectTested:true,
   interactiveFrontierPoints:pickCount,
+  historicalFanPoints:11,
+  underwaterPoints:11,
+  heatmapCells:48,
+  csvExports:downloads.map(x=>({filename:x.filename,rows:x.contents.split("\\r\\n").length-1})),
   dashboardBytes:Buffer.byteLength(html),
 }, null, 2));
