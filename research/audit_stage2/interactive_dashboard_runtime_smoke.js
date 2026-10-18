@@ -131,10 +131,10 @@ const pickCount = (getElementById("frontier").innerHTML.match(/data-pick=/g) || 
 assert(pickCount > 0 && pickCount <= 48, "frontier should contain only the selected-year, selected-flow comparison");
 getElementById("exportMatrix").listeners.click();
 assert(downloads.at(-1).filename.includes("glidepath-year-4-matrix.csv"), "matrix export should reflect the selected year");
-assert(downloads.at(-1).contents.split("\\r\\n").length === 49, "matrix export must include 48 strategy rows plus header");
+assert(downloads.at(-1).contents.split("\r\n").length === 49, "matrix export must include 48 strategy rows plus header");
 getElementById("exportAnnual").listeners.click();
 assert(downloads.at(-1).filename === "glidepath-all-annual-summaries.csv", "annual summary export name should be stable");
-assert(downloads.at(-1).contents.split("\\r\\n").length === 8449, "annual export must include 8,448 records plus header");
+assert(downloads.at(-1).contents.split("\r\n").length === 8449, "annual export must include 8,448 records plus header");
 
 console.log(JSON.stringify({
   status:"PASS",
@@ -146,6 +146,6 @@ console.log(JSON.stringify({
   historicalFanPoints:11,
   underwaterPoints:11,
   heatmapCells:48,
-  csvExports:downloads.map(x=>({filename:x.filename,rows:x.contents.split("\\r\\n").length-1})),
+  csvExports:downloads.map(x=>({filename:x.filename,rows:x.contents.split("\r\n").length-1})),
   dashboardBytes:Buffer.byteLength(html),
 }, null, 2));
