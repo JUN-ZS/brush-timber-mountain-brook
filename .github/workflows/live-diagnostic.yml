@@ -11,6 +11,10 @@ on:
       - ".github/workflows/live-diagnostic.yml"
       - "requirements-futu.txt"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   diagnostic:
     runs-on: [self-hosted, windows, x64]

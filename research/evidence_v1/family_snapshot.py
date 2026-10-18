@@ -31,7 +31,7 @@ def build_family_snapshot(
     contracts: Iterable[Contract],
     *,
     spot: float,
-    signal_active: bool,
+    signal_active: bool | None,
     campaign_active: bool,
     active_far_code: str | None = None,
 ) -> dict[str, Any]:
@@ -60,6 +60,7 @@ def build_family_snapshot(
                         "status": "UNAVAILABLE",
                         "signal_active": signal_active,
                         "campaign_active": campaign_active,
+                        "active_family": False,
                         "live_far_reference_match": False,
                         "live_policy_mapping": "UNMAPPED",
                         "far_code": None,

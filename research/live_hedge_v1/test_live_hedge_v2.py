@@ -12,7 +12,15 @@ from research.live_hedge_v1.campaign import (
     reconcile_ticket,
 )
 from research.live_hedge_v1.engine import Contract, Order, Position, plan, quote_age_sec
-from research.live_hedge_v1.run_live_desk import _ticket_baseline_positions
+from research.live_hedge_v1.futu_reader import _compute_signal, _enrich_contracts_with_quotes
+from research.live_hedge_v1.futu_trade_reader import FutuTradeReader
+from research.live_hedge_v1.run_live_desk import (
+    _apply_signal_gate,
+    _position_dicts,
+    _strategy_position_analysis,
+    _strategy_positions_for_plan,
+    _ticket_baseline_positions,
+)
 
 
 def now_iso():
@@ -20,6 +28,65 @@ def now_iso():
 
 
 class LiveHedgeV2Test(unittest.TestCase):
+    def test_explicit_account_id_is_required_before_trade_queries(self):
+    def test_account_verification_fails_closed_on_missing_us_auth(self):
+        class FakeEnv:
+            REAL = "REAL"
+
+        class FakeFutu:
+            RET_OK = 0
+            TrdEnv = FakeEnv
+
+        class FakeCtx:
+            def get_acc_list(self):
+                return 0, [{
+                    "acc_id": 123456,
+                    "trd_env": "REAL",
+                    "acc_status": "ACTIVE",
+                    "trdmarket_auth": [],
+                }]
+
+        reader = FutuTradeReader(real=True, acc_id=123456)
+        reader.futu = FakeFutu
+        reader.ctx = FakeCtx()
+        self.assertFalse(reader._verify_account())
+        self.assertIn("NO_US_AUTH", reader.account_error)
+
+        reader = FutuTradeReader(acc_id=None)
+        self.assertIsNone(reader.acc_id)
+
+    def test_account_verification_requires_exact_active_us_account(self):
+        class FakeEnv:
+            REAL = "REAL"
+
+        class FakeFutu:
+            RET_OK = 0
+            TrdEnv = FakeEnv
+
+        class FakeCtx:
+            def __init__(self, rows):
+                self.rows = rows
+            def get_acc_list(self):
+                return 0, self.rows
+
+        reader = FutuTradeReader(real=True, acc_id=123456)
+        reader.futu = FakeFutu
+        reader.ctx = FakeCtx([{
+            "acc_id": 123456,
+            "trd_env": "REAL",
+            "acc_status": "ACTIVE",
+            "trdmarket_auth": ["US"],
+            "card_num": "CARD0007",
+            "uni_card_num": "UNI0007",
+        }])
+        self.assertTrue(reader._verify_account())
+        self.assertEqual(reader.account["acc_id"], 123456)
+        self.assertEqual(reader.account["card_num_last4"], "0007")
+
+        reader.acc_id = 999999
+        self.assertFalse(reader._verify_account())
+        self.assertIn("NOT_FOUND", reader.account_error)
+
     def test_strict_qqq_universe(self):
         self.assertTrue(is_qqq_option_code("US.QQQ260116C00700000"))
         self.assertFalse(is_qqq_option_code("US.QQQ"))
@@ -443,6 +510,291 @@ class LiveHedgeV2Test(unittest.TestCase):
         self.assertTrue(result["superseded"])
         self.assertIsNone(state["active_ticket"])
         self.assertTrue(any(e["type"] == "MANUAL_POSITION_CHANGE" for e in result["events"]))
+
+
+    def test_plan_blocks_stale_source_quote_even_when_read_is_recent(self):
+        market = {
+            "source": "LIVE QUOTE",
+            "timestamp": now_iso(),
+            "source_age_sec": 46.0,
+            "spot": 500.0,
+        }
+        far = Contract(
+            "US.QQQ261231C00600000", "CALL", 600.0, "2026-12-31", 90,
+            2.0, 2.2, 0.08, 0.01
+        )
+        out = plan(
+            market=market,
+            far=far,
+            near=None,
+            positions=[],
+            orders=[],
+            signal_active=True,
+            far_campaign_active=True,
+            now=datetime.now(timezone.utc),
+        )
+        self.assertEqual(out["status"], "BLOCKED_STALE_MARKET")
+        self.assertEqual(out["candidate_actions"], [])
+
+    def test_signal_data_gap_never_becomes_inactive_signal(self):
+        from research.live_hedge_v1.run_live_desk import _apply_signal_gate
+
+        plan_result = {
+            "status": "ACTIONABLE",
+            "candidate_actions": [
+                {"action": "SELL_FAR", "qty": 10},
+            ],
+            "reasons": ["NO_ACTIVE_CAMPAIGN_BUT_ENTRY_SIGNAL_ACTIVE"],
+        }
+        out = _apply_signal_gate(plan_result, None, "DATA_GAP")
+        self.assertEqual(out["status"], "BLOCKED_SIGNAL_DATA_GAP")
+        self.assertEqual(out["candidate_actions"], [])
+        self.assertIn("history/data gap", out["reasons"][0])
+
+    def test_open_ticket_defers_fresh_planner_actions(self):
+        from research.live_hedge_v1.run_live_desk import _defer_actions_for_active_ticket
+
+        plan_result = {
+            "status": "ACTIONABLE",
+            "candidate_actions": [
+                {"action": "REPAIR_FAR", "qty": 10},
+                {"action": "ADD_NEAR", "qty": 3},
+            ],
+            "reasons": ["RISK_SCORE=2.50"],
+        }
+        ticket = {
+            "ticket_id": "T-TEST",
+            "status": "OPEN",
+            "action": "SELL_FAR",
+        }
+        out = _defer_actions_for_active_ticket(plan_result, ticket)
+        self.assertEqual(out["status"], "WAITING_ACTIVE_TICKET")
+        self.assertEqual(out["candidate_actions"], [])
+        self.assertEqual(
+            [x["action"] for x in out["deferred_candidate_actions"]],
+            ["REPAIR_FAR", "ADD_NEAR"],
+        )
+        self.assertTrue(any("ACTIVE_TICKET_OPEN:T-TEST" in r for r in out["reasons"]))
+
+    def test_signal_reports_history_data_gap_instead_of_false(self):
+        dates = [f"2026-01-{i:02d}" for i in range(1, 11)]
+        history = list(zip(dates, [100.0] * 10))
+        out = _compute_signal(110.0, history)
+        self.assertEqual(out["status"], "DATA_GAP")
+        self.assertIsNone(out["active"])
+        self.assertEqual(out["reference_count"], 10)
+        self.assertIn("need >=252", out["reason"])
+
+    def test_signal_computes_from_252_reference_closes(self):
+        dates = [f"2025-01-{(i % 28)+1:02d} {i//28:02d}" for i in range(252)]
+        history = list(zip(dates, [100.0] * 252))
+        out = _compute_signal(110.0, history)
+        self.assertEqual(out["status"], "OK")
+        self.assertTrue(out["active"])
+        self.assertAlmostEqual(out["ext200"], 0.1, places=8)
+        self.assertAlmostEqual(out["ratio52"], 1.1, places=8)
+
+    def test_live_quote_greeks_enrich_chain_before_selection(self):
+        from backtest.types import OptionContract
+
+        raw = OptionContract(
+            code="US.QQQ261030C00500000",
+            underlying="US.QQQ",
+            right="CALL",
+            strike=500.0,
+            expiry="2026-10-30",
+            dte=30,
+            lot_size=100,
+            bid=None,
+            ask=None,
+            last=None,
+            iv=None,
+            delta=None,
+            gamma=None,
+            theta=None,
+            vega=None,
+            oi=None,
+            volume=None,
+            source="LIVE QUOTE",
+        )
+        quote = OptionContract(
+            code="US.QQQ261030C00500000",
+            underlying="US.QQQ",
+            right="CALL",
+            strike=500.0,
+            expiry="2026-10-30",
+            dte=30,
+            lot_size=100,
+            bid=8.0,
+            ask=8.2,
+            last=8.1,
+            iv=0.21,
+            delta=0.50,
+            gamma=0.03,
+            theta=-0.1,
+            vega=0.2,
+            oi=1000,
+            volume=50,
+            source="LIVE QUOTE",
+        )
+        out = _enrich_contracts_with_quotes([raw], [quote])
+        self.assertEqual(out[0].delta, 0.50)
+        self.assertEqual(out[0].gamma, 0.03)
+        self.assertEqual(out[0].bid, 8.0)
+        self.assertEqual(out[0].ask, 8.2)
+
+    def test_state_snapshot_accepts_position_objects(self):
+        import tempfile
+        from pathlib import Path
+        from research.live_hedge_v1.state import StateStore
+
+        with tempfile.TemporaryDirectory() as td:
+            store = StateStore(Path(td) / "state.json", Path(td) / "events.jsonl")
+            state = {}
+            positions = [
+                Position(
+                    "US.QQQ261030C00500000",
+                    "LONG",
+                    2,
+                    7.0,
+                    500,
+                    "2026-10-30",
+                    30,
+                )
+            ]
+            store.record_position_snapshot(state, positions)
+            self.assertEqual(
+                state["last_positions"]["LONG:US.QQQ261030C00500000"]["qty"],
+                2,
+            )
+            self.assertEqual(
+                state["last_positions"]["LONG:US.QQQ261030C00500000"]["avg_cost"],
+                7.0,
+            )
+
+    def test_ticket_baseline_accepts_position_objects(self):
+        from research.live_hedge_v1.run_live_desk import _ticket_baseline_positions
+
+        positions = [
+            Position(
+                "US.QQQ261030C00500000",
+                "LONG",
+                2,
+                7.0,
+                500,
+                "2026-10-30",
+                30,
+            )
+        ]
+        baseline = _ticket_baseline_positions(positions)
+        self.assertEqual(
+            baseline["LONG:US.QQQ261030C00500000"]["qty"],
+            2,
+        )
+        self.assertEqual(
+            baseline["LONG:US.QQQ261030C00500000"]["avg_cost"],
+            7.0,
+        )
+
+    def test_position_object_normalizes_for_campaign_reconciliation(self):
+        from research.live_hedge_v1.run_live_desk import _position_dicts
+
+        positions = [
+            Position(
+                "US.QQQ261030C00500000",
+                "LONG",
+                2,
+                7.0,
+                500,
+                "2026-10-30",
+                30,
+            )
+        ]
+        self.assertEqual(
+            _position_dicts(positions),
+            [{
+                "code": "US.QQQ261030C00500000",
+                "side": "LONG",
+                "qty": 2,
+                "avg_cost": 7.0,
+                "strike": 500,
+                "expiry": "2026-10-30",
+                "dte": 30,
+                "delta": None,
+                "gamma": None,
+            }],
+        )
+
+    def test_position_analysis_counts_call_near_legs_including_roll_window(self):
+        from research.live_hedge_v1.run_live_desk import _strategy_position_analysis
+
+        market = {"spot": 500.0}
+        far = Contract(
+            "US.QQQ261231C00600000", "CALL", 600.0, "2026-12-31", 90,
+            2.0, 2.2, 0.08, 0.01
+        )
+        near = Contract(
+            "US.QQQ261030C00500000", "CALL", 500.0, "2026-10-30", 30,
+            8.0, 8.2, 0.50, 0.03
+        )
+        positions = [
+            Position("US.QQQ261231C00600000", "SHORT", 10, 2.0, 600, "2026-12-31", 90),
+            Position("US.QQQ261003C00500000", "LONG", 2, 6.0, 500, "2026-10-03", 2),
+            Position("US.QQQ261030C00500000", "LONG", 1, 7.0, 500, "2026-10-30", 30),
+            Position("US.QQQ261030P00500000", "LONG", 9, 7.0, 500, "2026-10-30", 30),
+        ]
+        contracts_by_code = {
+            "US.QQQ261231C00600000": far,
+            "US.QQQ261003C00500000": Contract(
+                "US.QQQ261003C00500000", "CALL", 500.0, "2026-10-03", 2,
+                6.0, 6.2, 0.50, 0.03
+            ),
+            "US.QQQ261030C00500000": near,
+            "US.QQQ261030P00500000": Contract(
+                "US.QQQ261030P00500000", "PUT", 500.0, "2026-10-30", 30,
+                8.0, 8.2, -0.50, 0.03
+            ),
+        }
+        out = _strategy_position_analysis(
+            positions, market, far, near, {"desired_stack": 3}, contracts_by_code
+        )
+        self.assertEqual(out["far_short_contracts"], 10)
+        self.assertEqual(out["near_call_contracts"], 3)
+        self.assertEqual(out["near_call_target_contracts"], 3)
+        self.assertEqual(len(out["near_call_positions"]), 2)
+
+    def test_planner_excludes_unrelated_long_options(self):
+        far = Contract(
+            "US.QQQ261231C00600000", "CALL", 600.0, "2026-12-31", 90,
+            2.0, 2.2, 0.08, 0.01
+        )
+        near = Contract(
+            "US.QQQ261030C00500000", "CALL", 500.0, "2026-10-30", 30,
+            8.0, 8.2, 0.50, 0.03
+        )
+        put = Contract(
+            "US.QQQ261030P00500000", "PUT", 500.0, "2026-10-30", 30,
+            8.0, 8.2, -0.50, 0.03
+        )
+        positions = [
+            Position("US.QQQ261231C00600000", "SHORT", 10, 2.0, 600, "2026-12-31", 90),
+            Position("US.QQQ261030C00500000", "LONG", 2, 7.0, 500, "2026-10-30", 30),
+            Position("US.QQQ261030P00500000", "LONG", 8, 7.0, 500, "2026-10-30", 30),
+        ]
+        scoped = _strategy_positions_for_plan(
+            positions, 500.0, {
+                far.code: far,
+                near.code: near,
+                put.code: put,
+            }
+        )
+        self.assertEqual(
+            [(p.code, p.side, p.qty) for p in scoped],
+            [
+                ("US.QQQ261231C00600000", "SHORT", 10),
+                ("US.QQQ261030C00500000", "LONG", 2),
+            ],
+        )
 
     def test_naive_broker_timestamp_does_not_crash(self):
         age = quote_age_sec("2026-10-01 00:00:00", datetime.now(timezone.utc), naive_is_local=True)

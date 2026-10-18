@@ -244,7 +244,13 @@ def reconcile(lots,ps):
     return [{"code":k[0],"side":k[1],"lot_qty":a.get(k,0),"broker_qty":b.get(k,0)} for k in sorted(keys) if a.get(k,0)!=b.get(k,0)]
 
 def strategy_plan(snap,ps,orders,cmap,quotes,m):
-    market=snap["market"]; pos=[]
+    market=snap["market"]
+    if str(market.get("signal_status", "OK")).upper() != "OK" or market.get("signal_active") is None:
+        return {
+            "status": "DATA_GAP",
+            "reason": market.get("history_reason") or "signal history unavailable",
+        }
+    pos=[]
     for p in ps:
         c=cmap.get(str(p["code"])); q=quotes.get(str(p["code"]),{})
         pos.append(Position(str(p["code"]),str(p["side"]).upper(),si(p["qty"]),sf(p["avg_cost"]),
@@ -266,7 +272,7 @@ def strategy_plan(snap,ps,orders,cmap,quotes,m):
         q=quotes.get(near.code,{})
         near=Contract(near.code,near.right,near.strike,near.expiry,near.dte,q.get("bid",near.bid),q.get("ask",near.ask),q.get("delta",near.delta),q.get("gamma",near.gamma),q.get("iv",near.iv),near.lot_size)
     if active and far is None: return {"status":"DATA_GAP","reason":"active short far quote unavailable"}
-    return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=bool(market.get("signal_active")),
+    return plan(market=market,far=far,near=near,positions=pos,orders=os,signal_active=(market.get("signal_active") is True),
                 far_campaign_active=active,quotes_by_code=quotes,now=datetime.now(timezone.utc))
 
 def cycle(args):
@@ -279,7 +285,7 @@ def cycle(args):
             history_start = m.get("created_at_utc")
         elif gap_minutes(t, last_cycle) is not None and gap_minutes(t, last_cycle) >= args.backfill_after_minutes:
             history_start = last_cycle
-        tr=FutuTradeReader(args.host,args.port,real=not args.simulate).read(history_start=history_start)
+        tr=FutuTradeReader(args.host,args.port,real=not args.simulate,acc_id=args.acc_id).read(history_start=history_start)
         broker_codes=[p.get("code") for p in tr.get("positions",[]) if p.get("code")]
         manual_codes=[x.get("code") for x in s.get("manual_lots",[]) if x.get("code")]
         snapshot_codes=sorted(set(str(x) for x in broker_codes+manual_codes if x))
@@ -311,7 +317,9 @@ def cycle(args):
              payload={"snapshot_sha256":sh,"snapshot_ref":str(sr.relative_to(repo)),"positions":len(ps),
                       "orders":len(orders),"new_deals":len(new),"reconcile":s["last_reconcile"],"deal_warning":tr.get("deal_warning"),
                       "history_backfill_used":history_used,"history_start":tr.get("history_start"),"history_end":tr.get("history_end")},source="BROKER_OBSERVED")
-    mk=marks(ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])\n    mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)\n    s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
+    mk=marks(ps,cmap,quotes); gross=s["realized_pnl"]+sf(mk["unrealized_pnl"])
+    mmk=mark_lots(s.get("manual_lots",[]),cmap,quotes)
+    s["manual_last_mark"]={"unrealized_pnl":mmk["unrealized_pnl"],"status":mmk["status"],"rows":mmk["rows"],"marked_at_utc":t}
     l.append("MARK_TO_MARKET",instance_id=m["instance_id"],cycle_id=cid,timestamp_utc=t,payload={
         "snapshot_sha256":sh,"realized_pnl_gross":s["realized_pnl"],"unrealized_pnl_gross":mk["unrealized_pnl"],
         "gross_pnl":gross,"signed_market_value":mk["signed_market_value"],"marks":mk["rows"],"status":mk["status"],"manual_book":{"realized_pnl":s["manual_realized_pnl"],"unrealized_pnl":mmk["unrealized_pnl"],"total_pnl":s["manual_realized_pnl"]+sf(mmk["unrealized_pnl"]),"marks":mmk["rows"],"status":mmk["status"]}})
@@ -513,7 +521,7 @@ def parser():
     x.add_argument("--research-engine-commit",default=None); x.add_argument("--strategy-lock-hash",default=None); x.add_argument("--start-at-utc",default=None)
     x.add_argument("--initial-cash",type=float,default=None); x.add_argument("--far-code",default=None); x.add_argument("--position",action="append",default=[]); x.add_argument("--note",default=""); x.set_defaults(fn=init_cmd)
     for name in ("cycle","watch"):
-        x=s.add_parser(name); x.add_argument("--instance-id",required=True); x.add_argument("--host",default="127.0.0.1"); x.add_argument("--port",type=int,default=11111); x.add_argument("--simulate",action="store_true"); x.add_argument("--observe-strategy-plan",action="store_true"); x.add_argument("--backfill-after-minutes",type=int,default=10)
+        x=s.add_parser(name); x.add_argument("--instance-id",required=True); x.add_argument("--host",default="127.0.0.1"); x.add_argument("--port",type=int,default=11111); x.add_argument("--acc-id",type=int,default=None); x.add_argument("--simulate",action="store_true"); x.add_argument("--observe-strategy-plan",action="store_true"); x.add_argument("--backfill-after-minutes",type=int,default=10)
         if name=="watch": x.add_argument("--interval",type=int,default=300); x.add_argument("--once",action="store_true"); x.add_argument("--stop-on-error",action="store_true")
         x.set_defaults(fn=cycle if name=="cycle" else watch)
     x=s.add_parser("manual"); x.add_argument("--instance-id",required=True); x.add_argument("--action",required=True,choices=["ADD","REDUCE","SELL_FAR","BUY_BACK_FAR"]); x.add_argument("--code",required=True); x.add_argument("--qty",type=int,required=True); x.add_argument("--price",type=float,required=True); x.add_argument("--lot-size",type=int,default=100); x.add_argument("--timestamp-utc",default=None); x.add_argument("--trade-id",default=None); x.add_argument("--note",default=""); x.set_defaults(fn=manual_cmd)

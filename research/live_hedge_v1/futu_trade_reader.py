@@ -1,22 +1,125 @@
 from __future__ import annotations
 
+import os
+
+
+def enum_name(value):
+    """Normalize Futu enum/string representations to their terminal name."""
+    return str(value or "").strip().upper().split(".")[-1]
+
 
 class FutuTradeReader:
-    def __init__(self, host="127.0.0.1", port=11111, real=True):
+    """Read-only trade/account observer with an explicit Futu account ID."""
+
+    def __init__(self, host="127.0.0.1", port=11111, real=True, acc_id=None):
         self.host = host
         self.port = port
-        self.real = real
+        self.real = bool(real)
+        raw = acc_id if acc_id is not None else os.getenv("FUTU_ACC_ID")
+        try:
+            self.acc_id = int(str(raw).strip()) if raw is not None and str(raw).strip() else None
+        except (TypeError, ValueError):
+            self.acc_id = None
         self.ctx = None
         self.futu = None
+        self.account = None
+        self.account_error = None
+
+    @staticmethod
+    def _cell(row, *names):
+        for name in names:
+            try:
+                value = row.get(name)
+            except Exception:
+                try:
+                    value = row[name]
+                except Exception:
+                    value = None
+            if value is not None:
+                return value
+        return None
+
+    @classmethod
+    def _account_rows(cls, data):
+        if hasattr(data, "iterrows"):
+            for _, row in data.iterrows():
+                yield {str(k): row[k] for k in data.columns}
+        elif isinstance(data, list):
+            for row in data:
+                if isinstance(row, dict):
+                    yield row
+
+    def _verify_account(self):
+        if self.acc_id is None or self.acc_id <= 0:
+            self.account_error = "FUTU_ACC_ID_REQUIRED"
+            return False
+
+        ret, data = self.ctx.get_acc_list()
+        if ret != self.futu.RET_OK:
+            self.account_error = "get_acc_list: " + str(data)
+            return False
+
+        candidates = []
+        requested_env = self.futu.TrdEnv.REAL if self.real else self.futu.TrdEnv.SIMULATE
+        for row in self._account_rows(data):
+            try:
+                row_id = int(self._cell(row, "acc_id", "accID"))
+            except (TypeError, ValueError):
+                continue
+
+            raw_env = self._cell(row, "trd_env", "trdEnv")
+            env = enum_name(raw_env)
+            status = enum_name(self._cell(row, "acc_status", "accStatus"))
+
+            # Keep the raw row for evidence, but validate the requested account
+            # and trading environment before any position/order/deal query.
+            if row_id == self.acc_id:
+                candidates.append((row, env, status))
+
+        if not candidates:
+            self.account_error = f"FUTU_ACC_ID_NOT_FOUND:{self.acc_id}"
+            return False
+
+        row, env, status = candidates[0]
+        expected_env = enum_name(requested_env)
+        if env != expected_env:
+            self.account_error = (
+                f"FUTU_ACC_ENV_MISMATCH:{self.acc_id}:expected={expected_env}:actual={env or 'MISSING'}"
+            )
+            return False
+        if status != "ACTIVE":
+            self.account_error = f"FUTU_ACC_NOT_ACTIVE:{self.acc_id}:{status or 'MISSING'}"
+            return False
+
+        auth = self._cell(row, "trdmarket_auth", "trdMarketAuthList")
+        auth_text = str(auth or "").upper()
+        if "US" not in auth_text:
+            self.account_error = f"FUTU_ACC_NO_US_AUTH:{self.acc_id}"
+            return False
+
+        self.account = {
+            "acc_id": self.acc_id,
+            "trd_env": env or expected_env,
+            "acc_status": status or "UNKNOWN",
+            "card_num_last4": str(self._cell(row, "card_num", "cardNum") or "")[-4:],
+            "uni_card_num_last4": str(self._cell(row, "uni_card_num", "uniCardNum") or "")[-4:],
+            "trdmarket_auth": auth,
+        }
+        return True
 
     def connect(self):
         import futu
         self.futu = futu
+        if self.acc_id is None or self.acc_id <= 0:
+            raise RuntimeError("FUTU_ACC_ID_REQUIRED")
         self.ctx = futu.OpenSecTradeContext(
             host=self.host,
             port=self.port,
             filter_trdmarket=futu.TrdMarket.US,
         )
+        if not self._verify_account():
+            self.close()
+            raise RuntimeError(self.account_error or "FUTU_ACCOUNT_SELECTION_BLOCKED")
 
     def close(self):
         if self.ctx:
@@ -89,13 +192,17 @@ class FutuTradeReader:
             env = self.futu.TrdEnv.REAL if self.real else self.futu.TrdEnv.SIMULATE
 
             ret, pos = self.ctx.position_list_query(
-                position_market=self.futu.TrdMarket.US, trd_env=env,
+                position_market=self.futu.TrdMarket.US,
+                trd_env=env,
+                acc_id=self.acc_id,
             )
             if ret != self.futu.RET_OK:
                 raise RuntimeError("position_list_query: " + str(pos))
 
             ret2, orders = self.ctx.order_list_query(
-                order_market=self.futu.TrdMarket.US, trd_env=env,
+                order_market=self.futu.TrdMarket.US,
+                trd_env=env,
+                acc_id=self.acc_id,
             )
             if ret2 != self.futu.RET_OK:
                 raise RuntimeError("order_list_query: " + str(orders))
@@ -139,7 +246,9 @@ class FutuTradeReader:
             try:
                 if hasattr(self.ctx, "deal_list_query"):
                     ret3, deal_df = self.ctx.deal_list_query(
-                        deal_market=self.futu.TrdMarket.US, trd_env=env,
+                        deal_market=self.futu.TrdMarket.US,
+                        trd_env=env,
+                        acc_id=self.acc_id,
                     )
                     if ret3 == self.futu.RET_OK:
                         deals.extend(self._parse_deals(deal_df))
@@ -150,8 +259,6 @@ class FutuTradeReader:
             except Exception as exc:
                 deal_warning = repr(exc)
 
-            # Recovery path: after a recorder outage/restart, pull historical live
-            # executions so missed fills can be reconstructed from broker truth.
             if history_start and self.real and hasattr(self.ctx, "history_deal_list_query"):
                 try:
                     start = str(history_start)[:10]
@@ -164,6 +271,7 @@ class FutuTradeReader:
                         start=start,
                         end=end,
                         trd_env=env,
+                        acc_id=self.acc_id,
                     )
                     if ret4 == self.futu.RET_OK:
                         history_used = True
@@ -182,6 +290,7 @@ class FutuTradeReader:
 
             return {
                 "source": "FUTU_TRADE_READ_ONLY",
+                "account": self.account,
                 "positions": ps,
                 "orders": os,
                 "deals": deals,
