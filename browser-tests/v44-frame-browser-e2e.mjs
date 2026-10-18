@@ -89,10 +89,16 @@ try {
     assert.ok((await detail.locator("summary").innerText()).includes("展開"), chartCase.disclosure + " must have a clear expand label");
     await detail.locator("summary").click();
     assert.equal(await detail.evaluate(el => el.open), true, chartCase.disclosure + " expands");
-    assert.match(await detail.locator(".chart-disclosure-icon").innerText(), /−/);
+    await page.waitForFunction(
+      selector => document.querySelector(selector)?.innerText.trim() === "−",
+      "#" + chartCase.disclosure + " .chart-disclosure-icon"
+    );
     await detail.locator("summary").click();
     assert.equal(await detail.evaluate(el => el.open), false, chartCase.disclosure + " collapses");
-    assert.match(await detail.locator(".chart-disclosure-icon").innerText(), /＋/);
+    await page.waitForFunction(
+      selector => document.querySelector(selector)?.innerText.trim() === "＋",
+      "#" + chartCase.disclosure + " .chart-disclosure-icon"
+    );
   }
   console.log("Collapsible charts: ratio / volatility-time / 20Y-30Y-50Y mutual tracking PASS");
 
