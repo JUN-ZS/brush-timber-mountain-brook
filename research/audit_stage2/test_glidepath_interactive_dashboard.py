@@ -1,5 +1,6 @@
 import json
 import unittest
+from pathlib import Path
 from glidepath_interactive_dashboard import FIELDS, ANNUAL_FIELDS, render_dashboard
 from stock_bond_glidepath_backtest import BOND_TICKERS, TARGET_CONVERSIONS, TIMING_RULES
 
@@ -39,7 +40,7 @@ class DashboardTests(unittest.TestCase):
         self.assertNotIn("__ANNUAL__",page)
 
     def test_selected_year_is_read_from_annual_rows_and_all_six_timings_have_paths(self):
-        page_template=open(__import__("glidepath_interactive_dashboard").__file__,encoding="utf-8").read()
+        page_template=Path(__import__("glidepath_interactive_dashboard").__file__).read_text(encoding="utf-8")
         self.assertIn('year===s.year',page_template)
         self.assertIn('Y(s.bond,s.target,s.timing,s.flow,s.year)',page_template)
         self.assertIn('100*Y(s.bond,s.target,m,s.flow,y).median_target_bond_weight',page_template)

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 "use strict";
-const fs = require("fs");
-const vm = require("vm");
-const assert = require("assert");
+import fs from "node:fs";
+import vm from "node:vm";
+import assert from "node:assert/strict";
 
 const htmlPath = process.argv[2];
 if (!htmlPath) throw new Error("Usage: node interactive_dashboard_runtime_smoke.js <interactive_dashboard.html>");
@@ -49,8 +49,11 @@ const fire = id => {
   node.listeners.input();
 };
 
+const metricValues = html => [...html.matchAll(/<div class="v">([^<]+)<\\/div>/g)].map(match => match[1]);
 const initialMetrics = getElementById("metrics").innerHTML;
+const initialValues = metricValues(initialMetrics);
 assert(initialMetrics.includes("第5年中位資產"), "initial metrics should identify year 5");
+assert(initialValues.length >= 6, "metric cards must expose six numeric values");
 year.value = "9";
 fire("year");
 assert(getElementById("yearOut").textContent.includes("第9年"), "year label must follow the slider");
@@ -60,11 +63,16 @@ assert(getElementById("drawdown").innerHTML.includes("截至第9年"), "drawdown
 assert(getElementById("returns").innerHTML.includes("截至第9年"), "return chart must use year 9");
 assert(getElementById("gaps").innerHTML.includes("截至第9年"), "shortfall chart must use year 9");
 assert.notStrictEqual(getElementById("metrics").innerHTML, initialMetrics, "metrics HTML must change when year changes");
+const year9Values = metricValues(getElementById("metrics").innerHTML);
+assert.notStrictEqual(year9Values[0], initialValues[0], "year 9 must update the actual NAV value, not only its label");
+assert.notStrictEqual(year9Values[2], initialValues[2], "year 9 must update the actual cumulative return value");
 assert(getElementById("shares").innerHTML.includes("46.0%"), "year 9 at 60% linear target should show 46% stock target");
 assert(getElementById("shares").innerHTML.includes("54.0%"), "year 9 at 60% linear target should show 54% bond target");
 
 year.value = "10";
 fire("year");
+const year10Values = metricValues(getElementById("metrics").innerHTML);
+assert.notStrictEqual(year10Values[0], year9Values[0], "year 10 and year 9 should use different historical NAV summaries");
 assert(getElementById("shares").innerHTML.includes("40.0%"), "year 10 should show 40% stocks for a 60% target");
 assert(getElementById("shares").innerHTML.includes("60.0%"), "year 10 should show 60% bonds for a 60% target");
 
