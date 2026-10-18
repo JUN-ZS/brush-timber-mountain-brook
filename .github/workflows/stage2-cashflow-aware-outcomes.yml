@@ -197,7 +197,7 @@ jobs:
               assert token in interactive, token
           assert interactive.count('"bond_proxy"') >= 300
           decision = glide["decision_summary"]
-          assert decision["no_withdrawal_configurations"] == 96
+          assert decision["no_withdrawal_configurations"] == 192
           assert len(decision["agg_linear_target_scan"]) == 8
           assert len(decision["agg_60_timing_comparison"]) == 6
           assert len(decision["pareto_frontier"]) > 0

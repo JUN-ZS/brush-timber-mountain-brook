@@ -44,7 +44,7 @@ def sample_scenarios():
 class GlidepathDecisionReportTests(unittest.TestCase):
     def test_decision_summary_covers_all_targets_and_stresses(self):
         summary = build_decision_summary(sample_scenarios())
-        self.assertEqual(summary["no_withdrawal_configurations"], 96)
+        self.assertEqual(summary["no_withdrawal_configurations"], 192)
         self.assertEqual(len(summary["agg_linear_target_scan"]), 8)
         self.assertEqual(len(summary["agg_60_timing_comparison"]), 6)
         self.assertGreater(len(summary["pareto_frontier"]), 0)
