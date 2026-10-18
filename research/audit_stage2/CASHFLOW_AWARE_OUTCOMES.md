@@ -46,18 +46,24 @@ At the endpoint, total scenario wealth is modeled as floor face payment + remain
 
 ## Optional personal cash-flow schedule
 
-For custom deposits/withdrawals, pass --flows-csv with month_index,flow_type,amount_usd,note, for example:
+For custom deposits/withdrawals, pass --flows-csv with month_index,flow_type,amount_usd,note. There is no assumed withdrawal frequency or amount; the only events are the rows you supply. Example: no withdrawals for the first full year, then a stepped-up annual amount:
 
     month_index,flow_type,amount_usd,note
-    3,withdrawal,1200,spending
-    9,deposit,5000,put money back
-    10,withdrawal,800,spending
-    24,deposit,2500,top-up
-    120,withdrawal,1000,final month spending
+    13,withdrawal,1000,after first full year
+    25,withdrawal,1250,step up
+    37,withdrawal,1500,step up
+    49,withdrawal,1750,step up
+    61,withdrawal,2000,step up
+    73,withdrawal,2000,hold amount
+    85,withdrawal,1500,reduce spending
+    97,deposit,5000,optional later top-up
+    108,withdrawal,1800,irregular event
 
-Month indices range from 1 to 120. Amounts are positive; flow_type is deposit or withdrawal. Same-month rows are processed in file order. A withdrawal is paid only up to available portfolio NAV, and any shortfall is explicitly recorded instead of making NAV negative. Deposits are negative investor cash flows; paid withdrawals and ending NAV are positive investor cash flows for XIRR.
+Those amounts are **illustrative test values only**, not a spending recommendation or a default. You can change the months, add irregular events, skip entire years, reduce/raise amounts, or add a later deposit.
 
-In this version, a supplied custom schedule is applied to the unprotected QQQ/SPY baseline. The floor-plus-growth scenarios remain no-withdrawal maturity-floor comparisons; a later withdrawal waterfall must spend from a separate liquid reserve/growth sleeve first and keep the protected bond untouched. No claim of floor-preserving withdrawals is made until that separate model is implemented and tested.
+Month indices range from 1 to 120. Amounts are positive; flow_type is deposit or withdrawal. Same-month rows are processed in file order. For the unprotected QQQ/SPY baseline, a withdrawal is paid only up to available account NAV. For floor-plus-growth scenarios, the maturity-floor bond is locked; deposits are invested at the growth sleeve's target weights, and withdrawals are paid pro-rata from the growth sleeve only. Any unpaid withdrawal amount is recorded as a shortfall; the model never silently raids the protected maturity payment.
+
+Deposits are negative investor cash flows; paid withdrawals and final portfolio value (including the maturity-floor payment) are positive investor cash flows for XIRR. With a custom schedule, the same relative-month events are replayed over each historical 120-month start window. This tests how the same timing pattern would have behaved across different start dates; it is not a forecast of future spending needs.
 
 ## Run commands
 
