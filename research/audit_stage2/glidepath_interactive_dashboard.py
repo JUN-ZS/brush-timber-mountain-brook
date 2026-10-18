@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Generate an offline interactive stock/bond glidepath dashboard from the full replay JSON."""
-import argparse, json
+import argparse, csv, json, math
 from pathlib import Path
 
 FIELDS = ("bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode","rolling_windows","median_terminal_nav_usd","p05_terminal_nav_usd","p95_terminal_nav_usd","worst_terminal_nav_usd","median_time_weighted_cagr","p05_time_weighted_cagr","worst_time_weighted_cagr","median_daily_max_drawdown","worst_daily_max_drawdown","windows_below_initial_capital_at_year10","windows_with_withdrawal_shortfall","median_actual_withdrawals_usd","p95_withdrawal_shortfall_usd","median_investor_xirr")
 ANNUAL_FIELDS = ("year","bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode","rolling_windows","median_nav_usd","p05_nav_usd","p95_nav_usd","worst_nav_usd","median_cumulative_twr_cagr","p05_cumulative_twr_cagr","median_year_twr","p05_year_twr","median_drawdown_to_date","worst_drawdown_to_date","windows_below_initial_capital","windows_with_withdrawal_shortfall","median_actual_withdrawals_usd","median_shortfall_usd","p95_shortfall_usd","median_target_bond_weight","median_target_stock_weight")
+HISTOGRAM_METRICS = ("terminal_nav_usd", "time_weighted_cagr", "daily_max_drawdown", "withdrawal_shortfall_usd")
 HTML = r'''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>股票轉債互動追蹤台</title><style>
 *{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#1c2e43;font:15px/1.45 system-ui,Arial,sans-serif}main{max-width:1450px;margin:auto;padding:22px 16px}h1{font-size:clamp(24px,3vw,36px);margin:0 0 6px}h2{font-size:18px;margin:0 0 5px}.muted{color:#667b90}.note{padding:12px;background:#fff7e9;border:1px solid #efd9ad;border-radius:12px;font-size:13px;margin:15px 0}.controls,.grid{display:grid;gap:11px}.controls{grid-template-columns:repeat(4,minmax(140px,1fr))}.control,.panel,.metric{background:white;border:1px solid #dce4ed;border-radius:14px;padding:13px;min-width:0}.control label{display:block;font-size:12px;font-weight:750;color:#667b90;margin-bottom:7px}.control select{width:100%;padding:9px;border:1px solid #ccd6e1;border-radius:9px;background:white;font:inherit}input[type=range]{width:100%;accent-color:#203a59;cursor:ew-resize}.full{grid-column:span 2}.ends,.head{display:flex;justify-content:space-between;align-items:center;gap:8px}.ends{font-size:11px;color:#7a8b9c}.head output{font-weight:800;font-size:19px;color:#203a59}.metrics{display:grid;grid-template-columns:repeat(6,minmax(105px,1fr));gap:9px;margin:12px 0}.metric .k{font-size:12px;color:#667b90;min-height:28px}.metric .v{font-size:clamp(18px,2vw,25px);font-weight:820;margin:6px 0}.metric .s,.tiny{font-size:11px;color:#667b90}.grid{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:13px}.panel p{font-size:12px;color:#667b90;margin:4px 0 9px}.chart{width:100%;height:auto;display:block}.chart [data-target],.chart [data-pick]{cursor:pointer}.chart [data-target]:hover,.chart [data-pick]:hover{filter:brightness(.72)}.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:#667b90;margin-top:5px}.legend i{display:inline-block;width:15px;height:3px;vertical-align:middle;margin-right:4px}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;margin:12px 0}.action{border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#203a59;font:inherit;font-size:12px;font-weight:750;padding:9px 12px;cursor:pointer}.action:hover{background:#eef5fc}.barrow{display:grid;grid-template-columns:108px 1fr 85px;gap:8px;align-items:center;font-size:12px;margin:12px 0}.track{height:13px;background:#edf1f5;border-radius:99px;overflow:hidden}.fill{height:100%;border-radius:99px}.tablebox{overflow:auto}table{border-collapse:collapse;width:100%;font-size:12px}th,td{padding:8px;border-bottom:1px solid #e8edf3;text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}th{background:#f6f8fb;color:#526177}tr.active{background:#eef5fc}.foot{font-size:11px;color:#667b90;line-height:1.6;margin-top:17px}@media(max-width:1100px){.controls{grid-template-columns:repeat(2,1fr)}.metrics{grid-template-columns:repeat(3,1fr)}}@media(max-width:700px){main{padding:13px 8px}.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.full{grid-column:span 2}}
 </style></head><body><main><h1>股票逐年轉債：互動追蹤台</h1><p class="muted">拖動 BAR 或點圖表資料點，資產、回報、回撤、提款缺口和配置路徑會同步變化。初始 NAV：US$100,000。</p><div class="note"><b>限制：</b>這是歷史 ETF 代理回測，不是預測，也不保本。157 個十年窗口互相重疊，不是未來機率。資料截至 2026-09-30，沒有 2000–2002 科技股崩跌。100%債券目標到第120個月才達成；ETF 不等於持有到期的個別國債／STRIPS。</div>
@@ -21,9 +22,10 @@ HTML = r'''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta
 <section class="panel"><h2>9. 十年資產分布帶</h2><p>所選策略逐年顯示 P05／中位數／P95 與最差窗口；陰影是重疊歷史窗口的分位範圍，不是預測信賴區間。點選年份可直接移動 BAR。</p><div id="fan"></div><div id="fanLegend" class="legend"></div></section>
 <section class="panel"><h2>10. 回撤水下路徑</h2><p>追蹤最大回撤如何隨時間累積；同時顯示中位與最差歷史窗口，讓「典型回撤」與尾部風險不再混為一談。</p><div id="drawdownPath"></div><div id="riskLegend" class="legend"></div></section>
 <section class="panel"><h2>11. 目標 × 時間規則熱圖</h2><p>固定債券代理、現金流與年份，橫向比較 8 個轉債目標、縱向比較 6 條轉換曲線。色階代表所選指標相對高低，不是策略優劣的通用排名。</p><div id="heatmap"></div></section>
+<section class="panel"><h2>12. 第十年結果分布直方圖</h2><p>直接使用完整窗口 CSV，查看所選策略在 157 個重疊十年窗口的終值、年化回報、最大回撤或提款缺口分布。這是歷史樣本分布，不是未來機率；分位標記為 P05／中位／P95。</p><div class="control"><label for="histMetric">分布指標</label><select id="histMetric"><option value="terminal_nav_usd">第十年資產終值</option><option value="time_weighted_cagr">十年年化時間加權回報</option><option value="daily_max_drawdown">十年每日最大回撤</option><option value="withdrawal_shortfall_usd">十年累計提款缺口</option></select></div><div id="histogram"></div><div id="histLegend" class="legend"></div></section>
 </div><p class="foot">資料：Yahoo Finance 股息／拆股調整收市價作近似總回報；共同日資料 5,788 筆（2003-09-29 至 2026-09-30），277 個共同月末，157 個重疊十年窗口。稅項、交易成本和買賣差價未另行建模。資料 SHA-256：8d34a8772fd5c74a7df20957cab971c3c2685963e54b160c3c958c8b9d4b7e70。</p></main>
 <script>
-const D=__DATA__,A=__ANNUAL__,TG=[30,40,50,60,70,80,90,100],TM=["front_fast","front_loaded","linear","mid_loaded","back_loaded","back_late"],FL=["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"],TN={front_fast:"加速前置",front_loaded:"前置",linear:"線性",mid_loaded:"中段S曲線",back_loaded:"後置",back_late:"延後"},FN={no_withdrawals:"不提款",delayed_stepup_example:"延遲提款＋投入",monthly_withdrawal_500_usd_stress:"每月$500",monthly_withdrawal_1000_usd_stress:"每月$1,000"},C={blue:"#3977a8",teal:"#329b8a",AGG:"#3274a1",SHY:"#2a9d8f",IEF:"#e07a35",TLT:"#7966a8",front_fast:"#c94c4c",front_loaded:"#dd8547",linear:"#3274a1",mid_loaded:"#59a14f",back_loaded:"#8c78bd",back_late:"#b07aa1",grid:"#e8edf3",muted:"#718096",navy:"#203a59"},$=x=>document.getElementById(x),usd=n=>n==null?"—":"$"+Math.round(n).toLocaleString("en-US"),pct=n=>n==null?"—":(n*100).toFixed(2)+"%";
+const D=__DATA__,A=__ANNUAL__,HIST=__HIST__,TG=[30,40,50,60,70,80,90,100],TM=["front_fast","front_loaded","linear","mid_loaded","back_loaded","back_late"],FL=["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"],TN={front_fast:"加速前置",front_loaded:"前置",linear:"線性",mid_loaded:"中段S曲線",back_loaded:"後置",back_late:"延後"},FN={no_withdrawals:"不提款",delayed_stepup_example:"延遲提款＋投入",monthly_withdrawal_500_usd_stress:"每月$500",monthly_withdrawal_1000_usd_stress:"每月$1,000"},C={blue:"#3977a8",teal:"#329b8a",AGG:"#3274a1",SHY:"#2a9d8f",IEF:"#e07a35",TLT:"#7966a8",front_fast:"#c94c4c",front_loaded:"#dd8547",linear:"#3274a1",mid_loaded:"#59a14f",back_loaded:"#8c78bd",back_late:"#b07aa1",grid:"#e8edf3",muted:"#718096",navy:"#203a59"},$=x=>document.getElementById(x),usd=n=>n==null?"—":"$"+Math.round(n).toLocaleString("en-US"),pct=n=>n==null?"—":(n*100).toFixed(2)+"%";
 function S(){return {bond:$("bond").value,target:+$("target").value,timing:$("timing").value,flow:$("flow").value,year:+$("year").value};}
 function R(b,t,m,f){return D.find(r=>r.bond_proxy===b&&+r.target_bond_conversion_pct_at_year10===+t&&r.timing_rule===m&&r.cashflow_mode===f);}
 function Y(b,t,m,f,y){return A.find(r=>r.bond_proxy===b&&+r.target_bond_conversion_pct_at_year10===+t&&r.timing_rule===m&&r.cashflow_mode===f&&+r.year===+y);}
@@ -158,6 +160,32 @@ function exportMatrix(){
  downloadCsv("glidepath-year-"+s.year+"-matrix.csv",rows);
 }
 
+
+function histogram(s){
+ const metric=$("histMetric").value;
+ const labels={terminal_nav_usd:"第十年資產終值",time_weighted_cagr:"十年年化時間加權回報",daily_max_drawdown:"十年每日最大回撤",withdrawal_shortfall_usd:"十年累計提款缺口"};
+ const d=HIST.find(h=>h.bond_proxy===s.bond&&+h.target_bond_conversion_pct_at_year10===s.target&&h.timing_rule===s.timing&&h.cashflow_mode===s.flow&&h.metric===metric);
+ if(!d||!d.bins||!d.bins.length)return '<p class="tiny">此策略沒有足夠有效窗口計算所選指標。</p>';
+ let lo=+d.min,hi=+d.max;
+ if(lo===hi){lo-=Math.max(1,Math.abs(lo)*0.02);hi+=Math.max(1,Math.abs(hi)*0.02);}
+ const fmt=v=>(metric==="terminal_nav_usd"||metric==="withdrawal_shortfall_usd")?usd(v):pct(v);
+ const w=800,h=300,x0=70,y0=20,pw=675,ph=175,maxCount=Math.max(1,...d.bins.map(b=>+b.count));
+ const x=v=>x0+(v-lo)/(hi-lo)*pw, py=v=>y0+ph-v/maxCount*ph;
+ let z=H(labels[metric]+"："+s.bond+" "+s.target+"% "+TN[s.timing]+" "+FN[s.flow],w,h);
+ for(let i=0;i<=4;i++){const v=maxCount*i/4,yy=py(v);z+='<line x1="'+x0+'" y1="'+yy+'" x2="'+(x0+pw)+'" y2="'+yy+'" stroke="'+C.grid+'"/><text x="'+(x0-8)+'" y="'+(yy+4)+'" text-anchor="end" font-size="10" fill="'+C.muted+'">'+Math.round(v)+'</text>';}
+ d.bins.forEach((b,i)=>{
+   const left=x(+b.low),right=x(+b.high),bw=Math.max(2,(right-left)-1),xx=(metric==="terminal_nav_usd"||metric==="withdrawal_shortfall_usd")?left:left;
+   const top=py(+b.count),barH=y0+ph-top;
+   z+='<rect x="'+xx+'" y="'+top+'" width="'+bw+'" height="'+barH+'" fill="#76a9cf" stroke="#fff" stroke-width=".7"><title>'+fmt(+b.low)+' – '+fmt(+b.high)+'：'+b.count+' 個窗口</title></rect>';
+ });
+ const marks=[["P05",d.p05,"#dd8547","5 3"],["P50",d.median,C.navy,""],["P95",d.p95,"#329b8a","5 3"]];
+ marks.forEach(([lab,val,color,dash])=>{if(val==null)return;const xx=x(+val);z+='<line x1="'+xx+'" y1="'+y0+'" x2="'+xx+'" y2="'+(y0+ph)+'" stroke="'+color+'" stroke-width="'+(lab==="P50"?2.8:1.8)+'"'+(dash?' stroke-dasharray="'+dash+'"':'')+'><title>'+lab+': '+fmt(+val)+'</title></line><text x="'+Math.max(x0+20,Math.min(x0+pw-20,xx))+'" y="'+(lab==="P05"?y0+12:lab==="P95"?y0+25:y0+38)+'" text-anchor="middle" font-size="10" fill="'+color+'">'+lab+'</text>';});
+ for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,xx=x(v);z+='<text x="'+xx+'" y="'+(y0+ph+17)+'" text-anchor="middle" font-size="10" fill="'+C.muted+'">'+fmt(v)+'</text>';}
+ z+='<text x="'+(x0+pw/2)+'" y="'+(h-5)+'" text-anchor="middle" font-size="11">歷史窗口指標值</text></svg>';
+ $("histLegend").innerHTML='<span>'+labels[metric]+' · 有效窗口 '+d.n+'/'+D.find(r=>r.bond_proxy===s.bond&&+r.target_bond_conversion_pct_at_year10===s.target&&r.timing_rule===s.timing&&r.cashflow_mode===s.flow).rolling_windows+'</span><span><i style="background:#76a9cf"></i>窗口數（柱高）</span><span><i style="background:'+C.navy+'"></i>中位數</span>';
+ return z;
+}
+
 function update(){
  let s=S(),r=Y(s.bond,s.target,s.timing,s.flow,s.year);
  $("targetOut").textContent=s.target+"%";$("yearOut").textContent="第"+s.year+"年";
@@ -178,17 +206,96 @@ function update(){
  $("fan").innerHTML=fan(s);
  $("drawdownPath").innerHTML=drawdownPath(s);
  $("heatmap").innerHTML=heatmap(s);
+ $("histogram").innerHTML=histogram(s);
  let tr=TM.map(m=>Y(s.bond,s.target,m,s.flow,s.year));
  $("table").innerHTML='<table><thead><tr><th>轉換時間</th><th>第'+s.year+'年中位資產</th><th>P05資產</th><th>累計年化回報</th><th>截至當年回撤</th><th>累計缺口窗口</th></tr></thead><tbody>'+tr.map(v=>'<tr class="'+(v.timing_rule===s.timing?"active":"")+'"><td>'+TN[v.timing_rule]+'</td><td>'+usd(v.median_nav_usd)+'</td><td>'+usd(v.p05_nav_usd)+'</td><td>'+pct(v.median_cumulative_twr_cagr)+'</td><td>'+pct(v.median_drawdown_to_date)+'</td><td>'+v.windows_with_withdrawal_shortfall+'/'+v.rolling_windows+'</td></tr>').join("")+'</tbody></table>';
 }
-["bond","timing","flow","target","year","heatMetric"].forEach(id=>$(id).addEventListener("input",update));$("exportMatrix").addEventListener("click",exportMatrix);$("exportAnnual").addEventListener("click",()=>downloadCsv("glidepath-all-annual-summaries.csv",A));document.addEventListener("click",e=>{let p=e.target.closest("[data-target]");if(!p)return;if(p.dataset.target)$("target").value=p.dataset.target;if(p.dataset.timing)$("timing").value=p.dataset.timing;if(p.dataset.bond)$("bond").value=p.dataset.bond;if(p.dataset.flow)$("flow").value=p.dataset.flow;if(p.dataset.year!==undefined)$("year").value=p.dataset.year;update();});update();
+["bond","timing","flow","target","year","heatMetric","histMetric"].forEach(id=>$(id).addEventListener("input",update));$("exportMatrix").addEventListener("click",exportMatrix);$("exportAnnual").addEventListener("click",()=>downloadCsv("glidepath-all-annual-summaries.csv",A));document.addEventListener("click",e=>{let p=e.target.closest("[data-target]");if(!p)return;if(p.dataset.target)$("target").value=p.dataset.target;if(p.dataset.timing)$("timing").value=p.dataset.timing;if(p.dataset.bond)$("bond").value=p.dataset.bond;if(p.dataset.flow)$("flow").value=p.dataset.flow;if(p.dataset.year!==undefined)$("year").value=p.dataset.year;update();});update();
 </script></body></html>'''
 
 
-def render_dashboard(scenarios, annual_scenarios):
+def render_dashboard(scenarios, annual_scenarios, histogram_data=None):
     payload=json.dumps([{k:r.get(k) for k in FIELDS} for r in scenarios],ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
     annual_payload=json.dumps([{k:r.get(k) for k in ANNUAL_FIELDS} for r in annual_scenarios],ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
-    return HTML.replace("__DATA__",payload).replace("__ANNUAL__",annual_payload)
+    hist_payload=json.dumps(histogram_data or [],ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
+    return HTML.replace("__DATA__",payload).replace("__ANNUAL__",annual_payload).replace("__HIST__",hist_payload)
+
+
+def _hist_quantile(sorted_values, probability):
+    if not sorted_values:
+        return None
+    pos=(len(sorted_values)-1)*probability
+    lo=int(math.floor(pos)); hi=int(math.ceil(pos))
+    if lo==hi:
+        return float(sorted_values[lo])
+    weight=pos-lo
+    return float(sorted_values[lo])*(1-weight)+float(sorted_values[hi])*weight
+
+
+def summarize_histogram(values):
+    values=sorted(float(v) for v in values if math.isfinite(float(v)))
+    if not values:
+        return {"n":0,"min":None,"max":None,"p05":None,"median":None,"p95":None,"bins":[]}
+    low,high=values[0],values[-1]
+    summary={"n":len(values),"min":low,"max":high,"p05":_hist_quantile(values,0.05),
+             "median":_hist_quantile(values,0.50),"p95":_hist_quantile(values,0.95)}
+    if low==high:
+        summary["bins"]=[{"low":low,"high":high,"count":len(values)}]
+        return summary
+    q1,q3=_hist_quantile(values,0.25),_hist_quantile(values,0.75)
+    iqr=q3-q1
+    width=2*iqr/(len(values)**(1/3)) if iqr>0 else 0.0
+    bins_count=int(math.ceil((high-low)/width)) if width>0 else int(math.ceil(math.log2(len(values))+1))
+    bins_count=max(8,min(18,bins_count))
+    width=(high-low)/bins_count
+    bins=[{"low":low+i*width,"high":high if i==bins_count-1 else low+(i+1)*width,"count":0}
+          for i in range(bins_count)]
+    for value in values:
+        index=min(bins_count-1,int((value-low)/width))
+        bins[index]["count"]+=1
+    summary["bins"]=bins
+    if sum(item["count"] for item in bins)!=len(values):
+        raise ValueError("Histogram bins must conserve every valid rolling-window observation")
+    return summary
+
+
+def build_window_histograms(path, expected_scenarios=768, expected_windows=157):
+    if not path.exists():
+        raise FileNotFoundError(f"Window-level replay CSV is required for real outcome distributions: {path}")
+    required={"bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode",
+              "terminal_nav_usd","time_weighted_cagr","daily_max_drawdown","withdrawal_shortfall_usd"}
+    groups={}
+    with path.open("r",newline="",encoding="utf-8-sig") as handle:
+        reader=csv.DictReader(handle)
+        if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+            raise ValueError(f"Window CSV must contain columns: {sorted(required)}")
+        for row in reader:
+            key=(row["bond_proxy"],int(row["target_bond_conversion_pct_at_year10"]),row["timing_rule"],row["cashflow_mode"])
+            group=groups.setdefault(key,{"rows":0,"metrics":{metric:[] for metric in HISTOGRAM_METRICS}})
+            group["rows"]+=1
+            for metric in HISTOGRAM_METRICS:
+                raw=(row.get(metric) or "").strip()
+                if not raw:
+                    continue
+                value=float(raw)
+                if math.isfinite(value):
+                    group["metrics"][metric].append(value)
+    if len(groups)!=expected_scenarios:
+        raise ValueError(f"Expected {expected_scenarios} window-level scenario groups, got {len(groups)}")
+    output=[]
+    for key,group in sorted(groups.items()):
+        if group["rows"]!=expected_windows:
+            raise ValueError(f"Expected {expected_windows} rolling windows for {key}, got {group['rows']}")
+        bond,target,timing,flow=key
+        for metric in HISTOGRAM_METRICS:
+            output.append({
+                "bond_proxy":bond,"target_bond_conversion_pct_at_year10":target,
+                "timing_rule":timing,"cashflow_mode":flow,"metric":metric,
+                **summarize_histogram(group["metrics"][metric]),
+            })
+    if len(output)!=expected_scenarios*len(HISTOGRAM_METRICS):
+        raise ValueError("Window distribution summary is incomplete")
+    return output
 
 
 def generate(outdir):
@@ -258,8 +365,11 @@ def generate(outdir):
             normalized.append(tuple(round(weight,10) for weight in weights))
         if len(timing_paths)!=6 or len(set(normalized))!=6:
             raise ValueError(f"Six timing options must have six distinct annual paths: {bond}/{target}/{flow}")
+    distribution_summary=build_window_histograms(outdir/"stock_bond_glidepath_windows.csv",expected_scenarios=len(scenarios),expected_windows=int(report["method"]["rolling_windows_per_scenario"]))
+    distribution_report={"schema":"stock-bond-glidepath-window-distributions.v1","rolling_windows_per_scenario":int(report["method"]["rolling_windows_per_scenario"]),"metric_names":list(HISTOGRAM_METRICS),"distributions":distribution_summary}
+    (outdir/"window_distribution_summary.json").write_text(json.dumps(distribution_report,ensure_ascii=False,separators=(",",":"))+"\n",encoding="utf-8")
     output=outdir/"interactive_dashboard.html"
-    output.write_text(render_dashboard(report["scenarios"],annual),encoding="utf-8")
+    output.write_text(render_dashboard(report["scenarios"],annual,distribution_summary),encoding="utf-8")
     return output
 
 
@@ -268,7 +378,7 @@ def main():
     parser.add_argument("--outdir",type=Path,required=True)
     args=parser.parse_args()
     path=generate(args.outdir)
-    print(json.dumps({"interactive_dashboard":path.name,"bytes":path.stat().st_size,"scenario_rows":768,"annual_summary_rows":8448,"year_range":[0,10],"timing_rules":6},ensure_ascii=False))
+    print(json.dumps({"interactive_dashboard":path.name,"bytes":path.stat().st_size,"scenario_rows":768,"annual_summary_rows":8448,"window_distribution_groups":3072,"year_range":[0,10],"timing_rules":6},ensure_ascii=False))
     return 0
 
 
