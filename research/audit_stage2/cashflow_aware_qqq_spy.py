@@ -20,6 +20,10 @@ HORIZON_MONTHS = 120
 INITIAL_CAPITAL_USD = 100_000.0
 MONTHLY_WITHDRAWAL_GRID_USD = (0.0, 250.0, 500.0, 1_000.0, 1_500.0, 2_000.0)
 TICKERS = ("QQQ", "SPY")
+DEFAULT_FLOOR_FACE_USD = 100_000.0
+INDICATIVE_TEN_YEAR_PAR_YIELD = 0.0509  # official par-yield reference, 2026-10-16
+DEFAULT_FLOOR_COST_USD = DEFAULT_FLOOR_FACE_USD / (1 + INDICATIVE_TEN_YEAR_PAR_YIELD / 2) ** 20
+
 PINNED_INPUT_SHA256 = "c9e369c8a3789c543c05fafa82ed67589c1292a7bd423f2ef9990313825f5127"
 EXPECTED_MONTHLY_OBSERVATIONS = 331
 
@@ -370,19 +374,147 @@ def summarize_scenario(label: str, ticker: str, monthly_withdrawal_usd: float | 
     }
 
 
+def summarize_capital_floor_scenarios(
+    points: list[MonthlyPrice],
+    floor_face_usd: float = DEFAULT_FLOOR_FACE_USD,
+    floor_cost_usd: float = DEFAULT_FLOOR_COST_USD,
+) -> tuple[list[dict], list[dict]]:
+    """Replay no-withdrawal portfolios with a nominal maturity floor plus growth sleeve.
+
+    The floor is a modeled zero-coupon Treasury/STRIPS maturity payment, not a
+    historical daily-marked bond return. Growth assets are priced from monthly-close
+    price ratios. The protected floor only holds if the selected instrument is matched
+    to the horizon, bought at the assumed/quoted all-in cost and held to maturity,
+    without withdrawals, taxes or costs being taken from the protected principal.
+    """
+    if not math.isfinite(floor_face_usd) or floor_face_usd <= 0:
+        raise ValueError("Floor face value must be finite and > 0")
+    if not math.isfinite(floor_cost_usd) or floor_cost_usd <= 0:
+        raise ValueError("Floor purchase cost must be finite and > 0")
+    if floor_cost_usd >= INITIAL_CAPITAL_USD:
+        raise ValueError(
+            "Floor purchase cost must be below initial capital so a growth sleeve remains"
+        )
+    growth_initial = INITIAL_CAPITAL_USD - floor_cost_usd
+    elapsed_floor_face_ratio = floor_face_usd / INITIAL_CAPITAL_USD
+    strategies = [
+        ("FLOOR_PLUS_CASH_0PCT", 0.0, 0.0, 1.0),
+        ("FLOOR_PLUS_QQQ", 1.0, 0.0, None),
+        ("FLOOR_PLUS_SPY", 0.0, 1.0, None),
+        ("FLOOR_PLUS_QQQ_SPY_50_50", 0.5, 0.5, None),
+    ]
+    rows: list[dict] = []
+    summaries: list[dict] = []
+    window_count = len(points) - HORIZON_MONTHS
+    if window_count <= 0:
+        raise ValueError("Not enough monthly points to build a ten-year floor replay")
+
+    for strategy, qqq_weight, spy_weight, cash_weight in strategies:
+        scenario_rows: list[dict] = []
+        for start_index in range(window_count):
+            start = points[start_index]
+            end = points[start_index + HORIZON_MONTHS]
+            qqq_multiple = end.qqq / start.qqq
+            spy_multiple = end.spy / start.spy
+            growth_multiple = (
+                qqq_weight * qqq_multiple
+                + spy_weight * spy_multiple
+                + (cash_weight or 0.0)
+            )
+            growth_terminal = growth_initial * growth_multiple
+            terminal = floor_face_usd + growth_terminal
+            elapsed_years = (end.date - start.date).days / 365.25
+            terminal_cagr = (
+                (terminal / INITIAL_CAPITAL_USD) ** (1 / elapsed_years) - 1
+                if elapsed_years > 0
+                else None
+            )
+            row = {
+                "scenario": strategy,
+                "window_start": start.date.isoformat(),
+                "window_end": end.date.isoformat(),
+                "initial_capital_usd": round(INITIAL_CAPITAL_USD, 2),
+                "floor_face_usd_at_maturity": round(floor_face_usd, 2),
+                "floor_purchase_cost_usd": round(floor_cost_usd, 2),
+                "growth_sleeve_initial_capital_usd": round(growth_initial, 2),
+                "qqq_growth_weight": qqq_weight,
+                "spy_growth_weight": spy_weight,
+                "cash_growth_weight": cash_weight or 0.0,
+                "qqq_price_multiple": qqq_multiple,
+                "spy_price_multiple": spy_multiple,
+                "growth_sleeve_terminal_usd": round(growth_terminal, 2),
+                "terminal_nav_usd": round(terminal, 2),
+                "terminal_cagr": terminal_cagr,
+                "principal_floor_met_at_maturity_before_tax_costs": terminal >= floor_face_usd,
+                "floor_method": (
+                    "zero-coupon maturity payment modeled as fixed face value; "
+                    "not marked to market during the ten-year holding period"
+                ),
+                "window_index": start_index,
+            }
+            scenario_rows.append(row)
+            rows.append(row)
+
+        terminal_values = [float(row["terminal_nav_usd"]) for row in scenario_rows]
+        cagrs = [
+            float(row["terminal_cagr"])
+            for row in scenario_rows
+            if row["terminal_cagr"] is not None
+        ]
+        worst = min(scenario_rows, key=lambda row: float(row["terminal_nav_usd"]))
+        summaries.append({
+            "scenario": strategy,
+            "floor_face_usd_at_maturity": round(floor_face_usd, 2),
+            "floor_purchase_cost_usd": round(floor_cost_usd, 2),
+            "growth_sleeve_initial_capital_usd": round(growth_initial, 2),
+            "growth_sleeve_share_of_initial_capital": round(growth_initial / INITIAL_CAPITAL_USD, 8),
+            "floor_cost_reference_yield_assumption": INDICATIVE_TEN_YEAR_PAR_YIELD,
+            "floor_cost_reference_note": (
+                "Illustrative calculation from the 2026-10-16 ten-year Treasury par yield, "
+                "semiannual-compounding convention; not an executable, maturity-matched STRIPS quote"
+                if abs(floor_cost_usd - DEFAULT_FLOOR_COST_USD) < 0.01
+                else "User-supplied scenario cost; verify against an executable maturity-matched quote"
+            ),
+            "rolling_windows": len(scenario_rows),
+            "windows_floor_not_met_by_model_before_tax_costs": sum(
+                not bool(row["principal_floor_met_at_maturity_before_tax_costs"])
+                for row in scenario_rows
+            ),
+            "median_terminal_nav_usd": round(_quantile(terminal_values, 0.50) or 0.0, 2),
+            "p05_terminal_nav_usd": round(_quantile(terminal_values, 0.05) or 0.0, 2),
+            "worst_terminal_nav_usd": round(min(terminal_values), 2),
+            "worst_terminal_window": {
+                "start": worst["window_start"],
+                "end": worst["window_end"],
+            },
+            "median_terminal_cagr": _round_rate(_quantile(cagrs, 0.50)),
+            "p05_terminal_cagr": _round_rate(_quantile(cagrs, 0.05)),
+            "worst_terminal_cagr": _round_rate(min(cagrs) if cagrs else None),
+            "nominal_floor_is_only_a_maturity_value": True,
+            "real_purchasing_power_guaranteed": False,
+            "taxes_fees_and_early_sale_risk_included": False,
+        })
+    return summaries, rows
+
+
 def run_research(
     points: list[MonthlyPrice],
     custom_schedule: dict[int, list[FlowEvent]] | None = None,
+    include_withdrawal_grid: bool = False,
+    floor_face_usd: float = DEFAULT_FLOOR_FACE_USD,
+    floor_cost_usd: float = DEFAULT_FLOOR_COST_USD,
 ) -> tuple[dict, list[dict]]:
     all_rows: list[dict] = []
     summaries: list[dict] = []
-    if custom_schedule is None:
+    if custom_schedule is not None:
+        scenarios = [("custom_schedule", None, custom_schedule)]
+    elif include_withdrawal_grid:
         scenarios = [
             (f"monthly_withdrawal_{int(amount)}_usd", amount, fixed_withdrawal_schedule(amount))
             for amount in MONTHLY_WITHDRAWAL_GRID_USD
         ]
     else:
-        scenarios = [("custom_schedule", None, custom_schedule)]
+        scenarios = [("no_withdrawals", 0.0, {})]
 
     for ticker in TICKERS:
         for label, withdrawal_amount, schedule in scenarios:
@@ -396,8 +528,15 @@ def run_research(
             all_rows.extend(scenario_rows)
             summaries.append(summarize_scenario(label, ticker, withdrawal_amount, scenario_rows))
 
+    floor_summaries, floor_rows = summarize_capital_floor_scenarios(
+        points,
+        floor_face_usd=floor_face_usd,
+        floor_cost_usd=floor_cost_usd,
+    )
+    all_rows.extend(floor_rows)
+
     report = {
-        "schema": "cashflow-aware-investor-outcomes.v1",
+        "schema": "cashflow-aware-investor-outcomes.v2",
         "input": {
             "sha256": PINNED_INPUT_SHA256,
             "monthly_observations": len(points),
@@ -408,6 +547,7 @@ def run_research(
             "horizon_months": HORIZON_MONTHS,
             "rolling_windows_per_scenario": len(points) - HORIZON_MONTHS,
             "initial_capital_usd": INITIAL_CAPITAL_USD,
+            "default_cashflow_behavior": "No deposit or withdrawal events unless --flows-csv is supplied; fixed-withdrawal sensitivity is opt-in via --withdrawal-grid",
             "window_definition": "initial price at month 0; months 1..120 apply market price return then scheduled external cash flows; final NAV is measured after month-120 flows",
             "external_flow_sign_convention": "deposit increases invested NAV and is a negative investor cash flow; a withdrawal is paid only up to available NAV and the paid amount is a positive investor cash flow; unpaid withdrawal demand is recorded as shortfall",
             "xirr": "annualized actual/365.25 money-weighted return; unique root searched from -99.9% to +1000%; no-root and multiple-root cases remain null/status-coded",
@@ -419,25 +559,42 @@ def run_research(
             "leverage_or_options": False,
             "rolling_windows_overlap": True,
             "window_counts_are_forward_probabilities": False,
-            "withdrawal_scenarios": (
-                "fixed nominal monthly withdrawals; these are sensitivity cases, not inferred user spending"
-                if custom_schedule is None
-                else "relative-month custom schedule from supplied CSV; same schedule replayed in every rolling window"
+            "cashflow_scenario": (
+                "relative-month custom schedule from supplied CSV; same schedule replayed in every rolling window"
+                if custom_schedule is not None
+                else "no withdrawals and no further deposits by default"
             ),
+            "withdrawal_grid_enabled": include_withdrawal_grid,
+            "capital_floor_model": {
+                "floor_face_usd_at_maturity": floor_face_usd,
+                "floor_purchase_cost_usd": floor_cost_usd,
+                "growth_sleeve_initial_capital_usd": INITIAL_CAPITAL_USD - floor_cost_usd,
+                "illustrative_par_yield_assumption": INDICATIVE_TEN_YEAR_PAR_YIELD,
+                "illustrative_date": "2026-10-16",
+                "critical_assumption": (
+                    "A maturity-matched zero-coupon Treasury/STRIPS is bought at the supplied cost "
+                    "and held to maturity; no withdrawals, fees or taxes are taken from its protected "
+                    "maturity payment. The remaining sleeve is unlevered price-only QQQ/SPY or zero-yield cash."
+                ),
+                "not_an_executable_quote": abs(floor_cost_usd - DEFAULT_FLOOR_COST_USD) < 0.01,
+                "not_a_historical_bond_strategy_backtest": True,
+            },
         },
         "scenario_summaries": summaries,
+        "capital_floor_summaries": floor_summaries,
     }
     return report, all_rows
-
 
 def write_rows_csv(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
         raise ValueError("No replay rows to write")
+    fieldnames = list(dict.fromkeys(key for row in rows for key in row.keys()))
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(rows)
+        for row in rows:
+            writer.writerow(row)
 
 
 def main() -> int:
@@ -446,11 +603,37 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True, help="Output JSON summary")
     parser.add_argument("--rows-out", type=Path, required=True, help="Output rolling-window CSV")
     parser.add_argument("--flows-csv", type=Path, help="Optional relative-month deposit/withdrawal schedule")
+    parser.add_argument(
+        "--withdrawal-grid",
+        action="store_true",
+        help="Opt in to fixed $0/$250/$500/$1000/$1500/$2000 monthly withdrawal sensitivity",
+    )
+    parser.add_argument(
+        "--floor-face-usd",
+        type=float,
+        default=DEFAULT_FLOOR_FACE_USD,
+        help="Nominal face payment to protect at the horizon maturity (default: 100000)",
+    )
+    parser.add_argument(
+        "--floor-cost-usd",
+        type=float,
+        default=DEFAULT_FLOOR_COST_USD,
+        help=(
+            "All-in purchase cost for the maturity-floor instrument (default: an illustrative "
+            "60,493.71 USD derived from the 2026-10-16 ten-year Treasury par-yield proxy, not a quote)"
+        ),
+    )
     args = parser.parse_args()
 
     points, digest = load_monthly_prices(args.input)
     schedule = load_flow_schedule(args.flows_csv) if args.flows_csv else None
-    report, rows = run_research(points, schedule)
+    report, rows = run_research(
+        points,
+        custom_schedule=schedule,
+        include_withdrawal_grid=args.withdrawal_grid,
+        floor_face_usd=args.floor_face_usd,
+        floor_cost_usd=args.floor_cost_usd,
+    )
     report["input"]["actual_sha256"] = digest
     if args.flows_csv:
         report["method"]["custom_schedule_source"] = args.flows_csv.name
@@ -462,6 +645,7 @@ def main() -> int:
         "schema": report["schema"],
         "input": report["input"],
         "scenario_summaries": report["scenario_summaries"],
+        "capital_floor_summaries": report["capital_floor_summaries"],
         "summary_output": args.out.as_posix(),
         "rows_output": args.rows_out.as_posix(),
     }, indent=2, ensure_ascii=False))
