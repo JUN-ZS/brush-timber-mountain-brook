@@ -226,41 +226,71 @@ def render_floor_waterfall_svg(noflow_summaries: list[dict], floor_cost: float =
     svg.append(_svg_close("*成本以2026-10-16的10年期公債par yield 5.09%作半年度複利示例；不是可執行STRIPS報價。價格序列不含股息、稅費與現金利息。"))
     return "".join(svg)
 
-def glidepath_data(annual_switch_percentage_points: Iterable[int] = (0,5,10,15,20)) -> list[dict]:
-    """Illustrative weights only: transfer fixed percentage points of the initial sleeve per year."""
-    colors={0:PALETTE["gray"],5:PALETTE["blue"],10:PALETTE["teal"],15:PALETTE["orange"],20:PALETTE["purple"]}
-    result=[]
-    for shift in annual_switch_percentage_points:
-        stocks=[max(0,100-shift*year) for year in range(11)]
-        result.append({"label":f"每年轉{shift}個百分點","stocks":stocks,
-                       "bonds":[100-value for value in stocks],"color":colors.get(shift,PALETTE["navy"])})
+def glidepath_data(target_conversion_percentages: Iterable[int] = (30,40,50,60,70,80,90,100)) -> list[dict]:
+    """Illustrative ten-year glidepaths; target is total original stock sleeve converted by year 10."""
+    colors = [
+        "#657184", "#3274A1", "#2A9D8F", "#E07A35",
+        "#7966A8", "#C94C4C", "#4C78A8", "#1B7F79",
+    ]
+    result = []
+    seen = set()
+    for index, target in enumerate(target_conversion_percentages):
+        if not isinstance(target, int) or not 0 <= target <= 100:
+            raise ValueError("Each target conversion must be an integer percentage from 0 to 100")
+        if target in seen:
+            raise ValueError(f"Duplicate glidepath target: {target}")
+        seen.add(target)
+        bonds = [target * year / 10 for year in range(11)]
+        stocks = [100 - value for value in bonds]
+        result.append({
+            "target_conversion_percent": target,
+            "label": f"第10年轉{target}%到債券",
+            "stocks": stocks,
+            "bonds": bonds,
+            "color": colors[index % len(colors)],
+        })
     return result
 
 def render_glidepath_svg() -> str:
-    width,height=1200,680
-    x0,y0,w,h=92,130,1064,400
-    rows=glidepath_data()
-    svg=[_svg_open("股票逐年轉債券：先比較「轉換規則」",
-        "線條只描述資產比例路徑，不是報酬回測；轉換比例以初始成長層的百分點計算",width,height)]
+    width, height = 1200, 690
+    x0, y0, w, h = 92, 125, 1064, 370
+    rows = glidepath_data()
+    svg = [_svg_open(
+        "股票逐年轉債券：比較第10年轉換30%–100%",
+        "每條線是一個目標：十年內逐年等額轉移初始股票配置；圖只比較配置路徑，不是債券績效回測",
+        width, height,
+    )]
     for pct in (0,20,40,60,80,100):
-        y=y0+h-pct/100*h
-        svg.extend([f'<line x1="{x0}" y1="{y:.2f}" x2="{x0+w}" y2="{y:.2f}" stroke="{PALETTE["grid"]}"/>',
-                    f'<text x="{x0-12}" y="{y+5:.2f}" text-anchor="end" font-size="12" fill="{PALETTE["muted"]}">{pct}%</text>'])
+        y = y0 + h - pct / 100 * h
+        svg.extend([
+            f'<line x1="{x0}" y1="{y:.2f}" x2="{x0+w}" y2="{y:.2f}" stroke="{PALETTE["grid"]}"/>',
+            f'<text x="{x0-12}" y="{y+5:.2f}" text-anchor="end" font-size="12" fill="{PALETTE["muted"]}">{pct}%</text>',
+        ])
     for year in range(11):
-        x=x0+w*year/10
-        svg.extend([f'<line x1="{x:.2f}" y1="{y0}" x2="{x:.2f}" y2="{y0+h}" stroke="{PALETTE["grid"]}"/>',
-                    f'<text x="{x:.2f}" y="{y0+h+24}" text-anchor="middle" font-size="12" fill="{PALETTE["muted"]}">{year}</text>'])
+        x = x0 + w * year / 10
+        svg.extend([
+            f'<line x1="{x:.2f}" y1="{y0}" x2="{x:.2f}" y2="{y0+h}" stroke="{PALETTE["grid"]}"/>',
+            f'<text x="{x:.2f}" y="{y0+h+23}" text-anchor="middle" font-size="12" fill="{PALETTE["muted"]}">{year}</text>',
+        ])
     for row in rows:
-        svg.append(f'<path d="{_line_path(row["stocks"],x0,y0,w,h,0,100)}" fill="none" stroke="{row["color"]}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>')
-    lx,ly=100,590
-    for row in rows:
-        svg.extend([f'<line x1="{lx}" y1="{ly}" x2="{lx+24}" y2="{ly}" stroke="{row["color"]}" stroke-width="4"/>',
-                    f'<text x="{lx+32}" y="{ly+5}" font-size="12" fill="{PALETTE["ink"]}">{_e(row["label"])}</text>'])
-        lx+=215
+        svg.append(
+            f'<path d="{_line_path(row["stocks"],x0,y0,w,h,0,100)}" fill="none" '
+            f'stroke="{row["color"]}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>'
+        )
+    # Two rows of four legend items keeps all eight 30%-100% targets readable.
+    for index, row in enumerate(rows):
+        legend_row = index // 4
+        legend_col = index % 4
+        lx = 95 + legend_col * 278
+        ly = 545 + legend_row * 29
+        svg.extend([
+            f'<line x1="{lx}" y1="{ly}" x2="{lx+24}" y2="{ly}" stroke="{row["color"]}" stroke-width="4"/>',
+            f'<text x="{lx+32}" y="{ly+5}" font-size="12" fill="{PALETTE["ink"]}">{_e(row["label"])}</text>',
+        ])
     svg.extend([
-        f'<rect x="90" y="610" width="1070" height="30" rx="7" fill="{PALETTE["pale_blue"]}"/>',
-        f'<text x="104" y="630" font-size="12" fill="{PALETTE["navy"]}">例：每年轉10個百分點 → 第5年股票50%、債券50%；第10年股票0%、債券100%。未納入債券成交價、票息／到期結構、稅費及提前出售風險。</text>',
-        _svg_close("此圖是控制器／BAR的規則預覽；績效比較必須使用真實債券價格或清楚標記的情境假設。"),
+        f'<rect x="90" y="600" width="1070" height="35" rx="7" fill="{PALETTE["pale_blue"]}"/>',
+        f'<text x="104" y="622" font-size="12" fill="{PALETTE["navy"]}">例如：第10年轉30% → 股票70%／債券30%；轉60% → 各50%；轉100% → 股票0%／債券100%。按初始股票配置的固定比例逐年轉換。</text>',
+        _svg_close("債券回報、久期、價格波動、稅費及提前出售成本尚未加入；比較配置比例不代表選出最高收益方案。"),
     ])
     return "".join(svg)
 
@@ -370,6 +400,7 @@ def generate_chart_pack(input_path: Path, flows_path: Path, outdir: Path) -> dic
             "taxes_fees_and_equity_dividends_included":False,"bond_market_value_and_duration_included":False,
             "rolling_windows_are_independent_trials":False},
         "relative_rotation":{"lookback_months":12,"switch_count":rotation["switch_count"],"statistics":rotation["statistics"]},
+        "glidepath_scenarios": glidepath_data(),
         "no_withdrawal_floor_summaries":no_summaries,"sample_schedule_floor_summaries":flow_summaries,
         "outcome_ranges":ranges,"chart_files":list(CHARTS)}
     (outdir/"chart_summary.json").write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
