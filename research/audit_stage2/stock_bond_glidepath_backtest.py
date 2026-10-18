@@ -391,7 +391,7 @@ def _svg_end(footer: str) -> str:
     return f'<text x="36" y="600" font-family="Arial,sans-serif" font-size="11" fill="{COLORS["muted"]}">{_esc(footer)}</text></svg>'
 
 def render_metric_chart(rows: list[dict], metric: str, title: str, subtitle: str,
-                        as_percent: bool = False, downside: bool = False) -> str:
+                        as_percent: bool = False, downside: bool = False, value_format: str = "usd") -> str:
     width, height = 1180, 620
     x0, y0, plot_w, plot_h = 94, 112, 800, 410
     bonds = list(BOND_TICKERS)
@@ -415,7 +415,7 @@ def render_metric_chart(rows: list[dict], metric: str, title: str, subtitle: str
         value = ymin + span * tick / 5
         y = y0 + plot_h - (value - ymin) / span * plot_h
         svg.append(f'<line x1="{x0}" y1="{y:.2f}" x2="{x0+plot_w}" y2="{y:.2f}" stroke="{COLORS["grid"]}"/>')
-        label = f"{value*100:.1f}%" if as_percent else _money(value)
+        label = f"{value*100:.1f}%" if as_percent else (str(int(round(value))) if value_format == "count" else _money(value))
         svg.append(f'<text x="{x0-10}" y="{y+4:.2f}" text-anchor="end" font-size="11" fill="{COLORS["muted"]}">{_esc(label)}</text>')
     for idx, target in enumerate(targets):
         x = x0 + plot_w * idx / (len(targets)-1)
