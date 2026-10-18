@@ -25,6 +25,45 @@ PROTECTED_TS = ROOT / "src" / "lib" / "pulse" / "protected.ts"
 
 STAGE1_PINNED_SHA = "a4e04edf7d28978615d34652299b2964afc39a14"
 EXPECTED_SOURCE_BLOB_SHA = "048f335b359848e1c1f261a488dd7366668806d1"
+EXPECTED_INPUT_BLOBS = {
+    "artifacts/pulse_v2/data_market_data.csv": "048f335b359848e1c1f261a488dd7366668806d1",
+    "research/rolling_10y_floor/rolling_floor_result.json": "19e1b512c1677d000de44ee5cf5674f0e476a6eb",
+    "artifacts/backtest-result.json": "4c737eb299b4226d8e3d1265e606b8699a95a0f4",
+    "research/refit_cpcv.json": "3e623fcf32f3a18ce1ec4162f92d4c3443974e38",
+    "research/cost_oos_cpcv_survival.json": "c12f0b79237341f99a3e39f347f6b8318e8904df",
+    "src/lib/pulse/protected.ts": "88eca992eef600541dff1e54f51ce30feadd64b0",
+    "src/lib/pulse/rolling-floor.ts": "131c7ea3022af31a3c3e46ae0e9de76bec7fa084",
+    "src/data/universe.json": "43c1b3053d17b278cfc01bb0b87e41679f3e85c9",
+    "artifacts/oos_family/manifest.json": "4f146ef9bcf65e19f5ca9e421f4028fb806e93f5",
+    "research/evidence_v1/STRATEGY_LOCK.json": "1ba879f24e367570c3a4e3b04bca607450dc2b8d",
+    "research/strategy_instance_v1/run_instance.py": "1757feda167a360fa63197d11d73835ce8f73526",
+}
+
+
+def verify_pinned_input_blobs() -> dict[str, str]:
+    """Require all critical files to match Stage 1's exact Git blob IDs."""
+    import subprocess
+
+    verified: dict[str, str] = {}
+    for relative, expected in EXPECTED_INPUT_BLOBS.items():
+        path = ROOT / relative
+        if not path.is_file():
+            raise SystemExit(f"Missing pinned Stage-1 input: {relative}")
+        actual = subprocess.run(
+            ["git", "hash-object", str(path)],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        ).stdout.strip()
+        if actual != expected:
+            raise SystemExit(
+                f"INPUT HASH MISMATCH for {relative}: expected {expected}, got {actual}; "
+                "refuse to mix Stage-1 evidence with changed inputs."
+            )
+        verified[relative] = actual
+    return verified
 
 
 def read_json(path: Path) -> Any:
@@ -265,6 +304,7 @@ def main() -> int:
     if missing:
         raise SystemExit("Missing required repository input(s): " + ", ".join(str(p) for p in missing))
 
+    verified_input_blobs = verify_pinned_input_blobs()
     daily, fields = load_daily_prices(MARKET_CSV)
     backtest = read_json(BACKTEST_JSON)
     cpcv = read_json(CPCV_JSON)
@@ -287,6 +327,7 @@ def main() -> int:
         "execution_head_sha": head,
         "stage1_pinned_source_sha": STAGE1_PINNED_SHA,
         "expected_market_csv_git_blob_sha": EXPECTED_SOURCE_BLOB_SHA,
+        "verified_input_git_blobs": verified_input_blobs,
         "price_window_replay": recompute_10y_windows(daily),
         "data_field_limit": {
             "csv_columns": fields,
