@@ -95,8 +95,16 @@ def is_narrative_doc(path: str) -> bool:
     p = Path(path)
     name = p.name.lower()
     suffix = p.suffix.lower()
-    if name.startswith("readme"):
+
+    # Prompts and Stage-2/adversarial instructions must never enter the blind-safe
+    # Stage-1 snapshot, even when their names do not contain generic report words.
+    if (
+        name.startswith(("readme", "prompt", "stage2", "stage_2", "stage-2"))
+        or "adversarial" in name
+        or re.search(r"(^|/)(prompt|stage2|stage_2|stage-2)(/|_|-|\.)", p.as_posix().lower())
+    ):
         return True
+
     if suffix in {".md", ".mdx", ".txt", ".rst", ".pdf", ".docx", ".html"} and NARRATIVE_PATTERNS.search(p.as_posix()):
         return True
     return False
@@ -232,6 +240,21 @@ def main() -> int:
         print("ERROR: evidence output directory must be outside the target repository.", file=sys.stderr)
         return 2
 
+    # The inventory is anchored to HEAD, while CSV previews and content hashes read
+    # working-tree files. Refuse dirty worktrees so those evidence sources cannot disagree.
+    status_check = run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=repo, timeout=60)
+    if status_check["returncode"] != 0:
+        print("ERROR: could not verify worktree status; refusing to collect ambiguous evidence.", file=sys.stderr)
+        return 3
+    if status_check["stdout"].strip():
+        print(
+            "ERROR: worktree is not clean. Commit or discard tracked changes and remove untracked files, "
+            "then rerun evidence collection. This collector requires local files to match the pinned HEAD.",
+            file=sys.stderr,
+        )
+        print(status_check["stdout"][:4000], file=sys.stderr)
+        return 3
+
     out.mkdir(parents=True, exist_ok=True)
     generated_at = dt.datetime.now(dt.timezone.utc).isoformat()
 
@@ -273,7 +296,7 @@ def main() -> int:
                 "command": cmd,
                 "returncode": r["returncode"],
                 "line_count": len(lines),
-                "preview_lines": lines[:20],
+                "preview_lines": [] if name == "recent_history" else lines[:20],
                 "output_file": f"git/{fname}",
             }
 
@@ -503,6 +526,7 @@ def main() -> int:
         "github_repo": github_slug,
         "head_sha": head_sha,
         "head_branch": head_branch,
+        "worktree_clean": True,
         "origin": origin_url,
         "counts": {
             "tracked_files_at_head": len(files),
@@ -531,11 +555,11 @@ def main() -> int:
         f"- **Data Path Candidates**: {len(categories['data_candidates'])} (CSV previews in `git/data_files_preview.json`)",
         f"- **Quarantined Narrative / README Docs**: {len(categories['quarantined_readme_and_narrative_docs'])}",
         "",
-        "## Reading Order for Stage 1 (Blind Code-First Review)",
-        "1. `collection_manifest.json`, `git/command_results.json`, and `git/recent_history.txt`",
-        "2. `git/evidence_path_categories.md`, `git/relevant_path_candidates.txt`, and `git/data_files_preview.json`",
-        "3. Implementation source files (`strategy_and_backtest_code`), tests (`configs_and_test_entrypoints`), and raw datasets in the repository checkout.",
-        "4. **Quarantine Rule**: Do NOT read files listed under `quarantined_readme_and_narrative_docs` (READMEs, prior AI reports, PR descriptions) until `STAGE1_INDEPENDENT_FINDINGS.md` is written and frozen with `sha256sum`.",
+        "## Stage 1 Isolation Rule (Blind Code-First Review)",
+        "1. Give Stage 1 only `repository_text_snapshot_BLIND_SAFE_HEAD.tar.gz`, `collection_manifest.json`, this runbook/prompt, and only the minimum data-preview manifest needed to identify missing inputs.",
+        "2. Do NOT give Stage 1 the full evidence folder, Git history, branch/commit messages, `github/` metadata, PR/issue discussions, `git/recent_history.txt`, this generated evidence summary, or `quarantined_narrative_snapshot_STAGE2_ONLY_HEAD.tar.gz`.",
+        "3. Do not inspect any file listed under `quarantined_readme_and_narrative_docs` until `STAGE1_INDEPENDENT_FINDINGS.md` has been generated and frozen with `sha256sum`.",
+        "4. The blind-safe snapshot represents text files tracked at the pinned HEAD within the configured file/size budget. Record any excluded large, binary, untracked, or branch-only input as `BLOCKED` or `UNVERIFIED`; do not imply those files were inspected.",
         "",
         "## Reading Order for Stage 2 (Adversarial Falsification & Reconciliation)",
         "1. Verify the SHA-256 hash of `STAGE1_INDEPENDENT_FINDINGS.md` and confirm the repository is still at `head_sha`.",

@@ -1,0 +1,35 @@
+name: Independent Audit Kit Safeguards
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "collect_repo_evidence.py"
+      - "prompt_stage1_blind.md"
+      - "prompt_stage2_adversarial.md"
+      - "tests/test_audit_collector_safeguards.py"
+      - ".github/workflows/independent-audit-kit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: independent-audit-kit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  safeguard-tests:
+    # Avoid running untrusted fork contributions on a self-hosted runner.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Compile evidence collector
+        run: python3 -m py_compile collect_repo_evidence.py
+
+      - name: Run blind-isolation regression tests
+        run: python3 -m unittest discover -s tests -p 'test_audit_collector_safeguards.py' -v
