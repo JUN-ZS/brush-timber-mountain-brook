@@ -101,9 +101,7 @@ jobs:
                   "quarantined_narrative_doc": entry.get("quarantined_narrative_doc"),
                   "relevance_candidate": entry.get("relevance_candidate"),
                   "matched_keywords": entry.get("matched_keywords", []),
-                  "included_in_blind_snapshot": entry.get("path") in set(
-                      (workspace / "source").joinpath().as_posix() + "" for _ in []
-                  ),
+                  "included_in_blind_snapshot": False,
               })
           archive_names = set()
           with tarfile.open(archive, "r:gz") as tar:
@@ -165,15 +163,20 @@ jobs:
             fi
           fi
 
-          PROMPT="$(cat "$WS/PROMPT_STAGE1_BLIND.md")
+          {
+            cat "$WS/PROMPT_STAGE1_BLIND.md"
+            cat <<EOF
 
           Additional strict execution boundary:
           - Your only project workspace is $WS/source. It contains the blind-safe bounded snapshot, not the full repository.
           - Read the provided collection manifest, file index, CSV coverage preview, and snapshot manifest.
           - Do not search the network, access other folders, inspect user memory/configuration, or attempt to obtain Stage-2 materials.
           - This is a read-only research pass. Do not modify files, run broker tools, use credentials for anything other than this model request, or place orders.
-          - Save a complete report titled STAGE1_INDEPENDENT_FINDINGS.md in the current directory. Separate VERIFIED / ESTIMATED / UNVERIFIED / BLOCKED claims. Include exact file paths and visible line references where possible.
-          "
+          - Return the complete Markdown report as your final response. The workflow captures your response verbatim; do not attempt to write or edit any files in Plan Mode.
+          - Separate VERIFIED / ESTIMATED / UNVERIFIED / BLOCKED claims. Include exact file paths and visible line references where possible.
+          EOF
+          } > "$RUNNER_TEMP/stage1-prompt-combined.md"
+          PROMPT="$(cat "$RUNNER_TEMP/stage1-prompt-combined.md")"
           cd "$WS"
           set +e
           HOME="$CLEAN_HOME" gemini --skip-trust --approval-mode=plan --output-format text --prompt "$PROMPT" > "$REPORT" 2> "$ERR"
