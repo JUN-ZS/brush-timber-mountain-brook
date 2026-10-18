@@ -93,6 +93,23 @@ class CashflowAwareReplayTests(unittest.TestCase):
         self.assertAlmostEqual(result["terminal_nav_usd"], 300.0, places=6)
         self.assertAlmostEqual(result["withdrawal_shortfall_usd"], 0.0, places=6)
 
+    def test_daily_drawdown_keeps_intramonth_crash_that_monthly_closes_miss(self):
+        prices = flat_prices()
+        points = points_from_prices(prices)
+        feb_date = points[1].date
+        points[1] = MonthlyPrice(
+            feb_date,
+            100.0,
+            100.0,
+            (
+                (dt.date(feb_date.year, feb_date.month, 3), 100.0, 100.0),
+                (dt.date(feb_date.year, feb_date.month, 12), 50.0, 50.0),
+                (feb_date, 100.0, 100.0),
+            ),
+        )
+        result = replay_window(points, 0, "QQQ", {}, initial_capital_usd=1_000.0)
+        self.assertAlmostEqual(result["underlying_price_max_drawdown"], -0.5, places=6)
+
     def test_xirr_does_not_invent_a_return_for_one_sign(self):
         flows = [
             (dt.date(2020, 1, 1), -1_000.0),
