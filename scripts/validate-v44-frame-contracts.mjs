@@ -177,13 +177,17 @@ for (const [disclosureId, canvasId] of [
   ["volHorizonDisclosure", "volHorizonChart"],
   ["floorTrajectoryDisclosure", "floorTrajectoryChart"]
 ]) {
-  const match = html.match(new RegExp("<details\\\\b[^>]*id=\\\\"" + disclosureId + "\\\\"[\\\\s\\\\S]*?</details>"));
-  assert.ok(match, "missing collapsible chart wrapper " + disclosureId);
-  assert.ok(match[0].includes('id="' + canvasId + '"'), canvasId + " must live inside " + disclosureId);
-  assert.match(match[0], /<summary\\b/, disclosureId + " needs an accessible summary");
+  const disclosureStart = html.indexOf('<details id="' + disclosureId + '"');
+  assert.ok(disclosureStart >= 0, "missing collapsible chart wrapper " + disclosureId);
+  const disclosureEnd = html.indexOf("</details>", disclosureStart);
+  assert.ok(disclosureEnd > disclosureStart, "unclosed chart wrapper " + disclosureId);
+  const block = html.slice(disclosureStart, disclosureEnd + "</details>".length);
+  assert.ok(block.includes('id="' + canvasId + '"'), canvasId + " must live inside " + disclosureId);
+  assert.ok(block.includes("<summary"), disclosureId + " needs an accessible summary");
+  assert.ok(block.includes("chart-disclosure-icon"), disclosureId + " needs open/closed state feedback");
 }
-assert.match(html, /153 個滾動 10Y 歷史視窗 \\+ 20Y\\/30Y\\/50Y 互追/, "mutual-tracking chart label was lost");
-assert.match(html, /ChartCtor\\.getChart\\(canvas\\)/, "collapsed Chart.js canvases must be resized after opening");
+assert.ok(html.includes("153 個滾動 10Y 歷史視窗 + 20Y/30Y/50Y 互追"), "mutual-tracking chart label was lost");
+assert.ok(html.includes('ChartCtor.getChart(canvas)'), "collapsed Chart.js canvases must be resized after opening");
 
 console.log("PASS V4.4 static/frame checks");
 console.log("inline JS blocks syntax-checked:", inlineCount);
