@@ -56,12 +56,16 @@ class StockBondGlidepathTests(unittest.TestCase):
             97: [FlowEvent(97, "deposit", 5000.0, "top-up")],
             108: [FlowEvent(108, "withdrawal", 1800.0, "irregular")],
         }
+        baseline = replay_one_window(dates, prices, monthly, 0, "AGG", 60)
         row = replay_one_window(dates, prices, monthly, 0, "AGG", 60, schedule)
         self.assertEqual(row["requested_withdrawals_usd"], 2800.0)
         self.assertEqual(row["actual_withdrawals_usd"], 2800.0)
         self.assertEqual(row["additional_deposits_usd"], 5000.0)
         self.assertEqual(row["withdrawal_shortfall_usd"], 0.0)
         self.assertGreaterEqual(row["terminal_nav_usd"], 0.0)
+        # Cash flows must change investor terminal wealth, not time-weighted strategy returns,
+        # because they are added/removed pro rata instead of changing rebalance timing.
+        self.assertAlmostEqual(row["time_weighted_cagr"], baseline["time_weighted_cagr"], places=12)
 
     def test_scenario_summary_reports_downside_and_withdrawals(self):
         rows = []
