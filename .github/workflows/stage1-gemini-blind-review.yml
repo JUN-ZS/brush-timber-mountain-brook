@@ -1,3 +1,4 @@
+# Blind Stage 1 reviewer only; keep quarantined Stage 2 materials out of this workflow.
 name: Stage 1 Gemini Blind Review
 
 on:
