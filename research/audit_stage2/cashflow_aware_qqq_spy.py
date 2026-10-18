@@ -278,9 +278,10 @@ def replay_window(
     else:
         # Synthetic tests may provide monthly points only.
         drawdown_prices = [point.price(ticker) for point in points[start_index : end_index + 1]]
+    monthly_prices = [point.price(ticker) for point in points[start_index : end_index + 1]]
     elapsed_years = (end.date - start.date).days / 365.25
     market_price_cagr = (
-        (path_prices[-1] / path_prices[0]) ** (1.0 / elapsed_years) - 1.0
+        (monthly_prices[-1] / monthly_prices[0]) ** (1.0 / elapsed_years) - 1.0
         if elapsed_years > 0
         else None
     )
