@@ -51,12 +51,15 @@ class CashflowAwareReplayTests(unittest.TestCase):
     def test_fixed_withdrawal_is_separate_from_ending_nav(self):
         prices = [100.0, 110.0, 121.0] + [121.0] * (HORIZON_MONTHS - 2)
         points = points_from_prices(prices)
-        schedule = fixed_withdrawal_schedule(100.0)
+        schedule = {
+            1: [FlowEvent(1, "withdrawal", 100.0)],
+            2: [FlowEvent(2, "withdrawal", 100.0)],
+        }
         result = replay_window(points, 0, "QQQ", schedule, initial_capital_usd=1_000.0)
-        self.assertAlmostEqual(result["actual_withdrawals_usd"], 12_000.0, places=6)
+        self.assertAlmostEqual(result["actual_withdrawals_usd"], 200.0, places=6)
         self.assertAlmostEqual(result["terminal_nav_usd"], 1_000.0, places=6)
         self.assertAlmostEqual(
-            result["nominal_net_result_vs_initial_capital_usd"], 12_000.0, places=6
+            result["nominal_net_result_vs_initial_capital_usd"], 200.0, places=6
         )
         self.assertAlmostEqual(result["withdrawal_shortfall_usd"], 0.0, places=6)
         self.assertEqual(result["investor_xirr_status"], "OK")
