@@ -1,0 +1,4 @@
+# Repository-specific labels used by our self-hosted GitHub Actions runners.
+self-hosted-runner:
+  labels:
+    - grokbot-box-linux-x64
