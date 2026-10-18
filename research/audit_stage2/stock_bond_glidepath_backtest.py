@@ -413,20 +413,25 @@ def _svg_end(footer: str) -> str:
 
 def render_metric_chart(rows: list[dict], metric: str, title: str, subtitle: str,
                         as_percent: bool = False, downside: bool = False, value_format: str = "usd") -> str:
-    width, height = 1180, 620
+    """Plot all 4 bond proxies x 3 conversion timings against the 30%-100% endpoint."""
+    width, height = 1280, 650
     x0, y0, plot_w, plot_h = 94, 112, 800, 410
-    bonds = list(BOND_TICKERS)
-    targets = list(TARGET_CONVERSIONS)
-    data = {(row["bond_proxy"], row["target_bond_conversion_pct_at_year10"]): row for row in rows}
-    values = [float(data[(bond, target)][metric]) for bond in bonds for target in targets
-              if data[(bond, target)].get(metric) is not None]
+    bonds, targets, timings = list(BOND_TICKERS), list(TARGET_CONVERSIONS), list(TIMING_RULES)
+    data = {
+        (row["bond_proxy"], row["target_bond_conversion_pct_at_year10"], row["timing_rule"]): row
+        for row in rows
+    }
+    values = [
+        float(data[(bond, target, timing)][metric])
+        for bond in bonds for timing in timings for target in targets
+        if data[(bond, target, timing)].get(metric) is not None
+    ]
     if not values:
         raise ValueError(f"No values to render for {metric}")
     ymin, ymax = min(values), max(values)
     if as_percent:
-        ymin = min(ymin, 0.0)
-        ymax = max(ymax, 0.0)
-    pad = (ymax - ymin) * 0.12 or 0.01
+        ymin, ymax = min(ymin, 0.0), max(ymax, 0.0)
+    pad = (ymax - ymin) * 0.12 or (1.0 if value_format == "count" else 0.01)
     ymin, ymax = ymin - pad, ymax + pad
     if as_percent:
         ymin, ymax = max(-1.0, ymin), min(1.0, ymax)
@@ -436,31 +441,44 @@ def render_metric_chart(rows: list[dict], metric: str, title: str, subtitle: str
         value = ymin + span * tick / 5
         y = y0 + plot_h - (value - ymin) / span * plot_h
         svg.append(f'<line x1="{x0}" y1="{y:.2f}" x2="{x0+plot_w}" y2="{y:.2f}" stroke="{COLORS["grid"]}"/>')
-        label = f"{value*100:.1f}%" if as_percent else (str(int(round(value))) if value_format == "count" else _money(value))
+        if as_percent:
+            label = f"{value*100:.1f}%"
+        elif value_format == "count":
+            label = str(max(0, int(round(value))))
+        else:
+            label = _money(value)
         svg.append(f'<text x="{x0-10}" y="{y+4:.2f}" text-anchor="end" font-size="11" fill="{COLORS["muted"]}">{_esc(label)}</text>')
     for idx, target in enumerate(targets):
         x = x0 + plot_w * idx / (len(targets)-1)
         svg.append(f'<line x1="{x:.2f}" y1="{y0}" x2="{x:.2f}" y2="{y0+plot_h}" stroke="{COLORS["grid"]}"/>')
         svg.append(f'<text x="{x:.2f}" y="{y0+plot_h+22}" text-anchor="middle" font-size="11" fill="{COLORS["muted"]}">{target}%</text>')
+    dash_by_timing = {"linear": "", "front_loaded": "8 4", "back_loaded": "2 4"}
     for bond in bonds:
-        vals = [data[(bond,target)].get(metric) for target in targets]
-        points = []
-        for idx, value in enumerate(vals):
-            if value is None: continue
-            x = x0 + plot_w * idx / (len(targets)-1)
-            y = y0 + plot_h - (float(value)-ymin)/span*plot_h
-            points.append((x,y))
-        if points:
-            path = " ".join(("M" if i==0 else "L")+f" {x:.2f} {y:.2f}" for i,(x,y) in enumerate(points))
-            svg.append(f'<path d="{path}" fill="none" stroke="{COLORS[bond]}" stroke-width="3"/>')
-            for x,y in points:
-                svg.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4" fill="{COLORS[bond]}"/>')
-    lx, ly = 940, 142
+        for timing in timings:
+            vals = [data[(bond, target, timing)].get(metric) for target in targets]
+            points = []
+            for idx, value in enumerate(vals):
+                if value is None:
+                    continue
+                x = x0 + plot_w * idx / (len(targets)-1)
+                y = y0 + plot_h - (float(value)-ymin)/span*plot_h
+                points.append((x,y))
+            if points:
+                path = " ".join(("M" if i==0 else "L")+f" {x:.2f} {y:.2f}" for i,(x,y) in enumerate(points))
+                dash = dash_by_timing[timing]
+                dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
+                svg.append(f'<path d="{path}" fill="none" stroke="{COLORS[bond]}" stroke-width="2.6"{dash_attr}/>')
+                for x,y in points:
+                    svg.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="3.0" fill="{COLORS[bond]}"/>')
+    lx, ly = 925, 122
     for bond in bonds:
-        svg.append(f'<line x1="{lx}" y1="{ly}" x2="{lx+24}" y2="{ly}" stroke="{COLORS[bond]}" stroke-width="4"/>')
-        svg.append(f'<text x="{lx+32}" y="{ly+4}" font-size="13" fill="{COLORS["ink"]}">{bond}</text>')
-        ly += 31
-    svg.append(_svg_end("X 軸為第10年債券目標比重；滾動窗口相互重疊。ETF 代理不代表到期本金保證。"))
+        for timing in timings:
+            dash = dash_by_timing[timing]
+            dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
+            svg.append(f'<line x1="{lx}" y1="{ly}" x2="{lx+24}" y2="{ly}" stroke="{COLORS[bond]}" stroke-width="3"{dash_attr}/>')
+            svg.append(f'<text x="{lx+31}" y="{ly+4}" font-size="12" fill="{COLORS["ink"]}">{_esc(bond + " · " + TIMING_LABELS[timing])}</text>')
+            ly += 29
+    svg.append(_svg_end("顏色代表債券代理；實線＝線性、虛線＝前置、點線＝後置轉換。X軸為第10年債券目標比重。"))
     return "".join(svg)
 
 def render_html(outdir: Path, report: dict, charts: dict[str,str]) -> None:
@@ -508,13 +526,13 @@ def generate_results(outdir: Path, schedule_path: Path | None = None) -> dict:
     charts = {
         "01_terminal_wealth.svg": render_metric_chart(noflow, "median_terminal_nav_usd",
             "第10年終值：比較轉債30%–100%",
-            "四種債券代理；曲線為 10 年滾動窗口終值中位數", False),
+            "四種債券代理 x 三種轉換時間規則；曲線為十年滾動窗口終值中位數", False),
         "02_daily_drawdown.svg": render_metric_chart(noflow, "median_daily_max_drawdown",
             "最大回撤：比較轉債30%–100%",
-            "每個窗口先算每日時間加權最大回撤，再比較中位數", True),
+            "顏色為債券代理、線型為轉換時間規則；每個窗口計算每日時間加權最大回撤", True),
         "03_time_weighted_cagr.svg": render_metric_chart(noflow, "median_time_weighted_cagr",
             "年化時間加權回報：比較轉債30%–100%",
-            "調整收市價代理總回報；不等於未來預期回報", True),
+            "顏色為債券代理、線型為轉換時間規則；調整收市價代理總回報", True),
         "04_withdrawal_shortfall_sample.svg": render_metric_chart(sample_flow, "windows_with_withdrawal_shortfall",
             "遞增提款示例：無法全額支付的歷史窗口數",
             "示例合計提款12,800美元、後續投入5,000美元；不是預設支出", False, value_format="count"),
