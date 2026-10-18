@@ -171,6 +171,9 @@ jobs:
           assert abs(year9["median_target_bond_weight"] - 0.54) < 1e-9 and abs(year9["median_target_stock_weight"] - 0.46) < 1e-9
           assert abs(year10["median_target_bond_weight"] - 0.60) < 1e-9 and abs(year10["median_target_stock_weight"] - 0.40) < 1e-9
           assert year9["median_nav_usd"] != year10["median_nav_usd"]
+          terminal = next(row for row in scenarios if row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 60 and row["timing_rule"] == "linear" and row["cashflow_mode"] == "no_withdrawals")
+          assert abs(year10["median_nav_usd"] - terminal["median_terminal_nav_usd"]) < 0.02
+          assert all(abs(row["median_target_bond_weight"] + row["median_target_stock_weight"] - 1.0) < 1e-12 for row in annual)
           for row in scenarios:
               assert row["rolling_windows"] == glide["method"]["rolling_windows_per_scenario"]
               assert row["p05_terminal_nav_usd"] <= row["median_terminal_nav_usd"] <= row["p95_terminal_nav_usd"]

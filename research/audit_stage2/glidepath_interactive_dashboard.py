@@ -51,7 +51,7 @@ function chart(metric,flow,title,fmt,s){
 function scatter(s){
  let rr=A.filter(r=>r.cashflow_mode==="no_withdrawals"&&+r.year===s.year&&r.median_cumulative_twr_cagr!=null);
  if(!rr.length)return '<p class="tiny">第0年尚未形成回報／回撤座標。</p>';
- let w=800,h=290,x0=62,y0=18,pw=690,ph=195,xx=rr.map(r=>Math.abs(+r.median_drawdown_to_date)),yy=rr.map(r=>+r.median_cumulative_twr_cagr),mx=Math.max(.01,...xx)*1.1,mn=Math.min(0,...yy)*.9,mr=Math.max(.01,...yy)*1.08;
+ let w=800,h=290,x0=62,y0=18,pw=690,ph=195,xx=rr.map(r=>Math.abs(+r.median_drawdown_to_date)),yy=rr.map(r=>+r.median_cumulative_twr_cagr),mx=Math.max(.01,...xx)*1.1,mn=Math.min(0,...yy)*1.1,mr=Math.max(.01,...yy)*1.08;
  if(mr===mn)mr=mn+.01;
  let xp=v=>x0+v/mx*pw,yp=v=>y0+ph-(v-mn)/(mr-mn)*ph,z=H("所選年份的回報與回撤",w,h);
  for(let i=0;i<=4;i++){let a=mx*i/4,x=xp(a),b=mn+(mr-mn)*i/4,y=yp(b);z+='<line x1="'+x+'" y1="'+y0+'" x2="'+x+'" y2="'+(y0+ph)+'" stroke="'+C.grid+'"/><text x="'+x+'" y="'+(y0+ph+16)+'" font-size="10" text-anchor="middle">'+Math.round(a*100)+'%</text><line x1="'+x0+'" y1="'+y+'" x2="'+(x0+pw)+'" y2="'+y+'" stroke="'+C.grid+'"/><text x="'+(x0-6)+'" y="'+(y+3)+'" text-anchor="end" font-size="10">'+(b*100).toFixed(1)+'%</text>';}
@@ -63,8 +63,8 @@ function scatter(s){
    else if(shape==="linear")mark='<circle cx="'+x+'" cy="'+y+'" r="3.1"';
    else if(shape==="mid_loaded")mark='<polygon points="'+x+','+(y-5)+' '+(x-5)+','+y+' '+x+','+(y+5)+' '+(x+5)+','+y+'"';
    else if(shape==="back_loaded")mark='<polygon points="'+(x-4.5)+','+(y-3.5)+' '+(x+4.5)+','+(y-3.5)+' '+x+','+(y+5)+'"';
-   else mark='<path d="M '+(x-4)+' '+y+' H '+(x+4)+' M '+x+' '+(y-4)+' V '+(y+4)+'" fill="none"';
-   let close=shape==="front_fast"||shape==="front_loaded"||shape==="mid_loaded"||shape==="back_loaded"?"</polygon>":shape==="linear"?"</circle>":"</path>";
+   else mark='<path d="M '+(x-4)+' '+y+' H '+(x+4)+' M '+x+' '+(y-4)+' V '+(y+4)+'" ';
+   let close=shape==="front_fast"?"</rect>":shape==="front_loaded"||shape==="mid_loaded"||shape==="back_loaded"?"</polygon>":shape==="linear"?"</circle>":"</path>";
    z+=mark+' data-pick="1" data-bond="'+r.bond_proxy+'" data-target="'+r.target_bond_conversion_pct_at_year10+'" data-timing="'+r.timing_rule+'" fill="'+(shape==="back_late"?"none":C[r.bond_proxy])+'" stroke="'+(sel?C.navy:C[r.bond_proxy])+'" stroke-width="'+(sel?3:1.4)+'"><title>'+r.bond_proxy+' '+r.target_bond_conversion_pct_at_year10+'% '+TN[r.timing_rule]+' · '+pct(r.median_cumulative_twr_cagr)+' · '+pct(r.median_drawdown_to_date)+'</title>'+close;
  });
  return z+'<text x="'+(x0+pw/2)+'" y="'+(h-5)+'" text-anchor="middle" font-size="11">截至第'+s.year+'年：中位最大回撤幅度（越左越小）</text></svg>';
