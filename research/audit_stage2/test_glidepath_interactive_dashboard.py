@@ -27,7 +27,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(cases),768)
         self.assertEqual(len(annual),8448)
         page=render_dashboard(cases,annual)
-        for token in ('id="target"','id="year"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','addEventListener(\\'input\\',update)','data-pick=','拖動 BAR','不是預測','__ANNUAL__'):
+        for token in ('id="target"','id="year"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','addEventListener("input",update)','data-pick=','拖動 BAR','不是預測','__ANNUAL__'):
             if token=="__ANNUAL__":
                 continue
             self.assertIn(token,page)

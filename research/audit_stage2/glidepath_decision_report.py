@@ -178,7 +178,7 @@ def render_frontier(rows: list[dict]) -> str:
             svg.append(f'<path d="M {x-4:.2f} {y:.2f} H {x+4:.2f} M {x:.2f} {y-4:.2f} V {y+4:.2f}" stroke="{color}" stroke-width="2.5" opacity=".9"/>')
         else:
             svg.append(f'<polygon points="{x:.2f},{y-5:.2f} {x-4.5:.2f},{y+4:.2f} {x+4.5:.2f},{y+4:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
-    short = {"linear": "線", "front_loaded": "前", "back_loaded": "後"}
+    short = {"front_fast":"快前","front_loaded":"前","linear":"線","mid_loaded":"中","back_loaded":"後","back_late":"延後"}
     for i, r in enumerate(frontier):
         x = xp(abs(float(r["median_daily_max_drawdown"])))
         y = yp(float(r["median_time_weighted_cagr"]))
