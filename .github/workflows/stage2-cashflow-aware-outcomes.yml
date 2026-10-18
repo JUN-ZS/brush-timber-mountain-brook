@@ -1,4 +1,4 @@
-name: Stage 2 cash-flow-aware QQQ-SPY outcomes
+name: Stage 2 no-withdrawal floor-first QQQ-SPY outcomes
 
 on:
   pull_request:
@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   reproduce:
-    name: Reproduce cash-flow grid on Linux BOT
+    name: Reproduce no-withdrawal baselines and maturity-floor scenarios on Linux BOT
     runs-on: [self-hosted, grokbot-box-linux-x64]
     timeout-minutes: 20
     steps:
@@ -25,7 +25,7 @@ jobs:
       - name: Run cash-flow lifecycle tests
         run: python3 -m unittest discover -s research/audit_stage2 -p 'test_cashflow_aware_qqq_spy.py' -v
 
-      - name: Run 120-month withdrawal sensitivity grid
+      - name: Run default no-withdrawal and capital-floor scenario grid
         run: |
           python3 research/audit_stage2/cashflow_aware_qqq_spy.py \
             --input artifacts/pulse_v2/data_market_data.csv \
@@ -38,27 +38,33 @@ jobs:
           import json
           from pathlib import Path
           report = json.loads(Path("/tmp/cashflow-aware-summary.json").read_text(encoding="utf-8"))
-          assert report["schema"] == "cashflow-aware-investor-outcomes.v1"
+          assert report["schema"] == "cashflow-aware-investor-outcomes.v2"
           assert report["input"]["actual_sha256"] == "c9e369c8a3789c543c05fafa82ed67589c1292a7bd423f2ef9990313825f5127"
           assert report["input"]["monthly_observations"] == 331
           assert report["method"]["rolling_windows_per_scenario"] == 211
           summaries = report["scenario_summaries"]
-          assert len(summaries) == 12, len(summaries)
+          assert len(summaries) == 2, len(summaries)
           assert all(row["rolling_windows"] == 211 for row in summaries)
           for ticker in ("QQQ", "SPY"):
-              zero = next(row for row in summaries if row["ticker"] == ticker and row["scenario"] == "monthly_withdrawal_0_usd")
+              zero = next(row for row in summaries if row["ticker"] == ticker and row["scenario"] == "no_withdrawals")
               assert zero["windows_with_any_unfunded_withdrawal"] == 0
               assert zero["median_investor_xirr"] is not None
               assert abs(zero["median_investor_xirr"] - zero["median_underlying_price_cagr"]) < 1e-5
+          floors = report["capital_floor_summaries"]
+          assert len(floors) == 4, len(floors)
+          assert all(row["floor_face_usd_at_maturity"] == 100000.0 for row in floors)
+          assert all(row["windows_floor_not_met_by_model_before_tax_costs"] == 0 for row in floors)
+          assert all(row["growth_sleeve_initial_capital_usd"] > 0 for row in floors)
+          assert report["method"]["default_cashflow_behavior"].startswith("No deposit or withdrawal")
           rows = Path("/tmp/cashflow-aware-windows.csv").read_text(encoding="utf-8").splitlines()
-          assert len(rows) == 1 + 2 * 6 * 211, len(rows)
-          print("PASS: pinned source, 331 monthly marks, 211 windows per scenario, 12 summaries, no-flow XIRR parity")
+          assert len(rows) == 1 + (2 + 4) * 211, len(rows)
+          print("PASS: pinned source, 331 monthly marks, 211 windows, no-withdrawal default, floor-first scenarios, XIRR parity")
           PY
 
       - name: Upload auditable result bundle
         uses: actions/upload-artifact@v4
         with:
-          name: stage2-cashflow-aware-investor-outcomes
+          name: stage2-no-withdrawal-capital-floor-outcomes
           path: |
             /tmp/cashflow-aware-summary.json
             /tmp/cashflow-aware-windows.csv
