@@ -76,7 +76,7 @@ class ChartExplorationTests(unittest.TestCase):
         glidepath = render_glidepath_svg()
         self.assertIn("比較第10年轉換30%–100%", glidepath)
         self.assertIn("第10年轉100%到債券", glidepath)
-        self.assertIn("不是報酬回測", glidepath)
+        self.assertIn("不是債券績效回測", glidepath)
 
     def test_cashflow_chart_displays_withdrawals_and_reinvestment(self):
         schedule = {
