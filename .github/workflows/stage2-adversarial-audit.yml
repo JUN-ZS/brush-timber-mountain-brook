@@ -85,8 +85,8 @@ jobs:
           {
             echo "## Stage 2 adversarial recompute"
             echo ""
-            echo "- Source commit: `$GITHUB_SHA`"
-            echo "- Script: `scripts/stage2_recompute_stage1_claims.py`"
+            echo "- Source commit: $GITHUB_SHA"
+            echo "- Script: scripts/stage2_recompute_stage1_claims.py"
             if [ -s "${RESULT_PATH:-}" ]; then
               python3 - "$RESULT_PATH" <<'PY'
           import json, sys
