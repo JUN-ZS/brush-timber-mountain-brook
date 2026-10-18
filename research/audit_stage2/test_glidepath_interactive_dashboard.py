@@ -97,6 +97,7 @@ class DashboardTests(unittest.TestCase):
         self.assertNotIn("__DATA__",page)
         self.assertNotIn("__ANNUAL__",page)
         self.assertNotIn("__HIST__",page)
+        self.assertNotIn("__HIST__",page)
         markup=MarkupIDAudit()
         markup.feed(page)
         self.assertFalse(markup.duplicates, f"duplicate element IDs: {sorted(markup.duplicates)}")
