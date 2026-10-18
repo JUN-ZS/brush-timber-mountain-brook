@@ -184,7 +184,9 @@ def recompute_floor_diagnostics(path: Path) -> dict[str, Any]:
     obj = read_json(path)
     states = Counter()
     state_steps = 0
-    for replay in obj.get("starts", {}).values():
+    starts = obj.get("starts", {})
+    replays = starts.values() if isinstance(starts, dict) else (starts if isinstance(starts, list) else [])
+    for replay in replays:
         for point in replay.get("divergenceStateByDate", []):
             states[point.get("state", "UNKNOWN")] += 1
             state_steps += 1
