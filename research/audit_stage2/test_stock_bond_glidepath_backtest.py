@@ -5,6 +5,7 @@ from cashflow_aware_qqq_spy import FlowEvent
 from stock_bond_glidepath_backtest import (
     BOND_TICKERS,
     TARGET_CONVERSIONS,
+    TIMING_RULES,
     _target_bond_weight,
     replay_one_window,
     summarize_group,
@@ -33,11 +34,17 @@ def market_fixture(months=121):
 class StockBondGlidepathTests(unittest.TestCase):
     def test_targets_are_30_to_100_and_weight_steps_are_linear(self):
         self.assertEqual(TARGET_CONVERSIONS, (30, 40, 50, 60, 70, 80, 90, 100))
+        self.assertEqual(TIMING_RULES, ("linear", "front_loaded", "back_loaded"))
         self.assertAlmostEqual(_target_bond_weight(60, 0), 0.0)
         self.assertAlmostEqual(_target_bond_weight(60, 12), 0.06)
         self.assertAlmostEqual(_target_bond_weight(60, 60), 0.30)
         self.assertAlmostEqual(_target_bond_weight(60, 120), 0.60)
         self.assertAlmostEqual(_target_bond_weight(100, 120), 1.0)
+        self.assertAlmostEqual(_target_bond_weight(60, 36, "front_loaded"), 0.30)
+        self.assertAlmostEqual(_target_bond_weight(60, 120, "front_loaded"), 0.60)
+        self.assertAlmostEqual(_target_bond_weight(60, 60, "back_loaded"), 0.0)
+        self.assertAlmostEqual(_target_bond_weight(60, 72, "back_loaded"), 0.12)
+        self.assertAlmostEqual(_target_bond_weight(60, 120, "back_loaded"), 0.60)
 
     def test_one_hundred_percent_target_ends_all_bond_and_no_market_loss(self):
         dates, prices, monthly = market_fixture()
@@ -48,6 +55,18 @@ class StockBondGlidepathTests(unittest.TestCase):
         self.assertAlmostEqual(row["daily_max_drawdown"], 0.0, places=6)
         self.assertEqual(row["withdrawal_shortfall_usd"], 0.0)
         self.assertEqual(row["investor_xirr_status"], "OK")
+
+    def test_conversion_timing_changes_returns_but_not_year_ten_target(self):
+        dates, prices, monthly = market_fixture()
+        front = replay_one_window(dates, prices, monthly, 0, "IEF", 60, timing_rule="front_loaded")
+        linear = replay_one_window(dates, prices, monthly, 0, "IEF", 60, timing_rule="linear")
+        back = replay_one_window(dates, prices, monthly, 0, "IEF", 60, timing_rule="back_loaded")
+        for row in (front, linear, back):
+            self.assertAlmostEqual(row["ending_stock_weight"], 0.40)
+            self.assertAlmostEqual(row["ending_bond_weight"], 0.60)
+        # Fixture has rising stocks and flat bonds; moving out of stocks earlier reduces total return.
+        self.assertGreater(back["time_weighted_cagr"], linear["time_weighted_cagr"])
+        self.assertGreater(linear["time_weighted_cagr"], front["time_weighted_cagr"])
 
     def test_custom_withdrawal_is_recorded_and_never_pushes_nav_negative(self):
         dates, prices, monthly = market_fixture()
