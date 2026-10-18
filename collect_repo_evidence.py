@@ -526,6 +526,7 @@ def main() -> int:
         "github_repo": github_slug,
         "head_sha": head_sha,
         "head_branch": head_branch,
+        "worktree_clean": True,
         "origin": origin_url,
         "counts": {
             "tracked_files_at_head": len(files),
