@@ -241,6 +241,38 @@ export function protectedScore(m: Metrics, extra: ProtectedExtras) {
   );
 }
 
+export type PutOpeningLedgerEntry = {
+  assetMarkValue: number;
+  cashPaid: number;
+};
+
+/**
+ * Record the option asset at mid separately from the cash actually paid at ask.
+ * Net entry-day P&L is only the ask-vs-mid execution haircut, not the full
+ * option premium a second time.
+ */
+export function putOpeningLedgerEntry(
+  contracts: number,
+  mid: number,
+  spread: number,
+): PutOpeningLedgerEntry {
+  if (
+    !Number.isFinite(contracts) ||
+    !Number.isFinite(mid) ||
+    !Number.isFinite(spread) ||
+    contracts < 0 ||
+    mid < 0 ||
+    spread < 0 ||
+    spread > 1
+  ) {
+    throw new RangeError("Invalid PUT opening ledger inputs");
+  }
+  return {
+    assetMarkValue: contracts * mid,
+    cashPaid: contracts * mid * (1 + spread),
+  };
+}
+
 const DISCLAIMER =
   "Derived BS put overlay using VIX as IV. Estimated 10% spread haircut. NOT an OPRA fill backtest.";
 
@@ -325,8 +357,11 @@ export function runProtected(
       const strike = roundStrike(S * (1 - spec.putDistance), S);
       const expiryI = expiryIndex(i, spec.dte);
       const mid = markPut(S, strike, i, expiryI, iv);
-      const pay = mid * (1 + spec.spread);
-      premium += contracts * pay;
+      const opening = putOpeningLedgerEntry(contracts, mid, spec.spread);
+      // Recognize the purchased option as an asset at mid; deduct the full ask separately.
+      // The opening-day net is the spread haircut rather than the entire premium.
+      putPnl += opening.assetMarkValue;
+      premium += opening.cashPaid;
       lots.push({ strike, expiryI, contracts, lastMark: mid, openedI: i });
       bump(which, "opens", 1);
       if (needAdd) bump(which, "add", 1);
