@@ -171,6 +171,41 @@ requireText(workflow, /needs\.ndx-linux\.result == 'success'[\s\S]*needs\.hub-we
 requireText(ledger, /HYPOTHETICAL_SCENARIO_NOT_OBSERVED/, "assumption ledger must classify scenario assumptions");
 requireText(ledger, /independently verified/i, "assumption ledger must preserve evidence limitation");
 
+// The initial 16:9 overview is a live mirror of existing engine outputs, not a separate source of truth.
+assert.ok(html.includes('data-tab="tab-overview"'), "missing dedicated overview navigation");
+assert.ok(html.includes('<section id="tab-overview" class="tab-panel overview-shell space-y-4">'), "overview panel missing or not the intended first panel");
+assert.ok(html.includes('id="globalKpiStrip"'), "legacy KPI strip needs a visibility hook for overview mode");
+assert.ok(html.includes("globalKpiStrip.classList.toggle('hidden', targetId === 'tab-overview')"), "KPI strip must be hidden only on overview and visible on detail tabs");
+assert.ok(html.includes("max-width: min(1840px, calc(100vw - 56px))"), "widescreen layout width limit is missing");
+for (const id of [
+  "overviewNavValue", "overviewTermValue", "overviewBarValue", "overviewRatioValue",
+  "overviewDecisionTitle", "overviewDecisionReason", "overviewSourceBadge",
+  "overviewLedgerBadge", "overviewStrategyBadge", "overviewCapacityBadge",
+  "overviewTestBadge", "overviewCarryBar", "overviewBackBar", "overviewVixBar"
+]) assert.ok(html.includes('id="' + id + '"'), "missing overview field " + id);
+assert.ok(html.includes('["kpiNavValue", "overviewNavValue"]'), "overview NAV must mirror the existing KPI value");
+assert.ok(html.includes('["nowHeadline", "overviewDecisionTitle"]'), "overview decision must mirror the existing engine headline");
+assert.ok(html.includes('data-overview-tab="tab-floor"'), "overview needs a direct navigation path to mutual-tracking research");
+assert.ok(html.includes("broker_orders = FALSE") || html.includes("BROKER ORDERS OFF"), "overview must preserve visible execution boundary");
+
+// The three research charts are secondary detail, accessible and independently collapsible.
+for (const [disclosureId, canvasId] of [
+  ["ratioComparisonDisclosure", "ratioComparisonChart"],
+  ["volHorizonDisclosure", "volHorizonChart"],
+  ["floorTrajectoryDisclosure", "floorTrajectoryChart"]
+]) {
+  const disclosureStart = html.indexOf('<details id="' + disclosureId + '"');
+  assert.ok(disclosureStart >= 0, "missing collapsible chart wrapper " + disclosureId);
+  const disclosureEnd = html.indexOf("</details>", disclosureStart);
+  assert.ok(disclosureEnd > disclosureStart, "unclosed chart wrapper " + disclosureId);
+  const block = html.slice(disclosureStart, disclosureEnd + "</details>".length);
+  assert.ok(block.includes('id="' + canvasId + '"'), canvasId + " must live inside " + disclosureId);
+  assert.ok(block.includes("<summary"), disclosureId + " needs an accessible summary");
+  assert.ok(block.includes("chart-disclosure-icon"), disclosureId + " needs open/closed state feedback");
+}
+assert.ok(html.includes("153 個滾動 10Y 歷史視窗 + 20Y/30Y/50Y 互追"), "mutual-tracking chart label was lost");
+assert.ok(html.includes('ChartCtor.getChart(canvas)'), "collapsed Chart.js canvases must be resized after opening");
+
 console.log("PASS V4.4 static/frame checks");
 console.log("inline JS blocks syntax-checked:", inlineCount);
 console.log("Golden Tests defined:", ids.length, "(GT-01..GT-52)");
