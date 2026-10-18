@@ -5,7 +5,10 @@ on:
     paths:
       - "research/audit_stage2/cashflow_aware_qqq_spy.py"
       - "research/audit_stage2/test_cashflow_aware_qqq_spy.py"
+      - "research/audit_stage2/chart_exploration.py"
+      - "research/audit_stage2/test_chart_exploration.py"
       - "research/audit_stage2/CASHFLOW_AWARE_OUTCOMES.md"
+      - "research/audit_stage2/CASHFLOW_CHART_EXPLORATION.md"
       - ".github/workflows/stage2-cashflow-aware-outcomes.yml"
       - "artifacts/pulse_v2/data_market_data.csv"
   workflow_dispatch:
@@ -15,7 +18,7 @@ permissions:
 
 jobs:
   reproduce:
-    name: Reproduce no-withdrawal baselines and maturity-floor scenarios on Linux BOT
+    name: Reproduce cash-flow scenarios and chart lab on Linux BOT
     runs-on: [self-hosted, grokbot-box-linux-x64]
     timeout-minutes: 20
     steps:
@@ -24,6 +27,9 @@ jobs:
 
       - name: Run cash-flow lifecycle tests
         run: python3 -m unittest discover -s research/audit_stage2 -p 'test_cashflow_aware_qqq_spy.py' -v
+
+      - name: Run chart exploration tests
+        run: python3 -m unittest discover -s research/audit_stage2 -p 'test_chart_exploration.py' -v
 
       - name: Run default no-withdrawal and capital-floor scenario grid
         run: |
@@ -40,18 +46,28 @@ jobs:
             --out /tmp/cashflow-aware-stepped-summary.json \
             --rows-out /tmp/cashflow-aware-stepped-windows.csv
 
-      - name: Validate expected research contract
+      - name: Generate the five-chart SVG and HTML exploration pack
+        run: |
+          python3 research/audit_stage2/chart_exploration.py \
+            --input artifacts/pulse_v2/data_market_data.csv \
+            --flows-csv research/audit_stage2/example_delayed_stepup_schedule.csv \
+            --outdir /tmp/cashflow-chart-lab
+
+      - name: Validate pinned replay and chart contracts
         run: |
           python3 - <<'PY'
+          import csv
           import json
           from pathlib import Path
+
+          expected_sha = "c9e369c8a3789c543c05fafa82ed67589c1292a7bd423f2ef9990313825f5127"
           report = json.loads(Path("/tmp/cashflow-aware-summary.json").read_text(encoding="utf-8"))
           assert report["schema"] == "cashflow-aware-investor-outcomes.v2"
-          assert report["input"]["actual_sha256"] == "c9e369c8a3789c543c05fafa82ed67589c1292a7bd423f2ef9990313825f5127"
+          assert report["input"]["actual_sha256"] == expected_sha
           assert report["input"]["monthly_observations"] == 331
           assert report["method"]["rolling_windows_per_scenario"] == 211
           summaries = report["scenario_summaries"]
-          assert len(summaries) == 2, len(summaries)
+          assert len(summaries) == 2
           assert all(row["rolling_windows"] == 211 for row in summaries)
           for ticker in ("QQQ", "SPY"):
               zero = next(row for row in summaries if row["ticker"] == ticker and row["scenario"] == "no_withdrawals")
@@ -59,36 +75,61 @@ jobs:
               assert zero["median_investor_xirr"] is not None
               assert abs(zero["median_investor_xirr"] - zero["median_underlying_price_cagr"]) < 1e-5
           floors = report["capital_floor_summaries"]
-          assert len(floors) == 4, len(floors)
+          assert len(floors) == 4
           assert all(row["floor_face_usd_at_maturity"] == 100000.0 for row in floors)
           assert all(row["windows_floor_not_met_by_model_before_tax_costs"] == 0 for row in floors)
           assert all(row["growth_sleeve_initial_capital_usd"] > 0 for row in floors)
           assert report["method"]["default_cashflow_behavior"].startswith("No deposit or withdrawal")
-          rows = Path("/tmp/cashflow-aware-windows.csv").read_text(encoding="utf-8").splitlines()
-          assert len(rows) == 1 + (2 + 4) * 211, len(rows)
+          base_rows = Path("/tmp/cashflow-aware-windows.csv").read_text(encoding="utf-8").splitlines()
+          assert len(base_rows) == 1 + (2 + 4) * 211
+
           stepped = json.loads(Path("/tmp/cashflow-aware-stepped-summary.json").read_text(encoding="utf-8"))
           assert stepped["schema"] == "cashflow-aware-investor-outcomes.v2"
-          assert stepped["input"]["actual_sha256"] == report["input"]["actual_sha256"]
+          assert stepped["input"]["actual_sha256"] == expected_sha
           assert stepped["method"]["custom_schedule_rows"] == 9
           assert len(stepped["scenario_summaries"]) == 2
           assert len(stepped["capital_floor_summaries"]) == 4
           assert all(row["cashflow_mode"] == "custom_schedule" for row in stepped["capital_floor_summaries"])
           assert all(row["windows_floor_not_met_by_model_before_tax_costs"] == 0 for row in stepped["capital_floor_summaries"])
           assert all(row["floor_payment_used_for_spending"] is False for row in stepped["capital_floor_summaries"])
-          assert all(row["windows_with_any_unfunded_withdrawal"] >= 0 for row in stepped["capital_floor_summaries"])
-          step_rows = Path("/tmp/cashflow-aware-stepped-windows.csv").read_text(encoding="utf-8").splitlines()
-          assert len(step_rows) == 1 + (2 + 4) * 211, len(step_rows)
-          print("PASS: pinned source, no-withdrawal default, floor-first outcomes, optional delayed/step-up flows, floor never used for spending, XIRR parity")
+          stepped_rows = Path("/tmp/cashflow-aware-stepped-windows.csv").read_text(encoding="utf-8").splitlines()
+          assert len(stepped_rows) == 1 + (2 + 4) * 211
+
+          outdir = Path("/tmp/cashflow-chart-lab")
+          chart = json.loads((outdir / "chart_summary.json").read_text(encoding="utf-8"))
+          assert chart["schema"] == "cashflow-visual-exploration.v1"
+          assert chart["input"]["sha256"] == expected_sha
+          assert chart["input"]["monthly_observations"] == 331
+          assert chart["input"]["rolling_ten_year_windows"] == 211
+          assert len(chart["chart_files"]) == 5
+          for filename in chart["chart_files"]:
+              body = (outdir / filename).read_text(encoding="utf-8")
+              assert body.startswith("<svg ") and body.rstrip().endswith("</svg>"), filename
+              assert len(body) > 1000, filename
+          assert (outdir / "index.html").stat().st_size > 10000
+          ranges = list(csv.DictReader((outdir / "cashflow_outcome_ranges.csv").open(encoding="utf-8")))
+          assert len(ranges) == 8, len(ranges)
+          for row in ranges:
+              assert int(row["rolling_windows"]) == 211
+              assert float(row["p05_terminal_nav_usd"]) <= float(row["median_terminal_nav_usd"]) <= float(row["p95_terminal_nav_usd"])
+          assert chart["assumptions"]["withdrawal_events"] == 9
+          assert chart["assumptions"]["withdrawal_sum_usd"] == 12800.0
+          assert chart["assumptions"]["deposit_sum_usd"] == 5000.0
+          print("PASS: pinned source, 211 windows, cashflow lifecycle, five SVG charts, HTML dashboard, outcome quantiles and explicit model limits")
           PY
 
-      - name: Upload auditable result bundle
+      - name: Upload research results and chart pack
         uses: actions/upload-artifact@v4
         with:
-          name: stage2-no-withdrawal-capital-floor-outcomes
+          name: stage2-cashflow-floor-chart-lab
           path: |
             /tmp/cashflow-aware-summary.json
             /tmp/cashflow-aware-windows.csv
             /tmp/cashflow-aware-stepped-summary.json
             /tmp/cashflow-aware-stepped-windows.csv
+            /tmp/cashflow-chart-lab/index.html
+            /tmp/cashflow-chart-lab/chart_summary.json
+            /tmp/cashflow-chart-lab/cashflow_outcome_ranges.csv
+            /tmp/cashflow-chart-lab/*.svg
           if-no-files-found: error
           retention-days: 14
