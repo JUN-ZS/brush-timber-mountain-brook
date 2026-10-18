@@ -557,13 +557,21 @@ def render_metric_chart(rows: list[dict], metric: str, title: str, subtitle: str
                 for x,y in points:
                     svg.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="3.0" fill="{COLORS[bond]}"/>')
     lx, ly = 925, 122
+    svg.append(f'<text x="{lx}" y="{ly}" font-size="13" font-weight="700" fill="{COLORS["navy"]}">顏色：債券代理</text>')
+    ly += 24
     for bond in bonds:
-        for timing in timings:
-            dash = dash_by_timing[timing]
-            dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
-            svg.append(f'<line x1="{lx}" y1="{ly}" x2="{lx+24}" y2="{ly}" stroke="{COLORS[bond]}" stroke-width="3"{dash_attr}/>')
-            svg.append(f'<text x="{lx+31}" y="{ly+4}" font-size="12" fill="{COLORS["ink"]}">{_esc(bond + " · " + TIMING_LABELS[timing])}</text>')
-            ly += 29
+        svg.append(f'<line x1="{lx}" y1="{ly-4}" x2="{lx+24}" y2="{ly-4}" stroke="{COLORS[bond]}" stroke-width="3"/>')
+        svg.append(f'<text x="{lx+31}" y="{ly}" font-size="12" fill="{COLORS["ink"]}">{_esc(bond)}</text>')
+        ly += 22
+    ly += 7
+    svg.append(f'<text x="{lx}" y="{ly}" font-size="13" font-weight="700" fill="{COLORS["navy"]}">線型：轉換時間</text>')
+    ly += 24
+    for timing in timings:
+        dash = dash_by_timing[timing]
+        dash_attr = f' stroke-dasharray="{dash}"' if dash else ""
+        svg.append(f'<line x1="{lx}" y1="{ly-4}" x2="{lx+24}" y2="{ly-4}" stroke="{COLORS["navy"]}" stroke-width="2.5"{dash_attr}/>')
+        svg.append(f'<text x="{lx+31}" y="{ly}" font-size="11.5" fill="{COLORS["ink"]}">{_esc(TIMING_LABELS[timing])}</text>')
+        ly += 21
     svg.append(_svg_end("顏色代表債券代理；實線＝線性、虛線＝前置、點線＝後置轉換。X軸為第10年債券目標比重。"))
     return "".join(svg)
 

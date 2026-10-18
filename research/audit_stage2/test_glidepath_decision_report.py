@@ -15,7 +15,7 @@ from stock_bond_glidepath_backtest import BOND_TICKERS, TARGET_CONVERSIONS, TIMI
 def sample_scenarios():
     scenarios = []
     modes = ("no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress")
-    timing_risk = {"linear": 0.01, "front_loaded": 0.0, "back_loaded": 0.07}
+    timing_risk = {"front_fast": 0.02, "front_loaded": 0.0, "linear": 0.01, "mid_loaded": 0.025, "back_loaded": 0.07, "back_late": 0.10}
     for mode in modes:
         for bond_index, bond in enumerate(BOND_TICKERS):
             for timing_index, timing in enumerate(TIMING_RULES):
