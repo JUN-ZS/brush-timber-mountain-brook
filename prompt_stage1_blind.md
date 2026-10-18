@@ -9,20 +9,17 @@
    git rev-parse HEAD
    git status --short --branch
    ```
-2. Run the merged v2 read-only evidence collector outside the repository directory:
+2. Run the merged read-only evidence collector outside the repository directory and create the blind-safe snapshot (recommended; required for strict Stage-1 isolation):
    ```bash
-   python3 /path/to/collect_repo_evidence.py "$PWD" --out "$HOME/independent-audit-evidence"
+   python3 /path/to/collect_repo_evidence.py "$PWD" --out "$HOME/independent-audit-evidence" --snapshot --max-file-bytes 25000000 --max-snapshot-mb 100
    ```
-   *(Optional)* If you want to create a bounded text archive to upload to another tool without leaking `README`s or prior AI reports into Stage 1, pass `--snapshot`:
-   ```bash
-   python3 /path/to/collect_repo_evidence.py "$PWD" --out "$HOME/independent-audit-evidence" --snapshot
-   ```
-   This produces two separate archives:
+   The collector refuses a dirty worktree because file hashes and CSV previews must match the pinned HEAD. This produces two separate archives:
    - `repository_text_snapshot_BLIND_SAFE_HEAD.tar.gz` (safe for Stage 1 blind review)
    - `quarantined_narrative_snapshot_STAGE2_ONLY_HEAD.tar.gz` (withheld until Stage 2)
 3. Launch your **first coding agent** (e.g., Gemini CLI) in a **brand-new session**.
-   - **Strict Blindness Rule**: Do **not** share the Stage 2 prompt or your preferred portfolio structure with the Stage 1 reviewer.
-   - Instruct the agent to inspect `$HOME/independent-audit-evidence/00_README_EVIDENCE_SUMMARY.md` (`EVIDENCE_INDEX.md`) and the repository at the pinned `HEAD` SHA, prioritizing raw code, formulas, tests, and datasets over `quarantined_readme_and_narrative_docs`.
+   - **Strict Blindness Rule**: do **not** share the Stage 2 prompt, prior AI reports, Git history/commit messages, PR/issue discussions, GitHub run titles, or your preferred portfolio structure with Stage 1.
+   - For strict isolation, provide only the blind-safe archive `repository_text_snapshot_BLIND_SAFE_HEAD.tar.gz`, the pinned `head_sha` as a plain value, `collection_manifest.json`, and the data-preview manifest needed to identify coverage gaps. Do **not** expose the live checkout, its `.git` history, the full evidence directory, the GitHub metadata folder, or the Stage-2-only archive.
+   - Extract the blind-safe archive into a temporary workspace without a `.git` directory. Analyze the included implementation code, tests, configurations, and data. The archive is bounded: mark any required binary/large data omitted from it as `BLOCKED`, instead of claiming the full repository was inspected.
 4. Once Stage 1 completes, save its output to `$HOME/independent-audit-evidence/STAGE1_INDEPENDENT_FINDINGS.md` and freeze its hash:
    ```bash
    sha256sum "$HOME/independent-audit-evidence/STAGE1_INDEPENDENT_FINDINGS.md" > "$HOME/independent-audit-evidence/STAGE1_INDEPENDENT_FINDINGS.sha256"
@@ -35,7 +32,7 @@
 >
 > **Blinding & Quarantine Protocol**
 > 1. First record the checked-out commit SHA (`head_sha` in `collection_manifest.json`) and worktree state.
-> 2. **Quarantine Rule**: Do NOT read README files, strategy narrative reports, previous AI recommendations, PR descriptions, issue discussions, marketing text, or files listed under `quarantined_readme_and_narrative_docs` in `git/evidence_path_categories.json` until `STAGE1_INDEPENDENT_FINDINGS.md` is completed and frozen. You may list their paths without opening their contents.
+> 2. **Quarantine Rule**: Do NOT access the full repository checkout, Git history/commit messages, README files, strategy narrative reports, previous AI recommendations, Stage-2 prompt, PR descriptions, issue discussions, GitHub run titles, marketing text, or files listed under `quarantined_readme_and_narrative_docs` until `STAGE1_INDEPENDENT_FINDINGS.md` is completed and frozen. Stage 1 receives only the blind-safe snapshot and minimal manifest; do not try to obtain hidden files or metadata.
 > 3. Start strictly with implementation source (`strategy_and_backtest_code`), test code (`configs_and_test_entrypoints`), raw datasets (`data_candidates` and `git/data_files_preview.json`), run commands, configuration, accounting paths, and reproducible calculations. Treat test fixtures and hard-coded expected numbers as assertions to verify, not proof of real-world performance.
 > 4. If required inputs cannot be found or reproduced, classify the item as `BLOCKED` or `UNVERIFIED` rather than guessing.
 >
@@ -46,7 +43,7 @@
 > - Do not assume any strategy family or portfolio structure must be selected. Compare repository strategies against simple, non-leveraged benchmarks and other feasible allocations that could meet the stated terminal objective. Derive any capital-preservation or dynamic risk-budget mechanisms only if the evidence supports them; do not start from a preselected architecture.
 >
 > **Repository & Strategy Investigation**
-> 1. Map all relevant strategy source files, signals, formula definitions, sizing rules, exit rules, accounting paths, datasets, and tests across the repository and relevant history (beyond UI-only PRs such as PR #114).
+> 1. Map all strategy source files, signals, formula definitions, sizing rules, exit rules, accounting paths, datasets, and tests present in the pinned-HEAD blind-safe snapshot (beyond UI-only changes). Do not inspect historical commit messages or branch-only source before the report is frozen. If branch-only or historical implementations could materially change the conclusion, record that comparison as `BLOCKED until Stage 2`.
 > 2. Separate implemented code behavior from docstrings/comments and intended behavior.
 > 3. Reproduce material headline results where possible. Record exact command, data period, source files, commit SHA, and run identifier.
 > 4. Check for look-ahead leakage, parameter selection bias, survivorship bias, stale/missing option chains, quote availability, realistic entry/exit timing, bid-ask spread, commissions, slippage, early assignment/exercise, margin/liquidation rules, tax drag, and adverse market regimes.
