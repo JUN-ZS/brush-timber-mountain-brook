@@ -25,7 +25,7 @@ The workflow uploads an HTML report (index.html), independent SVG charts, method
 
 The separate `interactive_dashboard.html` is a single-file, offline research UI built from the 768 scenario summaries and 8,448 year-specific summaries. It now offers thirteen coordinated views:
 
-1. The selected-year comparison curves for NAV, P05 NAV, cumulative time-weighted CAGR, and withdrawal-shortfall window count.
+1. Four selected-year comparison charts: median NAV by target, drawdown-to-date by target, cumulative time-weighted CAGR by target, and withdrawal-shortfall windows by target. P05 NAV is displayed in the metric cards, fan chart and cohort tail summaries.
 2. A return-versus-drawdown scatter for the currently selected year and cash-flow mode; choosing a point updates the selected strategy.
 3. The ten-year glidepath with six distinct timing curves.
 4. A historical NAV distribution fan (P05/P50/P95 plus the worst window) for the selected strategy.
