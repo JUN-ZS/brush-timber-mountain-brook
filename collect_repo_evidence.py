@@ -44,7 +44,7 @@ SECRET_PATH_PARTS = {
 }
 
 SNAPSHOT_EXCLUDED_PATH_PARTS = {
-    ".grok", ".vercel", ".next", "node_modules", "dist", "build",
+    ".grok", ".vercel", ".next", ".tmp", "node_modules", "dist", "build",
     "coverage", "playwright-report", "test-results"
 }
 
