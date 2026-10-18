@@ -42,6 +42,8 @@ class DashboardTests(unittest.TestCase):
         page_template=open(__import__("glidepath_interactive_dashboard").__file__,encoding="utf-8").read()
         self.assertIn('year===s.year',page_template)
         self.assertIn('Y(s.bond,s.target,s.timing,s.flow,s.year)',page_template)
+        self.assertIn('100*Y(s.bond,s.target,m,s.flow,y).median_target_bond_weight',page_template)
+        self.assertNotIn('W(s.target,y,m)',page_template)
         self.assertIn('median_nav_usd',page_template)
         self.assertIn('median_drawdown_to_date',page_template)
         self.assertIn('back_late',page_template)
