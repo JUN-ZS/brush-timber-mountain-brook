@@ -28,7 +28,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(cases),768)
         self.assertEqual(len(annual),8448)
         page=render_dashboard(cases,annual)
-        for token in ('id="target"','id="year"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','addEventListener("input",update)','data-pick=','拖動 BAR','不是預測','__ANNUAL__'):
+        for token in ('id="target"','id="year"','id="heatMetric"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','id="fan"','id="drawdownPath"','id="heatmap"','id="exportMatrix"','id="exportAnnual"','addEventListener("input",update)','data-pick=','data-year=','拖動 BAR','不是預測','P05–P95','__ANNUAL__'):
             if token=="__ANNUAL__":
                 continue
             self.assertIn(token,page)
@@ -49,6 +49,12 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('median_drawdown_to_date',page_template)
         self.assertIn('back_late',page_template)
         self.assertIn('mid_loaded',page_template)
+        self.assertIn('function fan(s)',page_template)
+        self.assertIn('function drawdownPath(s)',page_template)
+        self.assertIn('function heatmap(s)',page_template)
+        self.assertIn('function exportMatrix()',page_template)
+        self.assertIn('cashflow_mode===s.flow',page_template)
+        self.assertIn('data-year="'+"'"+'+y+',page_template)
 
 if __name__=="__main__":
     unittest.main()
