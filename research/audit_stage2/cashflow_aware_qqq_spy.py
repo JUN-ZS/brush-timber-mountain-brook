@@ -378,14 +378,14 @@ def summarize_capital_floor_scenarios(
     points: list[MonthlyPrice],
     floor_face_usd: float = DEFAULT_FLOOR_FACE_USD,
     floor_cost_usd: float = DEFAULT_FLOOR_COST_USD,
+    custom_schedule: dict[int, list[FlowEvent]] | None = None,
 ) -> tuple[list[dict], list[dict]]:
-    """Replay no-withdrawal portfolios with a nominal maturity floor plus growth sleeve.
+    """Replay a maturity-floor portfolio; all optional spending uses the growth sleeve first.
 
-    The floor is a modeled zero-coupon Treasury/STRIPS maturity payment, not a
-    historical daily-marked bond return. Growth assets are priced from monthly-close
-    price ratios. The protected floor only holds if the selected instrument is matched
-    to the horizon, bought at the assumed/quoted all-in cost and held to maturity,
-    without withdrawals, taxes or costs being taken from the protected principal.
+    The modeled zero-coupon floor is locked until maturity. Deposits and withdrawals
+    are applied at monthly closes. A withdrawal is funded pro-rata from the QQQ, SPY
+    and cash components of the growth sleeve only; any unfunded amount is recorded as
+    shortfall rather than drawing down the protected floor.
     """
     if not math.isfinite(floor_face_usd) or floor_face_usd <= 0:
         raise ValueError("Floor face value must be finite and > 0")
@@ -396,41 +396,82 @@ def summarize_capital_floor_scenarios(
             "Floor purchase cost must be below initial capital so a growth sleeve remains"
         )
     growth_initial = INITIAL_CAPITAL_USD - floor_cost_usd
-    elapsed_floor_face_ratio = floor_face_usd / INITIAL_CAPITAL_USD
     strategies = [
         ("FLOOR_PLUS_CASH_0PCT", 0.0, 0.0, 1.0),
-        ("FLOOR_PLUS_QQQ", 1.0, 0.0, None),
-        ("FLOOR_PLUS_SPY", 0.0, 1.0, None),
-        ("FLOOR_PLUS_QQQ_SPY_50_50", 0.5, 0.5, None),
+        ("FLOOR_PLUS_QQQ", 1.0, 0.0, 0.0),
+        ("FLOOR_PLUS_SPY", 0.0, 1.0, 0.0),
+        ("FLOOR_PLUS_QQQ_SPY_50_50", 0.5, 0.5, 0.0),
     ]
     rows: list[dict] = []
     summaries: list[dict] = []
     window_count = len(points) - HORIZON_MONTHS
     if window_count <= 0:
         raise ValueError("Not enough monthly points to build a ten-year floor replay")
+    schedule = custom_schedule or {}
 
     for strategy, qqq_weight, spy_weight, cash_weight in strategies:
         scenario_rows: list[dict] = []
         for start_index in range(window_count):
             start = points[start_index]
             end = points[start_index + HORIZON_MONTHS]
-            qqq_multiple = end.qqq / start.qqq
-            spy_multiple = end.spy / start.spy
-            growth_multiple = (
-                qqq_weight * qqq_multiple
-                + spy_weight * spy_multiple
-                + (cash_weight or 0.0)
-            )
-            growth_terminal = growth_initial * growth_multiple
+            qqq_value = growth_initial * qqq_weight
+            spy_value = growth_initial * spy_weight
+            cash_value = growth_initial * cash_weight
+            deposits = 0.0
+            requested_withdrawals = 0.0
+            actual_withdrawals = 0.0
+            withdrawal_shortfall = 0.0
+            first_growth_depletion_month: int | None = None
+            min_growth_nav = growth_initial
+            investor_cashflows: list[tuple[dt.date, float]] = [(start.date, -INITIAL_CAPITAL_USD)]
+
+            for month_index in range(1, HORIZON_MONTHS + 1):
+                previous = points[start_index + month_index - 1]
+                current = points[start_index + month_index]
+                qqq_value *= current.qqq / previous.qqq
+                spy_value *= current.spy / previous.spy
+
+                for event in schedule.get(month_index, []):
+                    if event.flow_type == "deposit":
+                        amount = event.amount_usd
+                        qqq_value += amount * qqq_weight
+                        spy_value += amount * spy_weight
+                        cash_value += amount * cash_weight
+                        deposits += amount
+                        investor_cashflows.append((current.date, -amount))
+                    else:
+                        requested_withdrawals += event.amount_usd
+                        growth_nav_before = qqq_value + spy_value + cash_value
+                        paid = min(event.amount_usd, max(0.0, growth_nav_before))
+                        withdrawal_shortfall += event.amount_usd - paid
+                        if growth_nav_before > 1e-10 and paid > 0:
+                            remaining_fraction = (growth_nav_before - paid) / growth_nav_before
+                            qqq_value *= remaining_fraction
+                            spy_value *= remaining_fraction
+                            cash_value *= remaining_fraction
+                            actual_withdrawals += paid
+                            investor_cashflows.append((current.date, paid))
+
+                growth_nav = max(0.0, qqq_value + spy_value + cash_value)
+                min_growth_nav = min(min_growth_nav, growth_nav)
+                if growth_nav <= 1e-8 and first_growth_depletion_month is None:
+                    first_growth_depletion_month = month_index
+
+            growth_terminal = max(0.0, qqq_value + spy_value + cash_value)
             terminal = floor_face_usd + growth_terminal
+            if terminal > 1e-10:
+                investor_cashflows.append((end.date, terminal))
+            xirr, xirr_status = solve_xirr(investor_cashflows)
             elapsed_years = (end.date - start.date).days / 365.25
             terminal_cagr = (
                 (terminal / INITIAL_CAPITAL_USD) ** (1 / elapsed_years) - 1
                 if elapsed_years > 0
                 else None
             )
+            nominal_net_result = actual_withdrawals + terminal - deposits - INITIAL_CAPITAL_USD
             row = {
                 "scenario": strategy,
+                "cashflow_mode": "custom_schedule" if custom_schedule is not None else "no_withdrawals",
                 "window_start": start.date.isoformat(),
                 "window_end": end.date.isoformat(),
                 "initial_capital_usd": round(INITIAL_CAPITAL_USD, 2),
@@ -439,13 +480,23 @@ def summarize_capital_floor_scenarios(
                 "growth_sleeve_initial_capital_usd": round(growth_initial, 2),
                 "qqq_growth_weight": qqq_weight,
                 "spy_growth_weight": spy_weight,
-                "cash_growth_weight": cash_weight or 0.0,
-                "qqq_price_multiple": qqq_multiple,
-                "spy_price_multiple": spy_multiple,
+                "cash_growth_weight": cash_weight,
+                "additional_deposits_usd": round(deposits, 2),
+                "total_capital_supplied_usd": round(INITIAL_CAPITAL_USD + deposits, 2),
+                "requested_withdrawals_usd": round(requested_withdrawals, 2),
+                "actual_withdrawals_usd": round(actual_withdrawals, 2),
+                "withdrawal_shortfall_usd": round(withdrawal_shortfall, 2),
+                "min_month_end_growth_sleeve_nav_usd": round(min_growth_nav, 2),
                 "growth_sleeve_terminal_usd": round(growth_terminal, 2),
+                "protected_maturity_payment_usd": round(floor_face_usd, 2),
                 "terminal_nav_usd": round(terminal, 2),
+                "nominal_net_result_vs_initial_capital_usd": round(nominal_net_result, 2),
+                "investor_xirr": xirr,
+                "investor_xirr_status": xirr_status,
                 "terminal_cagr": terminal_cagr,
+                "first_growth_sleeve_depletion_month": first_growth_depletion_month,
                 "principal_floor_met_at_maturity_before_tax_costs": terminal >= floor_face_usd,
+                "floor_payment_used_for_spending": False,
                 "floor_method": (
                     "zero-coupon maturity payment modeled as fixed face value; "
                     "not marked to market during the ten-year holding period"
@@ -461,9 +512,17 @@ def summarize_capital_floor_scenarios(
             for row in scenario_rows
             if row["terminal_cagr"] is not None
         ]
+        xirr_values = [
+            float(row["investor_xirr"])
+            for row in scenario_rows
+            if row["investor_xirr"] is not None
+        ]
+        actual_withdrawals_values = [float(row["actual_withdrawals_usd"]) for row in scenario_rows]
+        shortfall_values = [float(row["withdrawal_shortfall_usd"]) for row in scenario_rows]
         worst = min(scenario_rows, key=lambda row: float(row["terminal_nav_usd"]))
         summaries.append({
             "scenario": strategy,
+            "cashflow_mode": "custom_schedule" if custom_schedule is not None else "no_withdrawals",
             "floor_face_usd_at_maturity": round(floor_face_usd, 2),
             "floor_purchase_cost_usd": round(floor_cost_usd, 2),
             "growth_sleeve_initial_capital_usd": round(growth_initial, 2),
@@ -480,6 +539,15 @@ def summarize_capital_floor_scenarios(
                 not bool(row["principal_floor_met_at_maturity_before_tax_costs"])
                 for row in scenario_rows
             ),
+            "windows_with_any_unfunded_withdrawal": sum(
+                float(row["withdrawal_shortfall_usd"]) > 0.01 for row in scenario_rows
+            ),
+            "windows_with_growth_sleeve_depleted": sum(
+                row["first_growth_sleeve_depletion_month"] is not None for row in scenario_rows
+            ),
+            "median_actual_withdrawals_usd": round(_quantile(actual_withdrawals_values, 0.50) or 0.0, 2),
+            "median_withdrawal_shortfall_usd": round(_quantile(shortfall_values, 0.50) or 0.0, 2),
+            "p95_withdrawal_shortfall_usd": round(_quantile(shortfall_values, 0.95) or 0.0, 2),
             "median_terminal_nav_usd": round(_quantile(terminal_values, 0.50) or 0.0, 2),
             "p05_terminal_nav_usd": round(_quantile(terminal_values, 0.05) or 0.0, 2),
             "worst_terminal_nav_usd": round(min(terminal_values), 2),
@@ -490,12 +558,14 @@ def summarize_capital_floor_scenarios(
             "median_terminal_cagr": _round_rate(_quantile(cagrs, 0.50)),
             "p05_terminal_cagr": _round_rate(_quantile(cagrs, 0.05)),
             "worst_terminal_cagr": _round_rate(min(cagrs) if cagrs else None),
+            "median_investor_xirr": _round_rate(_quantile(xirr_values, 0.50)),
+            "p05_investor_xirr": _round_rate(_quantile(xirr_values, 0.05)),
             "nominal_floor_is_only_a_maturity_value": True,
             "real_purchasing_power_guaranteed": False,
             "taxes_fees_and_early_sale_risk_included": False,
+            "floor_payment_used_for_spending": False,
         })
     return summaries, rows
-
 
 def run_research(
     points: list[MonthlyPrice],
@@ -532,6 +602,7 @@ def run_research(
         points,
         floor_face_usd=floor_face_usd,
         floor_cost_usd=floor_cost_usd,
+        custom_schedule=custom_schedule,
     )
     all_rows.extend(floor_rows)
 
@@ -560,10 +631,11 @@ def run_research(
             "rolling_windows_overlap": True,
             "window_counts_are_forward_probabilities": False,
             "cashflow_scenario": (
-                "relative-month custom schedule from supplied CSV; same schedule replayed in every rolling window"
+                "relative-month custom schedule is applied to both unprotected controls and floor-backed growth sleeves; floor-backed withdrawals are paid only from growth sleeve and any shortfall is reported"
                 if custom_schedule is not None
                 else "no withdrawals and no further deposits by default"
             ),
+            "floor_cashflow_waterfall": "deposits are invested into the growth sleeve at target weights; withdrawals are paid pro-rata from that sleeve at the monthly close; the protected maturity face payment is locked and never used for spending; shortfall remains explicit",
             "withdrawal_grid_enabled": include_withdrawal_grid,
             "capital_floor_model": {
                 "floor_face_usd_at_maturity": floor_face_usd,
@@ -573,8 +645,9 @@ def run_research(
                 "illustrative_date": "2026-10-16",
                 "critical_assumption": (
                     "A maturity-matched zero-coupon Treasury/STRIPS is bought at the supplied cost "
-                    "and held to maturity; no withdrawals, fees or taxes are taken from its protected "
-                    "maturity payment. The remaining sleeve is unlevered price-only QQQ/SPY or zero-yield cash."
+                    "and held to maturity. Any configured withdrawal/deposit events are applied to the "
+                    "growth sleeve only; the floor's maturity payment is never used to fund spending. "
+                    "Tax and transaction costs are not modeled. The remaining sleeve is unlevered price-only QQQ/SPY or zero-yield cash."
                 ),
                 "not_an_executable_quote": abs(floor_cost_usd - DEFAULT_FLOOR_COST_USD) < 0.01,
                 "not_a_historical_bond_strategy_backtest": True,
