@@ -31,9 +31,9 @@
 > **Independent Ten-Year Capital Preservation and Strategy Review**
 >
 > **Blinding & Quarantine Protocol**
-> 1. First record the checked-out commit SHA (`head_sha` in `collection_manifest.json`) and worktree state.
-> 2. **Quarantine Rule**: Do NOT access the full repository checkout, Git history/commit messages, README files, strategy narrative reports, previous AI recommendations, Stage-2 prompt, PR descriptions, issue discussions, GitHub run titles, marketing text, or files listed under `quarantined_readme_and_narrative_docs` until `STAGE1_INDEPENDENT_FINDINGS.md` is completed and frozen. Stage 1 receives only the blind-safe snapshot and minimal manifest; do not try to obtain hidden files or metadata.
-> 3. Start strictly with implementation source (`strategy_and_backtest_code`), test code (`configs_and_test_entrypoints`), raw datasets (`data_candidates` and `git/data_files_preview.json`), run commands, configuration, accounting paths, and reproducible calculations. Treat test fixtures and hard-coded expected numbers as assertions to verify, not proof of real-world performance.
+> 1. Record the source commit SHA (`head_sha` in `collection_manifest.json`) and verify `worktree_clean` is true. This isolated review has no live repository checkout or Git history.
+> 2. **Quarantine Rule**: Do NOT access the full repository checkout, Git history/commit messages, README files, strategy narrative reports, previous AI recommendations, Stage-2 prompt, PR descriptions, issue discussions, GitHub run titles, marketing text, GitHub metadata, or the Stage-2-only archive until `STAGE1_INDEPENDENT_FINDINGS.md` is completed and frozen. Stage 1 receives only the blind-safe snapshot and minimal manifest; do not try to obtain hidden files or metadata.
+> 3. Start strictly with implementation source, test code, configurations, the included datasets, and the provided CSV coverage preview. A first/last-row preview is not a substitute for the underlying data. Do not claim to have inspected any dataset or binary/large file that is not actually present in the blind-safe archive. Treat test fixtures and hard-coded expected numbers as assertions to verify, not proof of real-world performance.
 > 4. If required inputs cannot be found or reproduced, classify the item as `BLOCKED` or `UNVERIFIED` rather than guessing.
 >
 > **Mission & Objective**
