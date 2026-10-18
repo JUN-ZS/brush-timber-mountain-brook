@@ -29,7 +29,7 @@ TARGET_CONVERSIONS = (30, 40, 50, 60, 70, 80, 90, 100)
 INITIAL_CAPITAL_USD = 100_000.0
 HORIZON_MONTHS = 120
 DATA_START = dt.date(2003, 7, 1)
-DATA_END = dt.date(2026, 10, 18)
+DATA_END = dt.date(2026, 9, 30)  # last fully completed month; do not treat a partial current month as a month-end mark
 SOURCE_NAME = "Yahoo Finance chart API: dividend/split-adjusted close"
 SOURCE_TEMPLATE = "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}?period1={period1}&period2={period2}&interval=1d&events=div%2Csplits&includeAdjustedClose=true"
 COLORS = {
@@ -175,6 +175,7 @@ def replay_one_window(
     target_conversion_pct: int,
     schedule: dict[int, list[FlowEvent]] | None = None,
     initial_capital_usd: float = INITIAL_CAPITAL_USD,
+    compute_xirr: bool = True,
 ) -> dict:
     """Daily adjusted-mark replay with annual rebalances and month-end external cash flows."""
     if bond_ticker not in BOND_TICKERS:
@@ -217,12 +218,21 @@ def replay_one_window(
             for event in schedule.get(relative_month, []):
                 if event.flow_type == "deposit":
                     amount = event.amount_usd
-                    # Allocate new cash to the currently held year-step weights.
-                    weight = _target_bond_weight(target_conversion_pct, relative_month - 1)
-                    stock_weight = 1.0 - weight
-                    units["QQQ"] += amount * stock_weight * 0.5 / prices["QQQ"][daily_index]
-                    units["SPY"] += amount * stock_weight * 0.5 / prices["SPY"][daily_index]
-                    units[bond_ticker] += amount * weight / prices[bond_ticker][daily_index]
+                    # Add capital pro rata to existing holdings, avoiding an accidental
+                    # off-calendar rebalance. The next scheduled annual glidepath date changes
+                    # target weights; the external deposit itself should not change strategy weights.
+                    value_now = sum(units[ticker] * prices[ticker][daily_index] for ticker in TICKERS)
+                    if value_now > 1e-10:
+                        for ticker in TICKERS:
+                            position_value = units[ticker] * prices[ticker][daily_index]
+                            units[ticker] += amount * (position_value / value_now) / prices[ticker][daily_index]
+                    else:
+                        # If the portfolio was fully depleted, restart at the active step's target weights.
+                        weight = _target_bond_weight(target_conversion_pct, relative_month - 1)
+                        stock_weight = 1.0 - weight
+                        units["QQQ"] += amount * stock_weight * 0.5 / prices["QQQ"][daily_index]
+                        units["SPY"] += amount * stock_weight * 0.5 / prices["SPY"][daily_index]
+                        units[bond_ticker] += amount * weight / prices[bond_ticker][daily_index]
                     deposits += amount
                     investor_flows.append((dates[daily_index], -amount))
                 else:
@@ -251,7 +261,10 @@ def replay_one_window(
     twr_cagr = (performance_index / initial_capital_usd) ** (1.0 / elapsed_years) - 1.0 if elapsed_years > 0 and performance_index > 0 else None
     if terminal_nav > 1e-10:
         investor_flows.append((end_date, terminal_nav))
-    xirr, xirr_status = solve_xirr(investor_flows)
+    if compute_xirr:
+        xirr, xirr_status = solve_xirr(investor_flows)
+    else:
+        xirr, xirr_status = None, "NOT_COMPUTED_FOR_FIXED_WITHDRAWAL_STRESS"
     return {
         "window_start": start_date.isoformat(),
         "window_end": end_date.isoformat(),
@@ -306,17 +319,28 @@ def summarize_group(rows: list[dict]) -> dict:
 
 def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEvent]] | None = None,
                  initial_capital_usd: float = INITIAL_CAPITAL_USD) -> tuple[dict, list[dict]]:
-    schedules = [("no_withdrawals", None), ("delayed_stepup_example", schedule)] if schedule else [("no_withdrawals", None)]
+    def fixed_monthly_schedule(amount: float) -> dict[int, list[FlowEvent]]:
+        return {month: [FlowEvent(month, "withdrawal", amount, f"fixed monthly stress at {amount:.0f} USD")]
+                for month in range(1, HORIZON_MONTHS + 1)}
+    schedules = [("no_withdrawals", {}, True)]
+    if schedule:
+        schedules.append(("delayed_stepup_example", schedule, True))
+    # Explicit stress tests, not a default investor spending assumption.
+    schedules.extend([
+        ("monthly_withdrawal_500_usd_stress", fixed_monthly_schedule(500.0), False),
+        ("monthly_withdrawal_1000_usd_stress", fixed_monthly_schedule(1000.0), False),
+    ])
     all_rows, summaries = [], []
     window_count = len(monthly_indices) - HORIZON_MONTHS
     if window_count <= 0:
         raise ValueError("Not enough common monthly observations for rolling 10-year backtests")
-    for mode_name, active_schedule in schedules:
+    for mode_name, active_schedule, compute_xirr in schedules:
         for bond in BOND_TICKERS:
             for target in TARGET_CONVERSIONS:
                 group = [
                     replay_one_window(dates, prices, monthly_indices, start, bond, target,
-                                      schedule=active_schedule, initial_capital_usd=initial_capital_usd)
+                                      schedule=active_schedule, initial_capital_usd=initial_capital_usd,
+                                      compute_xirr=compute_xirr)
                     for start in range(window_count)
                 ]
                 for row in group:
@@ -334,7 +358,7 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
             "bond_exposures": "AGG is broad aggregate fixed income; SHY, IEF and TLT are short-, intermediate- and long-duration Treasury ETF proxies.",
             "total_return_proxy": "Yahoo Finance adjusted close series; the adjusted-price ratio is used to approximate reinvested distributions and splits.",
             "rebalancing": "Annual rebalancing when target glidepath changes; no other rebalancing within each year. Holdings drift between annual steps.",
-            "cashflows": "Optional event schedule is applied at month-end; withdrawals are pro rata, limited to NAV, and any shortfall is recorded; deposits are negative investor cashflows for XIRR.",
+            "cashflows": "Optional event schedules are applied at month-end; withdrawals are pro rata and limited to NAV, shortfalls are explicit, and new deposits are invested pro rata into currently held positions so they do not force an off-calendar rebalance. XIRR is computed for no-flow and irregular-flow scenarios; fixed monthly stress schedules report time-weighted return and withdrawal shortfall without an expensive XIRR solve.",
             "drawdown": "Daily time-weighted return index tracks market movement, excluding external deposits and withdrawals from max-drawdown calculation.",
             "overlapping_windows_are_independent_probability": False,
             "floor_guarantee": False,
@@ -423,7 +447,9 @@ def render_html(outdir: Path, report: dict, charts: dict[str,str]) -> None:
         ("01_terminal_wealth.svg", "第10年終值", "中位終值依 30%–100% 目標比較；另有 P05 與最差窗口在 CSV/JSON。"),
         ("02_daily_drawdown.svg", "每日最大回撤", "使用日頻調整價形成時間加權績效指數，外部提款／投入不直接算成回撤。"),
         ("03_time_weighted_cagr.svg", "年化時間加權回報", "按逐年目標比例、年度再平衡與債券 ETF 代理的實際歷史回報計算。"),
-        ("04_withdrawal_shortfall.svg", "提款能力", "顯示有多少歷史窗口無法全額支付指定提款，以及第95百分位缺口。"),
+        ("04_withdrawal_shortfall_sample.svg", "遞增提款示例", "同時展示每月取款以外的延遲、升降與中途再投入情境。"),
+        ("05_withdrawal_shortfall_500.svg", "每月提款500美元壓力測試", "十年累計要求提款60,000美元；不是預設支出。"),
+        ("06_withdrawal_shortfall_1000.svg", "每月提款1,000美元壓力測試", "十年累計要求提款120,000美元；不是預設支出。"),
     ]
     page = ["<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>",
             "<title>股票轉債回測</title><style>body{max-width:1240px;margin:20px auto;padding:0 16px;font-family:system-ui,sans-serif;color:#1e293b;background:#f6f8fb}section{padding:16px;margin:18px 0;background:white;border:1px solid #d7dee8;border-radius:14px}section svg{width:100%;height:auto}.note{padding:12px;background:#fff1e5;border-radius:8px}</style></head><body>",
@@ -455,7 +481,9 @@ def generate_results(outdir: Path, schedule_path: Path | None = None) -> dict:
     write_csv(outdir / "stock_bond_glidepath_windows.csv", rows)
     summaries = report["scenarios"]
     noflow = [row for row in summaries if row["cashflow_mode"] == "no_withdrawals"]
-    flow = [row for row in summaries if row["cashflow_mode"] == "delayed_stepup_example"]
+    sample_flow = [row for row in summaries if row["cashflow_mode"] == "delayed_stepup_example"]
+    monthly_500 = [row for row in summaries if row["cashflow_mode"] == "monthly_withdrawal_500_usd_stress"]
+    monthly_1000 = [row for row in summaries if row["cashflow_mode"] == "monthly_withdrawal_1000_usd_stress"]
     charts = {
         "01_terminal_wealth.svg": render_metric_chart(noflow, "median_terminal_nav_usd",
             "第10年終值：比較轉債30%–100%",
@@ -466,9 +494,15 @@ def generate_results(outdir: Path, schedule_path: Path | None = None) -> dict:
         "03_time_weighted_cagr.svg": render_metric_chart(noflow, "median_time_weighted_cagr",
             "年化時間加權回報：比較轉債30%–100%",
             "調整收市價代理總回報；不等於未來預期回報", True),
-        "04_withdrawal_shortfall.svg": render_metric_chart(flow, "windows_with_withdrawal_shortfall",
-            "逐年提款示例：無法全額支付的歷史窗口數",
-            "與同一組起始窗口比較；不是預設提款或前瞻機率", False),
+        "04_withdrawal_shortfall_sample.svg": render_metric_chart(sample_flow, "windows_with_withdrawal_shortfall",
+            "遞增提款示例：無法全額支付的歷史窗口數",
+            "示例合計提款12,800美元、後續投入5,000美元；不是預設支出", False),
+        "05_withdrawal_shortfall_500.svg": render_metric_chart(monthly_500, "windows_with_withdrawal_shortfall",
+            "固定每月提款500美元：缺口窗口數",
+            "十年累計要求提款60,000美元；純壓力情境，不是使用者預設", False),
+        "06_withdrawal_shortfall_1000.svg": render_metric_chart(monthly_1000, "windows_with_withdrawal_shortfall",
+            "固定每月提款1,000美元：缺口窗口數",
+            "十年累計要求提款120,000美元；純壓力情境，不是使用者預設", False),
     }
     for filename, content in charts.items():
         (outdir / filename).write_text(content, encoding="utf-8")
