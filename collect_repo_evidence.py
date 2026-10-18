@@ -43,6 +43,11 @@ SECRET_PATH_PARTS = {
     "private-keys", "id_rsa", "id_ed25519", "keystore", "certs-private"
 }
 
+SNAPSHOT_EXCLUDED_PATH_PARTS = {
+    ".grok", ".vercel", ".next", "node_modules", "dist", "build",
+    "coverage", "playwright-report", "test-results"
+}
+
 TEXT_SUFFIXES = {
     ".md", ".mdx", ".txt", ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx",
     ".jsx", ".html", ".css", ".scss", ".json", ".yaml", ".yml", ".toml",
@@ -89,6 +94,12 @@ def sensitive_path(path: str) -> bool:
         or "credential" in name
         or "secret" in name
     )
+
+
+def snapshot_excluded_path(path: str) -> bool:
+    """Exclude local-agent metadata, generated bundles, and dependency/build output."""
+    parts = {part.lower() for part in Path(path).parts}
+    return bool(parts & SNAPSHOT_EXCLUDED_PATH_PARTS)
 
 
 def is_narrative_doc(path: str) -> bool:
@@ -321,6 +332,7 @@ def main() -> int:
         "strategy_and_backtest_code": [],
         "data_candidates": [],
         "oversized_or_sensitive": [],
+        "excluded_generated_or_auxiliary_paths": [],
     }
 
     if paths_result["returncode"] == 0:
@@ -339,11 +351,12 @@ def main() -> int:
                 lower = path.lower()
 
                 is_sens = sensitive_path(path)
+                is_excluded = snapshot_excluded_path(path)
                 is_narr = is_narrative_doc(path)
                 file_sha256 = None if is_sens else sha256_file(abs_p)
 
                 matched_keywords: List[str] = []
-                if not is_sens and suffix in {".py", ".r", ".jl", ".js", ".mjs", ".ts", ".tsx", ".sh", ".sql", ".ipynb"} and size < 1_000_000 and abs_p.is_file():
+                if not is_sens and not is_excluded and suffix in {".py", ".r", ".jl", ".js", ".mjs", ".ts", ".tsx", ".sh", ".sql", ".ipynb"} and size < 1_000_000 and abs_p.is_file():
                     try:
                         text_sample = abs_p.read_text(encoding="utf-8", errors="ignore")
                         found = set(m.group(0).lower() for m in STRATEGY_KEYWORDS.finditer(text_sample))
@@ -360,29 +373,33 @@ def main() -> int:
                     "git_blob_sha": git_blob_sha,
                     "sha256": file_sha256,
                     "sensitive_path_filtered": is_sens,
+                    "snapshot_excluded_path": is_excluded,
                     "quarantined_narrative_doc": is_narr,
                     "relevance_candidate": is_rel,
                     "matched_keywords": matched_keywords,
                 }
                 files.append(entry)
 
-                if name in CONFIG_NAMES or name.lower() in {x.lower() for x in CONFIG_NAMES} or re.search(r"(^tests?/|/tests?/|test_.*\.(py|js|ts|sh)$|.*_test\.(py|js|ts)$)", lower):
-                    categories["configs_and_test_entrypoints"].append(path)
-                if lower.startswith(".github/workflows/"):
-                    categories["github_workflows"].append(path)
-                if is_narr:
-                    categories["quarantined_readme_and_narrative_docs"].append(path)
-                if not is_narr and suffix in {".py", ".js", ".mjs", ".ts", ".tsx", ".sh", ".r", ".jl", ".sql"} and is_rel:
-                    categories["strategy_and_backtest_code"].append(path)
-                if suffix in {".csv", ".tsv", ".parquet", ".jsonl", ".feather", ".arrow", ".db", ".sqlite"} or re.search(r"(^|/)(data|datasets?|artifacts?)/", lower):
-                    categories["data_candidates"].append(path)
-                    if suffix == ".csv" and not is_sens and abs_p.is_file():
-                        data_previews.append({
-                            "path": path,
-                            "size_bytes": size,
-                            "sha256": file_sha256,
-                            "csv_preview": inspect_csv_preview(abs_p),
-                        })
+                if is_excluded:
+                    categories["excluded_generated_or_auxiliary_paths"].append(path)
+                else:
+                    if name in CONFIG_NAMES or name.lower() in {x.lower() for x in CONFIG_NAMES} or re.search(r"(^tests?/|/tests?/|test_.*\.(py|js|ts|sh)$|.*_test\.(py|js|ts)$)", lower):
+                        categories["configs_and_test_entrypoints"].append(path)
+                    if lower.startswith(".github/workflows/"):
+                        categories["github_workflows"].append(path)
+                    if is_narr:
+                        categories["quarantined_readme_and_narrative_docs"].append(path)
+                    if not is_narr and suffix in {".py", ".js", ".mjs", ".ts", ".tsx", ".sh", ".r", ".jl", ".sql"} and is_rel:
+                        categories["strategy_and_backtest_code"].append(path)
+                    if suffix in {".csv", ".tsv", ".parquet", ".jsonl", ".feather", ".arrow", ".db", ".sqlite"} or re.search(r"(^|/)(data|datasets?|artifacts?)/", lower):
+                        categories["data_candidates"].append(path)
+                        if suffix == ".csv" and not is_sens and abs_p.is_file():
+                            data_previews.append({
+                                "path": path,
+                                "size_bytes": size,
+                                "sha256": file_sha256,
+                                "csv_preview": inspect_csv_preview(abs_p),
+                            })
                 if size > 2_000_000 or is_sens:
                     categories["oversized_or_sensitive"].append(path)
             except Exception:
@@ -413,7 +430,7 @@ def main() -> int:
         p = f["path"]
         name = Path(p).name
         include = p.startswith(".github/workflows/") or name in CONFIG_NAMES
-        if not include or f["sensitive_path_filtered"] or f["quarantined_narrative_doc"] or (f["size_bytes"] or 0) > 250_000:
+        if not include or f["sensitive_path_filtered"] or f.get("snapshot_excluded_path", False) or f["quarantined_narrative_doc"] or (f["size_bytes"] or 0) > 250_000:
             continue
         r = run(["git", "show", f"HEAD:{p}"], cwd=repo, timeout=30)
         if r["returncode"] == 0 and "\x00" not in r["stdout"]:
@@ -440,7 +457,7 @@ def main() -> int:
             for f in files:
                 p = f["path"]
                 size = f["size_bytes"] or 0
-                if f["sensitive_path_filtered"] or size > args.max_file_bytes or size <= 0:
+                if f["sensitive_path_filtered"] or f.get("snapshot_excluded_path", False) or size > args.max_file_bytes or size <= 0:
                     continue
                 if Path(p).suffix.lower() not in TEXT_SUFFIXES and Path(p).name.lower() not in {"makefile", "dockerfile", ".gitignore"}:
                     continue
@@ -474,7 +491,9 @@ def main() -> int:
             "stage2_narrative_files": len(chosen_narr),
             "stage2_narrative_bytes": total_narr,
             "excluded_sensitive_path_count": sum(1 for f in files if f["sensitive_path_filtered"]),
-            "note": "Stage 1 blind reviewers should only receive blind_safe_archive; stage2_narrative_archive contains quarantined READMEs/reports."
+            "excluded_generated_or_auxiliary_path_count": sum(1 for f in files if f.get("snapshot_excluded_path", False)),
+            "excluded_path_parts": sorted(SNAPSHOT_EXCLUDED_PATH_PARTS),
+            "note": "Stage 1 receives only blind_safe_archive plus minimal manifests. Stage-2 narrative archive, generated bundles, dependencies, and local-agent auxiliary paths are not included in the blind-safe archive."
         })
 
     # Optional GitHub CLI metadata
@@ -535,6 +554,7 @@ def main() -> int:
             "configs_and_test_entrypoints": len(categories["configs_and_test_entrypoints"]),
             "data_candidates": len(categories["data_candidates"]),
             "quarantined_readme_and_narrative_docs": len(categories["quarantined_readme_and_narrative_docs"]),
+            "excluded_generated_or_auxiliary_paths": len(categories["excluded_generated_or_auxiliary_paths"]),
             "github_workflows": len(categories["github_workflows"]),
         },
         "collector_version": "2.0.0",
