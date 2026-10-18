@@ -9,6 +9,8 @@ on:
       - "research/audit_stage2/test_chart_exploration.py"
       - "research/audit_stage2/stock_bond_glidepath_backtest.py"
       - "research/audit_stage2/test_stock_bond_glidepath_backtest.py"
+      - "research/audit_stage2/glidepath_decision_report.py"
+      - "research/audit_stage2/test_glidepath_decision_report.py"
       - "research/audit_stage2/CASHFLOW_AWARE_OUTCOMES.md"
       - "research/audit_stage2/CASHFLOW_CHART_EXPLORATION.md"
       - ".github/workflows/stage2-cashflow-aware-outcomes.yml"
@@ -63,6 +65,11 @@ jobs:
           python3 research/audit_stage2/stock_bond_glidepath_backtest.py \
             --flows-csv research/audit_stage2/example_delayed_stepup_schedule.csv \
             --outdir /tmp/stock-bond-glidepath
+
+      - name: Generate objective-based conclusions and risk-return frontier
+        run: |
+          python3 -m unittest discover -s research/audit_stage2 -p 'test_glidepath_decision_report.py' -v
+          python3 research/audit_stage2/glidepath_decision_report.py --outdir /tmp/stock-bond-glidepath
 
       - name: Validate pinned replay and chart contracts
         run: |
@@ -156,14 +163,23 @@ jobs:
           panel = Path("/tmp/stock-bond-glidepath/historical_adjusted_close_panel.csv").read_text(encoding="utf-8")
           import hashlib
           assert hashlib.sha256(panel.encode("utf-8")).hexdigest() == glide["data"]["raw_panel_canonical_sha256"]
-          for name in ("01_terminal_wealth.svg", "02_daily_drawdown.svg", "03_time_weighted_cagr.svg", "04_withdrawal_shortfall_sample.svg", "05_withdrawal_shortfall_500.svg", "06_withdrawal_shortfall_1000.svg"):
+          for name in ("01_terminal_wealth.svg", "02_daily_drawdown.svg", "03_time_weighted_cagr.svg", "04_withdrawal_shortfall_sample.svg", "05_withdrawal_shortfall_500.svg", "06_withdrawal_shortfall_1000.svg", "07_risk_return_frontier.svg"):
               chart_body = (Path("/tmp/stock-bond-glidepath") / name).read_text(encoding="utf-8")
               assert chart_body.startswith("<svg ") and chart_body.rstrip().endswith("</svg>")
+              assert len(chart_body) > 1000, name
           assert (Path("/tmp/stock-bond-glidepath/index.html")).stat().st_size > 10000
+          assert (Path("/tmp/stock-bond-glidepath/decision_summary.md")).stat().st_size > 2000
+          decision = glide["decision_summary"]
+          assert decision["no_withdrawal_configurations"] == 96
+          assert len(decision["agg_linear_target_scan"]) == 8
+          assert len(decision["agg_60_timing_comparison"]) == 3
+          assert len(decision["pareto_frontier"]) > 0
+          assert set(decision["withdrawal_stress"]) == {"delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"}
+          assert "不保證" in (Path("/tmp/stock-bond-glidepath/decision_summary.md")).read_text(encoding="utf-8")
           assert glide["cashflow_schedule"]["rows"] == 9
           assert glide["cashflow_schedule"]["withdrawal_total_usd"] == 12800.0
           assert glide["cashflow_schedule"]["deposit_total_usd"] == 5000.0
-          print("PASS: QQQ/SPY and four adjusted ETF proxies; full-month data cutoff; eight year-10 conversion targets x three timing rules x four cash-flow modes; 157 rolling windows; six SVG charts and artifact SHA")
+          print("PASS: QQQ/SPY and four adjusted ETF proxies; full-month data cutoff; eight year-10 conversion targets x three timing rules x four cash-flow modes; 157 rolling windows; seven SVG charts, objective-based conclusions and risk-return frontier")
           PY
 
       - name: Upload research results and chart pack
@@ -181,6 +197,7 @@ jobs:
             /tmp/cashflow-chart-lab/*.svg
             /tmp/stock-bond-glidepath/index.html
             /tmp/stock-bond-glidepath/stock_bond_glidepath_summary.json
+            /tmp/stock-bond-glidepath/decision_summary.md
             /tmp/stock-bond-glidepath/stock_bond_glidepath_windows.csv
             /tmp/stock-bond-glidepath/historical_adjusted_close_panel.csv
             /tmp/stock-bond-glidepath/*.svg
