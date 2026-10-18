@@ -23,6 +23,11 @@ on:
 permissions:
   contents: read
 
+# Keep only the latest research replay pending/running for each PR; an older queued snapshot is stale once the branch advances.
+concurrency:
+  group: glidepath-research-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   reproduce:
     name: Reproduce cash-flow scenarios and chart lab on Linux BOT
