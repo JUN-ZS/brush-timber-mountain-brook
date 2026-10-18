@@ -49,7 +49,7 @@ const fire = id => {
   node.listeners.input();
 };
 
-const metricValues = html => [...html.matchAll(/<div class="v">([^<]+)<\\/div>/g)].map(match => match[1]);
+const metricValues = html => [...html.matchAll(/<div class="v">([^<]+)<[/]div>/g)].map(match => match[1]);
 const initialMetrics = getElementById("metrics").innerHTML;
 const initialValues = metricValues(initialMetrics);
 assert(initialMetrics.includes("第5年中位資產"), "initial metrics should identify year 5");
