@@ -146,5 +146,27 @@ class StockBondGlidepathTests(unittest.TestCase):
         self.assertEqual(summary["rolling_windows"],2)
 
 
+    def test_six_timing_rules_render_in_metric_chart_legend(self):
+        from stock_bond_glidepath_backtest import render_metric_chart
+        rows = []
+        for bond in BOND_TICKERS:
+            for timing in TIMING_RULES:
+                for target in TARGET_CONVERSIONS:
+                    rows.append({
+                        "bond_proxy": bond,
+                        "target_bond_conversion_pct_at_year10": target,
+                        "timing_rule": timing,
+                        "cashflow_mode": "no_withdrawals",
+                        "median_terminal_nav_usd": 100000.0 + target * 100 + len(timing),
+                        "median_daily_max_drawdown": -0.10 - target / 1000.0,
+                        "median_time_weighted_cagr": 0.05 + target / 1000.0,
+                    })
+        svg = render_metric_chart(rows, "median_terminal_nav_usd", "Legend audit", "Test", False)
+        self.assertIn("加速前置", svg)
+        self.assertIn("中段加速（S曲線）", svg)
+        self.assertIn("延後（第7年開始）", svg)
+        self.assertIn("線型：轉換時間", svg)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -48,7 +48,7 @@ class GlidepathDecisionReportTests(unittest.TestCase):
         self.assertEqual(len(summary["agg_linear_target_scan"]), 8)
         self.assertEqual(len(summary["agg_60_timing_comparison"]), 6)
         self.assertGreater(len(summary["pareto_frontier"]), 0)
-        self.assertEqual(summary["withdrawal_stress"]["monthly_withdrawal_1000_usd_stress"]["configurations"], 96)
+        self.assertEqual(summary["withdrawal_stress"]["monthly_withdrawal_1000_usd_stress"]["configurations"], 192)
         self.assertEqual(summary["withdrawal_stress"]["delayed_stepup_example"]["max_windows_with_shortfall"], 0)
 
     def test_frontier_chart_has_axes_and_non_dominated_points(self):
