@@ -9,6 +9,7 @@ import {
   recommendForScale,
   replayOne,
   summarizeReplays,
+  summarizeStatePath,
   TRAP_SCALES_YEARS,
   type ChannelScaleSignal,
   type Channel,
@@ -168,17 +169,16 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
   if (startIndex + h >= q.length) return null;
   let cash = 1;
   const lots: { amount: number; entry: number }[] = [];
+  const curve: number[] = [1];
+  let peak = 1;
+  let maxDd = 0;
+
   for (let j = 0; j < h; j++) {
     const amount = cash / (h - j);
     const px = q[startIndex + j].value;
     lots.push({ amount, entry: px });
     cash -= amount;
-  }
-  const curve: number[] = [];
-  let peak = 1;
-  let maxDd = 0;
-  for (let j = 0; j <= h; j++) {
-    const px = q[startIndex + j].value;
+
     const e =
       cash +
       lots.reduce((s, lot) => s + lot.amount * (px / lot.entry), 0);
@@ -186,8 +186,17 @@ function clockReplay(q: MonthlyPoint[], startIndex: number) {
     peak = Math.max(peak, e);
     maxDd = Math.min(maxDd, e / peak - 1);
   }
+
+  const finalPx = q[startIndex + h].value;
+  const terminal =
+    cash +
+    lots.reduce((s, lot) => s + lot.amount * (finalPx / lot.entry), 0);
+  curve.push(terminal);
+  peak = Math.max(peak, terminal);
+  maxDd = Math.min(maxDd, terminal / peak - 1);
+
   return {
-    terminalWealth: curve.at(-1) ?? 1,
+    terminalWealth: terminal,
     maxDrawdown: maxDd,
   };
 }
@@ -351,6 +360,8 @@ function writeOutputs(
       scalesYears: [...TRAP_SCALES_YEARS],
       rule:
         "10Y is terminal horizon; 20/30/50Y are parallel historical context scales. An analog is admitted only after its following QQQ 10Y path is fully mature.",
+      signalObjective:
+        "For each scale, target is the nearest-rank 95% fraction of front-loaded capital required for the analog paths to reach terminal principal under the fixed 10Y deployment ladder. This is a floor requirement, not a terminal-return maximizer.",
       divergence:
         "Scale disagreement is a first-class state; CONVERGENT permits forward pull, TENSION halves it, DIVERGENT/THIN return authority to the deadline clock.",
     },
@@ -373,6 +384,7 @@ function writeOutputs(
       firstInjectionFraction: Math.max(1 / 120, current.coupledTarget),
       signalCount: current.signals.length,
       perScale: current.perScale,
+      mutualChase: current.mutualChase,
     },
     replay: {
       n: replay.replays.length,
@@ -380,6 +392,8 @@ function writeOutputs(
       clockOnly: baselineSummary(replay.clock),
       lumpNow: baselineSummary(replay.lump),
     },
+    statePath: summarizeStatePath(replay.replays),
+    mutualChasePath: summarizeStatePath(replay.replays, "mutualChaseState"),
     provenance: {
       runner: "scripts/run-rolling-floor.ts",
       mode: "BRIDGE",
@@ -396,6 +410,10 @@ function writeOutputs(
   writeFileSync(
     join(outDir, "rolling_floor_replays.jsonl"),
     replay.replays.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  writeFileSync(
+    join(outDir, "rolling_floor_state_path.json"),
+    JSON.stringify(summarizeStatePath(replay.replays), null, 2),
   );
 
   const report = [
@@ -416,7 +434,44 @@ function writeOutputs(
     "- The portable bundle contains the exact runner source, QQQ source snapshot, required proxy shards, and the prior output.",
     "- RUN.cmd / RUN.sh invoke Node 22 directly; npm and FRED network access are not required for bridge replay.",
     "",
+    "## State-conditioned capital path",
+    "",
+    "The state analysis is descriptive: it compares cumulative deployed capital with the hard clock target without changing any controller rule.",
+    "",
+    ...payload.statePath.map((s) =>
+      [
+        "- " + s.state +
+          ": observations=" + s.observations +
+          ", share=" + (s.shareOfObservedMonths * 100).toFixed(1) + "%" +
+          ", mean ahead-of-clock=" + (s.meanAheadOfClock * 100).toFixed(2) + "%" +
+          ", q05/q95 ahead=" + (s.q05AheadOfClock * 100).toFixed(2) +
+          "%/" + (s.q95AheadOfClock * 100).toFixed(2) + "%" +
+          ", episodes=" + s.episodes +
+          ", mean episode=" + s.meanEpisodeMonths.toFixed(1) + "m" +
+          ", max episode=" + s.maxEpisodeMonths + "m",
+      ].join("")
+    ),
+    "",
+    "Interpretation: CONVERGENT records where scale consensus is permitted to pull capital ahead of the deadline; TENSION records partial authority; DIVERGENT removes historical pull and returns to the clock; THIN means insufficient scale evidence.",
+    "",
+    "## Mutual-chase topology",
+    "",
+    ...payload.mutualChasePath.map((s) =>
+      [
+        "- " + s.state +
+          ": observations=" + s.observations +
+          ", share=" + (s.shareOfObservedMonths * 100).toFixed(1) + "%" +
+          ", mean ahead-of-clock=" + (s.meanAheadOfClock * 100).toFixed(2) + "%" +
+          ", episodes=" + s.episodes +
+          ", mean episode=" + s.meanEpisodeMonths.toFixed(1) + "m",
+      ].join("")
+    ),
+    "",
+    "Mutual-chase state is diagnostic only; it does not alter the replay action.",
+    "",
     "## Replay",
+    "",
+    "Signal objective: 95% terminal-principal floor front-load requirement, not maximum terminal wealth.",
     "",
     "Coupled replays: " + replay.replays.length,
     "Coupled non-loss rate: " +
