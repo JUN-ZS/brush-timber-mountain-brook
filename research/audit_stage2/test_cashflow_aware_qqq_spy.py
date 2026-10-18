@@ -126,6 +126,50 @@ class CashflowAwareReplayTests(unittest.TestCase):
         self.assertAlmostEqual(qqq["worst_terminal_nav_usd"], 100_400.0, places=2)
         self.assertTrue(all(row["principal_floor_met_at_maturity_before_tax_costs"] for row in rows))
 
+    def test_floor_withdrawal_can_be_delayed_then_step_up_year_by_year(self):
+        points = points_from_prices([100.0] * (HORIZON_MONTHS + 1))
+        schedule = {
+            13: [FlowEvent(13, "withdrawal", 1_000.0, "after first full year")],
+            25: [FlowEvent(25, "withdrawal", 1_250.0, "step up year 3")],
+            37: [FlowEvent(37, "withdrawal", 1_500.0, "step up year 4")],
+        }
+        summaries, rows = summarize_capital_floor_scenarios(
+            points,
+            floor_face_usd=100_000.0,
+            floor_cost_usd=60_000.0,
+            custom_schedule=schedule,
+        )
+        qqq_row = next(
+            row for row in rows
+            if row["scenario"] == "FLOOR_PLUS_QQQ" and row["window_index"] == 0
+        )
+        self.assertAlmostEqual(qqq_row["requested_withdrawals_usd"], 3_750.0, places=6)
+        self.assertAlmostEqual(qqq_row["actual_withdrawals_usd"], 3_750.0, places=6)
+        self.assertAlmostEqual(qqq_row["withdrawal_shortfall_usd"], 0.0, places=6)
+        self.assertAlmostEqual(qqq_row["growth_sleeve_terminal_usd"], 36_250.0, places=6)
+        self.assertAlmostEqual(qqq_row["protected_maturity_payment_usd"], 100_000.0, places=6)
+        self.assertFalse(qqq_row["floor_payment_used_for_spending"])
+
+    def test_floor_is_never_used_when_withdrawal_exceeds_growth_sleeve(self):
+        points = points_from_prices([100.0] * (HORIZON_MONTHS + 1))
+        schedule = {13: [FlowEvent(13, "withdrawal", 50_000.0, "exceeds growth sleeve")]}
+        _, rows = summarize_capital_floor_scenarios(
+            points,
+            floor_face_usd=100_000.0,
+            floor_cost_usd=60_000.0,
+            custom_schedule=schedule,
+        )
+        qqq_row = next(
+            row for row in rows
+            if row["scenario"] == "FLOOR_PLUS_QQQ" and row["window_index"] == 0
+        )
+        self.assertAlmostEqual(qqq_row["requested_withdrawals_usd"], 50_000.0, places=6)
+        self.assertAlmostEqual(qqq_row["actual_withdrawals_usd"], 40_000.0, places=6)
+        self.assertAlmostEqual(qqq_row["withdrawal_shortfall_usd"], 10_000.0, places=6)
+        self.assertAlmostEqual(qqq_row["growth_sleeve_terminal_usd"], 0.0, places=6)
+        self.assertAlmostEqual(qqq_row["terminal_nav_usd"], 100_000.0, places=6)
+        self.assertFalse(qqq_row["floor_payment_used_for_spending"])
+
     def test_no_withdrawals_is_default_and_withdrawal_grid_is_opt_in(self):
         points = points_from_prices([100.0] * (HORIZON_MONTHS + 1))
         default_report, default_rows = run_research(points)
