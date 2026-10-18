@@ -1,0 +1,132 @@
+name: Protected PUT Accounting Fix Replay
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "src/lib/pulse/protected.ts"
+      - "src/lib/pulse/protected.test.ts"
+      - "scripts/run-backtest.ts"
+      - "scripts/run-refit-cpcv.ts"
+      - ".github/workflows/protected-put-accounting-replay.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protected-put-accounting-replay-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  accounting-and-frozen-grid-replay:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 120
+    steps:
+      - name: Checkout experiment branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Preserve baseline results before any run
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s artifacts/backtest-result.json
+          test -s research/refit_cpcv.json
+          cp artifacts/backtest-result.json "$RUNNER_TEMP/baseline-backtest-result.json"
+          cp research/refit_cpcv.json "$RUNNER_TEMP/baseline-refit-cpcv.json"
+          sha256sum "$RUNNER_TEMP/baseline-backtest-result.json" "$RUNNER_TEMP/baseline-refit-cpcv.json"
+
+      - name: Install exact lockfile dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Test opening mark, ask outlay, roll close and expiry accounting
+        run: node --experimental-strip-types --test src/lib/pulse/protected.test.ts
+
+      - name: Verify TypeScript project
+        run: npm run typecheck
+
+      - name: Re-run frozen V2.2 first-wave backtest
+        run: npm run backtest
+
+      - name: Capture corrected full/OOS backtest before CPCV
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/backtest-result.json "$RUNNER_TEMP/corrected-backtest-result.json"
+          test -s "$RUNNER_TEMP/corrected-backtest-result.json"
+
+      - name: Re-run refit walk-forward and purged CPCV on the same declared grid
+        run: npm run refit-cpcv
+
+      - name: Compare corrected outputs with baseline
+        if: always()
+        shell: bash
+        run: |
+          python3 - "$RUNNER_TEMP/baseline-backtest-result.json" "$RUNNER_TEMP/baseline-refit-cpcv.json" "$RUNNER_TEMP/corrected-backtest-result.json" research/refit_cpcv.json "$GITHUB_STEP_SUMMARY" "$GITHUB_SHA" <<'PY'
+          import json, math, sys
+          from pathlib import Path
+
+          before_bt_path, before_cv_path, after_bt_path, after_cv_path, summary_path, sha = sys.argv[1:]
+          def load(path):
+              p = Path(path)
+              if not p.is_file() or p.stat().st_size == 0:
+                  return None
+              try: return json.loads(p.read_text(encoding="utf-8"))
+              except Exception: return None
+          before_bt, before_cv = load(before_bt_path), load(before_cv_path)
+          after_bt, after_cv = load(after_bt_path), load(after_cv_path)
+
+          def pct(x):
+              return "BLOCKED" if x is None else f"{x * 100:.2f}%"
+          def metrics(bt):
+              if not bt: return {"full_cagr":None,"full_dd":None,"oos_cagr":None,"oos_dd":None,"oos_pass":None,"premium_drag":None}
+              return {
+                "full_cagr":bt.get("full",{}).get("cagr"),
+                "full_dd":bt.get("full",{}).get("maxDd"),
+                "oos_cagr":bt.get("oos",{}).get("cagr"),
+                "oos_dd":bt.get("oos",{}).get("maxDd"),
+                "oos_pass":bt.get("targetGate",{}).get("final"),
+                "premium_drag":bt.get("extras",{}).get("full",{}).get("premiumDrag"),
+              }
+          def cpcv(cv):
+              if not cv: return {"mean":None,"min":None,"worst_dd":None,"stretch":None,"joint":None}
+              x=cv.get("summary",{})
+              return {"mean":x.get("test_cagr_mean"),"min":x.get("test_cagr_min"),"worst_dd":x.get("test_maxdd_worst"),"stretch":x.get("folds_stretch_pass"),"joint":x.get("folds_joint_band")}
+          b,a=metrics(before_bt),metrics(after_bt)
+          cb,ca=cpcv(before_cv),cpcv(after_cv)
+          out=[
+            "## Protected PUT accounting experiment",
+            "",
+            f"- Commit: {sha}",
+            "- Source price inputs unchanged; put prices remain Black-Scholes-derived using VIX as IV, **not OPRA historical fills**.",
+            "- OOS was not used to reselect the full-sample backtest champion; CPCV refits use the same repository-declared grid and split rules.",
+            "",
+            "| Metric | Baseline | Corrected |",
+            "|---|---:|---:|",
+            f"| Full-sample CAGR | {pct(b['full_cagr'])} | {pct(a['full_cagr'])} |",
+            f"| Full-sample MaxDD | {pct(b['full_dd'])} | {pct(a['full_dd'])} |",
+            f"| OOS CAGR | {pct(b['oos_cagr'])} | {pct(a['oos_cagr'])} |",
+            f"| OOS MaxDD | {pct(b['oos_dd'])} | {pct(a['oos_dd'])} |",
+            f"| Stored target gate | {b['oos_pass'] or 'BLOCKED'} | {a['oos_pass'] or 'BLOCKED'} |",
+            f"| Premium expenditure metric (annualised) | {pct(b['premium_drag'])} | {pct(a['premium_drag'])} |",
+            f"| CPCV mean test CAGR | {pct(cb['mean'])} | {pct(ca['mean'])} |",
+            f"| CPCV minimum test CAGR | {pct(cb['min'])} | {pct(ca['min'])} |",
+            f"| CPCV worst test MaxDD | {pct(cb['worst_dd'])} | {pct(ca['worst_dd'])} |",
+            f"| CPCV stretch folds passed | {cb['stretch'] if cb['stretch'] is not None else 'BLOCKED'} | {ca['stretch'] if ca['stretch'] is not None else 'BLOCKED'} |",
+            f"| CPCV joint-band folds passed | {cb['joint'] if cb['joint'] is not None else 'BLOCKED'} | {ca['joint'] if ca['joint'] is not None else 'BLOCKED'} |",
+            "",
+            "Do not interpret a better rerun as proven investable edge: the option marks remain synthetic, execution costs estimated, and OOS/CPCV results are sample-dependent."
+          ]
+          with Path(summary_path).open("a", encoding="utf-8") as f:
+              f.write("\n".join(out)+"\n")
+          print("\n".join(out))
+          PY
