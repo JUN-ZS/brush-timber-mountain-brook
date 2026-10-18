@@ -23,9 +23,10 @@ HTML = r'''<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta
 <section class="panel"><h2>10. 回撤水下路徑</h2><p>追蹤最大回撤如何隨時間累積；同時顯示中位與最差歷史窗口，讓「典型回撤」與尾部風險不再混為一談。</p><div id="drawdownPath"></div><div id="riskLegend" class="legend"></div></section>
 <section class="panel"><h2>11. 目標 × 時間規則熱圖</h2><p>固定債券代理、現金流與年份，橫向比較 8 個轉債目標、縱向比較 6 條轉換曲線。色階代表所選指標相對高低，不是策略優劣的通用排名。</p><div id="heatmap"></div></section>
 <section class="panel"><h2>12. 第十年結果分布直方圖</h2><p>直接使用完整窗口 CSV，查看所選策略在 157 個重疊十年窗口的終值、年化回報、最大回撤或提款缺口分布。這是歷史樣本分布，不是未來機率；分位標記為 P05／中位／P95。</p><div class="control"><label for="histMetric">分布指標</label><select id="histMetric"><option value="terminal_nav_usd">第十年資產終值</option><option value="time_weighted_cagr">十年年化時間加權回報</option><option value="daily_max_drawdown">十年每日最大回撤</option><option value="withdrawal_shortfall_usd">十年累計提款缺口</option></select></div><div id="histogram"></div><div id="histLegend" class="legend"></div></section>
+<section class="panel"><h2>13. 歷史起點敏感度</h2><p>同一策略在不同歷史起始年份的十年窗口會走出不同結果。切換指標並點擊柱狀組，可以讀取該起始年份群組的窗口數、終值分布、回報／回撤與提款缺口；這不是獨立試驗，也不是未來機率。</p><div class="control"><label for="cohortMetric">起點比較指標</label><select id="cohortMetric"><option value="median_terminal_nav_usd">中位終值</option><option value="p05_terminal_nav_usd">P05 終值（下尾）</option><option value="median_time_weighted_cagr">中位年化回報</option><option value="p05_time_weighted_cagr">P05 年化回報</option><option value="median_daily_max_drawdown">中位最大回撤</option><option value="worst_daily_max_drawdown">最差窗口回撤</option><option value="windows_with_withdrawal_shortfall">提款缺口窗口數</option></select></div><div id="cohort"></div><div id="cohortDetail"></div></section>
 </div><p class="foot">資料：Yahoo Finance 股息／拆股調整收市價作近似總回報；共同日資料 5,788 筆（2003-09-29 至 2026-09-30），277 個共同月末，157 個重疊十年窗口。稅項、交易成本和買賣差價未另行建模。資料 SHA-256：8d34a8772fd5c74a7df20957cab971c3c2685963e54b160c3c958c8b9d4b7e70。</p></main>
 <script>
-const D=__DATA__,A=__ANNUAL__,HIST=__HIST__,TG=[30,40,50,60,70,80,90,100],TM=["front_fast","front_loaded","linear","mid_loaded","back_loaded","back_late"],FL=["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"],TN={front_fast:"加速前置",front_loaded:"前置",linear:"線性",mid_loaded:"中段S曲線",back_loaded:"後置",back_late:"延後"},FN={no_withdrawals:"不提款",delayed_stepup_example:"延遲提款＋投入",monthly_withdrawal_500_usd_stress:"每月$500",monthly_withdrawal_1000_usd_stress:"每月$1,000"},C={blue:"#3977a8",teal:"#329b8a",AGG:"#3274a1",SHY:"#2a9d8f",IEF:"#e07a35",TLT:"#7966a8",front_fast:"#c94c4c",front_loaded:"#dd8547",linear:"#3274a1",mid_loaded:"#59a14f",back_loaded:"#8c78bd",back_late:"#b07aa1",grid:"#e8edf3",muted:"#718096",navy:"#203a59"},$=x=>document.getElementById(x),usd=n=>n==null?"—":"$"+Math.round(n).toLocaleString("en-US"),pct=n=>n==null?"—":(n*100).toFixed(2)+"%";
+const D=__DATA__,A=__ANNUAL__,HIST=__HIST__,COHORT=__COHORT__,TG=[30,40,50,60,70,80,90,100],TM=["front_fast","front_loaded","linear","mid_loaded","back_loaded","back_late"],FL=["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"],TN={front_fast:"加速前置",front_loaded:"前置",linear:"線性",mid_loaded:"中段S曲線",back_loaded:"後置",back_late:"延後"},FN={no_withdrawals:"不提款",delayed_stepup_example:"延遲提款＋投入",monthly_withdrawal_500_usd_stress:"每月$500",monthly_withdrawal_1000_usd_stress:"每月$1,000"},C={blue:"#3977a8",teal:"#329b8a",AGG:"#3274a1",SHY:"#2a9d8f",IEF:"#e07a35",TLT:"#7966a8",front_fast:"#c94c4c",front_loaded:"#dd8547",linear:"#3274a1",mid_loaded:"#59a14f",back_loaded:"#8c78bd",back_late:"#b07aa1",grid:"#e8edf3",muted:"#718096",navy:"#203a59"},$=x=>document.getElementById(x),usd=n=>n==null?"—":"$"+Math.round(n).toLocaleString("en-US"),pct=n=>n==null?"—":(n*100).toFixed(2)+"%";
 function S(){return {bond:$("bond").value,target:+$("target").value,timing:$("timing").value,flow:$("flow").value,year:+$("year").value};}
 function R(b,t,m,f){return D.find(r=>r.bond_proxy===b&&+r.target_bond_conversion_pct_at_year10===+t&&r.timing_rule===m&&r.cashflow_mode===f);}
 function Y(b,t,m,f,y){return A.find(r=>r.bond_proxy===b&&+r.target_bond_conversion_pct_at_year10===+t&&r.timing_rule===m&&r.cashflow_mode===f&&+r.year===+y);}
@@ -186,6 +187,36 @@ function histogram(s){
  return z;
 }
 
+
+let selectedCohortYear=null;
+function cohortChart(s){
+ const metric=$("cohortMetric").value;
+ const labels={median_terminal_nav_usd:"中位終值",p05_terminal_nav_usd:"P05終值",median_time_weighted_cagr:"中位年化回報",p05_time_weighted_cagr:"P05年化回報",median_daily_max_drawdown:"中位最大回撤",worst_daily_max_drawdown:"最差窗口回撤",windows_with_withdrawal_shortfall:"提款缺口窗口數"};
+ const rows=COHORT.filter(r=>r.bond_proxy===s.bond&&+r.target_bond_conversion_pct_at_year10===s.target&&r.timing_rule===s.timing&&r.cashflow_mode===s.flow).sort((a,b)=>a.start_year-b.start_year);
+ if(!rows.length){$("cohortDetail").innerHTML='<p class="tiny">這個選定策略沒有可用的起始年份分組資料。</p>';return '<p class="tiny">沒有可用起點資料。</p>';}
+ if(!rows.some(r=>+r.start_year===+selectedCohortYear))selectedCohortYear=+rows[rows.length-1].start_year;
+ const values=rows.map(r=>r[metric]).filter(v=>v!=null&&Number.isFinite(+v)).map(Number);
+ const fmt=v=>metric.includes("terminal_nav")?usd(v):metric==="windows_with_withdrawal_shortfall"?String(Math.round(v)):pct(v);
+ let lo=Math.min(0,...values),hi=Math.max(0,...values);
+ if(metric==="median_daily_max_drawdown"||metric==="worst_daily_max_drawdown"){lo=Math.min(...values,0)*1.12;hi=0;}
+ if(metric==="windows_with_withdrawal_shortfall"){lo=0;hi=Math.max(1,...values)*1.12;}
+ if(hi===lo)hi=lo+1;
+ const w=800,h=292,x0=68,y0=20,pw=680,ph=185,step=pw/rows.length;
+ const x=i=>x0+i*step+step*.15, bw=Math.max(4,step*.7),py=v=>y0+ph-(v-lo)/(hi-lo)*ph;
+ let z=H("歷史起點敏感度："+labels[metric],w,h);
+ for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,yy=py(v);z+='<line x1="'+x0+'" y1="'+yy+'" x2="'+(x0+pw)+'" y2="'+yy+'" stroke="'+C.grid+'"/><text x="'+(x0-8)+'" y="'+(yy+4)+'" text-anchor="end" font-size="10" fill="'+C.muted+'">'+fmt(v)+'</text>';}
+ rows.forEach((r,i)=>{
+   if(r[metric]==null)return;
+   const val=+r[metric],xx=x(i),yy=py(val),zero=py(Math.max(lo,Math.min(hi,0))),top=Math.min(yy,zero),height=Math.max(1,Math.abs(zero-yy)),sel=+r.start_year===+selectedCohortYear;
+   z+='<rect data-target="'+s.target+'" data-timing="'+s.timing+'" data-bond="'+s.bond+'" data-flow="'+s.flow+'" data-cohort-year="'+r.start_year+'" x="'+xx+'" y="'+top+'" width="'+bw+'" height="'+height+'" rx="2" fill="'+(sel?C.navy:"#78b2a8")+'" stroke="'+(sel?"#111827":"#fff")+'" stroke-width="'+(sel?2:1)+'"><title>起始年份 '+r.start_year+'；'+r.window_count+' 個窗口；'+labels[metric]+'：'+fmt(val)+'；中位終值 '+usd(r.median_terminal_nav_usd)+'；P05終值 '+usd(r.p05_terminal_nav_usd)+'；中位回報 '+pct(r.median_time_weighted_cagr)+'；最差回撤 '+pct(r.worst_daily_max_drawdown)+'；提款缺口 '+r.windows_with_withdrawal_shortfall+' 個窗口</title></rect>';
+   if(rows.length<=16||i%2===0)z+='<text x="'+(xx+bw/2)+'" y="'+(y0+ph+16)+'" text-anchor="middle" font-size="10" fill="'+C.muted+'">'+r.start_year+'</text>';
+ });
+ z+='<text x="'+(x0+pw/2)+'" y="'+(h-5)+'" text-anchor="middle" font-size="11">十年窗口的起始日所屬年份（柱高＝'+labels[metric]+'）</text></svg>';
+ const selected=rows.find(r=>+r.start_year===+selectedCohortYear);
+ $("cohortDetail").innerHTML='<div class="metrics" style="grid-template-columns:repeat(4,minmax(0,1fr))"><article class="metric"><div class="k">窗口起始年份</div><div class="v">'+selected.start_year+'</div><div class="s">'+selected.first_window_start+' 至 '+selected.last_window_start+'</div></article><article class="metric"><div class="k">該年起始窗口</div><div class="v">'+selected.window_count+'</div><div class="s">此策略 157 個窗口中的一組</div></article><article class="metric"><div class="k">中位／P05 終值</div><div class="v">'+usd(selected.median_terminal_nav_usd)+'</div><div class="s">P05 '+usd(selected.p05_terminal_nav_usd)+'</div></article><article class="metric"><div class="k">中位回報／最差回撤</div><div class="v">'+pct(selected.median_time_weighted_cagr)+'</div><div class="s">最差回撤 '+pct(selected.worst_daily_max_drawdown)+'</div></article></div><p class="tiny">此起始年份的提款缺口窗口：'+selected.windows_with_withdrawal_shortfall+'；最差終值 '+usd(selected.worst_terminal_nav_usd)+'。每個起始年份的窗口數不同且彼此重疊，不適合解讀成年度成功率。</p>';
+ return z;
+}
+
 function update(){
  let s=S(),r=Y(s.bond,s.target,s.timing,s.flow,s.year);
  $("targetOut").textContent=s.target+"%";$("yearOut").textContent="第"+s.year+"年";
@@ -207,18 +238,20 @@ function update(){
  $("drawdownPath").innerHTML=drawdownPath(s);
  $("heatmap").innerHTML=heatmap(s);
  $("histogram").innerHTML=histogram(s);
+ $("cohort").innerHTML=cohortChart(s);
  let tr=TM.map(m=>Y(s.bond,s.target,m,s.flow,s.year));
  $("table").innerHTML='<table><thead><tr><th>轉換時間</th><th>第'+s.year+'年中位資產</th><th>P05資產</th><th>累計年化回報</th><th>截至當年回撤</th><th>累計缺口窗口</th></tr></thead><tbody>'+tr.map(v=>'<tr class="'+(v.timing_rule===s.timing?"active":"")+'"><td>'+TN[v.timing_rule]+'</td><td>'+usd(v.median_nav_usd)+'</td><td>'+usd(v.p05_nav_usd)+'</td><td>'+pct(v.median_cumulative_twr_cagr)+'</td><td>'+pct(v.median_drawdown_to_date)+'</td><td>'+v.windows_with_withdrawal_shortfall+'/'+v.rolling_windows+'</td></tr>').join("")+'</tbody></table>';
 }
-["bond","timing","flow","target","year","heatMetric","histMetric"].forEach(id=>$(id).addEventListener("input",update));$("exportMatrix").addEventListener("click",exportMatrix);$("exportAnnual").addEventListener("click",()=>downloadCsv("glidepath-all-annual-summaries.csv",A));document.addEventListener("click",e=>{let p=e.target.closest("[data-target]");if(!p)return;if(p.dataset.target)$("target").value=p.dataset.target;if(p.dataset.timing)$("timing").value=p.dataset.timing;if(p.dataset.bond)$("bond").value=p.dataset.bond;if(p.dataset.flow)$("flow").value=p.dataset.flow;if(p.dataset.year!==undefined)$("year").value=p.dataset.year;update();});update();
+["bond","timing","flow","target","year","heatMetric","histMetric","cohortMetric"].forEach(id=>$(id).addEventListener("input",update));$("exportMatrix").addEventListener("click",exportMatrix);$("exportAnnual").addEventListener("click",()=>downloadCsv("glidepath-all-annual-summaries.csv",A));document.addEventListener("click",e=>{let p=e.target.closest("[data-target]");if(!p)return;if(p.dataset.target)$("target").value=p.dataset.target;if(p.dataset.timing)$("timing").value=p.dataset.timing;if(p.dataset.bond)$("bond").value=p.dataset.bond;if(p.dataset.flow)$("flow").value=p.dataset.flow;if(p.dataset.year!==undefined)$("year").value=p.dataset.year;if(p.dataset.cohortYear!==undefined)selectedCohortYear=+p.dataset.cohortYear;update();});update();
 </script></body></html>'''
 
 
-def render_dashboard(scenarios, annual_scenarios, histogram_data=None):
+def render_dashboard(scenarios, annual_scenarios, histogram_data=None, cohort_data=None):
     payload=json.dumps([{k:r.get(k) for k in FIELDS} for r in scenarios],ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
     annual_payload=json.dumps([{k:r.get(k) for k in ANNUAL_FIELDS} for r in annual_scenarios],ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
     hist_payload=json.dumps(histogram_data or [],ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
-    return HTML.replace("__DATA__",payload).replace("__ANNUAL__",annual_payload).replace("__HIST__",hist_payload)
+    cohort_payload=json.dumps(cohort_data or [],ensure_ascii=False,separators=(",",":")).replace("</","<\\/")
+    return HTML.replace("__DATA__",payload).replace("__ANNUAL__",annual_payload).replace("__HIST__",hist_payload).replace("__COHORT__",cohort_payload)
 
 
 def _hist_quantile(sorted_values, probability):
@@ -298,6 +331,76 @@ def build_window_histograms(path, expected_scenarios=768, expected_windows=157):
     return output
 
 
+
+def build_cohort_profiles(path, expected_scenarios=768, expected_windows=157):
+    """Summarize actual rolling-window outcomes by the calendar year each window starts."""
+    if not path.exists():
+        raise FileNotFoundError(f"Window-level replay CSV is required for start-period analysis: {path}")
+    required={"window_start","bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode",
+              "terminal_nav_usd","time_weighted_cagr","daily_max_drawdown","withdrawal_shortfall_usd"}
+    scenario_groups={}
+    with path.open("r",newline="",encoding="utf-8-sig") as handle:
+        reader=csv.DictReader(handle)
+        if not reader.fieldnames or not required.issubset(set(reader.fieldnames)):
+            raise ValueError(f"Window CSV must contain columns: {sorted(required)}")
+        for row in reader:
+            window_start=(row.get("window_start") or "").strip()
+            if len(window_start)<4 or not window_start[:4].isdigit():
+                raise ValueError(f"Invalid rolling-window start date: {window_start!r}")
+            key=(row["bond_proxy"],int(row["target_bond_conversion_pct_at_year10"]),row["timing_rule"],row["cashflow_mode"])
+            start_year=int(window_start[:4])
+            group=scenario_groups.setdefault(key,{"window_starts":set(),"cohorts":{}})
+            if window_start in group["window_starts"]:
+                raise ValueError(f"Duplicate window start for scenario {key}: {window_start}")
+            group["window_starts"].add(window_start)
+            cohort=group["cohorts"].setdefault(start_year,{"starts":[],"metrics":{metric:[] for metric in HISTOGRAM_METRICS}})
+            cohort["starts"].append(window_start)
+            for metric in HISTOGRAM_METRICS:
+                raw=(row.get(metric) or "").strip()
+                if raw:
+                    value=float(raw)
+                    if math.isfinite(value):
+                        cohort["metrics"][metric].append(value)
+    if len(scenario_groups)!=expected_scenarios:
+        raise ValueError(f"Expected {expected_scenarios} rolling-window strategy groups, got {len(scenario_groups)}")
+    output=[]
+    for key,group in sorted(scenario_groups.items()):
+        if len(group["window_starts"])!=expected_windows:
+            raise ValueError(f"Expected {expected_windows} distinct window starts for {key}, got {len(group['window_starts'])}")
+        bond,target,timing,flow=key
+        for start_year,cohort in sorted(group["cohorts"].items()):
+            terminal=sorted(cohort["metrics"]["terminal_nav_usd"])
+            cagr=sorted(cohort["metrics"]["time_weighted_cagr"])
+            drawdown=sorted(cohort["metrics"]["daily_max_drawdown"])
+            shortfall=cohort["metrics"]["withdrawal_shortfall_usd"]
+            median_terminal=_hist_quantile(terminal,.50)
+            p05_terminal=_hist_quantile(terminal,.05)
+            p95_terminal=_hist_quantile(terminal,.95)
+            median_cagr=_hist_quantile(cagr,.50)
+            p05_cagr=_hist_quantile(cagr,.05)
+            worst_cagr=min(cagr) if cagr else None
+            median_dd=_hist_quantile(drawdown,.50)
+            worst_dd=min(drawdown) if drawdown else None
+            output.append({
+                "bond_proxy":bond,"target_bond_conversion_pct_at_year10":target,"timing_rule":timing,
+                "cashflow_mode":flow,"start_year":start_year,"window_count":len(cohort["starts"]),
+                "first_window_start":min(cohort["starts"]),"last_window_start":max(cohort["starts"]),
+                "median_terminal_nav_usd":median_terminal,"p05_terminal_nav_usd":p05_terminal,
+                "p95_terminal_nav_usd":p95_terminal,"worst_terminal_nav_usd":min(terminal) if terminal else None,
+                "median_time_weighted_cagr":median_cagr,"p05_time_weighted_cagr":p05_cagr,
+                "worst_time_weighted_cagr":worst_cagr,"median_daily_max_drawdown":median_dd,
+                "worst_daily_max_drawdown":worst_dd,
+                "windows_with_withdrawal_shortfall":sum(float(v)>0.01 for v in shortfall),
+            })
+    per_strategy={}
+    for row in output:
+        key=(row["bond_proxy"],row["target_bond_conversion_pct_at_year10"],row["timing_rule"],row["cashflow_mode"])
+        per_strategy[key]=per_strategy.get(key,0)+int(row["window_count"])
+    if len(per_strategy)!=expected_scenarios or any(count!=expected_windows for count in per_strategy.values()):
+        raise ValueError("Start-year cohorts must conserve every source rolling window in every strategy")
+    return output
+
+
 def generate(outdir):
     source=outdir/"stock_bond_glidepath_summary.json"
     if not source.exists():
@@ -368,8 +471,11 @@ def generate(outdir):
     distribution_summary=build_window_histograms(outdir/"stock_bond_glidepath_windows.csv",expected_scenarios=len(scenarios),expected_windows=int(report["method"]["rolling_windows_per_scenario"]))
     distribution_report={"schema":"stock-bond-glidepath-window-distributions.v1","rolling_windows_per_scenario":int(report["method"]["rolling_windows_per_scenario"]),"metric_names":list(HISTOGRAM_METRICS),"distributions":distribution_summary}
     (outdir/"window_distribution_summary.json").write_text(json.dumps(distribution_report,ensure_ascii=False,separators=(",",":"))+"\n",encoding="utf-8")
+    cohort_profiles=build_cohort_profiles(outdir/"stock_bond_glidepath_windows.csv",expected_scenarios=len(scenarios),expected_windows=int(report["method"]["rolling_windows_per_scenario"]))
+    cohort_report={"schema":"stock-bond-glidepath-start-cohorts.v1","rolling_windows_per_scenario":int(report["method"]["rolling_windows_per_scenario"]),"cohorts":cohort_profiles}
+    (outdir/"window_start_cohort_summary.json").write_text(json.dumps(cohort_report,ensure_ascii=False,separators=(",",":"))+"\n",encoding="utf-8")
     output=outdir/"interactive_dashboard.html"
-    output.write_text(render_dashboard(report["scenarios"],annual,distribution_summary),encoding="utf-8")
+    output.write_text(render_dashboard(report["scenarios"],annual,distribution_summary,cohort_profiles),encoding="utf-8")
     return output
 
 
@@ -378,7 +484,7 @@ def main():
     parser.add_argument("--outdir",type=Path,required=True)
     args=parser.parse_args()
     path=generate(args.outdir)
-    print(json.dumps({"interactive_dashboard":path.name,"bytes":path.stat().st_size,"scenario_rows":768,"annual_summary_rows":8448,"window_distribution_groups":3072,"year_range":[0,10],"timing_rules":6},ensure_ascii=False))
+    print(json.dumps({"interactive_dashboard":path.name,"bytes":path.stat().st_size,"scenario_rows":768,"annual_summary_rows":8448,"window_distribution_groups":3072,"start_year_cohorts":len(cohort_profiles),"year_range":[0,10],"timing_rules":6},ensure_ascii=False))
     return 0
 
 
