@@ -96,6 +96,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(len(json.loads(histogram_payload)),768*len(HISTOGRAM_METRICS))
         self.assertNotIn("__DATA__",page)
         self.assertNotIn("__ANNUAL__",page)
+        self.assertNotIn("__HIST__",page)
         markup=MarkupIDAudit()
         markup.feed(page)
         self.assertFalse(markup.duplicates, f"duplicate element IDs: {sorted(markup.duplicates)}")
@@ -125,6 +126,8 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('function exportMatrix()',page_template)
         self.assertIn('function histogram(s)',page_template)
         self.assertIn('HIST.find(',page_template)
+        self.assertIn('function build_window_histograms(',page_template)
+        self.assertIn('function summarize_histogram(',page_template)
         self.assertIn('cashflow_mode===s.flow',page_template)
         self.assertIn('data-year="'+"'"+'+y+',page_template)
 
