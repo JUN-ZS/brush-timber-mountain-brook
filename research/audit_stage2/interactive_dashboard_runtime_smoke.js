@@ -70,6 +70,7 @@ const metricValues = html => [...html.matchAll(/<div class="v">([^<]+)<[/]div>/g
 const initialMetrics = getElementById("metrics").innerHTML;
 const initialValues = metricValues(initialMetrics);
 assert(initialMetrics.includes("第5年中位資產"), "initial metrics should identify year 5");
+assert(initialMetrics.includes("低於起始本金窗口"), "initial dashboard metrics must expose nominal capital-floor breaches");
 assert(initialValues.length >= 6, "metric cards must expose six numeric values");
 year.value = "9";
 fire("year");
@@ -83,6 +84,7 @@ assert.notStrictEqual(getElementById("metrics").innerHTML, initialMetrics, "metr
 const year9Values = metricValues(getElementById("metrics").innerHTML);
 assert.notStrictEqual(year9Values[0], initialValues[0], "year 9 must update the actual NAV value, not only its label");
 assert.notStrictEqual(year9Values[2], initialValues[2], "year 9 must update the actual cumulative return value");
+assert.notStrictEqual(year9Values[5], initialValues[5], "year 9 must update the actual count of windows below initial capital");
 assert(getElementById("shares").innerHTML.includes("46.0%"), "year 9 at 60% linear target should show 46% stock target");
 assert(getElementById("shares").innerHTML.includes("54.0%"), "year 9 at 60% linear target should show 54% bond target");
 
