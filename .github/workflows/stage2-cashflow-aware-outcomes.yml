@@ -13,6 +13,7 @@ on:
       - "research/audit_stage2/test_glidepath_decision_report.py"
       - "research/audit_stage2/glidepath_interactive_dashboard.py"
       - "research/audit_stage2/test_glidepath_interactive_dashboard.py"
+      - "research/audit_stage2/interactive_dashboard_runtime_smoke.js"
       - "research/audit_stage2/CASHFLOW_AWARE_OUTCOMES.md"
       - "research/audit_stage2/CASHFLOW_CHART_EXPLORATION.md"
       - ".github/workflows/stage2-cashflow-aware-outcomes.yml"
@@ -77,6 +78,7 @@ jobs:
         run: |
           python3 -m unittest discover -s research/audit_stage2 -p 'test_glidepath_interactive_dashboard.py' -v
           python3 research/audit_stage2/glidepath_interactive_dashboard.py --outdir /tmp/stock-bond-glidepath
+          node research/audit_stage2/interactive_dashboard_runtime_smoke.js /tmp/stock-bond-glidepath/interactive_dashboard.html
 
       - name: Validate pinned replay and chart contracts
         run: |
