@@ -463,9 +463,10 @@ def summarize_capital_floor_scenarios(
                 investor_cashflows.append((end.date, terminal))
             xirr, xirr_status = solve_xirr(investor_cashflows)
             elapsed_years = (end.date - start.date).days / 365.25
+            has_external_cashflows = deposits > 1e-8 or requested_withdrawals > 1e-8
             terminal_cagr = (
                 (terminal / INITIAL_CAPITAL_USD) ** (1 / elapsed_years) - 1
-                if elapsed_years > 0
+                if elapsed_years > 0 and not has_external_cashflows
                 else None
             )
             nominal_net_result = actual_withdrawals + terminal - deposits - INITIAL_CAPITAL_USD
