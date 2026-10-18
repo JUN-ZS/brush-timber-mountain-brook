@@ -7,6 +7,8 @@ from cashflow_aware_qqq_spy import (
     HORIZON_MONTHS,
     fixed_withdrawal_schedule,
     replay_window,
+    run_research,
+    summarize_capital_floor_scenarios,
     solve_xirr,
 )
 
@@ -109,6 +111,34 @@ class CashflowAwareReplayTests(unittest.TestCase):
         )
         result = replay_window(points, 0, "QQQ", {}, initial_capital_usd=1_000.0)
         self.assertAlmostEqual(result["underlying_price_max_drawdown"], -0.5, places=6)
+
+    def test_nominal_maturity_floor_survives_a_growth_sleeve_crash(self):
+        prices = [100.0] * HORIZON_MONTHS + [1.0]
+        spy_prices = [100.0] * HORIZON_MONTHS + [50.0]
+        points = points_from_prices(prices, spy_prices)
+        summaries, rows = summarize_capital_floor_scenarios(
+            points, floor_face_usd=100_000.0, floor_cost_usd=60_000.0
+        )
+        by_name = {row["scenario"]: row for row in summaries}
+        qqq = by_name["FLOOR_PLUS_QQQ"]
+        self.assertEqual(qqq["windows_floor_not_met_by_model_before_tax_costs"], 0)
+        self.assertAlmostEqual(qqq["growth_sleeve_initial_capital_usd"], 40_000.0, places=6)
+        self.assertAlmostEqual(qqq["worst_terminal_nav_usd"], 100_400.0, places=2)
+        self.assertTrue(all(row["principal_floor_met_at_maturity_before_tax_costs"] for row in rows))
+
+    def test_no_withdrawals_is_default_and_withdrawal_grid_is_opt_in(self):
+        points = points_from_prices([100.0] * (HORIZON_MONTHS + 1))
+        default_report, default_rows = run_research(points)
+        self.assertEqual(len(default_report["scenario_summaries"]), 2)
+        self.assertEqual(len(default_report["capital_floor_summaries"]), 4)
+        self.assertFalse(default_report["method"]["withdrawal_grid_enabled"])
+        self.assertEqual(
+            {row["scenario"] for row in default_report["scenario_summaries"]},
+            {"no_withdrawals"},
+        )
+        grid_report, _ = run_research(points, include_withdrawal_grid=True)
+        self.assertEqual(len(grid_report["scenario_summaries"]), 12)
+        self.assertTrue(grid_report["method"]["withdrawal_grid_enabled"])
 
     def test_xirr_does_not_invent_a_return_for_one_sign(self):
         flows = [
