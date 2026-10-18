@@ -1,0 +1,106 @@
+name: Stage 1 Blind Evidence Packet
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "collect_repo_evidence.py"
+      - "prompt_stage1_blind.md"
+      - "tests/test_audit_collector_safeguards.py"
+      - ".github/workflows/stage1-blind-evidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage1-blind-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  collect-blind-evidence:
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 30
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify source and collector syntax
+        run: |
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          python3 -m py_compile collect_repo_evidence.py
+
+      - name: Run evidence collector safeguards
+        run: python3 -m unittest discover -s tests -p 'test_audit_collector_safeguards.py' -v
+
+      - name: Collect read-only evidence at exact SHA
+        run: |
+          python3 collect_repo_evidence.py "$GITHUB_WORKSPACE" \
+            --out "$RUNNER_TEMP/independent-audit-evidence" \
+            --snapshot --max-file-bytes 25000000 --max-snapshot-mb 100
+
+      - name: Enforce Stage 1 blind-snapshot isolation
+        env:
+          EVIDENCE_DIR: ${{ runner.temp }}/independent-audit-evidence
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os, tarfile
+          from pathlib import Path
+
+          out = Path(os.environ["EVIDENCE_DIR"])
+          expected = os.environ["EXPECTED_SHA"]
+          manifest = json.loads((out / "collection_manifest.json").read_text(encoding="utf-8"))
+          assert manifest.get("head_sha") == expected, (
+              f"HEAD mismatch: {manifest.get('head_sha')} != {expected}"
+          )
+          assert manifest.get("worktree_clean") is True, "Evidence does not certify a clean checkout"
+
+          archive_path = out / "repository_text_snapshot_BLIND_SAFE_HEAD.tar.gz"
+          assert archive_path.is_file(), "Blind-safe snapshot missing"
+          with tarfile.open(archive_path, "r:gz") as archive:
+              names = archive.getnames()
+
+          forbidden_prefixes = ("readme", "prompt_stage1", "prompt_stage2", "stage2_", "stage-2", "stage2")
+          forbidden_markers = ("adversarial", "stage2_adversarial", "independent_findings")
+          bad = []
+          for member in names:
+              base = Path(member).name.lower()
+              if base.startswith(forbidden_prefixes) or any(marker in base for marker in forbidden_markers):
+                  bad.append(member)
+          assert not bad, "Potential narrative/prompt leakage into blind archive: " + ", ".join(bad[:30])
+
+          # Include a small audit record. Do not upload the Stage-2-only archive or GitHub metadata.
+          (out / "STAGE1_SNAPSHOT_SANITY_CHECK.json").write_text(
+              json.dumps({
+                  "expected_head_sha": expected,
+                  "manifest_head_sha": manifest["head_sha"],
+                  "worktree_clean": manifest["worktree_clean"],
+                  "blind_archive_file_count": len(names),
+                  "forbidden_name_matches": bad,
+                  "check": "PASS"
+              }, indent=2) + "\n",
+              encoding="utf-8"
+          )
+          print(f"PASS: {len(names)} members; pinned SHA {expected}; no Stage-2 prompt/README name leakage.")
+          PY
+
+      - name: Upload Stage 1 packet only
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage1-blind-evidence-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            ${{ runner.temp }}/independent-audit-evidence/repository_text_snapshot_BLIND_SAFE_HEAD.tar.gz
+            ${{ runner.temp }}/independent-audit-evidence/repository_text_snapshot_manifest.json
+            ${{ runner.temp }}/independent-audit-evidence/collection_manifest.json
+            ${{ runner.temp }}/independent-audit-evidence/git/file_inventory_HEAD.json
+            ${{ runner.temp }}/independent-audit-evidence/git/data_files_preview.json
+            ${{ runner.temp }}/independent-audit-evidence/git/evidence_path_categories.md
+            ${{ runner.temp }}/independent-audit-evidence/STAGE1_SNAPSHOT_SANITY_CHECK.json
+            ${{ github.workspace }}/prompt_stage1_blind.md
