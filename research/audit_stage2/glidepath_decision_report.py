@@ -205,6 +205,12 @@ def render_frontier(rows: list[dict]) -> str:
             marker = f'<circle cx="{lx+6}" cy="{ly-4}" r="4.5" fill="{COLORS["muted"]}"/>'
         elif shape == "square":
             marker = f'<rect x="{lx+2}" y="{ly-8}" width="8" height="8" fill="{COLORS["muted"]}"/>'
+        elif shape == "diamond":
+            marker = f'<polygon points="{lx+6},{ly-9} {lx+1},{ly-4} {lx+6},{ly} {lx+11},{ly-4}" fill="{COLORS["muted"]}"/>'
+        elif shape == "inverted":
+            marker = f'<polygon points="{lx+1},{ly-8} {lx+11},{ly-8} {lx+6},{ly}" fill="{COLORS["muted"]}"/>'
+        elif shape == "cross":
+            marker = f'<path d="M {lx+1} {ly-4} H {lx+11} M {lx+6} {ly-9} V {ly+1}" stroke="{COLORS["muted"]}" stroke-width="2"/>'
         else:
             marker = f'<polygon points="{lx+6},{ly-9} {lx+1},{ly} {lx+11},{ly}" fill="{COLORS["muted"]}"/>'
         svg.append(marker + f'<text x="{lx+20}" y="{ly}" font-size="13" fill="{COLORS["ink"]}">{label}</text>')

@@ -163,6 +163,14 @@ jobs:
           assert {row["cashflow_mode"] for row in scenarios} == {"no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"}
           assert len(glide["annual_scenarios"]) == 8448
           assert {row["year"] for row in glide["annual_scenarios"]} == set(range(11))
+          annual = glide["annual_scenarios"]
+          year0 = next(row for row in annual if row["year"] == 0 and row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 60 and row["timing_rule"] == "linear" and row["cashflow_mode"] == "no_withdrawals")
+          year9 = next(row for row in annual if row["year"] == 9 and row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 60 and row["timing_rule"] == "linear" and row["cashflow_mode"] == "no_withdrawals")
+          year10 = next(row for row in annual if row["year"] == 10 and row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 60 and row["timing_rule"] == "linear" and row["cashflow_mode"] == "no_withdrawals")
+          assert year0["median_nav_usd"] == 100000.0 and year0["median_target_bond_weight"] == 0.0
+          assert abs(year9["median_target_bond_weight"] - 0.54) < 1e-9 and abs(year9["median_target_stock_weight"] - 0.46) < 1e-9
+          assert abs(year10["median_target_bond_weight"] - 0.60) < 1e-9 and abs(year10["median_target_stock_weight"] - 0.40) < 1e-9
+          assert year9["median_nav_usd"] != year10["median_nav_usd"]
           for row in scenarios:
               assert row["rolling_windows"] == glide["method"]["rolling_windows_per_scenario"]
               assert row["p05_terminal_nav_usd"] <= row["median_terminal_nav_usd"] <= row["p95_terminal_nav_usd"]
@@ -186,7 +194,7 @@ jobs:
           decision = glide["decision_summary"]
           assert decision["no_withdrawal_configurations"] == 96
           assert len(decision["agg_linear_target_scan"]) == 8
-          assert len(decision["agg_60_timing_comparison"]) == 3
+          assert len(decision["agg_60_timing_comparison"]) == 6
           assert len(decision["pareto_frontier"]) > 0
           assert set(decision["withdrawal_stress"]) == {"delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"}
           assert "不保證" in (Path("/tmp/stock-bond-glidepath/decision_summary.md")).read_text(encoding="utf-8")
