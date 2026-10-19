@@ -34,4 +34,4 @@ These are deterministic scenario conversions. They do not alter the historical m
 
 The independent test suite checks HTML ID uniqueness, JavaScript syntax, compact-data counts, histogram conservation, cohort coverage, scenario/year-10 reconciliation, metric-selector routing, nominal-vs-real wording and removal of unmodeled STRIPS guarantees. A passing static-data test does **not** constitute a real-browser visual regression or interaction test.
 
-The repository's older glidepath_interactive_preview_optimized_bundle.zip is stale until regenerated from the current v2.html. Use the standalone v2.html from this branch only as a review candidate; do not treat the old archive as the same build.
+After the Glidepath V2 Preview Audit workflow passes, the repository ZIP is rebuilt from the exact current v2.html and checked byte-for-byte. The separate machine-readable audit JSON is kept beside the ZIP rather than embedded inside it. If the workflow is pending or failed, use v2.html only as a review candidate and do not treat the ZIP as verified.
