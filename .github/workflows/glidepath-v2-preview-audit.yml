@@ -5,12 +5,16 @@ on:
     paths:
       - "v2.html"
       - "glidepath_preview_optimized_audit.json"
+      - "glidepath_preview_v2.1_methodology.md"
+      - "glidepath_interactive_preview_optimized_bundle.zip"
       - "research/audit_stage2/test_glidepath_v2_preview.py"
+      - "research/audit_stage2/build_glidepath_v2_bundle.py"
       - ".github/workflows/glidepath-v2-preview-audit.yml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  actions: write
 
 concurrency:
   group: glidepath-v2-preview-audit-${{ github.event.pull_request.number || github.ref }}
@@ -18,15 +22,52 @@ concurrency:
 
 jobs:
   preview-audit:
-    name: Validate compact HTML and historical data on Linux BOT
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Validate and package current HTML on Linux BOT
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     steps:
-      - name: Checkout exact PR revision
+      - name: Checkout exact PR source branch
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: true
       - name: Confirm local runtime
         run: |
           python3 --version
           node --version
-      - name: Run independent integrity audit
+      - name: Run independent data and source checks before packaging
         run: python3 -m unittest research.audit_stage2.test_glidepath_v2_preview -v
+      - name: Build deterministic bundle and honest audit metadata
+        run: python3 research/audit_stage2/build_glidepath_v2_bundle.py
+      - name: Re-run checks against the exact packaged HTML
+        run: python3 -m unittest research.audit_stage2.test_glidepath_v2_preview -v
+      - name: Commit the verified ZIP and audit sidecar to this branch
+        id: commit_bundle
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Bundle and audit already match the current HTML."
+          else
+            git commit -m "Build verified glidepath preview bundle"
+            git push origin "HEAD:${TARGET_BRANCH}"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Trigger a final check for the generated commit
+        if: steps.commit_bundle.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        env:
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "glidepath-v2-preview-audit.yml",
+              ref: process.env.TARGET_BRANCH
+            });
