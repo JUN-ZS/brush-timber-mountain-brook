@@ -1,0 +1,32 @@
+name: Glidepath V2 Preview Audit
+
+on:
+  pull_request:
+    paths:
+      - "v2.html"
+      - "glidepath_preview_optimized_audit.json"
+      - "research/audit_stage2/test_glidepath_v2_preview.py"
+      - ".github/workflows/glidepath-v2-preview-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glidepath-v2-preview-audit-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview-audit:
+    name: Validate compact HTML and historical data on Linux BOT
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact PR revision
+        uses: actions/checkout@v4
+      - name: Confirm local runtime
+        run: |
+          python3 --version
+          node --version
+      - name: Run independent integrity audit
+        run: python3 -m unittest research.audit_stage2.test_glidepath_v2_preview -v
