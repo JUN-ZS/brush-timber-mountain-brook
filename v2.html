@@ -204,15 +204,15 @@ tr.active{background:#e8f2fc;font-weight:700}
     </div>
 
     <div class="control full">
-      <label>目前選定情境與智慧尋優</label>
+      <label>目前情境與樣本內歷史排序（不代表未來最優）</label>
       <div class="head">
         <output id="label" style="font-size:15px">AGG · 60% · 線性</output>
         <span id="nwin" class="tiny">157窗口</span>
       </div>
       <p id="flowNote" class="tiny" style="margin:5px 0 8px">所有值是歷史統計，不是預測。</p>
       <div class="action-bar">
-        <button id="pickBestNav" class="action accent" type="button" title="在目前債券代理、現金流與年份下，自動選取 P05 下尾資產最高的組合">★ 尋優：最高下尾 P05 資產</button>
-        <button id="pickMinDd" class="action" type="button" title="在目前債券代理、現金流與年份下，自動選取中位最大回撤最小的組合">🛡️ 尋優：最低回撤組合</button>
+        <button id="pickBestNav" class="action accent" type="button" title="在目前債券代理、現金流與年份下，選取歷史樣本中 P05 資產最高的組合；這是樣本內排序，不代表未來最優">★ 歷史排序：P05 資產最高</button>
+        <button id="pickMinDd" class="action" type="button" title="在目前債券代理、現金流與年份下，選取歷史樣本中位回撤最淺的組合；這是樣本內排序，不代表未來最優">🛡️ 歷史排序：中位回撤最淺</button>
       </div>
     </div>
 
@@ -291,8 +291,8 @@ tr.active{background:#e8f2fc;font-weight:700}
     </section>
 
     <section class="panel">
-      <h2><span>9. 目標 × 時間曲線熱圖</span><span class="tiny">★ 標示當前指標最優格</span></h2>
-      <p>8 個目標比例 × 6 條轉換曲線（共 48 格）。切換「配置熱圖指標」後點選任一格子，全站圖表同步變更。</p>
+      <h2><span>9. 目標 × 時間曲線熱圖</span><span class="tiny">★ 標示當前歷史樣本排序最佳格（非未來預測）</span></h2>
+      <p>8 個目標比例 × 6 條轉換曲線（共 48 格）。★ 代表目前歷史樣本排序最佳格，不是未來最優策略。切換指標後點任一格，其他圖表同步更新。</p>
       <div id="heatmapX"></div>
     </section>
 
@@ -534,7 +534,7 @@ function heatmapX(s){
       z+='<g data-target="'+t+'" data-timing="'+m+'" data-bond="'+s.bond+'" data-year="'+s.year+'" data-flow="'+s.flow+'" style="cursor:pointer"><rect x="'+(xx+2)+'" y="'+(yy+2)+'" width="'+(cw-4)+'" height="'+(rh-4)+'" rx="5" fill="'+shade+'" stroke="'+(selected?C.navy:isBest?'#0f766e':'#fff')+'" stroke-width="'+(selected?3:isBest?1.8:1)+'"><title>'+t+'% · '+TN[m]+' · '+labels[metric]+': '+fmt(v)+(isBest?' (★ 全場最優)':'')+'</title></rect><text x="'+(xx+cw/2)+'" y="'+(yy+rh/2+4)+'" text-anchor="middle" font-size="9.5" font-weight="'+(selected||isBest?750:400)+'" fill="#263746" pointer-events="none">'+(isBest?'★':'')+fmt(v)+'</text></g>';
     });
   });
-  return z+'<text x="'+(x0+cw*4)+'" y="'+(y0+rh*6+20)+'" text-anchor="middle" font-size="10" fill="'+C.muted+'">目標轉債比例 →（★ 代表目前指標最優格）</text></svg>';
+  return z+'<text x="'+(x0+cw*4)+'" y="'+(y0+rh*6+20)+'" text-anchor="middle" font-size="10" fill="'+C.muted+'">目標轉債比例 →（★ 代表目前歷史樣本中的排序最佳格，非未來預測）</text></svg>';
 }
 
 function histogramX(s){
