@@ -145,8 +145,9 @@ class GlidepathV2IndependentAudit(unittest.TestCase):
             self.assertEqual(audit.get("bundle_bytes"), bundle_path.stat().st_size)
             with zipfile.ZipFile(bundle_path) as bundle:
                 self.assertEqual(bundle.read("v2.html"), html_bytes)
-                embedded_audit = json.loads(bundle.read("glidepath_preview_optimized_audit.json"))
-                self.assertEqual(embedded_audit, audit)
+                self.assertIn("glidepath_preview_v2.1_methodology.md", bundle.namelist())
+                self.assertIn("README.txt", bundle.namelist())
+                self.assertNotIn("glidepath_preview_optimized_audit.json", bundle.namelist())
         else:
             self.assertEqual(audit.get("bundle_status"), "STALE_DO_NOT_USE_UNTIL_REBUILT_FROM_THIS_HTML")
             self.assertIsNone(audit.get("sha256"))
