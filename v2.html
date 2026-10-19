@@ -155,7 +155,7 @@ tr.active{background:#e8f2fc;font-weight:700}
         <option value="median_cumulative_twr_cagr">累計年化回報</option>
         <option value="median_drawdown_to_date">截至當年最大回撤</option>
         <option value="windows_with_withdrawal_shortfall">提款缺口窗口數</option>
-        <option value="windows_below_initial_capital">低於起始本金窗口數</option>
+        <option value="windows_below_initial_capital">名目期末 NAV 低於初始 $100,000 的窗口數</option>
       </select>
     </div>
     <div class="control">
@@ -177,7 +177,7 @@ tr.active{background:#e8f2fc;font-weight:700}
         <option value="dd50">中位最大回撤</option>
         <option value="ddmin">最差回撤</option>
         <option value="gap">提款缺口窗口</option>
-        <option value="below">低於起始本金窗口</option>
+        <option value="below">名目期末 NAV 低於初始 $100,000 的窗口數</option>
       </select>
     </div>
     <div class="control full">
@@ -251,7 +251,7 @@ tr.active{background:#e8f2fc;font-weight:700}
 
     <section class="panel">
       <h2><span>3. 年化時間加權回報</span><span id="sub3" class="tiny"></span></h2>
-      <p>顯示由起點累計至所選年份的時間加權年化回報（支援切換中位數／P05 及扣除 CPI 通膨後之實質年化回報）。</p>
+      <p>顯示由起點累計至所選年份的時間加權年化回報（可切換中位數／P05；以選定的年化通膨假設折算實質年化回報）。</p>
       <div id="returns"></div>
       <div id="leg3" class="legend"></div>
     </section>
@@ -286,7 +286,7 @@ tr.active{background:#e8f2fc;font-weight:700}
 
     <section class="panel">
       <h2><span>8. 同目標、不同時間規則明細表</span><span class="tiny">點擊表格列可切換轉換規則</span></h2>
-      <p>固定目標轉債比例、債券代理及現金流，逐行比較六種轉換時間規則的資產、回報、回撤與低於本金窗口。</p>
+      <p>固定目標轉債比例、債券代理及現金流，逐行比較六種轉換時間規則的資產、回報、回撤與名目期末 NAV 低於初始 $100,000 的窗口數。</p>
       <div id="table" class="tablebox"></div>
     </section>
 
@@ -505,7 +505,7 @@ function downloadCsvX(name,rows){
 }
 
 function heatmapX(s){
-  const metric=$('heatMetricX').value,labels={median_nav_usd:'中位 NAV',p05_nav_usd:'P05 NAV',median_cumulative_twr_cagr:'累計年化回報',median_drawdown_to_date:'最大回撤',windows_with_withdrawal_shortfall:'提款缺口窗口',windows_below_initial_capital:'低於起始本金窗口'};
+  const metric=$('heatMetricX').value,labels={median_nav_usd:'中位 NAV',p05_nav_usd:'P05 NAV',median_cumulative_twr_cagr:'累計年化回報',median_drawdown_to_date:'最大回撤',windows_with_withdrawal_shortfall:'提款缺口窗口',windows_below_initial_capital:'名目期末 NAV 低於初始 $100,000 的窗口數'};
   const isNav=metric.includes('nav_usd'),isCagr=metric.includes('cagr'),inv=metric.startsWith('windows_');
   const cellVal=r=>{
     if(!r||r[metric]==null)return null;
@@ -569,7 +569,7 @@ function histogramX(s){
 
 let cohortYearX=null;
 function cohortChartX(s){
-  const metric=$('cohortMetricX').value,labels={nav50:'中位終值',nav05:'P05 終值',cagr50:'中位年化回報',cagr05:'P05 年化回報',dd50:'中位最大回撤',ddmin:'最差回撤',gap:'提款缺口窗口',below:'低於本金窗口'};
+  const metric=$('cohortMetricX').value,labels={nav50:'中位終值',nav05:'P05 終值',cagr50:'中位年化回報',cagr05:'P05 年化回報',dd50:'中位最大回撤',ddmin:'最差回撤',gap:'提款缺口窗口',below:'名目期末 NAV 低於初始 $100,000 的窗口數'};
   const rows=(COHORT_MAP.get(s.bond+"|"+s.target+"|"+s.timing+"|"+s.flow)||[]).slice().sort((a,b)=>a.y-b.y);
   if(!rows.length)return '<p class="tiny">所選策略沒有起始年份分組。</p>';
   if(!rows.some(r=>+r.y===+cohortYearX))cohortYearX=+rows[rows.length-1].y;
