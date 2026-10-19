@@ -1,13 +1,13 @@
 {
-  "status": "ALL_CHECKS_PASSED",
-  "html_bytes": 2505508,
+  "status": "STATIC_DATA_CHECKS_PENDING",
+  "html_bytes": 2506849,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 80.83,
-  "bundle_bytes": 661122,
+  "html_size_reduction_pct": 80.82,
+  "bundle_bytes": null,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 57.62,
-  "sha256": "a18565a1e4ee90af0f321cd90d627f807277fe9fe4d9b583ce18af12e93e65b8",
-  "element_ids_count": 46,
+  "bundle_size_reduction_pct": null,
+  "sha256": null,
+  "element_ids_count": 48,
   "duplicate_ids": [],
   "embedded_data_counts": {
     "scenarios_D": 768,
@@ -133,5 +133,22 @@
       "target": 100,
       "timing": "front_fast"
     }
-  }
+  },
+  "html_chars": 2500698,
+  "bundle_status": "STALE_DO_NOT_USE_UNTIL_REBUILT_FROM_THIS_HTML",
+  "sha256_status": "RECOMPUTE_AFTER_FINAL_VERIFIED_BUILD",
+  "review_fixes": {
+    "independent_statistic_selectors": true,
+    "nominal_below_initial_capital_count_labeled_nominal": true,
+    "inflation_control_is_a_scenario_not_actual_cpi": true,
+    "unmodeled_STRIPS_TIPS_terminal_claim_removed": true,
+    "histogram_shortfall_and_breach_counts_remain_nominal_and_are_disclosed": true
+  },
+  "remaining_limitations": [
+    "The dashboard does not calculate an inflation-adjusted below-capital window count; do not interpret the nominal count as a real purchasing-power breach rate.",
+    "Withdrawal/shortfall dollar amounts remain nominal because withdrawal dates differ; no single end-of-horizon deflator is applied.",
+    "STRIPS/TIPS are not a modeled strategy here; no guaranteed floor or expected terminal value is claimed.",
+    "157 rolling 10-year windows overlap and are descriptive, not independent probability trials.",
+    "Browser interaction/visual regression checks must pass separately before the preview bundle is considered current."
+  ]
 }
