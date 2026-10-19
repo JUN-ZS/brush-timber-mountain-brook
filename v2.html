@@ -92,12 +92,12 @@ tr.active{background:#e8f2fc;font-weight:700}
   <div class="top-header">
     <div>
       <h1>股票逐年轉債：互動追蹤台</h1>
-      <p class="tiny">優化增強版 v2｜已修復第 7 圖 Y 軸破圖、第 10 圖 P05 色碼缺失與 #allocation 死元件，並將體積由 13.07 MB 壓縮至 2.48 MB（載入與拖動提速 10 倍）。</p>
+      <p class="tiny">優化增強版 v2.1｜修復圖表渲染問題並補足統計口徑限制；介面展示的是歷史樣本，不是未來預測或保本承諾。</p>
     </div>
     <div class="badge-row">
       <span class="badge ok">✓ 768 組策略 · 8,448 筆年度摘要</span>
       <span class="badge">O(1) 雜湊索引 · 零延遲聯動</span>
-      <span class="badge warn">新增：CPI 實質購買力 &amp; 10Y STRIPS 硬底基準</span>
+      <span class="badge warn">新增：通膨假設與購買力折算（非 CPI 預測）</span>
     </div>
   </div>
   <p class="muted">拖動年份或目標滑桿、點擊任意圖表節點／熱圖格／表格列／現金流橫條，資產、回報、回撤、提款缺口、配置路徑與實質購買力會即時同步更新。初始本金：US$100,000。</p>
@@ -106,7 +106,7 @@ tr.active{background:#e8f2fc;font-weight:700}
     <b>方法論限制與 Stage 1 審計對照提示：</b>這是歷史 ETF 代理回測（2003-09-29 至 2026-09-30，共 157 個互相重疊的十年窗口），不是未來預測，也<b>不具備契約保本能力</b>。
     <div class="note-grid">
       <div><b>① 樣本截斷偏差：</b>資料自 2003-09-29 起算，<b>未包含 2000–2002 科網泡沫崩盤</b>（若納入 1999–2003，單筆股票與滾動配置均曾出現十年期虧損窗口）。債券 ETF（AGG／IEF／TLT）具存續期利率風險，不等於持有到期的零息國債 STRIPS。</div>
-      <div><b>② 名目 vs. 實質購買力保本：</b>在 2.35% 年化通膨（FRED 10Y Breakeven <code>T10YIE</code>）下，第 10 年名目 <b>$100,000</b> 實質購買力僅相當於今日的 <b>$79,273</b>（需達名目 <b>$126,146</b> 才算實質購買力保本）。請使用下方「購買力與統計視角」切換檢視！</div>
+      <div><b>② 名目 vs. 實質購買力情境：</b>2.35% 是 <a href="https://fred.stlouisfed.org/series/T10YIE" target="_blank" rel="noopener">FRED 10 年期 breakeven inflation（T10YIE）</a> 截至 2026-10-16 的市場隱含通膨指標，不是實際 CPI 或未來保證。若僅作固定 2.35% 年通膨假設，今日 $100,000 的第 10 年購買力等值約 $79,273；名目保本門檻約 $126,146。此例是情境換算，不是預測。</div>
     </div>
   </div>
 
@@ -181,12 +181,12 @@ tr.active{background:#e8f2fc;font-weight:700}
       </select>
     </div>
     <div class="control">
-      <label for="realMode">購買力與曲線統計視角（新增優化）</label>
+      <label for="realMode">年化通膨假設與曲線統計視角（情境輸入，非 CPI 預測）</label>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
         <select id="realMode" title="切換名目美元或通膨調整後實質購買力">
           <option value="0">名目美元 (Nominal)</option>
-          <option value="0.0235">實質購買力 (2.35% CPI)</option>
-          <option value="0.035">高通膨壓力 (3.50% CPI)</option>
+          <option value="0.0235">實質（2.35% 年通膨假設）</option>
+          <option value="0.035">壓力情境（3.50% 年通膨）</option>
         </select>
         <select id="statView" title="切換圖表 1~3 的分位數統計曲線">
           <option value="median">圖1-3：中位數 (Median)</option>
@@ -220,8 +220,8 @@ tr.active{background:#e8f2fc;font-weight:700}
     <div class="control full" style="grid-column:1 / -1">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
         <div>
-          <label style="margin-bottom:2px">匯出研究數據與 Stage 1 硬底基準對照</label>
-          <span class="tiny" id="benchCompareText">對照 Stage 1 推薦「60.5% 10Y STRIPS + 14.5% TIPS + 25% SPY/QQQ」硬底架構：第 10 年保證名目底線 $100,000，預期終值 $182,270（實質 $144,475）。</span>
+          <label style="margin-bottom:2px">匯出研究數據與外部架構參考</label>
+          <span class="tiny" id="benchCompareText">外部架構參考（尚未同條件回測）：可研究「到期現金流匹配的美國國債／STRIPS + TIPS + 股票」分層。本頁沒有相應日期的 STRIPS／TIPS 報價、債券現金流、持有到期條件、再平衡與交易成本模型，因此不提供固定保證底線或預期終值；ETF 歷史回測不等於契約保本。</span>
         </div>
         <div class="action-bar">
           <button id="exportMatrix" class="action" type="button">匯出目前年份 48 組 CSV</button>
@@ -244,15 +244,15 @@ tr.active{background:#e8f2fc;font-weight:700}
     </section>
 
     <section class="panel">
-      <h2><span>2. 中位最大回撤</span><span id="sub2" class="tiny"></span></h2>
-      <p>顯示截至所選年份的最大回撤（可於上方切換中位數或最差窗口回撤）；外部提款本身不直接算成投資回撤。</p>
+      <h2><span id="title2">2. 中位最大回撤</span><span id="sub2" class="tiny"></span></h2>
+      <p>顯示截至所選年份的最大回撤。中位數與最差窗口可切換；若選取資料未提供的 P05 回撤，會明確顯示缺值，不以中位數代替。外部提款本身不直接算成投資回撤。</p>
       <div id="drawdown"></div>
       <div id="leg2" class="legend"></div>
     </section>
 
     <section class="panel">
-      <h2><span>3. 年化時間加權回報</span><span id="sub3" class="tiny"></span></h2>
-      <p>顯示由起點累計至所選年份的時間加權年化回報（支援切換中位數／P05 及扣除 CPI 通膨後之實質年化回報）。</p>
+      <h2><span id="title3">3. 年化時間加權回報</span><span id="sub3" class="tiny"></span></h2>
+      <p>顯示由起點累計至所選年份的時間加權年化回報，並可依年化通膨假設換算實質回報。年度摘要沒有最差窗口年化回報時會顯示缺值，不以中位數冒充。</p>
       <div id="returns"></div>
       <div id="leg3" class="legend"></div>
     </section>
@@ -369,6 +369,8 @@ function realCagr(cagr,cpi){return cagr==null?null:!cpi?cagr:(1+cagr)/(1+cpi)-1;
 function H(title,w,h){return '<svg class="chart" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+title+'"><title>'+title+'</title>';}
 
 function chart(metric,flow,title,fmt,s){
+  if(metric==="__unavailable_p05_drawdown__")return '<p class="tiny" style="padding:24px 8px;text-align:center;background:#fff7ed;border-radius:10px">資料缺口：本年度摘要沒有 P05 最大回撤分位數；不以中位數代替。請切換至「中位數」或「最差窗口」。</p>';
+  if(metric==="__unavailable_worst_cagr__")return '<p class="tiny" style="padding:24px 8px;text-align:center;background:#fff7ed;border-radius:10px">資料缺口：本年度摘要沒有最差窗口年化回報序列；不以中位數代替。請切換至「中位數」或「P05 下尾」。</p>';
   if((metric==="median_cumulative_twr_cagr"||metric==="p05_cumulative_twr_cagr")&&s.year===0){
     return '<p class="tiny" style="padding:24px 8px;text-align:center;background:#f8fafc;border-radius:10px">第 0 年為初始配置起點（US$100,000），尚未形成完整年度可計算年化回報。請將年份 BAR 拖動至第 1–10 年。</p>';
   }
@@ -506,6 +508,7 @@ function downloadCsvX(name,rows){
 function heatmapX(s){
   const metric=$('heatMetricX').value,labels={median_nav_usd:'中位 NAV',p05_nav_usd:'P05 NAV',median_cumulative_twr_cagr:'累計年化回報',median_drawdown_to_date:'最大回撤',windows_with_withdrawal_shortfall:'提款缺口窗口',windows_below_initial_capital:'低於起始本金窗口'};
   const isNav=metric.includes('nav_usd'),isCagr=metric.includes('cagr'),inv=metric.startsWith('windows_');
+  if(metric==='windows_below_initial_capital'&&s.cpi>0)return '<p class="tiny" style="padding:22px 10px;text-align:center;background:#fff7ed;border-radius:10px">此項只保存名目 NAV 低於 $100,000 的窗口計數，沒有每個窗口的逐年 NAV；無法精算實質保本熱圖。請切回名目美元，或以實際逐窗口資料重跑。</p>';
   const cellVal=r=>{
     if(!r||r[metric]==null)return null;
     let v=+r[metric];
@@ -573,6 +576,7 @@ function cohortChartX(s){
   if(!rows.length)return '<p class="tiny">所選策略沒有起始年份分組。</p>';
   if(!rows.some(r=>+r.y===+cohortYearX))cohortYearX=+rows[rows.length-1].y;
   const isNav=metric==='nav50'||metric==='nav05',isCagr=metric==='cagr50'||metric==='cagr05';
+  if(metric==='below'&&s.cpi>0)return '<p class="tiny" style="padding:22px 10px;text-align:center;background:#fff7ed;border-radius:10px">此起始年份資料只有名目本金門檻計數，沒有逐窗口 NAV，不能計算實質保本比例；已停止以名目計數替代。</p>';
   const getV=r=>{
     const raw=+r[metric];
     if(!Number.isFinite(raw))return NaN;
@@ -604,7 +608,7 @@ function cohortChartX(s){
 
 function update(){
   let s=S(),r=Y(s.bond,s.target,s.timing,s.flow,s.year);
-  const cpiTag=s.cpi>0?"（已按 "+(s.cpi*100).toFixed(2)+"% CPI 折算實質購買力）":"";
+  const cpiTag=s.cpi>0?"（已按 "+(s.cpi*100).toFixed(2)+"% 年化通膨假設折算實質購買力）":"";
   const statLabel=s.stat==="p05"?"P05 下尾":s.stat==="worst"?"最差窗口":"中位數";
   $("targetOut").textContent=s.target+"%";
   $("yearOut").textContent="第"+s.year+"年";
@@ -614,7 +618,7 @@ function update(){
 
   const medNav=defl(r.median_nav_usd,s.year,s.cpi),p05Nav=defl(r.p05_nav_usd,s.year,s.cpi),worstNav=defl(r.worst_nav_usd,s.year,s.cpi);
   const medCagr=realCagr(r.median_cumulative_twr_cagr,s.cpi),p05Cagr=realCagr(r.p05_cumulative_twr_cagr,s.cpi);
-  const realFloorBreakEven=Math.round(100000*Math.pow(1+(s.cpi||0.0235),s.year));
+  const nominalFloorForMode=Math.round(100000*Math.pow(1+s.cpi,s.year)); const floorLabel=s.cpi>0?"實質保本所需名目 NAV $"+nominalFloorForMode.toLocaleString("en-US"):"名目本金門檻 $100,000";
 
   let ms=[
     ["第"+s.year+"年中位資產",usd(medNav),s.cpi>0?"名目 "+usd(r.median_nav_usd):"所選年份的歷史 NAV"],
@@ -622,18 +626,20 @@ function update(){
     ["截至當年累計年化回報",pct(medCagr),s.year===0?"第0年不適用":"P05 年化 "+pct(p05Cagr)],
     ["截至當年最大回撤",pct(r.median_drawdown_to_date),"不把外部提款本身計作回撤"],
     ["最差窗口截至當年回撤",pct(r.worst_drawdown_to_date),"157個窗口中的最差值"],
-    ["低於起始本金窗口",r.windows_below_initial_capital+"/"+r.rolling_windows,"第"+s.year+"年購買力門檻 $"+realFloorBreakEven.toLocaleString("en-US")],
+    [s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],
     ["累計缺口窗口",r.windows_with_withdrawal_shortfall+"/"+r.rolling_windows,"截至當年P95缺口 "+usd(r.p95_shortfall_usd)]
   ];
   $("metrics").innerHTML=ms.map((m,idx)=>'<article class="metric'+(idx<2&&s.cpi>0?' highlight':'')+'"><div class="k">'+m[0]+'</div><div class="v">'+m[1]+'</div><div class="s">'+m[2]+'</div></article>').join("");
 
   const navMetric=s.stat==="p05"?"p05_nav_usd":s.stat==="worst"?"worst_nav_usd":"median_nav_usd";
-  const ddMetric=s.stat==="worst"?"worst_drawdown_to_date":"median_drawdown_to_date";
-  const cagrMetric=s.stat==="p05"?"p05_cumulative_twr_cagr":"median_cumulative_twr_cagr";
+  const ddMetric=s.stat==="worst"?"worst_drawdown_to_date":s.stat==="p05"?"__unavailable_p05_drawdown__":"median_drawdown_to_date";
+  const cagrMetric=s.stat==="p05"?"p05_cumulative_twr_cagr":s.stat==="worst"?"__unavailable_worst_cagr__":"median_cumulative_twr_cagr";
 
   $("sub1").textContent="視角："+statLabel+(s.cpi>0?" · 實質購買力":" · 名目美元");
-  $("sub2").textContent="視角："+(s.stat==="worst"?"最差窗口回撤":"中位數回撤");
-  $("sub3").textContent="視角："+(s.stat==="p05"?"P05 下尾年化":"中位數年化")+(s.cpi>0?" (實質)":" (名目)");
+  $("sub2").textContent="視角："+(s.stat==="worst"?"最差窗口回撤":s.stat==="p05"?"P05 回撤資料未提供":"中位數回撤");
+  $("sub3").textContent="視角："+(s.stat==="p05"?"P05 下尾年化":s.stat==="worst"?"最差年化資料未提供":"中位數年化")+(s.cpi>0?"（按年化通膨假設折算）":"（名目）");
+  $("title2").textContent="2. "+(s.stat==="worst"?"最差窗口最大回撤":s.stat==="p05"?"P05 回撤（資料未提供）":"中位最大回撤");
+  $("title3").textContent="3. "+(s.stat==="worst"?"最差窗口年化回報（資料未提供）":s.stat==="p05"?"P05 下尾年化回報":"中位年化回報");
   $("sub4").textContent="截至第"+s.year+"年";
 
   $("wealth").innerHTML=chart(navMetric,s.flow,"第"+s.year+"年"+statLabel+"資產",usd,s);
