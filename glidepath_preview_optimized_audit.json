@@ -1,5 +1,5 @@
 {
-  "status": "STATIC_DATA_CHECKS_PENDING",
+  "status": "STATIC_DATA_CHECKS_PENDING_BROWSER_RETEST",
   "html_bytes": 2507101,
   "original_html_bytes": 13068927,
   "html_size_reduction_pct": 80.82,
@@ -152,5 +152,5 @@
     "157 rolling 10-year windows overlap and are descriptive, not independent probability trials.",
     "Browser interaction/visual regression checks must pass separately before the preview bundle is considered current."
   ],
-  "runtime_checks_status": "WAITING_FOR_LINUX_BOT_STATIC_DATA_TESTS"
+  "runtime_checks_status": "WAITING_FOR_LINUX_BOT_STATIC_AND_DATA_TESTS; BROWSER_INTERACTION_NOT_RUN"
 }
