@@ -150,7 +150,7 @@
     "Withdrawal/shortfall dollar amounts remain nominal because withdrawal dates differ; no single end-of-horizon deflator is applied.",
     "STRIPS/TIPS are not a modeled strategy here; no guaranteed floor or expected terminal value is claimed.",
     "157 rolling 10-year windows overlap and are descriptive, not independent probability trials.",
-    "Browser interaction/visual regression checks must pass separately before the preview bundle is considered current."
+    "The ZIP contains a byte-identical copy of v2.html; browser visual and interaction regression remains untested."
   ],
   "runtime_checks_status": "STATIC_AND_DATA_CHECKS_PASS; BROWSER_INTERACTION_NOT_RUN",
   "browser_interaction_tested": false,
