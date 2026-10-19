@@ -129,12 +129,27 @@ class GlidepathV2IndependentAudit(unittest.TestCase):
         self.assertNotIn("保證名目底線", self.html)
         self.assertIn("不代表未來最優", self.html)
 
-    def test_preview_does_not_claim_current_zip_or_browser_pass(self):
+    def test_audit_and_optional_bundle_match_current_html(self):
+        import hashlib
+        import zipfile
         audit_path = ROOT / "glidepath_preview_optimized_audit.json"
         audit = json.loads(audit_path.read_text(encoding="utf-8"))
         self.assertNotEqual(audit.get("status"), "ALL_CHECKS_PASSED")
-        self.assertEqual(audit.get("bundle_status"), "STALE_DO_NOT_USE_UNTIL_REBUILT_FROM_THIS_HTML")
-        self.assertIsNone(audit.get("sha256"))
+        self.assertIn("BROWSER", str(audit.get("status", "")).upper())
+        html_bytes = self.html.encode("utf-8")
+        expected_sha = hashlib.sha256(html_bytes).hexdigest()
+        if audit.get("bundle_status") == "CURRENT_ZIP_BUILT_FROM_VERIFIED_HTML":
+            self.assertEqual(audit.get("sha256"), expected_sha)
+            bundle_path = ROOT / "glidepath_interactive_preview_optimized_bundle.zip"
+            self.assertTrue(bundle_path.exists())
+            self.assertEqual(audit.get("bundle_bytes"), bundle_path.stat().st_size)
+            with zipfile.ZipFile(bundle_path) as bundle:
+                self.assertEqual(bundle.read("v2.html"), html_bytes)
+                embedded_audit = json.loads(bundle.read("glidepath_preview_optimized_audit.json"))
+                self.assertEqual(embedded_audit, audit)
+        else:
+            self.assertEqual(audit.get("bundle_status"), "STALE_DO_NOT_USE_UNTIL_REBUILT_FROM_THIS_HTML")
+            self.assertIsNone(audit.get("sha256"))
 
 
 if __name__ == "__main__":
