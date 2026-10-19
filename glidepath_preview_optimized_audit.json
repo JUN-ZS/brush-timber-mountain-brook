@@ -1,0 +1,137 @@
+{
+  "status": "ALL_CHECKS_PASSED",
+  "html_bytes": 2505508,
+  "original_html_bytes": 13068927,
+  "html_size_reduction_pct": 80.83,
+  "bundle_bytes": 661122,
+  "original_bundle_bytes": 1559891,
+  "bundle_size_reduction_pct": 57.62,
+  "sha256": "a18565a1e4ee90af0f321cd90d627f807277fe9fe4d9b583ce18af12e93e65b8",
+  "element_ids_count": 46,
+  "duplicate_ids": [],
+  "embedded_data_counts": {
+    "scenarios_D": 768,
+    "annual_A": 8448,
+    "histograms_HIST": 3072,
+    "cohorts_COHORT": 10752
+  },
+  "original_defects_confirmed": {
+    "panel7_glide_circle_cy_values_at_year5": [
+      -6626.25,
+      -6184.285714285714,
+      -4770,
+      -4770,
+      180,
+      180
+    ],
+    "panel7_offscreen_circles_count": 4,
+    "panel10_histogram_has_stroke_undefined": true,
+    "panel10_histogram_has_fill_undefined": true,
+    "year_bar_allocation_div_empty": true,
+    "year0_drawdown_axis_labels": [
+      "0.00%",
+      "25.00%",
+      "50.00%",
+      "75.00%",
+      "100.00%",
+      "30%",
+      "40%",
+      "50%",
+      "60%",
+      "70%",
+      "80%",
+      "90%",
+      "100%"
+    ]
+  },
+  "optimized_fixes_verified": {
+    "panel7_glide_circle_cy_min": 81,
+    "panel7_glide_circle_cy_max": 180,
+    "panel7_offscreen_circles_count": 0,
+    "panel10_histogram_has_stroke_undefined": false,
+    "year_bar_allocation_populated": true,
+    "year0_drawdown_axis_labels": [
+      "-5.00%",
+      "-3.75%",
+      "-2.50%",
+      "-1.25%",
+      "0.00%",
+      "30%",
+      "40%",
+      "50%",
+      "60%",
+      "70%",
+      "80%",
+      "90%",
+      "100%"
+    ],
+    "any_undefined_or_nan_in_rendered_dom": false
+  },
+  "year_bar_tests": [
+    {
+      "year": 0,
+      "label": "第0年中位資產",
+      "nav": "$100,000",
+      "p05_nav": "$100,000",
+      "cagr": "—",
+      "median_dd": "0.00%",
+      "below_floor": "0/157"
+    },
+    {
+      "year": 5,
+      "label": "第5年中位資產",
+      "nav": "$167,812",
+      "p05_nav": "$109,181",
+      "cagr": "10.90%",
+      "median_dd": "-20.77%",
+      "below_floor": "2/157"
+    },
+    {
+      "year": 9,
+      "label": "第9年中位資產",
+      "nav": "$234,573",
+      "p05_nav": "$166,375",
+      "cagr": "9.94%",
+      "median_dd": "-23.57%",
+      "below_floor": "0/157"
+    },
+    {
+      "year": 10,
+      "label": "第10年中位資產",
+      "nav": "$262,195",
+      "p05_nav": "$183,494",
+      "cagr": "10.12%",
+      "median_dd": "-23.57%",
+      "below_floor": "0/157"
+    }
+  ],
+  "purchasing_power_deflator_tests_year10": {
+    "nominal_usd": {
+      "median_nav": "$262,195",
+      "p05_nav": "$183,494",
+      "cagr": "10.12%"
+    },
+    "real_235pct_cpi": {
+      "median_nav": "$207,848",
+      "p05_nav": "$145,460",
+      "cagr": "7.59%"
+    },
+    "real_350pct_cpi": {
+      "median_nav": "$185,875",
+      "p05_nav": "$130,083",
+      "cagr": "6.39%"
+    }
+  },
+  "smart_optimizer_tests_year10": {
+    "best_p05_nav_strategy": {
+      "bond": "AGG",
+      "target": 30,
+      "timing": "back_late"
+    },
+    "min_median_drawdown_strategy": {
+      "bond": "AGG",
+      "target": 100,
+      "timing": "front_fast"
+    }
+  }
+}
