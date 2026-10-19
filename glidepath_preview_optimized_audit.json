@@ -1,12 +1,12 @@
 {
-  "status": "STATIC_DATA_CHECKS_PENDING_BROWSER_RETEST",
+  "status": "STATIC_AND_DATA_CHECKS_PASS_BROWSER_INTERACTION_NOT_RUN",
   "html_bytes": 2507101,
   "original_html_bytes": 13068927,
   "html_size_reduction_pct": 80.82,
-  "bundle_bytes": null,
+  "bundle_bytes": 664278,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": null,
-  "sha256": null,
+  "bundle_size_reduction_pct": 57.42,
+  "sha256": "455ae630c5a2f7ceb3d941b94c74a1035db6b020a5769e39e9e7434f83170bd4",
   "element_ids_count": 48,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_chars": 2500782,
-  "bundle_status": "STALE_DO_NOT_USE_UNTIL_REBUILT_FROM_THIS_HTML",
-  "sha256_status": "NOT_RECOMPUTED_AFTER_FINAL_REVIEW_CHANGES",
+  "html_chars": 2500779,
+  "bundle_status": "CURRENT_ZIP_BUILT_FROM_VERIFIED_HTML",
+  "sha256_status": "VERIFIED_FROM_CURRENT_HTML_BYTES",
   "review_fixes": {
     "independent_statistic_selectors": true,
     "nominal_below_initial_capital_count_labeled_nominal": true,
@@ -152,5 +152,13 @@
     "157 rolling 10-year windows overlap and are descriptive, not independent probability trials.",
     "Browser interaction/visual regression checks must pass separately before the preview bundle is considered current."
   ],
-  "runtime_checks_status": "WAITING_FOR_LINUX_BOT_STATIC_AND_DATA_TESTS; BROWSER_INTERACTION_NOT_RUN"
+  "runtime_checks_status": "STATIC_AND_DATA_CHECKS_PASS; BROWSER_INTERACTION_NOT_RUN",
+  "browser_interaction_tested": false,
+  "limitations": [
+    "No inflation-adjusted below-capital window count is computed; displayed capital-breach counts are nominal-only.",
+    "Withdrawal and shortfall amounts remain nominal because cash flows occur on different dates.",
+    "STRIPS/TIPS are not modeled; no guaranteed floor or expected terminal value is claimed.",
+    "157 overlapping 10-year windows are descriptive and not independent probability trials.",
+    "Static/data tests do not replace browser visual and interaction tests."
+  ]
 }
