@@ -1,6 +1,6 @@
 {
   "status": "STATIC_DATA_CHECKS_PENDING",
-  "html_bytes": 2506849,
+  "html_bytes": 2507101,
   "original_html_bytes": 13068927,
   "html_size_reduction_pct": 80.82,
   "bundle_bytes": null,
@@ -134,15 +134,16 @@
       "timing": "front_fast"
     }
   },
-  "html_chars": 2500698,
+  "html_chars": 2500782,
   "bundle_status": "STALE_DO_NOT_USE_UNTIL_REBUILT_FROM_THIS_HTML",
-  "sha256_status": "RECOMPUTE_AFTER_FINAL_VERIFIED_BUILD",
+  "sha256_status": "NOT_RECOMPUTED_AFTER_FINAL_REVIEW_CHANGES",
   "review_fixes": {
     "independent_statistic_selectors": true,
     "nominal_below_initial_capital_count_labeled_nominal": true,
     "inflation_control_is_a_scenario_not_actual_cpi": true,
     "unmodeled_STRIPS_TIPS_terminal_claim_removed": true,
-    "histogram_shortfall_and_breach_counts_remain_nominal_and_are_disclosed": true
+    "histogram_shortfall_and_breach_counts_remain_nominal_and_are_disclosed": true,
+    "historical_optimizer_labeled_in_sample": true
   },
   "remaining_limitations": [
     "The dashboard does not calculate an inflation-adjusted below-capital window count; do not interpret the nominal count as a real purchasing-power breach rate.",
@@ -150,5 +151,6 @@
     "STRIPS/TIPS are not a modeled strategy here; no guaranteed floor or expected terminal value is claimed.",
     "157 rolling 10-year windows overlap and are descriptive, not independent probability trials.",
     "Browser interaction/visual regression checks must pass separately before the preview bundle is considered current."
-  ]
+  ],
+  "runtime_checks_status": "WAITING_FOR_LINUX_BOT_STATIC_DATA_TESTS"
 }
