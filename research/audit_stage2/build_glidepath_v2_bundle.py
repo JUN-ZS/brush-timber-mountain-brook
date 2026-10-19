@@ -64,6 +64,13 @@ def main():
         "157 overlapping 10-year windows are descriptive and not independent probability trials.",
         "Static/data tests do not replace browser visual and interaction tests."
     ]
+    audit["remaining_limitations"] = [
+        "The dashboard does not calculate an inflation-adjusted below-capital window count; do not interpret the nominal count as a real purchasing-power breach rate.",
+        "Withdrawal/shortfall dollar amounts remain nominal because withdrawal dates differ; no single end-of-horizon deflator is applied.",
+        "STRIPS/TIPS are not a modeled strategy here; no guaranteed floor or expected terminal value is claimed.",
+        "157 rolling 10-year windows overlap and are descriptive, not independent probability trials.",
+        "The ZIP contains a byte-identical copy of v2.html; browser visual and interaction regression remains untested."
+    ]
 
     parser = IdAudit()
     parser.feed(html)
