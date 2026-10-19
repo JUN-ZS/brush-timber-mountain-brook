@@ -1,0 +1,26 @@
+# Glidepath preview v2.1 — independent validation
+
+## Changed
+- P05 drawdown and worst-window annualized return now show explicit missing-data messages instead of median values.
+- Nominal capital-floor counts remain explicitly nominal; real-mode KPI/heatmap/cohort charts do not present them as real-loss counts.
+- The 2.35% setting is an annualized inflation assumption. FRED T10YIE is cited as a dated market-implied anchor (2026-10-16: 2.35%), not realized CPI or a guaranteed forecast.
+- Removed the static STRIPS/TIPS weights, fixed $182,270 terminal value, and guaranteed-hard-floor phrasing pending a comparable cashflow model.
+- Regenerated the downloadable ZIP from the exact v2.1 HTML.
+
+## Checks run in this update
+- Parsed inline JavaScript without running browser-dependent code.
+- Confirmed unique HTML IDs.
+- Re-parsed embedded data: 768 unique scenario keys, 8,448 unique annual keys, 3,072 histogram summaries, and 10,752 cohort rows.
+- Compared 768 year-10 summaries to annual-table values across the available NAV percentiles, CAGR percentiles, drawdowns, nominal below-capital counts and shortfall counts: zero mismatches.
+- Confirmed every histogram's bins sum to 157 overlapping windows.
+- Recompressed the HTML and inflated it in memory; decompressed bytes match HTML SHA-256 and CRC-32.
+
+## Not claimed as passed
+- No new headless-browser interaction run after this patch; slider interaction, CSV download events, responsive layout and rendered SVG geometry remain to be retested.
+- Exact real-purchasing-power breach counts need per-window NAV paths or a fresh replay.
+- STRIPS/TIPS floor and terminal-value calculations remain unmodeled and must not be presented as guarantees.
+
+## Current artifacts
+- v2.html is the canonical HTML source.
+- glidepath_interactive_preview_optimized_bundle.zip contains the same v2.1 HTML as glidepath_interactive_preview_optimized.html.
+- Machine audit status: STATIC_SEMANTIC_GUARDS_PASSED_BROWSER_RETEST_PENDING.

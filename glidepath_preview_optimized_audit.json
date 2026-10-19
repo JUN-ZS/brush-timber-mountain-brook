@@ -1,12 +1,12 @@
 {
-  "status": "ALL_CHECKS_PASSED",
-  "html_bytes": 2505508,
+  "status": "STATIC_SEMANTIC_GUARDS_PASSED_BROWSER_RETEST_PENDING",
+  "html_bytes": 2507978,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 80.83,
-  "bundle_bytes": 661122,
+  "html_size_reduction_pct": 80.81,
+  "bundle_bytes": 918155,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 57.62,
-  "sha256": "a18565a1e4ee90af0f321cd90d627f807277fe9fe4d9b583ce18af12e93e65b8",
+  "bundle_size_reduction_pct": 41.14,
+  "sha256": "c890bd67bcf0e5edf2fdbb65531c643bf1dc97fed73a6774bba46a42c065d426",
   "element_ids_count": 46,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -132,6 +132,41 @@
       "bond": "AGG",
       "target": 100,
       "timing": "front_fast"
+    }
+  },
+  "html_characters": 2501359,
+  "v2_1_review": {
+    "source_commit": "ee1cc32aa0fe72dbb759b2f71a5e3df137d6fd04",
+    "static_semantic_guards": {
+      "javascript_parse": true,
+      "duplicate_html_ids": 0,
+      "unique_scenario_keys": 768,
+      "unique_annual_keys": 8448,
+      "annual_year10_summary_mismatches": 0,
+      "histogram_bins_total_157_windows": true,
+      "zip_decompression_roundtrip": true,
+      "zip_crc32_matches_html": true,
+      "zip_sha256_matches_html": true
+    },
+    "fixes": [
+      "Real purchasing-power breach counts are explicitly unavailable because per-window NAV is not embedded.",
+      "Nominal below-$100,000 heatmap and cohort counts are suppressed in real mode.",
+      "P05 drawdown and worst-window annualized return show missing-data states rather than silently substituting medians.",
+      "Inflation selections are labelled assumptions, not CPI observations or forecasts.",
+      "The unvalidated fixed STRIPS/TIPS terminal value and guaranteed-floor claims were removed.",
+      "ZIP bundle regenerated from the exact v2.1 HTML."
+    ],
+    "known_limits": [
+      "A fresh browser interaction/pixel-level SVG test has not been run after this patch.",
+      "Exact real-purchasing-power breach counts require per-window NAV paths or a new replay.",
+      "STRIPS/TIPS floor and terminal value remain an unmodeled research idea, not a guaranteed result."
+    ],
+    "inflation_reference": {
+      "series": "FRED T10YIE",
+      "latest_observation_date": "2026-10-16",
+      "latest_observation_percent": 2.35,
+      "interpretation": "10-year market-implied breakeven inflation, not realized CPI or a guaranteed forecast",
+      "url": "https://fred.stlouisfed.org/series/T10YIE"
     }
   }
 }
