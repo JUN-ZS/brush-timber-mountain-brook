@@ -192,6 +192,7 @@ tr.active{background:#e8f2fc;font-weight:700}
         <div><label for="ddStatView">圖2：回撤統計</label><select id="ddStatView" title="回撤圖只提供實際存在的中位數與最差窗口統計"><option value="median">中位數回撤</option><option value="worst">最差窗口回撤</option></select></div>
         <div><label for="cagrStatView">圖3：年化回報統計</label><select id="cagrStatView" title="年化回報只提供實際存在的中位數與 P05 統計"><option value="median">中位數年化回報</option><option value="p05">P05 下尾年化回報</option></select></div>
       </div>
+      <p class="tiny">通膨折算只改變 NAV 與年化回報的展示；「名目低於本金窗口」仍按名目 NAV < $100,000 計數，提款／缺口金額仍為名目美元。本頁尚未計算實質門檻違約窗口數。</p>
     </div>
 
     <div class="control full">
@@ -242,7 +243,7 @@ tr.active{background:#e8f2fc;font-weight:700}
     </section>
 
     <section class="panel">
-      <h2><span>2. 中位最大回撤</span><span id="sub2" class="tiny"></span></h2>
+      <h2><span>2. 最大回撤（可切換統計）</span><span id="sub2" class="tiny"></span></h2>
       <p>顯示截至所選年份的最大回撤（可於上方切換中位數或最差窗口回撤）；外部提款本身不直接算成投資回撤。</p>
       <div id="drawdown"></div>
       <div id="leg2" class="legend"></div>
