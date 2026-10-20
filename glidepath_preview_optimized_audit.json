@@ -1,12 +1,12 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 2516167,
+  "html_bytes": 2516671,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 80.75,
-  "bundle_bytes": 664270,
+  "html_size_reduction_pct": 80.74,
+  "bundle_bytes": 664434,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 57.42,
-  "sha256": "725487292e695b881dc4714058b13cb14e00c3c0c119a646606f70e1f7336e2e",
+  "bundle_size_reduction_pct": 57.41,
+  "sha256": "d2f10a7b863f63484cc54d5bed34a2ef92c23acb4641b85128f8d8860680add3",
   "element_ids_count": 64,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2508033,
+  "html_characters": 2508423,
   "v2_1_review": {
-    "source_commit": "482146302ef791da6a2b2eb5bdd86e05bed5ad64",
+    "source_commit": "e05831436529e1e380841da3d62fd4728d009daf",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -533,12 +533,14 @@
         "initialValue": "$167,812",
         "initialBehavior": "加速前置 · 目標轉債 60%",
         "initialAllocation": "股票 58.75% · AGG 41.25%",
+        "initialAllocationDetail": "按主結果 $167,812（名目美元）折算：股票約 $98,589；AGG 約 $69,222。 依第5年回測年度表中位配置拆分，只是參考金額，不代表實際持倉或今日下單金額；第10年目標轉債比例 60% 是路徑終點設定。",
         "initialFlow": "不提款",
         "initialFloor": "名目本金門檻 $100,000",
         "passed": true,
         "updated_state": {
           "lead": "目前選定：TLT · 第10年目標轉債 80% · 加速前置：第2年半程 · 每月$500 · 查看第5年。",
           "allocation": "股票 45.00% · TLT 55.00%",
+          "allocationDetail": "按主結果 $112,171（實質美元）折算：股票約 $50,477；TLT 約 $61,694。 依第5年回測年度表中位配置拆分，只是參考金額，不代表實際持倉或今日下單金額；第10年目標轉債比例 80% 是路徑終點設定。",
           "flow": "每月$500",
           "floor": "名目保本門檻 $112,315",
           "value": "$112,171",
@@ -570,21 +572,21 @@
       }
     ]
   },
-  "bundle_sha256": "de8a1ec986e93aa6a92accb3074b224d47a9ccf3487a0e9b031ab4959dcc5aa5",
-  "html_crc32": "845509eb",
+  "bundle_sha256": "9d32e32fb40185ea6aaa656b9ab26b33a00a94ca4183383b991bac550039902e",
+  "html_crc32": "c1c24719",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "725487292e695b881dc4714058b13cb14e00c3c0c119a646606f70e1f7336e2e",
-    "bundle_sha256": "de8a1ec986e93aa6a92accb3074b224d47a9ccf3487a0e9b031ab4959dcc5aa5",
-    "html_bytes": 2516167,
-    "bundle_bytes": 664270,
-    "html_crc32": "845509eb",
+    "html_sha256": "d2f10a7b863f63484cc54d5bed34a2ef92c23acb4641b85128f8d8860680add3",
+    "bundle_sha256": "9d32e32fb40185ea6aaa656b9ab26b33a00a94ca4183383b991bac550039902e",
+    "html_bytes": 2516671,
+    "bundle_bytes": 664434,
+    "html_crc32": "c1c24719",
     "unique_html_ids": 64,
     "duplicate_ids": [],
     "zip_members": [
       "glidepath_interactive_preview_optimized.html"
     ],
     "zip_inflated_html_matches_canonical_html": true,
-    "created_at_utc": "2026-10-20T01:35:26.147548+00:00"
+    "created_at_utc": "2026-10-20T01:52:09.805159+00:00"
   }
 }
