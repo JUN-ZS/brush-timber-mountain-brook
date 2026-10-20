@@ -35,18 +35,24 @@ def market_fixture(months=121):
 class StockBondGlidepathTests(unittest.TestCase):
     def test_targets_are_30_to_100_and_weight_steps_are_linear(self):
         self.assertEqual(TARGET_CONVERSIONS, (30, 40, 50, 60, 70, 80, 90, 100))
-        self.assertEqual(TIMING_RULES, ("front_fast", "front_loaded", "linear", "mid_loaded", "back_loaded", "back_late"))
+        self.assertEqual(TIMING_RULES, ("front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"))
         self.assertAlmostEqual(_target_bond_weight(60, 0), 0.0)
         self.assertAlmostEqual(_target_bond_weight(60, 12), 0.06)
         self.assertAlmostEqual(_target_bond_weight(60, 60), 0.30)
         self.assertAlmostEqual(_target_bond_weight(60, 120), 0.60)
         self.assertAlmostEqual(_target_bond_weight(100, 120), 1.0)
+        self.assertAlmostEqual(_target_bond_weight(60, 12, "front_rapid"), 0.30)
+        self.assertAlmostEqual(_target_bond_weight(60, 120, "front_rapid"), 0.60)
         self.assertAlmostEqual(_target_bond_weight(60, 24, "front_fast"), 0.30)
         self.assertAlmostEqual(_target_bond_weight(60, 120, "front_fast"), 0.60)
         self.assertAlmostEqual(_target_bond_weight(60, 36, "front_loaded"), 0.30)
         self.assertAlmostEqual(_target_bond_weight(60, 120, "front_loaded"), 0.60)
         self.assertAlmostEqual(_target_bond_weight(60, 60, "mid_loaded"), 0.30)
         self.assertAlmostEqual(_target_bond_weight(60, 120, "mid_loaded"), 0.60)
+        self.assertAlmostEqual(_target_bond_weight(60, 24, "staggered"), 0.15)
+        self.assertAlmostEqual(_target_bond_weight(60, 60, "staggered"), 0.30)
+        self.assertAlmostEqual(_target_bond_weight(60, 96, "staggered"), 0.45)
+        self.assertAlmostEqual(_target_bond_weight(60, 120, "staggered"), 0.60)
         self.assertAlmostEqual(_target_bond_weight(60, 60, "back_loaded"), 0.0)
         self.assertAlmostEqual(_target_bond_weight(60, 72, "back_loaded"), 0.12)
         self.assertAlmostEqual(_target_bond_weight(60, 84, "back_late"), 0.0)
@@ -146,7 +152,7 @@ class StockBondGlidepathTests(unittest.TestCase):
         self.assertEqual(summary["rolling_windows"],2)
 
 
-    def test_six_timing_rules_render_in_metric_chart_legend(self):
+    def test_eight_timing_rules_render_in_metric_chart_legend(self):
         from stock_bond_glidepath_backtest import render_metric_chart
         rows = []
         for bond in BOND_TICKERS:

@@ -10,7 +10,7 @@ const html = fs.readFileSync(htmlPath, "utf8");
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 assert(scriptMatch, "dashboard must contain the embedded client script");
 const js = scriptMatch[1];
-for (const timing of ["front_fast", "front_loaded", "linear", "mid_loaded", "back_loaded", "back_late"]) {
+for (const timing of ["front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"]) {
   assert(html.includes('value="' + timing + '"'), "missing selectable timing option: " + timing);
 }
 for (const token of ["__DATA__", "__ANNUAL__", "__HIST__", "__COHORT__"]) assert(!html.includes(token), "unexpanded data placeholder " + token);
@@ -87,6 +87,9 @@ assert.notStrictEqual(year9Values[2], initialValues[2], "year 9 must update the 
 assert.notStrictEqual(year9Values[5], initialValues[5], "year 9 must update the actual count of windows below initial capital");
 assert(getElementById("shares").innerHTML.includes("46.0%"), "year 9 at 60% linear target should show 46% stock target");
 assert(getElementById("shares").innerHTML.includes("54.0%"), "year 9 at 60% linear target should show 54% bond target");
+assert(getElementById("allocation").innerHTML.includes("46.0%"), "year BAR should show 46% stocks beside slider at year 9");
+assert(getElementById("allocation").innerHTML.includes("54.0%"), "year BAR should show 54% bonds beside slider at year 9");
+const allocationAtYear9 = getElementById("allocation").innerHTML;
 
 year.value = "10";
 fire("year");
@@ -94,6 +97,8 @@ const year10Values = metricValues(getElementById("metrics").innerHTML);
 assert.notStrictEqual(year10Values[0], year9Values[0], "year 10 and year 9 should use different historical NAV summaries");
 assert(getElementById("shares").innerHTML.includes("40.0%"), "year 10 should show 40% stocks for a 60% target");
 assert(getElementById("shares").innerHTML.includes("60.0%"), "year 10 should show 60% bonds for a 60% target");
+assert(getElementById("allocation").innerHTML.includes("60.0%"), "year 10 bond target should update beside slider");
+assert.notStrictEqual(getElementById("allocation").innerHTML, allocationAtYear9, "allocation beside slider must differ from year 9 to year 10");
 
 target.value = "80";
 timing.value = "back_late";
@@ -104,7 +109,7 @@ assert(getElementById("shares").innerHTML.includes("46.7%"), "year 9 late conver
 assert((getElementById("fan").innerHTML.match(/data-year=/g) || []).length === 11, "fan chart should expose all 11 historical-year selection points");
 assert(getElementById("fan").innerHTML.includes("P05") && getElementById("fan").innerHTML.includes("P95"), "fan chart must expose historical quantiles");
 assert((getElementById("drawdownPath").innerHTML.match(/data-year=/g) || []).length === 11, "underwater path should expose all 11 year points");
-assert((getElementById("heatmap").innerHTML.match(/data-target=/g) || []).length === 48, "heatmap should include all 8 targets x 6 timing rules");
+assert((getElementById("heatmap").innerHTML.match(/data-target=/g) || []).length === 64, "heatmap should include all 8 targets x 8 timing rules");
 const heatMetric = getElementById("heatMetric");
 heatMetric.value = "windows_below_initial_capital";
 fire("heatMetric");
@@ -119,10 +124,6 @@ cohortMetric.value = "p05_terminal_nav_usd";
 fire("cohortMetric");
 assert(getElementById("cohort").innerHTML.includes("P05終值"), "cohort metric selector should rerender the historical start-year series");
 assert((getElementById("cohort").innerHTML.match(/data-cohort-year=/g) || []).length > 0, "cohort chart should expose selectable start-year bars");
-const cohortMetric = getElementById("cohortMetric");
-cohortMetric.value = "p05_terminal_nav_usd";
-fire("cohortMetric");
-assert(getElementById("cohort").innerHTML.includes("P05終值"), "cohort metric selector should change the start-period chart");
 cohortMetric.value = "windows_below_initial_capital";
 fire("cohortMetric");
 assert(getElementById("cohort").innerHTML.includes("低於起始本金窗口數"), "cohort chart should expose nominal capital-floor breach counts");
@@ -153,24 +154,24 @@ assert.strictEqual(target.value, "90", "clicking a scatter point must update tar
 assert.strictEqual(timing.value, "front_fast", "clicking a scatter point must update timing rule");
 assert(getElementById("label").textContent.includes("加速前置"), "scenario title must follow the clicked point");
 const pickCount = (getElementById("frontier").innerHTML.match(/data-pick=/g) || []).length;
-assert(pickCount > 0 && pickCount <= 48, "frontier should contain only the selected-year, selected-flow comparison");
+assert(pickCount > 0 && pickCount <= 64, "frontier should contain only the selected-year, selected-flow comparison");
 getElementById("exportMatrix").listeners.click();
 assert(downloads.at(-1).filename.includes("glidepath-year-4-matrix.csv"), "matrix export should reflect the selected year");
-assert(downloads.at(-1).contents.split("\r\n").length === 49, "matrix export must include 48 strategy rows plus header");
+assert(downloads.at(-1).contents.split("\r\n").length === 65, "matrix export must include 64 strategy rows plus header");
 getElementById("exportAnnual").listeners.click();
 assert(downloads.at(-1).filename === "glidepath-all-annual-summaries.csv", "annual summary export name should be stable");
-assert(downloads.at(-1).contents.split("\r\n").length === 8449, "annual export must include 8,448 records plus header");
+assert(downloads.at(-1).contents.split("\r\n").length === 11265, "annual export must include 11,264 records plus header");
 
 console.log(JSON.stringify({
   status:"PASS",
   annualYearSwitches:[5,9,10],
-  timingsTested:["linear","back_late","front_fast"],
+  timingsTested:["linear","back_late","front_rapid","staggered"],
   flowModeTested:"monthly_withdrawal_1000_usd_stress",
   clickSelectTested:true,
   interactiveFrontierPoints:pickCount,
   historicalFanPoints:11,
   underwaterPoints:11,
-  heatmapCells:48,
+  heatmapCells:64,
   startYearCohortPoints:(getElementById("cohort").innerHTML.match(/data-cohort-year=/g)||[]).length,
   cohortMetricTested:getElementById("cohortMetric").value,
   histogramMetricTested:getElementById("histMetric").value,

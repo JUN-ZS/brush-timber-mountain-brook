@@ -161,7 +161,7 @@ def render_frontier(rows: list[dict]) -> str:
         )
         svg.append(f'<path d="{path}" fill="none" stroke="{COLORS["navy"]}" stroke-width="2.8" stroke-dasharray="5 4"/>')
 
-    shapes = {"front_fast":"square","front_loaded":"triangle","linear":"circle","mid_loaded":"diamond","back_loaded":"inverted","back_late":"cross"}
+    shapes = {"front_rapid":"star","front_fast":"square","front_loaded":"triangle","linear":"circle","mid_loaded":"diamond","staggered":"hexagon","back_loaded":"inverted","back_late":"cross"}
     for r in valid:
         x = xp(abs(float(r["median_daily_max_drawdown"])))
         y = yp(float(r["median_time_weighted_cagr"]))
@@ -172,13 +172,17 @@ def render_frontier(rows: list[dict]) -> str:
             svg.append(f'<rect x="{x-4:.2f}" y="{y-4:.2f}" width="8" height="8" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
         elif shape == "diamond":
             svg.append(f'<polygon points="{x:.2f},{y-5:.2f} {x-5:.2f},{y:.2f} {x:.2f},{y+5:.2f} {x+5:.2f},{y:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
+        elif shape == "hexagon":
+            svg.append(f'<polygon points="{x:.2f},{y-5:.2f} {x+4.5:.2f},{y-2.5:.2f} {x+4.5:.2f},{y+2.5:.2f} {x:.2f},{y+5:.2f} {x-4.5:.2f},{y+2.5:.2f} {x-4.5:.2f},{y-2.5:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
+        elif shape == "star":
+            svg.append(f'<polygon points="{x:.2f},{y-5:.2f} {x+1.5:.2f},{y-1.5:.2f} {x+5:.2f},{y:.2f} {x+1.5:.2f},{y+1.5:.2f} {x:.2f},{y+5:.2f} {x-1.5:.2f},{y+1.5:.2f} {x-5:.2f},{y:.2f} {x-1.5:.2f},{y-1.5:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
         elif shape == "inverted":
             svg.append(f'<polygon points="{x-4.5:.2f},{y-4:.2f} {x+4.5:.2f},{y-4:.2f} {x:.2f},{y+5:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
         elif shape == "cross":
             svg.append(f'<path d="M {x-4:.2f} {y:.2f} H {x+4:.2f} M {x:.2f} {y-4:.2f} V {y+4:.2f}" stroke="{color}" stroke-width="2.5" opacity=".9"/>')
         else:
             svg.append(f'<polygon points="{x:.2f},{y-5:.2f} {x-4.5:.2f},{y+4:.2f} {x+4.5:.2f},{y+4:.2f}" fill="{color}" stroke="#FFFFFF" stroke-width="1" opacity=".86"/>')
-    short = {"front_fast":"快前","front_loaded":"前","linear":"線","mid_loaded":"中","back_loaded":"後","back_late":"延後"}
+    short = {"front_rapid":"急前","front_fast":"快前","front_loaded":"前","linear":"線","mid_loaded":"中","staggered":"分段","back_loaded":"後","back_late":"延後"}
     for i, r in enumerate(frontier):
         x = xp(abs(float(r["median_daily_max_drawdown"])))
         y = yp(float(r["median_time_weighted_cagr"]))
@@ -200,13 +204,17 @@ def render_frontier(rows: list[dict]) -> str:
     ly += 8
     svg.append(f'<text x="{lx}" y="{ly}" font-size="15" font-weight="700" fill="{COLORS["navy"]}">形狀：轉換時間</text>')
     ly += 28
-    for label, shape in (("加速前置","square"),("前置","triangle"),("線性","circle"),("中段S曲線","diamond"),("後置","inverted"),("延後","cross")):
+    for label, shape in (("急速前置","star"),("加速前置","square"),("前置","triangle"),("線性","circle"),("中段S曲線","diamond"),("分段轉換","hexagon"),("後置","inverted"),("延後","cross")):
         if shape == "circle":
             marker = f'<circle cx="{lx+6}" cy="{ly-4}" r="4.5" fill="{COLORS["muted"]}"/>'
         elif shape == "square":
             marker = f'<rect x="{lx+2}" y="{ly-8}" width="8" height="8" fill="{COLORS["muted"]}"/>'
         elif shape == "diamond":
             marker = f'<polygon points="{lx+6},{ly-9} {lx+1},{ly-4} {lx+6},{ly} {lx+11},{ly-4}" fill="{COLORS["muted"]}"/>'
+        elif shape == "hexagon":
+            marker = f'<polygon points="{lx+6},{ly-9} {lx+11},{ly-6} {lx+11},{ly-1} {lx+6},{ly+2} {lx+1},{ly-1} {lx+1},{ly-6}" fill="{COLORS["muted"]}"/>'
+        elif shape == "star":
+            marker = f'<polygon points="{lx+6},{ly-10} {lx+8},{ly-5} {lx+13},{ly-4} {lx+8},{ly-2} {lx+6},{ly+2} {lx+4},{ly-2} {lx-1},{ly-4} {lx+4},{ly-5}" fill="{COLORS["muted"]}"/>'
         elif shape == "inverted":
             marker = f'<polygon points="{lx+1},{ly-8} {lx+11},{ly-8} {lx+6},{ly}" fill="{COLORS["muted"]}"/>'
         elif shape == "cross":

@@ -15,7 +15,7 @@ from stock_bond_glidepath_backtest import BOND_TICKERS, TARGET_CONVERSIONS, TIMI
 def sample_scenarios():
     scenarios = []
     modes = ("no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress")
-    timing_risk = {"front_fast": 0.02, "front_loaded": 0.0, "linear": 0.01, "mid_loaded": 0.025, "back_loaded": 0.07, "back_late": 0.10}
+    timing_risk = {"front_rapid": 0.035, "front_fast": 0.02, "front_loaded": 0.0, "linear": 0.01, "mid_loaded": 0.025, "staggered": 0.015, "back_loaded": 0.07, "back_late": 0.10}
     for mode in modes:
         for bond_index, bond in enumerate(BOND_TICKERS):
             for timing_index, timing in enumerate(TIMING_RULES):
@@ -44,11 +44,11 @@ def sample_scenarios():
 class GlidepathDecisionReportTests(unittest.TestCase):
     def test_decision_summary_covers_all_targets_and_stresses(self):
         summary = build_decision_summary(sample_scenarios())
-        self.assertEqual(summary["no_withdrawal_configurations"], 192)
+        self.assertEqual(summary["no_withdrawal_configurations"], 256)
         self.assertEqual(len(summary["agg_linear_target_scan"]), 8)
-        self.assertEqual(len(summary["agg_60_timing_comparison"]), 6)
+        self.assertEqual(len(summary["agg_60_timing_comparison"]), 8)
         self.assertGreater(len(summary["pareto_frontier"]), 0)
-        self.assertEqual(summary["withdrawal_stress"]["monthly_withdrawal_1000_usd_stress"]["configurations"], 192)
+        self.assertEqual(summary["withdrawal_stress"]["monthly_withdrawal_1000_usd_stress"]["configurations"], 256)
         self.assertEqual(summary["withdrawal_stress"]["delayed_stepup_example"]["max_windows_with_shortfall"], 0)
 
     def test_frontier_chart_has_axes_and_non_dominated_points(self):

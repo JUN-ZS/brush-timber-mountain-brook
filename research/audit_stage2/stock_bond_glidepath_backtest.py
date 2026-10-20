@@ -26,12 +26,14 @@ TICKERS = ("QQQ", "SPY", "AGG", "SHY", "IEF", "TLT")
 STOCK_TICKERS = ("QQQ", "SPY")
 BOND_TICKERS = ("AGG", "SHY", "IEF", "TLT")
 TARGET_CONVERSIONS = (30, 40, 50, 60, 70, 80, 90, 100)
-TIMING_RULES = ("front_fast", "front_loaded", "linear", "mid_loaded", "back_loaded", "back_late")
+TIMING_RULES = ("front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late")
 TIMING_LABELS = {
+    "front_rapid": "急速前置（第1年半程）",
     "front_fast": "加速前置（第2年半程）",
     "front_loaded": "前置（第3年半程）",
     "linear": "線性",
     "mid_loaded": "中段加速（S曲線）",
+    "staggered": "分段轉換（第2／5／8年）",
     "back_loaded": "後置（第5年開始）",
     "back_late": "延後（第7年開始）",
 }
@@ -162,7 +164,9 @@ def _target_bond_weight(target_pct: int, elapsed_months: int, timing_rule: str =
     if timing_rule not in TIMING_RULES:
         raise ValueError(f"Unsupported timing rule: {timing_rule}")
     year = min(10, max(0, elapsed_months // 12))
-    if timing_rule == "front_fast":
+    if timing_rule == "front_rapid":
+        progress = 0.5 * year if year <= 1 else 0.5 + 0.5 * (year - 1) / 9.0
+    elif timing_rule == "front_fast":
         progress = 0.5 * year / 2.0 if year <= 2 else 0.5 + 0.5 * (year - 2) / 8.0
     elif timing_rule == "front_loaded":
         progress = 0.5 * year / 3.0 if year <= 3 else 0.5 + 0.5 * (year - 3) / 7.0
@@ -171,6 +175,15 @@ def _target_bond_weight(target_pct: int, elapsed_months: int, timing_rule: str =
     elif timing_rule == "mid_loaded":
         x = year / 10.0
         progress = 3.0 * x * x - 2.0 * x * x * x
+    elif timing_rule == "staggered":
+        if year <= 2:
+            progress = 0.25 * year / 2.0
+        elif year <= 5:
+            progress = 0.25 + 0.25 * (year - 2) / 3.0
+        elif year <= 8:
+            progress = 0.50 + 0.25 * (year - 5) / 3.0
+        else:
+            progress = 0.75 + 0.25 * (year - 8) / 2.0
     elif timing_rule == "back_loaded":
         progress = max(0.0, (year - 5) / 5.0)
     else:  # back_late
@@ -454,10 +467,12 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
             "stock_sleeve": "QQQ/SPY 50/50 on each annual glidepath rebalance; both use dividend/split-adjusted close",
             "glidepath_rule": "Start at 0% bond. At each 12-month anniversary, rebalance to a stepwise target bond weight; the selected year-10 target is reached at month 120. Targets: 30%-100% in 10-point steps.",
             "timing_rules": {
+                "front_rapid": "reach 50% of target by year 1; finish evenly by year 10",
                 "front_fast": "reach 50% of target by year 2; finish evenly by year 10",
                 "front_loaded": "reach 50% of target by year 3; finish evenly by year 10",
                 "linear": "equal conversion steps across years 1-10",
                 "mid_loaded": "smooth S-curve, faster conversion during middle years",
+                "staggered": "25%, 50%, and 75% of final target by years 2, 5, and 8; finish at year 10",
                 "back_loaded": "0% bonds through year 5; convert evenly during years 6-10",
                 "back_late": "0% bonds through year 7; convert evenly during years 8-10",
             },
@@ -538,7 +553,7 @@ def render_metric_chart(rows: list[dict], metric: str, title: str, subtitle: str
         x = x0 + plot_w * idx / (len(targets)-1)
         svg.append(f'<line x1="{x:.2f}" y1="{y0}" x2="{x:.2f}" y2="{y0+plot_h}" stroke="{COLORS["grid"]}"/>')
         svg.append(f'<text x="{x:.2f}" y="{y0+plot_h+22}" text-anchor="middle" font-size="11" fill="{COLORS["muted"]}">{target}%</text>')
-    dash_by_timing = {"front_fast": "1 3", "front_loaded": "8 4", "linear": "", "mid_loaded": "6 2 1 2", "back_loaded": "2 4", "back_late": "10 3"}
+    dash_by_timing = {"front_rapid": "3 2", "front_fast": "1 3", "front_loaded": "8 4", "linear": "", "mid_loaded": "6 2 1 2", "staggered": "5 2 1 2", "back_loaded": "2 4", "back_late": "10 3"}
     for bond in bonds:
         for timing in timings:
             vals = [data[(bond, target, timing)].get(metric) for target in targets]

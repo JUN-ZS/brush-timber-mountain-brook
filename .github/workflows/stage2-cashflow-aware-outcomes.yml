@@ -163,12 +163,12 @@ jobs:
           assert glide["method"]["rolling_windows_per_scenario"] == 157
           assert glide["method"]["rolling_windows_per_scenario"] > 100
           scenarios = glide["scenarios"]
-          assert len(scenarios) == 768, len(scenarios)
+          assert len(scenarios) == 1024, len(scenarios)
           assert {row["bond_proxy"] for row in scenarios} == {"AGG", "SHY", "IEF", "TLT"}
           assert {row["target_bond_conversion_pct_at_year10"] for row in scenarios} == {30, 40, 50, 60, 70, 80, 90, 100}
-          assert {row["timing_rule"] for row in scenarios} == {"front_fast", "front_loaded", "linear", "mid_loaded", "back_loaded", "back_late"}
+          assert {row["timing_rule"] for row in scenarios} == {"front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"}
           assert {row["cashflow_mode"] for row in scenarios} == {"no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"}
-          assert len(glide["annual_scenarios"]) == 8448
+          assert len(glide["annual_scenarios"]) == 11264
           assert {row["year"] for row in glide["annual_scenarios"]} == set(range(11))
           annual = glide["annual_scenarios"]
           year0 = next(row for row in annual if row["year"] == 0 and row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 60 and row["timing_rule"] == "linear" and row["cashflow_mode"] == "no_withdrawals")
@@ -186,7 +186,7 @@ jobs:
               assert row["p05_terminal_nav_usd"] <= row["median_terminal_nav_usd"] <= row["p95_terminal_nav_usd"]
               assert row["median_daily_max_drawdown"] <= 0
           bond_rows = Path("/tmp/stock-bond-glidepath/stock_bond_glidepath_windows.csv").read_text(encoding="utf-8").splitlines()
-          assert len(bond_rows) == 1 + 768 * glide["method"]["rolling_windows_per_scenario"]
+          assert len(bond_rows) == 1 + 1024 * glide["method"]["rolling_windows_per_scenario"]
           panel = Path("/tmp/stock-bond-glidepath/historical_adjusted_close_panel.csv").read_text(encoding="utf-8")
           import hashlib
           assert hashlib.sha256(panel.encode("utf-8")).hexdigest() == glide["data"]["raw_panel_canonical_sha256"]
@@ -208,7 +208,7 @@ jobs:
           histogram_report = json.loads(Path("/tmp/stock-bond-glidepath/window_distribution_summary.json").read_text(encoding="utf-8"))
           assert histogram_report["schema"] == "stock-bond-glidepath-window-distributions.v1"
           assert histogram_report["rolling_windows_per_scenario"] == 157
-          assert len(histogram_report["distributions"]) == 768 * 4
+          assert len(histogram_report["distributions"]) == 1024 * 4
           assert set(histogram_report["metric_names"]) == {"terminal_nav_usd", "time_weighted_cagr", "daily_max_drawdown", "withdrawal_shortfall_usd"}
           for distribution in histogram_report["distributions"]:
               assert 0 <= distribution["n"] <= 157
@@ -216,13 +216,13 @@ jobs:
                   assert distribution["min"] <= distribution["p05"] <= distribution["median"] <= distribution["p95"] <= distribution["max"]
                   assert 1 <= len(distribution["bins"]) <= 18
                   assert sum(item["count"] for item in distribution["bins"]) == distribution["n"]
-          assert len({(d["bond_proxy"], d["target_bond_conversion_pct_at_year10"], d["timing_rule"], d["cashflow_mode"], d["metric"]) for d in histogram_report["distributions"]}) == 768 * 4
+          assert len({(d["bond_proxy"], d["target_bond_conversion_pct_at_year10"], d["timing_rule"], d["cashflow_mode"], d["metric"]) for d in histogram_report["distributions"]}) == 1024 * 4
 
           cohort_report = json.loads(Path("/tmp/stock-bond-glidepath/window_start_cohort_summary.json").read_text(encoding="utf-8"))
           assert cohort_report["schema"] == "stock-bond-glidepath-start-cohorts.v1"
           assert cohort_report["rolling_windows_per_scenario"] == 157
           cohorts = cohort_report["cohorts"]
-          assert len(cohorts) >= 768
+          assert len(cohorts) >= 1024
           cohort_keys = {(row["bond_proxy"], row["target_bond_conversion_pct_at_year10"], row["timing_rule"], row["cashflow_mode"], row["start_year"]) for row in cohorts}
           assert len(cohort_keys) == len(cohorts), "duplicate start-year cohort key"
           cohort_windows = {}
@@ -240,22 +240,22 @@ jobs:
               if row["median_daily_max_drawdown"] is not None and row["worst_daily_max_drawdown"] is not None:
                   assert row["worst_daily_max_drawdown"] <= row["median_daily_max_drawdown"]
               cohort_windows[key] = cohort_windows.get(key, 0) + row["window_count"]
-          assert len(cohort_windows) == 768
+          assert len(cohort_windows) == 1024
           assert all(n == 157 for n in cohort_windows.values()), "start-year cohorts must conserve all rolling windows"
           assert "median_target_bond_weight" in interactive
           assert "W(s.target,y,m)" not in interactive
           decision = glide["decision_summary"]
-          assert decision["no_withdrawal_configurations"] == 192
-          assert all(item["configurations"] == 192 for item in decision["withdrawal_stress"].values())
+          assert decision["no_withdrawal_configurations"] == 256
+          assert all(item["configurations"] == 256 for item in decision["withdrawal_stress"].values())
           assert len(decision["agg_linear_target_scan"]) == 8
-          assert len(decision["agg_60_timing_comparison"]) == 6
+          assert len(decision["agg_60_timing_comparison"]) == 8
           assert len(decision["pareto_frontier"]) > 0
           assert set(decision["withdrawal_stress"]) == {"delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"}
           assert "不保證" in (Path("/tmp/stock-bond-glidepath/decision_summary.md")).read_text(encoding="utf-8")
           assert glide["cashflow_schedule"]["rows"] == 9
           assert glide["cashflow_schedule"]["withdrawal_total_usd"] == 12800.0
           assert glide["cashflow_schedule"]["deposit_total_usd"] == 5000.0
-          print("PASS: 768 scenarios, 8,448 annual summaries, 3,072 outcome histograms, start-year cohorts and nominal principal-floor counts; all 157 windows conserved per strategy")
+          print("PASS: 1,024 scenarios, 11,264 annual summaries, 4,096 outcome histograms, start-year cohorts and nominal principal-floor counts; all 157 windows conserved per strategy")
           PY
 
       - name: Upload research results and chart pack

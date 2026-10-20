@@ -121,8 +121,8 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(flat["bins"],[{"low":0.0,"high":0.0,"count":15}])
     def test_embeds_complete_scenario_grid_and_all_annual_marks(self):
         cases, annual = sample_rows()
-        self.assertEqual(len(cases),768)
-        self.assertEqual(len(annual),8448)
+        self.assertEqual(len(cases),1024)
+        self.assertEqual(len(annual),11264)
         page=render_dashboard(cases,annual,sample_histograms(),sample_cohorts())
         for token in ('id="target"','id="year"','id="heatMetric"','id="histMetric"','id="cohortMetric"','id="cohort"','id="cohortDetail"','id="wealth"','id="drawdown"','id="returns"','id="gaps"','id="frontier"','id="flows"','id="glide"','id="table"','id="fan"','id="drawdownPath"','id="heatmap"','id="histogram"','id="exportMatrix"','id="exportAnnual"','addEventListener("input",update)','data-pick=','data-year=','拖動 BAR','不是預測','P05–P95','__ANNUAL__'):
             if token=="__ANNUAL__":
@@ -132,10 +132,10 @@ class DashboardTests(unittest.TestCase):
         annual_payload=page.split("const D=",1)[1].split(",A=",1)[1].split(",HIST=",1)[0]
         histogram_payload=page.split(",HIST=",1)[1].split(",COHORT=",1)[0]
         cohort_payload=page.split(",COHORT=",1)[1].split(",TG=",1)[0]
-        self.assertEqual(len(json.loads(payload)),768)
-        self.assertEqual(len(json.loads(annual_payload)),8448)
-        self.assertEqual(len(json.loads(histogram_payload)),768*len(HISTOGRAM_METRICS))
-        self.assertEqual(len(json.loads(cohort_payload)),768*2)
+        self.assertEqual(len(json.loads(payload)),1024)
+        self.assertEqual(len(json.loads(annual_payload)),11264)
+        self.assertEqual(len(json.loads(histogram_payload)),1024*len(HISTOGRAM_METRICS))
+        self.assertEqual(len(json.loads(cohort_payload)),1024*2)
         self.assertNotIn("__DATA__",page)
         self.assertNotIn("__ANNUAL__",page)
         self.assertNotIn("__HIST__",page)
@@ -156,15 +156,19 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(markup.id_to_tag.get("exportMatrix"),"button")
         self.assertEqual(markup.id_to_tag.get("exportAnnual"),"button")
 
-    def test_selected_year_is_read_from_annual_rows_and_all_six_timings_have_paths(self):
+    def test_selected_year_is_read_from_annual_rows_and_all_eight_timings_have_paths(self):
         page_template=Path(__import__("glidepath_interactive_dashboard").__file__).read_text(encoding="utf-8")
         self.assertIn('year===s.year',page_template)
         self.assertIn('Y(s.bond,s.target,s.timing,s.flow,s.year)',page_template)
         self.assertIn('100*Y(s.bond,s.target,m,s.flow,y).median_target_bond_weight',page_template)
+        self.assertIn('$("allocation").innerHTML=allocationHtml',page_template)
+        self.assertIn('滑桿同步讀取該年年度數據',page_template)
         self.assertNotIn('W(s.target,y,m)',page_template)
         self.assertIn('median_nav_usd',page_template)
         self.assertIn('median_drawdown_to_date',page_template)
         self.assertIn('back_late',page_template)
+        self.assertIn('front_rapid',page_template)
+        self.assertIn('staggered',page_template)
         self.assertIn('mid_loaded',page_template)
         self.assertIn('function fan(s)',page_template)
         self.assertIn('function drawdownPath(s)',page_template)
@@ -177,7 +181,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('低於起始本金窗口',page_template)
         self.assertIn('COHORT.filter(',page_template)
         self.assertIn('def build_cohort_profiles(',page_template)
-        self.assertIn('function build_window_histograms(',page_template)
+        self.assertIn('def build_window_histograms(',page_template)
         self.assertIn('function summarize_histogram(',page_template)
         self.assertIn('cashflow_mode===s.flow',page_template)
         self.assertIn('data-year="'+"'"+'+y+',page_template)
