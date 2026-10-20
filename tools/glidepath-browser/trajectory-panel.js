@@ -148,7 +148,7 @@
     ".paired-table thead th{font-weight:750;background:rgba(127,127,127,.07);text-align:right}" +
     ".paired-table th:first-child{text-align:left;white-space:normal;min-width:190px}" +
     ".paired-table tbody th{font-weight:600}" +
-    ".paired-dd-year-wrap{margin:14px 0 8px}" +
+    ".paired-dd-year-wrap{margin:14px 0 8px;max-width:100%;overflow-x:auto}" +
     ".paired-dd-year-wrap h3{font-size:.9rem;font-weight:700;margin:0 0 6px}" +
     ".paired-comparison-note{padding:9px 10px;background:rgba(127,127,127,.06);border-radius:6px}" +
     ".paired-comparison-limits{font-size:.77rem;opacity:.75}" +
