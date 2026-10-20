@@ -182,7 +182,8 @@ try {
     return {count: vals.length, min: Math.min(...vals), max: Math.max(...vals), non_finite: vals.filter(value => !Number.isFinite(value)).length};
   });
   need(geometry.count === 66, "expected 66 glidepath circle nodes, got " + geometry.count);
-  need(geometry.non_finite === 0 && geometry.min >= 81 && geometry.max <= 180, "glidepath circle geometry out of bounds: " + JSON.stringify(geometry));
+  // The current selected target can legitimately drive the bond allocation to 100% (cy=y0=15); assert the chart's actual plot bounds, not the default strategy's narrower range.
+  need(geometry.non_finite === 0 && geometry.min >= 15 && geometry.max <= 180, "glidepath circle geometry out of plot bounds [15,180]: " + JSON.stringify(geometry));
   result.glidepath_geometry = geometry;
 
   await setYear(5);
