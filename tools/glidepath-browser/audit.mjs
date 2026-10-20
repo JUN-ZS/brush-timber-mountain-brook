@@ -65,15 +65,27 @@ async function clickAndRead(page, selector) {
   return attrs;
 }
 async function saveCsv(page, id, expectedRows, expectedCols) {
-  const download = await page.waitForEvent("download", () => page.locator("#" + id).click());
-  const filePath = await download.path();
-  need(filePath, id + " did not produce a downloadable file");
-  const text = await fs.readFile(filePath, "utf8");
-  const lines = text.trimEnd().split(/\r?\n/);
+  await page.evaluate(() => {
+    window.__glidepathAuditLastBlob = null;
+    window.__glidepathAuditLastDownloadName = null;
+  });
+  await page.locator("#" + id).click();
+  const captured = await page.evaluate(async () => {
+    const blob = window.__glidepathAuditLastBlob;
+    return blob ? {
+      text: await blob.text(),
+      bytes: blob.size,
+      file_name: window.__glidepathAuditLastDownloadName
+    } : null;
+  });
+  need(captured !== null, id + " did not construct a CSV Blob");
+  need(captured.file_name && captured.file_name.endsWith(".csv"), id + " did not assign a CSV filename");
+  const lines = captured.text.trimEnd().split(/\r?\n/);
   need(lines.length === expectedRows + 1, id + " row count expected " + (expectedRows + 1) + " lines including header, got " + lines.length);
   const cols = lines[0].split(",").length;
   need(cols === expectedCols, id + " expected " + expectedCols + " columns, got " + cols);
-  return {rows: lines.length - 1, cols, bytes: Buffer.byteLength(text), file_name: download.suggestedFilename()};
+  need(captured.bytes === Buffer.byteLength(captured.text), id + " Blob byte length mismatch");
+  return {rows: lines.length - 1, cols, bytes: captured.bytes, file_name: captured.file_name};
 }
 
 try {
@@ -85,6 +97,15 @@ try {
   await page.goto(pathToFileURL(htmlPath).href, {waitUntil: "load"});
   await page.locator("#metrics .metric").first().waitFor({state: "visible"});
   await page.evaluate(() => {
+    window.__glidepathAuditLastBlob = null;
+    window.__glidepathAuditLastDownloadName = null;
+    const NativeBlob = window.Blob;
+    window.Blob = class GlidepathAuditBlob extends NativeBlob {
+      constructor(parts, options) {
+        super(parts, options);
+        window.__glidepathAuditLastBlob = this;
+      }
+    };
     document.addEventListener("click", event => {
       const element = event.target && event.target.closest ? event.target.closest("[data-target],[data-year],[data-flow],[data-timing]") : null;
       window.__glidepathAuditLastClick = element ? {
@@ -95,6 +116,8 @@ try {
         year: element.getAttribute("data-year"),
         cohortYear: element.getAttribute("data-cohort-year")
       } : null;
+      const anchor = event.target && event.target.closest ? event.target.closest("a[download]") : null;
+      if (anchor) window.__glidepathAuditLastDownloadName = anchor.download;
     }, true);
   });
   need(await page.title() === "股票轉債互動追蹤台（優化增強版 v2.2）", "document title was not updated to v2.2");
