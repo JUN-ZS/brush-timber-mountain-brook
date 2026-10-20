@@ -1,13 +1,13 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 2529931,
+  "html_bytes": 2719412,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 80.64,
-  "bundle_bytes": 668169,
+  "html_size_reduction_pct": 79.19,
+  "bundle_bytes": 730860,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 57.17,
-  "sha256": "6181fc470faa671617df94d636e93f2ec99df062133b14042859330f3b0aada5",
-  "element_ids_count": 65,
+  "bundle_size_reduction_pct": 53.15,
+  "sha256": "5c651e40ca693f07f2c401d9e11eb85296e0ab7e555e1bca0fa2d76572b09c7d",
+  "element_ids_count": 66,
   "duplicate_ids": [],
   "embedded_data_counts": {
     "scenarios_D": 768,
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2520594,
+  "html_characters": 2708503,
   "v2_1_review": {
-    "source_commit": "1119bdac2c853c10bd5dc8802ccb06f329bd73c1",
+    "source_commit": "5d55d486921b9ca9ec0e6e79349286d8d94784a9",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -151,7 +151,11 @@
       "canonical_bundle_matches_html": true,
       "trajectory_panel_source_marker": true,
       "trajectory_panel_uses_canonical_annual_records": true,
-      "trajectory_panel_not_actual_holdings_disclosure": true
+      "trajectory_panel_not_actual_holdings_disclosure": true,
+      "reverse_replay_data_embedded": true,
+      "reverse_replay_engine_embedded": true,
+      "reverse_replay_does_not_reuse_old_performance": true,
+      "reverse_replay_unsupported_flow_blocks": true
     },
     "fixes": [
       "Real purchasing-power breach counts are explicitly unavailable because per-window NAV is not embedded.",
@@ -165,7 +169,10 @@
       "The proven zero-real-breach strategy counts are derived from each strategy's minimum terminal NAV versus the inflation-adjusted $100,000 threshold.",
       "Exact real-purchasing-power breach counts for strategies that fail the minimum-terminal-NAV proof are not inferred without per-window terminal NAV values or a fresh window-level replay.",
       "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied.",
-      "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries."
+      "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries.",
+      "The reversed bond-to-stock replay is independently recomputed from repository SPY/TLT daily adjusted-close rows; it does not reuse the original stock-to-bond performance summaries.",
+      "Reverse-direction performance is intentionally supported only for SPY plus TLT and the no-withdrawal/no-contribution cashflow state. Other bond proxies and cashflows are BLOCKED pending matching replay data and execution logic.",
+      "The reverse replay uses 157 overlapping 10-year windows, 252 trading days per year and annual rebalance targets. It omits transaction costs, taxes, slippage and ETF-tracking differences; historical outcomes are not guarantees."
     ],
     "inflation_reference": {
       "series": "FRED T10YIE",
@@ -699,6 +706,76 @@
           "status_text": "已同步 11 個年度回測配置記錄；第 10 年債券配置 80.00%，目標 80.00%。年度差值是相鄰年度配置百分點，不代表當年交易金額或每日實際持倉。",
           "rendered_duplicate_ids": []
         }
+      },
+      "reverse_direction_replay": {
+        "direction": "bond-to-stock",
+        "pathState": "ready",
+        "target": 60,
+        "endpointStockPct": 60,
+        "endpointBondPct": 40,
+        "stockPct": [
+          0,
+          15,
+          30,
+          33.75,
+          37.5,
+          41.25,
+          45,
+          48.75,
+          52.5,
+          56.25,
+          60
+        ],
+        "bondPct": [
+          100,
+          85,
+          70,
+          66.25,
+          62.5,
+          58.75,
+          55,
+          51.25,
+          47.5,
+          43.75,
+          40
+        ],
+        "sums": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "selectedYear": "5",
+        "replayState": "passed",
+        "windowCount": 157,
+        "sourceAsOf": "2026-09-04",
+        "sourceSha256Present": true,
+        "firstStart": "2004-03-30",
+        "firstEnd": "2014-04-03",
+        "lastStart": "2016-08-19",
+        "lastEnd": "2026-08-31",
+        "medianTerminalNav": 226135.1275,
+        "medianRealTerminalNav": 226135.1275,
+        "medianNominalCagr": 0.08501765,
+        "medianRealCagr": 0.08501765,
+        "medianNominalDrawdown": -0.20150314,
+        "worstNominalDrawdown": -0.29838704,
+        "nominalNoLossCount": 157,
+        "realNoLossCount": 157,
+        "statusText": "REPLAY PASSED · 157 窗口",
+        "sourceDisclosure": "來源：src/data/universe.json（2026-09-04 截止，5705 個有效同步價格列；來源檔 SHA-256 e5012c786152a510…）。實質 NAV 使用年通脹假設 0.00%。TLT 只代表長天期美國公債，不可視為 AGG／SHY／IEF；歷史樣本不保證未來結果。",
+        "legacyMetricsHidden": true,
+        "legacySummaryHidden": true,
+        "realMedianAt235": 179262.546,
+        "unsupportedBondBlock": "BLOCK",
+        "passed": true
       }
     },
     "residual_findings_for_v2_2": [
@@ -723,23 +800,96 @@
         "year10_strategies": 768,
         "provable_zero_real_breach_strategies": 329
       }
-    ]
+    ],
+    "reverse_direction_replay": {
+      "direction": "bond-to-stock",
+      "pathState": "ready",
+      "target": 60,
+      "endpointStockPct": 60,
+      "endpointBondPct": 40,
+      "stockPct": [
+        0,
+        15,
+        30,
+        33.75,
+        37.5,
+        41.25,
+        45,
+        48.75,
+        52.5,
+        56.25,
+        60
+      ],
+      "bondPct": [
+        100,
+        85,
+        70,
+        66.25,
+        62.5,
+        58.75,
+        55,
+        51.25,
+        47.5,
+        43.75,
+        40
+      ],
+      "sums": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100
+      ],
+      "selectedYear": "5",
+      "replayState": "passed",
+      "windowCount": 157,
+      "sourceAsOf": "2026-09-04",
+      "sourceSha256Present": true,
+      "firstStart": "2004-03-30",
+      "firstEnd": "2014-04-03",
+      "lastStart": "2016-08-19",
+      "lastEnd": "2026-08-31",
+      "medianTerminalNav": 226135.1275,
+      "medianRealTerminalNav": 226135.1275,
+      "medianNominalCagr": 0.08501765,
+      "medianRealCagr": 0.08501765,
+      "medianNominalDrawdown": -0.20150314,
+      "worstNominalDrawdown": -0.29838704,
+      "nominalNoLossCount": 157,
+      "realNoLossCount": 157,
+      "statusText": "REPLAY PASSED · 157 窗口",
+      "sourceDisclosure": "來源：src/data/universe.json（2026-09-04 截止，5705 個有效同步價格列；來源檔 SHA-256 e5012c786152a510…）。實質 NAV 使用年通脹假設 0.00%。TLT 只代表長天期美國公債，不可視為 AGG／SHY／IEF；歷史樣本不保證未來結果。",
+      "legacyMetricsHidden": true,
+      "legacySummaryHidden": true,
+      "realMedianAt235": 179262.546,
+      "unsupportedBondBlock": "BLOCK",
+      "passed": true
+    }
   },
-  "bundle_sha256": "16335f61b861938d8f9935d638b6dda16f744081ad917c372d9f82f2e7b2ba2d",
-  "html_crc32": "3d8828a1",
+  "bundle_sha256": "b4685c34fbc5400cd64bc034788765e161542d7b0df24d26ba318dd8dd6e37b9",
+  "html_crc32": "72bf37b7",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "6181fc470faa671617df94d636e93f2ec99df062133b14042859330f3b0aada5",
-    "bundle_sha256": "16335f61b861938d8f9935d638b6dda16f744081ad917c372d9f82f2e7b2ba2d",
-    "html_bytes": 2529931,
-    "bundle_bytes": 668169,
-    "html_crc32": "3d8828a1",
-    "unique_html_ids": 65,
+    "html_sha256": "5c651e40ca693f07f2c401d9e11eb85296e0ab7e555e1bca0fa2d76572b09c7d",
+    "bundle_sha256": "b4685c34fbc5400cd64bc034788765e161542d7b0df24d26ba318dd8dd6e37b9",
+    "html_bytes": 2719412,
+    "bundle_bytes": 730860,
+    "html_crc32": "72bf37b7",
+    "unique_html_ids": 66,
     "duplicate_ids": [],
     "zip_members": [
       "glidepath_interactive_preview_optimized.html"
     ],
     "zip_inflated_html_matches_canonical_html": true,
-    "created_at_utc": "2026-10-20T02:20:07.052375+00:00"
+    "reverse_direction_replay_status": "passed",
+    "reverse_direction_replay_windows": 157,
+    "reverse_direction_replay_passed": true,
+    "created_at_utc": "2026-10-20T02:46:24.014229+00:00"
   }
 }
