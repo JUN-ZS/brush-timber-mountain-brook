@@ -713,7 +713,11 @@ function update(){
   $("decisionBehaviorHeadline").textContent=TN[s.timing]+" · 目標轉債 "+s.target+"%";
   $("decisionBehaviorDetail").textContent=timingOption+"；這是逐年配置規則，不是自動交易指令。比較基準是同一債券代理與現金流下的歷史窗口結果。";
   $("decisionAllocationHeadline").textContent="股票 "+(Number.isFinite(stockPct)?stockPct.toFixed(2)+"%":"—")+" · "+s.bond+" "+(Number.isFinite(bondPct)?bondPct.toFixed(2)+"%":"—");
-  $("decisionAllocationDetail").textContent="第"+s.year+"年回測年度表記錄的中位配置；第10年目標轉債比例 "+s.target+"% 是路徑終點設定，不等於目前實際持倉。";
+  const allocationCurrency=s.cpi>0?"實質美元":"名目美元";
+  const allocationAmountDetail=Number.isFinite(selectedNav)&&selectedNav>=0&&Number.isFinite(stockPct)&&Number.isFinite(bondPct)
+    ?"按主結果 "+usd(selectedNav)+"（"+allocationCurrency+"）折算：股票約 "+usd(selectedNav*stockPct/100)+"；"+s.bond+" 約 "+usd(selectedNav*bondPct/100)+"。"
+    :"主結果或股／債配置數據缺失，參考金額未計算。";
+  $("decisionAllocationDetail").textContent=allocationAmountDetail+" 依第"+s.year+"年回測年度表中位配置拆分，只是參考金額，不代表實際持倉或今日下單金額；第10年目標轉債比例 "+s.target+"% 是路徑終點設定。";
   $("decisionFlowHeadline").textContent=FN[s.flow];
   $("decisionFlowDetail").textContent=$("flowNote").textContent+" 本結果依該現金流假設統計。";
   $("decisionFloorHeadline").textContent=s.cpi>0?"名目保本門檻 "+usd(realFloorThreshold):"名目本金門檻 $100,000";

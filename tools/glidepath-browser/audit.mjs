@@ -105,12 +105,14 @@ try {
     initialValue: document.querySelector("#decisionPrimaryValue").innerText,
     initialBehavior: document.querySelector("#decisionBehaviorHeadline").innerText,
     initialAllocation: document.querySelector("#decisionAllocationHeadline").innerText,
+    initialAllocationDetail: document.querySelector("#decisionAllocationDetail").innerText,
     initialFlow: document.querySelector("#decisionFlowHeadline").innerText,
     initialFloor: document.querySelector("#decisionFloorHeadline").innerText
   }));
   need(summaryPlacement.summaryBeforeControls && summaryPlacement.metricsBeforeControls, "decision outputs are not positioned ahead of controls");
   need(summaryPlacement.initialLead.includes("AGG") && summaryPlacement.initialLead.includes("60%") && summaryPlacement.initialLead.includes("第5年"), "initial decision summary does not state the selected strategy/year");
   need(summaryPlacement.initialValue.startsWith("$") && summaryPlacement.initialBehavior.length > 0 && summaryPlacement.initialAllocation.includes("股票") && summaryPlacement.initialFlow.includes("不提款") && summaryPlacement.initialFloor.includes("$"), "initial decision summary is missing amount/behavior/data fields");
+  need(summaryPlacement.initialAllocationDetail.includes("按主結果") && summaryPlacement.initialAllocationDetail.includes("股票約 $") && summaryPlacement.initialAllocationDetail.includes("AGG 約 $"), "initial allocation summary must translate the selected total into stock and bond dollar amounts");
   result.frontloaded_decision_summary = { ...summaryPlacement, passed: true };
   await page.locator("#bond").selectOption("TLT");
   await page.locator("#target").evaluate(el => {el.value="80"; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true}));});
@@ -120,6 +122,7 @@ try {
   const changedSummary = await page.evaluate(() => ({
     lead: document.querySelector("#decisionLead").innerText,
     allocation: document.querySelector("#decisionAllocationHeadline").innerText,
+    allocationDetail: document.querySelector("#decisionAllocationDetail").innerText,
     flow: document.querySelector("#decisionFlowHeadline").innerText,
     floor: document.querySelector("#decisionFloorHeadline").innerText,
     value: document.querySelector("#decisionPrimaryValue").innerText
@@ -127,6 +130,7 @@ try {
   need(changedSummary.lead.includes("TLT") && changedSummary.lead.includes("80%") && changedSummary.lead.includes("加速前置"), "decision summary did not follow strategy control changes");
   need(changedSummary.flow.includes("$500") && changedSummary.floor.includes("$"), "decision summary did not follow cashflow/inflation changes");
   need(changedSummary.value.startsWith("$") && changedSummary.allocation.includes("TLT"), "decision summary lacks updated monetary result/allocation");
+  need(changedSummary.allocationDetail.includes("股票約 $") && changedSummary.allocationDetail.includes("TLT 約 $"), "allocation dollar amounts did not follow changed bond proxy");
   result.frontloaded_decision_summary.updated_state = {...changedSummary, passed:true};
   await page.evaluate(() => {
     window.__glidepathAuditLastBlob = null;
