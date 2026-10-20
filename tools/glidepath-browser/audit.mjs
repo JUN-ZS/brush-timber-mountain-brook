@@ -260,18 +260,18 @@ try {
   ]) {
     await page.setViewportSize({width: viewport.width, height: viewport.height});
     const layout = await page.evaluate(() => {
-      const charts = Array.from(document.querySelectorAll("svg.chart"));
+      const svgs = Array.from(document.querySelectorAll("svg"));
       return {
         horizontal_overflow_px: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
-        chart_count: charts.length,
-        all_charts_visible: charts.length >= 9 && charts.every(svg => {
+        svg_count: svgs.length,
+        all_svgs_visible: svgs.length === 9 && svgs.every(svg => {
           const rect = svg.getBoundingClientRect();
           return rect.width > 0 && rect.height > 0;
         })
       };
     });
     need(layout.horizontal_overflow_px === 0, viewport.name + " has horizontal overflow: " + layout.horizontal_overflow_px);
-    need(layout.chart_count === 9 && layout.all_charts_visible, viewport.name + " chart visibility/count failed: " + JSON.stringify(layout));
+    need(layout.svg_count === 9 && layout.all_svgs_visible, viewport.name + " SVG visibility/count failed: " + JSON.stringify(layout));
     result.responsive_viewports_verified[viewport.name] = layout;
   }
 
