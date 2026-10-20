@@ -1,12 +1,12 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 2515753,
+  "html_bytes": 2516167,
   "original_html_bytes": 13068927,
   "html_size_reduction_pct": 80.75,
-  "bundle_bytes": 664160,
+  "bundle_bytes": 664270,
   "original_bundle_bytes": 1559891,
   "bundle_size_reduction_pct": 57.42,
-  "sha256": "8058b636cf1ccd51ee8a01aa06b623bae7322d95460856522887df391058c767",
+  "sha256": "725487292e695b881dc4714058b13cb14e00c3c0c119a646606f70e1f7336e2e",
   "element_ids_count": 64,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2507803,
+  "html_characters": 2508033,
   "v2_1_review": {
-    "source_commit": "28655b782830672aa9e1eec48a4549a79ac356e3",
+    "source_commit": "482146302ef791da6a2b2eb5bdd86e05bed5ad64",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -540,7 +540,7 @@
           "lead": "目前選定：TLT · 第10年目標轉債 80% · 加速前置：第2年半程 · 每月$500 · 查看第5年。",
           "allocation": "股票 45.00% · TLT 55.00%",
           "flow": "每月$500",
-          "floor": "實質保本名目門檻 $112,315",
+          "floor": "名目保本門檻 $112,315",
           "value": "$112,171",
           "passed": true
         }
@@ -570,21 +570,21 @@
       }
     ]
   },
-  "bundle_sha256": "bfc910b3fad5fdf5e65dd6ae2a18ded46bbdc960579f513442df7147a1b261e8",
-  "html_crc32": "37407648",
+  "bundle_sha256": "de8a1ec986e93aa6a92accb3074b224d47a9ccf3487a0e9b031ab4959dcc5aa5",
+  "html_crc32": "845509eb",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "8058b636cf1ccd51ee8a01aa06b623bae7322d95460856522887df391058c767",
-    "bundle_sha256": "bfc910b3fad5fdf5e65dd6ae2a18ded46bbdc960579f513442df7147a1b261e8",
-    "html_bytes": 2515753,
-    "bundle_bytes": 664160,
-    "html_crc32": "37407648",
+    "html_sha256": "725487292e695b881dc4714058b13cb14e00c3c0c119a646606f70e1f7336e2e",
+    "bundle_sha256": "de8a1ec986e93aa6a92accb3074b224d47a9ccf3487a0e9b031ab4959dcc5aa5",
+    "html_bytes": 2516167,
+    "bundle_bytes": 664270,
+    "html_crc32": "845509eb",
     "unique_html_ids": 64,
     "duplicate_ids": [],
     "zip_members": [
       "glidepath_interactive_preview_optimized.html"
     ],
     "zip_inflated_html_matches_canonical_html": true,
-    "created_at_utc": "2026-10-20T01:33:32.412644+00:00"
+    "created_at_utc": "2026-10-20T01:35:26.147548+00:00"
   }
 }
