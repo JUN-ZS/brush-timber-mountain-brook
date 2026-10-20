@@ -126,6 +126,7 @@ try {
     const duplicates = Array.from(new Set(idValues.filter((id, index) => idValues.indexOf(id) !== index)));
     return {
       state: root.dataset.state,
+      source: "S()/Y() canonical annual record map",
       panel_after_summary: !!(document.querySelector("#decisionSummary").compareDocumentPosition(root) & Node.DOCUMENT_POSITION_FOLLOWING),
       panel_before_controls: !!(root.compareDocumentPosition(document.querySelector(".controls")) & Node.DOCUMENT_POSITION_FOLLOWING),
       selected_year: root.dataset.year,
@@ -153,7 +154,8 @@ try {
   need(initialTrajectory.selected_year === "5" && initialTrajectory.selected_year_header_count === 1 && initialTrajectory.selected_year_header === 5, "trajectory panel did not highlight the selected year 5 from the original year BAR");
   need(Math.abs(initialTrajectory.endpoint_bond_pct - initialTrajectory.target) <= 0.75, "year-10 bond target does not match selected target: " + JSON.stringify(initialTrajectory));
   need(initialTrajectory.stock_bond_sums.every(value => Math.abs(value - 100) <= 0.02), "trajectory stock and bond percentages do not sum to 100: " + JSON.stringify(initialTrajectory.stock_bond_sums));
-  need(initialTrajectory.crosscheck_text.includes("歷史回測摘要") && initialTrajectory.crosscheck_text.includes("差異"), "trajectory does not compare rule path with historical backtest allocation");
+  need(initialTrajectory.source === "S()/Y() canonical annual record map", "trajectory is not sourced from canonical annual backtest records");
+  need(initialTrajectory.crosscheck_text.includes("年度回測配置記錄") && initialTrajectory.crosscheck_text.includes("畫面差異"), "trajectory does not compare the annual record with the frontloaded summary");
   need(initialTrajectory.rendered_duplicate_ids.length === 0, "trajectory panel caused duplicate rendered IDs: " + JSON.stringify(initialTrajectory.rendered_duplicate_ids));
   result.glidepath_decision_trajectory = {initial: initialTrajectory, passed: true};
 

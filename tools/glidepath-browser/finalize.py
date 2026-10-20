@@ -47,8 +47,10 @@ if html_text.index('<section id="metrics"') > html_text.index('<section class="c
     raise SystemExit("Primary metrics must appear before the controls.")
 if "GLIDEPATH_TRAJECTORY_PANEL_V1" not in html_text or 'id="glidepath-trajectory-panel-inline"' not in html_text:
     raise SystemExit("Year-by-year allocation path panel was not embedded in the canonical HTML.")
-if "不是歷史每日實際持倉或交易紀錄" not in html_text:
-    raise SystemExit("Allocation-path versus actual-history disclosure is missing.")
+if "不等於歷史每一天實際持倉或已執行交易" not in html_text:
+    raise SystemExit("Annual target weights versus actual holdings/trades disclosure is missing.")
+if "Y(state.bond, state.target, state.timing, state.flow, year)" not in html_text:
+    raise SystemExit("Annual path must use canonical backtest records, not rounded SVG coordinates.")
 if "<th>'+(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')+'</th>" not in html_text:
     raise SystemExit("Real-mode table header fix is missing.")
 if "未精算（名目 " not in html_text:
@@ -93,7 +95,8 @@ static.update({
     "zip_crc32_matches_html": True,
     "zip_sha256_matches_html": True,
     "trajectory_panel_source_marker": "GLIDEPATH_TRAJECTORY_PANEL_V1" in html_text,
-    "trajectory_panel_not_actual_holdings_disclosure": "不是歷史每日實際持倉或交易紀錄" in html_text,
+    "trajectory_panel_uses_canonical_annual_records": "Y(state.bond, state.target, state.timing, state.flow, year)" in html_text,
+    "trajectory_panel_not_actual_holdings_disclosure": "不等於歷史每一天實際持倉或已執行交易" in html_text,
     "canonical_bundle_member": "glidepath_interactive_preview_optimized.html",
     "canonical_bundle_matches_html": True
 })
@@ -102,7 +105,7 @@ review["known_limits"] = [
     "The proven zero-real-breach strategy counts are derived from each strategy's minimum terminal NAV versus the inflation-adjusted $100,000 threshold.",
     "Exact real-purchasing-power breach counts for strategies that fail the minimum-terminal-NAV proof are not inferred without per-window terminal NAV values or a fresh window-level replay.",
     "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied.",
-    "The year-by-year allocation strip is the selected rule target path derived from the glidepath SVG, not a record of historical daily holdings or trades; historical NAV results remain those supplied by the backtest data."
+    "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries."
 ]
 review["residual_findings_for_v2_2"] = [
     "Exact real-purchasing-power breach counts for strategies whose worst terminal NAV is below the inflation-adjusted principal threshold remain uncomputed; the UI explicitly labels these as uncalculated instead of substituting nominal counts."

@@ -24,9 +24,9 @@
   html += '</tr><tr data-series="change"><th scope="row">債券較上年變化</th>';
   years.forEach(function (year) { html += '<td data-year="' + year + '">—</td>'; });
   html += '</tr></tbody></table></div>';
-  html += '<p id="decisionTrajectoryCrosscheck" class="trajectory-crosscheck">正在對照所選年份的路徑與歷史回測摘要……</p>';
+  html += '<p id="decisionTrajectoryCrosscheck" class="trajectory-crosscheck">正在對照所選年份的年度回測配置記錄與前置摘要……</p>';
   html += '<p id="decisionTrajectoryStatus" class="trajectory-status" role="status" data-state="pending">正在讀取第 7 圖的年份節點……</p>';
-  html += '<p class="trajectory-disclaimer">這是所選轉換規則產生的目標配置路徑，不是歷史每日實際持倉或交易紀錄。上方金額仍按所選年份的歷史回測結果拆分；不同年份的 NAV 不可沿用同一金額。</p>';
+  html += '<p class="trajectory-disclaimer">每年股／債比例直接取自所選債券代理、目標、轉換規則與現金流的年度回測配置記錄（median_target_stock_weight／median_target_bond_weight）。這是每年再平衡目標，不等於歷史每一天實際持倉或已執行交易；上方美元拆分採所選年份的 NAV，不能沿用到其他年份，也不代表目前持倉或今日下單金額。</p>';
   section.innerHTML = html;
   summary.insertAdjacentElement("afterend", section);
 
@@ -52,8 +52,6 @@
     "@media(max-width:640px){.decision-trajectory{padding:10px}.trajectory-heading{gap:5px}.trajectory-table{min-width:690px}.trajectory-heading h2{font-size:1rem}}";
   document.head.appendChild(style);
 
-  const TOP_Y = 15;
-  const BOTTOM_Y = 180;
   let queued = false;
 
   function one(selector) { return document.querySelector(selector); }
@@ -62,21 +60,6 @@
     if (!element) return "";
     if (element.selectedOptions && element.selectedOptions.length) return element.selectedOptions[0].textContent.trim();
     return String(element.value || "").trim();
-  }
-  function percentFromNode(node) {
-    const explicitNames = ["data-bond-pct", "data-bond-percent", "data-bond-allocation-pct"];
-    for (const name of explicitNames) {
-      const raw = node.getAttribute(name);
-      if (raw !== null && raw.trim() !== "") {
-        const parsed = Number(raw.replace("%", ""));
-        if (Number.isFinite(parsed)) return Math.max(0, Math.min(100, parsed <= 1 && parsed >= 0 ? parsed * 100 : parsed));
-      }
-    }
-    const cy = Number(node.getAttribute("cy"));
-    if (!Number.isFinite(cy) || cy < TOP_Y - 0.5 || cy > BOTTOM_Y + 0.5) return null;
-    const pct = (BOTTOM_Y - cy) * 100 / (BOTTOM_Y - TOP_Y);
-    if (!Number.isFinite(pct) || pct < -0.5 || pct > 100.5) return null;
-    return Math.max(0, Math.min(100, pct));
   }
   function pathForTiming(state) {
     // Use the original model's annual backtest record directly, not rounded SVG coordinates.
@@ -131,7 +114,7 @@
     const timingName = selectedText("#timing") || timing;
     section.querySelector("#decisionTrajectoryBondLabel").textContent = bondName + " 目標";
     section.querySelector("#decisionTrajectoryLead").textContent =
-      "規則：" + timingName + " · 第 10 年目標 " + bondName + " " + target.toFixed(2) + "% · 所選年份：" + selectedYear + "。點擊年份可同步切換上方回測摘要和原有年份 BAR。";
+      "規則：" + timingName + " · 第 10 年目標 " + bondName + " " + target.toFixed(2) + "% · 所選年份：" + selectedYear + "。比例取自同一策略的年度回測配置記錄；拖動原有年份 BAR 即可切換高亮年份。";
 
     points.forEach(function (point, index) {
       const stockPct = point.stockPct;
@@ -162,7 +145,7 @@
     const selectedPoint = points.find(function (point) { return point.year === selectedYear; });
     const crosscheck = section.querySelector("#decisionTrajectoryCrosscheck");
     if (rates.length >= 2 && selectedPoint) {
-      const stockDelta = (100 - selectedPoint.bondPct) - rates[0];
+      const stockDelta = selectedPoint.stockPct - rates[0];
       const bondDelta = selectedPoint.bondPct - rates[1];
       crosscheck.textContent = "第 " + selectedYear + " 年對照：年度回測配置記錄為股票 " +
         stockPctAt(selectedPoint) + "% / " + bondName + " " +
