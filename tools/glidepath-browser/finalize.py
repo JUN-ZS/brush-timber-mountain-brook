@@ -53,6 +53,11 @@ if html_text.index('<section id="metrics"') > html_text.index('<section class="c
     raise SystemExit("Primary metrics must appear before the controls.")
 if "GLIDEPATH_TRAJECTORY_PANEL_V1" not in html_text or 'id="glidepath-trajectory-panel-inline"' not in html_text:
     raise SystemExit("Year-by-year allocation path panel was not embedded in the canonical HTML.")
+if "GLIDEPATH_DECISION_EVIDENCE_V1" not in html_text or "決策依據：金額 × 行為 × 樣本 × 尚未證明的風險" not in html_text:
+    raise SystemExit("Front-loaded amount/behavior/sample/unproven-risk panel is missing.")
+for evidence_text in ("768 組第10年策略設定", "157 個重疊的 10 年窗口", "363 組", "329 組", "未精算", "不代表途中不回撤"):
+    if evidence_text not in html_text:
+        raise SystemExit("Decision evidence disclosure is incomplete: " + evidence_text)
 if "不等於歷史每一天實際持倉或已執行交易" not in html_text:
     raise SystemExit("Annual target weights versus actual holdings/trades disclosure is missing.")
 if "Y(state.bond, state.target, state.timing, state.flow, year)" not in html_text:
@@ -113,6 +118,8 @@ static.update({
     "zip_crc32_matches_html": True,
     "zip_sha256_matches_html": True,
     "trajectory_panel_source_marker": "GLIDEPATH_TRAJECTORY_PANEL_V1" in html_text,
+    "decision_evidence_panel_embedded": "GLIDEPATH_DECISION_EVIDENCE_V1" in html_text,
+    "decision_evidence_links_amount_behavior_sample_risk": all(item in html_text for item in ("決策依據：金額 × 行為 × 樣本 × 尚未證明的風險", "768 組第10年策略設定", "157 個重疊的 10 年窗口", "363 組", "329 組", "未精算")),
     "trajectory_panel_uses_canonical_annual_records": "Y(state.bond, state.target, state.timing, state.flow, year)" in html_text,
     "trajectory_panel_not_actual_holdings_disclosure": "不等於歷史每一天實際持倉或已執行交易" in html_text,
     "reverse_replay_data_embedded": "GLIDEPATH_REVERSE_DATA_V1" in html_text,
