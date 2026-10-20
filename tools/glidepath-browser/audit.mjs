@@ -306,6 +306,9 @@ try {
   need(pairRead.tableRows === 9 && pairRead.limits.includes("窗口彼此重疊") &&
     pairRead.method.includes("最大回撤年") && pairRead.method.includes("252 個交易日"),
     "paired comparison table/method/overlap disclosures are missing");
+  need(Math.abs(pairRead.reverseMedianNav - reverseRead.medianTerminalNav) < 0.1,
+    "paired reverse NAV does not reconcile with the independently replayed reverse strategy");
+  result.paired_direction_comparison = {...pairRead, passed: true};
 
   const realMedianAtZero = reverseRead.medianRealTerminalNav;
   await page.locator("#realMode").selectOption("0.0235");
