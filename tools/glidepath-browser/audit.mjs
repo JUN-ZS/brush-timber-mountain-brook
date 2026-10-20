@@ -145,8 +145,8 @@ try {
     summaryPlacement.evidenceBehavior.includes("第 5 年") && summaryPlacement.evidenceFlow.includes("不提款"),
     "decision evidence does not bind the NAV amount to current strategy behavior and cashflow");
   need(summaryPlacement.evidenceSample.includes("768 組") && summaryPlacement.evidenceSample.includes("157 個重疊") &&
-    summaryPlacement.evidenceSample.includes("2004-03-30") && summaryPlacement.evidenceSample.includes("2026-08-31"),
-    "decision evidence is missing exact strategy/window/sample coverage");
+    summaryPlacement.evidenceSample.includes("2026-09-04"),
+    "decision evidence is missing the strategy count, rolling-window count or data as-of date");
   need(summaryPlacement.evidenceRisk.includes("363 組") && summaryPlacement.evidenceRisk.includes("329 組") &&
     summaryPlacement.evidenceRisk.includes("未精算") && summaryPlacement.evidenceRisk.includes("不代表途中"),
     "decision evidence must distinguish proven zero-real-terminal-breach strategies from uncalculated counts");
@@ -330,6 +330,7 @@ try {
       winSummary: document.querySelector("#pairedComparisonWinSummary").innerText,
       method: document.querySelector("#pairedComparisonMethod").innerText,
       limits: document.querySelector("#pairedComparisonLimits").innerText,
+      evidenceSample: document.querySelector("#decisionEvidenceSample").innerText,
       tableRows: document.querySelectorAll("#pairedComparison .paired-table-wrap tbody tr").length
     };
   });
@@ -340,6 +341,9 @@ try {
     "paired comparison windows diverged from reverse replay window protocol");
   need(pairRead.sourceAsOf === reverseRead.sourceAsOf && /^[a-f0-9]{64}$/.test(pairRead.sourceSha256),
     "paired comparison source lineage is missing or differs from reverse replay");
+  need(pairRead.evidenceSample.includes("2004-03-30–2014-04-03") &&
+    pairRead.evidenceSample.includes("2016-08-19–2026-08-31"),
+    "the selected paired amount does not show the independent 10-year window date range");
   need(Number.isFinite(pairRead.forwardMedianNav) && Number.isFinite(pairRead.reverseMedianNav) &&
     Number.isFinite(pairRead.pairedMedianRealNavDelta) && Number.isFinite(pairRead.pairedMedianCagrDelta) &&
     Number.isFinite(pairRead.pairedMedianDdDelta), "paired comparison contains non-finite metrics");
