@@ -1,13 +1,13 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 2516994,
+  "html_bytes": 2529931,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 80.74,
-  "bundle_bytes": 664498,
+  "html_size_reduction_pct": 80.64,
+  "bundle_bytes": 668169,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 57.4,
-  "sha256": "e620e7ab5cd9372000c00d20d43593bc228d544aefd1339d5d38ad967842536e",
-  "element_ids_count": 64,
+  "bundle_size_reduction_pct": 57.17,
+  "sha256": "6181fc470faa671617df94d636e93f2ec99df062133b14042859330f3b0aada5",
+  "element_ids_count": 65,
   "duplicate_ids": [],
   "embedded_data_counts": {
     "scenarios_D": 768,
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2508746,
+  "html_characters": 2520594,
   "v2_1_review": {
-    "source_commit": "72c629db62583db7aeb4514c6450098629b9441e",
+    "source_commit": "1119bdac2c853c10bd5dc8802ccb06f329bd73c1",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -148,7 +148,10 @@
       "zip_crc32_matches_html": true,
       "zip_sha256_matches_html": true,
       "canonical_bundle_member": "glidepath_interactive_preview_optimized.html",
-      "canonical_bundle_matches_html": true
+      "canonical_bundle_matches_html": true,
+      "trajectory_panel_source_marker": true,
+      "trajectory_panel_uses_canonical_annual_records": true,
+      "trajectory_panel_not_actual_holdings_disclosure": true
     },
     "fixes": [
       "Real purchasing-power breach counts are explicitly unavailable because per-window NAV is not embedded.",
@@ -161,7 +164,8 @@
     "known_limits": [
       "The proven zero-real-breach strategy counts are derived from each strategy's minimum terminal NAV versus the inflation-adjusted $100,000 threshold.",
       "Exact real-purchasing-power breach counts for strategies that fail the minimum-terminal-NAV proof are not inferred without per-window terminal NAV values or a fresh window-level replay.",
-      "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied."
+      "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied.",
+      "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries."
     ],
     "inflation_reference": {
       "series": "FRED T10YIE",
@@ -546,6 +550,155 @@
           "value": "$112,171",
           "passed": true
         }
+      },
+      "glidepath_decision_trajectory": {
+        "initial": {
+          "state": "ready",
+          "source": "S()/Y() canonical annual record map",
+          "panel_after_summary": true,
+          "panel_before_controls": true,
+          "selected_year": "5",
+          "target": 60,
+          "timing": "front_fast",
+          "endpoint_bond_pct": 60,
+          "year_headers": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "selected_year_header_count": 1,
+          "selected_year_header": 5,
+          "stock_pcts": [
+            100,
+            85,
+            70,
+            66.25,
+            62.5,
+            58.75,
+            55,
+            51.25,
+            47.5,
+            43.75,
+            40
+          ],
+          "bond_pcts": [
+            0,
+            15,
+            30,
+            33.75,
+            37.5,
+            41.25,
+            45,
+            48.75,
+            52.5,
+            56.25,
+            60
+          ],
+          "stock_bond_sums": [
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "crosscheck": "aligned",
+          "allocation_delta_pp": 0,
+          "crosscheck_text": "第 5 年對照：年度回測配置記錄為股票 58.75% / AGG（美國綜合債券 ETF） 41.25%；前置摘要為股票 58.75% / AGG（美國綜合債券 ETF） 41.25%；畫面差異：股票 0.00 個百分點、債券 0.00 個百分點。這是同一年度記錄的畫面一致性核對，不是獨立回測驗證；金額依主摘要該年 NAV 拆分。",
+          "status_text": "已同步 11 個年度回測配置記錄；第 10 年債券配置 60.00%，目標 60.00%。年度差值是相鄰年度配置百分點，不代表當年交易金額或每日實際持倉。",
+          "rendered_duplicate_ids": []
+        },
+        "passed": true,
+        "year9_bar_sync_state": {
+          "controlValue": "9",
+          "panelYear": "9",
+          "selectedYearHeaders": [
+            "9"
+          ],
+          "summaryLead": "目前選定：AGG · 第10年目標轉債 60% · 加速前置：第2年半程 · 不提款 · 查看第9年。"
+        },
+        "updated_state": {
+          "state": "ready",
+          "source": "S()/Y() canonical annual record map",
+          "panel_after_summary": true,
+          "panel_before_controls": true,
+          "selected_year": "5",
+          "target": 80,
+          "timing": "front_fast",
+          "endpoint_bond_pct": 80,
+          "year_headers": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10
+          ],
+          "selected_year_header_count": 1,
+          "selected_year_header": 5,
+          "stock_pcts": [
+            100,
+            80,
+            60,
+            55,
+            50,
+            45,
+            40,
+            35,
+            30,
+            25,
+            20
+          ],
+          "bond_pcts": [
+            0,
+            20,
+            40,
+            45,
+            50,
+            55,
+            60,
+            65,
+            70,
+            75,
+            80
+          ],
+          "stock_bond_sums": [
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "crosscheck": "aligned",
+          "allocation_delta_pp": 0,
+          "crosscheck_text": "第 5 年對照：年度回測配置記錄為股票 45.00% / TLT（20年以上長債 ETF） 55.00%；前置摘要為股票 45.00% / TLT（20年以上長債 ETF） 55.00%；畫面差異：股票 0.00 個百分點、債券 +0.00 個百分點。這是同一年度記錄的畫面一致性核對，不是獨立回測驗證；金額依主摘要該年 NAV 拆分。",
+          "status_text": "已同步 11 個年度回測配置記錄；第 10 年債券配置 80.00%，目標 80.00%。年度差值是相鄰年度配置百分點，不代表當年交易金額或每日實際持倉。",
+          "rendered_duplicate_ids": []
+        }
       }
     },
     "residual_findings_for_v2_2": [
@@ -572,21 +725,21 @@
       }
     ]
   },
-  "bundle_sha256": "e2c13669d9339018542769381e3c5557b98f65c4888f1d02d2af4e84117e5f7e",
-  "html_crc32": "a4ef4662",
+  "bundle_sha256": "16335f61b861938d8f9935d638b6dda16f744081ad917c372d9f82f2e7b2ba2d",
+  "html_crc32": "3d8828a1",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "e620e7ab5cd9372000c00d20d43593bc228d544aefd1339d5d38ad967842536e",
-    "bundle_sha256": "e2c13669d9339018542769381e3c5557b98f65c4888f1d02d2af4e84117e5f7e",
-    "html_bytes": 2516994,
-    "bundle_bytes": 664498,
-    "html_crc32": "a4ef4662",
-    "unique_html_ids": 64,
+    "html_sha256": "6181fc470faa671617df94d636e93f2ec99df062133b14042859330f3b0aada5",
+    "bundle_sha256": "16335f61b861938d8f9935d638b6dda16f744081ad917c372d9f82f2e7b2ba2d",
+    "html_bytes": 2529931,
+    "bundle_bytes": 668169,
+    "html_crc32": "3d8828a1",
+    "unique_html_ids": 65,
     "duplicate_ids": [],
     "zip_members": [
       "glidepath_interactive_preview_optimized.html"
     ],
     "zip_inflated_html_matches_canonical_html": true,
-    "created_at_utc": "2026-10-20T01:55:37.053381+00:00"
+    "created_at_utc": "2026-10-20T02:20:07.052375+00:00"
   }
 }
