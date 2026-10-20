@@ -72,6 +72,30 @@ tr.active{background:#e8f2fc;font-weight:700}
 .alloc-inline{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;padding-top:7px;border-top:1px solid #edf2f7;font-size:11.5px}
 .alloc-pill{display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:5px 9px;border-radius:7px;border:1px solid #e2e8f0}
 .bench-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:11px;padding:10px 13px;margin:10px 0;font-size:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+
+.decision-summary{background:#fff;border:1px solid #cdd9e6;border-radius:16px;padding:15px;margin:13px 0 10px;box-shadow:0 2px 7px rgba(15,23,42,.04)}
+.decision-summary-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.decision-summary-head h2{margin:0 0 3px;font-size:18px}
+.decision-summary-head p{margin:0}
+.decision-layout{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(0,2fr);gap:10px}
+.decision-primary{background:#203a59;color:#fff;border-radius:12px;padding:15px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.decision-primary .eyebrow{font-size:11px;color:#cbd9e8;font-weight:700}
+.decision-primary strong{font-size:clamp(29px,3vw,40px);line-height:1.15;margin:7px 0;overflow-wrap:anywhere}
+.decision-primary p{color:#e3edf7;font-size:11.5px;margin:4px 0 0;line-height:1.5}
+.decision-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.decision-item{background:#f7f9fb;border:1px solid #e6edf4;border-radius:11px;padding:10px 11px;min-width:0}
+.decision-item .k{font-size:11px;color:#61758a;font-weight:750;margin-bottom:4px}
+.decision-item .v{font-size:14px;font-weight:800;color:#203a59;overflow-wrap:anywhere}
+.decision-item .d{font-size:11px;line-height:1.45;color:#667b90;margin-top:4px;overflow-wrap:anywhere}
+.decision-dataset{border-top:1px solid #e7edf4;margin-top:10px;padding-top:8px;font-size:11px;color:#65798d;line-height:1.5}
+@media(max-width:700px){
+ .decision-layout{grid-template-columns:1fr}
+ .decision-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .decision-summary{padding:10px}
+}
+@media(max-width:390px){
+ .decision-cards{grid-template-columns:1fr}
+}
 @media(max-width:1100px){
   .controls{grid-template-columns:repeat(2,1fr)}
   .metrics{grid-template-columns:repeat(3,1fr)}
@@ -109,6 +133,48 @@ tr.active{background:#e8f2fc;font-weight:700}
       <div><b>② 名目 vs. 實質購買力情境：</b>2.35% 是 <a href="https://fred.stlouisfed.org/series/T10YIE" target="_blank" rel="noopener">FRED 10 年期 breakeven inflation（T10YIE）</a> 截至 2026-10-16 的市場隱含通膨指標，不是實際 CPI 或未來保證。若僅作固定 2.35% 年通膨假設，今日 $100,000 的第 10 年購買力等值約 $79,273；名目保本門檻約 $126,146。此例是情境換算，不是預測。</div>
     </div>
   </div>
+
+  <section id="decisionSummary" class="decision-summary" aria-live="polite">
+    <div class="decision-summary-head">
+      <div>
+        <h2>前置決策摘要｜先看金額、行為與數據</h2>
+        <p id="decisionLead" class="tiny">正在讀取所選策略的歷史摘要……</p>
+      </div>
+      <span id="decisionViewBadge" class="badge">歷史窗口 · 非預測</span>
+    </div>
+    <div class="decision-layout">
+      <div class="decision-primary">
+        <span id="decisionPrimaryKicker" class="eyebrow">第5年 · 中位數終值 · 名目美元</span>
+        <strong id="decisionPrimaryValue">$—</strong>
+        <p id="decisionPrimaryDetails">此數字是所選歷史統計視角，不是預測。</p>
+        <p id="decisionSelectedMetrics">累計年化回報與最大回撤將同步顯示。</p>
+      </div>
+      <div class="decision-cards">
+        <div class="decision-item">
+          <div class="k">① 轉換規則／對應行為</div>
+          <div id="decisionBehaviorHeadline" class="v">線性</div>
+          <div id="decisionBehaviorDetail" class="d">依選定的股票轉債時間路徑變更配置。</div>
+        </div>
+        <div class="decision-item">
+          <div class="k">② 該年回測配置</div>
+          <div id="decisionAllocationHeadline" class="v">股票 — · 債券 —</div>
+          <div id="decisionAllocationDetail" class="d">來自年度配置記錄；不是券商即時持倉。</div>
+        </div>
+        <div class="decision-item">
+          <div class="k">③ 現金流／投資行為</div>
+          <div id="decisionFlowHeadline" class="v">不提款</div>
+          <div id="decisionFlowDetail" class="d">提款與投入假設將隨模式同步更新。</div>
+        </div>
+        <div class="decision-item">
+          <div class="k">④ 本金門檻／下尾證據</div>
+          <div id="decisionFloorHeadline" class="v">名目本金門檻 $100,000</div>
+          <div id="decisionFloorDetail" class="d">區分名目本金計數與實質購買力門檻。</div>
+        </div>
+      </div>
+    </div>
+    <div id="decisionDataset" class="decision-dataset">歷史 ETF 代理樣本：157 個互相重疊的十年窗口；不代表未來成功率。回測未單獨建模稅項、交易成本與買賣差價。</div>
+  </section>
+  <section id="metrics" class="metrics"></section>
 
   <section class="controls">
     <div class="control">
@@ -232,8 +298,6 @@ tr.active{background:#e8f2fc;font-weight:700}
       </div>
     </div>
   </section>
-
-  <section id="metrics" class="metrics"></section>
 
   <div class="grid">
     <section class="panel">
@@ -630,6 +694,38 @@ function update(){
     ["累計缺口窗口",r.windows_with_withdrawal_shortfall+"/"+r.rolling_windows,"截至當年P95缺口 "+usd(r.p95_shortfall_usd)]
   ];
   $("metrics").innerHTML=ms.map((m,idx)=>'<article class="metric'+(idx<2&&s.cpi>0?' highlight':'')+'"><div class="k">'+m[0]+'</div><div class="v">'+m[1]+'</div><div class="s">'+m[2]+'</div></article>').join("");
+
+  // Front-load the current result, behavior, assumptions, and data evidence before controls/charts.
+  const selectedNav=s.stat==="p05"?p05Nav:s.stat==="worst"?worstNav:medNav;
+  const selectedCagr=s.year===0?null:s.stat==="p05"?p05Cagr:s.stat==="worst"?null:medCagr;
+  const selectedDrawdown=s.stat==="p05"?null:s.stat==="worst"?r.worst_drawdown_to_date:r.median_drawdown_to_date;
+  const viewText=statLabel+(s.cpi>0?" · 實質購買力":" · 名目美元");
+  const timingOption=$("timing").selectedOptions[0]?.textContent||TN[s.timing];
+  const bondPct=100*Number(r.median_target_bond_weight);
+  const stockPct=100*Number(r.median_target_stock_weight);
+  const realFloorThreshold=100000*Math.pow(1+s.cpi,s.year);
+  $("decisionLead").textContent="目前選定："+s.bond+" · 第10年目標轉債 "+s.target+"% · "+timingOption+" · "+FN[s.flow]+" · 查看第"+s.year+"年。";
+  $("decisionViewBadge").textContent=viewText+" · "+r.rolling_windows+"個歷史窗口";
+  $("decisionPrimaryKicker").textContent="第"+s.year+"年 · "+statLabel+"終值 · "+(s.cpi>0?"實質美元":"名目美元");
+  $("decisionPrimaryValue").textContent=usd(selectedNav);
+  $("decisionPrimaryDetails").textContent="同策略三個終值視角：中位數 "+usd(medNav)+" · P05 "+usd(p05Nav)+" · 最差窗口 "+usd(worstNav)+"。";
+  $("decisionSelectedMetrics").textContent="累計年化回報："+(selectedCagr==null?(s.year===0?"第0年不適用":"資料未提供"):pct(selectedCagr))+" · 最大回撤："+(selectedDrawdown==null?"該視角未提供":pct(selectedDrawdown))+"。";
+  $("decisionBehaviorHeadline").textContent=TN[s.timing]+" · 目標轉債 "+s.target+"%";
+  $("decisionBehaviorDetail").textContent=timingOption+"；這是逐年配置規則，不是自動交易指令。比較基準是同一債券代理與現金流下的歷史窗口結果。";
+  $("decisionAllocationHeadline").textContent="股票 "+(Number.isFinite(stockPct)?stockPct.toFixed(1)+"%":"—")+" · "+s.bond+" "+(Number.isFinite(bondPct)?bondPct.toFixed(1)+"%":"—");
+  $("decisionAllocationDetail").textContent="第"+s.year+"年回測年度表記錄的中位配置；第10年目標轉債比例 "+s.target+"% 是路徑終點設定，不等於目前實際持倉。";
+  $("decisionFlowHeadline").textContent=FN[s.flow];
+  $("decisionFlowDetail").textContent=$("flowNote").textContent+" 本結果依該現金流假設統計。";
+  $("decisionFloorHeadline").textContent=s.cpi>0?"實質保本名目門檻 "+usd(realFloorThreshold):"名目本金門檻 $100,000";
+  if(s.cpi===0){
+    $("decisionFloorDetail").textContent="截至第"+s.year+"年，名目終值低於 $100,000 的窗口為 "+r.windows_below_initial_capital+"/"+r.rolling_windows+"；這是窗口終值計數，不是未來成功率。";
+  }else if(Number(r.worst_nav_usd)>=realFloorThreshold-1e-7){
+    $("decisionFloorDetail").textContent="最差窗口名目終值 "+usd(r.worst_nav_usd)+" 仍不低於門檻；可證明截至第"+s.year+"年實質終值低於本金為 0/"+r.rolling_windows+"。";
+  }else{
+    $("decisionFloorDetail").textContent="實質跌破本金窗口數未精算；名目計數 "+r.windows_below_initial_capital+"/"+r.rolling_windows+" 只作參考，不可當成實質虧損數。";
+  }
+  $("decisionDataset").textContent="樣本：Yahoo Finance 調整收市價 ETF 代理資料，2003-09-29 至 2026-09-30；157 個互相重疊的十年窗口。窗口彼此不獨立，數字是歷史描述而非未來機率；稅項、交易成本與買賣差價未另行建模。";
+
 
   const navMetric=s.stat==="p05"?"p05_nav_usd":s.stat==="worst"?"worst_nav_usd":"median_nav_usd";
   const ddMetric=s.stat==="worst"?"worst_drawdown_to_date":s.stat==="p05"?"__unavailable_p05_drawdown__":"median_drawdown_to_date";

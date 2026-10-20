@@ -39,6 +39,12 @@ if duplicates:
     raise SystemExit("Duplicate HTML IDs: " + ", ".join(duplicates))
 if "<title>股票轉債互動追蹤台（優化增強版 v2.2）</title>" not in html_text:
     raise SystemExit("HTML title/version guard failed.")
+if '<section id="decisionSummary" class="decision-summary" aria-live="polite">' not in html_text:
+    raise SystemExit("Frontloaded decision summary section is missing.")
+if html_text.index('<section id="decisionSummary"') > html_text.index('<section class="controls">'):
+    raise SystemExit("Decision summary must appear before the controls.")
+if html_text.index('<section id="metrics"') > html_text.index('<section class="controls">'):
+    raise SystemExit("Primary metrics must appear before the controls.")
 if "<th>'+(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')+'</th>" not in html_text:
     raise SystemExit("Real-mode table header fix is missing.")
 if "未精算（名目 " not in html_text:

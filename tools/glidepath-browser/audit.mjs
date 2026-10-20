@@ -97,6 +97,37 @@ try {
   page.on("pageerror", error => pageErrors.push(String(error)));
   await page.goto(pathToFileURL(htmlPath).href, {waitUntil: "load"});
   await page.locator("#metrics .metric").first().waitFor({state: "visible"});
+  await page.locator("#decisionSummary").waitFor({state: "visible"});
+  const summaryPlacement = await page.evaluate(() => ({
+    summaryBeforeControls: document.querySelector("#decisionSummary").compareDocumentPosition(document.querySelector(".controls")) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false,
+    metricsBeforeControls: document.querySelector("#metrics").compareDocumentPosition(document.querySelector(".controls")) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false,
+    initialLead: document.querySelector("#decisionLead").innerText,
+    initialValue: document.querySelector("#decisionPrimaryValue").innerText,
+    initialBehavior: document.querySelector("#decisionBehaviorHeadline").innerText,
+    initialAllocation: document.querySelector("#decisionAllocationHeadline").innerText,
+    initialFlow: document.querySelector("#decisionFlowHeadline").innerText,
+    initialFloor: document.querySelector("#decisionFloorHeadline").innerText
+  }));
+  need(summaryPlacement.summaryBeforeControls && summaryPlacement.metricsBeforeControls, "decision outputs are not positioned ahead of controls");
+  need(summaryPlacement.initialLead.includes("AGG") && summaryPlacement.initialLead.includes("60%") && summaryPlacement.initialLead.includes("第5年"), "initial decision summary does not state the selected strategy/year");
+  need(summaryPlacement.initialValue.startsWith("$") && summaryPlacement.initialBehavior.length > 0 && summaryPlacement.initialAllocation.includes("股票") && summaryPlacement.initialFlow.includes("不提款") && summaryPlacement.initialFloor.includes("$"), "initial decision summary is missing amount/behavior/data fields");
+  result.frontloaded_decision_summary = { ...summaryPlacement, passed: true };
+  await page.locator("#bond").selectOption("TLT");
+  await page.locator("#target").evaluate(el => {el.value="80"; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true}));});
+  await page.locator("#timing").selectOption("front_fast");
+  await page.locator("#flow").selectOption("monthly_withdrawal_500_usd_stress");
+  await page.locator("#realMode").selectOption("0.0235");
+  const changedSummary = await page.evaluate(() => ({
+    lead: document.querySelector("#decisionLead").innerText,
+    allocation: document.querySelector("#decisionAllocationHeadline").innerText,
+    flow: document.querySelector("#decisionFlowHeadline").innerText,
+    floor: document.querySelector("#decisionFloorHeadline").innerText,
+    value: document.querySelector("#decisionPrimaryValue").innerText
+  }));
+  need(changedSummary.lead.includes("TLT") && changedSummary.lead.includes("80%") && changedSummary.lead.includes("加速前置"), "decision summary did not follow strategy control changes");
+  need(changedSummary.flow.includes("$500") && changedSummary.floor.includes("$"), "decision summary did not follow cashflow/inflation changes");
+  need(changedSummary.value.startsWith("$") && changedSummary.allocation.includes("TLT"), "decision summary lacks updated monetary result/allocation");
+  result.frontloaded_decision_summary.updated_state = {...changedSummary, passed:true};
   await page.evaluate(() => {
     window.__glidepathAuditLastBlob = null;
     window.__glidepathAuditLastDownloadName = null;
