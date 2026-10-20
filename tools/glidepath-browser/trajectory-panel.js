@@ -190,17 +190,22 @@
     });
   }
 
-  section.querySelectorAll("[data-trajectory-year]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      const year = Number(button.getAttribute("data-trajectory-year"));
-      const yearControl = one("#year");
-      if (!yearControl || !Number.isInteger(year)) return;
-      yearControl.value = String(year);
-      yearControl.dispatchEvent(new Event("input", {bubbles: true}));
-      yearControl.dispatchEvent(new Event("change", {bubbles: true}));
-      queueRender();
-    });
-  });
+  function applyTrajectoryYearClick(event) {
+    const source = event.target && event.target.closest
+      ? event.target.closest("#decisionTrajectory [data-trajectory-year]")
+      : null;
+    if (!source) return;
+    const year = Number(source.getAttribute("data-trajectory-year"));
+    const yearControl = one("#year");
+    if (!yearControl || !Number.isInteger(year) || year < 0 || year > 10) return;
+    yearControl.value = String(year);
+    yearControl.dispatchEvent(new Event("input", {bubbles: true}));
+    yearControl.dispatchEvent(new Event("change", {bubbles: true}));
+    queueRender();
+  }
+  // Capture at window level so a legacy document-level click delegate cannot swallow the
+  // new table's click before the year BAR receives its input/change events.
+  window.addEventListener("click", applyTrajectoryYearClick, true);
 
   ["#year", "#target", "#timing", "#bond", "#flow", "#realMode", "#statView"].forEach(function (selector) {
     const control = one(selector);
