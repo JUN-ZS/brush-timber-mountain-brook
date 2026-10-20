@@ -121,7 +121,7 @@ try {
     const values = series => Array.from(root.querySelectorAll('[data-series="' + series + '"] td[data-year]'));
     const stocks = values("stock").map(cell => Number(cell.dataset.stockPct));
     const bonds = values("bond").map(cell => Number(cell.dataset.bondPct));
-    const years = Array.from(root.querySelectorAll("[data-trajectory-year]")).map(button => Number(button.getAttribute("data-trajectory-year")));
+    const years = Array.from(root.querySelectorAll("[data-trajectory-year]")).map(header => Number(header.getAttribute("data-trajectory-year")));
     const idValues = Array.from(document.querySelectorAll("[id]")).map(node => node.id);
     const duplicates = Array.from(new Set(idValues.filter((id, index) => idValues.indexOf(id) !== index)));
     return {
@@ -132,9 +132,9 @@ try {
       target: Number(root.dataset.target),
       timing: root.dataset.timing,
       endpoint_bond_pct: Number(root.dataset.endpointBondPct),
-      year_buttons: years,
-      selected_button_count: root.querySelectorAll('[data-trajectory-year][aria-pressed="true"]').length,
-      selected_button_year: Number(root.querySelector('[data-trajectory-year][aria-pressed="true"]')?.getAttribute("data-trajectory-year")),
+      year_headers: years,
+      selected_year_header_count: root.querySelectorAll('[data-trajectory-year][aria-current="true"]').length,
+      selected_year_header: Number(root.querySelector('[data-trajectory-year][aria-current="true"]')?.getAttribute("data-trajectory-year")),
       stock_pcts: stocks,
       bond_pcts: bonds,
       stock_bond_sums: stocks.map((stock, index) => stock + bonds[index]),
@@ -148,29 +148,35 @@ try {
   const initialTrajectory = await readTrajectory();
   need(initialTrajectory.state === "ready", "year-by-year trajectory panel is not ready: " + JSON.stringify(initialTrajectory));
   need(initialTrajectory.panel_after_summary && initialTrajectory.panel_before_controls, "trajectory panel is not placed between the decision summary and controls");
-  need(initialTrajectory.year_buttons.length === 11 && initialTrajectory.year_buttons.every((year, index) => year === index), "trajectory panel does not expose years 0-10: " + JSON.stringify(initialTrajectory.year_buttons));
+  need(initialTrajectory.year_headers.length === 11 && initialTrajectory.year_headers.every((year, index) => year === index), "trajectory panel does not expose years 0-10: " + JSON.stringify(initialTrajectory.year_headers));
   need(initialTrajectory.stock_pcts.length === 11 && initialTrajectory.bond_pcts.length === 11, "trajectory panel is missing annual stock/bond rows");
-  need(initialTrajectory.selected_year === "5" && initialTrajectory.selected_button_count === 1 && initialTrajectory.selected_button_year === 5, "trajectory panel did not highlight the selected year 5");
+  need(initialTrajectory.selected_year === "5" && initialTrajectory.selected_year_header_count === 1 && initialTrajectory.selected_year_header === 5, "trajectory panel did not highlight the selected year 5 from the original year BAR");
   need(Math.abs(initialTrajectory.endpoint_bond_pct - initialTrajectory.target) <= 0.75, "year-10 bond target does not match selected target: " + JSON.stringify(initialTrajectory));
   need(initialTrajectory.stock_bond_sums.every(value => Math.abs(value - 100) <= 0.02), "trajectory stock and bond percentages do not sum to 100: " + JSON.stringify(initialTrajectory.stock_bond_sums));
   need(initialTrajectory.crosscheck_text.includes("歷史回測摘要") && initialTrajectory.crosscheck_text.includes("差異"), "trajectory does not compare rule path with historical backtest allocation");
   need(initialTrajectory.rendered_duplicate_ids.length === 0, "trajectory panel caused duplicate rendered IDs: " + JSON.stringify(initialTrajectory.rendered_duplicate_ids));
   result.glidepath_decision_trajectory = {initial: initialTrajectory, passed: true};
 
-  await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').click({timeout: 5000});
-  await page.waitForTimeout(150);
+  await page.locator("#year").evaluate((el, value) => {
+    el.value = String(value);
+    el.dispatchEvent(new Event("input", {bubbles: true}));
+    el.dispatchEvent(new Event("change", {bubbles: true}));
+  }, 9);
+  await page.waitForFunction(() => document.querySelector("#year").value === "9" && document.querySelector("#decisionTrajectory").dataset.year === "9", null, {timeout: 5000});
   const year9State = await page.evaluate(() => ({
     controlValue: document.querySelector("#year")?.value ?? null,
     panelYear: document.querySelector("#decisionTrajectory")?.dataset.year ?? null,
-    selectedYearButtons: Array.from(document.querySelectorAll("#decisionTrajectory [data-trajectory-year][aria-pressed='true']")).map(node => node.getAttribute("data-trajectory-year")),
-    summaryLead: document.querySelector("#decisionLead")?.innerText ?? "",
-    buttonCount: document.querySelectorAll('#decisionTrajectory button[data-trajectory-year="9"]').length
+    selectedYearHeaders: Array.from(document.querySelectorAll("#decisionTrajectory [data-trajectory-year][aria-current='true']")).map(node => node.getAttribute("data-trajectory-year")),
+    summaryLead: document.querySelector("#decisionLead")?.innerText ?? ""
   }));
-  result.glidepath_decision_trajectory.year9_click_state = year9State;
-  need(year9State.controlValue === "9" && year9State.panelYear === "9" && year9State.selectedYearButtons.join(",") === "9", "trajectory year click did not synchronize source control and panel state: " + JSON.stringify(year9State));
-  need(year9State.summaryLead.includes("第9年"), "trajectory year click did not update the frontloaded decision summary: " + JSON.stringify(year9State));
-  need(await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').getAttribute("aria-pressed") === "true", "trajectory year-9 click did not highlight year 9");
-  await page.locator('#decisionTrajectory button[data-trajectory-year="5"]').click({timeout: 5000});
+  result.glidepath_decision_trajectory.year9_bar_sync_state = year9State;
+  need(year9State.controlValue === "9" && year9State.panelYear === "9" && year9State.selectedYearHeaders.join(",") === "9", "year BAR did not synchronize the annual trajectory table: " + JSON.stringify(year9State));
+  need(year9State.summaryLead.includes("第9年"), "year BAR change did not update the frontloaded decision summary: " + JSON.stringify(year9State));
+  await page.locator("#year").evaluate((el, value) => {
+    el.value = String(value);
+    el.dispatchEvent(new Event("input", {bubbles: true}));
+    el.dispatchEvent(new Event("change", {bubbles: true}));
+  }, 5);
   await page.waitForFunction(() => document.querySelector("#year").value === "5" && document.querySelector("#decisionTrajectory").dataset.year === "5", null, {timeout: 5000});
 
   await page.locator("#bond").selectOption("TLT");
