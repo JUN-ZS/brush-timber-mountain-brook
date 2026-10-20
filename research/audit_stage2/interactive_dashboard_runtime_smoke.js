@@ -66,6 +66,7 @@ const fire = id => {
   node.listeners.input();
 };
 
+const metricValues = html => [...html.matchAll(/<div class="v">([^<]+)<[/]div>/g)].map(match => match[1]);
 const annualRows = vm.runInContext("A", context);
 assert(Array.isArray(annualRows) && annualRows.length === 11264, "runtime must load every actual year x scenario summary");
 const fmtMoney = value => value == null || !Number.isFinite(+value) ? "—" : "$" + Math.round(+value).toLocaleString("en-US");
@@ -108,7 +109,6 @@ assert(yearAudit.every((item, i) => i === 0 || item.median_nav_usd !== yearAudit
 year.value = "5";
 fire("year");
 
-const metricValues = html => [...html.matchAll(/<div class="v">([^<]+)<[/]div>/g)].map(match => match[1]);
 const initialMetrics = getElementById("metrics").innerHTML;
 const initialValues = metricValues(initialMetrics);
 assert(initialMetrics.includes("第5年中位資產"), "initial metrics should identify year 5");
