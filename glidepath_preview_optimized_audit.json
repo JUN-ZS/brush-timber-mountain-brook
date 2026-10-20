@@ -1,12 +1,12 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 2739948,
+  "html_bytes": 2742090,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 79.03,
-  "bundle_bytes": 734216,
+  "html_size_reduction_pct": 79.02,
+  "bundle_bytes": 734635,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 52.93,
-  "sha256": "f3abf6fd411ac951e6b9d6299b6259677d2f5c0d1870b94f18d53b53c81af7d3",
+  "bundle_size_reduction_pct": 52.9,
+  "sha256": "f9e7b71c291bb291b2e79f113dc1decffe71b6b5249730f371cf0d71c2cf3cdd",
   "element_ids_count": 66,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2727783,
+  "html_characters": 2729817,
   "v2_1_review": {
-    "source_commit": "a202ac3dad359520b132eaa6388482df59ebae62",
+    "source_commit": "1e967a1f5c419d03fb1fd9f024017ed8d78c79dd",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -158,7 +158,8 @@
       "reverse_replay_unsupported_flow_blocks": true,
       "paired_comparison_engine_embedded": true,
       "paired_comparison_uses_same_windows": true,
-      "paired_comparison_includes_drawdown_occurrence_year": true
+      "paired_comparison_includes_drawdown_occurrence_year": true,
+      "drawdown_year_distribution_embedded": true
     },
     "fixes": [
       "Real purchasing-power breach counts are explicitly unavailable because per-window NAV is not embedded.",
@@ -177,7 +178,9 @@
       "Reverse-direction performance is intentionally supported only for SPY plus TLT and the no-withdrawal/no-contribution cashflow state. Other bond proxies and cashflows are BLOCKED pending matching replay data and execution logic.",
       "The reverse replay uses 157 overlapping 10-year windows, 252 trading days per year and annual rebalance targets. It omits transaction costs, taxes, slippage and ETF-tracking differences; historical outcomes are not guarantees.",
       "The same-window pairwise comparison runs both mirrored SPY/TLT allocation schedules over identical 157 start/end windows, same $100,000 initial NAV, annual rebalance schedule, inflation setting and no-cashflow assumption. Aggregate summary deltas and paired per-window win counts are separate statistics.",
-      "Maximum drawdown occurrence year is the first trading-year bucket in which each window reaches that window's worst peak-to-trough drawdown. Window samples overlap and are not independent observations."
+      "Maximum drawdown occurrence year is the first trading-year bucket in which each window reaches that window's worst peak-to-trough drawdown. Window samples overlap and are not independent observations.",
+      "The audit records both the zero-inflation paired result and a distinct 2.35% annualized inflation snapshot, so real-dollar values are not inferred from the nominal presentation.",
+      "The UI includes year-by-year counts for the year in which each matched window's maximum drawdown first occurs; those counts must reconcile to 157 windows for each direction."
     ],
     "inflation_reference": {
       "series": "FRED T10YIE",
@@ -727,6 +730,12 @@
         "reverseMedianNav": 226135.1275,
         "forwardMedianRealNav": 219815.0643,
         "reverseMedianRealNav": 226135.1275,
+        "forwardP05RealNav": 173254.8781,
+        "reverseP05RealNav": 162701.5147,
+        "forwardMedianRealCagr": 0.0819464,
+        "reverseMedianRealCagr": 0.08501765,
+        "forwardRealFloorCount": 157,
+        "reverseRealFloorCount": 157,
         "medianRealNavDelta": 6320.0632,
         "pairedMedianRealNavDelta": -12040.6677,
         "forwardMedianCagr": 0.0819464,
@@ -761,6 +770,32 @@
           "9": 20,
           "10": 28
         },
+        "drawdownYearRows": 2,
+        "drawdownYearCells": 20,
+        "forwardDrawdownTableCounts": [
+          34,
+          19,
+          12,
+          13,
+          12,
+          0,
+          11,
+          14,
+          20,
+          22
+        ],
+        "reverseDrawdownTableCounts": [
+          16,
+          29,
+          12,
+          14,
+          13,
+          1,
+          11,
+          13,
+          20,
+          28
+        ],
         "reverseRealNavWins": 61,
         "forwardRealNavWins": 96,
         "reverseLowerDrawdown": 112,
@@ -770,6 +805,52 @@
         "method": "方法：兩邊各 157 個相同起訖日期的重疊 10 年窗口（首窗 2004-03-30–2014-04-03；末窗 2016-08-19–2026-08-31）；每年 252 個交易日再平衡、起始 NAV $100,000、不提款／不供款；目標 60%，轉換規則 加速前置：第2年半程，實質值使用 0.00% 通脹假設。最大回撤年為每窗首次觸及該窗最大回撤的交易年（第 1–10 年）。",
         "limits": "價格來源：src/data/universe.json，截至 2026-09-04，來源 SHA-256 e5012c786152a510…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。",
         "tableRows": 9,
+        "passed": true
+      },
+      "paired_direction_comparison_real_235": {
+        "state": "passed",
+        "matchedPairCount": 157,
+        "inflation": 0.0235,
+        "forwardMedianRealNav": 174252.4857,
+        "reverseMedianRealNav": 179262.546,
+        "forwardP05RealNav": 137343.1492,
+        "reverseP05RealNav": 128977.254,
+        "forwardMedianRealCagr": 0.05710444,
+        "reverseMedianRealCagr": 0.06010518,
+        "forwardRealFloorCount": 157,
+        "reverseRealFloorCount": 157,
+        "medianRealNavDelta": 5010.0603,
+        "pairedMedianRealNavDelta": -9544.9158,
+        "forwardMedianDd": -0.28952583,
+        "reverseMedianDd": -0.20150314,
+        "medianDdDelta": 0.08802269,
+        "reverseRealNavWins": 61,
+        "forwardRealNavWins": 96,
+        "forwardDdYearCounts": {
+          "1": 34,
+          "2": 19,
+          "3": 12,
+          "4": 13,
+          "5": 12,
+          "6": 0,
+          "7": 11,
+          "8": 14,
+          "9": 20,
+          "10": 22
+        },
+        "reverseDdYearCounts": {
+          "1": 16,
+          "2": 29,
+          "3": 12,
+          "4": 14,
+          "5": 13,
+          "6": 1,
+          "7": 11,
+          "8": 13,
+          "9": 20,
+          "10": 28
+        },
+        "limits": "價格來源：src/data/universe.json，截至 2026-09-04，來源 SHA-256 e5012c786152a510…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。",
         "passed": true
       },
       "reverse_direction_replay": {
@@ -951,6 +1032,12 @@
       "reverseMedianNav": 226135.1275,
       "forwardMedianRealNav": 219815.0643,
       "reverseMedianRealNav": 226135.1275,
+      "forwardP05RealNav": 173254.8781,
+      "reverseP05RealNav": 162701.5147,
+      "forwardMedianRealCagr": 0.0819464,
+      "reverseMedianRealCagr": 0.08501765,
+      "forwardRealFloorCount": 157,
+      "reverseRealFloorCount": 157,
       "medianRealNavDelta": 6320.0632,
       "pairedMedianRealNavDelta": -12040.6677,
       "forwardMedianCagr": 0.0819464,
@@ -985,6 +1072,32 @@
         "9": 20,
         "10": 28
       },
+      "drawdownYearRows": 2,
+      "drawdownYearCells": 20,
+      "forwardDrawdownTableCounts": [
+        34,
+        19,
+        12,
+        13,
+        12,
+        0,
+        11,
+        14,
+        20,
+        22
+      ],
+      "reverseDrawdownTableCounts": [
+        16,
+        29,
+        12,
+        14,
+        13,
+        1,
+        11,
+        13,
+        20,
+        28
+      ],
       "reverseRealNavWins": 61,
       "forwardRealNavWins": 96,
       "reverseLowerDrawdown": 112,
@@ -995,17 +1108,63 @@
       "limits": "價格來源：src/data/universe.json，截至 2026-09-04，來源 SHA-256 e5012c786152a510…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。",
       "tableRows": 9,
       "passed": true
+    },
+    "paired_direction_comparison_real_235": {
+      "state": "passed",
+      "matchedPairCount": 157,
+      "inflation": 0.0235,
+      "forwardMedianRealNav": 174252.4857,
+      "reverseMedianRealNav": 179262.546,
+      "forwardP05RealNav": 137343.1492,
+      "reverseP05RealNav": 128977.254,
+      "forwardMedianRealCagr": 0.05710444,
+      "reverseMedianRealCagr": 0.06010518,
+      "forwardRealFloorCount": 157,
+      "reverseRealFloorCount": 157,
+      "medianRealNavDelta": 5010.0603,
+      "pairedMedianRealNavDelta": -9544.9158,
+      "forwardMedianDd": -0.28952583,
+      "reverseMedianDd": -0.20150314,
+      "medianDdDelta": 0.08802269,
+      "reverseRealNavWins": 61,
+      "forwardRealNavWins": 96,
+      "forwardDdYearCounts": {
+        "1": 34,
+        "2": 19,
+        "3": 12,
+        "4": 13,
+        "5": 12,
+        "6": 0,
+        "7": 11,
+        "8": 14,
+        "9": 20,
+        "10": 22
+      },
+      "reverseDdYearCounts": {
+        "1": 16,
+        "2": 29,
+        "3": 12,
+        "4": 14,
+        "5": 13,
+        "6": 1,
+        "7": 11,
+        "8": 13,
+        "9": 20,
+        "10": 28
+      },
+      "limits": "價格來源：src/data/universe.json，截至 2026-09-04，來源 SHA-256 e5012c786152a510…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。",
+      "passed": true
     }
   },
-  "bundle_sha256": "2d205d7b1b2dbca287900201e71e473d89de711d4ebc9acf384a3b2c0278cf60",
-  "html_crc32": "69bfa05a",
+  "bundle_sha256": "f472ee3a8154019cf5c9273653055d1a6b70bf0a863527bb4657edc611c45eeb",
+  "html_crc32": "db329674",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "f3abf6fd411ac951e6b9d6299b6259677d2f5c0d1870b94f18d53b53c81af7d3",
-    "bundle_sha256": "2d205d7b1b2dbca287900201e71e473d89de711d4ebc9acf384a3b2c0278cf60",
-    "html_bytes": 2739948,
-    "bundle_bytes": 734216,
-    "html_crc32": "69bfa05a",
+    "html_sha256": "f9e7b71c291bb291b2e79f113dc1decffe71b6b5249730f371cf0d71c2cf3cdd",
+    "bundle_sha256": "f472ee3a8154019cf5c9273653055d1a6b70bf0a863527bb4657edc611c45eeb",
+    "html_bytes": 2742090,
+    "bundle_bytes": 734635,
+    "html_crc32": "db329674",
     "unique_html_ids": 66,
     "duplicate_ids": [],
     "zip_members": [
@@ -1018,6 +1177,9 @@
     "paired_direction_comparison_status": "passed",
     "paired_direction_comparison_windows": 157,
     "paired_direction_comparison_passed": true,
-    "created_at_utc": "2026-10-20T02:56:11.972783+00:00"
+    "paired_direction_comparison_real_235_status": "passed",
+    "paired_direction_comparison_real_235_windows": 157,
+    "paired_direction_comparison_real_235_passed": true,
+    "created_at_utc": "2026-10-20T02:59:31.676057+00:00"
   }
 }

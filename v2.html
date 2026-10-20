@@ -823,6 +823,7 @@ update();
 /* GLIDEPATH_TRAJECTORY_PANEL_V1 */
 /* GLIDEPATH_REVERSE_REPLAY_V1 */
 /* GLIDEPATH_PAIRED_COMPARISON_V1 */
+/* GLIDEPATH_DRAWDOWN_YEAR_DISTRIBUTION_V1 */
 (function () {
   "use strict";
 
@@ -906,6 +907,14 @@ update();
     '<p id="pairedComparisonWinSummary" class="paired-comparison-note">配對勝出窗口：—</p>' +
     '<p id="pairedComparisonMethod" class="paired-comparison-note">等待相同日期窗口的成對回放……</p>' +
     '<p id="pairedComparisonLimits" class="paired-comparison-limits">歷史重疊窗口不是獨立未來機率；無法匹配的價格／現金流不會補值。</p>';
+  let drawdownYearTableHtml = '<div class="paired-dd-year-wrap"><h3>最大回撤最差點首次出現年份（各窗口數）</h3><table id="pairedDrawdownYearTable" class="paired-table" aria-label="兩種配置各窗口最大回撤首次出現年份分布"><thead><tr><th scope="col">配置方向</th>';
+  for (let year = 1; year <= 10; year++) drawdownYearTableHtml += '<th scope="col">第 ' + year + ' 年</th>';
+  drawdownYearTableHtml += '</tr></thead><tbody><tr><th scope="row">先股後債</th>';
+  for (let year = 1; year <= 10; year++) drawdownYearTableHtml += '<td data-dd-year-row="forward" data-year="' + year + '">—</td>';
+  drawdownYearTableHtml += '</tr><tr><th scope="row">先債後股</th>';
+  for (let year = 1; year <= 10; year++) drawdownYearTableHtml += '<td data-dd-year-row="reverse" data-year="' + year + '">—</td>';
+  drawdownYearTableHtml += '</tr></tbody></table></div>';
+  pairedComparison.innerHTML += drawdownYearTableHtml;
   summary.insertAdjacentElement("afterend", directionControl);
   directionControl.insertAdjacentElement("afterend", section);
   section.insertAdjacentElement("afterend", reversePanel);
@@ -961,6 +970,8 @@ update();
     ".paired-table thead th{font-weight:750;background:rgba(127,127,127,.07);text-align:right}" +
     ".paired-table th:first-child{text-align:left;white-space:normal;min-width:190px}" +
     ".paired-table tbody th{font-weight:600}" +
+    ".paired-dd-year-wrap{margin:14px 0 8px;max-width:100%;overflow-x:auto}" +
+    ".paired-dd-year-wrap h3{font-size:.9rem;font-weight:700;margin:0 0 6px}" +
     ".paired-comparison-note{padding:9px 10px;background:rgba(127,127,127,.06);border-radius:6px}" +
     ".paired-comparison-limits{font-size:.77rem;opacity:.75}" +
     "[data-glp-reverse-hidden=true]{display:none!important}" +
@@ -1504,8 +1515,14 @@ update();
     pairedComparison.dataset.matchedPairCount = String(paired.n);
     pairedComparison.dataset.forwardMedianNav = forward.medianNav.toFixed(4);
     pairedComparison.dataset.reverseMedianNav = reversed.medianNav.toFixed(4);
+    pairedComparison.dataset.forwardP05RealNav = forward.p05RealNav.toFixed(4);
+    pairedComparison.dataset.reverseP05RealNav = reversed.p05RealNav.toFixed(4);
     pairedComparison.dataset.forwardMedianRealNav = forward.medianRealNav.toFixed(4);
     pairedComparison.dataset.reverseMedianRealNav = reversed.medianRealNav.toFixed(4);
+    pairedComparison.dataset.forwardMedianRealCagr = forward.medianRealCagr.toFixed(8);
+    pairedComparison.dataset.reverseMedianRealCagr = reversed.medianRealCagr.toFixed(8);
+    pairedComparison.dataset.forwardRealFloorCount = String(forward.realFloorCount);
+    pairedComparison.dataset.reverseRealFloorCount = String(reversed.realFloorCount);
     pairedComparison.dataset.medianRealNavDelta = deltas.medianRealNav.toFixed(4);
     pairedComparison.dataset.pairedMedianRealNavDelta = paired.medianRealNavDelta.toFixed(4);
     pairedComparison.dataset.forwardMedianCagr = forward.medianCagr.toFixed(8);
@@ -1518,6 +1535,12 @@ update();
     pairedComparison.dataset.pairedMedianDdDelta = paired.medianMaxDdDelta.toFixed(8);
     pairedComparison.dataset.forwardDdYearCounts = JSON.stringify(forward.ddYearCounts);
     pairedComparison.dataset.reverseDdYearCounts = JSON.stringify(reversed.ddYearCounts);
+    for (let year = 1; year <= 10; year++) {
+      const forwardCell = pairedComparison.querySelector('[data-dd-year-row="forward"][data-year="' + year + '"]');
+      const reverseCell = pairedComparison.querySelector('[data-dd-year-row="reverse"][data-year="' + year + '"]');
+      if (forwardCell) forwardCell.textContent = String(forward.ddYearCounts[String(year)]);
+      if (reverseCell) reverseCell.textContent = String(reversed.ddYearCounts[String(year)]);
+    }
     pairedComparison.dataset.reverseRealNavWins = String(paired.reverseRealNavWins);
     pairedComparison.dataset.forwardRealNavWins = String(paired.forwardRealNavWins);
     pairedComparison.dataset.reverseLowerDrawdown = String(paired.reverseLowerDrawdown);
