@@ -3,10 +3,10 @@
   "html_bytes": 2515753,
   "original_html_bytes": 13068927,
   "html_size_reduction_pct": 80.75,
-  "bundle_bytes": 664162,
+  "bundle_bytes": 664160,
   "original_bundle_bytes": 1559891,
   "bundle_size_reduction_pct": 57.42,
-  "sha256": "94e22855c28c8d356fe4f10e184466ca3e7bdfc8151a915979bfe49f620f951f",
+  "sha256": "8058b636cf1ccd51ee8a01aa06b623bae7322d95460856522887df391058c767",
   "element_ids_count": 64,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -136,7 +136,7 @@
   },
   "html_characters": 2507803,
   "v2_1_review": {
-    "source_commit": "c13827814bb62739b7213a6fcf775968bcff3847",
+    "source_commit": "28655b782830672aa9e1eec48a4549a79ac356e3",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -532,13 +532,13 @@
         "initialLead": "目前選定：AGG · 第10年目標轉債 60% · 加速前置：第2年半程 · 不提款 · 查看第5年。",
         "initialValue": "$167,812",
         "initialBehavior": "加速前置 · 目標轉債 60%",
-        "initialAllocation": "股票 58.8% · AGG 41.3%",
+        "initialAllocation": "股票 58.75% · AGG 41.25%",
         "initialFlow": "不提款",
         "initialFloor": "名目本金門檻 $100,000",
         "passed": true,
         "updated_state": {
           "lead": "目前選定：TLT · 第10年目標轉債 80% · 加速前置：第2年半程 · 每月$500 · 查看第5年。",
-          "allocation": "股票 45.0% · TLT 55.0%",
+          "allocation": "股票 45.00% · TLT 55.00%",
           "flow": "每月$500",
           "floor": "實質保本名目門檻 $112,315",
           "value": "$112,171",
@@ -570,21 +570,21 @@
       }
     ]
   },
-  "bundle_sha256": "b5ffa81ac095855304b22b6763273d1524aa7cf32506c5e8e13678c7a0ef91a3",
-  "html_crc32": "94dd5745",
+  "bundle_sha256": "bfc910b3fad5fdf5e65dd6ae2a18ded46bbdc960579f513442df7147a1b261e8",
+  "html_crc32": "37407648",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "94e22855c28c8d356fe4f10e184466ca3e7bdfc8151a915979bfe49f620f951f",
-    "bundle_sha256": "b5ffa81ac095855304b22b6763273d1524aa7cf32506c5e8e13678c7a0ef91a3",
+    "html_sha256": "8058b636cf1ccd51ee8a01aa06b623bae7322d95460856522887df391058c767",
+    "bundle_sha256": "bfc910b3fad5fdf5e65dd6ae2a18ded46bbdc960579f513442df7147a1b261e8",
     "html_bytes": 2515753,
-    "bundle_bytes": 664162,
-    "html_crc32": "94dd5745",
+    "bundle_bytes": 664160,
+    "html_crc32": "37407648",
     "unique_html_ids": 64,
     "duplicate_ids": [],
     "zip_members": [
       "glidepath_interactive_preview_optimized.html"
     ],
     "zip_inflated_html_matches_canonical_html": true,
-    "created_at_utc": "2026-10-20T01:32:12.425286+00:00"
+    "created_at_utc": "2026-10-20T01:33:32.412644+00:00"
   }
 }
