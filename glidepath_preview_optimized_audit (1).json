@@ -1,0 +1,222 @@
+{
+  "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
+  "html_bytes": 2507978,
+  "original_html_bytes": 13068927,
+  "html_size_reduction_pct": 80.81,
+  "bundle_bytes": 661887,
+  "previous_unoptimized_v2_1_bundle_bytes": 918155,
+  "original_bundle_bytes": 1559891,
+  "bundle_size_reduction_pct": 57.57,
+  "sha256": "c890bd67bcf0e5edf2fdbb65531c643bf1dc97fed73a6774bba46a42c065d426",
+  "bundle_sha256": "99b9ef6d673fb2fa4b86e8b36f77ca66b1af35f04261f8c2301a8a28999af63a",
+  "html_crc32": "84973be0",
+  "element_ids_count": 48,
+  "duplicate_ids": [],
+  "embedded_data_counts": {
+    "scenarios_D": 768,
+    "annual_A": 8448,
+    "histograms_HIST": 3072,
+    "cohorts_COHORT": 10752
+  },
+  "original_defects_confirmed": {
+    "panel7_glide_circle_cy_values_at_year5": [
+      -6626.25,
+      -6184.285714285714,
+      -4770,
+      -4770,
+      180,
+      180
+    ],
+    "panel7_offscreen_circles_count": 4,
+    "panel10_histogram_has_stroke_undefined": true,
+    "panel10_histogram_has_fill_undefined": true,
+    "year_bar_allocation_div_empty": true,
+    "year0_drawdown_axis_labels": [
+      "0.00%",
+      "25.00%",
+      "50.00%",
+      "75.00%",
+      "100.00%",
+      "30%",
+      "40%",
+      "50%",
+      "60%",
+      "70%",
+      "80%",
+      "90%",
+      "100%"
+    ]
+  },
+  "optimized_fixes_verified": {
+    "panel7_glide_circle_cy_min": 81.0,
+    "panel7_glide_circle_cy_max": 180.0,
+    "panel7_offscreen_circles_count": 0,
+    "panel10_histogram_has_stroke_undefined": false,
+    "year_bar_allocation_populated": true,
+    "year0_drawdown_axis_labels": [
+      "-5.00%",
+      "-3.75%",
+      "-2.50%",
+      "-1.25%",
+      "0.00%",
+      "30%",
+      "40%",
+      "50%",
+      "60%",
+      "70%",
+      "80%",
+      "90%",
+      "100%"
+    ],
+    "any_undefined_or_nan_in_rendered_dom": false
+  },
+  "year_bar_tests": [
+    {
+      "year": 0,
+      "label": "第0年中位資產",
+      "nav": "$100,000",
+      "p05_nav": "$100,000",
+      "cagr": "—",
+      "median_dd": "0.00%",
+      "below_floor": "0/157"
+    },
+    {
+      "year": 5,
+      "label": "第5年中位資產",
+      "nav": "$167,812",
+      "p05_nav": "$109,181",
+      "cagr": "10.90%",
+      "median_dd": "-20.77%",
+      "below_floor": "2/157"
+    },
+    {
+      "year": 9,
+      "label": "第9年中位資產",
+      "nav": "$234,573",
+      "p05_nav": "$166,375",
+      "cagr": "9.94%",
+      "median_dd": "-23.57%",
+      "below_floor": "0/157"
+    },
+    {
+      "year": 10,
+      "label": "第10年中位資產",
+      "nav": "$262,195",
+      "p05_nav": "$183,494",
+      "cagr": "10.12%",
+      "median_dd": "-23.57%",
+      "below_floor": "0/157"
+    }
+  ],
+  "purchasing_power_deflator_tests_year10": {
+    "nominal_usd": {
+      "median_nav": "$262,195",
+      "p05_nav": "$183,494",
+      "cagr": "10.12%"
+    },
+    "real_235pct_cpi": {
+      "median_nav": "$207,848",
+      "p05_nav": "$145,460",
+      "cagr": "7.59%"
+    },
+    "real_350pct_cpi": {
+      "median_nav": "$185,875",
+      "p05_nav": "$130,083",
+      "cagr": "6.39%"
+    }
+  },
+  "smart_optimizer_tests_year10": {
+    "best_p05_nav_strategy": {
+      "bond": "AGG",
+      "target": 30,
+      "timing": "back_late"
+    },
+    "min_median_drawdown_strategy": {
+      "bond": "AGG",
+      "target": 100,
+      "timing": "front_fast"
+    }
+  },
+  "html_characters": 2501359,
+  "v2_1_review": {
+    "source_commit": "ee1cc32aa0fe72dbb759b2f71a5e3df137d6fd04",
+    "static_semantic_guards": {
+      "javascript_parse": true,
+      "duplicate_html_ids": 0,
+      "unique_scenario_keys": 768,
+      "unique_annual_keys": 8448,
+      "annual_year10_summary_mismatches": 0,
+      "histogram_bins_total_157_windows": true,
+      "cohort_windows_total_157_per_strategy": true,
+      "zip_decompression_roundtrip": true,
+      "zip_crc32_matches_html": true,
+      "zip_sha256_matches_html": true
+    },
+    "headless_browser_verification": {
+      "browser": "Headless Chromium 154.0.8037.92 (Linux x86_64)",
+      "console_errors": 0,
+      "state_matrix_sweeps_45_combinations_clean": true,
+      "statView_p05_drawdown_missing_guard_verified": true,
+      "statView_worst_cagr_missing_guard_verified": true,
+      "real_mode_principal_breach_guards_verified": true,
+      "year0_edge_case_guards_verified": true,
+      "interactive_delegations_verified": {
+        "heatmap_cell_click": true,
+        "cashflow_bar_click": true,
+        "table_row_click": true,
+        "glidepath_node_click": true,
+        "frontier_scatter_click": true,
+        "cohort_bar_click": true,
+        "smart_optimizer_buttons": true
+      },
+      "csv_exports_verified": {
+        "exportMatrix": {
+          "rows": 48,
+          "cols": 23,
+          "bytes": 10097
+        },
+        "exportTrajectory": {
+          "rows": 11,
+          "cols": 23,
+          "bytes": 2617
+        },
+        "exportCohort": {
+          "rows": 14,
+          "cols": 19,
+          "bytes": 2753
+        },
+        "exportAnnual": {
+          "rows": 8448,
+          "cols": 23,
+          "bytes": 1763251
+        }
+      },
+      "responsive_viewports_verified": {
+        "desktop_1480x1200": {
+          "horizontal_overflow_px": 0,
+          "all_9_svgs_visible": true
+        },
+        "tablet_900x1024": {
+          "horizontal_overflow_px": 0,
+          "all_9_svgs_visible": true
+        },
+        "mobile_390x844": {
+          "horizontal_overflow_px": 0,
+          "all_9_svgs_visible": true
+        }
+      }
+    },
+    "residual_findings_for_v2_2": [
+      "Panel 8 (#table) still displays nominal 'windows_below_initial_capital/157' under header '低於本金' when realMode > 0, adjacent to deflated real NAV columns.",
+      "From existing worst_nav_usd in RAW_PACK.a and navmin in RAW_PACK.c, 363/768 Year-10 strategies at 2.35% inflation (and 329/768 at 3.50%) have worst_nav_usd >= nominal_floor and thus provably 0/157 real breaches; remaining strategies require per-window NAV paths for exact counts.",
+      "Document <title> remains 'v2' while header subtitle is 'v2.1'."
+    ],
+    "inflation_reference": {
+      "series": "FRED T10YIE",
+      "latest_observation_date": "2026-10-16",
+      "latest_observation_percent": 2.35,
+      "interpretation": "10-year market-implied breakeven inflation, not realized CPI or a guaranteed forecast",
+      "url": "https://fred.stlouisfed.org/series/T10YIE"
+    }
+  }
+}
