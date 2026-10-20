@@ -158,8 +158,17 @@ try {
   result.glidepath_decision_trajectory = {initial: initialTrajectory, passed: true};
 
   await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').click({timeout: 5000});
-  await page.waitForFunction(() => document.querySelector("#year").value === "9" && document.querySelector("#decisionTrajectory").dataset.year === "9", null, {timeout: 5000});
-  need((await page.locator("#decisionLead").innerText()).includes("第9年"), "trajectory year click did not update the frontloaded decision summary");
+  await page.waitForTimeout(150);
+  const year9State = await page.evaluate(() => ({
+    controlValue: document.querySelector("#year")?.value ?? null,
+    panelYear: document.querySelector("#decisionTrajectory")?.dataset.year ?? null,
+    selectedYearButtons: Array.from(document.querySelectorAll("#decisionTrajectory [data-trajectory-year][aria-pressed='true']")).map(node => node.getAttribute("data-trajectory-year")),
+    summaryLead: document.querySelector("#decisionLead")?.innerText ?? "",
+    buttonCount: document.querySelectorAll('#decisionTrajectory button[data-trajectory-year="9"]').length
+  }));
+  result.glidepath_decision_trajectory.year9_click_state = year9State;
+  need(year9State.controlValue === "9" && year9State.panelYear === "9" && year9State.selectedYearButtons.join(",") === "9", "trajectory year click did not synchronize source control and panel state: " + JSON.stringify(year9State));
+  need(year9State.summaryLead.includes("第9年"), "trajectory year click did not update the frontloaded decision summary: " + JSON.stringify(year9State));
   need(await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').getAttribute("aria-pressed") === "true", "trajectory year-9 click did not highlight year 9");
   await page.locator('#decisionTrajectory button[data-trajectory-year="5"]').click({timeout: 5000});
   await page.waitForFunction(() => document.querySelector("#year").value === "5" && document.querySelector("#decisionTrajectory").dataset.year === "5", null, {timeout: 5000});
