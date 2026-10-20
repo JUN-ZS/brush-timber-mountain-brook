@@ -34,3 +34,11 @@
 - The first replay scope is deliberately limited to **SPY + TLT**, **no withdrawals or contributions**, an initial $100,000 NAV, annual rebalancing, 252 trading days per year, and 157 full 10-year overlapping windows (start index 60, stride 20). It does not include trading costs, tax, slippage, or ETF-tracking effects.
 - Selecting a bond proxy other than TLT or a cashflow mode other than no-withdrawal displays **BLOCK** rather than presenting unverified performance.
 - This is a historical exploratory replay, not a guarantee or a claim that TLT is interchangeable with AGG, SHY, or IEF.
+
+
+## Reverse direction v2 — same-window paired comparison
+
+- The UI compares mirrored **stock-to-bond** and **bond-to-stock** schedules using the exact same 157 overlapping 10-year start/end windows, the same SPY/TLT adjusted-close observations, same $100,000 initial NAV, same annual rebalancing rule, same inflation assumption, and no deposits or withdrawals.
+- The comparison shows nominal and real terminal NAV summaries, P05 real NAV, nominal/real CAGR, median and worst maximum drawdown, the median year in which the maximum drawdown first occurs, and real-principal threshold counts.
+- Paired per-window wins (real terminal NAV and maximum drawdown) are kept separate from differences between aggregate medians/percentiles. The pairwise sample is overlapping historical windows, not independent future probabilities.
+- Unsupported bond proxies or cashflow modes remain BLOCKED; the comparison is not silently copied from legacy summary metrics.
