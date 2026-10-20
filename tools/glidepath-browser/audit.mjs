@@ -114,6 +114,52 @@ try {
   need(summaryPlacement.initialValue.startsWith("$") && summaryPlacement.initialBehavior.length > 0 && summaryPlacement.initialAllocation.includes("股票") && summaryPlacement.initialFlow.includes("不提款") && summaryPlacement.initialFloor.includes("$"), "initial decision summary is missing amount/behavior/data fields");
   need(summaryPlacement.initialAllocationDetail.includes("按主結果 $167,812") && summaryPlacement.initialAllocationDetail.includes("股票約 $98,590") && summaryPlacement.initialAllocationDetail.includes("AGG 約 $69,222"), "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
   result.frontloaded_decision_summary = { ...summaryPlacement, passed: true };
+
+  await page.locator("#decisionTrajectory[data-state='ready']").waitFor({state: "visible"});
+  const readTrajectory = () => page.evaluate(() => {
+    const root = document.querySelector("#decisionTrajectory");
+    const values = series => Array.from(root.querySelectorAll('[data-series="' + series + '"] td[data-year]'));
+    const stocks = values("stock").map(cell => Number(cell.dataset.stockPct));
+    const bonds = values("bond").map(cell => Number(cell.dataset.bondPct));
+    const years = Array.from(root.querySelectorAll("[data-trajectory-year]")).map(button => Number(button.getAttribute("data-trajectory-year")));
+    const idValues = Array.from(document.querySelectorAll("[id]")).map(node => node.id);
+    const duplicates = Array.from(new Set(idValues.filter((id, index) => idValues.indexOf(id) !== index)));
+    return {
+      state: root.dataset.state,
+      selected_year: root.dataset.year,
+      target: Number(root.dataset.target),
+      timing: root.dataset.timing,
+      endpoint_bond_pct: Number(root.dataset.endpointBondPct),
+      year_buttons: years,
+      selected_button_count: root.querySelectorAll('[data-trajectory-year][aria-pressed="true"]').length,
+      selected_button_year: Number(root.querySelector('[data-trajectory-year][aria-pressed="true"]')?.getAttribute("data-trajectory-year")),
+      stock_pcts: stocks,
+      bond_pcts: bonds,
+      stock_bond_sums: stocks.map((stock, index) => stock + bonds[index]),
+      crosscheck: root.dataset.crosscheck,
+      allocation_delta_pp: root.dataset.allocationDeltaPp == null ? null : Number(root.dataset.allocationDeltaPp),
+      crosscheck_text: root.querySelector("#decisionTrajectoryCrosscheck").innerText,
+      status_text: root.querySelector("#decisionTrajectoryStatus").innerText,
+      rendered_duplicate_ids: duplicates
+    };
+  });
+  const initialTrajectory = await readTrajectory();
+  need(initialTrajectory.state === "ready", "year-by-year trajectory panel is not ready: " + JSON.stringify(initialTrajectory));
+  need(initialTrajectory.year_buttons.length === 11 && initialTrajectory.year_buttons.every((year, index) => year === index), "trajectory panel does not expose years 0-10: " + JSON.stringify(initialTrajectory.year_buttons));
+  need(initialTrajectory.stock_pcts.length === 11 && initialTrajectory.bond_pcts.length === 11, "trajectory panel is missing annual stock/bond rows");
+  need(initialTrajectory.selected_year === "5" && initialTrajectory.selected_button_count === 1 && initialTrajectory.selected_button_year === 5, "trajectory panel did not highlight the selected year 5");
+  need(Math.abs(initialTrajectory.endpoint_bond_pct - initialTrajectory.target) <= 0.75, "year-10 bond target does not match selected target: " + JSON.stringify(initialTrajectory));
+  need(initialTrajectory.stock_bond_sums.every(value => Math.abs(value - 100) <= 0.02), "trajectory stock and bond percentages do not sum to 100: " + JSON.stringify(initialTrajectory.stock_bond_sums));
+  need(initialTrajectory.crosscheck_text.includes("歷史回測摘要") && initialTrajectory.crosscheck_text.includes("差異"), "trajectory does not compare rule path with historical backtest allocation");
+  need(initialTrajectory.rendered_duplicate_ids.length === 0, "trajectory panel caused duplicate rendered IDs: " + JSON.stringify(initialTrajectory.rendered_duplicate_ids));
+  result.glidepath_decision_trajectory = {initial: initialTrajectory, passed: true};
+
+  await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').click();
+  await page.waitForFunction(() => document.querySelector("#year").value === "9" && document.querySelector("#decisionTrajectory").dataset.year === "9");
+  need(await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').getAttribute("aria-pressed") === "true", "trajectory year-9 click did not highlight year 9");
+  await page.locator('#decisionTrajectory button[data-trajectory-year="5"]').click();
+  await page.waitForFunction(() => document.querySelector("#year").value === "5" && document.querySelector("#decisionTrajectory").dataset.year === "5");
+
   await page.locator("#bond").selectOption("TLT");
   await page.locator("#target").evaluate(el => {el.value="80"; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true}));});
   await page.locator("#timing").selectOption("front_fast");
