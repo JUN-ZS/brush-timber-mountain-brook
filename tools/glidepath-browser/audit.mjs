@@ -170,9 +170,22 @@ try {
   need(await page.locator("#timing").inputValue() === attrs.timing, "table row click did not synchronize timing");
   result.interactive_delegations_verified.table_row_click = true;
 
-  attrs = await clickAndRead(page, "#glide circle[data-year][data-timing]");
-  need(await page.locator("#year").inputValue() === attrs.year && await page.locator("#timing").inputValue() === attrs.timing, "glidepath node click did not synchronize year/timing");
-  result.interactive_delegations_verified.glidepath_node_click = true;
+  const unoccludedGlideNode = await page.locator("#glide circle[data-year][data-timing]").evaluateAll(nodes => {
+    for (const element of nodes) {
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const actual = hit && hit.closest ? hit.closest("circle[data-year][data-timing]") : null;
+      if (actual === element) {
+        return {year: element.getAttribute("data-year"), timing: element.getAttribute("data-timing")};
+      }
+    }
+    return null;
+  });
+  need(unoccludedGlideNode !== null, "no non-overlapping glidepath node is available for a physical click test");
+  attrs = await clickAndRead(page, '#glide circle[data-year="' + unoccludedGlideNode.year + '"][data-timing="' + unoccludedGlideNode.timing + '"]');
+  const glideActual = {clicked: attrs, year: await page.locator("#year").inputValue(), timing: await page.locator("#timing").inputValue()};
+  need(glideActual.year === attrs.year && glideActual.timing === attrs.timing, "glidepath node click did not synchronize year/timing: " + JSON.stringify(glideActual));
+  result.interactive_delegations_verified.glidepath_node_click = glideActual;
 
   attrs = await clickAndRead(page, "#frontier [data-pick='1']");
   need(await page.locator("#bond").inputValue() === attrs.bond && String(await page.locator("#target").inputValue()) === attrs.target && await page.locator("#timing").inputValue() === attrs.timing && await page.locator("#flow").inputValue() === attrs.flow, "frontier click did not synchronize strategy");
