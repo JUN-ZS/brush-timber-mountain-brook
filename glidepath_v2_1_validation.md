@@ -24,3 +24,13 @@
 - v2.html is the canonical HTML source.
 - glidepath_interactive_preview_optimized_bundle.zip contains the same v2.1 HTML as glidepath_interactive_preview_optimized.html.
 - Machine audit status: STATIC_SEMANTIC_GUARDS_PASSED_BROWSER_RETEST_PENDING.
+
+
+## Reverse direction v1 — independent historical replay
+
+- Added a separate direction selector: **先股後債** remains the existing 768-strategy summary; **先債後股** constructs a distinct annual target path (year 0 starts at 100% bonds / 0% stocks, ending at the selected year-10 stock target).
+- Reverse performance is recalculated from the repository's SPY/TLT daily adjusted-close series in `src/data/universe.json`; it is not calculated by inverting CAGR, drawdown, or principal-floor counts from the forward-direction summaries.
+- The standalone HTML embeds the SPY/TLT data snapshot with its source SHA-256. A jointly missing SPY/TLT row is dropped as a non-trading/missing row; unmatched or invalid price rows fail the build rather than being filled with zero returns.
+- The first replay scope is deliberately limited to **SPY + TLT**, **no withdrawals or contributions**, an initial $100,000 NAV, annual rebalancing, 252 trading days per year, and 157 full 10-year overlapping windows (start index 60, stride 20). It does not include trading costs, tax, slippage, or ETF-tracking effects.
+- Selecting a bond proxy other than TLT or a cashflow mode other than no-withdrawal displays **BLOCK** rather than presenting unverified performance.
+- This is a historical exploratory replay, not a guarantee or a claim that TLT is interchangeable with AGG, SHY, or IEF.
