@@ -241,6 +241,72 @@ try {
   need(reverseRead.sourceDisclosure.includes("TLT") && reverseRead.sourceDisclosure.includes("通脹假設"),
     "reverse replay proxy and inflation limitations are not disclosed");
 
+  const pairRead = await page.evaluate(() => {
+    const panel = document.querySelector("#pairedComparison");
+    return {
+      state: panel.dataset.state,
+      windowCount: Number(panel.dataset.windowCount),
+      matchedPairCount: Number(panel.dataset.matchedPairCount),
+      sourceAsOf: panel.dataset.sourceAsOf,
+      sourceSha256: panel.dataset.sourceSha256,
+      firstStart: panel.dataset.firstStart,
+      firstEnd: panel.dataset.firstEnd,
+      lastStart: panel.dataset.lastStart,
+      lastEnd: panel.dataset.lastEnd,
+      inflation: Number(panel.dataset.inflation),
+      forwardMedianNav: Number(panel.dataset.forwardMedianNav),
+      reverseMedianNav: Number(panel.dataset.reverseMedianNav),
+      forwardMedianRealNav: Number(panel.dataset.forwardMedianRealNav),
+      reverseMedianRealNav: Number(panel.dataset.reverseMedianRealNav),
+      medianRealNavDelta: Number(panel.dataset.medianRealNavDelta),
+      pairedMedianRealNavDelta: Number(panel.dataset.pairedMedianRealNavDelta),
+      forwardMedianCagr: Number(panel.dataset.forwardMedianCagr),
+      reverseMedianCagr: Number(panel.dataset.reverseMedianCagr),
+      medianCagrDelta: Number(panel.dataset.medianCagrDelta),
+      pairedMedianCagrDelta: Number(panel.dataset.pairedMedianCagrDelta),
+      forwardMedianDd: Number(panel.dataset.forwardMedianDd),
+      reverseMedianDd: Number(panel.dataset.reverseMedianDd),
+      medianDdDelta: Number(panel.dataset.medianDdDelta),
+      pairedMedianDdDelta: Number(panel.dataset.pairedMedianDdDelta),
+      forwardDdYearCounts: JSON.parse(panel.dataset.forwardDdYearCounts || "{}"),
+      reverseDdYearCounts: JSON.parse(panel.dataset.reverseDdYearCounts || "{}"),
+      reverseRealNavWins: Number(panel.dataset.reverseRealNavWins),
+      forwardRealNavWins: Number(panel.dataset.forwardRealNavWins),
+      reverseLowerDrawdown: Number(panel.dataset.reverseLowerDrawdown),
+      forwardLowerDrawdown: Number(panel.dataset.forwardLowerDrawdown),
+      statusText: document.querySelector("#pairedComparisonStatus").innerText,
+      winSummary: document.querySelector("#pairedComparisonWinSummary").innerText,
+      method: document.querySelector("#pairedComparisonMethod").innerText,
+      limits: document.querySelector("#pairedComparisonLimits").innerText,
+      tableRows: document.querySelectorAll("#pairedComparison tbody tr").length
+    };
+  });
+  need(pairRead.state === "passed" && pairRead.windowCount === 157 && pairRead.matchedPairCount === 157,
+    "same-window paired comparison did not compute 157 matched pairs: " + JSON.stringify(pairRead));
+  need(pairRead.firstStart === reverseRead.firstStart && pairRead.firstEnd === reverseRead.firstEnd &&
+    pairRead.lastStart === reverseRead.lastStart && pairRead.lastEnd === reverseRead.lastEnd,
+    "paired comparison windows diverged from reverse replay window protocol");
+  need(pairRead.sourceAsOf === reverseRead.sourceAsOf && /^[a-f0-9]{64}$/.test(pairRead.sourceSha256),
+    "paired comparison source lineage is missing or differs from reverse replay");
+  need(Number.isFinite(pairRead.forwardMedianNav) && Number.isFinite(pairRead.reverseMedianNav) &&
+    Number.isFinite(pairRead.pairedMedianRealNavDelta) && Number.isFinite(pairRead.pairedMedianCagrDelta) &&
+    Number.isFinite(pairRead.pairedMedianDdDelta), "paired comparison contains non-finite metrics");
+  need(Math.abs(pairRead.medianRealNavDelta - (pairRead.reverseMedianRealNav - pairRead.forwardMedianRealNav)) < 0.1,
+    "real NAV summary delta does not reconcile to the reported strategy medians");
+  need(Math.abs(pairRead.medianCagrDelta - (pairRead.reverseMedianCagr - pairRead.forwardMedianCagr)) < 1e-6,
+    "CAGR summary delta does not reconcile to the reported strategy medians");
+  need(Math.abs(pairRead.medianDdDelta - (pairRead.reverseMedianDd - pairRead.forwardMedianDd)) < 1e-6,
+    "drawdown summary delta does not reconcile to the reported strategy medians");
+  need(Object.values(pairRead.forwardDdYearCounts).reduce((a,b)=>a+b,0) === 157 &&
+    Object.values(pairRead.reverseDdYearCounts).reduce((a,b)=>a+b,0) === 157,
+    "drawdown-occurrence-year counts must account for all windows in both directions");
+  need(pairRead.reverseRealNavWins + pairRead.forwardRealNavWins <= 157 &&
+    pairRead.reverseLowerDrawdown + pairRead.forwardLowerDrawdown <= 157,
+    "paired win counts exceed matched window count");
+  need(pairRead.tableRows === 9 && pairRead.limits.includes("窗口彼此重疊") &&
+    pairRead.method.includes("最大回撤年") && pairRead.method.includes("252 個交易日"),
+    "paired comparison table/method/overlap disclosures are missing");
+
   const realMedianAtZero = reverseRead.medianRealTerminalNav;
   await page.locator("#realMode").selectOption("0.0235");
   await page.waitForFunction(baseline => {
@@ -254,17 +320,25 @@ try {
   await page.locator("#realMode").selectOption("0");
 
   await page.locator("#bond").selectOption("SHY");
-  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "blocked", null, {timeout: 5000});
+  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "blocked" &&
+    document.querySelector("#pairedComparison").dataset.state === "blocked", null, {timeout: 5000});
   const unsupportedBondBlock = await page.locator("#reverseReplayStatus").innerText();
+  const unsupportedPairBlock = await page.locator("#pairedComparisonStatus").innerText();
   need(unsupportedBondBlock.includes("BLOCK") && (await page.locator("#reverseReplayMethod").innerText()).includes("只覆蓋 TLT"),
     "unsupported bond proxy must BLOCK rather than borrow TLT results");
+  need(unsupportedPairBlock.includes("BLOCK") && (await page.locator("#pairedComparisonMethod").innerText()).includes("只覆蓋 TLT"),
+    "paired comparison must BLOCK for unsupported bond proxies");
   await page.locator("#bond").selectOption("TLT");
   await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "passed", null, {timeout: 10000});
   await page.locator("#flow").selectOption("monthly_withdrawal_500_usd_stress");
-  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "blocked", null, {timeout: 5000});
+  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "blocked" &&
+    document.querySelector("#pairedComparison").dataset.state === "blocked", null, {timeout: 5000});
   need((await page.locator("#reverseReplayStatus").innerText()).includes("BLOCK") &&
     (await page.locator("#reverseReplayMethod").innerText()).includes("不提款模式"),
     "unsupported withdrawal mode must BLOCK rather than reuse no-withdrawal outcomes");
+  need((await page.locator("#pairedComparisonStatus").innerText()).includes("BLOCK") &&
+    (await page.locator("#pairedComparisonMethod").innerText()).includes("不提款／不供款"),
+    "paired comparison must BLOCK for unsupported cashflows");
   await page.locator("#flow").selectOption(noWithdrawalValue);
   await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "passed", null, {timeout: 10000});
   result.reverse_direction_replay = {...reverseRead, realMedianAt235: Number(realMedianAt235), unsupportedBondBlock, passed: true};
