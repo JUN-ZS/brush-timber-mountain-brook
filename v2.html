@@ -822,6 +822,7 @@ update();
 <script id="glidepath-trajectory-panel-inline">
 /* GLIDEPATH_TRAJECTORY_PANEL_V1 */
 /* GLIDEPATH_REVERSE_REPLAY_V1 */
+/* GLIDEPATH_PAIRED_COMPARISON_V1 */
 (function () {
   "use strict";
 
@@ -883,9 +884,32 @@ update();
     '</div>' +
     '<p id="reverseReplayMethod" class="reverse-replay-method">等待獨立回放條件……</p>' +
     '<p id="reverseReplayLimits" class="reverse-replay-limits">回測是歷史樣本，不是收益保證。</p>';
+  const pairedComparison = document.createElement("section");
+  pairedComparison.id = "pairedComparison";
+  pairedComparison.className = "paired-comparison";
+  pairedComparison.innerHTML =
+    '<div class="paired-comparison-heading"><div><h2>同窗配對比較：先股後債 vs 先債後股</h2>' +
+    '<p>兩邊使用相同 157 個窗口、同一份 SPY/TLT 價格、同一起點本金、每年再平衡與通脹假設。</p></div>' +
+    '<span id="pairedComparisonStatus" role="status" data-state="pending">PENDING</span></div>' +
+    '<div class="paired-table-wrap"><table class="paired-table" aria-label="先股後債和先債後股同窗配對比較">' +
+    '<thead><tr><th scope="col">指標</th><th scope="col">先股後債</th><th scope="col">先債後股</th><th scope="col">摘要差值<br>（先債後股−先股後債）</th></tr></thead><tbody>' +
+    '<tr><th scope="row">期末 NAV 中位數（名目）</th><td data-pair-value="forward.medianNav">—</td><td data-pair-value="reverse.medianNav">—</td><td data-pair-delta="medianNav">—</td></tr>' +
+    '<tr><th scope="row">期末 NAV P05（實質）</th><td data-pair-value="forward.p05RealNav">—</td><td data-pair-value="reverse.p05RealNav">—</td><td data-pair-delta="p05RealNav">—</td></tr>' +
+    '<tr><th scope="row">期末 NAV 中位數（實質）</th><td data-pair-value="forward.medianRealNav">—</td><td data-pair-value="reverse.medianRealNav">—</td><td data-pair-delta="medianRealNav">—</td></tr>' +
+    '<tr><th scope="row">CAGR 中位數（名目）</th><td data-pair-value="forward.medianCagr">—</td><td data-pair-value="reverse.medianCagr">—</td><td data-pair-delta="medianCagr">—</td></tr>' +
+    '<tr><th scope="row">CAGR 中位數（實質）</th><td data-pair-value="forward.medianRealCagr">—</td><td data-pair-value="reverse.medianRealCagr">—</td><td data-pair-delta="medianRealCagr">—</td></tr>' +
+    '<tr><th scope="row">最大回撤中位數</th><td data-pair-value="forward.medianDd">—</td><td data-pair-value="reverse.medianDd">—</td><td data-pair-delta="medianDd">—</td></tr>' +
+    '<tr><th scope="row">最差窗口最大回撤</th><td data-pair-value="forward.worstDd">—</td><td data-pair-value="reverse.worstDd">—</td><td data-pair-delta="worstDd">—</td></tr>' +
+    '<tr><th scope="row">最大回撤發生年（中位數）</th><td data-pair-value="forward.ddYearMedian">—</td><td data-pair-value="reverse.ddYearMedian">—</td><td data-pair-delta="ddYearMedian">—</td></tr>' +
+    '<tr><th scope="row">期末實質 NAV ≥ 本金</th><td data-pair-value="forward.realFloor">—</td><td data-pair-value="reverse.realFloor">—</td><td data-pair-delta="realFloor">—</td></tr>' +
+    '</tbody></table></div>' +
+    '<p id="pairedComparisonWinSummary" class="paired-comparison-note">配對勝出窗口：—</p>' +
+    '<p id="pairedComparisonMethod" class="paired-comparison-note">等待相同日期窗口的成對回放……</p>' +
+    '<p id="pairedComparisonLimits" class="paired-comparison-limits">歷史重疊窗口不是獨立未來機率；無法匹配的價格／現金流不會補值。</p>';
   summary.insertAdjacentElement("afterend", directionControl);
   directionControl.insertAdjacentElement("afterend", section);
   section.insertAdjacentElement("afterend", reversePanel);
+  reversePanel.insertAdjacentElement("afterend", pairedComparison);
 
   const style = document.createElement("style");
   style.id = "decisionTrajectoryStyles";
@@ -924,6 +948,21 @@ update();
     ".reverse-replay-grid strong{font-size:1.12rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}" +
     ".reverse-replay-method{padding:9px 10px;background:rgba(127,127,127,.07);border-radius:6px}" +
     ".reverse-replay-limits{font-size:.77rem;opacity:.75}" +
+    ".paired-comparison{margin:12px 0 18px;padding:14px;border:1px solid rgba(127,127,127,.35);border-radius:12px;background:rgba(127,127,127,.025);color:inherit}" +
+    ".paired-comparison-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}" +
+    ".paired-comparison h2{font-size:1.05rem;line-height:1.35;margin:0 0 5px;font-weight:700}" +
+    ".paired-comparison-heading p,.paired-comparison-note,.paired-comparison-limits{font-size:.82rem;line-height:1.5;margin:5px 0;color:inherit}" +
+    "#pairedComparisonStatus{font-size:.78rem;font-weight:800;border:1px solid rgba(127,127,127,.45);border-radius:6px;padding:4px 8px;white-space:nowrap}" +
+    "#pairedComparisonStatus[data-state=blocked]{border-color:#b45309;color:#b45309}" +
+    "#pairedComparisonStatus[data-state=passed]{border-color:#15803d;color:#15803d}" +
+    ".paired-table-wrap{width:100%;overflow-x:auto;margin:10px 0 7px}" +
+    ".paired-table{width:100%;min-width:760px;border-collapse:separate;border-spacing:0;font-size:.82rem;font-variant-numeric:tabular-nums}" +
+    ".paired-table th,.paired-table td{padding:8px 9px;border-bottom:1px solid rgba(127,127,127,.22);text-align:right;white-space:nowrap}" +
+    ".paired-table thead th{font-weight:750;background:rgba(127,127,127,.07);text-align:right}" +
+    ".paired-table th:first-child{text-align:left;white-space:normal;min-width:190px}" +
+    ".paired-table tbody th{font-weight:600}" +
+    ".paired-comparison-note{padding:9px 10px;background:rgba(127,127,127,.06);border-radius:6px}" +
+    ".paired-comparison-limits{font-size:.77rem;opacity:.75}" +
     "[data-glp-reverse-hidden=true]{display:none!important}" +
     "@media(max-width:640px){.decision-trajectory{padding:10px}.trajectory-heading{gap:5px}.trajectory-table{min-width:690px}.trajectory-heading h2{font-size:1rem}.glidepath-direction-control{grid-template-columns:1fr}.glidepath-direction-control p{grid-column:1}.reverse-replay{padding:10px}}";
   document.head.appendChild(style);
@@ -1000,6 +1039,7 @@ update();
     setModeVisibility(reverse);
     updateTargetLabel(reverse);
     renderReverseReplay(reverse, []);
+    renderPairedComparison(reverse, []);
   }
   function render() {
     const targetElement = one("#target");
@@ -1097,6 +1137,7 @@ update();
       : "已同步 11 個年度回測配置記錄；第 10 年債券配置 " + endpoint.toFixed(2) +
         "%，目標 " + target.toFixed(2) + "%。年度差值是相鄰年度配置百分點，不代表當年交易金額或每日實際持倉。";
     renderReverseReplay(reverse, points);
+    renderPairedComparison(reverse, points);
   }
   function stockPctAt(point) { return point.stockPct.toFixed(2); }
   function ppLabel() { return " 個百分點"; }
@@ -1286,6 +1327,220 @@ update();
       " 截止，" + dates.length + " 個有效同步價格列；來源檔 SHA-256 " + String(reverseData.sourceFileSha256 || "").slice(0, 16) +
       "…）。實質 NAV 使用年通脹假設 " + (inflation * 100).toFixed(2) +
       "%。TLT 只代表長天期美國公債，不可視為 AGG／SHY／IEF；歷史樣本不保證未來結果。";
+  }
+  function summarizeReplay(rows, initialNav) {
+    const nav = rows.map(function (row) { return row.terminalNav; });
+    const realNav = rows.map(function (row) { return row.realTerminalNav; });
+    const cagr = rows.map(function (row) { return row.nominalCagr; });
+    const realCagr = rows.map(function (row) { return row.realCagr; });
+    const dd = rows.map(function (row) { return row.maxDdNominal; });
+    const ddYears = rows.map(function (row) { return row.maxDdYear; });
+    const realFloor = rows.filter(function (row) { return row.realTerminalNav >= initialNav; }).length;
+    return {
+      n: rows.length, medianNav: median(nav), p05Nav: quantile(nav, 0.05),
+      medianRealNav: median(realNav), p05RealNav: quantile(realNav, 0.05),
+      medianCagr: median(cagr), medianRealCagr: median(realCagr),
+      medianDd: median(dd), worstDd: Math.min.apply(null, dd),
+      ddYearMedian: median(ddYears), realFloorCount: realFloor,
+      realFloorRate: realFloor / rows.length,
+      minNav: Math.min.apply(null, nav), minRealNav: Math.min.apply(null, realNav),
+      ddYearCounts: Object.fromEntries(Array.from({length: 10}, function (_, index) {
+        const year = index + 1;
+        return [String(year), rows.filter(function (row) { return row.maxDdYear === year; }).length];
+      }))
+    };
+  }
+  function median(values) { return quantile(values, 0.5); }
+  function replaySchedule(stockWeights, dates, spy, tlt, starts, horizon, tradingDaysPerYear, inflation, initialNav) {
+    const rows = [];
+    for (const start of starts) {
+      let spyShares = initialNav * stockWeights[0] / spy[start];
+      let tltShares = initialNav * (1 - stockWeights[0]) / tlt[start];
+      let peak = initialNav, maxDd = 0, maxDdDay = 0, maxDdYear = 1, terminalNav = initialNav;
+      for (let day = 1; day <= horizon; day++) {
+        const idx = start + day;
+        terminalNav = spyShares * spy[idx] + tltShares * tlt[idx];
+        if (!Number.isFinite(terminalNav) || terminalNav <= 0) return null;
+        peak = Math.max(peak, terminalNav);
+        const drawdown = terminalNav / peak - 1;
+        if (drawdown < maxDd) {
+          maxDd = drawdown;
+          maxDdDay = day;
+          maxDdYear = Math.min(10, Math.ceil(day / tradingDaysPerYear));
+        }
+        if (day < horizon && day % tradingDaysPerYear === 0) {
+          const targetYear = Math.min(stockWeights.length - 1, day / tradingDaysPerYear);
+          spyShares = terminalNav * stockWeights[targetYear] / spy[idx];
+          tltShares = terminalNav * (1 - stockWeights[targetYear]) / tlt[idx];
+        }
+      }
+      const realTerminalNav = terminalNav / Math.pow(1 + inflation, horizon / tradingDaysPerYear);
+      rows.push({
+        start: dates[start], end: dates[start + horizon], terminalNav, realTerminalNav,
+        nominalCagr: Math.pow(terminalNav / initialNav, 0.1) - 1,
+        realCagr: Math.pow(realTerminalNav / initialNav, 0.1) - 1,
+        maxDdNominal: maxDd, maxDdYear, maxDdDay
+      });
+    }
+    return rows;
+  }
+  function renderPairedComparison(reverse, points) {
+    pairedComparison.querySelectorAll("[data-pair-value],[data-pair-delta]").forEach(function (node) { node.textContent = "—"; });
+    pairedComparison.dataset.state = "pending";
+    const badge = pairedComparison.querySelector("#pairedComparisonStatus");
+    const bondValue = (one("#bond") || {}).value || "";
+    const flowName = selectedText("#flow");
+    const flowValue = (one("#flow") || {}).value || "";
+    const noWithdrawal = /不提款/.test(flowName) || /^(none|no_withdrawal|no-withdrawal|no_cashflow)$/.test(flowValue);
+    function block(message) {
+      pairedComparison.dataset.state = "blocked";
+      badge.dataset.state = "blocked";
+      badge.textContent = "BLOCK";
+      pairedComparison.querySelector("#pairedComparisonMethod").textContent = "BLOCK · " + message + "；未用不同樣本或舊摘要填補。";
+    }
+    if (!reverseData || reverseData.marker !== "GLIDEPATH_REVERSE_DATA_V1") return block("缺少獨立 SPY/TLT 回放價格包");
+    if (bondValue !== "TLT") return block("同窗配對回放目前只覆蓋 TLT；請把債券代理選為 TLT");
+    if (!noWithdrawal) return block("同窗配對目前只覆蓋不提款／不供款；目前現金流為「" + flowName + "」");
+    if (!Array.isArray(points) || points.length !== 11 ||
+        points.slice(0, 10).some(function (point) { return !Number.isFinite(point.stockPct) || point.stockPct < 0 || point.stockPct > 100; })) {
+      return block("年度配置路徑不完整或超出 0–100%");
+    }
+    const dates = reverseData.dates || [];
+    const spy = reverseData.prices && reverseData.prices.SPY;
+    const tlt = reverseData.prices && reverseData.prices.TLT;
+    const protocol = reverseData.windowProtocol || {};
+    const windows = Number(protocol.nWindows), startIndex = Number(protocol.startIndex);
+    const stride = Number(protocol.stride), horizon = Number(protocol.horizonTradingDays);
+    const tradingDaysPerYear = Number(protocol.tradingDaysPerYear);
+    if (!Array.isArray(spy) || !Array.isArray(tlt) || spy.length !== dates.length || tlt.length !== dates.length ||
+        !Number.isInteger(windows) || !Number.isInteger(startIndex) || !Number.isInteger(stride) ||
+        !Number.isInteger(horizon) || !Number.isInteger(tradingDaysPerYear)) return block("價格序列與窗口契約不完整");
+    const starts = Array.from({length: windows}, function (_, index) { return startIndex + index * stride; });
+    if (starts.some(function (start) { return start < 0 || start + horizon >= dates.length; })) return block("窗口超出可用價格範圍；不縮短窗口、不補零");
+    for (let i = 0; i < dates.length; i++) {
+      if (!(Number.isFinite(spy[i]) && spy[i] > 0 && Number.isFinite(tlt[i]) && tlt[i] > 0)) return block("價格列 " + i + " 存在缺值／非正值");
+    }
+    const currentStock = points.slice(0, 10).map(function (point) { return point.stockPct / 100; });
+    // Compare both mirrored annual target paths on the same starts, irrespective of selected UI direction.
+    const reverseStocks = reverse ? currentStock : currentStock.map(function (weight) { return 1 - weight; });
+    const forwardStocks = reverseStocks.map(function (weight) { return 1 - weight; });
+    const inflation = Math.max(0, Number((one("#realMode") || {}).value || 0));
+    const initialNav = 100000;
+    const forwardRows = replaySchedule(forwardStocks, dates, spy, tlt, starts, horizon, tradingDaysPerYear, inflation, initialNav);
+    const reverseRows = replaySchedule(reverseStocks, dates, spy, tlt, starts, horizon, tradingDaysPerYear, inflation, initialNav);
+    if (!forwardRows || !reverseRows || forwardRows.length !== windows || reverseRows.length !== windows) return block("其中一個方向產生無效 NAV；不刪除失敗窗口");
+    if (!forwardRows.every(function (row, index) { return row.start === reverseRows[index].start && row.end === reverseRows[index].end; })) return block("兩個方向的窗口起訖日期不一致");
+    const forward = summarizeReplay(forwardRows, initialNav);
+    const reversed = summarizeReplay(reverseRows, initialNav);
+    const pairedDiff = reverseRows.map(function (row, index) {
+      return {
+        start: row.start, end: row.end,
+        realNav: row.realTerminalNav - forwardRows[index].realTerminalNav,
+        nominalCagr: row.nominalCagr - forwardRows[index].nominalCagr,
+        maxDd: row.maxDdNominal - forwardRows[index].maxDdNominal
+      };
+    });
+    const paired = {
+      n: pairedDiff.length,
+      medianRealNavDelta: median(pairedDiff.map(function (row) { return row.realNav; })),
+      medianNominalCagrDelta: median(pairedDiff.map(function (row) { return row.nominalCagr; })),
+      medianMaxDdDelta: median(pairedDiff.map(function (row) { return row.maxDd; })),
+      reverseRealNavWins: pairedDiff.filter(function (row) { return row.realNav > 0; }).length,
+      forwardRealNavWins: pairedDiff.filter(function (row) { return row.realNav < 0; }).length,
+      tiesRealNav: pairedDiff.filter(function (row) { return row.realNav === 0; }).length,
+      reverseLowerDrawdown: pairedDiff.filter(function (row) { return row.maxDd > 0; }).length,
+      forwardLowerDrawdown: pairedDiff.filter(function (row) { return row.maxDd < 0; }).length,
+      tiesDrawdown: pairedDiff.filter(function (row) { return row.maxDd === 0; }).length
+    };
+    const money = function (value) { return usd(value); };
+    const per = function (value) { return pct(value); };
+    const renderValues = {
+      "forward.medianNav": money(forward.medianNav), "reverse.medianNav": money(reversed.medianNav),
+      "forward.p05RealNav": money(forward.p05RealNav), "reverse.p05RealNav": money(reversed.p05RealNav),
+      "forward.medianRealNav": money(forward.medianRealNav), "reverse.medianRealNav": money(reversed.medianRealNav),
+      "forward.medianCagr": per(forward.medianCagr), "reverse.medianCagr": per(reversed.medianCagr),
+      "forward.medianRealCagr": per(forward.medianRealCagr), "reverse.medianRealCagr": per(reversed.medianRealCagr),
+      "forward.medianDd": per(forward.medianDd), "reverse.medianDd": per(reversed.medianDd),
+      "forward.worstDd": per(forward.worstDd), "reverse.worstDd": per(reversed.worstDd),
+      "forward.ddYearMedian": "第 " + forward.ddYearMedian.toFixed(1) + " 年",
+      "reverse.ddYearMedian": "第 " + reversed.ddYearMedian.toFixed(1) + " 年",
+      "forward.realFloor": forward.realFloorCount + "/" + forward.n + " (" + per(forward.realFloorRate) + ")",
+      "reverse.realFloor": reversed.realFloorCount + "/" + reversed.n + " (" + per(reversed.realFloorRate) + ")"
+    };
+    Object.entries(renderValues).forEach(function (entry) {
+      const node = pairedComparison.querySelector('[data-pair-value="' + entry[0] + '"]');
+      if (node) node.textContent = entry[1];
+    });
+    const deltas = {
+      medianNav: reversed.medianNav - forward.medianNav,
+      p05RealNav: reversed.p05RealNav - forward.p05RealNav,
+      medianRealNav: reversed.medianRealNav - forward.medianRealNav,
+      medianCagr: reversed.medianCagr - forward.medianCagr,
+      medianRealCagr: reversed.medianRealCagr - forward.medianRealCagr,
+      medianDd: reversed.medianDd - forward.medianDd,
+      worstDd: reversed.worstDd - forward.worstDd,
+      ddYearMedian: reversed.ddYearMedian - forward.ddYearMedian,
+      realFloor: reversed.realFloorCount - forward.realFloorCount
+    };
+    Object.entries(deltas).forEach(function (entry) {
+      const node = pairedComparison.querySelector('[data-pair-delta="' + entry[0] + '"]');
+      if (!node) return;
+      if (entry[0] === "medianNav" || entry[0] === "p05RealNav" || entry[0] === "medianRealNav") node.textContent = (entry[1] > 0 ? "+" : "") + money(entry[1]);
+      else if (entry[0] === "realFloor") node.textContent = (entry[1] > 0 ? "+" : "") + entry[1] + " 窗口";
+      else if (entry[0] === "ddYearMedian") node.textContent = (entry[1] > 0 ? "+" : "") + entry[1].toFixed(1) + " 年";
+      else node.textContent = (entry[1] > 0 ? "+" : "") + per(entry[1]);
+    });
+    pairedComparison.dataset.state = "passed";
+    pairedComparison.dataset.windowCount = String(windows);
+    pairedComparison.dataset.sourceAsOf = String(reverseData.sourceAsOf || "");
+    pairedComparison.dataset.sourceSha256 = String(reverseData.sourceFileSha256 || "");
+    pairedComparison.dataset.inflation = String(inflation);
+    pairedComparison.dataset.target = String((one("#target") || {}).value || "");
+    pairedComparison.dataset.timing = String((one("#timing") || {}).value || "");
+    pairedComparison.dataset.firstStart = forwardRows[0].start;
+    pairedComparison.dataset.firstEnd = forwardRows[0].end;
+    pairedComparison.dataset.lastStart = forwardRows[windows - 1].start;
+    pairedComparison.dataset.lastEnd = forwardRows[windows - 1].end;
+    pairedComparison.dataset.matchedPairCount = String(paired.n);
+    pairedComparison.dataset.forwardMedianNav = forward.medianNav.toFixed(4);
+    pairedComparison.dataset.reverseMedianNav = reversed.medianNav.toFixed(4);
+    pairedComparison.dataset.forwardMedianRealNav = forward.medianRealNav.toFixed(4);
+    pairedComparison.dataset.reverseMedianRealNav = reversed.medianRealNav.toFixed(4);
+    pairedComparison.dataset.medianRealNavDelta = deltas.medianRealNav.toFixed(4);
+    pairedComparison.dataset.pairedMedianRealNavDelta = paired.medianRealNavDelta.toFixed(4);
+    pairedComparison.dataset.forwardMedianCagr = forward.medianCagr.toFixed(8);
+    pairedComparison.dataset.reverseMedianCagr = reversed.medianCagr.toFixed(8);
+    pairedComparison.dataset.medianCagrDelta = deltas.medianCagr.toFixed(8);
+    pairedComparison.dataset.pairedMedianCagrDelta = paired.medianNominalCagrDelta.toFixed(8);
+    pairedComparison.dataset.forwardMedianDd = forward.medianDd.toFixed(8);
+    pairedComparison.dataset.reverseMedianDd = reversed.medianDd.toFixed(8);
+    pairedComparison.dataset.medianDdDelta = deltas.medianDd.toFixed(8);
+    pairedComparison.dataset.pairedMedianDdDelta = paired.medianMaxDdDelta.toFixed(8);
+    pairedComparison.dataset.forwardDdYearCounts = JSON.stringify(forward.ddYearCounts);
+    pairedComparison.dataset.reverseDdYearCounts = JSON.stringify(reversed.ddYearCounts);
+    pairedComparison.dataset.reverseRealNavWins = String(paired.reverseRealNavWins);
+    pairedComparison.dataset.forwardRealNavWins = String(paired.forwardRealNavWins);
+    pairedComparison.dataset.reverseLowerDrawdown = String(paired.reverseLowerDrawdown);
+    pairedComparison.dataset.forwardLowerDrawdown = String(paired.forwardLowerDrawdown);
+    badge.dataset.state = "passed";
+    badge.textContent = "PAIRED PASS · " + windows + " 對";
+    pairedComparison.querySelector("#pairedComparisonWinSummary").textContent =
+      "同一窗口比較（先債後股勝出／先股後債勝出／平手）：實質期末 NAV " +
+      paired.reverseRealNavWins + " / " + paired.forwardRealNavWins + " / " + paired.tiesRealNav +
+      " 對；最大回撤較低（較不負） " + paired.reverseLowerDrawdown + " / " + paired.forwardLowerDrawdown +
+      " / " + paired.tiesDrawdown + " 對。勝出數依逐窗差計算，不代表獨立未來機率。";
+    pairedComparison.querySelector("#pairedComparisonMethod").textContent =
+      "方法：兩邊各 " + windows + " 個相同起訖日期的重疊 10 年窗口（首窗 " +
+      forwardRows[0].start + "–" + forwardRows[0].end + "；末窗 " +
+      forwardRows[windows - 1].start + "–" + forwardRows[windows - 1].end +
+      "）；每年 " + tradingDaysPerYear + " 個交易日再平衡、起始 NAV $100,000、不提款／不供款；目標 " +
+      (one("#target") || {}).value + "%，轉換規則 " + selectedText("#timing") +
+      "，實質值使用 " + (inflation * 100).toFixed(2) + "% 通脹假設。最大回撤年為每窗首次觸及該窗最大回撤的交易年（第 1–10 年）。";
+    pairedComparison.querySelector("#pairedComparisonLimits").textContent =
+      "價格來源：" + (reverseData.datasetSource || "src/data/universe.json") + "，截至 " +
+      (reverseData.sourceAsOf || "unknown") + "，來源 SHA-256 " + String(reverseData.sourceFileSha256 || "").slice(0,16) +
+      "…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。";
+    pairedComparison._pairedData = {protocol:{nWindows:windows,startIndex,stride,horizonTradingDays:horizon,tradingDaysPerYear},forward,reverse:reversed,paired,forwardRows,reverseRows};
   }
   function queueRender() {
     if (queued) return;

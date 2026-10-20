@@ -1,12 +1,12 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 2719412,
+  "html_bytes": 2739948,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 79.19,
-  "bundle_bytes": 730860,
+  "html_size_reduction_pct": 79.03,
+  "bundle_bytes": 734216,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 53.15,
-  "sha256": "5c651e40ca693f07f2c401d9e11eb85296e0ab7e555e1bca0fa2d76572b09c7d",
+  "bundle_size_reduction_pct": 52.93,
+  "sha256": "f3abf6fd411ac951e6b9d6299b6259677d2f5c0d1870b94f18d53b53c81af7d3",
   "element_ids_count": 66,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2708503,
+  "html_characters": 2727783,
   "v2_1_review": {
-    "source_commit": "5d55d486921b9ca9ec0e6e79349286d8d94784a9",
+    "source_commit": "8302a26140268b65bc71aae3dd2ade5d75822425",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -155,7 +155,10 @@
       "reverse_replay_data_embedded": true,
       "reverse_replay_engine_embedded": true,
       "reverse_replay_does_not_reuse_old_performance": true,
-      "reverse_replay_unsupported_flow_blocks": true
+      "reverse_replay_unsupported_flow_blocks": true,
+      "paired_comparison_engine_embedded": true,
+      "paired_comparison_uses_same_windows": true,
+      "paired_comparison_includes_drawdown_occurrence_year": true
     },
     "fixes": [
       "Real purchasing-power breach counts are explicitly unavailable because per-window NAV is not embedded.",
@@ -172,7 +175,9 @@
       "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries.",
       "The reversed bond-to-stock replay is independently recomputed from repository SPY/TLT daily adjusted-close rows; it does not reuse the original stock-to-bond performance summaries.",
       "Reverse-direction performance is intentionally supported only for SPY plus TLT and the no-withdrawal/no-contribution cashflow state. Other bond proxies and cashflows are BLOCKED pending matching replay data and execution logic.",
-      "The reverse replay uses 157 overlapping 10-year windows, 252 trading days per year and annual rebalance targets. It omits transaction costs, taxes, slippage and ETF-tracking differences; historical outcomes are not guarantees."
+      "The reverse replay uses 157 overlapping 10-year windows, 252 trading days per year and annual rebalance targets. It omits transaction costs, taxes, slippage and ETF-tracking differences; historical outcomes are not guarantees.",
+      "The same-window pairwise comparison runs both mirrored SPY/TLT allocation schedules over identical 157 start/end windows, same $100,000 initial NAV, annual rebalance schedule, inflation setting and no-cashflow assumption. Aggregate summary deltas and paired per-window win counts are separate statistics.",
+      "Maximum drawdown occurrence year is the first trading-year bucket in which each window reaches that window's worst peak-to-trough drawdown. Window samples overlap and are not independent observations."
     ],
     "inflation_reference": {
       "series": "FRED T10YIE",
@@ -870,17 +875,18 @@
       "realMedianAt235": 179262.546,
       "unsupportedBondBlock": "BLOCK",
       "passed": true
-    }
+    },
+    "paired_direction_comparison": {}
   },
-  "bundle_sha256": "b4685c34fbc5400cd64bc034788765e161542d7b0df24d26ba318dd8dd6e37b9",
-  "html_crc32": "72bf37b7",
+  "bundle_sha256": "253da12280c488a6be5c63f0a45dc9cc8e5d275490d104704ce78c4c4ff29bf0",
+  "html_crc32": "69bfa05a",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "5c651e40ca693f07f2c401d9e11eb85296e0ab7e555e1bca0fa2d76572b09c7d",
-    "bundle_sha256": "b4685c34fbc5400cd64bc034788765e161542d7b0df24d26ba318dd8dd6e37b9",
-    "html_bytes": 2719412,
-    "bundle_bytes": 730860,
-    "html_crc32": "72bf37b7",
+    "html_sha256": "f3abf6fd411ac951e6b9d6299b6259677d2f5c0d1870b94f18d53b53c81af7d3",
+    "bundle_sha256": "253da12280c488a6be5c63f0a45dc9cc8e5d275490d104704ce78c4c4ff29bf0",
+    "html_bytes": 2739948,
+    "bundle_bytes": 734216,
+    "html_crc32": "69bfa05a",
     "unique_html_ids": 66,
     "duplicate_ids": [],
     "zip_members": [
@@ -890,6 +896,9 @@
     "reverse_direction_replay_status": "passed",
     "reverse_direction_replay_windows": 157,
     "reverse_direction_replay_passed": true,
-    "created_at_utc": "2026-10-20T02:46:24.014229+00:00"
+    "paired_direction_comparison_status": "NOT_REPORTED",
+    "paired_direction_comparison_windows": 0,
+    "paired_direction_comparison_passed": false,
+    "created_at_utc": "2026-10-20T02:55:14.433600+00:00"
   }
 }
