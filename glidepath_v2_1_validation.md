@@ -45,3 +45,12 @@
 
 - The machine audit captures a distinct 2.35% annualized-inflation paired snapshot as well as the nominal (0% inflation) snapshot.
 - The UI exposes the maximum-drawdown occurrence-year distribution for years 1–10 and the browser audit checks that each direction's year counts sum to the 157 matched windows.
+
+
+## Front-loaded decision evidence — amount, behavior, sample, and unproven risk
+
+- A four-part decision-evidence panel is injected directly after the live decision summary, before the strategy controls and first chart. It binds to the current NAV value, the selected strategy/year, annual stock/bond allocation and dollar split, timing rule, cashflow mode, and principal threshold.
+- It explains the legacy summary sample as 768 year-10 strategy configurations summarized over 157 overlapping 10-year windows, with source data current through 2026-09-04. The independently replayed TLT/no-cashflow direction comparison also reports its exact first and last 10-year windows.
+- It states the limited real-terminal-principal proof: at 2.35% annual inflation, 363 of 768 year-10 strategies can be proven to have no real-principal breach across all 157 historical terminal-window outcomes; at 3.50%, 329 can be proven. These are not intrayear drawdown guarantees or future probabilities.
+- Exact real-terminal breach counts for the remaining strategies are not all available from the legacy compressed summary data. Their displayed real-principal counts remain explicitly marked uncalculated instead of being inferred from nominal counts. A strategy not proven breach-free is not automatically classified as having breached in every window.
+- The browser audit verifies that the panel is placed after the live summary and before controls/the first chart, that its selected amount and behavior update with controls, and that its sample and risk disclosures remain visible.
