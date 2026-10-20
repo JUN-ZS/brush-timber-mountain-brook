@@ -824,6 +824,7 @@ update();
 /* GLIDEPATH_REVERSE_REPLAY_V1 */
 /* GLIDEPATH_PAIRED_COMPARISON_V1 */
 /* GLIDEPATH_DRAWDOWN_YEAR_DISTRIBUTION_V1 */
+/* GLIDEPATH_DECISION_EVIDENCE_V1 */
 (function () {
   "use strict";
 
@@ -915,7 +916,21 @@ update();
   for (let year = 1; year <= 10; year++) drawdownYearTableHtml += '<td data-dd-year-row="reverse" data-year="' + year + '">—</td>';
   drawdownYearTableHtml += '</tr></tbody></table></div>';
   pairedComparison.innerHTML += drawdownYearTableHtml;
-  summary.insertAdjacentElement("afterend", directionControl);
+  const decisionEvidence = document.createElement("section");
+  decisionEvidence.id = "decisionEvidence";
+  decisionEvidence.className = "decision-evidence";
+  decisionEvidence.innerHTML =
+    '<div class="decision-evidence-heading"><h2>決策依據：金額 × 行為 × 樣本 × 尚未證明的風險</h2>' +
+    '<span id="decisionEvidenceStatus" role="status" data-state="ready">依目前選擇更新</span></div>' +
+    '<div class="decision-evidence-grid">' +
+      '<div><h3>① 這筆金額代表甚麼</h3><p id="decisionEvidenceAmount">等待主結果……</p><p id="decisionEvidenceAllocation">等待配置拆分……</p></div>' +
+      '<div><h3>② 它對應甚麼行為</h3><p id="decisionEvidenceBehavior">等待策略設定……</p><p id="decisionEvidenceFlow">等待現金流設定……</p></div>' +
+      '<div><h3>③ 它來自甚麼歷史樣本</h3><p id="decisionEvidenceSample">等待回測樣本說明……</p></div>' +
+      '<div><h3>④ 哪些風險尚未證明</h3><p id="decisionEvidenceRisk">等待風險證據……</p></div>' +
+    '</div>' +
+    '<p id="decisionEvidenceScope" class="decision-evidence-scope">回測結果是歷史統計，不是持倉、下單指示或未來保證。</p>';
+  summary.insertAdjacentElement("afterend", decisionEvidence);
+  decisionEvidence.insertAdjacentElement("afterend", directionControl);
   directionControl.insertAdjacentElement("afterend", section);
   section.insertAdjacentElement("afterend", reversePanel);
   reversePanel.insertAdjacentElement("afterend", pairedComparison);
@@ -974,6 +989,15 @@ update();
     ".paired-dd-year-wrap h3{font-size:.9rem;font-weight:700;margin:0 0 6px}" +
     ".paired-comparison-note{padding:9px 10px;background:rgba(127,127,127,.06);border-radius:6px}" +
     ".paired-comparison-limits{font-size:.77rem;opacity:.75}" +
+    ".decision-evidence{margin:10px 0 16px;padding:14px;border:1px solid rgba(127,127,127,.4);border-radius:12px;background:rgba(127,127,127,.035);color:inherit}" +
+    ".decision-evidence-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}" +
+    ".decision-evidence h2{font-size:1.02rem;line-height:1.4;margin:0;font-weight:750}" +
+    ".decision-evidence h3{font-size:.86rem;line-height:1.4;margin:0 0 6px;font-weight:750}" +
+    "#decisionEvidenceStatus{font-size:.75rem;border:1px solid rgba(127,127,127,.4);border-radius:6px;padding:4px 7px;white-space:nowrap}" +
+    ".decision-evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:10px;margin:12px 0 8px}" +
+    ".decision-evidence-grid>div{min-width:0;padding:10px;border:1px solid rgba(127,127,127,.24);border-radius:8px}" +
+    ".decision-evidence p{font-size:.81rem;line-height:1.52;margin:5px 0;overflow-wrap:anywhere}" +
+    ".decision-evidence-scope{padding:9px 10px;background:rgba(127,127,127,.06);border-radius:6px}" +
     "[data-glp-reverse-hidden=true]{display:none!important}" +
     "@media(max-width:640px){.decision-trajectory{padding:10px}.trajectory-heading{gap:5px}.trajectory-table{min-width:690px}.trajectory-heading h2{font-size:1rem}.glidepath-direction-control{grid-template-columns:1fr}.glidepath-direction-control p{grid-column:1}.reverse-replay{padding:10px}}";
   document.head.appendChild(style);
@@ -1565,12 +1589,82 @@ update();
       "…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。";
     pairedComparison._pairedData = {protocol:{nWindows:windows,startIndex,stride,horizonTradingDays:horizon,tradingDaysPerYear},forward,reverse:reversed,paired,forwardRows,reverseRows};
   }
+  function currentVisibleText(selector) {
+    const element = one(selector);
+    return element ? (element.innerText || element.textContent || "").trim() : "";
+  }
+  function renderDecisionEvidence() {
+    const primaryValue = currentVisibleText("#decisionPrimaryValue") || "金額未提供";
+    const lead = currentVisibleText("#decisionLead") || "策略選擇未就緒";
+    const behavior = currentVisibleText("#decisionBehaviorHeadline") || "行為規則未提供";
+    const allocation = currentVisibleText("#decisionAllocationHeadline") || "配置比例未提供";
+    const allocationDetail = currentVisibleText("#decisionAllocationDetail") || "配置金額拆分未提供";
+    const flow = currentVisibleText("#decisionFlowHeadline") || "現金流規則未提供";
+    const floor = currentVisibleText("#decisionFloorHeadline") || "本金門檻未提供";
+    const direction = currentDirection();
+    const bond = (one("#bond") || {}).value || "未知債券代理";
+    const flowLabel = selectedText("#flow") || flow;
+    const year = (one("#year") || {}).value || "未知";
+    const target = (one("#target") || {}).value || "未知";
+    const timing = selectedText("#timing") || "未知轉換規則";
+    const inflation = Math.max(0, Number((one("#realMode") || {}).value || 0));
+    const noFlow = /不提款/.test(flowLabel) || /^(none|no_withdrawal|no-withdrawal|no_cashflow)$/.test((one("#flow") || {}).value || "");
+    const reverseSupported = direction === "bond-to-stock" && bond === "TLT" && noFlow;
+    const pairSupported = bond === "TLT" && noFlow;
+    const amountNode = one("#decisionEvidenceAmount");
+    const allocationNode = one("#decisionEvidenceAllocation");
+    const behaviorNode = one("#decisionEvidenceBehavior");
+    const flowNode = one("#decisionEvidenceFlow");
+    const sampleNode = one("#decisionEvidenceSample");
+    const riskNode = one("#decisionEvidenceRisk");
+    const scopeNode = one("#decisionEvidenceScope");
+    if (amountNode) amountNode.textContent =
+      "目前主結果為 " + primaryValue + "；對應「" + lead + "」。此值是所選統計口徑與年份的回測 NAV 摘要，不是某一個真實帳戶的可提取現金。";
+    if (allocationNode) allocationNode.textContent =
+      allocation + "。 " + allocationDetail + " 本金門檻顯示為：" + floor + "。";
+    if (behaviorNode) behaviorNode.textContent =
+      "方向：" + (direction === "bond-to-stock" ? "先債後股" : "先股後債") +
+      "；債券代理：" + bond + "；第10年目標：" + target + "%；轉換規則：" + timing +
+      "；目前查看第 " + year + " 年。 " + behavior + "。";
+    if (flowNode) flowNode.textContent =
+      "現金流：" + flowLabel + "。 " + flow +
+      "。提款／供款會改變資產耗用與保本判定，不能用不提款結果替代。";
+    if (sampleNode) sampleNode.textContent =
+      "原有策略摘要共有 768 組第10年策略設定，按 157 個重疊的 10 年窗口彙總；所選年份 NAV 和年度配置是彙總值，不代表單一窗口路徑。底層來源資料截至 2026-09-04。" +
+      (pairSupported
+        ? " 目前 TLT／不提款的方向比較另以同一批窗口逐窗重播：首窗 2004-03-30–2014-04-03，末窗 2016-08-19–2026-08-31。"
+        : " 目前設定不在獨立 TLT／不提款配對回放範圍內；相關面板會顯示 BLOCK，而不挪用其他代理或現金流績效。");
+    if (riskNode) riskNode.textContent =
+      "年通脹 2.35% 時，768 組第10年策略中有 363 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 329 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +
+      " 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";
+    if (scopeNode) scopeNode.textContent =
+      "目前設定：" + lead + " " + allocation + " " + flow +
+      "。實際 NAV 結果、年度配置目標、持倉／下單是不同概念；本頁的配置美元只依回測 NAV 和目標比例拆分，不代表實際持倉或今日訂單。" +
+      (reverseSupported
+        ? " 本設定另有獨立 157 窗口反向回放可核對。"
+        : pairSupported
+          ? " 本設定可查看兩種鏡像方向的 157 窗口配對結果，但不能延伸到提款模式或其他債券代理。"
+          : " 本設定未有完整獨立配對回放支持的部分維持 BLOCK／未精算。");
+    if (decisionEvidence) {
+      decisionEvidence.dataset.direction = direction;
+      decisionEvidence.dataset.bond = bond;
+      decisionEvidence.dataset.target = String(target);
+      decisionEvidence.dataset.timing = timing;
+      decisionEvidence.dataset.year = String(year);
+      decisionEvidence.dataset.flow = flowLabel;
+      decisionEvidence.dataset.inflation = String(inflation);
+      decisionEvidence.dataset.sampleWindows = "157";
+      decisionEvidence.dataset.strategyCount = "768";
+      decisionEvidence.dataset.reverseReplayScope = reverseSupported ? "supported" : "limited";
+    }
+  }
   function queueRender() {
     if (queued) return;
     queued = true;
     requestAnimationFrame(function () {
       queued = false;
       render();
+      renderDecisionEvidence();
     });
   }
 
@@ -1582,6 +1676,7 @@ update();
     }
   });
   render();
+  renderDecisionEvidence();
 })();
 </script>
 </body>

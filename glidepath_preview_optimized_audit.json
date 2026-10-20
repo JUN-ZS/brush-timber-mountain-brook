@@ -1,12 +1,12 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 2742090,
+  "html_bytes": 2749776,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 79.02,
-  "bundle_bytes": 734635,
+  "html_size_reduction_pct": 78.96,
+  "bundle_bytes": 736819,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 52.9,
-  "sha256": "f9e7b71c291bb291b2e79f113dc1decffe71b6b5249730f371cf0d71c2cf3cdd",
+  "bundle_size_reduction_pct": 52.76,
+  "sha256": "cfde226008e0c26dd59fe9e866f0be0b8cc27fa96e53fb67316fbf34af5eb317",
   "element_ids_count": 66,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2729817,
+  "html_characters": 2736000,
   "v2_1_review": {
-    "source_commit": "1e967a1f5c419d03fb1fd9f024017ed8d78c79dd",
+    "source_commit": "2a98985982a517fc93ad5c6aabe8f8a2786bae96",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -159,7 +159,9 @@
       "paired_comparison_engine_embedded": true,
       "paired_comparison_uses_same_windows": true,
       "paired_comparison_includes_drawdown_occurrence_year": true,
-      "drawdown_year_distribution_embedded": true
+      "drawdown_year_distribution_embedded": true,
+      "decision_evidence_panel_embedded": true,
+      "decision_evidence_links_amount_behavior_sample_risk": true
     },
     "fixes": [
       "Real purchasing-power breach counts are explicitly unavailable because per-window NAV is not embedded.",
@@ -547,6 +549,24 @@
       "failures": [],
       "frontloaded_decision_summary": {
         "summaryBeforeControls": true,
+        "evidenceAfterSummary": true,
+        "evidenceBeforeControls": true,
+        "evidenceBeforeFirstChart": true,
+        "firstChartTag": "svg",
+        "evidenceAmount": "目前主結果為 $167,812；對應「目前選定：AGG · 第10年目標轉債 60% · 加速前置：第2年半程 · 不提款 · 查看第5年。」。此值是所選統計口徑與年份的回測 NAV 摘要，不是某一個真實帳戶的可提取現金。",
+        "evidenceAllocation": "股票 58.75% · AGG 41.25%。 按主結果 $167,812（名目美元）折算：股票約 $98,590；AGG 約 $69,222。 依第5年回測年度表中位配置拆分，只是參考金額，不代表實際持倉或今日下單金額；第10年目標轉債比例 60% 是路徑終點設定。 本金門檻顯示為：名目本金門檻 $100,000。",
+        "evidenceBehavior": "方向：先股後債；債券代理：AGG；第10年目標：60%；轉換規則：加速前置：第2年半程；目前查看第 5 年。 加速前置 · 目標轉債 60%。",
+        "evidenceFlow": "現金流：不提款（純累積）。 不提款。提款／供款會改變資產耗用與保本判定，不能用不提款結果替代。",
+        "evidenceSample": "原有策略摘要共有 768 組第10年策略設定，按 157 個重疊的 10 年窗口彙總；所選年份 NAV 和年度配置是彙總值，不代表單一窗口路徑。底層來源資料截至 2026-09-04。 目前設定不在獨立 TLT／不提款配對回放範圍內；相關面板會顯示 BLOCK，而不挪用其他代理或現金流績效。",
+        "evidenceRisk": "年通脹 2.35% 時，768 組第10年策略中有 363 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 329 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。",
+        "evidenceScope": "目前設定：目前選定：AGG · 第10年目標轉債 60% · 加速前置：第2年半程 · 不提款 · 查看第5年。 股票 58.75% · AGG 41.25% 不提款。實際 NAV 結果、年度配置目標、持倉／下單是不同概念；本頁的配置美元只依回測 NAV 和目標比例拆分，不代表實際持倉或今日訂單。 本設定未有完整獨立配對回放支持的部分維持 BLOCK／未精算。",
+        "evidenceDataset": {
+          "sampleWindows": "157",
+          "strategyCount": "768",
+          "direction": "stock-to-bond",
+          "flow": "不提款（純累積）",
+          "reverseReplayScope": "limited"
+        },
         "metricsBeforeControls": true,
         "initialLead": "目前選定：AGG · 第10年目標轉債 60% · 加速前置：第2年半程 · 不提款 · 查看第5年。",
         "initialValue": "$167,812",
@@ -556,6 +576,22 @@
         "initialFlow": "不提款",
         "initialFloor": "名目本金門檻 $100,000",
         "passed": true,
+        "decision_evidence_updated_state": {
+          "amount": "目前主結果為 $112,171；對應「目前選定：TLT · 第10年目標轉債 80% · 加速前置：第2年半程 · 每月$500 · 查看第5年。」。此值是所選統計口徑與年份的回測 NAV 摘要，不是某一個真實帳戶的可提取現金。",
+          "behavior": "方向：先股後債；債券代理：TLT；第10年目標：80%；轉換規則：加速前置：第2年半程；目前查看第 5 年。 加速前置 · 目標轉債 80%。",
+          "flow": "現金流：每月提款 $500 壓力。 每月$500。提款／供款會改變資產耗用與保本判定，不能用不提款結果替代。",
+          "risk": "年通脹 2.35% 時，768 組第10年策略中有 363 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 329 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。",
+          "scope": "目前設定：目前選定：TLT · 第10年目標轉債 80% · 加速前置：第2年半程 · 每月$500 · 查看第5年。 股票 45.00% · TLT 55.00% 每月$500。實際 NAV 結果、年度配置目標、持倉／下單是不同概念；本頁的配置美元只依回測 NAV 和目標比例拆分，不代表實際持倉或今日訂單。 本設定未有完整獨立配對回放支持的部分維持 BLOCK／未精算。",
+          "dataset": {
+            "direction": "stock-to-bond",
+            "bond": "TLT",
+            "target": "80",
+            "flow": "每月提款 $500 壓力",
+            "inflation": "0.0235",
+            "reverseReplayScope": "limited"
+          },
+          "passed": true
+        },
         "updated_state": {
           "lead": "目前選定：TLT · 第10年目標轉債 80% · 加速前置：第2年半程 · 每月$500 · 查看第5年。",
           "allocation": "股票 45.00% · TLT 55.00%",
@@ -804,6 +840,7 @@
         "winSummary": "同一窗口比較（先債後股勝出／先股後債勝出／平手）：實質期末 NAV 61 / 96 / 0 對；最大回撤較低（較不負） 112 / 45 / 0 對。勝出數依逐窗差計算，不代表獨立未來機率。",
         "method": "方法：兩邊各 157 個相同起訖日期的重疊 10 年窗口（首窗 2004-03-30–2014-04-03；末窗 2016-08-19–2026-08-31）；每年 252 個交易日再平衡、起始 NAV $100,000、不提款／不供款；目標 60%，轉換規則 加速前置：第2年半程，實質值使用 0.00% 通脹假設。最大回撤年為每窗首次觸及該窗最大回撤的交易年（第 1–10 年）。",
         "limits": "價格來源：src/data/universe.json，截至 2026-09-04，來源 SHA-256 e5012c786152a510…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。",
+        "evidenceSample": "原有策略摘要共有 768 組第10年策略設定，按 157 個重疊的 10 年窗口彙總；所選年份 NAV 和年度配置是彙總值，不代表單一窗口路徑。底層來源資料截至 2026-09-04。 目前 TLT／不提款的方向比較另以同一批窗口逐窗重播：首窗 2004-03-30–2014-04-03，末窗 2016-08-19–2026-08-31。",
         "tableRows": 9,
         "passed": true
       },
@@ -1106,6 +1143,7 @@
       "winSummary": "同一窗口比較（先債後股勝出／先股後債勝出／平手）：實質期末 NAV 61 / 96 / 0 對；最大回撤較低（較不負） 112 / 45 / 0 對。勝出數依逐窗差計算，不代表獨立未來機率。",
       "method": "方法：兩邊各 157 個相同起訖日期的重疊 10 年窗口（首窗 2004-03-30–2014-04-03；末窗 2016-08-19–2026-08-31）；每年 252 個交易日再平衡、起始 NAV $100,000、不提款／不供款；目標 60%，轉換規則 加速前置：第2年半程，實質值使用 0.00% 通脹假設。最大回撤年為每窗首次觸及該窗最大回撤的交易年（第 1–10 年）。",
       "limits": "價格來源：src/data/universe.json，截至 2026-09-04，來源 SHA-256 e5012c786152a510…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。",
+      "evidenceSample": "原有策略摘要共有 768 組第10年策略設定，按 157 個重疊的 10 年窗口彙總；所選年份 NAV 和年度配置是彙總值，不代表單一窗口路徑。底層來源資料截至 2026-09-04。 目前 TLT／不提款的方向比較另以同一批窗口逐窗重播：首窗 2004-03-30–2014-04-03，末窗 2016-08-19–2026-08-31。",
       "tableRows": 9,
       "passed": true
     },
@@ -1156,15 +1194,15 @@
       "passed": true
     }
   },
-  "bundle_sha256": "f472ee3a8154019cf5c9273653055d1a6b70bf0a863527bb4657edc611c45eeb",
-  "html_crc32": "db329674",
+  "bundle_sha256": "1e75506d0f957e9991ad57b9a943a85fa38c19a473dc993af9634c3477e6307d",
+  "html_crc32": "584d7502",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "f9e7b71c291bb291b2e79f113dc1decffe71b6b5249730f371cf0d71c2cf3cdd",
-    "bundle_sha256": "f472ee3a8154019cf5c9273653055d1a6b70bf0a863527bb4657edc611c45eeb",
-    "html_bytes": 2742090,
-    "bundle_bytes": 734635,
-    "html_crc32": "db329674",
+    "html_sha256": "cfde226008e0c26dd59fe9e866f0be0b8cc27fa96e53fb67316fbf34af5eb317",
+    "bundle_sha256": "1e75506d0f957e9991ad57b9a943a85fa38c19a473dc993af9634c3477e6307d",
+    "html_bytes": 2749776,
+    "bundle_bytes": 736819,
+    "html_crc32": "584d7502",
     "unique_html_ids": 66,
     "duplicate_ids": [],
     "zip_members": [
@@ -1180,6 +1218,6 @@
     "paired_direction_comparison_real_235_status": "passed",
     "paired_direction_comparison_real_235_windows": 157,
     "paired_direction_comparison_real_235_passed": true,
-    "created_at_utc": "2026-10-20T02:59:31.676057+00:00"
+    "created_at_utc": "2026-10-20T03:48:27.653997+00:00"
   }
 }
