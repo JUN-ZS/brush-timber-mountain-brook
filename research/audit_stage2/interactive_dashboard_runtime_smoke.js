@@ -66,6 +66,48 @@ const fire = id => {
   node.listeners.input();
 };
 
+const annualRows = vm.runInContext("A", context);
+assert(Array.isArray(annualRows) && annualRows.length === 11264, "runtime must load every actual year x scenario summary");
+const fmtMoney = value => value == null || !Number.isFinite(+value) ? "—" : "$" + Math.round(+value).toLocaleString("en-US");
+const fmtPct = value => value == null || !Number.isFinite(+value) ? "—" : (100 * +value).toFixed(2) + "%";
+const yearAudit = [];
+for (let yearNo = 0; yearNo <= 10; yearNo++) {
+  year.value = String(yearNo);
+  fire("year");
+  const actual = annualRows.find(row =>
+    row.bond_proxy === bond.value &&
+    +row.target_bond_conversion_pct_at_year10 === +target.value &&
+    row.timing_rule === timing.value &&
+    row.cashflow_mode === flow.value &&
+    +row.year === yearNo
+  );
+  assert(actual, "missing actual annual summary row for year " + yearNo);
+  const shown = metricValues(getElementById("metrics").innerHTML);
+  assert.strictEqual(shown[0], fmtMoney(actual.median_nav_usd), "NAV metric must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[1], fmtMoney(actual.p05_nav_usd), "P05 metric must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[2], fmtPct(actual.median_cumulative_twr_cagr), "cumulative return must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[3], fmtPct(actual.median_drawdown_to_date), "drawdown must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[4], actual.windows_below_initial_capital + "/" + actual.rolling_windows, "capital-floor count must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[5], actual.windows_with_withdrawal_shortfall + "/" + actual.rolling_windows, "shortfall count must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[6], fmtMoney(actual.p95_shortfall_usd), "P95 shortfall must be data-linked at year " + yearNo);
+  const allocation = getElementById("allocation").innerHTML;
+  assert(allocation.includes((100 * actual.median_target_stock_weight).toFixed(1) + "%"), "stock target must match year " + yearNo);
+  assert(allocation.includes((100 * actual.median_target_bond_weight).toFixed(1) + "%"), "bond target must match year " + yearNo);
+  assert(Math.abs(actual.median_target_stock_weight + actual.median_target_bond_weight - 1) < 1e-12, "stock/bond target weights must sum to 100%");
+  assert(getElementById("wealth").innerHTML.includes("第" + yearNo + "年中位資產"), "wealth chart title must track year " + yearNo);
+  assert(getElementById("drawdown").innerHTML.includes("截至第" + yearNo + "年最大回撤"), "drawdown chart title must track year " + yearNo);
+  if (yearNo === 0) {
+    assert(getElementById("returns").innerHTML.includes("第0年"), "year zero must not invent annualized return");
+  } else {
+    assert(getElementById("returns").innerHTML.includes("截至第" + yearNo + "年累計年化回報"), "return chart title must track year " + yearNo);
+  }
+  yearAudit.push({year:yearNo,median_nav_usd:actual.median_nav_usd,stock_target:+(100*actual.median_target_stock_weight).toFixed(1),bond_target:+(100*actual.median_target_bond_weight).toFixed(1)});
+}
+assert.notStrictEqual(yearAudit[9].median_nav_usd, yearAudit[10].median_nav_usd, "year 9 and year 10 must use different actual NAV values");
+assert(yearAudit.every((item, i) => i === 0 || item.median_nav_usd !== yearAudit[i-1].median_nav_usd), "adjacent year NAV values should change for the baseline probe");
+year.value = "5";
+fire("year");
+
 const metricValues = html => [...html.matchAll(/<div class="v">([^<]+)<[/]div>/g)].map(match => match[1]);
 const initialMetrics = getElementById("metrics").innerHTML;
 const initialValues = metricValues(initialMetrics);
@@ -134,27 +176,39 @@ assert(getElementById("flows").innerHTML.includes("每月$1,000"), "cash-flow co
 
 const clickHandler = documentHandlers.click;
 assert(clickHandler, "delegated chart-click listener must be installed");
-const cohortPoint = {dataset:{bond:"SHY",target:"50",timing:"back_loaded",flow:"no_withdrawals",cohortYear:"2003"}};
+const fakeSelectable = dataset => ({
+  dataset,
+  getAttribute(name) {
+    const mapping = {"data-bond":"bond","data-target":"target","data-timing":"timing","data-flow":"flow","data-year":"year","data-cohort-year":"cohortYear"};
+    const key = mapping[name];
+    return key && Object.prototype.hasOwnProperty.call(dataset, key) ? String(dataset[key]) : null;
+  },
+});
+const glideYearPoint = fakeSelectable({bond:"AGG",target:"60",timing:"linear",flow:"no_withdrawals",year:"9"});
+clickHandler({target:{closest(selector) { return selector === "[data-target]" ? glideYearPoint : null; }}});
+assert.strictEqual(year.value, "9", "clicking year 9 in glidepath chart must update year BAR");
+assert.strictEqual(metricValues(getElementById("metrics").innerHTML)[0], fmtMoney(annualRows.find(row => row.bond_proxy==="AGG" && row.target_bond_conversion_pct_at_year10===60 && row.timing_rule==="linear" && row.cashflow_mode==="no_withdrawals" && row.year===9).median_nav_usd), "glidepath point must load actual year 9 NAV");
+const cohortPoint = fakeSelectable({bond:"SHY",target:"50",timing:"back_loaded",flow:"no_withdrawals",cohortYear:"2003"});
 clickHandler({target:{closest(selector) { return selector === "[data-target]" ? cohortPoint : null; }}});
 assert.strictEqual(bond.value, "SHY", "cohort selection should update bond proxy");
 assert.strictEqual(target.value, "50", "cohort selection should update target");
 assert.strictEqual(timing.value, "back_loaded", "cohort selection should update timing");
 assert(getElementById("cohortDetail").innerHTML.includes("2003"), "cohort selection should update the focused start-year detail");
-const heatCell = {dataset:{bond:"IEF",target:"70",timing:"mid_loaded",year:"4"}};
+const heatCell = fakeSelectable({bond:"IEF",target:"70",timing:"mid_loaded",year:"4"});
 clickHandler({target:{closest(selector) { return selector === "[data-target]" ? heatCell : null; }}});
 assert.strictEqual(bond.value, "IEF", "heatmap selection should update bond proxy");
 assert.strictEqual(target.value, "70", "heatmap selection should update target");
 assert.strictEqual(timing.value, "mid_loaded", "heatmap selection should update timing");
 assert.strictEqual(year.value, "4", "heatmap selection should update selected year");
 assert(getElementById("label").textContent.includes("第4年"), "linked chart state should move to the selected year");
-const point = {dataset:{bond:"TLT",target:"90",timing:"front_fast",flow:"monthly_withdrawal_1000_usd_stress"}};
+const point = fakeSelectable({bond:"TLT",target:"90",timing:"front_fast",flow:"monthly_withdrawal_1000_usd_stress"});
 clickHandler({target:{closest(selector) { return selector === "[data-target]" ? point : null; }}});
 assert.strictEqual(bond.value, "TLT", "clicking a scatter point must update bond proxy");
 assert.strictEqual(target.value, "90", "clicking a scatter point must update target percentage");
 assert.strictEqual(timing.value, "front_fast", "clicking a scatter point must update timing rule");
 assert(getElementById("label").textContent.includes("加速前置"), "scenario title must follow the clicked point");
 const pickCount = (getElementById("frontier").innerHTML.match(/data-pick=/g) || []).length;
-assert(pickCount > 0 && pickCount <= 64, "frontier should contain only the selected-year, selected-flow comparison");
+assert.strictEqual(pickCount, 256, "frontier must include 4 bond proxies x 8 targets x 8 timing rules for the selected year and flow");
 getElementById("exportMatrix").listeners.click();
 assert(downloads.at(-1).filename.includes("glidepath-year-4-matrix.csv"), "matrix export should reflect the selected year");
 assert(downloads.at(-1).contents.split("\r\n").length === 65, "matrix export must include 64 strategy rows plus header");
@@ -164,7 +218,7 @@ assert(downloads.at(-1).contents.split("\r\n").length === 11265, "annual export 
 
 console.log(JSON.stringify({
   status:"PASS",
-  annualYearSwitches:[5,9,10],
+  annualYearSwitches:yearAudit,
   timingsTested:["linear","back_late","front_rapid","staggered"],
   flowModeTested:"monthly_withdrawal_1000_usd_stress",
   clickSelectTested:true,
