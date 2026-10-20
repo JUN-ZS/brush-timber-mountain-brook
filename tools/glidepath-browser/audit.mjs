@@ -84,8 +84,9 @@ async function saveCsv(page, id, expectedRows, expectedCols) {
   need(lines.length === expectedRows + 1, id + " row count expected " + (expectedRows + 1) + " lines including header, got " + lines.length);
   const cols = lines[0].split(",").length;
   need(cols === expectedCols, id + " expected " + expectedCols + " columns, got " + cols);
-  need(captured.bytes === Buffer.byteLength(captured.text), id + " Blob byte length mismatch");
-  return {rows: lines.length - 1, cols, bytes: captured.bytes, file_name: captured.file_name};
+  const decodedTextBytes = Buffer.byteLength(captured.text);
+  need(captured.bytes >= decodedTextBytes && captured.bytes - decodedTextBytes <= 3, id + " Blob/text byte difference exceeds possible UTF-8 BOM: " + captured.bytes + " vs " + decodedTextBytes);
+  return {rows: lines.length - 1, cols, bytes: captured.bytes, decoded_text_bytes: decodedTextBytes, bom_bytes_delta: captured.bytes - decodedTextBytes, file_name: captured.file_name};
 }
 
 try {
