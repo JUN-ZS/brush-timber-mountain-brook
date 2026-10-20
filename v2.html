@@ -708,7 +708,7 @@ function update(){
   $("decisionViewBadge").textContent=viewText+" · "+r.rolling_windows+"個歷史窗口";
   $("decisionPrimaryKicker").textContent="第"+s.year+"年 · "+statLabel+"終值 · "+(s.cpi>0?"實質美元":"名目美元");
   $("decisionPrimaryValue").textContent=usd(selectedNav);
-  $("decisionPrimaryDetails").textContent="同策略三個終值視角：中位數 "+usd(medNav)+" · P05 "+usd(p05Nav)+" · 最差窗口 "+usd(worstNav)+"。";
+  $("decisionPrimaryDetails").textContent="同策略終值：中位數 "+usd(medNav)+" · P05 "+usd(p05Nav)+" · 最差窗口 "+usd(worstNav)+"。"+(s.cpi>0?"主數字已換算為實質美元，請與實質本金 $100,000 比較；其名目等值保本門檻為 "+usd(realFloorThreshold)+"。":"目前為名目美元，與本金門檻 $100,000 直接比較。");
   $("decisionSelectedMetrics").textContent="累計年化回報："+(selectedCagr==null?(s.year===0?"第0年不適用":"資料未提供"):pct(selectedCagr))+" · 最大回撤："+(selectedDrawdown==null?"該視角未提供":pct(selectedDrawdown))+"。";
   $("decisionBehaviorHeadline").textContent=TN[s.timing]+" · 目標轉債 "+s.target+"%";
   $("decisionBehaviorDetail").textContent=timingOption+"；這是逐年配置規則，不是自動交易指令。比較基準是同一債券代理與現金流下的歷史窗口結果。";
@@ -716,13 +716,13 @@ function update(){
   $("decisionAllocationDetail").textContent="第"+s.year+"年回測年度表記錄的中位配置；第10年目標轉債比例 "+s.target+"% 是路徑終點設定，不等於目前實際持倉。";
   $("decisionFlowHeadline").textContent=FN[s.flow];
   $("decisionFlowDetail").textContent=$("flowNote").textContent+" 本結果依該現金流假設統計。";
-  $("decisionFloorHeadline").textContent=s.cpi>0?"實質保本名目門檻 "+usd(realFloorThreshold):"名目本金門檻 $100,000";
+  $("decisionFloorHeadline").textContent=s.cpi>0?"名目保本門檻 "+usd(realFloorThreshold):"名目本金門檻 $100,000";
   if(s.cpi===0){
     $("decisionFloorDetail").textContent="截至第"+s.year+"年，名目終值低於 $100,000 的窗口為 "+r.windows_below_initial_capital+"/"+r.rolling_windows+"；這是窗口終值計數，不是未來成功率。";
   }else if(Number(r.worst_nav_usd)>=realFloorThreshold-1e-7){
-    $("decisionFloorDetail").textContent="最差窗口名目終值 "+usd(r.worst_nav_usd)+" 仍不低於門檻；可證明截至第"+s.year+"年實質終值低於本金為 0/"+r.rolling_windows+"。";
+    $("decisionFloorDetail").textContent="主資產以今日購買力美元顯示，實質本金門檻是 $100,000。最差窗口名目終值 "+usd(r.worst_nav_usd)+" 仍不低於名目門檻 "+usd(realFloorThreshold)+"；可證明截至第"+s.year+"年低於實質本金的終值窗口為 0/"+r.rolling_windows+"。";
   }else{
-    $("decisionFloorDetail").textContent="實質跌破本金窗口數未精算；名目計數 "+r.windows_below_initial_capital+"/"+r.rolling_windows+" 只作參考，不可當成實質虧損數。";
+    $("decisionFloorDetail").textContent="主資產以今日購買力美元顯示，實質本金門檻是 $100,000；對應名目終值需至少 "+usd(realFloorThreshold)+"。其實質虧損窗口數未精算；名目計數 "+r.windows_below_initial_capital+"/"+r.rolling_windows+" 只供參考。";
   }
   $("decisionDataset").textContent="樣本：Yahoo Finance 調整收市價 ETF 代理資料，2003-09-29 至 2026-09-30；157 個互相重疊的十年窗口。窗口彼此不獨立，數字是歷史描述而非未來機率；稅項、交易成本與買賣差價未另行建模。";
 
