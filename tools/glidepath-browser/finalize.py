@@ -53,7 +53,9 @@ if "Y(state.bond, state.target, state.timing, state.flow, year)" not in html_tex
     raise SystemExit("Annual path must use canonical backtest records, not rounded SVG coordinates.")
 if "GLIDEPATH_REVERSE_REPLAY_V1" not in html_text or "GLIDEPATH_REVERSE_DATA_V1" not in html_text:
     raise SystemExit("Independent reverse direction replay/data markers are missing.")
-if "monthly_withdrawal_500_usd_stress" not in html_text or "不以估算或原模式績效補值" not in html_text:
+if "monthly_withdrawal_500_usd_stress" not in html_text:
+    raise SystemExit("Reverse replay cashflow BLOCK test target is missing.")
+if "未以估算或原模式績效補值" not in html_text:
     raise SystemExit("Reverse replay must explicitly block unsupported cashflows rather than reuse legacy results.")
 if "未扣交易成本、稅費或滑點" not in html_text or "不可視為 AGG／SHY／IEF" not in html_text:
     raise SystemExit("Reverse replay limitations for proxy coverage/costs are missing.")
