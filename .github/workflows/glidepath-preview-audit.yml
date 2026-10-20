@@ -1,4 +1,5 @@
 name: Glidepath Preview Browser Audit
+# Canonical preflight includes the year-by-year allocation path panel.
 
 on:
   push:
