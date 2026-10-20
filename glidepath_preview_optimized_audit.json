@@ -1,13 +1,13 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 2508190,
+  "html_bytes": 2515753,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 80.81,
-  "bundle_bytes": 661952,
+  "html_size_reduction_pct": 80.75,
+  "bundle_bytes": 664162,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 57.56,
-  "sha256": "7edf4e9ba64771a990aba06f7ceada665273ce83ae0c50beb2f0164ba415cb7d",
-  "element_ids_count": 48,
+  "bundle_size_reduction_pct": 57.42,
+  "sha256": "94e22855c28c8d356fe4f10e184466ca3e7bdfc8151a915979bfe49f620f951f",
+  "element_ids_count": 64,
   "duplicate_ids": [],
   "embedded_data_counts": {
     "scenarios_D": 768,
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2501508,
+  "html_characters": 2507803,
   "v2_1_review": {
-    "source_commit": "49696676d3abe80a45544ac761468587669901ff",
+    "source_commit": "c13827814bb62739b7213a6fcf775968bcff3847",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -406,7 +406,7 @@
       "rendered_dom_guard_passed": true,
       "glidepath_geometry": {
         "count": 66,
-        "min": 81,
+        "min": 48,
         "max": 180,
         "non_finite": 0
       },
@@ -416,7 +416,7 @@
       },
       "real_mode_table_label_guard": {
         "header": "實質保本窗口（未精算）",
-        "first_row": "未精算（名目 2/157）",
+        "first_row": "未精算（名目 51/157）",
         "passed": true
       },
       "derived_real_breach_zero_proof": [
@@ -525,7 +525,26 @@
           "all_svgs_visible": true
         }
       },
-      "failures": []
+      "failures": [],
+      "frontloaded_decision_summary": {
+        "summaryBeforeControls": true,
+        "metricsBeforeControls": true,
+        "initialLead": "目前選定：AGG · 第10年目標轉債 60% · 加速前置：第2年半程 · 不提款 · 查看第5年。",
+        "initialValue": "$167,812",
+        "initialBehavior": "加速前置 · 目標轉債 60%",
+        "initialAllocation": "股票 58.8% · AGG 41.3%",
+        "initialFlow": "不提款",
+        "initialFloor": "名目本金門檻 $100,000",
+        "passed": true,
+        "updated_state": {
+          "lead": "目前選定：TLT · 第10年目標轉債 80% · 加速前置：第2年半程 · 每月$500 · 查看第5年。",
+          "allocation": "股票 45.0% · TLT 55.0%",
+          "flow": "每月$500",
+          "floor": "實質保本名目門檻 $112,315",
+          "value": "$112,171",
+          "passed": true
+        }
+      }
     },
     "residual_findings_for_v2_2": [
       "Exact real-purchasing-power breach counts for strategies whose worst terminal NAV is below the inflation-adjusted principal threshold remain uncomputed; the UI explicitly labels these as uncalculated instead of substituting nominal counts."
@@ -551,21 +570,21 @@
       }
     ]
   },
-  "bundle_sha256": "9b1bd60707d1c04f1ed723047327301a3d113034bf28813c57b8e5caca82e7f8",
-  "html_crc32": "57fefa27",
+  "bundle_sha256": "b5ffa81ac095855304b22b6763273d1524aa7cf32506c5e8e13678c7a0ef91a3",
+  "html_crc32": "94dd5745",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "7edf4e9ba64771a990aba06f7ceada665273ce83ae0c50beb2f0164ba415cb7d",
-    "bundle_sha256": "9b1bd60707d1c04f1ed723047327301a3d113034bf28813c57b8e5caca82e7f8",
-    "html_bytes": 2508190,
-    "bundle_bytes": 661952,
-    "html_crc32": "57fefa27",
-    "unique_html_ids": 48,
+    "html_sha256": "94e22855c28c8d356fe4f10e184466ca3e7bdfc8151a915979bfe49f620f951f",
+    "bundle_sha256": "b5ffa81ac095855304b22b6763273d1524aa7cf32506c5e8e13678c7a0ef91a3",
+    "html_bytes": 2515753,
+    "bundle_bytes": 664162,
+    "html_crc32": "94dd5745",
+    "unique_html_ids": 64,
     "duplicate_ids": [],
     "zip_members": [
       "glidepath_interactive_preview_optimized.html"
     ],
     "zip_inflated_html_matches_canonical_html": true,
-    "created_at_utc": "2026-10-20T01:09:02.856575+00:00"
+    "created_at_utc": "2026-10-20T01:32:12.425286+00:00"
   }
 }
