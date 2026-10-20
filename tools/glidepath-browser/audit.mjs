@@ -241,11 +241,15 @@ try {
   need(reverseRead.sourceDisclosure.includes("TLT") && reverseRead.sourceDisclosure.includes("通脹假設"),
     "reverse replay proxy and inflation limitations are not disclosed");
 
+  const realMedianAtZero = reverseRead.medianRealTerminalNav;
   await page.locator("#realMode").selectOption("0.0235");
-  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "passed" &&
-    document.querySelector("#reverseReplay").dataset.medianRealTerminalNav !== "", null, {timeout: 10000});
+  await page.waitForFunction(baseline => {
+    const panel = document.querySelector("#reverseReplay");
+    const current = Number(panel && panel.dataset.medianRealTerminalNav);
+    return panel && panel.dataset.state === "passed" && Number.isFinite(current) && Math.abs(current - baseline) > 1;
+  }, realMedianAtZero, {timeout: 10000});
   const realMedianAt235 = await page.locator("#reverseReplay").getAttribute("data-median-real-terminal-nav");
-  need(realMedianAt235 !== null && Math.abs(Number(realMedianAt235) - reverseRead.medianRealTerminalNav) > 1,
+  need(realMedianAt235 !== null && Math.abs(Number(realMedianAt235) - realMedianAtZero) > 1,
     "inflation assumption did not change the independent real NAV outcome");
   await page.locator("#realMode").selectOption("0");
 
