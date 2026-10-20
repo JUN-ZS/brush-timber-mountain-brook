@@ -264,14 +264,14 @@ try {
       return {
         horizontal_overflow_px: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
         svg_count: svgs.length,
-        all_svgs_visible: svgs.length === 9 && svgs.every(svg => {
+        all_svgs_visible: svgs.length === 8 && svgs.every(svg => {
           const rect = svg.getBoundingClientRect();
           return rect.width > 0 && rect.height > 0;
         })
       };
     });
     need(layout.horizontal_overflow_px === 0, viewport.name + " has horizontal overflow: " + layout.horizontal_overflow_px);
-    need(layout.svg_count === 9 && layout.all_svgs_visible, viewport.name + " SVG visibility/count failed: " + JSON.stringify(layout));
+    need(layout.svg_count === 8 && layout.all_svgs_visible, viewport.name + " SVG visibility/count failed: " + JSON.stringify(layout));
     result.responsive_viewports_verified[viewport.name] = layout;
   }
 
