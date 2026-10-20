@@ -288,7 +288,7 @@ try {
       winSummary: document.querySelector("#pairedComparisonWinSummary").innerText,
       method: document.querySelector("#pairedComparisonMethod").innerText,
       limits: document.querySelector("#pairedComparisonLimits").innerText,
-      tableRows: document.querySelectorAll("#pairedComparison tbody tr").length
+      tableRows: document.querySelectorAll("#pairedComparison .paired-table-wrap tbody tr").length
     };
   });
   need(pairRead.state === "passed" && pairRead.windowCount === 157 && pairRead.matchedPairCount === 157,
