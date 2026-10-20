@@ -14,7 +14,7 @@
   let html = '<div class="trajectory-heading"><div><h2>第 0–10 年股／債配置路徑</h2><p id="decisionTrajectoryLead" class="trajectory-lead">同步所選轉換規則、債券目標和代理標的。</p></div><div class="trajectory-legend"><span>股票 = 100% − 債券比例</span><span>第 10 年對照目標比例</span></div></div>';
   html += '<div class="trajectory-table-scroll"><table class="trajectory-table" aria-label="第 0 至第 10 年逐年股票和債券目標比例"><thead><tr><th scope="col">配置路徑</th>';
   years.forEach(function (year) {
-    html += '<th scope="col"><button type="button" data-trajectory-year="' + year + '" aria-pressed="false">第 ' + year + ' 年</button></th>';
+    html += '<th scope="col" data-trajectory-year="' + year + '" aria-current="false">第 ' + year + ' 年</th>';
   });
   html += '</tr></thead><tbody>';
   html += '<tr data-series="stock"><th scope="row">股票目標</th>';
@@ -43,8 +43,8 @@
     ".trajectory-table{width:100%;min-width:720px;border-collapse:separate;border-spacing:2px;font-variant-numeric:tabular-nums;font-size:.82rem}" +
     ".trajectory-table th,.trajectory-table td{padding:6px 5px;text-align:center;white-space:nowrap;border-radius:5px}" +
     ".trajectory-table thead th:first-child,.trajectory-table tbody th{position:sticky;left:0;text-align:left;background:rgba(127,127,127,.1);z-index:1}" +
-    ".trajectory-table thead button{font:inherit;color:inherit;border:1px solid rgba(127,127,127,.3);background:transparent;border-radius:6px;padding:5px 6px;cursor:pointer;white-space:nowrap}" +
-    ".trajectory-table thead button:hover,.trajectory-table thead button:focus-visible{outline:2px solid rgba(59,130,246,.7);outline-offset:1px}" +
+    ".trajectory-table thead th[data-trajectory-year]{border:1px solid rgba(127,127,127,.22);border-radius:6px;padding:7px 5px;white-space:nowrap}" +
+    ".trajectory-table thead th[data-trajectory-year][aria-current=true]{background:rgba(59,130,246,.14);font-weight:800;box-shadow:inset 0 0 0 1px rgba(59,130,246,.4)}" +
     ".trajectory-table .trajectory-selected{background:rgba(59,130,246,.14);font-weight:700;box-shadow:inset 0 0 0 1px rgba(59,130,246,.4)}" +
     ".trajectory-crosscheck{padding:8px 10px;border-left:3px solid rgba(127,127,127,.5);background:rgba(127,127,127,.06);border-radius:4px}" +
     ".trajectory-status[data-state=blocked],.trajectory-status[data-state=pending]{font-weight:600}" +
@@ -143,9 +143,9 @@
         cell.classList.toggle("trajectory-selected", point.year === selectedYear);
         cell.setAttribute("aria-label", "第 " + point.year + " 年：" + cell.textContent);
       });
-      const yearButton = section.querySelector('[data-trajectory-year="' + point.year + '"]');
-      yearButton.setAttribute("aria-pressed", point.year === selectedYear ? "true" : "false");
-      yearButton.classList.toggle("trajectory-selected", point.year === selectedYear);
+      const yearHeader = section.querySelector('[data-trajectory-year="' + point.year + '"]');
+      yearHeader.setAttribute("aria-current", point.year === selectedYear ? "true" : "false");
+      yearHeader.classList.toggle("trajectory-selected", point.year === selectedYear);
     });
 
     const summaryAllocation = (one("#decisionAllocationHeadline") || {}).textContent || "";
@@ -189,23 +189,6 @@
       render();
     });
   }
-
-  function applyTrajectoryYearClick(event) {
-    const source = event.target && event.target.closest
-      ? event.target.closest("#decisionTrajectory [data-trajectory-year]")
-      : null;
-    if (!source) return;
-    const year = Number(source.getAttribute("data-trajectory-year"));
-    const yearControl = one("#year");
-    if (!yearControl || !Number.isInteger(year) || year < 0 || year > 10) return;
-    yearControl.value = String(year);
-    yearControl.dispatchEvent(new Event("input", {bubbles: true}));
-    yearControl.dispatchEvent(new Event("change", {bubbles: true}));
-    queueRender();
-  }
-  // Capture at window level so a legacy document-level click delegate cannot swallow the
-  // new table's click before the year BAR receives its input/change events.
-  window.addEventListener("click", applyTrajectoryYearClick, true);
 
   ["#year", "#target", "#timing", "#bond", "#flow", "#realMode", "#statView"].forEach(function (selector) {
     const control = one(selector);
