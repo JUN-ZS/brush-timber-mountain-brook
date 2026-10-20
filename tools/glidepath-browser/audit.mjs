@@ -115,7 +115,7 @@ try {
   need(summaryPlacement.initialAllocationDetail.includes("按主結果 $167,812") && summaryPlacement.initialAllocationDetail.includes("股票約 $98,590") && summaryPlacement.initialAllocationDetail.includes("AGG 約 $69,222"), "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
   result.frontloaded_decision_summary = { ...summaryPlacement, passed: true };
 
-  await page.locator("#decisionTrajectory[data-state='ready']").waitFor({state: "visible"});
+  await page.locator("#decisionTrajectory[data-state]").waitFor({state: "visible", timeout: 5000});
   const readTrajectory = () => page.evaluate(() => {
     const root = document.querySelector("#decisionTrajectory");
     const values = series => Array.from(root.querySelectorAll('[data-series="' + series + '"] td[data-year]'));
@@ -157,12 +157,12 @@ try {
   need(initialTrajectory.rendered_duplicate_ids.length === 0, "trajectory panel caused duplicate rendered IDs: " + JSON.stringify(initialTrajectory.rendered_duplicate_ids));
   result.glidepath_decision_trajectory = {initial: initialTrajectory, passed: true};
 
-  await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').click();
-  await page.waitForFunction(() => document.querySelector("#year").value === "9" && document.querySelector("#decisionTrajectory").dataset.year === "9");
+  await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').click({timeout: 5000});
+  await page.waitForFunction(() => document.querySelector("#year").value === "9" && document.querySelector("#decisionTrajectory").dataset.year === "9", null, {timeout: 5000});
   need((await page.locator("#decisionLead").innerText()).includes("第9年"), "trajectory year click did not update the frontloaded decision summary");
   need(await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').getAttribute("aria-pressed") === "true", "trajectory year-9 click did not highlight year 9");
-  await page.locator('#decisionTrajectory button[data-trajectory-year="5"]').click();
-  await page.waitForFunction(() => document.querySelector("#year").value === "5" && document.querySelector("#decisionTrajectory").dataset.year === "5");
+  await page.locator('#decisionTrajectory button[data-trajectory-year="5"]').click({timeout: 5000});
+  await page.waitForFunction(() => document.querySelector("#year").value === "5" && document.querySelector("#decisionTrajectory").dataset.year === "5", null, {timeout: 5000});
 
   await page.locator("#bond").selectOption("TLT");
   await page.locator("#target").evaluate(el => {el.value="80"; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true}));});
@@ -185,9 +185,9 @@ try {
 
   await page.waitForFunction(() => {
     const root = document.querySelector("#decisionTrajectory");
-    return root && root.dataset.state === "ready" && root.dataset.target === "80" &&
+    return root && root.dataset.target === "80" &&
       root.dataset.timing === "front_fast" && root.dataset.year === "5";
-  });
+  }, null, {timeout: 5000});
   const changedTrajectory = await readTrajectory();
   need(changedTrajectory.state === "ready" && changedTrajectory.target === 80 && changedTrajectory.timing === "front_fast", "trajectory panel did not follow target/timing control changes: " + JSON.stringify(changedTrajectory));
   need(Math.abs(changedTrajectory.endpoint_bond_pct - 80) <= 0.75, "trajectory endpoint failed to update to 80% TLT target: " + JSON.stringify(changedTrajectory));
