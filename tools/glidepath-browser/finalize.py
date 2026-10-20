@@ -28,6 +28,9 @@ class IdParser(HTMLParser):
 results = json.loads(RESULTS.read_text(encoding="utf-8"))
 if results.get("status") != "PASSED":
     raise SystemExit("Browser audit did not pass; refusing to mark the audit as passed.")
+paired_result = results.get("paired_direction_comparison")
+if not isinstance(paired_result, dict) or paired_result.get("state") != "passed" or paired_result.get("passed") is not True or paired_result.get("matchedPairCount") != 157:
+    raise SystemExit("Same-window direction comparison is missing or did not pass 157 matched pairs; refusing to publish PASS.")
 
 html_bytes = HTML.read_bytes()
 html_text = html_bytes.decode("utf-8")
