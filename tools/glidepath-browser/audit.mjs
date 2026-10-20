@@ -64,6 +64,36 @@ async function clickAndRead(page, selector) {
   await locator.click({force: true});
   return attrs;
 }
+async function clickVisibleHit(page, selector) {
+  const hit = await page.locator(selector).evaluateAll(nodes => {
+    for (const element of nodes) {
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) continue;
+      for (let ix = 1; ix <= 9; ix++) {
+        for (let iy = 1; iy <= 9; iy++) {
+          const x = rect.left + rect.width * ix / 10;
+          const y = rect.top + rect.height * iy / 10;
+          const point = document.elementFromPoint(x, y);
+          if (point === element || (point && element.contains(point))) {
+            return {
+              x, y,
+              target: element.getAttribute("data-target"),
+              timing: element.getAttribute("data-timing"),
+              bond: element.getAttribute("data-bond"),
+              flow: element.getAttribute("data-flow"),
+              year: element.getAttribute("data-year")
+            };
+          }
+        }
+      }
+    }
+    return null;
+  });
+  need(hit !== null, "no unobscured physical hit target found for selector: " + selector);
+  await page.mouse.click(hit.x, hit.y);
+  return hit;
+}
+
 async function saveCsv(page, id, expectedRows, expectedCols) {
   const download = await page.waitForEvent("download", () => page.locator("#" + id).click());
   const filePath = await download.path();
@@ -187,9 +217,16 @@ try {
   need(glideActual.year === attrs.year && glideActual.timing === attrs.timing, "glidepath node click did not synchronize year/timing: " + JSON.stringify(glideActual));
   result.interactive_delegations_verified.glidepath_node_click = glideActual;
 
-  attrs = await clickAndRead(page, "#frontier [data-pick='1']");
-  need(await page.locator("#bond").inputValue() === attrs.bond && String(await page.locator("#target").inputValue()) === attrs.target && await page.locator("#timing").inputValue() === attrs.timing && await page.locator("#flow").inputValue() === attrs.flow, "frontier click did not synchronize strategy");
-  result.interactive_delegations_verified.frontier_scatter_click = true;
+  attrs = await clickVisibleHit(page, "#frontier circle[data-pick='1']");
+  const frontierActual = {
+    clicked: attrs,
+    bond: await page.locator("#bond").inputValue(),
+    target: await page.locator("#target").inputValue(),
+    timing: await page.locator("#timing").inputValue(),
+    flow: await page.locator("#flow").inputValue()
+  };
+  need(frontierActual.bond === attrs.bond && frontierActual.target === attrs.target && frontierActual.timing === attrs.timing && frontierActual.flow === attrs.flow, "frontier click did not synchronize strategy: " + JSON.stringify(frontierActual));
+  result.interactive_delegations_verified.frontier_scatter_click = frontierActual;
 
   attrs = await clickAndRead(page, "#cohortX rect[data-cohort-year]");
   const cohortDetail = await page.locator("#cohortDetailX").innerText();
