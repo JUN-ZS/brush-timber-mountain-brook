@@ -1,13 +1,13 @@
 {
-  "status": "STATIC_SEMANTIC_GUARDS_PASSED_BROWSER_RETEST_PENDING",
-  "html_bytes": 2507978,
+  "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
+  "html_bytes": 2508190,
   "original_html_bytes": 13068927,
   "html_size_reduction_pct": 80.81,
-  "bundle_bytes": 918155,
+  "bundle_bytes": 661952,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 41.14,
-  "sha256": "c890bd67bcf0e5edf2fdbb65531c643bf1dc97fed73a6774bba46a42c065d426",
-  "element_ids_count": 46,
+  "bundle_size_reduction_pct": 57.56,
+  "sha256": "7edf4e9ba64771a990aba06f7ceada665273ce83ae0c50beb2f0164ba415cb7d",
+  "element_ids_count": 48,
   "duplicate_ids": [],
   "embedded_data_counts": {
     "scenarios_D": 768,
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 2501359,
+  "html_characters": 2501508,
   "v2_1_review": {
-    "source_commit": "ee1cc32aa0fe72dbb759b2f71a5e3df137d6fd04",
+    "source_commit": "49696676d3abe80a45544ac761468587669901ff",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -146,7 +146,9 @@
       "histogram_bins_total_157_windows": true,
       "zip_decompression_roundtrip": true,
       "zip_crc32_matches_html": true,
-      "zip_sha256_matches_html": true
+      "zip_sha256_matches_html": true,
+      "canonical_bundle_member": "glidepath_interactive_preview_optimized.html",
+      "canonical_bundle_matches_html": true
     },
     "fixes": [
       "Real purchasing-power breach counts are explicitly unavailable because per-window NAV is not embedded.",
@@ -157,9 +159,9 @@
       "ZIP bundle regenerated from the exact v2.1 HTML."
     ],
     "known_limits": [
-      "A fresh browser interaction/pixel-level SVG test has not been run after this patch.",
-      "Exact real-purchasing-power breach counts require per-window NAV paths or a new replay.",
-      "STRIPS/TIPS floor and terminal value remain an unmodeled research idea, not a guaranteed result."
+      "The proven zero-real-breach strategy counts are derived from each strategy's minimum terminal NAV versus the inflation-adjusted $100,000 threshold.",
+      "Exact real-purchasing-power breach counts for strategies that fail the minimum-terminal-NAV proof are not inferred without per-window terminal NAV values or a fresh window-level replay.",
+      "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied."
     ],
     "inflation_reference": {
       "series": "FRED T10YIE",
@@ -167,6 +169,403 @@
       "latest_observation_percent": 2.35,
       "interpretation": "10-year market-implied breakeven inflation, not realized CPI or a guaranteed forecast",
       "url": "https://fred.stlouisfed.org/series/T10YIE"
-    }
+    },
+    "headless_browser_verification": {
+      "status": "PASSED",
+      "browser": "143.0.7499.4",
+      "console_errors": 0,
+      "page_errors": 0,
+      "state_matrix_sweeps": 45,
+      "state_matrix_combinations": [
+        {
+          "year": 0,
+          "inflation": "0",
+          "stat": "median"
+        },
+        {
+          "year": 0,
+          "inflation": "0",
+          "stat": "p05"
+        },
+        {
+          "year": 0,
+          "inflation": "0",
+          "stat": "worst"
+        },
+        {
+          "year": 0,
+          "inflation": "0.0235",
+          "stat": "median"
+        },
+        {
+          "year": 0,
+          "inflation": "0.0235",
+          "stat": "p05"
+        },
+        {
+          "year": 0,
+          "inflation": "0.0235",
+          "stat": "worst"
+        },
+        {
+          "year": 0,
+          "inflation": "0.035",
+          "stat": "median"
+        },
+        {
+          "year": 0,
+          "inflation": "0.035",
+          "stat": "p05"
+        },
+        {
+          "year": 0,
+          "inflation": "0.035",
+          "stat": "worst"
+        },
+        {
+          "year": 1,
+          "inflation": "0",
+          "stat": "median"
+        },
+        {
+          "year": 1,
+          "inflation": "0",
+          "stat": "p05"
+        },
+        {
+          "year": 1,
+          "inflation": "0",
+          "stat": "worst"
+        },
+        {
+          "year": 1,
+          "inflation": "0.0235",
+          "stat": "median"
+        },
+        {
+          "year": 1,
+          "inflation": "0.0235",
+          "stat": "p05"
+        },
+        {
+          "year": 1,
+          "inflation": "0.0235",
+          "stat": "worst"
+        },
+        {
+          "year": 1,
+          "inflation": "0.035",
+          "stat": "median"
+        },
+        {
+          "year": 1,
+          "inflation": "0.035",
+          "stat": "p05"
+        },
+        {
+          "year": 1,
+          "inflation": "0.035",
+          "stat": "worst"
+        },
+        {
+          "year": 5,
+          "inflation": "0",
+          "stat": "median"
+        },
+        {
+          "year": 5,
+          "inflation": "0",
+          "stat": "p05"
+        },
+        {
+          "year": 5,
+          "inflation": "0",
+          "stat": "worst"
+        },
+        {
+          "year": 5,
+          "inflation": "0.0235",
+          "stat": "median"
+        },
+        {
+          "year": 5,
+          "inflation": "0.0235",
+          "stat": "p05"
+        },
+        {
+          "year": 5,
+          "inflation": "0.0235",
+          "stat": "worst"
+        },
+        {
+          "year": 5,
+          "inflation": "0.035",
+          "stat": "median"
+        },
+        {
+          "year": 5,
+          "inflation": "0.035",
+          "stat": "p05"
+        },
+        {
+          "year": 5,
+          "inflation": "0.035",
+          "stat": "worst"
+        },
+        {
+          "year": 9,
+          "inflation": "0",
+          "stat": "median"
+        },
+        {
+          "year": 9,
+          "inflation": "0",
+          "stat": "p05"
+        },
+        {
+          "year": 9,
+          "inflation": "0",
+          "stat": "worst"
+        },
+        {
+          "year": 9,
+          "inflation": "0.0235",
+          "stat": "median"
+        },
+        {
+          "year": 9,
+          "inflation": "0.0235",
+          "stat": "p05"
+        },
+        {
+          "year": 9,
+          "inflation": "0.0235",
+          "stat": "worst"
+        },
+        {
+          "year": 9,
+          "inflation": "0.035",
+          "stat": "median"
+        },
+        {
+          "year": 9,
+          "inflation": "0.035",
+          "stat": "p05"
+        },
+        {
+          "year": 9,
+          "inflation": "0.035",
+          "stat": "worst"
+        },
+        {
+          "year": 10,
+          "inflation": "0",
+          "stat": "median"
+        },
+        {
+          "year": 10,
+          "inflation": "0",
+          "stat": "p05"
+        },
+        {
+          "year": 10,
+          "inflation": "0",
+          "stat": "worst"
+        },
+        {
+          "year": 10,
+          "inflation": "0.0235",
+          "stat": "median"
+        },
+        {
+          "year": 10,
+          "inflation": "0.0235",
+          "stat": "p05"
+        },
+        {
+          "year": 10,
+          "inflation": "0.0235",
+          "stat": "worst"
+        },
+        {
+          "year": 10,
+          "inflation": "0.035",
+          "stat": "median"
+        },
+        {
+          "year": 10,
+          "inflation": "0.035",
+          "stat": "p05"
+        },
+        {
+          "year": 10,
+          "inflation": "0.035",
+          "stat": "worst"
+        }
+      ],
+      "rendered_dom_guard_passed": true,
+      "glidepath_geometry": {
+        "count": 66,
+        "min": 81,
+        "max": 180,
+        "non_finite": 0
+      },
+      "stat_view_missing_guards": {
+        "p05_drawdown": true,
+        "worst_cagr": true
+      },
+      "real_mode_table_label_guard": {
+        "header": "實質保本窗口（未精算）",
+        "first_row": "未精算（名目 2/157）",
+        "passed": true
+      },
+      "derived_real_breach_zero_proof": [
+        {
+          "annualized_inflation_assumption": 0.0235,
+          "year10_nominal_principal_threshold_usd": 126147.44827535229,
+          "year10_strategies": 768,
+          "provable_zero_real_breach_strategies": 363
+        },
+        {
+          "annualized_inflation_assumption": 0.035,
+          "year10_nominal_principal_threshold_usd": 141059.8760621121,
+          "year10_strategies": 768,
+          "provable_zero_real_breach_strategies": 329
+        }
+      ],
+      "interactive_delegations_verified": {
+        "heatmap_cell_click": true,
+        "cashflow_bar_click": true,
+        "table_row_click": true,
+        "glidepath_node_click": {
+          "clicked": {
+            "target": null,
+            "timing": "front_fast",
+            "bond": null,
+            "flow": null,
+            "year": "1",
+            "cohortYear": null
+          },
+          "year": "1",
+          "timing": "front_fast"
+        },
+        "frontier_scatter_click": {
+          "locator_marker": {
+            "target": "30",
+            "timing": "front_fast",
+            "bond": "AGG",
+            "flow": "no_withdrawals",
+            "year": null,
+            "cohortYear": null
+          },
+          "actual_hit_marker": {
+            "target": "100",
+            "timing": "back_late",
+            "bond": "TLT",
+            "flow": "no_withdrawals",
+            "year": null,
+            "cohortYear": null
+          },
+          "bond": "TLT",
+          "target": "100",
+          "timing": "back_late",
+          "flow": "no_withdrawals"
+        },
+        "cohort_bar_click": true,
+        "smart_optimizer_buttons": true
+      },
+      "csv_exports_verified": {
+        "matrix": {
+          "rows": 48,
+          "cols": 23,
+          "bytes": 10167,
+          "decoded_text_bytes": 10164,
+          "bom_bytes_delta": 3,
+          "file_name": "glidepath-year-1-matrix.csv"
+        },
+        "trajectory": {
+          "rows": 11,
+          "cols": 23,
+          "bytes": 2694,
+          "decoded_text_bytes": 2691,
+          "bom_bytes_delta": 3,
+          "file_name": "glidepath-TLT-30pct-front_fast-trajectory.csv"
+        },
+        "cohorts": {
+          "rows": 14,
+          "cols": 19,
+          "bytes": 2813,
+          "decoded_text_bytes": 2810,
+          "bom_bytes_delta": 3,
+          "file_name": "glidepath-TLT-30pct-front_fast-cohorts.csv"
+        },
+        "annual": {
+          "rows": 8448,
+          "cols": 23,
+          "bytes": 1763251,
+          "decoded_text_bytes": 1763248,
+          "bom_bytes_delta": 3,
+          "file_name": "glidepath-all-annual-summaries.csv"
+        }
+      },
+      "responsive_viewports_verified": {
+        "desktop_1480x1200": {
+          "horizontal_overflow_px": 0,
+          "svg_count": 8,
+          "all_svgs_visible": true
+        },
+        "tablet_900x1024": {
+          "horizontal_overflow_px": 0,
+          "svg_count": 8,
+          "all_svgs_visible": true
+        },
+        "mobile_390x844": {
+          "horizontal_overflow_px": 0,
+          "svg_count": 8,
+          "all_svgs_visible": true
+        }
+      },
+      "failures": []
+    },
+    "residual_findings_for_v2_2": [
+      "Exact real-purchasing-power breach counts for strategies whose worst terminal NAV is below the inflation-adjusted principal threshold remain uncomputed; the UI explicitly labels these as uncalculated instead of substituting nominal counts."
+    ],
+    "table_real_mode_label_fix": {
+      "implemented": true,
+      "nominal_header": "名目低於本金",
+      "real_header": "實質保本窗口（未精算）",
+      "real_cell_format": "未精算（名目 n/157）"
+    },
+    "derived_real_breach_zero_proof": [
+      {
+        "annualized_inflation_assumption": 0.0235,
+        "year10_nominal_principal_threshold_usd": 126147.44827535229,
+        "year10_strategies": 768,
+        "provable_zero_real_breach_strategies": 363
+      },
+      {
+        "annualized_inflation_assumption": 0.035,
+        "year10_nominal_principal_threshold_usd": 141059.8760621121,
+        "year10_strategies": 768,
+        "provable_zero_real_breach_strategies": 329
+      }
+    ]
+  },
+  "bundle_sha256": "9b1bd60707d1c04f1ed723047327301a3d113034bf28813c57b8e5caca82e7f8",
+  "html_crc32": "57fefa27",
+  "final_artifact_verification": {
+    "status": "PASSED",
+    "html_sha256": "7edf4e9ba64771a990aba06f7ceada665273ce83ae0c50beb2f0164ba415cb7d",
+    "bundle_sha256": "9b1bd60707d1c04f1ed723047327301a3d113034bf28813c57b8e5caca82e7f8",
+    "html_bytes": 2508190,
+    "bundle_bytes": 661952,
+    "html_crc32": "57fefa27",
+    "unique_html_ids": 48,
+    "duplicate_ids": [],
+    "zip_members": [
+      "glidepath_interactive_preview_optimized.html"
+    ],
+    "zip_inflated_html_matches_canonical_html": true,
+    "created_at_utc": "2026-10-20T01:09:02.856575+00:00"
   }
 }
