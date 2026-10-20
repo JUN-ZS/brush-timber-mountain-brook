@@ -159,6 +159,132 @@ try {
   need(initialTrajectory.rendered_duplicate_ids.length === 0, "trajectory panel caused duplicate rendered IDs: " + JSON.stringify(initialTrajectory.rendered_duplicate_ids));
   result.glidepath_decision_trajectory = {initial: initialTrajectory, passed: true};
 
+  const originalControls = await page.evaluate(() => ({
+    bond: document.querySelector("#bond").value,
+    target: document.querySelector("#target").value,
+    timing: document.querySelector("#timing").value,
+    flow: document.querySelector("#flow").value,
+    year: document.querySelector("#year").value,
+    realMode: document.querySelector("#realMode").value,
+    statView: document.querySelector("#statView").value
+  }));
+  const noWithdrawalValue = await page.locator("#flow").evaluate(el => {
+    const option = Array.from(el.options).find(item => /不提款/.test(item.textContent || ""));
+    return option ? option.value : null;
+  });
+  need(noWithdrawalValue !== null, "reverse replay requires an explicit no-withdrawal cashflow option");
+  await page.locator("#glidepathDirection").selectOption("bond-to-stock");
+  await page.locator("#bond").selectOption("TLT");
+  await page.locator("#flow").selectOption(noWithdrawalValue);
+  await page.locator("#realMode").selectOption("0");
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#decisionTrajectory");
+    const replay = document.querySelector("#reverseReplay");
+    return root && root.dataset.direction === "bond-to-stock" && replay && replay.dataset.state === "passed";
+  }, null, {timeout: 10000});
+  const reverseRead = await page.evaluate(() => {
+    const root = document.querySelector("#decisionTrajectory");
+    const replay = document.querySelector("#reverseReplay");
+    const series = key => Array.from(root.querySelectorAll('[data-series="' + key + '"] td[data-year]'));
+    const stock = series("stock").map(cell => Number(cell.dataset.stockPct));
+    const bond = series("bond").map(cell => Number(cell.dataset.bondPct));
+    return {
+      direction: root.dataset.direction,
+      pathState: root.dataset.state,
+      target: Number(root.dataset.target),
+      endpointStockPct: Number(root.dataset.endpointStockPct),
+      endpointBondPct: Number(root.dataset.endpointBondPct),
+      stockPct: stock,
+      bondPct: bond,
+      sums: stock.map((value, index) => value + bond[index]),
+      selectedYear: root.dataset.year,
+      replayState: replay.dataset.state,
+      windowCount: Number(replay.dataset.windowCount),
+      sourceAsOf: replay.dataset.sourceAsOf,
+      sourceSha256Present: /^[a-f0-9]{64}$/.test(replay.dataset.sourceSha256 || ""),
+      firstStart: replay.dataset.firstStart,
+      firstEnd: replay.dataset.firstEnd,
+      lastStart: replay.dataset.lastStart,
+      lastEnd: replay.dataset.lastEnd,
+      medianTerminalNav: Number(replay.dataset.medianTerminalNav),
+      medianRealTerminalNav: Number(replay.dataset.medianRealTerminalNav),
+      medianNominalCagr: Number(replay.dataset.medianNominalCagr),
+      medianRealCagr: Number(replay.dataset.medianRealCagr),
+      medianNominalDrawdown: Number(replay.dataset.medianNominalDrawdown),
+      worstNominalDrawdown: Number(replay.dataset.worstNominalDrawdown),
+      nominalNoLossCount: Number(replay.dataset.nominalNoLossCount),
+      realNoLossCount: Number(replay.dataset.realNoLossCount),
+      statusText: document.querySelector("#reverseReplayStatus").innerText,
+      sourceDisclosure: document.querySelector("#reverseReplayLimits").innerText,
+      legacyMetricsHidden: document.querySelector("#metrics").getAttribute("data-glp-reverse-hidden") === "true",
+      legacySummaryHidden: document.querySelector("#decisionSummary").getAttribute("data-glp-reverse-hidden") === "true"
+    };
+  });
+  need(reverseRead.direction === "bond-to-stock" && reverseRead.pathState === "ready", "reverse direction path not ready: " + JSON.stringify(reverseRead));
+  need(reverseRead.stockPct.length === 11 && reverseRead.bondPct.length === 11 &&
+    Math.abs(reverseRead.stockPct[0]) < 0.02 && Math.abs(reverseRead.bondPct[0] - 100) < 0.02,
+    "reverse path must begin at 100% bonds / 0% stocks: " + JSON.stringify(reverseRead));
+  need(Math.abs(reverseRead.endpointStockPct - reverseRead.target) <= 0.75 &&
+    Math.abs(reverseRead.endpointBondPct - (100 - reverseRead.target)) <= 0.75,
+    "reverse year-10 endpoint must match selected stock target and complementary bond weight");
+  need(reverseRead.sums.every(value => Math.abs(value - 100) <= 0.02), "reverse stock/bond weights must sum to 100%");
+  need(reverseRead.replayState === "passed" && reverseRead.windowCount === 157, "reverse replay did not compute all 157 windows: " + JSON.stringify(reverseRead));
+  need(reverseRead.sourceAsOf === "2026-09-04" && reverseRead.sourceSha256Present, "reverse replay source/date/hash lineage is missing");
+  need(reverseRead.firstStart === "2004-03-30" && reverseRead.firstEnd && reverseRead.lastStart && reverseRead.lastEnd,
+    "reverse replay window coverage dates are invalid: " + JSON.stringify(reverseRead));
+  need(Number.isFinite(reverseRead.medianTerminalNav) && reverseRead.medianTerminalNav > 0 &&
+    Number.isFinite(reverseRead.medianRealTerminalNav) && reverseRead.medianRealTerminalNav > 0 &&
+    Number.isFinite(reverseRead.medianNominalCagr) && Number.isFinite(reverseRead.worstNominalDrawdown),
+    "reverse replay metrics are missing or non-finite");
+  need(reverseRead.legacyMetricsHidden && reverseRead.legacySummaryHidden,
+    "forward-only front metrics must be hidden in reverse mode to prevent cross-mode confusion");
+  need(reverseRead.sourceDisclosure.includes("TLT") && reverseRead.sourceDisclosure.includes("通脹假設"),
+    "reverse replay proxy and inflation limitations are not disclosed");
+
+  await page.locator("#realMode").selectOption("0.0235");
+  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "passed" &&
+    document.querySelector("#reverseReplay").dataset.medianRealTerminalNav !== "", null, {timeout: 10000});
+  const realMedianAt235 = await page.locator("#reverseReplay").getAttribute("data-median-real-terminal-nav");
+  need(realMedianAt235 !== null && Math.abs(Number(realMedianAt235) - reverseRead.medianRealTerminalNav) > 1,
+    "inflation assumption did not change the independent real NAV outcome");
+  await page.locator("#realMode").selectOption("0");
+
+  await page.locator("#bond").selectOption("SHY");
+  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "blocked", null, {timeout: 5000});
+  const unsupportedBondBlock = await page.locator("#reverseReplayStatus").innerText();
+  need(unsupportedBondBlock.includes("BLOCK") && (await page.locator("#reverseReplayMethod").innerText()).includes("只覆蓋 TLT"),
+    "unsupported bond proxy must BLOCK rather than borrow TLT results");
+  await page.locator("#bond").selectOption("TLT");
+  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "passed", null, {timeout: 10000});
+  await page.locator("#flow").selectOption("monthly_withdrawal_500_usd_stress");
+  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "blocked", null, {timeout: 5000});
+  need((await page.locator("#reverseReplayStatus").innerText()).includes("BLOCK") &&
+    (await page.locator("#reverseReplayMethod").innerText()).includes("不提款模式"),
+    "unsupported withdrawal mode must BLOCK rather than reuse no-withdrawal outcomes");
+  await page.locator("#flow").selectOption(noWithdrawalValue);
+  await page.waitForFunction(() => document.querySelector("#reverseReplay").dataset.state === "passed", null, {timeout: 10000});
+  result.reverse_direction_replay = {...reverseRead, realMedianAt235: Number(realMedianAt235), unsupportedBondBlock, passed: true};
+
+  await page.locator("#glidepathDirection").selectOption("stock-to-bond");
+  for (const [selector, value] of [
+    ["#bond", originalControls.bond], ["#target", originalControls.target],
+    ["#timing", originalControls.timing], ["#flow", originalControls.flow],
+    ["#year", originalControls.year], ["#realMode", originalControls.realMode], ["#statView", originalControls.statView]
+  ]) {
+    if (selector === "#bond" || selector === "#timing" || selector === "#flow" || selector === "#realMode" || selector === "#statView") {
+      await page.locator(selector).selectOption(String(value));
+    } else {
+      await page.locator(selector).evaluate((el, next) => {
+        el.value = String(next);
+        el.dispatchEvent(new Event("input", {bubbles:true}));
+        el.dispatchEvent(new Event("change", {bubbles:true}));
+      }, String(value));
+    }
+  }
+  await page.waitForFunction(() => document.querySelector("#decisionSummary").getAttribute("data-glp-reverse-hidden") === null &&
+    document.querySelector("#metrics").getAttribute("data-glp-reverse-hidden") === null &&
+    document.querySelector("#reverseReplay").hidden === true, null, {timeout: 5000});
+
   await page.locator("#year").evaluate((el, value) => {
     el.value = String(value);
     el.dispatchEvent(new Event("input", {bubbles: true}));
