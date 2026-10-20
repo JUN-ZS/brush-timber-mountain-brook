@@ -51,6 +51,12 @@ if "不等於歷史每一天實際持倉或已執行交易" not in html_text:
     raise SystemExit("Annual target weights versus actual holdings/trades disclosure is missing.")
 if "Y(state.bond, state.target, state.timing, state.flow, year)" not in html_text:
     raise SystemExit("Annual path must use canonical backtest records, not rounded SVG coordinates.")
+if "GLIDEPATH_REVERSE_REPLAY_V1" not in html_text or "GLIDEPATH_REVERSE_DATA_V1" not in html_text:
+    raise SystemExit("Independent reverse direction replay/data markers are missing.")
+if "monthly_withdrawal_500_usd_stress" not in html_text or "不以估算或原模式績效補值" not in html_text:
+    raise SystemExit("Reverse replay must explicitly block unsupported cashflows rather than reuse legacy results.")
+if "未扣交易成本、稅費或滑點" not in html_text or "不可視為 AGG／SHY／IEF" not in html_text:
+    raise SystemExit("Reverse replay limitations for proxy coverage/costs are missing.")
 if "<th>'+(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')+'</th>" not in html_text:
     raise SystemExit("Real-mode table header fix is missing.")
 if "未精算（名目 " not in html_text:
@@ -97,6 +103,10 @@ static.update({
     "trajectory_panel_source_marker": "GLIDEPATH_TRAJECTORY_PANEL_V1" in html_text,
     "trajectory_panel_uses_canonical_annual_records": "Y(state.bond, state.target, state.timing, state.flow, year)" in html_text,
     "trajectory_panel_not_actual_holdings_disclosure": "不等於歷史每一天實際持倉或已執行交易" in html_text,
+    "reverse_replay_data_embedded": "GLIDEPATH_REVERSE_DATA_V1" in html_text,
+    "reverse_replay_engine_embedded": "GLIDEPATH_REVERSE_REPLAY_V1" in html_text,
+    "reverse_replay_does_not_reuse_old_performance": "績效由獨立歷史價格回放計算" in html_text,
+    "reverse_replay_unsupported_flow_blocks": "提款／供款版本尚未重播" in html_text,
     "canonical_bundle_member": "glidepath_interactive_preview_optimized.html",
     "canonical_bundle_matches_html": True
 })
@@ -117,6 +127,12 @@ review["table_real_mode_label_fix"] = {
     "real_cell_format": "未精算（名目 n/157）"
 }
 review["derived_real_breach_zero_proof"] = results.get("derived_real_breach_zero_proof", [])
+review["reverse_direction_replay"] = results.get("reverse_direction_replay", {})
+review["known_limits"].extend([
+    "The reversed bond-to-stock replay is independently recomputed from repository SPY/TLT daily adjusted-close rows; it does not reuse the original stock-to-bond performance summaries.",
+    "Reverse-direction performance is intentionally supported only for SPY plus TLT and the no-withdrawal/no-contribution cashflow state. Other bond proxies and cashflows are BLOCKED pending matching replay data and execution logic.",
+    "The reverse replay uses 157 overlapping 10-year windows, 252 trading days per year and annual rebalance targets. It omits transaction costs, taxes, slippage and ETF-tracking differences; historical outcomes are not guarantees."
+])
 audit["final_artifact_verification"] = {
     "status": "PASSED",
     "html_sha256": html_sha,
@@ -128,6 +144,9 @@ audit["final_artifact_verification"] = {
     "duplicate_ids": duplicates,
     "zip_members": ["glidepath_interactive_preview_optimized.html"],
     "zip_inflated_html_matches_canonical_html": True,
+    "reverse_direction_replay_status": results.get("reverse_direction_replay", {}).get("replayState", "NOT_REPORTED"),
+    "reverse_direction_replay_windows": results.get("reverse_direction_replay", {}).get("windowCount", 0),
+    "reverse_direction_replay_passed": results.get("reverse_direction_replay", {}).get("passed", False),
     "created_at_utc": datetime.now(timezone.utc).isoformat()
 }
 AUDIT.write_text(json.dumps(audit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
