@@ -39,6 +39,11 @@ jobs:
           npm install --prefix tools/glidepath-browser --no-save --package-lock=false playwright@1.57.0
           tools/glidepath-browser/node_modules/.bin/playwright install chromium
 
+      - name: Inline year-by-year allocation path panel
+        run: |
+          set -euo pipefail
+          python3 tools/glidepath-browser/ensure-trajectory.py
+
       - name: Run reproducible Chromium audit
         env:
           AUDIT_RESULTS_PATH: \${{ runner.temp }}/glidepath-browser-audit-results.json
