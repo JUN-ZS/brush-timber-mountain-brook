@@ -206,7 +206,7 @@ try {
   const changedTrajectory = await readTrajectory();
   need(changedTrajectory.state === "ready" && changedTrajectory.target === 80 && changedTrajectory.timing === "front_fast", "trajectory panel did not follow target/timing control changes: " + JSON.stringify(changedTrajectory));
   need(Math.abs(changedTrajectory.endpoint_bond_pct - 80) <= 0.75, "trajectory endpoint failed to update to 80% TLT target: " + JSON.stringify(changedTrajectory));
-  need(changedTrajectory.selected_year === "5" && changedTrajectory.selected_button_year === 5, "trajectory selected-year highlight did not persist when strategy changed");
+  need(changedTrajectory.selected_year === "5" && changedTrajectory.selected_year_header_count === 1 && changedTrajectory.selected_year_header === 5, "trajectory selected-year highlight did not persist when strategy changed");
   need(Math.abs(changedTrajectory.bond_pcts[5] - initialTrajectory.bond_pcts[5]) > 0.5, "trajectory did not change when the target and timing changed");
   need(changedTrajectory.stock_bond_sums.every(value => Math.abs(value - 100) <= 0.02), "updated stock/bond percentages no longer sum to 100");
   result.glidepath_decision_trajectory.updated_state = changedTrajectory;
