@@ -53,6 +53,8 @@ if "Y(state.bond, state.target, state.timing, state.flow, year)" not in html_tex
     raise SystemExit("Annual path must use canonical backtest records, not rounded SVG coordinates.")
 if "GLIDEPATH_REVERSE_REPLAY_V1" not in html_text or "GLIDEPATH_REVERSE_DATA_V1" not in html_text:
     raise SystemExit("Independent reverse direction replay/data markers are missing.")
+if "GLIDEPATH_PAIRED_COMPARISON_V1" not in html_text or "同窗配對比較" not in html_text:
+    raise SystemExit("Same-window paired comparison engine or UI marker is missing.")
 if "monthly_withdrawal_500_usd_stress" not in html_text:
     raise SystemExit("Reverse replay cashflow BLOCK test target is missing.")
 if "未以估算或原模式績效補值" not in html_text:
@@ -107,6 +109,9 @@ static.update({
     "trajectory_panel_not_actual_holdings_disclosure": "不等於歷史每一天實際持倉或已執行交易" in html_text,
     "reverse_replay_data_embedded": "GLIDEPATH_REVERSE_DATA_V1" in html_text,
     "reverse_replay_engine_embedded": "GLIDEPATH_REVERSE_REPLAY_V1" in html_text,
+    "paired_comparison_engine_embedded": "GLIDEPATH_PAIRED_COMPARISON_V1" in html_text,
+    "paired_comparison_uses_same_windows": "相同起訖日期的重疊 10 年窗口" in html_text,
+    "paired_comparison_includes_drawdown_occurrence_year": "最大回撤年為每窗首次觸及" in html_text,
     "reverse_replay_does_not_reuse_old_performance": "績效由獨立歷史價格回放計算" in html_text,
     "reverse_replay_unsupported_flow_blocks": "提款／供款版本尚未重播" in html_text,
     "canonical_bundle_member": "glidepath_interactive_preview_optimized.html",
@@ -130,10 +135,13 @@ review["table_real_mode_label_fix"] = {
 }
 review["derived_real_breach_zero_proof"] = results.get("derived_real_breach_zero_proof", [])
 review["reverse_direction_replay"] = results.get("reverse_direction_replay", {})
+review["paired_direction_comparison"] = results.get("paired_direction_comparison", {})
 review["known_limits"].extend([
     "The reversed bond-to-stock replay is independently recomputed from repository SPY/TLT daily adjusted-close rows; it does not reuse the original stock-to-bond performance summaries.",
     "Reverse-direction performance is intentionally supported only for SPY plus TLT and the no-withdrawal/no-contribution cashflow state. Other bond proxies and cashflows are BLOCKED pending matching replay data and execution logic.",
-    "The reverse replay uses 157 overlapping 10-year windows, 252 trading days per year and annual rebalance targets. It omits transaction costs, taxes, slippage and ETF-tracking differences; historical outcomes are not guarantees."
+    "The reverse replay uses 157 overlapping 10-year windows, 252 trading days per year and annual rebalance targets. It omits transaction costs, taxes, slippage and ETF-tracking differences; historical outcomes are not guarantees.",
+    "The same-window pairwise comparison runs both mirrored SPY/TLT allocation schedules over identical 157 start/end windows, same $100,000 initial NAV, annual rebalance schedule, inflation setting and no-cashflow assumption. Aggregate summary deltas and paired per-window win counts are separate statistics.",
+    "Maximum drawdown occurrence year is the first trading-year bucket in which each window reaches that window's worst peak-to-trough drawdown. Window samples overlap and are not independent observations."
 ])
 audit["final_artifact_verification"] = {
     "status": "PASSED",
@@ -149,6 +157,9 @@ audit["final_artifact_verification"] = {
     "reverse_direction_replay_status": results.get("reverse_direction_replay", {}).get("replayState", "NOT_REPORTED"),
     "reverse_direction_replay_windows": results.get("reverse_direction_replay", {}).get("windowCount", 0),
     "reverse_direction_replay_passed": results.get("reverse_direction_replay", {}).get("passed", False),
+    "paired_direction_comparison_status": results.get("paired_direction_comparison", {}).get("state", "NOT_REPORTED"),
+    "paired_direction_comparison_windows": results.get("paired_direction_comparison", {}).get("matchedPairCount", 0),
+    "paired_direction_comparison_passed": results.get("paired_direction_comparison", {}).get("passed", False),
     "created_at_utc": datetime.now(timezone.utc).isoformat()
 }
 AUDIT.write_text(json.dumps(audit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
