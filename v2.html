@@ -712,7 +712,7 @@ function update(){
   $("decisionSelectedMetrics").textContent="累計年化回報："+(selectedCagr==null?(s.year===0?"第0年不適用":"資料未提供"):pct(selectedCagr))+" · 最大回撤："+(selectedDrawdown==null?"該視角未提供":pct(selectedDrawdown))+"。";
   $("decisionBehaviorHeadline").textContent=TN[s.timing]+" · 目標轉債 "+s.target+"%";
   $("decisionBehaviorDetail").textContent=timingOption+"；這是逐年配置規則，不是自動交易指令。比較基準是同一債券代理與現金流下的歷史窗口結果。";
-  $("decisionAllocationHeadline").textContent="股票 "+(Number.isFinite(stockPct)?stockPct.toFixed(1)+"%":"—")+" · "+s.bond+" "+(Number.isFinite(bondPct)?bondPct.toFixed(1)+"%":"—");
+  $("decisionAllocationHeadline").textContent="股票 "+(Number.isFinite(stockPct)?stockPct.toFixed(2)+"%":"—")+" · "+s.bond+" "+(Number.isFinite(bondPct)?bondPct.toFixed(2)+"%":"—");
   $("decisionAllocationDetail").textContent="第"+s.year+"年回測年度表記錄的中位配置；第10年目標轉債比例 "+s.target+"% 是路徑終點設定，不等於目前實際持倉。";
   $("decisionFlowHeadline").textContent=FN[s.flow];
   $("decisionFlowDetail").textContent=$("flowNote").textContent+" 本結果依該現金流假設統計。";
