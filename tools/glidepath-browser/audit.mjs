@@ -98,9 +98,33 @@ try {
   await page.goto(pathToFileURL(htmlPath).href, {waitUntil: "load"});
   await page.locator("#metrics .metric").first().waitFor({state: "visible"});
   await page.locator("#decisionSummary").waitFor({state: "visible"});
-  const summaryPlacement = await page.evaluate(() => ({
-    summaryBeforeControls: document.querySelector("#decisionSummary").compareDocumentPosition(document.querySelector(".controls")) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false,
-    metricsBeforeControls: document.querySelector("#metrics").compareDocumentPosition(document.querySelector(".controls")) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false,
+  await page.locator("#decisionEvidence").waitFor({state: "visible"});
+  const summaryPlacement = await page.evaluate(() => {
+    const evidence = document.querySelector("#decisionEvidence");
+    const summary = document.querySelector("#decisionSummary");
+    const controls = document.querySelector(".controls");
+    const firstChart = document.querySelector("svg,canvas");
+    return {
+    summaryBeforeControls: summary.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false,
+    evidenceAfterSummary: !!(summary.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING),
+    evidenceBeforeControls: !!(evidence.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING),
+    evidenceBeforeFirstChart: !!(firstChart && (evidence.compareDocumentPosition(firstChart) & Node.DOCUMENT_POSITION_FOLLOWING)),
+    firstChartTag: firstChart ? firstChart.tagName.toLowerCase() : null,
+    evidenceAmount: document.querySelector("#decisionEvidenceAmount").innerText,
+    evidenceAllocation: document.querySelector("#decisionEvidenceAllocation").innerText,
+    evidenceBehavior: document.querySelector("#decisionEvidenceBehavior").innerText,
+    evidenceFlow: document.querySelector("#decisionEvidenceFlow").innerText,
+    evidenceSample: document.querySelector("#decisionEvidenceSample").innerText,
+    evidenceRisk: document.querySelector("#decisionEvidenceRisk").innerText,
+    evidenceScope: document.querySelector("#decisionEvidenceScope").innerText,
+    evidenceDataset: {
+      sampleWindows: evidence.dataset.sampleWindows,
+      strategyCount: evidence.dataset.strategyCount,
+      direction: evidence.dataset.direction,
+      flow: evidence.dataset.flow,
+      reverseReplayScope: evidence.dataset.reverseReplayScope
+    },
+    metricsBeforeControls: document.querySelector("#metrics").compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false,
     initialLead: document.querySelector("#decisionLead").innerText,
     initialValue: document.querySelector("#decisionPrimaryValue").innerText,
     initialBehavior: document.querySelector("#decisionBehaviorHeadline").innerText,
@@ -108,8 +132,26 @@ try {
     initialAllocationDetail: document.querySelector("#decisionAllocationDetail").innerText,
     initialFlow: document.querySelector("#decisionFlowHeadline").innerText,
     initialFloor: document.querySelector("#decisionFloorHeadline").innerText
-  }));
+  };
+  });
   need(summaryPlacement.summaryBeforeControls && summaryPlacement.metricsBeforeControls, "decision outputs are not positioned ahead of controls");
+  need(summaryPlacement.evidenceAfterSummary && summaryPlacement.evidenceBeforeControls && summaryPlacement.evidenceBeforeFirstChart,
+    "decision evidence must follow the selected summary and precede both controls and the first chart: " + JSON.stringify(summaryPlacement));
+  need(summaryPlacement.evidenceAmount.includes("$167,812") &&
+    summaryPlacement.evidenceAllocation.includes("股票約 $98,590") &&
+    summaryPlacement.evidenceAllocation.includes("AGG 約 $69,222"),
+    "decision evidence does not bind the displayed amount to its actual selected allocation split");
+  need(summaryPlacement.evidenceBehavior.includes("AGG") && summaryPlacement.evidenceBehavior.includes("60%") &&
+    summaryPlacement.evidenceBehavior.includes("第 5 年") && summaryPlacement.evidenceFlow.includes("不提款"),
+    "decision evidence does not bind the NAV amount to current strategy behavior and cashflow");
+  need(summaryPlacement.evidenceSample.includes("768 組") && summaryPlacement.evidenceSample.includes("157 個重疊") &&
+    summaryPlacement.evidenceSample.includes("2004-03-30") && summaryPlacement.evidenceSample.includes("2026-08-31"),
+    "decision evidence is missing exact strategy/window/sample coverage");
+  need(summaryPlacement.evidenceRisk.includes("363 組") && summaryPlacement.evidenceRisk.includes("329 組") &&
+    summaryPlacement.evidenceRisk.includes("未精算") && summaryPlacement.evidenceRisk.includes("不代表途中"),
+    "decision evidence must distinguish proven zero-real-terminal-breach strategies from uncalculated counts");
+  need(summaryPlacement.evidenceDataset.strategyCount === "768" && summaryPlacement.evidenceDataset.sampleWindows === "157",
+    "decision evidence machine attributes do not report the declared sample population");
   need(summaryPlacement.initialLead.includes("AGG") && summaryPlacement.initialLead.includes("60%") && summaryPlacement.initialLead.includes("第5年"), "initial decision summary does not state the selected strategy/year");
   need(summaryPlacement.initialValue.startsWith("$") && summaryPlacement.initialBehavior.length > 0 && summaryPlacement.initialAllocation.includes("股票") && summaryPlacement.initialFlow.includes("不提款") && summaryPlacement.initialFloor.includes("$"), "initial decision summary is missing amount/behavior/data fields");
   need(summaryPlacement.initialAllocationDetail.includes("按主結果 $167,812") && summaryPlacement.initialAllocationDetail.includes("股票約 $98,590") && summaryPlacement.initialAllocationDetail.includes("AGG 約 $69,222"), "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
@@ -463,6 +505,31 @@ try {
   need(changedSummary.flow.includes("$500") && changedSummary.floor.includes("$"), "decision summary did not follow cashflow/inflation changes");
   need(changedSummary.value.startsWith("$") && changedSummary.allocation.includes("TLT"), "decision summary lacks updated monetary result/allocation");
   need(changedSummary.allocationDetail.includes("按主結果 $112,171") && changedSummary.allocationDetail.includes("股票約 $50,477") && changedSummary.allocationDetail.includes("TLT 約 $61,694"), "changed allocation dollar split must reconcile to displayed real NAV and allocation percentages");
+  await page.waitForFunction(() => document.querySelector("#decisionEvidence").dataset.target === "80" &&
+    document.querySelector("#decisionEvidence").dataset.bond === "TLT" &&
+    document.querySelector("#decisionEvidence").dataset.flow.includes("$500") &&
+    document.querySelector("#decisionEvidence").dataset.inflation === "0.0235", null, {timeout: 5000});
+  const updatedEvidence = await page.evaluate(() => ({
+    amount: document.querySelector("#decisionEvidenceAmount").innerText,
+    behavior: document.querySelector("#decisionEvidenceBehavior").innerText,
+    flow: document.querySelector("#decisionEvidenceFlow").innerText,
+    risk: document.querySelector("#decisionEvidenceRisk").innerText,
+    scope: document.querySelector("#decisionEvidenceScope").innerText,
+    dataset: {
+      direction: document.querySelector("#decisionEvidence").dataset.direction,
+      bond: document.querySelector("#decisionEvidence").dataset.bond,
+      target: document.querySelector("#decisionEvidence").dataset.target,
+      flow: document.querySelector("#decisionEvidence").dataset.flow,
+      inflation: document.querySelector("#decisionEvidence").dataset.inflation,
+      reverseReplayScope: document.querySelector("#decisionEvidence").dataset.reverseReplayScope
+    }
+  }));
+  need(updatedEvidence.amount.includes("$112,171") && updatedEvidence.behavior.includes("TLT") &&
+    updatedEvidence.behavior.includes("80%") && updatedEvidence.flow.includes("$500"),
+    "decision evidence did not update its amount/behavior/flow linkage after controls changed");
+  need(updatedEvidence.risk.includes("未精算") && updatedEvidence.scope.includes("實際持倉"),
+    "decision evidence must retain unproven-risk and not-actual-holdings notices after controls change");
+  result.frontloaded_decision_summary.decision_evidence_updated_state = {...updatedEvidence,passed:true};
   result.frontloaded_decision_summary.updated_state = {...changedSummary, passed:true};
 
   await page.waitForFunction(() => {
