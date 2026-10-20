@@ -1,0 +1,80 @@
+name: Glidepath Preview Browser Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "v2.html"
+      - "glidepath_interactive_preview_optimized_bundle.zip"
+      - "glidepath_preview_optimized_audit.json"
+      - "tools/glidepath-browser/**"
+      - ".github/workflows/glidepath-preview-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: glidepath-preview-audit-\${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-audit:
+    name: Reproducible browser + artifact verification
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 25
+    steps:
+      - name: Checkout canonical source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+
+      - name: Install pinned Playwright
+        run: |
+          set -euo pipefail
+          npm install --prefix tools/glidepath-browser --no-save --package-lock=false playwright@1.57.0
+          tools/glidepath-browser/node_modules/.bin/playwright install chromium
+
+      - name: Run reproducible Chromium audit
+        env:
+          AUDIT_RESULTS_PATH: \${{ runner.temp }}/glidepath-browser-audit-results.json
+        run: |
+          set -euo pipefail
+          node tools/glidepath-browser/audit.mjs
+
+      - name: Rebuild canonical ZIP and machine audit
+        env:
+          AUDIT_RESULTS_PATH: \${{ runner.temp }}/glidepath-browser-audit-results.json
+          GITHUB_SHA: \${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/glidepath-browser/finalize.py
+          git diff --check
+
+      - name: Commit verified canonical artifacts
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add v2.html glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json
+          if git diff --cached --quiet; then
+            echo "Canonical artifacts are already up to date."
+          else
+            git commit -m "test(glidepath): publish reproducible browser audit artifacts"
+            git push origin HEAD:main
+          fi
+
+      - name: Report verified result
+        if: always()
+        run: |
+          if [ -f "\${{ runner.temp }}/glidepath-browser-audit-results.json" ]; then
+            cat "\${{ runner.temp }}/glidepath-browser-audit-results.json"
+          else
+            echo "No browser result file was produced."
+          fi
