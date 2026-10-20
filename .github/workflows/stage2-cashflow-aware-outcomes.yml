@@ -177,6 +177,9 @@ jobs:
           assert year0["median_nav_usd"] == 100000.0 and year0["median_target_bond_weight"] == 0.0
           assert abs(year9["median_target_bond_weight"] - 0.54) < 1e-9 and abs(year9["median_target_stock_weight"] - 0.46) < 1e-9
           assert abs(year10["median_target_bond_weight"] - 0.60) < 1e-9 and abs(year10["median_target_stock_weight"] - 0.40) < 1e-9
+          year9_all = [row for row in annual if row["year"] == 9 and row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 60 and row["cashflow_mode"] == "no_withdrawals"]
+          assert len(year9_all) == 8
+          assert len({round(row["median_target_bond_weight"], 8) for row in year9_all}) == 8, "each timing rule must create a distinct year-9 allocation mark"
           assert year9["median_nav_usd"] != year10["median_nav_usd"]
           terminal = next(row for row in scenarios if row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 60 and row["timing_rule"] == "linear" and row["cashflow_mode"] == "no_withdrawals")
           assert abs(year10["median_nav_usd"] - terminal["median_terminal_nav_usd"]) < 0.02

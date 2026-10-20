@@ -18,7 +18,7 @@ class MarkupIDAudit(HTMLParser):
             self.duplicates.add(element_id)
         self.id_to_tag[element_id] = tag
 from glidepath_interactive_dashboard import FIELDS, ANNUAL_FIELDS, HISTOGRAM_METRICS, render_dashboard, summarize_histogram, build_cohort_profiles
-from stock_bond_glidepath_backtest import BOND_TICKERS, TARGET_CONVERSIONS, TIMING_RULES
+from stock_bond_glidepath_backtest import BOND_TICKERS, TARGET_CONVERSIONS, TIMING_RULES, _target_bond_weight
 
 def sample_histograms():
     rows=[]
@@ -87,7 +87,7 @@ def sample_rows():
                     for y in range(11):
                         mark={k:None for k in ANNUAL_FIELDS}
                         mark.update(base)
-                        mark.update({"year":y,"median_nav_usd":100000+y*(t*100),"p05_nav_usd":90000+y*(t*50),"p95_nav_usd":110000+y*(t*150),"worst_nav_usd":80000+y*(t*25),"median_cumulative_twr_cagr":None if y==0 else 0.05+y*0.003,"p05_cumulative_twr_cagr":None if y==0 else -0.04+y*0.002,"median_year_twr":None if y==0 else 0.04,"p05_year_twr":None if y==0 else -0.12,"median_drawdown_to_date":0.0 if y==0 else -0.10-y*0.01,"worst_drawdown_to_date":0.0 if y==0 else -0.45,"windows_below_initial_capital":0 if y==0 else y,"windows_with_withdrawal_shortfall":0 if f!="monthly_withdrawal_1000_usd_stress" else y,"median_actual_withdrawals_usd":0 if f=="no_withdrawals" else min(y*1000,120000),"median_shortfall_usd":0,"p95_shortfall_usd":0 if f!="monthly_withdrawal_1000_usd_stress" else y*100,"median_target_bond_weight":t/100*(y/10),"median_target_stock_weight":1-t/100*(y/10)})
+                        mark.update({"year":y,"median_nav_usd":100000+y*(t*100),"p05_nav_usd":90000+y*(t*50),"p95_nav_usd":110000+y*(t*150),"worst_nav_usd":80000+y*(t*25),"median_cumulative_twr_cagr":None if y==0 else 0.05+y*0.003,"p05_cumulative_twr_cagr":None if y==0 else -0.04+y*0.002,"median_year_twr":None if y==0 else 0.04,"p05_year_twr":None if y==0 else -0.12,"median_drawdown_to_date":0.0 if y==0 else -0.10-y*0.01,"worst_drawdown_to_date":0.0 if y==0 else -0.45,"windows_below_initial_capital":0 if y==0 else y,"windows_with_withdrawal_shortfall":0 if f!="monthly_withdrawal_1000_usd_stress" else y,"median_actual_withdrawals_usd":0 if f=="no_withdrawals" else min(y*1000,120000),"median_shortfall_usd":0,"p95_shortfall_usd":0 if f!="monthly_withdrawal_1000_usd_stress" else y*100,"median_target_bond_weight":_target_bond_weight(t,y*12,m),"median_target_stock_weight":1-_target_bond_weight(t,y*12,m)})
                         annual.append(mark)
     return cases, annual
 
@@ -185,6 +185,22 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('function summarize_histogram(',page_template)
         self.assertIn('cashflow_mode===s.flow',page_template)
         self.assertIn('data-year="'+"'"+'+y+',page_template)
+
+    def test_sample_annual_weights_follow_all_eight_distinct_timing_rules(self):
+        _, annual = sample_rows()
+        year9 = [
+            row for row in annual
+            if row["year"] == 9 and row["bond_proxy"] == "AGG"
+            and row["target_bond_conversion_pct_at_year10"] == 60
+            and row["cashflow_mode"] == "no_withdrawals"
+        ]
+        self.assertEqual(len(year9), 8)
+        weights = {row["timing_rule"]: row["median_target_bond_weight"] for row in year9}
+        self.assertEqual(len({round(value, 8) for value in weights.values()}), 8)
+        self.assertAlmostEqual(weights["linear"], 0.54)
+        self.assertAlmostEqual(weights["front_rapid"], 0.5666666667)
+        self.assertAlmostEqual(weights["staggered"], 0.525)
+        self.assertAlmostEqual(weights["back_late"], 0.40)
 
 if __name__=="__main__":
     unittest.main()
