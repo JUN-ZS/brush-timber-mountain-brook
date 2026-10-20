@@ -258,6 +258,12 @@ try {
       reverseMedianNav: Number(panel.dataset.reverseMedianNav),
       forwardMedianRealNav: Number(panel.dataset.forwardMedianRealNav),
       reverseMedianRealNav: Number(panel.dataset.reverseMedianRealNav),
+      forwardP05RealNav: Number(panel.dataset.forwardP05RealNav),
+      reverseP05RealNav: Number(panel.dataset.reverseP05RealNav),
+      forwardMedianRealCagr: Number(panel.dataset.forwardMedianRealCagr),
+      reverseMedianRealCagr: Number(panel.dataset.reverseMedianRealCagr),
+      forwardRealFloorCount: Number(panel.dataset.forwardRealFloorCount),
+      reverseRealFloorCount: Number(panel.dataset.reverseRealFloorCount),
       medianRealNavDelta: Number(panel.dataset.medianRealNavDelta),
       pairedMedianRealNavDelta: Number(panel.dataset.pairedMedianRealNavDelta),
       forwardMedianCagr: Number(panel.dataset.forwardMedianCagr),
@@ -270,6 +276,10 @@ try {
       pairedMedianDdDelta: Number(panel.dataset.pairedMedianDdDelta),
       forwardDdYearCounts: JSON.parse(panel.dataset.forwardDdYearCounts || "{}"),
       reverseDdYearCounts: JSON.parse(panel.dataset.reverseDdYearCounts || "{}"),
+      drawdownYearRows: document.querySelectorAll("#pairedDrawdownYearTable tbody tr").length,
+      drawdownYearCells: document.querySelectorAll("#pairedDrawdownYearTable tbody td").length,
+      forwardDrawdownTableCounts: Array.from(document.querySelectorAll('#pairedDrawdownYearTable [data-dd-year-row="forward"]')).map(cell => Number(cell.innerText)),
+      reverseDrawdownTableCounts: Array.from(document.querySelectorAll('#pairedDrawdownYearTable [data-dd-year-row="reverse"]')).map(cell => Number(cell.innerText)),
       reverseRealNavWins: Number(panel.dataset.reverseRealNavWins),
       forwardRealNavWins: Number(panel.dataset.forwardRealNavWins),
       reverseLowerDrawdown: Number(panel.dataset.reverseLowerDrawdown),
@@ -300,6 +310,12 @@ try {
   need(Object.values(pairRead.forwardDdYearCounts).reduce((a,b)=>a+b,0) === 157 &&
     Object.values(pairRead.reverseDdYearCounts).reduce((a,b)=>a+b,0) === 157,
     "drawdown-occurrence-year counts must account for all windows in both directions");
+  need(pairRead.drawdownYearRows === 2 && pairRead.drawdownYearCells === 20 &&
+    pairRead.forwardDrawdownTableCounts.reduce((a,b)=>a+b,0) === 157 &&
+    pairRead.reverseDrawdownTableCounts.reduce((a,b)=>a+b,0) === 157 &&
+    pairRead.forwardDrawdownTableCounts.every((count,index)=>count===pairRead.forwardDdYearCounts[String(index+1)]) &&
+    pairRead.reverseDrawdownTableCounts.every((count,index)=>count===pairRead.reverseDdYearCounts[String(index+1)]),
+    "visible drawdown occurrence-year distribution must match the per-window audit counts");
   need(pairRead.reverseRealNavWins + pairRead.forwardRealNavWins <= 157 &&
     pairRead.reverseLowerDrawdown + pairRead.forwardLowerDrawdown <= 157,
     "paired win counts exceed matched window count");
@@ -320,6 +336,48 @@ try {
   const realMedianAt235 = await page.locator("#reverseReplay").getAttribute("data-median-real-terminal-nav");
   need(realMedianAt235 !== null && Math.abs(Number(realMedianAt235) - realMedianAtZero) > 1,
     "inflation assumption did not change the independent real NAV outcome");
+  await page.waitForFunction(() => {
+    const panel = document.querySelector("#pairedComparison");
+    return panel && panel.dataset.state === "passed" && panel.dataset.inflation === "0.0235" &&
+      Number.isFinite(Number(panel.dataset.forwardMedianRealNav)) &&
+      Number.isFinite(Number(panel.dataset.reverseMedianRealNav));
+  }, null, {timeout: 10000});
+  const pairReal235 = await page.evaluate(() => {
+    const panel = document.querySelector("#pairedComparison");
+    return {
+      state: panel.dataset.state,
+      matchedPairCount: Number(panel.dataset.matchedPairCount),
+      inflation: Number(panel.dataset.inflation),
+      forwardMedianRealNav: Number(panel.dataset.forwardMedianRealNav),
+      reverseMedianRealNav: Number(panel.dataset.reverseMedianRealNav),
+      forwardP05RealNav: Number(panel.dataset.forwardP05RealNav),
+      reverseP05RealNav: Number(panel.dataset.reverseP05RealNav),
+      forwardMedianRealCagr: Number(panel.dataset.forwardMedianRealCagr),
+      reverseMedianRealCagr: Number(panel.dataset.reverseMedianRealCagr),
+      forwardRealFloorCount: Number(panel.dataset.forwardRealFloorCount),
+      reverseRealFloorCount: Number(panel.dataset.reverseRealFloorCount),
+      medianRealNavDelta: Number(panel.dataset.medianRealNavDelta),
+      pairedMedianRealNavDelta: Number(panel.dataset.pairedMedianRealNavDelta),
+      forwardMedianDd: Number(panel.dataset.forwardMedianDd),
+      reverseMedianDd: Number(panel.dataset.reverseMedianDd),
+      medianDdDelta: Number(panel.dataset.medianDdDelta),
+      reverseRealNavWins: Number(panel.dataset.reverseRealNavWins),
+      forwardRealNavWins: Number(panel.dataset.forwardRealNavWins),
+      forwardDdYearCounts: JSON.parse(panel.dataset.forwardDdYearCounts || "{}"),
+      reverseDdYearCounts: JSON.parse(panel.dataset.reverseDdYearCounts || "{}"),
+      limits: document.querySelector("#pairedComparisonLimits").innerText
+    };
+  });
+  need(pairReal235.state === "passed" && pairReal235.matchedPairCount === 157 && pairReal235.inflation === 0.0235,
+    "paired real-value comparison did not refresh for 2.35% inflation");
+  need(Number.isFinite(pairReal235.forwardMedianRealNav) && Number.isFinite(pairReal235.reverseMedianRealNav) &&
+    Number.isFinite(pairReal235.forwardP05RealNav) && Number.isFinite(pairReal235.reverseP05RealNav) &&
+    Number.isFinite(pairReal235.forwardMedianRealCagr) && Number.isFinite(pairReal235.reverseMedianRealCagr),
+    "paired real-value snapshot contains missing metrics");
+  need(Math.abs(pairReal235.medianRealNavDelta - (pairReal235.reverseMedianRealNav - pairReal235.forwardMedianRealNav)) < 0.1 &&
+    pairReal235.limits.includes("窗口彼此重疊"),
+    "paired real summary delta/disclosure does not reconcile");
+  result.paired_direction_comparison_real_235 = {...pairReal235, passed:true};
   await page.locator("#realMode").selectOption("0");
 
   await page.locator("#bond").selectOption("SHY");
