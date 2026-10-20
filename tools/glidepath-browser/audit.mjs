@@ -112,7 +112,7 @@ try {
   need(summaryPlacement.summaryBeforeControls && summaryPlacement.metricsBeforeControls, "decision outputs are not positioned ahead of controls");
   need(summaryPlacement.initialLead.includes("AGG") && summaryPlacement.initialLead.includes("60%") && summaryPlacement.initialLead.includes("第5年"), "initial decision summary does not state the selected strategy/year");
   need(summaryPlacement.initialValue.startsWith("$") && summaryPlacement.initialBehavior.length > 0 && summaryPlacement.initialAllocation.includes("股票") && summaryPlacement.initialFlow.includes("不提款") && summaryPlacement.initialFloor.includes("$"), "initial decision summary is missing amount/behavior/data fields");
-  need(summaryPlacement.initialAllocationDetail.includes("按主結果") && summaryPlacement.initialAllocationDetail.includes("股票約 $") && summaryPlacement.initialAllocationDetail.includes("AGG 約 $"), "initial allocation summary must translate the selected total into stock and bond dollar amounts");
+  need(summaryPlacement.initialAllocationDetail.includes("按主結果 $167,812") && summaryPlacement.initialAllocationDetail.includes("股票約 $98,590") && summaryPlacement.initialAllocationDetail.includes("AGG 約 $69,222"), "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
   result.frontloaded_decision_summary = { ...summaryPlacement, passed: true };
   await page.locator("#bond").selectOption("TLT");
   await page.locator("#target").evaluate(el => {el.value="80"; el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true}));});
@@ -130,7 +130,7 @@ try {
   need(changedSummary.lead.includes("TLT") && changedSummary.lead.includes("80%") && changedSummary.lead.includes("加速前置"), "decision summary did not follow strategy control changes");
   need(changedSummary.flow.includes("$500") && changedSummary.floor.includes("$"), "decision summary did not follow cashflow/inflation changes");
   need(changedSummary.value.startsWith("$") && changedSummary.allocation.includes("TLT"), "decision summary lacks updated monetary result/allocation");
-  need(changedSummary.allocationDetail.includes("股票約 $") && changedSummary.allocationDetail.includes("TLT 約 $"), "allocation dollar amounts did not follow changed bond proxy");
+  need(changedSummary.allocationDetail.includes("按主結果 $112,171") && changedSummary.allocationDetail.includes("股票約 $50,477") && changedSummary.allocationDetail.includes("TLT 約 $61,694"), "changed allocation dollar split must reconcile to displayed real NAV and allocation percentages");
   result.frontloaded_decision_summary.updated_state = {...changedSummary, passed:true};
   await page.evaluate(() => {
     window.__glidepathAuditLastBlob = null;

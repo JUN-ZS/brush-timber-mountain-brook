@@ -714,8 +714,11 @@ function update(){
   $("decisionBehaviorDetail").textContent=timingOption+"；這是逐年配置規則，不是自動交易指令。比較基準是同一債券代理與現金流下的歷史窗口結果。";
   $("decisionAllocationHeadline").textContent="股票 "+(Number.isFinite(stockPct)?stockPct.toFixed(2)+"%":"—")+" · "+s.bond+" "+(Number.isFinite(bondPct)?bondPct.toFixed(2)+"%":"—");
   const allocationCurrency=s.cpi>0?"實質美元":"名目美元";
-  const allocationAmountDetail=Number.isFinite(selectedNav)&&selectedNav>=0&&Number.isFinite(stockPct)&&Number.isFinite(bondPct)
-    ?"按主結果 "+usd(selectedNav)+"（"+allocationCurrency+"）折算：股票約 "+usd(selectedNav*stockPct/100)+"；"+s.bond+" 約 "+usd(selectedNav*bondPct/100)+"。"
+  const allocationNavRounded=Number.isFinite(selectedNav)?Math.round(selectedNav):NaN;
+  const displayStockPct=Number.isFinite(stockPct)?Number(stockPct.toFixed(2)):NaN;
+  const displayBondPct=Number.isFinite(bondPct)?Number(bondPct.toFixed(2)):NaN;
+  const allocationAmountDetail=Number.isFinite(allocationNavRounded)&&allocationNavRounded>=0&&Number.isFinite(displayStockPct)&&Number.isFinite(displayBondPct)
+    ?"按主結果 "+usd(allocationNavRounded)+"（"+allocationCurrency+"）折算：股票約 "+usd(allocationNavRounded*displayStockPct/100)+"；"+s.bond+" 約 "+usd(allocationNavRounded*displayBondPct/100)+"。"
     :"主結果或股／債配置數據缺失，參考金額未計算。";
   $("decisionAllocationDetail").textContent=allocationAmountDetail+" 依第"+s.year+"年回測年度表中位配置拆分，只是參考金額，不代表實際持倉或今日下單金額；第10年目標轉債比例 "+s.target+"% 是路徑終點設定。";
   $("decisionFlowHeadline").textContent=FN[s.flow];
