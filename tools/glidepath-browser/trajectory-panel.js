@@ -78,16 +78,21 @@
     if (!Number.isFinite(pct) || pct < -0.5 || pct > 100.5) return null;
     return Math.max(0, Math.min(100, pct));
   }
-  function pathForTiming(timing) {
-    return Array.from(document.querySelectorAll("#glide circle[data-year][data-timing]"))
-      .filter(function (node) { return node.getAttribute("data-timing") === timing; })
-      .map(function (node) {
-        const year = Number(node.getAttribute("data-year"));
-        const bondPct = percentFromNode(node);
-        return {year: year, bondPct: bondPct};
-      })
-      .filter(function (point) { return Number.isInteger(point.year) && point.year >= 0 && point.year <= 10; })
-      .sort(function (left, right) { return left.year - right.year; });
+  function pathForTiming(state) {
+    // Use the original model's annual backtest record directly, not rounded SVG coordinates.
+    // Y() reads the same annual record map used by the year-level summary and historic results.
+    if (typeof S !== "function" || typeof Y !== "function") return [];
+    return years.map(function (year) {
+      const record = Y(state.bond, state.target, state.timing, state.flow, year);
+      if (!record) return {year: year, bondPct: null, stockPct: null};
+      const bondPct = 100 * Number(record.median_target_bond_weight);
+      const stockPct = 100 * Number(record.median_target_stock_weight);
+      return {
+        year: year,
+        bondPct: Number.isFinite(bondPct) ? bondPct : null,
+        stockPct: Number.isFinite(stockPct) ? stockPct : null
+      };
+    });
   }
   function showUnavailable(message) {
     section.dataset.state = "pending";
@@ -105,13 +110,17 @@
     const timingElement = one("#timing");
     const yearElement = one("#year");
     if (!targetElement || !timingElement || !yearElement) return showUnavailable("找不到原有年份、目標或轉換規則控制項");
+    if (typeof S !== "function" || typeof Y !== "function") return showUnavailable("年度回測記錄介面尚未就緒");
+    const currentState = S();
     const timing = timingElement.value;
     const target = Number(targetElement.value);
     const selectedYear = Number(yearElement.value);
-    const points = pathForTiming(timing);
+    const points = pathForTiming(currentState);
     if (!Number.isFinite(target) || !Number.isInteger(selectedYear)) return showUnavailable("所選控制值不是有效數字");
-    if (points.length !== 11 || points.some(function (point, index) { return point.year !== index || !Number.isFinite(point.bondPct); })) {
-      return showUnavailable("目前規則沒有完整的第 0 至第 10 年配置節點");
+    if (points.length !== 11 || points.some(function (point, index) {
+      return point.year !== index || !Number.isFinite(point.bondPct) || !Number.isFinite(point.stockPct);
+    })) {
+      return showUnavailable("目前策略沒有完整的第 0 至第 10 年年度回測配置記錄");
     }
     const endpoint = points[10].bondPct;
     if (Math.abs(endpoint - target) > 0.75) {
@@ -125,7 +134,7 @@
       "規則：" + timingName + " · 第 10 年目標 " + bondName + " " + target.toFixed(2) + "% · 所選年份：" + selectedYear + "。點擊年份可同步切換上方回測摘要和原有年份 BAR。";
 
     points.forEach(function (point, index) {
-      const stockPct = 100 - point.bondPct;
+      const stockPct = point.stockPct;
       const stockCell = section.querySelector('[data-series="stock"] [data-year="' + point.year + '"]');
       const bondCell = section.querySelector('[data-series="bond"] [data-year="' + point.year + '"]');
       const changeCell = section.querySelector('[data-series="change"] [data-year="' + point.year + '"]');
@@ -155,13 +164,13 @@
     if (rates.length >= 2 && selectedPoint) {
       const stockDelta = (100 - selectedPoint.bondPct) - rates[0];
       const bondDelta = selectedPoint.bondPct - rates[1];
-      crosscheck.textContent = "第 " + selectedYear + " 年對照：規則路徑為股票 " +
-        (100 - selectedPoint.bondPct).toFixed(2) + "% / " + bondName + " " +
-        selectedPoint.bondPct.toFixed(2) + "%；歷史回測摘要為股票 " + rates[0].toFixed(2) +
-        "% / " + bondName + " " + rates[1].toFixed(2) + "%；差異：股票 " +
+      crosscheck.textContent = "第 " + selectedYear + " 年對照：年度回測配置記錄為股票 " +
+        stockPctAt(selectedPoint) + "% / " + bondName + " " +
+        selectedPoint.bondPct.toFixed(2) + "%；前置摘要為股票 " + rates[0].toFixed(2) +
+        "% / " + bondName + " " + rates[1].toFixed(2) + "%；畫面差異：股票 " +
         (stockDelta > 0 ? "+" : "") + stockDelta.toFixed(2) + ppLabel() + "、債券 " +
         (bondDelta > 0 ? "+" : "") + bondDelta.toFixed(2) + ppLabel() +
-        "。金額拆分仍以主摘要的該年回測 NAV 為準。";
+        "。這是同一年度記錄的畫面一致性核對，不是獨立回測驗證；金額依主摘要該年 NAV 拆分。";
       section.dataset.summaryBondPct = rates[1].toFixed(4);
       section.dataset.allocationDeltaPp = bondDelta.toFixed(4);
       section.dataset.crosscheck = Math.abs(bondDelta) <= 0.75 ? "aligned" : "different";
@@ -177,9 +186,10 @@
     section.dataset.endpointBondPct = endpoint.toFixed(4);
     section.querySelector("#decisionTrajectoryStatus").dataset.state = "ready";
     section.querySelector("#decisionTrajectoryStatus").textContent =
-      "已同步 11 個年份節點；第 10 年債券路徑 " + endpoint.toFixed(2) +
-      "%，目標 " + target.toFixed(2) + "%。年度差值為規則路徑百分點，不代表當年交易金額或交易紀錄。";
+      "已同步 11 個年度回測配置記錄；第 10 年債券配置 " + endpoint.toFixed(2) +
+      "%，目標 " + target.toFixed(2) + "%。年度差值是相鄰年度配置百分點，不代表當年交易金額或每日實際持倉。";
   }
+  function stockPctAt(point) { return point.stockPct.toFixed(2); }
   function ppLabel() { return " 個百分點"; }
   function queueRender() {
     if (queued) return;
@@ -197,14 +207,5 @@
       control.addEventListener("change", queueRender);
     }
   });
-  const glide = one("#glide");
-  if (glide && typeof MutationObserver !== "undefined") {
-    new MutationObserver(queueRender).observe(glide, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ["cy", "data-year", "data-timing"]
-    });
-  }
   render();
 })();
