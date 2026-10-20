@@ -42,3 +42,6 @@
 - The comparison shows nominal and real terminal NAV summaries, P05 real NAV, nominal/real CAGR, median and worst maximum drawdown, the median year in which the maximum drawdown first occurs, and real-principal threshold counts.
 - Paired per-window wins (real terminal NAV and maximum drawdown) are kept separate from differences between aggregate medians/percentiles. The pairwise sample is overlapping historical windows, not independent future probabilities.
 - Unsupported bond proxies or cashflow modes remain BLOCKED; the comparison is not silently copied from legacy summary metrics.
+
+- The machine audit captures a distinct 2.35% annualized-inflation paired snapshot as well as the nominal (0% inflation) snapshot.
+- The UI exposes the maximum-drawdown occurrence-year distribution for years 1–10 and the browser audit checks that each direction's year counts sum to the 157 matched windows.
