@@ -126,6 +126,8 @@ try {
     const duplicates = Array.from(new Set(idValues.filter((id, index) => idValues.indexOf(id) !== index)));
     return {
       state: root.dataset.state,
+      panel_after_summary: !!(document.querySelector("#decisionSummary").compareDocumentPosition(root) & Node.DOCUMENT_POSITION_FOLLOWING),
+      panel_before_controls: !!(root.compareDocumentPosition(document.querySelector(".controls")) & Node.DOCUMENT_POSITION_FOLLOWING),
       selected_year: root.dataset.year,
       target: Number(root.dataset.target),
       timing: root.dataset.timing,
@@ -145,6 +147,7 @@ try {
   });
   const initialTrajectory = await readTrajectory();
   need(initialTrajectory.state === "ready", "year-by-year trajectory panel is not ready: " + JSON.stringify(initialTrajectory));
+  need(initialTrajectory.panel_after_summary && initialTrajectory.panel_before_controls, "trajectory panel is not placed between the decision summary and controls");
   need(initialTrajectory.year_buttons.length === 11 && initialTrajectory.year_buttons.every((year, index) => year === index), "trajectory panel does not expose years 0-10: " + JSON.stringify(initialTrajectory.year_buttons));
   need(initialTrajectory.stock_pcts.length === 11 && initialTrajectory.bond_pcts.length === 11, "trajectory panel is missing annual stock/bond rows");
   need(initialTrajectory.selected_year === "5" && initialTrajectory.selected_button_count === 1 && initialTrajectory.selected_button_year === 5, "trajectory panel did not highlight the selected year 5");
@@ -156,6 +159,7 @@ try {
 
   await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').click();
   await page.waitForFunction(() => document.querySelector("#year").value === "9" && document.querySelector("#decisionTrajectory").dataset.year === "9");
+  need((await page.locator("#decisionLead").innerText()).includes("第9年"), "trajectory year click did not update the frontloaded decision summary");
   need(await page.locator('#decisionTrajectory button[data-trajectory-year="9"]').getAttribute("aria-pressed") === "true", "trajectory year-9 click did not highlight year 9");
   await page.locator('#decisionTrajectory button[data-trajectory-year="5"]').click();
   await page.waitForFunction(() => document.querySelector("#year").value === "5" && document.querySelector("#decisionTrajectory").dataset.year === "5");
