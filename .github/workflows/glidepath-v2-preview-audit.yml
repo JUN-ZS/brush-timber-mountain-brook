@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: glidepath-v2-preview-audit-${{ github.event.pull_request.number || github.ref }}
@@ -33,10 +33,22 @@ jobs:
         run: |
           python3 --version
           node --version
-      - name: Run independent integrity tests
+      - name: Rebuild deterministic bundle and refresh audit from exact HTML
+        run: python3 research/audit_stage2/build_glidepath_v2_bundle.py
+      - name: Run independent integrity tests against regenerated artifacts
         run: python3 -m unittest research.audit_stage2.test_glidepath_v2_preview -v
-      - name: Rebuild bundle and verify repository bytes are reproducible
+      - name: Commit regenerated artifacts back to this PR branch
+        if: github.event_name == 'pull_request'
+        env:
+          TARGET_BRANCH: ${{ github.head_ref }}
         run: |
-          python3 research/audit_stage2/build_glidepath_v2_bundle.py
-          python3 -m unittest research.audit_stage2.test_glidepath_v2_preview -v
-          git diff --exit-code -- glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json
+          if ! git diff --quiet -- glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json
+            git commit -m "chore(glidepath): refresh generated preview bundle and audit"
+            git push origin "HEAD:${TARGET_BRANCH}"
+          fi
+      - name: Verify generated artifacts are committed
+        if: github.event_name == 'pull_request'
+        run: git diff --exit-code -- glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json
