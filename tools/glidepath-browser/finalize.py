@@ -212,8 +212,36 @@ bundle_bytes = BUNDLE.stat().st_size
 bundle_sha = hashlib.sha256(BUNDLE.read_bytes()).hexdigest()
 crc32 = f"{zlib.crc32(html_bytes) & 0xffffffff:08x}"
 
+ledger_audit_env = os.environ.get("LEDGER_REPLAY_AUDIT_PATH", "")
+if not ledger_audit_env:
+    raise SystemExit("Independent cashflow-ledger replay audit path is required.")
+ledger_replay_path = Path(ledger_audit_env)
+if not ledger_replay_path.is_file():
+    raise SystemExit("Independent cashflow-ledger replay audit file is missing.")
+ledger_replay = json.loads(ledger_replay_path.read_text(encoding="utf-8"))
+if ledger_replay.get("schema") != "glidepath-window-cashflow-ledger-replay.v1" or ledger_replay.get("status") != "PASS":
+    raise SystemExit("Independent cashflow-ledger replay did not publish PASS.")
+if ledger_replay.get("source_panel_sha256") != pack_meta.get("source_sha256"):
+    raise SystemExit("Independent ledger replay panel differs from embedded dashboard source.")
+if ledger_replay.get("source_as_of") != source_as_of or ledger_replay.get("rolling_windows_per_scenario") != 157:
+    raise SystemExit("Independent cashflow-ledger replay as-of/window mismatch.")
+if (ledger_replay.get("window_rows_expected"), ledger_replay.get("annual_summary_rows_expected"), ledger_replay.get("scenario_count")) != (160768, 11264, 1024):
+    raise SystemExit("Independent cashflow-ledger replay coverage is incomplete.")
+ledger_counts = ledger_replay.get("counters", {})
+for key, expected in {
+    "window_rows_replayed": 160768,
+    "annual_rows_reconciled": 11264,
+    "scenario_summaries_reconciled": 1024,
+    "cashflow_invariants_checked": 482304,
+    "yearly_navs_reconciled": 11264,
+    "daily_drawdown_paths_replayed": 160768,
+}.items():
+    if ledger_counts.get(key) != expected:
+        raise SystemExit(f"Independent ledger replay count mismatch {key}: {ledger_counts.get(key)!r} != {expected}")
+
 audit = json.loads(AUDIT.read_text(encoding="utf-8"))
 audit["status"] = "BROWSER_AND_STATIC_VERIFICATION_PASSED"
+audit["cashflow_window_ledger_replay"] = ledger_replay
 audit["embedded_data_counts"] = {
     "scenarios_D": strategy_count,
     "annual_A": annual_count,
@@ -245,6 +273,7 @@ static.update({
     "cashflow_nav_semantic_sweep": True,
     "no_withdrawal_zero_cashflow_contract": True,
     "allocation_path_invariant_across_cashflows": True,
+    "independent_cashflow_window_ledger_replay": ledger_replay.get("status") == "PASS",
     "zip_decompression_roundtrip": True,
     "zip_crc32_matches_html": True,
     "zip_sha256_matches_html": True,
@@ -317,6 +346,15 @@ audit["final_artifact_verification"] = {
     },
     "annual_year10_summary_mismatches": annual_year10_summary_mismatches,
     "cashflow_nav_semantic_sweep": cashflow_semantics,
+    "cashflow_window_ledger_replay": {
+        "status": ledger_replay["status"],
+        "source_panel_sha256": ledger_replay["source_panel_sha256"],
+        "window_rows_replayed": ledger_counts["window_rows_replayed"],
+        "annual_rows_reconciled": ledger_counts["annual_rows_reconciled"],
+        "scenario_summaries_reconciled": ledger_counts["scenario_summaries_reconciled"],
+        "cashflow_invariants_checked": ledger_counts["cashflow_invariants_checked"],
+        "max_abs_error": ledger_counts.get("max_abs_error", {}),
+    },
     "zip_members": ["glidepath_interactive_preview_optimized.html"],
     "zip_inflated_html_matches_canonical_html": True,
     "reverse_direction_replay_status": results.get("reverse_direction_replay", {}).get("replayState", "NOT_REPORTED"),

@@ -91,6 +91,33 @@ jobs:
               "raw_panel_sha256": report["data"]["raw_panel_canonical_sha256"],
           })
           PY
+      - name: Install NumPy for independent ledger replay if missing
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import importlib.util, subprocess, sys
+          if importlib.util.find_spec("numpy") is None:
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "numpy==2.2.6"])
+          import numpy
+          print("NUMPY_READY", numpy.__version__)
+          PY
+      - name: Run independent replay unit tests
+        run: python3 tools/glidepath-browser/test-replay-window-ledger.py -v
+      - name: Independently replay all window cash-flow ledgers
+        env:
+          STAGE2_DIR: ${{ runner.temp }}/stage2-replay/stock-bond-glidepath
+          LEDGER_REPLAY_AUDIT_PATH: ${{ runner.temp }}/glidepath-window-cashflow-ledger-replay.json
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
+        run: |
+          set -euo pipefail
+          python3 tools/glidepath-browser/replay-window-ledger.py \
+            --panel "$STAGE2_DIR/historical_adjusted_close_panel.csv" \
+            --windows "$STAGE2_DIR/stock_bond_glidepath_windows.csv" \
+            --summary "$STAGE2_DIR/stock_bond_glidepath_summary.json" \
+            --flows-csv research/audit_stage2/example_delayed_stepup_schedule.csv \
+            --out "$LEDGER_REPLAY_AUDIT_PATH"
       - name: Refresh the canonical independent trajectory panel
         run: python3 tools/glidepath-browser/ensure-trajectory.py
       - name: Embed exact Stage 2 results into the compact dashboard
@@ -106,7 +133,7 @@ jobs:
       - name: Compile Python tools and JavaScript before browser audit
         run: |
           set -euo pipefail
-          python3 -m py_compile tools/glidepath-browser/embed-eight-timing-pack.py tools/glidepath-browser/finalize.py tools/glidepath-browser/ensure-trajectory.py
+          python3 -m py_compile tools/glidepath-browser/embed-eight-timing-pack.py tools/glidepath-browser/finalize.py tools/glidepath-browser/ensure-trajectory.py tools/glidepath-browser/replay-window-ledger.py
           node --check tools/glidepath-browser/audit.mjs
       - name: Install pinned Playwright and Chromium
         run: |
@@ -122,6 +149,7 @@ jobs:
       - name: Rebuild deterministic ZIP and machine audit JSON
         env:
           AUDIT_RESULTS_PATH: ${{ runner.temp }}/glidepath-browser-audit-results.json
+          LEDGER_REPLAY_AUDIT_PATH: ${{ runner.temp }}/glidepath-window-cashflow-ledger-replay.json
           GITHUB_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
@@ -144,6 +172,13 @@ jobs:
           assert "TM=[\"front_rapid\",\"front_fast\",\"front_loaded\",\"linear\",\"mid_loaded\",\"staggered\",\"back_loaded\",\"back_late\"]" in html
           audit = json.loads(Path("glidepath_preview_optimized_audit.json").read_text(encoding="utf-8"))
           assert audit.get("status") == "BROWSER_AND_STATIC_VERIFICATION_PASSED", audit.get("status")
+          ledger = audit.get("cashflow_window_ledger_replay", {})
+          assert ledger.get("status") == "PASS", ledger.get("status")
+          assert ledger.get("window_rows_replayed") == 160768
+          assert ledger.get("annual_rows_reconciled") == 11264
+          assert ledger.get("scenario_summaries_reconciled") == 1024
+          assert ledger.get("cashflow_invariants_checked") == 482304
+          assert ledger.get("source_panel_sha256") == pack["meta"]["source_sha256"]
           assert audit.get("sha256") == __import__("hashlib").sha256(Path("v2.html").read_bytes()).hexdigest()
           with zipfile.ZipFile("glidepath_interactive_preview_optimized_bundle.zip") as zf:
               assert zf.testzip() is None
@@ -166,6 +201,7 @@ jobs:
             glidepath_interactive_preview_optimized_bundle.zip
             glidepath_preview_optimized_audit.json
             ${{ runner.temp }}/glidepath-browser-audit-results.json
+            ${{ runner.temp }}/glidepath-window-cashflow-ledger-replay.json
           if-no-files-found: error
           retention-days: 14
       - name: Commit verified preview back to this PR branch only
