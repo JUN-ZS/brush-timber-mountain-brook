@@ -68,3 +68,15 @@ if __name__ == "__main__":
     test_hash_chain_and_tamper_detection()
     test_family_snapshot_is_exactly_72()
     print("PASS")
+
+
+import unittest
+
+class EvidenceV1TestSuite(unittest.TestCase):
+    pass
+
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        setattr(EvidenceV1TestSuite, _name, staticmethod(_fn))
+
+del _name, _fn

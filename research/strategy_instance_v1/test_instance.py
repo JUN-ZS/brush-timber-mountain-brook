@@ -134,3 +134,25 @@ def test_performance_tape_fifo_attributes_close_to_opening_decisions():
     rows = {x["trade_id"]: x for x in tape["rows"]}
     assert rows["M1"]["attributed_close_pnl"] == 600.0
     assert rows["M2"]["attributed_close_pnl"] == 400.0
+
+
+import unittest
+
+def test_run_instance_compiles_and_marks_manual_lots():
+    from .run_instance import mark_lots
+    mmk = mark_lots(
+        [{"lot_id": "M1", "code": "US.QQQ.TEST", "side": "LONG", "qty": 2, "avg_price": 5.0, "lot_size": 100, "status": "OPEN"}],
+        {"US.QQQ.TEST": {"lot_size": 100}},
+        {"US.QQQ.TEST": {"bid": 6.0, "ask": 6.4, "mid": 6.2}},
+    )
+    assert mmk["status"] == "OK"
+    assert abs(mmk["unrealized_pnl"] - 240.0) < 1e-9
+
+class StrategyInstanceTestSuite(unittest.TestCase):
+    pass
+
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        setattr(StrategyInstanceTestSuite, _name, staticmethod(_fn))
+
+del _name, _fn

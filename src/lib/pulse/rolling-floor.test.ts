@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { median, couple, divergenceState } from "./rolling-floor.ts";
+import { median, couple, divergenceState, qqqMonthly, buildSignalPanel } from "./rolling-floor.ts";
 
 test("median", () => assert.equal(median([0.1, 0.2, 0.25, 0.9]), 0.225));
 
@@ -53,4 +53,18 @@ test("single available scale is THIN, not evidence of convergence", () => {
   assert.equal(c.divergenceState, "THIN");
   assert.equal(c.agreement, 0);
   assert.equal(c.coupledTarget, c.clockTarget);
+});
+
+
+test("single 22-year QQQ channel cannot manufacture 30Y/50Y scale self-agreement", () => {
+  const qqq = qqqMonthly();
+  const lastDate = qqq[qqq.length - 1].date;
+  const panel = buildSignalPanel([{ id: "QQQ", layer: "OBSERVED", points: qqq }], [lastDate]);
+  const coupled = panel.get(lastDate);
+  assert.ok(coupled);
+  const okScales = coupled.signals.filter((s) => s.status === "OK").map((s) => s.scaleYears);
+  assert.deepEqual(okScales, [20]);
+  assert.equal(coupled.divergenceState, "THIN");
+  assert.equal(coupled.agreement, 0);
+  assert.equal(coupled.coupledTarget, coupled.clockTarget);
 });
