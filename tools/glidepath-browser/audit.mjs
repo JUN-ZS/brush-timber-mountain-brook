@@ -639,9 +639,27 @@ try {
 
   const geometry = await page.locator("#glide circle").evaluateAll(nodes => {
     const vals = nodes.map(node => Number(node.getAttribute("cy")));
-    return {count: vals.length, min: Math.min(...vals), max: Math.max(...vals), non_finite: vals.filter(value => !Number.isFinite(value)).length};
+    const timingValues = Array.from(document.querySelectorAll("#timing option")).map(option => option.value);
+    const yearControl = document.querySelector("#year");
+    const minYear = Number(yearControl.min || 0);
+    const maxYear = Number(yearControl.max || 10);
+    const yearStep = Number(yearControl.step || 1);
+    const yearsPerTiming = Math.floor((maxYear - minYear) / yearStep) + 1;
+    const pairs = nodes.map(node => node.getAttribute("data-timing") + ":" + node.getAttribute("data-year"));
+    return {
+      count: vals.length,
+      expectedCount: timingValues.length * yearsPerTiming,
+      timingCount: timingValues.length,
+      yearsPerTiming,
+      uniqueTimingYearPairs: new Set(pairs).size,
+      min: Math.min(...vals),
+      max: Math.max(...vals),
+      non_finite: vals.filter(value => !Number.isFinite(value)).length
+    };
   });
-  need(geometry.count === 66, "expected 66 glidepath circle nodes, got " + geometry.count);
+  need(geometry.timingCount === 8 && geometry.count === geometry.expectedCount &&
+       geometry.uniqueTimingYearPairs === geometry.expectedCount,
+       "glidepath must render one circle for every timing/year pair (8 timing rules x all years): " + JSON.stringify(geometry));
   // The current selected target can legitimately drive the bond allocation to 100% (cy=y0=15); assert the chart's actual plot bounds, not the default strategy's narrower range.
   need(geometry.non_finite === 0 && geometry.min >= 15 && geometry.max <= 180, "glidepath circle geometry out of plot bounds [15,180]: " + JSON.stringify(geometry));
   result.glidepath_geometry = geometry;
@@ -743,10 +761,14 @@ try {
   need((await page.locator("#label").innerText()).trim().length > 0, "drawdown optimizer left label empty");
   result.interactive_delegations_verified.smart_optimizer_buttons = true;
 
-  result.csv_exports_verified.matrix = await saveCsv(page, "exportMatrix", 48, 23);
+  const expectedMatrixRows = await page.evaluate(() => TG.length * TM.length);
+  need(expectedMatrixRows === 64, "current-year matrix must cover all 8 targets x 8 timing rules: " + expectedMatrixRows);
+  result.csv_exports_verified.matrix = await saveCsv(page, "exportMatrix", expectedMatrixRows, 23);
   result.csv_exports_verified.trajectory = await saveCsv(page, "exportTrajectory", 11, 23);
   result.csv_exports_verified.cohorts = await saveCsv(page, "exportCohort", 14, 19);
-  result.csv_exports_verified.annual = await saveCsv(page, "exportAnnual", 8448, 23);
+  const expectedAnnualRows = await page.evaluate(() => RAW_PACK.a.length);
+  need(expectedAnnualRows === 11264, "annual CSV must export the complete embedded annual grid: " + expectedAnnualRows);
+  result.csv_exports_verified.annual = await saveCsv(page, "exportAnnual", expectedAnnualRows, 23);
 
   for (const viewport of [
     {name: "desktop_1480x1200", width: 1480, height: 1200},
