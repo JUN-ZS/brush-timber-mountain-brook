@@ -136,7 +136,7 @@
   },
   "html_characters": 3667532,
   "v2_1_review": {
-    "source_commit": "b7328a89d3dd7784f8f8b210cf05d0fc63de5b9b",
+    "source_commit": "fc2fa04aec45a77e4c1b9a4fe6255bdcef9d69b8",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -163,7 +163,10 @@
       "decision_evidence_panel_embedded": true,
       "decision_evidence_links_amount_behavior_sample_risk": true,
       "unique_histogram_groups": 4096,
-      "unique_cohort_groups": 14336
+      "unique_cohort_groups": 14336,
+      "cashflow_nav_semantic_sweep": true,
+      "no_withdrawal_zero_cashflow_contract": true,
+      "allocation_path_invariant_across_cashflows": true
     },
     "fixes": [
       "Real purchasing-power breach counts are explicitly unavailable because per-window NAV is not embedded.",
@@ -766,6 +769,40 @@
           "rendered_duplicate_ids": []
         }
       },
+      "cashflow_nav_semantic_sweep": {
+        "total_combinations": 132,
+        "yearly_flow_slices_verified": 132,
+        "primary_nav_bindings_verified": 132,
+        "metric_rows_verified": 132,
+        "allocation_path_bindings_verified": 132,
+        "flow_comparison_bars_verified": 528,
+        "no_withdrawal_zero_cashflow_checks": 33,
+        "data_scope_disclosure_checks": 132,
+        "checked_flows": [
+          "no_withdrawals",
+          "delayed_stepup_example",
+          "monthly_withdrawal_500_usd_stress",
+          "monthly_withdrawal_1000_usd_stress"
+        ],
+        "checked_years": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "checked_stat_views": [
+          "median",
+          "p05",
+          "worst"
+        ]
+      },
       "paired_direction_comparison": {
         "state": "passed",
         "windowCount": 157,
@@ -1207,14 +1244,48 @@
       },
       "limits": "價格來源：src/data/universe.json，截至 2026-09-04，來源 SHA-256 e5012c786152a510…；僅限 SPY/TLT、不提款。未扣交易成本、稅費、滑點；窗口彼此重疊，不是 157 次獨立試驗，也不保證未來表現。",
       "passed": true
+    },
+    "cashflow_nav_semantic_sweep": {
+      "total_combinations": 132,
+      "yearly_flow_slices_verified": 132,
+      "primary_nav_bindings_verified": 132,
+      "metric_rows_verified": 132,
+      "allocation_path_bindings_verified": 132,
+      "flow_comparison_bars_verified": 528,
+      "no_withdrawal_zero_cashflow_checks": 33,
+      "data_scope_disclosure_checks": 132,
+      "checked_flows": [
+        "no_withdrawals",
+        "delayed_stepup_example",
+        "monthly_withdrawal_500_usd_stress",
+        "monthly_withdrawal_1000_usd_stress"
+      ],
+      "checked_years": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "checked_stat_views": [
+        "median",
+        "p05",
+        "worst"
+      ]
     }
   },
-  "bundle_sha256": "e78ff07e49c2c8c62683ba6342c95ffabdecb31b2e57a63a98f4a9204d810f73",
+  "bundle_sha256": "a4714e80246a7b1e954721cb6410f9129f35de536d18abaf9763a6f1bd7f0f3d",
   "html_crc32": "99b3c0be",
   "final_artifact_verification": {
     "status": "PASSED",
     "html_sha256": "ad37fdb2b81906d8505bfe5e665dc260c2e42cf174824ca7c07c4b32e77443b6",
-    "bundle_sha256": "e78ff07e49c2c8c62683ba6342c95ffabdecb31b2e57a63a98f4a9204d810f73",
+    "bundle_sha256": "a4714e80246a7b1e954721cb6410f9129f35de536d18abaf9763a6f1bd7f0f3d",
     "html_bytes": 3681394,
     "bundle_bytes": 882956,
     "html_crc32": "99b3c0be",
@@ -1233,6 +1304,40 @@
       "cohorts_COHORT": 14336
     },
     "annual_year10_summary_mismatches": 0,
+    "cashflow_nav_semantic_sweep": {
+      "total_combinations": 132,
+      "yearly_flow_slices_verified": 132,
+      "primary_nav_bindings_verified": 132,
+      "metric_rows_verified": 132,
+      "allocation_path_bindings_verified": 132,
+      "flow_comparison_bars_verified": 528,
+      "no_withdrawal_zero_cashflow_checks": 33,
+      "data_scope_disclosure_checks": 132,
+      "checked_flows": [
+        "no_withdrawals",
+        "delayed_stepup_example",
+        "monthly_withdrawal_500_usd_stress",
+        "monthly_withdrawal_1000_usd_stress"
+      ],
+      "checked_years": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "checked_stat_views": [
+        "median",
+        "p05",
+        "worst"
+      ]
+    },
     "zip_members": [
       "glidepath_interactive_preview_optimized.html"
     ],
@@ -1246,6 +1351,6 @@
     "paired_direction_comparison_real_235_status": "passed",
     "paired_direction_comparison_real_235_windows": 157,
     "paired_direction_comparison_real_235_passed": true,
-    "created_at_utc": "2026-10-21T12:10:04.540149+00:00"
+    "created_at_utc": "2026-10-21T12:13:48.164706+00:00"
   }
 }
