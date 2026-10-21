@@ -88,9 +88,10 @@ for (let yearNo = 0; yearNo <= 10; yearNo++) {
   assert.strictEqual(shown[1], fmtMoney(actual.p05_nav_usd), "P05 metric must be data-linked at year " + yearNo);
   assert.strictEqual(shown[2], fmtPct(actual.median_cumulative_twr_cagr), "cumulative return must be data-linked at year " + yearNo);
   assert.strictEqual(shown[3], fmtPct(actual.median_drawdown_to_date), "drawdown must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[4], actual.windows_below_initial_capital + "/" + actual.rolling_windows, "capital-floor count must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[5], actual.windows_with_withdrawal_shortfall + "/" + actual.rolling_windows, "shortfall count must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[6], fmtMoney(actual.p95_shortfall_usd), "P95 shortfall must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[4], fmtPct(actual.worst_drawdown_to_date), "worst-window drawdown must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[5], actual.windows_below_initial_capital + "/" + actual.rolling_windows, "capital-floor count must be data-linked at year " + yearNo);
+  assert.strictEqual(shown[6], actual.windows_with_withdrawal_shortfall + "/" + actual.rolling_windows, "shortfall count must be data-linked at year " + yearNo);
+  assert(getElementById("metrics").innerHTML.includes("截至當年P95缺口 " + fmtMoney(actual.p95_shortfall_usd)), "P95 shortfall must be data-linked at year " + yearNo);
   const allocation = getElementById("allocation").innerHTML;
   assert(allocation.includes((100 * actual.median_target_stock_weight).toFixed(1) + "%"), "stock target must match year " + yearNo);
   assert(allocation.includes((100 * actual.median_target_bond_weight).toFixed(1) + "%"), "bond target must match year " + yearNo);
