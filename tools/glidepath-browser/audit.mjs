@@ -86,7 +86,7 @@ async function saveCsv(page, id, expectedRows, expectedCols) {
   need(cols === expectedCols, id + " expected " + expectedCols + " columns, got " + cols);
   const decodedTextBytes = Buffer.byteLength(captured.text);
   need(captured.bytes >= decodedTextBytes && captured.bytes - decodedTextBytes <= 3, id + " Blob/text byte difference exceeds possible UTF-8 BOM: " + captured.bytes + " vs " + decodedTextBytes);
-  return {rows: lines.length - 1, cols, bytes: captured.bytes, decoded_text_bytes: decodedTextBytes, bom_bytes_delta: captured.bytes - decodedTextBytes, file_name: captured.file_name};
+  return {rows: lines.length - 1, cols, headers: lines[0].split(",").map(value => value.replace(/^"|"$/g, "")), data_rows: lines.slice(1).map(line => line.split(",")), bytes: captured.bytes, decoded_text_bytes: decodedTextBytes, bom_bytes_delta: captured.bytes - decodedTextBytes, file_name: captured.file_name};
 }
 
 try {
@@ -996,7 +996,19 @@ try {
 
   const expectedMatrixRows = await page.evaluate(() => TG.length * TM.length);
   need(expectedMatrixRows === 64, "current-year matrix must cover all 8 targets x 8 timing rules: " + expectedMatrixRows);
-  result.csv_exports_verified.matrix = await saveCsv(page, "exportMatrix", expectedMatrixRows, 23);
+  result.csv_exports_verified.matrix = await saveCsv(page, "exportMatrix", expectedMatrixRows, 25);
+  const matrixReal235Column = result.csv_exports_verified.matrix.headers.indexOf("windows_below_real_principal_235");
+  const matrixReal350Column = result.csv_exports_verified.matrix.headers.indexOf("windows_below_real_principal_350");
+  need(matrixReal235Column >= 0 && matrixReal350Column >= 0,
+    "matrix CSV must export both exact real-principal breach count columns: " + JSON.stringify(result.csv_exports_verified.matrix.headers));
+  const validRealCount = value => /^\\d+$/.test(String(value)) && Number(value) >= 0 && Number(value) <= 157;
+  need(result.csv_exports_verified.matrix.data_rows.length === expectedMatrixRows &&
+       result.csv_exports_verified.matrix.data_rows.every(row => validRealCount(row[matrixReal235Column]) && validRealCount(row[matrixReal350Column])),
+    "matrix CSV real-principal counts must be integers in the 0–157 window range for all 64 strategies");
+  result.csv_exports_verified.matrix.real_principal_count_columns = {
+    "2.35_percent": matrixReal235Column, "3.50_percent": matrixReal350Column, verified_rows: expectedMatrixRows
+  };
+
   result.csv_exports_verified.trajectory = await saveCsv(page, "exportTrajectory", 11, 23);
   result.csv_exports_verified.cohorts = await saveCsv(page, "exportCohort", 14, 19);
   const expectedAnnualRows = await page.evaluate(() => RAW_PACK.a.length);
