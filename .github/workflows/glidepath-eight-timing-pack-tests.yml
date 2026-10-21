@@ -1,0 +1,46 @@
+name: Glidepath Eight-Timing Pack Contract
+
+on:
+  pull_request:
+    paths:
+      - "tools/glidepath-browser/embed-eight-timing-pack.py"
+      - "tools/glidepath-browser/test_embed_eight_timing_pack.py"
+      - "tools/glidepath-browser/trajectory-panel.js"
+      - "tools/glidepath-browser/audit.mjs"
+      - "tools/glidepath-browser/finalize.py"
+      - ".github/workflows/glidepath-eight-timing-pack-tests.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: glidepath-eight-timing-pack-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pack-contract:
+    name: Validate eight-timing pack contracts on Linux BOT
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+      - name: Check Python and Node runtimes
+        run: |
+          set -euo pipefail
+          python3 --version
+          node --version
+      - name: Run synthetic eight-timing contract tests
+        run: python3 tools/glidepath-browser/test_embed_eight_timing_pack.py
+      - name: Compile Python tools
+        run: python3 -m py_compile tools/glidepath-browser/embed-eight-timing-pack.py tools/glidepath-browser/finalize.py
+      - name: Parse browser audit JavaScript
+        run: node --check tools/glidepath-browser/audit.mjs
+      - name: Check whitespace and conflict markers
+        run: |
+          set -euo pipefail
+          git diff --check
+          if grep -R -n -E '^(<<<<<<<|=======|>>>>>>>)' tools/glidepath-browser; then
+            echo "Conflict marker found"
+            exit 1
+          fi
