@@ -245,7 +245,7 @@ class EightTimingPackTests(unittest.TestCase):
         self.assertEqual(first_scenario_year10[22], (30+0+0+11)%158)
 
     def test_embeds_eight_selectable_timing_options_and_rewrites_copy(self):
-        pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort)
+        pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort, self.ledger)
         html = PACKER.embed_pack(minimal_html(), pack)
         for timing in PACKER.TIMINGS:
             self.assertIn('value="' + timing + '"', html)
