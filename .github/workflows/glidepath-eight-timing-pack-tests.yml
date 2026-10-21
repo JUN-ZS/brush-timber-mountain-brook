@@ -98,12 +98,18 @@ jobs:
       - name: Install NumPy for independent ledger replay if missing
         run: |
           set -euo pipefail
+          deps_dir="${RUNNER_TEMP}/python-deps"
+          mkdir -p "$deps_dir"
           python3 - <<'PY'
-          import importlib.util, subprocess, sys
+          import importlib.util, os, subprocess, sys
+          target = os.path.join(os.environ["RUNNER_TEMP"], "python-deps")
           if importlib.util.find_spec("numpy") is None:
-              subprocess.check_call([sys.executable, "-m", "pip", "install", "numpy==2.2.6"])
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "--disable-pip-version-check", "--target", target, "numpy==2.2.6"])
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write("PYTHONPATH=" + target + (os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else "") + "\n")
+          sys.path.insert(0, target)
           import numpy
-          print("NUMPY_READY", numpy.__version__)
+          print("NUMPY_READY", numpy.__version__, "from", numpy.__file__)
           PY
       - name: Run independent replay unit tests
         run: python3 tools/glidepath-browser/test-replay-window-ledger.py -v
