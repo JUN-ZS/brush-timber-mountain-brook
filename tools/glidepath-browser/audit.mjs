@@ -309,6 +309,7 @@ try {
           const primary = (document.querySelector("#decisionPrimaryValue")?.innerText || "").trim();
           const flowOption = document.querySelector("#flow").selectedOptions[0];
           const flowLabel = (flowOption?.textContent || "").trim();
+          const timingLabel = (document.querySelector("#timing").selectedOptions[0]?.textContent || "").trim();
           const evidence = document.querySelector("#decisionEvidence");
           const trajectory = document.querySelector("#decisionTrajectory");
           const navMetricRows = Array.from(document.querySelectorAll("#metrics .metric")).map(card => ({
@@ -322,7 +323,7 @@ try {
             ["截至當年累計年化回報", pctText(row[9])],
             ["截至當年最大回撤", pctText(row[13])],
             ["最差窗口截至當年回撤", pctText(row[14])],
-            ["低於起始本金窗口", String(Math.round(Number(row[15]))) + "/157"],
+            ["名目低於本金窗口", String(Math.round(Number(row[15]))) + "/157"],
             ["累計缺口窗口", String(Math.round(Number(row[16]))) + "/157"]
           ];
           const metricReconciles = navMetricRows.length === expectedMetricRows.length &&
@@ -367,7 +368,7 @@ try {
               evidence?.dataset.year === String(year) &&
               evidence?.dataset.bond === bond &&
               evidence?.dataset.target === String(target) &&
-              evidence?.dataset.timing === timing,
+              evidence?.dataset.timing === timingLabel,
             metricReconciles,
             shortfallNoteReconciles,
             metricRows: navMetricRows,
