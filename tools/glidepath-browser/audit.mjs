@@ -249,6 +249,201 @@ try {
     realMode: document.querySelector("#realMode").value,
     statView: document.querySelector("#statView").value
   }));
+  // Cross the full cashflow × year × statistic-view state space. Every visible
+  // value must resolve to one exact annual D/A record with the same five-part key.
+  const cashflowModes = [
+    "no_withdrawals",
+    "delayed_stepup_example",
+    "monthly_withdrawal_500_usd_stress",
+    "monthly_withdrawal_1000_usd_stress"
+  ];
+  const cashflowYears = Array.from({length: 11}, (_, index) => index);
+  const cashflowStats = ["median", "p05", "worst"];
+  const cashflowSemanticSweep = {
+    total_combinations: 0,
+    yearly_flow_slices_verified: 0,
+    primary_nav_bindings_verified: 0,
+    metric_rows_verified: 0,
+    allocation_path_bindings_verified: 0,
+    flow_comparison_bars_verified: 0,
+    no_withdrawal_zero_cashflow_checks: 0,
+    data_scope_disclosure_checks: 0,
+    checked_flows: cashflowModes,
+    checked_years: cashflowYears,
+    checked_stat_views: cashflowStats
+  };
+  const moneyText = value => "$" + Math.round(value).toLocaleString("en-US");
+  const pctText = value => value == null ? "—" : (Number(value) * 100).toFixed(2) + "%";
+
+  for (const flow of cashflowModes) {
+    await page.locator("#flow").selectOption(flow);
+    for (const year of cashflowYears) {
+      await page.locator("#year").evaluate((element, value) => {
+        element.value = String(value);
+        element.dispatchEvent(new Event("input", {bubbles: true}));
+        element.dispatchEvent(new Event("change", {bubbles: true}));
+      }, year);
+      for (const stat of cashflowStats) {
+        await page.locator("#statView").selectOption(stat);
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const state = await page.evaluate(() => {
+          const bond = document.querySelector("#bond").value;
+          const target = Number(document.querySelector("#target").value);
+          const timing = document.querySelector("#timing").value;
+          const flow = document.querySelector("#flow").value;
+          const year = Number(document.querySelector("#year").value);
+          const stat = document.querySelector("#statView").value;
+          const cpi = Math.max(0, Number(document.querySelector("#realMode").value || 0));
+          const bonds = ["AGG", "SHY", "IEF", "TLT"];
+          const timings = ["front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"];
+          const flows = ["no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"];
+          const bi = bonds.indexOf(bond);
+          const ti = timings.indexOf(timing);
+          const fi = flows.indexOf(flow);
+          const row = RAW_PACK.a.find(item => item[0] === year && item[1] === bi && item[2] === target && item[3] === ti && item[4] === fi);
+          if (!row) throw new Error("No exact annual key for flow sweep: " + JSON.stringify({bond, target, timing, flow, year}));
+          const navIndex = stat === "p05" ? 6 : stat === "worst" ? 8 : 5;
+          const expectedPrimary = moneyText(row[navIndex] / Math.pow(1 + cpi, year));
+          const primary = (document.querySelector("#decisionPrimaryValue")?.innerText || "").trim();
+          const flowOption = document.querySelector("#flow").selectedOptions[0];
+          const flowLabel = (flowOption?.textContent || "").trim();
+          const evidence = document.querySelector("#decisionEvidence");
+          const trajectory = document.querySelector("#decisionTrajectory");
+          const navMetricRows = Array.from(document.querySelectorAll("#metrics .metric")).map(card => ({
+            label: (card.querySelector(".k")?.innerText || "").trim(),
+            value: (card.querySelector(".v")?.innerText || "").trim(),
+            note: (card.querySelector(".s")?.innerText || "").trim()
+          }));
+          const expectedMetricRows = [
+            ["第" + year + "年中位資產", moneyText(row[5])],
+            ["第" + year + "年P05資產", moneyText(row[6])],
+            ["截至當年累計年化回報", pctText(row[9])],
+            ["截至當年最大回撤", pctText(row[13])],
+            ["最差窗口截至當年回撤", pctText(row[14])],
+            ["低於起始本金窗口", String(Math.round(Number(row[15]))) + "/157"],
+            ["累計缺口窗口", String(Math.round(Number(row[16]))) + "/157"]
+          ];
+          const metricReconciles = navMetricRows.length === expectedMetricRows.length &&
+            expectedMetricRows.every((expected, index) =>
+              navMetricRows[index].label === expected[0] && navMetricRows[index].value === expected[1]);
+          const shortfallNoteExpected = "截至當年P95缺口 " + moneyText(row[19]);
+          const shortfallNoteReconciles = navMetricRows.length === 7 && navMetricRows[6].note.includes(shortfallNoteExpected);
+          const stockCell = trajectory?.querySelector('[data-series="stock"] td[data-year="' + year + '"]');
+          const bondCell = trajectory?.querySelector('[data-series="bond"] td[data-year="' + year + '"]');
+          const expectedStockPct = Number((100 * (1 - Number(row[20]))).toFixed(4));
+          const expectedBondPct = Number((100 * Number(row[20])).toFixed(4));
+          const stockPct = Number(stockCell?.dataset.stockPct);
+          const bondPct = Number(bondCell?.dataset.bondPct);
+          const bars = Array.from(document.querySelectorAll("#flows .barrow"));
+          const flowBars = flows.map((flowValue, index) => {
+            const flowRow = RAW_PACK.a.find(item => item[0] === year && item[1] === bi && item[2] === target && item[3] === ti && item[4] === index);
+            const bar = bars[index];
+            const gapNote = bar?.nextElementSibling?.innerText || "";
+            return {
+              flow: flowValue,
+              label: (bar?.querySelector("span")?.innerText || "").trim(),
+              nav: (bar?.querySelector("b")?.innerText || "").trim(),
+              expectedNav: moneyText(flowRow[5]),
+              expectedShortfallCount: String(Math.round(Number(flowRow[16]))),
+              expectedP95Shortfall: moneyText(flowRow[19]),
+              gapNote
+            };
+          });
+          const allocationDetail = (document.querySelector("#decisionAllocationDetail")?.innerText || "").trim();
+          const navRound = Math.round(row[navIndex] / Math.pow(1 + cpi, year));
+          const stockPctRounded = Number((100 * (1 - Number(row[20]))).toFixed(2));
+          const bondPctRounded = Number((100 * Number(row[20])).toFixed(2));
+          const expectedStockDollars = moneyText(navRound * stockPctRounded / 100);
+          const expectedBondDollars = moneyText(navRound * bondPctRounded / 100);
+          const evidenceFlow = (document.querySelector("#decisionEvidenceFlow")?.innerText || "").trim();
+          const evidenceScope = (document.querySelector("#decisionEvidenceScope")?.innerText || "").trim();
+          return {
+            bond, target, timing, flow, flowLabel, year, stat, cpi,
+            primary, expectedPrimary,
+            evidenceFlow,
+            evidenceFlowBound: evidence?.dataset.flow === flowLabel &&
+              evidence?.dataset.year === String(year) &&
+              evidence?.dataset.bond === bond &&
+              evidence?.dataset.target === String(target) &&
+              evidence?.dataset.timing === timing,
+            metricReconciles,
+            shortfallNoteReconciles,
+            metricRows: navMetricRows,
+            expectedMetricRows,
+            trajectoryYear: trajectory?.dataset.year || null,
+            stockPct, expectedStockPct, bondPct, expectedBondPct,
+            flowBars,
+            allocationDetail,
+            expectedStockDollars,
+            expectedBondDollars,
+            selectedBond: bond,
+            dataScopeDisclosure: evidenceScope
+          };
+        });
+        const context = JSON.stringify({flow, year, stat, state});
+        need(state.primary === state.expectedPrimary,
+          "cashflow/year/stat NAV binding differs from its exact annual record: " + context);
+        need(state.evidenceFlowBound && state.evidenceFlow.includes(state.flowLabel),
+          "cashflow label/key/year does not match the selected annual key: " + context);
+        need(state.metricReconciles && state.shortfallNoteReconciles,
+          "year NAV/return/drawdown/shortfall metrics do not reconcile to the current flow row: " + context);
+        need(state.trajectoryYear === String(year) &&
+             Number.isFinite(state.stockPct) && Number.isFinite(state.bondPct) &&
+             Math.abs(state.stockPct - state.expectedStockPct) <= 0.0001 &&
+             Math.abs(state.bondPct - state.expectedBondPct) <= 0.0001,
+          "allocation path is not using the same annual record as the selected NAV: " + context);
+        need(state.allocationDetail.includes("股票約 " + state.expectedStockDollars) &&
+             state.allocationDetail.includes(state.selectedBond + " 約 " + state.expectedBondDollars),
+          "allocation dollar split does not reconcile to the selected NAV statistic and target weights: " + context);
+        need(state.dataScopeDisclosure.includes("不代表實際持倉或今日訂單"),
+          "UI must distinguish annual target weights from actual holdings/orders: " + context);
+        for (const bar of state.flowBars) {
+          need(bar.label.length > 0 && bar.nav === bar.expectedNav &&
+               bar.gapNote.includes("截至當年缺口 " + bar.expectedShortfallCount + "/157") &&
+               bar.gapNote.includes("P95缺口 " + bar.expectedP95Shortfall),
+            "cashflow comparison chart bar/gap text is not bound to its own annual row: " + JSON.stringify({flow, year, stat, bar}));
+          cashflowSemanticSweep.flow_comparison_bars_verified++;
+        }
+        if (flow === "no_withdrawals") {
+          const noFlowRow = await page.evaluate((selection) => {
+            const bi = ["AGG", "SHY", "IEF", "TLT"].indexOf(selection.bond);
+            const ti = ["front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"].indexOf(selection.timing);
+            const item = RAW_PACK.a.find(row => row[0] === selection.year && row[1] === bi &&
+              row[2] === selection.target && row[3] === ti && row[4] === 0);
+            return {withdrawals:item[17],medianShortfall:item[18],p95Shortfall:item[19],shortfallWindows:item[16]};
+          }, {bond:state.bond,target:state.target,timing:state.timing,year:state.year});
+          need(Math.abs(Number(noFlowRow.withdrawals)) <= 0.01 &&
+               Math.abs(Number(noFlowRow.medianShortfall)) <= 0.01 &&
+               Math.abs(Number(noFlowRow.p95Shortfall)) <= 0.01 &&
+               Number(noFlowRow.shortfallWindows) === 0,
+            "no-withdrawal annual row must be all-zero for actual withdrawals and shortfalls: " + context + " / " + JSON.stringify(noFlowRow));
+          cashflowSemanticSweep.no_withdrawal_zero_cashflow_checks++;
+        }
+        cashflowSemanticSweep.total_combinations++;
+        cashflowSemanticSweep.yearly_flow_slices_verified++;
+        cashflowSemanticSweep.primary_nav_bindings_verified++;
+        cashflowSemanticSweep.metric_rows_verified++;
+        cashflowSemanticSweep.allocation_path_bindings_verified++;
+        cashflowSemanticSweep.data_scope_disclosure_checks++;
+      }
+    }
+  }
+  result.cashflow_nav_semantic_sweep = cashflowSemanticSweep;
+
+  // Restore the exact original forward-mode state before independent reverse replay.
+  for (const [selector, value] of [
+    ["#flow", originalControls.flow], ["#statView", originalControls.statView],
+    ["#realMode", originalControls.realMode]
+  ]) {
+    await page.locator(selector).selectOption(String(value));
+  }
+  await page.locator("#year").evaluate((element, value) => {
+    element.value = String(value);
+    element.dispatchEvent(new Event("input", {bubbles:true}));
+    element.dispatchEvent(new Event("change", {bubbles:true}));
+  }, Number(originalControls.year));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
   const noWithdrawalValue = await page.locator("#flow").evaluate(el => {
     const option = Array.from(el.options).find(item => /不提款/.test(item.textContent || ""));
     return option ? option.value : null;
