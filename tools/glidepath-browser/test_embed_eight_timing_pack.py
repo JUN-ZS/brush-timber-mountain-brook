@@ -68,6 +68,8 @@ def make_fixture():
                     scenarios.append(scenario)
                     for year in range(11):
                         bond_w = target/100 * BOND_WEIGHT_PATHS[timing][year]
+                        year10 = year == 10
+                        year0 = year == 0
                         annual.append({
                             "year": year,
                             "bond_proxy": bond,
@@ -75,21 +77,21 @@ def make_fixture():
                             "timing_rule": timing,
                             "cashflow_mode": flow,
                             "rolling_windows": 157,
-                            "median_nav_usd": 100000 + 1500*year if year < 10 else terminal,
-                            "p05_nav_usd": 90000 + year*1000,
-                            "p95_nav_usd": 110000 + year*2000,
-                            "worst_nav_usd": 80000 + year*500,
-                            "median_cumulative_twr_cagr": None if year == 0 else (cagr if year == 10 else cagr*year/10),
-                            "p05_cumulative_twr_cagr": None if year == 0 else cagr*year/10-.03,
-                            "median_year_twr": None if year == 0 else .04,
-                            "p05_year_twr": None if year == 0 else -.12,
-                            "median_drawdown_to_date": 0 if year == 0 else (dd if year == 10 else dd/2),
-                            "worst_drawdown_to_date": 0 if year == 0 else dd-.2,
-                            "windows_below_initial_capital": 0 if year == 0 else 2,
-                            "windows_with_withdrawal_shortfall": 0 if year == 0 else shortfall,
-                            "median_actual_withdrawals_usd": 0 if fi == 0 else year*100,
+                            "median_nav_usd": 100000 if year0 else (terminal if year10 else 100000 + 1500*year),
+                            "p05_nav_usd": 100000 if year0 else (terminal*.8 if year10 else 90000 + year*1000),
+                            "p95_nav_usd": 100000 if year0 else (terminal*1.2 if year10 else 110000 + year*2000),
+                            "worst_nav_usd": 100000 if year0 else (terminal*.7 if year10 else 80000 + year*500),
+                            "median_cumulative_twr_cagr": None if year0 else (cagr if year10 else cagr*year/10),
+                            "p05_cumulative_twr_cagr": None if year0 else cagr*year/10-.03,
+                            "median_year_twr": None if year0 else .04,
+                            "p05_year_twr": None if year0 else -.12,
+                            "median_drawdown_to_date": 0 if year0 else (dd if year10 else dd/2),
+                            "worst_drawdown_to_date": 0 if year0 else dd-.2,
+                            "windows_below_initial_capital": 0 if year0 else (3 if year10 else 2),
+                            "windows_with_withdrawal_shortfall": 0 if year0 else shortfall,
+                            "median_actual_withdrawals_usd": 0 if year0 or fi == 0 else year*100,
                             "median_shortfall_usd": 0 if fi < 2 else year*20,
-                            "p95_shortfall_usd": 0 if fi < 2 else year*50,
+                            "p95_shortfall_usd": 0 if fi < 2 else year*250,
                             "median_target_bond_weight": bond_w,
                             "median_target_stock_weight": 1-bond_w,
                         })
@@ -234,6 +236,36 @@ class EightTimingPackTests(unittest.TestCase):
         report, hist, cohort = make_fixture()
         report["scenarios"].pop()
         with self.assertRaisesRegex(ValueError, "1,024"):
+            PACKER.validate_and_pack(report, hist, cohort)
+
+    def test_rejects_no_withdrawal_cashflow_leakage(self):
+        report, hist, cohort = make_fixture()
+        row = next(item for item in report["annual_scenarios"]
+                   if item["cashflow_mode"] == "no_withdrawals" and item["year"] == 5)
+        row["median_actual_withdrawals_usd"] = 25
+        with self.assertRaisesRegex(ValueError, "No-withdrawal mode"):
+            PACKER.validate_and_pack(report, hist, cohort)
+
+    def test_rejects_year_zero_nav_or_cashflow_that_is_not_at_starting_state(self):
+        report, hist, cohort = make_fixture()
+        row = next(item for item in report["annual_scenarios"]
+                   if item["cashflow_mode"] == "monthly_withdrawal_500_usd_stress"
+                   and item["year"] == 0)
+        row["p05_nav_usd"] = 99000
+        with self.assertRaisesRegex(ValueError, "Year-zero p05_nav_usd"):
+            PACKER.validate_and_pack(report, hist, cohort)
+
+    def test_rejects_cashflow_mode_that_changes_target_allocation_schedule(self):
+        report, hist, cohort = make_fixture()
+        row = next(item for item in report["annual_scenarios"]
+                   if item["bond_proxy"] == "AGG" and
+                   item["target_bond_conversion_pct_at_year10"] == 30 and
+                   item["timing_rule"] == "front_fast" and
+                   item["cashflow_mode"] == "no_withdrawals" and
+                   item["year"] == 5)
+        row["median_target_bond_weight"] += 0.01
+        row["median_target_stock_weight"] -= 0.01
+        with self.assertRaisesRegex(ValueError, "allocation schedule"):
             PACKER.validate_and_pack(report, hist, cohort)
 
     def test_rejects_histogram_bins_that_compact_format_would_distort(self):
