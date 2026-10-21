@@ -107,11 +107,20 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
     require(set(annual_keyed) == {(*key, year) for key in keys for year in range(11)},
             "Annual grid is missing one or more strategy/year combinations")
 
-    # Validate the year-specific inputs, every annual weight, and the distinct paths.
+    # Treat allocation targets, portfolio NAV, and external cash flows as separate
+    # quantities. They must reconcile to one scenario/year key, never be inferred
+    # from a label or borrowed from the no-withdrawal baseline.
     paths: dict[tuple[str, int, str], dict[str, tuple[float, ...]]] = {}
+    paths_by_cashflow: dict[tuple[str, int, str], dict[str, tuple[float, ...]]] = {}
     for key in keys:
         summary = by_scenario[key]
-        path_marks: dict[str, list[tuple[int, float]]] = {}
+        path_marks: list[tuple[int, float]] = []
+        prior_cashflow_values = {
+            "median_actual_withdrawals_usd": 0.0,
+            "median_shortfall_usd": 0.0,
+            "p95_shortfall_usd": 0.0,
+            "windows_with_withdrawal_shortfall": 0,
+        }
         for year in range(11):
             row = annual_keyed[(*key, year)]
             bond_w = finite_or_none(row.get("median_target_bond_weight"), f"{key}/{year} bond weight")
@@ -121,33 +130,110 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
                     f"Annual weight outside 0–100%: {key}/{year}")
             require(abs(bond_w + stock_w - 1.0) <= 1e-8,
                     f"Stock/bond weights do not sum to 100%: {key}/{year}")
-            path_marks.setdefault(key[2], []).append((year, bond_w))
+            path_marks.append((year, bond_w))
+
+            nav_fields = ("median_nav_usd", "p05_nav_usd", "p95_nav_usd", "worst_nav_usd")
+            nav_values = {
+                field: finite_or_none(row.get(field), f"{key}/{year} {field}")
+                for field in nav_fields
+            }
+            require(all(value is not None and value >= 0 for value in nav_values.values()),
+                    f"Annual NAV values must be finite and non-negative: {key}/{year}")
+
+            flow_fields = ("median_actual_withdrawals_usd", "median_shortfall_usd", "p95_shortfall_usd")
+            flow_values = {
+                field: finite_or_none(row.get(field), f"{key}/{year} {field}")
+                for field in flow_fields
+            }
+            require(all(value is not None and value >= -0.01 for value in flow_values.values()),
+                    f"Cashflow values must be finite and non-negative: {key}/{year}")
+            require(float(flow_values["p95_shortfall_usd"]) + 0.01 >=
+                    float(flow_values["median_shortfall_usd"]),
+                    f"P95 shortfall is below the median shortfall: {key}/{year}")
+            shortfall_windows = int(row.get("windows_with_withdrawal_shortfall", -1))
+            require(0 <= shortfall_windows <= windows,
+                    f"Shortfall-window count is outside 0–{windows}: {key}/{year}")
+
             if year == 0:
                 require(row.get("median_cumulative_twr_cagr") is None,
                         f"Year zero must not report elapsed-period CAGR: {key}")
+                for field, value in nav_values.items():
+                    require(abs(float(value) - float(initial)) <= 0.02,
+                            f"Year-zero {field} must equal starting NAV {initial}: {key}")
+                require(all(abs(float(value)) <= 0.01 for value in flow_values.values()) and shortfall_windows == 0,
+                        f"Year zero cannot already show withdrawals or a cashflow shortfall: {key}")
+            else:
+                for field, value in flow_values.items():
+                    require(float(value) + 0.01 >= prior_cashflow_values[field],
+                            f"Cumulative cashflow field regressed from year {year-1} to {year}: {key}/{field}")
+                require(shortfall_windows >= prior_cashflow_values["windows_with_withdrawal_shortfall"],
+                        f"Cumulative shortfall-window count regressed: {key}/{year}")
+            prior_cashflow_values = {
+                **{field: float(value) for field, value in flow_values.items()},
+                "windows_with_withdrawal_shortfall": shortfall_windows,
+            }
+
+            if key[3] == "no_withdrawals":
+                require(all(abs(float(value)) <= 0.01 for value in flow_values.values()) and shortfall_windows == 0,
+                        f"No-withdrawal mode must not report actual withdrawals or shortfalls: {key}/{year}")
+
             if year == 10:
-                nav = float(row["median_nav_usd"])
-                terminal = float(summary["median_terminal_nav_usd"])
-                require(abs(nav-terminal) <= 0.02, f"Year-10 NAV does not reconcile: {key}")
+                field_pairs = (
+                    ("median_nav_usd", "median_terminal_nav_usd"),
+                    ("p05_nav_usd", "p05_terminal_nav_usd"),
+                    ("p95_nav_usd", "p95_terminal_nav_usd"),
+                    ("worst_nav_usd", "worst_terminal_nav_usd"),
+                )
+                for annual_field, summary_field in field_pairs:
+                    require(abs(float(row[annual_field]) - float(summary[summary_field])) <= 0.02,
+                            f"Year-10 {annual_field} does not reconcile to {summary_field}: {key}")
                 cagr_a = row.get("median_cumulative_twr_cagr")
                 cagr_s = summary.get("median_time_weighted_cagr")
                 if cagr_a is not None and cagr_s is not None:
                     require(abs(float(cagr_a)-float(cagr_s)) <= 1e-8,
                             f"Year-10 CAGR does not reconcile: {key}")
+                p05_cagr_a = row.get("p05_cumulative_twr_cagr")
+                p05_cagr_s = summary.get("p05_time_weighted_cagr")
+                if p05_cagr_a is not None and p05_cagr_s is not None:
+                    require(abs(float(p05_cagr_a)-float(p05_cagr_s)) <= 1e-8,
+                            f"Year-10 P05 CAGR does not reconcile: {key}")
                 require(abs(float(row["median_drawdown_to_date"]) -
                             float(summary["median_daily_max_drawdown"])) <= 1e-8,
                         f"Year-10 drawdown does not reconcile: {key}")
                 require(int(row["windows_with_withdrawal_shortfall"]) ==
                         int(summary["windows_with_withdrawal_shortfall"]),
                         f"Year-10 shortfall count does not reconcile: {key}")
-        path = tuple(round(weight, 9) for _, weight in sorted(path_marks[key[2]]))
+                require(abs(float(row["median_actual_withdrawals_usd"]) -
+                            float(summary["median_actual_withdrawals_usd"])) <= 0.02,
+                        f"Year-10 actual withdrawals do not reconcile: {key}")
+                require(abs(float(row["p95_shortfall_usd"]) -
+                            float(summary["p95_withdrawal_shortfall_usd"])) <= 0.02,
+                        f"Year-10 P95 shortfall does not reconcile: {key}")
+                require(int(row["windows_below_initial_capital"]) ==
+                        int(summary["windows_below_initial_capital_at_year10"]),
+                        f"Year-10 below-initial-capital count does not reconcile: {key}")
+                if key[3] == "no_withdrawals":
+                    require(abs(float(summary["median_actual_withdrawals_usd"])) <= 0.01 and
+                            abs(float(summary["p95_withdrawal_shortfall_usd"])) <= 0.01 and
+                            int(summary["windows_with_withdrawal_shortfall"]) == 0,
+                            f"No-withdrawal scenario summary contains cashflows or shortfalls: {key}")
+
+        path = tuple(round(weight, 9) for _, weight in sorted(path_marks))
         group_key = (key[0], key[1], key[3])
         paths.setdefault(group_key, {})[key[2]] = path
+        crossflow_key = (key[0], key[1], key[2])
+        paths_by_cashflow.setdefault(crossflow_key, {})[key[3]] = path
     for (bond, target, flow), timing_paths in paths.items():
         require(set(timing_paths) == set(TIMINGS), f"Missing timing paths: {bond}/{target}/{flow}")
         require(len(set(timing_paths.values())) == 8,
                 f"The eight timings must have eight distinct annual paths: {bond}/{target}/{flow}")
         for timing, path in timing_paths.items():
+    for (bond, target, timing), cashflow_paths in paths_by_cashflow.items():
+        require(set(cashflow_paths) == set(FLOWS),
+                f"Annual allocation path is missing a cashflow mode: {bond}/{target}/{timing}")
+        require(len(set(cashflow_paths.values())) == 1,
+                f"Changing cashflow mode must not silently change the target-allocation schedule: {bond}/{target}/{timing}")
+
             require(len(path) == 11 and abs(path[0]) <= 1e-9,
                     f"Path must contain years 0–10 and start at 0% bonds: {bond}/{target}/{flow}/{timing}")
             require(abs(path[-1] - target/100.0) <= 1e-8,
