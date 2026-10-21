@@ -37,15 +37,15 @@ if not isinstance(paired_real_result, dict) or paired_real_result.get("state") !
 
 cashflow_semantics = results.get("cashflow_nav_semantic_sweep")
 expected_cashflow_contract = {
-    "total_combinations": 132,
-    "yearly_flow_slices_verified": 132,
-    "primary_nav_bindings_verified": 132,
-    "metric_rows_verified": 132,
-    "allocation_path_bindings_verified": 132,
-    "flow_comparison_bars_verified": 528,
-    "no_withdrawal_zero_cashflow_checks": 33,
-    "data_scope_disclosure_checks": 132,
-    "real_floor_window_cells_verified": 1056,
+    "total_combinations": 396,
+    "yearly_flow_slices_verified": 396,
+    "primary_nav_bindings_verified": 396,
+    "metric_rows_verified": 396,
+    "allocation_path_bindings_verified": 396,
+    "flow_comparison_bars_verified": 1584,
+    "no_withdrawal_zero_cashflow_checks": 99,
+    "data_scope_disclosure_checks": 396,
+    "real_floor_window_cells_verified": 3168,
 }
 if not isinstance(cashflow_semantics, dict):
     raise SystemExit("Full cashflow × year × statistic NAV semantic sweep is missing.")
@@ -56,6 +56,30 @@ if cashflow_semantics.get("checked_years") != list(range(11)) or cashflow_semant
     raise SystemExit("Cashflow/NAV semantic sweep did not cover every year and statistic view.")
 if cashflow_semantics.get("checked_flows") != ["no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"]:
     raise SystemExit("Cashflow/NAV semantic sweep did not cover the canonical four cashflow modes.")
+if cashflow_semantics.get("checked_inflation_modes") != [0, 0.0235, 0.035]:
+    raise SystemExit("Cashflow/NAV sweep did not validate nominal, 2.35%, and 3.50% inflation modes.")
+
+real_floor_integrity = results.get("real_floor_annual_pack_integrity", {})
+if (
+    real_floor_integrity.get("annual_rows") != 11264
+    or real_floor_integrity.get("rows_with_both_real_floor_counts") != 11264
+    or real_floor_integrity.get("year_zero_rows") != 1024
+    or real_floor_integrity.get("year_zero_zero_breach_rows") != 1024
+    or real_floor_integrity.get("year10_rows") != 1024
+):
+    raise SystemExit("Exact real-principal annual count grid is missing or incomplete.")
+proof = results.get("derived_real_breach_zero_proof", [])
+if len(proof) != 2 or (
+    real_floor_integrity.get("zero_breach_strategies_235") != proof[0].get("provable_zero_real_breach_strategies")
+    or real_floor_integrity.get("zero_breach_strategies_350") != proof[1].get("provable_zero_real_breach_strategies")
+):
+    raise SystemExit("Exact zero-breach counts disagree with the worst-terminal-NAV proof.")
+heatmap_checks = results.get("real_floor_heatmap_checks", [])
+if len(heatmap_checks) != 2 or heatmap_checks != [
+    {"inflation": 0.0235, "cells": 64, "passed": True},
+    {"inflation": 0.035, "cells": 64, "passed": True},
+]:
+    raise SystemExit("Real-principal heatmap did not pass both inflation-rate cell sweeps.")
 
 html_bytes = HTML.read_bytes()
 html_text = html_bytes.decode("utf-8")
@@ -309,6 +333,8 @@ static.update({
     "cashflow_nav_semantic_sweep": True,
     "no_withdrawal_zero_cashflow_contract": True,
     "allocation_path_invariant_across_cashflows": True,
+    "real_floor_annual_grid_complete": real_floor_integrity.get("rows_with_both_real_floor_counts") == 11264,
+    "real_floor_heatmaps_verified_at_235_and_350": len(heatmap_checks) == 2,
     "independent_cashflow_window_ledger_replay": ledger_replay.get("status") == "PASS",
     "zip_decompression_roundtrip": True,
     "zip_crc32_matches_html": True,
@@ -331,6 +357,8 @@ static.update({
 })
 review["headless_browser_verification"] = results
 review["cashflow_nav_semantic_sweep"] = cashflow_semantics
+review["real_floor_annual_pack_integrity"] = real_floor_integrity
+review["real_floor_heatmap_checks"] = heatmap_checks
 review["known_limits"] = [
     "Exact real-principal breach counts for each year, strategy, cashflow mode and inflation assumption are calculated from independently replayed 157-window year-end NAV marks.",
     "The visible real-principal count compares remaining portfolio NAV with initial capital inflated by the selected annual rate; it does not add previously withdrawn cash back to account NAV.",
