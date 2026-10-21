@@ -254,7 +254,7 @@ function terminalForDeployment(a: number, path: number[]) {
   return a * terminalGrowth + ((1 - a) / h) * ladder;
 }
 
-function objective(paths: number[], a: number) {
+function objective(paths: number[][], a: number) {
   const ws = paths.map((p) => terminalForDeployment(a, p));
   const q05 = quantile(ws, 0.05) ?? 0;
   const pNonLoss = ws.filter((w) => w >= 1).length / ws.length;

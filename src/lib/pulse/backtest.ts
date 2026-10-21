@@ -142,7 +142,8 @@ export function coverage() {
   let last = -1;
   let n = 0;
   for (let i = 0; i < v.length; i++) {
-    if (v[i] != null && v[i] > 0) {
+    const value = v[i];
+    if (value != null && value > 0) {
       n += 1;
       if (first < 0) first = i;
       last = i;
@@ -185,9 +186,12 @@ export function state(i: number): {
   }
   const vol = stdev(r20) * Math.sqrt(DAYS);
   const vol5 = stdev(r5) * Math.sqrt(DAYS);
-  const p20 = i >= 20 && q[i - 20] ? p / q[i - 20] - 1 : 0;
-  const p60 = i >= 60 && q[i - 60] ? p / q[i - 60] - 1 : 0;
-  const mom5 = i >= 5 && q[i - 5] ? p / q[i - 5] - 1 : 0;
+  const p20Base = i >= 20 ? q[i - 20] : null;
+  const p60Base = i >= 60 ? q[i - 60] : null;
+  const mom5Base = i >= 5 ? q[i - 5] : null;
+  const p20 = p20Base != null && p20Base > 0 ? p / p20Base - 1 : 0;
+  const p60 = p60Base != null && p60Base > 0 ? p / p60Base - 1 : 0;
+  const mom5 = mom5Base != null && mom5Base > 0 ? p / mom5Base - 1 : 0;
   const vix = close("VIX", i);
   const vixPrev = i >= 5 ? close("VIX", i - 5) : null;
   const vixAccel = vix != null && vixPrev != null ? vix - vixPrev : null;
