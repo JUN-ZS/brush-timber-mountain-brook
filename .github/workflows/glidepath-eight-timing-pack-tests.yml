@@ -3,9 +3,6 @@ name: Glidepath Eight-Timing Pack Contract
 on:
   pull_request:
     paths:
-      - "v2.html"
-      - "glidepath_interactive_preview_optimized_bundle.zip"
-      - "glidepath_preview_optimized_audit.json"
       - "tools/glidepath-browser/**"
       - ".github/workflows/glidepath-eight-timing-pack-tests.yml"
 
@@ -148,14 +145,34 @@ jobs:
       - name: Commit verified preview back to this PR branch only
         env:
           TARGET_BRANCH: ${{ github.head_ref }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # This job tests GitHub's synthetic merge commit (main + PR head). Never
+          # push that merge commit itself to the feature branch: it is not a fast-forward.
+          publish_dir="${RUNNER_TEMP}/glidepath-verified-publication"
+          mkdir -p "$publish_dir"
+          cp v2.html glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json "$publish_dir/"
+
+          git fetch --no-tags origin "refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
+          actual_head="$(git rev-parse "refs/remotes/origin/${TARGET_BRANCH}")"
+          if [[ "$actual_head" != "$EXPECTED_HEAD" ]]; then
+            echo "PR branch moved during validation; refusing to publish an artifact generated from stale code."
+            echo "Expected PR head: $EXPECTED_HEAD"
+            echo "Actual branch head: $actual_head"
+            exit 1
+          fi
+
+          # Rebase publication onto the exact PR head, then restore only the verified
+          # generated assets. The browser audit itself was run on the main+PR merge ref.
+          git checkout --force -B "$TARGET_BRANCH" "$actual_head"
+          cp "$publish_dir/v2.html" v2.html
+          cp "$publish_dir/glidepath_interactive_preview_optimized_bundle.zip" glidepath_interactive_preview_optimized_bundle.zip
+          cp "$publish_dir/glidepath_preview_optimized_audit.json" glidepath_preview_optimized_audit.json
           git add v2.html glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json
           if git diff --cached --quiet; then
             echo "Verified compact preview already matches the exact replay artifact."
           else
             git commit -m "feat(glidepath): publish verified eight-timing preview"
-            git push origin "HEAD:${TARGET_BRANCH}"
+            git push origin "HEAD:refs/heads/${TARGET_BRANCH}"
           fi
