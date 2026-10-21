@@ -43,7 +43,7 @@ async function inspectRender(page) {
     for (const element of document.querySelectorAll("svg *")) {
       for (const attribute of Array.from(element.attributes)) {
         if (/\b(?:NaN|undefined)\b/i.test(attribute.value)) {
-          badAttributes.push({tag: element.tagName, name: attribute.name, value: attribute.value});
+          badAttributes.push({tag: element.tagName, id: element.id || null, className: typeof element.className === "string" ? element.className : null, svgId: element.closest("svg")?.id || null, name: attribute.name, value: attribute.value, outerHTML: element.outerHTML.slice(0, 500)});
         }
       }
     }
