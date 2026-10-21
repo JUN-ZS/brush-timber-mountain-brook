@@ -15,7 +15,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  publication_guard:
+    name: Skip recursive rebuild after generated preview publication
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    outputs:
+      run_pack: ${{ steps.guard.outputs.run_pack }}
+    steps:
+      - name: Checkout exact PR head commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          clean: true
+      - name: Detect workflow-generated publication commit
+        id: guard
+        run: |
+          set -euo pipefail
+          subject="$(git log -1 --format=%s)"
+          if [[ "$subject" == "feat(glidepath): publish verified eight-timing preview" ]]; then
+            echo "run_pack=false" >> "$GITHUB_OUTPUT"
+            echo "Generated preview publication only; skip recursive browser rebuild."
+          else
+            echo "run_pack=true" >> "$GITHUB_OUTPUT"
+            echo "Source/test changes detected; run full validation."
+          fi
+
   pack-contract:
+    needs: publication_guard
+    if: ${{ needs.publication_guard.outputs.run_pack == 'true' }}
     name: Pack the pinned eight-timing replay and verify browser behavior on Linux BOT
     runs-on: [self-hosted, grokbot-box-linux-x64]
     timeout-minutes: 25
