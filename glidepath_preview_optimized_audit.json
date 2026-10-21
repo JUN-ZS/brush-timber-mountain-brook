@@ -136,7 +136,7 @@
   },
   "html_characters": 3667532,
   "v2_1_review": {
-    "source_commit": "936a87410d449a65c749054ec3ca0bb8ed80dc69",
+    "source_commit": "b7328a89d3dd7784f8f8b210cf05d0fc63de5b9b",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -1209,12 +1209,12 @@
       "passed": true
     }
   },
-  "bundle_sha256": "f722b0c01e27ae7794f14fa3e58dacb2142b14e692f8b6da61d8dd6f98318dcc",
+  "bundle_sha256": "e78ff07e49c2c8c62683ba6342c95ffabdecb31b2e57a63a98f4a9204d810f73",
   "html_crc32": "99b3c0be",
   "final_artifact_verification": {
     "status": "PASSED",
     "html_sha256": "ad37fdb2b81906d8505bfe5e665dc260c2e42cf174824ca7c07c4b32e77443b6",
-    "bundle_sha256": "f722b0c01e27ae7794f14fa3e58dacb2142b14e692f8b6da61d8dd6f98318dcc",
+    "bundle_sha256": "e78ff07e49c2c8c62683ba6342c95ffabdecb31b2e57a63a98f4a9204d810f73",
     "html_bytes": 3681394,
     "bundle_bytes": 882956,
     "html_crc32": "99b3c0be",
@@ -1246,6 +1246,6 @@
     "paired_direction_comparison_real_235_status": "passed",
     "paired_direction_comparison_real_235_windows": 157,
     "paired_direction_comparison_real_235_passed": true,
-    "created_at_utc": "2026-10-21T06:57:03.973462+00:00"
+    "created_at_utc": "2026-10-21T12:10:04.540149+00:00"
   }
 }
