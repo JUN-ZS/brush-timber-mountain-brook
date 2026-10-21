@@ -1,6 +1,9 @@
 import datetime as dt
 import unittest
 
+from unittest.mock import patch
+
+import stock_bond_glidepath_backtest as glidepath
 from cashflow_aware_qqq_spy import FlowEvent
 from stock_bond_glidepath_backtest import (
     BOND_TICKERS,
@@ -33,6 +36,32 @@ def market_fixture(months=121):
 
 
 class StockBondGlidepathTests(unittest.TestCase):
+    def test_market_panel_loader_reconciles_parallel_ticker_downloads(self):
+        expected_days = []
+        year, month = 2003, 7
+        for _ in range(131):
+            expected_days.append(dt.date(year, month, 28).isoformat())
+            month += 1
+            if month == 13:
+                year += 1
+                month = 1
+
+        def fake_download(ticker):
+            offset = glidepath.TICKERS.index(ticker) * 10
+            return {day: float(100 + offset + index) for index, day in enumerate(expected_days)}
+
+        with patch.object(glidepath, "download_adjusted_close", side_effect=fake_download) as mocked:
+            dates, prices, monthly_indices, source = glidepath.load_common_market_panel()
+
+        self.assertCountEqual([call.args[0] for call in mocked.call_args_list], list(glidepath.TICKERS))
+        self.assertEqual(len(dates), 131)
+        self.assertEqual(len(monthly_indices), 131)
+        self.assertEqual(set(prices), set(glidepath.TICKERS))
+        self.assertEqual(source["metadata"]["daily_common_observations"], 131)
+        self.assertEqual(source["metadata"]["common_month_end_observations"], 131)
+        self.assertEqual(len(source["metadata"]["raw_panel_canonical_sha256"]), 64)
+        self.assertEqual(len(source["canonical_csv"].splitlines()), 132)
+
     def test_targets_are_30_to_100_and_weight_steps_are_linear(self):
         self.assertEqual(TARGET_CONVERSIONS, (30, 40, 50, 60, 70, 80, 90, 100))
         self.assertEqual(TIMING_RULES, ("front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"))
