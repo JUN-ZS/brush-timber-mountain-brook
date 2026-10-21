@@ -217,7 +217,7 @@ inflation_views = results.get("real_floor_inflation_views", {})
 if inflation_views.get("rate_2_35_cells") != 8 or inflation_views.get("rate_3_50_cells") != 8 or inflation_views.get("passed") is not True:
     raise SystemExit("Browser did not verify both inflation modes against all eight real-principal timing rows.")
 for evidence_text in (
-    f"年通脹 2.35% 時，{strategy_count} 組第10年策略中有 {proof_235} 組",
+    f"年通脹 2.35% 時，{strategy_count:,} 組第10年策略中有 {proof_235} 組",
     f"年通脹 3.50% 時是 {proof_350} 組",
     "逐窗口重播",
     "不代表途中不回撤",
