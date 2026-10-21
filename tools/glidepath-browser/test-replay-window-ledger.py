@@ -23,6 +23,12 @@ class IndependentLedgerReplayTests(unittest.TestCase):
         self.assertEqual(r["requested_withdrawals_usd"],1000.0); self.assertEqual(r["actual_withdrawals_usd"],1000.0)
         self.assertEqual(r["withdrawal_shortfall_usd"],0.0); self.assertEqual(r["additional_deposits_usd"],500.0)
         self.assertEqual(r["terminal_nav_usd"],99500.0); self.assertAlmostEqual(r["time_weighted_cagr"],0.0,places=12)
+    def test_comparison_counter_increments_once_per_field(self):
+        stats={"fields_compared":0,"max_abs_error":{}}
+        M.close_value(100.0,"100","test_numeric",stats,"counter")
+        self.assertEqual(stats["fields_compared"],1)
+        M.close_value("linear","linear","timing_rule",stats,"counter")
+        self.assertEqual(stats["fields_compared"],2)
     def test_depletion_and_unpaid_withdrawals_are_explicit(self):
         d,p,m=flat_market(); ev={k:[("withdrawal",1000.0)] for k in range(1,121)}
         r,_=M.replay_window(d,p,m,0,"AGG",60,"linear","monthly_withdrawal_1000_usd_stress",ev)

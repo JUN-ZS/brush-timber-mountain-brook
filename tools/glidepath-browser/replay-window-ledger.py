@@ -143,7 +143,7 @@ def close_value(got,expected,field,stats,label):
     else:
         a=float(got); b=float(expected)
         tol=USD_TOL if field.endswith("_usd") or field=="nominal_net_result_usd" else (DD_TOL if field=="daily_max_drawdown" else RATE_TOL)
-        err=abs(a-b); stats["fields_compared"]+=1
+        err=abs(a-b)
         stats["max_abs_error"][field]=max(stats["max_abs_error"].get(field,0),err)
         need(err<=tol,f"{label} {field}: replay={a} source={b} abs_error={err} tol={tol}")
     stats["fields_compared"]+=1
