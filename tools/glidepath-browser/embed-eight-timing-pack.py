@@ -607,7 +607,7 @@ def main() -> int:
         "annual_summaries": len(pack["a"]),
         "histogram_groups": len(pack["h"]),
         "cohort_rows": len(pack["c"]),
-        "real_floor_annual_rows": len(real_floor_by_key),
+        "real_floor_annual_rows": len(pack["a"]),
         "cohort_years": pack["meta"]["cohort_years"],
         "html_characters": len(updated),
     }, ensure_ascii=False, indent=2))
