@@ -58,7 +58,8 @@ def index4(key: tuple[str, int, str, str]) -> list[int]:
     return [BONDS.index(bond), target, TIMINGS.index(timing), FLOWS.index(flow)]
 
 def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
-                      cohort_report: dict[str, Any]) -> dict[str, Any]:
+                      cohort_report: dict[str, Any],
+                      ledger_replay_report: dict[str, Any]) -> dict[str, Any]:
     require(report.get("schema") == EXPECTED_SCHEMA, "Unexpected Stage 2 backtest schema")
     method = report.get("method", {})
     data = report.get("data", {})
@@ -106,6 +107,41 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
             f"Expected 11,264 unique annual records, got {len(annual_keyed)}")
     require(set(annual_keyed) == {(*key, year) for key in keys for year in range(11)},
             "Annual grid is missing one or more strategy/year combinations")
+
+    require(ledger_replay_report.get("schema") == "glidepath-window-cashflow-ledger-replay.v1" and
+            ledger_replay_report.get("status") == "PASS",
+            "Independent cashflow-ledger replay must publish PASS before real-principal counts can be embedded")
+    require(ledger_replay_report.get("source_panel_sha256") == source_sha and
+            ledger_replay_report.get("source_as_of") == data.get("last_common_date") and
+            int(ledger_replay_report.get("rolling_windows_per_scenario", 0)) == windows,
+            "Independent real-principal counts differ from the pinned price source/window protocol")
+    ledger_counts = ledger_replay_report.get("counters", {})
+    require(ledger_counts.get("window_rows_replayed") == 160768 and
+            ledger_counts.get("annual_rows_reconciled") == 11264 and
+            ledger_counts.get("scenario_summaries_reconciled") == 1024 and
+            ledger_counts.get("real_floor_annual_rows") == 11264,
+            "Independent ledger replay does not cover the full window and annual real-principal grid")
+    require(ledger_replay_report.get("real_floor_annual_count_rates") == [0.0235, 0.035],
+            "Independent real-principal counts must contain exactly the 2.35% and 3.50% assumptions")
+    real_floor_rows = ledger_replay_report.get("real_floor_annual_counts", [])
+    real_floor_by_key: dict[tuple[str, int, str, str, int], tuple[int, int]] = {}
+    for item in real_floor_rows:
+        require(isinstance(item, list) and len(item) == 7 and all(isinstance(value, int) for value in item),
+                "Malformed real-principal count row")
+        year, bond_index, target, timing_index, flow_index, count235, count350 = item
+        require(year in range(11) and bond_index in range(len(BONDS)) and target in TARGETS and
+                timing_index in range(len(TIMINGS)) and flow_index in range(len(FLOWS)),
+                f"Invalid real-principal count key: {item}")
+        key = (BONDS[bond_index], target, TIMINGS[timing_index], FLOWS[flow_index], year)
+        require(key not in real_floor_by_key, f"Duplicate real-principal count key: {key}")
+        require(0 <= count235 <= windows and 0 <= count350 <= windows,
+                f"Real-principal breach count outside 0–{windows}: {key}")
+        if year == 0:
+            require(count235 == 0 and count350 == 0,
+                    f"Year-zero real-principal breach counts must be zero: {key}")
+        real_floor_by_key[key] = (count235, count350)
+    require(len(real_floor_rows) == 11264 and set(real_floor_by_key) == set(annual_keyed),
+            "Independent real-principal count grid must contain one row for every strategy/year key")
 
     # Treat allocation targets, portfolio NAV, and external cash flows as separate
     # quantities. They must reconcile to one scenario/year key, never be inferred
@@ -344,6 +380,7 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
                 int(row["windows_below_initial_capital"]), int(row["windows_with_withdrawal_shortfall"]),
                 rounded(row["median_actual_withdrawals_usd"], 2), rounded(row["median_shortfall_usd"], 2),
                 rounded(row["p95_shortfall_usd"], 2), rounded(row["median_target_bond_weight"]),
+                real_floor_by_key[(*key, year)][0], real_floor_by_key[(*key, year)][1],
             ])
     h = []
     for key in keys:
@@ -405,6 +442,33 @@ def embed_pack(html: str, pack: dict[str, Any]) -> str:
     new_arrays = '''const TG=[30,40,50,60,70,80,90,100],TM=["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"],FL=["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"],BM=["AGG","SHY","IEF","TLT"],MM=["terminal_nav_usd","time_weighted_cagr","daily_max_drawdown","withdrawal_shortfall_usd"];
 const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前置",linear:"線性",mid_loaded:"中段S曲線",staggered:"分段轉換",back_loaded:"後置",back_late:"延後"},FN={no_withdrawals:"不提款",delayed_stepup_example:"延遲步進提款＋後續投入",monthly_withdrawal_500_usd_stress:"每月$500",monthly_withdrawal_1000_usd_stress:"每月$1,000"},C={blue:"#3977a8",teal:"#329b8a",orange:"#d97706",crimson:"#dc2626",AGG:"#3274a1",SHY:"#2a9d8f",IEF:"#e07a35",TLT:"#7966a8",front_rapid:"#9c2f55",front_fast:"#c94c4c",front_loaded:"#dd8547",linear:"#3274a1",mid_loaded:"#59a14f",staggered:"#6f9f76",back_loaded:"#8c78bd",back_late:"#b07aa1",grid:"#e8edf3",muted:"#718096",navy:"#203a59"};'''
     html = html[:old_arrays_start.start()] + new_arrays + html[old_arrays_start.end():]
+
+
+    # Real-principal counts come from the independent replay, not from NAV quantiles.
+    html = replace_once(html,
+        "median_target_bond_weight:bw,median_target_stock_weight:sw};",
+        "median_target_bond_weight:bw,median_target_stock_weight:sw,windows_below_real_principal_235:r[21],windows_below_real_principal_350:r[22]};",
+        "annual real-principal properties")
+    html = replace_once(html,
+        '[s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],',
+        '[s.cpi>0?"低於實質本金窗口":"名目低於本金窗口",s.cpi>0?(s.cpi>=0.03?r.windows_below_real_principal_350:r.windows_below_real_principal_235)+"/"+r.rolling_windows:r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"逐窗口年末 NAV 比較通膨調整本金門檻；"+floorLabel+"；提款後只計剩餘 NAV":"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],',
+        "real-principal metric card")
+    html = replace_once(html,
+        "(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')",
+        "(s.cpi>0?'低於實質本金窗口':'名目低於本金')",
+        "real-principal table header")
+    html = replace_once(html,
+        "(s.cpi>0?'未精算（名目 '+v.windows_below_initial_capital+'/'+v.rolling_windows+'）':v.windows_below_initial_capital+'/'+v.rolling_windows)",
+        "(s.cpi>0?(s.cpi>=0.03?v.windows_below_real_principal_350:v.windows_below_real_principal_235)+'/'+v.rolling_windows:v.windows_below_initial_capital+'/'+v.rolling_windows)",
+        "real-principal table count")
+    html = replace_once(html,
+        '" 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 " +',
+        '" 組經逐窗口核算確認「157 個歷史窗口期末 NAV 均未跌破實質本金」；年通脹 3.50% 時是 " +',
+        "real-principal zero-breach evidence")
+    html = replace_once(html,
+        '" 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";',
+        '" 各策略在每個年份的實質本金缺口均已由獨立逐窗口重播計算；表格顯示該年期末 NAV 低於通膨調整本金門檻的窗口數。提款情境只計剩餘 NAV，不把已取走的現金加回；157 個重疊窗口不是未來機率。";',
+        "real-principal risk text")
 
     old_counts = "✓ 768 組策略 · 8,448 筆年度摘要"
     html = html.replace(old_counts, "✓ 1,024 組策略 · 11,264 筆年度摘要")
@@ -503,13 +567,15 @@ def main() -> int:
     parser.add_argument("--summary", type=Path, required=True)
     parser.add_argument("--histograms", type=Path, required=True)
     parser.add_argument("--cohorts", type=Path, required=True)
+    parser.add_argument("--ledger-replay", type=Path, required=True)
     parser.add_argument("--html", type=Path, default=ROOT / "v2.html")
     args = parser.parse_args()
 
     report = json.loads(args.summary.read_text(encoding="utf-8"))
     hist = json.loads(args.histograms.read_text(encoding="utf-8"))
     cohort_report = json.loads(args.cohorts.read_text(encoding="utf-8"))
-    pack = validate_and_pack(report, hist, cohort_report)
+    ledger_replay_report = json.loads(args.ledger_replay.read_text(encoding="utf-8"))
+    pack = validate_and_pack(report, hist, cohort_report, ledger_replay_report)
     original = args.html.read_text(encoding="utf-8")
     updated = embed_pack(original, pack)
     args.html.write_text(updated, encoding="utf-8")
@@ -521,6 +587,7 @@ def main() -> int:
         "annual_summaries": len(pack["a"]),
         "histogram_groups": len(pack["h"]),
         "cohort_rows": len(pack["c"]),
+        "real_floor_annual_rows": len(real_floor_by_key),
         "cohort_years": pack["meta"]["cohort_years"],
         "html_characters": len(updated),
     }, ensure_ascii=False, indent=2))

@@ -188,7 +188,8 @@ def main():
     annuals={(r["bond_proxy"],int(r["target_bond_conversion_pct_at_year10"]),r["timing_rule"],r["cashflow_mode"],int(r["year"])):r for r in report["annual_scenarios"]}
     need(len(scenarios)==1024 and len(annuals)==11264,"Incomplete source summaries")
     stats={"fields_compared":0,"max_abs_error":{},"window_rows_replayed":0,"annual_rows_reconciled":0,
-      "scenario_summaries_reconciled":0,"cashflow_invariants_checked":0,"yearly_navs_reconciled":0,"daily_drawdown_paths_replayed":0}
+      "scenario_summaries_reconciled":0,"cashflow_invariants_checked":0,"yearly_navs_reconciled":0,"daily_drawdown_paths_replayed":0,"real_floor_annual_rows":0}
+    real_floor_annual_counts=[]
     with a.windows.open(newline="",encoding="utf-8") as f:
       sources=iter(csv.DictReader(f))
       for mode in FLOWS:
@@ -234,6 +235,15 @@ def main():
             stats["max_abs_error"][name]=max(stats["max_abs_error"].get(name,0),err)
             need(err<=tol,f"Annual summary mismatch {ak}/{field}: {value} vs {expected}")
            stats["annual_rows_reconciled"]+=1; stats["yearly_navs_reconciled"]+=1
+           year_navs=[float(mark["nav_usd"]) for mark in marks_by_year[y]]
+           threshold235=INITIAL*(1.0+0.0235)**y
+           threshold350=INITIAL*(1.0+0.035)**y
+           real_floor_annual_counts.append([
+             y,BONDS.index(bond),target,TIMINGS.index(timing),FLOWS.index(mode),
+             sum(nav<threshold235 for nav in year_navs),
+             sum(nav<threshold350 for nav in year_navs)
+           ])
+           stats["real_floor_annual_rows"]+=1
           if stats["scenario_summaries_reconciled"]%32==0:
            print("LEDGER_REPLAY_PROGRESS",stats["scenario_summaries_reconciled"],"/1024",flush=True)
       try: next(sources); raise ValueError("Window CSV contains unexpected extra rows")
@@ -245,7 +255,12 @@ def main():
       "source_panel_sha256":panel_sha,"source_as_of":dates[-1],"initial_capital_usd":INITIAL,
       "rolling_windows_per_scenario":157,"scenario_count":stats["scenario_summaries_reconciled"],
       "window_rows_expected":160768,"annual_summary_rows_expected":11264,"cashflow_modes":list(FLOWS),"counters":stats,
-      "limitations":["Daily marks are rounded to 10 decimals in the pinned panel; USD tolerance allows sub-cent drift.",
+      "real_floor_annual_count_schema":["year","bond_index","target_pct","timing_index","flow_index","below_real_principal_235_count","below_real_principal_350_count"],
+      "real_floor_annual_count_rates":[0.0235,0.035],
+      "real_floor_annual_counts":real_floor_annual_counts,
+      "limitations":["Counts compare annual year-end portfolio NAV against initial capital × (1 + assumed annual inflation)^year with a strict less-than test.",
+       "For withdrawal modes, counts use remaining portfolio NAV and do not add previously withdrawn cash back to account NAV.",
+       "Daily marks are rounded to 10 decimals in the pinned panel; USD tolerance allows sub-cent drift.",
        "XIRR is not recomputed; this audit checks NAV, market return, and external cashflow arithmetic.",
        "157 overlapping ten-year windows are not independent trials.",
        "Pass validates independent accounting reconstruction against a pinned artifact, not predictive validity."]}
