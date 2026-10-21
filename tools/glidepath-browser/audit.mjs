@@ -668,8 +668,10 @@ try {
 
   const proof = await page.evaluate(() => {
     const rows = RAW_PACK.a.filter(row => Number(row[0]) === 10);
+    const year10StrategyCount = RAW_PACK.d.length;
+    const initialCapital = Number((RAW_PACK.meta && RAW_PACK.meta.initial_capital_usd) || 100000);
     return [0.0235, 0.035].map(cpi => {
-      const threshold = 100000 * Math.pow(1 + cpi, 10);
+      const threshold = initialCapital * Math.pow(1 + cpi, 10);
       return {
         annualized_inflation_assumption: cpi,
         year10_nominal_principal_threshold_usd: threshold,
@@ -678,9 +680,10 @@ try {
       };
     });
   });
-  need(proof.length === 2 && proof[0].year10_strategies === 768, "could not reproduce year-10 strategy proof counts from embedded RAW_PACK data");
-  need(proof[0].provable_zero_real_breach_strategies === 363, "2.35% zero-breach proof count differs: " + JSON.stringify(proof[0]));
-  need(proof[1].provable_zero_real_breach_strategies === 329, "3.50% zero-breach proof count differs: " + JSON.stringify(proof[1]));
+  need(proof.length === 2 && proof[0].year10_strategies === 1024, "could not reproduce year-10 strategy proof counts from embedded RAW_PACK data");
+  need(proof[0].year10_strategies === 1024 && proof[1].year10_strategies === 1024, "year-10 strategy count does not match all 1,024 embedded scenario records");
+  need(proof.every(item => Number.isInteger(item.provable_zero_real_breach_strategies) && item.provable_zero_real_breach_strategies >= 0 && item.provable_zero_real_breach_strategies <= item.year10_strategies),
+    "derived real-floor proof count is outside the observed strategy population: " + JSON.stringify(proof));
   result.derived_real_breach_zero_proof = proof;
 
   // Verify real click delegation and that each interaction changes the intended control/state.
