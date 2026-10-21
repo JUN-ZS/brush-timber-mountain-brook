@@ -589,7 +589,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     if "function heatmapX(s)" in html:
         if "const realCount=s.cpi>=0.03?r.windows_below_real_principal_350:r.windows_below_real_principal_235;" not in html:
             heatmap_guard = re.compile(
-                r"if\(metric==='windows_below_initial_capital'&&s\.cpi>0\)return '<p class=\"tiny\".*?</p>';\s*const cellVal=r=>\{\s*if\(!r\|\|r\[metric\]==null\)return null;\s*let v=\+r\[metric\];",
+                r"""if\(metric==='windows_below_initial_capital'&&s\.cpi>0\)return '<p class="tiny".*?</p>';\s*const cellVal=r=>\{\s*if\(!r\|\|r\[metric\]==null\)return null;\s*let v=\+r\[metric\];""",
                 re.S,
             )
             replacement = """if(metric==='windows_below_initial_capital'&&s.cpi>0)labels.windows_below_initial_capital="低於實質本金窗口";
