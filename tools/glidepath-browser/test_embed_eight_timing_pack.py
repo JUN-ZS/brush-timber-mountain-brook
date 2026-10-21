@@ -20,7 +20,7 @@ BOND_WEIGHT_PATHS = {
     "front_loaded": (0, .166667, .333333, .50, .555556, .611111, .666667, .722222, .777778, .888889, 1),
     "linear": (0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1),
     "mid_loaded": (0, .03, .10, .22, .38, .58, .76, .90, .97, .995, 1),
-    "staggered": (0, .125, .25, .375, .50, .50, .625, .75, .875, .9375, 1),
+    "staggered": (0, .125, .25, .333333, .416667, .50, .583333, .666667, .75, .875, 1),
     "back_loaded": (0, 0, 0, 0, 0, 0, .2, .4, .6, .8, 1),
     "back_late": (0, 0, 0, 0, 0, 0, 0, 0, 1/3, 2/3, 1),
 }
@@ -170,7 +170,17 @@ def minimal_html():
 const RAW_PACK={"cm":{},"d":[],"a":[],"h":[],"c":[]};
 const TG=[30],TM=["front_fast"],FL=["no_withdrawals"],BM=["AGG"],MM=["terminal_nav_usd"];
 const TN={front_fast:"加速前置"},FN={no_withdrawals:"不提款"},C={front_fast:"#c94c4c"};
-function dummy(){ const m=(m==="front_loaded"?"6 4":m==="back_loaded"?"2 4":""); }
+function scatter() {
+let shape=r.timing_rule,mark;
+    if(shape==="front_fast")mark='<rect x="'+(x-3.5).toFixed(1)+'" y="'+(y-3.5).toFixed(1)+'" width="7" height="7"';
+    else if(shape==="front_loaded")mark='<polygon points="'+x.toFixed(1)+','+(y-4.5).toFixed(1)+' '+(x-4.5).toFixed(1)+','+(y+3.5).toFixed(1)+' '+(x+4.5).toFixed(1)+','+(y+3.5).toFixed(1)+'"';
+    else if(shape==="linear")mark='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(sel?5.2:3.3)+'"';
+    else if(shape==="mid_loaded")mark='<polygon points="'+x.toFixed(1)+','+(y-5).toFixed(1)+' '+(x-5).toFixed(1)+','+y.toFixed(1)+' '+x.toFixed(1)+','+(y+5).toFixed(1)+' '+(x+5).toFixed(1)+','+y.toFixed(1)+'"';
+    else if(shape==="back_loaded")mark='<polygon points="'+(x-4.5).toFixed(1)+','+(y-3.5).toFixed(1)+' '+(x+4.5).toFixed(1)+','+(y-3.5).toFixed(1)+' '+x.toFixed(1)+','+(y+5).toFixed(1)+'"';
+    else mark='<path d="M '+(x-4).toFixed(1)+' '+y.toFixed(1)+' H '+(x+4).toFixed(1)+' M '+x.toFixed(1)+' '+(y-4).toFixed(1)+' V '+(y+4).toFixed(1)+'" ';
+    let close=shape==="front_fast"?"</rect>":shape==="front_loaded"||shape==="mid_loaded"||shape==="back_loaded"?"</polygon>":shape==="linear"?"</circle>":"</path>";
+}
+const dash=(m==="front_loaded"?"6 4":m==="back_loaded"?"2 4":"");
 </script></body></html>'''
 
 class EightTimingPackTests(unittest.TestCase):
