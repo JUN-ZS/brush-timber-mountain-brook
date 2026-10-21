@@ -364,7 +364,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     html = replace_once(html, old_dash, new_dash, "glide path timing dash mapping")
 
     # The four timing-independent source declarations below must remain intact.
-    require('const TM=["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"]' in html,
+    require('TM=["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"]' in html,
             "Eight timing identifiers were not embedded")
     for count, marker in ((1024, '"d":'), (11264, '"a":'), (4096, '"h":'), (len(pack["c"]), '"c":')):
         require(count > 0 and marker in payload, f"Packed data missing {marker}")
