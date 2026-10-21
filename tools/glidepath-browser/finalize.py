@@ -252,18 +252,7 @@ ledger_replay_summary.update({
     "fields_compared": ledger_counts["fields_compared"],
     "max_abs_error": ledger_counts.get("max_abs_error", {}),
 })
-ledger_replay_summary = dict(ledger_replay)
-ledger_replay_summary.update({
-    "window_rows_replayed": ledger_counts["window_rows_replayed"],
-    "annual_rows_reconciled": ledger_counts["annual_rows_reconciled"],
-    "scenario_summaries_reconciled": ledger_counts["scenario_summaries_reconciled"],
-    "cashflow_invariants_checked": ledger_counts["cashflow_invariants_checked"],
-    "yearly_navs_reconciled": ledger_counts["yearly_navs_reconciled"],
-    "daily_drawdown_paths_replayed": ledger_counts["daily_drawdown_paths_replayed"],
-    "fields_compared": ledger_counts["fields_compared"],
-    "max_abs_error": ledger_counts.get("max_abs_error", {}),
-})
-audit["cashflow_window_ledger_replay"] = ledger_replay_summary_summary
+audit["cashflow_window_ledger_replay"] = ledger_replay_summary
 audit["embedded_data_counts"] = {
     "scenarios_D": strategy_count,
     "annual_A": annual_count,
