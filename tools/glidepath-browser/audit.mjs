@@ -291,6 +291,8 @@ try {
           const target = Number(document.querySelector("#target").value);
           const timing = document.querySelector("#timing").value;
           const flow = document.querySelector("#flow").value;
+          const moneyText = value => "$" + Math.round(value).toLocaleString("en-US");
+          const pctText = value => value == null ? "—" : (Number(value) * 100).toFixed(2) + "%";
           const year = Number(document.querySelector("#year").value);
           const stat = document.querySelector("#statView").value;
           const cpi = Math.max(0, Number(document.querySelector("#realMode").value || 0));
