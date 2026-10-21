@@ -321,10 +321,13 @@ try {
             value: (card.querySelector(".v")?.innerText || "").trim(),
             note: (card.querySelector(".s")?.innerText || "").trim()
           }));
+          const realDeflator = Math.pow(1 + cpi, year);
+          const expectedCumulativeCagr = row[9] == null ? null :
+            (cpi > 0 ? (1 + Number(row[9])) / (1 + cpi) - 1 : Number(row[9]));
           const expectedMetricRows = [
-            ["第" + year + "年中位資產", moneyText(row[5])],
-            ["第" + year + "年P05資產", moneyText(row[6])],
-            ["截至當年累計年化回報", pctText(row[9])],
+            ["第" + year + "年中位資產", moneyText(Number(row[5]) / realDeflator)],
+            ["第" + year + "年P05資產", moneyText(Number(row[6]) / realDeflator)],
+            ["截至當年累計年化回報", pctText(expectedCumulativeCagr)],
             ["截至當年最大回撤", pctText(row[13])],
             ["最差窗口截至當年回撤", pctText(row[14])],
             [cpi > 0 ? "低於實質本金窗口" : "名目低於本金窗口",
@@ -364,7 +367,7 @@ try {
               flow: flowValue,
               label: (bar?.querySelector("span")?.innerText || "").trim(),
               nav: (bar?.querySelector("b")?.innerText || "").trim(),
-              expectedNav: moneyText(flowRow[5]),
+              expectedNav: moneyText(Number(flowRow[5]) / Math.pow(1 + cpi, year)),
               expectedShortfallCount: String(Math.round(Number(flowRow[16]))),
               expectedP95Shortfall: moneyText(flowRow[19]),
               gapNote
