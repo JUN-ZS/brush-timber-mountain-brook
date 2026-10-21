@@ -45,17 +45,69 @@ try:
 except json.JSONDecodeError as exc:
     raise SystemExit("Compact RAW_PACK is invalid JSON: " + str(exc))
 packed_scenarios = packed_data.get("d", [])
+annual_rows = packed_data.get("a", [])
+histogram_rows = packed_data.get("h", [])
+cohort_rows = packed_data.get("c", [])
 pack_meta = packed_data.get("meta", {})
 strategy_count = len(packed_scenarios)
+annual_count = len(annual_rows)
+histogram_count = len(histogram_rows)
+cohort_count = len(cohort_rows)
 window_count = int(pack_meta.get("rolling_windows_per_scenario", 157))
 initial_capital = float(pack_meta.get("initial_capital_usd", 100000))
 source_as_of = str(pack_meta.get("source_as_of", "2026-09-30"))
+expected_counts = (1024, 11264, 4096, 14336)
+actual_counts = (strategy_count, annual_count, histogram_count, cohort_count)
+if actual_counts != expected_counts or window_count != 157:
+    raise SystemExit(f"Embedded data-count contract mismatch: actual={actual_counts}, expected={expected_counts}, windows={window_count}")
+
+def unique_prefix_keys(rows, width, label):
+    keys = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, list) or len(row) < width:
+            raise SystemExit(f"{label} row {index} has fewer than {width} key fields")
+        keys.append(tuple(row[:width]))
+    unique = set(keys)
+    if len(unique) != len(rows):
+        raise SystemExit(f"{label} contains duplicate keys: rows={len(rows)}, unique={len(unique)}")
+    return unique
+
+scenario_keys = unique_prefix_keys(packed_scenarios, 4, "scenario D")
+annual_keys = unique_prefix_keys(annual_rows, 5, "annual A")
+histogram_keys = unique_prefix_keys(histogram_rows, 5, "histogram H")
+cohort_keys = unique_prefix_keys(cohort_rows, 5, "cohort C")
+if len(scenario_keys) != 1024 or len(annual_keys) != 11264 or len(histogram_keys) != 4096 or len(cohort_keys) != 14336:
+    raise SystemExit("Unique compact keys do not match the 1,024/11,264/4,096/14,336 row contract")
+
+annual_year10 = {
+    tuple(row[1:5]): row
+    for row in annual_rows
+    if isinstance(row, list) and len(row) > 8 and int(row[0]) == 10
+}
+scenario_by_key = {tuple(row[:4]): row for row in packed_scenarios}
+annual_year10_summary_mismatches = 0
+for key, scenario in scenario_by_key.items():
+    annual = annual_year10.get(key)
+    if annual is None or len(scenario) < 8:
+        annual_year10_summary_mismatches += 1
+        continue
+    comparisons = ((5, 4), (6, 5), (7, 6), (8, 7))
+    try:
+        mismatched = any(abs(float(annual[annual_index]) - float(scenario[scenario_index])) > 0.011
+                         for annual_index, scenario_index in comparisons)
+    except (TypeError, ValueError):
+        mismatched = True
+    if mismatched:
+        annual_year10_summary_mismatches += 1
+if annual_year10_summary_mismatches != 0:
+    raise SystemExit(f"Year-10 annual/scenario summary mismatches: {annual_year10_summary_mismatches}")
+
 def proven_real_floor_count(rate):
     threshold = initial_capital * (1 + rate) ** 10
     return sum(1 for row in packed_scenarios if len(row) > 7 and float(row[7]) >= threshold)
 proof_235 = proven_real_floor_count(0.0235)
 proof_350 = proven_real_floor_count(0.035)
-if strategy_count not in (768, 1024) or window_count != 157:
+if strategy_count != 1024 or window_count != 157:
     raise SystemExit(f"Unexpected compact sample contract: strategies={strategy_count}, windows={window_count}")
 parser = IdParser()
 parser.feed(html_text)
@@ -141,6 +193,12 @@ crc32 = f"{zlib.crc32(html_bytes) & 0xffffffff:08x}"
 
 audit = json.loads(AUDIT.read_text(encoding="utf-8"))
 audit["status"] = "BROWSER_AND_STATIC_VERIFICATION_PASSED"
+audit["embedded_data_counts"] = {
+    "scenarios_D": strategy_count,
+    "annual_A": annual_count,
+    "histograms_HIST": histogram_count,
+    "cohorts_COHORT": cohort_count,
+}
 audit["html_bytes"] = len(html_bytes)
 audit["html_characters"] = len(html_text)
 audit["sha256"] = html_sha
@@ -158,6 +216,11 @@ static = review.setdefault("static_semantic_guards", {})
 static.update({
     "javascript_parse": True,
     "duplicate_html_ids": len(duplicates),
+    "unique_scenario_keys": len(scenario_keys),
+    "unique_annual_keys": len(annual_keys),
+    "unique_histogram_groups": len(histogram_keys),
+    "unique_cohort_groups": len(cohort_keys),
+    "annual_year10_summary_mismatches": annual_year10_summary_mismatches,
     "zip_decompression_roundtrip": True,
     "zip_crc32_matches_html": True,
     "zip_sha256_matches_html": True,
@@ -215,6 +278,19 @@ audit["final_artifact_verification"] = {
     "html_crc32": crc32,
     "unique_html_ids": len(unique_ids),
     "duplicate_ids": duplicates,
+    "embedded_data_counts": {
+        "scenarios_D": strategy_count,
+        "annual_A": annual_count,
+        "histograms_HIST": histogram_count,
+        "cohorts_COHORT": cohort_count,
+    },
+    "unique_key_counts": {
+        "scenarios_D": len(scenario_keys),
+        "annual_A": len(annual_keys),
+        "histograms_HIST": len(histogram_keys),
+        "cohorts_COHORT": len(cohort_keys),
+    },
+    "annual_year10_summary_mismatches": annual_year10_summary_mismatches,
     "zip_members": ["glidepath_interactive_preview_optimized.html"],
     "zip_inflated_html_matches_canonical_html": True,
     "reverse_direction_replay_status": results.get("reverse_direction_replay", {}).get("replayState", "NOT_REPORTED"),
