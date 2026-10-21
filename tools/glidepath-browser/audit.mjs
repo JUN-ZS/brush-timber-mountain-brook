@@ -141,6 +141,7 @@ try {
     strategyCount,
     sampleWindows,
     sourceAsOf,
+    selectedBond: bondValue,
     floorProof235: floorProof(0.0235),
     floorProof350: floorProof(0.035),
     expectedAmount: money(expectedNav),
@@ -168,7 +169,7 @@ try {
     "decision evidence must follow the selected summary and precede both controls and the first chart: " + JSON.stringify(summaryPlacement));
   need(summaryPlacement.evidenceAmount.includes(summaryPlacement.expectedAmount) &&
     summaryPlacement.evidenceAllocation.includes("股票約 " + summaryPlacement.expectedStockAmount) &&
-    summaryPlacement.evidenceAllocation.includes(document.querySelector("#bond") ? document.querySelector("#bond").value + " 約 " + summaryPlacement.expectedBondAmount : summaryPlacement.expectedBondAmount),
+    summaryPlacement.evidenceAllocation.includes(summaryPlacement.selectedBond + " 約 " + summaryPlacement.expectedBondAmount),
     "decision evidence does not bind the displayed amount to its actual selected allocation split");
   need(summaryPlacement.evidenceBehavior.includes("AGG") && summaryPlacement.evidenceBehavior.includes("60%") &&
     summaryPlacement.evidenceBehavior.includes("第 5 年") && summaryPlacement.evidenceFlow.includes("不提款"),
@@ -188,7 +189,7 @@ try {
   need(summaryPlacement.initialValue.startsWith("$") && summaryPlacement.initialBehavior.length > 0 && summaryPlacement.initialAllocation.includes("股票") && summaryPlacement.initialFlow.includes("不提款") && summaryPlacement.initialFloor.includes("$"), "initial decision summary is missing amount/behavior/data fields");
   need(summaryPlacement.initialAllocationDetail.includes("按主結果 " + summaryPlacement.expectedAmount) &&
     summaryPlacement.initialAllocationDetail.includes("股票約 " + summaryPlacement.expectedStockAmount) &&
-    summaryPlacement.initialAllocationDetail.includes(document.querySelector("#bond") ? document.querySelector("#bond").value + " 約 " + summaryPlacement.expectedBondAmount : summaryPlacement.expectedBondAmount),
+    summaryPlacement.initialAllocationDetail.includes(summaryPlacement.selectedBond + " 約 " + summaryPlacement.expectedBondAmount),
     "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
   result.frontloaded_decision_summary = { ...summaryPlacement, passed: true };
 
