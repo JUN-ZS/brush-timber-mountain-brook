@@ -75,17 +75,33 @@ if "GLIDEPATH_TRAJECTORY_PANEL_V1" not in html_text or 'id="glidepath-trajectory
     raise SystemExit("Year-by-year allocation path panel was not embedded in the canonical HTML.")
 if "GLIDEPATH_DECISION_EVIDENCE_V1" not in html_text or "決策依據：金額 × 行為 × 樣本 × 尚未證明的風險" not in html_text:
     raise SystemExit("Front-loaded amount/behavior/sample/unproven-risk panel is missing.")
+# These disclosures are assembled dynamically by the page script. Check the
+# exact visible strings recorded by the successful browser run, rather than
+# searching raw HTML for phrases that only exist after JavaScript evaluation.
+decision_summary = results.get("frontloaded_decision_summary")
+if not isinstance(decision_summary, dict):
+    raise SystemExit("Browser audit did not capture the front-loaded decision evidence.")
+sample_disclosure = str(decision_summary.get("evidenceSample", ""))
+risk_disclosure = str(decision_summary.get("evidenceRisk", ""))
 for evidence_text in (
     f"{strategy_count} 組第10年策略設定",
     f"{window_count} 個重疊的 10 年窗口",
+    source_as_of,
+):
+    if evidence_text not in sample_disclosure:
+        raise SystemExit("Rendered sample disclosure is incomplete: " + evidence_text)
+for evidence_text in (
     f"年通脹 2.35% 時，{strategy_count} 組第10年策略中有 {proof_235} 組",
     f"年通脹 3.50% 時是 {proof_350} 組",
-    source_as_of,
     "未精算",
     "不代表途中不回撤",
 ):
-    if evidence_text not in html_text:
-        raise SystemExit("Decision evidence disclosure is incomplete: " + evidence_text)
+    if evidence_text not in risk_disclosure:
+        raise SystemExit("Rendered risk disclosure is incomplete: " + evidence_text)
+for source_fragment in ("目前策略摘要共有 ", "scenarioPopulation", "provenFloor235", "provenFloor350"):
+    if source_fragment not in html_text:
+        raise SystemExit("Data-driven decision disclosure source is incomplete: " + source_fragment)
+decision_evidence_disclosures_verified = True
 if "不等於歷史每一天實際持倉或已執行交易" not in html_text:
     raise SystemExit("Annual target weights versus actual holdings/trades disclosure is missing.")
 if "Y(state.bond, state.target, state.timing, state.flow, year)" not in html_text:
@@ -147,7 +163,7 @@ static.update({
     "zip_sha256_matches_html": True,
     "trajectory_panel_source_marker": "GLIDEPATH_TRAJECTORY_PANEL_V1" in html_text,
     "decision_evidence_panel_embedded": "GLIDEPATH_DECISION_EVIDENCE_V1" in html_text,
-    "decision_evidence_links_amount_behavior_sample_risk": all(item in html_text for item in ("決策依據：金額 × 行為 × 樣本 × 尚未證明的風險", f"{strategy_count} 組第10年策略設定", f"{window_count} 個重疊的 10 年窗口", f"年通脹 2.35% 時，{strategy_count} 組第10年策略中有 {proof_235} 組", f"年通脹 3.50% 時是 {proof_350} 組", "未精算")),
+    "decision_evidence_links_amount_behavior_sample_risk": decision_evidence_disclosures_verified and "決策依據：金額 × 行為 × 樣本 × 尚未證明的風險" in html_text,
     "trajectory_panel_uses_canonical_annual_records": "Y(state.bond, state.target, state.timing, state.flow, year)" in html_text,
     "trajectory_panel_not_actual_holdings_disclosure": "不等於歷史每一天實際持倉或已執行交易" in html_text,
     "reverse_replay_data_embedded": "GLIDEPATH_REVERSE_DATA_V1" in html_text,
