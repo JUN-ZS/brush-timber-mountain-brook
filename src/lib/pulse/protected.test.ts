@@ -67,3 +67,11 @@ test("PUT opening ledger rejects invalid market inputs", () => {
   assert.throws(() => putOpeningLedgerEntry(1, 10, -0.1), RangeError);
   assert.throws(() => putOpeningLedgerEntry(1, Number.NaN, 0.1), RangeError);
 });
+
+
+test("zero-spread PUT opening is NAV-neutral before subsequent mark changes", () => {
+  const opened = putOpeningLedgerEntry(1, 10, 0);
+  assert.equal(opened.cashPaid, 10);
+  assert.equal(opened.assetMarkValue, 10);
+  assert.equal(opened.assetMarkValue - opened.cashPaid, 0);
+});
