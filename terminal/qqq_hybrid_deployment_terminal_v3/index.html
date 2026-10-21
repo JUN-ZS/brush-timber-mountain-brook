@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QQQ Hybrid Deployment Terminal V3</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <div class="eyebrow">ORIGINAL HYBRID · V3 DECISION COCKPIT</div>
+      <h1>QQQ Hybrid Deployment Terminal</h1>
+      <div class="sub">DATA → DECISION → BUILD → WATCH → JOURNAL</div>
+    </div>
+    <div class="top-right">
+      <div id="dataBadge" class="badge warn">DATA —</div>
+      <div id="cadenceBadge" class="badge warn" style="display:none">—</div>
+      <div id="stateBadge" class="badge">STATE —</div>
+      <button id="refreshBtn" class="primary">REFRESH</button>
+    </div>
+  </header>
+
+  <main class="cockpit">
+    <section class="flowbar card">
+      <div class="flow-step" id="flowData"><span>1</span><b>DATA</b><small>Can I trust this snapshot?</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" id="flowDecision"><span>2</span><b>DECISION</b><small>Build / hold / reduce</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" id="flowBuild"><span>3</span><b>BUILD</b><small>Current → Target</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" id="flowWatch"><span>4</span><b>WATCH</b><small>What changes next?</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" id="flowJournal"><span>5</span><b>JOURNAL</b><small>What actually happened?</small></div>
+    </section>
+
+    <section class="card operator-summary-card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">OPERATOR · ONE-GLANCE PLAN</div>
+          <h2>NOW / NEXT / ROLL</h2>
+        </div>
+        <div class="top-right">
+          <span id="operatorMode" class="tag">—</span>
+          <span id="operatorAction" class="tag active">—</span>
+        </div>
+      </div>
+      <div class="operator-summary-grid">
+        <div>
+          <div class="eyebrow">NOW · WHAT ARE WE DOING?</div>
+          <div id="operatorPlan"></div>
+        </div>
+        <div>
+          <div class="eyebrow">NEXT · REGIME CHANGE</div>
+          <div id="operatorThresholds"></div>
+        </div>
+        <div>
+          <div class="eyebrow">ROLL · DISTANCE TO LINE</div>
+          <div id="operatorRolls"></div>
+        </div>
+      </div>
+      <div id="operatorBaseline" class="operator-baseline">—</div>
+    </section>
+
+    <section class="card permission-card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">CURRENT PERMISSION · FULL STRATEGY</div>
+          <h2>FULL / CAN KEEP / MAX BUY / MAX SELL</h2>
+        </div>
+        <span id="permissionStatus" class="tag">—</span>
+      </div>
+      <div id="permissionNote" class="permission-note">Waiting for snapshot.</div>
+      <div class="permission-table">
+        <div class="permission-head"><span>LEG</span><span>FULL</span><span>CAN KEEP NOW</span><span>MAX BUY NOW</span><span>MAX SELL NOW</span></div>
+        <div id="permissionRows"></div>
+      </div>
+      <div id="permissionRule" class="meta">FULL = frozen baseline · QQQ FULL = 42% NAV with approximate share equivalent · CAN KEEP NOW = current regime ceiling · MAX BUY/SELL = permitted delta now.</div>
+    </section>
+
+    <section class="card funding-card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">STRATEGY · FUNDING CONTEXT</div>
+          <h2 id="strategyName">ORIGINAL HYBRID BASELINE</h2>
+        </div>
+        <span id="fundingRegime" class="tag">—</span>
+      </div>
+      <div id="strategyFormula" class="meta">—</div>
+      <div class="funding-grid">
+        <div>
+          <div class="eyebrow">CAPITAL POOL</div>
+          <label>Strategy pool<input id="strategyPool" type="number" value="" placeholder="e.g. 100000"></label>
+          <div class="metric"><span>Status</span><b id="fundingPoolStatus">EMPTY</b></div>
+        </div>
+        <div>
+          <div class="eyebrow">THIS ROUND</div>
+          <label>New capital (not yet in NAV)<input id="newCapital" type="number" value="" placeholder="e.g. 5000"></label>
+          <div class="metric"><span>Input</span><b id="fundingNewCapital">EMPTY</b></div>
+        </div>
+        <div>
+          <div class="eyebrow">QQQ CORE NOW</div>
+          <div class="metric"><span>Current value</span><b id="qqqFundingCurrent">—</b></div>
+          <div class="metric"><span>Current % NAV</span><b id="qqqFundingPct">—</b></div>
+        </div>
+        <div>
+          <div class="eyebrow">QQQ CORE TARGET</div>
+          <div class="metric"><span>Target</span><b id="qqqFundingTarget">—</b></div>
+          <div class="metric"><span>Gap</span><b id="qqqFundingGap">—</b></div>
+        </div>
+        <div>
+          <div class="eyebrow">NEW MONEY ROUTE</div>
+          <div class="metric"><span>To QQQ core</span><b id="qqqFundingSuggestion">—</b></div>
+          <div class="metric"><span>Remain reserve / overlay</span><b id="fundingReserve">—</b></div>
+          <div class="metric"><span>QQQ far-call</span><b id="shortCallFunding">—</b></div>
+        </div>
+      </div>
+      <div id="fundingMessage" class="funding-message">—</div>
+    </section>
+
+    <section class="card bridge-card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">CELL 16 · STRATEGY STATE → FUNDING → OPERATOR ACTION</div>
+          <h2>READ-ONLY CLOSED-LOOP BRIDGE</h2>
+        </div>
+        <span id="bridgeAction" class="tag research">—</span>
+      </div>
+      <div id="bridgeInstruction" class="bridge-instruction">Waiting for the current snapshot.</div>
+      <div class="bridge-grid">
+        <div><span class="eyebrow">STRATEGY / REGIME</span><b id="bridgeStrategy">—</b></div>
+        <div><span class="eyebrow">CURRENT</span><b id="bridgePosition">—</b></div>
+        <div><span class="eyebrow">FROZEN TARGET</span><b id="bridgeTarget">—</b></div>
+        <div><span class="eyebrow">QQQ GAP</span><b id="bridgeGap">—</b></div>
+        <div><span class="eyebrow">FUNDING CONTEXT</span><b id="bridgeFunding">—</b></div>
+        <div><span class="eyebrow">NEXT TRANSITION</span><b id="bridgeNext">—</b></div>
+        <div><span class="eyebrow">JOURNAL BASELINE</span><b id="bridgeJournal">—</b></div>
+      </div>
+      <div class="eyebrow bridge-loop-title">CLOSED LOOP · DATA → DECISION → CURRENT → TARGET → FUNDING → WATCH → JOURNAL</div>
+      <div id="bridgeLoop" class="bridge-loop"></div>
+      <div class="bridge-warning">Strategy Pool routing remains <b>CONTEXT ONLY / RESEARCH ONLY</b>. Cell 16 does not promote POOL_GATED into execution sizing and never sends broker orders.</div>
+    </section>
+
+    <section class="decision-grid">
+      <article class="card decision-card">
+        <div class="eyebrow">NOW · PRIMARY DECISION</div>
+        <div id="action" class="action">—</div>
+        <div id="reason" class="reason">Waiting for snapshot.</div>
+        <div class="decision-meta">
+          <span id="asof">—</span>
+          <span id="monitorTag" class="tag">—</span>
+        </div>
+        <div id="nextStep" class="next-step">NEXT: REFRESH</div>
+      </article>
+
+      <article class="card gate-card">
+        <div class="section-head"><h2>CAN I ACT?</h2><span class="tag">GATE</span></div>
+        <div class="gate-grid">
+          <div><b id="gateData">—</b><small>DATA</small></div>
+          <div><b id="gateTerm">—</b><small>VX TERM</small></div>
+          <div><b id="gateVix">—</b><small>VIX</small></div>
+          <div><b id="gateSpot">—</b><small>SPOT</small></div>
+        </div>
+        <div id="gateReason" class="meta">—</div>
+      </article>
+
+      <article class="card market-card">
+        <div class="section-head"><h2>MARKET SNAPSHOT</h2><span class="tag">OBSERVED</span></div>
+        <div class="market big-market">
+          <span>QQQ <b id="qqq">—</b></span>
+          <span>VXX <b id="vxx">—</b></span>
+          <span>VIX <b id="vix">—</b></span>
+        </div>
+        <div class="term-line"><span id="m1">M1 —</span><span id="m2">M2 —</span><b id="term">—</b></div>
+        <div class="meta" id="termMeta">—</div>
+        <div class="meta" id="sourceMeta">—</div>
+      </article>
+    </section>
+
+    <section class="action-grid">
+      <article class="card position-card">
+        <div class="section-head"><h2>BUILD / ADJUST</h2><span class="tag active">CURRENT → TARGET</span></div>
+        <div class="ledger">
+          <div class="ledger-head"><span>Leg</span><span>Current</span><span>Target</span><span>Action</span></div>
+          <div id="ledgerRows"></div>
+        </div>
+        <div class="queue-head">NEXT ACTION QUEUE</div>
+        <div id="queue" class="queue"></div>
+      </article>
+
+      <article class="card watch-card">
+        <div class="section-head"><h2>WATCH / CHANGE MONITOR</h2><span id="watchSummary" class="tag">—</span></div>
+        <div id="triggerRows"></div>
+        <div id="sinceJournal" class="meta">No prior journal baseline.</div>
+        <div class="roll-grid">
+          <div>
+            <div class="eyebrow">QQQ FAR CALL <span id="qqqLegStatus" class="tag">FLAT</span></div>
+            <label>Short <input id="qqqShortStrike" type="number" value="" placeholder="—"></label>
+            <label>Long <input id="qqqLongStrike" type="number" value="" placeholder="—"></label>
+            <label>Expiry <input id="qqqExpiry" type="text" value="" placeholder="YYYY-MM-DD"></label>
+            <label>DTE <input id="qqqDte" type="number" value="" placeholder="—"></label>
+            <label>Delta <input id="qqqDelta" type="number" step="0.01" value="" placeholder="—"></label>
+            <label>Entry credit <input id="qqqEntryCredit" type="number" step="0.01" value="" placeholder="credit +"></label>
+          </div>
+          <div>
+            <div class="eyebrow">VXX CALL <span id="vxxLegStatus" class="tag">FLAT</span></div>
+            <label>Short <input id="vxxShortStrike" type="number" value="" placeholder="—"></label>
+            <label>Long <input id="vxxLongStrike" type="number" value="" placeholder="—"></label>
+            <label>Expiry <input id="vxxExpiry" type="text" value="" placeholder="YYYY-MM-DD"></label>
+            <label>DTE <input id="vxxDte" type="number" value="" placeholder="—"></label>
+            <label>Delta <input id="vxxDelta" type="number" step="0.01" value="" placeholder="—"></label>
+            <label>Entry credit <input id="vxxEntryCredit" type="number" step="0.01" value="" placeholder="credit +"></label>
+          </div>
+        </div>
+        <div id="legIdentityMeta" class="meta">ROLL reads Current Leg identity — Candidate stays separate; Build uses call counts.</div>
+      </article>
+
+      <article class="card option-card">
+        <div class="section-head"><h2>OPTION LEG CHECK</h2><span class="tag">ESTIMATE · READ ONLY</span></div>
+        <div class="candidate-buttons">
+          <button id="findQQQ" class="primary small-btn">Find QQQ</button>
+          <button id="findVXX" class="primary small-btn">Find VXX</button>
+        </div>
+        <div class="option-box"><b>QQQ FAR</b><span id="qqqCandidate">No candidate</span><small>SIZE: <i id="qqqSize">PENDING</i></small></div>
+        <div class="option-box"><b>VXX CALL</b><span id="vxxCandidate">No candidate</span><small>SIZE: <i id="vxxSize">PENDING</i></small></div>
+        <div class="meta">Source: <span id="candidateSource">NONE</span></div>
+      </article>
+
+      <article class="card operator-card">
+        <div class="section-head"><h2>OPERATOR MEMORY</h2><span class="tag">LOCAL</span></div>
+        <div class="form-grid">
+          <label>NAV<input id="nav" type="number" value="100000"></label>
+          <label>QQQ shares<input id="qqqShares" type="number" value="0"></label>
+          <label>VXX short exposure (% NAV)<input id="vxxPct" type="number" value="0" step="0.1"></label>
+          <label>QQQ far call credit spreads<input id="qqqCalls" type="number" value="0"></label>
+          <label>VXX call credit spreads<input id="vxxCalls" type="number" value="0"></label>
+          <label class="check-label"><input id="forceFlat" type="checkbox"> No option legs</label>
+        </div>
+        <div id="vxxExposureMeta" class="meta">VXX short = % NAV (not option spreads).</div>
+        <div class="row-actions">
+          <input id="humanAction" placeholder="What did you actually do this round?">
+          <button id="journalBtn">JOURNAL</button>
+        </div>
+        <div class="row-actions memory-restore-row">
+          <button id="restoreMemoryBtn" type="button" title="Journal → Operator Memory 1:1 map; never Candidate">從 Journal 還原 Memory · Restore Memory from last Journal</button>
+        </div>
+        <div id="memoryMapPreview" class="meta memory-map-preview">Map preview: journal.path → Memory id = value (blank → EMPTY skip)</div>
+        <div id="memoryRestoreMeta" class="meta">Reload restores last localStorage Memory snapshot if present.</div>
+        <details class="memory-map-help">
+          <summary>Journal → Memory field map（可核對）</summary>
+          <div class="reference-mini memory-map-table">
+            Only these paths; <b>never</b> Candidate / NOW plan strikes.<br>
+            Blank/missing → leave Memory EMPTY (do not write 0). Explicit journal 0 → VALUE(0).<br>
+            <code>current_position.nav</code> → <code>nav</code> (if present)<br>
+            <code>funding_context.strategy_pool</code> → <code>strategyPool</code><br>
+            <code>funding_context.new_capital</code> → <code>newCapital</code><br>
+            <code>current_position.qqqShares</code> → <code>qqqShares</code><br>
+            <code>current_position.vxxPct</code> → <code>vxxPct</code><br>
+            <code>current_position.qqqCalls</code> → <code>qqqCalls</code><br>
+            <code>current_position.vxxCalls</code> → <code>vxxCalls</code><br>
+            <code>current_option_legs.qqq.shortStrike</code> → <code>qqqShortStrike</code><br>
+            <code>current_option_legs.qqq.longStrike</code> → <code>qqqLongStrike</code><br>
+            <code>current_option_legs.qqq.expiry</code> → <code>qqqExpiry</code><br>
+            <code>current_option_legs.qqq.dte</code> → <code>qqqDte</code><br>
+            <code>current_option_legs.qqq.delta</code> → <code>qqqDelta</code><br>
+            <code>current_option_legs.qqq.entryCredit</code> → <code>qqqEntryCredit</code><br>
+            same for <code>vxx*</code> → <code>vxx*</code>
+          </div>
+        </details>
+      </article>
+    </section>
+
+    <section class="bottom-grid">
+      <article class="card journal-card">
+        <div class="section-head"><h2>DECISION JOURNAL</h2><span id="journalCount" class="tag">0</span></div>
+        <div id="journalRows" class="journal"></div>
+      </article>
+
+      <article class="card evidence-card">
+        <div class="section-head"><h2>EVIDENCE / PROVENANCE</h2><span class="tag">RESEARCH-GRADE</span></div>
+        <div id="prov"></div>
+        <details>
+          <summary>Frozen reference / research only</summary>
+          <div class="reference-mini">Source-aligned replay: 12.7049% CAGR / -23.1837% daily MTM MaxDD.<br>Cboe source-swap diagnostic: 99.517% archive-action agreement / 1,036 overlap rows.<br>These figures never alter live targets.</div>
+        </details>
+      </article>
+    </section>
+  </main>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
