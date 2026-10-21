@@ -364,7 +364,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     else:
         # The current main dashboard may already carry the eight-rule marker chain.
         # Accept that known-good form, but BLOCK unknown partial implementations.
-        shape_blocks = list(re.finditer(r'let shape=r\\.timing_rule,mark;(.*?)let close=shape=', html, re.S))
+        shape_blocks = list(re.finditer(r'let shape=r\.timing_rule,mark;(.*?)let close=shape=', html, re.S))
         require(len(shape_blocks) == 1, "Expected exactly one scatter shape block")
         shape_block = shape_blocks[0].group(1)
         missing_shapes = [timing for timing in TIMINGS if f'shape==="{timing}"' not in shape_block]
@@ -376,9 +376,9 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
         html = replace_once(html, old_dash, new_dash, "glide path timing dash mapping")
     else:
         # A newer compact-page base may already contain the complete indexed dash map.
-        indexed_dash_maps = re.findall(r'\\(\\s*\\{([^{}]*)\\}\\s*\\[\\s*m\\s*\\]\\s*\\|\\|\\s*""\\s*\\)', html)
+        indexed_dash_maps = re.findall(r'\(\s*\{([^{}]*)\}\s*\[\s*m\s*\]\s*\|\|\s*""\s*\)', html)
         known_complete_map = any(
-            all(re.search(re.escape(timing) + r'\\s*:', body) for timing in TIMINGS)
+            all(re.search(re.escape(timing) + r'\s*:', body) for timing in TIMINGS)
             for body in indexed_dash_maps
         )
         require(known_complete_map,
