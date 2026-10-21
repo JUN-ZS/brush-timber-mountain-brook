@@ -492,7 +492,9 @@ def main():
     parser.add_argument("--outdir",type=Path,required=True)
     args=parser.parse_args()
     path=generate(args.outdir)
-    print(json.dumps({"interactive_dashboard":path.name,"bytes":path.stat().st_size,"scenario_rows":1024,"annual_summary_rows":11264,"window_distribution_groups":4096,"start_year_cohorts":len(cohort_profiles),"year_range":[0,10],"timing_rules":6},ensure_ascii=False))
+    cohort_summary = json.loads((args.outdir / "window_start_cohort_summary.json").read_text(encoding="utf-8"))
+    cohort_profiles = cohort_summary.get("cohorts", [])
+    print(json.dumps({"interactive_dashboard":path.name,"bytes":path.stat().st_size,"scenario_rows":1024,"annual_summary_rows":11264,"window_distribution_groups":4096,"start_year_cohorts":len(cohort_profiles),"year_range":[0,10],"timing_rules":8},ensure_ascii=False))
     return 0
 
 
