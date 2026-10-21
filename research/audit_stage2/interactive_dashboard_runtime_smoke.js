@@ -66,7 +66,12 @@ const fire = id => {
   node.listeners.input();
 };
 
-const metricValues = html => [...html.matchAll(/<div class="v">([^<]+)<[/]div>/g)].map(match => match[1]);
+const metricEntries = html => [...html.matchAll(/<article class="metric"><div class="k">([^<]+)<\/div><div class="v">([^<]+)<\/div>/g)].map(match => [match[1], match[2]]);
+const metricValue = (html, label) => {
+  const entry = metricEntries(html).find(([key]) => key === label);
+  assert(entry, "missing metric card label: " + label);
+  return entry[1];
+};
 const annualRows = vm.runInContext("A", context);
 assert(Array.isArray(annualRows) && annualRows.length === 11264, "runtime must load every actual year x scenario summary");
 const fmtMoney = value => value == null || !Number.isFinite(+value) ? "—" : "$" + Math.round(+value).toLocaleString("en-US");
@@ -83,15 +88,15 @@ for (let yearNo = 0; yearNo <= 10; yearNo++) {
     +row.year === yearNo
   );
   assert(actual, "missing actual annual summary row for year " + yearNo);
-  const shown = metricValues(getElementById("metrics").innerHTML);
-  assert.strictEqual(shown[0], fmtMoney(actual.median_nav_usd), "NAV metric must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[1], fmtMoney(actual.p05_nav_usd), "P05 metric must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[2], fmtPct(actual.median_cumulative_twr_cagr), "cumulative return must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[3], fmtPct(actual.median_drawdown_to_date), "drawdown must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[4], fmtPct(actual.worst_drawdown_to_date), "worst-window drawdown must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[5], actual.windows_below_initial_capital + "/" + actual.rolling_windows, "capital-floor count must be data-linked at year " + yearNo);
-  assert.strictEqual(shown[6], actual.windows_with_withdrawal_shortfall + "/" + actual.rolling_windows, "shortfall count must be data-linked at year " + yearNo);
-  assert(getElementById("metrics").innerHTML.includes("截至當年P95缺口 " + fmtMoney(actual.p95_shortfall_usd)), "P95 shortfall must be data-linked at year " + yearNo);
+  const shown = getElementById("metrics").innerHTML;
+  assert.strictEqual(metricValue(shown, "第" + yearNo + "年中位資產"), fmtMoney(actual.median_nav_usd), "NAV metric must be data-linked at year " + yearNo);
+  assert.strictEqual(metricValue(shown, "第" + yearNo + "年P05資產"), fmtMoney(actual.p05_nav_usd), "P05 metric must be data-linked at year " + yearNo);
+  assert.strictEqual(metricValue(shown, "截至當年累計年化回報"), fmtPct(actual.median_cumulative_twr_cagr), "cumulative return must be data-linked at year " + yearNo);
+  assert.strictEqual(metricValue(shown, "截至當年最大回撤"), fmtPct(actual.median_drawdown_to_date), "drawdown must be data-linked at year " + yearNo);
+  assert.strictEqual(metricValue(shown, "最差窗口截至當年回撤"), fmtPct(actual.worst_drawdown_to_date), "worst-window drawdown must be data-linked at year " + yearNo);
+  assert.strictEqual(metricValue(shown, "低於起始本金窗口"), actual.windows_below_initial_capital + "/" + actual.rolling_windows, "capital-floor count must be data-linked at year " + yearNo);
+  assert.strictEqual(metricValue(shown, "累計缺口窗口"), actual.windows_with_withdrawal_shortfall + "/" + actual.rolling_windows, "shortfall count must be data-linked at year " + yearNo);
+  assert(shown.includes("截至當年P95缺口 " + fmtMoney(actual.p95_shortfall_usd)), "P95 shortfall must be data-linked at year " + yearNo);
   const allocation = getElementById("allocation").innerHTML;
   assert(allocation.includes((100 * actual.median_target_stock_weight).toFixed(1) + "%"), "stock target must match year " + yearNo);
   assert(allocation.includes((100 * actual.median_target_bond_weight).toFixed(1) + "%"), "bond target must match year " + yearNo);
@@ -111,10 +116,13 @@ year.value = "5";
 fire("year");
 
 const initialMetrics = getElementById("metrics").innerHTML;
-const initialValues = metricValues(initialMetrics);
+const initialValues = metricEntries(initialMetrics);
 assert(initialMetrics.includes("第5年中位資產"), "initial metrics should identify year 5");
 assert(initialMetrics.includes("低於起始本金窗口"), "initial dashboard metrics must expose nominal capital-floor breaches");
-assert(initialValues.length >= 6, "metric cards must expose six numeric values");
+assert(initialValues.length === 7, "metric cards must expose seven labeled year-specific values");
+for (const label of ["第5年中位資產", "第5年P05資產", "截至當年累計年化回報", "截至當年最大回撤", "最差窗口截至當年回撤", "低於起始本金窗口", "累計缺口窗口"]) {
+  assert(initialValues.some(([key]) => key === label), "missing required metric card: " + label);
+}
 year.value = "9";
 fire("year");
 assert(getElementById("yearOut").textContent.includes("第9年"), "year label must follow the slider");
@@ -124,10 +132,10 @@ assert(getElementById("drawdown").innerHTML.includes("截至第9年"), "drawdown
 assert(getElementById("returns").innerHTML.includes("截至第9年"), "return chart must use year 9");
 assert(getElementById("gaps").innerHTML.includes("截至第9年"), "shortfall chart must use year 9");
 assert.notStrictEqual(getElementById("metrics").innerHTML, initialMetrics, "metrics HTML must change when year changes");
-const year9Values = metricValues(getElementById("metrics").innerHTML);
-assert.notStrictEqual(year9Values[0], initialValues[0], "year 9 must update the actual NAV value, not only its label");
-assert.notStrictEqual(year9Values[2], initialValues[2], "year 9 must update the actual cumulative return value");
-assert.notStrictEqual(year9Values[5], initialValues[5], "year 9 must update the actual count of windows below initial capital");
+const year9Metrics = getElementById("metrics").innerHTML;
+assert.notStrictEqual(metricValue(year9Metrics, "第9年中位資產"), metricValue(initialMetrics, "第5年中位資產"), "year 9 must update the actual NAV value, not only its label");
+assert.notStrictEqual(metricValue(year9Metrics, "截至當年累計年化回報"), metricValue(initialMetrics, "截至當年累計年化回報"), "year 9 must update the actual cumulative return value");
+assert.notStrictEqual(metricValue(year9Metrics, "低於起始本金窗口"), metricValue(initialMetrics, "低於起始本金窗口"), "year 9 must update the actual count of windows below initial capital");
 assert(getElementById("shares").innerHTML.includes("46.0%"), "year 9 at 60% linear target should show 46% stock target");
 assert(getElementById("shares").innerHTML.includes("54.0%"), "year 9 at 60% linear target should show 54% bond target");
 assert(getElementById("allocation").innerHTML.includes("46.0%"), "year BAR should show 46% stocks beside slider at year 9");
@@ -136,8 +144,8 @@ const allocationAtYear9 = getElementById("allocation").innerHTML;
 
 year.value = "10";
 fire("year");
-const year10Values = metricValues(getElementById("metrics").innerHTML);
-assert.notStrictEqual(year10Values[0], year9Values[0], "year 10 and year 9 should use different historical NAV summaries");
+const year10Metrics = getElementById("metrics").innerHTML;
+assert.notStrictEqual(metricValue(year10Metrics, "第10年中位資產"), metricValue(year9Metrics, "第9年中位資產"), "year 10 and year 9 should use different historical NAV summaries");
 assert(getElementById("shares").innerHTML.includes("40.0%"), "year 10 should show 40% stocks for a 60% target");
 assert(getElementById("shares").innerHTML.includes("60.0%"), "year 10 should show 60% bonds for a 60% target");
 assert(getElementById("allocation").innerHTML.includes("60.0%"), "year 10 bond target should update beside slider");
