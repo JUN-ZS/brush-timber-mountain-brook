@@ -222,7 +222,12 @@ class EightTimingPackTests(unittest.TestCase):
         for timing in PACKER.TIMINGS:
             self.assertRegex(html, r'const dash=\{[^{}]*\b' + re.escape(timing) + r'\s*:')
         self.assertNotIn('stroke-dasharray="undefined"', html)
-        packed = json.loads(html.split("const RAW_PACK=", 1)[1].split(";\nconst TG=", 1)[0])
+        # Running the embedder on its own output must be deterministic and safe.
+        repacked_html = PACKER.embed_pack(html, pack)
+        self.assertNotIn('stroke-dasharray="undefined"', repacked_html)
+        for timing in PACKER.TIMINGS:
+            self.assertRegex(repacked_html, r'const dash=\{[^{}]*\b' + re.escape(timing) + r'\s*:')
+        packed = json.loads(repacked_html.split("const RAW_PACK=", 1)[1].split(";\nconst TG=", 1)[0])
         self.assertEqual(len(packed["d"]), 1024)
 
     def test_rejects_incomplete_scenario_grid(self):
