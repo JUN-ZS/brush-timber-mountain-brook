@@ -1,0 +1,33 @@
+{
+  "source": "OPEND+YAHOO",
+  "timestamp": "2026-10-06T11:09:17.292998+00:00",
+  "qqq": 756.2,
+  "vxx": 17.2,
+  "vix": 15.34,
+  "m1": null,
+  "m2": null,
+  "m1_code": "US.VX2610",
+  "m2_code": "US.VX2611",
+  "sources": {
+    "qqq": "OPEND",
+    "vxx": "OPEND",
+    "vix": "YAHOO ^VIX",
+    "m1m2": "BLOCKED"
+  },
+  "term_structure": "BLOCKED",
+  "m1_expiry": "2026-10-21",
+  "m2_expiry": "2026-11-18",
+  "vix_proxy": {
+    "level": 19.33,
+    "source": "DERIVED",
+    "method": "QQQ_ATM_PUT_IV",
+    "code": "US.QQQ261106P756000",
+    "expiry": "2026-11-06",
+    "dte": 31,
+    "note": "QQQ ~30D ATM put IV in VIX units. NOT the Cboe VIX index; not used for M1/M2."
+  },
+  "errors": {
+    "opend_vix": "US..VIX: 暂不支持美股指数",
+    "vx_futures": "VX quote blocked by OpenD for US.VX2610/US.VX2611: 暂不支持 CBOE 行情"
+  }
+}
