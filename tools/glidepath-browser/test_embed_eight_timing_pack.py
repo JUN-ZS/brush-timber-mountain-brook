@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import re
 from pathlib import Path
 import unittest
 
@@ -170,6 +171,7 @@ def minimal_html():
 const RAW_PACK={"cm":{},"d":[],"a":[],"h":[],"c":[]};
 const TG=[30],TM=["front_fast"],FL=["no_withdrawals"],BM=["AGG"],MM=["terminal_nav_usd"];
 const TN={front_fast:"加速前置"},FN={no_withdrawals:"不提款"},C={front_fast:"#c94c4c"};
+const dash={front_fast:"1 3",front_loaded:"6 4",linear:"",mid_loaded:"6 2 1 2",back_loaded:"2 4",back_late:"10 3"};
 function scatter() {
 let shape=r.timing_rule,mark;
     if(shape==="front_fast")mark='<rect x="'+(x-3.5).toFixed(1)+'" y="'+(y-3.5).toFixed(1)+'" width="7" height="7"';
@@ -217,6 +219,9 @@ class EightTimingPackTests(unittest.TestCase):
         self.assertIn("八條轉換曲線", html)
         self.assertIn("八種轉換時間規則", html)
         self.assertIn("共 256 點", html)
+        for timing in PACKER.TIMINGS:
+            self.assertRegex(html, r'const dash=\{[^{}]*\b' + re.escape(timing) + r'\s*:')
+        self.assertNotIn('stroke-dasharray="undefined"', html)
         packed = json.loads(html.split("const RAW_PACK=", 1)[1].split(";\nconst TG=", 1)[0])
         self.assertEqual(len(packed["d"]), 1024)
 
