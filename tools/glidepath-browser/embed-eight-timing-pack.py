@@ -462,13 +462,9 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
         "(s.cpi>0?(s.cpi>=0.03?v.windows_below_real_principal_350:v.windows_below_real_principal_235)+'/'+v.rolling_windows:v.windows_below_initial_capital+'/'+v.rolling_windows)",
         "real-principal table count")
     html = replace_once(html,
-        '" 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 " +',
-        '" 組經逐窗口核算確認「157 個歷史窗口期末 NAV 均未跌破實質本金」；年通脹 3.50% 時是 " +',
-        "real-principal zero-breach evidence")
-    html = replace_once(html,
-        '" 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";',
-        '" 各策略在每個年份的實質本金缺口均已由獨立逐窗口重播計算；表格顯示該年期末 NAV 低於通膨調整本金門檻的窗口數。提款情境只計剩餘 NAV，不把已取走的現金加回；157 個重疊窗口不是未來機率。";',
-        "real-principal risk text")
+        '      "年通脹 2.35% 時，768 組第10年策略中有 363 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 329 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +\n      " 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";',
+        '      "年通脹 2.35% 時，1,024 組第10年策略中有 " + RAW_PACK.a.filter(row => Number(row[0]) === 10 && Number(row[21]) === 0).length + " 組逐窗口核算確認零實質本金缺口；年通脹 3.50% 時是 " + RAW_PACK.a.filter(row => Number(row[0]) === 10 && Number(row[22]) === 0).length + " 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +\n      " 各策略在每個年份的實質本金缺口均已由獨立逐窗口重播計算；表格顯示該年期末 NAV 低於通膨調整本金門檻的窗口數。提款情境只計剩餘 NAV，不把已取走的現金加回；157 個重疊窗口不是未來機率。";',
+        "real-principal dynamic zero-breach evidence")
 
     old_counts = "✓ 768 組策略 · 8,448 筆年度摘要"
     html = html.replace(old_counts, "✓ 1,024 組策略 · 11,264 筆年度摘要")
