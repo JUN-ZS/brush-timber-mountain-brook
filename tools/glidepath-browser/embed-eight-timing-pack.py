@@ -359,10 +359,30 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     else if(shape==="back_loaded")mark='<polygon points="'+(x-4.5).toFixed(1)+','+(y-3.5).toFixed(1)+' '+(x+4.5).toFixed(1)+','+(y-3.5).toFixed(1)+' '+x.toFixed(1)+','+(y+5).toFixed(1)+'"';
     else mark='<path d="M '+(x-4).toFixed(1)+' '+y.toFixed(1)+' H '+(x+4).toFixed(1)+' M '+x.toFixed(1)+' '+(y-4).toFixed(1)+' V '+(y+4).toFixed(1)+'" ';
     let close=shape==="front_fast"?"</rect>":shape==="front_rapid"||shape==="front_loaded"||shape==="mid_loaded"||shape==="staggered"||shape==="back_loaded"?"</polygon>":shape==="linear"?"</circle>":"</path>";"""
-    html = replace_once(html, old_shape, new_shape, "eight timing scatter markers")
+    if html.count(old_shape) == 1:
+        html = replace_once(html, old_shape, new_shape, "eight timing scatter markers")
+    else:
+        # The current main dashboard may already carry the eight-rule marker chain.
+        # Accept that known-good form, but BLOCK unknown partial implementations.
+        shape_blocks = list(re.finditer(r'let shape=r\\.timing_rule,mark;(.*?)let close=shape=', html, re.S))
+        require(len(shape_blocks) == 1, "Expected exactly one scatter shape block")
+        shape_block = shape_blocks[0].group(1)
+        missing_shapes = [timing for timing in TIMINGS if f'shape==="{timing}"' not in shape_block]
+        require(not missing_shapes,
+                "Unsupported scatter marker block; missing timing shapes: " + ", ".join(missing_shapes))
     old_dash = '(m==="front_loaded"?"6 4":m==="back_loaded"?"2 4":"")'
     new_dash = '({front_rapid:"3 2",front_fast:"1 3",front_loaded:"8 4",linear:"",mid_loaded:"6 2 1 2",staggered:"5 2 1 2",back_loaded:"2 4",back_late:"10 3"}[m]||"")'
-    html = replace_once(html, old_dash, new_dash, "glide path timing dash mapping")
+    if html.count(old_dash) == 1:
+        html = replace_once(html, old_dash, new_dash, "glide path timing dash mapping")
+    else:
+        # A newer compact-page base may already contain the complete indexed dash map.
+        indexed_dash_maps = re.findall(r'\\(\\s*\\{([^{}]*)\\}\\s*\\[\\s*m\\s*\\]\\s*\\|\\|\\s*""\\s*\\)', html)
+        known_complete_map = any(
+            all(re.search(re.escape(timing) + r'\\s*:', body) for timing in TIMINGS)
+            for body in indexed_dash_maps
+        )
+        require(known_complete_map,
+                "Unsupported glidepath dash mapping; no legacy map or complete eight-rule map found")
 
     # Older compact-page plots have independent, partial dash maps. Normalize every
     # timing-keyed map so newly added rules never serialize stroke-dasharray="undefined".
