@@ -1001,7 +1001,7 @@ try {
   const matrixReal350Column = result.csv_exports_verified.matrix.headers.indexOf("windows_below_real_principal_350");
   need(matrixReal235Column >= 0 && matrixReal350Column >= 0,
     "matrix CSV must export both exact real-principal breach count columns: " + JSON.stringify(result.csv_exports_verified.matrix.headers));
-  const validRealCount = value => /^\\d+$/.test(String(value)) && Number(value) >= 0 && Number(value) <= 157;
+  const validRealCount = value => /^\d+$/.test(String(value)) && Number(value) >= 0 && Number(value) <= 157;
   need(result.csv_exports_verified.matrix.data_rows.length === expectedMatrixRows &&
        result.csv_exports_verified.matrix.data_rows.every(row => validRealCount(row[matrixReal235Column]) && validRealCount(row[matrixReal350Column])),
     "matrix CSV real-principal counts must be integers in the 0–157 window range for all 64 strategies");
