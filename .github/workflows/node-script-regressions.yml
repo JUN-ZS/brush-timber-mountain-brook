@@ -1,0 +1,38 @@
+name: Node Script Regression Tests
+
+on:
+  pull_request:
+    paths:
+      - "scripts/grok-pwa-plugin.mjs"
+      - "scripts/grok-pwa-plugin.test.mjs"
+      - "scripts/sign-out-plan.mjs"
+      - "scripts/sign-out-plan.test.mjs"
+      - ".github/workflows/node-script-regressions.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: node-script-regressions-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-script-regressions:
+    name: PWA head injection and sign-out timer tests
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          clean: true
+      - name: Verify runner
+        run: |
+          set -euo pipefail
+          node --version
+          git status --short
+      - name: Run the touched Node regression suites
+        run: |
+          set -euo pipefail
+          node --test scripts/grok-pwa-plugin.test.mjs scripts/sign-out-plan.test.mjs
