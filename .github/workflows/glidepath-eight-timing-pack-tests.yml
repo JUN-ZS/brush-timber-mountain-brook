@@ -180,7 +180,7 @@ jobs:
           mkdir -p "$publish_dir"
           cp v2.html glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json "$publish_dir/"
 
-          git fetch --no-tags origin "refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
+          git fetch --no-tags origin "+refs/heads/${TARGET_BRANCH}:refs/remotes/origin/${TARGET_BRANCH}"
           actual_head="$(git rev-parse "refs/remotes/origin/${TARGET_BRANCH}")"
           if [[ "$actual_head" != "$EXPECTED_HEAD" ]]; then
             echo "PR branch moved during validation; refusing to publish an artifact generated from stale code."
