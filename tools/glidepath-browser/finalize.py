@@ -35,6 +35,27 @@ paired_real_result = results.get("paired_direction_comparison_real_235")
 if not isinstance(paired_real_result, dict) or paired_real_result.get("state") != "passed" or paired_real_result.get("passed") is not True or paired_real_result.get("matchedPairCount") != 157 or abs(float(paired_real_result.get("inflation", 0)) - 0.0235) > 1e-9:
     raise SystemExit("The 2.35% real-value paired comparison is missing or did not pass all 157 matched pairs; refusing to publish PASS.")
 
+cashflow_semantics = results.get("cashflow_nav_semantic_sweep")
+expected_cashflow_contract = {
+    "total_combinations": 132,
+    "yearly_flow_slices_verified": 132,
+    "primary_nav_bindings_verified": 132,
+    "metric_rows_verified": 132,
+    "allocation_path_bindings_verified": 132,
+    "flow_comparison_bars_verified": 528,
+    "no_withdrawal_zero_cashflow_checks": 33,
+    "data_scope_disclosure_checks": 132,
+}
+if not isinstance(cashflow_semantics, dict):
+    raise SystemExit("Full cashflow × year × statistic NAV semantic sweep is missing.")
+for key, expected in expected_cashflow_contract.items():
+    if cashflow_semantics.get(key) != expected:
+        raise SystemExit(f"Cashflow/NAV semantic contract mismatch for {key}: got {cashflow_semantics.get(key)!r}, expected {expected!r}")
+if cashflow_semantics.get("checked_years") != list(range(11)) or cashflow_semantics.get("checked_stat_views") != ["median", "p05", "worst"]:
+    raise SystemExit("Cashflow/NAV semantic sweep did not cover every year and statistic view.")
+if cashflow_semantics.get("checked_flows") != ["no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"]:
+    raise SystemExit("Cashflow/NAV semantic sweep did not cover the canonical four cashflow modes.")
+
 html_bytes = HTML.read_bytes()
 html_text = html_bytes.decode("utf-8")
 pack_match = re.search(r"const RAW_PACK=(\{.*?\});\s*const TG=", html_text, re.S)
@@ -221,6 +242,9 @@ static.update({
     "unique_histogram_groups": len(histogram_keys),
     "unique_cohort_groups": len(cohort_keys),
     "annual_year10_summary_mismatches": annual_year10_summary_mismatches,
+    "cashflow_nav_semantic_sweep": True,
+    "no_withdrawal_zero_cashflow_contract": True,
+    "allocation_path_invariant_across_cashflows": True,
     "zip_decompression_roundtrip": True,
     "zip_crc32_matches_html": True,
     "zip_sha256_matches_html": True,
@@ -241,6 +265,7 @@ static.update({
     "canonical_bundle_matches_html": True
 })
 review["headless_browser_verification"] = results
+review["cashflow_nav_semantic_sweep"] = cashflow_semantics
 review["known_limits"] = [
     "The proven zero-real-breach strategy counts are derived from each strategy's minimum terminal NAV versus the inflation-adjusted $100,000 threshold.",
     "Exact real-purchasing-power breach counts for strategies that fail the minimum-terminal-NAV proof are not inferred without per-window terminal NAV values or a fresh window-level replay.",
@@ -291,6 +316,7 @@ audit["final_artifact_verification"] = {
         "cohorts_COHORT": len(cohort_keys),
     },
     "annual_year10_summary_mismatches": annual_year10_summary_mismatches,
+    "cashflow_nav_semantic_sweep": cashflow_semantics,
     "zip_members": ["glidepath_interactive_preview_optimized.html"],
     "zip_inflated_html_matches_canonical_html": True,
     "reverse_direction_replay_status": results.get("reverse_direction_replay", {}).get("replayState", "NOT_REPORTED"),
