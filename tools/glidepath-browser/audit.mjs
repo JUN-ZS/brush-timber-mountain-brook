@@ -183,7 +183,7 @@ try {
     "decision evidence is missing the dynamic strategy count, rolling-window count or forward-data as-of date");
   need(summaryPlacement.evidenceRisk.includes(summaryPlacement.floorProof235 + " 組") &&
     summaryPlacement.evidenceRisk.includes(summaryPlacement.floorProof350 + " 組") &&
-    summaryPlacement.evidenceRisk.includes("未精算") && summaryPlacement.evidenceRisk.includes("不代表途中"),
+    summaryPlacement.evidenceRisk.includes("逐窗口重播") && summaryPlacement.evidenceRisk.includes("不代表途中"),
     "decision evidence must derive real-terminal-floor evidence counts from the embedded strategy records");
   need(summaryPlacement.evidenceDataset.strategyCount === String(summaryPlacement.strategyCount) &&
     summaryPlacement.evidenceDataset.sampleWindows === String(summaryPlacement.sampleWindows),
@@ -268,6 +268,7 @@ try {
     flow_comparison_bars_verified: 0,
     no_withdrawal_zero_cashflow_checks: 0,
     data_scope_disclosure_checks: 0,
+    real_floor_window_cells_verified: 0,
     checked_flows: cashflowModes,
     checked_years: cashflowYears,
     checked_stat_views: cashflowStats
@@ -323,12 +324,23 @@ try {
             ["截至當年累計年化回報", pctText(row[9])],
             ["截至當年最大回撤", pctText(row[13])],
             ["最差窗口截至當年回撤", pctText(row[14])],
-            ["名目低於本金窗口", String(Math.round(Number(row[15]))) + "/157"],
+            [cpi > 0 ? "低於實質本金窗口" : "名目低於本金窗口",
+             cpi > 0 ? String(Math.round(Number(row[cpi >= 0.03 ? 22 : 21]))) + "/157" : String(Math.round(Number(row[15]))) + "/157"],
             ["累計缺口窗口", String(Math.round(Number(row[16]))) + "/157"]
           ];
           const metricReconciles = navMetricRows.length === expectedMetricRows.length &&
             expectedMetricRows.every((expected, index) =>
               navMetricRows[index].label === expected[0] && navMetricRows[index].value === expected[1]);
+          const realFloorTableRows = Array.from(document.querySelectorAll("#table tbody tr")).map(tr => {
+            const timingForRow = tr.dataset.timing;
+            const timingIndex = timings.indexOf(timingForRow);
+            const annualRow = RAW_PACK.a.find(item => item[0] === year && item[1] === bi &&
+              item[2] === target && item[3] === timingIndex && item[4] === fi);
+            if (!annualRow) throw new Error("No annual record for real-principal table timing " + timingForRow);
+            const expectedCount = cpi > 0 ? Number(annualRow[cpi >= 0.03 ? 22 : 21]) : Number(annualRow[15]);
+            return {timing: timingForRow, rendered: (tr.children[7]?.innerText || "").trim(),
+              expected: String(Math.round(expectedCount)) + "/157"};
+          });
           const shortfallNoteExpected = "截至當年P95缺口 " + moneyText(row[19]);
           const shortfallNoteReconciles = navMetricRows.length === 7 && navMetricRows[6].note.includes(shortfallNoteExpected);
           const stockCell = trajectory?.querySelector('[data-series="stock"] td[data-year="' + year + '"]');
@@ -373,6 +385,7 @@ try {
             shortfallNoteReconciles,
             metricRows: navMetricRows,
             expectedMetricRows,
+            realFloorTableRows,
             trajectoryYear: trajectory?.dataset.year || null,
             stockPct, expectedStockPct, bondPct, expectedBondPct,
             flowBars,
@@ -390,6 +403,10 @@ try {
           "cashflow label/key/year does not match the selected annual key: " + context);
         need(state.metricReconciles && state.shortfallNoteReconciles,
           "year NAV/return/drawdown/shortfall metrics do not reconcile to the current flow row: " + context);
+        need(state.realFloorTableRows.length === 8 &&
+             state.realFloorTableRows.every(cell => cell.rendered === cell.expected),
+          "real-principal/nominal breach count table is not bound to its exact timing/year/cashflow annual records: " + context);
+        cashflowSemanticSweep.real_floor_window_cells_verified += state.realFloorTableRows.length;
         need(state.trajectoryYear === String(year) &&
              Number.isFinite(state.stockPct) && Number.isFinite(state.bondPct) &&
              Math.abs(state.stockPct - state.expectedStockPct) <= 0.0001 &&
@@ -874,12 +891,29 @@ try {
   need(worstText.includes("資料缺口：本年度摘要沒有最差窗口年化回報序列"), "worst-CAGR missing-data guard not shown");
   result.stat_view_missing_guards.worst_cagr = true;
 
+  const readRealFloorTable = async () => page.evaluate(() => {
+    const state = S();
+    return Array.from(document.querySelectorAll("#table tbody tr")).map(tr => {
+      const record = Y(state.bond, state.target, tr.dataset.timing, state.flow, state.year);
+      const count = Number(state.cpi >= 0.03 ? record.windows_below_real_principal_350 : record.windows_below_real_principal_235);
+      return {timing: tr.dataset.timing, rendered: (tr.children[7]?.innerText || "").trim(),
+        expected: String(Math.round(count)) + "/" + record.rolling_windows};
+    });
+  });
   await page.locator("#realMode").selectOption("0.0235");
   const realHead = await page.locator("#table thead th").nth(7).innerText();
   const realCell = await page.locator("#table tbody tr").first().locator("td").nth(7).innerText();
-  need(realHead.includes("實質保本窗口") && realHead.includes("未精算"), "table real-mode header is ambiguous: " + realHead);
-  need(realCell.includes("未精算（名目") && realCell.includes("/157）"), "table real-mode count still presents an unlabelled nominal count: " + realCell);
-  result.real_mode_table_label_guard = {header: realHead, first_row: realCell, passed: true};
+  const realRows235 = await readRealFloorTable();
+  need(realHead.includes("低於實質本金窗口") && !realHead.includes("未精算"), "table real-mode header is ambiguous: " + realHead);
+  need(/^\d+\/157$/.test(realCell) && realRows235.length === 8 && realRows235.every(row => row.rendered === row.expected),
+    "2.35% real-principal counts are not all linked to their annual replay records: " + JSON.stringify(realRows235));
+  await page.locator("#realMode").selectOption("0.035");
+  const stressHead = await page.locator("#table thead th").nth(7).innerText();
+  const realRows350 = await readRealFloorTable();
+  need(stressHead.includes("低於實質本金窗口") && realRows350.length === 8 && realRows350.every(row => row.rendered === row.expected),
+    "3.50% real-principal counts are not all linked to their annual replay records: " + JSON.stringify(realRows350));
+  result.real_mode_table_label_guard = {header: realHead, first_row: realCell, passed: true, eight_timing_cells_verified: realRows235.length};
+  result.real_floor_inflation_views = {rate_2_35_cells: realRows235.length, rate_3_50_cells: realRows350.length, passed: true};
   await page.locator("#realMode").selectOption("0");
   const nominalHead = await page.locator("#table thead th").nth(7).innerText();
   const nominalCell = await page.locator("#table tbody tr").first().locator("td").nth(7).innerText();
@@ -891,11 +925,12 @@ try {
     const initialCapital = Number((RAW_PACK.meta && RAW_PACK.meta.initial_capital_usd) || 100000);
     return [0.0235, 0.035].map(cpi => {
       const threshold = initialCapital * Math.pow(1 + cpi, 10);
+      const countIndex = cpi >= 0.03 ? 22 : 21;
       return {
         annualized_inflation_assumption: cpi,
         year10_nominal_principal_threshold_usd: threshold,
         year10_strategies: rows.length,
-        provable_zero_real_breach_strategies: rows.filter(row => Number(row[8]) >= threshold).length
+        provable_zero_real_breach_strategies: rows.filter(row => Number(row[countIndex]) === 0).length
       };
     });
   });

@@ -45,6 +45,7 @@ expected_cashflow_contract = {
     "flow_comparison_bars_verified": 528,
     "no_withdrawal_zero_cashflow_checks": 33,
     "data_scope_disclosure_checks": 132,
+    "real_floor_window_cells_verified": 1056,
 }
 if not isinstance(cashflow_semantics, dict):
     raise SystemExit("Full cashflow × year × statistic NAV semantic sweep is missing.")
@@ -81,6 +82,13 @@ expected_counts = (1024, 11264, 4096, 14336)
 actual_counts = (strategy_count, annual_count, histogram_count, cohort_count)
 if actual_counts != expected_counts or window_count != 157:
     raise SystemExit(f"Embedded data-count contract mismatch: actual={actual_counts}, expected={expected_counts}, windows={window_count}")
+if any(not isinstance(row, list) or len(row) < 23 for row in annual_rows):
+    raise SystemExit("Annual compact rows must include both independently replayed real-principal breach counts.")
+for row in annual_rows:
+    if any(not isinstance(row[index], int) or not 0 <= row[index] <= window_count for index in (21, 22)):
+        raise SystemExit("Annual real-principal breach count is not an integer within 0–157.")
+    if int(row[0]) == 0 and (row[21] != 0 or row[22] != 0):
+        raise SystemExit("Year-zero real-principal breach counts must be zero.")
 
 def unique_prefix_keys(rows, width, label):
     keys = []
@@ -163,10 +171,21 @@ for evidence_text in (
 ):
     if evidence_text not in sample_disclosure:
         raise SystemExit("Rendered sample disclosure is incomplete: " + evidence_text)
+for rate, count_index, derived_count in ((0.0235, 21, proof_235), (0.035, 22, proof_350)):
+    exact_zero_count = sum(1 for row in annual_rows if int(row[0]) == 10 and int(row[count_index]) == 0)
+    if exact_zero_count != derived_count:
+        raise SystemExit(f"Zero-real-breach strategy count differs from annual window replay at {rate:.2%}: {exact_zero_count} != {derived_count}")
+    evidence = next((row for row in results.get("derived_real_breach_zero_proof", [])
+                     if abs(float(row.get("annualized_inflation_assumption", -1)) - rate) < 1e-9), None)
+    if not evidence or int(evidence.get("provable_zero_real_breach_strategies", -1)) != exact_zero_count:
+        raise SystemExit(f"Browser proof summary does not match exact annual real-principal counts at {rate:.2%}.")
+inflation_views = results.get("real_floor_inflation_views", {})
+if inflation_views.get("rate_2_35_cells") != 8 or inflation_views.get("rate_3_50_cells") != 8 or inflation_views.get("passed") is not True:
+    raise SystemExit("Browser did not verify both inflation modes against all eight real-principal timing rows.")
 for evidence_text in (
     f"年通脹 2.35% 時，{strategy_count} 組第10年策略中有 {proof_235} 組",
     f"年通脹 3.50% 時是 {proof_350} 組",
-    "未精算",
+    "逐窗口重播",
     "不代表途中不回撤",
 ):
     if evidence_text not in risk_disclosure:
@@ -191,10 +210,10 @@ if "未以估算或原模式績效補值" not in html_text:
     raise SystemExit("Reverse replay must explicitly block unsupported cashflows rather than reuse legacy results.")
 if "未扣交易成本、稅費或滑點" not in html_text or "不可視為 AGG／SHY／IEF" not in html_text:
     raise SystemExit("Reverse replay limitations for proxy coverage/costs are missing.")
-if "<th>'+(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')+'</th>" not in html_text:
-    raise SystemExit("Real-mode table header fix is missing.")
-if "未精算（名目 " not in html_text:
-    raise SystemExit("Real-mode table cell guard is missing.")
+if "<th>'+(s.cpi>0?'低於實質本金窗口':'名目低於本金')+'</th>" not in html_text:
+    raise SystemExit("Real-mode table header/count contract is missing.")
+if "s.cpi>=0.03?v.windows_below_real_principal_350:v.windows_below_real_principal_235" not in html_text:
+    raise SystemExit("Real-mode table does not bind either exact real-principal count field.")
 
 # Rebuild a deterministic, single-file ZIP from the exact canonical HTML.
 with ZipFile(BUNDLE, "w", compression=ZIP_DEFLATED, compresslevel=9) as zf:
@@ -235,6 +254,7 @@ for key, expected in {
     "cashflow_invariants_checked": 482304,
     "yearly_navs_reconciled": 11264,
     "daily_drawdown_paths_replayed": 160768,
+    "real_floor_annual_rows": 11264,
 }.items():
     if ledger_counts.get(key) != expected:
         raise SystemExit(f"Independent ledger replay count mismatch {key}: {ledger_counts.get(key)!r} != {expected}")
@@ -242,7 +262,12 @@ for key, expected in {
 audit = json.loads(AUDIT.read_text(encoding="utf-8"))
 audit["status"] = "BROWSER_AND_STATIC_VERIFICATION_PASSED"
 ledger_replay_summary = dict(ledger_replay)
+ledger_replay_summary.pop("real_floor_annual_counts", None)
+ledger_replay_summary["real_floor_annual_counts_sha256"] = hashlib.sha256(
+    json.dumps(ledger_replay.get("real_floor_annual_counts", []), separators=(",", ":")).encode("utf-8")
+).hexdigest()
 ledger_replay_summary.update({
+    "real_floor_annual_rows": ledger_counts["real_floor_annual_rows"],
     "window_rows_replayed": ledger_counts["window_rows_replayed"],
     "annual_rows_reconciled": ledger_counts["annual_rows_reconciled"],
     "scenario_summaries_reconciled": ledger_counts["scenario_summaries_reconciled"],
@@ -307,19 +332,19 @@ static.update({
 review["headless_browser_verification"] = results
 review["cashflow_nav_semantic_sweep"] = cashflow_semantics
 review["known_limits"] = [
-    "The proven zero-real-breach strategy counts are derived from each strategy's minimum terminal NAV versus the inflation-adjusted $100,000 threshold.",
-    "Exact real-purchasing-power breach counts for strategies that fail the minimum-terminal-NAV proof are not inferred without per-window terminal NAV values or a fresh window-level replay.",
+    "Exact real-principal breach counts for each year, strategy, cashflow mode and inflation assumption are calculated from independently replayed 157-window year-end NAV marks.",
+    "The visible real-principal count compares remaining portfolio NAV with initial capital inflated by the selected annual rate; it does not add previously withdrawn cash back to account NAV.",
     "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied.",
     "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries."
 ]
 review["residual_findings_for_v2_2"] = [
-    "Exact real-purchasing-power breach counts for strategies whose worst terminal NAV is below the inflation-adjusted principal threshold remain uncomputed; the UI explicitly labels these as uncalculated instead of substituting nominal counts."
+    "Annual real-principal counts describe year-end NAV only; they do not count intra-year threshold touches and are not future probabilities."
 ]
 review["table_real_mode_label_fix"] = {
     "implemented": True,
     "nominal_header": "名目低於本金",
-    "real_header": "實質保本窗口（未精算）",
-    "real_cell_format": "未精算（名目 n/157）"
+    "real_header": "低於實質本金窗口",
+    "real_cell_format": "逐窗口實質低於本金 n/157"
 }
 review["derived_real_breach_zero_proof"] = results.get("derived_real_breach_zero_proof", [])
 review["reverse_direction_replay"] = results.get("reverse_direction_replay", {})
@@ -357,6 +382,13 @@ audit["final_artifact_verification"] = {
     },
     "annual_year10_summary_mismatches": annual_year10_summary_mismatches,
     "cashflow_nav_semantic_sweep": cashflow_semantics,
+    "real_principal_breach_count_contract": {
+        "annual_rows_with_two_rates": 11264,
+        "rate_235_zero_breach_strategies": proof_235,
+        "rate_350_zero_breach_strategies": proof_350,
+        "strict_below_threshold": True,
+        "source": "independent normalized-share replay; year-end portfolio NAV",
+    },
     "cashflow_window_ledger_replay": {
         "status": ledger_replay["status"],
         "source_panel_sha256": ledger_replay["source_panel_sha256"],
@@ -364,6 +396,8 @@ audit["final_artifact_verification"] = {
         "annual_rows_reconciled": ledger_counts["annual_rows_reconciled"],
         "scenario_summaries_reconciled": ledger_counts["scenario_summaries_reconciled"],
         "cashflow_invariants_checked": ledger_counts["cashflow_invariants_checked"],
+        "real_floor_annual_rows": ledger_counts["real_floor_annual_rows"],
+        "real_floor_annual_counts_sha256": ledger_replay_summary["real_floor_annual_counts_sha256"],
         "max_abs_error": ledger_counts.get("max_abs_error", {}),
     },
     "zip_members": ["glidepath_interactive_preview_optimized.html"],

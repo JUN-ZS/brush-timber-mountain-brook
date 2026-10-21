@@ -123,12 +123,14 @@ jobs:
       - name: Embed exact Stage 2 results into the compact dashboard
         env:
           STAGE2_DIR: ${{ runner.temp }}/stage2-replay/stock-bond-glidepath
+          LEDGER_REPLAY_AUDIT_PATH: ${{ runner.temp }}/glidepath-window-cashflow-ledger-replay.json
         run: |
           set -euo pipefail
           python3 tools/glidepath-browser/embed-eight-timing-pack.py \
             --summary "$STAGE2_DIR/stock_bond_glidepath_summary.json" \
             --histograms "$STAGE2_DIR/window_distribution_summary.json" \
             --cohorts "$STAGE2_DIR/window_start_cohort_summary.json" \
+            --ledger-replay "$LEDGER_REPLAY_AUDIT_PATH" \
             --html v2.html
       - name: Compile Python tools and JavaScript before browser audit
         run: |
@@ -178,6 +180,8 @@ jobs:
           assert ledger.get("annual_rows_reconciled") == 11264
           assert ledger.get("scenario_summaries_reconciled") == 1024
           assert ledger.get("cashflow_invariants_checked") == 482304
+          assert ledger.get("real_floor_annual_rows") == 11264
+          assert audit.get("real_principal_breach_count_contract", {}).get("annual_rows_with_two_rates") == 11264
           assert ledger.get("source_panel_sha256") == pack["meta"]["source_sha256"]
           assert audit.get("sha256") == __import__("hashlib").sha256(Path("v2.html").read_bytes()).hexdigest()
           with zipfile.ZipFile("glidepath_interactive_preview_optimized_bundle.zip") as zf:
