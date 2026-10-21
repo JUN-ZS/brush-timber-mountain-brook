@@ -3,15 +3,15 @@ name: Glidepath Eight-Timing Pack Contract
 on:
   pull_request:
     paths:
-      - "tools/glidepath-browser/embed-eight-timing-pack.py"
-      - "tools/glidepath-browser/test_embed_eight_timing_pack.py"
-      - "tools/glidepath-browser/trajectory-panel.js"
-      - "tools/glidepath-browser/audit.mjs"
-      - "tools/glidepath-browser/finalize.py"
+      - "v2.html"
+      - "glidepath_interactive_preview_optimized_bundle.zip"
+      - "glidepath_preview_optimized_audit.json"
+      - "tools/glidepath-browser/**"
       - ".github/workflows/glidepath-eight-timing-pack-tests.yml"
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 concurrency:
   group: glidepath-eight-timing-pack-${{ github.event.pull_request.number || github.ref }}
@@ -19,12 +19,14 @@ concurrency:
 
 jobs:
   pack-contract:
-    name: Validate eight-timing pack contracts on Linux BOT
+    name: Pack the pinned eight-timing replay and verify browser behavior on Linux BOT
     runs-on: [self-hosted, grokbot-box-linux-x64]
-    timeout-minutes: 8
+    timeout-minutes: 25
     steps:
-      - name: Checkout exact revision
+      - name: Checkout exact PR revision
         uses: actions/checkout@v4
+        with:
+          clean: true
       - name: Check Python and Node runtimes
         run: |
           set -euo pipefail
@@ -32,15 +34,128 @@ jobs:
           node --version
       - name: Run synthetic eight-timing contract tests
         run: python3 tools/glidepath-browser/test_embed_eight_timing_pack.py
-      - name: Compile Python tools
-        run: python3 -m py_compile tools/glidepath-browser/embed-eight-timing-pack.py tools/glidepath-browser/finalize.py
-      - name: Parse browser audit JavaScript
-        run: node --check tools/glidepath-browser/audit.mjs
-      - name: Check whitespace and conflict markers
+      - name: Download the verified Stage 2 replay artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stage2-cashflow-floor-stock-bond-glidepath
+          run-id: 39546097174
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/stage2-replay
+      - name: Confirm pinned source artifact contents
         run: |
           set -euo pipefail
+          test -s "${RUNNER_TEMP}/stage2-replay/stock-bond-glidepath/stock_bond_glidepath_summary.json"
+          test -s "${RUNNER_TEMP}/stage2-replay/stock-bond-glidepath/window_distribution_summary.json"
+          test -s "${RUNNER_TEMP}/stage2-replay/stock-bond-glidepath/window_start_cohort_summary.json"
+          python3 - <<'PY'
+          import json, pathlib
+          root = pathlib.Path(__import__("os").environ["RUNNER_TEMP"]) / "stage2-replay" / "stock-bond-glidepath"
+          report = json.loads((root / "stock_bond_glidepath_summary.json").read_text(encoding="utf-8"))
+          hist = json.loads((root / "window_distribution_summary.json").read_text(encoding="utf-8"))
+          cohort = json.loads((root / "window_start_cohort_summary.json").read_text(encoding="utf-8"))
+          assert len(report["scenarios"]) == 1024
+          assert len(report["annual_scenarios"]) == 11264
+          assert len(hist["distributions"]) == 4096
+          assert len(cohort["cohorts"]) == 14336
+          assert report["data"]["last_common_date"] == "2026-09-30"
+          assert report["method"]["rolling_windows_per_scenario"] == 157
+          print("PINNED_STAGE2_ARTIFACT_VERIFIED", {
+              "scenarios": len(report["scenarios"]),
+              "annual": len(report["annual_scenarios"]),
+              "histograms": len(hist["distributions"]),
+              "cohorts": len(cohort["cohorts"]),
+              "source_as_of": report["data"]["last_common_date"],
+              "raw_panel_sha256": report["data"]["raw_panel_canonical_sha256"],
+          })
+          PY
+      - name: Refresh the canonical independent trajectory panel
+        run: python3 tools/glidepath-browser/ensure-trajectory.py
+      - name: Embed exact Stage 2 results into the compact dashboard
+        env:
+          STAGE2_DIR: ${{ runner.temp }}/stage2-replay/stock-bond-glidepath
+        run: |
+          set -euo pipefail
+          python3 tools/glidepath-browser/embed-eight-timing-pack.py \
+            --summary "$STAGE2_DIR/stock_bond_glidepath_summary.json" \
+            --histograms "$STAGE2_DIR/window_distribution_summary.json" \
+            --cohorts "$STAGE2_DIR/window_start_cohort_summary.json" \
+            --html v2.html
+      - name: Compile Python tools and JavaScript before browser audit
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/glidepath-browser/embed-eight-timing-pack.py tools/glidepath-browser/finalize.py tools/glidepath-browser/ensure-trajectory.py
+          node --check tools/glidepath-browser/audit.mjs
+      - name: Install pinned Playwright and Chromium
+        run: |
+          set -euo pipefail
+          npm install --prefix tools/glidepath-browser --no-save --package-lock=false playwright@1.57.0
+          tools/glidepath-browser/node_modules/.bin/playwright install chromium
+      - name: Run full reproducible Chromium interaction audit
+        env:
+          AUDIT_RESULTS_PATH: ${{ runner.temp }}/glidepath-browser-audit-results.json
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 180s node tools/glidepath-browser/audit.mjs
+      - name: Rebuild deterministic ZIP and machine audit JSON
+        env:
+          AUDIT_RESULTS_PATH: ${{ runner.temp }}/glidepath-browser-audit-results.json
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 tools/glidepath-browser/finalize.py
           git diff --check
-          if grep -R -n -E '^(<<<<<<<|=======|>>>>>>>)' tools/glidepath-browser; then
-            echo "Conflict marker found"
-            exit 1
+      - name: Verify browser result and compact row counts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re, zipfile
+          from pathlib import Path
+          html = Path("v2.html").read_text(encoding="utf-8")
+          match = re.search(r"const RAW_PACK=(\{.*?\});\s*const TG=", html, re.S)
+          assert match, "RAW_PACK declaration missing"
+          pack = json.loads(match.group(1))
+          assert len(pack["d"]) == 1024
+          assert len(pack["a"]) == 11264
+          assert len(pack["h"]) == 4096
+          assert len(pack["c"]) == 14336
+          assert "TM=[\"front_rapid\",\"front_fast\",\"front_loaded\",\"linear\",\"mid_loaded\",\"staggered\",\"back_loaded\",\"back_late\"]" in html
+          audit = json.loads(Path("glidepath_preview_optimized_audit.json").read_text(encoding="utf-8"))
+          assert audit.get("status") == "BROWSER_AND_STATIC_VERIFICATION_PASSED", audit.get("status")
+          assert audit.get("sha256") == __import__("hashlib").sha256(Path("v2.html").read_bytes()).hexdigest()
+          with zipfile.ZipFile("glidepath_interactive_preview_optimized_bundle.zip") as zf:
+              assert zf.testzip() is None
+              names = zf.namelist()
+              assert len(names) == 1
+              assert zf.read(names[0]) == Path("v2.html").read_bytes()
+          print("COMPACT_EIGHT_TIMING_PAGE_VERIFIED", {
+              "scenario_rows": len(pack["d"]), "annual_rows": len(pack["a"]),
+              "histogram_groups": len(pack["h"]), "cohort_rows": len(pack["c"]),
+              "source_as_of": pack["meta"]["source_as_of"], "audit_status": audit["status"],
+              "bundle_members": names,
+          })
+          PY
+      - name: Upload the browser-verified preview and audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: glidepath-eight-timing-preview-verified
+          path: |
+            v2.html
+            glidepath_interactive_preview_optimized_bundle.zip
+            glidepath_preview_optimized_audit.json
+            ${{ runner.temp }}/glidepath-browser-audit-results.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Commit verified preview back to this PR branch only
+        env:
+          TARGET_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add v2.html glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json
+          if git diff --cached --quiet; then
+            echo "Verified compact preview already matches the exact replay artifact."
+          else
+            git commit -m "feat(glidepath): publish verified eight-timing preview"
+            git push origin "HEAD:${TARGET_BRANCH}"
           fi
