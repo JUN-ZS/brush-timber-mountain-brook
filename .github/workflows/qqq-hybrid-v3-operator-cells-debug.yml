@@ -1,0 +1,129 @@
+name: QQQ Hybrid V3 Operator Cells Debug Exact
+
+on:
+  pull_request:
+    paths:
+      - "terminal/qqq_hybrid_deployment_terminal_v3/engine.js"
+      - "terminal/qqq_hybrid_deployment_terminal_v3/app.js"
+      - "terminal/qqq_hybrid_deployment_terminal_v3/styles.css"
+      - "terminal/qqq_hybrid_deployment_terminal_v3/index.html"
+      - "terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/**"
+      - "terminal/qqq_hybrid_deployment_terminal_v3/tests/golden_test.js"
+      - "terminal/qqq_hybrid_deployment_terminal_v3/server.py"
+      - "terminal/qqq_hybrid_deployment_terminal_v3/providers/**"
+      - ".github/workflows/qqq-hybrid-v3-operator-cells-debug.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: qhp-v3-operator-cells-debug
+  cancel-in-progress: true
+
+jobs:
+  cells:
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout provenance
+        run: |
+          echo "HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Syntax — engine
+        run: node --check terminal/qqq_hybrid_deployment_terminal_v3/engine.js
+
+      - name: Regression — existing V3 golden
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/tests/golden_test.js
+
+      - name: Cell 01 — Operator input
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell01_operator_input.js
+
+      - name: Cell 02 — Decision
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell02_decision.js
+
+      - name: Cell 03 — Operator current
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell03_operator_current.js
+
+      - name: Cell 04 — Candidate
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell04_candidate.js
+
+      - name: Cell 05 — Build
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell05_build.js
+
+      - name: Cell 06 — Watch
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell06_watch.js
+
+      - name: Cell 07 — Operator summary
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell07_operator_summary.js
+
+      - name: Cell 08 — Current option leg
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell08_current_option_leg.js
+
+      - name: Cell 09 — Delayed DATA
+        run: python3 terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell09_delayed_data.py
+
+      - name: Cell 10 — Option candidate retrieval
+        run: python3 terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell10_option_candidate_retrieval.py
+
+      - name: Cell 11 — OpenD option-chain fallback
+        run: python3 terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell11_opend_option_fallback.py
+
+      - name: Cell 12 — Journal contract
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell12_journal_contract.js
+
+      - name: Cell 13 — Operator clarity
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell13_operator_clarity.js
+
+      - name: Cell 14 — Journal → Memory write-back
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell14_journal_memory.js
+
+      - name: Cell 15 — Strategy / Funding Context
+        run: node terminal/qqq_hybrid_deployment_terminal_v3/debug_cells/cell15_strategy_funding_context.js
+
+
+  strategy_pool_replay:
+    name: Controlled Strategy Pool replay
+    runs-on: grokbot-box-linux-x64
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download verified Cboe REAL M1/M2 artifact
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: 37506316510
+          name: original-hybrid-real-vx-pr84
+          path: original-hybrid-real-vx-pr84
+
+      - name: Verify Cboe REAL dataset
+        run: |
+          test -s original-hybrid-real-vx-pr84/artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv
+          python3 - <<'PY'
+          import csv
+          p="original-hybrid-real-vx-pr84/artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv"
+          rows=list(csv.DictReader(open(p,encoding="utf-8")))
+          assert rows[0]["trade_date"]=="2018-03-01"
+          assert rows[-1]["trade_date"]=="2026-09-04"
+          assert len(rows)>2000
+          print({"cboe_rows":len(rows),"first":rows[0]["trade_date"],"last":rows[-1]["trade_date"]})
+          PY
+
+      - name: Replay code provenance
+        run: |
+          echo "replay.py revision = 1d5303d817023d78e8e23fdc51b267449d658e86"
+
+      - name: Controlled deployment replay
+        run: |
+          python3 research/qqq_strategy_pool_deployment_replay_v1/replay.py             --spots attachments/spots_qqq_vxx_vix.1csv             --cboe-file original-hybrid-real-vx-pr84/artifacts/real-vx/cboe_vx_m1_m2_2018_2026.csv             --out-dir out/strategy-pool-replay
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: strategy-pool-deployment-replay-v1-report
+          path: out/strategy-pool-replay/
