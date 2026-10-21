@@ -1,4 +1,4 @@
-name: Node Script Regression Tests
+name: Node and TypeScript Regression Tests
 
 on:
   pull_request:
@@ -7,6 +7,8 @@ on:
       - "scripts/grok-pwa-plugin.test.mjs"
       - "scripts/sign-out-plan.mjs"
       - "scripts/sign-out-plan.test.mjs"
+      - "src/lib/pulse/rolling-floor.ts"
+      - "src/lib/pulse/rolling-floor.test.ts"
       - ".github/workflows/node-script-regressions.yml"
   workflow_dispatch:
 
@@ -19,7 +21,7 @@ concurrency:
 
 jobs:
   node-script-regressions:
-    name: PWA head injection and sign-out timer tests
+    name: PWA, sign-out and rolling-floor tests
     runs-on: [self-hosted, grokbot-box-linux-x64]
     timeout-minutes: 10
     steps:
@@ -27,12 +29,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           clean: true
+      - name: Set up Node 22 for built-in TypeScript stripping
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
       - name: Verify runner
         run: |
           set -euo pipefail
           node --version
           git status --short
-      - name: Run the touched Node regression suites
+      - name: Run PWA and sign-out Node regression suites
         run: |
           set -euo pipefail
           node --test scripts/grok-pwa-plugin.test.mjs scripts/sign-out-plan.test.mjs
+      - name: Run rolling-floor history regression
+        run: |
+          set -euo pipefail
+          node --experimental-strip-types --test src/lib/pulse/rolling-floor.test.ts
