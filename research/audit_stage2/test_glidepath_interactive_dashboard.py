@@ -157,7 +157,11 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(markup.id_to_tag.get("exportAnnual"),"button")
 
     def test_selected_year_is_read_from_annual_rows_and_all_eight_timings_have_paths(self):
-        page_template=Path(__import__("glidepath_interactive_dashboard").__file__).read_text(encoding="utf-8")
+        dashboard_path = Path(__import__("glidepath_interactive_dashboard").__file__)
+        page_template = dashboard_path.read_text(encoding="utf-8")
+        runtime_path = dashboard_path.with_name("interactive_dashboard_runtime.py")
+        if runtime_path.exists():
+            page_template += "\n" + runtime_path.read_text(encoding="utf-8")
         self.assertIn('year===s.year',page_template)
         self.assertIn('Y(s.bond,s.target,s.timing,s.flow,s.year)',page_template)
         self.assertIn('100*Y(s.bond,s.target,m,s.flow,y).median_target_bond_weight',page_template)
