@@ -104,6 +104,27 @@ try {
     const summary = document.querySelector("#decisionSummary");
     const controls = document.querySelector(".controls");
     const firstChart = document.querySelector("svg,canvas");
+    const rawPack = RAW_PACK;
+    const bondValue = document.querySelector("#bond").value;
+    const bondIndex = ["AGG", "SHY", "IEF", "TLT"].indexOf(bondValue);
+    const timingIndex = ["front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"].indexOf(document.querySelector("#timing").value);
+    const flowIndex = ["no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"].indexOf(document.querySelector("#flow").value);
+    const target = Number(document.querySelector("#target").value);
+    const year = Number(document.querySelector("#year").value);
+    const cpi = Math.max(0, Number(document.querySelector("#realMode").value || 0));
+    const annual = rawPack.a.find(row => row[0] === year && row[1] === bondIndex && row[2] === target && row[3] === timingIndex && row[4] === flowIndex);
+    if (!annual) throw new Error("missing compact annual record for the currently selected strategy/year");
+    const stat = document.querySelector("#statView")?.value || "median";
+    const navField = stat === "p05" ? 6 : stat === "worst" ? 8 : 5;
+    const expectedNav = annual[navField] / Math.pow(1 + cpi, year);
+    const money = value => "$" + Math.round(value).toLocaleString("en-US");
+    const stockWeight = 1 - Number(annual[20]);
+    const bondWeight = Number(annual[20]);
+    const initialCapital = Number(rawPack.meta?.initial_capital_usd || 100000);
+    const floorProof = rate => rawPack.d.filter(row => Number(row[7]) >= initialCapital * Math.pow(1 + rate, 10)).length;
+    const strategyCount = rawPack.d.length;
+    const sampleWindows = Number(rawPack.meta?.rolling_windows_per_scenario || 157);
+    const sourceAsOf = String(rawPack.meta?.source_as_of || "2026-09-30");
     return {
     summaryBeforeControls: summary.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false,
     evidenceAfterSummary: !!(summary.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING),
@@ -117,6 +138,14 @@ try {
     evidenceSample: document.querySelector("#decisionEvidenceSample").innerText,
     evidenceRisk: document.querySelector("#decisionEvidenceRisk").innerText,
     evidenceScope: document.querySelector("#decisionEvidenceScope").innerText,
+    strategyCount,
+    sampleWindows,
+    sourceAsOf,
+    floorProof235: floorProof(0.0235),
+    floorProof350: floorProof(0.035),
+    expectedAmount: money(expectedNav),
+    expectedStockAmount: money(expectedNav * stockWeight),
+    expectedBondAmount: money(expectedNav * bondWeight),
     evidenceDataset: {
       sampleWindows: evidence.dataset.sampleWindows,
       strategyCount: evidence.dataset.strategyCount,
@@ -137,24 +166,30 @@ try {
   need(summaryPlacement.summaryBeforeControls && summaryPlacement.metricsBeforeControls, "decision outputs are not positioned ahead of controls");
   need(summaryPlacement.evidenceAfterSummary && summaryPlacement.evidenceBeforeControls && summaryPlacement.evidenceBeforeFirstChart,
     "decision evidence must follow the selected summary and precede both controls and the first chart: " + JSON.stringify(summaryPlacement));
-  need(summaryPlacement.evidenceAmount.includes("$167,812") &&
-    summaryPlacement.evidenceAllocation.includes("股票約 $98,590") &&
-    summaryPlacement.evidenceAllocation.includes("AGG 約 $69,222"),
+  need(summaryPlacement.evidenceAmount.includes(summaryPlacement.expectedAmount) &&
+    summaryPlacement.evidenceAllocation.includes("股票約 " + summaryPlacement.expectedStockAmount) &&
+    summaryPlacement.evidenceAllocation.includes(document.querySelector("#bond") ? document.querySelector("#bond").value + " 約 " + summaryPlacement.expectedBondAmount : summaryPlacement.expectedBondAmount),
     "decision evidence does not bind the displayed amount to its actual selected allocation split");
   need(summaryPlacement.evidenceBehavior.includes("AGG") && summaryPlacement.evidenceBehavior.includes("60%") &&
     summaryPlacement.evidenceBehavior.includes("第 5 年") && summaryPlacement.evidenceFlow.includes("不提款"),
     "decision evidence does not bind the NAV amount to current strategy behavior and cashflow");
-  need(summaryPlacement.evidenceSample.includes("768 組") && summaryPlacement.evidenceSample.includes("157 個重疊") &&
-    summaryPlacement.evidenceSample.includes("2026-09-04"),
-    "decision evidence is missing the strategy count, rolling-window count or data as-of date");
-  need(summaryPlacement.evidenceRisk.includes("363 組") && summaryPlacement.evidenceRisk.includes("329 組") &&
+  need(summaryPlacement.evidenceSample.includes(summaryPlacement.strategyCount + " 組") &&
+    summaryPlacement.evidenceSample.includes(summaryPlacement.sampleWindows + " 個重疊") &&
+    summaryPlacement.evidenceSample.includes(summaryPlacement.sourceAsOf),
+    "decision evidence is missing the dynamic strategy count, rolling-window count or forward-data as-of date");
+  need(summaryPlacement.evidenceRisk.includes(summaryPlacement.floorProof235 + " 組") &&
+    summaryPlacement.evidenceRisk.includes(summaryPlacement.floorProof350 + " 組") &&
     summaryPlacement.evidenceRisk.includes("未精算") && summaryPlacement.evidenceRisk.includes("不代表途中"),
-    "decision evidence must distinguish proven zero-real-terminal-breach strategies from uncalculated counts");
-  need(summaryPlacement.evidenceDataset.strategyCount === "768" && summaryPlacement.evidenceDataset.sampleWindows === "157",
-    "decision evidence machine attributes do not report the declared sample population");
+    "decision evidence must derive real-terminal-floor evidence counts from the embedded strategy records");
+  need(summaryPlacement.evidenceDataset.strategyCount === String(summaryPlacement.strategyCount) &&
+    summaryPlacement.evidenceDataset.sampleWindows === String(summaryPlacement.sampleWindows),
+    "decision evidence machine attributes do not report the current embedded sample population");
   need(summaryPlacement.initialLead.includes("AGG") && summaryPlacement.initialLead.includes("60%") && summaryPlacement.initialLead.includes("第5年"), "initial decision summary does not state the selected strategy/year");
   need(summaryPlacement.initialValue.startsWith("$") && summaryPlacement.initialBehavior.length > 0 && summaryPlacement.initialAllocation.includes("股票") && summaryPlacement.initialFlow.includes("不提款") && summaryPlacement.initialFloor.includes("$"), "initial decision summary is missing amount/behavior/data fields");
-  need(summaryPlacement.initialAllocationDetail.includes("按主結果 $167,812") && summaryPlacement.initialAllocationDetail.includes("股票約 $98,590") && summaryPlacement.initialAllocationDetail.includes("AGG 約 $69,222"), "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
+  need(summaryPlacement.initialAllocationDetail.includes("按主結果 " + summaryPlacement.expectedAmount) &&
+    summaryPlacement.initialAllocationDetail.includes("股票約 " + summaryPlacement.expectedStockAmount) &&
+    summaryPlacement.initialAllocationDetail.includes(document.querySelector("#bond") ? document.querySelector("#bond").value + " 約 " + summaryPlacement.expectedBondAmount : summaryPlacement.expectedBondAmount),
+    "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
   result.frontloaded_decision_summary = { ...summaryPlacement, passed: true };
 
   await page.locator("#decisionTrajectory[data-state]").waitFor({state: "visible", timeout: 5000});
