@@ -37,6 +37,26 @@ if not isinstance(paired_real_result, dict) or paired_real_result.get("state") !
 
 html_bytes = HTML.read_bytes()
 html_text = html_bytes.decode("utf-8")
+pack_match = re.search(r"const RAW_PACK=(\{.*?\});\s*const TG=", html_text, re.S)
+if not pack_match:
+    raise SystemExit("Compact RAW_PACK could not be found; refusing to publish an audit without source-linked sample counts.")
+try:
+    packed_data = json.loads(pack_match.group(1))
+except json.JSONDecodeError as exc:
+    raise SystemExit("Compact RAW_PACK is invalid JSON: " + str(exc))
+packed_scenarios = packed_data.get("d", [])
+pack_meta = packed_data.get("meta", {})
+strategy_count = len(packed_scenarios)
+window_count = int(pack_meta.get("rolling_windows_per_scenario", 157))
+initial_capital = float(pack_meta.get("initial_capital_usd", 100000))
+source_as_of = str(pack_meta.get("source_as_of", "2026-09-30"))
+def proven_real_floor_count(rate):
+    threshold = initial_capital * (1 + rate) ** 10
+    return sum(1 for row in packed_scenarios if len(row) > 7 and float(row[7]) >= threshold)
+proof_235 = proven_real_floor_count(0.0235)
+proof_350 = proven_real_floor_count(0.035)
+if strategy_count not in (768, 1024) or window_count != 157:
+    raise SystemExit(f"Unexpected compact sample contract: strategies={strategy_count}, windows={window_count}")
 parser = IdParser()
 parser.feed(html_text)
 unique_ids = sorted(set(parser.ids))
@@ -55,7 +75,15 @@ if "GLIDEPATH_TRAJECTORY_PANEL_V1" not in html_text or 'id="glidepath-trajectory
     raise SystemExit("Year-by-year allocation path panel was not embedded in the canonical HTML.")
 if "GLIDEPATH_DECISION_EVIDENCE_V1" not in html_text or "決策依據：金額 × 行為 × 樣本 × 尚未證明的風險" not in html_text:
     raise SystemExit("Front-loaded amount/behavior/sample/unproven-risk panel is missing.")
-for evidence_text in ("768 組第10年策略設定", "157 個重疊的 10 年窗口", "363 組", "329 組", "未精算", "不代表途中不回撤"):
+for evidence_text in (
+    f"{strategy_count} 組第10年策略設定",
+    f"{window_count} 個重疊的 10 年窗口",
+    f"年通脹 2.35% 時，{strategy_count} 組第10年策略中有 {proof_235} 組",
+    f"年通脹 3.50% 時是 {proof_350} 組",
+    source_as_of,
+    "未精算",
+    "不代表途中不回撤",
+):
     if evidence_text not in html_text:
         raise SystemExit("Decision evidence disclosure is incomplete: " + evidence_text)
 if "不等於歷史每一天實際持倉或已執行交易" not in html_text:
@@ -119,7 +147,7 @@ static.update({
     "zip_sha256_matches_html": True,
     "trajectory_panel_source_marker": "GLIDEPATH_TRAJECTORY_PANEL_V1" in html_text,
     "decision_evidence_panel_embedded": "GLIDEPATH_DECISION_EVIDENCE_V1" in html_text,
-    "decision_evidence_links_amount_behavior_sample_risk": all(item in html_text for item in ("決策依據：金額 × 行為 × 樣本 × 尚未證明的風險", "768 組第10年策略設定", "157 個重疊的 10 年窗口", "363 組", "329 組", "未精算")),
+    "decision_evidence_links_amount_behavior_sample_risk": all(item in html_text for item in ("決策依據：金額 × 行為 × 樣本 × 尚未證明的風險", f"{strategy_count} 組第10年策略設定", f"{window_count} 個重疊的 10 年窗口", f"年通脹 2.35% 時，{strategy_count} 組第10年策略中有 {proof_235} 組", f"年通脹 3.50% 時是 {proof_350} 組", "未精算")),
     "trajectory_panel_uses_canonical_annual_records": "Y(state.bond, state.target, state.timing, state.flow, year)" in html_text,
     "trajectory_panel_not_actual_holdings_disclosure": "不等於歷史每一天實際持倉或已執行交易" in html_text,
     "reverse_replay_data_embedded": "GLIDEPATH_REVERSE_DATA_V1" in html_text,
