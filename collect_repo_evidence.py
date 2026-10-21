@@ -44,8 +44,8 @@ SECRET_PATH_PARTS = {
 }
 
 TEXT_SUFFIXES = {
-    ".md", ".mdx", ".txt", ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx",
-    ".jsx", ".html", ".css", ".scss", ".json", ".yaml", ".yml", ".toml",
+    ".md", ".mdx", ".txt", ".py", ".js", ".mjs", ".cjs", ".mts", ".cts", ".ts", ".tsx",
+    ".jsx", ".html", ".css", ".scss", ".json", ".jsonl", ".yaml", ".yml", ".toml",
     ".ini", ".cfg", ".sh", ".bat", ".cmd", ".ps1", ".sql", ".r", ".jl",
     ".ipynb", ".csv", ".tsv", ".xml", ".svg", ".gitignore", ".dockerignore"
 }
@@ -286,7 +286,7 @@ def main() -> int:
     write_json(out / "git" / "command_results.json", local_summary)
 
     # Detailed file inventory at HEAD with SHA-256, content keyword scan, and CSV previews
-    paths_result = run(["git", "ls-tree", "-r", "-l", "--full-tree", "HEAD"], cwd=repo, timeout=120)
+    paths_result = run(["git", "-c", "core.quotePath=false", "ls-tree", "-r", "-l", "-z", "--full-tree", "HEAD"], cwd=repo, timeout=120)
     files: List[Dict[str, Any]] = []
     data_previews: List[Dict[str, Any]] = []
 
@@ -300,7 +300,7 @@ def main() -> int:
     }
 
     if paths_result["returncode"] == 0:
-        for line in paths_result["stdout"].splitlines():
+        for line in [x for x in paths_result["stdout"].split("\x00") if x]:
             try:
                 left, path = line.split("\t", 1)
                 fields = left.split()
