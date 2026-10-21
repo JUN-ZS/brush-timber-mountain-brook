@@ -228,18 +228,17 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
         require(len(set(timing_paths.values())) == 8,
                 f"The eight timings must have eight distinct annual paths: {bond}/{target}/{flow}")
         for timing, path in timing_paths.items():
-    for (bond, target, timing), cashflow_paths in paths_by_cashflow.items():
-        require(set(cashflow_paths) == set(FLOWS),
-                f"Annual allocation path is missing a cashflow mode: {bond}/{target}/{timing}")
-        require(len(set(cashflow_paths.values())) == 1,
-                f"Changing cashflow mode must not silently change the target-allocation schedule: {bond}/{target}/{timing}")
-
             require(len(path) == 11 and abs(path[0]) <= 1e-9,
                     f"Path must contain years 0–10 and start at 0% bonds: {bond}/{target}/{flow}/{timing}")
             require(abs(path[-1] - target/100.0) <= 1e-8,
                     f"Path must finish at the year-10 target: {bond}/{target}/{flow}/{timing}")
             require(all(a <= b + 1e-9 for a,b in zip(path,path[1:])),
                     f"Bond target path cannot decrease: {bond}/{target}/{flow}/{timing}")
+    for (bond, target, timing), cashflow_paths in paths_by_cashflow.items():
+        require(set(cashflow_paths) == set(FLOWS),
+                f"Annual allocation path is missing a cashflow mode: {bond}/{target}/{timing}")
+        require(len(set(cashflow_paths.values())) == 1,
+                f"Changing cashflow mode must not silently change the target-allocation schedule: {bond}/{target}/{timing}")
 
     hist_rows = histogram_report.get("distributions", [])
     require(histogram_report.get("schema") == "stock-bond-glidepath-window-distributions.v1",
