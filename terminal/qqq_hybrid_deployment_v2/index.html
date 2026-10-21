@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QQQ Hybrid Deployment Terminal V2 — Evolved</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="eyebrow">LOCKED ORIGINAL HYBRID · LIVE FOLLOW-ENGINE · SIMULATION ONLY</div>
+    <h1>QQQ Hybrid Deployment Terminal V2 <span>進化版</span></h1>
+  </div>
+  <div class="toolbar">
+    <span id="dataStatus" class="status warn">DATA INCOMPLETE / 資料不足</span>
+    <span id="clock" class="muted">—</span>
+    <button id="liveBtn" class="btn primary">LIVE / 即時</button>
+    <button id="alertsBtn" class="btn">Alerts / 警報</button>
+  </div>
+</header>
+
+<main class="shell">
+  <section class="ticker-grid">
+    <div class="quote"><span>QQQ</span><b id="qqqPx">—</b><small id="qqqMeta">—</small></div>
+    <div class="quote"><span>VXX</span><b id="vxxPx">—</b><small id="vxxMeta">—</small></div>
+    <div class="quote"><span>VIX</span><b id="vixPx">—</b><small>spot / 現價</small></div>
+    <div class="quote"><span>VX M1 / M2</span><b id="m12Px">— / —</b><small id="m12Meta">OpenD / pending</small></div>
+    <div class="quote"><span>S<tspan></tspan><sub>t</sub></span><b id="termPx">—</b><small id="termMeta">term structure</small></div>
+    <div class="quote state"><span>STATE / 狀態</span><b id="statePx">DATA INCOMPLETE</b><small id="stateMeta">—</small></div>
+  </section>
+
+  <section class="hero-grid">
+    <article class="panel hero-decision">
+      <div class="panel-head">
+        <div><div class="eyebrow">NOW / 現在</div><h2 id="engineAction">HOLD / 保持</h2></div>
+        <div class="confidence"><span>CONFIDENCE</span><b id="conf">—</b></div>
+      </div>
+      <div id="heroReason" class="hero-reason">—</div>
+      <div id="actionQueue" class="action-queue"></div>
+      <div class="hero-foot"><span id="policyLock">POLICY LOCK / 策略鎖定</span><span class="danger">NO BROKER ORDER / 不傳真單</span></div>
+    </article>
+
+    <article class="panel state-panel">
+      <div class="panel-head"><div><h2>State / 狀態</h2><p>CARRY → WEAKENING → PRE-SHOCK → SHOCK</p></div><span id="stateBadge" class="pill">—</span></div>
+      <div class="meter"><div id="termFill" class="fill"></div><i></i></div>
+      <div class="metric"><span>Term spread / 期限結構</span><b id="termValue">—</b></div>
+      <div class="metric"><span>VIX high / 高 VIX</span><b>28.0</b></div>
+      <div class="metric"><span>VXX seller gate / VXX 賣方</span><b id="sellerGate">—</b></div>
+      <div class="metric"><span>Data freshness / 資料新鮮度</span><b id="freshness">—</b></div>
+      <div id="stateExplanation" class="state-explanation">—</div>
+    </article>
+  </section>
+
+  <section class="main-grid">
+    <div class="left">
+      <article class="panel chart-panel">
+        <div class="panel-head">
+          <div><h2>Market + Decision Timeline / 市況＋決策時間線</h2><p>Drag the bar to replay. LIVE never mutates with replay. / 拖動時間軸；LIVE 永不被回放覆蓋。</p></div>
+          <div class="toolbar-inline"><button id="fitBtn" class="btn small">Fit / 全段</button><label class="check"><input id="auto" type="checkbox" checked> Auto</label></div>
+        </div>
+        <canvas id="chart"></canvas>
+        <input id="timeline" type="range" min="0" max="0" value="0" step="1">
+        <div class="timeline-labels"><span id="leftDate">—</span><span id="cursorDate">LIVE</span><span id="rightDate">—</span></div>
+      </article>
+
+      <article class="panel scenario-panel">
+        <div class="panel-head"><div><h2>What-if / Counterfactual / 假設推演</h2><p>Stress one variable and see whether the action queue changes. / 改一個數，立即看策略是否變。</p></div><button id="resetScenario" class="btn small">Reset / 重置</button></div>
+        <div class="slider-grid">
+          <label>QQQ <output id="wQOut">0.0%</output><input id="wQ" type="range" min="-15" max="15" step="0.1" value="0"></label>
+          <label>VXX <output id="wVOut">0.0%</output><input id="wV" type="range" min="-40" max="60" step="0.1" value="0"></label>
+          <label>VIX <output id="wXOut">0.0</output><input id="wX" type="range" min="-12" max="35" step="0.1" value="0"></label>
+          <label>S<tspan></tspan><sub>t</sub> shift <output id="wSOut">0.0%</output><input id="wS" type="range" min="-25" max="25" step="0.1" value="0"></label>
+        </div>
+        <div id="scenarioText" class="scenario-result">—</div>
+      </article>
+
+      <article class="panel replay-panel">
+        <div class="panel-head"><div><h2>Historical Replay / 歷史回放</h2><p>Real CSV only; no look-ahead. / 真實 CSV；禁止偷看未來。</p></div><div class="toolbar-inline"><label class="btn small file">Load CSV / 載入<input id="csv" type="file" accept=".csv,text/csv" hidden></label><button id="clearReplay" class="btn small">Clear / 清除</button></div></div>
+        <div class="replay-grid">
+          <div><span>Date / 日期</span><b id="replayDate">—</b></div><div><span>State / 狀態</span><b id="replayState">—</b></div><div><span>QQQ / VXX / VIX</span><b id="replayPrices">—</b></div><div><span>Rows / 行數</span><b id="replayRows">0</b></div>
+        </div>
+      </article>
+
+      <article class="panel baseline-panel">
+        <div class="panel-head"><div><h2>Baseline Integrity / 基準完整性</h2><p>Reference result ≠ live guarantee. / 參考結果不是即時保證。</p></div><span class="pill info">REFERENCE ONLY / 只作參考</span></div>
+        <div class="baseline-grid">
+          <div><span>Source-aligned replay</span><b>12.7049% CAGR</b></div><div><span>Daily MTM MaxDD</span><b>−23.1837%</b></div><div><span>Historical benchmark</span><b>12.52% / −23.51%</b></div><div><span>Rule role</span><b>LOCKED BASELINE</b></div>
+        </div>
+      </article>
+    </div>
+
+    <div class="right">
+      <article class="panel portfolio-panel">
+        <div class="panel-head"><div><h2>Current → Target → Action / 現倉 → 目標 → 行動</h2><p>The difference is the instruction. / 真正要跟的是差額。</p></div><span id="portfolioBadge" class="pill">—</span></div>
+        <div class="table-head"><span>LEG / 腿</span><span>CURRENT</span><span>TARGET</span><span>ACTION</span></div>
+        <div id="positionRows"></div>
+        <div class="anchor-note">Anchor / 基準：100 QQQ shares。輸入實際 NAV 後自動換算；沒有 NAV 時仍可用 100 股作相對部署。</div>
+      </article>
+
+      <article class="panel ledger-panel">
+        <div class="panel-head"><div><h2>Position Ledger / 現倉帳</h2><p>Local simulated state only. / 本地模擬現倉。</p></div><button id="resetLedger" class="btn small">Reset / 重置</button></div>
+        <div class="form-grid">
+          <label>NAV / 淨資產<input id="nav" type="number" min="0" step="100" value="0"></label>
+          <label>QQQ shares / 股數<input id="curQqq" type="number" min="0" step="1" value="100"></label>
+          <label>VXX short % / 空頭<input id="curVxx" type="number" min="0" max="40" step="0.5" value="0"></label>
+          <label>QQQ call spreads / 組合<input id="curQCall" type="number" min="0" step="1" value="0"></label>
+          <label>VXX call spreads / 組合<input id="curVCall" type="number" min="0" step="1" value="0"></label>
+          <label>Operator note / 操作備註<input id="note" type="text"></label>
+        </div>
+      </article>
+
+      <article class="panel action-panel">
+        <div class="panel-head"><div><h2>Action Control / 行動控制</h2><p>Simulation workflow: ACK → STAGE → MARK DONE. / 模擬流程：確認 → 排程 → 完成。</p></div></div>
+        <div class="action-buttons">
+          <button id="ackBtn" class="btn action">ACK ENGINE / 確認引擎</button>
+          <button id="stageBtn" class="btn action">STAGE PLAN / 排程</button>
+          <button id="doneBtn" class="btn action">MARK DEPLOYED / 標記已部署</button>
+          <button id="contraryBtn" class="btn action danger-btn">CONTRARY / 反向操作</button>
+        </div>
+        <div id="actionState" class="action-state">No action acknowledged. / 尚未確認任何行動。</div>
+      </article>
+
+      <article class="panel options-panel">
+        <div class="panel-head"><div><h2>Option Leg Monitor / 期權腿</h2><p>Live candidate ≠ historical baseline contract. / 即時候選不等於歷史基準合約。</p></div><span class="pill warn">CANDIDATE / 候選</span></div>
+        <div class="candidate-buttons"><button id="findQQQ" class="btn small">Find QQQ Candidate / 找 QQQ</button><button id="findVXX" class="btn small">Find VXX Candidate / 找 VXX</button></div>
+        <div id="candidateSummary" class="candidate-summary">No candidate loaded. / 未載入候選。</div>
+        <div class="contract-grid">
+          <div class="contract-card"><h3>QQQ FAR CALL SPREAD</h3><div class="mini-grid"><label>Short<input id="qqqShort" type="number" step="0.5"></label><label>Long<input id="qqqLong" type="number" step="0.5"></label><label>DTE<input id="qqqDte" type="number" step="1" value="45"></label><label>Δ<input id="qqqDelta" type="number" min="0" max="1" step="0.01" value="0.10"></label><label>Credit<input id="qqqCredit" type="number" min="0" step="0.01" value="0.50"></label><label>Width<input id="qqqWidth" type="number" min="0" step="0.5" value="10"></label></div><div id="qqqRoll" class="roll-box">—</div></div>
+          <div class="contract-card"><h3>VXX CALL SPREAD</h3><div class="mini-grid"><label>Short<input id="vxxShort" type="number" step="0.5"></label><label>Long<input id="vxxLong" type="number" step="0.5"></label><label>DTE<input id="vxxDte" type="number" step="1" value="45"></label><label>Δ<input id="vxxDelta" type="number" min="0" max="1" step="0.01" value="0.12"></label><label>Credit<input id="vxxCredit" type="number" min="0" step="0.01" value="0.35"></label><label>Width<input id="vxxWidth" type="number" min="0" step="0.5" value="2"></label></div><div id="vxxRoll" class="roll-box">—</div></div>
+        </div>
+      </article>
+
+      <article class="panel monitor-panel">
+        <div class="panel-head"><div><h2>Change Monitor / 改倉監察</h2><p>State change must persist before alerting. / 狀態轉變需持續確認才發警報。</p></div><span id="monitorStatus" class="pill">WATCHING / 監察中</span></div>
+        <div id="triggerRows"></div>
+      </article>
+
+      <article class="panel provenance-panel">
+        <div class="panel-head"><div><h2>Evidence Chain / 證據鏈</h2><p>Observed → Derived → Decision → Action → Journal。</p></div></div>
+        <div id="provenanceRows"></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="panel journal-panel">
+    <div class="panel-head"><div><h2>Decision Journal / 決策日誌</h2><p>Engine and human action are never merged. / 引擎與人工動作絕不混在一起。</p></div><div class="toolbar-inline"><button id="recordBtn" class="btn small">Record Engine / 記錄</button><button id="exportBtn" class="btn small">Export / 匯出</button><button id="clearLog" class="btn small">Clear / 清除</button></div></div>
+    <div class="table-scroll"><table><thead><tr><th>Time</th><th>Mode</th><th>State</th><th>Engine</th><th>Human</th><th>Conflict</th><th>QQQ</th><th>VXX</th><th>S</th><th>Reason</th></tr></thead><tbody id="journalBody"></tbody></table></div>
+  </section>
+</main>
+<footer><span>QQQ_HYBRID_DEPLOYMENT_TERMINAL_V2_EVOLVED</span><span>Simulation only · no broker order routing</span></footer>
+<script src="engine.js"></script><script src="app.js"></script>
+</body></html>
