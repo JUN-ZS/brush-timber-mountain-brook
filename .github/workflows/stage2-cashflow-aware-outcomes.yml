@@ -32,10 +32,19 @@ jobs:
   reproduce:
     name: Reproduce cash-flow scenarios and chart lab on Linux BOT
     runs-on: [self-hosted, grokbot-box-linux-x64]
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - name: Checkout pinned repository state
         uses: actions/checkout@v4
+
+      - name: Confirm Linux BOT runtime
+        run: |
+          set -euo pipefail
+          date -u
+          hostname
+          python3 --version
+          node --version
+          git status --short
 
       - name: Run cash-flow lifecycle tests
         run: python3 -m unittest discover -s research/audit_stage2 -p 'test_cashflow_aware_qqq_spy.py' -v
