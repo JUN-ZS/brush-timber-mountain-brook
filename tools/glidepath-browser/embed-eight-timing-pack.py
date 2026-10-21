@@ -445,10 +445,13 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
 
 
     # Real-principal counts come from the independent replay, not from NAV quantiles.
-    html = replace_once(html,
-        "median_target_bond_weight:bw,median_target_stock_weight:sw};",
-        "median_target_bond_weight:bw,median_target_stock_weight:sw,windows_below_real_principal_235:r[21],windows_below_real_principal_350:r[22]};",
-        "annual real-principal properties")
+    old_annual_properties = "median_target_bond_weight:bw,median_target_stock_weight:sw};"
+    new_annual_properties = "median_target_bond_weight:bw,median_target_stock_weight:sw,windows_below_real_principal_235:r[21],windows_below_real_principal_350:r[22]};"
+    if new_annual_properties in html:
+        require(html.count(new_annual_properties) == 1,
+                "annual real-principal properties must appear exactly once after embedding")
+    else:
+        html = replace_once(html, old_annual_properties, new_annual_properties, "annual real-principal properties")
     html = replace_once(html,
         '[s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],',
         '[s.cpi>0?"低於實質本金窗口":"名目低於本金窗口",s.cpi>0?(s.cpi>=0.03?r.windows_below_real_principal_350:r.windows_below_real_principal_235)+"/"+r.rolling_windows:r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"逐窗口年末 NAV 比較通膨調整本金門檻；"+floorLabel+"；提款後只計剩餘 NAV":"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],',
