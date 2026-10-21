@@ -68,7 +68,8 @@ STRATEGY_KEYWORDS = re.compile(
 
 NARRATIVE_PATTERNS = re.compile(
     r"(^readme|report|result|finding|analysis|summary|conclusion|proposal|"
-    r"recommendation|review|audit|assumption|validation|release|decision|plan|notes)",
+    r"recommendation|review|audit|assumption|validation|release|decision|plan|notes|"
+    r"prompt|stage.?2|adversarial|memo|attachment|conversation|transcript|對話紀錄|聊天紀錄)",
     re.IGNORECASE,
 )
 
@@ -100,6 +101,21 @@ def is_narrative_doc(path: str) -> bool:
     if suffix in {".md", ".mdx", ".txt", ".rst", ".pdf", ".docx", ".html"} and NARRATIVE_PATTERNS.search(p.as_posix()):
         return True
     return False
+
+
+def snapshot_excluded_path(path: str) -> bool:
+    """Exclude generated bundles, dependency trees, temporary API payloads and local app config from text snapshots."""
+    p = Path(path)
+    parts = [part.lower() for part in p.parts]
+    lower = p.as_posix().lower()
+    return (
+        "node_modules" in parts
+        or ".git" in parts
+        or ".grok" in parts
+        or ".vercel" in parts
+        or lower.startswith("artifacts/.tmp/mcp-results/")
+        or p.name.lower().startswith("bundle.")
+    )
 
 
 def run(cmd: List[str], cwd: Optional[Path] = None, timeout: int = 60) -> Dict[str, Any]:
@@ -232,6 +248,15 @@ def main() -> int:
         print("ERROR: evidence output directory must be outside the target repository.", file=sys.stderr)
         return 2
 
+    # Freeze the evidence basis: HEAD-only collection is not reproducible from a dirty workspace.
+    status = run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=repo)
+    if status["returncode"] != 0:
+        print("ERROR: unable to verify repository worktree cleanliness.", file=sys.stderr)
+        return 3
+    if status["stdout"].strip():
+        print("ERROR: worktree is not clean; refusing evidence collection.", file=sys.stderr)
+        return 3
+
     out.mkdir(parents=True, exist_ok=True)
     generated_at = dt.datetime.now(dt.timezone.utc).isoformat()
 
@@ -336,6 +361,7 @@ def main() -> int:
                     "git_blob_sha": git_blob_sha,
                     "sha256": file_sha256,
                     "sensitive_path_filtered": is_sens,
+                    "snapshot_excluded_path": snapshot_excluded_path(path),
                     "quarantined_narrative_doc": is_narr,
                     "relevance_candidate": is_rel,
                     "matched_keywords": matched_keywords,
@@ -389,7 +415,7 @@ def main() -> int:
         p = f["path"]
         name = Path(p).name
         include = p.startswith(".github/workflows/") or name in CONFIG_NAMES
-        if not include or f["sensitive_path_filtered"] or f["quarantined_narrative_doc"] or (f["size_bytes"] or 0) > 250_000:
+        if not include or f["sensitive_path_filtered"] or f["snapshot_excluded_path"] or f["quarantined_narrative_doc"] or (f["size_bytes"] or 0) > 250_000:
             continue
         r = run(["git", "show", f"HEAD:{p}"], cwd=repo, timeout=30)
         if r["returncode"] == 0 and "\x00" not in r["stdout"]:
@@ -416,7 +442,7 @@ def main() -> int:
             for f in files:
                 p = f["path"]
                 size = f["size_bytes"] or 0
-                if f["sensitive_path_filtered"] or size > args.max_file_bytes or size <= 0:
+                if f["sensitive_path_filtered"] or f["snapshot_excluded_path"] or size > args.max_file_bytes or size <= 0:
                     continue
                 if Path(p).suffix.lower() not in TEXT_SUFFIXES and Path(p).name.lower() not in {"makefile", "dockerfile", ".gitignore"}:
                     continue
