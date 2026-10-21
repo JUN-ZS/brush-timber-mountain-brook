@@ -269,6 +269,7 @@ try {
     no_withdrawal_zero_cashflow_checks: 0,
     data_scope_disclosure_checks: 0,
     real_floor_window_cells_verified: 0,
+    checked_inflation_modes: [0, 0.0235, 0.035],
     checked_flows: cashflowModes,
     checked_years: cashflowYears,
     checked_stat_views: cashflowStats
@@ -276,8 +277,10 @@ try {
   const moneyText = value => "$" + Math.round(value).toLocaleString("en-US");
   const pctText = value => value == null ? "—" : (Number(value) * 100).toFixed(2) + "%";
 
-  for (const flow of cashflowModes) {
-    await page.locator("#flow").selectOption(flow);
+  for (const cpiMode of cashflowSemanticSweep.checked_inflation_modes) {
+    await page.locator("#realMode").selectOption(String(cpiMode));
+    for (const flow of cashflowModes) {
+      await page.locator("#flow").selectOption(flow);
     for (const year of cashflowYears) {
       await page.locator("#year").evaluate((element, value) => {
         element.value = String(value);
@@ -341,6 +344,9 @@ try {
             return {timing: timingForRow, rendered: (tr.children[7]?.innerText || "").trim(),
               expected: String(Math.round(expectedCount)) + "/157"};
           });
+          const floorDetail = (document.querySelector("#decisionFloorDetail")?.innerText || "").trim();
+          const expectedFloorCount = cpi > 0 ? Number(row[cpi >= 0.03 ? 22 : 21]) : Number(row[15]);
+          const floorDetailReconciles = floorDetail.includes("窗口為 " + String(Math.round(expectedFloorCount)) + "/157");
           const shortfallNoteExpected = "截至當年P95缺口 " + moneyText(row[19]);
           const shortfallNoteReconciles = navMetricRows.length === 7 && navMetricRows[6].note.includes(shortfallNoteExpected);
           const stockCell = trajectory?.querySelector('[data-series="stock"] td[data-year="' + year + '"]');
@@ -386,6 +392,8 @@ try {
             metricRows: navMetricRows,
             expectedMetricRows,
             realFloorTableRows,
+            floorDetail,
+            floorDetailReconciles,
             trajectoryYear: trajectory?.dataset.year || null,
             stockPct, expectedStockPct, bondPct, expectedBondPct,
             flowBars,
@@ -406,6 +414,8 @@ try {
         need(state.realFloorTableRows.length === 8 &&
              state.realFloorTableRows.every(cell => cell.rendered === cell.expected),
           "real-principal/nominal breach count table is not bound to its exact timing/year/cashflow annual records: " + context);
+        need(state.floorDetailReconciles,
+          "decision floor explanation does not display the exact current annual real/nominal breach count: " + context + " / " + state.floorDetail);
         cashflowSemanticSweep.real_floor_window_cells_verified += state.realFloorTableRows.length;
         need(state.trajectoryYear === String(year) &&
              Number.isFinite(state.stockPct) && Number.isFinite(state.bondPct) &&
@@ -448,7 +458,30 @@ try {
       }
     }
   }
+  }
   result.cashflow_nav_semantic_sweep = cashflowSemanticSweep;
+
+  // The real-principal breach heatmap must render all 64 target/timing cells
+  // under each supported inflation assumption, instead of showing the old BLOCK message.
+  const priorHeatMetric = await page.locator("#heatMetricX").inputValue();
+  const realFloorHeatmapChecks = [];
+  await page.locator("#heatMetricX").selectOption("windows_below_initial_capital");
+  for (const cpiMode of ["0.0235", "0.035"]) {
+    await page.locator("#realMode").selectOption(cpiMode);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const heat = await page.evaluate(() => ({
+      cpi: Number(document.querySelector("#realMode").value),
+      metric: document.querySelector("#heatMetricX").value,
+      cells: document.querySelectorAll("#heatmapX g[data-target][data-timing]").length,
+      text: document.querySelector("#heatmapX")?.textContent || ""
+    }));
+    need(heat.cpi === Number(cpiMode) && heat.metric === "windows_below_initial_capital" &&
+         heat.cells === 64 && heat.text.includes("低於實質本金窗口") && !heat.text.includes("無法精算"),
+      "real-principal heatmap did not render 64 exact cells for inflation " + cpiMode + ": " + JSON.stringify(heat));
+    realFloorHeatmapChecks.push({inflation: heat.cpi, cells: heat.cells, passed: true});
+  }
+  result.real_floor_heatmap_checks = realFloorHeatmapChecks;
+  await page.locator("#heatMetricX").selectOption(priorHeatMetric);
 
   // Restore the exact original forward-mode state before independent reverse replay.
   for (const [selector, value] of [
@@ -938,6 +971,31 @@ try {
   need(proof[0].year10_strategies === 1024 && proof[1].year10_strategies === 1024, "year-10 strategy count does not match all 1,024 embedded scenario records");
   need(proof.every(item => Number.isInteger(item.provable_zero_real_breach_strategies) && item.provable_zero_real_breach_strategies >= 0 && item.provable_zero_real_breach_strategies <= item.year10_strategies),
     "derived real-floor proof count is outside the observed strategy population: " + JSON.stringify(proof));
+  const realFloorAnnualIntegrity = await page.evaluate(() => {
+    const rows = RAW_PACK.a;
+    const valid = rows.filter(row => Number.isInteger(row[21]) && Number.isInteger(row[22]) &&
+      row[21] >= 0 && row[21] <= 157 && row[22] >= 0 && row[22] <= 157);
+    const yearZero = rows.filter(row => Number(row[0]) === 0);
+    const yearTen = rows.filter(row => Number(row[0]) === 10);
+    return {
+      annual_rows: rows.length,
+      rows_with_both_real_floor_counts: valid.length,
+      year_zero_rows: yearZero.length,
+      year_zero_zero_breach_rows: yearZero.filter(row => Number(row[21]) === 0 && Number(row[22]) === 0).length,
+      year10_rows: yearTen.length,
+      zero_breach_strategies_235: yearTen.filter(row => Number(row[21]) === 0).length,
+      zero_breach_strategies_350: yearTen.filter(row => Number(row[22]) === 0).length
+    };
+  });
+  need(realFloorAnnualIntegrity.annual_rows === 11264 &&
+       realFloorAnnualIntegrity.rows_with_both_real_floor_counts === 11264 &&
+       realFloorAnnualIntegrity.year_zero_rows === 1024 &&
+       realFloorAnnualIntegrity.year_zero_zero_breach_rows === 1024 &&
+       realFloorAnnualIntegrity.year10_rows === 1024 &&
+       realFloorAnnualIntegrity.zero_breach_strategies_235 === proof[0].provable_zero_real_breach_strategies &&
+       realFloorAnnualIntegrity.zero_breach_strategies_350 === proof[1].provable_zero_real_breach_strategies,
+    "Annual real-principal breach grid is incomplete or disagrees with the terminal worst-NAV proof: " + JSON.stringify(realFloorAnnualIntegrity));
+  result.real_floor_annual_pack_integrity = realFloorAnnualIntegrity;
   result.derived_real_breach_zero_proof = proof;
 
   // Verify real click delegation and that each interaction changes the intended control/state.
