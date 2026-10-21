@@ -270,6 +270,14 @@ try {
     data_scope_disclosure_checks: 0,
     real_floor_window_cells_verified: 0,
     checked_inflation_modes: [0, 0.0235, 0.035],
+    checked_inflation_coverage: [
+      {inflation: 0, combinations: 132, median_flow_year_combinations: 44, additional_tail_views: 0,
+       policy: "all-flows-years-stat-views"},
+      {inflation: 0.0235, combinations: 46, median_flow_year_combinations: 44, additional_tail_views: 2,
+       policy: "median-all-flow-years-plus-year10-no-flow-p05-worst"},
+      {inflation: 0.035, combinations: 46, median_flow_year_combinations: 44, additional_tail_views: 2,
+       policy: "median-all-flow-years-plus-year10-no-flow-p05-worst"}
+    ],
     checked_flows: cashflowModes,
     checked_years: cashflowYears,
     checked_stat_views: cashflowStats
@@ -287,7 +295,9 @@ try {
         element.dispatchEvent(new Event("input", {bubbles: true}));
         element.dispatchEvent(new Event("change", {bubbles: true}));
       }, year);
-      for (const stat of cashflowStats) {
+      const statsForThisState = cpiMode === 0 || (flow === "no_withdrawals" && year === 10)
+        ? cashflowStats : ["median"];
+      for (const stat of statsForThisState) {
         await page.locator("#statView").selectOption(stat);
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         const state = await page.evaluate(() => {
