@@ -1009,11 +1009,11 @@ try {
     "2.35_percent": matrixReal235Column, "3.50_percent": matrixReal350Column, verified_rows: expectedMatrixRows
   };
 
-  result.csv_exports_verified.trajectory = await saveCsv(page, "exportTrajectory", 11, 23);
+  result.csv_exports_verified.trajectory = await saveCsv(page, "exportTrajectory", 11, 25);
   result.csv_exports_verified.cohorts = await saveCsv(page, "exportCohort", 14, 19);
   const expectedAnnualRows = await page.evaluate(() => RAW_PACK.a.length);
   need(expectedAnnualRows === 11264, "annual CSV must export the complete embedded annual grid: " + expectedAnnualRows);
-  result.csv_exports_verified.annual = await saveCsv(page, "exportAnnual", expectedAnnualRows, 23);
+  result.csv_exports_verified.annual = await saveCsv(page, "exportAnnual", expectedAnnualRows, 25);
 
   for (const viewport of [
     {name: "desktop_1480x1200", width: 1480, height: 1200},
