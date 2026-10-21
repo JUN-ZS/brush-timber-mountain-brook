@@ -334,7 +334,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     )
     html = html.replace(
         "本預覽保留 768 組策略、8,448 筆年度摘要、3,072 組分布與 10,752 筆起始年份分組。",
-        "本預覽保留 1,024 組策略、11,264 筆年度摘要、4,096 組分布與 " + str(len(pack["c"])) + " 筆起始年份分組。"
+        "本預覽保留 1,024 組策略、11,264 筆年度摘要、4,096 組分布與 " + f"{len(pack[\'c\']):,}" + " 筆起始年份分組。"
     )
     html = html.replace("8d34a8772fd5c74a7df20957cab971c3c2685963e54b160c3c958c8b9d4b7e70", str(pack["meta"]["source_sha256"]))
     # Keep the independent reverse replay source/date disclosure separate from the forward dataset.
