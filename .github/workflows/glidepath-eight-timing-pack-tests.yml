@@ -246,6 +246,9 @@ jobs:
           cp "$publish_dir/glidepath_interactive_preview_optimized_bundle.zip" glidepath_interactive_preview_optimized_bundle.zip
           cp "$publish_dir/glidepath_preview_optimized_audit.json" glidepath_preview_optimized_audit.json
           git add v2.html glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json
+          # GitHub-hosted runners may not have a default git author identity.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if git diff --cached --quiet; then
             echo "Verified compact preview already matches the exact replay artifact."
           else
