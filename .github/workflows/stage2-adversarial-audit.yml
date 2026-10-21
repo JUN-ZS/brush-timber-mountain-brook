@@ -1,0 +1,110 @@
+name: Stage 2 Adversarial Recompute
+
+on:
+  push:
+    branches:
+      - research/stage2-adversarial-audit-20261018
+    paths:
+      - "scripts/stage2_recompute_stage1_claims.py"
+      - "research/stage2_adversarial_review_20261018.md"
+      - ".github/workflows/stage2-adversarial-audit.yml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "scripts/stage2_recompute_stage1_claims.py"
+      - "research/stage2_adversarial_review_20261018.md"
+      - ".github/workflows/stage2-adversarial-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage2-adversarial-recompute-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  recompute-stage1-claims:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned PR or branch source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Compile verifier
+        run: python3 -m py_compile scripts/stage2_recompute_stage1_claims.py
+
+      - name: Recompute Stage 1 numerical claims
+        id: recompute
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/stage2-recompute-results.json"
+          python3 scripts/stage2_recompute_stage1_claims.py > "$OUT"
+          python3 - "$OUT" <<'PY'
+          import json, math, sys
+          from pathlib import Path
+          p = Path(sys.argv[1])
+          o = json.loads(p.read_text(encoding="utf-8"))
+          windows = o["price_window_replay"]
+          floor = o["rolling_floor"]
+          acct = o["protected_put_accounting"]
+          treasury = o["treasury_arithmetic"]
+          assert windows["daily_rows"] == 6915, windows
+          assert windows["overlapping_window_count"] == 211, windows
+          assert windows["lump_sum_loss_windows"] == 23, windows
+          assert windows["clock_dca_loss_windows"] == 4, windows
+          assert math.isclose(windows["lump_sum_nonloss_frequency"], 188/211, abs_tol=1e-12)
+          assert math.isclose(windows["clock_dca_nonloss_frequency"], 207/211, abs_tol=1e-12)
+          assert floor["all_window_state_steps"] == 13989, floor
+          assert floor["states"].get("THIN") == 13895, floor
+          assert all(acct["code_markers_present"].values()), acct
+          assert acct["excess_loss_equals_one_entry_mid_times_contracts"] is True, acct
+          assert abs(treasury["pv_for_100k_face_at_assumed_strip_yield"] - 60140.84) < 0.1
+          assert o["evidence_status"]["verified_executable_strips_or_tips_quote"] is False
+          assert len(o["verified_input_git_blobs"]) == 11
+          print("Verified pinned input blobs:", len(o["verified_input_git_blobs"]))
+          print("QQQ windows:", windows["overlapping_window_count"],
+                "lump losses:", windows["lump_sum_loss_windows"],
+                "clock-DCA losses:", windows["clock_dca_loss_windows"])
+          print("Rolling THIN:", floor["states"]["THIN"], "/", floor["all_window_state_steps"])
+          print("PUT accounting: entry-mid double charge reproduced =", acct["excess_loss_equals_one_entry_mid_times_contracts"])
+          print("STRIPS modeled PV:", round(treasury["pv_for_100k_face_at_assumed_strip_yield"], 2),
+                "(assumed yield only; not executable quote)")
+          PY
+          echo "RESULT_PATH=$OUT" >> "$GITHUB_OUTPUT"
+
+      - name: Publish independently recomputed evidence
+        if: always()
+        env:
+          RESULT_PATH: ${{ steps.recompute.outputs.RESULT_PATH }}
+        run: |
+          {
+            echo "## Stage 2 adversarial recompute"
+            echo ""
+            echo "- Source commit: $GITHUB_SHA"
+            echo "- Script: scripts/stage2_recompute_stage1_claims.py"
+            if [ -s "${RESULT_PATH:-}" ]; then
+              python3 - "$RESULT_PATH" <<'PY'
+          import json, sys
+          from pathlib import Path
+          o=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          w=o["price_window_replay"]; f=o["rolling_floor"]; a=o["protected_put_accounting"]; t=o["treasury_arithmetic"]
+          print("| Recomputed check | Result |")
+          print("|---|---:|")
+          print(f"| Ten-year overlapping windows | {w['overlapping_window_count']} |")
+          print(f"| Lump-sum loss windows / non-loss frequency | {w['lump_sum_loss_windows']} / {w['lump_sum_nonloss_frequency']:.2%} |")
+          print(f"| Clock DCA loss windows / non-loss frequency | {w['clock_dca_loss_windows']} / {w['clock_dca_nonloss_frequency']:.2%} |")
+          print(f"| Rolling-floor THIN states | {f['states'].get('THIN', 0)} / {f['all_window_state_steps']} ({f['thin_frequency']:.2%}) |")
+          print(f"| PUT entry-mid double charge reproduced | {a['excess_loss_equals_one_entry_mid_times_contracts']} |")
+          print(f"| PV for $100k face under assumed 5.15% semiannual yield | ${t['pv_for_100k_face_at_assumed_strip_yield']:,.2f} (not executable quote) |")
+          print("")
+          print("Full JSON is retained in the self-hosted runner's temporary directory only; no large artifact is uploaded.")
+          PY
+            else
+              echo "Recompute output unavailable; inspect failed job steps."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
