@@ -366,7 +366,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
 
     # Older compact-page plots have independent, partial dash maps. Normalize every
     # timing-keyed map so newly added rules never serialize stroke-dasharray="undefined".
-    dash_map_pattern = re.compile(r'(const\\s+dash\\s*=\\s*)\\{([^{}]*)\\}(\\s*;)')
+    dash_map_pattern = re.compile(r'(const\s+dash\s*=\s*)\{([^{}]*)\}(\s*;)')
     complete_dash_map = '{front_rapid:"3 2",front_fast:"1 3",front_loaded:"8 4",linear:"",mid_loaded:"6 2 1 2",staggered:"5 2 1 2",back_loaded:"2 4",back_late:"10 3"}'
     timing_keys = set(TIMINGS)
     replaced_dash_maps = 0
@@ -374,7 +374,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     def normalize_timing_dash_map(match: re.Match[str]) -> str:
         nonlocal replaced_dash_maps
         body = match.group(2)
-        if any(re.search(r'["\\']?' + re.escape(key) + r'["\\']?\\s*:', body) for key in timing_keys):
+        if any(re.search(re.escape(key) + r'\s*:', body) for key in timing_keys):
             replaced_dash_maps += 1
             return match.group(1) + complete_dash_map + match.group(3)
         return match.group(0)
@@ -383,7 +383,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     require(replaced_dash_maps >= 1,
             "Could not find a timing-keyed dash map to normalize for all eight rules")
     for timing in TIMINGS:
-        require(re.search(r'const\\s+dash\\s*=\\s*\\{[^{}]*\\b' + re.escape(timing) + r'\\s*:', html) is not None,
+        require(re.search(r'const\s+dash\s*=\s*\{[^{}]*\b' + re.escape(timing) + r'\s*:', html) is not None,
                 f"An eight-rule dash map is missing {timing}")
 
     # The four timing-independent source declarations below must remain intact.
