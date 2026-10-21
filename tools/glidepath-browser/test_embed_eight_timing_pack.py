@@ -1,0 +1,226 @@
+from __future__ import annotations
+
+import copy
+import importlib.util
+import json
+from pathlib import Path
+import unittest
+
+SCRIPT = Path(__file__).with_name("embed-eight-timing-pack.py")
+SPEC = importlib.util.spec_from_file_location("embed_eight_timing_pack", SCRIPT)
+assert SPEC and SPEC.loader
+PACKER = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(PACKER)
+
+YEARS = list(range(2003, 2017))
+COHORT_COUNTS = {year: (4 if year == 2003 else 9 if year == 2016 else 12) for year in YEARS}
+BOND_WEIGHT_PATHS = {
+    "front_rapid": (0, .50, .56, .62, .67, .72, .77, .82, .87, .93, 1),
+    "front_fast": (0, .25, .50, .56, .62, .68, .73, .79, .85, .92, 1),
+    "front_loaded": (0, .166667, .333333, .50, .555556, .611111, .666667, .722222, .777778, .888889, 1),
+    "linear": (0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1),
+    "mid_loaded": (0, .03, .10, .22, .38, .58, .76, .90, .97, .995, 1),
+    "staggered": (0, .125, .25, .375, .50, .50, .625, .75, .875, .9375, 1),
+    "back_loaded": (0, 0, 0, 0, 0, 0, .2, .4, .6, .8, 1),
+    "back_late": (0, 0, 0, 0, 0, 0, 0, 0, 1/3, 2/3, 1),
+}
+
+def _scenario_key(bond, target, timing, flow):
+    return (bond, target, timing, flow)
+
+def make_fixture():
+    scenarios = []
+    annual = []
+    hist = []
+    cohorts = []
+    timings = list(PACKER.TIMINGS)
+    flows = list(PACKER.FLOWS)
+    for bi, bond in enumerate(PACKER.BONDS):
+        for target in PACKER.TARGETS:
+            for mi, timing in enumerate(timings):
+                for fi, flow in enumerate(flows):
+                    terminal = 150000 + bi*1000 + target*10 + mi*100 + fi*25
+                    cagr = .04 + target/10000 + mi/1000
+                    dd = -.12 - mi/100 - bi/1000
+                    shortfall = 0 if fi < 2 else fi + mi
+                    scenario = {
+                        "bond_proxy": bond,
+                        "target_bond_conversion_pct_at_year10": target,
+                        "timing_rule": timing,
+                        "cashflow_mode": flow,
+                        "rolling_windows": 157,
+                        "median_terminal_nav_usd": terminal,
+                        "p05_terminal_nav_usd": terminal*.8,
+                        "p95_terminal_nav_usd": terminal*1.2,
+                        "worst_terminal_nav_usd": terminal*.7,
+                        "median_time_weighted_cagr": cagr,
+                        "p05_time_weighted_cagr": cagr-.03,
+                        "worst_time_weighted_cagr": cagr-.08,
+                        "median_daily_max_drawdown": dd,
+                        "worst_daily_max_drawdown": dd-.2,
+                        "windows_below_initial_capital_at_year10": 3,
+                        "windows_with_withdrawal_shortfall": shortfall,
+                        "median_actual_withdrawals_usd": 0 if fi == 0 else 1000,
+                        "p95_withdrawal_shortfall_usd": 0 if fi < 2 else 2500,
+                        "median_investor_xirr": None if fi > 1 else cagr,
+                    }
+                    scenarios.append(scenario)
+                    for year in range(11):
+                        bond_w = target/100 * BOND_WEIGHT_PATHS[timing][year]
+                        annual.append({
+                            "year": year,
+                            "bond_proxy": bond,
+                            "target_bond_conversion_pct_at_year10": target,
+                            "timing_rule": timing,
+                            "cashflow_mode": flow,
+                            "rolling_windows": 157,
+                            "median_nav_usd": 100000 + 1500*year if year < 10 else terminal,
+                            "p05_nav_usd": 90000 + year*1000,
+                            "p95_nav_usd": 110000 + year*2000,
+                            "worst_nav_usd": 80000 + year*500,
+                            "median_cumulative_twr_cagr": None if year == 0 else (cagr if year == 10 else cagr*year/10),
+                            "p05_cumulative_twr_cagr": None if year == 0 else cagr*year/10-.03,
+                            "median_year_twr": None if year == 0 else .04,
+                            "p05_year_twr": None if year == 0 else -.12,
+                            "median_drawdown_to_date": 0 if year == 0 else (dd if year == 10 else dd/2),
+                            "worst_drawdown_to_date": 0 if year == 0 else dd-.2,
+                            "windows_below_initial_capital": 0 if year == 0 else 2,
+                            "windows_with_withdrawal_shortfall": 0 if year == 0 else shortfall,
+                            "median_actual_withdrawals_usd": 0 if fi == 0 else year*100,
+                            "median_shortfall_usd": 0 if fi < 2 else year*20,
+                            "p95_shortfall_usd": 0 if fi < 2 else year*50,
+                            "median_target_bond_weight": bond_w,
+                            "median_target_stock_weight": 1-bond_w,
+                        })
+                    for metric in PACKER.METRICS:
+                        hist.append({
+                            "bond_proxy": bond,
+                            "target_bond_conversion_pct_at_year10": target,
+                            "timing_rule": timing,
+                            "cashflow_mode": flow,
+                            "metric": metric,
+                            "n": 157,
+                            "min": -1.0 if metric != "terminal_nav_usd" else 100000,
+                            "max": 1.0 if metric != "terminal_nav_usd" else 200000,
+                            "p05": -0.8 if metric != "terminal_nav_usd" else 110000,
+                            "median": 0.0 if metric != "terminal_nav_usd" else 150000,
+                            "p95": .8 if metric != "terminal_nav_usd" else 190000,
+                            "bins": [
+                                {"low": -1.0 if metric != "terminal_nav_usd" else 100000,
+                                 "high": 0.0 if metric != "terminal_nav_usd" else 150000, "count": 78},
+                                {"low": 0.0 if metric != "terminal_nav_usd" else 150000,
+                                 "high": 1.0 if metric != "terminal_nav_usd" else 200000, "count": 79},
+                            ],
+                        })
+                    for year in YEARS:
+                        count = COHORT_COUNTS[year]
+                        first = f"{year}-09-30" if year == 2003 else f"{year}-01-31" if year != 2016 else "2016-01-29"
+                        last = f"{year}-12-31" if year != 2016 else "2016-09-30"
+                        cohorts.append({
+                            "bond_proxy": bond,
+                            "target_bond_conversion_pct_at_year10": target,
+                            "timing_rule": timing,
+                            "cashflow_mode": flow,
+                            "start_year": year,
+                            "window_count": count,
+                            "first_window_start": first,
+                            "last_window_start": last,
+                            "median_terminal_nav_usd": terminal,
+                            "p05_terminal_nav_usd": terminal*.8,
+                            "p95_terminal_nav_usd": terminal*1.2,
+                            "worst_terminal_nav_usd": terminal*.7,
+                            "median_time_weighted_cagr": cagr,
+                            "p05_time_weighted_cagr": cagr-.03,
+                            "worst_time_weighted_cagr": cagr-.08,
+                            "median_daily_max_drawdown": dd,
+                            "worst_daily_max_drawdown": dd-.2,
+                            "windows_with_withdrawal_shortfall": shortfall,
+                            "initial_capital_usd": 100000,
+                            "windows_below_initial_capital": 2,
+                        })
+    report = {
+        "schema": PACKER.EXPECTED_SCHEMA,
+        "method": {"rolling_windows_per_scenario": 157, "initial_capital_usd": 100000,
+                   "timing_rules": {timing: timing for timing in timings}},
+        "data": {"last_common_date": "2026-09-30",
+                 "raw_panel_canonical_sha256": "a"*64,
+                 "daily_common_observations": 5788,
+                 "common_month_end_observations": 277},
+        "scenarios": scenarios,
+        "annual_scenarios": annual,
+    }
+    hist_report = {"schema":"stock-bond-glidepath-window-distributions.v1",
+                   "rolling_windows_per_scenario":157, "metric_names":list(PACKER.METRICS),
+                   "distributions":hist}
+    cohort_report = {"schema":"stock-bond-glidepath-start-cohorts.v1",
+                     "rolling_windows_per_scenario":157,"cohorts":cohorts}
+    return report, hist_report, cohort_report
+
+def minimal_html():
+    return '''<!doctype html><html><body>
+<span class="badge ok">✓ 768 組策略 · 8,448 筆年度摘要</span>
+<p>拖動查看年份 BAR 或直接點擊圖上第 0–10 年圓點，比較六條轉換曲線在各年度的目標轉債路徑。</p>
+<p>固定目標轉債比例，逐行比較六種轉換時間規則。</p>
+<p>目標 × 6 規則（共 48 格）</p><p>共 192 點＝4 種債券 × 8 目標 × 6 規則</p>
+<div class="legend">○ 線性　□ 加速前置　△ 前置　◇ 中段S曲線　▽ 後置　＋ 延後</div>
+<p>本預覽保留 768 組策略、8,448 筆年度摘要、3,072 組分布與 10,752 筆起始年份分組。</p>
+<code>8d34a8772fd5c74a7df20957cab971c3c2685963e54b160c3c958c8b9d4b7e70</code>
+<select id="timing"><option value="front_fast">old</option></select>
+<script>
+const RAW_PACK={"cm":{},"d":[],"a":[],"h":[],"c":[]};
+const TG=[30],TM=["front_fast"],FL=["no_withdrawals"],BM=["AGG"],MM=["terminal_nav_usd"];
+const TN={front_fast:"加速前置"},FN={no_withdrawals:"不提款"},C={front_fast:"#c94c4c"};
+function dummy(){ const m=(m==="front_loaded"?"6 4":m==="back_loaded"?"2 4":""); }
+</script></body></html>'''
+
+class EightTimingPackTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.report, cls.hist, cls.cohort = make_fixture()
+
+    def test_validates_and_packs_full_eight_timing_grid(self):
+        pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort)
+        self.assertEqual(len(pack["d"]), 1024)
+        self.assertEqual(len(pack["a"]), 11264)
+        self.assertEqual(len(pack["h"]), 4096)
+        self.assertEqual(len(pack["c"]), 14336)
+        self.assertEqual(pack["meta"]["source_as_of"], "2026-09-30")
+        self.assertEqual(pack["meta"]["source_sha256"], "a"*64)
+        self.assertEqual(sum(meta[0] for meta in pack["cm"].values()), 157)
+        self.assertEqual(pack["d"][0][0:4], [0, 30, 0, 0])
+        self.assertEqual(pack["a"][0][0:5], [0, 0, 30, 0, 0])
+        # The last annual row for the first scenario equals that scenario's terminal NAV.
+        first_scenario_terminal = pack["d"][0][4]
+        first_scenario_year10 = next(row for row in pack["a"] if row[:5] == [10, 0, 30, 0, 0])
+        self.assertAlmostEqual(first_scenario_year10[5], first_scenario_terminal)
+
+    def test_embeds_eight_selectable_timing_options_and_rewrites_copy(self):
+        pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort)
+        html = PACKER.embed_pack(minimal_html(), pack)
+        for timing in PACKER.TIMINGS:
+            self.assertIn('value="' + timing + '"', html)
+        self.assertIn("const TM=[\"front_rapid\",\"front_fast\",\"front_loaded\",\"linear\",\"mid_loaded\",\"staggered\",\"back_loaded\",\"back_late\"]", html)
+        self.assertIn("1,024 組策略", html)
+        self.assertIn("11,264 筆年度摘要", html)
+        self.assertIn("4,096 組分布", html)
+        self.assertIn("14,336 筆起始年份分組", html)
+        self.assertIn("八條轉換曲線", html)
+        self.assertIn("八種轉換時間規則", html)
+        self.assertIn("共 256 點", html)
+        packed = json.loads(html.split("const RAW_PACK=", 1)[1].split(";\nconst TG=", 1)[0])
+        self.assertEqual(len(packed["d"]), 1024)
+
+    def test_rejects_incomplete_scenario_grid(self):
+        report, hist, cohort = make_fixture()
+        report["scenarios"].pop()
+        with self.assertRaisesRegex(ValueError, "1,024"):
+            PACKER.validate_and_pack(report, hist, cohort)
+
+    def test_rejects_histogram_bins_that_compact_format_would_distort(self):
+        report, hist, cohort = make_fixture()
+        hist["distributions"][0]["bins"][1]["low"] = 0.1
+        with self.assertRaisesRegex(ValueError, "equal-width"):
+            PACKER.validate_and_pack(report, hist, cohort)
+
+if __name__ == "__main__":
+    unittest.main()
