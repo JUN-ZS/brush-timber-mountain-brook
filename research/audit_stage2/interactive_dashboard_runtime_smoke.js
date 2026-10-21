@@ -196,7 +196,7 @@ const fakeSelectable = dataset => ({
 const glideYearPoint = fakeSelectable({bond:"AGG",target:"60",timing:"linear",flow:"no_withdrawals",year:"9"});
 clickHandler({target:{closest(selector) { return selector === "[data-target]" ? glideYearPoint : null; }}});
 assert.strictEqual(year.value, "9", "clicking year 9 in glidepath chart must update year BAR");
-assert.strictEqual(metricValues(getElementById("metrics").innerHTML)[0], fmtMoney(annualRows.find(row => row.bond_proxy==="AGG" && row.target_bond_conversion_pct_at_year10===60 && row.timing_rule==="linear" && row.cashflow_mode==="no_withdrawals" && row.year===9).median_nav_usd), "glidepath point must load actual year 9 NAV");
+assert.strictEqual(metricValue(getElementById("metrics").innerHTML, "第9年中位資產"), fmtMoney(annualRows.find(row => row.bond_proxy==="AGG" && row.target_bond_conversion_pct_at_year10===60 && row.timing_rule==="linear" && row.cashflow_mode==="no_withdrawals" && row.year===9).median_nav_usd), "glidepath point must load actual year 9 NAV");
 const cohortPoint = fakeSelectable({bond:"SHY",target:"50",timing:"back_loaded",flow:"no_withdrawals",cohortYear:"2003"});
 clickHandler({target:{closest(selector) { return selector === "[data-target]" ? cohortPoint : null; }}});
 assert.strictEqual(bond.value, "SHY", "cohort selection should update bond proxy");
