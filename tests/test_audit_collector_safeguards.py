@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -74,6 +75,8 @@ class CollectorIsolationTests(unittest.TestCase):
                 timeout=60,
             )
             self.assertEqual(proc.returncode, 0, proc.stderr + "\n" + proc.stdout)
+            manifest = json.loads((out / "collection_manifest.json").read_text(encoding="utf-8"))
+            self.assertIs(manifest.get("worktree_clean"), True)
 
             blind = out / "repository_text_snapshot_BLIND_SAFE_HEAD.tar.gz"
             stage2 = out / "quarantined_narrative_snapshot_STAGE2_ONLY_HEAD.tar.gz"

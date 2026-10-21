@@ -522,6 +522,11 @@ def main() -> int:
 
     write_json(out / "github" / "collection_status.json", github_status)
 
+    # Re-check at completion so the manifest cannot claim a clean evidence basis
+    # if another process changed the checkout while collection was running.
+    final_status = run(["git", "status", "--porcelain=v1", "--untracked-files=all"], cwd=repo)
+    worktree_clean = final_status["returncode"] == 0 and not final_status["stdout"].strip()
+
     report = {
         "schema": "repo-independent-audit-evidence-v2",
         "generated_at_utc": generated_at,
@@ -529,6 +534,7 @@ def main() -> int:
         "github_repo": github_slug,
         "head_sha": head_sha,
         "head_branch": head_branch,
+        "worktree_clean": worktree_clean,
         "origin": origin_url,
         "counts": {
             "tracked_files_at_head": len(files),
@@ -543,6 +549,9 @@ def main() -> int:
     }
     write_json(out / "collection_manifest.json", report)
     write_json(out / "manifest.json", report)
+    if not worktree_clean:
+        print("ERROR: worktree became dirty during evidence collection.", file=sys.stderr)
+        return 3
 
     summary_lines = [
         "# Repository Evidence Collection Summary (`00_README_EVIDENCE_SUMMARY.md`)",
