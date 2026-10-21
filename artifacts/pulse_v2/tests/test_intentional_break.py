@@ -119,3 +119,15 @@ if __name__ == "__main__":
             print("FAIL", fn.__name__, type(e).__name__, e)
     print(f"{len(tests)-failed}/{len(tests)} ENFORCED")
     raise SystemExit(failed)
+
+
+import unittest
+
+class IntentionalBreakTestSuite(unittest.TestCase):
+    pass
+
+for _name, _fn in list(globals().items()):
+    if _name.startswith("test_") and callable(_fn):
+        setattr(IntentionalBreakTestSuite, _name, staticmethod(_fn))
+
+del _name, _fn
