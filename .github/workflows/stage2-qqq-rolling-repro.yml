@@ -1,0 +1,62 @@
+name: Stage 2 QQQ Rolling Reproduction
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "research/audit_stage2/reproduce_qqq_rolling_windows.py"
+      - ".github/workflows/stage2-qqq-rolling-repro.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stage2-qqq-rolling-repro-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reproduce:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@v4
+
+      - name: Compile reproduction script
+        run: python3 -m py_compile research/audit_stage2/reproduce_qqq_rolling_windows.py
+
+      - name: Reproduce historical QQQ rolling windows
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/rolling_qqq_reproduction.json"
+          python3 research/audit_stage2/reproduce_qqq_rolling_windows.py \
+            artifacts/pulse_v2/data_market_data.csv --out "$OUT"
+
+          python3 - "$OUT" <<'PY'
+          import json, math, sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          assert r["monthly_observations"] == 331, r["monthly_observations"]
+          assert r["lump_sum"]["windows"] == 211, r["lump_sum"]
+          assert r["lump_sum"]["loss_windows"] == 23, r["lump_sum"]
+          assert r["clock_dca"]["windows"] == 211, r["clock_dca"]
+          assert r["clock_dca"]["loss_windows"] == 4, r["clock_dca"]
+          assert math.isclose(r["lump_sum"]["worst_window"]["lump_sum_terminal_multiple"], 0.4314259055, abs_tol=1e-9)
+          assert math.isclose(r["clock_dca"]["worst_window"]["clock_dca_terminal_multiple"], 0.7703524142, abs_tol=1e-9)
+          assert r["assumptions"]["overlapping_windows_are_dependent"] is True
+          assert r["assumptions"]["dividends_reinvested"] is False
+          print("PASS: QQQ 120-month price-window reproduction")
+          print("Lump sum: 23/211 losing windows; worst 0.4314259x")
+          print("Clock DCA: 4/211 losing windows; worst 0.7703524x")
+          print("These are historical window fractions, not forward probabilities.")
+          PY
+
+      - name: Upload reproducibility output
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage2-qqq-rolling-reproduction-${{ github.sha }}
+          path: ${{ runner.temp }}/rolling_qqq_reproduction.json
+          retention-days: 14
+          if-no-files-found: error
