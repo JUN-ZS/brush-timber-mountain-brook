@@ -1,12 +1,12 @@
 {
   "status": "STATIC_AND_DATA_CHECKS_PASS_BROWSER_INTERACTION_NOT_RUN",
-  "html_bytes": 2507101,
+  "html_bytes": 2507254,
   "original_html_bytes": 13068927,
   "html_size_reduction_pct": 80.82,
-  "bundle_bytes": 664325,
+  "bundle_bytes": 664336,
   "original_bundle_bytes": 1559891,
   "bundle_size_reduction_pct": 57.41,
-  "sha256": "455ae630c5a2f7ceb3d941b94c74a1035db6b020a5769e39e9e7434f83170bd4",
+  "sha256": "87c014bba5b80cb8749cddfc17ddc95af8b0deeb0e9ea50a9902da740760d8f5",
   "element_ids_count": 48,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,7 +134,7 @@
       "timing": "front_fast"
     }
   },
-  "html_chars": 2500779,
+  "html_chars": 2500876,
   "bundle_status": "CURRENT_ZIP_BUILT_FROM_VERIFIED_HTML",
   "sha256_status": "VERIFIED_FROM_CURRENT_HTML_BYTES",
   "review_fixes": {
