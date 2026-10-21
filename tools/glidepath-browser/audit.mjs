@@ -120,6 +120,9 @@ try {
     const money = value => "$" + Math.round(value).toLocaleString("en-US");
     const stockWeight = 1 - Number(annual[20]);
     const bondWeight = Number(annual[20]);
+    const displayStockPct = Number((100 * stockWeight).toFixed(2));
+    const displayBondPct = Number((100 * bondWeight).toFixed(2));
+    const displayNavRounded = Math.round(expectedNav);
     const initialCapital = Number(rawPack.meta?.initial_capital_usd || 100000);
     const floorProof = rate => rawPack.d.filter(row => Number(row[7]) >= initialCapital * Math.pow(1 + rate, 10)).length;
     const strategyCount = rawPack.d.length;
@@ -145,8 +148,8 @@ try {
     floorProof235: floorProof(0.0235),
     floorProof350: floorProof(0.035),
     expectedAmount: money(expectedNav),
-    expectedStockAmount: money(expectedNav * stockWeight),
-    expectedBondAmount: money(expectedNav * bondWeight),
+    expectedStockAmount: money(displayNavRounded * displayStockPct / 100),
+    expectedBondAmount: money(displayNavRounded * displayBondPct / 100),
     evidenceDataset: {
       sampleWindows: evidence.dataset.sampleWindows,
       strategyCount: evidence.dataset.strategyCount,
