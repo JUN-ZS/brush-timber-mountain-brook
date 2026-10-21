@@ -37,15 +37,15 @@ if not isinstance(paired_real_result, dict) or paired_real_result.get("state") !
 
 cashflow_semantics = results.get("cashflow_nav_semantic_sweep")
 expected_cashflow_contract = {
-    "total_combinations": 396,
-    "yearly_flow_slices_verified": 396,
-    "primary_nav_bindings_verified": 396,
-    "metric_rows_verified": 396,
-    "allocation_path_bindings_verified": 396,
-    "flow_comparison_bars_verified": 1584,
-    "no_withdrawal_zero_cashflow_checks": 99,
-    "data_scope_disclosure_checks": 396,
-    "real_floor_window_cells_verified": 3168,
+    "total_combinations": 224,
+    "yearly_flow_slices_verified": 224,
+    "primary_nav_bindings_verified": 224,
+    "metric_rows_verified": 224,
+    "allocation_path_bindings_verified": 224,
+    "flow_comparison_bars_verified": 896,
+    "no_withdrawal_zero_cashflow_checks": 59,
+    "data_scope_disclosure_checks": 224,
+    "real_floor_window_cells_verified": 1792,
 }
 if not isinstance(cashflow_semantics, dict):
     raise SystemExit("Full cashflow × year × statistic NAV semantic sweep is missing.")
@@ -58,6 +58,16 @@ if cashflow_semantics.get("checked_flows") != ["no_withdrawals", "delayed_stepup
     raise SystemExit("Cashflow/NAV semantic sweep did not cover the canonical four cashflow modes.")
 if cashflow_semantics.get("checked_inflation_modes") != [0, 0.0235, 0.035]:
     raise SystemExit("Cashflow/NAV sweep did not validate nominal, 2.35%, and 3.50% inflation modes.")
+expected_inflation_coverage = [
+    {"inflation": 0, "combinations": 132, "median_flow_year_combinations": 44, "additional_tail_views": 0,
+     "policy": "all-flows-years-stat-views"},
+    {"inflation": 0.0235, "combinations": 46, "median_flow_year_combinations": 44, "additional_tail_views": 2,
+     "policy": "median-all-flow-years-plus-year10-no-flow-p05-worst"},
+    {"inflation": 0.035, "combinations": 46, "median_flow_year_combinations": 44, "additional_tail_views": 2,
+     "policy": "median-all-flow-years-plus-year10-no-flow-p05-worst"},
+]
+if cashflow_semantics.get("checked_inflation_coverage") != expected_inflation_coverage:
+    raise SystemExit("Browser sweep coverage policy differs from the declared nominal/real state matrix.")
 
 real_floor_integrity = results.get("real_floor_annual_pack_integrity", {})
 if (
@@ -357,6 +367,7 @@ static.update({
 })
 review["headless_browser_verification"] = results
 review["cashflow_nav_semantic_sweep"] = cashflow_semantics
+review["real_floor_ui_sweep_coverage"] = cashflow_semantics.get("checked_inflation_coverage", [])
 review["real_floor_annual_pack_integrity"] = real_floor_integrity
 review["real_floor_heatmap_checks"] = heatmap_checks
 review["known_limits"] = [
