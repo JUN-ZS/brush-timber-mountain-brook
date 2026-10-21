@@ -1,0 +1,10 @@
+month_index,flow_type,amount_usd,note
+13,withdrawal,1000,illustration only - first withdrawal after 12 full months
+25,withdrawal,1250,illustration only - step up
+37,withdrawal,1500,illustration only - step up
+49,withdrawal,1750,illustration only - step up
+61,withdrawal,2000,illustration only - step up
+73,withdrawal,2000,illustration only - hold
+85,withdrawal,1500,illustration only - reduce
+97,deposit,5000,illustration only - optional later reinvestment
+108,withdrawal,1800,illustration only - irregular timing
