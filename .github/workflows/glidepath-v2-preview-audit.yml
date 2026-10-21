@@ -1,6 +1,16 @@
 name: Glidepath V2 Preview Audit
 
 on:
+  # The file is not on the default branch yet; use a branch-scoped push run to test this PR.
+  push:
+    branches:
+      - "glidepath-v2-statistical-integrity"
+    paths:
+      - "v2.html"
+      - "glidepath_preview_v2.1_methodology.md"
+      - "research/audit_stage2/test_glidepath_v2_preview.py"
+      - "research/audit_stage2/build_glidepath_v2_bundle.py"
+      - ".github/workflows/glidepath-v2-preview-audit.yml"
   pull_request:
     paths:
       - "v2.html"
@@ -38,9 +48,9 @@ jobs:
       - name: Run independent integrity tests against regenerated artifacts
         run: python3 -m unittest research.audit_stage2.test_glidepath_v2_preview -v
       - name: Commit regenerated artifacts back to this PR branch
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.ref_name == 'glidepath-v2-statistical-integrity'
         env:
-          TARGET_BRANCH: ${{ github.head_ref }}
+          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           if ! git diff --quiet -- glidepath_interactive_preview_optimized_bundle.zip glidepath_preview_optimized_audit.json; then
             git config user.name "github-actions[bot]"
