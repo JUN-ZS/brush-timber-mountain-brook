@@ -670,10 +670,10 @@ def generate_results(outdir: Path, schedule_path: Path | None = None) -> dict:
     print("GLIDEPATH_GENERATION_START", flush=True)
     dates, prices, monthly_indices, source = load_common_market_panel()
     schedule = load_flow_schedule(schedule_path) if schedule_path else None
-    print(f"GLIDEPATH_REPLAY_START windows={len(monthly_indices) - HORIZON_MONTHS} scenarios={len(BOND_TICKERS) * len(TARGET_CONVERSIONS) * len(TIMING_RULES) * (2 if schedule else 1 + 2)}", flush=True)
+    print(f"GLIDEPATH_REPLAY_START windows={len(monthly_indices) - HORIZON_MONTHS} scenarios={len(BOND_TICKERS) * len(TARGET_CONVERSIONS) * len(TIMING_RULES) * (4 if schedule else 3)}", flush=True)
     replay_started = time.monotonic()
     report, rows = run_backtest(dates, prices, monthly_indices, schedule=schedule)
-    print(f"GLIDEPATH_REPLAY_DONE scenarios={len(report[\"scenarios\"])} windows_rows={len(rows)} elapsed_s={time.monotonic() - replay_started:.1f}", flush=True)
+    print(f"GLIDEPATH_REPLAY_DONE scenarios={len(report['scenarios'])} windows_rows={len(rows)} elapsed_s={time.monotonic() - replay_started:.1f}", flush=True)
     report["data"] = source["metadata"]
     (outdir / "historical_adjusted_close_panel.csv").write_text(source["canonical_csv"], encoding="utf-8")
     write_csv(outdir / "stock_bond_glidepath_windows.csv", rows)
