@@ -367,9 +367,9 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
         shape_blocks = list(re.finditer(r'let shape=r\.timing_rule,mark;(.*?)let close=shape=', html, re.S))
         require(len(shape_blocks) == 1, "Expected exactly one scatter shape block")
         shape_block = shape_blocks[0].group(1)
-        missing_shapes = [timing for timing in TIMINGS if f'shape==="{timing}"' not in shape_block]
-        require(not missing_shapes,
-                "Unsupported scatter marker block; missing timing shapes: " + ", ".join(missing_shapes))
+        missing_shapes = [timing for timing in TIMINGS if timing != "back_late" and f'shape==="{timing}"' not in shape_block]
+        require(not missing_shapes and "else mark=" in shape_block,
+                "Unsupported scatter marker block; missing timing shapes/fallback: " + ", ".join(missing_shapes))
     old_dash = '(m==="front_loaded"?"6 4":m==="back_loaded"?"2 4":"")'
     new_dash = '({front_rapid:"3 2",front_fast:"1 3",front_loaded:"8 4",linear:"",mid_loaded:"6 2 1 2",staggered:"5 2 1 2",back_loaded:"2 4",back_late:"10 3"}[m]||"")'
     if html.count(old_dash) == 1:
