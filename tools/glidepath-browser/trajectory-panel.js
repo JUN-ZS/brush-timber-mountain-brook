@@ -786,6 +786,17 @@
     const target = (one("#target") || {}).value || "未知";
     const timing = selectedText("#timing") || "未知轉換規則";
     const inflation = Math.max(0, Number((one("#realMode") || {}).value || 0));
+    const scenarioPopulation = Array.isArray(D) ? D.length : 0;
+    const sourceAsOf = String((RAW_PACK && RAW_PACK.meta && RAW_PACK.meta.source_as_of) || "2026-09-30");
+    const initialCapital = Number((RAW_PACK && RAW_PACK.meta && RAW_PACK.meta.initial_capital_usd) || 100000);
+    const proveAllWindowsAtFloor = function (rate) {
+      const threshold = initialCapital * Math.pow(1 + rate, 10);
+      return D.filter(function (row) {
+        return Number.isFinite(Number(row.worst_terminal_nav_usd)) && Number(row.worst_terminal_nav_usd) >= threshold;
+      }).length;
+    };
+    const provenFloor235 = proveAllWindowsAtFloor(0.0235);
+    const provenFloor350 = proveAllWindowsAtFloor(0.035);
     const noFlow = /不提款/.test(flowLabel) || /^(none|no_withdrawal|no-withdrawal|no_cashflow)$/.test((one("#flow") || {}).value || "");
     const reverseSupported = direction === "bond-to-stock" && bond === "TLT" && noFlow;
     const pairSupported = bond === "TLT" && noFlow;
@@ -808,12 +819,16 @@
       "現金流：" + flowLabel + "。 " + flow +
       "。提款／供款會改變資產耗用與保本判定，不能用不提款結果替代。";
     if (sampleNode) sampleNode.textContent =
-      "原有策略摘要共有 768 組第10年策略設定，按 157 個重疊的 10 年窗口彙總；所選年份 NAV 和年度配置是彙總值，不代表單一窗口路徑。底層來源資料截至 2026-09-04。" +
+      "目前策略摘要共有 " + scenarioPopulation + " 組第10年策略設定，按 " +
+      Number((RAW_PACK && RAW_PACK.meta && RAW_PACK.meta.rolling_windows_per_scenario) || 157) +
+      " 個重疊的 10 年窗口彙總；所選年份 NAV 和年度配置是彙總值，不代表單一窗口路徑。底層來源資料截至 " + sourceAsOf + "。" +
       (pairSupported
         ? " 目前 TLT／不提款的方向比較另以同一批窗口逐窗重播：首窗 2004-03-30–2014-04-03，末窗 2016-08-19–2026-08-31。"
         : " 目前設定不在獨立 TLT／不提款配對回放範圍內；相關面板會顯示 BLOCK，而不挪用其他代理或現金流績效。");
     if (riskNode) riskNode.textContent =
-      "年通脹 2.35% 時，768 組第10年策略中有 363 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 329 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +
+      "年通脹 2.35% 時，" + scenarioPopulation + " 組第10年策略中有 " + provenFloor235 +
+      " 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 " +
+      provenFloor350 + " 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +
       " 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";
     if (scopeNode) scopeNode.textContent =
       "目前設定：" + lead + " " + allocation + " " + flow +
@@ -832,7 +847,7 @@
       decisionEvidence.dataset.flow = flowLabel;
       decisionEvidence.dataset.inflation = String(inflation);
       decisionEvidence.dataset.sampleWindows = "157";
-      decisionEvidence.dataset.strategyCount = "768";
+      decisionEvidence.dataset.strategyCount = String(scenarioPopulation);
       decisionEvidence.dataset.reverseReplayScope = reverseSupported ? "supported" : "limited";
     }
   }
