@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import datetime as dt
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import html
 import json
@@ -52,7 +53,7 @@ COLORS = {
 def _date_to_epoch(value: dt.date) -> int:
     return int(dt.datetime.combine(value, dt.time(), tzinfo=dt.timezone.utc).timestamp())
 
-def _fetch_json(url: str, retries: int = 4) -> dict:
+def _fetch_json(url: str, retries: int = 3) -> dict:
     last_error = None
     for attempt in range(retries):
         try:
@@ -63,11 +64,12 @@ def _fetch_json(url: str, retries: int = 4) -> dict:
                     "Accept": "application/json,text/plain,*/*",
                 },
             )
-            with urllib.request.urlopen(req, timeout=40) as response:
+            with urllib.request.urlopen(req, timeout=30) as response:
                 payload = response.read()
             return json.loads(payload.decode("utf-8"))
         except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError) as exc:
             last_error = exc
+            print(f"DOWNLOAD_RETRY attempt={attempt + 1}/{retries} error={type(exc).__name__}: {exc}", flush=True)
             time.sleep(1.0 * (attempt + 1))
     raise RuntimeError(f"Yahoo history download failed after {retries} attempts: {url}: {last_error}")
 
@@ -108,7 +110,34 @@ def download_adjusted_close(ticker: str, start: dt.date = DATA_START, end: dt.da
     return dates
 
 def load_common_market_panel() -> tuple[list[dt.date], dict[str, list[float]], list[int], dict]:
-    downloaded = {ticker: download_adjusted_close(ticker) for ticker in TICKERS}
+    """Download six adjusted-price series concurrently and log enough to diagnose stalls."""
+    downloaded: dict[str, dict[str, float]] = {}
+    download_started = time.monotonic()
+    print(f"MARKET_DOWNLOAD_START tickers={','.join(TICKERS)} workers=3", flush=True)
+    with ThreadPoolExecutor(max_workers=3, thread_name_prefix="etf-history") as pool:
+        futures = {pool.submit(download_adjusted_close, ticker): ticker for ticker in TICKERS}
+        for future in as_completed(futures):
+            ticker = futures[future]
+            ticker_started = time.monotonic()
+            try:
+                series = future.result()
+            except Exception as exc:
+                print(
+                    f"MARKET_DOWNLOAD_FAILED ticker={ticker} elapsed_total_s={time.monotonic() - download_started:.1f} "
+                    f"error={type(exc).__name__}: {exc}",
+                    flush=True,
+                )
+                raise
+            downloaded[ticker] = series
+            print(
+                f"MARKET_DOWNLOAD_DONE ticker={ticker} rows={len(series)} "
+                f"elapsed_total_s={time.monotonic() - download_started:.1f}",
+                flush=True,
+            )
+    print(
+        f"MARKET_DOWNLOADS_COMPLETE tickers={len(downloaded)} elapsed_s={time.monotonic() - download_started:.1f}",
+        flush=True,
+    )
     common = set(downloaded[TICKERS[0]])
     for ticker in TICKERS[1:]:
         common &= set(downloaded[ticker])
@@ -154,6 +183,7 @@ def load_common_market_panel() -> tuple[list[dt.date], dict[str, list[float]], l
         "raw_panel_canonical_sha256": digest,
         "data_note": "Adjusted close includes Yahoo historical split/dividend adjustment; ETF total-return proxy, not direct Treasury CUSIP marks. Canonical panel embedded as CSV artifact on each run.",
     }
+    print(f"MARKET_PANEL_READY daily={len(dates)} month_ends={len(monthly_indices)} sha256={digest}", flush=True)
     return dates, prices, monthly_indices, {"metadata": metadata, "canonical_csv": canonical.decode("utf-8")}
 
 def _month_index_by_day(dates: list[dt.date], monthly_indices: list[int]) -> dict[int, int]:
@@ -440,8 +470,12 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
     window_count = len(monthly_indices) - HORIZON_MONTHS
     if window_count <= 0:
         raise ValueError("Not enough common monthly observations for rolling 10-year backtests")
-    for mode_name, active_schedule, compute_xirr in schedules:
-        for timing_rule in TIMING_RULES:
+    total_started = time.monotonic()
+    completed_scenarios = 0
+    for mode_index, (mode_name, active_schedule, compute_xirr) in enumerate(schedules, start=1):
+        print(f"BACKTEST_MODE_START mode={mode_name} mode_index={mode_index}/{len(schedules)} windows={window_count}", flush=True)
+        for timing_index, timing_rule in enumerate(TIMING_RULES, start=1):
+            print(f"BACKTEST_TIMING_START mode={mode_name} timing={timing_rule} timing_index={timing_index}/{len(TIMING_RULES)}", flush=True)
             for bond in BOND_TICKERS:
                 for target in TARGET_CONVERSIONS:
                     group = [
@@ -458,6 +492,18 @@ def run_backtest(dates, prices, monthly_indices, schedule: dict[int, list[FlowEv
                     for row in group:
                         row.pop("yearly_marks", None)
                     all_rows.extend(group)
+                    completed_scenarios += 1
+            print(
+                f"BACKTEST_TIMING_DONE mode={mode_name} timing={timing_rule} "
+                f"scenarios={completed_scenarios} elapsed_s={time.monotonic() - total_started:.1f}",
+                flush=True,
+            )
+        print(
+            f"BACKTEST_MODE_DONE mode={mode_name} scenarios={completed_scenarios} "
+            f"elapsed_s={time.monotonic() - total_started:.1f}",
+            flush=True,
+        )
+    print(f"BACKTEST_COMPLETE scenarios={completed_scenarios} rows={len(all_rows)} elapsed_s={time.monotonic() - total_started:.1f}", flush=True)
     report = {
         "schema": "stock-bond-glidepath-backtest.v1",
         "method": {
@@ -621,9 +667,13 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 def generate_results(outdir: Path, schedule_path: Path | None = None) -> dict:
     outdir.mkdir(parents=True, exist_ok=True)
+    print("GLIDEPATH_GENERATION_START", flush=True)
     dates, prices, monthly_indices, source = load_common_market_panel()
     schedule = load_flow_schedule(schedule_path) if schedule_path else None
+    print(f"GLIDEPATH_REPLAY_START windows={len(monthly_indices) - HORIZON_MONTHS} scenarios={len(BOND_TICKERS) * len(TARGET_CONVERSIONS) * len(TIMING_RULES) * (2 if schedule else 1 + 2)}", flush=True)
+    replay_started = time.monotonic()
     report, rows = run_backtest(dates, prices, monthly_indices, schedule=schedule)
+    print(f"GLIDEPATH_REPLAY_DONE scenarios={len(report[\"scenarios\"])} windows_rows={len(rows)} elapsed_s={time.monotonic() - replay_started:.1f}", flush=True)
     report["data"] = source["metadata"]
     (outdir / "historical_adjusted_close_panel.csv").write_text(source["canonical_csv"], encoding="utf-8")
     write_csv(outdir / "stock_bond_glidepath_windows.csv", rows)
