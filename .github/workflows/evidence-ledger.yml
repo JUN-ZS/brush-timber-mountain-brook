@@ -10,27 +10,34 @@ on:
       - ".github/workflows/evidence-ledger.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   verify:
-    runs-on: [self-hosted, windows, x64]
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 10
     steps:
-      - name: Verify workspace
-        shell: cmd
+      - name: Checkout exact commit into a clean workspace
+        uses: actions/checkout@v4
+        with:
+          clean: true
+      - name: Verify runner runtime and workspace
         run: |
+          set -euo pipefail
           git status --short
-          python --version
+          python3 --version
       - name: Compile evidence, live desk and operator console
-        shell: cmd
         run: |
-          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/evidence_v1').glob('*.py')]"
-          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
-          python -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/strategy_instance_v1').glob('*.py')]"
-
+          set -euo pipefail
+          python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/evidence_v1').glob('*.py')]"
+          python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/live_hedge_v1').glob('*.py')]"
+          python3 -c "import pathlib,py_compile; [py_compile.compile(str(p),doraise=True) for p in pathlib.Path('research/strategy_instance_v1').glob('*.py')]"
       - name: Run evidence and instance tests
-        shell: cmd
         run: |
-          python -m unittest research.evidence_v1.test_evidence research.evidence_v1.test_lock_guard research.strategy_instance_v1.test_instance
+          set -euo pipefail
+          python3 -m unittest research.evidence_v1.test_evidence research.evidence_v1.test_lock_guard research.strategy_instance_v1.test_instance
       - name: Verify evidence ledger
-        shell: cmd
         run: |
-          python -m research.evidence_v1.seal
+          set -euo pipefail
+          python3 -m research.evidence_v1.seal
