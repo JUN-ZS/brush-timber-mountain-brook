@@ -1,0 +1,307 @@
+name: VXX Synthetic Option Tape V1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - research/vxx_synthetic_option_tape_v1.py
+      - attachments/spots_qqq_vxx_vix.1csv
+      - .github/workflows/vxx-synthetic-option-tape-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  cleanup-stale-research-runs:
+    name: Cleanup / this research branch only
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Cancel stale VXX/V22 runs from this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          CURRENT_RUN: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for workflow in "VXX Synthetic Option Tape V1" "QQQ V22 Locked OOS Family V2"; do
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow "$workflow" \
+              --branch "$TARGET_BRANCH" \
+              --limit 100 \
+              --json databaseId,status \
+              | jq -r --arg current "$CURRENT_RUN" '
+                  .[]
+                  | select((.databaseId | tostring) != $current)
+                  | select(.status == "queued" or .status == "in_progress")
+                  | .databaseId
+                ' \
+              | while read -r run_id; do
+                  [ -z "$run_id" ] && continue
+                  echo "cancel stale run $run_id ($workflow)"
+                  gh run cancel "$run_id" --repo "$GITHUB_REPOSITORY" || true
+                done
+          done
+
+  build_windows:
+    name: Windows self-hosted — full tape
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install research dependencies
+        shell: powershell
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install duckdb pandas pyarrow numpy scipy
+      - name: Prepare canonical inputs
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path data | Out-Null
+          curl.exe -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl.exe -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          Copy-Item attachments/spots_qqq_vxx_vix.1csv data/spots_qqq_vxx_vix.csv -Force
+      - name: Run model-derived tape and quality gates
+        shell: powershell
+        run: |
+          python -m py_compile research/vxx_synthetic_option_tape_v1.py
+          python research/vxx_synthetic_option_tape_v1.py --spot-csv data/spots_qqq_vxx_vix.csv --qqq-options data/QQQ_options.parquet --qqq-underlying data/QQQ_underlying.parquet --out artifacts/vxx_synth_v1
+      - name: Upload Windows manifest and tape
+        uses: actions/upload-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-windows
+          path: artifacts/vxx_synth_v1/
+          if-no-files-found: error
+
+  reproduce_linux:
+    name: Linux self-hosted — independent manifest
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify system Python
+        shell: bash
+        run: |
+          python3 --version
+          python3 -m pip --version
+      - name: Install research dependencies
+        shell: bash
+        run: |
+          python3 -m pip install --break-system-packages --upgrade pip
+          python3 -m pip install --break-system-packages duckdb pandas pyarrow numpy scipy
+      - name: Validate bounded DuckDB arg_min selector
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import duckdb
+          con=duckdb.connect()
+          x=con.execute("""
+          WITH b AS (
+            SELECT * FROM (VALUES
+              (DATE '2026-01-01',1,30,100.0,0.50),
+              (DATE '2026-01-01',1,31,200.0,0.49),
+              (DATE '2026-01-01',1,29,300.0,0.51),
+              (DATE '2026-01-01',1,35,50.0,0.30)
+            ) AS t(date,band,dte,volume,delta)
+          ),
+          g AS (
+            SELECT date,band,
+              arg_min(
+                struct_pack(dte:=dte,volume:=volume,delta:=delta),
+                struct_pack(
+                  dte_dist:=ABS(dte-30),
+                  neg_volume:=-volume,
+                  delta_dist:=ABS(ABS(delta)-0.50)
+                ),
+                2
+              ) AS picks
+            FROM b
+            GROUP BY date,band
+          )
+          SELECT (UNNEST(picks)).dte FROM g
+          ORDER BY 1
+          """).fetchall()
+          assert x == [(29,), (30,)], x
+          print("DUCKDB_ARG_MIN_SELECTOR_PASS", x)
+          PY
+      - name: Prepare canonical inputs
+        shell: bash
+        run: |
+          mkdir -p data
+          curl -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          cp attachments/spots_qqq_vxx_vix.1csv data/spots_qqq_vxx_vix.csv
+      - name: Rebuild independent Linux manifest
+        shell: bash
+        run: |
+          python3 -m py_compile research/vxx_synthetic_option_tape_v1.py
+          python3 research/vxx_synthetic_option_tape_v1.py \
+            --spot-csv data/spots_qqq_vxx_vix.csv \
+            --qqq-options data/QQQ_options.parquet \
+            --qqq-underlying data/QQQ_underlying.parquet \
+            --out artifacts/vxx_synth_v1_linux \
+            --summary-only
+      - name: Upload Linux manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-linux-manifest
+          path: artifacts/vxx_synth_v1_linux/manifest.json
+          if-no-files-found: error
+
+  build_hub_web:
+    name: HUB WEB — ubuntu-latest independent manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install research dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install duckdb pandas pyarrow numpy scipy
+      - name: Prepare canonical inputs
+        shell: bash
+        run: |
+          mkdir -p data
+          curl -L --fail --retry 3 -o data/QQQ_options.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_options.parquet
+          curl -L --fail --retry 3 -o data/QQQ_underlying.parquet https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1/QQQ_underlying.parquet
+          cp attachments/spots_qqq_vxx_vix.1csv data/spots_qqq_vxx_vix.csv
+      - name: Rebuild independent HUB WEB manifest
+        shell: bash
+        run: |
+          python -m py_compile research/vxx_synthetic_option_tape_v1.py
+          python research/vxx_synthetic_option_tape_v1.py \
+            --spot-csv data/spots_qqq_vxx_vix.csv \
+            --qqq-options data/QQQ_options.parquet \
+            --qqq-underlying data/QQQ_underlying.parquet \
+            --out artifacts/vxx_synth_v1_hub \
+            --summary-only
+      - name: Upload HUB WEB manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-hub-web-manifest
+          path: artifacts/vxx_synth_v1_hub/manifest.json
+          if-no-files-found: error
+
+  # Main verification bridge: only the two lightweight independent manifests
+  # are required here. The Windows full-tape producer is deliberately outside
+  # this dependency edge, so a slow/blocked Windows runner cannot serialize
+  # the Linux/HUB verification path.
+  bridge_linux_hub:
+    name: HUB WEB — Linux + HUB independent manifest bridge
+    if: ${{ always() && !cancelled() }}
+    needs: [reproduce_linux, build_hub_web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download Linux manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-linux-manifest
+          path: linux
+
+      - name: Download HUB WEB manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-hub-web-manifest
+          path: hub_web
+
+      - name: Verify required independent manifests
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          l=json.loads(Path("linux/manifest.json").read_text())
+          h=json.loads(Path("hub_web/manifest.json").read_text())
+
+          for name,m in {"LINUX":l,"HUB_WEB":h}.items():
+              assert m["quality_gate"]["status"] == "PASS", (name,m["quality_gate"])
+              assert m["source"] == "MODEL_DERIVED_VXX_OPTION_TAPE", name
+
+          for key in ("canonical_fingerprint","family_fingerprint","state_fingerprint"):
+              assert l[key] == h[key], (key,l[key],h[key])
+
+          bridge={
+              "topology":"LINUX_HUB_BRIDGE",
+              "linux":{
+                  "canonical_fingerprint":l["canonical_fingerprint"],
+                  "family_fingerprint":l["family_fingerprint"],
+                  "state_fingerprint":l["state_fingerprint"],
+              },
+              "hub_web":{
+                  "canonical_fingerprint":h["canonical_fingerprint"],
+                  "family_fingerprint":h["family_fingerprint"],
+                  "state_fingerprint":h["state_fingerprint"],
+              },
+              "windows_full_tape":"NONBLOCKING_TO_BRIDGE",
+              "status":"PASS",
+          }
+          Path("bridge.json").write_text(json.dumps(bridge,indent=2)+"\n")
+          print("LINUX_HUB_FINGERPRINT_MATCH",l["canonical_fingerprint"])
+          print("WINDOWS_FULL_TAPE",bridge["windows_full_tape"])
+          PY
+
+      - name: Upload independent bridge record
+        uses: actions/upload-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-linux-hub-bridge
+          path: bridge.json
+          if-no-files-found: error
+
+  compare_manifests:
+    name: HUB WEB — three-runner fingerprint lock
+    if: ${{ always() && !cancelled() }}
+    needs: [build_windows, reproduce_linux, build_hub_web, bridge_linux_hub]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Windows manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-windows
+          path: windows
+      - name: Download independent bridge record
+        uses: actions/download-artifact@v4
+        with:
+          name: vxx-synthetic-tape-v1-linux-hub-bridge
+          path: bridge
+      - name: Compare all fingerprints
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          w=json.loads(Path("windows/manifest.json").read_text())
+          b=json.loads(Path("bridge/bridge.json").read_text())
+
+          assert w["quality_gate"]["status"] == "PASS", w["quality_gate"]
+          assert w["source"] == "MODEL_DERIVED_VXX_OPTION_TAPE"
+          assert b["status"] == "PASS", b
+
+          assert b["linux"]["canonical_fingerprint"] == b["hub_web"]["canonical_fingerprint"]
+          assert b["linux"]["family_fingerprint"] == b["hub_web"]["family_fingerprint"]
+          assert b["linux"]["state_fingerprint"] == b["hub_web"]["state_fingerprint"]
+
+          assert w["canonical_fingerprint"] == b["linux"]["canonical_fingerprint"]
+          assert w["family_fingerprint"] == b["linux"]["family_fingerprint"]
+          assert w["state_fingerprint"] == b["linux"]["state_fingerprint"]
+
+          print("WINDOWS_CANONICAL", w["canonical_fingerprint"])
+          print("LINUX_CANONICAL", b["linux"]["canonical_fingerprint"])
+          print("HUB_WEB_CANONICAL", b["hub_web"]["canonical_fingerprint"])
+          print("THREE_WAY_FINGERPRINT_MATCH", w["canonical_fingerprint"])
+          PY
