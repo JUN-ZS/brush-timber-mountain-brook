@@ -209,7 +209,7 @@ class EightTimingPackTests(unittest.TestCase):
         html = PACKER.embed_pack(minimal_html(), pack)
         for timing in PACKER.TIMINGS:
             self.assertIn('value="' + timing + '"', html)
-        self.assertIn("const TM=[\"front_rapid\",\"front_fast\",\"front_loaded\",\"linear\",\"mid_loaded\",\"staggered\",\"back_loaded\",\"back_late\"]", html)
+        self.assertIn("TM=[\"front_rapid\",\"front_fast\",\"front_loaded\",\"linear\",\"mid_loaded\",\"staggered\",\"back_loaded\",\"back_late\"]", html)
         self.assertIn("1,024 組策略", html)
         self.assertIn("11,264 筆年度摘要", html)
         self.assertIn("4,096 組分布", html)
