@@ -1,0 +1,1 @@
+Trigger file for the frozen V1 GitHub Actions replay. No strategy logic.
