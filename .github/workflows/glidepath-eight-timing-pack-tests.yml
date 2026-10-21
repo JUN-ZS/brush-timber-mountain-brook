@@ -1,5 +1,9 @@
 name: Glidepath Eight-Timing Pack Contract
 
+# This workflow consumes a pinned ~11 MB Stage 2 artifact; the heavy data replay is
+# already built separately. Use a hosted Linux runner for packaging/browser acceptance
+# so a stalled self-hosted Chromium job cannot block verification of the exact PR head.
+
 on:
   pull_request:
     paths:
@@ -11,13 +15,13 @@ permissions:
   actions: read
 
 concurrency:
-  group: glidepath-eight-timing-pack-${{ github.event.pull_request.number || github.ref }}
+  group: glidepath-eight-timing-pack-hosted-validation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   publication_guard:
     name: Skip recursive rebuild after generated preview publication
-    runs-on: [self-hosted, grokbot-box-linux-x64]
+    runs-on: ubuntu-latest
     outputs:
       run_pack: ${{ steps.guard.outputs.run_pack }}
     steps:
@@ -43,7 +47,7 @@ jobs:
     needs: publication_guard
     if: ${{ needs.publication_guard.outputs.run_pack == 'true' }}
     name: Pack the pinned eight-timing replay and verify browser behavior on Linux BOT
-    runs-on: [self-hosted, grokbot-box-linux-x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Checkout exact PR revision
