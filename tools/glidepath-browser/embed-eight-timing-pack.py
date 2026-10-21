@@ -66,6 +66,8 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
     initial = finite_or_none(method.get("initial_capital_usd"), "initial_capital_usd")
     require(windows == 157, f"Expected 157 overlapping windows, got {windows}")
     require(initial is not None and initial > 0, "Initial capital is missing or invalid")
+    require(tuple(method.get("timing_rules", {}).keys()) == TIMINGS,
+            "Stage 2 report does not declare all eight timing rules in the canonical order")
     require(data.get("last_common_date") == "2026-09-30",
             "The verified Stage 2 pack must end on the pinned common date 2026-09-30")
     source_sha = str(data.get("raw_panel_canonical_sha256", ""))
@@ -235,7 +237,7 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
             rounded(row["worst_terminal_nav_usd"], 2),
             rounded(row.get("median_time_weighted_cagr")),
             rounded(row.get("p05_time_weighted_cagr")),
-            rounded(row.get("worst_terminal_nav_usd") if False else row.get("worst_time_weighted_cagr")),
+            rounded(row.get("worst_time_weighted_cagr")),
             rounded(row["median_daily_max_drawdown"]),
             rounded(row["worst_daily_max_drawdown"]),
             int(row["windows_below_initial_capital_at_year10"]),
@@ -303,7 +305,7 @@ def embed_pack(html: str, pack: dict[str, Any]) -> str:
     require(len(old_selector) == 1, "Expected exactly one timing selector")
     new_selector = """<select id="timing">
         <option value="front_rapid">急速前置：第1年半程</option>
-        <option value="front_fast">加速前置：第2年半程</option>
+        <option selected value="front_fast">加速前置：第2年半程</option>
         <option value="front_loaded">前置：第3年半程</option>
         <option value="linear">線性：每年等量</option>
         <option value="mid_loaded">中段加速：S曲線</option>
@@ -337,7 +339,26 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     html = html.replace("8d34a8772fd5c74a7df20957cab971c3c2685963e54b160c3c958c8b9d4b7e70", str(pack["meta"]["source_sha256"]))
     # Keep the independent reverse replay source/date disclosure separate from the forward dataset.
 
-    # Add timing styles for the two new paths to the existing path renderer.
+    # Draw eight timing rules with distinct point symbols and line styles.
+    old_shape = """let shape=r.timing_rule,mark;
+    if(shape==="front_fast")mark='<rect x="'+(x-3.5).toFixed(1)+'" y="'+(y-3.5).toFixed(1)+'" width="7" height="7"';
+    else if(shape==="front_loaded")mark='<polygon points="'+x.toFixed(1)+','+(y-4.5).toFixed(1)+' '+(x-4.5).toFixed(1)+','+(y+3.5).toFixed(1)+' '+(x+4.5).toFixed(1)+','+(y+3.5).toFixed(1)+'"';
+    else if(shape==="linear")mark='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(sel?5.2:3.3)+'"';
+    else if(shape==="mid_loaded")mark='<polygon points="'+x.toFixed(1)+','+(y-5).toFixed(1)+' '+(x-5).toFixed(1)+','+y.toFixed(1)+' '+x.toFixed(1)+','+(y+5).toFixed(1)+' '+(x+5).toFixed(1)+','+y.toFixed(1)+'"';
+    else if(shape==="back_loaded")mark='<polygon points="'+(x-4.5).toFixed(1)+','+(y-3.5).toFixed(1)+' '+(x+4.5).toFixed(1)+','+(y-3.5).toFixed(1)+' '+x.toFixed(1)+','+(y+5).toFixed(1)+'"';
+    else mark='<path d="M '+(x-4).toFixed(1)+' '+y.toFixed(1)+' H '+(x+4).toFixed(1)+' M '+x.toFixed(1)+' '+(y-4).toFixed(1)+' V '+(y+4).toFixed(1)+'" ';
+    let close=shape==="front_fast"?"</rect>":shape==="front_loaded"||shape==="mid_loaded"||shape==="back_loaded"?"</polygon>":shape==="linear"?"</circle>":"</path>";"""
+    new_shape = """let shape=r.timing_rule,mark;
+    if(shape==="front_rapid")mark='<polygon points="'+x.toFixed(1)+','+(y-5).toFixed(1)+' '+(x+5).toFixed(1)+','+y.toFixed(1)+' '+x.toFixed(1)+','+(y+5).toFixed(1)+' '+(x-5).toFixed(1)+','+y.toFixed(1)+'"';
+    else if(shape==="front_fast")mark='<rect x="'+(x-3.5).toFixed(1)+'" y="'+(y-3.5).toFixed(1)+'" width="7" height="7"';
+    else if(shape==="front_loaded")mark='<polygon points="'+x.toFixed(1)+','+(y-4.5).toFixed(1)+' '+(x-4.5).toFixed(1)+','+(y+3.5).toFixed(1)+' '+(x+4.5).toFixed(1)+','+(y+3.5).toFixed(1)+'"';
+    else if(shape==="linear")mark='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(sel?5.2:3.3)+'"';
+    else if(shape==="mid_loaded")mark='<polygon points="'+x.toFixed(1)+','+(y-5).toFixed(1)+' '+(x-5).toFixed(1)+','+y.toFixed(1)+' '+x.toFixed(1)+','+(y+5).toFixed(1)+' '+(x+5).toFixed(1)+','+y.toFixed(1)+'"';
+    else if(shape==="staggered")mark='<polygon points="'+x.toFixed(1)+','+(y-5).toFixed(1)+' '+(x+4.8).toFixed(1)+','+(y-1.5).toFixed(1)+' '+(x+3).toFixed(1)+','+(y+4.2).toFixed(1)+' '+(x-3).toFixed(1)+','+(y+4.2).toFixed(1)+' '+(x-4.8).toFixed(1)+','+(y-1.5).toFixed(1)+'"';
+    else if(shape==="back_loaded")mark='<polygon points="'+(x-4.5).toFixed(1)+','+(y-3.5).toFixed(1)+' '+(x+4.5).toFixed(1)+','+(y-3.5).toFixed(1)+' '+x.toFixed(1)+','+(y+5).toFixed(1)+'"';
+    else mark='<path d="M '+(x-4).toFixed(1)+' '+y.toFixed(1)+' H '+(x+4).toFixed(1)+' M '+x.toFixed(1)+' '+(y-4).toFixed(1)+' V '+(y+4).toFixed(1)+'" ';
+    let close=shape==="front_fast"?"</rect>":shape==="front_rapid"||shape==="front_loaded"||shape==="mid_loaded"||shape==="staggered"||shape==="back_loaded"?"</polygon>":shape==="linear"?"</circle>":"</path>";"""
+    html = replace_once(html, old_shape, new_shape, "eight timing scatter markers")
     old_dash = '(m==="front_loaded"?"6 4":m==="back_loaded"?"2 4":"")'
     new_dash = '({front_rapid:"3 2",front_fast:"1 3",front_loaded:"8 4",linear:"",mid_loaded:"6 2 1 2",staggered:"5 2 1 2",back_loaded:"2 4",back_late:"10 3"}[m]||"")'
     html = replace_once(html, old_dash, new_dash, "glide path timing dash mapping")
