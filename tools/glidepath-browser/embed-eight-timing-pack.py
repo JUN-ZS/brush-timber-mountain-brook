@@ -466,6 +466,13 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
         "(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')",
         "(s.cpi>0?'低於實質本金窗口':'名目低於本金')",
         "real-principal table header")
+    # Replace the old "zero proof or uncomputed" explanation with the exact yearly
+    # window count emitted by the independent real-principal replay.
+    html = replace_idempotently(html,
+        "  }else if(Number(r.worst_nav_usd)>=realFloorThreshold-1e-7){\n    $(\"decisionFloorDetail\").textContent=\"主資產以今日購買力美元顯示，實質本金門檻是 $100,000。最差窗口名目終值 \"+usd(r.worst_nav_usd)+\" 仍不低於名目門檻 \"+usd(realFloorThreshold)+\"；可證明截至第\"+s.year+\"年低於實質本金的終值窗口為 0/\"+r.rolling_windows+\"。\";\n  }else{\n    $(\"decisionFloorDetail\").textContent=\"主資產以今日購買力美元顯示，實質本金門檻是 $100,000；對應名目終值需至少 \"+usd(realFloorThreshold)+\"。其實質虧損窗口數未精算；名目計數 \"+r.windows_below_initial_capital+\"/\"+r.rolling_windows+\" 只供參考。\";\n  }",
+        "  }else{\n    const realFloorWindows=s.cpi>=0.03?r.windows_below_real_principal_350:r.windows_below_real_principal_235;\n    $(\"decisionFloorDetail\").textContent=\"截至第\"+s.year+\"年，名目 NAV 低於實質本金門檻 \"+usd(realFloorThreshold)+\" 的窗口為 \"+realFloorWindows+\"/\"+r.rolling_windows+\"。通膨假設 \"+(s.cpi*100).toFixed(2)+\"%；提款情境只計剩餘 NAV，不把已取走的現金加回。這是年末歷史窗口計數，不是未來機率。\";\n  }",
+        "real-floor decision detail")
+
     html = replace_idempotently(html,
         "(s.cpi>0?'未精算（名目 '+v.windows_below_initial_capital+'/'+v.rolling_windows+'）':v.windows_below_initial_capital+'/'+v.rolling_windows)",
         "(s.cpi>0?(s.cpi>=0.03?v.windows_below_real_principal_350:v.windows_below_real_principal_235)+'/'+v.rolling_windows:v.windows_below_initial_capital+'/'+v.rolling_windows)",
@@ -574,6 +581,28 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     for timing in TIMINGS:
         require(re.search(r'const\s+dash\s*=\s*\{[^{}]*\b' + re.escape(timing) + r'\s*:', html) is not None,
                 f"An eight-rule dash map is missing {timing}")
+
+    # The annual heatmap can use the exact real-principal breach counts at either
+    # supported inflation rate; do not BLOCK it merely because the count is real.
+    if "const realCount=s.cpi>=0.03?r.windows_below_real_principal_350:r.windows_below_real_principal_235;" not in html:
+        heatmap_guard = re.compile(
+            r"if\\(metric==='windows_below_initial_capital'&&s\\.cpi>0\\)return '<p class=\\"tiny\\".*?</p>';\\s*const cellVal=r=>\\{\\s*if\\(!r\\|\\|r\\[metric\\]==null\\)return null;\\s*let v=\\+r\\[metric\\];",
+            re.S,
+        )
+        replacement = """if(metric==='windows_below_initial_capital'&&s.cpi>0)labels.windows_below_initial_capital="低於實質本金窗口";
+  const cellVal=r=>{
+    if(!r)return null;
+    if(metric==='windows_below_initial_capital'&&s.cpi>0){
+      const realCount=s.cpi>=0.03?r.windows_below_real_principal_350:r.windows_below_real_principal_235;
+      return Number.isInteger(realCount)?realCount:null;
+    }
+    if(r[metric]==null)return null;
+    let v=+r[metric];"""
+        html, heatmap_replacements = heatmap_guard.subn(lambda _: replacement, html, count=1)
+        require(heatmap_replacements == 1, "Real-principal heatmap guard could not be replaced exactly once")
+    else:
+        require(html.count("const realCount=s.cpi>=0.03?r.windows_below_real_principal_350:r.windows_below_real_principal_235;") == 1,
+                "Real-principal heatmap count binding must appear exactly once")
 
     # The four timing-independent source declarations below must remain intact.
     require('TM=["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"]' in html,
