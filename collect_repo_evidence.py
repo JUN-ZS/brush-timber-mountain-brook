@@ -93,12 +93,20 @@ def sensitive_path(path: str) -> bool:
 
 
 def is_narrative_doc(path: str) -> bool:
+    """Keep all prose/document formats out of the blind-safe archive.
+
+    Stage 1 is intended to receive code/data evidence only. Whether a Markdown or
+    TXT filename looks technical is not a safe proxy for whether it leaks context.
+    """
     p = Path(path)
     name = p.name.lower()
     suffix = p.suffix.lower()
     if name.startswith("readme"):
         return True
-    if suffix in {".md", ".mdx", ".txt", ".rst", ".pdf", ".docx", ".html"} and NARRATIVE_PATTERNS.search(p.as_posix()):
+    if suffix in {".md", ".mdx", ".txt", ".rst", ".pdf", ".docx"}:
+        return True
+    # Some HTML files are UI/code; quarantine report-like HTML by its path/name.
+    if suffix == ".html" and NARRATIVE_PATTERNS.search(p.as_posix()):
         return True
     return False
 
