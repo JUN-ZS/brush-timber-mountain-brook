@@ -417,6 +417,12 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     require(count == 1, f"{label}: expected exactly one occurrence, found {count}")
     return text.replace(old, new, 1)
 
+def replace_idempotently(text: str, old: str, new: str, label: str) -> str:
+    if new in text:
+        require(text.count(new) == 1, f"{label}: already-patched occurrence must appear exactly once")
+        return text
+    return replace_once(text, old, new, label)
+
 def embed_pack(html: str, pack: dict[str, Any]) -> str:
     matches = list(PACK_RE.finditer(html))
     require(len(matches) == 1, f"Expected exactly one RAW_PACK declaration, found {len(matches)}")
@@ -452,19 +458,19 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
                 "annual real-principal properties must appear exactly once after embedding")
     else:
         html = replace_once(html, old_annual_properties, new_annual_properties, "annual real-principal properties")
-    html = replace_once(html,
+    html = replace_idempotently(html,
         '[s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],',
         '[s.cpi>0?"低於實質本金窗口":"名目低於本金窗口",s.cpi>0?(s.cpi>=0.03?r.windows_below_real_principal_350:r.windows_below_real_principal_235)+"/"+r.rolling_windows:r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"逐窗口年末 NAV 比較通膨調整本金門檻；"+floorLabel+"；提款後只計剩餘 NAV":"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],',
         "real-principal metric card")
-    html = replace_once(html,
+    html = replace_idempotently(html,
         "(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')",
         "(s.cpi>0?'低於實質本金窗口':'名目低於本金')",
         "real-principal table header")
-    html = replace_once(html,
+    html = replace_idempotently(html,
         "(s.cpi>0?'未精算（名目 '+v.windows_below_initial_capital+'/'+v.rolling_windows+'）':v.windows_below_initial_capital+'/'+v.rolling_windows)",
         "(s.cpi>0?(s.cpi>=0.03?v.windows_below_real_principal_350:v.windows_below_real_principal_235)+'/'+v.rolling_windows:v.windows_below_initial_capital+'/'+v.rolling_windows)",
         "real-principal table count")
-    html = replace_once(html,
+    html = replace_idempotently(html,
         '      "年通脹 2.35% 時，768 組第10年策略中有 363 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 329 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +\n      " 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";',
         '      "年通脹 2.35% 時，1,024 組第10年策略中有 " + RAW_PACK.a.filter(row => Number(row[0]) === 10 && Number(row[21]) === 0).length + " 組逐窗口核算確認零實質本金缺口；年通脹 3.50% 時是 " + RAW_PACK.a.filter(row => Number(row[0]) === 10 && Number(row[22]) === 0).length + " 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +\n      " 各策略在每個年份的實質本金缺口均已由獨立逐窗口重播計算；表格顯示該年期末 NAV 低於通膨調整本金門檻的窗口數。提款情境只計剩餘 NAV，不把已取走的現金加回；157 個重疊窗口不是未來機率。";',
         "real-principal dynamic zero-breach evidence")
