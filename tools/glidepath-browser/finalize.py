@@ -312,6 +312,13 @@ ledger_replay_summary.update({
     "max_abs_error": ledger_counts.get("max_abs_error", {}),
 })
 audit["cashflow_window_ledger_replay"] = ledger_replay_summary
+audit["real_principal_breach_count_contract"] = {
+    "annual_rows_with_two_rates": real_floor_integrity["rows_with_both_real_floor_counts"],
+    "rate_235_zero_breach_strategies": real_floor_integrity["zero_breach_strategies_235"],
+    "rate_350_zero_breach_strategies": real_floor_integrity["zero_breach_strategies_350"],
+    "strict_below_threshold": True,
+    "source": "independent normalized-share replay; year-end portfolio NAV",
+}
 audit["embedded_data_counts"] = {
     "scenarios_D": strategy_count,
     "annual_A": annual_count,
