@@ -328,6 +328,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
     html = html.replace("目標 × 6 規則", "目標 × 8 規則")
     html = html.replace("（共 48 格）", "（共 64 格）")
     html = html.replace("共 192 點＝4 種債券 × 8 目標 × 6 規則", "共 256 點＝4 種債券 × 8 目標 × 8 規則")
+    html = html.replace("共 192 點", "共 256 點")
     html = html.replace(
         "○ 線性　□ 加速前置　△ 前置　◇ 中段S曲線　▽ 後置　＋ 延後",
         "◇ 急速前置　□ 加速前置　△ 前置　○ 線性　◆ 中段S曲線　⬟ 分段轉換　▽ 後置　＋ 延後"
