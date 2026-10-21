@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QQQ Hybrid Deployment Terminal V3</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <div class="eyebrow">ORIGINAL HYBRID · V3 DECISION COCKPIT</div>
+      <h1>QQQ Hybrid Deployment Terminal</h1>
+      <div class="sub">DATA → DECISION → BUILD → WATCH → JOURNAL</div>
+    </div>
+    <div class="top-right">
+      <div id="dataBadge" class="badge warn">DATA —</div>
+      <div id="stateBadge" class="badge">STATE —</div>
+      <button id="refreshBtn" class="primary">REFRESH</button>
+    </div>
+  </header>
+
+  <main class="cockpit">
+    <section class="flowbar card">
+      <div class="flow-step" id="flowData"><span>1</span><b>DATA</b><small>Can I trust this snapshot?</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" id="flowDecision"><span>2</span><b>DECISION</b><small>Build / hold / reduce</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" id="flowBuild"><span>3</span><b>BUILD</b><small>Current → Target</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" id="flowWatch"><span>4</span><b>WATCH</b><small>What changes next?</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step" id="flowJournal"><span>5</span><b>JOURNAL</b><small>What actually happened?</small></div>
+    </section>
+
+    <section class="decision-grid">
+      <article class="card decision-card">
+        <div class="eyebrow">NOW · PRIMARY DECISION</div>
+        <div id="action" class="action">—</div>
+        <div id="reason" class="reason">Waiting for snapshot.</div>
+        <div class="decision-meta">
+          <span id="asof">—</span>
+          <span id="monitorTag" class="tag">—</span>
+        </div>
+        <div id="nextStep" class="next-step">NEXT: REFRESH</div>
+        <div id="putRatioDecisionGate" class="put-ratio-decision-line">PUT RATIO EVIDENCE · NOT LOADED · PRIMARY FROZEN ACTION UNCHANGED</div>
+      </article>
+
+      <article class="card gate-card">
+        <div class="section-head"><h2>CAN I ACT?</h2><span class="tag">GATE</span></div>
+        <div class="gate-grid">
+          <div><b id="gateData">—</b><small>DATA</small></div>
+          <div><b id="gateTerm">—</b><small>VX TERM</small></div>
+          <div><b id="gateVix">—</b><small>VIX</small></div>
+          <div><b id="gateSpot">—</b><small>SPOT</small></div>
+        </div>
+        <div id="gateReason" class="meta">—</div>
+      </article>
+
+      <article class="card market-card">
+        <div class="section-head"><h2>MARKET SNAPSHOT</h2><span class="tag">OBSERVED</span></div>
+        <div class="market big-market">
+          <span>QQQ <b id="qqq">—</b></span>
+          <span>VXX <b id="vxx">—</b></span>
+          <span>VIX <b id="vix">—</b></span>
+        </div>
+        <div class="term-line"><span id="m1">M1 —</span><span id="m2">M2 —</span><b id="term">—</b></div>
+        <div class="meta" id="termMeta">—</div>
+        <div class="meta" id="sourceMeta">—</div>
+      </article>
+    </section>
+
+    <section class="action-grid">
+      <article class="card position-card">
+        <div class="section-head"><h2>BUILD / ADJUST</h2><span class="tag active">CURRENT → TARGET</span></div>
+        <div class="ledger">
+          <div class="ledger-head"><span>Leg</span><span>Current</span><span>Target</span><span>Action</span></div>
+          <div id="ledgerRows"></div>
+        </div>
+        <div class="queue-head">NEXT ACTION QUEUE</div>
+        <div id="queue" class="queue"></div>
+      </article>
+
+      <article class="card watch-card">
+        <div class="section-head"><h2>WATCH / CHANGE MONITOR</h2><span id="watchSummary" class="tag">—</span></div>
+        <div id="triggerRows"></div>
+        <div id="sinceJournal" class="meta">No prior journal baseline.</div>
+        <div class="roll-grid">
+          <div>
+            <div class="eyebrow">QQQ FAR CALL</div>
+            <label>DTE <input id="qqqDte" type="number" value="" placeholder="—"></label>
+            <label>Delta <input id="qqqDelta" type="number" step="0.01" value="" placeholder="—"></label>
+          </div>
+          <div>
+            <div class="eyebrow">VXX CALL</div>
+            <label>DTE <input id="vxxDte" type="number" value="" placeholder="—"></label>
+            <label>Delta <input id="vxxDelta" type="number" step="0.01" value="" placeholder="—"></label>
+          </div>
+        </div>
+      </article>
+
+      <article class="card option-card">
+        <div class="section-head"><h2>OPTION LEG CHECK</h2><span class="tag">ESTIMATE · READ ONLY</span></div>
+        <div class="candidate-buttons">
+          <button id="findQQQ" class="primary small-btn">Find QQQ</button>
+          <button id="findVXX" class="primary small-btn">Find VXX</button>
+        </div>
+        <div class="option-box"><b>QQQ FAR</b><span id="qqqCandidate">No candidate</span><small>SIZE: <i id="qqqSize">PENDING</i></small></div>
+        <div class="option-box"><b>VXX CALL</b><span id="vxxCandidate">No candidate</span><small>SIZE: <i id="vxxSize">PENDING</i></small></div>
+        <div class="meta">Source: <span id="candidateSource">NONE</span></div>
+      </article>
+
+      <article class="card operator-card">
+        <div class="section-head"><h2>OPERATOR MEMORY</h2><span class="tag">LOCAL</span></div>
+        <div class="form-grid">
+          <label>NAV<input id="nav" type="number" value="100000"></label>
+          <label>QQQ shares<input id="qqqShares" type="number" value="0"></label>
+          <label>VXX % NAV<input id="vxxPct" type="number" value="0" step="0.1"></label>
+          <label>QQQ calls<input id="qqqCalls" type="number" value="0"></label>
+          <label>VXX calls<input id="vxxCalls" type="number" value="0"></label>
+        </div>
+        <div class="row-actions">
+          <input id="humanAction" placeholder="What did you actually do this round?">
+          <button id="journalBtn">JOURNAL</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="put-ratio-card card" id="putRatioResearchModule">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">OPTIONAL RESEARCH MODULE · SPLITTABLE / COMPOSABLE</div>
+          <h2>QQQ PUT RATIO · HISTORY × TIME × VOLATILITY</h2>
+        </div>
+        <span id="putRatioEvidenceBadge" class="tag research">LOADING PINNED EVIDENCE</span>
+      </div>
+      <p class="put-ratio-explainer">這是 Hybrid 決策台內的可插拔研究證據模組。它會讀取有來源 SHA 的歷史 62 組回放，將當前 NAV、獲利線、持倉日數、DTE 和 RV20 一起量度。勾選「合併本輪人工審核」會把模組結果附加至決策顯示與 Journal；它不會改寫 Frozen Original Hybrid 的 Current／Target／BUY-HOLD-REDUCE，也不會產生券商訂單。</p>
+      <div class="put-ratio-controls">
+        <label>比例方向
+          <select id="putRatioDirection">
+            <option value="SHORT_HEAVY" selected>LONG PUT 1 : SHORT PUT N</option>
+            <option value="LONG_HEAVY">LONG PUT N : SHORT PUT 1</option>
+          </select>
+        </label>
+        <label>N（1–6）
+          <select id="putRatioN">
+            <option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option><option>6</option>
+          </select>
+        </label>
+        <label>退出政策
+          <select id="putRatioPolicy">
+            <option value="BASE_DTE7_CLOSE_SHORT_RISK">基準：DTE ≤ 7</option>
+            <option value="TP_USD_500_CLOSE_SHORT_RISK">獲利 +$500</option>
+            <option value="TP_USD_800_CLOSE_SHORT_RISK">獲利 +$800</option>
+            <option value="TP_USD_1000_CLOSE_SHORT_RISK">獲利 +$1,000</option>
+            <option value="TP_USD_2000_CLOSE_SHORT_RISK">獲利 +$2,000</option>
+            <option value="TP_25PCT_MAX_TERMINAL_GAIN">終端最大收益 25%</option>
+            <option value="TP_50PCT_MAX_TERMINAL_GAIN">終端最大收益 50%</option>
+            <option value="DAY20_NONPOSITIVE_CLOSE_SHORT_RISK">第 20 日非正損益平倉</option>
+            <option value="DAY20_NONPOSITIVE_TRIM_4_SHORTS">第 20 日非正損益減 4 張 Short</option>
+            <option value="SL_USD_500_CLOSE_SHORT_RISK">止損 −$500</option>
+            <option value="SL_USD_1000_CLOSE_SHORT_RISK">止損 −$1,000</option>
+            <option value="SL_USD_2000_CLOSE_SHORT_RISK">止損 −$2,000</option>
+          </select>
+        </label>
+        <label>尾部風險預算 (% NAV)
+          <select id="putRatioRiskPct">
+            <option value="0.5">0.5%</option><option value="1" selected>1%</option><option value="2">2%</option>
+          </select>
+        </label>
+        <label>獲利預警 (% NAV)
+          <select id="putRatioProfitPct">
+            <option value="0.5">+0.5%</option><option value="1" selected>+1%</option><option value="2">+2%</option>
+          </select>
+        </label>
+        <label>目前估算淨清算 P&amp;L (USD)
+          <input id="putRatioCurrentPnl" type="number" step="10" placeholder="留空 = 未輸入">
+        </label>
+        <label>持倉交易日數
+          <input id="putRatioAge" type="number" min="0" step="1" placeholder="例如 18">
+        </label>
+        <label>剩餘到期 DTE
+          <input id="putRatioDte" type="number" min="0" step="1" placeholder="例如 25">
+        </label>
+        <label>當前 RV20 年化波動率 (%)
+          <input id="putRatioRv20" type="number" min="0" step="0.1" placeholder="需手動輸入／核實">
+        </label>
+        <label>QQQ 正股路徑視窗
+          <select id="putRatioHorizon">
+            <option value="5" selected>5 個交易日</option><option value="10">10 個交易日</option><option value="20">20 個交易日</option><option value="45">45 個交易日</option>
+          </select>
+        </label>
+        <label class="put-ratio-combine"><input id="putRatioCombined" type="checkbox" checked> 合併本輪 Hybrid 人工審核（可取消；不改 Frozen target）</label>
+      </div>
+      <div class="put-ratio-results">
+        <div id="putRatioMetrics" class="put-ratio-metrics">
+          <div class="empty">正在讀取固定來源研究證據。</div>
+        </div>
+        <div id="putRatioOverlayStatus" class="put-ratio-overlay-status">Overlay status: PENDING</div>
+        <div id="putRatioAlerts" class="put-ratio-alerts"></div>
+        <div class="put-ratio-dd-wrap">
+          <div class="section-head"><h2>策略 MaxDD 週期頻率（歷史逐日期權估值）</h2><span class="tag research">NOT LIVE EQUITY</span></div>
+          <div class="table-wrap">
+            <table class="put-ratio-dd-table">
+              <thead><tr><th>MaxDD 至少</th><th>週期數</th><th>平均／年</th><th>有事件年份占比</th><th>實際發生年份（次數）</th><th>相鄰事件谷底間隔（交易日）</th></tr></thead>
+              <tbody id="putRatioDdRows"><tr><td colspan="6">PENDING</td></tr></tbody>
+            </table>
+          </div>
+          <p class="reference-mini">有事件年份占比 = 至少出現一次該級回撤的觀察年份／全部觀察年份；2018 為不完整年度，因此這是樣本描述，不是未來發生機率。平均／年按實際日期跨度計算；缺失的每日估值可能掩蓋或改變回撤週期。谷底間隔以交易日計。</p>
+        </div>
+        <div class="put-ratio-dynamic-wrap">
+          <div class="section-head"><h2>動態 NAV BAR 拉扯 × VIX／DTE 分層</h2><span id="putRatioDynamicBadge" class="tag retired">BUDGET-BYPASS DIAGNOSTIC</span></div>
+          <p class="put-ratio-dynamic-explainer">這一區來自已驗證的動態 NAV 回放，獨立於上面的固定單位歷史 WIN／MaxDD 曲線。條件固定為 $100,000、LONG PUT 1 : SHORT PUT 5、$0.05／腿邊滑價 + $0.65／合約邊佣金。此處的「0 組」專指用假設持有到期且 QQQ=0 的全到期最差損失作 1% NAV 預算分母；它是災難風險護欄，不代表 DTE7 管理路徑無法按 NAV 比率配置。本面板尚未計算政策條件式 MAE 配置；固定 1 組／高倍數曲線僅作風險診斷，不代表可下單。可切換退出政策及 VIX／DTE 分層；低樣本格會標 PENDING。</p>
+          <div class="put-ratio-dynamic-controls">
+            <label>動態 BAR 退出政策
+              <select id="putRatioDynamicPolicy">
+                <option value="DTE7_CLOSE_SHORT_RISK">DTE7：平短腿後保留長腿</option>
+                <option value="DTE7_CLOSE_SHORT_AND_SELL_LONG_IF_EXECUTABLE" selected>DTE7：平短腿後嘗試平長腿</option>
+              </select>
+            </label>
+            <label>觀察分層
+              <select id="putRatioDynamicState">
+                <option value="0">全部樣本（ALL）</option>
+                <option value="1">VIX &lt; 15</option>
+                <option value="2">VIX 15–25</option>
+                <option value="3">VIX 25–35</option>
+                <option value="4">VIX ≥ 35</option>
+                <option value="5">剩餘 DTE ≤ 7</option>
+                <option value="6">剩餘 DTE 8–20</option>
+                <option value="7">剩餘 DTE 21–40</option>
+                <option value="8">剩餘 DTE &gt; 40</option>
+              </select>
+            </label>
+          </div>
+          <div id="putRatioDynamicMetrics" class="put-ratio-metrics">
+            <div class="empty">動態 BAR 快照載入中。</div>
+          </div>
+          <div id="putRatioDynamicStatus" class="put-ratio-overlay-status">Dynamic BAR status: PENDING</div>
+          <div class="table-wrap">
+            <table class="put-ratio-dd-table put-ratio-dynamic-table">
+              <thead><tr><th>BAR 類型</th><th>門檻（NAV）</th><th>交易觸及率</th><th>逐日標記觸及率</th><th>樣本狀態</th></tr></thead>
+              <tbody id="putRatioDynamicBarRows"><tr><td colspan="5">PENDING</td></tr></tbody>
+            </table>
+          </div>
+          <div class="put-ratio-dd-wrap">
+            <div class="section-head"><h2>動態 NAV 回撤週期（同一診斷組）</h2><span class="tag research">EOD MARKED · NOT STATIC CURVE</span></div>
+            <div class="table-wrap">
+              <table class="put-ratio-dd-table put-ratio-dynamic-table">
+                <thead><tr><th>MaxDD 至少</th><th>週期數</th><th>平均／年</th><th>有事件年份占比</th><th>發生年份</th><th>低於該 DD 的觀察日占比</th></tr></thead>
+                <tbody id="putRatioDynamicDdRows"><tr><td colspan="6">PENDING</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="putRatioDynamicProvenance" class="reference-mini">等待動態 BAR 快照來源。</div>
+        </div>
+        <details class="put-ratio-provenance">
+          <summary>來源、SHA、樣本和限制</summary>
+          <div id="putRatioProvenance" class="reference-mini">等待來源資訊。</div>
+        </details>
+      </div>
+    </section>
+
+    <section class="bottom-grid">
+      <article class="card journal-card">
+        <div class="section-head"><h2>DECISION JOURNAL</h2><span id="journalCount" class="tag">0</span></div>
+        <div id="journalRows" class="journal"></div>
+      </article>
+
+      <article class="card evidence-card">
+        <div class="section-head"><h2>EVIDENCE / PROVENANCE</h2><span class="tag">RESEARCH-GRADE</span></div>
+        <div id="prov"></div>
+        <details>
+          <summary>Frozen reference / research only</summary>
+          <div class="reference-mini">Source-aligned replay: 12.7049% CAGR / -23.1837% daily MTM MaxDD.<br>Cboe source-swap diagnostic: 99.517% archive-action agreement / 1,036 overlap rows.<br>These figures never alter live targets.</div>
+        </details>
+      </article>
+    </section>
+  </main>
+<script src="engine.js"></script>
+<script src="put_ratio_evidence.js"></script>
+<script src="put_ratio_dynamic_bar.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
