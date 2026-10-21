@@ -186,7 +186,7 @@ class DashboardTests(unittest.TestCase):
         self.assertIn('COHORT.filter(',page_template)
         self.assertIn('def build_cohort_profiles(',page_template)
         self.assertIn('def build_window_histograms(',page_template)
-        self.assertIn('function summarize_histogram(',page_template)
+        self.assertIn('def summarize_histogram(',page_template)
         self.assertIn('cashflow_mode===s.flow',page_template)
         self.assertIn('data-year="'+"'"+'+y+',page_template)
 
