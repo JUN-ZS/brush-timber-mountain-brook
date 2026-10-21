@@ -628,7 +628,7 @@ try {
         await page.locator("#statView").selectOption(stat);
         const bad = await inspectRender(page);
         need(!bad.badText, "NaN/undefined appeared in visible DOM for year=" + year + ", inflation=" + inflation + ", stat=" + stat);
-        need(bad.badAttributes.length === 0, "invalid SVG attribute appeared for year=" + year + ", inflation=" + inflation + ", stat=" + stat);
+        need(bad.badAttributes.length === 0, "invalid SVG attribute appeared for year=" + year + ", inflation=" + inflation + ", stat=" + stat + ": " + JSON.stringify(bad.badAttributes));
         result.state_matrix_combinations.push({year, inflation, stat});
         result.state_matrix_sweeps++;
       }
