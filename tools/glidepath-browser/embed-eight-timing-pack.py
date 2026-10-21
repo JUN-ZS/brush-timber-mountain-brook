@@ -475,7 +475,7 @@ const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前
       provenFloor350 + " 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +
       " 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";"""
     new_risk_evidence = """      "年通脹 2.35% 時，1,024 組第10年策略中有 " + RAW_PACK.a.filter(row => Number(row[0]) === 10 && Number(row[21]) === 0).length + " 組逐窗口核算確認零實質本金缺口；年通脹 3.50% 時是 " + RAW_PACK.a.filter(row => Number(row[0]) === 10 && Number(row[22]) === 0).length + " 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +
-      " 各策略在每個年份的實質本金缺口均已由獨立逐窗口重播計算；表格顯示該年期末 NAV 低於通膨調整本金門檻的窗口數。提款情境只計剩餘 NAV，不把已取走的現金加回；157 個重疊窗口不是未來機率。";"""
+      " 各策略在每個年份的實質本金缺口均已由獨立逐窗口重播計算；表格顯示該年期末 NAV 低於通膨調整本金門檻的窗口數。提款情境只計剩餘 NAV，不把已取走的現金加回；盤中實質本金缺口未精算，157 個重疊窗口不是未來機率。";"""
     if new_risk_evidence in html:
         require(html.count(new_risk_evidence) == 1,
                 "real-principal dynamic zero-breach evidence must appear exactly once after embedding")
