@@ -302,6 +302,22 @@ export function recommendForScale(
   scaleYears: TrapScale,
 ): ChannelScaleSignal {
   const asof = statePoints[asofIndex]?.date ?? "";
+  const minRequiredStart = asof ? addYears(asof, -scaleYears) : "";
+  if (!statePoints.length || !asof || statePoints[0].date > minRequiredStart) {
+    return {
+      channel: "",
+      layer: "OBSERVED",
+      scaleYears,
+      asof,
+      target: null,
+      q05: null,
+      pNonLoss: null,
+      mean: null,
+      nAnalogs: 0,
+      effectiveN: 0,
+      status: "INSUFFICIENT_HISTORY",
+    };
+  }
   const analogs = buildAnalogs(statePoints, outcomePoints, asofIndex, scaleYears);
   const usable = analogs.filter((a) => a.weight > 0.001);
   const effectiveN = usable.length / 4;
