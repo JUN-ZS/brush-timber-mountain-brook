@@ -216,7 +216,8 @@ median_target_bond_weight:bw,median_target_stock_weight:sw};
 [s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],
 (s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')
 (s.cpi>0?'未精算（名目 '+v.windows_below_initial_capital+'/'+v.rolling_windows+'）':v.windows_below_initial_capital+'/'+v.rolling_windows)
-" 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";
+      "年通脹 2.35% 時，768 組第10年策略中有 363 組可由最差窗口期末 NAV 證明「157 個歷史窗口均未跌破實質本金」；年通脹 3.50% 時是 329 組。這只代表第10年期末門檻，不代表途中不回撤或未來保本機率。" +
+      " 其餘未獲零跌破證明的策略，不代表已知它們全部跌破；精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";
 */
 </script></body></html>'''
 
