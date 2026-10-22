@@ -26,6 +26,16 @@ class IndependentLedgerReplayTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "finite non-negative"):
             M.real_principal_breach_counts([100000.0] * 156 + [float("nan")], 10)
 
+    def test_real_principal_counts_support_actual_start_year_cohort_sizes(self):
+        threshold235 = M.INITIAL * (1.0 + 0.0235) ** 10
+        threshold350 = M.INITIAL * (1.0 + 0.035) ** 10
+        navs = [200000.0, threshold235 - 0.01, threshold350 - 0.01, 0.0]
+        count235, count350 = M.real_principal_breach_counts(navs, 10, expected_windows=4)
+        self.assertEqual(count235, 2)
+        self.assertEqual(count350, 3)
+        with self.assertRaisesRegex(ValueError, "needs 4 window NAVs"):
+            M.real_principal_breach_counts(navs[:3], 10, expected_windows=4)
+
     def test_flat_market_no_flow_conserves_nav_and_zero_return(self):
         d,p,m=flat_market(); r,marks=M.replay_window(d,p,m,0,"AGG",60,"linear","no_withdrawals",{})
         self.assertEqual(r["terminal_nav_usd"],100000.0); self.assertEqual(r["additional_deposits_usd"],0.0)
