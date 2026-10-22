@@ -159,7 +159,7 @@
     "Missing exit quotes/size at expiry or source end remain unresolved; win-rate denominator is resolved episodes only.",
     "Option chain source ends in 2025; no 2026 performance is observed here.",
     "Nominal Wilson interval does not correct for regime clustering, dependence, or prior strategy selection.",
-    "Expiry shock grid omits early exercise, assignment, broker margin, forced liquidation, and interim path.",
+    "Expiry shock grid charges entry-side slippage/commission once and uses intrinsic-value payoff; exercise/assignment fees, broker margin, forced liquidation, financing and interim path are not modeled.",
     "SPY short put can dominate downside even when QQQ long put appreciates; premium credit is not a max-loss budget.",
     "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills."
   ],

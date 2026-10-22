@@ -73,23 +73,25 @@ Denominator is **resolved episodes only**; unresolved trades and entry skips sta
 ## Equal-percentage QQQ/SPY expiry shocks (hypothetical)
 
 These are intrinsic-value scenarios based on actual entry quotes and spots, not historical option trade outcomes.
+Only entry-side slippage/commission is charged once; no closing trade is assumed for the expiry payoff.
+Exercise/assignment charges, financing, taxes, broker margin and forced-liquidation costs are not modeled.
 
 | Same move on both ETFs | Positive scenarios / cohort N | Positive scenario % | Mean expiry P&L | Worst expiry P&L |
 |---:|---:|---:|---:|---:|
-| -100% | 0/44 | 0.00% | USD -73,175.06 | USD -91,997.70 |
-| -75% | 0/44 | 0.00% | USD -54,345.96 | USD -68,757.45 |
-| -50% | 0/44 | 0.00% | USD -35,516.86 | USD -45,517.20 |
-| -40% | 0/44 | 0.00% | USD -27,985.22 | USD -36,221.10 |
-| -30% | 0/44 | 0.00% | USD -20,453.58 | USD -26,925.00 |
-| -25% | 0/44 | 0.00% | USD -16,687.76 | USD -22,276.95 |
-| -20% | 0/44 | 0.00% | USD -12,921.94 | USD -17,628.90 |
-| -15% | 0/44 | 0.00% | USD -9,156.12 | USD -12,980.85 |
-| -10% | 1/44 | 2.27% | USD -5,338.70 | USD -8,536.20 |
-| -5% | 16/44 | 36.36% | USD -1,335.23 | USD -4,196.30 |
-| 0% | 40/44 | 90.91% | USD 308.48 | USD -459.70 |
-| 5% | 40/44 | 90.91% | USD 308.48 | USD -459.70 |
-| 10% | 40/44 | 90.91% | USD 308.48 | USD -459.70 |
-| 20% | 40/44 | 90.91% | USD 308.48 | USD -459.70 |
+| -100% | 0/44 | 0.00% | USD -73,124.21 | USD -91,946.85 |
+| -75% | 0/44 | 0.00% | USD -54,295.11 | USD -68,706.60 |
+| -50% | 0/44 | 0.00% | USD -35,466.01 | USD -45,466.35 |
+| -40% | 0/44 | 0.00% | USD -27,934.37 | USD -36,170.25 |
+| -30% | 0/44 | 0.00% | USD -20,402.73 | USD -26,874.15 |
+| -25% | 0/44 | 0.00% | USD -16,636.91 | USD -22,226.10 |
+| -20% | 0/44 | 0.00% | USD -12,871.09 | USD -17,578.05 |
+| -15% | 0/44 | 0.00% | USD -9,105.27 | USD -12,930.00 |
+| -10% | 1/44 | 2.27% | USD -5,287.85 | USD -8,485.35 |
+| -5% | 16/44 | 36.36% | USD -1,284.38 | USD -4,145.45 |
+| 0% | 40/44 | 90.91% | USD 359.33 | USD -408.85 |
+| 5% | 40/44 | 90.91% | USD 359.33 | USD -408.85 |
+| 10% | 40/44 | 90.91% | USD 359.33 | USD -408.85 |
+| 20% | 40/44 | 90.91% | USD 359.33 | USD -408.85 |
 
 ## Limitations
 
@@ -99,7 +101,7 @@ These are intrinsic-value scenarios based on actual entry quotes and spots, not 
 - Missing exit quotes/size at expiry or source end remain unresolved; win-rate denominator is resolved episodes only.
 - Option chain source ends in 2025; no 2026 performance is observed here.
 - Nominal Wilson interval does not correct for regime clustering, dependence, or prior strategy selection.
-- Expiry shock grid omits early exercise, assignment, broker margin, forced liquidation, and interim path.
+- Expiry shock grid charges entry-side slippage/commission once and uses intrinsic-value payoff; exercise/assignment fees, broker margin, forced liquidation, financing and interim path are not modeled.
 - SPY short put can dominate downside even when QQQ long put appreciates; premium credit is not a max-loss budget.
 - Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills.
 
