@@ -1,0 +1,102 @@
+name: QQQ LONG PUT x SPY SHORT PUT paired replay
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/qqq-long-put-spy-short-put-445
+    paths:
+      - research/qqq_long_put_spy_short_put_replay.py
+      - research/test_qqq_long_put_spy_short_put_replay.py
+      - research/qqq_long_put_spy_short_put_spec.md
+      - .github/workflows/qqq-long-put-spy-short-put-replay.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-long-put-spy-short-put-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Hash-pinned QQQ/SPY option-chain replay
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 240
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+
+      - name: Install pinned Python research dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv
+          .venv/bin/python -m pip install --disable-pip-version-check pandas==2.2.3 numpy==2.1.3 pyarrow==18.1.0
+
+      - name: Download canonical historical chain inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/research/qqq-spy-options
+          cd data/research/qqq-spy-options
+          base="https://github.com/lambdaclass/options_portfolio_backtester/releases/download/data-v1"
+          curl --fail --location --retry 3 --retry-delay 2 -o SPY_options.parquet "$base/SPY_options.parquet"
+          curl --fail --location --retry 3 --retry-delay 2 -o SPY_underlying.parquet "$base/SPY_underlying.parquet"
+          curl --fail --location --retry 3 --retry-delay 2 -o QQQ_options.parquet "$base/QQQ_options.parquet"
+          curl --fail --location --retry 3 --retry-delay 2 -o QQQ_underlying.parquet "$base/QQQ_underlying.parquet"
+          cat > SHA256SUMS <<'EOF'
+          a7152991b45b81f090f970e945bf88def8093b8ecb9b250e9891cb6d88041f0a  SPY_options.parquet
+          847e60a441eb10969d87cd4a6da604257b782d9076168f68d5730b84096c79db  SPY_underlying.parquet
+          1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734  QQQ_options.parquet
+          78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351  QQQ_underlying.parquet
+          EOF
+          sha256sum --check SHA256SUMS
+          cd "$GITHUB_WORKSPACE"
+          du -h data/research/qqq-spy-options/*.parquet
+
+      - name: Run focused unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=research .venv/bin/python -m unittest discover \
+            -s research -p 'test_qqq_long_put_spy_short_put_replay.py' -v
+
+      - name: Generate paired EOD replay and interactive report
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv/bin/python research/qqq_long_put_spy_short_put_replay.py \
+            --qqq-options data/research/qqq-spy-options/QQQ_options.parquet \
+            --spy-options data/research/qqq-spy-options/SPY_options.parquet \
+            --qqq-underlying data/research/qqq-spy-options/QQQ_underlying.parquet \
+            --spy-underlying data/research/qqq-spy-options/SPY_underlying.parquet \
+            --start 2011-03-01 --end 2025-12-31 \
+            --target-dte 30 --dte-tolerance 10 \
+            --target-abs-delta 0.25 --target-otm 0.05 --max-qty 10
+          test -s reports/qqq-long-put-spy-short-put/summary.json
+          test -s reports/qqq-long-put-spy-short-put/index.html
+          du -h reports/qqq-long-put-spy-short-put/*
+
+      - name: Commit aggregate report to research branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/qqq-long-put-spy-short-put/summary.json reports/qqq-long-put-spy-short-put/index.html
+          if git diff --cached --quiet; then
+            echo "Aggregate report unchanged; no commit needed."
+            exit 0
+          fi
+          git commit -m "research: publish paired QQQ long put / SPY short put replay"
+          git push origin "HEAD:${{ github.ref_name }}"
+
+      - name: Remove downloaded historical option chain inputs
+        if: always()
+        shell: bash
+        run: rm -rf data/research/qqq-spy-options .venv
