@@ -22,6 +22,7 @@ let result = {
   glidepath_geometry: null,
   stat_view_missing_guards: {},
   real_mode_table_label_guard: {},
+  real_floor_cohort_checks: [],
   derived_real_breach_zero_proof: [],
   interactive_delegations_verified: {},
   csv_exports_verified: {},
@@ -1011,6 +1012,85 @@ try {
   result.real_floor_annual_pack_integrity = realFloorAnnualIntegrity;
   result.derived_real_breach_zero_proof = proof;
 
+  // The start-year cohort has 4–12 actual windows, not the full 157-window panel.
+  // Verify each bar against the cohort's own replay count at both supported inflation rates.
+  await page.locator("#cohortMetricX").selectOption("below");
+  const realFloorCohortChecks = [];
+  for (const inflation of [0.0235, 0.035]) {
+    await page.locator("#realMode").selectOption(String(inflation));
+    await page.waitForFunction(rate => {
+      const bars = Array.from(document.querySelectorAll("#cohortX rect[data-cohort-year]"));
+      return bars.length === 14 && bars.every(bar => {
+        const title = bar.querySelector("title")?.textContent || "";
+        return title.includes(rate >= 0.03 ? "低於實質本金窗口" : "低於實質本金窗口");
+      });
+    }, inflation, {timeout: 5000});
+    const cohortSweep = await page.evaluate(rate => {
+      const bondIndex = ["AGG","SHY","IEF","TLT"].indexOf(document.querySelector("#bond").value);
+      const target = Number(document.querySelector("#target").value);
+      const timingIndex = ["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"].indexOf(document.querySelector("#timing").value);
+      const flowIndex = ["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"].indexOf(document.querySelector("#flow").value);
+      const countIndex = rate >= 0.03 ? 17 : 16;
+      const source = RAW_PACK.c.filter(row => row[0] === bondIndex && row[1] === target && row[2] === timingIndex && row[3] === flowIndex);
+      const bars = Array.from(document.querySelectorAll("#cohortX rect[data-cohort-year]")).map(bar => {
+        const year = Number(bar.getAttribute("data-cohort-year"));
+        const row = source.find(item => Number(item[4]) === year);
+        const title = bar.querySelector("title")?.textContent || "";
+        const match = title.match(/(\\d+) 個窗口 · 低於實質本金窗口 (\\d+)/);
+        return {
+          year,
+          expected: row ? Number(row[countIndex]) : null,
+          sample_n: row ? Number(RAW_PACK.cm[String(year)]?.[0]) : null,
+          renderedSample: match ? Number(match[1]) : null,
+          rendered: match ? Number(match[2]) : null,
+          keyPresent: !!row
+        };
+      });
+      const selectedYear = Number(document.querySelector("#cohortDetailX").innerText.match(/(\\d+) 年起點/)?.[1]);
+      const selectedRow = source.find(item => Number(item[4]) === selectedYear);
+      const selectedExpected = selectedRow ? Number(selectedRow[countIndex]) : null;
+      const detail = document.querySelector("#cohortDetailX").innerText;
+      return {
+        inflation: rate, strategyRows: source.length, bars: bars.length,
+        allBarsMatch: bars.every(bar => bar.keyPresent && Number.isInteger(bar.expected) &&
+          bar.rendered === bar.expected && bar.renderedSample === bar.sample_n &&
+          bar.sample_n > 0 && bar.sample_n <= 12 && bar.rendered >= 0 && bar.rendered <= bar.sample_n),
+        sampleCounts: bars.map(bar => bar.sample_n),
+        selectedYear, selectedExpected,
+        selectedDetailMatches: selectedExpected !== null && detail.includes(selectedExpected + "/" + selectedRow[5] /* metadata field is not sample size */),
+        detail
+      };
+    }, inflation);
+    // Detail displays the selected year-end breach count over its actual sample size.
+    const cohortDetailCheck = await page.evaluate(rate => {
+      const detail = document.querySelector("#cohortDetailX").innerText;
+      const year = Number(detail.match(/(\\d+) 年起點/)?.[1]);
+      const bondIndex = ["AGG","SHY","IEF","TLT"].indexOf(document.querySelector("#bond").value);
+      const target = Number(document.querySelector("#target").value);
+      const timingIndex = ["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"].indexOf(document.querySelector("#timing").value);
+      const flowIndex = ["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"].indexOf(document.querySelector("#flow").value);
+      const row = RAW_PACK.c.find(item => item[0]===bondIndex && item[1]===target && item[2]===timingIndex && item[3]===flowIndex && item[4]===year);
+      const countIndex = rate >= 0.03 ? 17 : 16;
+      const expected = row ? Number(row[countIndex]) : null;
+      const sampleN = Number(RAW_PACK.cm[String(year)]?.[0]);
+      return {year,expected,sampleN,matches:row!==undefined && detail.includes(expected + "/" + sampleN),detail};
+    }, inflation);
+    need(cohortSweep.strategyRows === 14 && cohortSweep.bars === 14 && cohortSweep.allBarsMatch,
+      "Start-year cohort bars do not match their exact replay rows at inflation " + inflation + ": " + JSON.stringify(cohortSweep));
+    need(cohortDetailCheck.matches && cohortDetailCheck.sampleN > 0 && cohortDetailCheck.sampleN <= 12,
+      "Start-year cohort detail does not show the exact count/sample at inflation " + inflation + ": " + JSON.stringify(cohortDetailCheck));
+    realFloorCohortChecks.push({
+      inflation, cohort_groups: cohortSweep.strategyRows, bars_verified: cohortSweep.bars,
+      all_bars_match: cohortSweep.allBarsMatch, selected_detail_match: cohortDetailCheck.matches,
+      cohort_sample_counts: cohortSweep.sampleCounts
+    });
+  }
+  need(realFloorCohortChecks.length === 2 && realFloorCohortChecks.every(item =>
+    item.cohort_groups === 14 && item.bars_verified === 14 && item.all_bars_match && item.selected_detail_match),
+    "Cohort real-principal verification did not pass both inflation views");
+  result.real_floor_cohort_checks = realFloorCohortChecks;
+  await page.locator("#realMode").selectOption("0");
+
   // Verify real click delegation and that each interaction changes the intended control/state.
   let attrs = await clickAndRead(page, "#heatmapX [data-target][data-timing]");
   need(String(await page.locator("#target").inputValue()) === attrs.target && await page.locator("#timing").inputValue() === attrs.timing, "heatmap click did not synchronize target/timing");
@@ -1081,7 +1161,7 @@ try {
   };
 
   result.csv_exports_verified.trajectory = await saveCsv(page, "exportTrajectory", 11, 25);
-  result.csv_exports_verified.cohorts = await saveCsv(page, "exportCohort", 14, 19);
+  result.csv_exports_verified.cohorts = await saveCsv(page, "exportCohort", 14, 21);
   const expectedAnnualRows = await page.evaluate(() => RAW_PACK.a.length);
   need(expectedAnnualRows === 11264, "annual CSV must export the complete embedded annual grid: " + expectedAnnualRows);
   result.csv_exports_verified.annual = await saveCsv(page, "exportAnnual", expectedAnnualRows, 25);
