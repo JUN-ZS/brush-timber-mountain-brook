@@ -121,5 +121,23 @@ class CrossPutReplayTests(unittest.TestCase):
             zero_flat["mean_expiry_scenario_pnl_usd"] - base_flat["mean_expiry_scenario_pnl_usd"],
             50.85, places=2)
 
+    def test_sizing_sensitivity_scales_leg_pnl_and_keeps_unresolved_separate(self):
+        trades = [
+            {"policy": "HOLD_5_SESSIONS", "status": "RESOLVED",
+             "long_qqq_qty": 4, "short_spy_qty": 5,
+             "qqq_long_gross_pnl_usd": 400.0, "spy_short_gross_pnl_usd": 500.0},
+            {"policy": "HOLD_5_SESSIONS", "status": "UNRESOLVED_SOURCE_END"},
+        ]
+        rows = replay.summarize_sizing_sensitivity(trades, 4, 5, 0.05, 0.65)
+        one_one = next(r for r in rows if r["policy"] == "HOLD_5_SESSIONS"
+                       and r["long_qqq_contracts"] == 1 and r["short_spy_contracts"] == 1)
+        four_five = next(r for r in rows if r["policy"] == "HOLD_5_SESSIONS"
+                         and r["long_qqq_contracts"] == 4 and r["short_spy_contracts"] == 5)
+        self.assertEqual(len(rows), 4 * 4 * 5)
+        self.assertEqual((one_one["resolved_n"], one_one["unresolved_n"]), (1, 1))
+        self.assertAlmostEqual(one_one["expectancy_net_usd"], 177.4, places=2)
+        self.assertAlmostEqual(four_five["expectancy_net_usd"], 798.3, places=2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

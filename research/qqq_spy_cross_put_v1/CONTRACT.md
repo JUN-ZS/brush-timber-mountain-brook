@@ -19,7 +19,7 @@ Measure combined P&L and historical win rate for QQQ long puts against SPY short
 
 ## Required report
 
-Contract IDs, entry/exit dates, expiry, strikes, deltas, leg quote sides and quantities; selected signals, entries/skips, resolved/unresolved trades, missing marks and exit delays; resolved-only win-rate numerator/denominator and nominal Wilson 95% interval; combined net P&L and gross leg attribution; expectancy, median, best/worst, profit factor; cost sensitivity; QQQ-return × SPY-return scenario matrix; source coverage and SHA manifest.
+Contract IDs, entry/exit dates, expiry, strikes, deltas, leg quote sides and quantities; selected signals, entries/skips, resolved/unresolved trades, missing marks and exit delays; resolved-only win-rate numerator/denominator and nominal Wilson 95% interval; combined net P&L and gross leg attribution; expectancy, median, best/worst, profit factor; cost sensitivity; QQQ-return × SPY-return expiry-shock matrix; position-size sensitivity grid derived from the same selected contracts and resolved quote paths (quantities never exceed the base replay size); source coverage and SHA manifest. All summary P&L statistics explicitly exclude unresolved episodes, whose counts remain separate.
 
 ## Interpretation boundaries
 

@@ -317,6 +317,48 @@ def summarize_costs(trades):
                     "profit_factor":finite_round(pf) if pf is not None and math.isfinite(pf) else ("INF" if pf==math.inf else None)})
     return output
 
+def summarize_sizing_sensitivity(trades,max_long_qqq,max_short_spy,slippage,commission):
+    """Rescale resolved per-leg gross P&L on the same selected contracts and dates."""
+    output=[]
+    unit_cost=slippage*MULTIPLIER+commission
+    for policy_def in POLICIES:
+        policy=policy_def["policy"]
+        policy_rows=[r for r in trades if r.get("policy")==policy]
+        resolved=[r for r in policy_rows if r.get("status")=="RESOLVED"
+                  and r.get("qqq_long_gross_pnl_usd") is not None
+                  and r.get("spy_short_gross_pnl_usd") is not None]
+        unresolved=sum(str(r.get("status","")).startswith("UNRESOLVED") for r in policy_rows)
+        for long_qty in range(1,max_long_qqq+1):
+            for short_qty in range(1,max_short_spy+1):
+                pnls=[]
+                for r in resolved:
+                    base_long=int(r.get("long_qqq_qty") or max_long_qqq)
+                    base_short=int(r.get("short_spy_qty") or max_short_spy)
+                    gross=(float(r["qqq_long_gross_pnl_usd"])*long_qty/base_long
+                           +float(r["spy_short_gross_pnl_usd"])*short_qty/base_short)
+                    pnls.append(gross-2*(long_qty+short_qty)*unit_cost)
+                wins=sum(v>0.005 for v in pnls)
+                losses=sum(v < -0.005 for v in pnls)
+                flats=len(pnls)-wins-losses
+                low,high=wilson95(wins,len(pnls))
+                pf=profit_factor(pnls)
+                output.append({
+                    "policy":policy,"long_qqq_contracts":long_qty,"short_spy_contracts":short_qty,
+                    "opened_n":len(policy_rows),"resolved_n":len(pnls),"unresolved_n":unresolved,
+                    "wins":wins,"losses":losses,"flat":flats,
+                    "win_rate_pct":finite_round(100*wins/len(pnls),4) if pnls else None,
+                    "win_rate_wilson95_low_pct":finite_round(low,4),
+                    "win_rate_wilson95_high_pct":finite_round(high,4),
+                    "expectancy_net_usd":finite_round(statistics.mean(pnls)) if pnls else None,
+                    "median_net_usd":finite_round(statistics.median(pnls)) if pnls else None,
+                    "total_net_pnl_usd":finite_round(sum(pnls)) if pnls else None,
+                    "best_net_usd":finite_round(max(pnls)) if pnls else None,
+                    "worst_net_usd":finite_round(min(pnls)) if pnls else None,
+                    "profit_factor":finite_round(pf) if pf is not None and math.isfinite(pf) else ("INF" if pf==math.inf else None)
+                })
+    return output
+
+
 def build_shock_grid(entries,long_qty,short_qty,slippage,commission):
     shocks=[-1.0,-0.75,-0.5,-0.4,-0.30,-0.25,-0.20,-0.15,-0.10,-0.05,0.0,0.05,0.10,0.20];output=[]
     unit_cost=slippage*MULTIPLIER+commission
@@ -349,7 +391,7 @@ def write_csv(path,rows,fallback_fields=None):
     with path.open("w",newline="",encoding="utf-8") as handle:
         writer=csv.DictWriter(handle,fieldnames=fields,extrasaction="ignore");writer.writeheader();writer.writerows(rows)
 
-def render_markdown(report,costs,shock):
+def render_markdown(report,costs,shock,sizing):
     lines=["# QQQ LONG PUT / SPY SHORT PUT — Cross-Underlying Replay V1","",
         f"Status: **{report['status']}**. EOD quote-side estimate, not confirmed fills.","",
         f"- Window requested: {report['window']['start']} to {report['window']['end']}; last QQQ/SPY chain dates: {report['coverage']['qqq_last_chain_date']} / {report['coverage']['spy_last_chain_date']}.",
@@ -360,13 +402,13 @@ def render_markdown(report,costs,shock):
         f"- Common underlying sessions: {report['coverage']['common_underlying_sessions']}; QQQ chain dates with puts: {report['coverage']['qqq_chain_dates']}; SPY chain dates with puts: {report['coverage']['spy_chain_dates']}; sessions with both chains: {report['coverage']['sessions_with_both_chains']}.",
         f"- Selected signals: {report['cohort']['selected_signals']}; entered cohorts: {report['cohort']['entered_cohorts']}; skipped entries: {report['cohort']['entry_skipped']}.",
         "- Every annual options file and underlying file is SHA/byte-count verified. No quote is forward-filled; exact selected contract IDs are retained.",
-        "","## Historical win rate — base assumed costs","","| Exit rule | Resolved/opened | Wins/losses/flat | Win rate (nominal Wilson 95%) | Mean net P&L | Median | Total net P&L | Worst trade | Unresolved |",
+        "","## Historical win rate — base assumed costs","","| Exit rule | Resolved/opened | Wins/losses/flat | Win rate (nominal Wilson 95%) | Mean net P&L (resolved) | Median (resolved) | Total net P&L (resolved) | Worst trade (resolved) | Unresolved |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
     fmt=lambda v:"—" if v is None else f"USD {v:,.2f}"
     for p in report["policies"].values():
         rate="—" if p["win_rate_pct"] is None else f"{p['win_rate_pct']:.2f}% ({p['win_rate_wilson95_low_pct']:.2f}–{p['win_rate_wilson95_high_pct']:.2f}%)"
         lines.append(f"| {p['policy']} | {p['resolved']}/{p['opened']} | {p['wins']}/{p['losses']}/{p['flat']} | {rate} | {fmt(p['expectancy_net_usd'])} | {fmt(p['median_net_usd'])} | {fmt(p['total_net_pnl_usd'])} | {fmt(p['worst_net_usd'])} | {p['unresolved']} |")
-    lines += ["","Denominator is **resolved episodes only**; unresolved trades and entry skips stay separate. The nominal Wilson interval does not correct for time dependence or strategy selection.",
+    lines += ["","Win-rate denominator is **resolved episodes only**. Mean, median, total P&L, profit factor, and worst trade also use resolved episodes only; unresolved trades are excluded, not assigned zero. Entry skips stay separate. The nominal Wilson interval does not correct for time dependence or strategy selection.",
         "","## Leg attribution","","| Exit rule | Mean gross QQQ LONG PUT P&L | Mean gross SPY SHORT PUT P&L |","|---|---:|---:|"]
     for p in report["policies"].values():
         lines.append(f"| {p['policy']} | {fmt(p['mean_qqq_long_gross_pnl_usd'])} | {fmt(p['mean_spy_short_gross_pnl_usd'])} |")
@@ -374,6 +416,25 @@ def render_markdown(report,costs,shock):
     for r in costs:
         rate="—" if r["win_rate_pct"] is None else f"{r['win_rate_pct']:.2f}%"
         lines.append(f"| {r['policy']} | {r['slippage_per_option_share_usd']:.3f} | {r['commission_per_contract_per_side_usd']:.2f} | {r['resolved_n']} | {rate} | {fmt(r['expectancy_net_usd'])} | {fmt(r['total_net_pnl_usd'])} | {fmt(r['worst_net_usd'])} |")
+    size_meta=report["position_size_sensitivity"]
+    size_pairs=list(dict.fromkeys([(1,1),(1,size_meta["max_short_spy_contracts"]),
+        (size_meta["max_long_qqq_contracts"],1),
+        (size_meta["max_long_qqq_contracts"],size_meta["max_short_spy_contracts"])]))
+    lines += ["","## Position-size sensitivity (same selected contracts and quote path)","",
+        f"- Grid: LONG QQQ 1–{size_meta['max_long_qqq_contracts']} × SHORT SPY 1–{size_meta['max_short_spy_contracts']} contracts; CSV contains the full grid.",
+        "- This is a fixed-sample rescaling of each leg's gross P&L on the same selected contracts and dates, not a fresh contract-selection replay. Transaction costs scale per contract; size-dependent market impact is not modeled.",
+        "- All sizes are no greater than the base run's size-screened quantities. Resolved/unresolved status is inherited from the base run; an unresolved exit is not reclassified just because a smaller hypothetical size might have passed a quote-size gate.",
+        "- P&L statistics use resolved episodes only; unresolved counts are shown separately.","",
+        "| Exit rule | QQQ LONG : SPY SHORT | Resolved/opened (unresolved) | Win rate (nominal Wilson 95%) | Mean net P&L (resolved) | Total net P&L (resolved) | Worst trade (resolved) |",
+        "|---|---:|---:|---:|---:|---:|---:|"]
+    for p in report["policies"].values():
+        for long_qty,short_qty in size_pairs:
+            row=next((x for x in sizing if x["policy"]==p["policy"]
+                and x["long_qqq_contracts"]==long_qty and x["short_spy_contracts"]==short_qty),None)
+            if row is None: continue
+            rate="—" if row["win_rate_pct"] is None else f"{row['win_rate_pct']:.2f}% ({row['win_rate_wilson95_low_pct']:.2f}–{row['win_rate_wilson95_high_pct']:.2f}%)"
+            lines.append(f"| {row['policy']} | {long_qty} : {short_qty} | {row['resolved_n']}/{row['opened_n']} ({row['unresolved_n']}) | {rate} | {fmt(row['expectancy_net_usd'])} | {fmt(row['total_net_pnl_usd'])} | {fmt(row['worst_net_usd'])} |")
+    lines += ["","The CSV contains every size combination in the grid. The 1:5 and configured 4:5 comparisons share the same selected historical episodes; they are not evidence that any ratio is profitable.",""]
     lines += ["","## Equal-percentage QQQ/SPY expiry shocks (hypothetical)","","These are intrinsic-value scenarios based on actual entry quotes and spots, not historical option trade outcomes.",
         "Only entry-side slippage/commission is charged once; no closing trade is assumed for the expiry payoff.",
         "Exercise/assignment charges, financing, taxes, broker margin and forced-liquidation costs are not modeled.","",
@@ -383,7 +444,7 @@ def render_markdown(report,costs,shock):
         lines.append(f"| {r['qqq_pct_move']:.0f}% | {r['positive_scenario_n']}/{r['entry_cohort_n']} | {rate} | {fmt(r['mean_expiry_scenario_pnl_usd'])} | {fmt(r['worst_expiry_scenario_pnl_usd'])} |")
     lines += ["","## Limitations",""]
     lines.extend(f"- {x}" for x in report["limitations"])
-    lines += ["","Files: trade_episodes.csv, entry_cohort.csv, entry_skips.csv, cost_sensitivity.csv, expiry_shock_grid.csv, source_manifest.json."]
+    lines += ["","Files: trade_episodes.csv, entry_cohort.csv, entry_skips.csv, cost_sensitivity.csv, sizing_sensitivity.csv, expiry_shock_grid.csv, source_manifest.json."]
     return "\n".join(lines)
 
 def run_replay(args):
@@ -494,6 +555,8 @@ def run_replay(args):
     for r in trades:r["base_cost_win"]=r["net_pnl_usd"]>0.005 if r.get("status")=="RESOLVED" and r.get("net_pnl_usd") is not None else None
     policies={p["policy"]:policy_summary(p["policy"],trades) for p in POLICIES}
     costs=summarize_costs(trades);shock=build_shock_grid(entries,args.long_qqq,args.short_spy,args.slippage_per_share,args.commission_per_contract_per_side)
+    size_max_qqq=min(args.long_qqq,6);size_max_spy=min(args.short_spy,6)
+    sizing=summarize_sizing_sensitivity(trades,size_max_qqq,size_max_spy,args.slippage_per_share,args.commission_per_contract_per_side)
     report={"schema":"qqq-spy-cross-underlying-put-replay.v1",
         "status":"COMPLETED_WITH_UNRESOLVEDS" if any(p["unresolved"] for p in policies.values()) or skips else "COMPLETED",
         "source":{"repository":SOURCE_REPO,"tree_commit":SOURCE_COMMIT},"window":{"start":start_day,"end":end_day},
@@ -502,6 +565,8 @@ def run_replay(args):
             "dte_max":args.dte_max,"dte_target":args.dte_target,"cohort_stride_sessions":args.cohort_stride_sessions,"common_expiry_required":True},
         "costs":{"base_slippage_per_option_share_usd":args.slippage_per_share,"base_commission_per_contract_per_side_usd":args.commission_per_contract_per_side,
             "alternative_slippage_per_option_share_usd":list(SLIPPAGE_GRID),"alternative_commission_per_contract_per_side_usd":list(COMMISSION_GRID)},
+        "position_size_sensitivity":{"max_long_qqq_contracts":size_max_qqq,"max_short_spy_contracts":size_max_spy,
+            "method":"linear per-leg gross-P&L rescaling on the same selected contracts, quote dates and resolved cohort set; cost scales per contract; no size-dependent market impact"},
         "coverage":{"common_underlying_sessions":len(dates),"qqq_chain_dates":qs["chain_dates"],"qqq_put_rows":qs["put_rows"],
             "spy_chain_dates":ss["chain_dates"],"spy_put_rows":ss["put_rows"],"sessions_with_both_chains":both_chains,
             "qqq_last_chain_date":qs["last_chain_date"],"spy_last_chain_date":ss["last_chain_date"],
@@ -525,10 +590,11 @@ def run_replay(args):
     write_csv(out/"trade_episodes.csv",trades,["episode_id","policy","status","net_pnl_usd"])
     write_csv(out/"entry_skips.csv",skips,["episode_id","signal_date","status","reason"])
     write_csv(out/"cost_sensitivity.csv",costs);write_csv(out/"expiry_shock_grid.csv",shock)
+    write_csv(out/"sizing_sensitivity.csv",sizing)
     (out/"source_manifest.json").write_text(json.dumps({"source_repository":SOURCE_REPO,"source_tree_commit":SOURCE_COMMIT,
         "source_integrity":integrity,"source_window":report["window"]},indent=2),encoding="utf-8")
     (out/"summary.json").write_text(json.dumps(report,indent=2,allow_nan=False),encoding="utf-8")
-    (out/"summary.md").write_text(render_markdown(report,costs,shock),encoding="utf-8")
+    (out/"summary.md").write_text(render_markdown(report,costs,shock,sizing),encoding="utf-8")
     return report
 
 def parse_args():

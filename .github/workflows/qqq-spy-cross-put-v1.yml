@@ -84,6 +84,7 @@ jobs:
           test -s "$OUT/entry_cohort.csv"
           test -s "$OUT/entry_skips.csv"
           test -s "$OUT/cost_sensitivity.csv"
+          test -s "$OUT/sizing_sensitivity.csv"
           test -s "$OUT/expiry_shock_grid.csv"
           test -s "$OUT/source_manifest.json"
           cat "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY"
