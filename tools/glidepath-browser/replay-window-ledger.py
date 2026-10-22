@@ -9,6 +9,7 @@ TARGETS=(30,40,50,60,70,80,90,100)
 TIMINGS=("front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late")
 FLOWS=("no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress")
 INITIAL=100000.0; HORIZON=120; USD_TOL=0.12; RATE_TOL=2e-6; DD_TOL=2e-6
+INFLATION_ASSUMPTIONS=((0.0235, "235"), (0.035, "350"))
 
 def need(condition,message):
     if not condition: raise ValueError(message)
@@ -164,6 +165,11 @@ def annual_summary(marks):
       "p95_shortfall_usd":round(quantile(sf,.95),2),"median_target_bond_weight":quantile(bw,.5),
       "median_target_stock_weight":quantile([1-x for x in bw],.5)}
 
+def count_real_floor_breaches(marks, year, inflation_rate):
+    """Count annual account NAV marks strictly below the inflation-adjusted initial principal."""
+    threshold = INITIAL * ((1.0 + float(inflation_rate)) ** int(year))
+    return sum(1 for mark in marks if float(mark["nav_usd"]) < threshold)
+
 def scenario_summary(rows):
     nav=[float(x["terminal_nav_usd"]) for x in rows]; cagr=[float(x["time_weighted_cagr"]) for x in rows if x["time_weighted_cagr"] is not None]
     dd=[float(x["daily_max_drawdown"]) for x in rows]; paid=[float(x["actual_withdrawals_usd"]) for x in rows]
@@ -188,7 +194,9 @@ def main():
     annuals={(r["bond_proxy"],int(r["target_bond_conversion_pct_at_year10"]),r["timing_rule"],r["cashflow_mode"],int(r["year"])):r for r in report["annual_scenarios"]}
     need(len(scenarios)==1024 and len(annuals)==11264,"Incomplete source summaries")
     stats={"fields_compared":0,"max_abs_error":{},"window_rows_replayed":0,"annual_rows_reconciled":0,
-      "scenario_summaries_reconciled":0,"cashflow_invariants_checked":0,"yearly_navs_reconciled":0,"daily_drawdown_paths_replayed":0}
+      "scenario_summaries_reconciled":0,"cashflow_invariants_checked":0,"yearly_navs_reconciled":0,"daily_drawdown_paths_replayed":0,
+      "real_floor_count_rows":0,"real_floor_window_navs_compared":0}
+    real_floor_rows=[]
     with a.windows.open(newline="",encoding="utf-8") as f:
       sources=iter(csv.DictReader(f))
       for mode in FLOWS:
@@ -234,17 +242,41 @@ def main():
             stats["max_abs_error"][name]=max(stats["max_abs_error"].get(name,0),err)
             need(err<=tol,f"Annual summary mismatch {ak}/{field}: {value} vs {expected}")
            stats["annual_rows_reconciled"]+=1; stats["yearly_navs_reconciled"]+=1
+          # Count all annual NAV marks against both inflation-adjusted initial-principal thresholds.
+          for year, year_marks in enumerate(marks_by_year):
+           threshold_235=INITIAL*((1.0+0.0235)**year)
+           threshold_350=INITIAL*((1.0+0.035)**year)
+           below_235=count_real_floor_breaches(year_marks,year,0.0235)
+           below_350=count_real_floor_breaches(year_marks,year,0.035)
+           need(len(year_marks)==157 and 0<=below_235<=below_350<=157,
+             f"Invalid real-floor counts: {key}/{year}: {below_235}/{below_350}")
+           real_floor_rows.append({
+             "bond_proxy":bond,"target_bond_conversion_pct_at_year10":target,
+             "timing_rule":timing,"cashflow_mode":mode,"year":year,"windows_sampled":len(year_marks),
+             "threshold_usd_235":threshold_235,"threshold_usd_350":threshold_350,
+             "windows_below_real_principal_235":below_235,"windows_below_real_principal_350":below_350})
+           stats["real_floor_count_rows"]+=1
+           stats["real_floor_window_navs_compared"]+=len(year_marks)*len(INFLATION_ASSUMPTIONS)
           if stats["scenario_summaries_reconciled"]%32==0:
            print("LEDGER_REPLAY_PROGRESS",stats["scenario_summaries_reconciled"],"/1024",flush=True)
       try: next(sources); raise ValueError("Window CSV contains unexpected extra rows")
       except StopIteration: pass
     need(stats["window_rows_replayed"]==160768,"Expected 160,768 replayed windows")
     need(stats["annual_rows_reconciled"]==11264,"Expected 11,264 annual rows")
+    need(stats["real_floor_count_rows"]==11264 and len(real_floor_rows)==11264,
+      "Expected 11,264 exact real-floor annual rows")
+    need(stats["real_floor_window_navs_compared"]==3536896,
+      "Expected 3,536,896 annual-window NAV comparisons across both inflation rates")
+    real_floor_keys={(r["bond_proxy"],r["target_bond_conversion_pct_at_year10"],r["timing_rule"],r["cashflow_mode"],r["year"]) for r in real_floor_rows}
+    need(len(real_floor_keys)==11264,"Duplicate real-floor annual key")
+    need(all(r["windows_sampled"]==157 and 0<=r["windows_below_real_principal_235"]<=r["windows_below_real_principal_350"]<=157 for r in real_floor_rows),
+      "Real-floor counts violate sample-size or inflation monotonicity")
     result={"schema":"glidepath-window-cashflow-ledger-replay.v1","status":"PASS",
       "method":"Independent normalized-share replay from daily adjusted prices with explicit external cashflows; source engine not imported",
       "source_panel_sha256":panel_sha,"source_as_of":dates[-1],"initial_capital_usd":INITIAL,
       "rolling_windows_per_scenario":157,"scenario_count":stats["scenario_summaries_reconciled"],
       "window_rows_expected":160768,"annual_summary_rows_expected":11264,"cashflow_modes":list(FLOWS),"counters":stats,
+      "real_floor_inflation_rates":[0.0235,0.035],"real_floor_breach_counts":real_floor_rows,
       "limitations":["Daily marks are rounded to 10 decimals in the pinned panel; USD tolerance allows sub-cent drift.",
        "XIRR is not recomputed; this audit checks NAV, market return, and external cashflow arithmetic.",
        "157 overlapping ten-year windows are not independent trials.",
