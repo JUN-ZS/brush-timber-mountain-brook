@@ -36,9 +36,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   replay:
-    name: SHA-pinned QQQ/SPY matched-put replay (Linux BOT)
-    runs-on: [self-hosted, grokbot-box-linux-x64]
-    timeout-minutes: 150
+    name: SHA-pinned QQQ/SPY matched-put replay (GitHub-hosted Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
     defaults:
       run:
         shell: bash
@@ -61,7 +61,7 @@ jobs:
           $PY -m py_compile research/qqq_spy_cross_put_v1/test_qqq_spy_cross_put_replay_v1.py
           $PY research/qqq_spy_cross_put_v1/test_qqq_spy_cross_put_replay_v1.py
       - name: Run SHA-pinned cross-underlying study
-        timeout-minutes: 120
+        timeout-minutes: 240
         env:
           LONG_QQQ: ${{ github.event.inputs.long_qqq_contracts || 4 }}
           SHORT_SPY: ${{ github.event.inputs.short_spy_contracts || 5 }}
