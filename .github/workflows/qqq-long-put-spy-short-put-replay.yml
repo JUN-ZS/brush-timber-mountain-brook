@@ -89,7 +89,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add reports/qqq-long-put-spy-short-put/summary.json reports/qqq-long-put-spy-short-put/index.html reports/qqq-long-put-spy-short-put/REPORT.md
+          git add -f reports/qqq-long-put-spy-short-put/summary.json reports/qqq-long-put-spy-short-put/index.html reports/qqq-long-put-spy-short-put/REPORT.md
           if git diff --cached --quiet; then
             echo "Aggregate report unchanged; no commit needed."
             exit 0

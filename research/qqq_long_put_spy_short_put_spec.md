@@ -21,7 +21,7 @@ Default selection target is 30 calendar days to expiry ±10 days, absolute delta
 - Close QQQ long put at bid; buy back SPY short put at ask, on the same later common session.
 - Holding horizons: 1, 3, 5, 10, and 20 common trading sessions.
 - Each leg uses multiplier 100. Commissions and slippage are separate scenarios. Quote-side touch is a modeled fill assumption, not an observed execution.
-- Invalid/crossed quotes, missing marks, or an option without a valid quote are **not** forward-filled or converted to zero. A paired observation is counted only when both entry and both exit-side quotes exist.
+- Invalid/crossed quotes and missing live marks are **not** forward-filled or converted to zero. If a fixed contract has expired before the requested horizon, its expiration-date intrinsic value is used; if that date's underlying close is missing, the pair is excluded for that horizon.
 
 ## Reported results
 
@@ -36,10 +36,10 @@ Every selected mode / holding period / friction / long-quantity / short-quantity
 ## Evidence and limitations
 
 - Inputs come from the public data-v1 release: https://github.com/lambdaclass/options_portfolio_backtester/releases/tag/data-v1. Their SHA-256 hashes are embedded in the script and verified by the workflow before replay. Do not commit or upload the raw parquet chains to this repository.
-- These are end-of-day historical option quotes; they are not OPRA tick-level fills, and quote sizes are unavailable in this particular input contract. Quotes may be stale or revised. Opening/closing at quote touch is an execution model.
+- These are end-of-day historical option quotes; they are not OPRA tick-level fills, and quote sizes are unavailable in this particular input contract. The source notice says original provenance was not documented and the dataset is supplied as-is for research reproduction; matching hashes establish file identity, not quote correctness or execution certainty. Opening/closing at quote touch is an execution model.
 - Short SPY puts can create large tail liabilities and assignment/buying-power demands. The report's historical worst observed exit is not maximum possible loss. The both-underlyings-to-zero figure is a stylized terminal stress and does not represent actual joint probability.
 - Daily-start holding windows overlap. Offset cohorts are sensitivity diagnostics, not independent-trial confidence bounds and not forward probabilities.
-- No broker margin, assignment, early exercise, intraday gap execution, portfolio concurrency, taxes, or capital-capacity proof is inferred. A high win rate alone does not establish positive expectancy, robust return, or acceptable tail risk.
+- Expiration intrinsic values use the underlying close on listed expiration date; this approximates terminal payoff but does not model American-style early assignment/exercise. No broker margin, intraday gap execution, portfolio concurrency, taxes, or capital-capacity proof is inferred. A high win rate alone does not establish positive expectancy, robust return, or acceptable tail risk.
 - Missing data and insufficient paired samples are reported as missing/blocked rather than fabricated.
 
 ## Reproduction

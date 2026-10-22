@@ -141,6 +141,39 @@ def _quote_at(frame: pd.DataFrame, date: pd.Timestamp, expiration: pd.Timestamp,
     return row
 
 
+def _exit_mark(
+    quotes: pd.DataFrame,
+    underlying: dict[pd.Timestamp, float],
+    exit_date: pd.Timestamp,
+    expiration: pd.Timestamp,
+    strike_key: int,
+    strike: float,
+    is_long: bool,
+) -> tuple[float | None, str, bool]:
+    """Return a quote-side exit mark or intrinsic settlement value at expiry."""
+    if expiration > exit_date:
+        quote = _quote_at(quotes, exit_date, expiration, strike_key)
+        if quote is None:
+            return None, "MISSING_EXIT_QUOTE", False
+        mark = float(quote["bid"] if is_long else quote["ask"])
+        if mark <= 0:
+            return None, "MISSING_EXIT_QUOTE_SIDE", False
+        return mark, "EOD_QUOTE_SIDE", False
+
+    if expiration == exit_date:
+        quote = _quote_at(quotes, exit_date, expiration, strike_key)
+        if quote is not None:
+            mark = float(quote["bid"] if is_long else quote["ask"])
+            if mark > 0:
+                return mark, "EXPIRY_DAY_QUOTE_SIDE", False
+
+    expiry_spot = underlying.get(expiration)
+    if expiry_spot is None or not math.isfinite(float(expiry_spot)) or float(expiry_spot) <= 0:
+        return None, "MISSING_EXPIRY_UNDERLYING", False
+    intrinsic = max(float(strike) - float(expiry_spot), 0.0)
+    return intrinsic, "EXPIRY_INTRINSIC", True
+
+
 def _entry_candidates(day: pd.DataFrame | None, target_dte: int, tolerance: int) -> pd.DataFrame:
     if day is None or day.empty:
         return pd.DataFrame()
@@ -407,7 +440,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:right;
 </div>
 </div>
 <div class="panel"><h2>Holding-period comparison</h2><div class="muted">Uses the same matching rule, contract quantities and cost setting; coverage changes by horizon because missing exit quotes and expired contracts are not filled with synthetic marks.</div><div class="tablewrap"><table><thead><tr><th>Exit horizon</th><th>N paired</th><th>Wins</th><th>Win rate</th><th>Mean P&L</th><th>P05</th><th>Worst</th></tr></thead><tbody id="horizonRows"></tbody></table></div></div>
-<div class="panel"><h2>Quote coverage and missing marks</h2><div class="muted">This is the denominator audit: absent quotes and expired contracts are not treated as losses or zero-value exits. Read coverage beside every win rate.</div><div class="tablewrap"><table><thead><tr><th>Pairing rule</th><th>Candidate pairs</th><th>Paired entries</th><th>Entry coverage</th><th>Exit horizon</th><th>Paired exits</th><th>Exit coverage / entries</th><th>Missing exit marks</th></tr></thead><tbody id="coverageRows"></tbody></table></div></div>
+<div class="panel"><h2>Quote coverage and missing marks</h2><div class="muted">This is the denominator audit: absent quotes and expired contracts are not treated as losses or zero-value exits. Read coverage beside every win rate.</div><div class="tablewrap"><table><thead><tr><th>Pairing rule</th><th>Candidate pairs</th><th>Paired entries</th><th>Entry coverage</th><th>Exit horizon</th><th>Paired exits</th><th>Exit coverage / entries</th><th>QQQ expiries settled</th><th>SPY expiries settled</th><th>Missing exit marks</th></tr></thead><tbody id="coverageRows"></tbody></table></div></div>
 <div class="panel"><h2>Market-regime split</h2><div class="muted">Regimes use realized underlying close-to-close returns from entry to exit. They describe where package outcomes occurred; they are not entry-time predictive signals.</div><div class="tablewrap"><table><thead><tr><th>Regime</th><th>N</th><th>Wins</th><th>Win rate</th><th>Mean package P&L</th></tr></thead><tbody id="regimeRows"></tbody></table></div></div>
 <div class="panel"><h2>Method, data and limits</h2><div id="method"></div><details style="margin-top:12px"><summary>Dataset hash pins</summary><pre id="hashes" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details></div>
 <script>
@@ -446,10 +479,10 @@ function render() {
 }
 ["mode","horizon","cost","longQty","shortQty"].forEach(id=>$(id).addEventListener("input",render));
 $("method").innerHTML="<p><b>Source:</b> historical EOD option chains from the pinned data-v1 release, with overlapping SPY/QQQ coverage beginning in 2011. QQQ and SPY option chains are different contracts; matching is selectable rather than assuming equal dollar strikes mean comparable risk.</p>"
-+"<p><b>No same-close look-ahead:</b> choose puts using the signal-day chain, mark entry on the next shared trading-session close at QQQ ask (long) and SPY bid (short), then close both legs on the same later session at QQQ bid and SPY ask. The fixed contracts are followed; missing quote/expired contract = missing observation, never zero or forward-filled.</p>"
++"<p><b>No same-close look-ahead:</b> choose puts using the signal-day chain and enter on the next shared session at QQQ ask (long) and SPY bid (short). Close live contracts at QQQ bid and SPY ask; contracts already expired are valued at expiration-date intrinsic value using the underlying close. A missing live exit quote or missing expiry-date underlying close remains a missing mark and is never forward-filled.</p>"
 +"<p><b>Selection defaults:</b> target "+R.meta.target_dte+" calendar DTE ±"+R.meta.dte_tolerance+" days; delta target "+R.meta.target_abs_delta+"; OTM target "+pct(R.meta.target_otm*100)+". Premium matching chooses SPY bid nearest to the QQQ ask observed on the signal day. Ratio quantities are independent integer contracts, each multiplier "+R.meta.multiplier+".</p>"
 +"<p><b>Win definition:</b> combined net P&amp;L strictly greater than $0 after the selected commission/slippage scenario. The sample includes daily rolling entries, so adjacent episodes overlap. The offset sensitivity shows the min/median/max win rate across holding-horizon-spaced entry cohorts; it helps expose path dependence but is not an independent-trial confidence interval.</p>"
-+"<p><b>Execution limitations:</b> EOD snapshots are not confirmed fills and the source does not guarantee quoted size. Bid/ask touch is an estimate; stress adds commission and per-side slippage. No intraday gap fills, assignment, early exercise, broker margin, portfolio concurrency or capital-sizing claims are made. The simultaneous zero-price number is a hypothetical expiry tail stress, not the empirical worst exit.</p>"
++"<p><b>Execution limitations:</b> EOD snapshots are not confirmed fills and quoted sizes are unavailable. The public dataset notice says original sourcing was not documented; hash pinning proves file identity, not quote accuracy. Expiry intrinsic is a terminal-payoff approximation and does not model American-style early assignment/exercise. Stress adds commission and per-side slippage; broker margin, intraday gaps, portfolio concurrency and assignment logistics are not modeled. The simultaneous zero-price number is a hypothetical tail stress, not the empirical worst exit.</p>"
 +"<p class='warning'><b>Interpretation boundary:</b> a high win rate can coexist with a large short-put tail loss and poor expected value. Check mean/median, P05/P01, worst P&amp;L, stress loss and SPY assignment notional before interpreting the ratio.</p>"
 +"<p class='muted'>Generated status: "+R.meta.status+". Sample period: "+R.meta.sample_start+" to "+R.meta.sample_end+". This is descriptive historical research, not a forward probability or trade instruction.</p>";
 $("hashes").textContent=JSON.stringify(R.meta.source_hashes,null,2);
@@ -463,7 +496,7 @@ const renderCoverage = () => {
     for (const horizon of R.meta.horizons) {
       const h = c.horizons[String(horizon)];
       const exitRate = c.entry_pair_quotes ? (100*h.paired_exits/c.entry_pair_quotes) : null;
-      html += "<tr><td>"+MODE_NAMES[mode]+"</td><td>"+c.selected_contract_pairs+"</td><td>"+c.entry_pair_quotes+"</td><td>"+pct(entryRate)+"</td><td>"+horizon+" sessions</td><td>"+h.paired_exits+"</td><td>"+pct(exitRate)+"</td><td>"+h.missing_exit_quotes+"</td></tr>";
+      html += "<tr><td>"+MODE_NAMES[mode]+"</td><td>"+c.selected_contract_pairs+"</td><td>"+c.entry_pair_quotes+"</td><td>"+pct(entryRate)+"</td><td>"+horizon+" sessions</td><td>"+h.paired_exits+"</td><td>"+pct(exitRate)+"</td><td>"+h.qqq_expiry_settlements+"</td><td>"+h.spy_expiry_settlements+"</td><td>"+h.missing_exit_quotes+"</td></tr>";
     }
   }
   $("coverageRows").innerHTML=html;
@@ -496,7 +529,12 @@ def replay(args: argparse.Namespace) -> dict[str, Any]:
             "entry_pair_quotes": 0,
             "missing_entry_quotes": 0,
             "no_candidate_pair": 0,
-            "horizons": {str(h): {"paired_exits": 0, "missing_exit_quotes": 0} for h in HORIZONS},
+            "horizons": {
+                str(h): {
+                    "paired_exits": 0, "missing_exit_quotes": 0,
+                    "qqq_expiry_settlements": 0, "spy_expiry_settlements": 0,
+                } for h in HORIZONS
+            },
         } for mode in MODES
     }
     samples: list[dict[str, Any]] = []
@@ -537,18 +575,27 @@ def replay(args: argparse.Namespace) -> dict[str, Any]:
             actual_mismatch = abs(float(qentry["ask"]) - float(sentry["bid"]))
             for horizon in HORIZONS:
                 exit_date = common_dates[i + 1 + horizon]
-                qexit = _quote_at(qqq_opts, exit_date, qref["expiration"], qref["strike_key"])
-                sexit = _quote_at(spy_opts, exit_date, sref["expiration"], sref["strike_key"])
-                if qexit is None or sexit is None or float(qexit["bid"]) <= 0 or float(sexit["ask"]) <= 0:
-                    coverage[mode]["horizons"][str(horizon)]["missing_exit_quotes"] += 1
-                    continue
-                long_gross, short_gross = leg_pnl_per_contract(
-                    float(qentry["ask"]), float(qexit["bid"]),
-                    float(sentry["bid"]), float(sexit["ask"]),
+                qmark, qmark_type, q_expired = _exit_mark(
+                    qqq_opts, qqq_spot, exit_date, qref["expiration"],
+                    qref["strike_key"], qref["strike"], is_long=True,
                 )
+                smark, smark_type, s_expired = _exit_mark(
+                    spy_opts, spy_spot, exit_date, sref["expiration"],
+                    sref["strike_key"], sref["strike"], is_long=False,
+                )
+                hcov = coverage[mode]["horizons"][str(horizon)]
+                if q_expired:
+                    hcov["qqq_expiry_settlements"] += 1
+                if s_expired:
+                    hcov["spy_expiry_settlements"] += 1
+                if qmark is None or smark is None:
+                    hcov["missing_exit_quotes"] += 1
+                    continue
+                long_gross = (float(qmark) - float(qentry["ask"])) * MULTIPLIER
+                short_gross = (float(sentry["bid"]) - float(smark)) * MULTIPLIER
                 qret = qqq_spot[exit_date] / qqq_spot[entry_date] - 1.0
                 sret = spy_spot[exit_date] / spy_spot[entry_date] - 1.0
-                coverage[mode]["horizons"][str(horizon)]["paired_exits"] += 1
+                hcov["paired_exits"] += 1
                 samples.append({
                     "mode": mode, "horizon": horizon,
                     "signal_date": signal_date.strftime("%Y-%m-%d"),
@@ -560,8 +607,10 @@ def replay(args: argparse.Namespace) -> dict[str, Any]:
                     "spy_expiration": sref["expiration"].strftime("%Y-%m-%d"),
                     "qqq_dte_signal": qref["dte_signal"], "spy_dte_signal": sref["dte_signal"],
                     "qqq_delta_signal": qref["delta_signal"], "spy_delta_signal": sref["delta_signal"],
-                    "qqq_entry_ask": float(qentry["ask"]), "qqq_exit_bid": float(qexit["bid"]),
-                    "spy_entry_bid": float(sentry["bid"]), "spy_exit_ask": float(sexit["ask"]),
+                    "qqq_entry_ask": float(qentry["ask"]), "qqq_exit_mark": float(qmark),
+                    "qqq_exit_mark_type": qmark_type,
+                    "spy_entry_bid": float(sentry["bid"]), "spy_exit_mark": float(smark),
+                    "spy_exit_mark_type": smark_type,
                     "long_gross_pnl": long_gross, "short_gross_pnl": short_gross,
                     "qqq_spot_return": qret, "spy_spot_return": sret,
                     "regime": _regime_for(qret, sret),
@@ -664,8 +713,8 @@ def make_markdown_report(report: dict[str, Any]) -> str:
         "",
         "The denominator matters. Missing / expired option marks are not converted to zero, so each displayed win rate must be read with paired-exit coverage.",
         "",
-        "| Pairing rule | Valid candidate pairs | Paired entries | Entry coverage | Horizon | Paired exits | Exit coverage vs entries | Missing exit marks |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|",
+        "| Pairing rule | Valid candidate pairs | Paired entries | Entry coverage | Horizon | Paired exits | Exit coverage vs entries | QQQ expiry settlements | SPY expiry settlements | Missing exit marks |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for mode in MODES:
         c = meta["coverage"][mode]
@@ -675,7 +724,8 @@ def make_markdown_report(report: dict[str, Any]) -> str:
             exit_rate = 100.0*h["paired_exits"]/c["entry_pair_quotes"] if c["entry_pair_quotes"] else None
             lines.append(
                 f"| {mode} | {c['selected_contract_pairs']:,} | {c['entry_pair_quotes']:,} | {pct(entry_rate)} "
-                f"| {horizon} sessions | {h['paired_exits']:,} | {pct(exit_rate)} | {h['missing_exit_quotes']:,} |"
+                f"| {horizon} sessions | {h['paired_exits']:,} | {pct(exit_rate)} "
+                f"| {h['qqq_expiry_settlements']:,} | {h['spy_expiry_settlements']:,} | {h['missing_exit_quotes']:,} |"
             )
     lines += [
         "",
