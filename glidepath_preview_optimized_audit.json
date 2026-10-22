@@ -136,7 +136,7 @@
   },
   "html_characters": 3796276,
   "v2_1_review": {
-    "source_commit": "84a643694483b06d8244d876b4ae687b53b4ede1",
+    "source_commit": "5fc15af26107892b993ca4a000bf2238da895828",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -180,6 +180,7 @@
       "ZIP bundle regenerated from the exact v2.1 HTML."
     ],
     "known_limits": [
+      "Investor XIRR is independently recomputed from dated cash flows for no-withdrawal and delayed-step-up modes; fixed monthly withdrawal stress modes keep XIRR explicitly not-computed.",
       "Annual real-principal breach counts for every year/strategy/cashflow/inflation key use independently replayed 157-window year-end NAV marks.",
       "Start-year cohort real-principal counts use the actual 4–12 windows in each start-year subgroup; these are subsets of the same overlapping ten-year windows and are not independent probability samples.",
       "The visible real-principal count compares remaining portfolio NAV with initial capital inflated by the selected annual rate; it does not add previously withdrawn cash back to account NAV.",
@@ -308106,12 +308107,12 @@
       }
     ]
   },
-  "bundle_sha256": "bd10104a271cc7b1e238925cd194b238bfe15e37f3398aa4da84e8dc1a1d0186",
+  "bundle_sha256": "cda88932ccfcccaed5eddeb0e6fd92c68836dd879ee33bd0b6f7950627544507",
   "html_crc32": "c27d842d",
   "final_artifact_verification": {
     "status": "PASSED",
     "html_sha256": "d70688b6175b1a166103a6317f2f456d6b306e2445581b5521cea091e143c505",
-    "bundle_sha256": "bd10104a271cc7b1e238925cd194b238bfe15e37f3398aa4da84e8dc1a1d0186",
+    "bundle_sha256": "cda88932ccfcccaed5eddeb0e6fd92c68836dd879ee33bd0b6f7950627544507",
     "html_bytes": 3810004,
     "bundle_bytes": 915424,
     "html_crc32": "c27d842d",
@@ -308288,6 +308289,7 @@
         "daily_max_drawdown": 1.0083045509645672e-12,
         "ending_stock_weight": 0,
         "ending_bond_weight": 0,
+        "investor_xirr": 1.0714207299145073e-12,
         "scenario.median_terminal_nav_usd": 0,
         "scenario.p05_terminal_nav_usd": 0,
         "scenario.p95_terminal_nav_usd": 0,
@@ -308301,6 +308303,8 @@
         "scenario.windows_with_withdrawal_shortfall": 0,
         "scenario.median_actual_withdrawals_usd": 0,
         "scenario.p95_withdrawal_shortfall_usd": 0,
+        "scenario.median_investor_xirr": 1.0199341371475157e-12,
+        "scenario.xirr_defined_windows": 0,
         "annual.median_nav_usd": 0,
         "annual.p05_nav_usd": 0,
         "annual.p95_nav_usd": 0,
@@ -308316,6 +308320,20 @@
         "annual.p05_cumulative_twr_cagr": 4.933276009921883e-13,
         "annual.median_year_twr": 1.6642243139131097e-12,
         "annual.p05_year_twr": 7.769618282083002e-13
+      },
+      "xirr_validation": {
+        "status": "PASS",
+        "method": "Independent dated-cashflow reconstruction; closed-form two-flow roots plus NumPy log-rate grid/bisection for irregular flows; source solver not imported",
+        "rows_checked": 160768,
+        "windows_recomputed": 80384,
+        "defined_window_values": 80384,
+        "scenario_summaries_reconciled": 1024,
+        "status_counts": {
+          "OK": 80384,
+          "NOT_COMPUTED_FOR_FIXED_WITHDRAWAL_STRESS": 80384
+        },
+        "max_abs_error": 1.0714207299145073e-12,
+        "absolute_rate_tolerance": 2e-06
       }
     },
     "zip_members": [
@@ -308331,7 +308349,7 @@
     "paired_direction_comparison_real_235_status": "passed",
     "paired_direction_comparison_real_235_windows": 157,
     "paired_direction_comparison_real_235_passed": true,
-    "created_at_utc": "2026-10-22T07:51:24.403783+00:00"
+    "created_at_utc": "2026-10-22T09:36:51.447514+00:00"
   },
   "cashflow_window_ledger_replay": {
     "schema": "glidepath-window-cashflow-ledger-replay.v1",
@@ -308351,7 +308369,7 @@
       "monthly_withdrawal_1000_usd_stress"
     ],
     "counters": {
-      "fields_compared": 3054592,
+      "fields_compared": 3376128,
       "max_abs_error": {
         "initial_capital_usd": 0,
         "additional_deposits_usd": 0,
@@ -308365,6 +308383,7 @@
         "daily_max_drawdown": 1.0083045509645672e-12,
         "ending_stock_weight": 0,
         "ending_bond_weight": 0,
+        "investor_xirr": 1.0714207299145073e-12,
         "scenario.median_terminal_nav_usd": 0,
         "scenario.p05_terminal_nav_usd": 0,
         "scenario.p95_terminal_nav_usd": 0,
@@ -308378,6 +308397,8 @@
         "scenario.windows_with_withdrawal_shortfall": 0,
         "scenario.median_actual_withdrawals_usd": 0,
         "scenario.p95_withdrawal_shortfall_usd": 0,
+        "scenario.median_investor_xirr": 1.0199341371475157e-12,
+        "scenario.xirr_defined_windows": 0,
         "annual.median_nav_usd": 0,
         "annual.p05_nav_usd": 0,
         "annual.p95_nav_usd": 0,
@@ -308401,7 +308422,29 @@
       "yearly_navs_reconciled": 11264,
       "daily_drawdown_paths_replayed": 160768,
       "real_floor_annual_rows": 11264,
-      "real_floor_cohort_rows": 14336
+      "real_floor_cohort_rows": 14336,
+      "xirr_rows_checked": 160768,
+      "xirr_windows_recomputed": 80384,
+      "xirr_defined_rows": 80384,
+      "xirr_scenario_summaries_reconciled": 1024,
+      "xirr_status_counts": {
+        "OK": 80384,
+        "NOT_COMPUTED_FOR_FIXED_WITHDRAWAL_STRESS": 80384
+      }
+    },
+    "xirr_validation": {
+      "status": "PASS",
+      "method": "Independent dated-cashflow reconstruction; closed-form two-flow roots plus NumPy log-rate grid/bisection for irregular flows; source solver not imported",
+      "rows_checked": 160768,
+      "windows_recomputed": 80384,
+      "defined_window_values": 80384,
+      "scenario_summaries_reconciled": 1024,
+      "status_counts": {
+        "OK": 80384,
+        "NOT_COMPUTED_FOR_FIXED_WITHDRAWAL_STRESS": 80384
+      },
+      "max_abs_error": 1.0714207299145073e-12,
+      "absolute_rate_tolerance": 2e-06
     },
     "real_floor_annual_count_schema": [
       "year",
@@ -308435,7 +308478,7 @@
       "Counts compare annual year-end portfolio NAV against initial capital × (1 + assumed annual inflation)^year with a strict less-than test.",
       "For withdrawal modes, counts use remaining portfolio NAV and do not add previously withdrawn cash back to account NAV.",
       "Daily marks are rounded to 10 decimals in the pinned panel; USD tolerance allows sub-cent drift.",
-      "XIRR is not recomputed; this audit checks NAV, market return, and external cashflow arithmetic.",
+      "Investor XIRR is independently recomputed from dated cash flows and reconciled for no-withdrawal and delayed-step-up modes; fixed monthly withdrawal stress modes intentionally retain the source's not-computed status.",
       "157 overlapping ten-year windows are not independent trials.",
       "Pass validates independent accounting reconstruction against a pinned artifact, not predictive validity."
     ],
@@ -308449,7 +308492,7 @@
     "cashflow_invariants_checked": 482304,
     "yearly_navs_reconciled": 11264,
     "daily_drawdown_paths_replayed": 160768,
-    "fields_compared": 3054592,
+    "fields_compared": 3376128,
     "max_abs_error": {
       "initial_capital_usd": 0,
       "additional_deposits_usd": 0,
@@ -308463,6 +308506,7 @@
       "daily_max_drawdown": 1.0083045509645672e-12,
       "ending_stock_weight": 0,
       "ending_bond_weight": 0,
+      "investor_xirr": 1.0714207299145073e-12,
       "scenario.median_terminal_nav_usd": 0,
       "scenario.p05_terminal_nav_usd": 0,
       "scenario.p95_terminal_nav_usd": 0,
@@ -308476,6 +308520,8 @@
       "scenario.windows_with_withdrawal_shortfall": 0,
       "scenario.median_actual_withdrawals_usd": 0,
       "scenario.p95_withdrawal_shortfall_usd": 0,
+      "scenario.median_investor_xirr": 1.0199341371475157e-12,
+      "scenario.xirr_defined_windows": 0,
       "annual.median_nav_usd": 0,
       "annual.p05_nav_usd": 0,
       "annual.p95_nav_usd": 0,
