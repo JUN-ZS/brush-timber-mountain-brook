@@ -1018,6 +1018,9 @@ try {
   const realFloorCohortChecks = [];
   for (const inflation of [0.0235, 0.035]) {
     await page.locator("#realMode").selectOption(String(inflation));
+    const cohortMetricLabel = await page.locator('#cohortMetricX option[value="below"]').innerText();
+    need(cohortMetricLabel === "低於實質本金窗口",
+      "Cohort metric selector does not label the active real-principal count at rate " + inflation + ": " + cohortMetricLabel);
     await page.waitForFunction(rate => {
       const bars = Array.from(document.querySelectorAll("#cohortX rect[data-cohort-year]"));
       return bars.length === 14 && bars.every(bar => {
@@ -1080,7 +1083,8 @@ try {
     need(cohortDetailCheck.matches && cohortDetailCheck.sampleN > 0 && cohortDetailCheck.sampleN <= 12,
       "Start-year cohort detail does not show the exact count/sample at inflation " + inflation + ": " + JSON.stringify(cohortDetailCheck));
     realFloorCohortChecks.push({
-      inflation, cohort_groups: cohortSweep.strategyRows, bars_verified: cohortSweep.bars,
+      inflation, cohort_metric_label: cohortMetricLabel,
+      cohort_groups: cohortSweep.strategyRows, bars_verified: cohortSweep.bars,
       all_bars_match: cohortSweep.allBarsMatch, selected_detail_match: cohortDetailCheck.matches,
       cohort_sample_counts: cohortSweep.sampleCounts
     });
@@ -1090,6 +1094,8 @@ try {
     "Cohort real-principal verification did not pass both inflation views");
   result.real_floor_cohort_checks = realFloorCohortChecks;
   await page.locator("#realMode").selectOption("0");
+  need(await page.locator('#cohortMetricX option[value="below"]').innerText() === "低於起始本金窗口",
+    "Cohort metric selector did not return to the nominal-principal label.");
 
   // Verify real click delegation and that each interaction changes the intended control/state.
   let attrs = await clickAndRead(page, "#heatmapX [data-target][data-timing]");
