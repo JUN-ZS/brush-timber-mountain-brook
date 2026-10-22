@@ -168,7 +168,7 @@ def make_ledger_fixture(report):
         timing_index=PACKER.TIMINGS.index(row["timing_rule"])
         flow_index=PACKER.FLOWS.index(row["cashflow_mode"])
         count235=0 if year==0 else (target+timing_index+flow_index+year)%158
-        count350=0 if year==0 else (target+2*timing_index+flow_index+year+1)%158
+        count350=0 if year==0 else max(count235,(target+2*timing_index+flow_index+year+1)%158)
         counts.append([year,bond_index,target,timing_index,flow_index,count235,count350])
     return {
         "schema":"glidepath-window-cashflow-ledger-replay.v1",
@@ -320,6 +320,14 @@ class EightTimingPackTests(unittest.TestCase):
         ledger = make_ledger_fixture(report)
         ledger["real_floor_annual_counts"][0][5] = 1
         with self.assertRaisesRegex(ValueError, "Year-zero real-principal"):
+            PACKER.validate_and_pack(report, hist, cohort, ledger)
+
+    def test_rejects_real_principal_count_ordering_violation(self):
+        report, hist, cohort = make_fixture()
+        ledger = make_ledger_fixture(report)
+        item = next(row for row in ledger["real_floor_annual_counts"] if row[0] == 5)
+        item[5] = item[6] + 1
+        with self.assertRaisesRegex(ValueError, "threshold order/range"):
             PACKER.validate_and_pack(report, hist, cohort, ledger)
 
     def test_rejects_histogram_bins_that_compact_format_would_distort(self):
