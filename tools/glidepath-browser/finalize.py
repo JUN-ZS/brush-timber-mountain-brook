@@ -41,6 +41,7 @@ expected_cashflow_contract = {
     "yearly_flow_slices_verified": 132,
     "primary_nav_bindings_verified": 132,
     "metric_rows_verified": 132,
+    "real_floor_bindings_verified": 132,
     "allocation_path_bindings_verified": 132,
     "flow_comparison_bars_verified": 528,
     "no_withdrawal_zero_cashflow_checks": 33,
@@ -81,6 +82,14 @@ expected_counts = (1024, 11264, 4096, 14336)
 actual_counts = (strategy_count, annual_count, histogram_count, cohort_count)
 if actual_counts != expected_counts or window_count != 157:
     raise SystemExit(f"Embedded data-count contract mismatch: actual={actual_counts}, expected={expected_counts}, windows={window_count}")
+if any(not isinstance(row, list) or len(row) != 23 for row in annual_rows):
+    raise SystemExit("Annual pack must contain the original fields plus two exact real-floor counts.")
+for row in annual_rows:
+    n235, n350 = row[21], row[22]
+    if not isinstance(n235, int) or not isinstance(n350, int) or not (0 <= n235 <= n350 <= window_count):
+        raise SystemExit("Annual real-floor counts are invalid or inconsistent across inflation assumptions.")
+    if int(row[0]) == 0 and (n235 != 0 or n350 != 0):
+        raise SystemExit("Year-zero real-floor breach counts must be zero.")
 
 def unique_prefix_keys(rows, width, label):
     keys = []
@@ -166,7 +175,7 @@ for evidence_text in (
 for evidence_text in (
     f"年通脹 2.35% 時，{strategy_count} 組第10年策略中有 {proof_235} 組",
     f"年通脹 3.50% 時是 {proof_350} 組",
-    "未精算",
+    "逐窗口計算實質門檻缺口",
     "不代表途中不回撤",
 ):
     if evidence_text not in risk_disclosure:
@@ -191,10 +200,10 @@ if "未以估算或原模式績效補值" not in html_text:
     raise SystemExit("Reverse replay must explicitly block unsupported cashflows rather than reuse legacy results.")
 if "未扣交易成本、稅費或滑點" not in html_text or "不可視為 AGG／SHY／IEF" not in html_text:
     raise SystemExit("Reverse replay limitations for proxy coverage/costs are missing.")
-if "<th>'+(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')+'</th>" not in html_text:
-    raise SystemExit("Real-mode table header fix is missing.")
-if "未精算（名目 " not in html_text:
-    raise SystemExit("Real-mode table cell guard is missing.")
+if "GLIDEPATH_REAL_FLOOR_RENDERING_V1" not in html_text or "function realFloorWindowText(row,cpi)" not in html_text:
+    raise SystemExit("Exact real-floor renderer/helper is missing.")
+if "實質低於本金門檻窗口" not in html_text or "未精算（名目 " in html_text:
+    raise SystemExit("Real-mode table must show exact real-floor breach counts, not proxy nominal counts.")
 
 # Rebuild a deterministic, single-file ZIP from the exact canonical HTML.
 with ZipFile(BUNDLE, "w", compression=ZIP_DEFLATED, compresslevel=9) as zf:
@@ -227,6 +236,29 @@ if ledger_replay.get("source_as_of") != source_as_of or ledger_replay.get("rolli
     raise SystemExit("Independent cashflow-ledger replay as-of/window mismatch.")
 if (ledger_replay.get("window_rows_expected"), ledger_replay.get("annual_summary_rows_expected"), ledger_replay.get("scenario_count")) != (160768, 11264, 1024):
     raise SystemExit("Independent cashflow-ledger replay coverage is incomplete.")
+real_floor_records = ledger_replay.get("real_floor_breach_counts", [])
+if ledger_replay.get("real_floor_inflation_rates") != [0.0235, 0.035] or len(real_floor_records) != 11264:
+    raise SystemExit("Independent real-floor annual grid is missing either inflation rate or any of its 11,264 rows.")
+bond_order = ("AGG", "SHY", "IEF", "TLT")
+timing_order = ("front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late")
+flow_order = ("no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress")
+ledger_floor_keyed = {}
+for item in real_floor_records:
+    key = (int(item["year"]), bond_order.index(item["bond_proxy"]), int(item["target_bond_conversion_pct_at_year10"]),
+           timing_order.index(item["timing_rule"]), flow_order.index(item["cashflow_mode"]))
+    if key in ledger_floor_keyed:
+        raise SystemExit("Duplicate real-floor annual ledger key: " + repr(key))
+    ledger_floor_keyed[key] = (int(item["windows_below_real_principal_235"]), int(item["windows_below_real_principal_350"]))
+if len(ledger_floor_keyed) != 11264:
+    raise SystemExit("Real-floor ledger does not cover every strategy/year key.")
+floor_row_comparisons = 0
+for row in annual_rows:
+    key = tuple(int(x) for x in row[:5])
+    if ledger_floor_keyed.get(key) != (row[21], row[22]):
+        raise SystemExit("Compact annual real-floor counts differ from independent ledger at " + repr(key))
+    floor_row_comparisons += 2
+if floor_row_comparisons != 22528:
+    raise SystemExit("Expected 22,528 compact real-floor count comparisons.")
 ledger_counts = ledger_replay.get("counters", {})
 for key, expected in {
     "window_rows_replayed": 160768,
@@ -235,6 +267,8 @@ for key, expected in {
     "cashflow_invariants_checked": 482304,
     "yearly_navs_reconciled": 11264,
     "daily_drawdown_paths_replayed": 160768,
+    "real_floor_count_rows": 11264,
+    "real_floor_window_navs_compared": 3536896,
 }.items():
     if ledger_counts.get(key) != expected:
         raise SystemExit(f"Independent ledger replay count mismatch {key}: {ledger_counts.get(key)!r} != {expected}")
@@ -242,6 +276,15 @@ for key, expected in {
 audit = json.loads(AUDIT.read_text(encoding="utf-8"))
 audit["status"] = "BROWSER_AND_STATIC_VERIFICATION_PASSED"
 ledger_replay_summary = dict(ledger_replay)
+ledger_replay_summary.pop("real_floor_breach_counts", None)
+ledger_replay_summary["real_floor_grid"] = {
+    "status": "PASS",
+    "annual_rows": len(real_floor_records),
+    "annual_count_values_reconciled": floor_row_comparisons,
+    "window_nav_comparisons": ledger_counts["real_floor_window_navs_compared"],
+    "inflation_rates": ledger_replay["real_floor_inflation_rates"],
+    "definition": "Each annual account NAV is compared strictly below initial capital compounded at the stated inflation rate; withdrawals already paid are not added back."
+}
 ledger_replay_summary.update({
     "window_rows_replayed": ledger_counts["window_rows_replayed"],
     "annual_rows_reconciled": ledger_counts["annual_rows_reconciled"],
@@ -249,10 +292,23 @@ ledger_replay_summary.update({
     "cashflow_invariants_checked": ledger_counts["cashflow_invariants_checked"],
     "yearly_navs_reconciled": ledger_counts["yearly_navs_reconciled"],
     "daily_drawdown_paths_replayed": ledger_counts["daily_drawdown_paths_replayed"],
+    "real_floor_count_rows": ledger_counts["real_floor_count_rows"],
+    "real_floor_window_navs_compared": ledger_counts["real_floor_window_navs_compared"],
     "fields_compared": ledger_counts["fields_compared"],
     "max_abs_error": ledger_counts.get("max_abs_error", {}),
 })
 audit["cashflow_window_ledger_replay"] = ledger_replay_summary
+audit["real_floor_breach_grid"] = {
+    "status": "PASS",
+    "annual_rows": len(real_floor_records),
+    "annual_count_values_reconciled": floor_row_comparisons,
+    "window_nav_comparisons": ledger_counts["real_floor_window_navs_compared"],
+    "inflation_rates": ledger_replay["real_floor_inflation_rates"],
+    "years": list(range(11)),
+    "windows_per_annual_row": window_count,
+    "source_panel_sha256": ledger_replay["source_panel_sha256"],
+    "definition": ledger_replay_summary["real_floor_grid"]["definition"],
+}
 audit["embedded_data_counts"] = {
     "scenarios_D": strategy_count,
     "annual_A": annual_count,
@@ -357,6 +413,7 @@ audit["final_artifact_verification"] = {
     },
     "annual_year10_summary_mismatches": annual_year10_summary_mismatches,
     "cashflow_nav_semantic_sweep": cashflow_semantics,
+    "real_floor_breach_grid": audit["real_floor_breach_grid"],
     "cashflow_window_ledger_replay": {
         "status": ledger_replay["status"],
         "source_panel_sha256": ledger_replay["source_panel_sha256"],
