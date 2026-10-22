@@ -164,10 +164,13 @@ def annual_summary(marks):
       "p95_shortfall_usd":round(quantile(sf,.95),2),"median_target_bond_weight":quantile(bw,.5),
       "median_target_stock_weight":quantile([1-x for x in bw],.5)}
 
-def real_principal_breach_counts(nav_values, year):
-    """Count year-end remaining-NAV marks below the two real-principal thresholds."""
+def real_principal_breach_counts(nav_values, year, expected_windows=157):
+    """Count year-end NAV marks below inflation-adjusted principal; cohort samples may contain fewer windows."""
     need(isinstance(year, int) and 0 <= year <= 10, f"Invalid real-principal count year: {year}")
-    need(len(nav_values) == 157, f"Real-principal count needs 157 window NAVs, got {len(nav_values)}")
+    need(isinstance(expected_windows, int) and expected_windows > 0,
+         f"Invalid expected real-principal sample size: {expected_windows}")
+    need(len(nav_values) == expected_windows,
+         f"Real-principal count needs {expected_windows} window NAVs, got {len(nav_values)}")
     navs = [float(value) for value in nav_values]
     need(all(math.isfinite(value) and value >= 0 for value in navs),
          "Real-principal counts require finite non-negative remaining NAVs")
@@ -176,8 +179,8 @@ def real_principal_breach_counts(nav_values, year):
     # Strictly less than counts a breach; a NAV exactly on the threshold is not below it.
     count235 = sum(value < threshold235 for value in navs)
     count350 = sum(value < threshold350 for value in navs)
-    need(0 <= count235 <= count350 <= 157,
-         f"Real-principal breach counts violate threshold ordering: {year}/{count235}/{count350}")
+    need(0 <= count235 <= count350 <= expected_windows,
+         f"Real-principal breach counts violate threshold ordering: {year}/{count235}/{count350}/{expected_windows}")
     if year == 0:
         need(count235 == count350 == 0, "Year-zero real-principal breach counts must both be zero")
     return count235, count350
@@ -207,8 +210,10 @@ def main():
     annuals={(r["bond_proxy"],int(r["target_bond_conversion_pct_at_year10"]),r["timing_rule"],r["cashflow_mode"],int(r["year"])):r for r in report["annual_scenarios"]}
     need(len(scenarios)==1024 and len(annuals)==11264,"Incomplete source summaries")
     stats={"fields_compared":0,"max_abs_error":{},"window_rows_replayed":0,"annual_rows_reconciled":0,
-      "scenario_summaries_reconciled":0,"cashflow_invariants_checked":0,"yearly_navs_reconciled":0,"daily_drawdown_paths_replayed":0,"real_floor_annual_rows":0}
+      "scenario_summaries_reconciled":0,"cashflow_invariants_checked":0,"yearly_navs_reconciled":0,"daily_drawdown_paths_replayed":0,"real_floor_annual_rows":0,"real_floor_cohort_rows":0}
     real_floor_annual_counts=[]
+    real_floor_cohort_counts=[]
+    expected_cohort_years=list(range(2003,2017))
     with a.windows.open(newline="",encoding="utf-8") as f:
       sources=iter(csv.DictReader(f))
       for mode in FLOWS:
@@ -241,6 +246,20 @@ def main():
            stats["max_abs_error"][name]=max(stats["max_abs_error"].get(name,0),err)
            need(err<=tol,f"Scenario summary mismatch {key}/{field}: {value} vs {expected}")
           stats["scenario_summaries_reconciled"]+=1
+          # Re-group the same independently replayed terminal NAVs by calendar start year.
+          cohort_navs={}
+          for window in rows:
+           start_year=int(window["window_start"][:4])
+           cohort_navs.setdefault(start_year,[]).append(float(window["terminal_nav_usd"]))
+          need(sorted(cohort_navs)==expected_cohort_years,
+               f"Real-principal cohort grid differs from pinned start-year grid: {key}/{sorted(cohort_navs)}")
+          for start_year in expected_cohort_years:
+           nav_values=cohort_navs[start_year]
+           count235,count350=real_principal_breach_counts(nav_values,10,expected_windows=len(nav_values))
+           real_floor_cohort_counts.append([
+             BONDS.index(bond),target,TIMINGS.index(timing),FLOWS.index(mode),
+             start_year,len(nav_values),count235,count350
+           ])
           for y in range(11):
            ak=(*key,y); derived=annual_summary(marks_by_year[y]); src=annuals[ak]
            for field,value in derived.items():
@@ -268,6 +287,13 @@ def main():
     need(stats["annual_rows_reconciled"]==11264,"Expected 11,264 annual rows")
     need(stats["real_floor_annual_rows"]==11264 and len(real_floor_annual_counts)==11264,
          "Expected exact real-principal counts for all 11,264 strategy/year rows")
+    stats["real_floor_cohort_rows"]=len(real_floor_cohort_counts)
+    need(stats["real_floor_cohort_rows"]==14336,
+         f"Expected exact real-principal counts for all 14,336 strategy/start-year cohort rows, got {stats['real_floor_cohort_rows']}")
+    need(len({tuple(row[:5]) for row in real_floor_cohort_counts})==14336,
+         "Duplicate strategy/start-year real-principal cohort count key")
+    need(all(0 < row[5] <= 12 and 0 <= row[6] <= row[7] <= row[5] for row in real_floor_cohort_counts),
+         "Cohort real-principal counts violate sample-size/threshold-order contract")
     result={"schema":"glidepath-window-cashflow-ledger-replay.v1","status":"PASS",
       "method":"Independent normalized-share replay from daily adjusted prices with explicit external cashflows; source engine not imported",
       "source_panel_sha256":panel_sha,"source_as_of":dates[-1],"initial_capital_usd":INITIAL,
@@ -276,6 +302,10 @@ def main():
       "real_floor_annual_count_schema":["year","bond_index","target_pct","timing_index","flow_index","below_real_principal_235_count","below_real_principal_350_count"],
       "real_floor_annual_count_rates":[0.0235,0.035],
       "real_floor_annual_counts":real_floor_annual_counts,
+      "real_floor_cohort_count_schema":["bond_index","target_pct","timing_index","flow_index","start_year","window_count","below_real_principal_235_count","below_real_principal_350_count"],
+      "real_floor_cohort_count_rates":[0.0235,0.035],
+      "real_floor_cohort_count_rows":len(real_floor_cohort_counts),
+      "real_floor_cohort_counts":real_floor_cohort_counts,
       "limitations":["Counts compare annual year-end portfolio NAV against initial capital × (1 + assumed annual inflation)^year with a strict less-than test.",
        "For withdrawal modes, counts use remaining portfolio NAV and do not add previously withdrawn cash back to account NAV.",
        "Daily marks are rounded to 10 decimals in the pinned panel; USD tolerance allows sub-cent drift.",
