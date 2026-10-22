@@ -1,12 +1,12 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 3809800,
+  "html_bytes": 3810004,
   "original_html_bytes": 13068927,
   "html_size_reduction_pct": 70.85,
-  "bundle_bytes": 915373,
+  "bundle_bytes": 915424,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 41.32,
-  "sha256": "265e796ae1f2fc98e5aec3959e98c34058223500164835edd49bf83bee9ff61e",
+  "bundle_size_reduction_pct": 41.31,
+  "sha256": "d70688b6175b1a166103a6317f2f456d6b306e2445581b5521cea091e143c505",
   "element_ids_count": 66,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 3796104,
+  "html_characters": 3796276,
   "v2_1_review": {
-    "source_commit": "1c9b5003d994e22f96f6ab091bfe9eedb06e8176",
+    "source_commit": "84a643694483b06d8244d876b4ae687b53b4ede1",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -180,8 +180,10 @@
       "ZIP bundle regenerated from the exact v2.1 HTML."
     ],
     "known_limits": [
-      "Exact real-principal breach counts for each year, strategy, cashflow mode and inflation assumption are calculated from independently replayed 157-window year-end NAV marks.",
+      "Annual real-principal breach counts for every year/strategy/cashflow/inflation key use independently replayed 157-window year-end NAV marks.",
+      "Start-year cohort real-principal counts use the actual 4–12 windows in each start-year subgroup; these are subsets of the same overlapping ten-year windows and are not independent probability samples.",
       "The visible real-principal count compares remaining portfolio NAV with initial capital inflated by the selected annual rate; it does not add previously withdrawn cash back to account NAV.",
+      "Counts are based on year-end NAV and do not count intrayear threshold touches. They are historical descriptive tallies, not future probabilities.",
       "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied.",
       "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries.",
       "The reversed bond-to-stock replay is independently recomputed from repository SPY/TLT daily adjusted-close rows; it does not reuse the original stock-to-bond performance summaries.",
@@ -456,6 +458,7 @@
       "real_floor_cohort_checks": [
         {
           "inflation": 0.0235,
+          "cohort_metric_label": "低於實質本金窗口",
           "cohort_groups": 14,
           "bars_verified": 14,
           "all_bars_match": true,
@@ -479,6 +482,7 @@
         },
         {
           "inflation": 0.035,
+          "cohort_metric_label": "低於實質本金窗口",
           "cohort_groups": 14,
           "bars_verified": 14,
           "all_bars_match": true,
@@ -308054,6 +308058,7 @@
     "real_floor_cohort_checks": [
       {
         "inflation": 0.0235,
+        "cohort_metric_label": "低於實質本金窗口",
         "cohort_groups": 14,
         "bars_verified": 14,
         "all_bars_match": true,
@@ -308077,6 +308082,7 @@
       },
       {
         "inflation": 0.035,
+        "cohort_metric_label": "低於實質本金窗口",
         "cohort_groups": 14,
         "bars_verified": 14,
         "all_bars_match": true,
@@ -308100,15 +308106,15 @@
       }
     ]
   },
-  "bundle_sha256": "b53b1350d324bc84411c26a23235161feac57ce16c48806b81a1d6ca3b287110",
-  "html_crc32": "d33a0a3f",
+  "bundle_sha256": "bd10104a271cc7b1e238925cd194b238bfe15e37f3398aa4da84e8dc1a1d0186",
+  "html_crc32": "c27d842d",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "265e796ae1f2fc98e5aec3959e98c34058223500164835edd49bf83bee9ff61e",
-    "bundle_sha256": "b53b1350d324bc84411c26a23235161feac57ce16c48806b81a1d6ca3b287110",
-    "html_bytes": 3809800,
-    "bundle_bytes": 915373,
-    "html_crc32": "d33a0a3f",
+    "html_sha256": "d70688b6175b1a166103a6317f2f456d6b306e2445581b5521cea091e143c505",
+    "bundle_sha256": "bd10104a271cc7b1e238925cd194b238bfe15e37f3398aa4da84e8dc1a1d0186",
+    "html_bytes": 3810004,
+    "bundle_bytes": 915424,
+    "html_crc32": "c27d842d",
     "unique_html_ids": 66,
     "duplicate_ids": [],
     "embedded_data_counts": {
@@ -308209,6 +308215,7 @@
       "checks": [
         {
           "inflation": 0.0235,
+          "cohort_metric_label": "低於實質本金窗口",
           "cohort_groups": 14,
           "bars_verified": 14,
           "all_bars_match": true,
@@ -308232,6 +308239,7 @@
         },
         {
           "inflation": 0.035,
+          "cohort_metric_label": "低於實質本金窗口",
           "cohort_groups": 14,
           "bars_verified": 14,
           "all_bars_match": true,
@@ -308323,7 +308331,7 @@
     "paired_direction_comparison_real_235_status": "passed",
     "paired_direction_comparison_real_235_windows": 157,
     "paired_direction_comparison_real_235_passed": true,
-    "created_at_utc": "2026-10-22T07:44:50.327267+00:00"
+    "created_at_utc": "2026-10-22T07:51:24.403783+00:00"
   },
   "cashflow_window_ledger_replay": {
     "schema": "glidepath-window-cashflow-ledger-replay.v1",

@@ -685,6 +685,8 @@ function cohortChartX(s){
 
 function update(){
   let s=S(),r=Y(s.bond,s.target,s.timing,s.flow,s.year);
+  const cohortMetricOption=$("cohortMetricX").querySelector('option[value="below"]');
+  if(cohortMetricOption)cohortMetricOption.textContent=s.cpi>0?"低於實質本金窗口":"低於起始本金窗口";
   const cpiTag=s.cpi>0?"（已按 "+(s.cpi*100).toFixed(2)+"% 年化通膨假設折算實質購買力）":"";
   const statLabel=s.stat==="p05"?"P05 下尾":s.stat==="worst"?"最差窗口":"中位數";
   $("targetOut").textContent=s.target+"%";
