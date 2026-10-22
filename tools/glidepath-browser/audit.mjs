@@ -987,7 +987,7 @@ try {
   const realFloorAnnualIntegrity = await page.evaluate(() => {
     const rows = RAW_PACK.a;
     const valid = rows.filter(row => Number.isInteger(row[21]) && Number.isInteger(row[22]) &&
-      row[21] >= 0 && row[21] <= 157 && row[22] >= 0 && row[22] <= 157);
+      row[21] >= 0 && row[21] <= row[22] && row[22] <= 157);
     const yearZero = rows.filter(row => Number(row[0]) === 0);
     const yearTen = rows.filter(row => Number(row[0]) === 10);
     return {
