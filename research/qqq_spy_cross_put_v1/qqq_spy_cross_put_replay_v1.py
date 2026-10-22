@@ -253,6 +253,13 @@ def mark_pnl(ep,qrow,srow):
     return episode_pnl(ep,float(qrow["bid"]),float(srow["ask"]),ep["base_slippage_per_share"],
         ep["base_commission_per_contract_per_side"])["net_pnl_usd"]
 
+
+def update_mark_extremes(ep, mark):
+    previous_favorable = ep.get("max_favorable_mark_pnl_usd")
+    previous_adverse = ep.get("max_adverse_mark_pnl_usd")
+    ep["max_favorable_mark_pnl_usd"] = mark if previous_favorable is None else max(previous_favorable, mark)
+    ep["max_adverse_mark_pnl_usd"] = mark if previous_adverse is None else min(previous_adverse, mark)
+
 def wilson95(wins,n):
     if n<=0:return None,None
     z=1.959963984540054;p=wins/n;den=1+z*z/n
@@ -424,8 +431,7 @@ def run_replay(args):
                 remaining.append(ep);continue
             if valid_quote(qrow) and valid_quote(srow):
                 mark=mark_pnl(ep,qrow,srow);ep["valid_mark_sessions"]+=1;ep["last_mark_pnl_usd"]=mark
-                ep["max_favorable_mark_pnl_usd"]=max(ep.get("max_favorable_mark_pnl_usd",mark),mark)
-                ep["max_adverse_mark_pnl_usd"]=min(ep.get("max_adverse_mark_pnl_usd",mark),mark)
+                update_mark_extremes(ep, mark)
             else:ep["missing_mark_sessions"]+=1
             if day>=ep["expiry"]:
                 ep.update({"status":"UNRESOLVED_EXPIRED_NO_EXIT","exit_date":None,"unresolved_reason":"EXPIRY_REACHED_BEFORE_EXECUTABLE_EXIT","last_observed_date":day})

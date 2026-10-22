@@ -68,6 +68,18 @@ class CrossPutReplayTests(unittest.TestCase):
         self.assertEqual(pair["spy_contract_id"], srows[0]["contract_id"])
         self.assertIsNone(replay.choose_pair(qrows[:1], [srows[1]], day, 400, 480))
 
+    def test_mark_extremes_accept_none_initial_values_and_track_later_marks(self):
+        episode = {"max_favorable_mark_pnl_usd": None, "max_adverse_mark_pnl_usd": None}
+        replay.update_mark_extremes(episode, -125.0)
+        self.assertEqual(episode["max_favorable_mark_pnl_usd"], -125.0)
+        self.assertEqual(episode["max_adverse_mark_pnl_usd"], -125.0)
+        replay.update_mark_extremes(episode, 40.0)
+        self.assertEqual(episode["max_favorable_mark_pnl_usd"], 40.0)
+        self.assertEqual(episode["max_adverse_mark_pnl_usd"], -125.0)
+        replay.update_mark_extremes(episode, -200.0)
+        self.assertEqual(episode["max_favorable_mark_pnl_usd"], 40.0)
+        self.assertEqual(episode["max_adverse_mark_pnl_usd"], -200.0)
+
     def test_wilson_and_resolved_only_win_rate_denominator(self):
         low, high = replay.wilson95(8, 10)
         self.assertIsNotNone(low)
