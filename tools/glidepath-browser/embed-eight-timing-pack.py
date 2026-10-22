@@ -143,6 +143,8 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
     require(len(real_floor_rows) == 11264 and set(real_floor_by_key) == set(annual_keyed),
             "Independent real-principal count grid must contain one row for every strategy/year key")
 
+    cohort_start_years = {int(row["start_year"]) for row in cohort_report.get("cohorts", [])}
+    require(cohort_start_years, "Start-year cohort data is missing")
     real_floor_cohort_rows = ledger_replay_report.get("real_floor_cohort_counts", [])
     require(ledger_replay_report.get("real_floor_cohort_count_rates") == [0.0235, 0.035],
             "Cohort real-principal counts must use the pinned 2.35% and 3.50% rates")
@@ -156,7 +158,7 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
                 "Malformed start-year real-principal count row")
         bond_index, target, timing_index, flow_index, year, sample_n, count235, count350 = item
         require(bond_index in range(len(BONDS)) and target in TARGETS and
-                timing_index in range(len(TIMINGS)) and flow_index in range(len(FLOWS)) and year in cohort_years,
+                timing_index in range(len(TIMINGS)) and flow_index in range(len(FLOWS)) and year in cohort_start_years,
                 f"Invalid start-year real-principal count key: {item}")
         key = (BONDS[bond_index], target, TIMINGS[timing_index], FLOWS[flow_index], year)
         require(key not in real_floor_cohort_by_key,
