@@ -1,0 +1,101 @@
+name: QQQ LONG PUT vs SPY SHORT PUT Cross-Underlying Replay V1
+on:
+  workflow_dispatch:
+    inputs:
+      long_qqq_contracts:
+        description: "Number of LONG QQQ puts"
+        required: true
+        default: "4"
+        type: string
+      short_spy_contracts:
+        description: "Number of SHORT SPY puts"
+        required: true
+        default: "5"
+        type: string
+      start_date:
+        description: "First signal date (YYYY-MM-DD)"
+        required: true
+        default: "2018-03-01"
+        type: string
+      end_date:
+        description: "Last observation date; source ends 2025-12-15"
+        required: true
+        default: "2025-12-15"
+        type: string
+  push:
+    branches:
+      - research/qqq-long-put-vs-spy-short-put-v1
+    paths:
+      - research/qqq_spy_cross_put_v1/*.py
+      - research/qqq_spy_cross_put_v1/CONTRACT.md
+      - .github/workflows/qqq-spy-cross-put-v1.yml
+permissions:
+  contents: write
+concurrency:
+  group: qqq-spy-cross-put-v1
+  cancel-in-progress: false
+jobs:
+  replay:
+    name: SHA-pinned QQQ/SPY matched-put replay (Linux BOT)
+    runs-on: [self-hosted, grokbot-box-linux-x64]
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout exact research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Runtime
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv-cross-put
+          .venv-cross-put/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and run offline contract tests before downloads
+        run: |
+          set -euo pipefail
+          PY=.venv-cross-put/bin/python
+          $PY -m py_compile research/qqq_spy_cross_put_v1/qqq_spy_cross_put_replay_v1.py
+          $PY -m py_compile research/qqq_spy_cross_put_v1/test_qqq_spy_cross_put_replay_v1.py
+          $PY research/qqq_spy_cross_put_v1/test_qqq_spy_cross_put_replay_v1.py
+      - name: Run SHA-pinned cross-underlying study
+        timeout-minutes: 120
+        env:
+          LONG_QQQ: ${{ inputs.long_qqq_contracts || 4 }}
+          SHORT_SPY: ${{ inputs.short_spy_contracts || 5 }}
+          START_DATE: ${{ inputs.start_date || '2018-03-01' }}
+          END_DATE: ${{ inputs.end_date || '2025-12-15' }}
+        run: |
+          set -euo pipefail
+          PY=.venv-cross-put/bin/python
+          OUT=research/qqq_spy_cross_put_v1/results/latest
+          mkdir -p "$OUT"
+          $PY research/qqq_spy_cross_put_v1/qqq_spy_cross_put_replay_v1.py \
+            --long-qqq "$LONG_QQQ" --short-spy "$SHORT_SPY" \
+            --start "$START_DATE" --end "$END_DATE" \
+            --qqq-cache "$HOME/.cache/qqq-options-full-history" \
+            --spy-cache "$HOME/.cache/spy-options-cross-put-v1" \
+            --out "$OUT" | tee "$OUT/run_console.json"
+          test -s "$OUT/summary.json"
+          test -s "$OUT/summary.md"
+          test -s "$OUT/trade_episodes.csv"
+          test -s "$OUT/entry_cohort.csv"
+          test -s "$OUT/entry_skips.csv"
+          test -s "$OUT/cost_sensitivity.csv"
+          test -s "$OUT/expiry_shock_grid.csv"
+          test -s "$OUT/source_manifest.json"
+          cat "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit compact replay results (avoid Actions artifact quota)
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_cross_put_v1/results/latest
+          if git diff --cached --quiet; then
+            echo "Results identical to committed latest; no result commit needed."
+            exit 0
+          fi
+          git commit -m "research: record QQQ long put vs SPY short put replay"
+          git push origin HEAD:research/qqq-long-put-vs-spy-short-put-v1
