@@ -295,11 +295,20 @@ class EightTimingPackTests(unittest.TestCase):
 function realCagr(cagr,cpi){return cagr==null?null:!cpi?cagr:(1+cagr)/(1+cpi)-1;}
 const realFloorThreshold=100000*Math.pow(1+s.cpi,s.year);
 const nominalFloorForMode=Math.round(100000*Math.pow(1+s.cpi,s.year));
-let ms=[[s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"]];
+let ms=[
+[s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],
+["累計缺口窗口",r.windows_with_withdrawal_shortfall+"/"+r.rolling_windows,"缺口計數"]
+]
 <p>固定目標轉債比例、債券代理及現金流，逐行比較八種轉換時間規則的資產、回報、回撤與名目低於本金窗口；實質模式會明確標示未精算。</p>
 var head=+'<th>'+(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')+'</th>';
 var cell=+(s.cpi>0?'未精算（名目 '+v.windows_below_initial_capital+'/'+v.rolling_windows+'）':v.windows_below_initial_capital+'/'+v.rolling_windows)+;
-const detail = "其實質虧損窗口數未精算；名目計數 ";
+  if(s.cpi===0){
+    $("decisionFloorDetail").textContent="截至第"+s.year+"年，名目終值低於 $100,000 的窗口為 "+r.windows_below_initial_capital+"/"+r.rolling_windows+"；這是窗口終值計數，不是未來成功率。";
+  }else if(Number(r.worst_nav_usd)>=realFloorThreshold-1e-7){
+    $("decisionFloorDetail").textContent="主資產以今日購買力美元顯示，實質本金門檻是 $100,000。最差窗口名目終值 "+usd(r.worst_nav_usd)+" 仍不低於名目門檻 "+usd(realFloorThreshold)+"；可證明截至第"+s.year+"年低於實質本金的終值窗口為 0/"+r.rolling_windows+"。";
+  }else{
+    $("decisionFloorDetail").textContent="主資產以今日購買力美元顯示，實質本金門檻是 $100,000；對應名目終值需至少 "+usd(realFloorThreshold)+"。其實質虧損窗口數未精算；名目計數 "+r.windows_below_initial_capital+"/"+r.rolling_windows+" 只供參考。";
+  }
 const risk = "精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";"""
         const patched = PACKER.patch_real_floor_renderer(fragment)
         self.assertIn("function realFloorWindowText(row,cpi)", patched)
