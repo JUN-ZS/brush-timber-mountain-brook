@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Pack an independently verified eight-timing Stage 2 replay into canonical v2.html.
 
-This command deliberately accepts generated research outputs as inputs. It does not
-invent annual marks, histogram bins, cohort data, or capital-floor counts.
+This command accepts generated research outputs and the independent ledger audit.
+It never infers real-floor counts from medians or worst-case summaries.
 """
 from __future__ import annotations
 
@@ -57,8 +57,54 @@ def index4(key: tuple[str, int, str, str]) -> list[int]:
     bond, target, timing, flow = key
     return [BONDS.index(bond), target, TIMINGS.index(timing), FLOWS.index(flow)]
 
+def index_real_floor_counts(ledger_audit: dict[str, Any], keys: list[tuple[str, int, str, str]],
+                            windows: int, initial: float, source_sha: str, source_as_of: str
+                            ) -> dict[tuple[str, int, str, str, int], tuple[int, int]]:
+    require(ledger_audit.get("schema") == "glidepath-window-cashflow-ledger-replay.v1" and
+            ledger_audit.get("status") == "PASS",
+            "Independent ledger audit is missing or did not PASS")
+    require(ledger_audit.get("source_panel_sha256") == source_sha and
+            ledger_audit.get("source_as_of") == source_as_of,
+            "Real-floor counts use a different source panel or as-of date")
+    require(abs(float(ledger_audit.get("initial_capital_usd", 0))-initial) <= 0.01 and
+            int(ledger_audit.get("rolling_windows_per_scenario", 0)) == windows,
+            "Real-floor audit initial-capital/window contract mismatch")
+    require(ledger_audit.get("real_floor_inflation_rates") == [0.0235, 0.035],
+            "Real-floor audit must cover exactly 2.35% and 3.50% annualized inflation")
+    rows = ledger_audit.get("real_floor_breach_counts", [])
+    expected = {(*key, year) for key in keys for year in range(11)}
+    keyed: dict[tuple[str, int, str, str, int], tuple[int, int]] = {}
+    for row in rows:
+        key4 = scenario_key(row)
+        year = int(row.get("year", -1))
+        key = (*key4, year)
+        require(key in expected, f"Unexpected real-floor annual key: {key}")
+        require(key not in keyed, f"Duplicate real-floor annual key: {key}")
+        require(int(row.get("windows_sampled", 0)) == windows,
+                f"Real-floor annual row has wrong window count: {key}")
+        for field, rate in (("threshold_usd_235", 0.0235), ("threshold_usd_350", 0.035)):
+            threshold = finite_or_none(row.get(field), field)
+            require(threshold is not None and abs(threshold-initial*((1+rate)**year)) <= 0.01,
+                    f"Real-floor threshold mismatch for {key}/{field}")
+        raw235 = finite_or_none(row.get("windows_below_real_principal_235"), "windows_below_real_principal_235")
+        raw350 = finite_or_none(row.get("windows_below_real_principal_350"), "windows_below_real_principal_350")
+        require(raw235 is not None and raw350 is not None and raw235.is_integer() and raw350.is_integer(),
+                f"Real-floor counts must be integers: {key}")
+        n235, n350 = int(raw235), int(raw350)
+        require(0 <= n235 <= n350 <= windows, f"Real-floor counts outside valid bounds: {key}")
+        if year == 0:
+            require(n235 == 0 and n350 == 0, f"Year zero count must be zero: {key}")
+        keyed[key] = (n235, n350)
+    require(len(rows) == 11264 and set(keyed) == expected,
+            f"Expected 11,264 unique real-floor annual rows, got {len(rows)}")
+    counters = ledger_audit.get("counters", {})
+    require(counters.get("real_floor_count_rows") == 11264 and
+            counters.get("real_floor_window_navs_compared") == 3536896,
+            "Real-floor ledger coverage counters are incomplete")
+    return keyed
+
 def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
-                      cohort_report: dict[str, Any]) -> dict[str, Any]:
+                      cohort_report: dict[str, Any], ledger_audit: dict[str, Any] | None = None) -> dict[str, Any]:
     require(report.get("schema") == EXPECTED_SCHEMA, "Unexpected Stage 2 backtest schema")
     method = report.get("method", {})
     data = report.get("data", {})
@@ -75,6 +121,7 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
             "Source panel SHA-256 is missing or malformed")
     require(int(data.get("common_month_end_observations", 0)) == 277,
             "Expected 277 common monthly observations")
+    require(ledger_audit is not None, "Independent ledger audit is required; real-floor counts may not be inferred")
 
     scenario_rows = report.get("scenarios", [])
     annual_rows = report.get("annual_scenarios", [])
@@ -90,6 +137,8 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
                 f"Wrong rolling-window count for {key}")
         by_scenario[key] = row
     require(set(by_scenario) == set(keys), "Scenario grid is incomplete")
+    real_floor_by_annual = index_real_floor_counts(
+        ledger_audit, keys, windows, float(initial), source_sha, str(data["last_common_date"]))
 
     annual_keyed: dict[tuple[str, int, str, str, int], dict[str, Any]] = {}
     for row in annual_rows:
@@ -344,6 +393,8 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
                 int(row["windows_below_initial_capital"]), int(row["windows_with_withdrawal_shortfall"]),
                 rounded(row["median_actual_withdrawals_usd"], 2), rounded(row["median_shortfall_usd"], 2),
                 rounded(row["p95_shortfall_usd"], 2), rounded(row["median_target_bond_weight"]),
+                real_floor_by_annual[(*key, year)][0],
+                real_floor_by_annual[(*key, year)][1],
             ])
     h = []
     for key in keys:
@@ -372,6 +423,8 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
         "initial_capital_usd": round(initial, 2),
         "rolling_windows_per_scenario": windows,
         "cohort_years": cohort_years,
+        "real_floor_inflation_rates": [0.0235, 0.035],
+        "real_floor_count_definition": "Count annual window NAV strictly below initial capital compounded at 2.35% or 3.50%; withdrawals already paid are not added back.",
     }
     return {"cm": cm, "d": d, "a": a, "h": h, "c": cohort, "meta": meta}
 
@@ -503,13 +556,15 @@ def main() -> int:
     parser.add_argument("--summary", type=Path, required=True)
     parser.add_argument("--histograms", type=Path, required=True)
     parser.add_argument("--cohorts", type=Path, required=True)
+    parser.add_argument("--ledger-audit", type=Path, required=True)
     parser.add_argument("--html", type=Path, default=ROOT / "v2.html")
     args = parser.parse_args()
 
     report = json.loads(args.summary.read_text(encoding="utf-8"))
     hist = json.loads(args.histograms.read_text(encoding="utf-8"))
     cohort_report = json.loads(args.cohorts.read_text(encoding="utf-8"))
-    pack = validate_and_pack(report, hist, cohort_report)
+    ledger_audit = json.loads(args.ledger_audit.read_text(encoding="utf-8"))
+    pack = validate_and_pack(report, hist, cohort_report, ledger_audit)
     original = args.html.read_text(encoding="utf-8")
     updated = embed_pack(original, pack)
     args.html.write_text(updated, encoding="utf-8")
@@ -521,6 +576,8 @@ def main() -> int:
         "annual_summaries": len(pack["a"]),
         "histogram_groups": len(pack["h"]),
         "cohort_rows": len(pack["c"]),
+        "real_floor_rows": 11264,
+        "real_floor_rates": pack["meta"]["real_floor_inflation_rates"],
         "cohort_years": pack["meta"]["cohort_years"],
         "html_characters": len(updated),
     }, ensure_ascii=False, indent=2))
