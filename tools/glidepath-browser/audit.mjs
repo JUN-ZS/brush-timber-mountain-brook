@@ -22,6 +22,7 @@ let result = {
   glidepath_geometry: null,
   stat_view_missing_guards: {},
   real_mode_table_label_guard: {},
+  real_floor_count_bindings_verified: 0,
   derived_real_breach_zero_proof: [],
   interactive_delegations_verified: {},
   csv_exports_verified: {},
@@ -183,7 +184,7 @@ try {
     "decision evidence is missing the dynamic strategy count, rolling-window count or forward-data as-of date");
   need(summaryPlacement.evidenceRisk.includes(summaryPlacement.floorProof235 + " 組") &&
     summaryPlacement.evidenceRisk.includes(summaryPlacement.floorProof350 + " 組") &&
-    summaryPlacement.evidenceRisk.includes("未精算") && summaryPlacement.evidenceRisk.includes("不代表途中"),
+    summaryPlacement.evidenceRisk.includes("逐窗口計算實質門檻缺口") && summaryPlacement.evidenceRisk.includes("不代表途中"),
     "decision evidence must derive real-terminal-floor evidence counts from the embedded strategy records");
   need(summaryPlacement.evidenceDataset.strategyCount === String(summaryPlacement.strategyCount) &&
     summaryPlacement.evidenceDataset.sampleWindows === String(summaryPlacement.sampleWindows),
@@ -264,6 +265,7 @@ try {
     yearly_flow_slices_verified: 0,
     primary_nav_bindings_verified: 0,
     metric_rows_verified: 0,
+    real_floor_bindings_verified: 0,
     allocation_path_bindings_verified: 0,
     flow_comparison_bars_verified: 0,
     no_withdrawal_zero_cashflow_checks: 0,
@@ -323,7 +325,8 @@ try {
             ["截至當年累計年化回報", pctText(row[9])],
             ["截至當年最大回撤", pctText(row[13])],
             ["最差窗口截至當年回撤", pctText(row[14])],
-            ["名目低於本金窗口", String(Math.round(Number(row[15]))) + "/157"],
+            [cpi > 0 ? "實質低於本金門檻窗口" : "名目低於本金窗口",
+              cpi > 0 ? String(Math.round(Number(row[cpi === 0.0235 ? 21 : 22]))) + "/157" : String(Math.round(Number(row[15])) ) + "/157"],
             ["累計缺口窗口", String(Math.round(Number(row[16]))) + "/157"]
           ];
           const metricReconciles = navMetricRows.length === expectedMetricRows.length &&
@@ -426,6 +429,7 @@ try {
         cashflowSemanticSweep.yearly_flow_slices_verified++;
         cashflowSemanticSweep.primary_nav_bindings_verified++;
         cashflowSemanticSweep.metric_rows_verified++;
+        cashflowSemanticSweep.real_floor_bindings_verified++;
         cashflowSemanticSweep.allocation_path_bindings_verified++;
         cashflowSemanticSweep.data_scope_disclosure_checks++;
       }
@@ -877,9 +881,19 @@ try {
   await page.locator("#realMode").selectOption("0.0235");
   const realHead = await page.locator("#table thead th").nth(7).innerText();
   const realCell = await page.locator("#table tbody tr").first().locator("td").nth(7).innerText();
-  need(realHead.includes("實質保本窗口") && realHead.includes("未精算"), "table real-mode header is ambiguous: " + realHead);
-  need(realCell.includes("未精算（名目") && realCell.includes("/157）"), "table real-mode count still presents an unlabelled nominal count: " + realCell);
-  result.real_mode_table_label_guard = {header: realHead, first_row: realCell, passed: true};
+  const expectedRealCell = await page.evaluate(() => {
+    const year = Number(document.querySelector("#year").value);
+    const bi = ["AGG","SHY","IEF","TLT"].indexOf(document.querySelector("#bond").value);
+    const target = Number(document.querySelector("#target").value);
+    const fi = ["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"].indexOf(document.querySelector("#flow").value);
+    const row = RAW_PACK.a.find(item => item[0] === year && item[1] === bi && item[2] === target && item[3] === 0 && item[4] === fi);
+    return row ? String(row[21]) + "/157" : null;
+  });
+  need(realHead === "實質低於本金門檻窗口", "real-floor table header is ambiguous: " + realHead);
+  need(expectedRealCell !== null && realCell === expectedRealCell,
+    "real-floor cell differs from the replayed annual NAV count: " + realCell + " vs " + expectedRealCell);
+  result.real_mode_table_label_guard = {header: realHead, first_row: realCell, expected_first_row: expectedRealCell, passed: true};
+  result.real_floor_count_bindings_verified = 2;
   await page.locator("#realMode").selectOption("0");
   const nominalHead = await page.locator("#table thead th").nth(7).innerText();
   const nominalCell = await page.locator("#table tbody tr").first().locator("td").nth(7).innerText();
@@ -903,6 +917,8 @@ try {
   need(proof[0].year10_strategies === 1024 && proof[1].year10_strategies === 1024, "year-10 strategy count does not match all 1,024 embedded scenario records");
   need(proof.every(item => Number.isInteger(item.provable_zero_real_breach_strategies) && item.provable_zero_real_breach_strategies >= 0 && item.provable_zero_real_breach_strategies <= item.year10_strategies),
     "derived real-floor proof count is outside the observed strategy population: " + JSON.stringify(proof));
+  need(RAW_PACK.a.length === 11264 && RAW_PACK.a.every(row => row.length === 23 && Number.isInteger(row[21]) && Number.isInteger(row[22]) && 0 <= row[21] && row[21] <= row[22] && row[22] <= 157),
+    "annual pack must contain verified 2.35%/3.50% per-window real-floor counts");
   result.derived_real_breach_zero_proof = proof;
 
   // Verify real click delegation and that each interaction changes the intended control/state.
