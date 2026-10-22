@@ -83,7 +83,7 @@ class CrossPutReplayTests(unittest.TestCase):
         self.assertEqual(summary["win_rate_pct"], 100.0)
         self.assertEqual(summary["resolved_coverage_pct"], 50.0)
 
-    def test_shock_grid_is_121_explicit_hypothetical_scenarios(self):
+    def test_shock_grid_is_196_explicit_hypothetical_scenarios(self):
         entries = [{"episode_id": 1, "qqq_spot_entry": 400.0, "spy_spot_entry": 480.0,
                     "qqq_strike": 390.0, "spy_strike": 460.0,
                     "qqq_entry_ask": 4.0, "spy_entry_bid": 3.0}]
