@@ -126,7 +126,9 @@ def select_pair(qs, ss, mode, target_dte, target_delta, target_otm, long_n, shor
                 continue
             dte = abs(int(q["dte"])-target_dte)+abs(int(s["dte"])-target_dte)+1.5*abs(int(q["dte"])-int(s["dte"]))
             delta = abs(abs(float(q["delta"]))-target_delta)+abs(abs(float(s["delta"]))-target_delta)
-            spread = .2*(float(q["spread_pct"] or 999)+float(s["spread_pct"] or 999))
+            qsp = float(q["spread_pct"]) if pd.notna(q["spread_pct"]) else 999.0
+            ssp = float(s["spread_pct"]) if pd.notna(s["spread_pct"]) else 999.0
+            spread = .2*(qsp+ssp)
             if mode == "delta":
                 score = dte + 10*delta + spread
             elif mode == "otm":
@@ -193,8 +195,16 @@ def load_quotes(con,path,ids,temp_name,ticker):
     return result
 
 
+_PRICE_DATE_CACHE = {}
+
 def latest_date_at_or_before(prices,target):
-    dates=sorted(prices)
+    key=id(prices)
+    cached=_PRICE_DATE_CACHE.get(key)
+    if cached is None or cached[0] is not prices:
+        dates=sorted(prices)
+        _PRICE_DATE_CACHE[key]=(prices,dates)
+    else:
+        dates=cached[1]
     if not dates or target>dates[-1]:
         return None
     i=bisect.bisect_right(dates,target)-1
@@ -514,6 +524,8 @@ def main():
     (a.out_dir/"manifest.json").write_text(json.dumps(manifest,indent=2),encoding="utf-8")
     summary={"manifest":manifest,"selected_ratio_metrics":[r for r in metrics if r["ratio"]==f"{a.long_contracts}:{a.short_contracts}"],
        "delta_matched_ratio_sensitivity_5d":[r for r in metrics if r["match_mode"]=="delta" and r["horizon"]=="5d"],
+       "selected_ratio_year_metrics":[r for r in annual if r["ratio"]==f"{a.long_contracts}:{a.short_contracts}"],
+       "selected_ratio_regime_metrics":[r for r in regimes if r["ratio"]==f"{a.long_contracts}:{a.short_contracts}"],
        "same_move_summary":scen_summary}
     (a.out_dir/"summary.json").write_text(json.dumps(summary,indent=2,allow_nan=False),encoding="utf-8")
     print("PAIRED_PUT_RESEARCH_RESULT_BEGIN")
