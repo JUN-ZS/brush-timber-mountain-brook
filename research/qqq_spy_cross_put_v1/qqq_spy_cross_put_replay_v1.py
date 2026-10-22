@@ -298,7 +298,7 @@ def summarize_costs(trades):
     return output
 
 def build_shock_grid(entries,long_qty,short_qty,slippage,commission):
-    shocks=[-0.30,-0.25,-0.20,-0.15,-0.10,-0.05,0.0,0.05,0.10,0.15,0.20];output=[]
+    shocks=[-1.0,-0.75,-0.5,-0.4,-0.30,-0.25,-0.20,-0.15,-0.10,-0.05,0.0,0.05,0.10,0.20];output=[]
     unit_cost=slippage*MULTIPLIER+commission
     for qr in shocks:
         for sr in shocks:
@@ -309,8 +309,8 @@ def build_shock_grid(entries,long_qty,short_qty,slippage,commission):
                 qintr=max(float(e["qqq_strike"])-qs*(1+qr),0)
                 sintr=max(float(e["spy_strike"])-ss*(1+sr),0)
                 cash=MULTIPLIER*(short_qty*float(e["spy_entry_bid"])-long_qty*float(e["qqq_entry_ask"]))
-                entry_cost=(long_qty+short_qty)*unit_cost
-                vals.append(cash+MULTIPLIER*(long_qty*qintr-short_qty*sintr)-entry_cost)
+                round_trip_cost=2*(long_qty+short_qty)*unit_cost
+                vals.append(cash+MULTIPLIER*(long_qty*qintr-short_qty*sintr)-round_trip_cost)
             wins=sum(v>0.005 for v in vals)
             output.append({"qqq_pct_move":round(qr*100,2),"spy_pct_move":round(sr*100,2),
                 "same_pct_move_diagonal":qr==sr,"entry_cohort_n":len(vals),"positive_scenario_n":wins,
