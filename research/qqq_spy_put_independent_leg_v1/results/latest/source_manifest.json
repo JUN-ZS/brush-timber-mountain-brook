@@ -1,0 +1,49 @@
+{
+  "schema": "qqq-spy-independent-leg-sizing.v1",
+  "status": "GENERATED_COUNTERFACTUAL_FIXED_N_GRID",
+  "input": {
+    "trade_episodes_path": "research/qqq_spy_put_equal_premium_v1/results/latest/trade_episodes.csv",
+    "trade_episodes_git_blob_sha": "13b4cf574d24250655d8f9e3d5878e3a4d4f1bd5",
+    "summary_json_path": "research/qqq_spy_put_equal_premium_v1/results/latest/summary.json",
+    "summary_json_git_blob_sha": "968676c093d48579b516e1b07d4ec55619b90349",
+    "source_study": "QQQ LONG PUT / SPY SHORT PUT equal-premium replay V1"
+  },
+  "parameters": {
+    "max_total_pair_contracts": 9,
+    "max_standalone_leg_contracts": 9,
+    "contract_multiplier": 100,
+    "cost_scenarios": [
+      {
+        "name": "ZERO_COST",
+        "slippage": 0.0,
+        "commission": 0.0
+      },
+      {
+        "name": "BASE_COST",
+        "slippage": 0.05,
+        "commission": 0.65
+      },
+      {
+        "name": "ADVERSE_COST",
+        "slippage": 0.1,
+        "commission": 0.65
+      }
+    ],
+    "exit_policies": [
+      "HOLD_5_SESSIONS",
+      "HOLD_10_SESSIONS",
+      "HOLD_20_SESSIONS",
+      "EXIT_AT_DTE_LE_7"
+    ],
+    "pair_grid_cells_per_policy_cost": 36
+  },
+  "controls": {
+    "same_selected_contract_ids_and_dates": true,
+    "no_forward_fill_or_contract_substitution": true,
+    "fixed_n_displayed_depth_verified": false,
+    "execution_depth_status": "COUNTERFACTUAL_ENTRY_AND_EXIT_DEPTH_NOT_STORED_FOR_FIXED_N",
+    "resolved_only_pnl_and_win_rate": true,
+    "unresolved": "kept separate; never assigned zero",
+    "real_fills": false
+  }
+}
