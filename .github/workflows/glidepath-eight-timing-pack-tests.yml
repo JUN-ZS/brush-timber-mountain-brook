@@ -123,12 +123,14 @@ jobs:
       - name: Embed exact Stage 2 results into the compact dashboard
         env:
           STAGE2_DIR: ${{ runner.temp }}/stage2-replay/stock-bond-glidepath
+          LEDGER_REPLAY_AUDIT_PATH: ${{ runner.temp }}/glidepath-window-cashflow-ledger-replay.json
         run: |
           set -euo pipefail
           python3 tools/glidepath-browser/embed-eight-timing-pack.py \
             --summary "$STAGE2_DIR/stock_bond_glidepath_summary.json" \
             --histograms "$STAGE2_DIR/window_distribution_summary.json" \
             --cohorts "$STAGE2_DIR/window_start_cohort_summary.json" \
+            --ledger-audit "$LEDGER_REPLAY_AUDIT_PATH" \
             --html v2.html
       - name: Compile Python tools and JavaScript before browser audit
         run: |
@@ -169,6 +171,9 @@ jobs:
           assert len(pack["a"]) == 11264
           assert len(pack["h"]) == 4096
           assert len(pack["c"]) == 14336
+          assert all(len(row) == 23 for row in pack["a"])
+          assert all(isinstance(row[21], int) and isinstance(row[22], int) and 0 <= row[21] <= row[22] <= 157 for row in pack["a"])
+          assert all(row[21] == 0 and row[22] == 0 for row in pack["a"] if row[0] == 0)
           assert "TM=[\"front_rapid\",\"front_fast\",\"front_loaded\",\"linear\",\"mid_loaded\",\"staggered\",\"back_loaded\",\"back_late\"]" in html
           audit = json.loads(Path("glidepath_preview_optimized_audit.json").read_text(encoding="utf-8"))
           assert audit.get("status") == "BROWSER_AND_STATIC_VERIFICATION_PASSED", audit.get("status")
@@ -178,6 +183,15 @@ jobs:
           assert ledger.get("annual_rows_reconciled") == 11264
           assert ledger.get("scenario_summaries_reconciled") == 1024
           assert ledger.get("cashflow_invariants_checked") == 482304
+          assert ledger.get("real_floor_count_rows") == 11264
+          assert ledger.get("real_floor_window_navs_compared") == 3536896
+          floor_grid = audit.get("real_floor_breach_grid", {})
+          assert floor_grid.get("status") == "PASS"
+          assert floor_grid.get("annual_rows") == 11264
+          assert floor_grid.get("annual_count_values_reconciled") == 22528
+          assert floor_grid.get("window_nav_comparisons") == 3536896
+          assert floor_grid.get("inflation_rates") == [0.0235, 0.035]
+          assert audit.get("cashflow_nav_semantic_sweep", {}).get("real_floor_bindings_verified") == 132
           assert ledger.get("source_panel_sha256") == pack["meta"]["source_sha256"]
           assert audit.get("sha256") == __import__("hashlib").sha256(Path("v2.html").read_bytes()).hexdigest()
           with zipfile.ZipFile("glidepath_interactive_preview_optimized_bundle.zip") as zf:
@@ -190,6 +204,9 @@ jobs:
               "histogram_groups": len(pack["h"]), "cohort_rows": len(pack["c"]),
               "source_as_of": pack["meta"]["source_as_of"], "audit_status": audit["status"],
               "bundle_members": names,
+              "real_floor_annual_rows": floor_grid["annual_rows"],
+              "real_floor_count_values_reconciled": floor_grid["annual_count_values_reconciled"],
+              "real_floor_window_nav_comparisons": floor_grid["window_nav_comparisons"],
           })
           PY
       - name: Upload the browser-verified preview and audit evidence
