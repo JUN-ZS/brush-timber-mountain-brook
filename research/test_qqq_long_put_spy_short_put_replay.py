@@ -27,7 +27,7 @@ class PairedPutReplayTests(unittest.TestCase):
         candidates = pd.DataFrame([
             {"strike": 95.0, "strike_key": 95000, "dte": 30, "delta": -0.24, "bid": 1.80, "ask": 1.90},
             {"strike": 90.0, "strike_key": 90000, "dte": 30, "delta": -0.12, "bid": 0.70, "ask": 0.80},
-        ])
+        ]).set_index("strike_key", drop=False)
         selected = _select(candidates, 100.0, "DELTA_MATCHED", 30, 0.25, 0.05)
         self.assertEqual(int(selected["strike_key"]), 95000)
 

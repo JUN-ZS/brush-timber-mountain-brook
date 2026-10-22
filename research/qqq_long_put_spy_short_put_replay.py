@@ -83,12 +83,7 @@ def load_put_quotes(
     bid_col = _find_column(names, ("bid", "bidprice"))
     ask_col = _find_column(names, ("ask", "askprice"))
     delta_col = _find_column(names, ("delta", "optiondelta"))
-    volume_col = _find_column(names, ("volume", "tradingvolume"), required=False)
-    oi_col = _find_column(names, ("openinterest", "openint", "oi"), required=False)
-    keep = list(dict.fromkeys(
-        [date_col, exp_col, type_col, strike_col, bid_col, ask_col, delta_col]
-        + [x for x in (volume_col, oi_col) if x is not None]
-    ))
+    keep = list(dict.fromkeys([date_col, exp_col, type_col, strike_col, bid_col, ask_col, delta_col]))
     raw = pd.read_parquet(path, columns=keep)
     out = pd.DataFrame({
         "quote_date": _parse_date(raw[date_col]),
@@ -101,10 +96,6 @@ def load_put_quotes(
     })
     out["dte"] = (out["expiration"] - out["quote_date"]).dt.days
     out["strike_key"] = (out["strike"] * 1000).round().astype("Int64")
-    if volume_col is not None:
-        out["volume"] = pd.to_numeric(raw[volume_col], errors="coerce")
-    if oi_col is not None:
-        out["open_interest"] = pd.to_numeric(raw[oi_col], errors="coerce")
     is_put = out["option_type"].isin(("P", "PUT", "PUTS"))
     good_dates = out["quote_date"].notna() & out["expiration"].notna()
     good_prices = out["bid"].notna() & out["ask"].notna() & (out["bid"] >= 0) & (out["ask"] > 0) & (out["ask"] >= out["bid"])
@@ -188,7 +179,7 @@ def _select(
         g["score"] = (g["bid"] - premium_reference).abs() + 0.0001 * g["dte_distance"]
     else:
         raise ValueError("Unsupported matching mode: " + mode)
-    g = g.sort_values(["score", "dte_distance", "strike_key"], kind="stable")
+    g = g.sort_values(["score", "dte_distance", "strike"], kind="stable")
     return g.iloc[0]
 
 
@@ -255,7 +246,12 @@ def _quantile(values: np.ndarray, q: float) -> float | None:
 
 def _basic_stats(pnl: np.ndarray) -> dict[str, Any]:
     if len(pnl) == 0:
-        return {"n": 0, "wins": 0, "losses": 0, "breakeven": 0, "win_rate_pct": None}
+        return {
+            "n": 0, "wins": 0, "losses": 0, "breakeven": 0, "win_rate_pct": None,
+            "mean_pnl": None, "median_pnl": None, "p05_pnl": None, "p01_pnl": None,
+            "es05_pnl": None, "worst_pnl": None, "best_pnl": None, "total_pnl": None,
+            "profit_factor": None, "avg_win": None, "avg_loss": None,
+        }
     positive = pnl[pnl > 1e-9]
     negative = pnl[pnl < -1e-9]
     flat = len(pnl) - len(positive) - len(negative)
@@ -411,6 +407,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:right;
 </div>
 </div>
 <div class="panel"><h2>Holding-period comparison</h2><div class="muted">Uses the same matching rule, contract quantities and cost setting; coverage changes by horizon because missing exit quotes and expired contracts are not filled with synthetic marks.</div><div class="tablewrap"><table><thead><tr><th>Exit horizon</th><th>N paired</th><th>Wins</th><th>Win rate</th><th>Mean P&L</th><th>P05</th><th>Worst</th></tr></thead><tbody id="horizonRows"></tbody></table></div></div>
+<div class="panel"><h2>Quote coverage and missing marks</h2><div class="muted">This is the denominator audit: absent quotes and expired contracts are not treated as losses or zero-value exits. Read coverage beside every win rate.</div><div class="tablewrap"><table><thead><tr><th>Pairing rule</th><th>Candidate pairs</th><th>Paired entries</th><th>Entry coverage</th><th>Exit horizon</th><th>Paired exits</th><th>Exit coverage / entries</th><th>Missing exit marks</th></tr></thead><tbody id="coverageRows"></tbody></table></div></div>
 <div class="panel"><h2>Market-regime split</h2><div class="muted">Regimes use realized underlying close-to-close returns from entry to exit. They describe where package outcomes occurred; they are not entry-time predictive signals.</div><div class="tablewrap"><table><thead><tr><th>Regime</th><th>N</th><th>Wins</th><th>Win rate</th><th>Mean package P&L</th></tr></thead><tbody id="regimeRows"></tbody></table></div></div>
 <div class="panel"><h2>Method, data and limits</h2><div id="method"></div><details style="margin-top:12px"><summary>Dataset hash pins</summary><pre id="hashes" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details></div>
 <script>
@@ -456,6 +453,22 @@ $("method").innerHTML="<p><b>Source:</b> historical EOD option chains from the p
 +"<p class='warning'><b>Interpretation boundary:</b> a high win rate can coexist with a large short-put tail loss and poor expected value. Check mean/median, P05/P01, worst P&amp;L, stress loss and SPY assignment notional before interpreting the ratio.</p>"
 +"<p class='muted'>Generated status: "+R.meta.status+". Sample period: "+R.meta.sample_start+" to "+R.meta.sample_end+". This is descriptive historical research, not a forward probability or trade instruction.</p>";
 $("hashes").textContent=JSON.stringify(R.meta.source_hashes,null,2);
+const MODE_KEYS = ["PREMIUM_MATCHED","DELTA_MATCHED","OTM_MATCHED"];
+const MODE_NAMES = {PREMIUM_MATCHED:"Premium matched",DELTA_MATCHED:"Delta matched",OTM_MATCHED:"Percent-OTM matched"};
+const renderCoverage = () => {
+  let html = "";
+  for (const mode of MODE_KEYS) {
+    const c = R.meta.coverage[mode];
+    const entryRate = c.selected_contract_pairs ? (100*c.entry_pair_quotes/c.selected_contract_pairs) : null;
+    for (const horizon of R.meta.horizons) {
+      const h = c.horizons[String(horizon)];
+      const exitRate = c.entry_pair_quotes ? (100*h.paired_exits/c.entry_pair_quotes) : null;
+      html += "<tr><td>"+MODE_NAMES[mode]+"</td><td>"+c.selected_contract_pairs+"</td><td>"+c.entry_pair_quotes+"</td><td>"+pct(entryRate)+"</td><td>"+horizon+" sessions</td><td>"+h.paired_exits+"</td><td>"+pct(exitRate)+"</td><td>"+h.missing_exit_quotes+"</td></tr>";
+    }
+  }
+  $("coverageRows").innerHTML=html;
+};
+renderCoverage();
 render();
 </script></body></html>""".replace("__REPORT_PAYLOAD__", payload)
 
@@ -591,6 +604,107 @@ def replay(args: argparse.Namespace) -> dict[str, Any]:
     return {"meta": meta, "summaries": summaries}
 
 
+def make_markdown_report(report: dict[str, Any]) -> str:
+    meta = report["meta"]
+    summaries = report["summaries"]
+
+    def money(value: Any) -> str:
+        if value is None or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+            return "N/A"
+        return ("−" if float(value) < 0 else "") + "$" + format(abs(float(value)), ",.0f")
+
+    def pct(value: Any) -> str:
+        return "N/A" if value is None else f"{float(value):.1f}%"
+
+    def row(mode: str, horizon: int, cost: str, long_qty: int = 4, short_qty: int = 5) -> dict[str, Any]:
+        return next(x for x in summaries if x["mode"] == mode and x["horizon"] == horizon
+                    and x["cost_id"] == cost and x["long_qty"] == long_qty and x["short_qty"] == short_qty)
+
+    lines = [
+        "# QQQ LONG PUT × SPY SHORT PUT — Paired Historical Replay",
+        "",
+        f"**Status:** {meta['status']}  ",
+        f"**Signal sample window:** {meta['sample_start']} to {meta['sample_end']}  ",
+        f"**Underlying common sessions:** {meta['underlying_common_sessions']:,}  ",
+        f"**Paired exit observations across all modes/horizons:** {meta['paired_exit_samples']:,}",
+        "",
+        "## Baseline: 4 QQQ LONG PUT : 5 SPY SHORT PUT",
+        "",
+        "Default pairing is per-contract premium-matched; contracts are selected at the signal-day EOD quote, entered on the next common session, and closed together at the selected horizon. Standard friction is $0.65 per contract per side.",
+        "",
+        "| Holding period | N paired | Wins | Losses | Flat | Win rate | Mean net P&L | Median | P05 | P01 | Worst observed | Profit factor |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for horizon in HORIZONS:
+        x = row("PREMIUM_MATCHED", horizon, "STANDARD")
+        pf = "N/A" if x.get("profit_factor") is None else f"{x['profit_factor']:.2f}"
+        lines.append(
+            f"| {horizon} sessions | {x.get('n', 0):,} | {x.get('wins', 0):,} | {x.get('losses', 0):,} | {x.get('breakeven', 0):,} "
+            f"| {pct(x.get('win_rate_pct'))} | {money(x.get('mean_pnl'))} | {money(x.get('median_pnl'))} "
+            f"| {money(x.get('p05_pnl'))} | {money(x.get('p01_pnl'))} | {money(x.get('worst_pnl'))} | {pf} |"
+        )
+    lines += [
+        "",
+        "## Matching rule sensitivity — 5-session exit, 4:5, standard friction",
+        "",
+        "| Rule | N paired | Win rate | Mean net P&L | Median | P05 | Worst observed | Median delta gap | Median DTE gap | Median OTM gap (pp) |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for mode in MODES:
+        x = row(mode, 5, "STANDARD")
+        dgap = "N/A" if x["median_abs_delta_difference"] is None else f"{x['median_abs_delta_difference']:.3f}"
+        lines.append(
+            f"| {mode} | {x['n']:,} | {pct(x['win_rate_pct'])} | {money(x['mean_pnl'])} | {money(x['median_pnl'])} "
+            f"| {money(x['p05_pnl'])} | {money(x['worst_pnl'])} | {dgap} "
+            f"| {x['median_abs_dte_difference_days']:.1f} | {x['median_abs_otm_difference_pct_points']:.2f} |"
+        )
+    lines += [
+        "",
+        "## Data coverage audit",
+        "",
+        "The denominator matters. Missing / expired option marks are not converted to zero, so each displayed win rate must be read with paired-exit coverage.",
+        "",
+        "| Pairing rule | Valid candidate pairs | Paired entries | Entry coverage | Horizon | Paired exits | Exit coverage vs entries | Missing exit marks |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for mode in MODES:
+        c = meta["coverage"][mode]
+        entry_rate = 100.0*c["entry_pair_quotes"]/c["selected_contract_pairs"] if c["selected_contract_pairs"] else None
+        for horizon in HORIZONS:
+            h = c["horizons"][str(horizon)]
+            exit_rate = 100.0*h["paired_exits"]/c["entry_pair_quotes"] if c["entry_pair_quotes"] else None
+            lines.append(
+                f"| {mode} | {c['selected_contract_pairs']:,} | {c['entry_pair_quotes']:,} | {pct(entry_rate)} "
+                f"| {horizon} sessions | {h['paired_exits']:,} | {pct(exit_rate)} | {h['missing_exit_quotes']:,} |"
+            )
+    lines += [
+        "",
+        "## Assumptions and interpretation",
+        "",
+        f"- Target expiry: {meta['target_dte']} calendar DTE ±{meta['dte_tolerance']} days; target absolute delta {meta['target_abs_delta']:.2f}; OTM target {meta['target_otm']:.1%}.",
+        "- Fill convention: buy QQQ put at ask / sell SPY put at bid; close QQQ put at bid / buy back SPY put at ask. Entry occurs on the next common session after contract selection.",
+        "- Costs: touch with no commission, standard $0.65 per contract per side, and stress $1.30 per contract per side plus $0.05 per share per side.",
+        "- Daily entry starts overlap. Horizon-spaced offset cohorts are sensitivity diagnostics, not independent trials or future-probability confidence intervals.",
+        "- Historical EOD quote-side marks are modeled fills, not verified execution. Quote sizes are unavailable. Expiry settlement, early assignment/exercise, broker margin, intraday gaps, portfolio concurrency, and taxes are not modeled.",
+        "- Short SPY puts retain substantial tail liability. The hypothetical both-underlyings-to-zero stress, P05/P01, worst observed P&L, average win/loss and profit factor are essential context; win rate alone is insufficient.",
+        "",
+        "## Interactive view",
+        "",
+        "Download index.html from this folder and open it in a browser to adjust contract counts (1–10 per leg), matching rule, holding horizon and cost scenario. The HTML is self-contained. summary.json contains aggregate results only; raw chains are not committed.",
+        "",
+        "## Pinned data source",
+        "",
+        f"Release: {meta['source_release']}",
+        "",
+        "| Input | SHA-256 |",
+        "|---|---|",
+    ]
+    for name, digest in meta["source_hashes"].items():
+        lines.append(f"| {name} | {digest} |")
+    lines += ["", "This is descriptive historical research, not a broker execution report or a forward probability forecast.", ""]
+    return "\n".join(lines)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--qqq-options", required=True)
@@ -615,7 +729,9 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     (out / "summary.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
     (out / "index.html").write_text(make_html(report), encoding="utf-8")
-    default = next(r for r in report["summaries"] if r["mode"] == "DELTA_MATCHED" and r["horizon"] == 5 and r["cost_id"] == "STANDARD" and r["long_qty"] == 4 and r["short_qty"] == 5)
+    markdown = make_markdown_report(report)
+    (out / "REPORT.md").write_text(markdown, encoding="utf-8")
+    default = next(r for r in report["summaries"] if r["mode"] == "PREMIUM_MATCHED" and r["horizon"] == 5 and r["cost_id"] == "STANDARD" and r["long_qty"] == 4 and r["short_qty"] == 5)
     print(json.dumps({
         "status": report["meta"]["status"],
         "sample_period": [report["meta"]["sample_start"], report["meta"]["sample_end"]],
