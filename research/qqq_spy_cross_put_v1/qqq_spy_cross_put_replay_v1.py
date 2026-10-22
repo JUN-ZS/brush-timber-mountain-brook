@@ -381,7 +381,7 @@ def run_replay(args):
     if args.long_qqq<1 or args.short_spy<1:raise ValueError("contract counts must be positive")
     if not 0<args.target_delta<1 or args.dte_min<1 or args.dte_max<args.dte_min:raise ValueError("invalid Delta/DTE bounds")
     if not DELTA_MIN<=args.target_delta<=DELTA_MAX:raise ValueError("target Delta must be within 0.10–0.50")
-    if args.cohort_stride_sessions<1 or args.slippage_per_share<0 or args.commission_per_contract_side<0:raise ValueError("invalid cohort stride or costs")
+    if args.cohort_stride_sessions<1 or args.slippage_per_share<0 or args.commission_per_contract_per_side<0:raise ValueError("invalid cohort stride or costs")
     qcache,scache=Path(args.qqq_cache),Path(args.spy_cache);integrity=[];qpaths=[];spaths=[]
     years=[y for y in YEARS if int(start_day[:4])<=y<=int(end_day[:4])]
     for symbol,cache,paths in (("QQQ",qcache,qpaths),("SPY",scache,spaths)):
@@ -410,7 +410,7 @@ def run_replay(args):
             if ep["pending_exit"]:
                 valid,reason=exit_quotes_valid(qrow,srow,ep["long_qqq_qty"],ep["short_spy_qty"])
                 if valid:
-                    vals=episode_pnl(ep,float(qrow["bid"]),float(srow["ask"]),args.slippage_per_share,args.commission_per_contract_side)
+                    vals=episode_pnl(ep,float(qrow["bid"]),float(srow["ask"]),args.slippage_per_share,args.commission_per_contract_per_side)
                     qspot,sspot=qspots.get(day),sspots.get(day);ep.update(vals)
                     ep.update({"status":"RESOLVED","exit_date":day,"exit_qqq_bid":float(qrow["bid"]),"exit_spy_ask":float(srow["ask"]),
                         "exit_delay_sessions":idx-ep["exit_signal_index"],"exit_quote_status":"VALID_SIZED_SIDE_QUOTES",
@@ -446,13 +446,13 @@ def run_replay(args):
                 if qspot is None or sspot is None:valid,reason=False,"ENTRY_UNDERLYING_CLOSE_MISSING"
                 else:
                     entry_cash=MULTIPLIER*(args.short_spy*float(srow["bid"])-args.long_qqq*float(qrow["ask"]))
-                    entry_cost=(args.long_qqq+args.short_spy)*(args.slippage_per_share*MULTIPLIER+args.commission_per_contract_side)
+                    entry_cost=(args.long_qqq+args.short_spy)*(args.slippage_per_share*MULTIPLIER+args.commission_per_contract_per_side)
                     base={**pending,"entry_date":day,"entry_index":idx,"long_qqq_qty":args.long_qqq,"short_spy_qty":args.short_spy,
                         "qqq_entry_ask":float(qrow["ask"]),"qqq_entry_bid":float(qrow["bid"]),
                         "spy_entry_bid":float(srow["bid"]),"spy_entry_ask":float(srow["ask"]),
                         "qqq_spot_entry":qspot,"spy_spot_entry":sspot,"entry_net_credit_before_cost_usd":entry_cash,
                         "entry_cash_after_entry_cost_usd":entry_cash-entry_cost,"base_slippage_per_share":args.slippage_per_share,
-                        "base_commission_per_contract_per_side":args.commission_per_contract_side,
+                        "base_commission_per_contract_per_side":args.commission_per_contract_per_side,
                         "entry_delay_sessions":idx-pending["signal_index"]}
                     entries.append({k:v for k,v in base.items() if k!="signal_index"});entered_count+=1
                     for p in POLICIES:
@@ -483,14 +483,14 @@ def run_replay(args):
         trades.append(ep)
     for r in trades:r["base_cost_win"]=r["net_pnl_usd"]>0.005 if r.get("status")=="RESOLVED" and r.get("net_pnl_usd") is not None else None
     policies={p["policy"]:policy_summary(p["policy"],trades) for p in POLICIES}
-    costs=summarize_costs(trades);shock=build_shock_grid(entries,args.long_qqq,args.short_spy,args.slippage_per_share,args.commission_per_contract_side)
+    costs=summarize_costs(trades);shock=build_shock_grid(entries,args.long_qqq,args.short_spy,args.slippage_per_share,args.commission_per_contract_per_side)
     report={"schema":"qqq-spy-cross-underlying-put-replay.v1",
         "status":"COMPLETED_WITH_UNRESOLVEDS" if any(p["unresolved"] for p in policies.values()) or skips else "COMPLETED",
         "source":{"repository":SOURCE_REPO,"tree_commit":SOURCE_COMMIT},"window":{"start":start_day,"end":end_day},
         "ratio":{"long_qqq_qty":args.long_qqq,"short_spy_qty":args.short_spy,"contract_multiplier":MULTIPLIER},
         "selection":{"target_abs_delta":args.target_delta,"delta_eligible_band":[DELTA_MIN,DELTA_MAX],"dte_min":args.dte_min,
             "dte_max":args.dte_max,"dte_target":args.dte_target,"cohort_stride_sessions":args.cohort_stride_sessions,"common_expiry_required":True},
-        "costs":{"base_slippage_per_option_share_usd":args.slippage_per_share,"base_commission_per_contract_per_side_usd":args.commission_per_contract_side,
+        "costs":{"base_slippage_per_option_share_usd":args.slippage_per_share,"base_commission_per_contract_per_side_usd":args.commission_per_contract_per_side,
             "alternative_slippage_per_option_share_usd":list(SLIPPAGE_GRID),"alternative_commission_per_contract_per_side_usd":list(COMMISSION_GRID)},
         "coverage":{"common_underlying_sessions":len(dates),"qqq_chain_dates":qs["chain_dates"],"qqq_put_rows":qs["put_rows"],
             "spy_chain_dates":ss["chain_dates"],"spy_put_rows":ss["put_rows"],"sessions_with_both_chains":both_chains,
