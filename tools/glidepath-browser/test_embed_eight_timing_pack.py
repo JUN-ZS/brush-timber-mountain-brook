@@ -298,7 +298,7 @@ const nominalFloorForMode=Math.round(100000*Math.pow(1+s.cpi,s.year));
 let ms=[
 [s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],
 ["累計缺口窗口",r.windows_with_withdrawal_shortfall+"/"+r.rolling_windows,"缺口計數"]
-]
+];
 <p>固定目標轉債比例、債券代理及現金流，逐行比較八種轉換時間規則的資產、回報、回撤與名目低於本金窗口；實質模式會明確標示未精算。</p>
 var head=+'<th>'+(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')+'</th>';
 var cell=+(s.cpi>0?'未精算（名目 '+v.windows_below_initial_capital+'/'+v.rolling_windows+'）':v.windows_below_initial_capital+'/'+v.rolling_windows)+;
