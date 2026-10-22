@@ -159,7 +159,7 @@ def make_fixture():
                      "rolling_windows_per_scenario":157,"cohorts":cohorts}
     return report, hist_report, cohort_report
 
-def make_ledger_fixture(report):
+def make_ledger_fixture(report, cohort_report):
     counts=[]
     for row in report["annual_scenarios"]:
         year=int(row["year"])
@@ -170,6 +170,17 @@ def make_ledger_fixture(report):
         count235=0 if year==0 else (target+timing_index+flow_index+year)%158
         count350=0 if year==0 else max(count235,(target+2*timing_index+flow_index+year+1)%158)
         counts.append([year,bond_index,target,timing_index,flow_index,count235,count350])
+    cohort_counts=[]
+    for row in cohort_report["cohorts"]:
+        year=int(row["start_year"])
+        bond_index=PACKER.BONDS.index(row["bond_proxy"])
+        target=int(row["target_bond_conversion_pct_at_year10"])
+        timing_index=PACKER.TIMINGS.index(row["timing_rule"])
+        flow_index=PACKER.FLOWS.index(row["cashflow_mode"])
+        sample_n=int(row["window_count"])
+        count235=(target+timing_index+flow_index+year)%(sample_n+1)
+        count350=max(count235,(target+2*timing_index+flow_index+year+1)%(sample_n+1))
+        cohort_counts.append([bond_index,target,timing_index,flow_index,year,sample_n,count235,count350])
     return {
         "schema":"glidepath-window-cashflow-ledger-replay.v1",
         "status":"PASS",
@@ -180,9 +191,13 @@ def make_ledger_fixture(report):
         "annual_summary_rows_expected":11264,
         "scenario_count":1024,
         "counters":{"window_rows_replayed":160768,"annual_rows_reconciled":11264,
-                    "scenario_summaries_reconciled":1024,"real_floor_annual_rows":11264},
+                    "scenario_summaries_reconciled":1024,"real_floor_annual_rows":11264,
+                    "real_floor_cohort_rows":14336},
         "real_floor_annual_count_rates":[0.0235,0.035],
-        "real_floor_annual_counts":counts
+        "real_floor_annual_counts":counts,
+        "real_floor_cohort_count_rates":[0.0235,0.035],
+        "real_floor_cohort_count_rows":14336,
+        "real_floor_cohort_counts":cohort_counts
     }
 
 def minimal_html():
@@ -225,7 +240,7 @@ class EightTimingPackTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.report, cls.hist, cls.cohort = make_fixture()
-        cls.ledger = make_ledger_fixture(cls.report)
+        cls.ledger = make_ledger_fixture(cls.report, cls.cohort)
 
     def test_validates_and_packs_full_eight_timing_grid(self):
         pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort, self.ledger)
@@ -244,6 +259,10 @@ class EightTimingPackTests(unittest.TestCase):
         self.assertAlmostEqual(first_scenario_year10[5], first_scenario_terminal)
         self.assertEqual(first_scenario_year10[21], (30+0+0+10)%158)
         self.assertEqual(first_scenario_year10[22], (30+0+0+11)%158)
+        first_cohort = next(row for row in pack["c"] if row[:5] == [0,30,0,0,2003])
+        self.assertEqual(first_cohort[16], self.ledger["real_floor_cohort_counts"][0][6])
+        self.assertEqual(first_cohort[17], self.ledger["real_floor_cohort_counts"][0][7])
+        self.assertEqual(pack["meta"]["real_floor_cohort_count_rows"], 14336)
 
     def test_embeds_eight_selectable_timing_options_and_rewrites_copy(self):
         pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort, self.ledger)
@@ -259,7 +278,10 @@ class EightTimingPackTests(unittest.TestCase):
         self.assertIn("八種轉換時間規則", html)
         self.assertIn("共 256 點", html)
         self.assertIn("windows_below_real_principal_235:r[21]", html)
+        self.assertIn("realBelow235:r[16],realBelow350:r[17]", html)
         self.assertIn("低於實質本金窗口", html)
+        self.assertNotIn("此起始年份資料只有名目本金門檻計數", html)
+        self.assertIn("此計數為指定起始年份下第10年期末 NAV", html)
         self.assertIn("逐窗口核算確認", html)
         for timing in PACKER.TIMINGS:
             self.assertRegex(html, r'const dash=\{[^{}]*\b' + re.escape(timing) + r'\s*:')
@@ -276,7 +298,7 @@ class EightTimingPackTests(unittest.TestCase):
         report, hist, cohort = make_fixture()
         report["scenarios"].pop()
         with self.assertRaisesRegex(ValueError, "1,024"):
-            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report))
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report, cohort))
 
     def test_rejects_no_withdrawal_cashflow_leakage(self):
         report, hist, cohort = make_fixture()
@@ -284,7 +306,7 @@ class EightTimingPackTests(unittest.TestCase):
                    if item["cashflow_mode"] == "no_withdrawals" and item["year"] == 5)
         row["median_actual_withdrawals_usd"] = 25
         with self.assertRaisesRegex(ValueError, "No-withdrawal mode"):
-            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report))
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report, cohort))
 
     def test_rejects_year_zero_nav_or_cashflow_that_is_not_at_starting_state(self):
         report, hist, cohort = make_fixture()
@@ -293,7 +315,7 @@ class EightTimingPackTests(unittest.TestCase):
                    and item["year"] == 0)
         row["p05_nav_usd"] = 99000
         with self.assertRaisesRegex(ValueError, "Year-zero p05_nav_usd"):
-            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report))
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report, cohort))
 
     def test_rejects_cashflow_mode_that_changes_target_allocation_schedule(self):
         report, hist, cohort = make_fixture()
@@ -306,35 +328,49 @@ class EightTimingPackTests(unittest.TestCase):
         row["median_target_bond_weight"] += 0.01
         row["median_target_stock_weight"] -= 0.01
         with self.assertRaisesRegex(ValueError, "allocation schedule"):
-            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report))
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report, cohort))
 
     def test_rejects_missing_real_principal_count_grid(self):
         report, hist, cohort = make_fixture()
-        ledger = make_ledger_fixture(report)
+        ledger = make_ledger_fixture(report, cohort)
         ledger["real_floor_annual_counts"].pop()
         with self.assertRaisesRegex(ValueError, "real-principal count grid"):
             PACKER.validate_and_pack(report, hist, cohort, ledger)
 
     def test_rejects_year_zero_real_principal_count_leakage(self):
         report, hist, cohort = make_fixture()
-        ledger = make_ledger_fixture(report)
+        ledger = make_ledger_fixture(report, cohort)
         ledger["real_floor_annual_counts"][0][5] = 1
         with self.assertRaisesRegex(ValueError, "Year-zero real-principal"):
             PACKER.validate_and_pack(report, hist, cohort, ledger)
 
     def test_rejects_real_principal_count_ordering_violation(self):
         report, hist, cohort = make_fixture()
-        ledger = make_ledger_fixture(report)
+        ledger = make_ledger_fixture(report, cohort)
         item = next(row for row in ledger["real_floor_annual_counts"] if row[0] == 5)
         item[5] = item[6] + 1
         with self.assertRaisesRegex(ValueError, "threshold order/range"):
+            PACKER.validate_and_pack(report, hist, cohort, ledger)
+
+    def test_rejects_missing_real_principal_cohort_grid(self):
+        report, hist, cohort = make_fixture()
+        ledger = make_ledger_fixture(report, cohort)
+        ledger["real_floor_cohort_counts"].pop()
+        with self.assertRaisesRegex(ValueError, "14,336 start-year real-principal count rows"):
+            PACKER.validate_and_pack(report, hist, cohort, ledger)
+
+    def test_rejects_cohort_real_principal_count_above_sample_size(self):
+        report, hist, cohort = make_fixture()
+        ledger = make_ledger_fixture(report, cohort)
+        ledger["real_floor_cohort_counts"][0][7] = ledger["real_floor_cohort_counts"][0][5] + 1
+        with self.assertRaisesRegex(ValueError, "outside sample/threshold order"):
             PACKER.validate_and_pack(report, hist, cohort, ledger)
 
     def test_rejects_histogram_bins_that_compact_format_would_distort(self):
         report, hist, cohort = make_fixture()
         hist["distributions"][0]["bins"][1]["low"] = 0.1
         with self.assertRaisesRegex(ValueError, "equal-width"):
-            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report))
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_fixture(report, cohort))
 
 if __name__ == "__main__":
     unittest.main()
