@@ -226,6 +226,24 @@ let shape=r.timing_rule,mark;
     let close=shape==="front_fast"?"</rect>":shape==="front_loaded"||shape==="mid_loaded"||shape==="back_loaded"?"</polygon>":shape==="linear"?"</circle>":"</path>";
 }
 const dash=(m==="front_loaded"?"6 4":m==="back_loaded"?"2 4":"");
+const COHORT=RAW_PACK.c.map(r=>{
+  const y=r[4],meta=RAW_PACK.cm[String(y)];
+  const o={b:BM[r[0]],t:r[1],m:TM[r[2]],f:FL[r[3]],y:y,n:meta[0],first:meta[1],last:meta[2],nav50:r[5],nav05:r[6],nav95:r[7],navmin:r[8],cagr50:r[9],cagr05:r[10],cagrmin:r[11],dd50:r[12],ddmin:r[13],gap:r[14],below:r[15]};
+});
+function cohortChartX(s){
+  const metric=$('cohortMetricX').value,labels={nav50:'中位終值',nav05:'P05 終值',cagr50:'中位年化回報',cagr05:'P05 年化回報',dd50:'中位最大回撤',ddmin:'最差回撤',gap:'提款缺口窗口',below:'低於本金窗口'};
+  const rows=(COHORT_MAP.get(s.bond+"|"+s.target+"|"+s.timing+"|"+s.flow)||[]).slice().sort((a,b)=>a.y-b.y);
+  if(!rows.length)return '<p class="tiny">所選策略沒有起始年份分組。</p>';
+  if(!rows.some(r=>+r.y===+cohortYearX))cohortYearX=+rows[rows.length-1].y;
+  const isNav=metric==='nav50'||metric==='nav05',isCagr=metric==='cagr50'||metric==='cagr05';
+  if(metric==='below'&&s.cpi>0)return '<p class="tiny" style="padding:22px 10px;text-align:center;background:#fff7ed;border-radius:10px">此起始年份資料只有名目本金門檻計數，沒有逐窗口 NAV，不能計算實質保本比例；已停止以名目計數替代。</p>';
+  const getV=r=>{
+    const raw=+r[metric];
+    if(!Number.isFinite(raw))return NaN;
+    return isNav?defl(raw,10,s.cpi):isCagr?realCagr(raw,s.cpi):raw;
+  };
+  $('cohortDetailX').innerHTML='<div class="microgrid"><div class="micro"><small>窗口起始年份</small><b>'+sel.y+' 年起點</b><small>'+sel.first+' 至 '+sel.last+'</small></div><div class="micro"><small>該年窗口數</small><b>'+sel.n+' 個十年窗口</b><small>彼此重疊的歷史樣本</small></div><div class="micro"><small>中位／P05 十年終值</small><b>'+usd(defl(sel.nav50,10,s.cpi))+'</b><small>P05 '+usd(defl(sel.nav05,10,s.cpi))+' · 最差 '+usd(defl(sel.navmin,10,s.cpi))+'</small></div><div class="micro"><small>低於名目本金／提款缺口</small><b>'+sel.below+'/'+sel.n+'</b><small>缺口 '+sel.gap+' 個窗口 · 最差回撤 '+pct(sel.ddmin)+'</small></div></div><p class="tiny">歷史起點分組用於識別起點估值敏感度（例如 2007–2008 金融海嘯前夕起點 vs. 2009 低谷起點），不代表年度獨立試驗成功率。</p>';
+}
 /* real-floor UI contract fragments:
 median_target_bond_weight:bw,median_target_stock_weight:sw};
 [s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],
