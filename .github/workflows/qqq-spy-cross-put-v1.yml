@@ -63,10 +63,10 @@ jobs:
       - name: Run SHA-pinned cross-underlying study
         timeout-minutes: 120
         env:
-          LONG_QQQ: ${{ inputs.long_qqq_contracts || 4 }}
-          SHORT_SPY: ${{ inputs.short_spy_contracts || 5 }}
-          START_DATE: ${{ inputs.start_date || '2018-03-01' }}
-          END_DATE: ${{ inputs.end_date || '2025-12-15' }}
+          LONG_QQQ: ${{ github.event.inputs.long_qqq_contracts || 4 }}
+          SHORT_SPY: ${{ github.event.inputs.short_spy_contracts || 5 }}
+          START_DATE: ${{ github.event.inputs.start_date || '2018-03-01' }}
+          END_DATE: ${{ github.event.inputs.end_date || '2025-12-15' }}
         run: |
           set -euo pipefail
           PY=.venv-cross-put/bin/python
