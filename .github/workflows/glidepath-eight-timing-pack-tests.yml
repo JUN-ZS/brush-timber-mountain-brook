@@ -181,7 +181,12 @@ jobs:
           assert len(pack["a"]) == 11264
           assert len(pack["h"]) == 4096
           assert len(pack["c"]) == 14336
+          assert pack["meta"]["real_floor_cohort_count_rows"] == 14336
+          assert pack["meta"]["real_floor_cohort_count_year"] == 10
+          assert pack["meta"]["real_floor_count_rates"] == [0.0235, 0.035]
           assert all(len(row) >= 23 and 0 <= int(row[21]) <= int(row[22]) <= 157 for row in pack["a"])
+          assert all(len(row) >= 18 and 0 <= int(row[16]) <= int(row[17]) <= int(pack["cm"][str(row[4])][0]) <= 12 for row in pack["c"])
+          assert sorted({int(pack["cm"][str(row[4])][0]) for row in pack["c"]}) == [4, 9, 12]
           assert "TM=[\"front_rapid\",\"front_fast\",\"front_loaded\",\"linear\",\"mid_loaded\",\"staggered\",\"back_loaded\",\"back_late\"]" in html
           audit = json.loads(Path("glidepath_preview_optimized_audit.json").read_text(encoding="utf-8"))
           assert audit.get("status") == "BROWSER_AND_STATIC_VERIFICATION_PASSED", audit.get("status")
@@ -192,7 +197,15 @@ jobs:
           assert ledger.get("scenario_summaries_reconciled") == 1024
           assert ledger.get("cashflow_invariants_checked") == 482304
           assert ledger.get("real_floor_annual_rows") == 11264
+          assert ledger.get("real_floor_cohort_rows") == 14336
+          assert len(ledger.get("real_floor_cohort_counts_sha256", "")) == 64
           assert audit.get("real_principal_breach_count_contract", {}).get("annual_rows_with_two_rates") == 11264
+          cohort_contract = audit.get("final_artifact_verification", {}).get("real_floor_cohort_count_contract", {})
+          assert cohort_contract.get("rows") == 14336
+          assert cohort_contract.get("year") == 10
+          assert cohort_contract.get("inflation_rates") == [0.0235, 0.035]
+          assert len(cohort_contract.get("checks", [])) == 2
+          assert all(item.get("all_bars_match") is True and item.get("selected_detail_match") is True for item in cohort_contract["checks"])
           assert ledger.get("source_panel_sha256") == pack["meta"]["source_sha256"]
           assert audit.get("sha256") == __import__("hashlib").sha256(Path("v2.html").read_bytes()).hexdigest()
           with zipfile.ZipFile("glidepath_interactive_preview_optimized_bundle.zip") as zf:
