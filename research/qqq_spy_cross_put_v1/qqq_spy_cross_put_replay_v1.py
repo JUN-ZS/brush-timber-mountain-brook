@@ -119,6 +119,17 @@ def download_verified(symbol: str, year: int | None, cache: Path):
         raise ValueError(f"{symbol}/{name} pin mismatch: bytes={total}/{size}; sha={actual}/{sha}")
     return path, {"symbol":symbol,"file":name,"status":"DOWNLOADED_HASH_VERIFIED","bytes":total,"git_blob_sha":actual}
 
+def spot_rows_to_map(date_values, symbol_values, close_values, symbol: str) -> dict[str, float]:
+    if not (len(date_values) == len(symbol_values) == len(close_values)):
+        raise ValueError("underlying date/symbol/close columns have different lengths")
+    result = {}
+    for dv, sv, cv in zip(date_values, symbol_values, close_values):
+        day, close = as_day(dv), num(cv)
+        if str(sv).strip().upper() == symbol.upper() and day and close is not None and close > 0:
+            result[day] = close
+    return result
+
+
 def load_spots(path: Path, symbol: str) -> dict[str, float]:
     import pyarrow.parquet as pq
     table = pq.read_table(path)
@@ -128,11 +139,7 @@ def load_spots(path: Path, symbol: str) -> dict[str, float]:
         raise ValueError(f"{path.name} lacks date/close; columns={table.column_names}")
     if not sc:
         raise ValueError(f"{path.name} lacks a symbol column; refusing ambiguous underlying prices")
-    result = {}
-    for dv, sv, cv in zip(table[dc].to_pylist(), table[sc].to_pylist(), table[cc].to_pylist()):
-        day, close = as_day(dv), num(cv)
-        if str(sv).strip().upper() == symbol.upper() and day and close is not None and close > 0:
-            result[day] = close
+    result = spot_rows_to_map(table[dc].to_pylist(), table[sc].to_pylist(), table[cc].to_pylist(), symbol)
     if not result:
         raise ValueError(f"{path.name} contains no underlying rows for symbol={symbol}")
     return result

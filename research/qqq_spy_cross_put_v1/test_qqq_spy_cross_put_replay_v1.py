@@ -21,6 +21,12 @@ def row(symbol, expiry, strike, delta, bid, ask, day="2024-01-02",
 
 
 class CrossPutReplayTests(unittest.TestCase):
+    def test_underlying_rows_are_filtered_by_ticker(self):
+        dates = ["2024-01-02", "2024-01-02", "2024-01-03", "2024-01-04"]
+        symbols = ["QQQ", "SPY", "QQQ", "SPY"]
+        closes = [400.0, 480.0, None, 500.0]
+        self.assertEqual(replay.spot_rows_to_map(dates, symbols, closes, "QQQ"), {"2024-01-02": 400.0})
+        self.assertEqual(replay.spot_rows_to_map(dates, symbols, closes, "SPY"), {"2024-01-02": 480.0, "2024-01-04": 500.0})
     def test_contract_identity_checks_symbol_right_expiry_and_strike(self):
         q = row("QQQ", "2024-02-16", 400, -0.25, 4.0, 4.2)
         s = row("SPY", "2024-02-16", 480, -0.25, 5.0, 5.2)
