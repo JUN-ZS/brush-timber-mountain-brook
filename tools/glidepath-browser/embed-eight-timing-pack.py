@@ -500,6 +500,14 @@ def embed_pack(html: str, pack: dict[str, Any]) -> str:
     new_cohort_detail = """  const selectedBelow=s.cpi>0?(s.cpi>=0.03?sel.realBelow350:sel.realBelow235):sel.below;
   $('cohortDetailX').innerHTML='<div class="microgrid"><div class="micro"><small>窗口起始年份</small><b>'+sel.y+' 年起點</b><small>'+sel.first+' 至 '+sel.last+'</small></div><div class="micro"><small>該年窗口數</small><b>'+sel.n+' 個十年窗口</b><small>實質本金計數以此組實際 '+sel.n+' 個窗口計算</small></div><div class="micro"><small>中位／P05 十年終值</small><b>'+usd(defl(sel.nav50,10,s.cpi))+'</b><small>P05 '+usd(defl(sel.nav05,10,s.cpi))+' · 最差 '+usd(defl(sel.navmin,10,s.cpi))+'</small></div><div class="micro"><small>'+(s.cpi>0?'低於實質本金窗口':'低於名目本金窗口')+'／提款缺口</small><b>'+selectedBelow+'/'+sel.n+'</b><small>缺口 '+sel.gap+' 個窗口 · 最差回撤 '+pct(sel.ddmin)+'</small></div></div><p class="tiny">此計數為指定起始年份下第10年期末 NAV 相對通膨調整本金門檻的比較；提款情境只計剩餘 NAV，不把已取走現金加回。各起點樣本數為 4–12 個重疊十年窗口，不代表獨立試驗或未來機率。</p>';"""
     html = replace_idempotently(html, old_cohort_detail, new_cohort_detail, "real-principal cohort detail card")
+    html = replace_idempotently(html,
+        """function update(){
+  let s=S(),r=Y(s.bond,s.target,s.timing,s.flow,s.year);""",
+        """function update(){
+  let s=S(),r=Y(s.bond,s.target,s.timing,s.flow,s.year);
+  const cohortMetricOption=$("cohortMetricX").querySelector('option[value="below"]');
+  if(cohortMetricOption)cohortMetricOption.textContent=s.cpi>0?"低於實質本金窗口":"低於起始本金窗口";""",
+        "dynamic real-principal cohort selector label")
 
     old_selector = TIMING_OPTIONS_RE.findall(html)
     require(len(old_selector) == 1, "Expected exactly one timing selector")
