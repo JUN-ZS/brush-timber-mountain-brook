@@ -83,8 +83,8 @@ class CrossPutReplayTests(unittest.TestCase):
                     "qqq_entry_ask": 4.0, "spy_entry_bid": 3.0}]
         grid = replay.build_shock_grid(entries, 4, 5, 0.0, 0.0)
         diagonal = [r for r in grid if r["same_pct_move_diagonal"]]
-        self.assertEqual(len(grid), 121)
-        self.assertEqual(len(diagonal), 11)
+        self.assertEqual(len(grid), 196)
+        self.assertEqual(len(diagonal), 14)
         self.assertTrue(all("HYPOTHETICAL" in r["classification"] for r in grid))
 
 
