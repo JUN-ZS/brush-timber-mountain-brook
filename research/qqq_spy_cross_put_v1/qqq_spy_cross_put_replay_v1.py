@@ -119,16 +119,22 @@ def download_verified(symbol: str, year: int | None, cache: Path):
         raise ValueError(f"{symbol}/{name} pin mismatch: bytes={total}/{size}; sha={actual}/{sha}")
     return path, {"symbol":symbol,"file":name,"status":"DOWNLOADED_HASH_VERIFIED","bytes":total,"git_blob_sha":actual}
 
-def load_spots(path: Path) -> dict[str, float]:
+def load_spots(path: Path, symbol: str) -> dict[str, float]:
     import pyarrow.parquet as pq
     table = pq.read_table(path)
     names = {name.lower(): name for name in table.column_names}
-    dc, cc = names.get("date"), names.get("close") or names.get("raw_close")
-    if not dc or not cc: raise ValueError(f"{path.name} lacks date/close; columns={table.column_names}")
+    dc, sc, cc = names.get("date"), names.get("symbol"), names.get("close") or names.get("raw_close")
+    if not dc or not cc:
+        raise ValueError(f"{path.name} lacks date/close; columns={table.column_names}")
+    if not sc:
+        raise ValueError(f"{path.name} lacks a symbol column; refusing ambiguous underlying prices")
     result = {}
-    for dv, cv in zip(table[dc].to_pylist(), table[cc].to_pylist()):
+    for dv, sv, cv in zip(table[dc].to_pylist(), table[sc].to_pylist(), table[cc].to_pylist()):
         day, close = as_day(dv), num(cv)
-        if day and close is not None and close > 0: result[day] = close
+        if str(sv).strip().upper() == symbol.upper() and day and close is not None and close > 0:
+            result[day] = close
+    if not result:
+        raise ValueError(f"{path.name} contains no underlying rows for symbol={symbol}")
     return result
 
 def iter_symbol_days(paths: list[Path], symbol: str, start_day: str, end_day: str, stats: dict[str, Any]) -> Iterable:
@@ -375,7 +381,7 @@ def run_replay(args):
         for year in years:
             path,meta=download_verified(symbol,year,cache);paths.append(path);integrity.append(meta)
     qu,qmeta=download_verified("QQQ",None,qcache);su,smeta=download_verified("SPY",None,scache);integrity.extend([qmeta,smeta])
-    qspots,sspots=load_spots(qu),load_spots(su)
+    qspots,sspots=load_spots(qu, 'QQQ'),load_spots(su, 'SPY')
     dates=sorted(d for d in set(qspots)&set(sspots) if start_day<=d<=end_day)
     if not dates:raise ValueError("No common QQQ/SPY underlying sessions in the requested date range")
     qs={"chain_dates":0,"put_rows":0,"last_chain_date":None};ss={"chain_dates":0,"put_rows":0,"last_chain_date":None}
