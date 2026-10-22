@@ -363,25 +363,25 @@ static.update({
 review["headless_browser_verification"] = results
 review["cashflow_nav_semantic_sweep"] = cashflow_semantics
 review["known_limits"] = [
-    "The proven zero-real-breach strategy counts are derived from each strategy's minimum terminal NAV versus the inflation-adjusted $100,000 threshold.",
-    "Exact real-purchasing-power breach counts for strategies that fail the minimum-terminal-NAV proof are not inferred without per-window terminal NAV values or a fresh window-level replay.",
+    "Exact annual real-principal breach counts are computed from independently replayed annual account NAVs for 2.35% and 3.50% inflation; counts are NAV strictly below initial capital compounded at the selected rate.",
     "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied.",
     "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries."
 ]
-review["residual_findings_for_v2_2"] = [
-    "Exact real-purchasing-power breach counts for strategies whose worst terminal NAV is below the inflation-adjusted principal threshold remain uncomputed; the UI explicitly labels these as uncalculated instead of substituting nominal counts."
-]
+review["residual_findings_for_v2_2"] = []
 review["table_real_mode_label_fix"] = {
     "implemented": True,
     "nominal_header": "名目低於本金",
-    "real_header": "實質保本窗口（未精算）",
-    "real_cell_format": "未精算（名目 n/157）"
+    "real_header": "實質低於本金門檻窗口",
+    "real_cell_format": "逐窗口 NAV 低於通膨調整本金門檻的實際 n/157",
+    "source_rates": [0.0235, 0.035],
+    "annual_years_covered": list(range(11))
 }
 review["derived_real_breach_zero_proof"] = results.get("derived_real_breach_zero_proof", [])
 review["reverse_direction_replay"] = results.get("reverse_direction_replay", {})
 review["paired_direction_comparison"] = results.get("paired_direction_comparison", {})
 review["paired_direction_comparison_real_235"] = results.get("paired_direction_comparison_real_235", {})
 review["known_limits"].extend([
+    "Real-floor counts report account NAV relative to the inflation-adjusted initial-capital threshold and do not add back prior paid withdrawals; lifetime wealth including spending would be a separate measure.",
     "The reversed bond-to-stock replay is independently recomputed from repository SPY/TLT daily adjusted-close rows; it does not reuse the original stock-to-bond performance summaries.",
     "Reverse-direction performance is intentionally supported only for SPY plus TLT and the no-withdrawal/no-contribution cashflow state. Other bond proxies and cashflows are BLOCKED pending matching replay data and execution logic.",
     "The reverse replay uses 157 overlapping 10-year windows, 252 trading days per year and annual rebalance targets. It omits transaction costs, taxes, slippage and ETF-tracking differences; historical outcomes are not guarantees.",
