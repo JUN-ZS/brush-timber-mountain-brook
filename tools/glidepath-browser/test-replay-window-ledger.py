@@ -20,6 +20,34 @@ class IndependentLedgerReplayTests(unittest.TestCase):
         self.assertEqual(count350, 3)
         self.assertEqual(M.real_principal_breach_counts([100000.0] * 157, 0), (0, 0))
 
+    def test_daily_real_floor_touch_remains_visible_after_year_end_recovery(self):
+        d, p, m = flat_market()
+        # A one-session crash then recovery leaves every year-end NAV above the
+        # first-year inflation threshold, but the daily account NAV touched below it.
+        p[13, :] = 80.0
+        p[14:, :] = 110.0
+        r, marks = M.replay_window(d, p, m, 0, "AGG", 60, "linear", "no_withdrawals", {})
+        threshold235 = M.INITIAL * (1.0 + 0.0235)
+        threshold350 = M.INITIAL * (1.0 + 0.035)
+        self.assertGreater(marks[1]["nav_usd"], threshold235)
+        self.assertGreater(marks[1]["nav_usd"], threshold350)
+        self.assertTrue(marks[1]["ever_below_real_principal_235"])
+        self.assertTrue(marks[1]["ever_below_real_principal_350"])
+        self.assertTrue(marks[10]["ever_below_real_principal_235"])
+        self.assertTrue(marks[10]["ever_below_real_principal_350"])
+        self.assertEqual(M.real_principal_breach_counts([marks[1]["nav_usd"]] * 157, 1), (0, 0))
+        self.assertEqual(r["terminal_nav_usd"], 110000.0)
+
+    def test_flat_unfunded_real_floor_tracks_inflation_touch_even_without_price_loss(self):
+        d, p, m = flat_market()
+        _, marks = M.replay_window(d, p, m, 0, "AGG", 60, "linear", "no_withdrawals", {})
+        self.assertFalse(marks[0]["ever_below_real_principal_235"])
+        self.assertFalse(marks[0]["ever_below_real_principal_350"])
+        self.assertTrue(marks[1]["ever_below_real_principal_235"])
+        self.assertTrue(marks[1]["ever_below_real_principal_350"])
+        self.assertTrue(all(mark["ever_below_real_principal_235"] for mark in marks[1:]))
+        self.assertTrue(all(mark["ever_below_real_principal_350"] for mark in marks[1:]))
+
     def test_real_principal_count_rejects_incomplete_or_invalid_nav_samples(self):
         with self.assertRaisesRegex(ValueError, "157 window NAVs"):
             M.real_principal_breach_counts([100000.0] * 156, 10)
