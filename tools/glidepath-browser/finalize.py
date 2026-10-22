@@ -121,6 +121,8 @@ if any(not isinstance(row, list) or len(row) < 23 for row in annual_rows):
 for row in annual_rows:
     if any(not isinstance(row[index], int) or not 0 <= row[index] <= window_count for index in (21, 22)):
         raise SystemExit("Annual real-principal breach count is not an integer within 0–157.")
+    if row[21] > row[22]:
+        raise SystemExit("Higher-inflation real-principal breach count cannot be below the lower-inflation count.")
     if int(row[0]) == 0 and (row[21] != 0 or row[22] != 0):
         raise SystemExit("Year-zero real-principal breach counts must be zero.")
 
