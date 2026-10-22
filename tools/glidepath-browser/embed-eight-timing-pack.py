@@ -134,8 +134,8 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
                 f"Invalid real-principal count key: {item}")
         key = (BONDS[bond_index], target, TIMINGS[timing_index], FLOWS[flow_index], year)
         require(key not in real_floor_by_key, f"Duplicate real-principal count key: {key}")
-        require(0 <= count235 <= windows and 0 <= count350 <= windows,
-                f"Real-principal breach count outside 0–{windows}: {key}")
+        require(0 <= count235 <= count350 <= windows,
+                f"Real-principal breach count outside threshold order/range 0–{windows}: {key}")
         if year == 0:
             require(count235 == 0 and count350 == 0,
                     f"Year-zero real-principal breach counts must be zero: {key}")
