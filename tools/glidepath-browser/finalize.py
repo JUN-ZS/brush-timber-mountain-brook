@@ -90,6 +90,24 @@ if len(heatmap_checks) != 2 or heatmap_checks != [
     {"inflation": 0.035, "cells": 64, "passed": True},
 ]:
     raise SystemExit("Real-principal heatmap did not pass both inflation-rate cell sweeps.")
+cohort_floor_checks = results.get("real_floor_cohort_checks", [])
+if len(cohort_floor_checks) != 2:
+    raise SystemExit("Start-year cohort real-principal audit is missing one or both inflation-rate views.")
+for expected_rate, item in zip((0.0235, 0.035), cohort_floor_checks):
+    sample_counts = item.get("cohort_sample_counts", [])
+    if (
+        item.get("inflation") != expected_rate
+        or item.get("cohort_groups") != 14
+        or item.get("bars_verified") != 14
+        or item.get("all_bars_match") is not True
+        or item.get("selected_detail_match") is not True
+        or len(sample_counts) != 14
+        or any(not isinstance(count, int) or count <= 0 or count > 12 for count in sample_counts)
+        or sum(sample_counts) != 157
+    ):
+        raise SystemExit("Start-year cohort real-principal bars/sample sizes failed at rate " + str(expected_rate))
+if [item.get("inflation") for item in cohort_floor_checks] != [0.0235, 0.035]:
+    raise SystemExit("Start-year cohort real-principal rate order is not canonical.")
 
 html_bytes = HTML.read_bytes()
 html_text = html_bytes.decode("utf-8")
@@ -118,6 +136,22 @@ if actual_counts != expected_counts or window_count != 157:
     raise SystemExit(f"Embedded data-count contract mismatch: actual={actual_counts}, expected={expected_counts}, windows={window_count}")
 if any(not isinstance(row, list) or len(row) < 23 for row in annual_rows):
     raise SystemExit("Annual compact rows must include both independently replayed real-principal breach counts.")
+if (
+    pack_meta.get("real_floor_cohort_count_rows") != 14336
+    or pack_meta.get("real_floor_cohort_count_year") != 10
+    or pack_meta.get("real_floor_count_rates") != [0.0235, 0.035]
+    or any(not isinstance(row, list) or len(row) < 18 for row in cohort_rows)
+):
+    raise SystemExit("Compact start-year cohorts do not embed both exact real-principal count fields.")
+for row in cohort_rows:
+    cohort_meta = packed_data.get("cm", {}).get(str(int(row[4])), [])
+    if not cohort_meta or not isinstance(cohort_meta[0], int) or not 0 < cohort_meta[0] <= 12:
+        raise SystemExit("Start-year cohort sample-size metadata is invalid.")
+    sample_n = cohort_meta[0]
+    if any(not isinstance(row[index], int) or not 0 <= row[index] <= sample_n for index in (16, 17)):
+        raise SystemExit("Start-year real-principal counts must be integer counts within the actual cohort sample.")
+    if row[16] > row[17]:
+        raise SystemExit("Higher-inflation cohort real-principal count cannot be below the lower-inflation count.")
 for row in annual_rows:
     if any(not isinstance(row[index], int) or not 0 <= row[index] <= window_count for index in (21, 22)):
         raise SystemExit("Annual real-principal breach count is not an integer within 0–157.")
@@ -250,6 +284,10 @@ if "<th>'+(s.cpi>0?'低於實質本金窗口':'名目低於本金')+'</th>" not 
     raise SystemExit("Real-mode table header/count contract is missing.")
 if "s.cpi>=0.03?v.windows_below_real_principal_350:v.windows_below_real_principal_235" not in html_text:
     raise SystemExit("Real-mode table does not bind either exact real-principal count field.")
+if "realBelow235:r[16],realBelow350:r[17]" not in html_text:
+    raise SystemExit("Start-year cohort UI does not bind the exact cohort real-principal count fields.")
+if "此起始年份資料只有名目本金門檻計數" in html_text:
+    raise SystemExit("Start-year cohort real-principal metric is still blocked instead of using exact cohort replay counts.")
 
 # Rebuild a deterministic, single-file ZIP from the exact canonical HTML.
 with ZipFile(BUNDLE, "w", compression=ZIP_DEFLATED, compresslevel=9) as zf:
@@ -291,6 +329,7 @@ for key, expected in {
     "yearly_navs_reconciled": 11264,
     "daily_drawdown_paths_replayed": 160768,
     "real_floor_annual_rows": 11264,
+    "real_floor_cohort_rows": 14336,
 }.items():
     if ledger_counts.get(key) != expected:
         raise SystemExit(f"Independent ledger replay count mismatch {key}: {ledger_counts.get(key)!r} != {expected}")
@@ -302,8 +341,14 @@ ledger_replay_summary.pop("real_floor_annual_counts", None)
 ledger_replay_summary["real_floor_annual_counts_sha256"] = hashlib.sha256(
     json.dumps(ledger_replay.get("real_floor_annual_counts", []), separators=(",", ":")).encode("utf-8")
 ).hexdigest()
+ledger_replay_summary.pop("real_floor_cohort_counts", None)
+ledger_replay_summary["real_floor_cohort_counts_sha256"] = hashlib.sha256(
+    json.dumps(ledger_replay.get("real_floor_cohort_counts", []), separators=(",", ":")).encode("utf-8")
+).hexdigest()
 ledger_replay_summary.update({
     "real_floor_annual_rows": ledger_counts["real_floor_annual_rows"],
+    "real_floor_cohort_rows": ledger_counts["real_floor_cohort_rows"],
+    "real_floor_cohort_counts_sha256": ledger_replay_summary["real_floor_cohort_counts_sha256"],
     "window_rows_replayed": ledger_counts["window_rows_replayed"],
     "annual_rows_reconciled": ledger_counts["annual_rows_reconciled"],
     "scenario_summaries_reconciled": ledger_counts["scenario_summaries_reconciled"],
@@ -379,6 +424,7 @@ review["cashflow_nav_semantic_sweep"] = cashflow_semantics
 review["real_floor_ui_sweep_coverage"] = cashflow_semantics.get("checked_inflation_coverage", [])
 review["real_floor_annual_pack_integrity"] = real_floor_integrity
 review["real_floor_heatmap_checks"] = heatmap_checks
+review["real_floor_cohort_checks"] = cohort_floor_checks
 review["known_limits"] = [
     "Exact real-principal breach counts for each year, strategy, cashflow mode and inflation assumption are calculated from independently replayed 157-window year-end NAV marks.",
     "The visible real-principal count compares remaining portfolio NAV with initial capital inflated by the selected annual rate; it does not add previously withdrawn cash back to account NAV.",
@@ -437,6 +483,14 @@ audit["final_artifact_verification"] = {
         "strict_below_threshold": True,
         "source": "independent normalized-share replay; year-end portfolio NAV",
     },
+    "real_floor_cohort_count_contract": {
+        "rows": cohort_count,
+        "year": 10,
+        "inflation_rates": [0.0235, 0.035],
+        "sample_window_counts": sorted({int(packed_data["cm"][str(row[4])][0]) for row in cohort_rows}),
+        "checks": cohort_floor_checks,
+        "count_rows_sha256": ledger_replay_summary["real_floor_cohort_counts_sha256"],
+    },
     "cashflow_window_ledger_replay": {
         "status": ledger_replay["status"],
         "source_panel_sha256": ledger_replay["source_panel_sha256"],
@@ -446,6 +500,8 @@ audit["final_artifact_verification"] = {
         "cashflow_invariants_checked": ledger_counts["cashflow_invariants_checked"],
         "real_floor_annual_rows": ledger_counts["real_floor_annual_rows"],
         "real_floor_annual_counts_sha256": ledger_replay_summary["real_floor_annual_counts_sha256"],
+        "real_floor_cohort_rows": ledger_counts["real_floor_cohort_rows"],
+        "real_floor_cohort_counts_sha256": ledger_replay_summary["real_floor_cohort_counts_sha256"],
         "max_abs_error": ledger_counts.get("max_abs_error", {}),
     },
     "zip_members": ["glidepath_interactive_preview_optimized.html"],
