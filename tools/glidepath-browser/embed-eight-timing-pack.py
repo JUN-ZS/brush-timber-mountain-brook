@@ -143,6 +143,28 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
     require(len(real_floor_rows) == 11264 and set(real_floor_by_key) == set(annual_keyed),
             "Independent real-principal count grid must contain one row for every strategy/year key")
 
+    real_floor_cohort_rows = ledger_replay_report.get("real_floor_cohort_counts", [])
+    require(ledger_replay_report.get("real_floor_cohort_count_rates") == [0.0235, 0.035],
+            "Cohort real-principal counts must use the pinned 2.35% and 3.50% rates")
+    require(ledger_replay_report.get("real_floor_cohort_count_rows") == 14336 and
+            len(real_floor_cohort_rows) == 14336,
+            "Independent replay must contain 14,336 start-year real-principal count rows")
+    real_floor_cohort_by_key: dict[tuple[str, int, str, str, int], tuple[int, int, int]] = {}
+    for item in real_floor_cohort_rows:
+        require(isinstance(item, list) and len(item) == 8 and
+                all(isinstance(value, int) for value in item),
+                "Malformed start-year real-principal count row")
+        bond_index, target, timing_index, flow_index, year, sample_n, count235, count350 = item
+        require(bond_index in range(len(BONDS)) and target in TARGETS and
+                timing_index in range(len(TIMINGS)) and flow_index in range(len(FLOWS)) and year in cohort_years,
+                f"Invalid start-year real-principal count key: {item}")
+        key = (BONDS[bond_index], target, TIMINGS[timing_index], FLOWS[flow_index], year)
+        require(key not in real_floor_cohort_by_key,
+                f"Duplicate start-year real-principal count key: {key}")
+        require(sample_n > 0 and 0 <= count235 <= count350 <= sample_n,
+                f"Start-year real-principal counts outside sample/threshold order: {key}")
+        real_floor_cohort_by_key[key] = (sample_n, count235, count350)
+
     # Treat allocation targets, portfolio NAV, and external cash flows as separate
     # quantities. They must reconcile to one scenario/year key, never be inferred
     # from a label or borrowed from the no-withdrawal baseline.
@@ -346,6 +368,14 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
         counts_by_scenario[key4] = counts_by_scenario.get(key4, 0) + int(row["window_count"])
     require(set(counts_by_scenario) == set(keys) and all(v == windows for v in counts_by_scenario.values()),
             "Start-year cohort counts fail to conserve 157 windows for each strategy")
+    require(set(real_floor_cohort_by_key) == set(cohort_keyed),
+            "Start-year real-principal count grid must match every strategy/start-year cohort key")
+    for key, row in cohort_keyed.items():
+        sample_n, count235, count350 = real_floor_cohort_by_key[key]
+        require(sample_n == int(row["window_count"]),
+                f"Start-year real-principal sample count differs from actual cohort window count: {key}")
+        require(sample_n <= windows and 0 <= count235 <= count350 <= sample_n,
+                f"Start-year real-principal count exceeds the cohort's actual sample: {key}")
 
     # Preserve the compact field order consumed by v2.html's renderer.
     d = []
@@ -400,7 +430,8 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
                 rounded(row.get("median_time_weighted_cagr")), rounded(row.get("p05_time_weighted_cagr")),
                 rounded(row.get("worst_time_weighted_cagr")), rounded(row.get("median_daily_max_drawdown")),
                 rounded(row.get("worst_daily_max_drawdown")), int(row["windows_with_withdrawal_shortfall"]),
-                int(row["windows_below_initial_capital"])])
+                int(row["windows_below_initial_capital"]),
+                real_floor_cohort_by_key[(*key, year)][1], real_floor_cohort_by_key[(*key, year)][2]])
     meta = {
         "source_as_of": str(data["last_common_date"]),
         "source_sha256": source_sha,
@@ -409,6 +440,9 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
         "initial_capital_usd": round(initial, 2),
         "rolling_windows_per_scenario": windows,
         "cohort_years": cohort_years,
+        "real_floor_cohort_count_rows": len(cohort),
+        "real_floor_cohort_count_year": 10,
+        "real_floor_count_rates": [0.0235, 0.035],
     }
     return {"cm": cm, "d": d, "a": a, "h": h, "c": cohort, "meta": meta}
 
@@ -428,6 +462,42 @@ def embed_pack(html: str, pack: dict[str, Any]) -> str:
     require(len(matches) == 1, f"Expected exactly one RAW_PACK declaration, found {len(matches)}")
     payload = json.dumps(pack, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
     html = PACK_RE.sub(lambda m: "const RAW_PACK=" + payload + ";\nconst TG=", html, count=1)
+
+    # Carry exact start-year real-principal counts into the cohort records and chart.
+    html = replace_idempotently(html,
+        "dd50:r[12],ddmin:r[13],gap:r[14],below:r[15]};",
+        "dd50:r[12],ddmin:r[13],gap:r[14],below:r[15],realBelow235:r[16],realBelow350:r[17]};",
+        "cohort real-principal row hydration")
+    old_cohort_chart = """  const metric=$('cohortMetricX').value,labels={nav50:'中位終值',nav05:'P05 終值',cagr50:'中位年化回報',cagr05:'P05 年化回報',dd50:'中位最大回撤',ddmin:'最差回撤',gap:'提款缺口窗口',below:'低於本金窗口'};
+  const rows=(COHORT_MAP.get(s.bond+"|"+s.target+"|"+s.timing+"|"+s.flow)||[]).slice().sort((a,b)=>a.y-b.y);
+  if(!rows.length)return '<p class="tiny">所選策略沒有起始年份分組。</p>';
+  if(!rows.some(r=>+r.y===+cohortYearX))cohortYearX=+rows[rows.length-1].y;
+  const isNav=metric==='nav50'||metric==='nav05',isCagr=metric==='cagr50'||metric==='cagr05';
+  if(metric==='below'&&s.cpi>0)return '<p class="tiny" style="padding:22px 10px;text-align:center;background:#fff7ed;border-radius:10px">此起始年份資料只有名目本金門檻計數，沒有逐窗口 NAV，不能計算實質保本比例；已停止以名目計數替代。</p>';
+  const getV=r=>{
+    const raw=+r[metric];
+    if(!Number.isFinite(raw))return NaN;
+    return isNav?defl(raw,10,s.cpi):isCagr?realCagr(raw,s.cpi):raw;
+  };"""
+    new_cohort_chart = """  const metric=$('cohortMetricX').value,labels={nav50:'中位終值',nav05:'P05 終值',cagr50:'中位年化回報',cagr05:'P05 年化回報',dd50:'中位最大回撤',ddmin:'最差回撤',gap:'提款缺口窗口',below:s.cpi>0?'低於實質本金窗口':'低於名目本金窗口'};
+  const rows=(COHORT_MAP.get(s.bond+"|"+s.target+"|"+s.timing+"|"+s.flow)||[]).slice().sort((a,b)=>a.y-b.y);
+  if(!rows.length)return '<p class="tiny">所選策略沒有起始年份分組。</p>';
+  if(!rows.some(r=>+r.y===+cohortYearX))cohortYearX=+rows[rows.length-1].y;
+  const isNav=metric==='nav50'||metric==='nav05',isCagr=metric==='cagr50'||metric==='cagr05';
+  const getV=r=>{
+    if(metric==='below'&&s.cpi>0){
+      const realCount=s.cpi>=0.03?r.realBelow350:r.realBelow235;
+      return Number.isInteger(realCount)&&realCount>=0&&realCount<=r.n?realCount:NaN;
+    }
+    const raw=+r[metric];
+    if(!Number.isFinite(raw))return NaN;
+    return isNav?defl(raw,10,s.cpi):isCagr?realCagr(raw,s.cpi):raw;
+  };"""
+    html = replace_idempotently(html, old_cohort_chart, new_cohort_chart, "real-principal cohort chart")
+    old_cohort_detail = """  $('cohortDetailX').innerHTML='<div class="microgrid"><div class="micro"><small>窗口起始年份</small><b>'+sel.y+' 年起點</b><small>'+sel.first+' 至 '+sel.last+'</small></div><div class="micro"><small>該年窗口數</small><b>'+sel.n+' 個十年窗口</b><small>彼此重疊的歷史樣本</small></div><div class="micro"><small>中位／P05 十年終值</small><b>'+usd(defl(sel.nav50,10,s.cpi))+'</b><small>P05 '+usd(defl(sel.nav05,10,s.cpi))+' · 最差 '+usd(defl(sel.navmin,10,s.cpi))+'</small></div><div class="micro"><small>低於名目本金／提款缺口</small><b>'+sel.below+'/'+sel.n+'</b><small>缺口 '+sel.gap+' 個窗口 · 最差回撤 '+pct(sel.ddmin)+'</small></div></div><p class="tiny">歷史起點分組用於識別起點估值敏感度（例如 2007–2008 金融海嘯前夕起點 vs. 2009 低谷起點），不代表年度獨立試驗成功率。</p>';"""
+    new_cohort_detail = """  const selectedBelow=s.cpi>0?(s.cpi>=0.03?sel.realBelow350:sel.realBelow235):sel.below;
+  $('cohortDetailX').innerHTML='<div class="microgrid"><div class="micro"><small>窗口起始年份</small><b>'+sel.y+' 年起點</b><small>'+sel.first+' 至 '+sel.last+'</small></div><div class="micro"><small>該年窗口數</small><b>'+sel.n+' 個十年窗口</b><small>實質本金計數以此組實際 '+sel.n+' 個窗口計算</small></div><div class="micro"><small>中位／P05 十年終值</small><b>'+usd(defl(sel.nav50,10,s.cpi))+'</b><small>P05 '+usd(defl(sel.nav05,10,s.cpi))+' · 最差 '+usd(defl(sel.navmin,10,s.cpi))+'</small></div><div class="micro"><small>'+(s.cpi>0?'低於實質本金窗口':'低於名目本金窗口')+'／提款缺口</small><b>'+selectedBelow+'/'+sel.n+'</b><small>缺口 '+sel.gap+' 個窗口 · 最差回撤 '+pct(sel.ddmin)+'</small></div></div><p class="tiny">此計數為指定起始年份下第10年期末 NAV 相對通膨調整本金門檻的比較；提款情境只計剩餘 NAV，不把已取走現金加回。各起點樣本數為 4–12 個重疊十年窗口，不代表獨立試驗或未來機率。</p>';"""
+    html = replace_idempotently(html, old_cohort_detail, new_cohort_detail, "real-principal cohort detail card")
 
     old_selector = TIMING_OPTIONS_RE.findall(html)
     require(len(old_selector) == 1, "Expected exactly one timing selector")
