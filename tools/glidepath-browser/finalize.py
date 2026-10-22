@@ -321,6 +321,20 @@ if ledger_replay.get("source_as_of") != source_as_of or ledger_replay.get("rolli
     raise SystemExit("Independent cashflow-ledger replay as-of/window mismatch.")
 if (ledger_replay.get("window_rows_expected"), ledger_replay.get("annual_summary_rows_expected"), ledger_replay.get("scenario_count")) != (160768, 11264, 1024):
     raise SystemExit("Independent cashflow-ledger replay coverage is incomplete.")
+xirr_validation = ledger_replay.get("xirr_validation", {})
+if xirr_validation.get("status") != "PASS":
+    raise SystemExit("Independent XIRR reconstruction did not publish PASS.")
+for key, expected in {
+    "rows_checked": 160768,
+    "windows_recomputed": 80384,
+    "scenario_summaries_reconciled": 1024,
+}.items():
+    if xirr_validation.get(key) != expected:
+        raise SystemExit(f"Independent XIRR coverage mismatch {key}: {xirr_validation.get(key)!r} != {expected}")
+if sum(xirr_validation.get("status_counts", {}).values()) != 160768:
+    raise SystemExit("Independent XIRR status counts do not cover all 160,768 windows.")
+if not isinstance(xirr_validation.get("max_abs_error"), (int,float)) or xirr_validation["max_abs_error"] > 2e-6:
+    raise SystemExit(f"Independent XIRR value reconciliation exceeds tolerance: {xirr_validation.get('max_abs_error')!r}")
 ledger_counts = ledger_replay.get("counters", {})
 for key, expected in {
     "window_rows_replayed": 160768,
@@ -358,6 +372,7 @@ ledger_replay_summary.update({
     "daily_drawdown_paths_replayed": ledger_counts["daily_drawdown_paths_replayed"],
     "fields_compared": ledger_counts["fields_compared"],
     "max_abs_error": ledger_counts.get("max_abs_error", {}),
+    "xirr_validation": xirr_validation,
 })
 audit["cashflow_window_ledger_replay"] = ledger_replay_summary
 audit["real_principal_breach_count_contract"] = {
@@ -427,6 +442,7 @@ review["real_floor_annual_pack_integrity"] = real_floor_integrity
 review["real_floor_heatmap_checks"] = heatmap_checks
 review["real_floor_cohort_checks"] = cohort_floor_checks
 review["known_limits"] = [
+    "Investor XIRR is independently recomputed from dated cash flows for no-withdrawal and delayed-step-up modes; fixed monthly withdrawal stress modes keep XIRR explicitly not-computed.",
     "Annual real-principal breach counts for every year/strategy/cashflow/inflation key use independently replayed 157-window year-end NAV marks.",
     "Start-year cohort real-principal counts use the actual 4–12 windows in each start-year subgroup; these are subsets of the same overlapping ten-year windows and are not independent probability samples.",
     "The visible real-principal count compares remaining portfolio NAV with initial capital inflated by the selected annual rate; it does not add previously withdrawn cash back to account NAV.",
@@ -506,6 +522,7 @@ audit["final_artifact_verification"] = {
         "real_floor_cohort_rows": ledger_counts["real_floor_cohort_rows"],
         "real_floor_cohort_counts_sha256": ledger_replay_summary["real_floor_cohort_counts_sha256"],
         "max_abs_error": ledger_counts.get("max_abs_error", {}),
+        "xirr_validation": xirr_validation,
     },
     "zip_members": ["glidepath_interactive_preview_optimized.html"],
     "zip_inflated_html_matches_canonical_html": True,

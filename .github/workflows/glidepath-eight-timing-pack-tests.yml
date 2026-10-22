@@ -199,6 +199,13 @@ jobs:
           assert ledger.get("real_floor_annual_rows") == 11264
           assert ledger.get("real_floor_cohort_rows") == 14336
           assert len(ledger.get("real_floor_cohort_counts_sha256", "")) == 64
+          xirr = ledger.get("xirr_validation", {})
+          assert xirr.get("status") == "PASS"
+          assert xirr.get("rows_checked") == 160768
+          assert xirr.get("windows_recomputed") == 80384
+          assert xirr.get("scenario_summaries_reconciled") == 1024
+          assert sum(xirr.get("status_counts", {}).values()) == 160768
+          assert xirr.get("max_abs_error", 1) <= 2e-6
           assert audit.get("real_principal_breach_count_contract", {}).get("annual_rows_with_two_rates") == 11264
           cohort_contract = audit.get("final_artifact_verification", {}).get("real_floor_cohort_count_contract", {})
           assert cohort_contract.get("rows") == 14336

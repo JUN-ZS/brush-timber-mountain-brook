@@ -48,12 +48,36 @@ class IndependentLedgerReplayTests(unittest.TestCase):
         self.assertEqual(r["requested_withdrawals_usd"],1000.0); self.assertEqual(r["actual_withdrawals_usd"],1000.0)
         self.assertEqual(r["withdrawal_shortfall_usd"],0.0); self.assertEqual(r["additional_deposits_usd"],500.0)
         self.assertEqual(r["terminal_nav_usd"],99500.0); self.assertAlmostEqual(r["time_weighted_cagr"],0.0,places=12)
+        self.assertIn(r["investor_xirr_status"],("OK","NO_ROOT","NO_ROOT_IN_SEARCH_RANGE","MULTIPLE_ROOTS_AMBIGUOUS"))
+        self.assertEqual(r["investor_xirr_status"]=="OK",r["investor_xirr"] is not None)
     def test_comparison_counter_increments_once_per_field(self):
         stats={"fields_compared":0,"max_abs_error":{}}
         M.close_value(100.0,"100","test_numeric",stats,"counter")
         self.assertEqual(stats["fields_compared"],1)
         M.close_value("linear","linear","timing_rule",stats,"counter")
         self.assertEqual(stats["fields_compared"],2)
+    def test_independent_xirr_closed_form_and_grid_roots(self):
+        first=dt.date(2000,1,1)
+        last=first+dt.timedelta(days=365)
+        rate,status=M.solve_xirr_independent([(first,-100000.0),(last,110000.0)])
+        self.assertEqual(status,"OK")
+        self.assertAlmostEqual(rate,(1.1 ** (365.25/365.0))-1.0,places=10)
+
+        rate,status=M.solve_xirr_independent([(first,-100000.0),(dt.date(2010,1,1),100000.0)])
+        self.assertEqual(status,"OK")
+        self.assertAlmostEqual(rate,0.0,places=10)
+
+    def test_independent_xirr_reports_no_root_and_multiple_roots(self):
+        first=dt.date(2000,1,1)
+        rate,status=M.solve_xirr_independent([(first,-100.0),(first+dt.timedelta(days=365),-110.0)])
+        self.assertIsNone(rate)
+        self.assertEqual(status,"NO_ROOT")
+
+        flows=[(first,-100.0),(first+dt.timedelta(days=365),230.0),(first+dt.timedelta(days=730),-132.0)]
+        rate,status=M.solve_xirr_independent(flows)
+        self.assertIsNone(rate)
+        self.assertEqual(status,"MULTIPLE_ROOTS_AMBIGUOUS")
+
     def test_depletion_and_unpaid_withdrawals_are_explicit(self):
         d,p,m=flat_market(); ev={k:[("withdrawal",1000.0)] for k in range(1,121)}
         r,_=M.replay_window(d,p,m,0,"AGG",60,"linear","monthly_withdrawal_1000_usd_stress",ev)

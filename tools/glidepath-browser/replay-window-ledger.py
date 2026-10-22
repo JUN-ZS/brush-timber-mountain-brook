@@ -74,11 +74,71 @@ def load_panel(path,report):
     need(len(month_ends)-HORIZON==157,"Expected 157 rolling windows")
     return dates,np.asarray(rows,dtype=np.float64),month_ends,sha
 
+def solve_xirr_independent(dated_cashflows):
+    """Independent money-weighted return solver; does not import the research engine."""
+    by_date={}
+    for raw_date,amount in dated_cashflows:
+        value=float(amount)
+        if not math.isfinite(value):
+            return None,"INVALID_CASHFLOW"
+        date=raw_date if isinstance(raw_date,dt.date) else dt.date.fromisoformat(str(raw_date))
+        by_date[date]=by_date.get(date,0.0)+value
+    flows=sorted(((date,value) for date,value in by_date.items() if abs(value)>1e-10),key=lambda x:x[0])
+    if len(flows)<2 or not any(value<0 for _,value in flows) or not any(value>0 for _,value in flows):
+        return None,"NO_ROOT"
+    origin=flows[0][0]
+    amounts=np.asarray([value for _,value in flows],dtype=np.float64)
+    years=np.asarray([(date-origin).days/365.25 for date,_ in flows],dtype=np.float64)
+    total_abs=float(np.abs(amounts).sum())
+    tolerance=max(1e-8,total_abs*1e-12)
+    low,high=math.log(0.001),math.log(11.0)
+    # Two dated cash flows have a closed-form root; irregular schedules use an
+    # independently evaluated log-rate grid with bracket refinement.
+    if len(flows)==2 and amounts[0]*amounts[1]<0 and years[1]>0:
+        log_rate=math.log(-amounts[1]/amounts[0])/float(years[1])
+        if low-1e-12<=log_rate<=high+1e-12:
+            return math.expm1(log_rate),"OK"
+        return None,"NO_ROOT_IN_SEARCH_RANGE"
+    grid=np.linspace(low,high,1201,dtype=np.float64)
+    values=np.exp(-grid[:,None]*years[None,:])@amounts
+    roots=[]
+    for index in range(len(grid)-1):
+        left,right=float(grid[index]),float(grid[index+1])
+        f_left,f_right=float(values[index]),float(values[index+1])
+        if abs(f_left)<=tolerance:
+            roots.append(left)
+        if (f_left<0<f_right) or (f_right<0<f_left):
+            lo,hi,fl=left,right,f_left
+            for _ in range(160):
+                mid=(lo+hi)/2
+                fm=float(np.exp(-mid*years)@amounts)
+                if abs(fm)<=tolerance or hi-lo<1e-13:
+                    lo=hi=mid
+                    break
+                if (fl<0)==(fm<0):
+                    lo,fl=mid,fm
+                else:
+                    hi=mid
+            roots.append((lo+hi)/2)
+    if abs(float(values[-1]))<=tolerance:
+        roots.append(float(grid[-1]))
+    unique=[]
+    for root in sorted(roots):
+        if not unique or abs(root-unique[-1])>1e-5:
+            unique.append(root)
+    if not unique:
+        return None,"NO_ROOT_IN_SEARCH_RANGE"
+    if len(unique)>1:
+        return None,"MULTIPLE_ROOTS_AMBIGUOUS"
+    return math.expm1(unique[0]),"OK"
+
+
 def replay_window(dates,prices,month_ends,start_m,bond,target,timing,mode,schedule):
     start_i=month_ends[start_m]; end_i=month_ends[start_m+HORIZON]
     start_date,end_date=dates[start_i],dates[end_i]; bc=TICKERS.index(bond)
     units=np.zeros(6,dtype=np.float64); units[0]=.5/prices[start_i,0]; units[1]=.5/prices[start_i,1]
     scale=INITIAL; requested=paid=shortfall=deposits=0.0; first_depletion=None; depleted=False
+    investor_flows=[(start_date,-INITIAL)]
     perf=INITIAL; peak=INITIAL; max_dd=0.0
     marks=[{"year":0,"date":start_date,"nav_usd":round(INITIAL,2),"performance_index":perf,
       "year_twr":None,"cumulative_twr_cagr":None,"max_drawdown_to_date":0.0,"actual_withdrawals_usd":0.0,
@@ -94,10 +154,12 @@ def replay_window(dates,prices,month_ends,start_m,bond,target,timing,mode,schedu
                 if kind=="deposit":
                     need(nav>1e-10,"Deposit after NAV depletion needs segmented replay; BLOCK")
                     deposits+=amount; scale+=amount/g; nav=scale*g
+                    investor_flows.append((dates[gi],-amount))
                 else:
                     requested+=amount; paid_now=min(amount,max(0.0,nav)); shortfall+=amount-paid_now
                     if nav>1e-10 and paid_now>0:
                         scale=max(0.0,nav-paid_now)/g; paid+=paid_now; nav=scale*g
+                        investor_flows.append((dates[gi],paid_now))
             if nav<=1e-8:
                 if first_depletion is None: first_depletion=month
                 if not depleted: depletion_offset=gi-d0
@@ -122,7 +184,14 @@ def replay_window(dates,prices,month_ends,start_m,bond,target,timing,mode,schedu
             w=bond_weight(target,(year+1)*12,timing); units=np.zeros(6,dtype=np.float64)
             units[0]=.5*(1-w)/prices[d1,0]; units[1]=.5*(1-w)/prices[d1,1]; units[bc]=w/prices[d1,bc]
             scale=nav_end
+    terminal_unrounded=nav_end
     terminal=marks[-1]["nav_usd"]
+    if terminal_unrounded>1e-10:
+        investor_flows.append((end_date,terminal_unrounded))
+    if mode in ("monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"):
+        investor_xirr,investor_xirr_status=None,"NOT_COMPUTED_FOR_FIXED_WITHDRAWAL_STRESS"
+    else:
+        investor_xirr,investor_xirr_status=solve_xirr_independent(investor_flows)
     elapsed=(dt.date.fromisoformat(end_date)-dt.date.fromisoformat(start_date)).days/365.25
     cagr=(perf/INITIAL)**(1/elapsed)-1 if elapsed>0 and perf>0 else None
     return {"window_start":start_date,"window_end":end_date,"bond_proxy":bond,
@@ -132,10 +201,11 @@ def replay_window(dates,prices,month_ends,start_m,bond,target,timing,mode,schedu
       "withdrawal_shortfall_usd":round(shortfall,2),"terminal_nav_usd":terminal,
       "nominal_net_result_usd":round(paid+terminal-deposits-INITIAL,2),"time_weighted_cagr":cagr,
       "daily_max_drawdown":max_dd,"first_nav_depletion_month":"" if first_depletion is None else first_depletion,
-      "ending_stock_weight":1-target/100,"ending_bond_weight":target/100},marks
+      "ending_stock_weight":1-target/100,"ending_bond_weight":target/100,
+      "investor_xirr":investor_xirr,"investor_xirr_status":investor_xirr_status},marks
 
 def close_value(got,expected,field,stats,label):
-    if field in ("window_start","window_end","bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode","first_nav_depletion_month"):
+    if field in ("window_start","window_end","bond_proxy","target_bond_conversion_pct_at_year10","timing_rule","cashflow_mode","first_nav_depletion_month","investor_xirr_status"):
         a="" if got is None else str(got); b="" if expected is None else str(expected)
         need(a==b,f"{label} {field}: replay={a!r} source={b!r}")
     elif got is None:
@@ -196,7 +266,9 @@ def scenario_summary(rows):
       "worst_time_weighted_cagr":min(cagr) if cagr else None,"median_daily_max_drawdown":quantile(dd,.5),
       "worst_daily_max_drawdown":min(dd),"windows_below_initial_capital_at_year10":sum(x<INITIAL for x in nav),
       "windows_with_withdrawal_shortfall":sum(x>.01 for x in sf),"median_actual_withdrawals_usd":round(quantile(paid,.5),2),
-      "p95_withdrawal_shortfall_usd":round(quantile(sf,.95),2)}
+      "p95_withdrawal_shortfall_usd":round(quantile(sf,.95),2),
+      "median_investor_xirr":quantile([float(x["investor_xirr"]) for x in rows if x["investor_xirr"] is not None],.5),
+      "xirr_defined_windows":sum(x["investor_xirr"] is not None for x in rows)}
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
@@ -210,7 +282,8 @@ def main():
     annuals={(r["bond_proxy"],int(r["target_bond_conversion_pct_at_year10"]),r["timing_rule"],r["cashflow_mode"],int(r["year"])):r for r in report["annual_scenarios"]}
     need(len(scenarios)==1024 and len(annuals)==11264,"Incomplete source summaries")
     stats={"fields_compared":0,"max_abs_error":{},"window_rows_replayed":0,"annual_rows_reconciled":0,
-      "scenario_summaries_reconciled":0,"cashflow_invariants_checked":0,"yearly_navs_reconciled":0,"daily_drawdown_paths_replayed":0,"real_floor_annual_rows":0,"real_floor_cohort_rows":0}
+      "scenario_summaries_reconciled":0,"cashflow_invariants_checked":0,"yearly_navs_reconciled":0,"daily_drawdown_paths_replayed":0,"real_floor_annual_rows":0,"real_floor_cohort_rows":0,
+      "xirr_rows_checked":0,"xirr_windows_recomputed":0,"xirr_defined_rows":0,"xirr_scenario_summaries_reconciled":0,"xirr_status_counts":{}}
     real_floor_annual_counts=[]
     real_floor_cohort_counts=[]
     expected_cohort_years=list(range(2003,2017))
@@ -226,6 +299,13 @@ def main():
            got,marks=replay_window(dates,prices,month_ends,start,bond,target,timing,mode,sch)
            try: src=next(sources)
            except StopIteration: raise ValueError("Window CSV ended before replay completed")
+           stats["xirr_rows_checked"]+=1
+           xirr_status=got["investor_xirr_status"]
+           stats["xirr_status_counts"][xirr_status]=stats["xirr_status_counts"].get(xirr_status,0)+1
+           if mode in ("no_withdrawals","delayed_stepup_example"):
+               stats["xirr_windows_recomputed"]+=1
+           if got["investor_xirr"] is not None:
+               stats["xirr_defined_rows"]+=1
            for field,value in got.items(): close_value(value,src[field],field,stats,f"{key}/{got['window_start']}")
            need(abs(got["requested_withdrawals_usd"]-got["actual_withdrawals_usd"]-got["withdrawal_shortfall_usd"])<=.03,
              f"Requested withdrawals != paid + shortfall: {key}/{got['window_start']}")
@@ -246,6 +326,7 @@ def main():
            stats["max_abs_error"][name]=max(stats["max_abs_error"].get(name,0),err)
            need(err<=tol,f"Scenario summary mismatch {key}/{field}: {value} vs {expected}")
           stats["scenario_summaries_reconciled"]+=1
+          stats["xirr_scenario_summaries_reconciled"]+=1
           # Re-group the same independently replayed terminal NAVs by calendar start year.
           cohort_navs={}
           for window in rows:
@@ -290,6 +371,10 @@ def main():
     stats["real_floor_cohort_rows"]=len(real_floor_cohort_counts)
     need(stats["real_floor_cohort_rows"]==14336,
          f"Expected exact real-principal counts for all 14,336 strategy/start-year cohort rows, got {stats['real_floor_cohort_rows']}")
+    need(stats["xirr_rows_checked"]==160768,"Expected XIRR status comparison for all 160,768 windows")
+    need(stats["xirr_windows_recomputed"]==80384,"Expected independent XIRR reconstruction for 80,384 no-flow/irregular-flow windows")
+    need(stats["xirr_scenario_summaries_reconciled"]==1024,"Expected XIRR summary reconciliation for all 1,024 scenarios")
+    need(sum(stats["xirr_status_counts"].values())==160768,"XIRR status counts do not conserve all window rows")
     need(len({tuple(row[:5]) for row in real_floor_cohort_counts})==14336,
          "Duplicate strategy/start-year real-principal cohort count key")
     need(all(0 < row[5] <= 12 and 0 <= row[6] <= row[7] <= row[5] for row in real_floor_cohort_counts),
@@ -299,6 +384,17 @@ def main():
       "source_panel_sha256":panel_sha,"source_as_of":dates[-1],"initial_capital_usd":INITIAL,
       "rolling_windows_per_scenario":157,"scenario_count":stats["scenario_summaries_reconciled"],
       "window_rows_expected":160768,"annual_summary_rows_expected":11264,"cashflow_modes":list(FLOWS),"counters":stats,
+      "xirr_validation":{
+        "status":"PASS",
+        "method":"Independent dated-cashflow reconstruction; closed-form two-flow roots plus NumPy log-rate grid/bisection for irregular flows; source solver not imported",
+        "rows_checked":stats["xirr_rows_checked"],
+        "windows_recomputed":stats["xirr_windows_recomputed"],
+        "defined_window_values":stats["xirr_defined_rows"],
+        "scenario_summaries_reconciled":stats["xirr_scenario_summaries_reconciled"],
+        "status_counts":stats["xirr_status_counts"],
+        "max_abs_error":stats["max_abs_error"].get("investor_xirr",0.0),
+        "absolute_rate_tolerance":RATE_TOL
+      },
       "real_floor_annual_count_schema":["year","bond_index","target_pct","timing_index","flow_index","below_real_principal_235_count","below_real_principal_350_count"],
       "real_floor_annual_count_rates":[0.0235,0.035],
       "real_floor_annual_counts":real_floor_annual_counts,
@@ -309,7 +405,7 @@ def main():
       "limitations":["Counts compare annual year-end portfolio NAV against initial capital × (1 + assumed annual inflation)^year with a strict less-than test.",
        "For withdrawal modes, counts use remaining portfolio NAV and do not add previously withdrawn cash back to account NAV.",
        "Daily marks are rounded to 10 decimals in the pinned panel; USD tolerance allows sub-cent drift.",
-       "XIRR is not recomputed; this audit checks NAV, market return, and external cashflow arithmetic.",
+       "Investor XIRR is independently recomputed from dated cash flows and reconciled for no-withdrawal and delayed-step-up modes; fixed monthly withdrawal stress modes intentionally retain the source's not-computed status.",
        "157 overlapping ten-year windows are not independent trials.",
        "Pass validates independent accounting reconstruction against a pinned artifact, not predictive validity."]}
     a.out.parent.mkdir(parents=True,exist_ok=True); a.out.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
