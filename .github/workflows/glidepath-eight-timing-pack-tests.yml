@@ -205,7 +205,7 @@ jobs:
           assert cohort_contract.get("year") == 10
           assert cohort_contract.get("inflation_rates") == [0.0235, 0.035]
           assert len(cohort_contract.get("checks", [])) == 2
-          assert all(item.get("all_bars_match") is True and item.get("selected_detail_match") is True for item in cohort_contract["checks"])
+          assert all(item.get("all_bars_match") is True and item.get("selected_detail_match") is True and item.get("cohort_metric_label") == "低於實質本金窗口" for item in cohort_contract["checks"])
           assert ledger.get("source_panel_sha256") == pack["meta"]["source_sha256"]
           assert audit.get("sha256") == __import__("hashlib").sha256(Path("v2.html").read_bytes()).hexdigest()
           with zipfile.ZipFile("glidepath_interactive_preview_optimized_bundle.zip") as zf:
