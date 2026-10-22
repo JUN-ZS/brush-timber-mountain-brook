@@ -244,6 +244,10 @@ function cohortChartX(s){
   };
   $('cohortDetailX').innerHTML='<div class="microgrid"><div class="micro"><small>窗口起始年份</small><b>'+sel.y+' 年起點</b><small>'+sel.first+' 至 '+sel.last+'</small></div><div class="micro"><small>該年窗口數</small><b>'+sel.n+' 個十年窗口</b><small>彼此重疊的歷史樣本</small></div><div class="micro"><small>中位／P05 十年終值</small><b>'+usd(defl(sel.nav50,10,s.cpi))+'</b><small>P05 '+usd(defl(sel.nav05,10,s.cpi))+' · 最差 '+usd(defl(sel.navmin,10,s.cpi))+'</small></div><div class="micro"><small>低於名目本金／提款缺口</small><b>'+sel.below+'/'+sel.n+'</b><small>缺口 '+sel.gap+' 個窗口 · 最差回撤 '+pct(sel.ddmin)+'</small></div></div><p class="tiny">歷史起點分組用於識別起點估值敏感度（例如 2007–2008 金融海嘯前夕起點 vs. 2009 低谷起點），不代表年度獨立試驗成功率。</p>';
 }
+function update(){
+  let s=S(),r=Y(s.bond,s.target,s.timing,s.flow,s.year);
+  const cpiTag="";
+}
 /* real-floor UI contract fragments:
 median_target_bond_weight:bw,median_target_stock_weight:sw};
 [s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],
@@ -300,6 +304,7 @@ class EightTimingPackTests(unittest.TestCase):
         self.assertIn("低於實質本金窗口", html)
         self.assertNotIn("此起始年份資料只有名目本金門檻計數", html)
         self.assertIn("此計數為指定起始年份下第10年期末 NAV", html)
+        self.assertIn('cohortMetricOption.textContent=s.cpi>0?"低於實質本金窗口":"低於起始本金窗口"', html)
         self.assertIn("逐窗口核算確認", html)
         for timing in PACKER.TIMINGS:
             self.assertRegex(html, r'const dash=\{[^{}]*\b' + re.escape(timing) + r'\s*:')
