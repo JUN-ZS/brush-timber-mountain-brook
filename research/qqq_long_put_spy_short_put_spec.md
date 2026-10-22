@@ -21,7 +21,7 @@ Default selection target is 30 calendar days to expiry ±10 days, absolute delta
 - Close QQQ long put at bid; buy back SPY short put at ask, on the same later common session.
 - Holding horizons: 1, 3, 5, 10, and 20 common trading sessions.
 - Each leg uses multiplier 100. Commissions and slippage are separate scenarios. Quote-side touch is a modeled fill assumption, not an observed execution.
-- Invalid/crossed quotes and missing live marks are **not** forward-filled or converted to zero. If a fixed contract has expired before the requested horizon, its expiration-date intrinsic value is used; if that date's underlying close is missing, the pair is excluded for that horizon.
+- Invalid/crossed quotes and absent live marks are **not** forward-filled or converted to zero. An observed zero bid for a still-live QQQ long put is retained as a zero bid mark, not dropped from the sample. If a fixed contract has expired before the requested horizon, its expiration-date intrinsic value is used; if that date's underlying close is missing, the pair is excluded for that horizon.
 
 ## Reported results
 

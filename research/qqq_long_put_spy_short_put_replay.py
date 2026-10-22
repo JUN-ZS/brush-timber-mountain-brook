@@ -131,7 +131,7 @@ def _day(frame: pd.DataFrame, date: pd.Timestamp) -> pd.DataFrame | None:
 def _quote_at(frame: pd.DataFrame, date: pd.Timestamp, expiration: pd.Timestamp, strike_key: int) -> pd.Series | None:
     try:
         row = frame.loc[(date, expiration, strike_key)]
-    except KeyError:
+    except (KeyError, pd.errors.IndexingError, ValueError):
         return None
     if isinstance(row, pd.DataFrame):
         return None
@@ -156,7 +156,7 @@ def _exit_mark(
         if quote is None:
             return None, "MISSING_EXIT_QUOTE", False
         mark = float(quote["bid"] if is_long else quote["ask"])
-        if mark <= 0:
+        if (is_long and mark < 0) or (not is_long and mark <= 0):
             return None, "MISSING_EXIT_QUOTE_SIDE", False
         return mark, "EOD_QUOTE_SIDE", False
 

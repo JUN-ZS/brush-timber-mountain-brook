@@ -71,6 +71,23 @@ class PairedPutReplayTests(unittest.TestCase):
         self.assertTrue(long_settled)
         self.assertTrue(short_settled)
 
+    def test_live_zero_bid_for_long_put_is_retained_as_zero_mark(self):
+        exit_date = pd.Timestamp("2024-01-19")
+        expiry = pd.Timestamp("2024-02-16")
+        idx = pd.MultiIndex.from_tuples(
+            [(exit_date, expiry, 95000)], names=["quote_date", "expiration", "strike_key"]
+        )
+        quotes = pd.DataFrame([{
+            "quote_date": exit_date, "expiration": expiry, "strike_key": 95000,
+            "bid": 0.0, "ask": 0.05, "strike": 95.0,
+        }], index=idx)
+        mark, kind, settled = _exit_mark(
+            quotes, {exit_date: 90.0}, exit_date, expiry, 95000, 95.0, is_long=True
+        )
+        self.assertEqual(mark, 0.0)
+        self.assertEqual(kind, "EOD_QUOTE_SIDE")
+        self.assertFalse(settled)
+
     def test_live_missing_exit_quote_is_not_filled_from_underlying(self):
         expiry = pd.Timestamp("2024-02-16")
         exit_date = pd.Timestamp("2024-01-19")
