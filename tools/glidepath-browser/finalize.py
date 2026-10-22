@@ -97,6 +97,7 @@ for expected_rate, item in zip((0.0235, 0.035), cohort_floor_checks):
     sample_counts = item.get("cohort_sample_counts", [])
     if (
         item.get("inflation") != expected_rate
+        or item.get("cohort_metric_label") != "低於實質本金窗口"
         or item.get("cohort_groups") != 14
         or item.get("bars_verified") != 14
         or item.get("all_bars_match") is not True
@@ -426,8 +427,10 @@ review["real_floor_annual_pack_integrity"] = real_floor_integrity
 review["real_floor_heatmap_checks"] = heatmap_checks
 review["real_floor_cohort_checks"] = cohort_floor_checks
 review["known_limits"] = [
-    "Exact real-principal breach counts for each year, strategy, cashflow mode and inflation assumption are calculated from independently replayed 157-window year-end NAV marks.",
+    "Annual real-principal breach counts for every year/strategy/cashflow/inflation key use independently replayed 157-window year-end NAV marks.",
+    "Start-year cohort real-principal counts use the actual 4–12 windows in each start-year subgroup; these are subsets of the same overlapping ten-year windows and are not independent probability samples.",
     "The visible real-principal count compares remaining portfolio NAV with initial capital inflated by the selected annual rate; it does not add previously withdrawn cash back to account NAV.",
+    "Counts are based on year-end NAV and do not count intrayear threshold touches. They are historical descriptive tallies, not future probabilities.",
     "STRIPS/TIPS floor and terminal-value calculations remain unmodeled; no guarantee is implied.",
     "The year-by-year allocation strip reads the canonical annual backtest records via S()/Y() and displays median target stock/bond weights. These are annual rebalance targets, not actual daily holdings or executed trades; NAV outcomes remain the backtest data's rolling-window summaries."
 ]
