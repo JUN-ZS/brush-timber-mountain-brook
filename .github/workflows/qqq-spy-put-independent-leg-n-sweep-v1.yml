@@ -53,6 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           OUT=research/qqq_spy_put_independent_leg_n_sweep_v1/results/latest
+          mkdir -p "$OUT"
           python research/qqq_spy_put_independent_leg_n_sweep_v1/independent_leg_n_sweep_v1.py \
             --input research/qqq_spy_put_equal_premium_v1/results/latest/trade_episodes.csv \
             --out "$OUT" --max-total-contracts "$MAX_TOTAL_CONTRACTS" | tee "$OUT/run_console.json"
