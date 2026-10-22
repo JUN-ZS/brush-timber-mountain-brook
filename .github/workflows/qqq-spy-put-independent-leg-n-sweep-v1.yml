@@ -1,0 +1,78 @@
+name: QQQ LONG PUT and SPY SHORT PUT Independent Leg N Sweep V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-independent-leg-n-sweep-v1
+    paths:
+      - research/qqq_spy_put_independent_leg_n_sweep_v1/*.py
+      - research/qqq_spy_put_independent_leg_n_sweep_v1/CONTRACT.md
+      - .github/workflows/qqq-spy-put-independent-leg-n-sweep-v1.yml
+  workflow_dispatch:
+    inputs:
+      max_total_contracts:
+        description: "Maximum combined fixed-N pair contracts"
+        required: true
+        default: "9"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-independent-leg-n-sweep-v1-github-hosted
+  cancel-in-progress: false
+
+jobs:
+  audit-and-sweep:
+    name: Test and replay fixed-N leg attribution (GitHub-hosted Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout exact research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile and run offline contract tests
+        run: |
+          set -euo pipefail
+          PY=python
+          $PY -m py_compile research/qqq_spy_put_independent_leg_n_sweep_v1/independent_leg_n_sweep_v1.py
+          $PY -m py_compile research/qqq_spy_put_independent_leg_n_sweep_v1/test_independent_leg_n_sweep_v1.py
+          $PY research/qqq_spy_put_independent_leg_n_sweep_v1/test_independent_leg_n_sweep_v1.py
+      - name: Run fixed-N independent legs and pair grid
+        env:
+          MAX_TOTAL_CONTRACTS: ${{ github.event.inputs.max_total_contracts || '9' }}
+        run: |
+          set -euo pipefail
+          OUT=research/qqq_spy_put_independent_leg_n_sweep_v1/results/latest
+          mkdir -p "$OUT"
+          python research/qqq_spy_put_independent_leg_n_sweep_v1/independent_leg_n_sweep_v1.py \
+            --input research/qqq_spy_put_equal_premium_v1/results/latest/trade_episodes.csv \
+            --out "$OUT" --max-total-contracts "$MAX_TOTAL_CONTRACTS" | tee "$OUT/run_console.json"
+          test -s "$OUT/summary.md"
+          test -s "$OUT/independent_leg_trade_episodes.csv"
+          test -s "$OUT/independent_leg_sizing_summary.csv"
+          test -s "$OUT/independent_leg_pair_matrix.csv"
+          test -s "$OUT/cost_sensitivity.csv"
+          test -s "$OUT/source_manifest.json"
+          cat "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit outputs to isolated research branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_independent_leg_n_sweep_v1/results/latest
+          if git diff --cached --quiet; then
+            echo "Results unchanged; no result commit required."
+            exit 0
+          fi
+          git commit -m "research: record independent QQQ/SPY put leg N sweeps"
+          git push origin HEAD:research/qqq-spy-put-independent-leg-n-sweep-v1

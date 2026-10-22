@@ -1,0 +1,54 @@
+{
+  "study": "independent_qqq_long_put_spy_short_put_fixed_n_sweep_v1",
+  "input_path": "research/qqq_spy_put_equal_premium_v1/results/latest/trade_episodes.csv",
+  "input_sha256": "25e3d0b3f01042cd6b007ad7b621c5d2545385a10044260f09f4a787abd2757d",
+  "input_rows": 176,
+  "signal_cohorts_by_policy": {
+    "HOLD_5_SESSIONS": 44,
+    "HOLD_10_SESSIONS": 44,
+    "HOLD_20_SESSIONS": 44,
+    "EXIT_AT_DTE_LE_7": 44
+  },
+  "exit_policies": [
+    "HOLD_5_SESSIONS",
+    "HOLD_10_SESSIONS",
+    "HOLD_20_SESSIONS",
+    "EXIT_AT_DTE_LE_7"
+  ],
+  "fixed_standalone_N": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "paired_combined_contract_cap": 9,
+  "paired_combinations_per_policy": 30,
+  "cost_scenarios": [
+    {
+      "name": "ZERO_COST",
+      "slippage": 0.0,
+      "commission": 0.0
+    },
+    {
+      "name": "BASE_COST",
+      "slippage": 0.05,
+      "commission": 0.65
+    },
+    {
+      "name": "STRESS_COST",
+      "slippage": 0.1,
+      "commission": 0.65
+    }
+  ],
+  "multiplier": 100,
+  "pnl_formula": "parent leg gross P&L / parent variable quantity * fixed N; recompute round-trip costs",
+  "quotes": {
+    "QQQ_LONG_PUT": "enter Ask / exit Bid",
+    "SPY_SHORT_PUT": "enter Bid / exit Ask"
+  },
+  "fixed_N_depth_gate": "not rechecked for hypothetical N; quote-price counterfactual, not execution-verified",
+  "unresolved_handling": "preserve source unresolved statuses; exclude unresolved P&L from expectancy but report count",
+  "source_caution": "SHA/byte-pinned mirror proves file identity, not OPRA/exchange authenticity or actual fills"
+}
