@@ -181,6 +181,7 @@ jobs:
           assert len(pack["a"]) == 11264
           assert len(pack["h"]) == 4096
           assert len(pack["c"]) == 14336
+          assert all(len(row) >= 23 and 0 <= int(row[21]) <= int(row[22]) <= 157 for row in pack["a"])
           assert "TM=[\"front_rapid\",\"front_fast\",\"front_loaded\",\"linear\",\"mid_loaded\",\"staggered\",\"back_loaded\",\"back_late\"]" in html
           audit = json.loads(Path("glidepath_preview_optimized_audit.json").read_text(encoding="utf-8"))
           assert audit.get("status") == "BROWSER_AND_STATIC_VERIFICATION_PASSED", audit.get("status")
