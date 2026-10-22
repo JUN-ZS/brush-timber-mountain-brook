@@ -1,0 +1,57 @@
+name: V4.4 FRAME Contract Validation
+
+on:
+  pull_request:
+    paths:
+      - "qqq_hybrid_v4_4_issue_107_frame_vxx_48_golden_tests.html"
+      - "scripts/validate-v44-frame-contracts.mjs"
+      - "browser-tests/v44-frame-browser-e2e.mjs"
+      - "browser-tests/package.json"
+      - ".github/workflows/rolling-floor.yml"
+      - ".github/workflows/v44-frame-contract-validation.yml"
+      - "docs/QQQ_HYBRID_V44_ASSUMPTION_LEDGER_V1.md"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-frame-contracts:
+    name: Validate V4.4 FRAME contracts (no HUB data run)
+    runs-on: [self-hosted, linux, x64, grokbot-box-linux-x64]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Verify dedicated self-hosted runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_NAME:-}" != "grokbot-box-linux-x64" ]; then
+            echo "::error::FRAME validation requires runner grokbot-box-linux-x64; actual runner is ${RUNNER_NAME:-unknown}"
+            exit 1
+          fi
+          echo "PASS dedicated runner: $RUNNER_NAME"
+      - name: Verify isolated FRAME test runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          test -s qqq_hybrid_v4_4_issue_107_frame_vxx_48_golden_tests.html
+          test -s scripts/validate-v44-frame-contracts.mjs
+          test -s browser-tests/v44-frame-browser-e2e.mjs
+          test -s browser-tests/package.json
+      - name: Install only the isolated, pinned Playwright dependency
+        shell: bash
+        run: npm install --prefix browser-tests --no-audit --no-fund --package-lock=false
+      - name: Ensure Chromium browser is installed
+        shell: bash
+        run: browser-tests/node_modules/.bin/playwright install chromium
+      - name: Run static, parser, and assumption-profile checks
+        shell: bash
+        run: node scripts/validate-v44-frame-contracts.mjs
+      - name: Run real-browser UI and transactional PUSH/PULL checks
+        shell: bash
+        run: node browser-tests/v44-frame-browser-e2e.mjs
