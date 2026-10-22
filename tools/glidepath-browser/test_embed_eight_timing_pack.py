@@ -187,13 +187,53 @@ let shape=r.timing_rule,mark;
 const dash=(m==="front_loaded"?"6 4":m==="back_loaded"?"2 4":"");
 </script></body></html>'''
 
+
+def make_ledger_audit(report):
+    rows = []
+    for item in report["scenarios"]:
+        bond = item["bond_proxy"]
+        target = int(item["target_bond_conversion_pct_at_year10"])
+        timing = item["timing_rule"]
+        flow = item["cashflow_mode"]
+        for year in range(11):
+            if year == 0:
+                below235 = below350 = 0
+            else:
+                below235 = (PACKER.BONDS.index(bond) * 7 + target // 10 +
+                            PACKER.TIMINGS.index(timing) * 3 + PACKER.FLOWS.index(flow) + year * 5) % 158
+                below350 = min(157, below235 + 1 + (year % 5))
+            rows.append({
+                "bond_proxy": bond,
+                "target_bond_conversion_pct_at_year10": target,
+                "timing_rule": timing,
+                "cashflow_mode": flow,
+                "year": year,
+                "windows_sampled": 157,
+                "threshold_usd_235": 100000 * (1 + 0.0235) ** year,
+                "threshold_usd_350": 100000 * (1 + 0.035) ** year,
+                "windows_below_real_principal_235": below235,
+                "windows_below_real_principal_350": below350,
+            })
+    return {
+        "schema": "glidepath-window-cashflow-ledger-replay.v1",
+        "status": "PASS",
+        "source_panel_sha256": report["data"]["raw_panel_canonical_sha256"],
+        "source_as_of": report["data"]["last_common_date"],
+        "initial_capital_usd": 100000.0,
+        "rolling_windows_per_scenario": 157,
+        "real_floor_inflation_rates": [0.0235, 0.035],
+        "counters": {"real_floor_count_rows": 11264, "real_floor_window_navs_compared": 3536896},
+        "real_floor_breach_counts": rows,
+    }
+
 class EightTimingPackTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.report, cls.hist, cls.cohort = make_fixture()
+        cls.ledger = make_ledger_audit(cls.report)
 
     def test_validates_and_packs_full_eight_timing_grid(self):
-        pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort)
+        pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort, self.ledger)
         self.assertEqual(len(pack["d"]), 1024)
         self.assertEqual(len(pack["a"]), 11264)
         self.assertEqual(len(pack["h"]), 4096)
@@ -207,9 +247,14 @@ class EightTimingPackTests(unittest.TestCase):
         first_scenario_terminal = pack["d"][0][4]
         first_scenario_year10 = next(row for row in pack["a"] if row[:5] == [10, 0, 30, 0, 0])
         self.assertAlmostEqual(first_scenario_year10[5], first_scenario_terminal)
+        self.assertEqual(len(first_scenario_year10), 23)
+        self.assertEqual(first_scenario_year10[21:23], [
+            next(row for row in self.ledger["real_floor_breach_counts"] if row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 30 and row["timing_rule"] == "front_rapid" and row["cashflow_mode"] == "no_withdrawals" and row["year"] == 10)["windows_below_real_principal_235"],
+            next(row for row in self.ledger["real_floor_breach_counts"] if row["bond_proxy"] == "AGG" and row["target_bond_conversion_pct_at_year10"] == 30 and row["timing_rule"] == "front_rapid" and row["cashflow_mode"] == "no_withdrawals" and row["year"] == 10)["windows_below_real_principal_350"]
+        ])
 
     def test_embeds_eight_selectable_timing_options_and_rewrites_copy(self):
-        pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort)
+        pack = PACKER.validate_and_pack(self.report, self.hist, self.cohort, self.ledger)
         html = PACKER.embed_pack(minimal_html(), pack)
         for timing in PACKER.TIMINGS:
             self.assertIn('value="' + timing + '"', html)
@@ -232,11 +277,43 @@ class EightTimingPackTests(unittest.TestCase):
         packed = json.loads(repacked_html.split("const RAW_PACK=", 1)[1].split(";\nconst TG=", 1)[0])
         self.assertEqual(len(packed["d"]), 1024)
 
+
+    def test_rejects_missing_real_floor_annual_rows(self):
+        audit = copy.deepcopy(self.ledger)
+        audit["real_floor_breach_counts"].pop()
+        with self.assertRaisesRegex(ValueError, "11,264"):
+            PACKER.validate_and_pack(self.report, self.hist, self.cohort, audit)
+
+    def test_rejects_wrong_real_floor_source_panel(self):
+        audit = copy.deepcopy(self.ledger)
+        audit["source_panel_sha256"] = "b" * 64
+        with self.assertRaisesRegex(ValueError, "different source panel"):
+            PACKER.validate_and_pack(self.report, self.hist, self.cohort, audit)
+
+    def test_real_floor_renderer_patch_is_idempotent(self):
+        fragment = """const A=RAW_PACK.a.map(r=>{const bw=r[20],sw=+(1-bw).toFixed(6);const o={median_target_bond_weight:bw,median_target_stock_weight:sw};return o;});
+function realCagr(cagr,cpi){return cagr==null?null:!cpi?cagr:(1+cagr)/(1+cpi)-1;}
+const realFloorThreshold=100000*Math.pow(1+s.cpi,s.year);
+const nominalFloorForMode=Math.round(100000*Math.pow(1+s.cpi,s.year));
+let ms=[[s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"]];
+<p>固定目標轉債比例、債券代理及現金流，逐行比較八種轉換時間規則的資產、回報、回撤與名目低於本金窗口；實質模式會明確標示未精算。</p>
+var head=+'<th>'+(s.cpi>0?'實質保本窗口（未精算）':'名目低於本金')+'</th>';
+var cell=+(s.cpi>0?'未精算（名目 '+v.windows_below_initial_capital+'/'+v.rolling_windows+'）':v.windows_below_initial_capital+'/'+v.rolling_windows)+;
+const detail = "其實質虧損窗口數未精算；名目計數 ";
+const risk = "精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。";"""
+        const patched = PACKER.patch_real_floor_renderer(fragment)
+        self.assertIn("function realFloorWindowText(row,cpi)", patched)
+        self.assertIn("windows_below_real_principal_235:r[21]", patched)
+        self.assertIn("實質低於本金門檻窗口", patched)
+        self.assertNotIn("未精算（名目 ", patched)
+        self.assertIn("realFloorWindowText(v,s.cpi)", patched)
+        self.assertEqual(PACKER.patch_real_floor_renderer(patched), patched)
+
     def test_rejects_incomplete_scenario_grid(self):
         report, hist, cohort = make_fixture()
         report["scenarios"].pop()
         with self.assertRaisesRegex(ValueError, "1,024"):
-            PACKER.validate_and_pack(report, hist, cohort)
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_audit(report))
 
     def test_rejects_no_withdrawal_cashflow_leakage(self):
         report, hist, cohort = make_fixture()
@@ -244,7 +321,7 @@ class EightTimingPackTests(unittest.TestCase):
                    if item["cashflow_mode"] == "no_withdrawals" and item["year"] == 5)
         row["median_actual_withdrawals_usd"] = 25
         with self.assertRaisesRegex(ValueError, "No-withdrawal mode"):
-            PACKER.validate_and_pack(report, hist, cohort)
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_audit(report))
 
     def test_rejects_year_zero_nav_or_cashflow_that_is_not_at_starting_state(self):
         report, hist, cohort = make_fixture()
@@ -253,7 +330,7 @@ class EightTimingPackTests(unittest.TestCase):
                    and item["year"] == 0)
         row["p05_nav_usd"] = 99000
         with self.assertRaisesRegex(ValueError, "Year-zero p05_nav_usd"):
-            PACKER.validate_and_pack(report, hist, cohort)
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_audit(report))
 
     def test_rejects_cashflow_mode_that_changes_target_allocation_schedule(self):
         report, hist, cohort = make_fixture()
@@ -266,13 +343,13 @@ class EightTimingPackTests(unittest.TestCase):
         row["median_target_bond_weight"] += 0.01
         row["median_target_stock_weight"] -= 0.01
         with self.assertRaisesRegex(ValueError, "allocation schedule"):
-            PACKER.validate_and_pack(report, hist, cohort)
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_audit(report))
 
     def test_rejects_histogram_bins_that_compact_format_would_distort(self):
         report, hist, cohort = make_fixture()
         hist["distributions"][0]["bins"][1]["low"] = 0.1
         with self.assertRaisesRegex(ValueError, "equal-width"):
-            PACKER.validate_and_pack(report, hist, cohort)
+            PACKER.validate_and_pack(report, hist, cohort, make_ledger_audit(report))
 
 if __name__ == "__main__":
     unittest.main()
