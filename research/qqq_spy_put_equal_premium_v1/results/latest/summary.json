@@ -29,7 +29,7 @@
     "mean_qqq_premium_debit_usd": 1615.2,
     "mean_spy_premium_credit_usd": 1622.7,
     "mean_abs_mismatch_usd": 85.55,
-    "median_abs_mismatch_usd": 48.0,
+    "median_abs_mismatch_usd": 48,
     "mean_match_pct": 95.43,
     "median_match_pct": 96.08
   },
@@ -49,13 +49,13 @@
     "base_slippage_per_option_share_usd": 0.05,
     "base_commission_per_contract_per_side_usd": 0.65,
     "alternative_slippage_per_option_share_usd": [
-      0.0,
+      0,
       0.025,
       0.05,
       0.1
     ],
     "alternative_commission_per_contract_per_side_usd": [
-      0.0,
+      0,
       0.65
     ]
   },
@@ -63,7 +63,7 @@
     "max_long_qqq_contracts": 6,
     "max_short_spy_contracts": 6,
     "max_total_contracts": 9,
-    "method": "fixed-ratio per-leg gross-P&L rescaling on the same selected contracts, quote dates and resolved cohort set; ratio sensitivity is not a fresh premium-matched selection replay; total contracts capped in displayed grid; no size-dependent market impact"
+    "method": "Fixed-ratio per-leg gross-P&L rescaling on the same selected contracts, quote dates and resolved cohort set; ratio sensitivity is not a fresh contract-selection replay, not an execution-depth test, and not re-optimized premium matching; combined displayed contracts capped at 9; no size-dependent market impact."
   },
   "coverage": {
     "common_underlying_sessions": 1959,
@@ -96,7 +96,7 @@
       "wins": 11,
       "losses": 33,
       "flat": 0,
-      "win_rate_pct": 25.0,
+      "win_rate_pct": 25,
       "win_rate_wilson95_low_pct": 14.5742,
       "win_rate_wilson95_high_pct": 39.4406,
       "expectancy_net_usd": -231.913636,
@@ -107,7 +107,7 @@
       "profit_factor": 0.254814,
       "mean_qqq_long_gross_pnl_usd": -76.840909,
       "mean_spy_short_gross_pnl_usd": -69.295455,
-      "resolved_coverage_pct": 100.0,
+      "resolved_coverage_pct": 100,
       "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
     },
     "HOLD_10_SESSIONS": {
@@ -129,7 +129,7 @@
       "profit_factor": 0.215743,
       "mean_qqq_long_gross_pnl_usd": -192.409091,
       "mean_spy_short_gross_pnl_usd": -53.181818,
-      "resolved_coverage_pct": 100.0,
+      "resolved_coverage_pct": 100,
       "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
     },
     "HOLD_20_SESSIONS": {
@@ -151,7 +151,7 @@
       "profit_factor": 0.059185,
       "mean_qqq_long_gross_pnl_usd": -256.340909,
       "mean_spy_short_gross_pnl_usd": -252.545455,
-      "resolved_coverage_pct": 100.0,
+      "resolved_coverage_pct": 100,
       "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
     },
     "EXIT_AT_DTE_LE_7": {
@@ -186,7 +186,8 @@
     "Nominal Wilson interval does not correct for regime clustering, dependence, or prior strategy selection.",
     "Expiry shock grid charges entry-side slippage/commission once and uses intrinsic-value payoff; exercise/assignment fees, broker margin, forced liquidation, financing and interim path are not modeled.",
     "Equal premium debit/credit does not equalize Delta, max loss, collateral or assignment risk; SPY short put can dominate downside even when QQQ long put appreciates.",
-    "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills."
+    "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills.",
+    "Fixed-ratio sizing sensitivity does not re-test each ratio against each cohort's displayed entry/exit size and must not be treated as executable fills."
   ],
   "source_integrity": [
     {
@@ -315,5 +316,21 @@
       "bytes": 252066,
       "git_blob_sha": "4c22934a77ba09ced10fd1c413b5d8c9e0cb4a8d"
     }
-  ]
+  ],
+  "premium_delta_risk_audit": {
+    "method": "Entry EOD spot x absolute option Delta x whole-contract count x 100; long QQQ put contributes negative Delta-dollar, short SPY put positive Delta-dollar.",
+    "cohorts": 44,
+    "qqq_long_put_abs_delta_dollar_mean_usd": 30117.94,
+    "qqq_long_put_abs_delta_dollar_median_usd": 29095.75,
+    "spy_short_put_positive_delta_dollar_mean_usd": 39118.31,
+    "spy_short_put_positive_delta_dollar_median_usd": 36395.46,
+    "net_delta_dollar_mean_usd": 9000.37,
+    "net_delta_dollar_median_usd": 6427.15,
+    "cohorts_where_short_spy_positive_delta_dollar_exceeds_long_qqq_negative_delta_dollar": 43,
+    "mean_spy_put_strike_assignment_obligation_usd": 149912.5,
+    "median_spy_put_strike_assignment_obligation_usd": 136000,
+    "mean_qqq_put_max_expiry_intrinsic_at_strike_usd": 114231.23,
+    "median_qqq_put_max_expiry_intrinsic_at_strike_usd": 110025,
+    "definition_warning": "Delta-dollar is a first-order exposure diagnostic, not max loss or a margin calculation. Strike obligation is not broker margin."
+  }
 }

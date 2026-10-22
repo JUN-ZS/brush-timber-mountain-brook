@@ -76,7 +76,7 @@ Win-rate denominator is **resolved episodes only**. Mean, median, total P&L, pro
 
 - Grid: LONG QQQ 1–6 × SHORT SPY 1–6 contracts, with combined count capped at 9; CSV contains valid combinations only.
 - This is a fixed-sample rescaling of each leg's gross P&L on the same selected contracts and dates, not a fresh contract-selection replay. Transaction costs scale per contract; size-dependent market impact is not modeled.
-- All sizes are no greater than the base run's size-screened quantities. Resolved/unresolved status is inherited from the base run; an unresolved exit is not reclassified just because a smaller hypothetical size might have passed a quote-size gate.
+- Fixed-ratio rows are linear per-leg P&L counterfactuals, not fresh entries or verified quote-depth executions. A displayed fixed ratio may exceed the actual entry-side depth in an individual cohort; unresolved status is inherited from the variable-ratio base run.
 - P&L statistics use resolved episodes only; unresolved counts are shown separately.
 
 | Exit rule | QQQ LONG : SPY SHORT | Resolved/opened (unresolved) | Win rate (nominal Wilson 95%) | Mean net P&L (resolved) | Total net P&L (resolved) | Worst trade (resolved) |
@@ -136,4 +136,4 @@ Exercise/assignment charges, financing, taxes, broker margin and forced-liquidat
 - Equal premium debit/credit does not equalize Delta, max loss, collateral or assignment risk; SPY short put can dominate downside even when QQQ long put appreciates.
 - Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills.
 
-Files: trade_episodes.csv, entry_cohort.csv, entry_skips.csv, cost_sensitivity.csv, sizing_sensitivity.csv, expiry_shock_grid.csv, source_manifest.json.
+Files: trade_episodes.csv, entry_cohort.csv, entry_skips.csv, cost_sensitivity.csv, sizing_sensitivity.csv, expiry_shock_grid.csv, source_manifest.json, premium_delta_risk_audit.md.
