@@ -1036,7 +1036,7 @@ try {
         const year = Number(bar.getAttribute("data-cohort-year"));
         const row = source.find(item => Number(item[4]) === year);
         const title = bar.querySelector("title")?.textContent || "";
-        const match = title.match(/(\\d+) 個窗口 · 低於實質本金窗口 (\\d+)/);
+        const match = title.match(/(\d+) 個窗口 · 低於實質本金窗口 (\d+)/);
         return {
           year,
           expected: row ? Number(row[countIndex]) : null,
@@ -1046,7 +1046,7 @@ try {
           keyPresent: !!row
         };
       });
-      const selectedYear = Number(document.querySelector("#cohortDetailX").innerText.match(/(\\d+) 年起點/)?.[1]);
+      const selectedYear = Number(document.querySelector("#cohortDetailX").innerText.match(/(\d+) 年起點/)?.[1]);
       const selectedRow = source.find(item => Number(item[4]) === selectedYear);
       const selectedExpected = selectedRow ? Number(selectedRow[countIndex]) : null;
       const detail = document.querySelector("#cohortDetailX").innerText;
@@ -1064,7 +1064,7 @@ try {
     // Detail displays the selected year-end breach count over its actual sample size.
     const cohortDetailCheck = await page.evaluate(rate => {
       const detail = document.querySelector("#cohortDetailX").innerText;
-      const year = Number(detail.match(/(\\d+) 年起點/)?.[1]);
+      const year = Number(detail.match(/(\d+) 年起點/)?.[1]);
       const bondIndex = ["AGG","SHY","IEF","TLT"].indexOf(document.querySelector("#bond").value);
       const target = Number(document.querySelector("#target").value);
       const timingIndex = ["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"].indexOf(document.querySelector("#timing").value);
