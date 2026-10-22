@@ -134,11 +134,11 @@ def validate_and_pack(report: dict[str, Any], histogram_report: dict[str, Any],
                 f"Invalid real-principal count key: {item}")
         key = (BONDS[bond_index], target, TIMINGS[timing_index], FLOWS[flow_index], year)
         require(key not in real_floor_by_key, f"Duplicate real-principal count key: {key}")
-        require(0 <= count235 <= count350 <= windows,
-                f"Real-principal breach count outside threshold order/range 0–{windows}: {key}")
         if year == 0:
             require(count235 == 0 and count350 == 0,
                     f"Year-zero real-principal breach counts must be zero: {key}")
+        require(0 <= count235 <= count350 <= windows,
+                f"Real-principal breach count outside threshold order/range 0–{windows}: {key}")
         real_floor_by_key[key] = (count235, count350)
     require(len(real_floor_rows) == 11264 and set(real_floor_by_key) == set(annual_keyed),
             "Independent real-principal count grid must contain one row for every strategy/year key")
