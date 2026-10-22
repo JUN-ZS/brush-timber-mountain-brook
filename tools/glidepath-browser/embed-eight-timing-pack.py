@@ -477,11 +477,6 @@ function realFloorWindowText(row,cpi){const n=realFloorWindowCount(row,cpi);retu
         "real-floor label")
     html = replace_once(
         html,
-        "s.cpi>0?realFloorWindowText(r,s.cpi):r.windows_below_initial_capital+"/"+r.rolling_windows",
-        "s.cpi>0?realFloorWindowText(r,s.cpi):r.windows_below_initial_capital+"/"+r.rolling_windows",
-        "preserve real-floor metric binding")
-    html = replace_once(
-        html,
         """<p>固定目標轉債比例、債券代理及現金流，逐行比較八種轉換時間規則的資產、回報、回撤與名目低於本金窗口；實質模式會明確標示未精算。</p>""",
         """<p>固定目標轉債比例、債券代理及現金流，逐行比較八種轉換時間規則的資產、回報、回撤，以及逐窗口 NAV 低於通膨調整本金門檻的實際歷史計數。</p>""",
         "table disclosure")
@@ -492,8 +487,18 @@ function realFloorWindowText(row,cpi){const n=realFloorWindowCount(row,cpi);retu
         "table exact count")
     html = replace_once(
         html,
-        "其實質虧損窗口數未精算；名目計數 ",
-        "實際逐窗口低於門檻的數量為 \"+realFloorWindowText(r,s.cpi)+\"；名目計數 ",
+        """  if(s.cpi===0){
+    $("decisionFloorDetail").textContent="截至第"+s.year+"年，名目終值低於 $100,000 的窗口為 "+r.windows_below_initial_capital+"/"+r.rolling_windows+"；這是窗口終值計數，不是未來成功率。";
+  }else if(Number(r.worst_nav_usd)>=realFloorThreshold-1e-7){
+    $("decisionFloorDetail").textContent="主資產以今日購買力美元顯示，實質本金門檻是 $100,000。最差窗口名目終值 "+usd(r.worst_nav_usd)+" 仍不低於名目門檻 "+usd(realFloorThreshold)+"；可證明截至第"+s.year+"年低於實質本金的終值窗口為 0/"+r.rolling_windows+"。";
+  }else{
+    $("decisionFloorDetail").textContent="主資產以今日購買力美元顯示，實質本金門檻是 $100,000；對應名目終值需至少 "+usd(realFloorThreshold)+"。其實質虧損窗口數未精算；名目計數 "+r.windows_below_initial_capital+"/"+r.rolling_windows+" 只供參考。";
+  }""",
+        """  if(s.cpi===0){
+    $("decisionFloorDetail").textContent="截至第"+s.year+"年，名目終值低於起始本金的窗口為 "+r.windows_below_initial_capital+"/"+r.rolling_windows+"；這是歷史窗口計數，不是未來機率。";
+  }else{
+    $("decisionFloorDetail").textContent="截至第"+s.year+"年，實際 NAV 低於通膨調整本金門檻的窗口數為 "+realFloorWindowText(r,s.cpi)+"。門檻 = 起始本金 × (1+年化通膨率)^年份；不把先前已提款現金加回終值；157 個重疊歷史窗口並非未來機率。";
+  }""",
         "decision detail exact floor count")
     html = replace_once(
         html,
