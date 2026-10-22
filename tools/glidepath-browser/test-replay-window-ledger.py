@@ -11,6 +11,21 @@ def flat_market():
     dates=[(dt.date(2000,1,1)+dt.timedelta(days=15*i)).isoformat() for i in range(241)]
     return dates,np.full((241,6),100.0,dtype=np.float64),[2*i for i in range(121)]
 class IndependentLedgerReplayTests(unittest.TestCase):
+    def test_real_principal_counts_use_strict_less_than_and_ordered_thresholds(self):
+        threshold235 = M.INITIAL * (1.0 + 0.0235) ** 10
+        threshold350 = M.INITIAL * (1.0 + 0.035) ** 10
+        navs = [200000.0] * 154 + [threshold235, threshold235 - 0.01, threshold350 - 0.01]
+        count235, count350 = M.real_principal_breach_counts(navs, 10)
+        self.assertEqual(count235, 1)
+        self.assertEqual(count350, 3)
+        self.assertEqual(M.real_principal_breach_counts([100000.0] * 157, 0), (0, 0))
+
+    def test_real_principal_count_rejects_incomplete_or_invalid_nav_samples(self):
+        with self.assertRaisesRegex(ValueError, "157 window NAVs"):
+            M.real_principal_breach_counts([100000.0] * 156, 10)
+        with self.assertRaisesRegex(ValueError, "finite non-negative"):
+            M.real_principal_breach_counts([100000.0] * 156 + [float("nan")], 10)
+
     def test_flat_market_no_flow_conserves_nav_and_zero_return(self):
         d,p,m=flat_market(); r,marks=M.replay_window(d,p,m,0,"AGG",60,"linear","no_withdrawals",{})
         self.assertEqual(r["terminal_nav_usd"],100000.0); self.assertEqual(r["additional_deposits_usd"],0.0)
