@@ -1,12 +1,12 @@
 {
   "status": "BROWSER_AND_STATIC_VERIFICATION_PASSED",
-  "html_bytes": 3745776,
+  "html_bytes": 3809800,
   "original_html_bytes": 13068927,
-  "html_size_reduction_pct": 71.34,
-  "bundle_bytes": 905136,
+  "html_size_reduction_pct": 70.85,
+  "bundle_bytes": 915373,
   "original_bundle_bytes": 1559891,
-  "bundle_size_reduction_pct": 41.97,
-  "sha256": "46d6b9d557f45451b31a223f530fc36349df29dd809f93b6cd494f789ddf6546",
+  "bundle_size_reduction_pct": 41.32,
+  "sha256": "265e796ae1f2fc98e5aec3959e98c34058223500164835edd49bf83bee9ff61e",
   "element_ids_count": 66,
   "duplicate_ids": [],
   "embedded_data_counts": {
@@ -134,9 +134,9 @@
       "timing": "front_fast"
     }
   },
-  "html_characters": 3732100,
+  "html_characters": 3796104,
   "v2_1_review": {
-    "source_commit": "c10833a3260f8bd82aaa643c29332a9478d5ce39",
+    "source_commit": "1c9b5003d994e22f96f6ab091bfe9eedb06e8176",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -453,6 +453,54 @@
         "passed": true,
         "eight_timing_cells_verified": 8
       },
+      "real_floor_cohort_checks": [
+        {
+          "inflation": 0.0235,
+          "cohort_groups": 14,
+          "bars_verified": 14,
+          "all_bars_match": true,
+          "selected_detail_match": true,
+          "cohort_sample_counts": [
+            4,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            9
+          ]
+        },
+        {
+          "inflation": 0.035,
+          "cohort_groups": 14,
+          "bars_verified": 14,
+          "all_bars_match": true,
+          "selected_detail_match": true,
+          "cohort_sample_counts": [
+            4,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            9
+          ]
+        }
+      ],
       "derived_real_breach_zero_proof": [
         {
           "annualized_inflation_assumption": 0.0235,
@@ -2615,7 +2663,7 @@
         },
         "cohorts": {
           "rows": 14,
-          "cols": 19,
+          "cols": 21,
           "headers": [
             "b",
             "t",
@@ -2635,7 +2683,9 @@
             "dd50",
             "ddmin",
             "gap",
-            "below"
+            "below",
+            "realBelow235",
+            "realBelow350"
           ],
           "data_rows": [
             [
@@ -2656,6 +2706,8 @@
               "0.083233",
               "-0.408545",
               "-0.411912",
+              "0",
+              "0",
               "0",
               "0"
             ],
@@ -2678,6 +2730,8 @@
               "-0.415995",
               "-0.422755",
               "0",
+              "0",
+              "0",
               "0"
             ],
             [
@@ -2698,6 +2752,8 @@
               "0.085528",
               "-0.427097",
               "-0.433509",
+              "0",
+              "0",
               "0",
               "0"
             ],
@@ -2720,6 +2776,8 @@
               "-0.438777",
               "-0.451482",
               "0",
+              "0",
+              "0",
               "0"
             ],
             [
@@ -2740,6 +2798,8 @@
               "0.078296",
               "-0.468043",
               "-0.507175",
+              "0",
+              "0",
               "0",
               "0"
             ],
@@ -2762,6 +2822,8 @@
               "-0.466878",
               "-0.498474",
               "0",
+              "0",
+              "0",
               "0"
             ],
             [
@@ -2782,6 +2844,8 @@
               "0.138089",
               "-0.156535",
               "-0.200174",
+              "0",
+              "0",
               "0",
               "0"
             ],
@@ -2804,6 +2868,8 @@
               "-0.200906",
               "-0.207068",
               "0",
+              "0",
+              "0",
               "0"
             ],
             [
@@ -2824,6 +2890,8 @@
               "0.143208",
               "-0.205484",
               "-0.21108",
+              "0",
+              "0",
               "0",
               "0"
             ],
@@ -2846,6 +2914,8 @@
               "-0.268902",
               "-0.305417",
               "0",
+              "0",
+              "0",
               "0"
             ],
             [
@@ -2866,6 +2936,8 @@
               "0.108907",
               "-0.305176",
               "-0.307237",
+              "0",
+              "0",
               "0",
               "0"
             ],
@@ -2888,6 +2960,8 @@
               "-0.304692",
               "-0.306709",
               "0",
+              "0",
+              "0",
               "0"
             ],
             [
@@ -2908,6 +2982,8 @@
               "0.114524",
               "-0.304209",
               "-0.306179",
+              "0",
+              "0",
               "0",
               "0"
             ],
@@ -2930,11 +3006,13 @@
               "-0.304233",
               "-0.305648",
               "0",
+              "0",
+              "0",
               "0"
             ]
           ],
-          "bytes": 2834,
-          "decoded_text_bytes": 2831,
+          "bytes": 2976,
+          "decoded_text_bytes": 2973,
           "bom_bytes_delta": 3,
           "file_name": "glidepath-TLT-30pct-front_rapid-cohorts.csv"
         },
@@ -307972,17 +308050,65 @@
         "cells": 64,
         "passed": true
       }
+    ],
+    "real_floor_cohort_checks": [
+      {
+        "inflation": 0.0235,
+        "cohort_groups": 14,
+        "bars_verified": 14,
+        "all_bars_match": true,
+        "selected_detail_match": true,
+        "cohort_sample_counts": [
+          4,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          9
+        ]
+      },
+      {
+        "inflation": 0.035,
+        "cohort_groups": 14,
+        "bars_verified": 14,
+        "all_bars_match": true,
+        "selected_detail_match": true,
+        "cohort_sample_counts": [
+          4,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          12,
+          9
+        ]
+      }
     ]
   },
-  "bundle_sha256": "57e1d33c741d141b72b49391c0bccadcc8032749cb9b150e9b262f76d9999c70",
-  "html_crc32": "700fe4f1",
+  "bundle_sha256": "b53b1350d324bc84411c26a23235161feac57ce16c48806b81a1d6ca3b287110",
+  "html_crc32": "d33a0a3f",
   "final_artifact_verification": {
     "status": "PASSED",
-    "html_sha256": "46d6b9d557f45451b31a223f530fc36349df29dd809f93b6cd494f789ddf6546",
-    "bundle_sha256": "57e1d33c741d141b72b49391c0bccadcc8032749cb9b150e9b262f76d9999c70",
-    "html_bytes": 3745776,
-    "bundle_bytes": 905136,
-    "html_crc32": "700fe4f1",
+    "html_sha256": "265e796ae1f2fc98e5aec3959e98c34058223500164835edd49bf83bee9ff61e",
+    "bundle_sha256": "b53b1350d324bc84411c26a23235161feac57ce16c48806b81a1d6ca3b287110",
+    "html_bytes": 3809800,
+    "bundle_bytes": 915373,
+    "html_crc32": "d33a0a3f",
     "unique_html_ids": 66,
     "duplicate_ids": [],
     "embedded_data_counts": {
@@ -308068,6 +308194,68 @@
       "strict_below_threshold": true,
       "source": "independent normalized-share replay; year-end portfolio NAV"
     },
+    "real_floor_cohort_count_contract": {
+      "rows": 14336,
+      "year": 10,
+      "inflation_rates": [
+        0.0235,
+        0.035
+      ],
+      "sample_window_counts": [
+        4,
+        9,
+        12
+      ],
+      "checks": [
+        {
+          "inflation": 0.0235,
+          "cohort_groups": 14,
+          "bars_verified": 14,
+          "all_bars_match": true,
+          "selected_detail_match": true,
+          "cohort_sample_counts": [
+            4,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            9
+          ]
+        },
+        {
+          "inflation": 0.035,
+          "cohort_groups": 14,
+          "bars_verified": 14,
+          "all_bars_match": true,
+          "selected_detail_match": true,
+          "cohort_sample_counts": [
+            4,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            12,
+            9
+          ]
+        }
+      ],
+      "count_rows_sha256": "00edb392db908f1e9635c366fdac68c7e1bd2fb66153d40bc9d86c2bc23407ca"
+    },
     "cashflow_window_ledger_replay": {
       "status": "PASS",
       "source_panel_sha256": "2e91cf04a8a32fbb388b1ccc34ece0fc8ebd556bea4308effcc3296ff1b1fddc",
@@ -308077,6 +308265,8 @@
       "cashflow_invariants_checked": 482304,
       "real_floor_annual_rows": 11264,
       "real_floor_annual_counts_sha256": "e1ae7bf3656f3fa8b8e085d51e91aeb61889dab982f215b795572f558c76e1be",
+      "real_floor_cohort_rows": 14336,
+      "real_floor_cohort_counts_sha256": "00edb392db908f1e9635c366fdac68c7e1bd2fb66153d40bc9d86c2bc23407ca",
       "max_abs_error": {
         "initial_capital_usd": 0,
         "additional_deposits_usd": 0,
@@ -308133,7 +308323,7 @@
     "paired_direction_comparison_real_235_status": "passed",
     "paired_direction_comparison_real_235_windows": 157,
     "paired_direction_comparison_real_235_passed": true,
-    "created_at_utc": "2026-10-22T06:27:38.954830+00:00"
+    "created_at_utc": "2026-10-22T07:44:50.327267+00:00"
   },
   "cashflow_window_ledger_replay": {
     "schema": "glidepath-window-cashflow-ledger-replay.v1",
@@ -308202,7 +308392,8 @@
       "cashflow_invariants_checked": 482304,
       "yearly_navs_reconciled": 11264,
       "daily_drawdown_paths_replayed": 160768,
-      "real_floor_annual_rows": 11264
+      "real_floor_annual_rows": 11264,
+      "real_floor_cohort_rows": 14336
     },
     "real_floor_annual_count_schema": [
       "year",
@@ -308217,6 +308408,21 @@
       0.0235,
       0.035
     ],
+    "real_floor_cohort_count_schema": [
+      "bond_index",
+      "target_pct",
+      "timing_index",
+      "flow_index",
+      "start_year",
+      "window_count",
+      "below_real_principal_235_count",
+      "below_real_principal_350_count"
+    ],
+    "real_floor_cohort_count_rates": [
+      0.0235,
+      0.035
+    ],
+    "real_floor_cohort_count_rows": 14336,
     "limitations": [
       "Counts compare annual year-end portfolio NAV against initial capital × (1 + assumed annual inflation)^year with a strict less-than test.",
       "For withdrawal modes, counts use remaining portfolio NAV and do not add previously withdrawn cash back to account NAV.",
@@ -308226,7 +308432,9 @@
       "Pass validates independent accounting reconstruction against a pinned artifact, not predictive validity."
     ],
     "real_floor_annual_counts_sha256": "e1ae7bf3656f3fa8b8e085d51e91aeb61889dab982f215b795572f558c76e1be",
+    "real_floor_cohort_counts_sha256": "00edb392db908f1e9635c366fdac68c7e1bd2fb66153d40bc9d86c2bc23407ca",
     "real_floor_annual_rows": 11264,
+    "real_floor_cohort_rows": 14336,
     "window_rows_replayed": 160768,
     "annual_rows_reconciled": 11264,
     "scenario_summaries_reconciled": 1024,
