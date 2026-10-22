@@ -32,7 +32,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: qqq-spy-cross-put-v1
+  group: qqq-spy-cross-put-v1-github-hosted
   cancel-in-progress: false
 jobs:
   replay:
