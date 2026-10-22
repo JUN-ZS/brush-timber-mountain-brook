@@ -80,16 +80,36 @@ def replay_window(dates,prices,month_ends,start_m,bond,target,timing,mode,schedu
     units=np.zeros(6,dtype=np.float64); units[0]=.5/prices[start_i,0]; units[1]=.5/prices[start_i,1]
     scale=INITIAL; requested=paid=shortfall=deposits=0.0; first_depletion=None; depleted=False
     perf=INITIAL; peak=INITIAL; max_dd=0.0
+    ever_below_real_principal_235=False
+    ever_below_real_principal_350=False
     marks=[{"year":0,"date":start_date,"nav_usd":round(INITIAL,2),"performance_index":perf,
       "year_twr":None,"cumulative_twr_cagr":None,"max_drawdown_to_date":0.0,"actual_withdrawals_usd":0.0,
-      "withdrawal_shortfall_usd":0.0,"additional_deposits_usd":0.0,"target_bond_weight":0.0,"target_stock_weight":1.0}]
+      "withdrawal_shortfall_usd":0.0,"additional_deposits_usd":0.0,"target_bond_weight":0.0,"target_stock_weight":1.0,
+      "ever_below_real_principal_235":False,"ever_below_real_principal_350":False}]
     for year in range(10):
         rel0=year*12; d0=month_ends[start_m+rel0]; d1=month_ends[start_m+rel0+12]
         raw=np.sum(prices[d0:d1+1]*units[None,:],axis=1)
         need(np.all(np.isfinite(raw)) and np.all(raw>0),"Invalid underlying daily path")
         raw=raw/raw[0]; depletion_offset=None
+        previous_month_end_offset=0
+        year_daily_intervals=max(1,len(raw)-1)
         for month in range(rel0+1,rel0+13):
-            gi=month_ends[start_m+month]; g=float(raw[gi-d0]); nav=scale*g
+            gi=month_ends[start_m+month]
+            offset=gi-d0
+            # Between month-end cash events, share quantities are constant.
+            # Compare every daily NAV using an inflation threshold that moves
+            # smoothly from this year's opening threshold to its closing threshold.
+            if offset > previous_month_end_offset+1:
+                day_offsets=np.arange(previous_month_end_offset+1,offset,dtype=np.float64)
+                interval_navs=scale*raw[previous_month_end_offset+1:offset]
+                elapsed_years=year+day_offsets/year_daily_intervals
+                if not ever_below_real_principal_235 and np.any(
+                    interval_navs < INITIAL*np.power(1.0+0.0235,elapsed_years)):
+                    ever_below_real_principal_235=True
+                if not ever_below_real_principal_350 and np.any(
+                    interval_navs < INITIAL*np.power(1.0+0.035,elapsed_years)):
+                    ever_below_real_principal_350=True
+            g=float(raw[offset]); nav=scale*g
             for kind,amount in schedule.get(month,[]):
                 if kind=="deposit":
                     need(nav>1e-10,"Deposit after NAV depletion needs segmented replay; BLOCK")
@@ -98,6 +118,13 @@ def replay_window(dates,prices,month_ends,start_m,bond,target,timing,mode,schedu
                     requested+=amount; paid_now=min(amount,max(0.0,nav)); shortfall+=amount-paid_now
                     if nav>1e-10 and paid_now>0:
                         scale=max(0.0,nav-paid_now)/g; paid+=paid_now; nav=scale*g
+            # Month-end cash events happen at the close; test that date's post-flow NAV.
+            elapsed_at_close=year+offset/year_daily_intervals
+            if not ever_below_real_principal_235 and nav < INITIAL*((1.0+0.0235)**elapsed_at_close):
+                ever_below_real_principal_235=True
+            if not ever_below_real_principal_350 and nav < INITIAL*((1.0+0.035)**elapsed_at_close):
+                ever_below_real_principal_350=True
+            previous_month_end_offset=offset
             if nav<=1e-8:
                 if first_depletion is None: first_depletion=month
                 if not depleted: depletion_offset=gi-d0
@@ -117,7 +144,9 @@ def replay_window(dates,prices,month_ends,start_m,bond,target,timing,mode,schedu
         marks.append({"year":year+1,"date":dates[d1],"nav_usd":round(nav_end,2),"performance_index":perf,
           "year_twr":yrret,"cumulative_twr_cagr":cagr,"max_drawdown_to_date":max_dd,
           "actual_withdrawals_usd":round(paid,2),"withdrawal_shortfall_usd":round(shortfall,2),
-          "additional_deposits_usd":round(deposits,2),"target_bond_weight":tw,"target_stock_weight":1-tw})
+          "additional_deposits_usd":round(deposits,2),"target_bond_weight":tw,"target_stock_weight":1-tw,
+          "ever_below_real_principal_235":ever_below_real_principal_235,
+          "ever_below_real_principal_350":ever_below_real_principal_350})
         if year<9:
             w=bond_weight(target,(year+1)*12,timing); units=np.zeros(6,dtype=np.float64)
             units[0]=.5*(1-w)/prices[d1,0]; units[1]=.5*(1-w)/prices[d1,1]; units[bc]=w/prices[d1,bc]
@@ -256,8 +285,19 @@ def main():
            stats["annual_rows_reconciled"]+=1; stats["yearly_navs_reconciled"]+=1
            year_navs=[float(mark["nav_usd"]) for mark in marks_by_year[y]]
            count235,count350=real_principal_breach_counts(year_navs,y)
+           ever235=sum(bool(mark["ever_below_real_principal_235"]) for mark in marks_by_year[y])
+           ever350=sum(bool(mark["ever_below_real_principal_350"]) for mark in marks_by_year[y])
+           need(0<=count235<=ever235<=ever350<=157 and count350<=ever350,
+                f"Intrayear real-principal touch counts must cover year-end breaches: {key}/{y}")
+           if y==0:
+            need(ever235==ever350==0,"Year-zero intrayear touch counts must be zero")
+           else:
+            prior=real_floor_annual_counts[-1]
+            need(prior[:5]==[y-1,BONDS.index(bond),target,TIMINGS.index(timing),FLOWS.index(mode)] and
+                 prior[7]<=ever235 and prior[8]<=ever350,
+                 f"Intrayear touch counts must be cumulative: {key}/{y}")
            real_floor_annual_counts.append([
-             y,BONDS.index(bond),target,TIMINGS.index(timing),FLOWS.index(mode),count235,count350
+             y,BONDS.index(bond),target,TIMINGS.index(timing),FLOWS.index(mode),count235,count350,ever235,ever350
            ])
            stats["real_floor_annual_rows"]+=1
           if stats["scenario_summaries_reconciled"]%32==0:
@@ -273,8 +313,9 @@ def main():
       "source_panel_sha256":panel_sha,"source_as_of":dates[-1],"initial_capital_usd":INITIAL,
       "rolling_windows_per_scenario":157,"scenario_count":stats["scenario_summaries_reconciled"],
       "window_rows_expected":160768,"annual_summary_rows_expected":11264,"cashflow_modes":list(FLOWS),"counters":stats,
-      "real_floor_annual_count_schema":["year","bond_index","target_pct","timing_index","flow_index","below_real_principal_235_count","below_real_principal_350_count"],
+      "real_floor_annual_count_schema":["year","bond_index","target_pct","timing_index","flow_index","year_end_below_real_principal_235_count","year_end_below_real_principal_350_count","ever_daily_below_real_principal_235_count","ever_daily_below_real_principal_350_count"],
       "real_floor_annual_count_rates":[0.0235,0.035],
+      "real_floor_intrayear_definition":"For each window, count whether any daily remaining-portfolio NAV through that year is strictly below initial capital times the inflation threshold interpolated between year-end thresholds. Cash flows are applied at month-end close; prior paid withdrawals are not added back.",
       "real_floor_annual_counts":real_floor_annual_counts,
       "limitations":["Counts compare annual year-end portfolio NAV against initial capital × (1 + assumed annual inflation)^year with a strict less-than test.",
        "For withdrawal modes, counts use remaining portfolio NAV and do not add previously withdrawn cash back to account NAV.",
