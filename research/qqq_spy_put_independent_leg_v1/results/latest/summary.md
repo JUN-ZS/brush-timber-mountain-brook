@@ -1,93 +1,102 @@
-# QQQ LONG PUT / SPY SHORT PUT — Independent-Leg Sizing V1
+# QQQ LONG PUT / SPY SHORT PUT — Independent-Leg Sizing V2
 
-**Status: research-only counterfactual sizing grid. No live sizing, no orders, no merge to main.**
+**Status: independent EOD quote-side replay; research only. No live sizing or orders; no merge to main.**
 
-## What this answers
+## Method
 
-QQQ LONG PUT and SPY SHORT PUT are first measured separately at fixed N=1 through N=9. Every fixed N:M pair under the combined cap is then cross-compared with the original variable-size equal-premium baseline. All rows reuse the frozen V1 selected contracts, entry dates and conservative quote-side exits; this is not a fresh strike selector or a profit-optimized search.
+- Frozen originally selected cohorts: 44. Requested window: 2018-03-01 to 2025-12-15; common underlying sessions: 1959.
+- QQQ LONG PUT standalone: N=1–9; SPY SHORT PUT standalone: N=1–9; fixed paired N:M combinations: 36 with combined count <= 9.
+- Exact original contract IDs are reused; each plan starts no earlier than the next common session after the signal. Failed entry-side depth defers; entry is skipped by expiry/source end.
+- QQQ standalone entry/exit depends only on QQQ quote and Ask/Bid depth. SPY standalone depends only on SPY quote and Bid/Ask depth. Fixed pairs require both legs at entry and exit.
+- Entries use QQQ Ask and SPY Bid; exits use QQQ Bid and SPY Ask. No forward-filling or contract substitutions.
+- Costs: zero, base USD 0.05 per option share per side plus USD 0.65 per contract per side, and adverse USD 0.10/share plus USD 0.65/side.
+- Displayed EOD depth is a screening gate, not a guaranteed fill. These are not exchange-confirmed executions.
 
-## Source freeze and controls
+## Entry coverage
 
-- Frozen trade input Git blob SHA: 13b4cf574d24250655d8f9e3d5878e3a4d4f1bd5; frozen summary SHA: 968676c093d48579b516e1b07d4ec55619b90349.
-- Window, 44 opened cohorts and four exit policies remain those of the equal-premium V1 input (2018-03-01 through 2025-12-15).
-- Standalone N sweep: 1–9; paired cross-grid: each leg N>=1 and QQQ+SPY <= 9 contracts.
-- Base costs: $0.05 per option share per side plus $0.65 commission per contract per side. Cost checks include ZERO, BASE and ADVERSE ($0.10/share + $0.65/contract/side).
-- Exits use QQQ LONG at displayed Bid and SPY SHORT buyback at displayed Ask. Unresolved episodes remain separate and are excluded from resolved-only P&L / win-rate denominators.
-- Fixed-N rows are counterfactual: the source output did not persist every entry/exit displayed-size value needed to verify each fixed N. Do not interpret them as confirmed fills or executable capacities. Only the original premium-matched baseline inherits its source run's entry/exit depth screen.
+- QQQ-only plans: 396; entered 396; skipped 0.
+- SPY-only plans: 396; entered 396; skipped 0.
+- Pair plans: 1584; entered 1584; skipped 0.
+- Candidate-level defer/skip reasons and entry side sizes are recorded in the attempt CSV; exit size values and unresolved states are in the raw trade files.
 
-## Existing equal-premium baseline at base assumed costs
+## Original premium-matched baseline reference (base costs)
 
-| Exit policy | Resolved / opened | Win / loss / flat | Win rate | Mean net P&L | Total net P&L | Worst resolved |
-|---|---:|---:|---:|---:|---:|---:|
-| HOLD_5_SESSIONS | 44 / 44 | 11 / 33 / 0 | 25.00% | $-231.91 | $-10,204.20 | $-4,818.40 |
-| HOLD_10_SESSIONS | 44 / 44 | 12 / 32 / 0 | 27.27% | $-331.37 | $-14,580.20 | $-5,406.40 |
-| HOLD_20_SESSIONS | 44 / 44 | 8 / 36 / 0 | 18.18% | $-594.66 | $-26,165.20 | $-17,078.40 |
-| EXIT_AT_DTE_LE_7 | 36 / 44 | 12 / 24 / 0 | 33.33% | $-668.12 | $-24,052.30 | $-13,506.40 |
+Baseline numbers come from the frozen prior run. Entry/outcome coverage and fixed sizing differ across grid cells, so they are reference comparisons, not automatically a matched experiment.
 
-## Independent single-leg results at base costs
+| Exit policy | Resolved/opened | Win/loss | Win rate | Mean net P&L | Total net P&L | Mean QQQ debit | Mean SPY credit | Premium match |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| HOLD_5_SESSIONS | 44/44 | 11/33 | 25.00% | USD -231.91 | USD -10,204.20 | USD 1,615.20 | USD 1,622.70 | 95.43% |
+| HOLD_10_SESSIONS | 44/44 | 12/32 | 27.27% | USD -331.37 | USD -14,580.20 | USD 1,615.20 | USD 1,622.70 | 95.43% |
+| HOLD_20_SESSIONS | 44/44 | 8/36 | 18.18% | USD -594.66 | USD -26,165.20 | USD 1,615.20 | USD 1,622.70 | 95.43% |
+| EXIT_AT_DTE_LE_7 | 36/44 | 12/24 | 33.33% | USD -668.12 | USD -24,052.30 | USD 1,615.20 | USD 1,622.70 | 95.43% |
 
-Each row below runs one leg alone, with the other leg set to zero. The full N sweep and cost sensitivities are in independent_leg_sizing.csv.
+## Independent legs (base costs)
 
-| Exit policy | Standalone leg | N | Resolved / opened | Win rate | Mean net P&L | Total net P&L | Worst resolved |
-|---|---|---:|---:|---:|---:|---:|---:|
-| HOLD_5_SESSIONS | QQQ LONG PUT | 1 | 44 / 44 | 25.00% | $-22.46 | $-988.20 | $-510.30 |
-| HOLD_5_SESSIONS | QQQ LONG PUT | 4 | 44 / 44 | 25.00% | $-89.84 | $-3,952.80 | $-2,041.20 |
-| HOLD_5_SESSIONS | QQQ LONG PUT | 9 | 44 / 44 | 25.00% | $-202.13 | $-8,893.80 | $-4,592.70 |
-| HOLD_5_SESSIONS | SPY SHORT PUT | 1 | 44 / 44 | 72.73% | $-24.30 | $-1,069.20 | $-2,948.30 |
-| HOLD_5_SESSIONS | SPY SHORT PUT | 4 | 44 / 44 | 72.73% | $-97.20 | $-4,276.80 | $-11,793.20 |
-| HOLD_5_SESSIONS | SPY SHORT PUT | 9 | 44 / 44 | 72.73% | $-218.70 | $-9,622.80 | $-26,534.70 |
-| HOLD_10_SESSIONS | QQQ LONG PUT | 1 | 44 / 44 | 20.45% | $-29.89 | $-1,315.20 | $-619.30 |
-| HOLD_10_SESSIONS | QQQ LONG PUT | 4 | 44 / 44 | 20.45% | $-119.56 | $-5,260.80 | $-2,477.20 |
-| HOLD_10_SESSIONS | QQQ LONG PUT | 9 | 44 / 44 | 20.45% | $-269.02 | $-11,836.80 | $-5,573.70 |
-| HOLD_10_SESSIONS | SPY SHORT PUT | 1 | 44 / 44 | 75.00% | $-38.00 | $-1,672.20 | $-3,007.30 |
-| HOLD_10_SESSIONS | SPY SHORT PUT | 4 | 44 / 44 | 75.00% | $-152.02 | $-6,688.80 | $-12,029.20 |
-| HOLD_10_SESSIONS | SPY SHORT PUT | 9 | 44 / 44 | 75.00% | $-342.04 | $-15,049.80 | $-27,065.70 |
-| HOLD_20_SESSIONS | QQQ LONG PUT | 1 | 44 / 44 | 20.45% | $-55.91 | $-2,460.20 | $-870.30 |
-| HOLD_20_SESSIONS | QQQ LONG PUT | 4 | 44 / 44 | 20.45% | $-223.65 | $-9,840.80 | $-3,481.20 |
-| HOLD_20_SESSIONS | QQQ LONG PUT | 9 | 44 / 44 | 20.45% | $-503.22 | $-22,141.80 | $-7,832.70 |
-| HOLD_20_SESSIONS | SPY SHORT PUT | 1 | 44 / 44 | 79.55% | $-91.37 | $-4,020.20 | $-9,516.30 |
-| HOLD_20_SESSIONS | SPY SHORT PUT | 4 | 44 / 44 | 79.55% | $-365.47 | $-16,080.80 | $-38,065.20 |
-| HOLD_20_SESSIONS | SPY SHORT PUT | 9 | 44 / 44 | 79.55% | $-822.31 | $-36,181.80 | $-85,646.70 |
-| EXIT_AT_DTE_LE_7 | QQQ LONG PUT | 1 | 36 / 44 | 27.78% | $3.42 | $123.20 | $-878.30 |
-| EXIT_AT_DTE_LE_7 | QQQ LONG PUT | 4 | 36 / 44 | 27.78% | $13.69 | $492.80 | $-3,513.20 |
-| EXIT_AT_DTE_LE_7 | QQQ LONG PUT | 9 | 36 / 44 | 27.78% | $30.80 | $1,108.80 | $-7,904.70 |
-| EXIT_AT_DTE_LE_7 | SPY SHORT PUT | 1 | 36 / 44 | 77.78% | $-175.05 | $-6,301.80 | $-6,733.30 |
-| EXIT_AT_DTE_LE_7 | SPY SHORT PUT | 4 | 36 / 44 | 77.78% | $-700.20 | $-25,207.20 | $-26,933.20 |
-| EXIT_AT_DTE_LE_7 | SPY SHORT PUT | 9 | 36 / 44 | 77.78% | $-1,575.45 | $-56,716.20 | $-60,599.70 |
+| Policy | Standalone leg | N | Entered/candidate | Resolved/entered | Win rate | Mean net P&L | Total net P&L | Worst resolved |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| HOLD_5_SESSIONS | QQQ LONG PUT | 1 | 44/44 | 44/44 | 25.00% | USD -21.60 | USD -950.20 | USD -510.30 |
+| HOLD_5_SESSIONS | QQQ LONG PUT | 4 | 44/44 | 44/44 | 25.00% | USD -31.38 | USD -1,380.80 | USD -2,041.20 |
+| HOLD_5_SESSIONS | QQQ LONG PUT | 9 | 44/44 | 44/44 | 25.00% | USD 90.16 | USD 3,967.20 | USD -4,592.70 |
+| HOLD_5_SESSIONS | SPY SHORT PUT | 1 | 44/44 | 44/44 | 72.73% | USD -25.87 | USD -1,138.20 | USD -2,948.30 |
+| HOLD_5_SESSIONS | SPY SHORT PUT | 4 | 44/44 | 44/44 | 72.73% | USD -102.29 | USD -4,500.80 | USD -11,793.20 |
+| HOLD_5_SESSIONS | SPY SHORT PUT | 9 | 44/44 | 44/44 | 75.00% | USD -199.68 | USD -8,785.80 | USD -26,534.70 |
+| HOLD_10_SESSIONS | QQQ LONG PUT | 1 | 44/44 | 44/44 | 20.45% | USD -29.89 | USD -1,315.20 | USD -619.30 |
+| HOLD_10_SESSIONS | QQQ LONG PUT | 4 | 44/44 | 44/44 | 20.45% | USD -74.56 | USD -3,280.80 | USD -2,477.20 |
+| HOLD_10_SESSIONS | QQQ LONG PUT | 9 | 44/44 | 44/44 | 20.45% | USD -32.15 | USD -1,414.80 | USD -5,573.70 |
+| HOLD_10_SESSIONS | SPY SHORT PUT | 1 | 44/44 | 44/44 | 75.00% | USD -38.00 | USD -1,672.20 | USD -3,007.30 |
+| HOLD_10_SESSIONS | SPY SHORT PUT | 4 | 44/44 | 44/44 | 75.00% | USD -184.84 | USD -8,132.80 | USD -12,029.20 |
+| HOLD_10_SESSIONS | SPY SHORT PUT | 9 | 44/44 | 44/44 | 75.00% | USD -415.88 | USD -18,298.80 | USD -27,065.70 |
+| HOLD_20_SESSIONS | QQQ LONG PUT | 1 | 44/44 | 44/44 | 20.45% | USD -54.89 | USD -2,415.20 | USD -870.30 |
+| HOLD_20_SESSIONS | QQQ LONG PUT | 4 | 44/44 | 44/44 | 20.45% | USD -206.84 | USD -9,100.80 | USD -3,481.20 |
+| HOLD_20_SESSIONS | QQQ LONG PUT | 9 | 44/44 | 44/44 | 20.45% | USD -374.97 | USD -16,498.80 | USD -7,337.70 |
+| HOLD_20_SESSIONS | SPY SHORT PUT | 1 | 44/44 | 44/44 | 79.55% | USD -91.89 | USD -4,043.20 | USD -9,516.30 |
+| HOLD_20_SESSIONS | SPY SHORT PUT | 4 | 44/44 | 44/44 | 79.55% | USD -369.11 | USD -16,240.80 | USD -38,065.20 |
+| HOLD_20_SESSIONS | SPY SHORT PUT | 9 | 44/44 | 44/44 | 79.55% | USD -830.50 | USD -36,541.80 | USD -85,646.70 |
+| EXIT_AT_DTE_LE_7 | QQQ LONG PUT | 1 | 44/44 | 37/44 | 27.03% | USD -4.81 | USD -178.10 | USD -878.30 |
+| EXIT_AT_DTE_LE_7 | QQQ LONG PUT | 4 | 44/44 | 36/44 | 27.78% | USD 0.91 | USD 32.80 | USD -3,513.20 |
+| EXIT_AT_DTE_LE_7 | QQQ LONG PUT | 9 | 44/44 | 36/44 | 27.78% | USD 287.55 | USD 10,351.80 | USD -7,517.70 |
+| EXIT_AT_DTE_LE_7 | SPY SHORT PUT | 1 | 44/44 | 43/44 | 81.40% | USD -91.28 | USD -3,924.90 | USD -6,337.30 |
+| EXIT_AT_DTE_LE_7 | SPY SHORT PUT | 4 | 44/44 | 43/44 | 81.40% | USD -403.71 | USD -17,359.60 | USD -26,933.20 |
+| EXIT_AT_DTE_LE_7 | SPY SHORT PUT | 9 | 44/44 | 42/44 | 83.33% | USD -504.34 | USD -21,182.40 | USD -60,599.70 |
 
-## Paired fixed-N cross-grid examples at base costs
+## Fixed paired examples (base costs; premium cash flows shown)
 
-Examples only, not recommendations or optimization winners. The complete pair grid is in fixed_pair_cross_grid.csv and includes expectancy delta versus the equal-premium baseline.
+| Policy | QQQ:SPY | Entered/candidate | Resolved/entered | Win rate | Mean net P&L | Mean QQQ debit | Mean SPY credit | Match score | Worst resolved |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| HOLD_5_SESSIONS | 1:1 | 44/44 | 44/44 | 36.36% | USD -47.46 | USD 438.45 | USD 432.20 | 86.51% | USD -1,204.60 |
+| HOLD_5_SESSIONS | 1:5 | 44/44 | 44/44 | 72.73% | USD -149.12 | USD 437.43 | USD 2,158.86 | 19.69% | USD -12,997.80 |
+| HOLD_5_SESSIONS | 4:4 | 44/44 | 44/44 | 38.64% | USD -175.04 | USD 1,746.18 | USD 1,725.09 | 86.48% | USD -4,818.40 |
+| HOLD_5_SESSIONS | 4:5 | 44/44 | 44/44 | 56.82% | USD -206.63 | USD 1,746.18 | USD 2,156.36 | 77.76% | USD -7,766.70 |
+| HOLD_5_SESSIONS | 5:1 | 44/44 | 44/44 | 22.73% | USD -79.35 | USD 2,187.84 | USD 431.70 | 20.99% | USD -2,154.80 |
+| HOLD_10_SESSIONS | 1:1 | 44/44 | 44/44 | 43.18% | USD -67.90 | USD 438.45 | USD 432.20 | 86.51% | USD -1,351.60 |
+| HOLD_10_SESSIONS | 1:5 | 44/44 | 44/44 | 72.73% | USD -250.16 | USD 437.43 | USD 2,158.86 | 19.69% | USD -13,380.80 |
+| HOLD_10_SESSIONS | 4:4 | 44/44 | 44/44 | 45.45% | USD -258.40 | USD 1,746.18 | USD 1,725.09 | 86.48% | USD -5,406.40 |
+| HOLD_10_SESSIONS | 4:5 | 44/44 | 44/44 | 61.36% | USD -305.02 | USD 1,746.18 | USD 2,156.36 | 77.76% | USD -8,413.70 |
+| HOLD_10_SESSIONS | 5:1 | 44/44 | 44/44 | 20.45% | USD -139.78 | USD 2,187.84 | USD 431.70 | 20.99% | USD -2,501.80 |
+| HOLD_20_SESSIONS | 1:1 | 44/44 | 44/44 | 38.64% | USD -146.78 | USD 438.45 | USD 432.20 | 86.51% | USD -4,269.60 |
+| HOLD_20_SESSIONS | 1:5 | 44/44 | 44/44 | 79.55% | USD -515.25 | USD 437.43 | USD 2,158.86 | 19.69% | USD -42,334.80 |
+| HOLD_20_SESSIONS | 4:4 | 44/44 | 44/44 | 40.91% | USD -578.31 | USD 1,746.18 | USD 1,725.09 | 86.48% | USD -17,078.40 |
+| HOLD_20_SESSIONS | 4:5 | 44/44 | 44/44 | 70.45% | USD -672.20 | USD 1,746.18 | USD 2,156.36 | 77.76% | USD -26,594.70 |
+| HOLD_20_SESSIONS | 5:1 | 44/44 | 44/44 | 18.18% | USD -352.05 | USD 2,187.84 | USD 431.70 | 20.99% | USD -3,500.80 |
+| EXIT_AT_DTE_LE_7 | 1:1 | 44/44 | 37/44 | 40.54% | USD -159.63 | USD 438.45 | USD 432.20 | 86.51% | USD -3,134.60 |
+| EXIT_AT_DTE_LE_7 | 1:5 | 44/44 | 37/44 | 78.38% | USD -829.58 | USD 437.43 | USD 2,158.86 | 19.69% | USD -30,309.80 |
+| EXIT_AT_DTE_LE_7 | 4:4 | 44/44 | 36/44 | 41.67% | USD -681.73 | USD 1,746.18 | USD 1,725.09 | 86.48% | USD -13,506.40 |
+| EXIT_AT_DTE_LE_7 | 4:5 | 44/44 | 36/44 | 77.78% | USD -857.92 | USD 1,746.18 | USD 2,156.36 | 77.76% | USD -20,239.70 |
+| EXIT_AT_DTE_LE_7 | 5:1 | 44/44 | 36/44 | 25.00% | USD -163.52 | USD 2,187.84 | USD 431.70 | 20.99% | USD -3,536.80 |
 
-| Exit policy | QQQ long : SPY short | Win rate | Mean net P&L | Delta vs matched baseline expectancy | Total net P&L | Worst resolved |
-|---|---:|---:|---:|---:|---:|---:|
-| HOLD_5_SESSIONS | 1 : 1 | 36.36% | $-46.76 | $185.15 | $-2,057.40 | $-1,204.60 |
-| HOLD_5_SESSIONS | 1 : 5 | 72.73% | $-143.96 | $87.95 | $-6,334.20 | $-12,997.80 |
-| HOLD_5_SESSIONS | 4 : 5 | 56.82% | $-211.34 | $20.58 | $-9,298.80 | $-7,766.70 |
-| HOLD_5_SESSIONS | 5 : 1 | 22.73% | $-136.60 | $95.32 | $-6,010.20 | $-2,154.80 |
-| HOLD_10_SESSIONS | 1 : 1 | 43.18% | $-67.90 | $263.47 | $-2,987.40 | $-1,351.60 |
-| HOLD_10_SESSIONS | 1 : 5 | 72.73% | $-219.91 | $111.45 | $-9,676.20 | $-13,380.80 |
-| HOLD_10_SESSIONS | 4 : 5 | 61.36% | $-309.59 | $21.78 | $-13,621.80 | $-8,413.70 |
-| HOLD_10_SESSIONS | 5 : 1 | 20.45% | $-187.46 | $143.91 | $-8,248.20 | $-2,501.80 |
-| HOLD_20_SESSIONS | 1 : 1 | 38.64% | $-147.28 | $447.38 | $-6,480.40 | $-4,269.60 |
-| HOLD_20_SESSIONS | 1 : 5 | 79.55% | $-512.75 | $81.91 | $-22,561.20 | $-42,334.80 |
-| HOLD_20_SESSIONS | 4 : 5 | 70.45% | $-680.50 | $-85.83 | $-29,941.80 | $-26,594.70 |
-| HOLD_20_SESSIONS | 5 : 1 | 18.18% | $-370.94 | $223.73 | $-16,321.20 | $-3,500.80 |
-| EXIT_AT_DTE_LE_7 | 1 : 1 | 38.89% | $-171.63 | $496.49 | $-6,178.60 | $-3,376.60 |
-| EXIT_AT_DTE_LE_7 | 1 : 5 | 77.78% | $-871.83 | $-203.71 | $-31,385.80 | $-30,309.80 |
-| EXIT_AT_DTE_LE_7 | 4 : 5 | 77.78% | $-861.56 | $-193.44 | $-31,016.20 | $-20,239.70 |
-| EXIT_AT_DTE_LE_7 | 5 : 1 | 25.00% | $-157.94 | $510.18 | $-5,685.80 | $-3,536.80 |
+## Limits
 
-## Interpretation boundaries
-
-- Premium parity is a cash-flow match, not equal underlying notional, Delta-dollar, maximum loss, margin or assignment exposure.
-- Fixed-N sweeps separate each leg's mark-to-market contribution from paired outcomes, but they do not re-fetch chains or revalidate displayed-size execution capacity.
-- Historical EOD quotes are not verified fills. Cohorts can share market regimes; do not select a strategy based on one apparently best grid cell.
-- Early assignment, broker margin, financing, taxes, portfolio compounding, forced liquidation and intraday paths are not modeled.
+- This replay fixes the earlier flaw: each standalone leg has its own entry attempts, exit trigger, quote availability and depth gate. Paired positions still close as a pair.
+- Fixed N:M does not imply equal premium or equal risk. Inspect debit, credit, mismatch and match score before comparing paired results.
+- Unresolved and entry-skipped outcomes stay separate and are not assigned zero. Premium-matched baseline has dynamic quantities and a different denominator/entry policy from fixed grid cells.
+- EOD quote history is from a public preservation mirror; SHA pins establish file identity, not exchange authenticity. No early assignment, broker margin, financing, taxes, compounding, forced liquidation or intraday path is modeled.
 
 ## Files
 
-- independent_leg_sizing.csv: standalone QQQ N and standalone SPY N, each isolated.
-- fixed_pair_cross_grid.csv: fixed N:M comparisons under aggregate contract cap.
-- premium_matched_baseline.csv: original variable-size baseline by exit rule and cost scenario.
-- source_manifest.json: source pins and run parameters.
+- entry_attempts.csv: one row per cohort and tested sizing plan, with deferrals and final entry result.
+- independent_leg_trades.csv: standalone positions with leg-specific exits and quote depth.
+- fixed_pair_trades.csv: pairs with both-leg entry/exit depth checks.
+- independent_leg_sizing.csv: standalone N performance, three cost assumptions.
+- fixed_pair_cross_grid.csv: all paired N:M cases under the total contract cap.
+- premium_matched_baseline.csv: frozen prior run, recalculated under the cost assumptions.
+- source_manifest.json: pinned output inputs and hashes.

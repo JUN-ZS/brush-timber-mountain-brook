@@ -1,0 +1,12 @@
+{
+  "status": "COMPLETED_WITH_UNRESOLVEDS",
+  "frozen_cohorts": 44,
+  "plans": 2376,
+  "entered_plans": 2376,
+  "skipped_plans": 0,
+  "trade_episodes": 9504,
+  "standalone_trade_episodes": 3168,
+  "pair_trade_episodes": 6336,
+  "source_reconciliation_count": 168,
+  "output_dir": "research/qqq_spy_put_independent_leg_v1/results/latest"
+}
