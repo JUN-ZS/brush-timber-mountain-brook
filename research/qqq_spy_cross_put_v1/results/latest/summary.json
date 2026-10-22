@@ -40,6 +40,11 @@
       0.65
     ]
   },
+  "position_size_sensitivity": {
+    "max_long_qqq_contracts": 4,
+    "max_short_spy_contracts": 5,
+    "method": "linear per-leg gross-P&L rescaling on the same selected contracts, quote dates and resolved cohort set; cost scales per contract; no size-dependent market impact"
+  },
   "coverage": {
     "common_underlying_sessions": 1959,
     "qqq_chain_dates": 1956,

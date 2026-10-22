@@ -15,14 +15,14 @@ Status: **COMPLETED_WITH_UNRESOLVEDS**. EOD quote-side estimate, not confirmed f
 
 ## Historical win rate — base assumed costs
 
-| Exit rule | Resolved/opened | Wins/losses/flat | Win rate (nominal Wilson 95%) | Mean net P&L | Median | Total net P&L | Worst trade | Unresolved |
+| Exit rule | Resolved/opened | Wins/losses/flat | Win rate (nominal Wilson 95%) | Mean net P&L (resolved) | Median (resolved) | Total net P&L (resolved) | Worst trade (resolved) | Unresolved |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | HOLD_5_SESSIONS | 44/44 | 25/19/0 | 56.82% (42.22–70.32%) | USD -206.63 | USD 46.80 | USD -9,091.80 | USD -7,766.70 | 0 |
 | HOLD_10_SESSIONS | 44/44 | 27/17/0 | 61.36% (46.62–74.28%) | USD -305.02 | USD 139.80 | USD -13,420.80 | USD -8,413.70 | 0 |
 | HOLD_20_SESSIONS | 44/44 | 31/13/0 | 70.45% (55.78–81.84%) | USD -672.20 | USD 209.30 | USD -29,576.80 | USD -26,594.70 | 0 |
 | EXIT_AT_DTE_LE_7 | 36/44 | 28/8/0 | 77.78% (61.92–88.28%) | USD -857.92 | USD 218.30 | USD -30,885.20 | USD -20,239.70 | 8 |
 
-Denominator is **resolved episodes only**; unresolved trades and entry skips stay separate. The nominal Wilson interval does not correct for time dependence or strategy selection.
+Win-rate denominator is **resolved episodes only**. Mean, median, total P&L, profit factor, and worst trade also use resolved episodes only; unresolved trades are excluded, not assigned zero. Entry skips stay separate. The nominal Wilson interval does not correct for time dependence or strategy selection.
 
 ## Leg attribution
 
@@ -70,6 +70,35 @@ Denominator is **resolved episodes only**; unresolved trades and entry skips sta
 | EXIT_AT_DTE_LE_7 | 0.100 | 0.00 | 36 | 66.67% | USD -936.22 | USD -33,704.00 | USD -20,318.00 |
 | EXIT_AT_DTE_LE_7 | 0.100 | 0.65 | 36 | 66.67% | USD -947.92 | USD -34,125.20 | USD -20,329.70 |
 
+## Position-size sensitivity (same selected contracts and quote path)
+
+- Grid: LONG QQQ 1–4 × SHORT SPY 1–5 contracts; CSV contains the full grid.
+- This is a fixed-sample rescaling of each leg's gross P&L on the same selected contracts and dates, not a fresh contract-selection replay. Transaction costs scale per contract; size-dependent market impact is not modeled.
+- All sizes are no greater than the base run's size-screened quantities. Resolved/unresolved status is inherited from the base run; an unresolved exit is not reclassified just because a smaller hypothetical size might have passed a quote-size gate.
+- P&L statistics use resolved episodes only; unresolved counts are shown separately.
+
+| Exit rule | QQQ LONG : SPY SHORT | Resolved/opened (unresolved) | Win rate (nominal Wilson 95%) | Mean net P&L (resolved) | Total net P&L (resolved) | Worst trade (resolved) |
+|---|---:|---:|---:|---:|---:|---:|
+| HOLD_5_SESSIONS | 1 : 1 | 44/44 (0) | 38.64% (25.72–53.38%) | USD -43.76 | USD -1,925.40 | USD -1,204.60 |
+| HOLD_5_SESSIONS | 1 : 5 | 44/44 (0) | 72.73% (58.15–83.65%) | USD -170.14 | USD -7,486.20 | USD -12,997.80 |
+| HOLD_5_SESSIONS | 4 : 1 | 44/44 (0) | 22.73% (12.84–36.99%) | USD -80.25 | USD -3,531.00 | USD -1,644.50 |
+| HOLD_5_SESSIONS | 4 : 5 | 44/44 (0) | 56.82% (42.22–70.32%) | USD -206.63 | USD -9,091.80 | USD -7,766.70 |
+| HOLD_10_SESSIONS | 1 : 1 | 44/44 (0) | 45.45% (31.71–59.93%) | USD -64.60 | USD -2,842.40 | USD -1,351.60 |
+| HOLD_10_SESSIONS | 1 : 5 | 44/44 (0) | 72.73% (58.15–83.65%) | USD -251.07 | USD -11,047.20 | USD -13,380.80 |
+| HOLD_10_SESSIONS | 4 : 1 | 44/44 (0) | 20.45% (11.15–34.50%) | USD -118.55 | USD -5,216.00 | USD -1,768.50 |
+| HOLD_10_SESSIONS | 4 : 5 | 44/44 (0) | 61.36% (46.62–74.28%) | USD -305.02 | USD -13,420.80 | USD -8,413.70 |
+| HOLD_20_SESSIONS | 1 : 1 | 44/44 (0) | 40.91% (27.69–55.59%) | USD -144.58 | USD -6,361.40 | USD -4,269.60 |
+| HOLD_20_SESSIONS | 1 : 5 | 44/44 (0) | 79.55% (65.50–88.85%) | USD -520.14 | USD -22,886.20 | USD -42,334.80 |
+| HOLD_20_SESSIONS | 4 : 1 | 44/44 (0) | 18.18% (9.51–31.96%) | USD -296.64 | USD -13,052.00 | USD -2,630.50 |
+| HOLD_20_SESSIONS | 4 : 5 | 44/44 (0) | 70.45% (55.78–81.84%) | USD -672.20 | USD -29,576.80 | USD -26,594.70 |
+| EXIT_AT_DTE_LE_7 | 1 : 1 | 36/44 (8) | 41.67% (27.14–57.80%) | USD -170.43 | USD -6,135.60 | USD -3,376.60 |
+| EXIT_AT_DTE_LE_7 | 1 : 5 | 36/44 (8) | 77.78% (61.92–88.28%) | USD -875.19 | USD -31,506.80 | USD -30,309.80 |
+| EXIT_AT_DTE_LE_7 | 4 : 1 | 36/44 (8) | 25.00% (13.75–41.07%) | USD -153.17 | USD -5,514.00 | USD -2,658.50 |
+| EXIT_AT_DTE_LE_7 | 4 : 5 | 36/44 (8) | 77.78% (61.92–88.28%) | USD -857.92 | USD -30,885.20 | USD -20,239.70 |
+
+The CSV contains every size combination in the grid. The 1:5 and configured 4:5 comparisons share the same selected historical episodes; they are not evidence that any ratio is profitable.
+
+
 ## Equal-percentage QQQ/SPY expiry shocks (hypothetical)
 
 These are intrinsic-value scenarios based on actual entry quotes and spots, not historical option trade outcomes.
@@ -105,4 +134,4 @@ Exercise/assignment charges, financing, taxes, broker margin and forced-liquidat
 - SPY short put can dominate downside even when QQQ long put appreciates; premium credit is not a max-loss budget.
 - Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills.
 
-Files: trade_episodes.csv, entry_cohort.csv, entry_skips.csv, cost_sensitivity.csv, expiry_shock_grid.csv, source_manifest.json.
+Files: trade_episodes.csv, entry_cohort.csv, entry_skips.csv, cost_sensitivity.csv, sizing_sensitivity.csv, expiry_shock_grid.csv, source_manifest.json.
