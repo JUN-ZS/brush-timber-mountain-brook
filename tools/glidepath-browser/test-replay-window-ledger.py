@@ -23,6 +23,16 @@ class IndependentLedgerReplayTests(unittest.TestCase):
         self.assertEqual(r["requested_withdrawals_usd"],1000.0); self.assertEqual(r["actual_withdrawals_usd"],1000.0)
         self.assertEqual(r["withdrawal_shortfall_usd"],0.0); self.assertEqual(r["additional_deposits_usd"],500.0)
         self.assertEqual(r["terminal_nav_usd"],99500.0); self.assertAlmostEqual(r["time_weighted_cagr"],0.0,places=12)
+    def test_real_floor_counts_use_strict_below_threshold_and_actual_year(self):
+        threshold = M.INITIAL * ((1.0 + 0.0235) ** 10)
+        marks = [{"nav_usd": threshold - 0.01}, {"nav_usd": threshold}, {"nav_usd": threshold + 0.01}]
+        self.assertEqual(M.count_real_floor_breaches(marks, 10, 0.0235), 1)
+        self.assertEqual(M.count_real_floor_breaches([{"nav_usd": 100000.0}], 0, 0.035), 0)
+        sample = [{"nav_usd": 130000.0}, {"nav_usd": 120000.0}]
+        below235 = M.count_real_floor_breaches(sample, 10, 0.0235)
+        below350 = M.count_real_floor_breaches(sample, 10, 0.035)
+        self.assertLessEqual(below235, below350)
+
     def test_comparison_counter_increments_once_per_field(self):
         stats={"fields_compared":0,"max_abs_error":{}}
         M.close_value(100.0,"100","test_numeric",stats,"counter")
