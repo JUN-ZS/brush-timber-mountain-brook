@@ -1057,7 +1057,7 @@ try {
           bar.sample_n > 0 && bar.sample_n <= 12 && bar.rendered >= 0 && bar.rendered <= bar.sample_n),
         sampleCounts: bars.map(bar => bar.sample_n),
         selectedYear, selectedExpected,
-        selectedDetailMatches: selectedExpected !== null && detail.includes(selectedExpected + "/" + selectedRow[5] /* metadata field is not sample size */),
+        selectedDetailMatches: selectedExpected !== null && detail.includes(selectedExpected + "/" + Number(RAW_PACK.cm[String(selectedYear)]?.[0])),
         detail
       };
     }, inflation);
