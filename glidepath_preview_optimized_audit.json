@@ -136,7 +136,7 @@
   },
   "html_characters": 3732100,
   "v2_1_review": {
-    "source_commit": "a7320315a8600b2807049b138e4f711036f767fc",
+    "source_commit": "c10833a3260f8bd82aaa643c29332a9478d5ce39",
     "static_semantic_guards": {
       "javascript_parse": true,
       "duplicate_html_ids": 0,
@@ -307974,12 +307974,12 @@
       }
     ]
   },
-  "bundle_sha256": "a83f9053dfa558f93a747ca5a7be6312aaa995655ecd90200ac4d3f913e9966f",
+  "bundle_sha256": "57e1d33c741d141b72b49391c0bccadcc8032749cb9b150e9b262f76d9999c70",
   "html_crc32": "700fe4f1",
   "final_artifact_verification": {
     "status": "PASSED",
     "html_sha256": "46d6b9d557f45451b31a223f530fc36349df29dd809f93b6cd494f789ddf6546",
-    "bundle_sha256": "a83f9053dfa558f93a747ca5a7be6312aaa995655ecd90200ac4d3f913e9966f",
+    "bundle_sha256": "57e1d33c741d141b72b49391c0bccadcc8032749cb9b150e9b262f76d9999c70",
     "html_bytes": 3745776,
     "bundle_bytes": 905136,
     "html_crc32": "700fe4f1",
@@ -308133,7 +308133,7 @@
     "paired_direction_comparison_real_235_status": "passed",
     "paired_direction_comparison_real_235_windows": 157,
     "paired_direction_comparison_real_235_passed": true,
-    "created_at_utc": "2026-10-21T16:56:39.906826+00:00"
+    "created_at_utc": "2026-10-22T06:27:38.954830+00:00"
   },
   "cashflow_window_ledger_replay": {
     "schema": "glidepath-window-cashflow-ledger-replay.v1",
