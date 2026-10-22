@@ -1,0 +1,105 @@
+name: QQQ LONG PUT vs SPY SHORT PUT Relative-Underperformance Entry Study V1
+on:
+  workflow_dispatch:
+    inputs:
+      entry_filter:
+        description: "Predeclared signal; none is the mechanical baseline"
+        required: true
+        type: choice
+        default: qqq_underperforms_spy_20d
+        options:
+          - qqq_underperforms_spy_20d
+          - none
+      max_total_contracts:
+        description: "Maximum combined whole option contracts per cohort"
+        required: true
+        default: "9"
+        type: string
+      start_date:
+        description: "First signal date (YYYY-MM-DD)"
+        required: true
+        default: "2018-03-01"
+        type: string
+      end_date:
+        description: "Last observation date; option source ends 2025-12-15"
+        required: true
+        default: "2025-12-15"
+        type: string
+  push:
+    branches:
+      - research/qqq-put-spy-put-relative-signal-v1
+    paths:
+      - research/qqq_spy_put_relative_signal_v1/*.py
+      - research/qqq_spy_put_relative_signal_v1/CONTRACT.md
+      - .github/workflows/qqq-spy-put-relative-signal-v1.yml
+permissions:
+  contents: write
+concurrency:
+  group: qqq-spy-put-relative-signal-v1-github-hosted
+  cancel-in-progress: false
+jobs:
+  replay:
+    name: SHA-pinned relative-underperformance QQQ/SPY put replay (GitHub-hosted Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout exact research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Runtime
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv-relative-put
+          .venv-relative-put/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and run offline contract tests before downloads
+        run: |
+          set -euo pipefail
+          PY=.venv-relative-put/bin/python
+          $PY -m py_compile research/qqq_spy_put_relative_signal_v1/qqq_spy_put_relative_signal_replay_v1.py
+          $PY -m py_compile research/qqq_spy_put_relative_signal_v1/test_qqq_spy_put_relative_signal_replay_v1.py
+          $PY research/qqq_spy_put_relative_signal_v1/test_qqq_spy_put_relative_signal_replay_v1.py
+      - name: Run SHA-pinned equal-premium put study with entry filter
+        timeout-minutes: 240
+        env:
+          ENTRY_FILTER: ${{ github.event.inputs.entry_filter || 'qqq_underperforms_spy_20d' }}
+          MAX_TOTAL_CONTRACTS: ${{ github.event.inputs.max_total_contracts || 9 }}
+          START_DATE: ${{ github.event.inputs.start_date || '2018-03-01' }}
+          END_DATE: ${{ github.event.inputs.end_date || '2025-12-15' }}
+        run: |
+          set -euo pipefail
+          PY=.venv-relative-put/bin/python
+          OUT=research/qqq_spy_put_relative_signal_v1/results/latest
+          mkdir -p "$OUT"
+          $PY research/qqq_spy_put_relative_signal_v1/qqq_spy_put_relative_signal_replay_v1.py \
+            --entry-filter "$ENTRY_FILTER" --max-total-contracts "$MAX_TOTAL_CONTRACTS" \
+            --start "$START_DATE" --end "$END_DATE" \
+            --qqq-cache "$HOME/.cache/qqq-options-full-history" \
+            --spy-cache "$HOME/.cache/spy-options-relative-signal-v1" \
+            --out "$OUT" | tee "$OUT/run_console.json"
+          test -s "$OUT/summary.json"
+          test -s "$OUT/summary.md"
+          test -s "$OUT/trade_episodes.csv"
+          test -s "$OUT/entry_cohort.csv"
+          test -s "$OUT/entry_skips.csv"
+          test -s "$OUT/cost_sensitivity.csv"
+          test -s "$OUT/sizing_sensitivity.csv"
+          test -s "$OUT/expiry_shock_grid.csv"
+          test -s "$OUT/source_manifest.json"
+          cat "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit compact research outputs
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_relative_signal_v1/results/latest
+          if git diff --cached --quiet; then
+            echo "Results identical to committed latest; no result commit needed."
+            exit 0
+          fi
+          git commit -m "research: record relative-underperformance QQQ/SPY put replay"
+          git push origin HEAD:research/qqq-put-spy-put-relative-signal-v1
