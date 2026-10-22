@@ -1,68 +1,47 @@
 #!/usr/bin/env python3
-"""Offline tests for the independent-leg N sweep."""
-import sys
-import unittest
+import sys, unittest
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import qqq_spy_put_independent_leg_sizing_v1 as sizing
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+import qqq_spy_put_independent_leg_sizing_v1 as s
 
-def episode(policy="HOLD_5_SESSIONS", status="RESOLVED", qqty=2, sqty=3,
-            q_entry=4.0, q_exit=5.0, s_entry=5.0, s_exit=6.0, pnl=None):
-    q_gross = (q_exit-q_entry)*100*qqty if status == "RESOLVED" else ""
-    s_gross = (s_entry-s_exit)*100*sqty if status == "RESOLVED" else ""
-    cost = (qqty+sqty)*sizing.round_trip_cost_per_contract(0.05, 0.65)
-    if pnl is None and status == "RESOLVED":
-        pnl = q_gross+s_gross-cost
-    return {
-        "episode_id":"1", "policy":policy, "status":status,
-        "long_qqq_qty":str(qqty), "short_spy_qty":str(sqty),
-        "qqq_entry_ask":str(q_entry), "spy_entry_bid":str(s_entry),
-        "exit_qqq_bid":str(q_exit) if status == "RESOLVED" else "",
-        "exit_spy_ask":str(s_exit) if status == "RESOLVED" else "",
-        "qqq_long_gross_pnl_usd":str(q_gross), "spy_short_gross_pnl_usd":str(s_gross),
-        "net_pnl_usd":str(pnl if pnl is not None else ""),
-        "qqq_long_premium_debit_usd":str(q_entry*100*qqty),
-        "spy_short_premium_credit_usd":str(s_entry*100*sqty),
-        "premium_mismatch_usd":"0", "premium_match_pct":"100",
-    }
+def row(symbol,expiry,strike,delta,bid,ask,bid_size=5,ask_size=5):
+    code=f"{int(round(strike*1000)):08d}";ymd=expiry[2:4]+expiry[5:7]+expiry[8:10]
+    return {"contract_id":f"{symbol}{ymd}P{code}","symbol":symbol,"expiration":expiry,"strike":strike,"type":"put",
+      "bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,"date":"2024-01-02","delta":delta,
+      "volume":10,"open_interest":100,"implied_volatility":0.25}
 
-class IndependentLegSizingTests(unittest.TestCase):
-    def test_unit_gross_and_round_trip_cost(self):
-        r=episode(qqty=2, sqty=3, q_entry=4, q_exit=5, s_entry=5, s_exit=6)
-        self.assertAlmostEqual(sizing.qqq_unit_gross(r),100.0)
-        self.assertAlmostEqual(sizing.spy_unit_gross(r),-100.0)
-        self.assertAlmostEqual(sizing.round_trip_cost_per_contract(0.05,0.65),11.30)
+class IndependentSideTests(unittest.TestCase):
+    def test_qqq_standalone_does_not_require_spy(self):
+        q=row("QQQ","2024-02-16",400,-.25,4.0,4.2,3,2)
+        self.assertEqual(s.validate_entry(s.LEG_Q,q,None,2,0),(True,"OK"))
+        self.assertEqual(s.validate_entry(s.LEG_Q,q,None,3,0),(False,"QQQ_LONG_ASK_SIZE_INSUFFICIENT"))
+    def test_spy_standalone_does_not_require_qqq(self):
+        p=row("SPY","2024-02-16",480,-.25,5.0,5.2,2,3)
+        self.assertEqual(s.validate_entry(s.LEG_S,None,p,0,2),(True,"OK"))
+        self.assertEqual(s.validate_entry(s.LEG_S,None,p,0,3),(False,"SPY_SHORT_BID_SIZE_INSUFFICIENT"))
+    def test_each_leg_has_its_own_exit_depth(self):
+        q=row("QQQ","2024-02-16",400,-.25,4.0,4.2,2,9)
+        p=row("SPY","2024-02-16",480,-.25,5.0,5.2,9,1)
+        self.assertEqual(s.validate_exit(s.LEG_Q,q,None,2,0),(True,"OK"))
+        self.assertEqual(s.validate_exit(s.LEG_Q,q,None,3,0),(False,"QQQ_LONG_BID_SIZE_INSUFFICIENT"))
+        self.assertEqual(s.validate_exit(s.LEG_S,None,p,0,1),(True,"OK"))
+        self.assertEqual(s.validate_exit(s.LEG_S,None,p,0,2),(False,"SPY_SHORT_ASK_SIZE_INSUFFICIENT"))
+    def test_pair_requires_both_legs(self):
+        q=row("QQQ","2024-02-16",400,-.25,4.0,4.2);p=row("SPY","2024-02-16",480,-.25,5.0,5.2)
+        self.assertEqual(s.validate_entry(s.PAIR,q,p,4,5),(True,"OK"))
+        self.assertFalse(s.validate_entry(s.PAIR,q,None,4,5)[0])
+        self.assertFalse(s.validate_exit(s.PAIR,q,None,4,5)[0])
+    def test_pnl_and_cost(self):
+        qg,sg,g=s.raw_pnl(2,3,4.0,5.0,5.0,6.0)
+        self.assertEqual((qg,sg,g),(200.0,-300.0,-100.0))
+        self.assertAlmostEqual(s.rt_cost(.05,.65),11.30)
+        self.assertAlmostEqual(g-s.rt_cost(.05,.65)*5,-156.5)
+    def test_cap_nine_has_36_pair_cells(self):
+        cells=[(q,p) for q in range(1,10) for p in range(1,10) if q+p<=9]
+        self.assertEqual(len(cells),36);self.assertIn((1,5),cells);self.assertIn((4,5),cells);self.assertNotIn((5,5),cells)
+    def test_premium_match_is_cashflow_not_risk(self):
+        self.assertEqual(s.match_pct(600,600),100)
+        self.assertAlmostEqual(s.match_pct(500,600),83.3333333,places=5)
+        self.assertIsNone(s.match_pct(0,0))
 
-    def test_independent_leg_isolated_from_other_leg(self):
-        r=episode()
-        cost={"name":"BASE_COST","slippage":0.05,"commission":0.65}
-        q=sizing.measure_strategy([r],"QQQ_LONG_PUT_STANDALONE","HOLD_5_SESSIONS",
-            lambda _:1,lambda _:0,cost,"TEST")
-        s=sizing.measure_strategy([r],"SPY_SHORT_PUT_STANDALONE","HOLD_5_SESSIONS",
-            lambda _:0,lambda _:1,cost,"TEST")
-        self.assertAlmostEqual(q["mean_net_pnl_usd"],100-11.3)
-        self.assertAlmostEqual(s["mean_net_pnl_usd"],-100-11.3)
-        self.assertEqual(q["mean_spy_gross_pnl_usd"],0.0)
-        self.assertEqual(s["mean_qqq_gross_pnl_usd"],0.0)
-
-    def test_unresolved_not_assigned_zero(self):
-        rows=[episode(),episode(status="UNRESOLVED_SOURCE_END")]
-        result=sizing.measure_strategy(rows,"FIXED_PAIR_CROSS_GRID","HOLD_5_SESSIONS",
-            lambda r:1,lambda r:1,{"name":"BASE_COST","slippage":0.05,"commission":0.65},"TEST")
-        self.assertEqual((result["opened_n"],result["resolved_n"],result["unresolved_n"]),(2,1,1))
-        self.assertEqual(result["win_rate_pct"],0.0)
-
-    def test_pair_contract_cap_has_36_cells_at_nine(self):
-        cells=[(q,s) for q in range(1,10) for s in range(1,10) if q+s<=9]
-        self.assertEqual(len(cells),36)
-        self.assertTrue(all(q+s<=9 for q,s in cells))
-        self.assertIn((1,5),cells); self.assertIn((4,5),cells)
-        self.assertNotIn((5,5),cells)
-
-    def test_premium_match_is_cash_flow_ratio_only(self):
-        self.assertEqual(sizing.premium_match_pct(600.0,600.0),100.0)
-        self.assertAlmostEqual(sizing.premium_match_pct(500.0,600.0),500/600*100)
-        self.assertIsNone(sizing.premium_match_pct(0.0,0.0))
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+if __name__=="__main__":unittest.main(verbosity=2)

@@ -1,4 +1,4 @@
-name: QQQ/SPY Independent Leg Sizing V1
+name: QQQ/SPY Independent Leg Sizing V2
 on:
   push:
     branches:
@@ -14,46 +14,51 @@ concurrency:
   group: qqq-spy-independent-leg-sizing-v1
   cancel-in-progress: false
 jobs:
-  sizing-grid:
-    name: Offline-tested standalone legs and fixed-N cross-grid
+  independent-replay:
+    name: Independent side-depth replay and fixed-N pair grid
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 300
     steps:
-      - name: Checkout
+      - name: Checkout exact research branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Python runtime
-        run: python3 --version
-      - name: Compile and run offline tests
+      - name: Runtime and dependency
         run: |
           set -euo pipefail
-          python3 -m py_compile research/qqq_spy_put_independent_leg_v1/qqq_spy_put_independent_leg_sizing_v1.py
-          python3 -m py_compile research/qqq_spy_put_independent_leg_v1/test_qqq_spy_put_independent_leg_sizing_v1.py
-          python3 research/qqq_spy_put_independent_leg_v1/test_qqq_spy_put_independent_leg_sizing_v1.py
-      - name: Generate frozen-input sizing grid
+          python3 --version
+          python3 -m venv .venv-independent-puts
+          .venv-independent-puts/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and run offline contract/depth tests
         run: |
           set -euo pipefail
-          python3 research/qqq_spy_put_independent_leg_v1/qqq_spy_put_independent_leg_sizing_v1.py \
-            --trades research/qqq_spy_put_equal_premium_v1/results/latest/trade_episodes.csv \
-            --summary-json research/qqq_spy_put_equal_premium_v1/results/latest/summary.json \
-            --out research/qqq_spy_put_independent_leg_v1/results/latest \
-            --max-total-contracts 9 --max-leg-contracts 9
-          test -s research/qqq_spy_put_independent_leg_v1/results/latest/summary.md
-          test -s research/qqq_spy_put_independent_leg_v1/results/latest/independent_leg_sizing.csv
-          test -s research/qqq_spy_put_independent_leg_v1/results/latest/fixed_pair_cross_grid.csv
-          test -s research/qqq_spy_put_independent_leg_v1/results/latest/premium_matched_baseline.csv
-          test -s research/qqq_spy_put_independent_leg_v1/results/latest/source_manifest.json
-          cat research/qqq_spy_put_independent_leg_v1/results/latest/summary.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Commit generated report and grids
+          PY=.venv-independent-puts/bin/python
+          $PY -m py_compile research/qqq_spy_put_independent_leg_v1/qqq_spy_put_independent_leg_sizing_v1.py
+          $PY -m py_compile research/qqq_spy_put_independent_leg_v1/test_qqq_spy_put_independent_leg_sizing_v1.py
+          $PY research/qqq_spy_put_independent_leg_v1/test_qqq_spy_put_independent_leg_sizing_v1.py
+      - name: Run independent QQQ/SPY quote-side replay from pinned source
+        timeout-minutes: 280
+        run: |
+          set -euo pipefail
+          PY=.venv-independent-puts/bin/python
+          $PY research/qqq_spy_put_independent_leg_v1/qqq_spy_put_independent_leg_sizing_v1.py --start 2018-03-01 --end 2025-12-15 --max-leg-contracts 9 --max-total-contracts 9 --qqq-cache "$HOME/.cache/qqq-options-independent-leg-v2" --spy-cache "$HOME/.cache/spy-options-independent-leg-v2" --out research/qqq_spy_put_independent_leg_v1/results/latest
+          OUT=research/qqq_spy_put_independent_leg_v1/results/latest
+          test -s "$OUT/summary.md"
+          test -s "$OUT/summary.json"
+          test -s "$OUT/entry_attempts.csv"
+          test -s "$OUT/independent_leg_trades.csv"
+          test -s "$OUT/fixed_pair_trades.csv"
+          test -s "$OUT/independent_leg_sizing.csv"
+          test -s "$OUT/fixed_pair_cross_grid.csv"
+          test -s "$OUT/premium_matched_baseline.csv"
+          test -s "$OUT/source_manifest.json"
+          cat "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit independent replay and output grids
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add research/qqq_spy_put_independent_leg_v1/results/latest
-          if git diff --cached --quiet; then
-            echo "Generated outputs are already committed and unchanged."
-            exit 0
-          fi
-          git commit -m "research: record independent QQQ and SPY put size grids"
+          if git diff --cached --quiet; then echo "Results unchanged."; exit 0; fi
+          git commit -m "research: record independent-leg QQQ and SPY put replay"
           git push origin HEAD:research/qqq-put-spy-independent-leg-sizing-v1
