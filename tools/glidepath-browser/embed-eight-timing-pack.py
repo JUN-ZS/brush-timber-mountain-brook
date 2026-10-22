@@ -433,6 +433,75 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     require(count == 1, f"{label}: expected exactly one occurrence, found {count}")
     return text.replace(old, new, 1)
 
+def patch_real_floor_renderer(html: str) -> str:
+    marker = "const GLIDEPATH_REAL_FLOOR_RENDERING_V1=true;"
+    if marker in html:
+        require("function realFloorWindowText(row,cpi)" in html and
+                "實質低於本金門檻窗口" in html and "未精算（名目 " not in html,
+                "Real-floor renderer marker exists but implementation is incomplete")
+        return html
+    # Synthetic fixtures deliberately omit the production renderer.
+    if "實質保本窗口（未精算）" not in html:
+        return html
+
+    html = replace_once(
+        html,
+        "median_target_bond_weight:bw,median_target_stock_weight:sw};",
+        "median_target_bond_weight:bw,median_target_stock_weight:sw,windows_below_real_principal_235:r[21],windows_below_real_principal_350:r[22]};",
+        "annual renderer reads real-floor columns")
+    old = "function realCagr(cagr,cpi){return cagr==null?null:!cpi?cagr:(1+cagr)/(1+cpi)-1;}"
+    new = old + """
+function realFloorWindowCount(row,cpi){return cpi===0.0235?row.windows_below_real_principal_235:cpi===0.035?row.windows_below_real_principal_350:null;}
+function realFloorWindowText(row,cpi){const n=realFloorWindowCount(row,cpi);return Number.isInteger(n)&&n>=0&&n<=row.rolling_windows?n+"/"+row.rolling_windows:"資料缺失 · BLOCK";}
+""" + marker
+    html = replace_once(html, old, new, "real-floor rendering helpers")
+    html = replace_once(
+        html,
+        """[s.cpi>0?"實質保本窗口（未精算）":"名目低於本金窗口",s.cpi>0?"不可精算":r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"缺少逐窗口 NAV，不把名目計數冒充實質計數；"+floorLabel:"名目 NAV 低於起始 $100,000 的歷史窗口數；不是未來機率"],""",
+        """[s.cpi>0?"實質低於本金門檻窗口":"名目低於本金窗口",s.cpi>0?realFloorWindowText(r,s.cpi):r.windows_below_initial_capital+"/"+r.rolling_windows,s.cpi>0?"逐窗口第"+s.year+"年 NAV 低於 "+usd(Number(RAW_PACK.meta.initial_capital_usd||100000)*Math.pow(1+s.cpi,s.year))+"；不把已提取現金加回期末 NAV；重疊歷史窗口不是未來機率":"名目 NAV 低於起始本金的歷史窗口數；不是未來機率"],""",
+        "real-floor metric card")
+    html = replace_once(
+        html,
+        "const realFloorThreshold=100000*Math.pow(1+s.cpi,s.year);",
+        "const realFloorThreshold=Number(RAW_PACK.meta.initial_capital_usd||100000)*Math.pow(1+s.cpi,s.year);",
+        "real-floor threshold from metadata")
+    html = replace_once(
+        html,
+        "const nominalFloorForMode=Math.round(100000*Math.pow(1+s.cpi,s.year));",
+        "const nominalFloorForMode=Math.round(Number(RAW_PACK.meta.initial_capital_usd||100000)*Math.pow(1+s.cpi,s.year));",
+        "nominal equivalent threshold from metadata")
+    html = replace_once(
+        html,
+        "實質保本窗口（未精算）",
+        "實質低於本金門檻窗口",
+        "real-floor label")
+    html = replace_once(
+        html,
+        "s.cpi>0?realFloorWindowText(r,s.cpi):r.windows_below_initial_capital+"/"+r.rolling_windows",
+        "s.cpi>0?realFloorWindowText(r,s.cpi):r.windows_below_initial_capital+"/"+r.rolling_windows",
+        "preserve real-floor metric binding")
+    html = replace_once(
+        html,
+        """<p>固定目標轉債比例、債券代理及現金流，逐行比較八種轉換時間規則的資產、回報、回撤與名目低於本金窗口；實質模式會明確標示未精算。</p>""",
+        """<p>固定目標轉債比例、債券代理及現金流，逐行比較八種轉換時間規則的資產、回報、回撤，以及逐窗口 NAV 低於通膨調整本金門檻的實際歷史計數。</p>""",
+        "table disclosure")
+    html = replace_once(
+        html,
+        """+(s.cpi>0?'未精算（名目 '+v.windows_below_initial_capital+'/'+v.rolling_windows+'）':v.windows_below_initial_capital+'/'+v.rolling_windows)+""",
+        """+(s.cpi>0?realFloorWindowText(v,s.cpi):v.windows_below_initial_capital+'/'+v.rolling_windows)+""",
+        "table exact count")
+    html = replace_once(
+        html,
+        "其實質虧損窗口數未精算；名目計數 ",
+        "實際逐窗口低於門檻的數量為 \"+realFloorWindowText(r,s.cpi)+\"；名目計數 ",
+        "decision detail exact floor count")
+    html = replace_once(
+        html,
+        "精確實質跌破窗口數尚未全部逐窗口精算，頁面會標「未精算」，不把名目數字假裝成實質風險。",
+        "已按所選年份與通膨率逐窗口計算實質門檻缺口；期末 NAV 不加回先前已提款現金，重疊窗口頻率不代表未來機率。",
+        "risk disclosure")
+    return html
+
 def embed_pack(html: str, pack: dict[str, Any]) -> str:
     matches = list(PACK_RE.finditer(html))
     require(len(matches) == 1, f"Expected exactly one RAW_PACK declaration, found {len(matches)}")
@@ -458,6 +527,7 @@ def embed_pack(html: str, pack: dict[str, Any]) -> str:
     new_arrays = '''const TG=[30,40,50,60,70,80,90,100],TM=["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"],FL=["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"],BM=["AGG","SHY","IEF","TLT"],MM=["terminal_nav_usd","time_weighted_cagr","daily_max_drawdown","withdrawal_shortfall_usd"];
 const TN={front_rapid:"急速前置",front_fast:"加速前置",front_loaded:"前置",linear:"線性",mid_loaded:"中段S曲線",staggered:"分段轉換",back_loaded:"後置",back_late:"延後"},FN={no_withdrawals:"不提款",delayed_stepup_example:"延遲步進提款＋後續投入",monthly_withdrawal_500_usd_stress:"每月$500",monthly_withdrawal_1000_usd_stress:"每月$1,000"},C={blue:"#3977a8",teal:"#329b8a",orange:"#d97706",crimson:"#dc2626",AGG:"#3274a1",SHY:"#2a9d8f",IEF:"#e07a35",TLT:"#7966a8",front_rapid:"#9c2f55",front_fast:"#c94c4c",front_loaded:"#dd8547",linear:"#3274a1",mid_loaded:"#59a14f",staggered:"#6f9f76",back_loaded:"#8c78bd",back_late:"#b07aa1",grid:"#e8edf3",muted:"#718096",navy:"#203a59"};'''
     html = html[:old_arrays_start.start()] + new_arrays + html[old_arrays_start.end():]
+    html = patch_real_floor_renderer(html)
 
     old_counts = "✓ 768 組策略 · 8,448 筆年度摘要"
     html = html.replace(old_counts, "✓ 1,024 組策略 · 11,264 筆年度摘要")
