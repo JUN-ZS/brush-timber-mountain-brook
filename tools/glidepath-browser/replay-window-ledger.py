@@ -164,6 +164,25 @@ def annual_summary(marks):
       "p95_shortfall_usd":round(quantile(sf,.95),2),"median_target_bond_weight":quantile(bw,.5),
       "median_target_stock_weight":quantile([1-x for x in bw],.5)}
 
+def real_principal_breach_counts(nav_values, year):
+    """Count year-end remaining-NAV marks below the two real-principal thresholds."""
+    need(isinstance(year, int) and 0 <= year <= 10, f"Invalid real-principal count year: {year}")
+    need(len(nav_values) == 157, f"Real-principal count needs 157 window NAVs, got {len(nav_values)}")
+    navs = [float(value) for value in nav_values]
+    need(all(math.isfinite(value) and value >= 0 for value in navs),
+         "Real-principal counts require finite non-negative remaining NAVs")
+    threshold235 = INITIAL * (1.0 + 0.0235) ** year
+    threshold350 = INITIAL * (1.0 + 0.035) ** year
+    # Strictly less than counts a breach; a NAV exactly on the threshold is not below it.
+    count235 = sum(value < threshold235 for value in navs)
+    count350 = sum(value < threshold350 for value in navs)
+    need(0 <= count235 <= count350 <= 157,
+         f"Real-principal breach counts violate threshold ordering: {year}/{count235}/{count350}")
+    if year == 0:
+        need(count235 == count350 == 0, "Year-zero real-principal breach counts must both be zero")
+    return count235, count350
+
+
 def scenario_summary(rows):
     nav=[float(x["terminal_nav_usd"]) for x in rows]; cagr=[float(x["time_weighted_cagr"]) for x in rows if x["time_weighted_cagr"] is not None]
     dd=[float(x["daily_max_drawdown"]) for x in rows]; paid=[float(x["actual_withdrawals_usd"]) for x in rows]
@@ -236,12 +255,9 @@ def main():
             need(err<=tol,f"Annual summary mismatch {ak}/{field}: {value} vs {expected}")
            stats["annual_rows_reconciled"]+=1; stats["yearly_navs_reconciled"]+=1
            year_navs=[float(mark["nav_usd"]) for mark in marks_by_year[y]]
-           threshold235=INITIAL*(1.0+0.0235)**y
-           threshold350=INITIAL*(1.0+0.035)**y
+           count235,count350=real_principal_breach_counts(year_navs,y)
            real_floor_annual_counts.append([
-             y,BONDS.index(bond),target,TIMINGS.index(timing),FLOWS.index(mode),
-             sum(nav<threshold235 for nav in year_navs),
-             sum(nav<threshold350 for nav in year_navs)
+             y,BONDS.index(bond),target,TIMINGS.index(timing),FLOWS.index(mode),count235,count350
            ])
            stats["real_floor_annual_rows"]+=1
           if stats["scenario_summaries_reconciled"]%32==0:
@@ -250,6 +266,8 @@ def main():
       except StopIteration: pass
     need(stats["window_rows_replayed"]==160768,"Expected 160,768 replayed windows")
     need(stats["annual_rows_reconciled"]==11264,"Expected 11,264 annual rows")
+    need(stats["real_floor_annual_rows"]==11264 and len(real_floor_annual_counts)==11264,
+         "Expected exact real-principal counts for all 11,264 strategy/year rows")
     result={"schema":"glidepath-window-cashflow-ledger-replay.v1","status":"PASS",
       "method":"Independent normalized-share replay from daily adjusted prices with explicit external cashflows; source engine not imported",
       "source_panel_sha256":panel_sha,"source_as_of":dates[-1],"initial_capital_usd":INITIAL,
