@@ -106,5 +106,20 @@ class CrossPutReplayTests(unittest.TestCase):
         self.assertTrue(all("HYPOTHETICAL" in r["classification"] for r in grid))
 
 
+    def test_expiry_shock_grid_charges_entry_cost_once_not_round_trip(self):
+        entries = [{"episode_id": 1, "qqq_spot_entry": 400.0, "spy_spot_entry": 480.0,
+                    "qqq_strike": 390.0, "spy_strike": 460.0,
+                    "qqq_entry_ask": 4.0, "spy_entry_bid": 3.0}]
+        zero_cost = replay.build_shock_grid(entries, 4, 5, 0.0, 0.0)
+        base_cost = replay.build_shock_grid(entries, 4, 5, 0.05, 0.65)
+        zero_flat = next(r for r in zero_cost if r["qqq_pct_move"] == 0 and r["spy_pct_move"] == 0)
+        base_flat = next(r for r in base_cost if r["qqq_pct_move"] == 0 and r["spy_pct_move"] == 0)
+        # Both puts expire OTM at unchanged spots: credit less entry costs only.
+        self.assertAlmostEqual(zero_flat["mean_expiry_scenario_pnl_usd"], -100.0, places=2)
+        self.assertAlmostEqual(base_flat["mean_expiry_scenario_pnl_usd"], -150.85, places=2)
+        self.assertAlmostEqual(
+            zero_flat["mean_expiry_scenario_pnl_usd"] - base_flat["mean_expiry_scenario_pnl_usd"],
+            50.85, places=2)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

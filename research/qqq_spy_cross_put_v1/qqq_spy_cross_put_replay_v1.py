@@ -329,8 +329,10 @@ def build_shock_grid(entries,long_qty,short_qty,slippage,commission):
                 qintr=max(float(e["qqq_strike"])-qs*(1+qr),0)
                 sintr=max(float(e["spy_strike"])-ss*(1+sr),0)
                 cash=MULTIPLIER*(short_qty*float(e["spy_entry_bid"])-long_qty*float(e["qqq_entry_ask"]))
-                round_trip_cost=2*(long_qty+short_qty)*unit_cost
-                vals.append(cash+MULTIPLIER*(long_qty*qintr-short_qty*sintr)-round_trip_cost)
+                # Intrinsic-value expiry payoff: charge entry-side slippage/commission once.
+                # No closing trade is assumed; exercise/assignment fees are not modeled.
+                entry_cost=(long_qty+short_qty)*unit_cost
+                vals.append(cash+MULTIPLIER*(long_qty*qintr-short_qty*sintr)-entry_cost)
             wins=sum(v>0.005 for v in vals)
             output.append({"qqq_pct_move":round(qr*100,2),"spy_pct_move":round(sr*100,2),
                 "same_pct_move_diagonal":qr==sr,"entry_cohort_n":len(vals),"positive_scenario_n":wins,
@@ -372,7 +374,9 @@ def render_markdown(report,costs,shock):
     for r in costs:
         rate="—" if r["win_rate_pct"] is None else f"{r['win_rate_pct']:.2f}%"
         lines.append(f"| {r['policy']} | {r['slippage_per_option_share_usd']:.3f} | {r['commission_per_contract_per_side_usd']:.2f} | {r['resolved_n']} | {rate} | {fmt(r['expectancy_net_usd'])} | {fmt(r['total_net_pnl_usd'])} | {fmt(r['worst_net_usd'])} |")
-    lines += ["","## Equal-percentage QQQ/SPY expiry shocks (hypothetical)","","These are intrinsic-value scenarios based on actual entry quotes and spots, not historical option trade outcomes.","",
+    lines += ["","## Equal-percentage QQQ/SPY expiry shocks (hypothetical)","","These are intrinsic-value scenarios based on actual entry quotes and spots, not historical option trade outcomes.",
+        "Only entry-side slippage/commission is charged once; no closing trade is assumed for the expiry payoff.",
+        "Exercise/assignment charges, financing, taxes, broker margin and forced-liquidation costs are not modeled.","",
         "| Same move on both ETFs | Positive scenarios / cohort N | Positive scenario % | Mean expiry P&L | Worst expiry P&L |","|---:|---:|---:|---:|---:|"]
     for r in [x for x in shock if x["same_pct_move_diagonal"]]:
         rate="—" if r["positive_scenario_pct"] is None else f"{r['positive_scenario_pct']:.2f}%"
@@ -512,7 +516,7 @@ def run_replay(args):
             "Missing exit quotes/size at expiry or source end remain unresolved; win-rate denominator is resolved episodes only.",
             "Option chain source ends in 2025; no 2026 performance is observed here.",
             "Nominal Wilson interval does not correct for regime clustering, dependence, or prior strategy selection.",
-            "Expiry shock grid omits early exercise, assignment, broker margin, forced liquidation, and interim path.",
+            "Expiry shock grid charges entry-side slippage/commission once and uses intrinsic-value payoff; exercise/assignment fees, broker margin, forced liquidation, financing and interim path are not modeled.",
             "SPY short put can dominate downside even when QQQ long put appreciates; premium credit is not a max-loss budget.",
             "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills."],
         "source_integrity":integrity}

@@ -15,7 +15,7 @@ Measure combined P&L and historical win rate for QQQ long puts against SPY short
 - Default what-if: LONG 4 QQQ puts and SHORT 5 SPY puts, multiplier 100. Cohorts are non-overlapping: wait at least 45 sessions from signal and until every exit-policy clone from the prior cohort closes.
 - Compare EOD exit signals at holding session 5, 10, 20 and DTE <= 7. A signal executes only at a later observed session with valid quote sides and enough close-side size. Missing quotes defer action; no valid close by expiry/source end remains UNRESOLVED.
 - Close QQQ longs at Bid and buy back SPY shorts at Ask. Base-cost convention is $0.05 per option share per side plus $0.65 commission per contract per side. Recompute net win rates across zero/base/adverse cost scenarios.
-- The equal-percentage expiry-shock diagonal applies the same percentage move independently to QQQ and SPY from each real entry spot. This is hypothetical intrinsic-value arithmetic, not historical win-rate evidence.
+- The equal-percentage expiry-shock grid applies each hypothetical percentage move independently to QQQ and SPY from each real entry spot. It uses intrinsic-value payoff, charges entry-side slippage/commission once, and does not assume an exit trade. Exercise/assignment charges, financing, taxes, broker margin, forced liquidation, and interim path are not modeled. This is not historical win-rate evidence.
 
 ## Required report
 
