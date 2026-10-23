@@ -126,7 +126,7 @@ def make_report(periods, calendar, schedule_checks):
               "- Higher entry frequency mechanically increases concurrent exposures. The test does not prove the account can fund every overlapping cohort.",
               "- $0.10/share/side stress is a cost sensitivity, not a new fill simulation. Displayed EOD size does not guarantee multi-leg fills.",
               "- The result is not complete unless all fixed-slot accounting checks report PASS; anchor checks do not correct for dependence, regime clustering, or prior strategy selection.",""]
-    return "\\n".join(lines)
+    return "\n".join(lines)
 
 def validate_schedule_phase(phase, summary, entry_rows, entry_skip_rows, schedule_skip_rows):
     stride=5
