@@ -1,0 +1,56 @@
+name: QQQ-SPY Ratio Temporal Stability Audit V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-ratio-temporal-audit-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_temporal_stability_audit_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_qqq_spy_put_temporal_stability_audit_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/TEMPORAL_AUDIT_CONTRACT.md
+      - .github/workflows/qqq-spy-put-ratio-temporal-audit-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-ratio-temporal-audit-v1
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Time-split audit of committed fixed-ratio outputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated audit branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compile and test audit logic
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_temporal_stability_audit_v1.py
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_qqq_spy_put_temporal_stability_audit_v1.py
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/test_qqq_spy_put_temporal_stability_audit_v1.py
+      - name: Analyze existing outputs without redownloading history
+        run: |
+          set -euo pipefail
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_temporal_stability_audit_v1.py
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/temporal_stability_audit/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit audit outputs to isolated branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/temporal_stability_audit
+          if git diff --cached --quiet; then
+            echo "Temporal audit outputs unchanged."
+            exit 0
+          fi
+          git commit -m "research: record QQQ SPY fixed-ratio temporal audit"
+          git push origin HEAD:research/qqq-spy-put-ratio-temporal-audit-v1
