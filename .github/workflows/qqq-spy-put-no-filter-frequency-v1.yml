@@ -31,18 +31,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Install replay runtime dependencies
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-no-filter
+          .venv-no-filter/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
       - name: Compile and test comparison logic before data download
         run: |
           set -euo pipefail
-          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
-          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_entry_frequency_v1.py
-          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_entry_frequency_v1.py
-          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_entry_frequency_v1.py
+          PY=.venv-no-filter/bin/python
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_entry_frequency_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_entry_frequency_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_entry_frequency_v1.py
       - name: Replay each fixed ratio without relative-underperformance gate
         timeout-minutes: 330
         run: |
           set -euo pipefail
-          PY=python3
+          PY=.venv-no-filter/bin/python
           ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results
           mkdir -p "$ROOT/no_filter"
           COMMON="--entry-filter none --sizing-mode fixed_ratio --max-total-contracts 9 --start 2018-03-01 --end 2025-12-15 --qqq-cache $HOME/.cache/qqq-options-full-history --spy-cache $HOME/.cache/spy-options-no-filter-frequency-v1"
@@ -64,7 +70,7 @@ jobs:
       - name: Compare 1Y, 3Y and 5Y frequency and P&L to existing filtered runs
         run: |
           set -euo pipefail
-          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_entry_frequency_v1.py
+          .venv-no-filter/bin/python research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_entry_frequency_v1.py
           cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/no_filter_frequency_audit/report.md >> "$GITHUB_STEP_SUMMARY"
       - name: Commit no-filter runs and frequency audit
         run: |
