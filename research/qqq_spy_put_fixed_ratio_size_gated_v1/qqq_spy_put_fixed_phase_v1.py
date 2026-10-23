@@ -60,6 +60,16 @@ def num(value: Any) -> float | None:
         return value if math.isfinite(value) else None
     except (TypeError, ValueError): return None
 
+
+def put_moneyness(spot: Any, strike: Any) -> dict[str, Any]:
+    """For a put, positive (spot-strike)/spot is OTM; negative is ITM."""
+    s, k = num(spot), num(strike)
+    if s is None or k is None or s <= 0 or k <= 0:
+        return {"otm_pct": None, "status": "INVALID"}
+    pct = (s - k) / s * 100.0
+    status = "OTM" if k < s else "ITM" if k > s else "ATM"
+    return {"otm_pct": pct, "status": status}
+
 def normalized_contract_id(row: dict[str, Any]) -> str:
     ident = re.sub(r"\s+", "", str(row.get("contract_id") or "").strip().upper())
     return ident[2:] if ident.startswith("O:") else ident
@@ -214,10 +224,14 @@ def choose_pair(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot, target_delta
         choices.append((key,expiry,dte,qleg,sleg))
     if not choices:return None
     _,expiry,dte,qleg,sleg=min(choices,key=lambda x:x[0])
+    qsig = put_moneyness(qqq_spot, qleg["strike"])
+    ssig = put_moneyness(spy_spot, sleg["strike"])
     return {"signal_date":signal_day,"expiry":expiry,"signal_dte":dte,
         "qqq_contract_id":qleg["id"],"qqq_strike":qleg["strike"],"qqq_abs_delta":qleg["abs_delta"],
         "spy_contract_id":sleg["id"],"spy_strike":sleg["strike"],"spy_abs_delta":sleg["abs_delta"],
         "qqq_spot_signal":qqq_spot,"spy_spot_signal":spy_spot,
+        "qqq_otm_pct_signal":qsig["otm_pct"],"qqq_moneyness_signal":qsig["status"],
+        "spy_otm_pct_signal":ssig["otm_pct"],"spy_moneyness_signal":ssig["status"],
         "selection_rule":"same expiry; nearest DTE45 then abs-delta nearest target; no P&L optimization"}
 
 def rows_by_id(rows): return {normalized_contract_id(row):row for row in rows if normalized_contract_id(row)}
@@ -678,12 +692,16 @@ def run_replay(args):
                 if qspot is None or sspot is None:valid,reason=False,"ENTRY_UNDERLYING_CLOSE_MISSING"
                 else:
                     long_qty,short_qty=quantities["long_qqq_qty"],quantities["short_spy_qty"]
+                    qentry=put_moneyness(qspot,pending["qqq_strike"])
+                    sentry=put_moneyness(sspot,pending["spy_strike"])
                     entry_cash=MULTIPLIER*(short_qty*float(srow["bid"])-long_qty*float(qrow["ask"]))
                     entry_cost=(long_qty+short_qty)*(args.slippage_per_share*MULTIPLIER+args.commission_per_contract_per_side)
                     base={**pending,**quantities,"entry_date":day,"entry_index":idx,
                         "qqq_entry_ask":float(qrow["ask"]),"qqq_entry_bid":float(qrow["bid"]),
                         "spy_entry_bid":float(srow["bid"]),"spy_entry_ask":float(srow["ask"]),
                         "qqq_spot_entry":qspot,"spy_spot_entry":sspot,
+                        "qqq_otm_pct_entry":qentry["otm_pct"],"qqq_moneyness_entry":qentry["status"],
+                        "spy_otm_pct_entry":sentry["otm_pct"],"spy_moneyness_entry":sentry["status"],
                         "spy_put_strike_assignment_obligation_usd":float(pending["spy_strike"])*MULTIPLIER*short_qty,
                         "entry_net_credit_before_cost_usd":entry_cash,
                         "entry_cash_after_entry_cost_usd":entry_cash-entry_cost,"base_slippage_per_share":args.slippage_per_share,
@@ -799,7 +817,14 @@ def run_replay(args):
             "When overlapping cohorts are enabled, multiple fixed-size trades can be open at once; total portfolio cash, margin, forced liquidation, and stacked assignment obligations are not constrained by this replay."],
         "source_integrity":integrity}
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
-    write_csv(out/"entry_cohort.csv",entries,["episode_id","signal_date","entry_date","entry_filter","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
+    write_csv(out/"entry_cohort.csv",entries,[
+        "episode_id","signal_index","entry_index","signal_date","entry_date","expiry","signal_dte",
+        "qqq_contract_id","spy_contract_id","qqq_strike","spy_strike",
+        "qqq_spot_signal","spy_spot_signal","qqq_spot_entry","spy_spot_entry",
+        "qqq_abs_delta","spy_abs_delta",
+        "qqq_otm_pct_signal","qqq_moneyness_signal","spy_otm_pct_signal","spy_moneyness_signal",
+        "qqq_otm_pct_entry","qqq_moneyness_entry","spy_otm_pct_entry","spy_moneyness_entry",
+        "entry_filter","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
     write_csv(out/"trade_episodes.csv",trades,["episode_id","policy","status","net_pnl_usd"])
     write_csv(out/"entry_skips.csv",skips,["episode_id","signal_date","signal_index","status","reason"])
     write_csv(out/"scheduled_signal_skips.csv",schedule_skips,["scheduled_index","scheduled_signal_date","status","reason"])
