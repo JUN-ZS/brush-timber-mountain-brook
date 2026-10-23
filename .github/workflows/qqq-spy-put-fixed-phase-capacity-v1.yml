@@ -6,6 +6,10 @@ on:
       - research/qqq-spy-put-no-filter-frequency-v1
     paths:
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_sensitivity/**
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase/fixed_phase_sensitivity/**
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
+      - .github/workflows/qqq-spy-put-fixed-phase-capacity-v1.yml
   workflow_dispatch:
 
 permissions:
@@ -40,8 +44,15 @@ jobs:
       - name: Build NAV and available-capital scenario matrix
         run: |
           set -euo pipefail
-          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py
+          PY=python3
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py \
+            --results-root research/qqq_spy_put_fixed_ratio_size_gated_v1/results \
+            --out-dir research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_capacity_audit
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py \
+            --results-root research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase \
+            --out-dir research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase/fixed_phase_capacity_audit
           cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_capacity_audit/capacity_report.md >> "$GITHUB_STEP_SUMMARY"
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase/fixed_phase_capacity_audit/capacity_report.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit source-hashed capacity outputs
         run: |
@@ -49,6 +60,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_capacity_audit
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase/fixed_phase_capacity_audit
           if git diff --cached --quiet; then
             echo "Capacity audit outputs unchanged."
             exit 0
