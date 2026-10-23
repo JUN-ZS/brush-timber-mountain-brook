@@ -1,0 +1,38 @@
+name: QQQ-SPY PUT OTM Audit Unit Tests
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+      - research/qqq-spy-put-otm-audit-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_otm_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/PUT_OTM_AUDIT_CONTRACT.md
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_schedule_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
+      - .github/workflows/test-put-otm-audit-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+      - name: Compile source and tests
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_otm_v1.py
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+      - name: Run OTM and fixed schedule tests
+        run: |
+          set -euo pipefail
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_schedule_v1.py
