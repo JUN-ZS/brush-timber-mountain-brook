@@ -1,0 +1,59 @@
+name: QQQ-SPY PUT Fixed-Phase Capital Capacity Audit V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_sensitivity/**
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-fixed-phase-capacity-v1
+  cancel-in-progress: true
+
+jobs:
+  capacity-audit:
+    name: Audit fixed-cohort assignment capacity across NAV cases
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compile and unit-test exposure accounting
+        run: |
+          set -euo pipefail
+          PY=python3
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
+
+      - name: Build NAV and available-capital scenario matrix
+        run: |
+          set -euo pipefail
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_capacity_audit/capacity_report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit source-hashed capacity outputs
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_capacity_audit
+          if git diff --cached --quiet; then
+            echo "Capacity audit outputs unchanged."
+            exit 0
+          fi
+          git commit -m "research: record fixed-phase capital capacity audit"
+          git fetch origin research/qqq-spy-put-no-filter-frequency-v1
+          git rebase origin/research/qqq-spy-put-no-filter-frequency-v1
+          git push origin HEAD:research/qqq-spy-put-no-filter-frequency-v1
