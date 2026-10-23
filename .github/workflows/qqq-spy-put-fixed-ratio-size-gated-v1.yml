@@ -1,0 +1,75 @@
+name: QQQ/SPY Fixed-Ratio Put Replay with Displayed-Size Gates V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-fixed-ratio-size-gated-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/*.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/CONTRACT.md
+      - .github/workflows/qqq-spy-put-fixed-ratio-size-gated-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-fixed-ratio-size-gated-v1
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Fixed-ratio size-gated QQQ/SPY replay (GitHub-hosted Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout exact isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Runtime
+        run: |
+          set -euo pipefail
+          python3 --version
+          python3 -m venv .venv-fixed-ratio
+          .venv-fixed-ratio/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and run offline contract tests before downloading source files
+        run: |
+          set -euo pipefail
+          PY=.venv-fixed-ratio/bin/python
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_qqq_spy_put_fixed_ratio_size_gated_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_qqq_spy_put_fixed_ratio_size_gated_v1.py
+      - name: Run fixed ratios with one shared SHA-verified download cache
+        timeout-minutes: 330
+        run: |
+          set -euo pipefail
+          PY=.venv-fixed-ratio/bin/python
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results
+          COMMON="--entry-filter qqq_underperforms_spy_20d --sizing-mode fixed_ratio --max-total-contracts 9 --start 2018-03-01 --end 2025-12-15 --qqq-cache $HOME/.cache/qqq-options-full-history --spy-cache $HOME/.cache/spy-options-fixed-ratio-size-gated-v1"
+          # Fresh fixed-quantity replay for all four ratios, using the same cache and frozen controls.
+          for ratio in 1:6 4:5 2:4 1:3; do
+            long_qty="${ratio%%:*}"
+            short_qty="${ratio##*:}"
+            out="$ROOT/fixed_${long_qty}_${short_qty}"
+            mkdir -p "$out"
+            $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py $COMMON --fixed-long-qty "$long_qty" --fixed-short-qty "$short_qty" --out "$out" | tee "$out/run_console.json"
+            test -s "$out/summary.json"
+            test -s "$out/summary.md"
+            cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Commit compact results to this research branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results
+          if git diff --cached --quiet; then
+            echo "Results are identical; no new result commit required."
+            exit 0
+          fi
+          git commit -m "research: record size-gated fixed-ratio QQQ/SPY put replay"
+          git push origin HEAD:research/qqq-spy-put-fixed-ratio-size-gated-v1
