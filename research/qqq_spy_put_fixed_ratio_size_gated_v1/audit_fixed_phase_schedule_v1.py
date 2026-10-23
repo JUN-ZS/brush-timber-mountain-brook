@@ -230,7 +230,6 @@ def build(root:Path, out:Path):
     write_csv(out/"period_comparison.csv",periods);write_csv(out/"calendar_year_comparison.csv",calendar)
     metadata={"schema":"qqq-spy-fixed-anchor-start-phase-robustness.v1","phase_count":5,"phases":list(PHASES),
       "schedule_mode":"FIXED_ANCHOR_NO_REANCHOR","entry_filter":"none","stride_sessions":5,"ratio":"1:3","policies":list(POLICIES),
-      **(selection_meta or {}),
       "period_row_count":len(periods),"calendar_year_row_count":len(calendar),"source_last_chain_date":"2025-12-12",
       "period_windows":[{"name":w,"start":s.isoformat(),"end":e.isoformat(),"years":y} for w,s,e,y in WINDOWS],
       "source_hashes":hashes,"fixed_schedule_checks":schedule_checks}
