@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 import compare_fixed_phase_dte14_v1 as compare
+import audit_fixed_phase_schedule_v1 as schedule_audit
 
 
 class Dte14ComparisonTests(unittest.TestCase):
@@ -33,6 +34,14 @@ class Dte14ComparisonTests(unittest.TestCase):
         row = {"phase": 0, "window": "5Y", "policy": "HOLD_20_SESSIONS"}
         with self.assertRaisesRegex(ValueError, "do not reconcile"):
             compare.join_performance([row], [])
+
+    def test_phase_report_displays_actual_dte_selection(self):
+        report = schedule_audit.make_report([], [], [], {
+            "dte_min": 7, "dte_max": 21, "dte_target": 14, "target_abs_delta": 0.25,
+        })
+        self.assertIn("DTE 7–21 targeting 14", report)
+        self.assertIn("target absolute Delta 0.25", report)
+        self.assertNotIn("DTE 30–60 targeting 45", report)
 
     def test_otm_delta_is_points_not_relative_percent(self):
         a = {"phase": "1", "leg": "QQQ", "reference_time": "entry",
