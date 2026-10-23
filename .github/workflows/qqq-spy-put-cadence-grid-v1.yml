@@ -95,7 +95,7 @@ jobs:
           ratio=data["ratio"]
           assert ratio["fixed_long_qqq_contracts"] == int(expected_long)
           assert ratio["fixed_short_spy_contracts"] == int(expected_short)
-          assert data["cohort"]["entered_cohorts"] == len(data["cohort"].get("entry_skip_rows", [])) + data["cohort"]["entered_cohorts"] - len(data["cohort"].get("entry_skip_rows", []))
+          assert data["cohort"]["selected_signals"] == data["cohort"]["entered_cohorts"] + data["cohort"]["entry_skipped"], (path, "selected/entered/skipped count mismatch")
           print(json.dumps({"validated": path, "entry_filter": expected_filter, "stride": int(expected_stride), "ratio": f"{expected_long}:{expected_short}", "entered": data["cohort"]["entered_cohorts"]}))
           PY
               done
