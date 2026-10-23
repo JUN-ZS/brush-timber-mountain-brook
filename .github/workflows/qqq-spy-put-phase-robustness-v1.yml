@@ -9,6 +9,8 @@ on:
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/FIXED_PHASE_SCHEDULE_CONTRACT.md
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_schedule_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_schedule_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
       - .github/workflows/qqq-spy-put-phase-robustness-v1.yml
   workflow_dispatch:
 
@@ -46,7 +48,10 @@ jobs:
           $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
           $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_schedule_v1.py
           $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_schedule_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
           $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_schedule_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
 
       - name: Replay phases 0–4 with immutable scheduled slots
         timeout-minutes: 330
@@ -118,4 +123,7 @@ jobs:
             exit 0
           fi
           git commit -m "research: record fixed-anchor QQQ SPY put phase audit"
+          # Rebase output commit if the research branch advanced during replay.
+          git fetch origin research/qqq-spy-put-no-filter-frequency-v1
+          git rebase origin/research/qqq-spy-put-no-filter-frequency-v1
           git push origin HEAD:research/qqq-spy-put-no-filter-frequency-v1
