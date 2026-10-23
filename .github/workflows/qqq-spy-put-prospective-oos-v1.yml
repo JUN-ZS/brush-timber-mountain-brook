@@ -1,0 +1,58 @@
+name: QQQ-SPY Prospective OOS Protocol Gate V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-prospective-oos-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/prospective_oos_protocol_v1.json
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/validate_prospective_oos_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_prospective_oos_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/PROSPECTIVE_OOS_CONTRACT.md
+      - .github/workflows/qqq-spy-put-prospective-oos-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-prospective-oos-v1
+  cancel-in-progress: false
+
+jobs:
+  protocol:
+    name: Validate frozen prospective protocol and source gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated prospective protocol branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compile and test frozen controls
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/validate_prospective_oos_v1.py
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_prospective_oos_v1.py
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/test_prospective_oos_v1.py
+      - name: Validate protocol and record data readiness
+        run: |
+          set -euo pipefail
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/validate_prospective_oos_v1.py
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/PROSPECTIVE_OOS_CONTRACT.md >> "$GITHUB_STEP_SUMMARY"
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/prospective_oos_readiness.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit readiness record
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/prospective_oos_readiness.json
+          if git diff --cached --quiet; then
+            echo "Readiness record unchanged."
+            exit 0
+          fi
+          git commit -m "research: record prospective QQQ SPY OOS readiness gate"
+          git push origin HEAD:research/qqq-spy-put-prospective-oos-v1
