@@ -1,0 +1,14 @@
+{
+  "protocol_id": "qqq-spy-put-prospective-oos-v1",
+  "protocol_valid": true,
+  "protocol_errors": [],
+  "status": "BLOCKED_MISSING_FRESH_QUOTES",
+  "data_dir": "/home/runner/work/brush-timber-mountain-brook/brush-timber-mountain-brook/research/qqq_spy_put_fixed_ratio_size_gated_v1/data/prospective_oos",
+  "source_manifest_present": false,
+  "verified_files": [],
+  "data_errors": [
+    "source_manifest.json is absent; require provider, snapshot convention, date range, files and SHA-256 hashes"
+  ],
+  "replay_performed": false,
+  "note": "Protocol validation is not a performance test. No prospective P&L is reported until fresh source files with quote sizes and source hashes are supplied."
+}

@@ -1,0 +1,81 @@
+{
+  "protocol_id": "qqq-spy-put-prospective-oos-v1",
+  "purpose": "Frozen prospective paper-replay after completion of the in-sample 2018-2025 ratio exploration",
+  "historical_cutoff": "2025-12-15",
+  "prospective_start_rule": "first valid signal strictly after this protocol commit, with only preceding data used for the 20-session lookback",
+  "primary_candidate": {
+    "ratio": "1:3",
+    "exit_policy": "HOLD_20_SESSIONS",
+    "interpretation": "provisional candidate only; historical advantage is in-sample and not evidence of forward alpha"
+  },
+  "locked_comparators": [
+    {"ratio": "2:4", "exit_policy": "HOLD_20_SESSIONS"},
+    {"ratio": "4:5", "exit_policy": "HOLD_20_SESSIONS"},
+    {"ratio": "1:6", "exit_policy": "HOLD_20_SESSIONS"},
+    {"ratio": "1:3", "exit_policy": "HOLD_10_SESSIONS"},
+    {"ratio": "2:4", "exit_policy": "HOLD_10_SESSIONS"},
+    {"ratio": "4:5", "exit_policy": "HOLD_10_SESSIONS"},
+    {"ratio": "1:6", "exit_policy": "HOLD_10_SESSIONS"}
+  ],
+  "entry": {
+    "signal": "QQQ trailing 20-common-session close-to-close return is below SPY trailing 20-common-session return",
+    "signal_timing": "evaluate after signal-day close; earliest entry is the next common session",
+    "cohort_stride_common_sessions": 45
+  },
+  "contracts": {
+    "same_expiration_required": true,
+    "dte_min": 30,
+    "dte_max": 60,
+    "dte_target": 45,
+    "absolute_delta_target": 0.25,
+    "absolute_delta_eligible_min": 0.1,
+    "absolute_delta_eligible_max": 0.5,
+    "fix_contract_ids_after_signal": true,
+    "allow_contract_substitution": false,
+    "allow_forward_fill": false
+  },
+  "quantities": {
+    "fixed_ratio_only": true,
+    "max_combined_contracts": 9,
+    "ratios_in_scope": ["1:3", "2:4", "4:5", "1:6"]
+  },
+  "quote_depth": {
+    "required": true,
+    "entry": {"QQQ_LONG": "ask", "SPY_SHORT": "bid"},
+    "exit": {"QQQ_LONG": "bid", "SPY_SHORT": "ask"},
+    "insufficient_entry_size": "defer same selected contracts; skip only if no valid entry before expiry",
+    "insufficient_exit_size": "defer same selected contracts; remain unresolved if no valid close before expiry or source end"
+  },
+  "costs": {
+    "base_slippage_usd_per_option_share_per_side": 0.05,
+    "base_commission_usd_per_contract_per_side": 0.65,
+    "stress_slippage_usd_per_option_share_per_side": 0.1
+  },
+  "required_quote_fields": [
+    "date", "contract_id", "symbol", "expiration", "strike", "type",
+    "bid", "ask", "bid_size", "ask_size", "delta"
+  ],
+  "required_underlying_fields": ["date", "symbol", "close"],
+  "reporting": {
+    "resolved_and_unresolved_separate": true,
+    "unresolved_assigned_zero_pnl": false,
+    "primary_endpoint": "mean net P&L per resolved cohort for 1:3 / HOLD_20_SESSIONS, always paired with resolved coverage and unresolved count",
+    "minimum_interim_resolved_cohorts": 12,
+    "minimum_later_review_resolved_cohorts": 24,
+    "all_comparators_reported": true,
+    "no_retuning_or_candidate_promotion_from_interim_results": true
+  },
+  "execution_safety": {
+    "paper_replay_only": true,
+    "broker_connection": false,
+    "live_orders": false,
+    "main_merge": false
+  },
+  "source_gate": {
+    "status": "BLOCKED_MISSING_FRESH_QUOTES",
+    "required_start_strictly_after": "2025-12-15",
+    "require_quote_sizes": true,
+    "require_source_manifest_and_hashes": true,
+    "price_only_data_can_be_primary": false
+  }
+}
