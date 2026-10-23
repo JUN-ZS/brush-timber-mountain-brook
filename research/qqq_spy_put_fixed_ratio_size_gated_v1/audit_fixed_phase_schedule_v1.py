@@ -91,14 +91,14 @@ def write_csv(path, rows):
         w=csv.DictWriter(f,fieldnames=list(rows[0]))
         w.writeheader(); w.writerows(rows)
 
-def make_report(periods, calendar, schedule_checks):
+def make_report(periods, calendar, schedule_checks, selection_meta):
     lines=[
       "# QQQ/SPY PUT 1:3 Fixed-Anchor Five-Phase Robustness",
       "",
       "- Each phase uses immutable scheduled common-session indices: phase + k × 5. A missing chain, missing underlying close, rejected filter, absent eligible pair, or outstanding pending entry is recorded as a skipped scheduled slot; it never moves future slots.",
       "- Each phase runs the full contract-selection and quote-side accounting pipeline. This report does not shift old P&L records.",
       "- Fixed ratio QQQ LONG PUT 1 : SPY SHORT PUT 3; no relative filter; overlapping cohorts enabled.",
-      "- Same expiry; DTE 30–60 targeting 45; target absolute Delta 0.25; quote-side displayed-size checks; $0.05/share/side slippage and $0.65 per contract/side commission.",
+      f"- Same expiry; DTE {selection_meta['dte_min']}–{selection_meta['dte_max']} targeting {selection_meta['dte_target']}; target absolute Delta {selection_meta['target_abs_delta']:.2f}; quote-side displayed-size checks; $0.05/share/side slippage and $0.65 per contract/side commission.",
       "- Historical option source ends 2025-12-12. Period windows end 2025-07-23. EOD quote-side results are estimates, not confirmed fills.",
       "",
       "## Fixed-slot accounting and anchor validation",
@@ -177,7 +177,7 @@ def validate_schedule_phase(phase, summary, entry_rows, entry_skip_rows, schedul
             "skip_reason_counts":reason_counts,"common_underlying_sessions":count}
 
 def build(root:Path, out:Path):
-    periods=[]; calendar=[]; hashes=[]; summaries={}; schedule_checks=[]
+    periods=[]; calendar=[]; hashes=[]; summaries={}; schedule_checks=[]; selection_meta=None
     for phase in PHASES:
         case=root/"fixed_phase_sensitivity"/f"phase_{phase}"
         sp=case/"summary.json"; tp=case/"trade_episodes.csv"
@@ -187,6 +187,11 @@ def build(root:Path, out:Path):
                 raise FileNotFoundError(f"missing fixed-phase replay output: {path}")
         summary=read_json(sp)
         selection=summary.get("selection",{})
+        current_selection={k:selection.get(k) for k in ("dte_min","dte_max","dte_target","target_abs_delta")}
+        if selection_meta is None:
+            selection_meta=current_selection
+        elif current_selection != selection_meta:
+            raise ValueError(f"phase {phase}: DTE/Delta selection differs: {current_selection} != {selection_meta}")
         if summary.get("entry_filter",{}).get("name")!="none":
             raise ValueError(f"wrong filter phase {phase}")
         if selection.get("allow_overlapping_cohorts") is not True:
@@ -225,11 +230,12 @@ def build(root:Path, out:Path):
     write_csv(out/"period_comparison.csv",periods);write_csv(out/"calendar_year_comparison.csv",calendar)
     metadata={"schema":"qqq-spy-fixed-anchor-start-phase-robustness.v1","phase_count":5,"phases":list(PHASES),
       "schedule_mode":"FIXED_ANCHOR_NO_REANCHOR","entry_filter":"none","stride_sessions":5,"ratio":"1:3","policies":list(POLICIES),
+      **(selection_meta or {}),
       "period_row_count":len(periods),"calendar_year_row_count":len(calendar),"source_last_chain_date":"2025-12-12",
       "period_windows":[{"name":w,"start":s.isoformat(),"end":e.isoformat(),"years":y} for w,s,e,y in WINDOWS],
       "source_hashes":hashes,"fixed_schedule_checks":schedule_checks}
     (out/"comparison.json").write_text(json.dumps({"metadata":metadata,"period_records":periods,"calendar_year_records":calendar},indent=2,allow_nan=False),encoding="utf-8")
-    (out/"report.md").write_text(make_report(periods,calendar,schedule_checks),encoding="utf-8")
+    (out/"report.md").write_text(make_report(periods,calendar,schedule_checks,selection_meta or {}),encoding="utf-8")
     return metadata
 
 def main():
