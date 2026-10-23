@@ -54,7 +54,7 @@ class CadenceAuditTests(unittest.TestCase):
             "entered": {"1": date(2025, 1, 1), "2": date(2025, 1, 15)},
             "skipped": {},
             "trades": [
-                trade("1", "HOLD_20_SESSIONS", "RESOLVED", 100, "2025-01-02", "2025-01-12"),
+                trade("1", "HOLD_20_SESSIONS", "RESOLVED", 100, "2025-01-02", "2025-01-18"),
                 trade("2", "HOLD_20_SESSIONS", "UNRESOLVED_SOURCE_END", "", "2025-01-16", "", "76500", "1", "3", "2025-01-15", "2025-01-20"),
             ],
         }
