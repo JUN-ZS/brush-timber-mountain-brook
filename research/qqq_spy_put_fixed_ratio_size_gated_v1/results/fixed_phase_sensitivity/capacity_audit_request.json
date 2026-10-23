@@ -1,0 +1,13 @@
+{
+  "purpose": "Trigger the capacity-audit workflow after both fixed-phase replay output sets have been committed. GitHub Actions-generated output commits do not trigger downstream push workflows.",
+  "requested_at": "2026-10-23",
+  "input_sets": [
+    "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_sensitivity",
+    "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase/fixed_phase_sensitivity"
+  ],
+  "expected_outputs": [
+    "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_capacity_audit",
+    "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase/fixed_phase_capacity_audit"
+  ],
+  "note": "Descriptive CI trigger marker only. It contains no performance claims or fabricated metrics."
+}
