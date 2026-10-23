@@ -49,16 +49,18 @@ jobs:
           set -euo pipefail
           PY=.venv-fixed-ratio/bin/python
           ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results
-          mkdir -p "$ROOT/fixed_1_6" "$ROOT/fixed_4_5"
           COMMON="--entry-filter qqq_underperforms_spy_20d --sizing-mode fixed_ratio --max-total-contracts 9 --start 2018-03-01 --end 2025-12-15 --qqq-cache $HOME/.cache/qqq-options-full-history --spy-cache $HOME/.cache/spy-options-fixed-ratio-size-gated-v1"
-          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py $COMMON --fixed-long-qty 1 --fixed-short-qty 6 --out "$ROOT/fixed_1_6" | tee "$ROOT/fixed_1_6/run_console.json"
-          test -s "$ROOT/fixed_1_6/summary.json"
-          test -s "$ROOT/fixed_1_6/summary.md"
-          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py $COMMON --fixed-long-qty 4 --fixed-short-qty 5 --out "$ROOT/fixed_4_5" | tee "$ROOT/fixed_4_5/run_console.json"
-          test -s "$ROOT/fixed_4_5/summary.json"
-          test -s "$ROOT/fixed_4_5/summary.md"
-          cat "$ROOT/fixed_1_6/summary.md" >> "$GITHUB_STEP_SUMMARY"
-          cat "$ROOT/fixed_4_5/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          # Fresh fixed-quantity replay for all four ratios, using the same cache and frozen controls.
+          for ratio in 1:6 4:5 2:4 1:3; do
+            long_qty="${ratio%%:*}"
+            short_qty="${ratio##*:}"
+            out="$ROOT/fixed_${long_qty}_${short_qty}"
+            mkdir -p "$out"
+            $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py $COMMON --fixed-long-qty "$long_qty" --fixed-short-qty "$short_qty" --out "$out" | tee "$out/run_console.json"
+            test -s "$out/summary.json"
+            test -s "$out/summary.md"
+            cat "$out/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          done
       - name: Commit compact results to this research branch
         run: |
           set -euo pipefail

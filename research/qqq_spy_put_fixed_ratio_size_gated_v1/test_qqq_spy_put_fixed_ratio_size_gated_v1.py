@@ -221,5 +221,26 @@ class CrossPutReplayTests(unittest.TestCase):
         self.assertAlmostEqual(four_five["expectancy_net_usd"], 798.3, places=2)
 
 
+    def test_requested_fixed_ratios_2_4_and_1_3_are_preserved(self):
+        # These checks lock in the requested fixed quantities; they do not infer performance.
+        cases = [
+            (2, 4, 400.0, 1200.0, 800.0),
+            (1, 3, 200.0, 900.0, 700.0),
+        ]
+        for long_qty, short_qty, expected_debit, expected_credit, expected_mismatch in cases:
+            with self.subTest(ratio=f"{long_qty}:{short_qty}"):
+                result = replay.choose_fixed_ratio_quantities(
+                    2.0, 3.0, long_qty, short_qty, 9
+                )
+                self.assertIsNotNone(result)
+                self.assertEqual(result["long_qqq_qty"], long_qty)
+                self.assertEqual(result["short_spy_qty"], short_qty)
+                self.assertLessEqual(long_qty + short_qty, 9)
+                self.assertAlmostEqual(result["qqq_long_premium_debit_usd"], expected_debit)
+                self.assertAlmostEqual(result["spy_short_premium_credit_usd"], expected_credit)
+                self.assertAlmostEqual(result["premium_mismatch_usd"], expected_mismatch)
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

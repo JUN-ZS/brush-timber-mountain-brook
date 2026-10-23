@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Equal-premium QQQ/SPY put replay with a predeclared relative-underperformance entry filter."""
+"""Fixed-ratio or premium-matched QQQ/SPY put replay with a relative-underperformance entry filter."""
 from __future__ import annotations
 import argparse, csv, hashlib, json, math, re, statistics, urllib.request
 from datetime import date, datetime

@@ -2,23 +2,25 @@
 
 ## Objective
 
-Verify whether in-sample candidates from the earlier ratio-sensitivity grid survive a fresh quote-side replay with fixed N and explicit displayed-size checks. Run two candidates over the same historical window and the QQQ-underperforms-SPY trailing-20-session entry signal:
+Verify whether in-sample candidates from the earlier ratio-sensitivity grid survive a fresh quote-side replay with fixed N and explicit displayed-size checks. Run four fixed-quantity ratios over the same historical window and the QQQ-underperforms-SPY trailing-20-session entry signal:
 
 - QQQ LONG PUT 1 : SPY SHORT PUT 6
 - QQQ LONG PUT 4 : SPY SHORT PUT 5
+- QQQ LONG PUT 2 : SPY SHORT PUT 4
+- QQQ LONG PUT 1 : SPY SHORT PUT 3
 
-The first is a high-short-put-exposure discovery candidate from the earlier post-hoc sizing grid; the second is a closer-cash-premium comparison/reference. Both were selected after viewing in-sample sensitivity, so this is still in-sample validation, not out-of-sample confirmation.
+The 1:6 is the high-short-put-exposure discovery candidate; 4:5 is the closer-cash-premium reference; 2:4 and 1:3 add intermediate/lower total-contract exposures. All four ratios were selected after inspecting this same historical sample, so this remains in-sample validation, not out-of-sample confirmation.
 
 ## Frozen mechanics
 
 - Source hash/byte pinning, option contract selection, requested 2018-03-01 to 2025-12-15 window, signal condition, 30–60 DTE (target 45), same expiry, absolute Delta nearest 0.25 and eligible 0.10–0.50 stay the same.
 - Entry is no earlier than the session after the signal. Selected exact contract IDs are held; no forward fill or contract substitution.
-- Fixed contract quantities are selected before each entry: QQQ N=1 / SPY N=6, and QQQ N=4 / SPY N=5.
+- Fixed contract quantities are selected before each entry: QQQ N=1 / SPY N=6; QQQ N=4 / SPY N=5; QQQ N=2 / SPY N=4; and QQQ N=1 / SPY N=3.
 - Entry requires QQQ ask size >= QQQ long N and SPY bid size >= SPY short N. If size is inadequate, entry is deferred on the same selected contracts; if no valid entry before expiry, it is counted as skipped.
 - Exits require QQQ bid size >= QQQ long N and SPY ask size >= SPY short N. Exit is deferred to later quotes if size is inadequate; expiry/source-end without a valid close remains unresolved.
 - Compare 5/10/20-session holds and DTE<=7, using QQQ long exit Bid and SPY short exit Ask.
 - Base costs stay at USD 0.05 per option share per side plus USD 0.65 per contract per side; preserve cost sensitivity.
-- Results for both ratios are generated in separate output folders in one workflow, sharing the locally hash-verified source cache to avoid duplicate downloads.
+- Results for all four ratios are generated in separate output folders in one workflow, sharing the locally hash-verified source cache to avoid duplicate downloads.
 
 ## Required reporting
 
@@ -37,4 +39,6 @@ For each fixed ratio: entry filter checks and pass counts, entries accepted/defe
 
 - results/fixed_1_6: all reports for QQQ 1 / SPY 6.
 - results/fixed_4_5: all reports for QQQ 4 / SPY 5.
+- results/fixed_2_4: all reports for QQQ 2 / SPY 4.
+- results/fixed_1_3: all reports for QQQ 1 / SPY 3.
 - Each folder includes raw episode data, entry cohort, skipped entries, cost and sizing sensitivity, expiry-shock grid, SHA-pinned source manifest and summary.
