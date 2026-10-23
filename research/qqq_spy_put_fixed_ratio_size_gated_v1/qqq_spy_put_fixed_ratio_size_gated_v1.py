@@ -700,7 +700,7 @@ def run_replay(args):
                         "reason":"NO_VALID_ENTRY_BEFORE_EXPIRY","last_attempt_date":day,"last_quote_reason":reason,
                         "entry_defer_sessions":pending["entry_defer_sessions"]});pending=None
             else:pending=None
-        if pending is None and not active and idx>=next_signal and qrows and srows:
+        if pending is None and entry_gate_open(active,args.allow_overlapping_cohorts) and idx>=next_signal and qrows and srows:
             qspot,sspot=qspots.get(day),sspots.get(day)
             if qspot is not None and sspot is not None:
                 filter_pass,filter_metrics=evaluate_entry_filter(args.entry_filter,idx,dates,qspots,sspots)
@@ -751,7 +751,8 @@ def run_replay(args):
             "evaluated_sessions":filter_evaluations,"qualified_sessions":filter_qualified,
             "rejected_sessions":filter_rejected},
         "selection":{"target_abs_delta":args.target_delta,"delta_eligible_band":[DELTA_MIN,DELTA_MAX],"dte_min":args.dte_min,
-            "dte_max":args.dte_max,"dte_target":args.dte_target,"cohort_stride_sessions":args.cohort_stride_sessions,"common_expiry_required":True},
+            "dte_max":args.dte_max,"dte_target":args.dte_target,"cohort_stride_sessions":args.cohort_stride_sessions,
+            "allow_overlapping_cohorts":args.allow_overlapping_cohorts,"common_expiry_required":True},
         "costs":{"base_slippage_per_option_share_usd":args.slippage_per_share,"base_commission_per_contract_per_side_usd":args.commission_per_contract_per_side,
             "alternative_slippage_per_option_share_usd":list(SLIPPAGE_GRID),"alternative_commission_per_contract_per_side_usd":list(COMMISSION_GRID)},
         "position_size_sensitivity":{"max_long_qqq_contracts":size_max_qqq,"max_short_spy_contracts":size_max_spy,"max_total_contracts":args.max_total_contracts,
@@ -772,7 +773,8 @@ def run_replay(args):
             "Nominal Wilson interval does not correct for regime clustering, dependence, or prior strategy selection.",
             "Expiry shock grid charges entry-side slippage/commission once and uses intrinsic-value payoff; exercise/assignment fees, broker margin, forced liquidation, financing and interim path are not modeled.",
             "Equal premium debit/credit does not equalize Delta, max loss, collateral or assignment risk; SPY short put can dominate downside even when QQQ long put appreciates.",
-            "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills."],
+            "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills.",
+            "When overlapping cohorts are enabled, multiple fixed-size trades can be open at once; total portfolio cash, margin, forced liquidation, and stacked assignment obligations are not constrained by this replay."],
         "source_integrity":integrity}
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     write_csv(out/"entry_cohort.csv",entries,["episode_id","signal_date","entry_date","entry_filter","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
@@ -786,12 +788,19 @@ def run_replay(args):
         "sizing_mode":args.sizing_mode,
         "fixed_ratio":{"qqq_long_put_contracts":args.fixed_long_qty,"spy_short_put_contracts":args.fixed_short_qty} if args.sizing_mode == "fixed_ratio" else None,
         "entry_filter":args.entry_filter,
+        "cohort_stride_sessions":args.cohort_stride_sessions,
+        "allow_overlapping_cohorts":args.allow_overlapping_cohorts,
         "actual_entry_and_exit_side_size_gate":"enforced by entry_quotes_valid and exit_quotes_valid; inability to enter is deferred to same selected contract until expiry, inability to exit remains deferred/unresolved",
         "known_limitations":["EOD quotes are not confirmed fills","reported fixed-ratio sizing sensitivity is still a counterfactual for alternate ratios","fixed ratios were identified after inspecting in-sample sensitivity and require prospective/out-of-sample confirmation"]
     },indent=2),encoding="utf-8")
     (out/"summary.json").write_text(json.dumps(report,indent=2,allow_nan=False),encoding="utf-8")
     (out/"summary.md").write_text(render_markdown(report,costs,shock,sizing),encoding="utf-8")
     return report
+
+def entry_gate_open(active: list[dict[str, Any]], allow_overlapping_cohorts: bool) -> bool:
+    """Allow a new cohort when overlap is enabled, otherwise serialize cohorts."""
+    return allow_overlapping_cohorts or not active
+
 
 def parse_args():
     p=argparse.ArgumentParser(description=__doc__)
@@ -804,6 +813,7 @@ def parse_args():
     p.add_argument("--target-delta",type=float,default=DELTA_TARGET_DEFAULT)
     p.add_argument("--dte-min",type=int,default=DTE_MIN_DEFAULT);p.add_argument("--dte-max",type=int,default=DTE_MAX_DEFAULT)
     p.add_argument("--dte-target",type=int,default=DTE_TARGET_DEFAULT);p.add_argument("--cohort-stride-sessions",type=int,default=COHORT_STRIDE_SESSIONS)
+    p.add_argument("--allow-overlapping-cohorts",action="store_true",help="allow a new fixed-size cohort while earlier cohorts remain open; portfolio margin/capital is not constrained")
     p.add_argument("--slippage-per-share",type=float,default=BASE_SLIPPAGE);p.add_argument("--commission-per-contract-per-side",type=float,default=BASE_COMMISSION)
     p.add_argument("--qqq-cache",default=str(Path.home()/".cache"/"qqq-options-full-history"))
     p.add_argument("--spy-cache",default=str(Path.home()/".cache"/"spy-options-cross-put-v1"))
