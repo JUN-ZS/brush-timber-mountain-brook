@@ -1,0 +1,145 @@
+name: QQQ-SPY PUT DTE14 vs DTE45 OTM and Performance Comparison
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_schedule_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_otm_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_fixed_phase_dte14_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_fixed_phase_dte14_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/DTE14_COMPARISON_CONTRACT.md
+      - .github/workflows/qqq-spy-put-dte14-comparison-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-dte14-comparison-v1
+  cancel-in-progress: true
+
+jobs:
+  dte14-full-replay:
+    name: Replay DTE14 phases and compare with pinned DTE45 ledgers
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install runtime
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-dte14
+          .venv-dte14/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and test OTM and DTE comparison logic
+        run: |
+          set -euo pipefail
+          PY=.venv-dte14/bin/python
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_schedule_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_otm_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_fixed_phase_dte14_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_fixed_phase_dte14_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_fixed_phase_dte14_v1.py
+
+      - name: Replay DTE14 phases 0–4 with immutable slots
+        timeout-minutes: 330
+        run: |
+          set -euo pipefail
+          PY=.venv-dte14/bin/python
+          ENGINE=research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase
+          COMMON=(
+            --entry-filter none
+            --sizing-mode fixed_ratio
+            --fixed-long-qty 1
+            --fixed-short-qty 3
+            --max-total-contracts 9
+            --cohort-stride-sessions 5
+            --allow-overlapping-cohorts
+            --start 2018-03-01
+            --end 2025-12-15
+            --dte-min 7
+            --dte-max 21
+            --dte-target 14
+            --target-delta 0.25
+            --qqq-cache "$HOME/.cache/qqq-options-full-history"
+            --spy-cache "$HOME/.cache/spy-options-dte14-v1"
+          )
+          for phase in 0 1 2 3 4; do
+            OUT="$ROOT/fixed_phase_sensitivity/phase_$phase"
+            mkdir -p "$OUT"
+            echo "=== DTE14 fixed-anchor phase=$phase, DTE=7-21 target=14, Delta=0.25, ratio=1:3 ==="
+            "$PY" "$ENGINE" "\${COMMON[@]}" --initial-phase-sessions "$phase" --out "$OUT" | tee "$OUT/run_console.json"
+            "$PY" - "$OUT/summary.json" "$phase" <<'PY'
+          import json, sys
+          path, phase_text = sys.argv[1:]
+          d=json.load(open(path, encoding="utf-8"))
+          phase=int(phase_text)
+          selection=d["selection"]
+          assert selection["dte_min"] == 7 and selection["dte_max"] == 21 and selection["dte_target"] == 14
+          assert selection["target_abs_delta"] == 0.25
+          assert selection["schedule_mode"] == "FIXED_ANCHOR_NO_REANCHOR"
+          assert selection["initial_phase_sessions"] == phase
+          assert selection["cohort_stride_sessions"] == 5
+          assert selection["allow_overlapping_cohorts"] is True
+          assert d["entry_filter"]["name"] == "none"
+          assert d["ratio"]["fixed_long_qqq_contracts"] == 1 and d["ratio"]["fixed_short_spy_contracts"] == 3
+          expected=len(range(phase,d["coverage"]["common_underlying_sessions"],5))
+          schedule=d["fixed_entry_schedule"]
+          assert schedule["scheduled_opportunities"] == expected
+          assert schedule["selected_signals"] + schedule["skipped_opportunities"] == expected
+          print(json.dumps({"phase":phase,"scheduled":expected,"selected":schedule["selected_signals"],"skipped":schedule["skipped_opportunities"]}))
+          PY
+            test -s "$OUT/trade_episodes.csv"
+            test -s "$OUT/entry_cohort.csv"
+            test -s "$OUT/entry_skips.csv"
+            test -s "$OUT/scheduled_signal_skips.csv"
+            test -s "$OUT/source_manifest.json"
+          done
+
+      - name: Aggregate DTE14 phase robustness and audit actual OTM
+        run: |
+          set -euo pipefail
+          PY=.venv-dte14/bin/python
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_schedule_v1.py --results-root "$ROOT" --out-dir "$ROOT/fixed_phase_sensitivity_audit"
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_otm_v1.py --results-root "$ROOT" --out-dir "$ROOT/fixed_phase_otm_audit"
+          cat "$ROOT/fixed_phase_sensitivity_audit/report.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$ROOT/fixed_phase_otm_audit/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate paired DTE14 vs DTE45 comparison and publish report
+        run: |
+          set -euo pipefail
+          PY=.venv-dte14/bin/python
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_fixed_phase_dte14_v1.py
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_vs_dte45_audit/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit source-pinned DTE14 ledgers and comparison
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_fixed_phase
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_vs_dte45_audit
+          if git diff --cached --quiet; then
+            echo "DTE14 outputs unchanged."
+            exit 0
+          fi
+          git commit -m "research: record DTE14 QQQ SPY put replay and OTM comparison"
+          git fetch origin research/qqq-spy-put-no-filter-frequency-v1
+          git rebase origin/research/qqq-spy-put-no-filter-frequency-v1
+          git push origin HEAD:research/qqq-spy-put-no-filter-frequency-v1
