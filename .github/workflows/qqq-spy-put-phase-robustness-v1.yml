@@ -1,0 +1,112 @@
+name: QQQ-SPY PUT 1:3 Five-Phase Robustness Replay V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/PHASE_ROBUSTNESS_CONTRACT.md
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_start_phase_robustness_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_start_phase_robustness_v1.py
+      - .github/workflows/qqq-spy-put-phase-robustness-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-phase-robustness-v1
+  cancel-in-progress: true
+
+jobs:
+  phase-robustness:
+    name: Re-select contracts on five true start phases
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install runtime
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-phase-audit
+          .venv-phase-audit/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and test before data replay
+        run: |
+          set -euo pipefail
+          PY=.venv-phase-audit/bin/python
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_start_phase_robustness_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_start_phase_robustness_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_start_phase_robustness_v1.py
+
+      - name: Replay phases 0–4 with independently selected contracts
+        timeout-minutes: 330
+        run: |
+          set -euo pipefail
+          PY=.venv-phase-audit/bin/python
+          ENGINE=research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results
+          COMMON=(
+            --entry-filter none
+            --sizing-mode fixed_ratio
+            --fixed-long-qty 1
+            --fixed-short-qty 3
+            --max-total-contracts 9
+            --cohort-stride-sessions 5
+            --allow-overlapping-cohorts
+            --start 2018-03-01
+            --end 2025-12-15
+            --qqq-cache "$HOME/.cache/qqq-options-full-history"
+            --spy-cache "$HOME/.cache/spy-options-phase-robustness-v1"
+          )
+          for phase in 0 1 2 3 4; do
+            OUT="$ROOT/phase_sensitivity/phase_$phase"
+            mkdir -p "$OUT"
+            echo "=== no-filter, ratio=1:3, stride=5, phase=$phase ==="
+            "$PY" "$ENGINE" "${COMMON[@]}" --initial-phase-sessions "$phase" --out "$OUT" | tee "$OUT/run_console.json"
+            "$PY" - "$OUT/summary.json" "$phase" <<'PY'
+          import json, sys
+          d=json.load(open(sys.argv[1], encoding="utf-8"))
+          phase=int(sys.argv[2])
+          assert d["entry_filter"]["name"] == "none"
+          assert d["selection"]["cohort_stride_sessions"] == 5
+          assert d["selection"]["initial_phase_sessions"] == phase
+          assert d["selection"]["allow_overlapping_cohorts"] is True
+          assert d["ratio"]["fixed_long_qqq_contracts"] == 1
+          assert d["ratio"]["fixed_short_spy_contracts"] == 3
+          assert d["cohort"]["entered_cohorts"] > 0
+          print(json.dumps({"phase": phase, "entered": d["cohort"]["entered_cohorts"], "selected": d["cohort"]["selected_signals"], "skipped": d["cohort"]["entry_skipped"], "hold20": d["policies"]["HOLD_20_SESSIONS"]}))
+          PY
+            test -s "$OUT/trade_episodes.csv"
+            test -s "$OUT/source_manifest.json"
+          done
+
+      - name: Aggregate 1Y, 3Y, 5Y and calendar-year robustness
+        run: |
+          set -euo pipefail
+          PY=.venv-phase-audit/bin/python
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_start_phase_robustness_v1.py
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/phase_sensitivity_audit/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit source-pinned phase ledgers and audit
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/phase_sensitivity
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/phase_sensitivity_audit
+          if git diff --cached --quiet; then
+            echo "Phase outputs unchanged."
+            exit 0
+          fi
+          git commit -m "research: record five-phase QQQ SPY put robustness audit"
+          git push origin HEAD:research/qqq-spy-put-no-filter-frequency-v1
