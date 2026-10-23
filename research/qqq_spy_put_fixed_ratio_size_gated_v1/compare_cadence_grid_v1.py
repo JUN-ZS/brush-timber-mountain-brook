@@ -248,18 +248,17 @@ def make_report(records: list[dict[str, Any]], cases: list[dict[str, Any]],
         "- 6 cadence values × 2 filters × 4 fixed ratios = 48 independent replay cases; every case includes 5d, 10d, 20d and DTE<=7 exits.",
         "- Signal-date windows end 2025-07-23 so longer holds have source-history runway. Results are EOD quote-side estimates, not verified fills.",
         "", "## Cohort frequency per year", "",
-        "| Window | Filter | Stride (sessions) | Selected/year | Entered/year | 1Y/3Y/5Y window entries |",
-        "|---|---|---:|---:|---:|---:|",
+        "| Window | Filter | Stride (sessions) | Ratio | Selected/year | Entered/year | Entered in window | Skipped |",
+        "|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     for window in ("1Y", "3Y", "5Y"):
         for filt in FILTERS:
             for stride in STRIDES:
-                sample = next(r for r in records if r["window"] == window and r["filter"] == filt and r["stride_sessions"] == stride and r["policy"] == "HOLD_20_SESSIONS")
-                key = (window, filt, stride)
-                if key in seen:
-                    continue
-                seen.add(key)
-                lines.append(f"| {window} | {filt} | {stride} | {sample['selected_cohorts_per_year']:.2f} | {sample['entered_cohorts_per_year']:.2f} | {sample['entered_cohorts']} |")
+                for ratio in RATIOS:
+                    sample = next(r for r in records if r["window"] == window and r["filter"] == filt
+                                  and r["stride_sessions"] == stride and r["ratio"] == ratio
+                                  and r["policy"] == "HOLD_20_SESSIONS")
+                    lines.append(f"| {window} | {filt} | {stride} | {ratio} | {sample['selected_cohorts_per_year']:.2f} | {sample['entered_cohorts_per_year']:.2f} | {sample['entered_cohorts']} | {sample['entry_skips']} |")
     lines += [
         "", "## 1Y / 3Y / 5Y comparison — 20-session exit", "",
         "| Window | Filter | Stride | Ratio | Trades/year | Resolved/opened | Win rate | Mean/trade | Total resolved | Annualized resolved | Worst trade | Peak overlap | Peak SPY assignment obligation | Stress annualized | Pareto cadence |",
