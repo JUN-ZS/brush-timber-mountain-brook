@@ -251,9 +251,6 @@ def make_report(records: list[dict[str, Any]], cases: list[dict[str, Any]],
         "| Window | Filter | Stride (sessions) | Selected/year | Entered/year | 1Y/3Y/5Y window entries |",
         "|---|---|---:|---:|---:|---:|",
     ]
-    seen = set()
-    for r in sorted(records, key=lambda x: (["1Y","3Y","5Y"].index(x["window"]), x["filter"], x["stride_sessions"] if "stride_sessions" in x else x["stride_sessions"], x["ratio"])):
-        pass
     for window in ("1Y", "3Y", "5Y"):
         for filt in FILTERS:
             for stride in STRIDES:
