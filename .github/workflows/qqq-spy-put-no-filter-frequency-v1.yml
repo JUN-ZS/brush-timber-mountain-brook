@@ -1,0 +1,80 @@
+name: QQQ-SPY No-Filter Trade Frequency Replay V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/NO_FILTER_FREQUENCY_CONTRACT.md
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_entry_frequency_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_entry_frequency_v1.py
+      - .github/workflows/qqq-spy-put-no-filter-frequency-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-no-filter-frequency-v1
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Fresh no-filter fixed-ratio replay and window comparison
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compile and test comparison logic before data download
+        run: |
+          set -euo pipefail
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_entry_frequency_v1.py
+          python3 -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_entry_frequency_v1.py
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/test_compare_entry_frequency_v1.py
+      - name: Replay each fixed ratio without relative-underperformance gate
+        timeout-minutes: 330
+        run: |
+          set -euo pipefail
+          PY=python3
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results
+          mkdir -p "$ROOT/no_filter"
+          COMMON="--entry-filter none --sizing-mode fixed_ratio --max-total-contracts 9 --start 2018-03-01 --end 2025-12-15 --qqq-cache $HOME/.cache/qqq-options-full-history --spy-cache $HOME/.cache/spy-options-no-filter-frequency-v1"
+          for ratio in 1:6 4:5 2:4 1:3; do
+            case "$ratio" in
+              1:6) LONG=1; SHORT=6; OUT="$ROOT/no_filter/fixed_1_6" ;;
+              4:5) LONG=4; SHORT=5; OUT="$ROOT/no_filter/fixed_4_5" ;;
+              2:4) LONG=2; SHORT=4; OUT="$ROOT/no_filter/fixed_2_4" ;;
+              1:3) LONG=1; SHORT=3; OUT="$ROOT/no_filter/fixed_1_3" ;;
+              *) echo "Unexpected ratio: $ratio"; exit 3 ;;
+            esac
+            mkdir -p "$OUT"
+            $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py $COMMON --fixed-long-qty "$LONG" --fixed-short-qty "$SHORT" --out "$OUT" | tee "$OUT/run_console.json"
+            test -s "$OUT/summary.json"
+            test -s "$OUT/trade_episodes.csv"
+            test -s "$OUT/entry_skips.csv"
+            cat "$OUT/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Compare 1Y, 3Y and 5Y frequency and P&L to existing filtered runs
+        run: |
+          set -euo pipefail
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_entry_frequency_v1.py
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/no_filter_frequency_audit/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit no-filter runs and frequency audit
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/no_filter research/qqq_spy_put_fixed_ratio_size_gated_v1/results/no_filter_frequency_audit
+          if git diff --cached --quiet; then
+            echo "No-filter results and audit unchanged."
+            exit 0
+          fi
+          git commit -m "research: record QQQ SPY no-filter frequency replay"
+          git push origin HEAD:research/qqq-spy-put-no-filter-frequency-v1
