@@ -1,0 +1,143 @@
+{
+  "schema": "spy-far-tail-triggered-hedge.v1",
+  "status": "COMPLETED",
+  "base_anchor_commit": "c0cc1de3f196a312c00582d9ee9600c689c388d9",
+  "source_repository": "anahatsingh-ui/options-dataset-hist",
+  "source_tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+  "base_trade_ledger_count": 7814,
+  "unique_base_cohort_count": 3907,
+  "trigger_trade_config_rows": 62512,
+  "selection_state_rows": 31256,
+  "trigger_summary_rows": 160,
+  "trigger_annual_rows": 1280,
+  "trigger_tail_stress_rows": 800,
+  "trigger_policy": {
+    "thresholds": [
+      {
+        "label": "ENTRY_SPOT_DRAWDOWN_3PCT",
+        "drop": 0.03
+      },
+      {
+        "label": "ENTRY_SPOT_DRAWDOWN_5PCT",
+        "drop": 0.05
+      }
+    ],
+    "signal_definition": "SPY underlying daily close <= frozen base trade entry spot * (1 - threshold); dates strictly after base entry and strictly before base exit/last-observed date.",
+    "execution_timing": "Buy on the next available SPY option-chain session after a close-confirmed trigger; no same-close fill and no retry after blocked entry.",
+    "exit_rule": "Close the exact selected tail contract on the frozen base trade exit date; unresolved base trades remain MTM only.",
+    "targets": [
+      {
+        "label": "TAIL_025_DELTA",
+        "target": 0.025,
+        "minimum": 0.01,
+        "maximum": 0.08
+      },
+      {
+        "label": "TAIL_05_DELTA",
+        "target": 0.05,
+        "minimum": 0.01,
+        "maximum": 0.08
+      }
+    ],
+    "quantities": [
+      1,
+      3
+    ]
+  },
+  "costs": {
+    "slippage_per_option_share_per_side_usd": 0.05,
+    "commission_per_contract_per_side_usd": 0.65
+  },
+  "input_ledger_sha256": {
+    "DTE45/phase_0/trade_episodes.csv": "89d8aa6ba259856de8289235ede64698d32fef03e46083a234844c45a5bdb9d2",
+    "DTE45/phase_1/trade_episodes.csv": "0740ca59ba6874f1d16729c297b29a909de837d5defa620352888a0df9d70139",
+    "DTE45/phase_2/trade_episodes.csv": "3fc6b4868adf46f9a49c182ac25e61e5f90b8f0b25473a1325e36120adae5a9f",
+    "DTE45/phase_3/trade_episodes.csv": "a8fe3c5273a999591722b73061ec66b2a11cdfa95699cf2f639bc0b81b6e4c5a",
+    "DTE45/phase_4/trade_episodes.csv": "038c28426f51e329600b2422cea04683729dea6f695aa78c827f7ecbe2d3400c",
+    "DTE14/phase_0/trade_episodes.csv": "5a57b23d57bb9823919db6608f2426aded173a3a454241e2783060e5541d41a4",
+    "DTE14/phase_1/trade_episodes.csv": "81ef4aa1040edf7666bb81f837b1fa2c0fa25845a4434ec44fda9815a28022da",
+    "DTE14/phase_2/trade_episodes.csv": "20bb0813d998c43afabdf0ac16b8f24401117c2bc9f84a798cb7d7302d2844a4",
+    "DTE14/phase_3/trade_episodes.csv": "bf0fd711a47a6679a9025a6582e6e516160d304fa6653cb28ed9080aba519f50",
+    "DTE14/phase_4/trade_episodes.csv": "6e12be2fe21d270d8746a1abee9e24c3ac52a93e203eb8e8dc555b1c131a9720"
+  },
+  "underlying_spot_source_pin": {
+    "symbol": "SPY",
+    "file": "underlying_prices.parquet",
+    "status": "DOWNLOADED_HASH_VERIFIED",
+    "bytes": 252066,
+    "git_blob_sha": "4c22934a77ba09ced10fd1c413b5d8c9e0cb4a8d"
+  },
+  "verified_spy_option_source_pins": [
+    {
+      "symbol": "SPY",
+      "file": "options_2018.parquet",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "bytes": 36266339,
+      "git_blob_sha": "473e4fe80281ca9371b5f531b97f19394e8e2814"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2019.parquet",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "bytes": 41731396,
+      "git_blob_sha": "2d06f2ca587452ea9a6ffa52e6ddc4262c3e6f4d"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2020.parquet",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "bytes": 59100008,
+      "git_blob_sha": "f0093698ac9fbbe7dbd9159735fcb73ff9418ff2"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2021.parquet",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "bytes": 64071426,
+      "git_blob_sha": "459555aaed9be451a504d68d2db6cce4b94c3a6d"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2022.parquet",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "bytes": 57070606,
+      "git_blob_sha": "f0a15b8263b7650147bfa62bce2cd44d59ef17a5"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2023.parquet",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "bytes": 47343699,
+      "git_blob_sha": "ead8adeee0689d26e49f5b39f6d5536443931ac3"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2024.parquet",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "bytes": 56948550,
+      "git_blob_sha": "8e0b7ca48dffa92fe93ceeffefdfce8557eab74a"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2025.parquet",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "bytes": 58216546,
+      "git_blob_sha": "133bf1d95c3479149bf4771bc8b3fd8b625064ce"
+    }
+  ],
+  "spot_rows": 6570,
+  "chain_stats": {
+    "chain_dates": 1956,
+    "put_rows": 8332822,
+    "last_chain_date": "2025-12-12"
+  },
+  "warnings": [
+    "Public EOD option quotes and displayed sizes are not verified fills.",
+    "Source pinning confirms byte identity against the configured public Git mirror, not OPRA provenance.",
+    "Five shifted base phases overlap and are not independent samples.",
+    "Triggered comparisons require valid entry and exit displayed-size gates; quote availability can create selection bias.",
+    "Tail stress estimates tail-leg expiry intrinsic economics only, not whole-book loss or probability.",
+    "No NAV, margin, forced liquidation, assignment costs, or broker orders are modeled."
+  ],
+  "report_bytes": 49904
+}
