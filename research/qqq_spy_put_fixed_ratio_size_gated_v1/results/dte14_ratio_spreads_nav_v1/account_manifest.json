@@ -1,0 +1,243 @@
+{
+  "account_configurations": 25,
+  "annual_rows": 200,
+  "base_arm": "DTE14",
+  "base_trade_rows": 1953,
+  "capital_gate_events": 5382,
+  "chain_end_date": "2025-12-12",
+  "chain_first_date": "2018-03-02",
+  "code_sha256": "e54bb84ae5462a7631731325a95911da240071886e16acb52f92fe34911532a3",
+  "collateral_model": "same-expiry same-underlying SPY vertical spread; reserve full strike width x paired quantity; uncovered short puts reserve full strike notional",
+  "costs": {
+    "commission_per_contract_per_side_usd": 0.65,
+    "slippage_per_option_share_per_side_usd": 0.05
+  },
+  "daily_nav_rows": 48925,
+  "output_sha256": {
+    "DTE14_RATIO_SPREAD_NAV_REPORT.md": "faa214c05064a0013dc380a5a1deb5081f4f17a743766db3a5a9ad4247bc7dcd",
+    "account_annual_median.csv": "64f7401c4498e2d4bb4a29403f0f4e466ede61b01043ea55769f0bd1840ef963",
+    "account_annual_returns.csv": "ef965b4da4fbfe82da8bd203150a6887abccacfc247bc74945e80a7f4f87de41",
+    "account_nav_daily.csv": "a95c78fd2120d324b169d08987d3f92981fd550b5e9e07450bf4c88e5b65afab",
+    "account_phase_summary.csv": "f8ce6caf9ea455112cf8afc828d05f1ce0f3936c67ee48e5bb84209d64d32ff6",
+    "account_summary_by_config.csv": "9ba3ca42a76c2b33b3c0c719f0bc4208d907a29e377d15906126b19c36af59f0",
+    "capital_gates.csv": "5936db10fa808f9691eeb18bef1710a99fcd3fa6304780093002f54e5f1a4a81",
+    "trade_results.csv": "01a45cecb8bbf6e69419e4ec69ab2153c537107bff5a0a967fa1a85e41cada7c"
+  },
+  "overlay_manifest_sha256": "bd2a08b2d0f2e026c50c3a29c5c755f7860babaa24abb356a45e5204219a36f7",
+  "phase_results_pooled_or_summed": false,
+  "pnl_reconciliation_mismatch_n": 0,
+  "policy": "HOLD_20_OR_DTE_LE_7",
+  "ratio_and_tail_configs": [
+    {
+      "name": "1:3 / no FAR TAIL",
+      "ratio": "1:3",
+      "short_qty": 3,
+      "tail_qty": 0
+    },
+    {
+      "name": "1:3 / 3 FAR TAIL (fully paired)",
+      "ratio": "1:3",
+      "short_qty": 3,
+      "tail_qty": 3
+    },
+    {
+      "name": "1:6 / no FAR TAIL",
+      "ratio": "1:6",
+      "short_qty": 6,
+      "tail_qty": 0
+    },
+    {
+      "name": "1:6 / 3 FAR TAIL (half paired)",
+      "ratio": "1:6",
+      "short_qty": 6,
+      "tail_qty": 3
+    },
+    {
+      "name": "1:6 / 6 FAR TAIL (fully paired)",
+      "ratio": "1:6",
+      "short_qty": 6,
+      "tail_qty": 6
+    }
+  ],
+  "required_outputs_nonempty": true,
+  "schema": "dte14-ratio-spread-single-account-nav.v1",
+  "source_input_hashes_match_overlay_manifest": true,
+  "source_input_ledger_sha256": {
+    "DTE14/phase_0/trade_episodes.csv": "5a57b23d57bb9823919db6608f2426aded173a3a454241e2783060e5541d41a4",
+    "DTE14/phase_1/trade_episodes.csv": "81ef4aa1040edf7666bb81f837b1fa2c0fa25845a4434ec44fda9815a28022da",
+    "DTE14/phase_2/trade_episodes.csv": "20bb0813d998c43afabdf0ac16b8f24401117c2bc9f84a798cb7d7302d2844a4",
+    "DTE14/phase_3/trade_episodes.csv": "bf0fd711a47a6679a9025a6582e6e516160d304fa6653cb28ed9080aba519f50",
+    "DTE14/phase_4/trade_episodes.csv": "6e12be2fe21d270d8746a1abee9e24c3ac52a93e203eb8e8dc555b1c131a9720",
+    "DTE45/phase_0/trade_episodes.csv": "89d8aa6ba259856de8289235ede64698d32fef03e46083a234844c45a5bdb9d2",
+    "DTE45/phase_1/trade_episodes.csv": "0740ca59ba6874f1d16729c297b29a909de837d5defa620352888a0df9d70139",
+    "DTE45/phase_2/trade_episodes.csv": "3fc6b4868adf46f9a49c182ac25e61e5f90b8f0b25473a1325e36120adae5a9f",
+    "DTE45/phase_3/trade_episodes.csv": "a8fe3c5273a999591722b73061ec66b2a11cdfa95699cf2f639bc0b81b6e4c5a",
+    "DTE45/phase_4/trade_episodes.csv": "038c28426f51e329600b2422cea04683729dea6f695aa78c827f7ecbe2d3400c"
+  },
+  "source_pin_count": 18,
+  "source_pins": [
+    {
+      "bytes": 29215815,
+      "file": "options_2018.parquet",
+      "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 36266339,
+      "file": "options_2018.parquet",
+      "git_blob_sha": "473e4fe80281ca9371b5f531b97f19394e8e2814",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 30998008,
+      "file": "options_2019.parquet",
+      "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 41731396,
+      "file": "options_2019.parquet",
+      "git_blob_sha": "2d06f2ca587452ea9a6ffa52e6ddc4262c3e6f4d",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 59412637,
+      "file": "options_2020.parquet",
+      "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 59100008,
+      "file": "options_2020.parquet",
+      "git_blob_sha": "f0093698ac9fbbe7dbd9159735fcb73ff9418ff2",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 74224966,
+      "file": "options_2021.parquet",
+      "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 64071426,
+      "file": "options_2021.parquet",
+      "git_blob_sha": "459555aaed9be451a504d68d2db6cce4b94c3a6d",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 69941736,
+      "file": "options_2022.parquet",
+      "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 57070606,
+      "file": "options_2022.parquet",
+      "git_blob_sha": "f0a15b8263b7650147bfa62bce2cd44d59ef17a5",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 71647343,
+      "file": "options_2023.parquet",
+      "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 47343699,
+      "file": "options_2023.parquet",
+      "git_blob_sha": "ead8adeee0689d26e49f5b39f6d5536443931ac3",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 82434832,
+      "file": "options_2024.parquet",
+      "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 56948550,
+      "file": "options_2024.parquet",
+      "git_blob_sha": "8e0b7ca48dffa92fe93ceeffefdfce8557eab74a",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 85765453,
+      "file": "options_2025.parquet",
+      "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 58216546,
+      "file": "options_2025.parquet",
+      "git_blob_sha": "133bf1d95c3479149bf4771bc8b3fd8b625064ce",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 332454,
+      "file": "underlying_prices.parquet",
+      "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 252066,
+      "file": "underlying_prices.parquet",
+      "git_blob_sha": "4c22934a77ba09ced10fd1c413b5d8c9e0cb4a8d",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    }
+  ],
+  "source_repository": "anahatsingh-ui/options-dataset-hist",
+  "source_tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+  "starting_nav_usd": 100000.0,
+  "status": "COMPLETED",
+  "stream_stats": {
+    "entry_day_missing_from_option_stream_n": 0,
+    "merged_dates": 0,
+    "qqq": {
+      "chain_dates": 1954,
+      "first_chain_date": "2018-03-02",
+      "last_chain_date": "2025-12-12",
+      "put_rows": 6061484
+    },
+    "spy": {
+      "chain_dates": 1956,
+      "first_chain_date": "2018-03-02",
+      "last_chain_date": "2025-12-12",
+      "put_rows": 8332822
+    },
+    "underlying_only_observation_days": 0
+  },
+  "tail_selection_sha256": "48ad548b29220f6455266c132ef13ad25876a778ba612221920b16a8522efed3",
+  "tracked_contract_count": {
+    "QQQ": 1838,
+    "SPY": 3616
+  },
+  "trade_result_rows": 4373,
+  "warnings": [
+    "EOD quotes are proxies, not verified fills.",
+    "Displayed size is an eligibility screen, not guaranteed execution.",
+    "A quote/size failure on exit keeps the entire spread package open until its intrinsic expiry settlement proxy; no later substitute exit.",
+    "Cash reserve is not a broker margin simulation; no margin offsets across QQQ and SPY.",
+    "Observed MaxDD may understate risk around missing-quote gaps.",
+    "Five anchor phases overlap and are not independent.",
+    "Lot count is fixed and not scaled as NAV changes.",
+    "No 2026 option-chain performance; source ends 2025-12-12."
+  ]
+}
