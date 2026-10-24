@@ -44,6 +44,9 @@
     "slippage_per_option_share_per_side_usd": 0.05,
     "commission_per_contract_per_side_usd": 0.65
   },
+  "baseline_input_hashes_match_overlay_manifest": true,
+  "baseline_input_hashes_expected_source": "spy_far_tail_hedge_v1/manifest.json:input_ledger_sha256",
+  "analysis_script_sha256": "87c9ecb0c15882f2ece85121e19b7f552f5815c2f282d1ed96d83c074eea3262",
   "input_sha256": {
     "baseline_ledgers": {
       "DTE45/phase_0/trade_episodes.csv": "89d8aa6ba259856de8289235ede64698d32fef03e46083a234844c45a5bdb9d2",
