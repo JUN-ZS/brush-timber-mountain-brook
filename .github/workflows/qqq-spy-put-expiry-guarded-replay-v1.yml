@@ -28,7 +28,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: qqq-spy-put-expiry-guarded-replay-v1
+  group: qqq-spy-put-expiry-guarded-replay-hosted-v1
   cancel-in-progress: false
 
 jobs:
