@@ -1,0 +1,222 @@
+{
+  "account_configurations": 120,
+  "annual_rows": 960,
+  "base_policy": "HOLD_20_OR_DTE_LE_7",
+  "base_trade_rows": 3907,
+  "baseline_input_sha256": {
+    "DTE14/phase_0/trade_episodes.csv": "5a57b23d57bb9823919db6608f2426aded173a3a454241e2783060e5541d41a4",
+    "DTE14/phase_1/trade_episodes.csv": "81ef4aa1040edf7666bb81f837b1fa2c0fa25845a4434ec44fda9815a28022da",
+    "DTE14/phase_2/trade_episodes.csv": "20bb0813d998c43afabdf0ac16b8f24401117c2bc9f84a798cb7d7302d2844a4",
+    "DTE14/phase_3/trade_episodes.csv": "bf0fd711a47a6679a9025a6582e6e516160d304fa6653cb28ed9080aba519f50",
+    "DTE14/phase_4/trade_episodes.csv": "6e12be2fe21d270d8746a1abee9e24c3ac52a93e203eb8e8dc555b1c131a9720",
+    "DTE45/phase_0/trade_episodes.csv": "89d8aa6ba259856de8289235ede64698d32fef03e46083a234844c45a5bdb9d2",
+    "DTE45/phase_1/trade_episodes.csv": "0740ca59ba6874f1d16729c297b29a909de837d5defa620352888a0df9d70139",
+    "DTE45/phase_2/trade_episodes.csv": "3fc6b4868adf46f9a49c182ac25e61e5f90b8f0b25473a1325e36120adae5a9f",
+    "DTE45/phase_3/trade_episodes.csv": "a8fe3c5273a999591722b73061ec66b2a11cdfa95699cf2f639bc0b81b6e4c5a",
+    "DTE45/phase_4/trade_episodes.csv": "038c28426f51e329600b2422cea04683729dea6f695aa78c827f7ecbe2d3400c"
+  },
+  "baseline_sha_valid": true,
+  "capital_gate_events": 15132,
+  "cash_collateral_rule": "SPY short put strike x 100 x open contracts, no borrowing or cross-underlying margin offsets",
+  "chain_end_date": "2025-12-12",
+  "chain_first_date": "2018-03-02",
+  "code_sha256": "dbe0e3323413b34a62be5cbff3afccd55e206ccc1b815193187ebd1ea139ef9a",
+  "commission_per_contract_per_side_usd": 0.65,
+  "daily_curve_rows": 47016,
+  "hedge_quantities": [
+    0,
+    1,
+    3
+  ],
+  "hedge_rule": "ANY_OF_THREE_PREDECLARED",
+  "holding_manifest_sha256": "d576c458bc71dbfe259abe93061730b89011b121438d80b4624746b87458b80c",
+  "holding_trade_level_sha256": "ee0759c4de0ecbe12a692ae87d70d610d74aad1316804e900738eacb75c74cc6",
+  "output_sha256": {
+    "SPY_FAR_TAIL_ACCOUNT_NAV_REPORT.md": "90c69edf304864556298aa44e1a0784077294808411e56912611b5902a5b8607",
+    "account_annual_median_by_phase.csv": "3e6fb253eeaf1ecda10fae721ae9c2f51b55daafad6d57589819a46d5bd26575",
+    "account_annual_returns.csv": "962deaad45ce3d5e676807bc264febcca6a0aff1aa6429d612483bf68dc58417",
+    "account_nav_selected.csv": "2523c5e534186540b7220d3778e2d0357736e0c2010de44483a120cfae2f78ec",
+    "account_phase_summary.csv": "6c3b46b9609bfadad8564691427812de62111a9214bfc58fc8cc8fbaffcb19f4",
+    "account_summary_by_capital.csv": "2aa70279f5f51b2aa14fe490dd822762dd16967757aba6f0e731cecdbf14da06",
+    "capital_gates.csv": "ffeafe8312c35da7fad2bd13671654c62b93fceb2944cd349a48abb23b271e55"
+  },
+  "overlay_manifest_sha256": "bd2a08b2d0f2e026c50c3a29c5c755f7860babaa24abb356a45e5204219a36f7",
+  "overlay_rows": 7814,
+  "phase_results_pooled_or_summed": false,
+  "pnl_reconciliation_mismatch_n": 0,
+  "required_outputs_nonempty": true,
+  "schema": "spy-far-tail-single-account-nav.v1",
+  "separate_phase_accounts": true,
+  "slippage_per_option_share_per_side_usd": 0.05,
+  "source_pin_count": 18,
+  "source_pins": [
+    {
+      "bytes": 29215815,
+      "file": "options_2018.parquet",
+      "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 36266339,
+      "file": "options_2018.parquet",
+      "git_blob_sha": "473e4fe80281ca9371b5f531b97f19394e8e2814",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 30998008,
+      "file": "options_2019.parquet",
+      "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 41731396,
+      "file": "options_2019.parquet",
+      "git_blob_sha": "2d06f2ca587452ea9a6ffa52e6ddc4262c3e6f4d",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 59412637,
+      "file": "options_2020.parquet",
+      "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 59100008,
+      "file": "options_2020.parquet",
+      "git_blob_sha": "f0093698ac9fbbe7dbd9159735fcb73ff9418ff2",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 74224966,
+      "file": "options_2021.parquet",
+      "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 64071426,
+      "file": "options_2021.parquet",
+      "git_blob_sha": "459555aaed9be451a504d68d2db6cce4b94c3a6d",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 69941736,
+      "file": "options_2022.parquet",
+      "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 57070606,
+      "file": "options_2022.parquet",
+      "git_blob_sha": "f0a15b8263b7650147bfa62bce2cd44d59ef17a5",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 71647343,
+      "file": "options_2023.parquet",
+      "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 47343699,
+      "file": "options_2023.parquet",
+      "git_blob_sha": "ead8adeee0689d26e49f5b39f6d5536443931ac3",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 82434832,
+      "file": "options_2024.parquet",
+      "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 56948550,
+      "file": "options_2024.parquet",
+      "git_blob_sha": "8e0b7ca48dffa92fe93ceeffefdfce8557eab74a",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 85765453,
+      "file": "options_2025.parquet",
+      "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 58216546,
+      "file": "options_2025.parquet",
+      "git_blob_sha": "133bf1d95c3479149bf4771bc8b3fd8b625064ce",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    },
+    {
+      "bytes": 332454,
+      "file": "underlying_prices.parquet",
+      "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "QQQ"
+    },
+    {
+      "bytes": 252066,
+      "file": "underlying_prices.parquet",
+      "git_blob_sha": "4c22934a77ba09ced10fd1c413b5d8c9e0cb4a8d",
+      "status": "DOWNLOADED_HASH_VERIFIED",
+      "symbol": "SPY"
+    }
+  ],
+  "source_repository": "anahatsingh-ui/options-dataset-hist",
+  "source_tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+  "starting_nav_scenarios_usd": [
+    100000.0,
+    250000.0,
+    500000.0,
+    1000000.0
+  ],
+  "status": "COMPLETED",
+  "stream_stats": {
+    "entry_day_missing_from_option_stream_n": 0,
+    "merged_dates": 0,
+    "qqq": {
+      "chain_dates": 1954,
+      "first_chain_date": "2018-03-02",
+      "last_chain_date": "2025-12-12",
+      "put_rows": 6061484
+    },
+    "spy": {
+      "chain_dates": 1956,
+      "first_chain_date": "2018-03-02",
+      "last_chain_date": "2025-12-12",
+      "put_rows": 8332822
+    },
+    "underlying_only_observation_days": 0
+  },
+  "tail_label": "TAIL_10_DELTA",
+  "tracked_contract_count": {
+    "QQQ": 3445,
+    "SPY": 4472
+  },
+  "warnings": [
+    "EOD quotes are proxies, not fills.",
+    "No forward-fill of exact-contract marks.",
+    "Observed MaxDD may understate risk across missing-quote gaps.",
+    "Cash-secured collateral is not a specific broker margin model.",
+    "Unresolved contracts at expiry are priced at intrinsic using underlying close as an exercise plus immediate stock-liquidation proxy; physical assignment, early exercise and post-assignment share exposure are not modeled.",
+    "No margin borrowing, funding, interest, tax, dividend, forced liquidation or timestamp-verified fills.",
+    "Option-chain data ends on 2025-12-12.",
+    "Five phases are independent schedule runs, never summed.",
+    "Fixed contract quantity: account NAV compounds but lot count is not dynamically scaled."
+  ]
+}
