@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from run_spy_far_tail_conditional_v1 import compute_trigger_flags, conditional_result, sleeve_pnl, tail_stress_pnl
+from run_spy_far_tail_conditional_v1 import compute_trigger_flags, conditional_result, sleeve_pnl, tail_stress_pnl, validate_baseline_hashes
 
 
 def cohort(episode, date, spot, delta=0.20, signal_index=0):
@@ -45,6 +45,27 @@ class TriggerLogicTests(unittest.TestCase):
         tail = tail_stress_pnl(80, 3, 0.10, 100, -0.50, 0.05, 0.65)
         self.assertLess(base, 0)
         self.assertGreater(base + tail, base)
+
+
+class BaselineHashPinningTests(unittest.TestCase):
+    def test_matching_baseline_hashes_are_accepted(self):
+        validate_baseline_hashes({"DTE45/phase_0/trade_episodes.csv": "abc"},
+                                 {"DTE45/phase_0/trade_episodes.csv": "abc"})
+
+    def test_changed_baseline_hash_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "differ from pinned overlay manifest"):
+            validate_baseline_hashes({"DTE45/phase_0/trade_episodes.csv": "new"},
+                                     {"DTE45/phase_0/trade_episodes.csv": "pinned"})
+
+    def test_missing_or_extra_hash_entry_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "differ from pinned overlay manifest"):
+            validate_baseline_hashes({"DTE45/phase_0/trade_episodes.csv": "abc"}, {})
+        with self.assertRaisesRegex(ValueError, "differ from pinned overlay manifest"):
+            validate_baseline_hashes({}, {"DTE45/phase_0/trade_episodes.csv": "abc"})
+
+    def test_missing_manifest_hashes_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, "missing input_ledger_sha256"):
+            validate_baseline_hashes({"DTE45/phase_0/trade_episodes.csv": "abc"}, None)
 
 
 if __name__ == "__main__":

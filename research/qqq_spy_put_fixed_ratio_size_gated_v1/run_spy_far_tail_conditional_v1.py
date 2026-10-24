@@ -127,6 +127,23 @@ def read_baseline_cohorts(base_root: Path) -> tuple[dict[tuple[str, int, str], d
     return cohorts, hashes
 
 
+
+def validate_baseline_hashes(actual: dict[str, str], expected: Any) -> None:
+    """Fail closed if entry-trigger ledgers differ from the pinned overlay replay inputs."""
+    if not isinstance(expected, dict):
+        raise ValueError("Source overlay manifest is missing input_ledger_sha256")
+    expected_hashes = {str(key): str(value) for key, value in expected.items()}
+    mismatches = sorted(
+        key for key in set(actual) | set(expected_hashes)
+        if actual.get(key) != expected_hashes.get(key)
+    )
+    if mismatches:
+        details = ", ".join(
+            f"{key}: actual={actual.get(key)!r}, pinned={expected_hashes.get(key)!r}"
+            for key in mismatches
+        )
+        raise ValueError(f"Baseline ledger hashes differ from pinned overlay manifest: {details}")
+
 def compute_trigger_flags(cohorts: dict[tuple[str, int, str], dict[str, Any]],
                           lookback: int = LOOKBACK_OBSERVATIONS,
                           drawdown_threshold: float = DRAWDOWN_THRESHOLD,
@@ -588,6 +605,7 @@ def main() -> int:
     selection_path = args.overlay_results / "entry_selection.csv"
     replay_manifest_path = args.overlay_results / "manifest.json"
     replay_manifest = json.loads(replay_manifest_path.read_text(encoding="utf-8"))
+    validate_baseline_hashes(baseline_hashes, replay_manifest.get("input_ledger_sha256"))
     if replay_manifest.get("status") != "COMPLETED":
         raise ValueError("Source tail-overlay replay is not complete")
     trade_rows = read_csv(trade_path)
@@ -632,6 +650,9 @@ def main() -> int:
                          {"label": "TAIL_05_DELTA", "target_abs_delta": 0.05},
                          {"label": "TAIL_10_DELTA", "target_abs_delta": 0.10}],
         "quantities": list(QUANTITIES), "costs": replay_manifest.get("costs"),
+        "baseline_input_hashes_match_overlay_manifest": True,
+        "baseline_input_hashes_expected_source": "spy_far_tail_hedge_v1/manifest.json:input_ledger_sha256",
+        "analysis_script_sha256": sha256_file(Path(__file__)),
         "input_sha256": {
             "baseline_ledgers": baseline_hashes,
             "overlay_trade_level_csv": sha256_file(trade_path),

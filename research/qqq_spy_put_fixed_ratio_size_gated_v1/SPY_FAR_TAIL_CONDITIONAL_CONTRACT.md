@@ -7,6 +7,7 @@ Can a pre-declared entry-time risk rule reduce how often far-tail insurance prem
 - Baseline is read-only: QQQ LONG PUT 1 : SPY SHORT PUT 3, fixed five-common-session cadence, DTE14/DTE45, five overlapping phases and Hold-10/Hold-20 exits with the DTE<=7 guard.
 - Original entry, leg selection, quantities and exit logic are not changed.
 - Historical SPY chain is pinned to an existing completed overlay replay. Source hashes prove byte identity against the Git mirror, not OPRA provenance or actual fills.
+- Before joining trigger flags to overlay outcomes, the runner requires every DTE14/DTE45 phase-ledger SHA-256 to match the original overlay manifest's `input_ledger_sha256` exactly. Missing, extra, or changed ledger hashes fail closed. The output manifest records this check and the analysis-script SHA-256.
 
 ## Entry-time trigger (frozen before measuring outcomes)
 Buy a same-expiry far-OTM SPY PUT only when either condition is true at the base entry:
