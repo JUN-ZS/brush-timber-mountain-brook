@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import unittest
-from run_spy_far_tail_account_nav_v1 import allow_base, allow_tail, cagr, maxdd, pnl_tail
+from run_spy_far_tail_account_nav_v1 import allow_base, allow_tail, cagr, maxdd, pnl_tail, put_intrinsic
 
 class Tests(unittest.TestCase):
     def test_cash_secured_short_put_gate(self):
@@ -14,6 +14,9 @@ class Tests(unittest.TestCase):
         self.assertAlmostEqual(pnl_tail(1,2,3,.05,.65),88.7,places=6)
     def test_observed_drawdown(self):
         self.assertAlmostEqual(maxdd([100,80,110,90]),20.0,places=6)
+    def test_expiry_intrinsic_payoff(self):
+        self.assertAlmostEqual(put_intrinsic(110,100,3),3000.0,places=6)
+        self.assertAlmostEqual(put_intrinsic(90,100,2),0.0,places=6)
     def test_cagr(self):
         self.assertGreater(cagr(100,110,"2020-01-01","2021-01-01"),9)
         self.assertLess(cagr(100,110,"2020-01-01","2021-01-01"),11)
