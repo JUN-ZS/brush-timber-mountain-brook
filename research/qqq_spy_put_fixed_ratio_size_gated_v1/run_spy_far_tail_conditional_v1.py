@@ -26,6 +26,10 @@ def fnum(value: Any) -> float | None:
         return None
 
 
+def num(row: dict[str, Any], key: str) -> float | None:
+    return fnum(row.get(key))
+
+
 def truth(value: Any) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
@@ -432,7 +436,7 @@ def build_report(results: Path, trigger_rows: list[dict[str, Any]], summaries: l
         if row["arm"] == "DTE45" and row["policy"] == "HOLD_20_OR_DTE_LE_7":
             unconditional[(row["tail_label"], int(float(row["tail_quantity"])))].append(row)
     uncond_metrics = {
-        key: median(fnum(r, "paired_mean_incremental_hedge_usd") for r in rows)
+        key: median(num(r, "paired_mean_incremental_hedge_usd") for r in rows)
         for key, rows in unconditional.items()
     }
     lines = [
