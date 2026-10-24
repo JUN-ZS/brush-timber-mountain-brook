@@ -1,0 +1,71 @@
+name: DTE14 Ratio Spread Single-Account NAV Replay V1
+on:
+  push:
+    branches:
+      - research/dte14-ratio-spreads-nav-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/run_dte14_ratio_spreads_nav_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_dte14_ratio_spreads_nav_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/DTE14_RATIO_SPREAD_NAV_CONTRACT.md
+      - .github/workflows/dte14-ratio-spreads-nav-v1.yml
+permissions:
+  contents: write
+concurrency:
+  group: dte14-ratio-spreads-nav-v1
+  cancel-in-progress: true
+jobs:
+  dte14-ratio-nav:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install pinned Parquet runtime
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-dte14-ratio-nav
+          .venv-dte14-ratio-nav/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and test collateral accounting
+        run: |
+          set -euo pipefail
+          PY=.venv-dte14-ratio-nav/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          "$PY" -m py_compile "$BASE/run_dte14_ratio_spreads_nav_v1.py" "$BASE/test_dte14_ratio_spreads_nav_v1.py"
+          "$PY" "$BASE/test_dte14_ratio_spreads_nav_v1.py"
+      - name: Run DTE14 ratio NAV replay
+        timeout-minutes: 270
+        run: |
+          set -euo pipefail
+          PY=.venv-dte14-ratio-nav/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          "$PY" "$BASE/run_dte14_ratio_spreads_nav_v1.py" --cache "$HOME/.cache/spy-options-dte14-ratio-nav-v1" | tee /tmp/dte14-ratio-nav.json
+          OUT="$BASE/results/dte14_ratio_spreads_nav_v1"
+          for f in account_phase_summary.csv account_summary_by_config.csv account_annual_returns.csv account_annual_median.csv account_nav_daily.csv trade_results.csv capital_gates.csv DTE14_RATIO_SPREAD_NAV_REPORT.md account_manifest.json; do test -s "$OUT/$f"; done
+          grep -q '"status": "COMPLETED"' "$OUT/account_manifest.json"
+          grep -q '"required_outputs_nonempty": true' "$OUT/account_manifest.json"
+          cat "$OUT/DTE14_RATIO_SPREAD_NAV_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/dte14-ratio-nav.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit replay outputs to isolated research branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte14_ratio_spreads_nav_v1
+          SNAPSHOT="$RUNNER_TEMP/dte14-ratio-nav-output"
+          rm -rf "$SNAPSHOT"; mkdir -p "$SNAPSHOT"; cp -a "$OUT/." "$SNAPSHOT/"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin research/dte14-ratio-spreads-nav-v1
+            git reset --hard origin/research/dte14-ratio-spreads-nav-v1
+            rm -rf "$OUT"; mkdir -p "$OUT"; cp -a "$SNAPSHOT/." "$OUT/"
+            git add "$OUT"
+            if git diff --cached --quiet; then echo "Outputs unchanged."; exit 0; fi
+            git commit -m "research: record DTE14 1:3 and 1:6 far-tail spread NAV replay"
+            if git push origin HEAD:research/dte14-ratio-spreads-nav-v1; then exit 0; fi
+            echo "Branch advanced; retrying output reconciliation for attempt $attempt."
+          done
+          echo "Could not push DTE14 ratio NAV outputs after five retries." >&2
+          exit 1
