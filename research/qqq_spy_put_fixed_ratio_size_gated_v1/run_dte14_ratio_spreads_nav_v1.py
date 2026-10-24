@@ -199,7 +199,7 @@ def simulate(phase: int, cfg: dict[str,Any], trades: list[dict[str,Any]], tails,
                     u=navlib.unit(p["slip"],p["comm"])
                     entry_cf=(-p["qask"]*M*p["lqty"]-u*p["lqty"]+
                               p["sbid"]*M*p["sqty"]-u*p["sqty"]-
-                              p["hask"]*M*p["tail_qty"]-u*p["tail_qty"])
+                              (p["hask"] or 0.0)*M*p["tail_qty"]-u*p["tail_qty"])
                     pnl=qpay-spay+tpay+entry_cf
                     counts["expiry_settlements_n"]+=1
                     counts["realized_pnl_usd"]+=pnl
