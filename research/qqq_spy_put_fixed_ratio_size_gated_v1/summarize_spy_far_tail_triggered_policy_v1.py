@@ -187,7 +187,7 @@ def summarize(trade_rows: list[dict[str, str]]) -> tuple[list[dict[str, Any]], l
             "common_3x_strategy_mean_usd": mean(p3),
             "common_1x_increment_mean_usd": mean([a-b for a,b in zip(p1,base)]),
             "common_3x_increment_mean_usd": mean([a-b for a,b in zip(p3,base)]),
-            "common_3x_extra_drag_per_trade_usd": mean([b-a for a,b in zip(p3,p1)]),
+            "common_3x_extra_drag_per_trade_usd": mean([a-b for a,b in zip(p3,p1)]),
             "common_no_hedge_worst_usd": worst(base),
             "common_1x_strategy_worst_usd": worst(p1),
             "common_3x_strategy_worst_usd": worst(p3),
