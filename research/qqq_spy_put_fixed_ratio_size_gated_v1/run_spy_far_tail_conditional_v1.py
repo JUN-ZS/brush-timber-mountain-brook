@@ -432,7 +432,7 @@ def build_report(results: Path, trigger_rows: list[dict[str, Any]], summaries: l
         if row["arm"] == "DTE45" and row["policy"] == "HOLD_20_OR_DTE_LE_7":
             unconditional[(row["tail_label"], int(float(row["tail_quantity"])))].append(row)
     uncond_metrics = {
-        key: median(num(r, "paired_mean_incremental_hedge_usd") for r in rows)
+        key: median(fnum(r, "paired_mean_incremental_hedge_usd") for r in rows)
         for key, rows in unconditional.items()
     }
     lines = [
@@ -523,13 +523,13 @@ def build_report(results: Path, trigger_rows: list[dict[str, Any]], summaries: l
                     continue
                 lines.append(
                     f"| {shock*100:.0f}% | {tail_name[tail]} | {qty} "
-                    f"| {money(median(num(r, 'mean_no_hedge_spy_sleeve_usd') for r in rr))} "
-                    f"| {money(median(num(r, 'mean_unconditional_spy_sleeve_usd') for r in rr))} "
-                    f"| {money(median(num(r, 'mean_conditional_spy_sleeve_usd') for r in rr))} "
-                    f"| {money(median(num(r, 'mean_conditional_increment_usd') for r in rr))} "
-                    f"| {money(median(num(r, 'worst_conditional_spy_sleeve_usd') for r in rr))} "
-                    f"| {percent(median(num(r, 'conditional_improvement_pct') for r in rr))} "
-                    f"| {int(median(num(r, 'conditional_hedge_entry_n') for r in rr) or 0)} |"
+                    f"| {money(median(fnum(r, 'mean_no_hedge_spy_sleeve_usd') for r in rr))} "
+                    f"| {money(median(fnum(r, 'mean_unconditional_spy_sleeve_usd') for r in rr))} "
+                    f"| {money(median(fnum(r, 'mean_conditional_spy_sleeve_usd') for r in rr))} "
+                    f"| {money(median(fnum(r, 'mean_conditional_increment_usd') for r in rr))} "
+                    f"| {money(median(fnum(r, 'worst_conditional_spy_sleeve_usd') for r in rr))} "
+                    f"| {percent(median(fnum(r, 'conditional_improvement_pct') for r in rr))} "
+                    f"| {int(median(fnum(r, 'conditional_hedge_entry_n') for r in rr) or 0)} |"
                 )
     lines += [
         "",
