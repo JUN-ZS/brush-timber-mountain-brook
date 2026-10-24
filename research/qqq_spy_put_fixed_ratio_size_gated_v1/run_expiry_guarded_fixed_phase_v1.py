@@ -14,7 +14,7 @@ POLICY_DEFINITIONS = (
     {"policy": "HOLD_20_OR_DTE_LE_7", "hold_sessions": 20, "dte_guard_days": 7},
 )
 TRIGGER_SOURCE = 'trigger=ep["age_sessions"]>=policy["hold_sessions"] if policy["hold_sessions"] is not None else dte<=7'
-REASON_SOURCE = 'ep["exit_reason"]=f"HOLD_{policy[\\'hold_sessions\\']}_SESSIONS" if policy["hold_sessions"] is not None else "DTE_LE_7"'
+REASON_SOURCE = "ep[\"exit_reason\"]=f\"HOLD_{policy['hold_sessions']}_SESSIONS\" if policy[\"hold_sessions\"] is not None else \"DTE_LE_7\""
 TRIGGER_PATCH = 'trigger = expiry_guard_exit_trigger(ep["age_sessions"], dte, policy["hold_sessions"], policy.get("dte_guard_days", 7)) if policy["hold_sessions"] is not None else dte <= 7'
 REASON_PATCH = 'ep["exit_reason"] = expiry_guard_exit_reason(ep["age_sessions"], dte, policy["hold_sessions"], policy.get("dte_guard_days", 7))'
 
