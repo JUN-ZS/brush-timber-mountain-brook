@@ -16,11 +16,11 @@
     "DTE45/phase_4/trade_episodes.csv": "038c28426f51e329600b2422cea04683729dea6f695aa78c827f7ecbe2d3400c"
   },
   "baseline_sha_valid": true,
-  "capital_gate_events": 18400,
+  "capital_gate_events": 15132,
   "cash_collateral_rule": "SPY short put strike x 100 x open contracts, no borrowing or cross-underlying margin offsets",
   "chain_end_date": "2025-12-12",
   "chain_first_date": "2018-03-02",
-  "code_sha256": "15571318dbcfe9eff32a4c1800a0662010df284d5df60a29054aeda9a5e06847",
+  "code_sha256": "dbe0e3323413b34a62be5cbff3afccd55e206ccc1b815193187ebd1ea139ef9a",
   "commission_per_contract_per_side_usd": 0.65,
   "daily_curve_rows": 47016,
   "hedge_quantities": [
@@ -32,13 +32,13 @@
   "holding_manifest_sha256": "d576c458bc71dbfe259abe93061730b89011b121438d80b4624746b87458b80c",
   "holding_trade_level_sha256": "ee0759c4de0ecbe12a692ae87d70d610d74aad1316804e900738eacb75c74cc6",
   "output_sha256": {
-    "SPY_FAR_TAIL_ACCOUNT_NAV_REPORT.md": "50829831243a81b7e04bdee83b7469aaa3cb60e7626b78f2ad55a127a3514b97",
-    "account_annual_median_by_phase.csv": "d07a21205bc92e570f353133e127a6a7d54872247dde246f2f64f368cf4f1a96",
-    "account_annual_returns.csv": "0b5d935f107679d2db1b05c94072b97b20d0b965249f16f7a92db18c410a8013",
-    "account_nav_selected.csv": "a83908e2ff9f42ab3f44a9eeb5db0a6c6c86ed6a3b0a35690d9e60ef186fd7a7",
-    "account_phase_summary.csv": "64d86d040e0238b449b4d206e8d75fbcbf890260f9f31bc2bad8834964b68fd1",
-    "account_summary_by_capital.csv": "0f586c063cbb8e9fd8956257d1592d6464969d7540d36f290bcf595735625a7e",
-    "capital_gates.csv": "1fa22e9515eae30cf76832ab62a5ba078a886c1bbd1b8dfec560915a2f08a61e"
+    "SPY_FAR_TAIL_ACCOUNT_NAV_REPORT.md": "90c69edf304864556298aa44e1a0784077294808411e56912611b5902a5b8607",
+    "account_annual_median_by_phase.csv": "3e6fb253eeaf1ecda10fae721ae9c2f51b55daafad6d57589819a46d5bd26575",
+    "account_annual_returns.csv": "962deaad45ce3d5e676807bc264febcca6a0aff1aa6429d612483bf68dc58417",
+    "account_nav_selected.csv": "2523c5e534186540b7220d3778e2d0357736e0c2010de44483a120cfae2f78ec",
+    "account_phase_summary.csv": "6c3b46b9609bfadad8564691427812de62111a9214bfc58fc8cc8fbaffcb19f4",
+    "account_summary_by_capital.csv": "2aa70279f5f51b2aa14fe490dd822762dd16967757aba6f0e731cecdbf14da06",
+    "capital_gates.csv": "ffeafe8312c35da7fad2bd13671654c62b93fceb2944cd349a48abb23b271e55"
   },
   "overlay_manifest_sha256": "bd2a08b2d0f2e026c50c3a29c5c755f7860babaa24abb356a45e5204219a36f7",
   "overlay_rows": 7814,
@@ -213,7 +213,8 @@
     "No forward-fill of exact-contract marks.",
     "Observed MaxDD may understate risk across missing-quote gaps.",
     "Cash-secured collateral is not a specific broker margin model.",
-    "No borrowing, funding, interest, assignment, early exercise, liquidation, tax or dividend model.",
+    "Unresolved contracts at expiry are priced at intrinsic using underlying close as an exercise plus immediate stock-liquidation proxy; physical assignment, early exercise and post-assignment share exposure are not modeled.",
+    "No margin borrowing, funding, interest, tax, dividend, forced liquidation or timestamp-verified fills.",
     "Option-chain data ends on 2025-12-12.",
     "Five phases are independent schedule runs, never summed.",
     "Fixed contract quantity: account NAV compounds but lot count is not dynamically scaled."
