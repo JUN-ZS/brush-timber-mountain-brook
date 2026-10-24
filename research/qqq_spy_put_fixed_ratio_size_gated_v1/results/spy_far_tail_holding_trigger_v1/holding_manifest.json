@@ -6,8 +6,24 @@
   "conditional_overlay_source_commit": "d1dc9f6b2ecf2fd9ddb1f748fb886ed45deacfcb",
   "option_chain_source": "anahatsingh-ui/options-dataset-hist",
   "option_chain_source_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
-  "chain_first_date": "2018-01-02",
-  "chain_last_date": "2025-12-15",
+  "chain_first_date": "2018-03-02",
+  "chain_last_date": "2025-12-12",
+  "option_chain_coverage_by_symbol": {
+    "QQQ": {
+      "first": "2018-03-02",
+      "last": "2025-12-12",
+      "snapshot_dates": 1954
+    },
+    "SPY": {
+      "first": "2018-03-02",
+      "last": "2025-12-12",
+      "snapshot_dates": 1956
+    }
+  },
+  "underlying_price_window": {
+    "first": "2018-01-02",
+    "last": "2025-12-15"
+  },
   "selected_baseline_trade_rows": 3907,
   "unique_base_position_cohorts": 3907,
   "trigger_event_rows": 15628,
@@ -162,15 +178,18 @@
     "qqq": {
       "chain_dates": 1954,
       "put_rows": 6061484,
+      "first_chain_date": "2018-03-02",
       "last_chain_date": "2025-12-12"
     },
     "spy": {
       "chain_dates": 1956,
       "put_rows": 8332822,
+      "first_chain_date": "2018-03-02",
       "last_chain_date": "2025-12-12"
     },
-    "merged_dates": 1956,
-    "entry_day_missing_from_option_stream_n": 0
+    "merged_dates": 1959,
+    "entry_day_missing_from_option_stream_n": 0,
+    "underlying_only_observation_days": 3
   },
   "primary_holdout": {
     "split_key": "entry_date",
@@ -233,7 +252,7 @@
     "exit_quote": "exact same tail contract on original base exit date only; no forward-fill",
     "missing_quote": "no trigger or entry failure keeps base outcome; entered hedge without valid exit quote leaves conditional realized outcome missing"
   },
-  "analysis_script_sha256": "dc42ce8f994dae7a60a522115c566a47dfd44c902816bdbe37ef3a725984773d",
+  "analysis_script_sha256": "3f6118d2ed81c908698642113d7b57f695b481967aa6401caa91af875c71c712",
   "warnings": [
     "EOD quotes and displayed sizes are not verified fills.",
     "Five phase schedules overlap and are not independent samples.",

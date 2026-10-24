@@ -90,7 +90,7 @@ Full annual-by-entry-year results are in holding_annual_by_entry_year.csv. Entry
 ## 6. Completeness and limitations
 
 - Replay status: **COMPLETED**; selected baseline trades: 3907; trigger rows: 15628; trade/configuration rows: 93768.
-- Source chain window: 2018-01-02 to 2025-12-15; option-chain source: anahatsingh-ui/options-dataset-hist at pin 37f6c456fe1a4775c875673fb8ef907d5cd2fd66.
+- Source chain window: 2018-03-02 to 2025-12-12; option-chain source: anahatsingh-ui/options-dataset-hist at pin 37f6c456fe1a4775c875673fb8ef907d5cd2fd66.
 - Source files downloaded and hash/byte verified: 18; baseline ledger hashes matched the original overlay manifest: True.
 - EOD quote-side replay is not confirmed fills. Displayed size is not guaranteed liquidity. Costs are modeled, not broker statements.
 - Unresolved base positions remain mark-only; their outcomes are not counted as realized P&L.
