@@ -17,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: spy-far-tail-conditional-v1
+  group: spy-far-tail-conditional-v2
   cancel-in-progress: false
 
 jobs:
@@ -68,18 +68,24 @@ jobs:
           rm -rf "$SNAPSHOT"
           mkdir -p "$SNAPSHOT"
           cp -a "$OUT/." "$SNAPSHOT/"
-          # Generated results may already have been added by an earlier run of this
-          # workflow. Reset onto the latest branch before restoring this run's outputs;
-          # don't rebase two add/add snapshots of the same result files.
-          git fetch origin research/spy-far-tail-conditional-v1
-          git reset --hard origin/research/spy-far-tail-conditional-v1
-          rm -rf "$OUT"
-          mkdir -p "$OUT"
-          cp -a "$SNAPSHOT/." "$OUT/"
-          git add "$OUT"
-          if git diff --cached --quiet; then
-            echo "Holding-period V2 trigger outputs unchanged."
-            exit 0
-          fi
-          git commit -m "research: record causal next-session SPY tail trigger replay V2"
-          git push origin HEAD:research/spy-far-tail-conditional-v1
+          # Reconcile generated output against the current branch and retry a concurrent push.
+          # The snapshot holds this run's complete outputs outside the resettable worktree.
+          for attempt in 1 2 3 4 5; do
+            git fetch origin research/spy-far-tail-conditional-v1
+            git reset --hard origin/research/spy-far-tail-conditional-v1
+            rm -rf "$OUT"
+            mkdir -p "$OUT"
+            cp -a "$SNAPSHOT/." "$OUT/"
+            git add "$OUT"
+            if git diff --cached --quiet; then
+              echo "Holding-period V2 trigger outputs unchanged."
+              exit 0
+            fi
+            git commit -m "research: record causal next-session SPY tail trigger replay V2"
+            if git push origin HEAD:research/spy-far-tail-conditional-v1; then
+              exit 0
+            fi
+            echo "Concurrent branch update on attempt $attempt; retrying output reconciliation."
+          done
+          echo "Could not push V2 result outputs after five branch reconciliations." >&2
+          exit 1
