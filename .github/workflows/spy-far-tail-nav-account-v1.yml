@@ -39,9 +39,9 @@ jobs:
         run: |
           set -euo pipefail
           BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
-          PY=.venv-spy-nav/bin/python
+          PY="$PWD/.venv-spy-nav/bin/python"
           "$PY" -m py_compile "$BASE/run_spy_far_tail_nav_account_v1.py" "$BASE/test_spy_far_tail_nav_account_v1.py"
-          (cd "$BASE" && "$PWD/../../.venv-spy-nav/bin/python" test_spy_far_tail_nav_account_v1.py)
+          (cd "$BASE" && "$PY" test_spy_far_tail_nav_account_v1.py)
       - name: Run source-pinned single-account NAV replay
         timeout-minutes: 270
         run: |
@@ -59,7 +59,7 @@ jobs:
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+JUN-ZS@users.noreply.github.com"
           OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_nav_account_v1
           git add "$OUT"
           if git diff --cached --quiet; then
