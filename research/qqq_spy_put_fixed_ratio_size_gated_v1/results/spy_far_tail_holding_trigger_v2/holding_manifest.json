@@ -254,7 +254,7 @@
     "missing_quote": "no trigger, no candidate, or failed next-session entry keeps base outcome; entered hedge without valid original-exit quote leaves conditional realized outcome missing",
     "worst_trade_metric": "worst_trade_improvement_usd is paired P&L change on the exact baseline worst-loss trade; difference_between_worst_observed_pnls_usd compares minima that may belong to different trades"
   },
-  "analysis_script_sha256": "e3794d1a8cbbeefcf7492281f4ff11262d1d8a322768f00ed9a3f7c086e17098",
+  "analysis_script_sha256": "b10a23bf92b37bf8bfc36d7755f29f1d1cabb6aa5fd4705e73bc465423bd5a77",
   "warnings": [
     "EOD quotes and displayed sizes are not verified fills.",
     "Five phase schedules overlap and are not independent samples.",
