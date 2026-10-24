@@ -11,6 +11,7 @@ from run_spy_far_tail_holding_trigger_v1 import (
     package_mark_pnl_from_rows,
     iter_merged_symbol_days,
     base_engine,
+    next_session_entry_observation,
 )
 
 
@@ -143,6 +144,60 @@ class HoldingTriggerTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "qqq_entry_ask"):
             package_mark_pnl_from_rows(trade, {"bid": 1.50}, {"ask": 1.00})
+
+
+    def test_entry_must_use_next_session_not_the_trigger_day(self):
+        candidate = {"contract_id": "SPY240621P00380000", "selection_expiry": "2024-06-21"}
+        quote = {
+            "contract_id": "SPY240621P00380000", "symbol": "SPY",
+            "expiration": "2024-06-21", "strike": 380.0, "type": "put",
+            "bid": 0.12, "ask": 0.18, "bid_size": 2, "ask_size": 3,
+            "date": "2024-06-03", "delta": -0.05,
+        }
+        out = next_session_entry_observation(
+            candidate, quote, "2024-06-03", "2024-06-04", "2024-06-14", 400.0
+        )
+        self.assertFalse(out["tail_entry_quote_valid"])
+        self.assertEqual(out["tail_entry_status"], "NEXT_SESSION_DATE_MISMATCH")
+        self.assertIsNone(out["tail_entry_ask"])
+
+    def test_next_session_entry_uses_exact_contract_current_ask_and_depth(self):
+        candidate = {"contract_id": "SPY240621P00380000", "selection_expiry": "2024-06-21"}
+        quote = {
+            "contract_id": "SPY240621P00380000", "symbol": "SPY",
+            "expiration": "2024-06-21", "strike": 380.0, "type": "put",
+            "bid": 0.25, "ask": 0.41, "bid_size": 4, "ask_size": 2,
+            "date": "2024-06-04", "delta": -0.09,
+        }
+        out = next_session_entry_observation(
+            candidate, quote, "2024-06-04", "2024-06-04", "2024-06-14", 390.0
+        )
+        self.assertTrue(out["tail_entry_quote_valid"])
+        self.assertEqual(out["tail_entry_status"], "NEXT_SESSION_EXACT_CONTRACT_QUOTE_VALID")
+        self.assertEqual(out["tail_entry_date"], "2024-06-04")
+        self.assertAlmostEqual(out["tail_entry_ask"], 0.41)
+        self.assertEqual(out["tail_entry_ask_size"], 2)
+        self.assertAlmostEqual(out["tail_entry_abs_delta"], 0.09)
+        self.assertGreaterEqual(out["tail_entry_ask_size"], 1)
+        self.assertLess(out["tail_entry_ask_size"], 3)
+
+    def test_missing_next_session_quote_does_not_fall_back_to_trigger_day(self):
+        candidate = {"contract_id": "SPY240621P00380000", "selection_expiry": "2024-06-21"}
+        out = next_session_entry_observation(
+            candidate, None, "2024-06-04", "2024-06-04", "2024-06-14", 390.0
+        )
+        self.assertFalse(out["tail_entry_quote_valid"])
+        self.assertEqual(out["tail_entry_status"], "NEXT_SESSION_EXACT_CONTRACT_QUOTE_MISSING_OR_INVALID")
+        self.assertIsNone(out["tail_entry_ask"])
+
+    def test_no_hedge_entry_is_allowed_on_or_after_original_exit(self):
+        candidate = {"contract_id": "SPY240621P00380000", "selection_expiry": "2024-06-21"}
+        out = next_session_entry_observation(
+            candidate, None, "2024-06-14", "2024-06-14", "2024-06-14", 390.0
+        )
+        self.assertFalse(out["tail_entry_quote_valid"])
+        self.assertEqual(out["tail_entry_status"], "NO_NEXT_SESSION_BEFORE_BASE_EXIT")
+        self.assertIsNone(out["tail_entry_date"])
 
 
 if __name__ == "__main__":

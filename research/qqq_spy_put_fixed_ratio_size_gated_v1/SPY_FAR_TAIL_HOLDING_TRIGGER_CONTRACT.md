@@ -1,39 +1,46 @@
-# SPY Far-Tail In-Holding Risk-Trigger Hedge — Research Contract V1
+# SPY Far-Tail In-Holding Risk-Trigger Hedge — Research Contract V2
 
-## Objective
-Test whether buying a same-expiry far-OTM SPY PUT after risk worsens during an existing QQQ LONG PUT 1 : SPY SHORT PUT 3 position can improve realized tail outcomes while avoiding unconditional insurance carry. No hedge remains the control; 1x and 3x hedge quantities are paired overlays.
+## Purpose and versioning
+This version corrects the execution-time flaw in V1: a trigger computed from a daily EOD snapshot cannot be assumed filled at that same day's EOD Ask. V1 artifacts remain in the separate `spy_far_tail_holding_trigger_v1` folder as exploratory diagnostics and must not be treated as executable performance. V2 uses a next-session exact-contract quote for the hedge entry.
 
 ## Frozen baseline
-- Read only source-pinned trade_episodes.csv phase ledgers and the previously completed far-tail replay manifest.
-- Primary exit policy: HOLD_20_OR_DTE_LE_7 across the existing DTE14/DTE45 arms and five overlapping fixed phases.
-- Before replay, all ten DTE14/DTE45 phase-ledger SHA-256 values must equal the prior overlay manifest's input_ledger_sha256. Missing, extra, or changed hashes fail closed.
-- The base trade entry, selected contracts, quantity, scheduled exit and realized P&L cannot be modified.
+- QQQ LONG PUT 1 : SPY SHORT PUT 3; primary exit policy `HOLD_20_OR_DTE_LE_7`.
+- Existing DTE14/DTE45 arms and five fixed phase schedules remain unchanged.
+- Original base entries, selected contracts, quantities, exits, and P&L are read-only.
+- Before replay, all base-ledger SHA-256 values must exactly match the prior unconditional overlay manifest. Changed, missing or extra hashes fail closed.
 
 ## Predeclared holding-period triggers
-Each rule fires at most once per base position, on its first qualifying observation strictly after the base entry date and strictly before its original exit date.
+Each rule fires once at its first qualifying observation strictly after base entry and strictly before the original base exit:
+1. **Exact short PUT Delta:** absolute Delta of the selected exact SPY short PUT is >= 0.35 on the current day.
+2. **SPY underlying drawdown:** current SPY close is >= 5.0% below the actual SPY entry spot.
+3. **Package mark-to-close loss:** executable package P&L using the current exact QQQ long-put bid and SPY short-put ask is <= -50% of the initial gross SPY short-put credit.
+4. **OR composite:** first observed day any of the above fires; component reasons are retained.
 
-1. **Exact short-put Delta:** absolute Delta of the selected, exact SPY short PUT is at least 0.35 on the current day's quote snapshot.
-2. **Underlying drawdown:** SPY current daily close is at least 5.0% below that position's actual entry SPY spot.
-3. **Package mark-to-close loss:** exact selected QQQ long PUT bid and SPY short PUT ask produce a full-package net mark-to-close P&L at or below -50% of the initial gross SPY short-put credit. Both current quotes and displayed sizes must pass the base close-side gates.
-4. **Composite OR:** first observed date any of the above rules fires; record each component that fired on that date.
+No parameter sweep or outcome-based threshold selection is performed. Missing prices, Delta or quotes are not forward-filled. Package MTM is unavailable unless both current exact-contract quotes and close-side displayed-size gates pass.
 
-Thresholds are frozen before this replay. There is no parameter sweep, outcome-based rule selection, intraday interpolation or retroactive trigger. The same day's EOD quotes only define the modeled trigger and ask-side hedge entry; they are not verified fills.
+## Causal hedge-entry timing (V2 correction)
+- Day T uses only data observed on day T to evaluate the trigger and select a candidate same-expiry far-tail SPY PUT.
+- The candidate is **not** assumed purchased on day T. The only entry attempt is on the next SPY underlying trading session, using that session's quote for the exact contract selected on day T.
+- No same-day substitution, fallback to day-T quote, forward-fill, or retry on a later session. If the scheduled next-session quote is missing/invalid, the hedge is not entered. If the Ask depth is below 1 or 3 contracts, that quantity is unavailable.
+- If a gap changes the candidate's Delta or moneyness before next-session entry, record the actual next-session Delta/spot; do not retroactively reselect the contract based on future outcomes.
+- An entered hedge is held to the original base trade's exact exit date and marked/closed at that same contract's Bid and displayed size. An invalid or undersized exit leaves the conditional realized result missing.
 
-## Hedge contract selection and accounting
-- On the first trigger day, select the nearest eligible same-expiry, strictly OTM SPY PUT around the existing 2.5-delta, 5-delta and 10-delta targets using the prior overlay's selection and displayed-size rules.
-- Test 1 and 3 contracts. Buy at the trigger-date ask, hold the exact same contract, and mark/close it only from the original base trade's exact exit-date bid. Cost: USD 0.05 per option-share per side plus USD 0.65 per contract per side.
-- If not triggered, no hedge is purchased. If a trigger occurs but no eligible entry exists or the displayed ask size is insufficient for the quantity, no purchase is assumed and baseline realized P&L remains.
-- If an eligible hedge was entered but the exact same-contract exit quote is missing or bid size is insufficient, its conditional realized outcome stays missing. Never replace it with zero, baseline P&L or an unrelated-date mark.
-- Unresolved base positions remain mark-only; their P&L is never counted as realized.
+This is deliberately conservative and reproducible with daily source data. The next-session daily Ask is still only an execution-timing proxy, not a timestamped verified fill.
 
-## Time split and denominator
-- Training/descriptive: entries in 2018-2022.
-- Locked chronological holdout: entries in 2023-2025. Freeze thresholds before inspecting this replay and do not tune using holdout outcomes.
-- The repository previously examined overlapping historical years for other strategy research. Therefore this is a rule-family holdout, not a globally virgin dataset. The pinned chain ends in 2025; genuinely untouched forward validation needs later source-pinned option-chain data.
-- Report trigger rate, feature data coverage, entry/exit coverage, outcome coverage, modeled debit, paired mean P&L increment, worst matched-trade improvement, losses improved/turned positive and entry-year outcomes. Compare conditional outcomes with no-hedge P&L on exactly the same known-outcome rows.
-- Five phases overlap; across-phase medians/ranges are not independent samples or confidence intervals.
+## Hedge comparison and accounting
+- Candidate targets: existing ~2.5-, 5- and 10-absolute-Delta SPY PUTs, 1x and 3x.
+- Modeled cost: USD 0.05 per option-share per side plus USD 0.65 per contract per side.
+- No trigger or failed next-session entry leaves the base realized outcome unchanged. Entered hedge with missing/undersized original-exit quote leaves the conditional outcome unknown, never zero or base P&L.
+- Compare conditional versus no-hedge only on exactly the same rows whose conditional realized outcome is known. Report trigger rate, feature coverage, next-session entry coverage, exit coverage, unknown outcomes, total entry debit, average paired P&L change, loss-improved / turned-positive counts, and annual entry-year behavior.
+- `worst_trade_improvement_usd` means the P&L change on the **exact original worst-loss trade** within the matched known-outcome sample.
+- `difference_between_worst_observed_pnls_usd` is the difference between the minimum conditional P&L and minimum baseline P&L; those minima can belong to different trades, so this is not a paired improvement.
+- Include identifiers for both minimum-outcome trades within each phase so results can be traced.
+- Do not select a winner solely from the 2023–2025 holdout table. All rules/configurations form a predeclared comparison family; later forward validation is required for strategy selection.
 
-## Data integrity and limits
-- Download all yearly QQQ/SPY option chains and underlying-close files from the pinned source engine; verify each source file's byte count and Git blob SHA-1 against the engine's frozen pins.
-- Do not forward-fill missing daily quotes, Delta or underlying prices. No lookahead, live broker connection, order placement, main-branch merge, NAV/margin model, forced liquidation, early exercise/assignment or financing model.
-- EOD displayed sizes are a screening gate, not proof of a fill. Results are estimates, not confirmed executed performance.
+## Chronological split and known limits
+- Descriptive/development entries: 2018–2022.
+- Locked rule-family holdout entries: 2023–2025.
+- This is not globally virgin: the repository previously analyzed overlapping historical years for other strategy research. A globally untouched forward holdout needs newer source-pinned option-chain history beyond 2025.
+- The five phase schedules overlap and are not independent samples or confidence intervals.
+- Source files are byte-count/Git-blob-SHA verified against the frozen source-engine pins. EOD quote/depth is not proof of fills.
+- No broker connection, orders, main-branch merge, NAV/margin, financing, early assignment, forced liquidation, or cross-position capital model is included.

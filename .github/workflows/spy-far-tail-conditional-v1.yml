@@ -45,7 +45,7 @@ jobs:
           "$PY" -m py_compile "$BASE/run_spy_far_tail_holding_trigger_v1.py" "$BASE/test_spy_far_tail_holding_trigger_v1.py"
           "$PY" "$BASE/test_spy_far_tail_conditional_v1.py"
           "$PY" "$BASE/test_spy_far_tail_holding_trigger_v1.py"
-      - name: Run holding-period source-pinned trigger replay
+      - name: Run holding-period source-pinned trigger replay V2
         timeout-minutes: 270
         run: |
           set -euo pipefail
@@ -63,7 +63,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          OUT="research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_holding_trigger_v1"
+          OUT="research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_holding_trigger_v2"
           SNAPSHOT="$RUNNER_TEMP/spy_far_tail_holding_trigger_v1"
           rm -rf "$SNAPSHOT"
           mkdir -p "$SNAPSHOT"
@@ -78,8 +78,8 @@ jobs:
           cp -a "$SNAPSHOT/." "$OUT/"
           git add "$OUT"
           if git diff --cached --quiet; then
-            echo "Holding-period trigger outputs unchanged."
+            echo "Holding-period V2 trigger outputs unchanged."
             exit 0
           fi
-          git commit -m "research: record in-holding SPY tail trigger replay"
+          git commit -m "research: record causal next-session SPY tail trigger replay V2"
           git push origin HEAD:research/spy-far-tail-conditional-v1

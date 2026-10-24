@@ -39,7 +39,7 @@ HOLDOUT_END_YEAR = 2025
 EXPECTED_START_YEAR = 2018
 EXPECTED_END_YEAR = 2025
 MULTIPLIER = 100
-OUT_DIR = ROOT / "results" / "spy_far_tail_holding_trigger_v1"
+OUT_DIR = ROOT / "results" / "spy_far_tail_holding_trigger_v2"
 
 
 def fnum(value: Any) -> float | None:
@@ -192,6 +192,55 @@ def package_mark_pnl_from_rows(trade: dict[str, Any], qrow: dict[str, Any], srow
     return base_engine.mark_pnl(episode, qrow, srow)
 
 
+def next_session_entry_observation(
+    candidate: dict[str, Any] | None,
+    quote: dict[str, Any] | None,
+    observed_day: str,
+    expected_day: str | None,
+    base_exit_day: str,
+    current_spot: float | None,
+) -> dict[str, Any]:
+    """Validate an exact-contract quote observed on the predeclared next trading session."""
+    out = {
+        "tail_entry_date": expected_day,
+        "tail_entry_quote_valid": False,
+        "tail_entry_ask": None,
+        "tail_entry_ask_size": 0,
+        "tail_entry_abs_delta": None,
+        "tail_entry_spot": current_spot,
+        "tail_entry_status": None,
+    }
+    if not expected_day or expected_day >= base_exit_day:
+        out.update({"tail_entry_date": None, "tail_entry_status": "NO_NEXT_SESSION_BEFORE_BASE_EXIT"})
+        return out
+    if observed_day != expected_day:
+        out["tail_entry_status"] = "NEXT_SESSION_DATE_MISMATCH"
+        return out
+    if not candidate:
+        out["tail_entry_status"] = "NO_ELIGIBLE_TRIGGER_DATE_CANDIDATE"
+        return out
+    exact_id = str(candidate.get("contract_id") or "")
+    valid_identity = (
+        isinstance(quote, dict)
+        and base_engine.normalized_contract_id(quote) == exact_id
+        and base_engine.standard_put_identity(quote, "SPY")
+        and base_engine.as_day(quote.get("date")) == observed_day
+        and base_engine.as_day(quote.get("expiration")) == base_engine.as_day(candidate.get("selection_expiry"))
+    )
+    if not valid_identity or not base_engine.valid_quote(quote):
+        out["tail_entry_status"] = "NEXT_SESSION_EXACT_CONTRACT_QUOTE_MISSING_OR_INVALID"
+        return out
+    delta = fnum(quote.get("delta"))
+    out.update({
+        "tail_entry_quote_valid": True,
+        "tail_entry_ask": float(quote["ask"]),
+        "tail_entry_ask_size": base_engine.displayed_size(quote, "ask"),
+        "tail_entry_abs_delta": abs(delta) if delta is not None else None,
+        "tail_entry_status": "NEXT_SESSION_EXACT_CONTRACT_QUOTE_VALID",
+    })
+    return out
+
+
 def next_or_none(iterator):
     try:
         return next(iterator)
@@ -254,6 +303,7 @@ def initialize_event(trade: dict[str, Any], rule: str) -> dict[str, Any]:
         "sample_period": sample_period(str(trade.get("entry_date"))),
         "trigger_rule": rule, "trigger_rule_label": RULE_LABELS[rule],
         "triggered": False, "trigger_date": None, "trigger_reason": "NO_TRIGGER",
+        "expected_hedge_entry_date": None, "hedge_entry_schedule_status": "NOT_TRIGGERED",
         "holding_observation_days": 0, "feature_observation_days": 0,
         "delta_observation_days": 0, "drawdown_observation_days": 0, "mtm_observation_days": 0,
         "feature_coverage_pct": None,
@@ -318,6 +368,7 @@ def build_events_and_observations(trades: list[dict[str, Any]], cache: Path):
 
     events: dict[tuple[str, str], dict[str, Any]] = {}
     picks: dict[tuple[str, str, str], dict[str, Any] | None] = {}
+    entry_observations: dict[tuple[str, str, str], dict[str, Any]] = {}
     exit_observations: dict[tuple[str, str, str], dict[str, Any]] = {}
     for trade in trades:
         for rule in RULES:
@@ -330,6 +381,7 @@ def build_events_and_observations(trades: list[dict[str, Any]], cache: Path):
     entry_cursor = 0
     active: list[dict[str, Any]] = []
     exit_requests: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
+    pending_entries: dict[str, list[tuple[str, str, str, str, str]]] = defaultdict(list)
     stream_stats = {
         "qqq": {"chain_dates": 0, "put_rows": 0, "first_chain_date": None, "last_chain_date": None},
         "spy": {"chain_dates": 0, "put_rows": 0, "first_chain_date": None, "last_chain_date": None},
@@ -341,6 +393,10 @@ def build_events_and_observations(trades: list[dict[str, Any]], cache: Path):
     underlying_observation_days = sorted(
         day for day in spot_maps["SPY"].keys() if start_day <= day <= end_day
     )
+    next_session_by_day = {
+        day: underlying_observation_days[i + 1]
+        for i, day in enumerate(underlying_observation_days[:-1])
+    }
 
     for day, qqq_rows, spy_rows in iter_merged_symbol_days(
         symbol_paths["QQQ"], symbol_paths["SPY"], start_day, end_day,
@@ -354,6 +410,25 @@ def build_events_and_observations(trades: list[dict[str, Any]], cache: Path):
         observed_entry_dates.update([day] if qqq_rows or spy_rows else [])
         q_by_id = base_engine.rows_by_id(qqq_rows)
         s_by_id = base_engine.rows_by_id(spy_rows)
+        spot_spy = fnum(spot_maps["SPY"].get(day))
+
+        # Trigger features are observed on day T; hedge entry is attempted only on
+        # the next SPY underlying session using that session's exact-contract quote.
+        # No same-day EOD fill assumption, fallback quote, forward-fill, or later retry.
+        for trade_key, rule, tail_label, expected_entry_day, base_exit_day in pending_entries.pop(day, []):
+            key = (trade_key, rule, tail_label)
+            candidate = picks.get(key)
+            quote = s_by_id.get(str(candidate.get("contract_id"))) if candidate else None
+            entry_observation = next_session_entry_observation(
+                candidate, quote, day, expected_entry_day, base_exit_day, spot_spy
+            )
+            entry_observations[key] = entry_observation
+            if (
+                entry_observation.get("tail_entry_quote_valid")
+                and int(entry_observation.get("tail_entry_ask_size") or 0) >= 1
+                and base_exit_day > day
+            ):
+                exit_requests[base_exit_day].append((trade_key, rule, tail_label))
 
         # Exact-date exit observations only: never carry a prior quote forward.
         for trade_key, rule, tail_label in exit_requests.pop(day, []):
@@ -452,24 +527,44 @@ def build_events_and_observations(trades: list[dict[str, Any]], cache: Path):
                 )
 
                 selected_ids = {}
+                scheduled_entry_day = next_session_by_day.get(day)
+                can_enter_before_exit = bool(
+                    scheduled_entry_day and scheduled_entry_day < str(trade["_end_date"])
+                )
+                event["expected_hedge_entry_date"] = scheduled_entry_day if can_enter_before_exit else None
+                event["hedge_entry_schedule_status"] = (
+                    "SCHEDULED_NEXT_SESSION_ATTEMPT"
+                    if can_enter_before_exit else "NO_NEXT_SESSION_BEFORE_BASE_EXIT"
+                )
                 for tail in hedge_engine.TAILS:
                     label = str(tail["label"])
+                    key = (trade_key, rule, label)
                     pick = None
                     if spot_spy is not None:
                         pick = hedge_engine.select_far_tail(
                             spy_rows, day, str(trade.get("expiry")), spot_spy,
                             float(tail["target_delta"]), float(tail["delta_min"]), float(tail["delta_max"])
                         )
-                    picks[(trade_key, rule, label)] = pick
+                    if pick is not None:
+                        pick = dict(pick)
+                        pick["selection_date"] = day
+                    picks[key] = pick
                     selected_ids[label] = ({
                         "contract_id": pick.get("contract_id"),
                         "strike": pick.get("strike"),
-                        "abs_delta": pick.get("abs_delta"),
-                        "entry_ask": pick.get("entry_ask"),
-                        "ask_size": pick.get("ask_size"),
+                        "abs_delta_at_selection": pick.get("abs_delta"),
+                        "selection_date": day,
+                        "selection_ask_diagnostic_only": pick.get("entry_ask"),
+                        "selection_ask_size_diagnostic_only": pick.get("ask_size"),
                     } if pick else None)
-                    if pick and hedge_engine.entry_size_ok(pick, 1):
-                        exit_requests[str(trade["_end_date"])].append((trade_key, rule, label))
+                    if can_enter_before_exit:
+                        pending_entries[scheduled_entry_day].append(
+                            (trade_key, rule, label, scheduled_entry_day, str(trade["_end_date"]))
+                        )
+                    else:
+                        entry_observations[key] = next_session_entry_observation(
+                            pick, None, day, None, str(trade["_end_date"]), spot_spy
+                        )
                 event["selected_tail_contracts_json"] = json.dumps(selected_ids, sort_keys=True)
 
         # Entry-day quotes cannot trigger a position that was just opened at that day's close.
@@ -487,13 +582,14 @@ def build_events_and_observations(trades: list[dict[str, Any]], cache: Path):
         event["feature_coverage_pct"] = round(100.0 * available / n, 4) if n else None
         if not event["triggered"]:
             event["trigger_reason"] = "NO_TRIGGER_WITHIN_OBSERVED_HOLD"
-    return events, picks, exit_observations, source_pins, stream_stats, spot_maps
+    return events, picks, entry_observations, exit_observations, source_pins, stream_stats, spot_maps
 
 
 def build_trade_rows(
     trades: list[dict[str, Any]],
     events: dict[tuple[str, str], dict[str, Any]],
     picks: dict[tuple[str, str, str], dict[str, Any] | None],
+    entry_observations: dict[tuple[str, str, str], dict[str, Any]],
     exit_observations: dict[tuple[str, str, str], dict[str, Any]],
     slippage_per_share: float,
     commission_per_contract: float,
@@ -506,11 +602,16 @@ def build_trade_rows(
             event = events[(trade["trade_key"], rule)]
             for tail in hedge_engine.TAILS:
                 label = str(tail["label"])
-                pick = picks.get((trade["trade_key"], rule, label))
-                entry_ask = fnum(pick.get("entry_ask")) if pick else None
+                key = (trade["trade_key"], rule, label)
+                pick = picks.get(key)
+                entry_obs = entry_observations.get(key, {})
+                entry_ask = fnum(entry_obs.get("tail_entry_ask"))
+                entry_ask_size = int(fnum(entry_obs.get("tail_entry_ask_size")) or 0)
+                entry_quote_valid = bool(entry_obs.get("tail_entry_quote_valid"))
                 for qty in hedge_engine.TAIL_QUANTITIES:
-                    entry_ok = bool(event["triggered"] and hedge_engine.entry_size_ok(pick, int(qty)))
-                    exit_obs = exit_observations.get((trade["trade_key"], rule, label), {})
+                    entry_ok = bool(event["triggered"] and entry_quote_valid and entry_ask is not None
+                                     and entry_ask_size >= int(qty))
+                    exit_obs = exit_observations.get(key, {})
                     exit_bid = fnum(exit_obs.get("tail_exit_bid"))
                     exit_quote_valid = bool(exit_obs.get("tail_exit_quote_valid"))
                     exit_ok = bool(
@@ -549,9 +650,14 @@ def build_trade_rows(
                         "tail_quantity": int(qty),
                         "tail_contract_id": pick.get("contract_id") if pick else None,
                         "tail_strike": fnum(pick.get("strike")) if pick else None,
-                        "tail_abs_delta_at_entry": fnum(pick.get("abs_delta")) if pick else None,
+                        "tail_selection_date": pick.get("selection_date") if pick else None,
+                        "tail_abs_delta_at_selection": fnum(pick.get("abs_delta")) if pick else None,
+                        "tail_entry_date": entry_obs.get("tail_entry_date"),
+                        "tail_entry_status": entry_obs.get("tail_entry_status"),
+                        "tail_entry_quote_valid": entry_quote_valid,
+                        "tail_abs_delta_at_entry": fnum(entry_obs.get("tail_entry_abs_delta")),
                         "tail_entry_ask": entry_ask,
-                        "tail_entry_ask_size": int(fnum(pick.get("ask_size")) or 0) if pick else 0,
+                        "tail_entry_ask_size": entry_ask_size,
                         "tail_entry_executable": entry_ok,
                         "tail_exit_date": exit_obs.get("tail_exit_date"),
                         "tail_exit_quote_valid": exit_quote_valid,
@@ -606,8 +712,20 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     opened_n = len(rows)
     resolved_n = len(base_resolved)
     data_coverages = [fnum(r.get("trigger_data_coverage_pct")) for r in rows]
-    worst_base = min(base_matched) if base_matched else None
-    worst_cond = min(conditional) if conditional else None
+    worst_base_row = min(matched, key=lambda r: float(r["base_realized_net_pnl_usd"])) if matched else None
+    worst_cond_row = min(matched, key=lambda r: float(r["conditional_realized_net_pnl_usd"])) if matched else None
+    worst_base = float(worst_base_row["base_realized_net_pnl_usd"]) if worst_base_row else None
+    worst_cond = float(worst_cond_row["conditional_realized_net_pnl_usd"]) if worst_cond_row else None
+    worst_base_paired_change = (
+        float(worst_base_row["conditional_realized_net_pnl_usd"])
+        - float(worst_base_row["base_realized_net_pnl_usd"])
+        if worst_base_row else None
+    )
+    worst_cond_paired_change = (
+        float(worst_cond_row["conditional_realized_net_pnl_usd"])
+        - float(worst_cond_row["base_realized_net_pnl_usd"])
+        if worst_cond_row else None
+    )
     return {
         "opened_n": opened_n,
         "base_resolved_n": resolved_n,
@@ -641,8 +759,29 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "no_hedge_worst_matched_usd": round(worst_base, 2) if worst_base is not None else None,
         "conditional_worst_matched_usd": round(worst_cond, 2) if worst_cond is not None else None,
+        # Paired change on the exact baseline worst-loss trade within this matched sample.
         "worst_trade_improvement_usd": (
-            round(worst_cond - worst_base, 2) if worst_base is not None and worst_cond is not None else None
+            round(worst_base_paired_change, 2) if worst_base_paired_change is not None else None
+        ),
+        "baseline_worst_trade_paired_change_usd": (
+            round(worst_base_paired_change, 2) if worst_base_paired_change is not None else None
+        ),
+        # This compares minima that may belong to different trades; it is not a paired improvement.
+        "difference_between_worst_observed_pnls_usd": (
+            round(worst_cond - worst_base, 2)
+            if worst_base is not None and worst_cond is not None else None
+        ),
+        "baseline_worst_trade_key": worst_base_row.get("trade_key") if worst_base_row else None,
+        "baseline_worst_trade_entry_date": worst_base_row.get("entry_date") if worst_base_row else None,
+        "baseline_worst_trade_pnl_usd": round(worst_base, 2) if worst_base is not None else None,
+        "baseline_worst_trade_conditional_pnl_usd": (
+            round(float(worst_base_row["conditional_realized_net_pnl_usd"]), 2) if worst_base_row else None
+        ),
+        "conditional_worst_trade_key": worst_cond_row.get("trade_key") if worst_cond_row else None,
+        "conditional_worst_trade_entry_date": worst_cond_row.get("entry_date") if worst_cond_row else None,
+        "conditional_worst_trade_pnl_usd": round(worst_cond, 2) if worst_cond is not None else None,
+        "conditional_worst_trade_paired_change_usd": (
+            round(worst_cond_paired_change, 2) if worst_cond_paired_change is not None else None
         ),
         "losing_base_trades_improved_n": sum(c > b + 0.005 for b, c in losing_pairs),
         "losing_base_trades_turned_positive_n": sum(
@@ -677,6 +816,8 @@ def build_robustness(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         "hedge_exit_coverage_pct_of_resolved_entry", "conditional_outcome_coverage_pct_of_base_resolved",
         "no_hedge_mean_matched_usd", "conditional_mean_matched_usd",
         "conditional_mean_increment_vs_no_hedge_usd", "worst_trade_improvement_usd",
+        "baseline_worst_trade_paired_change_usd", "difference_between_worst_observed_pnls_usd",
+        "losing_base_trades_improved_n", "losing_base_trades_turned_positive_n",
         "modeled_tail_entry_debit_total_usd",
     )
     grouped: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
@@ -724,7 +865,7 @@ def build_report(manifest: dict[str, Any], robustness: list[dict[str, Any]]) -> 
         f"- Primary baseline: QQQ LONG PUT 1 : SPY SHORT PUT 3, {POLICY}; existing DTE14/DTE45 arms and five fixed phases retained.",
         "- No hedge is the control. Each hedge arm adds 1 or 3 same-expiry SPY far-OTM PUT contracts only after its first holding-period trigger; the exact selected contract is held to the original base exit date.",
         "- Original positions, entries, exit dates, cadence, and base trade P&L are read-only; the overlay does not delay or alter the base exit.",
-        "- Enter at the trigger-date ask and exit at the base position's exact exit-date bid, with $0.05 per option-share per side and $0.65 per contract per side. Displayed size is a gate, not proof of execution.",
+        "- Day T uses observed data to evaluate the trigger and select a candidate. Entry is attempted only on the next SPY underlying trading session using that session's exact-contract Ask; same-day EOD fills, fallback quotes and retries are prohibited. Exit uses the original base exit date's exact-contract Bid. Costs are $0.05 per option-share per side plus $0.65 per contract per side; displayed size is not proof of a fill.",
         "",
         "## 2. Pre-declared trigger rules", "",
         "| Rule | Frozen condition | Required current observations |",
@@ -746,8 +887,8 @@ def build_report(manifest: dict[str, Any], robustness: list[dict[str, Any]]) -> 
         "## 4. Historical holdout results — mean paired net P&L delta and worst trade", "",
         "The table below reports medians across the five phases. Delta is conditional strategy mean minus no-hedge mean on exactly the same rows where the conditional realized outcome is known. A failed entry means no hedge was bought and the base result remains; an eligible hedge with missing/undersized exit data makes the conditional realized outcome missing, not zero.",
         "",
-        "| Arm | Rule | Tail target | Qty | Trigger rate | Outcome coverage | Mean Δ / trade | Worst-trade improvement | Entry debit median across phases |",
-        "|---|---|---|---:|---:|---:|---:|---:|---:|",
+        "| Arm | Rule | Tail target | Qty | Trigger rate | Outcome coverage | Mean Δ / position | Original worst-trade paired Δ | Difference between minima (unpaired) | Losses improved / flipped positive | Total entry debit, phase median |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     holdout = [r for r in robustness if r["sample_period"] == "LOCKED_HOLDOUT_2023_2025"]
     for row in sorted(holdout, key=lambda r: (
@@ -758,11 +899,15 @@ def build_report(manifest: dict[str, Any], robustness: list[dict[str, Any]]) -> 
             f"| {fmt_pct(row.get('trigger_rate_pct_phase_median'))} "
             f"| {fmt_pct(row.get('conditional_outcome_coverage_pct_of_base_resolved_phase_median'))} "
             f"| {fmt_money(row.get('conditional_mean_increment_vs_no_hedge_usd_phase_median'))} "
-            f"| {fmt_money(row.get('worst_trade_improvement_usd_phase_median'))} "
+            f"| {fmt_money(row.get('baseline_worst_trade_paired_change_usd_phase_median'))} "
+            f"| {fmt_money(row.get('difference_between_worst_observed_pnls_usd_phase_median'))} "
+            f"| {fmt_money(row.get('losing_base_trades_improved_n_phase_median'))} / {fmt_money(row.get('losing_base_trades_turned_positive_n_phase_median'))} "
             f"| {fmt_money(row.get('modeled_tail_entry_debit_total_usd_phase_median'))} |"
         )
     lines += [
         "",
+        "- The exact original worst-trade paired change is computed on the same trade row. The separate difference between minimum outcomes may compare different trades and must not be interpreted as paired improvement.", "",
+        "Do not select a winner solely from the holdout values. These are predeclared comparisons; a later untouched forward sample is required before a strategy-selection claim.", "",
         "## 5. Annual outcomes by entry year", "",
         "Full annual-by-entry-year results are in holding_annual_by_entry_year.csv. Entry-year grouping keeps the chronology split fixed to the date when the rule had to act, rather than assigning an earlier entry to a later holdout because it exited later.",
         "",
@@ -770,7 +915,7 @@ def build_report(manifest: dict[str, Any], robustness: list[dict[str, Any]]) -> 
         f"- Replay status: **{manifest['status']}**; selected baseline trades: {manifest['selected_baseline_trade_rows']}; trigger rows: {manifest['trigger_event_rows']}; trade/configuration rows: {manifest['holding_trade_level_rows']}.",
         f"- Source chain window: {manifest['chain_first_date']} to {manifest['chain_last_date']}; option-chain source: {manifest['option_chain_source']} at pin {manifest['option_chain_source_commit']}.",
         f"- Source files downloaded and hash/byte verified: {manifest['verified_source_file_count']}; baseline ledger hashes matched the original overlay manifest: {manifest['baseline_input_hashes_match_overlay_manifest']}.",
-        "- EOD quote-side replay is not confirmed fills. Displayed size is not guaranteed liquidity. Costs are modeled, not broker statements.",
+        "- The next-session daily Ask is still an execution-timing proxy rather than a timestamped verified fill. Displayed size is not guaranteed liquidity; costs are modeled, not broker statements.",
         "- Unresolved base positions remain mark-only; their outcomes are not counted as realized P&L.",
         "- Results are not account-level NAV, portfolio MaxDD, broker margin, assignment/early exercise, forced-liquidation, or cross-position capital simulations.",
         "- No threshold tuning, live trading, main-branch merge, or broker order is performed by this research.",
@@ -798,10 +943,10 @@ def main() -> int:
     cohorts, trades, input_hashes, overlay_manifest, overlay_manifest_sha = load_replay_inputs(
         args.base_results_root, args.overlay_results
     )
-    events, picks, exits, pins, stream_stats, spot_maps = build_events_and_observations(trades, args.cache)
+    events, picks, entry_observations, exits, pins, stream_stats, spot_maps = build_events_and_observations(trades, args.cache)
     slippage = float(overlay_manifest["costs"]["slippage_per_option_share_per_side_usd"])
     commission = float(overlay_manifest["costs"]["commission_per_contract_per_side_usd"])
-    trade_rows = build_trade_rows(trades, events, picks, exits, slippage, commission)
+    trade_rows = build_trade_rows(trades, events, picks, entry_observations, exits, slippage, commission)
     event_rows = [dict(events[key]) for key in sorted(events)]
     period_phase = group_rows(trade_rows, SUMMARY_KEYS)
     robustness = build_robustness(period_phase)
@@ -826,7 +971,7 @@ def main() -> int:
     common_chain_ends = [d for d in (qqq_last, spy_last) if d]
     baseline_hash_match = input_hashes == overlay_manifest.get("input_ledger_sha256")
     manifest = {
-        "schema": "spy-far-tail-in-holding-risk-trigger.v1",
+        "schema": "spy-far-tail-in-holding-risk-trigger.v2",
         "status": "COMPLETED" if events and trade_rows and period_phase and robustness and annual else "FAILED_EMPTY_OUTPUT",
         "baseline_policy": POLICY,
         "baseline_anchor_commit": overlay_manifest.get("base_anchor_commit"),
@@ -876,10 +1021,12 @@ def main() -> int:
         "quantities": list(hedge_engine.TAIL_QUANTITIES),
         "costs": overlay_manifest.get("costs"),
         "price_and_time_rules": {
-            "trigger_window": "strictly after entry_date and strictly before the original base exit_date or unresolved last-observed date",
-            "same_day_trigger_quote": "EOD option quote snapshot on trigger date; modeled ask-side entry, not a verified fill",
+            "trigger_window": "strictly after base entry_date and strictly before the original base exit_date or unresolved last-observed date",
+            "signal_and_candidate_selection": "trigger features and candidate contract are selected from day-T observations only",
+            "entry_time": "only the next SPY underlying trading session after trigger day, exact selected contract quote; no same-day fill assumption and no retry if quote is missing",
             "exit_quote": "exact same tail contract on original base exit date only; no forward-fill",
-            "missing_quote": "no trigger or entry failure keeps base outcome; entered hedge without valid exit quote leaves conditional realized outcome missing",
+            "missing_quote": "no trigger, no candidate, or failed next-session entry keeps base outcome; entered hedge without valid original-exit quote leaves conditional realized outcome missing",
+            "worst_trade_metric": "worst_trade_improvement_usd is paired P&L change on the exact baseline worst-loss trade; difference_between_worst_observed_pnls_usd compares minima that may belong to different trades",
         },
         "analysis_script_sha256": sha256_file(Path(__file__)),
         "warnings": [
