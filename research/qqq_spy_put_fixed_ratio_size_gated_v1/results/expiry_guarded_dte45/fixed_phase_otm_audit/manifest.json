@@ -1,0 +1,93 @@
+{
+  "schema": "qqq-spy-put-realized-otm-audit.v1",
+  "status": "WARN_NON_OTM_LEGS_FOUND",
+  "delta_target_abs": 0.25,
+  "delta_eligible_band": [
+    0.1,
+    0.5
+  ],
+  "otm_formula": "(spot - strike) / spot * 100",
+  "phase_count": 5,
+  "input_ledgers": [
+    {
+      "phase": 0,
+      "path": "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte45/fixed_phase_sensitivity/phase_0/entry_cohort.csv",
+      "sha256": "8ab8d187583a51861c8e90ba7156b26c734381dbc9a2dbb26bfc9791ad43d12b",
+      "entry_cohort_rows": 392
+    },
+    {
+      "phase": 1,
+      "path": "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte45/fixed_phase_sensitivity/phase_1/entry_cohort.csv",
+      "sha256": "2198d61a268f63d47ea2ab79811f29757288325048010dc6109897404e78966d",
+      "entry_cohort_rows": 392
+    },
+    {
+      "phase": 2,
+      "path": "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte45/fixed_phase_sensitivity/phase_2/entry_cohort.csv",
+      "sha256": "facaf953cf42187707bce2cfe7e935102890e096d213ee72b9715437c91f89b5",
+      "entry_cohort_rows": 391
+    },
+    {
+      "phase": 3,
+      "path": "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte45/fixed_phase_sensitivity/phase_3/entry_cohort.csv",
+      "sha256": "c09b8e50aa055339e8cf38fdcd67d20c153a398a574530f9951a815365353a45",
+      "entry_cohort_rows": 390
+    },
+    {
+      "phase": 4,
+      "path": "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte45/fixed_phase_sensitivity/phase_4/entry_cohort.csv",
+      "sha256": "ca186d6aa73f252290ea7747e2514cdb645fa564697d57d6c0b91b72ceeb479f",
+      "entry_cohort_rows": 389
+    }
+  ],
+  "phase_counts": [
+    {
+      "phase": 0,
+      "entry_cohort_rows": 392,
+      "leg_rows": 784,
+      "selected_pairs": 392,
+      "non_otm_at_entry_leg_rows": 1
+    },
+    {
+      "phase": 1,
+      "entry_cohort_rows": 392,
+      "leg_rows": 784,
+      "selected_pairs": 392,
+      "non_otm_at_entry_leg_rows": 0
+    },
+    {
+      "phase": 2,
+      "entry_cohort_rows": 391,
+      "leg_rows": 782,
+      "selected_pairs": 391,
+      "non_otm_at_entry_leg_rows": 3
+    },
+    {
+      "phase": 3,
+      "entry_cohort_rows": 390,
+      "leg_rows": 780,
+      "selected_pairs": 390,
+      "non_otm_at_entry_leg_rows": 2
+    },
+    {
+      "phase": 4,
+      "entry_cohort_rows": 389,
+      "leg_rows": 778,
+      "selected_pairs": 389,
+      "non_otm_at_entry_leg_rows": 2
+    }
+  ],
+  "detail_leg_rows": 3908,
+  "summary_rows": 20,
+  "delta_summary_rows": 10,
+  "non_otm_at_entry_leg_rows": 8,
+  "warning_notes": [
+    "Phase 0 QQQ: 1/392 entries are ATM/ITM (0.26%).",
+    "Phase 2 QQQ: 2/391 entries are ATM/ITM (0.51%).",
+    "Phase 2 SPY: 1/391 entries are ATM/ITM (0.26%).",
+    "Phase 3 QQQ: 1/390 entries are ATM/ITM (0.26%).",
+    "Phase 3 SPY: 1/390 entries are ATM/ITM (0.26%).",
+    "Phase 4 QQQ: 1/389 entries are ATM/ITM (0.26%).",
+    "Phase 4 SPY: 1/389 entries are ATM/ITM (0.26%)."
+  ]
+}

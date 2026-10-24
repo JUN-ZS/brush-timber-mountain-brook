@@ -1,0 +1,326 @@
+{
+  "schema": "qqq-spy-relative-underperformance-put-replay.v1",
+  "status": "COMPLETED_WITH_UNRESOLVEDS",
+  "source": {
+    "repository": "anahatsingh-ui/options-dataset-hist",
+    "tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66"
+  },
+  "window": {
+    "start": "2018-03-01",
+    "end": "2025-12-15"
+  },
+  "ratio": {
+    "method": "FIXED_RATIO_SIZE_GATED",
+    "description": "fixed QQQ LONG PUT 2 : SPY SHORT PUT 4; entry and exit require displayed side size for every contract",
+    "fixed_long_qqq_contracts": 2,
+    "fixed_short_spy_contracts": 4,
+    "max_total_contracts": 9,
+    "contract_multiplier": 100,
+    "mean_spy_put_assignment_obligation_usd": 160844.44
+  },
+  "premium_matching": {
+    "cohort_n": 81,
+    "ratio_counts": {
+      "2:4": 81
+    },
+    "mean_qqq_premium_debit_usd": 914.86,
+    "mean_spy_premium_credit_usd": 1758.37,
+    "mean_abs_mismatch_usd": 849.38,
+    "median_abs_mismatch_usd": 808.0,
+    "mean_match_pct": 51.28,
+    "median_match_pct": 50.86
+  },
+  "entry_filter": {
+    "name": "qqq_underperforms_spy_20d",
+    "description": "Require QQQ trailing 20-session close-to-close return to be lower than SPY; evaluated at signal close, entry no earlier than next observed common session",
+    "lookback_sessions": 20,
+    "evaluated_sessions": 834,
+    "qualified_sessions": 81,
+    "rejected_sessions": 753
+  },
+  "selection": {
+    "target_abs_delta": 0.25,
+    "delta_eligible_band": [
+      0.1,
+      0.5
+    ],
+    "dte_min": 30,
+    "dte_max": 60,
+    "dte_target": 45,
+    "cohort_stride_sessions": 15,
+    "allow_overlapping_cohorts": true,
+    "common_expiry_required": true
+  },
+  "costs": {
+    "base_slippage_per_option_share_usd": 0.05,
+    "base_commission_per_contract_per_side_usd": 0.65,
+    "alternative_slippage_per_option_share_usd": [
+      0.0,
+      0.025,
+      0.05,
+      0.1
+    ],
+    "alternative_commission_per_contract_per_side_usd": [
+      0.0,
+      0.65
+    ]
+  },
+  "position_size_sensitivity": {
+    "max_long_qqq_contracts": 6,
+    "max_short_spy_contracts": 6,
+    "max_total_contracts": 9,
+    "method": "fixed-ratio per-leg gross-P&L rescaling on the same selected contracts, quote dates and resolved cohort set; ratio sensitivity is not a fresh premium-matched selection replay; total contracts capped in displayed grid; no size-dependent market impact"
+  },
+  "coverage": {
+    "common_underlying_sessions": 1959,
+    "qqq_chain_dates": 1956,
+    "qqq_put_rows": 6067200,
+    "spy_chain_dates": 1957,
+    "spy_put_rows": 8336263,
+    "sessions_with_both_chains": 1955,
+    "qqq_last_chain_date": "2025-12-15",
+    "spy_last_chain_date": "2025-12-12",
+    "qqq_underlying_first_date": "1999-11-01",
+    "qqq_underlying_last_date": "2025-12-15",
+    "spy_underlying_first_date": "1999-11-01",
+    "spy_underlying_last_date": "2025-12-12",
+    "expected_common_first_date": "2018-03-01",
+    "expected_common_last_date": "2025-12-12"
+  },
+  "cohort": {
+    "selected_signals": 81,
+    "entered_cohorts": 81,
+    "entry_skipped": 0,
+    "entry_skip_rows": []
+  },
+  "policies": {
+    "HOLD_5_SESSIONS": {
+      "policy": "HOLD_5_SESSIONS",
+      "opened": 81,
+      "resolved": 80,
+      "unresolved": 1,
+      "wins": 44,
+      "losses": 36,
+      "flat": 0,
+      "win_rate_pct": 55.0,
+      "win_rate_wilson95_low_pct": 44.1195,
+      "win_rate_wilson95_high_pct": 65.4223,
+      "expectancy_net_usd": -89.675,
+      "median_net_usd": 101.2,
+      "total_net_pnl_usd": -7174.0,
+      "best_net_usd": 1234.2,
+      "worst_net_usd": -1941.8,
+      "profit_factor": 0.708904,
+      "mean_qqq_long_gross_pnl_usd": -3.875,
+      "mean_spy_short_gross_pnl_usd": -18.0,
+      "resolved_coverage_pct": 98.765432,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_10_SESSIONS": {
+      "policy": "HOLD_10_SESSIONS",
+      "opened": 81,
+      "resolved": 80,
+      "unresolved": 1,
+      "wins": 57,
+      "losses": 23,
+      "flat": 0,
+      "win_rate_pct": 71.25,
+      "win_rate_wilson95_low_pct": 60.5397,
+      "win_rate_wilson95_high_pct": 80.0131,
+      "expectancy_net_usd": -158.625,
+      "median_net_usd": 228.2,
+      "total_net_pnl_usd": -12690.0,
+      "best_net_usd": 1576.2,
+      "worst_net_usd": -9013.8,
+      "profit_factor": 0.686197,
+      "mean_qqq_long_gross_pnl_usd": -102.125,
+      "mean_spy_short_gross_pnl_usd": 11.3,
+      "resolved_coverage_pct": 98.765432,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_20_SESSIONS": {
+      "policy": "HOLD_20_SESSIONS",
+      "opened": 81,
+      "resolved": 78,
+      "unresolved": 3,
+      "wins": 64,
+      "losses": 14,
+      "flat": 0,
+      "win_rate_pct": 82.0513,
+      "win_rate_wilson95_low_pct": 72.0976,
+      "win_rate_wilson95_high_pct": 88.9961,
+      "expectancy_net_usd": 148.94359,
+      "median_net_usd": 522.2,
+      "total_net_pnl_usd": 11617.6,
+      "best_net_usd": 2020.2,
+      "worst_net_usd": -5581.8,
+      "profit_factor": 1.354074,
+      "mean_qqq_long_gross_pnl_usd": -222.846154,
+      "mean_spy_short_gross_pnl_usd": 439.589744,
+      "resolved_coverage_pct": 96.296296,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "EXIT_AT_DTE_LE_7": {
+      "policy": "EXIT_AT_DTE_LE_7",
+      "opened": 81,
+      "resolved": 71,
+      "unresolved": 10,
+      "wins": 57,
+      "losses": 14,
+      "flat": 0,
+      "win_rate_pct": 80.2817,
+      "win_rate_wilson95_low_pct": 69.5803,
+      "win_rate_wilson95_high_pct": 87.8745,
+      "expectancy_net_usd": 10.678873,
+      "median_net_usd": 612.2,
+      "total_net_pnl_usd": 758.2,
+      "best_net_usd": 1632.2,
+      "worst_net_usd": -9633.8,
+      "profit_factor": 1.018211,
+      "mean_qqq_long_gross_pnl_usd": -200.28169,
+      "mean_spy_short_gross_pnl_usd": 278.760563,
+      "resolved_coverage_pct": 87.654321,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    }
+  },
+  "limitations": [
+    "Public EOD preservation mirror; hashes establish file identity, not exchange or OPRA authenticity.",
+    "EOD quotes are not verified fills; displayed size is a screening gate, not guaranteed multi-leg execution.",
+    "Conservative sides: QQQ LONG enters Ask/exits Bid; SPY SHORT enters Bid/exits Ask.",
+    "Missing exit quotes/size at expiry or source end remain unresolved; win-rate denominator is resolved episodes only.",
+    "Option chain source ends in 2025; no 2026 performance is observed here.",
+    "Nominal Wilson interval does not correct for regime clustering, dependence, or prior strategy selection.",
+    "Expiry shock grid charges entry-side slippage/commission once and uses intrinsic-value payoff; exercise/assignment fees, broker margin, forced liquidation, financing and interim path are not modeled.",
+    "Equal premium debit/credit does not equalize Delta, max loss, collateral or assignment risk; SPY short put can dominate downside even when QQQ long put appreciates.",
+    "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills.",
+    "When overlapping cohorts are enabled, multiple fixed-size trades can be open at once; total portfolio cash, margin, forced liquidation, and stacked assignment obligations are not constrained by this replay."
+  ],
+  "source_integrity": [
+    {
+      "symbol": "QQQ",
+      "file": "options_2018.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 29215815,
+      "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2019.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 30998008,
+      "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2020.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 59412637,
+      "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2021.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 74224966,
+      "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2022.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 69941736,
+      "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2023.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 71647343,
+      "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2024.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 82434832,
+      "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2025.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 85765453,
+      "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2018.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 36266339,
+      "git_blob_sha": "473e4fe80281ca9371b5f531b97f19394e8e2814"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2019.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 41731396,
+      "git_blob_sha": "2d06f2ca587452ea9a6ffa52e6ddc4262c3e6f4d"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2020.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 59100008,
+      "git_blob_sha": "f0093698ac9fbbe7dbd9159735fcb73ff9418ff2"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2021.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 64071426,
+      "git_blob_sha": "459555aaed9be451a504d68d2db6cce4b94c3a6d"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2022.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 57070606,
+      "git_blob_sha": "f0a15b8263b7650147bfa62bce2cd44d59ef17a5"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2023.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 47343699,
+      "git_blob_sha": "ead8adeee0689d26e49f5b39f6d5536443931ac3"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2024.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 56948550,
+      "git_blob_sha": "8e0b7ca48dffa92fe93ceeffefdfce8557eab74a"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2025.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 58216546,
+      "git_blob_sha": "133bf1d95c3479149bf4771bc8b3fd8b625064ce"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "underlying_prices.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 332454,
+      "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a"
+    },
+    {
+      "symbol": "SPY",
+      "file": "underlying_prices.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 252066,
+      "git_blob_sha": "4c22934a77ba09ced10fd1c413b5d8c9e0cb4a8d"
+    }
+  ]
+}

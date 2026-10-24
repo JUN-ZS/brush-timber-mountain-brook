@@ -1,0 +1,124 @@
+name: QQQ-SPY PUT Cadence Grid and Overlap Risk Audit V1
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/CADENCE_GRID_CONTRACT.md
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_cadence_grid_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_cadence_grid_v1.py
+      - .github/workflows/qqq-spy-put-cadence-grid-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-cadence-grid-v1
+  cancel-in-progress: true
+
+jobs:
+  cadence-grid:
+    name: Overlapping cadence grid — fixed ratios, both entry filters
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install runtime dependency
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-cadence-grid
+          .venv-cadence-grid/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and test overlap mode before downloads
+        run: |
+          set -euo pipefail
+          PY=.venv-cadence-grid/bin/python
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_cadence_grid_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_cadence_grid_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_cadence_grid_v1.py
+
+      - name: Replay 48 combinations with overlapping cohorts enabled
+        timeout-minutes: 330
+        run: |
+          set -euo pipefail
+          PY=.venv-cadence-grid/bin/python
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results
+          QQQ_CACHE="$HOME/.cache/qqq-options-full-history"
+          SPY_CACHE="$HOME/.cache/spy-options-cadence-grid-v1"
+          COMMON=(
+            --sizing-mode fixed_ratio
+            --max-total-contracts 9
+            --start 2018-03-01
+            --end 2025-12-15
+            --qqq-cache "$QQQ_CACHE"
+            --spy-cache "$SPY_CACHE"
+            --allow-overlapping-cohorts
+          )
+          ENGINE=research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_ratio_size_gated_v1.py
+          for filter in none qqq_underperforms_spy_20d; do
+            for stride in 5 10 15 20 30 45; do
+              for ratio in 1:6 4:5 2:4 1:3; do
+                case "$ratio" in
+                  1:6) LONG=1; SHORT=6; FOLDER=fixed_1_6 ;;
+                  4:5) LONG=4; SHORT=5; FOLDER=fixed_4_5 ;;
+                  2:4) LONG=2; SHORT=4; FOLDER=fixed_2_4 ;;
+                  1:3) LONG=1; SHORT=3; FOLDER=fixed_1_3 ;;
+                  *) echo "Unexpected ratio: $ratio"; exit 3 ;;
+                esac
+                OUT="$ROOT/cadence_grid/$filter/stride_$stride/$FOLDER"
+                mkdir -p "$OUT"
+                echo "=== filter=$filter stride=$stride ratio=$ratio overlap=true ==="
+                "$PY" "$ENGINE" "${COMMON[@]}" \
+                  --entry-filter "$filter" \
+                  --cohort-stride-sessions "$stride" \
+                  --fixed-long-qty "$LONG" \
+                  --fixed-short-qty "$SHORT" \
+                  --out "$OUT" | tee "$OUT/run_console.json"
+                "$PY" - "$OUT/summary.json" "$filter" "$stride" "$LONG" "$SHORT" <<'PY'
+          import json, sys
+          path, expected_filter, expected_stride, expected_long, expected_short = sys.argv[1:]
+          data=json.load(open(path, encoding="utf-8"))
+          assert data["entry_filter"]["name"] == expected_filter, (path, "filter mismatch")
+          assert data["selection"]["cohort_stride_sessions"] == int(expected_stride), (path, "stride mismatch")
+          assert data["selection"]["allow_overlapping_cohorts"] is True, (path, "overlap mode missing")
+          ratio=data["ratio"]
+          assert ratio["fixed_long_qqq_contracts"] == int(expected_long)
+          assert ratio["fixed_short_spy_contracts"] == int(expected_short)
+          assert data["cohort"]["selected_signals"] == data["cohort"]["entered_cohorts"] + data["cohort"]["entry_skipped"], (path, "selected/entered/skipped count mismatch")
+          print(json.dumps({"validated": path, "entry_filter": expected_filter, "stride": int(expected_stride), "ratio": f"{expected_long}:{expected_short}", "entered": data["cohort"]["entered_cohorts"]}))
+          PY
+              done
+            done
+          done
+
+      - name: Aggregate windows, calendar years, slippage stress and peak overlap
+        run: |
+          set -euo pipefail
+          PY=.venv-cadence-grid/bin/python
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_cadence_grid_v1.py
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/cadence_grid_audit/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit audited cadence grid
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/cadence_grid
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/cadence_grid_audit
+          if git diff --cached --quiet; then
+            echo "Cadence grid outputs unchanged."
+            exit 0
+          fi
+          git commit -m "research: record overlapping QQQ SPY put cadence grid"
+          git push origin HEAD:research/qqq-spy-put-no-filter-frequency-v1

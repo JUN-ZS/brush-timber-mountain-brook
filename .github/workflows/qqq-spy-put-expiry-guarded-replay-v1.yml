@@ -1,0 +1,219 @@
+name: QQQ-SPY PUT Expiry-Guarded DTE14 vs DTE45 Replay V1
+
+on:
+  pull_request:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/run_expiry_guarded_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_expiry_guarded_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_expiry_guarded_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_expiry_guarded_capacity_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_expiry_guarded_dte14_dte45_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/EXPIRY_GUARDED_EXIT_CONTRACT.md
+      - .github/workflows/qqq-spy-put-expiry-guarded-replay-v1.yml
+  push:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/run_expiry_guarded_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_expiry_guarded_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_expiry_guarded_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_expiry_guarded_capacity_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/compare_expiry_guarded_dte14_dte45_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/EXPIRY_GUARDED_EXIT_CONTRACT.md
+      - .github/workflows/qqq-spy-put-expiry-guarded-replay-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-expiry-guarded-replay-hosted-v1
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout proposed research patch
+        uses: actions/checkout@v4
+      - name: Compile and test guarded-exit logic and existing audits
+        run: |
+          set -euo pipefail
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          python3 -m py_compile \
+            "$BASE/qqq_spy_put_fixed_phase_v1.py" \
+            "$BASE/run_expiry_guarded_fixed_phase_v1.py" \
+            "$BASE/test_expiry_guarded_fixed_phase_v1.py" \
+            "$BASE/audit_expiry_guarded_fixed_phase_v1.py" \
+            "$BASE/audit_expiry_guarded_capacity_v1.py" \
+            "$BASE/compare_expiry_guarded_dte14_dte45_v1.py" \
+            "$BASE/audit_fixed_phase_schedule_v1.py" \
+            "$BASE/audit_fixed_phase_capacity_v1.py" \
+            "$BASE/audit_fixed_phase_otm_v1.py"
+          python3 "$BASE/test_expiry_guarded_fixed_phase_v1.py"
+          python3 "$BASE/test_fixed_phase_schedule_v1.py"
+          python3 "$BASE/test_fixed_phase_capacity_v1.py"
+          python3 "$BASE/test_fixed_phase_otm_v1.py"
+          python3 "$BASE/test_compare_fixed_phase_dte14_v1.py"
+
+  replay:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install pinned parquet runtime
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-expiry-guard
+          .venv-expiry-guard/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and test guarded replay before any data download
+        run: |
+          set -euo pipefail
+          PY=.venv-expiry-guard/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          "$PY" -m py_compile "$BASE/run_expiry_guarded_fixed_phase_v1.py" "$BASE/audit_expiry_guarded_fixed_phase_v1.py" "$BASE/audit_expiry_guarded_capacity_v1.py" "$BASE/compare_expiry_guarded_dte14_dte45_v1.py"
+          "$PY" "$BASE/test_expiry_guarded_fixed_phase_v1.py"
+          "$PY" "$BASE/test_fixed_phase_schedule_v1.py"
+          "$PY" "$BASE/test_fixed_phase_capacity_v1.py"
+          "$PY" "$BASE/test_fixed_phase_otm_v1.py"
+          "$PY" "$BASE/test_compare_fixed_phase_dte14_v1.py"
+      - name: Fresh guarded DTE45 full replay — phases 0 to 4
+        timeout-minutes: 165
+        run: |
+          set -euo pipefail
+          PY=.venv-expiry-guard/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          ROOT="$BASE/results/expiry_guarded_dte45"
+          COMMON=(
+            --entry-filter none
+            --sizing-mode fixed_ratio
+            --fixed-long-qty 1
+            --fixed-short-qty 3
+            --max-total-contracts 9
+            --cohort-stride-sessions 5
+            --allow-overlapping-cohorts
+            --start 2018-03-01
+            --end 2025-12-15
+            --dte-min 30
+            --dte-max 60
+            --dte-target 45
+            --target-delta 0.25
+            --qqq-cache "$HOME/.cache/qqq-options-full-history"
+            --spy-cache "$HOME/.cache/spy-options-expiry-guard-v1"
+          )
+          for phase in 0 1 2 3 4; do
+            OUT="$ROOT/fixed_phase_sensitivity/phase_$phase"
+            mkdir -p "$OUT"
+            "$PY" "$BASE/run_expiry_guarded_fixed_phase_v1.py" "${COMMON[@]}" --initial-phase-sessions "$phase" --out "$OUT" | tee "$OUT/run_console.json"
+            "$PY" - "$OUT/summary.json" "$phase" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1],encoding="utf-8")); phase=int(sys.argv[2])
+          s=d["selection"]; assert (s["dte_min"],s["dte_max"],s["dte_target"])==(30,60,45)
+          assert s["target_abs_delta"]==0.25 and s["initial_phase_sessions"]==phase
+          assert s["schedule_mode"]=="FIXED_ANCHOR_NO_REANCHOR" and s["cohort_stride_sessions"]==5
+          assert s["allow_overlapping_cohorts"] is True and d["entry_filter"]["name"]=="none"
+          assert (d["ratio"]["fixed_long_qqq_contracts"],d["ratio"]["fixed_short_spy_contracts"])==(1,3)
+          assert set(d["policies"])=={"HOLD_10_OR_DTE_LE_7","HOLD_20_OR_DTE_LE_7"}
+          assert d["execution_variant"]["trigger"]=="close when age_sessions >= hold_sessions OR remaining calendar DTE <= 7"
+          print(json.dumps({"phase":phase,"status":d["status"],"policies":d["policies"]}))
+          PY
+            for f in summary.json summary.md source_manifest.json entry_cohort.csv entry_skips.csv scheduled_signal_skips.csv trade_episodes.csv; do test -s "$OUT/$f"; done
+          done
+      - name: Fresh guarded DTE14 full replay — phases 0 to 4
+        timeout-minutes: 165
+        run: |
+          set -euo pipefail
+          PY=.venv-expiry-guard/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          ROOT="$BASE/results/expiry_guarded_dte14"
+          COMMON=(
+            --entry-filter none
+            --sizing-mode fixed_ratio
+            --fixed-long-qty 1
+            --fixed-short-qty 3
+            --max-total-contracts 9
+            --cohort-stride-sessions 5
+            --allow-overlapping-cohorts
+            --start 2018-03-01
+            --end 2025-12-15
+            --dte-min 7
+            --dte-max 21
+            --dte-target 14
+            --target-delta 0.25
+            --qqq-cache "$HOME/.cache/qqq-options-full-history"
+            --spy-cache "$HOME/.cache/spy-options-expiry-guard-v1"
+          )
+          for phase in 0 1 2 3 4; do
+            OUT="$ROOT/fixed_phase_sensitivity/phase_$phase"
+            mkdir -p "$OUT"
+            "$PY" "$BASE/run_expiry_guarded_fixed_phase_v1.py" "${COMMON[@]}" --initial-phase-sessions "$phase" --out "$OUT" | tee "$OUT/run_console.json"
+            "$PY" - "$OUT/summary.json" "$phase" <<'PY'
+          import json,sys
+          d=json.load(open(sys.argv[1],encoding="utf-8")); phase=int(sys.argv[2])
+          s=d["selection"]; assert (s["dte_min"],s["dte_max"],s["dte_target"])==(7,21,14)
+          assert s["target_abs_delta"]==0.25 and s["initial_phase_sessions"]==phase
+          assert s["schedule_mode"]=="FIXED_ANCHOR_NO_REANCHOR" and s["cohort_stride_sessions"]==5
+          assert s["allow_overlapping_cohorts"] is True and d["entry_filter"]["name"]=="none"
+          assert (d["ratio"]["fixed_long_qqq_contracts"],d["ratio"]["fixed_short_spy_contracts"])==(1,3)
+          assert set(d["policies"])=={"HOLD_10_OR_DTE_LE_7","HOLD_20_OR_DTE_LE_7"}
+          assert d["execution_variant"]["trigger"]=="close when age_sessions >= hold_sessions OR remaining calendar DTE <= 7"
+          print(json.dumps({"phase":phase,"status":d["status"],"policies":d["policies"]}))
+          PY
+            for f in summary.json summary.md source_manifest.json entry_cohort.csv entry_skips.csv scheduled_signal_skips.csv trade_episodes.csv; do test -s "$OUT/$f"; done
+          done
+      - name: Audit fixed anchor schedules and actual entry moneyness
+        run: |
+          set -euo pipefail
+          PY=.venv-expiry-guard/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          for arm in expiry_guarded_dte45 expiry_guarded_dte14; do
+            ROOT="$BASE/results/$arm"
+            "$PY" "$BASE/audit_expiry_guarded_fixed_phase_v1.py" --results-root "$ROOT" --out-dir "$ROOT/fixed_phase_sensitivity_audit"
+            "$PY" "$BASE/audit_fixed_phase_otm_v1.py" --results-root "$ROOT" --out-dir "$ROOT/fixed_phase_otm_audit"
+          done
+      - name: Validate paired DTE14 vs DTE45 result and generate SHA-pinned report
+        run: |
+          set -euo pipefail
+          PY=.venv-expiry-guard/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          "$PY" "$BASE/compare_expiry_guarded_dte14_dte45_v1.py"
+          cat "$BASE/results/expiry_guarded_dte14_vs_dte45/report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Audit assignment obligation and NAV capacity
+        run: |
+          set -euo pipefail
+          PY=.venv-expiry-guard/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          for arm in expiry_guarded_dte45 expiry_guarded_dte14; do
+            ROOT="$BASE/results/$arm"
+            "$PY" "$BASE/audit_expiry_guarded_capacity_v1.py" --results-root "$ROOT" --out-dir "$ROOT/fixed_phase_capacity_audit"
+            cat "$ROOT/fixed_phase_capacity_audit/capacity_report.md" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Commit full ledgers and audit reports to the isolated research branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte45
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte14
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte14_vs_dte45
+          if git diff --cached --quiet; then
+            echo "Expiry-guarded result artifacts unchanged."
+            exit 0
+          fi
+          git commit -m "research: record expiry-guarded DTE14 and DTE45 replay results"
+          git fetch origin research/qqq-spy-put-no-filter-frequency-v1
+          git rebase origin/research/qqq-spy-put-no-filter-frequency-v1
+          git push origin HEAD:research/qqq-spy-put-no-filter-frequency-v1

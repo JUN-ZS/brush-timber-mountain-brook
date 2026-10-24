@@ -1,0 +1,109 @@
+{
+  "schema": "qqq-spy-fixed-anchor-capacity-audit.v1",
+  "phases": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "policies": [
+    "HOLD_5_SESSIONS",
+    "HOLD_10_SESSIONS",
+    "HOLD_20_SESSIONS",
+    "EXIT_AT_DTE_LE_7"
+  ],
+  "nav_cases_usd": [
+    80000.0,
+    100000.0,
+    1000000.0
+  ],
+  "capital_fractions": [
+    0.25,
+    0.5,
+    0.75,
+    1.0
+  ],
+  "scenario_rows": 240,
+  "phase_policy_rows": 20,
+  "fixed_anchor_checks": [
+    {
+      "phase": 0,
+      "status": "PASS",
+      "slots": 392,
+      "selected": 392,
+      "entered": 392,
+      "entry_skips": 0,
+      "missed_slots": 0
+    },
+    {
+      "phase": 1,
+      "status": "PASS",
+      "slots": 392,
+      "selected": 392,
+      "entered": 392,
+      "entry_skips": 0,
+      "missed_slots": 0
+    },
+    {
+      "phase": 2,
+      "status": "PASS",
+      "slots": 392,
+      "selected": 391,
+      "entered": 391,
+      "entry_skips": 0,
+      "missed_slots": 1
+    },
+    {
+      "phase": 3,
+      "status": "PASS",
+      "slots": 392,
+      "selected": 391,
+      "entered": 390,
+      "entry_skips": 1,
+      "missed_slots": 1
+    },
+    {
+      "phase": 4,
+      "status": "PASS",
+      "slots": 391,
+      "selected": 389,
+      "entered": 389,
+      "entry_skips": 0,
+      "missed_slots": 2
+    }
+  ],
+  "source_hashes": [
+    {
+      "phase": 0,
+      "source_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+      "summary_sha256": "783b0f54ece4e7ee0c9fa2f410be8df9393fb30a9e9f33c5f0fba1daff7e19c2",
+      "trade_sha256": "e2f33c4cf1dab3746083c903a7a60ebaae8560b6fbef124359051749d019940e"
+    },
+    {
+      "phase": 1,
+      "source_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+      "summary_sha256": "f18dbaf5ed325c5190f4004f2b2ff7d484589804e44de2030d481c0f9fe452ce",
+      "trade_sha256": "7ec3cdb86160e84912994790dbc8f003e3f19dc2e7759a4de69e315e7842cb70"
+    },
+    {
+      "phase": 2,
+      "source_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+      "summary_sha256": "6b2e5fc97a6f8dea448a1d265fdee5834931aea731dc5bdf4a04634d50dbcf5f",
+      "trade_sha256": "a24e5a3ed01a07d8142123aa12b67fb7737cd7587fa720bd4e8a188c40653547"
+    },
+    {
+      "phase": 3,
+      "source_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+      "summary_sha256": "10a76599ea8c515920dbb3f55e878542d865403fc71d40cd74cbe6d93f4c9288",
+      "trade_sha256": "372ced94a51887428e67c5390749c33c0d97a47e3ba365cb630ae3889063334e"
+    },
+    {
+      "phase": 4,
+      "source_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+      "summary_sha256": "cf474142f98ba13e07102f3c043689e59e121bc1785fc5f8a7a58d4e7aac7cfc",
+      "trade_sha256": "f05be3acd41d497aa2bed01319a4a749717bd69be5bec8bdcd9245bd1daaa1d9"
+    }
+  ],
+  "assignment_measure": "gross SPY short-put strike x 100 x contract count; cash capacity proxy, not broker margin"
+}

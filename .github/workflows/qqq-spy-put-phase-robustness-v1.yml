@@ -1,0 +1,137 @@
+name: QQQ-SPY PUT Fixed-Anchor Five-Phase Robustness Replay V2
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-put-no-filter-frequency-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/FIXED_PHASE_SCHEDULE_CONTRACT.md
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_schedule_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_schedule_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_otm_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
+      - .github/workflows/qqq-spy-put-phase-robustness-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-put-fixed-phase-robustness-v2
+  cancel-in-progress: true
+
+jobs:
+  fixed-phase-robustness:
+    name: Replay five immutable cadence anchors and audit every scheduled slot
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install runtime
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-fixed-phase
+          .venv-fixed-phase/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and test fixed schedule semantics
+        run: |
+          set -euo pipefail
+          PY=.venv-fixed-phase/bin/python
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_schedule_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_schedule_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_otm_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_capacity_v1.py
+          $PY -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_schedule_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_otm_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/test_fixed_phase_capacity_v1.py
+
+      - name: Replay phases 0–4 with immutable scheduled slots
+        timeout-minutes: 330
+        run: |
+          set -euo pipefail
+          PY=.venv-fixed-phase/bin/python
+          ENGINE=research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_fixed_phase_v1.py
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results
+          COMMON=(
+            --entry-filter none
+            --sizing-mode fixed_ratio
+            --fixed-long-qty 1
+            --fixed-short-qty 3
+            --max-total-contracts 9
+            --cohort-stride-sessions 5
+            --allow-overlapping-cohorts
+            --start 2018-03-01
+            --end 2025-12-15
+            --qqq-cache "$HOME/.cache/qqq-options-full-history"
+            --spy-cache "$HOME/.cache/spy-options-fixed-phase-v1"
+          )
+          for phase in 0 1 2 3 4; do
+            OUT="$ROOT/fixed_phase_sensitivity/phase_$phase"
+            mkdir -p "$OUT"
+            echo "=== fixed-anchor phase=$phase, stride=5, no filter, ratio=1:3 ==="
+            "$PY" "$ENGINE" "${COMMON[@]}" --initial-phase-sessions "$phase" --out "$OUT" | tee "$OUT/run_console.json"
+            "$PY" - "$OUT/summary.json" "$phase" <<'PY'
+          import json, sys
+          path, phase_text = sys.argv[1:]
+          d=json.load(open(path, encoding="utf-8"))
+          phase=int(phase_text)
+          stride=d["selection"]["cohort_stride_sessions"]
+          expected=len(range(phase,d["coverage"]["common_underlying_sessions"],stride))
+          schedule=d["fixed_entry_schedule"]
+          assert d["entry_filter"]["name"] == "none"
+          assert d["selection"]["schedule_mode"] == "FIXED_ANCHOR_NO_REANCHOR"
+          assert d["selection"]["initial_phase_sessions"] == phase
+          assert d["selection"]["allow_overlapping_cohorts"] is True
+          assert d["ratio"]["fixed_long_qqq_contracts"] == 1
+          assert d["ratio"]["fixed_short_spy_contracts"] == 3
+          assert schedule["scheduled_opportunities"] == expected
+          assert schedule["selected_signals"] + schedule["skipped_opportunities"] == expected
+          assert d["cohort"]["selected_signals"] == schedule["selected_signals"]
+          print(json.dumps({"phase":phase,"expected_slots":expected,"selected_pairs":schedule["selected_signals"],"skipped_slots":schedule["skipped_opportunities"],"skip_reasons":schedule["skip_reason_counts"]}))
+          PY
+            test -s "$OUT/trade_episodes.csv"
+            test -s "$OUT/entry_cohort.csv"
+            test -s "$OUT/entry_skips.csv"
+            test -s "$OUT/scheduled_signal_skips.csv"
+            test -s "$OUT/source_manifest.json"
+          done
+
+      - name: Aggregate performance and enforce fixed-anchor integrity
+        run: |
+          set -euo pipefail
+          PY=.venv-fixed-phase/bin/python
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_schedule_v1.py
+          $PY research/qqq_spy_put_fixed_ratio_size_gated_v1/audit_fixed_phase_otm_v1.py
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_sensitivity_audit/report.md >> "$GITHUB_STEP_SUMMARY"
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_otm_audit/report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit source-pinned ledgers and fixed-anchor report
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_sensitivity
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_sensitivity_audit
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/fixed_phase_otm_audit
+          if git diff --cached --quiet; then
+            echo "Fixed-phase outputs unchanged."
+            exit 0
+          fi
+          git commit -m "research: record fixed-anchor QQQ SPY put phase audit"
+          # Rebase output commit if the research branch advanced during replay.
+          git fetch origin research/qqq-spy-put-no-filter-frequency-v1
+          git rebase origin/research/qqq-spy-put-no-filter-frequency-v1
+          git push origin HEAD:research/qqq-spy-put-no-filter-frequency-v1
