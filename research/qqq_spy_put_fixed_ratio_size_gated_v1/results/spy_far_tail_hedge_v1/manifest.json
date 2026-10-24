@@ -2,21 +2,27 @@
   "schema": "spy-far-tail-hedge-overlay.v1",
   "status": "COMPLETED",
   "base_anchor_commit": "c0cc1de3f196a312c00582d9ee9600c689c388d9",
-  "current_git_sha": "6a8d4991a064125cf1f700969a1a1449226325e9",
+  "current_git_sha": "d1dc9f6b2ecf2fd9ddb1f748fb886ed45deacfcb",
   "source_repository": "anahatsingh-ui/options-dataset-hist",
   "source_tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
   "base_trade_ledger_count": 7814,
   "unique_base_cohort_count": 3907,
-  "summary_rows": 80,
-  "entry_selection_rows": 15628,
-  "trade_level_rows": 31256,
-  "stress_grid_rows": 280,
+  "summary_rows": 120,
+  "entry_selection_rows": 23442,
+  "trade_level_rows": 46884,
+  "stress_grid_rows": 420,
   "stream_stats": {
     "chain_dates": 1956,
     "put_rows": 8332822,
     "last_chain_date": "2025-12-12"
   },
   "tail_configurations": [
+    {
+      "label": "TAIL_025_DELTA",
+      "target_delta": 0.025,
+      "delta_min": 0.01,
+      "delta_max": 0.08
+    },
     {
       "label": "TAIL_05_DELTA",
       "target_delta": 0.05,
@@ -118,7 +124,7 @@
     }
   ],
   "code_sha256": {
-    "overlay": "ebb26564b088df8e2dbcca877d34d0ecca77bbfa6c971985aceb8a964550f3ab",
+    "overlay": "1fea604f9a0d54761537f494fded80bc6dc5a83c1120cbfe0ab620671552cb24",
     "base_engine": "2037a21cb3c6b13a2965e08e516e3688f785dfa18d988a5640303b531f6ee40d"
   },
   "unresolved_handling": "Base unresolved trades remain unresolved; quote at last observed date is MTM only, never realized P&L.",
