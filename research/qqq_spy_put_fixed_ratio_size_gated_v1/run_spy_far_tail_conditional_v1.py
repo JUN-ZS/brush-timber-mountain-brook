@@ -446,6 +446,8 @@ def build_report(results: Path, trigger_rows: list[dict[str, Any]], summaries: l
         "**Keep no hedge as the control. Do not enable unconditional tail buying based on the current evidence.** This first trigger rule tests whether premiums can be concentrated in higher-risk entry conditions. It is a pre-declared research candidate, not an optimized or validated trading rule.",
         "",
         "At each base entry, the rule triggers if either (A) SPY is at least 5% below the high among the current and four prior entry observations in the same phase, or (B) the selected base short SPY PUT absolute Delta at signal time is at least 0.30. Five observations proxy about 20 sessions under the fixed five-session cadence. Thresholds are frozen before measuring this experiment's outcomes; they must not be tuned on a claimed holdout.",
+        "", 
+        "**Critical result:** for DTE45 / Hold-20, median worst-realized-trade improvement is $0.00 for all tested Delta targets at both 1x and 3x. The entry trigger reduces recurring average-P&L drag by buying protection on only about 13.5% of entries, but it did not catch the worst realized trade in the paired samples. Do not adopt this entry-only trigger on the claim that it protects the worst trade.",
         "",
         "## 2. Frozen rule and fair accounting", "",
         "- Baseline remains QQQ LONG PUT 1 : SPY SHORT PUT 3; original entries, quantities, exit policies and cadence are unchanged.",
