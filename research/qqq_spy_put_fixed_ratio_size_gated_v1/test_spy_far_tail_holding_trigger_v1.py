@@ -7,6 +7,7 @@ from run_spy_far_tail_holding_trigger_v1 import (
     outcome_for_hedge,
     sample_period,
     trigger_conditions,
+    package_mark_pnl_from_rows,
 )
 
 
@@ -83,6 +84,29 @@ class HoldingTriggerTests(unittest.TestCase):
         self.assertEqual(sample_period("2025-12-12"), "LOCKED_HOLDOUT_2023_2025")
         with self.assertRaises(ValueError):
             sample_period("2026-01-02")
+
+
+    def test_package_mtm_converts_csv_numeric_strings_before_arithmetic(self):
+        trade = {
+            "long_qqq_qty": "1",
+            "short_spy_qty": "3",
+            "qqq_entry_ask": "1.00",
+            "spy_entry_bid": "2.00",
+            "base_slippage_per_share": "0.05",
+            "base_commission_per_contract_per_side": "0.65",
+        }
+        qrow = {"bid": 1.50}
+        srow = {"ask": 1.00}
+        self.assertAlmostEqual(package_mark_pnl_from_rows(trade, qrow, srow), 304.80, places=2)
+
+    def test_package_mtm_rejects_missing_entry_cash_fields(self):
+        trade = {
+            "long_qqq_qty": "1", "short_spy_qty": "3", "qqq_entry_ask": "",
+            "spy_entry_bid": "2.00", "base_slippage_per_share": "0.05",
+            "base_commission_per_contract_per_side": "0.65",
+        }
+        with self.assertRaisesRegex(ValueError, "qqq_entry_ask"):
+            package_mark_pnl_from_rows(trade, {"bid": 1.50}, {"ask": 1.00})
 
 
 if __name__ == "__main__":

@@ -173,6 +173,25 @@ def outcome_for_hedge(
     return None, "HEDGE_ENTERED_EXIT_UNAVAILABLE"
 
 
+def package_mark_pnl_from_rows(trade: dict[str, Any], qrow: dict[str, Any], srow: dict[str, Any]) -> float | None:
+    """Build an explicitly numeric close-mark ledger from CSV rows and current exact-contract quotes."""
+    required_numbers = (
+        "long_qqq_qty", "short_spy_qty", "qqq_entry_ask", "spy_entry_bid",
+        "base_slippage_per_share", "base_commission_per_contract_per_side",
+    )
+    episode = dict(trade)
+    for field in required_numbers:
+        value = fnum(trade.get(field))
+        if value is None:
+            raise ValueError(f"Missing or invalid numeric field for package MTM: {field}")
+        episode[field] = value
+    episode["long_qqq_qty"] = int(episode["long_qqq_qty"])
+    episode["short_spy_qty"] = int(episode["short_spy_qty"])
+    if episode["long_qqq_qty"] < 1 or episode["short_spy_qty"] < 1:
+        raise ValueError("Package MTM requires positive leg quantities")
+    return base_engine.mark_pnl(episode, qrow, srow)
+
+
 def next_or_none(iterator):
     try:
         return next(iterator)
@@ -360,7 +379,7 @@ def build_events_and_observations(trades: list[dict[str, Any]], cache: Path):
             )
             mark_pnl = None
             if q_close_executable and s_close_executable:
-                mark_pnl = base_engine.mark_pnl(trade, qrow, srow)
+                mark_pnl = package_mark_pnl_from_rows(trade, qrow, srow)
 
             entry_spot = fnum(trade.get("spy_spot_entry"))
             short_qty = fnum(trade.get("short_spy_qty"))
