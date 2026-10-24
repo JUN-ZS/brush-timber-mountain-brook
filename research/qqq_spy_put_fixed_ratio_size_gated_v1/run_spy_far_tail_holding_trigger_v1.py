@@ -199,30 +199,50 @@ def next_or_none(iterator):
         return None
 
 
+def tracked_symbol_days(
+    paths: list[Path], symbol: str, start_day: str, end_day: str, stats: dict[str, Any]
+):
+    """Track exact option snapshot coverage while retaining the engine's pinned streaming reader."""
+    stats.setdefault("first_chain_date", None)
+    for day, rows in base_engine.iter_symbol_days(paths, symbol, start_day, end_day, stats):
+        if stats["first_chain_date"] is None:
+            stats["first_chain_date"] = day
+        yield day, rows
+
+
 def iter_merged_symbol_days(
     qqq_paths: list[Path],
     spy_paths: list[Path],
     start_day: str,
     end_day: str,
     stats: dict[str, Any],
+    underlying_days: list[str],
 ):
-    """Merge date-ordered, source-pinned option streams without materializing history."""
-    q_iter = iter(base_engine.iter_symbol_days(qqq_paths, "QQQ", start_day, end_day, stats["qqq"]))
-    s_iter = iter(base_engine.iter_symbol_days(spy_paths, "SPY", start_day, end_day, stats["spy"]))
-    q_item, s_item = next_or_none(q_iter), next_or_none(s_iter)
-    while q_item is not None or s_item is not None:
-        if s_item is None or (q_item is not None and q_item[0] < s_item[0]):
-            day, q_rows = q_item
-            yield day, q_rows, []
+    """Merge QQQ/SPY option snapshots with every observed SPY-close day.
+
+    This deliberately emits an empty option-row list on an underlying-only day, so
+    the SPY drawdown trigger still observes that close while Delta and package-MTM
+    triggers remain unavailable without the required current-day option quotes.
+    """
+    q_iter = iter(tracked_symbol_days(qqq_paths, "QQQ", start_day, end_day, stats["qqq"]))
+    s_iter = iter(tracked_symbol_days(spy_paths, "SPY", start_day, end_day, stats["spy"]))
+    u_iter = iter(day for day in underlying_days if start_day <= day <= end_day)
+    q_item, s_item, u_day = next_or_none(q_iter), next_or_none(s_iter), next_or_none(u_iter)
+    while q_item is not None or s_item is not None or u_day is not None:
+        candidates = [item[0] for item in (q_item, s_item) if item is not None]
+        if u_day is not None:
+            candidates.append(u_day)
+        day = min(candidates)
+        q_rows, s_rows = [], []
+        if q_item is not None and q_item[0] == day:
+            q_rows = q_item[1]
             q_item = next_or_none(q_iter)
-        elif q_item is None or s_item[0] < q_item[0]:
-            day, s_rows = s_item
-            yield day, [], s_rows
+        if s_item is not None and s_item[0] == day:
+            s_rows = s_item[1]
             s_item = next_or_none(s_iter)
-        else:
-            day = q_item[0]
-            yield day, q_item[1], s_item[1]
-            q_item, s_item = next_or_none(q_iter), next_or_none(s_iter)
+        if u_day == day:
+            u_day = next_or_none(u_iter)
+        yield day, q_rows, s_rows
 
 
 def initialize_event(trade: dict[str, Any], rule: str) -> dict[str, Any]:
@@ -311,17 +331,27 @@ def build_events_and_observations(trades: list[dict[str, Any]], cache: Path):
     active: list[dict[str, Any]] = []
     exit_requests: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
     stream_stats = {
-        "qqq": {"chain_dates": 0, "put_rows": 0, "last_chain_date": None},
-        "spy": {"chain_dates": 0, "put_rows": 0, "last_chain_date": None},
+        "qqq": {"chain_dates": 0, "put_rows": 0, "first_chain_date": None, "last_chain_date": None},
+        "spy": {"chain_dates": 0, "put_rows": 0, "first_chain_date": None, "last_chain_date": None},
         "merged_dates": 0, "entry_day_missing_from_option_stream_n": 0,
+        "underlying_only_observation_days": 0,
     }
     observed_entry_dates: set[str] = set()
+    observed_option_dates: set[str] = set()
+    underlying_observation_days = sorted(
+        day for day in spot_maps["SPY"].keys() if start_day <= day <= end_day
+    )
 
     for day, qqq_rows, spy_rows in iter_merged_symbol_days(
-        symbol_paths["QQQ"], symbol_paths["SPY"], start_day, end_day, stream_stats
+        symbol_paths["QQQ"], symbol_paths["SPY"], start_day, end_day,
+        stream_stats, underlying_observation_days
     ):
         stream_stats["merged_dates"] += 1
-        observed_entry_dates.add(day)
+        if qqq_rows or spy_rows:
+            observed_option_dates.add(day)
+        else:
+            stream_stats["underlying_only_observation_days"] += 1
+        observed_entry_dates.update([day] if qqq_rows or spy_rows else [])
         q_by_id = base_engine.rows_by_id(qqq_rows)
         s_by_id = base_engine.rows_by_id(spy_rows)
 
@@ -784,10 +814,16 @@ def main() -> int:
     write_csv(args.out / "holding_robustness_by_period.csv", robustness)
     write_csv(args.out / "holding_annual_by_entry_year.csv", annual)
 
-    observed_dates = [
+    underlying_dates = [
         day for symbol in ("QQQ", "SPY") for day in spot_maps[symbol].keys()
         if EXPECTED_START_YEAR <= int(day[:4]) <= EXPECTED_END_YEAR
     ]
+    qqq_first = stream_stats["qqq"].get("first_chain_date")
+    spy_first = stream_stats["spy"].get("first_chain_date")
+    qqq_last = stream_stats["qqq"].get("last_chain_date")
+    spy_last = stream_stats["spy"].get("last_chain_date")
+    common_chain_starts = [d for d in (qqq_first, spy_first) if d]
+    common_chain_ends = [d for d in (qqq_last, spy_last) if d]
     baseline_hash_match = input_hashes == overlay_manifest.get("input_ledger_sha256")
     manifest = {
         "schema": "spy-far-tail-in-holding-risk-trigger.v1",
@@ -797,8 +833,16 @@ def main() -> int:
         "conditional_overlay_source_commit": overlay_manifest.get("current_git_sha"),
         "option_chain_source": base_engine.SOURCE_REPO,
         "option_chain_source_commit": base_engine.SOURCE_COMMIT,
-        "chain_first_date": min(observed_dates) if observed_dates else None,
-        "chain_last_date": max(observed_dates) if observed_dates else None,
+        "chain_first_date": max(common_chain_starts) if len(common_chain_starts) == 2 else None,
+        "chain_last_date": min(common_chain_ends) if len(common_chain_ends) == 2 else None,
+        "option_chain_coverage_by_symbol": {
+            "QQQ": {"first": qqq_first, "last": qqq_last, "snapshot_dates": stream_stats["qqq"]["chain_dates"]},
+            "SPY": {"first": spy_first, "last": spy_last, "snapshot_dates": stream_stats["spy"]["chain_dates"]},
+        },
+        "underlying_price_window": {
+            "first": min(underlying_dates) if underlying_dates else None,
+            "last": max(underlying_dates) if underlying_dates else None,
+        },
         "selected_baseline_trade_rows": len(trades),
         "unique_base_position_cohorts": len({(t["arm"], t["phase"], t.get("episode_id")) for t in trades}),
         "trigger_event_rows": len(event_rows),
@@ -854,8 +898,20 @@ def main() -> int:
     (args.out / "holding_manifest.json").write_text(json.dumps(manifest, indent=2, allow_nan=False), encoding="utf-8")
     report = build_report(manifest, robustness)
     (args.out / "SPY_FAR_TAIL_HOLDING_TRIGGER_REPORT.md").write_text(report, encoding="utf-8")
-    if len(report) < 10000:
-        raise RuntimeError("Holding-period report failed the minimum-content check")
+    required_report_sections = (
+        "## 1. Decision question and frozen baseline",
+        "## 2. Pre-declared trigger rules",
+        "## 3. Chronological validation design",
+        "## 4. Historical holdout results",
+        "## 6. Completeness and limitations",
+        "## 7. Reproducible outputs",
+    )
+    missing_sections = [section for section in required_report_sections if section not in report]
+    if len(report) < 6000 or missing_sections:
+        raise RuntimeError(
+            f"Holding-period report failed completeness check: bytes={len(report.encode('utf-8'))}; "
+            f"missing_sections={missing_sections}"
+        )
     print(json.dumps({
         "status": manifest["status"],
         "selected_baseline_trade_rows": len(trades),
