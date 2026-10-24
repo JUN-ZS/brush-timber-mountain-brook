@@ -64,7 +64,7 @@ jobs:
 
   replay:
     if: github.event_name == 'push'
-    runs-on: [self-hosted, linux, x64, grokbot-box-linux-x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     defaults:
       run:
