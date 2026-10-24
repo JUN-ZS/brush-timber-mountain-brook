@@ -63,12 +63,23 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_holding_trigger_v1
+          OUT="research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_holding_trigger_v1"
+          SNAPSHOT="$RUNNER_TEMP/spy_far_tail_holding_trigger_v1"
+          rm -rf "$SNAPSHOT"
+          mkdir -p "$SNAPSHOT"
+          cp -a "$OUT/." "$SNAPSHOT/"
+          # Generated results may already have been added by an earlier run of this
+          # workflow. Reset onto the latest branch before restoring this run's outputs;
+          # don't rebase two add/add snapshots of the same result files.
+          git fetch origin research/spy-far-tail-conditional-v1
+          git reset --hard origin/research/spy-far-tail-conditional-v1
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          cp -a "$SNAPSHOT/." "$OUT/"
+          git add "$OUT"
           if git diff --cached --quiet; then
             echo "Holding-period trigger outputs unchanged."
             exit 0
           fi
           git commit -m "research: record in-holding SPY tail trigger replay"
-          git fetch origin research/spy-far-tail-conditional-v1
-          git rebase origin/research/spy-far-tail-conditional-v1
           git push origin HEAD:research/spy-far-tail-conditional-v1
