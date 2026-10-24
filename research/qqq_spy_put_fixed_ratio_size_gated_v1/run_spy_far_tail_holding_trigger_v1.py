@@ -680,6 +680,28 @@ def avg(values: Iterable[float | int | None]) -> float | None:
     return round(statistics.mean(clean), 2) if clean else None
 
 
+def quantile(values: Iterable[float | int | None], probability: float) -> float | None:
+    """Deterministic linearly interpolated quantile; ignores missing/non-finite values."""
+    clean = sorted(float(x) for x in values if x is not None and math.isfinite(float(x)))
+    if not clean:
+        return None
+    p = min(1.0, max(0.0, float(probability)))
+    rank = (len(clean) - 1) * p
+    lower = int(math.floor(rank))
+    upper = int(math.ceil(rank))
+    value = clean[lower] + (clean[upper] - clean[lower]) * (rank - lower)
+    return round(value, 2)
+
+
+def bottom_tail_mean(values: Iterable[float | int | None], fraction: float = 0.05) -> float | None:
+    """Mean of the worst ceil(fraction * N) realized outcomes; not a portfolio drawdown."""
+    clean = sorted(float(x) for x in values if x is not None and math.isfinite(float(x)))
+    if not clean:
+        return None
+    k = max(1, int(math.ceil(len(clean) * min(1.0, max(0.0, fraction)))))
+    return round(statistics.mean(clean[:k]), 2)
+
+
 def med(values: Iterable[float | int | None]) -> float | None:
     clean = [float(x) for x in values if x is not None and math.isfinite(float(x))]
     return round(statistics.median(clean), 2) if clean else None
@@ -697,6 +719,19 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     base_matched = [float(r["base_realized_net_pnl_usd"]) for r in matched]
     conditional = [float(r["conditional_realized_net_pnl_usd"]) for r in matched]
     increments = [c - b for b, c in zip(base_matched, conditional)]
+    entered_matched = [
+        (r, b, c) for r, b, c in zip(matched, base_matched, conditional)
+        if bool(r.get("tail_entry_executable"))
+    ]
+    entered_increments = [c - b for _, b, c in entered_matched]
+    base_loss_flags = [b < -0.005 for b in base_matched]
+    conditional_loss_flags = [c < -0.005 for c in conditional]
+    loss_rate_change_pp = (
+        100.0 * statistics.mean(conditional_loss_flags) - 100.0 * statistics.mean(base_loss_flags)
+        if matched else None
+    )
+    base_bottom5 = bottom_tail_mean(base_matched, 0.05)
+    conditional_bottom5 = bottom_tail_mean(conditional, 0.05)
     losing_pairs = [(b, c) for b, c in zip(base_matched, conditional) if b < -0.005]
     triggered = [r for r in rows if bool(r.get("triggered"))]
     entry_rows = [r for r in rows if bool(r.get("tail_entry_executable"))]
@@ -714,6 +749,15 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     data_coverages = [fnum(r.get("trigger_data_coverage_pct")) for r in rows]
     worst_base_row = min(matched, key=lambda r: float(r["base_realized_net_pnl_usd"])) if matched else None
     worst_cond_row = min(matched, key=lambda r: float(r["conditional_realized_net_pnl_usd"])) if matched else None
+    worst_base_all_row = min(base_resolved, key=lambda r: float(r["base_realized_net_pnl_usd"])) if base_resolved else None
+    worst_base_all_conditional = (
+        fnum(worst_base_all_row.get("conditional_realized_net_pnl_usd"))
+        if worst_base_all_row else None
+    )
+    worst_base_all_paired_change = (
+        worst_base_all_conditional - float(worst_base_all_row["base_realized_net_pnl_usd"])
+        if worst_base_all_row and worst_base_all_conditional is not None else None
+    )
     worst_base = float(worst_base_row["base_realized_net_pnl_usd"]) if worst_base_row else None
     worst_cond = float(worst_cond_row["conditional_realized_net_pnl_usd"]) if worst_cond_row else None
     worst_base_paired_change = (
@@ -751,6 +795,52 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "no_hedge_mean_matched_usd": avg(base_matched),
         "conditional_mean_matched_usd": avg(conditional),
         "conditional_mean_increment_vs_no_hedge_usd": avg(increments),
+        "conditional_total_increment_vs_no_hedge_usd": round(sum(increments), 2) if increments else None,
+        "conditional_mean_increment_on_executed_entries_usd": avg(entered_increments),
+        "executed_entry_paired_outcome_n": len(entered_matched),
+        "baseline_loss_rate_matched_pct": (
+            round(100.0 * statistics.mean(base_loss_flags), 2) if matched else None
+        ),
+        "conditional_loss_rate_matched_pct": (
+            round(100.0 * statistics.mean(conditional_loss_flags), 2) if matched else None
+        ),
+        "conditional_loss_rate_change_pp": (
+            round(loss_rate_change_pp, 2) if loss_rate_change_pp is not None else None
+        ),
+        "baseline_p05_matched_usd": quantile(base_matched, 0.05),
+        "conditional_p05_matched_usd": quantile(conditional, 0.05),
+        "baseline_bottom5_mean_matched_usd": base_bottom5,
+        "conditional_bottom5_mean_matched_usd": conditional_bottom5,
+        "bottom5_mean_change_usd": (
+            round(conditional_bottom5 - base_bottom5, 2)
+            if base_bottom5 is not None and conditional_bottom5 is not None else None
+        ),
+        "paired_delta_p05_usd": quantile(increments, 0.05),
+        "paired_delta_bottom5_mean_usd": bottom_tail_mean(increments, 0.05),
+        "modeled_tail_entry_debit_per_successful_entry_usd": (
+            round(sum(float(r["modeled_tail_entry_debit_usd"]) for r in entry_rows
+                      if r.get("modeled_tail_entry_debit_usd") is not None) / len(entry_rows), 2)
+            if entry_rows else None
+        ),
+        "modeled_tail_entry_debit_per_opened_position_usd": (
+            round(sum(float(r["modeled_tail_entry_debit_usd"]) for r in entry_rows
+                      if r.get("modeled_tail_entry_debit_usd") is not None) / opened_n, 2)
+            if opened_n else None
+        ),
+        "baseline_worst_resolved_trade_key": worst_base_all_row.get("trade_key") if worst_base_all_row else None,
+        "baseline_worst_resolved_trade_entry_date": worst_base_all_row.get("entry_date") if worst_base_all_row else None,
+        "baseline_worst_resolved_trade_pnl_usd": (
+            round(float(worst_base_all_row["base_realized_net_pnl_usd"]), 2) if worst_base_all_row else None
+        ),
+        "baseline_worst_resolved_trade_conditional_pnl_usd": (
+            round(worst_base_all_conditional, 2) if worst_base_all_conditional is not None else None
+        ),
+        "baseline_worst_resolved_trade_paired_change_usd": (
+            round(worst_base_all_paired_change, 2) if worst_base_all_paired_change is not None else None
+        ),
+        "baseline_worst_resolved_trade_outcome_known_pct": (
+            100.0 if worst_base_all_conditional is not None else 0.0
+        ) if worst_base_all_row else None,
         "no_hedge_win_rate_matched_pct": (
             round(100.0 * sum(x > 0.005 for x in base_matched) / len(base_matched), 2) if base_matched else None
         ),
@@ -817,8 +907,13 @@ def build_robustness(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         "no_hedge_mean_matched_usd", "conditional_mean_matched_usd",
         "conditional_mean_increment_vs_no_hedge_usd", "worst_trade_improvement_usd",
         "baseline_worst_trade_paired_change_usd", "difference_between_worst_observed_pnls_usd",
-        "losing_base_trades_improved_n", "losing_base_trades_turned_positive_n",
-        "modeled_tail_entry_debit_total_usd",
+        "baseline_worst_resolved_trade_paired_change_usd", "baseline_worst_resolved_trade_outcome_known_pct",
+        "conditional_mean_increment_on_executed_entries_usd", "conditional_loss_rate_change_pp",
+        "baseline_p05_matched_usd", "conditional_p05_matched_usd",
+        "baseline_bottom5_mean_matched_usd", "conditional_bottom5_mean_matched_usd",
+        "bottom5_mean_change_usd", "paired_delta_p05_usd", "paired_delta_bottom5_mean_usd",
+        "modeled_tail_entry_debit_total_usd", "modeled_tail_entry_debit_per_successful_entry_usd",
+        "modeled_tail_entry_debit_per_opened_position_usd",
     )
     grouped: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
@@ -857,10 +952,22 @@ def fmt_pct(value: Any) -> str:
     return "—" if number is None else f"{number:.2f}%"
 
 
+def fmt_count(value: Any) -> str:
+    number = fnum(value)
+    if number is None:
+        return "—"
+    return f"{number:,.0f}" if abs(number - round(number)) < 1e-9 else f"{number:,.1f}"
+
+
+def fmt_pp(value: Any) -> str:
+    number = fnum(value)
+    return "—" if number is None else f"{number:.2f} pp"
+
+
 def build_report(manifest: dict[str, Any], robustness: list[dict[str, Any]]) -> str:
     lines = [
-        "# SPY Far-Tail In-Holding Risk Trigger — Research V1", "",
-        "> Source-pinned historical EOD replay; no broker connection or live orders.", "",
+        "# SPY Far-Tail In-Holding Risk Trigger — Research V2", "",
+        "> Source-pinned historical replay with next-session entry attempts; daily quotes remain execution proxies, not verified fills. No broker connection or live orders.", "",
         "## 1. Decision question and frozen baseline", "",
         f"- Primary baseline: QQQ LONG PUT 1 : SPY SHORT PUT 3, {POLICY}; existing DTE14/DTE45 arms and five fixed phases retained.",
         "- No hedge is the control. Each hedge arm adds 1 or 3 same-expiry SPY far-OTM PUT contracts only after its first holding-period trigger; the exact selected contract is held to the original base exit date.",
@@ -885,10 +992,10 @@ def build_report(manifest: dict[str, Any], robustness: list[dict[str, Any]]) -> 
         "- Five phase schedules overlap. Cross-phase medians/ranges are robustness summaries, not independent samples or confidence intervals.",
         "",
         "## 4. Historical holdout results — mean paired net P&L delta and worst trade", "",
-        "The table below reports medians across the five phases. Delta is conditional strategy mean minus no-hedge mean on exactly the same rows where the conditional realized outcome is known. A failed entry means no hedge was bought and the base result remains; an eligible hedge with missing/undersized exit data makes the conditional realized outcome missing, not zero.",
+        "The table below reports medians across five overlapping phases. Mean Δ uses exactly the same rows where conditional realized outcomes are known. 'Worst matched-baseline pair Δ' is the paired change on the worst baseline trade within that matched sample. 'Global worst-baseline pair Δ' uses the worst trade across all base-resolved rows, and is blank when that exact trade's conditional outcome is unknown; coverage shows whether the latter could be paired. A failed entry means no hedge was bought and the base result remains; an entered hedge with missing/undersized exit data makes the conditional realized outcome missing, not zero.",
         "",
-        "| Arm | Rule | Tail target | Qty | Trigger rate | Outcome coverage | Mean Δ / position | Original worst-trade paired Δ | Difference between minima (unpaired) | Losses improved / flipped positive | Total entry debit, phase median |",
-        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Arm | Rule | Tail target | Qty | Trigger rate | Outcome coverage | Mean Δ / position | Worst matched-baseline pair Δ | Difference between minima (unpaired) | Global worst-baseline pair Δ | Global worst outcome coverage | Losses improved / flipped positive | Total entry debit, phase median |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     holdout = [r for r in robustness if r["sample_period"] == "LOCKED_HOLDOUT_2023_2025"]
     for row in sorted(holdout, key=lambda r: (
@@ -901,17 +1008,38 @@ def build_report(manifest: dict[str, Any], robustness: list[dict[str, Any]]) -> 
             f"| {fmt_money(row.get('conditional_mean_increment_vs_no_hedge_usd_phase_median'))} "
             f"| {fmt_money(row.get('baseline_worst_trade_paired_change_usd_phase_median'))} "
             f"| {fmt_money(row.get('difference_between_worst_observed_pnls_usd_phase_median'))} "
-            f"| {fmt_money(row.get('losing_base_trades_improved_n_phase_median'))} / {fmt_money(row.get('losing_base_trades_turned_positive_n_phase_median'))} "
+            f"| {fmt_money(row.get('baseline_worst_resolved_trade_paired_change_usd_phase_median'))} "
+            f"| {fmt_pct(row.get('baseline_worst_resolved_trade_outcome_known_pct_phase_median'))} "
+            f"| {fmt_count(row.get('losing_base_trades_improved_n_phase_median'))} / {fmt_count(row.get('losing_base_trades_turned_positive_n_phase_median'))} "
             f"| {fmt_money(row.get('modeled_tail_entry_debit_total_usd_phase_median'))} |"
         )
     lines += [
         "",
         "- The exact original worst-trade paired change is computed on the same trade row. The separate difference between minimum outcomes may compare different trades and must not be interpreted as paired improvement.", "",
         "Do not select a winner solely from the holdout values. These are predeclared comparisons; a later untouched forward sample is required before a strategy-selection claim.", "",
-        "## 5. Annual outcomes by entry year", "",
+        "## 5. Additional tail-risk and per-entry cost checks", "",
+        "The lower-tail statistics are computed across realized position outcomes within each phase and matched set, not as account equity drawdown or portfolio CVaR. `bottom-5% mean change` compares the worst 5% of each strategy's outcome distribution; those rows can differ. The paired delta on executed entries only includes positions where a hedge was actually entered and both base/conditional realized outcomes are known. Per-entry debit is modeled opening debit, not net cost after exit proceeds.", "",
+        "| Arm | Rule | Tail | Qty | Paired Δ / executed entry | Base → hedged bottom-5% mean | Bottom-5% change | Loss-rate change (pp) | Modeled debit / entry |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|",
+        *[
+            f"| {row['arm']} | {row['trigger_rule']} | {row['tail_label']} | {row['tail_quantity']} "
+            f"| {fmt_money(row.get('conditional_mean_increment_on_executed_entries_usd_phase_median'))} "
+            f"| {fmt_money(row.get('baseline_bottom5_mean_matched_usd_phase_median'))} → "
+            f"{fmt_money(row.get('conditional_bottom5_mean_matched_usd_phase_median'))} "
+            f"| {fmt_money(row.get('bottom5_mean_change_usd_phase_median'))} "
+            f"| {fmt_pp(row.get('conditional_loss_rate_change_pp_phase_median'))} "
+            f"| {fmt_money(row.get('modeled_tail_entry_debit_per_successful_entry_usd_phase_median'))} |"
+            for row in sorted(
+                [r for r in holdout if r.get("trigger_rule") == "ANY_OF_THREE_PREDECLARED"],
+                key=lambda row: (str(row["arm"]), str(row["tail_label"]), int(row["tail_quantity"])),
+            )
+        ],
+        "",
+        "A robust insurance choice should not be declared from one minimum alone. Review the paired change of the baseline worst trade, the lower-tail distribution, the loss-rate change, entry cost and coverage together. None of these per-trade metrics implies a portfolio-level MaxDD or margin result.", "",
+        "## 6. Annual outcomes by entry year", "",
         "Full annual-by-entry-year results are in holding_annual_by_entry_year.csv. Entry-year grouping keeps the chronology split fixed to the date when the rule had to act, rather than assigning an earlier entry to a later holdout because it exited later.",
         "",
-        "## 6. Completeness and limitations", "",
+        "## 7. Completeness and limitations", "",
         f"- Replay status: **{manifest['status']}**; selected baseline trades: {manifest['selected_baseline_trade_rows']}; trigger rows: {manifest['trigger_event_rows']}; trade/configuration rows: {manifest['holding_trade_level_rows']}.",
         f"- Source chain window: {manifest['chain_first_date']} to {manifest['chain_last_date']}; option-chain source: {manifest['option_chain_source']} at pin {manifest['option_chain_source_commit']}.",
         f"- Source files downloaded and hash/byte verified: {manifest['verified_source_file_count']}; baseline ledger hashes matched the original overlay manifest: {manifest['baseline_input_hashes_match_overlay_manifest']}.",
@@ -920,7 +1048,7 @@ def build_report(manifest: dict[str, Any], robustness: list[dict[str, Any]]) -> 
         "- Results are not account-level NAV, portfolio MaxDD, broker margin, assignment/early exercise, forced-liquidation, or cross-position capital simulations.",
         "- No threshold tuning, live trading, main-branch merge, or broker order is performed by this research.",
         "",
-        "## 7. Reproducible outputs", "",
+        "## 8. Reproducible outputs", "",
         "- holding_trigger_events.csv: first trigger date and feature availability per position/rule.",
         "- holding_trade_level.csv: each baseline position × rule × tail target × quantity, paired outcomes and missing-exit handling.",
         "- holding_summary_by_period_phase.csv: train/holdout/full results per phase.",

@@ -1,4 +1,4 @@
-name: SPY Far-Tail Conditional and In-Holding Risk Trigger V1
+name: SPY Far-Tail In-Holding Risk Trigger V2.1
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
           "$PY" -m py_compile "$BASE/run_spy_far_tail_holding_trigger_v1.py" "$BASE/test_spy_far_tail_holding_trigger_v1.py"
           "$PY" "$BASE/test_spy_far_tail_conditional_v1.py"
           "$PY" "$BASE/test_spy_far_tail_holding_trigger_v1.py"
-      - name: Run holding-period source-pinned trigger replay V2
+      - name: Run holding-period source-pinned trigger replay V2.1
         timeout-minutes: 270
         run: |
           set -euo pipefail
@@ -81,7 +81,7 @@ jobs:
               echo "Holding-period V2 trigger outputs unchanged."
               exit 0
             fi
-            git commit -m "research: record causal next-session SPY tail trigger replay V2"
+            git commit -m "research: record causal next-session SPY tail trigger replay V2.1"
             if git push origin HEAD:research/spy-far-tail-conditional-v1; then
               exit 0
             fi

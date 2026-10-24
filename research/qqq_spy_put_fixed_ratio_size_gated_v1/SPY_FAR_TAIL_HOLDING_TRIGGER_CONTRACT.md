@@ -44,3 +44,10 @@ This is deliberately conservative and reproducible with daily source data. The n
 - The five phase schedules overlap and are not independent samples or confidence intervals.
 - Source files are byte-count/Git-blob-SHA verified against the frozen source-engine pins. EOD quote/depth is not proof of fills.
 - No broker connection, orders, main-branch merge, NAV/margin, financing, early assignment, forced liquidation, or cross-position capital model is included.
+
+
+## V2.1 decision-quality metrics
+- In addition to conditional mean P&L, the report records mean paired P&L change on actually entered hedges, lower 5th-percentile and bottom-5%-mean position outcomes, change in trade loss frequency, and modeled opening debit per successful entry.
+- The bottom-5%-mean change compares the bottom tail of the baseline and conditional samples; those observations need not be the same positions. It is a trade-level distribution statistic, not portfolio MaxDD/CVaR.
+- The exact global worst resolved baseline trade is reported separately from the worst baseline trade among matched rows. If the global worst trade has an unknown conditional result, its paired change is missing and must not be imputed from the next-worst matched trade.
+- Count fields are rendered as counts, never currency. The report title, manifest schema and output directory identify the V2 replay.
