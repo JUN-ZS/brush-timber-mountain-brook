@@ -1,0 +1,55 @@
+name: SPY Far-Tail Annual PnL Summary V1
+
+on:
+  push:
+    branches:
+      - research/spy-far-tail-hedge-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/summarize_spy_far_tail_annual_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_spy_far_tail_annual_v1.py
+      - .github/workflows/spy-far-tail-annual-summary-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: spy-far-tail-annual-summary-v1
+  cancel-in-progress: false
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compile and run annual summary unit tests
+        run: |
+          set -euo pipefail
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          python3 -m py_compile "$BASE/summarize_spy_far_tail_annual_v1.py" "$BASE/test_spy_far_tail_annual_v1.py"
+          (cd "$BASE" && python3 test_spy_far_tail_annual_v1.py)
+      - name: Summarize realized trade PnL by exit year
+        run: |
+          set -euo pipefail
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/spy_far_tail_hedge_v1"
+          python3 "$BASE/summarize_spy_far_tail_annual_v1.py" --input "$OUT/trade_level.csv" --out "$OUT"
+          test -s "$OUT/annual_pnl_by_phase.csv"
+          test -s "$OUT/annual_pnl_robustness.csv"
+          test -s "$OUT/annual_pnl_report.md"
+          cat "$OUT/annual_pnl_report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Commit annual comparison outputs to research branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_hedge_v1/annual_pnl_by_phase.csv research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_hedge_v1/annual_pnl_robustness.csv research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_hedge_v1/annual_pnl_report.md
+          git commit -m "research: summarize SPY tail hedge PnL by exit year"
+          git fetch origin research/spy-far-tail-hedge-v1
+          git rebase origin/research/spy-far-tail-hedge-v1
+          git push origin HEAD:research/spy-far-tail-hedge-v1
