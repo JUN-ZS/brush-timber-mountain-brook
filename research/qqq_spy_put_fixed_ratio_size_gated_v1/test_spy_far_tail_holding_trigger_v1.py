@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import unittest
+from unittest.mock import patch
 
 from run_spy_far_tail_holding_trigger_v1 import (
     RULES,
@@ -8,6 +9,8 @@ from run_spy_far_tail_holding_trigger_v1 import (
     sample_period,
     trigger_conditions,
     package_mark_pnl_from_rows,
+    iter_merged_symbol_days,
+    base_engine,
 )
 
 
@@ -76,6 +79,39 @@ class HoldingTriggerTests(unittest.TestCase):
         pnl, reason = outcome_for_hedge(True, True, None, True, 999.0)
         self.assertIsNone(pnl)
         self.assertEqual(reason, "BASE_UNRESOLVED_MARK_ONLY")
+
+    def test_underlying_only_close_day_is_retained_without_option_quotes(self):
+        snapshots = {
+            "QQQ": [
+                ("2023-01-03", [{"symbol": "QQQ", "date": "2023-01-03"}]),
+                ("2023-01-05", [{"symbol": "QQQ", "date": "2023-01-05"}]),
+            ],
+            "SPY": [
+                ("2023-01-03", [{"symbol": "SPY", "date": "2023-01-03"}]),
+                ("2023-01-05", [{"symbol": "SPY", "date": "2023-01-05"}]),
+            ],
+        }
+
+        def fake_iter(paths, symbol, start_day, end_day, stats):
+            for day, rows in snapshots[symbol]:
+                stats["chain_dates"] += 1
+                stats["put_rows"] += len(rows)
+                stats["last_chain_date"] = day
+                yield day, rows
+
+        stats = {
+            "qqq": {"chain_dates": 0, "put_rows": 0, "first_chain_date": None, "last_chain_date": None},
+            "spy": {"chain_dates": 0, "put_rows": 0, "first_chain_date": None, "last_chain_date": None},
+        }
+        with patch.object(base_engine, "iter_symbol_days", side_effect=fake_iter):
+            rows = list(iter_merged_symbol_days(
+                ["qqq"], ["spy"], "2023-01-03", "2023-01-05", stats,
+                ["2023-01-03", "2023-01-04", "2023-01-05"],
+            ))
+        self.assertEqual([row[0] for row in rows], ["2023-01-03", "2023-01-04", "2023-01-05"])
+        self.assertEqual(rows[1][1:], ([], []))
+        self.assertEqual(stats["qqq"]["first_chain_date"], "2023-01-03")
+        self.assertEqual(stats["spy"]["last_chain_date"], "2023-01-05")
 
     def test_locked_chronological_split_is_by_entry_year(self):
         self.assertEqual(sample_period("2018-03-02"), "TRAIN_2018_2022")
