@@ -1178,8 +1178,10 @@ def main() -> int:
         "## 2. Pre-declared trigger rules",
         "## 3. Chronological validation design",
         "## 4. Historical holdout results",
-        "## 6. Completeness and limitations",
-        "## 7. Reproducible outputs",
+        "## 5. Additional tail-risk and per-entry cost checks",
+        "## 6. Annual outcomes by entry year",
+        "## 7. Completeness and limitations",
+        "## 8. Reproducible outputs",
     )
     missing_sections = [section for section in required_report_sections if section not in report]
     if len(report) < 6000 or missing_sections:

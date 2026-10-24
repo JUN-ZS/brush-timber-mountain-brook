@@ -18,7 +18,7 @@ permissions:
 
 concurrency:
   group: spy-far-tail-conditional-v2
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   conditional-research:
@@ -64,7 +64,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           OUT="research/qqq_spy_put_fixed_ratio_size_gated_v1/results/spy_far_tail_holding_trigger_v2"
-          SNAPSHOT="$RUNNER_TEMP/spy_far_tail_holding_trigger_v1"
+          SNAPSHOT="$RUNNER_TEMP/spy_far_tail_holding_trigger_v2"
           rm -rf "$SNAPSHOT"
           mkdir -p "$SNAPSHOT"
           cp -a "$OUT/." "$SNAPSHOT/"
