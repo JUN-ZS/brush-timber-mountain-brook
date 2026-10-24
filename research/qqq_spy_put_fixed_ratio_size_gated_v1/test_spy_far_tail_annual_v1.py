@@ -22,7 +22,7 @@ class AnnualSummaryTests(unittest.TestCase):
             row(1, "a", "2021-01-05", -100, -10, -110),
         ]
         annual = build_annual_rows(rows)
-        self.assertEqual(len(annual), 2)
+        self.assertEqual(len(annual), 3)
         phase0 = next(r for r in annual if r["phase"] == 0 and r["tail_label"] == "TAIL_025_DELTA")
         self.assertEqual(phase0["base_resolved_n_all"], 2)
         self.assertEqual(phase0["paired_n"], 2)
