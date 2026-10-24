@@ -1,0 +1,74 @@
+{
+  "schema": "spy-far-tail-conditional-risk-trigger.v1",
+  "status": "COMPLETED",
+  "baseline_anchor_commit": "c0cc1de3f196a312c00582d9ee9600c689c388d9",
+  "tail_overlay_replay_source_commit": "d1dc9f6b2ecf2fd9ddb1f748fb886ed45deacfcb",
+  "option_chain_source": "anahatsingh-ui/options-dataset-hist",
+  "option_chain_source_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+  "chain_last_date": "2025-12-12",
+  "cohort_count": 3907,
+  "trigger_flag_rows": 3907,
+  "input_trade_level_rows": 46884,
+  "conditional_trade_level_rows": 46884,
+  "summary_rows": 120,
+  "annual_rows": 960,
+  "annual_robustness_rows": 192,
+  "stress_rows": 420,
+  "trigger_rule": {
+    "version": "SPY_DD5OBS_GE5PCT_OR_SIGNAL_SHORT_ABS_DELTA_GE0.30_V1",
+    "entry_spot_drawdown_observations": 5,
+    "entry_spot_drawdown_threshold_pct": 5.0,
+    "short_put_signal_abs_delta_threshold": 0.3,
+    "combine": "OR",
+    "lookahead": "No future observations. Current entry plus up to four prior entries in the same phase; drawdown needs all five valid observations."
+  },
+  "tail_targets": [
+    {
+      "label": "TAIL_025_DELTA",
+      "target_abs_delta": 0.025
+    },
+    {
+      "label": "TAIL_05_DELTA",
+      "target_abs_delta": 0.05
+    },
+    {
+      "label": "TAIL_10_DELTA",
+      "target_abs_delta": 0.1
+    }
+  ],
+  "quantities": [
+    1,
+    3
+  ],
+  "costs": {
+    "slippage_per_option_share_per_side_usd": 0.05,
+    "commission_per_contract_per_side_usd": 0.65
+  },
+  "baseline_input_hashes_match_overlay_manifest": true,
+  "baseline_input_hashes_expected_source": "spy_far_tail_hedge_v1/manifest.json:input_ledger_sha256",
+  "analysis_script_sha256": "87c9ecb0c15882f2ece85121e19b7f552f5815c2f282d1ed96d83c074eea3262",
+  "input_sha256": {
+    "baseline_ledgers": {
+      "DTE45/phase_0/trade_episodes.csv": "89d8aa6ba259856de8289235ede64698d32fef03e46083a234844c45a5bdb9d2",
+      "DTE45/phase_1/trade_episodes.csv": "0740ca59ba6874f1d16729c297b29a909de837d5defa620352888a0df9d70139",
+      "DTE45/phase_2/trade_episodes.csv": "3fc6b4868adf46f9a49c182ac25e61e5f90b8f0b25473a1325e36120adae5a9f",
+      "DTE45/phase_3/trade_episodes.csv": "a8fe3c5273a999591722b73061ec66b2a11cdfa95699cf2f639bc0b81b6e4c5a",
+      "DTE45/phase_4/trade_episodes.csv": "038c28426f51e329600b2422cea04683729dea6f695aa78c827f7ecbe2d3400c",
+      "DTE14/phase_0/trade_episodes.csv": "5a57b23d57bb9823919db6608f2426aded173a3a454241e2783060e5541d41a4",
+      "DTE14/phase_1/trade_episodes.csv": "81ef4aa1040edf7666bb81f837b1fa2c0fa25845a4434ec44fda9815a28022da",
+      "DTE14/phase_2/trade_episodes.csv": "20bb0813d998c43afabdf0ac16b8f24401117c2bc9f84a798cb7d7302d2844a4",
+      "DTE14/phase_3/trade_episodes.csv": "bf0fd711a47a6679a9025a6582e6e516160d304fa6653cb28ed9080aba519f50",
+      "DTE14/phase_4/trade_episodes.csv": "6e12be2fe21d270d8746a1abee9e24c3ac52a93e203eb8e8dc555b1c131a9720"
+    },
+    "overlay_trade_level_csv": "5a9316747b9f4e6e1941e4713c67f5b795fce60da1a5932ea48ce5d5ad860c2d",
+    "overlay_entry_selection_csv": "48ad548b29220f6455266c132ef13ad25876a778ba612221920b16a8522efed3",
+    "overlay_manifest_json": "bd2a08b2d0f2e026c50c3a29c5c755f7860babaa24abb356a45e5204219a36f7"
+  },
+  "warnings": [
+    "Five phase schedules overlap and are not independent samples.",
+    "EOD quotes/displayed sizes are not verified fills.",
+    "Triggered entries with unavailable exits remain missing from realized conditional P&L.",
+    "Stress is expiry intrinsic for the SPY short-put sleeve only.",
+    "No portfolio NAV, margin, forced liquidation, early exercise or live orders are modeled."
+  ]
+}
