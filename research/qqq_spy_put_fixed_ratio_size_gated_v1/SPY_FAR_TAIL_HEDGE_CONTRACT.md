@@ -9,8 +9,9 @@ Does buying a same-expiry, far-out-of-the-money SPY long PUT improve the downsid
 - Historical chain source remains anahatsingh-ui/options-dataset-hist at commit 37f6c456fe1a4775c875673fb8ef907d5cd2fd66. Every SPY Parquet file is checked against its pinned Git blob size and SHA.
 
 ## Overlay selection matrix
-- Tail A: target absolute Delta 0.05, eligible band 0.01–0.08.
-- Tail B: target absolute Delta 0.10, eligible band 0.05–0.15.
+- Tail A: target absolute Delta 0.025 (Put Delta about −0.025), eligible band 0.01–0.08.
+- Tail B: target absolute Delta 0.05 (Put Delta about −0.05), eligible band 0.01–0.08. The 2.5-delta and 5-delta targets share the same eligibility band to isolate the effect of target-distance ranking.
+- Tail C reference: target absolute Delta 0.10, eligible band 0.05–0.15.
 - Each selected tail contract is tested with quantity 1 and quantity 3.
 - Select on the base cohort's actual entry date, at the exact base SPY short-put expiry. Require a standard listed SPY put, strike strictly below SPY entry spot, valid bid/ask and positive bid.
 - Selection ranking: closest absolute Delta, larger displayed ask size, larger open interest, tighter relative spread, then stable contract ID. The chosen contract does not change between 1x and 3x; displayed entry ask size gates each quantity.

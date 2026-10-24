@@ -13,6 +13,8 @@ ARMS = {"DTE45": "expiry_guarded_dte45", "DTE14": "expiry_guarded_dte14"}
 PHASES = range(5)
 POLICIES = ("HOLD_10_OR_DTE_LE_7", "HOLD_20_OR_DTE_LE_7")
 TAILS = (
+    # 2.5-delta and 5-delta share the same eligibility band so target choice is comparable.
+    {"label": "TAIL_025_DELTA", "target_delta": 0.025, "delta_min": 0.01, "delta_max": 0.08},
     {"label": "TAIL_05_DELTA", "target_delta": 0.05, "delta_min": 0.01, "delta_max": 0.08},
     {"label": "TAIL_10_DELTA", "target_delta": 0.10, "delta_min": 0.05, "delta_max": 0.15},
 )
@@ -372,7 +374,7 @@ def make_report(summary_rows, stress_rows):
         "## Frozen baseline and overlay", "",
         "- Base ledgers are read-only: QQQ LONG PUT 1 : SPY SHORT PUT 3, no entry filter, five-session cadence, five overlapping anchor phases.",
         "- Overlay buys a listed SPY far-OTM PUT on the actual base entry date at the exact short-put expiry; strike must be below SPY entry spot.",
-        "- TAIL_05_DELTA targets absolute Delta 0.05 within 0.01–0.08; TAIL_10_DELTA targets absolute Delta 0.10 within 0.05–0.15. Each is tested at 1 and 3 contracts.",
+        "- TAIL_025_DELTA targets absolute Delta 0.025 (Put Delta about −0.025) within 0.01–0.08; TAIL_05_DELTA targets absolute Delta 0.05 (Put Delta about −0.05) within the same 0.01–0.08 band for a direct comparison; TAIL_10_DELTA targets absolute Delta 0.10 within 0.05–0.15 as a reference. Each is tested at 1 and 3 contracts.",
         "- Selection is nearest Delta to target, then larger displayed ask size, open interest, tighter relative spread and stable contract ID. Positive bid and valid quote required. Same contract is tested at 1x and 3x; 3x entry fails if displayed ask size is below three.",
         "- Long PUT enters at ask and exits at bid. Costs: USD 0.05 per option share per side plus USD 0.65 per contract per side.",
         "- Paired realized comparison uses only base-resolved trades with valid tail entry and exact tail-contract exit quote with sufficient bid size. EOD quotes are estimates, not verified fills. Base-unresolved trades stay unresolved; their hedge observations are MTM only.", "",

@@ -62,5 +62,23 @@ class AccountingTests(unittest.TestCase):
         self.assertGreater(three["hedged_spy_sleeve_net_usd"], one["hedged_spy_sleeve_net_usd"])
 
 
+class DeltaTargetComparisonTests(unittest.TestCase):
+    def test_025_and_05_targets_choose_nearest_contract_in_same_band(self):
+        candidates = [
+            option("SPY240621P00380000", 380, -0.024),
+            option("SPY240621P00385000", 385, -0.051),
+            option("SPY240621P00375000", 375, -0.032),
+        ]
+        pick_025 = hedge.select_far_tail(
+            candidates, "2024-06-03", "2024-06-21", 400, 0.025, 0.01, 0.08
+        )
+        pick_05 = hedge.select_far_tail(
+            candidates, "2024-06-03", "2024-06-21", 400, 0.05, 0.01, 0.08
+        )
+        self.assertEqual(pick_025["contract_id"], "SPY240621P00380000")
+        self.assertEqual(pick_05["contract_id"], "SPY240621P00385000")
+        self.assertNotEqual(pick_025["contract_id"], pick_05["contract_id"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
