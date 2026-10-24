@@ -28,7 +28,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: qqq-spy-put-expiry-guarded-replay-v1
+  group: qqq-spy-put-expiry-guarded-replay-hosted-v1
   cancel-in-progress: false
 
 jobs:
@@ -64,7 +64,7 @@ jobs:
 
   replay:
     if: github.event_name == 'push'
-    runs-on: [self-hosted, linux, x64, grokbot-box-linux-x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     defaults:
       run:
