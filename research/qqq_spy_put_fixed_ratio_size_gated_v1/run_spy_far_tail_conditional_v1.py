@@ -474,21 +474,35 @@ def build_report(results: Path, trigger_rows: list[dict[str, Any]], summaries: l
         "## 4. Conditional vs no hedge and unconditional references", "",
         "Median of five phase values is shown for each configuration; the phases overlap. The conditional increment compares the baseline and conditional result on the exact same known-outcome rows. The unconditional figure comes from the earlier overlay's paired sample and has different coverage, so compare it only with the coverage figures alongside it.",
         "",
-        "| Arm | Exit | Tail | Qty | Trigger rate | Entry coverage after trigger | Exit-pair coverage after eligible entry | Conditional outcome coverage | No-hedge matched mean | Conditional matched mean | Conditional Δ mean | Unconditional Δ mean | Worst paired trade improvement | Modeled entry debit total |",
+        "| Arm | Exit | Tail | Qty | Trigger rate median (range) | Entry coverage median (range) | Exit-pair coverage median (range) | Outcome coverage median (range) | No-hedge matched mean median (range) | Conditional matched mean median (range) | Conditional Δ mean median (range) | Unconditional Δ mean median | Worst-trade improvement median (range) | Modeled entry debit median (range) |",
         "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
-    for row in sorted(summaries, key=lambda r: (r["arm"], r["policy"], r["tail_label"], int(r["tail_quantity"]))):
-        key = (row["tail_label"], int(row["tail_quantity"]))
-        uncond_inc = uncond_metrics.get(key) if row["arm"] == "DTE45" and row["policy"] == "HOLD_20_OR_DTE_LE_7" else None
+    summary_groups = defaultdict(list)
+    for summary_row in summaries:
+        summary_groups[(summary_row["arm"], summary_row["policy"], summary_row["tail_label"], int(summary_row["tail_quantity"]))].append(summary_row)
+
+    def metric_text(items, field, kind):
+        values = [num(item, field) for item in items]
+        lo, hi = bounds(values)
+        center = median(values)
+        fmt = percent if kind == "pct" else money
+        return f"{fmt(center)} ({fmt(lo)} to {fmt(hi)})"
+
+    for key, phase_rows in sorted(summary_groups.items(), key=lambda item: item[0]):
+        arm, policy, target, quantity = key
+        uncond_inc = uncond_metrics.get((target, quantity)) if arm == "DTE45" and policy == "HOLD_20_OR_DTE_LE_7" else None
         lines.append(
-            f"| {row['arm']} | {policy_name[row['policy']]} | {tail_name[row['tail_label']]} | {row['tail_quantity']} "
-            f"| {percent(row.get('trigger_rate_pct_of_base_resolved'))} "
-            f"| {percent(row.get('trigger_entry_coverage_pct_of_triggered_resolved'))} "
-            f"| {percent(row.get('trigger_exit_coverage_pct_of_triggered_entry_eligible'))} "
-            f"| {percent(row.get('conditional_outcome_coverage_pct_of_base_resolved'))} "
-            f"| {money(row.get('no_hedge_mean_matched_usd'))} | {money(row.get('conditional_mean_matched_usd'))} "
-            f"| {money(row.get('conditional_mean_increment_vs_no_hedge_usd'))} | {money(uncond_inc)} "
-            f"| {money(row.get('worst_trade_improvement_usd'))} | {money(row.get('modeled_entry_debit_total_usd'))} |"
+            f"| {arm} | {policy_name[policy]} | {tail_name[target]} | {quantity} "
+            f"| {metric_text(phase_rows, 'trigger_rate_pct_of_base_resolved', 'pct')} "
+            f"| {metric_text(phase_rows, 'trigger_entry_coverage_pct_of_triggered_resolved', 'pct')} "
+            f"| {metric_text(phase_rows, 'trigger_exit_coverage_pct_of_triggered_entry_eligible', 'pct')} "
+            f"| {metric_text(phase_rows, 'conditional_outcome_coverage_pct_of_base_resolved', 'pct')} "
+            f"| {metric_text(phase_rows, 'no_hedge_mean_matched_usd', 'usd')} "
+            f"| {metric_text(phase_rows, 'conditional_mean_matched_usd', 'usd')} "
+            f"| {metric_text(phase_rows, 'conditional_mean_increment_vs_no_hedge_usd', 'usd')} "
+            f"| {money(uncond_inc)} "
+            f"| {metric_text(phase_rows, 'worst_trade_improvement_usd', 'usd')} "
+            f"| {metric_text(phase_rows, 'modeled_entry_debit_total_usd', 'usd')} |"
         )
     lines += [
         "",
