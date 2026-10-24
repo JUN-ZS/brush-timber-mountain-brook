@@ -64,6 +64,9 @@ def pnl_base(p,qbid,sask):
 def pnl_tail(qty,ask,bid,slip,comm):
     return qty*M*(bid-ask)-2*unit(slip,comm)*qty
 
+def put_intrinsic(strike,spot,qty):
+    return max(float(strike)-float(spot),0.0)*M*int(qty)
+
 def allow_base(cash,delta,held,needed): return cash+delta+EPS>=held+needed
 def allow_tail(cash,debit,held): return cash-debit+EPS>=held
 
@@ -93,7 +96,8 @@ def writecsv(path,rows):
 def quote_row(raw,sym,day):
     return {"date":day,"bid":num(raw.get("bid")),"ask":num(raw.get("ask")),
       "bid_size":eng.displayed_size(raw,"bid"),"ask_size":eng.displayed_size(raw,"ask"),
-      "valid":eng.valid_quote(raw),"identity":eng.standard_put_identity(raw,sym)}
+      "valid":eng.valid_quote(raw),"identity":eng.standard_put_identity(raw,sym),
+      "strike":num(raw.get("strike")),"expiration":str(raw.get("expiration") or raw.get("expiry") or "")}
 
 def quote_at(book,day,sym,contract):
     ident=eng.normalized_contract_id({"contract_id":contract})
@@ -162,7 +166,7 @@ def load_market(base,ov,hm,cache):
                 if x and x in ids[sym]: d[sym][x]=quote_row(r,sym,day)
         book[day]=d
     if len(pins)!=18: raise ValueError("Expected 18 byte-pinned source files, got "+str(len(pins)))
-    return book,dates,spots,pins,stats,ids,first,end
+    return book,dates,qspots,spots,pins,stats,ids,first,end
 
 def collateral(pos):
     return sum(p["strike"]*M*p["sqty"] for p in pos.values() if p["base_open"])
@@ -214,7 +218,7 @@ def annual_rows(account,curve,start_nav,start_date,end_date,arm,phase,hqty):
         else:prev_nav,prev_year=None,None
     return out
 
-def simulate(arm,phase,start,hqty,trades,ov,book,market_dates,end):
+def simulate(arm,phase,start,hqty,trades,ov,book,qspots,spots,market_dates,end):
     first=min(str(r["entry_date"]) for r in trades);idx=market_dates.index(first)
     startday=market_dates[max(idx-1,0)];dates=[d for d in market_dates if startday<=d<=end]
     acct=f"{arm}|phase_{phase}|NAV_{int(start)}|HEDGE_{hqty}"
@@ -241,6 +245,27 @@ def simulate(arm,phase,start,hqty,trades,ov,book,market_dates,end):
                     c["tail_exit_closed_n"]+=1;c["tail_realized_pnl_usd"]+=pnl_tail(p["hqty"],p["hask"],t["bid"],p["slip"],p["comm"])
                     p["tail_open"]=False
                 else:p["tail_exit_failed"]=True;c["tail_exit_failed_n"]+=1
+            # If an unresolved contract reaches expiry without an executable close, use contractual put intrinsic at the underlying close.
+            # This is an exercise plus immediate same-close stock liquidation proxy, not a claimed option fill.
+            if p["base_open"] and p["expiry"]==day:
+                qspot,sspot=num(qspots.get(day)),num(spots.get(day))
+                if qspot is not None and sspot is not None:
+                    qpay=put_intrinsic(p["qstrike"],qspot,p["lqty"])
+                    spay=put_intrinsic(p["strike"],sspot,p["sqty"])
+                    cash+=qpay-spay
+                    u=unit(p["slip"],p["comm"])
+                    entry_cf=-p["qask"]*M*p["lqty"]-u*p["lqty"]+p["sbid"]*M*p["sqty"]-u*p["sqty"]
+                    c["base_expiry_settlements_n"]+=1
+                    c["base_realized_pnl_usd"]+=qpay-spay+entry_cf
+                    p["base_open"]=False
+            if p["tail_open"] and p["expiry"]==day:
+                sspot=num(spots.get(day)); hstrike=num(p["hstrike"])
+                if sspot is not None and hstrike is not None:
+                    payoff=put_intrinsic(hstrike,sspot,p["hqty"])
+                    cash+=payoff
+                    c["tail_expiry_settlements_n"]+=1
+                    c["tail_realized_pnl_usd"]+=payoff-p["hask"]*M*p["hqty"]-unit(p["slip"],p["comm"])*p["hqty"]
+                    p["tail_open"]=False
             if not p["base_open"] and not p["tail_open"]:pos.pop(k,None)
         # Replay original entries in source order; skip if cash cannot secure all overlapping SPY shorts.
         for r in entries.get(day,[]):
@@ -262,7 +287,8 @@ def simulate(arm,phase,start,hqty,trades,ov,book,market_dates,end):
             tid=eng.normalized_contract_id({"contract_id":tr.get("tail_contract_id")}) if tr else ""
             resolved=str(r.get("status","")).upper()=="RESOLVED"; exitday=str(r.get("exit_date") or "") if resolved else ""
             pos[r["trade_key"]]={"base_open":True,"tail_open":False,"qid":qid,"sid":sid,"tid":tid,"lqty":lqty,"sqty":sqty,
-              "strike":float(r["spy_strike"]),"qask":q["ask"],"sbid":s["bid"],"slip":slip,"comm":comm,
+              "strike":float(r["spy_strike"]),"qstrike":float(r["qqq_strike"]),"expiry":str(r.get("expiry") or ""),
+              "hstrike":num(tr.get("tail_strike")) if tr else None,"qask":q["ask"],"sbid":s["bid"],"slip":slip,"comm":comm,
               "source_pnl":num(r.get("net_pnl_usd")),"exit_date":exitday,"exit_attempted":False,"base_exit_failed":False,
               "hqty":hqty,"tail_date":str(tr.get("tail_entry_date") or "") if eligible else "",
               "tailask_expected":num(tr.get("tail_entry_ask")) if tr else None,"tail_attempted":False,"hask":None,
@@ -306,6 +332,7 @@ def simulate(arm,phase,start,hqty,trades,ov,book,market_dates,end):
       "nav_coverage_pct":round(cov,4),"base_entry_attempts_n":c["base_entry_attempts_n"],"base_trades_opened_n":c["base_trades_opened_n"],
       "base_entries_skipped_capital_n":c["base_entries_skipped_capital_n"],"base_entries_rejected_quote_n":c["base_entries_rejected_quote_gate_n"],
       "base_exits_closed_n":c["base_exit_closed_n"],"base_exits_failed_n":c["base_exit_failed_n"],
+      "base_expiry_settlements_n":c["base_expiry_settlements_n"],"tail_expiry_settlements_n":c["tail_expiry_settlements_n"],
       "hedge_entry_opportunities_n":c["hedge_entry_opportunities_n"],"hedge_trades_opened_n":c["hedge_trades_opened_n"],
       "hedge_entries_skipped_capital_n":c["hedge_entries_skipped_capital_n"],"hedge_entries_rejected_quote_n":c["hedge_entries_rejected_quote_n"],
       "tail_exits_closed_n":c["tail_exit_closed_n"],"tail_exits_failed_n":c["tail_exit_failed_n"],
@@ -347,7 +374,11 @@ def annual_medians(rows):
         v=[float(r["period_return_pct"]) for r in g if r.get("period_return_pct") is not None]
         p=[float(r["period_profit_usd"]) for r in g if r.get("period_profit_usd") is not None]
         e=[float(r["period_end_nav_usd"]) for r in g if r.get("period_end_nav_usd") is not None]
-        out.append({"arm":arm,"starting_nav_usd":nav,"hedge_qty":h,"year":y,"period_kind":g[0]["period_kind"],
+        kinds={str(z.get("period_kind","")) for z in g}
+        if any(k.startswith("PARTIAL_FROM_INCEPTION") for k in kinds): period_kind="PARTIAL_FROM_INCEPTION"
+        elif any(k.startswith("PARTIAL_TO_DATA_END") for k in kinds): period_kind=next(k for k in kinds if k.startswith("PARTIAL_TO_DATA_END"))
+        else: period_kind="CALENDAR_YEAR"
+        out.append({"arm":arm,"starting_nav_usd":nav,"hedge_qty":h,"year":y,"period_kind":period_kind,
           "phase_accounts_n":len(g),"return_available_phases_n":len(v),
           "median_period_profit_usd":round(statistics.median(p),2) if p else None,
           "median_period_return_pct":round(statistics.median(v),6) if v else None,
@@ -388,7 +419,8 @@ def report_text(summary,aggs,years,manifest):
       "- CAGR uses starting account capital and the exact data-end quoted NAV, never mean trade P&L.",
       "- Observed MaxDD uses complete available daily marks and may understate troughs when quotes are missing.",
       "- The full cash-collateral rule is intentionally conservative and does not represent any named broker's margin engine.",
-      "- No margin borrowing, interest, financing, assignment/early exercise, forced liquidation, taxes, dividends, or timestamp-verified execution.",
+      "- An unresolved option with no executable exit by expiry is marked to intrinsic at the underlying close, approximating exercise plus immediate same-close stock liquidation. Physical assignment, assignment fees and post-assignment share exposure are not modeled.",
+      "- No margin borrowing, interest, financing, early exercise before expiry, forced liquidation, taxes, dividends, or timestamp-verified execution.",
       "- Failed scheduled exits remain open and unresolved; they are not silently filled with a later price.","",
       "See account_phase_summary.csv, account_summary_by_capital.csv, account_annual_returns.csv, account_annual_median_by_phase.csv, account_nav_selected.csv, capital_gates.csv and account_manifest.json."]
     return "\n".join(lines)
@@ -396,7 +428,7 @@ def report_text(summary,aggs,years,manifest):
 def run(args):
     OUT.mkdir(parents=True,exist_ok=True);cache=Path(args.cache).expanduser().resolve();cache.mkdir(parents=True,exist_ok=True)
     base,ov,hashes,om,hm,holding_file=load_ledgers()
-    book,dates,spots,pins,stats,ids,first,end=load_market(base,ov,hm,cache)
+    book,dates,qspots,spots,pins,stats,ids,first,end=load_market(base,ov,hm,cache)
     if end!=str(hm["chain_last_date"]):raise ValueError("Frozen chain end date mismatch")
     grouped=defaultdict(list)
     for k,r in base.items():
@@ -409,7 +441,7 @@ def run(args):
             if not trades:raise ValueError(f"Missing source ledger {arm}/{phase}")
             for start in STARTS:
                 for h in HEDGES:
-                    s,curve,annual,blocked=simulate(arm,phase,start,h,trades,ov,book,dates,end)
+                    s,curve,annual,blocked=simulate(arm,phase,start,h,trades,ov,book,qspots,spots,dates,end)
                     summaries.append(s);years.extend(annual);gates.extend(blocked)
                     if phase==0:curves.extend(curve)
     aggs,year_aggs=median_summary(summaries),annual_medians(years)
@@ -430,7 +462,8 @@ def run(args):
       "pnl_reconciliation_mismatch_n":sum(int(x["pnl_reconciliation_mismatch_n"]) for x in summaries),
       "warnings":["EOD quotes are proxies, not fills.","No forward-fill of exact-contract marks.",
         "Observed MaxDD may understate risk across missing-quote gaps.","Cash-secured collateral is not a specific broker margin model.",
-        "No borrowing, funding, interest, assignment, early exercise, liquidation, tax or dividend model.",
+        "Unresolved contracts at expiry are priced at intrinsic using underlying close as an exercise plus immediate stock-liquidation proxy; physical assignment, early exercise and post-assignment share exposure are not modeled.",
+        "No margin borrowing, funding, interest, tax, dividend, forced liquidation or timestamp-verified fills.",
         "Option-chain data ends on 2025-12-12.","Five phases are independent schedule runs, never summed.",
         "Fixed contract quantity: account NAV compounds but lot count is not dynamically scaled."]}
     writecsv(OUT/"account_phase_summary.csv",summaries)
