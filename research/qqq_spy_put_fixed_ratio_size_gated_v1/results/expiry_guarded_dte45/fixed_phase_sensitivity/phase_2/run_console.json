@@ -1,0 +1,126 @@
+{
+  "status": "COMPLETED_WITH_UNRESOLVEDS",
+  "window": {
+    "start": "2018-03-01",
+    "end": "2025-12-15"
+  },
+  "selection": {
+    "target_abs_delta": 0.25,
+    "delta_eligible_band": [
+      0.1,
+      0.5
+    ],
+    "dte_min": 30,
+    "dte_max": 60,
+    "dte_target": 45,
+    "cohort_stride_sessions": 5,
+    "allow_overlapping_cohorts": true,
+    "initial_phase_sessions": 2,
+    "schedule_mode": "FIXED_ANCHOR_NO_REANCHOR",
+    "common_expiry_required": true
+  },
+  "entry_filter": "none",
+  "ratio": {
+    "method": "FIXED_RATIO_SIZE_GATED",
+    "description": "fixed QQQ LONG PUT 1 : SPY SHORT PUT 3; entry and exit require displayed side size for every contract",
+    "fixed_long_qqq_contracts": 1,
+    "fixed_short_spy_contracts": 3,
+    "max_total_contracts": 9,
+    "contract_multiplier": 100,
+    "mean_spy_put_assignment_obligation_usd": 119677.37
+  },
+  "cohort": {
+    "selected_signals": 391,
+    "entered_cohorts": 391,
+    "entry_skipped": 0
+  },
+  "fixed_entry_schedule": {
+    "mode": "FIXED_ANCHOR_NO_REANCHOR",
+    "phase_sessions": 2,
+    "stride_sessions": 5,
+    "scheduled_opportunities": 392,
+    "selected_signals": 391,
+    "skipped_opportunities": 1,
+    "skip_reason_counts": {
+      "MISSING_QQQ_AND_SPY_OPTION_CHAIN": 1
+    },
+    "skip_rows": [
+      {
+        "scheduled_index": 582,
+        "scheduled_signal_date": "2020-06-23",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "MISSING_QQQ_AND_SPY_OPTION_CHAIN"
+      }
+    ]
+  },
+  "policies": {
+    "HOLD_10_OR_DTE_LE_7": {
+      "policy": "HOLD_10_OR_DTE_LE_7",
+      "opened": 391,
+      "resolved": 388,
+      "unresolved": 3,
+      "wins": 286,
+      "losses": 102,
+      "flat": 0,
+      "win_rate_pct": 73.7113,
+      "win_rate_wilson95_low_pct": 69.1141,
+      "win_rate_wilson95_high_pct": 77.8437,
+      "expectancy_net_usd": 50.851546,
+      "median_net_usd": 280.8,
+      "total_net_pnl_usd": 19730.4,
+      "best_net_usd": 2982.8,
+      "worst_net_usd": -8412.2,
+      "profit_factor": 1.156743,
+      "mean_qqq_long_gross_pnl_usd": -86.662371,
+      "mean_spy_short_gross_pnl_usd": 182.713918,
+      "resolved_coverage_pct": 99.232737,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_20_OR_DTE_LE_7": {
+      "policy": "HOLD_20_OR_DTE_LE_7",
+      "opened": 391,
+      "resolved": 384,
+      "unresolved": 7,
+      "wins": 316,
+      "losses": 68,
+      "flat": 0,
+      "win_rate_pct": 82.2917,
+      "win_rate_wilson95_low_pct": 78.1592,
+      "win_rate_wilson95_high_pct": 85.7844,
+      "expectancy_net_usd": 179.3,
+      "median_net_usd": 520.8,
+      "total_net_pnl_usd": 68851.2,
+      "best_net_usd": 4563.8,
+      "worst_net_usd": -18370.2,
+      "profit_factor": 1.446736,
+      "mean_qqq_long_gross_pnl_usd": -162.515625,
+      "mean_spy_short_gross_pnl_usd": 387.015625,
+      "resolved_coverage_pct": 98.209719,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    }
+  },
+  "execution_variant": {
+    "name": "EXPIRY_GUARDED_HOLD",
+    "policy_definitions": [
+      {
+        "policy": "HOLD_10_OR_DTE_LE_7",
+        "hold_sessions": 10,
+        "dte_guard_days": 7
+      },
+      {
+        "policy": "HOLD_20_OR_DTE_LE_7",
+        "hold_sessions": 20,
+        "dte_guard_days": 7
+      }
+    ],
+    "trigger": "close when age_sessions >= hold_sessions OR remaining calendar DTE <= 7",
+    "exit_execution": "trigger on observed EOD row; close only on a later row with exact contract IDs and sufficient quote-side size; otherwise defer and preserve unresolved status",
+    "implementation": {
+      "base_engine_sha256": "2037a21cb3c6b13a2965e08e516e3688f785dfa18d988a5640303b531f6ee40d",
+      "patched_engine_sha256": "c689e002bb43440f0d7e5a2ad8208e16169984f124435875cd1d5dc4be63e2b6",
+      "runner_sha256": "1ecebff5bb001c5c4441e447247aa99696055611c3634a514d0c5a4fabbe6e73"
+    },
+    "git_sha": "3c905a610f646524263172f01e6060a3b8597638"
+  },
+  "output_dir": "research/qqq_spy_put_fixed_ratio_size_gated_v1/results/expiry_guarded_dte45/fixed_phase_sensitivity/phase_2"
+}
