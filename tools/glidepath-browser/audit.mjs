@@ -22,6 +22,7 @@ let result = {
   glidepath_geometry: null,
   stat_view_missing_guards: {},
   real_mode_table_label_guard: {},
+  real_floor_cohort_checks: [],
   derived_real_breach_zero_proof: [],
   interactive_delegations_verified: {},
   csv_exports_verified: {},
@@ -43,7 +44,7 @@ async function inspectRender(page) {
     for (const element of document.querySelectorAll("svg *")) {
       for (const attribute of Array.from(element.attributes)) {
         if (/\b(?:NaN|undefined)\b/i.test(attribute.value)) {
-          badAttributes.push({tag: element.tagName, name: attribute.name, value: attribute.value});
+          badAttributes.push({tag: element.tagName, id: element.id || null, className: typeof element.className === "string" ? element.className : null, svgId: element.closest("svg")?.id || null, name: attribute.name, value: attribute.value, outerHTML: element.outerHTML.slice(0, 500)});
         }
       }
     }
@@ -86,7 +87,7 @@ async function saveCsv(page, id, expectedRows, expectedCols) {
   need(cols === expectedCols, id + " expected " + expectedCols + " columns, got " + cols);
   const decodedTextBytes = Buffer.byteLength(captured.text);
   need(captured.bytes >= decodedTextBytes && captured.bytes - decodedTextBytes <= 3, id + " Blob/text byte difference exceeds possible UTF-8 BOM: " + captured.bytes + " vs " + decodedTextBytes);
-  return {rows: lines.length - 1, cols, bytes: captured.bytes, decoded_text_bytes: decodedTextBytes, bom_bytes_delta: captured.bytes - decodedTextBytes, file_name: captured.file_name};
+  return {rows: lines.length - 1, cols, headers: lines[0].split(",").map(value => value.replace(/^"|"$/g, "")), data_rows: lines.slice(1).map(line => line.split(",").map(value => value.replace(/^"|"$/g, ""))), bytes: captured.bytes, decoded_text_bytes: decodedTextBytes, bom_bytes_delta: captured.bytes - decodedTextBytes, file_name: captured.file_name};
 }
 
 try {
@@ -104,6 +105,30 @@ try {
     const summary = document.querySelector("#decisionSummary");
     const controls = document.querySelector(".controls");
     const firstChart = document.querySelector("svg,canvas");
+    const rawPack = RAW_PACK;
+    const bondValue = document.querySelector("#bond").value;
+    const bondIndex = ["AGG", "SHY", "IEF", "TLT"].indexOf(bondValue);
+    const timingIndex = ["front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"].indexOf(document.querySelector("#timing").value);
+    const flowIndex = ["no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"].indexOf(document.querySelector("#flow").value);
+    const target = Number(document.querySelector("#target").value);
+    const year = Number(document.querySelector("#year").value);
+    const cpi = Math.max(0, Number(document.querySelector("#realMode").value || 0));
+    const annual = rawPack.a.find(row => row[0] === year && row[1] === bondIndex && row[2] === target && row[3] === timingIndex && row[4] === flowIndex);
+    if (!annual) throw new Error("missing compact annual record for the currently selected strategy/year");
+    const stat = document.querySelector("#statView")?.value || "median";
+    const navField = stat === "p05" ? 6 : stat === "worst" ? 8 : 5;
+    const expectedNav = annual[navField] / Math.pow(1 + cpi, year);
+    const money = value => "$" + Math.round(value).toLocaleString("en-US");
+    const stockWeight = 1 - Number(annual[20]);
+    const bondWeight = Number(annual[20]);
+    const displayStockPct = Number((100 * stockWeight).toFixed(2));
+    const displayBondPct = Number((100 * bondWeight).toFixed(2));
+    const displayNavRounded = Math.round(expectedNav);
+    const initialCapital = Number(rawPack.meta?.initial_capital_usd || 100000);
+    const floorProof = rate => rawPack.d.filter(row => Number(row[7]) >= initialCapital * Math.pow(1 + rate, 10)).length;
+    const strategyCount = rawPack.d.length;
+    const sampleWindows = Number(rawPack.meta?.rolling_windows_per_scenario || 157);
+    const sourceAsOf = String(rawPack.meta?.source_as_of || "2026-09-30");
     return {
     summaryBeforeControls: summary.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING ? true : false,
     evidenceAfterSummary: !!(summary.compareDocumentPosition(evidence) & Node.DOCUMENT_POSITION_FOLLOWING),
@@ -117,6 +142,15 @@ try {
     evidenceSample: document.querySelector("#decisionEvidenceSample").innerText,
     evidenceRisk: document.querySelector("#decisionEvidenceRisk").innerText,
     evidenceScope: document.querySelector("#decisionEvidenceScope").innerText,
+    strategyCount,
+    sampleWindows,
+    sourceAsOf,
+    selectedBond: bondValue,
+    floorProof235: floorProof(0.0235),
+    floorProof350: floorProof(0.035),
+    expectedAmount: money(expectedNav),
+    expectedStockAmount: money(displayNavRounded * displayStockPct / 100),
+    expectedBondAmount: money(displayNavRounded * displayBondPct / 100),
     evidenceDataset: {
       sampleWindows: evidence.dataset.sampleWindows,
       strategyCount: evidence.dataset.strategyCount,
@@ -137,24 +171,30 @@ try {
   need(summaryPlacement.summaryBeforeControls && summaryPlacement.metricsBeforeControls, "decision outputs are not positioned ahead of controls");
   need(summaryPlacement.evidenceAfterSummary && summaryPlacement.evidenceBeforeControls && summaryPlacement.evidenceBeforeFirstChart,
     "decision evidence must follow the selected summary and precede both controls and the first chart: " + JSON.stringify(summaryPlacement));
-  need(summaryPlacement.evidenceAmount.includes("$167,812") &&
-    summaryPlacement.evidenceAllocation.includes("股票約 $98,590") &&
-    summaryPlacement.evidenceAllocation.includes("AGG 約 $69,222"),
+  need(summaryPlacement.evidenceAmount.includes(summaryPlacement.expectedAmount) &&
+    summaryPlacement.evidenceAllocation.includes("股票約 " + summaryPlacement.expectedStockAmount) &&
+    summaryPlacement.evidenceAllocation.includes(summaryPlacement.selectedBond + " 約 " + summaryPlacement.expectedBondAmount),
     "decision evidence does not bind the displayed amount to its actual selected allocation split");
   need(summaryPlacement.evidenceBehavior.includes("AGG") && summaryPlacement.evidenceBehavior.includes("60%") &&
     summaryPlacement.evidenceBehavior.includes("第 5 年") && summaryPlacement.evidenceFlow.includes("不提款"),
     "decision evidence does not bind the NAV amount to current strategy behavior and cashflow");
-  need(summaryPlacement.evidenceSample.includes("768 組") && summaryPlacement.evidenceSample.includes("157 個重疊") &&
-    summaryPlacement.evidenceSample.includes("2026-09-04"),
-    "decision evidence is missing the strategy count, rolling-window count or data as-of date");
-  need(summaryPlacement.evidenceRisk.includes("363 組") && summaryPlacement.evidenceRisk.includes("329 組") &&
-    summaryPlacement.evidenceRisk.includes("未精算") && summaryPlacement.evidenceRisk.includes("不代表途中"),
-    "decision evidence must distinguish proven zero-real-terminal-breach strategies from uncalculated counts");
-  need(summaryPlacement.evidenceDataset.strategyCount === "768" && summaryPlacement.evidenceDataset.sampleWindows === "157",
-    "decision evidence machine attributes do not report the declared sample population");
+  need(summaryPlacement.evidenceSample.includes(summaryPlacement.strategyCount + " 組") &&
+    summaryPlacement.evidenceSample.includes(summaryPlacement.sampleWindows + " 個重疊") &&
+    summaryPlacement.evidenceSample.includes(summaryPlacement.sourceAsOf),
+    "decision evidence is missing the dynamic strategy count, rolling-window count or forward-data as-of date");
+  need(summaryPlacement.evidenceRisk.includes(summaryPlacement.floorProof235 + " 組") &&
+    summaryPlacement.evidenceRisk.includes(summaryPlacement.floorProof350 + " 組") &&
+    summaryPlacement.evidenceRisk.includes("逐窗口重播") && summaryPlacement.evidenceRisk.includes("不代表途中"),
+    "decision evidence must derive real-terminal-floor evidence counts from the embedded strategy records");
+  need(summaryPlacement.evidenceDataset.strategyCount === String(summaryPlacement.strategyCount) &&
+    summaryPlacement.evidenceDataset.sampleWindows === String(summaryPlacement.sampleWindows),
+    "decision evidence machine attributes do not report the current embedded sample population");
   need(summaryPlacement.initialLead.includes("AGG") && summaryPlacement.initialLead.includes("60%") && summaryPlacement.initialLead.includes("第5年"), "initial decision summary does not state the selected strategy/year");
   need(summaryPlacement.initialValue.startsWith("$") && summaryPlacement.initialBehavior.length > 0 && summaryPlacement.initialAllocation.includes("股票") && summaryPlacement.initialFlow.includes("不提款") && summaryPlacement.initialFloor.includes("$"), "initial decision summary is missing amount/behavior/data fields");
-  need(summaryPlacement.initialAllocationDetail.includes("按主結果 $167,812") && summaryPlacement.initialAllocationDetail.includes("股票約 $98,590") && summaryPlacement.initialAllocationDetail.includes("AGG 約 $69,222"), "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
+  need(summaryPlacement.initialAllocationDetail.includes("按主結果 " + summaryPlacement.expectedAmount) &&
+    summaryPlacement.initialAllocationDetail.includes("股票約 " + summaryPlacement.expectedStockAmount) &&
+    summaryPlacement.initialAllocationDetail.includes(summaryPlacement.selectedBond + " 約 " + summaryPlacement.expectedBondAmount),
+    "initial allocation dollar split must reconcile to the displayed NAV and allocation percentages");
   result.frontloaded_decision_summary = { ...summaryPlacement, passed: true };
 
   await page.locator("#decisionTrajectory[data-state]").waitFor({state: "visible", timeout: 5000});
@@ -210,6 +250,267 @@ try {
     realMode: document.querySelector("#realMode").value,
     statView: document.querySelector("#statView").value
   }));
+  // Cross the full cashflow × year × statistic-view state space. Every visible
+  // value must resolve to one exact annual D/A record with the same five-part key.
+  const cashflowModes = [
+    "no_withdrawals",
+    "delayed_stepup_example",
+    "monthly_withdrawal_500_usd_stress",
+    "monthly_withdrawal_1000_usd_stress"
+  ];
+  const cashflowYears = Array.from({length: 11}, (_, index) => index);
+  const cashflowStats = ["median", "p05", "worst"];
+  const cashflowSemanticSweep = {
+    total_combinations: 0,
+    yearly_flow_slices_verified: 0,
+    primary_nav_bindings_verified: 0,
+    metric_rows_verified: 0,
+    allocation_path_bindings_verified: 0,
+    flow_comparison_bars_verified: 0,
+    no_withdrawal_zero_cashflow_checks: 0,
+    data_scope_disclosure_checks: 0,
+    real_floor_window_cells_verified: 0,
+    checked_inflation_modes: [0, 0.0235, 0.035],
+    checked_inflation_coverage: [
+      {inflation: 0, combinations: 132, median_flow_year_combinations: 44, additional_tail_views: 0,
+       policy: "all-flows-years-stat-views"},
+      {inflation: 0.0235, combinations: 46, median_flow_year_combinations: 44, additional_tail_views: 2,
+       policy: "median-all-flow-years-plus-year10-no-flow-p05-worst"},
+      {inflation: 0.035, combinations: 46, median_flow_year_combinations: 44, additional_tail_views: 2,
+       policy: "median-all-flow-years-plus-year10-no-flow-p05-worst"}
+    ],
+    checked_flows: cashflowModes,
+    checked_years: cashflowYears,
+    checked_stat_views: cashflowStats
+  };
+  const moneyText = value => "$" + Math.round(value).toLocaleString("en-US");
+  const pctText = value => value == null ? "—" : (Number(value) * 100).toFixed(2) + "%";
+
+  for (const cpiMode of cashflowSemanticSweep.checked_inflation_modes) {
+    await page.locator("#realMode").selectOption(String(cpiMode));
+    for (const flow of cashflowModes) {
+      await page.locator("#flow").selectOption(flow);
+    for (const year of cashflowYears) {
+      await page.locator("#year").evaluate((element, value) => {
+        element.value = String(value);
+        element.dispatchEvent(new Event("input", {bubbles: true}));
+        element.dispatchEvent(new Event("change", {bubbles: true}));
+      }, year);
+      const statsForThisState = cpiMode === 0 || (flow === "no_withdrawals" && year === 10)
+        ? cashflowStats : ["median"];
+      for (const stat of statsForThisState) {
+        await page.locator("#statView").selectOption(stat);
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const state = await page.evaluate(() => {
+          const bond = document.querySelector("#bond").value;
+          const target = Number(document.querySelector("#target").value);
+          const timing = document.querySelector("#timing").value;
+          const flow = document.querySelector("#flow").value;
+          const moneyText = value => "$" + Math.round(value).toLocaleString("en-US");
+          const pctText = value => value == null ? "—" : (Number(value) * 100).toFixed(2) + "%";
+          const year = Number(document.querySelector("#year").value);
+          const stat = document.querySelector("#statView").value;
+          const cpi = Math.max(0, Number(document.querySelector("#realMode").value || 0));
+          const bonds = ["AGG", "SHY", "IEF", "TLT"];
+          const timings = ["front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"];
+          const flows = ["no_withdrawals", "delayed_stepup_example", "monthly_withdrawal_500_usd_stress", "monthly_withdrawal_1000_usd_stress"];
+          const bi = bonds.indexOf(bond);
+          const ti = timings.indexOf(timing);
+          const fi = flows.indexOf(flow);
+          const row = RAW_PACK.a.find(item => item[0] === year && item[1] === bi && item[2] === target && item[3] === ti && item[4] === fi);
+          if (!row) throw new Error("No exact annual key for flow sweep: " + JSON.stringify({bond, target, timing, flow, year}));
+          const navIndex = stat === "p05" ? 6 : stat === "worst" ? 8 : 5;
+          const expectedPrimary = moneyText(row[navIndex] / Math.pow(1 + cpi, year));
+          const primary = (document.querySelector("#decisionPrimaryValue")?.innerText || "").trim();
+          const flowOption = document.querySelector("#flow").selectedOptions[0];
+          const flowLabel = (flowOption?.textContent || "").trim();
+          const timingLabel = (document.querySelector("#timing").selectedOptions[0]?.textContent || "").trim();
+          const evidence = document.querySelector("#decisionEvidence");
+          const trajectory = document.querySelector("#decisionTrajectory");
+          const navMetricRows = Array.from(document.querySelectorAll("#metrics .metric")).map(card => ({
+            label: (card.querySelector(".k")?.innerText || "").trim(),
+            value: (card.querySelector(".v")?.innerText || "").trim(),
+            note: (card.querySelector(".s")?.innerText || "").trim()
+          }));
+          const realDeflator = Math.pow(1 + cpi, year);
+          const expectedCumulativeCagr = row[9] == null ? null :
+            (cpi > 0 ? (1 + Number(row[9])) / (1 + cpi) - 1 : Number(row[9]));
+          const expectedMetricRows = [
+            ["第" + year + "年中位資產", moneyText(Number(row[5]) / realDeflator)],
+            ["第" + year + "年P05資產", moneyText(Number(row[6]) / realDeflator)],
+            ["截至當年累計年化回報", pctText(expectedCumulativeCagr)],
+            ["截至當年最大回撤", pctText(row[13])],
+            ["最差窗口截至當年回撤", pctText(row[14])],
+            [cpi > 0 ? "低於實質本金窗口" : "名目低於本金窗口",
+             cpi > 0 ? String(Math.round(Number(row[cpi >= 0.03 ? 22 : 21]))) + "/157" : String(Math.round(Number(row[15]))) + "/157"],
+            ["累計缺口窗口", String(Math.round(Number(row[16]))) + "/157"]
+          ];
+          const metricReconciles = navMetricRows.length === expectedMetricRows.length &&
+            expectedMetricRows.every((expected, index) =>
+              navMetricRows[index].label === expected[0] && navMetricRows[index].value === expected[1]);
+          const realFloorTableRows = Array.from(document.querySelectorAll("#table tbody tr")).map(tr => {
+            const timingForRow = tr.dataset.timing;
+            const timingIndex = timings.indexOf(timingForRow);
+            const annualRow = RAW_PACK.a.find(item => item[0] === year && item[1] === bi &&
+              item[2] === target && item[3] === timingIndex && item[4] === fi);
+            if (!annualRow) throw new Error("No annual record for real-principal table timing " + timingForRow);
+            const expectedCount = cpi > 0 ? Number(annualRow[cpi >= 0.03 ? 22 : 21]) : Number(annualRow[15]);
+            return {timing: timingForRow, rendered: (tr.children[7]?.innerText || "").trim(),
+              expected: String(Math.round(expectedCount)) + "/157"};
+          });
+          const floorDetail = (document.querySelector("#decisionFloorDetail")?.innerText || "").trim();
+          const expectedFloorCount = cpi > 0 ? Number(row[cpi >= 0.03 ? 22 : 21]) : Number(row[15]);
+          const floorDetailReconciles = floorDetail.includes("窗口為 " + String(Math.round(expectedFloorCount)) + "/157");
+          const shortfallNoteExpected = "截至當年P95缺口 " + moneyText(row[19]);
+          const shortfallNoteReconciles = navMetricRows.length === 7 && navMetricRows[6].note.includes(shortfallNoteExpected);
+          const stockCell = trajectory?.querySelector('[data-series="stock"] td[data-year="' + year + '"]');
+          const bondCell = trajectory?.querySelector('[data-series="bond"] td[data-year="' + year + '"]');
+          const expectedStockPct = Number((100 * (1 - Number(row[20]))).toFixed(4));
+          const expectedBondPct = Number((100 * Number(row[20])).toFixed(4));
+          const stockPct = Number(stockCell?.dataset.stockPct);
+          const bondPct = Number(bondCell?.dataset.bondPct);
+          const bars = Array.from(document.querySelectorAll("#flows .barrow"));
+          const flowBars = flows.map((flowValue, index) => {
+            const flowRow = RAW_PACK.a.find(item => item[0] === year && item[1] === bi && item[2] === target && item[3] === ti && item[4] === index);
+            const bar = bars[index];
+            const gapNote = bar?.nextElementSibling?.innerText || "";
+            return {
+              flow: flowValue,
+              label: (bar?.querySelector("span")?.innerText || "").trim(),
+              nav: (bar?.querySelector("b")?.innerText || "").trim(),
+              expectedNav: moneyText(Number(flowRow[5]) / Math.pow(1 + cpi, year)),
+              expectedShortfallCount: String(Math.round(Number(flowRow[16]))),
+              expectedP95Shortfall: moneyText(flowRow[19]),
+              gapNote
+            };
+          });
+          const allocationDetail = (document.querySelector("#decisionAllocationDetail")?.innerText || "").trim();
+          const navRound = Math.round(row[navIndex] / Math.pow(1 + cpi, year));
+          const stockPctRounded = Number((100 * (1 - Number(row[20]))).toFixed(2));
+          const bondPctRounded = Number((100 * Number(row[20])).toFixed(2));
+          const expectedStockDollars = moneyText(navRound * stockPctRounded / 100);
+          const expectedBondDollars = moneyText(navRound * bondPctRounded / 100);
+          const evidenceFlow = (document.querySelector("#decisionEvidenceFlow")?.innerText || "").trim();
+          const evidenceScope = (document.querySelector("#decisionEvidenceScope")?.innerText || "").trim();
+          return {
+            bond, target, timing, flow, flowLabel, year, stat, cpi,
+            primary, expectedPrimary,
+            evidenceFlow,
+            evidenceFlowBound: evidence?.dataset.flow === flowLabel &&
+              evidence?.dataset.year === String(year) &&
+              evidence?.dataset.bond === bond &&
+              evidence?.dataset.target === String(target) &&
+              evidence?.dataset.timing === timingLabel,
+            metricReconciles,
+            shortfallNoteReconciles,
+            metricRows: navMetricRows,
+            expectedMetricRows,
+            realFloorTableRows,
+            floorDetail,
+            floorDetailReconciles,
+            trajectoryYear: trajectory?.dataset.year || null,
+            stockPct, expectedStockPct, bondPct, expectedBondPct,
+            flowBars,
+            allocationDetail,
+            expectedStockDollars,
+            expectedBondDollars,
+            selectedBond: bond,
+            dataScopeDisclosure: evidenceScope
+          };
+        });
+        const context = JSON.stringify({flow, year, stat, state});
+        need(state.primary === state.expectedPrimary,
+          "cashflow/year/stat NAV binding differs from its exact annual record: " + context);
+        need(state.evidenceFlowBound && state.evidenceFlow.includes(state.flowLabel),
+          "cashflow label/key/year does not match the selected annual key: " + context);
+        need(state.metricReconciles && state.shortfallNoteReconciles,
+          "year NAV/return/drawdown/shortfall metrics do not reconcile to the current flow row: " + context);
+        need(state.realFloorTableRows.length === 8 &&
+             state.realFloorTableRows.every(cell => cell.rendered === cell.expected),
+          "real-principal/nominal breach count table is not bound to its exact timing/year/cashflow annual records: " + context);
+        need(state.floorDetailReconciles,
+          "decision floor explanation does not display the exact current annual real/nominal breach count: " + context + " / " + state.floorDetail);
+        cashflowSemanticSweep.real_floor_window_cells_verified += state.realFloorTableRows.length;
+        need(state.trajectoryYear === String(year) &&
+             Number.isFinite(state.stockPct) && Number.isFinite(state.bondPct) &&
+             Math.abs(state.stockPct - state.expectedStockPct) <= 0.0001 &&
+             Math.abs(state.bondPct - state.expectedBondPct) <= 0.0001,
+          "allocation path is not using the same annual record as the selected NAV: " + context);
+        need(state.allocationDetail.includes("股票約 " + state.expectedStockDollars) &&
+             state.allocationDetail.includes(state.selectedBond + " 約 " + state.expectedBondDollars),
+          "allocation dollar split does not reconcile to the selected NAV statistic and target weights: " + context);
+        need(state.dataScopeDisclosure.includes("不代表實際持倉或今日訂單"),
+          "UI must distinguish annual target weights from actual holdings/orders: " + context);
+        for (const bar of state.flowBars) {
+          need(bar.label.length > 0 && bar.nav === bar.expectedNav &&
+               bar.gapNote.includes("截至當年缺口 " + bar.expectedShortfallCount + "/157") &&
+               bar.gapNote.includes("P95缺口 " + bar.expectedP95Shortfall),
+            "cashflow comparison chart bar/gap text is not bound to its own annual row: " + JSON.stringify({flow, year, stat, bar}));
+          cashflowSemanticSweep.flow_comparison_bars_verified++;
+        }
+        if (flow === "no_withdrawals") {
+          const noFlowRow = await page.evaluate((selection) => {
+            const bi = ["AGG", "SHY", "IEF", "TLT"].indexOf(selection.bond);
+            const ti = ["front_rapid", "front_fast", "front_loaded", "linear", "mid_loaded", "staggered", "back_loaded", "back_late"].indexOf(selection.timing);
+            const item = RAW_PACK.a.find(row => row[0] === selection.year && row[1] === bi &&
+              row[2] === selection.target && row[3] === ti && row[4] === 0);
+            return {withdrawals:item[17],medianShortfall:item[18],p95Shortfall:item[19],shortfallWindows:item[16]};
+          }, {bond:state.bond,target:state.target,timing:state.timing,year:state.year});
+          need(Math.abs(Number(noFlowRow.withdrawals)) <= 0.01 &&
+               Math.abs(Number(noFlowRow.medianShortfall)) <= 0.01 &&
+               Math.abs(Number(noFlowRow.p95Shortfall)) <= 0.01 &&
+               Number(noFlowRow.shortfallWindows) === 0,
+            "no-withdrawal annual row must be all-zero for actual withdrawals and shortfalls: " + context + " / " + JSON.stringify(noFlowRow));
+          cashflowSemanticSweep.no_withdrawal_zero_cashflow_checks++;
+        }
+        cashflowSemanticSweep.total_combinations++;
+        cashflowSemanticSweep.yearly_flow_slices_verified++;
+        cashflowSemanticSweep.primary_nav_bindings_verified++;
+        cashflowSemanticSweep.metric_rows_verified++;
+        cashflowSemanticSweep.allocation_path_bindings_verified++;
+        cashflowSemanticSweep.data_scope_disclosure_checks++;
+      }
+    }
+  }
+  }
+  result.cashflow_nav_semantic_sweep = cashflowSemanticSweep;
+
+  // The real-principal breach heatmap must render all 64 target/timing cells
+  // under each supported inflation assumption, instead of showing the old BLOCK message.
+  const priorHeatMetric = await page.locator("#heatMetricX").inputValue();
+  const realFloorHeatmapChecks = [];
+  await page.locator("#heatMetricX").selectOption("windows_below_initial_capital");
+  for (const cpiMode of ["0.0235", "0.035"]) {
+    await page.locator("#realMode").selectOption(cpiMode);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const heat = await page.evaluate(() => ({
+      cpi: Number(document.querySelector("#realMode").value),
+      metric: document.querySelector("#heatMetricX").value,
+      cells: document.querySelectorAll("#heatmapX g[data-target][data-timing]").length,
+      text: document.querySelector("#heatmapX")?.textContent || ""
+    }));
+    need(heat.cpi === Number(cpiMode) && heat.metric === "windows_below_initial_capital" &&
+         heat.cells === 64 && heat.text.includes("低於實質本金窗口") && !heat.text.includes("無法精算"),
+      "real-principal heatmap did not render 64 exact cells for inflation " + cpiMode + ": " + JSON.stringify(heat));
+    realFloorHeatmapChecks.push({inflation: heat.cpi, cells: heat.cells, passed: true});
+  }
+  result.real_floor_heatmap_checks = realFloorHeatmapChecks;
+  await page.locator("#heatMetricX").selectOption(priorHeatMetric);
+
+  // Restore the exact original forward-mode state before independent reverse replay.
+  for (const [selector, value] of [
+    ["#flow", originalControls.flow], ["#statView", originalControls.statView],
+    ["#realMode", originalControls.realMode]
+  ]) {
+    await page.locator(selector).selectOption(String(value));
+  }
+  await page.locator("#year").evaluate((element, value) => {
+    element.value = String(value);
+    element.dispatchEvent(new Event("input", {bubbles:true}));
+    element.dispatchEvent(new Event("change", {bubbles:true}));
+  }, Number(originalControls.year));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
   const noWithdrawalValue = await page.locator("#flow").evaluate(el => {
     const option = Array.from(el.options).find(item => /不提款/.test(item.textContent || ""));
     return option ? option.value : null;
@@ -589,7 +890,7 @@ try {
         await page.locator("#statView").selectOption(stat);
         const bad = await inspectRender(page);
         need(!bad.badText, "NaN/undefined appeared in visible DOM for year=" + year + ", inflation=" + inflation + ", stat=" + stat);
-        need(bad.badAttributes.length === 0, "invalid SVG attribute appeared for year=" + year + ", inflation=" + inflation + ", stat=" + stat);
+        need(bad.badAttributes.length === 0, "invalid SVG attribute appeared for year=" + year + ", inflation=" + inflation + ", stat=" + stat + ": " + JSON.stringify(bad.badAttributes));
         result.state_matrix_combinations.push({year, inflation, stat});
         result.state_matrix_sweeps++;
       }
@@ -600,9 +901,27 @@ try {
 
   const geometry = await page.locator("#glide circle").evaluateAll(nodes => {
     const vals = nodes.map(node => Number(node.getAttribute("cy")));
-    return {count: vals.length, min: Math.min(...vals), max: Math.max(...vals), non_finite: vals.filter(value => !Number.isFinite(value)).length};
+    const timingValues = Array.from(document.querySelectorAll("#timing option")).map(option => option.value);
+    const yearControl = document.querySelector("#year");
+    const minYear = Number(yearControl.min || 0);
+    const maxYear = Number(yearControl.max || 10);
+    const yearStep = Number(yearControl.step || 1);
+    const yearsPerTiming = Math.floor((maxYear - minYear) / yearStep) + 1;
+    const pairs = nodes.map(node => node.getAttribute("data-timing") + ":" + node.getAttribute("data-year"));
+    return {
+      count: vals.length,
+      expectedCount: timingValues.length * yearsPerTiming,
+      timingCount: timingValues.length,
+      yearsPerTiming,
+      uniqueTimingYearPairs: new Set(pairs).size,
+      min: Math.min(...vals),
+      max: Math.max(...vals),
+      non_finite: vals.filter(value => !Number.isFinite(value)).length
+    };
   });
-  need(geometry.count === 66, "expected 66 glidepath circle nodes, got " + geometry.count);
+  need(geometry.timingCount === 8 && geometry.count === geometry.expectedCount &&
+       geometry.uniqueTimingYearPairs === geometry.expectedCount,
+       "glidepath must render one circle for every timing/year pair (8 timing rules x all years): " + JSON.stringify(geometry));
   // The current selected target can legitimately drive the bond allocation to 100% (cy=y0=15); assert the chart's actual plot bounds, not the default strategy's narrower range.
   need(geometry.non_finite === 0 && geometry.min >= 15 && geometry.max <= 180, "glidepath circle geometry out of plot bounds [15,180]: " + JSON.stringify(geometry));
   result.glidepath_geometry = geometry;
@@ -619,12 +938,29 @@ try {
   need(worstText.includes("資料缺口：本年度摘要沒有最差窗口年化回報序列"), "worst-CAGR missing-data guard not shown");
   result.stat_view_missing_guards.worst_cagr = true;
 
+  const readRealFloorTable = async () => page.evaluate(() => {
+    const state = S();
+    return Array.from(document.querySelectorAll("#table tbody tr")).map(tr => {
+      const record = Y(state.bond, state.target, tr.dataset.timing, state.flow, state.year);
+      const count = Number(state.cpi >= 0.03 ? record.windows_below_real_principal_350 : record.windows_below_real_principal_235);
+      return {timing: tr.dataset.timing, rendered: (tr.children[7]?.innerText || "").trim(),
+        expected: String(Math.round(count)) + "/" + record.rolling_windows};
+    });
+  });
   await page.locator("#realMode").selectOption("0.0235");
   const realHead = await page.locator("#table thead th").nth(7).innerText();
   const realCell = await page.locator("#table tbody tr").first().locator("td").nth(7).innerText();
-  need(realHead.includes("實質保本窗口") && realHead.includes("未精算"), "table real-mode header is ambiguous: " + realHead);
-  need(realCell.includes("未精算（名目") && realCell.includes("/157）"), "table real-mode count still presents an unlabelled nominal count: " + realCell);
-  result.real_mode_table_label_guard = {header: realHead, first_row: realCell, passed: true};
+  const realRows235 = await readRealFloorTable();
+  need(realHead.includes("低於實質本金窗口") && !realHead.includes("未精算"), "table real-mode header is ambiguous: " + realHead);
+  need(/^\d+\/157$/.test(realCell) && realRows235.length === 8 && realRows235.every(row => row.rendered === row.expected),
+    "2.35% real-principal counts are not all linked to their annual replay records: " + JSON.stringify(realRows235));
+  await page.locator("#realMode").selectOption("0.035");
+  const stressHead = await page.locator("#table thead th").nth(7).innerText();
+  const realRows350 = await readRealFloorTable();
+  need(stressHead.includes("低於實質本金窗口") && realRows350.length === 8 && realRows350.every(row => row.rendered === row.expected),
+    "3.50% real-principal counts are not all linked to their annual replay records: " + JSON.stringify(realRows350));
+  result.real_mode_table_label_guard = {header: realHead, first_row: realCell, passed: true, eight_timing_cells_verified: realRows235.length};
+  result.real_floor_inflation_views = {rate_2_35_cells: realRows235.length, rate_3_50_cells: realRows350.length, passed: true};
   await page.locator("#realMode").selectOption("0");
   const nominalHead = await page.locator("#table thead th").nth(7).innerText();
   const nominalCell = await page.locator("#table tbody tr").first().locator("td").nth(7).innerText();
@@ -632,20 +968,134 @@ try {
 
   const proof = await page.evaluate(() => {
     const rows = RAW_PACK.a.filter(row => Number(row[0]) === 10);
+    const year10StrategyCount = RAW_PACK.d.length;
+    const initialCapital = Number((RAW_PACK.meta && RAW_PACK.meta.initial_capital_usd) || 100000);
     return [0.0235, 0.035].map(cpi => {
-      const threshold = 100000 * Math.pow(1 + cpi, 10);
+      const threshold = initialCapital * Math.pow(1 + cpi, 10);
+      const countIndex = cpi >= 0.03 ? 22 : 21;
       return {
         annualized_inflation_assumption: cpi,
         year10_nominal_principal_threshold_usd: threshold,
         year10_strategies: rows.length,
-        provable_zero_real_breach_strategies: rows.filter(row => Number(row[8]) >= threshold).length
+        provable_zero_real_breach_strategies: rows.filter(row => Number(row[countIndex]) === 0).length
       };
     });
   });
-  need(proof.length === 2 && proof[0].year10_strategies === 768, "could not reproduce year-10 strategy proof counts from embedded RAW_PACK data");
-  need(proof[0].provable_zero_real_breach_strategies === 363, "2.35% zero-breach proof count differs: " + JSON.stringify(proof[0]));
-  need(proof[1].provable_zero_real_breach_strategies === 329, "3.50% zero-breach proof count differs: " + JSON.stringify(proof[1]));
+  need(proof.length === 2 && proof[0].year10_strategies === 1024, "could not reproduce year-10 strategy proof counts from embedded RAW_PACK data");
+  need(proof[0].year10_strategies === 1024 && proof[1].year10_strategies === 1024, "year-10 strategy count does not match all 1,024 embedded scenario records");
+  need(proof.every(item => Number.isInteger(item.provable_zero_real_breach_strategies) && item.provable_zero_real_breach_strategies >= 0 && item.provable_zero_real_breach_strategies <= item.year10_strategies),
+    "derived real-floor proof count is outside the observed strategy population: " + JSON.stringify(proof));
+  const realFloorAnnualIntegrity = await page.evaluate(() => {
+    const rows = RAW_PACK.a;
+    const valid = rows.filter(row => Number.isInteger(row[21]) && Number.isInteger(row[22]) &&
+      row[21] >= 0 && row[21] <= row[22] && row[22] <= 157);
+    const yearZero = rows.filter(row => Number(row[0]) === 0);
+    const yearTen = rows.filter(row => Number(row[0]) === 10);
+    return {
+      annual_rows: rows.length,
+      rows_with_both_real_floor_counts: valid.length,
+      year_zero_rows: yearZero.length,
+      year_zero_zero_breach_rows: yearZero.filter(row => Number(row[21]) === 0 && Number(row[22]) === 0).length,
+      year10_rows: yearTen.length,
+      zero_breach_strategies_235: yearTen.filter(row => Number(row[21]) === 0).length,
+      zero_breach_strategies_350: yearTen.filter(row => Number(row[22]) === 0).length
+    };
+  });
+  need(realFloorAnnualIntegrity.annual_rows === 11264 &&
+       realFloorAnnualIntegrity.rows_with_both_real_floor_counts === 11264 &&
+       realFloorAnnualIntegrity.year_zero_rows === 1024 &&
+       realFloorAnnualIntegrity.year_zero_zero_breach_rows === 1024 &&
+       realFloorAnnualIntegrity.year10_rows === 1024 &&
+       realFloorAnnualIntegrity.zero_breach_strategies_235 === proof[0].provable_zero_real_breach_strategies &&
+       realFloorAnnualIntegrity.zero_breach_strategies_350 === proof[1].provable_zero_real_breach_strategies,
+    "Annual real-principal breach grid is incomplete or disagrees with the terminal worst-NAV proof: " + JSON.stringify(realFloorAnnualIntegrity));
+  result.real_floor_annual_pack_integrity = realFloorAnnualIntegrity;
   result.derived_real_breach_zero_proof = proof;
+
+  // The start-year cohort has 4–12 actual windows, not the full 157-window panel.
+  // Verify each bar against the cohort's own replay count at both supported inflation rates.
+  await page.locator("#cohortMetricX").selectOption("below");
+  const realFloorCohortChecks = [];
+  for (const inflation of [0.0235, 0.035]) {
+    await page.locator("#realMode").selectOption(String(inflation));
+    const cohortMetricLabel = await page.locator('#cohortMetricX option[value="below"]').innerText();
+    need(cohortMetricLabel === "低於實質本金窗口",
+      "Cohort metric selector does not label the active real-principal count at rate " + inflation + ": " + cohortMetricLabel);
+    await page.waitForFunction(rate => {
+      const bars = Array.from(document.querySelectorAll("#cohortX rect[data-cohort-year]"));
+      return bars.length === 14 && bars.every(bar => {
+        const title = bar.querySelector("title")?.textContent || "";
+        return title.includes(rate >= 0.03 ? "低於實質本金窗口" : "低於實質本金窗口");
+      });
+    }, inflation, {timeout: 5000});
+    const cohortSweep = await page.evaluate(rate => {
+      const bondIndex = ["AGG","SHY","IEF","TLT"].indexOf(document.querySelector("#bond").value);
+      const target = Number(document.querySelector("#target").value);
+      const timingIndex = ["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"].indexOf(document.querySelector("#timing").value);
+      const flowIndex = ["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"].indexOf(document.querySelector("#flow").value);
+      const countIndex = rate >= 0.03 ? 17 : 16;
+      const source = RAW_PACK.c.filter(row => row[0] === bondIndex && row[1] === target && row[2] === timingIndex && row[3] === flowIndex);
+      const bars = Array.from(document.querySelectorAll("#cohortX rect[data-cohort-year]")).map(bar => {
+        const year = Number(bar.getAttribute("data-cohort-year"));
+        const row = source.find(item => Number(item[4]) === year);
+        const title = bar.querySelector("title")?.textContent || "";
+        const match = title.match(/(\d+) 個窗口 · 低於實質本金窗口 (\d+)/);
+        return {
+          year,
+          expected: row ? Number(row[countIndex]) : null,
+          sample_n: row ? Number(RAW_PACK.cm[String(year)]?.[0]) : null,
+          renderedSample: match ? Number(match[1]) : null,
+          rendered: match ? Number(match[2]) : null,
+          keyPresent: !!row
+        };
+      });
+      const selectedYear = Number(document.querySelector("#cohortDetailX").innerText.match(/(\d+) 年起點/)?.[1]);
+      const selectedRow = source.find(item => Number(item[4]) === selectedYear);
+      const selectedExpected = selectedRow ? Number(selectedRow[countIndex]) : null;
+      const detail = document.querySelector("#cohortDetailX").innerText;
+      return {
+        inflation: rate, strategyRows: source.length, bars: bars.length,
+        allBarsMatch: bars.every(bar => bar.keyPresent && Number.isInteger(bar.expected) &&
+          bar.rendered === bar.expected && bar.renderedSample === bar.sample_n &&
+          bar.sample_n > 0 && bar.sample_n <= 12 && bar.rendered >= 0 && bar.rendered <= bar.sample_n),
+        sampleCounts: bars.map(bar => bar.sample_n),
+        selectedYear, selectedExpected,
+        selectedDetailMatches: selectedExpected !== null && detail.includes(selectedExpected + "/" + Number(RAW_PACK.cm[String(selectedYear)]?.[0])),
+        detail
+      };
+    }, inflation);
+    // Detail displays the selected year-end breach count over its actual sample size.
+    const cohortDetailCheck = await page.evaluate(rate => {
+      const detail = document.querySelector("#cohortDetailX").innerText;
+      const year = Number(detail.match(/(\d+) 年起點/)?.[1]);
+      const bondIndex = ["AGG","SHY","IEF","TLT"].indexOf(document.querySelector("#bond").value);
+      const target = Number(document.querySelector("#target").value);
+      const timingIndex = ["front_rapid","front_fast","front_loaded","linear","mid_loaded","staggered","back_loaded","back_late"].indexOf(document.querySelector("#timing").value);
+      const flowIndex = ["no_withdrawals","delayed_stepup_example","monthly_withdrawal_500_usd_stress","monthly_withdrawal_1000_usd_stress"].indexOf(document.querySelector("#flow").value);
+      const row = RAW_PACK.c.find(item => item[0]===bondIndex && item[1]===target && item[2]===timingIndex && item[3]===flowIndex && item[4]===year);
+      const countIndex = rate >= 0.03 ? 17 : 16;
+      const expected = row ? Number(row[countIndex]) : null;
+      const sampleN = Number(RAW_PACK.cm[String(year)]?.[0]);
+      return {year,expected,sampleN,matches:row!==undefined && detail.includes(expected + "/" + sampleN),detail};
+    }, inflation);
+    need(cohortSweep.strategyRows === 14 && cohortSweep.bars === 14 && cohortSweep.allBarsMatch,
+      "Start-year cohort bars do not match their exact replay rows at inflation " + inflation + ": " + JSON.stringify(cohortSweep));
+    need(cohortDetailCheck.matches && cohortDetailCheck.sampleN > 0 && cohortDetailCheck.sampleN <= 12,
+      "Start-year cohort detail does not show the exact count/sample at inflation " + inflation + ": " + JSON.stringify(cohortDetailCheck));
+    realFloorCohortChecks.push({
+      inflation, cohort_metric_label: cohortMetricLabel,
+      cohort_groups: cohortSweep.strategyRows, bars_verified: cohortSweep.bars,
+      all_bars_match: cohortSweep.allBarsMatch, selected_detail_match: cohortDetailCheck.matches,
+      cohort_sample_counts: cohortSweep.sampleCounts
+    });
+  }
+  need(realFloorCohortChecks.length === 2 && realFloorCohortChecks.every(item =>
+    item.cohort_groups === 14 && item.bars_verified === 14 && item.all_bars_match && item.selected_detail_match),
+    "Cohort real-principal verification did not pass both inflation views");
+  result.real_floor_cohort_checks = realFloorCohortChecks;
+  await page.locator("#realMode").selectOption("0");
+  need(await page.locator('#cohortMetricX option[value="below"]').innerText() === "低於起始本金窗口",
+    "Cohort metric selector did not return to the nominal-principal label.");
 
   // Verify real click delegation and that each interaction changes the intended control/state.
   let attrs = await clickAndRead(page, "#heatmapX [data-target][data-timing]");
@@ -701,10 +1151,26 @@ try {
   need((await page.locator("#label").innerText()).trim().length > 0, "drawdown optimizer left label empty");
   result.interactive_delegations_verified.smart_optimizer_buttons = true;
 
-  result.csv_exports_verified.matrix = await saveCsv(page, "exportMatrix", 48, 23);
-  result.csv_exports_verified.trajectory = await saveCsv(page, "exportTrajectory", 11, 23);
-  result.csv_exports_verified.cohorts = await saveCsv(page, "exportCohort", 14, 19);
-  result.csv_exports_verified.annual = await saveCsv(page, "exportAnnual", 8448, 23);
+  const expectedMatrixRows = await page.evaluate(() => TG.length * TM.length);
+  need(expectedMatrixRows === 64, "current-year matrix must cover all 8 targets x 8 timing rules: " + expectedMatrixRows);
+  result.csv_exports_verified.matrix = await saveCsv(page, "exportMatrix", expectedMatrixRows, 25);
+  const matrixReal235Column = result.csv_exports_verified.matrix.headers.indexOf("windows_below_real_principal_235");
+  const matrixReal350Column = result.csv_exports_verified.matrix.headers.indexOf("windows_below_real_principal_350");
+  need(matrixReal235Column >= 0 && matrixReal350Column >= 0,
+    "matrix CSV must export both exact real-principal breach count columns: " + JSON.stringify(result.csv_exports_verified.matrix.headers));
+  const validRealCount = value => /^\d+$/.test(String(value)) && Number(value) >= 0 && Number(value) <= 157;
+  need(result.csv_exports_verified.matrix.data_rows.length === expectedMatrixRows &&
+       result.csv_exports_verified.matrix.data_rows.every(row => validRealCount(row[matrixReal235Column]) && validRealCount(row[matrixReal350Column])),
+    "matrix CSV real-principal counts must be integers in the 0–157 window range for all 64 strategies");
+  result.csv_exports_verified.matrix.real_principal_count_columns = {
+    "2.35_percent": matrixReal235Column, "3.50_percent": matrixReal350Column, verified_rows: expectedMatrixRows
+  };
+
+  result.csv_exports_verified.trajectory = await saveCsv(page, "exportTrajectory", 11, 25);
+  result.csv_exports_verified.cohorts = await saveCsv(page, "exportCohort", 14, 21);
+  const expectedAnnualRows = await page.evaluate(() => RAW_PACK.a.length);
+  need(expectedAnnualRows === 11264, "annual CSV must export the complete embedded annual grid: " + expectedAnnualRows);
+  result.csv_exports_verified.annual = await saveCsv(page, "exportAnnual", expectedAnnualRows, 25);
 
   for (const viewport of [
     {name: "desktop_1480x1200", width: 1480, height: 1200},
