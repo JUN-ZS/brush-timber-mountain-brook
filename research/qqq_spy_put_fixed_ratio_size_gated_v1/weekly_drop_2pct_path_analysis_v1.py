@@ -235,6 +235,11 @@ def main():
             "ratio","episode_id","signal_date","entry_date","exit_date","spy_5d_return_at_signal_pct",
             "spy_previous_5d_return_pct","qqq_5d_return_at_signal_pct","qqq_spy_corr_prior_60d",
             "spy_ath_drawdown_at_entry_pct","spy_worst_ath_drawdown_during_episode_pct",
+            "qqq_contract_id","qqq_strike","qqq_abs_delta_at_signal","qqq_abs_delta_at_entry_per_contract",
+            "qqq_contracts","qqq_delta_share_equivalent_at_entry","qqq_unit_ask_at_signal_usd",
+            "qqq_reference_unit_ask_at_signal_usd","qqq_unit_ask_at_entry_usd",
+            "qqq_total_long_put_debit_at_entry_usd","qqq_reference_1x6_unit_ask_at_entry_usd",
+            "qqq_unit_premium_reduction_vs_1x6_pct","qqq_half_premium_target_usd",
             "spy_worst_return_from_entry_during_episode_pct","status","net_pnl_usd",
             "no_ath_breach_minus_10pct","no_ath_breach_minus_15pct",
             "no_entry_loss_breach_minus_10pct","no_entry_loss_breach_minus_15pct"]
@@ -304,14 +309,16 @@ def main():
         "| Ratio | Scheduled daily opportunities | Qualified signals | Entered cohorts | Entry skips | Resolved | Unresolved |",
         "|---|---:|---:|---:|---:|---:|---:|"
     ]
-    for ratio in ("1x3", "1x6", "2x6"):
+    for ratio in ("1x3", "1x6", "2x6", "2x6_samecontract"):
         z=run_stats[ratio]
-        lines.append(f"| {ratio.replace('x',':')} | {z.get('scheduled_opportunities')} | {z.get('selected_signals')} | {z.get('entered_cohorts')} | {z.get('entry_skipped')} | {z.get('resolved')} | {z.get('unresolved')} |")
+        shown_ratio = {"1x3":"1:3", "1x6":"1:6", "2x6":"2:6 half-premium", "2x6_samecontract":"2:6 same contract"}[ratio]
+        lines.append(f"| {shown_ratio} | {z.get('scheduled_opportunities')} | {z.get('selected_signals')} | {z.get('entered_cohorts')} | {z.get('entry_skipped')} | {z.get('resolved')} | {z.get('unresolved')} |")
     lines += [
         "",
         "## QQQ unit premium and hedge sizing",
         "",
         "The 2:6 half-premium arm selects an alternative QQQ put at approximately half the signal-time Ask of the 1:6 reference contract, locks the reference expiry and SPY contract, and buys two contracts; its QQQ Delta is unconstrained. The separate 2:6 same-contract arm buys two copies of the exact QQQ contract chosen by the 1:6 reference selector, subject to displayed size. Entry unit premium and total debit use next-session entry Ask quotes.",
+        "The aggregate Delta-equivalent column is the mean of abs(Delta per QQQ contract) × QQQ contract count × 100. It is only a first-order local sensitivity proxy, not equivalent tail convexity or guaranteed hedge value.",
         "",
         "| Ratio | QQQ long : SPY short | QQQ reference multiple | Mean QQQ premium / contract | Median QQQ premium / contract | Mean total QQQ debit | Mean SPY short credit | Mean |Delta| / contract | Aggregate Delta-equivalent | Mean unit-premium reduction vs 1:6 | Paired N | QQQ/SPY/expiry match vs 1:6 |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
