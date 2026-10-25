@@ -935,7 +935,8 @@ def run_replay(args):
         "episode_id","signal_index","entry_index","signal_date","entry_date","expiry","signal_dte",
         "qqq_contract_id","spy_contract_id","qqq_strike","spy_strike",
         "qqq_spot_signal","spy_spot_signal","qqq_spot_entry","spy_spot_entry",
-        "qqq_abs_delta","spy_abs_delta",
+        "qqq_abs_delta","spy_abs_delta","qqq_signal_ask","qqq_target_ask_signal",
+        "qqq_premium_match_short_qty","qqq_premium_match_error_signal","spy_signal_bid",
         "qqq_otm_pct_signal","qqq_moneyness_signal","spy_otm_pct_signal","spy_moneyness_signal",
         "qqq_otm_pct_entry","qqq_moneyness_entry","spy_otm_pct_entry","spy_moneyness_entry",
         "entry_filter","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
@@ -951,6 +952,8 @@ def run_replay(args):
         "fixed_ratio":{"qqq_long_put_contracts":args.fixed_long_qty,"spy_short_put_contracts":args.fixed_short_qty} if args.sizing_mode == "fixed_ratio" else None,
         "entry_filter":args.entry_filter,
         "cohort_stride_sessions":args.cohort_stride_sessions,
+        "qqq_premium_match_short_qty":args.qqq_premium_match_short_qty,
+        "qqq_premium_match_rule":"QQQ LONG PUT Ask nearest 6x SPY SHORT PUT Bid at signal date; same QQQ contract used in 1:3 and 1:6 arms",
         "initial_phase_sessions":args.initial_phase_sessions,
         "schedule_mode":"FIXED_ANCHOR_NO_REANCHOR","scheduled_opportunities":scheduled_opportunities,
         "selected_signals":signal_count,"skipped_schedule_opportunities":len(schedule_skips),
