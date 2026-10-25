@@ -428,6 +428,38 @@ def evaluate_entry_filter(filter_name, idx, dates, qspots, sspots, lookback=20):
         empty.update({"entry_filter": "none", "filter_pass_reason": "FILTER_DISABLED"})
         return True, empty
 
+    if filter_name == "spy_weekly_drop_1pct":
+        # Event trigger: SPY rolling 5-common-session close return crosses from > -1% to <= -1%.
+        # No QQQ/SPY correlation gate is applied. A later entry requires recovery above -1% first.
+        lookback = 5
+        if idx < lookback + 1:
+            empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "INSUFFICIENT_LOOKBACK"})
+            return False, empty
+        current_day, prior_day = dates[idx], dates[idx - lookback]
+        previous_day, previous_week_start = dates[idx - 1], dates[idx - lookback - 1]
+        qnow, qprior = num(qspots.get(current_day)), num(qspots.get(prior_day))
+        snow, sprior = num(sspots.get(current_day)), num(sspots.get(prior_day))
+        sprev, sprevprior = num(sspots.get(previous_day)), num(sspots.get(previous_week_start))
+        if None in (qnow, qprior, snow, sprior, sprev, sprevprior) or min(qprior, sprior, sprevprior) <= 0:
+            empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "MISSING_OR_INVALID_LOOKBACK_PRICE"})
+            return False, empty
+        qret = (qnow / qprior - 1) * 100
+        sret = (snow / sprior - 1) * 100
+        previous_sret = (sprev / sprevprior - 1) * 100
+        crossed = sret <= -1.0 and previous_sret > -1.0
+        passed = crossed
+        reason = "SPY_5D_DROPPED_THROUGH_MINUS_1PCT" if passed else "NO_NEW_SPY_5D_MINUS_1PCT_CROSSING"
+        return passed, {
+            "entry_filter": filter_name,
+            "filter_lookback_sessions": lookback,
+            "qqq_trailing_return_pct": finite_round(qret, 4),
+            "spy_trailing_return_pct": finite_round(sret, 4),
+            "qqq_minus_spy_trailing_return_pct": finite_round(qret-sret, 4),
+            "spy_previous_trailing_return_pct": finite_round(previous_sret, 4),
+            "qqq_spy_corr_60d": None,
+            "filter_pass_reason": reason,
+        }
+
     if filter_name == "spy_weekly_drop_2pct_corr60_pos":
         # Event trigger: SPY rolling 5-session return crosses from > -2% to <= -2%.
         # Require positive Pearson correlation of the prior 60 daily returns, ending before signal day.
@@ -868,7 +900,7 @@ def run_replay(args):
     start_day,end_day=args.start,args.end
     if date.fromisoformat(start_day)>date.fromisoformat(end_day):raise ValueError("--start must be <= --end")
     if args.max_total_contracts < 2 or args.max_total_contracts > 20:raise ValueError("--max-total-contracts must be between 2 and 20")
-    if args.entry_filter not in ("none", "qqq_underperforms_spy_20d", "spy_weekly_drop_2pct_corr60_pos"):raise ValueError("unsupported entry filter")
+    if args.entry_filter not in ("none", "qqq_underperforms_spy_20d", "spy_weekly_drop_2pct_corr60_pos", "spy_weekly_drop_1pct"):raise ValueError("unsupported entry filter")
     if args.sizing_mode not in ("equal_premium", "fixed_ratio"):raise ValueError("unsupported sizing mode")
     if args.sizing_mode == "fixed_ratio":
         if args.fixed_long_qty < 1 or args.fixed_short_qty < 1:
@@ -1088,8 +1120,8 @@ def run_replay(args):
         },
         "premium_matching":premium_summary,
         "entry_filter":{"name":args.entry_filter,
-            "description":("No filter; entry when standard contract selection is available" if args.entry_filter=="none" else ("SPY rolling 5-session return crosses from above -2% to <= -2%, with positive Pearson correlation over the prior 60 daily returns; entry no earlier than next observed common session" if args.entry_filter=="spy_weekly_drop_2pct_corr60_pos" else "Require QQQ trailing 20-session close-to-close return to be lower than SPY; evaluated at signal close, entry no earlier than next observed common session")),
-            "lookback_sessions":0 if args.entry_filter=="none" else (5 if args.entry_filter=="spy_weekly_drop_2pct_corr60_pos" else 20),
+            "description":("No filter; entry when standard contract selection is available" if args.entry_filter=="none" else ("SPY rolling 5-session close return crosses from above -1% to <= -1%; no correlation gate; entry next observed common session" if args.entry_filter=="spy_weekly_drop_1pct" else ("SPY rolling 5-session return crosses from above -2% to <= -2%, with positive Pearson correlation over the prior 60 daily returns; entry no earlier than next observed common session" if args.entry_filter=="spy_weekly_drop_2pct_corr60_pos" else "Require QQQ trailing 20-session close-to-close return to be lower than SPY; evaluated at signal close, entry no earlier than next observed common session"))),
+            "lookback_sessions":0 if args.entry_filter=="none" else (5 if args.entry_filter in ("spy_weekly_drop_2pct_corr60_pos","spy_weekly_drop_1pct") else 20),
             "evaluated_sessions":filter_evaluations,"qualified_sessions":filter_qualified,
             "rejected_sessions":filter_rejected},
         "selection":{"target_abs_delta":args.target_delta,"delta_eligible_band":[DELTA_MIN,DELTA_MAX],
@@ -1202,7 +1234,7 @@ def parse_args():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--start",default=START_DEFAULT);p.add_argument("--end",default=END_DEFAULT)
     p.add_argument("--max-total-contracts",type=int,default=9,help="maximum combined whole option contracts per entry cohort")
-    p.add_argument("--entry-filter",choices=("none","qqq_underperforms_spy_20d","spy_weekly_drop_2pct_corr60_pos"),default="qqq_underperforms_spy_20d")
+    p.add_argument("--entry-filter",choices=("none","qqq_underperforms_spy_20d","spy_weekly_drop_2pct_corr60_pos","spy_weekly_drop_1pct"),default="qqq_underperforms_spy_20d")
     p.add_argument("--sizing-mode",choices=("equal_premium","fixed_ratio"),default="equal_premium")
     p.add_argument("--fixed-long-qty",type=int,default=1,help="fixed QQQ LONG PUT contracts when --sizing-mode=fixed_ratio")
     p.add_argument("--fixed-short-qty",type=int,default=6,help="fixed SPY SHORT PUT contracts when --sizing-mode=fixed_ratio")
