@@ -37,7 +37,19 @@ To quantify the defect, the replay contains a diagnostic arm \`LEGACY_NO_QQQ_DEB
 | CAGR | 12.7530% | 15.2761% | +2.5231 percentage points |
 | Daily MTM MaxDD | -23.0213% | -21.2557% | appears 1.7656 pp less severe |
 
-These differences are **not strategy alpha**. The legacy control has a broken funding ledger and also feeds the inflated NAV into subsequent NAV-sized option positions. This directly invalidates any use of that broken control as executable account performance. It explains a substantial part of the older derived-model headline uplift, though it does not by itself numerically recalculate every earlier historical-reference version.
+These differences are **not strategy alpha**. The legacy control has a broken funding ledger and also feeds the inflated NAV into subsequent NAV-sized option positions. This directly invalidates the legacy control as executable account performance. But the common-window diagnostic alone does not prove that every previously reported headline was generated from the buggy code; the original report's exact run-source provenance must be checked separately.
+
+## 3. Full original-history accounting reproduction (2018-03-01 to 2026-09-04)
+
+A second same-code, no-TAIL replay was run on the full original-history window: 2,141 sessions. It does not use the shorter TAIL price pairing window.
+
+| Full-window control | Final NAV | CAGR | Daily MTM MaxDD |
+|---|---:|---:|---:|
+| Corrected account ledger, no TAIL | USD 298,267.22 | 13.6992% | -23.0213% |
+| Legacy missing-QQQ-cash-debit control | USD 348,116.65 | 15.7824% | -21.2557% |
+| Legacy minus corrected | +USD 49,849.42 | +2.0832 pp | appears 1.7656 pp less severe |
+
+**Important reconciliation:** the corrected full-window replay reproduces the archived Original Hybrid combined replay headline to the displayed precision: about USD 298,267 final NAV, 13.70% CAGR, and -23.02% daily MTM MaxDD. The deliberately buggy no-debit control does *not* reproduce those numbers; it is materially higher. Therefore the archived 13.70% output appears to correspond to the corrected account ledger, while the currently pinned source file contains a no-op expression for the cash debit. This is a **source-to-result provenance inconsistency**: the output can be reproduced with the corrected code, but the source blob attached to the current replay lineage should not be claimed as the exact generating source until its commit history / original run code is reconciled. The previous 13.70% should not be discarded solely because a later/current source file contains this defect, but its exact historical provenance remains pending.
 
 ## 3. TAIL comparison using corrected account-NAV ledger
 
@@ -54,7 +66,7 @@ All amounts are USD. CAGR and drawdown are calculated from the same common daily
 | TRIGGERED_2P_25BPS | 2% | 25 bps | 252,173.91 | 12.6039% | -22.9125% | -2,613.71 | +0.1087 pp | -2,023.99 |
 | TRIGGERED_2P_50BPS | 2% | 50 bps | 248,000.73 | 12.3630% | -23.2199% | -6,786.90 | -0.1986 pp (worse) | -3,002.27 |
 
-## 4. What the experiment says
+## 5. What the experiment says
 
 1. **The fixed-hold TAIL variant did not help this account.** Holding 2% TAIL through the entire sample reduced CAGR by 0.0881 pp and made maximum drawdown slightly worse. Its net TAIL P&L was -USD 798.23.
 2. **The risk-triggered TAIL overlay reduced maximum drawdown modestly but lost money on its own.** At a 1% NAV allocation, MaxDD improves by 0.0642 pp while CAGR decreases by 0.0509 pp. At 2%, MaxDD improves by 0.1716 pp while CAGR decreases by 0.1008 pp. At 5%, MaxDD improves by 0.5242 pp, but CAGR falls by 0.2143 pp and the overlay loses USD 3,534.33.
@@ -62,7 +74,7 @@ All amounts are USD. CAGR and drawdown are calculated from the same common daily
 4. **No overlay in this tested grid dominates the corrected no-TAIL account on both CAGR and maximum drawdown.** The 1% triggered arm is the most modest premium-loss case but buys only 0.0642 pp of historical MaxDD improvement. These results do not establish that all TAIL timing or hedging rules fail; the fixed trigger and exit policy are only one preregistered hypothesis.
 5. **The common window matters.** These are 2018-03-01 to 2025-12-15 results, not the original 2026-09-04 full-history period. This window is required to pair every model arm to the saved TAIL price history.
 
-## 5. Limits and reproduction evidence
+## 6. Limits and reproduction evidence
 
 - The original Hybrid option legs use Black–Scholes marks with VIX-derived IV and modeled spread haircuts, not historical OPRA chains or executable quote-side fills.
 - The VX condition is the inherited VIX/MA20 term-slope proxy, not real historical VX M1/M2.
