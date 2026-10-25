@@ -17,6 +17,12 @@ The model is copied from `research/qqq_hybrid_dynamic_deployment_v1_1_replay.py`
 - VXX call-credit spread: 2% NAV max-loss budget;
 - inherited close/roll rules unchanged; dynamic deployment controller disabled.
 
+## Accounting audit finding
+
+The inherited script has a QQQ stock-opening statement that evaluates `cash_box[0]-row.qqq*n` without assignment. That expression does not debit cash, so the original replay can count the purchased QQQ shares in NAV without removing their purchase cost from cash. This is a material account-equity accounting defect, not an option-pricing assumption.
+
+The account-NAV replay explicitly fixes this by debiting QQQ purchase cash before marking the shares into NAV in all analysis arms. To quantify the distortion, an isolated `LEGACY_NO_QQQ_DEBIT` arm deliberately reproduces the missing debit, but it is a forensic diagnostic only and must not be treated as valid investment performance. Compare the corrected `NO_TAIL` baseline against the corrected TAIL alternatives.
+
 This is a **DERIVED_BS_VIX** model replay. Option marks use the prior code's Black–Scholes/VIX-derived volatility and modeled spread haircut; they are not historical OPRA bid/ask fills.
 
 ## Paired test arms
