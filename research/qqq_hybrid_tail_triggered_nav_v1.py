@@ -349,6 +349,29 @@ if __name__=='__main__':
         pd.DataFrame(tail_trades).to_csv(out/f'{label.lower()}_tail_trades.csv',index=False)
     summary=pd.DataFrame(rows)
     summary.to_csv(out/'summary.csv',index=False)
+
+    # Exact same base model over its full original window (untruncated by TAIL coverage).
+    # This isolates whether the prior 13.70% headline depends on the QQQ cash-debit defect.
+    full_window_rows=[]
+    full_window_equities={}
+    for label,legacy_bug in [
+        ('FULL_WINDOW_CORRECTED_NO_TAIL',False),
+        ('FULL_WINDOW_LEGACY_NO_QQQ_DEBIT',True),
+    ]:
+        fr=simulate(str(adapted_spots_path),False,None,'NONE',0.0,args.friction_bps,legacy_bug)
+        fc,fdd,fn,fo,fx,fe,feq,ft=fr
+        fyears=(feq.date.iloc[-1]-feq.date.iloc[0]).days/365.25
+        full_window_rows.append({
+            'variant':label,'start_date':str(feq.date.iloc[0].date()),
+            'end_date':str(feq.date.iloc[-1].date()),'observations':int(len(feq)),
+            'elapsed_years':float(fyears),'initial_nav_usd':CAPITAL,
+            'final_nav_usd':float(fn),'net_profit_usd':float(fn-CAPITAL),
+            'cagr':float(fc),'daily_mtm_maxdd':float(fdd),
+            'accounting_bug_reproduced':bool(legacy_bug)
+        })
+        full_window_equities[label]=feq
+        feq.to_csv(out/f'{label.lower()}_equity.csv',index=False)
+    pd.DataFrame(full_window_rows).to_csv(out/'full_window_accounting_comparison.csv',index=False)
     annual=[]
     for label,e in all_equities.items():
         x=e.copy();x['year']=x.date.dt.year
@@ -397,7 +420,8 @@ if __name__=='__main__':
             'This is an in-sample experiment, not evidence of forward alpha.',
             'The inherited source has an identified QQQ cash-debit defect; only the explicit LEGACY_NO_QQQ_DEBIT row reproduces it. Use NO_TAIL and other corrected-account-ledger rows for the TAIL comparison.'
         ],
-        'results':rows
+        'results':rows,
+        'full_window_accounting_comparison':full_window_rows
     }
     (out/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
     print(json.dumps(report,indent=2))
