@@ -1,0 +1,65 @@
+name: SPY drawdown and QQQ correlation REF
+on:
+  pull_request:
+    branches:
+      - research/dte14-premium-matched-put-ratio-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/spy_drawdown_correlation_ref_v1.py
+      - .github/workflows/spy-drawdown-qqq-correlation-ref-v1.yml
+permissions:
+  contents: write
+jobs:
+  conditioned-ref:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout pull request head branch
+        uses: actions/checkout@v4
+      - name: Switch to the actual PR head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "$GITHUB_HEAD_REF"
+          git checkout "$GITHUB_HEAD_REF"
+      - name: Install pinned parquet dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-ref
+          .venv-ref/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Run conditioned historical REF
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv-ref/bin/python research/qqq_spy_put_fixed_ratio_size_gated_v1/spy_drawdown_correlation_ref_v1.py
+          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/spy_drawdown_correlation_ref_v1
+          test -s "$OUT/REF_REPORT.md"
+          test -s "$OUT/summary.json"
+          test -s "$OUT/episode_classification.csv"
+          .venv-ref/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/spy_drawdown_correlation_ref_v1/summary.json")
+          d=json.loads(p.read_text())
+          assert d["status"] == "COMPLETED"
+          assert len(d["summary"]) == 12, len(d["summary"])
+          assert d["correlation"]["full_period_daily_close_return_pearson"] > 0
+          print("Summary rows:", len(d["summary"]))
+          print("Full-period daily-return correlation:", d["correlation"]["full_period_daily_close_return_pearson"])
+          PY
+      - name: Commit generated research outputs without source cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/spy_drawdown_correlation_ref_v1
+          rm -rf "$OUT/source_cache"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT/REF_REPORT.md" "$OUT/summary.json" "$OUT/episode_classification.csv"
+          if git diff --cached --quiet; then
+            echo "No generated output changes."
+            exit 0
+          fi
+          git commit -m "Publish SPY drawdown and QQQ correlation REF results"
+          git push origin "HEAD:$GITHUB_HEAD_REF"
