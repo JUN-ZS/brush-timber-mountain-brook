@@ -247,10 +247,10 @@ def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
     puts finance one QQQ long put. Contract choice is made at signal-date quotes;
     actual entry still requires next-observed-date Ask/Bid and displayed-size gates.
     """
-    if not qqq_rows or not spy_rows or qqq_spot <= 0 or spy_spot <= 0:
-        return None
     if premium_match_short_qty < 1:
         raise ValueError("premium_match_short_qty must be a positive integer")
+    if not qqq_rows or not spy_rows or qqq_spot <= 0 or spy_spot <= 0:
+        return None
 
     def expiry_map(rows, symbol):
         found = {}
