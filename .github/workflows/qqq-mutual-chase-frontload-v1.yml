@@ -1,0 +1,59 @@
+name: QQQ Mutual Chase Frontload V1
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "scripts/run-qqq-mutual-chase-frontload-v1.ts"
+      - "research/qqq_hybrid_downside_convexity_v1/FRONTLOAD_PREREGISTERED.md"
+      - "src/data/universe.json"
+      - ".github/workflows/qqq-mutual-chase-frontload-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qqq-mutual-chase-frontload-v1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontload:
+    name: Research / QQQ front-load mutual chase V1
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          check-latest: false
+      - name: Run fixed front-load research
+        run: node --experimental-strip-types scripts/run-qqq-mutual-chase-frontload-v1.ts
+      - name: Validate research output
+        run: |
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_frontload_v1.json
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_frontload_v1.md
+          test -s research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_frontload_v1.csv
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const p = "research/qqq_hybrid_downside_convexity_v1/qqq_mutual_chase_frontload_v1.json";
+          const x = JSON.parse(fs.readFileSync(p, "utf8"));
+          if (x.researchId !== "QQQ_MUTUAL_CHASE_FRONTLOAD_V1") throw new Error("wrong research id");
+          if (x.status !== "RESEARCH_ONLY") throw new Error("wrong research status");
+          if (x.fixedRules.externalBudgetCap !== 1) throw new Error("budget cap changed");
+          if (x.fixedRules.futurePriceRead !== false) throw new Error("future price guard missing");
+          if (x.fixedRules.parameterSearch !== false) throw new Error("parameter search guard missing");
+          if (x.fixedRules.targetReset !== false) throw new Error("target reset guard missing");
+          if (!Array.isArray(x.fixedRules.frontloadGrid) || x.fixedRules.frontloadGrid.length !== 11) throw new Error("frontload grid changed");
+          if (!Array.isArray(x.windows) || x.windows.length !== x.provenance.completeRollingWindows) throw new Error("window count mismatch");
+          if (x.provenance.completeRollingWindows <= 0) throw new Error("no rolling windows");
+          console.log("PASS frontload windows=", x.windows.length);
+          NODE
+      - name: Upload research artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qqq-mutual-chase-frontload-v1
+          path: research/qqq_hybrid_downside_convexity_v1
+          if-no-files-found: error
