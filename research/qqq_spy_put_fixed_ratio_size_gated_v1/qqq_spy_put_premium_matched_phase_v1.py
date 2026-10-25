@@ -240,15 +240,23 @@ def choose_pair(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot, target_delta
 def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
                            target_delta=DELTA_TARGET_DEFAULT, dte_min=7, dte_max=21,
                            dte_target=14, premium_match_short_qty=6,
-                           qqq_target_abs_delta=None, qqq_delta_tolerance=0.10):
-    """Select one QQQ long put shared by both ratio arms.
+                           qqq_target_abs_delta=None, qqq_delta_tolerance=0.10,
+                           qqq_reference_premium_fraction=None, qqq_required_size=1):
+    """Select same-expiry QQQ/SPY puts; optionally buy multiple half-premium QQQ contracts.
 
-    When qqq_target_abs_delta is set, exclude QQQ contracts outside that absolute-Delta
-    band first, then minimize premium mismatch only among in-band contracts. Do not
-    fall back to a deep-ITM put when no in-band candidate exists.
+    Normal mode matches one QQQ put Ask to N times the SPY short-put Bid, optionally
+    inside a QQQ Delta band. Fraction mode first identifies that reference QQQ put,
+    then selects an alternative QQQ put at the requested fraction of the reference
+    put's Ask on the same expiry. The final alternative's Delta is deliberately not
+    constrained: a cheaper option is not assumed to have equivalent hedge sensitivity.
     """
     if premium_match_short_qty < 1:
         raise ValueError("premium_match_short_qty must be a positive integer")
+    if qqq_required_size < 1:
+        raise ValueError("qqq_required_size must be positive")
+    if qqq_reference_premium_fraction is not None and not 0 < qqq_reference_premium_fraction < 1:
+        raise ValueError("qqq_reference_premium_fraction must be between 0 and 1")
+    fraction_mode = qqq_reference_premium_fraction is not None
     if qqq_target_abs_delta is not None:
         if not 0 < qqq_target_abs_delta < 1:
             raise ValueError("qqq_target_abs_delta must be between 0 and 1")
@@ -257,32 +265,38 @@ def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
     if not qqq_rows or not spy_rows or qqq_spot <= 0 or spy_spot <= 0:
         return None
 
-    def expiry_map(rows, symbol):
+    def expiry_groups(rows, symbol):
+        """Group today's in-range expiry candidates once; preserve the old per-leg filters below."""
         found = {}
+        grouped = {}
         for row in rows:
             if not standard_put_identity(row, symbol) or as_day(row.get("date")) != signal_day:
-                continue
-            if not valid_quote(row, require_positive_bid=True):
                 continue
             expiry = as_day(row.get("expiration"))
             try:
                 dte = (date.fromisoformat(expiry) - date.fromisoformat(signal_day)).days
             except ValueError:
                 continue
-            if dte_min <= dte <= dte_max:
+            if not dte_min <= dte <= dte_max:
+                continue
+            grouped.setdefault(expiry, []).append(row)
+            if valid_quote(row, require_positive_bid=True):
                 found[expiry] = dte
-        return found
+        return found, grouped
 
-    q_exp, s_exp = expiry_map(qqq_rows, "QQQ"), expiry_map(spy_rows, "SPY")
+    # Same selection rules as before, but avoid rescanning the full chain for every expiry.
+    q_exp, q_by_expiry = expiry_groups(qqq_rows, "QQQ")
+    s_exp, s_by_expiry = expiry_groups(spy_rows, "SPY")
     choices = []
     for expiry in sorted(set(q_exp) & set(s_exp)):
         dte = q_exp[expiry]
-        sleg = choose_leg(spy_rows, "SPY", signal_day, expiry, target_delta)
+        sleg = choose_leg(s_by_expiry.get(expiry, []), "SPY", signal_day, expiry, target_delta)
         if sleg is None:
             continue
-        target_ask = float(sleg["row"]["bid"]) * int(premium_match_short_qty)
+        spy_bid = float(sleg["row"]["bid"])
+        normal_target_ask = spy_bid * int(premium_match_short_qty)
         q_candidates = []
-        for row in qqq_rows:
+        for row in q_by_expiry.get(expiry, []):
             if not standard_put_identity(row, "QQQ") or as_day(row.get("date")) != signal_day:
                 continue
             if as_day(row.get("expiration")) != expiry or not valid_quote(row, require_positive_bid=True):
@@ -290,40 +304,91 @@ def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
             delta, strike = num(row.get("delta")), num(row.get("strike"))
             if delta is None or strike is None or strike <= 0:
                 continue
-            abs_delta = abs(delta)
-            if qqq_target_abs_delta is not None and not (qqq_target_abs_delta-qqq_delta_tolerance <= abs_delta <= qqq_target_abs_delta+qqq_delta_tolerance):
-                continue
             bid, ask = float(row["bid"]), float(row["ask"])
             size = min(displayed_size(row, "bid"), displayed_size(row, "ask"))
             if size < 1:
                 continue
+            abs_delta = abs(delta)
             q_candidates.append({
                 "row": row, "id": normalized_contract_id(row), "strike": strike,
                 "abs_delta": abs_delta, "spread": (ask-bid)/max((ask+bid)/2, 1e-9),
                 "size": size, "oi": num(row.get("open_interest")) or 0,
-                "ask": ask, "premium_error": abs(ask-target_ask),
+                "ask": ask, "bid": bid,
             })
         if not q_candidates:
             continue
-        qleg = min(q_candidates, key=lambda x: (
-            x["premium_error"],
-            abs(x["abs_delta"]-qqq_target_abs_delta) if qqq_target_abs_delta is not None else 0.0,
-            -x["size"], -x["oi"], x["spread"], x["id"]))
-        # Preserve nearest-DTE-first selection; premium match then breaks ties between expiries.
+
+        def reference_key(x):
+            return (
+                abs(x["ask"]-normal_target_ask),
+                abs(x["abs_delta"]-qqq_target_abs_delta) if qqq_target_abs_delta is not None else 0.0,
+                -x["size"], -x["oi"], x["spread"], x["id"]
+            )
+
+        if qqq_reference_premium_fraction is not None:
+            # Establish the original QQQ protection contract using the existing rules.
+            reference_candidates = [
+                x for x in q_candidates
+                if qqq_target_abs_delta is None or
+                qqq_target_abs_delta-qqq_delta_tolerance <= x["abs_delta"] <= qqq_target_abs_delta+qqq_delta_tolerance
+            ]
+            if not reference_candidates:
+                continue
+            qref = min(reference_candidates, key=reference_key)
+            desired_ask = qref["ask"] * qqq_reference_premium_fraction
+            # The alternative needs enough displayed size for the requested multi-contract buy.
+            alternative_candidates = [x for x in q_candidates if x["size"] >= qqq_required_size]
+            if not alternative_candidates:
+                continue
+            qleg = min(alternative_candidates, key=lambda x: (
+                abs(x["ask"]-desired_ask), -x["size"], -x["oi"], x["spread"], x["id"]
+            ))
+            premium_error = qleg["ask"] - desired_ask
+        else:
+            reference_candidates = [
+                x for x in q_candidates
+                if qqq_target_abs_delta is None or
+                qqq_target_abs_delta-qqq_delta_tolerance <= x["abs_delta"] <= qqq_target_abs_delta+qqq_delta_tolerance
+            ]
+            if not reference_candidates:
+                continue
+            qleg = min(reference_candidates, key=reference_key)
+            qref = qleg
+            desired_ask = normal_target_ask
+            premium_error = qleg["ask"] - normal_target_ask
+
+        # In half-premium mode, preserve the baseline selector's expiry/SPY-leg ranking.
+        # Otherwise the cheaper QQQ option's price error can silently change the SPY contract,
+        # making a nominally QQQ-only comparison unfair.
+        key_qleg = qref if fraction_mode else qleg
+        key_error = key_qleg["ask"] - normal_target_ask
         key = (
             abs(dte-dte_target),
-            qleg["premium_error"]/max(target_ask, 0.01),
+            abs(key_error)/max(normal_target_ask, 0.01),
             abs(sleg["abs_delta"]-target_delta),
-            -(qleg["size"]+sleg["size"]),
-            -(qleg["oi"]+sleg["oi"]),
-            expiry, qleg["id"], sleg["id"],
+            -(key_qleg["size"]+sleg["size"]),
+            -(key_qleg["oi"]+sleg["oi"]),
+            expiry, key_qleg["id"], sleg["id"], qleg["id"],
         )
-        choices.append((key, expiry, dte, qleg, sleg, target_ask))
+        choices.append((key, expiry, dte, qleg, sleg, desired_ask, premium_error, qref))
+
     if not choices:
         return None
-    _, expiry, dte, qleg, sleg, target_ask = min(choices, key=lambda x: x[0])
+    _, expiry, dte, qleg, sleg, desired_ask, premium_error, qref = min(choices, key=lambda x: x[0])
     qsig = put_moneyness(qqq_spot, qleg["strike"])
     ssig = put_moneyness(spy_spot, sleg["strike"])
+    fraction_mode = qqq_reference_premium_fraction is not None
+    rule = (
+        f"same expiry; nearest DTE{dte_target}; SPY abs-Delta nearest {target_delta:.2f}; "
+        f"reference QQQ abs-Delta {qqq_target_abs_delta:.2f} +/- {qqq_delta_tolerance:.2f} "
+        f"Ask nearest {premium_match_short_qty}x SPY short-put Bid; "
+        f"alternative QQQ Ask nearest {qqq_reference_premium_fraction:.0%} of reference QQQ Ask; "
+        f"selected QQQ Delta unconstrained; selected QQQ displayed size >= {qqq_required_size}"
+        if fraction_mode else
+        f"same expiry; nearest DTE{dte_target}; SPY abs-Delta nearest {target_delta:.2f}; "
+        + (f"QQQ abs-Delta {qqq_target_abs_delta:.2f} +/- {qqq_delta_tolerance:.2f}; " if qqq_target_abs_delta is not None else "")
+        + f"QQQ Ask nearest {premium_match_short_qty}x SPY short-put Bid"
+    )
     return {
         "signal_date": signal_day, "expiry": expiry, "signal_dte": dte,
         "qqq_contract_id": qleg["id"], "qqq_strike": qleg["strike"],
@@ -332,60 +397,135 @@ def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
         "qqq_delta_tolerance": qqq_delta_tolerance if qqq_target_abs_delta is not None else None,
         "qqq_delta_band_low": qqq_target_abs_delta-qqq_delta_tolerance if qqq_target_abs_delta is not None else None,
         "qqq_delta_band_high": qqq_target_abs_delta+qqq_delta_tolerance if qqq_target_abs_delta is not None else None,
-        "qqq_target_ask_signal": target_ask,
+        "qqq_target_ask_signal": desired_ask,
         "qqq_premium_match_short_qty": int(premium_match_short_qty),
-        "qqq_premium_match_error_signal": qleg["ask"]-target_ask,
+        "qqq_premium_match_error_signal": premium_error,
+        "qqq_premium_reference_contract_id": qref["id"],
+        "qqq_premium_reference_ask_signal": qref["ask"],
+        "qqq_premium_reference_abs_delta": qref["abs_delta"],
+        "qqq_reference_premium_fraction": qqq_reference_premium_fraction,
+        "qqq_reference_expiry_locked_to_reference": fraction_mode,
         "spy_contract_id": sleg["id"], "spy_strike": sleg["strike"],
-        "spy_abs_delta": sleg["abs_delta"], "spy_signal_bid": float(sleg["row"]["bid"]),
+        "spy_abs_delta": sleg["abs_delta"], "spy_signal_bid": spy_bid,
         "qqq_spot_signal": qqq_spot, "spy_spot_signal": spy_spot,
         "qqq_otm_pct_signal": qsig["otm_pct"], "qqq_moneyness_signal": qsig["status"],
         "spy_otm_pct_signal": ssig["otm_pct"], "spy_moneyness_signal": ssig["status"],
-        "selection_rule": (
-            f"same expiry; nearest DTE{dte_target}; SPY abs-Delta nearest {target_delta}; "
-            + (f"QQQ abs-Delta {qqq_target_abs_delta:.2f} +/- {qqq_delta_tolerance:.2f}; " if qqq_target_abs_delta is not None else "")
-            + f"QQQ Ask nearest {premium_match_short_qty}x SPY short-put Bid"
-        ),
+        "selection_rule": rule,
     }
-
 
 def rows_by_id(rows): return {normalized_contract_id(row):row for row in rows if normalized_contract_id(row)}
 
 
 
 def evaluate_entry_filter(filter_name, idx, dates, qspots, sspots, lookback=20):
-    """Evaluate the entry condition only from current and prior underlying closes."""
+    """Evaluate filters strictly from current/prior underlying closes; no future prices."""
+    empty = {
+        "entry_filter": filter_name,
+        "filter_lookback_sessions": 0,
+        "qqq_trailing_return_pct": None,
+        "spy_trailing_return_pct": None,
+        "qqq_minus_spy_trailing_return_pct": None,
+        "spy_previous_trailing_return_pct": None,
+        "qqq_spy_corr_60d": None,
+        "filter_pass_reason": None,
+    }
     if filter_name == "none":
-        return True, {
-            "entry_filter": "none",
-            "filter_lookback_sessions": 0,
-            "qqq_trailing_return_pct": None,
-            "spy_trailing_return_pct": None,
-            "qqq_minus_spy_trailing_return_pct": None,
-            "filter_pass_reason": "FILTER_DISABLED",
+        empty.update({"entry_filter": "none", "filter_pass_reason": "FILTER_DISABLED"})
+        return True, empty
+
+    if filter_name == "spy_weekly_drop_1pct":
+        # Event trigger: SPY rolling 5-common-session close return crosses from > -1% to <= -1%.
+        # No QQQ/SPY correlation gate is applied. A later entry requires recovery above -1% first.
+        lookback = 5
+        if idx < lookback + 1:
+            empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "INSUFFICIENT_LOOKBACK"})
+            return False, empty
+        current_day, prior_day = dates[idx], dates[idx - lookback]
+        previous_day, previous_week_start = dates[idx - 1], dates[idx - lookback - 1]
+        qnow, qprior = num(qspots.get(current_day)), num(qspots.get(prior_day))
+        snow, sprior = num(sspots.get(current_day)), num(sspots.get(prior_day))
+        sprev, sprevprior = num(sspots.get(previous_day)), num(sspots.get(previous_week_start))
+        if None in (qnow, qprior, snow, sprior, sprev, sprevprior) or min(qprior, sprior, sprevprior) <= 0:
+            empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "MISSING_OR_INVALID_LOOKBACK_PRICE"})
+            return False, empty
+        qret = (qnow / qprior - 1) * 100
+        sret = (snow / sprior - 1) * 100
+        previous_sret = (sprev / sprevprior - 1) * 100
+        crossed = sret <= -1.0 and previous_sret > -1.0
+        passed = crossed
+        reason = "SPY_5D_DROPPED_THROUGH_MINUS_1PCT" if passed else "NO_NEW_SPY_5D_MINUS_1PCT_CROSSING"
+        return passed, {
+            "entry_filter": filter_name,
+            "filter_lookback_sessions": lookback,
+            "qqq_trailing_return_pct": finite_round(qret, 4),
+            "spy_trailing_return_pct": finite_round(sret, 4),
+            "qqq_minus_spy_trailing_return_pct": finite_round(qret-sret, 4),
+            "spy_previous_trailing_return_pct": finite_round(previous_sret, 4),
+            "qqq_spy_corr_60d": None,
+            "filter_pass_reason": reason,
         }
+
+    if filter_name == "spy_weekly_drop_2pct_corr60_pos":
+        # Event trigger: SPY rolling 5-session return crosses from > -2% to <= -2%.
+        # Require positive Pearson correlation of the prior 60 daily returns, ending before signal day.
+        lookback = 5
+        if idx < 61:
+            empty.update({"filter_lookback_sessions": 60, "filter_pass_reason": "INSUFFICIENT_LOOKBACK"})
+            return False, empty
+        current_day, prior_day = dates[idx], dates[idx - lookback]
+        previous_day, previous_week_start = dates[idx - 1], dates[idx - lookback - 1]
+        qnow, qprior = num(qspots.get(current_day)), num(qspots.get(prior_day))
+        snow, sprior = num(sspots.get(current_day)), num(sspots.get(prior_day))
+        sprev, sprevprior = num(sspots.get(previous_day)), num(sspots.get(previous_week_start))
+        if None in (qnow, qprior, snow, sprior, sprev, sprevprior) or min(qprior, sprior, sprevprior) <= 0:
+            empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "MISSING_OR_INVALID_LOOKBACK_PRICE"})
+            return False, empty
+        qret = (qnow / qprior - 1) * 100
+        sret = (snow / sprior - 1) * 100
+        previous_sret = (sprev / sprevprior - 1) * 100
+        xs, ys = [], []
+        for j in range(idx - 60, idx):
+            day0, day1 = dates[j - 1], dates[j]
+            q0, q1 = num(qspots.get(day0)), num(qspots.get(day1))
+            s0, s1 = num(sspots.get(day0)), num(sspots.get(day1))
+            if None in (q0, q1, s0, s1) or min(q0, s0) <= 0:
+                continue
+            xs.append(q1 / q0 - 1)
+            ys.append(s1 / s0 - 1)
+        corr = None
+        if len(xs) >= 45:
+            mx, my = statistics.mean(xs), statistics.mean(ys)
+            dx, dy = [v-mx for v in xs], [v-my for v in ys]
+            den = math.sqrt(sum(v*v for v in dx) * sum(v*v for v in dy))
+            corr = sum(a*b for a,b in zip(dx,dy)) / den if den > 0 else None
+        crossed = sret <= -2.0 and previous_sret > -2.0
+        positive_corr = corr is not None and corr > 0
+        passed = crossed and positive_corr
+        reason = ("SPY_5D_DROPPED_THROUGH_MINUS_2PCT_AND_PRIOR_60D_CORR_POSITIVE" if passed
+                  else "NO_NEW_SPY_5D_MINUS_2PCT_CROSSING" if not crossed
+                  else "PRIOR_60D_QQQ_SPY_CORRELATION_NOT_POSITIVE")
+        return passed, {
+            "entry_filter": filter_name,
+            "filter_lookback_sessions": lookback,
+            "qqq_trailing_return_pct": finite_round(qret, 4),
+            "spy_trailing_return_pct": finite_round(sret, 4),
+            "qqq_minus_spy_trailing_return_pct": finite_round(qret-sret, 4),
+            "spy_previous_trailing_return_pct": finite_round(previous_sret, 4),
+            "qqq_spy_corr_60d": finite_round(corr, 6),
+            "filter_pass_reason": reason,
+        }
+
     if filter_name != "qqq_underperforms_spy_20d":
         raise ValueError(f"unknown entry filter: {filter_name}")
     if idx < lookback:
-        return False, {
-            "entry_filter": filter_name,
-            "filter_lookback_sessions": lookback,
-            "qqq_trailing_return_pct": None,
-            "spy_trailing_return_pct": None,
-            "qqq_minus_spy_trailing_return_pct": None,
-            "filter_pass_reason": "INSUFFICIENT_LOOKBACK",
-        }
+        empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "INSUFFICIENT_LOOKBACK"})
+        return False, empty
     current_day, prior_day = dates[idx], dates[idx - lookback]
     qnow, qprior = num(qspots.get(current_day)), num(qspots.get(prior_day))
     snow, sprior = num(sspots.get(current_day)), num(sspots.get(prior_day))
     if None in (qnow, qprior, snow, sprior) or min(qprior, sprior) <= 0:
-        return False, {
-            "entry_filter": filter_name,
-            "filter_lookback_sessions": lookback,
-            "qqq_trailing_return_pct": None,
-            "spy_trailing_return_pct": None,
-            "qqq_minus_spy_trailing_return_pct": None,
-            "filter_pass_reason": "MISSING_OR_INVALID_LOOKBACK_PRICE",
-        }
+        empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "MISSING_OR_INVALID_LOOKBACK_PRICE"})
+        return False, empty
     qret = (qnow / qprior - 1) * 100
     sret = (snow / sprior - 1) * 100
     relative = qret - sret
@@ -396,6 +536,8 @@ def evaluate_entry_filter(filter_name, idx, dates, qspots, sspots, lookback=20):
         "qqq_trailing_return_pct": finite_round(qret, 4),
         "spy_trailing_return_pct": finite_round(sret, 4),
         "qqq_minus_spy_trailing_return_pct": finite_round(relative, 4),
+        "spy_previous_trailing_return_pct": None,
+        "qqq_spy_corr_60d": None,
         "filter_pass_reason": "QQQ_UNDERPERFORMED_SPY" if passed else "QQQ_DID_NOT_UNDERPERFORM_SPY",
     }
 
@@ -763,7 +905,7 @@ def run_replay(args):
     start_day,end_day=args.start,args.end
     if date.fromisoformat(start_day)>date.fromisoformat(end_day):raise ValueError("--start must be <= --end")
     if args.max_total_contracts < 2 or args.max_total_contracts > 20:raise ValueError("--max-total-contracts must be between 2 and 20")
-    if args.entry_filter not in ("none", "qqq_underperforms_spy_20d"):raise ValueError("unsupported entry filter")
+    if args.entry_filter not in ("none", "qqq_underperforms_spy_20d", "spy_weekly_drop_2pct_corr60_pos", "spy_weekly_drop_1pct"):raise ValueError("unsupported entry filter")
     if args.sizing_mode not in ("equal_premium", "fixed_ratio"):raise ValueError("unsupported sizing mode")
     if args.sizing_mode == "fixed_ratio":
         if args.fixed_long_qty < 1 or args.fixed_short_qty < 1:
@@ -773,6 +915,13 @@ def run_replay(args):
     if not 0<args.target_delta<1 or args.dte_min<1 or args.dte_max<args.dte_min:raise ValueError("invalid Delta/DTE bounds")
     if args.qqq_premium_match_short_qty is not None and args.qqq_premium_match_short_qty < 1:
         raise ValueError("--qqq-premium-match-short-qty must be positive")
+    if args.qqq_reference_premium_fraction is not None:
+        if not 0 < args.qqq_reference_premium_fraction < 1:
+            raise ValueError("--qqq-reference-premium-fraction must be between 0 and 1")
+        if args.sizing_mode != "fixed_ratio" or args.fixed_long_qty < 2:
+            raise ValueError("--qqq-reference-premium-fraction requires fixed-ratio sizing with at least 2 QQQ long contracts")
+        if args.qqq_target_abs_delta is None:
+            raise ValueError("--qqq-reference-premium-fraction requires --qqq-target-abs-delta to define the reference contract")
     if args.qqq_target_abs_delta is not None:
         if not 0 < args.qqq_target_abs_delta < 1:
             raise ValueError("--qqq-target-abs-delta must be between 0 and 1")
@@ -933,7 +1082,7 @@ def run_replay(args):
                     if args.qqq_premium_match_short_qty is None:
                         pair=choose_pair(qrows,srows,day,qspot,sspot,args.target_delta,args.dte_min,args.dte_max,args.dte_target)
                     else:
-                        pair=choose_pair_by_premium(qrows,srows,day,qspot,sspot,args.target_delta,args.dte_min,args.dte_max,args.dte_target,args.qqq_premium_match_short_qty,args.qqq_target_abs_delta,args.qqq_delta_tolerance)
+                        pair=choose_pair_by_premium(qrows,srows,day,qspot,sspot,args.target_delta,args.dte_min,args.dte_max,args.dte_target,args.qqq_premium_match_short_qty,args.qqq_target_abs_delta,args.qqq_delta_tolerance,args.qqq_reference_premium_fraction,(args.fixed_long_qty if args.sizing_mode == "fixed_ratio" else 1))
                     if pair is not None:
                         signal_count+=1
                         pending={**pair,**filter_metrics,"episode_id":signal_count,"signal_index":idx,"entry_defer_sessions":0}
@@ -976,19 +1125,25 @@ def run_replay(args):
         },
         "premium_matching":premium_summary,
         "entry_filter":{"name":args.entry_filter,
-            "description":("No filter; entry when standard contract selection is available" if args.entry_filter=="none" else "Require QQQ trailing 20-session close-to-close return to be lower than SPY; evaluated at signal close, entry no earlier than next observed common session"),
-            "lookback_sessions":0 if args.entry_filter=="none" else 20,
+            "description":("No filter; entry when standard contract selection is available" if args.entry_filter=="none" else ("SPY rolling 5-session close return crosses from above -1% to <= -1%; no correlation gate; entry next observed common session" if args.entry_filter=="spy_weekly_drop_1pct" else ("SPY rolling 5-session return crosses from above -2% to <= -2%, with positive Pearson correlation over the prior 60 daily returns; entry no earlier than next observed common session" if args.entry_filter=="spy_weekly_drop_2pct_corr60_pos" else "Require QQQ trailing 20-session close-to-close return to be lower than SPY; evaluated at signal close, entry no earlier than next observed common session"))),
+            "lookback_sessions":0 if args.entry_filter=="none" else (5 if args.entry_filter in ("spy_weekly_drop_2pct_corr60_pos","spy_weekly_drop_1pct") else 20),
             "evaluated_sessions":filter_evaluations,"qualified_sessions":filter_qualified,
             "rejected_sessions":filter_rejected},
         "selection":{"target_abs_delta":args.target_delta,"delta_eligible_band":[DELTA_MIN,DELTA_MAX],
             "qqq_premium_match_short_qty":args.qqq_premium_match_short_qty,
             "qqq_target_abs_delta":args.qqq_target_abs_delta,
             "qqq_delta_tolerance":args.qqq_delta_tolerance if args.qqq_target_abs_delta is not None else None,
+            "qqq_reference_premium_fraction":args.qqq_reference_premium_fraction,
+            "qqq_reference_expiry_locked_to_reference":args.qqq_reference_premium_fraction is not None,
             "qqq_delta_band":[args.qqq_target_abs_delta-args.qqq_delta_tolerance,args.qqq_target_abs_delta+args.qqq_delta_tolerance] if args.qqq_target_abs_delta is not None else None,
             "qqq_premium_match_rule":(
-                f"QQQ abs-Delta constrained to {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; in-band Ask nearest N x SPY Bid"
-                if args.qqq_premium_match_short_qty is not None and args.qqq_target_abs_delta is not None
-                else ("QQQ Ask nearest N x selected SPY short-put Bid; QQQ Delta unconstrained" if args.qqq_premium_match_short_qty is not None else "QQQ Delta nearest target")
+                (f"Reference QQQ abs-Delta {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; reference Ask nearest {args.qqq_premium_match_short_qty}x SPY Bid; selected same-expiry QQQ Ask nearest {args.qqq_reference_premium_fraction:.0%} of reference QQQ Ask; selected contract Delta unconstrained"
+                 if args.qqq_premium_match_short_qty is not None and args.qqq_target_abs_delta is not None
+                 else "Select same-expiry QQQ Ask nearest fraction of the selected reference QQQ Ask; selected contract Delta unconstrained")
+                if args.qqq_reference_premium_fraction is not None
+                else (f"QQQ abs-Delta constrained to {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; in-band Ask nearest N x SPY Bid"
+                    if args.qqq_premium_match_short_qty is not None and args.qqq_target_abs_delta is not None
+                    else ("QQQ Ask nearest N x selected SPY short-put Bid; QQQ Delta unconstrained" if args.qqq_premium_match_short_qty is not None else "QQQ Delta nearest target"))
             ),
             "dte_min":args.dte_min,
             "dte_max":args.dte_max,"dte_target":args.dte_target,"cohort_stride_sessions":args.cohort_stride_sessions,
@@ -1030,7 +1185,7 @@ def run_replay(args):
         "qqq_premium_match_short_qty","qqq_premium_match_error_signal","spy_signal_bid",
         "qqq_otm_pct_signal","qqq_moneyness_signal","spy_otm_pct_signal","spy_moneyness_signal",
         "qqq_otm_pct_entry","qqq_moneyness_entry","spy_otm_pct_entry","spy_moneyness_entry",
-        "entry_filter","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
+        "entry_filter","qqq_trailing_return_pct","spy_trailing_return_pct","spy_previous_trailing_return_pct","qqq_spy_corr_60d","filter_pass_reason","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
     write_csv(out/"trade_episodes.csv",trades,["episode_id","policy","status","net_pnl_usd"])
     write_csv(out/"entry_skips.csv",skips,["episode_id","signal_date","signal_index","status","reason"])
     write_csv(out/"scheduled_signal_skips.csv",schedule_skips,["scheduled_index","scheduled_signal_date","status","reason"])
@@ -1046,8 +1201,13 @@ def run_replay(args):
         "qqq_premium_match_short_qty":args.qqq_premium_match_short_qty,
         "qqq_target_abs_delta":args.qqq_target_abs_delta,
         "qqq_delta_tolerance":args.qqq_delta_tolerance if args.qqq_target_abs_delta is not None else None,
+        "qqq_reference_premium_fraction":args.qqq_reference_premium_fraction,
+        "qqq_reference_expiry_locked_to_reference":args.qqq_reference_premium_fraction is not None,
         "qqq_delta_band":[args.qqq_target_abs_delta-args.qqq_delta_tolerance,args.qqq_target_abs_delta+args.qqq_delta_tolerance] if args.qqq_target_abs_delta is not None else None,
-        "qqq_premium_match_rule":"QQQ LONG PUT Ask nearest 6x SPY SHORT PUT Bid within QQQ abs-Delta 0.60–0.70 candidates" if args.qqq_target_abs_delta is not None and args.qqq_premium_match_short_qty==6 else "QQQ LONG PUT Ask nearest N x SPY SHORT PUT Bid at signal date",
+        "qqq_premium_match_rule":(
+            f"Reference QQQ abs-Delta {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; reference Ask nearest {args.qqq_premium_match_short_qty}x SPY Bid; selected same-expiry QQQ Ask nearest {args.qqq_reference_premium_fraction:.0%} of reference Ask; QQQ Delta unconstrained and SPY leg/expiry locked to reference"
+            if args.qqq_reference_premium_fraction is not None
+            else ("QQQ LONG PUT Ask nearest 6x SPY SHORT PUT Bid within QQQ abs-Delta 0.60–0.70 candidates" if args.qqq_target_abs_delta is not None and args.qqq_premium_match_short_qty==6 else "QQQ LONG PUT Ask nearest N x SPY SHORT PUT Bid at signal date")),
         "initial_phase_sessions":args.initial_phase_sessions,
         "schedule_mode":"FIXED_ANCHOR_NO_REANCHOR","scheduled_opportunities":scheduled_opportunities,
         "selected_signals":signal_count,"skipped_schedule_opportunities":len(schedule_skips),
@@ -1079,7 +1239,7 @@ def parse_args():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--start",default=START_DEFAULT);p.add_argument("--end",default=END_DEFAULT)
     p.add_argument("--max-total-contracts",type=int,default=9,help="maximum combined whole option contracts per entry cohort")
-    p.add_argument("--entry-filter",choices=("none","qqq_underperforms_spy_20d"),default="qqq_underperforms_spy_20d")
+    p.add_argument("--entry-filter",choices=("none","qqq_underperforms_spy_20d","spy_weekly_drop_2pct_corr60_pos","spy_weekly_drop_1pct"),default="qqq_underperforms_spy_20d")
     p.add_argument("--sizing-mode",choices=("equal_premium","fixed_ratio"),default="equal_premium")
     p.add_argument("--fixed-long-qty",type=int,default=1,help="fixed QQQ LONG PUT contracts when --sizing-mode=fixed_ratio")
     p.add_argument("--fixed-short-qty",type=int,default=6,help="fixed SPY SHORT PUT contracts when --sizing-mode=fixed_ratio")
@@ -1090,6 +1250,8 @@ def parse_args():
         help="optional target absolute Delta for QQQ LONG PUT; restrict candidate contracts to this band")
     p.add_argument("--qqq-delta-tolerance",type=float,default=0.10,
         help="absolute-Delta tolerance; 0.10 around target 0.50 admits 0.40–0.60")
+    p.add_argument("--qqq-reference-premium-fraction",type=float,default=None,
+        help="select a same-expiry QQQ put priced near this fraction of the normal delta-band reference put; its Delta is not constrained")
     p.add_argument("--dte-min",type=int,default=DTE_MIN_DEFAULT);p.add_argument("--dte-max",type=int,default=DTE_MAX_DEFAULT)
     p.add_argument("--dte-target",type=int,default=DTE_TARGET_DEFAULT);p.add_argument("--cohort-stride-sessions",type=int,default=COHORT_STRIDE_SESSIONS)
     p.add_argument("--initial-phase-sessions",type=int,default=0,help="first eligible common-session index offset; must be less than cohort stride")
