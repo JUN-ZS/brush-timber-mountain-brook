@@ -1,0 +1,258 @@
+{
+  "audit_id": "ORIGINAL_HYBRID_CAGR_REPLAY_AUDIT_V1",
+  "status": "COMPLETED_MODEL_DERIVED_REPLAY",
+  "strategy_source": {
+    "module": "research/qqq_hybrid_dynamic_deployment_v1_1_replay.py",
+    "module_sha256": "82cb129787ddbba84138d4ce7b32fb1339e45ba0c41b1af8401df64235137e91",
+    "source_input": "src/data/universe.json",
+    "source_input_sha256": "e5012c786152a510e297afe2c98131ed179eecb002181a97d72a89f8de061d6d",
+    "source_observation_count": 5706,
+    "source_first_date": "2004-01-02",
+    "source_last_date": "2026-09-04"
+  },
+  "pricing_and_evidence_class": {
+    "option_pricing": "Black-Scholes marks with VIX-derived IV proxies and modeled spread haircuts",
+    "term_structure": "VIX / 20-session VIX mean proxy; not observed VX M1/M2",
+    "historical_option_chain_fills": false,
+    "evidence_class": "DERIVED_BS_VIX; NOT OPRA",
+    "market_fill_assumption": "same-date daily-close signal/mark proxy; executable intraday fills not verified"
+  },
+  "window_metadata": {
+    "TO_2025_12_15": {
+      "requested_start": "2018-03-01",
+      "requested_end": "2025-12-15",
+      "first_observation": "2018-03-01",
+      "last_observation": "2025-12-15",
+      "raw_dates_in_window": 1960,
+      "complete_rows_used": 1960,
+      "rows_dropped_for_missing_market_values": 0,
+      "source_start": "2004-01-02",
+      "source_end": "2026-09-04",
+      "results": [
+        {
+          "variant": "LEGACY_BASELINE",
+          "initial_nav_usd": 100000.0,
+          "final_nav_usd": 254787.62359385955,
+          "net_profit_usd": 154787.62359385955,
+          "total_return_pct": 154.78762359385954,
+          "cagr_pct": 12.753004101176613,
+          "maxdd_daily_mtm_pct": -23.021273091214212,
+          "elapsed_years_actual_marks": 7.79192334017796,
+          "daily_nav_rows": 1960,
+          "first_nav_date": "2018-03-01",
+          "last_nav_date": "2025-12-15",
+          "opened_position_records": 377,
+          "closed_position_records": 373,
+          "event_records": 374,
+          "equity_curve_csv": "research/original_hybrid_replay_audit_v1/results/to_2025_12_15_legacy_baseline_equity.csv",
+          "window_id": "TO_2025_12_15",
+          "requested_window": {
+            "start": "2018-03-01",
+            "end": "2025-12-15"
+          }
+        },
+        {
+          "variant": "DEPLOY_V1_1",
+          "initial_nav_usd": 100000.0,
+          "final_nav_usd": 258651.97020373613,
+          "net_profit_usd": 158651.97020373613,
+          "total_return_pct": 158.6519702037361,
+          "cagr_pct": 12.971039964579955,
+          "maxdd_daily_mtm_pct": -22.847964405122866,
+          "elapsed_years_actual_marks": 7.79192334017796,
+          "daily_nav_rows": 1960,
+          "first_nav_date": "2018-03-01",
+          "last_nav_date": "2025-12-15",
+          "opened_position_records": 496,
+          "closed_position_records": 316,
+          "event_records": 837,
+          "equity_curve_csv": "research/original_hybrid_replay_audit_v1/results/to_2025_12_15_deploy_v1_1_equity.csv",
+          "window_id": "TO_2025_12_15",
+          "requested_window": {
+            "start": "2018-03-01",
+            "end": "2025-12-15"
+          }
+        }
+      ]
+    },
+    "TO_2026_09_04": {
+      "requested_start": "2018-03-01",
+      "requested_end": "2026-09-04",
+      "first_observation": "2018-03-01",
+      "last_observation": "2026-09-04",
+      "raw_dates_in_window": 2142,
+      "complete_rows_used": 2141,
+      "rows_dropped_for_missing_market_values": 1,
+      "source_start": "2004-01-02",
+      "source_end": "2026-09-04",
+      "results": [
+        {
+          "variant": "LEGACY_BASELINE",
+          "initial_nav_usd": 100000.0,
+          "final_nav_usd": 298267.2239640743,
+          "net_profit_usd": 198267.22396407428,
+          "total_return_pct": 198.26722396407428,
+          "cagr_pct": 13.699190415586337,
+          "maxdd_daily_mtm_pct": -23.021273091214212,
+          "elapsed_years_actual_marks": 8.511978097193703,
+          "daily_nav_rows": 2141,
+          "first_nav_date": "2018-03-01",
+          "last_nav_date": "2026-09-04",
+          "opened_position_records": 418,
+          "closed_position_records": 414,
+          "event_records": 422,
+          "equity_curve_csv": "research/original_hybrid_replay_audit_v1/results/to_2026_09_04_legacy_baseline_equity.csv",
+          "window_id": "TO_2026_09_04",
+          "requested_window": {
+            "start": "2018-03-01",
+            "end": "2026-09-04"
+          }
+        },
+        {
+          "variant": "DEPLOY_V1_1",
+          "initial_nav_usd": 100000.0,
+          "final_nav_usd": 303257.3809257264,
+          "net_profit_usd": 203257.38092572638,
+          "total_return_pct": 203.25738092572635,
+          "cagr_pct": 13.921036102243779,
+          "maxdd_daily_mtm_pct": -22.847964405122866,
+          "elapsed_years_actual_marks": 8.511978097193703,
+          "daily_nav_rows": 2141,
+          "first_nav_date": "2018-03-01",
+          "last_nav_date": "2026-09-04",
+          "opened_position_records": 541,
+          "closed_position_records": 353,
+          "event_records": 911,
+          "equity_curve_csv": "research/original_hybrid_replay_audit_v1/results/to_2026_09_04_deploy_v1_1_equity.csv",
+          "window_id": "TO_2026_09_04",
+          "requested_window": {
+            "start": "2018-03-01",
+            "end": "2026-09-04"
+          }
+        }
+      ]
+    }
+  },
+  "results": [
+    {
+      "variant": "LEGACY_BASELINE",
+      "initial_nav_usd": 100000.0,
+      "final_nav_usd": 254787.62359385955,
+      "net_profit_usd": 154787.62359385955,
+      "total_return_pct": 154.78762359385954,
+      "cagr_pct": 12.753004101176613,
+      "maxdd_daily_mtm_pct": -23.021273091214212,
+      "elapsed_years_actual_marks": 7.79192334017796,
+      "daily_nav_rows": 1960,
+      "first_nav_date": "2018-03-01",
+      "last_nav_date": "2025-12-15",
+      "opened_position_records": 377,
+      "closed_position_records": 373,
+      "event_records": 374,
+      "equity_curve_csv": "research/original_hybrid_replay_audit_v1/results/to_2025_12_15_legacy_baseline_equity.csv",
+      "window_id": "TO_2025_12_15",
+      "requested_window": {
+        "start": "2018-03-01",
+        "end": "2025-12-15"
+      }
+    },
+    {
+      "variant": "DEPLOY_V1_1",
+      "initial_nav_usd": 100000.0,
+      "final_nav_usd": 258651.97020373613,
+      "net_profit_usd": 158651.97020373613,
+      "total_return_pct": 158.6519702037361,
+      "cagr_pct": 12.971039964579955,
+      "maxdd_daily_mtm_pct": -22.847964405122866,
+      "elapsed_years_actual_marks": 7.79192334017796,
+      "daily_nav_rows": 1960,
+      "first_nav_date": "2018-03-01",
+      "last_nav_date": "2025-12-15",
+      "opened_position_records": 496,
+      "closed_position_records": 316,
+      "event_records": 837,
+      "equity_curve_csv": "research/original_hybrid_replay_audit_v1/results/to_2025_12_15_deploy_v1_1_equity.csv",
+      "window_id": "TO_2025_12_15",
+      "requested_window": {
+        "start": "2018-03-01",
+        "end": "2025-12-15"
+      }
+    },
+    {
+      "variant": "LEGACY_BASELINE",
+      "initial_nav_usd": 100000.0,
+      "final_nav_usd": 298267.2239640743,
+      "net_profit_usd": 198267.22396407428,
+      "total_return_pct": 198.26722396407428,
+      "cagr_pct": 13.699190415586337,
+      "maxdd_daily_mtm_pct": -23.021273091214212,
+      "elapsed_years_actual_marks": 8.511978097193703,
+      "daily_nav_rows": 2141,
+      "first_nav_date": "2018-03-01",
+      "last_nav_date": "2026-09-04",
+      "opened_position_records": 418,
+      "closed_position_records": 414,
+      "event_records": 422,
+      "equity_curve_csv": "research/original_hybrid_replay_audit_v1/results/to_2026_09_04_legacy_baseline_equity.csv",
+      "window_id": "TO_2026_09_04",
+      "requested_window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    },
+    {
+      "variant": "DEPLOY_V1_1",
+      "initial_nav_usd": 100000.0,
+      "final_nav_usd": 303257.3809257264,
+      "net_profit_usd": 203257.38092572638,
+      "total_return_pct": 203.25738092572635,
+      "cagr_pct": 13.921036102243779,
+      "maxdd_daily_mtm_pct": -22.847964405122866,
+      "elapsed_years_actual_marks": 8.511978097193703,
+      "daily_nav_rows": 2141,
+      "first_nav_date": "2018-03-01",
+      "last_nav_date": "2026-09-04",
+      "opened_position_records": 541,
+      "closed_position_records": 353,
+      "event_records": 911,
+      "equity_curve_csv": "research/original_hybrid_replay_audit_v1/results/to_2026_09_04_deploy_v1_1_equity.csv",
+      "window_id": "TO_2026_09_04",
+      "requested_window": {
+        "start": "2018-03-01",
+        "end": "2026-09-04"
+      }
+    }
+  ],
+  "pr98_source_parity_control": {
+    "anchor": "PR #98 successful replay, Actions run 37866573537",
+    "expected_final_nav_usd_rounded": 298267.22,
+    "observed_final_nav_usd": 298267.2239640743,
+    "final_nav_abs_difference_usd": 0.003964074305258691,
+    "expected_cagr_pct_rounded": 13.7,
+    "observed_cagr_pct": 13.699190415586337,
+    "expected_maxdd_pct_rounded": -23.02,
+    "observed_maxdd_pct": -23.021273091214212,
+    "pass": true
+  },
+  "prior_claimed_original_hybrid_reference": {
+    "cagr_pct": 12.7049,
+    "maxdd_daily_mtm_pct": -23.1837,
+    "final_nav_usd": 276508.0,
+    "exact_end_date_and_input_sha": "NOT_PINNED_IN_VISIBLE_REFERENCE_CONTRACT",
+    "status": "REFERENCE_ONLY; comparison is not apples-to-apples until its original end date and input SHA are recovered"
+  },
+  "prior_claimed_dynamic_v1_1_reference": {
+    "cagr_pct": 12.6828,
+    "maxdd_daily_mtm_pct": -23.6965,
+    "final_nav_usd": 276047.0,
+    "exact_end_date_and_input_sha": "NOT_PINNED_IN_VISIBLE_REFERENCE_CONTRACT",
+    "status": "REFERENCE_ONLY; comparison is not apples-to-apples until its original end date and input SHA are recovered"
+  },
+  "guardrails": [
+    "The preserved simulator implementation is imported unchanged; only the source date window is filtered.",
+    "The 2025-12-15 cutoff matches the common historical option-data cutoff but does not alone prove it was the original Hybrid reference end date.",
+    "CAGR and MaxDD are calculated from a daily account-NAV curve, not from summed overlapping trade P&L.",
+    "Derived option marks and synthetic VX term structure are not verified historical option-chain fills or observed VX futures.",
+    "No optimization, live order routing, or main-branch change is included."
+  ]
+}
