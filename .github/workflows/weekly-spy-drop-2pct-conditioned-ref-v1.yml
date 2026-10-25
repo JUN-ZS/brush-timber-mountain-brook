@@ -1,0 +1,118 @@
+name: Weekly SPY -2% drop conditioned option REF
+on:
+  pull_request:
+    branches:
+      - research/dte14-premium-matched-put-ratio-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/weekly_drop_2pct_path_analysis_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_spy_weekly_drop_filter_v1.py
+      - .github/workflows/weekly-spy-drop-2pct-conditioned-ref-v1.yml
+permissions:
+  contents: write
+jobs:
+  weekly-drop-conditioned-ref:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: research/spy-drawdown-correlation-ref-v1
+          fetch-depth: 0
+      - name: Checkout exact PR head branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin research/spy-drawdown-correlation-ref-v1
+          git checkout research/spy-drawdown-correlation-ref-v1
+      - name: Install pinned Parquet runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-weekly-ref
+          .venv-weekly-ref/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+      - name: Compile and test event trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-weekly-ref/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          "$PY" -m py_compile "$BASE/qqq_spy_put_premium_matched_phase_v1.py" "$BASE/weekly_drop_2pct_path_analysis_v1.py" "$BASE/test_spy_weekly_drop_filter_v1.py"
+          "$PY" "$BASE/test_spy_weekly_drop_filter_v1.py"
+      - name: Replay weekly SPY -2% trigger with 1:3 ratio
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-weekly-ref/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/weekly_drop_2pct_trigger_v1"
+          CACHE="$HOME/.cache/qqq-spy-weekly-drop-2pct-v1"
+          "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
+            --start 2018-03-01 --end 2025-12-15 \
+            --max-total-contracts 10 --entry-filter spy_weekly_drop_2pct_corr60_pos --sizing-mode fixed_ratio \
+            --fixed-long-qty 1 --fixed-short-qty 3 --target-delta 0.25 \
+            --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 1 \
+            --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
+            --qqq-target-abs-delta 0.65 --qqq-delta-tolerance 0.05 \
+            --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT/ratio_1x3"
+          for f in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/ratio_1x3/$f"; done
+      - name: Replay weekly SPY -2% trigger with 1:6 ratio
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-weekly-ref/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/weekly_drop_2pct_trigger_v1"
+          CACHE="$HOME/.cache/qqq-spy-weekly-drop-2pct-v1"
+          "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
+            --start 2018-03-01 --end 2025-12-15 \
+            --max-total-contracts 10 --entry-filter spy_weekly_drop_2pct_corr60_pos --sizing-mode fixed_ratio \
+            --fixed-long-qty 1 --fixed-short-qty 6 --target-delta 0.25 \
+            --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 1 \
+            --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
+            --qqq-target-abs-delta 0.65 --qqq-delta-tolerance 0.05 \
+            --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT/ratio_1x6"
+          for f in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/ratio_1x6/$f"; done
+      - name: Classify full holding-period drawdown paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-weekly-ref/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/weekly_drop_2pct_trigger_v1"
+          CACHE="$HOME/.cache/qqq-spy-weekly-drop-2pct-v1"
+          "$PY" "$BASE/weekly_drop_2pct_path_analysis_v1.py" --base "$OUT" --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy"
+          test -s "$OUT/weekly_drop_2pct_path_conditioned/REF_REPORT.md"
+          test -s "$OUT/weekly_drop_2pct_path_conditioned/summary.json"
+          test -s "$OUT/weekly_drop_2pct_path_conditioned/episode_classification.csv"
+          "$PY" - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/weekly_drop_2pct_trigger_v1/weekly_drop_2pct_path_conditioned/summary.json")
+          d=json.loads(p.read_text())
+          assert d["status"] == "COMPLETED"
+          assert len(d["condition_summary"]) == 10, len(d["condition_summary"])
+          for r in ("1x3","1x6"):
+              x=d["run_stats"][r]
+              assert x["scheduled_opportunities"] is not None
+              assert x["selected_signals"] is not None
+          print("Condition groups:", len(d["condition_summary"]))
+          print("Run coverage:", json.dumps(d["run_stats"], sort_keys=True))
+          PY
+      - name: Commit REF outputs to isolated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/weekly_drop_2pct_trigger_v1"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT/ratio_1x3" "$OUT/ratio_1x6" "$OUT/weekly_drop_2pct_path_conditioned"
+          if git diff --cached --quiet; then
+            echo "No generated output changes."
+            exit 0
+          fi
+          git commit -m "Publish weekly SPY drop 2% conditioned option REF"
+          git push origin "HEAD:research/spy-drawdown-correlation-ref-v1"
