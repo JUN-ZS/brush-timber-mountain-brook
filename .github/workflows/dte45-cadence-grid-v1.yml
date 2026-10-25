@@ -1,0 +1,124 @@
+name: "DTE45 cadence grid — overlapping QQQ 1 : SPY 6"
+on:
+  push:
+    branches:
+      - research/dte45-cadence-grid-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/dte45_cadence_replay_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/dte45_cadence_grid_report_v1.py
+      - .github/workflows/dte45-cadence-grid-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dte45-cadence-grid-v1
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pinned parquet dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-dte45-cadence
+          .venv-dte45-cadence/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and validate replay scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-dte45-cadence/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          "$PY" -m py_compile \
+            "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
+            "$BASE/dte45_cadence_replay_v1.py" \
+            "$BASE/dte45_cadence_grid_report_v1.py"
+
+      - name: Replay predeclared cadence and phase matrix
+        shell: bash
+        timeout-minutes: 345
+        run: |
+          set -euo pipefail
+          PY=.venv-dte45-cadence/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          ROOT="$BASE/results/dte45_cadence_grid_v1"
+          CACHE="$HOME/.cache/qqq-spy-dte45-cadence-v1"
+          mkdir -p "$ROOT"
+          while IFS=: read -r STRIDE PHASES; do
+            IFS=, read -ra PHASE_ARRAY <<< "$PHASES"
+            for PHASE in "${PHASE_ARRAY[@]}"; do
+              TARGET="$ROOT/stride_${STRIDE}/phase_${PHASE}"
+              if test -s "$TARGET/CADENCE_REPORT.md" && test -s "$TARGET/summary.json" && test -s "$TARGET/trade_episodes.csv"; then
+                echo "Reusing completed stride=${STRIDE} phase=${PHASE} output."
+                continue
+              fi
+              mkdir -p "$TARGET"
+              echo "Starting DTE45 cadence stride=${STRIDE} phase=${PHASE}"
+              "$PY" "$BASE/dte45_cadence_replay_v1.py" \
+                --exit-rule 20_or_dte_le_7 \
+                --start 2018-03-01 --end 2025-12-15 \
+                --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
+                --fixed-long-qty 1 --fixed-short-qty 6 --target-delta 0.25 \
+                --dte-min 30 --dte-max 60 --dte-target 45 \
+                --cohort-stride-sessions "$STRIDE" --initial-phase-sessions "$PHASE" \
+                --allow-overlapping-cohorts \
+                --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$TARGET"
+              for FILE in entry_cohort.csv trade_episodes.csv scheduled_signal_skips.csv summary.json summary.md source_manifest.json CADENCE_REPORT.md; do
+                test -s "$TARGET/$FILE"
+              done
+            done
+          done <<'PHASES'
+          5:0,1,2,3,4
+          7:0,1,3,4,6
+          10:0,2,4,6,8
+          15:0,3,6,9,12
+          20:0,4,8,12,16
+          PHASES
+
+      - name: Aggregate results without pooling phase schedules
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-dte45-cadence/bin/python
+          "$PY" research/qqq_spy_put_fixed_ratio_size_gated_v1/dte45_cadence_grid_report_v1.py
+          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte45_cadence_grid_v1
+          test -s "$OUT/cadence_phase_matrix.csv"
+          test -s "$OUT/DTE45_CADENCE_GRID_REPORT.md"
+          "$PY" - <<'PY'
+          import csv
+          from pathlib import Path
+          root=Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte45_cadence_grid_v1")
+          with (root/"cadence_phase_matrix.csv").open(newline="",encoding="utf-8") as f:
+              rows=list(csv.DictReader(f))
+          assert len(rows)==25, f"expected 25 fixed phase runs, got {len(rows)}"
+          expected={5:5,7:5,10:5,15:5,20:5}
+          for stride,n in expected.items():
+              assert sum(int(r["stride_sessions"])==stride for r in rows)==n
+          assert all(r["run_status"].startswith("COMPLETED") for r in rows)
+          print("AUDIT: all 25 cadence/phase outputs present; annual P&L remains additive trade-P&L, not CAGR.")
+          PY
+          cat "$OUT/DTE45_CADENCE_GRID_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit cadence matrix and reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte45_cadence_grid_v1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          if git diff --cached --quiet; then
+            echo "No cadence output changes."
+            exit 0
+          fi
+          git commit -m "research: publish DTE45 cadence phase matrix"
+          git push origin "HEAD:$GITHUB_REF_NAME"
