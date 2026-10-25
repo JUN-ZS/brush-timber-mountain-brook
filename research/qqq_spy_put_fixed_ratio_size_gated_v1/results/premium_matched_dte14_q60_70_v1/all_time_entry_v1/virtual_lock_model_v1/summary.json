@@ -1,0 +1,143 @@
+{
+  "schema": "qqq-spy-put-virtual-floor-model-reprice.v1",
+  "status": "COMPLETED",
+  "study": "all_time_entry_v1",
+  "window": {
+    "start": "2018-03-01",
+    "end": "2025-12-15",
+    "elapsed_years": 7.792083
+  },
+  "entry_filter": {
+    "name": "none",
+    "description": "No filter; entry when standard contract selection is available",
+    "lookback_sessions": 0,
+    "evaluated_sessions": 1908,
+    "qualified_sessions": 1908,
+    "rejected_sessions": 0
+  },
+  "ratio": {
+    "method": "FIXED_RATIO_SIZE_GATED",
+    "description": "fixed QQQ LONG PUT 1 : SPY SHORT PUT 6; entry and exit require displayed side size for every contract",
+    "fixed_long_qqq_contracts": 1,
+    "fixed_short_spy_contracts": 6,
+    "max_total_contracts": 10,
+    "contract_multiplier": 100,
+    "mean_spy_put_assignment_obligation_usd": 243705.87
+  },
+  "exit_policy": "HOLD_20_OR_DTE_LE_7",
+  "coverage": {
+    "resolved": 1903,
+    "unresolved": 4,
+    "entry_missing": 0,
+    "trades_with_marks": 1906,
+    "resolved_repriced_n": 1903,
+    "underlying_path_breach_n": 13,
+    "resolved_exit_below_floor_n": 12,
+    "terminal_pnl_adjusted_n": 12,
+    "exit_iv_missing_or_fallback_n": 0,
+    "peak_concurrent_cohorts_estimate": 10
+  },
+  "pnl": {
+    "historical_quote_side": {
+      "n": 1903,
+      "cumulative_usd": -47698.3,
+      "annual_average_episode_sum_usd": -6121.38,
+      "mean_per_episode_usd": -25.06,
+      "median_per_episode_usd": 253.9,
+      "win_rate_pct": 73.46,
+      "worst_episode_usd": -26768.1,
+      "best_episode_usd": 7080.9,
+      "profit_factor": 0.9444
+    },
+    "virtual_floor_model": {
+      "n": 1903,
+      "cumulative_usd": 32021.19,
+      "annual_average_episode_sum_usd": 4109.45,
+      "mean_per_episode_usd": 16.83,
+      "median_per_episode_usd": 253.9,
+      "win_rate_pct": 73.52,
+      "worst_episode_usd": -20846.1,
+      "best_episode_usd": 7080.9,
+      "profit_factor": 1.0411
+    },
+    "cumulative_terminal_adjustment_usd": 79719.49,
+    "mean_assignment_obligation_per_cohort_usd": 243705.87,
+    "peak_cohort_assignment_notional_proxy_usd": 2437058.73
+  },
+  "mark_path": {
+    "worst_single_cohort_original_floating_mark_usd": -23763.1,
+    "worst_single_cohort_virtual_model_floating_mark_usd": -19390.1,
+    "mean_per_cohort_worst_mark_original_usd": -574.58,
+    "mean_per_cohort_worst_mark_virtual_model_usd": -542.84,
+    "note": "Single-cohort floating marks only; not portfolio NAV drawdown."
+  },
+  "annual_exit_pnl": {
+    "2018": {
+      "n": 204,
+      "original_usd": -84849.4,
+      "virtual_usd": -80237.76,
+      "adjustment_usd": 4611.64
+    },
+    "2019": {
+      "n": 229,
+      "original_usd": 20986.1,
+      "virtual_usd": 20986.1,
+      "adjustment_usd": -0.0
+    },
+    "2020": {
+      "n": 246,
+      "original_usd": -86414.6,
+      "virtual_usd": -15809.57,
+      "adjustment_usd": 70605.03
+    },
+    "2021": {
+      "n": 248,
+      "original_usd": 109076.2,
+      "virtual_usd": 109076.2,
+      "adjustment_usd": -0.0
+    },
+    "2022": {
+      "n": 247,
+      "original_usd": -12241.7,
+      "virtual_usd": -12241.7,
+      "adjustment_usd": -0.0
+    },
+    "2023": {
+      "n": 250,
+      "original_usd": 20000.0,
+      "virtual_usd": 20000.0,
+      "adjustment_usd": -0.0
+    },
+    "2024": {
+      "n": 246,
+      "original_usd": 8690.4,
+      "virtual_usd": 8690.4,
+      "adjustment_usd": 0.0
+    },
+    "2025": {
+      "n": 233,
+      "original_usd": -22945.3,
+      "virtual_usd": -18442.48,
+      "adjustment_usd": 4502.82
+    }
+  },
+  "model": {
+    "virtual_path": "max(actual SPY close, 90% of each trade's entry SPY close)",
+    "repricing": "Observed SPY put ask plus Black-Scholes price change from actual to virtual spot at same-day IV; observed quote residual is preserved.",
+    "parameters": {
+      "risk_free_rate": 0.0,
+      "dividend_yield": 0.0,
+      "daily_historical_iv": true
+    },
+    "qqq_leg": "Historical QQQ long-put bid marks unchanged",
+    "missing_iv": "Use implied-volatility inversion from actual ask where possible; fallback sigma 0.80 if quote IV and inversion are unavailable."
+  },
+  "limitations": [
+    "Modelled virtual quote, not an actual tradable quote; Black-Scholes approximation for American-style SPY puts.",
+    "Uses zero rates and zero dividend yield; same-day IV may be stale/noisy and quote residual is preserved.",
+    "Only common-session closes are used; intraday floor breaches are missed.",
+    "Overlapping episode P&L sums do not equal account returns or CAGR.",
+    "Peak assignment notional is a contract-notional proxy, not broker margin; no portfolio cash, margin, assignment funding, forced liquidation, financing or compounding.",
+    "The model changes SPY option marks but does not model counterfactual liquidity or altered discretionary decisions."
+  ]
+}
