@@ -1,0 +1,96 @@
+name: QQQ-SPY DTE20 single-position 5/10-session replay
+
+on:
+  push:
+    branches:
+      - research/dte20-single-position-exit5-10-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/dte20_single_position_replay_v1.py
+      - .github/workflows/qqq-spy-dte20-single-position-ref-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-dte20-single-position-ref-v1
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+
+      - name: Install pinned parquet dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-dte20
+          .venv-dte20/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and run sequential DTE20 hold-5 and hold-10 replays
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-dte20/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/premium_matched_dte20_q60_70_v1/single_position_v1"
+          CACHE="$HOME/.cache/qqq-spy-dte20-single-v1"
+          mkdir -p "$OUT"
+          "$PY" -m py_compile "$BASE/qqq_spy_put_premium_matched_phase_v1.py" "$BASE/dte20_single_position_replay_v1.py"
+
+          for HOLD in 5 10; do
+            TARGET="$OUT/hold_"$HOLD"_sessions"
+            if test -s "$TARGET/SINGLE_POSITION_REPORT.md" && test -s "$TARGET/summary.json" && test -s "$TARGET/trade_episodes.csv"; then
+              echo "Reusing committed completed hold-$HOLD output."
+              continue
+            fi
+            "$PY" "$BASE/dte20_single_position_replay_v1.py" \
+              --hold-sessions "$HOLD" \
+              --start 2018-03-01 --end 2025-12-15 \
+              --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
+              --fixed-long-qty 1 --fixed-short-qty 6 --target-delta 0.25 \
+              --dte-min 17 --dte-max 23 --dte-target 20 --cohort-stride-sessions 1 \
+              --qqq-premium-match-short-qty 6 \
+              --qqq-target-abs-delta 0.65 --qqq-delta-tolerance 0.05 \
+              --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$TARGET"
+            for FILE in entry_cohort.csv trade_episodes.csv scheduled_signal_skips.csv summary.json summary.md source_manifest.json SINGLE_POSITION_REPORT.md; do
+              test -s "$TARGET/$FILE"
+            done
+          done
+
+          "$PY" - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte20_q60_70_v1/single_position_v1")
+          for hold in (5, 10):
+              out=root/f"hold_{hold}_sessions"
+              d=json.loads((out/"summary.json").read_text())
+              assert d["status"].startswith("COMPLETED"), (hold,d["status"])
+              assert d["selection"]["dte_target"] == 20, (hold,d["selection"])
+              assert d["selection"]["dte_min"] == 17 and d["selection"]["dte_max"] == 23
+              assert d["selection"]["allow_overlapping_cohorts"] is False
+              assert set(d["policies"]) == {f"HOLD_{hold}_SESSIONS"}, (hold,d["policies"].keys())
+              assert d["policies"][f"HOLD_{hold}_SESSIONS"]["opened"] > 0
+              print("hold",hold,"entered",d["cohort"]["entered_cohorts"],
+                    "resolved",d["policies"][f"HOLD_{hold}_SESSIONS"]["resolved"],
+                    "unresolved",d["policies"][f"HOLD_{hold}_SESSIONS"]["unresolved"],
+                    "total_net",d["policies"][f"HOLD_{hold}_SESSIONS"]["total_net_pnl_usd"])
+          PY
+
+      - name: Commit generated DTE20 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte20_q60_70_v1/single_position_v1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          if git diff --cached --quiet; then
+            echo "No generated DTE20 output changes."
+            exit 0
+          fi
+          git commit -m "Publish DTE20 single-position 5 and 10 session replay"
+          git push origin "HEAD:$GITHUB_REF_NAME"
