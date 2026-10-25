@@ -303,6 +303,8 @@ if __name__=='__main__':
     expected_inherited_blob_sha1='ac74b3812c826ad491fb829108f26397322e45eb'
     if inherited_blob_sha1 != expected_inherited_blob_sha1:
         raise RuntimeError('Inherited Original Hybrid source SHA changed; fail closed')
+    from qqq_hybrid_profit_trend_replay_v1 import prepare_simulator_input
+    adapted_spots_path=prepare_simulator_input(Path(args.spots_path))
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     variants=[
         ('NO_TAIL','NONE',0.0,args.friction_bps),
@@ -316,7 +318,7 @@ if __name__=='__main__':
     ]
     rows=[];all_equities={}
     for label,mode,budget,bps in variants:
-        result=simulate(args.spots_path,False,args.tail_prices_path,mode,budget,bps)
+        result=simulate(str(adapted_spots_path),False,args.tail_prices_path,mode,budget,bps)
         cagr,maxdd,final_nav,opens,closes,events,e,tail_trades=result
         years=(e.date.iloc[-1]-e.date.iloc[0]).days/365.25
         tail_pnl=float(sum(float(t['net_pnl_usd'] or 0.0) for t in tail_trades))
@@ -362,7 +364,7 @@ if __name__=='__main__':
                   'end':str(all_equities['NO_TAIL'].date.iloc[-1].date()),
                   'observations':int(len(all_equities['NO_TAIL'])),
                   'elapsed_years':float((all_equities['NO_TAIL'].date.iloc[-1]-all_equities['NO_TAIL'].date.iloc[0]).days/365.25)},
-        'input_sha256':{'spots':sha256_file(args.spots_path),'tail_adjusted_close':sha256_file(args.tail_prices_path)},
+        'input_sha256':{'spots_universe_json':sha256_file(args.spots_path),'adapted_spots':sha256_file(str(adapted_spots_path)),'tail_adjusted_close':sha256_file(args.tail_prices_path)},
         'inherited_strategy_source':{'path':'research/qqq_hybrid_dynamic_deployment_v1_1_replay.py','git_blob_sha1':inherited_blob_sha1,'expected_git_blob_sha1':expected_inherited_blob_sha1},
         'frozen_tail_rule':{
             'signal':'Previous close: abs VXX daily return >6%, or VIX >35, or proxy term slope <0, or QQQ daily return <-3%',
