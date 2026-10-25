@@ -9,6 +9,12 @@
 | 2018-03-01 to 2026-09-04 | LEGACY_BASELINE | USD 298,267.22 | USD 198,267.22 | 13.6992% | -23.0213% | 2,141 |
 | 2018-03-01 to 2026-09-04 | DEPLOY_V1_1 | USD 303,257.38 | USD 203,257.38 | 13.9210% | -22.8480% | 2,141 |
 
+## Critical policy-fidelity caveat
+
+The PASS below confirms only that this preserved simulator replays its prior PR #98 output. It does NOT prove exact Original Hybrid policy reproduction. Source review found material differences: the source policy uses 18% VXX short notional at VIX < 28 and 10% otherwise, and 0.8%/1.2% QQQ call-credit risk depending on a defined state; the legacy simulator uses 18% VXX short notional in every eligible state and a fixed 0.8% QQQ call-credit budget. The legacy baseline also opens new QQQ call-credit in Shock, whereas the recovered policy targets only the 42% QQQ core in Shock. Existing VXX short exits do not explicitly include a QQQ daily loss below -3% as a trigger.
+
+See POLICY_FIDELITY_AUDIT.md for the source-to-replay comparison and the fixed-rule next gate. Do not describe the numbers above as the exact historical Original Hybrid result until this policy mapping is repaired and replayed.
+
 ## Reproduction control
 
 - Market-input SHA-256: e5012c786152a510e297afe2c98131ed179eecb002181a97d72a89f8de061d6d
