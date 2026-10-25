@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QQQ Hybrid Portfolio Ledger V1</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">PORTFOLIO LEDGER V1 · ACCOUNTING ONLY</div>
+        <h1>What I own → what it is worth → what I made</h1>
+        <p>Record fills and cashflows. The ledger derives position, cost basis, NAV and P&L. Strategy policy stays outside this app.</p>
+      </div>
+      <div class="actions">
+        <button id="refreshBtn">Refresh live marks</button>
+        <button id="exportBtn" class="secondary">Export JSON</button>
+        <label class="file-btn secondary">Import JSON<input id="importFile" type="file" accept="application/json"></label>
+      </div>
+    </header>
+
+    <section class="strip">
+      <div><span>LEDGER</span><b id="ledgerStatus">LOADING</b></div>
+      <div><span>MARKS</span><b id="markStatus">—</b></div>
+      <div><span>V3 BRIDGE</span><b id="bridgeStatus">NOT CONNECTED</b></div>
+      <div class="warning">P&L never changes the strategy signal.</div>
+    </section>
+
+    <section class="metrics">
+      <article><span>NAV / EQUITY</span><strong id="equity">—</strong></article>
+      <article><span>NET P&L</span><strong id="netPnl">—</strong></article>
+      <article><span>REALIZED</span><strong id="realized">—</strong></article>
+      <article><span>UNREALIZED</span><strong id="unrealized">—</strong></article>
+      <article><span>CASH</span><strong id="cash">—</strong></article>
+      <article><span>FEES</span><strong id="fees">—</strong></article>
+    </section>
+
+    <div class="grid">
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">ACTUAL PORTFOLIO</div><h2>Positions</h2></div><div id="coverage" class="status">—</div></div>
+        <div id="positions" class="table-wrap"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><div><div class="eyebrow">INPUT</div><h2>Add fill</h2></div></div>
+        <form id="fillForm" class="form">
+          <label>Timestamp<input id="fillTimestamp" type="datetime-local" required></label>
+          <label>Symbol / contract code<input id="fillSymbol" placeholder="QQQ or exact option code" required></label>
+          <label>Asset type<select id="fillAsset"><option>EQUITY</option><option>OPTION</option></select></label>
+          <label>Side<select id="fillSide"><option>BUY</option><option>SELL</option></select></label>
+          <label>Quantity<input id="fillQty" type="number" step="any" min="0.000001" required></label>
+          <label>Fill price<input id="fillPrice" type="number" step="any" min="0" required></label>
+          <label>Multiplier<input id="fillMultiplier" type="number" step="any" min="0.000001" placeholder="100 for options"></label>
+          <label>Fees<input id="fillFees" type="number" step="any" min="0" value="0"></label>
+          <label>Campaign ID<input id="fillCampaignId" placeholder="optional strategy campaign"></label>
+          <label>Spread ID<input id="fillSpreadId" placeholder="required for option pairing"></label>
+          <label>Leg role<select id="fillLegRole"><option value="">— not paired</option><option value="LONG">LONG</option><option value="SHORT">SHORT</option></select></label>
+          <label>Strategy role<input id="fillStrategyRole" placeholder="e.g. QQQ_CALL_CREDIT_SPREAD"></label>
+          <label class="full">Note<input id="fillNote" placeholder="Broker fill / manual record / correction reference"></label>
+          <div class="full hint">Option pairing is explicit only: the same Spread ID binds the LONG and SHORT legs. The ledger never guesses a spread from two contracts.</div>
+          <button type="submit">Record fill</button>
+        </form>
+      </section>
+
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">OPTION IDENTITY</div><h2>Spread pairing</h2></div><div id="identityStatus" class="status">NO IDENTIFIED SPREADS</div></div>
+        <p class="hint">Identity / pairing only. It does not attribute P&L and it does not create orders.</p>
+        <div id="spreadRows" class="spread-rows"></div>
+      </section>
+
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">ATTRIBUTION</div><h2>Spread-level P&L</h2></div><div id="spreadPnlStatus" class="status">NO ATTRIBUTABLE SPREADS</div></div>
+        <p class="hint">P&L is derived from each leg's FIFO realized P&L + marked unrealized P&L − fees. Current value is display-only; unpaired spreads or missing marks produce no fabricated P&L.</p>
+        <div id="spreadPnlRows" class="spread-pnl-rows"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><div><div class="eyebrow">INPUT</div><h2>Cashflow</h2></div></div>
+        <form id="cashForm" class="form">
+          <label>Timestamp<input id="cashTimestamp" type="datetime-local" required></label>
+          <label>Amount<input id="cashAmount" type="number" step="any" placeholder="10000 deposit / -5000 withdrawal" required></label>
+          <label class="full">Note<input id="cashNote" placeholder="External deposit or withdrawal only"></label>
+          <button type="submit">Record cashflow</button>
+        </form>
+        <p class="hint">Cashflow is not P&L. It is removed from the return calculation when measuring a period.</p>
+      </section>
+
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">MARKS</div><h2>Current / manual marks</h2></div><button id="markApplyBtn" class="secondary">Apply manual marks</button></div>
+        <p class="hint">Live marks are requested from OpenD when available, with Yahoo fallback for QQQ/VXX. Manual marks are only a fallback valuation input; they never rewrite fills.</p>
+        <textarea id="manualMarks" rows="4" placeholder='{"QQQ":742.03,"VXX":31.40,"QQQ261218C00750000":8.10}'></textarea>
+        <div id="markRows" class="marks"></div>
+      </section>
+
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">PERFORMANCE</div><h2>Period P&L</h2></div><div id="periodBadge" class="status">INCOMPLETE UNTIL VALUED</div></div>
+        <div class="period-form">
+          <label>Start<input id="periodStart" type="datetime-local"></label>
+          <label>End<input id="periodEnd" type="datetime-local"></label>
+          <label class="full">Start-date marks JSON<input id="startMarks" placeholder='{"QQQ":700,"QQQ261218C00750000":12}'></label>
+          <label class="full">End-date marks JSON<input id="endMarks" placeholder='{"QQQ":710,"QQQ261218C00750000":9}'></label>
+          <button id="periodBtn">Calculate period</button>
+        </div>
+        <div id="periodResult" class="period-result"></div>
+        <div class="subhead"><div class="eyebrow">CAMPAIGN PERFORMANCE</div><h3>Campaign → Spread → P&L</h3></div>
+        <div id="campaignPerformanceRows" class="campaign-performance-rows"></div>
+        <p class="hint">Campaign period P&L is the change in cumulative identified-spread P&L between the two valuation points. Fully closed spreads remain in the period result through realized P&L. Incomplete attribution stays unpriced.</p>
+        <div class="subhead"><div class="eyebrow">HISTORY</div><h3>Campaign timeline / attribution history</h3></div>
+        <div id="campaignTimelineRows" class="campaign-timeline-rows"></div>
+        <p class="hint">Timeline is event-sourced from explicit option fills: open → roll → partial close → full close. Historical total P&L is shown only when a point-in-time mark at or before the event exists; current live marks are never reused for past events.</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><div><div class="eyebrow">DECISION</div><h2>Strategy recommendation</h2></div><div class="badge neutral">READ-ONLY</div></div>
+        <div class="bridge-box">
+          <div class="bridge-head"><strong id="strategyState">V3 bridge not connected</strong><span id="strategyBadge" class="badge neutral">OFFLINE</span></div>
+          <div class="bridge-grid">
+            <div><small>ENGINE ACTION</small><b id="strategyAction">—</b></div>
+            <div><small>STATE</small><b id="strategyMode">—</b></div>
+            <div><small>GATE</small><b id="strategyGate">—</b></div>
+            <div><small>AS-OF</small><b id="strategyAsOf">—</b></div>
+          </div>
+          <p id="strategyReason">The ledger will not re-implement the frozen Original Hybrid policy. A read-only bridge can display the V3 recommendation beside these actual portfolio accounts.</p>
+          <div id="strategyTargets" class="strategy-targets"></div>
+          <p class="danger-text">Ledger P&L never becomes a BUY/HOLD/REDUCE rule and the bridge has no broker-order path.</p>
+        </div>
+      </section>
+
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">RECONCILIATION</div><h2>Actual vs V3 Target</h2></div><div id="reconStatus" class="status">WAITING FOR V3</div></div>
+        <p id="reconReason" class="hint">This is comparison only. It never creates an order and never changes the strategy signal.</p>
+        <div id="reconSummary" class="recon-summary"></div>
+        <div id="reconRows" class="recon-rows"></div>
+      </section>
+
+      <section class="card wide">
+        <div class="card-head"><div><div class="eyebrow">AUDIT</div><h2>Recorded events</h2></div><div id="eventCount" class="status">0</div></div>
+        <div id="events" class="events"></div>
+      </section>
+    </div>
+
+    <footer>Append-only ledger · no broker order transmission · corrections should be compensating events</footer>
+  </main>
+  <script src="ledger_engine.js"></script>
+  <script src="position_identity.js"></script>
+  <script src="spread_pnl.js"></script>
+  <script src="portfolio_performance.js"></script>
+  <script src="portfolio_timeline.js"></script>
+  <script src="reconciliation.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
