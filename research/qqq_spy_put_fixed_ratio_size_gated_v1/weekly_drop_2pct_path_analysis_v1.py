@@ -311,10 +311,10 @@ def main():
         "",
         "## QQQ unit premium and hedge sizing",
         "",
-        "The 2:6 arm selects an alternative same-expiry QQQ put at approximately half the signal-time Ask of the existing 1:6 reference contract, then buys two contracts. The alternative QQQ Delta is intentionally unconstrained, because cheaper contracts generally change hedge sensitivity. Entry unit premium and total debit are measured from next-session entry Ask quotes.",
+        "The 2:6 half-premium arm selects an alternative QQQ put at approximately half the signal-time Ask of the 1:6 reference contract, locks the reference expiry and SPY contract, and buys two contracts; its QQQ Delta is unconstrained. The separate 2:6 same-contract arm buys two copies of the exact QQQ contract chosen by the 1:6 reference selector, subject to displayed size. Entry unit premium and total debit use next-session entry Ask quotes.",
         "",
-        "| Ratio | QQQ long : SPY short | QQQ reference multiple | Mean QQQ premium / contract | Median QQQ premium / contract | Mean total QQQ debit | Mean SPY short credit | Mean QQQ |Delta| at entry | Mean unit-premium reduction vs 1:6 | Paired N |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+        "| Ratio | QQQ long : SPY short | QQQ reference multiple | Mean QQQ premium / contract | Median QQQ premium / contract | Mean total QQQ debit | Mean SPY short credit | Mean |Delta| / contract | Aggregate Delta-equivalent | Mean unit-premium reduction vs 1:6 | Paired N | QQQ/SPY/expiry match vs 1:6 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
     ]
     for ratio in ("1x3", "1x6", "2x6", "2x6_samecontract"):
         z = run_stats[ratio]
