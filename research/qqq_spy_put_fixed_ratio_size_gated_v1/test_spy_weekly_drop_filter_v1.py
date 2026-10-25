@@ -48,10 +48,10 @@ class WeeklyDropFilterTests(unittest.TestCase):
 
 class HalfPremiumQQQSelectionTests(unittest.TestCase):
     @staticmethod
-    def option(symbol, strike, delta, bid, ask, size):
-        expiry = "2026-01-16"
+    def option(symbol, strike, delta, bid, ask, size, expiry="2026-01-16"):
         day = "2026-01-02"
-        cid = f"{symbol}260116P{int(strike * 1000):08d}"
+        expiry_code = datetime.datetime.strptime(expiry, "%Y-%m-%d").strftime("%y%m%d")
+        cid = f"{symbol}{expiry_code}P{int(strike * 1000):08d}"
         return {
             "contract_id": cid, "symbol": symbol, "expiration": expiry,
             "strike": strike, "type": "put", "bid": bid, "ask": ask,
@@ -86,6 +86,52 @@ class HalfPremiumQQQSelectionTests(unittest.TestCase):
         self.assertAlmostEqual(pair["qqq_abs_delta"], 0.20)
         self.assertAlmostEqual(pair["qqq_reference_premium_fraction"], 0.5)
         self.assertEqual(pair["spy_contract_id"], "SPY260116P00590000")
+
+    def test_half_premium_selector_locks_baseline_expiry_and_spy_contract(self):
+        day = "2026-01-02"
+        expiry_near = "2026-01-14"  # 12 DTE
+        expiry_far = "2026-01-18"   # 16 DTE; equally far from target DTE14
+
+        qqq = [
+            # Reference candidates: baseline uses 6x SPY Bid = $18 target.
+            self.option("QQQ", 500, -0.65, 16.0, 17.0, 10, expiry_near),
+            self.option("QQQ", 510, -0.65, 19.0, 20.0, 10, expiry_far),
+            # Half-premium alternatives. The farther expiry has an exact half-ask match,
+            # but must not pull the baseline SPY leg/expiry away from expiry_near.
+            self.option("QQQ", 470, -0.25, 8.3, 8.5, 3, expiry_near),
+            self.option("QQQ", 465, -0.20, 9.8, 10.0, 3, expiry_far),
+            # A cheaper near-expiry contract with an ideal half price, but no size for 2.
+            self.option("QQQ", 460, -0.15, 8.3, 8.5, 1, expiry_near),
+        ]
+        spy = [
+            self.option("SPY", 590, -0.25, 3.0, 3.2, 10, expiry_near),
+            self.option("SPY", 585, -0.25, 3.0, 3.2, 10, expiry_far),
+        ]
+
+        baseline = engine.choose_pair_by_premium(
+            qqq, spy, day, 500.0, 600.0,
+            target_delta=0.25, dte_min=7, dte_max=21, dte_target=14,
+            premium_match_short_qty=6, qqq_target_abs_delta=0.65,
+            qqq_delta_tolerance=0.05,
+        )
+        half = engine.choose_pair_by_premium(
+            qqq, spy, day, 500.0, 600.0,
+            target_delta=0.25, dte_min=7, dte_max=21, dte_target=14,
+            premium_match_short_qty=6, qqq_target_abs_delta=0.65,
+            qqq_delta_tolerance=0.05, qqq_reference_premium_fraction=0.5,
+            qqq_required_size=2,
+        )
+        self.assertIsNotNone(baseline)
+        self.assertIsNotNone(half)
+        self.assertEqual(baseline["expiry"], expiry_near)
+        self.assertEqual(half["expiry"], baseline["expiry"])
+        self.assertEqual(half["spy_contract_id"], baseline["spy_contract_id"])
+        self.assertEqual(half["qqq_premium_reference_contract_id"], baseline["qqq_contract_id"])
+        self.assertEqual(half["qqq_contract_id"], "QQQ260114P00470000")
+        self.assertAlmostEqual(half["qqq_target_ask_signal"], 8.5)
+        self.assertAlmostEqual(half["qqq_signal_ask"], 8.5)
+        self.assertEqual(half["qqq_abs_delta"], 0.25)
+        self.assertTrue(half["qqq_reference_expiry_locked_to_reference"])
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
