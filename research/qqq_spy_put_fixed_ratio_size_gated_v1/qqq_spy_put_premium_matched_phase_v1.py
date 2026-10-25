@@ -1093,9 +1093,13 @@ def run_replay(args):
             "qqq_reference_premium_fraction":args.qqq_reference_premium_fraction,
             "qqq_delta_band":[args.qqq_target_abs_delta-args.qqq_delta_tolerance,args.qqq_target_abs_delta+args.qqq_delta_tolerance] if args.qqq_target_abs_delta is not None else None,
             "qqq_premium_match_rule":(
-                f"QQQ abs-Delta constrained to {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; in-band Ask nearest N x SPY Bid"
-                if args.qqq_premium_match_short_qty is not None and args.qqq_target_abs_delta is not None
-                else ("QQQ Ask nearest N x selected SPY short-put Bid; QQQ Delta unconstrained" if args.qqq_premium_match_short_qty is not None else "QQQ Delta nearest target")
+                (f"Reference QQQ abs-Delta {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; reference Ask nearest {args.qqq_premium_match_short_qty}x SPY Bid; selected same-expiry QQQ Ask nearest {args.qqq_reference_premium_fraction:.0%} of reference QQQ Ask; selected contract Delta unconstrained"
+                 if args.qqq_premium_match_short_qty is not None and args.qqq_target_abs_delta is not None
+                 else "Select same-expiry QQQ Ask nearest fraction of the selected reference QQQ Ask; selected contract Delta unconstrained")
+                if args.qqq_reference_premium_fraction is not None
+                else (f"QQQ abs-Delta constrained to {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; in-band Ask nearest N x SPY Bid"
+                    if args.qqq_premium_match_short_qty is not None and args.qqq_target_abs_delta is not None
+                    else ("QQQ Ask nearest N x selected SPY short-put Bid; QQQ Delta unconstrained" if args.qqq_premium_match_short_qty is not None else "QQQ Delta nearest target"))
             ),
             "dte_min":args.dte_min,
             "dte_max":args.dte_max,"dte_target":args.dte_target,"cohort_stride_sessions":args.cohort_stride_sessions,
