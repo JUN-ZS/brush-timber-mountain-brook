@@ -1,7 +1,12 @@
 {
   "schema": "original-hybrid-tail-account-nav.v1",
   "status": "COMPLETED",
-  "strategy": "Original Hybrid BASELINE policy (dynamic deployment disabled), same base model logic and risk sizing for every arm",
+  "strategy": "Original Hybrid BASELINE policy (dynamic deployment disabled); corrected account ledger for recommended arms; one isolated legacy-accounting-bug control for diagnosis",
+  "accounting_audit": {
+    "finding": "Inherited source includes a no-op expression cash_box[0]-row.qqq*n when opening QQQ core. Because it has no assignment operator, QQQ stock purchase cost is not deducted from cash in that original line.",
+    "corrected_arms": "All arms except LEGACY_NO_QQQ_DEBIT debit QQQ stock purchases from cash before marking QQQ shares into NAV.",
+    "legacy_control": "LEGACY_NO_QQQ_DEBIT deliberately preserves the missing cash debit to quantify the inherited error. It is diagnostic only and must not be treated as valid account performance."
+  },
   "evidence_class": "DERIVED_BS_VIX_MODEL_NOT_OPRA",
   "window": {
     "start": "2018-03-01",
@@ -34,7 +39,8 @@
     "The VX term trigger remains the inherited VIX/MA20 proxy, not real historical VX futures M1/M2.",
     "TAIL adjusted close is a total-return proxy and not historical executable close/lot accounting.",
     "No broker commissions, margin, early assignment, forced liquidation or broker buying-power model is included.",
-    "This is an in-sample experiment, not evidence of forward alpha."
+    "This is an in-sample experiment, not evidence of forward alpha.",
+    "The inherited source has an identified QQQ cash-debit defect; only the explicit LEGACY_NO_QQQ_DEBIT row reproduces it. Use NO_TAIL and other corrected-account-ledger rows for the TAIL comparison."
   ],
   "results": [
     {
@@ -60,6 +66,30 @@
       "strategy_option_legs_opened": 377,
       "strategy_option_legs_closed": 373,
       "strategy_events": 374
+    },
+    {
+      "variant": "LEGACY_NO_QQQ_DEBIT",
+      "tail_mode": "NONE",
+      "tail_budget_pct_nav_at_entry": 0.0,
+      "tail_round_trip_friction_bps": 10.0,
+      "start_date": "2018-03-01",
+      "end_date": "2025-12-15",
+      "observations": 1960,
+      "elapsed_years": 7.79192334017796,
+      "initial_nav_usd": 100000.0,
+      "final_nav_usd": 302739.53090044204,
+      "net_profit_usd": 202739.53090044204,
+      "cagr": 0.15276148887685115,
+      "daily_mtm_maxdd": -0.212557000261004,
+      "tail_trade_count": 0,
+      "tail_closed_trade_count": 0,
+      "tail_open_at_end": false,
+      "tail_net_pnl_usd": 0.0,
+      "tail_invested_days": 0,
+      "max_tail_market_value_usd": 0.0,
+      "strategy_option_legs_opened": 383,
+      "strategy_option_legs_closed": 379,
+      "strategy_events": 386
     },
     {
       "variant": "ALWAYS_ON_2P",
