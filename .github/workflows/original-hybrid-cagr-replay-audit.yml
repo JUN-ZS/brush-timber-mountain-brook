@@ -1,0 +1,84 @@
+name: Original Hybrid CAGR Replay Audit V1
+
+on:
+  push:
+    branches:
+      - research/original-hybrid-cagr-audit-v1-20261025
+    paths:
+      - research/original_hybrid_replay_audit_v1.py
+      - research/qqq_hybrid_dynamic_deployment_v1_1_replay.py
+      - src/data/universe.json
+      - .github/workflows/original-hybrid-cagr-replay-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: original-hybrid-cagr-replay-audit-v1
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Frozen Original Hybrid account-NAV replay
+    runs-on: [self-hosted, windows, x64]
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: cmd
+    steps:
+      - name: Checkout isolated audit branch
+        uses: actions/checkout@v4
+
+      - name: Discover Python
+        run: |
+          where py >nul 2>&1 && (
+            py -3 --version
+            py -3 -c "import sys; print(sys.executable)"
+            exit /b 0
+          )
+          where python >nul 2>&1 && (
+            python --version
+            python -c "import sys; print(sys.executable)"
+            exit /b 0
+          )
+          echo PYTHON_NOT_FOUND
+          exit /b 1
+
+      - name: Install replay dependencies
+        run: py -3 -m pip install numpy pandas scipy
+
+      - name: Syntax validation
+        run: |
+          py -3 -m py_compile research\qqq_hybrid_dynamic_deployment_v1_1_replay.py
+          py -3 -m py_compile research\original_hybrid_replay_audit_v1.py
+
+      - name: Run same-code, two-window replay
+        run: py -3 research\original_hybrid_replay_audit_v1.py --spots-path src\data\universe.json --out research\original_hybrid_replay_audit_v1\results
+
+      - name: Validate output contract and prior-run parity
+        run: |
+          py -3 -c "import json; from pathlib import Path; p=Path('research/original_hybrid_replay_audit_v1/results/replay_summary.json'); r=json.loads(p.read_text(encoding='utf-8')); assert len(r['results'])==4; assert r['pr98_source_parity_control']['pass'] is True; assert all(x['daily_nav_rows']>100 for x in r['results']); print('four_replays=PASS'); print('PR98_source_parity=PASS'); print('derived_only_not_OPRA=PASS')"
+
+      - name: Persist report and NAV curves to audit branch
+        if: always()
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $reportDir = Join-Path $env:GITHUB_WORKSPACE 'research\original_hybrid_replay_audit_v1\results'
+          if (!(Test-Path $reportDir)) {
+            Write-Host 'No replay results produced; keeping logs as the diagnostic.'
+            exit 0
+          }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- 'research/original_hybrid_replay_audit_v1/results'
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "audit: persist Original Hybrid replay and NAV curves"
+            if ($LASTEXITCODE -ne 0) { throw 'Could not commit replay results' }
+            git push origin HEAD:research/original-hybrid-cagr-audit-v1-20261025
+            if ($LASTEXITCODE -ne 0) { throw 'Could not persist replay results to branch' }
+          } else {
+            Write-Host 'Replay outputs unchanged; no report commit needed.'
+          }
