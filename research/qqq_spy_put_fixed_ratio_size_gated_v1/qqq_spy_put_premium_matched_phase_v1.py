@@ -353,39 +353,82 @@ def rows_by_id(rows): return {normalized_contract_id(row):row for row in rows if
 
 
 def evaluate_entry_filter(filter_name, idx, dates, qspots, sspots, lookback=20):
-    """Evaluate the entry condition only from current and prior underlying closes."""
+    """Evaluate filters strictly from current/prior underlying closes; no future prices."""
+    empty = {
+        "entry_filter": filter_name,
+        "filter_lookback_sessions": 0,
+        "qqq_trailing_return_pct": None,
+        "spy_trailing_return_pct": None,
+        "qqq_minus_spy_trailing_return_pct": None,
+        "spy_previous_trailing_return_pct": None,
+        "qqq_spy_corr_60d": None,
+        "filter_pass_reason": None,
+    }
     if filter_name == "none":
-        return True, {
-            "entry_filter": "none",
-            "filter_lookback_sessions": 0,
-            "qqq_trailing_return_pct": None,
-            "spy_trailing_return_pct": None,
-            "qqq_minus_spy_trailing_return_pct": None,
-            "filter_pass_reason": "FILTER_DISABLED",
+        empty.update({"entry_filter": "none", "filter_pass_reason": "FILTER_DISABLED"})
+        return True, empty
+
+    if filter_name == "spy_weekly_drop_2pct_corr60_pos":
+        # Event trigger: SPY rolling 5-session return crosses from > -2% to <= -2%.
+        # Require positive Pearson correlation of the prior 60 daily returns, ending before signal day.
+        lookback = 5
+        if idx < 61:
+            empty.update({"filter_lookback_sessions": 60, "filter_pass_reason": "INSUFFICIENT_LOOKBACK"})
+            return False, empty
+        current_day, prior_day = dates[idx], dates[idx - lookback]
+        previous_day, previous_week_start = dates[idx - 1], dates[idx - lookback - 1]
+        qnow, qprior = num(qspots.get(current_day)), num(qspots.get(prior_day))
+        snow, sprior = num(sspots.get(current_day)), num(sspots.get(prior_day))
+        sprev, sprevprior = num(sspots.get(previous_day)), num(sspots.get(previous_week_start))
+        if None in (qnow, qprior, snow, sprior, sprev, sprevprior) or min(qprior, sprior, sprevprior) <= 0:
+            empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "MISSING_OR_INVALID_LOOKBACK_PRICE"})
+            return False, empty
+        qret = (qnow / qprior - 1) * 100
+        sret = (snow / sprior - 1) * 100
+        previous_sret = (sprev / sprevprior - 1) * 100
+        xs, ys = [], []
+        for j in range(idx - 60, idx):
+            day0, day1 = dates[j - 1], dates[j]
+            q0, q1 = num(qspots.get(day0)), num(qspots.get(day1))
+            s0, s1 = num(sspots.get(day0)), num(sspots.get(day1))
+            if None in (q0, q1, s0, s1) or min(q0, s0) <= 0:
+                continue
+            xs.append(q1 / q0 - 1)
+            ys.append(s1 / s0 - 1)
+        corr = None
+        if len(xs) >= 45:
+            mx, my = statistics.mean(xs), statistics.mean(ys)
+            dx, dy = [v-mx for v in xs], [v-my for v in ys]
+            den = math.sqrt(sum(v*v for v in dx) * sum(v*v for v in dy))
+            corr = sum(a*b for a,b in zip(dx,dy)) / den if den > 0 else None
+        crossed = sret <= -2.0 and previous_sret > -2.0
+        positive_corr = corr is not None and corr > 0
+        passed = crossed and positive_corr
+        reason = ("SPY_5D_DROPPED_THROUGH_MINUS_2PCT_AND_PRIOR_60D_CORR_POSITIVE" if passed
+                  else "NO_NEW_SPY_5D_MINUS_2PCT_CROSSING" if not crossed
+                  else "PRIOR_60D_QQQ_SPY_CORRELATION_NOT_POSITIVE")
+        return passed, {
+            "entry_filter": filter_name,
+            "filter_lookback_sessions": lookback,
+            "qqq_trailing_return_pct": finite_round(qret, 4),
+            "spy_trailing_return_pct": finite_round(sret, 4),
+            "qqq_minus_spy_trailing_return_pct": finite_round(qret-sret, 4),
+            "spy_previous_trailing_return_pct": finite_round(previous_sret, 4),
+            "qqq_spy_corr_60d": finite_round(corr, 6),
+            "filter_pass_reason": reason,
         }
+
     if filter_name != "qqq_underperforms_spy_20d":
         raise ValueError(f"unknown entry filter: {filter_name}")
     if idx < lookback:
-        return False, {
-            "entry_filter": filter_name,
-            "filter_lookback_sessions": lookback,
-            "qqq_trailing_return_pct": None,
-            "spy_trailing_return_pct": None,
-            "qqq_minus_spy_trailing_return_pct": None,
-            "filter_pass_reason": "INSUFFICIENT_LOOKBACK",
-        }
+        empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "INSUFFICIENT_LOOKBACK"})
+        return False, empty
     current_day, prior_day = dates[idx], dates[idx - lookback]
     qnow, qprior = num(qspots.get(current_day)), num(qspots.get(prior_day))
     snow, sprior = num(sspots.get(current_day)), num(sspots.get(prior_day))
     if None in (qnow, qprior, snow, sprior) or min(qprior, sprior) <= 0:
-        return False, {
-            "entry_filter": filter_name,
-            "filter_lookback_sessions": lookback,
-            "qqq_trailing_return_pct": None,
-            "spy_trailing_return_pct": None,
-            "qqq_minus_spy_trailing_return_pct": None,
-            "filter_pass_reason": "MISSING_OR_INVALID_LOOKBACK_PRICE",
-        }
+        empty.update({"filter_lookback_sessions": lookback, "filter_pass_reason": "MISSING_OR_INVALID_LOOKBACK_PRICE"})
+        return False, empty
     qret = (qnow / qprior - 1) * 100
     sret = (snow / sprior - 1) * 100
     relative = qret - sret
@@ -396,6 +439,8 @@ def evaluate_entry_filter(filter_name, idx, dates, qspots, sspots, lookback=20):
         "qqq_trailing_return_pct": finite_round(qret, 4),
         "spy_trailing_return_pct": finite_round(sret, 4),
         "qqq_minus_spy_trailing_return_pct": finite_round(relative, 4),
+        "spy_previous_trailing_return_pct": None,
+        "qqq_spy_corr_60d": None,
         "filter_pass_reason": "QQQ_UNDERPERFORMED_SPY" if passed else "QQQ_DID_NOT_UNDERPERFORM_SPY",
     }
 
@@ -976,8 +1021,8 @@ def run_replay(args):
         },
         "premium_matching":premium_summary,
         "entry_filter":{"name":args.entry_filter,
-            "description":("No filter; entry when standard contract selection is available" if args.entry_filter=="none" else "Require QQQ trailing 20-session close-to-close return to be lower than SPY; evaluated at signal close, entry no earlier than next observed common session"),
-            "lookback_sessions":0 if args.entry_filter=="none" else 20,
+            "description":("No filter; entry when standard contract selection is available" if args.entry_filter=="none" else ("SPY rolling 5-session return crosses from above -2% to <= -2%, with positive Pearson correlation over the prior 60 daily returns; entry no earlier than next observed common session" if args.entry_filter=="spy_weekly_drop_2pct_corr60_pos" else "Require QQQ trailing 20-session close-to-close return to be lower than SPY; evaluated at signal close, entry no earlier than next observed common session")),
+            "lookback_sessions":0 if args.entry_filter=="none" else (5 if args.entry_filter=="spy_weekly_drop_2pct_corr60_pos" else 20),
             "evaluated_sessions":filter_evaluations,"qualified_sessions":filter_qualified,
             "rejected_sessions":filter_rejected},
         "selection":{"target_abs_delta":args.target_delta,"delta_eligible_band":[DELTA_MIN,DELTA_MAX],
@@ -1030,7 +1075,7 @@ def run_replay(args):
         "qqq_premium_match_short_qty","qqq_premium_match_error_signal","spy_signal_bid",
         "qqq_otm_pct_signal","qqq_moneyness_signal","spy_otm_pct_signal","spy_moneyness_signal",
         "qqq_otm_pct_entry","qqq_moneyness_entry","spy_otm_pct_entry","spy_moneyness_entry",
-        "entry_filter","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
+        "entry_filter","qqq_trailing_return_pct","spy_trailing_return_pct","spy_previous_trailing_return_pct","qqq_spy_corr_60d","filter_pass_reason","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
     write_csv(out/"trade_episodes.csv",trades,["episode_id","policy","status","net_pnl_usd"])
     write_csv(out/"entry_skips.csv",skips,["episode_id","signal_date","signal_index","status","reason"])
     write_csv(out/"scheduled_signal_skips.csv",schedule_skips,["scheduled_index","scheduled_signal_date","status","reason"])
@@ -1079,7 +1124,7 @@ def parse_args():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--start",default=START_DEFAULT);p.add_argument("--end",default=END_DEFAULT)
     p.add_argument("--max-total-contracts",type=int,default=9,help="maximum combined whole option contracts per entry cohort")
-    p.add_argument("--entry-filter",choices=("none","qqq_underperforms_spy_20d"),default="qqq_underperforms_spy_20d")
+    p.add_argument("--entry-filter",choices=("none","qqq_underperforms_spy_20d","spy_weekly_drop_2pct_corr60_pos"),default="qqq_underperforms_spy_20d")
     p.add_argument("--sizing-mode",choices=("equal_premium","fixed_ratio"),default="equal_premium")
     p.add_argument("--fixed-long-qty",type=int,default=1,help="fixed QQQ LONG PUT contracts when --sizing-mode=fixed_ratio")
     p.add_argument("--fixed-short-qty",type=int,default=6,help="fixed SPY SHORT PUT contracts when --sizing-mode=fixed_ratio")
