@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Premium-matched DTE14 QQQ LONG PUT / SPY SHORT PUT replay, fixed 1:3 and 1:6 ratios."""
-"""Fixed-anchor QQQ LONG PUT / SPY SHORT PUT replay; missed scheduled slots never re-anchor cadence."""
 from __future__ import annotations
 import argparse, csv, hashlib, json, math, re, statistics, urllib.request
 from datetime import date, datetime
