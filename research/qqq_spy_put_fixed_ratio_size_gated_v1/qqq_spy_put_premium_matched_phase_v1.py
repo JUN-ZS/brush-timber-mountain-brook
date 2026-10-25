@@ -265,33 +265,38 @@ def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
     if not qqq_rows or not spy_rows or qqq_spot <= 0 or spy_spot <= 0:
         return None
 
-    def expiry_map(rows, symbol):
+    def expiry_groups(rows, symbol):
+        """Group today's in-range expiry candidates once; preserve the old per-leg filters below."""
         found = {}
+        grouped = {}
         for row in rows:
             if not standard_put_identity(row, symbol) or as_day(row.get("date")) != signal_day:
-                continue
-            if not valid_quote(row, require_positive_bid=True):
                 continue
             expiry = as_day(row.get("expiration"))
             try:
                 dte = (date.fromisoformat(expiry) - date.fromisoformat(signal_day)).days
             except ValueError:
                 continue
-            if dte_min <= dte <= dte_max:
+            if not dte_min <= dte <= dte_max:
+                continue
+            grouped.setdefault(expiry, []).append(row)
+            if valid_quote(row, require_positive_bid=True):
                 found[expiry] = dte
-        return found
+        return found, grouped
 
-    q_exp, s_exp = expiry_map(qqq_rows, "QQQ"), expiry_map(spy_rows, "SPY")
+    # Same selection rules as before, but avoid rescanning the full chain for every expiry.
+    q_exp, q_by_expiry = expiry_groups(qqq_rows, "QQQ")
+    s_exp, s_by_expiry = expiry_groups(spy_rows, "SPY")
     choices = []
     for expiry in sorted(set(q_exp) & set(s_exp)):
         dte = q_exp[expiry]
-        sleg = choose_leg(spy_rows, "SPY", signal_day, expiry, target_delta)
+        sleg = choose_leg(s_by_expiry.get(expiry, []), "SPY", signal_day, expiry, target_delta)
         if sleg is None:
             continue
         spy_bid = float(sleg["row"]["bid"])
         normal_target_ask = spy_bid * int(premium_match_short_qty)
         q_candidates = []
-        for row in qqq_rows:
+        for row in q_by_expiry.get(expiry, []):
             if not standard_put_identity(row, "QQQ") or as_day(row.get("date")) != signal_day:
                 continue
             if as_day(row.get("expiration")) != expiry or not valid_quote(row, require_positive_bid=True):
