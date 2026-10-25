@@ -351,14 +351,18 @@ def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
             desired_ask = normal_target_ask
             premium_error = qleg["ask"] - normal_target_ask
 
-        # Nearest-DTE-first is preserved; within an expiry, use the selected put's premium error.
+        # In half-premium mode, preserve the baseline selector's expiry/SPY-leg ranking.
+        # Otherwise the cheaper QQQ option's price error can silently change the SPY contract,
+        # making a nominally QQQ-only comparison unfair.
+        key_qleg = qref if fraction_mode else qleg
+        key_error = key_qleg["ask"] - normal_target_ask
         key = (
             abs(dte-dte_target),
-            abs(premium_error)/max(desired_ask, 0.01),
+            abs(key_error)/max(normal_target_ask, 0.01),
             abs(sleg["abs_delta"]-target_delta),
-            -(qleg["size"]+sleg["size"]),
-            -(qleg["oi"]+sleg["oi"]),
-            expiry, qleg["id"], sleg["id"],
+            -(key_qleg["size"]+sleg["size"]),
+            -(key_qleg["oi"]+sleg["oi"]),
+            expiry, key_qleg["id"], sleg["id"], qleg["id"],
         )
         choices.append((key, expiry, dte, qleg, sleg, desired_ask, premium_error, qref))
 
@@ -394,6 +398,7 @@ def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
         "qqq_premium_reference_ask_signal": qref["ask"],
         "qqq_premium_reference_abs_delta": qref["abs_delta"],
         "qqq_reference_premium_fraction": qqq_reference_premium_fraction,
+        "qqq_reference_expiry_locked_to_reference": fraction_mode,
         "spy_contract_id": sleg["id"], "spy_strike": sleg["strike"],
         "spy_abs_delta": sleg["abs_delta"], "spy_signal_bid": spy_bid,
         "qqq_spot_signal": qqq_spot, "spy_spot_signal": spy_spot,
@@ -1091,6 +1096,7 @@ def run_replay(args):
             "qqq_target_abs_delta":args.qqq_target_abs_delta,
             "qqq_delta_tolerance":args.qqq_delta_tolerance if args.qqq_target_abs_delta is not None else None,
             "qqq_reference_premium_fraction":args.qqq_reference_premium_fraction,
+            "qqq_reference_expiry_locked_to_reference":args.qqq_reference_premium_fraction is not None,
             "qqq_delta_band":[args.qqq_target_abs_delta-args.qqq_delta_tolerance,args.qqq_target_abs_delta+args.qqq_delta_tolerance] if args.qqq_target_abs_delta is not None else None,
             "qqq_premium_match_rule":(
                 (f"Reference QQQ abs-Delta {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; reference Ask nearest {args.qqq_premium_match_short_qty}x SPY Bid; selected same-expiry QQQ Ask nearest {args.qqq_reference_premium_fraction:.0%} of reference QQQ Ask; selected contract Delta unconstrained"
@@ -1158,8 +1164,12 @@ def run_replay(args):
         "qqq_target_abs_delta":args.qqq_target_abs_delta,
         "qqq_delta_tolerance":args.qqq_delta_tolerance if args.qqq_target_abs_delta is not None else None,
         "qqq_reference_premium_fraction":args.qqq_reference_premium_fraction,
+        "qqq_reference_expiry_locked_to_reference":args.qqq_reference_premium_fraction is not None,
         "qqq_delta_band":[args.qqq_target_abs_delta-args.qqq_delta_tolerance,args.qqq_target_abs_delta+args.qqq_delta_tolerance] if args.qqq_target_abs_delta is not None else None,
-        "qqq_premium_match_rule":"QQQ LONG PUT Ask nearest 6x SPY SHORT PUT Bid within QQQ abs-Delta 0.60–0.70 candidates" if args.qqq_target_abs_delta is not None and args.qqq_premium_match_short_qty==6 else "QQQ LONG PUT Ask nearest N x SPY SHORT PUT Bid at signal date",
+        "qqq_premium_match_rule":(
+            f"Reference QQQ abs-Delta {args.qqq_target_abs_delta:.2f} +/- {args.qqq_delta_tolerance:.2f}; reference Ask nearest {args.qqq_premium_match_short_qty}x SPY Bid; selected same-expiry QQQ Ask nearest {args.qqq_reference_premium_fraction:.0%} of reference Ask; QQQ Delta unconstrained and SPY leg/expiry locked to reference"
+            if args.qqq_reference_premium_fraction is not None
+            else ("QQQ LONG PUT Ask nearest 6x SPY SHORT PUT Bid within QQQ abs-Delta 0.60–0.70 candidates" if args.qqq_target_abs_delta is not None and args.qqq_premium_match_short_qty==6 else "QQQ LONG PUT Ask nearest N x SPY SHORT PUT Bid at signal date")),
         "initial_phase_sessions":args.initial_phase_sessions,
         "schedule_mode":"FIXED_ANCHOR_NO_REANCHOR","scheduled_opportunities":scheduled_opportunities,
         "selected_signals":signal_count,"skipped_schedule_opportunities":len(schedule_skips),
