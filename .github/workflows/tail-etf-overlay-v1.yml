@@ -1,0 +1,69 @@
+name: Paired TAIL ETF overlay on DTE14 QQQ-SPY put ratios
+
+on:
+  push:
+    branches:
+      - research/dte14-premium-matched-put-ratio-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/tail_etf_overlay_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_tail_etf_overlay_v1.py
+      - .github/workflows/tail-etf-overlay-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tail-overlay-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout research branch and baseline episode outputs
+        uses: actions/checkout@v4
+        with:
+          ref: research/dte14-premium-matched-put-ratio-v1
+          fetch-depth: 0
+
+      - name: Compile and test overlay math
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          python3 -m py_compile "$BASE/tail_etf_overlay_v1.py" "$BASE/test_tail_etf_overlay_v1.py"
+          (cd "$BASE" && python3 -m unittest -v test_tail_etf_overlay_v1.py)
+
+      - name: Fetch TAIL adjusted prices and run paired cohort overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 research/qqq_spy_put_fixed_ratio_size_gated_v1/tail_etf_overlay_v1.py
+          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/tail_overlay_v1
+          for f in TAIL_OVERLAY_REPORT.md summary.json source_manifest.json TAIL_adjusted_close.csv episode_paired.csv; do test -s "$OUT/$f"; done
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/tail_overlay_v1/summary.json")
+          x=json.loads(p.read_text())
+          assert x["status"] == "COMPLETED"
+          assert len(x["scenarios"]) == 12
+          assert set(x["baseline"]) == {"1x3", "1x6"}
+          for key, item in x["baseline"].items():
+              assert item["measured_episodes"] >= 350, (key, item["measured_episodes"])
+          for row in x["scenarios"]:
+              assert row["paired_price_coverage_pct"] >= 98.0, row
+          print("TAIL overlay report assertions passed")
+          PY
+
+      - name: Commit reproducible report and adjusted-close input
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/tail_overlay_v1
+          if git diff --cached --quiet; then
+            echo "No output changes to commit."
+          else
+            git commit -m "Add paired TAIL ETF overlay results"
+            git push origin HEAD:research/dte14-premium-matched-put-ratio-v1
+          fi
