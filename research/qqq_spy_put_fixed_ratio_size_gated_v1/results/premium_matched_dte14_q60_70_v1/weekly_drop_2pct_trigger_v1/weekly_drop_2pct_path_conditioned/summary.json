@@ -1,0 +1,304 @@
+{
+  "schema": "weekly-spy-drop-2pct-conditioned-path-replay.v1",
+  "status": "COMPLETED",
+  "window": {
+    "start": "2018-03-01",
+    "end": "2025-12-15",
+    "elapsed_years": 7.792083
+  },
+  "trigger_definition": {
+    "signal": "SPY close-to-close rolling 5-common-session return crosses from above -2.00% to <= -2.00%",
+    "deduplication": "Only the first threshold-crossing day is a signal; no repeated entries while rolling 5-session return stays <= -2%. A later new signal requires the rolling return to recover above -2% and cross down again.",
+    "entry": "Select option contracts at signal close, enter on the next common session when exact contract quotes and displayed size validate.",
+    "correlation_filter": "Pearson correlation of prior 60 common-session daily close returns must be > 0; excludes signal-day return.",
+    "same_contract_selector_as_REF": "Same expiry DTE 7-21, target 14; SPY short put abs Delta nearest 0.25; QQQ long put abs Delta 0.60-0.70 with Ask closest to 6x SPY Bid; use identical QQQ contract for 1:3 and 1:6.",
+    "exit_policy": "HOLD_20_OR_DTE_LE_7",
+    "costs": "$0.05 per option-share per side plus $0.65 per contract per side"
+  },
+  "path_condition_definitions": {
+    "no_ath_breach_minus_10pct": "From entry to exit every SPY close is at least 90% of SPY's running all-history close high; ex-post hypothetical condition",
+    "no_ath_breach_minus_15pct": "From entry to exit every SPY close is at least 85% of SPY's running all-history close; ex-post hypothetical condition",
+    "no_entry_loss_breach_minus_10pct": "From entry to exit SPY never closes 10% below its entry close; ex-post diagnostic",
+    "no_entry_loss_breach_minus_15pct": "From entry to exit SPY never closes 15% below its entry close; ex-post diagnostic"
+  },
+  "correlation": {
+    "full_period_daily_return_pearson": 0.935952,
+    "rolling_entry_correlation_is_lagged": true
+  },
+  "run_stats": {
+    "1x3": {
+      "scheduled_opportunities": 1959,
+      "filter_qualified_sessions": 99,
+      "selected_signals": 99,
+      "entered_cohorts": 99,
+      "entry_skipped": 0,
+      "resolved": 99,
+      "unresolved": 0
+    },
+    "1x6": {
+      "scheduled_opportunities": 1959,
+      "filter_qualified_sessions": 99,
+      "selected_signals": 99,
+      "entered_cohorts": 99,
+      "entry_skipped": 0,
+      "resolved": 99,
+      "unresolved": 0
+    }
+  },
+  "condition_summary": [
+    {
+      "ratio": "1x3",
+      "condition": "all_resolved_weekly_trigger_trades",
+      "resolved_n": 99,
+      "cumulative_episode_pnl_usd": -8359.8,
+      "mean_per_episode_usd": -84.44,
+      "median_per_episode_usd": -50.2,
+      "win_rate_pct": 44.44,
+      "worst_episode_usd": -8355.2,
+      "best_episode_usd": 2044.8,
+      "annual_average_episode_sum_usd": -1072.86,
+      "entry_year_pnl_usd": {
+        "2018": 907.2,
+        "2019": 2226.6,
+        "2020": -2302.0,
+        "2021": 2151.2,
+        "2022": -1379.8,
+        "2023": 409.0,
+        "2024": -921.4,
+        "2025": -9450.6
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x3",
+      "condition": "whole_holding_period_SPY_ATH_drawdown_not_below_minus_10pct",
+      "resolved_n": 53,
+      "cumulative_episode_pnl_usd": 2435.4,
+      "mean_per_episode_usd": 45.95,
+      "median_per_episode_usd": -42.2,
+      "win_rate_pct": 43.4,
+      "worst_episode_usd": -1090.2,
+      "best_episode_usd": 1767.8,
+      "annual_average_episode_sum_usd": 312.55,
+      "entry_year_pnl_usd": {
+        "2018": 133.2,
+        "2019": 2226.6,
+        "2020": 378.8,
+        "2021": 2151.2,
+        "2022": 1036.2,
+        "2023": -144.6,
+        "2024": -921.4,
+        "2025": -2424.6
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x3",
+      "condition": "whole_holding_period_SPY_ATH_drawdown_not_below_minus_15pct",
+      "resolved_n": 72,
+      "cumulative_episode_pnl_usd": 3444.6,
+      "mean_per_episode_usd": 47.84,
+      "median_per_episode_usd": -50.2,
+      "win_rate_pct": 41.67,
+      "worst_episode_usd": -1090.2,
+      "best_episode_usd": 1767.8,
+      "annual_average_episode_sum_usd": 442.06,
+      "entry_year_pnl_usd": {
+        "2018": 1101.4,
+        "2019": 2226.6,
+        "2020": -370.2,
+        "2021": 2151.2,
+        "2022": 1548.2,
+        "2023": 160.8,
+        "2024": -921.4,
+        "2025": -2452.0
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x3",
+      "condition": "whole_holding_period_SPY_return_from_entry_not_below_minus_10pct",
+      "resolved_n": 97,
+      "cumulative_episode_pnl_usd": 2364.6,
+      "mean_per_episode_usd": 24.38,
+      "median_per_episode_usd": -42.2,
+      "win_rate_pct": 45.36,
+      "worst_episode_usd": -3209.2,
+      "best_episode_usd": 2044.8,
+      "annual_average_episode_sum_usd": 303.46,
+      "entry_year_pnl_usd": {
+        "2018": 907.2,
+        "2019": 2226.6,
+        "2020": 67.2,
+        "2021": 2151.2,
+        "2022": -1379.8,
+        "2023": 409.0,
+        "2024": -921.4,
+        "2025": -1095.4
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x3",
+      "condition": "whole_holding_period_SPY_return_from_entry_not_below_minus_15pct",
+      "resolved_n": 98,
+      "cumulative_episode_pnl_usd": -5990.6,
+      "mean_per_episode_usd": -61.13,
+      "median_per_episode_usd": -46.2,
+      "win_rate_pct": 44.9,
+      "worst_episode_usd": -8355.2,
+      "best_episode_usd": 2044.8,
+      "annual_average_episode_sum_usd": -768.81,
+      "entry_year_pnl_usd": {
+        "2018": 907.2,
+        "2019": 2226.6,
+        "2020": 67.2,
+        "2021": 2151.2,
+        "2022": -1379.8,
+        "2023": 409.0,
+        "2024": -921.4,
+        "2025": -9450.6
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x6",
+      "condition": "all_resolved_weekly_trigger_trades",
+      "resolved_n": 99,
+      "cumulative_episode_pnl_usd": -2341.9,
+      "mean_per_episode_usd": -23.66,
+      "median_per_episode_usd": 246.9,
+      "win_rate_pct": 70.71,
+      "worst_episode_usd": -21700.1,
+      "best_episode_usd": 7080.9,
+      "annual_average_episode_sum_usd": -300.55,
+      "entry_year_pnl_usd": {
+        "2018": 3140.1,
+        "2019": 5543.3,
+        "2020": 219.5,
+        "2021": 11156.6,
+        "2022": -7287.4,
+        "2023": 3337.0,
+        "2024": -87.7,
+        "2025": -18363.3
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x6",
+      "condition": "whole_holding_period_SPY_ATH_drawdown_not_below_minus_10pct",
+      "resolved_n": 53,
+      "cumulative_episode_pnl_usd": 16189.7,
+      "mean_per_episode_usd": 305.47,
+      "median_per_episode_usd": 260.9,
+      "win_rate_pct": 75.47,
+      "worst_episode_usd": -4799.1,
+      "best_episode_usd": 2516.9,
+      "annual_average_episode_sum_usd": 2077.71,
+      "entry_year_pnl_usd": {
+        "2018": 1629.6,
+        "2019": 5543.3,
+        "2020": 3217.4,
+        "2021": 11156.6,
+        "2022": -1745.4,
+        "2023": 1019.7,
+        "2024": -87.7,
+        "2025": -4543.8
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x6",
+      "condition": "whole_holding_period_SPY_ATH_drawdown_not_below_minus_15pct",
+      "resolved_n": 72,
+      "cumulative_episode_pnl_usd": 21705.8,
+      "mean_per_episode_usd": 301.47,
+      "median_per_episode_usd": 258.4,
+      "win_rate_pct": 75.0,
+      "worst_episode_usd": -4799.1,
+      "best_episode_usd": 2516.9,
+      "annual_average_episode_sum_usd": 2785.62,
+      "entry_year_pnl_usd": {
+        "2018": 3806.2,
+        "2019": 5543.3,
+        "2020": 4299.9,
+        "2021": 11156.6,
+        "2022": -907.9,
+        "2023": 1823.4,
+        "2024": -87.7,
+        "2025": -3928.0
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x6",
+      "condition": "whole_holding_period_SPY_return_from_entry_not_below_minus_10pct",
+      "resolved_n": 97,
+      "cumulative_episode_pnl_usd": 26525.3,
+      "mean_per_episode_usd": 273.46,
+      "median_per_episode_usd": 255.9,
+      "win_rate_pct": 72.16,
+      "worst_episode_usd": -7968.1,
+      "best_episode_usd": 7080.9,
+      "annual_average_episode_sum_usd": 3404.13,
+      "entry_year_pnl_usd": {
+        "2018": 3140.1,
+        "2019": 5543.3,
+        "2020": 7386.6,
+        "2021": 11156.6,
+        "2022": -7287.4,
+        "2023": 3337.0,
+        "2024": -87.7,
+        "2025": 3336.8
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    },
+    {
+      "ratio": "1x6",
+      "condition": "whole_holding_period_SPY_return_from_entry_not_below_minus_15pct",
+      "resolved_n": 98,
+      "cumulative_episode_pnl_usd": 4825.2,
+      "mean_per_episode_usd": 49.24,
+      "median_per_episode_usd": 251.4,
+      "win_rate_pct": 71.43,
+      "worst_episode_usd": -21700.1,
+      "best_episode_usd": 7080.9,
+      "annual_average_episode_sum_usd": 619.24,
+      "entry_year_pnl_usd": {
+        "2018": 3140.1,
+        "2019": 5543.3,
+        "2020": 7386.6,
+        "2021": 11156.6,
+        "2022": -7287.4,
+        "2023": 3337.0,
+        "2024": -87.7,
+        "2025": -18363.3
+      },
+      "CAGR": null,
+      "CAGR_note": "Not calculated: episodes overlap and no capital-constrained account NAV is modeled."
+    }
+  ],
+  "source": {
+    "repository": "anahatsingh-ui/options-dataset-hist",
+    "tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
+    "qqq_underlying_file": "qqq/underlying_prices.parquet",
+    "spy_underlying_file": "spy/underlying_prices.parquet"
+  },
+  "limitations": [
+    "Whole-holding-period path conditions use future prices and answer the requested counterfactual only; they are not implementable entry filters.",
+    "P&L is the existing EOD quote-side replay, not verified fills.",
+    "Cohorts overlap and capital is unconstrained. Cumulative episode P&L and the annualized episode sum are not an account NAV return or CAGR.",
+    "SPY drawdown is close-based, not intraday; price closes are not dividend-total-return series.",
+    "Unresolved cohorts are reported separately and excluded from resolved P&L statistics.",
+    "No assignment cash, broker margin, forced liquidation, financing, tax, or portfolio NAV model."
+  ]
+}
