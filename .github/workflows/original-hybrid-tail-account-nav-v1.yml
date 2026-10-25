@@ -16,72 +16,92 @@ permissions:
   contents: write
 
 concurrency:
-  group: original-hybrid-tail-account-nav-v1
+  group: original-hybrid-tail-account-nav-v2
   cancel-in-progress: false
 
 jobs:
   replay:
     name: Paired Original Hybrid account-NAV replay with TAIL
-    runs-on: [self-hosted, windows, x64]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
-    defaults:
-      run:
-        shell: cmd
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Discover Python
-        run: |
-          where py >nul 2>&1 && (
-            py -3 --version >nul 2>&1 && (
-              echo PY=py -3>>%GITHUB_ENV%
-              py -3 --version
-              exit /b 0
-            )
-          )
-          where python >nul 2>&1 && (
-            echo PY=python>>%GITHUB_ENV%
-            python --version
-            exit /b 0
-          )
-          echo PYTHON_NOT_FOUND
-          exit /b 1
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
 
       - name: Install replay dependencies
         run: |
-          %PY% -m pip install --upgrade pip
-          %PY% -m pip install numpy pandas scipy
+          python -m pip install --upgrade pip
+          python -m pip install numpy pandas scipy
 
       - name: Syntax and accounting unit tests
         run: |
-          %PY% -m py_compile research\qqq_hybrid_tail_triggered_nav_v1.py
-          %PY% -m py_compile research\test_qqq_hybrid_tail_triggered_nav_v1.py
-          %PY% -m unittest research.test_qqq_hybrid_tail_triggered_nav_v1
+          python -m py_compile research/qqq_hybrid_tail_triggered_nav_v1.py
+          python -m py_compile research/test_qqq_hybrid_tail_triggered_nav_v1.py
+          python -m unittest research.test_qqq_hybrid_tail_triggered_nav_v1
 
       - name: Run paired account-NAV matrix
         run: |
-          if not exist research\qqq_hybrid_tail_triggered_nav_v1\results\latest mkdir research\qqq_hybrid_tail_triggered_nav_v1\results\latest
-          %PY% research\qqq_hybrid_tail_triggered_nav_v1.py --spots-path src\data\universe.json --tail-prices-path research\qqq_hybrid_tail_triggered_nav_v1\TAIL_adjusted_close.csv --out research\qqq_hybrid_tail_triggered_nav_v1\results\latest
+          mkdir -p research/qqq_hybrid_tail_triggered_nav_v1/results/latest
+          python research/qqq_hybrid_tail_triggered_nav_v1.py \
+            --spots-path src/data/universe.json \
+            --tail-prices-path research/qqq_hybrid_tail_triggered_nav_v1/TAIL_adjusted_close.csv \
+            --out research/qqq_hybrid_tail_triggered_nav_v1/results/latest
 
       - name: Validate output contracts
         run: |
-          %PY% -c "import csv,json,math,pathlib; p=pathlib.Path('research/qqq_hybrid_tail_triggered_nav_v1/results/latest'); r=json.loads((p/'report.json').read_text(encoding='utf-8')); rows=r['results']; assert r['status']=='COMPLETED'; assert len(rows)==9; assert len({(x['start_date'],x['end_date'],x['observations']) for x in rows})==1; assert all(x['observations']>1000 and x['final_nav_usd']>0 and math.isfinite(x['cagr']) for x in rows); by={x['variant']:x for x in rows}; assert by['NO_TAIL']['tail_trade_count']==0; assert by['LEGACY_NO_QQQ_DEBIT']['final_nav_usd'] > by['NO_TAIL']['final_nav_usd'] + 10000; assert by['LEGACY_NO_QQQ_DEBIT']['tail_trade_count']==0; assert by['ALWAYS_ON_2P']['tail_trade_count']==1; assert by['TRIGGERED_1P']['tail_trade_count']>0; fw=r['full_window_accounting_comparison']; assert len(fw)==2; fb={x['variant']:x for x in fw}; assert fb['FULL_WINDOW_CORRECTED_NO_TAIL']['observations']>2000; assert fb['FULL_WINDOW_LEGACY_NO_QQQ_DEBIT']['final_nav_usd'] > fb['FULL_WINDOW_CORRECTED_NO_TAIL']['final_nav_usd'] + 10000; assert fb['FULL_WINDOW_CORRECTED_NO_TAIL']['end_date']=='2026-09-04'; assert all((p/(name)).is_file() for name in ('summary.csv','calendar_year.csv','no_tail_equity.csv','triggered_2p_tail_trades.csv','full_window_accounting_comparison.csv','full_window_corrected_no_tail_equity.csv','full_window_legacy_no_qqq_debit_equity.csv')); print('account_nav_contract=PASS'); print('FULL_WINDOW_CORRECTED_CAGR='+str(round(fb['FULL_WINDOW_CORRECTED_NO_TAIL']['cagr']*100,4))+'%'); print('FULL_WINDOW_LEGACY_CAGR='+str(round(fb['FULL_WINDOW_LEGACY_NO_QQQ_DEBIT']['cagr']*100,4))+'%'); print('common_window='+by['NO_TAIL']['start_date']+'..'+by['NO_TAIL']['end_date']+' rows='+str(by['NO_TAIL']['observations'])); print('LEGACY_NO_QQQ_DEBIT_FINAL_NAV='+str(round(by['LEGACY_NO_QQQ_DEBIT']['final_nav_usd'],2))); print('NO_TAIL_CAGR='+str(round(by['NO_TAIL']['cagr']*100,4))+'%'); print('TRIGGERED_2P_CAGR='+str(round(by['TRIGGERED_2P']['cagr']*100,4))+'%')"
+          python - <<'PY'
+          import json, math
+          from pathlib import Path
+
+          p = Path("research/qqq_hybrid_tail_triggered_nav_v1/results/latest")
+          r = json.loads((p / "report.json").read_text(encoding="utf-8"))
+          rows = r["results"]
+          assert r["status"] == "COMPLETED"
+          assert len(rows) == 9
+          assert len({(x["start_date"], x["end_date"], x["observations"]) for x in rows}) == 1
+          assert all(x["observations"] > 1000 and x["final_nav_usd"] > 0 and math.isfinite(x["cagr"]) for x in rows)
+          by = {x["variant"]: x for x in rows}
+          assert by["NO_TAIL"]["tail_trade_count"] == 0
+          assert by["LEGACY_NO_QQQ_DEBIT"]["final_nav_usd"] > by["NO_TAIL"]["final_nav_usd"] + 10000
+          assert by["LEGACY_NO_QQQ_DEBIT"]["tail_trade_count"] == 0
+          assert by["ALWAYS_ON_2P"]["tail_trade_count"] == 1
+          assert by["TRIGGERED_1P"]["tail_trade_count"] > 0
+          fw = r["full_window_accounting_comparison"]
+          assert len(fw) == 2
+          fb = {x["variant"]: x for x in fw}
+          assert fb["FULL_WINDOW_CORRECTED_NO_TAIL"]["observations"] > 2000
+          assert fb["FULL_WINDOW_LEGACY_NO_QQQ_DEBIT"]["final_nav_usd"] > fb["FULL_WINDOW_CORRECTED_NO_TAIL"]["final_nav_usd"] + 10000
+          assert fb["FULL_WINDOW_CORRECTED_NO_TAIL"]["end_date"] == "2026-09-04"
+          required = (
+              "summary.csv", "calendar_year.csv", "no_tail_equity.csv",
+              "triggered_2p_tail_trades.csv", "full_window_accounting_comparison.csv",
+              "full_window_corrected_no_tail_equity.csv",
+              "full_window_legacy_no_qqq_debit_equity.csv",
+          )
+          assert all((p / name).is_file() for name in required)
+          print("account_nav_contract=PASS")
+          print("common_window={}..{} rows={}".format(by["NO_TAIL"]["start_date"], by["NO_TAIL"]["end_date"], by["NO_TAIL"]["observations"]))
+          print("NO_TAIL_CAGR={:.4f}%".format(by["NO_TAIL"]["cagr"] * 100))
+          print("TRIGGERED_2P_CAGR={:.4f}%".format(by["TRIGGERED_2P"]["cagr"] * 100))
+          print("FULL_WINDOW_CORRECTED_CAGR={:.4f}%".format(fb["FULL_WINDOW_CORRECTED_NO_TAIL"]["cagr"] * 100))
+          print("FULL_WINDOW_LEGACY_CAGR={:.4f}%".format(fb["FULL_WINDOW_LEGACY_NO_QQQ_DEBIT"]["cagr"] * 100))
+          PY
 
       - name: Persist outputs in this research branch (no artifact upload)
         if: success()
-        shell: powershell
         run: |
-          $ErrorActionPreference = 'Stop'
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- research/qqq_hybrid_tail_triggered_nav_v1/results/latest
-          git diff --cached --quiet
-          if ($LASTEXITCODE -ne 0) {
+          if ! git diff --cached --quiet; then
             git commit -m "results: Original Hybrid TAIL account NAV replay"
-            if ($LASTEXITCODE -ne 0) { throw 'Result commit failed' }
             git push origin HEAD:research/original-hybrid-tail-account-nav-v1
-            if ($LASTEXITCODE -ne 0) { throw 'Result push failed' }
-          } else {
-            Write-Host 'No changed result files to commit'
-          }
+          else
+            echo "No changed result files to commit"
+          fi
