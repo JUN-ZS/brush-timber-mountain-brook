@@ -102,7 +102,7 @@ def tail_mark_value(position, adjusted_close):
 
 
 def simulate(spots_path, dynamic=False, tail_prices_path=None, tail_mode="NONE",
-             tail_budget_pct=0.0, tail_friction_bps=10.0):
+             tail_budget_pct=0.0, tail_friction_bps=10.0, legacy_qqq_cash_bug=False):
     data=json.load(open(spots_path, encoding='utf-8'))
     if not {'dates','qqq','vxx','vix'}.issubset(data):
         raise ValueError('Input JSON must contain dates, qqq, vxx, vix arrays')
@@ -230,7 +230,14 @@ def simulate(spots_path, dynamic=False, tail_prices_path=None, tail_mode="NONE",
             if st in structs or frac<=0:return
             if st=='qqq-long':
                 n=math.floor(nav*frac/row.qqq)
-                if n: cash_box[0]-=row.qqq*n;legs.append({'structure':st,'n':n,'S0':row.qqq,'expiry_i':i+100000});opens.append((row.date,st,n))
+                if n:
+                    if legacy_qqq_cash_bug:
+                        # Forensic control only: reproduce the inherited missing cash debit.
+                        cash_box[0]-row.qqq*n
+                    else:
+                        cash_box[0]-=row.qqq*n
+                    legs.append({'structure':st,'n':n,'S0':row.qqq,'expiry_i':i+100000})
+                    opens.append((row.date,st,n))
             elif st=='vxx-short':
                 n=math.floor(nav*frac/row.vxx)
                 if n: cash_box[0]+=row.vxx*n;legs.append({'structure':st,'n':n,'S0':row.vxx,'expiry_i':i+21});opens.append((row.date,st,n))
@@ -307,18 +314,19 @@ if __name__=='__main__':
     adapted_spots_path=prepare_simulator_input(Path(args.spots_path))
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     variants=[
-        ('NO_TAIL','NONE',0.0,args.friction_bps),
-        ('ALWAYS_ON_2P','ALWAYS_ON',0.02,args.friction_bps),
-        ('TRIGGERED_1P','TRIGGERED',0.01,args.friction_bps),
-        ('TRIGGERED_2P','TRIGGERED',0.02,args.friction_bps),
-        ('TRIGGERED_5P','TRIGGERED',0.05,args.friction_bps),
-        ('TRIGGERED_2P_0BPS','TRIGGERED',0.02,0.0),
-        ('TRIGGERED_2P_25BPS','TRIGGERED',0.02,25.0),
-        ('TRIGGERED_2P_50BPS','TRIGGERED',0.02,50.0),
+        ('NO_TAIL','NONE',0.0,args.friction_bps,False),
+        ('LEGACY_NO_QQQ_DEBIT','NONE',0.0,args.friction_bps,True),
+        ('ALWAYS_ON_2P','ALWAYS_ON',0.02,args.friction_bps,False),
+        ('TRIGGERED_1P','TRIGGERED',0.01,args.friction_bps,False),
+        ('TRIGGERED_2P','TRIGGERED',0.02,args.friction_bps,False),
+        ('TRIGGERED_5P','TRIGGERED',0.05,args.friction_bps,False),
+        ('TRIGGERED_2P_0BPS','TRIGGERED',0.02,0.0,False),
+        ('TRIGGERED_2P_25BPS','TRIGGERED',0.02,25.0,False),
+        ('TRIGGERED_2P_50BPS','TRIGGERED',0.02,50.0,False),
     ]
     rows=[];all_equities={}
-    for label,mode,budget,bps in variants:
-        result=simulate(str(adapted_spots_path),False,args.tail_prices_path,mode,budget,bps)
+    for label,mode,budget,bps,legacy_bug in variants:
+        result=simulate(str(adapted_spots_path),False,args.tail_prices_path,mode,budget,bps,legacy_bug)
         cagr,maxdd,final_nav,opens,closes,events,e,tail_trades=result
         years=(e.date.iloc[-1]-e.date.iloc[0]).days/365.25
         tail_pnl=float(sum(float(t['net_pnl_usd'] or 0.0) for t in tail_trades))
@@ -358,7 +366,12 @@ if __name__=='__main__':
     pd.DataFrame(annual).to_csv(out/'calendar_year.csv',index=False)
     report={
         'schema':'original-hybrid-tail-account-nav.v1','status':'COMPLETED',
-        'strategy':'Original Hybrid BASELINE policy (dynamic deployment disabled), same base model logic and risk sizing for every arm',
+        'strategy':'Original Hybrid BASELINE policy (dynamic deployment disabled); corrected account ledger for recommended arms; one isolated legacy-accounting-bug control for diagnosis',
+        'accounting_audit':{
+            'finding':'Inherited source includes a no-op expression cash_box[0]-row.qqq*n when opening QQQ core. Because it has no assignment operator, QQQ stock purchase cost is not deducted from cash in that original line.',
+            'corrected_arms':'All arms except LEGACY_NO_QQQ_DEBIT debit QQQ stock purchases from cash before marking QQQ shares into NAV.',
+            'legacy_control':'LEGACY_NO_QQQ_DEBIT deliberately preserves the missing cash debit to quantify the inherited error. It is diagnostic only and must not be treated as valid account performance.'
+        },
         'evidence_class':'DERIVED_BS_VIX_MODEL_NOT_OPRA',
         'window':{'start':str(all_equities['NO_TAIL'].date.iloc[0].date()),
                   'end':str(all_equities['NO_TAIL'].date.iloc[-1].date()),
@@ -381,7 +394,8 @@ if __name__=='__main__':
             'The VX term trigger remains the inherited VIX/MA20 proxy, not real historical VX futures M1/M2.',
             'TAIL adjusted close is a total-return proxy and not historical executable close/lot accounting.',
             'No broker commissions, margin, early assignment, forced liquidation or broker buying-power model is included.',
-            'This is an in-sample experiment, not evidence of forward alpha.'
+            'This is an in-sample experiment, not evidence of forward alpha.',
+            'The inherited source has an identified QQQ cash-debit defect; only the explicit LEGACY_NO_QQQ_DEBIT row reproduces it. Use NO_TAIL and other corrected-account-ledger rows for the TAIL comparison.'
         ],
         'results':rows
     }
