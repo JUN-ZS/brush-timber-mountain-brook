@@ -8,6 +8,7 @@ on:
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/weekly_drop_2pct_path_analysis_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_spy_weekly_drop_filter_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/weekly_drop_1pct_virtual_lock_analysis_v1.py
       - .github/workflows/spy-drawdown-qqq-correlation-ref-v1.yml
 concurrency:
   group: spy-drawdown-qqq-ref-${{ github.event.pull_request.head.ref }}
@@ -204,6 +205,73 @@ jobs:
           print("Condition rows:", len(d["condition_summary"]))
           print("Run stats:", json.dumps(d["run_stats"], sort_keys=True))
           PY
+      - name: Replay SPY weekly -1% trigger and per-trade virtual -10% floor
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-ref/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/weekly_drop_1pct_trigger_v1"
+          CACHE="$HOME/.cache/qqq-spy-weekly-drop-2pct-v1"
+          mkdir -p "$OUT"
+          for arm in ratio_1x3 ratio_1x6 ratio_2x6 ratio_2x6_samecontract; do
+            case "$arm" in
+              ratio_1x3) LQTY=1; SQTY=3; FRACTION="" ;;
+              ratio_1x6) LQTY=1; SQTY=6; FRACTION="" ;;
+              ratio_2x6) LQTY=2; SQTY=6; FRACTION="0.5" ;;
+              ratio_2x6_samecontract) LQTY=2; SQTY=6; FRACTION="" ;;
+            esac
+            if test -s "$OUT/$arm/summary.json" && test -s "$OUT/$arm/entry_cohort.csv" && test -s "$OUT/$arm/trade_episodes.csv" && grep -q '"name": "spy_weekly_drop_1pct"' "$OUT/$arm/summary.json"; then
+              if test "$arm" != "ratio_2x6" || grep -q '"qqq_reference_premium_fraction": 0.5' "$OUT/$arm/summary.json"; then
+                echo "Reusing verified 1% trigger output for $arm"
+                continue
+              fi
+            fi
+            EXTRA=()
+            if test -n "$FRACTION"; then EXTRA+=(--qqq-reference-premium-fraction "$FRACTION"); fi
+            "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
+              --start 2018-03-01 --end 2025-12-15 \
+              --max-total-contracts 10 --entry-filter spy_weekly_drop_1pct --sizing-mode fixed_ratio \
+              --fixed-long-qty "$LQTY" --fixed-short-qty "$SQTY" --target-delta 0.25 \
+              --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 1 \
+              --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
+              --qqq-target-abs-delta 0.65 --qqq-delta-tolerance 0.05 \
+              "${EXTRA[@]}" \
+              --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT/$arm"
+            for file in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/$arm/$file"; done
+          done
+          "$PY" "$BASE/weekly_drop_1pct_virtual_lock_analysis_v1.py" \
+            --base "$OUT" --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy"
+          test -s "$OUT/virtual_lock_10pct/REF_REPORT.md"
+          test -s "$OUT/virtual_lock_10pct/summary.json"
+          test -s "$OUT/virtual_lock_10pct/episode_classification.csv"
+          "$PY" - <<'PY'
+          import csv, json
+          from pathlib import Path
+          root=Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/weekly_drop_1pct_trigger_v1")
+          p=root/"virtual_lock_10pct/summary.json"
+          d=json.loads(p.read_text())
+          assert d["status"] == "COMPLETED"
+          assert len(d["condition_summary"]) == 8, len(d["condition_summary"])
+          assert d["trigger_definition"]["correlation_gate"] == "None; no QQQ/SPY correlation filter is applied."
+          for arm in ("ratio_1x3","ratio_1x6","ratio_2x6","ratio_2x6_samecontract"):
+            s=json.loads((root/arm/"summary.json").read_text())
+            assert s["entry_filter"]["name"] == "spy_weekly_drop_1pct"
+            assert s["entry_filter"]["qualified_sessions"] >= 0
+            assert s["status"].startswith("COMPLETED")
+          def read(path):
+            with path.open(newline="",encoding="utf-8") as f:
+              return {r["signal_date"]:r for r in csv.DictReader(f)}
+          base=read(root/"ratio_1x6/entry_cohort.csv")
+          control=read(root/"ratio_2x6_samecontract/entry_cohort.csv")
+          shared=set(base)&set(control)
+          assert shared, "No overlapping signal dates for same-contract control"
+          bad=[day for day in shared if any(base[day].get(k)!=control[day].get(k) for k in ("expiry","qqq_contract_id","spy_contract_id"))]
+          assert not bad, "Same-contract control changed reference contract: "+", ".join(sorted(bad)[:10])
+          print("1% trigger path rows:", len(d["condition_summary"]))
+          print("Entered 1x6 / 2x6 half premium:", d["run_stats"]["1x6"]["entered_cohorts"], "/", d["run_stats"]["2x6"]["entered_cohorts"])
+          print("Passed virtual floor 1x6 / 2x6 half premium:", d["run_stats"]["1x6"]["virtual_lock_10pct_pass"]["resolved_n"], "/", d["run_stats"]["2x6"]["virtual_lock_10pct_pass"]["resolved_n"])
+          PY
       - name: Commit generated research outputs without source cache
         shell: bash
         run: |
@@ -215,6 +283,8 @@ jobs:
           git add "$OUT/REF_REPORT.md" "$OUT/summary.json" "$OUT/episode_classification.csv"
           WEEKLY=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/weekly_drop_2pct_trigger_v1
           git add "$WEEKLY/ratio_1x3" "$WEEKLY/ratio_1x6" "$WEEKLY/ratio_2x6" "$WEEKLY/ratio_2x6_samecontract" "$WEEKLY/weekly_drop_2pct_path_conditioned"
+          ONEPCT="$BASE/results/premium_matched_dte14_q60_70_v1/weekly_drop_1pct_trigger_v1"
+          git add "$ONEPCT/ratio_1x3" "$ONEPCT/ratio_1x6" "$ONEPCT/ratio_2x6" "$ONEPCT/ratio_2x6_samecontract" "$ONEPCT/virtual_lock_10pct"
           if git diff --cached --quiet; then
             echo "No generated output changes."
             exit 0
