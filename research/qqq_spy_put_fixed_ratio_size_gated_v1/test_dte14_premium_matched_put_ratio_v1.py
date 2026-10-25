@@ -27,9 +27,9 @@ class PremiumMatchedSelectorTests(unittest.TestCase):
         day = "2026-10-23"
         qqq = [
             put("QQQ", 710, -0.40, 25.50, 25.80),
-            put("QQQ", 715, -0.50, 26.20, 26.34),
-            put("QQQ", 720, -0.60, 26.70, 26.80),
-            put("QQQ", 730, -0.70, 26.28, 26.34),
+            put("QQQ", 720, -0.60, 26.25, 26.50),
+            put("QQQ", 725, -0.65, 26.20, 26.34),
+            put("QQQ", 730, -0.70, 26.70, 26.95),
         ]
         spy = [
             put("SPY", 740, -0.21, 3.80, 3.90),
@@ -40,29 +40,29 @@ class PremiumMatchedSelectorTests(unittest.TestCase):
             qqq, spy, day, 706.36, 760.19,
             target_delta=0.25, dte_min=7, dte_max=21,
             dte_target=14, premium_match_short_qty=6,
-            qqq_target_abs_delta=0.50, qqq_delta_tolerance=0.10,
+            qqq_target_abs_delta=0.65, qqq_delta_tolerance=0.05,
         )
         self.assertIsNotNone(result)
-        self.assertEqual(result["qqq_strike"], 715)
+        self.assertEqual(result["qqq_strike"], 725)
         self.assertEqual(result["spy_strike"], 745)
         self.assertAlmostEqual(result["qqq_target_ask_signal"], 26.34, places=6)
         self.assertAlmostEqual(result["qqq_signal_ask"], 26.34, places=6)
         self.assertAlmostEqual(result["qqq_premium_match_error_signal"], 0.0, places=6)
-        self.assertAlmostEqual(result["qqq_abs_delta"], 0.50, places=6)
-        self.assertEqual(result["qqq_delta_band_low"], 0.40)
-        self.assertEqual(result["qqq_delta_band_high"], 0.60)
+        self.assertAlmostEqual(result["qqq_abs_delta"], 0.65, places=6)
+        self.assertEqual(result["qqq_delta_band_low"], 0.60)
+        self.assertEqual(result["qqq_delta_band_high"], 0.70)
         self.assertAlmostEqual(result["spy_abs_delta"], 0.25, places=6)
         self.assertEqual(result["expiry"], "2026-11-06")
         self.assertEqual(result["signal_dte"], 14)
 
 
-    def test_no_near_atm_candidate_does_not_fall_back_to_deep_itm(self):
-        qqq = [put("QQQ", 730, -0.70, 26.28, 26.34), put("QQQ", 735, -0.80, 31.10, 31.25)]
+    def test_no_qqq_delta_band_candidate_does_not_fall_back_to_deep_itm(self):
+        qqq = [put("QQQ", 730, -0.55, 26.28, 26.34), put("QQQ", 735, -0.80, 31.10, 31.25)]
         spy = [put("SPY", 745, -0.25, 4.39, 4.46)]
         result = eng.choose_pair_by_premium(
             qqq, spy, "2026-10-23", 706.36, 760.19, target_delta=0.25,
             dte_min=7, dte_max=21, dte_target=14, premium_match_short_qty=6,
-            qqq_target_abs_delta=0.50, qqq_delta_tolerance=0.10,
+            qqq_target_abs_delta=0.65, qqq_delta_tolerance=0.05,
         )
         self.assertIsNone(result)
 
