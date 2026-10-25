@@ -47,14 +47,14 @@ jobs:
           PY=.venv-premium-matched/bin/python
           BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
           CACHE="$HOME/.cache/qqq-spy-premium-matched-dte14-v1"
-          OUT="$BASE/results/atm_premium_matched_dte14_v1/ratio_1x3"
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/ratio_1x3"
           "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
             --start 2018-03-01 --end 2025-12-15 \
             --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
             --fixed-long-qty 1 --fixed-short-qty 3 --target-delta 0.25 \
             --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 5 \
             --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
-            --qqq-target-abs-delta 0.50 --qqq-delta-tolerance 0.10 \
+            --qqq-target-abs-delta 0.65 --qqq-delta-tolerance 0.05 \
             --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT"
           for f in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/$f"; done
 
@@ -65,14 +65,14 @@ jobs:
           PY=.venv-premium-matched/bin/python
           BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
           CACHE="$HOME/.cache/qqq-spy-premium-matched-dte14-v1"
-          OUT="$BASE/results/atm_premium_matched_dte14_v1/ratio_1x6"
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/ratio_1x6"
           "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
             --start 2018-03-01 --end 2025-12-15 \
             --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
             --fixed-long-qty 1 --fixed-short-qty 6 --target-delta 0.25 \
             --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 5 \
             --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
-            --qqq-target-abs-delta 0.50 --qqq-delta-tolerance 0.10 \
+            --qqq-target-abs-delta 0.65 --qqq-delta-tolerance 0.05 \
             --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT"
           for f in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/$f"; done
 
@@ -83,7 +83,7 @@ jobs:
           .venv-premium-matched/bin/python - <<'PY'
           import csv, json, statistics
           from pathlib import Path
-          base = Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/atm_premium_matched_dte14_v1")
+          base = Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1")
           arms = []
           for short_qty, label in ((3, "1 QQQ LONG PUT : 3 SPY SHORT PUT"), (6, "1 QQQ LONG PUT : 6 SPY SHORT PUT")):
               out = base / f"ratio_1x{short_qty}"
@@ -145,7 +145,7 @@ jobs:
               "## Frozen setup",
               "",
               "- Signal selects same-expiry DTE 7–21, nearest DTE 14. SPY short put is selected by absolute Delta nearest 0.25 within the established eligible band.",
-              "- QQQ long put is constrained to absolute Delta 0.50 ± 0.10 (0.40–0.60). Within that band, choose the same-expiry contract whose Ask is closest to 6 × SPY short-put Bid. If no in-band QQQ put exists, skip that signal instead of falling back to a deep-ITM contract.",
+              "- QQQ long put is constrained to absolute Delta 0.60–0.70 (target 0.65). Within that band, choose the same-expiry contract whose Ask is closest to 6 × SPY short-put Bid. If no in-band QQQ put exists, skip that signal instead of falling back to a different Delta solely to force the premium match.",
               "- Entry schedule every five common QQQ/SPY sessions; no market filter; overlapping cohorts enabled. Entries use QQQ Ask / SPY Bid with displayed-size gates.",
               "- Primary comparison policy: HOLD_20_OR_DTE_LE_7 (exit at 20 common sessions or remaining calendar DTE <= 7, whichever happens first), with failed/missing exit quotes treated as deferred/unresolved.",
               "- Base costs: USD 0.05 per option-share per side plus USD 0.65 per contract per side. Each entry cohort is one long QQQ put and fixed 3 or 6 SPY short puts.",
@@ -244,7 +244,7 @@ jobs:
               "- Win rate uses resolved episodes only; opened, resolved, and unresolved counts must be read together.",
               "- The replay uses one fixed-anchor schedule (phase 0); it is in-sample and may be regime-dependent.",
               "- Capital, broker-specific margin, assignment cash needs, forced liquidation, taxes, dividends, interest, and verified multi-leg fills are not modeled in this cohort report. The separate USD 100,000 NAV replay is capital-feasibility evidence for the original Delta-0.25 QQQ long-put selector, not this premium-matched selector.",
-              "- QQQ selection is constrained to |Delta| 0.40–0.60, then matched to 6× SPY Bid at signal date. Next-session quotes can shift actual premium ratio; the entry CSV reports the mismatch.",
+              "- QQQ selection is constrained to |Delta| 0.60–0.70, then matched to 6× SPY Bid at signal date. Next-session quotes can shift actual premium ratio; the entry CSV reports the mismatch.",
               "- QQQ intrinsic/extrinsic decomposition uses quote endpoints. Extrinsic residual is not pure Theta because IV, skew and bid/ask spreads also affect it.",
               "- The underlying option-chain source ends in 2025. No 2026 performance is inferred.",
               "",
@@ -258,8 +258,8 @@ jobs:
           report.write_text("\n".join(lines),encoding="utf-8")
           print(report.read_text(encoding="utf-8"))
           PY
-          test -s research/qqq_spy_put_fixed_ratio_size_gated_v1/results/atm_premium_matched_dte14_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md
-          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/atm_premium_matched_dte14_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md >> "$GITHUB_STEP_SUMMARY"
+          test -s research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit replay outputs to the isolated branch
         shell: bash
@@ -267,7 +267,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+users.noreply.github.com"
-          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/atm_premium_matched_dte14_v1
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1
           if git diff --cached --quiet; then
             echo "No generated output changes."
           else
