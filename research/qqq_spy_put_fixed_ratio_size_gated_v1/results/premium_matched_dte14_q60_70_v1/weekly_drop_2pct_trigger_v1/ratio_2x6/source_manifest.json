@@ -144,11 +144,12 @@
   "qqq_target_abs_delta": 0.65,
   "qqq_delta_tolerance": 0.05,
   "qqq_reference_premium_fraction": 0.5,
+  "qqq_reference_expiry_locked_to_reference": true,
   "qqq_delta_band": [
     0.6,
     0.7000000000000001
   ],
-  "qqq_premium_match_rule": "QQQ LONG PUT Ask nearest 6x SPY SHORT PUT Bid within QQQ abs-Delta 0.60\u20130.70 candidates",
+  "qqq_premium_match_rule": "Reference QQQ abs-Delta 0.65 +/- 0.05; reference Ask nearest 6x SPY Bid; selected same-expiry QQQ Ask nearest 50% of reference Ask; QQQ Delta unconstrained and SPY leg/expiry locked to reference",
   "initial_phase_sessions": 0,
   "schedule_mode": "FIXED_ANCHOR_NO_REANCHOR",
   "scheduled_opportunities": 1959,

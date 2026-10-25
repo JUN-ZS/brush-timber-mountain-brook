@@ -16,18 +16,18 @@
     "fixed_short_spy_contracts": 6,
     "max_total_contracts": 10,
     "contract_multiplier": 100,
-    "mean_spy_put_assignment_obligation_usd": 235445.45
+    "mean_spy_put_assignment_obligation_usd": 235463.64
   },
   "premium_matching": {
     "cohort_n": 99,
     "ratio_counts": {
       "2:6": 99
     },
-    "mean_qqq_premium_debit_usd": 1089.49,
-    "mean_spy_premium_credit_usd": 1729.27,
-    "mean_abs_mismatch_usd": 661.64,
+    "mean_qqq_premium_debit_usd": 1079.6,
+    "mean_spy_premium_credit_usd": 1706.91,
+    "mean_abs_mismatch_usd": 651.07,
     "median_abs_mismatch_usd": 416.0,
-    "mean_match_pct": 66.12,
+    "mean_match_pct": 66.23,
     "median_match_pct": 62.64
   },
   "entry_filter": {
@@ -48,6 +48,7 @@
     "qqq_target_abs_delta": 0.65,
     "qqq_delta_tolerance": 0.05,
     "qqq_reference_premium_fraction": 0.5,
+    "qqq_reference_expiry_locked_to_reference": true,
     "qqq_delta_band": [
       0.6,
       0.7000000000000001
@@ -11292,14 +11293,14 @@
       "win_rate_pct": 77.551,
       "win_rate_wilson95_low_pct": 68.3418,
       "win_rate_wilson95_high_pct": 84.6818,
-      "expectancy_net_usd": 228.661224,
+      "expectancy_net_usd": 218.110204,
       "median_net_usd": 318.6,
-      "total_net_pnl_usd": 22408.8,
+      "total_net_pnl_usd": 21374.8,
       "best_net_usd": 7133.6,
       "worst_net_usd": -7598.4,
-      "profit_factor": 1.625092,
-      "mean_qqq_long_gross_pnl_usd": -289.571429,
-      "mean_spy_short_gross_pnl_usd": 608.632653,
+      "profit_factor": 1.588112,
+      "mean_qqq_long_gross_pnl_usd": -288.734694,
+      "mean_spy_short_gross_pnl_usd": 597.244898,
       "resolved_coverage_pct": 98.989899,
       "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
     },
@@ -11358,14 +11359,14 @@
       "win_rate_pct": 67.6768,
       "win_rate_wilson95_low_pct": 57.953,
       "win_rate_wilson95_high_pct": 76.08,
-      "expectancy_net_usd": -19.006061,
-      "median_net_usd": 239.6,
-      "total_net_pnl_usd": -1881.6,
+      "expectancy_net_usd": -52.60202,
+      "median_net_usd": 235.6,
+      "total_net_pnl_usd": -5207.6,
       "best_net_usd": 5459.6,
       "worst_net_usd": -18148.4,
-      "profit_factor": 0.963384,
-      "mean_qqq_long_gross_pnl_usd": -154.909091,
-      "mean_spy_short_gross_pnl_usd": 226.30303,
+      "profit_factor": 0.899878,
+      "mean_qqq_long_gross_pnl_usd": -149.777778,
+      "mean_spy_short_gross_pnl_usd": 187.575758,
       "resolved_coverage_pct": 100.0,
       "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
     },
@@ -11380,14 +11381,14 @@
       "win_rate_pct": 67.6768,
       "win_rate_wilson95_low_pct": 57.953,
       "win_rate_wilson95_high_pct": 76.08,
-      "expectancy_net_usd": -19.006061,
-      "median_net_usd": 239.6,
-      "total_net_pnl_usd": -1881.6,
+      "expectancy_net_usd": -52.60202,
+      "median_net_usd": 235.6,
+      "total_net_pnl_usd": -5207.6,
       "best_net_usd": 5459.6,
       "worst_net_usd": -18148.4,
-      "profit_factor": 0.963384,
-      "mean_qqq_long_gross_pnl_usd": -154.909091,
-      "mean_spy_short_gross_pnl_usd": 226.30303,
+      "profit_factor": 0.899878,
+      "mean_qqq_long_gross_pnl_usd": -149.777778,
+      "mean_spy_short_gross_pnl_usd": 187.575758,
       "resolved_coverage_pct": 100.0,
       "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
     }
