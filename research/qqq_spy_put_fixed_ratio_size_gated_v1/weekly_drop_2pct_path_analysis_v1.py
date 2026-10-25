@@ -58,15 +58,18 @@ def main():
     # Baseline prices are paired by signal date, so the 2:6 arm can show whether
     # the lower-premium QQQ contract actually achieved the intended half-price.
     reference_unit_ask_by_signal = {}
+    reference_entries_by_signal = {}
     ref_entry_path = base / "ratio_1x6" / "entry_cohort.csv"
     if ref_entry_path.exists():
         for ref_row in load_csv(ref_entry_path):
             try:
-                reference_unit_ask_by_signal[str(ref_row["signal_date"])] = float(ref_row["qqq_entry_ask"]) * 100
+                signal = str(ref_row["signal_date"])
+                reference_unit_ask_by_signal[signal] = float(ref_row["qqq_entry_ask"]) * 100
+                reference_entries_by_signal[signal] = ref_row
             except (KeyError, TypeError, ValueError):
                 continue
 
-    for ratio in ("1x3", "1x6", "2x6"):
+    for ratio in ("1x3", "1x6", "2x6", "2x6_samecontract"):
         arm = base / ("ratio_" + ratio)
         run_summary = json.loads((arm / "summary.json").read_text(encoding="utf-8"))
         entry_rows = load_csv(arm / "entry_cohort.csv")
@@ -96,7 +99,12 @@ def main():
         q_total_debits = []
         spy_total_credits = []
         entry_deltas = []
+        delta_share_equivalents = []
         unit_reductions_vs_baseline = []
+        pair_q_contract_match = []
+        pair_spy_contract_match = []
+        pair_expiry_match = []
+        pair_entry_date_match = []
         for e in entry_rows:
             try:
                 q_unit = float(e["qqq_entry_ask"]) * 100
@@ -109,9 +117,17 @@ def main():
                 delta = float(e.get("qqq_abs_delta_entry") or e.get("qqq_abs_delta") or "")
                 if 0 <= delta <= 1:
                     entry_deltas.append(delta)
-                ref_price = reference_unit_ask_by_signal.get(str(e.get("signal_date")))
+                    delta_share_equivalents.append(delta * q_qty * 100)
+                signal = str(e.get("signal_date"))
+                ref_price = reference_unit_ask_by_signal.get(signal)
+                ref_entry = reference_entries_by_signal.get(signal)
                 if ref_price and ref_price > 0:
                     unit_reductions_vs_baseline.append(100 * (1 - q_unit / ref_price))
+                if ref_entry is not None:
+                    pair_q_contract_match.append(str(e.get("qqq_contract_id")) == str(ref_entry.get("qqq_contract_id")))
+                    pair_spy_contract_match.append(str(e.get("spy_contract_id")) == str(ref_entry.get("spy_contract_id")))
+                    pair_expiry_match.append(str(e.get("expiry")) == str(ref_entry.get("expiry")))
+                    pair_entry_date_match.append(str(e.get("entry_date")) == str(ref_entry.get("entry_date")))
             except (KeyError, TypeError, ValueError):
                 continue
         settings = run_summary.get("ratio", {})
@@ -126,8 +142,14 @@ def main():
             "qqq_total_entry_debit_mean_usd": round(statistics.mean(q_total_debits), 2) if q_total_debits else None,
             "spy_total_entry_credit_mean_usd": round(statistics.mean(spy_total_credits), 2) if spy_total_credits else None,
             "qqq_abs_delta_entry_mean": round(statistics.mean(entry_deltas), 4) if entry_deltas else None,
+            "qqq_delta_share_equivalent_mean": round(statistics.mean(delta_share_equivalents), 2) if delta_share_equivalents else None,
             "qqq_unit_premium_reduction_vs_1x6_mean_pct": round(statistics.mean(unit_reductions_vs_baseline), 2) if unit_reductions_vs_baseline else None,
-            "price_comparison_n": len(unit_reductions_vs_baseline)
+            "price_comparison_n": len(unit_reductions_vs_baseline),
+            "reference_pair_n": len(pair_q_contract_match),
+            "qqq_contract_match_vs_1x6_pct": round(100 * sum(pair_q_contract_match) / len(pair_q_contract_match), 2) if pair_q_contract_match else None,
+            "spy_contract_match_vs_1x6_pct": round(100 * sum(pair_spy_contract_match) / len(pair_spy_contract_match), 2) if pair_spy_contract_match else None,
+            "expiry_match_vs_1x6_pct": round(100 * sum(pair_expiry_match) / len(pair_expiry_match), 2) if pair_expiry_match else None,
+            "entry_date_match_vs_1x6_pct": round(100 * sum(pair_entry_date_match) / len(pair_entry_date_match), 2) if pair_entry_date_match else None
         })
         if abs(float(run_summary["costs"]["base_slippage_per_option_share_usd"]) - 0.05) > 1e-9:
             raise ValueError("Unexpected slippage assumption")
@@ -160,20 +182,28 @@ def main():
             q_signal_unit_usd = float(entry.get("qqq_signal_ask") or 0) * 100
             q_ref_signal_unit_usd = float(entry.get("qqq_premium_reference_ask_signal") or 0) * 100
             q_entry_delta = entry.get("qqq_abs_delta_entry") or entry.get("qqq_abs_delta")
+            try:
+                q_entry_delta_num = abs(float(q_entry_delta))
+            except (TypeError, ValueError):
+                q_entry_delta_num = None
+            q_delta_share_equivalent = q_entry_delta_num * q_qty * 100 if q_entry_delta_num is not None else None
+            q_ref_fraction = entry.get("qqq_reference_premium_fraction")
             row = {
                 "ratio": ratio, "episode_id": eid,
                 "signal_date": entry.get("signal_date"), "entry_date": start, "exit_date": end,
                 "qqq_contract_id": entry.get("qqq_contract_id"),
                 "qqq_strike": entry.get("qqq_strike"),
                 "qqq_abs_delta_at_signal": entry.get("qqq_abs_delta"),
-                "qqq_abs_delta_at_entry": q_entry_delta,
+                "qqq_abs_delta_at_entry_per_contract": q_entry_delta_num,
+                "qqq_contracts": q_qty,
+                "qqq_delta_share_equivalent_at_entry": round(q_delta_share_equivalent, 2) if q_delta_share_equivalent is not None else None,
                 "qqq_unit_ask_at_signal_usd": round(q_signal_unit_usd, 2),
                 "qqq_reference_unit_ask_at_signal_usd": round(q_ref_signal_unit_usd, 2) if q_ref_signal_unit_usd else None,
                 "qqq_unit_ask_at_entry_usd": round(q_entry_unit_usd, 2),
                 "qqq_total_long_put_debit_at_entry_usd": round(q_entry_unit_usd * q_qty, 2),
                 "qqq_reference_1x6_unit_ask_at_entry_usd": round(ref_unit_usd, 2) if ref_unit_usd else None,
                 "qqq_unit_premium_reduction_vs_1x6_pct": round(100 * (1 - q_entry_unit_usd / ref_unit_usd), 2) if ref_unit_usd else None,
-                "qqq_half_premium_target_usd": round(q_ref_signal_unit_usd * float(entry.get("qqq_reference_premium_fraction") or 1), 2) if q_ref_signal_unit_usd else None,
+                "qqq_half_premium_target_usd": round(q_ref_signal_unit_usd * float(q_ref_fraction), 2) if q_ref_signal_unit_usd and q_ref_fraction not in (None, "") else None,
                 "spy_5d_return_at_signal_pct": entry.get("spy_trailing_return_pct"),
                 "spy_previous_5d_return_pct": entry.get("spy_previous_trailing_return_pct"),
                 "qqq_5d_return_at_signal_pct": entry.get("qqq_trailing_return_pct"),
@@ -219,7 +249,12 @@ def main():
             "deduplication": "Only the first threshold-crossing day is a signal; no repeated entries while rolling 5-session return stays <= -2%. A later new signal requires the rolling return to recover above -2% and cross down again.",
             "entry": "Select option contracts at signal close, enter on the next common session when exact contract quotes and displayed size validate.",
             "correlation_filter": "Pearson correlation of prior 60 common-session daily close returns must be > 0; excludes signal-day return.",
-            "same_contract_selector_as_REF": "Same expiry DTE 7-21, target 14; SPY short put abs Delta nearest 0.25; QQQ long put abs Delta 0.60-0.70 with Ask closest to 6x SPY Bid; use identical QQQ contract for 1:3 and 1:6.",
+            "contract_selector_by_arm": {
+                "1x3": "One QQQ long put selected within abs-Delta 0.60-0.70 by Ask nearest 6x SPY short-put Bid; three SPY short puts.",
+                "1x6": "One QQQ long put selected within abs-Delta 0.60-0.70 by Ask nearest 6x SPY short-put Bid; six SPY short puts.",
+                "2x6": "Two same-expiry QQQ puts with unit Ask near 50% of the 1x6 reference QQQ Ask; reference expiry and SPY leg are locked to the 1x6 ranking; QQQ Delta is unconstrained.",
+                "2x6_samecontract": "Two contracts of the same QQQ contract selected by the 1x6 reference arm, plus six SPY short puts; displayed size must support two contracts."
+            },
             "exit_policy": POLICY,
             "costs": "$0.05 per option-share per side plus $0.65 per contract per side"
         },
@@ -236,7 +271,12 @@ def main():
         "premium_and_sizing_diagnostics": {
             "reference_arm": "1x6",
             "paired_by": "signal_date",
-            "purpose": "Check whether two lower-premium QQQ contracts approximate the single baseline QQQ put premium debit while exposing any Delta/price mismatch."
+            "arm_definitions": {
+                "1x6": "Baseline one QQQ reference put plus six SPY short puts.",
+                "2x6": "Two same-expiry lower-premium QQQ puts with unit Ask targeted at 50% of reference QQQ Ask; baseline expiry and SPY contract ranking are locked to the reference arm; QQQ Delta may differ.",
+                "2x6_samecontract": "Two contracts of the exact QQQ reference contract used by 1x6 plus six SPY short puts; displayed quote size must support two QQQ contracts."
+            },
+            "purpose": "Separate the effect of buying two lower-premium QQQ puts from simply doubling the number of the original QQQ contract."
         },
         "source": {"repository": "anahatsingh-ui/options-dataset-hist",
                    "tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66",
@@ -276,13 +316,18 @@ def main():
         "| Ratio | QQQ long : SPY short | QQQ reference multiple | Mean QQQ premium / contract | Median QQQ premium / contract | Mean total QQQ debit | Mean SPY short credit | Mean QQQ |Delta| at entry | Mean unit-premium reduction vs 1:6 | Paired N |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
     ]
-    for ratio in ("1x3", "1x6", "2x6"):
+    for ratio in ("1x3", "1x6", "2x6", "2x6_samecontract"):
         z = run_stats[ratio]
         def usd2(v): return "n/a" if v is None else "USD " + format(v, ",.2f")
         reduction = "n/a" if z.get("qqq_unit_premium_reduction_vs_1x6_mean_pct") is None else f"{z['qqq_unit_premium_reduction_vs_1x6_mean_pct']:.2f}%"
         multiple = "n/a" if z.get("qqq_reference_selector_spy_bid_multiple") is None else str(z["qqq_reference_selector_spy_bid_multiple"])
         delta = "n/a" if z.get("qqq_abs_delta_entry_mean") is None else f"{z['qqq_abs_delta_entry_mean']:.3f}"
-        lines.append(f"| {ratio.replace('x',':')} | {z.get('qqq_long_contracts')} : {z.get('spy_short_contracts')} | {multiple}x | {usd2(z.get('qqq_entry_unit_premium_mean_usd'))} | {usd2(z.get('qqq_entry_unit_premium_median_usd'))} | {usd2(z.get('qqq_total_entry_debit_mean_usd'))} | {usd2(z.get('spy_total_entry_credit_mean_usd'))} | {delta} | {reduction} | {z.get('price_comparison_n')} |")
+        shown_ratio = {"1x3":"1:3", "1x6":"1:6", "2x6":"2:6 half-premium", "2x6_samecontract":"2:6 same contract"}[ratio]
+        delta_equiv = "n/a" if z.get("qqq_delta_share_equivalent_mean") is None else f"{z['qqq_delta_share_equivalent_mean']:.1f} shares"
+        q_match = "n/a" if z.get("qqq_contract_match_vs_1x6_pct") is None else f"{z['qqq_contract_match_vs_1x6_pct']:.1f}%"
+        s_match = "n/a" if z.get("spy_contract_match_vs_1x6_pct") is None else f"{z['spy_contract_match_vs_1x6_pct']:.1f}%"
+        expiry_match = "n/a" if z.get("expiry_match_vs_1x6_pct") is None else f"{z['expiry_match_vs_1x6_pct']:.1f}%"
+        lines.append(f"| {shown_ratio} | {z.get('qqq_long_contracts')} : {z.get('spy_short_contracts')} | {multiple}x | {usd2(z.get('qqq_entry_unit_premium_mean_usd'))} | {usd2(z.get('qqq_entry_unit_premium_median_usd'))} | {usd2(z.get('qqq_total_entry_debit_mean_usd'))} | {usd2(z.get('spy_total_entry_credit_mean_usd'))} | {delta} | {delta_equiv} | {reduction} | {z.get('price_comparison_n')} | {q_match}/{s_match}/{expiry_match} |")
     lines += [
         "",
         "## Conditional P&L (base strategy, no TAIL)",
