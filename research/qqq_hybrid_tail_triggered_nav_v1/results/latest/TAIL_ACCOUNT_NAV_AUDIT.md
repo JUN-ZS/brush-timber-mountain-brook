@@ -1,8 +1,8 @@
 # Original Hybrid + TAIL Account-NAV Audit Results
 
 **Actions run:** https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/40184810939  
-**Research branch:** \`research/original-hybrid-tail-account-nav-v1\`  
-**Result schema:** \`original-hybrid-tail-account-nav.v1\`  
+**Research branch:** `research/original-hybrid-tail-account-nav-v1`  
+**Result schema:** `original-hybrid-tail-account-nav.v1`  
 **Result evidence:** COMPLETED by the isolated workflow; account ledger/unit tests and output contract passed.  
 **Source class:** DERIVED_BS_VIX_MODEL_NOT_OPRA. No broker orders.
 
@@ -18,17 +18,17 @@
 
 ## 2. Material inherited accounting defect
 
-Source: \`research/qqq_hybrid_dynamic_deployment_v1_1_replay.py\`, the QQQ stock-open statement currently at line 161 in the inherited source SHA \`ac74b3812c826ad491fb829108f26397322e45eb\`.
+Source: `research/qqq_hybrid_dynamic_deployment_v1_1_replay.py`, the QQQ stock-open statement currently at line 161 in the inherited source SHA `ac74b3812c826ad491fb829108f26397322e45eb`.
 
 The line uses the no-op expression:
 
-\`\`\`python
+```python
 cash_box[0]-row.qqq*n
-\`\`\`
+```
 
 It has no assignment operator, so QQQ share purchase cost is **not deducted from cash**. The model then adds the QQQ shares' marked value to NAV. This double-counts the purchase-funded equity: the shares appear as an asset while their cash cost remains in cash. It is a material account-NAV defect.
 
-To quantify the defect, the replay contains a diagnostic arm \`LEGACY_NO_QQQ_DEBIT\` that deliberately reproduces this issue. It is not a valid account-return baseline. All recommended TAIL comparisons use the corrected account ledger: \`cash_box[0] -= row.qqq*n\`.
+To quantify the defect, the replay contains a diagnostic arm `LEGACY_NO_QQQ_DEBIT` that deliberately reproduces this issue. It is not a valid account-return baseline. All recommended TAIL comparisons use the corrected account ledger: `cash_box[0] -= row.qqq*n`.
 
 | Same-date-window result | Corrected no-TAIL account | Legacy missing-cash-debit diagnostic | Legacy minus corrected |
 |---|---:|---:|---:|
@@ -53,7 +53,7 @@ A second same-code, no-TAIL replay was run on the full original-history window: 
 
 ## 3. TAIL comparison using corrected account-NAV ledger
 
-All amounts are USD. CAGR and drawdown are calculated from the same common daily NAV path and dates. The “final NAV delta” is versus the corrected \`NO_TAIL\` baseline. A positive MaxDD delta means a less-negative drawdown.
+All amounts are USD. CAGR and drawdown are calculated from the same common daily NAV path and dates. The “final NAV delta” is versus the corrected `NO_TAIL` baseline. A positive MaxDD delta means a less-negative drawdown.
 
 | Variant | TAIL allocation at entry | Friction round trip | Final NAV | CAGR | Daily MTM MaxDD | Final NAV delta vs no TAIL | MaxDD improvement vs no TAIL | Net TAIL P&L |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -82,5 +82,5 @@ All amounts are USD. CAGR and drawdown are calculated from the same common daily
 - No broker commissions, option margin, early assignment, forced liquidation, borrow/carry costs, or broker buying-power rules are modeled.
 - In-sample replay only; no forward-alpha claim.
 
-Successful latest workflow: [Actions run #11](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/40185212572). The corrected account-ledger comparisons and full-window accounting controls are outputs from the actual run, not theoretical arithmetic. The isolated workflow passed syntax/accounting tests, the nine-arm paired TAIL replay contract, the two full-window accounting controls, and persisted \`report.json\`, \`summary.csv\`, \`calendar_year.csv\`, \`full_window_accounting_comparison.csv\`, daily equity curves and TAIL trade ledgers on this research branch.
+Successful latest workflow: [Actions run #11](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/40185212572). The corrected account-ledger comparisons and full-window accounting controls are outputs from the actual run, not theoretical arithmetic. The isolated workflow passed syntax/accounting tests, the nine-arm paired TAIL replay contract, the two full-window accounting controls, and persisted `report.json`, `summary.csv`, `calendar_year.csv`, `full_window_accounting_comparison.csv`, daily equity curves and TAIL trade ledgers on this research branch.
 
