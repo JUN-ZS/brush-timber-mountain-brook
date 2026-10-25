@@ -256,6 +256,7 @@ def choose_pair_by_premium(qqq_rows, spy_rows, signal_day, qqq_spot, spy_spot,
         raise ValueError("qqq_required_size must be positive")
     if qqq_reference_premium_fraction is not None and not 0 < qqq_reference_premium_fraction < 1:
         raise ValueError("qqq_reference_premium_fraction must be between 0 and 1")
+    fraction_mode = qqq_reference_premium_fraction is not None
     if qqq_target_abs_delta is not None:
         if not 0 < qqq_target_abs_delta < 1:
             raise ValueError("qqq_target_abs_delta must be between 0 and 1")
