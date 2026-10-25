@@ -1,0 +1,2 @@
+entry_date,entry_adj_close,entry_notional_usd,entry_fee_usd,exit_date,exit_adj_close,exit_value_usd,exit_fee_usd,net_pnl_usd,status
+2018-03-01,18.87286949,2000.0,1.0,,11.34986877,1202.7708638597703,0.0,-798.2291361402297,MARKED_OPEN_AT_END
