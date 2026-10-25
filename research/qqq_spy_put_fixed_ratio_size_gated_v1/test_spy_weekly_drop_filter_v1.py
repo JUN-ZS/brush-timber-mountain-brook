@@ -39,6 +39,26 @@ class WeeklyDropFilterTests(unittest.TestCase):
         self.assertFalse(passed_next)
         self.assertEqual(metrics_next["filter_pass_reason"],"NO_NEW_SPY_5D_MINUS_2PCT_CROSSING")
 
+    def test_weekly_minus_one_percent_crossing_triggers_without_correlation_gate(self):
+        dates,qqq,spy=self.make_prices()
+        passed,metrics=engine.evaluate_entry_filter("spy_weekly_drop_1pct",65,dates,qqq,spy)
+        self.assertTrue(passed,metrics)
+        self.assertLessEqual(metrics["spy_trailing_return_pct"],-1.0)
+        self.assertGreater(metrics["spy_previous_trailing_return_pct"],-1.0)
+        self.assertIsNone(metrics["qqq_spy_corr_60d"])
+        self.assertEqual(metrics["filter_pass_reason"],"SPY_5D_DROPPED_THROUGH_MINUS_1PCT")
+
+        # The rolling return remains below threshold, so it does not repeat every day.
+        passed_next,metrics_next=engine.evaluate_entry_filter("spy_weekly_drop_1pct",66,dates,qqq,spy)
+        self.assertFalse(passed_next)
+        self.assertEqual(metrics_next["filter_pass_reason"],"NO_NEW_SPY_5D_MINUS_1PCT_CROSSING")
+
+    def test_weekly_minus_one_percent_needs_only_six_common_sessions(self):
+        dates,qqq,spy=self.make_prices()
+        passed,metrics=engine.evaluate_entry_filter("spy_weekly_drop_1pct",5,dates,qqq,spy)
+        self.assertFalse(passed)
+        self.assertEqual(metrics["filter_pass_reason"],"INSUFFICIENT_LOOKBACK")
+
     def test_insufficient_history_never_triggers(self):
         dates,qqq,spy=self.make_prices()
         passed,metrics=engine.evaluate_entry_filter(
