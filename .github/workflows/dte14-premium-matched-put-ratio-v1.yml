@@ -1,0 +1,212 @@
+name: DTE14 premium-matched QQQ long put vs SPY short put ratios
+
+on:
+  pull_request:
+    branches:
+      - research/dte14-ratio-spreads-nav-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_dte14_premium_matched_put_ratio_v1.py
+      - .github/workflows/dte14-premium-matched-put-ratio-v1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  premium-matched-dte14-replay:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Install pinned Parquet runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-premium-matched
+          .venv-premium-matched/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and run selector tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-premium-matched/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          "$PY" -m py_compile "$BASE/qqq_spy_put_premium_matched_phase_v1.py" "$BASE/test_dte14_premium_matched_put_ratio_v1.py"
+          "$PY" "$BASE/test_dte14_premium_matched_put_ratio_v1.py"
+
+      - name: Run full-history DTE14 1:3 replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-premium-matched/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          CACHE="$HOME/.cache/qqq-spy-premium-matched-dte14-v1"
+          OUT="$BASE/results/premium_matched_dte14_v1/ratio_1x3"
+          "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
+            --start 2018-03-01 --end 2025-12-15 \
+            --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
+            --fixed-long-qty 1 --fixed-short-qty 3 --target-delta 0.25 \
+            --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 5 \
+            --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
+            --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT"
+          for f in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/$f"; done
+
+      - name: Run full-history DTE14 1:6 replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-premium-matched/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          CACHE="$HOME/.cache/qqq-spy-premium-matched-dte14-v1"
+          OUT="$BASE/results/premium_matched_dte14_v1/ratio_1x6"
+          "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
+            --start 2018-03-01 --end 2025-12-15 \
+            --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
+            --fixed-long-qty 1 --fixed-short-qty 6 --target-delta 0.25 \
+            --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 5 \
+            --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
+            --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT"
+          for f in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/$f"; done
+
+      - name: Write paired comparison report
+        shell: bash
+        run: |
+          set -euo pipefail
+          .venv-premium-matched/bin/python - <<'PY'
+          import csv, json, statistics
+          from pathlib import Path
+          base = Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_v1")
+          arms = []
+          for short_qty, label in ((3, "1 QQQ LONG PUT : 3 SPY SHORT PUT"), (6, "1 QQQ LONG PUT : 6 SPY SHORT PUT")):
+              out = base / f"ratio_1x{short_qty}"
+              summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+              policy = summary["policies"]["HOLD_20_OR_DTE_LE_7"]
+              with (out / "entry_cohort.csv").open(newline="", encoding="utf-8") as f:
+                  entries = list(csv.DictReader(f))
+              def vals(key):
+                  result=[]
+                  for row in entries:
+                      try:
+                          v=float(row[key])
+                          if v==v and abs(v)!=float("inf"): result.append(v)
+                      except (TypeError, ValueError, KeyError): pass
+                  return result
+              deltas=vals("qqq_abs_delta")
+              matches=vals("premium_match_pct")
+              target_errors=vals("qqq_premium_match_error_signal")
+              arms.append({
+                  "label": label, "short_qty": short_qty, "policy": policy,
+                  "signals": summary["cohort"]["selected_signals"], "entered": len(entries),
+                  "qqq_delta_median": statistics.median(deltas) if deltas else None,
+                  "qqq_delta_p10": sorted(deltas)[max(0,int(0.10*(len(deltas)-1)))] if deltas else None,
+                  "qqq_delta_p90": sorted(deltas)[min(len(deltas)-1,int(0.90*(len(deltas)-1)))] if deltas else None,
+                  "premium_match_pct_median": statistics.median(matches) if matches else None,
+                  "signal_price_error_median": statistics.median(target_errors) if target_errors else None,
+                  "data_range": summary["window"],
+                  "source_status": summary["status"],
+              })
+          lines = [
+              "# Premium-matched DTE14 QQQ LONG PUT / SPY SHORT PUT — ratio comparison",
+              "",
+              "Research-only full-history replay. Source quotes are historical EOD option-chain records, not verified fills. This is the premium-matched variant, not the prior Delta-0.25 QQQ long-put variant.",
+              "",
+              "## Frozen setup",
+              "",
+              "- Signal selects same-expiry DTE 7–21, nearest DTE 14. SPY short put is selected by absolute Delta nearest 0.25 within the established eligible band.",
+              "- QQQ long put is selected at the signal date with Ask closest to 6 × the selected SPY short put Bid. This keeps the same target QQQ long-put contract for both 1:3 and 1:6 arms; QQQ Delta is reported, not constrained to 0.25.",
+              "- Entry schedule every five common QQQ/SPY sessions; no market filter; overlapping cohorts enabled. Entries use QQQ Ask / SPY Bid with displayed-size gates.",
+              "- Primary comparison policy: HOLD_20_OR_DTE_LE_7 (exit at 20 common sessions or remaining calendar DTE <= 7, whichever happens first), with failed/missing exit quotes treated as deferred/unresolved.",
+              "- Base costs: USD 0.05 per option-share per side plus USD 0.65 per contract per side. Each entry cohort is one long QQQ put and fixed 3 or 6 SPY short puts.",
+              "",
+              "## Results",
+              "",
+              "| Metric | 1:3 | 1:6 |",
+              "|---|---:|---:|",
+          ]
+          fields = [
+              ("Selected signals", "signals", "int"),
+              ("Entered cohorts", "entered", "int"),
+              ("Resolved trades", "resolved", "int"),
+              ("Unresolved trades", "unresolved", "int"),
+              ("Win rate among resolved", "win_rate_pct", "pct"),
+              ("Win-rate Wilson 95% interval", "wilson", "text"),
+              ("Net expectancy / trade", "expectancy_net_usd", "usd"),
+              ("Median net P&L / trade", "median_net_usd", "usd"),
+              ("Total net episode P&L", "total_net_pnl_usd", "usd"),
+              ("Worst resolved trade", "worst_net_usd", "usd"),
+              ("Best resolved trade", "best_net_usd", "usd"),
+              ("Profit factor", "profit_factor", "plain"),
+              ("Median QQQ put |Delta|", "qqq_delta_median", "delta"),
+              ("QQQ put |Delta| P10–P90", "delta_p10_p90", "text"),
+              ("Median premium match at entry", "premium_match_pct_median", "pct"),
+              ("Median signal-date QQQ Ask minus 6x SPY Bid", "signal_price_error_median", "usd_share"),
+          ]
+          def fmt(v, kind):
+              if kind == "int": return str(v)
+              if v is None: return "—"
+              if kind == "pct": return f"{v:.2f}%"
+              if kind == "usd": return "USD " + f"{v:,.2f}"
+              if kind == "usd_share": return "USD " + f"{v:,.3f}/share"
+              if kind == "delta": return f"{v:.3f}"
+              if kind == "plain": return str(v)
+              return str(v)
+          for metric, key, kind in fields:
+              values=[]
+              for a in arms:
+                  p=a["policy"]
+                  v={
+                      "signals":a["signals"], "entered":a["entered"],
+                      "resolved":p["resolved"], "unresolved":p["unresolved"],
+                      "win_rate_pct":p["win_rate_pct"],
+                      "wilson":f'{p["win_rate_wilson95_low_pct"]:.2f}–{p["win_rate_wilson95_high_pct"]:.2f}%' if p["win_rate_wilson95_low_pct"] is not None else "—",
+                      "expectancy_net_usd":p["expectancy_net_usd"], "median_net_usd":p["median_net_usd"],
+                      "total_net_pnl_usd":p["total_net_pnl_usd"], "worst_net_usd":p["worst_net_usd"],
+                      "best_net_usd":p["best_net_usd"], "profit_factor":p["profit_factor"],
+                      "qqq_delta_median":a["qqq_delta_median"], "delta_p10_p90":f'{a["qqq_delta_p10"]:.3f}–{a["qqq_delta_p90"]:.3f}' if a["qqq_delta_p10"] is not None else "—",
+                      "premium_match_pct_median":a["premium_match_pct_median"], "signal_price_error_median":a["signal_price_error_median"],
+                  }[key]
+                  values.append(fmt(v,kind))
+              lines.append(f"| {metric} | {values[0]} | {values[1]} |")
+          lines += [
+              "",
+              "## Interpretation limits",
+              "",
+              "- Total P&L sums overlapping trade episodes; it is not a compounded account NAV return.",
+              "- Win rate uses resolved episodes only; opened, resolved, and unresolved counts must be read together.",
+              "- The replay uses one fixed-anchor schedule (phase 0); it is in-sample and may be regime-dependent.",
+              "- Capital, broker-specific margin, assignment cash needs, forced liquidation, taxes, dividends, interest, and verified multi-leg fills are not modeled in this cohort report. The separate USD 100,000 NAV replay is capital-feasibility evidence for the original Delta-0.25 QQQ long-put selector, not this premium-matched selector.",
+              "- QQQ option selection matches the signal-date premium target; next-session entry quotes may shift the actual premium ratio. The entry CSV reports actual premium match and the original target/error.",
+              "- The underlying option-chain source ends in 2025. No 2026 performance is inferred.",
+              "",
+              "## Artifacts",
+              "",
+              "- ratio_1x3/summary.json, ratio_1x3/trade_episodes.csv, ratio_1x3/entry_cohort.csv",
+              "- ratio_1x6/summary.json, ratio_1x6/trade_episodes.csv, ratio_1x6/entry_cohort.csv",
+              "",
+          ]
+          report=base/"PREMIUM_MATCHED_DTE14_RATIO_REPORT.md"
+          report.write_text("\n".join(lines),encoding="utf-8")
+          print(report.read_text(encoding="utf-8"))
+          PY
+          test -s research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit replay outputs to the isolated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_v1
+          if git diff --cached --quiet; then
+            echo "No generated output changes."
+          else
+            git commit -m "Add premium-matched DTE14 put-ratio replay outputs"
+            git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          fi
