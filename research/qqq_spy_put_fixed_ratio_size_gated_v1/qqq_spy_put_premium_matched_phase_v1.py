@@ -1197,9 +1197,9 @@ def parse_args():
     p.add_argument("--qqq-target-abs-delta",type=float,default=None,
         help="optional target absolute Delta for QQQ LONG PUT; restrict candidate contracts to this band")
     p.add_argument("--qqq-delta-tolerance",type=float,default=0.10,
+        help="absolute-Delta tolerance; 0.10 around target 0.50 admits 0.40–0.60")
     p.add_argument("--qqq-reference-premium-fraction",type=float,default=None,
         help="select a same-expiry QQQ put priced near this fraction of the normal delta-band reference put; its Delta is not constrained")
-        help="absolute-Delta tolerance; 0.10 around target 0.50 admits 0.40–0.60")
     p.add_argument("--dte-min",type=int,default=DTE_MIN_DEFAULT);p.add_argument("--dte-max",type=int,default=DTE_MAX_DEFAULT)
     p.add_argument("--dte-target",type=int,default=DTE_TARGET_DEFAULT);p.add_argument("--cohort-stride-sessions",type=int,default=COHORT_STRIDE_SESSIONS)
     p.add_argument("--initial-phase-sessions",type=int,default=0,help="first eligible common-session index offset; must be less than cohort stride")
