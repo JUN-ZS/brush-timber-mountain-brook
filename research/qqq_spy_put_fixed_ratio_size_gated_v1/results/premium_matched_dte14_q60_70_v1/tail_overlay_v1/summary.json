@@ -23,8 +23,8 @@
     "ticker": "TAIL",
     "provider": "Yahoo Finance chart endpoint",
     "url": "https://query1.finance.yahoo.com/v8/finance/chart/TAIL?period1=1519430400&period2=1766188800&interval=1d&events=div%2Csplits",
-    "retrieved_utc": "2026-10-25T08:50:00.929124+00:00",
-    "raw_response_sha256": "75b046ce5a4eed446295b755e740e415229670fd0d67504b9180f7f7ae022ea8",
+    "retrieved_utc": "2026-10-25T08:50:59.078792+00:00",
+    "raw_response_sha256": "640cbc83c91f70e9bd01c4ff8208d404cc177ace23f5f8405c57be039fa64579",
     "rows": 1960,
     "first_date": "2018-03-01",
     "last_date": "2025-12-15",
@@ -95,7 +95,7 @@
       "losses_offset_by_at_least_25pct_pct": 1.0050251256281406,
       "positive_tail_pnl_on_base_losers_usd": 468.24,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.47234081495544317,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.47234045079379167,
       "mean_tail_return_per_episode_pct": -0.1202
     },
     {
@@ -142,7 +142,7 @@
       "losses_offset_by_at_least_25pct_pct": 1.0050251256281406,
       "positive_tail_pnl_on_base_losers_usd": 448.29,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.4522201795992809,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.45221944623218785,
       "mean_tail_return_per_episode_pct": -0.2202
     },
     {
@@ -189,7 +189,7 @@
       "losses_offset_by_at_least_25pct_pct": 1.0050251256281406,
       "positive_tail_pnl_on_base_losers_usd": 421.96,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.4256594584179849,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.42565889048720995,
       "mean_tail_return_per_episode_pct": -0.3702
     },
     {
@@ -236,7 +236,7 @@
       "losses_offset_by_at_least_25pct_pct": 0.5025125628140703,
       "positive_tail_pnl_on_base_losers_usd": 384.36,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.38772552702563656,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.3877249711999581,
       "mean_tail_return_per_episode_pct": -0.6202
     },
     {
@@ -283,7 +283,7 @@
       "losses_offset_by_at_least_25pct_pct": 2.512562814070352,
       "positive_tail_pnl_on_base_losers_usd": 936.48,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.9446816258758541,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.9446809086488897,
       "mean_tail_return_per_episode_pct": -0.1202
     },
     {
@@ -330,7 +330,7 @@
       "losses_offset_by_at_least_25pct_pct": 2.0100502512562812,
       "positive_tail_pnl_on_base_losers_usd": 896.59,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.9044403541547718,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.9044389015431981,
       "mean_tail_return_per_episode_pct": -0.2202
     },
     {
@@ -377,7 +377,7 @@
       "losses_offset_by_at_least_25pct_pct": 2.0100502512562812,
       "positive_tail_pnl_on_base_losers_usd": 843.93,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.8513189158272119,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.8513177890444842,
       "mean_tail_return_per_episode_pct": -0.3702
     },
     {
@@ -424,7 +424,7 @@
       "losses_offset_by_at_least_25pct_pct": 1.0050251256281406,
       "positive_tail_pnl_on_base_losers_usd": 768.72,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.7754510550600311,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.7754499494612223,
       "mean_tail_return_per_episode_pct": -0.6202
     },
     {
@@ -471,7 +471,7 @@
       "losses_offset_by_at_least_25pct_pct": 3.0150753768844223,
       "positive_tail_pnl_on_base_losers_usd": 1872.96,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.8893632477166764,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.8893618203240534,
       "mean_tail_return_per_episode_pct": -0.1202
     },
     {
@@ -516,9 +516,9 @@
       "positive_tail_coverage_of_core_losses_pct": 37.688442211055275,
       "losses_offset_by_at_least_25pct_count": 6,
       "losses_offset_by_at_least_25pct_pct": 3.0150753768844223,
-      "positive_tail_pnl_on_base_losers_usd": 1793.18,
+      "positive_tail_pnl_on_base_losers_usd": 1793.17,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.8088807083095435,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.8088778030863961,
       "mean_tail_return_per_episode_pct": -0.2202
     },
     {
@@ -563,9 +563,9 @@
       "positive_tail_coverage_of_core_losses_pct": 32.663316582914575,
       "losses_offset_by_at_least_25pct_count": 6,
       "losses_offset_by_at_least_25pct_pct": 3.0150753768844223,
-      "positive_tail_pnl_on_base_losers_usd": 1687.86,
+      "positive_tail_pnl_on_base_losers_usd": 1687.85,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.7026378296369076,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.7026355831327589,
       "mean_tail_return_per_episode_pct": -0.3702
     },
     {
@@ -610,9 +610,9 @@
       "positive_tail_coverage_of_core_losses_pct": 28.14070351758794,
       "losses_offset_by_at_least_25pct_count": 6,
       "losses_offset_by_at_least_25pct_pct": 3.0150753768844223,
-      "positive_tail_pnl_on_base_losers_usd": 1537.44,
+      "positive_tail_pnl_on_base_losers_usd": 1537.43,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.55090210608503,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.5508999049749927,
       "mean_tail_return_per_episode_pct": -0.6202
     },
     {
@@ -624,8 +624,8 @@
       "paired_price_coverage_pct": 100.0,
       "missing_tail_price_episode_ids": [],
       "base_total_episode_pnl_usd": -33466.2,
-      "tail_total_episode_pnl_usd": -1174.59,
-      "combined_total_episode_pnl_usd": -34640.79,
+      "tail_total_episode_pnl_usd": -1174.6,
+      "combined_total_episode_pnl_usd": -34640.8,
       "base_annual_average_episode_pnl_usd": -4294.9,
       "tail_annual_average_episode_pnl_usd": -150.74,
       "combined_annual_average_episode_pnl_usd": -4445.64,
@@ -659,7 +659,7 @@
       "losses_offset_by_at_least_25pct_pct": 8.542713567839195,
       "positive_tail_pnl_on_base_losers_usd": 4682.4,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 4.723408124335481,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 4.723404549296997,
       "mean_tail_return_per_episode_pct": -0.1202
     },
     {
@@ -671,8 +671,8 @@
       "paired_price_coverage_pct": 100.0,
       "missing_tail_price_episode_ids": [],
       "base_total_episode_pnl_usd": -33466.2,
-      "tail_total_episode_pnl_usd": -2152.09,
-      "combined_total_episode_pnl_usd": -35618.29,
+      "tail_total_episode_pnl_usd": -2152.1,
+      "combined_total_episode_pnl_usd": -35618.3,
       "base_annual_average_episode_pnl_usd": -4294.9,
       "tail_annual_average_episode_pnl_usd": -276.19,
       "combined_annual_average_episode_pnl_usd": -4571.09,
@@ -704,9 +704,9 @@
       "positive_tail_coverage_of_core_losses_pct": 37.688442211055275,
       "losses_offset_by_at_least_25pct_count": 14,
       "losses_offset_by_at_least_25pct_pct": 7.035175879396985,
-      "positive_tail_pnl_on_base_losers_usd": 4482.94,
+      "positive_tail_pnl_on_base_losers_usd": 4482.93,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 4.522201773800133,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 4.522194509733506,
       "mean_tail_return_per_episode_pct": -0.2202
     },
     {
@@ -718,8 +718,8 @@
       "paired_price_coverage_pct": 100.0,
       "missing_tail_price_episode_ids": [],
       "base_total_episode_pnl_usd": -33466.2,
-      "tail_total_episode_pnl_usd": -3618.34,
-      "combined_total_episode_pnl_usd": -37084.54,
+      "tail_total_episode_pnl_usd": -3618.35,
+      "combined_total_episode_pnl_usd": -37084.55,
       "base_annual_average_episode_pnl_usd": -4294.9,
       "tail_annual_average_episode_pnl_usd": -464.36,
       "combined_annual_average_episode_pnl_usd": -4759.26,
@@ -751,9 +751,9 @@
       "positive_tail_coverage_of_core_losses_pct": 32.663316582914575,
       "losses_offset_by_at_least_25pct_count": 10,
       "losses_offset_by_at_least_25pct_pct": 5.025125628140704,
-      "positive_tail_pnl_on_base_losers_usd": 4219.64,
+      "positive_tail_pnl_on_base_losers_usd": 4219.63,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 4.256594579136059,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 4.256588956318759,
       "mean_tail_return_per_episode_pct": -0.3702
     },
     {
@@ -765,8 +765,8 @@
       "paired_price_coverage_pct": 100.0,
       "missing_tail_price_episode_ids": [],
       "base_total_episode_pnl_usd": -33466.2,
-      "tail_total_episode_pnl_usd": -6062.09,
-      "combined_total_episode_pnl_usd": -39528.29,
+      "tail_total_episode_pnl_usd": -6062.1,
+      "combined_total_episode_pnl_usd": -39528.3,
       "base_annual_average_episode_pnl_usd": -4294.9,
       "tail_annual_average_episode_pnl_usd": -777.98,
       "combined_annual_average_episode_pnl_usd": -5072.88,
@@ -800,7 +800,7 @@
       "losses_offset_by_at_least_25pct_pct": 4.522613065326633,
       "positive_tail_pnl_on_base_losers_usd": 3843.59,
       "total_base_loss_dollars_usd": 99131.8,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 3.8772552702563656,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 3.8772497624374824,
       "mean_tail_return_per_episode_pct": -0.6202
     },
     {
@@ -847,7 +847,7 @@
       "losses_offset_by_at_least_25pct_pct": 1.0416666666666667,
       "positive_tail_pnl_on_base_losers_usd": 517.99,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.26051863857292873,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.26051864259647456,
       "mean_tail_return_per_episode_pct": -0.1289
     },
     {
@@ -894,7 +894,7 @@
       "losses_offset_by_at_least_25pct_pct": 1.0416666666666667,
       "positive_tail_pnl_on_base_losers_usd": 500.3,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.2516212872731223,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.2516212902907816,
       "mean_tail_return_per_episode_pct": -0.2289
     },
     {
@@ -941,7 +941,7 @@
       "losses_offset_by_at_least_25pct_pct": 0.0,
       "positive_tail_pnl_on_base_losers_usd": 474.68,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.2387357274771965,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.23873570886829726,
       "mean_tail_return_per_episode_pct": -0.3789
     },
     {
@@ -988,7 +988,7 @@
       "losses_offset_by_at_least_25pct_pct": 0.0,
       "positive_tail_pnl_on_base_losers_usd": 435.48,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.2190213630163718,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.21902132579857322,
       "mean_tail_return_per_episode_pct": -0.6289
     },
     {
@@ -1035,7 +1035,7 @@
       "losses_offset_by_at_least_25pct_pct": 3.125,
       "positive_tail_pnl_on_base_losers_usd": 1035.98,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.5210372786546873,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.5210372932400407,
       "mean_tail_return_per_episode_pct": -0.1289
     },
     {
@@ -1082,7 +1082,7 @@
       "losses_offset_by_at_least_25pct_pct": 2.0833333333333335,
       "positive_tail_pnl_on_base_losers_usd": 1000.6,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.5032425750491878,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.5032425881257117,
       "mean_tail_return_per_episode_pct": -0.2289
     },
     {
@@ -1129,7 +1129,7 @@
       "losses_offset_by_at_least_25pct_pct": 1.0416666666666667,
       "positive_tail_pnl_on_base_losers_usd": 949.35,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.4774714559602795,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.47747142477779964,
       "mean_tail_return_per_episode_pct": -0.3789
     },
     {
@@ -1176,7 +1176,7 @@
       "losses_offset_by_at_least_25pct_pct": 0.0,
       "positive_tail_pnl_on_base_losers_usd": 870.96,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.4380427270386301,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.4380426566265787,
       "mean_tail_return_per_episode_pct": -0.6289
     },
     {
@@ -1223,7 +1223,7 @@
       "losses_offset_by_at_least_25pct_pct": 5.208333333333333,
       "positive_tail_pnl_on_base_losers_usd": 2071.95,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.0420745552976016,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.0420745854741948,
       "mean_tail_return_per_episode_pct": -0.1289
     },
     {
@@ -1270,7 +1270,7 @@
       "losses_offset_by_at_least_25pct_pct": 5.208333333333333,
       "positive_tail_pnl_on_base_losers_usd": 2001.19,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.006485149092489,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 1.00648517574848,
       "mean_tail_return_per_episode_pct": -0.2289
     },
     {
@@ -1317,7 +1317,7 @@
       "losses_offset_by_at_least_25pct_pct": 4.166666666666667,
       "positive_tail_pnl_on_base_losers_usd": 1898.71,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.9549429104117295,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.9549428495555993,
       "mean_tail_return_per_episode_pct": -0.3789
     },
     {
@@ -1364,7 +1364,7 @@
       "losses_offset_by_at_least_25pct_pct": 1.0416666666666667,
       "positive_tail_pnl_on_base_losers_usd": 1741.92,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.8760854520654872,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 0.876085314761987,
       "mean_tail_return_per_episode_pct": -0.6289
     },
     {
@@ -1376,8 +1376,8 @@
       "paired_price_coverage_pct": 100.0,
       "missing_tail_price_episode_ids": [],
       "base_total_episode_pnl_usd": -16768.1,
-      "tail_total_episode_pnl_usd": -1259.85,
-      "combined_total_episode_pnl_usd": -18027.95,
+      "tail_total_episode_pnl_usd": -1259.86,
+      "combined_total_episode_pnl_usd": -18027.96,
       "base_annual_average_episode_pnl_usd": -2151.94,
       "tail_annual_average_episode_pnl_usd": -161.68,
       "combined_annual_average_episode_pnl_usd": -2313.62,
@@ -1411,7 +1411,7 @@
       "losses_offset_by_at_least_25pct_pct": 10.416666666666666,
       "positive_tail_pnl_on_base_losers_usd": 5179.88,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 2.605186387741061,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 2.6051864651943166,
       "mean_tail_return_per_episode_pct": -0.1289
     },
     {
@@ -1423,8 +1423,8 @@
       "paired_price_coverage_pct": 100.0,
       "missing_tail_price_episode_ids": [],
       "base_total_episode_pnl_usd": -16768.1,
-      "tail_total_episode_pnl_usd": -2237.35,
-      "combined_total_episode_pnl_usd": -19005.45,
+      "tail_total_episode_pnl_usd": -2237.36,
+      "combined_total_episode_pnl_usd": -19005.46,
       "base_annual_average_episode_pnl_usd": -2151.94,
       "tail_annual_average_episode_pnl_usd": -287.13,
       "combined_annual_average_episode_pnl_usd": -2439.07,
@@ -1458,7 +1458,7 @@
       "losses_offset_by_at_least_25pct_pct": 10.416666666666666,
       "positive_tail_pnl_on_base_losers_usd": 5002.98,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 2.51621287222828,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 2.5162129411315015,
       "mean_tail_return_per_episode_pct": -0.2289
     },
     {
@@ -1470,8 +1470,8 @@
       "paired_price_coverage_pct": 100.0,
       "missing_tail_price_episode_ids": [],
       "base_total_episode_pnl_usd": -16768.1,
-      "tail_total_episode_pnl_usd": -3703.6,
-      "combined_total_episode_pnl_usd": -20471.7,
+      "tail_total_episode_pnl_usd": -3703.61,
+      "combined_total_episode_pnl_usd": -20471.71,
       "base_annual_average_episode_pnl_usd": -2151.94,
       "tail_annual_average_episode_pnl_usd": -475.3,
       "combined_annual_average_episode_pnl_usd": -2627.24,
@@ -1505,7 +1505,7 @@
       "losses_offset_by_at_least_25pct_pct": 9.375,
       "positive_tail_pnl_on_base_losers_usd": 4746.77,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 2.387357275777852,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 2.387357125397828,
       "mean_tail_return_per_episode_pct": -0.3789
     },
     {
@@ -1517,8 +1517,8 @@
       "paired_price_coverage_pct": 100.0,
       "missing_tail_price_episode_ids": [],
       "base_total_episode_pnl_usd": -16768.1,
-      "tail_total_episode_pnl_usd": -6147.35,
-      "combined_total_episode_pnl_usd": -22915.45,
+      "tail_total_episode_pnl_usd": -6147.36,
+      "combined_total_episode_pnl_usd": -22915.46,
       "base_annual_average_episode_pnl_usd": -2151.94,
       "tail_annual_average_episode_pnl_usd": -788.92,
       "combined_annual_average_episode_pnl_usd": -2940.86,
@@ -1552,7 +1552,7 @@
       "losses_offset_by_at_least_25pct_pct": 7.291666666666667,
       "positive_tail_pnl_on_base_losers_usd": 4354.79,
       "total_base_loss_dollars_usd": 198829.6,
-      "positive_tail_pnl_as_pct_of_base_loss_dollars": 2.190213630163718,
+      "positive_tail_pnl_as_pct_of_base_loss_dollars": 2.1902132881623255,
       "mean_tail_return_per_episode_pct": -0.6289
     }
   ],
