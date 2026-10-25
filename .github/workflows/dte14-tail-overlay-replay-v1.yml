@@ -38,8 +38,8 @@ jobs:
           set -euo pipefail
           ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1
           for ratio in 1x3 1x6; do
-            test -s "$ROOT/$ratio/trade_episodes.csv"
-            python3 - "$ROOT/$ratio/trade_episodes.csv" <<'PY'
+            test -s "$ROOT/ratio_$ratio/trade_episodes.csv"
+            python3 - "$ROOT/ratio_$ratio/trade_episodes.csv" <<'PY'
           import csv, sys
           with open(sys.argv[1], newline="", encoding="utf-8-sig") as f:
               reader = csv.DictReader(f)
