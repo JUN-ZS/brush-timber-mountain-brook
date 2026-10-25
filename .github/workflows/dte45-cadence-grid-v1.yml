@@ -1,4 +1,4 @@
-name: DTE45 cadence grid — overlapping QQQ 1 : SPY 6
+name: "DTE45 cadence grid — overlapping QQQ 1 : SPY 6"
 on:
   push:
     branches:
