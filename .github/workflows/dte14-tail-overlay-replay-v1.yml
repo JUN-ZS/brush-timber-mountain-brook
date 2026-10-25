@@ -5,8 +5,8 @@ on:
     branches:
       - research/dte14-ratio-spreads-nav-v1
     paths:
-      - research/qqq_spy_put_fixed_ratio_size_gated_v1/tail_overlay_episode_replay_v1.py
-      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_tail_overlay_episode_replay_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/tail_etf_overlay_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_tail_etf_overlay_v1.py
       - .github/workflows/dte14-tail-overlay-replay-v1.yml
 
 permissions:
@@ -14,25 +14,25 @@ permissions:
 
 jobs:
   tail-overlay-replay:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout isolated research branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Compile and run deterministic tests
+      - name: Compile and run TAIL overlay unit tests
         shell: bash
         run: |
           set -euo pipefail
           BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
-          python3 -m py_compile "$BASE/tail_overlay_episode_replay_v1.py" "$BASE/test_tail_overlay_episode_replay_v1.py"
-          python3 "$BASE/test_tail_overlay_episode_replay_v1.py"
+          python3 -m py_compile "$BASE/tail_etf_overlay_v1.py" "$BASE/test_tail_etf_overlay_v1.py"
+          python3 "$BASE/test_tail_etf_overlay_v1.py"
 
-      - name: Verify existing option replay outputs
+      - name: Verify base option replay inputs
         shell: bash
         run: |
           set -euo pipefail
@@ -41,40 +41,36 @@ jobs:
             test -s "$ROOT/$ratio/trade_episodes.csv"
             python3 - "$ROOT/$ratio/trade_episodes.csv" <<'PY'
           import csv, sys
-          with open(sys.argv[1], newline="", encoding="utf-8") as f:
-              rows = csv.DictReader(f)
-              required = {"policy", "status", "entry_date", "exit_date", "net_pnl_usd"}
-              fields = set(rows.fieldnames or ())
-              missing = sorted(required - fields)
+          with open(sys.argv[1], newline="", encoding="utf-8-sig") as f:
+              reader = csv.DictReader(f)
+              required = {"episode_id", "policy", "status", "entry_date", "exit_date", "net_pnl_usd"}
+              missing = sorted(required - set(reader.fieldnames or []))
               if missing:
-                  raise SystemExit(f"input schema missing columns: {missing}")
+                  raise SystemExit(f"input schema missing: {missing}")
           PY
           done
 
-      - name: Run paired TAIL overlay sensitivity
+      - name: Run paired TAIL ETF sensitivity
         shell: bash
         run: |
           set -euo pipefail
           BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
-          INPUT="$BASE/results/premium_matched_dte14_q60_70_v1"
-          OUT="$BASE/results/tail_overlay_dte14_q60_70_v1"
-          python3 "$BASE/tail_overlay_episode_replay_v1.py" --input-root "$INPUT" --out "$OUT"
-          for f in TAIL_OVERLAY_REPORT.md tail_overlay_summary.json tail_adjusted_history.csv tail_source_manifest.json paired_episode_returns.csv tail_overlay_sensitivity.csv; do
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/tail_overlay_v1"
+          python3 "$BASE/tail_etf_overlay_v1.py" --start 2018-03-01 --end 2025-12-15 --out "$OUT"
+          for f in TAIL_OVERLAY_REPORT.md summary.json source_manifest.json TAIL_adjusted_close.csv episode_paired.csv; do
             test -s "$OUT/$f"
           done
 
-      - name: Commit frozen TAIL source and replay outputs to isolated branch
+      - name: Commit TAIL source snapshot and outputs to isolated branch
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/tail_overlay_dte14_q60_70_v1/
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/tail_overlay_v1/
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
-          git commit -m "Add frozen TAIL ETF overlay replay outputs"
-          git push origin "HEAD:refs/heads/${{ github.event.pull_request.head.ref"
+          git commit -m "Add paired TAIL ETF overlay backtest outputs"
+          git push origin "HEAD:refs/heads/${{ github.event.pull_request.head.ref }}"
