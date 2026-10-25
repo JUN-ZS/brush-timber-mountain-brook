@@ -9,6 +9,7 @@ on:
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/weekly_drop_2pct_path_analysis_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_spy_weekly_drop_filter_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/weekly_drop_1pct_virtual_lock_analysis_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/virtual_spy_floor_reprice_v1.py
       - .github/workflows/spy-drawdown-qqq-correlation-ref-v1.yml
 concurrency:
   group: spy-drawdown-qqq-ref-${{ github.event.pull_request.head.ref }}
@@ -272,6 +273,63 @@ jobs:
           print("Entered 1x6 / 2x6 half premium:", d["run_stats"]["1x6"]["entered_cohorts"], "/", d["run_stats"]["2x6"]["entered_cohorts"])
           print("Passed virtual floor 1x6 / 2x6 half premium:", d["run_stats"]["1x6"]["virtual_lock_10pct_pass"]["resolved_n"], "/", d["run_stats"]["2x6"]["virtual_lock_10pct_pass"]["resolved_n"])
           PY
+      - name: Replay full-time daily entries and reprice the virtual SPY -10% floor
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-ref/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          ROOT="$BASE/results/premium_matched_dte14_q60_70_v1"
+          ALL="$ROOT/all_time_entry_v1"
+          ONEPCT="$ROOT/weekly_drop_1pct_trigger_v1"
+          CACHE="$HOME/.cache/qqq-spy-weekly-drop-2pct-v1"
+          "$PY" -m py_compile "$BASE/virtual_spy_floor_reprice_v1.py"
+          if test -s "$ALL/ratio_1x6/summary.json" && test -s "$ALL/ratio_1x6/entry_cohort.csv" && test -s "$ALL/ratio_1x6/trade_episodes.csv" && grep -q '"name": "none"' "$ALL/ratio_1x6/summary.json"; then
+            echo "Reusing committed full-time 1:6 replay."
+          else
+            "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
+              --start 2018-03-01 --end 2025-12-15 \
+              --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
+              --fixed-long-qty 1 --fixed-short-qty 6 --target-delta 0.25 \
+              --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 1 \
+              --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
+              --qqq-target-abs-delta 0.65 --qqq-delta-tolerance 0.05 \
+              --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$ALL/ratio_1x6"
+          fi
+          for file in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$ALL/ratio_1x6/$file"; done
+          "$PY" "$BASE/virtual_spy_floor_reprice_v1.py" \
+            --base "$ALL" \
+            --base "$ONEPCT" \
+            --out-name virtual_lock_model_v1 \
+            --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy"
+          for target in "$ALL/virtual_lock_model_v1" "$ONEPCT/virtual_lock_model_v1"; do
+            test -s "$target/REF_REPORT.md"
+            test -s "$target/summary.json"
+            test -s "$target/episode_reprice.csv"
+          done
+          "$PY" - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1")
+          full=json.loads((root/"all_time_entry_v1/ratio_1x6/summary.json").read_text())
+          assert full["entry_filter"]["name"] == "none"
+          assert full["fixed_entry_schedule"]["scheduled_opportunities"] >= 1900
+          reports={
+            "all_time":json.loads((root/"all_time_entry_v1/virtual_lock_model_v1/summary.json").read_text()),
+            "weekly_drop_1pct":json.loads((root/"weekly_drop_1pct_trigger_v1/virtual_lock_model_v1/summary.json").read_text()),
+          }
+          for name,d in reports.items():
+            assert d["status"] == "COMPLETED", (name,d.get("status"))
+            assert d["pnl"]["historical_quote_side"]["n"] > 0, name
+            assert d["coverage"]["resolved_repriced_n"] > 0, name
+          print("Full-time scheduled opportunities:",full["fixed_entry_schedule"]["scheduled_opportunities"])
+          print("Full-time entered/resolved:",full["cohort"]["entered_cohorts"],full["policies"]["HOLD_20_OR_DTE_LE_7"]["resolved"])
+          for name,d in reports.items():
+            print(name, "original/virtual annual episode-sum:",
+              d["pnl"]["historical_quote_side"]["annual_average_episode_sum_usd"],
+              d["pnl"]["virtual_floor_model"]["annual_average_episode_sum_usd"],
+              "resolved:",d["pnl"]["virtual_floor_model"]["n"])
+          PY
       - name: Commit generated research outputs without source cache
         shell: bash
         run: |
@@ -286,6 +344,8 @@ jobs:
           git add "$WEEKLY/ratio_1x3" "$WEEKLY/ratio_1x6" "$WEEKLY/ratio_2x6" "$WEEKLY/ratio_2x6_samecontract" "$WEEKLY/weekly_drop_2pct_path_conditioned"
           ONEPCT="$BASE/results/premium_matched_dte14_q60_70_v1/weekly_drop_1pct_trigger_v1"
           git add "$ONEPCT/ratio_1x3" "$ONEPCT/ratio_1x6" "$ONEPCT/ratio_2x6" "$ONEPCT/ratio_2x6_samecontract" "$ONEPCT/virtual_lock_10pct"
+          ALL="$BASE/results/premium_matched_dte14_q60_70_v1/all_time_entry_v1"
+          git add "$ALL/ratio_1x6" "$ALL/virtual_lock_model_v1" "$ONEPCT/virtual_lock_model_v1"
           if git diff --cached --quiet; then
             echo "No generated output changes."
             exit 0
