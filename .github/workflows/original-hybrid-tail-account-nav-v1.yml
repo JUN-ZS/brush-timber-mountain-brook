@@ -7,7 +7,8 @@ on:
     paths:
       - research/qqq_hybrid_tail_triggered_nav_v1.py
       - research/test_qqq_hybrid_tail_triggered_nav_v1.py
-      - research/qqq_hybrid_tail_triggered_nav_v1/**
+      - research/qqq_hybrid_tail_triggered_nav_v1/TAIL_adjusted_close.csv
+      - research/qqq_hybrid_tail_triggered_nav_v1/README.md
       - .github/workflows/original-hybrid-tail-account-nav-v1.yml
   workflow_dispatch:
 
