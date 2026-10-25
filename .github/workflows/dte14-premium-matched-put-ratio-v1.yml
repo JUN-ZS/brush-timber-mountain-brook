@@ -47,13 +47,14 @@ jobs:
           PY=.venv-premium-matched/bin/python
           BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
           CACHE="$HOME/.cache/qqq-spy-premium-matched-dte14-v1"
-          OUT="$BASE/results/premium_matched_dte14_v1/ratio_1x3"
+          OUT="$BASE/results/atm_premium_matched_dte14_v1/ratio_1x3"
           "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
             --start 2018-03-01 --end 2025-12-15 \
             --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
             --fixed-long-qty 1 --fixed-short-qty 3 --target-delta 0.25 \
             --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 5 \
             --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
+            --qqq-target-abs-delta 0.50 --qqq-delta-tolerance 0.10 \
             --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT"
           for f in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/$f"; done
 
@@ -64,13 +65,14 @@ jobs:
           PY=.venv-premium-matched/bin/python
           BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
           CACHE="$HOME/.cache/qqq-spy-premium-matched-dte14-v1"
-          OUT="$BASE/results/premium_matched_dte14_v1/ratio_1x6"
+          OUT="$BASE/results/atm_premium_matched_dte14_v1/ratio_1x6"
           "$PY" "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
             --start 2018-03-01 --end 2025-12-15 \
             --max-total-contracts 10 --entry-filter none --sizing-mode fixed_ratio \
             --fixed-long-qty 1 --fixed-short-qty 6 --target-delta 0.25 \
             --dte-min 7 --dte-max 21 --dte-target 14 --cohort-stride-sessions 5 \
             --allow-overlapping-cohorts --qqq-premium-match-short-qty 6 \
+            --qqq-target-abs-delta 0.50 --qqq-delta-tolerance 0.10 \
             --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy" --out "$OUT"
           for f in entry_cohort.csv trade_episodes.csv source_manifest.json summary.json summary.md; do test -s "$OUT/$f"; done
 
@@ -81,7 +83,7 @@ jobs:
           .venv-premium-matched/bin/python - <<'PY'
           import csv, json, statistics
           from pathlib import Path
-          base = Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_v1")
+          base = Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/atm_premium_matched_dte14_v1")
           arms = []
           for short_qty, label in ((3, "1 QQQ LONG PUT : 3 SPY SHORT PUT"), (6, "1 QQQ LONG PUT : 6 SPY SHORT PUT")):
               out = base / f"ratio_1x{short_qty}"
@@ -89,6 +91,9 @@ jobs:
               policy = summary["policies"]["HOLD_20_OR_DTE_LE_7"]
               with (out / "entry_cohort.csv").open(newline="", encoding="utf-8") as f:
                   entries = list(csv.DictReader(f))
+              with (out / "trade_episodes.csv").open(newline="", encoding="utf-8") as f:
+                  trade_rows = list(csv.DictReader(f))
+              resolved_qqq = [r for r in trade_rows if r.get("policy") == "HOLD_20_OR_DTE_LE_7" and r.get("status") == "RESOLVED"]
               def vals(key):
                   result=[]
                   for row in entries:
@@ -97,17 +102,38 @@ jobs:
                           if v==v and abs(v)!=float("inf"): result.append(v)
                       except (TypeError, ValueError, KeyError): pass
                   return result
+              def trade_vals(key):
+                  result=[]
+                  for row in resolved_qqq:
+                      try:
+                          v=float(row[key])
+                          if v==v and abs(v)!=float("inf"): result.append(v)
+                      except (TypeError, ValueError, KeyError): pass
+                  return result
+              intrinsic_pnl=trade_vals("qqq_intrinsic_pnl_usd")
+              extrinsic_change=trade_vals("qqq_extrinsic_change_proxy_usd")
+              first_itm_extrinsic=trade_vals("qqq_first_itm_extrinsic_bid_proxy_per_share")
+              extrinsic_decline_n=sum(1 for value in extrinsic_change if value<0)
               deltas=vals("qqq_abs_delta")
               matches=vals("premium_match_pct")
               target_errors=vals("qqq_premium_match_error_signal")
               arms.append({
                   "label": label, "short_qty": short_qty, "policy": policy,
-                  "signals": summary["cohort"]["selected_signals"], "entered": len(entries),
+                  "signals": summary["cohort"]["selected_signals"], "skipped_opportunities": summary["fixed_entry_schedule"]["skipped_opportunities"], "entered": len(entries),
                   "qqq_delta_median": statistics.median(deltas) if deltas else None,
                   "qqq_delta_p10": sorted(deltas)[max(0,int(0.10*(len(deltas)-1)))] if deltas else None,
                   "qqq_delta_p90": sorted(deltas)[min(len(deltas)-1,int(0.90*(len(deltas)-1)))] if deltas else None,
                   "premium_match_pct_median": statistics.median(matches) if matches else None,
                   "signal_price_error_median": statistics.median(target_errors) if target_errors else None,
+                  "qqq_value_path": {
+                      "resolved_n": len(resolved_qqq),
+                      "first_itm_n": sum(1 for r in resolved_qqq if r.get("qqq_first_itm_date")),
+                      "first_itm_pct": 100*sum(1 for r in resolved_qqq if r.get("qqq_first_itm_date"))/len(resolved_qqq) if resolved_qqq else None,
+                      "median_first_itm_extrinsic_bid_proxy_per_share": statistics.median(first_itm_extrinsic) if first_itm_extrinsic else None,
+                      "median_intrinsic_pnl_usd": statistics.median(intrinsic_pnl) if intrinsic_pnl else None,
+                      "median_extrinsic_change_proxy_usd": statistics.median(extrinsic_change) if extrinsic_change else None,
+                      "extrinsic_proxy_decline_pct": 100*extrinsic_decline_n/len(resolved_qqq) if resolved_qqq else None,
+                  },
                   "data_range": summary["window"],
                   "source_status": summary["status"],
               })
@@ -119,7 +145,7 @@ jobs:
               "## Frozen setup",
               "",
               "- Signal selects same-expiry DTE 7–21, nearest DTE 14. SPY short put is selected by absolute Delta nearest 0.25 within the established eligible band.",
-              "- QQQ long put is selected at the signal date with Ask closest to 6 × the selected SPY short put Bid. This keeps the same target QQQ long-put contract for both 1:3 and 1:6 arms; QQQ Delta is reported, not constrained to 0.25.",
+              "- QQQ long put is constrained to absolute Delta 0.50 ± 0.10 (0.40–0.60). Within that band, choose the same-expiry contract whose Ask is closest to 6 × SPY short-put Bid. If no in-band QQQ put exists, skip that signal instead of falling back to a deep-ITM contract.",
               "- Entry schedule every five common QQQ/SPY sessions; no market filter; overlapping cohorts enabled. Entries use QQQ Ask / SPY Bid with displayed-size gates.",
               "- Primary comparison policy: HOLD_20_OR_DTE_LE_7 (exit at 20 common sessions or remaining calendar DTE <= 7, whichever happens first), with failed/missing exit quotes treated as deferred/unresolved.",
               "- Base costs: USD 0.05 per option-share per side plus USD 0.65 per contract per side. Each entry cohort is one long QQQ put and fixed 3 or 6 SPY short puts.",
@@ -131,6 +157,7 @@ jobs:
           ]
           fields = [
               ("Selected signals", "signals", "int"),
+              ("Scheduled opportunities skipped by selector/data gate", "skipped_opportunities", "int"),
               ("Entered cohorts", "entered", "int"),
               ("Resolved trades", "resolved", "int"),
               ("Unresolved trades", "unresolved", "int"),
@@ -161,7 +188,7 @@ jobs:
               for a in arms:
                   p=a["policy"]
                   v={
-                      "signals":a["signals"], "entered":a["entered"],
+                      "signals":a["signals"], "skipped_opportunities":a["skipped_opportunities"], "entered":a["entered"],
                       "resolved":p["resolved"], "unresolved":p["unresolved"],
                       "win_rate_pct":p["win_rate_pct"],
                       "wilson":f'{p["win_rate_wilson95_low_pct"]:.2f}–{p["win_rate_wilson95_high_pct"]:.2f}%' if p["win_rate_wilson95_low_pct"] is not None else "—",
@@ -173,6 +200,42 @@ jobs:
                   }[key]
                   values.append(fmt(v,kind))
               lines.append(f"| {metric} | {values[0]} | {values[1]} |")
+
+          lines += [
+              "",
+              "## QQQ LONG PUT intrinsic value vs extrinsic-residual path",
+              "",
+              "These use daily historical QQQ EOD quote sides and underlying closes for resolved HOLD_20_OR_DTE_LE_7 episodes. Both ratio arms use the same QQQ contract selection; displayed quotes do not imply verified fills.",
+              "",
+              "| QQQ-leg diagnostic | 1:3 arm | 1:6 arm |",
+              "|---|---:|---:|",
+          ]
+          for metric, key, kind in [
+              ("Resolved QQQ-leg paths", "resolved_n", "int"),
+              ("QQQ PUT observed ITM at least once", "first_itm_count", "text"),
+              ("Median extrinsic bid-residual at first ITM ($/share)", "first_itm_extrinsic", "usd_share"),
+              ("Median intrinsic-value contribution to QQQ P&L", "intrinsic_pnl", "usd"),
+              ("Median entry-Ask to exit-Bid extrinsic-residual change", "extrinsic_change", "usd"),
+              ("Resolved trades with lower extrinsic residual at exit", "extrinsic_decline", "pct"),
+          ]:
+              values = []
+              for a in arms:
+                  q = a["qqq_value_path"]
+                  raw = {
+                      "resolved_n": q["resolved_n"],
+                      "first_itm_count": f'{q["first_itm_n"]}/{q["resolved_n"]} ({q["first_itm_pct"]:.2f}%)' if q["resolved_n"] and q["first_itm_pct"] is not None else "—",
+                      "first_itm_extrinsic": q["median_first_itm_extrinsic_bid_proxy_per_share"],
+                      "intrinsic_pnl": q["median_intrinsic_pnl_usd"],
+                      "extrinsic_change": q["median_extrinsic_change_proxy_usd"],
+                      "extrinsic_decline": q["extrinsic_proxy_decline_pct"],
+                  }[key]
+                  values.append(fmt(raw, kind) if key != "first_itm_count" else raw)
+              lines.append(f"| {metric} | {values[0]} | {values[1]} |")
+          lines += [
+              "",
+              "Extrinsic residual = option quote minus intrinsic value. It is NOT pure Theta: changes combine time decay, IV/skew repricing, bid/ask effects and other quote changes. Intrinsic and extrinsic-residual changes add to quoted QQQ long-put P&L before costs when endpoints are present.",
+              "",
+          ]
           lines += [
               "",
               "## Interpretation limits",
@@ -181,7 +244,8 @@ jobs:
               "- Win rate uses resolved episodes only; opened, resolved, and unresolved counts must be read together.",
               "- The replay uses one fixed-anchor schedule (phase 0); it is in-sample and may be regime-dependent.",
               "- Capital, broker-specific margin, assignment cash needs, forced liquidation, taxes, dividends, interest, and verified multi-leg fills are not modeled in this cohort report. The separate USD 100,000 NAV replay is capital-feasibility evidence for the original Delta-0.25 QQQ long-put selector, not this premium-matched selector.",
-              "- QQQ option selection matches the signal-date premium target; next-session entry quotes may shift the actual premium ratio. The entry CSV reports actual premium match and the original target/error.",
+              "- QQQ selection is constrained to |Delta| 0.40–0.60, then matched to 6× SPY Bid at signal date. Next-session quotes can shift actual premium ratio; the entry CSV reports the mismatch.",
+              "- QQQ intrinsic/extrinsic decomposition uses quote endpoints. Extrinsic residual is not pure Theta because IV, skew and bid/ask spreads also affect it.",
               "- The underlying option-chain source ends in 2025. No 2026 performance is inferred.",
               "",
               "## Artifacts",
@@ -194,8 +258,8 @@ jobs:
           report.write_text("\n".join(lines),encoding="utf-8")
           print(report.read_text(encoding="utf-8"))
           PY
-          test -s research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md
-          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md >> "$GITHUB_STEP_SUMMARY"
+          test -s research/qqq_spy_put_fixed_ratio_size_gated_v1/results/atm_premium_matched_dte14_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md
+          cat research/qqq_spy_put_fixed_ratio_size_gated_v1/results/atm_premium_matched_dte14_v1/PREMIUM_MATCHED_DTE14_RATIO_REPORT.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit replay outputs to the isolated branch
         shell: bash
@@ -203,7 +267,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+users.noreply.github.com"
-          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_v1
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/atm_premium_matched_dte14_v1
           if git diff --cached --quiet; then
             echo "No generated output changes."
           else
