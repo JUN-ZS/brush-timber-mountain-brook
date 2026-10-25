@@ -82,5 +82,5 @@ All amounts are USD. CAGR and drawdown are calculated from the same common daily
 - No broker commissions, option margin, early assignment, forced liquidation, borrow/carry costs, or broker buying-power rules are modeled.
 - In-sample replay only; no forward-alpha claim.
 
-Successful current workflow: [Actions run #7](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/40184810939). The corrected account-ledger comparisons are outputs from the actual run, not theoretical arithmetic. The isolated workflow passed syntax/accounting tests, the nine-arm replay contract and persisted \`report.json\`, \`summary.csv\`, \`calendar_year.csv\`, daily equity curves and TAIL trade ledgers on the research branch.
+Successful latest workflow: [Actions run #11](https://github.com/JUN-ZS/brush-timber-mountain-brook/actions/runs/40185212572). The corrected account-ledger comparisons and full-window accounting controls are outputs from the actual run, not theoretical arithmetic. The isolated workflow passed syntax/accounting tests, the nine-arm paired TAIL replay contract, the two full-window accounting controls, and persisted \`report.json\`, \`summary.csv\`, \`calendar_year.csv\`, \`full_window_accounting_comparison.csv\`, daily equity curves and TAIL trade ledgers on this research branch.
 
