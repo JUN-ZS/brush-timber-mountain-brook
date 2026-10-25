@@ -230,7 +230,7 @@ def simulate(spots_path, dynamic=False, tail_prices_path=None, tail_mode="NONE",
             if st in structs or frac<=0:return
             if st=='qqq-long':
                 n=math.floor(nav*frac/row.qqq)
-                if n: cash_box[0]-row.qqq*n;legs.append({'structure':st,'n':n,'S0':row.qqq,'expiry_i':i+100000});opens.append((row.date,st,n))
+                if n: cash_box[0]-=row.qqq*n;legs.append({'structure':st,'n':n,'S0':row.qqq,'expiry_i':i+100000});opens.append((row.date,st,n))
             elif st=='vxx-short':
                 n=math.floor(nav*frac/row.vxx)
                 if n: cash_box[0]+=row.vxx*n;legs.append({'structure':st,'n':n,'S0':row.vxx,'expiry_i':i+21});opens.append((row.date,st,n))
