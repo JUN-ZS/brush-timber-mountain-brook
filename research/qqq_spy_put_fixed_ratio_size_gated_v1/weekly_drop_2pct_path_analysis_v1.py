@@ -46,8 +46,18 @@ def main():
     out = base / "weekly_drop_2pct_path_conditioned"
     out.mkdir(parents=True, exist_ok=True)
 
-    qspots = read_prices(Path(args.qqq_cache) / "underlying_prices.parquet", "QQQ")
-    sspots = read_prices(Path(args.spy_cache) / "underlying_prices.parquet", "SPY")
+    qcache = Path(args.qqq_cache)
+    scache = Path(args.spy_cache)
+    qcache.mkdir(parents=True, exist_ok=True)
+    scache.mkdir(parents=True, exist_ok=True)
+    q_path = qcache / "underlying_prices.parquet"
+    s_path = scache / "underlying_prices.parquet"
+    if not q_path.exists():
+        q_path, _ = eng.download_verified("QQQ", None, qcache)
+    if not s_path.exists():
+        s_path, _ = eng.download_verified("SPY", None, scache)
+    qspots = read_prices(q_path, "QQQ")
+    sspots = read_prices(s_path, "SPY")
     common = sorted(set(qspots) & set(sspots))
     peak, ath_dd = -float("inf"), {}
     for day in sorted(sspots):
@@ -320,7 +330,7 @@ def main():
         "The 2:6 half-premium arm selects an alternative QQQ put at approximately half the signal-time Ask of the 1:6 reference contract, locks the reference expiry and SPY contract, and buys two contracts; its QQQ Delta is unconstrained. The separate 2:6 same-contract arm buys two copies of the exact QQQ contract chosen by the 1:6 reference selector, subject to displayed size. Entry unit premium and total debit use next-session entry Ask quotes.",
         "The aggregate Delta-equivalent column is the mean of abs(Delta per QQQ contract) × QQQ contract count × 100. It is only a first-order local sensitivity proxy, not equivalent tail convexity or guaranteed hedge value.",
         "",
-        "| Ratio | QQQ long : SPY short | QQQ reference multiple | Mean QQQ premium / contract | Median QQQ premium / contract | Mean total QQQ debit | Mean SPY short credit | Mean |Delta| / contract | Aggregate Delta-equivalent | Mean unit-premium reduction vs 1:6 | Paired N | QQQ/SPY/expiry match vs 1:6 |",
+        "| Ratio | QQQ long : SPY short | QQQ reference multiple | Mean QQQ premium / contract | Median QQQ premium / contract | Mean total QQQ debit | Mean SPY short credit | Mean abs(Delta) / contract | Aggregate Delta-equivalent | Mean unit-premium reduction vs 1:6 | Paired N | QQQ/SPY/expiry match vs 1:6 |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
     ]
     for ratio in ("1x3", "1x6", "2x6", "2x6_samecontract"):
@@ -347,7 +357,8 @@ def main():
     for z in summaries:
         def usd(v): return "n/a" if v is None else "USD "+format(v,",.2f")
         win="n/a" if z["win_rate_pct"] is None else format(z["win_rate_pct"],".2f")+"%"
-        lines.append(f"| {z['ratio'].replace('x',':')} | {z['condition']} | {z['resolved_n']} | {usd(z['cumulative_episode_pnl_usd'])} | {usd(z['mean_per_episode_usd'])} | {usd(z['median_per_episode_usd'])} | {win} | {usd(z['worst_episode_usd'])} | {usd(z['annual_average_episode_sum_usd'])} |")
+        shown_ratio = {"1x3":"1:3", "1x6":"1:6", "2x6":"2:6 half-premium", "2x6_samecontract":"2:6 same contract"}[z["ratio"]]
+        lines.append(f"| {shown_ratio} | {z['condition']} | {z['resolved_n']} | {usd(z['cumulative_episode_pnl_usd'])} | {usd(z['mean_per_episode_usd'])} | {usd(z['median_per_episode_usd'])} | {win} | {usd(z['worst_episode_usd'])} | {usd(z['annual_average_episode_sum_usd'])} |")
     lines += [
         "",
         "## Interpretation",
