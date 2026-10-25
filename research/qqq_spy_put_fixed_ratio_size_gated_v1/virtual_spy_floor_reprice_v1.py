@@ -78,9 +78,9 @@ def load_quotes(symbol, cache, required_dates):
     years = sorted({int(d[:4]) for days in required_dates.values() for d in days})
     cols = ["contract_id", "symbol", "type", "date", "bid", "ask", "bid_size", "ask_size", "implied_volatility"]
     for year in years:
-        path = cache / symbol.lower() / f"options_{year}.parquet"
+        path = cache / f"options_{year}.parquet"
         if not path.is_file():
-            path, _ = eng.download_verified(symbol, year, cache / symbol.lower())
+            path, _ = eng.download_verified(symbol, year, cache)
         parquet = pq.ParquetFile(path)
         missing = sorted(set(cols) - set(parquet.schema_arrow.names))
         if missing:
@@ -160,10 +160,11 @@ def main():
                 continue
             floor = float(sspots[start]) * 0.90
             mark_end = str(trade.get("exit_signal_date") or end)
-            left, right = bisect.bisect_right(dates, start), bisect.bisect_right(dates, mark_end)
-            mark_dates = dates[left:right]
-            need_dates = set(mark_dates)
-            if resolved: need_dates.add(str(trade["exit_date"]))
+            left, mark_right = bisect.bisect_right(dates, start), bisect.bisect_right(dates, mark_end)
+            right = bisect.bisect_right(dates, end)
+            mark_dates = dates[left:mark_right]
+            path_dates = dates[left:right]
+            need_dates = set(path_dates)
             qid = eng.normalized_contract_id({"contract_id": entry.get("qqq_contract_id")})
             sid = eng.normalized_contract_id({"contract_id": entry.get("spy_contract_id")})
             required["QQQ"][qid].update(need_dates)
