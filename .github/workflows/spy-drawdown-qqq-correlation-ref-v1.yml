@@ -276,7 +276,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/spy_drawdown_correlation_ref_v1
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/spy_drawdown_correlation_ref_v1"
           rm -rf "$OUT/source_cache"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
