@@ -8,8 +8,8 @@ from pathlib import Path
 BASE = Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1")
 OUT_DEFAULT = BASE / "tail_overlay_v1"
 POLICY = "HOLD_20_OR_DTE_LE_7"
-BUDGETS = (250.0, 500.0, 1000.0)
-FRICTION_BPS = (0.0, 10.0)
+BUDGETS = (250.0, 500.0, 1000.0, 2500.0)
+FRICTION_BPS = (0.0, 10.0, 25.0, 50.0)
 
 def as_num(value):
     try:
@@ -242,7 +242,7 @@ def main():
         "",
         f"Window {args.start} to {args.end}; elapsed {years:.3f} years; policy {POLICY}.",
         "",
-        "For each resolved strategy cohort, invest USD 250, 500, or 1,000 in TAIL at the cohort entry-date adjusted close and close it on that cohort exit date. TAIL uses dividend-adjusted daily prices. Friction sensitivity is 0 and 10 bps round-trip. These budgets are ETF capital deployed, not option premiums.",
+        "For each resolved strategy cohort, invest USD 250, 500, or 1,000 in TAIL at the cohort entry-date adjusted close and close it on that cohort exit date. TAIL uses dividend-adjusted daily prices. Friction sensitivity is 0, 10, 25, and 50 bps round-trip. These budgets are ETF capital deployed, not option premiums.",
         "",
         "## No-TAIL baseline",
         "",
