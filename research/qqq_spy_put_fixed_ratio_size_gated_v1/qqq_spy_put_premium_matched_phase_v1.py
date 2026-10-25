@@ -808,7 +808,7 @@ def run_replay(args):
     start_day,end_day=args.start,args.end
     if date.fromisoformat(start_day)>date.fromisoformat(end_day):raise ValueError("--start must be <= --end")
     if args.max_total_contracts < 2 or args.max_total_contracts > 20:raise ValueError("--max-total-contracts must be between 2 and 20")
-    if args.entry_filter not in ("none", "qqq_underperforms_spy_20d"):raise ValueError("unsupported entry filter")
+    if args.entry_filter not in ("none", "qqq_underperforms_spy_20d", "spy_weekly_drop_2pct_corr60_pos"):raise ValueError("unsupported entry filter")
     if args.sizing_mode not in ("equal_premium", "fixed_ratio"):raise ValueError("unsupported sizing mode")
     if args.sizing_mode == "fixed_ratio":
         if args.fixed_long_qty < 1 or args.fixed_short_qty < 1:
