@@ -297,6 +297,12 @@ if __name__=='__main__':
     ap.add_argument('--friction-bps',type=float,default=10.0)
     args=ap.parse_args()
     from pathlib import Path
+    inherited_path=Path(__file__).with_name('qqq_hybrid_dynamic_deployment_v1_1_replay.py')
+    inherited_bytes=inherited_path.read_bytes()
+    inherited_blob_sha1=hashlib.sha1(b'blob '+str(len(inherited_bytes)).encode()+b'\0'+inherited_bytes).hexdigest()
+    expected_inherited_blob_sha1='ac74b3812c826ad491fb829108f26397322e45eb'
+    if inherited_blob_sha1 != expected_inherited_blob_sha1:
+        raise RuntimeError('Inherited Original Hybrid source SHA changed; fail closed')
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     variants=[
         ('NO_TAIL','NONE',0.0,args.friction_bps),
@@ -357,6 +363,7 @@ if __name__=='__main__':
                   'observations':int(len(all_equities['NO_TAIL'])),
                   'elapsed_years':float((all_equities['NO_TAIL'].date.iloc[-1]-all_equities['NO_TAIL'].date.iloc[0]).days/365.25)},
         'input_sha256':{'spots':sha256_file(args.spots_path),'tail_adjusted_close':sha256_file(args.tail_prices_path)},
+        'inherited_strategy_source':{'path':'research/qqq_hybrid_dynamic_deployment_v1_1_replay.py','git_blob_sha1':inherited_blob_sha1,'expected_git_blob_sha1':expected_inherited_blob_sha1},
         'frozen_tail_rule':{
             'signal':'Previous close: abs VXX daily return >6%, or VIX >35, or proxy term slope <0, or QQQ daily return <-3%',
             'execution':'Next common trading session adjusted close; never same-close after signal',
