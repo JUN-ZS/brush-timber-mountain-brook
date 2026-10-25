@@ -1,0 +1,76 @@
+name: TAIL ETF overlay replay for DTE14 QQQ-SPY put ratios
+
+on:
+  pull_request:
+    branches:
+      - research/dte14-ratio-spreads-nav-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/tail_etf_overlay_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/test_tail_etf_overlay_v1.py
+      - .github/workflows/dte14-tail-overlay-replay-v1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  tail-overlay-replay:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Compile and run TAIL overlay unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          python3 -m py_compile "$BASE/tail_etf_overlay_v1.py" "$BASE/test_tail_etf_overlay_v1.py"
+          python3 "$BASE/test_tail_etf_overlay_v1.py"
+
+      - name: Verify base option replay inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1
+          for ratio in 1x3 1x6; do
+            test -s "$ROOT/ratio_$ratio/trade_episodes.csv"
+            python3 - "$ROOT/ratio_$ratio/trade_episodes.csv" <<'PY'
+          import csv, sys
+          with open(sys.argv[1], newline="", encoding="utf-8-sig") as f:
+              reader = csv.DictReader(f)
+              required = {"episode_id", "policy", "status", "entry_date", "exit_date", "net_pnl_usd"}
+              missing = sorted(required - set(reader.fieldnames or []))
+              if missing:
+                  raise SystemExit(f"input schema missing: {missing}")
+          PY
+          done
+
+      - name: Run paired TAIL ETF sensitivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/premium_matched_dte14_q60_70_v1/tail_overlay_v1"
+          python3 "$BASE/tail_etf_overlay_v1.py" --start 2018-03-01 --end 2025-12-15 --out "$OUT"
+          for f in TAIL_OVERLAY_REPORT.md summary.json source_manifest.json TAIL_adjusted_close.csv episode_paired.csv; do
+            test -s "$OUT/$f"
+          done
+
+      - name: Commit TAIL source snapshot and outputs to isolated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/qqq_spy_put_fixed_ratio_size_gated_v1/results/premium_matched_dte14_q60_70_v1/tail_overlay_v1/
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Add paired TAIL ETF overlay backtest outputs"
+          git push origin "HEAD:refs/heads/${{ github.event.pull_request.head.ref }}"
