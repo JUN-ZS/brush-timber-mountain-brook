@@ -146,7 +146,7 @@ def portfolio_metrics(selected, source_sessions):
         "worst_trade_usd": round(min(pnls), 2) if pnls else None,
         "profit_factor": round(positive / negative, 6) if negative else (None if not wins else "INF"),
         "peak_concurrent_cohorts": peak_live,
-        "peak_gross_assignment_obligation_usd": round(peak_obligation, 2),
+        "peak_gross_call_delivery_notional_usd": round(peak_obligation, 2),
         "year_pnl": year_pnl,
         "year_count": year_count,
     }
@@ -287,11 +287,11 @@ def generate():
             if b and float(b["annual_resolved_pnl_usd"]) > 0
         ]
         obligation_reduction = [
-            (1 - float(r["peak_gross_assignment_obligation_usd"]) / float(b["peak_gross_assignment_obligation_usd"])) * 100
+            (1 - float(r["peak_gross_call_delivery_notional_usd"]) / float(b["peak_gross_call_delivery_notional_usd"])) * 100
             for r, b in zip(rows, base_rows)
-            if b and float(b["peak_gross_assignment_obligation_usd"]) > 0
+            if b and float(b["peak_gross_call_delivery_notional_usd"]) > 0
         ]
-        max_obligation = max(float(r["peak_gross_assignment_obligation_usd"]) for r in rows)
+        max_obligation = max(float(r["peak_gross_call_delivery_notional_usd"]) for r in rows)
         worst_values = [float(r["worst_trade_usd"]) for r in rows if r["worst_trade_usd"] is not None]
         pf_values = [r["profit_factor"] for r in rows if fnum(r["profit_factor"]) is not None]
         configs.append({
@@ -313,10 +313,10 @@ def generate():
             "worst_trade_across_phases_usd": round(min(worst_values), 2) if worst_values else None,
             "median_profit_factor": round(med(pf_values) or 0, 4),
             "median_peak_concurrent_cohorts": round(statistics.median(float(r["peak_concurrent_cohorts"]) for r in rows), 1),
-            "max_peak_gross_assignment_obligation_usd": round(max_obligation, 2),
+            "max_peak_gross_call_delivery_notional_usd": round(max_obligation, 2),
             "median_pnl_retained_pct_vs_unlimited": round(statistics.median(retained), 2) if retained else None,
-            "median_peak_obligation_reduction_pct_vs_unlimited": round(statistics.median(obligation_reduction), 2) if obligation_reduction else None,
-            "median_annual_pnl_per_100k_peak_obligation_usd": round(statistics.median(annual) /
+            "median_peak_delivery_notional_reduction_pct_vs_unlimited": round(statistics.median(obligation_reduction), 2) if obligation_reduction else None,
+            "median_annual_pnl_per_100k_delivery_notional_usd": round(statistics.median(annual) /
                 (max_obligation / 100000), 2) if max_obligation > 0 else None,
         })
     write_csv(ROOT / "mode_c_capacity_matrix.csv", cell_rows)
@@ -338,7 +338,7 @@ def make_report(configs):
         "- Unresolved episodes are excluded from P&L but keep their capacity slot through source end. EOD quote-side prices are not verified fills.",
         "",
         "## Shortlist across DTE and capacity limits", "",
-        "| DTE band | Max cohorts | Hold | Exit guard | Median annual P&L | Phase range | P&L retained vs unlimited | Peak obligation reduction | Median skipped | Worst trade across phases | Peak call delivery notional |",
+        "| DTE band | Max cohorts | Hold | Exit guard | Median annual P&L | Phase range | P&L retained vs unlimited | Peak delivery-notional reduction | Median skipped | Worst trade across phases | Peak call delivery notional |",
         "|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     shortlisted = []
@@ -347,14 +347,14 @@ def make_report(configs):
             rows = [r for r in configs if r["dte_target"] == dte and r["max_concurrent_cohorts"] == gate]
             rows.sort(key=lambda r: (
                 -float(r["median_annual_resolved_pnl_usd"]),
-                float(r["max_peak_gross_assignment_obligation_usd"]),
+                float(r["max_peak_gross_call_delivery_notional_usd"]),
                 -float(r["median_pnl_retained_pct_vs_unlimited"] or 0)
             ))
             show = rows[:2]
             shorter = [r for r in rows if r["hold_sessions"] <= 15]
             if shorter:
                 eff = max(shorter, key=lambda r: float(r["median_annual_resolved_pnl_usd"]) /
-                          max(float(r["max_peak_gross_assignment_obligation_usd"]), 1))
+                          max(float(r["max_peak_gross_call_delivery_notional_usd"]), 1))
                 if eff not in show:
                     show.append(eff)
             for r in show:
@@ -366,9 +366,9 @@ def make_report(configs):
             f"{'none' if r['expiry_guard_dte']=='' else 'DTE <= '+str(r['expiry_guard_dte'])} | "
             f"{fmt(r['median_annual_resolved_pnl_usd'])} | {fmt(r['min_phase_annual_pnl_usd'])}–{fmt(r['max_phase_annual_pnl_usd'])} | "
             f"{fmt(r['median_pnl_retained_pct_vs_unlimited'],1)}% | "
-            f"{fmt(r['median_peak_obligation_reduction_pct_vs_unlimited'],1)}% | "
+            f"{fmt(r['median_peak_delivery_notional_reduction_pct_vs_unlimited'],1)}% | "
             f"{r['median_capacity_skipped']} / {r['median_entry_candidates']} ({fmt(r['median_capacity_skip_pct'],1)}%) | "
-            f"{fmt(r['worst_trade_across_phases_usd'])} | {fmt(r['max_peak_gross_assignment_obligation_usd'])} |"
+            f"{fmt(r['worst_trade_across_phases_usd'])} | {fmt(r['max_peak_gross_call_delivery_notional_usd'])} |"
         )
     lines += [
         "", "## How to interpret it", "",
@@ -461,11 +461,11 @@ def generate():
             if b and float(b["annual_resolved_pnl_usd"]) > 0
         ]
         obligation_reduction = [
-            (1 - float(r["peak_gross_assignment_obligation_usd"]) / float(b["peak_gross_assignment_obligation_usd"])) * 100
+            (1 - float(r["peak_gross_call_delivery_notional_usd"]) / float(b["peak_gross_call_delivery_notional_usd"])) * 100
             for r, b in zip(rows, base_rows)
-            if b and float(b["peak_gross_assignment_obligation_usd"]) > 0
+            if b and float(b["peak_gross_call_delivery_notional_usd"]) > 0
         ]
-        max_obligation = max(float(r["peak_gross_assignment_obligation_usd"]) for r in rows)
+        max_obligation = max(float(r["peak_gross_call_delivery_notional_usd"]) for r in rows)
         worst_values = [float(r["worst_trade_usd"]) for r in rows if r["worst_trade_usd"] is not None]
         pf_values = [r["profit_factor"] for r in rows if fnum(r["profit_factor"]) is not None]
         configs.append({
@@ -487,10 +487,10 @@ def generate():
             "worst_trade_across_phases_usd": round(min(worst_values), 2) if worst_values else None,
             "median_profit_factor": round(med(pf_values) or 0, 4),
             "median_peak_concurrent_cohorts": round(statistics.median(float(r["peak_concurrent_cohorts"]) for r in rows), 1),
-            "max_peak_gross_assignment_obligation_usd": round(max_obligation, 2),
+            "max_peak_gross_call_delivery_notional_usd": round(max_obligation, 2),
             "median_pnl_retained_pct_vs_unlimited": round(statistics.median(retained), 2) if retained else None,
-            "median_peak_obligation_reduction_pct_vs_unlimited": round(statistics.median(obligation_reduction), 2) if obligation_reduction else None,
-            "median_annual_pnl_per_100k_peak_obligation_usd": round(statistics.median(annual) /
+            "median_peak_delivery_notional_reduction_pct_vs_unlimited": round(statistics.median(obligation_reduction), 2) if obligation_reduction else None,
+            "median_annual_pnl_per_100k_delivery_notional_usd": round(statistics.median(annual) /
                 (max_obligation / 100000), 2) if max_obligation > 0 else None,
         })
     write_csv(ROOT / "mode_c_capacity_matrix.csv", cell_rows)
@@ -508,11 +508,11 @@ def make_report(configs):
         "- Mode C semantics: each holding/exit policy owns an independent book; admit a new signal only if live cohort reservations are below cap 1 or 2; skip blocked signals without re-anchoring; unresolved/expired-without-executable-exit cohorts reserve capacity through source end.",
         "- Capacity gating is a chronological admission simulation over the same source-pinned, per-cohort quote-side outcomes. Blocked cohorts contribute no P&L; because positions are separately simulated, their hypothetical paths do not affect later cohorts.",
         "- Annual P&L is resolved episode net P&L summed then divided by 7.792 calendar years; not CAGR, account return, or proof of USD 100,000 buying-power feasibility.",
-        "- Peak gross assignment obligation is the sum of SPY short-call strike × 100 × short contracts across concurrently open admitted cohorts; it is not broker margin or maximum loss.",
+        "- Peak gross call-delivery notional is the sum of SPY short-call strike × 100 × short contracts across concurrently open admitted cohorts; it is not broker margin or maximum loss.",
         "- Unresolved episodes are excluded from P&L but keep their capacity slot through source end. EOD quote-side prices are not verified fills.",
         "",
         "## Shortlist across DTE and capacity limits", "",
-        "| DTE band | Max cohorts | Hold | Exit guard | Median annual P&L | Phase range | P&L retained vs unlimited | Peak obligation reduction | Median skipped | Worst trade across phases | Peak assignment obligation |",
+        "| DTE band | Max cohorts | Hold | Exit guard | Median annual P&L | Phase range | P&L retained vs unlimited | Peak delivery-notional reduction | Median skipped | Worst trade across phases | Peak call-delivery notional |",
         "|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|",
     ]
     shortlisted = []
@@ -521,14 +521,14 @@ def make_report(configs):
             rows = [r for r in configs if r["dte_target"] == dte and r["max_concurrent_cohorts"] == gate]
             rows.sort(key=lambda r: (
                 -float(r["median_annual_resolved_pnl_usd"]),
-                float(r["max_peak_gross_assignment_obligation_usd"]),
+                float(r["max_peak_gross_call_delivery_notional_usd"]),
                 -float(r["median_pnl_retained_pct_vs_unlimited"] or 0)
             ))
             show = rows[:2]
             shorter = [r for r in rows if r["hold_sessions"] <= 15]
             if shorter:
                 eff = max(shorter, key=lambda r: float(r["median_annual_resolved_pnl_usd"]) /
-                          max(float(r["max_peak_gross_assignment_obligation_usd"]), 1))
+                          max(float(r["max_peak_gross_call_delivery_notional_usd"]), 1))
                 if eff not in show:
                     show.append(eff)
             for r in show:
@@ -540,14 +540,14 @@ def make_report(configs):
             f"{'none' if r['expiry_guard_dte']=='' else 'DTE <= '+str(r['expiry_guard_dte'])} | "
             f"{fmt(r['median_annual_resolved_pnl_usd'])} | {fmt(r['min_phase_annual_pnl_usd'])}–{fmt(r['max_phase_annual_pnl_usd'])} | "
             f"{fmt(r['median_pnl_retained_pct_vs_unlimited'],1)}% | "
-            f"{fmt(r['median_peak_obligation_reduction_pct_vs_unlimited'],1)}% | "
+            f"{fmt(r['median_peak_delivery_notional_reduction_pct_vs_unlimited'],1)}% | "
             f"{r['median_capacity_skipped']} / {r['median_entry_candidates']} ({fmt(r['median_capacity_skip_pct'],1)}%) | "
-            f"{fmt(r['worst_trade_across_phases_usd'])} | {fmt(r['max_peak_gross_assignment_obligation_usd'])} |"
+            f"{fmt(r['worst_trade_across_phases_usd'])} | {fmt(r['max_peak_gross_call_delivery_notional_usd'])} |"
         )
     lines += [
         "", "## How to interpret it", "",
         "- Cap 1 serializes the portfolio; cap 2 allows up to two open/reserved cohorts; UNLIMITED is the control.",
-        "- Annual median must be read with phase range, skipped-entry rate, worst trade, unresolved counts, peak simultaneous cohorts and gross assignment obligation.",
+        "- Annual median must be read with phase range, skipped-entry rate, worst trade, unresolved counts, peak simultaneous cohorts and gross call-delivery notional.",
         "- Cap reduces admitted opportunities, so lower total P&L can coexist with similar per-trade expectancy. It is useful only if lower stacked exposure is worth the income surrendered.",
         "- A high win rate does not neutralize the 1:6 structure's short-call tail risk. Account cash, broker margin, forced liquidation, financing, tax, compounding and TAIL cost are not modeled.",
         "- Before choosing any configuration for live use, validate the underlying quote history, fills and the actual broker's assignment/margin treatment.",
