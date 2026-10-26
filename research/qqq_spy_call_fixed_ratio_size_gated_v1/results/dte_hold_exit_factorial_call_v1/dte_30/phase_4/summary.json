@@ -1,0 +1,528 @@
+{
+  "schema": "qqq-spy-fixed-anchor-call-replay.v1",
+  "status": "COMPLETED_WITH_UNRESOLVEDS",
+  "source": {
+    "repository": "anahatsingh-ui/options-dataset-hist",
+    "tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66"
+  },
+  "window": {
+    "start": "2018-03-01",
+    "end": "2025-12-15"
+  },
+  "ratio": {
+    "method": "FIXED_RATIO_SIZE_GATED",
+    "description": "fixed QQQ LONG CALL 1 : SPY SHORT CALL 6; entry and exit require displayed side size for every contract",
+    "fixed_long_qqq_contracts": 1,
+    "fixed_short_spy_contracts": 6,
+    "max_total_contracts": 10,
+    "contract_multiplier": 100,
+    "mean_spy_call_delivery_obligation_usd": 258192.31
+  },
+  "premium_matching": {
+    "cohort_n": 195,
+    "ratio_counts": {
+      "1:6": 195
+    },
+    "mean_qqq_premium_debit_usd": 190.47,
+    "mean_spy_premium_credit_usd": 1037.69,
+    "mean_abs_mismatch_usd": 847.23,
+    "median_abs_mismatch_usd": 701.0,
+    "mean_match_pct": 18.54,
+    "median_match_pct": 18.2
+  },
+  "entry_filter": {
+    "name": "none",
+    "description": "No filter; entry when standard contract selection is available",
+    "lookback_sessions": 0,
+    "evaluated_sessions": 195,
+    "qualified_sessions": 195,
+    "rejected_sessions": 0
+  },
+  "selection": {
+    "target_abs_delta": 0.2,
+    "delta_eligible_band": [
+      0.1,
+      0.5
+    ],
+    "qqq_premium_match_short_qty": null,
+    "qqq_target_abs_delta": null,
+    "qqq_delta_tolerance": null,
+    "qqq_delta_band": null,
+    "qqq_premium_match_rule": "QQQ Delta nearest target",
+    "dte_min": 24,
+    "dte_max": 36,
+    "dte_target": 30,
+    "cohort_stride_sessions": 10,
+    "allow_overlapping_cohorts": true,
+    "initial_phase_sessions": 4,
+    "schedule_mode": "FIXED_ANCHOR_NO_REANCHOR",
+    "common_expiry_required": true
+  },
+  "costs": {
+    "base_slippage_per_option_share_usd": 0.05,
+    "base_commission_per_contract_per_side_usd": 0.65,
+    "alternative_slippage_per_option_share_usd": [
+      0.0,
+      0.025,
+      0.05,
+      0.1
+    ],
+    "alternative_commission_per_contract_per_side_usd": [
+      0.0,
+      0.65
+    ]
+  },
+  "position_size_sensitivity": {
+    "max_long_qqq_contracts": 6,
+    "max_short_spy_contracts": 6,
+    "max_total_contracts": 10,
+    "method": "fixed-ratio per-leg gross-P&L rescaling on the same selected contracts, quote dates and resolved cohort set; ratio sensitivity is not a fresh premium-matched selection replay; total contracts capped in displayed grid; no size-dependent market impact"
+  },
+  "coverage": {
+    "common_underlying_sessions": 1959,
+    "qqq_chain_dates": 1956,
+    "qqq_call_rows": 6067200,
+    "spy_chain_dates": 1957,
+    "spy_call_rows": 8336276,
+    "sessions_with_both_chains": 1955,
+    "qqq_last_chain_date": "2025-12-15",
+    "spy_last_chain_date": "2025-12-12",
+    "qqq_underlying_first_date": "1999-11-01",
+    "qqq_underlying_last_date": "2025-12-15",
+    "spy_underlying_first_date": "1999-11-01",
+    "spy_underlying_last_date": "2025-12-12",
+    "expected_common_first_date": "2018-03-01",
+    "expected_common_last_date": "2025-12-12"
+  },
+  "cohort": {
+    "selected_signals": 195,
+    "entered_cohorts": 195,
+    "entry_skipped": 0,
+    "entry_skip_rows": []
+  },
+  "fixed_entry_schedule": {
+    "mode": "FIXED_ANCHOR_NO_REANCHOR",
+    "phase_sessions": 4,
+    "stride_sessions": 10,
+    "scheduled_opportunities": 196,
+    "selected_signals": 195,
+    "skipped_opportunities": 1,
+    "skip_reason_counts": {
+      "MISSING_QQQ_AND_SPY_OPTION_CHAIN": 1
+    },
+    "skip_rows": [
+      {
+        "scheduled_index": 174,
+        "scheduled_signal_date": "2018-11-06",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "MISSING_QQQ_AND_SPY_OPTION_CHAIN"
+      }
+    ]
+  },
+  "policies": {
+    "HOLD_5_SESSIONS": {
+      "policy": "HOLD_5_SESSIONS",
+      "opened": 195,
+      "resolved": 194,
+      "unresolved": 1,
+      "wins": 92,
+      "losses": 102,
+      "flat": 0,
+      "win_rate_pct": 47.4227,
+      "win_rate_wilson95_low_pct": 40.5146,
+      "win_rate_wilson95_high_pct": 54.4309,
+      "expectancy_net_usd": -263.651546,
+      "median_net_usd": -24.6,
+      "total_net_pnl_usd": -51148.4,
+      "best_net_usd": 2357.9,
+      "worst_net_usd": -5433.1,
+      "profit_factor": 0.483736,
+      "mean_qqq_long_gross_pnl_usd": 30.860825,
+      "mean_spy_short_gross_pnl_usd": -215.412371,
+      "resolved_coverage_pct": 99.487179,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_5_OR_DTE_LE_7": {
+      "policy": "HOLD_5_OR_DTE_LE_7",
+      "opened": 195,
+      "resolved": 194,
+      "unresolved": 1,
+      "wins": 92,
+      "losses": 102,
+      "flat": 0,
+      "win_rate_pct": 47.4227,
+      "win_rate_wilson95_low_pct": 40.5146,
+      "win_rate_wilson95_high_pct": 54.4309,
+      "expectancy_net_usd": -263.651546,
+      "median_net_usd": -24.6,
+      "total_net_pnl_usd": -51148.4,
+      "best_net_usd": 2357.9,
+      "worst_net_usd": -5433.1,
+      "profit_factor": 0.483736,
+      "mean_qqq_long_gross_pnl_usd": 30.860825,
+      "mean_spy_short_gross_pnl_usd": -215.412371,
+      "resolved_coverage_pct": 99.487179,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_5_OR_DTE_LE_14": {
+      "policy": "HOLD_5_OR_DTE_LE_14",
+      "opened": 195,
+      "resolved": 194,
+      "unresolved": 1,
+      "wins": 92,
+      "losses": 102,
+      "flat": 0,
+      "win_rate_pct": 47.4227,
+      "win_rate_wilson95_low_pct": 40.5146,
+      "win_rate_wilson95_high_pct": 54.4309,
+      "expectancy_net_usd": -263.651546,
+      "median_net_usd": -24.6,
+      "total_net_pnl_usd": -51148.4,
+      "best_net_usd": 2357.9,
+      "worst_net_usd": -5433.1,
+      "profit_factor": 0.483736,
+      "mean_qqq_long_gross_pnl_usd": 30.860825,
+      "mean_spy_short_gross_pnl_usd": -215.412371,
+      "resolved_coverage_pct": 99.487179,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_10_SESSIONS": {
+      "policy": "HOLD_10_SESSIONS",
+      "opened": 195,
+      "resolved": 190,
+      "unresolved": 5,
+      "wins": 115,
+      "losses": 75,
+      "flat": 0,
+      "win_rate_pct": 60.5263,
+      "win_rate_wilson95_low_pct": 53.4336,
+      "win_rate_wilson95_high_pct": 67.2019,
+      "expectancy_net_usd": -246.931579,
+      "median_net_usd": 142.4,
+      "total_net_pnl_usd": -46917.0,
+      "best_net_usd": 2438.9,
+      "worst_net_usd": -5571.1,
+      "profit_factor": 0.552628,
+      "mean_qqq_long_gross_pnl_usd": 27.957895,
+      "mean_spy_short_gross_pnl_usd": -195.789474,
+      "resolved_coverage_pct": 97.435897,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_10_OR_DTE_LE_7": {
+      "policy": "HOLD_10_OR_DTE_LE_7",
+      "opened": 195,
+      "resolved": 190,
+      "unresolved": 5,
+      "wins": 115,
+      "losses": 75,
+      "flat": 0,
+      "win_rate_pct": 60.5263,
+      "win_rate_wilson95_low_pct": 53.4336,
+      "win_rate_wilson95_high_pct": 67.2019,
+      "expectancy_net_usd": -246.931579,
+      "median_net_usd": 142.4,
+      "total_net_pnl_usd": -46917.0,
+      "best_net_usd": 2438.9,
+      "worst_net_usd": -5571.1,
+      "profit_factor": 0.552628,
+      "mean_qqq_long_gross_pnl_usd": 27.957895,
+      "mean_spy_short_gross_pnl_usd": -195.789474,
+      "resolved_coverage_pct": 97.435897,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_10_OR_DTE_LE_14": {
+      "policy": "HOLD_10_OR_DTE_LE_14",
+      "opened": 195,
+      "resolved": 192,
+      "unresolved": 3,
+      "wins": 114,
+      "losses": 78,
+      "flat": 0,
+      "win_rate_pct": 59.375,
+      "win_rate_wilson95_low_pct": 52.3101,
+      "win_rate_wilson95_high_pct": 66.0721,
+      "expectancy_net_usd": -219.839583,
+      "median_net_usd": 144.4,
+      "total_net_pnl_usd": -42209.2,
+      "best_net_usd": 2438.9,
+      "worst_net_usd": -5571.1,
+      "profit_factor": 0.587417,
+      "mean_qqq_long_gross_pnl_usd": 27.229167,
+      "mean_spy_short_gross_pnl_usd": -167.96875,
+      "resolved_coverage_pct": 98.461538,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_15_SESSIONS": {
+      "policy": "HOLD_15_SESSIONS",
+      "opened": 195,
+      "resolved": 159,
+      "unresolved": 36,
+      "wins": 95,
+      "losses": 64,
+      "flat": 0,
+      "win_rate_pct": 59.7484,
+      "win_rate_wilson95_low_pct": 51.9828,
+      "win_rate_wilson95_high_pct": 67.0541,
+      "expectancy_net_usd": -443.565409,
+      "median_net_usd": 190.9,
+      "total_net_pnl_usd": -70526.9,
+      "best_net_usd": 2453.9,
+      "worst_net_usd": -15128.1,
+      "profit_factor": 0.479581,
+      "mean_qqq_long_gross_pnl_usd": 104.628931,
+      "mean_spy_short_gross_pnl_usd": -469.09434,
+      "resolved_coverage_pct": 81.538462,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_15_OR_DTE_LE_7": {
+      "policy": "HOLD_15_OR_DTE_LE_7",
+      "opened": 195,
+      "resolved": 164,
+      "unresolved": 31,
+      "wins": 97,
+      "losses": 67,
+      "flat": 0,
+      "win_rate_pct": 59.1463,
+      "win_rate_wilson95_low_pct": 51.4974,
+      "win_rate_wilson95_high_pct": 66.3766,
+      "expectancy_net_usd": -400.07561,
+      "median_net_usd": 198.4,
+      "total_net_pnl_usd": -65612.4,
+      "best_net_usd": 2453.9,
+      "worst_net_usd": -15128.1,
+      "profit_factor": 0.494031,
+      "mean_qqq_long_gross_pnl_usd": 94.780488,
+      "mean_spy_short_gross_pnl_usd": -415.756098,
+      "resolved_coverage_pct": 84.102564,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_15_OR_DTE_LE_14": {
+      "policy": "HOLD_15_OR_DTE_LE_14",
+      "opened": 195,
+      "resolved": 188,
+      "unresolved": 7,
+      "wins": 114,
+      "losses": 74,
+      "flat": 0,
+      "win_rate_pct": 60.6383,
+      "win_rate_wilson95_low_pct": 53.5087,
+      "win_rate_wilson95_high_pct": 67.3419,
+      "expectancy_net_usd": -251.365957,
+      "median_net_usd": 152.9,
+      "total_net_pnl_usd": -47256.8,
+      "best_net_usd": 2438.9,
+      "worst_net_usd": -13580.1,
+      "profit_factor": 0.566083,
+      "mean_qqq_long_gross_pnl_usd": 34.670213,
+      "mean_spy_short_gross_pnl_usd": -206.93617,
+      "resolved_coverage_pct": 96.410256,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_20_SESSIONS": {
+      "policy": "HOLD_20_SESSIONS",
+      "opened": 195,
+      "resolved": 28,
+      "unresolved": 167,
+      "wins": 11,
+      "losses": 17,
+      "flat": 0,
+      "win_rate_pct": 39.2857,
+      "win_rate_wilson95_low_pct": 23.5657,
+      "win_rate_wilson95_high_pct": 57.591,
+      "expectancy_net_usd": -1734.957143,
+      "median_net_usd": -949.6,
+      "total_net_pnl_usd": -48578.8,
+      "best_net_usd": 2459.9,
+      "worst_net_usd": -12564.1,
+      "profit_factor": 0.130592,
+      "mean_qqq_long_gross_pnl_usd": 431.071429,
+      "mean_spy_short_gross_pnl_usd": -2086.928571,
+      "resolved_coverage_pct": 14.358974,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_20_OR_DTE_LE_7": {
+      "policy": "HOLD_20_OR_DTE_LE_7",
+      "opened": 195,
+      "resolved": 159,
+      "unresolved": 36,
+      "wins": 96,
+      "losses": 63,
+      "flat": 0,
+      "win_rate_pct": 60.3774,
+      "win_rate_wilson95_low_pct": 52.6162,
+      "win_rate_wilson95_high_pct": 67.6489,
+      "expectancy_net_usd": -453.886164,
+      "median_net_usd": 231.9,
+      "total_net_pnl_usd": -72167.9,
+      "best_net_usd": 2461.9,
+      "worst_net_usd": -18669.1,
+      "profit_factor": 0.47431,
+      "mean_qqq_long_gross_pnl_usd": 105.138365,
+      "mean_spy_short_gross_pnl_usd": -479.924528,
+      "resolved_coverage_pct": 81.538462,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_20_OR_DTE_LE_14": {
+      "policy": "HOLD_20_OR_DTE_LE_14",
+      "opened": 195,
+      "resolved": 188,
+      "unresolved": 7,
+      "wins": 114,
+      "losses": 74,
+      "flat": 0,
+      "win_rate_pct": 60.6383,
+      "win_rate_wilson95_low_pct": 53.5087,
+      "win_rate_wilson95_high_pct": 67.3419,
+      "expectancy_net_usd": -251.365957,
+      "median_net_usd": 152.9,
+      "total_net_pnl_usd": -47256.8,
+      "best_net_usd": 2438.9,
+      "worst_net_usd": -13580.1,
+      "profit_factor": 0.566083,
+      "mean_qqq_long_gross_pnl_usd": 34.670213,
+      "mean_spy_short_gross_pnl_usd": -206.93617,
+      "resolved_coverage_pct": 96.410256,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    }
+  },
+  "limitations": [
+    "Public EOD preservation mirror; hashes establish file identity, not exchange or OPRA authenticity.",
+    "EOD quotes are not verified fills; displayed size is a screening gate, not guaranteed multi-leg execution.",
+    "Conservative sides: QQQ LONG enters Ask/exits Bid; SPY SHORT enters Bid/exits Ask.",
+    "Missing exit quotes/size at expiry or source end remain unresolved; win-rate denominator is resolved episodes only.",
+    "Option chain source ends in 2025; no 2026 performance is observed here.",
+    "Nominal Wilson interval does not correct for regime clustering, dependence, or prior strategy selection.",
+    "Expiry shock grid charges entry-side slippage/commission once and uses intrinsic-value payoff; exercise/assignment fees, broker margin, forced liquidation, financing and interim path are not modeled.",
+    "Equal premium debit/credit does not equalize Delta, max loss, collateral or assignment risk; SPY short call can dominate downside even when QQQ long call appreciates.",
+    "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills.",
+    "When overlapping cohorts are enabled, multiple fixed-size trades can be open at once; total portfolio cash, margin, forced liquidation, and stacked assignment obligations are not constrained by this replay."
+  ],
+  "source_integrity": [
+    {
+      "symbol": "QQQ",
+      "file": "options_2018.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 29215815,
+      "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2019.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 30998008,
+      "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2020.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 59412637,
+      "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2021.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 74224966,
+      "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2022.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 69941736,
+      "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2023.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 71647343,
+      "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2024.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 82434832,
+      "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2025.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 85765453,
+      "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2018.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 36266339,
+      "git_blob_sha": "473e4fe80281ca9371b5f531b97f19394e8e2814"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2019.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 41731396,
+      "git_blob_sha": "2d06f2ca587452ea9a6ffa52e6ddc4262c3e6f4d"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2020.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 59100008,
+      "git_blob_sha": "f0093698ac9fbbe7dbd9159735fcb73ff9418ff2"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2021.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 64071426,
+      "git_blob_sha": "459555aaed9be451a504d68d2db6cce4b94c3a6d"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2022.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 57070606,
+      "git_blob_sha": "f0a15b8263b7650147bfa62bce2cd44d59ef17a5"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2023.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 47343699,
+      "git_blob_sha": "ead8adeee0689d26e49f5b39f6d5536443931ac3"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2024.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 56948550,
+      "git_blob_sha": "8e0b7ca48dffa92fe93ceeffefdfce8557eab74a"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2025.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 58216546,
+      "git_blob_sha": "133bf1d95c3479149bf4771bc8b3fd8b625064ce"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "underlying_prices.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 332454,
+      "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a"
+    },
+    {
+      "symbol": "SPY",
+      "file": "underlying_prices.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 252066,
+      "git_blob_sha": "4c22934a77ba09ced10fd1c413b5d8c9e0cb4a8d"
+    }
+  ]
+}
