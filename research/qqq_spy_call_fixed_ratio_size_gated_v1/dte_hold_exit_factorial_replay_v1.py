@@ -57,7 +57,7 @@ def main() -> int:
     parser.add_argument("--end", default="2025-12-15")
     parser.add_argument("--out-root", default="research/qqq_spy_call_fixed_ratio_size_gated_v1/results/dte_hold_exit_factorial_call_v1")
     parser.add_argument("--qqq-cache", default=str(Path.home() / ".cache" / "qqq-spy-call-dte-hold-exit-v1" / "qqq"))
-    parser.add_argument("--spy-cache", default=str(Path.home() / ".cache" / "qqq-spy-dte-hold-exit-v1" / "spy"))
+    parser.add_argument("--spy-cache", default=str(Path.home() / ".cache" / "qqq-spy-call-dte-hold-exit-v1" / "spy"))
     wrapper = parser.parse_args()
 
     dte_min, dte_max = DTE_BANDS[wrapper.dte_target]
