@@ -128,7 +128,7 @@ def make_report(configs,effects,yr):
     L += ["","## All 48 settings across five phases","","| Target DTE (band) | Hold | Guard | Median annual P&L | Min–max | ≥USD12k phases | Resolved | Unresolved | Win rate | Worst trade | Peak overlaps |","|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for r in sorted(configs,key=lambda x:(x["dte_target"],x["hold_sessions"],99 if x["expiry_guard_dte"]=="" else int(x["expiry_guard_dte"]))):
         g="none" if r["expiry_guard_dte"]=="" else f"≤{r['expiry_guard_dte']}"
-        L.append(f"| DTE{r['dte_target']} ({r['dte_min']}–{r['dte_max']}) | {r['hold_sessions']} | {g} | {money(r['median_annual_pnl_usd'])} | {money(r['min_annual_pnl_usd'])}–{money(r['max_annual_pnl_usd'])} | {r['phases_ge_12000']}/5 | {r['median_resolved']:.0f} | {r['median_unresolved']:.0f} | {r['median_win_rate_pct']:.2f}% | {money(r['median_worst_trade_usd'],2)} | {r['median_peak_overlap']:.0f} |")
+        L.append(f"| DTE{r['dte_target']} ({r['dte_min']}–{r['dte_max']}) | {r['hold_sessions']} | {g} | {money(r['median_annual_pnl_usd'])} | {money(r['min_annual_pnl_usd'])}–{money(r['max_annual_pnl_usd'])} | {r['phases_ge_12000']}/5 | {r['median_resolved']:.0f} | {r['median_unresolved']:.0f} | {pct(r['median_win_rate_pct'])} | {money(r['median_worst_trade_usd'],2)} | {r['median_peak_overlap']:.0f} |")
     L += ["","## Calendar-year concentration: DTE45 / hold 20 / guard 7","","Resolved P&L grouped by exit year, shown per phase anchor.","","| Phase | "+" | ".join(map(str,range(2018,2026)))+" |","|---:|"+"---:|"*8]
     chosen=[r for r in yr if r["dte_target"]==45 and r["hold_sessions"]==20 and str(r["expiry_guard_dte"])=="7"]
     for phase in PHASES:
