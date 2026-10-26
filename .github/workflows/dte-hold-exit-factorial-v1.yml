@@ -3,10 +3,12 @@ on:
   push:
     branches:
       - research/dte-hold-exit-factorial-v1
+      - research/mode-c-capacity-gate-v1
     paths:
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/dte_hold_exit_factorial_replay_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/dte_hold_exit_factorial_report_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/mode_c_capacity_gate_v1.py
       - .github/workflows/dte-hold-exit-factorial-v1.yml
 
 permissions:
@@ -104,6 +106,9 @@ jobs:
           print("AUDIT PASS: 20 completed source-pinned runs; 240 phase cells; 48 settings; resolved-only annual additive P&L clearly labeled.")
           PY
           cat "$OUT/DTE_HOLD_EXIT_FACTORIAL_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+          "$PY" "$BASE/mode_c_capacity_gate_v1.py" --self-test
+          "$PY" "$BASE/mode_c_capacity_gate_v1.py"
+          cat "$OUT/MODE_C_CAPACITY_GATE_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit research outputs to isolated branch
         shell: bash
