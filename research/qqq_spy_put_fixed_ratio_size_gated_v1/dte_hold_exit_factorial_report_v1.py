@@ -80,7 +80,7 @@ def aggregate(cells):
     groups=defaultdict(list)
     for r in cells:groups[(r["dte_target"],r["hold_sessions"],r["expiry_guard_dte"],r["policy"])].append(r)
     out=[]
-    for (dte,h,g,p),rs in sorted(groups.items()):
+    for (dte,h,g,p),rs in sorted(groups.items(),key=lambda item:(item[0][0],item[0][1],99 if item[0][2] in (None,"") else int(item[0][2]),item[0][3])):
         vals=[num(r["annual_resolved_pnl_usd"]) for r in rs];vals=[v for v in vals if v is not None]
         out.append({"dte_target":dte,"dte_min":rs[0]["dte_min"],"dte_max":rs[0]["dte_max"],"hold_sessions":h,"expiry_guard_dte":g,"policy":p,
             "phase_count":len(rs),"median_annual_pnl_usd":med(vals),"min_annual_pnl_usd":round(min(vals),2) if vals else None,
