@@ -20,6 +20,7 @@ def med(v):
     x=[float(a) for a in v if a is not None and a!=""]
     return round(statistics.median(x),2) if x else None
 def money(v,d=0):return "n/a" if v is None or v=="" else "$"+f"{float(v):,.{d}f}"
+def pct(v,d=2):return "n/a" if v is None or v=="" else f"{float(v):.{d}f}%"
 def writecsv(path,rows):
     if not rows:raise SystemExit(f"empty output: {path}")
     with path.open("w",newline="",encoding="utf-8") as f:
@@ -119,7 +120,7 @@ def make_report(configs,effects,yr):
             L.append(f"| {fn} | {label} | {money(r['median_annual_pnl_across_other_settings_usd'])} | {money(r['level_median_spread_usd'])} |")
     L += ["","## Same exit: hold up to 20 sessions OR remaining DTE ≤ 7","","| Opening DTE target (band) | Median annual P&L | Min–max by phase | Phases ≥ USD12k | Median win rate | Median worst trade |","|---:|---:|---:|---:|---:|---:|"]
     for r in sorted([x for x in configs if x["hold_sessions"]==20 and str(x["expiry_guard_dte"])=="7"],key=lambda x:x["dte_target"]):
-        L.append(f"| DTE{r['dte_target']} ({r['dte_min']}–{r['dte_max']}) | {money(r['median_annual_pnl_usd'])} | {money(r['min_annual_pnl_usd'])}–{money(r['max_annual_pnl_usd'])} | {r['phases_ge_12000']}/5 | {r['median_win_rate_pct']:.2f}% | {money(r['median_worst_trade_usd'],2)} |")
+        L.append(f"| DTE{r['dte_target']} ({r['dte_min']}–{r['dte_max']}) | {money(r['median_annual_pnl_usd'])} | {money(r['min_annual_pnl_usd'])}–{money(r['max_annual_pnl_usd'])} | {r['phases_ge_12000']}/5 | {pct(r['median_win_rate_pct'])} | {money(r['median_worst_trade_usd'],2)} |")
     L += ["","## Same DTE target: DTE45 (band 39–51)","","| Max hold | Guard | Median annual P&L | Min–max by phase | Phases ≥ USD12k | Median expectancy/trade | Median worst trade |","|---:|---|---:|---:|---:|---:|---:|"]
     for r in sorted([x for x in configs if x["dte_target"]==45],key=lambda x:(x["hold_sessions"],99 if x["expiry_guard_dte"]=="" else int(x["expiry_guard_dte"]))):
         guard="None" if r["expiry_guard_dte"]=="" else f"DTE≤{r['expiry_guard_dte']}"
