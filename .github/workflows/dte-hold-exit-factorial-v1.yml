@@ -44,7 +44,8 @@ jobs:
           "$PY" -m py_compile \
             "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
             "$BASE/dte_hold_exit_factorial_replay_v1.py" \
-            "$BASE/dte_hold_exit_factorial_report_v1.py"
+            "$BASE/dte_hold_exit_factorial_report_v1.py" \
+            "$BASE/mode_c_capacity_gate_v1.py"
           grep -q 'expiry_guard_dte is not None' "$BASE/qqq_spy_put_premium_matched_phase_v1.py"
 
       - name: Replay DTE targets and five predeclared cadence anchors
@@ -78,14 +79,31 @@ jobs:
             done
           done
 
-      - name: Aggregate, audit and publish factorial matrix
+      - name: Persist raw source-pinned replay outputs before aggregation
         shell: bash
         run: |
           set -euo pipefail
+          ROOT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte_hold_exit_factorial_v1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$ROOT"/dte_*
+          if git diff --cached --quiet; then
+            echo "Raw replay inputs already persisted; no intermediate commit needed."
+          else
+            git commit -m "research: persist raw DTE factorial replay inputs"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
+      - name: Aggregate, audit and publish factorial matrix
+        shell: bash
+        run: |
+          set -euxo pipefail
           PY=.venv-dte-factorial/bin/python
           BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
           OUT="$BASE/results/dte_hold_exit_factorial_v1"
-          "$PY" "$BASE/dte_hold_exit_factorial_report_v1.py"
+          echo "AGGREGATE_BASELINE_REPORT_START"
+          "$PY" -u "$BASE/dte_hold_exit_factorial_report_v1.py"
+          echo "AGGREGATE_BASELINE_REPORT_PASS"
           test -s "$OUT/factorial_matrix.csv"
           test -s "$OUT/factorial_config_summary.csv"
           test -s "$OUT/factorial_main_effects.csv"
