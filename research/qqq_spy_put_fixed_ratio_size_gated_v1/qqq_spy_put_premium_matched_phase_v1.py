@@ -834,16 +834,23 @@ def run_replay(args):
                 trades.append(ep);continue
             policy=next(p for p in POLICIES if p["policy"]==ep["policy"])
             dte=(date.fromisoformat(ep["expiry"])-date.fromisoformat(day)).days
-            if policy["policy"] == "HOLD_20_OR_DTE_LE_7":
-                trigger=(ep["age_sessions"]>=20 or dte<=7)
+            hold_sessions = policy.get("hold_sessions")
+            expiry_guard_dte = policy.get("expiry_guard_dte")
+            if hold_sessions is None:
+                # Time-to-expiry-only policies retain the default DTE 7 when no explicit guard exists.
+                trigger = dte <= (expiry_guard_dte if expiry_guard_dte is not None else 7)
+            elif expiry_guard_dte is not None:
+                trigger = ep["age_sessions"] >= hold_sessions or dte <= expiry_guard_dte
             else:
-                trigger=ep["age_sessions"]>=policy["hold_sessions"] if policy["hold_sessions"] is not None else dte<=7
+                trigger = ep["age_sessions"] >= hold_sessions
             if trigger:
                 ep["pending_exit"]=True;ep["exit_signal_date"]=day;ep["exit_signal_index"]=idx
-                if policy["policy"] == "HOLD_20_OR_DTE_LE_7":
-                    ep["exit_reason"]="HOLD_20_OR_DTE_LE_7"
+                if hold_sessions is not None and expiry_guard_dte is not None:
+                    ep["exit_reason"]=f"HOLD_{hold_sessions}_OR_DTE_LE_{expiry_guard_dte}"
+                elif hold_sessions is not None:
+                    ep["exit_reason"]=f"HOLD_{hold_sessions}_SESSIONS"
                 else:
-                    ep["exit_reason"]=f"HOLD_{policy['hold_sessions']}_SESSIONS" if policy["hold_sessions"] is not None else "DTE_LE_7"
+                    ep["exit_reason"]=f"DTE_LE_{expiry_guard_dte if expiry_guard_dte is not None else 7}"
             remaining.append(ep)
         active=remaining
         if pending is not None:
