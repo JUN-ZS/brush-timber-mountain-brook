@@ -1,0 +1,1009 @@
+{
+  "schema": "qqq-spy-fixed-anchor-call-replay.v1",
+  "status": "COMPLETED_WITH_UNRESOLVEDS",
+  "source": {
+    "repository": "anahatsingh-ui/options-dataset-hist",
+    "tree_commit": "37f6c456fe1a4775c875673fb8ef907d5cd2fd66"
+  },
+  "window": {
+    "start": "2018-03-01",
+    "end": "2025-12-15"
+  },
+  "ratio": {
+    "method": "FIXED_RATIO_SIZE_GATED",
+    "description": "fixed QQQ LONG CALL 1 : SPY SHORT CALL 6; entry and exit require displayed side size for every contract",
+    "fixed_long_qqq_contracts": 1,
+    "fixed_short_spy_contracts": 6,
+    "max_total_contracts": 10,
+    "contract_multiplier": 100,
+    "mean_spy_call_delivery_obligation_usd": 272290.43
+  },
+  "premium_matching": {
+    "cohort_n": 115,
+    "ratio_counts": {
+      "1:6": 115
+    },
+    "mean_qqq_premium_debit_usd": 275.47,
+    "mean_spy_premium_credit_usd": 1471.2,
+    "mean_abs_mismatch_usd": 1195.73,
+    "median_abs_mismatch_usd": 1176.0,
+    "mean_match_pct": 18.71,
+    "median_match_pct": 19.05
+  },
+  "entry_filter": {
+    "name": "none",
+    "description": "No filter; entry when standard contract selection is available",
+    "lookback_sessions": 0,
+    "evaluated_sessions": 195,
+    "qualified_sessions": 195,
+    "rejected_sessions": 0
+  },
+  "selection": {
+    "target_abs_delta": 0.2,
+    "delta_eligible_band": [
+      0.1,
+      0.5
+    ],
+    "qqq_premium_match_short_qty": null,
+    "qqq_target_abs_delta": null,
+    "qqq_delta_tolerance": null,
+    "qqq_delta_band": null,
+    "qqq_premium_match_rule": "QQQ Delta nearest target",
+    "dte_min": 54,
+    "dte_max": 66,
+    "dte_target": 60,
+    "cohort_stride_sessions": 10,
+    "allow_overlapping_cohorts": true,
+    "initial_phase_sessions": 2,
+    "schedule_mode": "FIXED_ANCHOR_NO_REANCHOR",
+    "common_expiry_required": true
+  },
+  "costs": {
+    "base_slippage_per_option_share_usd": 0.05,
+    "base_commission_per_contract_per_side_usd": 0.65,
+    "alternative_slippage_per_option_share_usd": [
+      0.0,
+      0.025,
+      0.05,
+      0.1
+    ],
+    "alternative_commission_per_contract_per_side_usd": [
+      0.0,
+      0.65
+    ]
+  },
+  "position_size_sensitivity": {
+    "max_long_qqq_contracts": 6,
+    "max_short_spy_contracts": 6,
+    "max_total_contracts": 10,
+    "method": "fixed-ratio per-leg gross-P&L rescaling on the same selected contracts, quote dates and resolved cohort set; ratio sensitivity is not a fresh premium-matched selection replay; total contracts capped in displayed grid; no size-dependent market impact"
+  },
+  "coverage": {
+    "common_underlying_sessions": 1959,
+    "qqq_chain_dates": 1956,
+    "qqq_call_rows": 6067200,
+    "spy_chain_dates": 1957,
+    "spy_call_rows": 8336276,
+    "sessions_with_both_chains": 1955,
+    "qqq_last_chain_date": "2025-12-15",
+    "spy_last_chain_date": "2025-12-12",
+    "qqq_underlying_first_date": "1999-11-01",
+    "qqq_underlying_last_date": "2025-12-15",
+    "spy_underlying_first_date": "1999-11-01",
+    "spy_underlying_last_date": "2025-12-12",
+    "expected_common_first_date": "2018-03-01",
+    "expected_common_last_date": "2025-12-12"
+  },
+  "cohort": {
+    "selected_signals": 115,
+    "entered_cohorts": 115,
+    "entry_skipped": 0,
+    "entry_skip_rows": []
+  },
+  "fixed_entry_schedule": {
+    "mode": "FIXED_ANCHOR_NO_REANCHOR",
+    "phase_sessions": 2,
+    "stride_sessions": 10,
+    "scheduled_opportunities": 196,
+    "selected_signals": 115,
+    "skipped_opportunities": 81,
+    "skip_reason_counts": {
+      "NO_ELIGIBLE_COMMON_EXPIRY_PAIR": 80,
+      "MISSING_QQQ_AND_SPY_OPTION_CHAIN": 1
+    },
+    "skip_rows": [
+      {
+        "scheduled_index": 2,
+        "scheduled_signal_date": "2018-03-05",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 22,
+        "scheduled_signal_date": "2018-04-03",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 62,
+        "scheduled_signal_date": "2018-05-30",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 82,
+        "scheduled_signal_date": "2018-06-27",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 92,
+        "scheduled_signal_date": "2018-07-12",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 112,
+        "scheduled_signal_date": "2018-08-09",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 132,
+        "scheduled_signal_date": "2018-09-07",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 152,
+        "scheduled_signal_date": "2018-10-05",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 192,
+        "scheduled_signal_date": "2018-12-03",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 212,
+        "scheduled_signal_date": "2019-01-03",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 252,
+        "scheduled_signal_date": "2019-03-04",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 272,
+        "scheduled_signal_date": "2019-04-01",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 282,
+        "scheduled_signal_date": "2019-04-15",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 312,
+        "scheduled_signal_date": "2019-05-29",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 332,
+        "scheduled_signal_date": "2019-06-26",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 342,
+        "scheduled_signal_date": "2019-07-11",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 362,
+        "scheduled_signal_date": "2019-08-08",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 382,
+        "scheduled_signal_date": "2019-09-06",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 402,
+        "scheduled_signal_date": "2019-10-04",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 442,
+        "scheduled_signal_date": "2019-12-02",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 452,
+        "scheduled_signal_date": "2019-12-16",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 462,
+        "scheduled_signal_date": "2019-12-31",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 502,
+        "scheduled_signal_date": "2020-02-28",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 522,
+        "scheduled_signal_date": "2020-03-27",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 532,
+        "scheduled_signal_date": "2020-04-13",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 552,
+        "scheduled_signal_date": "2020-05-11",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 562,
+        "scheduled_signal_date": "2020-05-26",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 572,
+        "scheduled_signal_date": "2020-06-09",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 582,
+        "scheduled_signal_date": "2020-06-23",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "MISSING_QQQ_AND_SPY_OPTION_CHAIN"
+      },
+      {
+        "scheduled_index": 592,
+        "scheduled_signal_date": "2020-07-08",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 632,
+        "scheduled_signal_date": "2020-09-02",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 652,
+        "scheduled_signal_date": "2020-10-01",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 692,
+        "scheduled_signal_date": "2020-11-27",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 702,
+        "scheduled_signal_date": "2020-12-11",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 712,
+        "scheduled_signal_date": "2020-12-28",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 752,
+        "scheduled_signal_date": "2021-02-25",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 762,
+        "scheduled_signal_date": "2021-03-11",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 782,
+        "scheduled_signal_date": "2021-04-09",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 822,
+        "scheduled_signal_date": "2021-06-07",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 842,
+        "scheduled_signal_date": "2021-07-06",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 882,
+        "scheduled_signal_date": "2021-08-31",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 902,
+        "scheduled_signal_date": "2021-09-29",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 932,
+        "scheduled_signal_date": "2021-11-10",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 952,
+        "scheduled_signal_date": "2021-12-09",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 972,
+        "scheduled_signal_date": "2022-01-07",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1002,
+        "scheduled_signal_date": "2022-02-22",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1012,
+        "scheduled_signal_date": "2022-03-08",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1032,
+        "scheduled_signal_date": "2022-04-05",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1072,
+        "scheduled_signal_date": "2022-06-02",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1092,
+        "scheduled_signal_date": "2022-07-01",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1122,
+        "scheduled_signal_date": "2022-08-15",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1132,
+        "scheduled_signal_date": "2022-08-29",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1152,
+        "scheduled_signal_date": "2022-09-27",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1182,
+        "scheduled_signal_date": "2022-11-08",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1202,
+        "scheduled_signal_date": "2022-12-07",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1222,
+        "scheduled_signal_date": "2023-01-06",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1232,
+        "scheduled_signal_date": "2023-01-23",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1242,
+        "scheduled_signal_date": "2023-02-06",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1262,
+        "scheduled_signal_date": "2023-03-07",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1282,
+        "scheduled_signal_date": "2023-04-04",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1322,
+        "scheduled_signal_date": "2023-06-01",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1342,
+        "scheduled_signal_date": "2023-06-30",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1372,
+        "scheduled_signal_date": "2023-08-14",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1382,
+        "scheduled_signal_date": "2023-08-28",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1402,
+        "scheduled_signal_date": "2023-09-26",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1432,
+        "scheduled_signal_date": "2023-11-07",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1452,
+        "scheduled_signal_date": "2023-12-06",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1472,
+        "scheduled_signal_date": "2024-01-05",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1492,
+        "scheduled_signal_date": "2024-02-05",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1512,
+        "scheduled_signal_date": "2024-03-05",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1532,
+        "scheduled_signal_date": "2024-04-03",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1572,
+        "scheduled_signal_date": "2024-05-30",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1592,
+        "scheduled_signal_date": "2024-06-28",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1602,
+        "scheduled_signal_date": "2024-07-15",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1622,
+        "scheduled_signal_date": "2024-08-12",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1632,
+        "scheduled_signal_date": "2024-08-26",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1652,
+        "scheduled_signal_date": "2024-09-24",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1662,
+        "scheduled_signal_date": "2024-10-08",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1762,
+        "scheduled_signal_date": "2025-03-05",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1892,
+        "scheduled_signal_date": "2025-09-10",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      },
+      {
+        "scheduled_index": 1912,
+        "scheduled_signal_date": "2025-10-08",
+        "status": "SCHEDULE_SKIPPED",
+        "reason": "NO_ELIGIBLE_COMMON_EXPIRY_PAIR"
+      }
+    ]
+  },
+  "policies": {
+    "HOLD_5_SESSIONS": {
+      "policy": "HOLD_5_SESSIONS",
+      "opened": 115,
+      "resolved": 114,
+      "unresolved": 1,
+      "wins": 56,
+      "losses": 58,
+      "flat": 0,
+      "win_rate_pct": 49.1228,
+      "win_rate_wilson95_low_pct": 40.1252,
+      "win_rate_wilson95_high_pct": 58.1776,
+      "expectancy_net_usd": -212.450877,
+      "median_net_usd": -7.1,
+      "total_net_pnl_usd": -24219.4,
+      "best_net_usd": 1210.9,
+      "worst_net_usd": -3874.1,
+      "profit_factor": 0.489987,
+      "mean_qqq_long_gross_pnl_usd": 15.175439,
+      "mean_spy_short_gross_pnl_usd": -148.526316,
+      "resolved_coverage_pct": 99.130435,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_5_OR_DTE_LE_7": {
+      "policy": "HOLD_5_OR_DTE_LE_7",
+      "opened": 115,
+      "resolved": 114,
+      "unresolved": 1,
+      "wins": 56,
+      "losses": 58,
+      "flat": 0,
+      "win_rate_pct": 49.1228,
+      "win_rate_wilson95_low_pct": 40.1252,
+      "win_rate_wilson95_high_pct": 58.1776,
+      "expectancy_net_usd": -212.450877,
+      "median_net_usd": -7.1,
+      "total_net_pnl_usd": -24219.4,
+      "best_net_usd": 1210.9,
+      "worst_net_usd": -3874.1,
+      "profit_factor": 0.489987,
+      "mean_qqq_long_gross_pnl_usd": 15.175439,
+      "mean_spy_short_gross_pnl_usd": -148.526316,
+      "resolved_coverage_pct": 99.130435,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_5_OR_DTE_LE_14": {
+      "policy": "HOLD_5_OR_DTE_LE_14",
+      "opened": 115,
+      "resolved": 114,
+      "unresolved": 1,
+      "wins": 56,
+      "losses": 58,
+      "flat": 0,
+      "win_rate_pct": 49.1228,
+      "win_rate_wilson95_low_pct": 40.1252,
+      "win_rate_wilson95_high_pct": 58.1776,
+      "expectancy_net_usd": -212.450877,
+      "median_net_usd": -7.1,
+      "total_net_pnl_usd": -24219.4,
+      "best_net_usd": 1210.9,
+      "worst_net_usd": -3874.1,
+      "profit_factor": 0.489987,
+      "mean_qqq_long_gross_pnl_usd": 15.175439,
+      "mean_spy_short_gross_pnl_usd": -148.526316,
+      "resolved_coverage_pct": 99.130435,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_10_SESSIONS": {
+      "policy": "HOLD_10_SESSIONS",
+      "opened": 115,
+      "resolved": 114,
+      "unresolved": 1,
+      "wins": 60,
+      "losses": 54,
+      "flat": 0,
+      "win_rate_pct": 52.6316,
+      "win_rate_wilson95_low_pct": 43.5304,
+      "win_rate_wilson95_high_pct": 61.5612,
+      "expectancy_net_usd": -306.977193,
+      "median_net_usd": 99.9,
+      "total_net_pnl_usd": -34995.4,
+      "best_net_usd": 1523.9,
+      "worst_net_usd": -5389.1,
+      "profit_factor": 0.476707,
+      "mean_qqq_long_gross_pnl_usd": 37.017544,
+      "mean_spy_short_gross_pnl_usd": -264.894737,
+      "resolved_coverage_pct": 99.130435,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_10_OR_DTE_LE_7": {
+      "policy": "HOLD_10_OR_DTE_LE_7",
+      "opened": 115,
+      "resolved": 114,
+      "unresolved": 1,
+      "wins": 60,
+      "losses": 54,
+      "flat": 0,
+      "win_rate_pct": 52.6316,
+      "win_rate_wilson95_low_pct": 43.5304,
+      "win_rate_wilson95_high_pct": 61.5612,
+      "expectancy_net_usd": -306.977193,
+      "median_net_usd": 99.9,
+      "total_net_pnl_usd": -34995.4,
+      "best_net_usd": 1523.9,
+      "worst_net_usd": -5389.1,
+      "profit_factor": 0.476707,
+      "mean_qqq_long_gross_pnl_usd": 37.017544,
+      "mean_spy_short_gross_pnl_usd": -264.894737,
+      "resolved_coverage_pct": 99.130435,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_10_OR_DTE_LE_14": {
+      "policy": "HOLD_10_OR_DTE_LE_14",
+      "opened": 115,
+      "resolved": 114,
+      "unresolved": 1,
+      "wins": 60,
+      "losses": 54,
+      "flat": 0,
+      "win_rate_pct": 52.6316,
+      "win_rate_wilson95_low_pct": 43.5304,
+      "win_rate_wilson95_high_pct": 61.5612,
+      "expectancy_net_usd": -306.977193,
+      "median_net_usd": 99.9,
+      "total_net_pnl_usd": -34995.4,
+      "best_net_usd": 1523.9,
+      "worst_net_usd": -5389.1,
+      "profit_factor": 0.476707,
+      "mean_qqq_long_gross_pnl_usd": 37.017544,
+      "mean_spy_short_gross_pnl_usd": -264.894737,
+      "resolved_coverage_pct": 99.130435,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_15_SESSIONS": {
+      "policy": "HOLD_15_SESSIONS",
+      "opened": 115,
+      "resolved": 113,
+      "unresolved": 2,
+      "wins": 64,
+      "losses": 49,
+      "flat": 0,
+      "win_rate_pct": 56.6372,
+      "win_rate_wilson95_low_pct": 47.4305,
+      "win_rate_wilson95_high_pct": 65.4075,
+      "expectancy_net_usd": -307.392035,
+      "median_net_usd": 172.9,
+      "total_net_pnl_usd": -34735.3,
+      "best_net_usd": 1629.9,
+      "worst_net_usd": -8425.1,
+      "profit_factor": 0.525298,
+      "mean_qqq_long_gross_pnl_usd": 59.283186,
+      "mean_spy_short_gross_pnl_usd": -287.575221,
+      "resolved_coverage_pct": 98.26087,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_15_OR_DTE_LE_7": {
+      "policy": "HOLD_15_OR_DTE_LE_7",
+      "opened": 115,
+      "resolved": 113,
+      "unresolved": 2,
+      "wins": 64,
+      "losses": 49,
+      "flat": 0,
+      "win_rate_pct": 56.6372,
+      "win_rate_wilson95_low_pct": 47.4305,
+      "win_rate_wilson95_high_pct": 65.4075,
+      "expectancy_net_usd": -307.392035,
+      "median_net_usd": 172.9,
+      "total_net_pnl_usd": -34735.3,
+      "best_net_usd": 1629.9,
+      "worst_net_usd": -8425.1,
+      "profit_factor": 0.525298,
+      "mean_qqq_long_gross_pnl_usd": 59.283186,
+      "mean_spy_short_gross_pnl_usd": -287.575221,
+      "resolved_coverage_pct": 98.26087,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_15_OR_DTE_LE_14": {
+      "policy": "HOLD_15_OR_DTE_LE_14",
+      "opened": 115,
+      "resolved": 113,
+      "unresolved": 2,
+      "wins": 64,
+      "losses": 49,
+      "flat": 0,
+      "win_rate_pct": 56.6372,
+      "win_rate_wilson95_low_pct": 47.4305,
+      "win_rate_wilson95_high_pct": 65.4075,
+      "expectancy_net_usd": -307.392035,
+      "median_net_usd": 172.9,
+      "total_net_pnl_usd": -34735.3,
+      "best_net_usd": 1629.9,
+      "worst_net_usd": -8425.1,
+      "profit_factor": 0.525298,
+      "mean_qqq_long_gross_pnl_usd": 59.283186,
+      "mean_spy_short_gross_pnl_usd": -287.575221,
+      "resolved_coverage_pct": 98.26087,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_20_SESSIONS": {
+      "policy": "HOLD_20_SESSIONS",
+      "opened": 115,
+      "resolved": 113,
+      "unresolved": 2,
+      "wins": 56,
+      "losses": 57,
+      "flat": 0,
+      "win_rate_pct": 49.5575,
+      "win_rate_wilson95_low_pct": 40.5063,
+      "win_rate_wilson95_high_pct": 58.6378,
+      "expectancy_net_usd": -445.949558,
+      "median_net_usd": -15.1,
+      "total_net_pnl_usd": -50392.3,
+      "best_net_usd": 1816.9,
+      "worst_net_usd": -7642.1,
+      "profit_factor": 0.451427,
+      "mean_qqq_long_gross_pnl_usd": 83.840708,
+      "mean_spy_short_gross_pnl_usd": -450.690265,
+      "resolved_coverage_pct": 98.26087,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_20_OR_DTE_LE_7": {
+      "policy": "HOLD_20_OR_DTE_LE_7",
+      "opened": 115,
+      "resolved": 113,
+      "unresolved": 2,
+      "wins": 56,
+      "losses": 57,
+      "flat": 0,
+      "win_rate_pct": 49.5575,
+      "win_rate_wilson95_low_pct": 40.5063,
+      "win_rate_wilson95_high_pct": 58.6378,
+      "expectancy_net_usd": -445.949558,
+      "median_net_usd": -15.1,
+      "total_net_pnl_usd": -50392.3,
+      "best_net_usd": 1816.9,
+      "worst_net_usd": -7642.1,
+      "profit_factor": 0.451427,
+      "mean_qqq_long_gross_pnl_usd": 83.840708,
+      "mean_spy_short_gross_pnl_usd": -450.690265,
+      "resolved_coverage_pct": 98.26087,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    },
+    "HOLD_20_OR_DTE_LE_14": {
+      "policy": "HOLD_20_OR_DTE_LE_14",
+      "opened": 115,
+      "resolved": 113,
+      "unresolved": 2,
+      "wins": 56,
+      "losses": 57,
+      "flat": 0,
+      "win_rate_pct": 49.5575,
+      "win_rate_wilson95_low_pct": 40.5063,
+      "win_rate_wilson95_high_pct": 58.6378,
+      "expectancy_net_usd": -445.949558,
+      "median_net_usd": -15.1,
+      "total_net_pnl_usd": -50392.3,
+      "best_net_usd": 1816.9,
+      "worst_net_usd": -7642.1,
+      "profit_factor": 0.451427,
+      "mean_qqq_long_gross_pnl_usd": 83.840708,
+      "mean_spy_short_gross_pnl_usd": -450.690265,
+      "resolved_coverage_pct": 98.26087,
+      "denominator_definition": "wins / resolved episodes for this policy; unresolved episodes counted separately"
+    }
+  },
+  "limitations": [
+    "Public EOD preservation mirror; hashes establish file identity, not exchange or OPRA authenticity.",
+    "EOD quotes are not verified fills; displayed size is a screening gate, not guaranteed multi-leg execution.",
+    "Conservative sides: QQQ LONG enters Ask/exits Bid; SPY SHORT enters Bid/exits Ask.",
+    "Missing exit quotes/size at expiry or source end remain unresolved; win-rate denominator is resolved episodes only.",
+    "Option chain source ends in 2025; no 2026 performance is observed here.",
+    "Nominal Wilson interval does not correct for regime clustering, dependence, or prior strategy selection.",
+    "Expiry shock grid charges entry-side slippage/commission once and uses intrinsic-value payoff; exercise/assignment fees, broker margin, forced liquidation, financing and interim path are not modeled.",
+    "Equal premium debit/credit does not equalize Delta, max loss, collateral or assignment risk; SPY short call can dominate downside even when QQQ long call appreciates.",
+    "Fixed-cohort replay does not model portfolio compounding, taxes, financing, or verified fills.",
+    "When overlapping cohorts are enabled, multiple fixed-size trades can be open at once; total portfolio cash, margin, forced liquidation, and stacked assignment obligations are not constrained by this replay."
+  ],
+  "source_integrity": [
+    {
+      "symbol": "QQQ",
+      "file": "options_2018.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 29215815,
+      "git_blob_sha": "4a130fe579ee141c5836ccaaf093c0cb752ebb19"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2019.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 30998008,
+      "git_blob_sha": "95386cb37a6b1ca757e7fd6a0b0fd458c91e04ca"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2020.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 59412637,
+      "git_blob_sha": "9d7abe1144c55e0091d28eca61deec4ac72393a5"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2021.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 74224966,
+      "git_blob_sha": "3488cffd498a8851861a8dca7d1849a748bc759d"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2022.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 69941736,
+      "git_blob_sha": "e9bcb16986835e3eba304300aeb6d6a8ed56bbe9"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2023.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 71647343,
+      "git_blob_sha": "bbaa5aeefc54c76628142a6e95c7424995049063"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2024.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 82434832,
+      "git_blob_sha": "40c1c2fd986da9b5bcf363cd44c9d5ac3eecc8c3"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "options_2025.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 85765453,
+      "git_blob_sha": "e92ad6b5c2e757d2c869f747a94853e630142cbf"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2018.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 36266339,
+      "git_blob_sha": "473e4fe80281ca9371b5f531b97f19394e8e2814"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2019.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 41731396,
+      "git_blob_sha": "2d06f2ca587452ea9a6ffa52e6ddc4262c3e6f4d"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2020.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 59100008,
+      "git_blob_sha": "f0093698ac9fbbe7dbd9159735fcb73ff9418ff2"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2021.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 64071426,
+      "git_blob_sha": "459555aaed9be451a504d68d2db6cce4b94c3a6d"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2022.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 57070606,
+      "git_blob_sha": "f0a15b8263b7650147bfa62bce2cd44d59ef17a5"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2023.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 47343699,
+      "git_blob_sha": "ead8adeee0689d26e49f5b39f6d5536443931ac3"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2024.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 56948550,
+      "git_blob_sha": "8e0b7ca48dffa92fe93ceeffefdfce8557eab74a"
+    },
+    {
+      "symbol": "SPY",
+      "file": "options_2025.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 58216546,
+      "git_blob_sha": "133bf1d95c3479149bf4771bc8b3fd8b625064ce"
+    },
+    {
+      "symbol": "QQQ",
+      "file": "underlying_prices.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 332454,
+      "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a"
+    },
+    {
+      "symbol": "SPY",
+      "file": "underlying_prices.parquet",
+      "status": "CACHED_HASH_VERIFIED",
+      "bytes": 252066,
+      "git_blob_sha": "4c22934a77ba09ced10fd1c413b5d8c9e0cb4a8d"
+    }
+  ]
+}

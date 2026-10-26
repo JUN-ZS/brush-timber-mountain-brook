@@ -815,7 +815,7 @@ def run_replay(args):
                     vals=episode_pnl(ep,float(qrow["bid"]),float(srow["ask"]),args.slippage_per_share,args.commission_per_contract_per_side)
                     qspot,sspot=qspots.get(day),sspots.get(day);ep.update(vals)
                     ep.update(qqq_value_decomposition(ep,float(qrow["bid"]),qspot,qrow))
-                    ep.update({"status":"RESOLVED","exit_date":day,"exit_qqq_bid":float(qrow["bid"]),"exit_spy_ask":float(srow["ask"]),
+                    ep.update({"status":"RESOLVED","exit_date":day,"exit_index":idx,"exit_qqq_bid":float(qrow["bid"]),"exit_spy_ask":float(srow["ask"]),
                         "exit_delay_sessions":idx-ep["exit_signal_index"],"exit_quote_status":"VALID_SIZED_SIDE_QUOTES",
                         "qqq_return_pct":finite_round((qspot/ep["qqq_spot_entry"]-1)*100) if qspot else None,
                         "spy_return_pct":finite_round((sspot/ep["spy_spot_entry"]-1)*100) if sspot else None})
@@ -1038,7 +1038,7 @@ def run_replay(args):
         "qqq_otm_pct_signal","qqq_moneyness_signal","spy_otm_pct_signal","spy_moneyness_signal",
         "qqq_otm_pct_entry","qqq_moneyness_entry","spy_otm_pct_entry","spy_moneyness_entry",
         "entry_filter","qqq_minus_spy_trailing_return_pct","long_qqq_qty","short_spy_qty","premium_match_pct"])
-    write_csv(out/"trade_episodes.csv",trades,["episode_id","policy","status","net_pnl_usd"])
+    write_csv(out/"trade_episodes.csv",trades,["episode_id","policy","status","signal_date","signal_index","entry_date","entry_index","expiry","signal_dte","qqq_contract_id","spy_contract_id","qqq_strike","spy_strike","long_qqq_qty","short_spy_qty","spy_put_strike_assignment_obligation_usd","exit_signal_date","exit_signal_index","exit_index","exit_date","exit_delay_sessions","exit_reason","exit_qqq_bid","exit_spy_ask","last_observed_date","unresolved_reason","net_pnl_usd","max_adverse_mark_pnl_usd","max_favorable_mark_pnl_usd"])
     write_csv(out/"entry_skips.csv",skips,["episode_id","signal_date","signal_index","status","reason"])
     write_csv(out/"scheduled_signal_skips.csv",schedule_skips,["scheduled_index","scheduled_signal_date","status","reason"])
     write_csv(out/"cost_sensitivity.csv",costs);write_csv(out/"expiry_shock_grid.csv",shock)

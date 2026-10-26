@@ -20,6 +20,7 @@ def med(v):
     x=[float(a) for a in v if a is not None and a!=""]
     return round(statistics.median(x),2) if x else None
 def money(v,d=0):return "n/a" if v is None or v=="" else "$"+f"{float(v):,.{d}f}"
+def pct(v,d=2):return "n/a" if v is None or v=="" else f"{float(v):.{d}f}%"
 def writecsv(path,rows):
     if not rows:raise SystemExit(f"empty output: {path}")
     with path.open("w",newline="",encoding="utf-8") as f:
@@ -80,7 +81,7 @@ def aggregate(cells):
     groups=defaultdict(list)
     for r in cells:groups[(r["dte_target"],r["hold_sessions"],r["expiry_guard_dte"],r["policy"])].append(r)
     out=[]
-    for (dte,h,g,p),rs in sorted(groups.items()):
+    for (dte,h,g,p),rs in sorted(groups.items(),key=lambda item:(item[0][0],item[0][1],99 if item[0][2] in (None,"") else int(item[0][2]),item[0][3])):
         vals=[num(r["annual_resolved_pnl_usd"]) for r in rs];vals=[v for v in vals if v is not None]
         out.append({"dte_target":dte,"dte_min":rs[0]["dte_min"],"dte_max":rs[0]["dte_max"],"hold_sessions":h,"expiry_guard_dte":g,"policy":p,
             "phase_count":len(rs),"median_annual_pnl_usd":med(vals),"min_annual_pnl_usd":round(min(vals),2) if vals else None,
@@ -119,7 +120,7 @@ def make_report(configs,effects,yr):
             L.append(f"| {fn} | {label} | {money(r['median_annual_pnl_across_other_settings_usd'])} | {money(r['level_median_spread_usd'])} |")
     L += ["","## Same exit: hold up to 20 sessions OR remaining DTE ≤ 7","","| Opening DTE target (band) | Median annual P&L | Min–max by phase | Phases ≥ USD12k | Median win rate | Median worst trade |","|---:|---:|---:|---:|---:|---:|"]
     for r in sorted([x for x in configs if x["hold_sessions"]==20 and str(x["expiry_guard_dte"])=="7"],key=lambda x:x["dte_target"]):
-        L.append(f"| DTE{r['dte_target']} ({r['dte_min']}–{r['dte_max']}) | {money(r['median_annual_pnl_usd'])} | {money(r['min_annual_pnl_usd'])}–{money(r['max_annual_pnl_usd'])} | {r['phases_ge_12000']}/5 | {r['median_win_rate_pct']:.2f}% | {money(r['median_worst_trade_usd'],2)} |")
+        L.append(f"| DTE{r['dte_target']} ({r['dte_min']}–{r['dte_max']}) | {money(r['median_annual_pnl_usd'])} | {money(r['min_annual_pnl_usd'])}–{money(r['max_annual_pnl_usd'])} | {r['phases_ge_12000']}/5 | {pct(r['median_win_rate_pct'])} | {money(r['median_worst_trade_usd'],2)} |")
     L += ["","## Same DTE target: DTE45 (band 39–51)","","| Max hold | Guard | Median annual P&L | Min–max by phase | Phases ≥ USD12k | Median expectancy/trade | Median worst trade |","|---:|---|---:|---:|---:|---:|---:|"]
     for r in sorted([x for x in configs if x["dte_target"]==45],key=lambda x:(x["hold_sessions"],99 if x["expiry_guard_dte"]=="" else int(x["expiry_guard_dte"]))):
         guard="None" if r["expiry_guard_dte"]=="" else f"DTE≤{r['expiry_guard_dte']}"
@@ -127,7 +128,7 @@ def make_report(configs,effects,yr):
     L += ["","## All 48 settings across five phases","","| Target DTE (band) | Hold | Guard | Median annual P&L | Min–max | ≥USD12k phases | Resolved | Unresolved | Win rate | Worst trade | Peak overlaps |","|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for r in sorted(configs,key=lambda x:(x["dte_target"],x["hold_sessions"],99 if x["expiry_guard_dte"]=="" else int(x["expiry_guard_dte"]))):
         g="none" if r["expiry_guard_dte"]=="" else f"≤{r['expiry_guard_dte']}"
-        L.append(f"| DTE{r['dte_target']} ({r['dte_min']}–{r['dte_max']}) | {r['hold_sessions']} | {g} | {money(r['median_annual_pnl_usd'])} | {money(r['min_annual_pnl_usd'])}–{money(r['max_annual_pnl_usd'])} | {r['phases_ge_12000']}/5 | {r['median_resolved']:.0f} | {r['median_unresolved']:.0f} | {r['median_win_rate_pct']:.2f}% | {money(r['median_worst_trade_usd'],2)} | {r['median_peak_overlap']:.0f} |")
+        L.append(f"| DTE{r['dte_target']} ({r['dte_min']}–{r['dte_max']}) | {r['hold_sessions']} | {g} | {money(r['median_annual_pnl_usd'])} | {money(r['min_annual_pnl_usd'])}–{money(r['max_annual_pnl_usd'])} | {r['phases_ge_12000']}/5 | {r['median_resolved']:.0f} | {r['median_unresolved']:.0f} | {pct(r['median_win_rate_pct'])} | {money(r['median_worst_trade_usd'],2)} | {r['median_peak_overlap']:.0f} |")
     L += ["","## Calendar-year concentration: DTE45 / hold 20 / guard 7","","Resolved P&L grouped by exit year, shown per phase anchor.","","| Phase | "+" | ".join(map(str,range(2018,2026)))+" |","|---:|"+"---:|"*8]
     chosen=[r for r in yr if r["dte_target"]==45 and r["hold_sessions"]==20 and str(r["expiry_guard_dte"])=="7"]
     for phase in PHASES:
