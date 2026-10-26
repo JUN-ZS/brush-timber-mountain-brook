@@ -1,0 +1,121 @@
+name: "DTE hold and exit factorial research grid"
+on:
+  push:
+    branches:
+      - research/dte-hold-exit-factorial-v1
+    paths:
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/dte_hold_exit_factorial_replay_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/dte_hold_exit_factorial_report_v1.py
+      - .github/workflows/dte-hold-exit-factorial-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dte-hold-exit-factorial-v1
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pinned parquet dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-dte-factorial
+          .venv-dte-factorial/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and validate replay code
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-dte-factorial/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          "$PY" -m py_compile \
+            "$BASE/qqq_spy_put_premium_matched_phase_v1.py" \
+            "$BASE/dte_hold_exit_factorial_replay_v1.py" \
+            "$BASE/dte_hold_exit_factorial_report_v1.py"
+          grep -q 'expiry_guard_dte is not None' "$BASE/qqq_spy_put_premium_matched_phase_v1.py"
+
+      - name: Replay DTE targets and five predeclared cadence anchors
+        shell: bash
+        timeout-minutes: 345
+        run: |
+          set -euo pipefail
+          PY=.venv-dte-factorial/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          ROOT="$BASE/results/dte_hold_exit_factorial_v1"
+          CACHE="$HOME/.cache/qqq-spy-dte-hold-exit-v1"
+          mkdir -p "$ROOT"
+          for DTE in 20 30 45 60; do
+            for PHASE in 0 2 4 6 8; do
+              TARGET="$ROOT/dte_"$DTE"/phase_"$PHASE
+              if test -s "$TARGET/summary.json" \
+                && test -s "$TARGET/summary.md" \
+                && test -s "$TARGET/trade_episodes.csv" \
+                && test -s "$TARGET/factorial_policy_summary.json"; then
+                echo "Reusing completed DTE=$DTE phase=$PHASE run."
+                continue
+              fi
+              echo "Starting DTE=$DTE phase=$PHASE, testing all hold/guard policies."
+              "$PY" "$BASE/dte_hold_exit_factorial_replay_v1.py" \
+                --dte-target "$DTE" --phase "$PHASE" \
+                --start 2018-03-01 --end 2025-12-15 \
+                --qqq-cache "$CACHE/qqq" --spy-cache "$CACHE/spy"
+              for FILE in summary.json summary.md trade_episodes.csv factorial_policy_summary.json source_manifest.json; do
+                test -s "$TARGET/$FILE"
+              done
+            done
+          done
+
+      - name: Aggregate, audit and publish factorial matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-dte-factorial/bin/python
+          BASE=research/qqq_spy_put_fixed_ratio_size_gated_v1
+          OUT="$BASE/results/dte_hold_exit_factorial_v1"
+          "$PY" "$BASE/dte_hold_exit_factorial_report_v1.py"
+          test -s "$OUT/factorial_matrix.csv"
+          test -s "$OUT/factorial_config_summary.csv"
+          test -s "$OUT/factorial_main_effects.csv"
+          test -s "$OUT/factorial_calendar_year_pnl.csv"
+          test -s "$OUT/DTE_HOLD_EXIT_FACTORIAL_REPORT.md"
+          "$PY" - <<'PY'
+          import csv
+          from pathlib import Path
+          out=Path("research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte_hold_exit_factorial_v1")
+          with (out/"factorial_matrix.csv").open(newline="",encoding="utf-8") as f:
+              rows=list(csv.DictReader(f))
+          assert len(rows)==240, f"expected 240 phase cells, got {len(rows)}"
+          assert len({(r["dte_target"],r["hold_sessions"],r["expiry_guard_dte"],r["phase_sessions"]) for r in rows})==240
+          assert all(r["status"].startswith("COMPLETED") for r in rows)
+          with (out/"factorial_config_summary.csv").open(newline="",encoding="utf-8") as f:
+              configs=list(csv.DictReader(f))
+          assert len(configs)==48, f"expected 48 configurations, got {len(configs)}"
+          print("AUDIT PASS: 20 completed source-pinned runs; 240 phase cells; 48 settings; resolved-only annual additive P&L clearly labeled.")
+          PY
+          cat "$OUT/DTE_HOLD_EXIT_FACTORIAL_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit research outputs to isolated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=research/qqq_spy_put_fixed_ratio_size_gated_v1/results/dte_hold_exit_factorial_v1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          if git diff --cached --quiet; then
+            echo "No new result changes."
+            exit 0
+          fi
+          git commit -m "research: publish DTE hold exit factorial replay"
+          git push origin "HEAD:$GITHUB_REF_NAME"
