@@ -1,0 +1,12 @@
+factor,level,median_annual_pnl_across_other_settings_usd,factor_spread_usd
+Opening DTE target,20,1436.44,5183.58
+Opening DTE target,30,4025.73,5183.58
+Opening DTE target,45,6107.75,5183.58
+Opening DTE target,60,6620.02,5183.58
+Max holding sessions,5,2355.67,5095.93
+Max holding sessions,10,4608.21,5095.93
+Max holding sessions,15,7134.59,5095.93
+Max holding sessions,20,7451.6,5095.93
+Early-exit DTE guard,none,3740.36,816.41
+Early-exit DTE guard,7,4498.43,816.41
+Early-exit DTE guard,14,4556.77,816.41
