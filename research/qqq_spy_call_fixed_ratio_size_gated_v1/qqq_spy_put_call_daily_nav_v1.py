@@ -565,7 +565,86 @@ def audit_trade_pnl_reconciliation(positions):
             "method": "QQQ_LONG gross minus leg cost + SPY_SHORT gross minus leg cost equals source trade net P&L"}
 
 
-def render_report(stock, summaries, diagnostics, quote_audit, quote_integrity, pnl_audit):
+def audit_daily_leg_mark_coverage(positions, leg_rows, dates, date_to_index):
+    """Require one finite valuation row for every selected option leg on every held session."""
+    if not dates:
+        raise RuntimeError("cannot audit option-leg marks without dates")
+
+    def key(row):
+        return tuple(str(row.get(k) or "") for k in (
+            "phase_sessions", "strategy", "signal_date", "leg_name", "contract_id", "entry_date"
+        ))
+
+    expected_by_key = {}
+    for pos in positions:
+        pos_key = key(pos)
+        if pos_key in expected_by_key:
+            raise RuntimeError(f"duplicate option position key in daily valuation audit: {pos_key}")
+        entry_day = daystr(pos.get("entry_date"))
+        if entry_day not in date_to_index:
+            raise RuntimeError(f"entry date missing from valuation calendar: {pos_key} {entry_day}")
+        start_index = date_to_index[entry_day]
+        terminal_kind = str(pos.get("terminal_kind") or "OPEN_END")
+        terminal_day = daystr(pos.get("terminal_date"))
+        if terminal_kind in ("RESOLVED", "INTRINSIC_SETTLEMENT_PROXY"):
+            if terminal_day not in date_to_index:
+                raise RuntimeError(f"terminal date missing from valuation calendar: {pos_key} {terminal_day}")
+            end_index = date_to_index[terminal_day]
+        else:
+            end_index = len(dates) - 1
+        if end_index < start_index:
+            raise RuntimeError(f"option position terminal date precedes entry: {pos_key}")
+        expected_by_key[pos_key] = set(dates[start_index:end_index + 1])
+
+    actual_by_key = defaultdict(list)
+    invalid_rows = []
+    for row in leg_rows:
+        row_key = key(row)
+        actual_by_key[row_key].append(str(row.get("date") or ""))
+        if number(row.get("mark_price")) is None or not str(row.get("valuation_method") or ""):
+            invalid_rows.append({"key": row_key, "date": row.get("date"),
+                                 "mark_price": row.get("mark_price"),
+                                 "valuation_method": row.get("valuation_method")})
+
+    missing = []
+    extra = []
+    duplicate = []
+    for pos_key, expected_days in expected_by_key.items():
+        observed_list = actual_by_key.get(pos_key, [])
+        observed_days = set(observed_list)
+        if len(observed_list) != len(observed_days):
+            duplicate.append({"key": pos_key, "count": len(observed_list),
+                              "unique_dates": len(observed_days)})
+        for d in sorted(expected_days - observed_days):
+            missing.append({"key": pos_key, "date": d})
+        for d in sorted(observed_days - expected_days):
+            extra.append({"key": pos_key, "date": d})
+    unknown_keys = sorted(set(actual_by_key) - set(expected_by_key))
+    if unknown_keys:
+        extra.extend({"key": k, "date": d} for k in unknown_keys for d in sorted(set(actual_by_key[k])))
+    if missing or extra or duplicate or invalid_rows:
+        raise RuntimeError(
+            "daily option-leg valuation coverage failed: "
+            f"missing={len(missing)}, extra={len(extra)}, duplicates={len(duplicate)}, "
+            f"invalid_rows={len(invalid_rows)}; "
+            f"samples={{'missing':{missing[:3]},'extra':{extra[:3]},"
+            f"'duplicates':{duplicate[:3]},'invalid':{invalid_rows[:3]}}}"
+        )
+    expected_rows = sum(len(v) for v in expected_by_key.values())
+    return {
+        "status": "PASS",
+        "position_legs": len(expected_by_key),
+        "expected_daily_leg_mark_rows": expected_rows,
+        "actual_daily_leg_mark_rows": len(leg_rows),
+        "missing_daily_leg_marks": 0,
+        "duplicate_daily_leg_marks": 0,
+        "extra_daily_leg_marks": 0,
+        "invalid_or_unpriced_leg_marks": 0,
+        "method": "Exact one-to-one coverage by phase/strategy/signal/leg/contract: every session from entry through exit/expiry settlement or source end.",
+    }
+
+
+def render_report(stock, summaries, diagnostics, quote_audit, quote_integrity, pnl_audit, leg_coverage_audit):
     lines = [
         "# Daily portfolio NAV and maximum drawdown — DTE20 / exit DTE <= 4", "",
         f"- Replay period: {START} through {summaries[0]['end_date']}; {summaries[0]['daily_rows']} common-session marks per phase.",
@@ -582,6 +661,7 @@ def render_report(stock, summaries, diagnostics, quote_audit, quote_integrity, p
         f"- Entry-leg source quotes reconciled: {quote_audit['entry_leg_quotes_reconciled']}; resolved exit-leg quotes reconciled: {quote_audit['resolved_exit_leg_quotes_reconciled']}.",
         f"- Missing entry quotes: {quote_audit['entry_quotes_missing']}; missing exit quotes: {quote_audit['exit_quotes_missing']}; price mismatches: {quote_audit['entry_exit_price_mismatches']}.",
         f"- Resolved two-leg trade P&L reconciled to source replay: {pnl_audit['resolved_trade_groups_reconciled']}; mismatches: {pnl_audit['mismatches']}.",
+        f"- Daily option-leg valuation coverage: {leg_coverage_audit['actual_daily_leg_mark_rows']}/{leg_coverage_audit['expected_daily_leg_mark_rows']} expected leg-session marks; missing/duplicate/unpriced: {leg_coverage_audit['missing_daily_leg_marks']}/{leg_coverage_audit['duplicate_daily_leg_marks']}/{leg_coverage_audit['invalid_or_unpriced_leg_marks']}.",
         f"- SHA-pinned option parquet files scanned: {len(quote_integrity)}; source {put_engine.SOURCE_REPO}@{put_engine.SOURCE_COMMIT}.", "",
         "## Daily NAV and maximum drawdown by independent phase", "",
         "| Phase | Strict matches | Admitted | Skipped | Start NAV | End NAV | Change | Max DD USD | Max DD % | Peak | Trough | Final realized option P&L | Final open option P&L | Max SPY put obligation | Max SPY call delivery notional | Max stale age |",
@@ -650,11 +730,9 @@ def generate(stock_value, current_price, current_price_date):
         all_legs.extend(legs)
 
     expected_daily = len(dates) * len(PHASES)
-    expected_legs_minimum = 4 * sum(len(x) for x in positions_by_phase.values())
     if len(all_daily) != expected_daily:
         raise RuntimeError(f"daily NAV coverage mismatch: got {len(all_daily)}, expected {expected_daily}")
-    if len(all_legs) < expected_legs_minimum:
-        raise RuntimeError(f"option-leg marking coverage mismatch: got {len(all_legs)}, minimum {expected_legs_minimum}")
+    leg_coverage_audit = audit_daily_leg_mark_coverage(all_positions, all_legs, dates, date_to_index)
     max_stale_age = max(int(r["max_quote_staleness_sessions"]) for r in summaries)
     if max_stale_age > 10:
         raise RuntimeError(f"stale option valuation exceeded 10 common sessions; refusing acceptance: {max_stale_age}")
@@ -664,7 +742,7 @@ def generate(stock_value, current_price, current_price_date):
         "source_dates": [dates[0], dates[-1]], "common_sessions": len(dates), "phases": list(PHASES),
         "daily_nav_rows": len(all_daily), "daily_nav_rows_expected": expected_daily,
         "admitted_matched_baskets": sum(len(x) for x in positions_by_phase.values()),
-        "option_leg_mark_rows": len(all_legs), "minimum_option_leg_mark_rows": expected_legs_minimum,
+        "option_leg_mark_rows": len(all_legs), "daily_leg_mark_coverage": leg_coverage_audit,
         "max_stale_quote_age_sessions": max_stale_age, "resolved_option_leg_pnl_persists_in_nav": True,
         "open_option_legs_are_marked_daily_or_flagged_stale": True, "max_drawdown_computed_from_daily_nav": True,
         "quote_audit": quote_audit, "trade_pnl_reconciliation": pnl_audit,
@@ -684,7 +762,7 @@ def generate(stock_value, current_price, current_price_date):
     }, indent=2, allow_nan=False), encoding="utf-8")
     (OUT / "daily_nav_max_drawdown_audit.json").write_text(json.dumps(audit, indent=2, allow_nan=False), encoding="utf-8")
     (OUT / "DAILY_NAV_MAX_DRAWDOWN_REPORT.md").write_text(
-        render_report(stock_config, summaries, diagnostics, quote_audit, quote_integrity, pnl_audit), encoding="utf-8")
+        render_report(stock_config, summaries, diagnostics, quote_audit, quote_integrity, pnl_audit, leg_coverage_audit), encoding="utf-8")
     print(json.dumps({
         "status": "PASS", "policy": POLICY, "dte_target": DTE_TARGET, "daily_nav_rows": len(all_daily),
         "option_leg_mark_rows": len(all_legs), "max_stale_quote_age_sessions": max_stale_age,
