@@ -2,6 +2,7 @@
 """Deterministic tests for DTE20/DTE<=4 daily valuation and option-leg accounting."""
 from qqq_spy_put_call_daily_nav_v1 import (
     pair_entries, drawdown_metrics, mark_open_leg, position_value_for_day, intrinsic_value,
+    audit_daily_leg_mark_coverage,
 )
 
 
@@ -90,13 +91,54 @@ def test_call_and_put_intrinsic_values():
     assert intrinsic_value("C", 90, 100) == 0
 
 
+def test_exact_daily_leg_mark_coverage_rejects_missing_resolved_mark():
+    dates = ["d1", "d2", "d3"]
+    date_to_index = {d: i for i, d in enumerate(dates)}
+    positions = [
+        {
+            "phase_sessions": 0, "signal_date": "s1", "entry_date": "d1",
+            "strategy": "PUT", "leg_name": "QQQ_LONG", "contract_id": "QQQ180413P00155000",
+            "terminal_kind": "RESOLVED", "terminal_date": "d2",
+        },
+        {
+            "phase_sessions": 0, "signal_date": "s1", "entry_date": "d1",
+            "strategy": "PUT", "leg_name": "SPY_SHORT", "contract_id": "SPY180413P00255000",
+            "terminal_kind": "RESOLVED", "terminal_date": "d2",
+        },
+    ]
+    marks = []
+    for pos in positions:
+        for day in ("d1", "d2"):
+            marks.append({
+                "phase_sessions": pos["phase_sessions"], "signal_date": pos["signal_date"],
+                "entry_date": pos["entry_date"], "strategy": pos["strategy"],
+                "leg_name": pos["leg_name"], "contract_id": pos["contract_id"], "date": day,
+                "mark_price": 1.25, "valuation_method": "LIVE_QUOTE" if day == "d1" else "REALIZED_EXIT_PNL",
+            })
+    audit = audit_daily_leg_mark_coverage(positions, marks, dates, date_to_index)
+    assert audit["status"] == "PASS"
+    assert audit["position_legs"] == 2
+    assert audit["expected_daily_leg_mark_rows"] == 4
+    assert audit["actual_daily_leg_mark_rows"] == 4
+    assert audit["missing_daily_leg_marks"] == 0
+
+    try:
+        audit_daily_leg_mark_coverage(positions, marks[:-1], dates, date_to_index)
+    except RuntimeError as exc:
+        assert "missing=1" in str(exc)
+    else:
+        raise AssertionError("missing resolved option-leg mark must fail acceptance")
+
+
+
 def main():
     test_pairing_requires_same_signal_expiry_entry()
     test_daily_drawdown_from_nav()
     test_open_leg_marks_at_liquidation_side_and_stale_quote_is_explicit()
     test_resolved_leg_pnl_persists_after_exit_date()
     test_call_and_put_intrinsic_values()
-    print("DAILY NAV TEST PASS: strict pairing, NAV drawdown, live/stale marks, closed-leg persistence, intrinsic payoff.")
+    test_exact_daily_leg_mark_coverage_rejects_missing_resolved_mark()
+    print("DAILY NAV TEST PASS: strict pairing, NAV drawdown, live/stale marks, closed-leg persistence, intrinsic payoff, exact per-leg daily coverage.")
 
 
 if __name__ == "__main__":
