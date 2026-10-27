@@ -1,7 +1,7 @@
 {
   "study_id": "QQQ_SPOT_VS_BUDGETED_LONG_CALLS_10Y_V1",
   "status": "OBSERVED_HISTORICAL_OPTION_BID_ASK_REPLAY",
-  "source_commit": "ed5e2c147846db143d2f2e8210cb3f665592ccde",
+  "source_commit": "48428164c5e63e37d44b73476bf15751ad5b81ab",
   "options_sha256": "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734",
   "underlying_sha256": "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351",
   "options_rows": 15345882,
@@ -31,12 +31,13 @@
   "option_contract_multiplier": 100,
   "cash_contribution_policy": "Weekly strategy contributes $7000 evenly over scheduled 5-session entries; annual strategy contributes $700 at each of ten yearly entry dates. Unspent cash and expired-option proceeds are carried forward; whole contracts only.",
   "entry_fill": "Observed ask on entry date",
-  "exit_rule": "Hold to expiration, or to the 10-year window end if later; liquidate at last observed bid within five calendar days of cutoff. If no fresh bid, use underlying intrinsic value as a conservative fallback and count the fallback.",
-  "option_fees": "Commissions and exchange fees excluded; entry ask and exit bid include quoted spread when observed.",
+  "exit_rule": "Hold each Call to expiration and settle at intrinsic value from QQQ close on or immediately before expiration. Any Call still open at the 10-year window end is marked at the latest observed bid within five calendar days; if no fresh bid exists, use intrinsic value at the window end and count the fallback.",
+  "option_fees": "Commissions and exchange fees excluded; entry ask includes the observed spread. Live positions marked at the ten-year horizon use observed bid where fresh.",
   "benchmark_price_mode": "adjusted_close",
   "quote_fallback_counts": {
-    "observed_bid_exit_marks": 90122,
-    "intrinsic_fallback_exit_marks": 44
+    "observed_bid_horizon_marks": 215,
+    "intrinsic_fallback_horizon_marks": 2,
+    "expired_intrinsic_settlements": 89455
   },
   "limitations": [
     "Overlapping ten-year windows are highly correlated and are not independent observations.",
