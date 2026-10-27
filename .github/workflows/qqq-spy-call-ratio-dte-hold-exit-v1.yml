@@ -9,6 +9,8 @@ on:
       - research/qqq_spy_call_fixed_ratio_size_gated_v1/dte_hold_exit_factorial_report_v1.py
       - research/qqq_spy_call_fixed_ratio_size_gated_v1/mode_c_capacity_gate_v1.py
       - research/qqq_spy_call_fixed_ratio_size_gated_v1/test_qqq_spy_call_ratio_v1.py
+      - research/qqq_spy_call_fixed_ratio_size_gated_v1/qqq_spy_put_call_stock_overlay_v1.py
+      - research/qqq_spy_call_fixed_ratio_size_gated_v1/test_qqq_spy_put_call_stock_overlay_v1.py
       - .github/workflows/qqq-spy-call-ratio-dte-hold-exit-v1.yml
 
 permissions:
@@ -46,7 +48,9 @@ jobs:
             "$BASE/dte_hold_exit_factorial_replay_v1.py" \
             "$BASE/dte_hold_exit_factorial_report_v1.py" \
             "$BASE/mode_c_capacity_gate_v1.py" \
-            "$BASE/test_qqq_spy_call_ratio_v1.py"
+            "$BASE/test_qqq_spy_call_ratio_v1.py" \
+            "$BASE/qqq_spy_put_call_stock_overlay_v1.py" \
+            "$BASE/test_qqq_spy_put_call_stock_overlay_v1.py"
           PYTHONPATH="$BASE" "$PY" "$BASE/test_qqq_spy_call_ratio_v1.py"
 
       - name: Replay four DTE targets and five predeclared cadence anchors
@@ -131,6 +135,24 @@ jobs:
           test -s "$OUT/mode_c_selected_episodes.csv"
           test -s "$OUT/MODE_C_CAPACITY_GATE_REPORT.md"
           cat "$OUT/MODE_C_CAPACITY_GATE_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Test and calculate paired PUT + CALL with QQQ stock overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-dte-call/bin/python
+          BASE=research/qqq_spy_call_fixed_ratio_size_gated_v1
+          PYTHONPATH="$BASE" "$PY" "$BASE/test_qqq_spy_put_call_stock_overlay_v1.py"
+          "$PY" -u "$BASE/qqq_spy_put_call_stock_overlay_v1.py" \
+            --qqq-stock-value-usd 63694 \
+            --current-qqq-price 712.20 \
+            --current-price-date 2026-10-26
+          OUT="$BASE/results/dte_hold_exit_factorial_call_v1/put_call_stock_overlay_v1"
+          test -s "$OUT/QQQ_STOCK_OVERLAY_REPORT.md"
+          test -s "$OUT/put_call_stock_overlay_by_phase.csv"
+          test -s "$OUT/put_call_stock_overlay_config_summary.csv"
+          test -s "$OUT/put_call_stock_overlay_selected_pairs.csv"
+          cat "$OUT/QQQ_STOCK_OVERLAY_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit CALL research outputs to isolated branch
         shell: bash
