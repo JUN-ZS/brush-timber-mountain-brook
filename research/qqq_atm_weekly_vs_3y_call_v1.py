@@ -20,7 +20,7 @@ MULTIPLIER = 100
 WEEK_STEP = 5
 WEEKLY_DTE = (5, 10)
 WEEKLY_TARGET = 7
-THREE_YEAR_DTE = (900, 1200)
+THREE_YEAR_DTE = (1000, 1200)
 THREE_YEAR_TARGET = 1095
 QUOTE_MAX_AGE_DAYS = 5
 NEAR_TOTAL_LOSS = CAPITAL * 0.01
@@ -393,7 +393,7 @@ def main():
     quotes = read_contract_quotes(opt_path, ids)
 
     coverage = []
-    for kind, candidates in (("weekly_atm_5_10dte", weekly_candidates), ("three_year_atm_900_1200dte", long_candidates)):
+    for kind, candidates in (("weekly_atm_5_10dte", weekly_candidates), ("three_year_atm_1000_1200dte", long_candidates)):
         chosen = [x for x in candidates.values() if x is not None]
         coverage.append({
             "kind": kind, "entry_dates_tested": len(candidates), "entry_dates_with_candidate": len(chosen),
@@ -435,7 +435,7 @@ def main():
     summ3 = summarise(df3)
     summ3.to_csv(out / "three_year_aggregate_summary.csv", index=False)
 
-    candidate_rows = [r for r in coverage if r["kind"] == "three_year_atm_900_1200dte"][0]
+    candidate_rows = [r for r in coverage if r["kind"] == "three_year_atm_1000_1200dte"][0]
     report = [
         "# QQQ ATM Weekly Calls vs Actual Three-Year Long Calls",
         "",
@@ -449,7 +449,7 @@ def main():
         "- Weekly Call: $7,000 total contributions spread evenly over every fifth trading session of each window. Pick the listed Call with DTE closest to 7 within 5–10 calendar days, then strike closest to QQQ spot (ATM); Delta is not an entry filter.",
         "- Whole contracts only; buy at observed Ask. Unspent cash and proceeds are carried forward at 0% interest, so a weekly allocation too small to buy one contract accumulates rather than being spent at a fictional fractional-contract price.",
         "- All weekly Calls are held to expiration; expired contracts settle at intrinsic value from the QQQ close on or before expiration. At a window's final date, a still-live option uses a fresh observed bid within five calendar days, otherwise intrinsic fallback.",
-        "- Three-year Call: spend up to $7,000 at the start of a three-year window on the ATM Call whose listed expiry is closest to 1,095 DTE within 900–1,200 DTE; buy at observed Ask and hold to the three-year window end/option expiration. It is only summarized for windows with an actual eligible listed contract. This is a single upfront premium budget, not a recurring contribution strategy.",
+        "- Three-year Call: spend up to $7,000 at the start of a three-year window on the ATM Call whose listed expiry is closest to 1,095 DTE within 1,000–1,200 DTE; buy at observed Ask and hold to the three-year window end/option expiration. It is only summarized for windows with an actual eligible listed contract. This is a single upfront premium budget, not a recurring contribution strategy.",
         "- QQQ spot benchmark invests the full $7,000 at the start. The stock and option strategies therefore have different capital-at-risk timing; read them as distinct budget deployment methods.",
         "- No commissions, taxes, or cash interest. Historical quotes and volume do not guarantee executable fills.",
         "",
@@ -477,7 +477,7 @@ def main():
     ]
     if int(candidate_rows["entry_dates_with_candidate"]) == 0:
         report += [
-            "**Important:** No actual listed QQQ Calls were found in the configured 900–1,200 DTE band at the sampled entry dates. Therefore no three-year Call return is reported; this study does not invent a synthetic three-year option price.",
+            "**Important:** No actual listed QQQ Calls were found in the configured 1,000–1,200 DTE band at the sampled entry dates. Therefore no three-year Call return is reported; this study does not invent a synthetic three-year option price.",
             "",
         ]
     elif float(candidate_rows["coverage_pct"]) < 50:
@@ -505,7 +505,7 @@ def main():
         "ten_year_windows": len(starts10), "three_year_windows": len(starts3),
         "capital_usd": CAPITAL, "weekly_contribution_policy": "7000 USD evenly contributed on every 5th trading session over each tested window; unused cash and proceeds roll forward at 0% interest",
         "weekly_contract_selection": "DTE nearest 7 inside 5-10 days, then strike closest to spot; no Delta filter; observed Ask fills",
-        "three_year_contract_selection": "DTE nearest 1095 inside 900-1200 days, then strike closest to spot; observed Ask; upfront 7000 USD budget",
+        "three_year_contract_selection": "DTE nearest 1095 inside 1000-1200 days, then strike closest to spot; observed Ask; upfront 7000 USD budget",
         "quote_coverage": coverage,
         "caveats": ["overlapping windows are not independent", "no commissions/taxes/cash interest", "historical quotes/volume are not guaranteed fills", "three-year results only on actual eligible listed quotes"]
     }
