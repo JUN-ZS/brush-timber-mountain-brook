@@ -79,9 +79,15 @@ def test_resolved_leg_pnl_persists_after_exit_date():
     at_exit = position_value_for_day(pos, "d2", 1, {}, {}, {}, dates, idx)
     after_exit = position_value_for_day(pos, "d3", 2, {}, {}, {}, dates, idx)
     assert at_exit["realized_pnl_usd"] == 123.45
+    assert at_exit["valuation_method"] == "REALIZED_EXIT_SIDE_QUOTE_AND_PNL"
+    assert at_exit["bid"] == 3.0 and at_exit["ask"] is None
     assert after_exit["realized_pnl_usd"] == 123.45
     assert after_exit["unrealized_pnl_usd"] == 0.0
     assert not after_exit["is_open_eod"]
+
+    short_pos = {**pos, "position_side": "SHORT"}
+    short_at_exit = position_value_for_day(short_pos, "d2", 1, {}, {}, {}, dates, idx)
+    assert short_at_exit["ask"] == 3.0 and short_at_exit["bid"] is None
 
 
 def test_call_and_put_intrinsic_values():
