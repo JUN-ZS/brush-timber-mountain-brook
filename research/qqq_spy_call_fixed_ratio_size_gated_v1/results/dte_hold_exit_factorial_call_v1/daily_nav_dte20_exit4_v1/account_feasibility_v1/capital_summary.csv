@@ -1,0 +1,6 @@
+account_capital_scenario_usd,phases,worst_max_drawdown_usd,worst_max_drawdown_pct,lowest_end_equity_usd,lowest_min_equity_usd,rejected_initial_margin_baskets,blocked_after_liquidation_stop_baskets,forced_liquidation_events,peak_put_assignment_reserve_usd,peak_short_call_delivery_notional_usd,peak_cash_gap_vs_put_reserve_usd,min_cash_balance_usd
+100000.0,5,-47092.57,-34.4448,112575.6,70219.58,39,131,2,399600.0,418800.0,271470.85,54824.85
+250000.0,5,-66221.54,-23.0963,253985.4,220497.5,0,0,0,404400.0,422400.0,203343.25,178677.1
+500000.0,5,-66221.54,-12.3382,503985.4,470497.5,0,0,0,404400.0,422400.0,0.0,428677.1
+750000.0,5,-66221.54,-8.4174,753985.4,720497.5,0,0,0,404400.0,422400.0,0.0,678677.1
+1000000.0,5,-66221.54,-6.3876,1003985.4,970497.5,0,0,0,404400.0,422400.0,0.0,928677.1

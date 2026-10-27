@@ -1,0 +1,57 @@
+{
+  "status": "PASS",
+  "method": "historical EOD account cash-flow replay with initial-margin entry gating, EOD maintenance-margin liquidation, and hypothetical underlying/extrinsic stress scenarios",
+  "source_daily_nav_audit_status": "PASS",
+  "source_daily_nav_rows": 9795,
+  "reconstructed_option_legs": 2080,
+  "reconstructed_position_daily_mark_rows": 25048,
+  "account_capital_scenarios_usd": [
+    100000.0,
+    250000.0,
+    500000.0,
+    750000.0,
+    1000000.0
+  ],
+  "margin_multipliers": [
+    1.0,
+    1.5,
+    2.0
+  ],
+  "phases": [
+    0,
+    2,
+    4,
+    6,
+    8
+  ],
+  "source_underlying_spy_integrity": {
+    "symbol": "SPY",
+    "file": "underlying_prices.parquet",
+    "status": "DOWNLOADED_HASH_VERIFIED",
+    "bytes": 252066,
+    "git_blob_sha": "4c22934a77ba09ced10fd1c413b5d8c9e0cb4a8d"
+  },
+  "source_underlying_qqq_integrity": {
+    "symbol": "QQQ",
+    "file": "underlying_prices.parquet",
+    "status": "DOWNLOADED_HASH_VERIFIED",
+    "bytes": 332454,
+    "git_blob_sha": "f3a892bc4c88c692900b5c0071322c6db408996a"
+  },
+  "unrestricted_high_capital_reconciliation": {
+    "capital_usd": 1000000.0,
+    "margin_multiplier": 1.0,
+    "phases_passed": 5,
+    "phase_count": 5,
+    "max_abs_difference_usd": 0.0,
+    "status": "PASS"
+  },
+  "broker_buying_power_actual": false,
+  "intraday_margin_and_gap_liquidation_modeled": false,
+  "short_call_maximum_loss_finite": false,
+  "stress_scenarios_are_hypothetical": true,
+  "source_current_qqq_position_usd": 63694.0,
+  "source_current_qqq_reference_price_usd": 712.2,
+  "backcast_stock_start_value_usd": 14709.9,
+  "important_note": "The prior daily NAV excluded the capital cash balance; this model rebases it with explicit starting account capital. Short-option margin is a non-netted Reg-T-style proxy, not a broker approval or safety guarantee."
+}
