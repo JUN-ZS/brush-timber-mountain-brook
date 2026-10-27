@@ -329,7 +329,7 @@ def make_report(configs):
     lines = [
         "# Mode C: Capacity-gated DTE × holding × exit comparison", "",
         f"- Replay period: {START.isoformat()} through {END.isoformat()} ({YEARS:.3f} calendar years).",
-        "- Strategy: QQQ LONG CALL 1 : SPY SHORT CALL 6; same expiry; both legs nearest absolute Delta 0.25; fixed 10-common-session signal cadence; five phase anchors 0, 2, 4, 6, 8.",
+        "- Strategy: QQQ LONG CALL 1 : SPY SHORT CALL 6; same expiry; both legs nearest absolute Delta 0.20; fixed 10-common-session signal cadence; five phase anchors 0, 2, 4, 6, 8.",
         "- Costs: USD 0.05 per option-share per side slippage and USD 0.65 per contract per side commission.",
         "- Mode C semantics: each holding/exit policy owns an independent book; admit a new signal only if live cohort reservations are below cap 1 or 2; skip blocked signals without re-anchoring; unresolved/expired-without-executable-exit cohorts reserve capacity through source end.",
         "- Capacity gating is a chronological admission simulation over the same source-pinned, per-cohort quote-side outcomes. Blocked cohorts contribute no P&L; because positions are separately simulated, their hypothetical paths do not affect later cohorts.",
@@ -503,7 +503,7 @@ def make_report(configs):
     lines = [
         "# Mode C: Capacity-gated DTE × holding × exit comparison", "",
         f"- Replay period: {START.isoformat()} through {END.isoformat()} ({YEARS:.3f} calendar years).",
-        "- Strategy: QQQ LONG CALL 1 : SPY SHORT CALL 6; same expiry; both legs nearest absolute Delta 0.25; fixed 10-common-session signal cadence; five phase anchors 0, 2, 4, 6, 8.",
+        "- Strategy: QQQ LONG CALL 1 : SPY SHORT CALL 6; same expiry; both legs nearest absolute Delta 0.20; fixed 10-common-session signal cadence; five phase anchors 0, 2, 4, 6, 8.",
         "- Costs: USD 0.05 per option-share per side slippage and USD 0.65 per contract per side commission.",
         "- Mode C semantics: each holding/exit policy owns an independent book; admit a new signal only if live cohort reservations are below cap 1 or 2; skip blocked signals without re-anchoring; unresolved/expired-without-executable-exit cohorts reserve capacity through source end.",
         "- Capacity gating is a chronological admission simulation over the same source-pinned, per-cohort quote-side outcomes. Blocked cohorts contribute no P&L; because positions are separately simulated, their hypothetical paths do not affect later cohorts.",
