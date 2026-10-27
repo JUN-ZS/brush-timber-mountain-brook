@@ -11,6 +11,8 @@ on:
       - research/qqq_spy_call_fixed_ratio_size_gated_v1/test_qqq_spy_call_ratio_v1.py
       - research/qqq_spy_call_fixed_ratio_size_gated_v1/qqq_spy_put_call_stock_overlay_v1.py
       - research/qqq_spy_call_fixed_ratio_size_gated_v1/test_qqq_spy_put_call_stock_overlay_v1.py
+      - research/qqq_spy_call_fixed_ratio_size_gated_v1/qqq_spy_put_call_daily_nav_v1.py
+      - research/qqq_spy_call_fixed_ratio_size_gated_v1/test_qqq_spy_put_call_daily_nav_v1.py
       - .github/workflows/qqq-spy-call-ratio-dte-hold-exit-v1.yml
 
 permissions:
@@ -50,8 +52,11 @@ jobs:
             "$BASE/mode_c_capacity_gate_v1.py" \
             "$BASE/test_qqq_spy_call_ratio_v1.py" \
             "$BASE/qqq_spy_put_call_stock_overlay_v1.py" \
-            "$BASE/test_qqq_spy_put_call_stock_overlay_v1.py"
+            "$BASE/test_qqq_spy_put_call_stock_overlay_v1.py" \
+            "$BASE/qqq_spy_put_call_daily_nav_v1.py" \
+            "$BASE/test_qqq_spy_put_call_daily_nav_v1.py"
           PYTHONPATH="$BASE" "$PY" "$BASE/test_qqq_spy_call_ratio_v1.py"
+          PYTHONPATH="$BASE" "$PY" "$BASE/test_qqq_spy_put_call_daily_nav_v1.py"
 
       - name: Replay four DTE targets and five predeclared cadence anchors
         shell: bash
@@ -153,6 +158,28 @@ jobs:
           test -s "$OUT/put_call_stock_overlay_config_summary.csv"
           test -s "$OUT/put_call_stock_overlay_selected_pairs.csv"
           cat "$OUT/QQQ_STOCK_OVERLAY_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Daily NAV and max drawdown acceptance (DTE20, exit DTE <= 4)
+        shell: bash
+        timeout-minutes: 345
+        run: |
+          set -euo pipefail
+          PY=.venv-dte-call/bin/python
+          BASE=research/qqq_spy_call_fixed_ratio_size_gated_v1
+          PYTHONPATH="$BASE" "$PY" "$BASE/test_qqq_spy_put_call_daily_nav_v1.py"
+          "$PY" -u "$BASE/qqq_spy_put_call_daily_nav_v1.py" \\
+            --qqq-stock-value-usd 63694 \\
+            --current-qqq-price 712.20 \\
+            --current-price-date 2026-10-26
+          OUT="$BASE/results/dte_hold_exit_factorial_call_v1/daily_nav_dte20_exit4_v1"
+          test -s "$OUT/DAILY_NAV_MAX_DRAWDOWN_REPORT.md"
+          test -s "$OUT/daily_nav_by_phase.csv"
+          test -s "$OUT/daily_option_leg_marks.csv"
+          test -s "$OUT/phase_max_drawdown_summary.csv"
+          test -s "$OUT/pair_matching_and_capacity_audit.csv"
+          test -s "$OUT/quote_reconciliation.json"
+          test -s "$OUT/daily_nav_max_drawdown_audit.json"
+          cat "$OUT/DAILY_NAV_MAX_DRAWDOWN_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit CALL research outputs to isolated branch
         shell: bash
