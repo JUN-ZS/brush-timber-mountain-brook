@@ -208,6 +208,8 @@ def make_leg_position(pair, trade, strategy, leg_name, phase):
         "exit_date": daystr(trade.get("exit_date")) if is_resolved else "",
         "exit_price": exit_price if is_resolved else None, "trade_status": str(trade.get("status") or ""),
         "is_resolved": is_resolved, "final_pnl_usd": final_pnl,
+        "_source_trade_net_pnl_usd": number(trade.get("net_pnl_usd")),
+        "_source_episode_id": str(trade.get("episode_id") or pair["signal_date"]),
         "terminal_kind": "RESOLVED" if is_resolved else "OPEN_END",
         "terminal_date": daystr(trade.get("exit_date")) if is_resolved else "",
         "last_quote_date": "", "last_bid": None, "last_ask": None, "_last_quote_index": None,
@@ -526,7 +528,38 @@ def audit_entry_exit_quotes(positions, quote_map):
             "entry_quotes_missing": entry_missing, "exit_quotes_missing": exit_missing, "entry_exit_price_mismatches": 0}
 
 
-def render_report(stock, summaries, diagnostics, quote_audit, quote_integrity):
+def audit_trade_pnl_reconciliation(positions):
+    """Reconcile each resolved two-leg trade against the replay ledger's net P&L."""
+    groups = defaultdict(list)
+    for pos in positions:
+        if pos["is_resolved"]:
+            key = (pos["phase_sessions"], pos["strategy"], pos["_source_episode_id"],
+                   pos["signal_date"], pos["entry_date"])
+            groups[key].append(pos)
+    checked = 0
+    mismatches = []
+    for key, legs in groups.items():
+        if len(legs) != 2 or {r["leg_name"] for r in legs} != {"QQQ_LONG", "SPY_SHORT"}:
+            mismatches.append({"key": key, "reason": "expected exactly QQQ_LONG and SPY_SHORT legs", "legs": len(legs)})
+            continue
+        source_values = [number(r.get("_source_trade_net_pnl_usd")) for r in legs]
+        actual = sum(float(r["final_pnl_usd"]) for r in legs if r.get("final_pnl_usd") is not None)
+        if any(v is None for v in source_values):
+            mismatches.append({"key": key, "reason": "missing source trade net P&L"})
+            continue
+        expected = float(source_values[0])
+        if any(abs(float(v) - expected) > 0.02 for v in source_values) or abs(actual - expected) > 0.02:
+            mismatches.append({"key": key, "expected": expected, "actual": actual, "per_leg_source": source_values})
+            continue
+        checked += 1
+    if mismatches:
+        raise RuntimeError(f"resolved two-leg P&L does not reconcile for {len(mismatches)} trades; sample={mismatches[:3]}")
+    return {"resolved_trade_groups_reconciled": checked, "mismatches": 0,
+            "reconciliation_tolerance_usd": 0.02,
+            "method": "QQQ_LONG gross minus leg cost + SPY_SHORT gross minus leg cost equals source trade net P&L"}
+
+
+def render_report(stock, summaries, diagnostics, quote_audit, quote_integrity, pnl_audit):
     lines = [
         "# Daily portfolio NAV and maximum drawdown — DTE20 / exit DTE <= 4", "",
         f"- Replay period: {START} through {summaries[0]['end_date']}; {summaries[0]['daily_rows']} common-session marks per phase.",
@@ -542,6 +575,7 @@ def render_report(stock, summaries, diagnostics, quote_audit, quote_integrity):
         "## Quote/data acceptance", "",
         f"- Entry-leg source quotes reconciled: {quote_audit['entry_leg_quotes_reconciled']}; resolved exit-leg quotes reconciled: {quote_audit['resolved_exit_leg_quotes_reconciled']}.",
         f"- Missing entry quotes: {quote_audit['entry_quotes_missing']}; missing exit quotes: {quote_audit['exit_quotes_missing']}; price mismatches: {quote_audit['entry_exit_price_mismatches']}.",
+        f"- Resolved two-leg trade P&L reconciled to source replay: {pnl_audit['resolved_trade_groups_reconciled']}; mismatches: {pnl_audit['mismatches']}.",
         f"- SHA-pinned option parquet files scanned: {len(quote_integrity)}; source {put_engine.SOURCE_REPO}@{put_engine.SOURCE_COMMIT}.", "",
         "## Daily NAV and maximum drawdown by independent phase", "",
         "| Phase | Strict matches | Admitted | Skipped | Start NAV | End NAV | Change | Max DD USD | Max DD % | Peak | Trough | Final realized option P&L | Final open option P&L | Max SPY put obligation | Max SPY call delivery notional | Max stale age |",
@@ -593,6 +627,7 @@ def generate(stock_value, current_price, current_price_date):
         raise RuntimeError("No strictly matched PUT+CALL baskets; refusing to publish an empty daily NAV")
     quote_map, quote_integrity = collect_selected_quotes(all_positions, put_engine, cache_root)
     quote_audit = audit_entry_exit_quotes(all_positions, quote_map)
+    pnl_audit = audit_trade_pnl_reconciliation(all_positions)
 
     all_daily, all_legs, summaries = [], [], []
     for phase in PHASES:
@@ -615,6 +650,8 @@ def generate(stock_value, current_price, current_price_date):
     if len(all_legs) < expected_legs_minimum:
         raise RuntimeError(f"option-leg marking coverage mismatch: got {len(all_legs)}, minimum {expected_legs_minimum}")
     max_stale_age = max(int(r["max_quote_staleness_sessions"]) for r in summaries)
+    if max_stale_age > 10:
+        raise RuntimeError(f"stale option valuation exceeded 10 common sessions; refusing acceptance: {max_stale_age}")
     audit = {
         "status": "PASS", "policy": POLICY, "opening_dte_target": DTE_TARGET, "opening_dte_band": [DTE_MIN, DTE_MAX],
         "exit_rule": "remaining calendar DTE <= 4", "put_target_abs_delta": 0.25, "call_target_abs_delta": 0.20,
@@ -624,7 +661,8 @@ def generate(stock_value, current_price, current_price_date):
         "option_leg_mark_rows": len(all_legs), "minimum_option_leg_mark_rows": expected_legs_minimum,
         "max_stale_quote_age_sessions": max_stale_age, "resolved_option_leg_pnl_persists_in_nav": True,
         "open_option_legs_are_marked_daily_or_flagged_stale": True, "max_drawdown_computed_from_daily_nav": True,
-        "quote_audit": quote_audit, "unresolved_expiry_intrinsic_proxy_used": True,
+        "quote_audit": quote_audit, "trade_pnl_reconciliation": pnl_audit,
+        "unresolved_expiry_intrinsic_proxy_used": True,
         "broker_margin_cash_forced_liquidation_and_exercise_fees_modeled": False,
     }
     OUT.mkdir(parents=True, exist_ok=True)
@@ -640,7 +678,7 @@ def generate(stock_value, current_price, current_price_date):
     }, indent=2, allow_nan=False), encoding="utf-8")
     (OUT / "daily_nav_max_drawdown_audit.json").write_text(json.dumps(audit, indent=2, allow_nan=False), encoding="utf-8")
     (OUT / "DAILY_NAV_MAX_DRAWDOWN_REPORT.md").write_text(
-        render_report(stock_config, summaries, diagnostics, quote_audit, quote_integrity), encoding="utf-8")
+        render_report(stock_config, summaries, diagnostics, quote_audit, quote_integrity, pnl_audit), encoding="utf-8")
     print(json.dumps({
         "status": "PASS", "policy": POLICY, "dte_target": DTE_TARGET, "daily_nav_rows": len(all_daily),
         "option_leg_mark_rows": len(all_legs), "max_stale_quote_age_sessions": max_stale_age,
