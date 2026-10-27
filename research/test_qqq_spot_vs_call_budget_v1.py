@@ -11,7 +11,7 @@ class QQQSpotVsCallBudgetTests(unittest.TestCase):
             {"date": d, "expiration": pd.Timestamp("2020-01-10"), "contract_id": "A",
              "strike": 101.0, "bid": 0.10, "ask": 0.12, "delta": 0.051, "volume": 2, "dte": 7},
             {"date": d, "expiration": pd.Timestamp("2020-01-10"), "contract_id": "B",
-             "strike": 102.0, "bid": 0.09, "ask": 0.11, "delta": 0.049, "volume": 20, "dte": 7},
+             "strike": 102.0, "bid": 0.09, "ask": 0.11, "delta": 0.050, "volume": 20, "dte": 7},
             {"date": d, "expiration": pd.Timestamp("2020-01-10"), "contract_id": "ITM",
              "strike": 99.0, "bid": 0.20, "ask": 0.22, "delta": 0.90, "volume": 100, "dte": 7},
         ])
@@ -43,7 +43,7 @@ class QQQSpotVsCallBudgetTests(unittest.TestCase):
         end = pd.Timestamp("2020-01-01")
         rate = xirr([(start, -7000.0), (end, 14000.0)])
         self.assertIsNotNone(rate)
-        self.assertAlmostEqual(rate, 2 ** 0.1 - 1, places=6)
+        self.assertAlmostEqual(rate, 2 ** ((end - start).days / 365.25) - 1, places=6)
 
     def test_xirr_for_cash_only_with_even_yearly_contributions_is_zero(self):
         flows = [(pd.Timestamp(f"{year}-01-01"), -700.0) for year in range(2010, 2020)]
