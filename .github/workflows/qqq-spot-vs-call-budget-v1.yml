@@ -80,6 +80,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No result changes to commit."
           else
-            git commit -m "results: QQQ $7k spot vs budgeted calls 10Y replay"
+            git commit -m "results: QQQ USD 7000 spot vs budgeted calls 10Y replay"
             git push origin "HEAD:$GITHUB_REF_NAME"
           fi
