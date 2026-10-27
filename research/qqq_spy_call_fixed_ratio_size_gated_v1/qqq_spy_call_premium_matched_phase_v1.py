@@ -557,6 +557,42 @@ def mark_pnl(ep,qrow,srow):
         ep["base_commission_per_contract_per_side"])["net_pnl_usd"]
 
 
+def daily_mark_row(ep, day, idx, qrow, srow, state):
+    """Close-side per-leg valuation; one missing quote must not erase the other leg."""
+    qbid = num(qrow.get("bid")) if isinstance(qrow, dict) else None
+    sask = num(srow.get("ask")) if isinstance(srow, dict) else None
+    q_valid = qbid is not None and qbid >= 0
+    s_valid = sask is not None and sask > 0
+    q_qty = int(ep.get("long_qqq_qty") or 0)
+    s_qty = int(ep.get("short_spy_qty") or 0)
+    unit_cost = float(ep.get("base_slippage_per_share") or 0.0) * MULTIPLIER + float(ep.get("base_commission_per_contract_per_side") or 0.0)
+    q_gross = q_qty * MULTIPLIER * (qbid - float(ep["qqq_entry_ask"])) if q_valid else None
+    s_gross = s_qty * MULTIPLIER * (float(ep["spy_entry_bid"]) - sask) if s_valid else None
+    q_net = q_gross - 2 * q_qty * unit_cost if q_valid else None
+    s_net = s_gross - 2 * s_qty * unit_cost if s_valid else None
+    dte = (date.fromisoformat(str(ep["expiry"])[:10]) - date.fromisoformat(day)).days
+    both = q_valid and s_valid
+    mark_status = "VALID_BOTH_LEGS" if both else ("QQQ_LONG_ONLY" if q_valid else ("SPY_SHORT_ONLY" if s_valid else "MISSING_BOTH_LEGS"))
+    return {
+        "date": day, "session_index": idx, "episode_id": ep.get("episode_id"), "policy": ep.get("policy"),
+        "signal_date": ep.get("signal_date"), "signal_index": ep.get("signal_index"),
+        "entry_date": ep.get("entry_date"), "entry_index": ep.get("entry_index"), "expiry": ep.get("expiry"),
+        "remaining_dte_calendar_days": dte, "state": state, "exit_signal_date": ep.get("exit_signal_date"),
+        "exit_reason": ep.get("exit_reason"), "qqq_contract_id": ep.get("qqq_contract_id"),
+        "spy_contract_id": ep.get("spy_contract_id"),
+        "qqq_mark_bid_usd_per_share": qbid if q_valid else None,
+        "qqq_long_option_market_value_usd": qbid * q_qty * MULTIPLIER if q_valid else None,
+        "qqq_long_leg_gross_pnl_usd": q_gross, "qqq_long_leg_net_mark_pnl_usd": q_net,
+        "qqq_mark_valid": q_valid, "spy_mark_ask_usd_per_share": sask if s_valid else None,
+        "spy_short_option_liability_usd": sask * s_qty * MULTIPLIER if s_valid else None,
+        "spy_short_leg_gross_pnl_usd": s_gross, "spy_short_leg_net_mark_pnl_usd": s_net,
+        "spy_mark_valid": s_valid, "both_legs_mark_valid": both,
+        "net_mark_pnl_usd": q_net + s_net if both else None,
+        "mark_status": mark_status,
+        "resolved_trade_net_pnl_usd": ep.get("net_pnl_usd") if str(state).startswith("RESOLVED") else None,
+    }
+
+
 def update_mark_extremes(ep, mark):
     previous_favorable = ep.get("max_favorable_mark_pnl_usd")
     previous_adverse = ep.get("max_adverse_mark_pnl_usd")
@@ -793,7 +829,7 @@ def run_replay(args):
     qs={"chain_dates":0,"call_rows":0,"last_chain_date":None};ss={"chain_dates":0,"call_rows":0,"last_chain_date":None}
     qi=iter_symbol_days(qpaths,"QQQ",start_day,end_day,qs);si=iter_symbol_days(spaths,"SPY",start_day,end_day,ss)
     qitem,sitem=next(qi,None),next(si,None)
-    active=[];trades=[];entries=[];skips=[];schedule_skips=[];pending=None;signal_count=entered_count=both_chains=scheduled_opportunities=0
+    active=[];trades=[];entries=[];skips=[];schedule_skips=[];daily_marks=[];pending=None;signal_count=entered_count=both_chains=scheduled_opportunities=0
     scheduled_indices=set(fixed_schedule_indices(len(dates),args.initial_phase_sessions,args.cohort_stride_sessions))
     filter_evaluations=filter_qualified=filter_rejected=0
     for idx,day in enumerate(dates):
@@ -819,11 +855,17 @@ def run_replay(args):
                         "exit_delay_sessions":idx-ep["exit_signal_index"],"exit_quote_status":"VALID_SIZED_SIDE_QUOTES",
                         "qqq_return_pct":finite_round((qspot/ep["qqq_spot_entry"]-1)*100) if qspot else None,
                         "spy_return_pct":finite_round((sspot/ep["spy_spot_entry"]-1)*100) if sspot else None})
+                    if args.record_daily_marks:
+                        daily_marks.append(daily_mark_row(ep,day,idx,qrow,srow,"RESOLVED"))
                     trades.append(ep);continue
                 ep["exit_deferred_sessions"]+=1
                 if day>=ep["expiry"]:
                     ep.update({"status":"UNRESOLVED_EXPIRED_NO_EXECUTABLE_CLOSE","exit_date":None,"unresolved_reason":reason,"last_observed_date":day})
+                    if args.record_daily_marks:
+                        daily_marks.append(daily_mark_row(ep,day,idx,qrow,srow,"UNRESOLVED_EXPIRED_NO_EXECUTABLE_CLOSE"))
                     trades.append(ep);continue
+                if args.record_daily_marks:
+                    daily_marks.append(daily_mark_row(ep,day,idx,qrow,srow,"EXIT_PENDING"))
                 remaining.append(ep);continue
             if valid_quote(qrow) and valid_quote(srow):
                 mark=mark_pnl(ep,qrow,srow);ep["valid_mark_sessions"]+=1;ep["last_mark_pnl_usd"]=mark
@@ -831,13 +873,14 @@ def run_replay(args):
             else:ep["missing_mark_sessions"]+=1
             if day>=ep["expiry"]:
                 ep.update({"status":"UNRESOLVED_EXPIRED_NO_EXIT","exit_date":None,"unresolved_reason":"EXPIRY_REACHED_BEFORE_EXECUTABLE_EXIT","last_observed_date":day})
+                if args.record_daily_marks:
+                    daily_marks.append(daily_mark_row(ep,day,idx,qrow,srow,"UNRESOLVED_EXPIRED_NO_EXIT"))
                 trades.append(ep);continue
             policy=next(p for p in POLICIES if p["policy"]==ep["policy"])
             dte=(date.fromisoformat(ep["expiry"])-date.fromisoformat(day)).days
             hold_sessions = policy.get("hold_sessions")
             expiry_guard_dte = policy.get("expiry_guard_dte")
             if hold_sessions is None:
-                # Time-to-expiry-only policies retain the default DTE 7 when no explicit guard exists.
                 trigger = dte <= (expiry_guard_dte if expiry_guard_dte is not None else 7)
             elif expiry_guard_dte is not None:
                 trigger = ep["age_sessions"] >= hold_sessions or dte <= expiry_guard_dte
@@ -851,6 +894,28 @@ def run_replay(args):
                     ep["exit_reason"]=f"HOLD_{hold_sessions}_SESSIONS"
                 else:
                     ep["exit_reason"]=f"DTE_LE_{expiry_guard_dte if expiry_guard_dte is not None else 7}"
+                if args.same_day_exit:
+                    valid,reason=exit_quotes_valid(qrow,srow,ep["long_qqq_qty"],ep["short_spy_qty"])
+                    if valid:
+                        vals=episode_pnl(ep,float(qrow["bid"]),float(srow["ask"]),args.slippage_per_share,args.commission_per_contract_per_side)
+                        qspot,sspot=qspots.get(day),sspots.get(day);ep.update(vals)
+                        ep.update(qqq_value_decomposition(ep,float(qrow["bid"]),qspot,qrow))
+                        ep.update({"status":"RESOLVED","exit_date":day,"exit_index":idx,"exit_qqq_bid":float(qrow["bid"]),"exit_spy_ask":float(srow["ask"]),
+                            "exit_delay_sessions":0,"exit_quote_status":"VALID_SIZED_SIDE_QUOTES_SAME_DAY",
+                            "qqq_return_pct":finite_round((qspot/ep["qqq_spot_entry"]-1)*100) if qspot else None,
+                            "spy_return_pct":finite_round((sspot/ep["spy_spot_entry"]-1)*100) if sspot else None})
+                        if args.record_daily_marks:
+                            daily_marks.append(daily_mark_row(ep,day,idx,qrow,srow,"RESOLVED_SAME_DAY"))
+                        trades.append(ep);continue
+                    ep["exit_deferred_sessions"]+=1
+                    ep["exit_quote_status"]="EXIT_DEFERRED:"+reason
+                    if args.record_daily_marks:
+                        daily_marks.append(daily_mark_row(ep,day,idx,qrow,srow,"EXIT_PENDING"))
+                    remaining.append(ep);continue
+                if args.record_daily_marks:
+                    daily_marks.append(daily_mark_row(ep,day,idx,qrow,srow,"EXIT_SIGNAL"))
+            elif args.record_daily_marks:
+                daily_marks.append(daily_mark_row(ep,day,idx,qrow,srow,"OPEN"))
             remaining.append(ep)
         active=remaining
         if pending is not None:
@@ -908,10 +973,13 @@ def run_replay(args):
                         "entry_delay_sessions":idx-pending["signal_index"]}
                     entries.append(dict(base));entered_count+=1
                     for p in POLICIES:
-                        active.append({**base,"policy":p["policy"],"status":"OPEN","pending_exit":False,
+                        new_ep={**base,"policy":p["policy"],"status":"OPEN","pending_exit":False,
                             "exit_signal_date":None,"exit_signal_index":None,"exit_reason":None,"exit_deferred_sessions":0,
                             "missing_mark_sessions":0,"valid_mark_sessions":0,"last_mark_pnl_usd":None,
-                            "max_favorable_mark_pnl_usd":None,"max_adverse_mark_pnl_usd":None})
+                            "max_favorable_mark_pnl_usd":None,"max_adverse_mark_pnl_usd":None}
+                        active.append(new_ep)
+                        if args.record_daily_marks:
+                            daily_marks.append(daily_mark_row(new_ep,day,idx,qrow,srow,"OPEN"))
             if not valid:
                 pending["entry_defer_sessions"]+=1
                 if day>=pending["expiry"]:
@@ -1043,6 +1111,18 @@ def run_replay(args):
     write_csv(out/"scheduled_signal_skips.csv",schedule_skips,["scheduled_index","scheduled_signal_date","status","reason"])
     write_csv(out/"cost_sensitivity.csv",costs);write_csv(out/"expiry_shock_grid.csv",shock)
     write_csv(out/"sizing_sensitivity.csv",sizing)
+    if args.record_daily_marks:
+        write_csv(out/"daily_position_marks.csv",daily_marks,[
+            "date","session_index","episode_id","policy","signal_date","signal_index","entry_date","entry_index","expiry",
+            "remaining_dte_calendar_days","state","exit_signal_date","exit_reason","qqq_contract_id","spy_contract_id",
+            "qqq_mark_bid_usd_per_share","qqq_long_option_market_value_usd","qqq_long_leg_gross_pnl_usd",
+            "qqq_long_leg_net_mark_pnl_usd","qqq_mark_valid","spy_mark_ask_usd_per_share","spy_short_option_liability_usd",
+            "spy_short_leg_gross_pnl_usd","spy_short_leg_net_mark_pnl_usd","spy_mark_valid","both_legs_mark_valid",
+            "net_mark_pnl_usd","mark_status","resolved_trade_net_pnl_usd"])
+        write_csv(out/"common_sessions.csv",[
+            {"session_index":i,"date":d,"qqq_close":qspots.get(d),"spy_close":sspots.get(d)}
+            for i,d in enumerate(dates)
+        ],["session_index","date","qqq_close","spy_close"])
     (out/"source_manifest.json").write_text(json.dumps({
         "source_repository":SOURCE_REPO,"source_tree_commit":SOURCE_COMMIT,
         "source_integrity":integrity,"source_window":report["window"],
@@ -1056,6 +1136,8 @@ def run_replay(args):
         "qqq_delta_band":[args.qqq_target_abs_delta-args.qqq_delta_tolerance,args.qqq_target_abs_delta+args.qqq_delta_tolerance] if args.qqq_target_abs_delta is not None else None,
         "qqq_premium_match_rule":"QQQ LONG CALL Ask nearest 6x SPY SHORT CALL Bid within QQQ abs-Delta 0.60–0.70 candidates" if args.qqq_target_abs_delta is not None and args.qqq_premium_match_short_qty==6 else "QQQ LONG CALL Ask nearest N x SPY SHORT CALL Bid at signal date",
         "initial_phase_sessions":args.initial_phase_sessions,
+        "record_daily_marks":bool(args.record_daily_marks),"same_day_exit":bool(args.same_day_exit),
+        "daily_mark_convention":"QQQ long marked at bid; SPY short liability marked at ask; each leg separately retained when the other quote is missing; missing marks are not forward-filled in the raw ledger",
         "schedule_mode":"FIXED_ANCHOR_NO_REANCHOR","scheduled_opportunities":scheduled_opportunities,
         "selected_signals":signal_count,"skipped_schedule_opportunities":len(schedule_skips),
         "allow_overlapping_cohorts":args.allow_overlapping_cohorts,
@@ -1105,6 +1187,8 @@ def parse_args():
     p.add_argument("--qqq-cache",default=str(Path.home()/".cache"/"qqq-options-full-history"))
     p.add_argument("--spy-cache",default=str(Path.home()/".cache"/"spy-options-cross-call-v1"))
     p.add_argument("--out",default="research/qqq_spy_call_fixed_ratio_size_gated_v1/results/latest")
+    p.add_argument("--record-daily-marks",action="store_true",help="write a daily per-episode, per-leg close-side mark ledger and common underlying session closes")
+    p.add_argument("--same-day-exit",action="store_true",help="attempt executable close on the same EOD quote date the DTE exit trigger is observed")
     return p.parse_args()
 
 def main():
