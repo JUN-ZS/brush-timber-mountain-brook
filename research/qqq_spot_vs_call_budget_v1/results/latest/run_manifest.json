@@ -1,7 +1,7 @@
 {
   "study_id": "QQQ_SPOT_VS_BUDGETED_LONG_CALLS_10Y_V1",
   "status": "OBSERVED_HISTORICAL_OPTION_BID_ASK_REPLAY",
-  "source_commit": "d921184a06bec51cd85b0b2b2a54417479c3fda3",
+  "source_commit": "206a1996cd5015100c5d73bf38a7ba19a73d02e8",
   "options_sha256": "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734",
   "underlying_sha256": "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351",
   "options_rows": 15345882,

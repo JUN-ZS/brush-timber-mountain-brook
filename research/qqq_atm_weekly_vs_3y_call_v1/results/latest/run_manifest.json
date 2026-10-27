@@ -14,7 +14,7 @@
   "capital_usd": 7000.0,
   "weekly_contribution_policy": "7000 USD evenly contributed on every 5th trading session over each tested window; unused cash and proceeds roll forward at 0% interest",
   "weekly_contract_selection": "DTE nearest 7 inside 5-10 days, then strike closest to spot; no Delta filter; observed Ask fills",
-  "three_year_contract_selection": "DTE nearest 1095 inside 900-1200 days, then strike closest to spot; observed Ask; upfront 7000 USD budget",
+  "three_year_contract_selection": "DTE nearest 1095 inside 1000-1200 days, then strike closest to spot; observed Ask; upfront 7000 USD budget",
   "quote_coverage": [
     {
       "kind": "weekly_atm_5_10dte",
@@ -30,16 +30,16 @@
       "median_volume": 2577.0
     },
     {
-      "kind": "three_year_atm_900_1200dte",
+      "kind": "three_year_atm_1000_1200dte",
       "entry_dates_tested": 591,
-      "entry_dates_with_candidate": 73,
-      "coverage_pct": 12.351945854483926,
-      "median_observed_abs_delta_not_used_for_selection": 0.5828800201416016,
-      "median_selected_dte": 990.0,
-      "median_strike_vs_spot_pct": -0.044098191974117906,
-      "median_entry_ask_per_share": 35.1,
-      "median_entry_cost_per_contract_usd": 3510.0,
-      "median_spread_per_share": 3.9400000000000013,
+      "entry_dates_with_candidate": 31,
+      "coverage_pct": 5.2453468697123515,
+      "median_observed_abs_delta_not_used_for_selection": 0.5922499895095825,
+      "median_selected_dte": 1040.0,
+      "median_strike_vs_spot_pct": 0.02000400080015563,
+      "median_entry_ask_per_share": 33.5,
+      "median_entry_cost_per_contract_usd": 3350.0,
+      "median_spread_per_share": 4.0,
       "median_volume": 2.0
     }
   ],

@@ -40,6 +40,6 @@ annual_365d_call      239             18508.4268                 135.0000       
 
 ## Provenance
 
-- Workflow source commit: d921184a06bec51cd85b0b2b2a54417479c3fda3
+- Workflow source commit: 206a1996cd5015100c5d73bf38a7ba19a73d02e8
 - Hashes and exact coverage are in run_manifest.json.
 - window_results.csv has each window; aggregate_summary.csv has summary statistics; candidate_coverage.csv has option availability.
