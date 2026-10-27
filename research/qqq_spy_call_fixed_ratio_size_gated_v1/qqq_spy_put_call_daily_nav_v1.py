@@ -385,8 +385,11 @@ def position_value_for_day(pos, day, index, quote_map, qspots, sspots, dates, da
     terminal_index = date_to_index.get(terminal_day, len(dates))
     if terminal_kind == "RESOLVED" and index >= terminal_index:
         pnl = float(pos["final_pnl_usd"])
-        return {"mark_price": pos["exit_price"], "bid": None, "ask": None,
-                "quote_date_used": terminal_day, "quote_age_sessions": 0, "valuation_method": "REALIZED_EXIT_PNL",
+        return {"mark_price": pos["exit_price"],
+                "bid": pos["exit_price"] if pos["position_side"] == "LONG" else None,
+                "ask": pos["exit_price"] if pos["position_side"] == "SHORT" else None,
+                "quote_date_used": terminal_day, "quote_age_sessions": 0,
+                "valuation_method": "REALIZED_EXIT_SIDE_QUOTE_AND_PNL",
                 "signed_open_market_value_usd": 0.0, "net_liquidation_pnl_usd": pnl,
                 "realized_pnl_usd": pnl, "unrealized_pnl_usd": 0.0, "is_open_eod": False}
     if terminal_kind == "INTRINSIC_SETTLEMENT_PROXY" and index >= terminal_index:
@@ -439,12 +442,12 @@ def build_daily_curve(positions, quote_map, dates, date_to_index, qspots, sspots
                         put_obligation += notional
                     else:
                         call_delivery += notional
-            elif method == "REALIZED_EXIT_PNL" and pos["exit_date"] == day:
+            elif method == "REALIZED_EXIT_SIDE_QUOTE_AND_PNL" and pos["exit_date"] == day:
                 resolved_legs_today += 1
             elif method == "EXPIRY_INTRINSIC_SETTLEMENT_PROXY" and pos["terminal_date"] == day:
                 settled_legs_today += 1
             if day == pos["entry_date"] or value["is_open_eod"] or (
-                method in ("REALIZED_EXIT_PNL", "EXPIRY_INTRINSIC_SETTLEMENT_PROXY") and pos["terminal_date"] == day
+                method in ("REALIZED_EXIT_SIDE_QUOTE_AND_PNL", "EXPIRY_INTRINSIC_SETTLEMENT_PROXY") and pos["terminal_date"] == day
             ):
                 leg_rows.append({
                     "phase_sessions": phase, "date": day, "signal_date": pos["signal_date"], "expiry": pos["expiry"],
