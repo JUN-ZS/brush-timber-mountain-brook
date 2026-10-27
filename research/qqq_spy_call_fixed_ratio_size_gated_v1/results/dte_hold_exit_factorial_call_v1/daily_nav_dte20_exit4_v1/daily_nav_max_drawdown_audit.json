@@ -1,0 +1,58 @@
+{
+  "status": "PASS",
+  "policy": "EXIT_AT_DTE_LE_4",
+  "opening_dte_target": 20,
+  "opening_dte_band": [
+    14,
+    26
+  ],
+  "exit_rule": "remaining calendar DTE <= 4",
+  "put_target_abs_delta": 0.25,
+  "call_target_abs_delta": 0.2,
+  "source_dates": [
+    "2018-03-01",
+    "2025-12-12"
+  ],
+  "common_sessions": 1959,
+  "phases": [
+    0,
+    2,
+    4,
+    6,
+    8
+  ],
+  "daily_nav_rows": 9795,
+  "daily_nav_rows_expected": 9795,
+  "admitted_matched_baskets": 2080,
+  "option_leg_mark_rows": 25048,
+  "daily_leg_mark_coverage": {
+    "status": "PASS",
+    "position_legs": 2080,
+    "expected_daily_leg_mark_rows": 25048,
+    "actual_daily_leg_mark_rows": 25048,
+    "missing_daily_leg_marks": 0,
+    "duplicate_daily_leg_marks": 0,
+    "extra_daily_leg_marks": 0,
+    "invalid_or_unpriced_leg_marks": 0,
+    "method": "Exact one-to-one coverage by phase/strategy/signal/leg/contract: every session from entry through exit/expiry settlement or source end."
+  },
+  "max_stale_quote_age_sessions": 2,
+  "resolved_option_leg_pnl_persists_in_nav": true,
+  "open_option_legs_are_marked_daily_or_flagged_stale": true,
+  "max_drawdown_computed_from_daily_nav": true,
+  "quote_audit": {
+    "entry_leg_quotes_reconciled": 2080,
+    "resolved_exit_leg_quotes_reconciled": 1754,
+    "entry_quotes_missing": 0,
+    "exit_quotes_missing": 0,
+    "entry_exit_price_mismatches": 0
+  },
+  "trade_pnl_reconciliation": {
+    "resolved_trade_groups_reconciled": 877,
+    "mismatches": 0,
+    "reconciliation_tolerance_usd": 0.02,
+    "method": "QQQ_LONG gross minus leg cost + SPY_SHORT gross minus leg cost equals source trade net P&L"
+  },
+  "unresolved_expiry_intrinsic_proxy_used": true,
+  "broker_margin_cash_forced_liquidation_and_exercise_fees_modeled": false
+}
