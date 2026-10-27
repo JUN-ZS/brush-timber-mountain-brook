@@ -1,0 +1,48 @@
+{
+  "study_id": "QQQ_SPOT_VS_BUDGETED_LONG_CALLS_10Y_V1",
+  "status": "OBSERVED_HISTORICAL_OPTION_BID_ASK_REPLAY",
+  "source_commit": "ed5e2c147846db143d2f2e8210cb3f665592ccde",
+  "options_sha256": "1f831556cd87ec9d7af43d3b47a69a829ffb2fb199cfcef4ff55d289badf8734",
+  "underlying_sha256": "78c015fd7fa9d493cd798d5ae81b3c2ae6dc3b8176e25e7bb90cd4114b103351",
+  "options_rows": 15345882,
+  "options_date_min": "2011-03-23",
+  "options_date_max": "2025-12-15",
+  "underlying_common_date_min": "2011-03-23",
+  "underlying_common_date_max": "2025-12-15",
+  "complete_ten_year_windows": 239,
+  "start_stride_trading_sessions": 5,
+  "initial_capital_usd": 7000.0,
+  "external_contributions_total_usd_per_strategy": 7000.0,
+  "target_absolute_delta": 0.05,
+  "accepted_abs_delta_band": [
+    0.01,
+    0.1
+  ],
+  "weekly_target_dte": 7,
+  "weekly_dte_band": [
+    5,
+    10
+  ],
+  "annual_target_dte": 365,
+  "annual_dte_band": [
+    330,
+    400
+  ],
+  "option_contract_multiplier": 100,
+  "cash_contribution_policy": "Weekly strategy contributes $7000 evenly over scheduled 5-session entries; annual strategy contributes $700 at each of ten yearly entry dates. Unspent cash and expired-option proceeds are carried forward; whole contracts only.",
+  "entry_fill": "Observed ask on entry date",
+  "exit_rule": "Hold to expiration, or to the 10-year window end if later; liquidate at last observed bid within five calendar days of cutoff. If no fresh bid, use underlying intrinsic value as a conservative fallback and count the fallback.",
+  "option_fees": "Commissions and exchange fees excluded; entry ask and exit bid include quoted spread when observed.",
+  "benchmark_price_mode": "adjusted_close",
+  "quote_fallback_counts": {
+    "observed_bid_exit_marks": 90122,
+    "intrinsic_fallback_exit_marks": 44
+  },
+  "limitations": [
+    "Overlapping ten-year windows are highly correlated and are not independent observations.",
+    "The $7000 spot benchmark is fully invested at the start; Call strategies deploy the same $7000 through contributions over ten years, so time with capital at risk differs by construction.",
+    "Only listed whole contracts are purchased; unused cash is carried without interest. An entry occurs only when the accumulated cash can buy at least one contract at the observed ask.",
+    "Call target is 5 absolute delta and OTM; realized Delta is the nearest available quote inside the fixed band, not exactly 0.05 each time.",
+    "Commissions, taxes, borrowing costs and interest on uninvested cash are excluded."
+  ]
+}

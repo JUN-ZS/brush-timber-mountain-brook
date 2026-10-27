@@ -1,0 +1,3 @@
+kind,entry_dates_tested,entry_dates_with_candidate,candidate_coverage_pct,median_selected_delta,median_selected_dte,median_otm_pct,median_entry_ask_per_share,median_entry_cost_per_contract_usd,median_spread_per_share,median_volume
+weekly_7dte,741,613,82.72604588394061,0.049800001084804535,8.0,0.038034222690779274,0.1,10.0,0.010000000000000009,175.0
+annual_365dte,1723,1075,62.39117817759721,0.05054999887943268,353.0,0.2961143855053481,0.68,68.0,0.18000000000000005,0.0
