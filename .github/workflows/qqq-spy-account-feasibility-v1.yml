@@ -1,0 +1,79 @@
+name: "QQQ/SPY account feasibility and margin stress"
+
+on:
+  push:
+    branches:
+      - research/qqq-spy-call-ratio-dte-hold-exit-v1
+    paths:
+      - research/qqq_spy_call_fixed_ratio_size_gated_v1/account_feasibility_margin_v1.py
+      - research/qqq_spy_call_fixed_ratio_size_gated_v1/test_account_feasibility_margin_v1.py
+      - .github/workflows/qqq-spy-account-feasibility-v1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qqq-spy-account-feasibility-v1
+  cancel-in-progress: false
+
+jobs:
+  account-feasibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pinned source-data dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv .venv-account-feasibility
+          .venv-account-feasibility/bin/python -m pip install --disable-pip-version-check --no-warn-script-location pyarrow==21.0.0
+
+      - name: Compile and test account feasibility logic
+        shell: bash
+        run: |
+          set -euo pipefail
+          PY=.venv-account-feasibility/bin/python
+          BASE=research/qqq_spy_call_fixed_ratio_size_gated_v1
+          "$PY" -m py_compile "$BASE/account_feasibility_margin_v1.py" "$BASE/test_account_feasibility_margin_v1.py"
+          PYTHONPATH="$BASE" "$PY" "$BASE/test_account_feasibility_margin_v1.py"
+
+      - name: Recompute cash ledger, margin gates, forced liquidation and stress scenarios
+        shell: bash
+        timeout-minutes: 75
+        run: |
+          set -euo pipefail
+          PY=.venv-account-feasibility/bin/python
+          BASE=research/qqq_spy_call_fixed_ratio_size_gated_v1
+          "$PY" -u "$BASE/account_feasibility_margin_v1.py" \
+            --capitals 100000,250000,500000,750000,1000000 \
+            --margin-multipliers 1,1.5,2
+          OUT="$BASE/results/dte_hold_exit_factorial_call_v1/daily_nav_dte20_exit4_v1/account_feasibility_v1"
+          test -s "$OUT/ACCOUNT_FEASIBILITY_REPORT.md"
+          test -s "$OUT/phase_margin_summary.csv"
+          test -s "$OUT/capital_summary.csv"
+          test -s "$OUT/daily_account_nav.csv"
+          test -s "$OUT/entry_decisions.csv"
+          test -s "$OUT/margin_events.csv"
+          test -s "$OUT/stress_scenario_summary.csv"
+          test -s "$OUT/account_feasibility_audit.json"
+          cat "$OUT/ACCOUNT_FEASIBILITY_REPORT.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit verified account feasibility outputs to the isolated branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=research/qqq_spy_call_fixed_ratio_size_gated_v1/results/dte_hold_exit_factorial_call_v1/daily_nav_dte20_exit4_v1/account_feasibility_v1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$OUT"
+          if git diff --cached --quiet; then
+            echo "Account feasibility outputs already match; no output commit needed."
+            exit 0
+          fi
+          git commit -m "research: add QQQ SPY account margin feasibility replay"
+          git push origin "HEAD:$GITHUB_REF_NAME"
