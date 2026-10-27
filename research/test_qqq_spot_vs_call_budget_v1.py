@@ -1,7 +1,8 @@
 import unittest
 import pandas as pd
 
-from qqq_spot_vs_call_budget_v1 import pick_candidate, size_contracts, xirr
+import numpy as np
+from qqq_spot_vs_call_budget_v1 import pick_candidate, mark_position, size_contracts, xirr
 
 
 class QQQSpotVsCallBudgetTests(unittest.TestCase):
@@ -44,6 +45,25 @@ class QQQSpotVsCallBudgetTests(unittest.TestCase):
         rate = xirr([(start, -7000.0), (end, 14000.0)])
         self.assertIsNotNone(rate)
         self.assertAlmostEqual(rate, 2 ** (365.25 / (end - start).days) - 1, places=6)
+
+    def test_expired_call_uses_intrinsic_settlement_not_stale_bid(self):
+        underlying = pd.DataFrame({
+            "date": pd.to_datetime(["2020-01-03", "2020-01-09"]),
+            "close": [100.0, 95.0],
+        })
+        pos = {
+            "contract_id": "C", "entry_date": pd.Timestamp("2020-01-03"),
+            "expiration": pd.Timestamp("2020-01-10"), "strike": 101.0, "qty": 1,
+        }
+        quotes = {
+            "C": {
+                "dates": np.array(["2020-01-09"], dtype="datetime64[ns]"),
+                "bid": np.array([3.50]),
+            }
+        }
+        value, source, _ = mark_position(pos, pd.Timestamp("2020-01-10"), quotes, underlying)
+        self.assertEqual(value, 0.0)
+        self.assertEqual(source, "EXPIRY_INTRINSIC")
 
     def test_xirr_for_cash_only_with_even_yearly_contributions_is_zero(self):
         flows = [(pd.Timestamp(f"{year}-01-01"), -700.0) for year in range(2010, 2020)]
