@@ -105,7 +105,7 @@ def factor_effects(configs):
 def make_report(configs,effects,yr):
     L=["# DTE × holding duration × exit guard factorial replay","",f"- Period: {START.isoformat()} to {END.isoformat()} ({YEARS:.3f} calendar years).",
     "- Cadence: every 10 common QQQ/SPY sessions; five predeclared phase anchors: 0, 2, 4, 6, 8.",
-    "- Fixed legs: QQQ LONG CALL 1 : SPY SHORT CALL 6; same expiry; nearest absolute Delta 0.25 on both legs.",
+    "- Fixed legs: QQQ LONG CALL 1 : SPY SHORT CALL 6; same expiry; nearest absolute Delta 0.20 on both legs.",
     "- Costs: USD 0.05/share/side slippage + USD 0.65/contract/side commission; no entry filter.",
     "- DTE target bands: "+"; ".join(f"DTE{d}: {lo}–{hi}" for d,(lo,hi) in BANDS.items())+".",
     "- Exit rules: max hold 5/10/15/20 sessions × no guard / remaining DTE ≤ 7 / remaining DTE ≤ 14. Guard exits use OR logic with maximum hold.",
