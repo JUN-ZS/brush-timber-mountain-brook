@@ -12,6 +12,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
+PUT_ENGINE_DIR = Path("research/qqq_spy_put_fixed_ratio_size_gated_v1").resolve()
+if str(PUT_ENGINE_DIR) not in sys.path:
+    sys.path.insert(0, str(PUT_ENGINE_DIR))
 import qqq_spy_put_premium_matched_phase_v1 as put_engine
 import qqq_spy_call_premium_matched_phase_v1 as call_engine
 
@@ -267,7 +270,10 @@ def collect_selected_quotes(positions, engine, cache_root):
             if not cid_col:
                 raise RuntimeError(f"{path.name} lacks contract_id")
             for batch in parquet.iter_batches(batch_size=131072, columns=list(engine.OPTION_COLUMNS)):
-                mask = pc.is_in(batch.column(cid_col), value_set=pa.array(sorted(raw_ids)))
+                cid_index = batch.schema.get_field_index(cid_col)
+                if cid_index < 0:
+                    raise RuntimeError(f"{path.name} batch lacks contract_id column")
+                mask = pc.is_in(batch.column(cid_index), value_set=pa.array(sorted(raw_ids)))
                 if not pc.any(mask).as_py():
                     continue
                 for row in batch.filter(mask).to_pylist():
