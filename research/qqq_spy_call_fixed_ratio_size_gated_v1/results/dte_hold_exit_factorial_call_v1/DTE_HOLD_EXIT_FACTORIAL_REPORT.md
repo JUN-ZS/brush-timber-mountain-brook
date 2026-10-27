@@ -2,7 +2,7 @@
 
 - Period: 2018-03-01 to 2025-12-15 (7.792 calendar years).
 - Cadence: every 10 common QQQ/SPY sessions; five predeclared phase anchors: 0, 2, 4, 6, 8.
-- Fixed legs: QQQ LONG CALL 1 : SPY SHORT CALL 6; same expiry; nearest absolute Delta 0.25 on both legs.
+- Fixed legs: QQQ LONG CALL 1 : SPY SHORT CALL 6; same expiry; nearest absolute Delta 0.20 on both legs.
 - Costs: USD 0.05/share/side slippage + USD 0.65/contract/side commission; no entry filter.
 - DTE target bands: DTE20: 14–26; DTE30: 24–36; DTE45: 39–51; DTE60: 54–66.
 - Exit rules: max hold 5/10/15/20 sessions × no guard / remaining DTE ≤ 7 / remaining DTE ≤ 14. Guard exits use OR logic with maximum hold.
