@@ -22,7 +22,7 @@ jobs:
       - name: Checkout isolated research branch
         uses: actions/checkout@v4
         with:
-          ref: research/qqq-spot-vs-call-budget-v1-20261027
+          ref: ${{ github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
