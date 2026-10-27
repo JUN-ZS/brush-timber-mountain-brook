@@ -357,14 +357,15 @@ def render_report(stock: dict, configs: list[dict], phases: list[dict]) -> str:
         "|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for r in configs:
+        worst = r["worst_completed_pair_across_phases_usd"]
+        worst_text = "n/a" if worst is None else f"{float(worst):,.2f}"
         lines.append(
             f"| {r['dte_target']} | {r['median_completed_pair_annual_additive_pnl_usd']:,.2f} | "
             f"{r['min_phase_completed_pair_annual_additive_pnl_usd']:,.2f}–{r['max_phase_completed_pair_annual_additive_pnl_usd']:,.2f} | "
             f"{r['median_stock_plus_completed_pair_pnl_current_position_basis_usd']:,.2f} | "
             f"{r['median_stock_plus_resolved_legs_pnl_current_position_basis_usd']:,.2f} | "
             f"{r['median_admitted_paired_sets']:,.1f} | {r['median_skipped_matched_pairs_capacity']:,.1f} | "
-            f"{r['median_unresolved_option_legs']:,.1f} | "
-            f"{'n/a' if r['worst_completed_pair_across_phases_usd'] is None else f\"{r['worst_completed_pair_across_phases_usd']:,.2f}\"} |"
+            f"{r['median_unresolved_option_legs']:,.1f} | {worst_text} |"
         )
     lines += [
         "", "## All phase results", "",
