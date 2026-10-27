@@ -188,8 +188,14 @@ def _spot_on_or_before(underlying: pd.DataFrame, target: pd.Timestamp):
 
 
 def mark_position(pos: dict, target: pd.Timestamp, quotes: dict[str, dict], underlying: pd.DataFrame):
-    """Use latest observed bid within 5 days; otherwise use intrinsic-value floor."""
-    cut = min(pd.Timestamp(target).normalize(), pd.Timestamp(pos["expiration"]).normalize())
+    """Settle expired Calls at intrinsic value; mark live positions to a fresh bid."""
+    expiry = pd.Timestamp(pos["expiration"]).normalize()
+    target_date = pd.Timestamp(target).normalize()
+    cut = min(target_date, expiry)
+    if target_date >= expiry:
+        spot, spot_date = _spot_on_or_before(underlying, expiry)
+        value = max(spot - float(pos["strike"]), 0.0) * OPTION_MULTIPLIER * int(pos["qty"])
+        return value, "EXPIRY_INTRINSIC", spot_date
     q = quotes.get(str(pos["contract_id"]))
     if q is not None and len(q["dates"]):
         dates = q["dates"]
@@ -272,7 +278,8 @@ def _simulate_path(underlying, start_idx, end_idx, weekly_candidates, annual_can
             "profit_usd": stock_terminal - CAPITAL_USD, "total_return_pct": stock_terminal / CAPITAL_USD - 1,
             "xirr": (stock_terminal / CAPITAL_USD) ** (365.25 / max((end_date - start_date).days, 1)) - 1,
             "premium_paid_usd": 0.0, "contracts_bought": 0, "entry_events": 1,
-            "candidate_misses": 0, "positions_closed": 0, "all_contract_payouts_zero": False,
+            "candidate_misses": 0, "positions_closed": 0, "all_expired_contracts_worthless": False,
+            "expired_contracts": 0, "expired_worthless_contracts": 0, "expired_intrinsic_settlements": 0,
             "any_contracts_bought": False, "near_total_loss": stock_terminal <= NEAR_TOTAL_LOSS_USD,
             "observed_bid_exits": 0, "intrinsic_fallback_exits": 0, "exit_payout_usd": 0.0,
         }
@@ -281,7 +288,8 @@ def _simulate_path(underlying, start_idx, end_idx, weekly_candidates, annual_can
     cash, positions, cashflows = 0.0, [], []
     premium_paid = 0.0
     contracts_bought = candidate_misses = observed_bid_exits = intrinsic_fallback_exits = 0
-    position_payouts, exit_payout_total = [], 0.0
+    expired_intrinsic_settlements = expired_contracts = expired_worthless_contracts = 0
+    position_payouts, expired_position_payouts, exit_payout_total = [], [], 0.0
     if strategy == "weekly_5d_call":
         event_indices = list(range(start_idx, end_idx, WEEKLY_STEP_SESSIONS))
         contribution = CAPITAL_USD / max(len(event_indices), 1)
@@ -307,8 +315,17 @@ def _simulate_path(underlying, start_idx, end_idx, weekly_candidates, annual_can
                 cash += value
                 exit_payout_total += value
                 position_payouts.append(value)
-                if source == "OBSERVED_BID": observed_bid_exits += 1
-                else: intrinsic_fallback_exits += 1
+                expired_position_payouts.append(value)
+                qty = int(pos["qty"])
+                expired_contracts += qty
+                if value <= 1e-8:
+                    expired_worthless_contracts += qty
+                if source == "EXPIRY_INTRINSIC":
+                    expired_intrinsic_settlements += 1
+                elif source == "OBSERVED_BID":
+                    observed_bid_exits += 1
+                else:
+                    intrinsic_fallback_exits += 1
             else:
                 keep.append(pos)
         positions = keep
@@ -330,13 +347,29 @@ def _simulate_path(underlying, start_idx, end_idx, weekly_candidates, annual_can
         positions.append({**candidate, "qty": qty, "entry_date": event_date, "premium_paid": spend})
 
     for pos in positions:
-        cutoff = min(pd.Timestamp(pos["expiration"]).normalize(), end_date)
-        value, source, _ = mark_position(pos, cutoff, quotes, underlying)
+        expiration = pd.Timestamp(pos["expiration"]).normalize()
+        if expiration <= end_date:
+            value, source, _ = mark_position(pos, expiration, quotes, underlying)
+            expired_position_payouts.append(value)
+            qty = int(pos["qty"])
+            expired_contracts += qty
+            if value <= 1e-8:
+                expired_worthless_contracts += qty
+            if source == "EXPIRY_INTRINSIC":
+                expired_intrinsic_settlements += 1
+            elif source == "OBSERVED_BID":
+                observed_bid_exits += 1
+            else:
+                intrinsic_fallback_exits += 1
+        else:
+            value, source, _ = mark_position(pos, end_date, quotes, underlying)
+            if source == "OBSERVED_BID":
+                observed_bid_exits += 1
+            else:
+                intrinsic_fallback_exits += 1
         cash += value
         exit_payout_total += value
         position_payouts.append(value)
-        if source == "OBSERVED_BID": observed_bid_exits += 1
-        else: intrinsic_fallback_exits += 1
     terminal_nav = max(float(cash), 0.0)
     rate = xirr(cashflows + [(end_date, terminal_nav)])
     traded_positions = len(position_payouts)
@@ -347,7 +380,10 @@ def _simulate_path(underlying, start_idx, end_idx, weekly_candidates, annual_can
         "xirr": rate, "premium_paid_usd": premium_paid, "contracts_bought": contracts_bought,
         "entry_events": len(event_indices), "candidate_misses": candidate_misses,
         "positions_closed": traded_positions,
-        "all_contract_payouts_zero": bool(traded_positions > 0 and sum(position_payouts) <= 1e-8),
+        "all_expired_contracts_worthless": bool(expired_contracts > 0 and expired_worthless_contracts == expired_contracts),
+        "expired_contracts": expired_contracts,
+        "expired_worthless_contracts": expired_worthless_contracts,
+        "expired_intrinsic_settlements": expired_intrinsic_settlements,
         "any_contracts_bought": contracts_bought > 0,
         "near_total_loss": terminal_nav <= NEAR_TOTAL_LOSS_USD,
         "observed_bid_exits": observed_bid_exits, "intrinsic_fallback_exits": intrinsic_fallback_exits,
@@ -386,9 +422,12 @@ def summarise(results: pd.DataFrame) -> pd.DataFrame:
             "p10_xirr_pct": float(g.xirr.dropna().quantile(.10) * 100) if g.xirr.notna().any() else None,
             "p90_xirr_pct": float(g.xirr.dropna().quantile(.90) * 100) if g.xirr.notna().any() else None,
             "any_contracts_bought_pct": float(g.any_contracts_bought.astype(bool).mean() * 100),
-            "all_contract_payouts_zero_pct_when_traded": float(traded.all_contract_payouts_zero.astype(bool).mean() * 100) if len(traded) else None,
+            "all_expired_contracts_worthless_pct_when_traded": float(traded.all_expired_contracts_worthless.astype(bool).mean() * 100) if len(traded) else None,
             "near_total_loss_pct": float(g.near_total_loss.astype(bool).mean() * 100),
             "median_contracts_bought": float(g.contracts_bought.median()),
+            "median_contracts_expired": float(g.expired_contracts.median()),
+            "median_expired_worthless_contracts": float(g.expired_worthless_contracts.median()),
+            "median_expiry_intrinsic_settlements": float(g.expired_intrinsic_settlements.median()),
             "median_positions_closed": float(g.positions_closed.median()),
             "median_premium_paid_usd": float(g.premium_paid_usd.median()),
             "median_exit_payout_usd": float(g.exit_payout_usd.median()),
@@ -492,11 +531,12 @@ def main():
         "option_contract_multiplier": OPTION_MULTIPLIER,
         "cash_contribution_policy": "Weekly strategy contributes $7000 evenly over scheduled 5-session entries; annual strategy contributes $700 at each of ten yearly entry dates. Unspent cash and expired-option proceeds are carried forward; whole contracts only.",
         "entry_fill": "Observed ask on entry date",
-        "exit_rule": "Hold to expiration, or to the 10-year window end if later; liquidate at last observed bid within five calendar days of cutoff. If no fresh bid, use underlying intrinsic value as a conservative fallback and count the fallback.",
-        "option_fees": "Commissions and exchange fees excluded; entry ask and exit bid include quoted spread when observed.",
+        "exit_rule": "Hold each Call to expiration and settle at intrinsic value from QQQ close on or immediately before expiration. Any Call still open at the 10-year window end is marked at the latest observed bid within five calendar days; if no fresh bid exists, use intrinsic value at the window end and count the fallback.",
+        "option_fees": "Commissions and exchange fees excluded; entry ask includes the observed spread. Live positions marked at the ten-year horizon use observed bid where fresh.",
         "benchmark_price_mode": benchmark_mode,
-        "quote_fallback_counts": {"observed_bid_exit_marks": int(details.observed_bid_exits.sum()),
-                                  "intrinsic_fallback_exit_marks": int(details.intrinsic_fallback_exits.sum())},
+        "quote_fallback_counts": {"observed_bid_horizon_marks": int(details.observed_bid_exits.sum()),
+                                  "intrinsic_fallback_horizon_marks": int(details.intrinsic_fallback_exits.sum()),
+                                  "expired_intrinsic_settlements": int(details.expired_intrinsic_settlements.sum())},
         "limitations": [
             "Overlapping ten-year windows are highly correlated and are not independent observations.",
             "The $7000 spot benchmark is fully invested at the start; Call strategies deploy the same $7000 through contributions over ten years, so time with capital at risk differs by construction.",
@@ -518,15 +558,15 @@ def main():
         "- Weekly Call: contribute $7,000 evenly over 5-session entries; target 5-delta OTM Call, 7 DTE (5–10 allowed), hold to expiration.",
         "- Annual Call: contribute $700 at each of ten yearly entry dates; target 5-delta OTM Call, 365 DTE (330–400 allowed), hold to expiration.",
         "- Whole contracts only; cash and proceeds are carried forward without interest.",
-        "- Fresh bid at exit; if unavailable within five days, use intrinsic value as a conservative fallback and count it.",
-        "- Commissions and taxes excluded; observed bid/ask spread is included when quoted.",
+        "- Expired Calls settle at intrinsic value using QQQ close on or immediately before expiration. Only Calls still open at the ten-year window end are marked to the latest bid within five days; if unavailable, use intrinsic value and count the fallback.",
+        "- Commissions and taxes excluded; observed entry ask includes the quoted spread.",
         "", "## Entry quote coverage", "", pd.DataFrame(coverage_rows).to_string(index=False),
         "", "## Ten-year results", "", summary.to_string(index=False, float_format=lambda v: f"{v:.4f}"),
         "", "## How to read this", "",
         "- Positive-window percentage means terminal account NAV exceeds the full $7,000 contribution budget.",
         "- XIRR uses actual contribution dates and terminal NAV; this is more appropriate than a simple ten-year CAGR for staggered contributions.",
-        "- All-contract-payouts-zero is conditional on at least one contract having been bought.",
-        "- Near-total-loss means terminal account NAV is at or below $70 (1% of total contributions).",
+        "- All-expired-contracts-worthless is conditional on at least one contract purchase; it means every option contract that expired during the ten-year path had zero intrinsic settlement value. Calls still open at the window end are not counted as expired.",
+        "- Near-total-loss means terminal account NAV is at or below $70 (1% of total contributions); this is more relevant than whether every single Call expires worthless.",
         "- The overlapping windows are not independent statistical trials.",
         "- The fully invested spot benchmark and the ten-year contribution-funded Call strategies have different capital-at-risk timing.",
         "", "## Provenance", "", f"- Workflow source commit: {manifest['source_commit']}",
