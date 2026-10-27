@@ -167,9 +167,9 @@ jobs:
           PY=.venv-dte-call/bin/python
           BASE=research/qqq_spy_call_fixed_ratio_size_gated_v1
           PYTHONPATH="$BASE" "$PY" "$BASE/test_qqq_spy_put_call_daily_nav_v1.py"
-          "$PY" -u "$BASE/qqq_spy_put_call_daily_nav_v1.py" \\
-            --qqq-stock-value-usd 63694 \\
-            --current-qqq-price 712.20 \\
+          "$PY" -u "$BASE/qqq_spy_put_call_daily_nav_v1.py" \
+            --qqq-stock-value-usd 63694 \
+            --current-qqq-price 712.20 \
             --current-price-date 2026-10-26
           OUT="$BASE/results/dte_hold_exit_factorial_call_v1/daily_nav_dte20_exit4_v1"
           test -s "$OUT/DAILY_NAV_MAX_DRAWDOWN_REPORT.md"
