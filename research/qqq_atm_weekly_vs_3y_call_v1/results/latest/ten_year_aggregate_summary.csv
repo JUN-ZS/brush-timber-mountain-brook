@@ -1,0 +1,3 @@
+strategy,windows,mean_terminal_nav_usd,median_terminal_nav_usd,p10_terminal_nav_usd,p90_terminal_nav_usd,mean_profit_usd,median_profit_usd,positive_window_pct,ending_below_7000_pct,near_total_loss_pct,median_contracts_bought,median_premium_paid_usd,median_candidate_or_cash_misses
+qqq_spot_buy_hold_10y,239,39154.6204563552,37785.53189797064,33581.30907537275,49305.98720071969,32154.620456355206,30785.531897970643,100.0,0.0,0.0,0.0,0.0,0.0
+weekly_atm_call_10y,239,402.3347280334647,254.0000000000032,97.00000000000685,467.59999999999087,-6597.665271966535,-6745.999999999996,0.41841004184100417,99.581589958159,4.602510460251046,368.0,45199.0,397.0
