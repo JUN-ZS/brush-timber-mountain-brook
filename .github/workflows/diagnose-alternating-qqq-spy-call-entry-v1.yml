@@ -1,0 +1,54 @@
+name: Diagnose CALL missed entry — QQQ SPY DTE20
+
+on:
+  push:
+    branches:
+      - research/alternating-qqq-spy-put-cycle-v1-20261105
+    paths:
+      - research/diagnose_alternating_qqq_spy_call_entry_v1.py
+      - .github/workflows/diagnose-alternating-qqq-spy-call-entry-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore pinned option-data cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/qqq-options-full-history
+            ~/.cache/spy-options-cross-put-v1
+          key: qqq-spy-put-data-v1-${{ runner.os }}-37f6c456fe1a4775c875673fb8ef907d5cd2fd66
+
+      - name: Install pinned Parquet runtime
+        run: python -m pip install pyarrow==21.0.0
+
+      - name: Diagnose scheduled 2019-02-14 CALL entry
+        run: |
+          python research/diagnose_alternating_qqq_spy_call_entry_v1.py \
+            --date 2019-02-14 \
+            --qqq-cache ~/.cache/qqq-options-full-history \
+            --spy-cache ~/.cache/spy-options-cross-put-v1 \
+            | tee call_missed_entry_diagnostic.json
+
+      - name: Upload diagnosis
+        uses: actions/upload-artifact@v4
+        with:
+          name: call-missed-entry-diagnostic
+          path: call_missed_entry_diagnostic.json
+          retention-days: 30
