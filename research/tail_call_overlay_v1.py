@@ -211,12 +211,14 @@ def run_arm(arm, data_dir, daily_quotes):
                 bid_size = positive_int(row.get("callBidSize"))
                 ask = num(row.get("callAskPrice"))
                 ask_size = positive_int(row.get("callAskSize"))
-                if bid is not None and bid >= 0:
+                if bid is not None and bid >= 0 and bid_size >= CONTRACTS:
+                    # Only a six-lot displayed bid may refresh the portfolio mark.
                     pos["last_bid"] = float(bid)
                     pos["last_bid_size"] = bid_size
                     pos["last_mark_date"] = day
                     pos["stale_sessions"] = 0
                 else:
+                    # A 1–5 lot bid cannot mark all six contracts as executable.
                     pos["stale_sessions"] += 1
                 quote_audit.append({
                     "arm": arm, "episode_id": pos["episode_id"], "date": day,
@@ -291,8 +293,10 @@ def run_arm(arm, data_dir, daily_quotes):
                 "gross_premium_usd": money(candidate["entry_ask"] * MULTIPLIER * CONTRACTS),
                 "entry_commission_usd": money(CONTRACTS * COMMISSION_PER_CONTRACT_PER_SIDE),
                 "premium_cap_per_share": TARGET_ASK, "status": "OPEN",
-                "last_bid": candidate["entry_bid"], "last_bid_size": candidate["entry_bid_size"],
-                "last_mark_date": day, "stale_sessions": 0,
+                "last_bid": candidate["entry_bid"] if candidate["entry_bid_size"] >= CONTRACTS else 0.0,
+                "last_bid_size": candidate["entry_bid_size"] if candidate["entry_bid_size"] >= CONTRACTS else 0,
+                "last_mark_date": day if candidate["entry_bid_size"] >= CONTRACTS else None,
+                "stale_sessions": 0 if candidate["entry_bid_size"] >= CONTRACTS else 1,
             }
             active.append(position)
             tail_entries.append({
