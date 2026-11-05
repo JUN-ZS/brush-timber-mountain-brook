@@ -65,8 +65,18 @@ def main():
         require(r["short_symbol"] == short_symbol and r["long_symbol"] == long_symbol, "CALL direction/underlying reversal")
         require(re.fullmatch(short_symbol + r"\d{6}C\d{8}", r["short_contract_id"]) is not None, "short leg is not an OCC CALL")
         require(re.fullmatch(long_symbol + r"\d{6}C\d{8}", r["long_contract_id"]) is not None, "long leg is not an OCC CALL")
-        require(0.10 <= float(r["short_delta"]) <= 0.50, "short CALL raw Delta must be positive and inside source validation band")
-        require(abs(float(r["short_abs_delta"]) - float(r["short_delta"])) < 0.000001, "short CALL Delta sign/absolute mismatch")
+        source = r["short_delta_source"]
+        raw_delta = float(r["short_delta_raw"])
+        used_delta = float(r["short_delta"])
+        if source == "OBSERVED_CALL_DELTA":
+            require(raw_delta > 0 and abs(used_delta - raw_delta) < 0.000001, "observed CALL Delta must be positive and unchanged")
+        elif source == "PUT_DELTA_PARITY_DERIVED":
+            require(r["entry_date"] == "2019-02-14" and r["direction"] == "A", "unexpected parity-derived Delta date/direction")
+            require(raw_delta < 0 and abs(used_delta - (1.0 + raw_delta)) < 0.000001, "PUT-to-CALL Delta parity conversion mismatch")
+        else:
+            require(False, "unknown short CALL Delta source")
+        require(0.10 <= used_delta <= 0.50, "short CALL Delta outside source validation band")
+        require(abs(float(r["short_abs_delta"]) - used_delta) < 0.000001, "short CALL Delta magnitude mismatch")
         require(i not in attempts, "duplicate schedule slot")
         attempts[i] = r["direction"]
         opening = round(100 * (6 * float(r["short_entry_bid"]) - float(r["long_entry_ask"])), 2)
@@ -83,6 +93,9 @@ def main():
     require(set(attempts) == scheduled, "scheduled signals not reconciled")
     require(len(entries) + len(skips) == len(scheduled), "entry/skip count")
     require(len(skips) == 0, "user rule requires an entry on every scheduled 10-session cycle")
+    parity_entries = [r for r in entries if r.get("short_delta_source") == "PUT_DELTA_PARITY_DERIVED"]
+    require(len(parity_entries) == 1, "expected exactly one explicitly tagged source-Greek parity correction")
+    require(parity_entries[0]["entry_date"] == "2019-02-14", "parity correction applied outside the known source anomaly")
     for episode, t in trade_map.items():
         if t.get("exit_date"):
             held = int(float(t.get("hold_sessions") or 0))
