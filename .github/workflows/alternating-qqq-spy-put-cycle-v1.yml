@@ -48,7 +48,7 @@ jobs:
             --initial-nav 100000 \
             --out research/alternating_qqq_spy_put_cycle_v1/results/latest
 
-      - name: Validate output bundle and exact-zero ledger
+      - name: Validate output bundle and premium-balance ledger
         run: |
           set -euo pipefail
           OUT=research/alternating_qqq_spy_put_cycle_v1/results/latest
@@ -98,16 +98,30 @@ jobs:
                   raise SystemExit(f"{arm}: entries rows {len(entries)} != entered_cohorts {entered}")
               if len(trades) != resolved + unresolved:
                   raise SystemExit(f"{arm}: trades rows do not reconcile to resolved + unresolved")
-              if zero_entries != entered or nonzero_entries != 0:
-                  raise SystemExit(f"{arm}: opening premium parity ledger failed")
+              if zero_entries + nonzero_entries != entered:
+                  raise SystemExit(f"{arm}: zero/nonzero premium counts do not reconcile to entries")
+              counted_zero = counted_nonzero = 0
               for entry in entries:
                   opening = round(float(entry["net_opening_cashflow_usd"]), 2)
-                  if opening != 0.0:
-                      raise SystemExit(f"{arm}: nonzero opening cashflow {opening}")
+                  expected = round(100.0 * (6.0 * float(entry["short_entry_bid"]) - float(entry["long_entry_ask"])), 2)
+                  if opening != expected:
+                      raise SystemExit(f"{arm}: opening cashflow mismatch: ledger={opening}, recomputed={expected}")
+                  if abs(opening) < 0.005:
+                      counted_zero += 1
+                  else:
+                      counted_nonzero += 1
+                  long_paid = float(entry["long_premium_paid_usd"])
+                  short_received = float(entry["short_premium_received_usd"])
+                  scale = max(abs(long_paid), abs(short_received))
+                  expected_match = 100.0 if scale <= 0 else 100.0 * (1.0 - abs(long_paid - short_received) / scale)
+                  if abs(float(entry["actual_entry_premium_match_pct"]) - expected_match) > 1e-5:
+                      raise SystemExit(f"{arm}: actual premium-match diagnostic mismatch")
+              if counted_zero != zero_entries or counted_nonzero != nonzero_entries:
+                  raise SystemExit(f"{arm}: zero/nonzero premium counts disagree with entry ledger")
               total_entries += entered
               total_trades += len(trades)
 
-          print(f"Validated 6 arms; entered={total_entries}; trade rows={total_trades}; all opening premiums exactly $0.00.")
+          print(f"Validated 6 arms; entered={total_entries}; trade rows={total_trades}; all opening debit/credit ledgers reconcile.")
           PY
 
       - name: Upload replay evidence

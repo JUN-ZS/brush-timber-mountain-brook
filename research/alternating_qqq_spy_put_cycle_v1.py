@@ -29,8 +29,15 @@ ARM_CONFIG={
 }
 
 def premium_cashflow_usd(long_ask,short_bid):
-    """Gross opening credit less debit for one long and six short contracts."""
+    """Natural-side gross opening credit less debit; positive means net credit."""
     return round(MULTIPLIER*(SHORT_QTY*float(short_bid)-LONG_QTY*float(long_ask)),2)
+
+
+def premium_match_pct(long_debit_usd,short_credit_usd):
+    """Symmetric premium-size similarity score; diagnostic only, never an entry gate."""
+    long_debit=abs(float(long_debit_usd));short_credit=abs(float(short_credit_usd))
+    scale=max(long_debit,short_credit)
+    return 100.0 if scale<=0 else 100.0*(1.0-abs(long_debit-short_credit)/scale)
 
 
 def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short_spot,long_spot,
@@ -76,9 +83,6 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
             bid_size,ask_size=base.displayed_size(row,"bid"),base.displayed_size(row,"ask")
             if bid_size<LONG_QTY or ask_size<LONG_QTY:continue
             bid,ask=float(row["bid"]),float(row["ask"])
-            premium_gap=premium_cashflow_usd(ask,short_leg["bid"])
-            if premium_gap != 0.0:
-                continue
             longs.append({"row":row,"id":base.normalized_contract_id(row),"strike":strike,
                 "abs_delta":abs(delta),"bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,
                 "oi":base.num(row.get("open_interest")) or 0.0,
@@ -86,7 +90,8 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
         if not longs:continue
         long_leg=min(longs,key=lambda x:(x["premium_error"],abs(x["abs_delta"]-LONG_DELTA_TARGET),
             -x["ask_size"],-x["oi"],x["spread"],x["id"]))
-        match=100.0*(1.0-long_leg["premium_error"]/max(target_ask,long_leg["ask"],0.01))
+        match=premium_match_pct(long_leg["ask"]*MULTIPLIER*LONG_QTY,
+        target_ask*MULTIPLIER*SHORT_QTY)
         choices.append(((abs(dte-dte_target),long_leg["premium_error"]/max(target_ask,0.01),
             abs(short_leg["abs_delta"]-SHORT_DELTA_TARGET),abs(long_leg["abs_delta"]-LONG_DELTA_TARGET),
             -(short_leg["bid_size"]+long_leg["ask_size"]),expiry),
@@ -100,8 +105,8 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
         "short_signal_bid_size":short_leg["bid_size"],"long_contract_id":long_leg["id"],"long_strike":long_leg["strike"],
         "long_abs_delta":long_leg["abs_delta"],"long_signal_bid":long_leg["bid"],"long_signal_ask":long_leg["ask"],
         "long_signal_ask_size":long_leg["ask_size"],"long_target_ask_signal":target_ask,
-        "long_premium_match_pct_signal":100.0,"long_premium_error_signal":0.0,
-        "opening_premium_cashflow_signal_usd":0.0,
+        "long_premium_match_pct_signal":match,"long_premium_error_signal":long_leg["premium_error"],
+        "opening_premium_cashflow_signal_usd":premium_cashflow_usd(long_leg["ask"],short_leg["bid"]),
         "short_spot_signal":float(short_spot),"long_spot_signal":float(long_spot),
         "short_moneyness_signal":sm["status"],"short_otm_pct_signal":sm["otm_pct"],
         "long_moneyness_signal":lm["status"],"long_otm_pct_signal":lm["otm_pct"]}
@@ -204,7 +209,7 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
             pair=pair_map.get(day,{}).get(direction)
             if pair is None:
                 skips.append({"episode_id":pending["episode_id"],"signal_date":pending["schedule_signal_date"],
-                    "direction":direction,"reason":"NO_EXACT_ZERO_PREMIUM_PAIR_AT_ENTRY","entry_date":day})
+                    "direction":direction,"reason":"NO_VALID_COMMON_EXPIRY_DELTA_PAIR","entry_date":day})
                 pending=None
             else:
                 chosen={**pair,"direction":direction,"signal_index":pending["signal_index"],
@@ -215,26 +220,24 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
                 valid,reason=quote_sides_valid(lrow,srow,True)
                 if valid:
                     opening_cashflow=premium_cashflow_usd(float(lrow["ask"]),float(srow["bid"]))
-                    if opening_cashflow == 0.0:
-                        ep={**chosen,"episode_id":f"{mode}-{chosen['episode_id']}","arm":mode,
-                            "entry_index":idx,"entry_date":day,"long_entry_ask":float(lrow["ask"]),
-                            "short_entry_bid":float(srow["bid"]),"long_entry_bid":float(lrow["bid"]),
-                            "short_entry_ask":float(srow["ask"]),"long_spot_entry":spots[chosen["long_symbol"]].get(day),
-                            "short_spot_entry":spots[chosen["short_symbol"]].get(day),
-                            "long_entry_abs_delta":abs(base.num(lrow.get("delta")) or 0.0),
-                            "short_entry_abs_delta":abs(base.num(srow.get("delta")) or 0.0),
-                            "long_premium_paid_usd":float(lrow["ask"])*MULTIPLIER*LONG_QTY,
-                            "short_premium_received_usd":float(srow["bid"])*MULTIPLIER*SHORT_QTY,
-                            "actual_entry_premium_match_pct":100.0,
-                            "net_opening_cashflow_usd":opening_cashflow,
-                            "short_assignment_notional_usd":SHORT_QTY*MULTIPLIER*float(chosen["short_strike"]),
-                            "mark_missing_sessions":0,"last_mark_pnl_usd":None,"last_mark_index":idx,
-                            "exit_deferred_sessions":0,"status":"OPEN"}
-                        entered+=1;entries.append(ep.copy());active.append(ep)
-                    else:
-                        skips.append({"episode_id":pending["episode_id"],"signal_date":pending["schedule_signal_date"],
-                            "direction":direction,"reason":"OPENING_PREMIUM_NOT_ZERO","entry_date":day,
-                            "net_opening_cashflow_usd":opening_cashflow})
+                    long_premium_paid=float(lrow["ask"])*MULTIPLIER*LONG_QTY
+                    short_premium_received=float(srow["bid"])*MULTIPLIER*SHORT_QTY
+                    actual_match=premium_match_pct(long_premium_paid,short_premium_received)
+                    ep={**chosen,"episode_id":f"{mode}-{chosen['episode_id']}","arm":mode,
+                        "entry_index":idx,"entry_date":day,"long_entry_ask":float(lrow["ask"]),
+                        "short_entry_bid":float(srow["bid"]),"long_entry_bid":float(lrow["bid"]),
+                        "short_entry_ask":float(srow["ask"]),"long_spot_entry":spots[chosen["long_symbol"]].get(day),
+                        "short_spot_entry":spots[chosen["short_symbol"]].get(day),
+                        "long_entry_abs_delta":abs(base.num(lrow.get("delta")) or 0.0),
+                        "short_entry_abs_delta":abs(base.num(srow.get("delta")) or 0.0),
+                        "long_premium_paid_usd":long_premium_paid,
+                        "short_premium_received_usd":short_premium_received,
+                        "actual_entry_premium_match_pct":actual_match,
+                        "net_opening_cashflow_usd":opening_cashflow,
+                        "short_assignment_notional_usd":SHORT_QTY*MULTIPLIER*float(chosen["short_strike"]),
+                        "mark_missing_sessions":0,"last_mark_pnl_usd":None,"last_mark_index":idx,
+                        "exit_deferred_sessions":0,"status":"OPEN"}
+                    entered+=1;entries.append(ep.copy());active.append(ep)
                 else:
                     skips.append({"episode_id":pending["episode_id"],"signal_date":pending["schedule_signal_date"],
                         "direction":direction,"reason":reason,"entry_date":day})
@@ -387,7 +390,7 @@ def main():
         "contract_setup":{"long_qty":1,"short_qty":6,"multiplier":100,"short_abs_delta_target":SHORT_DELTA_TARGET,
             "long_abs_delta_band":[LONG_DELTA_LOW,LONG_DELTA_HIGH],"long_abs_delta_target":LONG_DELTA_TARGET,
             "dte_band":[DTE_MIN,DTE_MAX],"dte_target":DTE_TARGET,"common_expiry_required":True,
-            "premium_match_target":"HARD_ENTRY_PARITY: 1x opposite-index long put Ask equals 6x short put Bid to $0.00 gross opening premium; no exact pair means skip",
+            "premium_balance_target":"SOFT_ONLY: 1x opposite-index long put Ask is selected near 6x short put Bid where possible; any residual is recorded as net opening debit/credit and never blocks entry",
             "entry_pair_selection":"reselected from actual next-common-session EOD quotes; entered from that same quote snapshot"},
         "cadence":{"new_signal_every_common_sessions":STRIDE,"alternation":"A=SPY short/QQQ long; B=QQQ short/SPY long; flips by fixed slot even if skipped",
             "arms":{k:v for k,v in ARM_CONFIG.items()}},
@@ -398,7 +401,7 @@ def main():
         "results":summary,"limitations":[
             "Public historical EOD quote mirror; hashes prove file identity, not exchange/OPRA authenticity.",
             "EOD bid/ask and displayed size are not verified multi-leg fills.",
-            "Exact zero gross opening premium does not make the strategy costless: spread, commission, slippage, financing, collateral and assignment remain.",
+            "Opening premium balance is approximate; net debit/credit, bid/ask spreads, commission, slippage, financing, collateral and assignment remain.",
             "Premium equality does not equalize Delta, dollar Delta, gamma, vega, max loss, collateral, or assignment risk.",
             "QQQ/SPY basis and relative-performance risk remains; their downside beta is not identical.",
             "Fixed contract quantities are not constrained by margin, forced liquidation, financing, or assignment cash.",
@@ -410,9 +413,10 @@ def main():
         f"- Sample: {common_dates[0]} to {common_dates[-1]} ({len(common_dates)} common sessions).",
         "- Each cohort: short 6 puts at |Delta| nearest 0.25, long 1 opposite-index put at |Delta| 0.60–0.70 (target 0.65).",
         "- Common expiration required; DTE nearest 21 within 18–24 calendar days.",
-        "- HARD ENTRY RULE: 1 x opposite-index long-put Ask must equal 6 x short-put Bid to $0.00 gross opening premium; otherwise that scheduled cohort is skipped.",
-        "- Pair is reselected on the next common-session EOD quote snapshot and entered from the same snapshot; new schedule signal every 5 common sessions.",
-        "- Zero gross opening premium excludes commissions and slippage; bid/ask spreads and all exit costs remain in P&L.","",
+        "- PREMIUM BALANCE IS SOFT ONLY: 1 x opposite-index long-put Ask is targeted near 6 x short-put Bid (e.g. about $24 versus 6 x about $4), but exact equality is not required.",
+        "- ENTRY IS UNCONDITIONAL ON PREMIUM PARITY: every scheduled slot enters the selected common-expiry / DTE / Delta pair when valid entry quotes and displayed size are present; any debit or credit is recorded, not skipped.",
+        "- Pair is reselected on the next common-session EOD quote snapshot and entered from the same snapshot; new signal every 5 common sessions.",
+        "- P&L includes the entry debit/credit through the actual opening and closing leg prices, plus estimated round-trip slippage and commissions.","",
         "## Arms","","| Arm | Entered | Resolved | Win % | Mean/trade | Median/trade | Worst/trade | Ending NAV | CAGR | Max DD | Peak short assignment notional |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for r in summary:
@@ -424,7 +428,7 @@ def main():
             f"{r['ending_nav_usd']:.2f} | {r['portfolio_cagr_pct'] if r['portfolio_cagr_pct'] is not None else '—'} | "
             f"{r['max_drawdown_pct']:.2f}% | {r['peak_open_short_assignment_notional_usd']:.2f} |")
     lines += ["","## Interpretation","","- alternate_two_week_staggered opens a new opposite-side cohort each week and holds each cohort up to 10 sessions, normally creating two concurrent layers.",
-        "- A 1:6 contract ratio is not a hedge ratio. Exact premium parity does not equalize Dollar Delta, convexity, notional or assignment.",
+        "- A 1:6 contract ratio is not a hedge ratio. Approximate premium-size matching does not equalize Dollar Delta, convexity, notional or assignment.",
         "- CAGR/MaxDD use an unconstrained fixed-size P&L ledger on the stated NAV; they are not evidence of broker buying-power feasibility.",
         "- Per-trade episode P&L overlaps; use daily NAV for the portfolio view.",""]
     (out/"study_report.md").write_text("\n".join(lines),encoding="utf-8")
