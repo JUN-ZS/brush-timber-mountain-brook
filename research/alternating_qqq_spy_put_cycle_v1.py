@@ -22,6 +22,8 @@ DEFAULT_NAV=100000.0
 ARM_CONFIG={
  "SPY_SHORT_QQQ_LONG_only":{"mode":"fixed_A","hold":5},
  "QQQ_SHORT_SPY_LONG_only":{"mode":"fixed_B","hold":5},
+ "SPY_SHORT_QQQ_LONG_only_hold10":{"mode":"fixed_A","hold":10},
+ "QQQ_SHORT_SPY_LONG_only_hold10":{"mode":"fixed_B","hold":10},
  "alternate_weekly_close":{"mode":"alternate","hold":5},
  "alternate_two_week_staggered":{"mode":"alternate","hold":10},
 }
