@@ -8,6 +8,8 @@ on:
       - research/alternating_qqq_spy_put_cycle_v1.py
       - research/test_alternating_qqq_spy_put_cycle_v1.py
       - research/test_resumable_download_v1.py
+      - research/tail_call_overlay_v1.py
+      - research/test_tail_call_overlay_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
       - .github/workflows/alternating-qqq-spy-put-cycle-v1.yml
   workflow_dispatch:
@@ -60,9 +62,10 @@ jobs:
 
       - name: Compile and run unit tests
         run: |
-          python -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py research/alternating_qqq_spy_put_cycle_v1.py research/test_alternating_qqq_spy_put_cycle_v1.py research/test_resumable_download_v1.py
+          python -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py research/alternating_qqq_spy_put_cycle_v1.py research/test_alternating_qqq_spy_put_cycle_v1.py research/test_resumable_download_v1.py research/tail_call_overlay_v1.py research/test_tail_call_overlay_v1.py
           python -m unittest discover -s research -p "test_alternating_qqq_spy_put_cycle_v1.py" -v
           python -m unittest discover -s research -p "test_resumable_download_v1.py" -v
+          python -m unittest discover -s research -p "test_tail_call_overlay_v1.py" -v
 
       - name: Clear stale replay output bundle
         run: |
@@ -159,6 +162,36 @@ jobs:
 
           print(f"Validated 6 arms; entered={total_entries}; trade rows={total_trades}; all opening debit/credit ledgers reconcile.")
           PY
+
+      - name: Restore ORATS TAIL EOD quote cache
+        id: restore-tail-orats-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/tail-orats-eod
+          key: tail-orats-eod-v1-${{ runner.os }}-2018-2025-dte0-45
+
+      - name: Run observed TAIL CALL historical option overlay
+        if: ${{ secrets.ORATS_API_TOKEN != '' }}
+        env:
+          ORATS_API_TOKEN: ${{ secrets.ORATS_API_TOKEN }}
+        run: |
+          python research/tail_call_overlay_v1.py \
+            --data-dir research/alternating_qqq_spy_put_cycle_v1/results/latest \
+            --out-dir research/alternating_qqq_spy_put_cycle_v1/results/latest
+
+      - name: Record TAIL CALL data-access blocker
+        if: ${{ secrets.ORATS_API_TOKEN == '' }}
+        run: |
+          python research/tail_call_overlay_v1.py --blocked \
+            --data-dir research/alternating_qqq_spy_put_cycle_v1/results/latest \
+            --out-dir research/alternating_qqq_spy_put_cycle_v1/results/latest
+
+      - name: Save ORATS TAIL EOD quote cache
+        if: success() && secrets.ORATS_API_TOKEN != '' && steps.restore-tail-orats-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/tail-orats-eod
+          key: tail-orats-eod-v1-${{ runner.os }}-2018-2025-dte0-45
 
       - name: Upload replay evidence
         if: always()
