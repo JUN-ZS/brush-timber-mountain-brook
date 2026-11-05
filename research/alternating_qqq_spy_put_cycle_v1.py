@@ -28,6 +28,11 @@ ARM_CONFIG={
  "alternate_two_week_staggered":{"mode":"alternate","hold":10},
 }
 
+def premium_cashflow_usd(long_ask,short_bid):
+    """Gross opening credit less debit for one long and six short contracts."""
+    return round(MULTIPLIER*(SHORT_QTY*float(short_bid)-LONG_QTY*float(long_ask)),2)
+
+
 def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short_spot,long_spot,
                          dte_min=DTE_MIN,dte_max=DTE_MAX,dte_target=DTE_TARGET):
     if not short_rows or not long_rows or short_spot<=0 or long_spot<=0:return None
@@ -71,6 +76,9 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
             bid_size,ask_size=base.displayed_size(row,"bid"),base.displayed_size(row,"ask")
             if bid_size<LONG_QTY or ask_size<LONG_QTY:continue
             bid,ask=float(row["bid"]),float(row["ask"])
+            premium_gap=premium_cashflow_usd(ask,short_leg["bid"])
+            if premium_gap != 0.0:
+                continue
             longs.append({"row":row,"id":base.normalized_contract_id(row),"strike":strike,
                 "abs_delta":abs(delta),"bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,
                 "oi":base.num(row.get("open_interest")) or 0.0,
@@ -92,7 +100,8 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
         "short_signal_bid_size":short_leg["bid_size"],"long_contract_id":long_leg["id"],"long_strike":long_leg["strike"],
         "long_abs_delta":long_leg["abs_delta"],"long_signal_bid":long_leg["bid"],"long_signal_ask":long_leg["ask"],
         "long_signal_ask_size":long_leg["ask_size"],"long_target_ask_signal":target_ask,
-        "long_premium_match_pct_signal":match,"long_premium_error_signal":long_leg["ask"]-target_ask,
+        "long_premium_match_pct_signal":100.0,"long_premium_error_signal":0.0,
+        "opening_premium_cashflow_signal_usd":0.0,
         "short_spot_signal":float(short_spot),"long_spot_signal":float(long_spot),
         "short_moneyness_signal":sm["status"],"short_otm_pct_signal":sm["otm_pct"],
         "long_moneyness_signal":lm["status"],"long_otm_pct_signal":lm["otm_pct"]}
@@ -191,33 +200,45 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
         active=keep
 
         if pending is not None and idx>pending["signal_index"]:
-            lmap=qmap if pending["long_symbol"]=="QQQ" else smap
-            ssmap=qmap if pending["short_symbol"]=="QQQ" else smap
-            lrow=lmap.get(pending["long_contract_id"]);srow=ssmap.get(pending["short_contract_id"])
-            valid,reason=quote_sides_valid(lrow,srow,True)
-            if valid:
-                ep={**pending,"episode_id":f"{mode}-{pending['episode_id']}","arm":mode,
-                    "entry_index":idx,"entry_date":day,"long_entry_ask":float(lrow["ask"]),
-                    "short_entry_bid":float(srow["bid"]),"long_entry_bid":float(lrow["bid"]),
-                    "short_entry_ask":float(srow["ask"]),"long_spot_entry":spots[pending["long_symbol"]].get(day),
-                    "short_spot_entry":spots[pending["short_symbol"]].get(day),
-                    "long_entry_abs_delta":abs(base.num(lrow.get("delta")) or 0.0),
-                    "short_entry_abs_delta":abs(base.num(srow.get("delta")) or 0.0),
-                    "long_premium_paid_usd":float(lrow["ask"])*MULTIPLIER*LONG_QTY,
-                    "short_premium_received_usd":float(srow["bid"])*MULTIPLIER*SHORT_QTY,
-                    "actual_entry_premium_match_pct":100.0*(1.0-abs(float(lrow["ask"])-SHORT_QTY*float(srow["bid"]))/
-                        max(float(lrow["ask"]),SHORT_QTY*float(srow["bid"]),0.01)),
-                    "net_opening_cashflow_usd":MULTIPLIER*(SHORT_QTY*float(srow["bid"])-LONG_QTY*float(lrow["ask"])),
-                    "short_assignment_notional_usd":SHORT_QTY*MULTIPLIER*float(pending["short_strike"]),
-                    "mark_missing_sessions":0,"last_mark_pnl_usd":None,"last_mark_index":idx,
-                    "exit_deferred_sessions":0,"status":"OPEN"}
-                entered+=1;entries.append(ep.copy());active.append(ep);pending=None
+            direction=pending["direction"]
+            pair=pair_map.get(day,{}).get(direction)
+            if pair is None:
+                skips.append({"episode_id":pending["episode_id"],"signal_date":pending["schedule_signal_date"],
+                    "direction":direction,"reason":"NO_EXACT_ZERO_PREMIUM_PAIR_AT_ENTRY","entry_date":day})
+                pending=None
             else:
-                pending["entry_defer_sessions"]+=1;pending["last_entry_reason"]=reason
-                if day>=pending["expiry"]:
-                    skips.append({"episode_id":pending["episode_id"],"signal_date":pending["signal_date"],
-                        "direction":pending["direction"],"reason":"NO_EXECUTABLE_ENTRY_BEFORE_EXPIRY",
-                        "last_attempt_date":day,"last_reason":reason});pending=None
+                chosen={**pair,"direction":direction,"signal_index":pending["signal_index"],
+                    "schedule_signal_date":pending["schedule_signal_date"],"episode_id":pending["episode_id"]}
+                lmap=qmap if chosen["long_symbol"]=="QQQ" else smap
+                ssmap=qmap if chosen["short_symbol"]=="QQQ" else smap
+                lrow=lmap.get(chosen["long_contract_id"]);srow=ssmap.get(chosen["short_contract_id"])
+                valid,reason=quote_sides_valid(lrow,srow,True)
+                if valid:
+                    opening_cashflow=premium_cashflow_usd(float(lrow["ask"]),float(srow["bid"]))
+                    if opening_cashflow == 0.0:
+                        ep={**chosen,"episode_id":f"{mode}-{chosen['episode_id']}","arm":mode,
+                            "entry_index":idx,"entry_date":day,"long_entry_ask":float(lrow["ask"]),
+                            "short_entry_bid":float(srow["bid"]),"long_entry_bid":float(lrow["bid"]),
+                            "short_entry_ask":float(srow["ask"]),"long_spot_entry":spots[chosen["long_symbol"]].get(day),
+                            "short_spot_entry":spots[chosen["short_symbol"]].get(day),
+                            "long_entry_abs_delta":abs(base.num(lrow.get("delta")) or 0.0),
+                            "short_entry_abs_delta":abs(base.num(srow.get("delta")) or 0.0),
+                            "long_premium_paid_usd":float(lrow["ask"])*MULTIPLIER*LONG_QTY,
+                            "short_premium_received_usd":float(srow["bid"])*MULTIPLIER*SHORT_QTY,
+                            "actual_entry_premium_match_pct":100.0,
+                            "net_opening_cashflow_usd":opening_cashflow,
+                            "short_assignment_notional_usd":SHORT_QTY*MULTIPLIER*float(chosen["short_strike"]),
+                            "mark_missing_sessions":0,"last_mark_pnl_usd":None,"last_mark_index":idx,
+                            "exit_deferred_sessions":0,"status":"OPEN"}
+                        entered+=1;entries.append(ep.copy());active.append(ep)
+                    else:
+                        skips.append({"episode_id":pending["episode_id"],"signal_date":pending["schedule_signal_date"],
+                            "direction":direction,"reason":"OPENING_PREMIUM_NOT_ZERO","entry_date":day,
+                            "net_opening_cashflow_usd":opening_cashflow})
+                else:
+                    skips.append({"episode_id":pending["episode_id"],"signal_date":pending["schedule_signal_date"],
+                        "direction":direction,"reason":reason,"entry_date":day})
+                pending=None
 
         if idx in scheduled:
             slot=idx//STRIDE
@@ -225,13 +246,9 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
                 schedule_skips.append({"signal_date":day,"slot":slot,"reason":"PRIOR_ENTRY_STILL_PENDING"})
             else:
                 direction=direction_for(ARM_CONFIG[mode]["mode"],slot)
-                pair=pair_map.get(day,{}).get(direction)
-                if pair is None:
-                    schedule_skips.append({"signal_date":day,"slot":slot,"direction":direction,
-                        "reason":"NO_ELIGIBLE_DTE21_CROSS_PUT_PAIR"})
-                else:
-                    selected+=1;pending={**pair,"direction":direction,"signal_index":idx,
-                        "episode_id":selected,"entry_defer_sessions":0}
+                selected+=1
+                pending={"direction":direction,"signal_index":idx,
+                    "schedule_signal_date":day,"episode_id":selected}
 
         realized=sum(float(t["net_pnl_usd"]) for t in trades if t.get("net_pnl_usd") is not None)
         unrealized=0.0;short_notional=0.0;stale=0
@@ -249,7 +266,7 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
             "active_short_put_assignment_notional_usd":short_notional,"stale_mark_cohorts":stale})
 
     if pending is not None:
-        skips.append({"episode_id":pending["episode_id"],"signal_date":pending["signal_date"],
+        skips.append({"episode_id":pending["episode_id"],"signal_date":pending["schedule_signal_date"],
             "direction":pending["direction"],"reason":"SOURCE_END_WITH_ENTRY_PENDING","last_attempt_date":dates[-1]})
     for ep in active:
         ep.update({"status":"UNRESOLVED_SOURCE_END","exit_date":None});trades.append(ep)
@@ -270,6 +287,9 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
         "best_trade_net_pnl_usd":max(pnls) if pnls else None,"worst_trade_net_pnl_usd":min(pnls) if pnls else None,
         "median_signal_premium_match_pct":statistics.median([float(e["long_premium_match_pct_signal"]) for e in entries]) if entries else None,
         "median_actual_entry_premium_match_pct":statistics.median([float(e["actual_entry_premium_match_pct"]) for e in entries]) if entries else None,
+        "zero_opening_premium_entries":sum(abs(float(e["net_opening_cashflow_usd"]))<0.005 for e in entries),
+        "nonzero_opening_premium_entries":sum(abs(float(e["net_opening_cashflow_usd"]))>=0.005 for e in entries),
+        "mean_opening_premium_cashflow_usd":statistics.mean([float(e["net_opening_cashflow_usd"]) for e in entries]) if entries else None,
         "median_actual_long_put_abs_delta":statistics.median([float(e["long_entry_abs_delta"]) for e in entries]) if entries else None,
         "median_actual_short_put_abs_delta":statistics.median([float(e["short_entry_abs_delta"]) for e in entries]) if entries else None,
         "median_short_assignment_notional_per_cohort_usd":statistics.median([float(e["short_assignment_notional_usd"]) for e in entries]) if entries else None,
@@ -297,7 +317,8 @@ def build_pair_map(paths,spots,common_dates,start_day,end_day):
         srows=sitem[1] if sitem is not None and sitem[0]==day else []
         if qitem is not None and qitem[0]==day:qitem=next(qi,None)
         if sitem is not None and sitem[0]==day:sitem=next(si,None)
-        if idx%STRIDE!=0:continue
+        # Select from the actual next-session entry snapshot, not the prior signal quote.
+        if idx==0 or (idx-1)%STRIDE!=0:continue
         qspot,sspot=spots["QQQ"].get(day),spots["SPY"].get(day)
         pair_a=choose_contract_pair(srows,qrows,"SPY","QQQ",day,sspot,qspot) if qspot and sspot else None
         pair_b=choose_contract_pair(qrows,srows,"QQQ","SPY",day,qspot,sspot) if qspot and sspot else None
@@ -366,7 +387,8 @@ def main():
         "contract_setup":{"long_qty":1,"short_qty":6,"multiplier":100,"short_abs_delta_target":SHORT_DELTA_TARGET,
             "long_abs_delta_band":[LONG_DELTA_LOW,LONG_DELTA_HIGH],"long_abs_delta_target":LONG_DELTA_TARGET,
             "dte_band":[DTE_MIN,DTE_MAX],"dte_target":DTE_TARGET,"common_expiry_required":True,
-            "premium_match_target":"long put Ask nearest 6x short put Bid; match reported, not assumed"},
+            "premium_match_target":"HARD_ENTRY_PARITY: 1x opposite-index long put Ask equals 6x short put Bid to $0.00 gross opening premium; no exact pair means skip",
+            "entry_pair_selection":"reselected from actual next-common-session EOD quotes; entered from that same quote snapshot"},
         "cadence":{"new_signal_every_common_sessions":STRIDE,"alternation":"A=SPY short/QQQ long; B=QQQ short/SPY long; flips by fixed slot even if skipped",
             "arms":{k:v for k,v in ARM_CONFIG.items()}},
         "costs":{"slippage_per_option_share_per_side_usd":SLIPPAGE_PER_SHARE,"commission_per_contract_per_side_usd":COMMISSION_PER_CONTRACT_SIDE},
@@ -376,6 +398,7 @@ def main():
         "results":summary,"limitations":[
             "Public historical EOD quote mirror; hashes prove file identity, not exchange/OPRA authenticity.",
             "EOD bid/ask and displayed size are not verified multi-leg fills.",
+            "Exact zero gross opening premium does not make the strategy costless: spread, commission, slippage, financing, collateral and assignment remain.",
             "Premium equality does not equalize Delta, dollar Delta, gamma, vega, max loss, collateral, or assignment risk.",
             "QQQ/SPY basis and relative-performance risk remains; their downside beta is not identical.",
             "Fixed contract quantities are not constrained by margin, forced liquidation, financing, or assignment cash.",
@@ -387,8 +410,9 @@ def main():
         f"- Sample: {common_dates[0]} to {common_dates[-1]} ({len(common_dates)} common sessions).",
         "- Each cohort: short 6 puts at |Delta| nearest 0.25, long 1 opposite-index put at |Delta| 0.60–0.70 (target 0.65).",
         "- Common expiration required; DTE nearest 21 within 18–24 calendar days.",
-        "- Long-put Ask selected closest to 6 x short-put Bid within Delta band; actual entry match reported separately.",
-        "- Signal at EOD; entry no earlier than the next common session. New signal every 5 common sessions.","",
+        "- HARD ENTRY RULE: 1 x opposite-index long-put Ask must equal 6 x short-put Bid to $0.00 gross opening premium; otherwise that scheduled cohort is skipped.",
+        "- Pair is reselected on the next common-session EOD quote snapshot and entered from the same snapshot; new schedule signal every 5 common sessions.",
+        "- Zero gross opening premium excludes commissions and slippage; bid/ask spreads and all exit costs remain in P&L.","",
         "## Arms","","| Arm | Entered | Resolved | Win % | Mean/trade | Median/trade | Worst/trade | Ending NAV | CAGR | Max DD | Peak short assignment notional |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for r in summary:
@@ -400,7 +424,7 @@ def main():
             f"{r['ending_nav_usd']:.2f} | {r['portfolio_cagr_pct'] if r['portfolio_cagr_pct'] is not None else '—'} | "
             f"{r['max_drawdown_pct']:.2f}% | {r['peak_open_short_assignment_notional_usd']:.2f} |")
     lines += ["","## Interpretation","","- alternate_two_week_staggered opens a new opposite-side cohort each week and holds each cohort up to 10 sessions, normally creating two concurrent layers.",
-        "- A 1:6 contract ratio is not a hedge ratio. Premium matching does not equalize Dollar Delta, convexity, notional or assignment.",
+        "- A 1:6 contract ratio is not a hedge ratio. Exact premium parity does not equalize Dollar Delta, convexity, notional or assignment.",
         "- CAGR/MaxDD use an unconstrained fixed-size P&L ledger on the stated NAV; they are not evidence of broker buying-power feasibility.",
         "- Per-trade episode P&L overlaps; use daily NAV for the portfolio view.",""]
     (out/"study_report.md").write_text("\n".join(lines),encoding="utf-8")
