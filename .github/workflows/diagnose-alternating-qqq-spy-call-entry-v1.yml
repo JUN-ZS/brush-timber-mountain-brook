@@ -40,6 +40,7 @@ jobs:
 
       - name: Diagnose scheduled 2019-02-14 CALL entry
         run: |
+          set -euo pipefail
           python research/diagnose_alternating_qqq_spy_call_entry_v1.py \
             --date 2019-02-14 \
             --qqq-cache ~/.cache/qqq-options-full-history \
