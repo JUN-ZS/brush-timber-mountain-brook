@@ -355,7 +355,7 @@ def run_arm(arm, data_dir, daily_quotes):
     total_tail_pnl = float(daily[-1]["tail_total_pnl_usd"])
     positive_tail = sum(x["tail_net_pnl_usd"] > 0 for x in loser_pairs)
     offset25 = sum(x["tail_net_pnl_usd"] >= 0.25 * abs(x["core_net_pnl_usd"]) for x in loser_pairs)
-    total_core_loss = sum(abs(x["core_net_pnl_usd"]) for x in core_losers)
+    total_core_loss = sum(abs(float(x["net_pnl_usd"])) for x in core_losers)
     tail_gain_on_losers = sum(max(0.0, x["tail_net_pnl_usd"]) for x in loser_pairs)
     worst_core = min(resolved_core, key=lambda x: float(x["net_pnl_usd"])) if resolved_core else None
     worst_hedged = None
