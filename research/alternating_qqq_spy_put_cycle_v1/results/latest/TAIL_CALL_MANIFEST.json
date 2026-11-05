@@ -13,15 +13,16 @@
   ],
   "target_entry_dte_calendar_days": 30,
   "core_cohort_counts": {
-    "SPY_SHORT_QQQ_LONG_only": 389,
-    "QQQ_SHORT_SPY_LONG_only": 389,
-    "SPY_SHORT_QQQ_LONG_only_hold10": 389,
-    "QQQ_SHORT_SPY_LONG_only_hold10": 389,
-    "alternate_weekly_close": 389,
-    "alternate_two_week_staggered": 389
+    "alternate_dte20_every10": 15
   },
   "required_environment_secret": "ORATS_API_TOKEN",
   "data_source": "https://api.orats.io/datav2/hist/strikes",
   "data_fields": "tradeDate,expirDate,dte,strike,spotPrice,delta,callBidPrice,callAskPrice,callBidSize,callAskSize,callVolume,callOpenInterest,callBidIv,callMidIv,callAskIv,updatedAt",
-  "note": "No option-return estimates were generated. TAIL ETF share prices are not substituted for TAIL CALL quotes."
+  "note": "No option-return estimates were generated. TAIL ETF share prices are not substituted for TAIL CALL quotes.",
+  "core_only": {
+    "ending_nav_usd": 96447.5,
+    "total_portfolio_pnl_usd": -3552.5,
+    "max_drawdown_usd": -14746.399999999994,
+    "max_drawdown_pct": -13.842485684783624
+  }
 }

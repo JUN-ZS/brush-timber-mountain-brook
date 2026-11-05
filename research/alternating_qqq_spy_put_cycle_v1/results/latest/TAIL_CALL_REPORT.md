@@ -1,13 +1,11 @@
-# TAIL CALL insurance overlay
+# TAIL CALL overlay — QQQ/SPY DTE20 alternating PUT strategy
 
-**Status: BLOCKED — historical TAIL option quotes not yet authorized/available.**
+**Status: BLOCKED — no ORATS_API_TOKEN was available in GitHub Actions.**
+Core strategy: alternate_dte20_every10; DTE target 20; new cohort every 10 common sessions; A/B alternating.
+Core-only ending NAV: USD 96,447.50; net P&L: USD -3,552.50.
+Core-only MaxDD: USD -14,746.40 (-13.84%).
+TAIL overlay rule: buy six standard TAIL CALLs per core cohort, natural Ask <= USD 0.10/share, displayed Ask size >= 6; maximum gross premium USD 60 per cohort plus commissions.
+TAIL CALL entry DTE: 21–45 calendar days (target 30); OTM calls only.
 
-Core cohorts found: 2334.
-Per core cohort: buy 6 TAIL CALL contracts, standard multiplier 100, limit no higher than USD 0.10/share.
-Maximum gross option premium: USD 60 per cohort, plus commissions. Actual cost will be the observed Ask, not a forced USD 60.
-Entry selection: OTM calls, 21–45 calendar DTE (target 30), Ask <= USD 0.10, displayed Ask size >= 6; closest Ask to USD 0.10 first.
-Daily mark: NBBO Bid. Exit: follow the core cohort's exit date; defer if a six-lot bid is unavailable, then settle at intrinsic on expiry if expiry quotes are present.
-
-No option P&L, hedge coverage, CAGR or MaxDD is reported because no historical TAIL CALL bid/ask/size series was available.
-Required: provide ORATS historical Data API access by adding GitHub Actions secret ORATS_API_TOKEN to this repository. The published Delayed Data API plan is USD 199/month and includes historical EOD options data; this research does not purchase a subscription.
-The existing TAIL ETF adjusted-close overlay is not used as a substitute for option P&L.
+**No option P&L, hedged MaxDD, or post-TAIL ending NAV/net P&L is calculated.** Historical TAIL CALL bid/ask/size data was not accessed; no TAIL ETF proxy or synthetic option mark is used.
+Required to complete the hedge comparison: add ORATS historical-data API access as the GitHub Actions secret ORATS_API_TOKEN, then rerun the overlay.
