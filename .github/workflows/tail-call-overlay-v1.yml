@@ -38,7 +38,7 @@ jobs:
 
           out = Path("research/alternating_qqq_spy_put_cycle_v1/results/latest")
           manifest = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
-          expected_runner_blob = "00669156f464d3f33365416064ea674f74f9565b"
+          expected_runner_blob = "c190ee69d14f2c6cfcb7dffa19403be1e2fd837e"
           actual_runner_blob = subprocess.check_output(
               ["git", "rev-parse", "HEAD:research/alternating_qqq_spy_put_cycle_v1.py"],
               text=True,
@@ -56,7 +56,7 @@ jobs:
           if manifest.get("source_window", {}).get("last_common_session") != "2025-12-12":
               raise SystemExit("Unexpected core replay final common session")
 
-          arms = ("alternate_dte20_every10_tue_anchor",)
+          arms = ("alternate_dte20_every10",)
           with (out / "portfolio_arm_summary.csv").open(newline="", encoding="utf-8") as handle:
               summary = {row["arm"]: row for row in csv.DictReader(handle)}
           if set(summary) != set(arms):
