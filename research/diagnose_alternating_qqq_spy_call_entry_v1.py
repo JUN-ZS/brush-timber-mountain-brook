@@ -27,6 +27,7 @@ def load_day(symbol: str, day: str, cache: Path):
 def describe(symbol: str, rows: list[dict], day: str):
     counts = Counter()
     by_expiry = defaultdict(Counter)
+    signed_samples = []
     for row in rows:
         counts["raw_call_rows"] += 1
         if not call.standard_call_identity(row, symbol):
@@ -63,23 +64,32 @@ def describe(symbol: str, rows: list[dict], day: str):
             counts["short_bid_invalid"] += 1
             continue
         counts["positive_bid"] += 1
-        if delta is None or delta <= 0:
-            counts["short_delta_not_positive"] += 1
+        if delta is None:
+            counts["delta_missing"] += 1
             continue
-        counts["positive_delta"] += 1
+        counts["negative_delta"] += int(delta < 0)
+        counts["positive_delta"] += int(delta > 0)
         if not base.DELTA_MIN <= abs(delta) <= base.DELTA_MAX:
-            counts["short_delta_outside_10_50"] += 1
+            counts["short_delta_magnitude_outside_10_50"] += 1
             continue
-        counts["short_delta_in_band"] += 1
+        counts["short_delta_magnitude_in_band"] += 1
+        by_expiry[expiry]["short_delta_magnitude_in_band"] += 1
         if base.displayed_size(row, "bid") < call.SHORT_QTY:
             counts["short_bid_size_lt_6"] += 1
             continue
-        counts["short_leg_eligible"] += 1
-        by_expiry[expiry]["short_leg_eligible"] += 1
+        counts["short_leg_eligible_by_abs_delta"] += 1
+        by_expiry[expiry]["short_leg_eligible_by_abs_delta"] += 1
+        if len(signed_samples) < 12:
+            signed_samples.append({
+                "contract_id": base.normalized_contract_id(row),
+                "expiry": expiry, "strike": strike, "delta_raw": delta,
+                "bid": float(row["bid"]), "bid_size": base.displayed_size(row, "bid"),
+            })
     return {
         "symbol": symbol,
         "rows": dict(counts),
         "expiries": {k: dict(v) for k, v in sorted(by_expiry.items())},
+        "sample_rows": signed_samples,
     }
 
 
@@ -106,7 +116,7 @@ def main():
         common_exp = sorted(short_exp & long_exp)
         eligible_common = [
             expiry for expiry in common_exp
-            if short_desc["expiries"][expiry].get("short_leg_eligible", 0) > 0
+            if short_desc["expiries"][expiry].get("short_leg_eligible_by_abs_delta", 0) > 0
             and long_desc["expiries"][expiry].get("long_ask_eligible", 0) > 0
         ]
         results[direction] = {
