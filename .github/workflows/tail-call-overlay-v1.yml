@@ -1,0 +1,172 @@
+name: TAIL CALL Overlay — Existing Core Replay
+
+on:
+  push:
+    branches:
+      - research/alternating-qqq-spy-put-cycle-v1-20261105
+    paths:
+      - research/tail_call_overlay_v1.py
+      - research/test_tail_call_overlay_v1.py
+      - .github/workflows/tail-call-overlay-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tail-call-overlay-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tail-overlay:
+    name: TAIL CALL historical option overlay
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify pinned existing core replay bundle
+        run: |
+          set -euo pipefail
+          OUT=research/alternating_qqq_spy_put_cycle_v1/results/latest
+          test -s "$OUT/run_manifest.json"
+          test -s "$OUT/portfolio_arm_summary.csv"
+          python - <<'PY'
+          import csv, json, subprocess
+          from pathlib import Path
+
+          out = Path("research/alternating_qqq_spy_put_cycle_v1/results/latest")
+          manifest = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
+          expected_runner_blob = "8549fb762b2ba1319ec92fa0fa4f3b7616603636"
+          actual_runner_blob = subprocess.check_output(
+              ["git", "rev-parse", "HEAD:research/alternating_qqq_spy_put_cycle_v1.py"],
+              text=True,
+          ).strip()
+          if actual_runner_blob != expected_runner_blob:
+              raise SystemExit(
+                  f"Core runner changed: expected {expected_runner_blob}, got {actual_runner_blob}; refresh core replay first."
+              )
+          if manifest.get("study_id") != "ALTERNATING_SPY_QQQ_PUT_CYCLE_21DTE_V1":
+              raise SystemExit("Wrong core study_id in run_manifest.json")
+          if manifest.get("source_commit") != "37f6c456fe1a4775c875673fb8ef907d5cd2fd66":
+              raise SystemExit("Core option dataset source commit does not match pinned historical dataset")
+          if manifest.get("source_window", {}).get("start") != "2018-03-01":
+              raise SystemExit("Unexpected core replay start date")
+          if manifest.get("source_window", {}).get("last_common_session") != "2025-12-12":
+              raise SystemExit("Unexpected core replay final common session")
+
+          arms = (
+              "SPY_SHORT_QQQ_LONG_only",
+              "QQQ_SHORT_SPY_LONG_only",
+              "SPY_SHORT_QQQ_LONG_only_hold10",
+              "QQQ_SHORT_SPY_LONG_only_hold10",
+              "alternate_weekly_close",
+              "alternate_two_week_staggered",
+          )
+          with (out / "portfolio_arm_summary.csv").open(newline="", encoding="utf-8") as handle:
+              summary = {row["arm"]: row for row in csv.DictReader(handle)}
+          if set(summary) != set(arms):
+              raise SystemExit(f"Core arm mismatch: {sorted(summary)}")
+          for arm in arms:
+              for suffix in ("entries.csv", "trades.csv", "daily_nav.csv"):
+                  p = out / f"{arm}_{suffix}"
+                  if not p.is_file() or p.stat().st_size == 0:
+                      raise SystemExit(f"Missing core replay file: {p}")
+              with (out / f"{arm}_entries.csv").open(newline="", encoding="utf-8") as handle:
+                  n_entries = sum(1 for _ in csv.DictReader(handle))
+              if n_entries != int(summary[arm]["entered_cohorts"]):
+                  raise SystemExit(f"{arm}: core entries do not reconcile to summary")
+          print("Verified pinned 2018-03-01 to 2025-12-12 core replay bundle, six arms, source commit and runner blob.")
+          PY
+
+      - name: Compile and run TAIL CALL unit tests
+        run: |
+          python -m py_compile research/tail_call_overlay_v1.py research/test_tail_call_overlay_v1.py
+          python -m unittest discover -s research -p "test_tail_call_overlay_v1.py" -v
+
+      - name: Detect ORATS API token availability
+        id: orats-token
+        shell: bash
+        env:
+          ORATS_API_TOKEN: ${{ secrets.ORATS_API_TOKEN }}
+        run: |
+          if [ -n "$ORATS_API_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore ORATS TAIL EOD quote cache
+        id: restore-tail-orats-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/tail-orats-eod
+          key: tail-orats-eod-v1-${{ runner.os }}-2018-2025-dte0-45
+
+      - name: Run observed TAIL CALL historical option overlay
+        if: steps.orats-token.outputs.available == 'true'
+        env:
+          ORATS_API_TOKEN: ${{ secrets.ORATS_API_TOKEN }}
+        run: |
+          python research/tail_call_overlay_v1.py \
+            --data-dir research/alternating_qqq_spy_put_cycle_v1/results/latest \
+            --out-dir research/alternating_qqq_spy_put_cycle_v1/results/latest
+
+      - name: Record TAIL CALL data-access blocker
+        if: steps.orats-token.outputs.available != 'true'
+        run: |
+          python research/tail_call_overlay_v1.py --blocked \
+            --data-dir research/alternating_qqq_spy_put_cycle_v1/results/latest \
+            --out-dir research/alternating_qqq_spy_put_cycle_v1/results/latest
+
+      - name: Save ORATS TAIL EOD quote cache
+        if: success() && steps.orats-token.outputs.available == 'true' && steps.restore-tail-orats-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/tail-orats-eod
+          key: tail-orats-eod-v1-${{ runner.os }}-2018-2025-dte0-45
+
+      - name: Upload TAIL CALL evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tail-call-overlay-v1
+          path: |
+            research/alternating_qqq_spy_put_cycle_v1/results/latest/TAIL_CALL_MANIFEST.json
+            research/alternating_qqq_spy_put_cycle_v1/results/latest/TAIL_CALL_REPORT.md
+            research/alternating_qqq_spy_put_cycle_v1/results/latest/*_tail_call_entries.csv
+            research/alternating_qqq_spy_put_cycle_v1/results/latest/*_tail_call_trades.csv
+            research/alternating_qqq_spy_put_cycle_v1/results/latest/*_tail_call_daily_nav.csv
+            research/alternating_qqq_spy_put_cycle_v1/results/latest/*_tail_call_quote_audit.csv
+            research/alternating_qqq_spy_put_cycle_v1/results/latest/*_combined_tail_call_daily_nav.csv
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit TAIL CALL results to isolated branch
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+JUN-ZS@users.noreply.github.com"
+          git add research/alternating_qqq_spy_put_cycle_v1/results/latest/TAIL_CALL_MANIFEST.json
+          git add research/alternating_qqq_spy_put_cycle_v1/results/latest/TAIL_CALL_REPORT.md
+          git add research/alternating_qqq_spy_put_cycle_v1/results/latest/*_tail_call_entries.csv || true
+          git add research/alternating_qqq_spy_put_cycle_v1/results/latest/*_tail_call_trades.csv || true
+          git add research/alternating_qqq_spy_put_cycle_v1/results/latest/*_tail_call_daily_nav.csv || true
+          git add research/alternating_qqq_spy_put_cycle_v1/results/latest/*_tail_call_quote_audit.csv || true
+          git add research/alternating_qqq_spy_put_cycle_v1/results/latest/*_combined_tail_call_daily_nav.csv || true
+          if git diff --cached --quiet; then
+            echo "No TAIL result changes to commit."
+          else
+            git commit -m "results: six-lot TAIL CALL option overlay"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
