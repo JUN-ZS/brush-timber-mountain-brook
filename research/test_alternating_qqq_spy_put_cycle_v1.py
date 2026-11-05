@@ -1,7 +1,7 @@
 import unittest
 from alternating_qqq_spy_put_cycle_v1 import (
     choose_contract_pair, direction_for, trade_pnl, premium_cashflow_usd,
-    premium_match_pct, LONG_QTY, SHORT_QTY,
+    premium_match_pct, drawdown, LONG_QTY, SHORT_QTY,
 )
 
 
@@ -61,6 +61,13 @@ class AlternatingPutCycleTests(unittest.TestCase):
         self.assertAlmostEqual(premium_match_pct(2400.0, 2400.0), 100.0)
         self.assertAlmostEqual(premium_match_pct(2399.0, 2400.0), 99.9583333333)
         self.assertAlmostEqual(premium_match_pct(2400.0, 2399.0), 99.9583333333)
+
+    def test_max_drawdown_dollars_and_percentage_are_independent(self):
+        # Largest dollar drawdown is 150 (400 -> 250), but largest percentage
+        # drawdown is 45% (200 -> 110). Both statistics must be reported separately.
+        dollars, percentage = drawdown([100.0, 200.0, 110.0, 400.0, 250.0])
+        self.assertAlmostEqual(dollars, -150.0)
+        self.assertAlmostEqual(percentage, -45.0)
 
     def test_trade_pnl_prices_long_and_short_legs_correctly(self):
         result = trade_pnl({"long_entry_ask":10.0,"short_entry_bid":2.0}, 15.0, 5.0)

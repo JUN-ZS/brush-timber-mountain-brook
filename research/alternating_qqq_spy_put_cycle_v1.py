@@ -152,7 +152,8 @@ def drawdown(nav_values):
     for v in nav_values:
         peak=v if peak is None else max(peak,v)
         dd=v-peak;ddp=dd/peak if peak and peak>0 else 0.0
-        if dd<worst:worst,worst_pct=dd,ddp
+        if dd<worst:worst=dd
+        if ddp<worst_pct:worst_pct=ddp
     return worst,worst_pct*100
 
 def write_csv(path,rows):
