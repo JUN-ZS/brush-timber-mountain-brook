@@ -36,6 +36,7 @@ FIELDS = (
 )
 API_URL = "https://api.orats.io/datav2/hist/strikes"
 SCHEMA = "tail-call-six-contract-overlay.v1"
+CORE_ARM = "alternate_dte20_every10"
 
 
 def num(value):
@@ -403,11 +404,7 @@ def run_arm(arm, data_dir, daily_quotes):
 
 def write_blocked_status(data_dir, out_dir, reason="MISSING_ORATS_API_TOKEN"):
     data_dir, out_dir = Path(data_dir), Path(out_dir)
-    arms = (
-        "SPY_SHORT_QQQ_LONG_only", "QQQ_SHORT_SPY_LONG_only",
-        "SPY_SHORT_QQQ_LONG_only_hold10", "QQQ_SHORT_SPY_LONG_only_hold10",
-        "alternate_weekly_close", "alternate_two_week_staggered",
-    )
+    arms = (CORE_ARM,)
     counts = {}
     for arm in arms:
         path = data_dir / f"{arm}_entries.csv"
@@ -424,17 +421,29 @@ def write_blocked_status(data_dir, out_dir, reason="MISSING_ORATS_API_TOKEN"):
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "TAIL_CALL_MANIFEST.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    core_summary = load_csv(data_dir / "portfolio_arm_summary.csv")
+    core_row = next((row for row in core_summary if row.get("arm") == CORE_ARM), {})
+    core_metrics = {
+        "ending_nav_usd": num(core_row.get("ending_nav_usd")),
+        "total_portfolio_pnl_usd": num(core_row.get("total_portfolio_pnl_usd")),
+        "max_drawdown_usd": num(core_row.get("max_drawdown_usd")),
+        "max_drawdown_pct": num(core_row.get("max_drawdown_pct")),
+    }
+    payload["core_only"] = core_metrics
+    (out_dir / "TAIL_CALL_MANIFEST.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    fmt = lambda value: "n/a" if value is None else f"{value:,.2f}"
     lines = [
-        "# TAIL CALL insurance overlay", "",
-        "**Status: BLOCKED — historical TAIL option quotes not yet authorized/available.**", "",
-        f"Core cohorts found: {sum(v or 0 for v in counts.values())}.",
-        "Per core cohort: buy 6 TAIL CALL contracts, standard multiplier 100, limit no higher than USD 0.10/share.",
-        "Maximum gross option premium: USD 60 per cohort, plus commissions. Actual cost will be the observed Ask, not a forced USD 60.",
-        f"Entry selection: OTM calls, {MIN_DTE}–{MAX_DTE} calendar DTE (target {TARGET_DTE}), Ask <= USD 0.10, displayed Ask size >= 6; closest Ask to USD 0.10 first.",
-        "Daily mark: NBBO Bid. Exit: follow the core cohort's exit date; defer if a six-lot bid is unavailable, then settle at intrinsic on expiry if expiry quotes are present.", "",
-        "No option P&L, hedge coverage, CAGR or MaxDD is reported because no historical TAIL CALL bid/ask/size series was available.",
-        "Required: provide ORATS historical Data API access by adding GitHub Actions secret ORATS_API_TOKEN to this repository. The published Delayed Data API plan is USD 199/month and includes historical EOD options data; this research does not purchase a subscription.",
-        "The existing TAIL ETF adjusted-close overlay is not used as a substitute for option P&L.", "",
+        "# TAIL CALL overlay — QQQ/SPY DTE20 alternating PUT strategy",
+        "",
+        "**Status: BLOCKED — no ORATS_API_TOKEN was available in GitHub Actions.**",
+        f"Core strategy: {CORE_ARM}; DTE target 20; new cohort every 10 common sessions; A/B alternating.",
+        f"Core-only ending NAV: USD {fmt(core_metrics['ending_nav_usd'])}; net P&L: USD {fmt(core_metrics['total_portfolio_pnl_usd'])}.",
+        f"Core-only MaxDD: USD {fmt(core_metrics['max_drawdown_usd'])} ({fmt(core_metrics['max_drawdown_pct'])}%).",
+        "TAIL overlay rule: buy six standard TAIL CALLs per core cohort, natural Ask <= USD 0.10/share, displayed Ask size >= 6; maximum gross premium USD 60 per cohort plus commissions.",
+        f"TAIL CALL entry DTE: {MIN_DTE}–{MAX_DTE} calendar days (target {TARGET_DTE}); OTM calls only.",
+        "",
+        "**No option P&L, hedged MaxDD, or post-TAIL ending NAV/net P&L is calculated.** Historical TAIL CALL bid/ask/size data was not accessed; no TAIL ETF proxy or synthetic option mark is used.",
+        "Required to complete the hedge comparison: add ORATS historical-data API access as the GitHub Actions secret ORATS_API_TOKEN, then rerun the overlay.",
     ]
     (out_dir / "TAIL_CALL_REPORT.md").write_text("\n".join(lines), encoding="utf-8")
     return payload
@@ -454,11 +463,7 @@ def main():
         print(json.dumps({"status": status["status"], "reason": status["reason"]}))
         return
 
-    arms = (
-        "SPY_SHORT_QQQ_LONG_only", "QQQ_SHORT_SPY_LONG_only",
-        "SPY_SHORT_QQQ_LONG_only_hold10", "QQQ_SHORT_SPY_LONG_only_hold10",
-        "alternate_weekly_close", "alternate_two_week_staggered",
-    )
+    arms = (CORE_ARM,)
     dates = all_dates(arms, data_dir)
     cache_dir = Path(args.cache_dir)
     daily_quotes, source_rows = {}, []
@@ -523,39 +528,29 @@ def main():
         ],
     }
     (out_dir / "TAIL_CALL_MANIFEST.json").write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    core_summary = load_csv(data_dir / "portfolio_arm_summary.csv")
+    core_row = next((row for row in core_summary if row.get("arm") == CORE_ARM), {})
+    start_nav = float(core_row.get("starting_nav_usd", 100000.0))
+    core_end = float(core_row.get("ending_nav_usd", 0.0))
+    core_pnl = float(core_row.get("total_portfolio_pnl_usd", 0.0))
+    core_dd_usd = float(core_row.get("max_drawdown_usd", 0.0))
+    core_dd_pct = float(core_row.get("max_drawdown_pct", 0.0))
+    r = summary[0]
+    combined_end = float(r["combined_ending_nav_usd"])
+    combined_pnl = combined_end - start_nav
     lines = [
-        "# TAIL CALL insurance overlay — six contracts at USD 0.10 limit", "",
-        f"Status: **{payload['status']}**. Sample {dates[0]} to {dates[-1]}, {len(dates)} common sessions.",
-        "Each entered core cohort attempts to buy six standard TAIL CALL contracts, multiplier 100, at the natural Ask with a hard limit of USD 0.10/share (maximum gross premium USD 60/cohort). The actual Ask is charged; no artificial USD 60 debit is inserted.",
-        "Calls must be out-of-the-money, 21–45 calendar DTE (target 30), and show at least six contracts at the Ask. No entry is skipped because of core direction; only absence of an executable quote blocks that cohort's insurance.", "",
-        "| Arm | Core entries | TAIL fills | Fill coverage | Premium paid | TAIL net P&L | Ending NAV core | Ending NAV + TAIL | Combined MaxDD |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "# TAIL CALL overlay — QQQ/SPY DTE20 alternating PUT strategy",
+        "",
+        f"Status: **{payload['status']}**. Sample {dates[0]} to {dates[-1]} ({len(dates)} common sessions).",
+        "Each core cohort attempts to buy six standard TAIL CALL contracts at Ask <= USD 0.10/share; maximum gross premium USD 60 per cohort plus commissions.",
+        "",
+        "| Portfolio | Ending NAV | Net P&L | MaxDD (USD) | MaxDD (%) |",
+        "|---|---:|---:|---:|---:|",
+        f"| Core only | USD {core_end:,.2f} | USD {core_pnl:,.2f} | USD {core_dd_usd:,.2f} | {core_dd_pct:.2f}% |",
+        f"| Core + TAIL CALL | USD {combined_end:,.2f} | USD {combined_pnl:,.2f} | USD {float(r['combined_max_drawdown_usd']):,.2f} | {float(r['combined_max_drawdown_pct']):.2f}% |",
+        "",
+        "TAIL option marks use observed ORATS EOD Bid with a displayed bid size of at least six; unavailable six-lot exits are deferred. These are quote-screen simulations, not guaranteed fills.",
     ]
-    for s in summary:
-        lines.append(
-            f"| {s['arm']} | {s['core_entries']} | {s['tail_purchased']} | {s['tail_fill_coverage_pct']:.2f}% | "
-            f"USD {s['actual_gross_premium_paid_usd']:,.2f} | USD {s['tail_total_pnl_usd']:,.2f} | "
-            f"USD {s['core_ending_nav_usd']:,.2f} | USD {s['combined_ending_nav_usd']:,.2f} | "
-            f"{s['combined_max_drawdown_pct']:.2f}% |"
-        )
-    lines += ["", "## Coverage of losing core trades", "",
-        "| Arm | Core losing trades | Tail positive on core losses | >=25% loss offset | Tail positive P&L / core loss dollars | Worst core trade | Same trade after TAIL |",
-        "|---|---:|---:|---:|---:|---:|---:|"]
-    for s in summary:
-        worst_after = s["worst_core_trade_after_tail_usd"]
-        lines.append(
-            f"| {s['arm']} | {s['core_losing_resolved_trades']} | {s['core_losers_with_tail_gain']} | "
-            f"{s['core_losers_offset_by_25pct']} | USD {s['positive_tail_pnl_on_core_losers_usd']:,.2f} / "
-            f"USD {s['core_loss_dollars_usd']:,.2f} ({(s['tail_gain_as_pct_of_core_loss_dollars'] or 0):.2f}%) | "
-            f"USD {(s['worst_core_trade_net_pnl_usd'] or 0):,.2f} | "
-            + (f"USD {worst_after:,.2f} |" if worst_after is not None else "n/a |")
-        )
-    lines += ["", "## Data and execution caveats", "",
-        "- ORATS near-EOD historical quotes include call Bid/Ask, displayed Bid/Ask size, volume, OI, IV and Greeks.",
-        "- Six displayed contracts at the Ask/Bid is a necessary screen, not proof of six fills without market impact.",
-        "- Missing quote dates carry the last observed Bid for daily marking; stale counts are reported. Zero Bid marks at zero.",
-        "- A zero Bid or Bid size below six prevents an executable close; the position is held until a six-lot positive Bid appears or expiration intrinsic settlement is available.",
-        "- Every call can lose its full premium. Repeated insurance purchases can increase total strategy losses.", ""]
     (out_dir / "TAIL_CALL_REPORT.md").write_text("\n".join(lines), encoding="utf-8")
     print(json.dumps({"status": payload["status"], "arms": summary}, indent=2, allow_nan=False))
 

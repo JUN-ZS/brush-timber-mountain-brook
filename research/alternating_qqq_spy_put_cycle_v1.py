@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Alternating SPY/QQQ put cycles with 21-DTE entries and one/two-week holds."""
+"""QQQ/SPY 1:6 PUT pair: DTE-20 target, alternate every 10 sessions; exit at DTE<=7 or 20 sessions."""
 from __future__ import annotations
 import argparse, csv, json, math, statistics, sys
 from collections import Counter
@@ -12,20 +12,15 @@ sys.path.insert(0,str(BASE_DIR))
 import qqq_spy_put_premium_matched_phase_v1 as base
 
 START_DEFAULT,END_DEFAULT="2018-03-01","2025-12-15"
-DTE_MIN,DTE_MAX,DTE_TARGET=18,24,21
+DTE_MIN,DTE_MAX,DTE_TARGET=18,24,20
 SHORT_DELTA_TARGET=0.25
 LONG_DELTA_LOW,LONG_DELTA_HIGH,LONG_DELTA_TARGET=0.60,0.70,0.65
 LONG_QTY,SHORT_QTY,MULTIPLIER=1,6,100
-STRIDE=5
+STRIDE=10
 SLIPPAGE_PER_SHARE,COMMISSION_PER_CONTRACT_SIDE=0.05,0.65
 DEFAULT_NAV=100000.0
 ARM_CONFIG={
- "SPY_SHORT_QQQ_LONG_only":{"mode":"fixed_A","hold":5},
- "QQQ_SHORT_SPY_LONG_only":{"mode":"fixed_B","hold":5},
- "SPY_SHORT_QQQ_LONG_only_hold10":{"mode":"fixed_A","hold":10},
- "QQQ_SHORT_SPY_LONG_only_hold10":{"mode":"fixed_B","hold":10},
- "alternate_weekly_close":{"mode":"alternate","hold":5},
- "alternate_two_week_staggered":{"mode":"alternate","hold":10},
+ "alternate_dte20_every10":{"mode":"alternate","max_hold_sessions":20,"exit_remaining_dte":7},
 }
 
 def premium_cashflow_usd(long_ask,short_bid):
@@ -163,7 +158,17 @@ def write_csv(path,rows):
     with path.open("w",newline="",encoding="utf-8") as f:
         w=csv.DictWriter(f,fieldnames=fields,extrasaction="ignore");w.writeheader();w.writerows(rows)
 
-def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial_nav):
+def exit_trigger(age, day, expiry, max_hold_sessions=20, remaining_dte_limit=7):
+    """Return the first scheduled exit condition; execution may defer for invalid quotes."""
+    remaining_dte=(date.fromisoformat(expiry)-date.fromisoformat(day)).days
+    if remaining_dte<=remaining_dte_limit:
+        return True,"REMAINING_DTE_LE_7"
+    if age>=max_hold_sessions:
+        return True,"MAX_HOLD_20_SESSIONS"
+    return False,None
+
+
+def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,exit_remaining_dte,initial_nav):
     dates=list(common_dates)
     scheduled=set(range(0,len(dates),STRIDE))
     active=[];pending=None;trades=[];entries=[];skips=[];schedule_skips=[];daily=[]
@@ -181,7 +186,7 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
             if mark is not None:
                 ep["last_mark_pnl_usd"]=mark;ep["last_mark_date"]=day;ep["last_mark_index"]=idx
             else:ep["mark_missing_sessions"]+=1
-            trigger=age>=hold_sessions
+            trigger,trigger_reason=exit_trigger(age,day,ep["expiry"],hold_sessions,exit_remaining_dte)
             if ep["expiry"]<=day:
                 lspot=spots[ep["long_symbol"]].get(day);sspot=spots[ep["short_symbol"]].get(day)
                 if lspot is not None and sspot is not None:
@@ -199,7 +204,8 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
                 if valid:
                     ep.update(trade_pnl(ep,float(lrow["bid"]),float(srow["ask"])))
                     ep.update({"status":"RESOLVED","exit_date":day,"exit_source":"OBSERVED_BID_ASK",
-                        "exit_long_bid":float(lrow["bid"]),"exit_short_ask":float(srow["ask"]),"hold_sessions":age})
+                        "exit_trigger":trigger_reason,"exit_long_bid":float(lrow["bid"]),
+                        "exit_short_ask":float(srow["ask"]),"hold_sessions":age})
                     trades.append(ep);continue
                 ep["exit_deferred_sessions"]+=1;ep["exit_last_reason"]=reason
             keep.append(ep)
@@ -282,7 +288,8 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial
     final_nav=navs[-1] if navs else initial_nav
     cagr=(final_nav/initial_nav)**(1/years)-1 if years>0 and final_nav>0 else None
     open_unresolved=[t for t in trades if str(t.get("status","")).startswith("UNRESOLVED")]
-    return {"arm":mode,"hold_sessions":hold_sessions,"scheduled_opportunities":len(scheduled),
+    return {"arm":mode,"max_hold_sessions":hold_sessions,"exit_remaining_dte_calendar_days":exit_remaining_dte,
+        "scheduled_opportunities":len(scheduled),
         "selected_signals":selected,"entered_cohorts":entered,"entry_skipped":len(skips),
         "schedule_skipped":len(schedule_skips),"resolved_trades":len(resolved),"unresolved_trades":len(open_unresolved),
         "wins":wins,"losses":sum(v<-.005 for v in pnls),"win_rate_pct":100*wins/len(pnls) if pnls else None,
@@ -374,17 +381,26 @@ def main():
         "selected_contract_ids":{k:len(v) for k,v in needed_ids.items()}}
     results={}
     for mode,config in ARM_CONFIG.items():
-        results[mode]=simulate_arm(day_rows,spots,pair_map,common_dates,mode,config["hold"],args.initial_nav)
+        results[mode]=simulate_arm(day_rows,spots,pair_map,common_dates,mode,
+            config["max_hold_sessions"],config["exit_remaining_dte"],args.initial_nav)
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     summary=[]
     for mode,r in results.items():
-        summary.append({k:v for k,v in r.items() if k not in {"daily_nav_rows","trades","entries","skips","schedule_skips"}})
+        summary.append({
+            "arm": mode,
+            "entered_cohorts": r["entered_cohorts"],
+            "starting_nav_usd": r["starting_nav_usd"],
+            "ending_nav_usd": r["ending_nav_usd"],
+            "total_portfolio_pnl_usd": r["total_portfolio_pnl_usd"],
+            "max_drawdown_usd": r["max_drawdown_usd"],
+            "max_drawdown_pct": r["max_drawdown_pct"],
+        })
         write_csv(out/f"{mode}_daily_nav.csv",r["daily_nav_rows"])
         write_csv(out/f"{mode}_trades.csv",r["trades"])
         write_csv(out/f"{mode}_entries.csv",r["entries"])
         write_csv(out/f"{mode}_skips.csv",r["skips"]+r["schedule_skips"])
     write_csv(out/"portfolio_arm_summary.csv",summary)
-    manifest={"study_id":"ALTERNATING_SPY_QQQ_PUT_CYCLE_21DTE_V1","status":"OBSERVED_HISTORICAL_EOD_QUOTE_REPLAY",
+    manifest={"study_id":"ALTERNATING_SPY_QQQ_PUT_DTE20_EVERY10_V1","status":"OBSERVED_HISTORICAL_EOD_QUOTE_REPLAY",
         "source_repository":base.SOURCE_REPO,"source_commit":base.SOURCE_COMMIT,"source_integrity":integrity,
         "source_window":{"start":args.start,"end":args.end,"first_common_session":common_dates[0],"last_common_session":common_dates[-1]},
         "option_chain_coverage":chain_stats,"common_sessions":len(common_dates),"initial_nav_usd":args.initial_nav,
@@ -393,6 +409,9 @@ def main():
             "dte_band":[DTE_MIN,DTE_MAX],"dte_target":DTE_TARGET,"common_expiry_required":True,
             "premium_balance_target":"SOFT_ONLY: 1x opposite-index long put Ask is selected near 6x short put Bid where possible; any residual is recorded as net opening debit/credit and never blocks entry",
             "entry_pair_selection":"reselected from actual next-common-session EOD quotes; entered from that same quote snapshot"},
+        "exit_rule":{"trigger":"remaining calendar DTE <= 7 OR maximum holding age >= 20 common sessions",
+            "max_hold_sessions":20,"exit_remaining_dte_calendar_days":7,
+            "execution":"defer only when required long Bid / short Ask size is unavailable"},
         "cadence":{"new_signal_every_common_sessions":STRIDE,"alternation":"A=SPY short/QQQ long; B=QQQ short/SPY long; flips by fixed slot even if skipped",
             "arms":{k:v for k,v in ARM_CONFIG.items()}},
         "costs":{"slippage_per_option_share_per_side_usd":SLIPPAGE_PER_SHARE,"commission_per_contract_per_side_usd":COMMISSION_PER_CONTRACT_SIDE},
@@ -410,28 +429,22 @@ def main():
             "2018-03-01 to 2025-12-15 historical data cannot establish future performance."
         ]}
     (out/"run_manifest.json").write_text(json.dumps(manifest,indent=2,allow_nan=False),encoding="utf-8")
-    lines=["# Alternating SPY / QQQ Short-Put and Opposite-Index Long-Put Cycle","",
-        f"- Sample: {common_dates[0]} to {common_dates[-1]} ({len(common_dates)} common sessions).",
-        "- Each cohort: short 6 puts at |Delta| nearest 0.25, long 1 opposite-index put at |Delta| 0.60–0.70 (target 0.65).",
-        "- Common expiration required; DTE nearest 21 within 18–24 calendar days.",
-        "- PREMIUM BALANCE IS SOFT ONLY: 1 x opposite-index long-put Ask is targeted near 6 x short-put Bid (e.g. about $24 versus 6 x about $4), but exact equality is not required.",
-        "- ENTRY IS UNCONDITIONAL ON PREMIUM PARITY: every scheduled slot enters the selected common-expiry / DTE / Delta pair when valid entry quotes and displayed size are present; any debit or credit is recorded, not skipped.",
-        "- Pair is reselected on the next common-session EOD quote snapshot and entered from the same snapshot; new signal every 5 common sessions.",
-        "- P&L includes the entry debit/credit through the actual opening and closing leg prices, plus estimated round-trip slippage and commissions.","",
-        "## Arms","","| Arm | Entered | Resolved | Win % | Mean/trade | Median/trade | Worst/trade | Ending NAV | CAGR | Max DD | Peak short assignment notional |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
-    for r in summary:
-        lines.append(f"| {r['arm']} | {r['entered_cohorts']} | {r['resolved_trades']} | "
-            f"{r['win_rate_pct'] if r['win_rate_pct'] is not None else '—'} | "
-            f"{r['mean_trade_net_pnl_usd'] if r['mean_trade_net_pnl_usd'] is not None else '—'} | "
-            f"{r['median_trade_net_pnl_usd'] if r['median_trade_net_pnl_usd'] is not None else '—'} | "
-            f"{r['worst_trade_net_pnl_usd'] if r['worst_trade_net_pnl_usd'] is not None else '—'} | "
-            f"{r['ending_nav_usd']:.2f} | {r['portfolio_cagr_pct'] if r['portfolio_cagr_pct'] is not None else '—'} | "
-            f"{r['max_drawdown_pct']:.2f}% | {r['peak_open_short_assignment_notional_usd']:.2f} |")
-    lines += ["","## Interpretation","","- alternate_two_week_staggered opens a new opposite-side cohort each week and holds each cohort up to 10 sessions, normally creating two concurrent layers.",
-        "- A 1:6 contract ratio is not a hedge ratio. Approximate premium-size matching does not equalize Dollar Delta, convexity, notional or assignment.",
-        "- CAGR/MaxDD use an unconstrained fixed-size P&L ledger on the stated NAV; they are not evidence of broker buying-power feasibility.",
-        "- Per-trade episode P&L overlaps; use daily NAV for the portfolio view.",""]
+    r=summary[0]
+    lines=[
+        "# QQQ / SPY PUT 配對策略 — DTE 20、每 10 個交易日交替",
+        "",
+        f"- 回測區間：{common_dates[0]} 至 {common_dates[-1]}；共 {len(common_dates)} 個共同交易日。",
+        "- 起始 NAV：USD 100,000。",
+        "- 每組：一張反向指數 LONG PUT，六張 SHORT PUT；A=SPY short／QQQ long，B=QQQ short／SPY long。",
+        "- 入場：共同到期日；DTE 18–24 日內選最接近 20 日的合約；SHORT PUT |Delta| 目標 0.25，LONG PUT |Delta| 0.60–0.70（目標 0.65）。",
+        "- 節奏：每 10 個共同交易日開新一組，A／B 交替，即使某一組因報價不合格而跳過，方向仍按排程翻轉。",
+        "- 退出：剩餘日曆 DTE <= 7，或持有達 20 個共同交易日，先到者觸發；若平倉報價／顯示張數不足，延遲至可執行報價。",
+        "",
+        "| 策略 | 最終 NAV | 淨損益 | MaxDD (USD) | MaxDD (%) |",
+        "|---|---:|---:|---:|---:|",
+        f"| {r['arm']} | USD {r['ending_nav_usd']:,.2f} | USD {r['total_portfolio_pnl_usd']:,.2f} | USD {r['max_drawdown_usd']:,.2f} | {r['max_drawdown_pct']:.2f}% |",
+        "",
+    ]
     (out/"study_report.md").write_text("\n".join(lines),encoding="utf-8")
     print(json.dumps({"status":"COMPLETED","common_sessions":len(common_dates),"arms":summary},indent=2,allow_nan=False))
 

@@ -2,12 +2,36 @@ import unittest
 from alternating_qqq_spy_put_cycle_v1 import (
     choose_contract_pair, direction_for, trade_pnl, premium_cashflow_usd,
     premium_match_pct, drawdown, LONG_QTY, SHORT_QTY,
+    exit_trigger, STRIDE, DTE_MIN, DTE_MAX, DTE_TARGET, ARM_CONFIG,
 )
 
 
 class AlternatingPutCycleTests(unittest.TestCase):
     def test_weekly_directions_alternate_even_if_signal_skipped(self):
         self.assertEqual([direction_for("alternate", i) for i in range(6)], ["A", "B", "A", "B", "A", "B"])
+
+
+    def test_strategy_is_dte20_target_and_new_entry_every_ten_sessions(self):
+        self.assertEqual((DTE_MIN, DTE_MAX, DTE_TARGET), (18, 24, 20))
+        self.assertEqual(STRIDE, 10)
+        self.assertEqual(list(ARM_CONFIG), ["alternate_dte20_every10"])
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["mode"], "alternate")
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["max_hold_sessions"], 20)
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["exit_remaining_dte"], 7)
+
+    def test_exit_on_remaining_dte_seven_or_maximum_twenty_sessions(self):
+        self.assertEqual(
+            exit_trigger(9, "2025-01-15", "2025-01-22"),
+            (True, "REMAINING_DTE_LE_7"),
+        )
+        self.assertEqual(
+            exit_trigger(20, "2025-01-12", "2025-01-30"),
+            (True, "MAX_HOLD_20_SESSIONS"),
+        )
+        self.assertEqual(
+            exit_trigger(10, "2025-01-12", "2025-01-30"),
+            (False, None),
+        )
 
     def test_fixed_direction_controls(self):
         self.assertEqual(direction_for("fixed_A", 7), "A")

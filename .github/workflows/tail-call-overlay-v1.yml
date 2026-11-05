@@ -1,13 +1,6 @@
 name: TAIL CALL Overlay — Existing Core Replay
 
 on:
-  push:
-    branches:
-      - research/alternating-qqq-spy-put-cycle-v1-20261105
-    paths:
-      - research/tail_call_overlay_v1.py
-      - research/test_tail_call_overlay_v1.py
-      - .github/workflows/tail-call-overlay-v1.yml
   workflow_dispatch:
 
 permissions:
@@ -45,7 +38,7 @@ jobs:
 
           out = Path("research/alternating_qqq_spy_put_cycle_v1/results/latest")
           manifest = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
-          expected_runner_blob = "8549fb762b2ba1319ec92fa0fa4f3b7616603636"
+          expected_runner_blob = "69d19094a164114f4123fa6dc6545aaf2ae6a5ed"
           actual_runner_blob = subprocess.check_output(
               ["git", "rev-parse", "HEAD:research/alternating_qqq_spy_put_cycle_v1.py"],
               text=True,
@@ -54,7 +47,7 @@ jobs:
               raise SystemExit(
                   f"Core runner changed: expected {expected_runner_blob}, got {actual_runner_blob}; refresh core replay first."
               )
-          if manifest.get("study_id") != "ALTERNATING_SPY_QQQ_PUT_CYCLE_21DTE_V1":
+          if manifest.get("study_id") != "ALTERNATING_SPY_QQQ_PUT_DTE20_EVERY10_V1":
               raise SystemExit("Wrong core study_id in run_manifest.json")
           if manifest.get("source_commit") != "37f6c456fe1a4775c875673fb8ef907d5cd2fd66":
               raise SystemExit("Core option dataset source commit does not match pinned historical dataset")
@@ -63,14 +56,7 @@ jobs:
           if manifest.get("source_window", {}).get("last_common_session") != "2025-12-12":
               raise SystemExit("Unexpected core replay final common session")
 
-          arms = (
-              "SPY_SHORT_QQQ_LONG_only",
-              "QQQ_SHORT_SPY_LONG_only",
-              "SPY_SHORT_QQQ_LONG_only_hold10",
-              "QQQ_SHORT_SPY_LONG_only_hold10",
-              "alternate_weekly_close",
-              "alternate_two_week_staggered",
-          )
+          arms = ("alternate_dte20_every10",)
           with (out / "portfolio_arm_summary.csv").open(newline="", encoding="utf-8") as handle:
               summary = {row["arm"]: row for row in csv.DictReader(handle)}
           if set(summary) != set(arms):
@@ -84,7 +70,7 @@ jobs:
                   n_entries = sum(1 for _ in csv.DictReader(handle))
               if n_entries != int(summary[arm]["entered_cohorts"]):
                   raise SystemExit(f"{arm}: core entries do not reconcile to summary")
-          print("Verified pinned 2018-03-01 to 2025-12-12 core replay bundle, six arms, source commit and runner blob.")
+          print("Verified pinned DTE20 / every-10-session QQQ-SPY alternating PUT core replay bundle.")
           PY
 
       - name: Compile and run TAIL CALL unit tests
