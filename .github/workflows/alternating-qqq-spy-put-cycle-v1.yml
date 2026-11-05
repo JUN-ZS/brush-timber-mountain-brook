@@ -48,18 +48,67 @@ jobs:
             --initial-nav 100000 \
             --out research/alternating_qqq_spy_put_cycle_v1/results/latest
 
-      - name: Validate output bundle
+      - name: Validate output bundle and exact-zero ledger
         run: |
           set -euo pipefail
           OUT=research/alternating_qqq_spy_put_cycle_v1/results/latest
           test -s "$OUT/study_report.md"
           test -s "$OUT/portfolio_arm_summary.csv"
           test -s "$OUT/run_manifest.json"
-          for arm in SPY_SHORT_QQQ_LONG_only QQQ_SHORT_SPY_LONG_only SPY_SHORT_QQQ_LONG_only_hold10 QQQ_SHORT_SPY_LONG_only_hold10 alternate_weekly_close alternate_two_week_staggered; do
-            test -s "$OUT/${arm}_daily_nav.csv"
-            test -s "$OUT/${arm}_trades.csv"
-            test -s "$OUT/${arm}_entries.csv"
-          done
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          out = Path("research/alternating_qqq_spy_put_cycle_v1/results/latest")
+          arms = (
+              "SPY_SHORT_QQQ_LONG_only",
+              "QQQ_SHORT_SPY_LONG_only",
+              "SPY_SHORT_QQQ_LONG_only_hold10",
+              "QQQ_SHORT_SPY_LONG_only_hold10",
+              "alternate_weekly_close",
+              "alternate_two_week_staggered",
+          )
+
+          with (out / "portfolio_arm_summary.csv").open(newline="", encoding="utf-8") as f:
+              summary = {row["arm"]: row for row in csv.DictReader(f)}
+
+          if set(summary) != set(arms):
+              raise SystemExit(f"summary arm mismatch: {sorted(summary)}")
+
+          def read_rows(path):
+              if not path.is_file():
+                  raise SystemExit(f"missing output file: {path}")
+              with path.open(newline="", encoding="utf-8") as f:
+                  return list(csv.DictReader(f))
+
+          total_entries = total_trades = 0
+          for arm in arms:
+              daily = read_rows(out / f"{arm}_daily_nav.csv")
+              entries = read_rows(out / f"{arm}_entries.csv")
+              trades = read_rows(out / f"{arm}_trades.csv")
+              if not daily:
+                  raise SystemExit(f"{arm}: daily NAV is empty")
+              row = summary[arm]
+              entered = int(row["entered_cohorts"])
+              resolved = int(row["resolved_trades"])
+              unresolved = int(row["unresolved_trades"])
+              zero_entries = int(row["zero_opening_premium_entries"])
+              nonzero_entries = int(row["nonzero_opening_premium_entries"])
+              if len(entries) != entered:
+                  raise SystemExit(f"{arm}: entries rows {len(entries)} != entered_cohorts {entered}")
+              if len(trades) != resolved + unresolved:
+                  raise SystemExit(f"{arm}: trades rows do not reconcile to resolved + unresolved")
+              if zero_entries != entered or nonzero_entries != 0:
+                  raise SystemExit(f"{arm}: opening premium parity ledger failed")
+              for entry in entries:
+                  opening = round(float(entry["net_opening_cashflow_usd"]), 2)
+                  if opening != 0.0:
+                      raise SystemExit(f"{arm}: nonzero opening cashflow {opening}")
+              total_entries += entered
+              total_trades += len(trades)
+
+          print(f"Validated 6 arms; entered={total_entries}; trade rows={total_trades}; all opening premiums exactly $0.00.")
+          PY
 
       - name: Upload replay evidence
         if: always()
