@@ -38,7 +38,7 @@ class AlternatingPutCycleTests(unittest.TestCase):
         self.assertEqual(direction_for("fixed_B", 8), "B")
 
     def test_pair_selector_allows_nonzero_premium_difference(self):
-        d, exp = "2022-01-03", "2022-01-23"
+        d, exp = "2022-01-04", "2022-01-24"
         short_rows = [
             {"contract_id":"SPY220124P00450000","symbol":"SPY","expiration":exp,"strike":450.0,
              "type":"put","bid":4.0,"ask":4.1,"bid_size":10,"ask_size":10,"open_interest":100,
@@ -59,7 +59,7 @@ class AlternatingPutCycleTests(unittest.TestCase):
         self.assertAlmostEqual(pair["long_abs_delta"], 0.65)
 
     def test_reversed_direction_also_accepts_nonzero_premium_difference(self):
-        d, exp = "2022-01-03", "2022-01-23"
+        d, exp = "2022-01-04", "2022-01-24"
         short_rows = [
             {"contract_id":"QQQ220124P00350000","symbol":"QQQ","expiration":exp,"strike":350.0,
              "type":"put","bid":4.0,"ask":4.1,"bid_size":10,"ask_size":10,"open_interest":100,
