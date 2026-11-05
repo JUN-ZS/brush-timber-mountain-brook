@@ -232,7 +232,7 @@ jobs:
           found=0
           for dir in "$HOME/.cache/qqq-options-full-history" "$HOME/.cache/spy-options-cross-put-v1"; do
             [ -d "$dir" ] || continue
-  if find "$dir" -maxdepth 1 -type f \( -name '*.part' -o -name '*.part.etag' \) -print -quit | grep -q .; then
+            if find "$dir" -maxdepth 1 -type f \( -name '*.part' -o -name '*.part.etag' \) -print -quit | grep -q .; then
               found=1
               break
             fi
