@@ -1,0 +1,27 @@
+{
+  "schema": "tail-call-six-contract-overlay.v1",
+  "status": "BLOCKED_DATA_ACCESS",
+  "reason": "MISSING_ORATS_API_TOKEN",
+  "ticker": "TAIL",
+  "direction": "LONG_CALL",
+  "contracts_per_cohort": 6,
+  "premium_limit_per_share_usd": 0.1,
+  "maximum_gross_premium_per_cohort_usd": 60.0,
+  "entry_dte_range_calendar_days": [
+    21,
+    45
+  ],
+  "target_entry_dte_calendar_days": 30,
+  "core_cohort_counts": {
+    "SPY_SHORT_QQQ_LONG_only": 389,
+    "QQQ_SHORT_SPY_LONG_only": 389,
+    "SPY_SHORT_QQQ_LONG_only_hold10": 389,
+    "QQQ_SHORT_SPY_LONG_only_hold10": 389,
+    "alternate_weekly_close": 389,
+    "alternate_two_week_staggered": 389
+  },
+  "required_environment_secret": "ORATS_API_TOKEN",
+  "data_source": "https://api.orats.io/datav2/hist/strikes",
+  "data_fields": "tradeDate,expirDate,dte,strike,spotPrice,delta,callBidPrice,callAskPrice,callBidSize,callAskSize,callVolume,callOpenInterest,callBidIv,callMidIv,callAskIv,updatedAt",
+  "note": "No option-return estimates were generated. TAIL ETF share prices are not substituted for TAIL CALL quotes."
+}
