@@ -199,8 +199,8 @@
       }
     },
     "selected_contract_ids": {
-      "QQQ": 36,
-      "SPY": 36
+      "QQQ": 392,
+      "SPY": 392
     }
   },
   "common_sessions": 1959,
@@ -210,19 +210,16 @@
     "short_qty": 6,
     "multiplier": 100,
     "short_abs_delta_target": 0.25,
-    "long_abs_delta_band": [
-      0.6,
-      0.7
-    ],
-    "long_abs_delta_target": 0.65,
+    "long_delta_rule": "UNCONSTRAINED: select one opposite-index LONG PUT by Ask nearest to 6x SHORT PUT Bid",
     "dte_band": [
-      20,
-      20
+      14,
+      28
     ],
     "dte_target": 20,
+    "dte_selection_rule": "nearest common expiry to target 20 calendar DTE within the 14-28 day execution window",
     "common_expiry_required": true,
-    "premium_balance_target": "SOFT_ONLY: 1x opposite-index long put Ask is selected near 6x short put Bid where possible; any residual is recorded as net opening debit/credit and never blocks entry",
-    "entry_pair_selection": "reselected from actual next-common-session EOD quotes; entered from that same quote snapshot"
+    "premium_balance_target": "Select one opposite-index long-put Ask nearest to six times the selected short-put Bid; enter even when a residual net debit/credit remains",
+    "entry_pair_selection": "short |Delta| nearest 0.25, then one long Ask nearest 6x short Bid; both legs from actual next-common-session EOD quotes"
   },
   "exit_rule": {
     "trigger": "remaining calendar DTE <= 7 OR maximum holding age >= 20 common sessions",
@@ -232,14 +229,14 @@
   },
   "cadence": {
     "new_signal_every_common_sessions": 10,
-    "signal_anchor_common_session_offset": 2,
-    "first_scheduled_signal_date": "2018-03-05",
-    "first_entry_date": "2018-03-06",
-    "alternation": "A=SPY short/QQQ long; B=QQQ short/SPY long; flips by fixed slot even if skipped",
+    "signal_anchor_common_session_offset": 0,
+    "first_scheduled_signal_date": "2018-03-01",
+    "first_entry_date": "2018-03-02",
+    "alternation": "A=SPY short 6 / QQQ long 1; B=QQQ short 6 / SPY long 1; one new group every 10 common sessions and direction reverses each scheduled group",
     "arms": {
-      "alternate_dte20_every10_tue_anchor": {
+      "alternate_dte20_every10": {
         "mode": "alternate",
-        "schedule_offset": 2,
+        "schedule_offset": 0,
         "max_hold_sessions": 20,
         "exit_remaining_dte": 7
       }
@@ -257,13 +254,16 @@
   },
   "results": [
     {
-      "arm": "alternate_dte20_every10_tue_anchor",
-      "entered_cohorts": 18,
+      "arm": "alternate_dte20_every10",
+      "scheduled_opportunities": 196,
+      "selected_signals": 196,
+      "entered_cohorts": 196,
+      "entry_skipped": 0,
       "starting_nav_usd": 100000.0,
-      "ending_nav_usd": 108826.2,
-      "total_portfolio_pnl_usd": 8826.199999999997,
-      "max_drawdown_usd": -6276.100000000006,
-      "max_drawdown_pct": -5.838460665439958
+      "ending_nav_usd": 99681.4,
+      "total_portfolio_pnl_usd": -318.6000000000058,
+      "max_drawdown_usd": -43038.600000000006,
+      "max_drawdown_pct": -35.005616209168615
     }
   ],
   "limitations": [

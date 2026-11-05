@@ -1,2 +1,2 @@
-arm,entered_cohorts,starting_nav_usd,ending_nav_usd,total_portfolio_pnl_usd,max_drawdown_usd,max_drawdown_pct
-alternate_dte20_every10_tue_anchor,18,100000.0,108826.2,8826.199999999997,-6276.100000000006,-5.838460665439958
+arm,scheduled_opportunities,selected_signals,entered_cohorts,entry_skipped,starting_nav_usd,ending_nav_usd,total_portfolio_pnl_usd,max_drawdown_usd,max_drawdown_pct
+alternate_dte20_every10,196,196,196,0,100000.0,99681.4,-318.6000000000058,-43038.600000000006,-35.005616209168615

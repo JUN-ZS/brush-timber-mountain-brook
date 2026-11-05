@@ -13,16 +13,16 @@
   ],
   "target_entry_dte_calendar_days": 30,
   "core_cohort_counts": {
-    "alternate_dte20_every10_tue_anchor": 18
+    "alternate_dte20_every10": 196
   },
   "required_environment_secret": "ORATS_API_TOKEN",
   "data_source": "https://api.orats.io/datav2/hist/strikes",
   "data_fields": "tradeDate,expirDate,dte,strike,spotPrice,delta,callBidPrice,callAskPrice,callBidSize,callAskSize,callVolume,callOpenInterest,callBidIv,callMidIv,callAskIv,updatedAt",
   "note": "No option-return estimates were generated. TAIL ETF share prices are not substituted for TAIL CALL quotes.",
   "core_only": {
-    "ending_nav_usd": 108826.2,
-    "total_portfolio_pnl_usd": 8826.199999999997,
-    "max_drawdown_usd": -6276.100000000006,
-    "max_drawdown_pct": -5.838460665439958
+    "ending_nav_usd": 99681.4,
+    "total_portfolio_pnl_usd": -318.6000000000058,
+    "max_drawdown_usd": -43038.600000000006,
+    "max_drawdown_pct": -35.005616209168615
   }
 }
