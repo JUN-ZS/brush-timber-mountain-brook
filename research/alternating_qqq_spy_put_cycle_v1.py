@@ -148,8 +148,8 @@ def write_csv(path,rows):
     with path.open("w",newline="",encoding="utf-8") as f:
         w=csv.DictWriter(f,fieldnames=fields,extrasaction="ignore");w.writeheader();w.writerows(rows)
 
-def simulate_arm(day_rows,spots,pair_map,mode,hold_sessions,initial_nav):
-    dates=sorted(spots["QQQ"].keys() & spots["SPY"].keys())
+def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,initial_nav):
+    dates=list(common_dates)
     scheduled=set(range(0,len(dates),STRIDE))
     active=[];pending=None;trades=[];entries=[];skips=[];schedule_skips=[];daily=[]
     selected=entered=0
@@ -349,7 +349,7 @@ def main():
         "selected_contract_ids":{k:len(v) for k,v in needed_ids.items()}}
     results={}
     for mode,config in ARM_CONFIG.items():
-        results[mode]=simulate_arm(day_rows,spots,pair_map,mode,config["hold"],args.initial_nav)
+        results[mode]=simulate_arm(day_rows,spots,pair_map,common_dates,mode,config["hold"],args.initial_nav)
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     summary=[]
     for mode,r in results.items():
