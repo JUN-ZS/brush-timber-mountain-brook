@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Premium-matched DTE14 QQQ LONG PUT / SPY SHORT PUT replay, fixed 1:3 and 1:6 ratios."""
 from __future__ import annotations
-import argparse, csv, hashlib, json, math, re, statistics, urllib.request
+import argparse, csv, hashlib, json, math, os, re, statistics, time, urllib.error, urllib.request
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
 
 SOURCE_REPO = "anahatsingh-ui/options-dataset-hist"
 SOURCE_COMMIT = "37f6c456fe1a4775c875673fb8ef907d5cd2fd66"
-SOURCE_BASE = "https://raw.githubusercontent.com/anahatsingh-ui/options-dataset-hist/main"
+SOURCE_BASE = f"https://raw.githubusercontent.com/{SOURCE_REPO}/{SOURCE_COMMIT}"
 START_DEFAULT, END_DEFAULT = "2018-03-01", "2025-12-15"
 MULTIPLIER, COHORT_STRIDE_SESSIONS = 100, 45
 DTE_MIN_DEFAULT, DTE_MAX_DEFAULT, DTE_TARGET_DEFAULT = 30, 60, 45
@@ -104,31 +104,170 @@ def git_blob_sha_file(path: Path, expected_size: int) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""): h.update(block)
     return h.hexdigest()
 
+DOWNLOAD_CHUNK_BYTES = 1024 * 1024
+DOWNLOAD_MAX_ATTEMPTS = 6
+DOWNLOAD_TIMEOUT_SECONDS = 60
+DOWNLOAD_BACKOFF_SECONDS = 1.0
+TRANSIENT_HTTP_CODES = {408, 425, 429, 500, 502, 503, 504}
+
+
+def _write_etag(path: Path, etag: str | None) -> None:
+    if etag:
+        path.write_text(etag, encoding="utf-8")
+    else:
+        path.unlink(missing_ok=True)
+
+
 def download_verified(symbol: str, year: int | None, cache: Path):
+    """Download a pinned dataset file with resumable Range retries and final Git-blob verification.
+
+    Partial bytes are retained in *.part after transient network failures. The final file
+    is installed atomically only after its expected size and pinned Git blob SHA both match.
+    """
     cache.mkdir(parents=True, exist_ok=True)
     if year is None:
         size, sha = UNDERLYING_PINS[symbol]; name = "underlying_prices.parquet"
     else:
         size, sha = PINS[symbol][year]; name = f"options_{year}.parquet"
     path = cache / name
-    if path.is_file() and path.stat().st_size == size:
-        actual = git_blob_sha_file(path, size)
-        if actual == sha:
-            return path, {"symbol":symbol,"file":name,"status":"CACHED_HASH_VERIFIED","bytes":size,"git_blob_sha":actual}
-        path.unlink()
-    url = f"{SOURCE_BASE}/{symbol.lower()}/{name}"
-    request = urllib.request.Request(url, headers={"User-Agent":"qqq-spy-cross-put-replay/1.0"})
-    h = hashlib.sha1(); h.update(f"blob {size}\0".encode("ascii")); total = 0
-    with urllib.request.urlopen(request, timeout=180) as response, path.open("wb") as output:
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk: break
-            total += len(chunk); output.write(chunk); h.update(chunk)
-    actual = h.hexdigest()
-    if total != size or actual != sha:
+    part = cache / f"{name}.part"
+    etag_path = cache / f"{name}.part.etag"
+
+    if path.is_file():
+        if path.stat().st_size == size:
+            actual = git_blob_sha_file(path, size)
+            if actual == sha:
+                return path, {"symbol":symbol,"file":name,"status":"CACHED_HASH_VERIFIED",
+                    "bytes":size,"git_blob_sha":actual,"download_attempts":0,"resumed_from_bytes":0}
         path.unlink(missing_ok=True)
-        raise ValueError(f"{symbol}/{name} pin mismatch: bytes={total}/{size}; sha={actual}/{sha}")
-    return path, {"symbol":symbol,"file":name,"status":"DOWNLOADED_HASH_VERIFIED","bytes":total,"git_blob_sha":actual}
+
+    if part.is_file():
+        partial_size = part.stat().st_size
+        if partial_size > size:
+            part.unlink(missing_ok=True)
+            etag_path.unlink(missing_ok=True)
+        elif partial_size == size:
+            actual = git_blob_sha_file(part, size)
+            if actual == sha:
+                os.replace(part, path)
+                etag_path.unlink(missing_ok=True)
+                return path, {"symbol":symbol,"file":name,"status":"RESUMED_HASH_VERIFIED",
+                    "bytes":size,"git_blob_sha":actual,"download_attempts":0,"resumed_from_bytes":size}
+            part.unlink(missing_ok=True)
+            etag_path.unlink(missing_ok=True)
+
+    url = f"{SOURCE_BASE}/{symbol.lower()}/{name}"
+    last_error = None
+
+    for attempt in range(1, DOWNLOAD_MAX_ATTEMPTS + 1):
+        offset = part.stat().st_size if part.is_file() else 0
+        if offset > size:
+            part.unlink(missing_ok=True)
+            etag_path.unlink(missing_ok=True)
+            offset = 0
+
+        headers = {"User-Agent":"qqq-spy-cross-put-replay/2.0", "Accept-Encoding":"identity"}
+        saved_etag = etag_path.read_text(encoding="utf-8").strip() if etag_path.is_file() else ""
+        if offset:
+            headers["Range"] = f"bytes={offset}-"
+            if saved_etag:
+                headers["If-Range"] = saved_etag
+
+        request = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+                status = getattr(response, "status", None)
+                if status is None:
+                    status = response.getcode()
+                response_headers = getattr(response, "headers", {})
+                response_etag = response_headers.get("ETag") if response_headers else None
+
+                if status == 206:
+                    content_range = response_headers.get("Content-Range", "") if response_headers else ""
+                    range_match = re.fullmatch(r"bytes (\d+)-(\d+)/(\d+)", content_range.strip())
+                    if (not range_match or int(range_match.group(1)) != offset
+                            or int(range_match.group(2)) < offset
+                            or int(range_match.group(2)) >= size
+                            or int(range_match.group(3)) != size):
+                        raise ValueError(
+                            f"{symbol}/{name} invalid Content-Range: offset={offset}; "
+                            f"header={content_range!r}; expected_total={size}"
+                        )
+                    if saved_etag and response_etag and saved_etag != response_etag:
+                        part.unlink(missing_ok=True)
+                        etag_path.unlink(missing_ok=True)
+                        last_error = ValueError(f"{symbol}/{name} ETag changed during resumed download")
+                        continue
+                    mode = "ab" if offset else "wb"
+                elif status == 200:
+                    # Server ignored Range or If-Range changed: restart safely at byte zero.
+                    mode = "wb"
+                    offset = 0
+                else:
+                    raise ValueError(f"{symbol}/{name} unexpected HTTP status {status}")
+
+                successful_resume_offset = offset if mode == "ab" else 0
+                if mode == "wb":
+                    etag_path.unlink(missing_ok=True)
+                    _write_etag(etag_path, response_etag)
+                elif response_etag:
+                    _write_etag(etag_path, response_etag)
+
+                with part.open(mode) as output:
+                    while True:
+                        chunk = response.read(DOWNLOAD_CHUNK_BYTES)
+                        if not chunk:
+                            break
+                        output.write(chunk)
+                    output.flush()
+                    os.fsync(output.fileno())
+
+            total = part.stat().st_size if part.exists() else 0
+            if total < size:
+                raise OSError(f"{symbol}/{name} incomplete response: bytes={total}/{size}")
+            if total > size:
+                part.unlink(missing_ok=True)
+                etag_path.unlink(missing_ok=True)
+                raise ValueError(f"{symbol}/{name} exceeded pinned size: bytes={total}/{size}")
+
+            actual = git_blob_sha_file(part, size)
+            if actual != sha:
+                part.unlink(missing_ok=True)
+                etag_path.unlink(missing_ok=True)
+                last_error = ValueError(f"{symbol}/{name} Git blob SHA mismatch: actual={actual}; expected={sha}")
+                if attempt < DOWNLOAD_MAX_ATTEMPTS:
+                    time.sleep(min(DOWNLOAD_BACKOFF_SECONDS * (2 ** (attempt - 1)), 16.0))
+                    continue
+                raise last_error
+
+            os.replace(part, path)
+            etag_path.unlink(missing_ok=True)
+            return path, {
+                "symbol":symbol,"file":name,"status":"DOWNLOADED_HASH_VERIFIED",
+                "bytes":total,"git_blob_sha":actual,"download_attempts":attempt,
+                "resumed_from_bytes":successful_resume_offset,"source_commit":SOURCE_COMMIT,
+            }
+
+        except urllib.error.HTTPError as exc:
+            if exc.code == 416:
+                part.unlink(missing_ok=True)
+                etag_path.unlink(missing_ok=True)
+                last_error = exc
+                continue
+            if exc.code not in TRANSIENT_HTTP_CODES:
+                raise
+            last_error = exc
+        except (TimeoutError, urllib.error.URLError, ConnectionError, OSError) as exc:
+            last_error = exc
+
+        if attempt < DOWNLOAD_MAX_ATTEMPTS:
+            time.sleep(min(DOWNLOAD_BACKOFF_SECONDS * (2 ** (attempt - 1)), 16.0))
+
+    preserved = part.stat().st_size if part.is_file() else 0
+    raise RuntimeError(
+        f"{symbol}/{name} download failed after {DOWNLOAD_MAX_ATTEMPTS} attempts; "
+        f"partial_bytes_preserved={preserved}/{size}; last_error={last_error!r}"
+    )
 
 def spot_rows_to_map(date_values, symbol_values, close_values, symbol: str) -> dict[str, float]:
     if not (len(date_values) == len(symbol_values) == len(close_values)):

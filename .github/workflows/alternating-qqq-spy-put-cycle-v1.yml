@@ -7,6 +7,7 @@ on:
     paths:
       - research/alternating_qqq_spy_put_cycle_v1.py
       - research/test_alternating_qqq_spy_put_cycle_v1.py
+      - research/test_resumable_download_v1.py
       - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
       - .github/workflows/alternating-qqq-spy-put-cycle-v1.yml
   workflow_dispatch:
@@ -37,8 +38,9 @@ jobs:
 
       - name: Compile and run unit tests
         run: |
-          python -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py research/alternating_qqq_spy_put_cycle_v1.py research/test_alternating_qqq_spy_put_cycle_v1.py
+          python -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py research/alternating_qqq_spy_put_cycle_v1.py research/test_alternating_qqq_spy_put_cycle_v1.py research/test_resumable_download_v1.py
           python -m unittest discover -s research -p "test_alternating_qqq_spy_put_cycle_v1.py" -v
+          python -m unittest discover -s research -p "test_resumable_download_v1.py" -v
 
       - name: Run pinned historical replay
         run: |
