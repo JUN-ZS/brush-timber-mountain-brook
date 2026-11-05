@@ -93,7 +93,7 @@ def premium_match_pct(long_debit_usd,short_credit_usd):
 
 def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short_spot,long_spot,
                          dte_min=DTE_MIN,dte_max=DTE_MAX,dte_target=DTE_TARGET):
-    """Select short call near |Delta| .25; match one opposite-index long-call Ask to 6x short Bid.
+    """Select short call Delta near +.25; match one opposite-index long-call Ask to 6x short Bid.
 
     Long-leg Delta is intentionally unconstrained. Long-leg displayed Bid size is not an
     entry gate because the buy is executed at Ask; it remains an exit/liquidity consideration.
@@ -122,14 +122,14 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
             if not standard_call_identity(row,short_symbol) or base.as_day(row.get("date"))!=day:continue
             if base.as_day(row.get("expiration"))!=expiry or not base.valid_quote(row,require_positive_bid=True):continue
             delta,strike=base.num(row.get("delta")),base.num(row.get("strike"))
-            if delta is None or not base.DELTA_MIN<=abs(delta)<=base.DELTA_MAX or strike is None or strike<=0:continue
+            if delta is None or delta<=0 or not base.DELTA_MIN<=abs(delta)<=base.DELTA_MAX or strike is None or strike<=0:continue
             bid_size,ask_size=base.displayed_size(row,"bid"),base.displayed_size(row,"ask")
             # Six displayed contracts at Bid are required to open the six short contracts.
             # Do not reject merely because the future closing Ask size is thin.
             if bid_size<SHORT_QTY:continue
             bid,ask=float(row["bid"]),float(row["ask"])
             shorts.append({"row":row,"id":base.normalized_contract_id(row),"strike":strike,
-                "abs_delta":abs(delta),"bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,
+                "abs_delta":abs(delta),"delta":delta,"bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,
                 "oi":base.num(row.get("open_interest")) or 0.0,
                 "spread":(ask-bid)/max((ask+bid)/2,1e-9)})
         if not shorts:continue
@@ -169,7 +169,7 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
     return {"signal_date":day,"expiry":expiry,"signal_dte":dte,
         "short_symbol":short_symbol,"long_symbol":long_symbol,
         "short_contract_id":short_leg["id"],"short_strike":short_leg["strike"],
-        "short_abs_delta":short_leg["abs_delta"],"short_signal_bid":short_leg["bid"],
+        "short_abs_delta":short_leg["abs_delta"],"short_delta":short_leg["delta"],"short_signal_bid":short_leg["bid"],
         "short_signal_ask":short_leg["ask"],"short_signal_bid_size":short_leg["bid_size"],
         "long_contract_id":long_leg["id"],"long_strike":long_leg["strike"],
         "long_abs_delta":long_leg["abs_delta"],"long_signal_bid":long_leg["bid"],
@@ -430,7 +430,7 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--start",default=START_DEFAULT);p.add_argument("--end",default=END_DEFAULT)
     p.add_argument("--qqq-cache",default=str(Path.home()/".cache"/"qqq-options-full-history"))
-    p.add_argument("--spy-cache",default=str(Path.home()/".cache"/"spy-options-cross-call-v1"))
+    p.add_argument("--spy-cache",default=str(Path.home()/".cache"/"spy-options-cross-put-v1"))
     p.add_argument("--out",default="research/alternating_qqq_spy_call_cycle_v1/results/latest")
     p.add_argument("--initial-nav",type=float,default=DEFAULT_NAV)
     args=p.parse_args()
@@ -482,7 +482,7 @@ def main():
         "source_repository":base.SOURCE_REPO,"source_commit":base.SOURCE_COMMIT,"source_integrity":integrity,
         "source_window":{"start":args.start,"end":args.end,"first_common_session":common_dates[0],"last_common_session":common_dates[-1]},
         "option_chain_coverage":chain_stats,"common_sessions":len(common_dates),"initial_nav_usd":args.initial_nav,
-        "contract_setup":{"long_qty":1,"short_qty":6,"multiplier":100,"short_abs_delta_target":SHORT_DELTA_TARGET,
+        "contract_setup":{"option_right":"CALL","long_qty":1,"short_qty":6,"multiplier":100,"short_abs_delta_target":SHORT_DELTA_TARGET,
             "long_delta_rule":"UNCONSTRAINED: select one opposite-index LONG CALL by Ask nearest to 6x SHORT CALL Bid",
             "dte_band":[DTE_MIN,DTE_MAX],"dte_target":DTE_TARGET,
             "dte_selection_rule":"nearest common expiry to target 20 calendar DTE within the 14-28 day execution window",
@@ -519,7 +519,7 @@ def main():
         "- 每 10 個共同交易日開新一組；A=SPY SHORT CALL 6 張／QQQ LONG CALL 1 張；B=QQQ SHORT CALL 6 張／SPY LONG CALL 1 張，逐組反轉。",
         "- DTE：以 20 個日曆日為目標，在 14–28 日共同到期合約中選最接近者；兩腿必須同一到期日。",
         "- SHORT CALL：|Delta| 最接近 0.25；LONG CALL：不設 Delta 限制，選 Ask 最接近 6 × SHORT CALL Bid 的一張合約。",
-        "- 例：SHORT Bid $4 × 6 張 = $24；LONG Ask 目標 $24 × 1 張。實際差額按實際報價記入淨收／淨付，不因差額而跳過排程。",
+        "- 例：SHORT CALL Bid $4 × 6 張 = $24；LONG CALL Ask 目標 $24 × 1 張。實際差額按實際報價記入淨收／淨付，不因差額而跳過排程。",
         "- 退出：剩餘日曆 DTE <= 7，或持有達 20 個共同交易日，先到者觸發；若平倉報價／顯示張數不足，才延遲執行。",
         "",
         f"- 排程機會：{r['scheduled_opportunities']}；成功開倉：{r['entered_cohorts']}；未能成交：{r['entry_skipped']}。",
