@@ -348,7 +348,7 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,exit_re
         pnl=realized+unrealized
         daily.append({"date":day,"arm":mode,"realized_pnl_usd":realized,"unrealized_pnl_usd":unrealized,
             "total_pnl_usd":pnl,"nav_usd":initial_nav+pnl,"active_cohorts":len(active),
-            "active_short_put_assignment_notional_usd":short_notional,"stale_mark_cohorts":stale})
+            "active_short_call_assignment_notional_usd":short_notional,"stale_mark_cohorts":stale})
 
     if pending is not None:
         skips.append({"episode_id":pending["episode_id"],"signal_date":pending["schedule_signal_date"],
@@ -376,11 +376,11 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,exit_re
         "zero_opening_premium_entries":sum(abs(float(e["net_opening_cashflow_usd"]))<0.005 for e in entries),
         "nonzero_opening_premium_entries":sum(abs(float(e["net_opening_cashflow_usd"]))>=0.005 for e in entries),
         "mean_opening_premium_cashflow_usd":statistics.mean([float(e["net_opening_cashflow_usd"]) for e in entries]) if entries else None,
-        "median_actual_long_put_abs_delta":statistics.median([float(e["long_entry_abs_delta"]) for e in entries]) if entries else None,
-        "median_actual_short_put_abs_delta":statistics.median([float(e["short_entry_abs_delta"]) for e in entries]) if entries else None,
+        "median_actual_long_call_abs_delta":statistics.median([float(e["long_entry_abs_delta"]) for e in entries]) if entries else None,
+        "median_actual_short_call_abs_delta":statistics.median([float(e["short_entry_abs_delta"]) for e in entries]) if entries else None,
         "median_short_assignment_notional_per_cohort_usd":statistics.median([float(e["short_assignment_notional_usd"]) for e in entries]) if entries else None,
         "max_concurrent_layers":max((int(r["active_cohorts"]) for r in daily),default=0),
-        "peak_open_short_assignment_notional_usd":max((float(r["active_short_put_assignment_notional_usd"]) for r in daily),default=0.0),
+        "peak_open_short_assignment_notional_usd":max((float(r["active_short_call_assignment_notional_usd"]) for r in daily),default=0.0),
         "starting_nav_usd":initial_nav,"ending_nav_usd":final_nav,"total_portfolio_pnl_usd":final_nav-initial_nav,
         "mean_annual_portfolio_pnl_usd":(final_nav-initial_nav)/years if years>0 else None,
         "portfolio_cagr_pct":cagr*100 if cagr is not None else None,
@@ -482,7 +482,7 @@ def main():
         "source_repository":base.SOURCE_REPO,"source_commit":base.SOURCE_COMMIT,"source_integrity":integrity,
         "source_window":{"start":args.start,"end":args.end,"first_common_session":common_dates[0],"last_common_session":common_dates[-1]},
         "option_chain_coverage":chain_stats,"common_sessions":len(common_dates),"initial_nav_usd":args.initial_nav,
-        "contract_setup":{"option_right":"CALL","long_qty":1,"short_qty":6,"multiplier":100,"short_abs_delta_target":SHORT_DELTA_TARGET,
+        "contract_setup":{"option_right":"CALL","long_qty":1,"short_qty":6,"multiplier":100,"short_delta_target":SHORT_DELTA_TARGET,"short_delta_sign":"POSITIVE",
             "long_delta_rule":"UNCONSTRAINED: select one opposite-index LONG CALL by Ask nearest to 6x SHORT CALL Bid",
             "dte_band":[DTE_MIN,DTE_MAX],"dte_target":DTE_TARGET,
             "dte_selection_rule":"nearest common expiry to target 20 calendar DTE within the 14-28 day execution window",
@@ -518,7 +518,7 @@ def main():
         "- 起始 NAV：USD 100,000。",
         "- 每 10 個共同交易日開新一組；A=SPY SHORT CALL 6 張／QQQ LONG CALL 1 張；B=QQQ SHORT CALL 6 張／SPY LONG CALL 1 張，逐組反轉。",
         "- DTE：以 20 個日曆日為目標，在 14–28 日共同到期合約中選最接近者；兩腿必須同一到期日。",
-        "- SHORT CALL：|Delta| 最接近 0.25；LONG CALL：不設 Delta 限制，選 Ask 最接近 6 × SHORT CALL Bid 的一張合約。",
+        "- SHORT CALL：Delta 最接近 +0.25；LONG CALL：不設 Delta 限制，選 Ask 最接近 6 × SHORT CALL Bid 的一張合約。",
         "- 例：SHORT CALL Bid $4 × 6 張 = $24；LONG CALL Ask 目標 $24 × 1 張。實際差額按實際報價記入淨收／淨付，不因差額而跳過排程。",
         "- 退出：剩餘日曆 DTE <= 7，或持有達 20 個共同交易日，先到者觸發；若平倉報價／顯示張數不足，才延遲執行。",
         "",
