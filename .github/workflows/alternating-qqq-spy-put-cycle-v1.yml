@@ -55,7 +55,7 @@ jobs:
           test -s "$OUT/study_report.md"
           test -s "$OUT/portfolio_arm_summary.csv"
           test -s "$OUT/run_manifest.json"
-          for arm in SPY_SHORT_QQQ_LONG_only QQQ_SHORT_SPY_LONG_only alternate_weekly_close alternate_two_week_staggered; do
+          for arm in SPY_SHORT_QQQ_LONG_only QQQ_SHORT_SPY_LONG_only SPY_SHORT_QQQ_LONG_only_hold10 QQQ_SHORT_SPY_LONG_only_hold10 alternate_weekly_close alternate_two_week_staggered; do
             test -s "$OUT/$arm_daily_nav.csv"
             test -s "$OUT/$arm_trades.csv"
             test -s "$OUT/$arm_entries.csv"
