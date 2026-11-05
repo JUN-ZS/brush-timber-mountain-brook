@@ -38,7 +38,7 @@ jobs:
 
           out = Path("research/alternating_qqq_spy_put_cycle_v1/results/latest")
           manifest = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
-          expected_runner_blob = "69d19094a164114f4123fa6dc6545aaf2ae6a5ed"
+          expected_runner_blob = "b15beeba3fae9f9e6f60a138a020c39fa1c34c10"
           actual_runner_blob = subprocess.check_output(
               ["git", "rev-parse", "HEAD:research/alternating_qqq_spy_put_cycle_v1.py"],
               text=True,

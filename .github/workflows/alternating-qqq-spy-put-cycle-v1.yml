@@ -7,6 +7,7 @@ on:
     paths:
       - research/alternating_qqq_spy_put_cycle_v1.py
       - research/test_alternating_qqq_spy_put_cycle_v1.py
+      - research/validate_alternating_qqq_spy_put_cycle_v1.py
       - research/test_resumable_download_v1.py
       - research/tail_call_overlay_v1.py
       - research/test_tail_call_overlay_v1.py
@@ -92,91 +93,12 @@ jobs:
             --initial-nav 100000 \
             --out research/alternating_qqq_spy_put_cycle_v1/results/latest
 
-      - name: Validate output bundle and premium-balance ledger
+      - name: Validate exact DTE20 replay, cadence, ledger, and daily MaxDD
         run: |
           set -euo pipefail
-          OUT=research/alternating_qqq_spy_put_cycle_v1/results/latest
-          test -s "$OUT/study_report.md"
-          test -s "$OUT/portfolio_arm_summary.csv"
-          test -s "$OUT/run_manifest.json"
-          python - <<'PY'
-          import csv
-          from pathlib import Path
-
-          out = Path("research/alternating_qqq_spy_put_cycle_v1/results/latest")
-          arms = ("alternate_dte20_every10",)
-
-          with (out / "portfolio_arm_summary.csv").open(newline="", encoding="utf-8") as f:
-              summary = {row["arm"]: row for row in csv.DictReader(f)}
-
-          if set(summary) != set(arms):
-              raise SystemExit(f"summary arm mismatch: {sorted(summary)}")
-
-          def read_rows(path):
-              if not path.is_file():
-                  raise SystemExit(f"missing output file: {path}")
-              with path.open(newline="", encoding="utf-8") as f:
-                  return list(csv.DictReader(f))
-
-          total_entries = 0
-          for arm in arms:
-              daily = read_rows(out / f"{arm}_daily_nav.csv")
-              entries = read_rows(out / f"{arm}_entries.csv")
-              trades = read_rows(out / f"{arm}_trades.csv")
-              if not daily:
-                  raise SystemExit(f"{arm}: daily NAV is empty")
-              row = summary[arm]
-              entered = int(row["entered_cohorts"])
-              if len(entries) != entered:
-                  raise SystemExit(f"{arm}: entries rows {len(entries)} != entered_cohorts {entered}")
-              entry_ids = {x["episode_id"] for x in entries}
-              trade_ids = {x["episode_id"] for x in trades}
-              if entry_ids != trade_ids:
-                  raise SystemExit(f"{arm}: trade ledger does not reconcile to entry episodes")
-              for entry in entries:
-                  opening = round(float(entry["net_opening_cashflow_usd"]), 2)
-                  expected = round(100.0 * (6.0 * float(entry["short_entry_bid"]) - float(entry["long_entry_ask"])), 2)
-                  if opening != expected:
-                      raise SystemExit(f"{arm}: opening cashflow mismatch: ledger={opening}, recomputed={expected}")
-                  long_paid = float(entry["long_premium_paid_usd"])
-                  short_received = float(entry["short_premium_received_usd"])
-                  scale = max(abs(long_paid), abs(short_received))
-                  expected_match = 100.0 if scale <= 0 else 100.0 * (1.0 - abs(long_paid - short_received) / scale)
-                  if abs(float(entry["actual_entry_premium_match_pct"]) - expected_match) > 1e-5:
-                      raise SystemExit(f"{arm}: actual premium-match diagnostic mismatch")
-              peak = None
-              max_dd_usd = 0.0
-              max_dd_pct = 0.0
-              for day in daily:
-                  nav = float(day["nav_usd"])
-                  peak = nav if peak is None else max(peak, nav)
-                  max_dd_usd = min(max_dd_usd, nav - peak)
-                  max_dd_pct = min(max_dd_pct, (nav / peak - 1.0) * 100.0 if peak > 0 else 0.0)
-              if abs(max_dd_usd - float(row["max_drawdown_usd"])) > 0.02:
-                  raise SystemExit(f"{arm}: MaxDD dollars do not reconcile to daily NAV")
-              if abs(max_dd_pct - float(row["max_drawdown_pct"])) > 0.0001:
-                  raise SystemExit(f"{arm}: MaxDD percentage does not reconcile to daily NAV")
-              ending_nav = float(daily[-1]["nav_usd"])
-              if abs(ending_nav - float(row["ending_nav_usd"])) > 0.02:
-                  raise SystemExit(f"{arm}: ending NAV does not reconcile to daily NAV")
-              if abs((ending_nav - 100000.0) - float(row["total_portfolio_pnl_usd"])) > 0.02:
-                  raise SystemExit(f"{arm}: ending NAV and net P&L do not reconcile")
-              total_entries += entered
-
-          import json
-          manifest = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
-          if manifest.get("study_id") != "ALTERNATING_SPY_QQQ_PUT_DTE20_EVERY10_V1":
-              raise SystemExit("wrong study_id")
-          if manifest.get("contract_setup", {}).get("dte_target") != 20:
-              raise SystemExit("DTE target is not 20")
-          if manifest.get("cadence", {}).get("new_signal_every_common_sessions") != 10:
-              raise SystemExit("new-entry cadence is not 10 common sessions")
-          if manifest.get("exit_rule", {}).get("max_hold_sessions") != 20:
-              raise SystemExit("maximum hold is not 20 common sessions")
-          if manifest.get("exit_rule", {}).get("exit_remaining_dte_calendar_days") != 7:
-              raise SystemExit("remaining-DTE exit threshold is not 7")
-          print(f"Validated DTE20 target / every-10-session alternation; entered={total_entries}; daily-NAV MaxDD independently reconciled.")
-                    PY
+          python research/validate_alternating_qqq_spy_put_cycle_v1.py \
+            --out research/alternating_qqq_spy_put_cycle_v1/results/latest \
+            --initial-nav 100000
 
       - name: Detect ORATS API token availability
         id: orats-token

@@ -12,7 +12,7 @@ sys.path.insert(0,str(BASE_DIR))
 import qqq_spy_put_premium_matched_phase_v1 as base
 
 START_DEFAULT,END_DEFAULT="2018-03-01","2025-12-15"
-DTE_MIN,DTE_MAX,DTE_TARGET=18,24,20
+DTE_MIN,DTE_MAX,DTE_TARGET=20,20,20
 SHORT_DELTA_TARGET=0.25
 LONG_DELTA_LOW,LONG_DELTA_HIGH,LONG_DELTA_TARGET=0.60,0.70,0.65
 LONG_QTY,SHORT_QTY,MULTIPLIER=1,6,100
@@ -436,7 +436,7 @@ def main():
         f"- 回測區間：{common_dates[0]} 至 {common_dates[-1]}；共 {len(common_dates)} 個共同交易日。",
         "- 起始 NAV：USD 100,000。",
         "- 每組：一張反向指數 LONG PUT，六張 SHORT PUT；A=SPY short／QQQ long，B=QQQ short／SPY long。",
-        "- 入場：共同到期日；DTE 18–24 日內選最接近 20 日的合約；SHORT PUT |Delta| 目標 0.25，LONG PUT |Delta| 0.60–0.70（目標 0.65）。",
+        "- 入場：共同到期日；精確 DTE 20 日；SHORT PUT |Delta| 目標 0.25，LONG PUT |Delta| 0.60–0.70（目標 0.65）。",
         "- 節奏：每 10 個共同交易日開新一組，A／B 交替，即使某一組因報價不合格而跳過，方向仍按排程翻轉。",
         "- 退出：剩餘日曆 DTE <= 7，或持有達 20 個共同交易日，先到者觸發；若平倉報價／顯示張數不足，延遲至可執行報價。",
         "",
