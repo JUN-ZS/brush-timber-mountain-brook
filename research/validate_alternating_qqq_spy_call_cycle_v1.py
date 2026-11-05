@@ -24,6 +24,7 @@ def main():
     m = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
     require(m.get("study_id") == "ALTERNATING_SPY_QQQ_CALL_DTE20_EVERY10_V1", "study id")
     c = m["contract_setup"]
+    require(c.get("option_right") == "CALL", "option right must be CALL")
     require(c.get("dte_band") == [14, 28] and c.get("dte_target") == 20, "DTE20 target/window mismatch")
     require(c.get("long_delta_rule", "").startswith("UNCONSTRAINED"), "LONG CALL Delta must not be restricted")
     cadence = m["cadence"]
@@ -64,7 +65,8 @@ def main():
         require(r["short_symbol"] == short_symbol and r["long_symbol"] == long_symbol, "CALL direction/underlying reversal")
         require(re.fullmatch(short_symbol + r"\d{6}C\d{8}", r["short_contract_id"]) is not None, "short leg is not an OCC CALL")
         require(re.fullmatch(long_symbol + r"\d{6}C\d{8}", r["long_contract_id"]) is not None, "long leg is not an OCC CALL")
-        require(0.10 <= float(r["short_abs_delta"]) <= 0.50, "short CALL Delta outside source validation band")
+        require(0.10 <= float(r["short_delta"]) <= 0.50, "short CALL raw Delta must be positive and inside source validation band")
+        require(abs(float(r["short_abs_delta"]) - float(r["short_delta"])) < 0.000001, "short CALL Delta sign/absolute mismatch")
         require(i not in attempts, "duplicate schedule slot")
         attempts[i] = r["direction"]
         opening = round(100 * (6 * float(r["short_entry_bid"]) - float(r["long_entry_ask"])), 2)
