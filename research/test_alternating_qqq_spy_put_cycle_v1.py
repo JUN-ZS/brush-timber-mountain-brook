@@ -18,8 +18,8 @@ class AlternatingPutCycleTests(unittest.TestCase):
         self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["schedule_offset"], 2)
         self.assertEqual(list(ARM_CONFIG), ["alternate_dte20_every10_tue_anchor"])
         self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["mode"], "alternate")
-        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["max_hold_sessions"], 20)
-        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["exit_remaining_dte"], 7)
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["max_hold_sessions"], 20)
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["exit_remaining_dte"], 7)
 
     def test_exit_on_remaining_dte_seven_or_maximum_twenty_sessions(self):
         self.assertEqual(
