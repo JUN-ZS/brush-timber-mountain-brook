@@ -78,6 +78,9 @@ class TailCallOverlayTests(unittest.TestCase):
             self.assertEqual(result["tail_trade_rows"][0]["status"], "RESOLVED_BID_SIZE_GE_6")
             self.assertEqual(result["tail_trade_rows"][0]["exit_date"], "2025-01-06")
             self.assertEqual(result["tail_trade_rows"][0]["exit_delay_sessions"], 1)
+            # The 2-lot positive bid must not mark all six contracts as liquidatable.
+            self.assertAlmostEqual(result["tail_daily_rows"][1]["tail_total_pnl_usd"], -63.9, places=5)
+            self.assertEqual(result["tail_daily_rows"][1]["positions_with_executable_6_lot_bid"], 0)
             self.assertAlmostEqual(result["tail_trade_rows"][0]["tail_net_pnl_usd"], 232.2, places=5)
             self.assertAlmostEqual(result["tail_daily_rows"][-1]["tail_total_pnl_usd"], 232.2, places=5)
             self.assertAlmostEqual(result["tail_daily_rows"][-1]["combined_nav_usd"], 100332.2, places=5)
