@@ -91,7 +91,7 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
         long_leg=min(longs,key=lambda x:(x["premium_error"],abs(x["abs_delta"]-LONG_DELTA_TARGET),
             -x["ask_size"],-x["oi"],x["spread"],x["id"]))
         match=premium_match_pct(long_leg["ask"]*MULTIPLIER*LONG_QTY,
-        target_ask*MULTIPLIER*SHORT_QTY)
+        target_ask*MULTIPLIER)
         choices.append(((abs(dte-dte_target),long_leg["premium_error"]/max(target_ask,0.01),
             abs(short_leg["abs_delta"]-SHORT_DELTA_TARGET),abs(long_leg["abs_delta"]-LONG_DELTA_TARGET),
             -(short_leg["bid_size"]+long_leg["ask_size"]),expiry),

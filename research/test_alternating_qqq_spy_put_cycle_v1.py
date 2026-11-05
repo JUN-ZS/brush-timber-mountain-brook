@@ -31,7 +31,7 @@ class AlternatingPutCycleTests(unittest.TestCase):
         self.assertEqual(pair["long_contract_id"], "QQQ220124P00350000")
         self.assertAlmostEqual(pair["long_premium_error_signal"], 0.01, places=6)
         self.assertAlmostEqual(pair["opening_premium_cashflow_signal_usd"], 1.0, places=2)
-        self.assertLess(pair["long_premium_match_pct_signal"], 100.0)
+        self.assertAlmostEqual(pair["long_premium_match_pct_signal"], 99.9583333333, places=6)
         self.assertAlmostEqual(pair["long_abs_delta"], 0.65)
 
     def test_reversed_direction_also_accepts_nonzero_premium_difference(self):
