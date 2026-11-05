@@ -101,6 +101,21 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
     if not short_rows or not long_rows or short_spot<=0 or long_spot<=0:return None
     date.fromisoformat(day)
 
+    # Some source snapshots contain the matching PUT Delta in CALL rows. Detect only
+    # a date-wide all-negative short CALL chain; never abs() the bad values. In that
+    # isolated case, derive CALL Delta as 1 + PUT Delta (put-call Delta parity).
+    source_short_deltas=[]
+    for row in short_rows:
+        if not standard_call_identity(row,short_symbol) or base.as_day(row.get("date"))!=day:
+            continue
+        if not base.valid_quote(row,require_positive_bid=True):
+            continue
+        raw=base.num(row.get("delta"))
+        if raw is not None:
+            source_short_deltas.append(raw)
+    derive_from_put_delta=bool(source_short_deltas) and all(x<0 for x in source_short_deltas)
+    short_delta_source="PUT_DELTA_PARITY_DERIVED" if derive_from_put_delta else "OBSERVED_CALL_DELTA"
+
     def expiry_map(rows,symbol,is_short):
         out={}
         for row in rows:
@@ -121,15 +136,18 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
         for row in short_rows:
             if not standard_call_identity(row,short_symbol) or base.as_day(row.get("date"))!=day:continue
             if base.as_day(row.get("expiration"))!=expiry or not base.valid_quote(row,require_positive_bid=True):continue
-            delta,strike=base.num(row.get("delta")),base.num(row.get("strike"))
-            if delta is None or delta<=0 or not base.DELTA_MIN<=abs(delta)<=base.DELTA_MAX or strike is None or strike<=0:continue
+            raw_delta,strike=base.num(row.get("delta")),base.num(row.get("strike"))
+            if raw_delta is None or strike is None or strike<=0:continue
+            delta=(1.0+raw_delta) if derive_from_put_delta else raw_delta
+            if delta<=0 or not base.DELTA_MIN<=abs(delta)<=base.DELTA_MAX:continue
             bid_size,ask_size=base.displayed_size(row,"bid"),base.displayed_size(row,"ask")
             # Six displayed contracts at Bid are required to open the six short contracts.
             # Do not reject merely because the future closing Ask size is thin.
             if bid_size<SHORT_QTY:continue
             bid,ask=float(row["bid"]),float(row["ask"])
             shorts.append({"row":row,"id":base.normalized_contract_id(row),"strike":strike,
-                "abs_delta":abs(delta),"delta":delta,"bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,
+                "abs_delta":abs(delta),"delta":delta,"raw_delta":raw_delta,"delta_source":short_delta_source,
+                "bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,
                 "oi":base.num(row.get("open_interest")) or 0.0,
                 "spread":(ask-bid)/max((ask+bid)/2,1e-9)})
         if not shorts:continue
@@ -169,7 +187,9 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
     return {"signal_date":day,"expiry":expiry,"signal_dte":dte,
         "short_symbol":short_symbol,"long_symbol":long_symbol,
         "short_contract_id":short_leg["id"],"short_strike":short_leg["strike"],
-        "short_abs_delta":short_leg["abs_delta"],"short_delta":short_leg["delta"],"short_signal_bid":short_leg["bid"],
+        "short_abs_delta":short_leg["abs_delta"],"short_delta":short_leg["delta"],
+        "short_delta_raw":short_leg["raw_delta"],"short_delta_source":short_leg["delta_source"],
+        "short_signal_bid":short_leg["bid"],
         "short_signal_ask":short_leg["ask"],"short_signal_bid_size":short_leg["bid_size"],
         "long_contract_id":long_leg["id"],"long_strike":long_leg["strike"],
         "long_abs_delta":long_leg["abs_delta"],"long_signal_bid":long_leg["bid"],
@@ -311,7 +331,10 @@ def simulate_arm(day_rows,spots,pair_map,common_dates,mode,hold_sessions,exit_re
                         "short_entry_ask":float(srow["ask"]),"long_spot_entry":spots[chosen["long_symbol"]].get(day),
                         "short_spot_entry":spots[chosen["short_symbol"]].get(day),
                         "long_entry_abs_delta":abs(base.num(lrow.get("delta")) or 0.0),
-                        "short_entry_abs_delta":abs(base.num(srow.get("delta")) or 0.0),
+                        "short_entry_abs_delta":float(chosen["short_abs_delta"]),
+                        "short_entry_delta_used":float(chosen["short_delta"]),
+                        "short_entry_delta_raw":base.num(srow.get("delta")),
+                        "short_entry_delta_source":chosen["short_delta_source"],
                         "long_premium_paid_usd":long_premium_paid,
                         "short_premium_received_usd":short_premium_received,
                         "actual_entry_premium_match_pct":actual_match,
@@ -483,6 +506,8 @@ def main():
         "source_window":{"start":args.start,"end":args.end,"first_common_session":common_dates[0],"last_common_session":common_dates[-1]},
         "option_chain_coverage":chain_stats,"common_sessions":len(common_dates),"initial_nav_usd":args.initial_nav,
         "contract_setup":{"option_right":"CALL","long_qty":1,"short_qty":6,"multiplier":100,"short_delta_target":SHORT_DELTA_TARGET,"short_delta_sign":"POSITIVE",
+            "short_delta_source_rule":"Use observed positive CALL Delta. If every non-null Delta on the short-underlying CALL chain for that entry date is negative, interpret that snapshot as PUT Delta and derive CALL Delta = 1 + raw PUT Delta; preserve raw value and source tag. Do not use absolute value of the anomalous raw field.",
+            "known_delta_data_quality_exception":{"date":"2019-02-14","expected_source_field":"PUT Delta mistakenly present in CALL rows","conversion":"CALL Delta = 1 + raw PUT Delta","entry_ledger_tag":"PUT_DELTA_PARITY_DERIVED"},
             "long_delta_rule":"UNCONSTRAINED: select one opposite-index LONG CALL by Ask nearest to 6x SHORT CALL Bid",
             "dte_band":[DTE_MIN,DTE_MAX],"dte_target":DTE_TARGET,
             "dte_selection_rule":"nearest common expiry to target 20 calendar DTE within the 14-28 day execution window",
