@@ -146,7 +146,7 @@ def write_csv(path,rows):
     with path.open("w",newline="",encoding="utf-8") as f:
         w=csv.DictWriter(f,fieldnames=fields,extrasaction="ignore");w.writeheader();w.writerows(rows)
 
-def simulate_arm(day_rows,spots,mode,hold_sessions,initial_nav):
+def simulate_arm(day_rows,spots,pair_map,mode,hold_sessions,initial_nav):
     dates=sorted(spots["QQQ"].keys() & spots["SPY"].keys())
     scheduled=set(range(0,len(dates),STRIDE))
     active=[];pending=None;trades=[];entries=[];skips=[];schedule_skips=[];daily=[]
@@ -223,13 +223,7 @@ def simulate_arm(day_rows,spots,mode,hold_sessions,initial_nav):
                 schedule_skips.append({"signal_date":day,"slot":slot,"reason":"PRIOR_ENTRY_STILL_PENDING"})
             else:
                 direction=direction_for(ARM_CONFIG[mode]["mode"],slot)
-                short_symbol,long_symbol=("SPY","QQQ") if direction=="A" else ("QQQ","SPY")
-                qspot,sspot=spots["QQQ"].get(day),spots["SPY"].get(day)
-                if qspot is None or sspot is None:pair=None
-                else:
-                    pair=choose_contract_pair(qrows if short_symbol=="QQQ" else srows,
-                        qrows if long_symbol=="QQQ" else srows,short_symbol,long_symbol,day,
-                        qspot if short_symbol=="QQQ" else sspot,qspot if long_symbol=="QQQ" else sspot)
+                pair=pair_map.get(day,{}).get(direction)
                 if pair is None:
                     schedule_skips.append({"signal_date":day,"slot":slot,"direction":direction,
                         "reason":"NO_ELIGIBLE_DTE21_CROSS_PUT_PAIR"})
@@ -287,6 +281,42 @@ def simulate_arm(day_rows,spots,mode,hold_sessions,initial_nav):
         "source_window_years":years,"daily_nav_rows":daily,"trades":trades,"entries":entries,
         "skips":skips,"schedule_skips":schedule_skips}
 
+def build_pair_map(paths,spots,common_dates,start_day,end_day):
+    stats={"QQQ":{"chain_dates":0,"put_rows":0,"last_chain_date":None},
+           "SPY":{"chain_dates":0,"put_rows":0,"last_chain_date":None}}
+    qi=iter(base.iter_symbol_days(paths["QQQ"],"QQQ",start_day,end_day,stats["QQQ"]))
+    si=iter(base.iter_symbol_days(paths["SPY"],"SPY",start_day,end_day,stats["SPY"]))
+    qitem,sitem=next(qi,None),next(si,None)
+    pair_map={}
+    for idx,day in enumerate(common_dates):
+        while qitem is not None and qitem[0]<day:qitem=next(qi,None)
+        while sitem is not None and sitem[0]<day:sitem=next(si,None)
+        qrows=qitem[1] if qitem is not None and qitem[0]==day else []
+        srows=sitem[1] if sitem is not None and sitem[0]==day else []
+        if qitem is not None and qitem[0]==day:qitem=next(qi,None)
+        if sitem is not None and sitem[0]==day:sitem=next(si,None)
+        if idx%STRIDE!=0:continue
+        qspot,sspot=spots["QQQ"].get(day),spots["SPY"].get(day)
+        pair_a=choose_contract_pair(srows,qrows,"SPY","QQQ",day,sspot,qspot) if qspot and sspot else None
+        pair_b=choose_contract_pair(qrows,srows,"QQQ","SPY",day,qspot,sspot) if qspot and sspot else None
+        pair_map[day]={"A":pair_a,"B":pair_b}
+    return pair_map,stats
+
+
+def collect_sparse_quotes(paths,needed_ids,start_day,end_day):
+    sparse={"QQQ":{},"SPY":{}}
+    stats={}
+    for symbol in ("QQQ","SPY"):
+        symbol_stats={"chain_dates":0,"put_rows":0,"last_chain_date":None}
+        ids=needed_ids[symbol]
+        if ids:
+            for day,rows in base.iter_symbol_days(paths[symbol],symbol,start_day,end_day,symbol_stats):
+                selected=[row for row in rows if base.normalized_contract_id(row) in ids]
+                if selected:sparse[symbol][day]=selected
+        stats[symbol]=symbol_stats
+    return sparse,stats
+
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--start",default=START_DEFAULT);p.add_argument("--end",default=END_DEFAULT)
@@ -305,15 +335,19 @@ def main():
         upath,meta=base.download_verified(symbol,None,cache);integrity.append(meta);spots[symbol]=base.load_spots(upath,symbol)
     common_dates=sorted(d for d in spots["QQQ"].keys() & spots["SPY"].keys() if args.start<=d<=args.end)
     if len(common_dates)<100:raise RuntimeError(f"Insufficient common QQQ/SPY dates: {len(common_dates)}")
-    day_rows={"QQQ":{},"SPY":{}};chain_stats={}
-    for symbol in ("QQQ","SPY"):
-        stats={"chain_dates":0,"put_rows":0,"last_chain_date":None}
-        for day,rows in base.iter_symbol_days(paths[symbol],symbol,args.start,args.end,stats):
-            day_rows[symbol][day]=rows
-        chain_stats[symbol]=stats
+    pair_map,signal_chain_stats=build_pair_map(paths,spots,common_dates,args.start,args.end)
+    needed_ids={"QQQ":set(),"SPY":set()}
+    for choices in pair_map.values():
+        for pair in choices.values():
+            if pair is not None:
+                needed_ids[pair["short_symbol"]].add(pair["short_contract_id"])
+                needed_ids[pair["long_symbol"]].add(pair["long_contract_id"])
+    day_rows,selected_quote_stats=collect_sparse_quotes(paths,needed_ids,args.start,args.end)
+    chain_stats={"signal_scan":signal_chain_stats,"selected_contract_quote_scan":selected_quote_stats,
+        "selected_contract_ids":{k:len(v) for k,v in needed_ids.items()}}
     results={}
     for mode,config in ARM_CONFIG.items():
-        results[mode]=simulate_arm(day_rows,spots,mode,config["hold"],args.initial_nav)
+        results[mode]=simulate_arm(day_rows,spots,pair_map,mode,config["hold"],args.initial_nav)
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     summary=[]
     for mode,r in results.items():
