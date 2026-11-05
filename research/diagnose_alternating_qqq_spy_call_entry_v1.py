@@ -145,6 +145,21 @@ def model_short_candidates(rows, symbol, day, spot, dividend_yield):
         ))
     return result
 
+
+def adjacent_contract_deltas(symbol: str, contract_ids: set[str], day: str, cache: Path):
+    year = int(day[:4])
+    path, _ = base.download_verified(symbol, year, cache)
+    result = {}
+    for neighbor in ("2019-02-13", "2019-02-15"):
+        stats = {"chain_dates": 0, "call_rows": 0, "last_chain_date": None}
+        for d, day_rows in call.iter_call_symbol_days([path], symbol, neighbor, neighbor, stats):
+            if d == neighbor:
+                for row in day_rows:
+                    ident = base.normalized_contract_id(row)
+                    if ident in contract_ids:
+                        result.setdefault(ident, {})[neighbor] = base.num(row.get("delta"))
+    return result
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--date", default="2019-02-14")
@@ -161,6 +176,7 @@ def main():
         integrity[symbol + "_underlying"] = spot_integrity
     q, s = rows["QQQ"], rows["SPY"]
     results = {}
+    caches = {"QQQ": Path(args.qqq_cache), "SPY": Path(args.spy_cache)}
     for direction, short_symbol, long_symbol in (("A", "SPY", "QQQ"), ("B", "QQQ", "SPY")):
         short_rows, long_rows = rows[short_symbol], rows[long_symbol]
         pair = call.choose_contract_pair(short_rows, long_rows, short_symbol, long_symbol,
@@ -176,7 +192,12 @@ def main():
             and long_desc["expiries"][expiry].get("long_ask_eligible", 0) > 0
         ]
         model_candidates = model_short_candidates(short_rows, short_symbol, args.date, spots[short_symbol], {"SPY":0.019,"QQQ":0.009}[short_symbol])
+        sampled_ids = {v["contract_id"] for v in model_candidates.values()}
+        neighboring_deltas = adjacent_contract_deltas(
+            short_symbol, sampled_ids, args.date, caches[short_symbol]
+        )
         results[direction] = {
+            "neighboring_session_raw_deltas_for_modeled_short_candidates": neighboring_deltas,
             "short_symbol": short_symbol, "long_symbol": long_symbol,
             "selected_pair": pair,
             "short_underlying_spot": spots[short_symbol],
