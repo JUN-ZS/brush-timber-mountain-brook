@@ -64,6 +64,17 @@ jobs:
           python -m unittest discover -s research -p "test_alternating_qqq_spy_put_cycle_v1.py" -v
           python -m unittest discover -s research -p "test_resumable_download_v1.py" -v
 
+      - name: Clear stale replay output bundle
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          output = Path("research/alternating_qqq_spy_put_cycle_v1/results/latest")
+          shutil.rmtree(output, ignore_errors=True)
+          output.mkdir(parents=True, exist_ok=True)
+          PY
+
       - name: Run pinned historical replay
         id: historical-replay
         run: |
