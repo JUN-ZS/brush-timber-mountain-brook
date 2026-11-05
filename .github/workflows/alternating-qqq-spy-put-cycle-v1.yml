@@ -15,7 +15,7 @@ on:
       - .github/workflows/alternating-qqq-spy-put-cycle-v1.yml
   workflow_dispatch:
 
-# This push path runs the isolated DTE20 / every-10-session historical replay.
+# This push path runs mandatory 1:6 premium-matched entries, DTE20 target and 10-session alternation.
 concurrency:
   group: alternating-qqq-spy-put-cycle-v1-${{ github.ref }}
   cancel-in-progress: true
@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   replay:
-    name: Historical QQQ SPY quote replay — Tuesday anchor phase
+    name: Historical QQQ SPY quote replay — mandatory 1:6 premium-matched entry
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:

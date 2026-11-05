@@ -4,8 +4,8 @@ import argparse, csv, json
 from datetime import date
 from pathlib import Path
 
-ARM = "alternate_dte20_every10_tue_anchor"
-OFFSET = 2
+ARM = "alternate_dte20_every10"
+OFFSET = 0
 
 def rows(path):
     with Path(path).open(newline="", encoding="utf-8") as f:
@@ -24,7 +24,8 @@ def main():
     m = json.loads((out / "run_manifest.json").read_text(encoding="utf-8"))
     require(m.get("study_id") == "ALTERNATING_SPY_QQQ_PUT_DTE20_EVERY10_V1", "study id")
     c = m["contract_setup"]
-    require(c.get("dte_band") == [20, 20] and c.get("dte_target") == 20, "not exact DTE20")
+    require(c.get("dte_band") == [14, 28] and c.get("dte_target") == 20, "DTE20 target/window mismatch")
+    require(c.get("long_delta_rule", "").startswith("UNCONSTRAINED"), "LONG PUT Delta must not be restricted")
     cadence = m["cadence"]
     require(cadence.get("new_signal_every_common_sessions") == 10, "not 10-session cadence")
     cfg = cadence["arms"][ARM]
@@ -49,7 +50,13 @@ def main():
         i = int(r["signal_index"])
         require(i >= OFFSET and (i - OFFSET) % 10 == 0 and r["schedule_signal_date"] == daily[i]["date"], "entry cadence/index")
         require(int(r["entry_index"]) == i + 1, "entry not next common session")
-        require((date.fromisoformat(r["expiry"]) - date.fromisoformat(r["entry_date"])).days == 20, "entry DTE is not 20")
+        actual_dte = (date.fromisoformat(r["expiry"]) - date.fromisoformat(r["entry_date"])).days
+        require(14 <= actual_dte <= 28, "entry DTE outside execution window")
+        require(abs(actual_dte - 20) <= 8, "entry DTE too far from DTE20 target")
+        target_ask = 6 * float(r["short_signal_bid"])
+        require(abs(float(r["long_target_ask_signal"]) - target_ask) < .0001, "long target Ask not 6x short Bid")
+        expected_error = abs(float(r["long_signal_ask"]) - target_ask)
+        require(abs(float(r["long_premium_error_signal"]) - expected_error) < .0001, "long premium match error mismatch")
         require(r["signal_date"] == r["entry_date"], "option quote date does not match entry")
         expected_dir = "A" if ((i - OFFSET) // 10) % 2 == 0 else "B"
         require(r["direction"] == expected_dir, "A/B entry alternation")
@@ -68,10 +75,13 @@ def main():
     scheduled = set(range(OFFSET, len(daily), 10))
     require(set(attempts) == scheduled, "scheduled signals not reconciled")
     require(len(entries) + len(skips) == len(scheduled), "entry/skip count")
+    require(len(skips) == 0, "user rule requires an entry on every scheduled 10-session cycle")
     for episode, t in trade_map.items():
         if t.get("exit_date"):
             held = int(float(t.get("hold_sessions") or 0))
-            require(held <= 20, episode + " held over 20 sessions")
+            if held > 20:
+                require(int(float(t.get("exit_deferred_sessions") or 0)) > 0,
+                    episode + " held over 20 sessions without a documented unavailable exit quote")
             remaining = (date.fromisoformat(t["expiry"]) - date.fromisoformat(t["exit_date"])).days
             require(t.get("exit_source") != "OBSERVED_BID_ASK" or remaining <= 7 or held >= 20, episode + " exited before trigger")
     peak = None

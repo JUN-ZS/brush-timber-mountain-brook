@@ -12,14 +12,14 @@ class AlternatingPutCycleTests(unittest.TestCase):
 
 
     def test_strategy_is_dte20_target_and_new_entry_every_ten_sessions(self):
-        self.assertEqual((DTE_MIN, DTE_MAX, DTE_TARGET), (20, 20, 20))
+        self.assertEqual((DTE_MIN, DTE_MAX, DTE_TARGET), (14, 28, 20))
         self.assertEqual(STRIDE, 10)
-        self.assertEqual(ENTRY_SIGNAL_OFFSET, 2)
-        self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["schedule_offset"], 2)
-        self.assertEqual(list(ARM_CONFIG), ["alternate_dte20_every10_tue_anchor"])
-        self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["mode"], "alternate")
-        self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["max_hold_sessions"], 20)
-        self.assertEqual(ARM_CONFIG["alternate_dte20_every10_tue_anchor"]["exit_remaining_dte"], 7)
+        self.assertEqual(ENTRY_SIGNAL_OFFSET, 0)
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["schedule_offset"], 0)
+        self.assertEqual(list(ARM_CONFIG), ["alternate_dte20_every10"])
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["mode"], "alternate")
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["max_hold_sessions"], 20)
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["exit_remaining_dte"], 7)
 
     def test_exit_on_remaining_dte_seven_or_maximum_twenty_sessions(self):
         self.assertEqual(
@@ -47,6 +47,10 @@ class AlternatingPutCycleTests(unittest.TestCase):
              "date":d,"delta":-0.25},
         ]
         long_rows = [
+            # Exact $24 Ask match wins even with Delta outside 0.60-0.70 and no displayed Bid.
+            {"contract_id":"QQQ220124P00360000","symbol":"QQQ","expiration":exp,"strike":360.0,
+             "type":"put","bid":0.0,"ask":24.0,"bid_size":0,"ask_size":5,"open_interest":50,
+             "date":d,"delta":-0.35},
             {"contract_id":"QQQ220124P00350000","symbol":"QQQ","expiration":exp,"strike":350.0,
              "type":"put","bid":23.89,"ask":23.99,"bid_size":5,"ask_size":5,"open_interest":50,
              "date":d,"delta":-0.65},
@@ -54,11 +58,13 @@ class AlternatingPutCycleTests(unittest.TestCase):
         pair = choose_contract_pair(short_rows, long_rows, "SPY", "QQQ", d, 470.0, 370.0)
         self.assertIsNotNone(pair)
         self.assertEqual(pair["short_contract_id"], "SPY220124P00450000")
-        self.assertEqual(pair["long_contract_id"], "QQQ220124P00350000")
-        self.assertAlmostEqual(pair["long_premium_error_signal"], 0.01, places=6)
-        self.assertAlmostEqual(pair["opening_premium_cashflow_signal_usd"], 1.0, places=2)
-        self.assertAlmostEqual(pair["long_premium_match_pct_signal"], 99.9583333333, places=6)
-        self.assertAlmostEqual(pair["long_abs_delta"], 0.65)
+        self.assertEqual(pair["long_contract_id"], "QQQ220124P00360000")
+        self.assertAlmostEqual(pair["long_target_ask_signal"], 24.0, places=6)
+        self.assertAlmostEqual(pair["long_signal_ask"], 24.0, places=6)
+        self.assertAlmostEqual(pair["long_premium_error_signal"], 0.0, places=6)
+        self.assertAlmostEqual(pair["opening_premium_cashflow_signal_usd"], 0.0, places=2)
+        self.assertAlmostEqual(pair["long_premium_match_pct_signal"], 100.0, places=6)
+        self.assertAlmostEqual(pair["long_abs_delta"], 0.35)
 
     def test_reversed_direction_also_accepts_nonzero_premium_difference(self):
         d, exp = "2022-01-04", "2022-01-24"

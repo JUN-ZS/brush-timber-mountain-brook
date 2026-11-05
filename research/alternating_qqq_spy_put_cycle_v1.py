@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""QQQ/SPY 1:6 PUT pair: DTE-20 target, alternate every 10 sessions; exit at DTE<=7 or 20 sessions."""
+"""QQQ/SPY 1:6 PUT pair: every 10 sessions alternate; one long-put Ask targets 6x short-put Bid."""
 from __future__ import annotations
 import argparse, csv, json, math, statistics, sys
 from collections import Counter
@@ -12,16 +12,15 @@ sys.path.insert(0,str(BASE_DIR))
 import qqq_spy_put_premium_matched_phase_v1 as base
 
 START_DEFAULT,END_DEFAULT="2018-03-01","2025-12-15"
-DTE_MIN,DTE_MAX,DTE_TARGET=20,20,20
+DTE_MIN,DTE_MAX,DTE_TARGET=14,28,20
 SHORT_DELTA_TARGET=0.25
-LONG_DELTA_LOW,LONG_DELTA_HIGH,LONG_DELTA_TARGET=0.60,0.70,0.65
 LONG_QTY,SHORT_QTY,MULTIPLIER=1,6,100
 STRIDE=10
-ENTRY_SIGNAL_OFFSET=2
+ENTRY_SIGNAL_OFFSET=0
 SLIPPAGE_PER_SHARE,COMMISSION_PER_CONTRACT_SIDE=0.05,0.65
 DEFAULT_NAV=100000.0
 ARM_CONFIG={
- "alternate_dte20_every10_tue_anchor":{"mode":"alternate","schedule_offset":ENTRY_SIGNAL_OFFSET,"max_hold_sessions":20,"exit_remaining_dte":7},
+ "alternate_dte20_every10":{"mode":"alternate","schedule_offset":ENTRY_SIGNAL_OFFSET,"max_hold_sessions":20,"exit_remaining_dte":7},
 }
 
 def premium_cashflow_usd(long_ask,short_bid):
@@ -38,19 +37,27 @@ def premium_match_pct(long_debit_usd,short_credit_usd):
 
 def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short_spot,long_spot,
                          dte_min=DTE_MIN,dte_max=DTE_MAX,dte_target=DTE_TARGET):
+    """Select short put near |Delta| .25; match one opposite-index long-put Ask to 6x short Bid.
+
+    Long-leg Delta is intentionally unconstrained. Long-leg displayed Bid size is not an
+    entry gate because the buy is executed at Ask; it remains an exit/liquidity consideration.
+    """
     if not short_rows or not long_rows or short_spot<=0 or long_spot<=0:return None
     date.fromisoformat(day)
-    def expiry_map(rows,symbol):
+
+    def expiry_map(rows,symbol,is_short):
         out={}
         for row in rows:
             if not base.standard_put_identity(row,symbol) or base.as_day(row.get("date"))!=day:continue
-            if not base.valid_quote(row,require_positive_bid=True):continue
+            if not base.valid_quote(row,require_positive_bid=is_short):continue
             expiry=base.as_day(row.get("expiration"))
             try:dte=(date.fromisoformat(expiry)-date.fromisoformat(day)).days
             except ValueError:continue
             if dte_min<=dte<=dte_max:out[expiry]=dte
         return out
-    short_exp,long_exp=expiry_map(short_rows,short_symbol),expiry_map(long_rows,long_symbol)
+
+    short_exp=expiry_map(short_rows,short_symbol,True)
+    long_exp=expiry_map(long_rows,long_symbol,False)
     choices=[]
     for expiry in sorted(set(short_exp)&set(long_exp)):
         dte=short_exp[expiry]
@@ -61,47 +68,58 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
             delta,strike=base.num(row.get("delta")),base.num(row.get("strike"))
             if delta is None or not base.DELTA_MIN<=abs(delta)<=base.DELTA_MAX or strike is None or strike<=0:continue
             bid_size,ask_size=base.displayed_size(row,"bid"),base.displayed_size(row,"ask")
-            if bid_size<SHORT_QTY or ask_size<SHORT_QTY:continue
+            # Six displayed contracts at Bid are required to open the six short contracts.
+            # Do not reject merely because the future closing Ask size is thin.
+            if bid_size<SHORT_QTY:continue
             bid,ask=float(row["bid"]),float(row["ask"])
             shorts.append({"row":row,"id":base.normalized_contract_id(row),"strike":strike,
                 "abs_delta":abs(delta),"bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,
                 "oi":base.num(row.get("open_interest")) or 0.0,
                 "spread":(ask-bid)/max((ask+bid)/2,1e-9)})
         if not shorts:continue
-        short_leg=min(shorts,key=lambda x:(abs(x["abs_delta"]-SHORT_DELTA_TARGET),-x["bid_size"],-x["oi"],x["spread"],x["id"]))
+        short_leg=min(shorts,key=lambda x:(abs(x["abs_delta"]-SHORT_DELTA_TARGET),
+            -x["bid_size"],-x["oi"],x["spread"],x["id"]))
         target_ask=SHORT_QTY*short_leg["bid"]
+
         longs=[]
         for row in long_rows:
             if not base.standard_put_identity(row,long_symbol) or base.as_day(row.get("date"))!=day:continue
-            if base.as_day(row.get("expiration"))!=expiry or not base.valid_quote(row,require_positive_bid=True):continue
-            delta,strike=base.num(row.get("delta")),base.num(row.get("strike"))
-            if delta is None or not LONG_DELTA_LOW<=abs(delta)<=LONG_DELTA_HIGH or strike is None or strike<=0:continue
-            bid_size,ask_size=base.displayed_size(row,"bid"),base.displayed_size(row,"ask")
-            if bid_size<LONG_QTY or ask_size<LONG_QTY:continue
+            if base.as_day(row.get("expiration"))!=expiry or not base.valid_quote(row):continue
+            strike=base.num(row.get("strike"))
+            if strike is None or strike<=0:continue
+            ask_size=base.displayed_size(row,"ask")
+            # One displayed Ask is sufficient to buy the long put. No long Delta/Bid-size gate.
+            if ask_size<LONG_QTY:continue
             bid,ask=float(row["bid"]),float(row["ask"])
+            delta=base.num(row.get("delta"))
             longs.append({"row":row,"id":base.normalized_contract_id(row),"strike":strike,
-                "abs_delta":abs(delta),"bid":bid,"ask":ask,"bid_size":bid_size,"ask_size":ask_size,
+                "abs_delta":abs(delta) if delta is not None else None,"bid":bid,"ask":ask,
+                "bid_size":base.displayed_size(row,"bid"),"ask_size":ask_size,
                 "oi":base.num(row.get("open_interest")) or 0.0,
-                "spread":(ask-bid)/max((ask+bid)/2,1e-9),"premium_error":abs(ask-target_ask)})
+                "spread":(ask-bid)/max((ask+bid)/2,1e-9),
+                "premium_error":abs(ask-target_ask)})
         if not longs:continue
-        long_leg=min(longs,key=lambda x:(x["premium_error"],abs(x["abs_delta"]-LONG_DELTA_TARGET),
-            -x["ask_size"],-x["oi"],x["spread"],x["id"]))
-        match=premium_match_pct(long_leg["ask"]*MULTIPLIER*LONG_QTY,
-        target_ask*MULTIPLIER)
+        long_leg=min(longs,key=lambda x:(x["premium_error"],-x["ask_size"],
+            -x["oi"],x["spread"],x["id"]))
+        match=premium_match_pct(long_leg["ask"]*MULTIPLIER*LONG_QTY,target_ask*MULTIPLIER)
         choices.append(((abs(dte-dte_target),long_leg["premium_error"]/max(target_ask,0.01),
-            abs(short_leg["abs_delta"]-SHORT_DELTA_TARGET),abs(long_leg["abs_delta"]-LONG_DELTA_TARGET),
+            abs(short_leg["abs_delta"]-SHORT_DELTA_TARGET),
             -(short_leg["bid_size"]+long_leg["ask_size"]),expiry),
             expiry,dte,short_leg,long_leg,target_ask,match))
     if not choices:return None
     _,expiry,dte,short_leg,long_leg,target_ask,match=min(choices,key=lambda x:x[0])
-    sm=base.put_moneyness(short_spot,short_leg["strike"]);lm=base.put_moneyness(long_spot,long_leg["strike"])
-    return {"signal_date":day,"expiry":expiry,"signal_dte":dte,"short_symbol":short_symbol,"long_symbol":long_symbol,
+    sm=base.put_moneyness(short_spot,short_leg["strike"])
+    lm=base.put_moneyness(long_spot,long_leg["strike"])
+    return {"signal_date":day,"expiry":expiry,"signal_dte":dte,
+        "short_symbol":short_symbol,"long_symbol":long_symbol,
         "short_contract_id":short_leg["id"],"short_strike":short_leg["strike"],
-        "short_abs_delta":short_leg["abs_delta"],"short_signal_bid":short_leg["bid"],"short_signal_ask":short_leg["ask"],
-        "short_signal_bid_size":short_leg["bid_size"],"long_contract_id":long_leg["id"],"long_strike":long_leg["strike"],
-        "long_abs_delta":long_leg["abs_delta"],"long_signal_bid":long_leg["bid"],"long_signal_ask":long_leg["ask"],
-        "long_signal_ask_size":long_leg["ask_size"],"long_target_ask_signal":target_ask,
-        "long_premium_match_pct_signal":match,"long_premium_error_signal":long_leg["premium_error"],
+        "short_abs_delta":short_leg["abs_delta"],"short_signal_bid":short_leg["bid"],
+        "short_signal_ask":short_leg["ask"],"short_signal_bid_size":short_leg["bid_size"],
+        "long_contract_id":long_leg["id"],"long_strike":long_leg["strike"],
+        "long_abs_delta":long_leg["abs_delta"],"long_signal_bid":long_leg["bid"],
+        "long_signal_ask":long_leg["ask"],"long_signal_ask_size":long_leg["ask_size"],
+        "long_target_ask_signal":target_ask,"long_premium_match_pct_signal":match,
+        "long_premium_error_signal":long_leg["premium_error"],
         "opening_premium_cashflow_signal_usd":premium_cashflow_usd(long_leg["ask"],short_leg["bid"]),
         "short_spot_signal":float(short_spot),"long_spot_signal":float(long_spot),
         "short_moneyness_signal":sm["status"],"short_otm_pct_signal":sm["otm_pct"],
@@ -115,7 +133,7 @@ def direction_for(mode,slot):
 
 def quote_sides_valid(long_row,short_row,is_entry):
     if long_row is None or short_row is None:return False,"SELECTED_CONTRACT_MISSING"
-    if not base.valid_quote(long_row,require_positive_bid=True) or not base.valid_quote(short_row,require_positive_bid=True):
+    if not base.valid_quote(long_row) or not base.valid_quote(short_row,require_positive_bid=is_entry):
         return False,"INVALID_BID_ASK"
     if is_entry:
         if base.displayed_size(long_row,"ask")<LONG_QTY:return False,"LONG_ASK_SIZE_LT_1"
@@ -389,7 +407,10 @@ def main():
     for mode,r in results.items():
         summary.append({
             "arm": mode,
+            "scheduled_opportunities": r["scheduled_opportunities"],
+            "selected_signals": r["selected_signals"],
             "entered_cohorts": r["entered_cohorts"],
+            "entry_skipped": r["entry_skipped"],
             "starting_nav_usd": r["starting_nav_usd"],
             "ending_nav_usd": r["ending_nav_usd"],
             "total_portfolio_pnl_usd": r["total_portfolio_pnl_usd"],
@@ -406,14 +427,16 @@ def main():
         "source_window":{"start":args.start,"end":args.end,"first_common_session":common_dates[0],"last_common_session":common_dates[-1]},
         "option_chain_coverage":chain_stats,"common_sessions":len(common_dates),"initial_nav_usd":args.initial_nav,
         "contract_setup":{"long_qty":1,"short_qty":6,"multiplier":100,"short_abs_delta_target":SHORT_DELTA_TARGET,
-            "long_abs_delta_band":[LONG_DELTA_LOW,LONG_DELTA_HIGH],"long_abs_delta_target":LONG_DELTA_TARGET,
-            "dte_band":[DTE_MIN,DTE_MAX],"dte_target":DTE_TARGET,"common_expiry_required":True,
-            "premium_balance_target":"SOFT_ONLY: 1x opposite-index long put Ask is selected near 6x short put Bid where possible; any residual is recorded as net opening debit/credit and never blocks entry",
-            "entry_pair_selection":"reselected from actual next-common-session EOD quotes; entered from that same quote snapshot"},
+            "long_delta_rule":"UNCONSTRAINED: select one opposite-index LONG PUT by Ask nearest to 6x SHORT PUT Bid",
+            "dte_band":[DTE_MIN,DTE_MAX],"dte_target":DTE_TARGET,
+            "dte_selection_rule":"nearest common expiry to target 20 calendar DTE within the 14-28 day execution window",
+            "common_expiry_required":True,
+            "premium_balance_target":"Select one opposite-index long-put Ask nearest to six times the selected short-put Bid; enter even when a residual net debit/credit remains",
+            "entry_pair_selection":"short |Delta| nearest 0.25, then one long Ask nearest 6x short Bid; both legs from actual next-common-session EOD quotes"},
         "exit_rule":{"trigger":"remaining calendar DTE <= 7 OR maximum holding age >= 20 common sessions",
             "max_hold_sessions":20,"exit_remaining_dte_calendar_days":7,
             "execution":"defer only when required long Bid / short Ask size is unavailable"},
-        "cadence":{"new_signal_every_common_sessions":STRIDE,"signal_anchor_common_session_offset":ENTRY_SIGNAL_OFFSET,"first_scheduled_signal_date":common_dates[ENTRY_SIGNAL_OFFSET],"first_entry_date":common_dates[ENTRY_SIGNAL_OFFSET+1],"alternation":"A=SPY short/QQQ long; B=QQQ short/SPY long; flips by fixed slot even if skipped",
+        "cadence":{"new_signal_every_common_sessions":STRIDE,"signal_anchor_common_session_offset":ENTRY_SIGNAL_OFFSET,"first_scheduled_signal_date":common_dates[ENTRY_SIGNAL_OFFSET],"first_entry_date":common_dates[ENTRY_SIGNAL_OFFSET+1],"alternation":"A=SPY short 6 / QQQ long 1; B=QQQ short 6 / SPY long 1; one new group every 10 common sessions and direction reverses each scheduled group",
             "arms":{k:v for k,v in ARM_CONFIG.items()}},
         "costs":{"slippage_per_option_share_per_side_usd":SLIPPAGE_PER_SHARE,"commission_per_contract_per_side_usd":COMMISSION_PER_CONTRACT_SIDE},
         "portfolio_ledger":{"starting_nav":args.initial_nav,"daily_nav":"initial NAV + realized episode net P&L + open cohort net bid/ask mark P&L",
@@ -431,19 +454,23 @@ def main():
         ]}
     (out/"run_manifest.json").write_text(json.dumps(manifest,indent=2,allow_nan=False),encoding="utf-8")
     r=summary[0]
+    r=summary[0]
     lines=[
-        "# QQQ / SPY PUT 配對策略 — DTE 20、每 10 個交易日交替",
+        "# QQQ / SPY PUT 配對策略 — DTE 20 目標、每 10 個交易日必開交替",
         "",
         f"- 回測區間：{common_dates[0]} 至 {common_dates[-1]}；共 {len(common_dates)} 個共同交易日。",
         "- 起始 NAV：USD 100,000。",
-        "- 每組：一張反向指數 LONG PUT，六張 SHORT PUT；A=SPY short／QQQ long，B=QQQ short／SPY long。",
-        "- 入場：共同到期日；精確 DTE 20 日；SHORT PUT |Delta| 目標 0.25，LONG PUT |Delta| 0.60–0.70（目標 0.65）。",
-        f"- 節奏：從第 {ENTRY_SIGNAL_OFFSET} 個共同交易日發出第一個訊號、下一日入場，其後每 10 個共同交易日開新一組；A／B 依排程交替，跳過訊號不改變方向。",
-        "- 退出：剩餘日曆 DTE <= 7，或持有達 20 個共同交易日，先到者觸發；若平倉報價／顯示張數不足，延遲至可執行報價。",
+        "- 每 10 個共同交易日開新一組；A=SPY SHORT PUT 6 張／QQQ LONG PUT 1 張；B=QQQ SHORT PUT 6 張／SPY LONG PUT 1 張，逐組反轉。",
+        "- DTE：以 20 個日曆日為目標，在 14–28 日共同到期合約中選最接近者；兩腿必須同一到期日。",
+        "- SHORT PUT：|Delta| 最接近 0.25；LONG PUT：不設 Delta 限制，選 Ask 最接近 6 × SHORT PUT Bid 的一張合約。",
+        "- 例：SHORT Bid $4 × 6 張 = $24；LONG Ask 目標 $24 × 1 張。實際差額按實際報價記入淨收／淨付，不因差額而跳過排程。",
+        "- 退出：剩餘日曆 DTE <= 7，或持有達 20 個共同交易日，先到者觸發；若平倉報價／顯示張數不足，才延遲執行。",
         "",
-        "| 策略 | 最終 NAV | 淨損益 | MaxDD (USD) | MaxDD (%) |",
-        "|---|---:|---:|---:|---:|",
-        f"| {r['arm']} | USD {r['ending_nav_usd']:,.2f} | USD {r['total_portfolio_pnl_usd']:,.2f} | USD {r['max_drawdown_usd']:,.2f} | {r['max_drawdown_pct']:.2f}% |",
+        f"- 排程機會：{r['scheduled_opportunities']}；成功開倉：{r['entered_cohorts']}；未能成交：{r['entry_skipped']}。",
+        "",
+        "| 最終 NAV | 淨損益 | MaxDD (USD) | MaxDD (%) |",
+        "|---:|---:|---:|---:|",
+        f"| USD {r['ending_nav_usd']:,.2f} | USD {r['total_portfolio_pnl_usd']:,.2f} | USD {r['max_drawdown_usd']:,.2f} | {r['max_drawdown_pct']:.2f}% |",
         "",
     ]
     (out/"study_report.md").write_text("\n".join(lines),encoding="utf-8")
