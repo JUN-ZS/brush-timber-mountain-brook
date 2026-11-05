@@ -31,6 +31,28 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Restore complete pinned option-data cache
+        id: restore-option-data-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/qqq-options-full-history
+            ~/.cache/spy-options-cross-put-v1
+          key: qqq-spy-put-data-v1-${{ runner.os }}-37f6c456fe1a4775c875673fb8ef907d5cd2fd66
+
+      - name: Restore interrupted option-data fragments
+        id: restore-partial-option-data
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/qqq-options-full-history/*.part
+            ~/.cache/qqq-options-full-history/*.part.etag
+            ~/.cache/spy-options-cross-put-v1/*.part
+            ~/.cache/spy-options-cross-put-v1/*.part.etag
+          key: qqq-spy-put-partials-v1-${{ runner.os }}-37f6-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            qqq-spy-put-partials-v1-${{ runner.os }}-37f6-
+
       - name: Install pinned Parquet runtime
         run: |
           python -m pip install --upgrade pip
@@ -43,6 +65,7 @@ jobs:
           python -m unittest discover -s research -p "test_resumable_download_v1.py" -v
 
       - name: Run pinned historical replay
+        id: historical-replay
         run: |
           python research/alternating_qqq_spy_put_cycle_v1.py \
             --start 2018-03-01 \
@@ -134,6 +157,42 @@ jobs:
           path: research/alternating_qqq_spy_put_cycle_v1/results/latest/
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Save complete pinned option-data cache
+        if: always() && steps.historical-replay.outcome == 'success' && steps.restore-option-data-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cache/qqq-options-full-history
+            ~/.cache/spy-options-cross-put-v1
+          key: qqq-spy-put-data-v1-${{ runner.os }}-37f6c456fe1a4775c875673fb8ef907d5cd2fd66
+
+      - name: Detect interrupted option-data fragments
+        if: failure()
+        id: partial-option-data-state
+        shell: bash
+        run: |
+          set +e
+          found=0
+          for dir in "$HOME/.cache/qqq-options-full-history" "$HOME/.cache/spy-options-cross-put-v1"; do
+            [ -d "$dir" ] || continue
+            if find "$dir" -maxdepth 1 -type f \\( -name '*.part' -o -name '*.part.etag' \\) -print -quit | grep -q .; then
+              found=1
+              break
+            fi
+          done
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+
+      - name: Save interrupted option-data fragments
+        if: failure() && steps.partial-option-data-state.outputs.found == '1'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cache/qqq-options-full-history/*.part
+            ~/.cache/qqq-options-full-history/*.part.etag
+            ~/.cache/spy-options-cross-put-v1/*.part
+            ~/.cache/spy-options-cross-put-v1/*.part.etag
+          key: qqq-spy-put-partials-v1-${{ runner.os }}-37f6-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Commit reproducible results to isolated branch
         if: success()
