@@ -154,7 +154,11 @@ def main():
     date.fromisoformat(args.date)
     rows, integrity, stats, spots = {}, {}, {}, {}
     for symbol, cache_name in (("QQQ", args.qqq_cache), ("SPY", args.spy_cache)):
-        rows[symbol], integrity[symbol], stats[symbol] = load_day(symbol, args.date, Path(cache_name))
+        cache = Path(cache_name)
+        rows[symbol], integrity[symbol], stats[symbol] = load_day(symbol, args.date, cache)
+        spot_path, spot_integrity = base.download_verified(symbol, None, cache)
+        spots[symbol] = base.load_spots(spot_path, symbol).get(args.date)
+        integrity[symbol + "_underlying"] = spot_integrity
     q, s = rows["QQQ"], rows["SPY"]
     results = {}
     for direction, short_symbol, long_symbol in (("A", "SPY", "QQQ"), ("B", "QQQ", "SPY")):
