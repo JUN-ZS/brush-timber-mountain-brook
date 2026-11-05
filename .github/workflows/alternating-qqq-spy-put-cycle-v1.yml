@@ -15,7 +15,7 @@ on:
       - .github/workflows/alternating-qqq-spy-put-cycle-v1.yml
   workflow_dispatch:
 
-# This push path runs mandatory 1:6 premium-matched entries, DTE20 target and 10-session alternation.
+# Replays every scheduled 10-session cycle: short Delta .25 x6, opposite long Ask nearest 6x short Bid, DTE20 target.
 concurrency:
   group: alternating-qqq-spy-put-cycle-v1-${{ github.ref }}
   cancel-in-progress: true
