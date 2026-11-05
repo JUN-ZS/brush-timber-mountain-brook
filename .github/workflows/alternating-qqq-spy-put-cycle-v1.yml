@@ -163,6 +163,18 @@ jobs:
           print(f"Validated 6 arms; entered={total_entries}; trade rows={total_trades}; all opening debit/credit ledgers reconcile.")
           PY
 
+      - name: Detect ORATS API token availability
+        id: orats-token
+        shell: bash
+        env:
+          ORATS_API_TOKEN: ${{ secrets.ORATS_API_TOKEN }}
+        run: |
+          if [ -n "$ORATS_API_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Restore ORATS TAIL EOD quote cache
         id: restore-tail-orats-cache
         uses: actions/cache/restore@v6
@@ -171,7 +183,7 @@ jobs:
           key: tail-orats-eod-v1-${{ runner.os }}-2018-2025-dte0-45
 
       - name: Run observed TAIL CALL historical option overlay
-        if: ${{ secrets.ORATS_API_TOKEN != '' }}
+        if: steps.orats-token.outputs.available == 'true'
         env:
           ORATS_API_TOKEN: ${{ secrets.ORATS_API_TOKEN }}
         run: |
@@ -180,14 +192,14 @@ jobs:
             --out-dir research/alternating_qqq_spy_put_cycle_v1/results/latest
 
       - name: Record TAIL CALL data-access blocker
-        if: ${{ secrets.ORATS_API_TOKEN == '' }}
+        if: steps.orats-token.outputs.available != 'true'
         run: |
           python research/tail_call_overlay_v1.py --blocked \
             --data-dir research/alternating_qqq_spy_put_cycle_v1/results/latest \
             --out-dir research/alternating_qqq_spy_put_cycle_v1/results/latest
 
       - name: Save ORATS TAIL EOD quote cache
-        if: success() && secrets.ORATS_API_TOKEN != '' && steps.restore-tail-orats-cache.outputs.cache-hit != 'true'
+        if: success() && steps.orats-token.outputs.available == 'true' && steps.restore-tail-orats-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           path: ~/.cache/tail-orats-eod
