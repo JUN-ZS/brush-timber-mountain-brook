@@ -7,7 +7,7 @@ from datetime import date
 from pathlib import Path
 
 HERE=Path(__file__).resolve().parent
-BASE_DIR=HERE.parent/"qqq_spy_put_fixed_ratio_size_gated_v1"
+BASE_DIR=HERE/"qqq_spy_put_fixed_ratio_size_gated_v1"
 sys.path.insert(0,str(BASE_DIR))
 import qqq_spy_put_premium_matched_phase_v1 as base
 
