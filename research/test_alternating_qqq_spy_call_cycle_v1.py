@@ -1,0 +1,117 @@
+import unittest
+from alternating_qqq_spy_call_cycle_v1 import (
+    choose_contract_pair, direction_for, trade_pnl, premium_cashflow_usd, call_intrinsic_value,
+    premium_match_pct, drawdown, LONG_QTY, SHORT_QTY,
+    exit_trigger, STRIDE, DTE_MIN, DTE_MAX, DTE_TARGET, ARM_CONFIG, ENTRY_SIGNAL_OFFSET,
+)
+
+
+class AlternatingCallCycleTests(unittest.TestCase):
+    def test_weekly_directions_alternate_even_if_signal_skipped(self):
+        self.assertEqual([direction_for("alternate", i) for i in range(6)], ["A", "B", "A", "B", "A", "B"])
+
+
+    def test_strategy_is_dte20_target_and_new_entry_every_ten_sessions(self):
+        self.assertEqual((DTE_MIN, DTE_MAX, DTE_TARGET), (14, 28, 20))
+        self.assertEqual(STRIDE, 10)
+        self.assertEqual(ENTRY_SIGNAL_OFFSET, 0)
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["schedule_offset"], 0)
+        self.assertEqual(list(ARM_CONFIG), ["alternate_dte20_every10"])
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["mode"], "alternate")
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["max_hold_sessions"], 20)
+        self.assertEqual(ARM_CONFIG["alternate_dte20_every10"]["exit_remaining_dte"], 7)
+
+    def test_exit_on_remaining_dte_seven_or_maximum_twenty_sessions(self):
+        self.assertEqual(
+            exit_trigger(9, "2025-01-15", "2025-01-22"),
+            (True, "REMAINING_DTE_LE_7"),
+        )
+        self.assertEqual(
+            exit_trigger(20, "2025-01-12", "2025-01-30"),
+            (True, "MAX_HOLD_20_SESSIONS"),
+        )
+        self.assertEqual(
+            exit_trigger(10, "2025-01-12", "2025-01-30"),
+            (False, None),
+        )
+
+    def test_fixed_direction_controls(self):
+        self.assertEqual(direction_for("fixed_A", 7), "A")
+        self.assertEqual(direction_for("fixed_B", 8), "B")
+
+    def test_pair_selector_allows_nonzero_premium_difference(self):
+        d, exp = "2022-01-04", "2022-01-24"
+        short_rows = [
+            {"contract_id":"SPY220124C00450000","symbol":"SPY","expiration":exp,"strike":450.0,
+             "type":"call","bid":4.0,"ask":4.1,"bid_size":10,"ask_size":10,"open_interest":100,
+             "date":d,"delta":0.25},
+        ]
+        long_rows = [
+            # Exact $24 Ask match wins even with Delta outside 0.60-0.70 and no displayed Bid.
+            {"contract_id":"QQQ220124C00360000","symbol":"QQQ","expiration":exp,"strike":360.0,
+             "type":"call","bid":0.0,"ask":24.0,"bid_size":0,"ask_size":5,"open_interest":50,
+             "date":d,"delta":0.35},
+            {"contract_id":"QQQ220124C00350000","symbol":"QQQ","expiration":exp,"strike":350.0,
+             "type":"call","bid":23.89,"ask":23.99,"bid_size":5,"ask_size":5,"open_interest":50,
+             "date":d,"delta":0.65},
+        ]
+        pair = choose_contract_pair(short_rows, long_rows, "SPY", "QQQ", d, 470.0, 370.0)
+        self.assertIsNotNone(pair)
+        self.assertEqual(pair["short_contract_id"], "SPY220124C00450000")
+        self.assertEqual(pair["long_contract_id"], "QQQ220124C00360000")
+        self.assertAlmostEqual(pair["long_target_ask_signal"], 24.0, places=6)
+        self.assertAlmostEqual(pair["long_signal_ask"], 24.0, places=6)
+        self.assertAlmostEqual(pair["long_premium_error_signal"], 0.0, places=6)
+        self.assertAlmostEqual(pair["opening_premium_cashflow_signal_usd"], 0.0, places=2)
+        self.assertAlmostEqual(pair["long_premium_match_pct_signal"], 100.0, places=6)
+        self.assertAlmostEqual(pair["long_abs_delta"], 0.35)
+
+    def test_reversed_direction_also_accepts_nonzero_premium_difference(self):
+        d, exp = "2022-01-04", "2022-01-24"
+        short_rows = [
+            {"contract_id":"QQQ220124C00350000","symbol":"QQQ","expiration":exp,"strike":350.0,
+             "type":"call","bid":4.0,"ask":4.1,"bid_size":10,"ask_size":10,"open_interest":100,
+             "date":d,"delta":0.25},
+        ]
+        long_rows = [
+            {"contract_id":"SPY220124C00450000","symbol":"SPY","expiration":exp,"strike":450.0,
+             "type":"call","bid":24.0,"ask":24.5,"bid_size":5,"ask_size":5,"open_interest":50,
+             "date":d,"delta":0.65},
+        ]
+        pair = choose_contract_pair(short_rows, long_rows, "QQQ", "SPY", d, 370.0, 470.0)
+        self.assertIsNotNone(pair)
+        self.assertEqual(pair["short_symbol"], "QQQ")
+        self.assertEqual(pair["long_symbol"], "SPY")
+        self.assertAlmostEqual(pair["opening_premium_cashflow_signal_usd"], -50.0, places=2)
+
+    def test_premium_cashflow_is_diagnostic_not_rounded_to_zero(self):
+        self.assertEqual(premium_cashflow_usd(24.0, 4.0), 0.0)
+        self.assertEqual(premium_cashflow_usd(23.99, 4.0), 1.0)
+        self.assertEqual(premium_cashflow_usd(24.5, 4.0), -50.0)
+
+    def test_premium_match_pct_is_symmetric_and_diagnostic(self):
+        self.assertAlmostEqual(premium_match_pct(2400.0, 2400.0), 100.0)
+        self.assertAlmostEqual(premium_match_pct(2399.0, 2400.0), 99.9583333333)
+        self.assertAlmostEqual(premium_match_pct(2400.0, 2399.0), 99.9583333333)
+
+    def test_max_drawdown_dollars_and_percentage_are_independent(self):
+        # Largest dollar drawdown is 150 (400 -> 250), but largest percentage
+        # drawdown is 45% (200 -> 110). Both statistics must be reported separately.
+        dollars, percentage = drawdown([100.0, 200.0, 110.0, 400.0, 250.0])
+        self.assertAlmostEqual(dollars, -150.0)
+        self.assertAlmostEqual(percentage, -45.0)
+
+    def test_call_intrinsic_value_uses_spot_minus_strike(self):
+        self.assertEqual(call_intrinsic_value(110.0, 100.0), 10.0)
+        self.assertEqual(call_intrinsic_value(90.0, 100.0), 0.0)
+
+    def test_trade_pnl_prices_long_and_short_legs_correctly(self):
+        result = trade_pnl({"long_entry_ask":10.0,"short_entry_bid":2.0}, 15.0, 5.0)
+        self.assertEqual(result["long_gross_pnl_usd"], 500.0)
+        self.assertEqual(result["short_gross_pnl_usd"], -1800.0)
+        self.assertLess(result["net_pnl_usd"], -1300.0)
+        self.assertEqual((LONG_QTY, SHORT_QTY), (1, 6))
+
+
+if __name__ == "__main__":
+    unittest.main()
