@@ -113,7 +113,7 @@ def choose_contract_pair(short_rows,long_rows,short_symbol,long_symbol,day,short
         raw=base.num(row.get("delta"))
         if raw is not None:
             source_short_deltas.append(raw)
-    derive_from_put_delta=bool(source_short_deltas) and all(x<0 for x in source_short_deltas)
+    derive_from_put_delta=bool(source_short_deltas) and any(x<0 for x in source_short_deltas) and not any(x>0 for x in source_short_deltas)
     short_delta_source="PUT_DELTA_PARITY_DERIVED" if derive_from_put_delta else "OBSERVED_CALL_DELTA"
 
     def expiry_map(rows,symbol,is_short):
