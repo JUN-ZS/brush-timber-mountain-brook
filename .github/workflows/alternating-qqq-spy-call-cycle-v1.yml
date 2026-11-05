@@ -1,0 +1,131 @@
+name: QQQ SPY CALL Pair — DTE20 Every-10-Session Alternation
+
+on:
+  push:
+    branches:
+      - research/alternating-qqq-spy-put-cycle-v1-20261105
+    paths:
+      - research/alternating_qqq_spy_call_cycle_v1.py
+      - research/test_alternating_qqq_spy_call_cycle_v1.py
+      - research/validate_alternating_qqq_spy_call_cycle_v1.py
+      - research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py
+      - .github/workflows/alternating-qqq-spy-call-cycle-v1.yml
+  workflow_dispatch:
+
+# Mirror of the accepted PUT entry rules, applied to CALL options and CALL expiry payoff.
+concurrency:
+  group: alternating-qqq-spy-call-cycle-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  replay:
+    name: Historical QQQ SPY CALL quote replay — mandatory 1:6 premium-matched entry
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout isolated research branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Restore complete pinned full-option-data cache
+        id: restore-option-data-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/qqq-options-full-history
+            ~/.cache/spy-options-cross-put-v1
+          key: qqq-spy-put-data-v1-${{ runner.os }}-37f6c456fe1a4775c875673fb8ef907d5cd2fd66
+
+      - name: Restore interrupted option-data fragments
+        id: restore-partial-option-data
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/qqq-options-full-history/*.part
+            ~/.cache/qqq-options-full-history/*.part.etag
+            ~/.cache/spy-options-cross-put-v1/*.part
+            ~/.cache/spy-options-cross-put-v1/*.part.etag
+          key: qqq-spy-put-partials-v1-${{ runner.os }}-37f6-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            qqq-spy-put-partials-v1-${{ runner.os }}-37f6-
+
+      - name: Install pinned Parquet runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyarrow==21.0.0
+
+      - name: Compile and run CALL unit tests
+        run: |
+          python -m py_compile research/qqq_spy_put_fixed_ratio_size_gated_v1/qqq_spy_put_premium_matched_phase_v1.py research/alternating_qqq_spy_call_cycle_v1.py research/test_alternating_qqq_spy_call_cycle_v1.py research/validate_alternating_qqq_spy_call_cycle_v1.py
+          python -m unittest discover -s research -p "test_alternating_qqq_spy_call_cycle_v1.py" -v
+
+      - name: Clear stale CALL replay output bundle
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          output = Path("research/alternating_qqq_spy_call_cycle_v1/results/latest")
+          shutil.rmtree(output, ignore_errors=True)
+          output.mkdir(parents=True, exist_ok=True)
+          PY
+
+      - name: Run pinned historical CALL replay
+        id: historical-replay
+        run: |
+          python research/alternating_qqq_spy_call_cycle_v1.py \
+            --start 2018-03-01 \
+            --end 2025-12-15 \
+            --initial-nav 100000 \
+            --qqq-cache ~/.cache/qqq-options-full-history \
+            --spy-cache ~/.cache/spy-options-cross-put-v1 \
+            --out research/alternating_qqq_spy_call_cycle_v1/results/latest
+
+      - name: Validate CALL right, alternating cadence, execution ledger, and daily MaxDD
+        run: |
+          set -euo pipefail
+          python research/validate_alternating_qqq_spy_call_cycle_v1.py \
+            --out research/alternating_qqq_spy_call_cycle_v1/results/latest \
+            --initial-nav 100000
+
+      - name: Upload CALL replay evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alternating-qqq-spy-call-cycle-v1
+          path: research/alternating_qqq_spy_call_cycle_v1/results/latest/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Save complete pinned full-option-data cache
+        if: always() && steps.historical-replay.outcome == 'success' && steps.restore-option-data-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cache/qqq-options-full-history
+            ~/.cache/spy-options-cross-put-v1
+          key: qqq-spy-put-data-v1-${{ runner.os }}-37f6c456fe1a4775c875673fb8ef907d5cd2fd66
+
+      - name: Commit reproducible CALL results to isolated branch
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/alternating_qqq_spy_call_cycle_v1/results/latest/
+          if git diff --cached --quiet; then
+            echo "No CALL result changes to commit."
+          else
+            git commit -m "results: QQQ SPY DTE20 every-10-session alternating CALL replay"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
