@@ -66,6 +66,29 @@ class AlternatingCallCycleTests(unittest.TestCase):
         self.assertAlmostEqual(pair["long_premium_match_pct_signal"], 100.0, places=6)
         self.assertAlmostEqual(pair["long_abs_delta"], 0.35)
 
+    def test_all_negative_call_chain_uses_put_call_delta_parity_not_absolute_value(self):
+        d, exp = "2022-01-04", "2022-01-24"
+        short_rows = [
+            {"contract_id":"SPY220124C00450000","symbol":"SPY","expiration":exp,"strike":450.0,
+             "type":"call","bid":4.0,"ask":4.1,"bid_size":10,"ask_size":10,"open_interest":100,
+             "date":d,"delta":-0.75,"implied_volatility":0.20},
+            {"contract_id":"SPY220124C00455000","symbol":"SPY","expiration":exp,"strike":455.0,
+             "type":"call","bid":3.0,"ask":3.1,"bid_size":10,"ask_size":10,"open_interest":100,
+             "date":d,"delta":-0.60,"implied_volatility":0.20},
+        ]
+        long_rows = [
+            {"contract_id":"QQQ220124C00360000","symbol":"QQQ","expiration":exp,"strike":360.0,
+             "type":"call","bid":0.0,"ask":24.0,"bid_size":0,"ask_size":5,"open_interest":50,
+             "date":d,"delta":0.35,"implied_volatility":0.20},
+        ]
+        pair = choose_contract_pair(short_rows, long_rows, "SPY", "QQQ", d, 470.0, 370.0)
+        self.assertIsNotNone(pair)
+        self.assertAlmostEqual(pair["short_delta_raw"], -0.75)
+        self.assertAlmostEqual(pair["short_delta"], 0.25)
+        self.assertAlmostEqual(pair["short_abs_delta"], 0.25)
+        self.assertEqual(pair["short_delta_source"], "PUT_DELTA_PARITY_DERIVED")
+        self.assertAlmostEqual(pair["opening_premium_cashflow_signal_usd"], 0.0, places=2)
+
     def test_reversed_direction_also_accepts_nonzero_premium_difference(self):
         d, exp = "2022-01-04", "2022-01-24"
         short_rows = [
