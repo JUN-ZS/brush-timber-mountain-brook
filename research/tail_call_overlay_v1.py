@@ -421,7 +421,8 @@ def write_blocked_status(data_dir, out_dir, reason="MISSING_ORATS_API_TOKEN"):
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "TAIL_CALL_MANIFEST.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    core_summary = load_csv(data_dir / "portfolio_arm_summary.csv")
+    summary_path = data_dir / "portfolio_arm_summary.csv"
+    core_summary = load_csv(summary_path) if summary_path.is_file() else []
     core_row = next((row for row in core_summary if row.get("arm") == CORE_ARM), {})
     core_metrics = {
         "ending_nav_usd": num(core_row.get("ending_nav_usd")),
